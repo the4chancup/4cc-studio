@@ -1,0 +1,387 @@
+# 4cc Studio — Kit config editor plan
+
+The Kit config editor (`crates/tools/kit_config_editor`, tool id `kit-config-editor`,
+sidebar label "Kit config editor") is the successor to **Kit Manager PES2016** by
+GOALARG — the closed-source, long-abandoned tool used by the 4cc community to edit kit
+config files, in its original form and in a hex-patched "PES2021" variant. As with
+the Match tracker, the old name carries no recognition value and does not stay in
+the label.
+
+This plan also specifies **`libs/kit_config`**, the lib crate holding the format
+knowledge, shared by this tool, the [Team compiler](team_compiler.md) (config
+generation, FPC reconciliation, compile-time emission), and the
+[Export upgrader](export_upgrader.md) (binary → TOML migration) — one crate owns
+the format so all three agree on what a valid config is. Platform context is in
+the [core plan](core.md).
+
+---
+
+## Background
+
+A kit config is a **120-byte binary file** that tells PES how to render a kit:
+which shirt/shorts/collar models to use, five fallback colors, number and name
+placement, sleeve-badge positions, and which kit textures exist. In game they live
+under `common/character0/model/character/uniform/team/{team_id}/` with names like
+`702_DEF_1st_realUni.bin`; in Fox-engine versions they are packed into
+`UniformParameter.bin` (the `uniparam` lib's container format; Red bundles separate
+PES 18 / 19 fallback base files whose stock entries differ, but the container layout
+is the same). Every kit in every aesthetics export ships one.
+
+| Tool | Role | Status |
+|------|------|--------|
+| Kit Manager PES2016 v4.0 (GOALARG) | Kit config editing GUI | Closed source, abandoned |
+| Kit Manager V4 "pes2021-4cc" | The same exe, hex-patched for PES2021's shirt-name offsets | Ditto |
+
+### Relationship to the old codebase
+
+There is no old codebase: no sources, no format specification anywhere. The format
+below was **recovered by disassembling the editor** (capstone scripting over the
+~50KB of actual program code — the other 51MB of the exe is prerendered preview
+bitmaps): every access to the loaded config buffer was cross-referenced with the
+control-creation and message-handler code, giving field offsets, bit packing, value
+ranges (combo item counts), and cross-field constraints. Diffing the PES2021 patch
+(47 changed bytes) isolated the one field that differs between game versions. The
+byte-level behaviors Red/Blue already implemented (texture-name rewriting at 0x28+,
+the PES15 shirt-pattern tweak) agree with the recovered layout.
+
+**This section is now the format's reference documentation** — the tool exists so
+nobody has to do that archaeology again.
+
+## The format
+
+120 bytes, little-endian, no header. Multi-bit fields packed across byte boundaries
+are noted explicitly; bit 0 = LSB. "?" bits are undecoded — the old editor never
+reads or writes them, but some are **set in real configs**, so they must be
+preserved on rewrite.
+
+| Offset | Bits | Field | Values |
+|--------|------|-------|--------|
+| 0x00 | 0–1 | Short sleeves type | 1 = normal, 2 = cut-out (shirt model 144 only) |
+| 0x00 | 2–7 | ? | 0 in samples |
+| 0x01 | all | Shirt model | literal: 144 (0x90), 160 (0xA0), 176 (0xB0) |
+| 0x02 | all | Long sleeves type | two values (verified): 0x3E = "Normal & U-Shirt" — one combo entry, the editor's default; 0xBB = "Only-Undershirt" (shirt model 144 only — the editor forces 0x3E on any other model) |
+| 0x03 | all | Shorts model | 0–17 |
+| 0x04–0x12 | | Five RGB triplets | shirt1, shirt2, undershirt, shorts, socks |
+| 0x13 | all | ? | 0 in samples |
+| 0x14 | all | Collar | 1–107 (1-based) |
+| 0x15 | all | Winter collar | 1–107 |
+| 0x16 | 0 | ? | set in samples |
+| 0x16 | 1–4 | Shorts number Y | 0–14 |
+| 0x16 | 5 | ? | set in samples |
+| 0x16 | 6–7 | Shorts number X, low 2 bits | X = (0x17[0–1] << 2) \| 0x16[6–7], 0–14 |
+| 0x17 | 0–1 | Shorts number X, high 2 bits | |
+| 0x17 | 2 | ? | |
+| 0x17 | 3–6 | Shorts number size | 0–13 |
+| 0x17 | 7 | Shorts number side | 0 = left, 1 = right |
+| 0x18 | 0–4 | Back number Y | 0–29 |
+| 0x18 | 5 | ? | |
+| 0x18 | 6–7 | Back number size, low 2 bits | size = (0x19[0–1] << 2) \| 0x18[6–7], 0–13 |
+| 0x19 | 0–1 | Back number size, high 2 bits | |
+| 0x19 | 2–3 | ? | bit 2 set in samples |
+| 0x19 | 4–5 | Back number spacing | 0–2 |
+| 0x19 | 6–7 | ? | set in samples |
+| 0x1A | 0–3 | Chest number Y | 0–7 |
+| 0x1A | 4–7 | Chest number X | 0–14 |
+| 0x1B | 0–3 | Chest number size | 0–15 |
+| 0x1B | 4–6 | ? | |
+| 0x1B | 7 | Tight shirt | on/off (shirt models 144/160 only) |
+| 0x1C | 0–3 | ? (PES ≤20) | 8 in samples; PES2021 repurposes bit 3 |
+| 0x1C | 4–7 | Name Y, low 4 bits (PES ≤20) | Y = (0x1D[0] << 4) \| 0x1C[4–7], 0–16 |
+| 0x1D | 0 | Name Y, high bit | **PES2021**: Y = (0x1D[0] << 5) \| 0x1C[3–7], 0–39 |
+| 0x1D | 1–5 | Name size | 0–20 |
+| 0x1D | 6–7 | Name shape | 0 = straight, 1/2/3 = light/medium/extreme curve |
+| 0x1E | 0 | Name hidden | 1 = no name on shirt |
+| 0x1E | 1 | ? | |
+| 0x1E | 2–5 | Badge left-short X | 0–14 |
+| 0x1E | 6–7 | Badge left-short Y, low 2 bits | Y = (0x1F[0–2] << 2) \| 0x1E[6–7], 0–31 |
+| 0x1F | 0–2 | Badge left-short Y, high 3 bits | |
+| 0x1F | 3 | ? | |
+| 0x1F | 4–7 | Badge right-short X | 0–14 |
+| 0x20 | 0–4 | Badge right-short Y | 0–31 |
+| 0x20 | 5 | ? | |
+| 0x20 | 6–7 | Badge left-long X, low 2 bits | X = (0x21[0–1] << 2) \| 0x20[6–7], 0–14 |
+| 0x21 | 0–1 | Badge left-long X, high 2 bits | |
+| 0x21 | 2–6 | Badge left-long Y | 0–31 |
+| 0x21 | 7 | ? | |
+| 0x22 | 0–3 | Badge right-long X | 0–14 |
+| 0x22 | 4–7 | Badge right-long Y, low 4 bits | Y = (0x23[0] << 4) \| 0x22[4–7], 0–31 |
+| 0x23 | 0 | Badge right-long Y, high bit | |
+| 0x23 | 1–7 | ? | |
+| 0x24 | 0–3 | ? | 0 in samples |
+| 0x24 | 4–7 | Shirt pattern | 0–13 |
+| 0x25–0x27 | | ? | 0 in samples |
+| 0x28–0x77 | | Five 16-byte texture names | kit, back, chest, leg, name; ASCII, NUL-padded; empty = texture not used |
+
+Notes:
+
+- **Sleeve badges** are the four (X, Y) positions of the competition badge: one per
+  sleeve (left/right) per kit variant (short/long sleeves).
+- **"Shirt model" is a misnomer**, kept because the old editor and the FPC
+  constants established it: in game the field only selects the model used for the
+  **wrist-end of the long sleeves** when a player wears them — it does not change
+  the shirt mesh, and the kit texture's UV layout is identical for all three
+  values (which is what lets `color_tools` sample fixed shirt/shorts regions —
+  see the [library crates plan](libs.md)). The old editor does gate other fields
+  on it, as noted below.
+- **Collar IDs** index the game's stock collar model set (`nocloth`). Exports can
+  replace a stock collar with a custom model (the Team compiler's pass-through
+  Collars folder) and point every kit config's collar at the replaced ID — the
+  quick way to put a custom model on the whole team.
+- **Cross-field constraints** (enforced by the old editor with modal errors, by ours
+  inline): cut-out short sleeves and undershirt-only long sleeves require shirt
+  model 144; tight requires 144 or 160. The FPC kit values (shirt 176, shorts 16,
+  collar and winter collar 105 — see "FPC toggle" in the
+  [Aesthetics export plan](aesthetics_export.md)) are
+  ordinary values of these fields.
+- **Version differences**: PES2021 widens Name Y as noted — the only difference the
+  2021 patch makes. Red/Blue's PES15 handling treats the shirt pattern as a 3-bit
+  field (bits 5–7) with patterns above 5 unsupported (its 6 → 5 clamp); encoding for
+  PES15 output applies the same rule.
+- The five RGB triplets are the config's own kit colors (distinct from
+  `UniColor.bin`'s menu colors, which come from `colors.txt`).
+
+## TOML form (`config.toml`)
+
+In the Studio export format, kit configs are canonically authored as **TOML files** —
+editable without this tool, exactly like the player folders' `settings.toml`.
+The compiler emits the game binary at compile time; no binary config ever appears
+inside a Studio-format export. Old exports' binary configs are converted to
+`Kits/pN/config.toml` by the [Export upgrader](export_upgrader.md). Auto-generated
+configs ship with app-injected comments (predefined per-field documentation);
+the editor's `toml_edit`-based writes preserve them.
+
+```toml
+# config.toml — one per kit folder (Kits/p1 … p9, g1)
+
+[shirt]
+model = 176                 # 144 / 160 / 176
+collar = 105                # 1-107
+winter_collar = 105         # 1-107
+tight = false               # 144/160 only
+pattern = 3                 # 0-13 (PES15 output supports 0-5)
+long_sleeves = "normal"     # "normal" / "undershirt-only" (144 only)
+short_sleeves = "normal"    # "normal" / "cut-out" (144 only)
+
+[shorts]
+model = 16                  # 0-17
+
+[colors]                    # the config's five RGB fields
+shirt1 = "#079144"
+shirt2 = "#079144"
+undershirt = "#056D34"
+shorts = "#43AD58"
+socks = "#079144"
+
+[name]
+show = true
+shape = "straight"          # straight / light-curve / medium-curve / extreme-curve
+y = 8                       # 0-16 (PES2021: 0-39)
+size = 14                   # 0-20
+
+[number.back]
+y = 18                      # 0-29
+size = 12                   # 0-13
+spacing = 2                 # 0-2
+
+[number.chest]
+x = 7                       # 0-14
+y = 2                       # 0-7
+size = 10                   # 0-15
+
+[number.shorts]
+side = "left"               # left / right
+x = 9                       # 0-14
+y = 2                       # 0-14
+size = 5                    # 0-13
+
+[badge]                     # sleeve badge positions; x 0-14, y 0-31
+right_short = { x = 7, y = 17 }
+left_short  = { x = 7, y = 17 }
+right_long  = { x = 7, y = 18 }
+left_long   = { x = 7, y = 18 }
+
+[unknown]                   # undecoded bits, preserved verbatim (format table above);
+"0x19" = 0xC4               # keys only present when they differ from the template
+```
+
+For standalone binary conversion only, the optional source-preservation table stores
+all five original 16-byte fields as fixed 32-digit hex strings, including NUL padding,
+so even noncanonical padding survives exactly:
+
+```toml
+[source_texture_names]
+kit = "75303730317031000000000000000000"
+back = "753037303170315F6261636B00000000"
+chest = "00000000000000000000000000000000"
+leg = "00000000000000000000000000000000"
+name = "00000000000000000000000000000000"
+```
+
+- **No authored texture-name fields in exports**: the five 16-byte names are derived
+  at compile time from the textures actually present in the kit folder (`kit.dds` →
+  `u0{team_id}{slot}`, `kit_back.dds` → `…_back`, and so on) — one less thing to
+  desync, and the reason an export config can't reference a missing texture anymore.
+  Standalone binary → TOML conversion is the exception: because it has no team/slot/
+  folder context from which to rederive the original bytes, it preserves imported
+  names in an optional source-only `[source_texture_names]` table. Export-folder mode
+  and the Team compiler ignore that table and always rederive names from actual files.
+- **Version-neutral**: the TOML stores plain values; the version-specific bit
+  packing (Name Y, PES15 pattern) is applied when emitting binary. A value that
+  doesn't fit the target version (Name Y 30 for PES ≤20) is a compile/check
+  warning, clamped on emission.
+- **Unknown bits** live in an `[unknown]` table keyed by byte offset, holding the
+  byte's undecoded-bit remainder (known bits zeroed). Known fields plus `[unknown]`
+  round-trip bit-identically; the derived texture-name region is excluded from that
+  guarantee in export mode. Standalone CLI conversion is fully bit-identical when it
+  carries the optional `[source_texture_names]` table described above. Keys equal to
+  the template default are omitted, so hand-written configs never need `[unknown]`.
+
+## `libs/kit_config`
+
+The format knowledge as a lib crate:
+
+- `KitConfig` struct ↔ 120-byte binary (per-version encode/decode) ↔ TOML, including
+  optional raw source texture-name bytes for standalone roundtrips; zlib'd input is
+  tolerated on read (`tryDecompress` behavior carried over).
+- The template defaults (from the bundled `XXX_DEF_xxx_realUni.bin` template) and
+  `apply_fpc` / `revert_fpc` / `matches_fpc`, used by the Team compiler's reconciliation
+  (`kit_config_fpc_adjusted`) and by this tool's FPC indicator. The per-version FPC values
+  themselves come from the leaf crate `libs/fpc` (see [libs](libs.md)), which also holds the
+  player-side presets `pes_savefile` applies — one description of the system for every tool.
+- Texture-name derivation from a kit's *effective* texture set (own files plus what it inherits
+  from `Kits/all/`, as resolved by `aesthetics_export`) + team id + slot.
+- Validation: range checks, cross-field constraints, version-fit warnings — one
+  implementation for the editor's inline hints, the compiler's checks, and the CLI.
+
+Consumers: this tool, `team_compiler` (generation, reconciliation, compile-time
+emission), `export_upgrader` (binary → TOML migration). The Team compiler plan's
+kit sections defer to this crate.
+
+## GUI view
+
+Two ways in, per the suite's export-first philosophy:
+
+- **Open export folder** (primary): the `Kits/` subfolders appear as tabs
+  (p1 … p9, g1), each titled with its folder name so a label (`p1 - Lakers`) shows; `all/` is
+  not a tab. Each tab edits that kit's `config.toml` in place, and its texture-name
+  section marks which of the five textures the kit inherits from `all/` (the derivation
+  counts them exactly as the compiler does). The tool walks
+  the selected source, supplies a canonical `vtree::ScopePath` listing and required
+  small metadata to `aesthetics_export::parse_listing`, then consumes the resulting
+  `ParsedAestheticsExport` plus kit-scoped validation—not a whole-export
+  `ValidatedAestheticsExport`—so an unrelated roster/player error never prevents opening
+  and repairing a kit. The shared crate still owns locating and
+  validating the folders (see the [Team compiler plan](team_compiler.md)), so this
+  tool never carries its own idea of the export layout. The same picker accepts a
+  single loose file (`config.toml`, a game `.bin`, old-export configs).
+- **Open UniformParameter bin** (secondary, via `uniparam`): lists the container's
+  entries with a filter box; picking one edits it and saves back into the
+  container — covers the cup keeper's "fix one team's config in the compiled bins"
+  case without a compile round.
+
+The form groups the fields as the format does — Shirt (models, collars, sleeves,
+tight, pattern), Colors (the five config fields, via the shared `color_tools`
+picker — no more JCPicker subprocess and hex-paste dance), Name, Numbers
+(back/chest/shorts), Badges. Constraint gating is inline: options requiring shirt
+model 144/160 gray out with a tooltip instead of the old modal error boxes. An FPC
+indicator chip shows when the config carries the FPC values, linking the concept
+to the Team compiler's reconciliation rather than leaving it as four magic numbers.
+
+**Kit menu colors**: in export-folder mode each tab also edits the kit folder's
+`colors.txt` (the two `UniColor.bin` menu colors that drive the match-UI
+scoreboard and the kit-selection color dots) and its optional `icon.txt` (the
+menu icon number, 0–23 — written only when it differs from the default 3, so the
+file stays optional). Same picker, with its
+suggestion swatches pre-loaded from `color_tools`' dominant-color extraction on
+the kit's textures — the manager sees what the compiler would derive on its own
+(its fallback when `colors.txt` is missing) and either accepts it with a click or
+picks something better. Suggestions **preview live**: hovering a swatch (or
+dragging inside the picker) temporarily applies the candidate color to everything
+it tints — the menu-UI mockup and the icon gallery below — and reverts on
+mouse-out, so a suggestion is judged in context before the click commits it. A
+small **menu-UI mockup** sits next to the color fields, showing the two menu
+colors as PES actually uses them: the kit-selection color-dot pair and a
+scoreboard strip — not just bare swatches. The **icon is picked visually**: a gallery of all 24
+kit icon patterns (`color_tools`' vector renditions — the `icon.txt` space,
+not the config's Shirt pattern field), each tinted live with the
+kit's current menu colors — never a bare number. A hint notes that only PES
+15/16 display the icon in game (the prematch gameplan screens); the tinted
+pattern still doubles as a preview of the menu colors themselves. Loose-file and
+UniformParameter modes have no kit folder, so the section only appears when
+editing inside an export.
+
+**Preview panel**: a schematic shirt/shorts/socks drawing (egui painter) filled
+with the config colors, overlaying markers for name arc, number positions, and
+badge positions; when editing inside an export, the kit's actual textures
+(`kit.dds` and variants, decoded via `dds_convert`) are composited under the
+markers. Positions are relative — the game's exact pixel mapping is unknown, and
+the old tool's 51MB of prerendered bitmaps is neither reusable nor worth
+recreating; the preview is for orientation, the game remains the ground truth.
+
+Unknown bits get a collapsible **raw view** row (hex per unknown region) for
+curious users — the raw material for decoding the remaining bits someday.
+
+## Settings (tool section)
+
+| Setting | Default | Notes |
+|---------|---------|-------|
+| Show preview | on | |
+| Show raw unknown-bits row | off | |
+
+## CLI
+
+```
+studio kit-config-editor convert <in> <out>   # .bin ↔ .toml, direction by extension
+studio kit-config-editor check <path>         # validate configs in an export / folder / container
+```
+
+## Testing
+
+- **Roundtrips**: binary → model → binary bit-identical on the three real sample
+  configs, the compiler template, and **every entry of the bundled
+  `UniformParameter18/19.bin`** — hundreds of real configs exercising the full
+  value space; decoded fields are also asserted against the documented ranges,
+  which doubles as a check of the recovered format itself.
+- **TOML roundtrips** including the `[unknown]` preservation path, export-mode derivation of texture
+  names, and standalone CLI bit-identical preservation through `[source_texture_names]`.
+- **Version encodings**: Name Y 5-bit/6-bit packing against configs saved by both
+  Kit Manager variants; the PES15 pattern clamp against Red's behavior.
+- **Manual**: edits made side-by-side in Kit Manager and this tool on the same file
+  produce identical bytes.
+
+## Improvements over Kit Manager (summary)
+
+1. **The format is documented** — recovered once, written down here, implemented in
+   an open lib instead of a dead closed-source exe.
+2. **TOML configs in exports** — hand-editable, diffable, self-describing; binary
+   only exists as a compile output and game-file import.
+3. **Whole-team editing** — all of an export's kits in tabs, plus direct
+   UniformParameter container editing; the original opened one file at a time.
+4. **Live preview from the kit's real textures** instead of 51MB of canned bitmaps.
+5. **Suite integration** — global PES version drives the encoding; FPC values are
+   shared constants with the Team compiler, not folklore numbers; built-in color
+   pickers with texture-derived suggestions.
+6. **Kit menu colors in the same place** — each kit's `colors.txt` (UniColor menu
+   colors) and `icon.txt` (menu icon, picked from a live-tinted visual gallery)
+   are edited alongside its config, seeded by the same dominant-color extraction
+   the compiler falls back on.
+
+## Dropped features
+
+- **Prerendered preview bitmaps** — replaced by the schematic + texture composite.
+- **JCPicker integration** — replaced by the shared `color_tools` picker widget.
+
+## Key decisions
+
+| Decision | Choice | Rationale |
+|----------|--------|-----------|
+| Format knowledge | Recovered by disassembling Kit Manager v4 + diffing its PES2021 patch; documented in this plan | No sources or specs exist anywhere; the plan is now the reference |
+| Export storage | `config.toml` per kit folder, compiled to binary at compile time | Same philosophy as `settings.toml`: text in exports, binary only as output; editable without the tool |
+| Texture-name fields | Derived from kit-folder textures in export mode; optional raw `[source_texture_names]` preservation only for standalone binary conversion | Removes export desync while retaining bit-identical context-free CLI roundtrips |
+| Unknown bits | Preserved via `[unknown]` table + optional raw view | Real configs have undecoded bits set; silent loss would corrupt them; the raw view aids future decoding |
+| Version handling | Global PES version selector; version-neutral TOML, encode on emission | Matches the suite; the 2021 Name Y and PES15 pattern quirks are encoding details, not user concerns |
+| Format logic placement | `libs/kit_config`, shared with Team compiler and Export upgrader | One crate owns the format; all consumers agree on validity (the core plan's lib-crate rule) |
+| Preview | Schematic + real-texture composite, relative positions only | Honest about not knowing the game's exact mapping; avoids shipping megabytes of prerendered assets |
+| Kit menu colors | Export-folder mode also edits each kit's `colors.txt` + `icon.txt`, with `color_tools` extraction as suggestions | One place for all per-kit menu data; shows the manager exactly what the compiler's fallback would pick |
+| Extraction preview | Hover live-apply on suggestion swatches + a menu-UI mockup (color dots, scoreboard strip) | Auto-derived colors are judged in their in-game role before committing, not as isolated swatches |
+| Menu icon storage | Own optional `icon.txt` per kit folder (0–23, absent = 3) | Fits neither `colors.txt` (it's not a color) nor `config.toml` (it's UniColor data, not kit-config data) |

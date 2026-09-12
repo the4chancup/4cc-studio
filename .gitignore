@@ -1,0 +1,9 @@
+# Cargo build output (a moved target dir is the developer's business; the default is here)
+/target/
+
+# Session scratch: analysis scripts and probes that are not part of the repository
+/.tmp/
+
+# OS noise
+Thumbs.db
+.DS_Store
