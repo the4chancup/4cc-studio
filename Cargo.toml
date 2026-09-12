@@ -1,0 +1,49 @@
+[workspace]
+resolver = "3"
+# `crates/tools/*` joins this list with the first tool crate (Phase 3); cargo rejects a glob
+# that matches nothing.
+members = ["crates/studio", "crates/studio_core", "crates/libs/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/the4chancup/4cc-studio"
+rust-version = "1.98"
+
+# Every shared dependency is declared once here; crates inherit with `dep.workspace = true`
+# (core plan, "Workspace guardrails" rule 2). Only crates listed in the core plan's
+# "External Dependencies" table may be added (CONTRIBUTING.md "Dependencies").
+[workspace.dependencies]
+anyhow = "1.0.104"
+clap = { version = "4.6.6", features = ["derive"] }
+crossbeam-channel = "0.5.17"
+egui = "0.36.1"
+log = "0.4.34"
+serde = { version = "1.0.229", features = ["derive"] }
+thiserror = "2.0.20"
+toml = "0.9.8"
+unicode-normalization = "0.1.25"
+
+# Workspace crates, so a member depends on another by name alone.
+pes_version = { path = "crates/libs/pes_version" }
+studio_core = { path = "crates/studio_core" }
+vtree = { path = "crates/libs/vtree" }
+
+# The lint policy, inherited by every member via `[lints] workspace = true`
+# (core plan, "Workspace guardrails" rule 5). Gates run clippy with `-D warnings`, so a
+# `warn` here is a red gate; `deny` is for the rules that must fail even outside the gates.
+[workspace.lints.rust]
+missing_docs = "warn"
+
+[workspace.lints.clippy]
+let_underscore_must_use = "deny"
+dbg_macro = "warn"
+print_stdout = "warn"
+print_stderr = "warn"
+todo = "warn"
+
+# Dependencies build without debug info; workspace crates keep theirs
+# (core plan, "Phase 1"; DECISIONS.md 2026-09-12 "dependencies build without debug info").
+[profile.dev.package."*"]
+debug = false

@@ -1,0 +1,33 @@
+# 4cc Studio developer recipes. Rules: CONTRIBUTING.md "Testing and verification".
+# A recipe is a list of commands, never logic; anything with a branch or a loop is a script
+# under scripts/ that the recipe calls.
+
+# Git for Windows' `sh` is not on PATH from a plain PowerShell, so recipes run under PowerShell
+# there (the fallback CONTRIBUTING.md names). Recipe lines stay bare commands either way.
+set windows-shell := ["powershell.exe", "-NoLogo", "-NoProfile", "-Command"]
+
+python := if os_family() == "windows" { "python" } else { "python3" }
+
+# The four verification gates, in order. CI runs this same recipe.
+gates: fmt-check clippy test wasm-check
+
+# Gate 1: formatting
+fmt-check:
+    cargo fmt --all --check
+
+# Gate 2: lints, warnings denied
+clippy:
+    cargo clippy --workspace --all-targets -- -D warnings
+
+# Gate 3: tests
+test:
+    cargo test --workspace
+
+# Gate 4: studio_core and every lib crate check for wasm32 (list derived from the workspace)
+wasm-check:
+    {{python}} scripts/wasm_check.py
+
+# Guardrail 4 (fmdl/pes_model dependency denylist) and the license allowlist (deny.toml)
+deps-check:
+    {{python}} scripts/deps_check.py
+    cargo deny check licenses

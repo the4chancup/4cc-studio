@@ -53,6 +53,14 @@ reads the whole diff before it lands, not the report about it; the report is a c
 the evidence. Two failed sidekick attempts on one brief means the brief is suspect before the
 sidekick is.
 
+**Working in parallel.** Lead and sidekick share one working tree, so when both write code at
+once (the lead on a correctness-critical crate, the sidekick on a briefed one) they work in
+disjoint crates, and each verifies with crate-scoped commands (`cargo test -p vtree`,
+`cargo clippy -p vtree --all-targets -- -D warnings`) while the other's crate may not compile
+yet. The lead never leaves the workspace unbuildable longer than one edit (declare a module only
+once its file exists), and runs the full `just gates` once, after both are done. The brief says
+which crate the sidekick owns and that the rest of the tree is in motion.
+
 **Second opinion.** A model reviewing its own work is bounded by its own training: same data, same
 blind spots. The sidekick's code is already reviewed cross-family by the lead; what is *not* is
 everything the lead writes itself: plans, acceptance sections, briefs, converge audits, decision

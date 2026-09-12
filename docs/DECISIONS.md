@@ -772,3 +772,58 @@ for the patent grant and ecosystem uniformity. GPL remains the right answer if "
 stay free" is held as a principle rather than weighed as a risk; it was weighed.
 Plan: `core.md` "License" (new, under "Distribution and updates"), "Distribution: portable .7z
 bundle", "Key Decisions Summary" row; `CONTRIBUTING.md` `just deps-check`; `README.md`.
+
+## 2026-09-13 - libs - `PesVersion` is its own leaf crate, `pes_version`
+Decision (user): the PES version enum lives in `crates/libs/pes_version` (`PesVersion`, `Engine`,
+`Display`/`FromStr`, serde as the two-digit number), built in Phase 1 because `studio_core`'s
+common settings need it. `pes_savefile` re-exports it instead of defining it.
+Why: the savefile plan placed it in `pes_savefile`, but `studio_core` (settings), `model_convert`
+(skeleton tables), `kit_config` and the compilers all take it, and none may depend on the savefile
+crate; putting it in `studio_core` would make every version-aware lib depend on egui. A one-enum
+crate with six consumers satisfies guardrail 3 (multiple consumers); the alternative was a second
+copy of one closed set.
+Plan: `core.md` crate tree; `libs.md` "`pes_version`" (new); `pes_savefile.md` crate tree line.
+
+## 2026-09-13 - dependencies - `unicode-normalization` approved; egui's font licenses allowed
+Decision (user): `unicode-normalization` joins the dependency table, used by `vtree` for NFC
+folding in collision detection. The `cargo deny` allowlist gains `OFL-1.1` and `Ubuntu-font-1.0`,
+which egui's bundled default fonts (`epaint_default_fonts`) carry; `deny.toml` marks them as
+font-only entries.
+Why: the plan requires Unicode-normalized collision detection and std has no normalizer; the
+crate is the ecosystem standard with no dependencies of its own. The first `just deps-check` run
+rejected the fonts, which is the allowlist doing its job; both are permissive font licenses that
+permit embedding, and the GUI phase decides fonts anyway (the entries go when the fonts do).
+Plan: `core.md` "External Dependencies" row; `core.md` "License" allowlist sentence.
+
+## 2026-09-13 - workspace - Phase 1 bootstrap choices
+Decision: (1) workspace lints are `rust::missing_docs = warn` (the `///`-on-every-`pub` rule,
+enforced) and `clippy::let_underscore_must_use = deny`, `dbg_macro`, `print_stdout`,
+`print_stderr`, `todo` at `warn` (red under `-D warnings`; `studio`'s CLI output carries one
+`#[expect(clippy::print_stderr)]`). (2) `just` runs recipes under PowerShell on Windows
+(`set windows-shell`): Git for Windows' `sh` is not on PATH from a plain PowerShell, the fallback
+`CONTRIBUTING.md` named. Verified that a clippy warning turns `just gates` red (exit 1) under
+it. (3) The wasm gate's crate list is derived from `cargo metadata` by `scripts/wasm_check.py`
+(every crate under `crates/libs/` plus `studio_core`, minus a named exclusion list), not
+maintained by hand in the justfile. (4) `crates/tools/*` is not yet a workspace member glob
+(cargo rejects a glob matching nothing); it joins with the first tool crate. (5) CI installs
+`just` and `cargo-deny` through `taiki-e/install-action@v2` (prebuilt binaries) and caches with
+`Swatinem/rust-cache@v2`; the `python_bindings` job is deferred to worklog step 2.18, when the
+crate exists. (6) The lockfile pins egui 0.36.1 (0.36.2 was five days old at bootstrap; the
+one-week rule in `CONTRIBUTING.md`).
+Why: (1) a lint that is policy in prose is not policy; each entry maps to a written rule. (3) a
+hand-kept list passes when a new lib is forgotten, the failure mode the gate exists to catch.
+Plan: `core.md` Phase 1 will be rewritten in the present tense at converge; no other plan text
+changed.
+
+## 2026-09-13 - studio_core - `ToolContext` settings access and the settings file layout
+Decision: `ToolContext` holds `Arc<Mutex<Settings>>` shared with the shell, plus the event sender
+and a `ShellRequest` sender (`SwitchTool`, `Notify`, `SettingsChanged`). Tools read copies
+(`common()`, `tool_settings(id)`) and write only their own table (`set_tool_settings`), which
+queues `SettingsChanged`; the shell owns load, save and the path. The file is `[common]` plus one
+table per tool id; `common` is a reserved id. `Settings::save` writes `<path>.tmp` then renames.
+Why: the trait passes `&ToolContext`, so writes need a lock or a channel; a lock keeps reads
+current within the frame, and "one lock per concept" is the style rule for exactly this.
+Explicit `SettingsChanged` rather than dirty-tracking inside `Settings`, so saving is a visible
+request the shell handles like the others. Atomic write because a truncated settings file on a
+crash would silently reset the user to defaults on the next start.
+Plan: `core.md` "Tool plugin interface" (ToolContext paragraph), "Settings menu" (file layout).
