@@ -1,0 +1,679 @@
+# 4cc Studio — Save editor plan
+
+The save editor (`crates/tools/save_editor`) is the successor to **4ccEditor**
+and absorbs the **Midcupping** scripts: it edits PES save files (player stats,
+appearance, teams, tactics), enforces AATF rules, diffs saves (gameplay and
+aesthetics), transplants aesthetics between saves, handles team import/export
+(new Team TOML format, legacy `.4ccs`/`.4cct` import, Texport read/write) and
+FPC invisibility. It can also **generate `settings.toml` files from an existing
+savefile** (via `pes_savefile`'s `PlayerSettings` model), giving teams a migration path
+from the manual-editing workflow to the [Team compiler](team_compiler.md)'s
+compile-time savefile writing. The savefile codec, the data model, and all
+interchange formats live in the `pes_savefile` lib crate — see the
+[Savefile plan](pes_savefile.md). Platform context is in the [core plan](core.md).
+
+The porting stance: **full feature parity with 4ccEditor, improved wherever the
+Win32 UI imposed friction** — but only with improvements that are actually
+useful, never decoration. Concrete improvements are listed per section.
+
+---
+
+## Background: 4ccEditor
+
+4ccEditor (`Tools_4cc/4ccEditor-1`) is a raw Win32 C++ application that edits PES save files
+(`EDIT00000000`) for PES 2015–2021. Its codebase breaks down as:
+
+| Component | Files | Size | Fate in the Rust port |
+|-----------|-------|------|----------------------|
+| Win32 UI | `main.cpp`, `window.cpp`, `resource.rc`, `menu_lists.cpp` | ~320KB | UI replaced by egui; retain the relevant domain tables in `menu_lists.cpp` as codec/conversion references |
+| Per-version save codecs | `pes15.cpp` … `pes20.cpp` | ~190KB | **Collapsed** into schema tables + one codec engine (`pes_savefile`) |
+| Data model | `editor.h` (`player_entry` ~100 fields, `team_entry` incl. tactics) | ~30KB | Ported to `pes_savefile`; derives replace manual boilerplate |
+| AATF rules tool | `aatf.cpp` | ~28KB | Ported as configurable rules (see below) |
+| Comparator | `comparator.cpp` | ~22KB | Ported, merged with Midcupping's aesthetics diff |
+| Misc tools | `fpc.cpp`, `data_util.cpp` | ~12KB | Ported (FPC invisibility; the bit engine goes into `pes_savefile`) |
+| Crypto interface | `crypt.h/cpp` + `libpesXcrypter.dll` | external | **Replaced** by native Rust crypto in `pes_savefile` |
+
+Portability is good: half the C++ is Win32 UI that gets replaced rather than
+ported, and portable crypto reference implementations already exist. The Rust
+`pes_savefile` implementation is planned, not built — see the [Savefile plan](pes_savefile.md).
+
+## Background: Midcupping
+
+Midcupping (`Tools_4cc/Midcupping`) is a set of six standalone Python scripts
+(PES 15/16/17 variants of two tools) used mid-cup, when re-running full exports
+is too heavy:
+
+- **`transplant-aesthetics-*.py`** — copies player appearance data (boots/gloves
+  IDs, physique, strip style, ingame face) from a donor save into a base save,
+  by player ID, ID pair, team, or team range; optionally in-place.
+- **`compare-saves-*.py`** — diffs two saves aesthetically: per player, decodes
+  boots/gloves/face IDs, taping, glasses, sleeves, inners, socks, undershorts,
+  shirttail, winter gloves, skin color, plus a normalized hash of the ingame-face
+  block, and prints what changed.
+
+Both are absorbed into the save editor as first-class panels (the underlying
+operations live in `pes_savefile` — see "Save-to-save operations" there).
+
+---
+
+## Feature inventory (the parity contract)
+
+Everything 4ccEditor can do, with its fate in the port. This is the checklist the
+implementation is measured against.
+
+### File operations
+
+| 4ccEditor | Fate |
+|-----------|------|
+| Load 15/16/17/18/19/20/21 EDIT file (7 menu items) | One **Open savefile** action; auto-detect the version by master keys / container shape. The loaded file's version governs its codec and editing widgets; warn on a global-selector mismatch, never reinterpret the open file. The Open menu lists the saves `pes_savefile`'s discovery finds under `Documents\KONAMI` for every version (labelled by version and, for 18+, account folder) as one-click entries above the ordinary file picker, and the picker opens in the selected version's save folder when it exists — see "Savefile discovery" in the Savefile plan |
+| Save EDIT file (encrypted) | Kept; plus **Save as** and automatic `.bak` of the original on first save |
+| Import Texport file (per-version submenu) | Kept, auto-detected version; plus **Texport export** (new — PES itself can import the result; see [Savefile plan](pes_savefile.md)) |
+
+### Player operations
+
+| 4ccEditor | Fate |
+|-----------|------|
+| Set all ability stats (dialog) | Kept |
+| Bump all ability stats ±N (dialog) | Kept |
+| Copy player stats (source PID → dest PID) | Kept |
+| Swap player stats (two PIDs) | Kept |
+| Toggle FPC settings (Ctrl+I) | Kept (see "Full Player Customization" below) |
+| Quick actions: Make Gold / Make Silver / Make Regular / Set stats | Kept, **driven by the AATF parameter file** instead of hardcoded rates — the buttons and the checker can never disagree |
+
+### Team operations
+
+| 4ccEditor | Fate |
+|-----------|------|
+| Clear visual settings flags (all players on team) | Kept |
+| Set edited/created flag (all players on team) | Kept |
+| Set / remove FPC invisibility (whole team) | Kept |
+| Set boot/glove IDs for everyone (unchanged / incremental / same-for-all) | Kept |
+| Set player names to positions | Kept |
+| Save squad (`.4ccs`) | Replaced by **Team TOML export** (full-fidelity, human-readable — see the [Savefile plan](pes_savefile.md)) |
+| Load squad (`.4ccs`, with stats/aesthetics/tactics checkboxes) | Kept as read-only legacy import, same section checkboxes; Team TOML import is the primary path. Cross-version import applies the playstyle/skill conversion maps |
+
+### Tactics operations
+
+| 4ccEditor | Fate |
+|-----------|------|
+| Export / import tactics (`.4cct` "nightly" files) | Import kept (read-only legacy); export replaced by Team TOML (tactics are a section of it) |
+| Copy / swap presets (1↔2↔3) | Kept |
+| Copy / swap formations (kick-off / in-possession / out-of-possession) | Kept |
+| Full tactics editing (see "Tactics editor" below) | Kept at full parity + interaction improvements |
+
+### Database operations
+
+| 4ccEditor | Fate |
+|-----------|------|
+| AATF: current team / select teams | Kept (rules become configurable — see below) |
+| Compare EDITs | Kept, merged with Midcupping's aesthetics diff (see "Comparator") |
+| Output rosters to TSV | Kept |
+| — | **Export teams list** (new): the open save's team names and IDs for 701–920 (in-game names are the `/xx/` names) merged into `data/teams_list.txt` through the same reconciliation the updater uses — added / kept / overridden shown for review, savefile wins conflicts, unresolved conflicts leave the file unchanged, never a blind overwrite (see the [Team compiler plan](team_compiler.md), "Resolved decisions", "Teams list"). Lives here because this tool owns the open savefile; the compiler only consumes the list |
+| Fix database (clear all visual flags, reset kit slots, PES17 kit-ID repair) | Kept as a maintenance action behind a confirmation dialog |
+
+### New (from Midcupping)
+
+| Feature | Notes |
+|---------|-------|
+| Aesthetics transplant | Donor save → current save; see below |
+| Aesthetics diff | Part of the merged comparator |
+
+### New (from the Team compiler)
+
+| Feature | Notes |
+|---------|-------|
+| Apply aesthetics patch | The compiler's `aesthetics_patch.toml` → current save; the default route by which teams' aesthetics reach the official save. See "Read-only aesthetics" |
+
+---
+
+## Crate layout
+
+The Save editor follows the standard tool-crate skeleton (core plan, "Tool crates") and elaborates
+below it. The organizing principle: **`pes_savefile` owns every byte and every operation on the
+model; this crate owns the session (open file, undo stack, selection) and the widgets.** If a
+function here could be called without an egui context and without a `Session`, it belongs in the
+lib.
+
+```
+crates/tools/save_editor/src/
+├── lib.rs              # Tool (StudioTool impl) — wiring only
+├── settings.rs         # editor settings (last folder, AATF rules path, comparator defaults)
+├── cli.rs              # export-toml / import-toml / check-aatf / compare / transplant subcommands
+├── messages.rs         # message catalog (AATF violations, interchange import findings, …)
+├── session/            # everything about "the file that is open"
+│   ├── mod.rs          #   Session: EditFile + version + dirty tracking + selection
+│   ├── undo.rs         #   field-level undo/redo stack over model edits
+│   ├── selection.rs    #   team/player selection, cross-team filter query
+│   └── recent.rs       #   discovered saves (pes_savefile::discovery) + recent files list
+├── aatf.rs             # runs libs/aatf rules over the session's teams, maps results to messages
+└── view/
+    ├── mod.rs          #   master-detail layout, open/save actions, unsaved-changes prompt
+    ├── player_list.rs  #   list with drag-to-reorder, dirty dots, colour-coded names
+    ├── info_strip.rs   #   general info + quick actions (Gold/Silver/Regular, set stats)
+    ├── tabs/
+    │   ├── abilities.rs    # ability spinners, positions; hosts team_widgets' card pickers
+    │   ├── appearance.rs   # edit flags, physique, colors, strip style, motion
+    │   ├── team.rs         # team identity, colors, manager/stadium, kit slots
+    │   └── tactics.rs      # hosts team_widgets' tactics editor over the session's team;
+    │                       #   copy/swap preset menus, undo wiring
+    ├── panels/
+    │   ├── aatf.rs         # hosts team_widgets' violations list; jump-to-player
+    │   ├── comparator.rs   # gameplay + aesthetics diff view
+    │   ├── transplant.rs   # aesthetics transplant flow
+    │   └── interchange.rs  # Team TOML / .4ccs / .4cct / Texport import-export dialogs
+    └── widgets.rs      #   editor-local reusable widgets (version-gated control, RGB field, ID picker)
+```
+
+Placement rules:
+
+- **No savefile bytes, offsets, or version `match`es in this crate.** Version gating in widgets asks
+  the schema (`schema.has(PlayerField::Star)`), never `version >= 19`.
+- **`session/` is egui-free.** It is the unit-testable heart of the tool (undo, selection, dirty
+  tracking) and is what the CLI subcommands drive too, so the CLI and GUI cannot diverge.
+- **`view/tabs/` map 1:1 to 4ccEditor's tabs**, which is the parity contract; a new tab is a new
+  file, not a new section of an existing one.
+- **`view/panels/` are the Midcupping-derived and new features**; each is self-contained and can be
+  developed in the build order below without touching the tabs.
+- The AATF *engine* (rule parsing, Rhai/CEL evaluation) lives in `libs/aatf`; `aatf.rs` here only
+  feeds it the session's data and renders results.
+- **The tactics editor, the card pickers and the violations list are `libs/team_widgets`** (see
+  below); the tab and panel files here are hosts: they hand the widget the session's team, apply
+  the edits it reports to the undo stack, and add what only this tool has (preset copy/swap,
+  jump-to-player).
+
+---
+
+## Editing UI
+
+The tool view (the panel right of the suite sidebar) is a master-detail layout,
+mirroring 4ccEditor's structure without its dialog sprawl:
+
+```
+┌────────────────────┬──────────────────────────────────────────────┐
+│ [team selector ▾]  │  Name [........] ID 70103   Shirt [......]   │
+│ [player filter 🔍] │  Height/Weight/Age/Nation/Number/Captain     │
+│                    │  [Gold] [Silver] [Regular] [Set stats: __]   │
+│  01 GK Snuffy      ├──────────────────────────────────────────────┤
+│  02 CB Anon    ●   │  Abilities & Skills │ Appearance │ Team │    │
+│  03 CB Mod         │                       Tactics               │
+│  ⋮  (drag to       │                                              │
+│      reorder)      │  (active tab content)                        │
+└────────────────────┴──────────────────────────────────────────────┘
+```
+
+- **Team selector** with an "ALL" entry (as in 4ccEditor), plus a **filter box
+  that searches across all teams** (name, shirt name, ID) — finding a player no
+  longer requires knowing their team first. Matching uses the colour-code-free
+  `display_name()` (see the pes_savefile plan's "Name colour codes").
+- **Player list**: shows number, position, name; **drag-and-drop reordering**
+  replaces the up/down spinner. A dot marks players with unsaved changes. Names
+  render with their savefile colour codes applied as text colours (the in-game
+  look; 4ccEditor shows the raw control characters), and the name edit field
+  keeps the raw string so codes survive a roundtrip untouched.
+- **General info strip** and **quick actions** always visible above the tabs.
+- **Tabs** (contents 1:1 with 4ccEditor):
+  - **Abilities & Skills** — 13 playable positions with A/B/C ratings, 7 COM
+    styles, up to 41 skill checkboxes (version-gated), ~25 ability stats with
+    spinners, playstyle / registered position / form / injury / weak foot,
+    version-gated extras (star 19+, playing attitude & stronger hand 20+).
+  - **Appearance** — edit flags (face/hair/physique/strip, base copy + copy-from
+    ID), physique sliders (14 values), colors (wrist tape L/R, spectacles), strip
+    style (boots ID, GK gloves ID, taping, spectacles, sleeves, inners, socks,
+    undershorts, shirttail, gloves), motion (hunching, arm movement, kick
+    motions, gc1/gc2, randomize; dribbling motion 20+), skin/iris color.
+    **Read-only by default** — see "Read-only aesthetics" below.
+  - **Team** — team name/short name, colors 1–2 (RGB), manager ID, stadium ID,
+    kit slot assignments.
+  - **Tactics** — see below.
+- Version-gated widgets render disabled with a tooltip ("PES 19+") rather than
+  disappearing, so the UI stays spatially stable across versions.
+- **Undo/redo** across all edits (the model is plain data; an undo stack of
+  field-level changes is cheap) — the single biggest safety upgrade over
+  4ccEditor.
+- Keyboard shortcuts preserved where they earn their keep (Ctrl+S save, Ctrl+F
+  clear visual flags, Ctrl+I FPC toggle).
+- Closing with unsaved changes prompts.
+
+Improvements policy: each of the above exists to remove a real friction point
+(finding players, reordering, fear of misclicks). No animations-for-the-sake-of-it.
+
+---
+
+## Tactics editor
+
+Full parity with 4ccEditor's Tactics tab: preset selector (1/2/3) with fluid
+checkbox and the five sliders (support range, defensive line, compactness,
+numbers in attack/defense), formation settings toggles (attacking style, zone,
+buildup, positioning, defensive style, containment, pressure), advanced
+instructions (2 attack + 2 defense, with target player where applicable),
+set-piece takers (FK long/short/2, CK L/R, PK), captain, auto flags (substitution,
+offside trap, atk/def levels, preset change), the three formations per preset,
+starting eleven and bench order.
+
+The interaction layer is rebuilt around direct manipulation (this is where the
+Win32 original hurt the most):
+
+- **The pitch is the editor**: an egui painter canvas draws the formation;
+  players are **dragged** to reposition (x/y), with position labels and snapping.
+  4ccEditor's per-slot dropdown + coordinate fields remain as a detail popover on
+  click, not the primary interface.
+- **Lineup by drag-and-drop**: the starting XI and bench are reorderable lists;
+  **dragging a bench player onto a pitch player swaps them** (and vice versa).
+  The arrow-button ordering UI is gone.
+- **Click-to-assign roles**: "players to join attack" (and other
+  pick-N-players settings) are set by clicking players on the pitch in an
+  assignment mode — the three dropdowns are gone. Set-piece takers get the same
+  treatment with a role palette.
+- Copy/swap preset and copy/swap formation become two small toolbar menus on the
+  tactics tab (parity with the 4ccEditor menu tree, minus the 18-item menu).
+- Formation edits participate in undo/redo like everything else.
+
+Version quirks (advanced-instruction ranges differ 17 vs 18+; tactics import is
+16–18-only for `.4cct`) are enforced by the `pes_savefile` model, not the UI.
+
+## `libs/team_widgets`
+
+The tactics editor above, the skill/COM/playstyle pickers of the Abilities tab, and the AATF
+violations list are not this tool's alone: the [Team creator](team_creator.md) shows the same
+formation, cards and instructions to a new manager over a team that does not exist in any save
+yet. Tool crates never depend on tool crates (core plan, guardrail 1), so the widgets live in a
+lib — `libs/team_widgets`, an egui widget crate in the class the core plan already allows for
+`color_tools` and `model_viewport`: egui-dependent, `wasm32`-clean, and nothing else.
+
+Contract, the same one the color picker has: a widget takes `&mut` model (`TeamEntry`,
+`TacticsPreset`, `PlayerEntry` — `pes_savefile`'s types), the version's schema for gating, and the
+AATF rules where it shows limits; it draws, and it returns what changed. It never sees a session,
+an undo stack, a file, or a savefile byte. The host decides what an edit means: this editor pushes
+it onto the undo stack, the creator writes it into its draft.
+
+Contents:
+
+- `pitch` — the drag-and-drop formation canvas, position labels and snapping, the per-slot detail
+  popover, lineup and bench lists with swap-by-drag.
+- `tactics` — preset selector, sliders, style toggles, advanced instructions (with target-player
+  pick), set-piece role palette, auto flags, click-to-assign modes.
+- `cards` — skill, COM-style and playstyle pickers, version-gated, with remaining-count badges per
+  tier from the AATF parameters.
+- `violations` — the AATF results list grouped per player, emitting a "selected player" event for
+  the host's jump-to.
+
+Stock-formation constants stay in the Team creator (its only consumer) until this editor wants
+an "apply stock formation" action, at which point they move here.
+
+---
+
+## Full Player Customization (FPC)
+
+FPC is the 4cc system for fielding **FBMs (Full Body Models)** — custom models
+that don't just replace the head and neck but the player's entire body. It works
+in two halves: the cup DLC replaces some default kit model pieces with blank
+models, selected via kit config values (shirt/shorts/collar model fields — the
+[Team compiler](team_compiler.md) handles that side), and the player's savefile
+settings hide the rest — boots ID 55 and GK gloves ID 11 (conventional
+**nonexistent IDs**, so nothing renders) plus strip settings that suppress the
+remaining default geometry. Together they make the default player model
+invisible, leaving only the FBM visible.
+
+The editor's side of this, ported from `fpc.cpp`: a per-player toggle and a
+team-wide on/off that apply `pes_savefile`'s version-aware FPC enable/disable
+presets — the nonexistent
+boots/gloves IDs, tucked shirt, long sleeves, short socks, custom skin (pre-18),
+and cleared taping/inners/undershorts/gloves — and restore the visible defaults
+when disabled (IDs 0, untucked, short sleeves, standard socks, light skin
+pre-18). The ID constants become a suite-common setting consumed by
+the presets rather than being hardcoded (any nonexistent ID works;
+55/11 are the 4cc convention). The same presets serve the
+[Team compiler's](team_compiler.md) per-player-folder `fpc.on`/`fpc.off` marker
+files, so the editor's toggle and the compiler's markers cannot drift apart.
+
+---
+
+## Read-only aesthetics
+
+A player's aesthetics are owned by the team's export: `settings.toml` and the models decide them,
+the Team compiler resolves them into an **aesthetics patch** (format in the [Savefile
+plan](pes_savefile.md)), and the save editor applies the patch. Hand-editing the same fields here
+would create the two-sources problem — the next patch silently overwrites the hand edit, or the
+hand edit silently diverges from the DLC — so the editor **does not edit aesthetics by default**:
+
+- The Appearance tab renders its values disabled, with one line of explanation and a link to the
+  apply action ("Owned by the team's export — edit its `settings.toml`, recompile, apply the patch").
+- The same lock covers every other aesthetics write path: the team operations that write
+  appearance fields (set boots/gloves IDs for everyone, set/remove FPC for the team, clear visual
+  flags, the FPC toggle), the aesthetics transplant, and the aesthetics section of Team TOML and
+  legacy squad imports (the section checkbox is disabled, gameplay and tactics import as before).
+- **Apply aesthetics patch** is the one aesthetics write open by default: open a patch; the
+  version must match the save and the allocation scheme the suite's (refused otherwise, save
+  untouched); the comparator's preview lists every player the patch will change with old → new;
+  applied through the undo pipeline; saved only when the user saves. A team the save lacks is
+  reported and skipped; the rest applies. Patches apply cleanly in sequence — a midcup patch
+  carries only the teams it recompiled and only the fields their compile resolved.
+- **Unlock: "Edit aesthetics anyway"**, a switch on the Appearance tab, off at every start of the
+  tool. Turning it on re-enables all the paths above for the session, with the note that a later
+  patch overwrites whatever is edited by hand. It exists for the cases the rule does not cover — a
+  team with no export, a cup-night fix when recompiling is not an option — and it is a session
+  switch rather than a setting so that the default cannot quietly become "unlocked" on the
+  savefile builder's machine.
+
+Gameplay data (stats, skills, positions), team data and tactics are unaffected: they were never
+the compiler's, and the savefile builder edits them as before.
+
+---
+
+## Comparator (gameplay + aesthetics)
+
+One panel merging 4ccEditor's `comparator.cpp` with Midcupping's
+`compare-saves-*.py`:
+
+- Load a second save (same version); the panel lists per-team, per-player
+  differences.
+- **Gameplay scope** (from 4ccEditor): names, IDs, basics (age/height/weight),
+  every ability stat, playstyle, positions and ratings, COM styles, all skills —
+  with old → new values.
+- **Aesthetics scope** (from Midcupping): boots/gloves/face IDs, taping, glasses,
+  sleeves, inners, socks, undershorts, shirttail, winter gloves, skin color, and
+  the normalized ingame-face fingerprint (catches "the face was edited" without
+  decoding every facial parameter).
+- Filter toggles: All / Gameplay / Aesthetics; a team filter; export the diff as
+  text.
+- Clicking a diff row jumps to that player in the editor.
+
+---
+
+## Aesthetics transplant
+
+Midcupping's transplant as a guided panel:
+
+- Pick a donor save (validated to be the same PES version).
+- Build the selection the same four ways the scripts support: player IDs,
+  `target:source` pairs, whole teams, team ranges — plus by clicking players in
+  a two-pane team browser.
+- **Preview before applying**: the affected players are listed with their
+  aesthetics diff (reusing the comparator's fingerprint), so a wrong team ID is
+  visible before it does damage.
+- Applies through the normal edit pipeline: undoable, and saved only when the
+  user saves.
+
+---
+
+## Interchange formats in the UI
+
+The formats themselves are specified in the [Savefile plan](pes_savefile.md);
+the editor exposes them as:
+
+- **Team TOML export/import** per team (the `.4ccs`/`.4cct` successor: complete
+  team + tactics + players including full aesthetics and ingame-face data).
+  Import offers the same section choices as 4ccEditor's squad load (gameplay /
+  aesthetics / tactics) and applies cross-version conversion with a warning list
+  when the file's version differs.
+- **Legacy import**: `.4ccs` and `.4cct` open through the same import dialog,
+  read-only.
+- **Texport import/export** (export is new; PES itself can import the file).
+- **Aesthetics patch apply** — see "Read-only aesthetics"; the patch is written by the Team
+  compiler, never by the editor.
+- **`settings.toml` generation** — per player folder, for migrating a team to the
+  [Team compiler](team_compiler.md)'s compile-time savefile writing. Uses the
+  shared authorable `PlayerSettings` subset, omitting boots/gloves IDs even when the source
+  save contains them; those are compiler-assigned from models/links, not export settings.
+  Full Team TOML remains a full-fidelity save interchange. Name handling follows the
+  Export upgrader's rule: `name = true` only when the folder's name part
+  equals the savefile name, the explicit string otherwise — in particular a
+  name carrying colour codes is always emitted as the explicit string, so the
+  next compile preserves the codes.
+
+---
+
+## Configurable AATF rules
+
+4ccEditor's AATF tool (auto-attribute enforcement of 4cc player rules) currently hardcodes both its
+parameters and its logic in C++. The Rust version makes both editable without recompiling, in two
+layers:
+
+**Layer 1 — parameters in TOML** (covers what changes between cups; editable by anyone). The
+defaults are `aatf.cpp`'s current constants, in full:
+
+```toml
+[aatf.rates]
+gold = 99
+silver = 88
+regular = 77
+goalkeeper = 74
+# stamina may target a different value than the other stats
+# (aatf.cpp's separate stamina target)
+
+[aatf.medals]
+gold = 2
+silver = 3
+
+[aatf.form]            # required form per tier
+gold = 8
+silver = 8
+regular = 4
+
+[aatf.injury_resistance]
+gold = 3
+silver = 3
+regular = 1
+
+[aatf.weak_foot]
+usage = { gold = 2, silver = 2, regular = 2, manlet = 4 }
+accuracy = { gold = 4, silver = 4, regular = 2, manlet = 4 }
+
+[aatf.cards]
+skill = { goalkeeper = 2, regular = 3, silver = 4, gold = 5 }
+trick = { goalkeeper = 0, regular = 2, silver = 3, gold = 3 }
+com   = { regular = 0, silver = 1, gold = 2 }
+pes_skill_card_max = 10          # the game's own limit
+
+[aatf.heights]         # bracket thresholds (cm)
+giga = 199
+giant = 194
+tall = 185
+tall_gk = 189
+mid = 180
+manlet = 175
+
+[aatf.brackets.green]  # required counts when the team uses the Green system
+giga = 0
+giant = 5
+tall = 6
+mid = 6
+manlet = 6
+
+[aatf.brackets.red]    # required counts for the Red system
+giga = 0
+giant = 0
+tall = 10
+mid = 7
+manlet = 6
+
+[aatf.bonuses]
+manlet = 5             # stat bonus for manlets
+silver_manlet = 0
+gold_manlet = 0
+silver_giant_penalty = 0
+gold_giant_penalty = 0
+manlet_card_bonus = 1
+manlet_pos_bonus = 1
+```
+
+**Layer 2 — check logic in scripts** (covers structural rules; changes rarely).
+The rule set to express, transcribed from `aatf_single` in `aatf.cpp` — this is
+the behavioral spec for the scripted layer:
+
+- The registered position must be rated A; a GK rating cannot be the second A.
+- No B ratings anywhere (A or C only).
+- Age within 15–50; weight within `max(30, height−129)…(height−81)`.
+- Registered position and playstyle within the version's valid ranges.
+- Exactly one captain; at least one registered GK.
+- Medal counts exact (2 gold, 3 silver, rest regular).
+- Ability stats must equal the tier's target rate plus height bonuses (attack
+  and defense may be lower; stamina has its own target).
+- Skill/trick/COM card counts within tier limits, with free cards (Malicia is
+  free; the captaincy card is free for the captain; manlet card bonus) and the
+  game's 10-skill-card cap.
+- Weak-foot usage/accuracy within tier limits (manlet exceptions).
+- Height systems: **Green** if any player ≥ the giant threshold, else **Red**;
+  the team's height-bracket counts must match the system's quotas exactly.
+- GK height: exactly `tall_gk` in Green; below giant in both systems.
+- Gold players below the giant threshold; medal players cannot be GKs.
+
+AATF reports violations; it never auto-fixes (matching 4ccEditor). Results render
+in a panel with per-player groupings, and clicking a violation jumps to the
+player. Team selection matches 4ccEditor: current team or a multi-select list.
+
+The one *writing* operation the lib offers is `apply_tier(player, tier, rules)`: set a player's
+ability stats, form, injury resistance and weak foot to a tier's values from the parameter file,
+with the height bonuses the rules define. It is the function behind this editor's Make
+Gold/Silver/Regular quick actions and behind the Team creator's default stats — one function, so
+neither tool can produce a player the checker then rejects.
+
+[Rhai](https://rhai.rs) is a scripting language written in pure Rust for embedding. It is the safe
+answer to Python's `eval()`: scripts can only access what the host exposes, cannot touch the
+filesystem or network, and have configurable operation/recursion limits so a broken script cannot
+hang the tool.
+
+```rhai
+// rules/aatf.rhai — editable by the rules committee, no recompile needed
+
+fn check_player(p, using_red) {
+    let errors = [];
+
+    if p.medal == "gold" && p.position != "GK" {
+        let target = cfg.rates.gold + height_bonus(p, using_red);
+        for skill in OUTFIELD_SKILLS {
+            if p.stat(skill) != target {
+                errors.push(`${skill} is ${p.stat(skill)}, should be ${target}`);
+            }
+        }
+    }
+
+    if p.playable_at(p.registered_position) != "A" {
+        errors.push("Player is not playable at A in their registered position");
+    }
+
+    errors
+}
+
+fn height_bonus(p, using_red) {
+    if !using_red || p.height > cfg.heights.manlet { return 0; }
+    if p.medal == "gold" { cfg.bonuses.gold_manlet }
+    else if p.medal == "silver" { cfg.bonuses.silver_manlet }
+    else { cfg.bonuses.manlet }
+}
+```
+
+These snippets illustrate the scripting interface, not the complete default rule set. The
+manlet stat bonus is Red-system-only and tier-specific (`aatf.cpp`); the gold default is 0,
+not the regular player's +5. Full shipped rules must retain the source's other exceptions,
+including the permitted lower attack/defense values.
+
+The Rust side registers the player model and config with the engine and sets hard limits:
+
+```rust
+let mut engine = rhai::Engine::new();
+engine.register_type::<PlayerEntry>()
+      .register_get("height", |p: &mut PlayerEntry| p.height as i64)
+      .register_fn("stat", |p: &mut PlayerEntry, name: &str| p.stat_by_name(name))
+      .register_fn("playable_at", |p: &mut PlayerEntry, pos: &str| p.playable_at(pos));
+
+engine.set_max_operations(1_000_000);
+engine.set_max_call_levels(32);
+```
+
+A "validate rules" button in the GUI parses the TOML, compiles the Rhai script, runs it against a
+synthetic player, and reports script errors as friendly messages before a real check run.
+
+Caveat: Rhai is a real (small) language, so the scripted layer is friendly to anyone comfortable
+with light scripting, while the TOML layer is friendly to everyone. Both are large improvements over
+editing C++ and recompiling.
+
+**Simpler alternative under consideration:** instead of a full scripting language, the rules can be
+a declarative TOML list where each rule is a single expression (via the `cel-interpreter` crate —
+Google's Common Expression Language, designed exactly for embedded policy rules) plus a message
+template:
+
+```toml
+[[rule]]
+name = "gold outfield rating"
+applies = "p.medal == 'gold' && p.position != 'GK'"
+check = "OUTFIELD_SKILLS.all(s, p.stat(s) == cfg.rates.gold + height_bonus)"
+message = "Gold player stats must all be {target}"
+```
+
+CEL is non-Turing-complete (no loops, but has `all`/`exists` comprehension macros), which makes
+individual rules simpler to write and impossible to break the compiler with. The trade-off is that
+helper logic (like `height_bonus`) must be precomputed by the host rather than defined in the rules
+file. Decide between Rhai (full expressiveness) and TOML+CEL (simpler per-rule authoring) when
+implementing Phase 5. Note that the team-level checks (bracket quotas, medal counts, captain/GK
+presence) aggregate over the squad — whichever engine is chosen must support team-scoped rules, not
+just per-player ones (in CEL that means host-precomputed aggregates).
+
+---
+
+## CLI
+
+The batch surface for the operations that came from scripts — Midcupping existed as
+Python scripts precisely because GUIs can't be looped:
+
+```
+studio save-editor export-toml ./EDIT00000000 --team 701 -o ./aaa.toml   # single-team full-fidelity Team TOML dump
+studio save-editor export-toml ./EDIT00000000 --all-teams --out-dir ./teams
+studio save-editor import-toml ./aaa.toml --base ./EDIT00000000 --out ./EDIT_new   # patch the base save; .bak of an existing target first
+studio save-editor apply-patch ./aesthetics_patch.toml --base ./EDIT00000000 --out ./EDIT_new   # the compiler's patch; same base/out rules as import-toml
+studio save-editor transplant ./src_save ./dst_save [--fields boots,gloves,physique,...] [--players 3,7,10-14]
+studio save-editor diff ./a_save ./b_save [-a]                  # merged gameplay+aesthetics report; -a = aesthetics only
+studio save-editor export-teams-list ./EDIT00000000 [--yes]     # merge the save's team names/IDs into data/teams_list.txt
+```
+
+- `export-toml` requires an explicit source EDIT and either `--team <id>` with `-o`/`--out <file>`,
+  or `--all-teams` with `--out-dir <directory>` for one file per team. These forms are mutually
+  exclusive; there is no implicit current-team selection.
+- `import-toml` requires the Team TOML, `--base <EDIT>`, and `--out <EDIT>`. It patches the base
+  using the document's team identity and the same import logic as the GUI, preserving unmodeled
+  save data. A different output path leaves the base untouched; an existing target gets the usual
+  backup before replacement. There is no implicit base save or creation of an entire EDIT from
+  one team's TOML.
+- `apply-patch` takes the patch, `--base <EDIT>` and `--out <EDIT>` exactly like `import-toml`;
+  it refuses a version or allocation-scheme mismatch before touching anything, prints the per-team
+  summary (applied / skipped: not in save), and is the batch form of the GUI action — the savefile
+  builder can apply a night's patches in one script. The read-only lock is a GUI guard; the CLI
+  commands that write aesthetics (`transplant`, `import-toml` with aesthetics) are explicit by
+  nature and are not gated.
+- `transplant` mirrors the transplant panel's selection modes (field groups,
+  player IDs/pairs/ranges, whole teams); both saves must be closed in PES — the
+  command refuses files locked by the running game.
+- `diff` prints the comparator's merged report to stdout (human-readable by
+  default, `--json` for tooling), replacing the Midcupping compare scripts.
+- `export-teams-list` prints the merge summary (added / kept / overridden) and stops unless
+  `--yes` is given; unresolved conflicts leave the list unchanged, as for the updater merge. An
+  unwritable data directory reports `teams_list_read_only` and writes nothing.
+
+---
+
+## Build order and verification
+
+`pes_savefile` (codec, model, conversions, transplant/fingerprint ops, interchange
+formats, comparator, FPC invisibility) is built in Phase 2 as a standalone lib; the
+editor's non-UI substance — the tool crate's settings, CLI and operations wiring,
+plus the `aatf` rules engine — lands in Phase 5; the view lands in Phase 8 (see the
+[core plan](core.md#development-plan)). Within Phase 8, the view builds up as:
+
+1. Open/save + player editing tabs (Abilities & Skills, Appearance) — the card pickers as the
+   first `team_widgets` content
+2. Team tab + batch operations + FPC
+3. Tactics editor in `team_widgets` (pitch canvas last — everything else works without it)
+4. Comparator, transplant, AATF panels
+5. Interchange format dialogs (Team TOML, legacy import, Texport, settings.toml)
+
+Verification:
+
+- Field-level parity: the same save opened in 4ccEditor and in the new editor
+  must display identical values for every field, all versions (spot-checked per
+  tab; automated for the codec layer in `pes_savefile`'s roundtrip tests).
+- Batch operations and Fix database compared against 4ccEditor's output on the
+  same input save (byte-diff of the decrypted payload).
+- AATF default rules must reproduce `aatf.cpp`'s violations on a corpus of real
+  cup saves.
+- Comparator/transplant output parity against the Midcupping scripts.
+- Texport export verified by importing into the game (manual, per version).
