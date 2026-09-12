@@ -1,0 +1,17 @@
+[package]
+name = "pes_version"
+description = "The supported PES versions (2015-2021) and the engine each one uses"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+serde.workspace = true
+
+[dev-dependencies]
+toml.workspace = true
+
+[lints]
+workspace = true

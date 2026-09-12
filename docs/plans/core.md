@@ -253,6 +253,8 @@ The suite follows a **platform + plugins** model with strict modularity rules:
 │       ├── uniparam/                 # UniformParameter container
 │       ├── weszlib/                  # WESYS zlib wrapper
 │       ├── vtree/                    # VirtualTree + canonical ScopePath/RelativeScopePath shared by events/exports
+│       ├── pes_version/              # PesVersion (15–21) + Engine (pre-Fox/Fox): the one closed set every
+│       │                             #   version-aware crate shares (settings, savefile schemas, skeletons)
 │       ├── archives/                 # .zip/.7z loading
 │       ├── aesthetics_export/              # The aesthetics export format: object model, folder conventions,
 │       │                             #   validation (shared by compiler, upgrader, kit config
@@ -535,7 +537,13 @@ pub trait StudioTool {
 }
 ```
 
-Besides settings and event plumbing, `ToolContext` exposes a **tool-switch
+`ToolContext` is the tool's one handle on the platform, cheap to clone. **Settings** are behind
+one lock shared with the shell (`Arc<Mutex<Settings>>`, one lock per concept): `ctx.common()`
+copies the common settings, `ctx.tool_settings(id)` copies the tool's own table, and
+`ctx.set_tool_settings(id, table)` replaces it and queues a `ShellRequest::SettingsChanged` so
+the shell saves best-effort at the end of the frame. Tools never see the file or its path.
+**Events** go through `ctx.emit(envelope)`, the one place a gone receiver is handled (logged at
+debug, dropped). Besides these, `ToolContext` exposes a **tool-switch
 request**: `ctx.switch_to_tool("team-compiler")` asks the shell to make the named
 tool the active view at the end of the frame. It is id-string based, so tools can
 link to each other (the Refs arranger's handoff to the Team compiler) without
@@ -889,9 +897,11 @@ The settings menu is assembled from injected sections:
   tool defines its own settings struct and UI).
 - Opening the settings menu shows the **currently selected tool's section expanded** and all other
   sections collapsed.
-- Settings persist to a single file; each tool's values live under its `id()` key, with
-  `default_settings()` merged in for missing values (this replaces Red's settings-transfer mechanism
-  for new versions). The file's location — `data/` next to the exe or the user config dir — is the
+- Settings persist to a single file: `[common]` holds `CommonSettings`, and each tool's values
+  live in a table under its `id()` key (`[team-compiler]`; `common` is therefore not a valid tool
+  id), with `default_settings()` merged in for missing values, recursively into nested tables
+  (this replaces Red's settings-transfer mechanism for new versions). Missing common keys load as
+  their defaults the same way; unknown keys in a tool's table are kept as read. The file's location — `data/` next to the exe or the user config dir — is the
   user's first-run choice (see "Data location" under Distribution and updates).
 - Saving is **best-effort**: if the write fails (typically a portable install unpacked somewhere
   unwritable), the in-memory settings keep working for the session and the shell raises the
@@ -1340,8 +1350,9 @@ What the license does **not** cover: game-derived data kept for interoperability
 in `resources/skeletons/`, `DpFileList.bin` and the other embedded `.bin` templates, the kit-icon
 reference sheet. They are Konami's; the README states it. `just deps-check` enforces the
 dependency side with a `cargo deny` license allowlist (`MIT`, `Apache-2.0`, `BSD-2-Clause`,
-`BSD-3-Clause`, `ISC`, `Zlib`, `Unicode-*`, `MPL-2.0` for file-level copyleft crates only), so a
-copyleft crate cannot enter the dependency graph unnoticed.
+`BSD-3-Clause`, `ISC`, `Zlib`, `Unicode-*`, `MPL-2.0` for file-level copyleft crates only, plus
+the font licenses `OFL-1.1` and `Ubuntu-font-1.0` that egui's bundled default fonts carry), so a
+copyleft crate cannot enter the dependency graph unnoticed. The list lives in `deny.toml`.
 
 ### Distribution: portable .7z bundle
 
@@ -2005,6 +2016,7 @@ resource download size measured and, if it matters, lazy-fetched behind the temp
 | `egui_animation` | Easing helpers for cell-color fades and panel transitions (on top of egui's built-in `animate_*`) | Release not yet reviewed; dropped if the built-in helpers suffice |
 | `md-5` | FPK checksums, PES15 save integrity hashes | Production-ready |
 | `phf` | Compile-time static maps (skeleton data) | Production-ready |
+| `unicode-normalization` | NFC normalization for `vtree`'s collision detection (two spellings of `é` are one file name on disk) | Production-ready (0.1.25 in use) |
 | `nalgebra` | Matrix operations (bone transforms) | Production-ready |
 | `rfd` | Native file/folder dialogs | Production-ready |
 | `ureq` (3.x; features `rustls` [default], `platform-verifier`, `json`, `win-system-proxy`) | HTTP for the desktop updater: one Releases API GET and one streamed asset download per release | Production-ready (3.4.1 verified 2026-09-10). Chosen over `reqwest` because `reqwest` starts a Tokio runtime internally even in blocking mode, which breaks the "no async runtime" rule; the updater needs nothing `ureq` lacks. `platform-verifier` trusts the OS certificate store; `win-system-proxy` honors Windows proxy settings, env vars cover Linux |

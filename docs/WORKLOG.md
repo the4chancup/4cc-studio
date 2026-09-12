@@ -9,8 +9,8 @@ is in `AGENTS.md` ("Working documents").
 
 ## Current status
 
-**Phase:** none started — planning complete, implementation not begun.
-**In progress:** —
+**Phase:** 1 (Workspace bootstrap + core skeleton), steps 1.1–1.5 done; 1.6 converge next.
+**In progress:** 1.6 converge
 **Blocked on:** —
 
 ---
@@ -33,7 +33,12 @@ Things that are true *right now* and would cost the next session time to redisco
 fixture, a flaky test, a crate that doesn't build on one platform). Remove an entry when it stops
 being true. Permanent toolchain facts go in `docs/CONTRIBUTING.md` "Toolchain notes" instead.
 
-- (none yet)
+- `just` needs PowerShell as its Windows shell (`set windows-shell` in the justfile): Git for
+  Windows' `sh` is not on PATH from a plain PowerShell. Recipes still stop at the first failure.
+- `cargo install just cargo-deny` is required once per machine (both take a few minutes to build);
+  the pinned toolchain and the wasm32 target install themselves on the first `cargo` call.
+- The lockfile holds egui 0.36.1 on purpose (0.36.2 was under a week old at bootstrap); a bare
+  `cargo update` would move it. Bump deliberately.
 
 ---
 
@@ -52,7 +57,7 @@ documents".
 
 | Phase | Scope | Crates | Status |
 |---|---|---|---|
-| 1 | Workspace bootstrap + core skeleton | workspace, CI, non-GUI `studio_core`, `vtree` | todo |
+| 1 | Workspace bootstrap + core skeleton | workspace, CI, non-GUI `studio_core`, `vtree`, `pes_version` | in progress |
 | 2 | Library crates (standalone-verifiable) | `weszlib` `cpk` `fpk` `ftex` `dds_convert` `fmdl` `pes_model` `uniparam` `fox2` `archives` `fpc` `teams_list` `kit_config` `color_tools` `elevation` `model_convert` (native) `pes_savefile` `python_bindings` | todo |
 | 3 | Team compiler skeleton | `team_compiler`, `aesthetics_export`, `pipeline` | todo |
 | 4 | Processing logic | `team_compiler` (`plan/` `processing/` `bins/` `output/`), `aesthetics_export` deep validation | todo |
@@ -85,23 +90,27 @@ done step with a one-line summary and the files or crates touched. One `[~]` per
 
 Spec: `docs/plans/core.md` "Phase 1".
 
-- [ ] 1.1 Workspace bootstrap — git repo, virtual workspace with `[workspace.dependencies]` and
-  `[workspace.lints.clippy]` (incl. `let_underscore_must_use = "deny"`), `rustfmt.toml`,
-  `rust-toolchain.toml` (exact version + `wasm32-unknown-unknown`), crate directories, root
-  `justfile` with the `gates` recipe (lead-authored: a wrong gate list passes instead of failing)
-  → verify: `just gates` passes on the empty workspace from PowerShell and confirms which shell
-  `just` picked up (`sh` from Git for Windows, else set `windows-shell`); `rustup show` in the
-  repo reports the pinned version and the `wasm32` target
-- [ ] 1.2 CI — `just gates`, `just deps-check` (guardrail 4), `python_bindings` build job
-  → verify: one CI run green on the bootstrap commit; one deliberately red from a pushed clippy
-  warning (proves the gate bites), then reverted
-- [ ] 1.3 `vtree` → verify: unit tests for `ScopePath`/`RelativeScopePath` normalization,
-  traversal/absolute/empty rejection, case-fold and Unicode collision detection, join-to-root;
-  `wasm32` check green
-- [ ] 1.4 `studio_core` non-GUI parts: `StudioTool` trait + `ToolContext`, settings framework,
-  `PipelineEvent` types → verify: settings load/merge-defaults/save round-trip tests; a stub tool
-  registered through the trait and dispatched from a CLI argument; `wasm32` check green
-- [ ] 1.5 Phase verification: gates green across the workspace; every step's own check re-run
+- [x] 1.1 Workspace bootstrap — done: `Cargo.toml` (workspace deps, lints, dev profile),
+  `rust-toolchain.toml` (1.98.0 + wasm32), `rustfmt.toml`, `justfile` (`gates`, `deps-check`;
+  Windows shell is PowerShell, `sh` was not on PATH), `deny.toml`, `scripts/wasm_check.py`,
+  `scripts/deps_check.py`, `crates/{studio,studio_core,libs,tools}`. Verified: `just gates` green
+  from PowerShell; a planted clippy warning made it exit 1 (reverted); `just deps-check` green
+  after the font-license decision
+- [x] 1.2 CI — done: `.github/workflows/ci.yml` (gates on ubuntu + windows, deps-check on
+  ubuntu). The `python_bindings` job is deferred to step 2.18, when the crate exists. Not yet
+  verified: no CI run has happened (first push after this commit); the deliberately red run is
+  still owed → verify: one CI run green on the bootstrap commit; one deliberately red from a
+  pushed clippy warning, then reverted
+- [x] 1.3 `vtree` — done (sidekick, one brief, no rework): `ScopePath`, `RelativeScopePath`,
+  `PathError`, `VirtualTree<T>`, `InsertError`, `Entry`; 13 tests covering the listed cases;
+  wasm32 check green. `crates/libs/vtree/src/lib.rs`
+- [x] 1.4 `studio_core` non-GUI parts — done (lead): `tool.rs` (`StudioTool`, `ToolContext`,
+  `ShellRequest`), `events.rs`, `status.rs`, `help/mod.rs` (types only), `settings/` (framework +
+  `CommonSettings`), `shell/launch.rs` (three launch modes, CLI dispatch); `pes_version` leaf
+  crate; `studio` stub binary (CLI path only). 14 + 3 tests: settings round-trip, defaults,
+  recursive merge, stub tool dispatched from `studio stub ping x`; wasm32 check green
+- [x] 1.5 Phase verification — done: `just gates` green (30 tests across `pes_version`,
+  `studio_core`, `vtree`), `just deps-check` green
 - [ ] 1.6 Converge: reviewer subagent then own audit against `core.md` "Phase 1", "Tool plugin
   interface", "Workspace guardrails", and the parts of "Event system" Phase 1 delivers (the type
   definitions — the section's own notes defer status-strip metrics and structured outcomes to
@@ -136,7 +145,8 @@ Spec: `docs/plans/core.md` "Phase 2", `docs/plans/libs.md`, `model_conversion.md
   material conversion (glTF is Phase 7)
 - [ ] 2.17 `pes_savefile` — crypto, schema codec, model, `EditFile`, `PlayerSettings`, conversion,
   interchange formats, transplant/fingerprint, comparator, FPC invisibility
-- [ ] 2.18 `python_bindings` (maturin build + Python smoke test)
+- [ ] 2.18 `python_bindings` (maturin build + Python smoke test; add the `just bindings` recipe
+  and the CI job deferred from step 1.2)
 - [ ] 2.19 Phase verification: every crate's tests per `libs.md` "Testing" green; `wasm32` check
   green on every lib
 - [ ] 2.20 Converge: reviewer subagent then own audit of each crate against its plan section
@@ -195,3 +205,8 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
 - **2026-09-12** - Plans for the Refs arranger (Fox hook lists), aesthetics patch, Team creator
   (+ `libs/team_widgets`) written; license settled (`MIT OR Apache-2.0`, Konami data excluded).
   Repository started: first commit replaces the 2023 placeholder history on `the4chancup/4cc-studio`.
+- **2026-09-13** - Phase 1 steps 1.1–1.5: workspace, gates, CI file, `vtree` (sidekick),
+  `pes_version` and non-GUI `studio_core` (lead), 30 tests, all gates green locally. Two plan
+  gaps decided by the user (`PesVersion` home, `unicode-normalization`); font licenses allowed.
+  Parallel lead/sidekick work in one tree tripped once on a half-declared module; rule added to
+  `AGENTS.md`. Next: 1.6 converge (reviewer first), 1.7 rewrite, first push and CI run.

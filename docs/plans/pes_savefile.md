@@ -34,7 +34,7 @@ codec, the model, and every operation above them are version-generic and take a 
 
 ```
 crates/libs/pes_savefile/src/
-├── lib.rs              # re-exports; PesVersion
+├── lib.rs              # re-exports (PesVersion comes from the `pes_version` leaf crate, see libs.md)
 ├── file.rs             # EditFile: load (auto-detect) / save (.bak), retained unmodeled bytes
 ├── discovery.rs        # Documents\KONAMI layout per version → SavefileCandidate list
 ├── container/          # bytes ↔ decrypted payload

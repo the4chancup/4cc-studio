@@ -2,7 +2,7 @@
 
 Covers the small shared lib crates: the binary format parsers (`cpk`, `fpk`, `fmdl`,
 `pes_model`, `ftex`, `uniparam`, `weszlib`), `dds_convert`, `color_tools`,
-`vtree`, `archives`, `elevation`, `fpc`, and `teams_list`. The aesthetics export format's object model, folder conventions,
+`vtree`, `pes_version`, `archives`, `elevation`, `fpc`, and `teams_list`. The aesthetics export format's object model, folder conventions,
 and validation live in `aesthetics_export` (shared by the Team compiler, Export upgrader,
 Kit config editor, Refs arranger, and Team creator), specified in the
 [Team compiler plan](team_compiler.md). The two big libs have their own plans:
@@ -49,6 +49,17 @@ a tree. Joining a `RelativeScopePath` back to its validated root returns a check
 `ScopePath` and cannot escape or silently collide with an existing entry.
 Filesystem source providers also enforce containment after resolving symlinks/junctions; a safe
 virtual path alone does not prove that its physical source remains inside the export.
+
+## `pes_version`
+
+`pes_version::PesVersion` is the closed set of supported versions (`Pes15`–`Pes21`) with
+`engine()` (`PreFox` for 15–17, `Fox` for 18–21), `number()`/`year()`, `Display` (`PES 2021`),
+`FromStr` (`21`, `2021`, `pes21`) and serde as the two-digit number. It is its own leaf crate,
+not a type inside `pes_savefile`, because `studio_core`'s common settings, `model_convert`'s
+skeleton tables, `kit_config` and the compilers all take it and none of them may depend on the
+savefile crate (or on `studio_core`). Version-specific *facts* never live here: an offset, a key
+or a path is data in the crate that owns the format, looked up by version, never a `match` on
+`PesVersion` outside that crate.
 
 ## Format references in converters
 
