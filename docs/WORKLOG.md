@@ -10,7 +10,7 @@ is in `AGENTS.md` ("Working documents").
 ## Current status
 
 **Phase:** 2 (Library crates). Done: 2.1 `wezlib`, 2.2 `cpk`, 2.3 `fpk`, 2.4 `ftex`, 2.5 `dds_convert` (CPU),
-2.8 `uniparam`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`. Next: 2.6b `fmdl::format` vertex and face codec. Review
+2.8 `uniparam`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`. Next: 2.6c `fmdl::ops`. Review
 rounds A and B (2026-09-13) closed: 2.5c, 2.12b, 2.13b done.
 **In progress:** none
 **Blocked on:** —
@@ -137,9 +137,10 @@ Spec: `docs/plans/core.md` "Phase 2", `docs/plans/libs.md`, `model_conversion.md
 - [x] 2.6a-2 `fmdl::format` typed records — done (sidekick): `FmdlFile` over the container, 19
   record structs with every byte a named field, byte-identical on the Konami fixtures, bone names
   of all four boned fixtures resolve to the reference parser's lists. 14 tests
-- [ ] 2.6b `fmdl::format` vertex and face decoding/encoding (mesh formats, vertex formats, buffer
-  offsets, float16) → verify: decode then re-encode every mesh of every fixture reproduces the
-  buffer bytes
+- [x] 2.6b `fmdl::format` vertex and face codec — done (sidekick): attributes resolved through
+  mesh-format assignments and buffer offsets, decode/encode in place, hand-written half floats
+  (exhaustive round trip); decode then re-encode of every mesh of every fixture leaves the buffer
+  byte-identical; every highneck weight quad sums to 255. 19 tests
 - [ ] 2.6c `fmdl::ops` (split, vertex_enc, antiblur, merge, paths) per `model_conversion.md`
   "Extension algorithms" and "multi-FMDL mesh merging"
 - [ ] 2.6d `fmdl::check` findings
