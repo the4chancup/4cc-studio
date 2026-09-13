@@ -12,7 +12,7 @@ is in `AGENTS.md` ("Working documents").
 **Phase:** 2 (Library crates). Done: 2.1 `wezlib`, 2.2 `cpk`, 2.3 `fpk`, 2.4 `ftex`, 2.5 `dds_convert` (CPU),
 2.6 `fmdl` (format, model, ops, check), 2.7 `pes_model` (format, mtl, model, ops, check), 2.8 `uniparam`, 2.9 `fox2`, 2.10 `archives`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`, 2.14 `color_tools`, 2.15 `elevation`. Review
 rounds A and B (2026-09-13) closed: 2.5c, 2.12b, 2.13b done.
-**In progress:** 2.16 `model_convert` (2.16a done; 2.16b IR next), then `pes_savefile`, `python_bindings`
+**In progress:** 2.16 `model_convert` (2.16a, b, c, e done; 2.16d `.model` importer/exporter next), then `pes_savefile`, `python_bindings`
 **Blocked on:** nothing
 
 ---
@@ -288,8 +288,16 @@ Spec: `docs/plans/core.md` "Phase 2", `docs/plans/libs.md`, `model_conversion.md
 - [x] 2.16b `model_convert::ir` + `materials` types — done (sidekick): the plan's two code
   blocks pasted with docs, `validate` with thirteen invariants (weighted bone slots only: Konami
   files leave stale indices in unweighted slots), one failing case each. 26 tests
-- [ ] 2.16c `model_convert::formats::fmdl` — `fmdl_to_ir` / `ir_to_fmdl` → verify: semantic
-  round trip on the copied Konami fixtures, bind pose from the companion SKL on the audience pair
+- [x] 2.16c `model_convert::formats::fmdl` + `loss.rs` — done (sidekick, one rework after the
+  brief's "vertex-loop encode is a no-op" premise failed: it reorders 198/204 highneck vertices;
+  decision logged): `fmdl_to_ir` (split/anti-blur decoded, bind pose from the SKL else PES21's
+  tables, per-mesh flags lifted to split materials, weights `/255`, out-of-group slots dropped
+  with a finding) and `ir_to_fmdl` (Fox resolution, total-preserving weight quantization, derived
+  positions/boxes, encoders in the legacy order anti-blur → vertex loops → split, SKL only for a
+  bone PES21 lacks: the audience fixture's `sk_root_hip`). Round trip equals the decoded input
+  with the same encoders applied on all three fixtures, no findings; IR is a fixed point after
+  one encode. Lead review: dummy maps only for a material without a `fox` table; family defaults
+  only without a native table in both `to_fox`/`to_prefox`. 10 tests; crate 51
 - [ ] 2.16d `model_convert::formats::pes_model` — `model_to_ir` / `ir_to_model` → verify: semantic
   round trip on the copied fixtures with `.mtl`, inline matrices inverted and re-inverted within 1e-5
 - [x] 2.16e `model_convert::materials` logic — done (sidekick, one rework: native sampler
@@ -398,3 +406,8 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   2.9 `fox2` (87-file census, four fixtures, reviewer pass), 2.10 `archives` (`sevenz-rust2`,
   `zip`), 2.14 `color_tools` extraction (134-kit harness), 2.15 `elevation` done; 329 tests
   workspace-wide, 18 crates on the wasm32 gate. Next: 2.16 `model_convert`.
+- **2026-09-14** - 2.16c `model_convert::formats::fmdl` + `loss.rs` done (one rework: the
+  vertex-loop encoder reorders Konami vertices, so round trips compare against the decoded input
+  re-encoded); `to_fox`/`to_prefox` family defaults only without a native table; dummy maps only
+  for family-derived materials. Bone-order census over 2606 `.model` files for 2.16d: 44 list a
+  child before its present render parent. Next: 2.16d `formats/pes_model.rs`.
