@@ -2,7 +2,7 @@
 //! and writes, with no interpretation of the data inside the blocks.
 
 mod container;
-mod f16;
+pub(crate) mod f16;
 mod file;
 pub mod records;
 mod skl;
@@ -79,4 +79,10 @@ pub enum FmdlError {
     /// A mesh belongs to two mesh groups or to none.
     #[error("bad mesh group assignment: {0}")]
     BadMeshGroupAssignment(&'static str),
+    /// A mesh's bone group holds more than the format's 32 entries.
+    #[error("too many bones in bone group: {0}")]
+    TooManyBones(usize),
+    /// A mesh holds more vertices than the format's u16 count allows.
+    #[error("too many vertices in mesh: {0}")]
+    TooManyVertices(usize),
 }
