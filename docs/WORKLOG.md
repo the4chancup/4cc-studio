@@ -292,8 +292,13 @@ Spec: `docs/plans/core.md` "Phase 2", `docs/plans/libs.md`, `model_conversion.md
   round trip on the copied Konami fixtures, bind pose from the companion SKL on the audience pair
 - [ ] 2.16d `model_convert::formats::pes_model` — `model_to_ir` / `ir_to_model` → verify: semantic
   round trip on the copied fixtures with `.mtl`, inline matrices inverted and re-inverted within 1e-5
-- [ ] 2.16e `model_convert::materials` — schema types, family inference, `to_fox`, `to_prefox`
-  → verify: the format plan's family table as literal expectations, both directions
+- [x] 2.16e `model_convert::materials` logic — done (sidekick, one rework: native sampler
+  settings verbatim, plain branches): `family` (Fox substring rules, pre-Fox exact names),
+  `to_fox` (family defaults table, role <-> sampler, `resolve` with the booleans owning their
+  bits), `to_prefox` (`Basic_*` ladder, state sets in the fixed order, role <-> sampler with
+  attributes, `resolve`). Census of 1983 Konami FMDLs: `fox3ddf_blin` meshes carry alpha
+  128/160/32/0 in near-equal shares, `constant_srgb_ndr_solid` mostly (16, 4) where the plan's
+  default is (16, 5); the plan's table kept, see the open question. 41 tests
 - [ ] 2.16f `model_convert::skeletons::retarget` — fold + re-bind → verify: PES19→PES16 and
   PES17→PES15 fold exactly the legacy `missingBones`, not the `movedBones`; same-version no-op
 - [ ] 2.16g `model_convert::ops::hand_split` → verify: synthetic mesh with an `skh_` strip splits

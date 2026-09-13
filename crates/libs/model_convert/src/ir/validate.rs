@@ -284,11 +284,20 @@ pub fn validate(model: &CanonicalModel) -> Result<(), ValidationError> {
         }
     }
     for (material, item) in model.materials.iter().enumerate() {
-        let indices = item.textures.iter().map(|(_, texture)| *texture).chain(
-            item.fox
-                .iter()
-                .flat_map(|fox| fox.textures.iter().map(|(_, texture)| *texture)),
-        );
+        let indices = item
+            .textures
+            .iter()
+            .map(|(_, texture)| *texture)
+            .chain(
+                item.fox
+                    .iter()
+                    .flat_map(|fox| fox.textures.iter().map(|(_, texture)| *texture)),
+            )
+            .chain(
+                item.prefox
+                    .iter()
+                    .flat_map(|prefox| prefox.textures.iter().map(|(_, texture)| *texture)),
+            );
         for texture in indices {
             if texture >= model.textures.len() {
                 return Err(ValidationError::MaterialTexture {
@@ -563,6 +572,22 @@ mod tests {
             Err(ValidationError::MaterialTexture {
                 material: 0,
                 texture: 5,
+                textures: 1
+            })
+        );
+        let mut model = valid();
+        model.materials[0].prefox = Some(crate::materials::PreFoxMaterial {
+            shader: "Basic_C".to_string(),
+            states: vec![],
+            samplers: vec![],
+            textures: vec![("RoughnessMap".to_string(), 9)],
+            parameters: vec![],
+        });
+        assert_eq!(
+            validate(&model),
+            Err(ValidationError::MaterialTexture {
+                material: 0,
+                texture: 9,
                 textures: 1
             })
         );

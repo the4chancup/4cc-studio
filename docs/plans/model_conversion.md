@@ -224,6 +224,8 @@ pub struct PreFoxMaterial {
     pub shader: String,
     pub states: Vec<(String, u32)>,              // ztest, zwrite, twosided, alphatest, alpharef, alphablend, blendmode
     pub samplers: Vec<(String, SamplerSettings)>, // native sampler name → srgb/filters/addressing/maxaniso
+    pub textures: Vec<(String, usize)>,          // native sampler name → texture, non-canonical only
+                                                 //   (`RoughnessMap` on 312 Konami materials, `Normal2`, ...)
     pub parameters: Vec<(String, Vec<f32>)>,     // .mtl <vector> elements, one to four components as stored
 }
 
