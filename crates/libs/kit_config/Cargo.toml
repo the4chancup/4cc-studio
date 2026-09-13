@@ -1,0 +1,23 @@
+[package]
+name = "kit_config"
+description = "Kit config codec: the 120-byte binary, its TOML form, validation, FPC values"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+fpc.workspace = true
+pes_version.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+toml.workspace = true
+toml_edit.workspace = true
+wezlib.workspace = true
+
+[dev-dependencies]
+uniparam.workspace = true
+
+[lints]
+workspace = true

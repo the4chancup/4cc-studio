@@ -1042,12 +1042,16 @@ phase that owns them):
   merged meshes, or packed entries; evaluate an RAII budget permit that grows and shrinks with
   actual allocations. Solid 7z archives charge their full decompressed buffer until all dependent
   tasks drain.
-- **`teams_list.txt` contract.** Fixed already: tab-separated (not whitespace — Blue's
-  `split()` turned `Backup 1` into `Backup`), `ID` and `Name` columns with further columns ignored,
-  Name lowercased on load, CRLF and no BOM as Red writes it (Red's current file: 220 rows, all
-  ASCII). Still to specify: whether the header row is required or detected, BOM tolerance on read,
-  blank lines, duplicate names/IDs, atomic writes, and concurrency between the grid's ID-cell
-  write, the updater merge and the savefile import.
+- **`teams_list.txt` contract.** Resolved in `teams_list` (Phase 2): tab-separated (not
+  whitespace — Blue's `split()` turned `Backup 1` into `Backup`); a header line is required and its
+  fields are preserved on write; `ID` and `Name` are located by header position and further
+  columns (`MinBootsID`, `MaxBootsID`) are carried verbatim; Name folded through `TeamName::new` on
+  load; a line whose Name does not fold is a placeholder kept verbatim and never looked up; a line
+  whose Name folds but whose ID is outside 701–920 is an error, as are duplicate IDs or names; a
+  UTF-8 BOM is tolerated on read and never written; blank lines are dropped; CRLF or LF read, CRLF
+  written (the file Red's current version writes: 220 rows, all ASCII). Still open: atomic writes
+  and concurrency between the grid's ID-cell write, the updater merge and the savefile import
+  (callers own I/O, so these are Phase 3 and Phase 16 questions).
 - **`colors.txt` grammar and TeamColor capacity.** Define the grammar (UTF-8/BOM, decimal versus
   hex, comments, blank lines) and the exact team-color count `TeamColor.bin`'s fixed-size records
   support; the kit-side fallback policy is resolved above.

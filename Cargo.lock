@@ -443,6 +443,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "fpc"
+version = "0.1.0"
+dependencies = [
+ "pes_version",
+]
+
+[[package]]
 name = "fpk"
 version = "0.1.0"
 dependencies = [
@@ -580,6 +587,20 @@ dependencies = [
  "cfg-if",
  "futures-util",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "kit_config"
+version = "0.1.0"
+dependencies = [
+ "fpc",
+ "pes_version",
+ "serde",
+ "thiserror",
+ "toml",
+ "toml_edit",
+ "uniparam",
+ "wezlib",
 ]
 
 [[package]]
@@ -1029,6 +1050,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "toml_edit"
+version = "0.23.10+spec-1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "84c8b9f757e028cee9fa244aea147aab2a9ec09d5325a9b01e0a49730c2b5269"
+dependencies = [
+ "indexmap",
+ "toml_datetime",
+ "toml_parser",
+ "toml_writer",
+ "winnow 0.7.15",
+]
+
+[[package]]
 name = "toml_parser"
 version = "1.1.3+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1075,6 +1109,14 @@ name = "unicode-segmentation"
 version = "1.13.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c6f5d3c3b1bf09027a88a6bc961fc00497d651009560b5463668dc81b0fa87a8"
+
+[[package]]
+name = "uniparam"
+version = "0.1.0"
+dependencies = [
+ "thiserror",
+ "wezlib",
+]
 
 [[package]]
 name = "utf8parse"
@@ -1212,6 +1254,9 @@ name = "winnow"
 version = "0.7.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "df79d97927682d2fd8adb29682d1140b343be4ac0f08fd68b7765d9c059d3945"
+dependencies = [
+ "memchr",
+]
 
 [[package]]
 name = "winnow"

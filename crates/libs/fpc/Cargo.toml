@@ -1,0 +1,14 @@
+[package]
+name = "fpc"
+description = "Full Player Customization as data: kit config values, player appearance presets, interference rules"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+pes_version.workspace = true
+
+[lints]
+workspace = true
