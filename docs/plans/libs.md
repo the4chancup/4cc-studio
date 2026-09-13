@@ -130,6 +130,70 @@ Rules:
 - Core plan guardrail 4 (PyO3-buildable, dependency denylist) applies to the whole crate; the split
   does not relax it for `ops/`.
 
+### `fmdl::model`: the semantic layer the ops work on
+
+`format/` is records and buffers; the ops (splitting, anti-blur, merging, path editing) reason
+about bones, materials, meshes and groups. `model.rs` is the layer between them: a `Model` built
+from an `FmdlFile` and written back to a fresh one. It is not byte-identical (a fresh file is laid
+out from scratch); it is *semantically* lossless: `Model::from_file(&FmdlFile::read(x)?)?.to_file()`
+read back gives an equal `Model`, on Konami files as well as add-on-written ones (the legacy writer
+could not rebuild Konami files at all; that is the bar this layer clears).
+
+```rust
+pub struct Model {
+    pub bones: Vec<Bone>,
+    pub materials: Vec<MaterialInstance>,
+    pub meshes: Vec<Mesh>,
+    pub mesh_groups: Vec<MeshGroup>,
+    /// The `X-FMDL-Extensions` header: which encodings the file declares.
+    pub extensions: Extensions,
+    /// Section-1 block 1, 64 bytes per bone in Konami files; carried as is (the add-on writes it empty).
+    pub bone_matrices: Option<Vec<u8>>,
+}
+pub struct Bone { pub name: String, pub parent: Option<usize>, pub bounding_box: BoundingBox, pub local_position: [f32; 4], pub world_position: [f32; 4] }
+pub struct BoundingBox { pub max: [f32; 4], pub min: [f32; 4] }
+pub struct Texture { pub file_name: String, pub directory: String }
+pub struct MaterialInstance {
+    pub name: String, pub shader: String, pub technique: String,
+    /// (sampler name, texture), in file order.
+    pub textures: Vec<(String, Texture)>,
+    /// (parameter name, four floats), in file order.
+    pub parameters: Vec<(String, [f32; 4])>,
+}
+pub struct Mesh {
+    pub vertices: MeshVertices,          // the codec's type; bone indices index `bone_group`
+    pub faces: Vec<[u16; 3]>,
+    pub bone_group: Vec<usize>,          // indices into `Model::bones`, at most 32
+    pub material: usize,                 // index into `Model::materials`
+    pub alpha_flags: u8,
+    pub shadow_flags: u8,
+    pub has_antiblur_meshes: bool,       // per-mesh extension headers
+    pub is_antiblur_mesh: bool,
+    pub custom_bounding_box: Option<BoundingBox>,
+}
+pub struct MeshGroup { pub name: String, pub parent: Option<usize>, pub meshes: Vec<usize>, pub bounding_box: Option<BoundingBox>, pub visible: bool, pub split_mesh_group: bool }
+pub struct Extensions { pub mesh_splitting: bool, pub antiblur: bool, pub vertex_loop_preservation: bool }
+impl Model {
+    pub fn from_file(file: &FmdlFile) -> Result<Model, FmdlError>;
+    pub fn to_file(&self) -> Result<FmdlFile, FmdlError>;
+}
+```
+
+`from_file` resolves every index through the tables (strings, bounding boxes, bone groups,
+materials, textures, parameter assignments, mesh-group assignments) and reads the extension
+headers from the string table's tail (`X-FMDL-Extensions:` plus per-object headers such as
+`Has-Antiblur-Meshes: 0,3` listing mesh indices, `Split-Mesh-Groups: 2` listing group indices,
+`Custom-Bounding-Box-Meshes`), the `key: value, value` grammar the add-ons write. Every dangling
+index is an error, never a panic. `to_file` lays a file out the way the add-on writer does, which
+years of add-on-written models prove PES accepts: positions in buffer 0 (stride 12), the other
+attributes interleaved in buffer 1 in the order normal, tangent, color, bone weights, bone indices,
+uv maps (a uv map identical to an earlier one shares its offset), faces in buffer 2; strings
+de-duplicated; a bounding box per bone, mesh group and mesh (computed from the vertices when the
+source had none, which is why the legacy writer failed on Konami files); one level-of-detail record;
+the fixed blocks 18 and 20 as the add-on writes them; the extension headers re-emitted after the
+last string. The codec's per-mesh vertex kinds (normal, tangent, color, bone mapping, uv count and
+precision) are exactly what `MeshVertices` carries, so no separate "vertex fields" record exists.
+
 ## External tool dependencies
 
 | Tool | Current use | Rust replacement |

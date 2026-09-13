@@ -10,7 +10,7 @@ is in `AGENTS.md` ("Working documents").
 ## Current status
 
 **Phase:** 2 (Library crates). Done: 2.1 `wezlib`, 2.2 `cpk`, 2.3 `fpk`, 2.4 `ftex`, 2.5 `dds_convert` (CPU),
-2.8 `uniparam`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`. Next: 2.6c `fmdl::ops`. Review
+2.8 `uniparam`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`. Next: 2.6c-1 `fmdl::model` from_file. Review
 rounds A and B (2026-09-13) closed: 2.5c, 2.12b, 2.13b done.
 **In progress:** none
 **Blocked on:** —
@@ -141,8 +141,13 @@ Spec: `docs/plans/core.md` "Phase 2", `docs/plans/libs.md`, `model_conversion.md
   mesh-format assignments and buffer offsets, decode/encode in place, hand-written half floats
   (exhaustive round trip); decode then re-encode of every mesh of every fixture leaves the buffer
   byte-identical; every highneck weight quad sums to 255. 19 tests
-- [ ] 2.6c `fmdl::ops` (split, vertex_enc, antiblur, merge, paths) per `model_conversion.md`
-  "Extension algorithms" and "multi-FMDL mesh merging"
+- [ ] 2.6c-1 `fmdl::model` `Model::from_file` (`libs.md` "`fmdl::model`") → verify: every fixture
+  loads; bone names, mesh counts, material names match the reference parser; extension headers of
+  the add-on fixtures decode
+- [ ] 2.6c-2 `fmdl::model` `Model::to_file` → verify: `from_file(to_file(m)) == m` on every
+  fixture, Konami ones included; the rewritten file passes `FmdlFile::read`
+- [ ] 2.6c-3 `fmdl::ops` antiblur, split, vertex_enc, merge, paths per `model_conversion.md`
+  "Extension algorithms" and "multi-FMDL mesh merging", one handoff each
 - [ ] 2.6d `fmdl::check` findings
 - [ ] 2.7 `pes_model` (`format/` + `ops/` + `check.rs`)
 - [x] 2.8 `uniparam` — done (sidekick): WESYS-unwrapping read, sorted writer; Konami PES21
