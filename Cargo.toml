@@ -36,6 +36,7 @@ unicode-normalization = "0.1.25"
 # Workspace crates, so a member depends on another by name alone.
 cpk = { path = "crates/libs/cpk" }
 dds_convert = { path = "crates/libs/dds_convert" }
+fmdl = { path = "crates/libs/fmdl" }
 fpc = { path = "crates/libs/fpc" }
 fpk = { path = "crates/libs/fpk" }
 kit_config = { path = "crates/libs/kit_config" }

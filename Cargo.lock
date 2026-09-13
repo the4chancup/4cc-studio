@@ -476,6 +476,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "fmdl"
+version = "0.1.0"
+dependencies = [
+ "binrw",
+ "log",
+ "thiserror",
+]
+
+[[package]]
 name = "foldhash"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
