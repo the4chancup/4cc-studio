@@ -10,9 +10,9 @@ is in `AGENTS.md` ("Working documents").
 ## Current status
 
 **Phase:** 2 (Library crates). Done: 2.1 `wezlib`, 2.2 `cpk`, 2.3 `fpk`, 2.4 `ftex`, 2.5 `dds_convert` (CPU),
-2.6 `fmdl` (format, model, ops, check), 2.7 `pes_model` (format, mtl, model, ops, check), 2.8 `uniparam`, 2.9 `fox2`, 2.10 `archives`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`, 2.14 `color_tools`. Review
+2.6 `fmdl` (format, model, ops, check), 2.7 `pes_model` (format, mtl, model, ops, check), 2.8 `uniparam`, 2.9 `fox2`, 2.10 `archives`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`, 2.14 `color_tools`, 2.15 `elevation`. Review
 rounds A and B (2026-09-13) closed: 2.5c, 2.12b, 2.13b done.
-**In progress:** 2.15 `elevation` next (then `model_convert`, `pes_savefile`, `python_bindings`)
+**In progress:** 2.16 `model_convert` next (then `pes_savefile`, `python_bindings`)
 **Blocked on:** nothing
 
 ---
@@ -274,7 +274,11 @@ Spec: `docs/plans/core.md` "Phase 2", `docs/plans/libs.md`, `model_conversion.md
   sheet, thresholds and a trim fallback from a 134-kit harness, decision logged; sidekick
   code): `kit::extract_kit_colors` and `dominant_colors` over RGBA pixels, no dependency.
   9 synthetic tests; workspace 325. Widget and icon drawing wait for Phase 8
-- [ ] 2.15 `elevation`
+- [x] 2.15 `elevation` — done (lead: surface pinned in the plan, `windows` + `libc` target-gated;
+  sidekick code): `is_elevated` (token query / euid), `relaunch_elevated` (`runas`, UAC
+  decline mapped), `is_access_denied`, argument quoting verified against `CommandLineToArgvW`
+  itself; wasm32 compiles to "not elevated". The relaunch is a manual check at the first tool
+  phase that needs it. 4 tests; workspace 329
 - [ ] 2.16 `model_convert` — IR, native importers/exporters, hand auto-split, skeleton constants,
   material conversion (glTF is Phase 7)
 - [ ] 2.17 `pes_savefile` — crypto, schema codec, model, `EditFile`, `PlayerSettings`, conversion,
@@ -365,3 +369,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
 - **2026-09-13** - `resources/prefox_model_format.md` written for the plugin author from the
   census. Merge home decided by the user: native `pes_model::ops::merge`; six plan passages and
   `AGENTS.md` updated, decision logged. Next: implement 2.7d-4, then 2.9 `fox2`.
+- **2026-09-13** - 2.7d-4 `pes_model::ops::merge` (bone tolerance measured over 2606 files),
+  2.9 `fox2` (87-file census, four fixtures, reviewer pass), 2.10 `archives` (`sevenz-rust2`,
+  `zip`), 2.14 `color_tools` extraction (134-kit harness), 2.15 `elevation` done; 329 tests
+  workspace-wide, 18 crates on the wasm32 gate. Next: 2.16 `model_convert`.

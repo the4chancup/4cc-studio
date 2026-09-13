@@ -1120,3 +1120,15 @@ fallback a black kit with black shorts and gold trim would get two identical men
 every manager who bothered declared the trim. RGB distance rather than a Lab metric keeps one
 notion of distance in the crate; navy against black is 64, the threshold's anchor.
 Plan: `libs.md` "Dominant kit-color extraction" rewritten with the values and the evidence.
+
+## 2026-09-13 - elevation - `windows` and `libc` as target-gated dependencies; the surface pinned in the plan
+Decision: `libs/elevation` exposes `is_elevated`, `relaunch_elevated(program, args)` and
+`is_access_denied`, with `windows` 0.62.2 (four `Win32_*` features) under `cfg(windows)` and
+`libc` 0.2.189 under `cfg(unix)`; every other target (wasm32) compiles to "not elevated,
+unsupported". The `requireAdministrator` manifest stays with the `studio` binary.
+Why: the plan named the behavior but no crate for the POSIX euid check and no API shape; `libc`
+is the std-adjacent answer and `windows` is already the approved Win32 crate. Target-gating keeps
+the crate on the `wasm32` gate like every other lib. Argument quoting for the relaunch is tested
+against `CommandLineToArgvW` itself rather than against our reading of its rules.
+Plan: `libs.md` "`libs/elevation`" gains the surface block and the test list; `core.md`
+"External Dependencies" rows for `windows` and `libc`.
