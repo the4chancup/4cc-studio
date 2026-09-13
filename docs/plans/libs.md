@@ -194,6 +194,68 @@ the fixed blocks 18 and 20 as the add-on writes them; the extension headers re-e
 last string. The codec's per-mesh vertex kinds (normal, tangent, color, bone mapping, uv count and
 precision) are exactly what `MeshVertices` carries, so no separate "vertex fields" record exists.
 
+### `pes_model::format`: the `.model` container and its sections
+
+A `.model` is a pointer graph, not a block table: eleven sections, each a *record array* (a
+12-byte table of contents `u32 first_record_offset, u32 record_count, u32 record_size`, an
+optional header of `first_record_offset - 12` bytes, then the fixed-size records) followed by the
+data its records point at, every offset relative to the array's own start. Layout measured on all
+2610 Konami `.model` files of a PES 2017 install plus the two add-on-written card heads (the
+fixtures in `crates/libs/pes_model/tests/fixtures/` are the representatives, one per variant):
+
+- 8-byte magic `MODEL\0\0\0`, then `u32 table_offset` (16 always), `u16 unknown` (0 always),
+  `u16 version` (19; one shadow model is 17), `u32 unknown` (9 always), `u32 flags` (0; 4 in two
+  face-montage models, meaning unknown, carried verbatim). The section table is a record array of
+  eleven `u32` offsets at file offset 24, relative to 24; the sections follow back to back from
+  offset 80, each 4-aligned, the file ending with the last one. Konami writes them in the order
+  0 1 2 3 4 5 6 8 9 10 7 without exception, the add-on in the order 7 0 5 6 3 8 9 10 1 2 4, so
+  table order and file order differ and both are kept for byte identity.
+- Section roles: **0** bone data (entry 0: one `float32Matrix34` record per bone, the inverse
+  bind matrix, in bone-name order; every further entry: one bone group, a `u16` bone-index list;
+  a boneless model still has the empty entry 0), **1** geometry (per mesh: one vertex set holding
+  one vertex-field descriptor array, one face descriptor, and an extras array of bounds /
+  material-combination flags `1,0,0,0` / an order word 0), **2** annotation strings, **3**
+  annotation records (28 bytes, always `0 0 0 2 2 2 0`, one per annotation of each mesh), **4**
+  meshes (signed offsets from section 4's start into sections 0, 1, 2, 3 and 6, which is what
+  makes the graph cross-section), **5** bone names, **6** material names, **7** model bounds and
+  the LOD record, **8** cloth, **9** material combinations, **10** locator geometry.
+- Version 17 layout (the shadow model): 20-byte mesh records without the trailing editor-data
+  pointer, two geometry extras (no order word), 12-byte section-10 records. Every other file:
+  24-byte mesh records whose editor-data array is present and empty, three extras, 16-byte
+  section-10 records with a 4-byte zero header.
+- LOD: 532 of the 2610 files (the `modD_*collar*` shirt parts) carry 4 to 7 LOD levels: the face
+  descriptor names a table of `(start, end)` face-vertex ranges that partition the face stream in
+  order of decreasing detail, level 0 first, and section 7's LOD record is
+  `u32 level_count, f32 0.0625, f32 4.0, f32 0.3` (`0, 0.0625, 4.0, 0.0` without LODs). With no
+  LODs Konami's `lod_table_offset` points at the section end; the add-on writes 0.
+- Mesh annotations: `(string, section-3 record, 7, type)`. Konami types: **1** the part name
+  (`prt`, `glasses_02`, `head_color`), always first; **10** the same string again (hair, glasses);
+  **2** `DSpecularS`; **7** a normal-map name (`DNormalS`, `HeadNormal`, `head_normal_default`,
+  `<hair>_face_normal`). The add-on defines **128** mesh name and **129** extension header, with
+  no section-3 record. The reference parser reads only 128 and 129, so it drops Konami's.
+- Konami's empty section 8 has table-of-contents offset 0 (not 12) in every file; section 9's is
+  12. Konami aligns some pointed-at data to 8 or 16 with zero padding in no fixed pattern; no file
+  carries an unreferenced non-zero byte. Section 8 (cloth), 9 and 10 are empty in every one of
+  the 2610 files, and no mesh references section 10; the vertex-field header's cloth word and the
+  per-mesh editor-data array are always zero and empty. Two third-party trophy props (not
+  Konami's) have sections at odd offsets and annotation word 8, which the container reads fine.
+
+So the crate has two format layers, like `fmdl`: **`ModelContainer`** (header fields, the eleven
+sections as opaque byte runs in file order) is the byte-identical one (`write(read(x)) == x` on
+every fixture, the WESYS-wrapped ones compared unwrapped), and **`PreFoxModel`** is the typed
+layer over it: version and flags, bones (name + matrix), bone groups, material names,
+annotation strings and records, geometries with their vertex-field descriptors, raw field data,
+face stream and LOD ranges, meshes with every cross-section pointer resolved to an index, model
+bounds. Its `write` lays a fresh file out the add-on's way (section order, 4-padding, no
+alignment gaps, the version-19 record sizes), which years of add-on-written models prove PES
+accepts; it is semantically lossless (`read(write(m)) == m` on every fixture, the version-17 one
+included), not byte-identical, because reproducing Konami's padding would mean carrying every
+offset. Everything Konami writes and the add-on drops is kept: annotation types 1, 2, 7 and 10
+with their section-3 records, LOD tables and the LOD record. Sections 8, 9 and 10 are written
+empty; a model whose geometry or meshes reference them (cloth, material combinations, locators,
+none of which any Konami player part uses) is a read error naming the feature, not a warning,
+since a rewrite could not preserve it.
+
 ## External tool dependencies
 
 | Tool | Current use | Rust replacement |
