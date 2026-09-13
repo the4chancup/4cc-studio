@@ -14,11 +14,12 @@ mod validate;
 
 pub use fpc::{apply_fpc, matches_fpc};
 pub use model::{
-    BackNumber, Badges, ChestNumber, Colors, KitConfig, LongSleeves, NameShape, NameText, Numbers,
-    Position, Rgb, Shirt, ShortSleeves, Shorts, ShortsNumber, Side, TEXTURE_NAME_FIELDS,
+    BackNumber, Badges, ChestNumber, Colors, FieldLimit, KitConfig, LongSleeves, NameShape,
+    NameText, Numbers, Position, Rgb, Shirt, ShortSleeves, Shorts, ShortsNumber, Side,
+    TEXTURE_NAME_FIELDS, field_limits,
 };
 pub use names::{TexturePresence, texture_names};
-pub use validate::{Finding, Severity, validate};
+pub use validate::{Finding, OutOfRange, Severity, validate};
 
 use pes_version::PesVersion;
 
@@ -146,6 +147,7 @@ mod tests {
                         == [Finding {
                             code: "kit_unknown_sleeve_value",
                             severity: Severity::Info,
+                            context: None,
                         }],
                 "findings for {name}: {findings:?}"
             );
@@ -230,12 +232,119 @@ mod tests {
 
         config = KitConfig::template();
         config.name.y = 30;
-        assert!(
-            validate(&config, PesVersion::Pes20)
-                .iter()
-                .any(|f| f.code == "kit_name_y_clamped" && f.severity == Severity::Warning)
+        // PES <= 20's Name Y field holds 0-16: one finding naming the field,
+        // and the emitted bytes decode to the clamped 16.
+        assert_eq!(
+            validate(&config, PesVersion::Pes20),
+            [Finding {
+                code: "kit_value_out_of_range",
+                severity: Severity::Warning,
+                context: Some(OutOfRange {
+                    field: "name.y",
+                    value: 30,
+                    max: 16,
+                }),
+            }]
         );
+        let decoded =
+            KitConfig::decode(&config.encode(PesVersion::Pes20), PesVersion::Pes20).unwrap();
+        assert_eq!(decoded.name.y, 16);
+        // PES 21's field holds 0-39: no finding, 30 emitted as is.
         assert!(validate(&config, PesVersion::Pes21).is_empty());
+        let decoded =
+            KitConfig::decode(&config.encode(PesVersion::Pes21), PesVersion::Pes21).unwrap();
+        assert_eq!(decoded.name.y, 30);
+
+        // Every packed field goes through the same table.
+        let mut config = KitConfig::template();
+        config.numbers.back.size = 255;
+        assert!(validate(&config, PesVersion::Pes21).iter().any(|f| f.code
+            == "kit_value_out_of_range"
+            && f.context
+                == Some(OutOfRange {
+                    field: "number.back.size",
+                    value: 255,
+                    max: 15,
+                })));
+        let decoded =
+            KitConfig::decode(&config.encode(PesVersion::Pes21), PesVersion::Pes21).unwrap();
+        assert_eq!(decoded.numbers.back.size, 15);
+    }
+
+    #[test]
+    fn pes15_pattern_remaps_and_warns() {
+        let mut config = KitConfig::template();
+        // The template preserves the byte's undecoded low nibble; drop it so
+        // the emitted byte shows the pattern field alone. Its name.y = 30 is
+        // out of range on PES 15, which is not what this test checks.
+        config.unknown.remove(&0x24);
+        config.name.y = 10;
+        let pattern_byte = |config: &KitConfig, version: PesVersion| config.encode(version)[0x24];
+
+        config.shirt.pattern = 6;
+        assert_eq!(pattern_byte(&config, PesVersion::Pes15), 0x60);
+        assert!(validate(&config, PesVersion::Pes15).is_empty());
+
+        config.shirt.pattern = 12;
+        assert_eq!(pattern_byte(&config, PesVersion::Pes15), 0xA0);
+        assert!(validate(&config, PesVersion::Pes15).iter().any(|f| f.code
+            == "kit_pattern_unsupported_pes15"
+            && f.severity == Severity::Warning
+            && f.context
+                == Some(OutOfRange {
+                    field: "shirt.pattern",
+                    value: 12,
+                    max: 11,
+                })));
+
+        config.shirt.pattern = 13;
+        assert_eq!(pattern_byte(&config, PesVersion::Pes15), 0xB0);
+
+        config.shirt.pattern = 14;
+        assert_eq!(pattern_byte(&config, PesVersion::Pes15), 0xE0);
+        assert!(
+            validate(&config, PesVersion::Pes15)
+                .iter()
+                .any(|f| f.code == "kit_pattern_unsupported_pes15")
+        );
+
+        // Later versions read the full 4-bit field: no remap, no finding.
+        config.shirt.pattern = 12;
+        assert_eq!(pattern_byte(&config, PesVersion::Pes16), 0xC0);
+        assert!(
+            !validate(&config, PesVersion::Pes16)
+                .iter()
+                .any(|f| f.code == "kit_pattern_unsupported_pes15")
+        );
+    }
+
+    #[test]
+    fn wrong_typed_table_is_an_error() {
+        assert!(matches!(
+            KitConfig::from_toml("shirt = 144"),
+            Err(KitConfigError::InvalidValue { key: "shirt", .. })
+        ));
+        assert!(matches!(
+            KitConfig::from_toml("[number]\nback = 12"),
+            Err(KitConfigError::InvalidValue {
+                key: "number.back",
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    fn non_ascii_hex_is_an_error_not_a_panic() {
+        assert!(matches!(
+            KitConfig::from_toml("[colors]\nshirt1 = \"#１２\""),
+            Err(KitConfigError::InvalidValue { .. })
+        ));
+        assert!(matches!(
+            KitConfig::from_toml("[source_texture_names]\nkit = \"１２３４５６７８１２01\""),
+            Err(KitConfigError::InvalidValue { .. })
+        ));
+        let config = KitConfig::from_toml("[colors]\nshirt1 = \"#0a0B0c\"").unwrap();
+        assert_eq!(config.colors.shirt1, Rgb(10, 11, 12));
     }
 
     #[test]

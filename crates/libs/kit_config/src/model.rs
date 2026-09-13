@@ -3,6 +3,8 @@
 
 use std::collections::BTreeMap;
 
+use pes_version::PesVersion;
+
 /// A 120-byte kit config's decoded fields plus everything not yet decoded.
 #[derive(Debug, Clone, PartialEq)]
 pub struct KitConfig {
@@ -199,3 +201,125 @@ pub struct Position {
 
 /// The order of the five 16-byte texture-name fields and their TOML keys.
 pub const TEXTURE_NAME_FIELDS: [&str; 5] = ["kit", "back", "chest", "leg", "name"];
+
+/// A packed field's emission limit for a version.
+#[derive(Debug, Clone, Copy)]
+pub struct FieldLimit {
+    /// The field's TOML key.
+    pub field: &'static str,
+    /// The largest value the version's binary form emits.
+    pub max: u8,
+    /// Reads the field off a config.
+    pub get: fn(&KitConfig) -> u8,
+}
+
+/// Every clamped field's limit for `version`: the field's bit width, except
+/// `name.y`, which the game bounds at 0-16 on PES <= 20 and 0-39 on PES 21
+/// (kit_config_editor plan, "Version differences"). This is the one table
+/// `validate`'s `kit_value_out_of_range` finding and `encode`'s clamp both
+/// read, so they cannot disagree.
+pub fn field_limits(version: PesVersion) -> [FieldLimit; 20] {
+    let name_y_max = if version >= PesVersion::Pes21 { 39 } else { 16 };
+    [
+        FieldLimit {
+            field: "shirt.pattern",
+            max: 15,
+            get: |config| config.shirt.pattern,
+        },
+        FieldLimit {
+            field: "name.y",
+            max: name_y_max,
+            get: |config| config.name.y,
+        },
+        FieldLimit {
+            field: "name.size",
+            max: 31,
+            get: |config| config.name.size,
+        },
+        FieldLimit {
+            field: "number.back.y",
+            max: 31,
+            get: |config| config.numbers.back.y,
+        },
+        FieldLimit {
+            field: "number.back.size",
+            max: 15,
+            get: |config| config.numbers.back.size,
+        },
+        FieldLimit {
+            field: "number.back.spacing",
+            max: 3,
+            get: |config| config.numbers.back.spacing,
+        },
+        FieldLimit {
+            field: "number.chest.x",
+            max: 15,
+            get: |config| config.numbers.chest.x,
+        },
+        FieldLimit {
+            field: "number.chest.y",
+            max: 15,
+            get: |config| config.numbers.chest.y,
+        },
+        FieldLimit {
+            field: "number.chest.size",
+            max: 15,
+            get: |config| config.numbers.chest.size,
+        },
+        FieldLimit {
+            field: "number.shorts.x",
+            max: 15,
+            get: |config| config.numbers.shorts.x,
+        },
+        FieldLimit {
+            field: "number.shorts.y",
+            max: 15,
+            get: |config| config.numbers.shorts.y,
+        },
+        FieldLimit {
+            field: "number.shorts.size",
+            max: 15,
+            get: |config| config.numbers.shorts.size,
+        },
+        FieldLimit {
+            field: "badge.left_short.x",
+            max: 15,
+            get: |config| config.badges.left_short.x,
+        },
+        FieldLimit {
+            field: "badge.left_short.y",
+            max: 31,
+            get: |config| config.badges.left_short.y,
+        },
+        FieldLimit {
+            field: "badge.right_short.x",
+            max: 15,
+            get: |config| config.badges.right_short.x,
+        },
+        FieldLimit {
+            field: "badge.right_short.y",
+            max: 31,
+            get: |config| config.badges.right_short.y,
+        },
+        FieldLimit {
+            field: "badge.left_long.x",
+            max: 15,
+            get: |config| config.badges.left_long.x,
+        },
+        FieldLimit {
+            field: "badge.left_long.y",
+            max: 31,
+            get: |config| config.badges.left_long.y,
+        },
+        FieldLimit {
+            field: "badge.right_long.x",
+            max: 15,
+            get: |config| config.badges.right_long.x,
+        },
+        FieldLimit {
+            field: "badge.right_long.y",
+            max: 31,
+            get: |config| config.badges.right_long.y,
+        },
+    ]
+}

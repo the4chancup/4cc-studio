@@ -22,7 +22,7 @@ fn parse_rgb(key: &'static str, value: &toml::Value) -> Result<Rgb, KitConfigErr
         key,
         value: text.to_owned(),
     };
-    if hex.len() != 6 {
+    if hex.len() != 6 || !hex.is_ascii() {
         return Err(bad());
     }
     let parse = |pair: &str| u8::from_str_radix(pair, 16);
@@ -46,7 +46,7 @@ fn parse_name_hex(key: &'static str, value: &toml::Value) -> Result<[u8; 16], Ki
         key,
         value: text.to_owned(),
     };
-    if text.len() != 32 {
+    if text.len() != 32 || !text.is_ascii() {
         return Err(bad());
     }
     let mut name = [0u8; 16];
@@ -61,8 +61,40 @@ struct Reader<'a> {
 }
 
 impl<'a> Reader<'a> {
-    fn table(&self, name: &str) -> Option<&toml::Table> {
-        self.root.get(name).and_then(toml::Value::as_table)
+    /// A table by name: absent is `Ok(None)`, a table `Ok(Some)`, a value of
+    /// any other type an error — a wrong-typed `shirt = 144` is not "no
+    /// shirt section".
+    fn table(&self, name: &'static str) -> Result<Option<&toml::Table>, KitConfigError> {
+        let Some(value) = self.root.get(name) else {
+            return Ok(None);
+        };
+        value
+            .as_table()
+            .map(Some)
+            .ok_or_else(|| KitConfigError::InvalidValue {
+                key: name,
+                value: value.to_string(),
+            })
+    }
+
+    /// A table nested inside another (`number.back` style), same contract as
+    /// [`Reader::table`].
+    fn sub_table<'v>(
+        &self,
+        key: &'static str,
+        table: &'v toml::Table,
+        name: &str,
+    ) -> Result<Option<&'v toml::Table>, KitConfigError> {
+        let Some(value) = table.get(name) else {
+            return Ok(None);
+        };
+        value
+            .as_table()
+            .map(Some)
+            .ok_or_else(|| KitConfigError::InvalidValue {
+                key,
+                value: value.to_string(),
+            })
     }
 
     fn uint(
@@ -126,7 +158,7 @@ pub fn from_toml(text: &str) -> Result<KitConfig, KitConfigError> {
     let mut config = template();
     let reader = Reader { root: &root };
 
-    if let Some(shirt) = reader.table("shirt") {
+    if let Some(shirt) = reader.table("shirt")? {
         config.shirt.model =
             reader.uint("shirt.model", Some(shirt), "model", config.shirt.model)?;
         config.shirt.collar =
@@ -206,11 +238,11 @@ pub fn from_toml(text: &str) -> Result<KitConfig, KitConfigError> {
             };
         }
     }
-    if let Some(shorts) = reader.table("shorts") {
+    if let Some(shorts) = reader.table("shorts")? {
         config.shorts.model =
             reader.uint("shorts.model", Some(shorts), "model", config.shorts.model)?;
     }
-    if let Some(colors) = reader.table("colors") {
+    if let Some(colors) = reader.table("colors")? {
         for (name, rgb) in [
             ("shirt1", &mut config.colors.shirt1),
             ("shirt2", &mut config.colors.shirt2),
@@ -223,7 +255,7 @@ pub fn from_toml(text: &str) -> Result<KitConfig, KitConfigError> {
             }
         }
     }
-    if let Some(name) = reader.table("name") {
+    if let Some(name) = reader.table("name")? {
         config.name.show = reader.boolean("name.show", Some(name), "show", config.name.show)?;
         if let Some(value) = reader.text("name.shape", Some(name), "shape")? {
             config.name.shape = match value {
@@ -242,8 +274,8 @@ pub fn from_toml(text: &str) -> Result<KitConfig, KitConfigError> {
         config.name.y = reader.uint("name.y", Some(name), "y", config.name.y)?;
         config.name.size = reader.uint("name.size", Some(name), "size", config.name.size)?;
     }
-    if let Some(number) = reader.table("number") {
-        if let Some(back) = number.get("back").and_then(toml::Value::as_table) {
+    if let Some(number) = reader.table("number")? {
+        if let Some(back) = reader.sub_table("number.back", number, "back")? {
             config.numbers.back.y =
                 reader.uint("number.back.y", Some(back), "y", config.numbers.back.y)?;
             config.numbers.back.size = reader.uint(
@@ -259,7 +291,7 @@ pub fn from_toml(text: &str) -> Result<KitConfig, KitConfigError> {
                 config.numbers.back.spacing,
             )?;
         }
-        if let Some(chest) = number.get("chest").and_then(toml::Value::as_table) {
+        if let Some(chest) = reader.sub_table("number.chest", number, "chest")? {
             config.numbers.chest.x =
                 reader.uint("number.chest.x", Some(chest), "x", config.numbers.chest.x)?;
             config.numbers.chest.y =
@@ -271,7 +303,7 @@ pub fn from_toml(text: &str) -> Result<KitConfig, KitConfigError> {
                 config.numbers.chest.size,
             )?;
         }
-        if let Some(shorts) = number.get("shorts").and_then(toml::Value::as_table) {
+        if let Some(shorts) = reader.sub_table("number.shorts", number, "shorts")? {
             if let Some(value) = reader.text("number.shorts.side", Some(shorts), "side")? {
                 config.numbers.shorts.side = match value {
                     "left" => Side::Left,
@@ -304,7 +336,7 @@ pub fn from_toml(text: &str) -> Result<KitConfig, KitConfigError> {
             )?;
         }
     }
-    if let Some(badge) = reader.table("badge") {
+    if let Some(badge) = reader.table("badge")? {
         for (name, position) in [
             ("right_short", &mut config.badges.right_short),
             ("left_short", &mut config.badges.left_short),
@@ -312,6 +344,12 @@ pub fn from_toml(text: &str) -> Result<KitConfig, KitConfigError> {
             ("left_long", &mut config.badges.left_long),
         ] {
             if let Some(badge_value) = badge.get(name) {
+                if badge_value.as_table().is_none() {
+                    return Err(KitConfigError::InvalidValue {
+                        key: "badge",
+                        value: badge_value.to_string(),
+                    });
+                }
                 for (key, field) in [("x", &mut position.x), ("y", &mut position.y)] {
                     if let Some(value) = badge_value.get(key) {
                         *field = value
@@ -326,7 +364,7 @@ pub fn from_toml(text: &str) -> Result<KitConfig, KitConfigError> {
             }
         }
     }
-    if let Some(unknown) = reader.table("unknown") {
+    if let Some(unknown) = reader.table("unknown")? {
         for (key, value) in unknown {
             let offset = key
                 .strip_prefix("0x")
@@ -349,7 +387,7 @@ pub fn from_toml(text: &str) -> Result<KitConfig, KitConfigError> {
             }
         }
     }
-    if let Some(source) = reader.table("source_texture_names") {
+    if let Some(source) = reader.table("source_texture_names")? {
         let mut names = [[0u8; 16]; 5];
         for (i, field) in TEXTURE_NAME_FIELDS.iter().enumerate() {
             if let Some(value) = source.get(*field) {
