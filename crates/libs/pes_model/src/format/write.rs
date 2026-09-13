@@ -43,8 +43,10 @@ impl SectionBuilder {
     }
 
     /// Where the blob region starts (after the declared records).
+    /// Saturating: `finish` rejects the impossible product anyway.
     fn blob_base(&self) -> usize {
-        self.records_start() + self.record_count * self.record_size
+        self.records_start()
+            .saturating_add(self.record_count.saturating_mul(self.record_size))
     }
 
     /// Appends a `record_size`-byte record; its offset from the array
@@ -66,7 +68,7 @@ impl SectionBuilder {
 
     /// The finished array's bytes.
     fn finish(self) -> Result<Vec<u8>, ModelError> {
-        if self.records.len() != self.record_count * self.record_size {
+        if self.record_count.checked_mul(self.record_size) != Some(self.records.len()) {
             return Err(ModelError::WriteLayout(
                 "record count differs from declared",
             ));
@@ -199,7 +201,10 @@ fn mesh_arrays(
     if let Some(group) = mesh.bone_group {
         let entry = refs
             .entry_offsets
-            .get(group + 1)
+            .get(group.checked_add(1).ok_or(ModelError::BadReference {
+                what: "bone group",
+                offset: group as i64,
+            })?)
             .ok_or(ModelError::BadReference {
                 what: "bone group",
                 offset: group as i64,
@@ -246,6 +251,11 @@ fn mesh_arrays(
         Some(items) => {
             let mut array = SectionBuilder::new(4, items.len(), &[]);
             for item in items {
+                if matches!(&item.value, EditorValue::Text(_)) != (item.kind == 1) {
+                    return Err(ModelError::WriteLayout(
+                        "editor item kind and value disagree",
+                    ));
+                }
                 let mut blob = item.kind.to_le_bytes().to_vec();
                 blob.extend_from_slice(&item.unknown.to_le_bytes());
                 match &item.value {
@@ -475,11 +485,7 @@ impl PreFoxModel {
         }
         list.push(SectionKind::Meshes, meshes.finish()?);
 
-        Ok(ModelContainer {
-            version: self.version,
-            flags: self.flags,
-            sections: list.sections,
-        })
+        ModelContainer::new(19, self.flags, list.sections)
     }
 
     /// The serialized `.model`, unwrapped.

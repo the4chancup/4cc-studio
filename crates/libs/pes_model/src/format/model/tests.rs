@@ -44,9 +44,14 @@ fn every_fixture_round_trips_semantically() {
         let reread_bytes = written.write();
         ModelContainer::read(&reread_bytes).unwrap();
         let reread = PreFoxModel::read(&reread_bytes).unwrap();
-        assert_eq!(reread, model);
+        // `write` always emits header version 19.
+        let mut expected = model.clone();
+        expected.version = 19;
+        assert_eq!(reread, expected);
     }
     assert_eq!(PreFoxModel::read(CARDHEAD).unwrap().version, 19);
+    let shadow = PreFoxModel::read(SHADOW).unwrap();
+    assert_eq!(shadow.to_container().unwrap().version, 19);
 }
 
 #[test]
@@ -326,4 +331,84 @@ fn unsupported_and_dangling_references_error() {
             ..
         })
     ));
+    let mut model = PreFoxModel::read(CARD).unwrap();
+    model.meshes[0].bone_group = Some(usize::MAX);
+    assert!(matches!(
+        model.to_container(),
+        Err(ModelError::BadReference {
+            what: "bone group",
+            ..
+        })
+    ));
+}
+
+/// Patches one word of a card geometry-section record and returns the
+/// re-read result. `pick` locates the word inside the section's bytes.
+fn patch_geometry_word(
+    pick: impl Fn(&[u8]) -> usize,
+    value: u32,
+) -> Result<PreFoxModel, ModelError> {
+    let mut container = ModelContainer::read(CARD).unwrap();
+    let geometry = &mut container
+        .sections
+        .iter_mut()
+        .find(|section| section.kind == SectionKind::Geometry)
+        .unwrap()
+        .bytes;
+    let at = pick(geometry);
+    geometry[at..at + 4].copy_from_slice(&value.to_le_bytes());
+    PreFoxModel::from_container(&container)
+}
+
+#[test]
+fn hostile_geometry_counts_error() {
+    use crate::format::records::RecordArray;
+    // A vertex-field descriptor's count word at u32::MAX/2.
+    assert_eq!(
+        patch_geometry_word(
+            |geometry| {
+                let array = RecordArray::read(geometry, 0).unwrap();
+                let vertex_set_offset =
+                    u32::from_le_bytes(array.records[0].bytes[4..8].try_into().unwrap()) as usize;
+                let vertex_set = RecordArray::read(geometry, vertex_set_offset).unwrap();
+                let descriptors_offset =
+                    u32::from_le_bytes(vertex_set.records[0].bytes[..4].try_into().unwrap())
+                        as usize;
+                let descriptors = RecordArray::read(geometry, descriptors_offset).unwrap();
+                descriptors.records[0].offset + 12
+            },
+            0x4000_0000
+        ),
+        Err(ModelError::Truncated)
+    );
+    // The face descriptor's lod_levels at u32::MAX.
+    assert_eq!(
+        patch_geometry_word(
+            |geometry| {
+                let array = RecordArray::read(geometry, 0).unwrap();
+                let face_descriptor_offset =
+                    u32::from_le_bytes(array.records[0].bytes[8..12].try_into().unwrap()) as usize;
+                let faces = RecordArray::read(geometry, face_descriptor_offset).unwrap();
+                faces.records[0].offset + 16
+            },
+            u32::MAX
+        ),
+        Err(ModelError::Truncated)
+    );
+}
+
+#[test]
+fn editor_kind_and_value_must_agree() {
+    let mut model = PreFoxModel::read(CARD).unwrap();
+    model.meshes[0].editor_data = Some(vec![EditorItem {
+        kind: 2,
+        unknown: 0,
+        value: EditorValue::Text("ABCD".into()),
+    }]);
+    assert_eq!(
+        model.to_container(),
+        Err(ModelError::WriteLayout(
+            "editor item kind and value disagree"
+        ))
+    );
 }

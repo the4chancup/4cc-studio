@@ -33,7 +33,8 @@ struct Header {
 }
 
 /// A `.model` at the container level: the header words and the eleven sections as opaque byte
-/// runs, in the order they sit in the file. `write(read(x)) == x` for every file PES ships.
+/// runs, in the order they sit in the file. Every `SectionKind` appears exactly once;
+/// `new` and `read` enforce it. `write(read(x)) == x` for every file PES ships.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ModelContainer {
     /// Header version word (19 for every PES 2017 part but the shadow model, which is 17).
@@ -41,7 +42,7 @@ pub struct ModelContainer {
     /// Header flags word (0; 4 in two face-montage models, meaning unknown).
     pub flags: u32,
     /// The sections in file order; every `SectionKind` appears exactly once.
-    pub sections: Vec<Section>,
+    pub(crate) sections: Vec<Section>,
 }
 
 /// One section: which of the eleven it is, and its bytes up to the start of the next section
@@ -104,6 +105,30 @@ impl SectionKind {
 }
 
 impl ModelContainer {
+    /// A container from parts; every `SectionKind` must appear exactly once.
+    pub fn new(version: u16, flags: u32, sections: Vec<Section>) -> Result<Self, ModelError> {
+        for kind in SectionKind::ALL {
+            if sections
+                .iter()
+                .filter(|section| section.kind == kind)
+                .count()
+                != 1
+            {
+                return Err(ModelError::BadSectionTable(kind.index() as u32));
+            }
+        }
+        Ok(ModelContainer {
+            version,
+            flags,
+            sections,
+        })
+    }
+
+    /// The sections in file order.
+    pub fn sections(&self) -> &[Section] {
+        &self.sections
+    }
+
     /// Parses a `.model`, unwrapped or WESYS-wrapped.
     ///
     /// The sections are cut by the table's offsets in increasing order: a
@@ -172,6 +197,11 @@ impl ModelContainer {
             .map(|(kind, offset)| (offset, kind))
             .collect();
         in_file_order.sort_by_key(|(offset, _)| *offset);
+        if let Some((offset, _)) = in_file_order.first()
+            && *offset != FIRST_SECTION_RELATIVE as u32
+        {
+            return Err(ModelError::BadSectionTable(*offset));
+        }
         let mut sections = Vec::with_capacity(11);
         for (position, (offset, kind)) in in_file_order.iter().enumerate() {
             let start = TABLE_OFFSET
@@ -189,11 +219,7 @@ impl ModelContainer {
                 bytes: span.to_vec(),
             });
         }
-        Ok(ModelContainer {
-            version: header.version,
-            flags: header.flags,
-            sections,
-        })
+        ModelContainer::new(header.version, header.flags, sections)
     }
 
     /// Serializes the container, unwrapped. Sections are written in their
@@ -226,6 +252,9 @@ impl ModelContainer {
     }
 
     /// The bytes of the section `kind`, however it is ordered in the file.
+    ///
+    /// The `expect` is the container's invariant: `new` and `read` reject a
+    /// section list where any `SectionKind` is missing or duplicated.
     pub fn section(&self, kind: SectionKind) -> &[u8] {
         &self
             .sections
@@ -370,5 +399,28 @@ mod tests {
                 value: 8
             })
         );
+        // Every table entry +4 and four padding bytes at 80: the first
+        // section no longer starts at the fixed offset.
+        let mut patched = CARD.to_vec();
+        for entry in patched[36..80].as_chunks_mut::<4>().0 {
+            let value = u32::from_le_bytes(*entry) + 4;
+            *entry = value.to_le_bytes();
+        }
+        patched.splice(80..80, [0; 4]);
+        assert_eq!(
+            ModelContainer::read(&patched),
+            Err(ModelError::BadSectionTable(60))
+        );
+    }
+
+    #[test]
+    fn new_requires_every_kind_once() {
+        let container = ModelContainer::read(CARD).unwrap();
+        let mut sections = container.sections.clone();
+        sections[0].kind = K::Geometry;
+        assert!(matches!(
+            ModelContainer::new(19, 0, sections),
+            Err(ModelError::BadSectionTable(_))
+        ));
     }
 }

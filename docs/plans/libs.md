@@ -250,14 +250,16 @@ fixtures in `crates/libs/pes_model/tests/fixtures/` are the representatives, one
 So the crate has two format layers, like `fmdl`: **`ModelContainer`** (header fields, the eleven
 sections as opaque byte runs in file order) is the byte-identical one (`write(read(x)) == x` on
 every fixture, the WESYS-wrapped ones compared unwrapped), and **`PreFoxModel`** is the typed
-layer over it: version and flags, bones (name + matrix), bone groups, material names,
+layer over it: flags and the version the file declared, bones (name + matrix), bone groups, material names,
 annotation strings and records, geometries with their vertex-field descriptors, raw field data,
 face stream and LOD ranges, meshes with every cross-section pointer resolved to an index, model
 bounds. Its `write` lays a fresh file out the add-on's way (section order, 4-padding, no
-alignment gaps, the version-19 record sizes), which years of add-on-written models prove PES
-accepts; it is semantically lossless (`read(write(m)) == m` on every fixture, the version-17 one
-included), not byte-identical, because reproducing Konami's padding would mean carrying every
-offset. Everything Konami writes and the add-on drops is kept: annotation types 1, 2, 7 and 10
+alignment gaps, the version-19 record sizes) and always writes version 19 in the header: that
+word with that layout is the one combination years of add-on-written models prove PES 16 and 17
+accept, and a version-17 word over version-19 record sizes has never been seen by a game. So a
+version-17 file rewritten becomes a version-19 file, and `read(write(m)) == m` holds on every
+fixture once `version` is set to 19; otherwise the layer is semantically lossless, not
+byte-identical, because reproducing Konami's padding would mean carrying every offset. Everything Konami writes and the add-on drops is kept: annotation types 1, 2, 7 and 10
 with their section-3 records, LOD tables and the LOD record. Sections 8, 9 and 10 are written
 empty; a model whose geometry or meshes reference them (cloth, material combinations, locators,
 none of which any Konami player part uses) is a read error naming the feature, not a warning,
