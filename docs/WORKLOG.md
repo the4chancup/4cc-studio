@@ -9,8 +9,8 @@ is in `AGENTS.md` ("Working documents").
 
 ## Current status
 
-**Phase:** 2 (Library crates), starting at 2.1 `wezlib`. Phase 1 done.
-**In progress:** 2.1
+**Phase:** 2 (Library crates). 2.1 `wezlib` and 2.2 `cpk` done; 2.3 `fpk` and 2.4 `ftex` in progress (sidekick).
+**In progress:** 2.3, 2.4
 **Blocked on:** —
 
 ---
@@ -98,10 +98,16 @@ in git history up to commit `794ce61`. CI proof: green run on `a4be936`, deliber
 Spec: `docs/plans/core.md` "Phase 2", `docs/plans/libs.md`, `model_conversion.md`,
 `pes_savefile.md`. Leaf crates first, dependents after; `python_bindings` last.
 
-- [ ] 2.1 `wezlib`
-- [ ] 2.2 `cpk` (read + write, CRILAYLA inside, roundtrip test)
-- [ ] 2.3 `fpk`
-- [ ] 2.4 `ftex`
+- [x] 2.1 `wezlib` — done (sidekick): WESYS wrap/unwrap over flate2; fixture `RefereeColor.bin`
+  (PES17); 4 tests. Parity for WESYS files is payload-level (deflate bytes differ from Python's)
+- [x] 2.2 `cpk` — done (sidekick): @UTF read/write, CRILAYLA decoder, `CpkArchive`, `CpkWriter`
+  byte-identical to pes-file-tools on a Red-written face CPK; Konami PES17/PES21 and CPKMC 1.36
+  fixtures; 13 tests. Fixtures are `-text` in `.gitattributes` (a CRLF-bearing fixture was
+  normalized by the first commit and caught)
+- [~] 2.3 `fpk` → verify: Konami and pes-file-tools fixtures read; writer byte-identical to
+  pes-file-tools on `pft_sample.fpk`/`.fpkd` and the empty `generic.fpkd` template
+- [~] 2.4 `ftex` → verify: `ftex_to_dds` byte-identical to pes-file-tools on six Konami fixtures
+  (BC1, BC3, BC7 chunked, A8R8G8B8, cube map, 1x1); `dds_to_ftex` round-trips through it
 - [ ] 2.5 `dds_convert` (CPU reference first; GPU BC7 proof per plan)
 - [ ] 2.6 `fmdl` (`format/` + `ops/` + `check.rs`) → also verify: plant a denied dependency
   (`egui`) on `fmdl` and see `just deps-check` go red, then revert (first real exercise of
@@ -193,3 +199,5 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   subjects are Conventional Commits from here on; `just` stays on PowerShell for Windows.
 - **2026-09-13** - Phase 1 closed: CI green on the first push, red on the planted warning,
   reverted. Phase 2 starts at 2.1 `wezlib`.
+- **2026-09-13** - 2.1 `wezlib`, 2.2 `cpk` done (writer parity with pes-file-tools proven);
+  fixtures for `fpk`/`ftex` extracted with provenance READMEs; `weszlib` renamed `wezlib`.
