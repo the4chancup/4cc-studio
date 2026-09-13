@@ -5,3 +5,5 @@
 pub mod antiblur;
 /// Texture path rewriting on the record layer.
 pub mod paths;
+/// Vertex-loop preservation through the vertex ordering convention.
+pub mod vertex_enc;
