@@ -10,9 +10,9 @@ is in `AGENTS.md` ("Working documents").
 ## Current status
 
 **Phase:** 2 (Library crates). Done: 2.1 `wezlib`, 2.2 `cpk`, 2.3 `fpk`, 2.4 `ftex`, 2.5 `dds_convert` (CPU),
-2.6 `fmdl` (format, model, ops, check), 2.7 `pes_model` (format, mtl, model, ops, check), 2.8 `uniparam`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`. Review
+2.6 `fmdl` (format, model, ops, check), 2.7 `pes_model` (format, mtl, model, ops, check), 2.8 `uniparam`, 2.9 `fox2`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`. Review
 rounds A and B (2026-09-13) closed: 2.5c, 2.12b, 2.13b done.
-**In progress:** 2.9 `fox2` next
+**In progress:** 2.9 `fox2` checkpoint (b) review; then 2.10 `archives`
 **Blocked on:** nothing
 
 ---
@@ -228,7 +228,14 @@ Spec: `docs/plans/core.md` "Phase 2", `docs/plans/libs.md`, `model_conversion.md
   bundles. 10 tests; `pes_model` totals 91, workspace 272
 - [x] 2.8 `uniparam` — done (sidekick): WESYS-unwrapping read, sorted writer; Konami PES21
   container (2174 entries) and a reference-writer golden; 4 tests
-- [ ] 2.9 `fox2`
+- [x] 2.9 `fox2` — done (lead: census of 87 files inside 108 FPKDs, four fixtures with reference
+  goldens, plan section; sidekick code in three handoffs): `hash` (CityHash64 1.0.3 port,
+  `hash_string`, `Dictionary`), `text` (C# round-trip float text, 36-case golden), `file`
+  (`Fox2File` read/write byte-identical on the four Konami and four compiled fixtures, every
+  constant word checked, the reference writer's slack tolerated on read and dropped),
+  `values` (24 data types, the nine without a fixture tested synthetically), `xml` (decompile
+  equal to the reference's XML on all four, compile equal to its binaries, fixed point).
+  17 tests; workspace 303. Checkpoint (b) review pending
 - [ ] 2.10 `archives`
 - [x] 2.11 `fpc` — done (sidekick): kit values per version, three presets, five interference
   findings, each citing its `FPC.wikitext` line; 4 tests
