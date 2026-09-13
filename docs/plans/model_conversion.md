@@ -21,44 +21,51 @@ struct, and IR operations never touch a format** — and keeps the format crates
 
 ```
 crates/libs/model_convert/src/
-├── lib.rs              # re-exports; ModelFormat; NativeModelBundle; convert_to routing
+├── lib.rs              # re-exports; ModelFormat; NativeModelBundle; convert routing
+├── affine.rs           # Affine: 3×4 row-major bone transform (multiply, invert, apply)
 ├── ir/                 # the canonical model — a data structure, not a behavior
-│   ├── mod.rs          #   CanonicalModel, Mesh, Vertex layout, Bone, Material refs
-│   ├── skeleton.rs     #   normalized bone mapping (name ↔ index), bone name conventions (skf_, dsk_)
+│   ├── mod.rs          #   CanonicalModel, Mesh, Vertices, Bone, MeshGroup, Texture
 │   └── validate.rs     #   IR invariants (indices in range, weights normalized, one skin per mesh)
 ├── formats/            # one module per format: to_ir + from_ir, nothing else
 │   ├── fmdl.rs         #   fmdl_to_ir / ir_to_fmdl (calls the fmdl crate's ops for splitting/encoding)
 │   ├── pes_model.rs    #   model_to_ir / ir_to_model (+ .mtl pairing; commits both or neither)
-│   └── gltf/
+│   └── gltf/           #   Phase 7
 │       ├── mod.rs      #   gltf_to_ir / ir_to_gltf via the gltf crate
 │       ├── extensions.rs   # PES_bone / PES_mesh read + write, fallbacks when absent
 │       └── images.rs   #   the image contract (embedded images ignored, stems resolved from folder)
 ├── materials/          # the engine-neutral material schema (spec: Unified model format plan)
-│   ├── mod.rs          #   Material, ShaderFamily, canonical texture roles, parameters
-│   ├── toml.rs         #   materials.toml / *.materials.toml / .common link read + write (toml_edit)
-│   ├── matching.rs     #   name matching (startsWith/endsWith), layering, Common-first cascade
-│   ├── to_fox.rs       #   family → FMDL shader/params tables
-│   └── to_prefox.rs    #   family → .mtl shader/params tables
+│   ├── mod.rs          #   Material, MaterialFamily, TextureRole, FoxMaterial, PreFoxMaterial
+│   ├── family.rs       #   family inference from a native shader name (the format plan's table)
+│   ├── to_fox.rs       #   family → FMDL shader/technique/flags/params; role → sampler
+│   ├── to_prefox.rs    #   family → .mtl shader (Basic_* ladder), state sets, samplers
+│   ├── toml.rs         #   Phase 7: materials.toml / *.materials.toml / .common link read + write
+│   └── matching.rs     #   Phase 7: name matching (startsWith/endsWith), layering, Common-first cascade
 ├── skeletons/          # per-version skeleton data and retargeting
-│   ├── mod.rs          #   Skeleton, skeleton_for(version)
-│   ├── data.rs         #   GENERATED from resources/skeletons/pes*/ — do not edit by hand
-│   ├── fold.rs         #   fold tables (bones a version lacks → nearest ancestor)
+│   ├── mod.rs          #   PesBone, VersionSkeletons, skeletons(version): the embedded .skl files,
+│   │                   #     parsed once at first use through fmdl's SKL codec
+│   ├── render_parents.rs   # the hand-transcribed render hierarchy (see "Skeleton data")
+│   ├── fold.rs         #   fold table (bones a version lacks → the bone that takes their weight)
 │   └── retarget.rs     #   retargeting + bone conformance (the cross-version IR operation)
 ├── ops/                # IR-level operations, format-agnostic
 │   ├── hand_split.rs   #   split_by_skeleton_group (gloves hand auto-split)
 │   ├── merge_parts.rs  #   merge_ir_parts (deferred: no planned caller, see "IR part merge")
-│   └── superset.rs     #   dual-set superset merge for ir_to_gltf (Player aesthetics editor)
+│   └── superset.rs     #   Phase 7: dual-set superset merge for ir_to_gltf (Player aesthetics editor)
 └── loss.rs             # data-loss reporting: what a target format cannot represent, as findings
 ```
 
 Placement rules:
 
-- **`formats/*` are the only modules that import `fmdl`, `pes_model`, or `gltf`.** Everything else
-  sees the IR. A format detail needed by an op is a field on the IR, not an import.
+- **`formats/*` are the only modules that import `fmdl`, `pes_model`, or `gltf`**, with one
+  named exception: `skeletons/` uses `fmdl::SklFile`, the SKL codec, which lives in `fmdl` only
+  because SKL is a Fox-engine file. Everything else sees the IR. A format detail needed by an op is
+  a field on the IR, not an import.
 - **`ir/` has no logic beyond validation.** Transformations are `ops/`; conversions are `formats/`.
-- **`skeletons/data.rs` is generated** (build script or checked-in dev tool over
-  `resources/skeletons/`) and carries a header saying so; hand edits are reverted by regeneration.
-  Provenance stays with the `.skl` files, never with Python literals.
+- **`skeletons/` holds no transcribed numbers.** The `.skl` files under `resources/skeletons/` are
+  embedded with `include_bytes!` and parsed on first use (`std::sync::LazyLock`); the only
+  hand-maintained tables are the render parents and the fold table, both names only. Provenance
+  stays with the `.skl` files, never with Python literals. (An earlier version of this plan generated
+  a `data.rs` of Rust literals; that is a 250 KB source file plus a generator plus a drift test, for
+  data the SKL codec already reads byte-exactly.)
 - **`materials/` is shared by all three formats** and by the Blender project's glTF codec contract;
   it must remain independent of `formats/` so the schema can be tested without any model file.
 - **Same-format paths do not enter this crate** unless an explicitly planned IR operation is
@@ -104,52 +111,83 @@ pub struct CanonicalModel {
     pub mesh_groups: Vec<MeshGroup>,
     pub materials: Vec<Material>,
     pub textures: Vec<Texture>,
-    pub extension_headers: BTreeMap<String, Vec<String>>,
-    pub source_format: SourceFormat,
+    pub extension_headers: BTreeSet<String>,   // model-level header lines neither format crate
+                                               //   types (`Skeleton-Type: Simplified`, ...)
+    pub source_format: SourceFormat,           // Fox | PreFox (Gltf joins in Phase 7)
 }
 
 pub struct Bone {
     pub name: String,
     pub parent: Option<usize>,       // hierarchy: FMDL stores it; .model does not (resolved by
-    pub children: Vec<usize>,        //   name from the template skeleton's render parents)
-    pub matrix: [f32; 12],           // model-space 3×4 bind transform. Sources: FMDL's companion
+                                     //   name from the template skeleton's render parents)
+    pub matrix: Affine,              // model-space 3×4 bind transform. Sources: FMDL's companion
                                      //   .skl (or the template); .model's inline per-bone inverse
                                      //   bind matrix, inverted; glTF skin bind data
-    // FMDL-specific
-    pub global_position: Option<Vector4>,
-    pub local_position: Option<Vector4>,
+    // FMDL-specific. In a self-consistent Konami FMDL + SKL pair (the audience fixture)
+    // `global_position` is the SKL translation and `local_position` is `global` minus the
+    // parent's `global` (roots: equal to `global`), so an exporter without them derives both
+    // from `matrix` and `parent`; the player-part templates carry placeholder values instead.
+    pub global_position: Option<[f32; 4]>,
+    pub local_position: Option<[f32; 4]>,
     pub bounding_box: Option<BoundingBox>,
-    // Template-skeleton display data (PesSkeletonData start/end positions); not stored
-    // in any file, looked up by name for Blender bone geometry
-    pub start_position: Option<Vector3>,
-    pub end_position: Option<Vector3>,
 }
 
 pub struct Mesh {
-    pub vertices: Vec<Vertex>,
-    pub faces: Vec<Face>,
-    pub bone_group: Vec<usize>,
+    pub vertices: Vertices,
+    pub faces: Vec<[u16; 3]>,        // one winding for the whole IR (FMDL's); `.model` reverses
+    pub bone_group: Vec<usize>,      // indices into `bones`; `vertices.bone_indices` index this
     pub material: usize,
-    pub vertex_fields: VertexFields,
-    // FMDL-specific
-    pub alpha_flags: Option<u8>,
-    pub shadow_flags: Option<u8>,
-    pub extension_headers: BTreeSet<String>,
-    // Mesh splitting metadata (decoded on import, re-encoded on export)
-    pub split_group_id: Option<usize>,
-    // Anti-blur metadata
-    pub is_antiblur: bool,
-    pub antiblur_source: Option<usize>,
+    pub extension_headers: BTreeSet<String>,   // per-mesh header lines the format crate leaves raw
+    pub custom_bounding_box: Option<BoundingBox>,  // FMDL `Custom-Bounding-Box-Meshes`
 }
 
-pub struct Vertex {
-    pub position: Vector3,
-    pub normal: Option<Vector4>,
-    pub tangent: Option<Vector4>,
-    pub color: Option<[u8; 4]>,
-    pub uv: Vec<Vector2>,
-    pub bone_mapping: Option<Vec<(usize, f32)>>,
+// Struct-of-arrays, like both format crates' `MeshVertices`: a conversion is a column copy,
+// and no per-vertex allocation exists on a 100k-vertex model. Every `Vec` is `positions.len()`
+// long when present.
+pub struct Vertices {
+    pub positions: Vec<[f32; 3]>,
+    pub normals: Option<Vec<[f32; 4]>>,      // w is 1.0 in every Konami FMDL measured; a
+                                             //   `.model` import sets 1.0, an export drops it
+    pub tangents: Option<Vec<[f32; 4]>>,     // w is the handedness (+-1 in Konami files)
+    pub bitangents: Option<Vec<[f32; 3]>>,   // `.model` only; an FMDL export drops them (loss)
+    pub colors: Option<Vec<[u8; 4]>>,
+    pub uvs: Vec<Vec<[f32; 2]>>,
+    pub uv_high_precision: Vec<bool>,        // parallel to `uvs`; FMDL only, false elsewhere
+    pub bone_indices: Option<Vec<[u8; 4]>>,  // into `Mesh::bone_group`; unused slots 0
+    pub bone_weights: Option<Vec<[f32; 4]>>, // floats; FMDL's bytes are `/255` on import and
+                                             //   re-quantized on export so the total is kept
+    pub bone_weight_width: Option<u8>,       // `.model` stores 2, 3 or 4 weights; `None` = 4
 }
+
+pub struct MeshGroup {
+    pub name: String,                // `.model` has no groups: import makes one per mesh named
+    pub parent: Option<usize>,       //   after the mesh, export names the mesh after its group
+    pub meshes: Vec<usize>,
+    pub visible: bool,
+}
+
+pub struct Texture {
+    pub directory: String,           // verbatim from the source (`/Assets/.../sourceimages/`,
+    pub file_name: String,           //   `./`); extension kept as found. Final in-game paths are
+}                                    //   the Team compiler's texture relocation step, not this crate's
+
+pub struct BoundingBox { pub min: [f32; 4], pub max: [f32; 4] }
+```
+
+Shapes this settled after reading the format crates (each is a decision entry): vertices are a
+struct of arrays, not a `Vec<Vertex>`; `Bone.children` is gone (derivable, and a second copy to
+keep in step through folds and prunes); `Mesh` carries no `alpha_flags`/`shadow_flags`/anti-blur
+fields (lifted to the material's `fox` table, see "Engine mapping") and no `split_group_id` (the
+importers call the format crates' split *decode*, so an imported mesh is whole; a glTF `PES_mesh`
+identity is Phase 7's); `extension_headers` are sets of raw header lines, since both format
+crates already type the known headers; the template display positions (`start`/`end`) wait for the
+Blender export in Phase 7. `Affine` is the crate's own 3×4 row-major matrix type (`affine.rs`:
+multiply, invert, transform point/direction), because the only matrix work in the suite is bone
+transforms and a dependency on `nalgebra` would add a generic API for four functions.
+
+**What a `.model` import drops** (reported through `loss.rs`, never silently): Konami's lower LOD
+face lists (no 4cc export carries any; the add-on writes none), Konami's `(kind, text)` tags, the
+editor-data items and the geometry order word. Everything the community add-on writes survives.
 
 // Mirrors the materials.toml schema (see the Unified model format plan): an
 // engine-neutral core plus one optional table per engine. `Some` when imported
@@ -281,46 +319,27 @@ counterpart is `pes_model::ops::merge`, native over `Model` + `MaterialSet` (see
 ### Conversion routing
 
 ```rust
+/// A model in one of the native formats, at the semantic layer of its format crate.
 pub enum NativeModelBundle {
-    Fox(FmdlFile),
-    PreFox { model: PreFoxModel, mtl: MtlFile },
-    Gltf(GltfModel),
+    Fox { model: fmdl::Model, skl: Option<fmdl::SklFile> },
+    PreFox { model: pes_model::model::Model, mtl: pes_model::format::mtl::MaterialSet },
+    // Gltf(GltfModel) joins in Phase 7
 }
 
-pub fn convert_to(&mut self, target: ModelFormat) -> Result<()> {
-    match (&self.source_bundle, target) {
-        (NativeModelBundle::Fox(_), ModelFormat::Fox) => Ok(()),
-        (NativeModelBundle::PreFox { .. }, ModelFormat::PreFox) => Ok(()),
+/// The bundle in `target`'s format: the input itself when it already is, otherwise
+/// source → IR → target. `Converted::findings` lists what the target could not keep
+/// (`loss.rs`), so the caller reports rather than the user discovers.
+pub fn convert(bundle: NativeModelBundle, target: ModelFormat) -> Result<Converted, ConvertError>;
 
-        (NativeModelBundle::Fox(fmdl), ModelFormat::PreFox) => {
-            let ir = fmdl_to_ir(fmdl)?;
-            let (model, mtl) = ir_to_model(&ir)?;
-            self.source_bundle = NativeModelBundle::PreFox { model, mtl };
-            Ok(())
-        }
-        (NativeModelBundle::PreFox { model, mtl }, ModelFormat::Fox) => {
-            let ir = model_to_ir(model, mtl)?;
-            self.source_bundle = NativeModelBundle::Fox(ir_to_fmdl(&ir)?);
-            Ok(())
-        }
-        (NativeModelBundle::Gltf(gltf), target) => {
-            let ir = gltf_to_ir(gltf)?;
-            self.source_bundle = match target {
-                ModelFormat::Fox => NativeModelBundle::Fox(ir_to_fmdl(&ir)?),
-                ModelFormat::PreFox => {
-                    let (model, mtl) = ir_to_model(&ir)?;
-                    NativeModelBundle::PreFox { model, mtl }
-                }
-            };
-            Ok(())
-        }
-    }
-}
+pub struct Converted { pub bundle: NativeModelBundle, pub findings: Vec<loss::Finding> }
 ```
 
-The replacement is committed only after both members of a pre-Fox bundle are
-produced successfully, so an error can never leave a converted `.model` paired
-with an old or missing `.mtl`.
+`convert` takes the bundle by value and returns a new one, so a pre-Fox result exists only once
+both its `.model` and its `.mtl` were produced: an error can never leave a converted `.model` paired
+with an old or missing `.mtl`. (The plan's first draft mutated a bundle in place; by value says the
+same thing with the type system instead of a comment.) The Fox side carries the companion `.skl`
+when one exists, which is where `fmdl_to_ir` reads the bind pose from (see "Skeleton reconstruction
+from FMDL"); `ir_to_fmdl` returns one only when a bone the target's tables do not know survives.
 
 ### Roundtrip testing
 
@@ -365,11 +384,15 @@ model plus `glove_l` and `glove_r` models automatically.
 
 The check reads bone assignments **directly from the native format** — FMDL bone groups, `.model`
 bone mappings, glTF `JOINTS_n`/`WEIGHTS_n` accessors resolved through `skin.joints` — without importing to the IR. The **hand-skeleton-exclusive
-bones** are identified by name convention: they are prefixed with `skf_` (finger skeleton family)
-and suffixed with `_l` or `_r` for laterality. No pre-defined list or `PES_SKELETON` lookup is
-needed — the prefix/suffix match is the complete identification.
+bones** are identified by name convention: they are prefixed with `skh_` (the finger bones:
+`skh_thumb_mata_l`, `skh_index_dip_r`, ...) and suffixed with `_l` or `_r` for laterality. No
+pre-defined list or `PES_SKELETON` lookup is needed — the prefix/suffix match is the complete
+identification. The games' own `hand_l.skl`/`hand_r.skl` (PES 18, 19, 21) hold 19 `skh_` bones each
+plus five bones shared with the body (`sk_forearm`, `sk_hand`, `dsk_forearm`, `dsk_wrist`,
+`dsk_forearm_t`), and the `skf_` prefix belongs to the **face** skeleton (33 bones in `face.skl`);
+an earlier version of this plan named `skf_` here, which would have cut faces off at the jaw.
 
-No opt-in is needed: vertices with positive `skf_` weights seed the hand selection. Unused `skf_`
+No opt-in is needed: vertices with positive `skh_` weights seed the hand selection. Unused `skh_`
 names in a bone list do not trigger splitting; the check follows actual vertex weights.
 
 ### Split
@@ -379,7 +402,7 @@ When hand weights are detected, import to the IR and perform the following mesh 
 selection/separation semantics only: the compiler neither launches Blender nor uses `bpy`, and
 compiling hundreds of models must not require a Blender installation or per-model external process.
 
-1. **Select** vertices with any positive weight on that hand's `skf_` groups (`_l` or `_r`).
+1. **Select** vertices with any positive weight on that hand's `skh_` groups (`_l` or `_r`).
 2. **Grow once** along the mesh topology — equivalent to one Blender **Select More** (`Ctrl +`)
    step in vertex mode, bringing in the neighboring row at the wrist. This is not a distance-based
    cut, and shared wrist/forearm weights do not exclude a vertex from the expanded selection.
@@ -410,7 +433,7 @@ transparent to whether the gloves were auto-split or authored as separate files.
 ### Where it lives
 
 `model_convert`, as an IR-level operation (`split_by_skeleton_group`). It operates on the IR's
-normalized bone mapping and identifies hand bones by the `skf_` name convention. It is a one-way
+normalized bone mapping and identifies hand bones by the `skh_` name convention. It is a one-way
 semantic transformation, not a same-format round-trip, so it does not belong in the
 `fmdl`/`pes_model` format crates (which own format-native operations for lossless round-trips).
 
@@ -708,7 +731,7 @@ Path B (new):     Blender ──pes-models glTF codec (native export + materials
 The compiler detects the model format by file extension (`.fmdl`, `.model`, `.gltf`/`.glb`) and
 routes accordingly. glTF sources always go through the IR. PES-native sources skip the IR for
 same-format targets — **except** when an IR-level operation applies: hand auto-split (models with
-`skf_` bone weights are imported, partitioned, and exported back to the same format) and
+`skh_` bone weights are imported, partitioned, and exported back to the same format) and
 cross-version skeleton retargeting (see "Skeleton retargeting and bone conformance"). Both are lossless
 same-format IR round-trips. All other same-format processing (ID replacement, texture path
 rewriting, model merging on both engines, validation) is format-native and never touches the IR.
@@ -774,33 +797,46 @@ This is where Rust's performance is essential:
 ### Skeleton data
 
 `PesSkeletonData.py` (55KB) is hardcoded bone matrices, parent relationships, and positions for
-*one* PES skeleton. The Studio replaces it with the games' own skeleton files, **one set per PES
-version**, embedded in the binary (a few KB each) and exposed as constants:
+*one* PES skeleton (its matrices equal PES17's `body.skl` transforms to 5e-16, measured). The Studio
+replaces it with the games' own skeleton files, **one set per PES version**, embedded in the
+binary (a few KB each) and exposed through one lookup:
 
 ```rust
 pub struct PesBone {
-    pub skl_parent: Option<&'static str>,    // the SKL file's own parent_index
-    pub render_parent: Option<&'static str>, // the mesh-splitting/Blender hierarchy (PesSkeletonData's)
-    pub matrix: [f32; 12],                   // model-space 3×4 bind transform from the SKL
-    pub start_position: Option<Vector3>,     // Blender bone display only
-    pub end_position: Option<Vector3>,
+    pub name: String,
+    pub skl_parent: Option<String>,    // the SKL file's own parent_index, resolved to a name
+    pub render_parent: Option<String>, // the mesh-splitting/Blender hierarchy (`render_parents.rs`)
+    pub matrix: Affine,                // model-space 3×4 bind transform from the SKL
 }
+
+/// One skeleton file, bones sorted by name for lookup.
+pub struct Skeleton { pub bones: Vec<PesBone> }
+impl Skeleton { pub fn bone(&self, name: &str) -> Option<&PesBone>; }
 
 pub struct VersionSkeletons {
-    pub body: phf::Map<&'static str, PesBone>,
-    pub face: Option<phf::Map<&'static str, PesBone>>,   // Fox versions ship face.skl
-    pub hand_l: Option<phf::Map<&'static str, PesBone>>, // Fox versions ship hand_l/hand_r.skl
-    pub hand_r: Option<phf::Map<&'static str, PesBone>>,
-    pub body_skl_bytes: &'static [u8],       // the verbatim game file, for Fox template injection
+    pub body: Skeleton,
+    pub face: Skeleton,                // Fox versions ship face.skl; pre-Fox uses PES19's
+    pub hand_l: Skeleton,              // likewise hand_l.skl / hand_r.skl
+    pub hand_r: Skeleton,
+    pub body_skl_bytes: &'static [u8], // the verbatim game file, for Fox template injection
 }
 
-pub fn skeletons(version: PesVersion) -> &'static VersionSkeletons;
+pub fn skeletons(version: PesVersion) -> &'static VersionSkeletons;   // PES20 = PES21
 ```
 
-**Provenance.** Every table is transcribed from a game file, never invented. The files themselves
-are checked in under `resources/skeletons/pes{15,16,17,18,19,21}/` (extracted once, stored
-decompressed; see the README there) and are what the build embeds and what a `build.rs`/dev tool
-generates the constants from — the Python literals are not copied. Where each version keeps its
+The plan's first draft had `phf::Map`s of `&'static` data generated into a source file; a sorted
+`Vec` with a binary search over at most 175 names is as fast as matters and needs neither a
+generator nor a dependency. The Blender display positions (`start`/`end`, `PesSkeletonData`'s
+`_displayPositions`) are not skeleton data the games ship; they join `PesBone` in Phase 7 with the
+glTF exporter that needs them.
+
+**Provenance.** Every number comes from a game file, never from a transcription. The files
+themselves are checked in under `resources/skeletons/pes{15,16,17,18,19,21}/` (extracted once,
+stored decompressed; see the README there), embedded with `include_bytes!` and parsed once at first
+use with `fmdl::SklFile` — the Python literals are not copied. The one hand-maintained skeleton
+table is `render_parents.rs`, names only: `PesSkeletonData`'s render hierarchy (140 bones, body,
+hands and face), which no game file records. A bone outside that table is a render root, which is
+what every `dsk_*` bone already is in the games' own parent columns. Where each version keeps its
 player skeletons in the game data:
 
 | Version | Archive | Path | Files |
@@ -859,22 +895,31 @@ of the **broken wrist pose in some PES15 animations (the pre-match entrance) on 
 pose-dependent error is exactly what wrong bind pivots produce. *Hypothesis; verify on a known-broken
 port once the pass exists.*
 
-The Studio runs one IR pass, `retarget_skeleton(ir, source_pose, target_version)`, in every export
-path after conversion and before mesh splitting:
+The Studio runs one IR pass, `retarget(ir, target_version) -> Vec<loss::Finding>`, in every export
+path after conversion and before mesh splitting. The source bind pose is already in the IR's
+`Bone.matrix` (the importers put it there); the pass rewrites the bones and vertices in place:
 
 1. **Source bind pose.** `.model`: the inline matrices, inverted. glTF: `skin.inverseBindMatrices`.
    FMDL: the companion `.skl`; without one, the source is assumed to be **PES21**'s skeleton (the
    only Fox versions in 4cc use are 18/19/21 and their shared bones differ by ≤0.25 on `dsk_deltoid`
    and the toe tips; FMDL files do not record their game version).
 2. **Fold bones the target lacks** (problem A). For each used bone absent from the target's body
-   table, transfer its weight to the bone named by the **fold table** for that bone — a per-removed-
-   bone table, seeded from the two legacy tables and `PesSkeletonData`'s render parents (`dsk_chest`
-   → `sk_chest`, `dsk_belly` → `sk_belly`, PES19's `dsk_pos_*_wrist_*` → `sk_hand_*`, …), maintained
-   as data next to the skeleton constants. A removed bone with no table entry falls back to the
-   **nearest target bone by rest position** and is reported (`bone_folded_for_version`, I, per
-   bone); an entry that names a bone the target also lacks is a table bug caught by a unit test.
-   Bone groups and vertex mappings are remapped exactly as the simplifier's `simplifyModel` does.
-   The SKL parent chain is *not* used: almost every `dsk_*` bone is a root in the games' own files.
+   table, transfer its weight to the bone named by the **fold table** for that bone — one table for
+   every version, name → name, in `skeletons/fold.rs`: the two legacy tables verbatim, the
+   PES15-only bones (`dsk_chest` → `sk_chest`, `dsk_belly` → `sk_belly`, `dsk_upperarm_{b,m,t}_*` →
+   `dsk_upperarm_*`, `tip_belly`/`tip_chest` → `sk_belly`/`sk_chest`), PES19's `dsk_pos_*` helpers
+   (`dsk_pos_*_wrist_*` → `sk_hand_*`, `dsk_pos_<bone>_*` → `dsk_<bone>_*` or the `sk_` bone
+   the helper sits on), and PES21's additions whose name spells the body part (`dsk_sleeve*`,
+   `dsk_underarm*` → `sk_upperarm_*`; `dsk_hem_*_fake_*` → `dsk_hem_*_*`; `dsk_kneeback_*` →
+   `sk_leg_*`; `dsk_thighmain_*` → `sk_thigh_*`; `dsk_sternum_*` → `sk_chest`). Entries beyond the
+   legacy tables are name-based judgment, not game-verified. A table entry whose target the version
+   also lacks is **followed as a chain** (`dsk_upperarm_long_l` → `dsk_upperarm_l` → PES15 has it;
+   `dsk_pos_trapezius_l` → `dsk_trapezius_l` → `sk_shoulder_l` on PES15); a unit test walks every
+   entry against every version and fails on a chain that ends nowhere or loops. A removed bone with
+   no entry (PES21's `dsk_back`, the `pos_arm_target_*` IK helpers) falls back to the **nearest
+   target bone by rest position** and is reported (`bone_folded_for_version`, I, per bone). Bone
+   groups and vertex mappings are remapped exactly as the simplifier's `simplifyModel` does. The SKL
+   parent chain is *not* used: almost every `dsk_*` bone is a root in the games' own files.
 3. **Re-bind to the target pose** (problem B). For every surviving bone, re-pose the vertices from
    the source rest pose into the target's — `v' = Σᵢ wᵢ · B_target,ᵢ · B_source,ᵢ⁻¹ · v` over the
    vertex's weights, normals/tangents by the rotational part — and write the **target version's**

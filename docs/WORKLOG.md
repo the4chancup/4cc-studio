@@ -12,7 +12,7 @@ is in `AGENTS.md` ("Working documents").
 **Phase:** 2 (Library crates). Done: 2.1 `wezlib`, 2.2 `cpk`, 2.3 `fpk`, 2.4 `ftex`, 2.5 `dds_convert` (CPU),
 2.6 `fmdl` (format, model, ops, check), 2.7 `pes_model` (format, mtl, model, ops, check), 2.8 `uniparam`, 2.9 `fox2`, 2.10 `archives`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`, 2.14 `color_tools`, 2.15 `elevation`. Review
 rounds A and B (2026-09-13) closed: 2.5c, 2.12b, 2.13b done.
-**In progress:** 2.16 `model_convert` next (then `pes_savefile`, `python_bindings`)
+**In progress:** 2.16 `model_convert` (2.16a done; 2.16b IR next), then `pes_savefile`, `python_bindings`
 **Blocked on:** nothing
 
 ---
@@ -279,8 +279,27 @@ Spec: `docs/plans/core.md` "Phase 2", `docs/plans/libs.md`, `model_conversion.md
   decline mapped), `is_access_denied`, argument quoting verified against `CommandLineToArgvW`
   itself; wasm32 compiles to "not elevated". The relaunch is a manual check at the first tool
   phase that needs it. 4 tests; workspace 329
-- [ ] 2.16 `model_convert` — IR, native importers/exporters, hand auto-split, skeleton constants,
-  material conversion (glTF is Phase 7)
+- [x] 2.16a `model_convert` skeletons — done (lead: plan rewritten after a census of the six
+  `body.skl` and the legacy tables, `render_parents.rs` and `fold.rs` data authored, four
+  decisions; sidekick code): `affine.rs` (3x4 transform, f64 inverse), `skeletons/` (embedded
+  `.skl` parsed once, `PesBone`/`Skeleton`/`VersionSkeletons`, `render_parent`, `fold_target`);
+  every fold chain lands on every version. Plan error fixed: hand bones are `skh_`, not `skf_`.
+  12 tests
+- [ ] 2.16b `model_convert::ir` — `CanonicalModel` and friends pasted from the plan, `validate`
+  → verify: a hand-built two-mesh model validates; each invariant has a failing case
+- [ ] 2.16c `model_convert::formats::fmdl` — `fmdl_to_ir` / `ir_to_fmdl` → verify: semantic
+  round trip on the copied Konami fixtures, bind pose from the companion SKL on the audience pair
+- [ ] 2.16d `model_convert::formats::pes_model` — `model_to_ir` / `ir_to_model` → verify: semantic
+  round trip on the copied fixtures with `.mtl`, inline matrices inverted and re-inverted within 1e-5
+- [ ] 2.16e `model_convert::materials` — schema types, family inference, `to_fox`, `to_prefox`
+  → verify: the format plan's family table as literal expectations, both directions
+- [ ] 2.16f `model_convert::skeletons::retarget` — fold + re-bind → verify: PES19→PES16 and
+  PES17→PES15 fold exactly the legacy `missingBones`, not the `movedBones`; same-version no-op
+- [ ] 2.16g `model_convert::ops::hand_split` → verify: synthetic mesh with an `skh_` strip splits
+  with the one-ring growth; a model without hand weights passes through
+- [ ] 2.16h `model_convert` routing + `loss.rs` → verify: FMDL→.model of a Konami fixture equals
+  the legacy converter's output semantically (lead-produced reference)
+- [ ] 2.16i checkpoint (b) review of the new `pub` surface
 - [ ] 2.17 `pes_savefile` — crypto, schema codec, model, `EditFile`, `PlayerSettings`, conversion,
   interchange formats, transplant/fingerprint, comparator, FPC invisibility
 - [ ] 2.18 `python_bindings` (maturin build + Python smoke test; add the `just bindings` recipe

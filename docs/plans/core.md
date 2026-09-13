@@ -1691,7 +1691,8 @@ is Phase 7:
   crates' `ops/` for splitting, encoding and anti-blur rather than reimplementing them
 - Hand auto-split in the IR, in-process without Blender: select weighted hand vertices, grow once,
   separate — see [Model conversion](model_conversion.md#hand-auto-split)
-- Verified skeleton data embedded as compile-time constants (`resources/skeletons/`)
+- The games' skeleton files embedded and exposed per version (`resources/skeletons/`), the render
+  hierarchy and fold table beside them, and the retargeting pass
 - Material conversion logic
 - Cross-version player save data (`convertPlayerSaveData`) belongs to `pes_savefile` below
 

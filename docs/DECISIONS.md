@@ -1132,3 +1132,58 @@ the crate on the `wasm32` gate like every other lib. Argument quoting for the re
 against `CommandLineToArgvW` itself rather than against our reading of its rules.
 Plan: `libs.md` "`libs/elevation`" gains the surface block and the test list; `core.md`
 "External Dependencies" rows for `windows` and `libc`.
+
+## 2026-09-13 - model_convert - IR shapes settled against the format crates
+Decision: the IR's vertices are a struct of arrays (`Vertices`, one `Vec` per attribute) rather
+than a `Vec<Vertex>`; `Bone.children` is dropped; `Mesh` carries no `alpha_flags`,
+`shadow_flags`, anti-blur or `split_group_id` fields; `extension_headers` are `BTreeSet<String>`
+of raw header lines; `Bone.matrix` is the crate's own `Affine` (3x4 row-major, `affine.rs`) and
+`nalgebra` is not used; a `.model` import drops Konami's lower LODs, tags, editor items and
+order word, reported through `loss.rs`; the template display positions wait for Phase 7.
+Why: both format crates already store vertices as columns, so a conversion is a column copy and a
+100k-vertex model allocates no per-vertex `Vec`s (speed is the primary goal); `children` is a
+second copy of `parent` to keep in step through folds and prunes; the per-mesh Fox flags are
+lifted to the material by the plan's own "Engine mapping" rule, and the importers call the format
+crates' split and anti-blur *decode*, so an imported mesh is whole and carries no split identity;
+the format crates type every known header already, so the IR only needs the leftovers; the only
+matrix work in the suite is bone transforms, four functions that do not justify a generic linear
+algebra API; no 4cc export carries LODs or Konami tags (the add-on writes none).
+Plan: `model_conversion.md` "IR struct" rewritten with the shapes; "Crate layout" gains
+`affine.rs` and loses `ir/skeleton.rs`.
+
+## 2026-09-13 - model_convert - skeletons parsed from the embedded .skl files, not generated source
+Decision: `skeletons/` embeds `resources/skeletons/pes*/*.skl` with `include_bytes!` and parses
+them once at first use (`LazyLock`) through `fmdl::SklFile`; `PesBone`/`Skeleton` are owned
+`String`/`Vec` data with a binary search by name; no `phf`, no generated `data.rs`, no build
+script. `skeletons/` is the one module outside `formats/` allowed to import `fmdl` (the SKL codec
+only). The render hierarchy (`render_parents.rs`, 140 names from `PesSkeletonData`) and the fold
+table (`fold.rs`) are the only hand-maintained tables, names only.
+Why: the plan's generated `data.rs` is a 250 KB file of literals plus a generator plus a drift
+test, for numbers the SKL codec already reads byte-exactly (tested on three Konami files); the
+`.skl` bytes must be embedded anyway for Fox template injection. A `phf::Map` over 175 names buys
+nothing over a sorted slice. The render hierarchy is not in any game file (the SKL parent column
+makes 41 to 82 of each body's bones roots), so it stays a transcription, of names.
+Plan: `model_conversion.md` "Skeleton data" rewritten; "Crate layout" placement rules edited.
+
+## 2026-09-13 - model_convert - hand bones are `skh_`, not `skf_`; fold table follows chains
+Decision: hand auto-split identifies hand-exclusive bones by the `skh_` prefix. The fold table is
+one name -> name table for every version, followed as a chain when the target lacks the entry's
+target too, with a unit test that every entry resolves on every version; entries beyond the two
+legacy tables are name-based and marked unverified.
+Why: the games' own `hand_l.skl` holds 19 `skh_` bones and `face.skl` 33 `skf_` bones (measured on
+PES 18, 19, 21); the plan's `skf_` would have split faces at the jaw. A per-version fold table
+would repeat the same entries six times, and the natural targets already chain
+(`dsk_upperarm_long_l` -> `dsk_upperarm_l`, which PES15 also lacks).
+Plan: `model_conversion.md` "Hand auto-split" (detection, split, where it lives), "Skeleton
+retargeting and bone conformance" step 2; `aesthetics_export.md` pipeline step 0.
+
+## 2026-09-13 - model_convert - `convert` by value; the Fox bundle carries its companion SKL
+Decision: `convert(bundle, target) -> Result<Converted, ConvertError>` takes and returns
+`NativeModelBundle` by value; `NativeModelBundle::Fox { model: fmdl::Model, skl: Option<SklFile> }`
+and `PreFox { model: pes_model::model::Model, mtl: MaterialSet }` sit at the format crates'
+semantic layer (`Model`), not the file layer (`FmdlFile`/`PreFoxModel`).
+Why: by value makes "both members or neither" a property of the type instead of a comment on a
+`&mut self` method; the semantic layer is where the format crates' ops (split, anti-blur, vertex
+encoding) already work, so the importers call them without a second decode; the SKL is the bind
+pose source for an FMDL and belongs with it.
+Plan: `model_conversion.md` "Conversion routing" rewritten.
