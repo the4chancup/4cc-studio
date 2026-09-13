@@ -239,3 +239,6 @@ PowerShell has no heredocs.
   all say so). The trap is Python on Windows: text-mode `open()` writes `\r\n` on save and append,
   silently converting a whole file and making every line show as changed. Scripts that touch repo
   files open them with `newline="\n"`, or read and write bytes. rustfmt emits LF by default.
+  Binary fixtures are exempt: `.gitattributes` marks `crates/**/tests/fixtures/**` as `-text`, so
+  a game file that happens to contain CRLF is stored as is (the first `cpk` fixture commit
+  normalized one and shrank it by 97 bytes before this rule existed).
