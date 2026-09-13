@@ -10,7 +10,7 @@ is in `AGENTS.md` ("Working documents").
 ## Current status
 
 **Phase:** 2 (Library crates). Done: 2.1 `wezlib`, 2.2 `cpk`, 2.3 `fpk`, 2.4 `ftex`, 2.5 `dds_convert` (CPU),
-2.6 `fmdl` (format, model, ops, check), 2.8 `uniparam`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`. 2.7 census and 2.7a-1 done; next 2.7a-2 `pes_model` typed layer. Review
+2.6 `fmdl` (format, model, ops, check), 2.8 `uniparam`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`. 2.7 census, 2.7a-1, 2.7a-2 done; next 2.7b `pes_model` vertex codec. Review
 rounds A and B (2026-09-13) closed: 2.5c, 2.12b, 2.13b done.
 **In progress:** none
 **Blocked on:** —
@@ -178,10 +178,13 @@ Spec: `docs/plans/core.md` "Phase 2", `docs/plans/libs.md`, `model_conversion.md
   `ModelContainer` (header words, eleven sections in file order) byte-identical on all twelve
   `.model` fixtures, wrapped ones compared unwrapped; constant header words validated;
   `RecordArray` reader with checked arithmetic. 8 tests
-- [ ] 2.7a-2 `pes_model::format` typed layer: `PreFoxModel` over the container (bones, groups,
-  materials, annotations + records, geometries with raw field data / faces / LOD ranges, meshes
-  with resolved indices, bounds) and its `write` (add-on layout) → verify: `read(write(m)) == m`
-  on all twelve fixtures; literal expectations from the census
+- [x] 2.7a-2 `pes_model::format` typed layer — done (sidekick, two rework rounds: a `macro_rules!`,
+  duplicated pointer checks and unchecked offset sums): `PreFoxModel` over the container (bones,
+  groups, materials, annotation strings and records, geometries with raw field data, faces and
+  LOD ranges, meshes with resolved indices and editor data, bounds, LOD record) and its `write`
+  in the add-on layout; `read(write(m)) == m` on all twelve fixtures, version 17 included; every
+  census expectation literal. Editor-data item decode is unverified against a real file (none
+  exists). 15 tests. Reviewer checkpoint (b) for the new `pub` surface is batched with 2.7b
 - [ ] 2.7b vertex codec; 2.7c model layer; 2.7d ops (split, vertex_enc, merge, paths); 2.7e `.mtl`
   read/write (roxmltree read, hand writer, byte parity per Konami file); 2.7f check
 - [x] 2.8 `uniparam` — done (sidekick): WESYS-unwrapping read, sorted writer; Konami PES21

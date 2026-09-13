@@ -239,6 +239,13 @@ fixtures in `crates/libs/pes_model/tests/fixtures/` are the representatives, one
   the 2610 files, and no mesh references section 10; the vertex-field header's cloth word and the
   per-mesh editor-data array are always zero and empty. Two third-party trophy props (not
   Konami's) have sections at odd offsets and annotation word 8, which the container reads fine.
+- Editor data (the 24-byte mesh record's last pointer): an array of `u32` offsets, relative to
+  the array's own start, each to an item `u32 kind, u32 unknown, value`, the value a
+  NUL-terminated string padded to 4 when `kind == 1` and a `u32` otherwise (stadium and prop
+  models carry editor tool names and node types this way; no player part does). This item
+  layout comes from the reference parser's notes, not from a file: none of the 2610 has a
+  non-empty array, so the typed layer's decode of it is specified but unverified against a real
+  sample, and says so in its doc comment.
 
 So the crate has two format layers, like `fmdl`: **`ModelContainer`** (header fields, the eleven
 sections as opaque byte runs in file order) is the byte-identical one (`write(read(x)) == x` on
