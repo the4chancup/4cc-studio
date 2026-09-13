@@ -14,7 +14,7 @@ mod tests;
 /// from Konami's (see the plan).
 #[derive(Debug, Clone, PartialEq)]
 pub struct PreFoxModel {
-    /// Header version word (19 for every PES 2017 part but the shadow model, which is 17).
+    /// The version word the file declared; `write` always emits 19, see the plan.
     pub version: u16,
     /// Header flags word (0; 4 in two face-montage models, meaning unknown).
     pub flags: u32,
@@ -104,7 +104,7 @@ impl VertexField {
 pub struct FaceStream {
     /// `u16` indices, three per face.
     pub indices: Vec<u16>,
-    /// `(start, end)` ranges partitioning `indices`, level 0 first.
+    /// `(start, end)` ranges partitioning `indices` in order, level 0 first.
     pub lod_ranges: Vec<(u32, u32)>,
 }
 
@@ -416,7 +416,10 @@ fn read_geometry(bytes: &[u8], record: &[u8]) -> Result<Geometry, ModelError> {
                 datum_format,
             });
         };
-        let data = slice_at(bytes, data_offset, count * datum_format.size())?.to_vec();
+        let len = count
+            .checked_mul(datum_format.size())
+            .ok_or(ModelError::Truncated)?;
+        let data = slice_at(bytes, data_offset, len)?.to_vec();
         vertex_fields.push(VertexField {
             datum_type,
             datum_format,
@@ -453,10 +456,16 @@ fn read_geometry(bytes: &[u8], record: &[u8]) -> Result<Geometry, ModelError> {
     let lod_levels = u32_at(face, 16)? as usize;
     let lod_table_offset = u32_at(face, 20)? as usize;
     let indices = read_u16s(bytes, start, count)?;
+    // Slice the whole table before allocating: `8 * lod_levels` can
+    // overflow or lie far past the section on a hostile count.
+    let table_len = lod_levels.checked_mul(8).ok_or(ModelError::Truncated)?;
+    let table = slice_at(bytes, lod_table_offset, table_len)?;
     let mut lod_ranges = Vec::with_capacity(lod_levels);
-    for index in 0..lod_levels {
-        let entry = offset_sum(lod_table_offset, 8 * index)?;
-        lod_ranges.push((u32_at(bytes, entry)?, u32_at(bytes, offset_sum(entry, 4)?)?));
+    for entry in table.as_chunks::<8>().0 {
+        lod_ranges.push((
+            u32::from_le_bytes(entry[..4].try_into().map_err(|_| ModelError::Truncated)?),
+            u32::from_le_bytes(entry[4..].try_into().map_err(|_| ModelError::Truncated)?),
+        ));
     }
 
     // The extras array's records are u32 offsets relative to the array's

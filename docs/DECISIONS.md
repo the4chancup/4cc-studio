@@ -988,3 +988,14 @@ reference parser warns and proceeds on cloth/locator models, but a warning that 
 dropping the referenced section is a silent corruption, and no player part uses those sections.
 Plan: `libs.md` "`pes_model::format`: the `.model` container and its sections" added (layout as
 measured by `.tmp/model_census.py` on the six fixtures).
+
+## 2026-09-14 - pes_model - the typed writer always emits header version 19
+Decision: `PreFoxModel::write` puts 19 in the header whatever `version` the file declared; the
+field stays on the struct as read-side information.
+Why: the writer emits the version-19 record sizes (24-byte mesh records, three geometry extras,
+16-byte locator records), and the reviewer pointed out that the round trip of the version-17
+shadow fixture only proved our reader accepts a version-17 word over that layout, not that PES
+does. The version-19 word over the version-19 layout is what the community converter shipped to
+PES 16 for years; the hybrid has no evidence. Carrying the word would have made the file look
+faithful while being untested.
+Plan: `libs.md` "`pes_model::format`: the `.model` container and its sections" edited.

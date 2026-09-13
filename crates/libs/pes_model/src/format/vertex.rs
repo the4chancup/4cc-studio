@@ -172,6 +172,20 @@ fn encode_quads(values: &[[u8; 4]]) -> Vec<u8> {
     data
 }
 
+/// Every weight at or past `width` must be zero: the format cannot store it.
+fn check_weight_padding(weights: &[[f32; 4]], width: usize) -> Result<(), ModelError> {
+    if weights
+        .iter()
+        .any(|quad| quad[width..].iter().any(|weight| *weight != 0.0))
+    {
+        Err(ModelError::VertexMismatch(
+            "bone weight beyond the stored width",
+        ))
+    } else {
+        Ok(())
+    }
+}
+
 /// Encodes bone weights at `width` `f32`s per vertex.
 fn encode_weights(values: &[[f32; 4]], width: usize) -> Vec<u8> {
     let mut data = Vec::with_capacity(4 * width * values.len());
@@ -291,6 +305,7 @@ impl MeshVertices {
         if let Some(weights) = &self.bone_weights {
             let format = weight_format(self.bone_weight_width)
                 .ok_or(ModelError::VertexMismatch("bone weight width"))?;
+            check_weight_padding(weights, self.bone_weight_width as usize)?;
             fields.push(VertexField {
                 datum_type: DatumType::BoneWeights,
                 datum_format: format,
@@ -423,7 +438,10 @@ impl Geometry {
             return Err(ModelError::VertexMismatch("uv maps"));
         }
 
-        for field in &mut self.vertex_fields {
+        // Build every field's new bytes first so a failed encode leaves the
+        // geometry untouched.
+        let mut new_data = Vec::with_capacity(self.vertex_fields.len());
+        for field in &self.vertex_fields {
             check_pairing(field)?;
             let data = match field.datum_type {
                 DatumType::Position => encode_triples(&vertices.positions),
@@ -480,19 +498,16 @@ impl Geometry {
                         .bone_weights
                         .as_deref()
                         .ok_or(ModelError::VertexMismatch("bone weights"))?;
-                    for quad in bone_weights {
-                        if quad[width..].iter().any(|weight| *weight != 0.0) {
-                            return Err(ModelError::VertexMismatch(
-                                "bone weight beyond the stored width",
-                            ));
-                        }
-                    }
+                    check_weight_padding(bone_weights, width)?;
                     encode_weights(bone_weights, width)
                 }
             };
             if data.len() != field.data.len() {
                 return Err(ModelError::VertexMismatch("vertex count"));
             }
+            new_data.push(data);
+        }
+        for (field, data) in self.vertex_fields.iter_mut().zip(new_data) {
             field.data = data;
         }
         Ok(())
@@ -506,10 +521,27 @@ fn check_stream(stream: &FaceStream) -> Result<(), ModelError> {
             "index count not a multiple of 3",
         ));
     }
+    if stream.lod_ranges.is_empty() {
+        return Ok(());
+    }
+    let mut expected_start = 0usize;
     for (start, end) in &stream.lod_ranges {
-        if *end as usize > stream.indices.len() || end < start || (end - start) % 3 != 0 {
-            return Err(ModelError::InvalidFaceStream("lod range"));
+        let (start, end) = (*start as usize, *end as usize);
+        if start != expected_start
+            || end < start
+            || end > stream.indices.len()
+            || !(end - start).is_multiple_of(3)
+        {
+            return Err(ModelError::InvalidFaceStream(
+                "lod ranges do not partition the faces",
+            ));
         }
+        expected_start = end;
+    }
+    if expected_start != stream.indices.len() {
+        return Err(ModelError::InvalidFaceStream(
+            "lod ranges do not partition the faces",
+        ));
     }
     Ok(())
 }
@@ -748,5 +780,49 @@ mod tests {
             stream.level(5),
             Err(ModelError::InvalidFaceStream(_))
         ));
+
+        let hair_d = PreFoxModel::read(HAIR_D).unwrap();
+        let mut vertices = hair_d.geometries[0].decode_vertices().unwrap();
+        vertices.bone_weights.as_mut().unwrap()[0][2] = 0.5;
+        assert_eq!(
+            vertices.to_fields(),
+            Err(ModelError::VertexMismatch(
+                "bone weight beyond the stored width"
+            ))
+        );
+
+        // A failed encode leaves the geometry untouched.
+        let geometry = cap.geometries[0].clone();
+        let mut vertices = geometry.decode_vertices().unwrap();
+        vertices.positions[0] = [9.0, 9.0, 9.0];
+        vertices.normals.as_mut().unwrap().pop();
+        let mut edited = geometry.clone();
+        assert!(matches!(
+            edited.encode_vertices(&vertices),
+            Err(ModelError::VertexMismatch(_))
+        ));
+        assert_eq!(edited, geometry);
+    }
+
+    #[test]
+    fn lod_ranges_must_partition_the_stream() {
+        let stream = |lod_ranges: Vec<(u32, u32)>| FaceStream {
+            indices: vec![0, 1, 2, 3, 4, 5],
+            lod_ranges,
+        };
+        for ranges in [
+            vec![(1, 4)],
+            vec![(0, 3)],
+            vec![(0, 3), (0, 6)],
+            vec![(0, 3), (4, 6)],
+        ] {
+            assert_eq!(
+                stream(ranges).faces(),
+                Err(ModelError::InvalidFaceStream(
+                    "lod ranges do not partition the faces"
+                ))
+            );
+        }
+        assert_eq!(stream(vec![(0, 3), (3, 6)]).level(1).unwrap(), [[3, 4, 5]]);
     }
 }
