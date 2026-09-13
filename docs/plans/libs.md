@@ -265,6 +265,25 @@ empty; a model whose geometry or meshes reference them (cloth, material combinat
 none of which any Konami player part uses) is a read error naming the feature, not a warning,
 since a rewrite could not preserve it.
 
+### `pes_model::model`: the semantic layer the ops work on
+
+As for `fmdl`, the ops reason about bones, materials and meshes, not records: `Model` is built
+from a `PreFoxModel` and written back to a fresh one, semantically lossless
+(`from_file(to_file(m)) == m` on every fixture). Compared with `PreFoxModel` it decodes the
+vertices (`MeshVertices`), splits the face stream into level-0 faces and lower LOD levels, gives
+each mesh its own bone group as indices into `bones`, and sorts the annotations by meaning: kind
+128 is the mesh name and kind 129 a per-mesh extension header (the add-on's), every other kind is
+a Konami tag kept as `(kind, text)`; annotation strings no mesh uses are the model's extension
+headers (`Skeleton-Type: Simplified` on the card heads). Bounds are carried as read and
+recomputed by the ops that move vertices; the section-7 LOD record is carried verbatim, with a
+constructor for new models (`level_count`, `0.0625, 4.0`, `0.3` with LODs and `0.0` without).
+`to_file` writes one section-3 record per Konami tag, a bone-group entry per mesh, and a present
+but empty editor-data array unless the mesh carries items; a face index past the mesh's vertex
+count is an error, never a panic. Degenerate faces are kept (the reference importer drops them;
+a model layer that alters faces on read cannot claim to be lossless). Known gap, to decide at
+converge: the reference importer repairs meshes an old add-on exported with loose vertices
+(indices shifted past the vertex table); ours rejects them.
+
 ## External tool dependencies
 
 | Tool | Current use | Rust replacement |

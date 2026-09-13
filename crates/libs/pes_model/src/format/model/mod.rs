@@ -56,6 +56,27 @@ pub struct BoundingBox {
     pub max: [f32; 4],
 }
 
+impl BoundingBox {
+    /// The box around `positions`; an empty list gives the zero box.
+    pub fn of(positions: &[[f32; 3]]) -> BoundingBox {
+        let Some(first) = positions.first() else {
+            return BoundingBox {
+                min: [0.0; 4],
+                max: [0.0; 4],
+            };
+        };
+        let mut min = [first[0], first[1], first[2], 0.0];
+        let mut max = min;
+        for position in &positions[1..] {
+            for axis in 0..3 {
+                min[axis] = min[axis].min(position[axis]);
+                max[axis] = max[axis].max(position[axis]);
+            }
+        }
+        BoundingBox { min, max }
+    }
+}
+
 /// Section 7's second entry: the LOD level count and three parameters (`0.0625, 4.0` and `0.3`
 /// with LODs, `0.0` without, in every known file).
 #[derive(Debug, Clone, PartialEq)]
@@ -64,6 +85,17 @@ pub struct LodRecord {
     pub level_count: u32,
     /// The record's three floats.
     pub parameters: [f32; 3],
+}
+
+impl LodRecord {
+    /// The record Konami writes for a model with `level_count` LOD levels
+    /// (`0` for none).
+    pub fn for_levels(level_count: u32) -> LodRecord {
+        LodRecord {
+            level_count,
+            parameters: [0.0625, 4.0, if level_count > 0 { 0.3 } else { 0.0 }],
+        }
+    }
 }
 
 /// One mesh's geometry: its vertex fields, face stream and extras.
