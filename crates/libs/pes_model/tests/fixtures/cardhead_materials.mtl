@@ -1,0 +1,12 @@
+<materialset>
+  <material name="card" shader="Shadeless">
+    <sampler name="DiffuseMap" path="./texture.dds" srgb="1" minfilter="linear" magfilter="linear" />
+    <state name="ztest" value="1" />
+    <state name="zwrite" value="0" />
+    <state name="twosided" value="0" />
+    <state name="alphatest" value="1" />
+    <state name="alpharef" value="0" />
+    <state name="alphablend" value="1" />
+    <state name="blendmode" value="0" />
+  </material>
+</materialset>

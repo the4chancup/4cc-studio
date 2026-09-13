@@ -32,6 +32,7 @@ thiserror = "2.0.20"
 toml = "0.9.8"
 toml_edit = "0.23.9"
 unicode-normalization = "0.1.25"
+roxmltree = "0.21.1"
 
 # Workspace crates, so a member depends on another by name alone.
 cpk = { path = "crates/libs/cpk" }
@@ -41,6 +42,7 @@ fpc = { path = "crates/libs/fpc" }
 fpk = { path = "crates/libs/fpk" }
 kit_config = { path = "crates/libs/kit_config" }
 ftex = { path = "crates/libs/ftex" }
+pes_model = { path = "crates/libs/pes_model" }
 pes_version = { path = "crates/libs/pes_version" }
 studio_core = { path = "crates/studio_core" }
 teams_list = { path = "crates/libs/teams_list" }
