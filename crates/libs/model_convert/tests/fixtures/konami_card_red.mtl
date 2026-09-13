@@ -1,0 +1,5 @@
+<materialset> 
+	<material name="judge_card_red" shader="Basic_C"> 
+		<sampler name="DiffuseMap" path="model/character/parts/referee/card_red_bsm.dds" srgb="1" minfilter="linear" magfilter="linear" /> 
+	</material> 
+</materialset> 

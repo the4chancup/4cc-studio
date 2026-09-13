@@ -123,8 +123,8 @@ pub struct ResolvedFox {
     pub textures: Vec<(String, usize)>,
     /// Canonical roles Fox has no sampler for (the caller reports `material_texture_unused`).
     pub unused_roles: Vec<TextureRole>,
-    /// The engine-neutral parameters, then the family defaults / `fox.parameters`; a name
-    /// that appears twice keeps the later (more specific) value in place of the earlier one.
+    /// The family defaults (only without a `fox` table) < `material.parameters` <
+    /// `fox.parameters`; a repeated name keeps its position and takes the later value.
     pub parameters: Vec<(String, [f32; 4])>,
 }
 
@@ -191,8 +191,10 @@ pub fn resolve(material: &Material) -> ResolvedFox {
     }
 
     let mut parameters = Vec::new();
-    for (name, value) in defaults.parameters {
-        merge(&mut parameters, name, *value);
+    if fox.is_none() {
+        for (name, value) in defaults.parameters {
+            merge(&mut parameters, name, *value);
+        }
     }
     for (name, value) in &material.parameters {
         merge(&mut parameters, name, *value);
@@ -350,6 +352,23 @@ mod tests {
         assert_eq!(resolved.alpha_flags, 32);
         assert_eq!(resolved.shadow_flags, 1);
         assert_eq!(resolved.shader, "custom");
+    }
+
+    #[test]
+    fn a_native_table_skips_the_family_defaults() {
+        let mut mat = material(MaterialFamily::Shaded);
+        mat.fox = Some(FoxMaterial {
+            shader: "s".to_string(),
+            technique: "t".to_string(),
+            alpha_flags: 0,
+            shadow_flags: 0,
+            cast_shadow: None,
+            invisible: None,
+            base_linear: false,
+            textures: vec![],
+            parameters: vec![],
+        });
+        assert!(resolve(&mat).parameters.is_empty());
     }
 
     #[test]

@@ -1187,3 +1187,14 @@ Why: by value makes "both members or neither" a property of the type instead of 
 encoding) already work, so the importers call them without a second decode; the SKL is the bind
 pose source for an FMDL and belongs with it.
 Plan: `model_conversion.md` "Conversion routing" rewritten.
+
+## 2026-09-14 - model_convert - the vertex-loop encoding is read from order on import, applied on export
+Decision: `fmdl_to_ir` calls no vertex-loop decode (the IR keeps the vertex order the owner map is
+read from); `ir_to_fmdl` runs `fmdl::ops::vertex_enc::encode_model` as the plan's table says, and
+same-format round-trip tests compare the export against the decoded input with the same encoders
+applied, not against the input's vertex order.
+Why: the Rust decode returns an owner map and changes nothing, so a call on import would discard
+its result; the encode is not a no-op on Konami files (highneck: 198 of 204 vertices reordered,
+vertex multiset and face corner-tuples unchanged), and the legacy converters reorder the same way,
+so a byte-order comparison would fail on correct output.
+Plan: `model_conversion.md` "Extension algorithms" gains the paragraph.

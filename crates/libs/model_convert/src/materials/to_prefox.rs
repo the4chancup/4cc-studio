@@ -128,7 +128,7 @@ pub struct ResolvedPreFox {
     /// Canonical roles pre-Fox has no sampler for (the caller reports
     /// `material_texture_unused`).
     pub unused_roles: Vec<TextureRole>,
-    /// Family defaults < `material.parameters` (widened to four components) <
+    /// Family defaults (only without a `prefox` table) < `material.parameters` <
     /// `prefox.parameters`; a repeated name keeps its position and takes the later value.
     pub parameters: Vec<(String, Vec<f32>)>,
 }
@@ -229,7 +229,7 @@ pub fn resolve(material: &Material) -> ResolvedPreFox {
     }
 
     let mut parameters = Vec::new();
-    if material.family == MaterialFamily::Metal {
+    if prefox.is_none() && material.family == MaterialFamily::Metal {
         merge(&mut parameters, "Reflection", vec![1.0, 1.0, 1.0, 0.0]);
         merge(&mut parameters, "Shininess", vec![0.9, 0.0, 0.0, 1.0]);
     }
@@ -463,6 +463,22 @@ mod tests {
                 },
                 0
             )]
+        );
+    }
+
+    #[test]
+    fn a_native_table_skips_the_family_defaults() {
+        let mut mat = material(MaterialFamily::Metal);
+        mat.prefox = Some(PreFoxMaterial {
+            shader: "Basic_CNSR".to_string(),
+            states: vec![],
+            samplers: vec![],
+            textures: vec![],
+            parameters: vec![("Shininess".to_string(), vec![0.5])],
+        });
+        assert_eq!(
+            resolve(&mat).parameters,
+            vec![("Shininess".to_string(), vec![0.5])]
         );
     }
 

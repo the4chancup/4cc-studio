@@ -292,6 +292,24 @@ picks the Fox shader from the family (as `model2fmdl.py` does today with its
 touches the shader at all. Per-mesh FMDL flags are lifted to the material on
 import (splitting instances whose meshes differ) and pushed back down on export.
 
+What the native importers derive for the *other* engine: `fmdl_to_ir` sets `two_sided` from alpha
+bit 32 and leaves `transparent` unset. It does not read bit 128 as transparency: a census of 1983
+Konami FMDLs found bit 128 on 128/160 of `fox3ddf_blin`'s meshes in near-equal share with 32/0,
+i.e. on ordinary opaque skin, and the legacy converter judged transparency from the texture's alpha
+channel instead, which the format plan rules out. So a Fox part converted to pre-Fox gets the opaque
+state set unless its family is `glass`; what bit 128 means on deferred shaders is an open question.
+`model_to_ir` sets `two_sided` from the `twosided` state and `transparent` from `alphablend`.
+`ir_to_fmdl` adds the game's `dummy_nrm`/`dummy_srm` textures (`/Assets/pes16/model/character/
+common/sourceimages/`, the same dummies the anti-blur materials use) to a `shaded`/`metal` material
+missing its normal or specular map, as the working 16→21 converter does; the compiler's texture
+step replaces them when the folder has real maps. Only a material without a `fox` table gets them:
+a Fox-native material that ships without the maps (Konami's audience parts) is left as the game
+shipped it, so a same-format round trip adds no textures. Bone positions an FMDL export lacks are derived
+from `Bone.matrix` (see the `Bone` comment); the root's `local_position` is `[0, 0, 0, 1]`, a guess
+consistent with the audience fixture's `sk_belly` and unverified in game (the working converter
+wrote zero for every bone, so the game appears not to read the field when the template `.skl` is
+injected).
+
 **Stem-based texture references (input).** All three formats reference textures
 by **stem** (filename without extension) in their **source/authoring** form; the
 compiler resolves each stem to whatever accepted image file exists in the model
@@ -326,6 +344,15 @@ implementation:
 A bug fix in FMDL mesh splitting decode benefits every path starting from FMDL, regardless of target
 format — and also benefits the Blender addon's direct FMDL round-trip, which calls the same `fmdl`
 function without going through the IR at all.
+
+The split vertex encoding is a property of the vertex *order* (loops of one vertex are consecutive
+runs), and the IR keeps the vertex order, so its "decode" on import is a read the importers have
+nothing to call: the owner map is recoverable from the IR at any time. The encode on export is not
+a no-op: it groups every vertex sharing a topological key contiguously, and Konami files are not
+written that way (highneck: 198 of 204 vertices move; the vertex multiset and the face corner-tuples
+are unchanged). The legacy converters reorder the same way. A same-format round trip is therefore
+compared against the input with the same encoders applied, never byte for byte (see "Testing: IR
+roundtrips").
 
 `fmdl` also owns **multi-FMDL mesh merging** — bone lists unioned by name (per-mesh bone groups
 remapped), meshes and mesh groups concatenated, materials merged by name (same-name materials with
