@@ -98,6 +98,10 @@ pub enum ModelError {
     /// A face stream's index list or LOD table is malformed: which rule.
     #[error("invalid face stream: {0}")]
     InvalidFaceStream(&'static str),
+    /// The file is well-formed but says something the model layer cannot
+    /// represent: which rule.
+    #[error("invalid model: {0}")]
+    InvalidModel(&'static str),
     /// A model cannot be laid out as a `.model` (a count or a size that
     /// does not fit).
     #[error("cannot lay out model: {0}")]

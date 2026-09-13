@@ -10,7 +10,7 @@ is in `AGENTS.md` ("Working documents").
 ## Current status
 
 **Phase:** 2 (Library crates). Done: 2.1 `wezlib`, 2.2 `cpk`, 2.3 `fpk`, 2.4 `ftex`, 2.5 `dds_convert` (CPU),
-2.6 `fmdl` (format, model, ops, check), 2.8 `uniparam`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`. 2.7 census, 2.7a, 2.7b and the format review done; next 2.7c model layer. Review
+2.6 `fmdl` (format, model, ops, check), 2.8 `uniparam`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`. 2.7 census, 2.7a-c done; next 2.7d ops (vertex_enc first). Review
 rounds A and B (2026-09-13) closed: 2.5c, 2.12b, 2.13b done.
 **In progress:** none
 **Blocked on:** —
@@ -195,8 +195,13 @@ Spec: `docs/plans/core.md` "Phase 2", `docs/plans/libs.md`, `model_conversion.md
   `to_fields` rejecting weights beyond the stored width, the writer always emitting version 19
   (decision logged), no partial edit on a failed encode, editor item kind/value agreement, LOD
   ranges required to partition the stream. 23 tests
-- [ ] 2.7c model layer; 2.7d ops (split, vertex_enc, merge, paths); 2.7e `.mtl` read/write
-  (roxmltree read, hand writer, byte parity per Konami file); 2.7f check
+- [x] 2.7c `pes_model::model` — done (sidekick): `Model`/`Mesh` with decoded vertices, level-0
+  faces plus lower LODs, per-mesh bone groups, mesh name / extension headers / Konami tags split
+  by annotation kind, model-level headers; `from_file(to_file(m)) == m` and the full byte trip on
+  all twelve fixtures. Loose-vertex repair (reference importer) deliberately not reproduced;
+  converge question. 28 tests
+- [ ] 2.7d ops (split, vertex_enc, merge, paths); 2.7e `.mtl` read/write (roxmltree read, hand
+  writer, byte parity per Konami file); 2.7f check
 - [x] 2.8 `uniparam` — done (sidekick): WESYS-unwrapping read, sorted writer; Konami PES21
   container (2174 entries) and a reference-writer golden; 4 tests
 - [ ] 2.9 `fox2`
