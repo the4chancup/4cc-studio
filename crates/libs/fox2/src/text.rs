@@ -14,10 +14,15 @@ fn general(value: f64, precision: usize) -> String {
     } else {
         let decimals = (precision - 1) as i32 - exponent;
         let fixed = format!("{:.*}", decimals.max(0) as usize, value);
-        fixed
-            .trim_end_matches('0')
-            .trim_end_matches('.')
-            .to_string()
+        // Trailing zeros are fractional only — an integer like `123456720` keeps its digits.
+        if fixed.contains('.') {
+            fixed
+                .trim_end_matches('0')
+                .trim_end_matches('.')
+                .to_string()
+        } else {
+            fixed
+        }
     }
 }
 
@@ -89,6 +94,17 @@ mod tests {
             checked += 1;
         }
         assert_eq!(checked, 36);
+    }
+
+    #[test]
+    fn integer_digits_are_not_trimmed() {
+        // The 7-digit text does not round-trip; the 9-digit fixed text is `123456720`.
+        assert_eq!(float_text(123456720.0), "123456720");
+        assert_eq!(
+            parse_float("123456720").map(f32::to_bits),
+            Some(123456720.0f32.to_bits())
+        );
+        assert_eq!(float_text(100000000.0), "1E+08");
     }
 
     #[test]

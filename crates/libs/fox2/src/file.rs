@@ -188,11 +188,12 @@ fn read_property(bytes: &[u8], at: usize) -> Result<(Property, usize), Fox2Error
         for _ in 0..count {
             keys.push(FoxString::Hash(u64_at(bytes, cursor)?));
             let consumed = read_value(&mut values, bytes, cursor + 8)?;
-            cursor = align16(
-                offset_sum(cursor, 8)?
-                    .checked_add(consumed)
-                    .ok_or(Fox2Error::Truncated)?,
-            );
+            let entry_end = offset_sum(cursor, 8)?
+                .checked_add(consumed)
+                .ok_or(Fox2Error::Truncated)?;
+            let padded = align16(entry_end);
+            zeros_at(bytes, entry_end, padded - entry_end, "entry padding")?;
+            cursor = padded;
         }
     } else {
         // `count` elements of a known width must fit the buffer before any push.
@@ -204,11 +205,11 @@ fn read_property(bytes: &[u8], at: usize) -> Result<(Property, usize), Fox2Error
             cursor += read_value(&mut values, bytes, cursor)?;
         }
     }
-    cursor = align16(cursor);
     let end = offset_sum(start, size)?;
-    if cursor != end {
+    if align16(cursor) != end {
         return Err(unexpected("property size", size as u64));
     }
+    zeros_at(bytes, cursor, end - cursor, "property padding")?;
     Ok((
         Property {
             name,
@@ -269,15 +270,15 @@ fn read_entity(bytes: &[u8], at: usize) -> Result<(Entity, usize), Fox2Error> {
     let data_size = i32_at(bytes, at + 48)?;
     zeros_at(bytes, at + 52, 12, "entity padding")?;
 
-    // Every property is at least 48 bytes (header plus a 16-aligned tail), so a hostile
-    // count fails against the buffer length before the loop allocates.
+    // Every property is at least its 32-byte header (an empty one is exactly that), so a
+    // hostile count fails against the buffer length before the loop allocates.
     let property_count = static_count
         .checked_add(dynamic_count)
         .ok_or(Fox2Error::Truncated)?;
     slice_at(
         bytes,
         offset_sum(start, 64)?,
-        property_count.checked_mul(48).ok_or(Fox2Error::Truncated)?,
+        property_count.checked_mul(32).ok_or(Fox2Error::Truncated)?,
     )?;
 
     let mut cursor = offset_sum(start, 64)?;
@@ -377,6 +378,7 @@ impl Fox2File {
             at = offset_sum(at, len)?;
         }
 
+        zeros_at(bytes, at, align16(at) - at, "trailer padding")?;
         at = align16(at);
         let trailer = slice_at(bytes, at, 5)?;
         if trailer != [0, 0, b'e', b'n', b'd'] {
@@ -389,7 +391,14 @@ impl Fox2File {
                     .sum(),
             ));
         }
-        at = align16(offset_sum(at, 5)?);
+        let trailer_end = offset_sum(at, 5)?;
+        zeros_at(
+            bytes,
+            trailer_end,
+            align16(trailer_end) - trailer_end,
+            "trailer padding",
+        )?;
+        at = align16(trailer_end);
         if bytes
             .get(at..)
             .ok_or(Fox2Error::Truncated)?
@@ -871,5 +880,83 @@ mod tests {
         let mut bad_count = AUDI.to_vec();
         bad_count[8..12].copy_from_slice(&0x7FFFFFFFi32.to_le_bytes());
         assert!(Fox2File::read(&bad_count).is_err());
+    }
+
+    #[test]
+    fn empty_properties_round_trip() {
+        let empty = |container| Property {
+            name: FoxString::Hash(hash_string("p")),
+            container,
+            keys: Vec::new(),
+            values: Values::Int32(Vec::new()),
+        };
+        let file = Fox2File {
+            entities: vec![Entity {
+                class_name: FoxString::Hash(hash_string("DataSet")),
+                unknown1: 0,
+                unknown2: 0,
+                version: 0,
+                address: 0x100,
+                static_properties: vec![
+                    empty(Container::StaticArray),
+                    empty(Container::StaticArray),
+                    empty(Container::StaticArray),
+                ],
+                dynamic_properties: vec![
+                    empty(Container::DynamicArray),
+                    empty(Container::DynamicArray),
+                ],
+            }],
+            string_table: Vec::new(),
+        };
+        let bytes = file.write().expect("write");
+        assert_eq!(Fox2File::read(&bytes).as_ref(), Ok(&file));
+    }
+
+    #[test]
+    fn padding_spans_are_validated() {
+        // audi entity 0, property 0 at 96: one 8-byte String value ends at 136, the
+        // property is 48 bytes, so 136..144 is the property tail.
+        let mut file = AUDI.to_vec();
+        file[136] = 1;
+        assert!(matches!(
+            Fox2File::read(&file),
+            Err(Fox2Error::UnexpectedConstant {
+                what: "property padding",
+                ..
+            })
+        ));
+        // The StringMap entry tails: steward entity 19's `links` property sits at 12464;
+        // each entry is key(8) + EntityLink(32) = 40 bytes padded to 48, so the first
+        // tail is 12496 + 40 .. 12544.
+        let mut steward = include_bytes!("../tests/fixtures/steward_sit_st074.fox2").to_vec();
+        steward[12496 + 40] = 1;
+        assert!(matches!(
+            Fox2File::read(&steward),
+            Err(Fox2Error::UnexpectedConstant {
+                what: "entry padding",
+                ..
+            })
+        ));
+        // audi's zero-hash terminator ends at 874; padding to 880, trailer at 880,
+        // padding 885..896.
+        let mut before_trailer = AUDI.to_vec();
+        before_trailer[874] = 1;
+        assert!(matches!(
+            Fox2File::read(&before_trailer),
+            Err(Fox2Error::UnexpectedConstant {
+                what: "trailer padding",
+                ..
+            })
+        ));
+        let mut after_trailer = AUDI.to_vec();
+        after_trailer[885] = 1;
+        assert!(matches!(
+            Fox2File::read(&after_trailer),
+            Err(Fox2Error::UnexpectedConstant {
+                what: "trailer padding",
+                ..
+            })
+        ));
     }
 }

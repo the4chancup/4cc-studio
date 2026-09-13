@@ -50,6 +50,9 @@ fn attribute(out: &mut String, name: &str, value: &str) {
             '&' => out.push_str("&amp;"),
             '"' => out.push_str("&quot;"),
             '<' => out.push_str("&lt;"),
+            '\t' => out.push_str("&#9;"),
+            '\n' => out.push_str("&#10;"),
+            '\r' => out.push_str("&#13;"),
             _ => out.push(char),
         }
     }
@@ -62,6 +65,7 @@ fn text_escaped(text: &str, out: &mut String) {
             '&' => out.push_str("&amp;"),
             '<' => out.push_str("&lt;"),
             '>' => out.push_str("&gt;"),
+            '\r' => out.push_str("&#13;"),
             _ => out.push(char),
         }
     }
@@ -188,6 +192,9 @@ fn property_xml(out: &mut String, property: &Property) {
     indent(out, 4);
     out.push_str("<property");
     attribute(out, "name", literal_text(&property.name));
+    if let FoxString::Hash(_) = property.name {
+        attribute(out, "nameHash", &hash_attr(&property.name));
+    }
     attribute(out, "type", type_name(property.values.data_type()));
     attribute(out, "container", property.container.name());
     if property.values.is_empty() {
@@ -228,8 +235,10 @@ fn properties_xml(out: &mut String, tag: &str, properties: &[Property]) {
 
 impl Fox2File {
     /// The XML form of this file, exactly as the goldens under `tests/fixtures/` show it.
-    /// Unresolved (`Hash`) class and property names print as empty strings — the XML form is
-    /// lossy there by design.
+    /// An unresolved (`Hash`) class or property name prints as `class=""`/`name=""` plus a
+    /// `classHash`/`nameHash` attribute, which `from_xml` prefers, so unresolved names survive
+    /// a decompile/compile round trip. A `StringMap` key literal starting with `0x` is
+    /// ambiguous with a hash on read-back; no file on the machine has one.
     pub fn to_xml(&self) -> String {
         let mut out = String::new();
         out.push_str("<fox formatVersion=\"2\" fileVersion=\"0\" originalVersion=\"\">\n");
@@ -256,6 +265,9 @@ impl Fox2File {
             indent(&mut out, 2);
             out.push_str("<entity");
             attribute(&mut out, "class", literal_text(&entity.class_name));
+            if let FoxString::Hash(_) = entity.class_name {
+                attribute(&mut out, "classHash", &hash_attr(&entity.class_name));
+            }
             attribute(&mut out, "classVersion", &entity.version.to_string());
             attribute(&mut out, "addr", &format!("0x{:08X}", entity.address));
             attribute(&mut out, "unknown1", &entity.unknown1.to_string());
@@ -435,8 +447,12 @@ fn read_entity(node: &Node) -> Result<Entity, XmlError> {
             dynamic_properties.push(read_property(&child)?);
         }
     }
+    let class_name = match node.attribute("classHash") {
+        Some(hash) => FoxString::Hash(int_as(hash, "classHash")?),
+        None => FoxString::Literal(node.attribute("class").unwrap_or_default().to_string()),
+    };
     Ok(Entity {
-        class_name: FoxString::Literal(node.attribute("class").unwrap_or_default().to_string()),
+        class_name,
         unknown1: int_as(node.attribute("unknown1").unwrap_or("0"), "unknown1")?,
         unknown2: int_as(node.attribute("unknown2").unwrap_or("0"), "unknown2")?,
         version: int_as(
@@ -464,16 +480,26 @@ fn read_property(node: &Node) -> Result<Property, XmlError> {
     for child in children(node, "value") {
         if container == Container::StringMap {
             let key = child.attribute("key").ok_or(XmlError::MissingKey)?;
-            keys.push(if let Some(hex) = key.strip_prefix("0x") {
-                FoxString::Hash(u64::from_str_radix(hex, 16).map_err(|_| bad("key", key))?)
-            } else {
-                FoxString::Literal(key.to_string())
-            });
+            // `0x` plus valid hex is a hash; anything else (including `0xnothex`) is a
+            // literal — the ambiguity is inherent to the format.
+            keys.push(
+                match key
+                    .strip_prefix("0x")
+                    .and_then(|hex| u64::from_str_radix(hex, 16).ok())
+                {
+                    Some(hash) => FoxString::Hash(hash),
+                    None => FoxString::Literal(key.to_string()),
+                },
+            );
         }
         read_xml_value(&mut values, &child)?;
     }
+    let name = match node.attribute("nameHash") {
+        Some(hash) => FoxString::Hash(int_as(hash, "nameHash")?),
+        None => FoxString::Literal(node.attribute("name").unwrap_or_default().to_string()),
+    };
     Ok(Property {
-        name: FoxString::Literal(node.attribute("name").unwrap_or_default().to_string()),
+        name,
         container,
         keys,
         values,
@@ -507,7 +533,14 @@ fn read_xml_value(values: &mut Values, node: &Node) -> Result<(), XmlError> {
                 trimmed.parse::<f64>().map_err(|_| bad("double", text))?
             });
         }
-        Values::Bool(list) => list.push(text.trim().eq_ignore_ascii_case("true")),
+        Values::Bool(list) => {
+            let trimmed = text.trim();
+            list.push(match trimmed {
+                "true" => true,
+                "false" | "" => false,
+                _ => return Err(bad("bool", text)),
+            });
+        }
         Values::String(list) | Values::Path(list) | Values::FilePtr(list) => {
             list.push(read_string(node)?);
         }
@@ -782,5 +815,118 @@ mod tests {
             Fox2File::from_xml(bad_int),
             Err(XmlError::BadValue { what: "int32", .. })
         ));
+    }
+
+    #[test]
+    fn unresolved_names_survive_the_round_trip() {
+        let file = Fox2File::read(AUDI_BIN).expect("audi");
+        let xml = file.to_xml();
+        let class_hash = format!("classHash=\"0x{:08X}\"", hash_string("DataSet"));
+        let name_hash = format!("nameHash=\"0x{:08X}\"", hash_string("name"));
+        assert!(xml.contains(&class_hash), "{class_hash}");
+        assert!(xml.contains(&name_hash), "{name_hash}");
+        let rebuilt = Fox2File::from_xml(&xml).expect("xml");
+        let bytes = rebuilt.write().expect("write");
+        // The entity region (everything before the string table) must match the original;
+        // the rebuilt table holds only the literals, so offsets may differ.
+        let original_end = i32::from_le_bytes(AUDI_BIN[12..16].try_into().unwrap()) as usize;
+        let rebuilt_end = i32::from_le_bytes(bytes[12..16].try_into().unwrap()) as usize;
+        assert_eq!(&bytes[32..rebuilt_end], &AUDI_BIN[32..original_end]);
+    }
+
+    #[test]
+    fn whitespace_is_escaped_as_references() {
+        let file = Fox2File {
+            entities: vec![Entity {
+                class_name: FoxString::Literal("DataSet".to_string()),
+                unknown1: 0,
+                unknown2: 0,
+                version: 0,
+                address: 0,
+                static_properties: vec![Property {
+                    name: FoxString::Literal("p".to_string()),
+                    container: Container::StringMap,
+                    keys: vec![FoxString::Literal("a\tb".to_string())],
+                    values: Values::String(vec![FoxString::Literal("x\r\ny".to_string())]),
+                }],
+                dynamic_properties: Vec::new(),
+            }],
+            string_table: vec![
+                TableEntry {
+                    hash: hash_string("DataSet"),
+                    text: "DataSet".to_string(),
+                },
+                TableEntry {
+                    hash: hash_string("p"),
+                    text: "p".to_string(),
+                },
+                TableEntry {
+                    hash: hash_string("a\tb"),
+                    text: "a\tb".to_string(),
+                },
+                TableEntry {
+                    hash: hash_string("x\r\ny"),
+                    text: "x\r\ny".to_string(),
+                },
+            ],
+        };
+        let xml = file.to_xml();
+        assert!(xml.contains("&#9;"), "{xml}");
+        assert_eq!(Fox2File::from_xml(&xml).as_ref(), Ok(&file), "{xml}");
+    }
+
+    #[test]
+    fn strict_bools() {
+        let xml = |value: &str| {
+            format!(
+                "<fox><entities><entity><staticProperties>\
+                 <property type=\"bool\"><value>{value}</value></property>\
+                 </staticProperties></entity></entities></fox>"
+            )
+        };
+        let read_bool = |value: &str| {
+            Fox2File::from_xml(&xml(value)).map(|file| {
+                match file.entities[0].static_properties[0].values {
+                    Values::Bool(ref list) => list[0],
+                    _ => panic!("not a bool"),
+                }
+            })
+        };
+        assert_eq!(read_bool("true"), Ok(true));
+        assert_eq!(read_bool("false"), Ok(false));
+        assert_eq!(read_bool(""), Ok(false));
+        assert_eq!(
+            read_bool("1"),
+            Err(XmlError::BadValue {
+                what: "bool",
+                text: "1".to_string()
+            })
+        );
+        assert!(matches!(
+            read_bool("tru"),
+            Err(XmlError::BadValue { what: "bool", .. })
+        ));
+    }
+
+    #[test]
+    fn hex_prefixed_keys() {
+        let xml = |key: &str| {
+            format!(
+                "<fox><entities><entity><staticProperties>\
+                 <property type=\"int32\" container=\"StringMap\">\
+                 <value key=\"{key}\">1</value></property>\
+                 </staticProperties></entity></entities></fox>"
+            )
+        };
+        let file = Fox2File::from_xml(&xml("0xB8A0BF169F98")).expect("hash key");
+        assert_eq!(
+            file.entities[0].static_properties[0].keys,
+            vec![FoxString::Hash(0xB8A0BF169F98)]
+        );
+        let file = Fox2File::from_xml(&xml("0xnothex")).expect("literal key");
+        assert_eq!(
+            file.entities[0].static_properties[0].keys,
+            vec![FoxString::Literal("0xnothex".to_string())]
+        );
     }
 }

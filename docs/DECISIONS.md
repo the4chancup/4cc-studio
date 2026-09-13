@@ -1076,3 +1076,16 @@ a 1228-byte result), so the byte-identity standard is our own reader/writer on K
 plus equality with the reference's logical output on compiled ones, as for `fmdl`.
 Plan: `libs.md` gains "`libs/fox2`: Fox Engine entity files" (layout census over 87 files, types,
 XML rules); `core.md` "External Dependencies" row for `cityhash` replaced.
+
+## 2026-09-13 - fox2 - the XML form carries `classHash`/`nameHash` for unresolved names
+Decision: `to_xml` writes an unresolved class or property name as the reference's `class=""` /
+`name=""` plus a `classHash` / `nameHash` attribute, and `from_xml` prefers the hash attribute;
+tab, LF and CR in attributes are written as character references; a `bool` value must read
+`true`, `false` or empty. Reviewer findings (checkpoint b).
+Why: the reference's XML is lossy on unresolved names (they recompile as the empty-string hash),
+which the Stadium compiler's decompile-edit-compile ID rewrite would inherit for any Konami name
+its dictionary lacks; an attribute the reference's reader ignores keeps its XML readable by it
+while making ours lossless. Raw whitespace in attributes is normalized to spaces by any XML
+reader, changing the string and its hash. The strict bool turns a typo in generated XML into an
+error instead of a silent `false`.
+Plan: `libs.md` "`libs/fox2`" last paragraph rewritten.

@@ -12,7 +12,7 @@ is in `AGENTS.md` ("Working documents").
 **Phase:** 2 (Library crates). Done: 2.1 `wezlib`, 2.2 `cpk`, 2.3 `fpk`, 2.4 `ftex`, 2.5 `dds_convert` (CPU),
 2.6 `fmdl` (format, model, ops, check), 2.7 `pes_model` (format, mtl, model, ops, check), 2.8 `uniparam`, 2.9 `fox2`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`. Review
 rounds A and B (2026-09-13) closed: 2.5c, 2.12b, 2.13b done.
-**In progress:** 2.9 `fox2` checkpoint (b) review; then 2.10 `archives`
+**In progress:** 2.10 `archives` next
 **Blocked on:** nothing
 
 ---
@@ -235,7 +235,11 @@ Spec: `docs/plans/core.md` "Phase 2", `docs/plans/libs.md`, `model_conversion.md
   constant word checked, the reference writer's slack tolerated on read and dropped),
   `values` (24 data types, the nine without a fixture tested synthetically), `xml` (decompile
   equal to the reference's XML on all four, compile equal to its binaries, fixed point).
-  17 tests; workspace 303. Checkpoint (b) review pending
+  Checkpoint (b) review (`gpt-astra-high`): seven concerns, all accepted and fixed in one
+  handoff (integer digits trimmed by the float text, a 48-byte guard that rejected empty
+  properties, padding never validated, unresolved names lost through XML, whitespace not
+  escaped, lenient bools, `0x` keys). Padding measured zero on all 87 files. 24 tests;
+  workspace 310
 - [ ] 2.10 `archives`
 - [x] 2.11 `fpc` — done (sidekick): kit values per version, three presets, five interference
   findings, each citing its `FPC.wikitext` line; 4 tests
