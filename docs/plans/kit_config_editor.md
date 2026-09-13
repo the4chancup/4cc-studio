@@ -56,31 +56,31 @@ preserved on rewrite.
 
 | Offset | Bits | Field | Values |
 |--------|------|-------|--------|
-| 0x00 | 0–1 | Short sleeves type | 1 = normal, 2 = cut-out (shirt model 144 only) |
+| 0x00 | 0–1 | Short sleeves type | 1 = normal, 2 = cut-out (shirt model 144 only); 13 PES 2021 stock configs (referees) carry 3, preserved as a raw value |
 | 0x00 | 2–7 | ? | 0 in samples |
 | 0x01 | all | Shirt model | literal: 144 (0x90), 160 (0xA0), 176 (0xB0) |
 | 0x02 | all | Long sleeves type | two values (verified): 0x3E = "Normal & U-Shirt" — one combo entry, the editor's default; 0xBB = "Only-Undershirt" (shirt model 144 only — the editor forces 0x3E on any other model) |
 | 0x03 | all | Shorts model | 0–17 |
 | 0x04–0x12 | | Five RGB triplets | shirt1, shirt2, undershirt, shorts, socks |
 | 0x13 | all | ? | 0 in samples |
-| 0x14 | all | Collar | 1–107 (1-based) |
-| 0x15 | all | Winter collar | 1–107 |
+| 0x14 | all | Collar | 1-based; the old editor lists 1–107, PES 2021 stock configs carry up to 131 |
+| 0x15 | all | Winter collar | as above |
 | 0x16 | 0 | ? | set in samples |
 | 0x16 | 1–4 | Shorts number Y | 0–14 |
 | 0x16 | 5 | ? | set in samples |
 | 0x16 | 6–7 | Shorts number X, low 2 bits | X = (0x17[0–1] << 2) \| 0x16[6–7], 0–14 |
 | 0x17 | 0–1 | Shorts number X, high 2 bits | |
 | 0x17 | 2 | ? | |
-| 0x17 | 3–6 | Shorts number size | 0–13 |
+| 0x17 | 3–6 | Shorts number size | 0–13 in the old editor (field holds 0–15) |
 | 0x17 | 7 | Shorts number side | 0 = left, 1 = right |
 | 0x18 | 0–4 | Back number Y | 0–29 |
 | 0x18 | 5 | ? | |
-| 0x18 | 6–7 | Back number size, low 2 bits | size = (0x19[0–1] << 2) \| 0x18[6–7], 0–13 |
+| 0x18 | 6–7 | Back number size, low 2 bits | size = (0x19[0–1] << 2) \| 0x18[6–7], 0–13 in the old editor; stock configs carry 14 |
 | 0x19 | 0–1 | Back number size, high 2 bits | |
 | 0x19 | 2–3 | ? | bit 2 set in samples |
-| 0x19 | 4–5 | Back number spacing | 0–2 |
+| 0x19 | 4–5 | Back number spacing | 0–2 in the old editor; stock configs carry 3 |
 | 0x19 | 6–7 | ? | set in samples |
-| 0x1A | 0–3 | Chest number Y | 0–7 |
+| 0x1A | 0–3 | Chest number Y | 0–7 in the old editor; stock configs use the whole field, 0–15 |
 | 0x1A | 4–7 | Chest number X | 0–14 |
 | 0x1B | 0–3 | Chest number size | 0–15 |
 | 0x1B | 4–6 | ? | |
@@ -114,6 +114,13 @@ preserved on rewrite.
 
 Notes:
 
+- **Ranges are the old editor's UI limits, not the format's.** Measured on the 1372 kit configs of
+  PES 2021's `UniformParameter.bin` (the `kit_config` mass round-trip fixture), stock data exceeds
+  the listed ranges where the table says so above and byte 0x13 and bytes 0x25–0x27 are nonzero in
+  most configs. `kit_config` therefore preserves every value it reads (enum fields keep a raw
+  variant for undocumented values) and its validation flags only what is known to be wrong: a
+  collar of 0, a shirt model outside 144/160/176, the cross-field constraints below, and values
+  that do not fit the target version's encoding. A stock Konami config validates clean.
 - **Sleeve badges** are the four (X, Y) positions of the competition badge: one per
   sleeve (left/right) per kit variant (short/long sleeves).
 - **"Shirt model" is a misnomer**, kept because the old editor and the FPC
@@ -128,8 +135,10 @@ Notes:
   Collars folder) and point every kit config's collar at the replaced ID — the
   quick way to put a custom model on the whole team.
 - **Cross-field constraints** (enforced by the old editor with modal errors, by ours
-  inline): cut-out short sleeves and undershirt-only long sleeves require shirt
-  model 144; tight requires 144 or 160. The FPC kit values (shirt 176, shorts 16,
+  inline as warnings): the old editor allowed cut-out short sleeves and undershirt-only long
+  sleeves on shirt model 144 only, but PES 2021 stock data carries both on model 160 as well (32
+  configs), so `kit_config` warns only when they appear on model 176, which no stock config does;
+  tight requires 144 or 160 (a warning likewise). The FPC kit values (shirt 176, shorts 16,
   collar and winter collar 105 — see "FPC toggle" in the
   [Aesthetics export plan](aesthetics_export.md)) are
   ordinary values of these fields.
@@ -244,7 +253,7 @@ The format knowledge as a lib crate:
   optional raw source texture-name bytes for standalone roundtrips; zlib'd input is
   tolerated on read (`tryDecompress` behavior carried over).
 - The template defaults (from the bundled `XXX_DEF_xxx_realUni.bin` template) and
-  `apply_fpc` / `revert_fpc` / `matches_fpc`, used by the Team compiler's reconciliation
+  `apply_fpc` / `matches_fpc`, used by the Team compiler's reconciliation
   (`kit_config_fpc_adjusted`) and by this tool's FPC indicator. The per-version FPC values
   themselves come from the leaf crate `libs/fpc` (see [libs](libs.md)), which also holds the
   player-side presets `pes_savefile` applies — one description of the system for every tool.

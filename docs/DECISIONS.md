@@ -863,3 +863,14 @@ for a problem the user has to look at anyway; a summary lets the shell show it. 
 not documented anywhere the plan cites, so the honest value is `None` until evidence appears.
 Plan: `team_compiler.md` open question "`teams_list.txt` contract" (now resolved text);
 `libs.md` "`libs/fpc`" (`kit_values` paragraph, with the PES 19+ verification owed to 2.13).
+
+## 2026-09-13 - dds_convert - `block_compression` decodes as well as encodes; `texture2ddecoder` dropped
+Decision: DDS block decoding uses `block_compression::decode` (BC1–BC5, BC7), the crate already
+chosen for encoding; the separately listed `texture2ddecoder` crate is not added. Decoder parity
+is checked against DirectXTex `texconv` (reference encoder and decoder), on synthetic fixtures it
+encoded and decoded, rather than against the stadium compiler's Python decoder.
+Why: one dependency for both directions, and the plan's own caveat about `texture2ddecoder`
+(same name, different implementation) made its parity claim empty anyway; texconv is Microsoft's
+reference for these formats, is on this machine, and produces the expected output for every mip.
+Plan: `libs.md` "In-process DDS conversion" decoding bullet and the format table; `core.md`
+"External Dependencies" (row removed, `block_compression` row updated).

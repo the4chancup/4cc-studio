@@ -56,6 +56,17 @@ reads the whole diff before it lands, not the report about it; the report is a c
 the evidence. Two failed sidekick attempts on one brief means the brief is suspect before the
 sidekick is.
 
+**The lead sees the report, not the run.** The harness shows the lead only the sidekick's final
+report, never its compiler runs, so an error fixed by a workaround (a suppression, a loosened
+assertion, an `#[ignore]`, a discarded `Result`) is invisible unless declared. Every brief
+therefore requires a closing section, "Errors hit and how each was resolved": one line per
+compiler, clippy or test failure met during the work and the fix applied, plus an explicit list
+of any suppression, ignored test, removed or weakened assertion (or "none"). Omitting the section
+or an item is a brief violation, not an oversight. On the lead's side, every review before a
+commit includes a sweep of the diff for the same tells (`#[allow`, `#[expect`, `#[ignore`,
+`.ok();`, `let _ =`, `unwrap_or_default`, `unwrap_or(`) and re-runs the gates in the real
+workspace; the sidekick's pasted gate tails are a claim.
+
 **Plan-defined shapes are copied, not recalled.** Where the plan gives a code block for a type,
 a trait or a signature, the implementation starts from that block, pasted, and any deviation is a
 decision entry, never a silent rewrite. Phase 1's first converge lost three of its seven reviewer
