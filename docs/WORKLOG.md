@@ -10,9 +10,9 @@ is in `AGENTS.md` ("Working documents").
 ## Current status
 
 **Phase:** 2 (Library crates). Done: 2.1 `wezlib`, 2.2 `cpk`, 2.3 `fpk`, 2.4 `ftex`, 2.5 `dds_convert` (CPU),
-2.6 `fmdl` (format, model, ops, check), 2.7 `pes_model` (format, mtl, model, ops, check), 2.8 `uniparam`, 2.9 `fox2`, 2.10 `archives`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`. Review
+2.6 `fmdl` (format, model, ops, check), 2.7 `pes_model` (format, mtl, model, ops, check), 2.8 `uniparam`, 2.9 `fox2`, 2.10 `archives`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`, 2.14 `color_tools`. Review
 rounds A and B (2026-09-13) closed: 2.5c, 2.12b, 2.13b done.
-**In progress:** 2.14 `color_tools` next (then `elevation`, `model_convert`, `pes_savefile`, `python_bindings`)
+**In progress:** 2.15 `elevation` next (then `model_convert`, `pes_savefile`, `python_bindings`)
 **Blocked on:** nothing
 
 ---
@@ -270,7 +270,10 @@ Spec: `docs/plans/core.md` "Phase 2", `docs/plans/libs.md`, `model_conversion.md
   PES <= 20, 39 on 21); `kit_pattern_unsupported_pes15`; wrong-typed TOML tables are errors;
   non-ASCII hex is an error, not a panic. 11 tests, the 1372-config mass test unchanged (review B,
   findings 4-7)
-- [ ] 2.14 `color_tools` (extraction only)
+- [x] 2.14 `color_tools` (extraction only) — done (lead: regions measured on the template
+  sheet, thresholds and a trim fallback from a 134-kit harness, decision logged; sidekick
+  code): `kit::extract_kit_colors` and `dominant_colors` over RGBA pixels, no dependency.
+  9 synthetic tests; workspace 325. Widget and icon drawing wait for Phase 8
 - [ ] 2.15 `elevation`
 - [ ] 2.16 `model_convert` — IR, native importers/exporters, hand auto-split, skeleton constants,
   material conversion (glTF is Phase 7)
