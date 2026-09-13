@@ -1,0 +1,830 @@
+<fox formatVersion="2" fileVersion="0" originalVersion="">
+  <classes>
+    <class name="Entity" super="" version="2" />
+    <class name="Data" super="Entity" version="2" />
+    <class name="DataSet" super="" version="0" />
+    <class name="StadiumAnime" super="" version="3" />
+    <class name="StadiumModel" super="" version="3" />
+    <class name="TransformEntity" super="" version="0" />
+    <class name="LimitedRotatableObjectLinks" super="" version="0" />
+  </classes>
+  <entities>
+    <entity class="DataSet" classVersion="0" addr="0xA6904710" unknown1="296" unknown2="0">
+      <staticProperties>
+        <property name="name" type="String" container="StaticArray" arraySize="1">
+          <value hash="0xB8A0BF169F98" />
+        </property>
+        <property name="dataSet" type="EntityHandle" container="StaticArray" arraySize="1">
+          <value>0x00000000</value>
+        </property>
+        <property name="dataList" type="EntityPtr" container="StringMap" arraySize="11">
+          <value key="anm_idole_sit_ballboy_A">0xA6904990</value>
+          <value key="st_jersey_ch00girl_non_0004">0xA695AF90</value>
+          <value key="st_jersey_ch01boy_non_0002">0xA695B150</value>
+          <value key="st_jersey_ch00girl_non_0002">0xA695B310</value>
+          <value key="st_jersey_ch01boy_non_0000">0xA695B4D0</value>
+          <value key="anm_idole_sit_ballboy_B">0xA6904AD0</value>
+          <value key="st_jersey_ch01boy_non_0003">0xA695B690</value>
+          <value key="st_jersey_ch00girl_non_0003">0xA695B850</value>
+          <value key="st_jersey_ch01boy_non_0001">0xA695BA10</value>
+          <value key="st_jersey_ch00girl_non_0001">0xA695BBD0</value>
+          <value key="LimitedRotatableObjectLinks_ballboy">0xA68161D0</value>
+        </property>
+      </staticProperties>
+      <dynamicProperties />
+    </entity>
+    <entity class="StadiumAnime" classVersion="3" addr="0xA6904990" unknown1="280" unknown2="0">
+      <staticProperties>
+        <property name="name" type="String" container="StaticArray" arraySize="1">
+          <value>anm_idole_sit_ballboy_A</value>
+        </property>
+        <property name="dataSet" type="EntityHandle" container="StaticArray" arraySize="1">
+          <value>0xA6904710</value>
+        </property>
+        <property name="animationGroup" type="int32" container="StaticArray" arraySize="1">
+          <value>8</value>
+        </property>
+        <property name="animeFiles" type="FilePtr" container="DynamicArray" arraySize="2">
+          <value>/Assets/pes16/model/bg/common/staff/motion/staff_idole01.gani</value>
+          <value>/Assets/pes16/model/bg/common/staff/motion/staff_idole06.gani</value>
+        </property>
+        <property name="anmSklFile" type="FilePtr" container="StaticArray" arraySize="1">
+          <value>/Assets/pes16/model/bg/common/staff/motion/mob_high_anim_skel.ask</value>
+        </property>
+        <property name="renderSklFile" type="FilePtr" container="StaticArray" arraySize="1">
+          <value>/Assets/pes16/model/bg/common/staff/motion/mob_high_render_skel.ask</value>
+        </property>
+        <property name="rigFile" type="FilePtr" container="StaticArray" arraySize="1">
+          <value>/Assets/pes16/model/bg/common/staff/motion/mob_high_skel.frig</value>
+        </property>
+        <property name="sklFile" type="FilePtr" container="StaticArray" arraySize="1">
+          <value>/Assets/pes16/model/bg/common/staff/motion/mob_high.skl</value>
+        </property>
+        <property name="models" type="EntityPtr" container="DynamicArray" arraySize="4">
+          <value>0xA695AF90</value>
+          <value>0xA695B150</value>
+          <value>0xA695B310</value>
+          <value>0xA695B4D0</value>
+        </property>
+      </staticProperties>
+      <dynamicProperties />
+    </entity>
+    <entity class="StadiumModel" classVersion="3" addr="0xA695AF90" unknown1="400" unknown2="0">
+      <staticProperties>
+        <property name="name" type="String" container="StaticArray" arraySize="1">
+          <value>st_jersey_ch00girl_non_0004</value>
+        </property>
+        <property name="dataSet" type="EntityHandle" container="StaticArray" arraySize="1">
+          <value>0xA6904710</value>
+        </property>
+        <property name="parent" type="EntityHandle" container="StaticArray" arraySize="1">
+          <value>0x00000000</value>
+        </property>
+        <property name="transform" type="EntityPtr" container="StaticArray" arraySize="1">
+          <value>0xA68E2400</value>
+        </property>
+        <property name="shearTransform" type="EntityPtr" container="StaticArray" arraySize="1">
+          <value>0x00000000</value>
+        </property>
+        <property name="pivotTransform" type="EntityPtr" container="StaticArray" arraySize="1">
+          <value>0x00000000</value>
+        </property>
+        <property name="children" type="EntityHandle" container="List" />
+        <property name="flags" type="uint32" container="StaticArray" arraySize="1">
+          <value>7</value>
+        </property>
+        <property name="modelFile" type="FilePtr" container="StaticArray" arraySize="1">
+          <value>/Assets/pes16/model/bg/common/staff/common/scenes/st_jersey_ch02_non.fmdl</value>
+        </property>
+        <property name="isIsolated" type="bool" container="StaticArray" arraySize="1">
+          <value>false</value>
+        </property>
+        <property name="isDynamic" type="bool" container="StaticArray" arraySize="1">
+          <value>true</value>
+        </property>
+        <property name="lodFarSize" type="float" container="StaticArray" arraySize="1">
+          <value>-1</value>
+        </property>
+        <property name="lodNearSize" type="float" container="StaticArray" arraySize="1">
+          <value>-1</value>
+        </property>
+        <property name="lodPolygonSize" type="float" container="StaticArray" arraySize="1">
+          <value>2</value>
+        </property>
+        <property name="color" type="Color" container="StaticArray" arraySize="1">
+          <value r="1" g="1" b="1" a="1" />
+        </property>
+        <property name="drawRejectionLevel" type="int32" container="StaticArray" arraySize="1">
+          <value>8</value>
+        </property>
+        <property name="drawMode" type="int32" container="StaticArray" arraySize="1">
+          <value>0</value>
+        </property>
+        <property name="rejectFarRangeShadowCast" type="int32" container="StaticArray" arraySize="1">
+          <value>2</value>
+        </property>
+        <property name="direction" type="int32" container="StaticArray" arraySize="1">
+          <value>2</value>
+        </property>
+        <property name="kind" type="int32" container="StaticArray" arraySize="1">
+          <value>10</value>
+        </property>
+        <property name="demoGroup" type="int32" container="StaticArray" arraySize="1">
+          <value>5</value>
+        </property>
+        <property name="customBits" type="uint32" container="StaticArray" arraySize="1">
+          <value>0</value>
+        </property>
+      </staticProperties>
+      <dynamicProperties />
+    </entity>
+    <entity class="TransformEntity" classVersion="0" addr="0xA68E2400" unknown1="96" unknown2="0">
+      <staticProperties>
+        <property name="owner" type="EntityHandle" container="StaticArray" arraySize="1">
+          <value>0xA695AF90</value>
+        </property>
+        <property name="transform_scale" type="Vector3" container="StaticArray" arraySize="1">
+          <value x="0.898" y="0.898" z="0.898" w="0" />
+        </property>
+        <property name="transform_rotation_quat" type="Quat" container="StaticArray" arraySize="1">
+          <value x="0" y="0.69416" z="0" w="0.719821" />
+        </property>
+        <property name="transform_translation" type="Vector3" container="StaticArray" arraySize="1">
+          <value x="-57.5888329" y="0" z="-4.364913" w="0" />
+        </property>
+      </staticProperties>
+      <dynamicProperties />
+    </entity>
+    <entity class="StadiumModel" classVersion="3" addr="0xA695B150" unknown1="400" unknown2="0">
+      <staticProperties>
+        <property name="name" type="String" container="StaticArray" arraySize="1">
+          <value>st_jersey_ch01boy_non_0002</value>
+        </property>
+        <property name="dataSet" type="EntityHandle" container="StaticArray" arraySize="1">
+          <value>0xA6904710</value>
+        </property>
+        <property name="parent" type="EntityHandle" container="StaticArray" arraySize="1">
+          <value>0x00000000</value>
+        </property>
+        <property name="transform" type="EntityPtr" container="StaticArray" arraySize="1">
+          <value>0xA68E2470</value>
+        </property>
+        <property name="shearTransform" type="EntityPtr" container="StaticArray" arraySize="1">
+          <value>0x00000000</value>
+        </property>
+        <property name="pivotTransform" type="EntityPtr" container="StaticArray" arraySize="1">
+          <value>0x00000000</value>
+        </property>
+        <property name="children" type="EntityHandle" container="List" />
+        <property name="flags" type="uint32" container="StaticArray" arraySize="1">
+          <value>7</value>
+        </property>
+        <property name="modelFile" type="FilePtr" container="StaticArray" arraySize="1">
+          <value>/Assets/pes16/model/bg/common/staff/common/scenes/st_jersey_ch01_non.fmdl</value>
+        </property>
+        <property name="isIsolated" type="bool" container="StaticArray" arraySize="1">
+          <value>false</value>
+        </property>
+        <property name="isDynamic" type="bool" container="StaticArray" arraySize="1">
+          <value>true</value>
+        </property>
+        <property name="lodFarSize" type="float" container="StaticArray" arraySize="1">
+          <value>-1</value>
+        </property>
+        <property name="lodNearSize" type="float" container="StaticArray" arraySize="1">
+          <value>-1</value>
+        </property>
+        <property name="lodPolygonSize" type="float" container="StaticArray" arraySize="1">
+          <value>2</value>
+        </property>
+        <property name="color" type="Color" container="StaticArray" arraySize="1">
+          <value r="1" g="1" b="1" a="1" />
+        </property>
+        <property name="drawRejectionLevel" type="int32" container="StaticArray" arraySize="1">
+          <value>8</value>
+        </property>
+        <property name="drawMode" type="int32" container="StaticArray" arraySize="1">
+          <value>0</value>
+        </property>
+        <property name="rejectFarRangeShadowCast" type="int32" container="StaticArray" arraySize="1">
+          <value>2</value>
+        </property>
+        <property name="direction" type="int32" container="StaticArray" arraySize="1">
+          <value>2</value>
+        </property>
+        <property name="kind" type="int32" container="StaticArray" arraySize="1">
+          <value>10</value>
+        </property>
+        <property name="demoGroup" type="int32" container="StaticArray" arraySize="1">
+          <value>5</value>
+        </property>
+        <property name="customBits" type="uint32" container="StaticArray" arraySize="1">
+          <value>0</value>
+        </property>
+      </staticProperties>
+      <dynamicProperties />
+    </entity>
+    <entity class="TransformEntity" classVersion="0" addr="0xA68E2470" unknown1="96" unknown2="0">
+      <staticProperties>
+        <property name="owner" type="EntityHandle" container="StaticArray" arraySize="1">
+          <value>0xA695B150</value>
+        </property>
+        <property name="transform_scale" type="Vector3" container="StaticArray" arraySize="1">
+          <value x="0.925" y="0.925" z="0.925" w="0" />
+        </property>
+        <property name="transform_rotation_quat" type="Quat" container="StaticArray" arraySize="1">
+          <value x="0" y="0.69416" z="0" w="0.719821" />
+        </property>
+        <property name="transform_translation" type="Vector3" container="StaticArray" arraySize="1">
+          <value x="-57.6886063" y="0" z="4.086036" w="0" />
+        </property>
+      </staticProperties>
+      <dynamicProperties />
+    </entity>
+    <entity class="StadiumModel" classVersion="3" addr="0xA695B310" unknown1="400" unknown2="0">
+      <staticProperties>
+        <property name="name" type="String" container="StaticArray" arraySize="1">
+          <value>st_jersey_ch00girl_non_0002</value>
+        </property>
+        <property name="dataSet" type="EntityHandle" container="StaticArray" arraySize="1">
+          <value>0xA6904710</value>
+        </property>
+        <property name="parent" type="EntityHandle" container="StaticArray" arraySize="1">
+          <value>0x00000000</value>
+        </property>
+        <property name="transform" type="EntityPtr" container="StaticArray" arraySize="1">
+          <value>0xA68E25C0</value>
+        </property>
+        <property name="shearTransform" type="EntityPtr" container="StaticArray" arraySize="1">
+          <value>0x00000000</value>
+        </property>
+        <property name="pivotTransform" type="EntityPtr" container="StaticArray" arraySize="1">
+          <value>0x00000000</value>
+        </property>
+        <property name="children" type="EntityHandle" container="List" />
+        <property name="flags" type="uint32" container="StaticArray" arraySize="1">
+          <value>7</value>
+        </property>
+        <property name="modelFile" type="FilePtr" container="StaticArray" arraySize="1">
+          <value>/Assets/pes16/model/bg/common/staff/common/scenes/st_jersey_ch02_non.fmdl</value>
+        </property>
+        <property name="isIsolated" type="bool" container="StaticArray" arraySize="1">
+          <value>false</value>
+        </property>
+        <property name="isDynamic" type="bool" container="StaticArray" arraySize="1">
+          <value>true</value>
+        </property>
+        <property name="lodFarSize" type="float" container="StaticArray" arraySize="1">
+          <value>-1</value>
+        </property>
+        <property name="lodNearSize" type="float" container="StaticArray" arraySize="1">
+          <value>-1</value>
+        </property>
+        <property name="lodPolygonSize" type="float" container="StaticArray" arraySize="1">
+          <value>2</value>
+        </property>
+        <property name="color" type="Color" container="StaticArray" arraySize="1">
+          <value r="1" g="1" b="1" a="1" />
+        </property>
+        <property name="drawRejectionLevel" type="int32" container="StaticArray" arraySize="1">
+          <value>8</value>
+        </property>
+        <property name="drawMode" type="int32" container="StaticArray" arraySize="1">
+          <value>0</value>
+        </property>
+        <property name="rejectFarRangeShadowCast" type="int32" container="StaticArray" arraySize="1">
+          <value>2</value>
+        </property>
+        <property name="direction" type="int32" container="StaticArray" arraySize="1">
+          <value>3</value>
+        </property>
+        <property name="kind" type="int32" container="StaticArray" arraySize="1">
+          <value>10</value>
+        </property>
+        <property name="demoGroup" type="int32" container="StaticArray" arraySize="1">
+          <value>5</value>
+        </property>
+        <property name="customBits" type="uint32" container="StaticArray" arraySize="1">
+          <value>0</value>
+        </property>
+      </staticProperties>
+      <dynamicProperties />
+    </entity>
+    <entity class="TransformEntity" classVersion="0" addr="0xA68E25C0" unknown1="96" unknown2="0">
+      <staticProperties>
+        <property name="owner" type="EntityHandle" container="StaticArray" arraySize="1">
+          <value>0xA695B310</value>
+        </property>
+        <property name="transform_scale" type="Vector3" container="StaticArray" arraySize="1">
+          <value x="0.898" y="0.898" z="0.898" w="0" />
+        </property>
+        <property name="transform_rotation_quat" type="Quat" container="StaticArray" arraySize="1">
+          <value x="0" y="-0.73722" z="0" w="0.675652" />
+        </property>
+        <property name="transform_translation" type="Vector3" container="StaticArray" arraySize="1">
+          <value x="57.22184" y="-0.019557" z="-4.187672" w="0" />
+        </property>
+      </staticProperties>
+      <dynamicProperties />
+    </entity>
+    <entity class="StadiumModel" classVersion="3" addr="0xA695B4D0" unknown1="400" unknown2="0">
+      <staticProperties>
+        <property name="name" type="String" container="StaticArray" arraySize="1">
+          <value>st_jersey_ch01boy_non_0000</value>
+        </property>
+        <property name="dataSet" type="EntityHandle" container="StaticArray" arraySize="1">
+          <value>0xA6904710</value>
+        </property>
+        <property name="parent" type="EntityHandle" container="StaticArray" arraySize="1">
+          <value>0x00000000</value>
+        </property>
+        <property name="transform" type="EntityPtr" container="StaticArray" arraySize="1">
+          <value>0xA68E2710</value>
+        </property>
+        <property name="shearTransform" type="EntityPtr" container="StaticArray" arraySize="1">
+          <value>0x00000000</value>
+        </property>
+        <property name="pivotTransform" type="EntityPtr" container="StaticArray" arraySize="1">
+          <value>0x00000000</value>
+        </property>
+        <property name="children" type="EntityHandle" container="List" />
+        <property name="flags" type="uint32" container="StaticArray" arraySize="1">
+          <value>7</value>
+        </property>
+        <property name="modelFile" type="FilePtr" container="StaticArray" arraySize="1">
+          <value>/Assets/pes16/model/bg/common/staff/common/scenes/st_jersey_ch01_non.fmdl</value>
+        </property>
+        <property name="isIsolated" type="bool" container="StaticArray" arraySize="1">
+          <value>false</value>
+        </property>
+        <property name="isDynamic" type="bool" container="StaticArray" arraySize="1">
+          <value>true</value>
+        </property>
+        <property name="lodFarSize" type="float" container="StaticArray" arraySize="1">
+          <value>-1</value>
+        </property>
+        <property name="lodNearSize" type="float" container="StaticArray" arraySize="1">
+          <value>-1</value>
+        </property>
+        <property name="lodPolygonSize" type="float" container="StaticArray" arraySize="1">
+          <value>2</value>
+        </property>
+        <property name="color" type="Color" container="StaticArray" arraySize="1">
+          <value r="1" g="1" b="1" a="1" />
+        </property>
+        <property name="drawRejectionLevel" type="int32" container="StaticArray" arraySize="1">
+          <value>8</value>
+        </property>
+        <property name="drawMode" type="int32" container="StaticArray" arraySize="1">
+          <value>0</value>
+        </property>
+        <property name="rejectFarRangeShadowCast" type="int32" container="StaticArray" arraySize="1">
+          <value>2</value>
+        </property>
+        <property name="direction" type="int32" container="StaticArray" arraySize="1">
+          <value>3</value>
+        </property>
+        <property name="kind" type="int32" container="StaticArray" arraySize="1">
+          <value>10</value>
+        </property>
+        <property name="demoGroup" type="int32" container="StaticArray" arraySize="1">
+          <value>5</value>
+        </property>
+        <property name="customBits" type="uint32" container="StaticArray" arraySize="1">
+          <value>0</value>
+        </property>
+      </staticProperties>
+      <dynamicProperties />
+    </entity>
+    <entity class="TransformEntity" classVersion="0" addr="0xA68E2710" unknown1="96" unknown2="0">
+      <staticProperties>
+        <property name="owner" type="EntityHandle" container="StaticArray" arraySize="1">
+          <value>0xA695B4D0</value>
+        </property>
+        <property name="transform_scale" type="Vector3" container="StaticArray" arraySize="1">
+          <value x="0.925" y="0.925" z="0.925" w="0" />
+        </property>
+        <property name="transform_rotation_quat" type="Quat" container="StaticArray" arraySize="1">
+          <value x="0" y="-0.706391" z="0" w="0.707822" />
+        </property>
+        <property name="transform_translation" type="Vector3" container="StaticArray" arraySize="1">
+          <value x="57.2704277" y="0" z="20.6805077" w="0" />
+        </property>
+      </staticProperties>
+      <dynamicProperties />
+    </entity>
+    <entity class="StadiumAnime" classVersion="3" addr="0xA6904AD0" unknown1="280" unknown2="0">
+      <staticProperties>
+        <property name="name" type="String" container="StaticArray" arraySize="1">
+          <value>anm_idole_sit_ballboy_B</value>
+        </property>
+        <property name="dataSet" type="EntityHandle" container="StaticArray" arraySize="1">
+          <value>0xA6904710</value>
+        </property>
+        <property name="animationGroup" type="int32" container="StaticArray" arraySize="1">
+          <value>8</value>
+        </property>
+        <property name="animeFiles" type="FilePtr" container="DynamicArray" arraySize="2">
+          <value>/Assets/pes16/model/bg/common/staff/motion/staff_idole07.gani</value>
+          <value>/Assets/pes16/model/bg/common/staff/motion/staff_idole05.gani</value>
+        </property>
+        <property name="anmSklFile" type="FilePtr" container="StaticArray" arraySize="1">
+          <value>/Assets/pes16/model/bg/common/staff/motion/mob_high_anim_skel.ask</value>
+        </property>
+        <property name="renderSklFile" type="FilePtr" container="StaticArray" arraySize="1">
+          <value>/Assets/pes16/model/bg/common/staff/motion/mob_high_render_skel.ask</value>
+        </property>
+        <property name="rigFile" type="FilePtr" container="StaticArray" arraySize="1">
+          <value>/Assets/pes16/model/bg/common/staff/motion/mob_high_skel.frig</value>
+        </property>
+        <property name="sklFile" type="FilePtr" container="StaticArray" arraySize="1">
+          <value>/Assets/pes16/model/bg/common/staff/motion/mob_high.skl</value>
+        </property>
+        <property name="models" type="EntityPtr" container="DynamicArray" arraySize="4">
+          <value>0xA695B690</value>
+          <value>0xA695B850</value>
+          <value>0xA695BA10</value>
+          <value>0xA695BBD0</value>
+        </property>
+      </staticProperties>
+      <dynamicProperties />
+    </entity>
+    <entity class="StadiumModel" classVersion="3" addr="0xA695B690" unknown1="400" unknown2="0">
+      <staticProperties>
+        <property name="name" type="String" container="StaticArray" arraySize="1">
+          <value>st_jersey_ch01boy_non_0003</value>
+        </property>
+        <property name="dataSet" type="EntityHandle" container="StaticArray" arraySize="1">
+          <value>0xA6904710</value>
+        </property>
+        <property name="parent" type="EntityHandle" container="StaticArray" arraySize="1">
+          <value>0x00000000</value>
+        </property>
+        <property name="transform" type="EntityPtr" container="StaticArray" arraySize="1">
+          <value>0xA68E2550</value>
+        </property>
+        <property name="shearTransform" type="EntityPtr" container="StaticArray" arraySize="1">
+          <value>0x00000000</value>
+        </property>
+        <property name="pivotTransform" type="EntityPtr" container="StaticArray" arraySize="1">
+          <value>0x00000000</value>
+        </property>
+        <property name="children" type="EntityHandle" container="List" />
+        <property name="flags" type="uint32" container="StaticArray" arraySize="1">
+          <value>7</value>
+        </property>
+        <property name="modelFile" type="FilePtr" container="StaticArray" arraySize="1">
+          <value>/Assets/pes16/model/bg/common/staff/common/scenes/st_jersey_ch03_non.fmdl</value>
+        </property>
+        <property name="isIsolated" type="bool" container="StaticArray" arraySize="1">
+          <value>false</value>
+        </property>
+        <property name="isDynamic" type="bool" container="StaticArray" arraySize="1">
+          <value>true</value>
+        </property>
+        <property name="lodFarSize" type="float" container="StaticArray" arraySize="1">
+          <value>-1</value>
+        </property>
+        <property name="lodNearSize" type="float" container="StaticArray" arraySize="1">
+          <value>-1</value>
+        </property>
+        <property name="lodPolygonSize" type="float" container="StaticArray" arraySize="1">
+          <value>2</value>
+        </property>
+        <property name="color" type="Color" container="StaticArray" arraySize="1">
+          <value r="1" g="1" b="1" a="1" />
+        </property>
+        <property name="drawRejectionLevel" type="int32" container="StaticArray" arraySize="1">
+          <value>8</value>
+        </property>
+        <property name="drawMode" type="int32" container="StaticArray" arraySize="1">
+          <value>0</value>
+        </property>
+        <property name="rejectFarRangeShadowCast" type="int32" container="StaticArray" arraySize="1">
+          <value>2</value>
+        </property>
+        <property name="direction" type="int32" container="StaticArray" arraySize="1">
+          <value>2</value>
+        </property>
+        <property name="kind" type="int32" container="StaticArray" arraySize="1">
+          <value>10</value>
+        </property>
+        <property name="demoGroup" type="int32" container="StaticArray" arraySize="1">
+          <value>5</value>
+        </property>
+        <property name="customBits" type="uint32" container="StaticArray" arraySize="1">
+          <value>0</value>
+        </property>
+      </staticProperties>
+      <dynamicProperties />
+    </entity>
+    <entity class="TransformEntity" classVersion="0" addr="0xA68E2550" unknown1="96" unknown2="0">
+      <staticProperties>
+        <property name="owner" type="EntityHandle" container="StaticArray" arraySize="1">
+          <value>0xA695B690</value>
+        </property>
+        <property name="transform_scale" type="Vector3" container="StaticArray" arraySize="1">
+          <value x="0.925" y="0.925" z="0.925" w="0" />
+        </property>
+        <property name="transform_rotation_quat" type="Quat" container="StaticArray" arraySize="1">
+          <value x="0" y="0.69416" z="0" w="0.719821" />
+        </property>
+        <property name="transform_translation" type="Vector3" container="StaticArray" arraySize="1">
+          <value x="-57.5888329" y="0" z="-5.599823" w="0" />
+        </property>
+      </staticProperties>
+      <dynamicProperties />
+    </entity>
+    <entity class="StadiumModel" classVersion="3" addr="0xA695B850" unknown1="400" unknown2="0">
+      <staticProperties>
+        <property name="name" type="String" container="StaticArray" arraySize="1">
+          <value>st_jersey_ch00girl_non_0003</value>
+        </property>
+        <property name="dataSet" type="EntityHandle" container="StaticArray" arraySize="1">
+          <value>0xA6904710</value>
+        </property>
+        <property name="parent" type="EntityHandle" container="StaticArray" arraySize="1">
+          <value>0x00000000</value>
+        </property>
+        <property name="transform" type="EntityPtr" container="StaticArray" arraySize="1">
+          <value>0xA68E24E0</value>
+        </property>
+        <property name="shearTransform" type="EntityPtr" container="StaticArray" arraySize="1">
+          <value>0x00000000</value>
+        </property>
+        <property name="pivotTransform" type="EntityPtr" container="StaticArray" arraySize="1">
+          <value>0x00000000</value>
+        </property>
+        <property name="children" type="EntityHandle" container="List" />
+        <property name="flags" type="uint32" container="StaticArray" arraySize="1">
+          <value>7</value>
+        </property>
+        <property name="modelFile" type="FilePtr" container="StaticArray" arraySize="1">
+          <value>/Assets/pes16/model/bg/common/staff/common/scenes/st_jersey_ch00_non.fmdl</value>
+        </property>
+        <property name="isIsolated" type="bool" container="StaticArray" arraySize="1">
+          <value>false</value>
+        </property>
+        <property name="isDynamic" type="bool" container="StaticArray" arraySize="1">
+          <value>true</value>
+        </property>
+        <property name="lodFarSize" type="float" container="StaticArray" arraySize="1">
+          <value>-1</value>
+        </property>
+        <property name="lodNearSize" type="float" container="StaticArray" arraySize="1">
+          <value>-1</value>
+        </property>
+        <property name="lodPolygonSize" type="float" container="StaticArray" arraySize="1">
+          <value>2</value>
+        </property>
+        <property name="color" type="Color" container="StaticArray" arraySize="1">
+          <value r="1" g="1" b="1" a="1" />
+        </property>
+        <property name="drawRejectionLevel" type="int32" container="StaticArray" arraySize="1">
+          <value>8</value>
+        </property>
+        <property name="drawMode" type="int32" container="StaticArray" arraySize="1">
+          <value>0</value>
+        </property>
+        <property name="rejectFarRangeShadowCast" type="int32" container="StaticArray" arraySize="1">
+          <value>2</value>
+        </property>
+        <property name="direction" type="int32" container="StaticArray" arraySize="1">
+          <value>2</value>
+        </property>
+        <property name="kind" type="int32" container="StaticArray" arraySize="1">
+          <value>10</value>
+        </property>
+        <property name="demoGroup" type="int32" container="StaticArray" arraySize="1">
+          <value>5</value>
+        </property>
+        <property name="customBits" type="uint32" container="StaticArray" arraySize="1">
+          <value>0</value>
+        </property>
+      </staticProperties>
+      <dynamicProperties />
+    </entity>
+    <entity class="TransformEntity" classVersion="0" addr="0xA68E24E0" unknown1="96" unknown2="0">
+      <staticProperties>
+        <property name="owner" type="EntityHandle" container="StaticArray" arraySize="1">
+          <value>0xA695B850</value>
+        </property>
+        <property name="transform_scale" type="Vector3" container="StaticArray" arraySize="1">
+          <value x="0.898" y="0.898" z="0.898" w="0" />
+        </property>
+        <property name="transform_rotation_quat" type="Quat" container="StaticArray" arraySize="1">
+          <value x="0" y="0.69416" z="0" w="0.719821" />
+        </property>
+        <property name="transform_translation" type="Vector3" container="StaticArray" arraySize="1">
+          <value x="-57.6267853" y="0" z="7.710462" w="0" />
+        </property>
+      </staticProperties>
+      <dynamicProperties />
+    </entity>
+    <entity class="StadiumModel" classVersion="3" addr="0xA695BA10" unknown1="400" unknown2="0">
+      <staticProperties>
+        <property name="name" type="String" container="StaticArray" arraySize="1">
+          <value>st_jersey_ch01boy_non_0001</value>
+        </property>
+        <property name="dataSet" type="EntityHandle" container="StaticArray" arraySize="1">
+          <value>0xA6904710</value>
+        </property>
+        <property name="parent" type="EntityHandle" container="StaticArray" arraySize="1">
+          <value>0x00000000</value>
+        </property>
+        <property name="transform" type="EntityPtr" container="StaticArray" arraySize="1">
+          <value>0xA68E2630</value>
+        </property>
+        <property name="shearTransform" type="EntityPtr" container="StaticArray" arraySize="1">
+          <value>0x00000000</value>
+        </property>
+        <property name="pivotTransform" type="EntityPtr" container="StaticArray" arraySize="1">
+          <value>0x00000000</value>
+        </property>
+        <property name="children" type="EntityHandle" container="List" />
+        <property name="flags" type="uint32" container="StaticArray" arraySize="1">
+          <value>7</value>
+        </property>
+        <property name="modelFile" type="FilePtr" container="StaticArray" arraySize="1">
+          <value>/Assets/pes16/model/bg/common/staff/common/scenes/st_jersey_ch03_non.fmdl</value>
+        </property>
+        <property name="isIsolated" type="bool" container="StaticArray" arraySize="1">
+          <value>false</value>
+        </property>
+        <property name="isDynamic" type="bool" container="StaticArray" arraySize="1">
+          <value>true</value>
+        </property>
+        <property name="lodFarSize" type="float" container="StaticArray" arraySize="1">
+          <value>-1</value>
+        </property>
+        <property name="lodNearSize" type="float" container="StaticArray" arraySize="1">
+          <value>-1</value>
+        </property>
+        <property name="lodPolygonSize" type="float" container="StaticArray" arraySize="1">
+          <value>2</value>
+        </property>
+        <property name="color" type="Color" container="StaticArray" arraySize="1">
+          <value r="1" g="1" b="1" a="1" />
+        </property>
+        <property name="drawRejectionLevel" type="int32" container="StaticArray" arraySize="1">
+          <value>8</value>
+        </property>
+        <property name="drawMode" type="int32" container="StaticArray" arraySize="1">
+          <value>0</value>
+        </property>
+        <property name="rejectFarRangeShadowCast" type="int32" container="StaticArray" arraySize="1">
+          <value>2</value>
+        </property>
+        <property name="direction" type="int32" container="StaticArray" arraySize="1">
+          <value>3</value>
+        </property>
+        <property name="kind" type="int32" container="StaticArray" arraySize="1">
+          <value>10</value>
+        </property>
+        <property name="demoGroup" type="int32" container="StaticArray" arraySize="1">
+          <value>5</value>
+        </property>
+        <property name="customBits" type="uint32" container="StaticArray" arraySize="1">
+          <value>0</value>
+        </property>
+      </staticProperties>
+      <dynamicProperties />
+    </entity>
+    <entity class="TransformEntity" classVersion="0" addr="0xA68E2630" unknown1="96" unknown2="0">
+      <staticProperties>
+        <property name="owner" type="EntityHandle" container="StaticArray" arraySize="1">
+          <value>0xA695BA10</value>
+        </property>
+        <property name="transform_scale" type="Vector3" container="StaticArray" arraySize="1">
+          <value x="0.925" y="0.925" z="0.925" w="0" />
+        </property>
+        <property name="transform_rotation_quat" type="Quat" container="StaticArray" arraySize="1">
+          <value x="0" y="-0.723398" z="0" w="0.690431" />
+        </property>
+        <property name="transform_translation" type="Vector3" container="StaticArray" arraySize="1">
+          <value x="57.25844" y="-0.022325" z="-2.604049" w="0" />
+        </property>
+      </staticProperties>
+      <dynamicProperties />
+    </entity>
+    <entity class="StadiumModel" classVersion="3" addr="0xA695BBD0" unknown1="400" unknown2="0">
+      <staticProperties>
+        <property name="name" type="String" container="StaticArray" arraySize="1">
+          <value>st_jersey_ch00girl_non_0001</value>
+        </property>
+        <property name="dataSet" type="EntityHandle" container="StaticArray" arraySize="1">
+          <value>0xA6904710</value>
+        </property>
+        <property name="parent" type="EntityHandle" container="StaticArray" arraySize="1">
+          <value>0x00000000</value>
+        </property>
+        <property name="transform" type="EntityPtr" container="StaticArray" arraySize="1">
+          <value>0xA68E26A0</value>
+        </property>
+        <property name="shearTransform" type="EntityPtr" container="StaticArray" arraySize="1">
+          <value>0x00000000</value>
+        </property>
+        <property name="pivotTransform" type="EntityPtr" container="StaticArray" arraySize="1">
+          <value>0x00000000</value>
+        </property>
+        <property name="children" type="EntityHandle" container="List" />
+        <property name="flags" type="uint32" container="StaticArray" arraySize="1">
+          <value>7</value>
+        </property>
+        <property name="modelFile" type="FilePtr" container="StaticArray" arraySize="1">
+          <value>/Assets/pes16/model/bg/common/staff/common/scenes/st_jersey_ch00_non.fmdl</value>
+        </property>
+        <property name="isIsolated" type="bool" container="StaticArray" arraySize="1">
+          <value>false</value>
+        </property>
+        <property name="isDynamic" type="bool" container="StaticArray" arraySize="1">
+          <value>true</value>
+        </property>
+        <property name="lodFarSize" type="float" container="StaticArray" arraySize="1">
+          <value>-1</value>
+        </property>
+        <property name="lodNearSize" type="float" container="StaticArray" arraySize="1">
+          <value>-1</value>
+        </property>
+        <property name="lodPolygonSize" type="float" container="StaticArray" arraySize="1">
+          <value>2</value>
+        </property>
+        <property name="color" type="Color" container="StaticArray" arraySize="1">
+          <value r="1" g="1" b="1" a="1" />
+        </property>
+        <property name="drawRejectionLevel" type="int32" container="StaticArray" arraySize="1">
+          <value>8</value>
+        </property>
+        <property name="drawMode" type="int32" container="StaticArray" arraySize="1">
+          <value>0</value>
+        </property>
+        <property name="rejectFarRangeShadowCast" type="int32" container="StaticArray" arraySize="1">
+          <value>2</value>
+        </property>
+        <property name="direction" type="int32" container="StaticArray" arraySize="1">
+          <value>3</value>
+        </property>
+        <property name="kind" type="int32" container="StaticArray" arraySize="1">
+          <value>10</value>
+        </property>
+        <property name="demoGroup" type="int32" container="StaticArray" arraySize="1">
+          <value>5</value>
+        </property>
+        <property name="customBits" type="uint32" container="StaticArray" arraySize="1">
+          <value>0</value>
+        </property>
+      </staticProperties>
+      <dynamicProperties />
+    </entity>
+    <entity class="TransformEntity" classVersion="0" addr="0xA68E26A0" unknown1="96" unknown2="0">
+      <staticProperties>
+        <property name="owner" type="EntityHandle" container="StaticArray" arraySize="1">
+          <value>0xA695BBD0</value>
+        </property>
+        <property name="transform_scale" type="Vector3" container="StaticArray" arraySize="1">
+          <value x="0.898" y="0.898" z="0.898" w="0" />
+        </property>
+        <property name="transform_rotation_quat" type="Quat" container="StaticArray" arraySize="1">
+          <value x="0" y="-0.706391" z="0" w="0.707822" />
+        </property>
+        <property name="transform_translation" type="Vector3" container="StaticArray" arraySize="1">
+          <value x="57.4008675" y="0" z="22.1497765" w="0" />
+        </property>
+      </staticProperties>
+      <dynamicProperties />
+    </entity>
+    <entity class="LimitedRotatableObjectLinks" classVersion="0" addr="0xA68161D0" unknown1="176" unknown2="0">
+      <staticProperties>
+        <property name="name" type="String" container="StaticArray" arraySize="1">
+          <value>LimitedRotatableObjectLinks_ballboy</value>
+        </property>
+        <property name="dataSet" type="EntityHandle" container="StaticArray" arraySize="1">
+          <value>0xA6904710</value>
+        </property>
+        <property name="links" type="EntityLink" container="StringMap" arraySize="8">
+          <value key="st_jersey_ch00girl_non_0001" packagePathHash="0xB8A0BF169F98" archivePath="/Assets/pes16/model/bg/st074/staff/st074_st2019_steward_sit.fox2" nameInArchive="st_jersey_ch00girl_non_0001">0xA695BBD0</value>
+          <value key="st_jersey_ch00girl_non_0002" packagePathHash="0xB8A0BF169F98" archivePath="/Assets/pes16/model/bg/st074/staff/st074_st2019_steward_sit.fox2" nameInArchive="st_jersey_ch00girl_non_0002">0xA695B310</value>
+          <value key="st_jersey_ch00girl_non_0003" packagePathHash="0xB8A0BF169F98" archivePath="/Assets/pes16/model/bg/st074/staff/st074_st2019_steward_sit.fox2" nameInArchive="st_jersey_ch00girl_non_0003">0xA695B850</value>
+          <value key="st_jersey_ch00girl_non_0004" packagePathHash="0xB8A0BF169F98" archivePath="/Assets/pes16/model/bg/st074/staff/st074_st2019_steward_sit.fox2" nameInArchive="st_jersey_ch00girl_non_0004">0xA695AF90</value>
+          <value key="st_jersey_ch01boy_non_0000" packagePathHash="0xB8A0BF169F98" archivePath="/Assets/pes16/model/bg/st074/staff/st074_st2019_steward_sit.fox2" nameInArchive="st_jersey_ch01boy_non_0000">0xA695B4D0</value>
+          <value key="st_jersey_ch01boy_non_0001" packagePathHash="0xB8A0BF169F98" archivePath="/Assets/pes16/model/bg/st074/staff/st074_st2019_steward_sit.fox2" nameInArchive="st_jersey_ch01boy_non_0001">0xA695BA10</value>
+          <value key="st_jersey_ch01boy_non_0002" packagePathHash="0xB8A0BF169F98" archivePath="/Assets/pes16/model/bg/st074/staff/st074_st2019_steward_sit.fox2" nameInArchive="st_jersey_ch01boy_non_0002">0xA695B150</value>
+          <value key="st_jersey_ch01boy_non_0003" packagePathHash="0xB8A0BF169F98" archivePath="/Assets/pes16/model/bg/st074/staff/st074_st2019_steward_sit.fox2" nameInArchive="st_jersey_ch01boy_non_0003">0xA695B690</value>
+        </property>
+        <property name="maxRotDegreeLeft" type="float" container="StaticArray" arraySize="1">
+          <value>50</value>
+        </property>
+        <property name="maxRotDegreeRight" type="float" container="StaticArray" arraySize="1">
+          <value>50</value>
+        </property>
+        <property name="maxRotSpeedLeft" type="float" container="StaticArray" arraySize="1">
+          <value>45</value>
+        </property>
+        <property name="maxRotSpeedRight" type="float" container="StaticArray" arraySize="1">
+          <value>45</value>
+        </property>
+      </staticProperties>
+      <dynamicProperties />
+    </entity>
+  </entities>
+</fox>

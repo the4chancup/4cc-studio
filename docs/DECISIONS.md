@@ -1061,3 +1061,18 @@ converge question for 2.20 (no two Konami FMDL parts sharing a bone are in the f
 Plan: `libs.md` "`pes_model::ops::merge`" bones rule rewritten with the measurement;
 `aesthetics_export.md` "SKL pairing" sentence updated; `resources/prefox_model_format.md`
 section 5 gains the finding for the plugin author.
+
+## 2026-09-13 - fox2 - CityHash64 ported, not a crate; typed file keeps the string table; goldens from the reference
+Decision: `libs/fox2` ports the C# tool's CityHash64 1.0.3 variant (about 150 lines) instead of
+depending on the `cityhash` crate the plan had pencilled in; `Fox2File` keeps the string table as
+read so `write(read(x)) == x` holds on Konami files (whose table order varies by file), and
+`from_xml` rebuilds it in the reference's traversal order; the compiled goldens are the
+reference's output with its trailing buffer slack removed.
+Why: the hash must match one specific old CityHash variant byte for byte, and a crate's version
+cannot be pinned to it, while a direct port is verified by a 46-string golden and by the 100-odd
+hash/literal pairs the fixtures' own tables carry. The reference cannot round-trip Konami files
+(it reorders the table) and its writer returns an over-allocated buffer (896 bytes of content in
+a 1228-byte result), so the byte-identity standard is our own reader/writer on Konami's files
+plus equality with the reference's logical output on compiled ones, as for `fmdl`.
+Plan: `libs.md` gains "`libs/fox2`: Fox Engine entity files" (layout census over 87 files, types,
+XML rules); `core.md` "External Dependencies" row for `cityhash` replaced.
