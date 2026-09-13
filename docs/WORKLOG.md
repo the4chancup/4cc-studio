@@ -10,7 +10,7 @@ is in `AGENTS.md` ("Working documents").
 ## Current status
 
 **Phase:** 2 (Library crates). Done: 2.1 `wezlib`, 2.2 `cpk`, 2.3 `fpk`, 2.4 `ftex`, 2.5 `dds_convert` (CPU),
-2.6 `fmdl` (format, model, ops, check), 2.8 `uniparam`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`. 2.7 census, 2.7a-1, 2.7a-2 done; next 2.7b `pes_model` vertex codec. Review
+2.6 `fmdl` (format, model, ops, check), 2.8 `uniparam`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`. 2.7 census, 2.7a, 2.7b done; next: reviewer pass on `pes_model::format`, then 2.7c. Review
 rounds A and B (2026-09-13) closed: 2.5c, 2.12b, 2.13b done.
 **In progress:** none
 **Blocked on:** —
@@ -185,8 +185,12 @@ Spec: `docs/plans/core.md` "Phase 2", `docs/plans/libs.md`, `model_conversion.md
   in the add-on layout; `read(write(m)) == m` on all twelve fixtures, version 17 included; every
   census expectation literal. Editor-data item decode is unverified against a real file (none
   exists). 15 tests. Reviewer checkpoint (b) for the new `pub` surface is batched with 2.7b
-- [ ] 2.7b vertex codec; 2.7c model layer; 2.7d ops (split, vertex_enc, merge, paths); 2.7e `.mtl`
-  read/write (roxmltree read, hand writer, byte parity per Konami file); 2.7f check
+- [x] 2.7b `pes_model::format::vertex` — done (sidekick): `MeshVertices` (float weights two to
+  four wide, width remembered), in-place decode/encode byte-identical on every geometry of the
+  twelve fixtures, `to_fields` in Konami's field order (equal to every fixture's own order),
+  `FaceStream::faces`/`level`/`from_faces` over the LOD table. 19 tests
+- [ ] 2.7c model layer; 2.7d ops (split, vertex_enc, merge, paths); 2.7e `.mtl` read/write
+  (roxmltree read, hand writer, byte parity per Konami file); 2.7f check
 - [x] 2.8 `uniparam` — done (sidekick): WESYS-unwrapping read, sorted writer; Konami PES21
   container (2174 entries) and a reference-writer golden; 4 tests
 - [ ] 2.9 `fox2`

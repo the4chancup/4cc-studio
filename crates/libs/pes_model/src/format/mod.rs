@@ -6,8 +6,11 @@
 
 mod container;
 mod datum;
+#[cfg(test)]
+pub(crate) mod fixtures;
 mod model;
 pub mod records;
+mod vertex;
 mod write;
 
 pub use container::{ModelContainer, Section, SectionKind};
@@ -16,6 +19,7 @@ pub use model::{
     Annotation, Bone, BoundingBox, EditorItem, EditorValue, FaceStream, Geometry, LodRecord, Mesh,
     PreFoxModel, VertexField,
 };
+pub use vertex::MeshVertices;
 
 /// Why a byte buffer is not a readable `.model`, or a model cannot be
 /// written.
@@ -83,6 +87,17 @@ pub enum ModelError {
     /// material combinations, locators): rewriting could not preserve it.
     #[error("unsupported feature: {0}")]
     Unsupported(&'static str),
+    /// A field set that names known types but combines them wrongly:
+    /// which rule.
+    #[error("invalid vertex field set: {0}")]
+    InvalidVertexFormat(&'static str),
+    /// The vertices handed to `encode_vertices`/`to_fields` do not fit the
+    /// fields: which rule.
+    #[error("vertices do not fit the fields: {0}")]
+    VertexMismatch(&'static str),
+    /// A face stream's index list or LOD table is malformed: which rule.
+    #[error("invalid face stream: {0}")]
+    InvalidFaceStream(&'static str),
     /// A model cannot be laid out as a `.model` (a count or a size that
     /// does not fit).
     #[error("cannot lay out model: {0}")]
