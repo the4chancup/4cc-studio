@@ -2,13 +2,15 @@
 //! (header words and the eleven sections as opaque byte runs in file
 //! order), `RecordArray` reads the table-of-contents-plus-records shape
 //! every section and sub-table uses, and `PreFoxModel` is the typed layer
-//! over them with every pointer resolved.
+//! over them with every pointer resolved. `mtl` reads and writes the
+//! sibling `.mtl` XML material set.
 
 mod container;
 mod datum;
 #[cfg(test)]
 pub(crate) mod fixtures;
 mod model;
+pub mod mtl;
 pub mod records;
 mod vertex;
 mod write;

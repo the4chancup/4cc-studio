@@ -33,3 +33,23 @@ pub(crate) const ALL: &[&[u8]] = &[
     COLLAR,
     SHADOW,
 ];
+
+pub(crate) const CARDHEAD_MTL: &[u8] =
+    include_bytes!("../../tests/fixtures/cardhead_materials.mtl");
+pub(crate) const CARD_RED_MTL: &[u8] = include_bytes!("../../tests/fixtures/konami_card_red.mtl");
+pub(crate) const CAP_MTL: &[u8] = include_bytes!("../../tests/fixtures/konami_modD_cap.mtl");
+pub(crate) const SHADOW_MTL: &[u8] = include_bytes!("../../tests/fixtures/konami_shadow.mtl");
+pub(crate) const ACCESSORY_MTL: &[u8] = include_bytes!("../../tests/fixtures/konami_accessory.mtl");
+pub(crate) const HEAD_HI_MTL: &[u8] = include_bytes!("../../tests/fixtures/konami_headHi.mtl");
+pub(crate) const HAIR_MTL: &[u8] = include_bytes!("../../tests/fixtures/konami_hair.mtl");
+
+/// All seven material-set fixtures.
+pub(crate) const ALL_MTL: &[&[u8]] = &[
+    CARDHEAD_MTL,
+    CARD_RED_MTL,
+    CAP_MTL,
+    SHADOW_MTL,
+    ACCESSORY_MTL,
+    HEAD_HI_MTL,
+    HAIR_MTL,
+];
