@@ -14,9 +14,11 @@ use crate::{BlockCodec, ConvertError, Decoded, Target, TextureRole};
 /// rules of the conversion plan.
 pub(crate) fn convert(decoded: &Decoded, target: Target) -> Result<Vec<u8>, ConvertError> {
     // Passthrough: blocks a target reads are kept and only the container
-    // changes.
+    // changes. The role narrows this: a normal-role source passes through
+    // only as BC3 (taken to be laid out already) or, on PES 19-21, as BC5;
+    // a normal-role BC7 or BC1 source is decoded and encoded to DXT5nm.
     if let Some(blocks) = &decoded.blocks
-        && compatible(target.version, blocks.codec)
+        && compatible(target.version, blocks.codec, target.role)
     {
         return container(
             target.version,
@@ -27,10 +29,10 @@ pub(crate) fn convert(decoded: &Decoded, target: Target) -> Result<Vec<u8>, Conv
         );
     }
 
-    // Mips to emit: a source that carried blocks or several mips keeps its
-    // chain; a single-mip raster source gets the full chain generated.
+    // Mips to emit: a source that carried its own mip chain keeps its level
+    // count; a raster source gets the full chain generated.
     let mut emit: Vec<Mip> = Vec::new();
-    if decoded.blocks.is_some() || decoded.mips.len() > 1 {
+    if decoded.authored_mips {
         for (level, pixels) in decoded.mips.iter().enumerate() {
             emit.push(Mip {
                 width: (decoded.width >> level).max(1),
@@ -73,13 +75,19 @@ pub(crate) fn convert(decoded: &Decoded, target: Target) -> Result<Vec<u8>, Conv
     )
 }
 
-/// Whether the target version's engine reads this block codec directly:
-/// PES 15-18 read BC1..BC3, PES 19-21 also BC4, BC5 and BC7.
-fn compatible(version: PesVersion, codec: BlockCodec) -> bool {
-    match codec {
+/// Whether the target keeps this block codec without re-encoding: PES 15-18
+/// read BC1..BC3, PES 19-21 also BC4, BC5 and BC7. A normal-role source
+/// keeps only BC3 blocks (or BC5 on PES 19-21): anything else carries a
+/// color layout the shader would read as a normal map.
+fn compatible(version: PesVersion, codec: BlockCodec, role: TextureRole) -> bool {
+    let version_reads = match codec {
         BlockCodec::Bc1 | BlockCodec::Bc2 | BlockCodec::Bc3 => true,
         BlockCodec::Bc4 | BlockCodec::Bc5 | BlockCodec::Bc7 => version >= PesVersion::Pes19,
-    }
+    };
+    let role_keeps = role == TextureRole::Color
+        || codec == BlockCodec::Bc3
+        || (codec == BlockCodec::Bc5 && version >= PesVersion::Pes19);
+    version_reads && role_keeps
 }
 
 fn is_bc5_source(decoded: &Decoded) -> bool {
