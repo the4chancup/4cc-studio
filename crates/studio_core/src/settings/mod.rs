@@ -97,16 +97,32 @@ impl Settings {
     }
 
     /// Replaces a tool's section.
+    ///
+    /// # Panics
+    /// If `tool_id` is the reserved `common` key: tool ids are compile-time constants, so this is
+    /// a programming error, not a runtime condition.
     pub fn set_tool(&mut self, tool_id: &str, table: Table) {
+        assert_reserved_free(tool_id);
         self.tools.insert(tool_id.to_owned(), table);
     }
 
     /// Fills a tool's section with every default it lacks, recursing into nested tables. Values
     /// already present are kept, including ones no default names.
+    ///
+    /// # Panics
+    /// If `tool_id` is the reserved `common` key (see [`Settings::set_tool`]).
     pub fn merge_defaults(&mut self, tool_id: &str, defaults: &Table) {
+        assert_reserved_free(tool_id);
         let table = self.tools.entry(tool_id.to_owned()).or_default();
         merge_missing(table, defaults);
     }
+}
+
+fn assert_reserved_free(tool_id: &str) {
+    assert_ne!(
+        tool_id, COMMON_KEY,
+        "`{COMMON_KEY}` is the common section, not a tool id"
+    );
 }
 
 fn merge_missing(into: &mut Table, defaults: &Table) {
@@ -195,6 +211,12 @@ mod tests {
         let mut settings = Settings::default();
         settings.merge_defaults("new-tool", &table("a = 1"));
         assert_eq!(settings.tool("new-tool").unwrap()["a"], Value::Integer(1));
+    }
+
+    #[test]
+    #[should_panic(expected = "not a tool id")]
+    fn the_common_key_is_not_a_tool_section() {
+        Settings::default().set_tool(COMMON_KEY, Table::new());
     }
 
     #[test]

@@ -5,6 +5,8 @@
 //! event travels in a `PipelineEventEnvelope`, whose run and revision ids let the GUI drop results
 //! from a run or a filesystem snapshot that is no longer current (core plan, "Event system").
 
+use std::borrow::Cow;
+
 use vtree::ScopePath;
 
 /// Identifies one pipeline run. Events from an older run are stale and are dropped.
@@ -119,11 +121,18 @@ pub enum FolderStatus {
     DoneWithErrors,
 }
 
-/// Stable identifier of a finding within its tool's message catalog (`kit_colors_extracted`).
-/// The catalog in the tool's `messages.rs` maps it to text, severity and disposition; the help
-/// window's generated "Messages" topic lists every code.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct MessageCode(pub &'static str);
+/// Stable, cross-tool identity of a finding: the owning tool plus its code within that tool's
+/// message catalog. The catalog in the tool's `messages.rs` maps the code to text, severity and
+/// disposition; the help window's generated "Messages" topic lists every code, and a log line
+/// links to it through the tool id.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct MessageCode {
+    /// The tool whose catalog defines the code (`team-compiler`).
+    pub tool_id: &'static str,
+    /// The code within that catalog (`player_number_duplicate`); borrowed for catalog constants,
+    /// owned when a code is built at run time.
+    pub code: Cow<'static, str>,
+}
 
 /// A structured finding: stable code, how serious it is, what the pipeline did about it, what
 /// it is about, and the context fields the display template fills in.
@@ -232,6 +241,26 @@ mod tests {
         assert!(Severity::Info < Severity::Warning);
         assert!(Severity::Warning < Severity::Error);
         assert!(Severity::Error < Severity::Fatal);
+    }
+
+    #[test]
+    fn same_code_in_two_tools_is_two_identities() {
+        let compiler = MessageCode {
+            tool_id: "team-compiler",
+            code: Cow::Borrowed("bad_file"),
+        };
+        let upgrader = MessageCode {
+            tool_id: "export-upgrader",
+            code: Cow::Borrowed("bad_file"),
+        };
+        assert_ne!(compiler, upgrader);
+        assert_eq!(
+            compiler,
+            MessageCode {
+                tool_id: "team-compiler",
+                code: Cow::Owned("bad_file".to_owned())
+            }
+        );
     }
 
     #[test]

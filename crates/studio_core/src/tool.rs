@@ -26,9 +26,7 @@ pub trait StudioTool {
 
     /// Per-frame background work, called for every registered tool each frame, active view or
     /// not: drain event channels, check timer deadlines. Default no-op.
-    fn tick(&mut self, ctx: &ToolContext) {
-        let _ = ctx;
-    }
+    fn tick(&mut self, _ctx: &ToolContext) {}
 
     /// The tool's settings section, injected into the settings menu.
     fn settings_view(&mut self, ui: &mut egui::Ui);
@@ -51,8 +49,7 @@ pub trait StudioTool {
     /// GUI as if the user had pressed the corresponding button. Called once after the tool's view
     /// exists; the tool may queue the action until its own readiness condition holds. Default: no
     /// command is GUI-runnable, so the launch fails with a message instead of silently opening.
-    fn gui_run(&mut self, matches: &clap::ArgMatches, ctx: &ToolContext) -> anyhow::Result<()> {
-        let _ = (matches, ctx);
+    fn gui_run(&mut self, _matches: &clap::ArgMatches, _ctx: &ToolContext) -> anyhow::Result<()> {
         anyhow::bail!("{} has no GUI-runnable commands", self.id())
     }
 
