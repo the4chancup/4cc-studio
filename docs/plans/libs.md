@@ -265,6 +265,32 @@ empty; a model whose geometry or meshes reference them (cloth, material combinat
 none of which any Konami player part uses) is a read error naming the feature, not a warning,
 since a rewrite could not preserve it.
 
+### `pes_model::format::mtl`: the sibling material set
+
+Every `.model` ships with a `.mtl`: a small XML file, WESYS-wrapped like the model, whose shape
+was measured on all 945 of a PES 2017 install: a `<materialset>` root holding `<material
+name shader>` elements, each holding `<sampler>`, `<state>` and `<vector>` children in any order
+(states before or after samplers, both occur). No XML declaration, no BOM, no text content.
+`<sampler>` attributes always appear in the order `name, path, srgb, minfilter, magfilter,
+mipfilter, uaddr, vaddr, waddr, maxaniso` with trailing ones omitted (four subsets seen); values:
+`srgb` 0/1, filters `linear`/`anisotropic` (the plan's material schema also allows `point`),
+addresses `clamp`/`wrap`/`repeat`, `maxaniso` 2; paths end in `.dds` and are either `./name.dds`
+or `model/...` from the data root. `<state name value>`: the seven names the material schema
+validates plus `shadowcaster`, values 0, 1, 64, 254, so the name stays a string and the value an
+integer. `<vector name x y z w>` (two files carry `x` alone), component text `0`, `0.0`, `0.035`,
+`500.0`. 917 files are CRLF with four-space indents (eight for children), 15 use tabs, the rest
+mix; 943 end with a newline.
+
+`MaterialSet` is the typed reader (`roxmltree`) and hand writer. The writer emits one canonical
+layout under a per-file `MtlStyle` (newline, indent unit, final newline) detected on read and
+defaulting to Konami's majority (CRLF, four spaces, final newline); vector components are written
+as the shortest `f32` text (`0`, `0.035`). Measured before coding: that writer reproduces 909 of
+the 945 files byte for byte; the 36 others mix indentation, align attributes with extra spaces,
+carry blank lines or trailing spaces, or write `0.0`, and are re-formatted on a rewrite with no
+semantic change. Byte parity is tested on the regular fixtures (card head, `headHi`, `hair`,
+`shadow`), the semantic round trip on all of them. An element or attribute the grammar does not
+name is a read error, never dropped.
+
 ### `pes_model::model`: the semantic layer the ops work on
 
 As for `fmdl`, the ops reason about bones, materials and meshes, not records: `Model` is built
