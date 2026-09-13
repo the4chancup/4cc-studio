@@ -999,3 +999,18 @@ does. The version-19 word over the version-19 layout is what the community conve
 PES 16 for years; the hybrid has no evidence. Carrying the word would have made the file look
 faithful while being untested.
 Plan: `libs.md` "`pes_model::format`: the `.model` container and its sections" edited.
+
+## 2026-09-14 - pes_model - mesh splitting on `.model`: the fmdl port, four departures from the reference importer
+Decision: `ops::split` ports `fmdl::ops::split` with the `.model` limits (64/60 bones, 65535/63000
+vertices, 21845/20000 faces) and the per-mesh `Split-Mesh: N` header; the caller supplies the
+bone hierarchy (`encode(model, parents)`) since the format stores none. Departures from the
+reference importer: the combined mesh drops the `Split-Mesh` header (the reference left it on, so
+a re-export added a second one); component and combined bounds are recomputed from their own
+vertices (the reference copied the source box); a component's bone group is sorted by model bone
+index (the reference iterated a set); a mesh with LOD levels refuses to split (the reference had
+dropped LODs at import). The fragment sort axis is the fmdl port's principal axis oriented from
+the base bone, not the reference's bone x-axis; as for fmdl, that changes which faces land where,
+which the encoding makes irrelevant to the reassembled mesh.
+Why: each departure removes a slip or an information loss; none changes what PES renders.
+Plan: `model_conversion.md` "Performance-critical operation: mesh splitting" describes the shape;
+`libs.md` "`pes_model::model`" already carries the LOD rule; no further edit.
