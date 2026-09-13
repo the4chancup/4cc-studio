@@ -2,13 +2,16 @@
 //! and writes, with no interpretation of the data inside the blocks.
 
 mod container;
+mod f16;
 mod file;
 pub mod records;
 mod skl;
+mod vertex;
 
 pub use container::{ByteBlock, FmdlContainer, RecordBlock};
 pub use file::FmdlFile;
 pub use skl::{SklBone, SklFile};
+pub use vertex::{DatumFormat, DatumType, MeshVertices, VertexAttribute};
 
 /// Why a byte buffer is not a readable FMDL or SKL.
 #[derive(Debug, thiserror::Error)]
@@ -46,4 +49,28 @@ pub enum FmdlError {
     /// A string descriptor's span is not UTF-8.
     #[error("invalid utf-8 in fmdl string")]
     InvalidUtf8,
+    /// A vertex datum type or storage format the FMDL format does not
+    /// define, or a pairing it rejects.
+    #[error("unsupported vertex format: datum type {datum_type}, format {datum_format}")]
+    UnsupportedVertexFormat {
+        /// The raw datum type byte.
+        datum_type: u8,
+        /// The raw datum format byte.
+        datum_format: u8,
+    },
+    /// A vertex format that names known types but combines them wrongly.
+    #[error("invalid vertex format: {0}")]
+    InvalidVertexFormat(&'static str),
+    /// An index into one of the file's tables points past its end.
+    #[error("invalid {what} reference {index}")]
+    BadReference {
+        /// Which table the index names.
+        what: &'static str,
+        /// The offending index.
+        index: usize,
+    },
+    /// The data handed to `encode_vertices`/`encode_faces` does not match
+    /// the mesh's declared counts or attribute set.
+    #[error("vertex data mismatch: {0}")]
+    VertexMismatch(&'static str),
 }
