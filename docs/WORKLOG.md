@@ -12,7 +12,7 @@ is in `AGENTS.md` ("Working documents").
 **Phase:** 2 (Library crates). Done: 2.1 `wezlib`, 2.2 `cpk`, 2.3 `fpk`, 2.4 `ftex`, 2.5 `dds_convert` (CPU),
 2.6 `fmdl` (format, model, ops, check), 2.7 `pes_model` (format, mtl, model, ops, check), 2.8 `uniparam`, 2.9 `fox2`, 2.10 `archives`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`, 2.14 `color_tools`, 2.15 `elevation`. Review
 rounds A and B (2026-09-13) closed: 2.5c, 2.12b, 2.13b done.
-**In progress:** 2.16 `model_convert` (2.16a, b, c, e done; 2.16d `.model` importer/exporter next), then `pes_savefile`, `python_bindings`
+**In progress:** 2.16 `model_convert` (2.16a–e done; 2.16f retargeting next), then `pes_savefile`, `python_bindings`
 **Blocked on:** nothing
 
 ---
@@ -298,8 +298,15 @@ Spec: `docs/plans/core.md` "Phase 2", `docs/plans/libs.md`, `model_conversion.md
   with the same encoders applied on all three fixtures, no findings; IR is a fixed point after
   one encode. Lead review: dummy maps only for a material without a `fox` table; family defaults
   only without a native table in both `to_fox`/`to_prefox`. 10 tests; crate 51
-- [ ] 2.16d `model_convert::formats::pes_model` — `model_to_ir` / `ir_to_model` → verify: semantic
-  round trip on the copied fixtures with `.mtl`, inline matrices inverted and re-inverted within 1e-5
+- [x] 2.16d `model_convert::formats::pes_model` — done (sidekick; three fixture contradictions
+  ruled by the lead and written into the plan: indices-only meshes get `[1,0,0,0]` weights,
+  `.mtl` entries regroup to Konami's majority order (census: 1217/1265), `transparent` owns
+  `alphablend` alone over a stored table): `model_to_ir` (split decoded, parent-first bone
+  order from the render hierarchy with a 44/2606 census behind it, matrices inverted, `.mtl`
+  verbatim into `prefox`, LODs/tags/order/flags reported as `native_field_dropped`) and
+  `ir_to_model` (pre-Fox resolution, matrices re-inverted, bounds recomputed, vertex loops then
+  split). Round trip on all four pairs: matrices within 1e-5, everything else `==`; Fox→pre-Fox
+  smoke on highneck. 11 tests; crate 62
 - [x] 2.16e `model_convert::materials` logic — done (sidekick, one rework: native sampler
   settings verbatim, plain branches): `family` (Fox substring rules, pre-Fox exact names),
   `to_fox` (family defaults table, role <-> sampler, `resolve` with the booleans owning their
@@ -411,3 +418,8 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   re-encoded); `to_fox`/`to_prefox` family defaults only without a native table; dummy maps only
   for family-derived materials. Bone-order census over 2606 `.model` files for 2.16d: 44 list a
   child before its present render parent. Next: 2.16d `formats/pes_model.rs`.
+- **2026-09-14** - 2.16d `model_convert::formats::pes_model` done; two censuses behind it
+  (`.model` bone order over 2606 files, `.mtl` entry order over 941 files) and the `.model`
+  matrix layout checked against PES17 `body.skl` on the fixtures. Retargeting plan section
+  sharpened (standard/custom rule, fold mechanics, no-op guarantee); fold literals measured for
+  its tests. Next: 2.16f `skeletons/retarget.rs`.

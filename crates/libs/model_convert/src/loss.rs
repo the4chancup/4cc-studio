@@ -17,6 +17,8 @@
 //! - `vertex_bitangents_dropped` (Mesh): FMDL has no bitangent attribute.
 //! - `dummy_texture_added` (Material): a `Shaded`/`Metal` material missing its normal or
 //!   specular map got the game's dummy; `detail` is the sampler name.
+//! - `native_field_dropped` (Model or Mesh): a `.model` field the IR has no home for was
+//!   non-default; `detail` names it.
 
 /// What a finding is about.
 #[derive(Debug, Clone, PartialEq, Eq)]
