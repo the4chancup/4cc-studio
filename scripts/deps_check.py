@@ -1,8 +1,10 @@
 """Guardrail 4: `fmdl` and `pes_model` stay PyO3-buildable (core plan, "Workspace guardrails").
 
-Each guarded crate's normal (non-dev, non-build) dependency graph may not contain
-`studio_core`, `studio`, any tool crate, `model_convert`, or any crate from the runtime denylist.
-A guarded crate that does not exist yet is skipped, so the check runs from Phase 1.
+Each guarded crate's normal (non-dev, non-build) dependency graph, over every target and with
+every feature enabled, may not contain `studio_core`, `studio`, any tool crate, `model_convert`,
+or any crate from the runtime denylist. A guarded crate that does not exist yet is skipped, so
+the check runs from Phase 1; its first real exercise is worklog step 2.6 (`fmdl`), which plants a
+denied dependency to prove the check goes red.
 """
 
 import json
@@ -40,8 +42,14 @@ def workspace_members() -> list[dict]:
 
 
 def normal_dependencies(crate: str) -> set[str]:
+    # Every target and every feature: a denied crate behind a cfg or an optional feature is
+    # still a dependency the Blender build could pick up.
     out = subprocess.run(
-        ["cargo", "tree", "-p", crate, "-e", "normal", "--prefix", "none", "--format", "{p}"],
+        [
+            "cargo", "tree", "-p", crate,
+            "-e", "normal", "--target", "all", "--all-features",
+            "--prefix", "none", "--format", "{p}",
+        ],
         cwd=ROOT,
         check=True,
         capture_output=True,

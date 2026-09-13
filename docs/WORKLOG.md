@@ -9,9 +9,10 @@ is in `AGENTS.md` ("Working documents").
 
 ## Current status
 
-**Phase:** 1 (Workspace bootstrap + core skeleton), steps 1.1–1.5 done; 1.6 converge next.
-**In progress:** 1.6 converge
-**Blocked on:** —
+**Phase:** 1 (Workspace bootstrap + core skeleton). Converge and rewrite done; the phase closes
+when step 1.2's CI runs (green, then a deliberately red one) are recorded after the first push.
+**In progress:** 1.2 (CI verification, needs a push)
+**Blocked on:** the first push to `origin/main` (user action)
 
 ---
 
@@ -45,9 +46,9 @@ being true. Permanent toolchain facts go in `docs/CONTRIBUTING.md` "Toolchain no
 ## Phases
 
 Status: `todo` · `in progress` · `done` · `blocked`. A phase is done only after its last two
-steps, which every phase has: **converge** (cross-family reviewer audit first, then the agent's own,
-against the phase's plan sections and acceptance IDs; each gap becomes a new step above it, and the
-phase waits for them) and **rewrite**
+steps, which every phase has: **converge** (the lead's own audit first, then the cross-family
+reviewer's, both against the phase's plan sections and acceptance IDs; each gap becomes a new
+step above it, and the phase waits for them) and **rewrite**
 (the phase's plan sections rewritten in the present tense, in place). Then collapse its step list
 below to this one row; the step-level detail stays in git history. Tool phases (3–6, 8–15) also
 open with an **acceptance** step: the tool plan's "Acceptance" section for that phase, written
@@ -96,28 +97,34 @@ Spec: `docs/plans/core.md` "Phase 1".
   `scripts/deps_check.py`, `crates/{studio,studio_core,libs,tools}`. Verified: `just gates` green
   from PowerShell; a planted clippy warning made it exit 1 (reverted); `just deps-check` green
   after the font-license decision
-- [x] 1.2 CI — done: `.github/workflows/ci.yml` (gates on ubuntu + windows, deps-check on
-  ubuntu). The `python_bindings` job is deferred to step 2.18, when the crate exists. Not yet
-  verified: no CI run has happened (first push after this commit); the deliberately red run is
-  still owed → verify: one CI run green on the bootstrap commit; one deliberately red from a
-  pushed clippy warning, then reverted
-- [x] 1.3 `vtree` — done (sidekick, one brief, no rework): `ScopePath`, `RelativeScopePath`,
-  `PathError`, `VirtualTree<T>`, `InsertError`, `Entry`; 13 tests covering the listed cases;
-  wasm32 check green. `crates/libs/vtree/src/lib.rs`
+- [~] 1.2 CI — written: `.github/workflows/ci.yml` (gates on ubuntu + windows, deps-check on
+  ubuntu). The `python_bindings` job is deferred to step 2.18, when the crate exists. Open until
+  verified: no CI run has happened yet (first push pending) → verify: one CI run green on the
+  bootstrap commit; one deliberately red from a pushed clippy warning, then reverted
+- [x] 1.3 `vtree` — done (sidekick, one brief plus one rework round from converge): `ScopePath`,
+  `RelativeScopePath`, `PathError`, `VirtualTree<T>`, `InsertError`, `Entry`; 14 tests covering
+  the listed cases plus folder-spelling collisions; wasm32 check green.
+  `crates/libs/vtree/src/lib.rs`
 - [x] 1.4 `studio_core` non-GUI parts — done (lead): `tool.rs` (`StudioTool`, `ToolContext`,
   `ShellRequest`), `events.rs`, `status.rs`, `help/mod.rs` (types only), `settings/` (framework +
   `CommonSettings`), `shell/launch.rs` (three launch modes, CLI dispatch); `pes_version` leaf
   crate; `studio` stub binary (CLI path only). 14 + 3 tests: settings round-trip, defaults,
   recursive merge, stub tool dispatched from `studio stub ping x`; wasm32 check green
-- [x] 1.5 Phase verification — done: `just gates` green (30 tests across `pes_version`,
-  `studio_core`, `vtree`), `just deps-check` green
-- [ ] 1.6 Converge: reviewer subagent then own audit against `core.md` "Phase 1", "Tool plugin
-  interface", "Workspace guardrails", and the parts of "Event system" Phase 1 delivers (the type
-  definitions — the section's own notes defer status-strip metrics and structured outcomes to
-  later phases; those are not gaps); gaps become steps. Record as a log line: the reviewer's
-  wall-clock time and whether its concerns found anything the gates had not; and for the sidekick,
-  how many of the phase's briefs needed a rework round, and which steps the lead took over and why
-- [ ] 1.7 Rewrite those `core.md` sections in the present tense
+- [x] 1.5 Phase verification — done: `just gates` green (35 tests across `pes_version`,
+  `studio_core`, `vtree` after converge), `just deps-check` green
+- [x] 1.6 Converge — done. Reviewer (`gpt-astra-high`, pointers only, wall-clock not measured):
+  7 concerns, all verified, all accepted and fixed in place rather than as new steps because each
+  was under an hour: `MessageCode` now `{ tool_id, code: Cow }` as the Team compiler plan spells
+  it; `ScopePath::join` removed (a relative path joins only through `to_scope_path`); folder
+  spelling collisions detected on insert; `deps_check.py` scans `--target all --all-features`;
+  the reserved `common` settings key and duplicate tool ids are asserted at registration and
+  mutation; `studio` installs `env_logger` with `-v`/`-vv` and `RUST_LOG`; step 1.2 reopened.
+  Three of the seven were plan code blocks the lead had rewritten from memory (methodology
+  change in `AGENTS.md`: own audit first, plan shapes copied). Sidekick: 2 briefs, 1 rework
+  round, both findings in the lead's interface spec, none in its implementation. Lead took over
+  `studio_core` and `pes_version` itself at the user's request (slow sidekick, critical
+  interface); parallel work tripped once on a module declared before its file existed
+- [x] 1.7 Rewrite — done: `core.md` "Phase 1" is now a description of what exists
 
 ### Phase 2 — Library crates
 
@@ -129,7 +136,9 @@ Spec: `docs/plans/core.md` "Phase 2", `docs/plans/libs.md`, `model_conversion.md
 - [ ] 2.3 `fpk`
 - [ ] 2.4 `ftex`
 - [ ] 2.5 `dds_convert` (CPU reference first; GPU BC7 proof per plan)
-- [ ] 2.6 `fmdl` (`format/` + `ops/` + `check.rs`)
+- [ ] 2.6 `fmdl` (`format/` + `ops/` + `check.rs`) → also verify: plant a denied dependency
+  (`egui`) on `fmdl` and see `just deps-check` go red, then revert (first real exercise of
+  `scripts/deps_check.py`)
 - [ ] 2.7 `pes_model` (`format/` + `ops/` + `check.rs`)
 - [ ] 2.8 `uniparam`
 - [ ] 2.9 `fox2`
@@ -149,7 +158,7 @@ Spec: `docs/plans/core.md` "Phase 2", `docs/plans/libs.md`, `model_conversion.md
   and the CI job deferred from step 1.2)
 - [ ] 2.19 Phase verification: every crate's tests per `libs.md` "Testing" green; `wasm32` check
   green on every lib
-- [ ] 2.20 Converge: reviewer subagent then own audit of each crate against its plan section
+- [ ] 2.20 Converge: own audit then reviewer subagent, each crate against its plan section
   (`libs.md`, `model_conversion.md`, `pes_savefile.md`, `core.md` "Phase 2"); gaps become steps
 - [ ] 2.21 Rewrite those sections in the present tense
 
@@ -209,4 +218,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   `pes_version` and non-GUI `studio_core` (lead), 30 tests, all gates green locally. Two plan
   gaps decided by the user (`PesVersion` home, `unicode-normalization`); font licenses allowed.
   Parallel lead/sidekick work in one tree tripped once on a half-declared module; rule added to
-  `AGENTS.md`. Next: 1.6 converge (reviewer first), 1.7 rewrite, first push and CI run.
+  `AGENTS.md`.
+- **2026-09-13** - Phase 1 converge and rewrite done (7 reviewer concerns, all fixed; 35 tests,
+  gates green). Converge order flipped to own-audit-first in `AGENTS.md`. Phase 1 closes once the
+  first push produces the two CI runs step 1.2 asks for; then Phase 2 starts at 2.1 `weszlib`.

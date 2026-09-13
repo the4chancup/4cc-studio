@@ -55,12 +55,6 @@ impl ScopePath {
         })
     }
 
-    /// Joins a validated relative path under this root. Infallible: both halves
-    /// are already canonical.
-    pub fn join(&self, relative: &RelativeScopePath) -> ScopePath {
-        ScopePath(format!("{}/{}", self.0, relative.relative))
-    }
-
     /// NFC-normalized, Unicode-lowercased form used for collision detection and
     /// case-insensitive lookup. Folding is per segment, so a `/` can never
     /// appear from normalization.
@@ -105,9 +99,10 @@ impl RelativeScopePath {
         self.relative.split('/')
     }
 
-    /// The full canonical path: `root.join(self)`.
+    /// The full canonical path: this path joined back to its root. Infallible:
+    /// both halves are already canonical.
     pub fn to_scope_path(&self) -> ScopePath {
-        self.root.join(self)
+        ScopePath(format!("{}/{}", self.root.as_str(), self.relative))
     }
 }
 
@@ -234,6 +229,30 @@ impl<T> VirtualTree<T> {
             return Err(InsertError::FileFolderConflict {
                 existing: existing.clone(),
             });
+        }
+        // Folders are implicit: a stored file under a fold-equal but
+        // differently spelled ancestor would give the folder an ambiguous name
+        // on disk, so that is a collision too.
+        let real_segments: Vec<&str> = path.as_str().split('/').collect();
+        let fold_segments: Vec<&str> = key.split('/').collect();
+        for depth in 1..real_segments.len() {
+            let prefix = format!("{}/", fold_segments[..depth].join("/"));
+            if let Some((_, (existing, _))) = self
+                .files
+                .iter()
+                .find(|(k, _)| k.starts_with(prefix.as_str()))
+            {
+                let existing_prefix = existing
+                    .segments()
+                    .take(depth)
+                    .collect::<Vec<_>>()
+                    .join("/");
+                if existing_prefix != real_segments[..depth].join("/") {
+                    return Err(InsertError::Collision {
+                        existing: existing.clone(),
+                    });
+                }
+            }
         }
         self.files.insert(key, (path, value));
         Ok(())
@@ -468,11 +487,42 @@ mod tests {
     }
 
     #[test]
-    fn to_scope_path_equals_root_join() {
+    fn to_scope_path_joins_back_to_its_root() {
         let root = path("player1");
         let rel = root.relative("face.fmdl").unwrap();
-        assert_eq!(rel.to_scope_path(), root.join(&rel));
         assert_eq!(rel.to_scope_path().as_str(), "player1/face.fmdl");
+    }
+
+    #[test]
+    fn insert_detects_folder_spelling_collisions() {
+        let mut tree = VirtualTree::new();
+        tree.insert(path("Kits/a.dds"), ()).unwrap();
+        assert_eq!(
+            tree.insert(path("kits/b.dds"), ()),
+            Err(InsertError::Collision {
+                existing: path("Kits/a.dds")
+            })
+        );
+        // Same folder spelling is fine.
+        assert_eq!(tree.insert(path("Kits/b.dds"), ()), Ok(()));
+        // NFC vs NFD folder spellings collide too.
+        let mut accents = VirtualTree::new();
+        accents.insert(path("c\u{e9}/a"), ()).unwrap();
+        assert_eq!(
+            accents.insert(path("ce\u{301}/b"), ()),
+            Err(InsertError::Collision {
+                existing: path("c\u{e9}/a")
+            })
+        );
+        // The check applies at every depth.
+        let mut deep = VirtualTree::new();
+        deep.insert(path("a/B/x"), ()).unwrap();
+        assert_eq!(
+            deep.insert(path("a/b/y"), ()),
+            Err(InsertError::Collision {
+                existing: path("a/B/x")
+            })
+        );
     }
 
     #[test]

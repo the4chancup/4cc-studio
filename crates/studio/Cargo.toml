@@ -9,6 +9,8 @@ rust-version.workspace = true
 
 [dependencies]
 crossbeam-channel.workspace = true
+env_logger.workspace = true
+log.workspace = true
 studio_core.workspace = true
 
 [lints]

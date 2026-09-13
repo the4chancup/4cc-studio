@@ -1587,36 +1587,63 @@ arranger](refs_arranger.md), phase 14 in [balls compiler](balls_compiler.md), an
 
 ### Phase 1: Workspace bootstrap + core skeleton
 
-The guardrails above apply "from the first commit", so the first commit is the one that makes them
-enforceable, before any crate has code:
-- Git repository; root `Cargo.toml` as a virtual workspace with `[workspace.dependencies]` (every
-  shared crate declared once) and `[workspace.lints.clippy]` (the policy, inherited by every member
-  via `[lints] workspace = true`; includes `let_underscore_must_use = "deny"` so a discarded
-  `Result` is a compile error unless handled or `#[expect]`ed with a reason — see the code style
-  rule in `CONTRIBUTING.md`); `[profile.dev.package."*"] debug = false`, so dependencies are
-  built without debug info while workspace crates keep theirs — dependency debug info is the
-  bulk of a dev `target/` (measured on a comparable project: 24 GB of `debug/deps/`) and is never
-  stepped into; `rustfmt.toml`; `rust-toolchain.toml` pinning the exact stable version and
-  listing the `wasm32-unknown-unknown` target so rustup installs both on checkout.
-- The root `justfile`: the single definition of the four gates (`just gates` — fmt check, clippy
-  with `-D warnings`, `cargo test --workspace`, the `wasm32-unknown-unknown` check over
-  `crates/libs/` and `studio_core`) and of the other repeatable sequences the plan names
-  (`deps-check` for guardrail 4, `acceptance`, `parity`, `bindings`, `release`). Rules and
-  rationale in `CONTRIBUTING.md` "Testing and verification": the gate list and the wasm crate list
-  live in one file that the developer, the sidekick and CI all run, instead of in prose that each
-  of them re-derives.
-- CI running `just gates` and `just deps-check` on every PR, plus a separate `python_bindings`
-  build job (`just bindings`).
-- The `crates/libs/`, `crates/tools/`, `crates/studio/`, `crates/studio_core/` directories, so
-  every later crate lands in its planned place.
+Done (2026-09-13). The guardrails above apply "from the first commit", so the first commit is the
+one that makes them enforceable:
 
-Then the non-GUI parts of `studio_core`: the `StudioTool` trait and `ToolContext`, the settings
-framework (load / merge defaults / save, per-tool sections, best-effort save), the `PipelineEvent`
-types and the status-bar item types (`ShellCondition`, `ToolActivity`, `Notice`). `vtree` comes
-with them, since `PipelineEvent` addresses by `vtree::ScopePath`.
+- The root `Cargo.toml` is a virtual workspace (`crates/studio`, `crates/studio_core`,
+  `crates/libs/*`; `crates/tools/*` joins with the first tool crate, since cargo rejects a member
+  glob that matches nothing). `[workspace.dependencies]` declares every shared crate once, and
+  `[workspace.lints]` holds the policy every member inherits via `[lints] workspace = true`:
+  `rust::missing_docs` (the `///`-on-every-`pub` rule) and `clippy::let_underscore_must_use =
+  "deny"` (a discarded `Result` is a compile error unless handled or `#[expect]`ed with a reason,
+  see the code style rule in `CONTRIBUTING.md`), plus `dbg_macro`, `print_stdout`,
+  `print_stderr` and `todo` at `warn`, which `-D warnings` makes red; `studio`'s CLI result
+  output carries the one `#[expect(clippy::print_stderr)]`. `[profile.dev.package."*"] debug =
+  false` builds dependencies without debug info while workspace crates keep theirs, since
+  dependency debug info is the bulk of a dev `target/` (measured on a comparable project: 24 GB
+  of `debug/deps/`) and is never stepped into. `rustfmt.toml` (`style_edition = "2024"`, LF);
+  `rust-toolchain.toml` pins `1.98.0` with `clippy`, `rustfmt` and the `wasm32-unknown-unknown`
+  target, so rustup installs all of them on the first `cargo` call.
+- The root `justfile` is the single definition of the four gates (`just gates`: fmt check, clippy
+  with `-D warnings`, `cargo test --workspace`, and `scripts/wasm_check.py`, which derives the
+  crate list for the `wasm32-unknown-unknown` check from `cargo metadata`: `studio_core` plus
+  every crate under `crates/libs/` minus a named exclusion list, so a new lib is checked without
+  anyone remembering to list it) and of `just deps-check` (guardrail 4 through
+  `scripts/deps_check.py`, which walks each guarded crate's normal dependencies over every target
+  and every feature; plus the `cargo deny` license allowlist in `deny.toml`). On Windows the
+  recipes run under PowerShell (`set windows-shell`): Git for Windows' `sh` is not on PATH from a
+  plain PowerShell, the fallback `CONTRIBUTING.md` named; a planted clippy warning was verified to
+  turn `just gates` red there. The remaining recipes the plan names (`acceptance`, `parity`,
+  `bindings`, `release`) arrive with the phases that give them something to run.
+- CI (`.github/workflows/ci.yml`) runs `just gates` on Ubuntu and Windows and `just deps-check`
+  on Ubuntu, installing `just` and `cargo-deny` as prebuilt binaries; the `python_bindings` build
+  job is added in Phase 2 with the crate.
+- `crates/libs/`, `crates/tools/`, `crates/studio/`, `crates/studio_core/` exist, so every later
+  crate lands in its planned place.
 
-**Verification:** all four gates green on the workspace; settings round-trip and default-merge
-tests; a stub tool registered through the trait and dispatched from a CLI argument.
+The non-GUI parts of `studio_core` exist as the closed module tree above prescribes: `tool.rs`
+(the `StudioTool` trait as specified under "Tool plugin interface", `ToolContext`, and the
+`ShellRequest` enum the context queues for the shell: `SwitchTool`, `Notify`, `SettingsChanged`),
+`events.rs` (the "Event system" types, with `Message` and `MessageCode { tool_id, code }` as the
+Team compiler plan's "Message structure" defines them), `status.rs` (`ShellCondition`,
+`ToolActivity`, `Notice` with at most one typed `NoticeAction`), `help/mod.rs` (the `HelpSection`,
+`HelpTopic`, `HelpTarget` types only; search, rendering and export come with the GUI), `settings/`
+(`Settings::load` / `parse` / `save` / `merge_defaults`, the `[common]` + per-tool-table layout
+under "Settings menu", `CommonSettings` with the defaults the Team compiler plan lists and the
+update-state keys; saving is atomic through a `.tmp` rename and the caller decides what a failed
+save means) and `shell/launch.rs` (the three launch modes, `-v` verbosity, one clap subcommand per
+registered tool named after its id, duplicate or reserved ids rejected at registration, and
+`run_cli` dispatch). Two leaf libs came with it: `vtree` (`ScopePath`, `RelativeScopePath`,
+`VirtualTree<T>`, see `libs.md`) because `PipelineEvent` addresses by `vtree::ScopePath`, and
+`pes_version` because `CommonSettings` holds a `PesVersion`. `crates/studio` is a stub binary:
+it parses the launch mode, installs the CLI `env_logger` sink, and dispatches to a registry that
+is still empty; the GUI modes exit with a message until Phase 8.
+
+**Verification (done):** all four gates green on the workspace and `just deps-check` green; 35
+unit tests, including settings round-trip and recursive default-merge, `ScopePath` rejection and
+collision cases, and a stub tool registered through the trait and dispatched from
+`studio stub ping x`. CI's first green run and one deliberately red run are recorded in the
+worklog when the first push happens.
 
 ### Phase 2: Library crates
 

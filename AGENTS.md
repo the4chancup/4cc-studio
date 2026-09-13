@@ -32,8 +32,11 @@ ahead of the code that meets them go stale. Lib phases do not get one; for a for
 fixture and the parity standard *are* the spec.
 
 **Closing a phase**, in this order: (1) **converge**: audit the code against the phase's plan
-sections and acceptance IDs; every requirement that is missing, partial or untested becomes a new
-worklog step, and the phase stays open until those are done. A requirement the plan *explicitly
+sections and acceptance IDs, the lead's own audit first (every plan code block compared line by
+line with the type it specifies, every step's verify criterion re-run), its gaps fixed, and only
+then the cross-family reviewer (below), so the reviewer's seven slots go to what the lead could
+not see rather than to what it did not look for; every requirement that is missing, partial or
+untested becomes a new worklog step, and the phase stays open until those are done. A requirement the plan *explicitly
 defers* to a later phase (a "before implementing X, extend Y" note, an open question naming its
 phase) is not a gap and stays future tense; (2) **rewrite** the parts of the phase's plan sections
 that the phase delivered in the present tense, as a description of what now exists (acceptance IDs
@@ -53,6 +56,11 @@ reads the whole diff before it lands, not the report about it; the report is a c
 the evidence. Two failed sidekick attempts on one brief means the brief is suspect before the
 sidekick is.
 
+**Plan-defined shapes are copied, not recalled.** Where the plan gives a code block for a type,
+a trait or a signature, the implementation starts from that block, pasted, and any deviation is a
+decision entry, never a silent rewrite. Phase 1's first converge lost three of its seven reviewer
+slots to shapes the lead had written from memory, all three of them written down in the plan.
+
 **Working in parallel.** Lead and sidekick share one working tree, so when both write code at
 once (the lead on a correctness-critical crate, the sidekick on a briefed one) they work in
 disjoint crates, and each verifies with crate-scoped commands (`cargo test -p vtree`,
@@ -69,9 +77,10 @@ entries. At these checkpoints, and only these, get a critique from the reviewer 
 (a) after writing an Acceptance section; (b) after a worklog step that added a new `pub` interface
 or touched more than one crate, after the implementation *and* its tests are written and before
 the tests run, so one critique covers both the code and the assertions; steps inside one crate behind
-an existing interface are covered by the lead's diff review and by converge; (c) as the first half
-of every converge audit, the primary use: the one check of code against *plan* (not against the
-brief, which carries the lead's assumptions) by a model that wrote neither; (d) reactively, when
+an existing interface are covered by the lead's diff review and by converge; (c) as the second half
+of every converge audit, after the lead's own, the primary use: the one check of code against
+*plan* (not against the brief, which carries the lead's assumptions) by a model that wrote
+neither; (d) reactively, when
 two attempts on the same premise have failed, the sidekick's included. **Batch, don't stream:**
 renames, doc edits, one-file fixes with no new behavior are never reviewed on their own; their
 diffs ride along with the next (b) review, or with converge. Never more than one *scheduled*

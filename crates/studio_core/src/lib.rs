@@ -17,7 +17,7 @@ pub use events::{
     PipelineEventEnvelope, RunId, Scope, Severity,
 };
 pub use help::{HelpSection, HelpTarget, HelpTopic};
-pub use settings::{CommonSettings, Settings, SettingsError, Theme};
-pub use shell::launch::{LaunchMode, parse_launch, run_cli};
+pub use settings::{COMMON_KEY, CommonSettings, Settings, SettingsError, Theme};
+pub use shell::launch::{Launch, LaunchMode, parse_launch, run_cli};
 pub use status::{ActionEffect, Notice, NoticeAction, ShellCondition, ToolActivity};
 pub use tool::{ShellRequest, StudioTool, ToolContext};

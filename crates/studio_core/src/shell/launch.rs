@@ -6,14 +6,25 @@
 //! | `studio <tool-id> <command> [args]` | headless CLI |
 //! | `studio --gui <tool-id> <command> [args]` | GUI autorun: the GUI opens on the tool and runs the command |
 //!
-//! Every tool contributes one clap subcommand named after its id; `--gui` is the shell's own flag,
-//! parsed here so no tool's command knows about it.
+//! Every tool contributes one clap subcommand named after its id; `--gui` and `-v` are the
+//! shell's own flags, parsed here so no tool's command knows about them.
 
 use std::ffi::OsString;
 
 use clap::{Arg, ArgAction, ArgMatches, Command};
 
+use crate::settings::COMMON_KEY;
 use crate::tool::{StudioTool, ToolContext};
+
+/// The parsed command line: the mode plus the shell's own flags.
+#[derive(Debug, Clone)]
+pub struct Launch {
+    /// How the binary was started.
+    pub mode: LaunchMode,
+    /// Diagnostic verbosity: `0` warnings only, `1` (`-v`) info, `2` (`-vv`) debug, more is trace.
+    /// `RUST_LOG`, when set, overrides it (core plan, "Diagnostic logging").
+    pub verbosity: u8,
+}
 
 /// How the binary was started.
 #[derive(Debug, Clone)]
@@ -37,6 +48,10 @@ pub enum LaunchMode {
 }
 
 /// The root `studio` command with one subcommand per registered tool.
+///
+/// # Panics
+/// If two tools share an id, or a tool uses the reserved settings key `common` as its id: the
+/// registry is a compile-time list, so this is a programming error caught at startup.
 pub fn root_command(tools: &[Box<dyn StudioTool>]) -> Command {
     let mut command = Command::new("studio")
         .about("4cc Studio: the 4cc community's PES tools")
@@ -45,22 +60,39 @@ pub fn root_command(tools: &[Box<dyn StudioTool>]) -> Command {
                 .long("gui")
                 .action(ArgAction::SetTrue)
                 .help("Open the GUI on the tool and run the command inside it"),
+        )
+        .arg(
+            Arg::new("verbose")
+                .short('v')
+                .action(ArgAction::Count)
+                .global(true)
+                .help("Diagnostic output: -v info, -vv debug, -vvv trace"),
         );
-    for tool in tools {
-        command = command.subcommand(tool.cli_command().name(tool.id()).about(tool.label()));
+    for (index, tool) in tools.iter().enumerate() {
+        let id = tool.id();
+        assert_ne!(
+            id, COMMON_KEY,
+            "`{COMMON_KEY}` is the common settings key, not a tool id"
+        );
+        assert!(
+            tools[..index].iter().all(|other| other.id() != id),
+            "two tools are registered with the id `{id}`"
+        );
+        command = command.subcommand(tool.cli_command().name(id).about(tool.label()));
     }
     command
 }
 
-/// Parses the process arguments (`args[0]` included) into a launch mode. A clap error carries
-/// its own help or usage text; the binary prints it with `Error::exit`.
+/// Parses the process arguments (`args[0]` included). A clap error carries its own help or usage
+/// text; the binary prints it with `Error::exit`.
 pub fn parse_launch(
     tools: &[Box<dyn StudioTool>],
     args: impl IntoIterator<Item = OsString>,
-) -> Result<LaunchMode, clap::Error> {
+) -> Result<Launch, clap::Error> {
     let matches = root_command(tools).try_get_matches_from(args)?;
     let gui = matches.get_flag("gui");
-    Ok(match matches.subcommand() {
+    let verbosity = matches.get_count("verbose");
+    let mode = match matches.subcommand() {
         None => LaunchMode::Gui,
         Some((tool, sub)) if gui => LaunchMode::GuiAutorun {
             tool: tool.to_owned(),
@@ -70,7 +102,8 @@ pub fn parse_launch(
             tool: tool.to_owned(),
             matches: sub.clone(),
         },
-    })
+    };
+    Ok(Launch { mode, verbosity })
 }
 
 /// Runs a parsed CLI subcommand on the tool that owns it.
@@ -144,26 +177,51 @@ mod tests {
         vec![Box::new(StubTool)]
     }
 
+    fn mode(list: &[&str]) -> LaunchMode {
+        parse_launch(&tools(), args(list)).unwrap().mode
+    }
+
     #[test]
     fn no_arguments_means_gui() {
-        assert!(matches!(
-            parse_launch(&tools(), args(&["studio"])),
-            Ok(LaunchMode::Gui)
-        ));
+        assert!(matches!(mode(&["studio"]), LaunchMode::Gui));
     }
 
     #[test]
     fn tool_subcommand_is_named_after_the_tool_id() {
-        let launch = parse_launch(&tools(), args(&["studio", "stub", "ping", "x"])).unwrap();
-        assert!(matches!(launch, LaunchMode::Cli { tool, .. } if tool == "stub"));
+        assert!(
+            matches!(mode(&["studio", "stub", "ping", "x"]), LaunchMode::Cli { tool, .. } if tool == "stub")
+        );
         assert!(parse_launch(&tools(), args(&["studio", "ignored-name", "ping", "x"])).is_err());
     }
 
     #[test]
     fn gui_flag_makes_it_an_autorun() {
-        let launch =
-            parse_launch(&tools(), args(&["studio", "--gui", "stub", "ping", "x"])).unwrap();
+        let launch = mode(&["studio", "--gui", "stub", "ping", "x"]);
         assert!(matches!(launch, LaunchMode::GuiAutorun { tool, .. } if tool == "stub"));
+    }
+
+    #[test]
+    fn verbosity_counts_and_is_accepted_after_the_subcommand() {
+        assert_eq!(
+            parse_launch(&tools(), args(&["studio"])).unwrap().verbosity,
+            0
+        );
+        assert_eq!(
+            parse_launch(&tools(), args(&["studio", "-vv"]))
+                .unwrap()
+                .verbosity,
+            2
+        );
+        let launch = parse_launch(&tools(), args(&["studio", "stub", "-v", "ping", "x"])).unwrap();
+        assert_eq!(launch.verbosity, 1);
+        assert!(matches!(launch.mode, LaunchMode::Cli { .. }));
+    }
+
+    #[test]
+    #[should_panic(expected = "two tools are registered")]
+    fn duplicate_tool_ids_are_a_programming_error() {
+        let twice: Vec<Box<dyn StudioTool>> = vec![Box::new(StubTool), Box::new(StubTool)];
+        root_command(&twice);
     }
 
     #[test]
@@ -176,7 +234,9 @@ mod tests {
     fn cli_dispatch_reaches_the_tool_with_its_context() {
         let tools = tools();
         let LaunchMode::Cli { tool, matches } =
-            parse_launch(&tools, args(&["studio", "stub", "ping", "there"])).unwrap()
+            parse_launch(&tools, args(&["studio", "stub", "ping", "there"]))
+                .unwrap()
+                .mode
         else {
             panic!("expected CLI mode");
         };
