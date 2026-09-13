@@ -965,3 +965,13 @@ slips change only which faces land in which component, which the encoding makes 
 the reassembled mesh, and determinism is required by the Nth-occurrence rule.
 Plan: `model_conversion.md` "Performance-critical operation: mesh splitting" already describes the
 algorithm shape; no edit needed.
+
+## 2026-09-13 - pes_model - `roxmltree` for XML reading; XML written by hand
+Decision: `roxmltree` (read-only XML tree, MIT OR Apache-2.0, pure Rust) is the XML reader for
+`.mtl`, `face.xml` and `face_diff.xml`; those files are written by hand-rolled serializers in the
+crates that own them.
+Why: the plan's dependency table named no XML crate although three game-facing XML formats need
+one. The shapes are tiny and fixed (a material set is a few elements with attributes), so a DOM
+writer buys nothing while a hand writer can reproduce Konami's whitespace exactly (`.mtl` byte
+parity becomes testable); `quick-xml` would add a streaming API and a serde surface nobody needs.
+Plan: `core.md` "External Dependencies" row added.

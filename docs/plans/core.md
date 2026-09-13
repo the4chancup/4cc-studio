@@ -2046,6 +2046,7 @@ resource download size measured and, if it matters, lazy-fetched behind the temp
 | `md-5` | FPK checksums, PES15 save integrity hashes | Production-ready |
 | `phf` | Compile-time static maps (skeleton data) | Production-ready |
 | `unicode-normalization` | NFC normalization for `vtree`'s collision detection (two spellings of `é` are one file name on disk) | Production-ready (0.1.25 in use) |
+| `roxmltree` | Read-only XML tree for `.mtl` material sets, `face.xml`, `face_diff.xml` (`pes_model`, the Team compiler); writing those small fixed shapes is done by hand so Konami's formatting is reproducible | Production-ready (0.21.1 in use) |
 | `nalgebra` | Matrix operations (bone transforms) | Production-ready |
 | `rfd` | Native file/folder dialogs | Production-ready |
 | `ureq` (3.x; features `rustls` [default], `platform-verifier`, `json`, `win-system-proxy`) | HTTP for the desktop updater: one Releases API GET and one streamed asset download per release | Production-ready (3.4.1 verified 2026-09-10). Chosen over `reqwest` because `reqwest` starts a Tokio runtime internally even in blocking mode, which breaks the "no async runtime" rule; the updater needs nothing `ureq` lacks. `platform-verifier` trusts the OS certificate store; `win-system-proxy` honors Windows proxy settings, env vars cover Linux |

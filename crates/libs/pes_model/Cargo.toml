@@ -1,0 +1,18 @@
+[package]
+name = "pes_model"
+description = "Pre-Fox PES model files (.model) and their sibling .mtl material sets: codec, format-native mesh operations, deep checks"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+binrw.workspace = true
+log.workspace = true
+roxmltree.workspace = true
+thiserror.workspace = true
+wezlib.workspace = true
+
+[lints]
+workspace = true
