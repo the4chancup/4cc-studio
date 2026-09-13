@@ -1,0 +1,59 @@
+This page is intended for people who are interested in managing a 4chan Cup team, have just become a manager or want to be a tester.
+
+Over the years the "job" of manager has become a whole lot more stressful because of all their new tasks. This page will try to help you become familiar with most of the aspects of managing. This page is divided into several sections, each explaining a part of the process of becoming a manager. The first section will try to explain all the requirements before managing a team. The second section will then guide you through the actual process of becoming a manager. The next section will explain what your new tasks are as a manager. The section thereafter will try to help you become familiar with everything technical and tactical. The fifth section will contain information only relevant to people who wish to become a manager for a team, while the sixth section is aimed at current managers, including some tips on recruiting co-managers, testers, and general assistance for your team. Finally, the last section will guide you through the basics of (making) aesthetics.
+
+=Before you sign up to be a manager=
+First of all make sure the team you want to manage currently has no manager aka a dead team. If a board already has a manager you can still try to [[Contact]] him and see if you can help by either becoming a co-manager or a tester. While you could basically manage any team that is considered dead it is advised to only try to manage a team of board that you frequently visit. Managing a team of a board that you do not or barely browse is called 'mercing' and is usually frowned upon.
+
+The next thing you should keep in mind that managing can take a lot of your free time. But while you might have a lot of free time, make sure it's free at the right time too. A good rule of thumb is that you have to be at least available on Friday, Saturday and Sunday for 3 or 4 weeks in a row up to 4 times per year to manage. More time is probably required to test, make exports and communicate with your board.
+
+While [[PES 2017]] and earlier have fairly lax system requirements and any PC that is at least 5 years old should be able to run them, it is a good idea to first make sure you can actually run the game -- visit the installation page for each version and follow the steps given.
+
+[[PES 2018]] and [[PES 2019]] does have harsher system requirements, so it becomes doubly important to ensure you can still run this and potentially future versions of the game. Just visit [[Pro Evolution Soccer 2019/Installation]] and follow the steps there to install, or review your computer's specs. While being able to run the game is not a requirement, relying on other people to do all the ingame PES stuff for you and not testing at all is usually not the very best idea.
+
+Another tip before becoming a manager is not to use any of your personal contact info for anything related to the cup. Just make a quick new fake email at Gmail to use for the Wiki as well as making a new separate Skype account.
+
+=Signing up as a manager=
+To sign up to manage or co-manage a team, you have to be verified. This is a process that has to be done manually by cup staff. At a minimum you need to join IRC or Discord, have a secure (##) tripcode ready for 4chan use, and have an account on this wiki. You may also be asked to participate in a short Skype voice chat before you can be fully verified. Keep in mind verifications are not done during a cup, you can only get verified again after the whole cup has ended.
+
+Do not forget to list yourself as the IRL manager on the team's wikipage afterwards and to add your contact info on the [[Contact]] page so people interested in helping you can easily contact you.
+
+Another requirement is to 'watch' the News page ( [[Template:News]] ) by clicking the star at the top right so it will turn blue. This means you will get an email every time the News page is edited/updated (only when your preferences (top right) are set up correctly). This way you don't have to check the IRC, thread or wiki every single day without missing any new information. Just make sure to check your cup email regularly.
+
+=Your new duties as a manager=
+As the manager, you should represent the wishes of your board in all things you're able. The role of the manager is to organize the team of the board they represent. While such things as player names, kit stylings, and so forth is generally decided by the board the team is associated with, it's the task of the manager to bring it all together for the host (creating the correct PES files and delivering them to the [[4CCC]], within the corresponding rules and deadlines). In addition, the manager is responsible for the tactics and playstyle of the team. This means not only putting together legal formations of their choice, but also being active and available on match days. Note that live managing is ''not'' a requirement, but it's generally advantageous to be able to react to the events of the match directly.
+
+Please read the [[Appendix:Rules|Rules]] section for details on what regulations apply to management, which are applicable for general behaviour, in creating relevant files and legal actions on match days.
+
+=The technical and tactical part of the game=
+At this point, you should install PES 2019 if you have not already done so. You can find instructions on how to install the game here: [[Pro_Evolution_Soccer_2019/Installation]].
+The meat of management is figuring out a tactic within PES that works for your team. There are many variables that can influence the playstyle and performance of your team, such as player heights, player cards, formation, team tactics, and so forth. More information on the tactical part of PES 2019 can be found on this page: [[Pro Evolution Soccer 2019/Tactical]]. All things relevant to the outcome of the game are decided within PES itself - no outside forces are taken into account. This means that all you will need to create the playstyle of your choice is an installation of PES 2019.
+
+=How do I become a tester?=
+Obviously, you can't test for a team that doesn't have a manager. You may want to consider becoming a caretaker (see the [[Contact]] page) if you don't have the time for full managerial responsibility.
+
+Simply put, contact the active manager of your team using whichever method you deem will work best, and tell them you want to help. Managers are (almost) always looking for more help, and this is where testers come in. Their responsibilities often deal with helping the manager identify the best gameday plan for their team in the limited time they have. For this reason, it should go without saying that a tester should be able to run the version of PES used by the current or upcoming Cup.
+
+Testing is often only a few steps removed from being a fully-fledged manager, and is often considered a stepping stone or vital experience in becoming one. While there is no real "obligation" to ever actually become one, much of what you will learn as a tester from communicating with the managerial staff will serve you well if you're interested in that in the future.
+
+=Recruiting=
+As with many of the things being a manager involves, recruiting and retaining assistance requires patience, but recruiting in particular also relies on good communication skills.
+
+All teams in the Cup, big or small, have a ''market''; the important part is tapping into that market. '''Communicate regularly with your board.''' This is not optional; fans of the board's team should be the first to know if there's anything that needs helping. Is the model-creating process too time-consuming for you to give tactics a fair shake? Is real life making it hard to {{greentext|test}} for good tactics for the upcoming or current Cup? Are you burned out altogether and worry the team would die if you stepped down? '''Let the board know.''' Mention what needs doing, be it better aesthetics, tactical help, wiki recordkeeping and/or polling, and more likely than not you'll find someone willing to help.
+
+That being said, ''don't'' spill your spaghetti, and ''don't'' phrase calls for help or impending retirements as threats -- while the manager is a representative of the board, they are ''not'' the board or the team, and to think otherwise is very much looked down upon in the Cup community. For that matter, be willing to take blame where it's due (bearing in mind that some fans can often be vindictive or have unreasonable expectations), and don't deflect responsibility for avoidable mistakes. While this isn't a guarantee you'll get along with the fanbase, it should hopefully go a long way.
+
+So now you've (hopefully) got other people to help out. Always be willing to answer questions to the best of your ability, and recognize that getting the hang of a lot of Cup software (PES, Blender, etc.) can be a tricky and steep process. If you're looking to encourage testers to become future managers, try to let them participate in building your export, or figuring out ''why'' your sliders or formation work or not. If they're interested in building meme teams for invitationals, guide them through it if they need help!
+
+Above all, try not to be too pushy, but show that you're enthusiastic about the board and team. Energy, believe it or not, is infectious, and it goes a long way.
+
+=Basics of aesthetics=
+Aesthetics are the things that make the 4chan Cup <u>The</u> 4chan Cup. Over the years with the new releases of different PES versions this has become quite complex and might be very hard to grasp in the beginning. This section will guide you through the very basics of aesthetics. As soon as you have become slightly more familiar with aesthetics it should not take too long before you are able to understand more complex aesthetics.
+
+When you've become the manager of a previously dead team there is a chance that the team already has some aesthetics. While there are quite a few things that can be customized about and for your team the most basic thing that each team requires are custom kits. In the case the team has no kits or you just want new kits for the team it is advised to read the [[Pro Evolution Soccer 2016/Kits|old Kits page]] and [[Pro Evolution Soccer 2018/Kits|new Kits page]]. This page will explain to you how kits are made for PES 2017 and how they work. All PES 2017 aesthetics you want to test have to be put into the container that the game can read. [[AET|This page]] will help you with that.
+
+The second most basic thing for a team are the players' faces and hair models. This part is a bit harder than the player kits. For more information on faces in PES 2019 please read [[Pro Evolution Soccer 2016/Faces|old Faces page]] and [[Pro Evolution Soccer 2018/Faces|new Faces page]]. This page contains a section explaining the ''Generic 4cc head''. This face is a lot easier to understand and modify with no need to install ''Blender'', a free open-source 3D modelling program. Considering this a relatively hard thing to do you can usually ask other people to help you should you have some trouble.
+
+After making kits and faces you should have gained some more knowledge to make other aesthetics as well. For more information please read all the respective pages on [[Pro Evolution Soccer 2019]] in the menu to the right.
+
+The last important thing regarding aesthetics is the ''Aesthetics Export Template''. This is the format used for delivering aesthetics for use in an upcoming cup. For more information on this please read the [[AET|Aesthetics Export]] page. Failure to properly send in aesthetics can result in them not being used for a cup.

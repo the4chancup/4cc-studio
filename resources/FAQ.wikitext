@@ -1,0 +1,100 @@
+These are the answers to some Frequently Asked Questions about the 4chan Cup.
+
+== What... is this? ==
+Put simply, a simulation of Pro Evolution Soccer being competed between teams which are embodiments of boards of the 4chan imageboard. The players represent facets of each board's culture.
+
+== Who's playing? ==
+All of the matches are AI versus AI. However, humans "manage" each team, creating their tactics and giving input during games as they happen to make substitutions and tactical changes as they see fit.
+
+== Okay, but it seems like the level of participation is a little limited... ==
+There are a range of ways to get involved beyond direct management. People are needed to design the kits, design players, assist the managers by testing tactics, and contribute to the wiki. Regardless of which board you come from, there is probably a role you can take on to help out. See [[Getting Involved|Getting involved]].
+
+== Who runs all of this? ==
+No single individual keeps the whole thing running. However, "official" tournament and friendly streams are operated by '''OldManSou''', on the official streaming channel at https://cytu.be/r/the4chancup.
+
+== Then who is in charge? ==
+{{Anonymous|Old Man Sou|!!yxVFw85glNC}} is the commissioner and figurehead of the cup. To stop him from going power-crazy he has a [[4chan_Cup_Committee|cabinet of riggers]] to help him make important decisions on the cup. The commissioner also takes advice from managers and the viewers to help make the cup experience as good as possible<sup class="{{{class|noprint Inline-Template}}}" style="white-space:nowrap;">&#91;<i>[[Autumn_Babby_Banday|Citation needed]]</i>&#93;</sup>.
+
+== How did the cup start and who started it? ==
+A German-Canadian guy from /v/ called Germanbro came up with the idea to have an Entertainment System World Cup between gaming devices, with the players being the best video games of each. A friend of his from /sp/ called HungryWalrus suggested that he instead make the cup about 4chan boards. The first 4chan World Cup occurred in [[2011 4chan Summer Cup|August 2011]]. Initially, each team was created by Germanbro and Walrus, and there were no managers involved. Only once boards started to gain an interest did the teams become board-created.
+
+
+== Is there a meeting place to discuss all of this? ==
+[https://boards.4channel.org/vg/catalog#s=4ccg There is always a discussion thread on /vg/], which serves as a hub for all boards and general discussion of friendlies, tournaments and the intricacies of the game. There is also the [[IRC]] and the [http://discord.gg/dnGcQXt general Cup Discord server.]
+
+During cups, there will often be threads on boards that are participating in it. However, they are quickly deleted on some boards, as it is considered to be off-topic. See [[Status of legally hosting threads by boards]] for more information.
+
+
+== How do the teams and players work? ==
+Every player is 77 (out of 99) in every attribute, except for what is known as the medal players. The medal players are the star players of the team, with each team having two golds (99 in every attribute) and two silvers (88 in every attribute). Goalkeepers must be 77. This system is known as the GGSS system. Other systems have been used during official tournaments: the GSSBB system, for example, includes a gold player, two silver (94 in every attribute) and two bronzes (89 in every attribute).
+<br><br>
+For further information and all the current rules see [[Appendix:Rules#Squad_Composition|Appendix:Rules]].
+
+
+== Tell me more about the matches. ==
+Matches are twenty minutes long, ten minutes each half. As in most competitive association football, teams are allowed to make three substitutions during a match.
+
+Managers can interrupt the match with two timeouts that they each have for tactical changes. Managers are also granted an additional free timeout under the following conditions:
+* Their team concedes a goal
+* A member of their playing squad receives a red card
+* A player in their squad becomes injured and is unable to continue playing
+
+
+== When are they played? ==
+There are four official cups held each year, starting with the Winter Cup at the beginning of the year. Spring, Summer, and Autumn follow in roughly 3-month intervals, in that order.
+The Spring and Autumn Cup are called Babby Cups, which also serve as a qualifier for the Elite Cups in Summer and Winter.
+Occasionally, there are also unofficial invitationals or friendly matches. These might or might not be streamed through the official channel. If you wish to follow those events as well, make sure to keep a close eye on all communication platforms related to the cup, as they might not be announced everywhere.
+
+
+== {{greentext|Why PEZ not Feefur?}} ==
+The most important thing for the 4chan Cup is customization. FIFA is extremely limited in that regard, while PES has countless options. While it may in fact be possible to mod FIFA extensively with enough effort, there's little reason to explore this when PES's moddability is well-known and readily available to the Cup. FIFA AI is also clearly not capable of playing with itself.
+
+
+== What is the difference between Elite and Babby Cups? ==
+With the vast amount of teams participating in the 4chan Cup, a two-tiered system is employed.
+It consists of the Elite Cup, which is held in Winter and Summer, and the Babby Cup, which is held in Spring and Autumn.
+In the Elite Cup, the top 16 teams from the previous Elite Cup and the top 16 teams who qualified from the previous Babby Cup face against each other.
+In the Babby Cup, the bottom 16 teams from the previous Elite Cup and the remaining teams are placed.
+If the amount of teams in the Babby Cup is greater than 32, it is usually called a Mega Babby.
+Three consectuive Babby Cups (2014 Autumn, 2015 Spring and 2015 Autumn) were all Mega Babby Cups featuring 40 teams each.
+
+In some Babby Cups, some teams participate in a third-tier competition, the Babby Qualifier, also known as a Fetus. It consists of teams who failed to advance from the previous Fetus, the lowest-ranked teams from the previous Babby Cup and teams who are either new or reviving from a long period of inactivity. There are most often no knockout phases in the Fetus - only a group stage to determine advancing teams.
+
+
+== How exactly does the tournament format work? ==
+Both the Elite and Babby Cup follow the same format: a group stage with 8 groups of 4, followed by a round of 16.
+In a Mega Babby Cup, some or possibly all groups might have 5 teams instead of 4.
+All participating teams are assigned to a group through a draw which is based on the teams' previous performances.
+
+In the group stage, each team plays every other team in the same group once, earning 3 points for a win, 1 for a draw, and 0 for a loss.
+The top two teams of each group advance to a single elimination knockout stage.
+
+Should two teams be tied, the team with the higher goal difference is ranked higher. If they are tied on goal difference, the team who scored more goals is ranked higher. If the teams scored an equal number of goals, the team who won the head-to-head match is ranked higher.
+If the teams in question are still tied, they play a tie breaker match with extra time and penalty kicks as needed.
+
+In the knockout stage, round of 16 matchups are decided by a draw. The first-place team of each group faces a second-place team from another group.
+Before the final, a third-place match between the two semifinal losers takes place for the [[Third Place Trophy]].
+
+If, for some reason, the Babby Cup cannot take place, the Elite Cup may follow a different format that allows more teams to participate.
+
+
+== What teams are "good"? ==
+We have a fairly complex [[Rankings|ranking system]], based on its FIFA counterpart, which does its best to show how "strong" each team is.
+Keep in mind, however, that a team's performance can drastically change if there is a change in management or version of PES played.
+Furthermore, this system favors teams that just promoted from a Babby Cup, as they have played more recent games than already qualified teams.
+
+
+== What are those coloured arrows on the formation setup screen? ==
+The arrows indicate a player's (normally) randomly-generated condition. The 'lower' an arrow is pointing, the worse their condition is, which will have an impact on their performance in the game, most notably how quickly they expend stamina (as the depleting energy meters will show).
+Depending on the version of PES used, these conditions may change throughout the game, based on the player's or team's performance.
+
+
+== I want to help! What can I do? ==
+Please refer to [[Getting Involved]] if you are planning on becoming an active contributor to the 4chan Cup.
+This is not only limited to managing, but also includes helping with aesthetics, modding, commentating, and many other things.
+
+
+== Are they using football terms or are they just spouting memes? ==
+Lurk moar. Or just check the [[Glossary]].
+
+[[Category:4chan Cup]]

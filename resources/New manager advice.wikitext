@@ -1,0 +1,70 @@
+
+Read this page first, if there's any additional questions an unofficial newbie help Discord server has been set up at https://discord.gg/SJPvJNW. Feel free to ask around!
+
+===What do I need to know at the base level?===
+Two things. One: This is a tournament to entertain the people of 4chan. This is NOT a tournament to get self-glory, or to become the best for competition's sake. We're all here to have fun, and while winning is fun, being a jerk about it ruins the fun for many others. Do not pour too much of yourself into the results of the games, and while losses will get you shitposted against, learn to take that in stride. Basically, remember the old mantra: It's just Virtual Divegrass, you should really just relax.
+<br><br>
+Second: Don't get discouraged. You WILL get PES'd at some point or another, where you lose a game you should have won. We're all here to laugh at stupid AI memes playing stupidly. Stupidity is built into the foundation of the 4chan cup, and it WILL happen to you. When bad things happen to your team, you WILL get shiposted against. If your skin is too thin for this, you may want to reconsider managing. You will need thick skin if you hope to last, but you also need to remember that this isn't a serious competition, and that banter is a two way street.  Don't be a jerk, but don't let others run over you either.
+<br><br><br>
+===What Non-PES things will I need?===
+Access to IRC is a bare minimum, Discord account is greatly encouraged. IRC is where you will send the rigger live instructions (unless it's a pastebin, those go to the rigger on Skype) when your team plays. Instructions are not accepted anywhere else, so please make sure to familiarize yourself with IRC and register your name on the 4cc server as soon as possible. You can use one of many IRC clients out there depending on what suits you, but access through browser client Mibbit link on main wiki page should be sufficient. Access to Discord will allow you to join the official 4CC channel which will help you to not miss any important news regarding upcoming or ongoing events as well as
+to stay in contact with staff, other managers and some fans. You might also consider joining the channel of team you're managing for as well as other ones to your liking.
+<br><br><br>
+
+===How do I install PES?===
+Start off on the [https://implyingrigged.info/wiki/Pro_Evolution_Soccer_2018/Installation Installation] page. There are helpful links and instructions, but don't be afraid to ask for a little help. Even veteran managers have had trouble installing various PES games, so don't feel ashamed about needing to ask for  some help. <br><br>
+After that, go to the main page for the current version of PES (Curently [https://implyingrigged.info/wiki/Pro_Evolution_Soccer_2018 Here] ) and download the save (which goes into the KONAMI/Pro Evolution Soccer/Save folder in your "My Documents" folder) as well as the aesthetic CPKs (which go into the Program Files/KONAMI/Pro Evolution Soccer/Download folder). Our version of the game needs the aesthetics CPKs in order to function, so even if you only intend to test you still need them.
+<br><br><br>
+
+===How do I make a legal team===
+:Main Article: [[New Manager Advice/Export Making Advice|Export Making Advice]]
+Download [https://implyingrigged.info/wiki/Pro_Evolution_Soccer_2019 4ccEditor] (link at the bottom of the page), follow the guidelines on the [https://implyingrigged.info/wiki/Appendix:Rules Rules] page, and use the Auto ATF or you'll end up on the Fools page! The Auto-ATF, now built into the 4ccEditor, checks your export to see if it's legal to the current cup ruleset, and if not it will tell you what the errors you need to fix are. Be sure to re-download 4ccEditor before every cup, as rules change often. You will get sanctions against you if you submit faulty exports, so be careful! If you need help with this, feel free to reach out and ask others for assistance.
+<br><br><br>
+
+===How do I not get blown the fuck out===
+Try and make a balanced team, and look at other teams to see what's been working recently. See what makes them tick, watch their games and identify who their important players are. While the medals would be obvious choices, there's often more than just those four players who contribute heavily to a good team. Then go into the editor to see what kinds of cards they have. For example, often midfielders will be given passing cards if they're on the outside wings, or given certain playstyles such as Anchor Man so that they can defend better if playing back. Try to find out why each player is set up as they are, and that will give you greater insight on how to build your own players. I must stress, though, DO NOT copy them. Most often they have a plan behind their team which most people would not be able to decipher from outside of their manager/management group.  Use them as references, not guides.
+
+<br><br>The other thing is to make a plan for your team BEFORE making any changes. Use this as your base to fill out your teams' stats and cards. When you run tests,  only run a few (3-4) and be sure to watch those games so that you can see who is and isn't playing to the plan and what tweaks you should make. Try running against multiple teams as well, because different tactics will respond differently to different tactics. Try not to trust singular, but do be aware that overtesting is just as bad. I would recommend testing more in the preseason than the mid-season, as your goal should be to make a team that can play it's football over another team instead of chasing that other team.
+<br><br>Also, feel free to join [https://implyingrigged.info/wiki/Invitationals#Upcoming_Invitationals memevitationals] to help get used to PES. Many memevitationals are not good for trying out serious tactics, since everyone else will be running silly things in an attempt to make even dumber PES things happen, but they are good for getting familiar with making exports and learning how to get around PES' menus.
+<br><br><br>
+
+===How do I make an aesthetics export===
+Download the [https://implyingrigged.info/wiki/AET template] from the wiki, stick your files in as instructed, and send it out. It may be helpful to download another team's export to see how everything is supposed to be laid out, as well. It's tough to understand at first, but also tough to explain in short, so if you don't understand something, feel free to ask around for assistance.
+<br><br><br>
+===How do I interact with my board===
+Make a thread for polls only, unless you're managing for /sp/, /mlp/, or /vg/.  Most boards will ban you for making a thread, so be ready to take a 3 day vacation just in case. You will also need to "stealth" your thread, hiding it so it can last longer while also letting it be somewhat visible to the userbase. Some do this by posting soccer-related board-related topics/pictures, while others achieve this by mentioning the cup but also making the thread useful for other purposes. You'll have to work with this and find out the best method for your board. Try to make your posts as informative as possible (assume that many users will stumble upon your thread by accident and might have no idea on what are you talking about) but also concise to not bore them with walls of text. Most of the 4chan moderators and janitors are aware of existence of 4CC and their opinions range from slightly positive to extremely negative, so each board, depending on its staff is a different case. If you keep having problems with your threads being constantly deleted before reaching any positive responses, contact one of the community helpers or previous managers of given team to get some tips on how to survive in this harsh environment - almost every board participated or still participates in this tourney, so finding or keeping some interest is possible!
+<br><br><br>
+
+===How do I get new aesthetics===
+Contact /aesco/, the aesthetics council. Talking to anyone from there will at least get your request into the hands of people who can possibly make it happen. There are tutorials to help you get started learning to make your own aesthetics (and /aesco/ has people willing to help you through the process), but if you don't want to then this is the way to go. Be wary that /aesco/ group does not have infinite workforce and the members work on models, stadiums or kits in their free time, so it's a wise idea to not wait with questions and requests until the very last moment - respect their effort and be aware that they cannot equip every competing team with a full set of body models ten minutes before the deadline.
+<br><br><br>
+
+===How do I maintain our wikipage===
+Familiarize yourself with your team's Wiki page. You'll need to keep this updated after each game, so be sure to figure out where everything is! Try to see how each part of the page works. Remember that you can use the Preview tab in the Edit mode on any page to see how your changes will display, so use this to figure out how each section works and what wiki code can do.
+<br><br><br>
+===How do I get involved in the cup community?===
+Though this is optional and joining a community isn't necessary, There's multiple ways if you do wish to:
+*Post on /4ccg/, the /vg/ general for the 4chan Cup. While it can get shitposty, there can be a lot of useful discussion there and it's somewhat of a communal ground.
+*4cc IRC. While it's mostly used for off-topic talk in the offseason, there's almost always people there willing to help with any issues you have. Don't be afraid to jump in with questions if you need to!
+*Join the 4cc Discord for news updates and discussions.
+*Join the /aesco/ discord to talk directly to aesthetics makers.
+*Join your team's discord if there is one and communicate with the fans when you can't on the board. REMEMBER: Your team's discord is a splinter of the board's community. IT IS NOT THE BOARD ITSELF. Feel free to take suggestions from it when setting up your roster poll, but DO NOT POLL ONLY THE DISCORD. The team represents the BOARD users, not the DISCORD users.
+
+==Advanced Section==
+So,  you've been blown the fuck out and can't understand why. Likely, it was PES, but if it happens consistently then you'll need to take another step. While I don't want to exactly "direct" you to any true tactical end, I do want to give you some guiding advice. First of all, I'd reccommend that you up your basic football knowledge. While the beautiful game doesn't directly translate into PES, the more you know about how a football team generally works the better ideas you'll be able to generate. You can watch real football matches, look up blogs, and just generally seek out info.  After that, You'll want to sharpen
+your knoeldge of how PES' cards, advanced tactics, playstyles, and other moving parts work. Here's some helpful links for that: <br>
+http://pesmastery.com/pes-tactics-formation-tutorial/ <br>
+http://www.operationsports.com/features/2639/breaking-down-advanced-instructions-in-pes-2017/ <br>
+<br>
+As an added tip, in the middle of the cup there's always the option to re-watch your previous game (either though the Smashcast's VOD function or the [http://archive.klaxa.eu/ Klaxa Archive] and try to figure out where things went wrong. You may be able to fix things up for your next nightly export!
+
+==Help! I need somebody!==
+Whenever you have any questions or doubts and would rather ask someone face to face than bring up the problem in public, remember that we have a couple of community helpers which will happily help you as long as they are around. There is absolutely no shame in asking about pretty much anything few days in advance, but you will surely get yelled at if you mess something up by a huge margin few days later, so whenever in doubt, message one of the people below:
+<br>
+
+{{Anonymous|Kekkels}}
+*Discord: Kekkels#0155
+
+{{Anonymous|DrDtroit}}
+*Discord: drdtroit#8664
+[[Category:4chan Cup]]
