@@ -940,3 +940,13 @@ layer each op would re-derive the table walk. The layout `to_file` produces is t
 the one PES has accepted for years, since a byte-identical rebuild is `format/`'s job and a fresh
 layout is what an edited model needs anyway.
 Plan: `libs.md` new subsection "`fmdl::model`: the semantic layer the ops work on".
+
+## 2026-09-13 - fmdl - anti-blur helper material gets the specular dummy; decode clears the flag
+Decision: the anti-blur duplicate material's `SpecularMap_Tex_LIN` sampler gets `dummy_srm.ftex`;
+`ops::antiblur::decode` clears `extensions.antiblur`.
+Why: the community add-on attaches the *normal-map* dummy to the specular sampler, which reads as a
+copy-paste slip next to the line above it, and the plan's shader-family table names `dummy_srm` as
+the specular fallback; the game rendered either for years, so this is not a behavior a member can
+see, only the intent made explicit. Leaving the flag set on decode made a second encode list
+`antiblur` twice in the header.
+Plan: no plan edit needed; `model_format.md` already describes the fuzzblock helper materials.
