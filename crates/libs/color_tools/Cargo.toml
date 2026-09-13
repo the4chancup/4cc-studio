@@ -1,0 +1,13 @@
+[package]
+name = "color_tools"
+description = "Kit-color extraction from kit textures; later the suite's color-picker widget and kit icon drawing"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+
+[lints]
+workspace = true

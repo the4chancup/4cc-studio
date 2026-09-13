@@ -1102,3 +1102,21 @@ uses. Default features would pull compression, AES, bzip2, PPMd, zstd and time c
 crate that only reads what 7-Zip, Explorer and PowerShell write. Generic over `Read + Seek` is the
 std-trait generic the style rules allow and is what keeps the crate `wasm32`-clean (checked).
 Plan: `libs.md` gains "`libs/archives`"; `core.md` "External Dependencies" rows updated.
+
+## 2026-09-13 - color_tools - extraction regions from the template sheet, thresholds from the exports, a trim fallback
+Decision: the shirt and shorts regions are the PES 19 colored template's zones inset (shirt
+x 0.36-0.64, y 0.05-0.88; shorts x 0.04-0.29 and 0.71-0.96, y 0.61-0.90); clustering is 5-bit
+quantization with a greedy merge at RGB distance 24; "distinct" is RGB distance 60; a second
+shirt cluster counts as a two-tone color at 25% and as a trim color at 10%; color 2 falls through
+shirt-second, shorts, shirt-trim, shorts-second before settling for a color identical to color 1.
+The extraction takes RGBA pixels, so `color_tools` has no image dependency.
+Why: the plan left the rectangles and thresholds to calibration. The template sheet gives the
+zones exactly, and a harness over 134 real kit texture/config pairs showed the declared config
+colors are not a ground truth (only 55 declared shirt colors occur in the shirt at all; managers
+leave template colors or pick accents), so the thresholds come from the one measurable split in
+that data (two-tone second colors at 28-49% of the region, trims at 0-19%) and the regions from
+visual swatch sheets over every kit. The trim fallback is a plan gap: with the plan's shorts-only
+fallback a black kit with black shorts and gold trim would get two identical menu colors, where
+every manager who bothered declared the trim. RGB distance rather than a Lab metric keeps one
+notion of distance in the crate; navy against black is 64, the threshold's anchor.
+Plan: `libs.md` "Dominant kit-color extraction" rewritten with the values and the evidence.

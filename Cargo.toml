@@ -38,6 +38,7 @@ zip = { version = "8.6.0", default-features = false, features = ["deflate"] }
 
 # Workspace crates, so a member depends on another by name alone.
 archives = { path = "crates/libs/archives" }
+color_tools = { path = "crates/libs/color_tools" }
 cpk = { path = "crates/libs/cpk" }
 dds_convert = { path = "crates/libs/dds_convert" }
 fmdl = { path = "crates/libs/fmdl" }
