@@ -1,0 +1,112 @@
+<materialset>
+	<material name="accessory" shader="Accessory">
+		<sampler name="DiffuseMap" path="./accessory_bsm.dds" srgb="1" minfilter="linear" magfilter="linear" />
+		<sampler name="NormalMap" path="./accessory_nrm.dds" srgb="0" minfilter="linear" magfilter="linear" />
+		<sampler name="SpecularMap" path="./accessory_spe.dds" srgb="1" minfilter="linear" magfilter="linear" />
+		<sampler name="RoughnessMap" path="./accessory_rgm.dds" srgb="1" minfilter="linear" magfilter="linear" />
+	</material>
+	<material name="skin_limb" shader="Accessory_Nrm">
+		<sampler name="DiffuseMap" path="./accessory_bsm.dds" srgb="1" minfilter="linear" magfilter="linear" />
+		<sampler name="NormalMap" path="./tights_nrm.dds" srgb="0" minfilter="linear" magfilter="linear" />
+		<sampler name="SpecularMap" path="./accessory_spe.dds" srgb="1" minfilter="linear" magfilter="linear" />
+		<sampler name="RoughnessMap" path="./accessory_rgm.dds" srgb="1" minfilter="linear" magfilter="linear" />
+	</material>
+
+	<material name="glasses_01T" shader="Basic_C">
+        <state name="ztest" value="1" />
+        <state name="zwrite" value="1" />
+	    <state name="twosided" value="1" />
+        <state name="alphatest" value="1" />
+        <state name="alpharef" value="1" />
+        <state name="alphablend" value="1" />
+        <state name="blendmode" value="0" />
+		<sampler name="DiffuseMap" path="./Glasses01.dds" srgb="1" minfilter="linear" magfilter="linear" />
+	</material>
+	<material name="glasses_01C" shader="Accessory">
+		<sampler name="DiffuseMap" path="./Glasses01.dds" srgb="1" minfilter="linear" magfilter="linear" />
+	</material>
+
+	<material name="glasses_02T" shader="Basic_C">
+        <state name="ztest" value="1" />
+        <state name="zwrite" value="1" />
+	    <state name="twosided" value="1" />
+        <state name="alphatest" value="1" />
+        <state name="alpharef" value="1" />
+        <state name="alphablend" value="1" />
+        <state name="blendmode" value="0" />
+		<sampler name="DiffuseMap" path="./Glasses02.dds" srgb="1" minfilter="linear" magfilter="linear" />
+	</material>
+	<material name="glasses_02C" shader="Accessory">
+		<sampler name="DiffuseMap" path="./Glasses02.dds" srgb="1" minfilter="linear" magfilter="linear" />
+	</material>
+
+	<material name="glasses_03T" shader="Basic_C">
+        <state name="ztest" value="1" />
+        <state name="zwrite" value="1" />
+	    <state name="twosided" value="1" />
+        <state name="alphatest" value="1" />
+        <state name="alpharef" value="1" />
+        <state name="alphablend" value="1" />
+        <state name="blendmode" value="0" />
+		<sampler name="DiffuseMap" path="./Glasses03.dds" srgb="1" minfilter="linear" magfilter="linear" />
+	</material>
+	<material name="glasses_03C" shader="Accessory">
+		<sampler name="DiffuseMap" path="./Glasses03.dds" srgb="1" minfilter="linear" magfilter="linear" />
+	</material>
+
+	<material name="glasses_04T" shader="Basic_C">
+        <state name="ztest" value="1" />
+        <state name="zwrite" value="1" />
+	    <state name="twosided" value="1" />
+        <state name="alphatest" value="1" />
+        <state name="alpharef" value="1" />
+        <state name="alphablend" value="1" />
+        <state name="blendmode" value="0" />
+		<sampler name="DiffuseMap" path="./Glasses04.dds" srgb="1" minfilter="linear" magfilter="linear" />
+	</material>
+	<material name="glasses_04C" shader="Accessory">
+		<sampler name="DiffuseMap" path="./Glasses04.dds" srgb="1" minfilter="linear" magfilter="linear" />
+	</material>
+
+	<material name="glasses_05T" shader="Basic_C">
+        <state name="ztest" value="1" />
+        <state name="zwrite" value="1" />
+	    <state name="twosided" value="1" />
+        <state name="alphatest" value="1" />
+        <state name="alpharef" value="1" />
+        <state name="alphablend" value="1" />
+        <state name="blendmode" value="0" />
+		<sampler name="DiffuseMap" path="./Glasses05.dds" srgb="1" minfilter="linear" magfilter="linear" />
+	</material>
+	<material name="glasses_05C" shader="Accessory">
+		<sampler name="DiffuseMap" path="./Glasses05.dds" srgb="1" minfilter="linear" magfilter="linear" />
+	</material>
+
+	<material name="glasses_06T" shader="Basic_C">
+        <state name="ztest" value="1" />
+        <state name="zwrite" value="1" />
+	    <state name="twosided" value="1" />
+        <state name="alphatest" value="1" />
+        <state name="alpharef" value="1" />
+        <state name="alphablend" value="1" />
+        <state name="blendmode" value="0" />
+		<sampler name="DiffuseMap" path="./Glasses06.dds" srgb="1" minfilter="linear" magfilter="linear" />
+	</material>
+	<material name="glasses_06C" shader="Accessory">
+		<sampler name="DiffuseMap" path="./Glasses06.dds" srgb="1" minfilter="linear" magfilter="linear" />
+	</material>
+
+	<material name="glasses_07T" shader="Basic_C">
+        <state name="ztest" value="1" />
+        <state name="zwrite" value="1" />
+	    <state name="twosided" value="1" />
+        <state name="alphatest" value="1" />
+        <state name="alpharef" value="1" />
+        <state name="alphablend" value="1" />
+        <state name="blendmode" value="0" />
+		<sampler name="DiffuseMap" path="./Glasses07.dds" srgb="1" minfilter="linear" magfilter="linear" />
+	</material>
+	<material name="glasses_07C" shader="Accessory">
+		<sampler name="DiffuseMap" path="./Glasses07.dds" srgb="1" minfilter="linear" magfilter="linear" />
+	</material>
+</materialset>

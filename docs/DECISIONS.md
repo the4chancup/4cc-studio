@@ -975,3 +975,16 @@ one. The shapes are tiny and fixed (a material set is a few elements with attrib
 writer buys nothing while a hand writer can reproduce Konami's whitespace exactly (`.mtl` byte
 parity becomes testable); `quick-xml` would add a streaming API and a serde surface nobody needs.
 Plan: `core.md` "External Dependencies" row added.
+
+## 2026-09-14 - pes_model - byte identity at the container, a fresh layout from the typed layer
+Decision: `ModelContainer` (eleven opaque sections in file order) is the byte-identical `format/`
+layer; `PreFoxModel::write` produces the add-on's layout and is tested for semantic equality.
+Konami annotation types 1/10 and section-3 records are carried; sections 8/9/10 with content are
+a read error (`Unsupported`), not a warning.
+Why: the plan asks for a byte-identical `format/` round trip without saying at which level; the
+`.model` pointer graph with Konami's 8/16-byte alignment gaps means a typed layer can only be
+byte-identical by carrying every offset, which is the container again with more fields. The
+reference parser warns and proceeds on cloth/locator models, but a warning that ends in a rewrite
+dropping the referenced section is a silent corruption, and no player part uses those sections.
+Plan: `libs.md` "`pes_model::format`: the `.model` container and its sections" added (layout as
+measured by `.tmp/model_census.py` on the six fixtures).

@@ -1,0 +1,7 @@
+<materialset>
+	<material name="head_animation_mat" shader="Wrinkle">
+		<sampler name="NormalMap" path="./head_normal_default.dds" srgb="0" minfilter="linear" magfilter="linear" uaddr="clamp" vaddr="clamp" />
+		<sampler name="Normal2" path="./head_normal_animation.dds" srgb="0" minfilter="linear" magfilter="linear" uaddr="clamp" vaddr="clamp" />
+		<sampler name="Mapping" path="./head_normal_mask.dds" srgb="1" minfilter="linear" magfilter="linear" uaddr="clamp" vaddr="clamp" />
+	</material>
+</materialset>

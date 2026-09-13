@@ -10,7 +10,7 @@ is in `AGENTS.md` ("Working documents").
 ## Current status
 
 **Phase:** 2 (Library crates). Done: 2.1 `wezlib`, 2.2 `cpk`, 2.3 `fpk`, 2.4 `ftex`, 2.5 `dds_convert` (CPU),
-2.6 `fmdl` (format, model, ops, check), 2.8 `uniparam`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`. Next: 2.7 `pes_model` layout census (lead), then 2.7a. Review
+2.6 `fmdl` (format, model, ops, check), 2.8 `uniparam`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`. 2.7 census and 2.7a-1 done; next 2.7a-2 `pes_model` typed layer. Review
 rounds A and B (2026-09-13) closed: 2.5c, 2.12b, 2.13b done.
 **In progress:** none
 **Blocked on:** —
@@ -169,12 +169,21 @@ Spec: `docs/plans/core.md` "Phase 2", `docs/plans/libs.md`, `model_conversion.md
   slots, weights, empty/unassigned meshes, unused materials, duplicate bone names); every fixture
   clean. 7 tests. `fmdl` totals 76 tests; converge at 2.20 revisits `from_file` length and the
   two extension-header plan gaps
-- [~] 2.7 `pes_model`: fixtures collected (`tests/fixtures/README.md`: Konami PES 17 parts with
-  `.mtl`, community card-head templates; the reference writer rebuilds none of them). Next: a
-  layout census of the `.model` container (sections, record arrays, offsets, gaps) to decide what
-  `format/` can hold byte-identically, then the same ladder as `fmdl`: 2.7a format, 2.7b vertex
-  codec, 2.7c model layer (`from_file`/`to_file`), 2.7d ops (split, vertex_enc, merge, paths),
-  2.7e `.mtl` read/write (roxmltree read, hand writer, byte parity on Konami mtls), 2.7f check
+- [x] 2.7 census `pes_model` — done (lead): `.model` layout measured on all 2610 Konami files of a
+  PES 2017 install (`libs.md` "`pes_model::format`: the `.model` container and its sections"):
+  LOD tables, annotation types 1/2/7/10 with their section-3 records, the version-17 layout, the
+  empty-array offset-0 quirk, sections 8/9/10 empty everywhere. Six more fixtures, one per
+  variant (`tests/fixtures/README.md`), the LOD one at 148 KB
+- [x] 2.7a-1 `pes_model::format` container and record-array reader — done (sidekick):
+  `ModelContainer` (header words, eleven sections in file order) byte-identical on all twelve
+  `.model` fixtures, wrapped ones compared unwrapped; constant header words validated;
+  `RecordArray` reader with checked arithmetic. 8 tests
+- [ ] 2.7a-2 `pes_model::format` typed layer: `PreFoxModel` over the container (bones, groups,
+  materials, annotations + records, geometries with raw field data / faces / LOD ranges, meshes
+  with resolved indices, bounds) and its `write` (add-on layout) → verify: `read(write(m)) == m`
+  on all twelve fixtures; literal expectations from the census
+- [ ] 2.7b vertex codec; 2.7c model layer; 2.7d ops (split, vertex_enc, merge, paths); 2.7e `.mtl`
+  read/write (roxmltree read, hand writer, byte parity per Konami file); 2.7f check
 - [x] 2.8 `uniparam` — done (sidekick): WESYS-unwrapping read, sorted writer; Konami PES21
   container (2174 entries) and a reference-writer golden; 4 tests
 - [ ] 2.9 `fox2`
