@@ -3,4 +3,5 @@
 /// The format-level codecs: byte-identical read and write.
 pub mod format;
 
-pub use format::{FmdlContainer, FmdlError, SklFile};
+pub use format::records::*;
+pub use format::{FmdlContainer, FmdlError, FmdlFile, SklFile};
