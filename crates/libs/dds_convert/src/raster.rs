@@ -28,5 +28,6 @@ pub(crate) fn decode_raster(bytes: &[u8], format: SourceFormat) -> Result<Decode
         height,
         mips: vec![image.into_raw()],
         blocks: None,
+        authored_mips: false,
     })
 }

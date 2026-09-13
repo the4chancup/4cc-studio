@@ -143,9 +143,13 @@ Notes:
   [Aesthetics export plan](aesthetics_export.md)) are
   ordinary values of these fields.
 - **Version differences**: PES2021 widens Name Y as noted — the only difference the
-  2021 patch makes. Red/Blue's PES15 handling treats the shirt pattern as a 3-bit
-  field (bits 5–7) with patterns above 5 unsupported (its 6 → 5 clamp); encoding for
-  PES15 output applies the same rule.
+  2021 patch makes. PES 15 reads only bits 5–7 of the pattern byte (a 3-bit index, 0–5
+  valid) where later versions read bits 4–7; the TOML `pattern` is the 4-bit field every
+  version shares, and PES 15 emission maps 4-bit values 12–13 (3-bit 6, which PES 15 has no
+  pattern for) to 10–11 (3-bit 5), the byte-level rule the legacy compilers applied to
+  configs authored for later versions. Values 14–15 (3-bit 7) have no legacy rule and are
+  emitted as is; `validate` reports any value from 12 up as `kit_pattern_unsupported_pes15`
+  (warning) when the target is PES 15.
 - The five RGB triplets are the config's own kit colors (distinct from
   `UniColor.bin`'s menu colors, which come from `colors.txt`).
 
@@ -236,8 +240,12 @@ name = "00000000000000000000000000000000"
   and the Team compiler ignore that table and always rederive names from actual files.
 - **Version-neutral**: the TOML stores plain values; the version-specific bit
   packing (Name Y, PES15 pattern) is applied when emitting binary. A value that
-  doesn't fit the target version (Name Y 30 for PES ≤20) is a compile/check
-  warning, clamped on emission.
+  doesn't fit the target version (Name Y 30 for PES ≤20, whose field is 0–16) is a
+  compile/check warning (`kit_value_out_of_range`, naming the field, the value and the
+  version's maximum) and is clamped to that maximum on emission; one table of per-field,
+  per-version maxima drives both the finding and the clamp, so they cannot disagree. The
+  same finding covers every packed field (number sizes, positions, spacing, collar and
+  badge coordinates), whose maximum is the field's width.
 - **Unknown bits** live in an `[unknown]` table keyed by byte offset, holding the
   byte's undecoded-bit remainder (known bits zeroed). Known fields plus `[unknown]`
   round-trip bit-identically; the derived texture-name region is excluded from that

@@ -157,9 +157,11 @@ Spec: `docs/plans/core.md` "Phase 2", `docs/plans/libs.md`, `model_conversion.md
 - [x] 2.13 `kit_config` — done (sidekick, two rework rounds on validation): bit-identical on all
   1372 PES 2021 stock configs, TOML form with comments, texture names, FPC apply/matches; the
   plan's ranges and 144-only sleeve rule were the old editor's UI limits (plan corrected); 8 tests
-- [ ] 2.5c `dds_convert` review fixes: `Decoded.authored_mips` (an uncompressed single-mip DDS
-  kept its count), normal role never passes BC7/BC1 through, declared row pitch honoured, BC1 and
-  generated tail mips proved by decode (review A, 2026-09-13)
+- [x] 2.5c `dds_convert` review fixes — done (sidekick): `Decoded.authored_mips`, normal role
+  passes through only BC3 (and BC5 on 19-21), declared row pitch honoured with the DWORD rule on
+  lower mips, BC1 output and every generated mip proved by decode against the reference; `ftex`
+  refuses DX10 arrays, the DX10 cube flag and signed BC4/BC5, reads B8G8R8X8 as opaque. 13 + 8
+  tests (review A, all seven accepted)
 - [ ] 2.12b `teams_list` review fixes: columns carried by header position (any order, any extra
   column), reconcile validates the final mapping (ID swaps), placeholder IDs in the uniqueness
   set with an incoming team taking a placeholder's slot (review B)

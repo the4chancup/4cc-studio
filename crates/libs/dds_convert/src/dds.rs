@@ -27,11 +27,11 @@ pub(crate) fn decode_dds(dds: &[u8]) -> Result<Decoded, ConvertError> {
     for level in 0..layout.mipmaps {
         let width = (layout.width >> level).max(1);
         let height = (layout.height >> level).max(1);
-        let size = mip_size(&layout, width, height);
+        let size = mip_size(&layout, level, width, height);
         let data = dds
             .get(offset..offset + size)
             .ok_or(ConvertError::Truncated)?;
-        mips.push(decode_mip(&layout, codec, width, height, data)?);
+        mips.push(decode_mip(&layout, codec, level, width, height, data)?);
         blocks.push(data.to_vec());
         offset += size;
     }
@@ -44,14 +44,39 @@ pub(crate) fn decode_dds(dds: &[u8]) -> Result<Decoded, ConvertError> {
             codec,
             mips: blocks,
         }),
+        authored_mips: true,
     })
 }
 
+/// Bytes one tightly packed row takes, for the layouts that have rows.
+fn tight_row(pixel: &DdsPixel, width: u32) -> Option<u32> {
+    match pixel {
+        DdsPixel::Uncompressed { bit_count, .. } => Some(width * bit_count / 8),
+        DdsPixel::Format(PixelFormat::Argb8) => Some(width * 4),
+        DdsPixel::Format(PixelFormat::R8) => Some(width),
+        DdsPixel::Format(_) => None,
+    }
+}
+
+/// The row pitch a level's data uses in the stream: level 0 keeps the
+/// header's declared pitch, lower levels round their tight width up to a
+/// multiple of 4 bytes (the DWORD rule those exporters follow).
+fn mip_row_pitch(layout: &DdsLayout, level: u32, tight_row: u32) -> u32 {
+    match layout.row_pitch {
+        Some(pitch) if level == 0 => pitch,
+        Some(_) => tight_row.div_ceil(4) * 4,
+        None => tight_row,
+    }
+}
+
 /// Bytes one mip level occupies in the DDS stream.
-fn mip_size(layout: &DdsLayout, width: u32, height: u32) -> usize {
-    match layout.pixel {
-        DdsPixel::Format(format) => ftex::mip_size(format, width, height, 1, 0),
-        DdsPixel::Uncompressed { bit_count, .. } => (width * height * bit_count / 8) as usize,
+fn mip_size(layout: &DdsLayout, level: u32, width: u32, height: u32) -> usize {
+    match tight_row(&layout.pixel, width) {
+        Some(row) => (mip_row_pitch(layout, level, row) * height) as usize,
+        None => match layout.pixel {
+            DdsPixel::Format(format) => ftex::mip_size(format, width, height, 1, 0),
+            DdsPixel::Uncompressed { bit_count, .. } => (width * height * bit_count / 8) as usize,
+        },
     }
 }
 
@@ -80,21 +105,30 @@ fn block_codec(layout: &DdsLayout) -> Option<(BlockCodec, CompressionVariant)> {
 fn decode_mip(
     layout: &DdsLayout,
     codec: Option<(BlockCodec, CompressionVariant)>,
+    level: u32,
     width: u32,
     height: u32,
     data: &[u8],
 ) -> Result<Vec<u8>, ConvertError> {
+    let row_pitch =
+        tight_row(&layout.pixel, width).map(|tight| mip_row_pitch(layout, level, tight) as usize);
     match layout.pixel {
         DdsPixel::Format(PixelFormat::Argb8) => decode_uncompressed(
             width,
             height,
             32,
             [0x00ff0000, 0x0000ff00, 0x000000ff, 0xff000000],
+            row_pitch.unwrap_or(0),
             data,
         ),
-        DdsPixel::Format(PixelFormat::R8) => {
-            decode_uncompressed(width, height, 8, [0xff, 0, 0, 0], data)
-        }
+        DdsPixel::Format(PixelFormat::R8) => decode_uncompressed(
+            width,
+            height,
+            8,
+            [0xff, 0, 0, 0],
+            row_pitch.unwrap_or(0),
+            data,
+        ),
         DdsPixel::Uncompressed {
             bit_count,
             r_mask,
@@ -106,6 +140,7 @@ fn decode_mip(
             height,
             bit_count,
             [r_mask, g_mask, b_mask, a_mask],
+            row_pitch.unwrap_or(0),
             data,
         ),
         DdsPixel::Format(_) => {
@@ -204,7 +239,8 @@ fn alpha_ramp(a0: u8, a1: u8) -> [u8; 8] {
     ramp
 }
 
-/// Expands one uncompressed mip to RGBA8 through its channel masks. Every
+/// Expands one uncompressed mip to RGBA8 through its channel masks. Rows
+/// are `row_pitch` bytes apart in the data (0 means tightly packed). Every
 /// mask must be a byte-aligned 8-bit field; anything else is rejected. A
 /// zero alpha mask yields 255.
 fn decode_uncompressed(
@@ -212,12 +248,19 @@ fn decode_uncompressed(
     height: u32,
     bit_count: u32,
     masks: [u32; 4],
+    row_pitch: usize,
     data: &[u8],
 ) -> Result<Vec<u8>, ConvertError> {
     let bytes_per_pixel = match bit_count {
         8 | 16 | 24 | 32 => (bit_count / 8) as usize,
         _ => return Err(ConvertError::Unsupported("pixel bit count")),
     };
+    let row_pitch = if row_pitch == 0 {
+        width as usize * bytes_per_pixel
+    } else {
+        row_pitch
+    };
+    let row_bytes = width as usize * bytes_per_pixel;
     let mut channels = [None; 4];
     for (channel, mask) in masks.iter().enumerate() {
         if *mask == 0 {
@@ -231,14 +274,19 @@ fn decode_uncompressed(
     }
 
     let mut rgba = Vec::with_capacity((width * height * 4) as usize);
-    for pixel in data.chunks_exact(bytes_per_pixel) {
-        for (channel, rgba_channel) in channels.iter().enumerate() {
-            let value = match rgba_channel {
-                Some(byte) if *byte < bytes_per_pixel as u32 => pixel[*byte as usize],
-                _ if channel == 3 => 255,
-                _ => 0,
-            };
-            rgba.push(value);
+    for y in 0..height as usize {
+        let row = data
+            .get(y * row_pitch..y * row_pitch + row_bytes)
+            .ok_or(ConvertError::Truncated)?;
+        for pixel in row.chunks_exact(bytes_per_pixel) {
+            for (channel, rgba_channel) in channels.iter().enumerate() {
+                let value = match rgba_channel {
+                    Some(byte) if *byte < bytes_per_pixel as u32 => pixel[*byte as usize],
+                    _ if channel == 3 => 255,
+                    _ => 0,
+                };
+                rgba.push(value);
+            }
         }
     }
     Ok(rgba)

@@ -3,10 +3,10 @@
 //!
 //! Three pure steps and one stateful wrapper: [`decode`] turns any accepted
 //! source into straight-alpha RGBA8 mips plus, for DDS/FTEX, the compressed
-//! blocks it carried; [`convert`] applies the codec rules to a decoded
-//! texture and returns the finished container bytes (a DDS for PES 15-17,
-//! an FTEX for PES 18-21); [`Converter`] is the session cache in front of
-//! both.
+//! blocks it carried and a flag saying the mip chain is the source's own;
+//! [`convert`] applies the codec rules to a decoded texture and returns the
+//! finished container bytes (a DDS for PES 15-17, an FTEX for PES 18-21);
+//! [`Converter`] is the session cache in front of both.
 
 mod cache;
 mod dds;
@@ -110,6 +110,10 @@ pub struct Decoded {
     /// The compressed blocks the source carried, when it was a DDS/FTEX in
     /// a block codec this crate knows.
     pub blocks: Option<Blocks>,
+    /// True when the source format carries a mip chain (DDS/FTEX), so its
+    /// level count is kept on encode; false for raster sources, which get a
+    /// generated chain down to 1x1.
+    pub authored_mips: bool,
 }
 
 /// The version and role a conversion targets.
@@ -495,16 +499,26 @@ mod tests {
         );
         assert_eq!(layout.mipmaps, 6);
         let round = decode(&dds, SourceFormat::Dds).unwrap();
-        let dims: Vec<(u32, u32)> = (0..6)
-            .map(|level| ((32 >> level).max(1), (16 >> level).max(1)))
+        for (level, (width, height)) in [(32u32, 16u32), (16, 8), (8, 4), (4, 2), (2, 1), (1, 1)]
+            .iter()
+            .enumerate()
+        {
+            assert_eq!(round.mips[level].len(), (*width * *height * 4) as usize);
+        }
+        // The whole chain, judged against the chain this crate generated.
+        let generated: Vec<Vec<u8>> = std::iter::once(decoded.mips[0].clone())
+            .chain(
+                mips::generate(32, 16, &decoded.mips[0])
+                    .into_iter()
+                    .map(|mip| mip.pixels),
+            )
             .collect();
-        assert_eq!(dims, [(32, 16), (16, 8), (8, 4), (4, 2), (2, 1), (1, 1)]);
         assert_not_worse_than_reference(
             "png -> pes17 bc3",
-            &decoded.mips,
-            &round.mips[..1],
-            &source[..1],
-            &mips_of(BC3_D)[..1],
+            &generated,
+            &round.mips,
+            &source,
+            &mips_of(BC3_D),
         );
 
         // Fully opaque raster -> BC1 on pre-Fox.
@@ -522,8 +536,16 @@ mod tests {
             layout.pixel,
             ftex::dds::DdsPixel::Format(ftex::PixelFormat::Bc1)
         );
+        let round = decode(&dds, SourceFormat::Dds).unwrap();
+        assert_not_worse_than_reference(
+            "png opaque -> pes17 bc1",
+            &opaque.mips,
+            &round.mips[..1],
+            &decode(PNG_OPAQUE, SourceFormat::Png).unwrap().mips,
+            &mips_of(BC1_D)[..1],
+        );
 
-        // PES 21 color -> BC7 FTEX.
+        // PES 21 color -> BC7 FTEX, whole chain.
         let ftex = convert(
             &decoded,
             Target {
@@ -536,10 +558,10 @@ mod tests {
         let round = decode(&ftex, SourceFormat::Ftex).unwrap();
         assert_not_worse_than_reference(
             "png -> pes21 bc7",
-            &decoded.mips,
-            &round.mips[..1],
-            &source[..1],
-            &mips_of(BC7_D)[..1],
+            &generated,
+            &round.mips,
+            &source,
+            &mips_of(BC7_D),
         );
     }
 
@@ -612,6 +634,159 @@ mod tests {
         assert_eq!(
             layout.pixel,
             ftex::dds::DdsPixel::Format(ftex::PixelFormat::Bc3)
+        );
+    }
+
+    #[test]
+    fn authored_mip_count_is_kept() {
+        // rgba8.dds cut to a single level: mip count 1, the mipmap caps bit
+        // cleared, only level-0 data kept (DX10 header, 4 bytes per pixel).
+        let mut single = RGBA8[..148 + 32 * 16 * 4].to_vec();
+        single[28..32].copy_from_slice(&1u32.to_le_bytes());
+        let caps = u32::from_le_bytes(single[108..112].try_into().unwrap()) & !0x400000;
+        single[108..112].copy_from_slice(&caps.to_le_bytes());
+
+        let decoded = decode(&single, SourceFormat::Dds).unwrap();
+        assert_eq!(decoded.mips.len(), 1);
+        assert!(decoded.authored_mips);
+
+        let ftex = convert(
+            &decoded,
+            Target {
+                version: PesVersion::Pes21,
+                role: TextureRole::Color,
+            },
+        )
+        .unwrap();
+        assert_eq!(ftex::info(&ftex).unwrap().mipmaps, 1);
+
+        let dds = convert(
+            &decoded,
+            Target {
+                version: PesVersion::Pes17,
+                role: TextureRole::Color,
+            },
+        )
+        .unwrap();
+        assert_eq!(ftex::dds::read_layout(&dds).unwrap().mipmaps, 1);
+    }
+
+    #[test]
+    fn normal_role_reencodes_color_layouts() {
+        // A BC7 source is a color layout: the normal role re-encodes it to
+        // the Fox DXT5nm layout instead of keeping the blocks.
+        let ftex = convert(
+            &decode(BC7, SourceFormat::Dds).unwrap(),
+            Target {
+                version: PesVersion::Pes21,
+                role: TextureRole::Normal,
+            },
+        )
+        .unwrap();
+        let round = ftex::ftex_to_dds(&ftex).unwrap();
+        let layout = ftex::dds::read_layout(&round).unwrap();
+        assert_eq!(
+            layout.pixel,
+            ftex::dds::DdsPixel::Format(ftex::PixelFormat::Bc3)
+        );
+        let ours = decode(&round, SourceFormat::Dds).unwrap();
+        for px in ours
+            .mips
+            .iter()
+            .flat_map(|mip| mip.as_chunks::<4>().0.iter())
+        {
+            assert_eq!((px[0], px[2]), (255, 0), "fox R/B");
+        }
+
+        // A BC1 source on a pre-Fox target: BC3 with a grey color block.
+        let dds = convert(
+            &decode(BC1, SourceFormat::Dds).unwrap(),
+            Target {
+                version: PesVersion::Pes17,
+                role: TextureRole::Normal,
+            },
+        )
+        .unwrap();
+        let layout = ftex::dds::read_layout(&dds).unwrap();
+        assert_eq!(
+            layout.pixel,
+            ftex::dds::DdsPixel::Format(ftex::PixelFormat::Bc3)
+        );
+        let ours = decode(&dds, SourceFormat::Dds).unwrap();
+        // The color block is a grey Y; 565 quantization gives G a sixth bit
+        // R and B do not have, so R == B exactly and G within half a step.
+        for px in ours
+            .mips
+            .iter()
+            .flat_map(|mip| mip.as_chunks::<4>().0.iter())
+        {
+            assert_eq!(px[0], px[2], "grey color block R/B");
+            assert!(px[1].abs_diff(px[0]) <= 4, "grey color block G");
+        }
+
+        // A BC3 source still passes through on a normal role.
+        let dds = convert(
+            &decode(BC3, SourceFormat::Dds).unwrap(),
+            Target {
+                version: PesVersion::Pes17,
+                role: TextureRole::Normal,
+            },
+        )
+        .unwrap();
+        let layout = ftex::dds::read_layout(&dds).unwrap();
+        assert_eq!(&dds[layout.data_offset..], &BC3[128..]);
+    }
+
+    #[test]
+    fn padded_rows_decode() {
+        // A 2x2 24-bit BGR DDS whose rows are padded to 8 bytes.
+        let header = |pitch: u32| {
+            let mut dds = Vec::new();
+            dds.extend_from_slice(b"DDS ");
+            dds.extend_from_slice(&124u32.to_le_bytes());
+            dds.extend_from_slice(&(0x1u32 | 0x2 | 0x4 | 0x8 | 0x1000).to_le_bytes());
+            dds.extend_from_slice(&2u32.to_le_bytes()); // height
+            dds.extend_from_slice(&2u32.to_le_bytes()); // width
+            dds.extend_from_slice(&pitch.to_le_bytes());
+            dds.extend_from_slice(&0u32.to_le_bytes()); // depth
+            dds.extend_from_slice(&1u32.to_le_bytes()); // mipmap count
+            dds.extend_from_slice(&[0u8; 44]);
+            dds.extend_from_slice(&32u32.to_le_bytes()); // pixel format size
+            dds.extend_from_slice(&0x40u32.to_le_bytes()); // DDPF_RGB
+            dds.extend_from_slice(&[0u8; 4]); // fourcc
+            dds.extend_from_slice(&24u32.to_le_bytes());
+            dds.extend_from_slice(&0xff0000u32.to_le_bytes()); // r
+            dds.extend_from_slice(&0x00ff00u32.to_le_bytes()); // g
+            dds.extend_from_slice(&0x0000ffu32.to_le_bytes()); // b
+            dds.extend_from_slice(&0u32.to_le_bytes()); // a
+            dds.extend_from_slice(&0x1000u32.to_le_bytes()); // caps1
+            dds.extend_from_slice(&[0u8; 16]);
+            dds
+        };
+        let expected: Vec<u8> = [
+            [255, 0, 0, 255], // stored BGR 0,0,255
+            [0, 255, 0, 255], // stored BGR 0,255,0
+            [0, 0, 255, 255], // stored BGR 255,0,0
+            [255, 255, 255, 255],
+        ]
+        .concat();
+
+        // Pitch 8: two pad bytes per row.
+        let mut padded = header(8);
+        padded.extend_from_slice(&[0, 0, 255, 0, 255, 0, 0, 0]);
+        padded.extend_from_slice(&[255, 0, 0, 255, 255, 255, 0, 0]);
+        assert_eq!(
+            decode(&padded, SourceFormat::Dds).unwrap().mips,
+            [&expected[..]]
+        );
+
+        // Pitch 6 equals the tight row: no padding, same pixels.
+        let mut tight = header(6);
+        tight.extend_from_slice(&[0, 0, 255, 0, 255, 0]);
+        tight.extend_from_slice(&[255, 0, 0, 255, 255, 255]);
+        assert_eq!(
+            decode(&tight, SourceFormat::Dds).unwrap().mips,
+            [&expected[..]]
         );
     }
 
