@@ -38,6 +38,7 @@ roxmltree = "0.21.1"
 cpk = { path = "crates/libs/cpk" }
 dds_convert = { path = "crates/libs/dds_convert" }
 fmdl = { path = "crates/libs/fmdl" }
+fox2 = { path = "crates/libs/fox2" }
 fpc = { path = "crates/libs/fpc" }
 fpk = { path = "crates/libs/fpk" }
 kit_config = { path = "crates/libs/kit_config" }

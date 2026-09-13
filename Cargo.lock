@@ -502,6 +502,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "fox2"
+version = "0.1.0"
+dependencies = [
+ "binrw",
+ "roxmltree",
+ "thiserror",
+]
+
+[[package]]
 name = "fpc"
 version = "0.1.0"
 dependencies = [

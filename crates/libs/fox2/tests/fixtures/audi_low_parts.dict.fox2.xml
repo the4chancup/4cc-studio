@@ -1,0 +1,44 @@
+<fox formatVersion="2" fileVersion="0" originalVersion="">
+  <classes>
+    <class name="Entity" super="" version="2" />
+    <class name="Data" super="Entity" version="2" />
+    <class name="DataSet" super="" version="0" />
+    <class name="AudienceModel" super="" version="1" />
+  </classes>
+  <entities>
+    <entity class="DataSet" classVersion="0" addr="0x00000100" unknown1="296" unknown2="0">
+      <staticProperties>
+        <property name="name" type="String" container="StaticArray" arraySize="1">
+          <value></value>
+        </property>
+        <property name="dataSet" type="EntityHandle" container="StaticArray" arraySize="1">
+          <value>0x00000000</value>
+        </property>
+        <property name="dataList" type="EntityPtr" container="StringMap" arraySize="1">
+          <value key="AudienceModel0000">0x00000200</value>
+        </property>
+      </staticProperties>
+      <dynamicProperties />
+    </entity>
+    <entity class="AudienceModel" classVersion="1" addr="0x00000200" unknown1="192" unknown2="0">
+      <staticProperties>
+        <property name="name" type="String" container="StaticArray" arraySize="1">
+          <value>AudienceModel0000</value>
+        </property>
+        <property name="dataSet" type="EntityHandle" container="StaticArray" arraySize="1">
+          <value>0x00000100</value>
+        </property>
+        <property name="models" type="FilePtr" container="DynamicArray" arraySize="1">
+          <value>/Assets/pes16/model/bg/common/audi/scenes/au_Low_parts.fmdl</value>
+        </property>
+        <property name="skeletonFile" type="FilePtr" container="StaticArray" arraySize="1">
+          <value></value>
+        </property>
+        <property name="sklFile" type="FilePtr" container="StaticArray" arraySize="1">
+          <value>/Assets/pes16/model/bg/common/audi/scenes/au00.skl</value>
+        </property>
+      </staticProperties>
+      <dynamicProperties />
+    </entity>
+  </entities>
+</fox>

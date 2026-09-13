@@ -2057,7 +2057,7 @@ resource download size measured and, if it matters, lazy-fetched behind the temp
 | `rhai` OR `cel-interpreter` | AATF rule logic (sandboxed scripting vs declarative expressions; see AATF section) | Production-ready (both) |
 | `image` | Raster source decoding (PNG, JPEG, BMP, WebP, TGA, TIFF) for texture conversion — all formats interchangeable as sources for any model format | Production-ready (pure-Rust default formats, rayon-enabled) |
 | `block_compression` | CPU BC1/BC3/BC7 encoding and BC1–BC7 decoding (one crate for both directions); first-release desktop GPU BC7 | 0.10.0 in use (features `bc15`, `bc7`; `wgpu` feature only for the GPU step); decode verified exact against texconv; GPU cold-start cost, throughput and fallback still to be verified |
-| `cityhash` | CityHash64 for fox2 string hashes (must match v1.0.3 exactly) | Verify algorithm compatibility against fixtures |
+| (none: `fox2` ports CityHash64 1.0.3 directly) | fox2 string hashes must match the C# tool's embedded 1.0.3 variant exactly; no crate pins that variant, and the port is 150 lines verified by a reference golden and every fixture's string table | Not a dependency |
 | `notify` + `notify-debouncer-full` | Exports folder watching for live validation | Production-ready |
 | `kira` | Audio playback (mixer, tweens/fades, loop regions, effects; native + WASM) | Production-ready |
 | `symphonia` | Audio decoding (MP3, Vorbis, FLAC, AAC/M4A, WAV) | Production-ready |
