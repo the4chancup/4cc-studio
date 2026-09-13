@@ -10,7 +10,7 @@ is in `AGENTS.md` ("Working documents").
 ## Current status
 
 **Phase:** 2 (Library crates). Done: 2.1 `wezlib`, 2.2 `cpk`, 2.3 `fpk`, 2.4 `ftex`, 2.5 `dds_convert` (CPU),
-2.8 `uniparam`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`. Next: 2.6c-2 `fmdl::model` to_file. Review
+2.8 `uniparam`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`. Next: 2.6c-3 `fmdl::ops`, one op per handoff. Review
 rounds A and B (2026-09-13) closed: 2.5c, 2.12b, 2.13b done.
 **In progress:** none
 **Blocked on:** —
@@ -146,8 +146,11 @@ Spec: `docs/plans/core.md` "Phase 2", `docs/plans/libs.md`, `model_conversion.md
   reference parser's output as literal expectations; extension headers parsed (`Extensions.other`
   keeps unknown flags). Open: `Custom-Bounding-Box-Meshes` has nothing to populate (no per-mesh
   box in the format); revisit at `to_file`. 29 tests
-- [ ] 2.6c-2 `fmdl::model` `Model::to_file` → verify: `from_file(to_file(m)) == m` on every
-  fixture, Konami ones included; the rewritten file passes `FmdlFile::read`
+- [x] 2.6c-2 `fmdl::model` `Model::to_file` — done (sidekick): the add-on writer's layout with
+  Konami's missing group boxes computed or omitted; `from_file(to_file(m)) == m` on all five
+  fixtures, Konami ones included; `model/` split into `mod`/`from_file`/`to_file`/`tests`. 34 tests.
+  Open (plan gaps, revisit at converge): `Custom-Bounding-Box-Meshes` and any unknown per-object
+  extension header are parsed but have no `Model` field, so a rewrite drops them
 - [ ] 2.6c-3 `fmdl::ops` antiblur, split, vertex_enc, merge, paths per `model_conversion.md`
   "Extension algorithms" and "multi-FMDL mesh merging", one handoff each
 - [ ] 2.6d `fmdl::check` findings

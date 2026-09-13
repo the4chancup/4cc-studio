@@ -111,7 +111,7 @@ impl DatumFormat {
     }
 
     /// Bytes one vertex's attribute occupies.
-    fn element_size(self) -> usize {
+    pub(crate) fn element_size(self) -> usize {
         match self {
             DatumFormat::TripleFloat32 => 12,
             DatumFormat::DoubleFloat32 => 8,
