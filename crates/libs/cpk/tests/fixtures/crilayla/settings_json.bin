@@ -1,0 +1,97 @@
+                                                                                                                                                                                                                                                                
+{
+    "wipes" : [
+		{ "id": -1,
+		  "file": "WEPESwipe_hd.usm",
+		  "fade": 0,
+		  "fadestart": 1
+		},
+
+		{ "id": 2,
+		  "file": "UCLwipe.usm",
+		  "fade": 0,
+		  "fadestart": 1
+		},
+
+		{ "id": 9,
+		  "file": "ENG1wipe.usm",
+		  "fade": 0,
+		  "fadestart": 1
+		},
+
+		{ "id": 10,
+		  "file": "ITA1wipe.usm",
+		  "fade": 0,
+		  "fadestart": 1
+		},
+
+		{ "id": 11,
+		  "file": "SPA1wipe.usm",
+		  "fade": 0,
+		  "fadestart": 1
+		},
+
+		{ "id": 13,
+		  "file": "ER1wipe.usm",
+		  "fade": 0,
+		  "fadestart": 8
+		},
+
+		{ "id": 14,
+		  "file": "POR1wipe.usm",
+		  "fade": 0,
+		  "fadestart": 5
+		},
+
+		{ "id": 16,
+		  "file": "ITALCwipe.usm",
+		  "fade": 0,
+		  "fadestart": 1
+		},
+
+		{ "id": 21,
+		  "file": "BR1wipe.usm",
+		  "fade": 0,
+		  "fadestart": 1
+		},
+
+		{ "id": 33,
+		  "file": "EUwipe.usm",
+		  "fade": 0,
+		  "fadestart": 25
+		},
+
+		{ "id": 66,
+		  "file": "ENG2wipe.usm",
+		  "fade": 0,
+		  "fadestart": 1
+		},
+
+		{ "id": 67,
+		  "file": "SPA2wipe.usm",
+		  "fade": 0,
+		  "fadestart": 1
+		},
+
+		{ "id": 69,
+		  "file": "ITA2wipe.usm",
+		  "fade": 0,
+		  "fadestart": 1
+		},
+
+		{ "id": 76,
+		  "file": "ITASCwipe.usm",
+		  "fade": 0,
+		  "fadestart": 1
+		},
+
+		{ "id": 90,
+		  "file": "BR2wipe.usm",
+		  "fade": 0,
+		  "fadestart": 1
+		},
+
+
+		{}  
+	]
+}

@@ -251,7 +251,7 @@ The suite follows a **platform + plugins** model with strict modularity rules:
 │       │                             #   (Save editor + Team creator)
 │       ├── fox2/                     # Fox Engine entity files (+ CityHash64)
 │       ├── uniparam/                 # UniformParameter container
-│       ├── weszlib/                  # WESYS zlib wrapper
+│       ├── wezlib/                   # WESYS zlib wrapper (WE = Winning Eleven, PES's Japanese name)
 │       ├── vtree/                    # VirtualTree + canonical ScopePath/RelativeScopePath shared by events/exports
 │       ├── pes_version/              # PesVersion (15–21) + Engine (pre-Fox/Fox): the one closed set every
 │       │                             #   version-aware crate shares (settings, savefile schemas, skeletons)
@@ -287,8 +287,10 @@ every `use` statement in Rust code share one identical spelling — no hyphen↔
 remember or grep around. Names are chosen by these rules (the workspace is not published to
 crates.io, so no blanket prefix is needed):
 
-- **Specific format names stay plain**: `cpk`, `fpk`, `fmdl`, `ftex`, `fox2`, `uniparam`, `weszlib`.
-  These are the formats' actual names — unambiguous as-is.
+- **Specific format names stay plain**: `cpk`, `fpk`, `fmdl`, `ftex`, `fox2`, `uniparam`, `wezlib`.
+  These are the formats' actual names — unambiguous as-is (`wezlib`: the WESYS header's "WE" is
+  Winning Eleven, PES's Japanese name, so the crate is WE + zlib and cannot be mistaken for a
+  general zlib crate).
 - **Generic names get a disambiguating prefix**: `pes_savefile` (not `savefile`), `pes_model` (not
   `model` — even FMDL files are "models"; the name also matches the existing `pes-model` Blender
   addon, which the community already knows the format by).
@@ -1656,7 +1658,7 @@ dependents; `python_bindings` last, once `fmdl` and `pes_model` are stable.
 **Format codecs** with `binrw`. Use Blue and the stadium compiler's parser variants
 (`fmdl_file.py`, `cpk.py`, `ftex.py`) as format evidence checked against fixtures, not as
 implementations to translate:
-- `weszlib`
+- `wezlib`
 - `cpk` (read + write, CRILAYLA inside)
 - `fpk`
 - `ftex` + `dds_convert` (`texture2ddecoder`, `image`, and `block_compression` CPU BC1/BC3/BC7

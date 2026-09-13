@@ -9,7 +9,7 @@ is in `AGENTS.md` ("Working documents").
 
 ## Current status
 
-**Phase:** 2 (Library crates), starting at 2.1 `weszlib`. Phase 1 done.
+**Phase:** 2 (Library crates), starting at 2.1 `wezlib`. Phase 1 done.
 **In progress:** 2.1
 **Blocked on:** —
 
@@ -58,7 +58,7 @@ documents".
 | Phase | Scope | Crates | Status |
 |---|---|---|---|
 | 1 | Workspace bootstrap + core skeleton | workspace, CI, non-GUI `studio_core`, `vtree`, `pes_version` | done |
-| 2 | Library crates (standalone-verifiable) | `weszlib` `cpk` `fpk` `ftex` `dds_convert` `fmdl` `pes_model` `uniparam` `fox2` `archives` `fpc` `teams_list` `kit_config` `color_tools` `elevation` `model_convert` (native) `pes_savefile` `python_bindings` | todo |
+| 2 | Library crates (standalone-verifiable) | `wezlib` `cpk` `fpk` `ftex` `dds_convert` `fmdl` `pes_model` `uniparam` `fox2` `archives` `fpc` `teams_list` `kit_config` `color_tools` `elevation` `model_convert` (native) `pes_savefile` `python_bindings` | todo |
 | 3 | Team compiler skeleton | `team_compiler`, `aesthetics_export`, `pipeline` | todo |
 | 4 | Processing logic | `team_compiler` (`plan/` `processing/` `bins/` `output/`), `aesthetics_export` deep validation | todo |
 | 5 | Savefile integration | `save_editor` logic, `aatf`, `team_compiler` `output/savefile.rs` | todo |
@@ -98,7 +98,7 @@ in git history up to commit `794ce61`. CI proof: green run on `a4be936`, deliber
 Spec: `docs/plans/core.md` "Phase 2", `docs/plans/libs.md`, `model_conversion.md`,
 `pes_savefile.md`. Leaf crates first, dependents after; `python_bindings` last.
 
-- [ ] 2.1 `weszlib`
+- [ ] 2.1 `wezlib`
 - [ ] 2.2 `cpk` (read + write, CRILAYLA inside, roundtrip test)
 - [ ] 2.3 `fpk`
 - [ ] 2.4 `ftex`
@@ -188,8 +188,8 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   `AGENTS.md`.
 - **2026-09-13** - Phase 1 converge and rewrite done (7 reviewer concerns, all fixed; 35 tests,
   gates green). Converge order flipped to own-audit-first in `AGENTS.md`. Phase 1 closes once the
-  first push produces the two CI runs step 1.2 asks for; then Phase 2 starts at 2.1 `weszlib`.
+  first push produces the two CI runs step 1.2 asks for; then Phase 2 starts at 2.1 `wezlib`.
 - **2026-09-13** - Second reviewer pass on Phase 1 (5 concerns, all fixed; 38 tests). Commit
   subjects are Conventional Commits from here on; `just` stays on PowerShell for Windows.
 - **2026-09-13** - Phase 1 closed: CI green on the first push, red on the planted warning,
-  reverted. Phase 2 starts at 2.1 `weszlib`.
+  reverted. Phase 2 starts at 2.1 `wezlib`.

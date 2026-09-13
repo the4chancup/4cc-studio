@@ -840,3 +840,10 @@ standard shape rather than an ad-hoc `[fix]` because `git log --grep`, GitHub an
 tools understand it without configuration; the hand-written changelog stays because members read
 releases by tool, not by commit type (core plan, "Changelog and version display").
 Plan: `CONTRIBUTING.md` "Testing and verification" (justfile shell rule) and "Commits" (new).
+
+## 2026-09-13 - libs - the WESYS zlib crate is `wezlib`
+Decision (user): the crate planned as `weszlib` is `wezlib`: WESYS reads as Winning Eleven
+System (Winning Eleven being PES's Japanese name), so the name is WE + zlib.
+Why: the plan's spelling ran the two words together; a name that parses as "WE zlib" says what
+the crate is and still cannot be confused with a general zlib crate.
+Plan: `core.md` crate tree and naming convention; `libs.md` mentions; worklog.
