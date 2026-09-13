@@ -950,3 +950,18 @@ the specular fallback; the game rendered either for years, so this is not a beha
 see, only the intent made explicit. Leaving the flag set on decode made a second encode list
 `antiblur` twice in the header.
 Plan: no plan edit needed; `model_format.md` already describes the fuzzblock helper materials.
+
+## 2026-09-13 - fmdl - mesh splitting: the add-on's algorithm with three of its slips corrected
+Decision: `ops::split` follows the community add-on's encoding (a `split-mesh` child group per split
+source, components matched by stored encoding and Nth occurrence) and its greedy algorithm, with
+these differences: the principal axis is the true largest-eigenvalue axis (the add-on indexes the
+eigenvector table with a leftover loop variable), component vertex order is deterministic (the
+add-on iterates Python sets), a fragment that selects nothing force-takes one face (the add-on
+could loop forever), and a preferred base bone absent from the model is skipped instead of climbed
+through the skeleton table (which lives in `model_convert`; `encode` takes explicit parents for
+that caller).
+Why: the encoding is what existing split models carry, so it is kept exactly; the algorithm's
+slips change only which faces land in which component, which the encoding makes irrelevant to
+the reassembled mesh, and determinism is required by the Nth-occurrence rule.
+Plan: `model_conversion.md` "Performance-critical operation: mesh splitting" already describes the
+algorithm shape; no edit needed.
