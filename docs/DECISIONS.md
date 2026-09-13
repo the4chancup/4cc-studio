@@ -874,3 +874,40 @@ Why: one dependency for both directions, and the plan's own caveat about `textur
 reference for these formats, is on this machine, and produces the expected output for every mip.
 Plan: `libs.md` "In-process DDS conversion" decoding bullet and the format table; `core.md`
 "External Dependencies" (row removed, `block_compression` row updated).
+
+## 2026-09-13 - dds_convert - DXT5nm layout from Konami's files; passthrough set; FTEX type 0x9; crate API
+Decision: an encoded normal map is BC3 with `A = X`, `G = Y`; the remaining channels copy the
+target engine's own files (pre-Fox `R = G = B = Y`, Fox `R = 255`, `B = 0`). Compressed blocks a
+target reads pass through with only a container rewrite (PES 15-18: BC1/BC2/BC3; 19-21: also
+BC4/BC5/BC7); uncompressed sources are always encoded. DDS/FTEX sources keep their mip count,
+raster sources get a full 2x2-box chain. Fox output carries texture type `0x9` for every role.
+DDS header knowledge stays in `ftex`, exposed as `ftex::dds`; the `dds_convert` API is now a code
+block in the plan (`decode`, `convert`, `Converter` with `SourceHash` and `CachePolicy`).
+Why: the plan's swizzle "(A=X, G=Y, R=0, B=255)" was unsourced and wrong in R/B; texconv's own
+`DXT5nm` writes R=255/B=0, and measuring Konami's PES 17 normal maps (`oral_nrm`, `bibs_nrm`,
+`skin_nrm`: R==B exactly, R~G within 5/6-bit quantization, A the high-precision component; mixed
+partials identify A as X) and the PES 21 `dummy_nrm` (R=255, G=125, B=0, A=127) showed both
+engines agree only on A and G, so each gets its own known-good layout. The legacy path never ran
+(texconv rejects `DX5nm`, and today's texconv drops X for BC5 sources), so the Konami files are the
+only standard. Re-encoding a DX10-header BC1/BC3 to DXT5, as the legacy compilers did, loses
+quality for nothing. `0x9` on every Fox texture is what years of PES 19-21 exports shipped; the
+Konami values for color textures are not proven for exported models. One DDS header parser, not
+two: `ftex` already had the table for both directions.
+Plan: `libs.md` "In-process DDS conversion" (DXT5nm, Passthrough, Mipmaps, FTEX texture type
+bullets) and the new "`dds_convert` API" section.
+
+## 2026-09-13 - dds_convert / ftex - encode quality is judged against the reference encoder, not a fixed tolerance; exact zlib-size chunks stored raw
+Decision: the encode tests compare our encoder's error (decoded output vs. its input) with
+texconv's error on the same image, per mip on the worst channel (within 8) and on the
+pixel-weighted chain mean (within 1.0); a fixed "max 16, mean 3" bound is not used. In `ftex`,
+a 16 KiB piece whose zlib stream is exactly the piece's size is stored raw, because every reader
+of the format (ours and the legacy ones) takes `compressed == uncompressed` to mean raw.
+Why: the first brief set a fixed tolerance without measuring it; the test image's 8x4 and 4x2
+mips pack a 2D gradient plus a checker into one block, where texconv's own BC3 loses 104-119 in
+a channel, so the bound failed for the reference encoder as much as for ours, and the sidekick
+correctly refused to widen it. The raw-chunk case was met by a 16-byte tail mip (a BC5 fixture's
+2x1 and 1x1 levels compress to exactly 16 bytes); the legacy writer has the same latent bug. The
+sidekick's first fix invented a "raw" meaning for bit 31 of the chunk offset, which the readers
+mask off without interpreting; that is a format guess about game-facing output and was reverted.
+Plan: no plan edit needed: `libs.md` already says encoded output is judged by decoded content and
+that `ftex` output parity is verified by converting back.

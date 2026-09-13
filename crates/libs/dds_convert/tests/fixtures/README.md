@@ -15,8 +15,16 @@ decoder. Every `.dds` carries the full mip chain (6 levels: 32x16 down to 1x1).
 | `ati2.dds` | `-f BC5_UNORM -dx9` | FourCC `ATI2`: the same blocks as `bc5.dds` in the legacy header (identical decode) |
 | `rgba8.dds` | `-f R8G8B8A8_UNORM -dx10` | uncompressed, DX10 header, DXGI 28 |
 | `bgra8_dx9.dds` | `-f B8G8R8A8_UNORM -dx9` | uncompressed, legacy header with the A8R8G8B8 masks |
+| `bc3_nm_prefox.dds` | `-f BC3_UNORM -dx9 -swizzle gggr` on `source.png` | the pre-Fox DXT5nm layout (R = G = B = Y, A = X) from the reference encoder: the baseline the normal-map encode is judged against |
 | `*.decoded.dds` | `texconv -f R8G8B8A8_UNORM -dx10` on the encoded file | the reference decode of every mip, as raw R8G8B8A8 pixels; the expected output of `decode` for the matching `.dds`. `rgba8`, `bgra8_dx9`, `bc5` and `ati2` decode to identical files |
+
+Copied from `ftex`'s fixtures (Konami PES 2021 files, kept for interoperability; provenance in
+that crate's README): `konami_bc1_bibs_metalness.ftex` and its `.dds` twin (16x16 BC1, 3 mips: the
+FTEX source path), and `konami_bc1_cubemap_default_reflection.dds` (a cube map: the rejection path).
 
 The decoded references are what a DirectX-exact BC decoder produces; our decoder (block_compression)
 must match them exactly for BC1/BC3/BC5/BC7. Encoders are not expected to reproduce texconv's
-blocks; encoded output is judged by decoding it and comparing against the source within a tolerance.
+blocks; encoded output is judged by decoding it and comparing its error against the source with the
+error texconv's own encode of the same image shows (per mip the worst channel within 8, the chain
+mean within 1.0). The small mips of this image put a 2D gradient and the checker inside single
+blocks, where any BC1 colour line loses over 100 in some channel, texconv included.
