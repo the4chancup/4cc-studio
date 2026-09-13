@@ -168,9 +168,11 @@ Spec: `docs/plans/core.md` "Phase 2", `docs/plans/libs.md`, `model_conversion.md
   incoming change then reverts the ones whose final id collides. 14 tests (review B, findings
   1-3). Converge note: the revert loop in `reconcile.rs` is heavier than the plan's sentence;
   candidate for simplification at 2.20
-- [ ] 2.13b `kit_config` review fixes: PES 15 pattern per the plan, validation reports every
-  value emission clamps and emission clamps what validation reports, wrong-typed TOML tables are
-  errors, hex parsing cannot panic (review B)
+- [x] 2.13b `kit_config` review fixes — done (sidekick): one `field_limits` table drives both
+  `kit_value_out_of_range` (with field/value/max context) and the emission clamps (Name Y 16 on
+  PES <= 20, 39 on 21); `kit_pattern_unsupported_pes15`; wrong-typed TOML tables are errors;
+  non-ASCII hex is an error, not a panic. 11 tests, the 1372-config mass test unchanged (review B,
+  findings 4-7)
 - [ ] 2.14 `color_tools` (extraction only)
 - [ ] 2.15 `elevation`
 - [ ] 2.16 `model_convert` — IR, native importers/exporters, hand auto-split, skeleton constants,

@@ -2,8 +2,9 @@
 //! format"). Decode keeps every bit not yet decoded in
 //! `KitConfig::unknown` (per byte offset, known bits zeroed); encode writes
 //! the known fields and ORs the remainders back, so real configs round-trip
-//! bit-identically. Values wider than their field are clamped to the field's
-//! bit width on encode; `validate` reports them separately.
+//! bit-identically. Values wider than their field are clamped to the
+//! version's `field_limits` maximum on encode; `validate` reports them with
+//! the same table.
 
 use std::collections::BTreeMap;
 
@@ -195,6 +196,16 @@ pub fn encode_with_names(
     version: PesVersion,
     names: &[[u8; 16]; 5],
 ) -> [u8; 120] {
+    // One table drives the clamp and `validate`'s finding; every field named
+    // below is a member of `field_limits`, so `unwrap_or(u8::MAX)` never
+    // applies.
+    let limits = field_limits(version);
+    let limit = |field: &str| -> u8 {
+        limits
+            .iter()
+            .find(|limit| limit.field == field)
+            .map_or(u8::MAX, |limit| limit.max)
+    };
     let mut bytes = [0u8; 120];
     let apply_unknown = |bytes: &mut [u8; 120], offset: usize, mask: u8| {
         if let Some(remainder) = config.unknown.get(&(offset as u8)) {
@@ -233,10 +244,11 @@ pub fn encode_with_names(
     bytes[0x14] = config.shirt.collar;
     bytes[0x15] = config.shirt.winter_collar;
 
-    let shorts_x = config.numbers.shorts.x.min(0xF);
-    bytes[0x16] = ((config.numbers.shorts.y.min(0xF)) << 1) | ((shorts_x & 0x3) << 6);
+    let shorts_x = config.numbers.shorts.x.min(limit("number.shorts.x"));
+    bytes[0x16] =
+        (config.numbers.shorts.y.min(limit("number.shorts.y")) << 1) | ((shorts_x & 0x3) << 6);
     bytes[0x17] = ((shorts_x >> 2) & 0x3)
-        | (config.numbers.shorts.size.min(0xF) << 3)
+        | (config.numbers.shorts.size.min(limit("number.shorts.size")) << 3)
         | match config.numbers.shorts.side {
             Side::Left => 0,
             Side::Right => 0x80,
@@ -244,53 +256,76 @@ pub fn encode_with_names(
     apply_unknown(&mut bytes, 0x16, 0x21);
     apply_unknown(&mut bytes, 0x17, 0x04);
 
-    let back_size = config.numbers.back.size.min(0xF);
-    bytes[0x18] = config.numbers.back.y.min(0x1F) | ((back_size & 0x3) << 6);
-    bytes[0x19] = ((back_size >> 2) & 0x3) | (config.numbers.back.spacing.min(0x3) << 4);
+    let back_size = config.numbers.back.size.min(limit("number.back.size"));
+    bytes[0x18] = config.numbers.back.y.min(limit("number.back.y")) | ((back_size & 0x3) << 6);
+    bytes[0x19] = ((back_size >> 2) & 0x3)
+        | (config
+            .numbers
+            .back
+            .spacing
+            .min(limit("number.back.spacing"))
+            << 4);
     apply_unknown(&mut bytes, 0x18, 0x20);
     apply_unknown(&mut bytes, 0x19, 0xCC);
 
-    bytes[0x1A] = config.numbers.chest.y.min(0xF) | (config.numbers.chest.x.min(0xF) << 4);
-    bytes[0x1B] = config.numbers.chest.size.min(0xF) | (if config.shirt.tight { 0x80 } else { 0 });
+    bytes[0x1A] = config.numbers.chest.y.min(limit("number.chest.y"))
+        | (config.numbers.chest.x.min(limit("number.chest.x")) << 4);
+    bytes[0x1B] = config.numbers.chest.size.min(limit("number.chest.size"))
+        | (if config.shirt.tight { 0x80 } else { 0 });
     apply_unknown(&mut bytes, 0x1B, 0x70);
 
+    // The game bounds Name Y at 0-16 on PES <= 20 and 0-39 on PES 21
+    // (`limit("name.y")`), inside a 5-bit / 6-bit field.
+    let name_y = config.name.y.min(limit("name.y"));
+    let name_size = config.name.size.min(limit("name.size"));
     if version >= PesVersion::Pes21 {
-        let name_y = config.name.y.min(0x3F);
         bytes[0x1C] = (name_y & 0x1F) << 3;
-        bytes[0x1D] = ((name_y >> 5) & 0x1)
-            | (config.name.size.min(0x1F) << 1)
-            | (name_shape_bits(config.name.shape) << 6);
+        bytes[0x1D] =
+            ((name_y >> 5) & 0x1) | (name_size << 1) | (name_shape_bits(config.name.shape) << 6);
         apply_unknown(&mut bytes, 0x1C, 0x07);
     } else {
-        let name_y = config.name.y.min(0x1F);
         bytes[0x1C] = (name_y & 0xF) << 4;
-        bytes[0x1D] = ((name_y >> 4) & 0x1)
-            | (config.name.size.min(0x1F) << 1)
-            | (name_shape_bits(config.name.shape) << 6);
+        bytes[0x1D] =
+            ((name_y >> 4) & 0x1) | (name_size << 1) | (name_shape_bits(config.name.shape) << 6);
         apply_unknown(&mut bytes, 0x1C, 0x0F);
     }
 
-    let left_short_y = config.badges.left_short.y.min(0x1F);
+    let left_short_y = config.badges.left_short.y.min(limit("badge.left_short.y"));
     bytes[0x1E] = (if config.name.show { 0 } else { 1 })
-        | (config.badges.left_short.x.min(0xF) << 2)
+        | (config.badges.left_short.x.min(limit("badge.left_short.x")) << 2)
         | ((left_short_y & 0x3) << 6);
-    bytes[0x1F] = ((left_short_y >> 2) & 0x7) | (config.badges.right_short.x.min(0xF) << 4);
-    let left_long_x = config.badges.left_long.x.min(0xF);
-    bytes[0x20] = config.badges.right_short.y.min(0x1F) | ((left_long_x & 0x3) << 6);
-    bytes[0x21] = ((left_long_x >> 2) & 0x3) | (config.badges.left_long.y.min(0x1F) << 2);
-    bytes[0x22] =
-        config.badges.right_long.x.min(0xF) | ((config.badges.right_long.y.min(0x1F) & 0xF) << 4);
-    bytes[0x23] = (config.badges.right_long.y.min(0x1F) >> 4) & 0x1;
+    bytes[0x1F] = ((left_short_y >> 2) & 0x7)
+        | (config
+            .badges
+            .right_short
+            .x
+            .min(limit("badge.right_short.x"))
+            << 4);
+    let left_long_x = config.badges.left_long.x.min(limit("badge.left_long.x"));
+    bytes[0x20] = config
+        .badges
+        .right_short
+        .y
+        .min(limit("badge.right_short.y"))
+        | ((left_long_x & 0x3) << 6);
+    bytes[0x21] = ((left_long_x >> 2) & 0x3)
+        | (config.badges.left_long.y.min(limit("badge.left_long.y")) << 2);
+    bytes[0x22] = config.badges.right_long.x.min(limit("badge.right_long.x"))
+        | ((config.badges.right_long.y.min(limit("badge.right_long.y")) & 0xF) << 4);
+    bytes[0x23] = (config.badges.right_long.y.min(limit("badge.right_long.y")) >> 4) & 0x1;
     apply_unknown(&mut bytes, 0x1E, 0x02);
     apply_unknown(&mut bytes, 0x1F, 0x08);
     apply_unknown(&mut bytes, 0x20, 0x20);
     apply_unknown(&mut bytes, 0x21, 0x80);
     apply_unknown(&mut bytes, 0x23, 0xFE);
 
-    bytes[0x24] = config.shirt.pattern.min(0xF) << 4;
+    bytes[0x24] = config.shirt.pattern.min(limit("shirt.pattern")) << 4;
     apply_unknown(&mut bytes, 0x24, 0x0F);
     if version == PesVersion::Pes15 && bytes[0x24] >> 5 == 0b110 {
-        // The game's pattern set stops below this range: 0b110 -> 0b101.
+        // PES 15 reads only bits 5-7 of the pattern byte (a 3-bit index,
+        // 0-5 valid) where later versions read bits 4-7; 4-bit values 12-13
+        // (3-bit 6, which PES 15 has no pattern for) map to 10-11 (3-bit 5),
+        // and 14-15 are emitted as is.
         bytes[0x24] = (bytes[0x24] & 0x1F) | (0b101 << 5);
     }
     apply_unknown(&mut bytes, 0x25, 0xFF);

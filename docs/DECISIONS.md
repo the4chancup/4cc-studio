@@ -911,3 +911,21 @@ sidekick's first fix invented a "raw" meaning for bit 31 of the chunk offset, wh
 mask off without interpreting; that is a format guess about game-facing output and was reverted.
 Plan: no plan edit needed: `libs.md` already says encoded output is judged by decoded content and
 that `ftex` output parity is verified by converting back.
+
+## 2026-09-13 - teams_list / kit_config - review B resolutions
+Decision: `teams_list` rows keep every cell and locate `ID`/`Name` by header label in any order;
+placeholder rows with a numeric id take part in the duplicate check, and an incoming team whose id
+a placeholder holds replaces that placeholder (counted as added); `reconcile` applies every
+incoming change first and validates ids on the final mapping, reverting only the changes behind a
+collision that remains. `kit_config` has one per-version table of field maxima used by both
+`validate` (`kit_value_out_of_range`, with field, value and maximum as context) and `encode`
+(clamp); Name Y clamps to the game's range (16 on PES <= 20, 39 on 21), every other field to its
+bit width; the PES 15 pattern rule stays byte-level (4-bit 12-13 -> 10-11) with a warning from 12
+up; a wrong-typed TOML table or key is an error rather than a silent template default.
+Why: the reviewer showed each as a concrete loss (`ID	Note	Name` dropped a column and turned the
+team into a placeholder; an id swap between two teams was reported as two conflicts; a Backup slot
+could be double-booked; `name.y = 30` on PES 20 was flagged as clamped yet emitted as 30;
+`shirt = 144` produced a valid-looking config with the template's shirt). One table for finding
+and clamp is the only shape in which the two cannot disagree again.
+Plan: `libs.md` "`libs/teams_list`" (`file.rs`, `reconcile.rs` bullets); `kit_config_editor.md`
+"Version differences" and "Version-neutral" bullets.

@@ -540,14 +540,17 @@ updater depend on the whole export object model for one file format.
   compiler plan, "Export identity resolution").
 - `file.rs` — `TeamsList`: parse / write `teams_list.txt` per the contract in the Team compiler
   plan ("Export identity resolution" and the "`teams_list.txt` contract" open question): tab-split,
-  `ID` and `Name` columns, further columns ignored, Name folded through `TeamName::new` on load,
-  rows that do not fold to a slash-wrapped name kept verbatim as inert placeholders; lookup by
-  `TeamName`; the embedded upstream list as a `const`.
+  `ID` and `Name` columns located by header label in any order, every other cell carried verbatim
+  and written back in place, Name folded through `TeamName::new` on load, rows that do not fold to
+  a slash-wrapped name kept verbatim as inert placeholders whose numeric ids still count in the
+  duplicate check; lookup by `TeamName`; the embedded upstream list as a `const`.
 - `reconcile.rs` — the merge of an incoming list (embedded upstream, or a savefile's team table)
   into the working list: rows only in the incoming list added, rows only in the working list kept,
-  conflicts (same name, different ID) taken from the incoming list, then uniqueness of names and
-  IDs validated; returns a `MergeSummary` (added / kept / overridden / unresolved) for the caller
-  to show before writing. Never writes: callers own filesystem I/O and the read-only handling
+  conflicts (same name, different ID) taken from the incoming list, an incoming team whose ID a
+  placeholder holds taking that slot, then uniqueness of IDs validated on the *final* mapping (so
+  two teams swapping IDs merge cleanly) with every incoming change behind a remaining collision
+  reverted; returns a `MergeSummary` (added / kept / overridden / unresolved) for the caller to
+  show before writing. Never writes: callers own filesystem I/O and the read-only handling
   (`teams_list_read_only`).
 
 Consumers: `aesthetics_export` (identity resolution), `team_compiler` (ID cell write),
