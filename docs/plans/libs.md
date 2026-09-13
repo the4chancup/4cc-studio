@@ -1,7 +1,7 @@
 # 4cc Studio — Library crates plan
 
 Covers the small shared lib crates: the binary format parsers (`cpk`, `fpk`, `fmdl`,
-`pes_model`, `ftex`, `uniparam`, `weszlib`), `dds_convert`, `color_tools`,
+`pes_model`, `ftex`, `uniparam`, `wezlib`), `dds_convert`, `color_tools`,
 `vtree`, `pes_version`, `archives`, `elevation`, `fpc`, and `teams_list`. The aesthetics export format's object model, folder conventions,
 and validation live in `aesthetics_export` (shared by the Team compiler, Export upgrader,
 Kit config editor, Refs arranger, and Team creator), specified in the
@@ -93,7 +93,7 @@ struct FmdlHeader {
 
 ### Layout of the format crates: `format/` and `ops/`
 
-The single-concern format crates (`cpk`, `fpk`, `ftex`, `fox2`, `uniparam`, `weszlib`, `kit_config`)
+The single-concern format crates (`cpk`, `fpk`, `ftex`, `fox2`, `uniparam`, `wezlib`, `kit_config`)
 need no prescribed layout — one module tree, read and write, tests. `fmdl` and `pes_model` are
 different: each carries **format-native algorithms** on top of the codec (mesh splitting, split
 vertex encoding, anti-blur decode/encode, multi-model merging, path editing) and has a **second

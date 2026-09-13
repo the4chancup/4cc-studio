@@ -99,7 +99,7 @@ You do not need to read `docs/plans/core.md` end to end. Read this file and the 
 | Working on | Read |
 |---|---|
 | Any code change | `docs/CONTRIBUTING.md`, then the row below that matches; `docs/GLOSSARY.md` whenever a term is unfamiliar; do not infer domain terms from their English meaning |
-| A format or leaf lib crate (`cpk`, `fpk`, `fmdl`, `pes_model`, `ftex`, `dds_convert`, `fox2`, `uniparam`, `weszlib`, `vtree`, `archives`, `fpc`, `teams_list`, `color_tools`, `elevation`) | `docs/plans/libs.md`; for `fmdl`/`pes_model` also "Blender integration" in `model_conversion.md` |
+| A format or leaf lib crate (`cpk`, `fpk`, `fmdl`, `pes_model`, `ftex`, `dds_convert`, `fox2`, `uniparam`, `wezlib`, `vtree`, `archives`, `fpc`, `teams_list`, `color_tools`, `elevation`) | `docs/plans/libs.md`; for `fmdl`/`pes_model` also "Blender integration" in `model_conversion.md` |
 | `kit_config` | `libs.md` for the crate, `kit_config_editor.md` for the format reference |
 | `python_bindings` | "Blender integration" in `model_conversion.md`; guardrail 4 in `core.md` |
 | A tool crate | That tool's plan, plus "Tool plugin interface", "Event system", and the tool-crate skeleton under "Crate structure" in `core.md` |

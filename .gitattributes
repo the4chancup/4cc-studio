@@ -1,1 +1,5 @@
 * text=auto eol=lf
+
+# Test fixtures are game files, never text, whatever their extension or contents
+crates/**/tests/fixtures/** -text
+crates/**/tests/fixtures/**/README.md text

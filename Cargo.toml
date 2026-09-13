@@ -16,20 +16,28 @@ rust-version = "1.98"
 # "External Dependencies" table may be added (CONTRIBUTING.md "Dependencies").
 [workspace.dependencies]
 anyhow = "1.0.104"
+binrw = "0.15.2"
 clap = { version = "4.6.6", features = ["derive"] }
 crossbeam-channel = "0.5.17"
 egui = "0.36.1"
 env_logger = { version = "0.11.11", default-features = false }
+flate2 = "1.1.10"
 log = "0.4.34"
+md-5 = "0.11.0"
 serde = { version = "1.0.229", features = ["derive"] }
+sha2 = "0.11.0"
 thiserror = "2.0.20"
 toml = "0.9.8"
 unicode-normalization = "0.1.25"
 
 # Workspace crates, so a member depends on another by name alone.
+cpk = { path = "crates/libs/cpk" }
+fpk = { path = "crates/libs/fpk" }
+ftex = { path = "crates/libs/ftex" }
 pes_version = { path = "crates/libs/pes_version" }
 studio_core = { path = "crates/studio_core" }
 vtree = { path = "crates/libs/vtree" }
+wezlib = { path = "crates/libs/wezlib" }
 
 # The lint policy, inherited by every member via `[lints] workspace = true`
 # (core plan, "Workspace guardrails" rule 5). Gates run clippy with `-D warnings`, so a

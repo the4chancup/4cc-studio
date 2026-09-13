@@ -1,0 +1,19 @@
+[package]
+name = "ftex"
+description = "Fox Engine FTEX texture container: FTEX <-> DDS"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+binrw.workspace = true
+flate2.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+sha2.workspace = true
+
+[lints]
+workspace = true
