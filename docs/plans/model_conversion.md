@@ -310,6 +310,56 @@ consistent with the audience fixture's `sk_belly` and unverified in game (the wo
 wrote zero for every bone, so the game appears not to read the field when the template `.skl` is
 injected).
 
+What the `.model` pair carries that the IR does not, and how the pre-Fox importer and exporter
+treat it:
+
+- **Bone order.** IR bones are parent-first (a one-pass invariant every consumer relies on, and
+  the order the SKL and FMDL files use). A `.model` lists bones in Konami's order, which is not
+  always parent-first under the render hierarchy: 44 of 2606 Konami files list `dsk_forearm_l`
+  before its render parent `dsk_forearm_t_l`. `model_to_ir` therefore places a bone right after
+  its parent when the file lists it earlier (everything else keeps file order) and remaps the bone
+  groups; vertex indices are untouched. A bone's `parent` is its render parent when that bone is
+  in the model, else `None`, as the legacy converters did (no climbing to a present ancestor: in
+  914 files `skf_brow_*` hangs under the absent `skf_glabella`, and the legacy made them roots).
+- **Stored matrices** are the row-major 3x4 inverse bind, the `Affine` layout: on the fixtures
+  the inverse of the stored matrix equals PES17 `body.skl`'s bind pose within 1.3e-5 (7.2e-5 on
+  the add-on-written card head). A singular stored matrix is an error, not a finding.
+- **Normals and tangents** are three components; the import widens with `w = 1.0` on both, as
+  the working 16→21 converter does. Whether the tangent `w` should instead be the handedness
+  read off the `.model`'s bitangent is an open question for converge (the converter's output is
+  accepted in game as is). Bitangents are carried in the IR and written back verbatim; a Fox
+  source has none and the export writes none, as the 19→16 converter did.
+- **Faces** reverse winding on import and again on export (the IR keeps FMDL's).
+- **Lower LOD levels, Konami tags, editor data, a nonzero mesh `order`, nonzero model
+  `flags`**: not in the IR (no 4cc export carries them). Each non-default one the import drops
+  is a `native_field_dropped` finding whose `detail` names the field; the export writes no
+  LODs (`LodRecord::for_levels(0)`), no tags, `order` 0, `flags` 0, and recomputes the mesh and
+  model bounds from the positions.
+- **Mesh names.** `.model` has no groups; the import makes one group per mesh named after the
+  add-on's mesh name, `mesh_<index>` when the mesh has none (every Konami mesh), and the export
+  names each mesh after the group that lists it (an add-on kind-128 annotation), `None` when no
+  group does. So a Konami `.model` round trip gains `mesh_<index>` names; the game ignores them.
+- **Per-mesh extension headers** carry over minus the codec markers (`Split-Mesh` is consumed
+  by the split decode, the vertex-loop marker by the export's re-encode).
+- **The `.mtl`.** Each material name the model binds must have a definition, else an error; a
+  definition no mesh binds (Konami's `accessory.mtl` defines many parts' materials in one file)
+  is not carried, so the exported `.mtl` holds exactly the model's materials, in model order.
+  Sampler paths split at the last `/` into `Texture`; entries are written samplers first, then
+  states, then vectors: Konami's own order in 1217 of the 1265 materials that mix samplers and
+  states (census over 941 PES 2017 `.mtl`, 3102 materials; 14 put states first, `glasses_02T`
+  among them), so a round trip of those 14 regroups entries and changes nothing else.
+- **Indices without weights.** A `.model` mesh may store bone indices and no weights (Konami's
+  cards and glasses: slot 0 binds the vertex fully). The IR keeps one representation, indices
+  and weights together, so the import synthesizes `[1, 0, 0, 0]` per vertex and the export writes
+  the weights out (`QuadFloat32`): the same binding in the other of the format's two spellings,
+  not a loss, so no finding.
+- **`transparent` and the stored states.** `model_to_ir` reads `transparent` off `alphablend`
+  alone, so on export the boolean owns `alphablend` alone when a `prefox` table is present (as
+  `two_sided` owns `twosided`); the `zwrite`/`alphatest`/`alphablend` triple is set as a whole
+  only when the states come from the family default set. Otherwise a stored `alphatest: 1,
+  alphablend: 1` (the add-on's card heads) would come back as `alphatest: 0`, rewritten by the
+  very boolean read from it.
+
 **Stem-based texture references (input).** All three formats reference textures
 by **stem** (filename without extension) in their **source/authoring** form; the
 compiler resolves each stem to whatever accepted image file exists in the model
@@ -942,8 +992,12 @@ of the **broken wrist pose in some PES15 animations (the pre-match entrance) on 
 pose-dependent error is exactly what wrong bind pivots produce. *Hypothesis; verify on a known-broken
 port once the pass exists.*
 
-The Studio runs one IR pass, `retarget(ir, target_version) -> Vec<loss::Finding>`, in every export
-path after conversion and before mesh splitting. The source bind pose is already in the IR's
+The Studio runs one IR pass, `retarget(ir: &mut CanonicalModel, target: PesVersion) ->
+Result<Vec<loss::Finding>, ConvertError>` (`skeletons/retarget.rs`; the error is a singular bind
+matrix, which no importer lets through), in every export path after conversion and before mesh
+splitting. A bone is *standard* when some version's tables (any body, face or hand skeleton) name
+it, *custom* otherwise; only standard bones the target lacks are folded, and custom bones pass
+through untouched, matrices included. The source bind pose is already in the IR's
 `Bone.matrix` (the importers put it there); the pass rewrites the bones and vertices in place:
 
 1. **Source bind pose.** `.model`: the inline matrices, inverted. glTF: `skin.inverseBindMatrices`.
@@ -964,17 +1018,28 @@ path after conversion and before mesh splitting. The source bind pose is already
    `dsk_pos_trapezius_l` → `dsk_trapezius_l` → `sk_shoulder_l` on PES15); a unit test walks every
    entry against every version and fails on a chain that ends nowhere or loops. A removed bone with
    no entry (PES21's `dsk_back`, the `pos_arm_target_*` IK helpers) falls back to the **nearest
-   target bone by rest position** and is reported (`bone_folded_for_version`, I, per bone). Bone
-   groups and vertex mappings are remapped exactly as the simplifier's `simplifyModel` does. The SKL
-   parent chain is *not* used: almost every `dsk_*` bone is a root in the games' own files.
+   target body bone by rest position** (the model's own bind translation against the target
+   table's). Every fold of a weighted bone is reported, one finding per bone with `detail`
+   `"<bone> -> <target>"`: `bone_folded_for_version` from the table, `bone_folded_by_position`
+   for the fallback (a guess the user should hear about); an unweighted removed bone just
+   disappears. Bone groups and vertex mappings are remapped exactly as the simplifier's
+   `simplifyModel` does: the folded bone leaves the bone list and every group, the target bone is
+   appended where absent (to the model with the target's matrix, to the group), and a vertex whose
+   slots now name one bone twice merges the weights into the first slot. Children of a removed bone
+   take its parent. The SKL parent chain is *not* used: almost every `dsk_*` bone is a root in the
+   games' own files.
 3. **Re-bind to the target pose** (problem B). For every surviving bone, re-pose the vertices from
    the source rest pose into the target's — `v' = Σᵢ wᵢ · B_target,ᵢ · B_source,ᵢ⁻¹ · v` over the
    vertex's weights, normals/tangents by the rotational part — and write the **target version's**
    inverse bind matrices into the emitted `.model` bone table or generated `.skl`. Weights are
    untouched: `dsk_scapula_r` keeps driving the shoulder blade, sitting where PES15 expects it.
-   Reported once per model as `skeleton_retargeted` (I) when any bone moved more than a tolerance
-   (1e-3); a same-version compile is a no-op by construction. Bones the target's tables do not know
-   at all (a genuine custom skeleton) keep the model's own matrices, as before.
+   Reported once per model as `skeleton_retargeted` (I, `detail` the moved-bone count) when any
+   bone's delta `Dᵢ` differs from the identity by more than a tolerance (1e-3 on any component);
+   a bone within tolerance is left exactly as it was, and a vertex none of whose bones moved is
+   not touched, so a same-version compile is a no-op by construction, float noise included.
+   Normals, tangents (xyz; `w` kept) and bitangents take the blended rotation and are
+   renormalized. Bones the target's tables do not know at all (a genuine custom skeleton) keep
+   the model's own matrices, as before.
 4. **Hands and face** conform the same way against the target's `hand_*`/`face` tables where it
    ships them (Fox) and PES19's otherwise.
 

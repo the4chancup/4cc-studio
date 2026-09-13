@@ -244,6 +244,26 @@ mod tests {
     }
 
     #[test]
+    fn render_parent_chains_end_at_a_root() {
+        // `model_to_ir`'s parent-first placement waits a bone on its unplaced parent; a
+        // cycle in this table would leave bones waiting forever.
+        for &(name, _) in render_parents::RENDER_PARENTS {
+            let mut bone = name;
+            for _ in 0..render_parents::RENDER_PARENTS.len() {
+                match render_parent(bone) {
+                    Some(parent) => bone = parent,
+                    None => break,
+                }
+            }
+            assert!(
+                render_parent(bone).is_none(),
+                "{name}: chain still going after {} hops",
+                render_parents::RENDER_PARENTS.len()
+            );
+        }
+    }
+
+    #[test]
     fn fold_chains_land_on_a_bone() {
         for version in PesVersion::ALL {
             let body = &skeletons(version).body;

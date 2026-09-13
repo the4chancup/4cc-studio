@@ -119,7 +119,8 @@ pub struct ResolvedPreFox {
     /// The shader name.
     pub shader: String,
     /// In `STATE_ORDER`; a native table's extra states (`shadowcaster`) follow in stored
-    /// order.
+    /// order. `two_sided` always owns `twosided`; `transparent` owns `alphablend` alone over
+    /// a native table and the `zwrite`/`alphatest`/`alphablend` triple over the family set.
     pub states: Vec<(String, u32)>,
     /// `(sampler name, settings, texture index)`: canonical roles first in `TextureRole`
     /// order, then `prefox.textures` verbatim with the settings `prefox.samplers` holds for
@@ -141,7 +142,8 @@ fn set_state(states: &mut Vec<(String, u32)>, name: &str, value: u32) {
     }
 }
 
-/// `transparent` owns the `zwrite`/`alphatest`/`alphablend` triple.
+/// `transparent` owns the `zwrite`/`alphatest`/`alphablend` triple — called only for the
+/// family-default set; over a native table it owns `alphablend` alone (see `resolve`).
 fn apply_transparent(states: &mut Vec<(String, u32)>, transparent: bool) {
     for (name, value) in state_set(transparent) {
         if matches!(name, "zwrite" | "alphatest" | "alphablend") {
@@ -195,7 +197,13 @@ pub fn resolve(material: &Material) -> ResolvedPreFox {
         set_state(&mut states, "twosided", u32::from(two_sided));
     }
     if let Some(transparent) = material.transparent {
-        apply_transparent(&mut states, transparent);
+        match prefox {
+            // The boolean was read off `alphablend` alone, so over a stored table it owns
+            // `alphablend` alone — rewriting the whole triple would clobber a stored
+            // `alphatest` the import never looked at.
+            Some(_) => set_state(&mut states, "alphablend", u32::from(transparent)),
+            None => apply_transparent(&mut states, transparent),
+        }
     }
 
     let mut samplers = Vec::new();
@@ -414,7 +422,7 @@ mod tests {
     }
 
     #[test]
-    fn explicit_booleans_own_the_triple_over_the_table() {
+    fn transparent_owns_only_alphablend_over_the_table() {
         let mut mat = material(MaterialFamily::Shaded);
         mat.transparent = Some(false);
         mat.prefox = Some(PreFoxMaterial {
@@ -431,8 +439,37 @@ mod tests {
         });
         let resolved = resolve(&mat);
         assert_eq!(state(&resolved.states, "alphablend"), 0);
-        assert_eq!(state(&resolved.states, "zwrite"), 1);
+        // The rest of the stored triple is the table's, not the boolean's.
+        assert_eq!(state(&resolved.states, "zwrite"), 0);
+        assert_eq!(state(&resolved.states, "alphatest"), 0);
+    }
+
+    #[test]
+    fn transparent_owns_the_triple_without_a_table() {
+        let mut mat = material(MaterialFamily::Shaded);
+        mat.transparent = Some(true);
+        let resolved = resolve(&mat);
+        assert_eq!(state(&resolved.states, "zwrite"), 0);
+        assert_eq!(state(&resolved.states, "alphatest"), 0);
+        assert_eq!(state(&resolved.states, "alphablend"), 1);
+    }
+
+    #[test]
+    fn transparent_leaves_a_stored_alphatest_alone() {
+        // The add-on card heads store `alphatest: 1, alphablend: 1`; `transparent` was read
+        // off `alphablend` alone and must not rewrite `alphatest`.
+        let mut mat = material(MaterialFamily::Shaded);
+        mat.transparent = Some(true);
+        mat.prefox = Some(PreFoxMaterial {
+            shader: "Basic_C".to_string(),
+            states: vec![("alphatest".to_string(), 1), ("alphablend".to_string(), 1)],
+            samplers: vec![],
+            textures: vec![],
+            parameters: vec![],
+        });
+        let resolved = resolve(&mat);
         assert_eq!(state(&resolved.states, "alphatest"), 1);
+        assert_eq!(state(&resolved.states, "alphablend"), 1);
     }
 
     #[test]

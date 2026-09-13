@@ -1198,3 +1198,18 @@ its result; the encode is not a no-op on Konami files (highneck: 198 of 204 vert
 vertex multiset and face corner-tuples unchanged), and the legacy converters reorder the same way,
 so a byte-order comparison would fail on correct output.
 Plan: `model_conversion.md` "Extension algorithms" gains the paragraph.
+
+## 2026-09-14 - model_convert - `.model` import reorders bones parent-first; direct render parent only
+Decision: `model_to_ir` moves a bone to right after its render parent when the file lists it
+earlier (44 of 2606 Konami `.model` files, all `dsk_forearm_*` before `dsk_forearm_t_*`) and
+remaps the bone groups; `parent` is the render parent only when present in the model, never a
+further ancestor. Tangent `w` is 1.0 on import (the 16->21 converter's value); reading the
+handedness off the bitangent is an open question. Fields the IR lacks (LODs, tags, editor data,
+`order`, `flags`) become one `native_field_dropped` finding each when non-default. `.mtl`
+definitions the model does not bind are not carried.
+Why: the IR's parent-first invariant is what the SKL and FMDL writers need and what a one-pass
+consumer relies on; relaxing it for 1.7% of Konami files would push order handling into every
+consumer. Climbing to a present ancestor would give `skf_brow_*` a parent in 914 files where the
+legacy converters made them roots, a behavior change with no evidence of need. Silent field
+drops are what the plan's "losses explicit, not accidental" rule forbids.
+Plan: `model_conversion.md` "Material sources per format" gains the `.model`-pair list.

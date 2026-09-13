@@ -16,20 +16,12 @@ use crate::loss::{self, Finding, Subject};
 use crate::materials::{FoxMaterial, MaterialFamily, TextureRole, family, to_fox};
 use crate::skeletons::{self, skeletons};
 
-use super::ConvertError;
+pub use super::Imported;
+use super::{ConvertError, drop_out_of_group_slots};
 
 /// The directory the game's dummy normal and specular maps live in (the same dummies the
 /// anti-blur materials use).
 const TEXTURE_DIRECTORY: &str = "/Assets/pes16/model/character/common/sourceimages/";
-
-/// A model imported from FMDL plus what the import had to decide.
-#[derive(Debug)]
-pub struct Imported {
-    /// The IR model.
-    pub model: CanonicalModel,
-    /// The findings the import produced.
-    pub findings: Vec<loss::Finding>,
-}
 
 /// A model exported to FMDL: the companion SKL only when a bone unknown to the template
 /// tables survives (a model on the standard skeleton gets none; the compiler injects the
@@ -220,29 +212,12 @@ pub fn fmdl_to_ir(
                 .map(|row| row.map(|w| w as f32 / 255.0))
                 .collect()
         });
-        let mut dropped = 0usize;
-        if let (Some(indices), Some(weights)) = (&vertices.bone_indices, bone_weights.as_mut()) {
-            for (row, weights) in indices.iter().zip(weights.iter_mut()) {
-                let mut vertex_dropped = false;
-                for (slot, index) in row.iter().enumerate() {
-                    if weights[slot] > 0.0 && usize::from(*index) >= mesh.bone_group.len() {
-                        weights[slot] = 0.0;
-                        vertex_dropped = true;
-                        dropped += 1;
-                    }
-                }
-                // Renormalize only the vertices a slot dropped from; the rest keep the
-                // file's exact weights.
-                if vertex_dropped {
-                    let sum: f32 = weights.iter().sum();
-                    if sum > 0.0 {
-                        for weight in weights.iter_mut() {
-                            *weight /= sum;
-                        }
-                    }
-                }
+        let dropped = match (&vertices.bone_indices, bone_weights.as_mut()) {
+            (Some(indices), Some(weights)) => {
+                drop_out_of_group_slots(indices, weights, mesh.bone_group.len())
             }
-        }
+            _ => 0,
+        };
         if dropped > 0 {
             findings.push(Finding {
                 code: "bone_slot_dropped",
