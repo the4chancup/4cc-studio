@@ -1,7 +1,7 @@
 //! The settings framework: one TOML file holding the common settings under `[common]` and one
 //! table per tool under its id (`[team-compiler]`). Loading fills missing common keys with their
 //! defaults; each tool's `default_settings()` is merged into its table the same way, which is what
-//! replaces Red's settings-transfer step between versions (core plan, "Settings menu").
+//! carries settings across versions without a migration step (core plan, "Settings menu").
 //!
 //! Saving is the caller's policy: this module writes the file and reports failure; the shell
 //! keeps the in-memory settings and raises the `data_dir_read_only` condition.

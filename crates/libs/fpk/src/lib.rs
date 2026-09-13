@@ -4,7 +4,7 @@
 //! entry (content offset/length, name offset/length, MD5 of the name), a
 //! NUL-terminated name pool padded to 16, then the contents each padded to
 //! 16. FPKD is the same container with a `d` kind byte. The writer sorts
-//! entries by name, matching pes-file-tools byte for byte.
+//! entries by name, so the same entries always give the same bytes.
 
 use std::collections::BTreeMap;
 use std::io::Cursor;
@@ -141,9 +141,7 @@ impl FpkFile {
                 .ok_or(FpkError::Truncated)?;
             let content = bytes
                 .get(record.content_offset as usize..content_end as usize)
-                .ok_or(FpkError::OutOfBounds {
-                    name: name.clone(),
-                })?;
+                .ok_or(FpkError::OutOfBounds { name: name.clone() })?;
             if entries.insert(name.clone(), content.to_vec()).is_some() {
                 return Err(FpkError::DuplicateEntry(name));
             }
@@ -152,8 +150,8 @@ impl FpkFile {
         Ok(FpkFile { kind, entries })
     }
 
-    /// Serializes the package, byte-identical to pes-file-tools' `write` for
-    /// the same entries: name order, name pool and contents padded to 16.
+    /// Serializes the package: entries in name order, name pool and contents
+    /// padded to 16, identical bytes for identical entries.
     pub fn write(&self) -> Vec<u8> {
         let mut name_pool = Vec::new();
         let mut content_pool = Vec::new();
@@ -195,9 +193,9 @@ impl FpkFile {
             unknown2: 0,
         };
 
-        let mut output = Vec::new();
+        let mut writer = Cursor::new(Vec::new());
         header
-            .write(&mut output)
+            .write(&mut writer)
             .unwrap_or_else(|_| unreachable!("Vec write is infallible"));
         for (content_offset, content_length, name_offset, name_length, checksum) in records {
             EntryRecord {
@@ -207,9 +205,10 @@ impl FpkFile {
                 name_length,
                 checksum: checksum.into(),
             }
-            .write(&mut output)
+            .write(&mut writer)
             .unwrap_or_else(|_| unreachable!("Vec write is infallible"));
         }
+        let mut output = writer.into_inner();
         output.extend_from_slice(&name_pool);
         output.extend_from_slice(&content_pool);
         output
@@ -306,10 +305,7 @@ mod tests {
         assert_eq!(
             entries,
             [
-                (
-                    "/Assets/pes16/model/bg/common/audi/scenes/au00.skl",
-                    1088
-                ),
+                ("/Assets/pes16/model/bg/common/audi/scenes/au00.skl", 1088),
                 (
                     "/Assets/pes16/model/bg/common/audi/scenes/au_Low_parts.fmdl",
                     10567
@@ -348,7 +344,11 @@ mod tests {
         }
         // Insert in a different order: the writer sorts by name anyway.
         let mut rebuilt = FpkFile::new(FpkKind::Fpk);
-        for (name, content) in [sample_entries()[2].clone(), sample_entries()[0].clone(), sample_entries()[1].clone()] {
+        for (name, content) in [
+            sample_entries()[2].clone(),
+            sample_entries()[0].clone(),
+            sample_entries()[1].clone(),
+        ] {
             rebuilt.insert(name, content);
         }
         assert_eq!(rebuilt.write(), SAMPLE_FPK);
@@ -370,6 +370,75 @@ mod tests {
             assert_eq!(before, after);
             assert_eq!(fpk.kind(), reread.kind());
         }
+    }
+
+    #[test]
+    fn konami_rewrites_are_byte_identical() {
+        for bytes in [COACHING, LOW_PARTS, SEAT] {
+            let fpk = FpkFile::read(bytes).unwrap();
+            assert_eq!(fpk.write(), bytes);
+        }
+    }
+
+    #[test]
+    fn unsupported_header_constants_error() {
+        // Header: unknown1 (u32) at 32, file_count at 36, reference_count at
+        // 40, unknown2 at 44.
+        for (offset, field) in [
+            (32usize, "unknown1"),
+            (40, "reference_count"),
+            (44, "unknown2"),
+        ] {
+            let mut bad = SAMPLE_FPK.to_vec();
+            bad[offset] = 1;
+            assert!(
+                matches!(FpkFile::read(&bad), Err(FpkError::Unsupported(f)) if f == field),
+                "offset {offset}"
+            );
+        }
+    }
+
+    #[test]
+    fn corrupt_entries_error() {
+        // First record at 48: content offset, content length, name offset,
+        // name length (u64 each), then the 16-byte checksum.
+        let mut dup = SAMPLE_FPK.to_vec();
+        // Point the second record's name at the first record's name.
+        let name_offset = u64::from_le_bytes(dup[48 + 16..48 + 24].try_into().unwrap());
+        let name_length = u64::from_le_bytes(dup[48 + 24..48 + 32].try_into().unwrap());
+        dup[48 + 48 + 16..48 + 48 + 24].copy_from_slice(&name_offset.to_le_bytes());
+        dup[48 + 48 + 24..48 + 48 + 32].copy_from_slice(&name_length.to_le_bytes());
+        // Give the duplicate a matching checksum.
+        let checksum: [u8; 16] = dup[48 + 32..48 + 48].try_into().unwrap();
+        dup[48 + 48 + 32..48 + 48 + 48].copy_from_slice(&checksum);
+        assert!(matches!(
+            FpkFile::read(&dup),
+            Err(FpkError::DuplicateEntry(_))
+        ));
+
+        // Content range past the end (real offset + file-length size).
+        let mut bounds = SAMPLE_FPK.to_vec();
+        bounds[48 + 8..48 + 16].copy_from_slice(&(SAMPLE_FPK.len() as u64).to_le_bytes());
+        assert!(matches!(
+            FpkFile::read(&bounds),
+            Err(FpkError::OutOfBounds { .. })
+        ));
+
+        // Name range past the end.
+        let mut name_bounds = SAMPLE_FPK.to_vec();
+        name_bounds[48 + 16..48 + 24].copy_from_slice(&u64::MAX.to_le_bytes());
+        assert!(matches!(
+            FpkFile::read(&name_bounds),
+            Err(FpkError::Truncated)
+        ));
+
+        // A non-UTF-8 name (with a matching checksum so only decoding fails).
+        let mut utf8 = SAMPLE_FPK.to_vec();
+        let off = name_offset as usize;
+        utf8[off] = 0xff;
+        let digest: [u8; 16] = Md5::digest(&utf8[off..off + name_length as usize]).into();
+        utf8[48 + 32..48 + 48].copy_from_slice(&digest);
+        assert!(matches!(FpkFile::read(&utf8), Err(FpkError::Utf8(_))));
     }
 
     #[test]

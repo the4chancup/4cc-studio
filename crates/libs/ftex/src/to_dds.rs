@@ -1,13 +1,14 @@
-//! FTEX -> DDS, byte-identical to pes-file-tools' `ftexToDdsBuffer`.
+//! FTEX -> DDS: one frame per mip per image, DDS header rebuilt from the FTEX
+//! header, byte-identical to the conversion the 4cc compilers have shipped.
 
 use std::io::{Cursor, Read, Seek, SeekFrom};
 
-use binrw::BinRead;
+use binrw::{BinRead, BinWrite};
 use flate2::read::ZlibDecoder;
 
-use crate::dds::{DdsHeader, Dx10Header};
-use crate::format::{mip_size, ChunkRecord, FtexHeader, FtexInfo, PixelFormat};
 use crate::FtexError;
+use crate::dds::{DdsHeader, Dx10Header};
+use crate::format::{ChunkRecord, FtexHeader, FtexInfo, MipRecord, PixelFormat, mip_size};
 
 /// Reads only the header and reports what texture checks ask for.
 pub fn info(ftex: &[u8]) -> Result<FtexInfo, FtexError> {
@@ -25,16 +26,15 @@ pub fn info(ftex: &[u8]) -> Result<FtexInfo, FtexError> {
     })
 }
 
-/// Converts a whole FTEX buffer to a DDS file, reproducing
-/// `ftexToDdsBuffer`'s headers, frame order and per-frame padding exactly.
+/// Converts a whole FTEX buffer to a DDS file: headers, frame order and
+/// per-frame padding exactly as the 4cc compilers have always emitted them.
 pub fn ftex_to_dds(ftex: &[u8]) -> Result<Vec<u8>, FtexError> {
     let header = read_header(ftex)?;
     let format = PixelFormat::from_id(header.pixel_format)
         .ok_or(FtexError::UnsupportedFormat(header.pixel_format))?;
 
     let mut dds_flags = 0x1 | 0x2 | 0x4 | 0x1000 | 0x20000;
-    // capabilities, complex, mipmap — the cube-map branch in the reference
-    // adds only bits that are already set here.
+    // capabilities, complex, mipmap; a cube map adds no further caps1 bits.
     let caps1 = 0x1000 | 0x8 | 0x400000;
     let mut caps2 = 0u32;
 
@@ -107,6 +107,7 @@ pub fn ftex_to_dds(ftex: &[u8]) -> Result<Vec<u8>, FtexError> {
 
     let (pitch_or_linear, format_flags, fourcc, rgb_bit_count, masks, dx10) =
         if format == PixelFormat::Argb8 {
+            dds_flags |= 0x8; // pitch
             (
                 4 * u32::from(header.width),
                 0x41u32,
@@ -155,13 +156,14 @@ pub fn ftex_to_dds(ftex: &[u8]) -> Result<Vec<u8>, FtexError> {
         capabilities2: caps2,
     };
 
-    let mut output = Vec::new();
-    dds.write(&mut output)
+    let mut writer = Cursor::new(Vec::new());
+    dds.write(&mut writer)
         .unwrap_or_else(|_| unreachable!("Vec write is infallible"));
     if let Some(dx10) = dx10 {
-        dx10.write(&mut output)
+        dx10.write(&mut writer)
             .unwrap_or_else(|_| unreachable!("Vec write is infallible"));
     }
+    let mut output = writer.into_inner();
     for frame in frames {
         output.extend_from_slice(&frame);
     }
@@ -202,10 +204,10 @@ fn read_frame(
 
     if chunk_count == 0 {
         if compressed_size == 0 {
-            return Ok(take(&mut cursor, ftex, uncompressed_size as usize)?);
+            return take(&mut cursor, ftex, uncompressed_size as usize);
         }
         let packed = take(&mut cursor, ftex, compressed_size as usize)?;
-        return Ok(inflate(&packed)?);
+        return inflate(&packed);
     }
 
     let mut chunks = Vec::with_capacity(usize::from(chunk_count));

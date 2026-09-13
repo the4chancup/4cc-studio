@@ -1,5 +1,5 @@
 //! The common settings: what every tool shares (core plan, "Settings menu"; Team compiler plan,
-//! "Common settings"). Defaults are Studio's, not Red's, where the plan says so.
+//! "Common settings").
 
 use std::path::PathBuf;
 use std::thread::available_parallelism;
@@ -7,7 +7,7 @@ use std::thread::available_parallelism;
 use pes_version::PesVersion;
 use serde::{Deserialize, Serialize};
 
-/// Red's default PES folder, with `**` standing for the two-digit version.
+/// The default PES folder, with `**` standing for the two-digit version.
 #[cfg(windows)]
 const DEFAULT_PES_FOLDER: &str = r"C:\Program Files (x86)\Pro Evolution Soccer 20**";
 /// No sensible default exists off Windows; the user sets it.

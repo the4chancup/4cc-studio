@@ -20,7 +20,7 @@ pub struct CpkEntry {
     pub packed_size: u32,
     /// Absolute offset in the archive: `FileOffset` plus the CRI base, which
     /// is `min(ContentOffset, TocOffset)` — 0x800 in every PES file on hand
-    /// (Blue hardcodes 0x800 for the same reason).
+    /// (every PES archive on hand gives 0x800).
     pub offset: u64,
     /// The ETOC timestamp, when the archive carries one for this entry.
     pub modified: Option<CpkTimestamp>,
@@ -87,7 +87,7 @@ impl<R: Read + Seek> CpkArchive<R> {
         let content_offset = header_u64(&header, "ContentOffset")?;
         let toc_offset = header_u64(&header, "TocOffset")?;
         // The real content base libcpk uses is the earlier of the two header
-        // offsets; Blue hardcodes the observed 0x800.
+        // offsets; every PES archive on hand gives 0x800.
         let base = content_offset.min(toc_offset);
 
         let toc = read_table(&mut reader, file_len, toc_offset, b"TOC ")?;

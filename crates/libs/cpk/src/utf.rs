@@ -329,7 +329,7 @@ impl UtfTable {
         })
     }
 
-    /// Serializes the table under `tag`, reproducing pes-file-tools' layout
+    /// Serializes the table under `tag`, in the fixed layout
     /// exactly: columns in order, `Null` storage only when the table has
     /// exactly one row and that cell is null (`Constant` is never written),
     /// strings deduplicated in first-use order with the table name first, data
@@ -468,7 +468,7 @@ fn write_cell(
             row.extend_from_slice(&(b.len() as u32).to_be_bytes());
         }
         // A null or type-mismatched cell in a variable column: emit the
-        // zero-equivalent so the row keeps its declared length. pes-file-tools
+        // zero-equivalent so the row keeps its declared length. the legacy layout
         // crashes here; the parity path never produces this.
         (UtfKind::U8, _) => row.push(0),
         (UtfKind::U16, _) => row.extend_from_slice(&0u16.to_be_bytes()),
