@@ -1,11 +1,13 @@
 //! The `teams_list.txt` file: header, team rows, inert placeholders.
 //!
 //! Contract: tab-separated, a required header line whose fields are preserved
-//! verbatim on write, `ID` and `Name` located by header position, further
-//! columns carried verbatim in `rest`, the `Name` column folded through
-//! [`TeamName::new`] on load, lines whose `Name` does not fold kept verbatim
-//! as placeholders and never looked up, BOM tolerated on read and never
-//! written, blank lines dropped, CRLF or LF read and CRLF always written.
+//! verbatim on write, `ID` and `Name` located by header position in either
+//! order, every line's cells carried verbatim, the `Name` column folded
+//! through [`TeamName::new`] on load, lines whose `Name` does not fold kept
+//! verbatim as placeholders and never looked up, BOM tolerated on read and
+//! never written, blank lines dropped, CRLF or LF read and CRLF always
+//! written. A placeholder whose `ID` cell holds a number in 701..=920 still
+//! claims that id: the file rejects any two rows sharing one.
 
 use crate::id::TeamId;
 use crate::name::TeamName;
@@ -13,23 +15,21 @@ use crate::name::TeamName;
 /// One line of the file, in file order.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Row {
-    /// A team: valid id and a name that folds.
+    /// A team: the line's cells plus the validated id and folded name read
+    /// from the id and name columns.
     Team {
+        /// The line's raw tab-separated cells.
+        cells: Vec<String>,
         /// The validated team id.
         id: TeamId,
         /// The folded, canonical name (the lookup key).
         name: TeamName,
-        /// The `Name` column's original spelling (e.g. `/umaJP/`), kept so an
-        /// unmodified list writes back byte-identically.
-        raw_name: String,
-        /// The columns after `Name`, kept verbatim.
-        rest: Vec<String>,
     },
-    /// A line whose `Name` does not fold (e.g. `Backup 1`, `Invitational 68`):
-    /// kept verbatim as its raw fields and never looked up.
+    /// A line whose `Name` cell does not fold (e.g. `Backup 1`,
+    /// `Invitational 68`): kept verbatim and never looked up.
     Placeholder {
-        /// The line's raw tab-separated fields.
-        fields: Vec<String>,
+        /// The line's raw tab-separated cells.
+        cells: Vec<String>,
     },
 }
 
@@ -37,6 +37,8 @@ pub enum Row {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TeamsList {
     header: Vec<String>,
+    id_column: usize,
+    name_column: usize,
     rows: Vec<Row>,
 }
 
@@ -61,59 +63,63 @@ impl TeamsList {
             if raw_line.trim().is_empty() {
                 continue;
             }
-            let fields: Vec<String> = raw_line.split('\t').map(str::to_owned).collect();
+            let cells: Vec<String> = raw_line.split('\t').map(str::to_owned).collect();
             if header.is_none() {
-                if fields.first().map(String::as_str) != Some("ID") {
-                    return Err(TeamsListError::MissingHeader);
-                }
-                id_column = fields
+                id_column = cells
                     .iter()
                     .position(|f| f == "ID")
                     .ok_or(TeamsListError::MissingColumn("ID"))?;
-                name_column = fields
+                name_column = cells
                     .iter()
                     .position(|f| f == "Name")
                     .ok_or(TeamsListError::MissingColumn("Name"))?;
-                header = Some(fields);
+                header = Some(cells);
                 continue;
             }
 
-            let raw_name = fields.get(name_column).cloned().unwrap_or_default();
-            let name = match TeamName::new(&raw_name) {
-                Ok(name) => name,
-                Err(_) => {
-                    rows.push(Row::Placeholder { fields });
-                    continue;
-                }
-            };
-            let id_text = fields.get(id_column).cloned().unwrap_or_default();
+            let raw_name = cells.get(name_column).cloned().unwrap_or_default();
+            let id_text = cells.get(id_column).cloned().unwrap_or_default();
             let id = id_text
                 .parse::<u16>()
                 .ok()
-                .and_then(|value| TeamId::new(value).ok())
-                .ok_or_else(|| TeamsListError::InvalidId {
-                    line,
-                    text: id_text.clone(),
-                })?;
-            if seen_ids.insert(id, line).is_some() {
-                return Err(TeamsListError::DuplicateId { line, id: id.get() });
+                .and_then(|value| TeamId::new(value).ok());
+            match TeamName::new(&raw_name) {
+                Ok(name) => {
+                    let id = id.ok_or_else(|| TeamsListError::InvalidId {
+                        line,
+                        text: id_text.clone(),
+                    })?;
+                    if seen_ids.insert(id, line).is_some() {
+                        return Err(TeamsListError::DuplicateId { line, id: id.get() });
+                    }
+                    if seen_names.insert(name.clone(), line).is_some() {
+                        return Err(TeamsListError::DuplicateName {
+                            line,
+                            name: name.as_str().to_owned(),
+                        });
+                    }
+                    rows.push(Row::Team { cells, id, name });
+                }
+                Err(_) => {
+                    // A placeholder's numeric in-range id is still part of
+                    // the id space.
+                    if let Some(id) = id
+                        && seen_ids.insert(id, line).is_some()
+                    {
+                        return Err(TeamsListError::DuplicateId { line, id: id.get() });
+                    }
+                    rows.push(Row::Placeholder { cells });
+                }
             }
-            if seen_names.insert(name.clone(), line).is_some() {
-                return Err(TeamsListError::DuplicateName {
-                    line,
-                    name: name.as_str().to_owned(),
-                });
-            }
-            rows.push(Row::Team {
-                id,
-                name,
-                raw_name,
-                rest: fields.into_iter().skip(name_column + 1).collect(),
-            });
         }
 
         let header = header.ok_or(TeamsListError::MissingHeader)?;
-        Ok(TeamsList { header, rows })
+        Ok(TeamsList {
+            header,
+            id_column,
+            name_column,
+            rows,
+        })
     }
 
     /// Header + rows, tab-separated, CRLF line ends, no BOM — exactly the
@@ -123,22 +129,10 @@ impl TeamsList {
         output.push_str(&self.header.join("\t"));
         output.push_str("\r\n");
         for row in &self.rows {
-            match row {
-                Row::Team {
-                    id, raw_name, rest, ..
-                } => {
-                    output.push_str(&id.get().to_string());
-                    output.push('\t');
-                    output.push_str(raw_name);
-                    for field in rest {
-                        output.push('\t');
-                        output.push_str(field);
-                    }
-                }
-                Row::Placeholder { fields } => {
-                    output.push_str(&fields.join("\t"));
-                }
-            }
+            let cells = match row {
+                Row::Team { cells, .. } | Row::Placeholder { cells } => cells,
+            };
+            output.push_str(&cells.join("\t"));
             output.push_str("\r\n");
         }
         output
@@ -171,19 +165,37 @@ impl TeamsList {
         &self.rows
     }
 
-    pub(crate) fn from_parts(header: Vec<String>, rows: Vec<Row>) -> TeamsList {
-        TeamsList { header, rows }
+    pub(crate) fn from_parts(
+        header: Vec<String>,
+        id_column: usize,
+        name_column: usize,
+        rows: Vec<Row>,
+    ) -> TeamsList {
+        TeamsList {
+            header,
+            id_column,
+            name_column,
+            rows,
+        }
     }
 
     pub(crate) fn header(&self) -> &[String] {
         &self.header
+    }
+
+    pub(crate) fn id_column(&self) -> usize {
+        self.id_column
+    }
+
+    pub(crate) fn name_column(&self) -> usize {
+        self.name_column
     }
 }
 
 /// Why a `teams_list.txt` text cannot be parsed.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum TeamsListError {
-    /// The first non-blank line's first field is not exactly `ID`.
+    /// The file has no non-blank line to take as the header.
     #[error("missing teams list header")]
     MissingHeader,
     /// The header lacks the named column.
@@ -198,7 +210,7 @@ pub enum TeamsListError {
         /// The raw `ID` field text.
         text: String,
     },
-    /// Two team rows share an id.
+    /// Two rows share an id, teams and numeric placeholders alike.
     #[error("duplicate team id {id} on line {line}")]
     DuplicateId {
         /// 1-based line number in the input.

@@ -162,9 +162,12 @@ Spec: `docs/plans/core.md` "Phase 2", `docs/plans/libs.md`, `model_conversion.md
   lower mips, BC1 output and every generated mip proved by decode against the reference; `ftex`
   refuses DX10 arrays, the DX10 cube flag and signed BC4/BC5, reads B8G8R8X8 as opaque. 13 + 8
   tests (review A, all seven accepted)
-- [ ] 2.12b `teams_list` review fixes: columns carried by header position (any order, any extra
-  column), reconcile validates the final mapping (ID swaps), placeholder IDs in the uniqueness
-  set with an incoming team taking a placeholder's slot (review B)
+- [x] 2.12b `teams_list` review fixes — done (sidekick): rows keep every cell, `ID`/`Name`
+  located anywhere in the header; placeholder ids (all 95 in the shipped list are numeric) join
+  the duplicate check and an incoming team takes a placeholder's slot; reconcile applies every
+  incoming change then reverts the ones whose final id collides. 14 tests (review B, findings
+  1-3). Converge note: the revert loop in `reconcile.rs` is heavier than the plan's sentence;
+  candidate for simplification at 2.20
 - [ ] 2.13b `kit_config` review fixes: PES 15 pattern per the plan, validation reports every
   value emission clamps and emission clamps what validation reports, wrong-typed TOML tables are
   errors, hex parsing cannot panic (review B)

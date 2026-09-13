@@ -49,7 +49,7 @@ mod tests {
         assert_eq!(placeholders, 95);
         assert!(matches!(
             &list.rows()[71],
-            Row::Placeholder { fields } if fields[0] == "772" && fields[1] == "Backup 1" && fields.len() == 4
+            Row::Placeholder { cells } if cells[0] == "772" && cells[1] == "Backup 1" && cells.len() == 4
         ));
         assert_eq!(list.teams().count(), 220 - placeholders);
     }
@@ -68,10 +68,6 @@ mod tests {
 
     #[test]
     fn header_errors_carry_the_right_variant_and_line() {
-        assert_eq!(
-            TeamsList::parse("Name\tID\n"),
-            Err(TeamsListError::MissingHeader)
-        );
         assert_eq!(
             TeamsList::parse("ID\tOther\n"),
             Err(TeamsListError::MissingColumn("Name"))
@@ -137,13 +133,14 @@ mod tests {
         );
         assert!(summary.unresolved.is_empty());
 
-        // Placeholder preserved, appended row last, raw name/rest copied.
+        // Placeholder preserved, appended row last, cells copied verbatim.
         assert!(matches!(merged.rows()[1], Row::Placeholder { .. }));
         let last = merged.rows().last().unwrap();
         assert!(matches!(
             last,
-            Row::Team { id, raw_name, rest, .. }
-            if *id == TeamId::new(750).unwrap() && raw_name == "/newteam/" && rest == &["55".to_owned()]
+            Row::Team { cells, id, .. }
+            if *id == TeamId::new(750).unwrap()
+                && cells == &["750".to_owned(), "/newteam/".to_owned(), "55".to_owned()]
         ));
         assert!(merged.write().ends_with("750\t/newteam/\t55\r\n"));
         assert_eq!(
@@ -175,5 +172,90 @@ mod tests {
             merged.id_of(&TeamName::new("co").unwrap()),
             TeamId::new(701).ok()
         );
+    }
+
+    #[test]
+    fn columns_are_carried_in_any_header_order() {
+        // `ID` and `Name` located by header position; other columns verbatim.
+        let parsed = list("ID\tNote\tName\n701\tkeep\t/co/\n");
+        assert_eq!(
+            parsed.id_of(&TeamName::new("/co/").unwrap()),
+            TeamId::new(701).ok()
+        );
+        assert_eq!(parsed.write(), "ID\tNote\tName\r\n701\tkeep\t/co/\r\n");
+
+        let reordered = list("Name\tID\n/co/\t701\n");
+        assert_eq!(
+            reordered.id_of(&TeamName::new("/co/").unwrap()),
+            TeamId::new(701).ok()
+        );
+        assert_eq!(reordered.write(), "Name\tID\r\n/co/\t701\r\n");
+    }
+
+    #[test]
+    fn placeholder_ids_share_the_id_space() {
+        // A placeholder's numeric in-range id duplicates like a team's.
+        assert_eq!(
+            TeamsList::parse("ID\tName\n701\t/co/\n701\tBackup 1\n"),
+            Err(TeamsListError::DuplicateId { line: 3, id: 701 })
+        );
+        // A blank or non-numeric placeholder id is exempt.
+        assert!(TeamsList::parse("ID\tName\n701\t/co/\n\tBackup 1\nabc\tBackup 2\n").is_ok());
+    }
+
+    #[test]
+    fn reconcile_takes_a_placeholder_slot() {
+        let working = list("ID\tName\n772\tBackup 1\n");
+        let incoming = list("ID\tName\n772\t/new/\n");
+        let (merged, summary) = reconcile(&working, &incoming);
+
+        assert_eq!(
+            summary.added,
+            [(TeamId::new(772).unwrap(), TeamName::new("new").unwrap())]
+        );
+        assert!(summary.unresolved.is_empty());
+        assert!(matches!(
+            merged.rows(),
+            [Row::Team { id, name, .. }]
+                if *id == TeamId::new(772).unwrap() && name.as_str() == "/new/"
+        ));
+        assert_eq!(merged.write(), "ID\tName\r\n772\t/new/\r\n");
+    }
+
+    #[test]
+    fn reconcile_validates_the_final_mapping() {
+        // An id swap between two working rows is legal: after every incoming
+        // change is applied, no id is held twice.
+        let working = list("ID\tName\n701\t/co/\n702\t/a/\n");
+        let incoming = list("ID\tName\n701\t/a/\n702\t/co/\n");
+        let (merged, summary) = reconcile(&working, &incoming);
+
+        assert_eq!(
+            summary.overridden,
+            [
+                (
+                    TeamName::new("co").unwrap(),
+                    TeamId::new(701).unwrap(),
+                    TeamId::new(702).unwrap()
+                ),
+                (
+                    TeamName::new("a").unwrap(),
+                    TeamId::new(702).unwrap(),
+                    TeamId::new(701).unwrap()
+                )
+            ]
+        );
+        assert!(summary.unresolved.is_empty());
+        // The rows stay in place; only the ids moved.
+        assert_eq!(merged.write(), "ID\tName\r\n702\t/co/\r\n701\t/a/\r\n");
+
+        // A one-sided move collides: `/a/` cannot take 701 while `/co/` keeps
+        // it, so the change is reverted and reported.
+        let (merged, summary) = reconcile(&working, &list("ID\tName\n701\t/a/\n"));
+        assert_eq!(
+            summary.unresolved,
+            [(TeamId::new(701).unwrap(), TeamName::new("a").unwrap())]
+        );
+        assert_eq!(merged, working);
     }
 }
