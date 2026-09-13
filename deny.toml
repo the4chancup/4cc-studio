@@ -1,6 +1,11 @@
 # cargo-deny configuration: the license allowlist from the core plan, "License".
 # Run through `just deps-check`. A dependency under any other license is a question for the
 # maintainer, not an entry to add here.
+
+# Every feature on, so a dependency behind an optional feature is checked too.
+[graph]
+all-features = true
+
 [licenses]
 # The list is policy, not a mirror of the current graph: an allowed license nobody uses yet is
 # not a warning.

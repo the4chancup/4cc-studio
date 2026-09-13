@@ -12,6 +12,7 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::io;
 use std::path::Path;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 pub use common::{CommonSettings, Theme};
 use toml::{Table, Value};
@@ -72,11 +73,17 @@ impl Settings {
         Ok(Settings { common, tools })
     }
 
-    /// Writes the settings file atomically: to `<path>.tmp`, then renamed over `path`, so a
-    /// failure mid-write never leaves a truncated file behind.
+    /// Writes the settings file atomically: to a sibling `<path>.<pid>-<n>.tmp`, then renamed
+    /// over `path`, so a failure mid-write never leaves a truncated file behind, and two saves
+    /// at once (two Studio processes, the GUI open while `quick_compile.bat` starts another; or
+    /// two threads of one) never share a temporary file.
     pub fn save(&self, path: &Path) -> io::Result<()> {
+        static SAVE_COUNTER: AtomicU64 = AtomicU64::new(0);
         let text = self.to_toml_string().map_err(io::Error::other)?;
-        let tmp = path.with_extension("tmp");
+        let mut tmp_name = path.file_name().unwrap_or_default().to_owned();
+        let sequence = SAVE_COUNTER.fetch_add(1, Ordering::Relaxed);
+        tmp_name.push(format!(".{}-{sequence}.tmp", std::process::id()));
+        let tmp = path.with_file_name(tmp_name);
         fs::write(&tmp, text)?;
         fs::rename(&tmp, path)
     }
@@ -170,7 +177,31 @@ mod tests {
         settings.save(&path).unwrap();
         let loaded = Settings::load(&path).unwrap();
         assert_eq!(loaded, settings);
-        assert!(!path.with_extension("tmp").exists());
+        assert_eq!(
+            fs::read_dir(&dir).unwrap().count(),
+            1,
+            "no temporary file left behind"
+        );
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn concurrent_saves_leave_a_complete_file() {
+        let dir = std::env::temp_dir().join("studio_core_settings_concurrent");
+        fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("settings.toml");
+        std::thread::scope(|scope| {
+            for thread_count in 1..=8 {
+                let path = &path;
+                scope.spawn(move || {
+                    let mut settings = Settings::default();
+                    settings.common.thread_count = thread_count;
+                    settings.save(path).unwrap();
+                });
+            }
+        });
+        let loaded = Settings::load(&path).unwrap();
+        assert!((1..=8).contains(&loaded.common.thread_count));
         fs::remove_dir_all(&dir).unwrap();
     }
 

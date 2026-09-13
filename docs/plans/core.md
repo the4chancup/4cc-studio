@@ -1639,7 +1639,7 @@ registered tool named after its id, duplicate or reserved ids rejected at regist
 it parses the launch mode, installs the CLI `env_logger` sink, and dispatches to a registry that
 is still empty; the GUI modes exit with a message until Phase 8.
 
-**Verification (done):** all four gates green on the workspace and `just deps-check` green; 35
+**Verification (done):** all four gates green on the workspace and `just deps-check` green; 38
 unit tests, including settings round-trip and recursive default-merge, `ScopePath` rejection and
 collision cases, and a stub tool registered through the trait and dispatched from
 `studio stub ping x`. CI's first green run and one deliberately red run are recorded in the

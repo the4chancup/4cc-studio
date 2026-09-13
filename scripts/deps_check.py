@@ -37,6 +37,7 @@ def workspace_members() -> list[dict]:
         check=True,
         capture_output=True,
         text=True,
+        encoding="utf-8",
     ).stdout
     return json.loads(out)["packages"]
 
@@ -54,6 +55,7 @@ def normal_dependencies(crate: str) -> set[str]:
         check=True,
         capture_output=True,
         text=True,
+        encoding="utf-8",
     ).stdout
     names = {line.split(" ", 1)[0] for line in out.splitlines() if line.strip()}
     names.discard(crate)

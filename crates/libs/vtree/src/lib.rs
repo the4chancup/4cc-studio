@@ -2,6 +2,7 @@
 
 use std::collections::BTreeMap;
 use std::fmt;
+use std::ops::Bound;
 
 use unicode_normalization::UnicodeNormalization;
 
@@ -55,9 +56,9 @@ impl ScopePath {
         })
     }
 
-    /// NFC-normalized, Unicode-lowercased form used for collision detection and
-    /// case-insensitive lookup. Folding is per segment, so a `/` can never
-    /// appear from normalization.
+    /// NFC, then NTFS-style simple case folding (per-character uppercase, then
+    /// lowercase), used for collision detection and case-insensitive lookup.
+    /// Folding is per segment, so a `/` can never appear from normalization.
     pub fn fold_key(&self) -> String {
         fold_segments(self.0.split('/'))
     }
@@ -221,11 +222,7 @@ impl<T> VirtualTree<T> {
         }
         // Files already stored under this path block it becoming a file.
         let prefix = format!("{key}/");
-        if let Some((_, (existing, _))) = self
-            .files
-            .iter()
-            .find(|(k, _)| k.starts_with(prefix.as_str()))
-        {
+        if let Some((_, (existing, _))) = self.with_prefix(prefix).next() {
             return Err(InsertError::FileFolderConflict {
                 existing: existing.clone(),
             });
@@ -237,11 +234,7 @@ impl<T> VirtualTree<T> {
         let fold_segments: Vec<&str> = key.split('/').collect();
         for depth in 1..real_segments.len() {
             let prefix = format!("{}/", fold_segments[..depth].join("/"));
-            if let Some((_, (existing, _))) = self
-                .files
-                .iter()
-                .find(|(k, _)| k.starts_with(prefix.as_str()))
-            {
+            if let Some((_, (existing, _))) = self.with_prefix(prefix).next() {
                 let existing_prefix = existing
                     .segments()
                     .take(depth)
@@ -281,9 +274,7 @@ impl<T> VirtualTree<T> {
     /// Whether at least one file lives under `folder/`.
     pub fn contains_folder(&self, folder: &ScopePath) -> bool {
         let prefix = format!("{}/", folder.fold_key());
-        self.files
-            .iter()
-            .any(|(k, _)| k.starts_with(prefix.as_str()))
+        self.with_prefix(prefix).next().is_some()
     }
 
     /// Immediate children of `folder` (`None` = the root): each file once and
@@ -295,11 +286,7 @@ impl<T> VirtualTree<T> {
             None => String::new(),
         };
         let mut children: BTreeMap<String, Entry> = BTreeMap::new();
-        for (key, (path, _)) in self
-            .files
-            .iter()
-            .filter(|(k, _)| k.starts_with(prefix.as_str()))
-        {
+        for (key, (path, _)) in self.with_prefix(prefix.clone()) {
             let rest = &key[prefix.len()..];
             let first_segment = rest.split('/').next().unwrap_or_default();
             children.entry(first_segment.to_owned()).or_insert_with(|| {
@@ -330,15 +317,25 @@ impl<T> VirtualTree<T> {
             Some(f) => format!("{}/", f.fold_key()),
             None => String::new(),
         };
-        self.files
-            .iter()
-            .filter(move |(k, _)| k.starts_with(prefix.as_str()))
+        self.with_prefix(prefix)
             .map(|(_, (path, value))| (path, value))
     }
 
     /// All files, sorted by fold key.
     pub fn iter(&self) -> impl Iterator<Item = (&ScopePath, &T)> {
         self.files.values().map(|(path, value)| (path, value))
+    }
+
+    /// Every stored entry whose fold key starts with `prefix`, in key order: a
+    /// bounded range walk, since keys with a common prefix are contiguous in
+    /// the map.
+    fn with_prefix<'a>(
+        &'a self,
+        prefix: String,
+    ) -> impl Iterator<Item = (&'a String, &'a (ScopePath, T))> + 'a {
+        self.files
+            .range::<str, _>((Bound::Included(prefix.as_str()), Bound::Unbounded))
+            .take_while(move |(key, _)| key.starts_with(prefix.as_str()))
     }
 }
 
@@ -396,11 +393,22 @@ fn validate_segments(path: &str) -> Result<(), PathError> {
     Ok(())
 }
 
-/// Folds each segment to NFC + lowercase and joins with `/`.
+/// Folds each segment to NFC + NTFS-style simple case folding and joins with
+/// `/`. NTFS compares names per character after uppercasing, so the fold is
+/// per-character simple uppercase (a multi-char mapping like `ß` → `SS` keeps
+/// the original character, mirroring NTFS keeping `ß` distinct from `ss`),
+/// then lowercase — which also merges `ς`/`σ` the way NTFS does.
 fn fold_segments<'a>(segments: impl Iterator<Item = &'a str>) -> String {
     segments
         .map(|segment| {
             UnicodeNormalization::nfc(segment.chars())
+                .map(|c| {
+                    let mut upper = c.to_uppercase();
+                    match (upper.next(), upper.next()) {
+                        (Some(single), None) => single,
+                        _ => c,
+                    }
+                })
                 .collect::<String>()
                 .to_lowercase()
         })
@@ -648,5 +656,44 @@ mod tests {
         assert!(!tree.contains_folder(&path("a")));
         assert_eq!(tree.remove(&path("a/b.txt")), None);
         assert!(tree.is_empty());
+    }
+
+    #[test]
+    fn fold_key_uses_ntfs_style_simple_case_folding() {
+        // NTFS uppercases per character to compare names, so final sigma and
+        // medial sigma are the same file name.
+        assert_eq!(
+            path("\u{3c2}.dds").fold_key(),
+            path("\u{3c3}.dds").fold_key()
+        );
+        let mut tree = VirtualTree::new();
+        tree.insert(path("\u{3c2}.dds"), ()).unwrap();
+        assert_eq!(
+            tree.insert(path("\u{3c3}.dds"), ()),
+            Err(InsertError::Collision {
+                existing: path("\u{3c2}.dds")
+            })
+        );
+        // 'ß' uppercases to multi-char "SS", which NTFS does not apply, so
+        // 'ß' and 'ss' stay distinct file names.
+        assert_ne!(path("\u{df}.dds").fold_key(), path("ss.dds").fold_key());
+        let mut sharp = VirtualTree::new();
+        sharp.insert(path("\u{df}.dds"), ()).unwrap();
+        assert_eq!(sharp.insert(path("ss.dds"), ()), Ok(()));
+    }
+
+    #[test]
+    fn prefix_walks_stay_bounded_on_a_larger_tree() {
+        let mut tree = VirtualTree::new();
+        for folder in 0..50 {
+            for file in 0..40 {
+                tree.insert(path(&format!("f{folder:02}/p{file:02}.txt")), file)
+                    .unwrap();
+            }
+        }
+        assert_eq!(tree.len(), 2000);
+        assert_eq!(tree.children(None).len(), 50);
+        assert_eq!(tree.files_under(Some(&path("F10"))).count(), 40);
+        assert_eq!(tree.children(Some(&path("f10"))).len(), 40);
     }
 }
