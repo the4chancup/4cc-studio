@@ -9,10 +9,9 @@ is in `AGENTS.md` ("Working documents").
 
 ## Current status
 
-**Phase:** 1 (Workspace bootstrap + core skeleton). Converge and rewrite done; the phase closes
-when step 1.2's CI runs (green, then a deliberately red one) are recorded after the first push.
-**In progress:** 1.2 (CI verification, needs a push)
-**Blocked on:** the first push to `origin/main` (user action)
+**Phase:** 2 (Library crates), starting at 2.1 `weszlib`. Phase 1 done.
+**In progress:** 2.1
+**Blocked on:** —
 
 ---
 
@@ -58,7 +57,7 @@ documents".
 
 | Phase | Scope | Crates | Status |
 |---|---|---|---|
-| 1 | Workspace bootstrap + core skeleton | workspace, CI, non-GUI `studio_core`, `vtree`, `pes_version` | in progress |
+| 1 | Workspace bootstrap + core skeleton | workspace, CI, non-GUI `studio_core`, `vtree`, `pes_version` | done |
 | 2 | Library crates (standalone-verifiable) | `weszlib` `cpk` `fpk` `ftex` `dds_convert` `fmdl` `pes_model` `uniparam` `fox2` `archives` `fpc` `teams_list` `kit_config` `color_tools` `elevation` `model_convert` (native) `pes_savefile` `python_bindings` | todo |
 | 3 | Team compiler skeleton | `team_compiler`, `aesthetics_export`, `pipeline` | todo |
 | 4 | Processing logic | `team_compiler` (`plan/` `processing/` `bins/` `output/`), `aesthetics_export` deep validation | todo |
@@ -89,48 +88,10 @@ done step with a one-line summary and the files or crates touched. One `[~]` per
 
 ### Phase 1 — Workspace bootstrap + core skeleton
 
-Spec: `docs/plans/core.md` "Phase 1".
-
-- [x] 1.1 Workspace bootstrap — done: `Cargo.toml` (workspace deps, lints, dev profile),
-  `rust-toolchain.toml` (1.98.0 + wasm32), `rustfmt.toml`, `justfile` (`gates`, `deps-check`;
-  Windows shell is PowerShell, `sh` was not on PATH), `deny.toml`, `scripts/wasm_check.py`,
-  `scripts/deps_check.py`, `crates/{studio,studio_core,libs,tools}`. Verified: `just gates` green
-  from PowerShell; a planted clippy warning made it exit 1 (reverted); `just deps-check` green
-  after the font-license decision
-- [~] 1.2 CI — written: `.github/workflows/ci.yml` (gates on ubuntu + windows, deps-check on
-  ubuntu). The `python_bindings` job is deferred to step 2.18, when the crate exists. Open until
-  verified: no CI run has happened yet (first push pending) → verify: one CI run green on the
-  bootstrap commit; one deliberately red from a pushed clippy warning, then reverted
-- [x] 1.3 `vtree` — done (sidekick, one brief plus one rework round from converge): `ScopePath`,
-  `RelativeScopePath`, `PathError`, `VirtualTree<T>`, `InsertError`, `Entry`; 14 tests covering
-  the listed cases plus folder-spelling collisions; wasm32 check green.
-  `crates/libs/vtree/src/lib.rs`
-- [x] 1.4 `studio_core` non-GUI parts — done (lead): `tool.rs` (`StudioTool`, `ToolContext`,
-  `ShellRequest`), `events.rs`, `status.rs`, `help/mod.rs` (types only), `settings/` (framework +
-  `CommonSettings`), `shell/launch.rs` (three launch modes, CLI dispatch); `pes_version` leaf
-  crate; `studio` stub binary (CLI path only). 14 + 3 tests: settings round-trip, defaults,
-  recursive merge, stub tool dispatched from `studio stub ping x`; wasm32 check green
-- [x] 1.5 Phase verification — done: `just gates` green (35 tests across `pes_version`,
-  `studio_core`, `vtree` after converge), `just deps-check` green
-- [x] 1.6 Converge — done. Reviewer (`gpt-astra-high`, pointers only, wall-clock not measured):
-  7 concerns, all verified, all accepted and fixed in place rather than as new steps because each
-  was under an hour: `MessageCode` now `{ tool_id, code: Cow }` as the Team compiler plan spells
-  it; `ScopePath::join` removed (a relative path joins only through `to_scope_path`); folder
-  spelling collisions detected on insert; `deps_check.py` scans `--target all --all-features`;
-  the reserved `common` settings key and duplicate tool ids are asserted at registration and
-  mutation; `studio` installs `env_logger` with `-v`/`-vv` and `RUST_LOG`; step 1.2 reopened.
-  Three of the seven were plan code blocks the lead had rewritten from memory (methodology
-  change in `AGENTS.md`: own audit first, plan shapes copied). Sidekick: 2 briefs, 1 rework
-  round, both findings in the lead's interface spec, none in its implementation. Lead took over
-  `studio_core` and `pes_version` itself at the user's request (slow sidekick, critical
-  interface); parallel work tripped once on a module declared before its file existed
-- [x] 1.7 Rewrite — done: `core.md` "Phase 1" is now a description of what exists
-- [x] 1.8 Second reviewer pass (after the own-audit-first change): 5 concerns, 4 verified + 1
-  suspected, all accepted: `vtree` fold is NFC + NTFS-style simple case folding (final sigma
-  collides, `ß` stays apart from `ss`); prefix scans became bounded `BTreeMap` range walks;
-  scripts decode cargo output as UTF-8; `cargo deny` checks all features; `Settings::save` uses a
-  unique temp name per save (the new concurrent-save test went red on the pid-only name first).
-  38 tests, gates and deps-check green
+Done 2026-09-13 (spec now describes what exists: `docs/plans/core.md` "Phase 1"). Step detail
+in git history up to commit `794ce61`. CI proof: green run on `a4be936`, deliberately red run on
+`38c3e68` (both `gates` jobs failed at `just gates`, `deps-check` unaffected), reverted in
+`794ce61`.
 
 ### Phase 2 — Library crates
 
@@ -230,3 +191,5 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   first push produces the two CI runs step 1.2 asks for; then Phase 2 starts at 2.1 `weszlib`.
 - **2026-09-13** - Second reviewer pass on Phase 1 (5 concerns, all fixed; 38 tests). Commit
   subjects are Conventional Commits from here on; `just` stays on PowerShell for Windows.
+- **2026-09-13** - Phase 1 closed: CI green on the first push, red on the planted warning,
+  reverted. Phase 2 starts at 2.1 `weszlib`.
