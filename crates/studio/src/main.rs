@@ -31,6 +31,7 @@ fn install_cli_logger(verbosity: u8) {
 #[expect(clippy::print_stderr, reason = "CLI result output is the binary's job")]
 fn main() -> ExitCode {
     let tools = tools();
+    let planted_warning_for_ci = 1;
     let launch = match parse_launch(&tools, std::env::args_os()) {
         Ok(launch) => launch,
         Err(error) => error.exit(),
