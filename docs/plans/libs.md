@@ -899,6 +899,38 @@ POSIX builds get euid checks and a sudo hint in place of UAC. Consumers:
 `team_compiler`, `stadium_compiler`, `balls_compiler`, `match_tracker` (when access requires it),
 and the desktop updater.
 
+The crate's whole surface:
+
+```rust
+/// Whether this process already has administrator (Windows) or root (POSIX) rights; `false` on
+/// `wasm32`, where the question has no meaning.
+pub fn is_elevated() -> bool;
+/// Starts `program` with `args` elevated (the UAC consent prompt on Windows) and returns once
+/// the new process is launched; the caller then exits. On POSIX and `wasm32` this is
+/// `Unsupported`: the tool prints the sudo hint itself, since it knows its own command line.
+pub fn relaunch_elevated(program: &Path, args: &[OsString]) -> Result<(), ElevationError>;
+/// Whether an I/O error is the access-denied kind that elevation would cure.
+pub fn is_access_denied(error: &std::io::Error) -> bool;
+
+pub enum ElevationError {
+    Unsupported,       // this platform has no elevation prompt
+    Declined,          // the user dismissed the UAC prompt (ERROR_CANCELLED)
+    Failed(String),    // the OS call's message
+}
+```
+
+Windows: `is_elevated` reads the process token's `TokenElevation`; `relaunch_elevated` is
+`ShellExecuteExW` with the `runas` verb and `SEE_MASK_NOCLOSEPROCESS`, the arguments quoted for
+`CommandLineToArgvW` (a `"` inside an argument doubles the preceding backslashes and escapes the
+quote). POSIX: `geteuid() == 0` through `libc`. The two `unsafe` blocks (token query, shell
+execute) each carry their `// SAFETY:` comment, as the coding rules require for this crate. The
+`requireAdministrator` manifest feature belongs to the `studio` binary (Phase 8), not here.
+Tests can only cover what runs without a prompt: `is_elevated` returns without panicking and is
+stable across calls, `is_access_denied` on a `PermissionDenied` error and on another kind, the
+argument quoting on the known awkward cases (spaces, embedded quotes, trailing backslashes, an
+empty argument) checked against what `CommandLineToArgvW` gives back. The relaunch itself is a
+manual check at the first tool phase that needs it.
+
 ---
 
 ## `libs/fpc`

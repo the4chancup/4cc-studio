@@ -23,6 +23,7 @@ crossbeam-channel = "0.5.17"
 egui = "0.36.1"
 env_logger = { version = "0.11.11", default-features = false }
 flate2 = "1.1.10"
+libc = "0.2.189"
 image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "bmp", "webp", "tga", "tiff"] }
 log = "0.4.34"
 md-5 = "0.11.0"
@@ -32,6 +33,7 @@ thiserror = "2.0.20"
 toml = "0.9.8"
 toml_edit = "0.23.9"
 unicode-normalization = "0.1.25"
+windows = { version = "0.62.2", features = ["Win32_Foundation", "Win32_Security", "Win32_System_Registry", "Win32_System_Threading", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging"] }
 roxmltree = "0.21.1"
 sevenz-rust2 = { version = "0.22.2", default-features = false }
 zip = { version = "8.6.0", default-features = false, features = ["deflate"] }
@@ -41,6 +43,7 @@ archives = { path = "crates/libs/archives" }
 color_tools = { path = "crates/libs/color_tools" }
 cpk = { path = "crates/libs/cpk" }
 dds_convert = { path = "crates/libs/dds_convert" }
+elevation = { path = "crates/libs/elevation" }
 fmdl = { path = "crates/libs/fmdl" }
 fox2 = { path = "crates/libs/fox2" }
 fpc = { path = "crates/libs/fpc" }

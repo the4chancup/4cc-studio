@@ -2064,7 +2064,8 @@ resource download size measured and, if it matters, lazy-fetched behind the temp
 | `symphonia` | Audio decoding (MP3, Vorbis, FLAC, AAC/M4A, WAV) | Production-ready |
 | pure-Rust Opus decoder (e.g. `opus-decoder`) | Opus decoding, registered into symphonia (its own Opus support is unfinished) | Verify maturity (fallback: statically linked `audiopus`) |
 | `ebur128` | EBU R128 loudness measurement (replaces ffmpeg volumedetect) | Production-ready |
-| `windows` | Win32 process/memory APIs (match tracker memory reading) | Production-ready |
+| `windows` | Win32 APIs: `elevation` (token query, `ShellExecuteExW`), later the match tracker's memory reading | 0.62.2 in use, `Win32_Foundation`, `Win32_Security`, `Win32_System_Registry` (a `SHELLEXECUTEINFOW` field), `Win32_System_Threading`, `Win32_UI_Shell`, `Win32_UI_WindowsAndMessaging`; Windows targets only |
+| `libc` | `geteuid` for `elevation` on POSIX | 0.2.189 in use; Unix targets only |
 | `qrcode` | QR timestamp widget (match tracker stream-sync aid) | Production-ready |
 
 No frontend dependencies — the entire GUI is Rust, compiled to both native and WASM from the same
