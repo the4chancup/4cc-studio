@@ -156,8 +156,9 @@ approach in production, in `Engines/stages/lib/dxt.py` + the `texture2ddecoder` 
 - **Encoding**: use `block_compression`'s Rust CPU backend for BC1, BC3, and BC7, rather than
   translating the stadium compiler's numpy encoder. Codec selection follows the PES-version and
   texture-role rules below; desktop GPU BC7 is included in the first release with CPU fallback.
-- **DXT5nm handling**: a normal map that has to be encoded (BC5 source on any target, or a
-  normal-role raster/BC7 source) becomes BC3 with X in alpha and Y in green, which is what both
+- **DXT5nm handling**: a normal map that has to be encoded (a BC5 source on PES 15–18, or any
+  normal-role source that is not already BC3, raster and BC7 included, on every version) becomes
+  BC3 with X in alpha and Y in green, which is what both
   engines ship: every Konami normal map measured is BC3 with `A = X`, `G = Y` (PES 17 `oral_nrm`,
   `bibs_nrm`, `skin_nrm`; PES 21 `dummy_nrm`). The two engines differ only in the channels the
   shader ignores, and the output copies each engine's own files rather than guessing what the
@@ -167,13 +168,17 @@ approach in production, in `Engines/stages/lib/dxt.py` + the `texture2ddecoder` 
   source is BC5, so there is no legacy output to be parity with; the Konami files are the standard.
 - **Passthrough**: compressed blocks a target can read are kept and only the container changes.
   PES 15–18 read BC1, BC2 and BC3; PES 19–21 also read BC4, BC5 and BC7 (the legacy compilers
-  passed BC5 through to PES 19–21 as FTEX format 9). A DX10-header BC1/BC3 is therefore rewritten
+  passed BC5 through to PES 19–21 as FTEX format 9). The role narrows this: a normal-role source
+  passes through only as BC3 (taken to be laid out already) or, on PES 19–21, as BC5; a
+  normal-role BC7 or BC1 source is decoded and encoded to DXT5nm, because keeping its blocks would
+  keep a color layout the shader reads as a normal map. A DX10-header BC1/BC3 is therefore rewritten
   with a legacy header for PES 15–18 rather than re-encoded (the legacy compilers re-encoded every
   DX10 header to DXT5, a lossy step with no purpose). Uncompressed sources are always encoded:
   PES 15–17 crash on uncompressed kit textures.
 - **Mipmaps**: each mip level is decoded and re-encoded individually; a DDS/FTEX source keeps its
-  own mip count (Konami ships single-mip pre-Fox textures, and a mipped non-power-of-two texture
-  is invalid on Fox), a raster source gets the full chain down to 1×1 by 2×2 box averaging on
+  own mip count whatever its codec, uncompressed included (Konami ships single-mip pre-Fox
+  textures, and a mipped non-power-of-two texture is invalid on Fox), a raster source gets the
+  full chain down to 1×1 by 2×2 box averaging on
   straight alpha (odd sides floor, never below 1). Output headers are rebuilt from the emitted
   layout: legacy DX9 headers for BC1/BC3 (what texconv wrote for the legacy compilers and what
   Konami ships), a DX10 header for BC7.
@@ -290,7 +295,7 @@ pub enum BlockCodec { Bc1, Bc2, Bc3, Bc4, Bc5, Bc7 }
 pub struct Blocks { pub codec: BlockCodec, pub mips: Vec<Vec<u8>> }
 
 /// A source decoded to straight-alpha RGBA8, top mip first, every mip the source carried.
-pub struct Decoded { pub width: u32, pub height: u32, pub mips: Vec<Vec<u8>>, pub blocks: Option<Blocks> }
+pub struct Decoded { pub width: u32, pub height: u32, pub mips: Vec<Vec<u8>>, pub blocks: Option<Blocks>, pub authored_mips: bool }
 
 pub struct Target { pub version: PesVersion, pub role: TextureRole }
 
@@ -314,8 +319,12 @@ impl Converter {
 }
 ```
 
-`decode` rejects cube maps and volume textures (`ConvertError::Unsupported`): nothing in an export
-is one. A WESYS-wrapped DDS (PES 15–17 sources) is unwrapped first through `wezlib`. The DDS
+`decode` rejects cube maps, volume textures, texture arrays and the signed BC4/BC5 formats
+(`ConvertError::Unsupported`): nothing in an export is one, and a signed block relabelled unsigned
+would silently change a normal map. An uncompressed DDS whose header declares a row pitch wider
+than its rows (some exporters pad rows to 4 bytes) is read at that pitch, each lower mip at the
+same 4-byte row alignment. `Decoded.authored_mips` says whether the source format carries a mip
+chain (DDS/FTEX, its level count is kept) or not (raster, a chain is generated). A WESYS-wrapped DDS (PES 15–17 sources) is unwrapped first through `wezlib`. The DDS
 header knowledge (`DdsHeader`, `Dx10Header`, the FourCC/mask/DXGI table) lives in `ftex`, which
 already needed it in both directions; `ftex` exposes it as `ftex::dds` (`read_layout`,
 `header_bytes`) and `dds_convert` uses that instead of carrying a second copy. Encoder settings

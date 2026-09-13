@@ -10,8 +10,8 @@ is in `AGENTS.md` ("Working documents").
 ## Current status
 
 **Phase:** 2 (Library crates). Done: 2.1 `wezlib`, 2.2 `cpk`, 2.3 `fpk`, 2.4 `ftex`, 2.5 `dds_convert` (CPU),
-2.8 `uniparam`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`. Next: 2.6a `fmdl::format`
-(brief drafted in the session's `.tmp/brief_fmdl_a.md`; rewrite it from the worklog step if lost).
+2.8 `uniparam`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`. Next: 2.6a-2 `fmdl::format` typed records; review
+findings for `dds_convert`, `teams_list`, `kit_config` queued as steps 2.5c / 2.12b / 2.13b.
 **In progress:** none
 **Blocked on:** —
 
@@ -128,11 +128,16 @@ Spec: `docs/plans/core.md` "Phase 2", `docs/plans/libs.md`, `model_conversion.md
 - [ ] 2.5b `dds_convert` GPU BC7 (wgpu backend of `block_compression`): Vulkan/Metal device, CPU
   fallback, cold-start and throughput measured → verify: GPU and CPU outputs decode within the
   same tolerance; fallback path exercised by forcing no adapter
-- [ ] 2.6a `fmdl::format` container, typed section-0 records, raw section-1 buffers, SKL codec
-  → verify: `write(read(x)) == x` on the three Konami FMDL fixtures and all three SKL fixtures;
-  add-on-written FMDLs round-trip semantically (they pad every block to 16, Konami does not).
-  Done already: the denied-dependency check (`egui` planted on `fmdl` turned `deps_check.py` red,
-  reverted)
+- [x] 2.6a-1 `fmdl::format` container (raw records per block, raw section-1 blocks) and SKL codec
+  — done (sidekick): byte-identical on the three Konami FMDLs and three SKLs; add-on FMDLs
+  round-trip semantically (`oral` pads blocks to 16, ours does not); unknown block ids survive as
+  one span. Quirks kept: section-1 block 3 always reads to file end; a section-1 length past the
+  file end is clamped. The denied-dependency check was exercised earlier (`egui` planted on
+  `fmdl` turned `deps_check.py` red, reverted). 8 tests
+- [ ] 2.6a-2 `fmdl::format` typed section-0 records (`FmdlFile` over the container, one struct per
+  block id, every byte a named field) → verify: `FmdlFile::write(read(x)) == x` on the Konami
+  fixtures; bone names of every fixture resolve through the string table to the reference
+  parser's list
 - [ ] 2.6b `fmdl::format` vertex and face decoding/encoding (mesh formats, vertex formats, buffer
   offsets, float16) → verify: decode then re-encode every mesh of every fixture reproduces the
   buffer bytes
@@ -152,6 +157,15 @@ Spec: `docs/plans/core.md` "Phase 2", `docs/plans/libs.md`, `model_conversion.md
 - [x] 2.13 `kit_config` — done (sidekick, two rework rounds on validation): bit-identical on all
   1372 PES 2021 stock configs, TOML form with comments, texture names, FPC apply/matches; the
   plan's ranges and 144-only sleeve rule were the old editor's UI limits (plan corrected); 8 tests
+- [ ] 2.5c `dds_convert` review fixes: `Decoded.authored_mips` (an uncompressed single-mip DDS
+  kept its count), normal role never passes BC7/BC1 through, declared row pitch honoured, BC1 and
+  generated tail mips proved by decode (review A, 2026-09-13)
+- [ ] 2.12b `teams_list` review fixes: columns carried by header position (any order, any extra
+  column), reconcile validates the final mapping (ID swaps), placeholder IDs in the uniqueness
+  set with an incoming team taking a placeholder's slot (review B)
+- [ ] 2.13b `kit_config` review fixes: PES 15 pattern per the plan, validation reports every
+  value emission clamps and emission clamps what validation reports, wrong-typed TOML tables are
+  errors, hex parsing cannot panic (review B)
 - [ ] 2.14 `color_tools` (extraction only)
 - [ ] 2.15 `elevation`
 - [ ] 2.16 `model_convert` — IR, native importers/exporters, hand auto-split, skeleton constants,
