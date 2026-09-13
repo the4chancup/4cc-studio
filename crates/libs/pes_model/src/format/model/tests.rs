@@ -1,35 +1,6 @@
 use super::*;
 use crate::format::datum::DatumType;
-
-const CARD: &[u8] = include_bytes!("../../../tests/fixtures/konami_card.model");
-const CARDHEAD: &[u8] = include_bytes!("../../../tests/fixtures/cardhead_face_high.model");
-const CARDHEAD_DOUBLESIDED: &[u8] =
-    include_bytes!("../../../tests/fixtures/cardhead_doublesided_face_high.model");
-const CAP: &[u8] = include_bytes!("../../../tests/fixtures/konami_modD_cap.model");
-const HAIR_D: &[u8] = include_bytes!("../../../tests/fixtures/konami_hair_d_win32.model");
-const FLAG: &[u8] = include_bytes!("../../../tests/fixtures/konami_flag_close.wesys.model");
-const GLASSES: &[u8] = include_bytes!("../../../tests/fixtures/konami_glasses_02.wesys.model");
-const HEAD_HI: &[u8] = include_bytes!("../../../tests/fixtures/konami_headHi.wesys.model");
-const TAPING: &[u8] = include_bytes!("../../../tests/fixtures/konami_taping.wesys.model");
-const HAIR_HIGH: &[u8] =
-    include_bytes!("../../../tests/fixtures/konami_hair_high_sp_ty004.wesys.model");
-const COLLAR: &[u8] = include_bytes!("../../../tests/fixtures/konami_collar_052.wesys.model");
-const SHADOW: &[u8] = include_bytes!("../../../tests/fixtures/konami_shadow_win32.wesys.model");
-
-const ALL_FIXTURES: &[&[u8]] = &[
-    CARD,
-    CARDHEAD,
-    CARDHEAD_DOUBLESIDED,
-    CAP,
-    HAIR_D,
-    FLAG,
-    GLASSES,
-    HEAD_HI,
-    TAPING,
-    HAIR_HIGH,
-    COLLAR,
-    SHADOW,
-];
+use crate::format::fixtures::*;
 
 fn round_f32s(values: &[f32], places: u32) -> Vec<f32> {
     let scale = 10f32.powi(places as i32);
@@ -49,7 +20,7 @@ fn field_kinds(geometry: &Geometry) -> Vec<(DatumType, DatumFormat, usize)> {
 
 #[test]
 fn every_fixture_round_trips_semantically() {
-    for bytes in ALL_FIXTURES {
+    for bytes in ALL {
         let container = ModelContainer::read(bytes).unwrap();
         let model = PreFoxModel::from_container(&container).unwrap();
         let written = model.to_container().unwrap();

@@ -105,8 +105,7 @@ impl RecordArray {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    const CARD: &[u8] = include_bytes!("../../tests/fixtures/konami_card.model");
+    use crate::format::fixtures::CARD;
 
     fn section(kind: usize) -> Vec<u8> {
         use crate::format::{ModelContainer, SectionKind};

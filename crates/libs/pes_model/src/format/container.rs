@@ -251,42 +251,13 @@ impl ModelContainer {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    const CARD: &[u8] = include_bytes!("../../tests/fixtures/konami_card.model");
-    const CARDHEAD: &[u8] = include_bytes!("../../tests/fixtures/cardhead_face_high.model");
-    const CARDHEAD_DOUBLESIDED: &[u8] =
-        include_bytes!("../../tests/fixtures/cardhead_doublesided_face_high.model");
-    const CAP: &[u8] = include_bytes!("../../tests/fixtures/konami_modD_cap.model");
-    const HAIR_D: &[u8] = include_bytes!("../../tests/fixtures/konami_hair_d_win32.model");
-    const FLAG: &[u8] = include_bytes!("../../tests/fixtures/konami_flag_close.wesys.model");
-    const GLASSES: &[u8] = include_bytes!("../../tests/fixtures/konami_glasses_02.wesys.model");
-    const HEAD_HI: &[u8] = include_bytes!("../../tests/fixtures/konami_headHi.wesys.model");
-    const TAPING: &[u8] = include_bytes!("../../tests/fixtures/konami_taping.wesys.model");
-    const HAIR_HIGH: &[u8] =
-        include_bytes!("../../tests/fixtures/konami_hair_high_sp_ty004.wesys.model");
-    const COLLAR: &[u8] = include_bytes!("../../tests/fixtures/konami_collar_052.wesys.model");
-    const SHADOW: &[u8] = include_bytes!("../../tests/fixtures/konami_shadow_win32.wesys.model");
-
-    const ALL_FIXTURES: &[&[u8]] = &[
-        CARD,
-        CARDHEAD,
-        CARDHEAD_DOUBLESIDED,
-        CAP,
-        HAIR_D,
-        FLAG,
-        GLASSES,
-        HEAD_HI,
-        TAPING,
-        HAIR_HIGH,
-        COLLAR,
-        SHADOW,
-    ];
+    use crate::format::fixtures::*;
 
     use SectionKind as K;
 
     #[test]
     fn fixtures_rewrite_byte_identically() {
-        for bytes in ALL_FIXTURES {
+        for bytes in ALL {
             let unwrapped = wezlib::decompress_if_wrapped(bytes).unwrap();
             let container = ModelContainer::read(bytes).unwrap();
             assert_eq!(container.write(), unwrapped.as_ref());
