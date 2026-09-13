@@ -1,0 +1,305 @@
+This '''glossary''' seeks to describe commonly-used terms in the [[4chan Cup]] community.
+
+{{TOC limit|limit=2}}
+==0&ndash;9==
+===10-man abuse===
+The PES tendency for a team to perform better or win after one of their players is [[Glossary#Dismissal (Red card)|sent off]].
+
+===4CC-core===
+A player or team element that is perceived as being used purely because of its popularity with 4chan Cup fans, rather than the board it is supposed to be representing.
+
+===4CCC===
+The [[4chan Cup Committee]], the governing body of the [[4chan Cup]].
+
+===[[4chan Cup]]===
+The name given to the system of official tournaments hosted by the [[4chan Cup Committee|4CCC]]. The four annual tournaments are known as the Spring Babby, Summer, Autumn Babby and Winter Cups.
+
+===4chan Cup Community===
+Anyone contributing directly to the 4chan Cup or interacting with its representatives (4CCC, commentators, managers, streamers, etc.) is deemed to be part of the 4chan Cup Community. This includes chatting viewers, people participating in the /vg/ thread, and members of cup-related chat rooms.
+
+==={{Greentext|4 minutes}}===
+Term used in reference to [[/sci/]] after their management missed a deadline by four minutes before a match during the [[2012 4chan Spring Babby Cup Friendlies]], leaving them heavily penalized for the match.
+
+===77 player===
+A standard player that has 77 in every stat.
+
+==A==
+===Adboard===
+Generally used to refer to custom stadium [[Billboards/Gallery|adboards]], billboards and banners, which often feature memes and references of the 4chan Cup and its teams.
+
+===Arrows and dots===
+Player attributes found in older versions of ''PES'', that determined player behavior and pass directions to a degree.
+
+===[[AutoATF]]===
+A program designed to automate checking of [[Glossary#Export|exports]] for official tournaments, ensuring they comply with official rules.
+
+===Autopilot===
+A team that competes in official tournaments but doesn't have a manager.
+
+==B==
+===Babby===
+A team either at or recently promoted from Babby Cup level.
+
+===Babby Cup===
+Lower-level tournament for 32 or more teams looking to qualify for top-tier competition.
+
+===Banner===
+Generally used to refer to custom [[Billboards/Gallery|adboards]].
+
+===Bench===
+The group of players on a team that are not currently on the pitch.
+
+===Bicycle kick===
+An acrobatic finish where a player facing away from the goal throws their body into the air, attempting to score by shooting the ball backwards over their own head. Massive style points.
+
+===Blender===
+Any custom face or model for a player. The word is derived from Blender, the 3D modeling software used to produce said models.
+
+===Blooter===
+A goal scored from a powerful long-range shot.
+
+===Bronze player===
+A non-standard player with stats rated at 89 across the board. Bronze players were phased out to be replaced by the [[Glossary#GGSS|GGSS]] system. They returned with the [[Glossary#GSSBB|GSSBB]] system used during the [[2018 4chan Winter Cup]].
+
+==C==
+===Caretaker===
+An individual in charge of a board's team. Duties include communicating with the team's board and the 4CCC organizers, as well as putting together aesthetics for the team. Unlike [[Glossary#Manager|managers]], caretakers are not allowed to give tactical input, and any team with a caretaker, by nature, has no manager and is therefore an [[Glossary#Autopilot|autopilot.]]
+
+===Cards===
+Equippable attributes to players which enhance a specific ability. '''Skill cards''' enhance a technical ability, while '''playstyle cards''' generally enhance a tactical ability. The amount of cards per player is limited according to the [[Appendix:Rules|official rules]].
+
+===Caution (Yellow card)===
+When a referee shows a player a yellow card. Can happen in PES as a result of persistent or reckless fouls. If the referee issues two to one player in the same match, that player is [[Glossary#Dismissal (Red card)|dismissed]]. Also referred to as a "booking" since the referee writes in a notebook to keep track. In tournaments, a player who receives a certain number of cautions in the same stage is automatically [[Glossary#Suspension|suspended]].
+
+===Classic No. 10===
+A midfielder that moves the ball forward through effective passes, yet remains fairly static on the pitch.
+
+===Commissioner===
+The person who hosts and streams official tournaments, and oversees the [[4chan Cup Committee]]. The current commissioner is {{Anonymous|Old Man Sou}}.
+
+===Condition===
+<big>{{main|Conditioning}}</big>
+Attribute, specific to each player, which is usually randomly generated before each match. Conditions range from "terrible" to "top", represented by a set of arrow graphics.
+
+{{Cond|1}}: Terrible form<br>
+{{Cond|2}}: Poor form<br>
+{{Cond|3}}: Normal form<br>
+{{Cond|4}}: Good form<br>
+{{Cond|5}}: Top form
+
+Better condition provides players with a stat buff, and worse condition inflicts a stat debuff.
+
+==D==
+===Derby===
+Match between two rivals. Pronounced "dar-bee"
+
+===Discipline===
+(verb) A referee punishing a player for persistent or severe violations with a [[Glossary#Caution (Yellow card)|caution]] or [[Glossary#Dismissal (Red card)|dismissal]] depending on the nature of the foul and prior events.
+
+(noun) A record of all cards issued in a match or against a subset of players/teams.
+
+===Dismissal (Red card)===
+A referee disqualifying a player from the match by showing them the red card. That player's team must continue with one fewer player. Can happen in PES from a player receiving a second [[Glossary#Caution (Yellow card)|caution]] in the same match, for an excessively forceful foul or for a foul that denies a goal or scoring opportunity. Also referred to as a "sending-off." In tournaments, automatically leads to a [[Glossary#Suspension|suspension]].
+
+===Divegrass===
+Mocking term for the sport of football. Refers to the tendency of football players to fake injuries, taking a dive to the grass in the hope of aiding their team.
+
+===[[Dragongate]]===
+Scandal in which a manager was caught managing multiple teams, which is against the rules. Resulted in a large amount of match results being rendered [[Glossary#Void|void]] and the 4CCC creating a manager verification system.
+
+==E==
+===Editor===
+Any number of programs that allow for the easier editing of player stats and team tactics, as well as importing and exporting of attributes and tactics.
+
+===Elite===
+A term that carries two meanings. First and foremost, it refers to the [[Elite (competition level)|Elite]] level of Cup tournaments.
+It is also used to refer to teams that have advanced to the knockouts in every major Cup event they have competed in. As of the [[2017 4chan Summer Cup]], no such teams exist anymore. For more information on this, see [[Elite (teams)]].
+
+===[[Exports|Export]]===
+The collection of files sent by a [[Glossary#Manager|manager]] to the [[Glossary#4CCC|4CCC]] to enter a team into an official tournament. This almost always includes tactics, but managers can also choose to submit an aesthetic export as well, to make their team stand out on the pitch.
+
+==F==
+===Fatigue===
+Attribute, specific to each player, which is dependent on a number of factors including the amount of activity performed in recent matches. Higher levels of fatigue result in faster [[Glossary#Stamina|stamina]] depletion and makes players more prone to errors. This attribute is not enabled in more recent cups.
+
+===Fergie time===
+The time period exceeding the allotted stoppage time at the end of a match. Particularly infamous for yielding very late goals, to the dismay of many. Named after former Manchester United manager Sir Alex Ferguson, whose teams pulled out many results-changing goals this way.
+
+===Football wins===
+A pejorative 4CC fans and commentators say when a match ends in a draw. Derived from the "victory anthem" borrowed from Australian rules football, [https://www.youtube.com/watch?v=WJtaCryzL20 "It's a Draw!" by the Barrackville Singers.]
+
+===Form===
+Adjustable attribute which alters the random generation of a player's [[Glossary#Condition|condition]].
+
+===Fox in the box===
+A striker that lurks in the opposition's 18-yard box, waiting for a chance to score.
+
+==G==
+===GGSS===
+Short for Gold, Gold, Silver, Silver. A team structure where each team is given two [[Glossary#Gold player|gold]] and two [[Glossary#Silver player|silver]] players. This has been the official system for every official cup since Spring 2013.
+
+===GSSBB===
+
+Short for Gold, Silver, Silver, Bronze, Bronze. A team structure where each team is given one [[Glossary#Gold player|gold]], two [[Glossary#Silver player|silver]] and two [[Glossary#Bronze player|bronze]] players. This system was used for Winter 2018.
+
+===Giant-killer===
+A perceived weaker team that relegates a team that is considered strong.
+
+===Goal poacher===
+A type of striker that plays off the shoulders of the last defender, usually excelling at scoring.
+
+===GOAT===
+Acronym for Greatest Of All Time, often used to describe a player or team of legendary stature.
+
+===Gold player===
+Used to describe a non-standard player with stats rated at 99 across the board.
+
+===Golden Boot===
+Award presented to the best striker in an official tournament, typically the player with the most goals.
+
+===Golden Glove===
+Award presented to the best goalkeeper in an official tournament, typically the keeper with the most saves.
+
+===Group of death===
+Group in a cup competition which is unusually competitive, because the number of strong teams in the group is greater than the number of qualifying places available for the next phase of the tournament.
+
+===Group Stage math===
+Calculations, scenario-building and "if X happens, then Y" postulation done before the final round of a group stage to determine what result(s) each team needs in a group stage to either win the group or advance to the next stage. Most often done for groups of four where the top two advance, though it can also be used for other setups. For tournaments under official 4CC rules, the tiebreaker order is goal difference, goals scored, head-to-head results between the teams involved, {{tt|playoffs.|DON'T TALK ABOUT PLAYOFFS!! PLAYOFFS!?}}
+
+==H==
+===Height abuse===
+A phrase invoked against teams that used taller-than-average players. Less used after new height rules were instituted starting with the [[2014 4chan Summer Cup]].
+
+==I==
+===Invitational===
+A tournament where teams are invited to play the tournament organizer. These are always [[Glossary#Unofficial|unofficial]] in nature.
+
+==J==
+===Jenkey1002===
+Japanese modder who contributed several programs used to edit various ''PES'' games. Ded.
+
+==K==
+===Kick-off abuse===
+The tendency for goals to be scored very quickly following a kick-off situation.
+
+===Kit===
+Refers to a team uniform in soccer. Also refers to custom [[kits]] within ''Pro Evolution Soccer''.
+
+===Kitserver===
+An add-on program for the ''Pro Evolution Soccer'' series. It was previously used to add custom content to the game, but has now been dropped by the Cup due to stability issues.
+
+==L==
+===Live managing===
+When a [[Glossary#Manager|manager]] relays tactical input to a host in real time as a match is being played. In official Cup matches, this is subject to strict [[Appendix:Rules|rules]].
+
+==M==
+===Manager===
+An individual in charge of a board's team. Duties include overseeing the team's tactics, [[Glossary#Live managing|live managing]], putting together aesthetics for the team, and interfacing with the team's board. For some teams, these duties are shared between multiple co-managers, or a council of managers. Also see [[Glossary#Caretaker|Caretaker]].
+
+===Man of the match===
+Award, decided by ''PES'' through arcane means, given to the player it thinks performed the best in a match.
+
+===Megababby===
+Any Babby Cup with 40 or more teams, as opposed to the traditional 32. First attempted in [[2014 4chan Spring Babby Cup|Spring 2014]], followed by [[2014 4chan Autumn Babby Cup|Autumn 2014]], [[2015 4chan Spring Babby Cup|Spring 2015]], and [[2015 4chan Autumn Babby Cup|Autumn 2015]]. The format was eventually abandoned, before resurfacing for [[2018 4chan Spring Babby Cup|Spring 2018]].
+
+===Mentality===
+A player attribute in older version of ''PES'' that determines the attacking or defensive nature of that player. Replaced by the Attacking/Defensive Prowess stats in newer versions of ''PES''. Also refers to a team's attack/defense emphasis level, ranging from -2 (total defense) to +2 (all-out attack) in increments of one.
+
+===Merc===
+Short for mercenary. Any manager that is perceived as not being a regular visitor of the board he manages.
+
+===Medal player===
+Used to describe a non-standard player. Can refer to gold, silver, or bronze players, or all three of these. Bronze players were phased out in Spring 2013 to be replaced by the [[Glossary#GGSS|GGSS]] system and brought back for Winter 2018 under the [[Glossary#GSSBB|GSSBB]] system.
+
+==={{greentext|Most Dangerous Lead}}===
+2-0. Refers to the PES tendency for a team behind 2-0 to come back to draw or win.
+
+==P==
+===Parking the bus===
+Expression used when all the players on a team play defensively, usually when the team is winning by a narrow margin.
+
+==={{Greentext|PES}}===
+An expression indicating displeasure at the somewhat random AI gameplay in the ''Pro Evolution Soccer'' series. Usually employed as an excuse when faced with a loss.
+
+===Preset===
+Any one of the customizable formations which can be switched in ''PES'' at will by a manager.
+
+===''[[Pro Evolution Soccer]]''===
+Also known as '''''PES'''''. A series of football video games created by Konami. The [[4chan Cup]] is played using this series.
+
+===Promotion===
+When a team moves up to a higher division in the 4chan Cup hierarchy, usually when reaching the knockout stage of a Babby cup. Can also result from an alternate team replacing a disqualified team prior to an Elite Cup.
+
+==R==
+===Regular player===
+A player rated 77 in all stats. Regular players make up the majority of team compositions and often rotate in and out of the lineup based on matchday conditions. Goalkeepers must be regular players.
+
+===Relegation===
+When a team moves down to a lower division in the Cup hierarchy, usually as a result of failing to reach the playoff stage of an [[Elite (competition level)|Elite]] Cup.
+
+===Rigbux===
+Rigbux (or ''RB'') are the imaginary currency often used in 4CC contexts, such as the betting shop in /4ccg/ during match days. If you hear someone complain about losing their Rigbux and/or kneecaps, they probably just lost a bet.
+
+===[[Rig Cam]]===
+A webcam pointed at the commissioners monitor to allow managers and color commentators to see the match as it happens without delay. Speeds [[Glossary#Live managing|live managing]] up considerably.
+
+===Rigged===
+Term regularly used since the [[2012 4chan Winter Cup|2012 Winter Cup]] to describe any questionable decisions made or activities performed by the [[Glossary#4CCC|4CCC]].
+
+==S==
+===Semen slurping===
+A match that is characterized by midfield/possession antics, with no real chances or scoring either way. Formerly often accompanied by the ResidentSleeper Twitch emoticon.
+
+===Silver player===
+A non-standard player with stats rated at 88 across the board.
+
+===Slav goal===
+Goal scored during the final two minutes that grants the scoring team a win. Named after the [[/int/]] player Putin's two match-winning goals during the [[The World Series]] invitational.
+
+===Sombrero===
+Skill move where a player, typically a striker, flicks the ball over and past an opposing player to retain possession.
+
+===Squat Toilet===
+A goal scored on a rebound from outside the 18-yard box, preferably by a non-medal player. Named after the [[/trv/]] player Squat Toilet, who delivered a very memorable instance of this.
+
+===Stamina===
+Player attribute which depletes as they perform physical activity during a match. Ending a match with a very low level of stamina will contribute to [[Glossary#Fatigue|fatigue]], if the feature is enabled in-game.
+
+===Suspension===
+Players are forced to miss their team's next game(s) if they pick up an allotted number of [[Glossary#Caution (Yellow card)|bookings]] in Cup matches, or if they are [[Glossary#Dismissal (Red card)|sent off]] in a previous match.
+
+==T==
+===Target Man===
+A type of striker that holds the ball up in an advanced area, waiting for his team to back him up to generate an attack.
+
+===[[Third Place Trophy]]===
+A term mocking the notion of third place in an official tournament as a result worthy of bragging.
+
+===Tiki-taka===
+Style of play characterized by short passing and movement, with an emphasis on retaining possession. In the Cup, mostly used to refer to excessive examples of such a playstyle.
+
+===[[Trollpost]]===
+Any shot that hits the post of the goal. Used both as a noun and a verb.
+
+==U==
+===Unofficial===
+A match or tournament not governed by the [[4chan Cup Committee|4CCC]]. These events do not count towards official statistics. Unofficial tournaments are also referred to as "invitationals" or "memevitationals."
+
+==V==
+===Void===
+An official match result that does not count towards statistics, usually as a result of rigging.
+
+===Vuvuzela===
+Plastic horn-shaped instruments popularized by supporters at the 2010 FIFA World Cup in South AfrBZZZZZZZZZZZZZZZZZZZZZZZZZZZTTTTTTTTTTTT.
+
+==W==
+===[[Wooden Spoon]]===
+An "award" given to the team which finishes in the lowest possible position in any given Cup competition.
+
+==Y==
+===Yo-yo team===
+A team that is regularly [[Glossary#Promotion|promoted]] and [[Glossary#Relegation|relegated]] between the Elite and Babby Cup levels.
+
+{{Navbox 4chan Cup}}
+
+[[Category:Culture]]

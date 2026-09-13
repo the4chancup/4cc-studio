@@ -1,0 +1,323 @@
+{{Template:Pes2017 TOC}}
+
+This page describes the proper format for Aesthetics Exports.
+
+Since scripts are used for automatically checking and compiling Aesthetics Exports, it is important that all the files are in the correct folder in the export.<br>
+The first section explains the general structure of an export, while the second section contains details about its contents.
+
+'''Make sure to check the template and tool links at the [[AET#Downloads|bottom of the page]].'''<br>
+The template can be used as a base to make exports for new teams.
+
+== Structure of an Aesthetics Export ==
+The folders and files contained in a complete export are the following:<br>
+(--- is your Team Name. XXX is anything three characters long, it'll get replaced with the actual team ID by the compiler. Leaving it as XXX is recommended.)<br>
+
+Required:
+* --- Note.txt
+* Kit Configs
+** XXX_DEF_GK1st_realUni.bin
+** XXX_DEF_1st_realUni.bin
+** XXX_DEF_2nd_realUni.bin
+** ...
+* Kit Textures
+** u0XXXg1.dds
+** u0XXXp1.dds
+** u0XXXp2.dds
+** ...
+* Logo
+** emblem_0XXX_r.png
+** emblem_0XXX_r_l.png
+** emblem_0XXX_r_ll.png
+* Portraits
+** player_XXX01.dds
+** player_XXX02.dds
+** ...
+
+Optional:
+* Faces
+** XXX01 - Player name
+*** (Files)
+** XXX02 - Player name
+*** (Files)
+** ...
+* Boots
+** k#### - Player name / Boots description
+*** (Files)
+** k#### - Player name / Boots description
+*** (Files)
+** ...
+* Gloves
+** g#### - Player name / Gloves description
+*** (Files)
+** g#### - Player name / Gloves description
+*** (Files)
+** ...
+* Collars
+** collar_###.fmdl
+** collar_###.fmdl
+** ...
+* Common
+** (Files)
+
+<br>
+'''If you have any empty folders, please delete them to make checking your export easier.'''<br>
+
+
+== Required stuff ==
+
+=== Main Export Folder ===
+<u>Please don't forget to change the ''---'' in the template to your team's name.</u><br>
+The zipped file ('''zip or 7z formats only''') you'll make to upload the export must contain a main folder (with the team name) with the various folders inside of it.<br>
+
+
+=== Note txt ===
+The Note txt file contains info about your team name, its colors and its amount of kits and their colors.<br>
+'''This file is <u>required</u>. If you don't have one you can ask the aesthetics helper to make one for you.'''<br>
+
+Here's a template file you can copy:<br>
+
+{| class="wikitable"
+|-
+| <code>Team: /---/<br>
+
+Team Colours:<br>
+- 1st: #RRGGBB<br>
+- 2nd: #RRGGBB<br>
+
+Kit Colours:<br>
+- 1st player: #RRGGBB - #RRGGBB<br>
+- 2nd player: #RRGGBB - #RRGGBB<br>
+- 3rd player: #RRGGBB - #RRGGBB<br>
+- 4th player: #RRGGBB - #RRGGBB<br>
+- 5th player: #RRGGBB - #RRGGBB<br>
+- 6th player: #RRGGBB - #RRGGBB<br>
+- 7th player: #RRGGBB - #RRGGBB<br>
+- 8th player: #RRGGBB - #RRGGBB<br>
+- 9th player: #RRGGBB - #RRGGBB<br>
+
+- 1st GK: #RRGGBB - #RRGGBB<br>
+
+Other Notes:<br>
+-<br></code>
+|}
+
+*'''Team''' - Replace /---/ with your team's name. This is what the compiler uses to determine which team slot to use. See '''teams_list.txt''' in the compiler folder.
+*'''ID''' (Obsolete) - This is no longer used and can be deleted if present.
+*'''Team Colours''' - Replace the RRGGBB parts with '''RGB hex codes''' for colours, please <u>fill both colours</u> (if you only have one team color, you can use it twice).<br>You can usually '''get the codes from the infobox''' on your team's wikipage (enter page edit mode and check the color1 and color2 properties of the infobox).
+*'''Kit Colours''' - Replace the RRGGBB parts with '''RGB hex codes''' for colours, please only fill the colours corresponding to the kits you have and <u>delete any leftover lines</u>.<br>You can '''get the codes by opening your textures''' with paint.net, using the color picker on each of the two main colors, and copying the codes from the Colors panel on the bottom left (click on More to expand it).<br>The amount of lines will let PES understand how many kits you have, make sure to delete any from any kits not actually present in your export.<br>'''Optionally''', you can add a kit icon number (0-23) at the end of each kit color line to specify which <u>'''[[:File:Kiticons.png|icon]]'''</u> appears in the lineup screens during the prematch sequence of some of the games. If not specified, the default icon (3) will be used.<br>Example: <code>- 1st player: #000000 - #FFFFFF - 5</code>
+*'''Other Notes''' (Optional) - If you have any notes you'd like the Aesthetics Helper to see, stick them here. Feel free to use it as a shitposting box too.
+
+If you're having trouble with filling up the color codes feel free to ask for help.<br>
+If you prefer, you can use RGB codes in decimal format for the team and kit colours. Write them in the format RRR GGG BBB.<br>
+For example, these two lines are equivalent:<br>
+{| class="wikitable"
+|-
+| <code>- 1st Player: #01020A - #FFFFFF
+- 1st Player: 001 002 010 - 255 255 255<br></code>
+|}
+
+=== Kit Configs ===
+This folder is used for the team's kit config files.<br>
+'''A kit config folder is <u>required</u>, but can be empty if you're not using PES kits.'''<br>
+
+Put all the kit config files directly in this folder. '''Avoid using the intermediate folder with the team ID used in the past.'''<br>
+Do not try to add multiple GK kit configs - PES only allows one anyway. A team has a maximum of 10 kits of which one always needs to be the GK, so you can have 9 outfield kits at most.<br>
+
+The naming convention is as follows:
+* XXX_DEF_GK1st_realUni.bin (GK kit)
+* XXX_DEF_1st_realUni.bin (1st outfielder kit)
+* XXX_DEF_2nd_realUni.bin (2nd outfielder kit)
+* ...
+When adding a new kit, you can just copy another file and rename it.
+
+
+=== Logo ===
+This folder is used for providing your team logo.<br>
+'''The logo files are <u>required</u>.'''<br>
+
+Put three .png images in this format:<br>
+* emblem_0XXX_r.png (128x128 pixels) (mainly shown in tactical screens and at the bottom of the screen during the match)
+* emblem_0XXX_r_l.png (256x256 pixels) (seemingly never shown, maybe in the team selection menu)
+* emblem_0XXX_r_ll.png (512x512 pixels) (mainly shown in the match intro)
+'''Note that the last part is lowercase L and LL, not uppercase i and ii.'''<br>
+The three images do not have to be the exact same logo. You can use a simpler version for the smaller one, or whatever you can think of.<br>
+
+
+=== Portraits ===
+This folder is used for the team's player portraits, for players who don't have a face folder.<br>
+'''Portraits are <u>required</u>, but the Portraits folder isn't required if you put the portraits in the face folders.'''<br>
+
+Each player's portrait consists of a DDS (DXT5, 128x128) texture. '''They need to be saved as DDS; do not rename PNG files.'''<br>
+For all the players who have a face folder, you can and should '''include the portraits in their face folders''', with the filename '''ending in ''portrait.dds''''' (case insensitive); prefixes are allowed. This way, when you change a player's ID you don't need to rename the portrait too.<br>
+If your team only has a few players with in-game models, you can avoid creating a Portraits folder just for them and instead create face folders with their team ID and player name, containing only the portrait file.<br>
+<br>
+If you still want to use the Portraits folder, you need to use "player_XXXxx.dds" as filename, where xx is the player's number in the team (between 01 and 23).<br>
+Example:
+* player_XXX01.dds
+* player_XXX02.dds
+* player_XXX03.dds
+* ...
+
+If all of your players' portraits are inside face folders, you can delete and ignore the Portraits folder.<br>
+If the compiler finds a portrait for the same player in the face folder and in the Portraits folder, it will prioritize the one from the face folder.<br>
+<br>
+'''If you're using PES17''':<br>
+To test the portraits in PES after compiling your export make sure to clear the Appearance flags in your editfile.<br>
+If you're using the Rigit-style editor you do this by clicking on Database > Fix Database, then saving.<br>
+if you're using the NGE-style editor you do this by clicking on 4CC > Reset All Flags, then saving.<br>
+You need to do this every time you import an export into your savefile, otherwise some portraits will end up looking blank.
+
+== Optional stuff ==
+
+=== Kit Textures ===
+This folder is used for the team's kit texture files.<br>
+'''Kit textures are <u>not required</u> if your players don't use them, but spectators also use the textures and will be wearing white if there are none.'''<br>
+
+Just put all the kit textures of your team in this folder.<br>
+
+The naming convention is as follows:
+* u0XXXg1.dds (GK kit, main texture)
+* u0XXXp1.dds (1st outfielder kit, main texture)
+* u0XXXp2.dds (2nd outfielder kit, main texture)
+* ...
+
+For each kit, you can also have the following optional textures, provided they've been listed in the respective kit configs.
+Example with p1, starting from PES18:
+* u0XXXp1_back.dds (number font)
+* u0XXXp1_chest.dds (number font)
+* u0XXXp1_leg.dds (number font)
+* u0XXXp1_name.dds (character font)
+* u0XXXp1_srm.dds (texture for '''[[Pro_Evolution_Soccer_2018/Kits#Proper_Method|custom shading]]''')
+For PES16 and 17, check the naming convention for the optional textures '''[[Pro Evolution Soccer 2016/Kits#Naming textures|here]]'''.<br>
+
+
+=== Faces ===
+This folder is used for all the custom face folders.<br>
+Player-specific models go here.<br>
+'''Custom face folders are <u>optional</u>, but you must have a custom head made using the in-game editor for every player without a face folder.'''<br>
+
+The naming convention is the following:<br>
+* XXX01 - Player Name
+* XXX02 - Player Name
+* ...
+You can leave XXX as it is - it'll get replaced with the actual team ID by the compiler. After it comes the player's number on the team (between 01 and 23).<br>
+The player name in the folder name doesn't need to correspond exactly to the player's actual name. It can have spaces, and be as long or short as you want, but please don't use {{tt|special characters|<nowiki>In particular  \ / : * ! ? &quot; &lt; &gt; |</nowiki>}}.<br>
+Adding the player name is '''required''' since it makes finding and fixing faces with problems easier<br>
+<br>
+
+Keep in mind you should include the player's portrait in this folder, with the filename ending in ''portrait.dds''.<br>
+If a player has an in-game custom head, you can make a face folder for them with just the portrait file inside it.<br>
+
+'''Do not add any .cpk, .fpk or .fpkd files to the export; the compiler will build all the cpk/fpk files itself after checking all the player folders.'''<br>
+'''Also, avoid including any unused files, unless they're txt files added to point something out.'''
+
+
+=== Boots ===
+This folder is used for all the custom boot folders for your team.<br>
+Boot models can be used to share a model between multiple players.<br>
+'''Boots folders are <u>optional</u>.'''<br>
+
+The naming convention is the following:<br>
+* k#### - Player name / Boots description
+* k#### - Player name / Boots description
+* ...
+Where #### is the boots ID (between 0001 and 9999).<br>
+You should add the player name the boots will be used for or, if the model will be used on multiple players, simply a description of what it is. Please don't use {{tt|special characters|<nowiki>In particular  \ / : * ! ? &quot; &lt; &gt; |</nowiki>}}.<br>
+
+Every team has a reserved set of ID slots which you can find on '''[[Pro Evolution Soccer 2019/Boots|this page]]'''.<br>
+Boots will not be added to the ''Boots.bin'' file so they will not show up in the ingame boots list; use a save editor to assign the correct boots ID to your players. Do not add thumbnail files either.<br>
+
+
+=== Gloves ===
+This folder is used for all the custom glove folders for your team.<br>
+Required for animated hands.<br>
+'''Gloves folders are <u>optional</u>.'''<br>
+
+The naming convention is the following:<br>
+* g#### - Player name / Gloves description
+* g#### - Player name / Gloves description
+* ...
+Where #### is the gloves ID (between 0001 and 9999).<br>
+You should add the player name the gloves will be used for or, if the model will be used on multiple players, simply a description of what it is. Please don't use {{tt|special characters|<nowiki>In particular  \ / : * ! ? &quot; &lt; &gt; |</nowiki>}}.<br>
+
+Every team has a reserved set of ID slots which you can find on '''[[Pro Evolution Soccer 2019/Gloves|this page]]'''. They're the same as for boots.<br>
+Gloves will not be added to the ''Glove.bin'' file so they will not show up in the ingame gloves list; use a save editor to assign the correct gloves ID to your players. Do not add thumbnail files either.<br>
+
+
+=== Collars ===
+This folder is used for custom models used as collars for your team.<br>
+'''Custom collar models are <u>optional</u>.'''<br>
+
+The filename format is simply "collar_###.fmdl", where ### is the collar ID (between 001 and 255).<br>
+Please contact the aesthetic helper beforehand to reserve the ID slots you want to use and to make sure they aren't currently in use.<br>
+
+
+=== Common ===
+This advanced folder is used for any textures you want to share between models in multiple folders, saving space in the export and making fixes faster.<br>
+PES 17 also allows loading models from the common folder.<br>
+'''Common files are <u>optional</u>.'''<br>
+
+==== Pre-Fox PES (15-17) ====
+* Use the following as path in the XML and MTL files of the models for which you want to use these files, instead of the usual "./"
+** '''model/character/uniform/common/000/''' (keep 000; it will be replaced with your team ID by the compiler).<br>
+* To load a model from the common folder in PES 17, you can also create a blank file with the name of the model and ending in ''.common''.
+==== Fox PES (18-21) ====
+* To load a texture from the common folder, simply select the ''Team common folder'' directory preset in Blender.
+
+
+(Any files you place in the common folder will be moved to ''model/character/uniform/common/000/'' for pre-Fox, or ''common\character1\model\character\uniform\common\***\'' for Fox Engine, where *** is your team ID.)
+
+== File types & special files ==
+*'''.model'''
+::Pre-Fox model format. All .model files in a face folder will be loaded if there's no XML file.
+
+*'''FMDL'''
+::Fox Engine model format.
+
+*'''SKL'''
+::Skeleton file used by FMDLs. Not needed; the compiler will automatically add it.
+
+*'''DDS'''
+::Texture format required by the game. DDS textures will automatically be converted to FTEX for Fox Engine games.
+
+*'''dummy_kit.dds'''
+::Assigning this texture to a material will make it use the texture corresponding to the kit selected in-game from the Kit Textures folder instead. Not required if no player uses the textures in the Kit Textures folder.
+
+*'''MTL'''
+::Material definition file required to define material parameters for .model files. Material names should match the name under ''PES .model Mesh Settings'' in the data tab in Blender.
+
+*'''face_diff.bin'''
+::Not required. Defines the locations of the default eyes and dentition. If not present, a default blank one will be automatically added by the compiler.
+
+*'''ingame_face / ingame_face.txt'''
+::Empty file which, if included in a face folder which only contains a portrait file, will prevent the compiler from adding the default blank face_diff, allowing in-game faces to be used instead.
+
+*'''XML'''
+::Pre-Fox: Not required. If an XML file is present in a face folder, models in that folder won't be loaded unless specified in the XML. The <dif> section functions identically to face_diff.bin; to remove the eyes and face, copy it from another player or [https://mega.nz/file/xINhnTYB#o8VKyQJSW-9GuldMHKOW1uUszbgX3RJ985kNxko5454 this template.]<br>
+::Fox: Not required. Will be ignored if present.
+
+*'''BIN'''
+::[[#Kit Configs|Kit config]] file. Defines the look of the corresponding kit.
+
+== Other stuff ==
+Any other stuff, like new banners, balls and stadiums '''must not''' be added to the export.<br>
+Instead send them directly to someone from the [[Contact#Aesthetics_Helper.27s_personal_aesthetics_Discord|Aesthetics Council]].<br>
+
+
+== Downloads ==
+=== All PES versions ===
+* '''4cc AET Compiler Red''': [https://github.com/the4chancup/4cc-aet-compiler-red/releases GitHub] (grab the 7z from the Assets box)<br>This tool converts exports into a cpk and copies the cpk into the PES download folder, so that you can test them right away.<br>It also warns about any errors in an exports, so you can use this tool to check if you prepared yours properly.<br>You can also keep track of the latest updates in the [https://github.com/the4chancup/4cc-aet-compiler-red GitHub page]. Feel free to report bugs and request new features in the Issues tab.<br>
+
+=== PES18/19 ===
+* '''Aesthetics Export Template''' for {{tt|PES18/19}} (Use if your team is new): [https://drive.google.com/file/d/1Yodf7NrCelPBgR-OkQWotkfbmSdv9r_i/view?usp=sharing gdrive]<br>Includes a step by step guide on how to set your aesthetics export properly.
+* Example of a completed and fully supported PES16/17 Aesthetics Export: [https://drive.google.com/file/d/1E6TJRpK8_zk8ibuiDlO_2HpCsuNptaOZ/view?usp=sharing gdrive]<br>
+
+=== PES16/17 ===
+* Aesthetics Export Template for {{tt|PES16/17}} (Use if your team is new): [https://drive.google.com/open?id=0B3sqUVKKkyuETVhSdldjT2lHN1k gdrive]<br>Includes a step by step guide on how to set your aesthetics export properly.
+* Example of a completed and fully supported PES16/17 Aesthetics Export: [https://drive.google.com/file/d/0B3sqUVKKkyuEZnRFRGFZNkFzS3M gdrive]<br>
+
+=== PES16 (pre-Autumn 16) ===
+* 4cc AET Simplifier v2.5 (for old PES16 exports): [https://drive.google.com/open?id=0B3sqUVKKkyuEVEx5UzBleFJNcU0 gdrive]<br>This tool converts exports from the legacy format used until Autumn 16 into the new simplified format automatically, and checks it for errors.<br>It also adds automatically the player names to the face folder names.<br>
+
+
+[[Category:Pro Evolution Soccer 2016]] [[Category:Pro Evolution Soccer 2017]] [[Category:Pro Evolution Soccer 2018]] [[Category:Pro Evolution Soccer 2019]] [[Category:Aesthetics]]

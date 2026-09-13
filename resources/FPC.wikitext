@@ -1,0 +1,59 @@
+{{Template:Pes2017 TOC}}
+
+This page contains a guide for modern Full Player Customization in PES17.
+
+Full Player Customization (FPC, not to be confused with [[Pro_Evolution_Soccer_2016/Advanced_Player_Customization|APC]]) is the name given to the system that allows removing the default PES body parts of a player that couldn't be removed previously.
+
+Once a player's default body has been removed, there are no limits to what the void can be filled with. You can take advantage of FPC to replace parts of a player and even its entire body.
+
+In the days of yore of {{tt|2023 and before|retro btw}}, we used an [[Pro_Evolution_Soccer_2016/Full Player Customization/Retro|FPC system for PES16 and PES17]] that was slightly different from the one used in PES19 and beyond.<br> With the introduction of the [[2024 4chan Spring Babby Cup]], a new version of FPC for PES16 and PES17 was developed that is mostly identical to the one in PES19. Read on on how to use it and how to set it up.
+
+= Necessary DLC =
+The tech that makes this FPC system work is part of the [[Pro_Evolution_Soccer_2017|2024 Autumn Babby Qualifiers DLC]] and later. Make sure you have this installed.
+
+= Kit Config settings =
+In order to use FPC with any of your team's players, you need the following settings configured on each of your team's [[Pro_Evolution_Soccer_2016/Kits|kit configs]]. '''That includes the goalkeeper kit config.'''
+
+* Shirt model 176
+* Shorts model 16
+* Collar 105
+* Winter collar 105
+
+Configuring this then allows you to turn FPC settings on or off on a per-player basis in the edit file. If all of your players are showing some kit pieces like collars and underpants despite their per-player settings, you probably broke the kit config file.
+
+= Hiding your players =
+Use the following player appearance settings to complete hide your player's default PES body:
+
+* Long sleeves
+* Tucked shirt
+* Short socks
+* Boots 55 (or any other nonexistent boots ID), or your FBM's custom boots if it uses that
+* GK gloves 11 (or any other nonexistent gloves ID), or your FBM's custom gloves if it uses that
+
+= Un-hiding your players =
+The following settings will completely show the default PES body for your player:
+
+* Short sleeves
+* Untucked shirt
+* Standard/Long socks
+* Boots 0
+* GK gloves 0, or 1-10 for goalkeepers
+
+= Partially hiding your players =
+If your player is a custom model inside a standard PES jersey, it is possible to show the jersey while hiding the pkun skin. Use the following settings for this:
+
+* Short sleeves
+* Untucked shirt
+* Standard/Long socks
+* Skin color Custom
+
+= Troubleshooting =
+Most of the Strip Style appearance settings not mentioned above will interfere with the FPC system if you mess with them:
+
+* Wrist taping, Ankle taping: Setting this to anything other than None makes it possible to selectively show parts of the missing FPC pieces for custom setups. If that's not specifically what you're looking for, leave them be.
+* Gloves? checkbox: Enabling this while also using Gloves ID 0 makes players wear winter gloves (the kind that keep your hands warm, not the kind to catch balls with) ''in winter conditions''. This is a great way to make players work correctly in some settings and break in others. Technically valid on non-FPC players I guess but it seems wiser to just never touch it and leave it off at all times.
+* Inners: Setting them to anything other than None breaks FPC, but this is valid on non-FPC players.
+* Undershorts: Setting them to anything other than Off/Off breaks FPC, but this is valid on non-FPC players.
+* Skin color: setting this to Custom hides the player body but not the jersey. Good for partial-FPC setups, but don't use it on non-FPC players.
+
+[[Category:Pro Evolution Soccer 2016]]

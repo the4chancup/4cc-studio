@@ -1,0 +1,580 @@
+{{Incomplete}}
+
+= Introduction =
+
+This page tries to put all the important Blender tutorials in one place instead of having them scattered all over. Contributions are very welcome since most of this will always be based on personal workflows and as such other ways of doing things will exist as well.
+
+Keep in mind, if you're stuck at any point you can always join the [https://discord.gg/wejWUHfMb2 /aesco/ Discord] or ask in /4ccg/ and someone who went through the same steps once will help.
+
+Note that the PES16/17 tutorials are not always compatible with PES18+ and vice versa.
+
+= Tools and Requirements =
+These are the general things you'll need for pretty much everything. More specialized tools and files will be linked at the beginning of their specific tutorial.
+
+== Blender ==
+[https://www.blender.org/download/ Download]
+
+This is your most important tool. The latest version will provide the smoothest experience when modeling and organizing scenes, but you'll also need [https://download.blender.org/release/Blender2.79/ version 2.79b] as the PES model import/export plugins aren't compatible with later versions.
+
+If you want the modern UI but still want to be able to copy and paste between Blender versions instead of having to export to FBX as an intermediary, use version 3.6.
+
+=== Blender Plugins and Config ===
+
+[[Tools#Blender|Blender Starter Pack]] (for Blender 2.79) - Complete all-in-one pack of scripts and settings for a cup-standard installation. Use this if you have just installed Blender or if you want to have the recommended settings and layout.
+
+'''This pack includes the following plugins:'''
+
+*'''pes-model''' - Import/export plugin for pre-Fox PES.
+
+*'''pes-fmdl''' - Import/export plugin for Fox Engine PES.
+
+== An Image Editor ==
+Again, one of the basic aesthetics tools that's all down to your personal preference. Only requirement is the ability to handle the DDS image format. Most used programs are Paint.NET, GIMP and Photoshop.
+
+* [https://www.getpaint.net/download.html Paint.NET] (Easiest to use; recommended.)
+
+* [https://download.gimp.org/pub/gimp/ GIMP] <s>and [https://mega.nz/#!VhNQSYAL!PrM121p_PeXWwerRSy0RBq5w9dWrOA44v22TlPyLlqg gimp-dds], the plugin you need for importing/exporting DDS in GIMP, read the readme. The GIMP UI was slightly redesigned after 2.8 so if 2.10 feels weird going back to 2.8.22 is recommended.</s>
+
+:GIMP now supports DDS out of the box.
+
+* If you want to use Photoshop you probably already have it, otherwise sail the seven seas. It should be easy to find.
+
+= Tutorials =
+
+== PES16/17 ==
+
+=== Basic Head Model ===
+This is the first thing anyone should learn about Blender and PES aesthetics. It's simply the process of taking an existing model and making it usable for PES, but thanks to how basic it is it functions as the foundation for all the other more advanced Blender stuff. Everything else simply adds extra layers on top of the basic process.
+
+First download the base folder and then watch the video tutorial which should cover everything. The video tutorial is made for MMD anime heads but the process for any basic head replacement model is exactly the same so going by the video should be good enough.
+
+* [https://drive.google.com/file/d/1RUDlhIWy1WLljxTZV8ZXu2WXB6NBba_Z/view?usp=sharing Base Folder]
+
+* [https://drive.google.com/file/d/1LlIAT27eSUF0iU--NVkaPf3IT1bdZ1H7/view MMD Video Tutorial]
+
+=== Facemasks ===
+A way to give human players a custom face without having to either use a cardhead or hunt for a model which most likely doesn't exist if you're considering facemasking. Also includes the added benefit of keeping the PES facial animations intact so your player can show emotion which with good facemasking work can make for an excellent-quality playermodel without tons of work.
+
+<div class="mw-collapsible mw-collapsed">
+''Click ->''
+<div class="mw-collapsible-content">
+
+Basically how it works is you edit your player's face into a default PES face texture, align it with the template model and then pick the right hair model and texture files from a pre-made pack and recolour the hair textures if needed. Getting the process down is a bit of work but once you're familiar with it churning out facemasks is a simple and easy process.
+
+* [https://www.youtube.com/watch?v=zXioBkRcZyg Video Tutorial]
+
+* [https://mega.nz/#!0pMg3SDK!uzFRHYFApIWLjPxxUC0X3935_n46lyg6juE__LCOJ50 Facemask Template] - A generic facemask template, very useful except you might want to swap the face texture depending on your source image
+
+* [https://mega.nz/#!MsVEFCKJ!IhHPk1nYY_yaF1ZiXjPCgTNMcwbQqB71PIGMZjS_zdU Facemask Template Overlay Edition] - Modified template to use the Overlay shader for sometimes better-looking results, explained in more detail in the actual tutorial
+
+* [https://mega.nz/#!M4cilabb!oOVj5Bf5D-kH8HtIzJYk81CE8nX_-C5-TLYUPAAnFXA PES17 Hairstyles] - All the PES17 hairstyles and their textures in a simple pack
+
+* [https://implyingrigged.info/wiki/Facemask_tutorial Facemask tutorial for PES18/19] - PES18/19 Facepainting tutorial using an alternative head base
+
+NOTE: This part is based on personal preferences and done entirely in GIMP, Photoshop at least should have a very similar process but mind the possible slight differences.
+
+First off start by finding an image of the face you want to facemask. An ideal source image is a relatively high-res photo showing the face from a straight angle so you can cut out the entire face and a bit of spare skin as well. For example [https://upload.wikimedia.org/wikipedia/commons/thumb/5/59/ToddHoward2010sm.jpg/1200px-ToddHoward2010sm.jpg this] is a very good source image.
+
+For your first couple of facemasks the template folder is usually good enough, but generally it's worth the trouble to grab some of the default PES face folders by first extracting '''dt36_win.cpk''' from your PES Data folder and then extracting a bunch of the resulting face CPK files and finally unzlibbing them all to take a look at the textures. This will possibly save you a good bunch of trouble especially if your reference image is anything other than a brown-haired slav. Simply look for a '''face.dds''' that matches your source image at least in skin colour and copy that over to your working folder over the template '''face.dds'''. You don't need to worry about hair textures or the model files because the template ones are better for the job.
+
+Now from the template folder open '''face.dds''' in an image editor, and copy-paste your source image into another window in the same image editor. Then with the '''''Lasso/Free-select Tool''''' select the entire face and as much skin around it as possible. Usually the best is to follow the jawline and after that the hairline, making sure to not include the ears and trying to include as little hair as possible. When you have your face ready to transplant, copy-paste it over to the face.dds window and scale and rotate it to fit the face. Setting the source face's layer to around 50% opacity helps a lot. Try to position at least the eyes and the mouth correctly, the nose might be a completely lost cause but getting it close enough is good if you can match the eyes and mouth perfectly. After you're happy with the positioning just mess with the sliders to try to match the skin colour and brightness of the PES face texture. Generally just using '''''Brightness/Contrast''''' and '''''Lightness/Saturation''''' in GIMP is enough to get an acceptable result. Once the colour kind of matches erase any rogue bits of skin that are overlapping hair or beard or generally out of place and finally start making the finishing touches and blending the edges of the source image into the PES face. For GIMP running the '''''Healing Tool''''' along the edges of the source face will usually do a good job, for more difficult blends the '''''Clone Stamp''''' is a good addition to the Healing Tool. Once you're happy with the texture it's time to move to Blender for some very final touches, the hard work is already done.
+
+In Blender, import the face model from the template folder and set it to use your new face texture as the texture. Position and scale the UV to fit the texture, the mouth and the eyes are the most important as before, the nose is just kind of 50/50 depending on your luck. Once the positioning is OK and the model looks good in Blender you can just simply export the face model and move on to picking the perfect hair for your new player.
+
+First you'll want to open PES, go to the Edit Menu, then choose a random player and go to '''Appearance -> Hairstyle''', reset the settings if asked to and start re-creating your source's hair in PES. Getting it 100% is probably going to be impossible so don't stress about that, simply good enough will do just fine. After you have recreated the hair in PES, go to the '''PES17 Hairstyles''' folder and read the .rtf tutorial there. The only difference I'd recommend trying is if using '''''Multiply''''' as the mode doesn't give good results try out other modes as well, I've had better success with '''''Grain Merge''''' since Multiply tends to get a bit dark. Once you're done editing the hair textures do the final finishing touch of editing the hair in the face texture to fit the actual hair colour as well. Once that's done your facemask should be ready for use, compile and test out in PES.
+
+If you're unhappy with how the facemask looks and the reason for it is too much detail like creases which make it hard to make out the features of the actual face it's supposed to be, first of all make sure '''face_normal.dds''', '''face_normal_detail.dds''' and '''face_specular_roughness.dds''' are all white. If they're white and you still have the same problem open '''hair.mtl''', look for '''hairparts_htShader''' and set its shader to be '''Overlay'''. Re-compile and see if the face looks better in PES, don't mind the fact that the neck is black we're going to fix that later. It it looks better read on for the Overlay trick, otherwise it's probably a problem with the texture or the UV alignment of the face model.
+
+The Overlay trick is a modified '''hair_high_win32.model''' file that fuses a copy of the '''hair_1''' mesh into the '''hair_0''' mesh so that the back of the model's head doesn't turn black when using Overlay as the shader. If you want to use Overlay as the shader for your hair, copy all of the files from the Overlay template folder into your facemask's folder except for '''face.dds''' if you have already made your facemask texture. First of all open '''hair_col.dds''' in an image editor and copy-paste your face texture over the existing one and make sure to keep the right side of the texture transparent. Then import both face and hair into Blender and fit the face UVs into your texture as usual. Then open up a second Blender window and import the hair model you picked when re-creating the hairstyle in PES. Copy the '''hair_2''' mesh and in your original Blender window select its '''hair_2''', change to Edit Mode, select it all with '''A''' and move it aside. Back in Object Mode paste your copied '''hair_2''' over to the original window, select it, select the original one and press '''''CTRL+J''''' to join them together. Change back to Edit Mode, select the entire original hair model you moved aside and delete it by pressing '''''X''''' and confirming deletion. Export your hair, compile and try it out in PES to see if it's any better compared to the default template. It might crash PES either in Edit Mode or in-game if something went wrong during the process in which case either try again from scratch or give up, it's a hassle to get right once it's gone wrong once.
+</div></div>
+
+=== Full-body Models ===
+For when the default PES body just isn't enough. Replacement of the entire default PES player with your own model that also moves like a player, or at least close enough. This tutorial talks about a complete body replacement but the same principles and techniques apply for replacing only certain bits of a player or adding extra stuff to a normal PES player model. These will have their own section but it's best to know the theory behind replacing a full body to help make smaller replacements and additions easier to understand.
+
+<div class="mw-collapsible mw-collapsed">
+''Click ->''
+<div class="mw-collapsible-content">
+
+* [https://drive.google.com/file/d/1xyxw-P8ggdCi6zd7guqUfbfTBuRA3wIZ/view?usp=sharing Video Tutorial]
+
+* [https://pastebin.com/phPpfW1e Guide.txt]
+
+* [[Aesthetic_Templates#Full_Body_Model_%28FBM%29_template|Full Body Template]]
+
+* [https://mega.nz/#!QschDSDD!A96UA2URPqenTWwp3JNNZ6U9Np29tmJYj-ZHMTzs-HU Kitmanager]
+
+First of all read the pastebin guide by Shakes and download the template folder which contains the very useful '''medical_staff.model''' and the face files for hiding the player's face/neck. In addition reading up on [[Pro_Evolution_Soccer_2017/Full_Player_Customization|FPC]] is greatly recommended to understand how to make the default players disappear, whereas reading up on [[Pro_Evolution_Soccer_2016/Advanced_Player_Customization|APC]] is not as important but still a good idea if you want to understand the PES model loading process a bit more closely. The Kitmanager linked with the templates is used to modify the kit configs for FPC. The guide is very feature-packed but everything in it is a worthy read and gives you everything you need for working with FBMs. The only thing I'm going to add is my method for dealing with source models with no skeleton since having a skeleton is pretty rare outside of anime models, especially when dealing with rips and low-quality models.
+
+The usual problem with skeletonless source models is the fact that it's not in the exact T-pose PES wants. The lack of a skeleton means you'll have to manually bend them to shape. There's several ways to do this and someone probably has a more efficient method but here's what I do regardless of the model and it's stance.
+
+Usually the problem are the limbs as the torso is probably still in a relatively straight stance so I'll focus on limb-mending. The same process will work for a torso as well though. What you'll want to do is locate the uppermost spot (i.e shoulder) where the source model doesn't match the medical suit, then in Edit Mode select all the faces up to that point in the limb and then rotate along an axis by pressing '''''R''''' and then either '''''X''''', '''''Y''''' or '''''Z''''' depending on which way you need to bend the limb. After you've bent it a bit, grab the faces with '''''G''''' and drag the limb around until the distortion caused by the rotation is smoothed out and the limb looks natural again. Rinse and repeat until that bit matches the limb of the medic suit and then start slowly making your way down the source model's limb, de-selecting one "ring" of faces at a time and rotating-grabbing-fixing until the entire limb matches the medical model's limb. During this process you can also shorten/lengthen the limbs smoothly as well since they'll need to be at least close to the length of the PES limbs for the painting to work optimally. Once you've done this a couple times you'll start getting a feel for how much you need to rotate the limb and along which axis to nail the transform first try.
+
+</div></div>
+
+=== Short & Simple ===
+Smaller tutorials that are more like nifty tricks that enable you to do some cool stuff. Most are just layers on top of FBM and most also have very easy templates that do most of your work for you. This is also the point where you might want to read up on [[Pro_Evolution_Soccer_2016/Advanced_Player_Customization|APC]] if you didn't do so already since all of these will assume you know how to add models to load into the XML and make sure the MTL they point to is correct.
+
+==== Custom Skin ====
+Custom skin means exactly what's on the tin, you're giving your player custom-coloured limbs, most likely to fit better with the head/neck. Also gives a decent intro into APC and some hints about FPC if you haven't had a look yet.
+
+* [https://mega.nz/#!l9t1wYKK!AhL9tZwh1LkjcUMnXqXI5s72Gk9A2Pq8k7UpaRSbwp0 Custom Skin Colour Template]
+
+Custom human limbs is actually very easy thanks to the template. All you need to do is pick the correct files and put them in your player folder, edit '''skin_color.dds''', copy the right lines from the .txt file in '''Config''' and PES will load custom-coloured limbs for your player. Remember to set invisible skin in an editor and you're all done.
+
+==== Attaching Parts to Players ====
+Also known as [[Pro_Evolution_Soccer_2016/Advanced_Player_Customization|APC]], it might seem a bit weird to have this only after learning how to do full-body models but most of this will actually require at least some understanding of weight painting so better have it here than before the weight painting tutorial. If you haven't learned how to weight paint yet take a look at [[Blender_tutorials#Full-body_Models|Full-body Models]] first, you'll need both '''guide.txt''' and the template but you can apply the guide to your attachment piece instead of a proper full-body model just fine.
+
+<div class="mw-collapsible mw-collapsed">
+''Click ->''
+<div class="mw-collapsible-content">
+
+This can all be boiled down to a single sentence: Do an FBM but instead of a full body it's just smaller bits. The process is entirely the same and if you handle FBMs perfectly then reading on won't reveal anything new but I'll write a short recap of the process anyway.
+
+This is actually exactly the same technology that was used above in the custom skin tutorial except this time you'll be working on a custom model in blender instead of the default PES limbs that only need texture editing. What you'll need to do first is prepare the custom attachment you want, so clean it up, texture it properly and have it basically ready to be exported just like you'd have a normal head. After that open the '''medical_staff.blend''' from the FBM template into a new Blender window and copy it over to the window where your attachment is. Position the attachment to where you want it to be using the medical suit as a reference and if required bend it into shape as detailed in the FBM tutorial. After you're happy with the positioning transfer weights from the medical suit as detailed in the FBM tutorial. You can now hide or delete the medical suit and do whatever minor paint fixes the attachment might need. After you're happy with the result export the attachment like you'd export any FBM and it's time to make PES load it.
+
+First you should add the loading line to the '''face.xml'''. The type for these kinds of attachments is usually '''parts''' unless you for some reason need a more specialized type, for example '''uniform''' for models using the kit texture as detailed a bit further into this page or '''handsL''' or '''handsR''' if you're working with hands and want the fingers to move. The model also needs to be named in a very specific way, '''oral_<name>_win32''' where '''<name>''' can be anything but both the '''oral_''' prefix and '''_win32''' suffix need to be present so the model doesn't crash PES in Edit Mode. An example loading line looks like this '''<model level="0" type="parts" path="./oral_helmet_*.model" material="./apc.mtl"/>'''. Note that the '''win32''' part gets changed to '''*''' in the loading line. After you've added the loading line you'll also need to set up an MTL. Grab a pre-existing one, for example '''medical.mtl''' from the FBM template folder works fine. Rename your MTL to '''apc.mtl''' or whatever your loading line has and then open it for checking and possible editing. Make sure the '''DiffuseMap''' sampler points to your attachment's texture, make sure the material's name is '''medic''' and finally check the states to make sure things like '''alphatest''', '''alphablend''' and '''twosided''' are on/off depending on what you want. Both the XML and the MTL and some of the most common values are detailed over at [[Setting_up_.model_files|Setting up Model Files]]. Once your model is added to the XML and its MTL is sorted you can add the player to your aesthetics export and compile to test in PES. If all went right your attachment should be in and move naturally with the bit it's attached to.
+</div></div>
+==== Custom Kit Textures ====
+Same basic progress as custom skin except now a bit more complicated because of more files and the fact that we're dealing with a kit texture instead of a skin texture where just dumping a solid-colour paint bucket on it was enough.
+
+* [https://mega.nz/#!x58BWAJB!oTefQ9Q_CPreKm7lAIZ-naMwYyhTmOyiHtZGSLlK8Dw Custom Kits Template]
+
+Read the '''readme.txt''' inside, it's got all you need to do.
+
+=== Boots and GK Gloves ===
+For when the default PES selection just isn't good enough. Please note that this is simply for editing the textures of the default PES models, for custom models you should use APC.
+
+<div class="mw-collapsible mw-collapsed">
+''Click ->''
+<div class="mw-collapsible-content">
+
+[https://mega.nz/#!YpdhkACI!Yao_JRaNDKcpNunS4kUDK1lpEaGheiUfsj15O_zudOE Boots/Gloves Template]
+
+Since it's just a texture edit everything's simple. Edit '''kXXXX_c.dds''' and/or '''gXXX_c.dds''' to your liking and your work is done, all you need to do is have PES load the boots. There's two ways of going about this, either having each player's '''face.xml''' load the boots/gloves separately, or actually adding them to the in-game list of PES boots/gloves which means you can just set them in an editor.
+
+First of all I'll mention that the [[AET#Boots|Aesthetics Compiler]] has a separate folder for both boots and gloves meaning it can do the hard work of getting them in-game for you. I'll still go through the manual methods here since it's always better to know what's going on under the hood, but if you just want the boots in-game the compiler is by far the fastest option. I'll also only refer to boots from now on unless there's a clear difference in a particular step so by default every step applies to both boots and gloves exactly the same.
+
+Adding the boots to the '''face.xml''' is much simpler but can be a bit tedious to keep track of since every player will have to load those files. If you want to do this move the files to your player's face folder. Open the '''face.xml''' and add a loading line for '''boots.model''' using '''boots.mtl''' as type '''boots''', like so '''<model level="0" type="boots" path="./boots.model" material="./boots.mtl"/>'''. For gloves it's a bit more complicated, you need lines for both gloves separately. First off delete one of '''glove_r.mtl''' and '''glove_l.mtl''' and then rename your remaining MTL to '''gloves.mtl''', then load the left glove as type '''gloveL''', right glove as '''gloveR''' both using '''gloves.mtl''', so for example '''<model level="0" type="gloveL" material="./gloves.mtl" path="./glove_l.model"/>'''. Now compile and your boots should be in, remember to use an editor to hide your player's default boots. If you plan on having the same boots for multiple players reading up on the [[AET#Common|Aesthetics Export Common Folder]] is recommended, it makes keeping track of your boots a lot easier.
+
+The other method requires you to build your own [[Pro_Evolution_Soccer_2017/DLC|CPK]] for the boots, but after the initial effort using the boots becomes a lot easier since you can simply change your players to use them in an editor. Once your textures are edited you don't need to change any of the other files, simply move them to the correct locations. For boots this is '''common\character0\model\character\boots\kXXXX\''' where '''XXXX''' is your boots ID with leading 0s, so for example 0050 for boots ID 50. For gloves the path is '''common\character0\model\character\glove\gXXX\''' where in the same fashion '''XXX''' is the gloves ID, so 050 for gloves 50. Check [[Pro_Evolution_Soccer_2016/Boots#Allocated_Boots|PES16/Boots]] and [[Pro_Evolution_Soccer_2016/Gloves#Allocated_gloves|PES16/Gloves]] to see which IDs you should use for your boots and gloves. You don't need to change any texture names or IDs inside the folder, the name of the folder is all that matters. Now simply compile the CPK and load it in your dpfilelist. Before you open PES to test them remember to set your player(s) to use the correct boots/gloves in an editor and you're ready to test. If all went right your players should have their custom-textured boots and gloves.
+</div></div>
+
+==== Using Kit Textures for Models ====
+Making the model change colours depending on which kit is selected. Very useful for repping team colours and making FBM players look more like they belong on the team. In more extreme cases can be used to load a full custom model depending on which kit is selected.
+
+<div class="mw-collapsible mw-collapsed">
+''Click ->''
+<div class="mw-collapsible-content">
+
+No templates for this as this will always be a case-to-case basis. What you'll want to do is grab one of your team's kit textures and import the model you want to use the kit's texture into Blender. Fit the model's UV into the kit texture however you want and re-export the model using the FBM exporting procedure of a second Blender window and joining to a medical model.
+
+It's also fine to only have one part of the model use the kit texture. In these cases select the whole part in Edit Mode and go '''''P -> Selection''''' to separate the selected bit into its own mesh. Then map that mesh to the kit texture while keeping the rest of your model on its own texture and then export both meshes separately.
+
+Once you have your kit-colour mesh exported, you need to add its loading line to '''face.xml'''. When adding the line have it's type be '''uniform''' instead of the usual '''parts'''. You can still use the MTL parameters like alphas and twosided but you can't give the model a diffuse map since that'll always be forced to the kit texture which is what we wanted anyway.
+</div></div>
+
+== PES18+ ==
+
+=== Basic Head Model ===
+This is a text based and illustrated .pdf guide that covers porting basic head models into PES. It assumes you have no prior knowledge of Blender and contains links to all the tools you'll need. The guide was made specifically for Source Filmmaker models, but can be applied to any model that Blender can open.
+
+* [https://mega.nz/file/b8R3mKTa#dAZxXx8P0D0-0xJis1yJIywQViAcRT9veTA1djnbRf8 Link to guide]
+
+=== Porting Heads ===
+Another tutorial for heads, likely repeating a lot of what the above one already covers. Pick whichever you prefer and stick with it and all should be well.
+
+<span class="mw-customtoggle-oldheads" style="color:blue"><u>'''Click here to expand'''</u></span>
+<div class="mw-collapsible mw-collapsed" id="mw-customcollapsible-oldheads">
+
+''' Resources '''
+
+* [[Aesthetic Templates]] - Separate wikipage for useful templates
+* [https://drive.google.com/file/d/1iIFxTv2ZOJN0nE-KkW_PZzqCGQvb23vo/view?usp=sharing PES19 Base Models] - Base setup for a head model, contains useful stuff like default textures and models
+
+''' Tutorial '''
+
+'''Video Tutorial: https://drive.google.com/file/d/1SAOv0Dvo-8lGRMudEFL2FeGS-uIgDduc/view?usp=sharing'''
+
+Make sure to grab the '''Base Model Pack''' from above as it will be used during this entire process
+
+* Open two blender windows, have your model open in one and import '''hair_high.fmdl''' from the '''Base Model Pack''' into the other
+* Copy the base model over to your model's blender window
+* The base model is a default PES head all combined into a single model so it functions as a good reference point, hence why you definitely should use it
+* Scale and position your own model around the template model. If you imported with '''PES model I/O''' the scale will automatically be correct but you may have to adjust the position of your model. If you imported with the older '''PES Mesh Tools''' you'll have to scale down to '''0.1''' and then re-position your model.
+* Once you're happy with the size and position of your model, delete the template model from your primary window
+* Swap over to the secondary blender window with only the template model for a moment
+* Select the template model, change to '''Edit Mode''', press '''A''' to select the entire template model and drag it aside. Make sure you get the entire model and be doubly sure to do this in '''Edit Mode'''
+* Swap back to '''Object Mode''' and copy your own model into the secondary blender window with the now-moved template model in it
+* With your model selected swap to the '''Data''' tab and next to the list of '''Vertex Groups''' press the black downwards triangle and select '''Delete All Groups'''
+* Keep your model selected and with '''Shift''' held select the template model and press '''Ctrl+J''' to join the two together. This will make your model inherit all the useful properties and settings the template model has
+* Swap back to '''Edit Mode''', select the entirety of the template model while making sure no part of your model is selected and press '''X -> Vertices''' to delete the template model
+* While still in '''Edit Mode''' and the '''Data''' tab, select your whole model with '''A''', select '''sk_head''' in the list of '''Vertex Groups''' and under the list press '''Assign'''
+* Swap to '''Weight Paint Mode''', press '''T''' to bring out the left sidepanel and press '''Normalize All'''
+* Swap back to the '''Scene''' tab, change the model filename to be '''hair_high.fmdl''' in the '''FMDL I/O''' section so it's named correctly for use in PES and you don't accidentally overwrite the template model and finally press '''Export fmdl'''
+* Your model should be exported successfully. The texture the model uses is called '''head.dds''' and the texture the default chest/neck model '''face_high.fmdl''' uses is called '''face.dds'''. The '''Base Model Pack''' includes examples of both textures. These files are really the only things in the '''Base Model Pack''' you should change, everything else is ready by default. The functions of the rest of the template files are explained below but the blender part of the tutorial is done and you're free to [[AET| test your model in PES]]
+
+''' Base Model Pack Files '''
+
+What the files in the '''Base Model Pack''' do and why they're included / why you might want to use them for your players
+
+* '''hair_high.fmdl''' - The template head model used in the exporting tutorial. A default PES player's head fused together into one reference model with favorable properties ideal for template use
+* '''face.dds''' - The texture used by '''face_high.fmdl'''
+* '''face.fpk.xml''' - Required for the face folders in your aesthetics export, used to tell the compiler which model files to include for that player. This default one will include '''face_high.fmdl''', '''hair_high.fmdl''' and '''face_diff.bin'''
+* '''head.dds''' - The texture used by '''hair_high.fmdl''' and by extension any model ported with this method
+* '''face_diff.bin''' - Controls the size and position of the default PES {{tt|eyes and mouth|EEEEE}}. This one has them shifted deep underground so they'll never appear in play, perfect for custom head models where they would just be in the way
+* '''face_high.fmdl''' - The default PES neck/chest model modified to work well with custom head models
+* '''face_nrm/srm.ftex''' - Map textures used by both '''hair_high.fmdl''' and '''face_high.fmdl'''. Normal and Specular. These three are default blank maps giving your models a smooth and neutral appearance so using them without any changes is greatly recommended
+</div>
+
+=== Completely New Head Models ===
+This time we have a model that has never been in PES before. Very similar process to porting old head models, to the point where this section is just going to be a slightly modified version of the porting guide, but worth having to avoid confusion. Video soontm
+
+<span class="mw-customtoggle-newheads" style="color:blue"><u>'''Click here to expand'''</u></span>
+<div class="mw-collapsible mw-collapsed" id="mw-customcollapsible-newheads">
+
+''' Resources '''
+* [[Aesthetic Templates]] - Separate wikipage for useful templates
+* [https://drive.google.com/file/d/1iIFxTv2ZOJN0nE-KkW_PZzqCGQvb23vo/view?usp=sharing PES19 Base Models] - Base setup for a head model, contains useful stuff like default textures and models
+
+''' Tutorial '''
+
+'''[https://www.youtube.com/watch?v=W0DrvcDI3Rk Video Tutorial - Comprehensive version] - Longer, slower paced and with more explaining'''
+
+'''[https://www.youtube.com/watch?v=xBB-x_qe2HQ Video Tutorial - Compact version] - Short and speedy, good if you just want the process and no long explanations'''
+
+
+Make sure to grab the '''Base Model Pack''' from above as it will be used during this entire process
+
+* Open two blender windows, have your model open in one and import '''hair_high.fmdl''' from the '''Base Model Pack''' into the other
+* Copy the base model over to your model's blender window
+* The base model is a default PES head all combined into a single model so it functions as a good reference point, hence why you definitely should use it
+* Scale and position your own model around the template model, keeping in mind the template is the size of a normal PES head. Your model doesn't have to match the size or shape, the template is there simply for reference to make sure your model doesn't end up too big or too small or out of position
+* Once you're happy with the size and position of your model, delete the template model from your primary window
+* Swap over to the secondary blender window with only the template model for a moment
+* Select the template model, change to '''Edit Mode''', press '''A''' to select the entire template model and drag it aside. Make sure you get the entire model and be doubly sure to do this in '''Edit Mode'''
+* Swap back to '''Object Mode''' and copy your own model into the secondary blender window with the now-moved template model in it
+* With your model selected swap to the '''Data''' tab and next to the list of '''Vertex Groups''' press the black downwards triangle and select '''Delete All Groups'''
+* Keep your model selected and with '''Shift''' held select the template model and press '''Ctrl+J''' to join the two together. This will make your model inherit all the useful properties and settings the template model has
+* Swap back to '''Edit Mode''', select the entirety of the template model while making sure no part of your model is selected and press '''X -> Vertices''' to delete the template model
+* While still in '''Edit Mode''' and the '''Data''' tab, select your whole model with '''A''', select '''sk_head''' in the list of '''Vertex Groups''' and under the list press '''Assign'''
+* Swap to '''Weight Paint Mode''', press '''T''' to bring out the left sidepanel and press '''Normalize All'''
+* Swap back to the '''Scene''' tab, select a new location to save your model in in the '''FMDL I/O''' section so you don't accidentally overwrite the template model and finally press '''Export fmdl'''
+* Your model should be exported successfully. The texture the model uses is called '''head.dds''' and the texture the default chest/neck model '''face_high.fmdl''' uses is called '''face.dds'''. The '''Base Model Pack''' includes examples of both textures. These files are really the only things in the '''Base Model Pack''' you should change, everything else is ready by default. The functions of the rest of the template files are explained below but the blender part of the tutorial is done and you're free to [[AET| test your model in PES]]
+
+''' Base Model Pack Files '''
+
+What the files in the '''Base Model Pack''' do and why they're included / why you might want to use them for your players
+
+* '''hair_high.fmdl''' - The template head model used in the exporting tutorial. A default PES player's head fused together into one reference model with favorable properties ideal for template use
+* '''face.dds''' - The texture used by '''face_high.fmdl'''
+* '''face.fpk.xml''' - Required for the face folders in your aesthetics export, used to tell the compiler which model files to include for that player. This default one will include '''face_high.fmdl''', '''hair_high.fmdl''' and '''face_diff.bin'''
+* '''head.dds''' - The texture used by '''hair_high.fmdl''' and by extension any model ported with this method
+* '''face_diff.bin''' - Controls the size and position of the default PES {{tt|eyes and mouth|EEEEE}}. This one has them shifted deep underground so they'll never appear in play, perfect for custom head models where they would just be in the way
+* '''face_high.fmdl''' - The default PES neck/chest model modified to work well with custom head models
+* '''face_nrm/srm.ftex''' - Map textures used by both '''hair_high.fmdl''' and '''face_high.fmdl'''. Normal and Specular. These three are default blank maps giving your models a smooth and neutral appearance so using them without any changes is greatly recommended
+</div>
+
+=== Porting FBMs ===
+<span class="mw-customtoggle-oldfbms" style="color:blue"><u>'''Click here to expand'''</u></span>
+<div class="mw-collapsible mw-collapsed" id="mw-customcollapsible-oldfbms">
+
+''' Preparation '''
+
+[https://drive.google.com/file/d/1b6W1BOS90hu6Q90ehBCPGzH4LVVTVCJG/view?usp=sharing PES19 FBM Base Model Pack] - The medical staff model and a couple default textures you'll need during this part
+
+''' Tutorial '''
+
+'''Video Tutorial: https://drive.google.com/file/d/1mXKQ7o7a_kHUqiF0bEYe_ZRrFvHe4rjI/view?usp=sharing'''
+
+* Make sure you grab the '''Base Model Pack''' as you'll need the medic FMDL bundled in there
+* Open two fresh blender windows
+* Import '''medical_staff_boots_reweighted.fmdl''' from the '''shaded''' folder into one, import your FBM to the other with '''PES model I/O'''. '''Make absolutely sure you use the ''pes-model-importer'' linked on this page when importing the FBM you want to port as the rest of this tutorial assumes you're using that. ''PES Mesh Tools'' and ''RigEx'' WILL NOT WORK by default'''.
+* Copy the medic suit to the same blender window as your model
+* Scale and position your model to match the imported medic model. The scale will already be correct if you imported with the recommended '''PES model I/O''', positioning is going to vary so you'll have to eyeball this one.
+* Once you're happy with the size and position of your model swap over to the second blender window with the medic model in it and select it
+* Switch to '''Edit Mode''', select the entirety of the medic model with '''A''' and drag it to the side
+* Swap back to your primary window, select your model and copy it over to the second blender window
+* Select the medic model, swap to the '''Data''' tab and next to the list of '''Vertex Groups''' click the black downwards triangle and select '''Delete All Groups'''
+* In '''Object Mode''' first select your model, then with '''Shift''' held select the medic and press '''CTRL+J''' to join the two together
+* Swap back to '''Edit Mode''', press '''A''' until everything is de-selected and then select the entire medic model and delete it. Make sure you get every part of it to avoid stray bits floating off to the side of your actual model in-game
+* Thanks to this maneuver your model has inherited all the properties of the medic model. This is a nice base setup and honestly everything you need in most cases. Some possible things you might want to change are listed in a completely separate section at the bottom of this page
+* Finally swap back to the '''Scene''' tab, select a location to export to in the plugin's panel, change the filename to be '''boots.fmdl''' and click '''Export FMDL'''.
+* Your model should successfully export. The main texture the model uses is called '''body.dds''' and a reference texture you can overwrite with yours is included in the '''Base Model Pack'''. There are some useful settings like transparency and backface culling you might want to check out detailed at the bottom of this page in a separate section.
+* Once your model if exported and your texture is done you can [[AET|test it in PES]] and hope it got over in one piece. Good luck
+</div>
+
+=== Completely New FBMs ===
+<span class="mw-customtoggle-newfbms" style="color:blue"><u>'''Click here to expand'''</u></span>
+<div class="mw-collapsible mw-collapsed" id="mw-customcollapsible-newfbms">
+
+''' Preparation '''
+
+[https://drive.google.com/file/d/1b6W1BOS90hu6Q90ehBCPGzH4LVVTVCJG/view?usp=sharing PES19 FBM Base Model Pack] - The medical staff model and a couple default textures you'll need during this part
+
+''' Tutorial '''
+
+'''[https://www.youtube.com/watch?v=0Sw_M3oSY7w Video Tutorial]'''
+
+* Make sure you grab the '''Base Model Pack''' as you'll need the medic FMDL bundled in there
+* Open two fresh blender windows
+* Import '''medical_staff_boots_reweighted.fmdl''' from the '''shaded''' folder into one, have your own model in the other. The contents of the '''shadeless''' folder will be relevant in the video tutorial soontm and have to do with model shading which is a topic separate from the scope of this text tutorial
+* Copy the medic suit to the same blender window as your model
+* Scale and position your model to match the imported medic model
+* Once you're happy with the size and position with your model you might notice the pose is different compared to the medical staff. This is one of the main time sinks when doing FBMs as your model has to be bent into the PES A-pose to work in-game without any clever weight painting tricks. There's two ways to go about this:
+** If your model came with a skeleton, select your model in '''Object Mode''', go to the '''Modifiers''' tab, add an '''Armature''' and in the '''Object''' box select your model's skeleton. Now you can select the skeleton itself in '''Object Mode''' and swap to '''Pose Mode''' to easily pose your model using the skeleton it came with
+** If your model didn't come with a skeleton, you're going to have to manually deform the model to fit the PES A-pose. This process is really best explained on video, but the basic approach is selecting a section that is not in the right pose (arm, leg most of the time), rotating and grabbing that selection until the selected part is a bit more in the correct shape and slowly working down into a smaller and smaller selection until your entire original selection matches the pose of the medical staff counterpart, Again, better explained on video soontm
+* Once you're done scaling/positioning/posing, take another look at your model and make extra sure you've done all you can to make it align with the medical staff. Any extra effort put into this part will save you trouble in the weight painting section
+* Once you're happy with the size, scale and pose of your model, select it in '''Object Mode''', go to the '''Modifiers''' tab and select '''Apply'''
+* Swap to the '''Data''' tab and and next to the list of '''Vertex Groups''' click the black downwards triangle and select '''Delete All Groups'''
+* Select the medical staff model, then with '''Shift''' held select your model and swap to '''Weight Paint''' mode
+* Press '''T''' to bring out the left side panel, click '''Transfer Weights''', scroll down to the bottom of the subsection that pops up and change '''Source''' to '''By Name'''
+* Blender has now done its best to copy the medical staff's weight painting and apply it to your model. This is why scale, positioning and pose are so important. The closer you can get your source model to the medical staff in all three aspects, the better the resulting transferred weight paint data
+* Even with a perfect match between medic and source, there's likely going to be a couple parts you have to adjust by hand. Always give your model a once-over in '''Weight Paint''' mode by scrolling through the list of vertex groups and making sure nothing looks too far out of place. Here are some common weight transfer hiccups to look for:
+** The medical staff doesn't have a head, so your model's head will be painted to a combination of head, neck and maybe chest. Fix this by selecting the entire head in '''Edit Mode''', selecting '''sk_head''' in the list of vertex groups and clicking the '''Assign''' button. As always with weight painting, remember to swap to '''Weight Paint''' mode and click '''Normalize All''' in the left side panel any time you do any modifications to the paint
+** The medical staff doesn't have hands either. Custom hands with proper movement would make this tutorial too long so they're going to be a separate section. For this tutorial, the best that can be done about hands is selecting them completely in '''Edit Mode''' and assigning them to their respective vertex groups ('''sk_hand_l''', '''sk_hand_r''')
+** If your model has some loose bits of clothing, there's a chance parts of it are going to be painted to completely incorrect bones. This often happens with wide or droopy sleeves and wide skirts in general. If a sleeve is painted partially to a thigh or a skirt to an arm, you'll need to manually fix the paint. You can either:
+*** Select the part you want to fix in '''Edit Mode''', select the vertex group it's incorrectly painted to, click '''Remove''' and then go to '''Normalize All'''
+*** Change to '''Weight Paint''' mode, set the '''Blend''' to '''Substract''' and paint the incorrect groups away, again using '''Normalize All''' after each change
+* Once you're happy with the weight paint and have confirmed there's nothing obviously wrong with any of the vertex groups and their paint levels, swap over to the second blender window with the medic model in it and select it
+* Switch to '''Edit Mode''', select the entirety of the medic model with '''A''' and drag it to the side
+* Swap back to your primary window, select your model and copy it over to the second blender window
+* In '''Object Mode''' first select your model, then with '''Shift''' held select the medic and press '''CTRL+J''' to join the two together
+* Swap back to '''Edit Mode''', press '''A''' until everything is de-selected and then select the entire medic model and delete it. Make sure you get every part of it to avoid stray bits floating off to the side of your actual model in-game
+* Thanks to this maneuver your model has inherited all the properties of the medic model. This is a nice base setup and honestly everything you need in most cases. Some things you might want to change are listed in a separate section at the bottom of this page
+* Finally swap back to the '''Scene''' tab, select a location to export to in the plugin's panel, change the filename to be '''boots.fmdl''' and click '''Export FMDL'''.
+* Your model should successfully export. The main texture the model uses is called '''body.dds''' and a reference texture you can overwrite with yours is included in the '''Base Model Pack'''. There are some useful settings like transparency and backface culling you might want to check out detailed at the bottom of this page in a separate section.
+* Once your model if exported and your texture is done you can [[AET|test it in PES]] and hope it got over in one piece. Good luck
+</div>
+
+=== Custom Hand Models ===
+<span class="mw-customtoggle-hands" style="color:blue"><u>'''Click here to expand'''</u></span>
+<div class="mw-collapsible mw-collapsed" id="mw-customcollapsible-hands">
+
+''' Preparation '''
+
+[https://drive.google.com/file/d/1b6W1BOS90hu6Q90ehBCPGzH4LVVTVCJG/view?usp=sharing Template Pack] - The FBM template now has files for hands as well
+
+''' Tutorial '''
+
+'''[https://www.youtube.com/watch?v=LrCnQJNsUDc Video Tutorial]'''
+
+First of all, when working on posing your FBM to match the medical staff you should also copy both glove FMDLs from the template pack to your working window and try to line up your model's hands with the PES ones. There's a good chance you'll have to stretch out the arm and make your model's hands bigger to achieve this but some of the damage can be fixed later in PES with physique sliders. Just like how the rest of your model should be decently lined up with the medical staff to make weight painting that much easier and to enable it to move correctly in PES, lining up the hands is even more important because the hand has so many moving parts crammed into such a small space. The step-by-step part will focus on what to do with your custom hands after you're done posing your model.
+
+* Swap to '''Edit Mode''', select your model's hands and separate them into their own mesh with '''P -> Selection'''
+* Swap back to '''Object Mode''', select the mesh that now only has your hands, go back to '''Edit Mode''', select only one of the hands this time and separate it further into its own mesh with '''P -> Selection'''
+* Swap back to '''Object Mode''', select only one of your hand meshes and import the corresponding glove file from the template pack into another blender window
+* Copy your hand into the secondary blender window, make sure you have it selected, go to the '''Data''' tab, click the black downwards triangle to the right of the list of vertex groups and select '''Delete All Groups'''
+* Swap to the '''Material''' tab and keep pressing the '''-''' button to the right of the list of materials until all of the materials have been deleted
+* Select your custom hand model, then with '''Shift''' held select the template hand, swap to '''Weight Paint''' mode, press '''T''' to bring out the left sidebar and press '''Transfer Weights'''
+* Change back to '''Object Mode''', select the template hand, change to '''Edit Mode''', select everything with '''A''' and drag the hand to the side so that it's out of the way for the next steps
+* Change back to '''Object Mode''', select your custom hand and change to '''Weight Paint''' mode
+* Swap to the '''Data''' tab and select the first vertex group in the list to have the '''skh_''' prefix
+* For each vertex group take a close look at your mesh and where the weight paint is. If you notice the paint bleeding over to the neighbouring fingers set your weight painting '''Blend''' mode to '''Subtract''' and erase the paint from the fingers it doesn't belong to. '''DO NOT ''Normalize All'' after each modification''', this is one of the few scenarios in the PES workflow where it's better to wait before normalizing
+* Work your way down the list of vertex groups until you've fixed the paint bleeding on all of them. Once you're done with the last group select '''sk_forearm_r/sk_forearm_l''' in the list of vertex groups and click '''Normalize All'''
+* Change to '''Edit Mode''', make sure nothing is selected, press '''Spacebar''' and type in '''Select Underweighted Vertices'''. If no vertices got selected you can move on to the next step. The vertices the tool selected have 0 weight and blender wasn't able to normalize them so we have to paint them manually. Scroll through the list of vertex groups in '''Weight Paint''' mode until you find the one they should belong to and paint them to it. You might have multiple 0-weights and they might be in different fingers, make sure to fix all of them accordingly
+* Change back to '''Object Mode''', select your mesh and then with '''Shift''' held select the template hand you moved to the side previously and press '''Ctrl+J''' to join the meshes together
+* Change to '''Edit Mode''', select the template hand without having any of your custom hand selected and delete it with '''X -> Vertices'''
+* The hand is now ready to be exported. If you want you can change the PES-related settings under the '''Material''' and '''Texture''' tabs
+* Repeat the same steps for the other hand until done
+</div>
+
+== Cardhead ==
+[[File:Cardhead_example.png|x500px|frameless|right]]
+A cardhead replaces a player's head with a simple textured plane. You can use a [[Aesthetic_Templates|template]] where you only have to replace a texture, but making a cardhead yourself is faster once you know your way around Blender, and it's a decent way to learn some of the basics.
+
+# '''Add''' a '''plane mesh'''.
+# '''Rotate''' the plane so that it faces forward, '''move''' it to where the player's head would be, and '''scale''' it to the size you want.
+:* Enable the [[Blender basics#Face Orientation|face orientation overlay]] to make sure you rotated it the right way.
+# <li value="3">'''Parent ''(Armature Deform)''''' the plane to the PES skeleton.
+# In the '''data tab''', add a '''vertex group''' and name it '''''sk_head'''''. Select all vertices and '''assign''' them to the vertex group with a '''weight of 1'''. This will make the vertices move with the ''sk_head'' bone.
+[[File:Cardhead_1.png|x400px|thumb|none]]
+The model is now ready for '''export as FBX to Blender 2.79''' if you want the simplest form of cardhead where the backside is mirrored ('''use a two-sided material''').
+* There's no need to unwrap the plane as primitives in modern Blender come with basic UVs by default.
+
+[[Blender basics#Adding textures|Preview your texture]] on your model to make sure everything looks correct.
+
+=== Non-mirrored backside ===
+If you want both sides to look the same instead of the back being mirrored, for example if you have text that you want to be the right way from both sides:
+# Go into '''edit mode'''.
+# '''Duplicate''' everything; right click or press Enter without moving your cursor to leave it in place.
+# With the duplicate geometry still selected, '''rotate 180 degrees''' on the '''Z axis.
+:* You'll notice that the two faces will start '''Z-fighting'''. This won't be an issue in PES with a one-sided material, but if you want to fix the issue in Blender, go to the '''material tab''' with your material selected and '''search''' at the top for '''"backface,"''' and then enable '''''Backface Culling'''''.
+'''Use a one-sided material'''.
+
+=== Different backside ===
+If you want to use a different texture for the back:
+# Follow the steps in the section above.
+# Select the backwards-facing face and '''separate''' it into its own mesh.
+# In Blender 2.79, give the backside mesh a different material.
+
+== Boxhead ==
+[[File:Boxhead_example.png|x500px|frameless|right]]
+A boxhead replaces a player's head with a simple textured cube. You can use a [[Aesthetic_Templates|template]] where you only have to replace a texture, but making a boxhead yourself is a decent way to learn some of the basics, particularly UV mapping.
+
+#'''Add''' a '''cube mesh'''.
+# '''Move''' the cube to where the player's head would be and '''scale''' it to the size you want.
+# '''Parent ''(Armature Deform)''''' the cube to the PES skeleton.
+# In the '''data tab''', add a '''vertex group''' and name it '''''sk_head'''''. Select all vertices and '''assign''' them to the vertex group with a '''weight of 1'''. This will make the vertices move with the ''sk_head'' bone.
+[[File:Boxhead_1.png|x400px|thumb|none]]
+#<li value="5"> Next, split your viewport into a '''new window''' and make it a '''UV editor'''. You'll see that the cube has a default cross-shaped UV map. You can use this UV map as-is if you want to; to export the UV map as a guide for making your texture, click '''''UV''''' at the top of the UV editor and then select '''''Export UV Layout'''''.
+
+[[Blender basics#Adding textures|Preview your texture]] on your model to see which face corresponds to which part of the UV map.
+
+The model is now ready for '''export as FBX to Blender 2.79''' if you're content with the default UVs.
+
+You'll notice that each face only occupies 1/16th of the UV area with the default UV map. You can unwrap it yourself so that each face takes up 1/9th of the area:
+# '''Select''' everything in '''edit mode'''.
+# Open the '''edge tools''' menu and choose '''''Mark Seam'''''. This can be done in either the 3D viewport or the UV editor. All edges should now turn red.
+# Select everything and '''unwrap''' the model; choose '''''Unwrap Angle Based'''''.
+:* Some faces may end up upside down on the UV map. Add a texture to check and rotate the upside down faces 180 degrees in the UV editor.
+[[File:Boxhead_2.png|x300px|thumb|none]]
+
+=== Same texture for all sides ===
+If you want all sides of your boxhead to be identical:
+# '''Select''' everything in '''edit mode'''.
+# '''Unwrap''' and choose '''''Reset'''''. This will make each face take up the entire UV space.
+# Fix the '''rotation''' of the faces by selecting them in the 3D viewport and rotating them in the UV editor.
+
+== Head from existing model ==
+[[File:Basic_head_example.png|x500px|frameless|right]]
+This tutorial will show you how to take a pre-existing model and turn it into a basic head for a PES player.
+<br> The process can vary a bit depending on the source of the model. This example is a fairly basic MMD model.
+
+<br> Start by [[Blender basics#Import/Export|importing]] your model. Set your [[Blender basics#Shading modes|shading mode]] to ''Material Preview'' to see the model's textures.
+
+=== Removing the existing skeleton ===
+If the model came with a skeleton, you'll want to remove it first.
+#'''Select the mesh(es)''' and '''unparent ''(Clear and Keep Transformation)'''''.
+:* You sometimes want to pose a model before applying the pose and unparenting, but this tutorial assumes the model needs no posing.
+#<li value="2"> '''Delete''' the skeleton. If the skeleton is parented to an [[Blender basics#Empty|empty]], right-click the empty in the outliner and click '''''Delete Hierarchy'''''.
+[[File:Blender_head_unparent.mkv.webm|600px|thumb|none|The first few seconds show what will likely happen if you delete a skeleton without unparenting the mesh first.]]
+
+=== Deleting unwanted parts ===
+Next, we want to remove all parts of the mesh we don't need.
+# '''[[Blender basics#Selection|Select]]''' all parts of the mesh you want to delete. The best way to do it depends on the model.
+# '''Delete''' the selected geometry.
+:* If you want to close a neck hole, '''delete''' any excess neck, then '''loop select''' the rim of the hole and '''merge ''(At Center)''''', and then move the merged vertex up.
+[[File:Blender_head_delete.mkv.webm|600px|thumb|none]]
+Depending on the model, you might also want to:
+* [[Blender basics#Merge by Distance|Merge by Distance]] if your model had [[Blender basics#Sharp edges|sharp edges]] that got turned into '''split edges''' during the ripping/converting process.
+* [[Blender basics#Decimate|Decimate]] the model to simplify it if it has an excessively '''high polycount'''.
+* Enable the [[Blender basics#Face Orientation|face orientation overlay]] to check if the model is '''inside-out''' as sometimes happens with ripped models. If the model appears all red, '''flip the normals (Alt+N)'''.
+
+=== Weighting ===
+In order for the head to move in-game, it needs to be weighted to the PES skeleton.
+<br> This tutorial assumes that you simply want the entire model to move as one solid piece.
+
+# First, you'll need the '''PES skeleton''' from a [[Aesthetic Templates|template]]. You can use either the body or the head skeleton.
+# '''Parent ''(Armature Deform)''''' the mesh to the PES skeleton.
+# With the mesh selected, go to the '''[[Blender basics#General UI|data tab]]''' of the properties panel. There, you'll see the '''[[Blender basics#Vertex groups|vertex groups]]''' section at the top.
+:* If the mesh already has vertex groups, delete them by clicking the chevron and selecting '''''Delete All Groups'''''.
+#<li value="4"> We want the whole model to move with the ''sk_head'' bone. To do that, first '''add a new group''' and name it '''''sk_head'''''.
+# '''Select everything''' in '''edit mode''' and click '''''Assign''''' to assign them to the selected group. Make sure the '''weight''' slider below is at '''1.000''' before assigning.
+[[File:Blender_head_weight.png|x400px|thumb|none]]
+
+=== Positioning ===
+To position the mesh so that it lines up with the PES body:
+# Import a [[Aesthetic Templates|template]] or a kit model for your team.
+# '''Move''' the mesh to the reference mesh's neck and '''scale''' it to the size you want.
+:* Since you're only making a head model, either delete the reference mesh once you're done or be mindful not to include it when exporting.
+
+=== Materials & textures ===
+When using models from other sources, you often have to clean up the [[Blender basics#Materials|materials]] to make it work in PES and to optimize the model.
+# Start by using '''''Remove Unused Material Slots''''' on the mesh(es) to remove any materials that are no longer used after deleting geometry earlier.
+# If your model consists of one mesh with multiple materials, select everything in edit mode and '''separate by material''' to make things easier to manage.
+# Go through all meshes, delete any you don't want, and '''join''' all meshes that should be '''shaded the same way''' and use the '''same texture''', then remove all materials but one from the merged mesh. To see what texture a material uses, go to the ''Surface'' section at the top of the materials tab and click the arrows next to the parameters to reveal the texture names and options. The name of the parameter you're looking for can vary with the model source.
+:* You can generally ignore everything but base color textures for PES modding purposes.
+:* Rename your meshes afterwards to make things easier to keep track of.
+#<li value="4"> If the model uses a lot of textures (≳4), you should make a [[Blender basics#Texture atlas|texture atlas]]. Repeat step 3 afterwards.
+[[File:Blender_head_materials.mkv.webm|600px|thumb|none]]
+
+
+'''Your model is now ready to be [[Getting a player into PES|put in PES]].'''
+<br> [[Blender basics#Export|'''Export''']] the model as FBX and import it in Blender 2.79.
+
+== Outlines ==
+[[File:Outline_example_1.png|x500px|thumb|right|Basic outline]]
+[[File:Outline_example_2.png|x300px|thumb|right|Colored outlines]]
+Outlines for 3D models typically use the inverse shell method, which involves a slightly thicker duplicate of the mesh with inverted normals.
+
+Ideally, you want to do it dynamically using a material, but that's not an option here.
+
+
+#First, enable the [[Blender basics#Face Orientation|face orientation overlay]] to easily tell if you're doing things correctly.
+# If you want to '''exclude''' certain parts of the mesh from the outline, create a '''new [[Blender basics#Vertex groups|vertex group]]''' (name it whatever you want that's not the name of a bone) and '''assign''' all vertices you want to exclude to it. This will be used later.
+:* You can also use this to make certain parts of the outline thinner by assigning a weight less than 1.
+#<li value="3">'''Duplicate the mesh''' you want to add outlines to.
+#'''''[[Blender basics#Mergy by Distance|Merge by Distance]]''''' to remove gaps.
+#'''Flip the normals'''. The duplicated mesh should be all red.
+[[File:Outlines_2.jpg|x300px|thumb|none]]
+#<li value="6"> To '''add thickness''' to the outline, add a '''''Solidify'' modifier''' with the settings below. Set the thickness to your liking (should be negative).
+::If you created a '''vertex group''' in '''step 2''', set it as the ''Vertex Group'' in the modifier and enable '''''Vertex Group Invert''''' (double arrow icon) on the right. The modifier will then exclude that vertex group.
+:* Make sure to '''apply scale'''. If the mesh's scale isn't 1, the thickness will be wrong.
+:* You may also want to play with the '''''Thickness Clamp''''' settings of the modifier depending on your model.
+
+The model is now '''ready for export'''. You don't need to apply the modifier first.
+[[File:Outlines_3.jpg|x300px|thumb|none]]
+If you want to add outlines to '''multiple meshes''', you can simply copy the solidify modifier to the other outline meshes by clicking the chevron at the top and then clicking '''''Copy to Selected''''' with the original as the active object.
+
+=== Materials & textures ===
+* '''Outline materials''' should be '''one-sided''' and '''unlit''' (shadeless).
+* Single-color outlines can have their UVs shrunk to occupy just a few pixels, or have a separate texture that's as small as 4x4 pixels.
+* Pure black outlines tend to look bad and cause very noticeable aliasing; adding a bit of color makes a big difference.
+* For the best results, you want your outline to use the '''same texture as the mesh, but darker'''. Due to being restricted to PES materials, you have to do it manually by duplicating and editing the texture.
+
+== Anime character models ==
+
+=== Making your own head ===
+Everyone has their own way of making stuff. Here is just one example.
+
+<span class="mw-customtoggle-makehead" style="color:blue"><u>'''Click here to expand'''</u></span>
+<div class="mw-collapsible mw-collapsed" id="mw-customcollapsible-makehead">
+
+==== Video link ====
+A [https://youtu.be/hs9OWR23VhQ video example] on how to make a head
+
+==== Starter Kit ====
+A zip file that has everything you need to make your own head, including:
+* A mirrored head model
+* CM3D2 hair styles
+* Head FMDL that hides the PES head
+* Boot FMDL, the final product from the video
+
+[https://mega.nz/file/ytlHiAQA#O0oTq82EdKDY6roQ5p2pTH2jEj7byPMhfr0dULr_v2A Link to zip file]
+</div>
+
+=== Full body ===
+How to make an entire character model from scratch
+
+<span class="mw-customtoggle-makemodel" style="color:blue"><u>'''Click here to expand'''</u></span>
+<div class="mw-collapsible mw-collapsed" id="mw-customcollapsible-makemodel">
+
+==== Video link ====
+[https://www.youtube.com/playlist?list=PL4SAKLKrJDi7uYBgnUY7v9hKDdsXB18Ch Playlist with all 11 VODs]
+
+==== Resources ====
+(Hopefully) everything used or referenced in the series
+* [https://www.youtube.com/playlist?list=PLvgIVNDU-Dxjb3eukDF5W0l0-6ShO9OiM Daniel Kreuter's 2014 character modelling tutorial #2] - Referenced several times and the way I learned how to 3D model. Great alternative if you want short-form piecemeal episodes instead of long VODs. Channel has newer tutorials for newer blenders as well but I haven't personally watched those
+* [https://drive.google.com/file/d/15TmLU-RO_uhnwIdBIhYNZqqhVKXlHIoy/view?usp=sharing Resources] - Contains the final .blend shown in the VODs, both the character reference sheet and the hand reference used and all textures including .clip files in case someone happens to have Clip Studio Paint instead of using something like Photoshop or Substance Painter
+* [https://drive.google.com/file/d/1qGYKLmxrpp6iQLNih9DGvIGUWw9giNi8/view?usp=sharing Just the hand reference] - Taken from Daniel's video series above, used for this series because it's still the best hand reference I've found
+</div>
+
+= Misc =
+
+== Useful shortcuts in Blender ==
+See [[Blender shortcuts]].
+
+[https://en.wikibooks.org/wiki/Blender_3D:_HotKeys/3D_View/Object_Mode More in-depth list]
+
+= Recommended Reading =
+Things not fully covered here (at least yet) that are also worth reading for a better understanding of how some things work.
+
+* [[AET|Aesthetics Export]] - Learning how to make an aesthetics export is a basic skill anyone who plans on making a team or contributing aesthetics to a team should know how to do. Also includes a download link to the aesthetics compiler which will save you some time when testing aesthetics over manually compiling a full-path CPK every time.
+
+== PES 16/17 ==
+
+* [[Setting_up_.model_files|Setting Up .model Files]] - Details the different parts and values of both the model-loading XMLs and the MTLs associated with them.
+
+* [[Pro_Evolution_Soccer_2017/Full_Player_Customization|FPC]] and [[Pro_Evolution_Soccer_2016/Advanced_Player_Customization|APC]] - If you somehow made it all the way here without reading one or both, congratulations, go read them since even for someone who doesn't actually do FBM models or aesthetics at all at least learning how to apply the correct settings and hide bits of your players is important since every cup several managers fail to do this simple task, thus piling more work on /aesco/ who have to fix it all.
+
+[[Category:Aesthetics]]
