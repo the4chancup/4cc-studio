@@ -141,6 +141,7 @@ fn detect_format(
     } else if &header.fourcc == b"DX10" {
         cursor.seek(SeekFrom::Start(128))?;
         let ext = Dx10Header::read(cursor).map_err(|_| FtexError::Truncated)?;
+        crate::dds::single_image(&ext)?;
         crate::dds::dxgi_pixel(ext.dxgi_format)?
     } else {
         DdsPixel::Format(

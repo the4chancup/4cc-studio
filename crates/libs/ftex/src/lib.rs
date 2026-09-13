@@ -197,5 +197,54 @@ mod tests {
             dds::read_layout(CUBE_DDS),
             Err(FtexError::UnsupportedDds("cube map"))
         ));
+        assert_eq!(dds::read_layout(BC1_DDS).unwrap().row_pitch, None);
+    }
+
+    /// DX10 headers: arrays, the cube flag, signed and alpha-less formats.
+    #[test]
+    fn read_layout_dx10_extension_rules() {
+        let dx10 = ftex_to_dds(BC7).unwrap();
+        assert_eq!(&dx10[84..88], b"DX10");
+        let layout = dds::read_layout(&dx10).unwrap();
+        assert_eq!(layout.pixel, dds::DdsPixel::Format(PixelFormat::Bc7));
+        assert_eq!(layout.data_offset, 148);
+
+        let mut array = dx10.clone();
+        array[140..144].copy_from_slice(&2u32.to_le_bytes());
+        assert!(matches!(
+            dds::read_layout(&array),
+            Err(FtexError::UnsupportedDds("texture array"))
+        ));
+        assert!(matches!(
+            dds_to_ftex(&array, ColorSpace::Linear),
+            Err(FtexError::UnsupportedDds("texture array"))
+        ));
+
+        let mut cube_flag = dx10.clone();
+        cube_flag[136..140].copy_from_slice(&0x4u32.to_le_bytes());
+        assert!(matches!(
+            dds::read_layout(&cube_flag),
+            Err(FtexError::UnsupportedDds("cube map"))
+        ));
+
+        let mut signed = dx10.clone();
+        signed[128..132].copy_from_slice(&84u32.to_le_bytes());
+        assert!(matches!(
+            dds::read_layout(&signed),
+            Err(FtexError::UnsupportedDds("signed block format"))
+        ));
+
+        let mut bgrx = dx10.clone();
+        bgrx[128..132].copy_from_slice(&88u32.to_le_bytes());
+        assert_eq!(
+            dds::read_layout(&bgrx).unwrap().pixel,
+            dds::DdsPixel::Uncompressed {
+                bit_count: 32,
+                r_mask: 0xff0000,
+                g_mask: 0xff00,
+                b_mask: 0xff,
+                a_mask: 0,
+            }
+        );
     }
 }

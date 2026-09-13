@@ -106,12 +106,20 @@ pub struct DdsLayout {
     pub mipmaps: u32,
     /// Offset of the first mip's data (128, or 148 with a DX10 extension).
     pub data_offset: usize,
+    /// The level-0 row pitch the header declares for an uncompressed layout
+    /// (`DDSD_PITCH`), when it is wider than the tightly packed row: some
+    /// exporters pad rows to 4 bytes. `None` means rows are tightly packed.
+    pub row_pitch: Option<u32>,
 }
 
 /// The `DDSCAPS2` bit that marks a cube map.
 const CAPS2_CUBE: u32 = 0x200;
 /// The `DDSCAPS2` bit that marks a volume texture.
 const CAPS2_VOLUME: u32 = 0x200000;
+/// The `DDSD` flag saying `pitch_or_linear_size` is a row pitch.
+const DDSD_PITCH: u32 = 0x8;
+/// The DX10 `misc_flags` bit that marks a cube map.
+const DX10_MISC_CUBE: u32 = 0x4;
 
 /// Parses the DDS header(s) of a 2D texture. Cube maps and volume textures
 /// are `FtexError::UnsupportedDds("cube map")` / `("volume texture")`. A
@@ -149,6 +157,10 @@ pub fn read_layout(dds: &[u8]) -> Result<DdsLayout, FtexError> {
                 if ext.dimension == 4 || header.depth > 1 {
                     return Err(FtexError::UnsupportedDds("volume texture"));
                 }
+                if ext.misc_flags & DX10_MISC_CUBE != 0 {
+                    return Err(FtexError::UnsupportedDds("cube map"));
+                }
+                single_image(&ext)?;
                 data_offset = 148;
                 dxgi_pixel(ext.dxgi_format)?
             }
@@ -164,13 +176,33 @@ pub fn read_layout(dds: &[u8]) -> Result<DdsLayout, FtexError> {
     } else {
         1
     };
+    // Bytes one tightly packed row takes, for the layouts that have rows.
+    let tight_row = match pixel {
+        DdsPixel::Uncompressed { bit_count, .. } => Some(header.width * bit_count / 8),
+        DdsPixel::Format(PixelFormat::Argb8) => Some(header.width * 4),
+        DdsPixel::Format(PixelFormat::R8) => Some(header.width),
+        DdsPixel::Format(_) => None,
+    };
+    let row_pitch = tight_row
+        .filter(|tight| header.flags & DDSD_PITCH != 0 && header.pitch_or_linear_size > *tight);
+    let row_pitch = row_pitch.map(|_| header.pitch_or_linear_size);
     Ok(DdsLayout {
         pixel,
         width: header.width,
         height: header.height,
         mipmaps,
         data_offset,
+        row_pitch,
     })
+}
+
+/// Rejects a DX10 header that describes more than one image: texture arrays
+/// have no FTEX form and nothing in an export is one.
+pub(crate) fn single_image(ext: &Dx10Header) -> Result<(), FtexError> {
+    if ext.array_size > 1 {
+        return Err(FtexError::UnsupportedDds("texture array"));
+    }
+    Ok(())
 }
 
 /// The uncompressed (no FourCC) pixel description: the mask layouts FTEX
@@ -217,18 +249,31 @@ pub(crate) fn fourcc_format(fourcc: &[u8; 4]) -> Option<PixelFormat> {
 
 /// The DX10 DXGI-format -> pixel table; sRGB ids map to their UNORM twins
 /// and 87 (B8G8R8A8) maps to Argb8, as FTEX stores it. DXGI 28/29
-/// (R8G8B8A8) have no FTEX twin and stay masks.
+/// (R8G8B8A8) and 88/92 (B8G8R8X8, whose fourth byte is not alpha) have no
+/// FTEX twin and stay masks. The signed block formats (81 BC4_SNORM, 84
+/// BC5_SNORM) are refused: their blocks mean different values, so relabelling
+/// them unsigned would silently change a normal map.
 pub(crate) fn dxgi_pixel(dxgi: u32) -> Result<DdsPixel, FtexError> {
     let format = match dxgi {
-        87 | 88 | 91 | 92 => PixelFormat::Argb8,
-        61 | 62 => PixelFormat::R8,
+        87 | 91 => PixelFormat::Argb8,
+        61 => PixelFormat::R8,
         71 | 72 => PixelFormat::Bc1,
         74 | 75 => PixelFormat::Bc2,
         77 | 78 => PixelFormat::Bc3,
-        80 | 81 => PixelFormat::Bc4,
-        83 | 84 => PixelFormat::Bc5,
+        80 => PixelFormat::Bc4,
+        83 => PixelFormat::Bc5,
         95 | 96 => PixelFormat::Bc6h,
         98 | 99 => PixelFormat::Bc7,
+        81 | 84 => return Err(FtexError::UnsupportedDds("signed block format")),
+        88 | 92 => {
+            return Ok(DdsPixel::Uncompressed {
+                bit_count: 32,
+                r_mask: 0xff0000,
+                g_mask: 0xff00,
+                b_mask: 0xff,
+                a_mask: 0,
+            });
+        }
         10 => PixelFormat::Rgba16F,
         2 => PixelFormat::Rgba32F,
         24 => PixelFormat::Rgb10A2,
