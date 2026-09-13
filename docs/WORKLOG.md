@@ -10,7 +10,7 @@ is in `AGENTS.md` ("Working documents").
 ## Current status
 
 **Phase:** 2 (Library crates). Done: 2.1 `wezlib`, 2.2 `cpk`, 2.3 `fpk`, 2.4 `ftex`, 2.5 `dds_convert` (CPU),
-2.6 `fmdl` (format, model, ops, check), 2.8 `uniparam`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`. 2.7 census, 2.7a-c, 2.7d-1, 2.7e done; next 2.7d-2 `ops::paths`. Review
+2.6 `fmdl` (format, model, ops, check), 2.8 `uniparam`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`. 2.7 census, 2.7a-c, 2.7d-1/2, 2.7e done; next 2.7d-3 `ops::split`. Review
 rounds A and B (2026-09-13) closed: 2.5c, 2.12b, 2.13b done.
 **In progress:** none
 **Blocked on:** —
@@ -207,7 +207,10 @@ Spec: `docs/plans/core.md` "Phase 2", `docs/plans/libs.md`, `model_conversion.md
   typed `MaterialSet` over `roxmltree`, hand writer under a detected per-file style; the writer
   spec measured at 909/945 byte-identical before coding; parity tested on the four regular
   fixtures, semantic round trip on all seven, unknown elements/attributes are errors. 20 tests
-- [ ] 2.7d-2 `ops::paths` (over the `.mtl`); 2.7d-3 `ops::split`; 2.7d-4 `ops::merge`; 2.7f check
+- [x] 2.7d-2 `pes_model::ops::paths` — done (sidekick): `texture_paths` / `rewrite_texture_paths`
+  over the `.mtl` samplers, paths split at the last `/`; a no-op edit leaves the parity fixtures
+  byte-identical. 4 tests
+- [ ] 2.7d-3 `ops::split`; 2.7d-4 `ops::merge`; 2.7f check
 - [x] 2.8 `uniparam` — done (sidekick): WESYS-unwrapping read, sorted writer; Konami PES21
   container (2174 entries) and a reference-writer golden; 4 tests
 - [ ] 2.9 `fox2`
