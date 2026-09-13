@@ -10,9 +10,9 @@ is in `AGENTS.md` ("Working documents").
 ## Current status
 
 **Phase:** 2 (Library crates). Done: 2.1 `wezlib`, 2.2 `cpk`, 2.3 `fpk`, 2.4 `ftex`, 2.5 `dds_convert` (CPU),
-2.6 `fmdl` (format, model, ops, check), 2.7 `pes_model` (format, mtl, model, ops, check), 2.8 `uniparam`, 2.9 `fox2`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`. Review
+2.6 `fmdl` (format, model, ops, check), 2.7 `pes_model` (format, mtl, model, ops, check), 2.8 `uniparam`, 2.9 `fox2`, 2.10 `archives`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`. Review
 rounds A and B (2026-09-13) closed: 2.5c, 2.12b, 2.13b done.
-**In progress:** 2.10 `archives` next
+**In progress:** 2.14 `color_tools` next (then `elevation`, `model_convert`, `pes_savefile`, `python_bindings`)
 **Blocked on:** nothing
 
 ---
@@ -240,9 +240,12 @@ Spec: `docs/plans/core.md` "Phase 2", `docs/plans/libs.md`, `model_conversion.md
   properties, padding never validated, unresolved names lost through XML, whitespace not
   escaped, lenient bools, `0x` keys). Padding measured zero on all 87 files. 24 tests;
   workspace 310
-- [ ] 2.10 `archives` — opened (lead): plan section, `sevenz-rust2` + `zip` without default
-  features (wasm32 and license checks green on the stub), six fixtures from one sample tree
-  (7-Zip `.7z`/`.zip`/stored/encrypted, PowerShell `.zip`); implementation next
+- [x] 2.10 `archives` — done (lead: plan section, `sevenz-rust2` + `zip` without default
+  features, six fixtures from one sample tree; sidekick code): `Archive<R: Read + Seek>` with
+  `zip`/`seven_z`/`entries`/`read` and a native `open`; the same six entries and bytes from
+  7-Zip `.7z`, 7-Zip `.zip` (OEM-code-page names), stored `.zip` and PowerShell `.zip`;
+  encrypted archives refused (an encrypted 7z header surfaces as the missing AES codec, mapped
+  to `Encrypted`); names normalized and zip-slip names rejected. 6 tests; workspace 316
 - [x] 2.11 `fpc` — done (sidekick): kit values per version, three presets, five interference
   findings, each citing its `FPC.wikitext` line; 4 tests
 - [x] 2.12 `teams_list` — done (sidekick): fold, id range, parse/write byte-identical on the
