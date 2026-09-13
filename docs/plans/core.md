@@ -2054,9 +2054,8 @@ resource download size measured and, if it matters, lazy-fetched behind the temp
 | `toml` | Export text formats (`settings.toml`, `config.toml`, `materials.toml`), app settings, AATF parameters | Production-ready |
 | `toml_edit` | Comment/formatting-preserving edits to all auto-generated tomls (`settings.toml`, `materials.toml`, `config.toml`); comments are app-injected (predefined per-field documentation) and preserved across edits | Production-ready (the `toml` crate's own foundation) |
 | `rhai` OR `cel-interpreter` | AATF rule logic (sandboxed scripting vs declarative expressions; see AATF section) | Production-ready (both) |
-| `texture2ddecoder` | BC7/BC5/BCn block decoding for in-process DDS conversion | Rust port; verify parity/channel order against the stadium compiler's Python/C++ decoder |
 | `image` | Raster source decoding (PNG, JPEG, BMP, WebP, TGA, TIFF) for texture conversion — all formats interchangeable as sources for any model format | Production-ready (pure-Rust default formats, rayon-enabled) |
-| `block_compression` | CPU BC1/BC3/BC7 reference/fallback and first-release desktop GPU BC7 | Selected (0.10.0 reviewed); compatible wgpu version, cold-start cost, quality, throughput, and fallback must be verified |
+| `block_compression` | CPU BC1/BC3/BC7 encoding and BC1–BC7 decoding (one crate for both directions); first-release desktop GPU BC7 | 0.10.0 in use (features `bc15`, `bc7`; `wgpu` feature only for the GPU step); decode verified exact against texconv; GPU cold-start cost, throughput and fallback still to be verified |
 | `cityhash` | CityHash64 for fox2 string hashes (must match v1.0.3 exactly) | Verify algorithm compatibility against fixtures |
 | `notify` + `notify-debouncer-full` | Exports folder watching for live validation | Production-ready |
 | `kira` | Audio playback (mixer, tweens/fades, loop regions, effects; native + WASM) | Production-ready |

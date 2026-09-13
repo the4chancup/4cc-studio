@@ -17,11 +17,13 @@ rust-version = "1.98"
 [workspace.dependencies]
 anyhow = "1.0.104"
 binrw = "0.15.2"
+block_compression = { version = "0.10.0", default-features = false, features = ["bc15", "bc7"] }
 clap = { version = "4.6.6", features = ["derive"] }
 crossbeam-channel = "0.5.17"
 egui = "0.36.1"
 env_logger = { version = "0.11.11", default-features = false }
 flate2 = "1.1.10"
+image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "bmp", "webp", "tga", "tiff"] }
 log = "0.4.34"
 md-5 = "0.11.0"
 serde = { version = "1.0.229", features = ["derive"] }
@@ -33,6 +35,7 @@ unicode-normalization = "0.1.25"
 
 # Workspace crates, so a member depends on another by name alone.
 cpk = { path = "crates/libs/cpk" }
+dds_convert = { path = "crates/libs/dds_convert" }
 fpc = { path = "crates/libs/fpc" }
 fpk = { path = "crates/libs/fpk" }
 kit_config = { path = "crates/libs/kit_config" }

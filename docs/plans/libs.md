@@ -145,11 +145,12 @@ The `sevenz-rust` crate eliminates the 7z subprocess and temp-folder extraction 
 The PES Stadium Compiler (`Tools_4cc/pes-stadium-compiler-v1.0.0`) already proves the in-process
 approach in production, in `Engines/stages/lib/dxt.py` + the `texture2ddecoder` package:
 
-- **Decoding (DDS/FTEX)**: the stadium compiler uses Python `texture2ddecoder`, a wrapper around
-  the C++ Texture2DDecoder. The same-named Rust crate is a separate port, not the implementation
-  behind that binding. It decodes BC7, BC5, and other BCn blocks; `dds_convert`/`ftex` handle the
-  DDS/FTEX containers and normalize decoded channel order to RGBA. Verify pixel/channel parity
-  against the existing decoder rather than assuming it from the shared name.
+- **Decoding (DDS/FTEX)**: `block_compression`'s `decode` module (BC1–BC5, BC7), the same crate
+  that encodes, so one dependency covers both directions; the `texture2ddecoder` crate the plan
+  first named is not used. `dds_convert`/`ftex` handle the DDS/FTEX containers and normalize
+  decoded channel order to RGBA. Parity is verified against DirectXTex `texconv`, the reference
+  decoder: the `dds_convert` fixtures are texconv-encoded BC1/BC3/BC5/BC7 files with texconv's own
+  decode of every mip as the expected output, and the tests require an exact match.
 - **Decoding (raster sources)**: the `image` crate decodes all accepted raster formats to RGBA
   in pure Rust (no C dependencies). See the format matrix below.
 - **Encoding**: use `block_compression`'s Rust CPU backend for BC1, BC3, and BC7, rather than
@@ -218,7 +219,7 @@ format. Two image files with the same stem but different extensions is a conflic
 
 | Format | Decoder | Extensions | Notes |
 |--------|---------|------------|-------|
-| DDS | `texture2ddecoder` | `.dds` | BC7, BC5, BC3/DXT5, BC1/DXT1, … |
+| DDS | `block_compression::decode` | `.dds` | BC7, BC5, BC4, BC3/DXT5, BC2, BC1/DXT1, uncompressed 32-bit |
 | FTEX | `ftex` crate | `.ftex` | Fox Engine native texture |
 | PNG | `image` crate | `.png` | Pure Rust |
 | JPEG | `image` crate | `.jpg`, `.jpeg` | Pure Rust |
@@ -422,7 +423,8 @@ knowledge is a **leaf crate with no dependencies**, holding data and pure rules 
   0 causes winter gloves in winter conditions (warning); skin color Custom on a non-FPC player hides
   the body but not the jersey (warning).
 
-Consumers: `kit_config` (`apply_fpc` / `revert_fpc` / `matches_fpc` use `fpc::kit`), `pes_savefile`
+Consumers: `kit_config` (`apply_fpc` / `matches_fpc` use `fpc::kit`; there is no revert, since the
+template config already carries the FPC values and the compiler never auto-reverts them), `pes_savefile`
 (`ops/fpc.rs` maps `fpc::player` presets onto `PlayerEntry` and runs the interference check), and
 through them the Team compiler (`fpc.on`/`fpc.off` markers, kit reconciliation, `settings.toml`
 validation), the Save editor (FPC toggle, Appearance-tab warnings), the Kit config editor (FPC
