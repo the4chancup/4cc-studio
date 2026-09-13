@@ -1045,3 +1045,19 @@ mistake as the `dds_convert` encode bounds.
 Plan: `libs.md` gains "`pes_model::ops::merge`"; `model_conversion.md` "IR part merge", the crate
 tree, "Conversion routing" and the retargeting paragraph, `aesthetics_export.md` (four mentions),
 `team_compiler.md` (pipeline step) and `AGENTS.md` ("Two engines, one IR") edited to match.
+
+## 2026-09-13 - pes_model - merged bones agree within a measured 1e-4, not exactly
+Decision: `pes_model::ops::merge` treats two bones of one name as the same bone when every one
+of the twelve matrix components differs by less than `1e-4` (absolute), and keeps the first
+part's matrix. Supersedes the "compared exactly" rule written earlier the same day.
+Why: the exact rule could not merge Konami's own kit parts: `modD_cap` and a collar share four
+shoulder bones whose matrices differ by float noise (found by the sidekick when the briefed LOD
+test failed). Measured over all 2606 Konami files (`.tmp/bone_matrix_*.py` in the writing
+session, numbers in `libs.md`): shared-skeleton noise tops out at `3.6e-5`, real bind-pose
+differences start at `2.0e-4` and run to `0.5`, so `1e-4` sits in the gap on a log scale. An
+unmeasured tolerance would have been the `dds_convert` mistake again; this one is measured.
+Whether `fmdl::ops::merge`'s exact position comparison has the same problem on FMDL parts is a
+converge question for 2.20 (no two Konami FMDL parts sharing a bone are in the fixtures).
+Plan: `libs.md` "`pes_model::ops::merge`" bones rule rewritten with the measurement;
+`aesthetics_export.md` "SKL pairing" sentence updated; `resources/prefox_model_format.md`
+section 5 gains the finding for the plugin author.
