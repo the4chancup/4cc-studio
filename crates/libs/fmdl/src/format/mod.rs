@@ -14,7 +14,7 @@ pub use skl::{SklBone, SklFile};
 pub use vertex::{DatumFormat, DatumType, MeshVertices, VertexAttribute};
 
 /// Why a byte buffer is not a readable FMDL or SKL.
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, Clone, PartialEq, thiserror::Error)]
 pub enum FmdlError {
     /// The buffer ends before a structure that points past it.
     #[error("fmdl is truncated")]

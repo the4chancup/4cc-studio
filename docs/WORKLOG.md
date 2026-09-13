@@ -10,7 +10,7 @@ is in `AGENTS.md` ("Working documents").
 ## Current status
 
 **Phase:** 2 (Library crates). Done: 2.1 `wezlib`, 2.2 `cpk`, 2.3 `fpk`, 2.4 `ftex`, 2.5 `dds_convert` (CPU),
-2.8 `uniparam`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`. Next: 2.6c-3e `fmdl::ops::merge`. Review
+2.8 `uniparam`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`. Next: 2.6d `fmdl::check` findings. Review
 rounds A and B (2026-09-13) closed: 2.5c, 2.12b, 2.13b done.
 **In progress:** none
 **Blocked on:** —
@@ -162,7 +162,9 @@ Spec: `docs/plans/core.md` "Phase 2", `docs/plans/libs.md`, `model_conversion.md
   fragments, decode by stored encoding and Nth occurrence; synthetic 40-bone and 90k-vertex grids
   split into 2 and 7 components and round-trip; header round trip through `to_file`. Deviations
   from the legacy add-on recorded in the decision entry. 10 tests, 3.9 s
-- [ ] 2.6c-3e `fmdl::ops::merge` multi-FMDL merge (`model_conversion.md` "multi-FMDL mesh merging")
+- [x] 2.6c-3e `fmdl::ops::merge` — done (sidekick): bones unioned by name with position/parent
+  conflict detection, materials by name with conflict detection, meshes/groups concatenated,
+  bone matrices unioned when every boned part carries them. 7 tests
 - [ ] 2.6d `fmdl::check` findings
 - [ ] 2.7 `pes_model` (`format/` + `ops/` + `check.rs`)
 - [x] 2.8 `uniparam` — done (sidekick): WESYS-unwrapping read, sorted writer; Konami PES21

@@ -3,6 +3,8 @@
 
 /// The anti-blur mesh duplication PES applies to flagged meshes.
 pub mod antiblur;
+/// Multi-FMDL merge: bones unioned by name, materials by name, meshes concatenated.
+pub mod merge;
 /// Texture path rewriting on the record layer.
 pub mod paths;
 /// Mesh splitting over the FMDL vertex, face and bone-group limits.
