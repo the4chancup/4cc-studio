@@ -146,7 +146,7 @@ fn sort_vector(points: &[[f32; 3]], bone_position: [f32; 3]) -> [f32; 3] {
 
 /// Copies the attributes of source vertex `source` into `vertices`,
 /// remapping bone indices through `index_of` (model bone -> component bone
-/// group slot; unmapped slots write 0 â€” a bone a zero weight never loads).
+/// group slot; unmapped slots write 0 (a bone a zero weight never loads).
 /// the face and loose-set indices it consumed.
 fn build_component(
     model: &Model,
@@ -318,8 +318,8 @@ fn build_component(
     }
 
     // Emit the component: each selected equipresent set in the order of its
-    // first member, its members in source order â€” the Nth-occurrence rule
-    // needs identical vertices in identical order in every component.
+    // first member, its members in source order (the Nth-occurrence rule
+    // needs identical vertices in identical order in every component).
     let mut sorted_sets: Vec<usize> = selected_sets.iter().copied().collect();
     sorted_sets.sort_by_key(|&set| sets[set][0]);
     let mut vertices = empty_like(&mesh.vertices, vertex_capacity(&sorted_sets, sets));

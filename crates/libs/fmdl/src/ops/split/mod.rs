@@ -179,7 +179,7 @@ pub fn encode(model: &mut Model, parents: Option<&[Option<usize>]>) -> Result<bo
 /// in the parent group where the split group sat among its meshes
 /// (appended if the parent had none), removes the split groups, renumbers
 /// mesh and group indices, clears `extensions.mesh_splitting`. A split
-/// group with a parent that is `None` â€” or with children â€” is
+/// group with a parent that is `None`, or with children, is
 /// `FmdlError::BadMeshGroupAssignment`.
 pub fn decode(model: &mut Model) -> Result<(), FmdlError> {
     let split_groups: Vec<usize> = model
@@ -315,7 +315,7 @@ pub(super) struct StorableItems {
 /// Vertex `index`'s split key: the stored bytes of position, weights and
 /// bone indices (all vertices of one mesh share the bone group, so group
 /// slot numbers compare correctly here).
-/// group slot; unmapped slots write 0 â€” a bone a zero weight never loads).
+/// group slot; unmapped slots write 0 (a bone a zero weight never loads).
 pub(super) fn push_vertex(
     vertices: &mut MeshVertices,
     source_mesh: &Mesh,
