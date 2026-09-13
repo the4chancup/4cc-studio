@@ -10,7 +10,7 @@ is in `AGENTS.md` ("Working documents").
 ## Current status
 
 **Phase:** 2 (Library crates). Done: 2.1 `wezlib`, 2.2 `cpk`, 2.3 `fpk`, 2.4 `ftex`, 2.5 `dds_convert` (CPU),
-2.6 `fmdl` (format, model, ops, check), 2.8 `uniparam`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`. 2.7 census, 2.7a-c done; next 2.7d ops (vertex_enc first). Review
+2.6 `fmdl` (format, model, ops, check), 2.8 `uniparam`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`. 2.7 census, 2.7a-c, 2.7d-1 done; next 2.7e `.mtl`. Review
 rounds A and B (2026-09-13) closed: 2.5c, 2.12b, 2.13b done.
 **In progress:** none
 **Blocked on:** —
@@ -200,8 +200,11 @@ Spec: `docs/plans/core.md` "Phase 2", `docs/plans/libs.md`, `model_conversion.md
   by annotation kind, model-level headers; `from_file(to_file(m)) == m` and the full byte trip on
   all twelve fixtures. Loose-vertex repair (reference importer) deliberately not reproduced;
   converge question. 28 tests
-- [ ] 2.7d ops (split, vertex_enc, merge, paths); 2.7e `.mtl` read/write (roxmltree read, hand
-  writer, byte parity per Konami file); 2.7f check
+- [x] 2.7d-1 `pes_model::ops::vertex_enc` — done (sidekick): the `fmdl` convention on `.model`
+  (per-mesh `vertex-loop-preservation` header, key with the stored weight width, bitangent in
+  the encoding, every LOD level remapped); the card heads carry the marker with no loops. 7 tests
+- [ ] 2.7e `.mtl` read/write (roxmltree read, hand writer, byte parity per Konami file); 2.7d-2
+  `ops::paths` (over the `.mtl`); 2.7d-3 `ops::split`; 2.7d-4 `ops::merge`; 2.7f check
 - [x] 2.8 `uniparam` — done (sidekick): WESYS-unwrapping read, sorted writer; Konami PES21
   container (2174 entries) and a reference-writer golden; 4 tests
 - [ ] 2.9 `fox2`
