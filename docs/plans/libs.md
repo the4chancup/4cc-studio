@@ -310,6 +310,47 @@ a model layer that alters faces on read cannot claim to be lossless). Known gap,
 converge: the reference importer repairs meshes an old add-on exported with loose vertices
 (indices shifted past the vertex table); ours rejects them.
 
+### `pes_model::ops::merge`: several parts into one `.model` + `.mtl`
+
+The pre-Fox counterpart of `fmdl::ops::merge`, native over `Model` and `MaterialSet`, so both
+engines merge through the same kind of code and a same-format operation never round-trips
+through `model_convert`'s IR. (The plan's first answer routed the pre-Fox `ingame_face` merges
+through an IR-level `merge_ir_parts`; dropped because it made them the one exception to "same
+format skips the IR" for no gain: the `.mtl` merge is a material-name merge either way, and the
+native op is what the Blender bindings can call.) A part is the pair the game loads:
+
+```rust
+pub fn merge(parts: &[(&Model, &MaterialSet)]) -> Result<(Model, MaterialSet), MergeError>;
+
+pub enum MergeError {
+    MaterialConflict { name: String },  // two parts define one material name differently
+    SkeletonConflict { name: String },  // two parts carry one bone name with different matrices
+    FlagsConflict,                      // header flags differ (meaning unknown, so no merging rule)
+    Other(ModelError),                  // a part's index out of range (never expected)
+}
+```
+
+`parts` is in caller order (canonical, preserved), so the output is deterministic. Rules,
+`fmdl`'s unless stated:
+
+- **Bones** unioned by name; a bone in several parts must carry the same twelve matrix floats,
+  compared exactly as `fmdl` compares positions, else `SkeletonConflict`. Each mesh's `bone_group`
+  is remapped to the union; per-vertex bone indices index the group and do not change. Whether
+  glTF-authored pre-Fox parts need a tolerance here is decided with `model_convert`, from measured
+  matrices, not before (the aesthetics-export plan's "SKL pairing" names that comparison).
+- **Materials** by name: `Model::materials` unioned in first-seen order and mesh `material`
+  remapped; the `.mtl` materials unioned by name the same way, two definitions of one name equal
+  (`Material` equality, entry order included) or `MaterialConflict`. A `.mtl` definition no model
+  names is kept (Konami shares one `.mtl` between models); a model naming a material its `.mtl`
+  lacks is `check_bundle`'s finding, not the merge's. The merged `.mtl` takes the first part's
+  `MtlStyle`.
+- **Meshes** concatenated in part order with only `material` and `bone_group` rewritten.
+- **Model level**: `extension_headers` unioned, deduplicated, first-seen order; `flags` must
+  agree; `bounds` is the union of the parts' boxes; `lod` is `LodRecord::for_levels(n)` with `n`
+  the most levels any mesh carries (`1 + lower_lods.len()`, 0 without lower levels), which
+  reproduces every Konami record.
+- `merge` of one part is the identity, tested on every fixture bundle.
+
 ## External tool dependencies
 
 | Tool | Current use | Rust replacement |

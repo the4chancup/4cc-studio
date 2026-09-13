@@ -527,7 +527,7 @@ The face-classified parts split into two groups with different fates:
 - **Arbitrarily-named models** (those that would route to `fcl_hair`, which — like `boots` —
   supports the full body skeleton) **reroute to the boots folder** instead of being dropped:
   renamed to `boots`, or merged into one `boots` if several candidates are present (Fox: `fmdl`
-  mesh merging; pre-Fox: `merge_ir_parts`, a lossless same-format IR round-trip), and carrying their paired SKL into
+  mesh merging; pre-Fox: `pes_model`'s native merge over the `.model` + `.mtl` pair), and carrying their paired SKL into
   the `boots.skl` slot (see "SKL pairing"). This generalizes the existing ingame_face boots
   relocation to the body-skeleton face content that would otherwise be lost.
 
@@ -544,8 +544,8 @@ must deviate from its no-merge rule: normally the shared folder loads by ID whil
 ride in the face XML, but under `ingame_face` there is no face XML, and relocating the local parts
 to a player-exclusive folder would leave the player with two candidate IDs (the shared folder's and
 the exclusive one) for a single savefile slot. Pre-Fox therefore behaves like Fox's `link_combined`
-here: the linked shared model is one more input of the player-exclusive merge (`merge_ir_parts`, a
-lossless same-format IR round-trip, like the multiple-boots case above), the exclusive ID wins and is written to
+here: the linked shared model is one more input of the player-exclusive merge (`pes_model`'s
+native merge, like the multiple-boots case above), the exclusive ID wins and is written to
 the savefile, and the shared folder is left untouched for players who link it plainly. Gloves follow
 the same rule per side (`glove_l` with `glove_l`, `glove_r` with `glove_r`). A **face** link under
 `ingame_face` is contradictory (the marker suppresses the face folder the link would fill) and drops
@@ -670,9 +670,9 @@ extra part has to be merged into one of those. Pre-Fox needs none of it: the typ
 absorbs any number of entries of any type, and `.common` links stay runtime references. **Exception
 — `ingame_face`**: with no face folder emitted, non-face parts are relocated to player-specific
 folders; multiple boots models are merged into one (Fox: `fmdl` mesh merging; pre-Fox:
-`model_convert::merge_ir_parts`, the IR-level counterpart with the same rules — see "IR part merge"
-in the Model conversion plan — as a lossless same-format `.model` round-trip, the one pre-Fox merge
-case), and gloves go to `glove_l`/`glove_r` folders (see "ingame_face marker").
+`pes_model::ops::merge`, the native counterpart with the same rules over the `.model` + `.mtl`
+pair — see "`pes_model::ops::merge`" in the Libraries plan — the one pre-Fox merge case), and
+gloves go to `glove_l`/`glove_r` folders (see "ingame_face marker").
 
 **Model names: a free part plus a suffix.** A model file name is `<anything>_<suffix>` (or just
 `<suffix>`), and the **suffix is always at the end** — one rule for every source format and both
@@ -764,7 +764,9 @@ with a custom SKL and a part using the default template skeleton reference diffe
 do two parts with different custom SKLs. "Same" is decided by **content hash** for two `.skl`
 files (identical bytes under different filenames are one skeleton) and by **bone-transform
 comparison with tolerance** whenever a part's skeleton comes from the IR (glTF skins, `.model` bone
-tables) — the same comparison the pre-Fox `merge_ir_parts` uses. A skeleton mismatch between merge
+tables). The pre-Fox native merge itself compares `.model` bone matrices exactly (Libraries plan,
+"`pes_model::ops::merge`"); whether it needs this tolerance once glTF-authored pre-Fox parts exist
+is decided with `model_convert`. A skeleton mismatch between merge
 parts is a hard error (`skl_merge_conflict`) that drops the folder.
 
 **Kits** live in a `Kits/` folder with one subfolder per kit (this per-kit granularity also drives
