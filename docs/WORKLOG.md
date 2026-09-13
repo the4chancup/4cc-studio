@@ -9,8 +9,9 @@ is in `AGENTS.md` ("Working documents").
 
 ## Current status
 
-**Phase:** 2 (Library crates). 2.1 `wezlib` and 2.2 `cpk` done; 2.3 `fpk` and 2.4 `ftex` in progress (sidekick).
-**In progress:** 2.3, 2.4
+**Phase:** 2 (Library crates). Done: 2.1 `wezlib`, 2.2 `cpk`, 2.3 `fpk`, 2.4 `ftex`, 2.8 `uniparam`, 2.11 `fpc`,
+2.12 `teams_list`, 2.13 `kit_config`. In progress: 2.5 `dds_convert` (CPU path; sidekick).
+**In progress:** 2.5
 **Blocked on:** —
 
 ---
@@ -104,23 +105,33 @@ Spec: `docs/plans/core.md` "Phase 2", `docs/plans/libs.md`, `model_conversion.md
   byte-identical to pes-file-tools on a Red-written face CPK; Konami PES17/PES21 and CPKMC 1.36
   fixtures; 13 tests. Fixtures are `-text` in `.gitattributes` (a CRLF-bearing fixture was
   normalized by the first commit and caught)
-- [~] 2.3 `fpk` → verify: Konami and pes-file-tools fixtures read; writer byte-identical to
-  pes-file-tools on `pft_sample.fpk`/`.fpkd` and the empty `generic.fpkd` template
-- [~] 2.4 `ftex` → verify: `ftex_to_dds` byte-identical to pes-file-tools on six Konami fixtures
-  (BC1, BC3, BC7 chunked, A8R8G8B8, cube map, 1x1); `dds_to_ftex` round-trips through it
-- [ ] 2.5 `dds_convert` (CPU reference first; GPU BC7 proof per plan)
+- [x] 2.3 `fpk` — done (sidekick): read/write, MD5 names; writer byte-identical to the reference
+  writer on synthetic goldens and the empty template, and Konami files rewrite identically; 10 tests
+- [x] 2.4 `ftex` — done (sidekick): `ftex_to_dds` byte-identical on six Konami fixtures (BC1, BC3,
+  chunked BC7, A8R8G8B8, cube map, 1x1); `dds_to_ftex` round-trips; 6 tests
+- [~] 2.5 `dds_convert` — CPU path (sidekick): decode DDS/FTEX/raster, mips, BC1/BC3/BC7 encode,
+  DXT5nm swizzle, codec selection, passthrough, cache → verify: decode exact against texconv's
+  decoded references for BC1/BC3/BC5/BC7/uncompressed; encode round trips within tolerance;
+  BC7 passthrough byte-identical
+- [ ] 2.5b `dds_convert` GPU BC7 (wgpu backend of `block_compression`): Vulkan/Metal device, CPU
+  fallback, cold-start and throughput measured → verify: GPU and CPU outputs decode within the
+  same tolerance; fallback path exercised by forcing no adapter
 - [ ] 2.6 `fmdl` (`format/` + `ops/` + `check.rs`) → also verify: plant a denied dependency
   (`egui`) on `fmdl` and see `just deps-check` go red, then revert (first real exercise of
   `scripts/deps_check.py`)
 - [ ] 2.7 `pes_model` (`format/` + `ops/` + `check.rs`)
-- [ ] 2.8 `uniparam`
+- [x] 2.8 `uniparam` — done (sidekick): WESYS-unwrapping read, sorted writer; Konami PES21
+  container (2174 entries) and a reference-writer golden; 4 tests
 - [ ] 2.9 `fox2`
 - [ ] 2.10 `archives`
-- [ ] 2.11 `fpc` (leaf; before `kit_config` and `pes_savefile`)
-- [ ] 2.12 `teams_list` (leaf; `TeamName` fold, `TeamId`, parse/write/reconcile) → verify:
-  Red's current `teams_list.txt` loads as a fixture with `/umaJP/` resolving case-folded and the
-  `Backup N` rows inert; reconcile tests cover added / kept / overridden / unresolved
-- [ ] 2.13 `kit_config`
+- [x] 2.11 `fpc` — done (sidekick): kit values per version, three presets, five interference
+  findings, each citing its `FPC.wikitext` line; 4 tests
+- [x] 2.12 `teams_list` — done (sidekick): fold, id range, parse/write byte-identical on the
+  shipped list (`data/teams_list.txt`, `/umaJP/` case-folded, `Backup N` inert), reconcile with
+  all four summary buckets; 10 tests
+- [x] 2.13 `kit_config` — done (sidekick, two rework rounds on validation): bit-identical on all
+  1372 PES 2021 stock configs, TOML form with comments, texture names, FPC apply/matches; the
+  plan's ranges and 144-only sleeve rule were the old editor's UI limits (plan corrected); 8 tests
 - [ ] 2.14 `color_tools` (extraction only)
 - [ ] 2.15 `elevation`
 - [ ] 2.16 `model_convert` — IR, native importers/exporters, hand auto-split, skeleton constants,
@@ -201,3 +212,8 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   reverted. Phase 2 starts at 2.1 `wezlib`.
 - **2026-09-13** - 2.1 `wezlib`, 2.2 `cpk` done (writer parity with pes-file-tools proven);
   fixtures for `fpk`/`ftex` extracted with provenance READMEs; `weszlib` renamed `wezlib`.
+- **2026-09-13** - 2.3 `fpk`, 2.4 `ftex`, 2.8 `uniparam`, 2.11 `fpc`, 2.12 `teams_list`, 2.13
+  `kit_config` done; 97 tests workspace-wide. The `resources/*.wikitext` pages, committed empty
+  in the first commit, were restored from the IDE's local history. Two methodology additions in
+  `AGENTS.md`: no legacy tool names in code; the sidekick's report must list every error it hit
+  and its fix. `dds_convert` (CPU) briefed.
