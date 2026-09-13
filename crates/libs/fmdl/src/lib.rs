@@ -1,5 +1,7 @@
 //! Fox Engine FMDL model files and SKL skeletons: codec, format-native mesh operations, deep checks.
 
+/// Findings-based lint of a loaded `Model`.
+pub mod check;
 /// The format-level codecs: byte-identical read and write.
 pub mod format;
 /// The semantic model layer: a `Model` with every index resolved.

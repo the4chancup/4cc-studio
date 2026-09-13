@@ -10,7 +10,7 @@ is in `AGENTS.md` ("Working documents").
 ## Current status
 
 **Phase:** 2 (Library crates). Done: 2.1 `wezlib`, 2.2 `cpk`, 2.3 `fpk`, 2.4 `ftex`, 2.5 `dds_convert` (CPU),
-2.8 `uniparam`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`. Next: 2.6d `fmdl::check` findings. Review
+2.6 `fmdl` (format, model, ops, check), 2.8 `uniparam`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`. Next: 2.7 `pes_model`. Review
 rounds A and B (2026-09-13) closed: 2.5c, 2.12b, 2.13b done.
 **In progress:** none
 **Blocked on:** —
@@ -165,7 +165,10 @@ Spec: `docs/plans/core.md` "Phase 2", `docs/plans/libs.md`, `model_conversion.md
 - [x] 2.6c-3e `fmdl::ops::merge` — done (sidekick): bones unioned by name with position/parent
   conflict detection, materials by name with conflict detection, meshes/groups concatenated,
   bone matrices unioned when every boned part carries them. 7 tests
-- [ ] 2.6d `fmdl::check` findings
+- [x] 2.6d `fmdl::check` — done (sidekick): nine findings over `Model` (limits, face indices, bone
+  slots, weights, empty/unassigned meshes, unused materials, duplicate bone names); every fixture
+  clean. 7 tests. `fmdl` totals 76 tests; converge at 2.20 revisits `from_file` length and the
+  two extension-header plan gaps
 - [ ] 2.7 `pes_model` (`format/` + `ops/` + `check.rs`)
 - [x] 2.8 `uniparam` — done (sidekick): WESYS-unwrapping read, sorted writer; Konami PES21
   container (2174 entries) and a reference-writer golden; 4 tests
