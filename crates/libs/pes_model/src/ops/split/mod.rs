@@ -229,7 +229,7 @@ pub fn decode(model: &mut Model) -> Result<(), ModelError> {
 /// The stored weight of `index`'s slot `component`, or 1.0 for slot 0 and
 /// 0.0 for the rest when the mesh stores bone indices only (the
 /// referee-card case).
-pub(super) fn weight_of(vertices: &MeshVertices, index: usize, component: usize) -> f32 {
+pub(crate) fn weight_of(vertices: &MeshVertices, index: usize, component: usize) -> f32 {
     match &vertices.bone_weights {
         Some(weights) => weights[index][component],
         None => {

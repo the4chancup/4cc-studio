@@ -10,10 +10,10 @@ is in `AGENTS.md` ("Working documents").
 ## Current status
 
 **Phase:** 2 (Library crates). Done: 2.1 `wezlib`, 2.2 `cpk`, 2.3 `fpk`, 2.4 `ftex`, 2.5 `dds_convert` (CPU),
-2.6 `fmdl` (format, model, ops, check), 2.8 `uniparam`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`. 2.7 census, 2.7a-c, 2.7d-1/2/3, 2.7e done; next 2.7d-4 `ops::merge`. Review
+2.6 `fmdl` (format, model, ops, check), 2.8 `uniparam`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`. 2.7 done except `ops::merge` (blocked on a plan contradiction). Review
 rounds A and B (2026-09-13) closed: 2.5c, 2.12b, 2.13b done.
 **In progress:** none
-**Blocked on:** —
+**Blocked on:** 2.7d-4 home of the pre-Fox merge (`pes_model::ops::merge` vs `model_convert::merge_ir_parts`)
 
 ---
 
@@ -214,7 +214,14 @@ Spec: `docs/plans/core.md` "Phase 2", `docs/plans/libs.md`, `model_conversion.md
   caller-supplied parents, `Split-Mesh: N` headers; synthetic 70-bone grid → 11 components,
   90k-vertex grid → 7; round trips, file round trip, two-source numbering. Departures logged.
   12 tests, suite 4.2 s
-- [ ] 2.7d-4 `ops::merge`; 2.7f check
+- [x] 2.7f `pes_model::check` — done (sidekick): ten `model_*` rules over `Model` (limits, indices,
+  slots, weights within 1e-3, degenerate faces, empty meshes, unused materials, duplicate bones,
+  LOD record), six `mtl_*` rules over `MaterialSet`, `check_bundle` adds `model_material_undefined`;
+  every `.model` fixture clean, `.mtl` fixtures Info-only (states missing on sampler-only Konami
+  materials, `alphablend 1 + zwrite 1` on hair and glasses). 10 tests
+- [!] 2.7d-4 `ops::merge`: `libs.md`'s crate tree lists `pes_model/ops/merge.rs` while
+  `model_conversion.md` "IR part merge" routes the pre-Fox `ingame_face` merge through
+  `model_convert`'s IR; user decision needed on the home (see the session report)
 - [x] 2.8 `uniparam` — done (sidekick): WESYS-unwrapping read, sorted writer; Konami PES21
   container (2174 entries) and a reference-writer golden; 4 tests
 - [ ] 2.9 `fox2`

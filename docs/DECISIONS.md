@@ -1014,3 +1014,17 @@ which the encoding makes irrelevant to the reassembled mesh.
 Why: each departure removes a slip or an information loss; none changes what PES renders.
 Plan: `model_conversion.md` "Performance-critical operation: mesh splitting" describes the shape;
 `libs.md` "`pes_model::model`" already carries the LOD rule; no further edit.
+
+## 2026-09-14 - pes_model - `check` covers the `.mtl` too, with two codes the plan did not list
+Decision: `pes_model::check` has `check(model)`, `check_materials(set)` and `check_bundle(model,
+set)`; the `.mtl` rules are the Team compiler plan's (`mtl_material_duplicate`, `mtl_state_invalid`,
+`mtl_blendmode_nonzero`, `mtl_state_missing`, `mtl_state_nonrecommended` as `alphablend 1 + zwrite
+1`) plus `mtl_state_unknown` (Info, a state name outside the seven; `shadowcaster` appears in 18
+Konami files) and `model_material_undefined` (Error, a mesh's material name the sibling `.mtl` does
+not define).
+Why: the plan lists the `.mtl` checks under the Team compiler, but the lib owns the grammar and
+returns findings, not messages (the compiler maps codes in Phase 3); the two added codes fall out
+of the census (an unknown state is a fact worth surfacing at Info) and of the bundle (an undefined
+material is the one cross-file error the pair can have). Texture existence stays with the compiler.
+Plan: `team_compiler.md` "XML/MTL content checks" gains the two rows when Phase 3 writes its
+message catalog; no edit now (the codes are lib-side until then).
