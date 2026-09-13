@@ -46,7 +46,7 @@ crates/libs/model_convert/src/
 │   └── retarget.rs     #   retargeting + bone conformance (the cross-version IR operation)
 ├── ops/                # IR-level operations, format-agnostic
 │   ├── hand_split.rs   #   split_by_skeleton_group (gloves hand auto-split)
-│   ├── merge_parts.rs  #   merge_ir_parts (pre-Fox ingame_face / boots merges)
+│   ├── merge_parts.rs  #   merge_ir_parts (deferred: no planned caller, see "IR part merge")
 │   └── superset.rs     #   dual-set superset merge for ir_to_gltf (Player aesthetics editor)
 └── loss.rs             # data-loss reporting: what a target format cannot represent, as findings
 ```
@@ -275,8 +275,8 @@ differing definitions rejected), buffers and headers rebuilt. It is not an IR op
 compiler calls it directly to assemble multi-part models and to bake Common-linked models into
 player FMDLs on Fox targets, where the engine cannot load models from the Common folder (see "Common
 model links and model merging" in the [Team compiler plan](team_compiler.md)). The pre-Fox
-counterpart is the IR-level `merge_ir_parts` in `model_convert` (see "IR part merge"), which
-follows the same rules.
+counterpart is `pes_model::ops::merge`, native over `Model` + `MaterialSet` (see
+"`pes_model::ops::merge`" in the [Libraries plan](libs.md)), which follows the same rules.
 
 ### Conversion routing
 
@@ -516,12 +516,17 @@ Which set supplies the geometry is the caller's choice, surfaced at conversion t
 ### IR part merge (`merge_ir_parts`)
 
 `merge_ir_superset` merges *one part across two formats*; it never adds geometry. Assembling
-*several parts into one model* is a different operation, and `model_convert` provides it at the IR
-level for the pre-Fox cases where the Team compiler must merge `.model` files (the `ingame_face`
-boots merge, and a shared link combined with local parts under `ingame_face` — see the [Aesthetics export
-plan](aesthetics_export.md)'s "ingame_face marker"). It mirrors the `fmdl` crate's native multi-FMDL merge so both engines
-merge identically; Fox keeps using the native `fmdl` merge (no IR round-trip), pre-Fox goes
-`.model` → IR → `merge_ir_parts` → `.model`, a lossless same-format round-trip.
+*several parts into one model* is a different operation, and it is **format-native on both
+engines**: `fmdl::ops::merge` for Fox, `pes_model::ops::merge` for pre-Fox (the `ingame_face`
+boots merge, and a shared link combined with local parts under `ingame_face` — see the [Aesthetics
+export plan](aesthetics_export.md)'s "ingame_face marker"), with the same rules, so a same-format
+merge never round-trips through the IR. An earlier version of this plan routed the pre-Fox cases
+through the IR-level `merge_ir_parts` below; that was dropped because it made them the one
+exception to "same format skips the IR" for no gain (the `.mtl` merge is a material-name merge
+either way). `merge_ir_parts` stays specified here as the IR-level equivalent, **deferred**:
+nothing in the plan calls it, and it is implemented only if a caller appears (a merge of parts
+that must stay in the IR, inside the Player aesthetics editor for instance). The rules below are
+the contract all three share.
 
 ```rust
 /// Assemble several parts into one model. `parts` is in canonical (alphabetical
@@ -703,12 +708,10 @@ Path B (new):     Blender ──pes-models glTF codec (native export + materials
 The compiler detects the model format by file extension (`.fmdl`, `.model`, `.gltf`/`.glb`) and
 routes accordingly. glTF sources always go through the IR. PES-native sources skip the IR for
 same-format targets — **except** when an IR-level operation applies: hand auto-split (models with
-`skf_` bone weights are imported, partitioned, and exported back to the same format) and the
-`ingame_face` pre-Fox boots merge (multiple `.model` files are imported, merged at the IR level via
-`merge_ir_parts` — see "IR part merge" — and exported back to `.model`). Both are lossless
-same-format IR round-trips. All other same-format
-processing (ID replacement, texture path rewriting, Fox FMDL merging, validation) is format-native
-and never touches the IR.
+`skf_` bone weights are imported, partitioned, and exported back to the same format) and
+cross-version skeleton retargeting (see "Skeleton retargeting and bone conformance"). Both are lossless
+same-format IR round-trips. All other same-format processing (ID replacement, texture path
+rewriting, model merging on both engines, validation) is format-native and never touches the IR.
 
 ---
 
@@ -902,8 +905,8 @@ native-format pre-check (bone names and the two versions' tables, no geometry re
 bone that the target lacks or poses differently beyond tolerance — same-version compiles, and
 cross-version compiles of models that only use unchanged bones, never enter the pass. What it does
 add for a **same-format** cross-version compile (a PES21-authored FMDL for PES18) is the IR
-round-trip it needs to run at all, which is why it is listed with hand auto-split and the
-`ingame_face` merge as an explicit exception to the "same format skips the IR" rule; that round-trip
+round-trip it needs to run at all, which is why it is listed with hand auto-split as an explicit
+exception to the "same format skips the IR" rule; that round-trip
 is the lossless one the plan already tests, and it costs a few milliseconds of parse/serialize.
 
 ### SKL binary format

@@ -337,9 +337,8 @@ format:
    (renamed or merged), carrying their paired SKL. The remaining non-face parts are
    relocated out of the face folder: gloves parts go to **player-specific gloves folders**
    (`glove_l`, `glove_r`), and the rerouted arbitrary-named models plus any explicit boots models
-   are **merged into one boots model** (on Fox via `fmdl`'s mesh merging; on pre-Fox via the IR —
-   import each `.model` to the IR, `merge_ir_parts`, export back, a lossless same-format
-   round-trip) and moved
+   are **merged into one boots model** (on Fox via `fmdl`'s mesh merging; on pre-Fox via
+   `pes_model`'s native merge over the `.model` + `.mtl` pair) and moved
    to a **player-specific boots folder** — the one case where pre-Fox produces
    player-exclusive boots/gloves folders with IDs from the per-team block scheme (see "ingame_face
    marker"). Without `ingame_face`, a player with boots/gloves but no face models still gets a

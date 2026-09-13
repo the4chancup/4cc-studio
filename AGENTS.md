@@ -134,7 +134,7 @@ your question may already be listed, with the phase in which it gets resolved.
 - **Two engines, one IR.** PES 15–17 use pre-Fox formats (`.model` + `.mtl`); PES 18–21 use Fox
   formats (FMDL, FPK, FTEX). Cross-format model conversion goes through `model_convert`'s IR at
   compile time; same-format work stays in the format crate's `ops/` and skips the IR unless the plan
-  names an IR operation (hand auto-split, pre-Fox `ingame_face` merging). Authoring format is glTF
+  names an IR operation (hand auto-split, cross-version skeleton retargeting). Authoring format is glTF
   with optional `PES_bone`/`PES_mesh` extensions plus `materials.toml`.
 - **Exports are the unit of work.** Three kinds: aesthetics (player folders with `settings.toml`,
   kits, portraits: the project's primary motivation; referee exports are aesthetics exports with

@@ -10,10 +10,10 @@ is in `AGENTS.md` ("Working documents").
 ## Current status
 
 **Phase:** 2 (Library crates). Done: 2.1 `wezlib`, 2.2 `cpk`, 2.3 `fpk`, 2.4 `ftex`, 2.5 `dds_convert` (CPU),
-2.6 `fmdl` (format, model, ops, check), 2.8 `uniparam`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`. 2.7 done except `ops::merge` (blocked on a plan contradiction). Review
+2.6 `fmdl` (format, model, ops, check), 2.8 `uniparam`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`. 2.7 done except `ops::merge`. Review
 rounds A and B (2026-09-13) closed: 2.5c, 2.12b, 2.13b done.
-**In progress:** none
-**Blocked on:** 2.7d-4 home of the pre-Fox merge (`pes_model::ops::merge` vs `model_convert::merge_ir_parts`)
+**In progress:** 2.7d-4 `pes_model::ops::merge` (home decided: native, `libs.md` "`pes_model::ops::merge`")
+**Blocked on:** nothing
 
 ---
 
@@ -26,6 +26,7 @@ rounds A and B (2026-09-13) closed: 2.5c, 2.12b, 2.13b done.
 | Legacy tools (format evidence) | `docs/plans/core.md` "Project context" (paths are per-machine) |
 | Skeleton data | `resources/skeletons/` (see its README) |
 | FPC source text (for the `fpc` crate) | `resources/FPC.wikitext` |
+| `.model` format as measured (for the plugin author; the crate's notes are in `libs.md`) | `resources/prefox_model_format.md` |
 | Coding rules and verification gates | `docs/CONTRIBUTING.md` |
 | Domain terms | `docs/GLOSSARY.md` |
 
@@ -219,9 +220,9 @@ Spec: `docs/plans/core.md` "Phase 2", `docs/plans/libs.md`, `model_conversion.md
   LOD record), six `mtl_*` rules over `MaterialSet`, `check_bundle` adds `model_material_undefined`;
   every `.model` fixture clean, `.mtl` fixtures Info-only (states missing on sampler-only Konami
   materials, `alphablend 1 + zwrite 1` on hair and glasses). 10 tests
-- [!] 2.7d-4 `ops::merge`: `libs.md`'s crate tree lists `pes_model/ops/merge.rs` while
-  `model_conversion.md` "IR part merge" routes the pre-Fox `ingame_face` merge through
-  `model_convert`'s IR; user decision needed on the home (see the session report)
+- [ ] 2.7d-4 `pes_model::ops::merge` — home decided by the user (native over `Model` +
+  `MaterialSet`, `libs.md` "`pes_model::ops::merge`"; the IR route removed from six plan
+  passages, decision logged); implementation next
 - [x] 2.8 `uniparam` — done (sidekick): WESYS-unwrapping read, sorted writer; Konami PES21
   container (2174 entries) and a reference-writer golden; 4 tests
 - [ ] 2.9 `fox2`
@@ -335,3 +336,10 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   in the first commit, were restored from the IDE's local history. Two methodology additions in
   `AGENTS.md`: no legacy tool names in code; the sidekick's report must list every error it hit
   and its fix. `dds_convert` (CPU) briefed.
+- **2026-09-13** - 2.5 `dds_convert` (CPU), 2.6 `fmdl` and 2.7 `pes_model` (all but
+  `ops::merge`) done; reviews A and B closed (2.5c, 2.12b, 2.13b); 262 tests workspace-wide. Two
+  censuses recorded in `libs.md` (2610 `.model`, 945 `.mtl`). Safeguards for scripts and sidekick
+  trees added to `AGENTS.md` after a truncated source file.
+- **2026-09-13** - `resources/prefox_model_format.md` written for the plugin author from the
+  census. Merge home decided by the user: native `pes_model::ops::merge`; six plan passages and
+  `AGENTS.md` updated, decision logged. Next: implement 2.7d-4, then 2.9 `fox2`.

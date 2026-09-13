@@ -976,7 +976,7 @@ writer buys nothing while a hand writer can reproduce Konami's whitespace exactl
 parity becomes testable); `quick-xml` would add a streaming API and a serde surface nobody needs.
 Plan: `core.md` "External Dependencies" row added.
 
-## 2026-09-14 - pes_model - byte identity at the container, a fresh layout from the typed layer
+## 2026-09-13 - pes_model - byte identity at the container, a fresh layout from the typed layer
 Decision: `ModelContainer` (eleven opaque sections in file order) is the byte-identical `format/`
 layer; `PreFoxModel::write` produces the add-on's layout and is tested for semantic equality.
 Konami annotation types 1/10 and section-3 records are carried; sections 8/9/10 with content are
@@ -989,7 +989,7 @@ dropping the referenced section is a silent corruption, and no player part uses 
 Plan: `libs.md` "`pes_model::format`: the `.model` container and its sections" added (layout as
 measured by `.tmp/model_census.py` on the six fixtures).
 
-## 2026-09-14 - pes_model - the typed writer always emits header version 19
+## 2026-09-13 - pes_model - the typed writer always emits header version 19
 Decision: `PreFoxModel::write` puts 19 in the header whatever `version` the file declared; the
 field stays on the struct as read-side information.
 Why: the writer emits the version-19 record sizes (24-byte mesh records, three geometry extras,
@@ -1000,7 +1000,7 @@ PES 16 for years; the hybrid has no evidence. Carrying the word would have made 
 faithful while being untested.
 Plan: `libs.md` "`pes_model::format`: the `.model` container and its sections" edited.
 
-## 2026-09-14 - pes_model - mesh splitting on `.model`: the fmdl port, four departures from the reference importer
+## 2026-09-13 - pes_model - mesh splitting on `.model`: the fmdl port, four departures from the reference importer
 Decision: `ops::split` ports `fmdl::ops::split` with the `.model` limits (64/60 bones, 65535/63000
 vertices, 21845/20000 faces) and the per-mesh `Split-Mesh: N` header; the caller supplies the
 bone hierarchy (`encode(model, parents)`) since the format stores none. Departures from the
@@ -1015,7 +1015,7 @@ Why: each departure removes a slip or an information loss; none changes what PES
 Plan: `model_conversion.md` "Performance-critical operation: mesh splitting" describes the shape;
 `libs.md` "`pes_model::model`" already carries the LOD rule; no further edit.
 
-## 2026-09-14 - pes_model - `check` covers the `.mtl` too, with two codes the plan did not list
+## 2026-09-13 - pes_model - `check` covers the `.mtl` too, with two codes the plan did not list
 Decision: `pes_model::check` has `check(model)`, `check_materials(set)` and `check_bundle(model,
 set)`; the `.mtl` rules are the Team compiler plan's (`mtl_material_duplicate`, `mtl_state_invalid`,
 `mtl_blendmode_nonzero`, `mtl_state_missing`, `mtl_state_nonrecommended` as `alphablend 1 + zwrite
@@ -1028,3 +1028,20 @@ of the census (an unknown state is a fact worth surfacing at Info) and of the bu
 material is the one cross-file error the pair can have). Texture existence stays with the compiler.
 Plan: `team_compiler.md` "XML/MTL content checks" gains the two rows when Phase 3 writes its
 message catalog; no edit now (the codes are lib-side until then).
+
+## 2026-09-13 - pes_model / model_convert - the pre-Fox multi-part merge is native, not an IR operation
+Decision: `pes_model::ops::merge(parts: &[(&Model, &MaterialSet)]) -> Result<(Model,
+MaterialSet), MergeError>` is the pre-Fox counterpart of `fmdl::ops::merge`; the `ingame_face`
+boots merge and the link-combined case call it. `model_convert::merge_ir_parts` stays specified
+but deferred, with no planned caller. Bone matrices are compared exactly, as `fmdl` compares
+positions; a tolerance is decided with `model_convert` from measured matrices if glTF-authored
+pre-Fox parts turn out to need one. User decision (the plan contradicted itself: `libs.md`'s
+crate tree listed `pes_model/ops/merge.rs` while `model_conversion.md` routed the merge through
+the IR).
+Why: an IR round trip for a same-format operation is what the "format-native ops" rule exists to
+avoid, and the IR route bought nothing: the `.mtl` merge is a material-name merge either way, and
+the native op is what the Blender bindings can expose. An unmeasured tolerance would be the same
+mistake as the `dds_convert` encode bounds.
+Plan: `libs.md` gains "`pes_model::ops::merge`"; `model_conversion.md` "IR part merge", the crate
+tree, "Conversion routing" and the retargeting paragraph, `aesthetics_export.md` (four mentions),
+`team_compiler.md` (pipeline step) and `AGENTS.md` ("Two engines, one IR") edited to match.
