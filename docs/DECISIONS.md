@@ -847,3 +847,19 @@ System (Winning Eleven being PES's Japanese name), so the name is WE + zlib.
 Why: the plan's spelling ran the two words together; a name that parses as "WE zlib" says what
 the crate is and still cannot be confused with a general zlib crate.
 Plan: `core.md` crate tree and naming convention; `libs.md` mentions; worklog.
+
+## 2026-09-13 - teams_list / fpc - `teams_list.txt` contract details; FPC kit values per version
+Decision: the parse contract left open in the Team compiler plan is fixed as the `teams_list`
+crate implements it: header required and preserved, columns by header position with extra
+columns carried verbatim, non-folding names are placeholders, a folding name with an out-of-range
+ID is an error, duplicates are errors, BOM tolerated on read only, blank lines dropped, CRLF
+written. `reconcile` is infallible and reports rows it could not merge as `unresolved` instead of
+failing the whole merge. `fpc::kit_values` returns the wiki's four PES 17 values for 16/17 and
+19–21 and `None` for 15 and 18.
+Why: the file is written by Studio and read back by Studio, so a strict parse catches corruption
+early, while placeholders keep the ID space Red's list reserves (`Backup N`, invitational slots)
+without pretending they are teams. A merge that fails on one conflicting row would block an update
+for a problem the user has to look at anyway; a summary lets the shell show it. FPC on PES 18 is
+not documented anywhere the plan cites, so the honest value is `None` until evidence appears.
+Plan: `team_compiler.md` open question "`teams_list.txt` contract" (now resolved text);
+`libs.md` "`libs/fpc`" (`kit_values` paragraph, with the PES 19+ verification owed to 2.13).
