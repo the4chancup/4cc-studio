@@ -1,6 +1,12 @@
 //! The engine-neutral material schema: what a material *is* (its shader family and canonical
-//! texture roles) plus one optional verbatim table per engine. Family inference and the
-//! engine mapping tables live in the modules this file will grow; this file is the types.
+//! texture roles) plus one optional verbatim table per engine.
+
+/// Reading a shader family off a native shader name.
+pub mod family;
+/// Resolving a material for an FMDL export.
+pub mod to_fox;
+/// Resolving a material for a `.model` export.
+pub mod to_prefox;
 
 /// The shader family: what a material *is*, engine-neutral (format plan "Shader families").
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -98,14 +104,18 @@ pub struct PreFoxMaterial {
     pub states: Vec<(String, u32)>,
     /// Native sampler name to its settings; name and path live in `Texture`.
     pub samplers: Vec<(String, SamplerSettings)>,
+    /// Native sampler name to index into `CanonicalModel::textures`, for samplers outside the
+    /// canonical role table (`RoughnessMap`, `Normal2`, ...); canonical ones live in
+    /// `Material::textures`.
+    pub textures: Vec<(String, usize)>,
     /// The `.mtl` `<vector>` elements, one to four components as stored.
     pub parameters: Vec<(String, Vec<f32>)>,
 }
 
 /// The `.mtl` sampler attributes minus name and path (which live in `Texture`); the same
 /// closed sets `pes_model`'s material codec reads, redeclared here because `materials/`
-/// imports no format crate.
-#[derive(Debug, Clone, PartialEq)]
+/// imports no format crate. `Default` is all-`None`: no attribute written.
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct SamplerSettings {
     /// Whether the sampler reads the texture as sRGB.
     pub srgb: Option<bool>,
