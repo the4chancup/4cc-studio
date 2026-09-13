@@ -285,8 +285,9 @@ Spec: `docs/plans/core.md` "Phase 2", `docs/plans/libs.md`, `model_conversion.md
   `.skl` parsed once, `PesBone`/`Skeleton`/`VersionSkeletons`, `render_parent`, `fold_target`);
   every fold chain lands on every version. Plan error fixed: hand bones are `skh_`, not `skf_`.
   12 tests
-- [ ] 2.16b `model_convert::ir` — `CanonicalModel` and friends pasted from the plan, `validate`
-  → verify: a hand-built two-mesh model validates; each invariant has a failing case
+- [x] 2.16b `model_convert::ir` + `materials` types — done (sidekick): the plan's two code
+  blocks pasted with docs, `validate` with thirteen invariants (weighted bone slots only: Konami
+  files leave stale indices in unweighted slots), one failing case each. 26 tests
 - [ ] 2.16c `model_convert::formats::fmdl` — `fmdl_to_ir` / `ir_to_fmdl` → verify: semantic
   round trip on the copied Konami fixtures, bind pose from the companion SKL on the audience pair
 - [ ] 2.16d `model_convert::formats::pes_model` — `model_to_ir` / `ir_to_model` → verify: semantic
