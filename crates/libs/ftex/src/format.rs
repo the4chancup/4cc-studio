@@ -96,7 +96,7 @@ impl PixelFormat {
     pub fn dxgi(self) -> Option<u32> {
         Some(match self {
             PixelFormat::Argb8 | PixelFormat::Bc1 | PixelFormat::Bc2 | PixelFormat::Bc3 => {
-                return None
+                return None;
             }
             PixelFormat::R8 => 61,
             PixelFormat::Bc4 => 80,
@@ -169,7 +169,7 @@ pub struct FtexInfo {
 }
 
 /// Bytes one mip level of one image occupies in the DDS stream
-/// (pes-file-tools' `ddsMipmapSize`).
+/// (block-rounded, at least one block per side).
 pub fn mip_size(format: PixelFormat, width: u32, height: u32, depth: u32, level: u32) -> usize {
     let (block_pixels, block_bytes) = format.block_size();
     let w = (width >> level).max(1);

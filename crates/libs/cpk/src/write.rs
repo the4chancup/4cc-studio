@@ -1,4 +1,4 @@
-//! Writing a CPK archive, byte-compatible with pes-file-tools' `CpkWriter`:
+//! Writing a CPK archive in the layout the 4cc compilers have always produced:
 //! files stored back to back at 0x800 alignment, then `TOC `, then `ETOC`
 //! (only when every entry carries a timestamp), then the `CPK ` header table
 //! written over the leading padding at offset 0.
@@ -32,7 +32,7 @@ pub struct CpkWriter<W: Write + Seek> {
 impl<W: Write + Seek> CpkWriter<W> {
     /// Starts a new archive: 0x7FA zero bytes plus `(c)CRI`, so the first file
     /// lands at 0x800. `tool_version` becomes the header's `Tvers` string;
-    /// passing `"pes-file-tools"` reproduces the legacy writer's bytes.
+    /// passing the string an existing archive carries reproduces its bytes.
     pub fn new(mut writer: W, tool_version: &str) -> Result<Self, CpkError> {
         writer.write_all(&[0u8; 0x7FA])?;
         writer.write_all(b"(c)CRI")?;
@@ -125,7 +125,7 @@ impl<W: Write + Seek> CpkWriter<W> {
             let padding = (ALIGNMENT - toc_size % ALIGNMENT) % ALIGNMENT;
             self.writer.write_all(&vec![0u8; padding as usize])?;
             self.position += padding;
-            // The trailing all-empty row pes-file-tools appends.
+            // The trailing all-empty row the layout ends with.
             etoc.rows
                 .push(vec![UtfValue::U64(0), UtfValue::String(String::new())]);
             let offset = self.position;
@@ -145,7 +145,7 @@ impl<W: Write + Seek> CpkWriter<W> {
         Ok(self.writer)
     }
 
-    /// The 44-column `CPK ` header row, in pes-file-tools' exact order.
+    /// The 44-column `CPK ` header row, in the fixed order the layout uses.
     fn header_table(
         &self,
         toc_offset: u64,

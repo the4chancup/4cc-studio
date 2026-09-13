@@ -1,18 +1,18 @@
-//! DDS -> FTEX, matching pes-file-tools' `ddsToFtexBuffer` layout: 16 KiB
+//! DDS -> FTEX in the layout PES accepts from the 4cc compilers: 16 KiB
 //! chunks zlib-compressed at level 3, 8-byte padded chunk areas, mip records
 //! with ftexs 0, and a header with nrt 0x02, flags 0x11, zero hashes. The
-//! deflate bytes are miniz_oxide's rather than Python zlib's, so the output is
-//! not byte-identical to the reference; parity is verified by converting back.
+//! deflate bytes are miniz_oxide's rather than zlib's, so the output is
+//! not byte-identical to an archive-shipped one; parity is verified by converting back.
 
-use std::io::{Cursor, Read, Seek, SeekFrom, Write};
+use std::io::{Cursor, Seek, SeekFrom, Write};
 
 use binrw::{BinRead, BinWrite};
-use flate2::write::ZlibEncoder;
 use flate2::Compression;
+use flate2::write::ZlibEncoder;
 
-use crate::dds::{DdsHeader, Dx10Header};
-use crate::format::{mip_size, ColorSpace, FtexHeader, MipRecord, PixelFormat};
 use crate::FtexError;
+use crate::dds::{DdsHeader, Dx10Header};
+use crate::format::{ColorSpace, FtexHeader, MipRecord, PixelFormat, mip_size};
 
 const CHUNK_SIZE: usize = 1 << 14;
 
@@ -32,9 +32,7 @@ pub fn dds_to_ftex(dds: &[u8], color_space: ColorSpace) -> Result<Vec<u8>, FtexE
         return Err(FtexError::UnsupportedDds("header size != 124"));
     }
 
-    let mipmap_count = if dds_header.capabilities1 & 0x400000 != 0
-        && dds_header.mipmap_count > 1
-    {
+    let mipmap_count = if dds_header.capabilities1 & 0x400000 != 0 && dds_header.mipmap_count > 1 {
         dds_header.mipmap_count
     } else {
         1
@@ -58,7 +56,7 @@ pub fn dds_to_ftex(dds: &[u8], color_space: ColorSpace) -> Result<Vec<u8>, FtexE
         return Err(FtexError::UnsupportedDds("cube map with volume depth"));
     }
 
-    let format = detect_format(dds_header.format_flags, &dds_header, dds, &mut cursor)?;
+    let format = detect_format(dds_header.format_flags, &dds_header, &mut cursor)?;
 
     let mut texture_type = color_space.texture_type();
     if is_cube_map {
@@ -72,17 +70,9 @@ pub fn dds_to_ftex(dds: &[u8], color_space: ColorSpace) -> Result<Vec<u8>, FtexE
     let mut records = Vec::new();
     for _ in 0..image_count {
         for level in 0..mipmap_count {
-            let length = mip_size(
-                format,
-                dds_header.width,
-                dds_header.height,
-                depth,
-                level,
-            );
+            let length = mip_size(format, dds_header.width, dds_header.height, depth, level);
             let start = cursor.position() as usize;
-            let frame = dds
-                .get(start..start + length)
-                .ok_or(FtexError::Truncated)?;
+            let frame = dds.get(start..start + length).ok_or(FtexError::Truncated)?;
             let (encoded, chunk_count) = encode_image(frame)?;
             cursor.set_position((start + length) as u64);
             records.push(MipRecord {
@@ -98,15 +88,16 @@ pub fn dds_to_ftex(dds: &[u8], color_space: ColorSpace) -> Result<Vec<u8>, FtexE
     }
 
     let frame_buffer_offset = 64u32 + records.len() as u32 * 16;
-    let mut mip_buffer = Vec::new();
+    let mut mip_writer = Cursor::new(Vec::new());
     let mut relative = 0u32;
     for record in &mut records {
         record.offset = frame_buffer_offset + relative;
         relative += record.compressed_size;
         record
-            .write(&mut mip_buffer)
+            .write(&mut mip_writer)
             .unwrap_or_else(|_| unreachable!("Vec write is infallible"));
     }
+    let mip_buffer = mip_writer.into_inner();
 
     let header = FtexHeader {
         magic: *b"FTEX",
@@ -127,21 +118,21 @@ pub fn dds_to_ftex(dds: &[u8], color_space: ColorSpace) -> Result<Vec<u8>, FtexE
         hash2: [0; 8],
     };
 
-    let mut output = Vec::new();
+    let mut writer = Cursor::new(Vec::new());
     header
-        .write(&mut output)
+        .write(&mut writer)
         .unwrap_or_else(|_| unreachable!("Vec write is infallible"));
+    let mut output = writer.into_inner();
     output.extend_from_slice(&mip_buffer);
     output.extend_from_slice(&frame_buffer);
     Ok(output)
 }
 
 /// Maps the DDS pixel-format fields to an FTEX format, with the same
-/// acceptance rules as `ddsToFtexBuffer`.
+/// acceptance rules the 4cc compilers have always applied.
 fn detect_format(
     format_flags: u32,
     header: &DdsHeader,
-    dds: &[u8],
     cursor: &mut Cursor<&[u8]>,
 ) -> Result<PixelFormat, FtexError> {
     if format_flags & 0x4 == 0 {
@@ -185,7 +176,7 @@ fn detect_format(
 }
 
 /// The DX10 DXGI-format -> FTEX-format mapping; note 87 (B8G8R8A8) maps to
-/// Argb8, matching the reference.
+/// Argb8.
 fn dxgi_to_format(dxgi: u32) -> Option<PixelFormat> {
     Some(match dxgi {
         87 => PixelFormat::Argb8,

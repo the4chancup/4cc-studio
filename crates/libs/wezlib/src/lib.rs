@@ -61,8 +61,7 @@ pub fn decompress(bytes: &[u8]) -> Result<Vec<u8>, Error> {
     Ok(payload)
 }
 
-/// [`decompress`] when wrapped, the input itself otherwise (Blue's
-/// `tryDecompress`).
+/// [`decompress`] when wrapped, the input itself otherwise.
 pub fn decompress_if_wrapped(bytes: &[u8]) -> Result<Cow<'_, [u8]>, Error> {
     if is_wrapped(bytes) {
         Ok(Cow::Owned(decompress(bytes)?))
@@ -72,10 +71,10 @@ pub fn decompress_if_wrapped(bytes: &[u8]) -> Result<Cow<'_, [u8]>, Error> {
 }
 
 /// Deflates with zlib default compression and wraps the result in the WESYS
-/// header. Always wraps (Blue's `compress`).
+/// header. Always wraps.
 ///
-/// The deflate bytes are miniz_oxide's, not Python zlib's, so a
-/// Studio-compressed file decompresses to the same payload as Red's but is not
+/// The deflate bytes are miniz_oxide's, not zlib's, so a file compressed here
+/// decompresses to the same payload as one compressed by zlib but is not
 /// byte-identical to it: parity for WESYS-wrapped files is at the payload
 /// level.
 pub fn compress(bytes: &[u8]) -> Vec<u8> {

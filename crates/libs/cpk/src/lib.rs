@@ -3,9 +3,10 @@
 //! A CPK file is a `CPK ` header @UTF table (version fields, offsets to the
 //! other tables), the file contents, a `TOC ` table of file entries, and
 //! optionally an `ETOC` table of modification times. All @UTF content is
-//! XOR-encrypted with the CRI keystream. The writer reproduces
-//! pes-file-tools' `CpkWriter` layout byte for byte; `CpkWriter::new` takes
-//! the `Tvers` tool-version string so that parity is testable.
+//! XOR-encrypted with the CRI keystream. The writer's layout is the one the
+//! 4cc compilers have always produced, so an archive written from the same
+//! entries is byte-identical to theirs; `CpkWriter::new` takes the `Tvers`
+//! tool-version string so that parity is testable.
 
 pub mod crilayla;
 mod read;
@@ -148,6 +149,7 @@ mod tests {
         // appended the content, and byte parity needs the same layout.
         let mut by_offset = entries.clone();
         by_offset.sort_by_key(|e| e.offset);
+        // The Tvers string the fixture's writer recorded; parity needs the same one.
         let mut writer = CpkWriter::new(Cursor::new(Vec::new()), "pes-file-tools").unwrap();
         for entry in &by_offset {
             let content = archive.read(entry).unwrap();

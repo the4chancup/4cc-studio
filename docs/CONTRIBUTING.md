@@ -120,6 +120,11 @@ exist yet (every Phase 2 crate), the plan's data-shape rules stand in for one.
   format or pipeline terms, and any invariant the signature does not show. A doc that restates the
   name (`/// Returns the name.`) is worse than none. Inline `//` comments only for non-obvious
   *why* (format quirks, perf rationale, SAFETY), never to narrate what the next line does.
+- **The legacy tools are not named in code.** No Red, Blue, pes-file-tools, 4ccEditor or Python
+  function names in doc comments, comments or identifiers: the code describes the format or the
+  behavior ("the layout PES accepts", "one frame per mip"), and the plans hold the evidence trail.
+  The two exceptions are a literal an existing file carries (a `Tvers` string a parity test must
+  reproduce) and the provenance line of a committed fixture in its `README.md`.
 - No child→parent back-references, anywhere: pass resolved identity/context down as parameters; no
   `Rc<RefCell<_>>` graphs. `Arc` for sharing immutable leaf data across threads (textures,
   snapshots, wake callbacks) is not a parent reference and is what the plan intends.
