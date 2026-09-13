@@ -452,10 +452,22 @@ exponents, `-0`; `float_golden.tsv` holds 36 reference cases), doubles likewise 
 bools `true`/`false`, pointers, handles and `addr` `0x%08X`, Vector3/Vector4/Quat as `x y z w`
 attributes, Color `r g b a`, Matrix3/4 as `<RowN ColumnM="..">` children, EntityLink as
 `packagePath archivePath nameInArchive` attributes (`...Hash` when unresolved) with the handle
-as text, WideVector3 `x y z a b`. Attribute escaping `& " <`, text escaping `& < >`.
+as text, WideVector3 `x y z a b`. Attribute escaping `& " <` plus tab, LF and CR as `&#9;`
+`&#10;` `&#13;` (an XML reader normalizes raw ones to spaces, which would change the string and
+so its hash); text escaping `& < >` and CR. Where the reference's XML is lossy, ours is not: an
+unresolved class or property name prints as the reference's `class=""`/`name=""` *and* a
+`classHash`/`nameHash` attribute with the hash, which `from_xml` prefers when present, so a
+Konami file whose names the dictionary lacks survives a decompile/compile round trip instead of
+being recompiled with the empty-string hash (the reference's behavior, which the Stadium
+compiler's ID rewrite would otherwise inherit). A `StringMap` key literal is ambiguous with a
+hash when it starts with `0x`; the format has no way around that, no file on the machine has
+one, and `from_xml` reads `0x` followed by hex as a hash and anything else as a literal.
 `Fox2File::from_xml(&str)` reads that layout with `roxmltree` (missing attributes default as the
-reference's do: `0`, `""`, container `StaticArray`) and builds the string table in traversal
-order. The XML text produced by decompiling each fixture without a dictionary equals the
+reference's do: `0`, `""`, container `StaticArray`; a `bool` must read `true`, `false` or empty,
+anything else is an error rather than the reference's silent `false`) and builds the string table
+in traversal order. The binary reader validates every padding span it skips (property tails,
+`StringMap` entries, the trailer) as zero, since a rewrite zero-fills them; measured true on all
+87 files, whose trailers also all end exactly at the file end. The XML text produced by decompiling each fixture without a dictionary equals the
 reference's (`*.fox2.xml`), with a one-line dictionary (`audi_low_parts.dict.fox2.xml`) too; the
 binary compiled from each equals `*.compiled.fox2`. The dictionary file itself (1.7 MB, 21543
 lines) is the Stadium compiler's asset, placed when that tool is built; the lib only loads one.
