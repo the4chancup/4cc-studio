@@ -827,3 +827,16 @@ Explicit `SettingsChanged` rather than dirty-tracking inside `Settings`, so savi
 request the shell handles like the others. Atomic write because a truncated settings file on a
 crash would silently reset the user to defaults on the next start.
 Plan: `core.md` "Tool plugin interface" (ToolContext paragraph), "Settings menu" (file layout).
+
+## 2026-09-13 - workspace - PowerShell stays the Windows `just` shell; Conventional Commits
+Decision (user): `just` keeps PowerShell as its Windows shell rather than adding Git's `sh` to
+PATH, and recipe lines gain a "no quoted arguments" rule so they stay portable between the two
+shells. Commit subjects follow Conventional Commits, `type(scope): summary`, from the next commit
+on; the three existing commits are left as they are. `CHANGELOG.md` is not generated from them.
+Why: PowerShell already does the one thing the gates need (run a bare command, stop on non-zero
+exit; verified with a planted warning), while `Git\usr\bin` on PATH shadows `find`, `sort` and
+coreutils' `link` over MSVC's `link.exe`, a known way to break Windows builds. Commit tags in the
+standard shape rather than an ad-hoc `[fix]` because `git log --grep`, GitHub and changelog
+tools understand it without configuration; the hand-written changelog stays because members read
+releases by tool, not by commit type (core plan, "Changelog and version display").
+Plan: `CONTRIBUTING.md` "Testing and verification" (justfile shell rule) and "Commits" (new).

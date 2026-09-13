@@ -26,6 +26,7 @@ def workspace_members() -> list[dict]:
         check=True,
         capture_output=True,
         text=True,
+        encoding="utf-8",
     ).stdout
     return json.loads(out)["packages"]
 

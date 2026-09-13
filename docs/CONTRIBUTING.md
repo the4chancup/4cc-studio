@@ -154,10 +154,12 @@ Rules for the justfile, so it stays a command list and not a second build system
 - A recipe is a list of commands, never logic. Anything with a branch or a loop is a Python
   script under `scripts/`, and the recipe calls it. Reading the justfile top to bottom must tell a
   maintainer exactly which commands run, in which order.
-- Recipes run under `sh` on both platforms (Git for Windows ships one; `set windows-shell` to
-  PowerShell is the fallback if Phase 1 finds `sh` is not on PATH by default). Recipe lines are
-  bare commands (no pipes, no redirection), which is also what makes the PowerShell false-failure
-  trap below not apply to the gates: `just` stops at the first non-zero exit.
+- Recipes run under `sh` on Linux and CI and under PowerShell on Windows (`set windows-shell`;
+  Git for Windows' `sh` is not on PATH from a plain PowerShell, and putting its `usr/bin` there
+  shadows `find`, `sort` and `link.exe`). Two shells means recipe lines are bare commands: no
+  pipes, no redirection, no quoted arguments; an argument that needs quoting goes into the script
+  the recipe calls. That is also what makes the PowerShell false-failure trap below not apply to
+  the gates: `just` stops at the first non-zero exit.
 - Nothing hardcodes `target/`: a developer may have moved the target directory (`build.target-dir`
   in a global cargo config), so a recipe that needs a built artifact asks cargo where it is
   (`cargo metadata` → `target_directory`, or `cargo build --artifact-dir`).
@@ -212,6 +214,17 @@ Requirements:
 Only crates listed in `plans/core.md` "External Dependencies" are pre-approved. Anything else,
 including "just a small helper crate", is a question for the user, with the reason and the
 alternative considered. Prefer versions published at least a week ago; no floating ranges.
+
+## Commits
+
+The first line is `type(scope): summary` (Conventional Commits), scope being the crate or area
+(`fix(vtree): ...`, `feat(studio_core): ...`, `docs(plans): ...`, `chore(workspace): ...`; a
+multi-crate step uses its phase, `feat(phase2): ...`). Types: `feat`, `fix`, `docs`, `test`,
+`refactor`, `chore` (workspace, dependencies, CI). The body says why, not what; the diff says
+what. This is for maintainers reading history (`git log --grep '^fix('` when bisecting), not for
+members: `CHANGELOG.md` stays hand-written per the core plan's "Changelog and version display" and
+is never generated from commit messages. Write the message to a file and `git commit -F` it;
+PowerShell has no heredocs.
 
 ## Toolchain notes
 

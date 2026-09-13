@@ -125,6 +125,12 @@ Spec: `docs/plans/core.md` "Phase 1".
   `studio_core` and `pes_version` itself at the user's request (slow sidekick, critical
   interface); parallel work tripped once on a module declared before its file existed
 - [x] 1.7 Rewrite — done: `core.md` "Phase 1" is now a description of what exists
+- [x] 1.8 Second reviewer pass (after the own-audit-first change): 5 concerns, 4 verified + 1
+  suspected, all accepted: `vtree` fold is NFC + NTFS-style simple case folding (final sigma
+  collides, `ß` stays apart from `ss`); prefix scans became bounded `BTreeMap` range walks;
+  scripts decode cargo output as UTF-8; `cargo deny` checks all features; `Settings::save` uses a
+  unique temp name per save (the new concurrent-save test went red on the pid-only name first).
+  38 tests, gates and deps-check green
 
 ### Phase 2 — Library crates
 
@@ -222,3 +228,5 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
 - **2026-09-13** - Phase 1 converge and rewrite done (7 reviewer concerns, all fixed; 35 tests,
   gates green). Converge order flipped to own-audit-first in `AGENTS.md`. Phase 1 closes once the
   first push produces the two CI runs step 1.2 asks for; then Phase 2 starts at 2.1 `weszlib`.
+- **2026-09-13** - Second reviewer pass on Phase 1 (5 concerns, all fixed; 38 tests). Commit
+  subjects are Conventional Commits from here on; `just` stays on PowerShell for Windows.
