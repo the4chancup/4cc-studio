@@ -10,8 +10,8 @@ is in `AGENTS.md` ("Working documents").
 ## Current status
 
 **Phase:** 2 (Library crates). Done: 2.1 `wezlib`, 2.2 `cpk`, 2.3 `fpk`, 2.4 `ftex`, 2.5 `dds_convert` (CPU),
-2.8 `uniparam`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`. Next: 2.6a-2 `fmdl::format` typed records; review
-findings for `dds_convert`, `teams_list`, `kit_config` queued as steps 2.5c / 2.12b / 2.13b.
+2.8 `uniparam`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`. Next: 2.6b `fmdl::format` vertex and face codec. Review
+rounds A and B (2026-09-13) closed: 2.5c, 2.12b, 2.13b done.
 **In progress:** none
 **Blocked on:** —
 
@@ -134,10 +134,9 @@ Spec: `docs/plans/core.md` "Phase 2", `docs/plans/libs.md`, `model_conversion.md
   one span. Quirks kept: section-1 block 3 always reads to file end; a section-1 length past the
   file end is clamped. The denied-dependency check was exercised earlier (`egui` planted on
   `fmdl` turned `deps_check.py` red, reverted). 8 tests
-- [ ] 2.6a-2 `fmdl::format` typed section-0 records (`FmdlFile` over the container, one struct per
-  block id, every byte a named field) → verify: `FmdlFile::write(read(x)) == x` on the Konami
-  fixtures; bone names of every fixture resolve through the string table to the reference
-  parser's list
+- [x] 2.6a-2 `fmdl::format` typed records — done (sidekick): `FmdlFile` over the container, 19
+  record structs with every byte a named field, byte-identical on the Konami fixtures, bone names
+  of all four boned fixtures resolve to the reference parser's lists. 14 tests
 - [ ] 2.6b `fmdl::format` vertex and face decoding/encoding (mesh formats, vertex formats, buffer
   offsets, float16) → verify: decode then re-encode every mesh of every fixture reproduces the
   buffer bytes

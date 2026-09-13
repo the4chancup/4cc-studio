@@ -2,9 +2,12 @@
 //! and writes, with no interpretation of the data inside the blocks.
 
 mod container;
+mod file;
+pub mod records;
 mod skl;
 
 pub use container::{ByteBlock, FmdlContainer, RecordBlock};
+pub use file::FmdlFile;
 pub use skl::{SklBone, SklFile};
 
 /// Why a byte buffer is not a readable FMDL or SKL.
@@ -33,4 +36,14 @@ pub enum FmdlError {
     /// An SKL bone name is not UTF-8 or has no terminating NUL in the file.
     #[error("invalid skl bone name")]
     InvalidName,
+    /// A string descriptor or its index points at data the file does not
+    /// hold.
+    #[error("invalid string reference {index}")]
+    BadStringReference {
+        /// The index into the strings block that failed.
+        index: usize,
+    },
+    /// A string descriptor's span is not UTF-8.
+    #[error("invalid utf-8 in fmdl string")]
+    InvalidUtf8,
 }
