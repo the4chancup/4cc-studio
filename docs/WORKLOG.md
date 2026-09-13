@@ -10,7 +10,7 @@ is in `AGENTS.md` ("Working documents").
 ## Current status
 
 **Phase:** 2 (Library crates). Done: 2.1 `wezlib`, 2.2 `cpk`, 2.3 `fpk`, 2.4 `ftex`, 2.5 `dds_convert` (CPU),
-2.8 `uniparam`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`. Next: 2.6c-3d `fmdl::ops::split`. Review
+2.8 `uniparam`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`. Next: 2.6c-3e `fmdl::ops::merge`. Review
 rounds A and B (2026-09-13) closed: 2.5c, 2.12b, 2.13b done.
 **In progress:** none
 **Blocked on:** —
@@ -158,8 +158,10 @@ Spec: `docs/plans/core.md` "Phase 2", `docs/plans/libs.md`, `model_conversion.md
   tail kept), a no-op edit leaves Konami bytes identical. 6 tests
 - [x] 2.6c-3c `fmdl::ops::vertex_enc` — done (sidekick): owner maps from the ordering convention,
   encode reorders/collapses loops with byte keys built through the codec. 6 tests
-- [ ] 2.6c-3d `fmdl::ops::split` mesh splitting encode/decode (`model_conversion.md`
-  "Performance-critical operation: mesh splitting")
+- [x] 2.6c-3d `fmdl::ops::split` — done (sidekick): encode over bone subtrees with principal-axis
+  fragments, decode by stored encoding and Nth occurrence; synthetic 40-bone and 90k-vertex grids
+  split into 2 and 7 components and round-trip; header round trip through `to_file`. Deviations
+  from the legacy add-on recorded in the decision entry. 10 tests, 3.9 s
 - [ ] 2.6c-3e `fmdl::ops::merge` multi-FMDL merge (`model_conversion.md` "multi-FMDL mesh merging")
 - [ ] 2.6d `fmdl::check` findings
 - [ ] 2.7 `pes_model` (`format/` + `ops/` + `check.rs`)

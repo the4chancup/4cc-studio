@@ -193,7 +193,7 @@ pub fn decode_model(model: &Model) -> Vec<Vec<usize>> {
 }
 
 /// Position, bone weights and bone indices as the bytes the file stores.
-fn topological_key(vertices: &MeshVertices, index: usize) -> Vec<u8> {
+pub(crate) fn topological_key(vertices: &MeshVertices, index: usize) -> Vec<u8> {
     let mut key = Vec::new();
     for component in vertices.positions[index] {
         key.extend(component.to_le_bytes());
@@ -207,7 +207,7 @@ fn topological_key(vertices: &MeshVertices, index: usize) -> Vec<u8> {
 
 /// Normal, color, uv maps in order, tangent — the stored bytes,
 /// concatenated.
-fn nontopological_encoding(vertices: &MeshVertices, index: usize) -> Vec<u8> {
+pub(crate) fn nontopological_encoding(vertices: &MeshVertices, index: usize) -> Vec<u8> {
     let mut encoding = Vec::new();
     if let Some(normals) = &vertices.normals {
         for component in normals[index] {
