@@ -189,6 +189,9 @@ transforms and a dependency on `nalgebra` would add a generic API for four funct
 face lists (no 4cc export carries any; the add-on writes none), Konami's `(kind, text)` tags, the
 editor-data items and the geometry order word. Everything the community add-on writes survives.
 
+The material side of the IR (`materials/mod.rs`, re-exported by `ir`):
+
+```rust
 // Mirrors the materials.toml schema (see the Unified model format plan): an
 // engine-neutral core plus one optional table per engine. `Some` when imported
 // from that engine's format or from a toml that fills it; exporters derive a
@@ -219,11 +222,26 @@ pub struct FoxMaterial {
 
 pub struct PreFoxMaterial {
     pub shader: String,
-    pub states: Vec<(String, i32)>,              // ztest, zwrite, twosided, alphatest, alpharef, alphablend, blendmode
+    pub states: Vec<(String, u32)>,              // ztest, zwrite, twosided, alphatest, alpharef, alphablend, blendmode
     pub samplers: Vec<(String, SamplerSettings)>, // native sampler name → srgb/filters/addressing/maxaniso
-    pub parameters: Vec<(String, [f32; 4])>,     // .mtl <vector> elements
+    pub parameters: Vec<(String, Vec<f32>)>,     // .mtl <vector> elements, one to four components as stored
 }
+
+// The `.mtl` sampler attributes minus name and path (which live in `Texture`); the same
+// closed sets `pes_model::format::mtl` reads, redeclared here because `materials/` imports no
+// format crate.
+pub struct SamplerSettings {
+    pub srgb: Option<bool>,
+    pub minfilter: Option<Filter>, pub magfilter: Option<Filter>, pub mipfilter: Option<Filter>,
+    pub uaddr: Option<Address>, pub vaddr: Option<Address>, pub waddr: Option<Address>,
+    pub maxaniso: Option<u32>,
+}
+pub enum Filter { Linear, Point, Anisotropic }
+pub enum Address { Wrap, Clamp, Repeat }
 ```
+
+(`states` are `u32` and `parameters` keep their stored component count, as the `.mtl` codec
+reads them, so a `.model` round trip loses nothing; the plan's draft had `i32` and `[f32; 4]`.)
 
 FMDL stores four-component normals and tangents; the IR must not silently discard their fourth
 components. glTF uses three-component normals and four-component tangents (including handedness),

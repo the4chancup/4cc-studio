@@ -5,5 +5,9 @@
 
 /// The 3x4 row-major affine transform bone transforms are stored in.
 pub mod affine;
+/// The canonical model: the superset both format importers fill and both exporters read.
+pub mod ir;
+/// The engine-neutral material schema.
+pub mod materials;
 /// The per-version player skeletons and their retargeting tables.
 pub mod skeletons;
