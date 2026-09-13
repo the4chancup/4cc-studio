@@ -123,10 +123,16 @@ impl ModelContainer {
             return Err(ModelError::BadMagic);
         }
         if header.reserved != 0 {
-            return Err(ModelError::BadHeaderWord(u32::from(header.reserved)));
+            return Err(ModelError::UnexpectedConstant {
+                what: "header word at 12",
+                value: u32::from(header.reserved),
+            });
         }
         if header.nine != 9 {
-            return Err(ModelError::BadHeaderWord(header.nine));
+            return Err(ModelError::UnexpectedConstant {
+                what: "header word at 16",
+                value: header.nine,
+            });
         }
         if header.table_offset != 16 {
             return Err(ModelError::BadSectionTable(header.table_offset));
@@ -379,13 +385,19 @@ mod tests {
         patched[12] = 1;
         assert_eq!(
             ModelContainer::read(&patched),
-            Err(ModelError::BadHeaderWord(1))
+            Err(ModelError::UnexpectedConstant {
+                what: "header word at 12",
+                value: 1
+            })
         );
         let mut patched = CARD.to_vec();
         patched[16] = 8;
         assert_eq!(
             ModelContainer::read(&patched),
-            Err(ModelError::BadHeaderWord(8))
+            Err(ModelError::UnexpectedConstant {
+                what: "header word at 16",
+                value: 8
+            })
         );
     }
 }
