@@ -929,3 +929,14 @@ could be double-booked; `name.y = 30` on PES 20 was flagged as clamped yet emitt
 and clamp is the only shape in which the two cannot disagree again.
 Plan: `libs.md` "`libs/teams_list`" (`file.rs`, `reconcile.rs` bullets); `kit_config_editor.md`
 "Version differences" and "Version-neutral" bullets.
+
+## 2026-09-13 - fmdl - a `model` layer between `format/` and `ops/`
+Decision: `fmdl` gains `model.rs`, a semantic `Model` (bones, material instances, meshes with the
+codec's `MeshVertices` and faces, mesh groups, extension headers, raw bone matrices) built from an
+`FmdlFile` and written back to a fresh one; the ops operate on `Model`, not on records.
+Why: the plan's tree names `format/` and `ops/` only, but mesh splitting, anti-blur and merging
+reason about bones, materials and groups, none of which exist at record level; without a semantic
+layer each op would re-derive the table walk. The layout `to_file` produces is the add-on writer's,
+the one PES has accepted for years, since a byte-identical rebuild is `format/`'s job and a fresh
+layout is what an edited model needs anyway.
+Plan: `libs.md` new subsection "`fmdl::model`: the semantic layer the ops work on".
