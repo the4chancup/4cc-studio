@@ -323,7 +323,9 @@ dependencies = [
  "image",
  "log",
  "pes_version",
+ "sha2",
  "thiserror",
+ "wezlib",
 ]
 
 [[package]]

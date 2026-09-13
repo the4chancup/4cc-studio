@@ -3,11 +3,11 @@
 
 use std::io::{Cursor, Read, Seek, SeekFrom};
 
-use binrw::{BinRead, BinWrite};
+use binrw::BinRead;
 use flate2::read::ZlibDecoder;
 
 use crate::FtexError;
-use crate::dds::{DdsHeader, Dx10Header};
+use crate::dds::build_header;
 use crate::format::{ChunkRecord, FtexHeader, FtexInfo, MipRecord, PixelFormat, mip_size};
 
 /// Reads only the header and reports what texture checks ask for.
@@ -33,25 +33,17 @@ pub fn ftex_to_dds(ftex: &[u8]) -> Result<Vec<u8>, FtexError> {
     let format = PixelFormat::from_id(header.pixel_format)
         .ok_or(FtexError::UnsupportedFormat(header.pixel_format))?;
 
-    let mut dds_flags = 0x1 | 0x2 | 0x4 | 0x1000 | 0x20000;
-    // capabilities, complex, mipmap; a cube map adds no further caps1 bits.
-    let caps1 = 0x1000 | 0x8 | 0x400000;
-    let mut caps2 = 0u32;
-
-    let (image_count, dds_depth, ext_dimension, ext_flags) = if header.texture_type & 0x4 != 0 {
+    let (image_count, dds_depth, cube) = if header.texture_type & 0x4 != 0 {
         // Cube map: six images, depth must be 1.
         if header.depth > 1 {
             return Err(FtexError::UnsupportedVariant("cube map with depth > 1"));
         }
-        caps2 |= 0xfe00;
-        (6u32, 1u32, 3u32, 0x4u32)
+        (6u32, 1u32, true)
     } else if header.depth > 1 {
         // Volume texture.
-        dds_flags |= 0x800000;
-        caps2 |= 0x200000;
-        (1, u32::from(header.depth), 4, 0)
+        (1, u32::from(header.depth), false)
     } else {
-        (1, 1, 3, 0)
+        (1, 1, false)
     };
 
     let mut cursor = Cursor::new(ftex);
@@ -105,65 +97,14 @@ pub fn ftex_to_dds(ftex: &[u8]) -> Result<Vec<u8>, FtexError> {
         frames.push(frame);
     }
 
-    let (pitch_or_linear, format_flags, fourcc, rgb_bit_count, masks, dx10) =
-        if format == PixelFormat::Argb8 {
-            dds_flags |= 0x8; // pitch
-            (
-                4 * u32::from(header.width),
-                0x41u32,
-                [0u8; 4],
-                32u32,
-                [0x00ff0000, 0x0000ff00, 0x000000ff, 0xff000000],
-                None,
-            )
-        } else {
-            dds_flags |= 0x80000;
-            let fourcc = format.fourcc().unwrap_or([0; 4]);
-            (
-                frames.first().map(Vec::len).unwrap_or(0) as u32,
-                0x4u32,
-                fourcc,
-                0u32,
-                [0u32; 4],
-                format.dxgi().map(|dxgi| Dx10Header {
-                    dxgi_format: dxgi,
-                    dimension: ext_dimension,
-                    misc_flags: ext_flags,
-                    array_size: 1,
-                    misc_flags2: 0,
-                }),
-            )
-        };
-
-    let dds = DdsHeader {
-        magic: *b"DDS ",
-        header_size: 124,
-        flags: dds_flags,
-        height: u32::from(header.height),
-        width: u32::from(header.width),
-        pitch_or_linear_size: pitch_or_linear,
-        depth: dds_depth,
-        mipmap_count: u32::from(header.mipmap_count),
-        pixel_format_size: 32,
-        format_flags,
-        fourcc,
-        rgb_bit_count,
-        r_mask: masks[0],
-        g_mask: masks[1],
-        b_mask: masks[2],
-        a_mask: masks[3],
-        capabilities1: caps1,
-        capabilities2: caps2,
-    };
-
-    let mut writer = Cursor::new(Vec::new());
-    dds.write(&mut writer)
-        .unwrap_or_else(|_| unreachable!("Vec write is infallible"));
-    if let Some(dx10) = dx10 {
-        dx10.write(&mut writer)
-            .unwrap_or_else(|_| unreachable!("Vec write is infallible"));
-    }
-    let mut output = writer.into_inner();
+    let mut output = build_header(
+        format,
+        u32::from(header.width),
+        u32::from(header.height),
+        u32::from(header.mipmap_count),
+        dds_depth,
+        cube,
+    );
     for frame in frames {
         output.extend_from_slice(&frame);
     }

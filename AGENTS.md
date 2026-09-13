@@ -159,6 +159,12 @@ your question may already be listed, with the phase in which it gets resolved.
 
 The maintainer develops on Windows with PowerShell; Linux is a first-class target. Prefer Python
 scripts over PowerShell one-liners for anything with quotes; never inline regex in PowerShell.
+**Scripts never write a repo file in place**: `Path.write_text` truncates the file before it
+validates its own arguments (one bad `newline=` emptied a 600-line source file that git had no
+copy of). Write to a sibling temp path and `os.replace` it, and run every assertion before the
+write. Small edits use the editor tool, not a script. Before editing a tree the sidekick left,
+`git add -A` first, so every file, untracked ones included, has a blob in the index to restore
+from.
 
 Three model families, three roles. Lead: Claude (Fable) in Devin CLI's Fusion mode. Sidekick:
 SWE-2 (Kimi lineage), reached through the `sidekick` tool; a cold probe on a spec-in-hand crate

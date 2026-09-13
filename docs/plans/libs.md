@@ -156,13 +156,33 @@ approach in production, in `Engines/stages/lib/dxt.py` + the `texture2ddecoder` 
 - **Encoding**: use `block_compression`'s Rust CPU backend for BC1, BC3, and BC7, rather than
   translating the stadium compiler's numpy encoder. Codec selection follows the PES-version and
   texture-role rules below; desktop GPU BC7 is included in the first release with CPU fallback.
-- **DXT5nm handling**: BC5 normal maps get the channel swizzle (A=X, G=Y, R=0, B=255) required by
-  pre-Fox PES.
-- **Mipmaps**: each mip level is decoded and re-encoded individually; DDS headers are rebuilt with
-  the correct flags.
+- **DXT5nm handling**: a normal map that has to be encoded (BC5 source on any target, or a
+  normal-role raster/BC7 source) becomes BC3 with X in alpha and Y in green, which is what both
+  engines ship: every Konami normal map measured is BC3 with `A = X`, `G = Y` (PES 17 `oral_nrm`,
+  `bibs_nrm`, `skin_nrm`; PES 21 `dummy_nrm`). The two engines differ only in the channels the
+  shader ignores, and the output copies each engine's own files rather than guessing what the
+  shader reads: pre-Fox `R = G = B = Y` (the color block is a grey Y), Fox `R = 255`, `B = 0` (the
+  DirectXTex `DXT5nm` layout). The legacy compilers never produced this conversion at all: they
+  invoked texconv with a format name it rejects (`DX5nm`), and the current texconv drops X when the
+  source is BC5, so there is no legacy output to be parity with; the Konami files are the standard.
+- **Passthrough**: compressed blocks a target can read are kept and only the container changes.
+  PES 15–18 read BC1, BC2 and BC3; PES 19–21 also read BC4, BC5 and BC7 (the legacy compilers
+  passed BC5 through to PES 19–21 as FTEX format 9). A DX10-header BC1/BC3 is therefore rewritten
+  with a legacy header for PES 15–18 rather than re-encoded (the legacy compilers re-encoded every
+  DX10 header to DXT5, a lossy step with no purpose). Uncompressed sources are always encoded:
+  PES 15–17 crash on uncompressed kit textures.
+- **Mipmaps**: each mip level is decoded and re-encoded individually; a DDS/FTEX source keeps its
+  own mip count (Konami ships single-mip pre-Fox textures, and a mipped non-power-of-two texture
+  is invalid on Fox), a raster source gets the full chain down to 1×1 by 2×2 box averaging on
+  straight alpha (odd sides floor, never below 1). Output headers are rebuilt from the emitted
+  layout: legacy DX9 headers for BC1/BC3 (what texconv wrote for the legacy compilers and what
+  Konami ships), a DX10 header for BC7.
+- **FTEX texture type**: every Fox output is written with texture type `0x9`, the value the legacy
+  compilers wrote for every texture, color and normal alike, for years of PES 19–21 exports; Konami
+  uses `0x1`/`0x3` for color textures, but the parity standard is what is known to render.
 
-This covers the actual conversion cases (DX10 BC7/BC5 and ATI2/BC5U → DXT5/DXT5nm) that `texconv -f
-DXT5` was handling in practice. Benefits over the subprocess approach:
+This covers the actual conversion cases (DX10 BC7 → DXT5, BC5/ATI2 → DXT5nm) that `texconv -f
+DXT5` was handling, or failing to handle, in practice. Benefits over the subprocess approach:
 
 - No Windows-only binary; identical behavior on Linux (removes the ImageMagick fallback path
   entirely)
@@ -241,6 +261,65 @@ features and AVIF backends vary by release):
 | Farbfeld | Obscure pure-Rust format; no community use |
 | PNM (PPM/PGM/PBM) | Simple academic format; no community use |
 | QOI | Modern pure-Rust format; no community adoption yet — can be added if demand arises |
+
+### `dds_convert` API
+
+The crate is three pure steps and one stateful wrapper. `decode` turns any accepted source into
+straight-alpha RGBA8 mips plus, for DDS/FTEX, the compressed blocks it carried; `convert` applies
+the codec rules above to a decoded texture and returns the finished container bytes (a DDS for
+PES 15–17, an FTEX for PES 18–21); `Converter` is the session cache in front of both.
+
+```rust
+/// The accepted source formats (table above), named by the file extension the
+/// compiler resolved the texture stem to. TGA has no magic, so the format is
+/// never sniffed from bytes.
+pub enum SourceFormat { Dds, Ftex, Png, Jpeg, Bmp, WebP, Tga, Tiff }
+impl SourceFormat {
+    /// Case-insensitive, without the dot; `jpg`/`jpeg` and `tif`/`tiff` both accepted.
+    pub fn from_extension(extension: &str) -> Option<Self>;
+}
+
+/// What the texture is for; with the PES version it selects the codec and the channel layout.
+pub enum TextureRole { Color, Normal }
+
+/// Block codecs this crate keeps or emits.
+pub enum BlockCodec { Bc1, Bc2, Bc3, Bc4, Bc5, Bc7 }
+
+/// Compressed blocks a DDS/FTEX source carried, one buffer per mip, kept so a
+/// target that reads the codec gets them unchanged.
+pub struct Blocks { pub codec: BlockCodec, pub mips: Vec<Vec<u8>> }
+
+/// A source decoded to straight-alpha RGBA8, top mip first, every mip the source carried.
+pub struct Decoded { pub width: u32, pub height: u32, pub mips: Vec<Vec<u8>>, pub blocks: Option<Blocks> }
+
+pub struct Target { pub version: PesVersion, pub role: TextureRole }
+
+pub fn decode(bytes: &[u8], format: SourceFormat) -> Result<Decoded, ConvertError>;
+pub fn convert(decoded: &Decoded, target: Target) -> Result<Vec<u8>, ConvertError>;
+
+/// SHA-256 of the source bytes, computed once when the file is materialized and reused.
+pub struct SourceHash(pub [u8; 32]);
+pub fn source_hash(bytes: &[u8]) -> SourceHash;
+
+pub enum CachePolicy { Use, Bypass }
+
+/// The session cache: finished container bytes by (source hash, source format, target).
+pub struct Converter { /* Mutex<HashMap<CacheKey, Arc<[u8]>>> */ }
+impl Converter {
+    pub fn new() -> Self;
+    pub fn convert(&self, hash: SourceHash, bytes: &[u8], format: SourceFormat, target: Target, cache: CachePolicy) -> Result<Arc<[u8]>, ConvertError>;
+    /// Bytes currently retained, for the pipeline's memory budget.
+    pub fn retained_bytes(&self) -> usize;
+    pub fn clear(&self);
+}
+```
+
+`decode` rejects cube maps and volume textures (`ConvertError::Unsupported`): nothing in an export
+is one. A WESYS-wrapped DDS (PES 15–17 sources) is unwrapped first through `wezlib`. The DDS
+header knowledge (`DdsHeader`, `Dx10Header`, the FourCC/mask/DXGI table) lives in `ftex`, which
+already needed it in both directions; `ftex` exposes it as `ftex::dds` (`read_layout`,
+`header_bytes`) and `dds_convert` uses that instead of carrying a second copy. Encoder settings
+join the cache key with 2.5b, when a second encoder exists.
 
 ### In-memory conversion cache
 

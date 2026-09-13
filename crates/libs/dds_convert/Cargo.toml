@@ -13,7 +13,9 @@ ftex.workspace = true
 image.workspace = true
 log.workspace = true
 pes_version.workspace = true
+sha2.workspace = true
 thiserror.workspace = true
+wezlib.workspace = true
 
 [lints]
 workspace = true

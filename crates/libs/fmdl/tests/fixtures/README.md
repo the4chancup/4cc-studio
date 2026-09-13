@@ -7,7 +7,7 @@ version is 2.03 in every file. Mesh/bone/material counts are from the reference 
 |---|---|---|
 | `konami_highneck.fmdl` | PES 2021 `common_package_fpk/Assets/pes16/model/character/common/highneck.fmdl` | skinned character part: 1 mesh, 7 bones, 1 material; 12527 bytes |
 | `konami_mouth.fmdl` | same folder, `mouth.fmdl` | 1 mesh, 6 bones, 1 material; 18442 bytes |
-| `konami_au_Low_parts.fmdl` | unpacked from `fpk`'s `konami_audiLowParts_model.fpk` (`.../bg/common/audi/scenes/au_Low_parts.fmdl`) | a stadium object: 4 meshes, 16 bones, 1 material; 10567 bytes |
+| `konami_au_Low_parts.fmdl` | unpacked from `fpk`'s `konami_audiLowParts_model.fpk` (`.../bg/common/audi/scenes/au_Low_parts.fmdl`) | an audience (crowd) body model, human `sk_*` bones: 4 meshes, 16 bones, 1 material; 10567 bytes |
 | `addon_oral.fmdl` | a 4cc export (MARISA, `Faces/XXX01/oral.fmdl`), written by the community Blender add-on | 1 mesh, 1 bone, 1 material; 1498 bytes. The reference writer round-trips this file byte-identically; it cannot write the Konami files at all |
 | `addon_placeholder.fmdl` | `Models/Model18/placeholder.fmdl`, add-on written | 1 mesh, 0 bones, 1 material; 1218 bytes |
 | `konami_boots.skl` | PES 2021 `common_package_fpk/.../character/common/boots.skl` | SKL: 276 bytes |

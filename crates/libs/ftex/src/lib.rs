@@ -5,7 +5,9 @@
 //! they emitted, except that the zlib streams are miniz_oxide's, so round-trip
 //! parity is verified by converting back to DDS.
 
-mod dds;
+/// The DDS container knowledge (header records, layout walk, header writer)
+/// shared with crates that read or rebuild DDS files.
+pub mod dds;
 mod format;
 mod from_dds;
 mod to_dds;
@@ -180,6 +182,20 @@ mod tests {
         assert!(matches!(
             dds_to_ftex(&bad_dds, ColorSpace::Linear),
             Err(FtexError::UnsupportedDds(_))
+        ));
+    }
+
+    #[test]
+    fn read_layout_reports_dims_and_rejects_cube() {
+        let layout = dds::read_layout(BC1_DDS).unwrap();
+        assert_eq!(layout.pixel, dds::DdsPixel::Format(PixelFormat::Bc1));
+        assert_eq!((layout.width, layout.height), (16, 16));
+        assert_eq!(layout.mipmaps, 3);
+        assert_eq!(layout.data_offset, 128);
+
+        assert!(matches!(
+            dds::read_layout(CUBE_DDS),
+            Err(FtexError::UnsupportedDds("cube map"))
         ));
     }
 }

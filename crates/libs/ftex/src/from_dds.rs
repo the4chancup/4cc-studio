@@ -11,7 +11,7 @@ use flate2::Compression;
 use flate2::write::ZlibEncoder;
 
 use crate::FtexError;
-use crate::dds::{DdsHeader, Dx10Header};
+use crate::dds::{DdsHeader, DdsPixel, Dx10Header};
 use crate::format::{ColorSpace, FtexHeader, MipRecord, PixelFormat, mip_size};
 
 const CHUNK_SIZE: usize = 1 << 14;
@@ -128,72 +128,32 @@ pub fn dds_to_ftex(dds: &[u8], color_space: ColorSpace) -> Result<Vec<u8>, FtexE
     Ok(output)
 }
 
-/// Maps the DDS pixel-format fields to an FTEX format, with the same
-/// acceptance rules the 4cc compilers have always applied.
+/// Maps the DDS pixel-format fields to an FTEX format, through the same
+/// FourCC/DXGI/mask table `dds::read_layout` uses. A `DdsPixel::Uncompressed`
+/// layout has no FTEX twin.
 fn detect_format(
     format_flags: u32,
     header: &DdsHeader,
     cursor: &mut Cursor<&[u8]>,
 ) -> Result<PixelFormat, FtexError> {
-    if format_flags & 0x4 == 0 {
-        // No FourCC: match the uncompressed masks.
-        if format_flags & 0x40 != 0
-            && format_flags & 0x1 != 0
-            && header.r_mask == 0x00ff0000
-            && header.g_mask == 0x0000ff00
-            && header.b_mask == 0x000000ff
-            && header.a_mask == 0xff000000
-        {
-            return Ok(PixelFormat::Argb8);
-        }
-        if format_flags & 0x20000 != 0
-            && header.r_mask == 0xff
-            && header.g_mask == 0
-            && header.b_mask == 0
-            && header.a_mask == 0
-        {
-            return Ok(PixelFormat::R8);
-        }
-        return Err(FtexError::UnsupportedDds("unrecognized uncompressed masks"));
-    }
-
-    let format = match &header.fourcc {
-        b"DX10" => {
-            cursor.seek(SeekFrom::Start(128))?;
-            let ext = Dx10Header::read(cursor).map_err(|_| FtexError::Truncated)?;
-            dxgi_to_format(ext.dxgi_format)
-                .ok_or(FtexError::UnsupportedDds("unrecognized dxgi format"))?
-        }
-        b"8888" => PixelFormat::Argb8,
-        b"DXT1" => PixelFormat::Bc1,
-        b"DXT3" => PixelFormat::Bc2,
-        b"DXT5" => PixelFormat::Bc3,
-        b"ATI1" => PixelFormat::Bc4,
-        b"ATI2" | b"BC5U" => PixelFormat::Bc5,
-        _ => return Err(FtexError::UnsupportedDds("unrecognized fourcc")),
+    let pixel = if format_flags & 0x4 == 0 {
+        crate::dds::uncompressed_pixel(header)?
+    } else if &header.fourcc == b"DX10" {
+        cursor.seek(SeekFrom::Start(128))?;
+        let ext = Dx10Header::read(cursor).map_err(|_| FtexError::Truncated)?;
+        crate::dds::dxgi_pixel(ext.dxgi_format)?
+    } else {
+        DdsPixel::Format(
+            crate::dds::fourcc_format(&header.fourcc)
+                .ok_or(FtexError::UnsupportedDds("unrecognized fourcc"))?,
+        )
     };
-    Ok(format)
-}
-
-/// The DX10 DXGI-format -> FTEX-format mapping; note 87 (B8G8R8A8) maps to
-/// Argb8.
-fn dxgi_to_format(dxgi: u32) -> Option<PixelFormat> {
-    Some(match dxgi {
-        87 => PixelFormat::Argb8,
-        61 => PixelFormat::R8,
-        71 => PixelFormat::Bc1,
-        74 => PixelFormat::Bc2,
-        77 => PixelFormat::Bc3,
-        80 => PixelFormat::Bc4,
-        83 => PixelFormat::Bc5,
-        95 => PixelFormat::Bc6h,
-        98 => PixelFormat::Bc7,
-        10 => PixelFormat::Rgba16F,
-        1 => PixelFormat::Rgba32F,
-        24 => PixelFormat::Rgb10A2,
-        26 => PixelFormat::Rg11B10F,
-        _ => return None,
-    })
+    match pixel {
+        DdsPixel::Format(format) => Ok(format),
+        DdsPixel::Uncompressed { .. } => {
+            Err(FtexError::UnsupportedDds("unrecognized uncompressed masks"))
+        }
+    }
 }
 
 /// Chunk-encodes one frame: `chunk_count` 8-byte records followed by zlib
@@ -208,11 +168,20 @@ fn encode_image(data: &[u8]) -> Result<(Vec<u8>, u16), FtexError> {
         let mut encoder = ZlibEncoder::new(Vec::new(), Compression::new(3));
         encoder.write_all(piece)?;
         let packed = encoder.finish()?;
-        header_buffer.extend_from_slice(&(packed.len() as u16).to_le_bytes());
+        // Readers take `compressed == uncompressed` to mean a raw chunk, so a
+        // zlib stream that happens to be exactly the piece's size would be
+        // misread; store the piece itself instead (a 16-byte tail mip does
+        // compress to 16 bytes).
+        let stored = if packed.len() == piece.len() {
+            piece
+        } else {
+            packed.as_slice()
+        };
+        header_buffer.extend_from_slice(&(stored.len() as u16).to_le_bytes());
         header_buffer.extend_from_slice(&(piece.len() as u16).to_le_bytes());
         header_buffer
             .extend_from_slice(&((chunk_buffer.len() + chunk_buffer_offset) as u32).to_le_bytes());
-        chunk_buffer.extend_from_slice(&packed);
+        chunk_buffer.extend_from_slice(stored);
     }
 
     let mut output = header_buffer;
