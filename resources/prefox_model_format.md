@@ -106,7 +106,12 @@ u32 count
   `count == 1`, `offset` pointing at 48 bytes: twelve `f32`, the bone's inverse bind matrix as
   the plugin already interprets it. Records are in bone-name order (section 5 of the file); the
   two tables must have the same length. A model without bones still has entry 0, with zero
-  records (3 files: `flag_close` and two others).
+  records (3 files: `flag_close` and two others). Measured across files: a bone name shared by
+  two files of one skeleton has matrices that agree only to float noise, up to `3.6e-5` per
+  component (8268 such pairs; `modD_cap` against a collar part differs on four shoulder bones),
+  while a real bind-pose difference is at least `2.0e-4` and usually far more (the gloves'
+  forearm and hand bones differ from the collars' by 0.5). Code that decides whether two parts
+  share a skeleton should compare with a tolerance around `1e-4`, not for equality.
 - **Every further entry** is one bone group: exactly one record, `format == 1` (`uint16`),
   `count == N`, `offset` pointing at `N` `u16` indices into the bone table. Group sizes run from
   1 to 51.

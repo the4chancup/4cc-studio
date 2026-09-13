@@ -333,11 +333,17 @@ pub enum MergeError {
 `parts` is in caller order (canonical, preserved), so the output is deterministic. Rules,
 `fmdl`'s unless stated:
 
-- **Bones** unioned by name; a bone in several parts must carry the same twelve matrix floats,
-  compared exactly as `fmdl` compares positions, else `SkeletonConflict`. Each mesh's `bone_group`
-  is remapped to the union; per-vertex bone indices index the group and do not change. Whether
-  glTF-authored pre-Fox parts need a tolerance here is decided with `model_convert`, from measured
-  matrices, not before (the aesthetics-export plan's "SKL pairing" names that comparison).
+- **Bones** unioned by name; a bone in several parts must carry the same twelve matrix floats
+  within `1e-4` per component (absolute), else `SkeletonConflict`; the first part's matrix is the
+  merged one. The tolerance is measured, not chosen: over the 2606 Konami files, a bone name
+  shared between files differs from its first occurrence by at most `3.6e-5` per component where
+  the files share a skeleton (8268 bone pairs of float noise, kit parts included: `modD_cap`
+  against a collar differs by up to `1e-4`-ish on four shoulder bones) and by at least `2.0e-4`,
+  up to `0.5`, where the bind pose really differs (the gloves' forearm and hand bones, the shadow
+  model, the special hair types' face bones), so `1e-4` sits in the gap. Exact comparison, the
+  plan's first answer and `fmdl`'s rule, cannot merge two Konami kit parts. Each mesh's
+  `bone_group` is remapped to the union; per-vertex bone indices index the group and do not
+  change.
 - **Materials** by name: `Model::materials` unioned in first-seen order and mesh `material`
   remapped; the `.mtl` materials unioned by name the same way, two definitions of one name equal
   (`Material` equality, entry order included) or `MaterialConflict`. A `.mtl` definition no model

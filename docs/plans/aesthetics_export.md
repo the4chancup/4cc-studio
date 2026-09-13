@@ -764,9 +764,8 @@ with a custom SKL and a part using the default template skeleton reference diffe
 do two parts with different custom SKLs. "Same" is decided by **content hash** for two `.skl`
 files (identical bytes under different filenames are one skeleton) and by **bone-transform
 comparison with tolerance** whenever a part's skeleton comes from the IR (glTF skins, `.model` bone
-tables). The pre-Fox native merge itself compares `.model` bone matrices exactly (Libraries plan,
-"`pes_model::ops::merge`"); whether it needs this tolerance once glTF-authored pre-Fox parts exist
-is decided with `model_convert`. A skeleton mismatch between merge
+tables). The pre-Fox native merge compares `.model` bone matrices within a measured `1e-4` per
+component (Libraries plan, "`pes_model::ops::merge`"). A skeleton mismatch between merge
 parts is a hard error (`skl_merge_conflict`) that drops the folder.
 
 **Kits** live in a `Kits/` folder with one subfolder per kit (this per-kit granularity also drives

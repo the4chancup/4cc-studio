@@ -10,9 +10,9 @@ is in `AGENTS.md` ("Working documents").
 ## Current status
 
 **Phase:** 2 (Library crates). Done: 2.1 `wezlib`, 2.2 `cpk`, 2.3 `fpk`, 2.4 `ftex`, 2.5 `dds_convert` (CPU),
-2.6 `fmdl` (format, model, ops, check), 2.8 `uniparam`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`. 2.7 done except `ops::merge`. Review
+2.6 `fmdl` (format, model, ops, check), 2.7 `pes_model` (format, mtl, model, ops, check), 2.8 `uniparam`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`. Review
 rounds A and B (2026-09-13) closed: 2.5c, 2.12b, 2.13b done.
-**In progress:** 2.7d-4 `pes_model::ops::merge` (home decided: native, `libs.md` "`pes_model::ops::merge`")
+**In progress:** 2.9 `fox2` next
 **Blocked on:** nothing
 
 ---
@@ -220,9 +220,12 @@ Spec: `docs/plans/core.md` "Phase 2", `docs/plans/libs.md`, `model_conversion.md
   LOD record), six `mtl_*` rules over `MaterialSet`, `check_bundle` adds `model_material_undefined`;
   every `.model` fixture clean, `.mtl` fixtures Info-only (states missing on sampler-only Konami
   materials, `alphablend 1 + zwrite 1` on hair and glasses). 10 tests
-- [ ] 2.7d-4 `pes_model::ops::merge` — home decided by the user (native over `Model` +
-  `MaterialSet`, `libs.md` "`pes_model::ops::merge`"; the IR route removed from six plan
-  passages, decision logged); implementation next
+- [x] 2.7d-4 `pes_model::ops::merge` — done (home decided by the user: native over `Model` +
+  `MaterialSet`, the IR route removed from six plan passages; sidekick code): bones by name
+  within a measured `1e-4` (the exact rule could not merge cap with collar; census of 2606 files
+  in the decision entry), `.mtl` materials by name with equal definitions, meshes/headers
+  concatenated and deduplicated, bounds and LOD record rebuilt; identity on nine fixture
+  bundles. 10 tests; `pes_model` totals 91, workspace 272
 - [x] 2.8 `uniparam` — done (sidekick): WESYS-unwrapping read, sorted writer; Konami PES21
   container (2174 entries) and a reference-writer golden; 4 tests
 - [ ] 2.9 `fox2`
