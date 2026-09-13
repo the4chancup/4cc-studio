@@ -240,7 +240,9 @@ Spec: `docs/plans/core.md` "Phase 2", `docs/plans/libs.md`, `model_conversion.md
   properties, padding never validated, unresolved names lost through XML, whitespace not
   escaped, lenient bools, `0x` keys). Padding measured zero on all 87 files. 24 tests;
   workspace 310
-- [ ] 2.10 `archives`
+- [ ] 2.10 `archives` — opened (lead): plan section, `sevenz-rust2` + `zip` without default
+  features (wasm32 and license checks green on the stub), six fixtures from one sample tree
+  (7-Zip `.7z`/`.zip`/stored/encrypted, PowerShell `.zip`); implementation next
 - [x] 2.11 `fpc` — done (sidekick): kit values per version, three presets, five interference
   findings, each citing its `FPC.wikitext` line; 4 tests
 - [x] 2.12 `teams_list` — done (sidekick): fold, id range, parse/write byte-identical on the

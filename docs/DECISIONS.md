@@ -1089,3 +1089,16 @@ while making ours lossless. Raw whitespace in attributes is normalized to spaces
 reader, changing the string and its hash. The strict bool turns a typo in generated XML into an
 error instead of a silent `false`.
 Plan: `libs.md` "`libs/fox2`" last paragraph rewritten.
+
+## 2026-09-13 - archives - `sevenz-rust2` and `zip`, both without default features; one `Archive<R: Read + Seek>`
+Decision: `libs/archives` depends on `sevenz-rust2` 0.22.2 (`default-features = false`: LZMA,
+LZMA2 and BCJ decoding) and `zip` 8.6.0 (`default-features = false`, `deflate`), and exposes one
+`Archive<R: Read + Seek>` with `zip`/`seven_z` constructors, `entries()` and `read()`, plus a
+disk-path `open` behind `cfg(not(target_arch = "wasm32"))`. A 7z is decompressed whole on the
+first `read`; a zip entry by entry.
+Why: the plan named `sevenz-rust`, which RUSTSEC-2026-0246 marks unmaintained (repository
+deleted) in favor of `sevenz-rust2`; the plan named no zip crate and `zip` is the one everyone
+uses. Default features would pull compression, AES, bzip2, PPMd, zstd and time crates into a
+crate that only reads what 7-Zip, Explorer and PowerShell write. Generic over `Read + Seek` is the
+std-trait generic the style rules allow and is what keeps the crate `wasm32`-clean (checked).
+Plan: `libs.md` gains "`libs/archives`"; `core.md` "External Dependencies" rows updated.

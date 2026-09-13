@@ -2030,7 +2030,8 @@ resource download size measured and, if it matters, lazy-fetched behind the temp
 | `rayon` | Parallel iteration (work-stealing thread pool) | Production-ready |
 | `crossbeam-channel` | Write queue between coordinator and writer | Production-ready |
 | `flate2` | zlib compression (WESYS format) | Production-ready |
-| `sevenz-rust` | Native .7z extraction (replaces 7z.exe) | Production-ready |
+| `sevenz-rust2` | Native .7z reading (replaces 7z.exe); the maintained fork of `sevenz-rust`, which RUSTSEC-2026-0246 marks unmaintained | 0.22.2 in use, no default features (decode only: LZMA, LZMA2, BCJ) |
+| `zip` | Native .zip reading | 8.6.0 in use, no default features plus `deflate` |
 | `gltf` | glTF parsing | Production-ready |
 | `serde` + `serde_json` | Serialization (settings, IR, events) | Production-ready |
 | `clap` | CLI argument parsing | Production-ready |
