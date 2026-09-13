@@ -464,7 +464,7 @@ impl FmdlFile {
                     }
                     DatumType::Uv0 | DatumType::Uv1 | DatumType::Uv2 | DatumType::Uv3 => {
                         let index = uv_index(attribute.datum_type)
-                            .unwrap_or_else(|| unreachable!("matched uv types only"));
+                            .ok_or(FmdlError::InvalidVertexFormat("uv datum without a map"))?;
                         uv_precision[index] = attribute.format == DatumFormat::DoubleFloat32;
                         uv_slots[index].get_or_insert_with(Vec::new).push(read_uv(
                             buffer,
@@ -604,7 +604,7 @@ impl FmdlFile {
         }
         for attribute in &uv_attributes {
             let map = uv_index(attribute.datum_type)
-                .unwrap_or_else(|| unreachable!("filtered uv types only"));
+                .ok_or(FmdlError::InvalidVertexFormat("uv datum without a map"))?;
             if vertices.uvs[map].len() != vertex_count {
                 return Err(FmdlError::VertexMismatch("wrong vertex count"));
             }
@@ -629,40 +629,40 @@ impl FmdlFile {
                         let values = vertices
                             .bone_weights
                             .as_ref()
-                            .unwrap_or_else(|| unreachable!("checked above"));
+                            .ok_or(FmdlError::VertexMismatch("attribute missing"))?;
                         write_quad8(buffer, range, values[vertex])?;
                     }
                     DatumType::Normal => {
                         let values = vertices
                             .normals
                             .as_ref()
-                            .unwrap_or_else(|| unreachable!("checked above"));
+                            .ok_or(FmdlError::VertexMismatch("attribute missing"))?;
                         write_quad16(buffer, range, values[vertex])?;
                     }
                     DatumType::Color => {
                         let values = vertices
                             .colors
                             .as_ref()
-                            .unwrap_or_else(|| unreachable!("checked above"));
+                            .ok_or(FmdlError::VertexMismatch("attribute missing"))?;
                         write_quad8(buffer, range, values[vertex])?;
                     }
                     DatumType::BoneIndices => {
                         let values = vertices
                             .bone_indices
                             .as_ref()
-                            .unwrap_or_else(|| unreachable!("checked above"));
+                            .ok_or(FmdlError::VertexMismatch("attribute missing"))?;
                         write_quad8(buffer, range, values[vertex])?;
                     }
                     DatumType::Tangent => {
                         let values = vertices
                             .tangents
                             .as_ref()
-                            .unwrap_or_else(|| unreachable!("checked above"));
+                            .ok_or(FmdlError::VertexMismatch("attribute missing"))?;
                         write_quad16(buffer, range, values[vertex])?;
                     }
                     DatumType::Uv0 | DatumType::Uv1 | DatumType::Uv2 | DatumType::Uv3 => {
                         let map = uv_index(attribute.datum_type)
-                            .unwrap_or_else(|| unreachable!("matched uv types only"));
+                            .ok_or(FmdlError::InvalidVertexFormat("uv datum without a map"))?;
                         write_uv(
                             buffer,
                             range,
