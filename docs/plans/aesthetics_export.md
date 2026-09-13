@@ -922,7 +922,7 @@ migrating.
 At compile time, the pipeline:
 
 0. **Hand auto-split** — in-process in Rust via `model_convert`, select each hand's vertices with
-   positive `skf_*_l`/`skf_*_r` weights, grow the selection once along the mesh topology, and separate
+   positive `skh_*_l`/`skh_*_r` weights, grow the selection once along the mesh topology, and separate
    it into `glove_l`/`glove_r`, leaving the body. This is equivalent to Blender's select → `Ctrl +`
    → `P` workflow, not an invocation of Blender (see "Hand auto-split" in the
    [Model conversion plan](model_conversion.md)). Models without such weights pass through unchanged.

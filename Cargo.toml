@@ -50,6 +50,7 @@ fpc = { path = "crates/libs/fpc" }
 fpk = { path = "crates/libs/fpk" }
 kit_config = { path = "crates/libs/kit_config" }
 ftex = { path = "crates/libs/ftex" }
+model_convert = { path = "crates/libs/model_convert" }
 pes_model = { path = "crates/libs/pes_model" }
 pes_version = { path = "crates/libs/pes_version" }
 studio_core = { path = "crates/studio_core" }

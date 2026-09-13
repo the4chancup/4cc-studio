@@ -1,0 +1,18 @@
+[package]
+name = "model_convert"
+description = "The canonical model IR, its native FMDL and .model importers and exporters, the embedded per-version skeletons with retargeting, and the hand auto-split"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+fmdl.workspace = true
+log.workspace = true
+pes_model.workspace = true
+pes_version.workspace = true
+thiserror.workspace = true
+
+[lints]
+workspace = true
