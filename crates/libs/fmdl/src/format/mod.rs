@@ -73,4 +73,10 @@ pub enum FmdlError {
     /// the mesh's declared counts or attribute set.
     #[error("vertex data mismatch: {0}")]
     VertexMismatch(&'static str),
+    /// A bone or mesh group parent chain loops back on itself.
+    #[error("parent cycle in {0}")]
+    ParentCycle(&'static str),
+    /// A mesh belongs to two mesh groups or to none.
+    #[error("bad mesh group assignment: {0}")]
+    BadMeshGroupAssignment(&'static str),
 }
