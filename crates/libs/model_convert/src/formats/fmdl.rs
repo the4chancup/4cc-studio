@@ -38,15 +38,7 @@ pub struct ExportedFox {
 
 /// The bind pose `name` carries in PES21's template tables, body first then face and hands.
 fn template_matrix(name: &str) -> Option<Affine> {
-    let skeletons = skeletons(PesVersion::Pes21);
-    [
-        &skeletons.body,
-        &skeletons.face,
-        &skeletons.hand_l,
-        &skeletons.hand_r,
-    ]
-    .iter()
-    .find_map(|skeleton| skeleton.bone(name).map(|bone| bone.matrix))
+    skeletons::version_bone(skeletons(PesVersion::Pes21), name).map(|bone| bone.matrix)
 }
 
 /// FMDL → IR. Decodes the format extensions (mesh splitting, anti-blur) on a copy, reads the
