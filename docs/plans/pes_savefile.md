@@ -293,9 +293,12 @@ Notes: on 15/16 the player-entry count is read at 0x34 (4ccEditor) and the
 appearance-entry count at 0x36 (the Midcupping scripts); the two are equal on the PES 16 save
 but differ on the PES 15 one (5060 at 0x34, 5061 at 0x36, while the player and appearance ID
 sets are equal at 5060), so the schema step must settle which count governs each array on 15
-before trusting either. PES 18 shares
-the 17/19 block layout (`pes18.cpp` walks the same 188 bytes); PES 20 shares
-`pes20.cpp`'s 312-byte player walk with 21 but has its own roster/tactics
+before trusting either. PES 17, 18 and 19 all use a 188-byte player record but
+**not the same field layout**: the first ~250 bits (id, nation, physique bytes, the ability run
+to `exp_pwr`) agree between 17 and 18, after which 18's motion/coverage/position bits sit at
+different offsets, and 19 reorders the whole record (measured 2026-09-14: each version's own
+table decodes its own save with every 7-bit ability in 40..99, the other versions' tables do
+not). PES 20 shares the 312-byte player walk with 21 but has its own roster/tactics
 offsets — the two versions' section offsets match only for team IDs.
 
 Structural eras:
@@ -368,12 +371,48 @@ pub struct TextSpec<T> {
     pub len: u32,
 }
 
-/// One record kind's layout for one version.
+/// One record kind's layout for one version (player, appearance, team, roster).
 pub struct RecordSchema<F, T> {
     pub size: usize,
     pub fields: &'static [FieldSpec<F>],
     pub arrays: &'static [ArraySpec<F>],
     pub texts: &'static [TextSpec<T>],
+}
+
+/// A per-preset setting: one byte at `bit_offset + preset * preset_stride_bits`.
+pub struct PresetSpec { pub field: PresetField, pub bit_offset: u32 }
+
+/// The 3 x 3 formation blocks: player `slot`'s position byte at
+/// `base + preset * preset_stride + formation * formation_stride + slot * slot_stride`, its
+/// y then x bytes at `.. + y_offset + slot * pair_stride` and `.. + x_offset + ..`.
+pub struct FormationLayout {
+    pub base_bit: u32,
+    pub formation_stride_bits: u32,
+    pub slot_stride_bits: u32,
+    pub y_offset_bits: u32,
+    pub x_offset_bits: u32,
+    pub pair_stride_bits: u32,
+}
+
+/// The advanced instructions (PES 17+): one byte at
+/// `base + preset * preset_stride + side * side_stride + index * index_stride + part * part_stride`.
+pub struct InstructionLayout {
+    pub base_bit: u32,
+    pub side_stride_bits: u32,
+    pub index_stride_bits: u32,
+    pub part_stride_bits: u32,
+}
+
+/// The tactics record: the scalar and array fields plus the three regular nested blocks,
+/// which the derivation checks are regular before emitting them this way.
+pub struct TacticsSchema {
+    pub size: usize,
+    pub fields: &'static [FieldSpec<TacticsField>],
+    pub arrays: &'static [ArraySpec<TacticsField>],
+    pub preset_stride_bits: u32,
+    pub presets: &'static [PresetSpec],
+    pub formations: FormationLayout,
+    pub instructions: Option<InstructionLayout>,
 }
 
 /// Where a section of records sits in the payload.
@@ -386,30 +425,33 @@ pub struct SectionLayout {
 pub struct VersionSchema {
     pub version: PesVersion,
     pub players: SectionLayout,
-    pub player: RecordSchema<PlayerField, PlayerText>,
+    pub player: &'static RecordSchema<PlayerField, PlayerText>,
     /// PES 15/16: the separate appearance array (keyed by player id at +0); `None` when the
     /// appearance fields are inside the player record.
-    pub appearance: Option<(SectionLayout, RecordSchema<PlayerField, PlayerText>)>,
+    pub appearance: Option<(SectionLayout, &'static RecordSchema<PlayerField, PlayerText>)>,
     pub teams: SectionLayout,
-    pub team: RecordSchema<TeamField, TeamText>,
+    pub team: &'static RecordSchema<TeamField, TeamText>,
     pub rosters: SectionLayout,
-    pub roster: RecordSchema<RosterField, TeamText>,
+    pub roster: &'static RecordSchema<RosterField, TeamText>,
     pub tactics: SectionLayout,
-    pub tactic: RecordSchema<TacticsField, TeamText>,
+    pub tactic: &'static TacticsSchema,
 }
 
 pub fn schema_for(version: PesVersion) -> &'static VersionSchema;
 ```
 
-`F` and `T` are the field vocabularies in `schema/fields.rs`: `PlayerField` (scalar variants
-plus `PlayablePosition(u8)`, `ComStyle(u8)`, `Skill(u8)`), `PlayerText` (`Name`, `ShirtName`),
-`TeamField` (identity, colours, edit flags, `KitSlotNumber(u8)`/`KitSlotTeam(u8)`), `TeamText`
-(`Name`, `ShortName`), `RosterField` (`TeamId`, `Player(u8)`, `Number(u8)`), `TacticsField`
-(`TeamId`, `Formation { preset, formation, slot, part }`, the per-preset booleans and sliders
-`{ preset, .. }`, `Instruction { preset, side, index, part }`, `Starting(u8)`, `Bench(u8)`, set-piece
-takers, captain, the auto flags). Variant names are the readable model names (`TightPossession`,
-not `tight_pos`); the table module's doc comment says which reference walk it was derived from,
-and this section is the evidence trail.
+`F` and `T` are the field vocabularies in `schema/fields.rs` (generated with the tables):
+`PlayerField` (scalar variants plus `PlayablePosition(u8)`, `ComStyle(u8)`, `Skill(u8)`),
+`PlayerText` (`Name`, `ShirtName`), `TeamField` (identity, colours, edit flags,
+`KitSlotNumber(u8)`/`KitSlotTeam(u8)`), `TeamText` (`Name`, `ShortName`), `RosterField` (`TeamId`,
+`Player(u8)`, `Number(u8)`), `TacticsField` (`TeamId`, `Preset { preset, field: PresetField }`,
+`Formation { preset, formation, slot, part: FormationPart }`, `Instruction { preset, side:
+InstructionSide, index, part: InstructionPart }`, `Starting(u8)`, `Bench(u8)`,
+`PlayerToJoinAttack(u8)`, the set-piece takers, `Captain`, the auto flags). Variant names are the
+readable model names (`TightPossession`, not `tight_pos`); the table module's doc comment says
+which reference walk it was derived from, and this section is the evidence trail. The generator
+is `scripts/derive_savefile_schema.py <reference source dir> <crate>/src/schema`; it is committed so
+the tables can be regenerated, and the tables it wrote are committed as ordinary source.
 
 **Derivation, not transcription.** The tables are not typed in by hand: a lead script interprets
 each reference read walk (`fill_player_entry17`, `fill_team_ids21`, …) over a symbolic byte
