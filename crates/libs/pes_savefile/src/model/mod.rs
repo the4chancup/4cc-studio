@@ -2,6 +2,8 @@
 //! and no version knowledge lives here; a field a version lacks is `None` or
 //! defaulted, and the schema decides what is read and written.
 
+/// Save-name helpers: colour-code stripping for display.
+pub mod names;
 /// The player model.
 pub mod player;
 /// The tactics model.

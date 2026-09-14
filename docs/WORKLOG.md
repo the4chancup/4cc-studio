@@ -12,8 +12,9 @@ is in `AGENTS.md` ("Working documents").
 **Phase:** 2 (Library crates). Done: 2.1 `wezlib`, 2.2 `cpk`, 2.3 `fpk`, 2.4 `ftex`, 2.5 `dds_convert` (CPU),
 2.6 `fmdl` (format, model, ops, check), 2.7 `pes_model` (format, mtl, model, ops, check), 2.8 `uniparam`, 2.9 `fox2`, 2.10 `archives`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`, 2.14 `color_tools`, 2.15 `elevation`. Review
 rounds A and B (2026-09-13) closed: 2.5c, 2.12b, 2.13b done.
-**In progress:** 2.17 `pes_savefile` (a–c done; d next), then 2.18 `python_bindings`
-**Blocked on:** nothing
+**In progress:** 2.17 `pes_savefile` (a–d done; e next), then 2.18 `python_bindings`
+**Blocked on:** 2.17e needs the user's call on the `settings.toml` key table and on how the
+undecoded ingame-face run is modelled (see the 2026-09-14 log line)
 
 ---
 
@@ -362,9 +363,15 @@ Spec: `docs/plans/core.md` "Phase 2", `docs/plans/libs.md`, `model_conversion.md
   byte booleans checked (`NotBoolean`), roster numbers `u16` (PES 19+ store values to 999). Every
   team, roster and tactics record of six saves round-trips byte-identical; the three sections list
   the same ids; team 701/100 and tactics literals. 5 tests; crate 31
-- [ ] 2.17d `file.rs` `EditFile` + `model::names` (`display_name`) + `discovery.rs` → verify:
-  load(to_bytes) of every payload fixture is lossless; the ~30 decorated names of the 19/21
-  saves strip to the expected text
+- [x] 2.17d `file.rs` `EditFile` + `model::names` + `discovery.rs` — done (lead: colour-code rule
+  measured over 346 decorated names, API blocks in the plan; sidekick code, one rework:
+  `side_section` helper instead of a string dispatch): `from_bytes`/`to_bytes(salt)` pure,
+  `load`/`save` (`.bak`, sha2 salt) native, players/teams joined by id with strict layout checks;
+  `display_name` (eight bytes after `\x11c`, `\x11d` reset); `save_layout`/`discover_savefiles_in`.
+  Every payload fixture lossless through `EditFile`; an edit changes only its records; 60/103/183
+  decorated names on 16/19/21. Lead probe (not committed): all nine real saves on the machine,
+  a second PES 16 save (4431 players, 273 teams) included, load and write back byte-identical
+  with their own salt, logo and serial included. 6 tests; crate 37
 - [ ] 2.17e `settings_toml.rs` `PlayerSettings` + `ops::fpc` (completeness test per the plan)
 - [ ] 2.17f `convert.rs` cross-version conversion (caps table, playstyle maps)
 - [ ] 2.17g `ops/{transplant,fingerprint,compare}` (parity with the reference scripts)
@@ -502,3 +509,9 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   corrected (PES 18 is flat). Field tables for 2.17b derived by symbolic interpretation of the
   reference read walks and checked against every payload (`.tmp/schema_derive.py`,
   `.tmp/schema.json`; method in the plan). Next: 2.17b schema + codec + `PlayerEntry`.
+- **2026-09-14** - 2.17b–d done: generated schema tables (`scripts/derive_savefile_schema.py`),
+  codec, player/team models, `EditFile`, `display_name`, discovery; 37 crate tests; all nine real
+  saves lossless through `EditFile`. Stopped before 2.17e for two user decisions: the
+  `settings.toml` key table (export text format) and the ingame-face run, which no legacy tool
+  decodes beyond eleven feature types (converters) and a few colour bits, so `PlayerSettings`
+  cannot cover "every appearance field" without an opaque-bytes model of that run.
