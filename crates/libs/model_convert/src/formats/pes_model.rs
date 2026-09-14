@@ -447,6 +447,20 @@ pub fn ir_to_model(ir: &CanonicalModel) -> Result<ExportedPreFox, ConvertError> 
             .find(|group| group.meshes.contains(&index))
             .map(|group| group.name.clone());
         let vertices = &mesh.vertices;
+        // `.model` stores xyz only: a non-1.0 fourth component is the tangent handedness
+        // (or the FMDL's 1.0 normal marker) the format cannot carry.
+        for (attribute, column) in [
+            ("normal_w", &vertices.normals),
+            ("tangent_w", &vertices.tangents),
+        ] {
+            if column.iter().flatten().any(|v| v[3] != 1.0) {
+                findings.push(Finding {
+                    code: "native_field_dropped",
+                    subject: Subject::Mesh(index),
+                    detail: attribute.to_string(),
+                });
+            }
+        }
         meshes.push(::pes_model::model::Mesh {
             name,
             extension_headers: mesh.extension_headers.iter().cloned().collect(),
@@ -492,8 +506,12 @@ pub fn ir_to_model(ir: &CanonicalModel) -> Result<ExportedPreFox, ConvertError> 
     };
 
     // The encoders in the legacy `saveModel` order: the vertex-loop convention, then
-    // mesh splitting.
-    let owners = ::pes_model::ops::vertex_enc::decode_model(&model);
+    // mesh splitting. Owners come from the IR vertex order itself (see fmdl.rs).
+    let owners: Vec<Vec<usize>> = model
+        .meshes
+        .iter()
+        .map(::pes_model::ops::vertex_enc::decode)
+        .collect();
     ::pes_model::ops::vertex_enc::encode_model(&mut model, &owners)?;
     let parents: Vec<Option<usize>> = ir.bones.iter().map(|bone| bone.parent).collect();
     ::pes_model::ops::split::encode(&mut model, &parents)?;
@@ -545,7 +563,11 @@ mod tests {
                 mesh.vertices.bone_weight_width = 4;
             }
         }
-        let owners = ::pes_model::ops::vertex_enc::decode_model(&model);
+        let owners: Vec<Vec<usize>> = model
+            .meshes
+            .iter()
+            .map(::pes_model::ops::vertex_enc::decode)
+            .collect();
         ::pes_model::ops::vertex_enc::encode_model(&mut model, &owners).expect("vertex encode");
         let parents: Vec<Option<usize>> = model
             .bones
@@ -931,5 +953,115 @@ mod tests {
             to_prefox::default_shader(material.family, &roles)
         );
         assert_eq!(exported.findings, Vec::<Finding>::new());
+    }
+
+    /// A minimal consistent IR around `vertices`/`faces`: one bone, one mesh weighted
+    /// to it, one `Shaded` material, one group.
+    fn ir_over(vertices: Vertices, faces: Vec<[u16; 3]>) -> CanonicalModel {
+        CanonicalModel {
+            bones: vec![Bone {
+                name: "sk_belly".to_string(),
+                parent: None,
+                matrix: Affine::IDENTITY,
+                global_position: None,
+                local_position: None,
+                bounding_box: None,
+            }],
+            meshes: vec![Mesh {
+                vertices,
+                faces,
+                bone_group: vec![0],
+                material: 0,
+                extension_headers: Default::default(),
+                custom_bounding_box: None,
+            }],
+            mesh_groups: vec![MeshGroup {
+                name: "group".to_string(),
+                parent: None,
+                meshes: vec![0],
+                visible: true,
+            }],
+            materials: vec![Material {
+                name: "mat".to_string(),
+                family: MaterialFamily::Shaded,
+                two_sided: None,
+                transparent: None,
+                antiblur: None,
+                textures: vec![],
+                parameters: vec![],
+                fox: None,
+                prefox: None,
+            }],
+            textures: vec![],
+            extension_headers: Default::default(),
+            source_format: SourceFormat::PreFox,
+        }
+    }
+
+    #[test]
+    fn vertex_owners_come_from_the_ir_order() {
+        // Vertices 1 and 2 share position and skinning, differ only in UV: one
+        // topological vertex encoded as two loops.
+        let ir = ir_over(
+            Vertices {
+                positions: vec![
+                    [0.0, 0.0, 0.0],
+                    [1.0, 0.0, 0.0],
+                    [1.0, 0.0, 0.0],
+                    [0.0, 1.0, 0.0],
+                ],
+                uvs: vec![vec![[0.0, 0.0], [0.0, 0.0], [0.5, 0.0], [0.0, 1.0]]],
+                uv_high_precision: vec![false],
+                bone_indices: Some(vec![[0, 0, 0, 0]; 4]),
+                bone_weights: Some(vec![[1.0, 0.0, 0.0, 0.0]; 4]),
+                ..Vertices::default()
+            },
+            vec![[0, 1, 3], [1, 2, 3]],
+        );
+        let exported = ir_to_model(&ir).expect("export");
+        assert_eq!(exported.model.meshes.len(), 1);
+        let owner = ::pes_model::ops::vertex_enc::decode(&exported.model.meshes[0]);
+        // The flag-gated `decode_model` returned identity owners [0, 1, 2, 3]; here
+        // vertex 2 is the second loop of vertex 1.
+        assert_eq!(owner, vec![0, 1, 1, 3]);
+    }
+
+    #[test]
+    fn a_non_unit_normal_or_tangent_w_reports() {
+        let vertices = |normals, tangents| Vertices {
+            positions: vec![[0.0; 3]; 3],
+            normals,
+            tangents,
+            uvs: vec![vec![[0.0, 0.0]; 3]],
+            uv_high_precision: vec![false],
+            bone_indices: Some(vec![[0, 0, 0, 0]; 3]),
+            bone_weights: Some(vec![[1.0, 0.0, 0.0, 0.0]; 3]),
+            ..Vertices::default()
+        };
+        let finding = |detail: &str| Finding {
+            code: "native_field_dropped",
+            subject: Subject::Mesh(0),
+            detail: detail.to_string(),
+        };
+        let normals = vertices(
+            Some(vec![[0.0, 0.0, 1.0, 0.0]; 3]),
+            Some(vec![[1.0, 0.0, 0.0, 1.0]; 3]),
+        );
+        assert_eq!(
+            ir_to_model(&ir_over(normals, vec![[0, 1, 2]]))
+                .expect("export")
+                .findings,
+            vec![finding("normal_w")]
+        );
+        let tangents = vertices(
+            Some(vec![[0.0, 0.0, 1.0, 1.0]; 3]),
+            Some(vec![[1.0, 0.0, 0.0, -1.0]; 3]),
+        );
+        assert_eq!(
+            ir_to_model(&ir_over(tangents, vec![[0, 1, 2]]))
+                .expect("export")
+                .findings,
+            vec![finding("tangent_w")]
+        );
     }
 }

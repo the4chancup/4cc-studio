@@ -632,4 +632,22 @@ mod tests {
             before.meshes[0].vertices.positions[1]
         );
     }
+
+    #[test]
+    fn a_stale_index_in_an_unweighted_slot_is_safe() {
+        // PES17 -> PES15 folds dsk_deltoid_l onto dsk_upperarm_l; slot 1's index 5 is
+        // past the one-entry group but unweighted and must not be remapped.
+        let mut ir = ir_with_bones(&["dsk_deltoid_l"], PesVersion::Pes17);
+        ir.meshes[0].vertices.bone_indices = Some(vec![[0, 5, 0, 0]]);
+        retarget(&mut ir, PesVersion::Pes15).expect("retarget");
+        let vertices = &ir.meshes[0].vertices;
+        assert_eq!(
+            vertices.bone_indices.as_ref().expect("indices")[0],
+            [0, 0, 0, 0]
+        );
+        assert_eq!(
+            vertices.bone_weights.as_ref().expect("weights")[0],
+            [1.0, 0.0, 0.0, 0.0]
+        );
+    }
 }

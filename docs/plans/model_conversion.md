@@ -397,7 +397,12 @@ function without going through the IR at all.
 
 The split vertex encoding is a property of the vertex *order* (loops of one vertex are consecutive
 runs), and the IR keeps the vertex order, so its "decode" on import is a read the importers have
-nothing to call: the owner map is recoverable from the IR at any time. The encode on export is not
+nothing to call: the owner map is recoverable from the IR at any time. The exporters recover it
+with the format crate's per-mesh `vertex_enc::decode` on the IR order, *not* the flag-gated
+`decode_model`: the IR carries no extension flag, and a run that satisfies the convention is a set
+of loops of one vertex whether or not the file declared the extension (an add-on file's loops
+survive the round trip; on a Konami file the same rule merges only vertices that share position,
+weights and an increasing attribute order, which is what a loop is). The encode on export is not
 a no-op: it groups every vertex sharing a topological key contiguously, and Konami files are not
 written that way (highneck: 198 of 204 vertices move; the vertex multiset and the face corner-tuples
 are unchanged). The legacy converters reorder the same way. A same-format round trip is therefore
@@ -524,6 +529,9 @@ compiling hundreds of models must not require a Blender installation or per-mode
 2. **Grow once** along the mesh topology — equivalent to one Blender **Select More** (`Ctrl +`)
    step in vertex mode, bringing in the neighboring row at the wrist. This is not a distance-based
    cut, and shared wrist/forearm weights do not exclude a vertex from the expanded selection.
+   A *vertex* here is Blender's: the native formats store one entry per loop, so entries sharing
+   position, bone indices and weights (the vertex-loop encoding's topological key) are one vertex
+   for selection and growth, and a UV or normal seam at the wrist does not stop the growth.
 3. **Separate the selection** into `glove_l` or `glove_r`, equivalent to Blender's `P` → Selection.
    Fully selected faces move with it; the remaining faces stay with the body, retaining copies of
    boundary vertices where needed. Preserve positions, weights, UVs, normals, and materials — no

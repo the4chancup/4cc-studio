@@ -56,11 +56,35 @@ pub fn fmdl_to_ir(
     let model = &model;
 
     let mut findings = Vec::new();
+    // The FMDL's local-space bone matrices are redundant with the SKL/table pose and are
+    // not carried into the IR.
+    if model.bone_matrices.is_some() {
+        findings.push(Finding {
+            code: "native_field_dropped",
+            subject: Subject::Model,
+            detail: "bone_matrices".to_string(),
+        });
+    }
 
     let mut bones = Vec::with_capacity(model.bones.len());
     for (index, bone) in model.bones.iter().enumerate() {
-        let matrix = skl
-            .and_then(|skl| skl.bones.iter().find(|skl_bone| skl_bone.name == bone.name))
+        let skl_bone =
+            skl.and_then(|skl| skl.bones.iter().find(|skl_bone| skl_bone.name == bone.name));
+        if let (Some(skl), Some(skl_bone)) = (skl, skl_bone) {
+            // The FMDL's own parent wins; an SKL disagreeing loses a field.
+            let skl_parent = skl_bone
+                .parent
+                .map(|parent| skl.bones[parent].name.as_str());
+            let fmdl_parent = bone.parent.map(|parent| model.bones[parent].name.as_str());
+            if skl_parent != fmdl_parent {
+                findings.push(Finding {
+                    code: "native_field_dropped",
+                    subject: Subject::Bone(index),
+                    detail: "skl_parent".to_string(),
+                });
+            }
+        }
+        let matrix = skl_bone
             .map(|skl_bone| {
                 Affine::from_rotation_translation(skl_bone.rotation, skl_bone.translation)
             })
@@ -130,10 +154,21 @@ pub fn fmdl_to_ir(
         let mut entries = Vec::new();
         for (split, (alpha_flags, shadow_flags, antiblur_meshes)) in combinations.iter().enumerate()
         {
+            // The first `name_N` free among the instance names and the ones generated so
+            // far — `mat` splitting while `mat_2` exists must not collide.
             let name = if split == 0 {
                 instance.name.clone()
             } else {
-                format!("{}_{}", instance.name, split + 1)
+                let mut n = 2;
+                loop {
+                    let candidate = format!("{}_{}", instance.name, n);
+                    let taken = model.materials.iter().any(|other| other.name == candidate)
+                        || materials.iter().any(|m: &Material| m.name == candidate);
+                    if !taken {
+                        break candidate;
+                    }
+                    n += 1;
+                }
             };
             if split > 0 {
                 findings.push(Finding {
@@ -572,7 +607,13 @@ pub fn ir_to_fmdl(ir: &CanonicalModel) -> Result<ExportedFox, ConvertError> {
     // The encoders in the legacy pipeline's order (model2fmdl.py): anti-blur duplicates,
     // then the vertex-loop convention, then mesh splitting.
     ::fmdl::ops::antiblur::encode(&mut model);
-    let owners = ::fmdl::ops::vertex_enc::decode_model(&model);
+    // Recover the loops from the IR vertex order itself — the flag-gated `decode_model`
+    // returns identity owners on a model built from the IR, losing an add-on's loops.
+    let owners: Vec<Vec<usize>> = model
+        .meshes
+        .iter()
+        .map(::fmdl::ops::vertex_enc::decode)
+        .collect();
     ::fmdl::ops::vertex_enc::encode_model(&mut model, &owners)?;
     let parents = split_parents(&model.bones);
     ::fmdl::ops::split::encode(&mut model, Some(&parents))?;
@@ -634,7 +675,11 @@ mod tests {
     fn encoded(decoded: &::fmdl::Model) -> ::fmdl::Model {
         let mut model = decoded.clone();
         ::fmdl::ops::antiblur::encode(&mut model);
-        let owners = ::fmdl::ops::vertex_enc::decode_model(&model);
+        let owners: Vec<Vec<usize>> = model
+            .meshes
+            .iter()
+            .map(::fmdl::ops::vertex_enc::decode)
+            .collect();
         ::fmdl::ops::vertex_enc::encode_model(&mut model, &owners).expect("vertex encode");
         let parents = split_parents(&model.bones);
         ::fmdl::ops::split::encode(&mut model, Some(&parents)).expect("split encode");
@@ -739,7 +784,15 @@ mod tests {
             material.fox.as_ref().expect("fox").shader,
             "pes_3ddf_basic_color_translucent"
         );
-        assert_eq!(imported.findings, Vec::<Finding>::new());
+        // The file carries the redundant local-space bone-matrix block.
+        assert_eq!(
+            imported.findings,
+            vec![Finding {
+                code: "native_field_dropped",
+                subject: Subject::Model,
+                detail: "bone_matrices".to_string(),
+            }]
+        );
     }
 
     #[test]
@@ -966,5 +1019,149 @@ mod tests {
         assert_eq!(quantize_weights([0.5, 0.5, 0.0, 0.0]), [128, 127, 0, 0]);
         let weights = quantize_weights([1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0, 0.0]);
         assert_eq!(weights.iter().map(|w| u32::from(*w)).sum::<u32>(), 255);
+    }
+
+    /// A flat `fmdl::Mesh` over no bone group with the given alpha flags and material.
+    fn fmdl_mesh(alpha: u8, material: usize) -> ::fmdl::Mesh {
+        ::fmdl::Mesh {
+            vertices: ::fmdl::format::MeshVertices {
+                positions: vec![[0.0; 3]],
+                ..::fmdl::format::MeshVertices::default()
+            },
+            faces: vec![[0, 0, 0]],
+            bone_group: vec![],
+            material,
+            alpha_flags: alpha,
+            shadow_flags: 0,
+            has_antiblur_meshes: false,
+            is_antiblur_mesh: false,
+            custom_bounding_box: None,
+        }
+    }
+
+    /// A skinned IR whose vertices 1 and 2 share position and skinning and differ only
+    /// in UV: one topological vertex encoded as two loops.
+    fn seam_ir() -> CanonicalModel {
+        let mut ir = minimal_ir();
+        ir.bones = vec![Bone {
+            name: "sk_belly".to_string(),
+            parent: None,
+            matrix: Affine::IDENTITY,
+            global_position: None,
+            local_position: None,
+            bounding_box: None,
+        }];
+        ir.source_format = SourceFormat::Fox;
+        let mesh = &mut ir.meshes[0];
+        mesh.vertices = Vertices {
+            positions: vec![
+                [0.0, 0.0, 0.0],
+                [1.0, 0.0, 0.0],
+                [1.0, 0.0, 0.0],
+                [0.0, 1.0, 0.0],
+            ],
+            uvs: vec![vec![[0.0, 0.0], [0.0, 0.0], [0.5, 0.0], [0.0, 1.0]]],
+            uv_high_precision: vec![false],
+            bone_indices: Some(vec![[0, 0, 0, 0]; 4]),
+            bone_weights: Some(vec![[1.0, 0.0, 0.0, 0.0]; 4]),
+            ..Vertices::default()
+        };
+        mesh.faces = vec![[0, 1, 3], [1, 2, 3]];
+        mesh.bone_group = vec![0];
+        ir
+    }
+
+    #[test]
+    fn vertex_owners_come_from_the_ir_order() {
+        let exported = ir_to_fmdl(&seam_ir()).expect("export");
+        assert_eq!(exported.model.meshes.len(), 1);
+        let owner = ::fmdl::ops::vertex_enc::decode(&exported.model.meshes[0]);
+        // The flag-gated `decode_model` returned identity owners [0, 1, 2, 3]; here
+        // vertex 2 is the second loop of vertex 1.
+        assert_eq!(owner, vec![0, 1, 1, 3]);
+    }
+
+    #[test]
+    fn a_split_material_never_reuses_an_instance_name() {
+        // `mat` splits on two flag combinations while `mat_2` already exists: the
+        // generated name must skip the taken one.
+        let mut model = fmdl_model(fmdl_mesh(0, 0), vec![instance("mat"), instance("mat_2")]);
+        model.meshes.push(fmdl_mesh(32, 0));
+        model.meshes.push(fmdl_mesh(0, 1));
+        model.mesh_groups[0].meshes = vec![0, 1, 2];
+        let imported = fmdl_to_ir(&model, None).expect("import");
+        let names: Vec<&str> = imported
+            .model
+            .materials
+            .iter()
+            .map(|material| material.name.as_str())
+            .collect();
+        assert_eq!(names, ["mat", "mat_3", "mat_2"]);
+        assert_eq!(
+            imported.findings,
+            vec![Finding {
+                code: "material_split_by_flags",
+                subject: Subject::Material(1),
+                detail: "mat_3".to_string(),
+            }]
+        );
+    }
+
+    #[test]
+    fn bone_matrices_report_native_field_dropped() {
+        let mut model = fmdl_model(fmdl_mesh(0, 0), vec![instance("mat")]);
+        model.bone_matrices = Some(vec![0; 64]);
+        let imported = fmdl_to_ir(&model, None).expect("import");
+        assert_eq!(
+            imported.findings,
+            vec![Finding {
+                code: "native_field_dropped",
+                subject: Subject::Model,
+                detail: "bone_matrices".to_string(),
+            }]
+        );
+    }
+
+    #[test]
+    fn a_disagreeing_skl_parent_reports_native_field_dropped() {
+        // The SKL parents `sk_chest` under `sk_belly`; the FMDL leaves it a root and
+        // the FMDL wins.
+        let mut model = fmdl_model(fmdl_mesh(0, 0), vec![instance("mat")]);
+        model.bones.push(::fmdl::Bone {
+            name: "sk_chest".to_string(),
+            parent: None,
+            bounding_box: ::fmdl::BoundingBox {
+                min: [0.0; 4],
+                max: [0.0; 4],
+            },
+            local_position: [0.0; 4],
+            world_position: [0.0; 4],
+        });
+        let skl = ::fmdl::SklFile {
+            bones: vec![
+                ::fmdl::format::SklBone {
+                    name: "sk_belly".to_string(),
+                    parent: None,
+                    rotation: [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
+                    translation: [0.0; 3],
+                },
+                ::fmdl::format::SklBone {
+                    name: "sk_chest".to_string(),
+                    parent: Some(0),
+                    rotation: [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
+                    translation: [0.0; 3],
+                },
+            ],
+        };
+        let imported = fmdl_to_ir(&model, Some(&skl)).expect("import");
+        assert_eq!(imported.model.bones[1].parent, None);
+        assert_eq!(
+            imported.findings,
+            vec![Finding {
+                code: "native_field_dropped",
+                subject: Subject::Bone(1),
+                detail: "skl_parent".to_string(),
+            }]
+        );
     }
 }

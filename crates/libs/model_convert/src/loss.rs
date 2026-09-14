@@ -17,8 +17,11 @@
 //! - `vertex_bitangents_dropped` (Mesh): FMDL has no bitangent attribute.
 //! - `dummy_texture_added` (Material): a `Shaded`/`Metal` material missing its normal or
 //!   specular map got the game's dummy; `detail` is the sampler name.
-//! - `native_field_dropped` (Model or Mesh): a `.model` field the IR has no home for was
-//!   non-default; `detail` names it.
+//! - `native_field_dropped` (Model, Mesh or Bone): a field the IR or the target format has
+//!   no home for was non-default; `detail` names it. Covers `.model` fields, a normal or
+//!   tangent `w != 1.0` a `.model` cannot carry (`"normal_w"`/`"tangent_w"`), the FMDL's
+//!   redundant local-space `"bone_matrices"`, and an SKL parent disagreeing with the
+//!   FMDL's (`"skl_parent"` — the FMDL's wins).
 //! - `bone_folded_for_version` (Bone): a bone the target version lacks folded onto the bone
 //!   the fold table names; `detail` is `"<bone> -> <target>"`.
 //! - `bone_folded_by_position` (Bone): no fold-table entry, so the bone folded onto the
