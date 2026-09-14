@@ -14,6 +14,14 @@ crates' `tests/fixtures/README.md`. Konami-derived files are Konami's, kept for 
 | `konami_glasses_02.wesys.model` + `konami_accessory.mtl` | `pes_model` | two meshes, two materials, WESYS-wrapped |
 | `cardhead_face_high.model` + `cardhead_materials.mtl` | `pes_model` | add-on written, `Shadeless`, `Skeleton-Type: Simplified` header |
 
+`legacy19to16_oral.model` + `.mtl` are the 19to16 converter's own output for `addon_oral.fmdl`
+(`Engines.lib.convertFaceFolder` on a folder holding only the FMDL, 2026-09-14): the semantic
+reference the Fox→pre-Fox path is compared against. Its texture path is `./.dds` because the
+converter looks for the texture file next to the model and none was there; ours keeps the FMDL's
+path, so the comparison excludes the path. The same run dropped `konami_highneck.fmdl` entirely
+(its `translucent` shader is a decal the converter keeps only with a texture file present), so
+no highneck reference exists.
+
 `hand_split_wrist.json` is not a copy: it is Blender's own result (select the `skh_*_l`-weighted
 vertices, Select More once, Separate by selection) on the synthetic connected-wrist mesh that
 `hand_split_wrist.py` builds, the semantics the plan's hand auto-split reproduces. Regenerate with

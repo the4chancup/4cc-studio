@@ -423,20 +423,41 @@ pub enum NativeModelBundle {
     // Gltf(GltfModel) joins in Phase 7
 }
 
-/// The bundle in `target`'s format: the input itself when it already is, otherwise
-/// source → IR → target. `Converted::findings` lists what the target could not keep
-/// (`loss.rs`), so the caller reports rather than the user discovers.
-pub fn convert(bundle: NativeModelBundle, target: ModelFormat) -> Result<Converted, ConvertError>;
+/// The bundle in `target`'s format (`target.engine()`), on `target`'s skeleton: the input
+/// itself when it already is both, otherwise source → IR → `retarget` → target.
+/// `Converted::findings` lists what the target could not keep (`loss.rs`), so the caller
+/// reports rather than the user discovers.
+pub fn convert(bundle: NativeModelBundle, target: PesVersion) -> Result<Converted, ConvertError>;
+
+/// Whether `convert` would go through the IR: another engine, or a bone the bundle's groups
+/// use that `target` lacks or poses differently (bone tables only, no geometry read).
+pub fn needs_conversion(bundle: &NativeModelBundle, target: PesVersion) -> bool;
 
 pub struct Converted { pub bundle: NativeModelBundle, pub findings: Vec<loss::Finding> }
 ```
 
-`convert` takes the bundle by value and returns a new one, so a pre-Fox result exists only once
-both its `.model` and its `.mtl` were produced: an error can never leave a converted `.model` paired
-with an old or missing `.mtl`. (The plan's first draft mutated a bundle in place; by value says the
-same thing with the type system instead of a comment.) The Fox side carries the companion `.skl`
-when one exists, which is where `fmdl_to_ir` reads the bind pose from (see "Skeleton reconstruction
-from FMDL"); `ir_to_fmdl` returns one only when a bone the target's tables do not know survives.
+`convert` takes a PES *version*, not a format: the format follows from the engine, and the
+skeleton retargeting pass (see "Skeleton retargeting and bone conformance") runs inside the same
+IR round trip, so every model the compiler emits is on the target's skeleton without a second
+pass. The same-format short cut is decided by `needs_conversion`, the plan's native pre-check: the
+bundle's bone names (those its bone groups reference) against the target's tables, poses compared
+the way `retarget` does (source pose from the SKL or PES21's tables for Fox, the inverted inline
+matrix for pre-Fox; 1e-3 on any component). `convert` takes the bundle by value and returns a new
+one, so a pre-Fox result exists only once both its `.model` and its `.mtl` were produced: an error
+can never leave a converted `.model` paired with an old or missing `.mtl`. (The plan's first draft
+mutated a bundle in place; by value says the same thing with the type system instead of a
+comment.) The Fox side carries the companion `.skl` when one exists, which is where `fmdl_to_ir`
+reads the bind pose from (see "Skeleton reconstruction from FMDL"); `ir_to_fmdl` returns one only
+when a bone the target's tables do not know survives.
+
+**Unskinned meshes on Fox.** FMDL needs every vertex bound to a bone: an unbound mesh stays where
+the model is placed instead of following the player. A pre-Fox mesh without bone indices (the
+ancient templates the 16→21 converter met) therefore gets, on `ir_to_fmdl`, a bone named `static`
+(identity matrix, `global_position` `[0.2, 0, 0, 1]`, `local_position` zero: the converter's
+values, the name Konami's own skeleton lacks so the game leaves the mesh static) added once to the
+model, with every such mesh's vertices fully weighted to it (`static_bone_added`, one finding per
+mesh). The bone is not in any table, so the export also emits an SKL; whether the compiler injects
+that SKL or the template is Phase 4's call (open question there).
 
 ### Roundtrip testing
 

@@ -12,7 +12,7 @@ is in `AGENTS.md` ("Working documents").
 **Phase:** 2 (Library crates). Done: 2.1 `wezlib`, 2.2 `cpk`, 2.3 `fpk`, 2.4 `ftex`, 2.5 `dds_convert` (CPU),
 2.6 `fmdl` (format, model, ops, check), 2.7 `pes_model` (format, mtl, model, ops, check), 2.8 `uniparam`, 2.9 `fox2`, 2.10 `archives`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`, 2.14 `color_tools`, 2.15 `elevation`. Review
 rounds A and B (2026-09-13) closed: 2.5c, 2.12b, 2.13b done.
-**In progress:** 2.16 `model_convert` (2.16a–f done; 2.16g hand split next), then `pes_savefile`, `python_bindings`
+**In progress:** 2.16 `model_convert` (2.16a–g done; 2.16h routing next), then `pes_savefile`, `python_bindings`
 **Blocked on:** nothing
 
 ---
@@ -321,8 +321,12 @@ Spec: `docs/plans/core.md` "Phase 2", `docs/plans/libs.md`, `model_conversion.md
   normals/tangents/bitangents rotated and renormalized; unmoved bones and vertices untouched
   bit for bit). PES17→PES15 folds exactly the legacy six and moves 18 bones; PES19→PES16 folds
   46, none by position; PES19→PES21 the ten `dsk_pos_*`; PES21→PES21 is `==`. 9 tests; crate 71
-- [ ] 2.16g `model_convert::ops::hand_split` → verify: synthetic mesh with an `skh_` strip splits
-  with the one-ring growth; a model without hand weights passes through
+- [x] 2.16g `model_convert::ops::hand_split` — done (sidekick, clean first pass): `hand_of`,
+  `has_hand_weights` (weights, not names), `split_by_skeleton_group` (select → grow once →
+  separate per hand; parts re-index vertices and copy every column; groups survive on a listed
+  mesh or as an ancestor; unweighted bones pruned through `ir::{rebuild_bone_list,
+  remap_bone_group}`, shared with `retarget`). Matches Blender 5.2.1's own result on the
+  connected-wrist fixture (10 vertices / 9 faces each side, face sets equal). 6 tests; crate 77
 - [ ] 2.16h `model_convert` routing + `loss.rs` → verify: FMDL→.model of a Konami fixture equals
   the legacy converter's output semantically (lead-produced reference)
 - [ ] 2.16i checkpoint (b) review of the new `pub` surface

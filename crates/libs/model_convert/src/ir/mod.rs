@@ -159,3 +159,114 @@ pub struct BoundingBox {
     /// The maximum corner.
     pub max: [f32; 4],
 }
+
+/// Whether any mesh weights a vertex positively on `bones[bone]` (a positive weight on a
+/// slot whose group entry is the bone).
+pub(crate) fn bone_is_weighted(ir: &CanonicalModel, bone: usize) -> bool {
+    ir.meshes.iter().any(
+        |mesh| match (&mesh.vertices.bone_indices, &mesh.vertices.bone_weights) {
+            (Some(indices), Some(weights)) => indices.iter().zip(weights).any(|(row, ws)| {
+                row.iter().enumerate().any(|(slot, &entry)| {
+                    ws[slot] > 0.0 && mesh.bone_group.get(usize::from(entry)) == Some(&bone)
+                })
+            }),
+            _ => false,
+        },
+    )
+}
+
+/// Rebuilds `bones` keeping only the bones `keep` marks, in order: a kept bone's parent
+/// becomes its nearest kept ancestor (`None` at a root). Returns each kept bone's new
+/// index, `None` for the dropped.
+pub(crate) fn rebuild_bone_list(bones: &mut Vec<Bone>, keep: &[bool]) -> Vec<Option<usize>> {
+    let mut old_to_new = vec![None; bones.len()];
+    let mut rebuilt = Vec::with_capacity(bones.len());
+    for (old, bone) in bones.iter().enumerate() {
+        if !keep[old] {
+            continue;
+        }
+        old_to_new[old] = Some(rebuilt.len());
+        let mut parent = bone.parent;
+        while let Some(index) = parent {
+            if keep[index] {
+                break;
+            }
+            parent = bones[index].parent;
+        }
+        rebuilt.push(Bone {
+            parent: parent
+                .map(|index| old_to_new[index].expect("a kept parent precedes its child")),
+            ..bone.clone()
+        });
+    }
+    *bones = rebuilt;
+    old_to_new
+}
+
+/// Rebuilds `mesh`'s bone group and weight slots for a rebuilt bone list. `old_to_new` is
+/// `rebuild_bone_list`'s result; `redirect[old_bone]` is the new bone index a dropped bone's
+/// weight moves to, or `None` to drop the weight. Kept entries remap in order first, then
+/// each dropped entry's redirect is appended when absent. A slot pointing at a dropped bone
+/// with no redirect becomes group index 0 with weight 0; slots that end up naming one group
+/// entry merge their weight into the earliest.
+pub(crate) fn remap_bone_group(
+    mesh: &mut Mesh,
+    old_to_new: &[Option<usize>],
+    redirect: &[Option<usize>],
+) {
+    let mut group: Vec<usize> = Vec::with_capacity(mesh.bone_group.len());
+    for &entry in &mesh.bone_group {
+        if let Some(new) = old_to_new[entry] {
+            group.push(new);
+        }
+    }
+    for &entry in &mesh.bone_group {
+        if let (None, Some(new)) = (old_to_new[entry], redirect[entry])
+            && !group.contains(&new)
+        {
+            group.push(new);
+        }
+    }
+    let slot_map: Vec<Option<u8>> = (0..mesh.bone_group.len())
+        .map(|slot| {
+            let entry = mesh.bone_group[slot];
+            let new = match old_to_new[entry] {
+                Some(new) => Some(new),
+                None => redirect[entry],
+            };
+            new.map(|bone| {
+                group
+                    .iter()
+                    .position(|&e| e == bone)
+                    .expect("every group entry maps into the new group") as u8
+            })
+        })
+        .collect();
+    mesh.bone_group = group;
+    if let (Some(indices), Some(weights)) = (
+        &mut mesh.vertices.bone_indices,
+        &mut mesh.vertices.bone_weights,
+    ) {
+        for (row, ws) in indices.iter_mut().zip(weights.iter_mut()) {
+            for (slot, entry) in row.iter_mut().enumerate() {
+                match slot_map[usize::from(*entry)] {
+                    Some(new) => *entry = new,
+                    None => {
+                        *entry = 0;
+                        ws[slot] = 0.0;
+                    }
+                }
+            }
+            // Slots now naming one group entry merge into the earliest.
+            for a in 0..4 {
+                for b in (a + 1)..4 {
+                    if row[a] == row[b] {
+                        ws[a] += ws[b];
+                        ws[b] = 0.0;
+                        row[b] = 0;
+                    }
+                }
+            }
+        }
+    }
+}
