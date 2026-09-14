@@ -230,6 +230,7 @@ what. This is for maintainers reading history (`git log --grep '^fix('` when bis
 members: `CHANGELOG.md` stays hand-written per the core plan's "Changelog and version display" and
 is never generated from commit messages. Write the message to a file and `git commit -F` it;
 PowerShell has no heredocs.
+Do not include agent co-authoring lines.
 
 ## Toolchain notes
 

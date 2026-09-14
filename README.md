@@ -5,10 +5,17 @@ Team compiler (aesthetics exports to CPK archives), a save editor, and the small
 them (kit configs, referees, balls, music, match tracking, model conversion), in a single binary
 that is both a GUI and a CLI.
 
-**Status: planning.** Nothing compiles yet. The architectural plan lives in `docs/plans/`
-(start at `docs/plans/README.md`). `AGENTS.md` is the short orientation for anyone working on
-the code, human or model; `docs/CONTRIBUTING.md` holds the coding rules and verification gates;
-`docs/WORKLOG.md` says where the work currently stands.
+**Status: in development.** Phase 2 of 17 (the standalone library crates) is nearly done. The
+workspace holds 19 format/library crates covering the game's containers and archives (CPK,
+FPK/FPKD, FTEX, DDS, WESYS, uniparam, zip/7z), both model families (FMDL for PES 18-21,
+`.model`/`.mtl` for PES 15-17) with cross-version conversion through `model_convert`'s IR, kit
+configs, the teams list, and the savefile (`pes_savefile` decrypts, edits and rewrites real
+saves byte-identically). ~460 tests, all gates green. No tool crate or GUI exists yet;
+`studio` is a CLI-only skeleton.
+
+The architectural plan lives in `docs/plans/` (start at `docs/plans/README.md`). `AGENTS.md` is
+the short orientation for anyone working on the code; `docs/CONTRIBUTING.md` holds the coding
+rules and verification gates; `docs/WORKLOG.md` says where the work currently stands.
 
 ## License
 
