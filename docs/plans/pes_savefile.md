@@ -503,6 +503,48 @@ suite selector cannot reinterpret it. Compiler updates require a save matching t
 Retain unmodeled container sections, payload bytes, padding, and unknown bits, patching only the
 selected known fields; rebuilding only the modeled fields cannot satisfy lossless-save tests.
 
+```rust
+/// An open save: the retained container plus the decoded players and teams.
+pub struct EditFile { /* container: SaveContainer, players: Vec<PlayerEntry>, teams: Vec<TeamEntry>,
+                         plus the record index of every player/appearance/roster/tactics record */ }
+
+impl EditFile {
+    /// Decrypts and decodes; the version is the container's.
+    pub fn from_bytes(bytes: &[u8]) -> Result<EditFile, SaveError>;
+    /// `from_bytes` over a file (native only).
+    pub fn load(path: &Path) -> Result<EditFile, SaveError>;
+    pub fn version(&self) -> PesVersion;
+    pub fn players(&self) -> &[PlayerEntry];
+    pub fn players_mut(&mut self) -> &mut [PlayerEntry];
+    pub fn player(&self, id: u32) -> Option<&PlayerEntry>;
+    pub fn player_mut(&mut self, id: u32) -> Option<&mut PlayerEntry>;
+    pub fn teams(&self) -> &[TeamEntry];         // team, roster and tactics joined by id
+    pub fn teams_mut(&mut self) -> &mut [TeamEntry];
+    pub fn team(&self, id: u32) -> Option<&TeamEntry>;
+    pub fn team_mut(&mut self, id: u32) -> Option<&mut TeamEntry>;
+    /// Every player and team written back into the retained payload, then re-encrypted under
+    /// `salt`; the record order and count are the file's own (no player or team is added or
+    /// removed through this API).
+    pub fn to_bytes(&self, salt: &[u8; 320]) -> Result<Vec<u8>, SaveError>;
+    /// `to_bytes` with a fresh salt, written next to `path` and renamed over it after the
+    /// existing file was copied to `<path>.bak` (native only).
+    pub fn save(&self, path: &Path) -> Result<(), SaveError>;
+}
+```
+
+`SaveError` wraps `ContainerError`, `CodecError`, `std::io::Error`, plus `Layout` (a section's
+count or a record runs past the payload) and `RecordId` (a roster or tactics record names a team
+id the team section lacks, or a PES 15/16 player has no appearance record). Loading is strict:
+the three team sections must list the same ids in the same order, which every real save does.
+
+**Name colour codes, as measured** (2026-09-14, 346 decorated names across the PES 16/19/21
+saves): a code is the byte `0x11`, the letter `c`, then **exactly eight bytes** taken as the
+colour; the game does not check they are hex (nine names of one PES 21 team carry
+`\x11ca000c8ON` and display without the `ON`), so neither does `display_name`. A second code
+exists: `\x11d`, two bytes, which resets the colour (`WHEN THE \x11cb7bec5ffWORK RESULT\x11d WAS
+GOOD`). `display_name` strips both; any other `0x11` sequence is left alone. `name` is the raw
+form; the save editor renders the colours from it.
+
 ### Savefile discovery
 
 The savefile does **not** live in the PES install folder — it is always under the user's
@@ -539,8 +581,29 @@ Rules:
 - **Nothing found** → the consumer's own message (`savefile_missing` in the compiler; an empty
   quick-open list plus the ordinary file picker in the editor). Discovery never creates folders.
 
-The per-version table is data (`phf` map keyed by version), like the skeleton and game-path tables,
-so filling in the 18/19 folder names is a one-line change.
+The per-version table is data (a `match` on `PesVersion` returning the game folder name and
+whether an account folder sits between it and `save`), so a corrected folder name is a one-line
+change.
+
+```rust
+pub struct SavefileCandidate {
+    pub path: PathBuf,
+    /// The 18-digit account folder the save sits under (PES 19-21), else `None`.
+    pub account: Option<String>,
+    pub modified: SystemTime,
+}
+
+/// The game folder name and layout for `version`.
+pub fn save_layout(version: PesVersion) -> SaveLayout;   // { game_folder: &'static str, account_folders: bool, file_name: &'static str }
+/// The candidates under `documents/KONAMI/...` for `version`, newest first. Pure over the
+/// given root so tests build a temp tree; the native caller passes `UserDirs::document_dir()`.
+pub fn discover_savefiles_in(documents: &Path, version: PesVersion) -> Vec<SavefileCandidate>;
+/// `discover_savefiles_in` under the shell's Documents folder (native only).
+pub fn discover_savefiles(version: PesVersion) -> Vec<SavefileCandidate>;
+```
+
+Discovery returns paths and never opens the saves; verifying the version is the caller's
+`EditFile::load` (the plan rule above).
 
 ---
 
@@ -659,8 +722,9 @@ Verified against ~30 decorated names across real PES 19 and 21 cup saves (see
 Verification). No tool in the 4cc toolset writes them; they are hand-edited by
 cup organizers and must be **preserved byte-for-byte** by every copy-through,
 transplant and roundtrip path. This crate exposes the raw name and a
-`display_name()` helper that strips the codes (fixed-length match — the hex run
-is exactly 8, so a name letter `a`–`f` following a code is never eaten); the
+`display_name()` helper that strips the codes (fixed-length match: the colour is exactly the 8
+bytes after `\x11c`, hex or not, so a name letter `a`–`f` following a code is never eaten; the
+2-byte reset `\x11d` is stripped too; see "Whole-file API" for the measurement); the
 save editor renders the colours from the raw name and allows editing them, while
 folder-name derivation (Team compiler, Export upgrader) and search use the
 stripped form. Any other control character in a name is not a known code and is

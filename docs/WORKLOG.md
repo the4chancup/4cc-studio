@@ -12,7 +12,7 @@ is in `AGENTS.md` ("Working documents").
 **Phase:** 2 (Library crates). Done: 2.1 `wezlib`, 2.2 `cpk`, 2.3 `fpk`, 2.4 `ftex`, 2.5 `dds_convert` (CPU),
 2.6 `fmdl` (format, model, ops, check), 2.7 `pes_model` (format, mtl, model, ops, check), 2.8 `uniparam`, 2.9 `fox2`, 2.10 `archives`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`, 2.14 `color_tools`, 2.15 `elevation`. Review
 rounds A and B (2026-09-13) closed: 2.5c, 2.12b, 2.13b done.
-**In progress:** 2.17 `pes_savefile` (a, b done; c next), then 2.18 `python_bindings`
+**In progress:** 2.17 `pes_savefile` (a–c done; d next), then 2.18 `python_bindings`
 **Blocked on:** nothing
 
 ---
@@ -356,9 +356,12 @@ Spec: `docs/plans/core.md` "Phase 2", `docs/plans/libs.md`, `model_conversion.md
   Every player and appearance record of six saves round-trips byte-identical; census literals
   (counts, ages with PES 18's nine 13/14-year-olds, abilities 40..99 bar one PES 16 place kick of
   100, the two non-UTF-8 shirt names). 12 tests; crate 26
-- [ ] 2.17c `pes_savefile::model::{team,tactics}` + team/roster/tactics codec → verify: same
-  round trip over the three team sections of every payload; the three sections' team id lists
-  agree
+- [x] 2.17c `pes_savefile::model::{team,tactics}` + team/roster/tactics codec — done (sidekick;
+  one rework: `tactics_runs` as plain loops, `codec/` split into `mod`/`player`/`team`/`tests`):
+  `TeamEntry` merging the three records, `TeamTactics` with presets/formations/instructions,
+  byte booleans checked (`NotBoolean`), roster numbers `u16` (PES 19+ store values to 999). Every
+  team, roster and tactics record of six saves round-trips byte-identical; the three sections list
+  the same ids; team 701/100 and tactics literals. 5 tests; crate 31
 - [ ] 2.17d `file.rs` `EditFile` + `model::names` (`display_name`) + `discovery.rs` → verify:
   load(to_bytes) of every payload fixture is lossless; the ~30 decorated names of the 19/21
   saves strip to the expected text
