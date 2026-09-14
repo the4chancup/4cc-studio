@@ -1,6 +1,6 @@
 # Pinned toolchain (core plan, "Workspace guardrails" rule 5; CONTRIBUTING.md "Toolchain notes").
 # Bumping the version is its own commit: run the gates on the new toolchain first.
 [toolchain]
-channel = "1.98.0"
+channel = "1.98.1"
 components = ["clippy", "rustfmt"]
 targets = ["wasm32-unknown-unknown"]
