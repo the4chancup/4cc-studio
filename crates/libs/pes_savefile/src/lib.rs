@@ -12,7 +12,13 @@
 pub mod codec;
 /// Bytes ↔ decrypted sections: the PES 16-21 keyed container and the PES 15 LCG one.
 pub mod container;
+/// Savefile discovery under the user's Documents folder.
+pub mod discovery;
+/// The whole-file API: `EditFile` composes container and codec.
+pub mod file;
 /// What consumers edit: version-independent player/team/tactics entries, no I/O.
 pub mod model;
 /// Per-version field tables and section layouts, data only, no logic.
 pub mod schema;
+
+pub use file::{EditFile, SaveError};

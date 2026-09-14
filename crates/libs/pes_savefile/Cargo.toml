@@ -13,6 +13,9 @@ pes_version.workspace = true
 sha2.workspace = true
 thiserror.workspace = true
 
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+directories.workspace = true
+
 [dev-dependencies]
 flate2.workspace = true
 
