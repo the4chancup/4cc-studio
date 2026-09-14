@@ -1285,3 +1285,17 @@ native wrappers are what keeps the crate wasm32-checkable (guardrail 6) and the 
 real Documents folder.
 Plan: `pes_savefile.md` "Whole-file API" (API block, measured code rule), "Player settings model"
 paragraph, "Savefile discovery" (API block).
+
+## 2026-09-15 - development plan - Phase 3 opens with a tracer bullet
+Decision (user): Phase 3's first code step compiles one minimal Studio-format export (one Fox
+face, one kit) to a CPK through the real Phase 2 crates and compares it with Red's output for the
+same source, before the tool skeleton (`settings.rs`, `cli.rs`, `messages.rs`, `view/`,
+`aesthetics_export`, `pipeline`) is built. The fixture is an old-layout export migrated by hand,
+reused later as the Export upgrader's input/expected pair.
+Why: the phase plan was horizontal (all libs, then the skeleton, then processing, then output
+comparison in Phase 4), so fifteen lib crates' `pub` APIs would meet their first consumer only
+after the skeleton was already built on them; a shape wrong across crates would then be fixed
+through the tool rather than in the crate. A thin end-to-end slice first tests the composition
+while a fix is local, and seeds the parity harness instead of deferring it. Prompted by the
+"vertical slices, not horizontal plans" argument in humanlayer's "Why Software Factories Fail".
+Plan: `core.md#Phase 3: Team compiler skeleton` edited (first bullet, Verification).
