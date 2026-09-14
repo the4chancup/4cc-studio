@@ -1230,3 +1230,22 @@ not the file declared the extension. Blender's Select More works on vertices, an
 formats store loops, so a UV seam at the wrist would otherwise stop the growth. The audience pair's
 SKL and FMDL parents agree on all 16 bones (measured), so the FMDL parent stays the IR's.
 Plan: `model_conversion.md` "Extension algorithms" (owner recovery), "Hand auto-split" step 2.
+
+## 2026-09-14 - pes_savefile - one `SaveContainer` struct, salt as a parameter, partial real-file fixtures
+Decision: the container layer is one `SaveContainer` struct with a `Scheme` enum (`Pes15` |
+`Keyed(MasterKey)`), not the plan's "Container trait"; `to_bytes` takes the 320-byte salt as a
+parameter and `file.rs` derives one with `sha2` from the payload and the clock (no RNG crate).
+Fixtures are per-version slices of real saves (the prefix through the description, the first 4096
+encrypted payload bytes) plus the whole decrypted payload zlib-compressed and inflated by tests
+with `flate2` as a dev-dependency; no whole save is committed. The PES 16 myClub key joins
+detection and reports `Pes16`; PES 20 (no save on the machine) is transcribed and marked untested.
+Why: a trait with two implementors selected once at load is an enum with extra ceremony
+(`CONTRIBUTING.md`, "enum + match"). The salt has no security role and a parameter is what makes
+`decrypt(to_bytes(c, salt)) == c` and the byte-identity tests deterministic; `getrandom` would be a
+new dependency for 320 bytes nobody checks. A save is 5-11 MB and incompressible encrypted, and its
+serial section is the writing account's Windows SID, so committing whole saves would cost ~40 MB and
+leak an identifier; the slices prove every layer of the container on real bytes and the inflated
+payload is the complete real input every higher layer needs.
+Plan: `pes_savefile.md` "Container format and crypto" (header layout as measured, "Container API",
+"Container fixtures"); "Savefile discovery" table corrected from the same machine (PES 18 uses the
+flat layout; 18/19 folder names verified).

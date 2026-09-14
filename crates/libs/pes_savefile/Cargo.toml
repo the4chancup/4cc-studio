@@ -1,0 +1,20 @@
+[package]
+name = "pes_savefile"
+description = "The PES EDIT savefile: container crypto for PES 2015-2021, the schema-driven player/team codec, and the operations over them"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+md-5.workspace = true
+pes_version.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+flate2.workspace = true
+
+[lints]
+workspace = true

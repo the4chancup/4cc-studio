@@ -37,12 +37,12 @@ crates/libs/pes_savefile/src/
 ├── lib.rs              # re-exports (PesVersion comes from the `pes_version` leaf crate, see libs.md)
 ├── file.rs             # EditFile: load (auto-detect) / save (.bak), retained unmodeled bytes
 ├── discovery.rs        # Documents\KONAMI layout per version → SavefileCandidate list
-├── container/          # bytes ↔ decrypted payload
-│   ├── mod.rs          #   Container trait, version auto-detection by key/shape trial
-│   ├── pes16_21.rs     #   the shared 16–21 container (header, MT19937 stream, integrity)
+├── container/          # bytes ↔ decrypted sections ("Container API" below)
+│   ├── mod.rs          #   SaveContainer, Scheme, ContainerError; decrypt (key/shape trial), to_bytes
+│   ├── pes16_21.rs     #   the shared 16–21 container (salt, header, MT19937 stream, integrity)
 │   ├── pes15.rs        #   the PES 15 LCG/MD5 chunk container
 │   ├── mt19937.rs      #   keystream generator (known-answer tested)
-│   └── keys.rs         #   the seven master keys, transcribed from masterkey.c
+│   └── keys.rs         #   MasterKey: the seven master keys, transcribed from masterkey.c
 ├── schema/             # per-version field tables — data only, no logic
 │   ├── mod.rs          #   FieldSpec, VersionSchema, SectionLayout; schema_for(version)
 │   ├── fields.rs       #   PlayerField / TeamField / TacticsField enums (the version-neutral vocabulary)
@@ -85,8 +85,10 @@ Placement rules:
   version; fields a version lacks are `Option`/defaulted and the schema decides what is written.
 - **`ops/` and `interchange/` consume `model/` only.** They never touch bytes; if one needs a
   version-specific fact, that fact is a schema query, not a match on `PesVersion`.
-- **Reference constants keep their provenance in a doc comment** (which C++ file and function each
-  table was transcribed from), so a mismatch found by a roundtrip test can be traced in one hop.
+- **Reference constants keep their provenance in a doc comment**: each table module says which
+  reference read walk it was derived from (by version and record kind, not by tool name:
+  `CONTRIBUTING.md` keeps legacy tool names out of code), and "Schema-driven save codec" below
+  holds the derivation method, so a mismatch found by a roundtrip test can be traced in one hop.
 - Lib dependencies are `fpc` (the FPC system's data) and nothing format-specific; no Blender, egui,
   or tool dependency: this crate is consumed by the Team compiler, the Save
   editor, the Export upgrader, and the Player aesthetics editor, and must stay `wasm32`-checkable
@@ -125,13 +127,26 @@ then          description ┐
   `c2=rol(c3,7)`, `c3=ror(c4,13)`. Data is XORed with the keystream.
 - **Section keys**: `fileKey ^ (n as u64 LE)` where `n` = the header's byte length
   (176/208) for the header, then `0` description, `1` logo, `2` payload, `3` serial.
-- **Header layout**: bytes 0–64 = the effective master key (this is the integrity
-  check: wrong key or corrupt file fails the compare); bytes 64–80 = `payloadSize,
-  logoSize, descriptionSize, serialSize` (4×u32; serial is stored halved — actual
-  byte count is `serialSize * 2`); rest = identifier (on 18–21 this includes the
-  game version string — 4ccEditor's `FileDescriptorNew` vs `FileDescriptorOld`).
-- **Writing**: generate 320 fresh random salt bytes, derive the key from them,
-  re-encrypt all sections. There are no checksums to fix up.
+- **Header layout** (measured on real 16/17/18/19/21 saves, 2026-09-14): bytes 0–64 = the
+  effective master key (this is the integrity check: wrong key or corrupt file fails the
+  compare); bytes 64–80 = `payloadSize, logoSize, descriptionSize, serialSize` (4×u32; the
+  serial is UTF-16LE text and its length is stored in UTF-16 units, so its byte count is
+  `serialSize * 2`); bytes 80–144 = a 64-byte block of unknown meaning (`hash` in the
+  reference struct; not a hash of anything we could identify, retained verbatim); bytes
+  144–176 = the type string `EDIT`, NUL-padded to 32; on 18–21 bytes 176–208 = the game
+  version string, NUL-padded to 32 (`PRO EVOLUTION SOCCER 2018`, `PRO EVOLUTION SOCCER 2019`,
+  `eFootball PES 2021 SEASON UPDATE`). The crate keeps bytes 80 to the end as one opaque
+  `identifier` and writes it back unchanged.
+- **Section contents**: the description is 384 bytes on every version, `Edit Data` then zeros;
+  the logo is a PNG; the serial is the Windows account SID of the machine that wrote the save
+  (`S-1-5-21-…`, 45–46 UTF-16 units), which is why it is *not* committed as a fixture.
+- **Writing**: generate 320 fresh salt bytes, derive the key from them, re-encrypt all
+  sections. There are no checksums to fix up. The salt's randomness has no security role (the
+  master keys are public); the container API takes it as a parameter so the round-trip tests are
+  deterministic, and `file.rs` supplies one derived with `sha2` from the payload and the clock
+  (no RNG crate; `std::time` is native-only, which is where saving to a path lives anyway).
+- **Strictness**: the four declared sizes must consume the file exactly (every real save does);
+  a short file, a size past the end or trailing bytes is a `ContainerError`, never a guess.
 - This description is cross-verified against `crypt.c` (the source of the DLLs every tool
   loads): `cryptHeader`/`reverseLongs`/`xorRepeatingBlocks`/`cryptStream`/`xorWithLongParam`
   correspond function-for-function to the Python reference, so the Python scripts are faithful
@@ -175,6 +190,87 @@ including the `init_by_array` seeding. It is ~60 lines of Rust; port it directly
 from the Midcupping scripts rather than trusting an external crate's seeding
 behavior, and verify with known-answer tests against the Python output.
 
+### Container API
+
+One struct for every version, not a trait with two implementors: `file.rs` composes it with the
+codec the same way whichever scheme held the bytes, and the two schemes differ only in how
+`decrypt`/`to_bytes` get from bytes to sections.
+
+```rust
+/// Which encryption scheme a save uses and, for the keyed one, which master key opened it.
+pub enum Scheme {
+    /// PES 15: keyless LCG stream, three MD5 digests.
+    Pes15,
+    /// PES 16-21: MT19937 stream under one of the seven master keys.
+    Keyed(MasterKey),
+}
+
+/// The seven master keys, `masterkey.c`'s names; `Pes16MyClub` reports `PesVersion::Pes16`.
+pub enum MasterKey { Pes16, Pes16MyClub, Pes17, Pes18, Pes19, Pes20, Pes21 }
+
+impl MasterKey {
+    pub fn version(self) -> PesVersion;
+    pub fn header_size(self) -> usize;   // 176 on 16/17, 208 on 18-21
+}
+
+/// A save's decrypted sections plus everything needed to write it back.
+pub struct SaveContainer {
+    pub scheme: Scheme,
+    /// 384 bytes, `Edit Data` then zeros.
+    pub description: Vec<u8>,
+    /// A PNG.
+    pub logo: Vec<u8>,
+    /// The EDIT data the codec parses.
+    pub payload: Vec<u8>,
+    /// Header bytes 80.. on 16-21 (96 or 128 bytes), retained verbatim; empty on PES 15.
+    pub identifier: Vec<u8>,
+    /// UTF-16LE text on 16-21 (even length); empty on PES 15.
+    pub serial: Vec<u8>,
+}
+
+impl SaveContainer {
+    pub fn version(&self) -> PesVersion;
+    /// Tries the seven keys (header decrypt + 64-byte compare, cheap), then PES 15's shape
+    /// (full LCG decrypt + three MD5s).
+    pub fn decrypt(bytes: &[u8]) -> Result<SaveContainer, ContainerError>;
+    /// PES 15 uses `salt[0]` as its seed byte; 16-21 use all 320 bytes. Errors only on a
+    /// container that cannot be written: an odd `serial` length (`OddSerial`) or an
+    /// `identifier` that is not `header_size - 80` bytes (`BadIdentifier`).
+    pub fn to_bytes(&self, salt: &[u8; 320]) -> Result<Vec<u8>, ContainerError>;
+}
+```
+
+`ContainerError` is `Unrecognized` (no key's 64-byte compare held and the PES 15 description
+digest did not match; also any input too short for either check: 384 bytes keyed, 433 PES 15),
+`Truncated { needed, available }` (a scheme identified itself but its declared sizes run past
+the input), `TrailingBytes(n)`, `OddSerial(n)`, `BadIdentifier { expected, got }`.
+
+`decrypt(to_bytes(c, salt)) == c` for any salt, and `to_bytes` with a real save's own salt
+reproduces that save's bytes exactly (the fixtures below carry enough of a real file to prove it
+without committing the whole save).
+
+### Container fixtures
+
+A save is 5–11 MB and incompressible once encrypted, and its serial is the writer's account SID,
+so no whole save is committed. Per version (15, 16, 17, 18, 19, 21; there is no PES 20 save on
+the reference machine, so its key and header size are transcribed and untested), extracted by a
+lead script from the real saves named in `tests/fixtures/README.md`:
+
+- `pesNN_head.bin`: the file prefix through the description: salt + header + encrypted
+  description on 16–21 (880 or 912 bytes); seed + three digests + description + logo length on
+  15 (437 bytes). Proves the key, the salt derivation, the header layout, and the description.
+- `pesNN_payload_enc_head.bin`: the first 4096 encrypted payload bytes. A stream cipher (and the
+  per-section LCG) decrypts a prefix on its own, so this proves the payload section key.
+- `pesNN_payload.bin.zz`: the whole decrypted payload, zlib level 9 (120–200 KB each; the
+  payloads are mostly padding). Tests inflate it with `flate2` (a dev-dependency). It is the real,
+  complete payload every codec, `EditFile`, ops and interchange test runs on; on PES 15 its MD5
+  must equal the head's third digest, which ties the fixture to the file it came from.
+
+Byte identity: `to_bytes` with the real salt, the real description, the real identifier, a
+zero logo and a zero serial of the real lengths, and the real payload must reproduce `head.bin`
+exactly and the payload section's first 4096 bytes exactly (the logo and serial ciphertexts
+depend only on their own plaintext, so dummies there change nothing else).
+
 ---
 
 ## Payload layout per version
@@ -194,7 +290,10 @@ Section offsets inside the decrypted payload, transcribed from 4ccEditor's
 | PES 21 | 0x60 | 0x7C, 312 B unified | ID +240, boots/gloves +244 | 0x8ED2FC | 0x9D4648 | 0xA09880 |
 
 Notes: on 15/16 the player-entry count is read at 0x34 (4ccEditor) and the
-equal appearance-entry count at 0x36 (the Midcupping scripts). PES 18 shares
+appearance-entry count at 0x36 (the Midcupping scripts); the two are equal on the PES 16 save
+but differ on the PES 15 one (5060 at 0x34, 5061 at 0x36, while the player and appearance ID
+sets are equal at 5060), so the schema step must settle which count governs each array on 15
+before trusting either. PES 18 shares
 the 17/19 block layout (`pes18.cpp` walks the same 188 bytes); PES 20 shares
 `pes20.cpp`'s 312-byte player walk with 21 but has its own roster/tactics
 offsets — the two versions' section offsets match only for team IDs.
@@ -238,31 +337,104 @@ players.loftpass = read_data(7, 7, current_byte, pDescriptorNew);
 players.finish   = read_data(6, 7, current_byte, pDescriptorNew);
 ```
 
-In Rust this becomes a declarative schema — one field table per version, one generic codec engine:
+In Rust this becomes a declarative schema — one field table per version, one generic codec engine.
+Every bit run is LSB-first little-endian: field bit `i` is bit `(offset + i) % 8` of record byte
+`(offset + i) / 8`, which is what the reference's byte-crossing reader computes and what the
+hand-shifted PES 18 walk computes too.
 
 ```rust
-pub struct FieldSpec {
-    pub field: PlayerField,
-    pub bit_offset: u32,   // absolute bit position in the player block
+/// One bit run of a record.
+pub struct FieldSpec<F> {
+    pub field: F,
+    /// Bit position from the record's first byte.
+    pub bit_offset: u32,
     pub bit_width: u32,
+}
+
+/// A regular run of indexed fields (`play_skill[0..41]`, roster slots, formation players):
+/// element `i` is `make(i)` at `base_bit + i * stride_bits`.
+pub struct ArraySpec<F> {
+    pub make: fn(u8) -> F,
+    pub count: u8,
+    pub base_bit: u32,
+    pub stride_bits: u32,
+    pub bit_width: u32,
+}
+
+/// A NUL-terminated byte string field.
+pub struct TextSpec<T> {
+    pub text: T,
+    pub byte_offset: u32,
+    pub len: u32,
+}
+
+/// One record kind's layout for one version.
+pub struct RecordSchema<F, T> {
+    pub size: usize,
+    pub fields: &'static [FieldSpec<F>],
+    pub arrays: &'static [ArraySpec<F>],
+    pub texts: &'static [TextSpec<T>],
+}
+
+/// Where a section of records sits in the payload.
+pub struct SectionLayout {
+    pub offset: usize,
+    /// Byte offset of the little-endian u16 record count.
+    pub count_offset: usize,
 }
 
 pub struct VersionSchema {
     pub version: PesVersion,
-    pub player_block_size: usize,
-    pub fields: &'static [FieldSpec],
+    pub players: SectionLayout,
+    pub player: RecordSchema<PlayerField, PlayerText>,
+    /// PES 15/16: the separate appearance array (keyed by player id at +0); `None` when the
+    /// appearance fields are inside the player record.
+    pub appearance: Option<(SectionLayout, RecordSchema<PlayerField, PlayerText>)>,
+    pub teams: SectionLayout,
+    pub team: RecordSchema<TeamField, TeamText>,
+    pub rosters: SectionLayout,
+    pub roster: RecordSchema<RosterField, TeamText>,
+    pub tactics: SectionLayout,
+    pub tactic: RecordSchema<TacticsField, TeamText>,
 }
 
-pub fn read_player(data: &[u8], schema: &VersionSchema) -> PlayerEntry;
-pub fn write_player(player: &PlayerEntry, data: &mut [u8], schema: &VersionSchema);
+pub fn schema_for(version: PesVersion) -> &'static VersionSchema;
 ```
 
-~190KB of C++ collapses into static tables plus a ~100-line engine (the Rust
-equivalent of `data_util.cpp`'s `read_data`/`write_data`/`read_data_raw`, which
-handle bit runs crossing byte boundaries). This is also the most LLM-friendly
-porting task in the suite: the LLM transcribes the C++ read sequences into table
-entries, and roundtrip tests (read → write → compare bytes) verify correctness
-mechanically.
+`F` and `T` are the field vocabularies in `schema/fields.rs`: `PlayerField` (scalar variants
+plus `PlayablePosition(u8)`, `ComStyle(u8)`, `Skill(u8)`), `PlayerText` (`Name`, `ShirtName`),
+`TeamField` (identity, colours, edit flags, `KitSlotNumber(u8)`/`KitSlotTeam(u8)`), `TeamText`
+(`Name`, `ShortName`), `RosterField` (`TeamId`, `Player(u8)`, `Number(u8)`), `TacticsField`
+(`TeamId`, `Formation { preset, formation, slot, part }`, the per-preset booleans and sliders
+`{ preset, .. }`, `Instruction { preset, side, index, part }`, `Starting(u8)`, `Bench(u8)`, set-piece
+takers, captain, the auto flags). Variant names are the readable model names (`TightPossession`,
+not `tight_pos`); the table module's doc comment says which reference walk it was derived from,
+and this section is the evidence trail.
+
+**Derivation, not transcription.** The tables are not typed in by hand: a lead script interprets
+each reference read walk (`fill_player_entry17`, `fill_team_ids21`, …) over a symbolic byte
+array, so `read_data(start, bits, …)`, `data[current_byte] >> 4`, `+= (data[current_byte] << 1)
+& 127` and the string copies all resolve to which record bits feed which field bits, then checks
+every field is one contiguous LSB-first run and emits the Rust tables. The derived tables were
+checked against the real payloads (2026-09-14): every player of every save decodes to plausible
+values (ages 15–50, abilities 40–99, positions 0–12, valid UTF-8 names), the PES 15/16 appearance
+arrays resolve every player id, and the team id at +0 of the team, roster and tactics records
+lists the same ids in the same order on every version (which pins all three record sizes).
+Record sizes: player 112/112/188/188/188/312/312; appearance 68/72 (15/16); team
+456/456/480/480/416/528/588; roster 164 (32 slots) on 15–18, 244 (40 slots) on 19, 284 (40) on
+20/21; tactics 516/520/628/628/628/628/628, versions 15 to 21 in order. Counts: players u16 at
+0x34/0x34/0x5C/0x60/0x60/0x60/0x60, teams at 0x38/0x38/0x60/0x64/0x64/0x64/0x64.
+
+Reference readings the derivation flagged, kept as the reference has them and listed here so
+nobody mistakes them for ours: `b_edit_stadium` on PES 19 is masked to zero by the reference
+(`>> 6 & 64`), so the PES 19 table has no such field; the PES 21 team-colour bit positions read
+zero for 203 of 220 teams in the 4cc save where PES 17/18 read the same teams' colours, an open
+question (worklog) until the reference editor's display of that save is checked.
+
+~190KB of C++ collapses into static tables plus a ~100-line engine (the Rust equivalent of the
+reference's `read_data`/`write_data`, which handle bit runs crossing byte boundaries). Roundtrip
+tests (read → write → compare bytes, every record of every real payload) verify the tables tile
+the bytes they claim; the plausibility census above is what verifies they name them right.
 
 Schema tables needed (following 4ccEditor's actual sharing):
 
@@ -297,14 +469,14 @@ The savefile does **not** live in the PES install folder — it is always under 
 (`discover_savefiles(version) -> Vec<SavefileCandidate>`) and used by the Team compiler's savefile
 stage (`savefile_path = auto`) and the Save editor's Open dialog (initial folder / quick-open list).
 
-Two layouts exist, verified on a live machine (PES 16, 17, 21 present; 15 confirmed to match 16,
-18/19 reported to match 21 — fill the two game-folder names when a real install is available and
-mark them verified):
+Two layouts exist, verified on a live machine with PES 15, 16, 17, 18, 19 and 21 saves present
+(2026-09-14; PES 20 is assumed to match 19 and 21, its neighbours on both sides, until a real
+install is seen):
 
 | Versions | Path under `{Documents}\KONAMI\` | Notes |
 |---|---|---|
-| 15, 16, 17 | `Pro Evolution Soccer 20XX\save\EDIT00000000` | one save per game, no account level |
-| 18, 19, 21 | `{game folder}\{account id}\save\EDIT00000000` | game folder: `eFootball PES 2021 SEASON UPDATE` (21); 18/19 names to verify (`PRO EVOLUTION SOCCER 2018` / `PRO EVOLUTION SOCCER 2019` expected, per the fixture notes under Verification). `{account id}` is an 18-digit numeric folder, one per account that has run the game on this profile |
+| 15, 16, 17, 18 | `{game folder}\save\EDIT00000000` | one save per game, no account level. Game folders: `Pro Evolution Soccer 2015` (its save is named `EDIT.bin`, not `EDIT00000000`), `Pro Evolution Soccer 2016`, `Pro Evolution Soccer 2017`, `PRO EVOLUTION SOCCER 2018` (upper case; PES 18 was expected to use the account layout and does not) |
+| 19, 20, 21 | `{game folder}\{account id}\save\EDIT00000000` | game folders: `PRO EVOLUTION SOCCER 2019`, `eFootball PES 2021 SEASON UPDATE` (21); 20 unverified. `{account id}` is an 18-digit numeric folder, one per account that has run the game on this profile |
 
 Rules:
 

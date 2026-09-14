@@ -12,7 +12,7 @@ is in `AGENTS.md` ("Working documents").
 **Phase:** 2 (Library crates). Done: 2.1 `wezlib`, 2.2 `cpk`, 2.3 `fpk`, 2.4 `ftex`, 2.5 `dds_convert` (CPU),
 2.6 `fmdl` (format, model, ops, check), 2.7 `pes_model` (format, mtl, model, ops, check), 2.8 `uniparam`, 2.9 `fox2`, 2.10 `archives`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`, 2.14 `color_tools`, 2.15 `elevation`. Review
 rounds A and B (2026-09-13) closed: 2.5c, 2.12b, 2.13b done.
-**In progress:** 2.16 `model_convert` done (a–i); next 2.17 `pes_savefile`, then `python_bindings`
+**In progress:** 2.17 `pes_savefile` (a done; b next), then 2.18 `python_bindings`
 **Blocked on:** nothing
 
 ---
@@ -342,8 +342,27 @@ Spec: `docs/plans/core.md` "Phase 2", `docs/plans/libs.md`, `model_conversion.md
   hand split selects over topological vertices, with a seam test that discriminates), one
   rejected (the `Metal` environment fallback is the compiler's texture step; worklog issue 5).
   10 tests; crate 93; workspace 422
-- [ ] 2.17 `pes_savefile` — crypto, schema codec, model, `EditFile`, `PlayerSettings`, conversion,
-  interchange formats, transplant/fingerprint, comparator, FPC invisibility
+- [x] 2.17a `pes_savefile::container` — done (lead: container census over nine real saves of
+  15/16/17/18/19/21, per-version slice fixtures plus zlib payloads, plan corrections; sidekick
+  code): `SaveContainer`/`Scheme`/`MasterKey`, MT19937 with the published known answers, the
+  keyed and PES 15 schemes; every head fixture opens with exactly its own key, `to_bytes`
+  reproduces the real prefixes byte for byte, round trips under all seven keys. PES 20 has no
+  save on the machine: key and header size untested. 14 tests
+- [ ] 2.17b `pes_savefile::schema` + `codec` + `model::player` — the lead-derived field tables
+  (`.tmp/schema_derive.py` over the reference read walks, checked against every real payload)
+  as `schema/pesNN.rs`, the bit engine, `read_player`/`write_player`, `PlayerEntry` →
+  verify: read → write of every player record of every payload fixture is byte-identical; the
+  plausibility literals from the census hold (ages 15–50, abilities 40–99, 70101's names)
+- [ ] 2.17c `pes_savefile::model::{team,tactics}` + team/roster/tactics codec → verify: same
+  round trip over the three team sections of every payload; the three sections' team id lists
+  agree
+- [ ] 2.17d `file.rs` `EditFile` + `model::names` (`display_name`) + `discovery.rs` → verify:
+  load(to_bytes) of every payload fixture is lossless; the ~30 decorated names of the 19/21
+  saves strip to the expected text
+- [ ] 2.17e `settings_toml.rs` `PlayerSettings` + `ops::fpc` (completeness test per the plan)
+- [ ] 2.17f `convert.rs` cross-version conversion (caps table, playstyle maps)
+- [ ] 2.17g `ops/{transplant,fingerprint,compare}` (parity with the reference scripts)
+- [ ] 2.17h `interchange/{team_toml,legacy,texport}` (texport write is a manual game check)
 - [ ] 2.18 `python_bindings` (maturin build + Python smoke test; add the `just bindings` recipe
   and the CI job deferred from step 1.2)
 - [ ] 2.19 Phase verification: every crate's tests per `libs.md` "Testing" green; `wasm32` check
@@ -389,6 +408,14 @@ pruned when their phase closes; they stay in git history.
   FMDLs carry a 64-byte-per-bone `bone_matrices` block the IR does not; the add-on writes it
   empty and its files work in game, so the export drops it with a finding; what the block holds
   and whether it is derivable from `Bone.matrix` is unmeasured.
+- open — `pes_savefile` needs a PES 2020 save: none exists on the reference machine, so the PES
+  20 master key, header size, payload offsets and schema tables are transcribed and untested
+  (every other version is checked on a real save). Ask around the community for one.
+- open — `pes_savefile` PES 21 team colours: the reference editor's PES 21 team-record colour
+  bits read zero for 203 of 220 teams of the 4cc save whose PES 17/18 records carry colours
+  (`/3/` is (63,42,16) on 17, all zero on 21). Either the save really has no colours (kit config
+  supplies them on 19+) or the reference's 21 offsets are wrong; check what 4ccEditor displays
+  for that save before the Save editor shows team colours on 21.
 
 ---
 
@@ -461,3 +488,8 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   5.2.1 reference fixture), 2.16h routing with the legacy 19to16 reference, 2.16i cross-family
   review (six of seven concerns fixed). 93 crate tests, 422 workspace-wide, wasm32 gate on 19
   crates. Converge questions in "Issues". Next: 2.17 `pes_savefile`.
+- **2026-09-14** - 2.17a `pes_savefile::container` done: nine real saves decrypted in the census
+  (15/16/17/18/19/21; no 20), slice fixtures plus zlib payloads committed, discovery table
+  corrected (PES 18 is flat). Field tables for 2.17b derived by symbolic interpretation of the
+  reference read walks and checked against every payload (`.tmp/schema_derive.py`,
+  `.tmp/schema.json`; method in the plan). Next: 2.17b schema + codec + `PlayerEntry`.
