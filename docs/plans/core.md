@@ -1751,10 +1751,24 @@ projection, and roster-entry scope/disposition semantics (details in the Team co
 - Implement the pipeline orchestration (reader, coordinator, writer) with `rayon` (shared scaffolding in
   `libs/pipeline`)
 - Implement CLI execution with console output (`studio team-compiler compile ...`)
+- **Shell slice, last.** The thinnest GUI path that runs: `studio_core`'s app shell reduced to a
+  window, the sidebar listing the registered tools, and the selected tool's `view()`; the
+  `studio` binary launching it with `team_compiler` registered; and the Team compiler's `view/`
+  reduced to its settings section, a run button and a plain log of the `PipelineEvent`s the
+  Phase 3 pipeline emits (no progress grid, no live validation). Everything else in the
+  "Phase 8" list (common widgets, help window, status bar, watcher, cancellation, the other
+  tools' views) stays in Phase 8, which completes this shell rather than starting it. We do this
+  here, not in Phase 8, because the `StudioTool` trait, the event channels and the render-only
+  `view/` rule are otherwise designed against zero real tools until five tool crates have been
+  written to them; one real tool on the shell early is what shows whether the seam holds, and
+  it is what Phase 10 needs to run in parallel ("once the shell exists"). Its proof is manual
+  and recorded (`CONTRIBUTING.md` "Testing"): the one-face fixture compiled from the GUI with
+  the events visible.
 
 **Verification:** The tracer bullet's parity case on its one-face fixture; structure parser and
 format-level validation tests on Studio-format fixtures; pipeline scaffolding
-(reader/coordinator/writer) smoke tests. Full packed-output comparison belongs to Phase 4.
+(reader/coordinator/writer) smoke tests; the shell slice's recorded manual check. Full
+packed-output comparison belongs to Phase 4.
 
 ### Phase 4: Processing logic
 
@@ -1849,7 +1863,10 @@ compare game-facing output against Red's output for the same exports.
 
 ### Phase 8: GUI
 
-- Build the `studio_core` app shell (sidebar, tool registry rendering, settings menu with per-tool
+The shell slice from Phase 3 (window, sidebar, one tool's view, a plain event log) exists by now;
+this phase completes it.
+
+- Complete the `studio_core` app shell (sidebar, tool registry rendering, settings menu with per-tool
   collapsible sections, status bar with its three slots and static empty state, window title
   from activities and the held notice, help window with chapter tree, generated Messages topics,
   search, log-panel message links, and `studio help`)
