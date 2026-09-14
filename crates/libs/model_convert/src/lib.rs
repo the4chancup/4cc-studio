@@ -5,6 +5,7 @@
 
 /// The 3x4 row-major affine transform bone transforms are stored in.
 pub mod affine;
+mod convert;
 /// The native-format importers and exporters over the IR.
 pub mod formats;
 /// The canonical model: the superset both format importers fill and both exporters read.
@@ -17,3 +18,7 @@ pub mod materials;
 pub mod ops;
 /// The per-version player skeletons and their retargeting tables.
 pub mod skeletons;
+
+pub use convert::{Converted, NativeModelBundle, convert, needs_conversion};
+pub use formats::{ConvertError, Imported, fmdl::ExportedFox, pes_model::ExportedPreFox};
+pub use loss::{Finding, Subject};

@@ -26,6 +26,8 @@
 //!   `detail` is `"<bone> -> <target>"`.
 //! - `skeleton_retargeted` (Model): bones re-bound to the target version's rest pose;
 //!   `detail` is how many bones moved.
+//! - `static_bone_added` (Mesh): an unskinned mesh was weighted to the `static` bone an
+//!   FMDL needs (FMDL binds every vertex).
 
 /// What a finding is about.
 #[derive(Debug, Clone, PartialEq, Eq)]

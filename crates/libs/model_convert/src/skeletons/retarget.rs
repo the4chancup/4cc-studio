@@ -15,6 +15,18 @@ use super::{fold_target, is_standard, render_parent, skeletons, version_bone};
 /// The moved threshold on a delta matrix's components (the plan's 1e-3).
 const MOVED_TOLERANCE: f32 = 1e-3;
 
+/// `target · source⁻¹`, `None` when `source` is singular.
+pub(crate) fn bone_delta(source: &Affine, target: &Affine) -> Option<Affine> {
+    source.inverse().map(|inverse| target.multiply(&inverse))
+}
+
+/// Whether the re-bind delta `target · source⁻¹` differs from the identity by more than
+/// the moved tolerance (`None` on a singular source — an uncomparable pose).
+pub(crate) fn bone_moved(source: &Affine, target: &Affine) -> Option<bool> {
+    bone_delta(source, target)
+        .map(|delta| delta.max_component_delta(&Affine::IDENTITY) > MOVED_TOLERANCE)
+}
+
 /// The Euclidean distance between two translations.
 fn distance(a: [f32; 3], b: [f32; 3]) -> f32 {
     ((a[0] - b[0]).powi(2) + (a[1] - b[1]).powi(2) + (a[2] - b[2]).powi(2)).sqrt()
@@ -132,11 +144,8 @@ pub fn retarget(ir: &mut CanonicalModel, target: PesVersion) -> Result<Vec<Findi
             continue;
         };
         let source = bone.matrix;
-        let delta = table_bone.matrix.multiply(
-            &source
-                .inverse()
-                .ok_or(ConvertError::SingularBoneMatrix(index))?,
-        );
+        let delta = bone_delta(&source, &table_bone.matrix)
+            .ok_or(ConvertError::SingularBoneMatrix(index))?;
         if delta.max_component_delta(&Affine::IDENTITY) > MOVED_TOLERANCE {
             deltas[index] = Some(delta);
             moved += 1;
