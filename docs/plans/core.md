@@ -1726,6 +1726,21 @@ against Midcupping; `python_bindings` import + round-trip from Python.
 **Entry gates:** confirm normal-team/referee `ExportIdentity`, sanitized validated-versus-eligible
 projection, and roster-entry scope/disposition semantics (details in the Team compiler plan).
 
+- **Tracer bullet first.** Before the skeleton, the smallest real export compiled end to end:
+  one Studio-format export with one player folder (a Fox face) and one kit, read from disk and
+  written as a CPK through the Phase 2 crates (`fmdl`, `ftex`, `fpk`, `cpk`, `kit_config`), with
+  a test comparing the result against Red's output for the same source export by the parity
+  tiers that apply to it (tier 1 for textures, tier 2 for the FMDL through `fmdl`'s decoded
+  model, tier 3 for the containers; "Testing: parity against Red" in the Team compiler plan).
+  The fixture is a small old-layout export migrated to the Studio layout by hand, since the
+  Export upgrader (Phase 6) does not exist yet; that same pair later becomes the upgrader's own
+  input/expected fixture. The tracer's scaffolding (a hardcoded walk of the one folder) is
+  replaced by `aesthetics_export` and the pipeline in the steps below; its test stays as the
+  first `tests/parity` case and grows with Phase 4. We do this first, not as Phase 4's
+  verification, because the Phase 2 crates' `pub` APIs have had no consumer until now: a shape
+  wrong across several crates (bulk-data ownership, finding codes, how a face's FPK is
+  assembled) found here is a one-crate fix, found after the skeleton is built on it is shotgun
+  surgery through the tool.
 - Define the tool's settings struct and CLI subcommands (via the `StudioTool` trait)
 - Build `libs/aesthetics_export`: the source-neutral object model for the Studio export format (canonical
   `vtree::ScopePath` listing → `ParsedAestheticsExport` → sanitized `ValidatedAestheticsExport` →
@@ -1737,9 +1752,9 @@ projection, and roster-entry scope/disposition semantics (details in the Team co
   `libs/pipeline`)
 - Implement CLI execution with console output (`studio team-compiler compile ...`)
 
-**Verification:** Structure parser and format-level validation tests on Studio-format fixtures;
-pipeline scaffolding (reader/coordinator/writer) smoke tests. Packed-output comparison belongs to
-Phase 4.
+**Verification:** The tracer bullet's parity case on its one-face fixture; structure parser and
+format-level validation tests on Studio-format fixtures; pipeline scaffolding
+(reader/coordinator/writer) smoke tests. Full packed-output comparison belongs to Phase 4.
 
 ### Phase 4: Processing logic
 

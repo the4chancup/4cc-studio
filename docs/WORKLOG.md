@@ -399,16 +399,15 @@ Steps are itemized when Phase 2 closes; the first is fixed:
   and unproven IDs are the normal state of an open phase; **strict** — run at converge for the
   closing phase's IDs; unproven or `manual` scenarios without a recorded check fail it. Python or a
   tiny Rust bin — decide when written (needs a decision entry either way, since it adds a gate)
-- [!] 3.x **Open question for the user, before Phase 3 is itemized:** should the first code
-  step be a tracer bullet (the smallest real export, one face and one kit, compiled to a CPK
-  through the real Phase 2 crates and diffed against the Red parity golden) *before* the tool
-  skeleton (`settings.rs`, `cli.rs`, `messages.rs`, `view/`)? The plan puts the end-to-end
-  parity gate at the end of Phase 4; the Phase 2 crates' `pub` APIs have no consumer until then,
-  so a shape wrong across several crates surfaces at the most expensive point. A thin slice
-  first tests the composition (`cpk` + `fpk` + `ftex` + `fmdl`, `Arc<[u8]>` conventions,
-  finding codes) while a fix is a one-crate change. Same question, lower stakes, for whether a
-  minimal `studio` shell should come before Phase 8 (views are render-only, so the coupling
-  risk is smaller). Both reorder plan steps, so they are the user's call, not a decision entry.
+- [ ] 3.3 Tracer bullet (`core.md` "Phase 3", first bullet; decided 2026-09-15): fixture pair
+  (one old-layout face export, its hand-migrated Studio-layout twin, the hash manifest of Red's
+  output for it); the thin compile path through `fmdl`/`ftex`/`fpk`/`cpk`/`kit_config`; the
+  first `tests/parity` case. Lead writes the fixtures and the manifest (correctness-critical);
+  the compile path and comparison are briefed. → verify: `cargo test -p team_compiler --test
+  parity` green on the fixture, and every Phase 2 API friction met on the way listed in the
+  brief's report (each is a lib-crate fix or a decision entry, made before 3.4)
+- [!] 3.y Open question: a minimal `studio` shell before Phase 8 (views are render-only, so the
+  coupling risk is smaller than for the libs). Not decided with 3.3; ask when Phase 3 closes.
 
 ---
 
@@ -526,3 +525,4 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   decodes beyond eleven feature types (converters) and a few colour bits, so `PlayerSettings`
   cannot cover "every appearance field" without an opaque-bytes model of that run.
 - **2026-09-15** - Method review against "Why Software Factories Fail" (humanlayer). `AGENTS.md`: briefs sized for one review (about 500 lines, slices otherwise); red-run evidence per new test in the brief's closing section; the review sweep split into an honesty sweep and a design sweep; converge gains a design-health pass. Phase 3 tracer-bullet question recorded as step 3.x.
+- **2026-09-15** - User decided: Phase 3 opens with a tracer bullet (step 3.3; `core.md` "Phase 3" first bullet; decision entry). Early `studio` shell stays an open question (3.y).
