@@ -1299,3 +1299,16 @@ through the tool rather than in the crate. A thin end-to-end slice first tests t
 while a fix is local, and seeds the parity harness instead of deferring it. Prompted by the
 "vertical slices, not horizontal plans" argument in humanlayer's "Why Software Factories Fail".
 Plan: `core.md#Phase 3: Team compiler skeleton` edited (first bullet, Verification).
+
+## 2026-09-15 - development plan - Phase 3 closes with a minimal `studio` shell
+Decision (user): Phase 3's last code step is a shell slice: `studio_core`'s window, sidebar and
+selected-tool view, the `studio` binary with `team_compiler` registered, and a Team compiler view
+of settings, a run button and a plain `PipelineEvent` log. Phase 8 completes the shell instead of
+starting it; its list is otherwise unchanged.
+Why: `StudioTool`, the event channels and the render-only `view/` rule would otherwise meet
+their first real tool only in Phase 8, after five tool crates had been written to them; one real
+tool on the shell early tests the seam while a change to it touches one crate. It also makes the
+Phase 10 parallelism note ("once the shell exists") true five phases sooner. Same argument as the
+tracer bullet, applied to the GUI seam instead of the lib seam.
+Plan: `core.md#Phase 3: Team compiler skeleton` (last bullet, Verification) and
+`core.md#Phase 8: GUI` (opening note, first bullet) edited.

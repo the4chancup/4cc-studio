@@ -406,8 +406,11 @@ Steps are itemized when Phase 2 closes; the first is fixed:
   the compile path and comparison are briefed. → verify: `cargo test -p team_compiler --test
   parity` green on the fixture, and every Phase 2 API friction met on the way listed in the
   brief's report (each is a lib-crate fix or a decision entry, made before 3.4)
-- [!] 3.y Open question: a minimal `studio` shell before Phase 8 (views are render-only, so the
-  coupling risk is smaller than for the libs). Not decided with 3.3; ask when Phase 3 closes.
+- [ ] 3.z Shell slice, last code step of the phase (`core.md` "Phase 3", last bullet; decided
+  2026-09-15): minimal `studio_core` shell (window, sidebar, selected tool's `view()`), `studio`
+  binary registering `team_compiler`, Team compiler `view/` with settings, run button and a plain
+  `PipelineEvent` log. → verify: manual, recorded in the converge step: the 3.3 fixture compiled
+  from the GUI with its events visible, on Windows; Linux when a machine is available
 
 ---
 
@@ -526,3 +529,4 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   cannot cover "every appearance field" without an opaque-bytes model of that run.
 - **2026-09-15** - Method review against "Why Software Factories Fail" (humanlayer). `AGENTS.md`: briefs sized for one review (about 500 lines, slices otherwise); red-run evidence per new test in the brief's closing section; the review sweep split into an honesty sweep and a design sweep; converge gains a design-health pass. Phase 3 tracer-bullet question recorded as step 3.x.
 - **2026-09-15** - User decided: Phase 3 opens with a tracer bullet (step 3.3; `core.md` "Phase 3" first bullet; decision entry). Early `studio` shell stays an open question (3.y).
+- **2026-09-15** - User decided: Phase 3 also closes with a minimal `studio` shell (step 3.z; `core.md` "Phase 3" last bullet, "Phase 8" note; decision entry).
