@@ -12,7 +12,7 @@ is in `AGENTS.md` ("Working documents").
 **Phase:** 2 (Library crates). Done: 2.1 `wezlib`, 2.2 `cpk`, 2.3 `fpk`, 2.4 `ftex`, 2.5 `dds_convert` (CPU),
 2.6 `fmdl` (format, model, ops, check), 2.7 `pes_model` (format, mtl, model, ops, check), 2.8 `uniparam`, 2.9 `fox2`, 2.10 `archives`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`, 2.14 `color_tools`, 2.15 `elevation`. Review
 rounds A and B (2026-09-13) closed: 2.5c, 2.12b, 2.13b done.
-**In progress:** 2.16 `model_convert` (2.16a–h done; 2.16i checkpoint review next), then `pes_savefile`, `python_bindings`
+**In progress:** 2.16 `model_convert` done (a–i); next 2.17 `pes_savefile`, then `python_bindings`
 **Blocked on:** nothing
 
 ---
@@ -334,7 +334,14 @@ Spec: `docs/plans/core.md` "Phase 2", `docs/plans/libs.md`, `model_conversion.md
   unskinned meshes. Fox oral → PES16 equals the 19to16 converter's output on bones, geometry,
   states and the diffuse sampler; the shader/sampler set difference is explained in the fixture
   README. 6 tests; crate 83
-- [ ] 2.16i checkpoint (b) review of the new `pub` surface
+- [x] 2.16i checkpoint (b) review of the new `pub` surface — done: seven concerns, six
+  accepted and fixed in one rework (exporters recover vertex-loop owners from the IR order
+  with the unflagged per-mesh decode; `remap_bone_group` never indexes with an unweighted
+  slot; unique names for flag-split materials; `native_field_dropped` for `bone_matrices`, a
+  disagreeing SKL parent, non-unit normal/tangent `w`; weights validated finite and in 0..=1;
+  hand split selects over topological vertices, with a seam test that discriminates), one
+  rejected (the `Metal` environment fallback is the compiler's texture step; worklog issue 5).
+  10 tests; crate 93; workspace 422
 - [ ] 2.17 `pes_savefile` — crypto, schema codec, model, `EditFile`, `PlayerSettings`, conversion,
   interchange formats, transplant/fingerprint, comparator, FPC invisibility
 - [ ] 2.18 `python_bindings` (maturin build + Python smoke test; add the `just bindings` recipe
@@ -376,6 +383,12 @@ pruned when their phase closes; they stay in git history.
   both gloves; unused materials/textures are not pruned from the split parts. (3) `retarget`
   returns `ConvertError::Validation` after mutating the IR (no rollback). (4) `.model` tangent `w`
   is 1.0 on import (plan bullet); the bitangent-derived handedness is untested in game.
+  (5) A `Metal` material without an `Environment` texture exports `Basic_CNSR` with no
+  `EnvironmentMap` sampler; the format plan assigns the template-cubemap fallback to the
+  compiler's texture step (Phase 4), which must add the sampler, not just the file. (6) Konami
+  FMDLs carry a 64-byte-per-bone `bone_matrices` block the IR does not; the add-on writes it
+  empty and its files work in game, so the export drops it with a finding; what the block holds
+  and whether it is derivable from `Bone.matrix` is unmeasured.
 
 ---
 
@@ -444,3 +457,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   matrix layout checked against PES17 `body.skl` on the fixtures. Retargeting plan section
   sharpened (standard/custom rule, fold mechanics, no-op guarantee); fold literals measured for
   its tests. Next: 2.16f `skeletons/retarget.rs`.
+- **2026-09-14** - 2.16 `model_convert` complete: 2.16f retargeting, 2.16g hand split (Blender
+  5.2.1 reference fixture), 2.16h routing with the legacy 19to16 reference, 2.16i cross-family
+  review (six of seven concerns fixed). 93 crate tests, 422 workspace-wide, wasm32 gate on 19
+  crates. Converge questions in "Issues". Next: 2.17 `pes_savefile`.

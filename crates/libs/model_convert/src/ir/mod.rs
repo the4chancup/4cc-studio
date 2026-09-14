@@ -249,12 +249,18 @@ pub(crate) fn remap_bone_group(
     ) {
         for (row, ws) in indices.iter_mut().zip(weights.iter_mut()) {
             for (slot, entry) in row.iter_mut().enumerate() {
-                match slot_map[usize::from(*entry)] {
-                    Some(new) => *entry = new,
-                    None => {
-                        *entry = 0;
-                        ws[slot] = 0.0;
+                // Only a positive weight is remapped; a stale index in a zero-weight
+                // slot (Konami files have them) becomes 0 without a lookup.
+                if ws[slot] > 0.0 {
+                    match slot_map[usize::from(*entry)] {
+                        Some(new) => *entry = new,
+                        None => {
+                            *entry = 0;
+                            ws[slot] = 0.0;
+                        }
                     }
+                } else {
+                    *entry = 0;
                 }
             }
             // Slots now naming one group entry merge into the earliest.

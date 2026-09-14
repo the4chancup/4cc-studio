@@ -1213,3 +1213,20 @@ consumer. Climbing to a present ancestor would give `skf_brow_*` a parent in 914
 legacy converters made them roots, a behavior change with no evidence of need. Silent field
 drops are what the plan's "losses explicit, not accidental" rule forbids.
 Plan: `model_conversion.md` "Material sources per format" gains the `.model`-pair list.
+
+## 2026-09-14 - model_convert - review (b) rulings: loop owners read unflagged, hand split over topological vertices
+Decision: the exporters recover vertex-loop owners with the format crates' per-mesh unflagged
+`vertex_enc::decode` on the IR order, never the flag-gated `decode_model` (the IR carries no
+extension flag). The hand split treats entries sharing position, bone indices and weights as one
+vertex for selection and growth. Losses the reviewer found unreported become `native_field_dropped`
+findings (`bone_matrices`, a disagreeing SKL parent, non-unit normal/tangent `w` on `.model`
+export); flag-split material names are made unique; weights must be finite and in 0..=1 to
+validate; `remap_bone_group` never indexes with an unweighted slot. Rejected: adding the
+`EnvironmentMap` fallback for `Metal` here; the format plan assigns the template cubemap to the
+compiler's texture step (worklog issue 5 for Phase 4).
+Why: identity owners re-encode an add-on file's loops as distinct vertices, a same-format loss the
+plan's lossless round trip forbids; a run that satisfies the convention is a set of loops whether or
+not the file declared the extension. Blender's Select More works on vertices, and the native
+formats store loops, so a UV seam at the wrist would otherwise stop the growth. The audience pair's
+SKL and FMDL parents agree on all 16 bones (measured), so the FMDL parent stays the IR's.
+Plan: `model_conversion.md` "Extension algorithms" (owner recovery), "Hand auto-split" step 2.

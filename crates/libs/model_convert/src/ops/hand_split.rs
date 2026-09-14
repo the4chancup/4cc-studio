@@ -3,6 +3,8 @@
 //! selection, done in process — no geometric cut, no reweighting, positions and weights
 //! untouched.
 
+use std::collections::HashMap;
+
 use crate::ir::{
     Bone, CanonicalModel, Mesh, MeshGroup, Vertices, bone_is_weighted, rebuild_bone_list,
     remap_bone_group, validate,
@@ -63,27 +65,61 @@ pub fn has_hand_weights(ir: &CanonicalModel) -> bool {
     })
 }
 
-/// The per-vertex selection for `hand` on `mesh`: seeds (a positive weight on a slot
-/// whose group bone is `hand`'s) grown once along faces.
-fn selected(mesh: &Mesh, bones: &[Bone], hand: Hand) -> Vec<bool> {
-    let mut sel = vec![false; mesh.vertices.len()];
+/// The topological identity key: position bits, the bone index row, the weight bits —
+/// the same fields `fmdl::ops::vertex_enc`'s `topological_key` groups on. UVs are
+/// deliberately absent: a UV seam is two entries, one topological vertex.
+fn class_key(mesh: &Mesh, index: usize) -> Vec<u8> {
+    let vertices = &mesh.vertices;
+    let mut key = Vec::new();
+    for component in vertices.positions[index] {
+        key.extend(component.to_le_bytes());
+    }
+    if let Some(indices) = &vertices.bone_indices {
+        key.extend(indices[index]);
+    }
+    if let Some(weights) = &vertices.bone_weights {
+        for component in weights[index] {
+            key.extend(component.to_le_bytes());
+        }
+    }
+    key
+}
+
+/// The entry → topological-class map for `mesh`: entries sharing position, bone
+/// indices and bone weights are one vertex.
+fn classes(mesh: &Mesh) -> Vec<usize> {
+    let mut ids: HashMap<Vec<u8>, usize> = HashMap::new();
+    let mut class = Vec::with_capacity(mesh.vertices.len());
+    for index in 0..mesh.vertices.len() {
+        let next = ids.len();
+        class.push(*ids.entry(class_key(mesh, index)).or_insert(next));
+    }
+    class
+}
+
+/// The per-class selection for `hand` on `mesh`: seeds (a positive weight on a slot
+/// whose group bone is `hand`'s) grown once along faces. `class` is the entry →
+/// class map from [`classes`]; the returned vector is indexed by class.
+fn selected(mesh: &Mesh, class: &[usize], bones: &[Bone], hand: Hand) -> Vec<bool> {
+    let classes = class.iter().copied().max().map_or(0, |max| max + 1);
+    let mut sel = vec![false; classes];
     if let (Some(indices), Some(weights)) =
         (&mesh.vertices.bone_indices, &mesh.vertices.bone_weights)
     {
         for (vertex, (row, ws)) in indices.iter().zip(weights).enumerate() {
-            sel[vertex] = row.iter().enumerate().any(|(slot, &entry)| {
+            sel[class[vertex]] |= row.iter().enumerate().any(|(slot, &entry)| {
                 ws[slot] > 0.0
                     && hand_of(&bones[mesh.bone_group[usize::from(entry)]].name) == Some(hand)
             });
         }
     }
     // Grow once: one pass over the faces against the seed set (chaining off a
-    // just-grown vertex would be a flood fill, not one Select More).
+    // just-grown class would be a flood fill, not one Select More).
     let seeds = sel.clone();
     for face in &mesh.faces {
-        if face.iter().any(|&i| seeds[usize::from(i)]) {
+        if face.iter().any(|&i| seeds[class[usize::from(i)]]) {
             for &i in face {
-                sel[usize::from(i)] = true;
+                sel[class[usize::from(i)]] = true;
             }
         }
     }
@@ -214,19 +250,24 @@ pub fn split_by_skeleton_group(ir: &CanonicalModel) -> HandSplit {
             glove_r: None,
         };
     }
+    // Selections run over topological classes: two entries at a UV seam are one vertex,
+    // so a class is selected or not, never half.
+    let class: Vec<Vec<usize>> = ir.meshes.iter().map(classes).collect();
     // The two hands are independent selections of the input.
     let sel_l: Vec<Vec<bool>> = ir
         .meshes
         .iter()
-        .map(|mesh| selected(mesh, &ir.bones, Hand::Left))
+        .enumerate()
+        .map(|(m, mesh)| selected(mesh, &class[m], &ir.bones, Hand::Left))
         .collect();
     let sel_r: Vec<Vec<bool>> = ir
         .meshes
         .iter()
-        .map(|mesh| selected(mesh, &ir.bones, Hand::Right))
+        .enumerate()
+        .map(|(m, mesh)| selected(mesh, &class[m], &ir.bones, Hand::Right))
         .collect();
-    // A face goes to a glove when all three corners are in its selection; every other
-    // face stays with the body.
+    // A face goes to a glove when all three corners' classes are in its selection;
+    // every other face stays with the body.
     let glove_part = |sel: &[Vec<bool>]| -> Vec<Option<Mesh>> {
         ir.meshes
             .iter()
@@ -236,7 +277,7 @@ pub fn split_by_skeleton_group(ir: &CanonicalModel) -> HandSplit {
                     .faces
                     .iter()
                     .copied()
-                    .filter(|f| f.iter().all(|&i| sel[m][usize::from(i)]))
+                    .filter(|f| f.iter().all(|&i| sel[m][class[m][usize::from(i)]]))
                     .collect();
                 (!faces.is_empty()).then(|| part_mesh(mesh, &faces))
             })
@@ -254,8 +295,8 @@ pub fn split_by_skeleton_group(ir: &CanonicalModel) -> HandSplit {
                 .iter()
                 .copied()
                 .filter(|f| {
-                    !(f.iter().all(|&i| sel_l[m][usize::from(i)])
-                        || f.iter().all(|&i| sel_r[m][usize::from(i)]))
+                    !(f.iter().all(|&i| sel_l[m][class[m][usize::from(i)]])
+                        || f.iter().all(|&i| sel_r[m][class[m][usize::from(i)]]))
                 })
                 .collect();
             (!faces.is_empty()).then(|| part_mesh(mesh, &faces))
@@ -680,6 +721,150 @@ mod tests {
                 .collect::<Vec<_>>(),
             [("sk_forearm_l", None)]
         );
+    }
+
+    /// `wrist_mesh` with column 2 duplicated as a UV seam: the copies (indices 16-18)
+    /// carry UV `[1.0, 0.0]`; the x=1..2 quads reference the originals, the x=2..3
+    /// quads and the fan reference the copies. The last face joins the *originals*
+    /// of (2,0)/(2,1) — which no seed-grown face touches — to the fan vertex: entry
+    /// identity would leave it unselected, class identity sends it to the glove.
+    fn wrist_mesh_uv_seam() -> Mesh {
+        let mut mesh = wrist_mesh();
+        let at = |x: usize, y: usize| (x * 3 + y) as u16;
+        let v = 15u16;
+        for orig in [at(2, 0), at(2, 1), at(2, 2)] {
+            let i = usize::from(orig);
+            let position = mesh.vertices.positions[i];
+            let indices = mesh.vertices.bone_indices.as_ref().expect("indices")[i];
+            let weights = mesh.vertices.bone_weights.as_ref().expect("weights")[i];
+            mesh.vertices.positions.push(position);
+            mesh.vertices
+                .bone_indices
+                .as_mut()
+                .expect("indices")
+                .push(indices);
+            mesh.vertices
+                .bone_weights
+                .as_mut()
+                .expect("weights")
+                .push(weights);
+        }
+        mesh.vertices.uvs = vec![[vec![[0.0, 0.0]; 16], vec![[1.0, 0.0]; 3]].concat()];
+        mesh.vertices.uv_high_precision = vec![false];
+        let copy = |y: usize| 16 + y as u16;
+        // The x=2..3 quads (faces 8..12) and both fan faces (16, 17) use the copies.
+        for y in 0..2usize {
+            mesh.faces[8 + y * 2] = [copy(y), at(3, y), at(3, y + 1)];
+            mesh.faces[8 + y * 2 + 1] = [copy(y), at(3, y + 1), copy(y + 1)];
+        }
+        mesh.faces[16] = [at(1, 2), copy(2), v];
+        mesh.faces[17] = [copy(2), at(3, 2), v];
+        mesh.faces.push([at(2, 0), at(2, 1), v]);
+        mesh
+    }
+
+    #[test]
+    fn a_uv_seam_is_one_topological_vertex() {
+        let bones = || vec![bone("sk_forearm_l"), bone("sk_hand_l"), bone("skh_index_l")];
+        let seamed = split_by_skeleton_group(&model(bones(), wrist_mesh_uv_seam()));
+        let plain = split_by_skeleton_group(&model(bones(), wrist_mesh()));
+        // The seam changes no topology: the body keeps the Blender reference's face
+        // set (asserted literally in `blender_reference_wrist`), and the glove gets
+        // that set plus the discriminating face on the column-2 originals.
+        assert_eq!(face_set(&seamed.body), face_set(&plain.body));
+        let glove_part = seamed.glove_l.expect("left glove");
+        let glove_faces = face_set(&glove_part);
+        assert_eq!(glove_faces.len(), 10);
+        assert!(
+            glove_faces.contains(&[[1.5, 3.0, 0.0], [2.0, 0.0, 0.0], [2.0, 1.0, 0.0]]),
+            "the face on the column-2 originals landed in the glove"
+        );
+        for face in face_set(&plain.glove_l.expect("left glove")) {
+            assert!(glove_faces.contains(&face), "reference face {face:?}");
+        }
+        let body = &seamed.body.meshes[0];
+        let glove = &glove_part.meshes[0];
+        // Body: columns 0-1 (6), column 2's originals (3), the fan's copy (1) and the
+        // fan vertex — 11 vertices, 9 faces. Glove: column 2's copies (3), the
+        // originals (2,0)/(2,1) on the extra face (2), columns 3-4 (6), the fan
+        // vertex — 12 vertices, 10 faces.
+        assert_eq!(body.vertices.len(), 11);
+        assert_eq!(body.faces.len(), 9);
+        assert_eq!(glove.vertices.len(), 12);
+        assert_eq!(glove.faces.len(), 10);
+        // Each copy lands in the part its faces use: column 2 is body-side at UV
+        // [0, 0] on the originals plus [1, 0] for the fan's copy, and glove-side at
+        // [1, 0] on the three copies plus [0, 0] on the originals the extra
+        // face references.
+        let column2_uv = |mesh: &Mesh| -> Vec<[f32; 2]> {
+            mesh.vertices
+                .positions
+                .iter()
+                .zip(&mesh.vertices.uvs[0])
+                .filter(|(position, _)| position[0] == 2.0)
+                .map(|(_, uv)| *uv)
+                .collect()
+        };
+        assert_eq!(
+            column2_uv(body),
+            vec![[0.0, 0.0], [0.0, 0.0], [0.0, 0.0], [1.0, 0.0]]
+        );
+        assert_eq!(
+            column2_uv(glove),
+            vec![[1.0, 0.0], [1.0, 0.0], [1.0, 0.0], [0.0, 0.0], [0.0, 0.0]]
+        );
+    }
+
+    #[test]
+    fn a_stale_index_in_an_unweighted_slot_is_safe() {
+        // Slot 1's index 5 is past the two-entry group but unweighted; the split's
+        // bone-group remap must not look it up.
+        let mesh = Mesh {
+            vertices: Vertices {
+                positions: vec![
+                    [0.0, 0.0, 0.0],
+                    [1.0, 0.0, 0.0],
+                    [0.0, 1.0, 0.0],
+                    [5.0, 0.0, 0.0],
+                    [6.0, 0.0, 0.0],
+                    [5.0, 1.0, 0.0],
+                ],
+                bone_indices: Some(vec![
+                    [0, 5, 0, 0],
+                    [0, 5, 0, 0],
+                    [0, 5, 0, 0],
+                    [1, 0, 0, 0],
+                    [1, 0, 0, 0],
+                    [1, 0, 0, 0],
+                ]),
+                bone_weights: Some(vec![
+                    [1.0, 0.0, 0.0, 0.0],
+                    [1.0, 0.0, 0.0, 0.0],
+                    [1.0, 0.0, 0.0, 0.0],
+                    [1.0, 0.0, 0.0, 0.0],
+                    [1.0, 0.0, 0.0, 0.0],
+                    [1.0, 0.0, 0.0, 0.0],
+                ]),
+                bone_weight_width: Some(4),
+                ..Vertices::default()
+            },
+            faces: vec![[0, 1, 2], [3, 4, 5]],
+            bone_group: vec![0, 1],
+            material: 0,
+            extension_headers: Default::default(),
+            custom_bounding_box: None,
+        };
+        let split = split_by_skeleton_group(&model(
+            vec![bone("sk_forearm_l"), bone("skh_index_l")],
+            mesh,
+        ));
+        let body = &split.body.meshes[0];
+        assert_eq!(body.faces.len(), 1);
+        assert_eq!(
+            body.vertices.bone_indices.as_ref().expect("indices"),
+            &vec![[0, 0, 0, 0]; 3]
+        );
+        assert!(split.glove_l.is_some());
     }
 
     #[test]

@@ -86,6 +86,17 @@ pub enum ValidationError {
         /// The bone group's length.
         group: usize,
     },
+    /// A weight component is not a finite value in `0..=1` — components outside the range
+    /// can still sum to 1, so the sum check alone does not catch them.
+    #[error("mesh {mesh}: vertex {vertex} weight slot {slot} must be a finite weight in 0..=1")]
+    BoneWeightRange {
+        /// The mesh's index.
+        mesh: usize,
+        /// The vertex's index.
+        vertex: usize,
+        /// The offending slot.
+        slot: usize,
+    },
     /// Only one half of the skinning pair (`bone_indices`/`bone_weights`) is present.
     #[error("mesh {mesh}: bone indices and weights must both be present or both absent")]
     SkinHalf {
@@ -234,6 +245,11 @@ pub fn validate(model: &CanonicalModel) -> Result<(), ValidationError> {
             }
             (Some(indices), Some(weights)) => {
                 for (vertex, row) in weights.iter().enumerate() {
+                    for (slot, weight) in row.iter().enumerate() {
+                        if !weight.is_finite() || !(0.0..=1.0).contains(weight) {
+                            return Err(ValidationError::BoneWeightRange { mesh, vertex, slot });
+                        }
+                    }
                     let sum: f32 = row.iter().sum();
                     if sum != 0.0 && (sum - 1.0).abs() > WEIGHT_TOLERANCE {
                         return Err(ValidationError::Weights { mesh, vertex, sum });
@@ -589,6 +605,39 @@ mod tests {
                 material: 0,
                 texture: 9,
                 textures: 1
+            })
+        );
+    }
+
+    #[test]
+    fn every_weight_is_finite_and_in_range() {
+        // [2, -1] sums to 1 — the sum check alone cannot catch it.
+        let mut model = valid();
+        model.meshes[0].vertices.bone_weights = Some(vec![
+            [0.5, 0.5, 0.0, 0.0],
+            [2.0, -1.0, 0.0, 0.0],
+            [0.5, 0.5, 0.0, 0.0],
+        ]);
+        assert_eq!(
+            validate(&model),
+            Err(ValidationError::BoneWeightRange {
+                mesh: 0,
+                vertex: 1,
+                slot: 0
+            })
+        );
+        let mut model = valid();
+        model.meshes[0].vertices.bone_weights = Some(vec![
+            [0.5, 0.5, 0.0, 0.0],
+            [f32::NAN, 0.0, 0.0, 0.0],
+            [0.5, 0.5, 0.0, 0.0],
+        ]);
+        assert_eq!(
+            validate(&model),
+            Err(ValidationError::BoneWeightRange {
+                mesh: 0,
+                vertex: 1,
+                slot: 0
             })
         );
     }
