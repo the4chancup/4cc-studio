@@ -13,5 +13,7 @@ pub mod ir;
 pub mod loss;
 /// The engine-neutral material schema.
 pub mod materials;
+/// IR-level operations that never know which format the data came from.
+pub mod ops;
 /// The per-version player skeletons and their retargeting tables.
 pub mod skeletons;

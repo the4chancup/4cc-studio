@@ -35,18 +35,7 @@ pub fn retarget(ir: &mut CanonicalModel, target: PesVersion) -> Result<Vec<Findi
 
     // ---- Fold: resolve every fold before mutating (two folds may share a target). ----
     let count = ir.bones.len();
-    let weighted = |bone: usize| -> bool {
-        ir.meshes.iter().any(|mesh| {
-            match (&mesh.vertices.bone_indices, &mesh.vertices.bone_weights) {
-                (Some(indices), Some(weights)) => indices.iter().zip(weights).any(|(row, ws)| {
-                    row.iter().enumerate().any(|(slot, &entry)| {
-                        ws[slot] > 0.0 && mesh.bone_group.get(usize::from(entry)) == Some(&bone)
-                    })
-                }),
-                _ => false,
-            }
-        })
-    };
+    let weighted = |bone: usize| -> bool { crate::ir::bone_is_weighted(ir, bone) };
     let mut folds: Vec<Option<String>> = vec![None; count];
     for (index, bone) in ir.bones.iter().enumerate() {
         if !is_standard(&bone.name) || version_bone(tables, &bone.name).is_some() {
@@ -100,35 +89,17 @@ pub fn retarget(ir: &mut CanonicalModel, target: PesVersion) -> Result<Vec<Findi
         // parent, chasing up past chains of removed bones), then each fold target
         // appended when absent with the target table's matrix and its render parent
         // resolved in the list built so far.
-        let mut bones: Vec<Bone> = Vec::with_capacity(count);
-        let mut old_to_new = vec![usize::MAX; count];
-        for (old, bone) in ir.bones.iter().enumerate() {
-            if removed[old] {
-                continue;
-            }
-            old_to_new[old] = bones.len();
-            let mut parent = bone.parent;
-            while let Some(index) = parent {
-                if removed[index] {
-                    parent = ir.bones[index].parent;
-                } else {
-                    break;
-                }
-            }
-            bones.push(Bone {
-                parent: parent.map(|index| old_to_new[index]),
-                ..bone.clone()
-            });
-        }
+        let keep: Vec<bool> = removed.iter().map(|r| !r).collect();
+        let old_to_new = crate::ir::rebuild_bone_list(&mut ir.bones, &keep);
         for name in folds.iter().flatten() {
-            if bones.iter().any(|bone| bone.name == *name) {
+            if ir.bones.iter().any(|bone| bone.name == *name) {
                 continue;
             }
             let table_bone = version_bone(tables, name)
                 .expect("a resolved fold target is in the target's tables");
             let parent = render_parent(name)
-                .and_then(|parent| bones.iter().position(|bone| bone.name == parent));
-            bones.push(Bone {
+                .and_then(|parent| ir.bones.iter().position(|bone| bone.name == parent));
+            ir.bones.push(Bone {
                 name: name.clone(),
                 parent,
                 matrix: table_bone.matrix,
@@ -138,68 +109,18 @@ pub fn retarget(ir: &mut CanonicalModel, target: PesVersion) -> Result<Vec<Findi
             });
         }
         // The new index of each removed bone's fold target.
-        let target_new: Vec<usize> = (0..count)
+        let redirect: Vec<Option<usize>> = (0..count)
             .map(|old| {
-                folds[old].as_ref().map_or(usize::MAX, |name| {
-                    bones
+                folds[old].as_ref().map(|name| {
+                    ir.bones
                         .iter()
                         .position(|bone| bone.name == *name)
                         .expect("appended above")
                 })
             })
             .collect();
-        ir.bones = bones;
-
         for mesh in &mut ir.meshes {
-            // The new group: surviving entries remapped in order, then each folded
-            // entry's target appended when absent.
-            let mut group: Vec<usize> = Vec::with_capacity(mesh.bone_group.len());
-            for &entry in &mesh.bone_group {
-                if !removed[entry] {
-                    group.push(old_to_new[entry]);
-                }
-            }
-            for &entry in &mesh.bone_group {
-                if removed[entry] && !group.contains(&target_new[entry]) {
-                    group.push(target_new[entry]);
-                }
-            }
-            let slot_map: Vec<u8> = (0..mesh.bone_group.len())
-                .map(|slot| {
-                    let entry = mesh.bone_group[slot];
-                    let new_index = if removed[entry] {
-                        target_new[entry]
-                    } else {
-                        old_to_new[entry]
-                    };
-                    group
-                        .iter()
-                        .position(|&e| e == new_index)
-                        .expect("every group entry maps into the new group")
-                        as u8
-                })
-                .collect();
-            mesh.bone_group = group;
-            if let (Some(indices), Some(weights)) = (
-                &mut mesh.vertices.bone_indices,
-                &mut mesh.vertices.bone_weights,
-            ) {
-                for (row, ws) in indices.iter_mut().zip(weights.iter_mut()) {
-                    for slot in row.iter_mut() {
-                        *slot = slot_map[usize::from(*slot)];
-                    }
-                    // Slots now naming one group entry merge into the earliest.
-                    for a in 0..4 {
-                        for b in (a + 1)..4 {
-                            if row[a] == row[b] {
-                                ws[a] += ws[b];
-                                ws[b] = 0.0;
-                                row[b] = 0;
-                            }
-                        }
-                    }
-                }
-            }
+            crate::ir::remap_bone_group(mesh, &old_to_new, &redirect);
         }
     }
 
