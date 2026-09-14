@@ -38,7 +38,12 @@ then the cross-family reviewer (below), so the reviewer's seven slots go to what
 not see rather than to what it did not look for; every requirement that is missing, partial or
 untested becomes a new worklog step, and the phase stays open until those are done. A requirement the plan *explicitly
 defers* to a later phase (a "before implementing X, extend Y" note, an open question naming its
-phase) is not a gap and stays future tense; (2) **rewrite** the parts of the phase's plan sections
+phase) is not a gap and stays future tense. The lead's audit ends with a **design-health pass**
+over the phase's crates, separate from requirements coverage: the design-tell sweep (below) run
+over the whole phase's code rather than one diff, and every `pub` item listed with the consumer
+that justifies it (a crate, the CLI, the bindings, or a plan section naming one). Coverage asks
+"is everything the plan wants there?"; this pass asks "did the phase make the code harder to
+change?", which no test or lint measures and which compounds silently across phases; (2) **rewrite** the parts of the phase's plan sections
 that the phase delivered in the present tense, as a description of what now exists (acceptance IDs
 stay, as the behavior contract), moving nothing to a new document and leaving deferred parts as
 they are; (3) collapse the worklog's step list to the phase row. Converting per phase, not at the
@@ -54,18 +59,36 @@ coding (the sidekick does not inherit this file's context), plus the acceptance 
 `→ verify:` criterion, and the rule that a plan gap is *reported*, never silently decided. The lead
 reads the whole diff before it lands, not the report about it; the report is a claim, the diff is
 the evidence. Two failed sidekick attempts on one brief means the brief is suspect before the
-sidekick is.
+sidekick is. **A brief is sized for one review.** Past about 500 lines of new code, a diff is
+read but not resteered: a wrong shape in the first module is already copied into the third by
+the time the lead sees it (`model_convert` took a 666-line rework commit after a single review
+of its first four steps). A step expected to exceed that is briefed as ordered slices, each
+landing as its own commit and reviewed before the next slice is briefed (`format/` first, then
+`ops/`, then `check.rs`, for a format crate); generated tables and fixtures do not count toward
+the size.
 
 **The lead sees the report, not the run.** The harness shows the lead only the sidekick's final
 report, never its compiler runs, so an error fixed by a workaround (a suppression, a loosened
 assertion, an `#[ignore]`, a discarded `Result`) is invisible unless declared. Every brief
 therefore requires a closing section, "Errors hit and how each was resolved": one line per
 compiler, clippy or test failure met during the work and the fix applied, plus an explicit list
-of any suppression, ignored test, removed or weakened assertion (or "none"). Omitting the section
-or an item is a brief violation, not an oversight. On the lead's side, every review before a
-commit includes a sweep of the diff for the same tells (`#[allow`, `#[expect`, `#[ignore`,
-`.ok();`, `let _ =`, `unwrap_or_default`, `unwrap_or(`) and re-runs the gates in the real
-workspace; the sidekick's pasted gate tails are a claim.
+of any suppression, ignored test, removed or weakened assertion (or "none"), and, for every test
+added for new behavior, the failing assertion text from its red run before the change ("red
+first" is otherwise a claim the lead never sees; a test with no meaningful "before", such as a
+new format crate's fixture round-trip, says so). Omitting the section or an item is a brief
+violation, not an oversight. On the lead's side, every review before a commit includes two
+sweeps of the diff and re-runs the gates in the real workspace; the sidekick's pasted gate
+tails are a claim. The **honesty sweep** looks for a hidden failure: `#[allow`, `#[expect`,
+`#[ignore`, `.ok();`, `let _ =`, `unwrap_or_default`, `unwrap_or(`. The **design sweep** looks
+for code that passes and is worse, the thing neither the gates nor a model's training penalize:
+`impl .* for` (a new trait: does it have two real implementors?), `dyn `, `_ =>` on one of our
+enums, `.clone()`/`.to_vec()` on bulk data, `as ` casts, two functions differing in a name and a
+branch, `pub` items with no caller outside the crate, a module that crossed roughly a thousand
+lines in this diff. Each is a `CONTRIBUTING.md` rule; the sweep exists because a rule nobody
+greps for is a rule the review applies only when it happens to notice. When a review finds slop
+neither list names, the fix is a new entry here or in `CONTRIBUTING.md`, not a longer review:
+the rules are the project's whole substitute for taste, and any quality they do not express is
+quality nobody is checking.
 
 **Plan-defined shapes are copied, not recalled.** Where the plan gives a code block for a type,
 a trait or a signature, the implementation starts from that block, pasted, and any deviation is a

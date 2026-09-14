@@ -399,6 +399,16 @@ Steps are itemized when Phase 2 closes; the first is fixed:
   and unproven IDs are the normal state of an open phase; **strict** — run at converge for the
   closing phase's IDs; unproven or `manual` scenarios without a recorded check fail it. Python or a
   tiny Rust bin — decide when written (needs a decision entry either way, since it adds a gate)
+- [!] 3.x **Open question for the user, before Phase 3 is itemized:** should the first code
+  step be a tracer bullet (the smallest real export, one face and one kit, compiled to a CPK
+  through the real Phase 2 crates and diffed against the Red parity golden) *before* the tool
+  skeleton (`settings.rs`, `cli.rs`, `messages.rs`, `view/`)? The plan puts the end-to-end
+  parity gate at the end of Phase 4; the Phase 2 crates' `pub` APIs have no consumer until then,
+  so a shape wrong across several crates surfaces at the most expensive point. A thin slice
+  first tests the composition (`cpk` + `fpk` + `ftex` + `fmdl`, `Arc<[u8]>` conventions,
+  finding codes) while a fix is a one-crate change. Same question, lower stakes, for whether a
+  minimal `studio` shell should come before Phase 8 (views are render-only, so the coupling
+  risk is smaller). Both reorder plan steps, so they are the user's call, not a decision entry.
 
 ---
 
@@ -515,3 +525,4 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   `settings.toml` key table (export text format) and the ingame-face run, which no legacy tool
   decodes beyond eleven feature types (converters) and a few colour bits, so `PlayerSettings`
   cannot cover "every appearance field" without an opaque-bytes model of that run.
+- **2026-09-15** - Method review against "Why Software Factories Fail" (humanlayer). `AGENTS.md`: briefs sized for one review (about 500 lines, slices otherwise); red-run evidence per new test in the brief's closing section; the review sweep split into an honesty sweep and a design sweep; converge gains a design-health pass. Phase 3 tracer-bullet question recorded as step 3.x.
