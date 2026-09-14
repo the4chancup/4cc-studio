@@ -914,6 +914,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "pes_savefile"
+version = "0.1.0"
+dependencies = [
+ "flate2",
+ "md-5",
+ "pes_version",
+ "sha2",
+ "thiserror",
+]
+
+[[package]]
 name = "pes_version"
 version = "0.1.0"
 dependencies = [
