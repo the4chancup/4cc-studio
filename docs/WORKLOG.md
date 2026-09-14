@@ -12,7 +12,7 @@ is in `AGENTS.md` ("Working documents").
 **Phase:** 2 (Library crates). Done: 2.1 `wezlib`, 2.2 `cpk`, 2.3 `fpk`, 2.4 `ftex`, 2.5 `dds_convert` (CPU),
 2.6 `fmdl` (format, model, ops, check), 2.7 `pes_model` (format, mtl, model, ops, check), 2.8 `uniparam`, 2.9 `fox2`, 2.10 `archives`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`, 2.14 `color_tools`, 2.15 `elevation`. Review
 rounds A and B (2026-09-13) closed: 2.5c, 2.12b, 2.13b done.
-**In progress:** 2.16 `model_convert` (2.16a–g done; 2.16h routing next), then `pes_savefile`, `python_bindings`
+**In progress:** 2.16 `model_convert` (2.16a–h done; 2.16i checkpoint review next), then `pes_savefile`, `python_bindings`
 **Blocked on:** nothing
 
 ---
@@ -327,8 +327,13 @@ Spec: `docs/plans/core.md` "Phase 2", `docs/plans/libs.md`, `model_conversion.md
   mesh or as an ancestor; unweighted bones pruned through `ir::{rebuild_bone_list,
   remap_bone_group}`, shared with `retarget`). Matches Blender 5.2.1's own result on the
   connected-wrist fixture (10 vertices / 9 faces each side, face sets equal). 6 tests; crate 77
-- [ ] 2.16h `model_convert` routing + `loss.rs` → verify: FMDL→.model of a Konami fixture equals
-  the legacy converter's output semantically (lead-produced reference)
+- [x] 2.16h `model_convert` routing — done (sidekick; one ruling: the pre-Fox output keeps the
+  normal/specular maps the legacy dropped for want of texture files): `convert(bundle,
+  PesVersion)` with `needs_conversion` as the native pre-check (bone names and poses against the
+  target's tables, no geometry), import → `retarget` → export; the Fox `static` bone for
+  unskinned meshes. Fox oral → PES16 equals the 19to16 converter's output on bones, geometry,
+  states and the diffuse sampler; the shader/sampler set difference is explained in the fixture
+  README. 6 tests; crate 83
 - [ ] 2.16i checkpoint (b) review of the new `pub` surface
 - [ ] 2.17 `pes_savefile` — crypto, schema codec, model, `EditFile`, `PlayerSettings`, conversion,
   interchange formats, transplant/fingerprint, comparator, FPC invisibility
@@ -363,7 +368,14 @@ Steps are itemized when Phase 2 closes; the first is fixed:
 Bugs, unexpected behavior, things to revisit. `open` / `resolved (date)`. Resolved issues are
 pruned when their phase closes; they stay in git history.
 
-- (none yet)
+- open — `model_convert` converge questions (2.20): (1) Fox decal shaders (`translucent`,
+  `3ddc`, `eyeocclusion`) infer `Shaded` *exact* through the `3ddf` rule, so the highneck
+  fixture converts to an opaque `Basic_C`, where the 19to16 converter wrote `Overlay` with alpha
+  blending; the format plan deliberately gives decals no family — decide whether the rule should
+  at least mark them approximate. (2) Hand split: a face inside both hands' selections goes to
+  both gloves; unused materials/textures are not pruned from the split parts. (3) `retarget`
+  returns `ConvertError::Validation` after mutating the IR (no rollback). (4) `.model` tangent `w`
+  is 1.0 on import (plan bullet); the bitangent-derived handedness is untested in game.
 
 ---
 

@@ -164,7 +164,9 @@ validates its own arguments (one bad `newline=` emptied a 600-line source file t
 copy of). Write to a sibling temp path and `os.replace` it, and run every assertion before the
 write. Small edits use the editor tool, not a script. Before editing a tree the sidekick left,
 `git add -A` first, so every file, untracked ones included, has a blob in the index to restore
-from.
+from. Never redirect to `nul` from bash: on Windows that creates a real file named `nul`, which
+git cannot index (`git add -A` fails outright) and which only `Remove-Item -LiteralPath
+"\\?\<full path>"` can delete; use `/dev/null` in bash, `$null` in PowerShell.
 
 Three model families, three roles. Lead: Claude (Fable) in Devin CLI's Fusion mode. Sidekick:
 SWE-2 (Kimi lineage), reached through the `sidekick` tool; a cold probe on a spec-in-hand crate

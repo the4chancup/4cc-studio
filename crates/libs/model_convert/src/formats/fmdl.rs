@@ -465,6 +465,27 @@ pub fn ir_to_fmdl(ir: &CanonicalModel) -> Result<ExportedFox, ConvertError> {
         });
     }
 
+    // FMDL binds every vertex to a bone: an unskinned mesh gets one `static` bone (the
+    // legacy converter's values — the name no Konami skeleton has, so the game leaves the
+    // mesh where it is placed) and is weighted fully to it.
+    let static_bone = ir
+        .meshes
+        .iter()
+        .any(|mesh| mesh.vertices.bone_indices.is_none())
+        .then(|| {
+            bones.push(::fmdl::Bone {
+                name: "static".to_string(),
+                parent: None,
+                bounding_box: ::fmdl::BoundingBox {
+                    min: [0.0; 4],
+                    max: [0.0; 4],
+                },
+                local_position: [0.0; 4],
+                world_position: [0.2, 0.0, 0.0, 1.0],
+            });
+            bones.len() - 1
+        });
+
     let mut meshes = Vec::with_capacity(ir.meshes.len());
     for (index, mesh) in ir.meshes.iter().enumerate() {
         if mesh.vertices.bitangents.is_some() {
@@ -475,6 +496,29 @@ pub fn ir_to_fmdl(ir: &CanonicalModel) -> Result<ExportedFox, ConvertError> {
             });
         }
         let material = &resolved[mesh.material];
+        let (bone_weights, bone_indices, bone_group) =
+            match (static_bone, &mesh.vertices.bone_indices) {
+                (Some(static_bone), None) => {
+                    findings.push(Finding {
+                        code: "static_bone_added",
+                        subject: Subject::Mesh(index),
+                        detail: String::new(),
+                    });
+                    (
+                        Some(vec![[255, 0, 0, 0]; mesh.vertices.len()]),
+                        Some(vec![[0, 0, 0, 0]; mesh.vertices.len()]),
+                        vec![static_bone],
+                    )
+                }
+                _ => (
+                    mesh.vertices
+                        .bone_weights
+                        .as_ref()
+                        .map(|rows| rows.iter().map(|row| quantize_weights(*row)).collect()),
+                    mesh.vertices.bone_indices.clone(),
+                    mesh.bone_group.clone(),
+                ),
+            };
         meshes.push(::fmdl::Mesh {
             vertices: ::fmdl::format::MeshVertices {
                 positions: mesh.vertices.positions.clone(),
@@ -483,15 +527,11 @@ pub fn ir_to_fmdl(ir: &CanonicalModel) -> Result<ExportedFox, ConvertError> {
                 colors: mesh.vertices.colors.clone(),
                 uvs: mesh.vertices.uvs.clone(),
                 uv_high_precision: mesh.vertices.uv_high_precision.clone(),
-                bone_weights: mesh
-                    .vertices
-                    .bone_weights
-                    .as_ref()
-                    .map(|rows| rows.iter().map(|row| quantize_weights(*row)).collect()),
-                bone_indices: mesh.vertices.bone_indices.clone(),
+                bone_weights,
+                bone_indices,
             },
             faces: mesh.faces.clone(),
-            bone_group: mesh.bone_group.clone(),
+            bone_group,
             material: mesh.material,
             alpha_flags: material.alpha_flags,
             shadow_flags: material.shadow_flags,
@@ -537,16 +577,26 @@ pub fn ir_to_fmdl(ir: &CanonicalModel) -> Result<ExportedFox, ConvertError> {
     let parents = split_parents(&model.bones);
     ::fmdl::ops::split::encode(&mut model, Some(&parents))?;
 
-    let unknown = |bone: &Bone| template_matrix(&bone.name).is_none();
-    let skl = ir.bones.iter().any(unknown).then(|| ::fmdl::SklFile {
-        bones: ir
+    // The SKL covers every exported bone the template lacks, from the IR matrices by name
+    // (identity for `static`, which has no IR bone).
+    let unknown = |bone: &::fmdl::Bone| template_matrix(&bone.name).is_none();
+    let skl = model.bones.iter().any(unknown).then(|| ::fmdl::SklFile {
+        bones: model
             .bones
             .iter()
-            .map(|bone| ::fmdl::format::SklBone {
-                name: bone.name.clone(),
-                parent: bone.parent,
-                rotation: bone.matrix.rotation(),
-                translation: bone.matrix.translation(),
+            .map(|bone| {
+                let matrix = ir
+                    .bones
+                    .iter()
+                    .find(|b| b.name == bone.name)
+                    .map(|b| b.matrix)
+                    .unwrap_or(Affine::IDENTITY);
+                ::fmdl::format::SklBone {
+                    name: bone.name.clone(),
+                    parent: bone.parent,
+                    rotation: matrix.rotation(),
+                    translation: matrix.translation(),
+                }
             })
             .collect(),
     });
@@ -864,6 +914,11 @@ mod tests {
                 },
                 Finding {
                     code: "vertex_bitangents_dropped",
+                    subject: Subject::Mesh(0),
+                    detail: String::new(),
+                },
+                Finding {
+                    code: "static_bone_added",
                     subject: Subject::Mesh(0),
                     detail: String::new(),
                 },
