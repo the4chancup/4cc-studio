@@ -19,6 +19,13 @@
 //!   specular map got the game's dummy; `detail` is the sampler name.
 //! - `native_field_dropped` (Model or Mesh): a `.model` field the IR has no home for was
 //!   non-default; `detail` names it.
+//! - `bone_folded_for_version` (Bone): a bone the target version lacks folded onto the bone
+//!   the fold table names; `detail` is `"<bone> -> <target>"`.
+//! - `bone_folded_by_position` (Bone): no fold-table entry, so the bone folded onto the
+//!   nearest target body bone by rest position — a guess the user should hear about;
+//!   `detail` is `"<bone> -> <target>"`.
+//! - `skeleton_retargeted` (Model): bones re-bound to the target version's rest pose;
+//!   `detail` is how many bones moved.
 
 /// What a finding is about.
 #[derive(Debug, Clone, PartialEq, Eq)]

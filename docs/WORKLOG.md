@@ -12,7 +12,7 @@ is in `AGENTS.md` ("Working documents").
 **Phase:** 2 (Library crates). Done: 2.1 `wezlib`, 2.2 `cpk`, 2.3 `fpk`, 2.4 `ftex`, 2.5 `dds_convert` (CPU),
 2.6 `fmdl` (format, model, ops, check), 2.7 `pes_model` (format, mtl, model, ops, check), 2.8 `uniparam`, 2.9 `fox2`, 2.10 `archives`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`, 2.14 `color_tools`, 2.15 `elevation`. Review
 rounds A and B (2026-09-13) closed: 2.5c, 2.12b, 2.13b done.
-**In progress:** 2.16 `model_convert` (2.16a–e done; 2.16f retargeting next), then `pes_savefile`, `python_bindings`
+**In progress:** 2.16 `model_convert` (2.16a–f done; 2.16g hand split next), then `pes_savefile`, `python_bindings`
 **Blocked on:** nothing
 
 ---
@@ -314,8 +314,13 @@ Spec: `docs/plans/core.md` "Phase 2", `docs/plans/libs.md`, `model_conversion.md
   attributes, `resolve`). Census of 1983 Konami FMDLs: `fox3ddf_blin` meshes carry alpha
   128/160/32/0 in near-equal shares, `constant_srgb_ndr_solid` mostly (16, 4) where the plan's
   default is (16, 5); the plan's table kept, see the open question. 41 tests
-- [ ] 2.16f `model_convert::skeletons::retarget` — fold + re-bind → verify: PES19→PES16 and
-  PES17→PES15 fold exactly the legacy `missingBones`, not the `movedBones`; same-version no-op
+- [x] 2.16f `model_convert::skeletons::retarget` — done (sidekick, clean first pass): standard
+  bones the target lacks fold through the table chain (nearest body bone by position as the
+  reported fallback), the simplifier's group/slot remap with weight merge, then every surviving
+  standard bone re-binds through `B_target · B_source⁻¹` above 1e-3 (positions blended,
+  normals/tangents/bitangents rotated and renormalized; unmoved bones and vertices untouched
+  bit for bit). PES17→PES15 folds exactly the legacy six and moves 18 bones; PES19→PES16 folds
+  46, none by position; PES19→PES21 the ten `dsk_pos_*`; PES21→PES21 is `==`. 9 tests; crate 71
 - [ ] 2.16g `model_convert::ops::hand_split` → verify: synthetic mesh with an `skh_` strip splits
   with the one-ring growth; a model without hand weights passes through
 - [ ] 2.16h `model_convert` routing + `loss.rs` → verify: FMDL→.model of a Konami fixture equals

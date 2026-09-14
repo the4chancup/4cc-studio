@@ -9,6 +9,8 @@
 
 mod fold;
 mod render_parents;
+/// Skeleton retargeting: conforming an IR model to another version's skeleton.
+pub mod retarget;
 
 use std::sync::LazyLock;
 
@@ -132,6 +134,27 @@ pub fn render_parent(name: &str) -> Option<&'static str> {
         .binary_search_by(|(key, _)| key.cmp(&name))
         .ok()
         .map(|index| render_parents::RENDER_PARENTS[index].1)
+}
+
+/// The bone `name` in `tables`, body first then face and hands.
+pub(crate) fn version_bone<'a>(tables: &'a VersionSkeletons, name: &str) -> Option<&'a PesBone> {
+    [&tables.body, &tables.face, &tables.hand_l, &tables.hand_r]
+        .iter()
+        .find_map(|skeleton| skeleton.bone(name))
+}
+
+/// Whether `name` is a bone some version's tables know (PES20 is PES21).
+pub(crate) fn is_standard(name: &str) -> bool {
+    [
+        PesVersion::Pes15,
+        PesVersion::Pes16,
+        PesVersion::Pes17,
+        PesVersion::Pes18,
+        PesVersion::Pes19,
+        PesVersion::Pes21,
+    ]
+    .iter()
+    .any(|version| version_bone(skeletons(*version), name).is_some())
 }
 
 /// The bone that takes `name`'s weight when a version lacks it (one hop; callers chain).
