@@ -1271,3 +1271,17 @@ PES 16's names carry stale bytes after the NUL, so `String`-and-zero-fill would 
 round trip. A guessed `b_edit_stadium` bit would be a schema fact with no reference behind it.
 Plan: `pes_savefile.md` "Schema-driven save codec" rewritten (types, derivation, checks, record
 sizes, reference readings flagged); "Payload layout per version" era note corrected.
+
+## 2026-09-14 - pes_savefile - colour codes are eight bytes, not eight hex digits; `\x11d` resets
+Decision: `display_name` strips `\x11c` plus the next eight bytes whatever they are, and the
+two-byte `\x11d`; the plan's "8 hex digits" rule is corrected. `EditFile` and discovery get
+their signatures in the plan (`from_bytes`/`to_bytes(salt)` pure, `load`/`save` native; discovery
+pure over a Documents root with a native wrapper over `directories`).
+Why: measured over 346 decorated names in the PES 16/19/21 saves: nine names of one PES 21 team
+carry `\x11ca000c8ON<name>` and are complete names without the `ON`, so the game takes eight bytes
+without checking hex, and two names carry `\x11d` mid-string as a reset; a hex-only rule would
+leave control bytes in the compiler's folder names for those eleven players. Pure cores with
+native wrappers are what keeps the crate wasm32-checkable (guardrail 6) and the tests free of the
+real Documents folder.
+Plan: `pes_savefile.md` "Whole-file API" (API block, measured code rule), "Player settings model"
+paragraph, "Savefile discovery" (API block).

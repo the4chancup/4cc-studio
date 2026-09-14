@@ -2,7 +2,7 @@
 //! are `Option` (the record has no run for them) or defaulted to 0/false; the
 //! schema decides what is read and written, the model just holds the result.
 
-use crate::codec::CodecError;
+use crate::codec::{self, CodecError};
 use crate::schema::fields::PlayerField;
 
 /// One player of the save: identity, abilities, positions, skills, motion, the
@@ -275,23 +275,6 @@ pub struct PlayerAppearance {
     pub iris_color: u8,
 }
 
-/// A version-gated field that is `None` while the schema has a run for it:
-/// writing would silently store 0, so it is a codec error instead.
-fn missing(field: PlayerField) -> CodecError {
-    CodecError::Missing {
-        field: format!("{field:?}"),
-    }
-}
-
-/// An indexed variant (`Skill`, `ComStyle`, `PlayablePosition`) naming an
-/// element past its array is a codec error, not a panic.
-fn index(field: PlayerField, i: u8) -> CodecError {
-    CodecError::Index {
-        field: format!("{field:?}"),
-        index: i,
-    }
-}
-
 impl PlayerEntry {
     /// The model value a bit run carries, in codec field order.
     pub(crate) fn get(&self, field: PlayerField) -> Result<u32, CodecError> {
@@ -314,15 +297,23 @@ impl PlayerEntry {
             PlayerField::Form => u32::from(self.stats.form),
             PlayerField::EditedPlayer => u32::from(self.edit_flags.player),
             PlayerField::Swerve => u32::from(self.stats.swerve),
-            PlayerField::Catching => u32::from(self.stats.catching.ok_or_else(|| missing(field))?),
-            PlayerField::Clearing => u32::from(self.stats.clearing.ok_or_else(|| missing(field))?),
-            PlayerField::Reflexes => u32::from(self.stats.reflexes.ok_or_else(|| missing(field))?),
+            PlayerField::Catching => {
+                u32::from(self.stats.catching.ok_or_else(|| codec::missing(field))?)
+            }
+            PlayerField::Clearing => {
+                u32::from(self.stats.clearing.ok_or_else(|| codec::missing(field))?)
+            }
+            PlayerField::Reflexes => {
+                u32::from(self.stats.reflexes.ok_or_else(|| codec::missing(field))?)
+            }
             PlayerField::InjuryResistance => u32::from(self.stats.injury_resistance),
             PlayerField::EditedBasicSettings => u32::from(self.edit_flags.basic_settings),
             PlayerField::BodyControl => u32::from(self.stats.body_control),
-            PlayerField::PhysicalContact => {
-                u32::from(self.stats.physical_contact.ok_or_else(|| missing(field))?)
-            }
+            PlayerField::PhysicalContact => u32::from(
+                self.stats
+                    .physical_contact
+                    .ok_or_else(|| codec::missing(field))?,
+            ),
             PlayerField::KickingPower => u32::from(self.stats.kicking_power),
             PlayerField::ExplosivePower => u32::from(self.stats.explosive_power),
             PlayerField::ArmMovementDribbling => u32::from(self.motion.arm_movement_dribbling),
@@ -336,14 +327,16 @@ impl PlayerEntry {
             PlayerField::Jump => u32::from(self.stats.jump),
             PlayerField::ArmMovementRunning => u32::from(self.motion.arm_movement_running),
             PlayerField::CornerKickMotion => u32::from(self.motion.corner_kick),
-            PlayerField::Coverage => u32::from(self.stats.coverage.ok_or_else(|| missing(field))?),
+            PlayerField::Coverage => {
+                u32::from(self.stats.coverage.ok_or_else(|| codec::missing(field))?)
+            }
             PlayerField::WeakFootUsage => u32::from(self.stats.weak_foot_usage),
             PlayerField::PlayablePosition(i) => u32::from(
                 *self
                     .positions
                     .playable
                     .get(usize::from(i))
-                    .ok_or(index(field, i))?,
+                    .ok_or_else(|| codec::index(field, i))?,
             ),
             PlayerField::HunchingDribbling => u32::from(self.motion.hunching_dribbling),
             PlayerField::HunchingRunning => u32::from(self.motion.hunching_running),
@@ -364,31 +357,37 @@ impl PlayerEntry {
                     .skills
                     .com_styles
                     .get(usize::from(i))
-                    .ok_or(index(field, i))?,
+                    .ok_or_else(|| codec::index(field, i))?,
             ),
             PlayerField::Skill(i) => u32::from(
                 *self
                     .skills
                     .skills
                     .get(usize::from(i))
-                    .ok_or(index(field, i))?,
+                    .ok_or_else(|| codec::index(field, i))?,
             ),
-            PlayerField::Star => u32::from(self.stats.star.ok_or_else(|| missing(field))?),
+            PlayerField::Star => u32::from(self.stats.star.ok_or_else(|| codec::missing(field))?),
             PlayerField::DribblingMotion => {
-                u32::from(self.motion.dribbling.ok_or_else(|| missing(field))?)
+                u32::from(self.motion.dribbling.ok_or_else(|| codec::missing(field))?)
             }
-            PlayerField::TightPossession => {
-                u32::from(self.stats.tight_possession.ok_or_else(|| missing(field))?)
-            }
+            PlayerField::TightPossession => u32::from(
+                self.stats
+                    .tight_possession
+                    .ok_or_else(|| codec::missing(field))?,
+            ),
             PlayerField::Aggression => {
-                u32::from(self.stats.aggression.ok_or_else(|| missing(field))?)
+                u32::from(self.stats.aggression.ok_or_else(|| codec::missing(field))?)
             }
-            PlayerField::PlayingAttitude => {
-                u32::from(self.stats.playing_attitude.ok_or_else(|| missing(field))?)
-            }
-            PlayerField::StrongerHand => {
-                u32::from(self.positions.stronger_hand.ok_or_else(|| missing(field))?)
-            }
+            PlayerField::PlayingAttitude => u32::from(
+                self.stats
+                    .playing_attitude
+                    .ok_or_else(|| codec::missing(field))?,
+            ),
+            PlayerField::StrongerHand => u32::from(
+                self.positions
+                    .stronger_hand
+                    .ok_or_else(|| codec::missing(field))?,
+            ),
             PlayerField::EditedFace => u32::from(self.edit_flags.face),
             PlayerField::EditedHair => u32::from(self.edit_flags.hair),
             PlayerField::EditedPhysique => u32::from(self.edit_flags.physique),
@@ -480,7 +479,7 @@ impl PlayerEntry {
                     .positions
                     .playable
                     .get_mut(usize::from(i))
-                    .ok_or(index(field, i))? = value as u8;
+                    .ok_or_else(|| codec::index(field, i))? = value as u8;
             }
             PlayerField::HunchingDribbling => self.motion.hunching_dribbling = value as u8,
             PlayerField::HunchingRunning => self.motion.hunching_running = value as u8,
@@ -503,14 +502,14 @@ impl PlayerEntry {
                     .skills
                     .com_styles
                     .get_mut(usize::from(i))
-                    .ok_or(index(field, i))? = value != 0;
+                    .ok_or_else(|| codec::index(field, i))? = value != 0;
             }
             PlayerField::Skill(i) => {
                 *self
                     .skills
                     .skills
                     .get_mut(usize::from(i))
-                    .ok_or(index(field, i))? = value != 0;
+                    .ok_or_else(|| codec::index(field, i))? = value != 0;
             }
             PlayerField::Star => self.stats.star = Some(value as u8),
             PlayerField::DribblingMotion => self.motion.dribbling = Some(value as u8),

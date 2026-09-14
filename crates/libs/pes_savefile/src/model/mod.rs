@@ -4,8 +4,17 @@
 
 /// The player model.
 pub mod player;
+/// The tactics model.
+pub mod tactics;
+/// The team model.
+pub mod team;
 
 pub use player::{
     PlayerAppearance, PlayerBasics, PlayerEditFlags, PlayerEntry, PlayerMotion, PlayerPositions,
     PlayerSkills, PlayerStats,
 };
+pub use tactics::{
+    AdvancedInstruction, Formation, FormationSlot, SetPieceTakers, TacticSliders, TacticStyle,
+    TacticsPreset, TeamAutoFlags, TeamTactics,
+};
+pub use team::{KitSlot, RosterSlot, TeamColor, TeamEditFlags, TeamEntry};
