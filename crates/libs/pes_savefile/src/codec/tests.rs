@@ -1,7 +1,5 @@
 //! The codec test suite: fixture round trips, literals and censuses.
 
-use std::io::Read;
-
 use pes_version::PesVersion;
 
 use super::team::tactics_runs;
@@ -17,47 +15,8 @@ use crate::schema::fields::{
 };
 use crate::schema::ingame_face::IngameFaceField;
 use crate::schema::{RecordSchema, TacticsSchema};
-use crate::schema::{SectionLayout, VersionSchema, schema_for};
-
-/// The inflated payload of one version's fixture.
-fn payload(version: PesVersion) -> Vec<u8> {
-    let bytes: &[u8] = match version {
-        PesVersion::Pes15 => include_bytes!("../../tests/fixtures/pes15_payload.bin.zz"),
-        PesVersion::Pes16 => include_bytes!("../../tests/fixtures/pes16_payload.bin.zz"),
-        PesVersion::Pes17 => include_bytes!("../../tests/fixtures/pes17_payload.bin.zz"),
-        PesVersion::Pes18 => include_bytes!("../../tests/fixtures/pes18_payload.bin.zz"),
-        PesVersion::Pes19 => include_bytes!("../../tests/fixtures/pes19_payload.bin.zz"),
-        PesVersion::Pes20 => panic!("the PES 20 save shares PES 21's tables; no 20 fixture"),
-        PesVersion::Pes21 => include_bytes!("../../tests/fixtures/pes21_payload.bin.zz"),
-    };
-    let mut out = Vec::new();
-    flate2::read::ZlibDecoder::new(bytes)
-        .read_to_end(&mut out)
-        .expect("fixture payload inflates");
-    out
-}
-
-/// The versions a committed payload fixture exists for.
-const FIXTURES: [PesVersion; 6] = [
-    PesVersion::Pes15,
-    PesVersion::Pes16,
-    PesVersion::Pes17,
-    PesVersion::Pes18,
-    PesVersion::Pes19,
-    PesVersion::Pes21,
-];
-
-fn count(payload: &[u8], section: &SectionLayout) -> usize {
-    u16::from_le_bytes(
-        payload[section.count_offset..section.count_offset + 2]
-            .try_into()
-            .expect("u16"),
-    ) as usize
-}
-
-fn record<'a>(payload: &'a [u8], section: &SectionLayout, size: usize, i: usize) -> &'a [u8] {
-    &payload[section.offset + i * size..section.offset + (i + 1) * size]
-}
+use crate::schema::{VersionSchema, schema_for};
+use crate::test_support::{FIXTURES, appearance_for, count, find_player, payload, record};
 
 /// Every player record of `schema`'s fixture as decoded entries.
 fn players(payload: &[u8], schema: &VersionSchema) -> Vec<PlayerEntry> {
@@ -114,33 +73,6 @@ fn every_player_record_round_trips_byte_for_byte() {
             }
         }
     }
-}
-
-/// The PES 15/16 appearance record of a decoded player id.
-fn appearance_for(payload: &[u8], schema: &VersionSchema, player: &mut PlayerEntry) {
-    if let Some((section, appearance)) = &schema.appearance {
-        for i in 0..count(payload, section) {
-            let rec = record(payload, section, appearance.size, i);
-            if u32::from_le_bytes(rec[..4].try_into().expect("id")) == player.id {
-                read_player_into(player, rec, appearance).expect("appearance decodes");
-                return;
-            }
-        }
-        panic!("no appearance record for player {}", player.id);
-    }
-}
-
-/// The decoded player with `id` (appearance fields included on 15/16).
-fn find_player(payload: &[u8], schema: &VersionSchema, id: u32) -> PlayerEntry {
-    for i in 0..count(payload, &schema.players) {
-        let rec = record(payload, &schema.players, schema.player.size, i);
-        let mut player = read_player(rec, schema.player).expect("decode");
-        if player.id == id {
-            appearance_for(payload, schema, &mut player);
-            return player;
-        }
-    }
-    panic!("player {id} not in the save");
 }
 
 #[test]

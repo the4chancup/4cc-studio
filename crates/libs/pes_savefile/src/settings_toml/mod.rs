@@ -10,6 +10,8 @@ pub(crate) mod keys;
 #[cfg(test)]
 mod tests;
 
+use toml_edit::{DocumentMut, Item, Value};
+
 use crate::codec::CodecError;
 use crate::model::player::PlayerEntry;
 #[cfg(test)]
@@ -193,6 +195,45 @@ pub enum SettingsError {
     /// ingame-face run to read or write through).
     #[error(transparent)]
     Codec(#[from] CodecError),
+    /// The text is not valid TOML.
+    #[error("settings.toml is not valid TOML: {0}")]
+    Toml(String),
+    /// A key or table the settings schema does not know, by its dotted path
+    /// (`appearance.boots_id`, `appearance.hair`, `stats`).
+    #[error("{key}: unknown key")]
+    UnknownKey {
+        /// The dotted path.
+        key: String,
+    },
+    /// The value is not the kind the key wants.
+    #[error("{key}: expected {expected}")]
+    WrongType {
+        /// The dotted path (`name`, `appearance.strip.untucked`).
+        key: String,
+        /// What the key wants: "an integer", "a string", "true or false",
+        /// "true or a string", "a table".
+        expected: &'static str,
+    },
+    /// An integer outside the key's range.
+    #[error("{key}: {value} is outside {range}")]
+    OutOfRange {
+        /// The dotted path.
+        key: String,
+        /// The value as written.
+        value: i64,
+        /// The range text ("-7 to 7", "1 to 10", "0 to 7").
+        range: String,
+    },
+    /// A string that is none of the key's labels.
+    #[error("{key}: unknown value {label:?}, expected one of {allowed}")]
+    UnknownLabel {
+        /// The dotted path.
+        key: String,
+        /// The label as written.
+        label: String,
+        /// The labels joined by ", ", each quoted.
+        allowed: String,
+    },
 }
 
 impl PlayerSettings {
@@ -605,5 +646,328 @@ pub(crate) fn face_ownership(field: IngameFaceField) -> Ownership {
         | IngameFaceField::UpperLipType
         | IngameFaceField::LowerLipType
         | IngameFaceField::IrisColor => Ownership::Settings,
+    }
+}
+
+// The TOML half: `parse` reads a `settings.toml` text, `to_toml` emits the
+// template (the plan's key-table block verbatim for a fully set settings),
+// `update_toml` rewrites the `Some` values inside an existing document while
+// preserving its comments and formatting.
+
+/// The header of a generated `settings.toml`: the plan block's four comment
+/// lines and the two-line `name` comment, verbatim.
+const HEADER: &str = "\
+# settings.toml, inside a player folder. Every key is optional: an absent key leaves
+# that savefile setting untouched. A commented key shows what can be set and its range.
+# The file never references models: what a player wears is decided by the folder
+# contents (models present, link files pointing at shared folders).
+
+# true = derive from the folder name (\"15 - Snuffy\" gives \"Snuffy\"; the whole folder
+# name for players.txt-mapped folders); \"text\" = write as is; absent = leave untouched.
+";
+
+/// The dotted path of a key ("appearance.strip.sleeves").
+fn dotted(spec: &keys::KeySpec) -> String {
+    format!("{}.{}", spec.table, spec.name)
+}
+
+/// A key's TOML value for a stored `u8` (label string, signed physique
+/// number, 1-based motion number, bool).
+fn toml_form(kind: Kind, stored: u8) -> Value {
+    match kind {
+        Kind::Number { .. } => i64::from(stored).into(),
+        Kind::Signed7 => (i64::from(stored) - 7).into(),
+        Kind::OneBased { .. } => (i64::from(stored) + 1).into(),
+        Kind::Bool => (stored != 0).into(),
+        Kind::Labels(labels) => labels[usize::from(stored)].into(),
+    }
+}
+
+/// The value an unset key's commented line shows.
+fn neutral_text(kind: Kind) -> String {
+    match kind {
+        Kind::Number { .. } | Kind::Signed7 => "0".to_string(),
+        Kind::OneBased { .. } => "1".to_string(),
+        Kind::Bool => "false".to_string(),
+        Kind::Labels(labels) => Value::from(labels[0]).to_string(),
+    }
+}
+
+/// `body` padded so `#` starts at character 33 (1-based); a body longer than
+/// the pad still gets one space before `#`.
+fn padded(body: &str, comment: &str) -> String {
+    let pad = 32_usize.saturating_sub(body.len()).max(1);
+    format!("{body}{}# {comment}", " ".repeat(pad))
+}
+
+impl PlayerSettings {
+    /// Reads a `settings.toml` text. Every key is optional; anything the key
+    /// table does not know (a stray table, a compiler-owned field such as
+    /// `boots_id`) is `UnknownKey`. The first error met, in `SettingKey::ALL`
+    /// order then the unknown-key sweep, is the one reported.
+    pub fn parse(text: &str) -> Result<Self, SettingsError> {
+        let document: DocumentMut = text
+            .parse()
+            .map_err(|e: toml_edit::TomlError| SettingsError::Toml(e.to_string()))?;
+        let mut settings = PlayerSettings::default();
+        if let Some(item) = document.get("name") {
+            settings.name = Some(match item.as_value() {
+                Some(Value::Boolean(b)) if *b.value() => NameSetting::FromFolder,
+                Some(Value::String(s)) => NameSetting::Explicit(s.value().clone()),
+                _ => {
+                    return Err(SettingsError::WrongType {
+                        key: "name".to_string(),
+                        expected: "true or a string",
+                    });
+                }
+            });
+        }
+        for key in SettingKey::ALL {
+            let spec = key.spec();
+            let Some(item) = Self::lookup(&document, &spec)? else {
+                continue;
+            };
+            settings.set(key, Self::value(&dotted(&spec), spec.kind, item)?);
+        }
+        Self::reject_unknown(&document)?;
+        Ok(settings)
+    }
+
+    /// The item at a key's `(table, name)`, `None` when absent.
+    fn lookup<'a>(
+        document: &'a DocumentMut,
+        spec: &keys::KeySpec,
+    ) -> Result<Option<&'a Item>, SettingsError> {
+        let Some(appearance) = document.get("appearance") else {
+            return Ok(None);
+        };
+        let Some(appearance) = appearance.as_table_like() else {
+            return Err(SettingsError::WrongType {
+                key: "appearance".to_string(),
+                expected: "a table",
+            });
+        };
+        let table = match spec.table {
+            "appearance" => appearance,
+            _ => {
+                let sub = &spec.table["appearance.".len()..];
+                let Some(item) = appearance.get(sub) else {
+                    return Ok(None);
+                };
+                match item.as_table_like() {
+                    Some(table) => table,
+                    None => {
+                        return Err(SettingsError::WrongType {
+                            key: spec.table.to_string(),
+                            expected: "a table",
+                        });
+                    }
+                }
+            }
+        };
+        Ok(table.get(spec.name))
+    }
+
+    /// The stored `u8` behind one present item, range-checked per its `Kind`.
+    fn value(dotted: &str, kind: Kind, item: &Item) -> Result<u8, SettingsError> {
+        let integer = |expected: &'static str| -> Result<i64, SettingsError> {
+            item.as_value()
+                .and_then(|v| v.as_integer())
+                .ok_or_else(|| SettingsError::WrongType {
+                    key: dotted.to_string(),
+                    expected,
+                })
+        };
+        match kind {
+            Kind::Number { min, max } => {
+                let value = integer("an integer")?;
+                if !(i64::from(min)..=i64::from(max)).contains(&value) {
+                    return Err(SettingsError::OutOfRange {
+                        key: dotted.to_string(),
+                        value,
+                        range: format!("{min} to {max}"),
+                    });
+                }
+                Ok(u8::try_from(value).expect("the range check bounds it"))
+            }
+            Kind::Signed7 => {
+                let value = integer("an integer")?;
+                if !(-7..=7).contains(&value) {
+                    return Err(SettingsError::OutOfRange {
+                        key: dotted.to_string(),
+                        value,
+                        range: "-7 to 7".to_string(),
+                    });
+                }
+                Ok(u8::try_from(value + 7).expect("in 0..=14"))
+            }
+            Kind::OneBased { max } => {
+                let value = integer("an integer")?;
+                if !(1..=i64::from(max)).contains(&value) {
+                    return Err(SettingsError::OutOfRange {
+                        key: dotted.to_string(),
+                        value,
+                        range: format!("1 to {max}"),
+                    });
+                }
+                Ok(u8::try_from(value - 1).expect("in 0..=max-1"))
+            }
+            Kind::Bool => item
+                .as_value()
+                .and_then(|v| v.as_bool())
+                .map(u8::from)
+                .ok_or_else(|| SettingsError::WrongType {
+                    key: dotted.to_string(),
+                    expected: "true or false",
+                }),
+            Kind::Labels(labels) => {
+                let Some(text) = item.as_value().and_then(|v| v.as_str()) else {
+                    return Err(SettingsError::WrongType {
+                        key: dotted.to_string(),
+                        expected: "a string",
+                    });
+                };
+                labels
+                    .iter()
+                    .position(|label| *label == text)
+                    .map(|index| u8::try_from(index).expect("labels fit u8"))
+                    .ok_or_else(|| SettingsError::UnknownLabel {
+                        key: dotted.to_string(),
+                        label: text.to_string(),
+                        allowed: labels
+                            .iter()
+                            .map(|label| format!("\"{label}\""))
+                            .collect::<Vec<_>>()
+                            .join(", "),
+                    })
+            }
+        }
+    }
+
+    /// Everything the value walk did not consume is refused: a stray
+    /// top-level key, a stray table or key inside `[appearance]`, a stray key
+    /// inside a known table.
+    fn reject_unknown(document: &DocumentMut) -> Result<(), SettingsError> {
+        for (name, item) in document.iter() {
+            match name {
+                "name" => {}
+                "appearance" => {
+                    let Some(appearance) = item.as_table_like() else {
+                        return Err(SettingsError::WrongType {
+                            key: "appearance".to_string(),
+                            expected: "a table",
+                        });
+                    };
+                    for (key, sub) in appearance.iter() {
+                        match key {
+                            "skin_color" | "iris_color" => {}
+                            "physique" | "strip" | "motion" | "face" => {
+                                let table = format!("appearance.{key}");
+                                let Some(sub) = sub.as_table_like() else {
+                                    return Err(SettingsError::WrongType {
+                                        key: table,
+                                        expected: "a table",
+                                    });
+                                };
+                                for (leaf, _) in sub.iter() {
+                                    if !SettingKey::ALL.iter().any(|key| {
+                                        let spec = key.spec();
+                                        spec.table == table && spec.name == leaf
+                                    }) {
+                                        return Err(SettingsError::UnknownKey {
+                                            key: format!("{table}.{leaf}"),
+                                        });
+                                    }
+                                }
+                            }
+                            _ => {
+                                return Err(SettingsError::UnknownKey {
+                                    key: format!("appearance.{key}"),
+                                });
+                            }
+                        }
+                    }
+                }
+                _ => {
+                    return Err(SettingsError::UnknownKey {
+                        key: name.to_string(),
+                    });
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// The template `settings.toml`: the plan block verbatim for a settings
+    /// where every key is `Some`; an unset key is its line commented out with
+    /// the kind's neutral example value.
+    pub fn to_toml(&self) -> String {
+        let mut out = HEADER.to_string();
+        match &self.name {
+            Some(NameSetting::FromFolder) => out.push_str("name = true\n"),
+            Some(NameSetting::Explicit(name)) => {
+                out.push_str(&format!("name = {}\n", Value::from(name.as_str())));
+            }
+            None => out.push_str("# name = true\n"),
+        }
+        let mut table = "";
+        for key in SettingKey::ALL {
+            let spec = key.spec();
+            if spec.table != table {
+                out.push_str(&format!("\n[{}]\n", spec.table));
+                table = spec.table;
+            }
+            let body = match self.get(key) {
+                Some(stored) => format!("{} = {}", spec.name, toml_form(spec.kind, stored)),
+                None => format!("{} = {}", spec.name, neutral_text(spec.kind)),
+            };
+            let line = padded(&body, spec.comment);
+            match self.get(key) {
+                Some(_) => out.push_str(&line),
+                None => out.push_str(&format!("# {line}")),
+            }
+            out.push('\n');
+        }
+        out
+    }
+
+    /// Rewrites the `Some` values of an existing document, preserving its
+    /// comments and formatting; `None` keys are left as the user wrote them
+    /// (a commented key stays commented). Missing tables are created as
+    /// standard tables; no comments are added.
+    pub fn update_toml(&self, document: &mut DocumentMut) {
+        fn set(item: &mut Item, value: Value) {
+            let decor = item.as_value().map(|old| old.decor().clone());
+            *item = Item::Value(value);
+            if let (Some(decor), Item::Value(new)) = (decor, item) {
+                *new.decor_mut() = decor;
+            }
+        }
+
+        match &self.name {
+            Some(NameSetting::FromFolder) => set(&mut document["name"], true.into()),
+            Some(NameSetting::Explicit(name)) => {
+                set(&mut document["name"], name.as_str().into());
+            }
+            None => {}
+        }
+        for key in SettingKey::ALL {
+            let Some(stored) = self.get(key) else {
+                continue;
+            };
+            let spec = key.spec();
+            let mut item = document.as_item_mut();
+            for segment in spec.table.split('.') {
+                if let Item::Table(table) = item {
+                    if !table.contains_key(segment) {
+                        table.insert(segment, Item::Table(toml_edit::Table::new()));
+                    }
+                    item = table.get_mut(segment).expect("just inserted");
+                } else {
+                    item = &mut item[segment];
+                }
+            }
+            set(&mut item[spec.name], toml_form(spec.kind, stored));
+        }
     }
 }

@@ -22,5 +22,8 @@ pub mod model;
 pub mod schema;
 /// The `PlayerSettings` model behind export `settings.toml` files.
 pub mod settings_toml;
+/// Fixture helpers shared by the crate's test modules.
+#[cfg(test)]
+mod test_support;
 
 pub use file::{EditFile, SaveError};

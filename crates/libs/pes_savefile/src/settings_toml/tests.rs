@@ -1,78 +1,22 @@
 //! The `PlayerSettings` tests: the completeness invariant, `from_player`,
-//! `apply`, the key table itself.
+//! `apply`, the key table itself, and the TOML text half.
 
 use std::collections::HashSet;
-use std::io::Read;
 
 use pes_version::PesVersion;
+use toml_edit::DocumentMut;
 
 use super::keys::Source;
 use super::{
     AppearanceSettings, Kind, NameSetting, Ownership, PlayerSettings, SettingKey, SettingsError,
     face_ownership, ownership,
 };
-use crate::codec::{read_player, read_player_into, runs, write_player};
-use crate::model::player::{PlayerAppearance, PlayerEntry};
+use crate::codec::{read_player, runs, write_player};
+use crate::model::player::PlayerAppearance;
 use crate::schema::fields::PlayerField;
 use crate::schema::ingame_face::{INGAME_FACE_FIELDS, IngameFaceField};
-use crate::schema::{SectionLayout, VersionSchema, schema_for};
-
-/// The inflated payload of one version's fixture.
-fn payload(version: PesVersion) -> Vec<u8> {
-    let bytes: &[u8] = match version {
-        PesVersion::Pes15 => include_bytes!("../../tests/fixtures/pes15_payload.bin.zz"),
-        PesVersion::Pes16 => include_bytes!("../../tests/fixtures/pes16_payload.bin.zz"),
-        PesVersion::Pes17 => include_bytes!("../../tests/fixtures/pes17_payload.bin.zz"),
-        PesVersion::Pes18 => include_bytes!("../../tests/fixtures/pes18_payload.bin.zz"),
-        PesVersion::Pes19 => include_bytes!("../../tests/fixtures/pes19_payload.bin.zz"),
-        PesVersion::Pes20 => panic!("the PES 20 save shares PES 21's tables; no 20 fixture"),
-        PesVersion::Pes21 => include_bytes!("../../tests/fixtures/pes21_payload.bin.zz"),
-    };
-    let mut out = Vec::new();
-    flate2::read::ZlibDecoder::new(bytes)
-        .read_to_end(&mut out)
-        .expect("fixture payload inflates");
-    out
-}
-
-fn count(payload: &[u8], section: &SectionLayout) -> usize {
-    u16::from_le_bytes(
-        payload[section.count_offset..section.count_offset + 2]
-            .try_into()
-            .expect("u16"),
-    ) as usize
-}
-
-fn record<'a>(payload: &'a [u8], section: &SectionLayout, size: usize, i: usize) -> &'a [u8] {
-    &payload[section.offset + i * size..section.offset + (i + 1) * size]
-}
-
-/// The PES 15/16 appearance record of a decoded player id.
-fn appearance_for(payload: &[u8], schema: &VersionSchema, player: &mut PlayerEntry) {
-    if let Some((section, appearance)) = &schema.appearance {
-        for i in 0..count(payload, section) {
-            let rec = record(payload, section, appearance.size, i);
-            if u32::from_le_bytes(rec[..4].try_into().expect("id")) == player.id {
-                read_player_into(player, rec, appearance).expect("appearance decodes");
-                return;
-            }
-        }
-        panic!("no appearance record for player {}", player.id);
-    }
-}
-
-/// The decoded player with `id` (appearance fields included on 15/16).
-fn find_player(payload: &[u8], schema: &VersionSchema, id: u32) -> PlayerEntry {
-    for i in 0..count(payload, &schema.players) {
-        let rec = record(payload, &schema.players, schema.player.size, i);
-        let mut player = read_player(rec, schema.player).expect("decode");
-        if player.id == id {
-            appearance_for(payload, schema, &mut player);
-            return player;
-        }
-    }
-    panic!("player {id} not in the save");
-}
+use crate::schema::schema_for;
+use crate::test_support::{count, find_player, payload, record};
 
 #[test]
 fn every_settings_field_is_a_key_and_every_key_a_settings_field() {
@@ -354,4 +298,265 @@ fn an_unset_settings_is_empty_and_default() {
         assert_eq!(settings.get(key), None, "{key:?}");
     }
     assert_eq!(settings.appearance, AppearanceSettings::default());
+}
+
+// The TOML half: the template, the parser's errors, `update_toml`.
+
+/// The key-table block of `docs/plans/aesthetics_export/settings_toml.md`,
+/// pasted verbatim: `to_toml` of the settings it parses to must reproduce it
+/// byte for byte.
+const PLAN_BLOCK: &str = r#"# settings.toml, inside a player folder. Every key is optional: an absent key leaves
+# that savefile setting untouched. A commented key shows what can be set and its range.
+# The file never references models: what a player wears is decided by the folder
+# contents (models present, link files pointing at shared folders).
+
+# true = derive from the folder name ("15 - Snuffy" gives "Snuffy"; the whole folder
+# name for players.txt-mapped folders); "text" = write as is; absent = leave untouched.
+name = "Snuffy"
+
+[appearance]
+skin_color = 1                  # 0 white, 1 light, 2 fair, 3 medium, 4 olive, 5 brown, 6 black, 7 custom (invisible body, PES 15 to 17 only)
+iris_color = 0                  # 0 black, 1 dark brown, 2 brown, 3 sable, 4 navy blue, 5 charcoal, 6 gray, 7 blue, 8 sienna, 9 green, 10 violet
+
+[appearance.physique]
+height = 180                    # cm
+weight = 75                     # kg
+neck_length = 0                 # -7 to 7
+neck_size = 0                   # -7 to 7
+shoulder_height = 0             # -7 to 7
+shoulder_width = 0              # -7 to 7
+chest = 0                       # -7 to 7
+waist = 0                       # -7 to 7
+arm_size = 0                    # -7 to 7
+arm_length = 0                  # -7 to 7
+thigh = 0                       # -7 to 7
+calf = 0                        # -7 to 7
+leg_length = 0                  # -7 to 7
+head_length = 0                 # -7 to 7
+head_width = 0                  # -7 to 7
+head_depth = 0                  # -7 to 7
+
+[appearance.strip]
+sleeves = "short"               # "seasonal", "short", "long"
+inners = "off"                  # "off", "normal", "turtleneck"
+socks = "standard"              # "standard", "long", "short"
+undershorts = "off"             # "off", "short", "winter_long" (none in summer, long in winter), "short_winter_long" (short in summer, long in winter)
+untucked = true                 # true, false
+ankle_taping = false            # true, false
+wrist_taping = "off"            # "off", "right", "left", "both"
+wrist_tape_color_left = 0       # 0 to 7
+wrist_tape_color_right = 0      # 0 to 7
+spectacles = 0                  # 0 none, 1 rectangle rimless, 2 rectangle half frame, 3 rectangle full frame, 4 oval rimless, 5 oval half frame, 6 oval full frame, 7 round full frame
+spectacles_color = 0            # 0 white, 1 black, 2 red, 3 blue, 4 yellow, 5 green, 6 pink, 7 turquoise
+gloves = false                  # true, false (outfield player gloves)
+gloves_color = 0                # 0 to 7
+
+[appearance.motion]
+hunching_dribbling = 1          # 1 to 3 (PES 20 and 21: 1 to 5)
+hunching_running = 1            # 1 to 3 (PES 20 and 21: 1 to 5)
+arm_movement_dribbling = 1      # 1 to 8 (PES 20 and 21: 1 to 10)
+arm_movement_running = 1        # 1 to 8 (PES 20 and 21: 1 to 10)
+corner_kick = 1                 # 1 to 6 (PES 20 and 21: 1 to 10)
+free_kick = 1                   # 1 to 16 (PES 20 and 21: 1 to 20)
+penalty_kick = 1                # 1 to 4 (PES 20 and 21: 1 to 7)
+dribbling = 0                   # 0 to 3, PES 20 and 21 only
+goal_celebration_1 = 0          # 0 none, 1 to 122 (PES 20 and 21: 1 to 162)
+goal_celebration_2 = 0          # 0 none, 1 to 122 (PES 20 and 21: 1 to 162)
+
+[appearance.face]
+cheek_type = 0                  # 0 to 3
+forehead_type = 0               # 0 to 5
+facial_hair_type = 0            # 0 to 12 (PES 20 and 21: 0 to 19)
+laughter_lines_type = 0         # 0 to 4
+upper_eyelid_type = 0           # 0 to 6 (PES 20 and 21: 0 to 7)
+lower_eyelid_type = 0           # 0 to 2 (PES 20 and 21: 0 to 6)
+eyebrow_type = 0                # 0 to 5 (PES 20 and 21: 0 to 7)
+neck_line_type = 0              # 0 to 2 (PES 20 and 21: 0 to 3)
+nose_type = 0                   # 0 to 6 (PES 20 and 21: 0 to 7)
+upper_lip_type = 0              # 0 to 3 (PES 20 and 21: 0 to 4)
+lower_lip_type = 0              # 0 to 2 (PES 20 and 21: 0 to 4)
+"#;
+
+#[test]
+fn to_toml_of_the_parsed_plan_block_is_the_plan_block() {
+    let settings = PlayerSettings::parse(PLAN_BLOCK).expect("the plan block parses");
+    assert_eq!(
+        settings.name,
+        Some(NameSetting::Explicit("Snuffy".to_string()))
+    );
+    assert_eq!(settings.to_toml(), PLAN_BLOCK);
+}
+
+#[test]
+fn to_toml_of_a_default_is_a_fully_commented_template() {
+    let text = PlayerSettings::default().to_toml();
+    for key in SettingKey::ALL {
+        let spec = key.spec();
+        assert!(
+            text.contains(&format!("# {} = ", spec.name)),
+            "{key:?} is not a commented line"
+        );
+        assert!(text.contains(spec.comment), "{key:?} comment absent");
+    }
+    assert!(text.contains("# name = true"), "name is commented");
+    assert_eq!(
+        PlayerSettings::parse(&text).expect("a commented file parses"),
+        PlayerSettings::default(),
+        "a commented file is an empty settings"
+    );
+}
+
+#[test]
+fn to_toml_round_trips_a_real_player_through_text() {
+    for version in [PesVersion::Pes19, PesVersion::Pes15] {
+        let player = find_player(&payload(version), schema_for(version), 70101);
+        let settings = PlayerSettings::from_player(&player).expect("from_player");
+        let text = settings.to_toml();
+        assert_eq!(
+            PlayerSettings::parse(&text).expect("the emitted text parses"),
+            settings,
+            "{version:?} player 70101 through text"
+        );
+        if version == PesVersion::Pes15 {
+            assert!(
+                text.lines().any(|line| line.starts_with("# dribbling =")),
+                "dribbling stays commented on PES 15"
+            );
+        }
+    }
+}
+
+#[test]
+fn parse_reports_the_first_error_with_its_key() {
+    let cases: [(&str, SettingsError); 11] = [
+        (
+            "appearance.hair = 1",
+            SettingsError::UnknownKey {
+                key: "appearance.hair".to_string(),
+            },
+        ),
+        (
+            "[appearance.strip]\nboots_id = 5\n",
+            SettingsError::UnknownKey {
+                key: "appearance.strip.boots_id".to_string(),
+            },
+        ),
+        (
+            "[appearance]\nskin_color = 8\n",
+            SettingsError::OutOfRange {
+                key: "appearance.skin_color".to_string(),
+                value: 8,
+                range: "0 to 7".to_string(),
+            },
+        ),
+        (
+            "[appearance.physique]\nneck_length = 8\n",
+            SettingsError::OutOfRange {
+                key: "appearance.physique.neck_length".to_string(),
+                value: 8,
+                range: "-7 to 7".to_string(),
+            },
+        ),
+        (
+            "[appearance.motion]\nhunching_dribbling = 0\n",
+            SettingsError::OutOfRange {
+                key: "appearance.motion.hunching_dribbling".to_string(),
+                value: 0,
+                range: "1 to 5".to_string(),
+            },
+        ),
+        (
+            "[appearance.strip]\nsleeves = \"medium\"\n",
+            SettingsError::UnknownLabel {
+                key: "appearance.strip.sleeves".to_string(),
+                label: "medium".to_string(),
+                allowed: "\"seasonal\", \"short\", \"long\"".to_string(),
+            },
+        ),
+        (
+            "[appearance.strip]\nuntucked = 1\n",
+            SettingsError::WrongType {
+                key: "appearance.strip.untucked".to_string(),
+                expected: "true or false",
+            },
+        ),
+        (
+            "name = false",
+            SettingsError::WrongType {
+                key: "name".to_string(),
+                expected: "true or a string",
+            },
+        ),
+        (
+            "[appearance.physique]\nheight = 1.5\n",
+            SettingsError::WrongType {
+                key: "appearance.physique.height".to_string(),
+                expected: "an integer",
+            },
+        ),
+        (
+            "stats = {}",
+            SettingsError::UnknownKey {
+                key: "stats".to_string(),
+            },
+        ),
+        ("this is not toml", SettingsError::Toml(String::new())),
+    ];
+    for (text, expected) in cases {
+        let error = PlayerSettings::parse(text).expect_err(text);
+        match (&error, &expected) {
+            (SettingsError::Toml(_), SettingsError::Toml(_)) => {}
+            _ => assert_eq!(error.to_string(), expected.to_string(), "parsing {text:?}"),
+        }
+    }
+}
+
+#[test]
+fn update_toml_rewrites_values_and_keeps_the_users_comments() {
+    let mut document: DocumentMut = "[appearance.strip]\n\
+# the sleeves we want\n\
+sleeves = \"short\"   # keep me\n\
+"
+    .parse()
+    .expect("document parses");
+    let mut settings = PlayerSettings::default();
+    settings.set(SettingKey::Sleeves, 2);
+    settings.update_toml(&mut document);
+    assert_eq!(
+        document.to_string(),
+        "[appearance.strip]\n# the sleeves we want\nsleeves = \"long\"   # keep me\n"
+    );
+
+    let mut settings = PlayerSettings::default();
+    settings.set(SettingKey::CheekType, 2);
+    settings.update_toml(&mut document);
+    assert!(
+        document.to_string().contains("[appearance.face]"),
+        "a missing table is created as a standard table: {}",
+        document
+    );
+    assert_eq!(
+        PlayerSettings::parse(&document.to_string())
+            .expect("the updated document parses")
+            .appearance
+            .face
+            .cheek_type,
+        Some(2)
+    );
+}
+
+#[test]
+fn parse_maps_the_toml_values_to_the_stored_ones() {
+    let settings = PlayerSettings::parse(
+        "[appearance.physique]\nneck_length = -7\n\
+[appearance.motion]\nfree_kick = 20\n\
+[appearance.strip]\nwrist_taping = \"both\"\n",
+    )
+    .expect("parses");
+    assert_eq!(settings.get(SettingKey::NeckLength), Some(0));
+    assert_eq!(settings.get(SettingKey::FreeKick), Some(19));
+    assert_eq!(settings.get(SettingKey::WristTaping), Some(3));
+    let settings =
+        PlayerSettings::parse("[appearance.physique]\nneck_length = 7\n").expect("parses");
+    assert_eq!(settings.get(SettingKey::NeckLength), Some(14));
 }
