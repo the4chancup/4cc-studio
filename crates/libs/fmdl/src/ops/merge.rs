@@ -58,6 +58,17 @@ pub fn merge(parts: &[Model]) -> Result<Model, MergeError> {
     for (part_index, part) in parts.iter().enumerate() {
         // Bone union: identity of a bone is its name; a shared bone must
         // agree on positions and on the parent's *name*.
+        for bone in &part.bones {
+            if let Some(parent) = bone.parent
+                && parent >= part.bones.len()
+            {
+                return Err(FmdlError::BadReference {
+                    what: "bone parent",
+                    index: parent,
+                }
+                .into());
+            }
+        }
         let mut bone_remap = vec![usize::MAX; part.bones.len()];
         for (index, bone) in part.bones.iter().enumerate() {
             match bone_of.get(bone.name.as_str()) {
@@ -317,5 +328,18 @@ mod tests {
         assert!(empty.meshes.is_empty());
         assert!(empty.mesh_groups.is_empty());
         assert_eq!(empty.bone_matrices, None);
+    }
+
+    #[test]
+    fn bone_parent_out_of_range() {
+        let mut part = model(ORAL);
+        part.bones[0].parent = Some(9);
+        assert!(matches!(
+            merge(&[part]),
+            Err(MergeError::Other(FmdlError::BadReference {
+                what: "bone parent",
+                index: 9
+            }))
+        ));
     }
 }

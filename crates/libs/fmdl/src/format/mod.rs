@@ -85,4 +85,12 @@ pub enum FmdlError {
     /// A mesh holds more vertices than the format's u16 count allows.
     #[error("too many vertices in mesh: {0}")]
     TooManyVertices(usize),
+    /// A table or string grew past the format's u16 index or length field.
+    #[error("fmdl table overflow: {what} has {count} entries")]
+    TableOverflow {
+        /// Which table or field overflowed.
+        what: &'static str,
+        /// The count that did not fit.
+        count: usize,
+    },
 }

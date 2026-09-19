@@ -14,7 +14,8 @@ const RECORD_SIZE: u32 = 56;
 /// A Fox skeleton: bone names, parent indices and 3x4 bind transforms.
 #[derive(Debug, Clone, PartialEq)]
 pub struct SklFile {
-    /// The bones in file order; parents always precede their children.
+    /// The bones in file order. Parents need not precede children: the game's
+    /// `body.skl` files put bones 1 and 2 under bone 18.
     pub bones: Vec<SklBone>,
 }
 
@@ -54,8 +55,9 @@ impl SklFile {
         if header.record_size != RECORD_SIZE {
             return Err(FmdlError::BadSklRecordSize(header.record_size));
         }
-        let records_end = 12usize
-            .checked_add(header.bone_count as usize * RECORD_SIZE as usize)
+        let records_end = (header.bone_count as usize)
+            .checked_mul(RECORD_SIZE as usize)
+            .and_then(|bytes| 12usize.checked_add(bytes))
             .ok_or(FmdlError::Truncated)?;
         let records = bytes.get(12..records_end).ok_or(FmdlError::Truncated)?;
 
@@ -92,9 +94,22 @@ impl SklFile {
                 .ok_or(FmdlError::Truncated)?;
             let name =
                 String::from_utf8(name_bytes.to_vec()).map_err(|_| FmdlError::InvalidName)?;
+            // A parent may come later in the file, but it must exist.
+            let parent = if parent_index >= 0 {
+                let parent = parent_index as usize;
+                if parent >= header.bone_count as usize {
+                    return Err(FmdlError::BadReference {
+                        what: "skl parent",
+                        index: parent,
+                    });
+                }
+                Some(parent)
+            } else {
+                None
+            };
             bones.push(SklBone {
                 name,
-                parent: (parent_index >= 0).then_some(parent_index as usize),
+                parent,
                 rotation: [
                     [floats[0], floats[1], floats[2]],
                     [floats[4], floats[5], floats[6]],
@@ -198,5 +213,23 @@ mod tests {
             SklFile::read(&bad_name),
             Err(FmdlError::InvalidName)
         ));
+    }
+
+    #[test]
+    fn out_of_range_parent_errors() {
+        // Record N starts at 12 + 56 * N; its parent index is at offset 4.
+        let mut forward = BOOTS.to_vec();
+        forward[12 + 4..12 + 8].copy_from_slice(&4i32.to_le_bytes()); // == bone_count
+        assert!(matches!(
+            SklFile::read(&forward),
+            Err(FmdlError::BadReference {
+                what: "skl parent",
+                index: 4
+            })
+        ));
+        // A parent later in the file is valid (the game's body.skl does it).
+        let mut forward_ok = BOOTS.to_vec();
+        forward_ok[12 + 4..12 + 8].copy_from_slice(&3i32.to_le_bytes());
+        assert_eq!(SklFile::read(&forward_ok).unwrap().bones[0].parent, Some(3));
     }
 }

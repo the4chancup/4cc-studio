@@ -12,6 +12,8 @@ use super::{
 };
 use crate::ops::vertex_enc::topological_key;
 
+/// Vertex `index`'s split key: the stored bytes of position, weights and
+/// bone indices (all vertices of one mesh share the bone group, so group
 /// slot numbers compare correctly here).
 fn split_key(mesh: &Mesh, index: usize) -> Vec<u8> {
     topological_key(&mesh.vertices, index)
@@ -144,9 +146,7 @@ fn sort_vector(points: &[[f32; 3]], bone_position: [f32; 3]) -> [f32; 3] {
     }
 }
 
-/// Copies the attributes of source vertex `source` into `vertices`,
-/// remapping bone indices through `index_of` (model bone -> component bone
-/// group slot; unmapped slots write 0 (a bone a zero weight never loads).
+/// Splits off one component from `items_per_bone`; returns it together with
 /// the face and loose-set indices it consumed.
 fn build_component(
     model: &Model,
@@ -373,6 +373,17 @@ pub(super) fn split_mesh(
     parents: &[Option<usize>],
 ) -> Result<Vec<Mesh>, FmdlError> {
     let count = mesh.vertices.positions.len();
+    for face in &mesh.faces {
+        for &index in face {
+            let vertex = usize::from(index);
+            if vertex >= count {
+                return Err(FmdlError::BadReference {
+                    what: "face vertex",
+                    index: vertex,
+                });
+            }
+        }
+    }
     let skinned = mesh.vertices.bone_indices.is_some();
     let mappings: Vec<BoneMapping> = (0..count)
         .map(|index| bone_mapping(mesh, index))

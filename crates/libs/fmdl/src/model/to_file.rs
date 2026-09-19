@@ -44,7 +44,7 @@ impl Model {
             unknown_buffers: Vec::new(),
         };
         let mut strings = Strings::default();
-        strings.add(&mut file, "");
+        strings.add(&mut file, "")?;
 
         for bone in &self.bones {
             if let Some(parent) = bone.parent
@@ -55,8 +55,8 @@ impl Model {
                     index: parent,
                 });
             }
-            let name_string_id = strings.add(&mut file, &bone.name);
-            let bounding_box_id = add_bounding_box(&mut file, bone.bounding_box);
+            let name_string_id = strings.add(&mut file, &bone.name)?;
+            let bounding_box_id = add_bounding_box(&mut file, bone.bounding_box)?;
             file.bones.push(BoneRecord {
                 name_string_id,
                 parent_bone_id: bone.parent.map_or(-1, |index| index as i16),
@@ -70,20 +70,21 @@ impl Model {
 
         let mut parameter_values = Vec::new();
         for instance in &self.materials {
-            let name_string_id = strings.add(&mut file, &instance.name);
-            let material_id = file.materials.len() as u16;
-            let shader_string_id = strings.add(&mut file, &instance.shader);
-            let technique_string_id = strings.add(&mut file, &instance.technique);
+            let name_string_id = strings.add(&mut file, &instance.name)?;
+            let material_id = table_u16("materials", file.materials.len())?;
+            let shader_string_id = strings.add(&mut file, &instance.shader)?;
+            let technique_string_id = strings.add(&mut file, &instance.technique)?;
             file.materials.push(MaterialRecord {
                 shader_string_id,
                 technique_string_id,
             });
-            let first_texture_id = file.parameter_assignments.len() as u16;
+            let first_texture_id =
+                table_u16("parameter assignments", file.parameter_assignments.len())?;
             for (sampler, texture) in &instance.textures {
-                let filename_string_id = strings.add(&mut file, &texture.file_name);
-                let directory_string_id = strings.add(&mut file, &texture.directory);
-                let parameter_string_id = strings.add(&mut file, sampler);
-                let texture_id = file.textures.len() as u16;
+                let filename_string_id = strings.add(&mut file, &texture.file_name)?;
+                let directory_string_id = strings.add(&mut file, &texture.directory)?;
+                let parameter_string_id = strings.add(&mut file, sampler)?;
+                let texture_id = table_u16("textures", file.textures.len())?;
                 file.textures.push(TextureRecord {
                     filename_string_id,
                     directory_string_id,
@@ -93,10 +94,11 @@ impl Model {
                     reference_id: texture_id,
                 });
             }
-            let first_parameter_id = file.parameter_assignments.len() as u16;
+            let first_parameter_id =
+                table_u16("parameter assignments", file.parameter_assignments.len())?;
             for (name, values) in &instance.parameters {
-                let parameter_string_id = strings.add(&mut file, name);
-                let value_id = (parameter_values.len() / 16) as u16;
+                let parameter_string_id = strings.add(&mut file, name)?;
+                let value_id = table_u16("material parameters", parameter_values.len() / 16)?;
                 for value in values {
                     parameter_values.extend(value.to_le_bytes());
                 }
@@ -165,12 +167,13 @@ impl Model {
                             index: *bone,
                         });
                     }
-                    *slot = *bone as u16;
+                    *slot = table_u16("bone", *bone)?;
                 }
-                let id = file.bone_groups.len() as u16;
+                let id = table_u16("bone groups", file.bone_groups.len())?;
                 file.bone_groups.push(BoneGroupRecord {
                     unknown_0x00: 4,
-                    entry_count: mesh.bone_group.len() as u16,
+                    entry_count: u16::try_from(mesh.bone_group.len())
+                        .map_err(|_| FmdlError::TooManyBones(mesh.bone_group.len()))?,
                     bone_ids,
                 });
                 id
@@ -181,40 +184,44 @@ impl Model {
             // The vertex format: position in buffer 0, everything else
             // interleaved in buffer 1 in a fixed order; equal uv maps share
             // the earlier map's offset.
-            let first_mesh_format_id = file.mesh_formats.len() as u16;
-            let first_vertex_format_id = file.vertex_formats.len() as u16;
+            let first_mesh_format_id = table_u16("mesh formats", file.mesh_formats.len())?;
+            let first_vertex_format_id = table_u16("vertex formats", file.vertex_formats.len())?;
             let position_base = positions_buffer.len();
             let data_base = data_buffer.len();
             let mut type_entries = [0u8; 4];
             let mut data_offset = 0usize;
-            let mut vertex_format = |datum_type: DatumType, format: DatumFormat, offset: usize| {
+            let mut vertex_format = |datum_type: DatumType,
+                                     format: DatumFormat,
+                                     offset: usize|
+             -> Result<(), FmdlError> {
                 file.vertex_formats.push(VertexFormatRecord {
                     datum_type: datum_type.id(),
                     datum_format: format.id(),
-                    offset: offset as u16,
+                    offset: table_u16("vertex format offset", offset)?,
                 });
+                Ok(())
             };
-            vertex_format(DatumType::Position, DatumFormat::TripleFloat32, 0);
+            vertex_format(DatumType::Position, DatumFormat::TripleFloat32, 0)?;
             type_entries[0] += 1;
             if vertices.normals.is_some() {
-                vertex_format(DatumType::Normal, DatumFormat::QuadFloat16, data_offset);
+                vertex_format(DatumType::Normal, DatumFormat::QuadFloat16, data_offset)?;
                 data_offset += 8;
                 type_entries[1] += 1;
             }
             if vertices.tangents.is_some() {
-                vertex_format(DatumType::Tangent, DatumFormat::QuadFloat16, data_offset);
+                vertex_format(DatumType::Tangent, DatumFormat::QuadFloat16, data_offset)?;
                 data_offset += 8;
                 type_entries[1] += 1;
             }
             if vertices.colors.is_some() {
-                vertex_format(DatumType::Color, DatumFormat::QuadFloat8, data_offset);
+                vertex_format(DatumType::Color, DatumFormat::QuadFloat8, data_offset)?;
                 data_offset += 4;
                 type_entries[2] += 1;
             }
             if skinned {
-                vertex_format(DatumType::BoneWeights, DatumFormat::QuadFloat8, data_offset);
+                vertex_format(DatumType::BoneWeights, DatumFormat::QuadFloat8, data_offset)?;
                 data_offset += 4;
-                vertex_format(DatumType::BoneIndices, DatumFormat::QuadInt8, data_offset);
+                vertex_format(DatumType::BoneIndices, DatumFormat::QuadInt8, data_offset)?;
                 data_offset += 4;
                 type_entries[3] += 2;
             }
@@ -238,12 +245,12 @@ impl Model {
                 });
                 match shared {
                     Some(earlier) => {
-                        vertex_format(uv_types[map], format, uv_offsets[earlier]);
+                        vertex_format(uv_types[map], format, uv_offsets[earlier])?;
                         uv_offsets.push(uv_offsets[earlier]);
                         uv_shared.push(true);
                     }
                     None => {
-                        vertex_format(uv_types[map], format, data_offset);
+                        vertex_format(uv_types[map], format, data_offset)?;
                         uv_offsets.push(data_offset);
                         uv_shared.push(false);
                         data_offset += format.element_size();
@@ -273,7 +280,10 @@ impl Model {
                     });
                 }
             }
-            let mesh_format_id = file.mesh_format_assignments.len() as u16;
+            let mesh_format_id = table_u16(
+                "mesh format assignments",
+                file.mesh_format_assignments.len(),
+            )?;
             file.mesh_format_assignments
                 .push(MeshFormatAssignmentRecord {
                     mesh_format_entry_count: (file.mesh_formats.len()
@@ -348,10 +358,11 @@ impl Model {
                 alpha_flags: mesh.alpha_flags,
                 shadow_flags: mesh.shadow_flags,
                 unknown_0x02: [0; 2],
-                material_instance_id: mesh.material as u16,
+                material_instance_id: table_u16("material instance", mesh.material)?,
                 bone_group_id,
                 mesh_format_id,
-                vertex_count: vertex_count as u16,
+                vertex_count: u16::try_from(vertex_count)
+                    .map_err(|_| FmdlError::TooManyVertices(vertex_count))?,
                 unknown_0x0c: [0; 4],
                 first_face_vertex_index,
                 face_vertex_count: (mesh.faces.len() * 3) as u32,
@@ -391,7 +402,7 @@ impl Model {
                     index: parent,
                 });
             }
-            let name_string_id = strings.add(&mut file, &group.name);
+            let name_string_id = strings.add(&mut file, &group.name)?;
             file.mesh_groups.push(MeshGroupRecord {
                 name_string_id,
                 invisible: u16::from(!group.visible),
@@ -399,12 +410,12 @@ impl Model {
                 unknown_0x06: -1,
             });
             let bounding_box_id = match group.bounding_box {
-                Some(bounding_box) => Some(add_bounding_box(&mut file, bounding_box)),
+                Some(bounding_box) => Some(add_bounding_box(&mut file, bounding_box)?),
                 None if group.meshes.is_empty() => None,
                 None => Some(add_bounding_box(
                     &mut file,
                     compute_bounding_box(self, group),
-                )),
+                )?),
             };
             // Runs of consecutive mesh indices, one assignment record each,
             // all naming the group's bounding box.
@@ -425,9 +436,9 @@ impl Model {
                 for (first, count) in &runs {
                     file.mesh_group_assignments.push(MeshGroupAssignmentRecord {
                         unknown_0x00: [0; 4],
-                        mesh_group_id: index as u16,
-                        mesh_count: *count as u16,
-                        first_mesh_id: *first as u16,
+                        mesh_group_id: table_u16("mesh groups", index)?,
+                        mesh_count: table_u16("mesh group assignment", *count)?,
+                        first_mesh_id: table_u16("mesh", *first)?,
                         bounding_box_id,
                         unknown_0x0c: [0; 4],
                         unknown_0x10: 0,
@@ -437,7 +448,7 @@ impl Model {
                 if runs.is_empty() {
                     file.mesh_group_assignments.push(MeshGroupAssignmentRecord {
                         unknown_0x00: [0; 4],
-                        mesh_group_id: index as u16,
+                        mesh_group_id: table_u16("mesh groups", index)?,
                         mesh_count: 0,
                         first_mesh_id: 0,
                         bounding_box_id,
@@ -579,14 +590,19 @@ fn compute_bounding_box(model: &Model, group: &MeshGroup) -> BoundingBox {
     BoundingBox { max, min }
 }
 
+/// Narrows a table count or index to the format's u16 field.
+fn table_u16(what: &'static str, count: usize) -> Result<u16, FmdlError> {
+    u16::try_from(count).map_err(|_| FmdlError::TableOverflow { what, count })
+}
+
 /// Appends a bounding-box record, returning its id.
-fn add_bounding_box(file: &mut FmdlFile, bounding_box: BoundingBox) -> u16 {
-    let id = file.bounding_boxes.len() as u16;
+fn add_bounding_box(file: &mut FmdlFile, bounding_box: BoundingBox) -> Result<u16, FmdlError> {
+    let id = table_u16("bounding boxes", file.bounding_boxes.len())?;
     file.bounding_boxes.push(BoundingBoxRecord {
         max: bounding_box.max,
         min: bounding_box.min,
     });
-    id
+    Ok(id)
 }
 
 /// The string table builder: index 0 is the empty string, every other
@@ -601,19 +617,19 @@ struct Strings {
 
 impl Strings {
     /// Adds `string`, returning its index in the strings block.
-    fn add(&mut self, file: &mut FmdlFile, string: &str) -> u16 {
+    fn add(&mut self, file: &mut FmdlFile, string: &str) -> Result<u16, FmdlError> {
         if let Some(index) = self.indices.get(string) {
-            return *index;
+            return Ok(*index);
         }
-        let index = file.strings.len() as u16;
+        let index = table_u16("strings", file.strings.len())?;
         file.strings.push(StringRecord {
             string_block_id: 3,
-            length: string.len() as u16,
+            length: table_u16("string", string.len())?,
             offset: self.table.len() as u32,
         });
         self.table.extend(string.as_bytes());
         self.table.push(0);
         self.indices.insert(string.to_owned(), index);
-        index
+        Ok(index)
     }
 }

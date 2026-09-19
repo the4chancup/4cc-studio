@@ -210,7 +210,12 @@ pub fn decode(model: &mut Model) -> Result<(), FmdlError> {
     let mut mesh_group_of: Vec<Option<usize>> = vec![None; model.meshes.len()];
     for &group_index in &split_groups {
         for &mesh_index in &model.mesh_groups[group_index].meshes {
-            mesh_group_of[mesh_index] = Some(group_index);
+            *mesh_group_of
+                .get_mut(mesh_index)
+                .ok_or(FmdlError::BadReference {
+                    what: "mesh",
+                    index: mesh_index,
+                })? = Some(group_index);
         }
     }
 
@@ -258,7 +263,14 @@ pub fn decode(model: &mut Model) -> Result<(), FmdlError> {
         }
         group_map[index] = new_groups.len();
         let mut group = group.clone();
-        group.meshes = group.meshes.iter().map(|mesh| new_index[*mesh]).collect();
+        let mut remapped = Vec::with_capacity(group.meshes.len());
+        for &mesh in &group.meshes {
+            remapped.push(*new_index.get(mesh).ok_or(FmdlError::BadReference {
+                what: "mesh",
+                index: mesh,
+            })?);
+        }
+        group.meshes = remapped;
         for &split_index in &split_groups {
             if model.mesh_groups[split_index].parent == Some(index)
                 && let Some(&target) = combined_index.get(&split_index)
@@ -270,7 +282,10 @@ pub fn decode(model: &mut Model) -> Result<(), FmdlError> {
     }
     for group in &mut new_groups {
         if let Some(parent) = group.parent {
-            group.parent = Some(group_map[parent]);
+            group.parent = Some(*group_map.get(parent).ok_or(FmdlError::BadReference {
+                what: "mesh group",
+                index: parent,
+            })?);
         }
     }
     model.mesh_groups = new_groups;
@@ -312,9 +327,8 @@ pub(super) struct StorableItems {
     pub(super) loose: HashSet<usize>,
 }
 
-/// Vertex `index`'s split key: the stored bytes of position, weights and
-/// bone indices (all vertices of one mesh share the bone group, so group
-/// slot numbers compare correctly here).
+/// Copies the attributes of source vertex `source` into `vertices`,
+/// remapping bone indices through `index_of` (model bone -> component bone
 /// group slot; unmapped slots write 0 (a bone a zero weight never loads).
 pub(super) fn push_vertex(
     vertices: &mut MeshVertices,
