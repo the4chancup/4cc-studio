@@ -258,6 +258,79 @@ mod tests {
     }
 
     #[test]
+    fn mip_size_is_block_rounded_and_scales_with_depth() {
+        // BC1: 4x4 blocks of 8 bytes. 4x4 -> 8; 8x8 -> 2*2*8 = 32; 5x5 is
+        // block-rounded to 2x2 blocks -> 32; depth 2 doubles -> 16.
+        assert_eq!(mip_size(PixelFormat::Bc1, 4, 4, 1, 0), 8);
+        assert_eq!(mip_size(PixelFormat::Bc1, 8, 8, 1, 0), 32);
+        assert_eq!(mip_size(PixelFormat::Bc1, 5, 5, 1, 0), 32);
+        assert_eq!(mip_size(PixelFormat::Bc1, 4, 4, 2, 0), 16);
+    }
+
+    #[test]
+    fn a_declared_pitch_wider_than_the_tight_row_is_kept() {
+        // Uncompressed 32-bit pixels at width 5: the tight row is
+        // 5 * 32 / 8 = 20 bytes. A declared pitch of 24 means padded rows and
+        // is reported; one equal to 20 means tightly packed (None).
+        fn layout(pitch: u32) -> dds::DdsLayout {
+            let mut dds = vec![0u8; 128];
+            dds[..4].copy_from_slice(b"DDS ");
+            dds[4..8].copy_from_slice(&124u32.to_le_bytes());
+            dds[8..12].copy_from_slice(&0x8u32.to_le_bytes()); // DDSD_PITCH
+            dds[12..16].copy_from_slice(&2u32.to_le_bytes()); // height
+            dds[16..20].copy_from_slice(&5u32.to_le_bytes()); // width
+            dds[20..24].copy_from_slice(&pitch.to_le_bytes());
+            dds[76..80].copy_from_slice(&32u32.to_le_bytes()); // pixel_format_size
+            dds[80..84].copy_from_slice(&0x40u32.to_le_bytes()); // DDPF_RGB
+            dds[88..92].copy_from_slice(&32u32.to_le_bytes()); // bit count
+            dds[92..96].copy_from_slice(&0xff0000u32.to_le_bytes());
+            dds[96..100].copy_from_slice(&0xff00u32.to_le_bytes());
+            dds[100..104].copy_from_slice(&0xffu32.to_le_bytes());
+            dds[108..112].copy_from_slice(&0x1000u32.to_le_bytes()); // caps1
+            dds::read_layout(&dds).unwrap()
+        }
+        assert_eq!(layout(24).row_pitch, Some(24));
+        assert_eq!(layout(20).row_pitch, None);
+    }
+
+    #[test]
+    fn chunked_frames_record_offsets_and_pad_to_8() {
+        // A 128x128 Argb8 mip is 65536 bytes -> ceil(65536 / 16384) = 4 chunks.
+        let mut dds = dds::header_bytes(PixelFormat::Argb8, 128, 128, 1);
+        let pixels: Vec<u8> = (0..128 * 128 * 4u32)
+            .map(|i| ((i * 40503) >> 8) as u8)
+            .collect();
+        dds.extend_from_slice(&pixels);
+        let ftex = dds_to_ftex(&dds, ColorSpace::Linear).unwrap();
+        // The single 16-byte mip record sits at 64: offset u32, uncompressed
+        // u32, compressed u32, index u8, ftexs u8, chunk_count u16.
+        let record = &ftex[64..80];
+        let frame_offset = u32::from_le_bytes(record[0..4].try_into().unwrap()) as usize;
+        let uncompressed = u32::from_le_bytes(record[4..8].try_into().unwrap());
+        let compressed = u32::from_le_bytes(record[8..12].try_into().unwrap()) as usize;
+        let chunk_count = u16::from_le_bytes(record[14..16].try_into().unwrap()) as usize;
+        assert_eq!(uncompressed, 65536);
+        assert_eq!(chunk_count, 4);
+        let frame = &ftex[frame_offset..frame_offset + compressed];
+        // Chunk record i sits at 8*i; the chunk bytes start at 8*chunk_count,
+        // so each record's offset is that base plus the stored bytes before it.
+        let mut expected = 8 * chunk_count;
+        for i in 0..chunk_count {
+            let chunk = &frame[8 * i..8 * i + 8];
+            let stored = u16::from_le_bytes(chunk[0..2].try_into().unwrap()) as usize;
+            let piece = u16::from_le_bytes(chunk[2..4].try_into().unwrap());
+            let offset = u32::from_le_bytes(chunk[4..8].try_into().unwrap()) as usize;
+            assert_eq!(piece, 16384);
+            assert_eq!(offset, expected, "chunk {i}");
+            expected += stored;
+        }
+        // The frame is the records plus the chunk bytes, padded to a
+        // multiple of 8.
+        assert_eq!(compressed, expected + (8 - expected % 8) % 8);
+        assert_eq!(compressed % 8, 0);
+    }
+
+    #[test]
     fn a_dds_dimension_past_the_ftex_field_is_an_error() {
         // DDS header layout: u32 width at offset 16. 70,000 does not fit u16.
         let mut dds = BC1_DDS.to_vec();

@@ -815,6 +815,36 @@ mod tests {
     }
 
     #[test]
+    fn mip_chain_keeps_halving_while_either_axis_is_above_1() {
+        // 8x2: width halves to 1 across three levels; height is already 1.
+        let chain = mips::generate(8, 2, &[0u8; 8 * 2 * 4]);
+        let dims: Vec<(u32, u32)> = chain.iter().map(|m| (m.width, m.height)).collect();
+        assert_eq!(dims, [(4, 1), (2, 1), (1, 1)]);
+        // 2x8 is the mirror image: height keeps halving after width floors at
+        // 1, so the loop must still run on `height > 1` alone.
+        let chain = mips::generate(2, 8, &[0u8; 2 * 8 * 4]);
+        let dims: Vec<(u32, u32)> = chain.iter().map(|m| (m.width, m.height)).collect();
+        assert_eq!(dims, [(1, 4), (1, 2), (1, 1)]);
+    }
+
+    #[test]
+    fn downsample_clamps_the_box_to_the_source_edges() {
+        // 1x2: the single output pixel averages the one existing column only
+        // (x1 clamps to source_width - 1 = 0). (40 + 80 + 1) / 2 = 60.
+        let pixels = [40, 0, 0, 255, 80, 0, 0, 255];
+        let chain = mips::generate(1, 2, &pixels);
+        assert_eq!(chain.len(), 1);
+        assert_eq!(chain[0].pixels, [60, 0, 0, 255]);
+
+        // 3x1: floor halving emits one pixel covering columns 0-1; the odd
+        // third column is not sampled. (100 + 200 + 1) / 2 = 150.
+        let pixels = [100, 0, 0, 255, 200, 0, 0, 255, 60, 0, 0, 255];
+        let chain = mips::generate(3, 1, &pixels);
+        assert_eq!(chain.len(), 1);
+        assert_eq!(chain[0].pixels, [150, 0, 0, 255]);
+    }
+
+    #[test]
     fn converter_caches_and_bypasses() {
         let converter = Converter::new();
         let hash = source_hash(BC3);
