@@ -432,7 +432,8 @@ then Common, then the link folder's default/any MTL, then the main folder.
 All auto-generated tomls across the suite ship with predefined inline comments that serve as
 simplified per-field documentation — the user never writes comments from scratch. `toml_edit`-based
 edits preserve these comments and can inject comments for newly added keys. This principle applies to
-`materials.toml`, `settings.toml`, `config.toml`, and AATF parameter files alike.
+`materials.toml`, `settings.toml` and `config.toml` alike (the AATF rules file is hand-authored
+Rhai, not an auto-generated toml; its comments are the author's).
 
 ### Emission
 

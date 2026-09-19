@@ -530,3 +530,9 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
 - **2026-09-15** - Method review against "Why Software Factories Fail" (humanlayer). `AGENTS.md`: briefs sized for one review (about 500 lines, slices otherwise); red-run evidence per new test in the brief's closing section; the review sweep split into an honesty sweep and a design sweep; converge gains a design-health pass. Phase 3 tracer-bullet question recorded as step 3.x.
 - **2026-09-15** - User decided: Phase 3 opens with a tracer bullet (step 3.3; `core.md` "Phase 3" first bullet; decision entry). Early `studio` shell stays an open question (3.y).
 - **2026-09-15** - User decided: Phase 3 also closes with a minimal `studio` shell (step 3.z; `core.md` "Phase 3" last bullet, "Phase 8" note; decision entry).
+- **2026-09-19** - Reviewed 4ccEditor's `Tactics` (`4a95b7c`) and `Autumn_2026_AATF` (`cf61542`)
+  branches against the plans. Schemas 15-20 match the new tactics decoders offset for offset;
+  `pes_savefile.md` gained the Texport `.ted` 18-21 crypto and per-version offsets (for 2.17h),
+  `.4cct` layout and the canonical advanced-instruction mapping. `save_editor.md` AATF section
+  moved to the Autumn 26 ruleset (bronze tier, specials, two upstream errata recorded for the
+  user to report upstream) and, by user decision, to one self-contained Rhai rules file (decision entry). No code.

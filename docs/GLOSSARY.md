@@ -101,7 +101,7 @@ terms next to each other rather than in alphabetical order; adjacency is what ma
 
 | Term | Meaning | Owner |
 |---|---|---|
-| **AATF rules** | The 4cc rule set constraining player stats and medals; the save editor checks and applies it from a configurable parameter file (`libs/aatf`). Expansion of the acronym is not given in the plans. | `plans/save_editor.md` |
+| **AATF rules** | The 4cc rule set constraining player stats and medals; the save editor checks and applies it from a configurable Rhai rules file (`libs/aatf`). Expansion of the acronym is not given in the plans. | `plans/save_editor.md` |
 | **Aesthetics patch** | `aesthetics_patch.toml`, written by the Team compiler beside every output CPK: the resolved savefile writes (settings, names, FPC values, boots/gloves IDs, edit flags) for every compiled player. Applied to a save by the save editor; also how the compiler updates the local save. Lets the DLC builder and the savefile builder be different people. | `plans/pes_savefile.md` "Aesthetics patch" |
 | **Aesthetics fingerprint** | Decoded appearance data of a player used to diff saves (Midcupping's `compare-saves`). | `plans/pes_savefile.md` |
 | **Aesthetics transplant** | Copying a player's appearance block from one save to another (Midcupping's `transplant-aesthetics`). | `plans/pes_savefile.md` |

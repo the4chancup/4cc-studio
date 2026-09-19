@@ -47,7 +47,7 @@ and write the answers where those tools expect them.
    tactics. A reopenable creator was considered and rejected: it would have to read back files
    other tools may have edited since, tolerate every hand edit the format allows, and become a
    second editor for each of them — three tools' worth of surface for one tool's convenience.
-2. **Legal by construction.** Every default the creator fills in comes from the same AATF parameter
+2. **Legal by construction.** Every default the creator fills in comes from the same AATF rules
    file the Save editor's checker and its Make Gold/Silver buttons read (`libs/aatf`), and the
    Team TOML is checked by `libs/aatf` before it is written. A team that leaves the creator with no
    violations shown cannot fail Auto-ATF.
@@ -112,7 +112,7 @@ the derivation cannot reduce to a valid shirt name leaves the field empty and fl
 ### 3. Roles
 
 The step that makes the team legal. On entering it, everything not yet set is filled by
-`legal_defaults` from the AATF parameter file; the user changes what they want, and an AATF panel
+`legal_defaults` from the AATF rules file; the user changes what they want, and an AATF panel
 (the same rendering as the Save editor's) shows what is still wrong.
 
 - **Formation** — a picker of **stock formations** (4-4-2, 4-4-2 diamond, 4-3-3, 4-2-3-1,

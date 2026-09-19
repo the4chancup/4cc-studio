@@ -1312,3 +1312,24 @@ Phase 10 parallelism note ("once the shell exists") true five phases sooner. Sam
 tracer bullet, applied to the GUI seam instead of the lib seam.
 Plan: `core.md#Phase 3: Team compiler skeleton` (last bullet, Verification) and
 `core.md#Phase 8: GUI` (opening note, first bullet) edited.
+
+## 2026-09-19 - aatf - one self-contained Rhai rules file; TOML+CEL and the two-file split rejected
+Decision (user): the AATF ruleset is a single `.rhai` file with a `const CFG = #{ ... }` parameter
+map at the top (tiers as map keys, `CFG.tiers` ordered for the quick actions) and the check logic
+as functions below it; the host requires `check_team`, `tier_values` and `card_limits`, validates
+`CFG`'s required keys and the tier/table consistency on load, and registers a listed accessor set
+(players, tactics presets, formations, fluid flags, starting eleven). The official file is
+embedded in `libs/aatf` as the default; the editor's settings point at an alternative file. `toml`
+and `toml_edit` no longer touch AATF; `cel-interpreter` leaves the dependency table.
+Why: the Autumn 26 ruleset (4ccEditor `Autumn_2026_AATF`, tip `cf61542`) added a fourth medal tier
+and three conditional rules that need sequencing, a preset x formation traversal and a
+starting-eleven lookup; under CEL each is a new host-precomputed field, so a ruleset change would
+still need a Rust release, which is what the configurable layer exists to prevent. Two files skew
+(an invitational's TOML lacking `bronze` against a script reading it) and typed serde parameters
+resist adding a tier; the stated workflow, bulk edits of the official ruleset and invitationals as
+small deltas of it, is "copy one file, edit the top" only with one file. Rhai's `global::CFG`
+gives functions the top-level constant without host plumbing. Costs accepted: denser syntax than
+TOML, no enforced boundary between the sections, parameters readable only through Rhai.
+Plan: `save_editor.md#Configurable AATF rules` rewritten; `core.md` crate tree, Phase 5 bullet,
+dependency rows (`toml`, `rhai`) and decisions table; `team_creator.md`, `model_format.md`
+"Comments are app-injected", `GLOSSARY.md`, `AGENTS.md` "User-facing TOML" reworded.
