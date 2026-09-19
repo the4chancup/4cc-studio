@@ -9,12 +9,19 @@ pub mod fields;
 /// The ingame-face run's field table, hand-written (the run is opaque bytes
 /// the table names known bits of).
 pub mod ingame_face;
+/// The per-version caps on the ingame-face type fields.
+pub mod limits;
 mod pes15;
 mod pes16;
 mod pes17;
 mod pes18;
 mod pes19;
 mod pes20;
+/// The per-version playing-style lists (`decode`/`encode` between a stored
+/// index and `model::playstyle::PlayStyle`).
+pub mod playstyle;
+#[cfg(test)]
+mod playstyle_golden;
 
 use pes_version::PesVersion;
 

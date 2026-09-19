@@ -8,6 +8,9 @@ pub mod ingame_face;
 pub mod names;
 /// The player model.
 pub mod player;
+/// The canonical playing-style enum (the stored value is a per-version index
+/// into `schema::playstyle`).
+pub mod playstyle;
 /// The tactics model.
 pub mod tactics;
 /// The team model.
@@ -18,6 +21,7 @@ pub use player::{
     PlayerAppearance, PlayerBasics, PlayerEditFlags, PlayerEntry, PlayerMotion, PlayerPositions,
     PlayerSkills, PlayerStats,
 };
+pub use playstyle::PlayStyle;
 pub use tactics::{
     AdvancedInstruction, Formation, FormationSlot, SetPieceTakers, TacticSliders, TacticStyle,
     TacticsPreset, TeamAutoFlags, TeamTactics,
