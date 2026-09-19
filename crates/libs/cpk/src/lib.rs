@@ -197,6 +197,90 @@ mod tests {
     }
 
     #[test]
+    fn a_u64_id_column_resolves_the_etoc_timestamp() {
+        fn table(
+            tag: &[u8; 4],
+            name: &str,
+            columns: &[(&str, UtfKind)],
+            rows: Vec<Vec<UtfValue>>,
+        ) -> Vec<u8> {
+            utf::UtfTable {
+                name: name.to_owned(),
+                columns: columns
+                    .iter()
+                    .map(|(name, kind)| utf::UtfColumn {
+                        name: (*name).to_owned(),
+                        kind: *kind,
+                        storage: utf::UtfStorage::Variable,
+                    })
+                    .collect(),
+                rows,
+            }
+            .write(tag)
+        }
+
+        let stamp = CpkTimestamp {
+            year: 2020,
+            month: 5,
+            day: 4,
+            hour: 3,
+            minute: 2,
+            second: 1,
+        };
+        // Some archives store the TOC's ETOC row id as u64 rather than u32.
+        let toc = table(
+            b"TOC ",
+            "CpkTocInfo",
+            &[
+                ("DirName", UtfKind::String),
+                ("FileName", UtfKind::String),
+                ("FileSize", UtfKind::U32),
+                ("ExtractSize", UtfKind::U32),
+                ("FileOffset", UtfKind::U64),
+                ("ID", UtfKind::U64),
+            ],
+            vec![vec![
+                UtfValue::String(String::new()),
+                UtfValue::String("a.bin".into()),
+                UtfValue::U32(4),
+                UtfValue::U32(4),
+                UtfValue::U64(0),
+                UtfValue::U64(0),
+            ]],
+        );
+        let etoc = table(
+            b"ETOC",
+            "CpkEtocInfo",
+            &[("UpdateDateTime", UtfKind::U64)],
+            vec![vec![UtfValue::U64(stamp.to_packed())]],
+        );
+        let toc_offset = 0x400u64;
+        let etoc_offset = toc_offset + toc.len() as u64;
+        let header = table(
+            b"CPK ",
+            "CpkHeader",
+            &[
+                ("ContentOffset", UtfKind::U64),
+                ("TocOffset", UtfKind::U64),
+                ("EtocOffset", UtfKind::U64),
+            ],
+            vec![vec![
+                UtfValue::U64(0x800),
+                UtfValue::U64(toc_offset),
+                UtfValue::U64(etoc_offset),
+            ]],
+        );
+        let mut bytes = vec![0u8; etoc_offset as usize + etoc.len()];
+        bytes[..header.len()].copy_from_slice(&header);
+        bytes[toc_offset as usize..][..toc.len()].copy_from_slice(&toc);
+        bytes[etoc_offset as usize..][..etoc.len()].copy_from_slice(&etoc);
+
+        let archive = CpkArchive::open(Cursor::new(&bytes[..])).unwrap();
+        assert_eq!(archive.entries().len(), 1);
+        assert_eq!(archive.entries()[0].modified, Some(stamp));
+    }
+
+    #[test]
     fn writer_without_timestamps_emits_no_etoc() {
         let mut writer = CpkWriter::new(Cursor::new(Vec::new()), "studio-test").unwrap();
         writer.add("a.txt", b"x", None).unwrap();
