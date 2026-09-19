@@ -3,6 +3,7 @@
 //! schema decides what is read and written, the model just holds the result.
 
 use crate::codec::{self, CodecError};
+use crate::model::ingame_face::IngameFace;
 use crate::schema::fields::PlayerField;
 
 /// One player of the save: identity, abilities, positions, skills, motion, the
@@ -265,14 +266,11 @@ pub struct PlayerAppearance {
     pub untucked: bool,
     /// Ankle taping.
     pub ankle_taping: bool,
-    /// Player (outfield) gloves.
-    pub player_gloves: bool,
-    /// Player gloves colour.
-    pub player_gloves_color: u8,
-    /// Skin colour.
-    pub skin_color: u8,
-    /// Iris colour.
-    pub iris_color: u8,
+    /// The ingame-face run: the appearance block's byte 22 to its end, carried
+    /// verbatim (50 bytes, 46 on PES 15) with `IngameFace` accessors for the
+    /// known bits (player gloves and colour, skin and iris colour, the eleven
+    /// feature types).
+    pub ingame_face: IngameFace,
 }
 
 impl PlayerEntry {
@@ -420,10 +418,6 @@ impl PlayerEntry {
             PlayerField::Undershorts => u32::from(self.appearance.undershorts),
             PlayerField::Untucked => u32::from(self.appearance.untucked),
             PlayerField::AnkleTaping => u32::from(self.appearance.ankle_taping),
-            PlayerField::PlayerGloves => u32::from(self.appearance.player_gloves),
-            PlayerField::PlayerGlovesColor => u32::from(self.appearance.player_gloves_color),
-            PlayerField::SkinColor => u32::from(self.appearance.skin_color),
-            PlayerField::IrisColor => u32::from(self.appearance.iris_color),
         };
         Ok(v)
     }
@@ -551,10 +545,6 @@ impl PlayerEntry {
             PlayerField::Undershorts => self.appearance.undershorts = value as u8,
             PlayerField::Untucked => self.appearance.untucked = value != 0,
             PlayerField::AnkleTaping => self.appearance.ankle_taping = value != 0,
-            PlayerField::PlayerGloves => self.appearance.player_gloves = value != 0,
-            PlayerField::PlayerGlovesColor => self.appearance.player_gloves_color = value as u8,
-            PlayerField::SkinColor => self.appearance.skin_color = value as u8,
-            PlayerField::IrisColor => self.appearance.iris_color = value as u8,
         }
         Ok(())
     }

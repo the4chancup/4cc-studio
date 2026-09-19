@@ -8,7 +8,7 @@ use super::fields::{
     PlayerField, PlayerText, PresetField, RosterField, TacticsField, TeamField, TeamText,
 };
 use super::{
-    ArraySpec, FieldSpec, FormationLayout, InstructionLayout, PresetSpec, RecordSchema,
+    ArraySpec, ByteRun, FieldSpec, FormationLayout, InstructionLayout, PresetSpec, RecordSchema,
     SectionLayout, TacticsSchema, TextSpec, VersionSchema,
 };
 
@@ -472,26 +472,6 @@ pub(crate) static PLAYER: RecordSchema<PlayerField, PlayerText> = RecordSchema {
             bit_width: 1,
         },
         FieldSpec {
-            field: PlayerField::PlayerGloves,
-            bit_offset: 2096,
-            bit_width: 1,
-        },
-        FieldSpec {
-            field: PlayerField::PlayerGlovesColor,
-            bit_offset: 2097,
-            bit_width: 3,
-        },
-        FieldSpec {
-            field: PlayerField::SkinColor,
-            bit_offset: 2280,
-            bit_width: 3,
-        },
-        FieldSpec {
-            field: PlayerField::IrisColor,
-            bit_offset: 2432,
-            bit_width: 4,
-        },
-        FieldSpec {
             field: PlayerField::PlayablePosition(0),
             bit_offset: 356,
             bit_width: 2,
@@ -781,6 +761,10 @@ pub(crate) static PLAYER: RecordSchema<PlayerField, PlayerText> = RecordSchema {
             len: 61,
         },
     ],
+    ingame_face: Some(ByteRun {
+        byte_offset: 262,
+        len: 50,
+    }),
 };
 
 /// The PES 20 team record.
@@ -856,6 +840,7 @@ pub(crate) static TEAM: RecordSchema<TeamField, TeamText> = RecordSchema {
             len: 4,
         },
     ],
+    ingame_face: None,
 };
 
 /// The PES 21 team record.
@@ -931,6 +916,7 @@ pub(crate) static TEAM_21: RecordSchema<TeamField, TeamText> = RecordSchema {
             len: 4,
         },
     ],
+    ingame_face: None,
 };
 
 /// The PES 20 and 21 roster record.
@@ -958,6 +944,7 @@ pub(crate) static ROSTER: RecordSchema<RosterField, TeamText> = RecordSchema {
         },
     ],
     texts: &[],
+    ingame_face: None,
 };
 
 /// The PES 20 and 21 tactics record.

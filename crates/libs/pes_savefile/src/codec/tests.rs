@@ -9,11 +9,13 @@ use super::{
     CodecError, bits, read_player, read_player_into, read_roster_into, read_tactics_into,
     read_team, runs, write_player, write_roster, write_tactics, write_team,
 };
+use crate::model::ingame_face::IngameFace;
 use crate::model::player::PlayerEntry;
 use crate::model::team::TeamEntry;
 use crate::schema::fields::{
     PlayerField, PlayerText, RosterField, TacticsField, TeamField, TeamText,
 };
+use crate::schema::ingame_face::IngameFaceField;
 use crate::schema::{RecordSchema, TacticsSchema};
 use crate::schema::{SectionLayout, VersionSchema, schema_for};
 
@@ -248,8 +250,14 @@ fn player_70101_per_version() {
         (
             p15.appearance.boots_id,
             p15.appearance.gloves_id,
-            p15.appearance.skin_color,
-            p15.appearance.iris_color,
+            p15.appearance
+                .ingame_face
+                .get(IngameFaceField::SkinColor)
+                .expect("read run"),
+            p15.appearance
+                .ingame_face
+                .get(IngameFaceField::IrisColor)
+                .expect("read run"),
             p15.appearance.neck_length,
         ),
         (55, 11, 1, 1, 7),
@@ -264,8 +272,14 @@ fn player_70101_per_version() {
         (
             p16.appearance.boots_id,
             p16.appearance.gloves_id,
-            p16.appearance.skin_color,
-            p16.appearance.iris_color,
+            p16.appearance
+                .ingame_face
+                .get(IngameFaceField::SkinColor)
+                .expect("read run"),
+            p16.appearance
+                .ingame_face
+                .get(IngameFaceField::IrisColor)
+                .expect("read run"),
             p16.appearance.neck_length,
         ),
         (0, 0, 1, 1, 7),
@@ -390,6 +404,45 @@ fn the_player_census_matches_the_measured_ranges() {
 }
 
 #[test]
+fn the_ingame_face_run_has_the_versions_length() {
+    for version in FIXTURES {
+        let payload = payload(version);
+        let schema = schema_for(version);
+        let mut player = read_player(
+            record(&payload, &schema.players, schema.player.size, 0),
+            schema.player,
+        )
+        .expect("decode");
+        appearance_for(&payload, schema, &mut player);
+        let expected = if version == PesVersion::Pes15 { 46 } else { 50 };
+        assert_eq!(
+            player.appearance.ingame_face.bytes().len(),
+            expected,
+            "{version:?} run length"
+        );
+    }
+}
+
+#[test]
+fn a_wrong_length_ingame_face_run_is_refused() {
+    let payload = payload(PesVersion::Pes17);
+    let schema = schema_for(PesVersion::Pes17);
+    let mut player = find_player(&payload, schema, 70101);
+    player.appearance.ingame_face = IngameFace::from_bytes(vec![0; 49]);
+    let mut record = record(&payload, &schema.players, schema.player.size, 0).to_vec();
+    match write_player(&player, &mut record, schema.player) {
+        Err(CodecError::RunSize { expected, got }) => {
+            assert_eq!((expected, got), (50, 49));
+        }
+        other => panic!("expected CodecError::RunSize, got {other:?}"),
+    }
+    // A run written into a record whose schema has none is ignored.
+    let schema15 = schema_for(PesVersion::Pes15);
+    let mut record = vec![0u8; schema15.player.size];
+    write_player(&player, &mut record, schema15.player).expect("no run on the 15/16 player record");
+}
+
+#[test]
 fn version_gated_fields_are_none_where_the_version_lacks_them() {
     let p15 = players(&payload(PesVersion::Pes15), schema_for(PesVersion::Pes15));
     for p in &p15 {
@@ -500,6 +553,7 @@ fn a_value_too_wide_for_its_run_is_refused() {
         }],
         arrays: &[],
         texts: &[],
+        ingame_face: None,
     };
     let mut player = PlayerEntry::default();
     player.stats.form = 8;

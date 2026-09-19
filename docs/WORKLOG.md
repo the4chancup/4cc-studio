@@ -12,7 +12,7 @@ is in `AGENTS.md` ("Working documents").
 **Phase:** 2 (Library crates). Done: 2.1 `wezlib`, 2.2 `cpk`, 2.3 `fpk`, 2.4 `ftex`, 2.5 `dds_convert` (CPU),
 2.6 `fmdl` (format, model, ops, check), 2.7 `pes_model` (format, mtl, model, ops, check), 2.8 `uniparam`, 2.9 `fox2`, 2.10 `archives`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`, 2.14 `color_tools`, 2.15 `elevation`. Review
 rounds A and B (2026-09-13) closed: 2.5c, 2.12b, 2.13b done.
-**In progress:** 2.17 `pes_savefile` (a–d done; e-1 next), then 2.18 `python_bindings`. Review
+**In progress:** 2.17 `pes_savefile` (a–e-1 done; e-2 next), then 2.18 `python_bindings`. Review
 round C (2026-09-19) closed as 2.19a; its leftovers are listed under 2.20.
 **Blocked on:** nothing (the two 2.17e decisions were made 2026-09-19: key table and option A,
 `DECISIONS.md`)
@@ -373,13 +373,16 @@ Spec: `docs/plans/core/development_plan.md` "Phase 2", `docs/plans/libs/README.m
   decorated names on 16/19/21. Lead probe (not committed): all nine real saves on the machine,
   a second PES 16 save (4431 players, 273 teams) included, load and write back byte-identical
   with their own salt, logo and serial included. 6 tests; crate 37
-- [ ] 2.17e-1 the ingame-face run (`pes_savefile/model.md` "Player settings model", the run and
+- [x] 2.17e-1 the ingame-face run (`pes_savefile/model.md` "Player settings model", the run and
   `IngameFaceField`; `codec.md` `RecordSchema.ingame_face`): `schema/ingame_face.rs`,
   `model/ingame_face.rs`, the four fields removed from the tables and `PlayerField` by the
   generator, `read_player_into`/`write_player` carrying the run; `fpc::custom_skin_available`
   → verify: every player and appearance record of the six payload fixtures still round-trips
   byte-identical; the skin/iris/gloves census literals of 2.17b hold through the accessors; the
-  run of a PES 16 record is 50 bytes and of a PES 15 record 46
+  run of a PES 16 record is 50 bytes and of a PES 15 record 46 — done (sidekick, one rework: `get`/`set` return
+  `NoIngameFaceRun` instead of panicking on an unread run; `ALL` + exhaustive-row test): `ByteRun`,
+  `schema/ingame_face.rs`, `model/ingame_face.rs`, generator emits the run and drops the four
+  fields; 45 crate tests, census literals unchanged; `mutants-diff` 33 caught / 0 survived
 - [ ] 2.17e-2 `settings_toml.rs`: `SettingKey` table, `PlayerSettings::{parse, from_player, apply,
   to_toml, update_toml}`, the ownership classification and completeness test → verify:
   `to_toml` of `from_player(p)` parses back to an equal `PlayerSettings` for a player of each

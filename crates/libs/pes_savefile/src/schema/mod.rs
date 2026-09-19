@@ -6,6 +6,9 @@
 
 /// The version-neutral field vocabularies the tables name.
 pub mod fields;
+/// The ingame-face run's field table, hand-written (the run is opaque bytes
+/// the table names known bits of).
+pub mod ingame_face;
 mod pes15;
 mod pes16;
 mod pes17;
@@ -54,6 +57,14 @@ pub struct TextSpec<T> {
     pub len: u32,
 }
 
+/// A byte run carried verbatim.
+pub struct ByteRun {
+    /// Byte offset from the record's first byte.
+    pub byte_offset: u32,
+    /// Byte length.
+    pub len: u32,
+}
+
 /// One record kind's layout for one version (player, appearance, team, roster).
 pub struct RecordSchema<F: 'static, T: 'static> {
     /// Record size in bytes.
@@ -64,6 +75,9 @@ pub struct RecordSchema<F: 'static, T: 'static> {
     pub arrays: &'static [ArraySpec<F>],
     /// The text fields.
     pub texts: &'static [TextSpec<T>],
+    /// The opaque ingame-face run: `Some` on the record that carries the
+    /// appearance block (the 15/16 appearance record, the 17+ player record).
+    pub ingame_face: Option<ByteRun>,
 }
 
 /// A per-preset setting: one byte at `bit_offset + preset * preset_stride_bits`.
@@ -193,6 +207,9 @@ mod tests {
         }
         for t in schema.texts {
             runs.push((t.byte_offset * 8, t.byte_offset * 8 + t.len * 8));
+        }
+        if let Some(run) = &schema.ingame_face {
+            runs.push((run.byte_offset * 8, (run.byte_offset + run.len) * 8));
         }
         runs
     }

@@ -195,14 +195,6 @@ pub enum PlayerField {
     Untucked,
     /// Ankle taping.
     AnkleTaping,
-    /// Player (outfield) gloves.
-    PlayerGloves,
-    /// Player gloves colour.
-    PlayerGlovesColor,
-    /// Skin colour.
-    SkinColor,
-    /// Iris colour.
-    IrisColor,
 }
 
 /// A text field of the player record.

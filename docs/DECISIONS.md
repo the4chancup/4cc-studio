@@ -1435,3 +1435,11 @@ blob enum because it is one field with one meaning and the team/roster schemas s
 Plan: `pes_savefile/model.md` "Player settings model" (run, field table, API blocks for
 `PlayerSettings` and `ops::fpc`), `pes_savefile/codec.md` `RecordSchema` block,
 `aesthetics_export/settings_toml.md` first paragraph, `libs/fpc.md` (`custom_skin_available`).
+
+## 2026-09-19 - pes_savefile - `IngameFace::get` returns a `Result`, not a `u8`
+Decision (lead, at review of 2.17e-1): `get`/`set` return `CodecError::NoIngameFaceRun` when the
+run does not reach the field, which is the state of every entry never read from a record
+(`Default` is empty); `IngameFace::from_bytes` is `pub(crate)`.
+Why: the first cut indexed the run and panicked on a fresh entry; a silent 0 would repeat the
+mistake `Missing` was introduced to avoid (2.17b). The plan block was changed first.
+Plan: `pes_savefile/model.md` "Player settings model" `IngameFace` block.

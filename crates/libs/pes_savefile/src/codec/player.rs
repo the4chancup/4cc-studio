@@ -1,6 +1,7 @@
 //! The player record codec: `read_player`/`read_player_into`/`write_player`.
 
 use super::{CodecError, bits, runs, single_byte, text_bytes, write_text};
+use crate::model::ingame_face::IngameFace;
 use crate::model::player::PlayerEntry;
 use crate::schema::RecordSchema;
 use crate::schema::fields::{PlayerField, PlayerText};
@@ -47,6 +48,11 @@ pub fn read_player_into(
             }
         }
     }
+    if let Some(run) = &schema.ingame_face {
+        let at = run.byte_offset as usize;
+        player.appearance.ingame_face =
+            IngameFace::from_bytes(record[at..at + run.len as usize].to_vec());
+    }
     Ok(())
 }
 
@@ -86,6 +92,17 @@ pub fn write_player(
             });
         }
         write_text(record, spec.byte_offset, spec.len, &bytes);
+    }
+    if let Some(run) = &schema.ingame_face {
+        let bytes = player.appearance.ingame_face.bytes();
+        if bytes.len() != run.len as usize {
+            return Err(CodecError::RunSize {
+                expected: run.len as usize,
+                got: bytes.len(),
+            });
+        }
+        let at = run.byte_offset as usize;
+        record[at..at + run.len as usize].copy_from_slice(bytes);
     }
     Ok(())
 }
