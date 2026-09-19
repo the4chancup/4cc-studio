@@ -179,10 +179,12 @@ pub struct ByteRun { pub byte_offset: u32, pub len: u32 }
 // record and the PES 17+ player record, `None` on every other record (15/16 player, team, roster).
 
 /// `model/ingame_face.rs`
-pub struct IngameFace(Vec<u8>);
+pub struct IngameFace(Vec<u8>);   // `Default` is empty: a fresh entry has no run until one is read
 impl IngameFace {
-    pub fn get(&self, field: IngameFaceField) -> u8;
-    /// `CodecError::ValueTooWide` when the value does not fit the field's bits.
+    /// `CodecError::NoIngameFaceRun` when the run does not reach the field (an entry never
+    /// read from a record): an error, not a silent 0, as for an unset gated field.
+    pub fn get(&self, field: IngameFaceField) -> Result<u8, CodecError>;
+    /// `NoIngameFaceRun` as above; `ValueTooWide` when the value does not fit the field's bits.
     pub fn set(&mut self, field: IngameFaceField, value: u8) -> Result<(), CodecError>;
     pub fn bytes(&self) -> &[u8];
     /// The run with the player-gloves and skin bits zeroed: what the fingerprint hashes

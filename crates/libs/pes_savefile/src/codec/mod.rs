@@ -51,6 +51,22 @@ pub enum CodecError {
         /// The slice's actual length.
         got: usize,
     },
+    /// The model's ingame-face run is not the schema run's length.
+    #[error("ingame-face run is {got} bytes, the schema expects {expected}")]
+    RunSize {
+        /// The schema's run length.
+        expected: usize,
+        /// The run's actual length.
+        got: usize,
+    },
+    /// An ingame-face field was read or written on a run that does not reach it.
+    #[error(
+        "{field}: the player carries no ingame-face run covering it (never read from a record)"
+    )]
+    NoIngameFaceRun {
+        /// The field past the run's end.
+        field: String,
+    },
     /// An indexed field named an element past its array.
     #[error("{field}: index {index} is out of range")]
     Index {

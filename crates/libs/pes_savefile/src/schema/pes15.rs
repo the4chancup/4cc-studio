@@ -8,8 +8,8 @@ use super::fields::{
     PlayerField, PlayerText, PresetField, RosterField, TacticsField, TeamField, TeamText,
 };
 use super::{
-    ArraySpec, FieldSpec, FormationLayout, PresetSpec, RecordSchema, SectionLayout, TacticsSchema,
-    TextSpec, VersionSchema,
+    ArraySpec, ByteRun, FieldSpec, FormationLayout, PresetSpec, RecordSchema, SectionLayout,
+    TacticsSchema, TextSpec, VersionSchema,
 };
 
 /// The PES 15 player record.
@@ -370,6 +370,7 @@ pub(crate) static PLAYER: RecordSchema<PlayerField, PlayerText> = RecordSchema {
             len: 18,
         },
     ],
+    ingame_face: None,
 };
 
 /// The PES 15 appearance record; the player id at +0 keys it to its player record.
@@ -541,29 +542,13 @@ pub(crate) static APPEARANCE: RecordSchema<PlayerField, PlayerText> = RecordSche
             bit_offset: 175,
             bit_width: 1,
         },
-        FieldSpec {
-            field: PlayerField::PlayerGloves,
-            bit_offset: 176,
-            bit_width: 1,
-        },
-        FieldSpec {
-            field: PlayerField::PlayerGlovesColor,
-            bit_offset: 177,
-            bit_width: 3,
-        },
-        FieldSpec {
-            field: PlayerField::SkinColor,
-            bit_offset: 360,
-            bit_width: 3,
-        },
-        FieldSpec {
-            field: PlayerField::IrisColor,
-            bit_offset: 512,
-            bit_width: 4,
-        },
     ],
     arrays: &[],
     texts: &[],
+    ingame_face: Some(ByteRun {
+        byte_offset: 22,
+        len: 46,
+    }),
 };
 
 /// The PES 15 team record.
@@ -599,6 +584,7 @@ pub(crate) static TEAM: RecordSchema<TeamField, TeamText> = RecordSchema {
             len: 4,
         },
     ],
+    ingame_face: None,
 };
 
 /// The PES 15 roster record.
@@ -626,6 +612,7 @@ pub(crate) static ROSTER: RecordSchema<RosterField, TeamText> = RecordSchema {
         },
     ],
     texts: &[],
+    ingame_face: None,
 };
 
 /// The PES 15 tactics record.

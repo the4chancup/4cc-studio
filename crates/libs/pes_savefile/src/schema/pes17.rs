@@ -8,7 +8,7 @@ use super::fields::{
     PlayerField, PlayerText, PresetField, RosterField, TacticsField, TeamField, TeamText,
 };
 use super::{
-    ArraySpec, FieldSpec, FormationLayout, InstructionLayout, PresetSpec, RecordSchema,
+    ArraySpec, ByteRun, FieldSpec, FormationLayout, InstructionLayout, PresetSpec, RecordSchema,
     SectionLayout, TacticsSchema, TextSpec, VersionSchema,
 };
 
@@ -446,26 +446,6 @@ pub(crate) static PLAYER: RecordSchema<PlayerField, PlayerText> = RecordSchema {
             bit_offset: 1103,
             bit_width: 1,
         },
-        FieldSpec {
-            field: PlayerField::PlayerGloves,
-            bit_offset: 1104,
-            bit_width: 1,
-        },
-        FieldSpec {
-            field: PlayerField::PlayerGlovesColor,
-            bit_offset: 1105,
-            bit_width: 3,
-        },
-        FieldSpec {
-            field: PlayerField::SkinColor,
-            bit_offset: 1288,
-            bit_width: 3,
-        },
-        FieldSpec {
-            field: PlayerField::IrisColor,
-            bit_offset: 1440,
-            bit_width: 4,
-        },
     ],
     arrays: &[
         ArraySpec {
@@ -502,6 +482,10 @@ pub(crate) static PLAYER: RecordSchema<PlayerField, PlayerText> = RecordSchema {
             len: 18,
         },
     ],
+    ingame_face: Some(ByteRun {
+        byte_offset: 138,
+        len: 50,
+    }),
 };
 
 /// The PES 17 team record.
@@ -582,6 +566,7 @@ pub(crate) static TEAM: RecordSchema<TeamField, TeamText> = RecordSchema {
             len: 4,
         },
     ],
+    ingame_face: None,
 };
 
 /// The PES 17 roster record.
@@ -609,6 +594,7 @@ pub(crate) static ROSTER: RecordSchema<RosterField, TeamText> = RecordSchema {
         },
     ],
     texts: &[],
+    ingame_face: None,
 };
 
 /// The PES 17 tactics record.

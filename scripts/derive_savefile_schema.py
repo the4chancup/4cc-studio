@@ -478,11 +478,13 @@ PLAYER = {
     "undershorts": ("Undershorts", "Undershorts."),
     "untucked": ("Untucked", "Shirttail out."),
     "ankle_tape": ("AnkleTaping", "Ankle taping."),
-    "gloves": ("PlayerGloves", "Player (outfield) gloves."),
-    "gloves_col": ("PlayerGlovesColor", "Player gloves colour."),
-    "skin_col": ("SkinColor", "Skin colour."),
-    "iris_col": ("IrisColor", "Iris colour."),
 }
+# The fields the ingame-face run carries (`schema/ingame_face.rs`): they leave the per-version
+# tables and the `PlayerField` enum for `IngameFace` accessors, so no byte has two owners.
+INGAME_FACE_PATHS = ("gloves", "gloves_col", "skin_col", "iris_col")
+# The measured run, byte 22 of the appearance block to the block's end (`model.md`, "The
+# ingame-face run"): the 15/16 appearance record, the player record on 17+.
+EXPECTED_RUN = {15: (22, 46), 16: (22, 50), 17: (138, 50), 18: (138, 50), 19: (138, 50), 20: (262, 50)}
 PLAYER_TEXT = {"name": ("Name", "The player name, UTF-8, colour codes included."),
                "shirt_name": ("ShirtName", "The shirt name, single-byte text.")}
 TEAM = {
@@ -618,7 +620,20 @@ def split_rows(fields, vocab, texts_vocab):
     return scalars + loose, arrays, texts
 
 
-def record_rs(name, field_ty, text_ty, size, scalars, arrays, texts, doc):
+def ingame_face_run(fields, size, expected):
+    """The byte run from the appearance block's 22nd byte to its end (the block fills the rest
+    of the record), or None when the record carries no appearance block. The block start comes
+    from the BootsId row: boots/gloves is the block's second u32."""
+    if not any(f["field"] in INGAME_FACE_PATHS for f in fields):
+        return None
+    boots = next(f for f in fields if f["field"] == "boot_id")
+    block = boots["bit_offset"] // 8 - 4
+    run = (block + 22, size - (block + 22))
+    assert run == expected, f"ingame-face run {run}, expected {expected}"
+    return run
+
+
+def record_rs(name, field_ty, text_ty, size, scalars, arrays, texts, doc, ingame_face=None):
     out = [f"/// {doc}", f"pub(crate) static {name}: RecordSchema<{field_ty}, {text_ty}> = RecordSchema {{",
            f"    size: {size},", "    fields: &["]
     for variant, off, w in scalars:
@@ -632,6 +647,10 @@ def record_rs(name, field_ty, text_ty, size, scalars, arrays, texts, doc):
     for variant, off, ln in texts:
         out.append(f"        TextSpec {{ text: {text_ty}::{variant}, byte_offset: {off}, len: {ln} }},")
     out.append("    ],")
+    if ingame_face:
+        out.append(f"    ingame_face: Some(ByteRun {{ byte_offset: {ingame_face[0]}, len: {ingame_face[1]} }}),")
+    else:
+        out.append("    ingame_face: None,")
     out.append("};")
     out.append("")
     return out
@@ -748,14 +767,20 @@ def version_rs(version, spec, walks):
            "use pes_version::PesVersion;", ""]
     body = []
     rec = walks[spec["player"]]
-    s, a, t = split_rows(rec["fields"], PLAYER, PLAYER_TEXT)
-    body += record_rs("PLAYER", "PlayerField", "PlayerText", rec["size"], s, a, t, f"The {label} player record.")
+    run = ingame_face_run(rec["fields"], rec["size"], EXPECTED_RUN[version])
+    fields = [f for f in rec["fields"] if f["field"] not in INGAME_FACE_PATHS]
+    s, a, t = split_rows(fields, PLAYER, PLAYER_TEXT)
+    body += record_rs("PLAYER", "PlayerField", "PlayerText", rec["size"], s, a, t,
+                      f"The {label} player record.", ingame_face=run)
     if "appearance" in spec:
         rec = walks[spec["appearance"]]
-        fields = [{"field": "id", "kind": "bits", "bit_offset": 0, "width": 32}] + rec["fields"]
+        run = ingame_face_run(rec["fields"], rec["size"], EXPECTED_RUN[version])
+        fields = [{"field": "id", "kind": "bits", "bit_offset": 0, "width": 32}
+                  ] + [f for f in rec["fields"] if f["field"] not in INGAME_FACE_PATHS]
         s, a, t = split_rows(fields, PLAYER, PLAYER_TEXT)
         body += record_rs("APPEARANCE", "PlayerField", "PlayerText", rec["size"], s, a, t,
-                          f"The {label} appearance record; the player id at +0 keys it to its player record.")
+                          f"The {label} appearance record; the player id at +0 keys it to its player record.",
+                          ingame_face=run)
     rec = walks[spec["team"]]
     s, a, t = split_rows(rec["fields"], TEAM, TEAM_TEXT)
     body += record_rs("TEAM", "TeamField", "TeamText", rec["size"], s, a, t, f"The {label.split(' and')[0]} team record.")
@@ -790,7 +815,7 @@ def version_rs(version, spec, walks):
         body.append("")
     text = "\n".join(body)
     used_fields = [n for n in ("FormationPart", "InstructionPart", "InstructionSide", "PlayerField", "PlayerText", "PresetField", "RosterField", "TacticsField", "TeamField", "TeamText") if re.search(rf"\b{n}\b", text)]
-    used_types = [n for n in ("ArraySpec", "FieldSpec", "FormationLayout", "InstructionLayout", "PresetSpec", "RecordSchema", "SectionLayout", "TacticsSchema", "TextSpec", "VersionSchema") if re.search(rf"\b{n}\b", text)]
+    used_types = [n for n in ("ArraySpec", "ByteRun", "FieldSpec", "FormationLayout", "InstructionLayout", "PresetSpec", "RecordSchema", "SectionLayout", "TacticsSchema", "TextSpec", "VersionSchema") if re.search(rf"\b{n}\b", text)]
     out.append("use super::fields::{" + ", ".join(used_fields) + "};")
     out.append("use super::{" + ", ".join(used_types) + "};")
     out.append("")

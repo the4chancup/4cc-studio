@@ -3,6 +3,8 @@
 
 use std::ops::RangeInclusive;
 
+use pes_version::PesVersion;
+
 /// Sleeve length (`FPC.wikitext` lines 27, 36, 45).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Sleeves {
@@ -51,6 +53,16 @@ pub const NONEXISTENT_GLOVES_ID: u16 = 11;
 /// The real gloves IDs goalkeepers may use when un-hidden (FPC.wikitext
 /// line 40).
 pub const GK_GLOVES_RANGE: RangeInclusive<u16> = 1..=10;
+
+/// Whether `version` has a Custom skin color: true on PES 15 to 17 only; the
+/// later games dropped it, so the partial-hide preset's one version-dependent
+/// fact lives here (FPC.wikitext line 57).
+pub fn custom_skin_available(version: PesVersion) -> bool {
+    matches!(
+        version,
+        PesVersion::Pes15 | PesVersion::Pes16 | PesVersion::Pes17
+    )
+}
 
 /// One of the three appearance presets. Boots/gloves ids are the nonexistent
 /// ids the text prescribes; a custom model's own boots/gloves are the caller's

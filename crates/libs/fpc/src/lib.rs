@@ -11,7 +11,7 @@ pub use interference::{Finding, Severity, StripStyle, check};
 pub use kit::{KitFpcValues, kit_values};
 pub use player::{
     Appearance, GK_GLOVES_RANGE, NONEXISTENT_BOOTS_ID, NONEXISTENT_GLOVES_ID, Preset, SkinColor,
-    Sleeves, Socks, Tuck, preset,
+    Sleeves, Socks, Tuck, custom_skin_available, preset,
 };
 
 #[cfg(test)]
@@ -39,6 +39,14 @@ mod tests {
         }
         assert_eq!(kit_values(PesVersion::Pes15), None);
         assert_eq!(kit_values(PesVersion::Pes18), None);
+    }
+
+    #[test]
+    fn custom_skin_only_exists_on_pes_15_to_17() {
+        let expected = [true, true, true, false, false, false, false];
+        for (version, expected) in PesVersion::ALL.iter().zip(expected) {
+            assert_eq!(custom_skin_available(*version), expected, "{version:?}");
+        }
     }
 
     #[test]
