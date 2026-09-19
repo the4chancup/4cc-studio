@@ -1,7 +1,7 @@
 # archives fixtures
 
 One small export-like tree, `sample/`, and the same tree packed six ways by the tools members
-use (`.tmp/archives_fixtures.py` in the writing session). The three binary files in the tree are
+use (`scripts/provenance/fixtures/archives_fixtures.py`). The three binary files in the tree are
 Konami-derived PES files from a real referee export (a 176-byte `face.dds`, a 476-byte
 `materials.mtl`, a 960-byte `face_diff.bin`), kept for interoperability (see the repository
 README); the text files are ours. The container is what is under test, not the contents.

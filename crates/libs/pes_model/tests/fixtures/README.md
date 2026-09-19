@@ -4,7 +4,7 @@ Konami-derived files are Konami's, kept for interoperability (see the repository
 `.model` and `.mtl` files ship WESYS-wrapped (`wezlib`). The four `.model` files copied first are
 stored unwrapped; every later one (`*.wesys.model`) is stored as shipped, wrapped, which is
 smaller and exercises the unwrap path. `.mtl` files are stored unwrapped (they are XML). Counts
-are from the layout census (`.tmp/model_census.py` in the writing session; the numbers below are
+are from the layout census (`scripts/provenance/pes_model/model_census.py`; the numbers below are
 the record it left). Header version 19 everywhere except `konami_shadow_win32` (17).
 
 | File | Source (under PES 2017 `Data/`) | Notes |

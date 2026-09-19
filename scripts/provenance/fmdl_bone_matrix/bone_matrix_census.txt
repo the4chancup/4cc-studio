@@ -1,0 +1,63 @@
+files 2606
+
+## distinct bone names 149
+     9  <1e-5
+     9  >=1e-2
+    31  <1e-4
+    67  exact
+     3  <1e-3
+    15  <1e-2
+    15  single
+
+## worst per bone name (sorted desc), top 40
+4.962e-01    570  sk_hand_l                         Data\dt32_win_files\common\character1\model\character\shadow\shadow_win32.model
+4.962e-01    570  sk_hand_r                         Data\dt32_win_files\common\character1\model\character\d\modD_glove.model
+4.638e-01    562  sk_forearm_l                      Data\dt32_win_files\common\character1\model\character\shadow\shadow_win32.model
+4.638e-01    562  sk_forearm_r                      Data\dt32_win_files\common\character1\model\character\d\modD_glove.model
+4.065e-01    579  dsk_deltoid_l                     Data\dt32_win_files\common\character1\model\character\parts\bibs\bibs.model
+4.064e-01    578  dsk_deltoid_r                     Data\dt32_win_files\common\character1\model\character\parts\formal_suit\formalsuit.model
+2.324e-02    572  sk_upperarm_l                     Data\dt32_win_files\common\character1\model\character\shadow\shadow_win32.model
+2.324e-02    567  sk_upperarm_r                     Data\dt32_win_files\common\character1\model\character\shadow\shadow_win32.model
+1.985e-02    543  sk_foot_r                         Data\dt32_win_files\common\character1\model\character\shadow\shadow_win32.model
+5.156e-03    918  skf_jaw                           Data\dt32_win_files\common\character1\model\character\face\edithair\model\sp_ty004\hair_high_win32.model
+4.907e-03    916  skf_brow_i_l                      Data\dt32_win_files\common\character1\model\character\face\edithair\model\sp_ty008\hair_high_win32.model
+4.905e-03    916  skf_brow_i_r                      Data\dt32_win_files\common\character1\model\character\face\edithair\model\sp_ty008\hair_high_win32.model
+4.802e-03      2  skf_eyelid_t_l                    Data\dt32_win_files\common\character1\model\character\face\montage\facial.model
+4.802e-03      2  skf_eyelid_t_r                    Data\dt32_win_files\common\character1\model\character\face\montage\facial.model
+4.443e-03    527  skf_nosewing_l                    Data\dt32_win_files\common\character1\model\character\face\edithair\model\sp_ty012\hair_high_win32.model
+4.443e-03    514  skf_nosewing_r                    Data\dt32_win_files\common\character1\model\character\face\edithair\model\sp_ty012\hair_high_win32.model
+3.403e-03    917  skf_cheek_s_l                     Data\dt32_win_files\common\character1\model\character\face\edithair\model\sp_ty004\hair_high_win32.model
+3.403e-03    917  skf_cheek_s_r                     Data\dt32_win_files\common\character1\model\character\face\edithair\model\sp_ty004\hair_high_win32.model
+1.679e-03      2  skf_eyelid_b_l                    Data\dt32_win_files\common\character1\model\character\face\montage\facial.model
+1.676e-03      2  skf_eyelid_b_r                    Data\dt32_win_files\common\character1\model\character\face\montage\facial.model
+1.551e-03    801  skf_cheek_l                       Data\dt32_win_files\common\character1\model\character\face\edithair\model\sp_ty010\hair_high_win32.model
+1.547e-03    801  skf_cheek_r                       Data\dt32_win_files\common\character1\model\character\face\edithair\model\sp_ty010\hair_high_win32.model
+1.449e-03    916  skf_brow_o_r                      Data\dt32_win_files\common\character1\model\character\face\edithair\model\sp_ty004\hair_high_win32.model
+1.443e-03    916  skf_brow_o_l                      Data\dt32_win_files\common\character1\model\character\face\edithair\model\sp_ty004\hair_high_win32.model
+3.869e-04    547  sk_leg_l                          Data\dt32_win_files\common\character1\model\character\shadow\shadow_win32.model
+3.869e-04    547  sk_leg_r                          Data\dt32_win_files\common\character1\model\character\shadow\shadow_win32.model
+1.981e-04    543  sk_foot_l                         Data\dt32_win_files\common\character1\model\character\shadow\shadow_win32.model
+3.625e-05      2  skf_orbicularisoculi_b_r          Data\dt32_win_files\common\character1\model\character\face\montage\facial.model
+3.395e-05      2  skf_orbicularisoculi_b_l          Data\dt32_win_files\common\character1\model\character\face\montage\facial.model
+2.560e-05    539  sk_shoulder_l                     Data\dt32_win_files\common\character1\model\character\parts\manager\manager.model
+2.426e-05      3  skh_thumb_mata_l                  Data\dt32_win_files\common\character1\model\character\hand\hand00\hand_l.model
+2.211e-05     33  dsk_elbow_l                       Data\dt32_win_files\common\character1\model\character\parts\formal_suit\formalsuit.model
+2.170e-05      3  skh_thumb_mcp_l                   Data\dt32_win_files\common\character1\model\character\hand\hand00\hand_l.model
+2.170e-05      3  skh_thumb_pip_l                   Data\dt32_win_files\common\character1\model\character\hand\hand00\hand_l.model
+2.110e-05      3  skh_index_mata_l                  Data\dt32_win_files\common\character1\model\character\hand\hand00\hand_l.model
+2.098e-05      3  skh_index_mcp_l                   Data\dt32_win_files\common\character1\model\character\hand\hand00\hand_l.model
+2.098e-05      3  skh_ring_mata_l                   Data\dt32_win_files\common\character1\model\character\hand\hand00\hand_l.model
+2.003e-05      3  skh_index_pip_l                   Data\dt32_win_files\common\character1\model\character\hand\hand00\hand_l.model
+2.003e-05      3  skh_index_dip_l                   Data\dt32_win_files\common\character1\model\character\hand\hand00\hand_l.model
+2.003e-05      3  skh_ring_mcp_l                    Data\dt32_win_files\common\character1\model\character\hand\hand00\hand_l.model
+
+## names with worst >= 1e-3, grouped by folder of the deviating file
+Data\dt32_win_files\common\character1\model\character\d 2 [('sk_hand_r', 0.4961800016462803), ('sk_forearm_r', 0.46376481652259827)]
+Data\dt32_win_files\common\character1\model\character\face\edithair\model\sp_ty004 5 [('skf_jaw', 0.005156040191650391), ('skf_cheek_s_l', 0.0034029483795166016), ('skf_cheek_s_r', 0.0034029483795166016), ('skf_brow_o_r', 0.001448988914489746), ('skf_brow_o_l', 0.001443028450012207)]
+Data\dt32_win_files\common\character1\model\character\face\edithair\model\sp_ty008 2 [('skf_brow_i_l', 0.004906892776489258), ('skf_brow_i_r', 0.004904597997665405)]
+Data\dt32_win_files\common\character1\model\character\face\edithair\model\sp_ty010 2 [('skf_cheek_l', 0.001550912857055664), ('skf_cheek_r', 0.0015469789505004883)]
+Data\dt32_win_files\common\character1\model\character\face\edithair\model\sp_ty012 2 [('skf_nosewing_l', 0.004442930221557617), ('skf_nosewing_r', 0.004442930221557617)]
+Data\dt32_win_files\common\character1\model\character\face\montage 4 [('skf_eyelid_t_l', 0.004802107810974121), ('skf_eyelid_t_r', 0.00480198860168457), ('skf_eyelid_b_l', 0.0016787052154541016), ('skf_eyelid_b_r', 0.0016756951808929443)]
+Data\dt32_win_files\common\character1\model\character\parts\bibs 1 [('dsk_deltoid_l', 0.40646129846572876)]
+Data\dt32_win_files\common\character1\model\character\parts\formal_suit 1 [('dsk_deltoid_r', 0.40644532442092896)]
+Data\dt32_win_files\common\character1\model\character\shadow 5 [('sk_hand_l', 0.496180634945631), ('sk_forearm_l', 0.463765487074852), ('sk_upperarm_l', 0.023238301277160645), ('sk_upperarm_r', 0.023236989974975586), ('sk_foot_r', 0.019849516451358795)]

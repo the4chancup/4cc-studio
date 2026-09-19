@@ -467,7 +467,7 @@ deliberately *not* fixed in the plan: texel matching through the models' 3D posi
 in u but drifts in v (a shirt control run, provably identical, drifted up to 80 px because the
 Fox body has other proportions), so the numbers are settled in the Phase 4 kits step from that
 matching plus a hand-adjusted fixture pair, and recorded there. Evidence scripts and images in
-`.tmp/kit_uv_*.py`, `.tmp/kit_diff_*.png` (not part of the repository).
+`scripts/provenance/kit_uv/`.
 Plan: `aesthetics_export.md` object model (`KitFolder.layout`, `KitLayout`), "Kit layout marker"
 paragraph, diagram; `team_compiler.md` validation, "Processing" Kits (layout conversion, mask fill
 scope), message catalog (`kit_layout_conflict`, `kit_layout_converted`), test list;
@@ -987,7 +987,7 @@ byte-identical by carrying every offset, which is the container again with more 
 reference parser warns and proceeds on cloth/locator models, but a warning that ends in a rewrite
 dropping the referenced section is a silent corruption, and no player part uses those sections.
 Plan: `libs.md` "`pes_model::format`: the `.model` container and its sections" added (layout as
-measured by `.tmp/model_census.py` on the six fixtures).
+measured by `scripts/provenance/pes_model/model_census.py` on the six fixtures).
 
 ## 2026-09-13 - pes_model - the typed writer always emits header version 19
 Decision: `PreFoxModel::write` puts 19 in the header whatever `version` the file declared; the
@@ -1052,8 +1052,8 @@ of the twelve matrix components differs by less than `1e-4` (absolute), and keep
 part's matrix. Supersedes the "compared exactly" rule written earlier the same day.
 Why: the exact rule could not merge Konami's own kit parts: `modD_cap` and a collar share four
 shoulder bones whose matrices differ by float noise (found by the sidekick when the briefed LOD
-test failed). Measured over all 2606 Konami files (`.tmp/bone_matrix_*.py` in the writing
-session, numbers in `libs.md`): shared-skeleton noise tops out at `3.6e-5`, real bind-pose
+test failed). Measured over all 2606 Konami files (`scripts/provenance/fmdl_bone_matrix/`,
+numbers in `libs.md`): shared-skeleton noise tops out at `3.6e-5`, real bind-pose
 differences start at `2.0e-4` and run to `0.5`, so `1e-4` sits in the gap on a log scale. An
 unmeasured tolerance would have been the `dds_convert` mistake again; this one is measured.
 Whether `fmdl::ops::merge`'s exact position comparison has the same problem on FMDL parts is a
@@ -1348,8 +1348,8 @@ review sweeps, converge and the cross-family reviewer with the PES 15-20 name en
 none of these is a suppression the honesty sweep greps for, they are assertions never written,
 which is the one test quality the methodology had no mechanical check for. Not a gate: roughly
 an hour for the workspace today at 0.6 s per mutant, several hours at the planned size; the
-per-diff and per-crate runs are minutes. Results and per-mutant diffs of the probe:
-`.tmp/mutants/` (not part of the repository).
+per-diff and per-crate runs are minutes. The probe is reproduced by `just mutants <crate>`; its
+numbers are the ones above.
 Plan: `CONTRIBUTING.md` "Testing and verification" (recipes, "Mutation runs" requirement);
 `AGENTS.md` review paragraph and converge design-health pass; `justfile`, `scripts/mutants_diff.py`,
 `.cargo/mutants.toml`, `.gitignore`.
