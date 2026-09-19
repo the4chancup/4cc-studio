@@ -3,10 +3,12 @@
 //! with the block's tables, ranges, label lists and comments reproduced
 //! literally.
 
+use pes_version::PesVersion;
+
 #[cfg(test)]
 use crate::schema::fields::PlayerField;
-#[cfg(test)]
 use crate::schema::ingame_face::IngameFaceField;
+use crate::schema::limits::face_type_cap;
 
 /// One TOML key of the table in the aesthetics export plan ("Player settings
 /// in exports"), in the table's order. `ALL` lists them in that order.
@@ -370,23 +372,55 @@ impl SettingKey {
             },
             SettingKey::GoalCelebration1 => celebration("goal_celebration_1"),
             SettingKey::GoalCelebration2 => celebration("goal_celebration_2"),
-            SettingKey::CheekType => face("cheek_type", 3, "0 to 3"),
-            SettingKey::ForeheadType => face("forehead_type", 5, "0 to 5"),
-            SettingKey::FacialHairType => {
-                face("facial_hair_type", 19, "0 to 12 (PES 20 and 21: 0 to 19)")
+            SettingKey::CheekType => face("cheek_type", IngameFaceField::CheekType, "0 to 3"),
+            SettingKey::ForeheadType => {
+                face("forehead_type", IngameFaceField::ForeheadType, "0 to 5")
             }
-            SettingKey::LaughterLinesType => face("laughter_lines_type", 4, "0 to 4"),
-            SettingKey::UpperEyelidType => {
-                face("upper_eyelid_type", 7, "0 to 6 (PES 20 and 21: 0 to 7)")
-            }
-            SettingKey::LowerEyelidType => {
-                face("lower_eyelid_type", 6, "0 to 2 (PES 20 and 21: 0 to 6)")
-            }
-            SettingKey::EyebrowType => face("eyebrow_type", 7, "0 to 5 (PES 20 and 21: 0 to 7)"),
-            SettingKey::NeckLineType => face("neck_line_type", 3, "0 to 2 (PES 20 and 21: 0 to 3)"),
-            SettingKey::NoseType => face("nose_type", 7, "0 to 6 (PES 20 and 21: 0 to 7)"),
-            SettingKey::UpperLipType => face("upper_lip_type", 4, "0 to 3 (PES 20 and 21: 0 to 4)"),
-            SettingKey::LowerLipType => face("lower_lip_type", 4, "0 to 2 (PES 20 and 21: 0 to 4)"),
+            SettingKey::FacialHairType => face(
+                "facial_hair_type",
+                IngameFaceField::FacialHairType,
+                "0 to 12 (PES 20 and 21: 0 to 19)",
+            ),
+            SettingKey::LaughterLinesType => face(
+                "laughter_lines_type",
+                IngameFaceField::LaughterLinesType,
+                "0 to 4",
+            ),
+            SettingKey::UpperEyelidType => face(
+                "upper_eyelid_type",
+                IngameFaceField::UpperEyelidType,
+                "0 to 6 (PES 20 and 21: 0 to 7)",
+            ),
+            SettingKey::LowerEyelidType => face(
+                "lower_eyelid_type",
+                IngameFaceField::LowerEyelidType,
+                "0 to 2 (PES 20 and 21: 0 to 6)",
+            ),
+            SettingKey::EyebrowType => face(
+                "eyebrow_type",
+                IngameFaceField::EyebrowType,
+                "0 to 5 (PES 20 and 21: 0 to 7)",
+            ),
+            SettingKey::NeckLineType => face(
+                "neck_line_type",
+                IngameFaceField::NeckLineType,
+                "0 to 2 (PES 20 and 21: 0 to 3)",
+            ),
+            SettingKey::NoseType => face(
+                "nose_type",
+                IngameFaceField::NoseType,
+                "0 to 6 (PES 20 and 21: 0 to 7)",
+            ),
+            SettingKey::UpperLipType => face(
+                "upper_lip_type",
+                IngameFaceField::UpperLipType,
+                "0 to 3 (PES 20 and 21: 0 to 4)",
+            ),
+            SettingKey::LowerLipType => face(
+                "lower_lip_type",
+                IngameFaceField::LowerLipType,
+                "0 to 2 (PES 20 and 21: 0 to 4)",
+            ),
         }
     }
 
@@ -495,7 +529,14 @@ fn celebration(name: &'static str) -> KeySpec {
     }
 }
 
-fn face(name: &'static str, max: u8, comment: &'static str) -> KeySpec {
+fn face(name: &'static str, field: IngameFaceField, comment: &'static str) -> KeySpec {
+    // The widest range is the schema's caps table at its maximum over the
+    // versions, so the numbers have one home.
+    let max = PesVersion::ALL
+        .iter()
+        .filter_map(|version| face_type_cap(*version, field))
+        .max()
+        .expect("a face-type field has a cap");
     KeySpec {
         table: FACE,
         name,

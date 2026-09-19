@@ -14,6 +14,8 @@ pub use team::{
     read_roster_into, read_tactics_into, read_team, write_roster, write_tactics, write_team,
 };
 
+use pes_version::PesVersion;
+
 use crate::schema::RecordSchema;
 
 /// A player/team record could not be decoded or re-encoded.
@@ -90,6 +92,14 @@ pub enum CodecError {
         expected: u32,
         /// The id the record carries.
         got: u32,
+    },
+    /// A stored playing-style index names no style of the version's list.
+    #[error("{version:?}: playing-style index {value} is not a value of its list")]
+    UnknownPlayingStyle {
+        /// The version whose list was consulted.
+        version: PesVersion,
+        /// The stored index (out of range or a hole).
+        value: u8,
     },
 }
 
