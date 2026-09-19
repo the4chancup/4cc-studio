@@ -1333,3 +1333,23 @@ TOML, no enforced boundary between the sections, parameters readable only throug
 Plan: `save_editor.md#Configurable AATF rules` rewritten; `core.md` crate tree, Phase 5 bullet,
 dependency rows (`toml`, `rhai`) and decisions table; `team_creator.md`, `model_format.md`
 "Comments are app-injected", `GLOSSARY.md`, `AGENTS.md` "User-facing TOML" reworded.
+
+## 2026-09-19 - verification - mutation runs at review and converge, never as a gate
+Decision (user): `cargo-mutants` joins the developer tools (`just mutants <crate>`,
+`just mutants-diff [base]`; config `.cargo/mutants.toml`). The lead runs `mutants-diff` over each
+landed step as the third check of its review, next to the honesty and design sweeps; converge's
+design-health pass runs `mutants <crate>` per crate. Survivors are triaged as missing test,
+equivalent mutant (excluded in the config with the equivalence named) or unreachable code.
+Why: a probe on three closed crates (fpk 64 mutants, vtree 69, kit_config 334; 44 s, 43 s,
+3 min 23 s) found 57 survivors: 25 equivalent (`|` vs `^` on disjoint bit fields, now excluded),
+~30 real test gaps and two pub items no test calls. `kit_config` had passed the gates, both
+review sweeps, converge and the cross-family reviewer with the PES 15-20 name encoding, the
+`name.shape` and `cut-out` TOML values, two finding conditions and `matches_fpc` all untested;
+none of these is a suppression the honesty sweep greps for, they are assertions never written,
+which is the one test quality the methodology had no mechanical check for. Not a gate: roughly
+an hour for the workspace today at 0.6 s per mutant, several hours at the planned size; the
+per-diff and per-crate runs are minutes. Results, triage and per-mutant diffs of the probe:
+`.tmp/mutants/`, summarized in `.tmp/AUDIT.md` fourth pass.
+Plan: `CONTRIBUTING.md` "Testing and verification" (recipes, "Mutation runs" requirement);
+`AGENTS.md` review paragraph and converge design-health pass; `justfile`, `scripts/mutants_diff.py`,
+`.cargo/mutants.toml`, `.gitignore`.

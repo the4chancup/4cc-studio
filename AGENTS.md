@@ -40,8 +40,9 @@ untested becomes a new worklog step, and the phase stays open until those are do
 defers* to a later phase (a "before implementing X, extend Y" note, an open question naming its
 phase) is not a gap and stays future tense. The lead's audit ends with a **design-health pass**
 over the phase's crates, separate from requirements coverage: the design-tell sweep (below) run
-over the whole phase's code rather than one diff, and every `pub` item listed with the consumer
-that justifies it (a crate, the CLI, the bindings, or a plan section naming one). Coverage asks
+over the whole phase's code rather than one diff, `just mutants <crate>` run over each crate with
+every survivor triaged (`CONTRIBUTING.md` "Mutation runs"), and every `pub` item listed with the
+consumer that justifies it (a crate, the CLI, the bindings, or a plan section naming one). Coverage asks
 "is everything the plan wants there?"; this pass asks "did the phase make the code harder to
 change?", which no test or lint measures and which compounds silently across phases; (2) **rewrite** the parts of the phase's plan sections
 that the phase delivered in the present tense, as a description of what now exists (acceptance IDs
@@ -84,8 +85,14 @@ for code that passes and is worse, the thing neither the gates nor a model's tra
 `impl .* for` (a new trait: does it have two real implementors?), `dyn `, `_ =>` on one of our
 enums, `.clone()`/`.to_vec()` on bulk data, `as ` casts, two functions differing in a name and a
 branch, `pub` items with no caller outside the crate, a module that crossed roughly a thousand
-lines in this diff. Each is a `CONTRIBUTING.md` rule; the sweep exists because a rule nobody
-greps for is a rule the review applies only when it happens to notice. When a review finds slop
+lines in this diff. The **mutation run** (`just mutants-diff <last reviewed commit>`) is the
+third check and the only one that is a measurement rather than a reading: each survivor is an
+assertion the sweeps cannot see because it was never written (the `kit_config` probe found
+twenty such gaps in a crate that had passed both sweeps, converge and the cross-family
+reviewer), and every survivor is triaged per `CONTRIBUTING.md` "Mutation runs" before the
+diff lands, the missing tests going into the rework brief. Each sweep item is a
+`CONTRIBUTING.md` rule; the sweeps exist because a rule nobody greps for is a rule the review
+applies only when it happens to notice. When a review finds slop
 neither list names, the fix is a new entry here or in `CONTRIBUTING.md`, not a longer review:
 the rules are the project's whole substitute for taste, and any quality they do not express is
 quality nobody is checking.
