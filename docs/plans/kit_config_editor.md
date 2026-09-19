@@ -8,11 +8,11 @@ the Match tracker, the old name carries no recognition value and does not stay i
 the label.
 
 This plan also specifies **`libs/kit_config`**, the lib crate holding the format
-knowledge, shared by this tool, the [Team compiler](team_compiler.md) (config
+knowledge, shared by this tool, the [Team compiler](team_compiler/README.md) (config
 generation, FPC reconciliation, compile-time emission), and the
 [Export upgrader](export_upgrader.md) (binary → TOML migration) — one crate owns
 the format so all three agree on what a valid config is. Platform context is in
-the [core plan](core.md).
+the [core plan](core/README.md).
 
 ---
 
@@ -128,7 +128,7 @@ Notes:
   **wrist-end of the long sleeves** when a player wears them — it does not change
   the shirt mesh, and the kit texture's UV layout is identical for all three
   values (which is what lets `color_tools` sample fixed shirt/shorts regions —
-  see the [library crates plan](libs.md)). The old editor does gate other fields
+  see the [library crates plan](libs/README.md)). The old editor does gate other fields
   on it, as noted below.
 - **Collar IDs** index the game's stock collar model set (`nocloth`). Exports can
   replace a stock collar with a custom model (the Team compiler's pass-through
@@ -140,7 +140,7 @@ Notes:
   configs), so `kit_config` warns only when they appear on model 176, which no stock config does;
   tight requires 144 or 160 (a warning likewise). The FPC kit values (shirt 176, shorts 16,
   collar and winter collar 105 — see "FPC toggle" in the
-  [Aesthetics export plan](aesthetics_export.md)) are
+  [Aesthetics export plan](aesthetics_export/README.md)) are
   ordinary values of these fields.
 - **Version differences**: PES2021 widens Name Y as noted — the only difference the
   2021 patch makes. PES 15 reads only bits 5–7 of the pattern byte (a 3-bit index, 0–5
@@ -263,7 +263,7 @@ The format knowledge as a lib crate:
 - The template defaults (from the bundled `XXX_DEF_xxx_realUni.bin` template) and
   `apply_fpc` / `matches_fpc`, used by the Team compiler's reconciliation
   (`kit_config_fpc_adjusted`) and by this tool's FPC indicator. The per-version FPC values
-  themselves come from the leaf crate `libs/fpc` (see [libs](libs.md)), which also holds the
+  themselves come from the leaf crate `libs/fpc` (see [libs](libs/README.md)), which also holds the
   player-side presets `pes_savefile` applies — one description of the system for every tool.
 - Texture-name derivation from a kit's *effective* texture set (own files plus what it inherits
   from `Kits/all/`, as resolved by `aesthetics_export`) + team id + slot.
@@ -288,7 +288,7 @@ Two ways in, per the suite's export-first philosophy:
   `ParsedAestheticsExport` plus kit-scoped validation—not a whole-export
   `ValidatedAestheticsExport`—so an unrelated roster/player error never prevents opening
   and repairing a kit. The shared crate still owns locating and
-  validating the folders (see the [Team compiler plan](team_compiler.md)), so this
+  validating the folders (see the [Team compiler plan](team_compiler/README.md)), so this
   tool never carries its own idea of the export layout. The same picker accepts a
   single loose file (`config.toml`, a game `.bin`, old-export configs).
 - **Open UniformParameter bin** (secondary, via `uniparam`): lists the container's

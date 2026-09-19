@@ -23,12 +23,12 @@ undecoded ingame-face run is modelled (see the 2026-09-14 log line)
 
 | Thing | Where |
 |---|---|
-| Plan index | `docs/plans/README.md` → `docs/plans/core.md` |
-| Development phases | `docs/plans/core.md` "Development Plan" |
-| Legacy tools (format evidence) | `docs/plans/core.md` "Project context" (paths are per-machine) |
+| Plan index | `docs/plans/README.md` → `docs/plans/core/README.md` |
+| Development phases | `docs/plans/core/development_plan.md` "Development Plan" |
+| Legacy tools (format evidence) | `docs/plans/core/README.md` "Project context" (paths are per-machine) |
 | Skeleton data | `resources/skeletons/` (see its README) |
 | FPC source text (for the `fpc` crate) | `resources/FPC.wikitext` |
-| `.model` format as measured (for the plugin author; the crate's notes are in `libs.md`) | `resources/prefox_model_format.md` |
+| `.model` format as measured (for the plugin author; the crate's notes are in `libs/README.md`) | `resources/prefox_model_format.md` |
 | Coding rules and verification gates | `docs/CONTRIBUTING.md` |
 | Domain terms | `docs/GLOSSARY.md` |
 
@@ -101,15 +101,15 @@ done step with a one-line summary and the files or crates touched. One `[~]` per
 
 ### Phase 1 — Workspace bootstrap + core skeleton
 
-Done 2026-09-13 (spec now describes what exists: `docs/plans/core.md` "Phase 1"). Step detail
+Done 2026-09-13 (spec now describes what exists: `docs/plans/core/development_plan.md` "Phase 1"). Step detail
 in git history up to commit `794ce61`. CI proof: green run on `a4be936`, deliberately red run on
 `38c3e68` (both `gates` jobs failed at `just gates`, `deps-check` unaffected), reverted in
 `794ce61`.
 
 ### Phase 2 — Library crates
 
-Spec: `docs/plans/core.md` "Phase 2", `docs/plans/libs.md`, `model_conversion.md`,
-`pes_savefile.md`. Leaf crates first, dependents after; `python_bindings` last.
+Spec: `docs/plans/core/development_plan.md` "Phase 2", `docs/plans/libs/README.md`, `model_conversion/README.md`,
+`pes_savefile/README.md`. Leaf crates first, dependents after; `python_bindings` last.
 
 - [x] 2.1 `wezlib` — done (sidekick): WESYS wrap/unwrap over flate2; fixture `RefereeColor.bin`
   (PES17); 4 tests. Parity for WESYS files is payload-level (deflate bytes differ from Python's)
@@ -173,7 +173,7 @@ Spec: `docs/plans/core.md` "Phase 2", `docs/plans/libs.md`, `model_conversion.md
   clean. 7 tests. `fmdl` totals 76 tests; converge at 2.20 revisits `from_file` length and the
   two extension-header plan gaps
 - [x] 2.7 census `pes_model` — done (lead): `.model` layout measured on all 2610 Konami files of a
-  PES 2017 install (`libs.md` "`pes_model::format`: the `.model` container and its sections"):
+  PES 2017 install (`libs/format_crates.md` "`pes_model::format`: the `.model` container and its sections"):
   LOD tables, annotation types 1/2/7/10 with their section-3 records, the version-17 layout, the
   empty-array offset-0 quirk, sections 8/9/10 empty everywhere. Six more fixtures, one per
   variant (`tests/fixtures/README.md`), the LOD one at 148 KB
@@ -379,7 +379,7 @@ Spec: `docs/plans/core.md` "Phase 2", `docs/plans/libs.md`, `model_conversion.md
 - [ ] 2.17h `interchange/{team_toml,legacy,texport}` (texport write is a manual game check)
 - [ ] 2.18 `python_bindings` (maturin build + Python smoke test; add the `just bindings` recipe
   and the CI job deferred from step 1.2)
-- [ ] 2.19 Phase verification: every crate's tests per `libs.md` "Testing" green; `wasm32` check
+- [ ] 2.19 Phase verification: every crate's tests per `libs/README.md` "Testing" green; `wasm32` check
   green on every lib
 - [x] 2.19a Review round C (2026-09-19): the first mutation runs and a workspace read-through,
   fixed across six commits (`0fe5e33`..`77b6362`): `cargo-mutants` adopted (decision entry);
@@ -392,23 +392,23 @@ Spec: `docs/plans/core.md` "Phase 2", `docs/plans/libs.md`, `model_conversion.md
   finding; `formats/{fmdl,pes_model}` split into import/export halves; `.tmp` cleanup on a
   failed save; fmdl read-side and dds_convert mip copies removed; unused `log`/`serde` deps
 - [ ] 2.20 Converge: own audit then reviewer subagent, each crate against its plan section
-  (`libs.md`, `model_conversion.md`, `pes_savefile.md`, `core.md` "Phase 2"); gaps become steps.
+  (`libs/README.md`, `model_conversion/README.md`, `pes_savefile/README.md`, `core/development_plan.md` "Phase 2"); gaps become steps.
   Known inputs from round C: (a) whole-crate mutation runs left survivors to triage in cpk (28),
   ftex (80), dds_convert (30): table-variant arms, boundary comparisons, `write_cell` and
   `Writer::finish` padding math; the other thirteen crates have not been run; (b)
   `fmdl::ops::antiblur::decode` and `model_convert::ir::remap_bone_group` return `()` and still
   index caller-supplied indices raw (both callers return `Result`; threading one through is a
   signature decision); (c) `pes_savefile::discovery` returns an empty candidate list both for
-  "no Documents folder" and "no saves"; (d) `pes_savefile.md`'s `TeamEntry`/`TacticsPreset`/
+  "no Documents folder" and "no saves"; (d) `pes_savefile/README.md`'s `TeamEntry`/`TacticsPreset`/
   `PlayerEntry` blocks are rewritten from the code in 2.21 (decision entry 2026-09-19)
 - [ ] 2.21 Rewrite those sections in the present tense
 
 ### Phase 3 — Team compiler skeleton
 
-Spec: `docs/plans/core.md` "Phase 3", `docs/plans/team_compiler.md`, `docs/plans/aesthetics_export.md`.
+Spec: `docs/plans/core/development_plan.md` "Phase 3", `docs/plans/team_compiler/README.md`, `docs/plans/aesthetics_export/README.md`.
 Steps are itemized when Phase 2 closes; the first is fixed:
 
-- [ ] 3.1 Acceptance: write `team_compiler.md` "Acceptance" for the Phase 3 scope (format:
+- [ ] 3.1 Acceptance: write `team_compiler/README.md` "Acceptance" for the Phase 3 scope (format:
   `CONTRIBUTING.md` "Testing")
 - [ ] 3.2 Converge check script: extract every acceptance ID from the plans' "Acceptance" sections
   (skipping `withdrawn:` ones) and every `// XX-YYY-NN` citation in any `.rs` file under `crates/`
@@ -418,14 +418,14 @@ Steps are itemized when Phase 2 closes; the first is fixed:
   and unproven IDs are the normal state of an open phase; **strict** — run at converge for the
   closing phase's IDs; unproven or `manual` scenarios without a recorded check fail it. Python or a
   tiny Rust bin — decide when written (needs a decision entry either way, since it adds a gate)
-- [ ] 3.3 Tracer bullet (`core.md` "Phase 3", first bullet; decided 2026-09-15): fixture pair
+- [ ] 3.3 Tracer bullet (`core/development_plan.md` "Phase 3", first bullet; decided 2026-09-15): fixture pair
   (one old-layout face export, its hand-migrated Studio-layout twin, the hash manifest of Red's
   output for it); the thin compile path through `fmdl`/`ftex`/`fpk`/`cpk`/`kit_config`; the
   first `tests/parity` case. Lead writes the fixtures and the manifest (correctness-critical);
   the compile path and comparison are briefed. → verify: `cargo test -p team_compiler --test
   parity` green on the fixture, and every Phase 2 API friction met on the way listed in the
   brief's report (each is a lib-crate fix or a decision entry, made before 3.4)
-- [ ] 3.z Shell slice, last code step of the phase (`core.md` "Phase 3", last bullet; decided
+- [ ] 3.z Shell slice, last code step of the phase (`core/development_plan.md` "Phase 3", last bullet; decided
   2026-09-15): minimal `studio_core` shell (window, sidebar, selected tool's `view()`), `studio`
   binary registering `team_compiler`, Team compiler `view/` with settings, run button and a plain
   `PipelineEvent` log. → verify: manual, recorded in the converge step: the 3.3 fixture compiled
@@ -482,7 +482,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   exemption); 1 is a real plan contradiction awaiting a user decision (`reqwest` vs. "no async
   runtime" — see `DECISIONS.md`). Nothing it raised had been caught by any prior pass.
 - **2026-09-11** — Sessions move to Fusion (Claude lead + SWE-2 sidekick). Sidekick probe: a
-  `TeamName` crate implemented cold from `CONTRIBUTING.md` + `team_compiler.md` §"Export display
+  `TeamName` crate implemented cold from `CONTRIBUTING.md` + `team_compiler/README.md` §"Export display
   name and team name" in 3.5 min wall-clock, red-first, all gates green, style rules followed
   literally, two real plan gaps reported rather than decided (leading separators; Unicode vs.
   ASCII lowercasing — the latter is a genuine open point for `teams_list.tsv` matching, carried to
@@ -512,7 +512,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   and its fix. `dds_convert` (CPU) briefed.
 - **2026-09-13** - 2.5 `dds_convert` (CPU), 2.6 `fmdl` and 2.7 `pes_model` (all but
   `ops::merge`) done; reviews A and B closed (2.5c, 2.12b, 2.13b); 262 tests workspace-wide. Two
-  censuses recorded in `libs.md` (2610 `.model`, 945 `.mtl`). Safeguards for scripts and sidekick
+  censuses recorded in `libs/README.md` (2610 `.model`, 945 `.mtl`). Safeguards for scripts and sidekick
   trees added to `AGENTS.md` after a truncated source file.
 - **2026-09-13** - `resources/prefox_model_format.md` written for the plugin author from the
   census. Merge home decided by the user: native `pes_model::ops::merge`; six plan passages and
@@ -547,11 +547,11 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   decodes beyond eleven feature types (converters) and a few colour bits, so `PlayerSettings`
   cannot cover "every appearance field" without an opaque-bytes model of that run.
 - **2026-09-15** - Method review against "Why Software Factories Fail" (humanlayer). `AGENTS.md`: briefs sized for one review (about 500 lines, slices otherwise); red-run evidence per new test in the brief's closing section; the review sweep split into an honesty sweep and a design sweep; converge gains a design-health pass. Phase 3 tracer-bullet question recorded as step 3.x.
-- **2026-09-15** - User decided: Phase 3 opens with a tracer bullet (step 3.3; `core.md` "Phase 3" first bullet; decision entry). Early `studio` shell stays an open question (3.y).
-- **2026-09-15** - User decided: Phase 3 also closes with a minimal `studio` shell (step 3.z; `core.md` "Phase 3" last bullet, "Phase 8" note; decision entry).
+- **2026-09-15** - User decided: Phase 3 opens with a tracer bullet (step 3.3; `core/development_plan.md` "Phase 3" first bullet; decision entry). Early `studio` shell stays an open question (3.y).
+- **2026-09-15** - User decided: Phase 3 also closes with a minimal `studio` shell (step 3.z; `core/development_plan.md` "Phase 3" last bullet, "Phase 8" note; decision entry).
 - **2026-09-19** - Reviewed 4ccEditor's `Tactics` (`4a95b7c`) and `Autumn_2026_AATF` (`cf61542`)
   branches against the plans. Schemas 15-20 match the new tactics decoders offset for offset;
-  `pes_savefile.md` gained the Texport `.ted` 18-21 crypto and per-version offsets (for 2.17h),
+  `pes_savefile/README.md` gained the Texport `.ted` 18-21 crypto and per-version offsets (for 2.17h),
   `.4cct` layout and the canonical advanced-instruction mapping. `save_editor.md` AATF section
   moved to the Autumn 26 ruleset (bronze tier, specials, two upstream errata recorded for the
   user to report upstream) and, by user decision, to one self-contained Rhai rules file (decision entry). No code.
@@ -563,3 +563,8 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   `body.skl`, so the new parent check compares against the bone count. `AGENTS.md`: briefs name
   the `karpathy-guidelines` skill and the consumer crates' tests; `drop(` joins the honesty
   sweep. Next: 2.17e.
+- **2026-09-19** - Housekeeping: the session scratch heap is gone and the scripts it held that
+  the plans and fixture READMEs cite live in `scripts/provenance/`; the seven plans over a
+  thousand lines are folders (`plans/README.md` "How these documents evolve", decision entry);
+  the spec stays in `docs/plans/` rather than moving into crates. Pointer-only change, checked
+  over every tracked Markdown file. Next: 2.17e.

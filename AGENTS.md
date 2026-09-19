@@ -139,20 +139,20 @@ failure mode this exists to prevent. The user can request a critique at any time
 
 ## Read order by task
 
-You do not need to read `docs/plans/core.md` end to end. Read this file and the worklog's
+You do not need to read `docs/plans/core/README.md` end to end. Read this file and the worklog's
 "Current status", then:
 
 | Working on | Read |
 |---|---|
 | Any code change | `docs/CONTRIBUTING.md`, then the row below that matches; `docs/GLOSSARY.md` whenever a term is unfamiliar; do not infer domain terms from their English meaning |
-| A format or leaf lib crate (`cpk`, `fpk`, `fmdl`, `pes_model`, `ftex`, `dds_convert`, `fox2`, `uniparam`, `wezlib`, `vtree`, `archives`, `fpc`, `teams_list`, `color_tools`, `elevation`) | `docs/plans/libs.md`; for `fmdl`/`pes_model` also "Blender integration" in `model_conversion.md` |
-| `kit_config` | `libs.md` for the crate, `kit_config_editor.md` for the format reference |
-| `python_bindings` | "Blender integration" in `model_conversion.md`; guardrail 4 in `core.md` |
-| A tool crate | That tool's plan, plus "Tool plugin interface", "Event system", and the tool-crate skeleton under "Crate structure" in `core.md` |
-| Anything that reads or writes exports | `docs/plans/aesthetics_export.md` (object model, folder conventions, validation) |
-| `studio_core` or `studio` | `core.md` "Architecture" and "GUI Design" |
-| Model conversion or glTF | `model_conversion.md`, `model_format.md` |
-| Savefile | `pes_savefile.md`, then `save_editor.md` |
+| A format or leaf lib crate (`cpk`, `fpk`, `fmdl`, `pes_model`, `ftex`, `dds_convert`, `fox2`, `uniparam`, `wezlib`, `vtree`, `archives`, `fpc`, `teams_list`, `color_tools`, `elevation`) | `docs/plans/libs/README.md`; for `fmdl`/`pes_model` also "Blender integration" in `model_conversion/gltf.md` |
+| `kit_config` | `libs/README.md` for the crate, `kit_config_editor.md` for the format reference |
+| `python_bindings` | "Blender integration" in `model_conversion/gltf.md`; guardrail 4 in `core/architecture.md` |
+| A tool crate | That tool's plan, plus "Tool plugin interface", "Event system", and the tool-crate skeleton under "Crate structure" in `core/architecture.md` |
+| Anything that reads or writes exports | `docs/plans/aesthetics_export/README.md` (object model, folder conventions, validation) |
+| `studio_core` or `studio` | `core/architecture.md` and `core/gui.md` |
+| Model conversion or glTF | `model_conversion/README.md`, `model_format.md` |
+| Savefile | `pes_savefile/README.md`, then `save_editor.md` |
 
 Several plans carry "Resolved decisions" / "Open questions" sections. Check them before asking:
 your question may already be listed, with the phase in which it gets resolved.

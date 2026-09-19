@@ -1,6 +1,6 @@
 """Generates `hand_split_wrist.json`: the reference output of Blender's select -> Select More
 (once) -> Separate by selection on a synthetic connected-wrist mesh, the semantics the plan's
-hand auto-split reproduces in Rust (model_conversion.md "Hand auto-split").
+hand auto-split reproduces in Rust (model_conversion/hand_split.md "Hand auto-split").
 
 Run headless:  blender -b --python hand_split_wrist.py -- hand_split_wrist.json
 

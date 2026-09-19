@@ -20,8 +20,8 @@ ownership of immutable leaf data across threads (`Arc<[u8]>` textures, `Arc<Matc
 `Arc<dyn Fn()>` wake callbacks) is not a parent reference and stays allowed.
 Why: back-references force `Weak`/`RefCell`/struct lifetimes, which is the type-level complexity
 the style section bans; a narrow rule would just move the friction to the next object model.
-Plan: no plan edit needed — `core.md` "Key Decisions Summary" already states it unqualified;
-`aesthetics_export.md` "Design constraints" remains the worked example.
+Plan: no plan edit needed — `core/README.md` "Key Decisions Summary" already states it unqualified;
+`aesthetics_export/object_model.md` "Design constraints" remains the worked example.
 
 ## 2026-09-07 — development plan — `color_tools` and `elevation` are built in Phase 3
 Decision: `libs/color_tools` (extraction only; the picker widget waits for Phase 8) and
@@ -30,7 +30,7 @@ Why: neither crate was assigned to any phase. Phase 3's kit processing already c
 `color_tools` for kits without `colors.txt`, and Phase 3's `output/deploy.rs` writability preflight
 is the first place an access-denied PES directory must fail cleanly; building them later would
 leave Phase 3 with stubs.
-Plan: `core.md#Phase 3: Processing logic` edited ("New lib crates this phase").
+Plan: `core/development_plan.md#Phase 3: Processing logic` edited ("New lib crates this phase").
 Superseded the same day by the phase split below: both crates are now Phase 2.
 
 ## 2026-09-07 — development plan — phases 1–2 split into skeleton vs. standalone libs
@@ -44,8 +44,8 @@ numbering is unchanged; old Phase 5 becomes "Savefile integration" (Team compile
 writing, `aatf`, save editor tool logic) so `aatf` keeps a home; glTF stays Phase 7.
 Why: libs depend only on libs, tools depend on libs at varying points, so all standalone libs
 first; the consumer-shaped ones would be designed blind without their tool.
-Plan: `core.md#Development Plan` intro and Phases 1–5, 7, 12–15 edited; cross-references in
-`team_compiler.md`, `save_editor.md`, `refs_arranger.md`, `balls_compiler.md` renumbered.
+Plan: `core/development_plan.md#Development Plan` intro and Phases 1–5, 7, 12–15 edited; cross-references in
+`team_compiler/README.md`, `save_editor.md`, `refs_arranger.md`, `balls_compiler.md` renumbered.
 
 ## 2026-09-10 — code style — "boring Rust" is justified by reviewability, not by Python contributors
 Decision (user): the code style section keeps its rules but changes its stated rationale. The
@@ -81,7 +81,7 @@ matched against literals in 34 sites with `_ =>` fallbacks; a 2950-line `command
 clippy gate broken by a `rustup update` alone (one new 1.98 lint). Each new rule closes one of
 those. `lock().unwrap()` accounted for ~120 of 180 `unwrap`s; demanding a message on each would
 be noise.
-Plan: `core.md#Workspace guardrails` item 5 (toolchain pin rationale) and `core.md#Phase 1`
+Plan: `core/architecture.md#Workspace guardrails` item 5 (toolchain pin rationale) and `core/architecture.md#Phase 1`
 (deliverable) edited. The diagnostic-logging question is resolved in the next entry.
 
 ## 2026-09-10 — methodology — cross-family second opinion at fixed checkpoints
@@ -142,7 +142,7 @@ Plan: no plan edit for (1)–(5) (process; `AGENTS.md`, `WORKLOG.md`, `CONTRIBUT
 
 ## 2026-09-10 — dependencies — `ureq` replaces `reqwest`; "no async runtime" includes dependencies
 Decision (user): the desktop updater's HTTP client is `ureq` 3.x (rustls, platform certificate
-verifier). The "no async runtime anywhere in the workspace" rule is stated in `core.md`
+verifier). The "no async runtime anywhere in the workspace" rule is stated in `core/README.md`
 "Parallelism" to include runtimes started internally by dependencies. Downloads stream via
 `into_reader()` into the temp file (progress + hashing on the way), never through the in-memory
 convenience readers.
@@ -159,8 +159,8 @@ proxy settings) both exist — the "env-var-only proxies" drawback assumed durin
 was wrong and is not a cost. `ehttp` (egui's author; `ureq` natively,
 `fetch` on wasm) was noted, not chosen: the updater is desktop-only and a callback API is worse for
 a streamed download with progress; it becomes relevant only if Studio Web ever needs HTTP.
-Plan: `core.md#External Dependencies` row replaced; `core.md#Parallelism` "Design" opens with the
-runtime rule and its reasons; `core.md#Self-update` step 3 carries the streaming note.
+Plan: `core/README.md#External Dependencies` row replaced; `core/parallelism.md#Parallelism` "Design" opens with the
+runtime rule and its reasons; `core/distribution.md#Self-update` step 3 carries the streaming note.
 
 ## 2026-09-10 — logging and lints — `log` facade for diagnostics; `let_underscore_must_use` denied
 Decision (user): developer diagnostics go through the `log` facade in every lib and tool crate;
@@ -178,8 +178,8 @@ consume `log` lines in the binary alone. The lint, because EGG-Translator's agen
 discards and forgot others (a dropped settings save among them); a compile error is where agents
 respond, and with `log` available the honest handling of an ignorable failure is a `debug!` line,
 so the lint pushes toward the right code rather than toward suppressions.
-Plan: `core.md#Diagnostic logging` added under "Event system"; `core.md#External Dependencies`
-rows for `anyhow`, `log`, `env_logger`, `pyo3-log`; `core.md#Phase 1` lint deliverable.
+Plan: `core/architecture.md#Diagnostic logging` added under "Event system"; `core/architecture.md#External Dependencies`
+rows for `anyhow`, `log`, `env_logger`, `pyo3-log`; `core/development_plan.md#Phase 1` lint deliverable.
 Unverified until Phase 1: whether `fallible().ok();` actually dodges the lint (it is forbidden by
 rule either way), and the residual `#[expect]` count — estimate is under ten workspace-wide; count
 it at the end of Phase 3.
@@ -236,7 +236,7 @@ because its wrong version passes silently rather than failing, which is the one 
 implementation is worse than none.
 Plan: `AGENTS.md` "Lead and sidekick" (new), "Second opinion" (checkpoints redrawn), "Environment"
 (three roles); `WORKLOG.md` step 1.6 (sidekick rework/takeover data point), log line;
-`team_compiler.md` open questions (team-name lowercasing rule, surfaced by the probe).
+`team_compiler/README.md` open questions (team-name lowercasing rule, surfaced by the probe).
 
 ## 2026-09-11 — team compiler — teams list: `.txt`, embedded upstream, one working copy in `data/`
 Decision (user): the file keeps Red's name `teams_list.txt`. The current cup's list is embedded in
@@ -254,10 +254,10 @@ folder. Embedded not bundled so there is exactly one file on disk to edit and no
 the reconciliation the updater already specified becomes the only sync path. No elevation
 because Studio is a portable app; a portable install under Program Files is a corner case not
 worth a privilege path for a one-line edit.
-Plan: `team_compiler.md` "Resolved decisions" (new "Teams list" bullet), settings table
+Plan: `team_compiler/pipeline.md` "Resolved decisions" (new "Teams list" bullet), settings table
 (`teams_list_path`), "Path resolution", "Team ID cell", message catalog (`teams_list_read_only`);
-`core.md` "Distribution" (bundle contents), "Data location" (data-dir cargo), "Self-update" step 5,
-Phase 16 bundling; `aesthetics_export.md` crate tree comment; `GLOSSARY.md` "Team ID";
+`core/distribution.md` "Distribution" (bundle contents), "Data location" (data-dir cargo), "Self-update" step 5,
+Phase 16 bundling; `aesthetics_export/README.md` crate tree comment; `GLOSSARY.md` "Team ID";
 `export_upgrader.md` (rename only).
 
 ## 2026-09-11 — team compiler — team-name fold is Unicode on both sides; savefile is a teams-list source
@@ -276,7 +276,7 @@ makes it more authoritative than the last release's embedded copy, and the compi
 it; through the merge, not an overwrite, so the user's local ID assignments survive; on demand,
 because the list must keep working without a savefile and a compile must not rewrite user data
 as a side effect.
-Plan: `team_compiler.md` Reader step 2 (fold rule, first non-empty token), "Export identity
+Plan: `team_compiler/README.md` Reader step 2 (fold rule, first non-empty token), "Export identity
 resolution" (column contract, dead columns, placeholders), "Resolved decisions" "Teams list"
 (savefile source), "CLI" (`teams-list import-savefile`), open questions (lowercasing removed;
 `teams_list.txt` contract narrowed).
@@ -297,11 +297,11 @@ clutter; the type set is the admission test. Always-present, not auto-hiding, be
 appears shifts the tool view every time a notice arrives. "Run strip" not "strip" because *strip*
 already means a kit in this codebase (`StripSlot`, 4ccEditor's `stripBlock`); "status strip" would
 collide with "status bar" in every future session.
-Plan: `core.md` "Status bar" (new, under GUI Design), "Shell layout" (diagram, panel order),
+Plan: `core/gui.md` "Status bar" (new, under GUI Design), "Shell layout" (diagram, panel order),
 "Tool plugin interface" (`activity()`, `ctx.notify`), `studio_core` inventory and module tree
 (`status.rs`, `shell/status_bar.rs`), "Settings menu" (best-effort save), sidebar auto-switch
 (notice), "Crate structure" presentation sentence, Phases 1 and 8; "run strip" rename across
-`core.md`, `team_compiler.md`, `balls_compiler.md`, `match_tracker.md`.
+`core/README.md`, `team_compiler/README.md`, `balls_compiler.md`, `match_tracker/README.md`.
 
 ## 2026-09-11 — save editor — teams-list refresh from the savefile lives in the Save editor, as "Export teams list"
 Decision (user): supersedes the location in the previous "savefile is a teams-list source" entry.
@@ -311,7 +311,7 @@ The action is the Save editor's **Export teams list** (feature table, "Database 
 Why: the Save editor owns the open savefile; from its point of view the operation is an export of
 the save's team table, and the compiler is only a consumer of the resulting file. Same
 reconciliation, same review, same read-only handling — only the owner changed.
-Plan: `save_editor.md` "Database operations" row, "CLI"; `team_compiler.md` "Teams list" decision
+Plan: `save_editor.md` "Database operations" row, "CLI"; `team_compiler/pipeline.md` "Teams list" decision
 (points at the Save editor), "CLI" (command removed, pointer added).
 
 ## 2026-09-11 — libs — `teams_list` is its own leaf crate; `TeamName`/`TeamId` move there
@@ -328,8 +328,8 @@ The fold lives in the crate that both sides call so the export-name side and the
 drift; the split stays in `aesthetics_export` because "first word of the folder name" is export
 knowledge, not team knowledge. Same shape as `fpc`: a leaf crate holding data and pure rules,
 callers own I/O.
-Plan: `libs.md` "`libs/teams_list`" (new) and intro list; `aesthetics_export.md` ownership
-paragraph and crate tree (`teams_list.rs` removed, `identity.rs` re-described); `core.md`
+Plan: `libs/teams_list.md` "`libs/teams_list`" (new) and intro list; `aesthetics_export/README.md` ownership
+paragraph and crate tree (`teams_list.rs` removed, `identity.rs` re-described); `core/README.md`
 "tempting misplacements", crate diagram, updater text and step 5, Phase 2 leaves; `AGENTS.md`
 read-order row; `GLOSSARY.md` "Team name"/"Team ID" owners; `WORKLOG.md` Phase 2 row and step
 2.12 (2.12–2.20 renumbered to 2.13–2.21).
@@ -366,8 +366,8 @@ Default `fit` because it is the only squaring that neither discards pixels nor d
 exist to opt into loss, not to avoid it. Small never feeds the large sizes: upscaling a 128² image
 to 512² is not what anyone means. `image` is already a dependency through `dds_convert`, so no new
 crate.
-Plan: `aesthetics_export.md` "Root files" (diagram, "Logo" bullet), `ValidatedAestheticsExport`
-(`logo: Option<LogoFiles>`); `team_compiler.md` validation categories, "Processing" Logo step,
+Plan: `aesthetics_export/player_folders.md` "Root files" (diagram, "Logo" bullet), `ValidatedAestheticsExport`
+(`logo: Option<LogoFiles>`); `team_compiler/README.md` validation categories, "Processing" Logo step,
 message catalog, Textures scoping note, test list; `export_upgrader.md` step 7.
 
 ## 2026-09-12 — export upgrader — old small logo carried only when clearly a different picture
@@ -388,7 +388,7 @@ absorb, so the user's first guesses of 15 % and then 3 % would both have carried
 and deliberate variants score 63–97 %; 40 % sits in the empty band on the side where the remaining
 possible mistake is a redundant file, not a lost drawing. Reporting the share both ways keeps a
 wrong call visible and recoverable — the source export still holds the file.
-Plan: `export_upgrader.md` step 7, "Verification" fixtures; `team_compiler.md` "Processing" Logo
+Plan: `export_upgrader.md` step 7, "Verification" fixtures; `team_compiler/pipeline.md` "Processing" Logo
 step (PES 21 size note).
 
 ## 2026-09-12 — aesthetics export — kit folders take a label; `Kits/all/` textures are inherited per stem
@@ -412,11 +412,11 @@ emitted bytes, the editor's derived texture-name fields and the upgrader's view 
 survey of 129 multi-kit old exports: `_back` byte-identical across all kits in 16 of 65 exports
 that have it, `_leg` 16/57, `_name` 14/65 — the all-identical hoist helps a quarter of exports and
 is the only hoist that cannot change game-facing output; partial sharing is left to the author.
-Plan: `aesthetics_export.md` "Kits" (grammar, `all/` rule, diagram), object model (`KitsFolder`,
-`KitFolder`, `KitTexture`), `kits.rs` comment; `team_compiler.md` validation, "Processing" Kits,
+Plan: `aesthetics_export/player_folders.md` "Kits" (grammar, `all/` rule, diagram), object model (`KitsFolder`,
+`KitFolder`, `KitTexture`), `kits.rs` comment; `team_compiler/README.md` validation, "Processing" Kits,
 message catalog (`kit_folder_invalid` widened, `kit_slot_duplicate`, `kit_textures_inherited`,
 `kit_all_file_ignored`, `kit_all_unused`), kit cells, test list; `kit_config_editor.md` derivation
-input and tabs; `export_upgrader.md` step 5 (bare slots, hoist); `core.md` decisions table;
+input and tabs; `export_upgrader.md` step 5 (bare slots, hoist); `core/README.md` decisions table;
 `GLOSSARY.md` "Kit folder", "Kit slot".
 
 ## 2026-09-12 — team compiler — empty kit folders are placeholder kits
@@ -439,9 +439,9 @@ skipping the entry (leaves a previous cup's colors in the base bin) or a plausib
 the team's root colors (looks chosen while unchosen; "we'll never have all kits matching that") —
 because a missing choice should be seen in the first menu. Tiny template because nine placeholder
 kits per team should cost nothing in the CPK.
-Plan: `aesthetics_export.md` "Kits" (empty-folder paragraph, diagram); `team_compiler.md`
+Plan: `aesthetics_export/player_folders.md` "Kits" (empty-folder paragraph, diagram); `team_compiler/README.md`
 validation, "Processing" Kits (template fill), "Kit colors fallback", embedded templates list,
-message catalog (`kit_placeholder`, `kit_colors_missing` reworded), test list; `core.md`
+message catalog (`kit_placeholder`, `kit_colors_missing` reworded), test list; `core/README.md`
 decisions table.
 
 ## 2026-09-12 — aesthetics export / team compiler — kit layout marker and cross-engine re-layout
@@ -468,10 +468,10 @@ in u but drifts in v (a shirt control run, provably identical, drifted up to 80 
 Fox body has other proportions), so the numbers are settled in the Phase 4 kits step from that
 matching plus a hand-adjusted fixture pair, and recorded there. Evidence scripts and images in
 `scripts/provenance/kit_uv/`.
-Plan: `aesthetics_export.md` object model (`KitFolder.layout`, `KitLayout`), "Kit layout marker"
-paragraph, diagram; `team_compiler.md` validation, "Processing" Kits (layout conversion, mask fill
+Plan: `aesthetics_export/README.md` object model (`KitFolder.layout`, `KitLayout`), "Kit layout marker"
+paragraph, diagram; `team_compiler/README.md` validation, "Processing" Kits (layout conversion, mask fill
 scope), message catalog (`kit_layout_conflict`, `kit_layout_converted`), test list;
-`export_upgrader.md` step 5; `core.md` decisions table; `GLOSSARY.md` "Kit layout".
+`export_upgrader.md` step 5; `core/README.md` decisions table; `GLOSSARY.md` "Kit layout".
 
 ## 2026-09-12 — team compiler — kit `_mask` (pre-Fox) and `_srm` (Fox) are engine-specific, emitted for their engine only
 
@@ -487,8 +487,8 @@ rather than copied. The converters only handle Fox→pre-Fox — drop the srm, w
 differ in meaning (stock averages (148,133,13) vs (75,141,0); Fox packs specular/roughness/
 metallic), so any formula between them would be an invention. Stakes are low either way: 0 of 365
 library kits ship an `_srm`, 14 a `_mask`, and 4cc's PES 21 cups ran without srms.
-Plan: `team_compiler.md` "Processing" Kits (mask/srm paragraph), message catalog
-(`kit_texture_not_used`), test list; `aesthetics_export.md` Kits diagram.
+Plan: `team_compiler/pipeline.md` "Processing" Kits (mask/srm paragraph), message catalog
+(`kit_texture_not_used`), test list; `aesthetics_export/README.md` Kits diagram.
 
 ## 2026-09-12 — model conversion — the authoring format is the "global model file" (`.glb`) to users
 
@@ -504,7 +504,7 @@ same pattern costs nothing to learn, and `gl-b` → "global" echoes its letters 
 neither echoes the extension, and "dual" reads as two models and undersells a file that also
 opens in Blender, any glTF viewer and the future WASM tools. Not an expansion because the first
 menu a member meets says "glTF 2.0", and a taught etymology would contradict it there.
-Plan: `model_conversion.md` "Blender integration" ("What users call it"); `GLOSSARY.md` "Global
+Plan: `model_conversion/gltf.md` "Blender integration" ("What users call it"); `GLOSSARY.md` "Global
 model file".
 
 ## 2026-09-12 — studio_core — help window assembled from per-tool chapters
@@ -526,7 +526,7 @@ outlive or precede its tool. The generated Messages topic is what makes search w
 one thing Red's users looked up by hand was a message ID. `egui_commonmark` over a hand-rolled
 renderer because the latter is a permanent maintenance item for a solved problem; in-app window
 over a second OS window because multi-viewport adds platform bugs a text reader does not need.
-Plan: `core.md` `StudioTool` trait, `studio_core` inventory and module tree (`help/`,
+Plan: `core/README.md` `StudioTool` trait, `studio_core` inventory and module tree (`help/`,
 `shell/help_window.rs`), tool-crate skeleton (`help/`), sidebar item 5, new "Help window"
 section, "Log panel" cross-linking, Distribution readme line, Phase 8 and Phase 16 items,
 dependency table, decisions table; `CONTRIBUTING.md` placement rule; `GLOSSARY.md` "Help chapter".
@@ -549,7 +549,7 @@ what's-new popup is read by nobody who did not ask, a dismissable notice is; a g
 build machinery for information the tag carries; the title bar is outside every cropped
 screenshot and the logo area vanishes with the collapsed rail, so neither is a place to *find*
 the version.
-Plan: `core.md` "Changelog and version display" (new, under Distribution and updates), "Status
+Plan: `core/distribution.md` "Changelog and version display" (new, under Distribution and updates), "Status
 bar" (empty state, post-update notice), "Sidebar" item 1 (About), "Launch modes" (shell-owned
 commands), "Help window" (chapter name), module tree (`shell/about.rs`), Phase 16.
 
@@ -567,7 +567,7 @@ Why: the title bar is the one surface seen while the window is not in front, whi
 when a user wants to know whether a cup compile is still running — the opposite of the version
 number, which is looked up with the window open. Reusing the status bar's typed items means no
 new tool API and no free-text title.
-Plan: `core.md` "Window title" (new, after "Status bar"), `activity()` doc comment, module tree
+Plan: `core/gui.md` "Window title" (new, after "Status bar"), `activity()` doc comment, module tree
 (`shell/title.rs`), "Changelog and version display" title-bar bullet, Phase 8.
 
 ## 2026-09-12 - workspace - a root justfile is the single definition of the gates
@@ -587,7 +587,7 @@ and encoded a second time in CI. Rejected: `cargo xtask` (a crate of Rust to rev
 for what is thirty lines of commands); cargo aliases (one cargo subcommand each, cannot sequence
 or call a script). Side effect: bare recipe lines under `just` do not hit the PowerShell
 false-failure trap, so the gates give an unambiguous red or green.
-Plan: `CONTRIBUTING.md` "Testing and verification" (gates block and justfile rules), `core.md`
+Plan: `CONTRIBUTING.md` "Testing and verification" (gates block and justfile rules), `core/README.md`
 Phase 1 (justfile bullet, CI bullet) and Phase 16 (release recipe); worklog steps 1.1 and 1.2.
 
 ## 2026-09-12 - workspace - dependencies build without debug info; no shared target directory
@@ -603,7 +603,7 @@ on the machine (zed, vscode-cli, EGG, one more) the measured overlap was 0.02 GB
 Studio's pinned toolchain makes a match with any unpinned project unlikely - so it would buy a
 shared build lock for no space. Stale-artifact growth has no profile fix; it is `cargo clean`
 or `cargo-sweep`, periodically.
-Plan: `core.md` Phase 1 workspace bullet. `CONTRIBUTING.md` already forbids recipes from
+Plan: `core/README.md` Phase 1 workspace bullet. `CONTRIBUTING.md` already forbids recipes from
 hardcoding `target/`, so a developer who moves it anyway is unaffected.
 
 ## 2026-09-12 - aesthetics export / Team compiler - shared textures via `.common` links, packed in place
@@ -625,7 +625,7 @@ is visible in Explorer. In place, not relocated: relocation would give N copies 
 texture a user put in Common precisely to have one; Common is a location the game reads on both
 engines (Red packs it and rewrites `common/XXX/` on both), so nothing is gained by moving it.
 Plan: `model_format.md` "Link files" (table row, packing rule, why no tag), folder diagram,
-findings; `aesthetics_export.md` "Common model links and model merging"; `team_compiler.md`
+findings; `aesthetics_export/object_model.md` "Common model links and model merging"; `team_compiler/README.md`
 step 6, material stems note, findings table, parity differences; `export_upgrader.md` steps 7
 and 13; `GLOSSARY.md` "Common link".
 
@@ -646,8 +646,8 @@ what is merely unmapped would close the only door to discovering what the pre-Fo
 "What the generator emits" is the one set with in-game evidence behind it, so it is the honest
 warning boundary, and it is maintained for free because the generator is the compiler's own code.
 Red waved unresolvable game paths through silently; the compiler says it did not check them.
-Plan: `team_compiler.md` "User-supplied `face.xml`" (new, under the XML/MTL content checks), the
-XML rows of that catalog table, step 4, test list; `aesthetics_export.md` "Model names: a free
+Plan: `team_compiler/pipeline.md` "User-supplied `face.xml`" (new, under the XML/MTL content checks), the
+XML rows of that catalog table, step 4, test list; `aesthetics_export/README.md` "Model names: a free
 part plus a suffix".
 
 ## 2026-09-12 - Team compiler / save editor / pes_savefile - the aesthetics patch
@@ -673,12 +673,12 @@ half has to be a file that travels. Making the local write consume the same file
 construction. Read-only aesthetics because two sources for one field means the next patch silently
 overwrites a hand edit or the hand edit silently diverges from the DLC; the unlock is a session
 switch, not a setting, so the default cannot quietly change on the savefile builder's machine.
-Plan: `pes_savefile.md` "Player settings model" (completeness rule and test), "Aesthetics patch"
-(new, under Interchange formats), Verification; `team_compiler.md` pipeline diagram, `savefile.rs`
+Plan: `pes_savefile/model.md` "Player settings model" (completeness rule and test), "Aesthetics patch"
+(new, under Interchange formats), Verification; `team_compiler/README.md` pipeline diagram, `savefile.rs`
 comment, ID-assignment note, Post-processing (patch stage, savefile stage), catalog
 (`patch_written`, `savefile_missing`), Resolved decisions; `save_editor.md` feature inventory,
-Appearance tab, "Read-only aesthetics" (new), interchange list, CLI; `aesthetics_export.md`
-"Player settings in exports" (completeness, template, motion, flow); `core.md` decisions table;
+Appearance tab, "Read-only aesthetics" (new), interchange list, CLI; `aesthetics_export/README.md`
+"Player settings in exports" (completeness, template, motion, flow); `core/README.md` decisions table;
 `GLOSSARY.md` "Aesthetics patch".
 
 ## 2026-09-12 - Player aesthetics editor - the settings forms are generated from the schema
@@ -723,9 +723,9 @@ recompile loop become unnecessary where it runs; the fallback fill is the ordina
 experience, not an edge case, so it stays the rate-table engine it was.
 Plan: `refs_arranger.md` (intro, "The Fox referee hook", storage box, PES 18-21 lists mode,
 "The lists file", saving, CLI `randomize`, matchday rotation, verification, open questions -
-position roles to be confirmed in-game); `aesthetics_export.md` referee exception (`ref_lists.txt`
-known root file); `team_compiler.md` root-file validation and referee processing note;
-`core.md` Phase 13; `plans/README.md` row; `GLOSSARY.md` "Referee hook", "Referee list".
+position roles to be confirmed in-game); `aesthetics_export/README.md` referee exception (`ref_lists.txt`
+known root file); `team_compiler/README.md` root-file validation and referee processing note;
+`core/README.md` Phase 13; `plans/README.md` row; `GLOSSARY.md` "Referee hook", "Referee list".
 
 ## 2026-09-12 — Team creator / save editor / libs — the Team creator is a stateless wizard; tactics widgets become `libs/team_widgets`
 Decision: the Team creator (`tools/team_creator`, Phase 17, post-release) is a six-step wizard that
@@ -751,10 +751,10 @@ because the community's "preset" is a tactics preset and the compiler's "templat
 template. Post-release phase because its users are the next cup's new managers and it depends on
 the widest set of finished pieces.
 Plan: `team_creator.md` (new); `save_editor.md` (crate layout, "`libs/team_widgets`",
-`apply_tier` under "Configurable AATF rules", Phase 8 build order); `core.md` (overview, crate
-trees, Phase 8 note, Phase 17 new, Studio Web renumbered to 18); `pes_savefile.md` Team TOML
-(absent = untouched; `shirt_name_from`); `aesthetics_export.md` Kits and Portraits (any image
-format); `libs.md` pointers; `plans/README.md` rows; `GLOSSARY.md` "Roster file", "Starter head",
+`apply_tier` under "Configurable AATF rules", Phase 8 build order); `core/README.md` (overview, crate
+trees, Phase 8 note, Phase 17 new, Studio Web renumbered to 18); `pes_savefile/README.md` Team TOML
+(absent = untouched; `shirt_name_from`); `aesthetics_export/README.md` Kits and Portraits (any image
+format); `libs/README.md` pointers; `plans/README.md` rows; `GLOSSARY.md` "Roster file", "Starter head",
 "Team creator", "`team_widgets`".
 
 ## 2026-09-12 — repository — license is `MIT OR Apache-2.0`, game-derived data excluded
@@ -770,7 +770,7 @@ tooling has never seen and would survive; MIT's one cost, not being able to abso
 moot (Red is the author's own, 4ccEditor is zlib, the rest carry no license). Apache alongside MIT
 for the patent grant and ecosystem uniformity. GPL remains the right answer if "descendants must
 stay free" is held as a principle rather than weighed as a risk; it was weighed.
-Plan: `core.md` "License" (new, under "Distribution and updates"), "Distribution: portable .7z
+Plan: `core/distribution.md` "License" (new, under "Distribution and updates"), "Distribution: portable .7z
 bundle", "Key Decisions Summary" row; `CONTRIBUTING.md` `just deps-check`; `README.md`.
 
 ## 2026-09-13 - libs - `PesVersion` is its own leaf crate, `pes_version`
@@ -782,7 +782,7 @@ Why: the savefile plan placed it in `pes_savefile`, but `studio_core` (settings)
 crate; putting it in `studio_core` would make every version-aware lib depend on egui. A one-enum
 crate with six consumers satisfies guardrail 3 (multiple consumers); the alternative was a second
 copy of one closed set.
-Plan: `core.md` crate tree; `libs.md` "`pes_version`" (new); `pes_savefile.md` crate tree line.
+Plan: `core/README.md` crate tree; `libs/README.md` "`pes_version`" (new); `pes_savefile/README.md` crate tree line.
 
 ## 2026-09-13 - dependencies - `unicode-normalization` approved; egui's font licenses allowed
 Decision (user): `unicode-normalization` joins the dependency table, used by `vtree` for NFC
@@ -793,7 +793,7 @@ Why: the plan requires Unicode-normalized collision detection and std has no nor
 crate is the ecosystem standard with no dependencies of its own. The first `just deps-check` run
 rejected the fonts, which is the allowlist doing its job; both are permissive font licenses that
 permit embedding, and the GUI phase decides fonts anyway (the entries go when the fonts do).
-Plan: `core.md` "External Dependencies" row; `core.md` "License" allowlist sentence.
+Plan: `core/README.md` "External Dependencies" row; `core/distribution.md` "License" allowlist sentence.
 
 ## 2026-09-13 - workspace - Phase 1 bootstrap choices
 Decision: (1) workspace lints are `rust::missing_docs = warn` (the `///`-on-every-`pub` rule,
@@ -812,7 +812,7 @@ crate exists. (6) The lockfile pins egui 0.36.1 (0.36.2 was five days old at boo
 one-week rule in `CONTRIBUTING.md`).
 Why: (1) a lint that is policy in prose is not policy; each entry maps to a written rule. (3) a
 hand-kept list passes when a new lib is forgotten, the failure mode the gate exists to catch.
-Plan: `core.md` Phase 1 will be rewritten in the present tense at converge; no other plan text
+Plan: `core/README.md` Phase 1 will be rewritten in the present tense at converge; no other plan text
 changed.
 
 ## 2026-09-13 - studio_core - `ToolContext` settings access and the settings file layout
@@ -826,7 +826,7 @@ current within the frame, and "one lock per concept" is the style rule for exact
 Explicit `SettingsChanged` rather than dirty-tracking inside `Settings`, so saving is a visible
 request the shell handles like the others. Atomic write because a truncated settings file on a
 crash would silently reset the user to defaults on the next start.
-Plan: `core.md` "Tool plugin interface" (ToolContext paragraph), "Settings menu" (file layout).
+Plan: `core/architecture.md` "Tool plugin interface" (ToolContext paragraph), "Settings menu" (file layout).
 
 ## 2026-09-13 - workspace - PowerShell stays the Windows `just` shell; Conventional Commits
 Decision (user): `just` keeps PowerShell as its Windows shell rather than adding Git's `sh` to
@@ -846,7 +846,7 @@ Decision (user): the crate planned as `weszlib` is `wezlib`: WESYS reads as Winn
 System (Winning Eleven being PES's Japanese name), so the name is WE + zlib.
 Why: the plan's spelling ran the two words together; a name that parses as "WE zlib" says what
 the crate is and still cannot be confused with a general zlib crate.
-Plan: `core.md` crate tree and naming convention; `libs.md` mentions; worklog.
+Plan: `core/README.md` crate tree and naming convention; `libs/README.md` mentions; worklog.
 
 ## 2026-09-13 - teams_list / fpc - `teams_list.txt` contract details; FPC kit values per version
 Decision: the parse contract left open in the Team compiler plan is fixed as the `teams_list`
@@ -861,8 +861,8 @@ early, while placeholders keep the ID space Red's list reserves (`Backup N`, inv
 without pretending they are teams. A merge that fails on one conflicting row would block an update
 for a problem the user has to look at anyway; a summary lets the shell show it. FPC on PES 18 is
 not documented anywhere the plan cites, so the honest value is `None` until evidence appears.
-Plan: `team_compiler.md` open question "`teams_list.txt` contract" (now resolved text);
-`libs.md` "`libs/fpc`" (`kit_values` paragraph, with the PES 19+ verification owed to 2.13).
+Plan: `team_compiler/README.md` open question "`teams_list.txt` contract" (now resolved text);
+`libs/fpc.md` "`libs/fpc`" (`kit_values` paragraph, with the PES 19+ verification owed to 2.13).
 
 ## 2026-09-13 - dds_convert - `block_compression` decodes as well as encodes; `texture2ddecoder` dropped
 Decision: DDS block decoding uses `block_compression::decode` (BC1–BC5, BC7), the crate already
@@ -872,7 +872,7 @@ encoded and decoded, rather than against the stadium compiler's Python decoder.
 Why: one dependency for both directions, and the plan's own caveat about `texture2ddecoder`
 (same name, different implementation) made its parity claim empty anyway; texconv is Microsoft's
 reference for these formats, is on this machine, and produces the expected output for every mip.
-Plan: `libs.md` "In-process DDS conversion" decoding bullet and the format table; `core.md`
+Plan: `libs/dds_convert.md` "In-process DDS conversion" decoding bullet and the format table; `core/README.md`
 "External Dependencies" (row removed, `block_compression` row updated).
 
 ## 2026-09-13 - dds_convert - DXT5nm layout from Konami's files; passthrough set; FTEX type 0x9; crate API
@@ -893,7 +893,7 @@ only standard. Re-encoding a DX10-header BC1/BC3 to DXT5, as the legacy compiler
 quality for nothing. `0x9` on every Fox texture is what years of PES 19-21 exports shipped; the
 Konami values for color textures are not proven for exported models. One DDS header parser, not
 two: `ftex` already had the table for both directions.
-Plan: `libs.md` "In-process DDS conversion" (DXT5nm, Passthrough, Mipmaps, FTEX texture type
+Plan: `libs/dds_convert.md` "In-process DDS conversion" (DXT5nm, Passthrough, Mipmaps, FTEX texture type
 bullets) and the new "`dds_convert` API" section.
 
 ## 2026-09-13 - dds_convert / ftex - encode quality is judged against the reference encoder, not a fixed tolerance; exact zlib-size chunks stored raw
@@ -909,7 +909,7 @@ correctly refused to widen it. The raw-chunk case was met by a 16-byte tail mip 
 2x1 and 1x1 levels compress to exactly 16 bytes); the legacy writer has the same latent bug. The
 sidekick's first fix invented a "raw" meaning for bit 31 of the chunk offset, which the readers
 mask off without interpreting; that is a format guess about game-facing output and was reverted.
-Plan: no plan edit needed: `libs.md` already says encoded output is judged by decoded content and
+Plan: no plan edit needed: `libs/README.md` already says encoded output is judged by decoded content and
 that `ftex` output parity is verified by converting back.
 
 ## 2026-09-13 - teams_list / kit_config - review B resolutions
@@ -927,7 +927,7 @@ team into a placeholder; an id swap between two teams was reported as two confli
 could be double-booked; `name.y = 30` on PES 20 was flagged as clamped yet emitted as 30;
 `shirt = 144` produced a valid-looking config with the template's shirt). One table for finding
 and clamp is the only shape in which the two cannot disagree again.
-Plan: `libs.md` "`libs/teams_list`" (`file.rs`, `reconcile.rs` bullets); `kit_config_editor.md`
+Plan: `libs/teams_list.md` "`libs/teams_list`" (`file.rs`, `reconcile.rs` bullets); `kit_config_editor.md`
 "Version differences" and "Version-neutral" bullets.
 
 ## 2026-09-13 - fmdl - a `model` layer between `format/` and `ops/`
@@ -939,7 +939,7 @@ reason about bones, materials and groups, none of which exist at record level; w
 layer each op would re-derive the table walk. The layout `to_file` produces is the add-on writer's,
 the one PES has accepted for years, since a byte-identical rebuild is `format/`'s job and a fresh
 layout is what an edited model needs anyway.
-Plan: `libs.md` new subsection "`fmdl::model`: the semantic layer the ops work on".
+Plan: `libs/format_crates.md` new subsection "`fmdl::model`: the semantic layer the ops work on".
 
 ## 2026-09-13 - fmdl - anti-blur helper material gets the specular dummy; decode clears the flag
 Decision: the anti-blur duplicate material's `SpecularMap_Tex_LIN` sampler gets `dummy_srm.ftex`;
@@ -963,7 +963,7 @@ that caller).
 Why: the encoding is what existing split models carry, so it is kept exactly; the algorithm's
 slips change only which faces land in which component, which the encoding makes irrelevant to
 the reassembled mesh, and determinism is required by the Nth-occurrence rule.
-Plan: `model_conversion.md` "Performance-critical operation: mesh splitting" already describes the
+Plan: `model_conversion/conversion.md` "Performance-critical operation: mesh splitting" already describes the
 algorithm shape; no edit needed.
 
 ## 2026-09-13 - pes_model - `roxmltree` for XML reading; XML written by hand
@@ -974,7 +974,7 @@ Why: the plan's dependency table named no XML crate although three game-facing X
 one. The shapes are tiny and fixed (a material set is a few elements with attributes), so a DOM
 writer buys nothing while a hand writer can reproduce Konami's whitespace exactly (`.mtl` byte
 parity becomes testable); `quick-xml` would add a streaming API and a serde surface nobody needs.
-Plan: `core.md` "External Dependencies" row added.
+Plan: `core/README.md` "External Dependencies" row added.
 
 ## 2026-09-13 - pes_model - byte identity at the container, a fresh layout from the typed layer
 Decision: `ModelContainer` (eleven opaque sections in file order) is the byte-identical `format/`
@@ -986,7 +986,7 @@ Why: the plan asks for a byte-identical `format/` round trip without saying at w
 byte-identical by carrying every offset, which is the container again with more fields. The
 reference parser warns and proceeds on cloth/locator models, but a warning that ends in a rewrite
 dropping the referenced section is a silent corruption, and no player part uses those sections.
-Plan: `libs.md` "`pes_model::format`: the `.model` container and its sections" added (layout as
+Plan: `libs/format_crates.md` "`pes_model::format`: the `.model` container and its sections" added (layout as
 measured by `scripts/provenance/pes_model/model_census.py` on the six fixtures).
 
 ## 2026-09-13 - pes_model - the typed writer always emits header version 19
@@ -998,7 +998,7 @@ shadow fixture only proved our reader accepts a version-17 word over that layout
 does. The version-19 word over the version-19 layout is what the community converter shipped to
 PES 16 for years; the hybrid has no evidence. Carrying the word would have made the file look
 faithful while being untested.
-Plan: `libs.md` "`pes_model::format`: the `.model` container and its sections" edited.
+Plan: `libs/format_crates.md` "`pes_model::format`: the `.model` container and its sections" edited.
 
 ## 2026-09-13 - pes_model - mesh splitting on `.model`: the fmdl port, four departures from the reference importer
 Decision: `ops::split` ports `fmdl::ops::split` with the `.model` limits (64/60 bones, 65535/63000
@@ -1012,8 +1012,8 @@ dropped LODs at import). The fragment sort axis is the fmdl port's principal axi
 the base bone, not the reference's bone x-axis; as for fmdl, that changes which faces land where,
 which the encoding makes irrelevant to the reassembled mesh.
 Why: each departure removes a slip or an information loss; none changes what PES renders.
-Plan: `model_conversion.md` "Performance-critical operation: mesh splitting" describes the shape;
-`libs.md` "`pes_model::model`" already carries the LOD rule; no further edit.
+Plan: `model_conversion/conversion.md` "Performance-critical operation: mesh splitting" describes the shape;
+`libs/format_crates.md` "`pes_model::model`" already carries the LOD rule; no further edit.
 
 ## 2026-09-13 - pes_model - `check` covers the `.mtl` too, with two codes the plan did not list
 Decision: `pes_model::check` has `check(model)`, `check_materials(set)` and `check_bundle(model,
@@ -1026,7 +1026,7 @@ Why: the plan lists the `.mtl` checks under the Team compiler, but the lib owns 
 returns findings, not messages (the compiler maps codes in Phase 3); the two added codes fall out
 of the census (an unknown state is a fact worth surfacing at Info) and of the bundle (an undefined
 material is the one cross-file error the pair can have). Texture existence stays with the compiler.
-Plan: `team_compiler.md` "XML/MTL content checks" gains the two rows when Phase 3 writes its
+Plan: `team_compiler/pipeline.md` "XML/MTL content checks" gains the two rows when Phase 3 writes its
 message catalog; no edit now (the codes are lib-side until then).
 
 ## 2026-09-13 - pes_model / model_convert - the pre-Fox multi-part merge is native, not an IR operation
@@ -1035,16 +1035,16 @@ MaterialSet), MergeError>` is the pre-Fox counterpart of `fmdl::ops::merge`; the
 boots merge and the link-combined case call it. `model_convert::merge_ir_parts` stays specified
 but deferred, with no planned caller. Bone matrices are compared exactly, as `fmdl` compares
 positions; a tolerance is decided with `model_convert` from measured matrices if glTF-authored
-pre-Fox parts turn out to need one. User decision (the plan contradicted itself: `libs.md`'s
-crate tree listed `pes_model/ops/merge.rs` while `model_conversion.md` routed the merge through
+pre-Fox parts turn out to need one. User decision (the plan contradicted itself: `libs/README.md`'s
+crate tree listed `pes_model/ops/merge.rs` while `model_conversion/README.md` routed the merge through
 the IR).
 Why: an IR round trip for a same-format operation is what the "format-native ops" rule exists to
 avoid, and the IR route bought nothing: the `.mtl` merge is a material-name merge either way, and
 the native op is what the Blender bindings can expose. An unmeasured tolerance would be the same
 mistake as the `dds_convert` encode bounds.
-Plan: `libs.md` gains "`pes_model::ops::merge`"; `model_conversion.md` "IR part merge", the crate
-tree, "Conversion routing" and the retargeting paragraph, `aesthetics_export.md` (four mentions),
-`team_compiler.md` (pipeline step) and `AGENTS.md` ("Two engines, one IR") edited to match.
+Plan: `libs/format_crates.md` gains "`pes_model::ops::merge`"; `model_conversion/gltf.md` "IR part merge", the crate
+tree, "Conversion routing" and the retargeting paragraph, `aesthetics_export/README.md` (four mentions),
+`team_compiler/README.md` (pipeline step) and `AGENTS.md` ("Two engines, one IR") edited to match.
 
 ## 2026-09-13 - pes_model - merged bones agree within a measured 1e-4, not exactly
 Decision: `pes_model::ops::merge` treats two bones of one name as the same bone when every one
@@ -1053,13 +1053,13 @@ part's matrix. Supersedes the "compared exactly" rule written earlier the same d
 Why: the exact rule could not merge Konami's own kit parts: `modD_cap` and a collar share four
 shoulder bones whose matrices differ by float noise (found by the sidekick when the briefed LOD
 test failed). Measured over all 2606 Konami files (`scripts/provenance/fmdl_bone_matrix/`,
-numbers in `libs.md`): shared-skeleton noise tops out at `3.6e-5`, real bind-pose
+numbers in `libs/README.md`): shared-skeleton noise tops out at `3.6e-5`, real bind-pose
 differences start at `2.0e-4` and run to `0.5`, so `1e-4` sits in the gap on a log scale. An
 unmeasured tolerance would have been the `dds_convert` mistake again; this one is measured.
 Whether `fmdl::ops::merge`'s exact position comparison has the same problem on FMDL parts is a
 converge question for 2.20 (no two Konami FMDL parts sharing a bone are in the fixtures).
-Plan: `libs.md` "`pes_model::ops::merge`" bones rule rewritten with the measurement;
-`aesthetics_export.md` "SKL pairing" sentence updated; `resources/prefox_model_format.md`
+Plan: `libs/format_crates.md` "`pes_model::ops::merge`" bones rule rewritten with the measurement;
+`aesthetics_export/player_folders.md` "SKL pairing" sentence updated; `resources/prefox_model_format.md`
 section 5 gains the finding for the plugin author.
 
 ## 2026-09-13 - fox2 - CityHash64 ported, not a crate; typed file keeps the string table; goldens from the reference
@@ -1074,8 +1074,8 @@ hash/literal pairs the fixtures' own tables carry. The reference cannot round-tr
 (it reorders the table) and its writer returns an over-allocated buffer (896 bytes of content in
 a 1228-byte result), so the byte-identity standard is our own reader/writer on Konami's files
 plus equality with the reference's logical output on compiled ones, as for `fmdl`.
-Plan: `libs.md` gains "`libs/fox2`: Fox Engine entity files" (layout census over 87 files, types,
-XML rules); `core.md` "External Dependencies" row for `cityhash` replaced.
+Plan: `libs/fox2.md` gains "`libs/fox2`: Fox Engine entity files" (layout census over 87 files, types,
+XML rules); `core/README.md` "External Dependencies" row for `cityhash` replaced.
 
 ## 2026-09-13 - fox2 - the XML form carries `classHash`/`nameHash` for unresolved names
 Decision: `to_xml` writes an unresolved class or property name as the reference's `class=""` /
@@ -1088,7 +1088,7 @@ its dictionary lacks; an attribute the reference's reader ignores keeps its XML 
 while making ours lossless. Raw whitespace in attributes is normalized to spaces by any XML
 reader, changing the string and its hash. The strict bool turns a typo in generated XML into an
 error instead of a silent `false`.
-Plan: `libs.md` "`libs/fox2`" last paragraph rewritten.
+Plan: `libs/fox2.md` "`libs/fox2`" last paragraph rewritten.
 
 ## 2026-09-13 - archives - `sevenz-rust2` and `zip`, both without default features; one `Archive<R: Read + Seek>`
 Decision: `libs/archives` depends on `sevenz-rust2` 0.22.2 (`default-features = false`: LZMA,
@@ -1101,7 +1101,7 @@ deleted) in favor of `sevenz-rust2`; the plan named no zip crate and `zip` is th
 uses. Default features would pull compression, AES, bzip2, PPMd, zstd and time crates into a
 crate that only reads what 7-Zip, Explorer and PowerShell write. Generic over `Read + Seek` is the
 std-trait generic the style rules allow and is what keeps the crate `wasm32`-clean (checked).
-Plan: `libs.md` gains "`libs/archives`"; `core.md` "External Dependencies" rows updated.
+Plan: `libs/archives.md` gains "`libs/archives`"; `core/README.md` "External Dependencies" rows updated.
 
 ## 2026-09-13 - color_tools - extraction regions from the template sheet, thresholds from the exports, a trim fallback
 Decision: the shirt and shorts regions are the PES 19 colored template's zones inset (shirt
@@ -1119,7 +1119,7 @@ visual swatch sheets over every kit. The trim fallback is a plan gap: with the p
 fallback a black kit with black shorts and gold trim would get two identical menu colors, where
 every manager who bothered declared the trim. RGB distance rather than a Lab metric keeps one
 notion of distance in the crate; navy against black is 64, the threshold's anchor.
-Plan: `libs.md` "Dominant kit-color extraction" rewritten with the values and the evidence.
+Plan: `libs/color_tools.md` "Dominant kit-color extraction" rewritten with the values and the evidence.
 
 ## 2026-09-13 - elevation - `windows` and `libc` as target-gated dependencies; the surface pinned in the plan
 Decision: `libs/elevation` exposes `is_elevated`, `relaunch_elevated(program, args)` and
@@ -1130,7 +1130,7 @@ Why: the plan named the behavior but no crate for the POSIX euid check and no AP
 is the std-adjacent answer and `windows` is already the approved Win32 crate. Target-gating keeps
 the crate on the `wasm32` gate like every other lib. Argument quoting for the relaunch is tested
 against `CommandLineToArgvW` itself rather than against our reading of its rules.
-Plan: `libs.md` "`libs/elevation`" gains the surface block and the test list; `core.md`
+Plan: `libs/elevation.md` "`libs/elevation`" gains the surface block and the test list; `core/README.md`
 "External Dependencies" rows for `windows` and `libc`.
 
 ## 2026-09-13 - model_convert - IR shapes settled against the format crates
@@ -1148,7 +1148,7 @@ crates' split and anti-blur *decode*, so an imported mesh is whole and carries n
 the format crates type every known header already, so the IR only needs the leftovers; the only
 matrix work in the suite is bone transforms, four functions that do not justify a generic linear
 algebra API; no 4cc export carries LODs or Konami tags (the add-on writes none).
-Plan: `model_conversion.md` "IR struct" rewritten with the shapes; "Crate layout" gains
+Plan: `model_conversion/ir.md` "IR struct" rewritten with the shapes; "Crate layout" gains
 `affine.rs` and loses `ir/skeleton.rs`.
 
 ## 2026-09-13 - model_convert - skeletons parsed from the embedded .skl files, not generated source
@@ -1163,7 +1163,7 @@ test, for numbers the SKL codec already reads byte-exactly (tested on three Kona
 `.skl` bytes must be embedded anyway for Fox template injection. A `phf::Map` over 175 names buys
 nothing over a sorted slice. The render hierarchy is not in any game file (the SKL parent column
 makes 41 to 82 of each body's bones roots), so it stays a transcription, of names.
-Plan: `model_conversion.md` "Skeleton data" rewritten; "Crate layout" placement rules edited.
+Plan: `model_conversion/conversion.md` "Skeleton data" rewritten; "Crate layout" placement rules edited.
 
 ## 2026-09-13 - model_convert - hand bones are `skh_`, not `skf_`; fold table follows chains
 Decision: hand auto-split identifies hand-exclusive bones by the `skh_` prefix. The fold table is
@@ -1174,8 +1174,8 @@ Why: the games' own `hand_l.skl` holds 19 `skh_` bones and `face.skl` 33 `skf_` 
 PES 18, 19, 21); the plan's `skf_` would have split faces at the jaw. A per-version fold table
 would repeat the same entries six times, and the natural targets already chain
 (`dsk_upperarm_long_l` -> `dsk_upperarm_l`, which PES15 also lacks).
-Plan: `model_conversion.md` "Hand auto-split" (detection, split, where it lives), "Skeleton
-retargeting and bone conformance" step 2; `aesthetics_export.md` pipeline step 0.
+Plan: `model_conversion/hand_split.md` "Hand auto-split" (detection, split, where it lives), "Skeleton
+retargeting and bone conformance" step 2; `aesthetics_export/README.md` pipeline step 0.
 
 ## 2026-09-13 - model_convert - `convert` by value; the Fox bundle carries its companion SKL
 Decision: `convert(bundle, target) -> Result<Converted, ConvertError>` takes and returns
@@ -1186,7 +1186,7 @@ Why: by value makes "both members or neither" a property of the type instead of 
 `&mut self` method; the semantic layer is where the format crates' ops (split, anti-blur, vertex
 encoding) already work, so the importers call them without a second decode; the SKL is the bind
 pose source for an FMDL and belongs with it.
-Plan: `model_conversion.md` "Conversion routing" rewritten.
+Plan: `model_conversion/ir.md` "Conversion routing" rewritten.
 
 ## 2026-09-14 - model_convert - the vertex-loop encoding is read from order on import, applied on export
 Decision: `fmdl_to_ir` calls no vertex-loop decode (the IR keeps the vertex order the owner map is
@@ -1197,7 +1197,7 @@ Why: the Rust decode returns an owner map and changes nothing, so a call on impo
 its result; the encode is not a no-op on Konami files (highneck: 198 of 204 vertices reordered,
 vertex multiset and face corner-tuples unchanged), and the legacy converters reorder the same way,
 so a byte-order comparison would fail on correct output.
-Plan: `model_conversion.md` "Extension algorithms" gains the paragraph.
+Plan: `model_conversion/ir.md` "Extension algorithms" gains the paragraph.
 
 ## 2026-09-14 - model_convert - `.model` import reorders bones parent-first; direct render parent only
 Decision: `model_to_ir` moves a bone to right after its render parent when the file lists it
@@ -1212,7 +1212,7 @@ consumer relies on; relaxing it for 1.7% of Konami files would push order handli
 consumer. Climbing to a present ancestor would give `skf_brow_*` a parent in 914 files where the
 legacy converters made them roots, a behavior change with no evidence of need. Silent field
 drops are what the plan's "losses explicit, not accidental" rule forbids.
-Plan: `model_conversion.md` "Material sources per format" gains the `.model`-pair list.
+Plan: `model_conversion/ir.md` "Material sources per format" gains the `.model`-pair list.
 
 ## 2026-09-14 - model_convert - review (b) rulings: loop owners read unflagged, hand split over topological vertices
 Decision: the exporters recover vertex-loop owners with the format crates' per-mesh unflagged
@@ -1229,7 +1229,7 @@ plan's lossless round trip forbids; a run that satisfies the convention is a set
 not the file declared the extension. Blender's Select More works on vertices, and the native
 formats store loops, so a UV seam at the wrist would otherwise stop the growth. The audience pair's
 SKL and FMDL parents agree on all 16 bones (measured), so the FMDL parent stays the IR's.
-Plan: `model_conversion.md` "Extension algorithms" (owner recovery), "Hand auto-split" step 2.
+Plan: `model_conversion/ir.md` "Extension algorithms" (owner recovery), "Hand auto-split" step 2.
 
 ## 2026-09-14 - pes_savefile - one `SaveContainer` struct, salt as a parameter, partial real-file fixtures
 Decision: the container layer is one `SaveContainer` struct with a `Scheme` enum (`Pes15` |
@@ -1246,7 +1246,7 @@ new dependency for 320 bytes nobody checks. A save is 5-11 MB and incompressible
 serial section is the writing account's Windows SID, so committing whole saves would cost ~40 MB and
 leak an identifier; the slices prove every layer of the container on real bytes and the inflated
 payload is the complete real input every higher layer needs.
-Plan: `pes_savefile.md` "Container format and crypto" (header layout as measured, "Container API",
+Plan: `pes_savefile/container.md` "Container format and crypto" (header layout as measured, "Container API",
 "Container fixtures"); "Savefile discovery" table corrected from the same machine (PES 18 uses the
 flat layout; 18/19 folder names verified).
 
@@ -1269,7 +1269,7 @@ neighbours') is what shows they name the right bits. The PES 18 walk is hand-shi
 interpreter could compare it with 17's. Two real shirt names carry 0xFC/0xF0 (not UTF-8) and 437 of
 PES 16's names carry stale bytes after the NUL, so `String`-and-zero-fill would fail the lossless
 round trip. A guessed `b_edit_stadium` bit would be a schema fact with no reference behind it.
-Plan: `pes_savefile.md` "Schema-driven save codec" rewritten (types, derivation, checks, record
+Plan: `pes_savefile/codec.md` "Schema-driven save codec" rewritten (types, derivation, checks, record
 sizes, reference readings flagged); "Payload layout per version" era note corrected.
 
 ## 2026-09-14 - pes_savefile - colour codes are eight bytes, not eight hex digits; `\x11d` resets
@@ -1283,7 +1283,7 @@ without checking hex, and two names carry `\x11d` mid-string as a reset; a hex-o
 leave control bytes in the compiler's folder names for those eleven players. Pure cores with
 native wrappers are what keeps the crate wasm32-checkable (guardrail 6) and the tests free of the
 real Documents folder.
-Plan: `pes_savefile.md` "Whole-file API" (API block, measured code rule), "Player settings model"
+Plan: `pes_savefile/codec.md` "Whole-file API" (API block, measured code rule), "Player settings model"
 paragraph, "Savefile discovery" (API block).
 
 ## 2026-09-15 - development plan - Phase 3 opens with a tracer bullet
@@ -1298,7 +1298,7 @@ after the skeleton was already built on them; a shape wrong across crates would 
 through the tool rather than in the crate. A thin end-to-end slice first tests the composition
 while a fix is local, and seeds the parity harness instead of deferring it. Prompted by the
 "vertical slices, not horizontal plans" argument in humanlayer's "Why Software Factories Fail".
-Plan: `core.md#Phase 3: Team compiler skeleton` edited (first bullet, Verification).
+Plan: `core/development_plan.md#Phase 3: Team compiler skeleton` edited (first bullet, Verification).
 
 ## 2026-09-15 - development plan - Phase 3 closes with a minimal `studio` shell
 Decision (user): Phase 3's last code step is a shell slice: `studio_core`'s window, sidebar and
@@ -1310,8 +1310,8 @@ their first real tool only in Phase 8, after five tool crates had been written t
 tool on the shell early tests the seam while a change to it touches one crate. It also makes the
 Phase 10 parallelism note ("once the shell exists") true five phases sooner. Same argument as the
 tracer bullet, applied to the GUI seam instead of the lib seam.
-Plan: `core.md#Phase 3: Team compiler skeleton` (last bullet, Verification) and
-`core.md#Phase 8: GUI` (opening note, first bullet) edited.
+Plan: `core/development_plan.md#Phase 3: Team compiler skeleton` (last bullet, Verification) and
+`core/development_plan.md#Phase 8: GUI` (opening note, first bullet) edited.
 
 ## 2026-09-19 - aatf - one self-contained Rhai rules file; TOML+CEL and the two-file split rejected
 Decision (user): the AATF ruleset is a single `.rhai` file with a `const CFG = #{ ... }` parameter
@@ -1330,7 +1330,7 @@ resist adding a tier; the stated workflow, bulk edits of the official ruleset an
 small deltas of it, is "copy one file, edit the top" only with one file. Rhai's `global::CFG`
 gives functions the top-level constant without host plumbing. Costs accepted: denser syntax than
 TOML, no enforced boundary between the sections, parameters readable only through Rhai.
-Plan: `save_editor.md#Configurable AATF rules` rewritten; `core.md` crate tree, Phase 5 bullet,
+Plan: `save_editor.md#Configurable AATF rules` rewritten; `core/README.md` crate tree, Phase 5 bullet,
 dependency rows (`toml`, `rhai`) and decisions table; `team_creator.md`, `model_format.md`
 "Comments are app-injected", `GLOSSARY.md`, `AGENTS.md` "User-facing TOML" reworded.
 
@@ -1356,7 +1356,7 @@ Plan: `CONTRIBUTING.md` "Testing and verification" (recipes, "Mutation runs" req
 
 ## 2026-09-19 - pes_savefile - model structs follow the version-gating rule, not the plan blocks
 Decision (lead, recorded after the fact): `TeamEntry`, `TeamTactics`, `TacticsPreset` and
-`PlayerEntry` as implemented in 2.17b-c stand; the plan's code blocks in `pes_savefile.md`
+`PlayerEntry` as implemented in 2.17b-c stand; the plan's code blocks in `pes_savefile/README.md`
 "Player/team/tactics model" are rewritten from the code in 2.21. Deviations: version-gated fields
 are `Option<T>` (`manager_id`, `stadium_id`, `colors`, `kit_slots`, `star`, `tight_possession`,
 `aggression`, `playing_attitude`, the two instruction pairs) per the plan's own rule; the
@@ -1367,7 +1367,7 @@ them; `bench_order` is `[u8; 21]`; the shirt number is on `RosterSlot`, not `Pla
 Why: the blocks were written before the field tables were derived from the reference read walks
 (2.17a-b); the tables, not the sketch, decide the shape. The gap is recorded here because
 `AGENTS.md` makes every plan-shape deviation a decision entry and 2.17b-c landed without one.
-Plan: `pes_savefile.md` blocks unchanged until 2.21.
+Plan: `pes_savefile/README.md` blocks unchanged until 2.21.
 
 ## 2026-09-19 - model_convert - `formats/fmdl` and `formats/pes_model` are folder modules
 Decision (lead): each format module is a folder, `mod.rs` (re-exports and the helpers both
@@ -1376,4 +1376,20 @@ halves share), `import.rs` (to IR), `export.rs` (from IR), `tests.rs`. Public pa
 Why: both files had passed the file-to-folder threshold (`CONTRIBUTING.md`: about a thousand
 lines; 1167 and 1067) and each already had the two halves the plan names. The plan's rule
 "one module per format: to_ir + from_ir, nothing else" still holds; a folder is one module.
-Plan: `model_conversion.md` crate tree edited.
+Plan: `model_conversion/README.md` crate tree edited.
+
+## 2026-09-19 - docs - plans over a thousand lines are folders; the spec stays in `docs/plans/`
+Decision (user): a plan file that crosses roughly a thousand lines is split into
+`docs/plans/<name>/` (`README.md` = preamble, part index, small cross-cutting sections; one file
+per major section; heading text unchanged). Applied at once to the seven over the line:
+`team_compiler` (2258), `core` (2174), `match_tracker` (1747), `model_conversion` (1208),
+`aesthetics_export` (1144), `libs` (1084), `pes_savefile` (1009). The plans are not moved into
+the crates when their sections are rewritten in the present tense.
+Why: the same threshold the code uses (`CONTRIBUTING.md` "Architecture rules"); the large plans
+are read by section and rewritten by phase, and `team_compiler` alone is consumed by four phases.
+Keeping headings verbatim made the split a pointer-only change (the checker over every tracked
+Markdown file reports the same 33 pre-existing loose section names before and after, and no
+missing file). In-crate specs were rejected because plans and crates do not map one-to-one, the
+present-tense rewrite is incremental, and `AGENTS.md`/`GLOSSARY.md`/`DECISIONS.md` pointers all
+target `docs/plans/`.
+Plan: `plans/README.md` "How these documents evolve" (the two rules), index rows.

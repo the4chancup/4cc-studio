@@ -7,7 +7,7 @@ just inherited a dead team and for the veteran who needs a fake team for an invi
 tonight — the same six screens, read slowly by the first and clicked through by the second. It
 is deliberately **a wizard, not an editor**: it owns no file format and keeps no state of its
 own, and when it finishes the per-domain tools take over. Platform context is in the [core
-plan](core.md).
+plan](core/README.md).
 
 The tool consumes `libs/aesthetics_export` (export writing), `libs/pes_savefile` (the team
 model and Team TOML), `libs/aatf` (legality), `libs/teams_list` (team identity),
@@ -73,7 +73,7 @@ collapses it once (a per-tool setting).
   name not in the list is allowed with a warning: a fake team for an invitational gets its ID from
   the host, who adds it to the list; the creator does not invent IDs. The export folder's first
   word is this token, which is how the compiler resolves the team (see "Team identity" in the
-  [Aesthetics export plan](aesthetics_export.md)).
+  [Aesthetics export plan](aesthetics_export/README.md)).
 - **PES version** — defaults to the common setting; decides the Team TOML's version and which
   version-gated fields the later steps show.
 - **Colors** — two, through the `color_tools` picker. They become the root `colors.txt` and the

@@ -6,7 +6,7 @@ rule here is enforced in review.
 
 ## Architecture rules
 
-Workspace guardrails (details: `plans/core.md` "Workspace guardrails"):
+Workspace guardrails (details: `plans/core/architecture.md` "Workspace guardrails"):
 
 1. Tool crates never depend on tool crates. Shared logic moves down into a lib crate.
 2. Every shared dependency is declared once in the root `Cargo.toml` `[workspace.dependencies]`;
@@ -110,7 +110,7 @@ exist yet (every Phase 2 crate), the plan's data-shape rules stand in for one.
 - Diagnostics go through `log` (`debug!`/`trace!` in libs, `info!` for stage milestones in tools);
   user-facing findings go through `Message`. Never `println!`/`eprintln!` outside `studio`'s CLI
   result output and `main`. Libs never `error!`: return the error, let the caller decide. No
-  `[module]` prefixes; the target carries the module path. Full rules: `plans/core.md`
+  `[module]` prefixes; the target carries the module path. Full rules: `plans/core/README.md`
   "Diagnostic logging".
 - `unsafe` only where an OS API forces it (`match_feed`'s memory source, `elevation`,
   `studio_core`'s running-PES poll) and in `python_bindings`, each block preceded by a `// SAFETY:`
@@ -229,7 +229,7 @@ Requirements:
 
 ## Dependencies
 
-Only crates listed in `plans/core.md` "External Dependencies" are pre-approved. Anything else,
+Only crates listed in `plans/core/README.md` "External Dependencies" are pre-approved. Anything else,
 including "just a small helper crate", is a question for the user, with the reason and the
 alternative considered. Prefer versions published at least a week ago; no floating ranges.
 
