@@ -475,3 +475,96 @@ fn decode_errors() {
         Err(FmdlError::BadMeshGroupAssignment(_))
     ));
 }
+
+// S10
+#[test]
+fn encode_face_index_out_of_range_errors() {
+    // 16 vertices; face index 16 does not exist.
+    let mut mesh = grid(4, 4, 0);
+    mesh.faces = vec![[0, 0, 16]; FACE_LIMIT_HARD + 1];
+    let mut model = grid_model(mesh, 0);
+    assert!(matches!(
+        encode(&mut model, None),
+        Err(FmdlError::BadReference {
+            what: "face vertex",
+            index: 16
+        })
+    ));
+}
+
+// S11
+#[test]
+fn decode_face_index_out_of_range_errors() {
+    let mut mesh = grid(4, 4, 0); // 16 vertices
+    mesh.faces = vec![[0, 0, 16]];
+    let mut model = grid_model(mesh, 0);
+    model.mesh_groups[0].meshes.clear();
+    model.mesh_groups.push(MeshGroup {
+        name: "split-mesh".to_owned(),
+        parent: Some(0),
+        meshes: vec![0],
+        bounding_box: None,
+        visible: true,
+        split_mesh_group: true,
+    });
+    assert!(matches!(
+        decode(&mut model),
+        Err(FmdlError::BadReference {
+            what: "face vertex",
+            index: 16
+        })
+    ));
+}
+
+// S12
+#[test]
+fn decode_mesh_index_out_of_range_errors() {
+    // A split group naming a mesh that does not exist.
+    let mut model = grid_model(grid(4, 4, 0), 0);
+    model.mesh_groups.push(MeshGroup {
+        name: "split-mesh".to_owned(),
+        parent: Some(0),
+        meshes: vec![9],
+        bounding_box: None,
+        visible: true,
+        split_mesh_group: true,
+    });
+    assert!(matches!(
+        decode(&mut model),
+        Err(FmdlError::BadReference {
+            what: "mesh",
+            index: 9
+        })
+    ));
+    // A normal group naming a mesh that does not exist.
+    let mut model = grid_model(grid(4, 4, 0), 0);
+    model.mesh_groups[0].meshes = vec![9];
+    assert!(matches!(
+        decode(&mut model),
+        Err(FmdlError::BadReference {
+            what: "mesh",
+            index: 9
+        })
+    ));
+}
+
+// S13
+#[test]
+fn decode_group_parent_out_of_range_errors() {
+    let mut model = grid_model(grid(4, 4, 0), 0);
+    model.mesh_groups.push(MeshGroup {
+        name: "orphan".to_owned(),
+        parent: Some(9),
+        meshes: Vec::new(),
+        bounding_box: None,
+        visible: true,
+        split_mesh_group: false,
+    });
+    assert!(matches!(
+        decode(&mut model),
+        Err(FmdlError::BadReference {
+            what: "mesh group",
+            index: 9
+        })
+    ));
+}

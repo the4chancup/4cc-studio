@@ -512,14 +512,19 @@ impl FmdlFile {
             index: 2,
         })?;
 
-        let first = mesh_record.first_face_vertex_index as usize
-            + face_record.first_face_vertex_index as usize;
+        let first = (mesh_record.first_face_vertex_index as usize)
+            .checked_add(face_record.first_face_vertex_index as usize)
+            .ok_or(FmdlError::Truncated)?;
         let count = face_record.face_vertex_count as usize;
+        let end = first.checked_add(count).ok_or(FmdlError::Truncated)?;
         let mut faces = Vec::with_capacity(count / 3);
-        for start in (first..first + count).step_by(3) {
-            let position = face_buffer.offset as usize + start * 2;
+        for start in (first..end).step_by(3) {
+            let position = start
+                .checked_mul(2)
+                .and_then(|index| index.checked_add(face_buffer.offset as usize))
+                .ok_or(FmdlError::Truncated)?;
             let bytes = buffer
-                .get(position..position + 6)
+                .get(position..position.checked_add(6).ok_or(FmdlError::Truncated)?)
                 .ok_or(FmdlError::Truncated)?;
             faces.push([
                 u16::from_le_bytes([bytes[0], bytes[1]]),
@@ -705,16 +710,22 @@ impl FmdlFile {
             what: "face buffer",
             index: 2,
         })?;
-        let first = mesh_record.first_face_vertex_index as usize
-            + face_record.first_face_vertex_index as usize;
+        let first = (mesh_record.first_face_vertex_index as usize)
+            .checked_add(face_record.first_face_vertex_index as usize)
+            .ok_or(FmdlError::Truncated)?;
         let buffer = self.buffer.as_deref_mut().ok_or(FmdlError::BadReference {
             what: "vertex buffer",
             index: 2,
         })?;
         for (face_index, face) in faces.iter().enumerate() {
-            let position = face_buffer.offset as usize + (first + face_index * 3) * 2;
+            let position = face_index
+                .checked_mul(3)
+                .and_then(|index| index.checked_add(first))
+                .and_then(|index| index.checked_mul(2))
+                .and_then(|index| index.checked_add(face_buffer.offset as usize))
+                .ok_or(FmdlError::Truncated)?;
             let bytes = buffer
-                .get_mut(position..position + 6)
+                .get_mut(position..position.checked_add(6).ok_or(FmdlError::Truncated)?)
                 .ok_or(FmdlError::Truncated)?;
             for (lane, index) in face.iter().enumerate() {
                 bytes[2 * lane..2 * lane + 2].copy_from_slice(&index.to_le_bytes());

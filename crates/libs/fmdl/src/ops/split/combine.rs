@@ -8,7 +8,8 @@ use crate::model::{Mesh, MeshGroup};
 use super::{BoneMapping, bone_mapping, empty_like, push_vertex};
 use crate::ops::vertex_enc::nontopological_encoding;
 
-/// different bone groups still match.
+/// The merge key of vertex `index`: stored bytes and bone mapping; equal
+/// vertices in different bone groups still match.
 fn merge_key(mesh: &Mesh, index: usize) -> Result<(Vec<u8>, BoneMapping), FmdlError> {
     let mut bytes = Vec::new();
     for component in mesh.vertices.positions[index] {
@@ -18,8 +19,7 @@ fn merge_key(mesh: &Mesh, index: usize) -> Result<(Vec<u8>, BoneMapping), FmdlEr
     Ok((bytes, bone_mapping(mesh, index)?))
 }
 
-/// The static data of one mesh being split: faces as vertex indices, the
-/// equipresent vertex sets, and each vertex's model-level bone mapping.
+/// Whether `a` and `b` carry the same set of vertex attributes.
 fn same_layout(a: &MeshVertices, b: &MeshVertices) -> bool {
     a.normals.is_some() == b.normals.is_some()
         && a.tangents.is_some() == b.tangents.is_some()
@@ -30,8 +30,7 @@ fn same_layout(a: &MeshVertices, b: &MeshVertices) -> bool {
         && a.bone_indices.is_some() == b.bone_indices.is_some()
 }
 
-/// Splits off one component from `items_per_bone`; returns it together with
-/// the face and loose-set indices it consumed.
+/// Reorders every attribute vector of `vertices` by `order`.
 fn permute_vertices(vertices: &mut MeshVertices, order: &[usize]) {
     fn apply<T: Copy>(items: &mut Vec<T>, order: &[usize]) {
         let taken = std::mem::take(items);
@@ -58,7 +57,7 @@ fn permute_vertices(vertices: &mut MeshVertices, order: &[usize]) {
     }
 }
 
-/// Splits `mesh` into component meshes each under the soft limits.
+/// Combines `group`'s component meshes back into one mesh.
 pub(super) fn combine(meshes: &[Mesh], group: &MeshGroup) -> Result<Mesh, FmdlError> {
     let mut components = Vec::with_capacity(group.meshes.len());
     for &mesh_index in &group.meshes {
@@ -124,7 +123,16 @@ pub(super) fn combine(meshes: &[Mesh], group: &MeshGroup) -> Result<Mesh, FmdlEr
             *slot = merged_index;
         }
         for face in &component.faces {
-            faces.push(face.map(|index| local[usize::from(index)]));
+            let mut mapped = [0usize; 3];
+            for (lane, &index) in face.iter().enumerate() {
+                mapped[lane] = *local
+                    .get(usize::from(index))
+                    .ok_or(FmdlError::BadReference {
+                        what: "face vertex",
+                        index: usize::from(index),
+                    })?;
+            }
+            faces.push(mapped);
         }
     }
 

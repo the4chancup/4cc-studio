@@ -541,4 +541,16 @@ fn to_file_errors() {
             index: 9,
         })
     ));
+
+    // A name past the u16 string-length field overflows instead of
+    // truncating.
+    let mut long_name = model(HIGHNECK);
+    long_name.bones[0].name = "x".repeat(70_000);
+    assert!(matches!(
+        long_name.to_file(),
+        Err(FmdlError::TableOverflow {
+            what: "string",
+            count: 70_000
+        })
+    ));
 }

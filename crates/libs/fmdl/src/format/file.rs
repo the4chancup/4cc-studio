@@ -191,13 +191,13 @@ impl FmdlFile {
             .cloned()
             .collect();
 
-        for block1 in &container.section1 {
+        for block1 in container.section1 {
             match block1.id {
-                0 => file.material_parameters = Some(block1.bytes.clone()),
-                1 => file.bone_matrices = Some(block1.bytes.clone()),
-                2 => file.buffer = Some(block1.bytes.clone()),
-                3 => file.string_table = Some(block1.bytes.clone()),
-                _ => file.unknown_buffers.push(block1.clone()),
+                0 => file.material_parameters = Some(block1.bytes),
+                1 => file.bone_matrices = Some(block1.bytes),
+                2 => file.buffer = Some(block1.bytes),
+                3 => file.string_table = Some(block1.bytes),
+                _ => file.unknown_buffers.push(block1),
             }
         }
         Ok(file)
