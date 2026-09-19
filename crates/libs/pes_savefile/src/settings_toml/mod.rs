@@ -296,8 +296,9 @@ impl PlayerSettings {
         }
     }
 
-    /// Sets the stored value behind a key; the caller has range-checked it
-    /// (parse does; `from_player` reads it from the save).
+    /// Sets the stored value behind a key. The caller has checked it against
+    /// `Kind::accepts_stored` (parse does; `from_player` does), so the value
+    /// is always one `to_toml`/`update_toml` can represent.
     pub fn set(&mut self, key: SettingKey, value: u8) {
         let a = &mut self.appearance;
         match key {
@@ -357,7 +358,8 @@ impl PlayerSettings {
     }
 
     /// Every key `Some` from the player; `name` is `Explicit` of the raw name,
-    /// colour codes included.
+    /// colour codes included. A stored value the key's kind cannot represent
+    /// (a hostile save's out-of-range bits) is `OutOfRange`.
     pub fn from_player(player: &PlayerEntry) -> Result<Self, SettingsError> {
         let face = &player.appearance.ingame_face;
         let a = &player.appearance;
@@ -424,6 +426,14 @@ impl PlayerSettings {
                 SettingKey::LowerLipType => Some(face.get(IngameFaceField::LowerLipType)?),
             };
             if let Some(value) = value {
+                let spec = key.spec();
+                if !spec.kind.accepts_stored(value) {
+                    return Err(SettingsError::OutOfRange {
+                        key: dotted(&spec),
+                        value: i64::from(value),
+                        range: range_text(spec.kind),
+                    });
+                }
                 settings.set(key, value);
             }
         }
@@ -683,6 +693,22 @@ fn toml_form(kind: Kind, stored: u8) -> Value {
     }
 }
 
+/// The range text a `Kind` reports (`"0 to 7"`, `"-7 to 7"`, `"1 to 10"`,
+/// `"true, false"`, or the quoted label list).
+fn range_text(kind: Kind) -> String {
+    match kind {
+        Kind::Number { min, max } => format!("{min} to {max}"),
+        Kind::Signed7 => "-7 to 7".to_string(),
+        Kind::OneBased { max } => format!("1 to {max}"),
+        Kind::Bool => "true, false".to_string(),
+        Kind::Labels(labels) => labels
+            .iter()
+            .map(|label| format!("\"{label}\""))
+            .collect::<Vec<_>>()
+            .join(", "),
+    }
+}
+
 /// The value an unset key's commented line shows.
 fn neutral_text(kind: Kind) -> String {
     match kind {
@@ -785,7 +811,7 @@ impl PlayerSettings {
                     return Err(SettingsError::OutOfRange {
                         key: dotted.to_string(),
                         value,
-                        range: format!("{min} to {max}"),
+                        range: range_text(kind),
                     });
                 }
                 Ok(u8::try_from(value).expect("the range check bounds it"))
@@ -796,7 +822,7 @@ impl PlayerSettings {
                     return Err(SettingsError::OutOfRange {
                         key: dotted.to_string(),
                         value,
-                        range: "-7 to 7".to_string(),
+                        range: range_text(kind),
                     });
                 }
                 Ok(u8::try_from(value + 7).expect("in 0..=14"))
@@ -807,7 +833,7 @@ impl PlayerSettings {
                     return Err(SettingsError::OutOfRange {
                         key: dotted.to_string(),
                         value,
-                        range: format!("1 to {max}"),
+                        range: range_text(kind),
                     });
                 }
                 Ok(u8::try_from(value - 1).expect("in 0..=max-1"))
@@ -834,65 +860,54 @@ impl PlayerSettings {
                     .ok_or_else(|| SettingsError::UnknownLabel {
                         key: dotted.to_string(),
                         label: text.to_string(),
-                        allowed: labels
-                            .iter()
-                            .map(|label| format!("\"{label}\""))
-                            .collect::<Vec<_>>()
-                            .join(", "),
+                        allowed: range_text(kind),
                     })
             }
         }
     }
 
-    /// Everything the value walk did not consume is refused: a stray
-    /// top-level key, a stray table or key inside `[appearance]`, a stray key
-    /// inside a known table.
+    /// Everything the value walk did not consume is refused. A leaf is known
+    /// iff its dotted path is `name` or some key's; a table is known iff its
+    /// path is `appearance` or some key's table. The first unknown item is
+    /// `UnknownKey`; a table position holding a non-table is `WrongType`.
     fn reject_unknown(document: &DocumentMut) -> Result<(), SettingsError> {
         for (name, item) in document.iter() {
             match name {
                 "name" => {}
-                "appearance" => {
-                    let Some(appearance) = item.as_table_like() else {
-                        return Err(SettingsError::WrongType {
-                            key: "appearance".to_string(),
-                            expected: "a table",
-                        });
-                    };
-                    for (key, sub) in appearance.iter() {
-                        match key {
-                            "skin_color" | "iris_color" => {}
-                            "physique" | "strip" | "motion" | "face" => {
-                                let table = format!("appearance.{key}");
-                                let Some(sub) = sub.as_table_like() else {
-                                    return Err(SettingsError::WrongType {
-                                        key: table,
-                                        expected: "a table",
-                                    });
-                                };
-                                for (leaf, _) in sub.iter() {
-                                    if !SettingKey::ALL.iter().any(|key| {
-                                        let spec = key.spec();
-                                        spec.table == table && spec.name == leaf
-                                    }) {
-                                        return Err(SettingsError::UnknownKey {
-                                            key: format!("{table}.{leaf}"),
-                                        });
-                                    }
-                                }
-                            }
-                            _ => {
-                                return Err(SettingsError::UnknownKey {
-                                    key: format!("appearance.{key}"),
-                                });
-                            }
-                        }
-                    }
-                }
+                "appearance" => Self::reject_unknown_table(item, "appearance")?,
                 _ => {
                     return Err(SettingsError::UnknownKey {
                         key: name.to_string(),
                     });
                 }
+            }
+        }
+        Ok(())
+    }
+
+    /// The recursive half of [`Self::reject_unknown`].
+    fn reject_unknown_table(item: &Item, path: &str) -> Result<(), SettingsError> {
+        let Some(table) = item.as_table_like() else {
+            return Err(SettingsError::WrongType {
+                key: path.to_string(),
+                expected: "a table",
+            });
+        };
+        for (leaf, sub) in table.iter() {
+            let child = format!("{path}.{leaf}");
+            if SettingKey::ALL.iter().any(|key| key.spec().table == child) {
+                if !sub.is_table_like() {
+                    return Err(SettingsError::WrongType {
+                        key: child,
+                        expected: "a table",
+                    });
+                }
+                Self::reject_unknown_table(sub, &child)?;
+            } else if !SettingKey::ALL
+                .iter()
+                .any(|key| key.spec().table == path && key.spec().name == leaf)
+            {
+                return Err(SettingsError::UnknownKey { key: child });
             }
         }
         Ok(())
@@ -934,8 +949,10 @@ impl PlayerSettings {
     /// Rewrites the `Some` values of an existing document, preserving its
     /// comments and formatting; `None` keys are left as the user wrote them
     /// (a commented key stays commented). Missing tables are created as
-    /// standard tables; no comments are added.
-    pub fn update_toml(&self, document: &mut DocumentMut) {
+    /// standard tables; no comments are added. A table position
+    /// (`appearance` or one of its four subtables) holding a non-table item
+    /// is `WrongType`.
+    pub fn update_toml(&self, document: &mut DocumentMut) -> Result<(), SettingsError> {
         fn set(item: &mut Item, value: Value) {
             let decor = item.as_value().map(|old| old.decor().clone());
             *item = Item::Value(value);
@@ -957,17 +974,45 @@ impl PlayerSettings {
             };
             let spec = key.spec();
             let mut item = document.as_item_mut();
+            let mut path = String::new();
             for segment in spec.table.split('.') {
-                if let Item::Table(table) = item {
-                    if !table.contains_key(segment) {
-                        table.insert(segment, Item::Table(toml_edit::Table::new()));
+                if !path.is_empty() {
+                    path.push('.');
+                }
+                path.push_str(segment);
+                let child = match item {
+                    Item::Table(table) => {
+                        if !table.contains_key(segment) {
+                            table.insert(segment, Item::Table(toml_edit::Table::new()));
+                        }
+                        table.get_mut(segment).expect("just inserted")
                     }
-                    item = table.get_mut(segment).expect("just inserted");
-                } else {
-                    item = &mut item[segment];
+                    Item::Value(Value::InlineTable(_)) => {
+                        let child = &mut item[segment];
+                        if matches!(child, Item::None) {
+                            *child = Item::Value(Value::InlineTable(toml_edit::InlineTable::new()));
+                        }
+                        child
+                    }
+                    _ => {
+                        return Err(SettingsError::WrongType {
+                            key: path,
+                            expected: "a table",
+                        });
+                    }
+                };
+                match child {
+                    Item::Table(_) | Item::Value(Value::InlineTable(_)) => item = child,
+                    _ => {
+                        return Err(SettingsError::WrongType {
+                            key: path,
+                            expected: "a table",
+                        });
+                    }
                 }
             }
             set(&mut item[spec.name], toml_form(spec.kind, stored));
         }
+        Ok(())
     }
 }

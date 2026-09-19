@@ -18,6 +18,8 @@ pub mod discovery;
 pub mod file;
 /// What consumers edit: version-independent player/team/tactics entries, no I/O.
 pub mod model;
+/// Save-to-save and preset operations over `model/` only, no bytes.
+pub mod ops;
 /// Per-version field tables and section layouts, data only, no logic.
 pub mod schema;
 /// The `PlayerSettings` model behind export `settings.toml` files.

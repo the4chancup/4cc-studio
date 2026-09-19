@@ -399,11 +399,72 @@ fn to_toml_of_a_default_is_a_fully_commented_template() {
         assert!(text.contains(spec.comment), "{key:?} comment absent");
     }
     assert!(text.contains("# name = true"), "name is commented");
+    // Every kind's commented line carries its neutral example value.
+    for (name, prefix) in [
+        ("skin_color", "# skin_color = 0"),
+        ("neck_length", "# neck_length = 0"),
+        ("hunching_dribbling", "# hunching_dribbling = 1"),
+        ("untucked", "# untucked = false"),
+        ("sleeves", "# sleeves = \"seasonal\""),
+        ("name", "# name = true"),
+    ] {
+        let line = text
+            .lines()
+            .find(|line| line.contains(&format!(" {name} =")))
+            .unwrap_or_else(|| panic!("a line for {name}"));
+        assert!(line.starts_with(prefix), "{line:?}");
+    }
     assert_eq!(
         PlayerSettings::parse(&text).expect("a commented file parses"),
         PlayerSettings::default(),
         "a commented file is an empty settings"
     );
+}
+
+#[test]
+fn name_true_parses_and_emits_true() {
+    let settings = PlayerSettings::parse("name = true\n").expect("parses");
+    assert_eq!(settings.name, Some(NameSetting::FromFolder));
+    assert!(
+        settings.to_toml().lines().any(|line| line == "name = true"),
+        "{}",
+        settings.to_toml()
+    );
+}
+
+#[test]
+fn a_stored_value_the_kind_cannot_represent_is_out_of_range() {
+    let mut player = find_player(
+        &payload(PesVersion::Pes19),
+        schema_for(PesVersion::Pes19),
+        70101,
+    );
+    player.appearance.sleeves = 3;
+    match PlayerSettings::from_player(&player) {
+        Err(SettingsError::OutOfRange { key, value, .. }) => {
+            assert_eq!(key, "appearance.strip.sleeves");
+            assert_eq!(value, 3);
+        }
+        other => panic!("expected OutOfRange, got {other:?}"),
+    }
+}
+
+#[test]
+fn update_toml_refuses_a_table_position_holding_a_value() {
+    let settings = PlayerSettings::parse(PLAN_BLOCK).expect("the plan block parses");
+    for (text, key) in [
+        ("appearance = 5\n", "appearance"),
+        ("[appearance]\nstrip = 1\n", "appearance.strip"),
+    ] {
+        let mut document: DocumentMut = text.parse().expect("document parses");
+        match settings.update_toml(&mut document) {
+            Err(SettingsError::WrongType { key: got, expected }) => {
+                assert_eq!(got, key, "{text:?}");
+                assert_eq!(expected, "a table");
+            }
+            other => panic!("{text:?}: expected WrongType, got {other:?}"),
+        }
+    }
 }
 
 #[test]
@@ -521,7 +582,7 @@ sleeves = \"short\"   # keep me\n\
     .expect("document parses");
     let mut settings = PlayerSettings::default();
     settings.set(SettingKey::Sleeves, 2);
-    settings.update_toml(&mut document);
+    settings.update_toml(&mut document).expect("update");
     assert_eq!(
         document.to_string(),
         "[appearance.strip]\n# the sleeves we want\nsleeves = \"long\"   # keep me\n"
@@ -529,7 +590,7 @@ sleeves = \"short\"   # keep me\n\
 
     let mut settings = PlayerSettings::default();
     settings.set(SettingKey::CheekType, 2);
-    settings.update_toml(&mut document);
+    settings.update_toml(&mut document).expect("update");
     assert!(
         document.to_string().contains("[appearance.face]"),
         "a missing table is created as a standard table: {}",
@@ -543,6 +604,35 @@ sleeves = \"short\"   # keep me\n\
             .cheek_type,
         Some(2)
     );
+}
+
+#[test]
+fn update_toml_keeps_an_inline_table_inline() {
+    let mut document: DocumentMut = "appearance = { skin_color = 1 }\n"
+        .parse()
+        .expect("document parses");
+    let mut settings = PlayerSettings::default();
+    settings.set(SettingKey::Sleeves, 2);
+    settings.update_toml(&mut document).expect("update");
+    let text = document.to_string();
+    assert!(text.starts_with("appearance = {"), "{text}");
+    let parsed = PlayerSettings::parse(&text).expect("the updated document parses");
+    assert_eq!(parsed.appearance.skin_color, Some(1));
+    assert_eq!(parsed.appearance.strip.sleeves, Some(2));
+}
+
+#[test]
+fn accepts_stored_bounds_each_kind() {
+    for (kind, accepted, refused) in [
+        (Kind::Number { min: 0, max: 7 }, 7, 8),
+        (Kind::Signed7, 14, 15),
+        (Kind::OneBased { max: 5 }, 4, 5),
+        (Kind::Bool, 1, 2),
+        (Kind::Labels(&["a", "b"]), 1, 2),
+    ] {
+        assert!(kind.accepts_stored(accepted), "{kind:?} {accepted}");
+        assert!(!kind.accepts_stored(refused), "{kind:?} {refused}");
+    }
 }
 
 #[test]

@@ -143,6 +143,21 @@ pub enum Kind {
     Labels(&'static [&'static str]),
 }
 
+impl Kind {
+    /// Whether a stored `u8` is one the kind can represent. A hostile save
+    /// can hold a value outside it (a 2-bit label field reading 3); the
+    /// parser never produces one and `from_player` refuses it.
+    pub fn accepts_stored(self, stored: u8) -> bool {
+        match self {
+            Kind::Number { min, max } => (min..=max).contains(&stored),
+            Kind::Signed7 => stored <= 14,
+            Kind::OneBased { max } => stored < max,
+            Kind::Bool => stored <= 1,
+            Kind::Labels(labels) => usize::from(stored) < labels.len(),
+        }
+    }
+}
+
 /// The columns of one key-table row.
 #[derive(Debug, Clone, Copy)]
 pub struct KeySpec {
