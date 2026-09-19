@@ -14,6 +14,8 @@
 //!   different flags, so the instance split; `detail` is the new material's name.
 //! - `material_texture_unused` (Material): a canonical role the target format has no sampler
 //!   for; `detail` is the role.
+//! - `sampler_settings_defaulted` (Material): a stored `.mtl` sampler name with no stored
+//!   settings table; it exports with the all-`None` defaults and `detail` is the name.
 //! - `vertex_bitangents_dropped` (Mesh): FMDL has no bitangent attribute.
 //! - `dummy_texture_added` (Material): a `Shaded`/`Metal` material missing its normal or
 //!   specular map got the game's dummy; `detail` is the sampler name.

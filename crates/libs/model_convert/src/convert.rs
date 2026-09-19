@@ -88,6 +88,8 @@ pub fn convert(bundle: NativeModelBundle, target: PesVersion) -> Result<Converte
 
 /// Whether `convert` would go through the IR: another engine, or a bone the bundle's groups
 /// use that `target` lacks or poses differently (bone tables only, no geometry read).
+/// A group entry past the bone table counts as needing conversion: such a bundle cannot be
+/// proven native here, and `convert`'s importer reports the bad index.
 pub fn needs_conversion(bundle: &NativeModelBundle, target: PesVersion) -> bool {
     match bundle {
         NativeModelBundle::Fox { model, skl } => {
@@ -97,7 +99,9 @@ pub fn needs_conversion(bundle: &NativeModelBundle, target: PesVersion) -> bool 
             let tables = skeletons(target);
             let pes21 = skeletons(PesVersion::Pes21);
             for index in used_bones(model.meshes.iter().map(|m| &m.bone_group)) {
-                let bone = &model.bones[index];
+                let Some(bone) = model.bones.get(index) else {
+                    return true;
+                };
                 if !is_standard(&bone.name) {
                     continue;
                 }
@@ -126,7 +130,9 @@ pub fn needs_conversion(bundle: &NativeModelBundle, target: PesVersion) -> bool 
             }
             let tables = skeletons(target);
             for index in used_bones(model.meshes.iter().map(|m| &m.bone_group)) {
-                let bone = &model.bones[index];
+                let Some(bone) = model.bones.get(index) else {
+                    return true;
+                };
                 if !is_standard(&bone.name) {
                     continue;
                 }
@@ -515,6 +521,27 @@ mod tests {
                 PesVersion::Pes15
             ),
             Err(ConvertError::MaterialUndefined(name)) if name == "nope"
+        ));
+    }
+
+    #[test]
+    fn a_bone_group_entry_past_the_bone_table_needs_conversion() {
+        let NativeModelBundle::Fox { mut model, skl } = fox(ORAL) else {
+            unreachable!()
+        };
+        model.meshes[0].bone_group = vec![9];
+        assert!(needs_conversion(
+            &NativeModelBundle::Fox { model, skl },
+            PesVersion::Pes21
+        ));
+
+        let NativeModelBundle::PreFox { mut model, mtl } = prefox(CAP_M, CAP_T) else {
+            unreachable!()
+        };
+        model.meshes[0].bone_group = vec![9];
+        assert!(needs_conversion(
+            &NativeModelBundle::PreFox { model, mtl },
+            PesVersion::Pes17
         ));
     }
 }

@@ -9,7 +9,6 @@ rust-version.workspace = true
 
 [dependencies]
 fmdl.workspace = true
-log.workspace = true
 pes_model.workspace = true
 pes_version.workspace = true
 thiserror.workspace = true

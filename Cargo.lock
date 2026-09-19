@@ -525,7 +525,6 @@ name = "fmdl"
 version = "0.1.0"
 dependencies = [
  "binrw",
- "log",
  "thiserror",
 ]
 
@@ -857,7 +856,6 @@ name = "model_convert"
 version = "0.1.0"
 dependencies = [
  "fmdl",
- "log",
  "pes_model",
  "pes_version",
  "thiserror",
@@ -953,7 +951,6 @@ name = "pes_model"
 version = "0.1.0"
 dependencies = [
  "binrw",
- "log",
  "roxmltree",
  "thiserror",
  "wezlib",

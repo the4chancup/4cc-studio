@@ -129,6 +129,9 @@ pub struct ResolvedPreFox {
     /// Canonical roles pre-Fox has no sampler for (the caller reports
     /// `material_texture_unused`).
     pub unused_roles: Vec<TextureRole>,
+    /// `prefox.textures` names `prefox.samplers` did not define; they export with the
+    /// all-`None` settings and the caller reports `sampler_settings_defaulted`.
+    pub defaulted_samplers: Vec<String>,
     /// Family defaults (only without a `prefox` table) < `material.parameters` <
     /// `prefox.parameters`; a repeated name keeps its position and takes the later value.
     pub parameters: Vec<(String, Vec<f32>)>,
@@ -224,15 +227,18 @@ pub fn resolve(material: &Material) -> ResolvedPreFox {
             None => unused_roles.push(role),
         }
     }
+    let mut defaulted_samplers = Vec::new();
     if let Some(prefox) = prefox {
         for (name, texture) in &prefox.textures {
             let settings = prefox
                 .samplers
                 .iter()
                 .find(|(stored, _)| stored == name)
-                .map(|(_, settings)| settings.clone())
-                .unwrap_or_default();
-            samplers.push((name.clone(), settings, *texture));
+                .map(|(_, settings)| settings.clone());
+            if settings.is_none() {
+                defaulted_samplers.push(name.clone());
+            }
+            samplers.push((name.clone(), settings.unwrap_or_default(), *texture));
         }
     }
 
@@ -258,6 +264,7 @@ pub fn resolve(material: &Material) -> ResolvedPreFox {
         states,
         samplers,
         unused_roles,
+        defaulted_samplers,
         parameters,
     }
 }

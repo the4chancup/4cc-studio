@@ -129,22 +129,21 @@ fn selected(mesh: &Mesh, class: &[usize], bones: &[Bone], hand: Hand) -> Vec<boo
 /// `mesh` restricted to `faces`, vertices re-indexed in first-use order and every present
 /// vertex column copied.
 fn part_mesh(mesh: &Mesh, faces: &[[u16; 3]]) -> Mesh {
-    let mut remap = vec![u16::MAX; mesh.vertices.len()];
+    // `None` = not emitted yet; a u16 face table can name at most 65,536 distinct
+    // vertices, so `u16::MAX` is free to mean a real index only through Option.
+    let mut remap: Vec<Option<u16>> = vec![None; mesh.vertices.len()];
     let mut order: Vec<usize> = Vec::new();
     let faces: Vec<[u16; 3]> = faces
         .iter()
         .map(|face| {
             face.map(|i| {
                 let i = usize::from(i);
-                match remap[i] {
-                    u16::MAX => {
-                        let new = order.len() as u16;
-                        remap[i] = new;
-                        order.push(i);
-                        new
-                    }
-                    new => new,
-                }
+                *remap[i].get_or_insert_with(|| {
+                    let new = u16::try_from(order.len())
+                        .expect("u16 face indices admit at most 65,536 vertices");
+                    order.push(i);
+                    new
+                })
             })
         })
         .collect();
@@ -874,5 +873,37 @@ mod tests {
         assert_eq!(hand_of("skf_jaw"), None);
         assert_eq!(hand_of("sk_hand_l"), None);
         assert_eq!(hand_of("skh_x"), None);
+    }
+
+    #[test]
+    fn the_65536th_vertex_keeps_its_own_index() {
+        // Faces referencing every u16 index once, then the last one again: part
+        // index 65,535 is a real index, not "unmapped" — the repeat must not
+        // re-emit the vertex and wrap the face to 0.
+        let mut faces: Vec<[u16; 3]> = (0..21845u32)
+            .map(|face| {
+                [
+                    (3 * face) as u16,
+                    (3 * face + 1) as u16,
+                    (3 * face + 2) as u16,
+                ]
+            })
+            .collect();
+        faces.push([u16::MAX, u16::MAX, u16::MAX]);
+        faces.push([u16::MAX, 0, 0]);
+        let mesh = Mesh {
+            vertices: Vertices {
+                positions: vec![[0.0; 3]; 65_537],
+                ..Vertices::default()
+            },
+            faces,
+            bone_group: vec![],
+            material: 0,
+            extension_headers: Default::default(),
+            custom_bounding_box: None,
+        };
+        let part = part_mesh(&mesh, &mesh.faces.clone());
+        assert_eq!(part.vertices.len(), 65_536);
+        assert_eq!(part.faces.last(), Some(&[u16::MAX, 0, 0]));
     }
 }
