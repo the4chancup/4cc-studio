@@ -20,5 +20,7 @@ pub mod file;
 pub mod model;
 /// Per-version field tables and section layouts, data only, no logic.
 pub mod schema;
+/// The `PlayerSettings` model behind export `settings.toml` files.
+pub mod settings_toml;
 
 pub use file::{EditFile, SaveError};
