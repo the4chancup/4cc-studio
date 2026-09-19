@@ -1348,8 +1348,32 @@ review sweeps, converge and the cross-family reviewer with the PES 15-20 name en
 none of these is a suppression the honesty sweep greps for, they are assertions never written,
 which is the one test quality the methodology had no mechanical check for. Not a gate: roughly
 an hour for the workspace today at 0.6 s per mutant, several hours at the planned size; the
-per-diff and per-crate runs are minutes. Results, triage and per-mutant diffs of the probe:
-`.tmp/mutants/`, summarized in `.tmp/AUDIT.md` fourth pass.
+per-diff and per-crate runs are minutes. Results and per-mutant diffs of the probe:
+`.tmp/mutants/` (not part of the repository).
 Plan: `CONTRIBUTING.md` "Testing and verification" (recipes, "Mutation runs" requirement);
 `AGENTS.md` review paragraph and converge design-health pass; `justfile`, `scripts/mutants_diff.py`,
 `.cargo/mutants.toml`, `.gitignore`.
+
+## 2026-09-19 - pes_savefile - model structs follow the version-gating rule, not the plan blocks
+Decision (lead, recorded after the fact): `TeamEntry`, `TeamTactics`, `TacticsPreset` and
+`PlayerEntry` as implemented in 2.17b-c stand; the plan's code blocks in `pes_savefile.md`
+"Player/team/tactics model" are rewritten from the code in 2.21. Deviations: version-gated fields
+are `Option<T>` (`manager_id`, `stadium_id`, `colors`, `kit_slots`, `star`, `tight_possession`,
+`aggression`, `playing_attitude`, the two instruction pairs) per the plan's own rule; the
+tactical half of a team lives under `tactics: TeamTactics` (its own record on disk) rather than
+flat on `TeamEntry`; `edit_flags` and `players_to_join_attack` exist because the records hold
+them; `bench_order` is `[u8; 21]`; the shirt number is on `RosterSlot`, not `PlayerBasics`; no
+`serde` derives (no consumer yet; interchange formats are 2.17h).
+Why: the blocks were written before the field tables were derived from the reference read walks
+(2.17a-b); the tables, not the sketch, decide the shape. The gap is recorded here because
+`AGENTS.md` makes every plan-shape deviation a decision entry and 2.17b-c landed without one.
+Plan: `pes_savefile.md` blocks unchanged until 2.21.
+
+## 2026-09-19 - model_convert - `formats/fmdl` and `formats/pes_model` are folder modules
+Decision (lead): each format module is a folder, `mod.rs` (re-exports and the helpers both
+halves share), `import.rs` (to IR), `export.rs` (from IR), `tests.rs`. Public paths unchanged
+(`formats::fmdl::fmdl_to_ir`, `formats::pes_model::ir_to_model`).
+Why: both files had passed the file-to-folder threshold (`CONTRIBUTING.md`: about a thousand
+lines; 1167 and 1067) and each already had the two halves the plan names. The plan's rule
+"one module per format: to_ir + from_ir, nothing else" still holds; a folder is one module.
+Plan: `model_conversion.md` crate tree edited.

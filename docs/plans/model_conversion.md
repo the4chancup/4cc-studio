@@ -27,8 +27,10 @@ crates/libs/model_convert/src/
 │   ├── mod.rs          #   CanonicalModel, Mesh, Vertices, Bone, MeshGroup, Texture
 │   └── validate.rs     #   IR invariants (indices in range, weights normalized, one skin per mesh)
 ├── formats/            # one module per format: to_ir + from_ir, nothing else
-│   ├── fmdl.rs         #   fmdl_to_ir / ir_to_fmdl (calls the fmdl crate's ops for splitting/encoding)
-│   ├── pes_model.rs    #   model_to_ir / ir_to_model (+ .mtl pairing; commits both or neither)
+│   ├── fmdl/           #   fmdl_to_ir (import.rs) / ir_to_fmdl (export.rs; calls the fmdl crate's ops
+│   │                   #   for splitting/encoding); mod.rs re-exports and the shared helpers
+│   ├── pes_model/      #   model_to_ir (import.rs) / ir_to_model (export.rs; + .mtl pairing; commits
+│   │                   #   both or neither); same layout
 │   └── gltf/           #   Phase 7
 │       ├── mod.rs      #   gltf_to_ir / ir_to_gltf via the gltf crate
 │       ├── extensions.rs   # PES_bone / PES_mesh read + write, fallbacks when absent
