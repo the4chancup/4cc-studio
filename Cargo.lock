@@ -755,7 +755,6 @@ version = "0.1.0"
 dependencies = [
  "fpc",
  "pes_version",
- "serde",
  "thiserror",
  "toml",
  "toml_edit",
