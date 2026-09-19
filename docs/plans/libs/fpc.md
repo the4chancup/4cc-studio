@@ -22,7 +22,10 @@ knowledge is a **leaf crate with no dependencies**, holding data and pure rules 
   identical"; that the four values are the same on PES 19+ is to be confirmed against a PES 21 FPC
   kit config when `kit_config` lands (Phase 2.13).
 - `player.rs` — the three appearance presets above, expressed in the crate's own small vocabulary
-  (`Sleeves`, `Tuck`, `Socks`, boots/gloves IDs, skin color), not in `pes_savefile` field terms.
+  (`Sleeves`, `Tuck`, `Socks`, boots/gloves IDs, skin color), not in `pes_savefile` field terms;
+  and `custom_skin_available(version) -> bool`, true for PES 15 to 17 only (the Fox games dropped
+  the Custom skin; the reference editor resets it to the default there), so the partial-hide
+  preset's one version-dependent fact lives with the rest of the FPC knowledge.
 - `interference.rs` — the settings that break or bend FPC, as findings with severity: inners ≠ None
   and undershorts ≠ Off/Off break hiding (error on an FPC player); wrist/ankle taping ≠ None
   selectively shows pieces (info — deliberate in custom setups); the Gloves checkbox with gloves ID

@@ -1393,3 +1393,45 @@ missing file). In-crate specs were rejected because plans and crates do not map 
 present-tense rewrite is incremental, and `AGENTS.md`/`GLOSSARY.md`/`DECISIONS.md` pointers all
 target `docs/plans/`.
 Plan: `plans/README.md` "How these documents evolve" (the two rules), index rows.
+
+## 2026-09-19 - aesthetics_export - the `settings.toml` key table is fixed, one key per line with its range comment
+Decision (user): the key table in `aesthetics_export/settings_toml.md` "Player settings in exports"
+is the export format: `name`, `[appearance]` (skin, iris), `[appearance.physique]` (height,
+weight, fourteen -7..7 measures), `[appearance.strip]` (sleeves, inners, socks, undershorts,
+untucked, ankle taping, wrist taping and two tape colours, spectacles and colour, gloves and
+colour), `[appearance.motion]` (two hunching, two arm movement, three kick motions, dribbling on
+20+, two celebrations), `[appearance.face]` (eleven feature types). Every key sits on its own line
+followed by a comment giving its range or labels; the template emits the whole table in that
+order, unset keys commented. Strip-style enums are lower-case string labels (the reference
+editor's list words; undershorts as `off`, `short`, `winter_long`, `short_winter_long` for the
+four summer/winter pairs), physique values are the game's signed numbers, 1-based motion values
+are the game's numbers. The parser checks the widest range of a key; per-version narrowing is a
+compile-time finding. Boots/gloves IDs, edit flags and the base-copy ID are compiler-owned and
+are unknown keys to the parser.
+Why: the file is hand-written by managers, so a key's range must be visible where the key is
+typed, not in a document; grouped multi-key lines (the first draft) read as one setting. Labels
+over stored indices for the enums because `sleeves = 2` says nothing; numbers for the colours
+because their palettes are only lists of names the game shows as swatches. Widest-range parsing
+because a settings file is version-neutral text and the same export compiles for several games.
+Plan: `aesthetics_export/settings_toml.md` block and the provenance paragraph under it.
+
+## 2026-09-19 - pes_savefile - the ingame-face run is opaque bytes with typed accessors; "every field" becomes "every decoded field"
+Decision (user, option A of two): `PlayerAppearance.ingame_face: IngameFace` holds the appearance
+block from byte 22 to its end verbatim (50 bytes on 16-21, 46 on 15); `IngameFaceField` names the
+fifteen known bit runs inside it (player gloves and colour, skin, the eleven feature types, iris)
+with one offset table in `schema/ingame_face.rs`, valid for every version because the block's
+layout is; `IngameFace::get`/`set` are the only way to those bits, and `SkinColor`, `IrisColor`,
+`PlayerGloves`, `PlayerGlovesColor` leave the per-version tables and `PlayerField`. `RecordSchema`
+gains `ingame_face: Option<ByteRun>`; the generator emits it. `PlayerSettings` exposes the eleven
+types plus the colours; the rest of the run is carried, not authorable, and the completeness test
+asserts every *decoded* field is classified. Rejected: option B, decoding the run in-game first
+(a manual session per version with a save diff per slider, blocking 2.17e until done).
+Why: no legacy tool decodes the run beyond those bits, so "every appearance field" was a promise
+no source could back; carrying the bytes whole is what makes transplant and fingerprint match the
+reference scripts byte for byte, and accessors instead of parallel fields mean no byte has two
+owners (a plain field plus a raw remainder would make the write order decide the result). A
+player-only `Option` on the generic `RecordSchema` was preferred to a third type parameter or a
+blob enum because it is one field with one meaning and the team/roster schemas simply say `None`.
+Plan: `pes_savefile/model.md` "Player settings model" (run, field table, API blocks for
+`PlayerSettings` and `ops::fpc`), `pes_savefile/codec.md` `RecordSchema` block,
+`aesthetics_export/settings_toml.md` first paragraph, `libs/fpc.md` (`custom_skin_available`).
