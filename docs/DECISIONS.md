@@ -1460,3 +1460,55 @@ half-patched with no report; the `PlayerSettings` fields are plain public data (
 emitters, not the fields, must carry the check.
 Plan: `pes_savefile/model.md` "Player settings model" code blocks (`set`, `apply`, `to_toml`,
 `parse`, `ops::fpc`).
+
+## 2026-09-20 - pes_savefile - `convert.rs` translates layout only; the converters' compile policy stays with the compiler
+Decision (lead, opening 2.17f): `convert_player(source, from, target, to)` rewrites a *template*
+target (a player read from a `to`-version save) from the source: every field that translates
+one-to-one is copied through (name, stats, positions, skills, motion, edit flags, boots/gloves/
+base-copy IDs, physique, strip fields, the ingame-face run), what does not is capped, dropped or
+left to the target and reported as a `ConvertNote`. The reference converters' other writes (boots
+55/gloves 11 or 0 by the models present, edit flags 0x0C/0x0F, wrist taping, ankle taping and
+player gloves cleared) are not performed: they are compile policy the Team compiler applies
+through `PlayerSettings`/`ops::fpc` after conversion. The 46/50-byte run rule falls out of the
+template design: the source run is copied over the target run's prefix (`min(len)` bytes), a PES
+15 target drops the source's last four bytes (`FaceRunTruncated`), a 16+ target keeps its own.
+Rejected: padding a 46-byte run with zeros or a fixed pattern (invents bytes for a block nobody
+has decoded); a converter-faithful module that also rewrites IDs (would give the IDs two owners,
+the compiler being the other).
+Why: the reference editor's PES 15 and 16 read walks are identical up to the iris byte and differ
+only in the tail skip (3 vs 7 bytes), so "PES 15 = the first 46 bytes" is measured, not assumed;
+the template already holds a real player's tail bytes, which is the best available value for
+four bytes of unknown meaning. Compile policy in the converter was a consequence of the converter
+being the only tool in the pipeline; here it would be applied twice.
+Plan: `pes_savefile/operations.md` "Cross-version player conversion", "What the Rust module is".
+
+## 2026-09-20 - pes_savefile - face caps reset to 0 (not clamp); skin 7 reset only across a no-custom-skin side; caps table per version
+Decision (lead): a face type above `schema::limits::face_type_cap(to, field)` becomes 0, the
+converters' `cap(max, default=0, value)`, although the plan text said "clamp"; the table's PES
+16 and 21 columns are the two converters' caps, 15/17/18/19 are assumed equal to 16 and 20 to 21;
+`settings_toml`'s widest face ranges are derived from the table so the numbers have one home.
+Skin colour 7 is reset to 1 only when `fpc::custom_skin_available` is false for `from` or `to`.
+Rejected: clamping to the cap (no reference produces that value); resetting 7 unconditionally
+(the converters do, but both their directions have a no-custom-skin side, and a 16 → 17 import
+would strip a partial-hide FPC player's custom skin); resetting to 0 as the reference editor's
+import does (the converters are the verified path and they write 1).
+Why: parity is measured against the converters' outputs, and a clamped value would be a value
+neither tool ever wrote.
+Plan: `pes_savefile/operations.md` "Cross-version player conversion" (caps table and skin rule).
+
+## 2026-09-20 - pes_savefile - canonical `PlayStyle` with per-version lists; an unlisted stored value is an error
+Decision (lead): `model/playstyle.rs` holds the 22-value canonical enum (PES 20/21's list);
+`schema/playstyle.rs` holds one list per version group (15/16, 17/18, 19, 20/21) with
+`decode(version, u8) -> Result<PlayStyle, CodecError>` and `encode(version, PlayStyle) ->
+Option<u8>`; the twelve reference conversion arrays are a test's golden data, reproduced as
+`encode(to, decode(from, i))`. A stored value outside the version's list, PES 15/16's index 16
+included, is `CodecError::UnknownPlayingStyle`, not `None`. `PlayerPositions.playing_style`
+stays the stored `u8`.
+Why: a census of style × registered position over the six fixture saves confirmed the arrays'
+index spaces (goalkeepers at 17/18 on 15/16, 16/17 on 17/18, 20/21 on 19–21) and found no
+player at 15/16's index 16 in ~8800 records, so the gap is a hole to refuse rather than a style
+to name; the reference editor's PES 15/16 combo box (the 17/18 names) contradicts its own arrays
+and the census sides with the arrays. The model keeps the index because the codec has no version
+in hand and only conversion and interchange need the canonical value.
+Plan: `pes_savefile/operations.md` "Cross-version player conversion" (playing styles table),
+`pes_savefile/model.md` "Player/team/tactics model" version quirks paragraph.
