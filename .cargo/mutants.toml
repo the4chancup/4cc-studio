@@ -1,0 +1,11 @@
+# cargo-mutants configuration (CONTRIBUTING.md "Testing and verification", "Mutation runs").
+# What this file excludes is what the mutation runs stop measuring, so every entry names the
+# equivalence that makes the mutant unkillable; a mutant that is merely hard to kill stays in.
+
+exclude_re = [
+    # Bit packing: `a | b` and `a ^ b` are the same value when the operands share no set bit,
+    # which is every packed-field write in the format crates (the fields are masked and shifted
+    # into disjoint ranges). The kit_config probe had 25 of its 46 survivors here, all equivalent.
+    # Accepted loss: an OR of overlapping operands is no longer mutated either.
+    "replace \\| with \\^",
+]

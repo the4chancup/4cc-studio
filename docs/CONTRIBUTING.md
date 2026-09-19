@@ -151,8 +151,9 @@ existed: two spellings of the fmt gate in two documents). The other recipes are 
 repeatable sequences, each of which the plan names somewhere: `just deps-check` (guardrail 4,
 the `fmdl`/`pes_model` denylist, plus the `cargo deny` license allowlist; see "License" in the
 core plan), `just acceptance` (the acceptance-ID scanner), `just parity`,
-`just bindings` (the `maturin` build of `python_bindings`), `just release <version>`. `just
---list` shows them with a one-line description each.
+`just bindings` (the `maturin` build of `python_bindings`), `just release <version>`, `just
+mutants <crate>` and `just mutants-diff [base]` (the mutation runs, below). `just --list` shows
+them with a one-line description each.
 
 Rules for the justfile, so it stays a command list and not a second build system:
 
@@ -213,6 +214,18 @@ Requirements:
 - Code must build on Windows and Linux. No external converters or runtimes (texconv, 7z, ffmpeg,
   libmpv are all replaced in-process); the only subprocesses are the ones the plan names (Blender,
   PES, the elevated self-relaunch).
+- **Mutation runs.** The gates prove the tests pass; they do not prove the tests would fail on a
+  wrong implementation. `cargo-mutants` (installed like `just`: `cargo install cargo-mutants`)
+  measures that directly by rewriting one function or operator at a time and rerunning the
+  tests; a mutant the suite does not catch ("missed") is an assertion nobody wrote. It runs at two
+  points, never as a gate (a whole-workspace run is an hour today and grows with the code):
+  `just mutants-diff [base]` over the lines a step changed, as part of the lead's review of that
+  step, and `just mutants <crate>` over each of a phase's crates at converge. Every survivor is
+  triaged into one of three: a missing test (write it, or a worklog step), an equivalent mutant
+  (the mutated code computes the same value; its pattern goes into `.cargo/mutants.toml` with
+  the equivalence named, so that file is the list of what the runs no longer measure), or
+  unreachable code (a design finding). A survivor with no bucket is a review finding, not a
+  number to accept. Results land in `mutants.out/` (gitignored).
 
 ## Dependencies
 
