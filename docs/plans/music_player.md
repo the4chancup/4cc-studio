@@ -11,12 +11,12 @@ This plan also specifies the two music lib crates, since the player is their pri
 consumer: **`music_export`** (the `.4ccm` format and condition model) and
 **`audio_engine`** (playback + loudness analysis). Both are shared with the
 [Music export editor](music_export_editor.md) (the RigDJ successor). Platform context
-is in the [core plan](core.md).
+is in the [core plan](core/README.md).
 
 Unlike the rest of the suite, the music tools operate on audio files rather than game
 files. They share only the platform (`studio_core`) and the two music libs — no
 dependency on the format parsers, the pipeline, or the savefile crates. One further
-optional dependency: when the [Match tracker](match_tracker.md) is running, the player
+optional dependency: when the [Match tracker](match_tracker/README.md) is running, the player
 subscribes to its `match_feed` and can run the match **autonomously** — see
 "Autopilot" below.
 
@@ -287,7 +287,7 @@ disappear.
 
 ## Autopilot (Match tracker integration)
 
-When the [Match tracker](match_tracker.md) is running, the player subscribes to its
+When the [Match tracker](match_tracker/README.md) is running, the player subscribes to its
 in-process `match_feed` (typed match events, a reconstructed game clock, and explicit
 lifecycle events — the feed contract lives in that plan). A feed chip in the center
 column shows the detected teams and clock, next to an **Autopilot mode selector**:
@@ -629,7 +629,7 @@ Parsing/validation CLI lives with the [Music export editor](music_export_editor.
 
 - **Match tracker event clips** (red/yellow/sub/own-goal): dead code in Rigdio since v1.11
   removed the tracker listener — clips load into a controller nothing triggers. Not
-  dropped here after all: the [Match tracker](match_tracker.md) revives them (see
+  dropped here after all: the [Match tracker](match_tracker/README.md) revives them (see
   "Autopilot"). Without the tracker running they stay dormant, exactly as in current
   Rigdio, so old files behave identically either way.
 - **The YAML format remnants** (`toYML`, `InstructionList`) are not carried over.

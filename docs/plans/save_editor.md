@@ -7,10 +7,10 @@ aesthetics), transplants aesthetics between saves, handles team import/export
 (new Team TOML format, legacy `.4ccs`/`.4cct` import, Texport read/write) and
 FPC invisibility. It can also **generate `settings.toml` files from an existing
 savefile** (via `pes_savefile`'s `PlayerSettings` model), giving teams a migration path
-from the manual-editing workflow to the [Team compiler](team_compiler.md)'s
+from the manual-editing workflow to the [Team compiler](team_compiler/README.md)'s
 compile-time savefile writing. The savefile codec, the data model, and all
 interchange formats live in the `pes_savefile` lib crate — see the
-[Savefile plan](pes_savefile.md). Platform context is in the [core plan](core.md).
+[Savefile plan](pes_savefile/README.md). Platform context is in the [core plan](core/README.md).
 
 The porting stance: **full feature parity with 4ccEditor, improved wherever the
 Win32 UI imposed friction** — but only with improvements that are actually
@@ -35,7 +35,7 @@ useful, never decoration. Concrete improvements are listed per section.
 
 Portability is good: half the C++ is Win32 UI that gets replaced rather than
 ported, and portable crypto reference implementations already exist. The Rust
-`pes_savefile` implementation is planned, not built — see the [Savefile plan](pes_savefile.md).
+`pes_savefile` implementation is planned, not built — see the [Savefile plan](pes_savefile/README.md).
 
 ## Background: Midcupping
 
@@ -67,7 +67,7 @@ implementation is measured against.
 |-----------|------|
 | Load 15/16/17/18/19/20/21 EDIT file (7 menu items) | One **Open savefile** action; auto-detect the version by master keys / container shape. The loaded file's version governs its codec and editing widgets; warn on a global-selector mismatch, never reinterpret the open file. The Open menu lists the saves `pes_savefile`'s discovery finds under `Documents\KONAMI` for every version (labelled by version and, for 18+, account folder) as one-click entries above the ordinary file picker, and the picker opens in the selected version's save folder when it exists — see "Savefile discovery" in the Savefile plan |
 | Save EDIT file (encrypted) | Kept; plus **Save as** and automatic `.bak` of the original on first save |
-| Import Texport file (per-version submenu) | Kept, auto-detected version; plus **Texport export** (new — PES itself can import the result; see [Savefile plan](pes_savefile.md)) |
+| Import Texport file (per-version submenu) | Kept, auto-detected version; plus **Texport export** (new — PES itself can import the result; see [Savefile plan](pes_savefile/README.md)) |
 
 ### Player operations
 
@@ -89,7 +89,7 @@ implementation is measured against.
 | Set / remove FPC invisibility (whole team) | Kept |
 | Set boot/glove IDs for everyone (unchanged / incremental / same-for-all) | Kept |
 | Set player names to positions | Kept |
-| Save squad (`.4ccs`) | Replaced by **Team TOML export** (full-fidelity, human-readable — see the [Savefile plan](pes_savefile.md)) |
+| Save squad (`.4ccs`) | Replaced by **Team TOML export** (full-fidelity, human-readable — see the [Savefile plan](pes_savefile/README.md)) |
 | Load squad (`.4ccs`, with stats/aesthetics/tactics checkboxes) | Kept as read-only legacy import, same section checkboxes; Team TOML import is the primary path. Cross-version import applies the playstyle/skill conversion maps |
 
 ### Tactics operations
@@ -108,7 +108,7 @@ implementation is measured against.
 | AATF: current team / select teams | Kept (rules become configurable — see below) |
 | Compare EDITs | Kept, merged with Midcupping's aesthetics diff (see "Comparator") |
 | Output rosters to TSV | Kept |
-| — | **Export teams list** (new): the open save's team names and IDs for 701–920 (in-game names are the `/xx/` names) merged into `data/teams_list.txt` through the same reconciliation the updater uses — added / kept / overridden shown for review, savefile wins conflicts, unresolved conflicts leave the file unchanged, never a blind overwrite (see the [Team compiler plan](team_compiler.md), "Resolved decisions", "Teams list"). Lives here because this tool owns the open savefile; the compiler only consumes the list |
+| — | **Export teams list** (new): the open save's team names and IDs for 701–920 (in-game names are the `/xx/` names) merged into `data/teams_list.txt` through the same reconciliation the updater uses — added / kept / overridden shown for review, savefile wins conflicts, unresolved conflicts leave the file unchanged, never a blind overwrite (see the [Team compiler plan](team_compiler/pipeline.md), "Resolved decisions", "Teams list"). Lives here because this tool owns the open savefile; the compiler only consumes the list |
 | Fix database (clear all visual flags, reset kit slots, PES17 kit-ID repair) | Kept as a maintenance action behind a confirmation dialog |
 
 ### New (from Midcupping)
@@ -308,7 +308,7 @@ FPC is the 4cc system for fielding **FBMs (Full Body Models)** — custom models
 that don't just replace the head and neck but the player's entire body. It works
 in two halves: the cup DLC replaces some default kit model pieces with blank
 models, selected via kit config values (shirt/shorts/collar model fields — the
-[Team compiler](team_compiler.md) handles that side), and the player's savefile
+[Team compiler](team_compiler/README.md) handles that side), and the player's savefile
 settings hide the rest — boots ID 55 and GK gloves ID 11 (conventional
 **nonexistent IDs**, so nothing renders) plus strip settings that suppress the
 remaining default geometry. Together they make the default player model
@@ -323,7 +323,7 @@ when disabled (IDs 0, untucked, short sleeves, standard socks, light skin
 pre-18). The ID constants become a suite-common setting consumed by
 the presets rather than being hardcoded (any nonexistent ID works;
 55/11 are the 4cc convention). The same presets serve the
-[Team compiler's](team_compiler.md) per-player-folder `fpc.on`/`fpc.off` marker
+[Team compiler's](team_compiler/README.md) per-player-folder `fpc.on`/`fpc.off` marker
 files, so the editor's toggle and the compiler's markers cannot drift apart.
 
 ---
@@ -332,7 +332,7 @@ files, so the editor's toggle and the compiler's markers cannot drift apart.
 
 A player's aesthetics are owned by the team's export: `settings.toml` and the models decide them,
 the Team compiler resolves them into an **aesthetics patch** (format in the [Savefile
-plan](pes_savefile.md)), and the save editor applies the patch. Hand-editing the same fields here
+plan](pes_savefile/README.md)), and the save editor applies the patch. Hand-editing the same fields here
 would create the two-sources problem — the next patch silently overwrites the hand edit, or the
 hand edit silently diverges from the DLC — so the editor **does not edit aesthetics by default**:
 
@@ -398,7 +398,7 @@ Midcupping's transplant as a guided panel:
 
 ## Interchange formats in the UI
 
-The formats themselves are specified in the [Savefile plan](pes_savefile.md);
+The formats themselves are specified in the [Savefile plan](pes_savefile/README.md);
 the editor exposes them as:
 
 - **Team TOML export/import** per team (the `.4ccs`/`.4cct` successor: complete
@@ -412,7 +412,7 @@ the editor exposes them as:
 - **Aesthetics patch apply** — see "Read-only aesthetics"; the patch is written by the Team
   compiler, never by the editor.
 - **`settings.toml` generation** — per player folder, for migrating a team to the
-  [Team compiler](team_compiler.md)'s compile-time savefile writing. Uses the
+  [Team compiler](team_compiler/README.md)'s compile-time savefile writing. Uses the
   shared authorable `PlayerSettings` subset, omitting boots/gloves IDs even when the source
   save contains them; those are compiler-assigned from models/links, not export settings.
   Full Team TOML remains a full-fidelity save interchange. Name handling follows the
@@ -694,7 +694,7 @@ studio save-editor export-teams-list ./EDIT00000000 [--yes]     # merge the save
 formats, comparator, FPC invisibility) is built in Phase 2 as a standalone lib; the
 editor's non-UI substance — the tool crate's settings, CLI and operations wiring,
 plus the `aatf` rules engine — lands in Phase 5; the view lands in Phase 8 (see the
-[core plan](core.md#development-plan)). Within Phase 8, the view builds up as:
+[core plan](core/development_plan.md#development-plan)). Within Phase 8, the view builds up as:
 
 1. Open/save + player editing tabs (Abilities & Skills, Appearance) — the card pickers as the
    first `team_widgets` content

@@ -11,7 +11,7 @@ tool id (`music-export-editor`) use the descriptive name.
 The editor is a thin tool: nearly all of its substance lives in the shared lib crates
 specified in the [Music player plan](music_player.md) — `music_export` (format,
 condition/instruction model, serializer) and `audio_engine` (audition playback).
-Platform context is in the [core plan](core.md).
+Platform context is in the [core plan](core/README.md).
 
 ---
 
@@ -61,7 +61,7 @@ Feature parity with RigDJ, restated on the shared model:
   does. The `time` condition (comparison + minute) and the `event` instruction
   (event-type dropdown: red/yellow/owngoal/sub) get working forms too — RigDJ had no
   `time` editor and `event` was dead code; the new parser and the
-  [Match tracker](match_tracker.md) revive both (see the
+  [Match tracker](match_tracker/README.md) revive both (see the
   [Music player plan](music_player.md)).
 - **Guard rails carried over**: `special` and `unrandom` are hidden from the general
   condition menu; rows with `randomise`/`special` don't offer Add Condition; `not`

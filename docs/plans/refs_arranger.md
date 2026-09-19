@@ -9,9 +9,9 @@ lists** (`ref_lists.txt`) that the hook's script applies per match. Where the dr
 cannot be overridden (PES 15–17, or Fox without the hook) it falls back to shaping
 the draw statistically, against each PES version's measured slot appearance rates,
 with drag-and-drop assignment and live appearance-chance feedback. It then hands the
-compile itself off to the [Team compiler](team_compiler.md), which already owns
+compile itself off to the [Team compiler](team_compiler/README.md), which already owns
 referee compilation. It is deliberately **not** a compiler — see "Why an arranger,
-not a compiler". Platform context is in the [core plan](core.md).
+not a compiler". Platform context is in the [core plan](core/README.md).
 
 The tool consumes `libs/aesthetics_export` (the export object model, folder conventions,
 and `players.txt` slot mapping — see "Player numbering" and "Referee export
@@ -149,7 +149,7 @@ role-bound (slot 7 appears as upper, main, and lower in different patterns).
 The Team compiler **already compiles refs exports**: a `refs`-prefixed export routes
 through its pipeline as `ExportIdentity::Referees`, with numeric ID 999 rendered only
 at game-format boundaries (999 is not a normal 701–920 `TeamId`) and slot-mapped
-packing (see "Referee export processing" in the [Team compiler plan](team_compiler.md)). A "Refs
+packing (see "Referee export processing" in the [Team compiler plan](team_compiler/blue_port.md)). A "Refs
 compiler"
 tool owning its own compile step would add no compilation behavior — it would only
 need to *trigger* one, and since tool crates must not depend on tool crates (core

@@ -444,4 +444,4 @@ before or after samplers). 917 files are CRLF with four-space indents, 28 LF; 15
 The reader, writer and tests described here are the `pes_model` crate of the 4cc Studio
 repository (`crates/libs/pes_model/`), with one fixture per measured variant under
 `tests/fixtures/` and their provenance in that folder's `README.md`. The layout notes the crate
-was built from are in `docs/plans/libs.md`, section "`pes_model::format`".
+was built from are in `docs/plans/libs/format_crates.md`, section "`pes_model::format`".

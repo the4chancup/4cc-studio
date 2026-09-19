@@ -13,9 +13,9 @@ repo (`blender_project/pes_models_plan.md`); this plan owns only the manifest
 contract and the Studio side.
 
 The export format and `settings.toml` schema are owned by the
-[Team compiler plan](team_compiler.md); the IR/glTF machinery by the
-[Model conversion plan](model_conversion.md); FPC by the
-[Save editor plan](save_editor.md); platform context in the [core plan](core.md).
+[Team compiler plan](team_compiler/README.md); the IR/glTF machinery by the
+[Model conversion plan](model_conversion/README.md); FPC by the
+[Save editor plan](save_editor.md); platform context in the [core plan](core/README.md).
 
 The tool is **not essential** — nothing else depends on it — but it is planned
 now because it settles library seams early: `model_convert` gains its only glTF
@@ -64,7 +64,7 @@ work items while giving strictly better results:
 Costs accepted: the tool's viewing half is desktop-only (no WASM launch path),
 and Blender plus the ported addons must be installed. Blender stays the
 **accurate, primary** viewing path permanently; an in-app viewport re-enters
-only as a byproduct: if/when the [Team compiler plan](team_compiler.md)'s
+only as a byproduct: if/when the [Team compiler plan](team_compiler/README.md)'s
 future 3D-preview feature is built, its widget lands in a shared
 **`libs/model_viewport`** crate and this tool embeds it too — a quick
 approximate preview beside the launcher, labeled "preview only — open in
@@ -110,7 +110,7 @@ implementation detail; the manifest is the contract).
 from the `PlayerSettings` schema**, not hand-built per field: `settings.toml` is the only route by
 which a team's aesthetics reach the save (the compiler's aesthetics patch is built from it, and the
 save editor's own fields are read-only — see "Player settings in exports" in the [Aesthetics export
-plan](aesthetics_export.md)), so a field the schema gains must appear here without anyone
+plan](aesthetics_export/README.md)), so a field the schema gains must appear here without anyone
 remembering to add a widget. Each key renders from its schema type and range, with the same
 app-injected comment as its tooltip. Writes preserve user comments and formatting (`toml_edit`);
 validation is `aesthetics_export`'s, so the form can never write a file the compiler would reject.
@@ -303,7 +303,7 @@ glTF in the selection rule, so a stale `.fmdl` would silently win).
   `.model` state settings when FMDL geometry is preferred), merged by material
   name and part identity. Parts present in only one set convert plainly. The
   merge machinery is `model_convert`'s (see the [Model conversion
-  plan](model_conversion.md)'s "glTF export and dual-set superset merge").
+  plan](model_conversion/README.md)'s "glTF export and dual-set superset merge").
 - **Textures stay put.** Existing accepted image files (including DDS and FTEX) are kept and referenced externally
   from the generated `materials.toml` (allowed by the glTF image contract);
   nothing is re-encoded. The conversion emits a single `materials.toml` per
@@ -313,7 +313,7 @@ glTF in the selection rule, so a stale `.fmdl` would silently win).
 - **Skeleton from SKL.** Fox FMDLs carry only bone positions, not rotation
   matrices; the full bind-pose transform comes from the companion `.skl` (or the
   embedded template skeleton when no custom SKL is present). See "Skeleton
-  reconstruction from FMDL" in the [Model conversion plan](model_conversion.md).
+  reconstruction from FMDL" in the [Model conversion plan](model_conversion/README.md).
 - The CLI form takes the geometry preference as a flag instead of asking.
 
 ## Library impact

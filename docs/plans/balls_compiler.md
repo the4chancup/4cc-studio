@@ -7,7 +7,7 @@ export** — the ball models, thumbnails, and menu list for PES's ball selection
 screen — into its own CPK. Unlike the [Refs arranger](refs_arranger.md), this is a
 real compiler: ball content has nothing to do with aesthetics exports (own game paths, own
 `pesdb` bins, own CPK), so the tool owns its compile end to end, built on the
-existing lib crates. Platform context is in the [core plan](core.md).
+existing lib crates. Platform context is in the [core plan](core/README.md).
 
 As with the AET compilers, the old tool defines *what* to produce, not *how* (see
 "Relationship to the old compiler").
@@ -64,7 +64,7 @@ kind after team and referee exports. It lives in `exports/` with its
 siblings; the export name's first word being `balls` is the discriminant, exactly
 as `refs` is for referee exports (the Team compiler skips `balls` exports with an
 info message pointing here — see "Compilation walkthrough" step 2 in the
-[Team compiler plan](team_compiler.md)). **One balls export at a time**: the cup has
+[Team compiler plan](team_compiler/README.md)). **One balls export at a time**: the cup has
 one ball list, so finding several `balls*` exports is an error, like with referees.
 
 ```
@@ -135,7 +135,7 @@ drains them. For each listed ball at 1-based position N (id `ball%03d`):
    resolved through the asset resolver; source-only raster images and buffers are never copied
    through as game files. Texture encoding follows the shared PES-version policy: BC7 is valid
    only on PES 19–21; PES18 and older use BC3 or eligible fully opaque color BC1 for BC7/raster
-   sources. The [library crates plan](libs.md) owns alpha and normal-map exceptions.
+   sources. The [library crates plan](libs/README.md) owns alpha and normal-map exceptions.
 2. **Fox path** (PES 18+): convert target-compatible DDS textures to FTEX; rewrite the FMDL's texture
    path table to the `ballXXX` id (paths of the form
    `/Assets/pes16/model/ball/ballXXX/...` — segment 5, `fmdl` crate); pack

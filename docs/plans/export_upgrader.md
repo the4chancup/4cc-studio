@@ -2,9 +2,9 @@
 
 The Export upgrader (`crates/tools/export_upgrader`) migrates exports from the old
 format to the Studio player-folder format defined in the
-[Team compiler plan](team_compiler.md) — the compiler only supports the Studio format,
+[Team compiler plan](team_compiler/README.md) — the compiler only supports the Studio format,
 so this is the one-time migration path for every existing export.
-Platform context is in the [core plan](core.md).
+Platform context is in the [core plan](core/README.md).
 
 ---
 
@@ -61,7 +61,7 @@ to moving, flattening, or removing files describe that draft, not destructive ed
    byte-identical across every kit in roughly a quarter of them; the rest share partially or were
    re-saved with different bytes, and stay as they are — the author can hoist by hand once the
    `all/` folder exists. No kit layout marker (`pre-fox` / `fox`, see "Kit layout marker" in the
-   [Aesthetics export plan](aesthetics_export.md)) is ever written: old kits have passed through
+   [Aesthetics export plan](aesthetics_export/README.md)) is ever written: old kits have passed through
    several export converters unchanged, so nothing in the files says which engine they were drawn
    for, and a wrong guess would silently displace a correct kit's socks and shorts. Authors add the
    marker when they compile across engines.
@@ -119,7 +119,7 @@ to moving, flattening, or removing files describe that draft, not destructive ed
    Red typed `face.xml` entries by a leading type (`gloveL_foo.model`, matched case-insensitively
    with underscores ignored, or a `model_type_<x>` token anywhere); the Studio format puts the type
    last (`foo_gloveL.model`, `foo_model_type_<x>.model` — see "Model names: a free part plus a
-   suffix" in the [Aesthetics export plan](aesthetics_export.md)). The swap applies **only to folders
+   suffix" in the [Aesthetics export plan](aesthetics_export/README.md)). The swap applies **only to folders
    without a `face.xml`** — filename typing exists to generate the xml, so a folder that ships its
    own xml carries the types there and its files are left exactly as named. In xml-less folders the
    upgrader moves a recognized leading type or `model_type_` token to the end of the stem (`.mtl`
@@ -176,7 +176,7 @@ to moving, flattening, or removing files describe that draft, not destructive ed
     automate: each model converts plainly through one path. Skeleton transforms come from the
     FMDL's companion SKL or the embedded template skeleton, or from a `.model`'s inline bone table
     (see "Skeleton reconstruction from FMDL" and "Skeleton in `.model`" in the [Model conversion
-    plan](model_conversion.md)). Textures stay in place
+    plan](model_conversion/README.md)). Textures stay in place
     (existing DDS/FTEX referenced by stem from the generated `materials.toml`, whose entries carry
     the `family` inferred from the native shader plus the native engine table — see "Emission" in
     the [Unified model format plan](model_format.md)). A `.mtl.common` link converts to the

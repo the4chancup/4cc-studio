@@ -1,9 +1,9 @@
 # 4cc Studio — Stadium compiler plan
 
 The stadium compiler (`crates/tools/stadium_compiler`) is the successor to the PES
-Stadium Compiler. Platform context is in the [core plan](core.md); the fox2 format
+Stadium Compiler. Platform context is in the [core plan](core/README.md); the fox2 format
 crate is outlined below, and the in-process DDS conversion it contributes is detailed
-in the [library crates plan](libs.md).
+in the [library crates plan](libs/README.md).
 
 ---
 
@@ -30,7 +30,7 @@ Beyond the stadium tool itself, this codebase contains two assets that upgrade t
 `Engines/stages/lib/dxt.py` + Python `texture2ddecoder` replace the texconv subprocess entirely.
 The same-named Rust decoder is a separate port; its output needs parity checks, including channel
 order, against the Python package's C++ implementation.
-See "In-process DDS conversion" in the [library crates plan](libs.md).
+See "In-process DDS conversion" in the [library crates plan](libs/dds_convert.md).
 
 **2. Battle-tested, optimized parser variants.** Its `fmdl_file.py` (96KB), `cpk.py` (44KB), and
 `ftex.py` (20KB) are extended/optimized versions of the shared parsers (pre-compiled struct formats
@@ -65,4 +65,4 @@ The stadium pipeline emits the same `PipelineEvent` stream as the Team compiler,
 grid works for stadium compilation without modification (rows = stadiums, cells = components). Its
 warnings/errors likewise use the shared `Message` structure with a tool-owned `MessageCode` catalog,
 to be specified when the tool is planned in detail (see "Message catalog" in the [Team compiler
-plan](team_compiler.md)).
+plan](team_compiler/README.md)).

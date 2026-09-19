@@ -4,8 +4,8 @@ The unified model format is the Studio's own authoring format for PES player mod
 with two small PES extensions** plus a **`materials.toml`** sibling holding the PES material
 properties. One model folder authored in this format compiles to either PES engine — Fox (`.fmdl`,
 PES 18–21) or pre-Fox (`.model` + `.mtl`, PES 15–17) — through the `model_convert` lib's IR (see the
-[Model conversion plan](model_conversion.md), which owns the IR, the importers/exporters, and the
-Blender integration that writes this format). The [Team compiler plan](team_compiler.md) owns where
+[Model conversion plan](model_conversion/README.md), which owns the IR, the importers/exporters, and the
+Blender integration that writes this format). The [Team compiler plan](team_compiler/README.md) owns where
 model folders sit inside an export and how models are categorized and merged.
 
 **Design goal: user friendliness.** The format exists so that a member can author one model that
@@ -33,7 +33,7 @@ extensions**:
   of total size.
 
 **Stock Blender is enough.** The plugin (`pes-models`, see the [Model conversion
-plan](model_conversion.md)'s "Blender integration") adds material preview and toml editing inside
+plan](model_conversion/gltf.md)'s "Blender integration") adds material preview and toml editing inside
 Blender, but a model exported from a plugin-less Blender with a hand-written `materials.toml` beside
 it is a valid, compilable model. This is a stated guarantee, not an accident, and it constrains the
 format: the PES extensions are optional with fallbacks (see "PES extension schema"), standard glTF
@@ -79,7 +79,7 @@ either container; "the model's stem" is the file name without `.glb`/`.gltf`.
 always last — says what the model is: a Fox allowed name (`face_high`, `boots`, `glove_l`, …) or a
 pre-Fox `face.xml` type (`gloveL`, `handL`, `uniform`, `eye`, …, or `model_type_<x>` for one the
 table doesn't know). The compiler maps it to a Fox destination and a pre-Fox type through one table
-("Model names: a free part plus a suffix" in the [Aesthetics export plan](aesthetics_export.md)); the type
+("Model names: a free part plus a suffix" in the [Aesthetics export plan](aesthetics_export/README.md)); the type
 is used only when targeting pre-Fox. Nothing about the part type lives inside the glTF or the
 material toml, so the same `.glb` compiles typed on pre-Fox and merged into its Fox slot.
 
@@ -111,7 +111,7 @@ material toml, so the same `.glb` compiles typed on pre-Fox and merged into its 
   ICO) that are not accepted because they serve no game-texture use case (animation, HDR, icons,
   obscure academic formats). AVIF remains outside the initial decoder set; its backend requirements
   depend on the selected library/version. QOI can be added if community demand arises. See the
-  [library crates plan](libs.md) for the full format matrix and the PES texture boundary (which
+  [library crates plan](libs/README.md) for the full format matrix and the PES texture boundary (which
   codecs each PES version gets).
 - **Stem-based texture references.** Material references name textures by **stem** — filename
   without extension — as do FMDL path tables (the game appends `.ftex`) and Studio-format `.mtl`
@@ -122,7 +122,7 @@ material toml, so the same `.glb` compiles typed on pre-Fox and merged into its 
   folder; different folders may reuse the same stem independently.
 - **PNG is the expected norm.** Blender cannot write DDS natively, so glTF-authored models naturally
   carry PNG textures; conversion to the target texture format happens at compile time (see the
-  [library crates plan](libs.md)).
+  [library crates plan](libs/README.md)).
 
 ---
 
@@ -275,13 +275,13 @@ preserved separately from the render hierarchy).
 
 At compile time the skin's bind data goes wherever the target keeps it: for Fox the compiler
 reconstructs the `.skl` binary (only when the skeleton differs from the template — see "SKL
-pairing" in the [Team compiler plan](team_compiler.md)); for pre-Fox it is written straight into the
+pairing" in the [Team compiler plan](team_compiler/README.md)); for pre-Fox it is written straight into the
 `.model`'s inline per-bone matrix table, which is where that format has always stored its
 skeleton. This keeps the glTF self-contained (one file to manage, link,
 and pass through `.common` links) and matches the Blender workflow: armatures export as native glTF
 skins automatically, with no separate SKL export step. The SKL binary layout and the
 skeleton-reconstruction rules for FMDL sources are in the [Model conversion
-plan](model_conversion.md) ("SKL binary format", "Skeleton reconstruction from FMDL").
+plan](model_conversion/conversion.md) ("SKL binary format", "Skeleton reconstruction from FMDL").
 
 ### File size and compression
 
@@ -413,7 +413,7 @@ Rules:
   (Red's `common/XXX/` path handling on both engines, with the team ID substituted at compile
   time). That is the point of putting a texture in Common: one 2048² hair texture for twenty
   players is one file in the CPK, not twenty. Compiler side: "Texture relocation to common" in the
-  [Team compiler plan](team_compiler.md).
+  [Team compiler plan](team_compiler/README.md).
 - Link files are folder-level references, not model content: the linked file is read from Common,
   never copied into the output, and the link file itself is not emitted. For pre-Fox `.mtl.common`
   the generated XML points the model at the Common MTL path (Red's behavior).
@@ -704,7 +704,7 @@ DepthBias = [0.005, 0, 0, 0]
 | `mtl_state_invalid` / `mtl_blendmode_nonzero` / `mtl_state_nonrecommended` | E / W / I | `[prefox.states]` checks, shared with `.mtl` validation |
 
 Consequences follow the Team compiler's disposition rules (E → folder discarded). The full
-catalog is in the [Team compiler plan](team_compiler.md).
+catalog is in the [Team compiler plan](team_compiler/README.md).
 
 ---
 
@@ -712,7 +712,7 @@ catalog is in the [Team compiler plan](team_compiler.md).
 
 The `PES_bone`/`PES_mesh` extension schema and the `materials.toml` schema are the single contracts:
 the `pes-models` Blender extension's PES glTF codec writes them (and reads them back into Blender
-custom properties — see "Blender integration" in the [Model conversion plan](model_conversion.md)),
+custom properties — see "Blender integration" in the [Model conversion plan](model_conversion/gltf.md)),
 `gltf_to_ir` validates them, and any glTF + tomls the extension exports must import cleanly through
 `gltf_to_ir`. Blender round-trips are for *authoring*; migrating a player folder between formats is
 the Studio's IR conversion (deterministic, tested, superset-merging — see the [Player aesthetics
