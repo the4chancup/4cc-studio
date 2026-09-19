@@ -12,6 +12,7 @@ use super::{
     face_ownership, ownership,
 };
 use crate::codec::{read_player, runs, write_player};
+use crate::model::ingame_face::IngameFace;
 use crate::model::player::PlayerAppearance;
 use crate::schema::fields::PlayerField;
 use crate::schema::ingame_face::{INGAME_FACE_FIELDS, IngameFaceField};
@@ -92,26 +93,82 @@ fn from_player_reads_every_key_and_the_gated_dribbling() {
     assert!(s21.appearance.motion.dribbling.is_some());
 }
 
+/// The bits of a run the fifteen decoded face fields cover, as a per-byte
+/// mask (run length <= 64 bytes).
+fn face_field_mask(run_len: usize) -> Vec<u8> {
+    let mut mask = vec![0u8; run_len];
+    for spec in INGAME_FACE_FIELDS {
+        for bit in spec.bit_offset..spec.bit_offset + spec.bit_width {
+            mask[(bit / 8) as usize] |= 1 << (bit % 8);
+        }
+    }
+    mask
+}
+
 #[test]
 fn apply_copies_the_settings_and_leaves_the_rest() {
     let payload = payload(PesVersion::Pes19);
     let schema = schema_for(PesVersion::Pes19);
     let p = find_player(&payload, schema, 70101);
     let mut q = find_player(&payload, schema, 70102);
+
+    // Flip one undecoded bit of q's run so the check below discriminates: a
+    // wholesale run copy would overwrite it with p's bit.
+    let mask = face_field_mask(q.appearance.ingame_face.bytes().len());
+    let mut run = q.appearance.ingame_face.bytes().to_vec();
+    let p_run = p.appearance.ingame_face.bytes();
+    let mut flipped = false;
+    'outer: for (byte, bits) in mask.iter().enumerate() {
+        for bit in 0..8 {
+            if bits & (1 << bit) == 0 && (run[byte] ^ p_run[byte]) & (1 << bit) == 0 {
+                run[byte] ^= 1 << bit;
+                flipped = true;
+                break 'outer;
+            }
+        }
+    }
+    assert!(flipped, "no agreeing undecoded bit to flip");
+    q.appearance.ingame_face = IngameFace::from_bytes(run);
     let q_before = q.clone();
+
     PlayerSettings::from_player(&p)
         .expect("from_player")
         .apply(&mut q)
         .expect("apply");
+
+    // Every scalar appearance field and every decoded face field is p's.
     assert_eq!(
         q.appearance,
         PlayerAppearance {
             boots_id: q_before.appearance.boots_id,
             gloves_id: q_before.appearance.gloves_id,
             base_copy_id: q_before.appearance.base_copy_id,
+            ingame_face: q.appearance.ingame_face.clone(),
             ..p.appearance.clone()
         }
     );
+    for field in IngameFaceField::ALL {
+        assert_eq!(
+            q.appearance.ingame_face.get(field).expect("run"),
+            p.appearance.ingame_face.get(field).expect("run"),
+            "{field:?}"
+        );
+    }
+    // The undecoded bits are carried, not authored: q's own, not p's.
+    for (byte, (now, was)) in q
+        .appearance
+        .ingame_face
+        .bytes()
+        .iter()
+        .zip(q_before.appearance.ingame_face.bytes())
+        .enumerate()
+    {
+        assert_eq!(
+            now & !mask[byte],
+            was & !mask[byte],
+            "undecoded bits of run byte {byte}"
+        );
+    }
     assert_eq!(q.motion, p.motion);
     assert_eq!(
         (q.basic.height, q.basic.weight),
@@ -130,13 +187,89 @@ fn apply_copies_the_settings_and_leaves_the_rest() {
 }
 
 #[test]
+fn every_key_writes_only_its_own_run() {
+    let payload = payload(PesVersion::Pes21);
+    let schema = schema_for(PesVersion::Pes21);
+    let index = (0..count(&payload, &schema.players))
+        .find(|&i| {
+            read_player(
+                record(&payload, &schema.players, schema.player.size, i),
+                schema.player,
+            )
+            .expect("decode")
+            .id == 70101
+        })
+        .expect("player 70101's record");
+    let rec = record(&payload, &schema.players, schema.player.size, index);
+    let run = schema.player.ingame_face.as_ref().expect("a run on PES 21");
+    for key in SettingKey::ALL {
+        let player = find_player(&payload, schema, 70101);
+        let current = PlayerSettings::from_player(&player)
+            .expect("from_player")
+            .get(key);
+        let new_value = match current {
+            Some(0) | None => 1,
+            _ => 0,
+        };
+        let mut settings = PlayerSettings::default();
+        settings
+            .set(key, new_value)
+            .expect("the flipped value is in range");
+        let mut modified = player.clone();
+        settings.apply(&mut modified).expect("apply");
+        let mut written = rec.to_vec();
+        write_player(&modified, &mut written, schema.player).expect("encode");
+
+        let (start, end) = match key.source() {
+            Source::Player(field) => {
+                let (_, offset, width) = runs(schema.player)
+                    .find(|(f, _, _)| *f == field)
+                    .unwrap_or_else(|| panic!("{key:?} source has no run"));
+                (offset, offset + width)
+            }
+            Source::Face(field) => {
+                let row = INGAME_FACE_FIELDS
+                    .iter()
+                    .find(|f| f.field == field)
+                    .unwrap_or_else(|| panic!("{key:?} source has no row"));
+                (
+                    run.byte_offset * 8 + row.bit_offset,
+                    run.byte_offset * 8 + row.bit_offset + row.bit_width,
+                )
+            }
+        };
+        let mut diffs = 0usize;
+        for (byte, (was, now)) in rec.iter().zip(&written).enumerate() {
+            for bit in 0..8 {
+                if (was >> bit) & 1 != (now >> bit) & 1 {
+                    let pos = byte as u32 * 8 + bit;
+                    diffs += 1;
+                    assert!(
+                        start <= pos && pos < end,
+                        "{key:?} changed bit {pos} outside its run {start}..{end}"
+                    );
+                }
+            }
+        }
+        assert_ne!(diffs, 0, "{key:?} changed nothing");
+        assert_eq!(
+            PlayerSettings::from_player(&modified)
+                .expect("from_player")
+                .get(key),
+            Some(new_value),
+            "{key:?} reads back the new value"
+        );
+    }
+}
+
+#[test]
 fn an_apply_then_write_touches_only_the_set_fields_bits() {
     let payload = payload(PesVersion::Pes19);
     let schema = schema_for(PesVersion::Pes19);
     let mut player = find_player(&payload, schema, 70101);
     let mut settings = PlayerSettings::default();
-    settings.set(SettingKey::SkinColor, 3);
-    settings.set(SettingKey::NeckLength, 9);
+    settings.set(SettingKey::SkinColor, 3).expect("in range");
+    settings.set(SettingKey::NeckLength, 9).expect("in range");
     settings.apply(&mut player).expect("apply");
 
     let index = (0..count(&payload, &schema.players))
@@ -193,8 +326,12 @@ fn a_setting_the_version_lacks_is_refused_and_changes_nothing() {
     let schema = schema_for(PesVersion::Pes19);
     let mut player = find_player(&payload, schema, 70101);
     let before = player.clone();
-    let mut settings = PlayerSettings::default();
-    settings.set(SettingKey::Dribbling, 1);
+    let mut settings = PlayerSettings {
+        name: Some(NameSetting::Explicit("RENAMED".to_string())),
+        ..PlayerSettings::default()
+    };
+    settings.set(SettingKey::Sleeves, 2).expect("in range");
+    settings.set(SettingKey::Dribbling, 1).expect("in range");
     match settings.apply(&mut player) {
         Err(SettingsError::NotInThisVersion { key }) => assert_eq!(key, "dribbling"),
         other => panic!("expected NotInThisVersion, got {other:?}"),
@@ -206,7 +343,7 @@ fn a_setting_the_version_lacks_is_refused_and_changes_nothing() {
 fn get_after_set_round_trips_every_key() {
     for key in SettingKey::ALL {
         let mut settings = PlayerSettings::default();
-        settings.set(key, 1);
+        settings.set(key, 1).expect("in range");
         assert_eq!(settings.get(key), Some(1), "{key:?}");
     }
 }
@@ -384,12 +521,12 @@ fn to_toml_of_the_parsed_plan_block_is_the_plan_block() {
         settings.name,
         Some(NameSetting::Explicit("Snuffy".to_string()))
     );
-    assert_eq!(settings.to_toml(), PLAN_BLOCK);
+    assert_eq!(settings.to_toml().expect("emit"), PLAN_BLOCK);
 }
 
 #[test]
 fn to_toml_of_a_default_is_a_fully_commented_template() {
-    let text = PlayerSettings::default().to_toml();
+    let text = PlayerSettings::default().to_toml().expect("emit");
     for key in SettingKey::ALL {
         let spec = key.spec();
         assert!(
@@ -426,9 +563,13 @@ fn name_true_parses_and_emits_true() {
     let settings = PlayerSettings::parse("name = true\n").expect("parses");
     assert_eq!(settings.name, Some(NameSetting::FromFolder));
     assert!(
-        settings.to_toml().lines().any(|line| line == "name = true"),
+        settings
+            .to_toml()
+            .expect("emit")
+            .lines()
+            .any(|line| line == "name = true"),
         "{}",
-        settings.to_toml()
+        settings.to_toml().expect("emit")
     );
 }
 
@@ -472,7 +613,7 @@ fn to_toml_round_trips_a_real_player_through_text() {
     for version in [PesVersion::Pes19, PesVersion::Pes15] {
         let player = find_player(&payload(version), schema_for(version), 70101);
         let settings = PlayerSettings::from_player(&player).expect("from_player");
-        let text = settings.to_toml();
+        let text = settings.to_toml().expect("emit");
         assert_eq!(
             PlayerSettings::parse(&text).expect("the emitted text parses"),
             settings,
@@ -581,7 +722,7 @@ sleeves = \"short\"   # keep me\n\
     .parse()
     .expect("document parses");
     let mut settings = PlayerSettings::default();
-    settings.set(SettingKey::Sleeves, 2);
+    settings.set(SettingKey::Sleeves, 2).expect("in range");
     settings.update_toml(&mut document).expect("update");
     assert_eq!(
         document.to_string(),
@@ -589,7 +730,7 @@ sleeves = \"short\"   # keep me\n\
     );
 
     let mut settings = PlayerSettings::default();
-    settings.set(SettingKey::CheekType, 2);
+    settings.set(SettingKey::CheekType, 2).expect("in range");
     settings.update_toml(&mut document).expect("update");
     assert!(
         document.to_string().contains("[appearance.face]"),
@@ -612,13 +753,69 @@ fn update_toml_keeps_an_inline_table_inline() {
         .parse()
         .expect("document parses");
     let mut settings = PlayerSettings::default();
-    settings.set(SettingKey::Sleeves, 2);
+    settings.set(SettingKey::Sleeves, 2).expect("in range");
     settings.update_toml(&mut document).expect("update");
     let text = document.to_string();
     assert!(text.starts_with("appearance = {"), "{text}");
     let parsed = PlayerSettings::parse(&text).expect("the updated document parses");
     assert_eq!(parsed.appearance.skin_color, Some(1));
     assert_eq!(parsed.appearance.strip.sleeves, Some(2));
+}
+
+#[test]
+fn a_value_the_kind_cannot_represent_is_refused_everywhere() {
+    // `set` refuses it.
+    let mut settings = PlayerSettings::default();
+    match settings.set(SettingKey::Sleeves, 3) {
+        Err(SettingsError::OutOfRange { key, value, .. }) => {
+            assert_eq!(key, "appearance.strip.sleeves");
+            assert_eq!(value, 3);
+        }
+        other => panic!("expected OutOfRange, got {other:?}"),
+    }
+    // A public field written directly: `to_toml`, `update_toml` and `apply`
+    // all refuse with the same error, and `apply` leaves the player alone.
+    settings.appearance.strip.sleeves = Some(3);
+    match settings.to_toml() {
+        Err(SettingsError::OutOfRange { key, value, .. }) => {
+            assert_eq!(key, "appearance.strip.sleeves");
+            assert_eq!(value, 3);
+        }
+        other => panic!("expected OutOfRange, got {other:?}"),
+    }
+    let mut document: DocumentMut = "[appearance.strip]\nsleeves = \"short\"\n"
+        .parse()
+        .expect("document parses");
+    match settings.update_toml(&mut document) {
+        Err(SettingsError::OutOfRange { key, .. }) => {
+            assert_eq!(key, "appearance.strip.sleeves")
+        }
+        other => panic!("expected OutOfRange, got {other:?}"),
+    }
+    let mut player = find_player(
+        &payload(PesVersion::Pes19),
+        schema_for(PesVersion::Pes19),
+        70101,
+    );
+    let before = player.clone();
+    match settings.apply(&mut player) {
+        Err(SettingsError::OutOfRange { key, .. }) => {
+            assert_eq!(key, "appearance.strip.sleeves")
+        }
+        other => panic!("expected OutOfRange, got {other:?}"),
+    }
+    assert_eq!(player, before, "the refused write changed the player");
+}
+
+#[test]
+fn an_explicit_name_with_nul_is_refused() {
+    match PlayerSettings::parse("name = \"a\\u0000b\"\n") {
+        Err(SettingsError::WrongType { key, expected }) => {
+            assert_eq!(key, "name");
+            assert_eq!(expected, "a string without NUL");
+        }
+        other => panic!("expected WrongType, got {other:?}"),
+    }
 }
 
 #[test]

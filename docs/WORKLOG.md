@@ -12,7 +12,7 @@ is in `AGENTS.md` ("Working documents").
 **Phase:** 2 (Library crates). Done: 2.1 `wezlib`, 2.2 `cpk`, 2.3 `fpk`, 2.4 `ftex`, 2.5 `dds_convert` (CPU),
 2.6 `fmdl` (format, model, ops, check), 2.7 `pes_model` (format, mtl, model, ops, check), 2.8 `uniparam`, 2.9 `fox2`, 2.10 `archives`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`, 2.14 `color_tools`, 2.15 `elevation`. Review
 rounds A and B (2026-09-13) closed: 2.5c, 2.12b, 2.13b done.
-**In progress:** 2.17 `pes_savefile` (a–e-1 done; e-2 next), then 2.18 `python_bindings`. Review
+**In progress:** 2.17 `pes_savefile` (a–e done; f next), then 2.18 `python_bindings`. Review
 round C (2026-09-19) closed as 2.19a; its leftovers are listed under 2.20.
 **Blocked on:** nothing (the two 2.17e decisions were made 2026-09-19: key table and option A,
 `DECISIONS.md`)
@@ -383,17 +383,26 @@ Spec: `docs/plans/core/development_plan.md` "Phase 2", `docs/plans/libs/README.m
   `NoIngameFaceRun` instead of panicking on an unread run; `ALL` + exhaustive-row test): `ByteRun`,
   `schema/ingame_face.rs`, `model/ingame_face.rs`, generator emits the run and drops the four
   fields; 45 crate tests, census literals unchanged; `mutants-diff` 33 caught / 0 survived
-- [ ] 2.17e-2 `settings_toml.rs`: `SettingKey` table, `PlayerSettings::{parse, from_player, apply,
+- [x] 2.17e-2 `settings_toml.rs`: `SettingKey` table, `PlayerSettings::{parse, from_player, apply,
   to_toml, update_toml}`, the ownership classification and completeness test → verify:
   `to_toml` of `from_player(p)` parses back to an equal `PlayerSettings` for a player of each
   fixture; `to_toml(&Default)` equals the plan block's key set, order and comments (every key
   commented); parse rejects an unknown key, a compiler-owned key, an out-of-range value and an
   unknown label, each naming the key; `apply` then `write_player` changes only the run bits and
   fields the settings named (byte diff against the untouched record)
-- [ ] 2.17e-3 `ops/fpc.rs` (`apply`, `strip_style`, `is_fpc_player` per the plan block) → verify:
+- [x] 2.17e-3 `ops/fpc.rs` (`apply`, `strip_style`, `is_fpc_player` per the plan block) → verify:
   the hide preset applied to a fixture player yields the FPC.wikitext values through the model;
   `Custom` skin on PES 19 is `CustomSkinUnavailable`; `strip_style` of a player with inners
-  trips `fpc_inners_break_hiding` through `fpc::check`
+  trips `fpc_inners_break_hiding` through `fpc::check` — done (sidekick, two review reworks: no panic
+  on a non-table TOML position or an unrepresentable stored value, key-table-driven unknown-key
+  sweep; five mutation survivors killed). 2.17e-2 landed as 2a (model half, `51dea0e`) and 2b
+  (parse/template/update, `eef7e6d`); crate 71 tests, `mutants-diff` 48/48 caught
+- [x] 2.17e-4 checkpoint (b) review of the 2.17e surface (`gpt-astra-high`) — done: six concerns,
+  five accepted and fixed in one rework (behavioral completeness test over real writes,
+  all-or-nothing `apply` in both modules, `set`/`to_toml`/`update_toml` return `OutOfRange`
+  instead of panicking, NUL in a name refused, the copy test now proves the undecoded bits are
+  carried not copied), one accepted as a doc/plan sharpening (`is_fpc_player` classifies what
+  the save shows; decision entry). Crate 75 tests; workspace gates green
 - [ ] 2.17f `convert.rs` cross-version conversion (caps table, playstyle maps)
 - [ ] 2.17g `ops/{transplant,fingerprint,compare}` (parity with the reference scripts)
 - [ ] 2.17h `interchange/{team_toml,legacy,texport}` (texport write is a manual game check)
@@ -592,3 +601,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   per line, range comment on the same line) and option A for the ingame-face run (opaque bytes
   with typed accessors, "every decoded field"); ranges verified against the reference editor's
   lists and the converters' caps. 2.17e split into three slices; e-1 briefed next.
+- **2026-09-19** - 2.17e done in four commits (`58c37af`, `51dea0e`, `eef7e6d`, `8b2d864` plus
+  the review rework): the ingame-face run, `PlayerSettings` with the key table and the TOML
+  half, `ops::fpc`; checkpoint (b) review closed. Next: 2.17f `convert.rs` (the 46/50-byte run
+  padding rule is its first decision).

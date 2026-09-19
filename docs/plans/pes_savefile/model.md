@@ -244,19 +244,25 @@ pub struct PlayerSettings { pub name: Option<NameSetting>, pub appearance: Appea
 impl PlayerSettings {
     /// Parses a file: unknown keys and tables, wrong types, out-of-range values and unknown
     /// labels are `SettingsError`s naming the key; the compiler-owned keys are unknown keys.
+    /// An explicit name containing a NUL is `WrongType` (the save field is NUL-terminated; it
+    /// would silently truncate on reload).
     pub fn parse(text: &str) -> Result<Self, SettingsError>;
     /// Every key `Some` from the player; `name` is `Explicit(raw name)`, colour codes included.
     /// A stored value the key table cannot express (a 2-bit sleeves field holding 3, which the
     /// reference scripts label "broken") is `OutOfRange` naming the key, not a panic later.
     pub fn from_player(player: &PlayerEntry) -> Result<Self, SettingsError>;
-    /// Writes the `Some` fields onto the player. `NameSetting::FromFolder` is not applied: the
-    /// caller (the Team compiler) resolves it to `Explicit` first, since the folder rules are
-    /// its. A `Some` on a field this player's version lacks (`dribbling` before PES 20) is
-    /// `SettingsError::NotInThisVersion`.
+    /// Sets a stored value; `OutOfRange` when the key's kind cannot represent it, so a
+    /// `PlayerSettings` built through `set` is always one the emitters can write.
+    pub fn set(&mut self, key: SettingKey, value: u8) -> Result<(), SettingsError>;
+    /// Writes the `Some` fields onto the player, all or nothing: on `Err` the player is
+    /// unchanged. `NameSetting::FromFolder` is not applied: the caller (the Team compiler)
+    /// resolves it to `Explicit` first, since the folder rules are its. A `Some` on a field this
+    /// player's version lacks (`dribbling` before PES 20) is `SettingsError::NotInThisVersion`.
     pub fn apply(&self, player: &mut PlayerEntry) -> Result<(), SettingsError>;
     /// The complete template: every key in table order, set ones as values, unset ones
-    /// commented, each with its range comment.
-    pub fn to_toml(&self) -> String;
+    /// commented, each with its range comment. `OutOfRange` for a value written directly into
+    /// a public field that the key's kind cannot represent (the fields are plain data).
+    pub fn to_toml(&self) -> Result<String, SettingsError>;
     /// Edits an existing document in place (`toml_edit`, comments preserved), setting the
     /// `Some` keys and leaving everything else as the user wrote it. `WrongType` when a
     /// table position holds a non-table (never a panic on a user's file).
@@ -267,18 +273,22 @@ impl PlayerSettings {
 `ops/fpc.rs` maps the `libs/fpc` presets onto a player and derives the interference inputs:
 
 ```rust
-/// Writes one preset's appearance (sleeves, tuck, socks, boots/gloves IDs, skin). The caller
-/// substitutes a custom model's own boots/gloves IDs into `appearance` first (the compiler's
-/// precedence table). `SkinColor::Custom` writes skin 7 on versions that have a custom skin
-/// (`fpc::custom_skin_available`) and is `FpcError::CustomSkinUnavailable` elsewhere;
+/// Writes one preset's appearance (sleeves, tuck, socks, boots/gloves IDs, skin), all or
+/// nothing: every check (custom skin available, the face run present) runs before the first
+/// write. The caller substitutes a custom model's own boots/gloves IDs into `appearance` first
+/// (the compiler's precedence table). `SkinColor::Custom` writes skin 7 on versions that have a
+/// custom skin (`fpc::custom_skin_available`) and is `FpcError::CustomSkinUnavailable` elsewhere;
 /// `SkinColor::Preset` resets a skin of 7 to 1 (light) and leaves any other skin alone.
 pub fn apply(player: &mut PlayerEntry, appearance: &fpc::Appearance, version: PesVersion)
     -> Result<(), FpcError>;
-/// The player's strip settings as the interference inputs.
-pub fn strip_style(player: &PlayerEntry) -> fpc::StripStyle;
-/// On a hide or partial-hide preset by the 4cc convention: the nonexistent boots ID, or a
-/// custom skin.
-pub fn is_fpc_player(player: &PlayerEntry) -> bool;
+/// The player's strip settings as the interference inputs (reads the face run, hence `Result`).
+pub fn strip_style(player: &PlayerEntry) -> Result<fpc::StripStyle, FpcError>;
+/// What the save shows, not what the team intends: the nonexistent boots ID of the 4cc
+/// convention, or a custom skin. A hide preset applied with a substituted (real) boots ID is
+/// indistinguishable from a dressed player by construction, so this is the save editor's
+/// read-only classifier; the compiler, which knows the folder's marker, passes its own
+/// `is_fpc_player` to `fpc::check`.
+pub fn is_fpc_player(player: &PlayerEntry) -> Result<bool, FpcError>;
 ```
 
 The authorable settings subset shares one schema between export `settings.toml` and Team TOML.
