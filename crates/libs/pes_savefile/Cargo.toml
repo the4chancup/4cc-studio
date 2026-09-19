@@ -1,6 +1,6 @@
 [package]
 name = "pes_savefile"
-description = "The PES EDIT savefile: container crypto for PES 2015-2021, the schema-driven player/team codec, and the operations over them"
+description = "The PES EDIT savefile: container crypto for PES 2015-2021, the schema-driven player/team/tactics codec, EditFile, and savefile discovery"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

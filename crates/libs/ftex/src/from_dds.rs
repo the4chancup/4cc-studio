@@ -65,6 +65,17 @@ pub fn dds_to_ftex(dds: &[u8], color_space: ColorSpace) -> Result<Vec<u8>, FtexE
 
     let version = if format.id() > 4 { 2.04f32 } else { 2.03f32 };
 
+    // The FTEX header's narrower fields, checked before the mip loop reads any
+    // dimension: a size past them is an error, not a wrapped header.
+    let field = |what: &'static str, value: usize| FtexError::HeaderFieldOverflow { what, value };
+    let header_width =
+        u16::try_from(dds_header.width).map_err(|_| field("width", dds_header.width as usize))?;
+    let header_height = u16::try_from(dds_header.height)
+        .map_err(|_| field("height", dds_header.height as usize))?;
+    let header_depth = u16::try_from(depth).map_err(|_| field("depth", depth as usize))?;
+    let header_mipmap_count =
+        u8::try_from(mipmap_count).map_err(|_| field("mipmap_count", mipmap_count as usize))?;
+
     // Frames: one mip per image, in image-then-mip order, each chunk-encoded.
     let mut frame_buffer = Vec::new();
     let mut records = Vec::new();
@@ -103,10 +114,10 @@ pub fn dds_to_ftex(dds: &[u8], color_space: ColorSpace) -> Result<Vec<u8>, FtexE
         magic: *b"FTEX",
         version,
         pixel_format: format.id(),
-        width: dds_header.width as u16,
-        height: dds_header.height as u16,
-        depth: depth as u16,
-        mipmap_count: mipmap_count as u8,
+        width: header_width,
+        height: header_height,
+        depth: header_depth,
+        mipmap_count: header_mipmap_count,
         nrt: 0x02,
         flags: 0x11,
         unknown1: 1,
@@ -178,15 +189,34 @@ fn encode_image(data: &[u8]) -> Result<(Vec<u8>, u16), FtexError> {
         } else {
             packed.as_slice()
         };
-        header_buffer.extend_from_slice(&(stored.len() as u16).to_le_bytes());
-        header_buffer.extend_from_slice(&(piece.len() as u16).to_le_bytes());
-        header_buffer
-            .extend_from_slice(&((chunk_buffer.len() + chunk_buffer_offset) as u32).to_le_bytes());
+        let stored_len =
+            u16::try_from(stored.len()).map_err(|_| FtexError::HeaderFieldOverflow {
+                what: "compressed chunk size",
+                value: stored.len(),
+            })?;
+        let piece_len = u16::try_from(piece.len()).map_err(|_| FtexError::HeaderFieldOverflow {
+            what: "uncompressed chunk size",
+            value: piece.len(),
+        })?;
+        let chunk_offset =
+            u32::try_from(chunk_buffer.len() + chunk_buffer_offset).map_err(|_| {
+                FtexError::HeaderFieldOverflow {
+                    what: "chunk buffer offset",
+                    value: chunk_buffer.len() + chunk_buffer_offset,
+                }
+            })?;
+        header_buffer.extend_from_slice(&stored_len.to_le_bytes());
+        header_buffer.extend_from_slice(&piece_len.to_le_bytes());
+        header_buffer.extend_from_slice(&chunk_offset.to_le_bytes());
         chunk_buffer.extend_from_slice(stored);
     }
 
     let mut output = header_buffer;
     output.extend_from_slice(&chunk_buffer);
     output.resize(output.len() + (8 - output.len() % 8) % 8, 0);
-    Ok((output, chunk_count as u16))
+    let chunk_count = u16::try_from(chunk_count).map_err(|_| FtexError::HeaderFieldOverflow {
+        what: "chunk count",
+        value: chunk_count,
+    })?;
+    Ok((output, chunk_count))
 }

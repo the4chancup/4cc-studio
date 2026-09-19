@@ -95,12 +95,18 @@ pub(crate) fn decrypt(bytes: &[u8], key: MasterKey) -> Result<SaveContainer, Con
         size(SIZES_OFFSET + 8),
         size(SIZES_OFFSET + 12),
     );
+    let Some(serial_size) = serial_units.checked_mul(2) else {
+        return Err(ContainerError::Truncated {
+            needed: usize::MAX,
+            available: bytes.len(),
+        });
+    };
     let needed = SALT_SIZE
         .checked_add(header_size)
         .and_then(|total| total.checked_add(description_size))
         .and_then(|total| total.checked_add(logo_size))
         .and_then(|total| total.checked_add(payload_size))
-        .and_then(|total| total.checked_add(serial_units * 2));
+        .and_then(|total| total.checked_add(serial_size));
     let Some(needed) = needed else {
         return Err(ContainerError::Truncated {
             needed: usize::MAX,
@@ -125,7 +131,7 @@ pub(crate) fn decrypt(bytes: &[u8], key: MasterKey) -> Result<SaveContainer, Con
     let description = section(0, description_size);
     let logo = section(1, logo_size);
     let payload = section(2, payload_size);
-    let serial = section(3, serial_units * 2);
+    let serial = section(3, serial_size);
     Ok(SaveContainer {
         scheme: Scheme::Keyed(key),
         description,
@@ -156,13 +162,20 @@ pub(crate) fn encrypt(
     }
     let mut header = vec![0u8; header_size];
     header[..64].copy_from_slice(&key.effective());
-    for (offset, size) in [
+    for (section, (offset, size)) in [
         (SIZES_OFFSET, container.payload.len()),
         (SIZES_OFFSET + 4, container.logo.len()),
         (SIZES_OFFSET + 8, container.description.len()),
         (SIZES_OFFSET + 12, container.serial.len() / 2),
-    ] {
-        header[offset..offset + 4].copy_from_slice(&(size as u32).to_le_bytes());
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let size = u32::try_from(size).map_err(|_| ContainerError::SectionTooLarge {
+            section: section as u8,
+            size,
+        })?;
+        header[offset..offset + 4].copy_from_slice(&size.to_le_bytes());
     }
     header[IDENTIFIER_OFFSET..].copy_from_slice(&container.identifier);
     let file_key = salt_file_key(key, salt);

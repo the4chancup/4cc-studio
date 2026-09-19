@@ -261,7 +261,7 @@ mod tests {
 
     const SIZE: u32 = 256;
 
-    /// A SIZE x SIZE texture whose pixel (x, y) is .
+    /// A SIZE x SIZE texture whose pixel (x, y) is the RGBA `paint` returns for it.
     fn texture(width: u32, height: u32, paint: impl Fn(u32, u32) -> [u8; 4]) -> Vec<u8> {
         let mut rgba = Vec::with_capacity((width * height * 4) as usize);
         for y in 0..height {

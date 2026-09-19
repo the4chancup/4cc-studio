@@ -48,6 +48,15 @@ pub enum FtexError {
         /// The mip index the record carries.
         found: u8,
     },
+    /// A header field cannot hold the value the input describes (a DDS dimension
+    /// past FTEX's u16 fields, a chunk past its u16 record field).
+    #[error("header field overflow: {what} is {value}")]
+    HeaderFieldOverflow {
+        /// Which field overflowed.
+        what: &'static str,
+        /// The value that did not fit.
+        value: usize,
+    },
 }
 
 #[cfg(test)]
@@ -246,5 +255,30 @@ mod tests {
                 a_mask: 0,
             }
         );
+    }
+
+    #[test]
+    fn a_dds_dimension_past_the_ftex_field_is_an_error() {
+        // DDS header layout: u32 width at offset 16. 70,000 does not fit u16.
+        let mut dds = BC1_DDS.to_vec();
+        dds[16..20].copy_from_slice(&70_000u32.to_le_bytes());
+        assert!(matches!(
+            dds_to_ftex(&dds, ColorSpace::Srgb),
+            Err(FtexError::HeaderFieldOverflow {
+                what: "width",
+                value: 70_000
+            })
+        ));
+        // The same field through `read_layout`: the row-pitch multiplication
+        // is checked on the uncompressed-mask path.
+        let mut dx10 = RGBA32_DDS.to_vec();
+        dx10[16..20].copy_from_slice(&u32::MAX.to_le_bytes());
+        assert!(matches!(
+            dds::read_layout(&dx10),
+            Err(FtexError::HeaderFieldOverflow {
+                what: "dds row pitch",
+                ..
+            })
+        ));
     }
 }

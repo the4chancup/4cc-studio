@@ -213,7 +213,6 @@ pub fn read_tactics_into(
     record: &[u8],
     schema: &TacticsSchema,
 ) -> Result<(), CodecError> {
-    use TacticsField;
     if record.len() != schema.size {
         return Err(CodecError::RecordSize {
             expected: schema.size,

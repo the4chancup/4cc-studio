@@ -59,12 +59,14 @@ pub(crate) fn convert(decoded: &Decoded, target: Target) -> Result<Vec<u8>, Conv
 
     let mut blocks = Vec::with_capacity(emit.len());
     for mip in &emit {
-        let rgba = if normal_layout {
-            normal_swizzle(mip, target.version.engine())
+        let swizzled;
+        let rgba: &[u8] = if normal_layout {
+            swizzled = normal_swizzle(mip, target.version.engine());
+            &swizzled
         } else {
-            mip.pixels.clone()
+            &mip.pixels
         };
-        blocks.push(encode_mip(variant, mip.width, mip.height, &rgba));
+        blocks.push(encode_mip(variant, mip.width, mip.height, rgba));
     }
     container(
         target.version,

@@ -72,6 +72,14 @@ pub enum ContainerError {
         /// The identifier's actual byte count.
         got: usize,
     },
+    /// A section grew past the header's u32 size field.
+    #[error("section {section} is {size} bytes, past the header's u32 field")]
+    SectionTooLarge {
+        /// The section index in header order.
+        section: u8,
+        /// The size that did not fit.
+        size: usize,
+    },
 }
 
 impl SaveContainer {
