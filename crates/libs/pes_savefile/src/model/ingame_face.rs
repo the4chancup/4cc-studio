@@ -86,6 +86,17 @@ impl IngameFace {
         out
     }
 
+    /// Copies `source`'s bytes over this run's prefix (`min` of the two
+    /// lengths) and returns how many source bytes did not fit: 0 unless the
+    /// target run is shorter (a 50-byte source onto PES 15's 46 returns 4).
+    /// Conversion uses it so a shorter target keeps its own tail and a longer
+    /// source's tail is reported, never invented.
+    pub fn copy_from(&mut self, source: &IngameFace) -> usize {
+        let n = self.0.len().min(source.0.len());
+        self.0[..n].copy_from_slice(&source.0[..n]);
+        source.0.len() - n
+    }
+
     /// A run around `bytes`, as copied out of a record.
     pub(crate) fn from_bytes(bytes: Vec<u8>) -> Self {
         Self(bytes)

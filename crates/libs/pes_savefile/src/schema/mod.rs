@@ -87,6 +87,18 @@ pub struct RecordSchema<F: 'static, T: 'static> {
     pub ingame_face: Option<ByteRun>,
 }
 
+impl<F: PartialEq + Copy, T> RecordSchema<F, T> {
+    /// Whether the schema stores `field`: a `fields` row names it or an
+    /// `arrays` element's `make(i)` produces it.
+    pub fn has(&self, field: F) -> bool {
+        self.fields.iter().any(|spec| spec.field == field)
+            || self
+                .arrays
+                .iter()
+                .any(|array| (0..array.count).any(|i| (array.make)(i) == field))
+    }
+}
+
 /// A per-preset setting: one byte at `bit_offset + preset * preset_stride_bits`.
 pub struct PresetSpec {
     /// The tactic setting the byte holds.
