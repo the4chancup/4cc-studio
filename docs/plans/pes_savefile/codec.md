@@ -43,12 +43,18 @@ pub struct TextSpec<T> {
     pub len: u32,
 }
 
+/// A byte run carried verbatim.
+pub struct ByteRun { pub byte_offset: u32, pub len: u32 }
+
 /// One record kind's layout for one version (player, appearance, team, roster).
 pub struct RecordSchema<F, T> {
     pub size: usize,
     pub fields: &'static [FieldSpec<F>],
     pub arrays: &'static [ArraySpec<F>],
     pub texts: &'static [TextSpec<T>],
+    /// The opaque ingame-face run (`model.md` "Player settings model"): `Some` on the record
+    /// that carries the appearance block (the 15/16 appearance record, the 17+ player record).
+    pub ingame_face: Option<ByteRun>,
 }
 
 /// A per-preset setting: one byte at `bit_offset + preset * preset_stride_bits`.

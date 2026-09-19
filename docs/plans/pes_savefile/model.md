@@ -128,25 +128,153 @@ folder-name derivation (Team compiler, Export upgrader) and search use the
 stripped form. Any other control character in a name is not a known code and is
 left alone.
 
-`PlayerSettings` covers **every field of the savefile's player appearance record** — physique,
-strip style (taping, spectacles and their colour, sleeves, inners, socks, undershorts, shirttail,
-gloves, winter gloves), wrist-tape colours, skin and iris colour, the motion block (hunching, arm
-movement, kick motions, gc1/gc2, dribbling motion on 20+; visual choices a team makes, so
-aesthetics), and the ingame-face parameter block (facial feature types, colours — the data
-Midcupping fingerprints) — with exactly two exclusions, both **compiler-owned**: the boots/gloves
-model IDs (derived from the models and links present) and the edit flags (derived from what was
-written — face/hair/physique/strip bits, base-copy ID). Export `settings.toml` neither accepts the
-excluded keys nor emits them when generated from a save. Completeness is a tested invariant, not a
-convention: the per-version schema tables mark each appearance field as `settings` or
-`compiler_owned`, and a test asserts that every appearance field carries one of the two marks and
-that the `settings` set equals `PlayerSettings`' fields for that version — a field added to a schema
-cannot be silently left out of the authorable set. The generated template (the Export upgrader's
-and the save editor's `settings.toml` output, and the blank template for a new player folder)
-lists **every** `PlayerSettings` key: set ones with their value, unset ones as commented lines
-carrying the key's range in the injected comment, so the file itself shows what can be authored
-and "absent = untouched" stays true for the unset ones. This matters because the patch workflow
-below makes `settings.toml` the *only* route by which a team's aesthetics reach the official save:
-a field the file cannot express is a field nobody can set.
+`PlayerSettings` covers **every decoded field of the savefile's player appearance record** —
+physique, strip style (taping, spectacles and their colour, sleeves, inners, socks, undershorts,
+shirttail, player gloves and their colour), wrist-tape colours, skin and iris colour, the motion
+block (hunching, arm movement, kick motions, gc1/gc2, dribbling motion on 20+; visual choices a
+team makes, so aesthetics), and the eleven ingame-face feature types — with exactly two exclusions,
+both **compiler-owned**: the boots/gloves model IDs (derived from the models and links present)
+and the edit flags plus base-copy ID (derived from what was written). Export `settings.toml`
+neither accepts the excluded keys nor emits them when generated from a save.
+
+**The ingame-face run.** From its 22nd byte to its end, the appearance block (72 bytes on PES 16 to
+21, 68 on PES 15; a separate record on 15/16, inside the player record from 17) is a run no legacy
+tool decodes as a whole: the reference editor reads only the player-gloves bits, skin and iris out
+of it, the two converters name eleven feature types by bit position and cap them, and the
+transplant and fingerprint scripts copy and hash it as bytes. Reverse-engineering the rest means a
+running game per version with a save diff per slider, so the crate models the run as **opaque
+bytes with typed accessors**: `PlayerAppearance.ingame_face: IngameFace`, a `Vec<u8>` of the run
+(50 or 46 bytes; the schema says which) carried verbatim, and one field table for the bits inside
+it that are known, identical on every version because the block's internal layout is (measured
+in `container.md`):
+
+```rust
+/// A known bit run inside the ingame-face run; the fifteen the legacy tools read or write.
+/// Offsets are relative to the run's first byte (byte 22 of the appearance block).
+pub enum IngameFaceField {
+    PlayerGloves,       // byte 0 bit 0, 1 bit
+    PlayerGlovesColor,  // byte 0 bit 1, 3 bits
+    SkinColor,          // byte 23 bit 0, 3 bits
+    CheekType,          // byte 23 bit 3, 5 bits
+    ForeheadType,       // byte 24 bit 0, 3 bits
+    FacialHairType,     // byte 24 bit 3, 5 bits
+    LaughterLinesType,  // byte 25 bit 0, 3 bits
+    UpperEyelidType,    // byte 25 bit 3, 3 bits
+    LowerEyelidType,    // byte 26 bit 0, 3 bits
+    EyebrowType,        // byte 28 bit 0, 3 bits
+    NeckLineType,       // byte 28 bit 5, 2 bits
+    NoseType,           // byte 30 bit 0, 3 bits
+    UpperLipType,       // byte 31 bit 0, 3 bits
+    LowerLipType,       // byte 31 bit 3, 3 bits
+    IrisColor,          // byte 42 bit 0, 4 bits
+}
+
+/// `schema/ingame_face.rs`: the table above as `FieldSpec<IngameFaceField>` rows (the one
+/// place these offsets appear), plus the run's place in each version's record.
+pub const INGAME_FACE_FIELDS: &[FieldSpec<IngameFaceField>];
+
+/// Where the run sits in a record that carries it.
+pub struct ByteRun { pub byte_offset: u32, pub len: u32 }
+// `RecordSchema` gains `pub ingame_face: Option<ByteRun>`: `Some` on the PES 15/16 appearance
+// record and the PES 17+ player record, `None` on every other record (15/16 player, team, roster).
+
+/// `model/ingame_face.rs`
+pub struct IngameFace(Vec<u8>);
+impl IngameFace {
+    pub fn get(&self, field: IngameFaceField) -> u8;
+    /// `CodecError::ValueTooWide` when the value does not fit the field's bits.
+    pub fn set(&mut self, field: IngameFaceField, value: u8) -> Result<(), CodecError>;
+    pub fn bytes(&self) -> &[u8];
+    /// The run with the player-gloves and skin bits zeroed: what the fingerprint hashes
+    /// (the reference masks the same two, because they overlap fields it lists separately).
+    pub fn normalized(&self) -> Vec<u8>;
+}
+```
+
+The four fields the tables used to list as bit runs (`SkinColor`, `IrisColor`, `PlayerGloves`,
+`PlayerGlovesColor`) leave the per-version tables and the `PlayerField` enum: they are reached
+through `IngameFace::get`/`set`, so no byte has two owners and the schema overlap test keeps it
+that way. `read_player_into` copies the run out of the record; `write_player` copies it back and
+rejects a run of the wrong length (`CodecError::RunSize`). The generator emits the `ingame_face`
+entry and omits the four fields; the round-trip tests over every real payload are unchanged and
+still prove byte identity. Cross-version conversion (`convert.rs`) is where the 46-byte PES 15
+run meets the 50-byte one; that step decides the padding rule.
+
+What this gives up is written down rather than papered over: the plan's earlier "every field"
+becomes "every decoded field", the undecoded bits (hair, slider positions, any colour beyond skin
+and iris) are carried but not authorable, and the *evidence* for the eleven types is the two
+converters' agreement on positions and caps, not a game session. Decoding more of the run later
+is one row in `INGAME_FACE_FIELDS` plus one `settings.toml` key; nothing else moves.
+
+**Completeness is a tested invariant, not a convention.** `settings_toml.rs` classifies every
+`PlayerField` and every `IngameFaceField` exhaustively (an `Ownership::{Settings, CompilerOwned,
+Gameplay}` match with no wildcard arm, so a new field fails to compile until classified), and one
+test asserts that the `Settings` set equals the set of fields the `SettingKey` table reaches —
+a field added to a schema cannot be silently left out of the authorable set. The generated
+template (the Export upgrader's and the save editor's `settings.toml` output, and the blank
+template for a new player folder) lists **every** `SettingKey`, one per line, each followed by the
+comment carrying its range: set ones with their value, unset ones as commented lines, so the file
+itself shows what can be authored and "absent = untouched" stays true for the unset ones. The key
+table, its order, its comments and its ranges are the block in the
+[Aesthetics export plan](../aesthetics_export/settings_toml.md) ("Player settings in exports"),
+which the code reproduces literally. This matters because the patch workflow below makes
+`settings.toml` the *only* route by which a team's aesthetics reach the official save: a field the
+file cannot express is a field nobody can set.
+
+```rust
+/// `settings_toml.rs`
+pub enum NameSetting { FromFolder, Explicit(String) }
+
+/// One TOML key of the table; the enum is the table's row set and the `spec` function its
+/// columns (table path, key name, kind, widest range, range comment). Physique keys convert
+/// between the game number and the stored value (+7); 1-based motion keys between the game
+/// number and the stored value (-1); string-enum keys between the listed labels and the stored
+/// index.
+pub enum SettingKey { SkinColor, IrisColor, Height, /* … every key of the block, in its order */ LowerLipType }
+
+/// Every leaf is `Option`; `None` = leave the savefile value alone. The struct mirrors the
+/// TOML tables (`appearance`, `appearance.physique`, `.strip`, `.motion`, `.face`) with the
+/// model's storage types (`u8`/`bool`), not the TOML surface types: the string labels and the
+/// signed physique numbers exist only at the parse/emit boundary.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct PlayerSettings { pub name: Option<NameSetting>, pub appearance: AppearanceSettings }
+
+impl PlayerSettings {
+    /// Parses a file: unknown keys and tables, wrong types, out-of-range values and unknown
+    /// labels are `SettingsError`s naming the key; the compiler-owned keys are unknown keys.
+    pub fn parse(text: &str) -> Result<Self, SettingsError>;
+    /// Every key `Some` from the player; `name` is `Explicit(raw name)`, colour codes included.
+    pub fn from_player(player: &PlayerEntry) -> Self;
+    /// Writes the `Some` fields onto the player. `NameSetting::FromFolder` is not applied: the
+    /// caller (the Team compiler) resolves it to `Explicit` first, since the folder rules are
+    /// its. A `Some` on a field this player's version lacks (`dribbling` before PES 20) is
+    /// `SettingsError::NotInThisVersion`.
+    pub fn apply(&self, player: &mut PlayerEntry) -> Result<(), SettingsError>;
+    /// The complete template: every key in table order, set ones as values, unset ones
+    /// commented, each with its range comment.
+    pub fn to_toml(&self) -> String;
+    /// Edits an existing document in place (`toml_edit`, comments preserved), setting the
+    /// `Some` keys and leaving everything else as the user wrote it.
+    pub fn update_toml(&self, document: &mut toml_edit::DocumentMut);
+}
+```
+
+`ops/fpc.rs` maps the `libs/fpc` presets onto a player and derives the interference inputs:
+
+```rust
+/// Writes one preset's appearance (sleeves, tuck, socks, boots/gloves IDs, skin). The caller
+/// substitutes a custom model's own boots/gloves IDs into `appearance` first (the compiler's
+/// precedence table). `SkinColor::Custom` writes skin 7 on versions that have a custom skin
+/// (`fpc::custom_skin_available`) and is `FpcError::CustomSkinUnavailable` elsewhere;
+/// `SkinColor::Preset` resets a skin of 7 to 1 (light) and leaves any other skin alone.
+pub fn apply(player: &mut PlayerEntry, appearance: &fpc::Appearance, version: PesVersion)
+    -> Result<(), FpcError>;
+/// The player's strip settings as the interference inputs.
+pub fn strip_style(player: &PlayerEntry) -> fpc::StripStyle;
+/// On a hide or partial-hide preset by the 4cc convention: the nonexistent boots ID, or a
+/// custom skin.
+pub fn is_fpc_player(player: &PlayerEntry) -> bool;
+```
 
 The authorable settings subset shares one schema between export `settings.toml` and Team TOML.
 Full-fidelity Team TOML additionally preserves the save's boots/gloves IDs as player-record data
