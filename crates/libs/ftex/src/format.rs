@@ -177,7 +177,8 @@ pub fn mip_size(format: PixelFormat, width: u32, height: u32, depth: u32, level:
     let d = (depth >> level).max(1);
     let blocks_w = w.div_ceil(block_pixels);
     let blocks_h = h.div_ceil(block_pixels);
-    (blocks_w * blocks_h * d * block_bytes) as usize
+    // u64: the u32 product wraps for a 64k x 64k x deep-enough volume.
+    (u64::from(blocks_w) * u64::from(blocks_h) * u64::from(d) * u64::from(block_bytes)) as usize
 }
 
 /// The 64-byte FTEX header (little-endian).

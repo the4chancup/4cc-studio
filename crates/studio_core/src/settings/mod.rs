@@ -84,8 +84,16 @@ impl Settings {
         let sequence = SAVE_COUNTER.fetch_add(1, Ordering::Relaxed);
         tmp_name.push(format!(".{}-{sequence}.tmp", std::process::id()));
         let tmp = path.with_file_name(tmp_name);
-        fs::write(&tmp, text)?;
-        fs::rename(&tmp, path)
+        let write_and_swap = || -> io::Result<()> {
+            fs::write(&tmp, text)?;
+            fs::rename(&tmp, path)
+        };
+        if let Err(error) = write_and_swap() {
+            // Best effort: the original error is the one to report.
+            drop(fs::remove_file(&tmp));
+            return Err(error);
+        }
+        Ok(())
     }
 
     /// The file text: `[common]` first, then one table per tool in id order.
@@ -202,6 +210,26 @@ mod tests {
         });
         let loaded = Settings::load(&path).unwrap();
         assert!((1..=8).contains(&loaded.common.thread_count));
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_failed_save_leaves_no_tmp_sibling() {
+        let dir = std::env::temp_dir().join("studio_core_settings_save_fail");
+        drop(fs::remove_dir_all(&dir));
+        fs::create_dir_all(&dir).unwrap();
+        // `path` is a directory: the rename over it fails after the .tmp was written.
+        let path = dir.join("settings.toml");
+        fs::create_dir(&path).unwrap();
+
+        assert!(Settings::default().save(&path).is_err());
+        let leftovers: Vec<_> = fs::read_dir(&dir)
+            .unwrap()
+            .filter_map(|entry| entry.ok())
+            .filter(|entry| entry.file_name().to_string_lossy().ends_with(".tmp"))
+            .collect();
+        assert!(leftovers.is_empty(), "no .tmp sibling left behind");
+
         fs::remove_dir_all(&dir).unwrap();
     }
 

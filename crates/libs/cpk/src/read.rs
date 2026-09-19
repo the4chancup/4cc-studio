@@ -129,7 +129,10 @@ impl<R: Read + Seek> CpkArchive<R> {
             let offset = cell_u64(&toc, row, "FileOffset")? + base;
             let modified = match toc.get(row, "ID") {
                 Some(UtfValue::U32(id)) => etoc_timestamp(etoc.as_ref(), *id as usize),
-                Some(UtfValue::U64(id)) => etoc_timestamp(etoc.as_ref(), *id as usize),
+                Some(UtfValue::U64(id)) => {
+                    // An ETOC row index; one past the index range matches nothing.
+                    etoc_timestamp(etoc.as_ref(), usize::try_from(*id).unwrap_or(usize::MAX))
+                }
                 _ => None,
             };
             entries.push(CpkEntry {
@@ -214,9 +217,10 @@ fn read_table<R: Read + Seek>(
     {
         return Err(CpkError::Truncated);
     }
-    let mut table_bytes = Vec::with_capacity(16 + length as usize);
+    let length = usize::try_from(length).map_err(|_| CpkError::Truncated)?;
+    let mut table_bytes = Vec::with_capacity(16 + length);
     table_bytes.extend_from_slice(&outer);
-    let mut content = vec![0u8; length as usize];
+    let mut content = vec![0u8; length];
     reader.read_exact(&mut content).map_err(|e| {
         if e.kind() == std::io::ErrorKind::UnexpectedEof {
             CpkError::Truncated

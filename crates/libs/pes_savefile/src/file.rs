@@ -323,11 +323,20 @@ impl EditFile {
         };
         let tmp = sibling(".tmp");
         let bak = sibling(".bak");
-        std::fs::write(&tmp, bytes)?;
-        if path.exists() {
-            std::fs::copy(path, &bak)?;
+        let write_and_swap = || -> std::io::Result<()> {
+            std::fs::write(&tmp, bytes)?;
+            if path.exists() {
+                // The `.bak` holds the previous version and is overwritten on every
+                // save on purpose: one level of backup.
+                std::fs::copy(path, &bak)?;
+            }
+            std::fs::rename(&tmp, path)
+        };
+        if let Err(error) = write_and_swap() {
+            // Best effort: the original error is the one to report.
+            drop(std::fs::remove_file(&tmp));
+            return Err(error.into());
         }
-        std::fs::rename(&tmp, path)?;
         Ok(())
     }
 }
@@ -619,6 +628,26 @@ mod tests {
         // A save whose folder does not exist is an io::Error.
         let missing = dir.join("nope").join("EDIT.bin");
         assert!(matches!(file.save(&missing), Err(SaveError::Io(_))));
+
+        std::fs::remove_dir_all(&dir).expect("cleanup");
+    }
+
+    #[test]
+    fn a_failed_save_leaves_no_tmp_sibling() {
+        let (file, _bytes) = open(PesVersion::Pes15);
+        let dir = temp_dir("save_fail");
+        std::fs::create_dir_all(&dir).expect("temp dir");
+        // `path` is a directory: the copy to `.bak` fails after `.tmp` was written.
+        let path = dir.join("EDIT.bin");
+        std::fs::create_dir(&path).expect("directory in the way");
+
+        assert!(matches!(file.save(&path), Err(SaveError::Io(_))));
+        let mut tmp = path.as_os_str().to_owned();
+        tmp.push(".tmp");
+        assert!(
+            !std::path::Path::new(&tmp).exists(),
+            "the .tmp sibling was cleaned up"
+        );
 
         std::fs::remove_dir_all(&dir).expect("cleanup");
     }

@@ -23,11 +23,17 @@ pub fn decompress(bytes: &[u8]) -> Result<Vec<u8>, CpkError> {
     }
     let payload_size = u32::from_le_bytes(bytes[8..12].try_into().unwrap_or([0; 4])) as usize;
     let prefix_offset = u32::from_le_bytes(bytes[12..16].try_into().unwrap_or([0; 4])) as usize;
-    if 0x10 + prefix_offset + PREFIX_LEN > bytes.len() {
+    let prefix_start = 0x10usize
+        .checked_add(prefix_offset)
+        .ok_or(CpkError::Crilayla("buffer too short"))?;
+    let prefix_end = prefix_start
+        .checked_add(PREFIX_LEN)
+        .ok_or(CpkError::Crilayla("buffer too short"))?;
+    if prefix_end > bytes.len() {
         return Err(CpkError::Crilayla("buffer too short"));
     }
-    let prefix = &bytes[0x10 + prefix_offset..0x10 + prefix_offset + PREFIX_LEN];
-    let mut stream = ReverseBits::new(&bytes[0x10..0x10 + prefix_offset]);
+    let prefix = &bytes[prefix_start..prefix_end];
+    let mut stream = ReverseBits::new(&bytes[0x10..prefix_start]);
 
     let mut payload = vec![0u8; payload_size];
     let mut written = 0usize;

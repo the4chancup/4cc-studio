@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """PES Fox skeleton file (.skl) format — reference parser.
 
-Written as a style example for the 4cc Studio rewrite. The format was
-reverse-engineered from the template body.skl; the pes-fmdl Blender addon's
-PesSkeletonData.py hardcoded its bone positions and parent hierarchy from
-these files once but never parsed them at runtime.
+Written as a style example for the 4cc Studio rewrite. It reads an .skl file's
+header and bone records, resolves each bone's name from the string table,
+prints the first fifteen bones with their parents and translations, and
+re-serializes the file to prove the round trip is byte-identical.
 
 Format layout (all little-endian):
 
@@ -23,9 +23,7 @@ Bone record (56 bytes):
     8       48    3x4 row-major transform [rotation_3x3 | translation_3x1]
 
 Each transform row is [rot_x, rot_y, rot_z, translation], giving a 3x3 bind-pose
-rotation matrix plus a 3D position per bone. The translation values match
-PesSkeletonData._positions exactly; the parent indices match
-PesSkeletonData.bones[*].sklParent.
+rotation matrix plus a 3D position per bone.
 """
 
 import struct

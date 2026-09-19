@@ -1,12 +1,12 @@
 //! The PES EDIT savefile (`EDIT00000000`, `EDIT.bin` on PES 15): the per-version container
-//! crypto, the schema-driven player/team/tactics codec over the decrypted payload, and the
-//! operations consumers run on the model (settings merge, cross-version conversion,
-//! transplant, fingerprint, interchange formats).
+//! crypto for PES 15-21, the schema-driven player/team/tactics codec over the decrypted
+//! payload, `EditFile` (the loaded file that rewrites itself byte-exact), and savefile
+//! discovery.
 //!
 //! Layers, bytes upward: `container` (bytes <-> decrypted sections, knows nothing about
-//! players), `schema` + `codec` (sections <-> fields, knows nothing about encryption), `model`
-//! (what consumers edit, no I/O and no version), then the operations. `file.rs` is the only
-//! module that composes container and codec.
+//! players), `schema` + `codec` (sections <-> fields, knows nothing about encryption),
+//! `model` (what consumers edit, no I/O and no version), `discovery` (where the file lives),
+//! and `file` (`EditFile`, the only module that composes container and codec).
 
 /// Records ↔ fields: the one generic bit codec over a `&VersionSchema`.
 pub mod codec;

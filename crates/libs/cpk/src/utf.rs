@@ -215,7 +215,10 @@ impl UtfTable {
                 found: String::from_utf8_lossy(&outer[..4]).into_owned(),
             });
         }
-        let length = u64::from_le_bytes(outer[8..16].try_into().unwrap_or([0; 8])) as usize;
+        let length = usize::try_from(u64::from_le_bytes(
+            outer[8..16].try_into().unwrap_or([0; 8]),
+        ))
+        .map_err(|_| CpkError::Truncated)?;
         let end = 16usize.checked_add(length).ok_or(CpkError::Truncated)?;
         let content = bytes.get(16..end).ok_or(CpkError::Truncated)?;
         let mut decrypted;
@@ -526,7 +529,7 @@ mod tests {
     #[test]
     fn plaintext_utf_content_reads_without_decryption() {
         let mut bytes = sample_table().write(b"TEST");
-        let length = u64::from_le_bytes(bytes[8..16].try_into().unwrap()) as usize;
+        let length = usize::try_from(u64::from_le_bytes(bytes[8..16].try_into().unwrap())).unwrap();
         crypt(&mut bytes[16..16 + length]);
         assert!(bytes[16..20] == *b"@UTF");
         let table = UtfTable::read(&bytes, b"TEST").unwrap();
@@ -536,7 +539,7 @@ mod tests {
     #[test]
     fn unknown_type_nibble_is_an_error() {
         let mut bytes = sample_table().write(b"TEST");
-        let length = u64::from_le_bytes(bytes[8..16].try_into().unwrap()) as usize;
+        let length = usize::try_from(u64::from_le_bytes(bytes[8..16].try_into().unwrap())).unwrap();
         crypt(&mut bytes[16..16 + length]);
         // First column's flags byte sits at plaintext offset 32.
         bytes[16 + 32] = 0x50 | 1;
@@ -552,6 +555,16 @@ mod tests {
         assert!(matches!(
             UtfTable::read(&bytes, b"TOCx"),
             Err(CpkError::UnexpectedTag { .. })
+        ));
+    }
+
+    #[test]
+    fn a_length_past_usize_is_truncated() {
+        let mut bytes = sample_table().write(b"TEST");
+        bytes[8..16].copy_from_slice(&u64::MAX.to_le_bytes());
+        assert!(matches!(
+            UtfTable::read(&bytes, b"TEST"),
+            Err(CpkError::Truncated)
         ));
     }
 }

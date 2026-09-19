@@ -1,5 +1,4 @@
 {
     "cmake.ignoreCMakeListsMissing": true,
-    "files.eol": "
-"
+    "files.eol": "\n"
 }

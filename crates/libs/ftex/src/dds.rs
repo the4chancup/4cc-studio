@@ -177,9 +177,21 @@ pub fn read_layout(dds: &[u8]) -> Result<DdsLayout, FtexError> {
         1
     };
     // Bytes one tightly packed row takes, for the layouts that have rows.
+    let row_overflow = || FtexError::HeaderFieldOverflow {
+        what: "dds row pitch",
+        value: header.width as usize,
+    };
     let tight_row = match pixel {
-        DdsPixel::Uncompressed { bit_count, .. } => Some(header.width * bit_count / 8),
-        DdsPixel::Format(PixelFormat::Argb8) => Some(header.width * 4),
+        DdsPixel::Uncompressed { bit_count, .. } => Some(
+            header
+                .width
+                .checked_mul(bit_count)
+                .ok_or_else(row_overflow)?
+                / 8,
+        ),
+        DdsPixel::Format(PixelFormat::Argb8) => {
+            Some(header.width.checked_mul(4).ok_or_else(row_overflow)?)
+        }
         DdsPixel::Format(PixelFormat::R8) => Some(header.width),
         DdsPixel::Format(_) => None,
     };
