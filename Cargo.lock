@@ -962,6 +962,7 @@ version = "0.1.0"
 dependencies = [
  "directories",
  "flate2",
+ "fpc",
  "md-5",
  "pes_version",
  "sha2",

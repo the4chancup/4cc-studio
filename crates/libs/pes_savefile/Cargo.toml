@@ -8,6 +8,7 @@ repository.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+fpc.workspace = true
 md-5.workspace = true
 pes_version.workspace = true
 sha2.workspace = true

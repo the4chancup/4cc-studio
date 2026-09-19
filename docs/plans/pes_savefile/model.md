@@ -246,7 +246,9 @@ impl PlayerSettings {
     /// labels are `SettingsError`s naming the key; the compiler-owned keys are unknown keys.
     pub fn parse(text: &str) -> Result<Self, SettingsError>;
     /// Every key `Some` from the player; `name` is `Explicit(raw name)`, colour codes included.
-    pub fn from_player(player: &PlayerEntry) -> Self;
+    /// A stored value the key table cannot express (a 2-bit sleeves field holding 3, which the
+    /// reference scripts label "broken") is `OutOfRange` naming the key, not a panic later.
+    pub fn from_player(player: &PlayerEntry) -> Result<Self, SettingsError>;
     /// Writes the `Some` fields onto the player. `NameSetting::FromFolder` is not applied: the
     /// caller (the Team compiler) resolves it to `Explicit` first, since the folder rules are
     /// its. A `Some` on a field this player's version lacks (`dribbling` before PES 20) is
@@ -256,8 +258,9 @@ impl PlayerSettings {
     /// commented, each with its range comment.
     pub fn to_toml(&self) -> String;
     /// Edits an existing document in place (`toml_edit`, comments preserved), setting the
-    /// `Some` keys and leaving everything else as the user wrote it.
-    pub fn update_toml(&self, document: &mut toml_edit::DocumentMut);
+    /// `Some` keys and leaving everything else as the user wrote it. `WrongType` when a
+    /// table position holds a non-table (never a panic on a user's file).
+    pub fn update_toml(&self, document: &mut toml_edit::DocumentMut) -> Result<(), SettingsError>;
 }
 ```
 
