@@ -25,12 +25,13 @@ pub enum FpcError {
 }
 
 /// Writes one preset's appearance (sleeves, tuck, socks, boots/gloves IDs,
-/// skin). The caller substitutes a custom model's own boots/gloves IDs into
-/// `appearance` first (the compiler's precedence table). `SkinColor::Custom`
-/// writes skin 7 on versions that have a custom skin
-/// (`fpc::custom_skin_available`) and is `FpcError::CustomSkinUnavailable`
-/// elsewhere, before any field is written; `SkinColor::Preset` resets a skin
-/// of 7 to 1 (light) and leaves any other skin alone.
+/// skin), all or nothing: every check (custom skin available, the face run
+/// present) runs before the first write. The caller substitutes a custom
+/// model's own boots/gloves IDs into `appearance` first (the compiler's
+/// precedence table). `SkinColor::Custom` writes skin 7 on versions that have
+/// a custom skin (`fpc::custom_skin_available`) and is
+/// `FpcError::CustomSkinUnavailable` elsewhere; `SkinColor::Preset` resets a
+/// skin of 7 to 1 (light) and leaves any other skin alone.
 pub fn apply(
     player: &mut PlayerEntry,
     appearance: &fpc::Appearance,
@@ -39,6 +40,10 @@ pub fn apply(
     if appearance.skin_color == fpc::SkinColor::Custom && !fpc::custom_skin_available(version) {
         return Err(FpcError::CustomSkinUnavailable { version });
     }
+    player
+        .appearance
+        .ingame_face
+        .get(IngameFaceField::SkinColor)?;
     player.appearance.sleeves = match appearance.sleeves {
         fpc::Sleeves::Short => 1,
         fpc::Sleeves::Long => 2,
@@ -99,9 +104,13 @@ pub fn strip_style(player: &PlayerEntry) -> Result<fpc::StripStyle, FpcError> {
     })
 }
 
-/// On a hide or partial-hide preset by the 4cc convention: the nonexistent
-/// boots ID, or a custom skin. Reads the skin through the ingame-face run,
-/// hence `Result`.
+/// What the save shows, not what the team intends: the nonexistent boots ID
+/// of the 4cc convention, or a custom skin. A hide preset applied with a
+/// substituted (real) boots ID is indistinguishable from a dressed player by
+/// construction, so this is the save editor's read-only classifier; the
+/// compiler, which knows the folder's marker, passes its own `is_fpc_player`
+/// to `fpc::check`. Reads the skin through the ingame-face run, hence
+/// `Result`.
 pub fn is_fpc_player(player: &PlayerEntry) -> Result<bool, FpcError> {
     Ok(
         player.appearance.boots_id == u32::from(fpc::NONEXISTENT_BOOTS_ID)
@@ -276,6 +285,20 @@ mod tests {
         assert!(style.undershorts_worn);
         assert!(style.wrist_taping);
         assert_eq!(style.skin_color, fpc::SkinColor::Custom);
+    }
+
+    #[test]
+    fn apply_on_an_entry_never_read_is_an_error_and_changes_nothing() {
+        let mut player = PlayerEntry::default();
+        match apply(
+            &mut player,
+            &fpc::preset(fpc::Preset::Hide),
+            PesVersion::Pes19,
+        ) {
+            Err(FpcError::Codec(CodecError::NoIngameFaceRun { .. })) => {}
+            other => panic!("expected Codec(NoIngameFaceRun), got {other:?}"),
+        }
+        assert_eq!(player, PlayerEntry::default());
     }
 
     #[test]

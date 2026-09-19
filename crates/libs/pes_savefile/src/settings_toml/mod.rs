@@ -296,10 +296,18 @@ impl PlayerSettings {
         }
     }
 
-    /// Sets the stored value behind a key. The caller has checked it against
-    /// `Kind::accepts_stored` (parse does; `from_player` does), so the value
-    /// is always one `to_toml`/`update_toml` can represent.
-    pub fn set(&mut self, key: SettingKey, value: u8) {
+    /// Sets a stored value; `OutOfRange` when the key's kind cannot represent
+    /// it, so a `PlayerSettings` built through `set` is always one the
+    /// emitters can write.
+    pub fn set(&mut self, key: SettingKey, value: u8) -> Result<(), SettingsError> {
+        let spec = key.spec();
+        if !spec.kind.accepts_stored(value) {
+            return Err(SettingsError::OutOfRange {
+                key: dotted(&spec),
+                value: i64::from(value),
+                range: range_text(spec.kind),
+            });
+        }
         let a = &mut self.appearance;
         match key {
             SettingKey::SkinColor => a.skin_color = Some(value),
@@ -355,6 +363,7 @@ impl PlayerSettings {
             SettingKey::UpperLipType => a.face.upper_lip_type = Some(value),
             SettingKey::LowerLipType => a.face.lower_lip_type = Some(value),
         }
+        Ok(())
     }
 
     /// Every key `Some` from the player; `name` is `Explicit` of the raw name,
@@ -426,6 +435,22 @@ impl PlayerSettings {
                 SettingKey::LowerLipType => Some(face.get(IngameFaceField::LowerLipType)?),
             };
             if let Some(value) = value {
+                settings.set(key, value)?;
+            }
+        }
+        Ok(settings)
+    }
+
+    /// Writes the `Some` fields onto the player, all or nothing: on `Err` the
+    /// player is unchanged. `NameSetting::FromFolder` is not applied: the
+    /// caller (the Team compiler) resolves it to `Explicit` first, since the
+    /// folder rules are its. A `Some` on a field this player's version lacks
+    /// (`dribbling` before PES 20) is `SettingsError::NotInThisVersion`; a
+    /// `Some` the key's kind cannot represent is `OutOfRange`, checked before
+    /// any write.
+    pub fn apply(&self, player: &mut PlayerEntry) -> Result<(), SettingsError> {
+        for key in SettingKey::ALL {
+            if let Some(value) = self.get(key) {
                 let spec = key.spec();
                 if !spec.kind.accepts_stored(value) {
                     return Err(SettingsError::OutOfRange {
@@ -434,73 +459,64 @@ impl PlayerSettings {
                         range: range_text(spec.kind),
                     });
                 }
-                settings.set(key, value);
             }
         }
-        Ok(settings)
-    }
-
-    /// Writes the `Some` fields onto the player. `NameSetting::FromFolder` is
-    /// not applied: the caller (the Team compiler) resolves it to `Explicit`
-    /// first, since the folder rules are its. A `Some` on a field this
-    /// player's version lacks (`dribbling` before PES 20) is
-    /// `SettingsError::NotInThisVersion`.
-    pub fn apply(&self, player: &mut PlayerEntry) -> Result<(), SettingsError> {
+        let mut next = player.clone();
         if let Some(NameSetting::Explicit(name)) = &self.name {
-            player.name = name.clone();
+            next.name = name.clone();
         }
-        let face = &mut player.appearance.ingame_face;
+        let face = &mut next.appearance.ingame_face;
         for key in SettingKey::ALL {
             let Some(value) = self.get(key) else { continue };
             match key {
                 SettingKey::SkinColor => face.set(IngameFaceField::SkinColor, value)?,
                 SettingKey::IrisColor => face.set(IngameFaceField::IrisColor, value)?,
-                SettingKey::Height => player.basic.height = value,
-                SettingKey::Weight => player.basic.weight = value,
-                SettingKey::NeckLength => player.appearance.neck_length = value,
-                SettingKey::NeckSize => player.appearance.neck_size = value,
-                SettingKey::ShoulderHeight => player.appearance.shoulder_height = value,
-                SettingKey::ShoulderWidth => player.appearance.shoulder_width = value,
-                SettingKey::Chest => player.appearance.chest = value,
-                SettingKey::Waist => player.appearance.waist = value,
-                SettingKey::ArmSize => player.appearance.arm_size = value,
-                SettingKey::ArmLength => player.appearance.arm_length = value,
-                SettingKey::Thigh => player.appearance.thigh = value,
-                SettingKey::Calf => player.appearance.calf = value,
-                SettingKey::LegLength => player.appearance.leg_length = value,
-                SettingKey::HeadLength => player.appearance.head_length = value,
-                SettingKey::HeadWidth => player.appearance.head_width = value,
-                SettingKey::HeadDepth => player.appearance.head_depth = value,
-                SettingKey::Sleeves => player.appearance.sleeves = value,
-                SettingKey::Inners => player.appearance.inners = value,
-                SettingKey::Socks => player.appearance.socks = value,
-                SettingKey::Undershorts => player.appearance.undershorts = value,
-                SettingKey::Untucked => player.appearance.untucked = value != 0,
-                SettingKey::AnkleTaping => player.appearance.ankle_taping = value != 0,
-                SettingKey::WristTaping => player.appearance.wrist_taping = value,
-                SettingKey::WristTapeColorLeft => player.appearance.wrist_tape_color_left = value,
-                SettingKey::WristTapeColorRight => player.appearance.wrist_tape_color_right = value,
-                SettingKey::Spectacles => player.appearance.spectacles_style = value,
-                SettingKey::SpectaclesColor => player.appearance.spectacles_color = value,
+                SettingKey::Height => next.basic.height = value,
+                SettingKey::Weight => next.basic.weight = value,
+                SettingKey::NeckLength => next.appearance.neck_length = value,
+                SettingKey::NeckSize => next.appearance.neck_size = value,
+                SettingKey::ShoulderHeight => next.appearance.shoulder_height = value,
+                SettingKey::ShoulderWidth => next.appearance.shoulder_width = value,
+                SettingKey::Chest => next.appearance.chest = value,
+                SettingKey::Waist => next.appearance.waist = value,
+                SettingKey::ArmSize => next.appearance.arm_size = value,
+                SettingKey::ArmLength => next.appearance.arm_length = value,
+                SettingKey::Thigh => next.appearance.thigh = value,
+                SettingKey::Calf => next.appearance.calf = value,
+                SettingKey::LegLength => next.appearance.leg_length = value,
+                SettingKey::HeadLength => next.appearance.head_length = value,
+                SettingKey::HeadWidth => next.appearance.head_width = value,
+                SettingKey::HeadDepth => next.appearance.head_depth = value,
+                SettingKey::Sleeves => next.appearance.sleeves = value,
+                SettingKey::Inners => next.appearance.inners = value,
+                SettingKey::Socks => next.appearance.socks = value,
+                SettingKey::Undershorts => next.appearance.undershorts = value,
+                SettingKey::Untucked => next.appearance.untucked = value != 0,
+                SettingKey::AnkleTaping => next.appearance.ankle_taping = value != 0,
+                SettingKey::WristTaping => next.appearance.wrist_taping = value,
+                SettingKey::WristTapeColorLeft => next.appearance.wrist_tape_color_left = value,
+                SettingKey::WristTapeColorRight => next.appearance.wrist_tape_color_right = value,
+                SettingKey::Spectacles => next.appearance.spectacles_style = value,
+                SettingKey::SpectaclesColor => next.appearance.spectacles_color = value,
                 SettingKey::Gloves => face.set(IngameFaceField::PlayerGloves, value)?,
                 SettingKey::GlovesColor => face.set(IngameFaceField::PlayerGlovesColor, value)?,
-                SettingKey::HunchingDribbling => player.motion.hunching_dribbling = value,
-                SettingKey::HunchingRunning => player.motion.hunching_running = value,
-                SettingKey::ArmMovementDribbling => player.motion.arm_movement_dribbling = value,
-                SettingKey::ArmMovementRunning => player.motion.arm_movement_running = value,
-                SettingKey::CornerKick => player.motion.corner_kick = value,
-                SettingKey::FreeKick => player.motion.free_kick = value,
-                SettingKey::PenaltyKick => player.motion.penalty_kick = value,
-                SettingKey::Dribbling => match player.motion.dribbling {
-                    Some(_) => player.motion.dribbling = Some(value),
+                SettingKey::HunchingDribbling => next.motion.hunching_dribbling = value,
+                SettingKey::HunchingRunning => next.motion.hunching_running = value,
+                SettingKey::ArmMovementDribbling => next.motion.arm_movement_dribbling = value,
+                SettingKey::ArmMovementRunning => next.motion.arm_movement_running = value,
+                SettingKey::CornerKick => next.motion.corner_kick = value,
+                SettingKey::FreeKick => next.motion.free_kick = value,
+                SettingKey::PenaltyKick => next.motion.penalty_kick = value,
+                SettingKey::Dribbling => match next.motion.dribbling {
+                    Some(_) => next.motion.dribbling = Some(value),
                     None => {
                         return Err(SettingsError::NotInThisVersion {
                             key: key.spec().name.to_string(),
                         });
                     }
                 },
-                SettingKey::GoalCelebration1 => player.motion.goal_celebration_1 = value,
-                SettingKey::GoalCelebration2 => player.motion.goal_celebration_2 = value,
+                SettingKey::GoalCelebration1 => next.motion.goal_celebration_1 = value,
+                SettingKey::GoalCelebration2 => next.motion.goal_celebration_2 = value,
                 SettingKey::CheekType => face.set(IngameFaceField::CheekType, value)?,
                 SettingKey::ForeheadType => face.set(IngameFaceField::ForeheadType, value)?,
                 SettingKey::FacialHairType => face.set(IngameFaceField::FacialHairType, value)?,
@@ -516,6 +532,7 @@ impl PlayerSettings {
                 SettingKey::LowerLipType => face.set(IngameFaceField::LowerLipType, value)?,
             }
         }
+        *player = next;
         Ok(())
     }
 }
@@ -682,15 +699,23 @@ fn dotted(spec: &keys::KeySpec) -> String {
 }
 
 /// A key's TOML value for a stored `u8` (label string, signed physique
-/// number, 1-based motion number, bool).
-fn toml_form(kind: Kind, stored: u8) -> Value {
-    match kind {
+/// number, 1-based motion number, bool); `OutOfRange` for a value written
+/// directly into a public field that the kind cannot represent.
+fn toml_form(spec: &keys::KeySpec, stored: u8) -> Result<Value, SettingsError> {
+    if !spec.kind.accepts_stored(stored) {
+        return Err(SettingsError::OutOfRange {
+            key: dotted(spec),
+            value: i64::from(stored),
+            range: range_text(spec.kind),
+        });
+    }
+    Ok(match spec.kind {
         Kind::Number { .. } => i64::from(stored).into(),
         Kind::Signed7 => (i64::from(stored) - 7).into(),
         Kind::OneBased { .. } => (i64::from(stored) + 1).into(),
         Kind::Bool => (stored != 0).into(),
         Kind::Labels(labels) => labels[usize::from(stored)].into(),
-    }
+    })
 }
 
 /// The range text a `Kind` reports (`"0 to 7"`, `"-7 to 7"`, `"1 to 10"`,
@@ -739,6 +764,12 @@ impl PlayerSettings {
         if let Some(item) = document.get("name") {
             settings.name = Some(match item.as_value() {
                 Some(Value::Boolean(b)) if *b.value() => NameSetting::FromFolder,
+                Some(Value::String(s)) if s.value().contains('\0') => {
+                    return Err(SettingsError::WrongType {
+                        key: "name".to_string(),
+                        expected: "a string without NUL",
+                    });
+                }
                 Some(Value::String(s)) => NameSetting::Explicit(s.value().clone()),
                 _ => {
                     return Err(SettingsError::WrongType {
@@ -753,7 +784,7 @@ impl PlayerSettings {
             let Some(item) = Self::lookup(&document, &spec)? else {
                 continue;
             };
-            settings.set(key, Self::value(&dotted(&spec), spec.kind, item)?);
+            settings.set(key, Self::value(&dotted(&spec), spec.kind, item)?)?;
         }
         Self::reject_unknown(&document)?;
         Ok(settings)
@@ -915,8 +946,9 @@ impl PlayerSettings {
 
     /// The template `settings.toml`: the plan block verbatim for a settings
     /// where every key is `Some`; an unset key is its line commented out with
-    /// the kind's neutral example value.
-    pub fn to_toml(&self) -> String {
+    /// the kind's neutral example value. `OutOfRange` for a value written
+    /// directly into a public field that the key's kind cannot represent.
+    pub fn to_toml(&self) -> Result<String, SettingsError> {
         let mut out = HEADER.to_string();
         match &self.name {
             Some(NameSetting::FromFolder) => out.push_str("name = true\n"),
@@ -933,7 +965,7 @@ impl PlayerSettings {
                 table = spec.table;
             }
             let body = match self.get(key) {
-                Some(stored) => format!("{} = {}", spec.name, toml_form(spec.kind, stored)),
+                Some(stored) => format!("{} = {}", spec.name, toml_form(&spec, stored)?),
                 None => format!("{} = {}", spec.name, neutral_text(spec.kind)),
             };
             let line = padded(&body, spec.comment);
@@ -943,7 +975,7 @@ impl PlayerSettings {
             }
             out.push('\n');
         }
-        out
+        Ok(out)
     }
 
     /// Rewrites the `Some` values of an existing document, preserving its
@@ -1011,7 +1043,7 @@ impl PlayerSettings {
                     }
                 }
             }
-            set(&mut item[spec.name], toml_form(spec.kind, stored));
+            set(&mut item[spec.name], toml_form(&spec, stored)?);
         }
         Ok(())
     }

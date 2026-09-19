@@ -1443,3 +1443,20 @@ run does not reach the field, which is the state of every entry never read from 
 Why: the first cut indexed the run and panicked on a fresh entry; a silent 0 would repeat the
 mistake `Missing` was introduced to avoid (2.17b). The plan block was changed first.
 Plan: `pes_savefile/model.md` "Player settings model" `IngameFace` block.
+
+## 2026-09-19 - pes_savefile - `is_fpc_player` classifies what the save shows; the compiler supplies its own
+Decision (lead, at the 2.17e checkpoint review): `ops::fpc::is_fpc_player` stays the 4cc
+convention's read-only test (nonexistent boots ID 55, or a custom skin) for the save editor;
+the Team compiler, which knows the folder's `fpc.on`/`fpc.off` marker, passes its own
+`is_fpc_player` to `fpc::check`. The reviewer's concern that a hide preset applied with a
+substituted real boots ID reads as "not FPC" is accepted as a fact and rejected as a bug: such
+a player is indistinguishable from a dressed one by construction, and no consumer that lacks
+the marker can do better. `PlayerSettings::apply` and `ops::fpc::apply` are all-or-nothing;
+`set`/`to_toml`/`update_toml` return `OutOfRange` for an unrepresentable stored value instead
+of panicking; a NUL in an explicit `name` is refused at parse.
+Why: a classifier that guessed intent from IDs would be wrong for exactly the teams that use
+the ID-substitution the plan permits; partial writes on a rejected apply would leave a savefile
+half-patched with no report; the `PlayerSettings` fields are plain public data (plan), so the
+emitters, not the fields, must carry the check.
+Plan: `pes_savefile/model.md` "Player settings model" code blocks (`set`, `apply`, `to_toml`,
+`parse`, `ops::fpc`).
