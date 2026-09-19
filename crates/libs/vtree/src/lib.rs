@@ -652,10 +652,31 @@ mod tests {
         assert!(tree.contains_folder(&path("A")));
         assert!(!tree.contains_folder(&path("a/b.txt")));
         assert!(tree.contains_file(&path("A/B.TXT")));
+        assert!(!tree.contains_file(&path("a/missing.txt")));
         assert_eq!(tree.remove(&path("A/B.TXT")), Some(1));
+        assert!(!tree.contains_file(&path("a/b.txt")));
         assert!(!tree.contains_folder(&path("a")));
         assert_eq!(tree.remove(&path("a/b.txt")), None);
         assert!(tree.is_empty());
+    }
+
+    #[test]
+    fn display_and_as_ref_yield_the_canonical_text() {
+        let p = path(r"Kits\p1\kit.dds");
+        assert_eq!(p.to_string(), "Kits/p1/kit.dds");
+        assert_eq!(<ScopePath as AsRef<str>>::as_ref(&p), "Kits/p1/kit.dds");
+    }
+
+    #[test]
+    fn two_char_first_segment_is_a_drive_only_with_a_letter() {
+        assert_eq!(ScopePath::new("C:/x"), Err(PathError::Absolute));
+        // "1:" is not a drive letter: the general ':' rejection applies.
+        assert_eq!(
+            ScopePath::new("1:/x"),
+            Err(PathError::InvalidSegment {
+                segment: "1:".to_owned()
+            })
+        );
     }
 
     #[test]

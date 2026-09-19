@@ -358,4 +358,195 @@ mod tests {
         assert!(!apply_fpc(&mut config, PesVersion::Pes18));
         assert!(!matches_fpc(&config, PesVersion::Pes18));
     }
+
+    #[test]
+    fn matches_fpc_requires_every_field() {
+        let mut config = KitConfig::template();
+        assert!(apply_fpc(&mut config, PesVersion::Pes21));
+        assert!(matches_fpc(&config, PesVersion::Pes21));
+        // Three of four FPC values matching is not a match.
+        for perturb in [
+            |c: &mut KitConfig| c.shirt.model ^= 0xFF,
+            |c: &mut KitConfig| c.shorts.model ^= 0xFF,
+            |c: &mut KitConfig| c.shirt.collar ^= 0xFF,
+            |c: &mut KitConfig| c.shirt.winter_collar ^= 0xFF,
+        ] {
+            let mut near = config.clone();
+            perturb(&mut near);
+            assert!(!matches_fpc(&near, PesVersion::Pes21));
+        }
+    }
+
+    #[test]
+    fn name_y_size_and_shape_pack_into_1c_1d_per_version() {
+        let mut config = KitConfig::template();
+        config.name.size = 10;
+        config.name.shape = NameShape::MediumCurve;
+        // Assert the decoded bits alone: drop the template's preserved
+        // remainder at 0x1C (0x1D is fully decoded, none preserved).
+        config.unknown.remove(&0x1C);
+
+        // PES <= 20: 0x1C[4-7] = y & 0xF, 0x1D[0] = y >> 4,
+        // 0x1D[1-5] = size, 0x1D[6-7] = shape.
+        config.name.y = 5;
+        let bytes = config.encode(PesVersion::Pes20);
+        assert_eq!(bytes[0x1C], 0x50); // 5 << 4
+        assert_eq!(bytes[0x1D], 0x94); // 0 | (10 << 1) | (2 << 6)
+        // y's fourth bit carries into 0x1D bit 0.
+        config.name.y = 16;
+        let bytes = config.encode(PesVersion::Pes20);
+        assert_eq!(bytes[0x1C], 0x00); // (16 & 0xF) << 4
+        assert_eq!(bytes[0x1D], 0x95); // 1 | (10 << 1) | (2 << 6)
+
+        // PES 21 gives y a sixth bit: 0x1C[3-7] = y & 0x1F,
+        // 0x1D[0] = y >> 5.
+        config.name.y = 33;
+        let bytes = config.encode(PesVersion::Pes21);
+        assert_eq!(bytes[0x1C], 0x08); // (33 & 0x1F) << 3
+        assert_eq!(bytes[0x1D], 0x95); // 1 | (10 << 1) | (2 << 6)
+    }
+
+    #[test]
+    fn decode_reads_every_name_shape() {
+        for (bits, expected) in [
+            (0u8, NameShape::Straight),
+            (1, NameShape::LightCurve),
+            (2, NameShape::MediumCurve),
+            (3, NameShape::ExtremeCurve),
+        ] {
+            let mut bytes = TEMPLATE.to_vec();
+            bytes[0x1D] = (bytes[0x1D] & 0x3F) | (bits << 6);
+            let config = KitConfig::decode(&bytes, PesVersion::Pes21).unwrap();
+            assert_eq!(config.name.shape, expected, "shape bits {bits}");
+        }
+    }
+
+    #[test]
+    fn toml_parses_name_shapes_and_sleeve_forms() {
+        for (text, expected) in [
+            ("straight", NameShape::Straight),
+            ("light-curve", NameShape::LightCurve),
+            ("medium-curve", NameShape::MediumCurve),
+            ("extreme-curve", NameShape::ExtremeCurve),
+        ] {
+            let config = KitConfig::from_toml(&format!("[name]\nshape = \"{text}\"")).unwrap();
+            assert_eq!(config.name.shape, expected, "{text}");
+        }
+        let config = KitConfig::from_toml("[shirt]\nshort_sleeves = \"cut-out\"").unwrap();
+        assert_eq!(config.shirt.short_sleeves, ShortSleeves::CutOut);
+        // Integer sleeve values carry the raw byte.
+        let config = KitConfig::from_toml("[shirt]\nlong_sleeves = 187").unwrap();
+        assert_eq!(config.shirt.long_sleeves, LongSleeves::UndershirtOnly);
+        let config = KitConfig::from_toml("[shirt]\nlong_sleeves = 7").unwrap();
+        assert_eq!(config.shirt.long_sleeves, LongSleeves::Raw(7));
+        // Short-sleeves integers keep only the two field bits.
+        let config = KitConfig::from_toml("[shirt]\nshort_sleeves = 5").unwrap();
+        assert_eq!(config.shirt.short_sleeves, ShortSleeves::Raw(1));
+    }
+
+    #[test]
+    fn raw_short_sleeves_encode_masked_to_their_field() {
+        let mut config = KitConfig::template();
+        config.unknown.remove(&0x00);
+        config.shirt.short_sleeves = ShortSleeves::Raw(4);
+        assert_eq!(config.encode(PesVersion::Pes21)[0x00], 0); // 4 & 0x3
+    }
+
+    #[test]
+    fn validate_flags_each_side_of_or_conditions() {
+        // A zero collar or winter collar alone earns the finding.
+        let mut config = KitConfig::template();
+        config.shirt.collar = 0;
+        assert!(
+            validate(&config, PesVersion::Pes21)
+                .iter()
+                .any(|f| f.code == "kit_collar_zero")
+        );
+        let mut config = KitConfig::template();
+        config.shirt.winter_collar = 0;
+        assert!(
+            validate(&config, PesVersion::Pes21)
+                .iter()
+                .any(|f| f.code == "kit_collar_zero")
+        );
+        assert!(
+            !validate(&KitConfig::template(), PesVersion::Pes21)
+                .iter()
+                .any(|f| f.code == "kit_collar_zero")
+        );
+
+        // A raw value on either sleeve alone earns the finding.
+        let mut config = KitConfig::template();
+        config.shirt.short_sleeves = ShortSleeves::Raw(3);
+        assert!(
+            validate(&config, PesVersion::Pes21)
+                .iter()
+                .any(|f| f.code == "kit_unknown_sleeve_value")
+        );
+        let mut config = KitConfig::template();
+        config.shirt.long_sleeves = LongSleeves::Raw(7);
+        assert!(
+            validate(&config, PesVersion::Pes21)
+                .iter()
+                .any(|f| f.code == "kit_unknown_sleeve_value")
+        );
+        assert!(
+            !validate(&KitConfig::template(), PesVersion::Pes21)
+                .iter()
+                .any(|f| f.code == "kit_unknown_sleeve_value")
+        );
+    }
+
+    #[test]
+    fn update_toml_writes_only_differing_unknown_keys() {
+        // 0x13 is wholly undecoded, so the template's remainder there is the
+        // template byte itself; any other value differs.
+        let value = TEMPLATE[0x13].wrapping_add(1);
+        let mut config = KitConfig::template();
+        config.unknown.insert(0x13, value);
+        let mut document = config.to_toml().parse::<toml_edit::DocumentMut>().unwrap();
+        config.update_toml(&mut document);
+        let unknown = document["unknown"]
+            .as_table()
+            .expect("[unknown] must be a table");
+        let entries: Vec<(String, Option<i64>)> = unknown
+            .iter()
+            .map(|(key, item)| (key.to_owned(), item.as_integer()))
+            .collect();
+        assert_eq!(entries, [("0x13".to_owned(), Some(i64::from(value)))]);
+
+        // A template-equal config drops the table entirely.
+        let mut document = "[unknown]\n\"0x13\" = 3\n"
+            .parse::<toml_edit::DocumentMut>()
+            .unwrap();
+        KitConfig::template().update_toml(&mut document);
+        assert!(document.get("unknown").is_none(), "{document}");
+    }
+
+    #[test]
+    fn update_toml_replaces_a_non_table_unknown() {
+        let mut document = "unknown = 5\n".parse::<toml_edit::DocumentMut>().unwrap();
+        let value = TEMPLATE[0x13].wrapping_add(1);
+        let mut config = KitConfig::template();
+        config.unknown.insert(0x13, value);
+        config.update_toml(&mut document);
+        let unknown = document["unknown"]
+            .as_table()
+            .expect("[unknown] must replace the non-table item");
+        assert_eq!(unknown["0x13"].as_integer(), Some(i64::from(value)));
+    }
+
+    #[test]
+    fn encode_with_names_writes_the_name_fields() {
+        let config = KitConfig::decode(GK, PesVersion::Pes21).unwrap();
+        let names = config.source_texture_names.unwrap();
+        assert_eq!(config.encode_with_names(PesVersion::Pes21, &names), GK);
+
+        let mut other = [[0u8; 16]; 5];
+        other[0][..8].copy_from_slice(b"u0701gk1");
+        let bytes = config.encode_with_names(PesVersion::Pes21, &other);
+        assert_eq!(&bytes[0x28..0x38], &other[0][..]);
+        assert_eq!(&bytes[0x38..0x78], &[0u8; 64][..]);
+        assert_eq!(&bytes[..0x28], &GK[..0x28]);
+    }
 }

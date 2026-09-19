@@ -732,8 +732,13 @@ pub fn update_toml(config: &KitConfig, document: &mut DocumentMut) {
     if needed.is_empty() {
         document.remove("unknown");
     } else {
-        let table = document["unknown"].or_insert(Item::Table(Table::new()));
-        if let Item::Table(table) = table {
+        let entry = document["unknown"].or_insert(Item::Table(Table::new()));
+        // A non-table `unknown` (`unknown = 5`) cannot hold the keys;
+        // replace it rather than silently dropping them.
+        if !entry.is_table() {
+            *entry = Item::Table(Table::new());
+        }
+        if let Item::Table(table) = entry {
             let existing: Vec<String> = table.iter().map(|(key, _)| key.to_owned()).collect();
             for key in existing {
                 table.remove(&key);

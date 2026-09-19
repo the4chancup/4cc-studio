@@ -461,4 +461,28 @@ mod tests {
             Err(FpkError::Unsupported("kind"))
         ));
     }
+
+    #[test]
+    fn wrong_platform_with_good_magic_is_bad_magic() {
+        // Magic "foxfpk" at 0-5 intact, platform "win" at 7-9 corrupted.
+        let mut bad = SAMPLE_FPK.to_vec();
+        bad[7] = b'x';
+        assert!(matches!(FpkFile::read(&bad), Err(FpkError::BadMagic)));
+    }
+
+    #[test]
+    fn remove_returns_content_and_drops_the_entry() {
+        let mut fpk = FpkFile::new(FpkKind::Fpk);
+        assert!(fpk.is_empty());
+        fpk.insert("a.txt".to_owned(), vec![1, 2, 3]);
+        fpk.insert("b.txt".to_owned(), vec![4]);
+        assert!(!fpk.is_empty());
+
+        assert_eq!(fpk.remove("a.txt"), Some(vec![1, 2, 3]));
+        assert_eq!(fpk.get("a.txt"), None);
+        assert_eq!(fpk.len(), 1);
+        assert_eq!(fpk.remove("a.txt"), None);
+        assert_eq!(fpk.remove("b.txt"), Some(vec![4]));
+        assert!(fpk.is_empty());
+    }
 }
