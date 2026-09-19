@@ -56,8 +56,13 @@ hand-writes only what is *correctness-critical*: things whose wrong version pass
 failing: workspace lints, CI, `rust-toolchain.toml`, the acceptance-ID scanner, any fixture or
 golden file, any measurement. Everything with a plan section to implement against is briefed to
 the sidekick. A brief names the plan section(s) and `CONTRIBUTING.md` as reading to do *before*
-coding (the sidekick does not inherit this file's context), plus the acceptance IDs, the
-`→ verify:` criterion, and the rule that a plan gap is *reported*, never silently decided. The lead
+coding (the sidekick does not inherit this file's context), tells the sidekick to invoke the
+`karpathy-guidelines` skill first (skills the lead has loaded are not active in the sidekick;
+an uninstructed sidekick never invokes one), plus the acceptance IDs, the `→ verify:`
+criterion, and the rule that a plan gap is *reported*, never silently decided. The brief's
+verification list names the tests of every crate that *consumes* the one being changed, not
+only the crate's own: a change to `fmdl`'s reader that every game `body.skl` tripped passed
+`cargo test -p fmdl` and was caught only by `model_convert`'s tests at the lead's gate run. The lead
 reads the whole diff before it lands, not the report about it; the report is a claim, the diff is
 the evidence. Two failed sidekick attempts on one brief means the brief is suspect before the
 sidekick is. **A brief is sized for one review.** Past about 500 lines of new code, a diff is
@@ -80,7 +85,7 @@ new format crate's fixture round-trip, says so). Omitting the section or an item
 violation, not an oversight. On the lead's side, every review before a commit includes two
 sweeps of the diff and re-runs the gates in the real workspace; the sidekick's pasted gate
 tails are a claim. The **honesty sweep** looks for a hidden failure: `#[allow`, `#[expect`,
-`#[ignore`, `.ok();`, `let _ =`, `unwrap_or_default`, `unwrap_or(`. The **design sweep** looks
+`#[ignore`, `.ok();`, `let _ =`, `drop(` on a `Result`, `unwrap_or_default`, `unwrap_or(`. The **design sweep** looks
 for code that passes and is worse, the thing neither the gates nor a model's training penalize:
 `impl .* for` (a new trait: does it have two real implementors?), `dyn `, `_ =>` on one of our
 enums, `.clone()`/`.to_vec()` on bulk data, `as ` casts, two functions differing in a name and a

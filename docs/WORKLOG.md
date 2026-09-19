@@ -12,7 +12,8 @@ is in `AGENTS.md` ("Working documents").
 **Phase:** 2 (Library crates). Done: 2.1 `wezlib`, 2.2 `cpk`, 2.3 `fpk`, 2.4 `ftex`, 2.5 `dds_convert` (CPU),
 2.6 `fmdl` (format, model, ops, check), 2.7 `pes_model` (format, mtl, model, ops, check), 2.8 `uniparam`, 2.9 `fox2`, 2.10 `archives`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`, 2.14 `color_tools`, 2.15 `elevation`. Review
 rounds A and B (2026-09-13) closed: 2.5c, 2.12b, 2.13b done.
-**In progress:** 2.17 `pes_savefile` (a–d done; e next), then 2.18 `python_bindings`
+**In progress:** 2.17 `pes_savefile` (a–d done; e next), then 2.18 `python_bindings`. Review
+round C (2026-09-19) closed as 2.19a; its leftovers are listed under 2.20.
 **Blocked on:** 2.17e needs the user's call on the `settings.toml` key table and on how the
 undecoded ingame-face run is modelled (see the 2026-09-14 log line)
 
@@ -380,8 +381,26 @@ Spec: `docs/plans/core.md` "Phase 2", `docs/plans/libs.md`, `model_conversion.md
   and the CI job deferred from step 1.2)
 - [ ] 2.19 Phase verification: every crate's tests per `libs.md` "Testing" green; `wasm32` check
   green on every lib
+- [x] 2.19a Review round C (2026-09-19): the first mutation runs and a workspace read-through,
+  fixed across six commits (`0fe5e33`..`77b6362`): `cargo-mutants` adopted (decision entry);
+  kit_config/fpk/vtree/cpk/ftex/dds_convert test gaps the runs found; fmdl and model_convert
+  return `BadReference` where they indexed hostile face, parent and bone-group indices (fmdl
+  `SklFile::read` rejects a parent past the bone table; the game's `body.skl` parents bones 1-2
+  under 18, so order is not checked); checked arithmetic on file-declared lengths in cpk, ftex,
+  fmdl, pes_savefile; `TableOverflow`/`HeaderFieldOverflow`/`SectionTooLarge` instead of
+  wrapping casts on write; `hand_split`'s `u16::MAX` sentinel; `sampler_settings_defaulted`
+  finding; `formats/{fmdl,pes_model}` split into import/export halves; `.tmp` cleanup on a
+  failed save; fmdl read-side and dds_convert mip copies removed; unused `log`/`serde` deps
 - [ ] 2.20 Converge: own audit then reviewer subagent, each crate against its plan section
-  (`libs.md`, `model_conversion.md`, `pes_savefile.md`, `core.md` "Phase 2"); gaps become steps
+  (`libs.md`, `model_conversion.md`, `pes_savefile.md`, `core.md` "Phase 2"); gaps become steps.
+  Known inputs from round C: (a) whole-crate mutation runs left survivors to triage in cpk (28),
+  ftex (80), dds_convert (30): table-variant arms, boundary comparisons, `write_cell` and
+  `Writer::finish` padding math; the other thirteen crates have not been run; (b)
+  `fmdl::ops::antiblur::decode` and `model_convert::ir::remap_bone_group` return `()` and still
+  index caller-supplied indices raw (both callers return `Result`; threading one through is a
+  signature decision); (c) `pes_savefile::discovery` returns an empty candidate list both for
+  "no Documents folder" and "no saves"; (d) `pes_savefile.md`'s `TeamEntry`/`TacticsPreset`/
+  `PlayerEntry` blocks are rewritten from the code in 2.21 (decision entry 2026-09-19)
 - [ ] 2.21 Rewrite those sections in the present tense
 
 ### Phase 3 — Team compiler skeleton
@@ -536,3 +555,11 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   `.4cct` layout and the canonical advanced-instruction mapping. `save_editor.md` AATF section
   moved to the Autumn 26 ruleset (bronze tier, specials, two upstream errata recorded for the
   user to report upstream) and, by user decision, to one self-contained Rhai rules file (decision entry). No code.
+- **2026-09-19** - Mutation testing adopted after a probe on three closed crates (decision
+  entry): `just mutants <crate>` at converge, `just mutants-diff` at every diff review. Review
+  round C (2.19a): the probe's survivors plus a workspace read-through fixed in six commits;
+  the whole-crate runs on cpk/ftex/dds_convert left 138 survivors for 2.20. One brief premise
+  was wrong and the gates caught it: "SKL parents precede children" is false for the game's
+  `body.skl`, so the new parent check compares against the bone count. `AGENTS.md`: briefs name
+  the `karpathy-guidelines` skill and the consumer crates' tests; `drop(` joins the honesty
+  sweep. Next: 2.17e.
