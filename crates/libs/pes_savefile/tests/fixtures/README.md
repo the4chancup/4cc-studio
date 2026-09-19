@@ -2,7 +2,7 @@
 
 Slices of real saves, never a whole one: a save is 5-11 MB and incompressible once encrypted,
 and its serial section is the writing account's Windows SID (plan: `pes_savefile.md` "Container
-fixtures"). Extracted by the writing session's `.tmp/save_fixtures.py` from the saves below.
+fixtures"). Extracted by `scripts/provenance/fixtures/save_fixtures.py` from the saves below.
 Konami-derived data is Konami's, kept for interoperability (see the repository README).
 
 Per version `NN`:

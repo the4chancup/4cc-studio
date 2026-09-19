@@ -1,0 +1,14 @@
+[package]
+name = "calib"
+version = "0.1.0"
+edition = "2024"
+
+[workspace]
+
+[dependencies]
+dds_convert = { path = "../../../crates/libs/dds_convert" }
+kit_config = { path = "../../../crates/libs/kit_config" }
+pes_version = { path = "../../../crates/libs/pes_version" }
+
+[profile.dev]
+opt-level = 2

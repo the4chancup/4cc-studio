@@ -532,8 +532,8 @@ describes behavior, not a serial scheduling requirement:
   copied unchanged, so the shirt, sleeves and collar strip — identical in both engines — are
   byte-identical to a no-marker compile. The Fox→pre-Fox table is the inverse of the pre-Fox→Fox
   one, so the two are one const read in either direction. **The table's numbers are not in this
-  plan yet**: what is measured (from both games' uniform models, `.tmp/kit_uv_diff.py`) is the
-  island outlines — socks u 8–440 → 8–372 (left; mirrored on the right), v 640–1152 unchanged;
+  plan yet**: what is measured (from both games' uniform models,
+  `scripts/provenance/kit_uv/kit_uv_diff.py`) is the island outlines — socks u 8–440 → 8–372 (left; mirrored on the right), v 640–1152 unchanged;
   shorts outline u 16–644 / 1404–2032, v 1164–1948 in both — and that the mapping *inside* each
   island is piecewise (two bands per island), not one scale. The exact band edges are settled in
   the Phase 4 kits step from two sources that must agree: texel correspondence through the models'

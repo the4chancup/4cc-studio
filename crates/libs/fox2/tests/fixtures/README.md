@@ -1,8 +1,9 @@
 # fox2 fixtures
 
 Konami-derived files are Konami's, kept for interoperability (see the repository README). The
-`.fox2` binaries were extracted from FPKD archives on the writing machine (`.tmp/fox2_fixtures.py`
-in the writing session); the goldens beside each were produced by the reference decompiler and
+`.fox2` binaries were extracted from FPKD archives on the writing machine
+(`scripts/provenance/fixtures/fox2_fixtures.py`); the goldens beside each were produced by the
+reference decompiler and
 compiler (the Stadium compiler's Python port of FoxTool): `*.fox2.xml` is the decompile with no
 dictionary, `*.compiled.fox2` the compile of that XML with the reference writer's trailing buffer
 slack cut at the aligned `end` trailer (its entity region is byte-identical to the original; only

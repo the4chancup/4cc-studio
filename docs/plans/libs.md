@@ -829,8 +829,8 @@ the caller decodes, so the crate stays pure logic with no image dependency):
      cluster, identical or near-identical to color 1, and the result says so.
 
 Calibration evidence (134 texture/config pairs from the exports on the writing
-machine, 2048 and 4096 DXT1/DXT5 kits, the harness in `.tmp/calib` of the writing
-session): the declared config colors are **not** a usable ground truth: only 55 of
+machine, 2048 and 4096 DXT1/DXT5 kits, the harness in `scripts/provenance/calib`): the
+declared config colors are **not** a usable ground truth: only 55 of
 133 declared shirt colors appear anywhere in the shirt region's top four clusters
 (managers leave the template's colors or pick an accent), and among the two-tone
 kits whose managers did declare the second shirt color, its share is 28–49% for

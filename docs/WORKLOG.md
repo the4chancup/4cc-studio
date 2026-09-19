@@ -538,8 +538,8 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
 - **2026-09-14** - 2.17a `pes_savefile::container` done: nine real saves decrypted in the census
   (15/16/17/18/19/21; no 20), slice fixtures plus zlib payloads committed, discovery table
   corrected (PES 18 is flat). Field tables for 2.17b derived by symbolic interpretation of the
-  reference read walks and checked against every payload (`.tmp/schema_derive.py`,
-  `.tmp/schema.json`; method in the plan). Next: 2.17b schema + codec + `PlayerEntry`.
+  reference read walks and checked against every payload (method in the plan; the
+  script survives as `scripts/derive_savefile_schema.py`). Next: 2.17b schema + codec + `PlayerEntry`.
 - **2026-09-14** - 2.17b–d done: generated schema tables (`scripts/derive_savefile_schema.py`),
   codec, player/team models, `EditFile`, `display_name`, discovery; 37 crate tests; all nine real
   saves lossless through `EditFile`. Stopped before 2.17e for two user decisions: the
