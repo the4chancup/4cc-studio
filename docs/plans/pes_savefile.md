@@ -687,7 +687,10 @@ pub struct Formation {
 ```
 
 Version quirks to encode: advanced-instruction value ranges differ (PES 17:
-0x00–0x0C; 18+: 0x00–0x0F, different meanings), and **playstyle enums are
+0x00–0x0C; 18+: 0x00–0x0F, different meanings — 4ccEditor resolves this through
+a canonical 17-order enum: values 0x08–0x0C shift +2 for 18+, and 18+'s
+Defensive/False Winger/Wingback are 0x0D/0x0E/0x0F in canonical order, mapping
+to 0x08/0x09/0x0F), and **playstyle enums are
 version-specific** — 4ccEditor's `menu_lists.cpp` carries twelve conversion
 arrays (16↔17/18, 16↔19, 16↔20/21, 17/18↔19, 17/18↔20/21, 19↔20/21). In Rust
 these become one canonical `PlayStyle` enum plus per-version encode/decode maps,
@@ -908,20 +911,53 @@ Rules:
 ### Legacy 4ccEditor formats (read-only)
 
 - **`.4ccs` squad files** (version tag "21a"): binary `player_export` array +
-  optional tactics. Readable and importable; never written.
-- **`.4cct` "nightly" tactics files** (version tag "001"): binary tactics dump.
-  Readable and importable; never written. Import targets PES 16–18 only (4ccEditor's
-  own gate — later saves go through Texport instead), and the file header records
-  the exporting PES version, which the import must match exactly.
+  shirt numbers + optional trailing tactics block (the same version-neutral
+  layout as `.4cct` below, written when the save's version has tactics support —
+  16–21 — and gated by an import-time checkbox). Readable and importable; never
+  written.
+- **`.4cct` "nightly" tactics files** (version tag "001"): `"001"` + 2-char PES
+  version + 8-char team ID + a version-neutral tactics block (405 bytes: per
+  preset, the 3×3 formations, 7 style bytes, 2+2 advanced instructions each as
+  canonical-enum byte + player byte, 5 sliders + fluid; then starting XI,
+  21 bench, 6 set-piece takers, 3 join-attack, 4 auto flags — **no captain**;
+  instructions stored in the canonical 17-based enum and re-encoded per target
+  version on load). Readable and importable; never written. Import targets PES
+  16–18 only (4ccEditor's own gate — later saves go through Texport instead),
+  and the file header records the exporting PES version, which the import must
+  match exactly.
 
 Both parse into the same model structs; the write path is Team TOML only.
 
 ### Texport (read + write)
 
-Texport files are **PES's own in-game team export/import format** — same
-container crypto as the savefile, different internal layout (tactics first, then
-player entries, per-version offsets; 4ccEditor's `handle_texport` +
-`fill_player_entryXX_texport`/`fill_team_tacticsXX_texport` are the reference).
+Texport files are **PES's own in-game team export/import format** — a different
+internal layout from the savefile (tactics record first, then player entries;
+4ccEditor's `handle_texport` + `fill_player_entryXX_texport`/
+`fill_team_tacticsXX_texport` are the reference). The crypto splits by era:
+15–17 `.ted` files use the same container crypto as that version's savefile
+(`decryptFile15` / `decryptWithKeyOld` + master keys), while 18–21 use a
+self-contained XOR scheme instead — 0x30-byte header, a 0x20-byte key at 0x30,
+payload from 0x50 XOR'd against the key starting at index 0x12/0x13/0x14/0x15
+(18/19/20/21) and wrapping at 0x20 (decrypted sizes 0x1FC0/0x25B0/0x39E4; the
+PES 20 key index is 4ccEditor's untested guess). The tactics record is the save
+record layout verbatim, including its 4-byte team ID; player entries carry the
+player's own record plus appearance data inline (17's reader consumes no
+appearance — whether absent or skipped is unverified). Per-version record
+offsets:
+
+| Version | Tactics | Players |
+|---------|---------|---------|
+| 15 | 0x10298 | 0x51065C |
+| 16 | 0x10298 | 0x510660 |
+| 17 | 0x10330 | 0x510840 |
+| 18 | 0x32C | 0x834 |
+| 19 | 0x33C | 0x844 |
+| 20/21 | 0x410 | 0x918 |
+
+Import never trusts the file's player IDs: players map onto the target team's
+roster by slot order (`team_id*100 + 1 + slot`), and a 15/16 import zeroes the
+stats that don't exist yet (play_skill 28–41, tight_pos/aggression/physical =
+77) — the same defaults cross-version conversion applies.
 Because the game itself consumes these, full compatibility matters in both
 directions: read (4ccEditor already does) **and write** (new — 4ccEditor is
 import-only), so the editor can produce a file PES can import. Write support

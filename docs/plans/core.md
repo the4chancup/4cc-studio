@@ -271,7 +271,7 @@ The suite follows a **platform + plugins** model with strict modularity rules:
 │       │                             #   and player_aesthetics_editor (labeled approximate preview)
 │       ├── python_bindings/          # PyO3 bindings exposing fmdl + pes_model crates to Blender's
 │       │                             #   Python; built separately via maturin, not in default build
-│       ├── aatf/                     # AATF rules engine (TOML parameters + scripted checks)
+│       ├── aatf/                     # AATF rules engine (one Rhai rules file: parameters + checks)
 │       ├── music_export/             # .4ccm music export format: parse/write + condition model
 │       ├── audio_engine/             # Audio playback (kira/symphonia) + loudness analysis (ebur128)
 │       ├── match_feed/               # Live match event feed (match tracker → music player)
@@ -1828,8 +1828,8 @@ is a deferred verification completed after those phases land.
   accepted `settings.toml` changes may still apply. The allocation scheme is fixed (40-ID per-team
   blocks — see the Team compiler plan), and Phase 4 model-task processing only consumes planned
   assignments. `fpc.on`/`fpc.off` markers apply `pes_savefile`'s FPC presets here.
-- `libs/aatf`: the AATF rules engine (TOML parameters + scripted checks; decide Rhai vs TOML+CEL
-  here).
+- `libs/aatf`: the AATF rules engine (one self-contained Rhai rules file; see the Save editor
+  plan's "Configurable AATF rules").
 - The Save editor tool crate's non-GUI substance: settings, CLI, and the operations wiring over
   `pes_savefile` (editing, tactics, AATF checks, comparator, transplant, FPC toggle) that the Phase
   8 view will render — build order in the [Save editor plan](save_editor.md).
@@ -2086,9 +2086,9 @@ resource download size measured and, if it matters, lazy-fetched behind the temp
 | `ureq` (3.x; features `rustls` [default], `platform-verifier`, `json`, `win-system-proxy`) | HTTP for the desktop updater: one Releases API GET and one streamed asset download per release | Production-ready (3.4.1 verified 2026-09-10). Chosen over `reqwest` because `reqwest` starts a Tokio runtime internally even in blocking mode, which breaks the "no async runtime" rule; the updater needs nothing `ureq` lacks. `platform-verifier` trusts the OS certificate store; `win-system-proxy` honors Windows proxy settings, env vars cover Linux |
 | `sha2` | SHA256 verification of downloaded updates | Production-ready |
 | `directories` | User config dir resolution (data-location choice) | Production-ready |
-| `toml` | Export text formats (`settings.toml`, `config.toml`, `materials.toml`), app settings, AATF parameters | Production-ready |
+| `toml` | Export text formats (`settings.toml`, `config.toml`, `materials.toml`), app settings | Production-ready |
 | `toml_edit` | Comment/formatting-preserving edits to all auto-generated tomls (`settings.toml`, `materials.toml`, `config.toml`); comments are app-injected (predefined per-field documentation) and preserved across edits | Production-ready (the `toml` crate's own foundation) |
-| `rhai` OR `cel-interpreter` | AATF rule logic (sandboxed scripting vs declarative expressions; see AATF section) | Production-ready (both) |
+| `rhai` | AATF rules file (parameters and check logic; sandboxed, see the Save editor plan's AATF section) | Production-ready |
 | `image` | Raster source decoding (PNG, JPEG, BMP, WebP, TGA, TIFF) for texture conversion — all formats interchangeable as sources for any model format | Production-ready (pure-Rust default formats, rayon-enabled) |
 | `block_compression` | CPU BC1/BC3/BC7 encoding and BC1–BC7 decoding (one crate for both directions); first-release desktop GPU BC7 | 0.10.0 in use (features `bc15`, `bc7`; `wgpu` feature only for the GPU step); decode verified exact against texconv; GPU cold-start cost, throughput and fallback still to be verified |
 | (none: `fox2` ports CityHash64 1.0.3 directly) | fox2 string hashes must match the C# tool's embedded 1.0.3 variant exactly; no crate pins that variant, and the port is 150 lines verified by a reference golden and every fixture's string table | Not a dependency |
@@ -2160,9 +2160,9 @@ pattern and the schema-driven save codec collapsing 4ccEditor's six per-version 
 | Boots/gloves IDs | Automatic deterministic assignment | Player-exclusive: from (team_id, player_number); shared: per-team pool; written to savefile at compile time |
 | Player settings | TOML in exports (`settings.toml`), merged at compile time; all fields optional; schema covers every savefile aesthetic field (tested) | Replaces manual savefile editing; editor can generate TOML from saves; name writing is opt-in (`name = true`/string — absent leaves the savefile name untouched), so shared folders act as generic model folders |
 | Aesthetics patch | `aesthetics_patch.toml` written by every compile beside the CPK; the compiler's only savefile write path (the local save is updated by applying it); applied to other saves by the save editor, whose own aesthetics fields are read-only by default (session unlock) | Separates the DLC builder from the savefile builder — the official save holds the teams' custom tactics, which the DLC builder must not receive; one write path means no drift between the two machines |
-| Auto-generated toml comments | App-injected (predefined per-field documentation), preserved by `toml_edit` | Users never write comments from scratch; the comments are the simplified documentation, present in every auto-generated `settings.toml`/`config.toml`/`materials.toml`/AATF file |
+| Auto-generated toml comments | App-injected (predefined per-field documentation), preserved by `toml_edit` | Users never write comments from scratch; the comments are the simplified documentation, present in every auto-generated `settings.toml`/`config.toml`/`materials.toml` |
 | FPC toggle | Empty `fpc.on`/`fpc.off` marker files in the player folder | Folder-level like link files; apply `pes_savefile`'s version-aware enable/disable presets (same as the editor's toggle); absent = savefile untouched |
-| AATF rules | TOML parameters + scripted checks | Editable without recompiling; Rhai vs TOML+CEL to be decided in Phase 5 |
+| AATF rules | One self-contained Rhai file: parameter map at the top, check functions below | Editable without recompiling; one file is one ruleset, so an invitational's variant is a copy with the top edited and cannot skew against its logic; TOML+CEL and a two-file split rejected (Save editor plan) |
 | Music tools | Two tool crates (`music_player`, `music_export_editor`) + `music_export`/`audio_engine` libs | Rigdio/RigDJ successors; descriptive crate names, old names kept in the user-facing labels ("Music player (Rigdio)") and old icons in the collapsed rail |
 | .4ccm format | Canonical, unchanged, read + write | Interop with legacy Rigdio during transition; no new format, no migration for managers |
 | Audio backend | Pure Rust: `kira` + `symphonia` (+ Rust Opus decoder) + `ebur128` | Drops libmpv-2.dll and ffmpeg.exe; single binary; in-process loudness; WASM-compatible |

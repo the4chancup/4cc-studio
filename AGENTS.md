@@ -166,8 +166,7 @@ your question may already be listed, with the phase in which it gets resolved.
   time**. The old export layout is not supported by the compiler; the Export upgrader migrates it
   once.
 - **User-facing TOML is edited, never regenerated.** `settings.toml`, `config.toml`,
-  `materials.toml` and the AATF files carry app-injected per-field comments that *are* the user
-  documentation. Write them through `toml_edit`, which preserves them; `toml` (serde) is for
+  `materials.toml` carry app-injected per-field comments that *are* the user documentation. Write them through `toml_edit`, which preserves them; `toml` (serde) is for
   read-only parsing.
 - **Legacy tools are evidence, not source.** Red, Blue, 4ccEditor, Midcupping, Rigdio, SEN:P-AI,
   the converters and the Blender addons define *what* must be produced (formats, observable

@@ -78,7 +78,7 @@ implementation is measured against.
 | Copy player stats (source PID → dest PID) | Kept |
 | Swap player stats (two PIDs) | Kept |
 | Toggle FPC settings (Ctrl+I) | Kept (see "Full Player Customization" below) |
-| Quick actions: Make Gold / Make Silver / Make Regular / Set stats | Kept, **driven by the AATF parameter file** instead of hardcoded rates — the buttons and the checker can never disagree |
+| Quick actions: Make Gold / Make Silver / Make Bronze / Make Regular / Set stats | Kept, **driven by the AATF rules file** instead of hardcoded rates — the buttons and the checker can never disagree |
 
 ### Team operations
 
@@ -174,7 +174,7 @@ Placement rules:
   file, not a new section of an existing one.
 - **`view/panels/` are the Midcupping-derived and new features**; each is self-contained and can be
   developed in the build order below without touching the tabs.
-- The AATF *engine* (rule parsing, Rhai/CEL evaluation) lives in `libs/aatf`; `aatf.rs` here only
+- The AATF *engine* (rules-file loading, Rhai evaluation) lives in `libs/aatf`; `aatf.rs` here only
   feeds it the session's data and renders results.
 - **The tactics editor, the card pickers and the violations list are `libs/team_widgets`** (see
   below); the tab and panel files here are hosts: they hand the widget the session's team, apply
@@ -192,7 +192,7 @@ mirroring 4ccEditor's structure without its dialog sprawl:
 ┌────────────────────┬──────────────────────────────────────────────┐
 │ [team selector ▾]  │  Name [........] ID 70103   Shirt [......]   │
 │ [player filter 🔍] │  Height/Weight/Age/Nation/Number/Captain     │
-│                    │  [Gold] [Silver] [Regular] [Set stats: __]   │
+│                    │  [Gold] [Silver] [Bronze] [Regular] [Set stats: __]   │
 │  01 GK Snuffy      ├──────────────────────────────────────────────┤
 │  02 CB Anon    ●   │  Abilities & Skills │ Appearance │ Team │    │
 │  03 CB Mod         │                       Tactics               │
@@ -293,7 +293,7 @@ Contents:
 - `tactics` — preset selector, sliders, style toggles, advanced instructions (with target-player
   pick), set-piece role palette, auto flags, click-to-assign modes.
 - `cards` — skill, COM-style and playstyle pickers, version-gated, with remaining-count badges per
-  tier from the AATF parameters.
+  tier from the AATF rules file (`card_limits`).
 - `violations` — the AATF results list grouped per player, emitting a "selected player" event for
   the host's jump-to.
 
@@ -425,189 +425,226 @@ the editor exposes them as:
 
 ## Configurable AATF rules
 
-4ccEditor's AATF tool (auto-attribute enforcement of 4cc player rules) currently hardcodes both its
-parameters and its logic in C++. The Rust version makes both editable without recompiling, in two
-layers:
+4ccEditor's AATF tool (auto-attribute enforcement of 4cc player rules) hardcodes both its
+parameters and its logic in C++; a ruleset change is a recompile. The Rust version reads the whole
+ruleset from **one self-contained [Rhai](https://rhai.rs) file**: the numbers that change between
+cups at the top, the check logic below. One file is one ruleset: an invitational's variant is a
+copy of the official file with the parameter block edited, and any file can be shared, diffed
+against the official one and run by any Studio build.
 
-**Layer 1 — parameters in TOML** (covers what changes between cups; editable by anyone). The
-defaults are `aatf.cpp`'s current constants, in full:
+Rhai is a small scripting language written in pure Rust for embedding. It is the safe answer to
+Python's `eval()`: scripts can only access what the host exposes, cannot touch the filesystem or
+network, and have configurable operation/recursion limits so a broken script cannot hang the tool.
 
-```toml
-[aatf.rates]
-gold = 99
-silver = 88
-regular = 77
-goalkeeper = 74
-# stamina may target a different value than the other stats
-# (aatf.cpp's separate stamina target)
+### The rules file
 
-[aatf.medals]
-gold = 2
-silver = 3
+Two sections, separated by a banner comment. The split is a convention the validator cannot
+enforce, and does not need to: the point is that a member editing a number never has to read
+past the banner, and a committee member fixing a rule never has to touch a Rust build.
 
-[aatf.form]            # required form per tier
-gold = 8
-silver = 8
-regular = 4
+**Parameters** are one top-level constant map. Rhai's `#{ … }` map literal reads like a config
+file; the host reads `CFG` out of the script's global scope, and the functions below reach it as
+`global::CFG`. The defaults are `aatf.cpp`'s constants from the Autumn 26 ruleset
+(`Autumn_2026_AATF` branch). Tiers are map keys, not a fixed set: Autumn 26 added a fourth
+(bronze) to a ruleset that had had three for years, and a fifth must cost a line in this block
+and nothing in Rust.
 
-[aatf.injury_resistance]
-gold = 3
-silver = 3
-regular = 1
+```rhai
+// ============================================================================
+// PARAMETERS. Everything a cup changes lives here; edit numbers, keep the keys.
+// ============================================================================
 
-[aatf.weak_foot]
-usage = { gold = 2, silver = 2, regular = 2, manlet = 4 }
-accuracy = { gold = 4, silver = 4, regular = 2, manlet = 4 }
+const CFG = #{
+    name: "Autumn 26",
+    // Ordered: the quick-action buttons and the card-picker badges follow this list.
+    tiers: ["gold", "silver", "bronze", "regular"],
 
-[aatf.cards]
-skill = { goalkeeper = 2, regular = 3, silver = 4, gold = 5 }
-trick = { goalkeeper = 0, regular = 2, silver = 3, gold = 3 }
-com   = { regular = 0, silver = 1, gold = 2 }
-pes_skill_card_max = 10          # the game's own limit
+    rates:  #{ gold: 99, silver: 92, bronze: 86, regular: 77, goalkeeper: 77 },
+    medals: #{ gold: 1,  silver: 2,  bronze: 2 },            // exact counts; the rest are regular
+    form:   #{ gold: 8,  silver: 8,  bronze: 8,  regular: 4 },
+    injury_resistance: #{ gold: 3, silver: 3, bronze: 3, regular: 1 },
 
-[aatf.heights]         # bracket thresholds (cm)
-giga = 199
-giant = 194
-tall = 185
-tall_gk = 189
-mid = 180
-manlet = 175
+    weak_foot: #{
+        usage:    #{ gold: 4, silver: 4, bronze: 4, regular: 2, manlet: 4 },
+        accuracy: #{ gold: 4, silver: 4, bronze: 4, regular: 2, manlet: 4 },
+    },
 
-[aatf.brackets.green]  # required counts when the team uses the Green system
-giga = 0
-giant = 5
-tall = 6
-mid = 6
-manlet = 6
+    cards: #{
+        skill: #{ goalkeeper: 2, regular: 3, bronze: 4, silver: 5, gold: 6 },
+        trick: #{ goalkeeper: 0, regular: 2, bronze: 3, silver: 3, gold: 3 },
+        com:   #{ regular: 0, bronze: 1, silver: 1, gold: 2 },
+        pes_skill_card_max: 10,                              // the game's own limit
+    },
 
-[aatf.brackets.red]    # required counts for the Red system
-giga = 0
-giant = 0
-tall = 10
-mid = 7
-manlet = 6
+    heights: #{ giga: 199, giant: 194, tall: 185, tall_gk: 189, mid: 180, manlet: 175 },
+    brackets: #{                       // required counts per height system
+        green: #{ giga: 0, giant: 6, tall: 6,  mid: 5, manlet: 6 },
+        red:   #{ giga: 0, giant: 0, tall: 10, mid: 7, manlet: 6 },
+    },
 
-[aatf.bonuses]
-manlet = 5             # stat bonus for manlets
-silver_manlet = 0
-gold_manlet = 0
-silver_giant_penalty = 0
-gold_giant_penalty = 0
-manlet_card_bonus = 1
-manlet_pos_bonus = 1
+    bonuses: #{
+        manlet: #{ gold: 0, silver: 2, bronze: 3, regular: 5 },   // stat bonus for manlets (Red only)
+        giant_penalty: #{                                   // per height system
+            red:   #{ gold: 0, silver: 0, bronze: 0 },
+            green: #{ gold: 0, silver: 3, bronze: 0 },
+        },
+        manlet_card_bonus: 1,
+        manlet_pos_bonus: 1,
+    },
+};
+
+// ============================================================================
+// CHECK LOGIC. Rules committee only below this line.
+// ============================================================================
 ```
 
-**Layer 2 — check logic in scripts** (covers structural rules; changes rarely).
-The rule set to express, transcribed from `aatf_single` in `aatf.cpp` — this is
-the behavioral spec for the scripted layer:
+**Check logic** is plain Rhai functions. The host requires three and calls nothing else:
+
+- `check_team(team) -> [violation]`: the whole check for one team; the script owns the loop
+  over players and the aggregates (medal counts, bracket quotas, captain, GK), the way
+  `aatf_single` does. A violation is `#{ slot: <roster slot or ()>, message: "…" }`; `()` marks a
+  team-level finding.
+- `tier_values(player, tier, team) -> map`: the stat, form, injury-resistance and weak-foot values
+  a player of `tier` must carry, height bonuses included. Behind `apply_tier` (below), so the
+  quick actions and the checker read the same arithmetic from the same file.
+- `card_limits(player, tier, team) -> map`: skill/trick/COM limits with the player's free cards
+  applied; behind the card pickers' remaining-count badges.
+
+Anything else in the file (`tier_of`, `height_bonus`, `using_red`, …) is the script's own
+business. Sketch of the shape, not the shipped rules:
+
+```rhai
+fn check_team(team) {
+    let out = [];
+    let red = using_red(team);
+    for p in team.players {
+        let tier = tier_of(p, red);
+        let target = global::CFG.rates[tier] + height_bonus(p, tier, red);
+        for skill in OUTFIELD_SKILLS {
+            if p.stat(skill) != target {
+                out.push(#{ slot: p.slot, message: `${skill} is ${p.stat(skill)}, should be ${target}` });
+            }
+        }
+        if p.playable_at(p.registered_position) != "A" {
+            out.push(#{ slot: p.slot, message: "Not rated A in the registered position" });
+        }
+    }
+    for tier in global::CFG.medals.keys() {
+        let count = global::CFG.medals[tier];
+        let n = team.players.filter(|p| tier_of(p, red) == tier).len();
+        if n != count { out.push(#{ slot: (), message: `${n} ${tier} players, should be ${count}` }); }
+    }
+    out
+}
+
+fn height_bonus(p, tier, red) {
+    if !red || p.height > global::CFG.heights.manlet { return 0; }
+    global::CFG.bonuses.manlet[tier]
+}
+```
+
+**The rule set to express**, transcribed from `aatf_single` in `aatf.cpp`; this is the
+behavioral spec for the shipped file:
 
 - The registered position must be rated A; a GK rating cannot be the second A.
 - No B ratings anywhere (A or C only).
 - Age within 15–50; weight within `max(30, height−129)…(height−81)`.
 - Registered position and playstyle within the version's valid ranges.
 - Exactly one captain; at least one registered GK.
-- Medal counts exact (2 gold, 3 silver, rest regular).
-- Ability stats must equal the tier's target rate plus height bonuses (attack
-  and defense may be lower; stamina has its own target).
-- Skill/trick/COM card counts within tier limits, with free cards (Malicia is
-  free; the captaincy card is free for the captain; manlet card bonus) and the
-  game's 10-skill-card cap.
+- Medal counts exact (per `CFG.medals`; Autumn 26: 1 gold, 2 silver, 2 bronze, rest regular).
+- Ability stats must equal the tier's target rate plus height bonuses (attack and defense may be
+  lower; stamina has its own target).
+- Skill/trick/COM card counts within tier limits, with free cards (Malicia is free; the
+  captaincy card is free for the captain; manlet card bonus) and the game's 10-skill-card cap.
 - Weak-foot usage/accuracy within tier limits (manlet exceptions).
-- Height systems: **Green** if any player ≥ the giant threshold, else **Red**;
-  the team's height-bracket counts must match the system's quotas exactly.
+- Height systems: **Green** if any player ≥ the giant threshold, else **Red**; the team's
+  height-bracket counts must match the system's quotas exactly.
 - GK height: exactly `tall_gk` in Green; below giant in both systems.
 - Gold players below the giant threshold; medal players cannot be GKs.
 
-AATF reports violations; it never auto-fixes (matching 4ccEditor). Results render
-in a panel with per-player groupings, and clicking a violation jumps to the
-player. Team selection matches 4ccEditor: current team or a multi-select list.
+Autumn 26 specials, the conditional rules that decided the engine choice below:
 
-The one *writing* operation the lib offers is `apply_tier(player, tier, rules)`: set a player's
-ability stats, form, injury resistance and weak foot to a tier's values from the parameter file,
-with the height bonuses the rules define. It is the function behind this editor's Make
-Gold/Silver/Regular quick actions and behind the Team creator's default stats — one function, so
-neither tool can produce a player the checker then rejects.
+- **Medals get a free A position *or* a free COM style**: a medal player with more COM styles
+  than their free allowance takes +1 to that allowance; only if they take no COM bonus may they
+  claim one free extra A position (raised card limit instead). Ordered, stateful logic inside
+  one player's check.
+- **Red non-medal CBs may reach 189cm** (`tall + 4`): only players registered at CB *and* played
+  at CB in every formation the game can field: across all three presets, and across all three
+  formations of a fluid preset (a non-fluid preset only fields its kick-off formation). The first
+  rule that reads **tactics data**: the host exposes the team's presets, formations, fluid flags
+  and starting eleven to the script, not just player fields.
+- **Green silver giants capped at silver−3**: a silver medal player at exactly the giant
+  threshold on a Green team may not exceed rate−3.
+- **Silver giant penalty is bracket-conditional**: 0 on Red, 3 on Green (hence
+  `bonuses.giant_penalty` is keyed by height system above).
 
-[Rhai](https://rhai.rs) is a scripting language written in pure Rust for embedding. It is the safe
-answer to Python's `eval()`: scripts can only access what the host exposes, cannot touch the
-filesystem or network, and have configurable operation/recursion limits so a broken script cannot
-hang the tool.
+Upstream errata, do not transcribe (the `Autumn_2026_AATF` branch, unfixed as of `cf61542`): its
+bronze-count check reads the silver counter (`numSilver != reqNumBronze`, masked today because
+both quotas are 2); and `aatf_check_player_in_pos` matches player IDs as `team_id*1000` (the rest
+of the editor uses `*100`), so its starting-eleven lookup never succeeds and the preset check
+silently degrades to `reg_pos`, plus its fluid branch counts formations backwards (checks 1 when
+fluid, 3 when not; the correct semantics are the opposite).
 
-```rhai
-// rules/aatf.rhai — editable by the rules committee, no recompile needed
+### The host
 
-fn check_player(p, using_red) {
-    let errors = [];
-
-    if p.medal == "gold" && p.position != "GK" {
-        let target = cfg.rates.gold + height_bonus(p, using_red);
-        for skill in OUTFIELD_SKILLS {
-            if p.stat(skill) != target {
-                errors.push(`${skill} is ${p.stat(skill)}, should be ${target}`);
-            }
-        }
-    }
-
-    if p.playable_at(p.registered_position) != "A" {
-        errors.push("Player is not playable at A in their registered position");
-    }
-
-    errors
-}
-
-fn height_bonus(p, using_red) {
-    if !using_red || p.height > cfg.heights.manlet { return 0; }
-    if p.medal == "gold" { cfg.bonuses.gold_manlet }
-    else if p.medal == "silver" { cfg.bonuses.silver_manlet }
-    else { cfg.bonuses.manlet }
-}
-```
-
-These snippets illustrate the scripting interface, not the complete default rule set. The
-manlet stat bonus is Red-system-only and tier-specific (`aatf.cpp`); the gold default is 0,
-not the regular player's +5. Full shipped rules must retain the source's other exceptions,
-including the permitted lower attack/defense values.
-
-The Rust side registers the player model and config with the engine and sets hard limits:
+`libs/aatf` compiles the file once per load, reads `CFG`, and runs the three functions on
+demand. What the script sees is registered by the host and nothing else:
 
 ```rust
 let mut engine = rhai::Engine::new();
 engine.register_type::<PlayerEntry>()
+      .register_get("slot", |p: &mut PlayerEntry| p.slot as i64)
       .register_get("height", |p: &mut PlayerEntry| p.height as i64)
       .register_fn("stat", |p: &mut PlayerEntry, name: &str| p.stat_by_name(name))
       .register_fn("playable_at", |p: &mut PlayerEntry, pos: &str| p.playable_at(pos));
+engine.register_type::<TeamContext>()          // players, captain, version, tactics presets
+      .register_get("players", |t: &mut TeamContext| t.players.clone())
+      .register_get("presets", |t: &mut TeamContext| t.presets.clone());
 
 engine.set_max_operations(1_000_000);
 engine.set_max_call_levels(32);
 ```
 
-A "validate rules" button in the GUI parses the TOML, compiles the Rhai script, runs it against a
-synthetic player, and reports script errors as friendly messages before a real check run.
+Closed sets cross the boundary as strings the script compares (`"GK"`, `"A"`, tier names) because
+that is what the file's author writes; the Rust side keeps its enums and converts at the
+registration functions, nowhere else. The registered accessors are the script API and are listed
+in `libs/aatf`'s crate doc; adding one is a plan edit to this section, never a silent addition.
 
-Caveat: Rhai is a real (small) language, so the scripted layer is friendly to anyone comfortable
-with light scripting, while the TOML layer is friendly to everyone. Both are large improvements over
-editing C++ and recompiling.
+`apply_tier(player, tier, rules)` is the lib's one *writing* operation: it calls `tier_values`
+and writes the result into the player. It is the function behind this editor's Make
+Gold/Silver/Bronze/Regular quick actions (one button per entry of `CFG.tiers`) and behind the
+Team creator's default stats: one function, so neither tool can produce a player the checker then
+rejects. AATF itself reports violations and never auto-fixes (matching 4ccEditor). Results render
+in a panel grouped per player, and clicking a violation jumps to the player; team selection
+matches 4ccEditor: current team or a multi-select list.
 
-**Simpler alternative under consideration:** instead of a full scripting language, the rules can be
-a declarative TOML list where each rule is a single expression (via the `cel-interpreter` crate —
-Google's Common Expression Language, designed exactly for embedded policy rules) plus a message
-template:
+**Loading and validation.** The official file ships embedded in `libs/aatf` and is the default;
+the editor's settings hold the path of an alternative file (an invitational's copy), and a
+"save a copy" action writes the embedded file out for editing. A file is validated on load and
+by the "validate rules" button: it must parse; `CFG` must be a map with `name` (string), `tiers`
+(non-empty array of strings), `rates`, `medals`, `form`, `injury_resistance`, `weak_foot`,
+`cards`, `heights`, `brackets`, `bonuses`; every tier in `tiers` must have an entry in `rates`,
+`form` and `injury_resistance`; the three required functions must exist with the right arity;
+and `check_team` must run to completion on a synthetic legal team without a script error.
+Failures are `Message`s with the file's line and column, before any real check runs. The host
+does not validate what the functions compute; the corpus test below does.
 
-```toml
-[[rule]]
-name = "gold outfield rating"
-applies = "p.medal == 'gold' && p.position != 'GK'"
-check = "OUTFIELD_SKILLS.all(s, p.stat(s) == cfg.rates.gold + height_bonus)"
-message = "Gold player stats must all be {target}"
-```
-
-CEL is non-Turing-complete (no loops, but has `all`/`exists` comprehension macros), which makes
-individual rules simpler to write and impossible to break the compiler with. The trade-off is that
-helper logic (like `height_bonus`) must be precomputed by the host rather than defined in the rules
-file. Decide between Rhai (full expressiveness) and TOML+CEL (simpler per-rule authoring) when
-implementing Phase 5. Note that the team-level checks (bracket quotas, medal counts, captain/GK
-presence) aggregate over the squad — whichever engine is chosen must support team-scoped rules, not
-just per-player ones (in CEL that means host-precomputed aggregates).
+**Why one Rhai file, not TOML parameters plus a scripted or CEL logic file.** The natural design
+is two layers: a TOML of numbers anyone can edit, and logic in a scripting language, with
+Google's CEL (the `cel-interpreter` crate, non-Turing-complete, one expression per rule) as the
+simpler candidate for the logic. Autumn 26 killed both halves of that design. *CEL*: the three
+specials need sequencing (`comMod` is a running allowance consumed later in the same check), a
+nested preset×formation traversal with a fluid-conditional range, and a starting-eleven lookup;
+in CEL each of those is a new host-precomputed field or helper, so a ruleset change would still
+need a Rust release, which is the one thing the configurable layer exists to prevent. *Two
+files*: a parameter file and a logic file version-skew (an invitational's TOML without `bronze`
+keys against a script that reads them fails or silently defaults), tiers as serde fields
+resist the extensibility the fourth tier demanded, and the official-to-invitational workflow is
+"copy one file, edit the top" only when there is one file. The costs accepted: map-literal
+syntax is denser than TOML (the validator reports line and column either way); nothing but the
+banner stops a member from editing logic (which is also what lets a committee member hot-fix a
+`numSilver`-style bug without a build); and the parameters are readable only through Rhai,
+which nothing outside the workspace needs to do.
 
 ---
 
