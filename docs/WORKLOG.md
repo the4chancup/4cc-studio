@@ -403,7 +403,20 @@ Spec: `docs/plans/core/development_plan.md` "Phase 2", `docs/plans/libs/README.m
   instead of panicking, NUL in a name refused, the copy test now proves the undecoded bits are
   carried not copied), one accepted as a doc/plan sharpening (`is_fpc_player` classifies what
   the save shows; decision entry). Crate 75 tests; workspace gates green
-- [ ] 2.17f `convert.rs` cross-version conversion (caps table, playstyle maps)
+- [ ] 2.17f `convert.rs` cross-version conversion (`pes_savefile/operations.md` "Cross-version
+  player conversion", "What the Rust module is"), in two slices:
+  - [ ] 2.17f-1 `model/playstyle.rs` + `schema/playstyle.rs` (`decode`/`encode`, the four lists,
+    `CodecError::UnknownPlayingStyle`), `schema/limits.rs` (`face_type_cap`), `settings_toml`
+    face-key widest ranges derived from it → verify: the lead's golden test reproduces the
+    reference editor's twelve conversion arrays through `encode(to, decode(from, i))`; every
+    player of every fixture decodes; ≥ 95 % of registered goalkeepers with a style decode to a
+    goalkeeper style on every fixture; the `settings.toml` template is byte-identical to before
+  - [ ] 2.17f-2 `convert.rs` (`convert_player`, `ConvertNote`, `ConvertError`),
+    `IngameFace::copy_from`, `RecordSchema::has` → verify: 19 → 16 and 16 → 21 of fixture players
+    match the converters' appearance writes field by field (copy-through, caps, skin) bar their
+    compile-policy rewrites; 16 → 15 drops the run's last four bytes and 15 → 16 keeps the
+    target's; a rejected conversion leaves the target unchanged; the converted target
+    `write_player`s into the target schema without error
 - [ ] 2.17g `ops/{transplant,fingerprint,compare}` (parity with the reference scripts)
 - [ ] 2.17h `interchange/{team_toml,legacy,texport}` (texport write is a manual game check)
 - [ ] 2.18 `python_bindings` (maturin build + Python smoke test; add the `just bindings` recipe

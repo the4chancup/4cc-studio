@@ -88,8 +88,10 @@ Defensive/False Winger/Wingback are 0x0D/0x0E/0x0F in canonical order, mapping
 to 0x08/0x09/0x0F), and **playstyle enums are
 version-specific** — 4ccEditor's `menu_lists.cpp` carries twelve conversion
 arrays (16↔17/18, 16↔19, 16↔20/21, 17/18↔19, 17/18↔20/21, 19↔20/21). In Rust
-these become one canonical `PlayStyle` enum plus per-version encode/decode maps,
-which is what makes cross-version team import work.
+these become one canonical `PlayStyle` enum (`model/playstyle.rs`) plus one list per version
+group with `decode`/`encode` (`schema/playstyle.rs`), which is what makes cross-version team
+import work; the lists and the rule for unlisted values are in `operations.md` "Cross-version
+player conversion". `PlayerPositions.playing_style` stays the stored `u8` index.
 
 ---
 

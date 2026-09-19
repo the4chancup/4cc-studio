@@ -31,6 +31,140 @@ Playstyle and skill translation for gameplay data reuses the `menu_lists.cpp`
 conversion maps and truncates/zeroes skills that don't exist in the target
 version (as 4ccEditor's Texport import already does).
 
+### What the Rust module is
+
+The converters were also the compiler of their day: half of what they write (boots/gloves IDs
+against the models present, the edit flags, taping and player gloves cleared) is compile policy,
+not layout translation, and in this suite that policy belongs to the Team compiler's
+`PlayerSettings`/`ops::fpc` pass that runs *after* conversion. `convert.rs` therefore does the
+version-dependent half only: **everything that translates one-to-one is copied through; what does
+not translate is capped, dropped or filled from the target, and each such case is reported as a
+note**, never silently. The converters' compile-policy rewrites are not in this module (decision
+entry, 2.17f).
+
+The operation is a rewrite **into a template**, as in the reference: the target entry is a player
+read from a save of the target version, and its bytes stand in for everything the source has no
+counterpart for (gated stats the source version lacks, the ingame-face bytes the PES 15 run does
+not have). This is also what settles the 46/50-byte run: the appearance block's layout is
+identical on every version up to the iris byte and PES 15's is simply four bytes shorter at the
+tail (the reference editor's PES 15 and 16 read walks differ only in the last skip), so the
+source run is copied over the target run's prefix, `min(len)` bytes; a PES 15 target drops the
+source's last four bytes, a 16+ target keeps its own last four. No byte is invented.
+
+```rust
+/// `convert.rs`. Rewrites `target`, a player read from a `to`-version save, from `source`,
+/// read from a `from`-version save. All-or-nothing: on `Err` the target is unchanged. The
+/// target keeps its own `id` (it is the slot being filled).
+pub fn convert_player(
+    source: &PlayerEntry, from: PesVersion,
+    target: &mut PlayerEntry, to: PesVersion,
+) -> Result<Vec<ConvertNote>, ConvertError>;
+
+/// What could not be carried one-to-one; the conversion still succeeded.
+pub enum ConvertNote {
+    /// A face type above the target's cap was reset to 0 (the converters' default; not clamped).
+    FaceTypeReset { field: IngameFaceField, value: u8 },
+    /// Skin colour 7 (custom skin) reset to 1: `from` or `to` has no custom skin.
+    CustomSkinReset,
+    /// The playing style has no value in `to`; set to `None` (0).
+    PlayingStyleDropped { style: PlayStyle },
+    /// A set skill `to` has no bit for was cleared.
+    SkillDropped { index: u8 },
+    /// The name or shirt name was cut to the target field's length (at a char boundary).
+    TextTruncated { text: PlayerText },
+    /// The source run is longer than the target's; its last `bytes` bytes were dropped (50 → 46).
+    FaceRunTruncated { bytes: usize },
+}
+
+pub enum ConvertError {
+    /// The source or the target has no ingame-face run (an entry never read from a record).
+    NoIngameFaceRun,
+    /// The source's stored playing style is not a value of `from`'s list
+    /// (`CodecError::UnknownPlayingStyle`).
+    Codec(#[from] CodecError),
+}
+```
+
+Field by field: `name`/`shirt_name` copied, truncated to the target schema's text length with a
+note (the reference cuts at 45/15 silently); `basic`, the non-gated `stats`, `positions` (bar
+the style), `skills.com_styles`, `motion`, `edit_flags`, the boots/gloves/base-copy IDs, physique
+and strip fields copied; a gated `Option` field is carried only where the target has it
+(`target.x.is_some()`), otherwise the target's `None` stands; `skills.skills` copied then every
+index the target schema has no `Skill(i)` row for cleared (`RecordSchema::has`); the style goes
+through `schema::playstyle::{decode, encode}`; the ingame-face run is copied as above, then the
+eleven face types are capped against `schema::limits::face_type_cap(to, field)` and the skin rule
+applied. Skin 7 is reset only when `fpc::custom_skin_available` is false for `from` or `to`: a
+16 → 17 conversion keeps a partial-hide FPC player's custom skin (both converters reset
+unconditionally, but each of their directions has a no-custom-skin side; the reference editor's
+import resets to 0, the converters to 1, and the converters are the verified path).
+
+```rust
+/// `schema/limits.rs`: the per-version caps, next to the schemas. `None` for the fields that
+/// are not face types (gloves, skin, iris).
+pub fn face_type_cap(version: PesVersion, field: IngameFaceField) -> Option<u8>;
+```
+
+| Face type | PES 15–19 | PES 20–21 |
+|---|---|---|
+| cheek | 3 | 3 |
+| forehead | 5 | 5 |
+| facial hair | 12 | 19 |
+| laughter lines | 4 | 4 |
+| upper eyelid | 6 | 7 |
+| lower eyelid | 2 | 6 |
+| eyebrow | 5 | 7 |
+| neck line | 2 | 3 |
+| nose | 6 | 7 |
+| upper lip | 3 | 4 |
+| lower lip | 2 | 4 |
+
+Measured: the PES 16 column (the 19 → 16 converter's caps) and the PES 21 column (the 16 → 21
+converter's). Assumed: 15, 17, 18 and 19 equal 16; 20 equals 21. The `settings.toml` key table's
+widest range for each face key is derived from this table (the maximum over versions), so the two
+cannot drift.
+
+**Playing styles.** The stored value is a per-version index. The canonical `PlayStyle` enum
+(`model/playstyle.rs`) has the 22 values of the PES 20/21 list (`None` plus 21 named styles);
+`schema/playstyle.rs` holds one list per version group and `decode(version, u8) ->
+Result<PlayStyle, CodecError>` / `encode(version, PlayStyle) -> Option<u8>` (`None` when the
+version has no such style). The lists, from the reference editor's twelve conversion arrays and
+checked against every fixture save (a census of style × registered position: goalkeepers sit at
+17/18 on PES 15/16, 16/17 on 17/18, 20/21 on 19–21):
+
+| Index | PES 15/16 | PES 17/18 | PES 19 | PES 20/21 |
+|---|---|---|---|---|
+| 0–3 | None, Goal Poacher, Dummy Runner, Fox in the Box | same | same | same |
+| 4 | Prolific Winger | Prolific Winger | Target Man | Target Man |
+| 5 | Classic No. 10 | Classic No. 10 | Creative Playmaker | Creative Playmaker |
+| 6 | Hole Player | Hole Player | Prolific Winger | Prolific Winger |
+| 7 | Box to Box | Box to Box | Roaming Flank | Roaming Flank |
+| 8 | Anchor Man | Anchor Man | Crossing Specialist | Crossing Specialist |
+| 9 | The Destroyer | The Destroyer | Classic No. 10 | Classic No. 10 |
+| 10 | Extra Frontman | Extra Frontman | Hole Player | Hole Player |
+| 11 | Offensive Fullback | Offensive Fullback | Box to Box | Box to Box |
+| 12 | Defensive Fullback | Defensive Fullback | The Destroyer | The Destroyer |
+| 13 | Target Man | Target Man | Orchestrator | Orchestrator |
+| 14 | Creative Playmaker | Creative Playmaker | Anchor Man | Anchor Man |
+| 15 | Build Up | Build Up | Build Up | Offensive Fullback |
+| 16 | *(unused: no player of either fixture save carries it)* | Offensive Goalkeeper | Offensive Fullback | Fullback Finisher |
+| 17 | Offensive Goalkeeper | Defensive Goalkeeper | Fullback Finisher | Defensive Fullback |
+| 18 | Defensive Goalkeeper | — | Defensive Fullback | Build Up |
+| 19 | — | — | Extra Frontman | Extra Frontman |
+| 20 | — | — | Offensive Goalkeeper | Offensive Goalkeeper |
+| 21 | — | — | Defensive Goalkeeper | Defensive Goalkeeper |
+
+A stored value outside the list (PES 15/16's 16 included) decodes to
+`CodecError::UnknownPlayingStyle { version, value }`, not to `None`: no real save carries one, and a silent 0 is the mistake `Missing` exists to avoid.
+The reference editor fills its PES 15/16 combo box with the 17/18 names (mislabelling the two
+goalkeeper styles by one); the arrays, not the combo box, are the evidence, and the census confirms
+them. The model keeps `PlayerPositions.playing_style: u8` (the stored index): the codec does not
+know the version, and only conversion and the interchange formats need the canonical value.
+
+Not in this module (open): the motion ranges narrow from 20/21 to 19 and earlier (corner kick
+1–10 vs 1–6, free kick 1–20 vs 1–16, penalty 1–7 vs 1–4, see the `settings.toml` key table); a
+20/21 → 19 conversion copies such a value through uncapped. Whether the game clamps, ignores or
+misbehaves on an out-of-range motion is unmeasured; measure before capping.
+
 ---
 
 ## Save-to-save operations
