@@ -2,6 +2,14 @@
 # What this file excludes is what the mutation runs stop measuring, so every entry names the
 # equivalence that makes the mutant unkillable; a mutant that is merely hard to kill stays in.
 
+# `just mutants`/`mutants-diff` run two cargo processes at once (`--jobs 2`), and `.cargo/config.toml`'s
+# `build.jobs = -2` caps each one separately, so together they took every logical processor. Each
+# process therefore gets half of the CPUs-minus-two budget: build jobs by cargo's negative form
+# (CPUs - 9 = 7 on the maintainer's 16-thread machine; cargo floors it at 1 elsewhere), test threads
+# as a hard 7 because libtest has no relative form. Local tooling only; CI never runs mutants.
+additional_cargo_args = ["--jobs", "-9"]
+additional_cargo_test_args = ["--", "--test-threads=7"]
+
 exclude_re = [
     # Bit packing: `a | b` and `a ^ b` are the same value when the operands share no set bit,
     # which is every packed-field write in the format crates (the fields are masked and shifted
