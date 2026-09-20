@@ -436,7 +436,30 @@ Spec: `docs/plans/core/development_plan.md` "Phase 2", `docs/plans/libs/README.m
   `EditFile::player` does; the 15/16 appearance record's `Id` is not a second row; three vacuous
   tests strengthened, `scope()` pinned mechanically to what `transplant_player` moves). Crate 113
   tests; `mutants-diff` 31 caught + 3 boundary survivors killed, then 21/21
-- [ ] 2.17h `interchange/{team_toml,legacy,texport}` (texport write is a manual game check)
+- [ ] 2.17h `interchange/{team_toml,legacy,texport}` (`pes_savefile/operations.md` "Interchange
+  formats", rewritten from measurement on the real files: three 17 / four 18 / eleven 19 / five 21
+  texports, two `.4ccs`; decision entry 2026-09-20). Texport write is a manual game check.
+  Slices, vertical first (real input in, real output out):
+  - [ ] 2.17h-0 lead: fixtures (`pes17_texport_*` slices, `pes18/19/21_texport.ted`,
+    `pes19_squad.4ccs`, synthesized `pes19_tactics.4cct`) via
+    `scripts/provenance/fixtures/interchange_fixtures.py`; golden tests holding the `.4ccs`
+    ctypes offsets and the texport layout literals
+  - [ ] 2.17h-1 `schema/texport.rs` + `interchange/texport.rs` (`Texport::from_bytes`/`new`/
+    `to_bytes`, detection, `TexportError`) → verify: round trip byte-identical on the four
+    fixtures; every record decodes; 20/21 detection picks 21 on the 21 fixture
+  - [ ] 2.17h-2 `model/instruction.rs` + `schema/instruction.rs` (lead golden: the reference's
+    `translate_adv_instruction` table as literals) + `interchange/team_toml/` team and tactics
+    half (`TeamToml` document, `TeamSection`, `TacticsSection`, parse/`to_toml`/`from_team`/
+    `apply` for those tables) → verify: `from_team` → `to_toml` → `parse` → `apply` reproduces
+    every fixture team; a one-key file changes one field
+  - [ ] 2.17h-3 `team_toml/` player half (`PlayerSection`, the stats/positions/skills/edit-flag
+    key tables, `ingame_face`, `appearance` through `PlayerSettings`, `ImportNote` conversion
+    rules, `shirt_name_from`) → verify: round trip on every fixture player; a 21 → 19 apply drops
+    the 20+ keys with notes and caps the face types
+  - [ ] 2.17h-4 `interchange/legacy.rs` (`.4ccs`/`.4cct` → `TeamToml`) → verify: the lead's
+    `.4ccs` golden (23 players, literal offsets); the `.4cct` fixture's tactics equal the codec's
+    for team 713
+  - [ ] 2.17h-5 checkpoint (b) review of the 2.17h surface, rework, closeout
 - [ ] 2.18 `python_bindings` (maturin build + Python smoke test; add the `just bindings` recipe
   and the CI job deferred from step 1.2)
 - [ ] 2.19 Phase verification: every crate's tests per `libs/README.md` "Testing" green; `wasm32` check

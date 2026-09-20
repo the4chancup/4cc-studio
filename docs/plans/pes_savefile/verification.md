@@ -38,5 +38,14 @@ Part of the [Savefile plan](README.md). Section headings are unchanged from the 
   data, excluding their documented stale PES20/21 offsets. Assert corrected name and appearance
   fields independently against the target schema; reproducing the known converter corruption is
   not parity.
-- **Texport write**: import the generated file in the actual game (manual, per
-  version).
+- **Interchange formats**: Team TOML `from_team` → `to_toml` → `parse` → `apply` onto a copy of
+  the same team reproduces the team and its players field for field on every fixture save, and
+  `to_toml` of the parsed document is the emitted text again; a partial file touches only the
+  fields it carries (a one-key file leaves everything else byte-identical after `write_player`);
+  `.4ccs` decodes the real PES 19 fixture file's 23 players against the ctypes offsets held as
+  literals in the golden test; the `.4cct` fixture's tactics equal the schema codec's for the same
+  team; Texport `from_bytes` → `to_bytes` is byte-identical on the real 17, 18, 19 and 21 fixtures
+  and every record decodes to the same values the fixture save's codec produces for the same
+  layout; the 18/19/21 key indices and layouts are measured, 15/16/20's are the reference's.
+- **Texport write**: import the generated file in the actual game (manual, per version; a `new`
+  file and an edited round-tripped one).

@@ -1595,3 +1595,49 @@ not the save's.
 Plan: `db_generator.md` (new), `core/development_plan.md` "Phase 19", `pes_savefile/operations.md`
 "Player section population", `balls_compiler.md` and `stadium_compiler.md` (placement rows),
 `plans/README.md`, `libs/README.md`, `GLOSSARY.md`.
+
+## 2026-09-20 - pes_savefile - 2.17h interchange formats: measured Texport layout, one import path, Team TOML keyed by roster slot
+Decision (lead): the interchange formats are shaped by what the real files on the reference
+machine measure, not by the plan's transcription of the reference editor's read walks:
+- **Texport 18-21 is the save's own records concatenated** (team | 88-byte coach | roster |
+  tactics | 660 bytes | players x roster width | 12 bytes) behind a 0x50 header and a 32-byte
+  XOR key. Every record decodes with `schema_for(version)`'s record schemas at the offsets the
+  sizes imply (measured on four 18, eleven 19 and five 21 files: `0x32C`/`0x834`, `0x33C`/`0x844`,
+  `0x410`/`0x918`, the reference editor's numbers), and the 17 file opens with `SaveContainer`
+  unchanged. So `interchange/texport.rs` owns crypto and carry-through only, `schema/texport.rs`
+  the per-version constants, and no texport field table exists. Rejected: transcribing the
+  reference's `fill_*_texport` walks as a second set of tables - they are the save tables with a
+  different starting byte, and a second copy drifts.
+- **Texport write synthesizes 18-21 files from measured templates** (header, coach block, tail
+  per version; the 660-byte block zero, which real files carry) and is template-patching on
+  15-17 (`NoTemplate`): the header holds no content checksum the census could find, so a
+  constant header is the best evidence available; whether the game accepts it is the manual
+  check the plan already names. PES 20 keeps the reference's untested key index `0x14`.
+- **One import path**: `.4ccs`, `.4cct` and Texport reads all produce a `TeamToml`, and
+  `TeamToml::apply` is the only code that writes interchange data into a save. Rejected:
+  per-format importers (three copies of the slot mapping, the version conversion and the notes).
+- **Team TOML players are keyed by roster slot**, never by id (`[players.01]`, as the aesthetics
+  patch does), so a file applies to any team and carries no id; `base_copy_id` equal to the
+  file's own player id means "unset" and becomes the target's own id. Gameplay values are the
+  stored numbers with bit-width ranges (a dump, not the manager-facing `settings.toml`
+  reinterpretation), labels only where the model already has a canonical enum; the
+  `[players.NN.appearance]` table is `settings.toml`'s `[appearance]` verbatim through
+  `PlayerSettings`' own parser/emitter. Presets and formations are named tables
+  (`preset_1.formation_2`), not arrays of tables, so "absent = untouched" holds per preset.
+- **Advanced instructions get a canonical enum** (`model/instruction.rs`, the reference's
+  17-based order) with per-version `schema/instruction.rs` lists, the `PlayStyle` pattern; the
+  model's `AdvancedInstruction.instruction` stays the stored `u8`.
+- **`.4ccs` accepts tags `"20a"` and `"21a"`**: the plan says `"21a"` (the reference's current
+  constant) but every real file on the machine is `"20a"`, and the 356-byte record decodes them
+  exactly (23 records, sequential base-copy ids, `numbers` filling the tail), so the tag bump
+  did not change the record. Reading the two identically is the whole cost.
+- **The `.4cct` fixture is synthesized** (no real file exists): the reference's `save_tactical_data`
+  write walk transcribed in Python over the PES 19 fixture save's team 713; the test's evidence
+  is agreement with the Rust schema codec's `TeamTactics` for the same team, two independent
+  paths.
+Not measured: PES 15/16/20 texports (no files), the 15-17 texport's team and roster record
+positions (the 17 payload holds the team id at four places before the tactics record; team and
+roster of a 15-17 texport come from the target save until measured), `shirt_name_from`'s
+character set beyond upper-casing.
+Plan: `pes_savefile/operations.md` "Interchange formats" (rewritten), `pes_savefile/README.md`
+crate tree, `pes_savefile/verification.md`.
