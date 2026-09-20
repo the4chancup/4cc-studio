@@ -5,14 +5,16 @@
 //! `positions.playing_style`, `skills.skills`, `skills.com_styles`,
 //! `appearance`) are handled individually in `player.rs`.
 
+#[cfg(test)]
 use pes_version::PesVersion;
 use toml_edit::Item;
 
 use crate::interchange::team_toml::labels;
 use crate::interchange::team_toml::{PlayerSection, TeamTomlError};
 use crate::model::player::PlayerEntry;
-use crate::schema::fields::{PlayerField, PlayerText};
-use crate::schema::{RecordSchema, schema_for};
+use crate::schema::fields::PlayerField;
+#[cfg(test)]
+use crate::schema::schema_for;
 
 /// How a key's TOML value maps to the stored `u32`, and the range it accepts.
 #[derive(Debug, Clone, Copy)]
@@ -567,32 +569,7 @@ impl PlayerKey {
 
     /// The `stored_max` computation, run once per key into `MAXIMA`.
     fn compute_stored_max(self) -> i64 {
-        fn widest(schema: &RecordSchema<PlayerField, PlayerText>, field: PlayerField) -> u32 {
-            schema
-                .fields
-                .iter()
-                .filter(|spec| spec.field == field)
-                .map(|spec| spec.bit_width)
-                .chain(
-                    schema
-                        .arrays
-                        .iter()
-                        .filter(|array| (0..array.count).any(|i| (array.make)(i) == field))
-                        .map(|array| array.bit_width),
-                )
-                .max()
-                .unwrap_or(0)
-        }
-        let field = self.spec().field;
-        let mut width = 0u32;
-        for version in PesVersion::ALL {
-            let schema = schema_for(version);
-            width = width.max(widest(schema.player, field));
-            if let Some((_, appearance)) = schema.appearance {
-                width = width.max(widest(appearance, field));
-            }
-        }
-        (1i64 << width) - 1
+        (1i64 << crate::schema::widest_bit_width(self.spec().field)) - 1
     }
 
     /// The range/allowed text the kind reports in errors.
@@ -735,5 +712,36 @@ mod tests {
         let player = file.players().first().expect("a player");
         assert_eq!(PlayerKey::TightPossession.get(player), None);
         assert!(!schema_for(PesVersion::Pes15).player_has(PlayerField::TightPossession));
+    }
+
+    /// `accepts` bounds each kind at its own edges: a label key at the
+    /// labels' length, a `Stored` key at the field's widest bit width.
+    #[test]
+    fn accepts_bounds_follow_the_kind() {
+        let mut section = PlayerSection::default();
+        assert!(matches!(
+            PlayerKey::Registered.set_section(&mut section, 13),
+            Err(TeamTomlError::OutOfRange { .. })
+        ));
+        PlayerKey::Registered
+            .set_section(&mut section, 12)
+            .expect("the last position");
+        assert_eq!(section.positions.registered, Some(12));
+
+        PlayerKey::Star
+            .set_section(&mut section, 7)
+            .expect("a 3-bit field's maximum");
+        assert_eq!(section.stats.star, Some(7));
+        let err = PlayerKey::Star
+            .set_section(&mut section, 8)
+            .expect_err("past the width");
+        assert!(
+            matches!(
+                err,
+                TeamTomlError::OutOfRange { ref range, .. } if range == "0 to 7"
+            ),
+            "{err:?}"
+        );
+        assert_eq!(section.stats.star, Some(7), "the refused write left it");
     }
 }

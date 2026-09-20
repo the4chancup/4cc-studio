@@ -274,6 +274,42 @@ pub fn schema_for(version: PesVersion) -> &'static VersionSchema {
     }
 }
 
+/// The widest bit width `field` is stored at in any version's player or
+/// appearance record — the bound a stored-range integer is held to (the
+/// 2026-09-21 Team TOML ruling). 0 for a field no version stores.
+pub(crate) fn widest_bit_width(field: PlayerField) -> u32 {
+    static WIDTHS: std::sync::LazyLock<std::collections::HashMap<PlayerField, u32>> =
+        std::sync::LazyLock::new(|| {
+            let mut widths: std::collections::HashMap<PlayerField, u32> =
+                std::collections::HashMap::new();
+            let mut visit = |schema: &RecordSchema<PlayerField, PlayerText>| {
+                for spec in schema.fields {
+                    widths
+                        .entry(spec.field)
+                        .and_modify(|w| *w = (*w).max(spec.bit_width))
+                        .or_insert(spec.bit_width);
+                }
+                for array in schema.arrays {
+                    for i in 0..array.count {
+                        widths
+                            .entry((array.make)(i))
+                            .and_modify(|w| *w = (*w).max(array.bit_width))
+                            .or_insert(array.bit_width);
+                    }
+                }
+            };
+            for version in PesVersion::ALL {
+                let schema = schema_for(version);
+                visit(schema.player);
+                if let Some((_, appearance)) = schema.appearance {
+                    visit(appearance);
+                }
+            }
+            widths
+        });
+    *WIDTHS.get(&field).unwrap_or(&0)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -450,5 +486,15 @@ mod tests {
                 .tactic
                 .has_preset(PresetField::FluidFormation)
         );
+    }
+
+    /// `player_has` answers for both records: a player-record field, an
+    /// appearance-record field on 15/16, and a field the version lacks.
+    #[test]
+    fn player_has_covers_the_player_and_appearance_records() {
+        assert!(schema_for(PesVersion::Pes19).player_has(PlayerField::Height));
+        assert!(schema_for(PesVersion::Pes15).player_has(PlayerField::NeckLength));
+        assert!(schema_for(PesVersion::Pes16).player_has(PlayerField::NeckLength));
+        assert!(!schema_for(PesVersion::Pes15).player_has(PlayerField::TightPossession));
     }
 }

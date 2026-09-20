@@ -22,7 +22,7 @@ use crate::interchange::team_toml::{
 };
 use crate::model::instruction::Instruction;
 use crate::model::tactics::FormationSlot;
-use crate::schema::fields::PlayerField;
+use crate::schema::fields::{PlayerField, PresetField, TacticsField};
 use crate::schema::{playstyle, schema_for};
 use crate::settings_toml::keys::{SettingKey, Source};
 use crate::settings_toml::set_appearance;
@@ -63,6 +63,12 @@ pub enum LegacyError {
     /// An instruction byte outside the canonical table.
     #[error("instruction byte {0} is not a canonical instruction")]
     BadInstruction(u8),
+    /// More player records than the 40-slot roster the format implies.
+    #[error("{count} player records; the format holds at most 40")]
+    TooManyPlayers {
+        /// The records the file claims to carry.
+        count: usize,
+    },
     /// A field value the field cannot hold.
     #[error(transparent)]
     Value(#[from] TeamTomlError),
@@ -457,9 +463,12 @@ fn put_appearance(
 }
 
 /// The 405-byte tactics block both formats carry, into `tactics`. The byte
-/// order is the reference's `save_tactical_data` write walk.
-fn tactics_block(block: &[u8]) -> Result<TacticsSection, LegacyError> {
+/// order is the reference's `save_tactical_data` write walk. Fields the
+/// exporting version's tactics schema does not store are left `None` — the
+/// block carries their bytes anyway on every version.
+fn tactics_block(block: &[u8], version: PesVersion) -> Result<TacticsSection, LegacyError> {
     debug_assert_eq!(block.len(), TACTICS);
+    let tactic = schema_for(version).tactic;
     let mut pos = 0;
     let mut tactics = TacticsSection::default();
     for preset in &mut tactics.presets {
@@ -504,7 +513,7 @@ fn tactics_block(block: &[u8]) -> Result<TacticsSection, LegacyError> {
             entry.player = block[pos + 1];
             pos += 2;
         }
-        preset.instructions = Some(instructions);
+        preset.instructions = tactic.instructions.is_some().then_some(instructions);
         let sliders = &block[pos..pos + 5];
         preset.sliders = SlidersSection {
             support_range: Some(sliders[0]),
@@ -514,7 +523,9 @@ fn tactics_block(block: &[u8]) -> Result<TacticsSection, LegacyError> {
             numbers_in_defence: Some(sliders[4]),
         };
         pos += 5;
-        preset.style.fluid = Some(block[pos] != 0);
+        preset.style.fluid = tactic
+            .has_preset(PresetField::FluidFormation)
+            .then(|| block[pos] != 0);
         pos += 1;
     }
     tactics.starting_eleven = Some(block[pos..pos + 11].try_into().expect("eleven"));
@@ -536,10 +547,18 @@ fn tactics_block(block: &[u8]) -> Result<TacticsSection, LegacyError> {
     tactics.players_to_join_attack = Some(block[pos..pos + 3].try_into().expect("three"));
     pos += 3;
     tactics.auto = AutoSection {
-        substitution: Some(block[pos]),
-        offside_trap: Some(block[pos + 1] != 0),
-        preset_change: Some(block[pos + 2] != 0),
-        attack_defence_levels: Some(block[pos + 3] != 0),
+        substitution: tactic
+            .has(TacticsField::AutoSubstitution)
+            .then_some(block[pos]),
+        offside_trap: tactic
+            .has(TacticsField::AutoOffsideTrap)
+            .then(|| block[pos + 1] != 0),
+        preset_change: tactic
+            .has(TacticsField::AutoPresetChange)
+            .then(|| block[pos + 2] != 0),
+        attack_defence_levels: tactic
+            .has(TacticsField::AutoAttackDefenceLevels)
+            .then(|| block[pos + 3] != 0),
     };
     pos += 4;
     debug_assert_eq!(pos, TACTICS);
@@ -582,6 +601,11 @@ pub fn read_squad(bytes: &[u8]) -> Result<TeamToml, LegacyError> {
             len: bytes.len(),
         });
     };
+    // The numbers block holds 40 slots; more records have no shirt numbers
+    // and no roster slot to land in, so the file is refused outright.
+    if players > 40 {
+        return Err(LegacyError::TooManyPlayers { count: players });
+    }
     let fields = schema_for(version).player_field_set();
     let numbers = &bytes[HEADER + players * RECORD..HEADER + players * RECORD + NUMBERS];
     let mut out = TeamToml {
@@ -590,9 +614,7 @@ pub fn read_squad(bytes: &[u8]) -> Result<TeamToml, LegacyError> {
     };
     for i in 0..players {
         let record = &bytes[HEADER + i * RECORD..HEADER + (i + 1) * RECORD];
-        // The numbers block holds 40 slots; a file carrying more records has
-        // no number for the rest.
-        let number = (i < 40).then(|| u16::from_le_bytes([numbers[2 * i], numbers[2 * i + 1]]));
+        let number = Some(u16::from_le_bytes([numbers[2 * i], numbers[2 * i + 1]]));
         let section = read_player(version, &fields, record, number)?;
         out.players.insert(
             u8::try_from(i + 1).expect("a roster slot index fits u8"),
@@ -600,7 +622,7 @@ pub fn read_squad(bytes: &[u8]) -> Result<TeamToml, LegacyError> {
         );
     }
     if let Some(block) = block {
-        out.tactics = tactics_block(block)?;
+        out.tactics = tactics_block(block, version)?;
     }
     Ok(out)
 }
@@ -636,7 +658,7 @@ pub fn read_tactics(bytes: &[u8]) -> Result<TeamToml, LegacyError> {
         ..TeamToml::default()
     };
     out.team.id = Some(team_id);
-    out.tactics = tactics_block(&bytes[13..])?;
+    out.tactics = tactics_block(&bytes[13..], version)?;
     Ok(out)
 }
 
@@ -754,5 +776,58 @@ mod tests {
         assert_eq!(last.name, "wtf im gransexual now??");
         assert_eq!(last.appearance.boots_id, 407);
         assert!(last.skills.skills[12] && last.skills.skills[13]);
+    }
+
+    /// The block's bytes exist on every version, but only fields the
+    /// exporting version's tactics schema stores make the document.
+    #[test]
+    fn a_tactics_block_reports_only_what_the_exporting_version_stores() {
+        // The 19 file first: instructions and the auto flags are all Some.
+        let doc = read_tactics(NIGHTLY).expect("a .4cct");
+        assert!(
+            doc.tactics
+                .presets
+                .iter()
+                .all(|preset| preset.instructions.is_some())
+        );
+        assert!(doc.tactics.auto.attack_defence_levels.is_some());
+
+        let mut bytes = NIGHTLY.to_vec();
+        bytes[3..5].copy_from_slice(b"16");
+        let doc = read_tactics(&bytes).expect("a .4cct labelled 16");
+        assert_eq!(doc.pes_version, Some(PesVersion::Pes16));
+        for preset in &doc.tactics.presets {
+            assert!(preset.instructions.is_none(), "16 has no instruction block");
+            assert!(preset.style.fluid.is_some(), "16 has fluid");
+        }
+        assert!(doc.tactics.auto.attack_defence_levels.is_none());
+
+        // And the gated document applies to a PES 16 team without error.
+        let (file, _) = open(PesVersion::Pes16);
+        let team = file
+            .teams()
+            .iter()
+            .find(|team| team.roster.iter().any(|slot| slot.player_id != 0))
+            .expect("a team");
+        let mut target = team.clone();
+        doc.apply(PesVersion::Pes16, &mut target, &mut [])
+            .expect("applies to a PES 16 team");
+    }
+
+    /// More records than the 40-slot roster is `TooManyPlayers`, never an
+    /// index panic on the shirt-number block.
+    #[test]
+    fn a_squad_of_more_than_forty_players_is_refused() {
+        let record = &SQUAD[HEADER..HEADER + RECORD];
+        let mut bytes = b"21a19".to_vec();
+        for _ in 0..41 {
+            bytes.extend_from_slice(record);
+        }
+        bytes.extend_from_slice(&[0u8; NUMBERS]);
+        let err = read_squad(&bytes).expect_err("41 players");
+        assert!(
+            matches!(err, LegacyError::TooManyPlayers { count: 41 }),
+            "{err:?}"
+        );
     }
 }

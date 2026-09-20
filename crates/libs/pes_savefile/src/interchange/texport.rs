@@ -312,8 +312,10 @@ impl Texport {
 
     /// A 15-17 file: the container's payload holds the tactics record and the
     /// consecutive player records (15/16: a player record then its appearance
-    /// record per player); the team and roster records are unmeasured, so the
-    /// team carries the tactics record's id and an empty roster.
+    /// record per player). The team and roster records are unmeasured, so the
+    /// team carries the tactics record's id and a roster implied by the player
+    /// records: one slot per record, the consecutive ids the scan found, and
+    /// shirt number 0 — the format does not carry shirt numbers.
     fn open_old(container: SaveContainer) -> Result<Texport, TexportError> {
         let version = container.version();
         let schema = schema_for(version);
@@ -359,6 +361,25 @@ impl Texport {
             }
             players.push(player);
         }
+        // The roster the file implies: the consecutive ids in record order,
+        // padded to the version's roster width with empty slots. The width
+        // is the schema's `Player` array size, not a literal.
+        let width = schema
+            .roster
+            .arrays
+            .iter()
+            .find(|a| matches!((a.make)(0), crate::schema::fields::RosterField::Player(0)))
+            .map_or(0, |a| usize::from(a.count));
+        team.roster = (0..width)
+            .map(|i| crate::model::team::RosterSlot {
+                player_id: if i < players.len() {
+                    team.id * 100 + 1 + u32::try_from(i).expect("a roster is narrower than u32")
+                } else {
+                    0
+                },
+                number: 0,
+            })
+            .collect();
         Ok(Texport {
             version,
             file: File::Old(container),
@@ -422,6 +443,31 @@ impl Texport {
     /// Every player for editing, in roster order.
     pub fn players_mut(&mut self) -> &mut [PlayerEntry] {
         &mut self.players
+    }
+
+    /// The export as a Team TOML document: team, tactics and the rostered
+    /// players, ready to `TeamToml::apply` onto a save. On 15-17 the file
+    /// carries no team metadata or shirt numbers, so the `[team]` section is
+    /// reduced to `id` (name, short name, colours and edit flags stay the
+    /// target's) and `players[NN].number` is `None`.
+    pub fn to_team_toml(
+        &self,
+    ) -> Result<crate::interchange::team_toml::TeamToml, crate::interchange::team_toml::TeamTomlError>
+    {
+        let players: Vec<&PlayerEntry> = self.players.iter().collect();
+        let mut document =
+            crate::interchange::team_toml::TeamToml::from_team(self.version, &self.team, &players)?;
+        if matches!(self.file, File::Old(_)) {
+            let id = document.team.id;
+            document.team = crate::interchange::team_toml::TeamSection {
+                id,
+                ..crate::interchange::team_toml::TeamSection::default()
+            };
+            for section in document.players.values_mut() {
+                section.number = None;
+            }
+        }
+        Ok(document)
     }
 
     /// The records re-encoded into the plaintext (unmodeled bytes as read),
@@ -740,5 +786,68 @@ mod tests {
             ),
             "{err:?}"
         );
+    }
+
+    /// A 15-17 texport through `to_team_toml`: the implied roster exports
+    /// every player, team metadata and shirt numbers stay the target's, and
+    /// the document applies onto another team of the same version.
+    #[test]
+    fn a_pes17_texport_applies_through_team_toml() {
+        use crate::interchange::team_toml::TeamSection;
+
+        let bytes = crate::interchange::texport_golden::pes17_texport_bytes();
+        let texport = Texport::from_bytes(&bytes, None).expect("opens");
+        let doc = texport.to_team_toml().expect("to_team_toml");
+        assert_eq!(
+            doc.team,
+            TeamSection {
+                id: doc.team.id,
+                ..TeamSection::default()
+            },
+            "the file carries no team metadata"
+        );
+        assert!(doc.players.values().all(|s| s.number.is_none()));
+        assert_eq!(doc.players.len(), texport.players().len());
+
+        // Another team of the PES 17 save with at least as many rostered
+        // slots: the texport's 23 players land on its first 23.
+        let (file, _) = open(PesVersion::Pes17);
+        let team = file
+            .teams()
+            .iter()
+            .find(|team| {
+                team.id != texport.team().id
+                    && team
+                        .roster
+                        .iter()
+                        .filter(|slot| slot.player_id != 0)
+                        .count()
+                        >= doc.players.len()
+            })
+            .expect("a team with enough slots");
+        let name = team.name.clone();
+        let mut target = team.clone();
+        let mut players = file.players().to_vec();
+        let notes = doc
+            .apply(PesVersion::Pes17, &mut target, &mut players)
+            .expect("applies");
+        assert!(notes.is_empty(), "{notes:?}");
+        assert_eq!(target.name, name, "the file carries no team name");
+        for key in doc.players.keys() {
+            let index = usize::from(*key - 1);
+            let id = target.roster[index].player_id;
+            let applied = players.iter().find(|p| p.id == id).expect("rostered");
+            let mut expected = texport.players()[index].clone();
+            expected.id = id;
+            if expected.appearance.base_copy_id == texport.team().id * 100 + u32::from(*key) {
+                // The own-id convention reads as "unset": the target's id.
+                expected.appearance.base_copy_id = id;
+            }
+            assert_eq!(applied, &expected, "slot {key}");
+            assert_eq!(
+                target.roster[index].number, team.roster[index].number,
+                "shirt numbers are not the file's to give"
+            );
+        }
     }
 }

@@ -18,9 +18,9 @@ use crate::model::names::display_name;
 use crate::model::player::PlayerEntry;
 use crate::model::tactics::{AdvancedInstruction, FormationSlot};
 use crate::model::team::{KitSlot, TeamColor, TeamEntry};
-use crate::schema::fields::{PlayerText, PresetField, TacticsField, TeamField};
+use crate::schema::fields::{PlayerText, PresetField, TacticsField, TeamField, TeamText};
 use crate::schema::instruction;
-use crate::schema::{TacticsSchema, schema_for};
+use crate::schema::{TacticsSchema, TextSpec, schema_for};
 
 use super::{labels, player};
 
@@ -37,6 +37,17 @@ pub(super) fn padded(body: &str, comment: &str) -> String {
 /// The TOML text of a `Some` value, or `neutral` for a `None` key.
 pub(super) fn value_or(value: Option<String>, neutral: &str) -> String {
     value.unwrap_or_else(|| neutral.to_string())
+}
+
+/// The capacity of `text` in `texts`: the field's byte length minus its
+/// terminator — what the codec accepts before `CodecError::Text`.
+pub(super) fn text_max<T: Copy + PartialEq>(texts: &[TextSpec<T>], text: T) -> usize {
+    let len = texts
+        .iter()
+        .find(|spec| spec.text == text)
+        .map(|spec| spec.len)
+        .expect("every version stores the text");
+    usize::try_from(len - 1).expect("a text field's length fits usize")
 }
 
 impl TeamToml {
@@ -215,8 +226,8 @@ impl TeamToml {
         player::apply_players(
             &self.players,
             self.team.id,
+            from,
             to,
-            foreign,
             &mut next,
             &mut next_players,
             &mut notes,
@@ -1254,9 +1265,23 @@ fn apply_team(
     notes: &mut Vec<ImportNote>,
 ) -> Result<(), TeamTomlError> {
     if let Some(name) = &section.name {
+        let max = text_max(schema.texts, TeamText::Name);
+        if name.len() > max {
+            return Err(TeamTomlError::TextTooLong {
+                path: "team.name".to_string(),
+                max,
+            });
+        }
         next.name = name.clone();
     }
     if let Some(short_name) = &section.short_name {
+        let max = text_max(schema.texts, TeamText::ShortName);
+        if short_name.chars().count() > max {
+            return Err(TeamTomlError::TextTooLong {
+                path: "team.short_name".to_string(),
+                max,
+            });
+        }
         next.short_name = short_name.clone();
     }
     if let Some(manager_id) = section.manager_id
