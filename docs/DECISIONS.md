@@ -1675,3 +1675,38 @@ Rejected: clamping on export (silent loss, the thing the crate exists to avoid);
 `settings.toml` (its strictness is the compiler's guard against typos).
 Plan: `pes_savefile/operations.md` "Team TOML" (the `[players.NN.stats]` comment and the
 `PlayerSettings` reuse sentence).
+
+## 2026-09-21 - pes_savefile - 2.17h checkpoint (b) rulings: source-version skill gating, 15-17 texport import document, text-length checks in `apply`
+Decision (lead, on the cross-family review of the 2.17h surface; seven concerns, all verified):
+- **Up-conversion leaves alone what the source never stored.** A Team TOML written from a PES 16
+  save lists 28 skills; applied to PES 19, the target's Double Touch stood to be cleared by a
+  `false` the source could not have meant. `apply` skips a skill the *source* version lacks (the
+  target's value stands, pair-wide, no note) and drops one the *target* lacks with a note. The
+  document itself still emits the full array: the version gate at `apply` carries the meaning,
+  not the file. Rejected: emitting only the source's skills as a list - a hand-written list would
+  then be ambiguous between "unset" and "not in my version".
+- **A 15-17 texport implies its roster.** The format carries no team or roster record we have
+  measured, but its player records are consecutive by slot, so `Texport::team()` holds the roster
+  they imply (shirt numbers 0, unknown) and `Texport::to_team_toml()` is the import document for
+  every era: on 15-17 the `[team]` section is `id` alone and `number` is absent, so the target
+  save's team identity and numbers stand, as the plan says. Rejected: making callers reduce the
+  document by hand.
+- **Face types past the cap reset to 0** on import, as 2.17f's conversion does (the converters'
+  rule), not clamped to the cap; the `Capped` note carries what was written.
+- **`apply` checks text lengths** against the target version's text fields (`TextTooLong { path,
+  max }` before any write): a valid 60-byte PES 21 name would otherwise pass `apply` and fail the
+  later `write_player`, breaking the all-or-nothing contract at the wrong layer.
+- **Legacy tactics are gated by the exporting version**: the `.4cct` block always has instruction
+  and auto-flag bytes (the reference writes zeros for versions without them); the reader leaves
+  `None` what the header's version lacks, so a PES 16 file neither fails a same-version apply on
+  `attack_defence_levels` nor overwrites fields it could not author.
+- **Stored-range mode is bounded by the bit width** of the key's field (widest across versions,
+  from the schemas; `schema::widest_bit_width`) - the 2026-09-21 stored-ranges decision as
+  written, which the first implementation had left at `u8`; a label kind whose stored value has
+  no label is emitted and parsed as the integer in Team TOML, so a width-valid value never panics
+  the emitter.
+- Two hostile-input panics closed (a non-ASCII `ingame_face` string sliced at a byte index; a
+  `.4ccs` with more than 40 records), one test oracle rebuilt from a pre-apply snapshot (the old
+  one passed against a deliberately clobbered `apply`).
+Plan: `pes_savefile/operations.md` "Team TOML" (`apply` rules, `from_team` doc, `Capped`),
+"Texport (read + write)" (`team()`, `to_team_toml`).
