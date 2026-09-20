@@ -33,15 +33,21 @@ use super::team::{as_table, emit, gated, opt, padded, reject, text, u16_val};
 // From the model
 
 /// The `[players.NN]` map of `team`'s rostered players, keyed by 1-based
-/// roster slot. A roster id with no entry in `players` is `PlayerMissing`.
+/// roster slot. An empty `players` is a tactics-only dump — no sections. A
+/// non-empty pool that lacks a rostered id is `PlayerMissing`: a partial pool
+/// is a caller bug, and silently dropping players is the loss this crate
+/// exists to avoid.
 pub(super) fn players_from(
     version: PesVersion,
     team: &TeamEntry,
     players: &[&PlayerEntry],
 ) -> Result<BTreeMap<u8, PlayerSection>, TeamTomlError> {
+    let mut out = BTreeMap::new();
+    if players.is_empty() {
+        return Ok(out);
+    }
     // The gate is a set membership, not a schema scan per key per player.
     let fields = schema_for(version).player_field_set();
-    let mut out = BTreeMap::new();
     for (i, slot) in team.roster.iter().enumerate() {
         if slot.player_id == 0 {
             continue;
@@ -1088,6 +1094,40 @@ mod tests {
             .apply(PesVersion::Pes18, &mut target18, &mut players18)
             .expect_err("slot 40 does not exist");
         assert!(matches!(err, TeamTomlError::NoSuchSlot { slot: 40 }));
+    }
+
+    /// The `players` pool contract: an empty slice is a tactics-only dump; a
+    /// non-empty pool missing a rostered id is `PlayerMissing`, never a
+    /// silent drop.
+    #[test]
+    fn the_player_pool_is_all_or_nothing() {
+        let (file, _) = open(PesVersion::Pes19);
+        let team = file
+            .teams()
+            .iter()
+            .find(|team| team.roster.iter().any(|slot| slot.player_id != 0))
+            .expect("a rostered team");
+        let tactics_only = TeamToml::from_team(PesVersion::Pes19, team, &[])
+            .expect("an empty pool is a tactics-only dump");
+        assert!(tactics_only.players.is_empty());
+
+        let missing_id = team
+            .roster
+            .iter()
+            .find(|slot| slot.player_id != 0)
+            .expect("a rostered slot")
+            .player_id;
+        let pool: Vec<&PlayerEntry> = file
+            .players()
+            .iter()
+            .filter(|player| player.id != missing_id)
+            .collect();
+        let err = TeamToml::from_team(PesVersion::Pes19, team, &pool)
+            .expect_err("a partial pool is a caller bug");
+        assert!(
+            matches!(err, TeamTomlError::PlayerMissing { id } if id == missing_id),
+            "{err:?}"
+        );
     }
 
     /// (f) `base_copy_id` equal to `[team] id` x 100 + slot writes the

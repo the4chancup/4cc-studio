@@ -9,7 +9,7 @@
 /// COM styles, foot/hand).
 pub mod labels;
 mod player;
-mod player_keys;
+pub(crate) mod player_keys;
 mod team;
 
 pub use team::shirt_name_from;

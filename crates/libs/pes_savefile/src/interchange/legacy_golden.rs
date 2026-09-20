@@ -117,8 +117,10 @@ fn u32_at(rec: &[u8], at: usize) -> u32 {
 
 fn wide_string(bytes: &[u8]) -> String {
     let units: Vec<u16> = bytes
-        .chunks_exact(2)
-        .map(|c| u16::from_le_bytes([c[0], c[1]]))
+        .as_chunks::<2>()
+        .0
+        .iter()
+        .map(|&c| u16::from_le_bytes(c))
         .take_while(|&u| u != 0)
         .collect();
     String::from_utf16(&units).expect("UTF-16")
@@ -133,7 +135,11 @@ fn c_string(bytes: &[u8]) -> String {
 fn the_struct_dump_reads_at_the_literal_offsets() {
     assert_eq!(&SQUAD[..3], b"20a");
     assert_eq!(&SQUAD[3..5], b"19");
-    assert_eq!(SQUAD.len(), HEADER + 23 * RECORD + NUMBERS, "no tactics block");
+    assert_eq!(
+        SQUAD.len(),
+        HEADER + 23 * RECORD + NUMBERS,
+        "no tactics block"
+    );
     for s in &SAMPLES {
         let rec = raw(s.index);
         assert_eq!(u32_at(rec, NATION), 231, "[{}] nation", s.index);
@@ -144,8 +150,18 @@ fn the_struct_dump_reads_at_the_literal_offsets() {
         assert_eq!(rec[PLAY_STYLE], s.play_style, "[{}] play_style", s.index);
         let skills: Vec<usize> = (0..41).filter(|&k| rec[PLAY_SKILL + k] != 0).collect();
         assert_eq!(skills, s.skills, "[{}] skills", s.index);
-        assert_eq!(wide_string(&rec[NAME..NAME + 122]), s.name, "[{}] name", s.index);
-        assert_eq!(c_string(&rec[SHIRT_NAME..SHIRT_NAME + 21]), s.shirt, "[{}] shirt", s.index);
+        assert_eq!(
+            wide_string(&rec[NAME..NAME + 122]),
+            s.name,
+            "[{}] name",
+            s.index
+        );
+        assert_eq!(
+            c_string(&rec[SHIRT_NAME..SHIRT_NAME + 21]),
+            s.shirt,
+            "[{}] shirt",
+            s.index
+        );
         assert_eq!(u32_at(rec, BOOT_ID), s.boots, "[{}] boots", s.index);
         assert_eq!(u32_at(rec, COPY_ID), s.copy, "[{}] copy", s.index);
         assert_eq!(u32_at(rec, NECK_LEN), 7, "[{}] neck_len", s.index);
@@ -164,8 +180,14 @@ fn read_squad_decodes_the_struct_dump() {
     let doc = read_squad(SQUAD).expect("a valid .4ccs");
     assert_eq!(doc.pes_version, Some(PesVersion::Pes19));
     assert_eq!(doc.players.len(), 23);
-    assert_eq!(doc.players.keys().copied().collect::<Vec<u8>>(), (1..=23).collect::<Vec<u8>>());
-    assert!(doc.tactics.starting_eleven.is_none(), "no tactics block in this file");
+    assert_eq!(
+        doc.players.keys().copied().collect::<Vec<u8>>(),
+        (1..=23).collect::<Vec<u8>>()
+    );
+    assert!(
+        doc.tactics.starting_eleven.is_none(),
+        "no tactics block in this file"
+    );
     assert!(doc.team.name.is_none(), "a .4ccs carries no team entry");
     for s in &SAMPLES {
         let p = &doc.players[&(s.index as u8 + 1)];
@@ -193,7 +215,10 @@ fn read_squad_decodes_the_struct_dump() {
         assert_eq!(p.appearance.iris_color, Some(s.iris));
         assert_eq!(p.appearance.physique.neck_length, Some(7));
         assert_eq!(p.appearance.physique.height, Some(s.height));
-        assert!(p.ingame_face.is_none(), "the legacy record has no ingame-face run");
+        assert!(
+            p.ingame_face.is_none(),
+            "the legacy record has no ingame-face run"
+        );
         // Fields PES 19 lacks are absent whatever the bytes say.
         assert!(p.stats.tight_possession.is_none());
         assert!(p.positions.stronger_hand.is_none());
@@ -215,12 +240,21 @@ fn read_tactics_equals_the_codec_for_the_same_team() {
     assert_eq!(doc.tactics, expected.tactics);
 
     // Literals from the fixture script, so the equality above is not vacuous.
-    assert_eq!(doc.tactics.starting_eleven, Some([0, 3, 2, 4, 1, 5, 6, 7, 8, 9, 10]));
+    assert_eq!(
+        doc.tactics.starting_eleven,
+        Some([0, 3, 2, 4, 1, 5, 6, 7, 8, 9, 10])
+    );
     assert_eq!(doc.tactics.set_pieces.penalty, Some(10));
     assert_eq!(doc.tactics.set_pieces.captain, None);
     let preset = &doc.tactics.presets[2];
-    let instructions = preset.instructions.as_ref().expect("PES 19 has instructions");
-    assert_eq!(instructions.defence[0].instruction, Instruction::SwarmTheBox);
+    let instructions = preset
+        .instructions
+        .as_ref()
+        .expect("PES 19 has instructions");
+    assert_eq!(
+        instructions.defence[0].instruction,
+        Instruction::SwarmTheBox
+    );
     assert_eq!(instructions.defence[1].instruction, Instruction::Gegenpress);
     assert_eq!(instructions.attack[0].instruction, Instruction::Off);
     assert_eq!(preset.sliders.support_range, Some(3));

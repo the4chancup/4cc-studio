@@ -1654,3 +1654,24 @@ a two-way detection - a layout that contradicts its own schema cannot be right, 
 detection rule would encode the contradiction. When a PES 20 texport is measured, the layout is
 one table row to fix.
 Plan: `pes_savefile/operations.md` "Texport (read + write)".
+
+## 2026-09-21 - pes_savefile - Team TOML carries stored values past the editor ranges; `settings.toml` stays strict
+Decision (lead, on a 2.17h-3 finding): real saves store appearance values the reference editor's
+UI cannot produce - 58 of the PES 15 fixture's players have `cheek_type` 14 on a field whose
+editor cap is 3, 79 of PES 18's likewise, and celebrations above the `settings.toml` key table's
+maxima (a stored 183 against "1 to 162"); a PES 16 player stores `place_kicking` 100. A dump
+that refused them could not round-trip its own save, so Team TOML parses every scalar against
+the field's *stored* range (the widest bit width of the key's `PlayerField` across the version
+tables, computed from the schemas, no hand-typed maxima) and emits raw stored values, the block's
+range comments documenting the game's editor range for the reader. `settings.toml` keeps the
+editor ranges (`PlayerSettings::from_player` still refuses such a player: an authored aesthetics
+file must be one the game's editor could have produced). The consequence in code:
+`PlayerSettings::from_player`/`apply` were not reusable as the plan literally said; the shared
+pieces became `settings_toml`'s `pub(crate)` `appearance_from`, `apply_appearance`,
+`parse_appearance` and `emit_appearance`, with a `stored_ranges` mode, and both formats call
+them (one key handling, two range policies). A test pins the split: a PES 15 player over the cap
+round-trips through Team TOML while `from_player` on it is `OutOfRange`.
+Rejected: clamping on export (silent loss, the thing the crate exists to avoid); relaxing
+`settings.toml` (its strictness is the compiler's guard against typos).
+Plan: `pes_savefile/operations.md` "Team TOML" (the `[players.NN.stats]` comment and the
+`PlayerSettings` reuse sentence).
