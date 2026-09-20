@@ -4,15 +4,12 @@
 //! with every field optional: an absent key is "leave untouched" on import,
 //! which is what makes one-key patches and cross-version imports safe.
 //!
-//! This slice covers the team and tactics halves. `[players]` parses to
-//! `NotYetSupported` and `from_team`/`apply` ignore players until the player
-//! half lands (2.17h-3); the `PlayerSection` types are already the plan's
-//! shapes so that slice adds behavior, not fields.
-
 /// The label tables the format writes where the record stores a number or a
 /// bit (style-switch pairs, positions, instructions, ratings, styles, skills,
 /// COM styles, foot/hand).
 pub mod labels;
+mod player;
+mod player_keys;
 mod team;
 
 pub use team::shirt_name_from;
@@ -40,7 +37,7 @@ pub struct TeamToml {
     pub team: TeamSection,
     /// The `[tactics]` table.
     pub tactics: TacticsSection,
-    /// The `[players.NN]` tables by roster slot (unused until 2.17h-3).
+    /// The `[players.NN]` tables by roster slot.
     pub players: BTreeMap<u8, PlayerSection>,
 }
 
@@ -200,15 +197,13 @@ pub struct InstructionEntry {
     pub player: u8,
 }
 
-/// `[players.NN]`: one roster slot's player. Defined now so the next slice
-/// adds only behavior; `parse` refuses `[players]` with `NotYetSupported`
-/// until then.
+/// `[players.NN]`: one roster slot's player.
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct PlayerSection {
     /// Display name, colour codes included.
     pub name: Option<String>,
     /// Shirt name; absent = derived from `name` by [`TeamToml::apply`]'s
-    /// caller (2.17h-3).
+    /// caller.
     pub shirt_name: Option<String>,
     /// Squad number (from the roster record).
     pub number: Option<u16>,
@@ -236,7 +231,7 @@ pub struct PlayerSection {
     pub appearance: AppearanceSettings,
 }
 
-/// `[players.NN.stats]`: the ability numbers (2.17h-3 fills them in).
+/// `[players.NN.stats]`: the ability numbers.
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct StatsSection {
     /// Attacking Prowess (Offensive Awareness).
@@ -303,7 +298,7 @@ pub struct StatsSection {
     pub playing_attitude: Option<u8>,
 }
 
-/// `[players.NN.positions]` (2.17h-3).
+/// `[players.NN.positions]`.
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct PositionsSection {
     /// Registered position (GK 0 to CF 12).
@@ -318,7 +313,7 @@ pub struct PositionsSection {
     pub stronger_hand: Option<u8>,
 }
 
-/// `[players.NN.skills]` (2.17h-3).
+/// `[players.NN.skills]`.
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct SkillsSection {
     /// Player skills by canonical slot (0 Scissors Feint to 40 Through Passing).
@@ -327,7 +322,7 @@ pub struct SkillsSection {
     pub com_styles: Option<[bool; 7]>,
 }
 
-/// `[players.NN.edit_flags]`: the game's own per-section flags (2.17h-3).
+/// `[players.NN.edit_flags]`: the game's own per-section flags.
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct EditFlagsSection {
     /// The player was created or edited.
@@ -375,6 +370,21 @@ pub enum ImportNote {
         path: String,
         /// The value's label.
         label: String,
+    },
+    /// A face type above the target's cap or skin 7 into a no-custom-skin
+    /// version; capped to `to`.
+    Capped {
+        /// The dotted key path.
+        path: String,
+        /// The value as written.
+        from: u8,
+        /// The value written in its place.
+        to: u8,
+    },
+    /// A `[players.NN]` whose target roster slot is empty; skipped.
+    EmptySlot {
+        /// The roster slot (1-based, as the key spells it).
+        slot: u8,
     },
 }
 
@@ -433,10 +443,19 @@ pub enum TeamTomlError {
     /// A codec failure (a stored instruction value the version does not list).
     #[error(transparent)]
     Codec(#[from] CodecError),
-    /// An appearance-table failure (2.17h-3).
+    /// An appearance-table failure.
     #[error(transparent)]
     Settings(#[from] SettingsError),
-    /// A documented section this slice does not handle yet (2.17h-3).
-    #[error("{0} is not supported yet")]
-    NotYetSupported(&'static str),
+    /// The roster names a player id `players` does not hold.
+    #[error("player {id} is not in the save")]
+    PlayerMissing {
+        /// The missing player id.
+        id: u32,
+    },
+    /// A `[players.NN]` past the target team's roster width.
+    #[error("roster has no slot {slot}")]
+    NoSuchSlot {
+        /// The roster slot (1-based, as the key spells it).
+        slot: u8,
+    },
 }

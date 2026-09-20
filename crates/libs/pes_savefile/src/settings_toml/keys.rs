@@ -5,7 +5,6 @@
 
 use pes_version::PesVersion;
 
-#[cfg(test)]
 use crate::schema::fields::PlayerField;
 use crate::schema::ingame_face::IngameFaceField;
 use crate::schema::limits::face_type_cap;
@@ -175,9 +174,8 @@ pub struct KeySpec {
     pub comment: &'static str,
 }
 
-/// Which savefile field a key writes. Test-side only so far: the completeness
-/// test is its consumer until the parse/emit slice uses it.
-#[cfg(test)]
+/// Which savefile field a key writes: the gate cross-version imports check
+/// (`team_toml`'s apply drops a `Source::Player` key the target schema lacks).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(crate) enum Source {
     /// A `PlayerField` of the player or appearance record.
@@ -425,7 +423,6 @@ impl SettingKey {
     }
 
     /// The savefile field the key writes.
-    #[cfg(test)]
     pub(crate) fn source(self) -> Source {
         match self {
             SettingKey::SkinColor => Source::Face(IngameFaceField::SkinColor),

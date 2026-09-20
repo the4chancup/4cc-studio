@@ -236,64 +236,210 @@ pub enum SettingsError {
     },
 }
 
+/// The stored value behind an appearance key (`bool` as 0/1), `None` when
+/// unset. Free-standing so `team_toml`'s per-key gating can read one key.
+pub(crate) fn get_appearance(appearance: &AppearanceSettings, key: SettingKey) -> Option<u8> {
+    let a = appearance;
+    match key {
+        SettingKey::SkinColor => a.skin_color,
+        SettingKey::IrisColor => a.iris_color,
+        SettingKey::Height => a.physique.height,
+        SettingKey::Weight => a.physique.weight,
+        SettingKey::NeckLength => a.physique.neck_length,
+        SettingKey::NeckSize => a.physique.neck_size,
+        SettingKey::ShoulderHeight => a.physique.shoulder_height,
+        SettingKey::ShoulderWidth => a.physique.shoulder_width,
+        SettingKey::Chest => a.physique.chest,
+        SettingKey::Waist => a.physique.waist,
+        SettingKey::ArmSize => a.physique.arm_size,
+        SettingKey::ArmLength => a.physique.arm_length,
+        SettingKey::Thigh => a.physique.thigh,
+        SettingKey::Calf => a.physique.calf,
+        SettingKey::LegLength => a.physique.leg_length,
+        SettingKey::HeadLength => a.physique.head_length,
+        SettingKey::HeadWidth => a.physique.head_width,
+        SettingKey::HeadDepth => a.physique.head_depth,
+        SettingKey::Sleeves => a.strip.sleeves,
+        SettingKey::Inners => a.strip.inners,
+        SettingKey::Socks => a.strip.socks,
+        SettingKey::Undershorts => a.strip.undershorts,
+        SettingKey::Untucked => a.strip.untucked.map(u8::from),
+        SettingKey::AnkleTaping => a.strip.ankle_taping.map(u8::from),
+        SettingKey::WristTaping => a.strip.wrist_taping,
+        SettingKey::WristTapeColorLeft => a.strip.wrist_tape_color_left,
+        SettingKey::WristTapeColorRight => a.strip.wrist_tape_color_right,
+        SettingKey::Spectacles => a.strip.spectacles,
+        SettingKey::SpectaclesColor => a.strip.spectacles_color,
+        SettingKey::Gloves => a.strip.gloves.map(u8::from),
+        SettingKey::GlovesColor => a.strip.gloves_color,
+        SettingKey::HunchingDribbling => a.motion.hunching_dribbling,
+        SettingKey::HunchingRunning => a.motion.hunching_running,
+        SettingKey::ArmMovementDribbling => a.motion.arm_movement_dribbling,
+        SettingKey::ArmMovementRunning => a.motion.arm_movement_running,
+        SettingKey::CornerKick => a.motion.corner_kick,
+        SettingKey::FreeKick => a.motion.free_kick,
+        SettingKey::PenaltyKick => a.motion.penalty_kick,
+        SettingKey::Dribbling => a.motion.dribbling,
+        SettingKey::GoalCelebration1 => a.motion.goal_celebration_1,
+        SettingKey::GoalCelebration2 => a.motion.goal_celebration_2,
+        SettingKey::CheekType => a.face.cheek_type,
+        SettingKey::ForeheadType => a.face.forehead_type,
+        SettingKey::FacialHairType => a.face.facial_hair_type,
+        SettingKey::LaughterLinesType => a.face.laughter_lines_type,
+        SettingKey::UpperEyelidType => a.face.upper_eyelid_type,
+        SettingKey::LowerEyelidType => a.face.lower_eyelid_type,
+        SettingKey::EyebrowType => a.face.eyebrow_type,
+        SettingKey::NeckLineType => a.face.neck_line_type,
+        SettingKey::NoseType => a.face.nose_type,
+        SettingKey::UpperLipType => a.face.upper_lip_type,
+        SettingKey::LowerLipType => a.face.lower_lip_type,
+    }
+}
+
+/// Sets an appearance key's field to `value` (`None` clears it). Free-standing
+/// so `team_toml`'s cross-version pre-adjust can drop a gated key.
+pub(crate) fn set_appearance(
+    appearance: &mut AppearanceSettings,
+    key: SettingKey,
+    value: Option<u8>,
+) {
+    let a = appearance;
+    match key {
+        SettingKey::SkinColor => a.skin_color = value,
+        SettingKey::IrisColor => a.iris_color = value,
+        SettingKey::Height => a.physique.height = value,
+        SettingKey::Weight => a.physique.weight = value,
+        SettingKey::NeckLength => a.physique.neck_length = value,
+        SettingKey::NeckSize => a.physique.neck_size = value,
+        SettingKey::ShoulderHeight => a.physique.shoulder_height = value,
+        SettingKey::ShoulderWidth => a.physique.shoulder_width = value,
+        SettingKey::Chest => a.physique.chest = value,
+        SettingKey::Waist => a.physique.waist = value,
+        SettingKey::ArmSize => a.physique.arm_size = value,
+        SettingKey::ArmLength => a.physique.arm_length = value,
+        SettingKey::Thigh => a.physique.thigh = value,
+        SettingKey::Calf => a.physique.calf = value,
+        SettingKey::LegLength => a.physique.leg_length = value,
+        SettingKey::HeadLength => a.physique.head_length = value,
+        SettingKey::HeadWidth => a.physique.head_width = value,
+        SettingKey::HeadDepth => a.physique.head_depth = value,
+        SettingKey::Sleeves => a.strip.sleeves = value,
+        SettingKey::Inners => a.strip.inners = value,
+        SettingKey::Socks => a.strip.socks = value,
+        SettingKey::Undershorts => a.strip.undershorts = value,
+        SettingKey::Untucked => a.strip.untucked = value.map(|v| v != 0),
+        SettingKey::AnkleTaping => a.strip.ankle_taping = value.map(|v| v != 0),
+        SettingKey::WristTaping => a.strip.wrist_taping = value,
+        SettingKey::WristTapeColorLeft => a.strip.wrist_tape_color_left = value,
+        SettingKey::WristTapeColorRight => a.strip.wrist_tape_color_right = value,
+        SettingKey::Spectacles => a.strip.spectacles = value,
+        SettingKey::SpectaclesColor => a.strip.spectacles_color = value,
+        SettingKey::Gloves => a.strip.gloves = value.map(|v| v != 0),
+        SettingKey::GlovesColor => a.strip.gloves_color = value,
+        SettingKey::HunchingDribbling => a.motion.hunching_dribbling = value,
+        SettingKey::HunchingRunning => a.motion.hunching_running = value,
+        SettingKey::ArmMovementDribbling => a.motion.arm_movement_dribbling = value,
+        SettingKey::ArmMovementRunning => a.motion.arm_movement_running = value,
+        SettingKey::CornerKick => a.motion.corner_kick = value,
+        SettingKey::FreeKick => a.motion.free_kick = value,
+        SettingKey::PenaltyKick => a.motion.penalty_kick = value,
+        SettingKey::Dribbling => a.motion.dribbling = value,
+        SettingKey::GoalCelebration1 => a.motion.goal_celebration_1 = value,
+        SettingKey::GoalCelebration2 => a.motion.goal_celebration_2 = value,
+        SettingKey::CheekType => a.face.cheek_type = value,
+        SettingKey::ForeheadType => a.face.forehead_type = value,
+        SettingKey::FacialHairType => a.face.facial_hair_type = value,
+        SettingKey::LaughterLinesType => a.face.laughter_lines_type = value,
+        SettingKey::UpperEyelidType => a.face.upper_eyelid_type = value,
+        SettingKey::LowerEyelidType => a.face.lower_eyelid_type = value,
+        SettingKey::EyebrowType => a.face.eyebrow_type = value,
+        SettingKey::NeckLineType => a.face.neck_line_type = value,
+        SettingKey::NoseType => a.face.nose_type = value,
+        SettingKey::UpperLipType => a.face.upper_lip_type = value,
+        SettingKey::LowerLipType => a.face.lower_lip_type = value,
+    }
+}
+
+/// The stored value behind `key` on `player`, `None` for a gated `Option`
+/// the version lacks. `CodecError` from the ingame-face reads propagates.
+fn read(player: &PlayerEntry, key: SettingKey) -> Result<Option<u8>, SettingsError> {
+    let face = &player.appearance.ingame_face;
+    let a = &player.appearance;
+    let m = &player.motion;
+    Ok(match key {
+        SettingKey::SkinColor => Some(face.get(IngameFaceField::SkinColor)?),
+        SettingKey::IrisColor => Some(face.get(IngameFaceField::IrisColor)?),
+        SettingKey::Height => Some(player.basic.height),
+        SettingKey::Weight => Some(player.basic.weight),
+        SettingKey::NeckLength => Some(a.neck_length),
+        SettingKey::NeckSize => Some(a.neck_size),
+        SettingKey::ShoulderHeight => Some(a.shoulder_height),
+        SettingKey::ShoulderWidth => Some(a.shoulder_width),
+        SettingKey::Chest => Some(a.chest),
+        SettingKey::Waist => Some(a.waist),
+        SettingKey::ArmSize => Some(a.arm_size),
+        SettingKey::ArmLength => Some(a.arm_length),
+        SettingKey::Thigh => Some(a.thigh),
+        SettingKey::Calf => Some(a.calf),
+        SettingKey::LegLength => Some(a.leg_length),
+        SettingKey::HeadLength => Some(a.head_length),
+        SettingKey::HeadWidth => Some(a.head_width),
+        SettingKey::HeadDepth => Some(a.head_depth),
+        SettingKey::Sleeves => Some(a.sleeves),
+        SettingKey::Inners => Some(a.inners),
+        SettingKey::Socks => Some(a.socks),
+        SettingKey::Undershorts => Some(a.undershorts),
+        SettingKey::Untucked => Some(a.untucked.into()),
+        SettingKey::AnkleTaping => Some(a.ankle_taping.into()),
+        SettingKey::WristTaping => Some(a.wrist_taping),
+        SettingKey::WristTapeColorLeft => Some(a.wrist_tape_color_left),
+        SettingKey::WristTapeColorRight => Some(a.wrist_tape_color_right),
+        SettingKey::Spectacles => Some(a.spectacles_style),
+        SettingKey::SpectaclesColor => Some(a.spectacles_color),
+        SettingKey::Gloves => Some(face.get(IngameFaceField::PlayerGloves)?),
+        SettingKey::GlovesColor => Some(face.get(IngameFaceField::PlayerGlovesColor)?),
+        SettingKey::HunchingDribbling => Some(m.hunching_dribbling),
+        SettingKey::HunchingRunning => Some(m.hunching_running),
+        SettingKey::ArmMovementDribbling => Some(m.arm_movement_dribbling),
+        SettingKey::ArmMovementRunning => Some(m.arm_movement_running),
+        SettingKey::CornerKick => Some(m.corner_kick),
+        SettingKey::FreeKick => Some(m.free_kick),
+        SettingKey::PenaltyKick => Some(m.penalty_kick),
+        SettingKey::Dribbling => m.dribbling,
+        SettingKey::GoalCelebration1 => Some(m.goal_celebration_1),
+        SettingKey::GoalCelebration2 => Some(m.goal_celebration_2),
+        SettingKey::CheekType => Some(face.get(IngameFaceField::CheekType)?),
+        SettingKey::ForeheadType => Some(face.get(IngameFaceField::ForeheadType)?),
+        SettingKey::FacialHairType => Some(face.get(IngameFaceField::FacialHairType)?),
+        SettingKey::LaughterLinesType => Some(face.get(IngameFaceField::LaughterLinesType)?),
+        SettingKey::UpperEyelidType => Some(face.get(IngameFaceField::UpperEyelidType)?),
+        SettingKey::LowerEyelidType => Some(face.get(IngameFaceField::LowerEyelidType)?),
+        SettingKey::EyebrowType => Some(face.get(IngameFaceField::EyebrowType)?),
+        SettingKey::NeckLineType => Some(face.get(IngameFaceField::NeckLineType)?),
+        SettingKey::NoseType => Some(face.get(IngameFaceField::NoseType)?),
+        SettingKey::UpperLipType => Some(face.get(IngameFaceField::UpperLipType)?),
+        SettingKey::LowerLipType => Some(face.get(IngameFaceField::LowerLipType)?),
+    })
+}
+
+/// The player's appearance settings for Team TOML: every key `Some` with its
+/// raw stored value — a save can hold values past the editor's range (the
+/// field's bits are wider than the selectable range), and the interchange's
+/// stored-ranges mode carries them verbatim.
+pub(crate) fn appearance_from(player: &PlayerEntry) -> Result<AppearanceSettings, SettingsError> {
+    let mut appearance = AppearanceSettings::default();
+    for key in SettingKey::ALL {
+        if let Some(value) = read(player, key)? {
+            set_appearance(&mut appearance, key, Some(value));
+        }
+    }
+    Ok(appearance)
+}
+
 impl PlayerSettings {
     /// The stored value behind a key (`bool` as 0/1), `None` when unset.
     pub fn get(&self, key: SettingKey) -> Option<u8> {
-        let a = &self.appearance;
-        match key {
-            SettingKey::SkinColor => a.skin_color,
-            SettingKey::IrisColor => a.iris_color,
-            SettingKey::Height => a.physique.height,
-            SettingKey::Weight => a.physique.weight,
-            SettingKey::NeckLength => a.physique.neck_length,
-            SettingKey::NeckSize => a.physique.neck_size,
-            SettingKey::ShoulderHeight => a.physique.shoulder_height,
-            SettingKey::ShoulderWidth => a.physique.shoulder_width,
-            SettingKey::Chest => a.physique.chest,
-            SettingKey::Waist => a.physique.waist,
-            SettingKey::ArmSize => a.physique.arm_size,
-            SettingKey::ArmLength => a.physique.arm_length,
-            SettingKey::Thigh => a.physique.thigh,
-            SettingKey::Calf => a.physique.calf,
-            SettingKey::LegLength => a.physique.leg_length,
-            SettingKey::HeadLength => a.physique.head_length,
-            SettingKey::HeadWidth => a.physique.head_width,
-            SettingKey::HeadDepth => a.physique.head_depth,
-            SettingKey::Sleeves => a.strip.sleeves,
-            SettingKey::Inners => a.strip.inners,
-            SettingKey::Socks => a.strip.socks,
-            SettingKey::Undershorts => a.strip.undershorts,
-            SettingKey::Untucked => a.strip.untucked.map(u8::from),
-            SettingKey::AnkleTaping => a.strip.ankle_taping.map(u8::from),
-            SettingKey::WristTaping => a.strip.wrist_taping,
-            SettingKey::WristTapeColorLeft => a.strip.wrist_tape_color_left,
-            SettingKey::WristTapeColorRight => a.strip.wrist_tape_color_right,
-            SettingKey::Spectacles => a.strip.spectacles,
-            SettingKey::SpectaclesColor => a.strip.spectacles_color,
-            SettingKey::Gloves => a.strip.gloves.map(u8::from),
-            SettingKey::GlovesColor => a.strip.gloves_color,
-            SettingKey::HunchingDribbling => a.motion.hunching_dribbling,
-            SettingKey::HunchingRunning => a.motion.hunching_running,
-            SettingKey::ArmMovementDribbling => a.motion.arm_movement_dribbling,
-            SettingKey::ArmMovementRunning => a.motion.arm_movement_running,
-            SettingKey::CornerKick => a.motion.corner_kick,
-            SettingKey::FreeKick => a.motion.free_kick,
-            SettingKey::PenaltyKick => a.motion.penalty_kick,
-            SettingKey::Dribbling => a.motion.dribbling,
-            SettingKey::GoalCelebration1 => a.motion.goal_celebration_1,
-            SettingKey::GoalCelebration2 => a.motion.goal_celebration_2,
-            SettingKey::CheekType => a.face.cheek_type,
-            SettingKey::ForeheadType => a.face.forehead_type,
-            SettingKey::FacialHairType => a.face.facial_hair_type,
-            SettingKey::LaughterLinesType => a.face.laughter_lines_type,
-            SettingKey::UpperEyelidType => a.face.upper_eyelid_type,
-            SettingKey::LowerEyelidType => a.face.lower_eyelid_type,
-            SettingKey::EyebrowType => a.face.eyebrow_type,
-            SettingKey::NeckLineType => a.face.neck_line_type,
-            SettingKey::NoseType => a.face.nose_type,
-            SettingKey::UpperLipType => a.face.upper_lip_type,
-            SettingKey::LowerLipType => a.face.lower_lip_type,
-        }
+        get_appearance(&self.appearance, key)
     }
 
     /// Sets a stored value; `OutOfRange` when the key's kind cannot represent
@@ -308,61 +454,7 @@ impl PlayerSettings {
                 range: range_text(spec.kind),
             });
         }
-        let a = &mut self.appearance;
-        match key {
-            SettingKey::SkinColor => a.skin_color = Some(value),
-            SettingKey::IrisColor => a.iris_color = Some(value),
-            SettingKey::Height => a.physique.height = Some(value),
-            SettingKey::Weight => a.physique.weight = Some(value),
-            SettingKey::NeckLength => a.physique.neck_length = Some(value),
-            SettingKey::NeckSize => a.physique.neck_size = Some(value),
-            SettingKey::ShoulderHeight => a.physique.shoulder_height = Some(value),
-            SettingKey::ShoulderWidth => a.physique.shoulder_width = Some(value),
-            SettingKey::Chest => a.physique.chest = Some(value),
-            SettingKey::Waist => a.physique.waist = Some(value),
-            SettingKey::ArmSize => a.physique.arm_size = Some(value),
-            SettingKey::ArmLength => a.physique.arm_length = Some(value),
-            SettingKey::Thigh => a.physique.thigh = Some(value),
-            SettingKey::Calf => a.physique.calf = Some(value),
-            SettingKey::LegLength => a.physique.leg_length = Some(value),
-            SettingKey::HeadLength => a.physique.head_length = Some(value),
-            SettingKey::HeadWidth => a.physique.head_width = Some(value),
-            SettingKey::HeadDepth => a.physique.head_depth = Some(value),
-            SettingKey::Sleeves => a.strip.sleeves = Some(value),
-            SettingKey::Inners => a.strip.inners = Some(value),
-            SettingKey::Socks => a.strip.socks = Some(value),
-            SettingKey::Undershorts => a.strip.undershorts = Some(value),
-            SettingKey::Untucked => a.strip.untucked = Some(value != 0),
-            SettingKey::AnkleTaping => a.strip.ankle_taping = Some(value != 0),
-            SettingKey::WristTaping => a.strip.wrist_taping = Some(value),
-            SettingKey::WristTapeColorLeft => a.strip.wrist_tape_color_left = Some(value),
-            SettingKey::WristTapeColorRight => a.strip.wrist_tape_color_right = Some(value),
-            SettingKey::Spectacles => a.strip.spectacles = Some(value),
-            SettingKey::SpectaclesColor => a.strip.spectacles_color = Some(value),
-            SettingKey::Gloves => a.strip.gloves = Some(value != 0),
-            SettingKey::GlovesColor => a.strip.gloves_color = Some(value),
-            SettingKey::HunchingDribbling => a.motion.hunching_dribbling = Some(value),
-            SettingKey::HunchingRunning => a.motion.hunching_running = Some(value),
-            SettingKey::ArmMovementDribbling => a.motion.arm_movement_dribbling = Some(value),
-            SettingKey::ArmMovementRunning => a.motion.arm_movement_running = Some(value),
-            SettingKey::CornerKick => a.motion.corner_kick = Some(value),
-            SettingKey::FreeKick => a.motion.free_kick = Some(value),
-            SettingKey::PenaltyKick => a.motion.penalty_kick = Some(value),
-            SettingKey::Dribbling => a.motion.dribbling = Some(value),
-            SettingKey::GoalCelebration1 => a.motion.goal_celebration_1 = Some(value),
-            SettingKey::GoalCelebration2 => a.motion.goal_celebration_2 = Some(value),
-            SettingKey::CheekType => a.face.cheek_type = Some(value),
-            SettingKey::ForeheadType => a.face.forehead_type = Some(value),
-            SettingKey::FacialHairType => a.face.facial_hair_type = Some(value),
-            SettingKey::LaughterLinesType => a.face.laughter_lines_type = Some(value),
-            SettingKey::UpperEyelidType => a.face.upper_eyelid_type = Some(value),
-            SettingKey::LowerEyelidType => a.face.lower_eyelid_type = Some(value),
-            SettingKey::EyebrowType => a.face.eyebrow_type = Some(value),
-            SettingKey::NeckLineType => a.face.neck_line_type = Some(value),
-            SettingKey::NoseType => a.face.nose_type = Some(value),
-            SettingKey::UpperLipType => a.face.upper_lip_type = Some(value),
-            SettingKey::LowerLipType => a.face.lower_lip_type = Some(value),
-        }
+        set_appearance(&mut self.appearance, key, Some(value));
         Ok(())
     }
 
@@ -370,71 +462,12 @@ impl PlayerSettings {
     /// colour codes included. A stored value the key's kind cannot represent
     /// (a hostile save's out-of-range bits) is `OutOfRange`.
     pub fn from_player(player: &PlayerEntry) -> Result<Self, SettingsError> {
-        let face = &player.appearance.ingame_face;
-        let a = &player.appearance;
-        let m = &player.motion;
         let mut settings = PlayerSettings {
             name: Some(NameSetting::Explicit(player.name.clone())),
             ..PlayerSettings::default()
         };
         for key in SettingKey::ALL {
-            let value: Option<u8> = match key {
-                SettingKey::SkinColor => Some(face.get(IngameFaceField::SkinColor)?),
-                SettingKey::IrisColor => Some(face.get(IngameFaceField::IrisColor)?),
-                SettingKey::Height => Some(player.basic.height),
-                SettingKey::Weight => Some(player.basic.weight),
-                SettingKey::NeckLength => Some(a.neck_length),
-                SettingKey::NeckSize => Some(a.neck_size),
-                SettingKey::ShoulderHeight => Some(a.shoulder_height),
-                SettingKey::ShoulderWidth => Some(a.shoulder_width),
-                SettingKey::Chest => Some(a.chest),
-                SettingKey::Waist => Some(a.waist),
-                SettingKey::ArmSize => Some(a.arm_size),
-                SettingKey::ArmLength => Some(a.arm_length),
-                SettingKey::Thigh => Some(a.thigh),
-                SettingKey::Calf => Some(a.calf),
-                SettingKey::LegLength => Some(a.leg_length),
-                SettingKey::HeadLength => Some(a.head_length),
-                SettingKey::HeadWidth => Some(a.head_width),
-                SettingKey::HeadDepth => Some(a.head_depth),
-                SettingKey::Sleeves => Some(a.sleeves),
-                SettingKey::Inners => Some(a.inners),
-                SettingKey::Socks => Some(a.socks),
-                SettingKey::Undershorts => Some(a.undershorts),
-                SettingKey::Untucked => Some(a.untucked.into()),
-                SettingKey::AnkleTaping => Some(a.ankle_taping.into()),
-                SettingKey::WristTaping => Some(a.wrist_taping),
-                SettingKey::WristTapeColorLeft => Some(a.wrist_tape_color_left),
-                SettingKey::WristTapeColorRight => Some(a.wrist_tape_color_right),
-                SettingKey::Spectacles => Some(a.spectacles_style),
-                SettingKey::SpectaclesColor => Some(a.spectacles_color),
-                SettingKey::Gloves => Some(face.get(IngameFaceField::PlayerGloves)?),
-                SettingKey::GlovesColor => Some(face.get(IngameFaceField::PlayerGlovesColor)?),
-                SettingKey::HunchingDribbling => Some(m.hunching_dribbling),
-                SettingKey::HunchingRunning => Some(m.hunching_running),
-                SettingKey::ArmMovementDribbling => Some(m.arm_movement_dribbling),
-                SettingKey::ArmMovementRunning => Some(m.arm_movement_running),
-                SettingKey::CornerKick => Some(m.corner_kick),
-                SettingKey::FreeKick => Some(m.free_kick),
-                SettingKey::PenaltyKick => Some(m.penalty_kick),
-                SettingKey::Dribbling => m.dribbling,
-                SettingKey::GoalCelebration1 => Some(m.goal_celebration_1),
-                SettingKey::GoalCelebration2 => Some(m.goal_celebration_2),
-                SettingKey::CheekType => Some(face.get(IngameFaceField::CheekType)?),
-                SettingKey::ForeheadType => Some(face.get(IngameFaceField::ForeheadType)?),
-                SettingKey::FacialHairType => Some(face.get(IngameFaceField::FacialHairType)?),
-                SettingKey::LaughterLinesType => {
-                    Some(face.get(IngameFaceField::LaughterLinesType)?)
-                }
-                SettingKey::UpperEyelidType => Some(face.get(IngameFaceField::UpperEyelidType)?),
-                SettingKey::LowerEyelidType => Some(face.get(IngameFaceField::LowerEyelidType)?),
-                SettingKey::EyebrowType => Some(face.get(IngameFaceField::EyebrowType)?),
-                SettingKey::NeckLineType => Some(face.get(IngameFaceField::NeckLineType)?),
-                SettingKey::NoseType => Some(face.get(IngameFaceField::NoseType)?),
-                SettingKey::UpperLipType => Some(face.get(IngameFaceField::UpperLipType)?),
-                SettingKey::LowerLipType => Some(face.get(IngameFaceField::LowerLipType)?),
-            };
-            if let Some(value) = value {
+            if let Some(value) = read(player, key)? {
                 settings.set(key, value)?;
             }
         }
@@ -465,76 +498,99 @@ impl PlayerSettings {
         if let Some(NameSetting::Explicit(name)) = &self.name {
             next.name = name.clone();
         }
-        let face = &mut next.appearance.ingame_face;
-        for key in SettingKey::ALL {
-            let Some(value) = self.get(key) else { continue };
-            match key {
-                SettingKey::SkinColor => face.set(IngameFaceField::SkinColor, value)?,
-                SettingKey::IrisColor => face.set(IngameFaceField::IrisColor, value)?,
-                SettingKey::Height => next.basic.height = value,
-                SettingKey::Weight => next.basic.weight = value,
-                SettingKey::NeckLength => next.appearance.neck_length = value,
-                SettingKey::NeckSize => next.appearance.neck_size = value,
-                SettingKey::ShoulderHeight => next.appearance.shoulder_height = value,
-                SettingKey::ShoulderWidth => next.appearance.shoulder_width = value,
-                SettingKey::Chest => next.appearance.chest = value,
-                SettingKey::Waist => next.appearance.waist = value,
-                SettingKey::ArmSize => next.appearance.arm_size = value,
-                SettingKey::ArmLength => next.appearance.arm_length = value,
-                SettingKey::Thigh => next.appearance.thigh = value,
-                SettingKey::Calf => next.appearance.calf = value,
-                SettingKey::LegLength => next.appearance.leg_length = value,
-                SettingKey::HeadLength => next.appearance.head_length = value,
-                SettingKey::HeadWidth => next.appearance.head_width = value,
-                SettingKey::HeadDepth => next.appearance.head_depth = value,
-                SettingKey::Sleeves => next.appearance.sleeves = value,
-                SettingKey::Inners => next.appearance.inners = value,
-                SettingKey::Socks => next.appearance.socks = value,
-                SettingKey::Undershorts => next.appearance.undershorts = value,
-                SettingKey::Untucked => next.appearance.untucked = value != 0,
-                SettingKey::AnkleTaping => next.appearance.ankle_taping = value != 0,
-                SettingKey::WristTaping => next.appearance.wrist_taping = value,
-                SettingKey::WristTapeColorLeft => next.appearance.wrist_tape_color_left = value,
-                SettingKey::WristTapeColorRight => next.appearance.wrist_tape_color_right = value,
-                SettingKey::Spectacles => next.appearance.spectacles_style = value,
-                SettingKey::SpectaclesColor => next.appearance.spectacles_color = value,
-                SettingKey::Gloves => face.set(IngameFaceField::PlayerGloves, value)?,
-                SettingKey::GlovesColor => face.set(IngameFaceField::PlayerGlovesColor, value)?,
-                SettingKey::HunchingDribbling => next.motion.hunching_dribbling = value,
-                SettingKey::HunchingRunning => next.motion.hunching_running = value,
-                SettingKey::ArmMovementDribbling => next.motion.arm_movement_dribbling = value,
-                SettingKey::ArmMovementRunning => next.motion.arm_movement_running = value,
-                SettingKey::CornerKick => next.motion.corner_kick = value,
-                SettingKey::FreeKick => next.motion.free_kick = value,
-                SettingKey::PenaltyKick => next.motion.penalty_kick = value,
-                SettingKey::Dribbling => match next.motion.dribbling {
-                    Some(_) => next.motion.dribbling = Some(value),
-                    None => {
-                        return Err(SettingsError::NotInThisVersion {
-                            key: key.spec().name.to_string(),
-                        });
-                    }
-                },
-                SettingKey::GoalCelebration1 => next.motion.goal_celebration_1 = value,
-                SettingKey::GoalCelebration2 => next.motion.goal_celebration_2 = value,
-                SettingKey::CheekType => face.set(IngameFaceField::CheekType, value)?,
-                SettingKey::ForeheadType => face.set(IngameFaceField::ForeheadType, value)?,
-                SettingKey::FacialHairType => face.set(IngameFaceField::FacialHairType, value)?,
-                SettingKey::LaughterLinesType => {
-                    face.set(IngameFaceField::LaughterLinesType, value)?
-                }
-                SettingKey::UpperEyelidType => face.set(IngameFaceField::UpperEyelidType, value)?,
-                SettingKey::LowerEyelidType => face.set(IngameFaceField::LowerEyelidType, value)?,
-                SettingKey::EyebrowType => face.set(IngameFaceField::EyebrowType, value)?,
-                SettingKey::NeckLineType => face.set(IngameFaceField::NeckLineType, value)?,
-                SettingKey::NoseType => face.set(IngameFaceField::NoseType, value)?,
-                SettingKey::UpperLipType => face.set(IngameFaceField::UpperLipType, value)?,
-                SettingKey::LowerLipType => face.set(IngameFaceField::LowerLipType, value)?,
-            }
-        }
+        write_appearance(&self.appearance, &mut next)?;
         *player = next;
         Ok(())
     }
+}
+
+/// The write half of `PlayerSettings::apply`, without the kind-range
+/// validation: `team_toml` applies a document's stored values as written.
+/// Still all-or-nothing and still `NotInThisVersion` for a `Some` on a field
+/// the player's version lacks.
+pub(crate) fn apply_appearance(
+    appearance: &AppearanceSettings,
+    player: &mut PlayerEntry,
+) -> Result<(), SettingsError> {
+    let mut next = player.clone();
+    write_appearance(appearance, &mut next)?;
+    *player = next;
+    Ok(())
+}
+
+/// Writes every `Some` key onto `next` (called on a scratch clone).
+fn write_appearance(
+    appearance: &AppearanceSettings,
+    next: &mut PlayerEntry,
+) -> Result<(), SettingsError> {
+    let face = &mut next.appearance.ingame_face;
+    for key in SettingKey::ALL {
+        let Some(value) = get_appearance(appearance, key) else {
+            continue;
+        };
+        match key {
+            SettingKey::SkinColor => face.set(IngameFaceField::SkinColor, value)?,
+            SettingKey::IrisColor => face.set(IngameFaceField::IrisColor, value)?,
+            SettingKey::Height => next.basic.height = value,
+            SettingKey::Weight => next.basic.weight = value,
+            SettingKey::NeckLength => next.appearance.neck_length = value,
+            SettingKey::NeckSize => next.appearance.neck_size = value,
+            SettingKey::ShoulderHeight => next.appearance.shoulder_height = value,
+            SettingKey::ShoulderWidth => next.appearance.shoulder_width = value,
+            SettingKey::Chest => next.appearance.chest = value,
+            SettingKey::Waist => next.appearance.waist = value,
+            SettingKey::ArmSize => next.appearance.arm_size = value,
+            SettingKey::ArmLength => next.appearance.arm_length = value,
+            SettingKey::Thigh => next.appearance.thigh = value,
+            SettingKey::Calf => next.appearance.calf = value,
+            SettingKey::LegLength => next.appearance.leg_length = value,
+            SettingKey::HeadLength => next.appearance.head_length = value,
+            SettingKey::HeadWidth => next.appearance.head_width = value,
+            SettingKey::HeadDepth => next.appearance.head_depth = value,
+            SettingKey::Sleeves => next.appearance.sleeves = value,
+            SettingKey::Inners => next.appearance.inners = value,
+            SettingKey::Socks => next.appearance.socks = value,
+            SettingKey::Undershorts => next.appearance.undershorts = value,
+            SettingKey::Untucked => next.appearance.untucked = value != 0,
+            SettingKey::AnkleTaping => next.appearance.ankle_taping = value != 0,
+            SettingKey::WristTaping => next.appearance.wrist_taping = value,
+            SettingKey::WristTapeColorLeft => next.appearance.wrist_tape_color_left = value,
+            SettingKey::WristTapeColorRight => next.appearance.wrist_tape_color_right = value,
+            SettingKey::Spectacles => next.appearance.spectacles_style = value,
+            SettingKey::SpectaclesColor => next.appearance.spectacles_color = value,
+            SettingKey::Gloves => face.set(IngameFaceField::PlayerGloves, value)?,
+            SettingKey::GlovesColor => face.set(IngameFaceField::PlayerGlovesColor, value)?,
+            SettingKey::HunchingDribbling => next.motion.hunching_dribbling = value,
+            SettingKey::HunchingRunning => next.motion.hunching_running = value,
+            SettingKey::ArmMovementDribbling => next.motion.arm_movement_dribbling = value,
+            SettingKey::ArmMovementRunning => next.motion.arm_movement_running = value,
+            SettingKey::CornerKick => next.motion.corner_kick = value,
+            SettingKey::FreeKick => next.motion.free_kick = value,
+            SettingKey::PenaltyKick => next.motion.penalty_kick = value,
+            SettingKey::Dribbling => match next.motion.dribbling {
+                Some(_) => next.motion.dribbling = Some(value),
+                None => {
+                    return Err(SettingsError::NotInThisVersion {
+                        key: key.spec().name.to_string(),
+                    });
+                }
+            },
+            SettingKey::GoalCelebration1 => next.motion.goal_celebration_1 = value,
+            SettingKey::GoalCelebration2 => next.motion.goal_celebration_2 = value,
+            SettingKey::CheekType => face.set(IngameFaceField::CheekType, value)?,
+            SettingKey::ForeheadType => face.set(IngameFaceField::ForeheadType, value)?,
+            SettingKey::FacialHairType => face.set(IngameFaceField::FacialHairType, value)?,
+            SettingKey::LaughterLinesType => face.set(IngameFaceField::LaughterLinesType, value)?,
+            SettingKey::UpperEyelidType => face.set(IngameFaceField::UpperEyelidType, value)?,
+            SettingKey::LowerEyelidType => face.set(IngameFaceField::LowerEyelidType, value)?,
+            SettingKey::EyebrowType => face.set(IngameFaceField::EyebrowType, value)?,
+            SettingKey::NeckLineType => face.set(IngameFaceField::NeckLineType, value)?,
+            SettingKey::NoseType => face.set(IngameFaceField::NoseType, value)?,
+            SettingKey::UpperLipType => face.set(IngameFaceField::UpperLipType, value)?,
+            SettingKey::LowerLipType => face.set(IngameFaceField::LowerLipType, value)?,
+        }
+    }
+    Ok(())
 }
 
 /// Who owns a savefile field: authored through `settings.toml`, derived by the
@@ -701,8 +757,12 @@ fn dotted(spec: &keys::KeySpec) -> String {
 /// A key's TOML value for a stored `u8` (label string, signed physique
 /// number, 1-based motion number, bool); `OutOfRange` for a value written
 /// directly into a public field that the kind cannot represent.
-fn toml_form(spec: &keys::KeySpec, stored: u8) -> Result<Value, SettingsError> {
-    if !spec.kind.accepts_stored(stored) {
+fn toml_form(
+    spec: &keys::KeySpec,
+    stored: u8,
+    stored_ranges: bool,
+) -> Result<Value, SettingsError> {
+    if !stored_ranges && !spec.kind.accepts_stored(stored) {
         return Err(SettingsError::OutOfRange {
             key: dotted(spec),
             value: i64::from(stored),
@@ -751,6 +811,258 @@ fn padded(body: &str, comment: &str) -> String {
     format!("{body}{}# {comment}", " ".repeat(pad))
 }
 
+/// The key's dotted path under `root` (`root` = the appearance table's own
+/// path: "appearance" in settings.toml, "players.03.appearance" in team.toml).
+fn leaf_path(root: &str, spec: &keys::KeySpec) -> String {
+    match spec.table {
+        "appearance" => format!("{root}.{}", spec.name),
+        _ => format!(
+            "{root}.{}.{}",
+            &spec.table["appearance.".len()..],
+            spec.name
+        ),
+    }
+}
+
+/// The item at a key's `(table, name)` inside the `appearance` table, `None`
+/// when absent; `path` is the appearance table's dotted path for error keys.
+fn lookup<'a>(
+    appearance: &'a dyn toml_edit::TableLike,
+    spec: &keys::KeySpec,
+    path: &str,
+) -> Result<Option<&'a Item>, SettingsError> {
+    let table = match spec.table {
+        "appearance" => appearance,
+        _ => {
+            let sub = &spec.table["appearance.".len()..];
+            let Some(item) = appearance.get(sub) else {
+                return Ok(None);
+            };
+            match item.as_table_like() {
+                Some(table) => table,
+                None => {
+                    return Err(SettingsError::WrongType {
+                        key: format!("{path}.{sub}"),
+                        expected: "a table",
+                    });
+                }
+            }
+        }
+    };
+    Ok(table.get(spec.name))
+}
+
+/// The stored `u8` behind one present item, range-checked per its `Kind`.
+/// `stored_ranges` is `team_toml`'s mode: the editor range is documentation,
+/// and any value the stored `u8` can hold is accepted (a real save's face
+/// types and celebration numbers go past the selectable range).
+fn value(dotted: &str, kind: Kind, item: &Item, stored_ranges: bool) -> Result<u8, SettingsError> {
+    let wide = |value: i64| -> Result<u8, SettingsError> {
+        u8::try_from(value).map_err(|_| SettingsError::OutOfRange {
+            key: dotted.to_string(),
+            value,
+            range: "0 to 255".to_string(),
+        })
+    };
+    let integer = |expected: &'static str| -> Result<i64, SettingsError> {
+        item.as_value()
+            .and_then(|v| v.as_integer())
+            .ok_or_else(|| SettingsError::WrongType {
+                key: dotted.to_string(),
+                expected,
+            })
+    };
+    match kind {
+        Kind::Number { min, max } => {
+            let value = integer("an integer")?;
+            if stored_ranges {
+                return wide(value);
+            }
+            if !(i64::from(min)..=i64::from(max)).contains(&value) {
+                return Err(SettingsError::OutOfRange {
+                    key: dotted.to_string(),
+                    value,
+                    range: range_text(kind),
+                });
+            }
+            Ok(u8::try_from(value).expect("the range check bounds it"))
+        }
+        Kind::Signed7 => {
+            let value = integer("an integer")?;
+            if stored_ranges {
+                return wide(value + 7);
+            }
+            if !(-7..=7).contains(&value) {
+                return Err(SettingsError::OutOfRange {
+                    key: dotted.to_string(),
+                    value,
+                    range: range_text(kind),
+                });
+            }
+            Ok(u8::try_from(value + 7).expect("in 0..=14"))
+        }
+        Kind::OneBased { max } => {
+            let value = integer("an integer")?;
+            if stored_ranges {
+                return wide(value - 1);
+            }
+            if !(1..=i64::from(max)).contains(&value) {
+                return Err(SettingsError::OutOfRange {
+                    key: dotted.to_string(),
+                    value,
+                    range: range_text(kind),
+                });
+            }
+            Ok(u8::try_from(value - 1).expect("in 0..=max-1"))
+        }
+        Kind::Bool => item
+            .as_value()
+            .and_then(|v| v.as_bool())
+            .map(u8::from)
+            .ok_or_else(|| SettingsError::WrongType {
+                key: dotted.to_string(),
+                expected: "true or false",
+            }),
+        Kind::Labels(labels) => {
+            let Some(text) = item.as_value().and_then(|v| v.as_str()) else {
+                return Err(SettingsError::WrongType {
+                    key: dotted.to_string(),
+                    expected: "a string",
+                });
+            };
+            labels
+                .iter()
+                .position(|label| *label == text)
+                .map(|index| u8::try_from(index).expect("labels fit u8"))
+                .ok_or_else(|| SettingsError::UnknownLabel {
+                    key: dotted.to_string(),
+                    label: text.to_string(),
+                    allowed: range_text(kind),
+                })
+        }
+    }
+}
+
+/// The spec's table path under the appearance root `root` ("appearance" →
+/// `root`, "appearance.physique" → `root.physique`).
+fn absolute(root: &str, table: &str) -> String {
+    format!("{}{}", root, &table["appearance".len()..])
+}
+
+/// Everything the value walk did not consume is refused. A leaf is known
+/// iff its dotted path is `name` or some key's; a table is known iff its
+/// path is `appearance` or some key's table. The first unknown item is
+/// `UnknownKey`; a table position holding a non-table is `WrongType`.
+fn reject_unknown(document: &DocumentMut) -> Result<(), SettingsError> {
+    for (name, item) in document.iter() {
+        match name {
+            "name" => {}
+            "appearance" => reject_unknown_table(item, "appearance", "appearance")?,
+            _ => {
+                return Err(SettingsError::UnknownKey {
+                    key: name.to_string(),
+                });
+            }
+        }
+    }
+    Ok(())
+}
+
+/// The recursive half of [`reject_unknown`] and [`parse_appearance`]: `root`
+/// is the appearance table's own dotted path, `path` the table being walked.
+fn reject_unknown_table(item: &Item, root: &str, path: &str) -> Result<(), SettingsError> {
+    let Some(table) = item.as_table_like() else {
+        return Err(SettingsError::WrongType {
+            key: path.to_string(),
+            expected: "a table",
+        });
+    };
+    for (leaf, sub) in table.iter() {
+        let child = format!("{path}.{leaf}");
+        if SettingKey::ALL
+            .iter()
+            .any(|key| absolute(root, key.spec().table) == child)
+        {
+            if !sub.is_table_like() {
+                return Err(SettingsError::WrongType {
+                    key: child,
+                    expected: "a table",
+                });
+            }
+            reject_unknown_table(sub, root, &child)?;
+        } else if !SettingKey::ALL
+            .iter()
+            .any(|key| absolute(root, key.spec().table) == path && key.spec().name == leaf)
+        {
+            return Err(SettingsError::UnknownKey { key: child });
+        }
+    }
+    Ok(())
+}
+
+/// The `[appearance]` table at `item` (dotted path `path`: "appearance" in a
+/// settings.toml, "players.03.appearance" in a team.toml) parsed into stored
+/// values. Shared with `team_toml` so the nested key handling has one home.
+pub(crate) fn parse_appearance(
+    item: &Item,
+    path: &str,
+    stored_ranges: bool,
+) -> Result<AppearanceSettings, SettingsError> {
+    let Some(appearance) = item.as_table_like() else {
+        return Err(SettingsError::WrongType {
+            key: path.to_string(),
+            expected: "a table",
+        });
+    };
+    let mut out = AppearanceSettings::default();
+    for key in SettingKey::ALL {
+        let spec = key.spec();
+        let Some(item) = lookup(appearance, &spec, path)? else {
+            continue;
+        };
+        let leaf = leaf_path(path, &spec);
+        let stored = value(&leaf, spec.kind, item, stored_ranges)?;
+        set_appearance(&mut out, key, Some(stored));
+    }
+    reject_unknown_table(item, path, path)?;
+    Ok(out)
+}
+
+/// The `[prefix]` table plus its four subtables appended to `out`, in key
+/// order: a `Some` emits its line with the key's comment, a `None` the
+/// commented neutral line. Shared with `team_toml`'s `[players.NN.appearance]`.
+pub(crate) fn emit_appearance(
+    out: &mut String,
+    prefix: &str,
+    appearance: &AppearanceSettings,
+    stored_ranges: bool,
+) -> Result<(), SettingsError> {
+    let mut table = "";
+    for key in SettingKey::ALL {
+        let spec = key.spec();
+        if spec.table != table {
+            out.push_str(&format!("\n[{}]\n", absolute(prefix, spec.table)));
+            table = spec.table;
+        }
+        let stored = get_appearance(appearance, key);
+        let body = match stored {
+            Some(stored) => format!(
+                "{} = {}",
+                spec.name,
+                toml_form(&spec, stored, stored_ranges)?
+            ),
+            None => format!("{} = {}", spec.name, neutral_text(spec.kind)),
+        };
+        let line = padded(&body, spec.comment);
+        match stored {
+            Some(_) => out.push_str(&line),
+            None => out.push_str(&format!("# {line}")),
+        }
+        out.push('\n');
+    }
+    Ok(())
+}
+
 impl PlayerSettings {
     /// Reads a `settings.toml` text. Every key is optional; anything the key
     /// table does not know (a stray table, a compiler-owned field such as
@@ -779,169 +1091,11 @@ impl PlayerSettings {
                 }
             });
         }
-        for key in SettingKey::ALL {
-            let spec = key.spec();
-            let Some(item) = Self::lookup(&document, &spec)? else {
-                continue;
-            };
-            settings.set(key, Self::value(&dotted(&spec), spec.kind, item)?)?;
+        if let Some(item) = document.get("appearance") {
+            settings.appearance = parse_appearance(item, "appearance", false)?;
         }
-        Self::reject_unknown(&document)?;
+        reject_unknown(&document)?;
         Ok(settings)
-    }
-
-    /// The item at a key's `(table, name)`, `None` when absent.
-    fn lookup<'a>(
-        document: &'a DocumentMut,
-        spec: &keys::KeySpec,
-    ) -> Result<Option<&'a Item>, SettingsError> {
-        let Some(appearance) = document.get("appearance") else {
-            return Ok(None);
-        };
-        let Some(appearance) = appearance.as_table_like() else {
-            return Err(SettingsError::WrongType {
-                key: "appearance".to_string(),
-                expected: "a table",
-            });
-        };
-        let table = match spec.table {
-            "appearance" => appearance,
-            _ => {
-                let sub = &spec.table["appearance.".len()..];
-                let Some(item) = appearance.get(sub) else {
-                    return Ok(None);
-                };
-                match item.as_table_like() {
-                    Some(table) => table,
-                    None => {
-                        return Err(SettingsError::WrongType {
-                            key: spec.table.to_string(),
-                            expected: "a table",
-                        });
-                    }
-                }
-            }
-        };
-        Ok(table.get(spec.name))
-    }
-
-    /// The stored `u8` behind one present item, range-checked per its `Kind`.
-    fn value(dotted: &str, kind: Kind, item: &Item) -> Result<u8, SettingsError> {
-        let integer = |expected: &'static str| -> Result<i64, SettingsError> {
-            item.as_value()
-                .and_then(|v| v.as_integer())
-                .ok_or_else(|| SettingsError::WrongType {
-                    key: dotted.to_string(),
-                    expected,
-                })
-        };
-        match kind {
-            Kind::Number { min, max } => {
-                let value = integer("an integer")?;
-                if !(i64::from(min)..=i64::from(max)).contains(&value) {
-                    return Err(SettingsError::OutOfRange {
-                        key: dotted.to_string(),
-                        value,
-                        range: range_text(kind),
-                    });
-                }
-                Ok(u8::try_from(value).expect("the range check bounds it"))
-            }
-            Kind::Signed7 => {
-                let value = integer("an integer")?;
-                if !(-7..=7).contains(&value) {
-                    return Err(SettingsError::OutOfRange {
-                        key: dotted.to_string(),
-                        value,
-                        range: range_text(kind),
-                    });
-                }
-                Ok(u8::try_from(value + 7).expect("in 0..=14"))
-            }
-            Kind::OneBased { max } => {
-                let value = integer("an integer")?;
-                if !(1..=i64::from(max)).contains(&value) {
-                    return Err(SettingsError::OutOfRange {
-                        key: dotted.to_string(),
-                        value,
-                        range: range_text(kind),
-                    });
-                }
-                Ok(u8::try_from(value - 1).expect("in 0..=max-1"))
-            }
-            Kind::Bool => item
-                .as_value()
-                .and_then(|v| v.as_bool())
-                .map(u8::from)
-                .ok_or_else(|| SettingsError::WrongType {
-                    key: dotted.to_string(),
-                    expected: "true or false",
-                }),
-            Kind::Labels(labels) => {
-                let Some(text) = item.as_value().and_then(|v| v.as_str()) else {
-                    return Err(SettingsError::WrongType {
-                        key: dotted.to_string(),
-                        expected: "a string",
-                    });
-                };
-                labels
-                    .iter()
-                    .position(|label| *label == text)
-                    .map(|index| u8::try_from(index).expect("labels fit u8"))
-                    .ok_or_else(|| SettingsError::UnknownLabel {
-                        key: dotted.to_string(),
-                        label: text.to_string(),
-                        allowed: range_text(kind),
-                    })
-            }
-        }
-    }
-
-    /// Everything the value walk did not consume is refused. A leaf is known
-    /// iff its dotted path is `name` or some key's; a table is known iff its
-    /// path is `appearance` or some key's table. The first unknown item is
-    /// `UnknownKey`; a table position holding a non-table is `WrongType`.
-    fn reject_unknown(document: &DocumentMut) -> Result<(), SettingsError> {
-        for (name, item) in document.iter() {
-            match name {
-                "name" => {}
-                "appearance" => Self::reject_unknown_table(item, "appearance")?,
-                _ => {
-                    return Err(SettingsError::UnknownKey {
-                        key: name.to_string(),
-                    });
-                }
-            }
-        }
-        Ok(())
-    }
-
-    /// The recursive half of [`Self::reject_unknown`].
-    fn reject_unknown_table(item: &Item, path: &str) -> Result<(), SettingsError> {
-        let Some(table) = item.as_table_like() else {
-            return Err(SettingsError::WrongType {
-                key: path.to_string(),
-                expected: "a table",
-            });
-        };
-        for (leaf, sub) in table.iter() {
-            let child = format!("{path}.{leaf}");
-            if SettingKey::ALL.iter().any(|key| key.spec().table == child) {
-                if !sub.is_table_like() {
-                    return Err(SettingsError::WrongType {
-                        key: child,
-                        expected: "a table",
-                    });
-                }
-                Self::reject_unknown_table(sub, &child)?;
-            } else if !SettingKey::ALL
-                .iter()
-                .any(|key| key.spec().table == path && key.spec().name == leaf)
-            {
-                return Err(SettingsError::UnknownKey { key: child });
-            }
-        }
-        Ok(())
     }
 
     /// The template `settings.toml`: the plan block verbatim for a settings
@@ -957,24 +1111,7 @@ impl PlayerSettings {
             }
             None => out.push_str("# name = true\n"),
         }
-        let mut table = "";
-        for key in SettingKey::ALL {
-            let spec = key.spec();
-            if spec.table != table {
-                out.push_str(&format!("\n[{}]\n", spec.table));
-                table = spec.table;
-            }
-            let body = match self.get(key) {
-                Some(stored) => format!("{} = {}", spec.name, toml_form(&spec, stored)?),
-                None => format!("{} = {}", spec.name, neutral_text(spec.kind)),
-            };
-            let line = padded(&body, spec.comment);
-            match self.get(key) {
-                Some(_) => out.push_str(&line),
-                None => out.push_str(&format!("# {line}")),
-            }
-            out.push('\n');
-        }
+        emit_appearance(&mut out, "appearance", &self.appearance, false)?;
         Ok(out)
     }
 
@@ -1043,7 +1180,7 @@ impl PlayerSettings {
                     }
                 }
             }
-            set(&mut item[spec.name], toml_form(&spec, stored)?);
+            set(&mut item[spec.name], toml_form(&spec, stored, false)?);
         }
         Ok(())
     }
