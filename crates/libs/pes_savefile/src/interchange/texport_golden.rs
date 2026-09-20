@@ -101,14 +101,28 @@ fn u32_at(bytes: &[u8], at: usize) -> u32 {
 fn the_reference_walk_finds_the_records_at_the_literal_offsets() {
     for l in &LAYOUTS {
         let dec = reference_decrypt(l.bytes, l.key_index);
-        assert_eq!(u32_at(&dec, l.tactics_at), l.team, "{:?} tactics id", l.version);
+        assert_eq!(
+            u32_at(&dec, l.tactics_at),
+            l.team,
+            "{:?} tactics id",
+            l.version
+        );
         let stride = (dec.len() - 12 - l.players_at) / l.width;
-        assert_eq!(l.players_at + l.width * stride + 12, dec.len(), "{:?} width", l.version);
+        assert_eq!(
+            l.players_at + l.width * stride + 12,
+            dec.len(),
+            "{:?} width",
+            l.version
+        );
         let mut ids: Vec<u32> = (0..l.width)
             .map(|i| u32_at(&dec, l.players_at + i * stride))
             .collect();
         let empty = ids.split_off(l.filled);
-        assert!(empty.iter().all(|&id| id == 0), "{:?} empty slots", l.version);
+        assert!(
+            empty.iter().all(|&id| id == 0),
+            "{:?} empty slots",
+            l.version
+        );
         let expected: Vec<u32> = (0..l.filled as u32).map(|i| l.team * 100 + 1 + i).collect();
         assert_eq!(ids, expected, "{:?} player ids", l.version);
     }
@@ -132,8 +146,17 @@ fn from_bytes_decodes_what_the_reference_reads_and_detects_the_version() {
         let players = t.players();
         assert_eq!(players.len(), l.filled);
         for (i, p) in players.iter().enumerate() {
-            assert_eq!(p.id, l.team * 100 + 1 + i as u32, "{:?} slot {i}", l.version);
-            assert_eq!(p.id, team.roster[i].player_id, "{:?} roster slot {i}", l.version);
+            assert_eq!(
+                p.id,
+                l.team * 100 + 1 + i as u32,
+                "{:?} slot {i}",
+                l.version
+            );
+            assert_eq!(
+                p.id, team.roster[i].player_id,
+                "{:?} roster slot {i}",
+                l.version
+            );
         }
         assert_eq!(display_name(&players[0].name), l.first_player);
         assert_eq!(players[0].appearance.boots_id, l.first_boots);
@@ -146,7 +169,12 @@ fn from_bytes_decodes_what_the_reference_reads_and_detects_the_version() {
                 p.stats.stamina,
                 p.stats.goalkeeping,
             ] {
-                assert!((40..=99).contains(&v), "{:?} player {} stat {v}", l.version, p.id);
+                assert!(
+                    (40..=99).contains(&v),
+                    "{:?} player {} stat {v}",
+                    l.version,
+                    p.id
+                );
             }
         }
         let explicit = Texport::from_bytes(l.bytes, Some(l.version)).expect("opens");
@@ -159,7 +187,13 @@ fn from_bytes_decodes_what_the_reference_reads_and_detects_the_version() {
 fn a_file_of_another_size_is_refused_for_the_named_version() {
     let err = Texport::from_bytes(LAYOUTS[1].bytes, Some(PesVersion::Pes18)).expect_err("refused");
     assert!(
-        matches!(err, TexportError::WrongSize { version: PesVersion::Pes18, .. }),
+        matches!(
+            err,
+            TexportError::WrongSize {
+                version: PesVersion::Pes18,
+                ..
+            }
+        ),
         "{err:?}"
     );
     let err = Texport::from_bytes(&LAYOUTS[0].bytes[..0x50], None).expect_err("refused");

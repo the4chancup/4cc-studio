@@ -18,6 +18,8 @@ pub mod convert;
 pub mod discovery;
 /// The whole-file API: `EditFile` composes container and codec.
 pub mod file;
+/// The interchange formats (`Texport` and the legacy ones) read and written.
+pub mod interchange;
 /// What consumers edit: version-independent player/team/tactics entries, no I/O.
 pub mod model;
 /// Save-to-save and preset operations over `model/` only, no bytes.

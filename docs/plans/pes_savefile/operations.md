@@ -722,10 +722,13 @@ table (`schema/texport.rs`). Two eras:
   the tactics record); until they are, a 15-17 texport's team and roster come from the target
   save and only tactics and players are read. 15 and 16 offsets are the reference editor's,
   unverified.
-- **18-21** (`.ted`, 8128 / 9648 / 14820 bytes for 18 / 19 / 20-21): plaintext header `0x00..0x30`,
+- **18-21** (`.ted`, 8128 / 9648 / 14820 bytes for 18 / 19 / 21): plaintext header `0x00..0x30`,
   a 32-byte key at `0x30`, then the body XOR'd with the key starting at key index `0x12` / `0x13` /
-  `0x14` / `0x15` (18 / 19 / 20 / 21) and wrapping at 32 (PES 20's index is the reference
-  editor's untested guess; no file exists). The body is `team record | 88-byte coach block |
+  `0x14` / `0x15` (18 / 19 / 20 / 21) and wrapping at 32. PES 20 is unmeasured (no file exists):
+  its key index is the reference editor's untested guess, its templates are PES 21's, and its
+  size is the one its own record sizes derive (528-byte team, 244-byte roster: 14760 = `0x39A8`),
+  not the `0x39E4` the reference assumes for both, since 21's size cannot hold 40 of 20's records
+  after 20's shorter team record (decision, 2.17h-1). The body is `team record | 88-byte coach block |
   roster record | tactics record | 660-byte block | player records × roster width | 12-byte tail`,
   every size the save schema's (18: 480/164/628/188 × 32; 19: 416/244/628/188 × 40; 21:
   588/284/628/312 × 40), so tactics land at `0x32C` / `0x33C` / `0x410` and players at `0x834` /
@@ -752,9 +755,10 @@ pub struct Texport { /* version, the plaintext (18-21) or the SaveContainer (15-
 pub enum TexportError { UnknownVersion, WrongSize { version, expected, actual }, Container(ContainerError), Codec(CodecError), RosterMismatch { slot, roster: u32, player: u32 }, NoTemplate(PesVersion) }
 
 impl Texport {
-    /// `version = None` detects: the container's version for 15-17; by size for 18/19; 20 and 21
-    /// share a size, so both indices are tried and the one whose team, roster and tactics record
-    /// ids agree wins (`UnknownVersion` when neither or both do).
+    /// `version = None` detects: by size for 18-21 (every size is distinct once 20's is derived;
+    /// the candidate whose team, roster and tactics record ids agree wins, `UnknownVersion` when
+    /// none or several do), then the container's version for 15-17. `Some(version)` on 15-17
+    /// defers to the container's own version (no variant expresses the mismatch).
     pub fn from_bytes(bytes: &[u8], version: Option<PesVersion>) -> Result<Texport, TexportError>;
     /// A fresh 18-21 file from the layout's templates: header, coach (id patched), zero block,
     /// tail, a key from `salt[..32]`; `players` in roster order, ids checked against the roster
