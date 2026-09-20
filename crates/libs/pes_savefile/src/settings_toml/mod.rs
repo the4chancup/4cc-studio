@@ -754,15 +754,40 @@ fn dotted(spec: &keys::KeySpec) -> String {
     format!("{}.{}", spec.table, spec.name)
 }
 
+/// The stored bound for `key` in `stored_ranges` (team TOML) mode: the
+/// widest bit width the key's field is stored at across the version tables —
+/// a `Player` source via `schema::widest_bit_width`, a `Face` source via the
+/// ingame-face table. The stored value must fit it; the editor ranges the
+/// strict mode enforces do not apply.
+fn stored_bound(key: SettingKey) -> i64 {
+    let width = match key.source() {
+        keys::Source::Player(field) => crate::schema::widest_bit_width(field),
+        keys::Source::Face(field) => crate::schema::ingame_face::INGAME_FACE_FIELDS
+            .iter()
+            .find(|spec| spec.field == field)
+            .map(|spec| spec.bit_width)
+            .expect("every face field is in the table"),
+    };
+    (1i64 << width) - 1
+}
+
 /// A key's TOML value for a stored `u8` (label string, signed physique
 /// number, 1-based motion number, bool); `OutOfRange` for a value written
-/// directly into a public field that the kind cannot represent.
-fn toml_form(
-    spec: &keys::KeySpec,
-    stored: u8,
-    stored_ranges: bool,
-) -> Result<Value, SettingsError> {
-    if !stored_ranges && !spec.kind.accepts_stored(stored) {
+/// directly into a public field that the kind cannot represent. In
+/// `stored_ranges` mode the bound is the field's stored width, and a
+/// width-valid value with no label emits as the integer.
+fn toml_form(key: SettingKey, stored: u8, stored_ranges: bool) -> Result<Value, SettingsError> {
+    let spec = &key.spec();
+    if stored_ranges {
+        let max = stored_bound(key);
+        if i64::from(stored) > max {
+            return Err(SettingsError::OutOfRange {
+                key: dotted(spec),
+                value: i64::from(stored),
+                range: format!("0 to {max}"),
+            });
+        }
+    } else if !spec.kind.accepts_stored(stored) {
         return Err(SettingsError::OutOfRange {
             key: dotted(spec),
             value: i64::from(stored),
@@ -774,7 +799,11 @@ fn toml_form(
         Kind::Signed7 => (i64::from(stored) - 7).into(),
         Kind::OneBased { .. } => (i64::from(stored) + 1).into(),
         Kind::Bool => (stored != 0).into(),
-        Kind::Labels(labels) => labels[usize::from(stored)].into(),
+        // Strict mode's accepts_stored bounds `stored` to a label; stored
+        // mode falls back to the integer for a width-valid value with none.
+        Kind::Labels(labels) => labels
+            .get(usize::from(stored))
+            .map_or_else(|| i64::from(stored).into(), |label| (*label).into()),
     })
 }
 
@@ -854,15 +883,26 @@ fn lookup<'a>(
 
 /// The stored `u8` behind one present item, range-checked per its `Kind`.
 /// `stored_ranges` is `team_toml`'s mode: the editor range is documentation,
-/// and any value the stored `u8` can hold is accepted (a real save's face
-/// types and celebration numbers go past the selectable range).
-fn value(dotted: &str, kind: Kind, item: &Item, stored_ranges: bool) -> Result<u8, SettingsError> {
+/// and any value the field's widest stored bit width can hold is accepted
+/// (a real save's face types and celebration numbers go past the selectable
+/// range, but not past the storage).
+fn value(
+    dotted: &str,
+    key: SettingKey,
+    item: &Item,
+    stored_ranges: bool,
+) -> Result<u8, SettingsError> {
+    let kind = key.spec().kind;
     let wide = |value: i64| -> Result<u8, SettingsError> {
-        u8::try_from(value).map_err(|_| SettingsError::OutOfRange {
-            key: dotted.to_string(),
-            value,
-            range: "0 to 255".to_string(),
-        })
+        let max = stored_bound(key);
+        if !(0..=max).contains(&value) {
+            return Err(SettingsError::OutOfRange {
+                key: dotted.to_string(),
+                value,
+                range: format!("0 to {max}"),
+            });
+        }
+        Ok(u8::try_from(value).expect("bounded by max"))
     };
     let integer = |expected: &'static str| -> Result<i64, SettingsError> {
         item.as_value()
@@ -924,21 +964,27 @@ fn value(dotted: &str, kind: Kind, item: &Item, stored_ranges: bool) -> Result<u
                 expected: "true or false",
             }),
         Kind::Labels(labels) => {
-            let Some(text) = item.as_value().and_then(|v| v.as_str()) else {
-                return Err(SettingsError::WrongType {
+            if let Some(text) = item.as_value().and_then(|v| v.as_str()) {
+                labels
+                    .iter()
+                    .position(|label| *label == text)
+                    .map(|index| u8::try_from(index).expect("labels fit u8"))
+                    .ok_or_else(|| SettingsError::UnknownLabel {
+                        key: dotted.to_string(),
+                        label: text.to_string(),
+                        allowed: range_text(kind),
+                    })
+            } else if stored_ranges {
+                // A width-valid value with no label round-trips as the
+                // integer the emitter wrote.
+                let value = integer("a label string or an integer")?;
+                wide(value)
+            } else {
+                Err(SettingsError::WrongType {
                     key: dotted.to_string(),
                     expected: "a string",
-                });
-            };
-            labels
-                .iter()
-                .position(|label| *label == text)
-                .map(|index| u8::try_from(index).expect("labels fit u8"))
-                .ok_or_else(|| SettingsError::UnknownLabel {
-                    key: dotted.to_string(),
-                    label: text.to_string(),
-                    allowed: range_text(kind),
                 })
+            }
         }
     }
 }
@@ -1021,7 +1067,7 @@ pub(crate) fn parse_appearance(
             continue;
         };
         let leaf = leaf_path(path, &spec);
-        let stored = value(&leaf, spec.kind, item, stored_ranges)?;
+        let stored = value(&leaf, key, item, stored_ranges)?;
         set_appearance(&mut out, key, Some(stored));
     }
     reject_unknown_table(item, path, path)?;
@@ -1046,11 +1092,7 @@ pub(crate) fn emit_appearance(
         }
         let stored = get_appearance(appearance, key);
         let body = match stored {
-            Some(stored) => format!(
-                "{} = {}",
-                spec.name,
-                toml_form(&spec, stored, stored_ranges)?
-            ),
+            Some(stored) => format!("{} = {}", spec.name, toml_form(key, stored, stored_ranges)?),
             None => format!("{} = {}", spec.name, neutral_text(spec.kind)),
         };
         let line = padded(&body, spec.comment);
@@ -1180,7 +1222,7 @@ impl PlayerSettings {
                     }
                 }
             }
-            set(&mut item[spec.name], toml_form(&spec, stored, false)?);
+            set(&mut item[spec.name], toml_form(key, stored, false)?);
         }
         Ok(())
     }

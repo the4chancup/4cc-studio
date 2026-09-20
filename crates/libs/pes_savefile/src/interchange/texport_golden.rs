@@ -211,7 +211,7 @@ fn round_trip_is_byte_identical_on_every_fixture() {
 
 /// The PES 17 texport as a container around the sliced payload (logo and
 /// serial dropped, as the save fixtures are).
-fn pes17_texport_bytes() -> Vec<u8> {
+pub(crate) fn pes17_texport_bytes() -> Vec<u8> {
     let mut payload = Vec::new();
     flate2::read::ZlibDecoder::new(
         &include_bytes!("../../tests/fixtures/pes17_texport_payload.bin.zz")[..],

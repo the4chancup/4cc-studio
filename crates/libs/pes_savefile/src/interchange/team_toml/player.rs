@@ -18,7 +18,7 @@ use crate::model::ingame_face::IngameFace;
 use crate::model::player::PlayerEntry;
 use crate::model::playstyle::PlayStyle;
 use crate::model::team::TeamEntry;
-use crate::schema::fields::PlayerField;
+use crate::schema::fields::{PlayerField, PlayerText};
 use crate::schema::limits::face_type_cap;
 use crate::schema::{playstyle, schema_for};
 use crate::settings_toml::keys::{SettingKey, Source};
@@ -27,7 +27,7 @@ use crate::settings_toml::{
     parse_appearance, set_appearance,
 };
 
-use super::team::{as_table, emit, gated, opt, padded, reject, text, u16_val};
+use super::team::{as_table, emit, gated, opt, padded, reject, text, text_max, u16_val};
 
 // ---------------------------------------------------------------------------
 // From the model
@@ -443,21 +443,24 @@ fn hex(item: &Item, key: &str) -> Result<Vec<u8>, TeamTomlError> {
                 key: key.to_string(),
                 expected,
             })?;
-    if text.len() != 92 && text.len() != 100 {
+    // Byte length first, then ASCII-hex: a non-ASCII character of the right
+    // byte length must be an error, not a slice panic mid-character.
+    if (text.len() != 92 && text.len() != 100) || !text.bytes().all(|b| b.is_ascii_hexdigit()) {
         return Err(TeamTomlError::WrongType {
             key: key.to_string(),
             expected,
         });
     }
-    let mut bytes = Vec::with_capacity(50);
-    for i in (0..text.len()).step_by(2) {
-        let byte =
-            u8::from_str_radix(&text[i..i + 2], 16).map_err(|_| TeamTomlError::WrongType {
-                key: key.to_string(),
-                expected,
-            })?;
-        bytes.push(byte);
-    }
+    let bytes = text
+        .as_bytes()
+        .as_chunks::<2>()
+        .0
+        .iter()
+        .map(|pair| {
+            u8::from_str_radix(std::str::from_utf8(pair).expect("hex digits are UTF-8"), 16)
+                .expect("hex digits parse")
+        })
+        .collect();
     Ok(bytes)
 }
 
@@ -565,6 +568,9 @@ struct Context {
     foreign: bool,
     /// The target's stored `PlayerField`s, built once per `apply`.
     fields: HashSet<PlayerField>,
+    /// The source document's stored `PlayerField`s: a key the source version
+    /// cannot store says nothing about the target's value.
+    from_fields: HashSet<PlayerField>,
     team_id: Option<u32>,
 }
 
@@ -579,17 +585,19 @@ struct Target<'a> {
 pub(super) fn apply_players(
     sections: &BTreeMap<u8, PlayerSection>,
     team_id: Option<u32>,
+    from: PesVersion,
     to: PesVersion,
-    foreign: bool,
     team: &mut TeamEntry,
     players: &mut [PlayerEntry],
     notes: &mut Vec<ImportNote>,
 ) -> Result<(), TeamTomlError> {
+    let foreign = from != to;
     let mut target = Target {
         context: Context {
             to,
             foreign,
             fields: schema_for(to).player_field_set(),
+            from_fields: schema_for(from).player_field_set(),
             team_id,
         },
         team,
@@ -624,9 +632,26 @@ fn apply_player(
         target.team.roster[index].number = number;
     }
     if let Some(name) = &section.name {
+        let max = text_max(schema_for(target.context.to).player.texts, PlayerText::Name);
+        if name.len() > max {
+            return Err(TeamTomlError::TextTooLong {
+                path: format!("{path}.name"),
+                max,
+            });
+        }
         player.name = name.clone();
     }
     if let Some(shirt_name) = &section.shirt_name {
+        let max = text_max(
+            schema_for(target.context.to).player.texts,
+            PlayerText::ShirtName,
+        );
+        if shirt_name.chars().count() > max {
+            return Err(TeamTomlError::TextTooLong {
+                path: format!("{path}.shirt_name"),
+                max,
+            });
+        }
         player.shirt_name = shirt_name.clone();
     }
     for key in PlayerKey::ALL {
@@ -679,6 +704,11 @@ fn apply_player(
     if let Some(skills) = section.skills.skills {
         for (i, set) in skills.iter().enumerate() {
             let field = PlayerField::Skill(u8::try_from(i).expect("41 skills fit u8"));
+            // A skill the source version cannot store says nothing — the
+            // target's value stands, note-free (a pair-wide rule).
+            if !target.context.from_fields.contains(&field) {
+                continue;
+            }
             if *set {
                 if gated(
                     target.notes,
@@ -696,6 +726,9 @@ fn apply_player(
     if let Some(com_styles) = section.skills.com_styles {
         for (i, set) in com_styles.iter().enumerate() {
             let field = PlayerField::ComStyle(u8::try_from(i).expect("7 com styles fit u8"));
+            if !target.context.from_fields.contains(&field) {
+                continue;
+            }
             if *set {
                 if gated(
                     target.notes,
@@ -725,8 +758,9 @@ fn apply_player(
 /// The `[players.NN.appearance]` keys onto `player`. A foreign document's
 /// keys the target cannot hold are pre-adjusted on a clone: a `PlayerField`
 /// the version lacks is dropped with a `NotInThisVersion` note, a face type
-/// over `face_type_cap` is capped with `Capped`, and skin 7 without a custom
-/// skin becomes 1. Same-version documents write the values as stored (a
+/// over `face_type_cap` resets to 0 with a `Capped` note, and skin 7 on a
+/// target without a custom skin becomes 1 (2.17f's conversion rules).
+/// Same-version documents write the values as stored (a
 /// `SettingsError` — a `Some` the version lacks — propagates).
 fn apply_appearance_table(
     section: &AppearanceSettings,
@@ -757,11 +791,13 @@ fn apply_appearance_table(
                     if let Some(cap) = face_type_cap(context.to, field)
                         && value > cap
                     {
-                        set_appearance(&mut appearance, key, Some(cap));
+                        // 2.17f's rule: an unencodable face type resets to 0,
+                        // it is not clamped to the target's cap.
+                        set_appearance(&mut appearance, key, Some(0));
                         notes.push(ImportNote::Capped {
                             path: leaf,
                             from: value,
-                            to: cap,
+                            to: 0,
                         });
                     }
                 }
@@ -926,19 +962,22 @@ mod tests {
         .expect("parses");
         let mut target_team = team.clone();
         let mut players = file.players().to_vec();
-        let notes = doc
-            .apply(PesVersion::Pes19, &mut target_team, &mut players)
-            .expect("applies");
-        assert!(notes.is_empty());
-        assert_eq!(target_team.roster, team.roster);
-        let id = team.roster[slot].player_id;
+        // The expectation is built from a pre-apply snapshot: deriving it
+        // from `players` after `apply` would let any amount of clobbering
+        // pass, since expected and actual would share the corruption.
         let mut expected = players.clone();
+        let id = team.roster[slot].player_id;
         expected
             .iter_mut()
             .find(|player| player.id == id)
             .expect("the player")
             .stats
             .finishing = 88;
+        let notes = doc
+            .apply(PesVersion::Pes19, &mut target_team, &mut players)
+            .expect("applies");
+        assert!(notes.is_empty());
+        assert_eq!(target_team.roster, team.roster);
         assert_eq!(players, expected);
     }
 
@@ -957,8 +996,8 @@ mod tests {
         let refs: Vec<&PlayerEntry> = file21.players().iter().collect();
         let mut doc = TeamToml::from_team(PesVersion::Pes21, team21, &refs).expect("from_team");
 
-        // Push the first player's facial hair type to the PES 21 cap so the PES
-        // 19 cap has to bite.
+        // Push the first player's facial hair type to the PES 21 cap so it
+        // resets to 0 under the tighter PES 19 cap.
         let cap21 = face_type_cap(PesVersion::Pes21, IngameFaceField::FacialHairType)
             .expect("a PES 21 cap");
         let cap19 = face_type_cap(PesVersion::Pes19, IngameFaceField::FacialHairType)
@@ -1016,9 +1055,9 @@ mod tests {
                 ImportNote::Capped { path, from, to }
                     if path.ends_with(".appearance.face.facial_hair_type")
                         && *from == cap21
-                        && *to == cap19
+                        && *to == 0
             )),
-            "a Capped note for facial_hair_type: {notes:?}"
+            "a Capped note for facial_hair_type, reset to 0: {notes:?}"
         );
         // A field that exists on both versions applied.
         let first = doc.players.values().next().expect("a player");
@@ -1285,5 +1324,359 @@ mod tests {
             .find(|p| p.id == player.id)
             .expect("the stand-in");
         assert_eq!(target, player);
+    }
+
+    /// The first rostered team of `file` and its first rostered slot.
+    fn first_slot(file: &EditFile) -> (&TeamEntry, usize) {
+        let team = file
+            .teams()
+            .iter()
+            .find(|team| team.roster.iter().any(|slot| slot.player_id != 0))
+            .expect("a team with players");
+        let slot = team
+            .roster
+            .iter()
+            .position(|slot| slot.player_id != 0)
+            .expect("a rostered slot");
+        (team, slot)
+    }
+
+    /// A `[players.NN]`-only document carrying `section` at `slot` (0-based).
+    fn one_section(from: PesVersion, slot: usize, section: PlayerSection) -> TeamToml {
+        TeamToml {
+            pes_version: Some(from),
+            players: BTreeMap::from([(u8::try_from(slot + 1).expect("a slot index"), section)]),
+            ..TeamToml::default()
+        }
+    }
+
+    /// A skill the document's source version cannot store is not written at
+    /// all — the target's value stands, note-free (a pair-wide rule). The
+    /// same `false` under the target's own version clears it.
+    #[test]
+    fn a_skill_the_source_version_lacks_is_left_untouched() {
+        let (file, _) = open(PesVersion::Pes19);
+        let (team, slot) = first_slot(&file);
+        let id = team.roster[slot].player_id;
+        // Double Touch: stored on PES 19+, absent on 15/16 (28 skills there).
+        const DOUBLE_TOUCH: usize = 28;
+        assert!(!schema_for(PesVersion::Pes16).player_has(PlayerField::Skill(28)));
+        assert!(schema_for(PesVersion::Pes19).player_has(PlayerField::Skill(28)));
+
+        let mut section = PlayerSection::default();
+        section.skills.skills = Some([false; 41]);
+        let mut players = file.players().to_vec();
+        players
+            .iter_mut()
+            .find(|player| player.id == id)
+            .expect("the player")
+            .skills
+            .skills[DOUBLE_TOUCH] = true;
+
+        let notes = one_section(PesVersion::Pes16, slot, section.clone())
+            .apply(PesVersion::Pes19, &mut team.clone(), &mut players)
+            .expect("applies");
+        assert!(notes.is_empty(), "{notes:?}");
+        assert!(
+            players
+                .iter()
+                .find(|player| player.id == id)
+                .expect("the player")
+                .skills
+                .skills[DOUBLE_TOUCH],
+            "a skill PES 16 cannot store is left alone"
+        );
+
+        let notes = one_section(PesVersion::Pes19, slot, section)
+            .apply(PesVersion::Pes19, &mut team.clone(), &mut players)
+            .expect("applies");
+        assert!(notes.is_empty(), "{notes:?}");
+        assert!(
+            !players
+                .iter()
+                .find(|player| player.id == id)
+                .expect("the player")
+                .skills
+                .skills[DOUBLE_TOUCH],
+            "the same false under the target's own version clears"
+        );
+    }
+
+    /// A face type over the target's cap resets to 0 with a `Capped` note
+    /// (2.17f's rule — never a clamp); a value at the cap is not capped.
+    #[test]
+    fn a_face_type_over_the_cap_resets_and_at_the_cap_is_untouched() {
+        // Facial hair: capped at 12 on PES 15-19, at 19 on 20/21.
+        let (file, _) = open(PesVersion::Pes19);
+        let (team, slot) = first_slot(&file);
+        let id = team.roster[slot].player_id;
+        let face_value = |players: &[PlayerEntry]| {
+            players
+                .iter()
+                .find(|player| player.id == id)
+                .expect("the player")
+                .appearance
+                .ingame_face
+                .get(IngameFaceField::FacialHairType)
+                .expect("a stored type")
+        };
+
+        let mut section = PlayerSection::default();
+        section.appearance.face.facial_hair_type = Some(15);
+        let mut target = team.clone();
+        let mut players = file.players().to_vec();
+        let notes = one_section(PesVersion::Pes21, slot, section)
+            .apply(PesVersion::Pes19, &mut target, &mut players)
+            .expect("applies");
+        assert_eq!(
+            notes,
+            vec![ImportNote::Capped {
+                path: format!("players.{:02}.appearance.face.facial_hair_type", slot + 1),
+                from: 15,
+                to: 0,
+            }]
+        );
+        assert_eq!(face_value(&players), 0);
+
+        let mut section = PlayerSection::default();
+        section.appearance.face.facial_hair_type = Some(12);
+        let mut target = team.clone();
+        let mut players = file.players().to_vec();
+        let notes = one_section(PesVersion::Pes21, slot, section)
+            .apply(PesVersion::Pes19, &mut target, &mut players)
+            .expect("applies");
+        assert!(notes.is_empty(), "{notes:?}");
+        assert_eq!(face_value(&players), 12);
+    }
+
+    /// Skin 7 resets to 1 with a `Capped` note where the target has no
+    /// custom skin (PES 18+), stands on PES 17, and an ordinary preset skin
+    /// never notes.
+    #[test]
+    fn skin_seven_resets_only_where_the_target_has_no_custom_skin() {
+        let apply = |from: PesVersion, to: PesVersion, skin: u8| {
+            let (file, _) = open(to);
+            let (team, slot) = first_slot(&file);
+            let id = team.roster[slot].player_id;
+            let mut section = PlayerSection::default();
+            section.appearance.skin_color = Some(skin);
+            let mut target = team.clone();
+            let mut players = file.players().to_vec();
+            let notes = one_section(from, slot, section)
+                .apply(to, &mut target, &mut players)
+                .expect("applies");
+            let stored = players
+                .iter()
+                .find(|player| player.id == id)
+                .expect("the player")
+                .appearance
+                .ingame_face
+                .get(IngameFaceField::SkinColor)
+                .expect("a stored skin");
+            (slot, notes, stored)
+        };
+
+        let (slot, notes, stored) = apply(PesVersion::Pes21, PesVersion::Pes19, 7);
+        assert_eq!(
+            notes,
+            vec![ImportNote::Capped {
+                path: format!("players.{:02}.appearance.skin_color", slot + 1),
+                from: 7,
+                to: 1,
+            }]
+        );
+        assert_eq!(stored, 1);
+
+        let (_, notes, stored) = apply(PesVersion::Pes19, PesVersion::Pes17, 7);
+        assert!(notes.is_empty(), "{notes:?}");
+        assert_eq!(stored, 7);
+
+        let (_, notes, stored) = apply(PesVersion::Pes21, PesVersion::Pes18, 2);
+        assert!(notes.is_empty(), "{notes:?}");
+        assert_eq!(stored, 2);
+    }
+
+    /// A name longer than the target field minus its terminator is
+    /// `TextTooLong`, returned before anything is written.
+    #[test]
+    fn a_name_longer_than_the_field_is_refused_and_writes_nothing() {
+        let (file, _) = open(PesVersion::Pes16);
+        let (team, slot) = first_slot(&file);
+        let max = usize::try_from(
+            schema_for(PesVersion::Pes16)
+                .player
+                .texts
+                .iter()
+                .find(|spec| spec.text == PlayerText::Name)
+                .expect("a name field")
+                .len
+                - 1,
+        )
+        .expect("fits usize");
+        assert_eq!(max, 45, "the field holds 46 bytes, terminator included");
+
+        let section = PlayerSection {
+            name: Some("N".repeat(60)),
+            ..PlayerSection::default()
+        };
+        let mut target = team.clone();
+        let mut players = file.players().to_vec();
+        let err = one_section(PesVersion::Pes19, slot, section)
+            .apply(PesVersion::Pes16, &mut target, &mut players)
+            .expect_err("too long");
+        assert!(
+            matches!(
+                err,
+                TeamTomlError::TextTooLong { ref path, max: 45 }
+                    if *path == format!("players.{:02}.name", slot + 1)
+            ),
+            "{err:?}"
+        );
+        assert_eq!(&target, team, "nothing was written");
+    }
+
+    /// The `NotEncodable` note names the label of the style the target
+    /// cannot store — not some other style's.
+    #[test]
+    fn an_unencodable_playing_style_notes_its_own_label() {
+        // Roaming Flank is a PES 19+ style; 17/18 cannot store it.
+        let (file, _) = open(PesVersion::Pes18);
+        let (team, slot) = first_slot(&file);
+        let id = team.roster[slot].player_id;
+        let mut section = PlayerSection::default();
+        section.positions.playing_style = Some(PlayStyle::RoamingFlank);
+        let mut target = team.clone();
+        let mut players = file.players().to_vec();
+        let notes = one_section(PesVersion::Pes19, slot, section)
+            .apply(PesVersion::Pes18, &mut target, &mut players)
+            .expect("applies");
+        assert_eq!(
+            notes,
+            vec![ImportNote::NotEncodable {
+                path: format!("players.{:02}.positions.playing_style", slot + 1),
+                label: "roaming_flank".to_string(),
+            }]
+        );
+        let stored = players
+            .iter()
+            .find(|player| player.id == id)
+            .expect("the player")
+            .positions
+            .playing_style;
+        assert_eq!(
+            stored,
+            playstyle::encode(PesVersion::Pes18, PlayStyle::None).expect("every list holds none"),
+            "the stored style falls back to none"
+        );
+    }
+
+    /// `from_team` carries every rostered slot's shirt number into
+    /// `players[NN].number`.
+    #[test]
+    fn from_team_carries_every_rostered_slots_shirt_number() {
+        for version in FIXTURES {
+            let (file, _) = open(version);
+            let refs: Vec<&PlayerEntry> = file.players().iter().collect();
+            for team in file
+                .teams()
+                .iter()
+                .filter(|team| team.roster.iter().any(|slot| slot.player_id != 0))
+            {
+                let doc = TeamToml::from_team(version, team, &refs).expect("from_team");
+                for (i, slot) in team.roster.iter().enumerate() {
+                    if slot.player_id == 0 {
+                        continue;
+                    }
+                    let key = u8::try_from(i + 1).expect("a slot index");
+                    assert_eq!(
+                        doc.players.get(&key).and_then(|section| section.number),
+                        Some(slot.number),
+                        "{version:?} team {} slot {key}",
+                        team.id
+                    );
+                }
+            }
+        }
+    }
+
+    /// A key the document's version lacks emits the commented neutral line,
+    /// comment included.
+    #[test]
+    fn a_key_the_version_lacks_emits_its_commented_neutral_line() {
+        // star is PES 19+: on a PES 18 document it is `# star = 0`.
+        let (file, _) = open(PesVersion::Pes18);
+        let (team, _) = first_slot(&file);
+        let refs: Vec<&PlayerEntry> = file.players().iter().collect();
+        let doc = TeamToml::from_team(PesVersion::Pes18, team, &refs).expect("from_team");
+        let text = doc.to_toml().expect("to_toml");
+        let line = text
+            .lines()
+            .find(|line| line.contains("star ="))
+            .expect("a star line, commented or not");
+        assert!(line.starts_with("# star = 0"), "{line}");
+        assert!(line.contains("# PES 19+, 0-7 stored"), "{line}");
+    }
+
+    /// A non-ASCII `ingame_face` of the right byte length is `WrongType`,
+    /// not a mid-character slice panic.
+    #[test]
+    fn a_non_ascii_ingame_face_is_wrong_type_not_a_panic() {
+        // A 3-byte '€' plus 89 ASCII bytes: 92 bytes, the length of a
+        // 46-byte hex string, with a character straddling a 2-byte boundary.
+        let text = format!("[players.01]\ningame_face = \"€{}\"\n", "a".repeat(89));
+        let err = TeamToml::parse(&text).expect_err("not hex");
+        assert!(matches!(err, TeamTomlError::WrongType { .. }), "{err:?}");
+    }
+
+    /// Stored-ranges mode is bounded by the field's widest bit width: neck
+    /// length's 4 bits refuse 20 (stored 27) with the width's range.
+    #[test]
+    fn a_stored_value_past_the_fields_widest_width_is_out_of_range() {
+        use crate::settings_toml::SettingsError;
+
+        let err = TeamToml::parse("[players.01.appearance.physique]\nneck_length = 20\n")
+            .expect_err("out of range");
+        assert!(
+            matches!(
+                err,
+                TeamTomlError::Settings(SettingsError::OutOfRange { ref range, .. })
+                    if range == "0 to 15"
+            ),
+            "{err:?}"
+        );
+    }
+
+    /// A stored value a `Kind::Labels` list does not name emits as the
+    /// integer and reparses to the same document.
+    #[test]
+    fn a_width_valid_stored_label_without_a_label_round_trips_as_an_integer() {
+        let (file, _) = open(PesVersion::Pes19);
+        let (team, _) = first_slot(&file);
+        // sleeves: labels 0..=2, a 2-bit stored field — 3 fits the width.
+        let mut players: Vec<PlayerEntry> = file.players().to_vec();
+        let id = team
+            .roster
+            .iter()
+            .find(|slot| slot.player_id != 0)
+            .expect("a rostered slot")
+            .player_id;
+        players
+            .iter_mut()
+            .find(|player| player.id == id)
+            .expect("the player")
+            .appearance
+            .sleeves = 3;
+        let refs: Vec<&PlayerEntry> = players.iter().collect();
+        let doc = TeamToml::from_team(PesVersion::Pes19, team, &refs).expect("from_team");
+        let text = doc.to_toml().expect("to_toml");
+        assert!(
+            text.lines().any(|line| line.starts_with("sleeves = 3")),
+            "the stored integer emits, not a panic:\n{}",
+            text.lines()
+                .find(|line| line.contains("sleeves"))
+                .unwrap_or("(no sleeves line)")
+        );
+        let parsed = TeamToml::parse(&text).expect("reparses");
+        assert_eq!(parsed, doc);
     }
 }
