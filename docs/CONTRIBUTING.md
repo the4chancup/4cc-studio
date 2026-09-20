@@ -171,7 +171,9 @@ Rules for the justfile, so it stays a command list and not a second build system
   (`cargo metadata` → `target_directory`, or `cargo build --artifact-dir`).
 - `just` is a developer tool, installed like rustup (`cargo install just`; CI installs it too); it
   is not a workspace dependency and does not appear in "External Dependencies". The cargo commands
-  keep working without it; the justfile is the definition, not a requirement to build.
+  keep working without it; the justfile is the definition, not a requirement to build. `maturin`
+  (`pip install maturin`) is the same kind of tool for `just bindings`; `scripts/bindings_check.py`
+  runs it and reads the wheel path from its output, so the recipe never hardcodes `target/wheels`.
 
 Requirements:
 

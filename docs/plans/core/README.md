@@ -215,6 +215,7 @@ Trade-offs accepted:
 | `anyhow` | Error propagation in tool crates and the binary (`StudioTool::cli_run` returns `anyhow::Result`) | Production-ready |
 | `log` | Diagnostic logging facade in every lib and tool crate (see `architecture.md` "Diagnostic logging") | Production-ready |
 | `env_logger` | CLI-mode log sink in `studio` (`default-features = false`) | Production-ready |
+| `pyo3` | The Python extension module of `python_bindings` (`abi3-py311`, `extension-module`); built into a wheel by `maturin`, a developer tool installed with pip like `just` is with cargo | Production-ready |
 | `pyo3-log` | Forwards `log` lines to Python's `logging` in `python_bindings` | Production-ready |
 | `eframe` (egui) | GUI framework (pure Rust, immediate-mode, native + WASM) | Production-ready |
 | `egui-phosphor` | Icon font glyphs for the shell's sidebar, toolbar, and status icons | Release not yet reviewed; pinned to the workspace egui version once selected |

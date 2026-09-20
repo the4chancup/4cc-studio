@@ -1710,3 +1710,32 @@ Decision (lead, on the cross-family review of the 2.17h surface; seven concerns,
   one passed against a deliberately clobbered `apply`).
 Plan: `pes_savefile/operations.md` "Team TOML" (`apply` rules, `from_team` doc, `Capped`),
 "Texport (read + write)" (`team()`, `to_team_toml`).
+
+## 2026-09-21 - python_bindings - 2.18 shape: a codec-only wheel, `abi3-py311`, a workspace member that `cargo test` never links
+Decision (agent, within the plan's "PyO3 shim, proves guardrail 4 with a real cdylib build and a
+smoke test"):
+- **The Phase 2 surface is the four codecs' `read`/`write`** (`Fmdl`, `Skl`, `Model`,
+  `MaterialSet`) under one module, `pes_models_native` (the `pes-models` extension's native
+  module; the extension keeps its pure-Python fallback, so "native" is the wheel's role). The
+  Blender-facing accessors wait for the extension's hot-path step, where the calling code decides
+  their shape. Rejected: exposing `format/` + `ops/` wholesale now - forty functions with no
+  consumer, each a guess at what Blender's addon code wants to hold.
+- **`abi3-py311`**: Blender 5.0 bundles Python 3.11 and 5.2 bundles 3.13 (both measured on the
+  maintainer's installs), so one wheel per platform serves every Blender the extension targets
+  and the developer's own interpreter; the limited API's cost (no fast buffer paths) is nothing
+  at this surface.
+- **Workspace member, `cdylib` with `test = false`/`doctest = false`, `extension-module` on by
+  default.** Membership gives the crate the lint table and `cargo clippy --workspace` at every PR;
+  `test = false` keeps `cargo test --workspace` from linking a Python extension against a
+  `libpython` it does not have (the interpreter that imports it provides the symbols). The
+  crate's one test is the wheel. Rejected: a feature-gated `extension-module` with
+  `--no-default-features` for tests (the pyo3 FAQ's other route) - it makes the default build the
+  one nobody ships.
+- **The smoke test runs the wheel unzipped onto `sys.path`**, not pip-installed: Blender's
+  bundled Python has no pip, and the plan wants the test under Blender's Python (`just bindings
+  <interpreter>`). The oracle is each crate's own round-trip invariant; the test is not pytest
+  for the same reason.
+- `pyo3` joins "External Dependencies" (the table had `pyo3-log` and not the crate it wraps);
+  `maturin` is a developer tool like `just`, pinned in CI (`1.15.0`, 2026-08) and installed with pip.
+Plan: `core/development_plan.md` "Phase 2" (`python_bindings`), `core/README.md` "External
+Dependencies", `CONTRIBUTING.md` "Testing and verification" (the maturin line).

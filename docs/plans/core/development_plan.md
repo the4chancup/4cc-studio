@@ -141,7 +141,39 @@ wiring:
   comparator (merged gameplay + aesthetics diff), FPC invisibility
 
 **`python_bindings`** — PyO3 shim over `fmdl` and `pes_model`, built via `maturin`; proves
-guardrail 4 with a real `cdylib` build and a smoke test from Blender's Python.
+guardrail 4 with a real `cdylib` build and a smoke test from Blender's Python. Its Phase 2 surface
+is the four codecs' entry points, enough to load the wheel from Python and run every fixture
+through a byte-identical round trip; the Blender-facing accessors (vertices, faces, the `ops/`)
+arrive with the `pes-models` extension's hot-path step (`model_conversion/gltf.md` "Blender
+integration"), shaped by what that code calls, not guessed ahead of it.
+
+```python
+import pes_models_native as native      # the wheel; the `pes-models` extension's native module
+native.fmdl.Fmdl.read(data: bytes) -> Fmdl;   Fmdl.write() -> bytes      # fmdl::FmdlFile
+native.fmdl.Skl.read(data) -> Skl;            Skl.write() -> bytes       # fmdl::SklFile
+native.pes_model.Model.read(data) -> Model;   Model.write() -> bytes     # pes_model::format::PreFoxModel
+native.pes_model.MaterialSet.read(data) -> MaterialSet;  MaterialSet.write() -> bytes  # pes_model::format::mtl::MaterialSet
+native.FormatError                             # every codec error, message = the Rust Display text
+```
+
+`write` returns what the Rust `write` returns: FMDL and SKL bytes as stored; `.model` and `.mtl`
+unwrapped (the WESYS wrapping is the archive's concern, `wezlib`'s in Rust). The smoke test's
+oracle is each format crate's own invariant: byte identity where the crate proves it (Konami
+FMDLs, every SKL), write-idempotence (`write(read(write(read(b)))) == write(read(b))`) everywhere
+else, `FormatError` on junk input, and no warning-level log line on a clean read (the wheel
+installs `pyo3-log`, so the libs' `log` output lands in Blender's console).
+
+Build rules: the crate is a workspace member (it inherits the lints and the dependency table, and
+`cargo clippy --workspace` type-checks it at every PR), but its `[lib]` is a `cdylib` with `test =
+false`/`doctest = false` and `pyo3/extension-module` on by default, so `cargo test --workspace`
+never tries to link it against a `libpython` (a Python extension links against the interpreter
+that loads it, not at build time); its one test is the wheel. `abi3-py311`: one wheel per platform
+loads in every Python from 3.11 up, which covers Blender 5.0 (Python 3.11) and 5.2 (3.13) and a
+developer's own interpreter. `just bindings` builds the wheel with `maturin` and runs the smoke
+test (`crates/libs/python_bindings/tests/smoke.py`) through `scripts/bindings_check.py`: the wheel
+is unzipped onto `sys.path` of a subprocess rather than `pip install`ed, because Blender's bundled
+Python has no pip and the test must run under it (`--python <interpreter>`). The wheel version is
+the crate's own (`distribution.md` "One exception"). CI runs `just bindings` on both platforms.
 
 **Verification:** per crate, per [libs](../libs/README.md) "Testing": format round-trips on real fixtures
 (byte-identical for `format/`); `color_tools` within perceptual tolerance of manager-picked
