@@ -227,6 +227,39 @@ pub struct VersionSchema {
     pub tactic: &'static TacticsSchema,
 }
 
+impl VersionSchema {
+    /// Whether `field` is stored for a player of this version: in the player
+    /// record, or in the separate appearance record on PES 15/16.
+    pub fn player_has(&self, field: PlayerField) -> bool {
+        self.player.has(field)
+            || self
+                .appearance
+                .as_ref()
+                .is_some_and(|(_, appearance)| appearance.has(field))
+    }
+
+    /// Every `PlayerField` `player_has` answers `true` for, as a set: callers
+    /// gating many keys against one version build it once instead of paying
+    /// `player_has`'s field-table scan per key.
+    pub fn player_field_set(&self) -> std::collections::HashSet<PlayerField> {
+        fn collect(
+            schema: &RecordSchema<PlayerField, PlayerText>,
+            set: &mut std::collections::HashSet<PlayerField>,
+        ) {
+            set.extend(schema.fields.iter().map(|spec| spec.field));
+            for array in schema.arrays {
+                set.extend((0..array.count).map(|i| (array.make)(i)));
+            }
+        }
+        let mut set = std::collections::HashSet::new();
+        collect(self.player, &mut set);
+        if let Some((_, appearance)) = self.appearance {
+            collect(appearance, &mut set);
+        }
+        set
+    }
+}
+
 /// The field tables of one game version. PES 20 and 21 share one player table;
 /// PES 21's team record carries its own layout.
 pub fn schema_for(version: PesVersion) -> &'static VersionSchema {
@@ -381,5 +414,41 @@ mod tests {
             assert_eq!(schema.roster.size, rosters[i], "{version:?} roster");
             assert_eq!(schema.tactic.size, tactics[i], "{version:?} tactic");
         }
+    }
+
+    /// `has`/`has_preset` answer by version — the gating `team_toml`'s apply
+    /// relies on.
+    #[test]
+    fn tactics_has_answers_by_version() {
+        use crate::schema::fields::{PresetField, TacticsField};
+
+        assert!(
+            !schema_for(PesVersion::Pes15)
+                .tactic
+                .has(TacticsField::AutoOffsideTrap)
+        );
+        assert!(
+            schema_for(PesVersion::Pes17)
+                .tactic
+                .has(TacticsField::AutoOffsideTrap)
+        );
+        for version in PesVersion::ALL {
+            let schema = schema_for(version);
+            assert!(schema.tactic.has(TacticsField::Starting(3)), "{version:?}");
+            assert!(
+                schema.tactic.has_preset(PresetField::SupportRange),
+                "{version:?}"
+            );
+        }
+        assert!(
+            !schema_for(PesVersion::Pes15)
+                .tactic
+                .has_preset(PresetField::FluidFormation)
+        );
+        assert!(
+            schema_for(PesVersion::Pes16)
+                .tactic
+                .has_preset(PresetField::FluidFormation)
+        );
     }
 }

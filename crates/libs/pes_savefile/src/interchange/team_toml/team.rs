@@ -22,11 +22,11 @@ use crate::schema::fields::{PlayerText, PresetField, TacticsField, TeamField};
 use crate::schema::instruction;
 use crate::schema::{TacticsSchema, schema_for};
 
-use super::labels;
+use super::{labels, player};
 
 /// `body` padded so `#` starts at character 33 (1-based); a body longer than
 /// the pad still gets one space before `#`.
-fn padded(body: &str, comment: &str) -> String {
+pub(super) fn padded(body: &str, comment: &str) -> String {
     if comment.is_empty() {
         return body.to_string();
     }
@@ -35,14 +35,13 @@ fn padded(body: &str, comment: &str) -> String {
 }
 
 /// The TOML text of a `Some` value, or `neutral` for a `None` key.
-fn value_or(value: Option<String>, neutral: &str) -> String {
+pub(super) fn value_or(value: Option<String>, neutral: &str) -> String {
     value.unwrap_or_else(|| neutral.to_string())
 }
 
 impl TeamToml {
     /// Reads a `team.toml` text. Every key is optional; anything the format
-    /// does not know is `UnknownKey`, a `[players]` table is
-    /// `NotYetSupported` until 2.17h-3.
+    /// does not know is `UnknownKey`.
     pub fn parse(text: &str) -> Result<Self, TeamTomlError> {
         let document: DocumentMut = text
             .parse()
@@ -53,7 +52,7 @@ impl TeamToml {
                 "pes_version" => parsed.pes_version = Some(version(item)?),
                 "team" => parsed.team = parse_team(item)?,
                 "tactics" => parsed.tactics = parse_tactics(item)?,
-                "players" => return Err(TeamTomlError::NotYetSupported("players")),
+                "players" => parsed.players = player::parse_players(item)?,
                 _ => {
                     return Err(TeamTomlError::UnknownKey {
                         key: name.to_string(),
@@ -66,13 +65,13 @@ impl TeamToml {
 
     /// The document for one team of `version`'s save. Every field the model
     /// carries is `Some`; version-gated model `Option`s stay `None` and emit
-    /// commented lines. `players` is ignored until 2.17h-3.
+    /// commented lines.
     pub fn from_team(
         version: PesVersion,
         team: &TeamEntry,
         players: &[&PlayerEntry],
     ) -> Result<Self, TeamTomlError> {
-        let _ = players;
+        let player_sections = player::players_from(version, team, players)?;
         let edit = &team.edit_flags;
         let tactics = &team.tactics;
         let mut presets = [PresetSection::default(); 3];
@@ -151,7 +150,7 @@ impl TeamToml {
                 },
                 presets,
             },
-            players: Default::default(),
+            players: player_sections,
         })
     }
 
@@ -175,6 +174,7 @@ impl TeamToml {
         out.push('\n');
         emit_team(&mut out, &self.team);
         emit_tactics(&mut out, &self.tactics)?;
+        player::emit_players(&mut out, &self.players)?;
         Ok(out)
     }
 
@@ -188,14 +188,14 @@ impl TeamToml {
     /// `TeamTomlError::NotInThisVersion` when it matches or is absent. The
     /// instructions table is dropped silently on versions with no instruction
     /// block; an instruction the target cannot store becomes `Off` with a
-    /// `NotEncodable` note. `players` is ignored until 2.17h-3.
+    /// `NotEncodable` note.
     pub fn apply(
         &self,
         to: PesVersion,
         team: &mut TeamEntry,
-        players: &[&PlayerEntry],
+        players: &mut [PlayerEntry],
     ) -> Result<Vec<ImportNote>, TeamTomlError> {
-        let _ = players;
+        let mut next_players = players.to_vec();
         let from = self.pes_version.unwrap_or(to);
         let foreign = from != to;
         let schema = schema_for(to);
@@ -210,7 +210,17 @@ impl TeamToml {
             &mut next,
             &mut notes,
         )?;
+        player::apply_players(
+            &self.players,
+            self.team.id,
+            to,
+            foreign,
+            &mut next,
+            &mut next_players,
+            &mut notes,
+        )?;
         *team = next;
+        players.clone_from_slice(&next_players);
         Ok(notes)
     }
 }
@@ -256,7 +266,13 @@ fn entries(
 
 /// One line: `name = value` with the comment at column 33, commented out with
 /// the neutral value when the key is `None`.
-fn emit(out: &mut String, name: &str, value: Option<String>, neutral: &str, comment: &str) {
+pub(super) fn emit(
+    out: &mut String,
+    name: &str,
+    value: Option<String>,
+    neutral: &str,
+    comment: &str,
+) {
     let set = value.is_some();
     let body = format!("{name} = {}", value_or(value, neutral));
     let line = padded(&body, comment);
@@ -845,7 +861,7 @@ fn parse_preset(item: &Item, path: &str) -> Result<PresetSection, TeamTomlError>
 // ---------------------------------------------------------------------------
 // Value helpers
 
-fn as_table<'a>(item: &'a Item, key: &str) -> Result<&'a dyn TableLike, TeamTomlError> {
+pub(super) fn as_table<'a>(item: &'a Item, key: &str) -> Result<&'a dyn TableLike, TeamTomlError> {
     item.as_table_like()
         .ok_or_else(|| TeamTomlError::WrongType {
             key: key.to_string(),
@@ -853,7 +869,7 @@ fn as_table<'a>(item: &'a Item, key: &str) -> Result<&'a dyn TableLike, TeamToml
         })
 }
 
-fn integer(item: &Item, key: &str) -> Result<i64, TeamTomlError> {
+pub(super) fn integer(item: &Item, key: &str) -> Result<i64, TeamTomlError> {
     item.as_value()
         .and_then(|v| v.as_integer())
         .ok_or_else(|| TeamTomlError::WrongType {
@@ -862,7 +878,7 @@ fn integer(item: &Item, key: &str) -> Result<i64, TeamTomlError> {
         })
 }
 
-fn ranged(item: &Item, key: &str, min: i64, max: i64) -> Result<u8, TeamTomlError> {
+pub(super) fn ranged(item: &Item, key: &str, min: i64, max: i64) -> Result<u8, TeamTomlError> {
     let value = integer(item, key)?;
     if !(min..=max).contains(&value) {
         return Err(TeamTomlError::OutOfRange {
@@ -878,15 +894,15 @@ fn ranged(item: &Item, key: &str, min: i64, max: i64) -> Result<u8, TeamTomlErro
     })
 }
 
-fn u8_val(item: &Item, key: &str) -> Result<u8, TeamTomlError> {
+pub(super) fn u8_val(item: &Item, key: &str) -> Result<u8, TeamTomlError> {
     ranged(item, key, 0, 255)
 }
 
-fn slot(item: &Item, key: &str) -> Result<u8, TeamTomlError> {
+pub(super) fn slot(item: &Item, key: &str) -> Result<u8, TeamTomlError> {
     ranged(item, key, 0, 255)
 }
 
-fn u16_val(item: &Item, key: &str) -> Result<u16, TeamTomlError> {
+pub(super) fn u16_val(item: &Item, key: &str) -> Result<u16, TeamTomlError> {
     let value = integer(item, key)?;
     u16::try_from(value).map_err(|_| TeamTomlError::OutOfRange {
         key: key.to_string(),
@@ -895,7 +911,7 @@ fn u16_val(item: &Item, key: &str) -> Result<u16, TeamTomlError> {
     })
 }
 
-fn u32_val(item: &Item, key: &str) -> Result<u32, TeamTomlError> {
+pub(super) fn u32_val(item: &Item, key: &str) -> Result<u32, TeamTomlError> {
     let value = integer(item, key)?;
     u32::try_from(value).map_err(|_| TeamTomlError::OutOfRange {
         key: key.to_string(),
@@ -904,7 +920,7 @@ fn u32_val(item: &Item, key: &str) -> Result<u32, TeamTomlError> {
     })
 }
 
-fn boolean(item: &Item, key: &str) -> Result<bool, TeamTomlError> {
+pub(super) fn boolean(item: &Item, key: &str) -> Result<bool, TeamTomlError> {
     item.as_value()
         .and_then(|v| v.as_bool())
         .ok_or_else(|| TeamTomlError::WrongType {
@@ -913,7 +929,7 @@ fn boolean(item: &Item, key: &str) -> Result<bool, TeamTomlError> {
         })
 }
 
-fn text(item: &Item, key: &str) -> Result<String, TeamTomlError> {
+pub(super) fn text(item: &Item, key: &str) -> Result<String, TeamTomlError> {
     item.as_value()
         .and_then(|v| v.as_str())
         .map(str::to_string)
@@ -923,7 +939,7 @@ fn text(item: &Item, key: &str) -> Result<String, TeamTomlError> {
         })
 }
 
-fn label(item: &Item, key: &str, labels: &[&str]) -> Result<bool, TeamTomlError> {
+pub(super) fn label(item: &Item, key: &str, labels: &[&str]) -> Result<bool, TeamTomlError> {
     let text =
         item.as_value()
             .and_then(|v| v.as_str())
@@ -946,7 +962,7 @@ fn label(item: &Item, key: &str, labels: &[&str]) -> Result<bool, TeamTomlError>
         })
 }
 
-fn int_array<const N: usize>(item: &Item, key: &str) -> Result<[u8; N], TeamTomlError> {
+pub(super) fn int_array<const N: usize>(item: &Item, key: &str) -> Result<[u8; N], TeamTomlError> {
     let array =
         item.as_value()
             .and_then(|v| v.as_array())
@@ -967,7 +983,7 @@ fn int_array<const N: usize>(item: &Item, key: &str) -> Result<[u8; N], TeamToml
     Ok(out)
 }
 
-fn color(item: &Item, key: &str) -> Result<TeamColor, TeamTomlError> {
+pub(super) fn color(item: &Item, key: &str) -> Result<TeamColor, TeamTomlError> {
     let array =
         item.as_value()
             .and_then(|v| v.as_array())
@@ -992,7 +1008,7 @@ fn color(item: &Item, key: &str) -> Result<TeamColor, TeamTomlError> {
     })
 }
 
-fn kit_slots(item: &Item, key: &str) -> Result<[KitSlot; 10], TeamTomlError> {
+pub(super) fn kit_slots(item: &Item, key: &str) -> Result<[KitSlot; 10], TeamTomlError> {
     let array =
         item.as_value()
             .and_then(|v| v.as_array())
@@ -1039,7 +1055,10 @@ fn kit_slots(item: &Item, key: &str) -> Result<[KitSlot; 10], TeamTomlError> {
     Ok(slots)
 }
 
-fn formation_players(item: &Item, key: &str) -> Result<[FormationSlot; 11], TeamTomlError> {
+pub(super) fn formation_players(
+    item: &Item,
+    key: &str,
+) -> Result<[FormationSlot; 11], TeamTomlError> {
     let expected = "an array of eleven { position, x, y } tables";
     let array =
         item.as_value()
@@ -1098,7 +1117,10 @@ fn formation_players(item: &Item, key: &str) -> Result<[FormationSlot; 11], Team
     Ok(players)
 }
 
-fn instruction_entries(item: &Item, key: &str) -> Result<[InstructionEntry; 2], TeamTomlError> {
+pub(super) fn instruction_entries(
+    item: &Item,
+    key: &str,
+) -> Result<[InstructionEntry; 2], TeamTomlError> {
     let expected = "an array of two { instruction, player } tables";
     let array =
         item.as_value()
@@ -1155,7 +1177,7 @@ fn instruction_entries(item: &Item, key: &str) -> Result<[InstructionEntry; 2], 
 }
 
 /// [`opt`] where the key is required once its table is present.
-fn required<T>(
+pub(super) fn required<T>(
     table: &dyn TableLike,
     path: &str,
     name: &str,
@@ -1167,7 +1189,7 @@ fn required<T>(
 }
 
 /// `table.name` parsed, `None` when absent; `key` is the dotted path prefix.
-fn opt<T>(
+pub(super) fn opt<T>(
     table: &dyn TableLike,
     path: &str,
     name: &str,
@@ -1181,7 +1203,11 @@ fn opt<T>(
 
 /// Every leaf of `table` must be in `known`; the first stranger is
 /// `UnknownKey` at its dotted path.
-fn reject(table: &dyn TableLike, path: &str, known: &[&str]) -> Result<(), TeamTomlError> {
+pub(super) fn reject(
+    table: &dyn TableLike,
+    path: &str,
+    known: &[&str],
+) -> Result<(), TeamTomlError> {
     for (name, _) in table.iter() {
         if !known.contains(&name) {
             return Err(TeamTomlError::UnknownKey {
@@ -1197,7 +1223,7 @@ fn reject(table: &dyn TableLike, path: &str, known: &[&str]) -> Result<(), TeamT
 
 /// `Ok(true)` when the key applies; a foreign document gets a note, a
 /// same-version document an error.
-fn gated(
+pub(super) fn gated(
     notes: &mut Vec<ImportNote>,
     foreign: bool,
     supported: bool,
@@ -1645,16 +1671,46 @@ mod tests {
     fn every_fixture_team_round_trips_through_the_document() {
         for version in FIXTURES {
             let (file, _) = open(version);
-            for team in file.teams() {
-                let doc = TeamToml::from_team(version, team, &[]).expect("from_team");
-                let text = doc.to_toml().expect("to_toml");
-                let parsed = TeamToml::parse(&text).unwrap_or_else(|e| {
-                    panic!("{version:?} team {} reparse: {e}\n{text}", team.id)
-                });
-                assert_eq!(parsed, doc, "{version:?} team {}", team.id);
+            let refs: Vec<&PlayerEntry> = file.players().iter().collect();
+            // Same split as the player test: the model pass (from_team ->
+            // apply -> field-for-field) stays exhaustive; the text pass
+            // (to_toml -> parse == document, ~60 ms a team in toml_edit) runs
+            // on a sample: the first team, the last, and the team whose
+            // players carry the most `Some` keys.
+            let docs: Vec<TeamToml> = file
+                .teams()
+                .iter()
+                .map(|team| TeamToml::from_team(version, team, &refs).expect("from_team"))
+                .collect();
+            let fullest = docs
+                .iter()
+                .enumerate()
+                .max_by_key(|(_, doc)| doc.players.values().map(player::some_keys).sum::<usize>())
+                .map(|(n, _)| n)
+                .expect("a team exists");
+            for (n, (team, doc)) in file.teams().iter().zip(&docs).enumerate() {
+                if n == 0 || n + 1 == docs.len() || n == fullest {
+                    let text = doc.to_toml().expect("to_toml");
+                    let parsed = TeamToml::parse(&text).unwrap_or_else(|e| {
+                        panic!(
+                            "{version:?} team {} reparse: {e}
+{text}",
+                            team.id
+                        )
+                    });
+                    assert_eq!(parsed, *doc, "{version:?} team {}", team.id);
+                }
                 let mut target = blank_slate(team);
+                // `apply` only looks the rostered ids up; cloning the whole
+                // save's players per team was the model pass's cost.
+                let mut players: Vec<PlayerEntry> = file
+                    .players()
+                    .iter()
+                    .filter(|player| team.roster.iter().any(|slot| slot.player_id == player.id))
+                    .cloned()
+                    .collect();
                 let notes = doc
-                    .apply(version, &mut target, &[])
+                    .apply(version, &mut target, &mut players)
                     .expect("same-version apply");
                 assert!(notes.is_empty(), "{version:?} team {}: {notes:?}", team.id);
                 assert_eq!(&target, team, "{version:?} team {}", team.id);
@@ -1670,7 +1726,7 @@ mod tests {
         let doc = TeamToml::parse("[tactics.set_pieces]\npenalty = 3\n").expect("parses");
         let mut target = team.clone();
         let notes = doc
-            .apply(PesVersion::Pes19, &mut target, &[])
+            .apply(PesVersion::Pes19, &mut target, &mut [])
             .expect("applies");
         assert!(notes.is_empty());
         let mut expected = team.clone();
@@ -1689,7 +1745,7 @@ mod tests {
             TeamToml::parse("pes_version = 21\n\n[team]\nmanager_id = 5\n").expect("parses");
         let mut target = team.clone();
         let notes = foreign
-            .apply(PesVersion::Pes18, &mut target, &[])
+            .apply(PesVersion::Pes18, &mut target, &mut [])
             .expect("note, not error");
         assert_eq!(
             notes,
@@ -1706,7 +1762,7 @@ mod tests {
             let doc = TeamToml::parse(text).expect("parses");
             let mut target = team.clone();
             let err = doc
-                .apply(PesVersion::Pes18, &mut target, &[])
+                .apply(PesVersion::Pes18, &mut target, &mut [])
                 .expect_err("hard error");
             assert!(
                 matches!(err, TeamTomlError::NotInThisVersion { .. }),
@@ -1729,7 +1785,7 @@ mod tests {
         let team17 = file17.teams().first().expect("a team");
         let mut target = team17.clone();
         let notes = doc
-            .apply(PesVersion::Pes17, &mut target, &[])
+            .apply(PesVersion::Pes17, &mut target, &mut [])
             .expect("applies");
         assert_eq!(
             notes,
@@ -1748,7 +1804,7 @@ mod tests {
         let team16 = file16.teams().first().expect("a team");
         let mut target = team16.clone();
         let notes = doc
-            .apply(PesVersion::Pes16, &mut target, &[])
+            .apply(PesVersion::Pes16, &mut target, &mut [])
             .expect("applies");
         assert!(notes.is_empty(), "{notes:?}");
         assert!(target.tactics.presets[0].attack_instructions.is_none());
@@ -1893,5 +1949,79 @@ mod tests {
         let body = format!("manager_id = {}", team.manager_id.expect("PES 19 has it"));
         let expected = format!("{body}{}# PES 19+", " ".repeat(32 - body.len()));
         assert_eq!(*manager, expected, "the comment sits at column 33");
+    }
+
+    /// A tactics key the target's schema lacks is a `NotInThisVersion` note
+    /// across versions and an error within — `has` and `has_preset` both.
+    #[test]
+    fn a_version_gated_tactics_field_is_a_note_across_versions_and_an_error_within() {
+        let (file, _) = open(PesVersion::Pes15);
+        let team = file.teams().first().expect("a team");
+
+        for text in [
+            "pes_version = 19\n\n[tactics.auto]\noffside_trap = true\n",
+            "pes_version = 19\n\n[tactics.preset_1.style]\nfluid = true\n",
+        ] {
+            let doc = TeamToml::parse(text).expect("parses");
+            let mut target = team.clone();
+            let mut players = file.players().to_vec();
+            let notes = doc
+                .apply(PesVersion::Pes15, &mut target, &mut players)
+                .expect("a foreign gated key is a note");
+            let path = if text.contains("offside_trap") {
+                "tactics.auto.offside_trap"
+            } else {
+                "tactics.preset_1.style.fluid"
+            };
+            assert_eq!(
+                notes,
+                vec![ImportNote::NotInThisVersion {
+                    path: path.to_string()
+                }]
+            );
+            assert_eq!(&target, team, "{text:?}");
+        }
+
+        for text in [
+            "[tactics.auto]\noffside_trap = true\n",
+            "pes_version = 15\n\n[tactics.preset_1.style]\nfluid = true\n",
+        ] {
+            let doc = TeamToml::parse(text).expect("parses");
+            let mut target = team.clone();
+            let mut players = file.players().to_vec();
+            let err = doc
+                .apply(PesVersion::Pes15, &mut target, &mut players)
+                .expect_err("a same-version gated key is an error");
+            assert!(matches!(err, TeamTomlError::NotInThisVersion { .. }));
+            assert_eq!(&target, team, "{text:?}");
+        }
+    }
+
+    /// `shirt_name_from`: upper-case, colour codes stripped, cut to the
+    /// field's `len - 1` (18 on every version → 17 chars) by characters.
+    #[test]
+    fn shirt_name_from_uppercases_strips_and_cuts_by_chars() {
+        assert_eq!(shirt_name_from("Snuffy", PesVersion::Pes19), "SNUFFY");
+        // A `\x11c` colour code and its eight payload bytes are stripped.
+        assert_eq!(
+            shirt_name_from(
+                "\x11c\x00\x00\x00\x00\x00\x00\x00\x00Snuffy",
+                PesVersion::Pes19
+            ),
+            "SNUFFY"
+        );
+        // `ShirtName` is `len: 18` on PES 15 and 19: 17 chars + terminator.
+        let long = "a".repeat(30);
+        assert_eq!(shirt_name_from(&long, PesVersion::Pes19), "A".repeat(17));
+        assert_eq!(shirt_name_from(&long, PesVersion::Pes15), "A".repeat(17));
+        // Accented chars upper-case and count once, not per UTF-8 byte.
+        assert_eq!(shirt_name_from("aéü", PesVersion::Pes19), "AÉÜ");
+        let accented = "é".repeat(30);
+        assert_eq!(
+            shirt_name_from(&accented, PesVersion::Pes19)
+                .chars()
+                .count(),
+            17
+        );
     }
 }
