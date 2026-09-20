@@ -357,8 +357,11 @@ numbers belong to `settings.toml`); what the model already names canonically is 
 label: positions, playable ratings, the playing style, skills, COM styles, the advanced
 instructions, the style switches, the stronger foot/hand. The `[players.NN.appearance]` table is
 `settings.toml`'s `[appearance]` table verbatim (same keys, same kinds, same ranges, parsed and
-emitted by `PlayerSettings`' own code), so a player's aesthetics can be pasted between the two
-files.
+emitted by `settings_toml`'s own parser and emitter), so a player's aesthetics can be pasted
+between the two files. One difference of policy, not of keys: Team TOML reads and writes the
+*stored* value of every field (real saves hold face types and celebrations past the editor's
+ranges, and a dump must carry them), where `settings.toml` keeps the editor ranges (decision
+entry, 2.17h-3).
 
 ```toml
 # team.toml — one team of one save. Absent = untouched on import, at every level.
@@ -433,7 +436,7 @@ gloves_id = 0
 base_copy_id = 84101            # equal to the player's own id in the file = unset; becomes the target's own id
 ingame_face = "0102...ff"       # the appearance block's undecoded run, hex, 50 bytes (46 on PES 15); applied before [players.NN.appearance]
 
-[players.01.stats]              # stored values; abilities 40-99 (the game's range), the rest by bit width
+[players.01.stats]              # stored values; the comments give the game's editor range, the parser accepts the field's stored range
 attacking_prowess = 77
 ball_control = 77
 dribbling = 77

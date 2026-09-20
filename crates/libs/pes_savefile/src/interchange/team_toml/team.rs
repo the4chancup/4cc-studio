@@ -65,7 +65,9 @@ impl TeamToml {
 
     /// The document for one team of `version`'s save. Every field the model
     /// carries is `Some`; version-gated model `Option`s stay `None` and emit
-    /// commented lines.
+    /// commented lines. `players` is the pool to dump from: an empty slice is
+    /// a team/tactics-only document, while a non-empty pool that lacks a
+    /// rostered id is `PlayerMissing`.
     pub fn from_team(
         version: PesVersion,
         team: &TeamEntry,
