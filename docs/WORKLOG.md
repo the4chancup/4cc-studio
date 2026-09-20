@@ -558,9 +558,6 @@ pruned when their phase closes; they stay in git history.
   generated file has been imported by the game yet (`verification.md` "Texport write": manual,
   per version; a `new` file and an edited round-tripped one). PES 15/16/20 texports have no
   fixture at all (offsets/key index are the reference's; PES 20's size is derived).
-- **`file::tests::save_and_load_round_trip_through_the_filesystem` failed once** while a
-  `cargo mutants` run was executing the same suite in a temp copy (2026-09-21), passed alone and
-  in every later full run. Suspected temp-dir contention; not reproduced.
 
 ---
 
@@ -703,4 +700,6 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   `28e2eab` review rework): the interchange formats measured on the real files (texport 18-21
   is the save's records concatenated; PES 20/21 store a 17th instruction), Team TOML as the one
   import path with schema-gated notes and stored ranges, `.4ccs`/`.4cct` readers. Crate 113 → 181
-  tests; four decision entries. Next: 2.18 `python_bindings`.
+  tests; four decision entries. A flaky `file` test fixed on the way: PES 15's one-byte seed made
+  `assert_ne!(saved, original)` fail once in 256 saves; the test now saves a PES 16 fixture.
+  Next: 2.18 `python_bindings`.

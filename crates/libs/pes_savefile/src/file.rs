@@ -530,24 +530,26 @@ mod tests {
 
     #[test]
     fn save_and_load_round_trip_through_the_filesystem() {
-        let (file, bytes) = open(PesVersion::Pes15);
+        // A keyed version: PES 15's one-byte seed collides with the test salt's
+        // once in 256 saves, which made the `assert_ne` below flaky.
+        let (file, bytes) = open(PesVersion::Pes16);
         let dir = temp_dir("save");
         std::fs::create_dir_all(&dir).expect("temp dir");
-        let path = dir.join("EDIT.bin");
+        let path = dir.join("EDIT00000000");
         std::fs::write(&path, &bytes).expect("seed file");
 
         file.save(&path).expect("first save");
         let first = std::fs::read(&path).expect("read");
         assert_ne!(first, bytes, "a fresh salt rewrites the bytes");
         file.save(&path).expect("second save");
-        let bak = dir.join("EDIT.bin.bak");
+        let bak = dir.join("EDIT00000000.bak");
         assert_eq!(std::fs::read(&bak).expect("the .bak"), first);
         let loaded = EditFile::load(&path).expect("load");
         assert_eq!(loaded.players(), file.players());
         assert_eq!(loaded.teams(), file.teams());
 
         // A save whose folder does not exist is an io::Error.
-        let missing = dir.join("nope").join("EDIT.bin");
+        let missing = dir.join("nope").join("EDIT00000000");
         assert!(matches!(file.save(&missing), Err(SaveError::Io(_))));
 
         std::fs::remove_dir_all(&dir).expect("cleanup");
