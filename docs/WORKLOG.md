@@ -477,6 +477,11 @@ Spec: `docs/plans/core/development_plan.md` "Phase 2", `docs/plans/libs/README.m
     target's field width at `apply`, checked arithmetic on user integers, legacy playable
     ratings validated at ingestion, unknown members of inline records rejected, the `.4ccs`
     golden extended to all 23 records and every mapped field (lead). Crate 194 tests
+  - [x] 2.17h-7 third round (three concerns, under the cap: loop ends): `apply` checks every
+    stored value against the target's field width (`schema::bit_width`; `check_width`), one
+    `check_text` (NUL, single-byte encodability, capacity) at all four text sites; the texport
+    golden compares whole tactics and every player with the schema codec's reads at the literal
+    offsets on all four fixtures (lead). Crate 202 tests
 - [x] 2.18 `python_bindings` (`core/development_plan.md` "Phase 2" `python_bindings`; decision
   entry 2026-09-21): `pes_models_native` wheel (`Fmdl`/`Skl`/`Model`/`MaterialSet` `read`/`write`,
   `FormatError`, `pyo3-log`), `abi3-py311`, a `cdylib` member with `test = false`; `just bindings
@@ -723,5 +728,6 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   jobs / 7 test threads each). Next: 2.19.
 - **2026-09-21** - Review rounds are now bounded by accept rate (`AGENTS.md`), and the rule applied
   retroactively to 2.17h: a second round found seven more real concerns (2.17h-6), the largest a
-  15-17 texport that wrote a reordered squad and reopened short. Next: 2.19, then 2.20 with the
-  bounded loop per crate.
+  15-17 texport that wrote a reordered squad and reopened short; a third found three (2.17h-7),
+  all the same class (a value `apply` accepted and the codec refused at write), and stopped the
+  loop. Next: 2.19, then 2.20 with the bounded loop per crate.

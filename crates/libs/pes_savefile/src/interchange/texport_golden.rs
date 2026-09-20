@@ -9,9 +9,13 @@ use std::io::Read;
 
 use pes_version::PesVersion;
 
+use crate::codec::{read_player, read_player_into, read_tactics_into};
 use crate::container::{MasterKey, SaveContainer, Scheme};
 use crate::interchange::texport::{Texport, TexportError};
 use crate::model::names::display_name;
+use crate::model::player::PlayerEntry;
+use crate::model::team::TeamEntry;
+use crate::schema::schema_for;
 use crate::test_support::test_salt;
 
 /// One measured file.
@@ -183,6 +187,74 @@ fn from_bytes_decodes_what_the_reference_reads_and_detects_the_version() {
     }
 }
 
+/// The schema codec applied at literal offsets: the oracle for what a
+/// `Texport` must have decoded. `tactics_at` is the tactics record;
+/// `players_at` the first player record, `stride` apart (player record, then
+/// the appearance record on the versions that split it).
+fn codec_reads(
+    plain: &[u8],
+    version: PesVersion,
+    tactics_at: usize,
+    players_at: usize,
+    stride: usize,
+    count: usize,
+) -> (TeamEntry, Vec<PlayerEntry>) {
+    let schema = schema_for(version);
+    let mut team = TeamEntry {
+        id: u32_at(plain, tactics_at),
+        ..TeamEntry::default()
+    };
+    read_tactics_into(
+        &mut team,
+        &plain[tactics_at..tactics_at + schema.tactic.size],
+        schema.tactic,
+    )
+    .expect("tactics decode");
+    let players = (0..count)
+        .map(|i| {
+            let at = players_at + i * stride;
+            let mut player =
+                read_player(&plain[at..at + schema.player.size], schema.player).expect("decodes");
+            if let Some((_, appearance)) = &schema.appearance {
+                let at = at + schema.player.size;
+                read_player_into(&mut player, &plain[at..at + appearance.size], appearance)
+                    .expect("appearance decodes");
+            }
+            player
+        })
+        .collect();
+    (team, players)
+}
+
+#[test]
+fn every_record_decodes_to_what_the_codec_reads_at_the_literal_offsets() {
+    for l in &LAYOUTS {
+        let dec = reference_decrypt(l.bytes, l.key_index);
+        let stride = (dec.len() - 12 - l.players_at) / l.width;
+        let (team, players) = codec_reads(
+            &dec,
+            l.version,
+            l.tactics_at,
+            l.players_at,
+            stride,
+            l.filled,
+        );
+        let t = Texport::from_bytes(l.bytes, None).expect("opens");
+        assert_eq!(t.team().tactics, team.tactics, "{:?} tactics", l.version);
+        assert_eq!(t.players(), &players[..], "{:?} players", l.version);
+        // Not vacuous: a real formation and a real ability behind the equality.
+        assert!(
+            team.tactics.presets[0].formations[0]
+                .players
+                .iter()
+                .any(|s| s.x != 0 || s.y != 0),
+            "{:?} formation",
+            l.version
+        );
+        assert_eq!(players[0].appearance.boots_id, l.first_boots);
+    }
+}
+
 #[test]
 fn a_file_of_another_size_is_refused_for_the_named_version() {
     let err = Texport::from_bytes(LAYOUTS[1].bytes, Some(PesVersion::Pes18)).expect_err("refused");
@@ -209,15 +281,21 @@ fn round_trip_is_byte_identical_on_every_fixture() {
     }
 }
 
-/// The PES 17 texport as a container around the sliced payload (logo and
-/// serial dropped, as the save fixtures are).
-pub(crate) fn pes17_texport_bytes() -> Vec<u8> {
+/// The PES 17 texport's decrypted payload, sliced as a save fixture's is.
+fn pes17_payload() -> Vec<u8> {
     let mut payload = Vec::new();
     flate2::read::ZlibDecoder::new(
         &include_bytes!("../../tests/fixtures/pes17_texport_payload.bin.zz")[..],
     )
     .read_to_end(&mut payload)
     .expect("inflates");
+    payload
+}
+
+/// The PES 17 texport as a container around the sliced payload (logo and
+/// serial dropped, as the save fixtures are).
+pub(crate) fn pes17_texport_bytes() -> Vec<u8> {
+    let payload = pes17_payload();
     let mut description = b"Team Export Data 03".to_vec();
     description.resize(384, 0);
     SaveContainer {
@@ -239,9 +317,30 @@ fn pes17_texport_opens_through_the_container_and_round_trips() {
     assert_eq!(t.version(), PesVersion::Pes17);
     // The reference reads the tactics record at 0x10330 and the players at 0x510840.
     assert_eq!(t.team().id, 736);
-    assert_eq!(t.team().tactics.starting_eleven.len(), 11);
     let players = t.players();
     assert_eq!(players.len(), 23);
+    let schema = schema_for(PesVersion::Pes17);
+    let stride = schema
+        .appearance
+        .as_ref()
+        .map_or(schema.player.size, |(_, a)| schema.player.size + a.size);
+    let (team, expected) = codec_reads(
+        &pes17_payload(),
+        PesVersion::Pes17,
+        0x10330,
+        0x510840,
+        stride,
+        23,
+    );
+    assert_eq!(t.team().tactics, team.tactics);
+    assert_eq!(players, &expected[..]);
+    assert!(
+        team.tactics.presets[0].formations[0]
+            .players
+            .iter()
+            .any(|s| s.x != 0 || s.y != 0),
+        "a real formation"
+    );
     assert_eq!(display_name(&players[0].name), "BLACK ICE TREE");
     assert_eq!(display_name(&players[1].name), "JAMES MAY");
     for (i, p) in players.iter().enumerate() {

@@ -1740,7 +1740,19 @@ seven more, all verified, all accepted:
   `TightPossession`, `StrongerHand`, dribbling motion (PES 20 added them) and no base-copy edit
   flag (15-18 hold it); the golden lists them as literals. The 19 base-copy flag is the codec
   phase's table, not re-measured here.
-Plan: `pes_savefile/operations.md` "Legacy 4ccEditor formats" (the number sentence).
+The third round returned three (under the cap, so the loop stopped there), all accepted:
+- **`apply` checks every stored value against the target's field width** (`schema::bit_width`,
+  the per-version sibling of `widest_bit_width`), player keys, appearance keys and the kit
+  slots' 24-bit `binding`, before any write: parse bounds by the widest width across versions
+  (the stored-ranges decision), so a PES 21 `free_kick = 17` reached PES 19's 4-bit field and
+  failed in `write_player`. One `check_width` helper, one `check_text` helper (NUL, single-byte
+  encodability for `shirt_name`/`short_name`, capacity) at all four text sites, so a
+  caller-built `TeamToml` meets the same rules a parsed one does.
+- **The texport golden decodes every record with the schema codec at the literal offsets** and
+  compares the whole tactics and every player, on the 17/18/19/21 fixtures; the 17 test's
+  `starting_eleven.len() == 11` was true of the array type.
+Plan: `pes_savefile/operations.md` "Legacy 4ccEditor formats" (the number sentence);
+`verification.md` "Interchange formats".
 
 ## 2026-09-21 - python_bindings - 2.18 shape: a codec-only wheel, `abi3-py311`, a workspace member that `cargo test` never links
 Decision (agent, within the plan's "PyO3 shim, proves guardrail 4 with a real cdylib build and a

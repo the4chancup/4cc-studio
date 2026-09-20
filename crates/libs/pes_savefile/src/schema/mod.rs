@@ -310,6 +310,33 @@ pub(crate) fn widest_bit_width(field: PlayerField) -> u32 {
     *WIDTHS.get(&field).unwrap_or(&0)
 }
 
+/// `field`'s bit width in `version`'s player or appearance record — the
+/// bound Team TOML's `apply` holds a stored value to so `write_player`
+/// cannot refuse it afterwards. `None` where the version does not store the
+/// field.
+pub(crate) fn bit_width(version: PesVersion, field: PlayerField) -> Option<u32> {
+    fn in_record(
+        record: &RecordSchema<PlayerField, PlayerText>,
+        field: PlayerField,
+    ) -> Option<u32> {
+        if let Some(spec) = record.fields.iter().find(|s| s.field == field) {
+            return Some(spec.bit_width);
+        }
+        record.arrays.iter().find_map(|array| {
+            (0..array.count)
+                .any(|i| (array.make)(i) == field)
+                .then_some(array.bit_width)
+        })
+    }
+    let schema = schema_for(version);
+    in_record(schema.player, field).or_else(|| {
+        schema
+            .appearance
+            .as_ref()
+            .and_then(|(_, appearance)| in_record(appearance, field))
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
