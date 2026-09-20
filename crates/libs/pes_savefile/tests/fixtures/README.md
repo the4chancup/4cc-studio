@@ -19,7 +19,5 @@ Per version `NN`:
 | 17 | `Documents/KONAMI/Pro Evolution Soccer 2017/save/EDIT00000000` | 5266180 / 28689 / 46 | header 176 |
 | 18 | `Documents/KONAMI/PRO EVOLUTION SOCCER 2018/save/EDIT00000000` | 5203344 / 66179 / 45 | header 208; game version string `PRO EVOLUTION SOCCER 2018` |
 | 19 | `Documents/KONAMI/PRO EVOLUTION SOCCER 2019/<account>/save/EDIT00000000` (identical to `Cups/Genso Cup 2/EDIT00000000`) | 7350036 / 27504 / 46 | header 208; `PRO EVOLUTION SOCCER 2019` |
+| 20 | `Documents/KONAMI/eFootball PES 2020/<account>/save/EDIT00000000-day0` (a 4cc invitational's day-0 save: 414 named players on two-ish teams, the other 4646 `PLACEHOLDER`; the sibling `EDIT00000000` is the fresh game-generated save with every player a placeholder, which some golden non-vacuity floors cannot meet) | 10964500 / 13951 / 44 | header 208; `eFootball PES 2020` |
 | 21 | `Documents/KONAMI/eFootball PES 2021 SEASON UPDATE/<account>/save/EDIT00000000` | 10995800 / 14235 / 45 | header 208; `eFootball PES 2021 SEASON UPDATE` |
-
-No PES 20 save exists on the reference machine; the PES 20 key and header size are transcribed
-from `masterkey.c`/`crypt.h` and untested until one is found.

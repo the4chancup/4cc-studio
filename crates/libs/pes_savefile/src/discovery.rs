@@ -33,9 +33,6 @@ pub struct SavefileCandidate {
 }
 
 /// The game folder name and layout for `version`.
-///
-/// PES 20's `eFootball PES 2020` folder is unverified: no install has been
-/// seen; it is assumed to match its PES 19/21 neighbours until a real one is.
 pub fn save_layout(version: PesVersion) -> SaveLayout {
     let (game_folder, account_folders, file_name) = match version {
         PesVersion::Pes15 => ("Pro Evolution Soccer 2015", false, "EDIT.bin"),

@@ -510,9 +510,6 @@ pruned when their phase closes; they stay in git history.
   FMDLs carry a 64-byte-per-bone `bone_matrices` block the IR does not; the add-on writes it
   empty and its files work in game, so the export drops it with a finding; what the block holds
   and whether it is derivable from `Bone.matrix` is unmeasured.
-- open — `pes_savefile` needs a PES 2020 save: none exists on the reference machine, so the PES
-  20 master key, header size, payload offsets and schema tables are transcribed and untested
-  (every other version is checked on a real save). Ask around the community for one.
 - open — `pes_savefile` PES 21 team record: (1) the reference's colour bits read zero for 203 of
   220 teams of the 4cc save, and the PES 17 save's colours for the same teams appear at no 6-bit
   offset anywhere in the 21 records, so the save most likely carries none (kit configs supply
@@ -650,3 +647,8 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   (tail bytes measured zero), the comparator walks the schema's stored fields and tags rows by
   scope, `FaceRun` fires only for undecoded bits. Checkpoint (b) closed. Next: 2.17h
   `interchange/{team_toml,legacy,texport}`.
+- **2026-09-20** - PES 20 verified on two real saves (a 4cc invitational's day-0 save and the
+  game-generated one): key, header, discovery layout, section offsets and the 20 tables all hold;
+  both rewrite byte-identical with their own salt; `compare` between them finds exactly the 414
+  named players. Day-0 save is now the `pes20` fixture, in `FIXTURES` (every fixture-wide test
+  runs on it; two non-vacuity floors carry its measured thinness). PES 20 open issue closed.

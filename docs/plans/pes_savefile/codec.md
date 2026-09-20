@@ -232,13 +232,12 @@ The savefile does **not** live in the PES install folder — it is always under 
 stage (`savefile_path = auto`) and the Save editor's Open dialog (initial folder / quick-open list).
 
 Two layouts exist, verified on a live machine with PES 15, 16, 17, 18, 19 and 21 saves present
-(2026-09-14; PES 20 is assumed to match 19 and 21, its neighbours on both sides, until a real
-install is seen):
+(2026-09-14) and a PES 20 save (2026-09-20):
 
 | Versions | Path under `{Documents}\KONAMI\` | Notes |
 |---|---|---|
 | 15, 16, 17, 18 | `{game folder}\save\EDIT00000000` | one save per game, no account level. Game folders: `Pro Evolution Soccer 2015` (its save is named `EDIT.bin`, not `EDIT00000000`), `Pro Evolution Soccer 2016`, `Pro Evolution Soccer 2017`, `PRO EVOLUTION SOCCER 2018` (upper case; PES 18 was expected to use the account layout and does not) |
-| 19, 20, 21 | `{game folder}\{account id}\save\EDIT00000000` | game folders: `PRO EVOLUTION SOCCER 2019`, `eFootball PES 2021 SEASON UPDATE` (21); 20 unverified. `{account id}` is an 18-digit numeric folder, one per account that has run the game on this profile |
+| 19, 20, 21 | `{game folder}\{account id}\save\EDIT00000000` | game folders: `PRO EVOLUTION SOCCER 2019`, `eFootball PES 2020`, `eFootball PES 2021 SEASON UPDATE`. `{account id}` is an 18-digit numeric folder, one per account that has run the game on this profile |
 
 Rules:
 

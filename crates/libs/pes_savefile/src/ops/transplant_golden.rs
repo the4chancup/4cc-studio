@@ -6,6 +6,7 @@
 
 use std::collections::BTreeSet;
 
+use pes_version::PesVersion;
 use sha2::{Digest, Sha256};
 
 use crate::codec::{read_player, write_player};
@@ -224,9 +225,12 @@ fn fingerprint_fields_and_hash_match_the_compare_script_on_every_fixture_player(
             assert_eq!(actual.0, digest[..4], "{version:?} {id} hash bytes");
             hashes.insert(expected);
         }
-        assert!(
+        // The PES 20 fixture's 414 named players share one face once gloves and skin are masked.
+        assert_eq!(
             hashes.len() > 1,
-            "{version:?}: the fixture has more than one face"
+            version != PesVersion::Pes20,
+            "{version:?}: {} distinct faces",
+            hashes.len()
         );
     }
 }
