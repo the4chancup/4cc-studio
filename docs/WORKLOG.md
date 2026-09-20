@@ -423,7 +423,20 @@ Spec: `docs/plans/core/development_plan.md` "Phase 2", `docs/plans/libs/README.m
     compile-policy rewrites; 16 → 15 drops the run's last four bytes and 15 → 16 keeps the
     target's; a rejected conversion leaves the target unchanged; the converted target
     `write_player`s into the target schema without error
-- [ ] 2.17g `ops/{transplant,fingerprint,compare}` (parity with the reference scripts)
+- [ ] 2.17g `ops/{transplant,fingerprint,compare}` (`pes_savefile/operations.md` "Save-to-save
+  operations"), in two slices; the lead's golden tests (`ops/transplant_golden.rs`,
+  `ops/compare_golden.rs`: the scripts' byte rules as literal offsets over every fixture
+  player) are written first and each slice declares and turns green its own:
+  - [ ] 2.17g-1 `ops/transplant.rs` (`transplant_player`, `transplant`, `parse_selection`),
+    `ops/fingerprint.rs` (`FaceHash`, `face_hash`) → verify: `transplant_golden` green (the
+    slice rule and the compare script's fields and hash, every fixture player); `transplant`
+    on two loaded fixtures is all-or-nothing on a bad id and refuses a version mismatch;
+    `parse_selection` reproduces the scripts' four forms and refuses what they refuse
+  - [ ] 2.17g-2 `ops/compare.rs` (`compare_players`, `PlayerDiff`, `DiffScope`, `compare`,
+    `SaveDiff`) → verify: `compare_golden` green (the script's diff outcome on every fixture
+    player's transplanted twin); a single-field edit yields exactly its row with old → new for
+    a field, a text, a face bit and an undecoded run bit; `compare` pairs by id and lists the
+    unmatched
 - [ ] 2.17h `interchange/{team_toml,legacy,texport}` (texport write is a manual game check)
 - [ ] 2.18 `python_bindings` (maturin build + Python smoke test; add the `just bindings` recipe
   and the CI job deferred from step 1.2)
@@ -630,3 +643,8 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   target-version template (prefix copy of the ingame-face run, `min(len)` bytes). Checkpoint (b)
   closed, one plan sharpening (what is and is not a `ConvertNote`). Next: 2.17g
   `ops/{transplant,fingerprint,compare}`.
+- **2026-09-20** - 2.17g opened: the reference scripts read (transplant = block bytes 4..68,
+  compare = fifteen fields plus a masked SHA-256 prefix; the reference editor's comparator =
+  roster-slot pairing over the gameplay fields); the run's tail bytes measured zero on every
+  16+ fixture player, so the transplant copies the block whole (decision entry). Plan section
+  written with the API blocks, two golden tests written, 2.17g split into two slices.
