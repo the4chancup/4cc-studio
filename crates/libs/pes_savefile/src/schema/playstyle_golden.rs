@@ -173,8 +173,10 @@ fn every_fixture_player_decodes_and_goalkeepers_carry_goalkeeper_styles() {
                 }
             }
         }
+        // The PES 20 fixture is a day-0 save with 414 named players (28 styled goalkeepers).
+        let floor = if version == PesVersion::Pes20 { 20 } else { 50 };
         assert!(
-            gk_styled >= 50,
+            gk_styled >= floor,
             "{version:?}: only {gk_styled} styled goalkeepers"
         );
         assert!(

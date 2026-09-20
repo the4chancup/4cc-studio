@@ -135,6 +135,9 @@ mod tests {
     const P19_HEAD: &[u8] = include_bytes!("../../tests/fixtures/pes19_head.bin");
     const P19_PAYLOAD: &[u8] = include_bytes!("../../tests/fixtures/pes19_payload.bin.zz");
     const P19_ENC: &[u8] = include_bytes!("../../tests/fixtures/pes19_payload_enc_head.bin");
+    const P20_HEAD: &[u8] = include_bytes!("../../tests/fixtures/pes20_head.bin");
+    const P20_PAYLOAD: &[u8] = include_bytes!("../../tests/fixtures/pes20_payload.bin.zz");
+    const P20_ENC: &[u8] = include_bytes!("../../tests/fixtures/pes20_payload_enc_head.bin");
     const P21_HEAD: &[u8] = include_bytes!("../../tests/fixtures/pes21_head.bin");
     const P21_PAYLOAD: &[u8] = include_bytes!("../../tests/fixtures/pes21_payload.bin.zz");
     const P21_ENC: &[u8] = include_bytes!("../../tests/fixtures/pes21_payload_enc_head.bin");
@@ -154,7 +157,7 @@ mod tests {
         version_string: Option<&'static [u8]>,
     }
 
-    const KEYED: [KeyedFixture; 5] = [
+    const KEYED: [KeyedFixture; 6] = [
         KeyedFixture {
             key: MasterKey::Pes16,
             head: P16_HEAD,
@@ -194,6 +197,16 @@ mod tests {
             logo_size: 27504,
             serial_units: 46,
             version_string: Some(b"PRO EVOLUTION SOCCER 2019"),
+        },
+        KeyedFixture {
+            key: MasterKey::Pes20,
+            head: P20_HEAD,
+            enc_head: P20_ENC,
+            payload_zz: P20_PAYLOAD,
+            payload_size: 10964500,
+            logo_size: 13951,
+            serial_units: 44,
+            version_string: Some(b"eFootball PES 2020"),
         },
         KeyedFixture {
             key: MasterKey::Pes21,

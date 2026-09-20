@@ -23,9 +23,10 @@ SOURCES = {
     17: r"C:\Data\Documents\KONAMI\Pro Evolution Soccer 2017\save\EDIT00000000",
     18: r"C:\Data\Documents\KONAMI\PRO EVOLUTION SOCCER 2018\save\EDIT00000000",
     19: r"C:\Data\Documents\KONAMI\PRO EVOLUTION SOCCER 2019\292733975847239680\save\EDIT00000000",
+    20: r"C:\Data\Documents\KONAMI\eFootball PES 2020\292733975847239680\save\EDIT00000000-day0",
     21: r"C:\Data\Documents\KONAMI\eFootball PES 2021 SEASON UPDATE\292733975847239680\save\EDIT00000000",
 }
-HEADER_SIZE = {16: 176, 17: 176, 18: 208, 19: 208, 21: 208}
+HEADER_SIZE = {16: 176, 17: 176, 18: 208, 19: 208, 20: 208, 21: 208}
 
 
 def write(path, data):
@@ -89,8 +90,10 @@ def pes15(version, data):
 
 
 OUT.mkdir(parents=True, exist_ok=True)
-for version, source in SOURCES.items():
-    data = Path(source).read_bytes()
+# Versions to extract as arguments (`save_fixtures.py 20`); none means every source.
+versions = [int(a) for a in sys.argv[1:]] or list(SOURCES)
+for version in versions:
+    data = Path(SOURCES[version]).read_bytes()
     if version == 15:
         pes15(version, data)
     else:

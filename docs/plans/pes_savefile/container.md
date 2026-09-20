@@ -158,9 +158,8 @@ without committing the whole save).
 ### Container fixtures
 
 A save is 5–11 MB and incompressible once encrypted, and its serial is the writer's account SID,
-so no whole save is committed. Per version (15, 16, 17, 18, 19, 21; there is no PES 20 save on
-the reference machine, so its key and header size are transcribed and untested), extracted by a
-lead script from the real saves named in `tests/fixtures/README.md`:
+so no whole save is committed. Per version (all seven), extracted by a lead script from the real
+saves named in `tests/fixtures/README.md`:
 
 - `pesNN_head.bin`: the file prefix through the description: salt + header + encrypted
   description on 16–21 (880 or 912 bytes); seed + three digests + description + logo length on
@@ -205,7 +204,10 @@ to `exp_pwr`) agree between 17 and 18, after which 18's motion/coverage/position
 different offsets, and 19 reorders the whole record (measured 2026-09-14: each version's own
 table decodes its own save with every 7-bit ability in 40..99, the other versions' tables do
 not). PES 20 shares the 312-byte player walk with 21 but has its own roster/tactics
-offsets — the two versions' section offsets match only for team IDs.
+offsets — the two versions' section offsets match only for team IDs (measured 2026-09-20 on a
+real PES 20 save: its payload is 31 300 bytes shorter than the 21 save's, exactly the roster and
+tactics offset difference, and both saves rewrite byte for byte under the 20 and 21 tables
+respectively).
 
 Structural eras:
 

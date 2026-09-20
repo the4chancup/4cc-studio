@@ -17,7 +17,7 @@ pub(crate) fn payload(version: PesVersion) -> Vec<u8> {
         PesVersion::Pes17 => include_bytes!("../tests/fixtures/pes17_payload.bin.zz"),
         PesVersion::Pes18 => include_bytes!("../tests/fixtures/pes18_payload.bin.zz"),
         PesVersion::Pes19 => include_bytes!("../tests/fixtures/pes19_payload.bin.zz"),
-        PesVersion::Pes20 => panic!("the PES 20 save shares PES 21's tables; no 20 fixture"),
+        PesVersion::Pes20 => include_bytes!("../tests/fixtures/pes20_payload.bin.zz"),
         PesVersion::Pes21 => include_bytes!("../tests/fixtures/pes21_payload.bin.zz"),
     };
     let mut out = Vec::new();
@@ -28,12 +28,13 @@ pub(crate) fn payload(version: PesVersion) -> Vec<u8> {
 }
 
 /// The versions a committed payload fixture exists for.
-pub(crate) const FIXTURES: [PesVersion; 6] = [
+pub(crate) const FIXTURES: [PesVersion; 7] = [
     PesVersion::Pes15,
     PesVersion::Pes16,
     PesVersion::Pes17,
     PesVersion::Pes18,
     PesVersion::Pes19,
+    PesVersion::Pes20,
     PesVersion::Pes21,
 ];
 

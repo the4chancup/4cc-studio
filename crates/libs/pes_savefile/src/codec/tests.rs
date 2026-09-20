@@ -249,7 +249,7 @@ const ABILITIES: [PlayerField; 24] = [
 
 #[test]
 fn the_player_census_matches_the_measured_ranges() {
-    let counts = [5060usize, 5060, 5060, 4646, 4830, 5060];
+    let counts = [5060usize, 5060, 5060, 4646, 4830, 5060, 5060];
     for (i, version) in FIXTURES.iter().enumerate() {
         let payload = payload(*version);
         let schema = schema_for(*version);
@@ -594,7 +594,7 @@ fn every_team_roster_and_tactics_record_round_trips_byte_for_byte() {
 
 #[test]
 fn team_roster_and_tactics_sections_list_the_same_teams() {
-    let counts = [220usize, 220, 220, 202, 346, 220];
+    let counts = [220usize, 220, 220, 202, 346, 220, 220];
     for (i, version) in FIXTURES.iter().enumerate() {
         let payload = payload(*version);
         let schema = schema_for(*version);

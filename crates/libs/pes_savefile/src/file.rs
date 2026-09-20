@@ -380,8 +380,8 @@ mod tests {
 
     #[test]
     fn every_fixture_opens_and_rewrites_byte_for_byte() {
-        let player_counts = [5060usize, 5060, 5060, 4646, 4830, 5060];
-        let team_counts = [220usize, 220, 220, 202, 346, 220];
+        let player_counts = [5060usize, 5060, 5060, 4646, 4830, 5060, 5060];
+        let team_counts = [220usize, 220, 220, 202, 346, 220, 220];
         for (i, version) in FIXTURES.iter().enumerate() {
             let (file, bytes) = open(*version);
             assert_eq!(file.version(), *version);

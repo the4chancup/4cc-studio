@@ -254,4 +254,5 @@ def main():
                 print(f"  payload zlib-9 size {len(zlib.compress(payload, 9))}")
 
 
-main()
+if __name__ == "__main__":
+    main()
