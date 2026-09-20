@@ -108,8 +108,12 @@ Improvements over the 2.03 folder format:
 `balls.txt` keeps the 2.03 shape: one folder name per line, order defining both the
 menu order and the `ballXXX` numbering, at most 50 lines, duplicates rejected.
 
-The format knowledge lives **inside the tool crate**: unlike `aesthetics_export` it has
-exactly one consumer, so it earns no lib crate (core plan, workspace guardrail 3).
+The *export* format knowledge (`balls.txt`, the folder layout) lives **inside the tool crate**:
+unlike `aesthetics_export` it has exactly one consumer, so it earns no lib crate (core plan,
+workspace guardrail 3). The `Ball.bin`/`BallCondition.bin` *record layouts* are the exception:
+they are two of the Konami database tables the suite writes, so they live in `libs/pesdb`
+([DB generator plan](db_generator.md)) with the other tables; the format reference below stays
+here and the crate transcribes it.
 
 ## Compilation pipeline
 

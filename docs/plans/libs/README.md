@@ -18,8 +18,9 @@ in the [Match tracker plan](../match_tracker/README.md), the kit config codec
 (`kit_config` — binary/TOML, reverse-engineered format documentation) in the
 [Kit config editor plan](../kit_config_editor.md), the AATF rules engine
 (`aatf`) and the shared tactics/card widgets (`team_widgets`) in the [Save editor
-plan](../save_editor.md), and the fox2 parser in the
-[Stadium compiler plan](../stadium_compiler.md). Platform context is in the
+plan](../save_editor.md), the fox2 parser in the
+[Stadium compiler plan](../stadium_compiler.md), and the Konami database tables (`pesdb`) in
+the [DB generator plan](../db_generator.md). Platform context is in the
 [core plan](../core/README.md).
 
 ---

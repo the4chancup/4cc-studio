@@ -1568,3 +1568,30 @@ to the plan's own definition ("what `transplant_player` moves") by a test that f
 21 field once.
 Plan: `pes_savefile/operations.md` "Save-to-save operations" (unchanged; the rulings implement
 it), `pes_savefile/codec.md` `VersionSchema` block (unchanged, reaffirmed).
+
+## 2026-09-20 - plans - pes-db-generator joins the suite as the DB generator tool; Konami database tables get a `pesdb` lib
+Decision (user + lead): `Tools_4cc/pes-db-generator`, the scripts that build a cup's game
+database (the `common/etc/pesdb/*.bin` tables declaring the teams, placeholder players, managers
+and competition entries, plus the hand procedure that gives a fresh 19+ save its player records),
+becomes `tools/db_generator` (Phase 19, scheduled by need after Phases 2 and 8; plan
+`db_generator.md`). Its record formats become `libs/pesdb`, which also takes the `Ball.bin` /
+`BallCondition.bin` layouts the Balls compiler plan had kept inside that tool and the
+`Stadium.bin` layout the Stadium compiler plan kept inside its tool: three writers of one table
+family is the multiple-consumer bar of workspace guardrail 3, and the alternative was three
+private copies of "fixed-size little-endian records with a per-version layout". The savefile
+half of the scripts (count at 0x60, records at 0x7C) is `pes_savefile::ops::populate`, the one
+API through which player records are added to an `EditFile`; the teams list input is the
+suite's `teams_list.txt` through `libs/teams_list`, whose `Row::Placeholder` rows are exactly the
+Backup/VGL/Invitational teams the scripts route to competitions 12/11/10.
+Measured first: the PES 20 invitational save on the reference machine is a day-0 save of a
+database these scripts produced; its record 70101 equals the record `player_edit.py` assembles
+byte for byte, and the `Player.bin` record is a different layout from the EDIT record (the
+gameplay block is not byte-shared), so the two are two formats in two crates.
+Rejected: a Python-shaped port (byte templates with ids patched in) - the templates encode
+layouts the suite should know by name; keeping the tool out of the suite - it is the first step
+of every cup and the only one still needing a hex editor; folding `pesdb` into `pes_savefile` -
+the savefile knows nothing of the database and the database CPK is the Team compiler's neighbour,
+not the save's.
+Plan: `db_generator.md` (new), `core/development_plan.md` "Phase 19", `pes_savefile/operations.md`
+"Player section population", `balls_compiler.md` and `stadium_compiler.md` (placement rows),
+`plans/README.md`, `libs/README.md`, `GLOSSARY.md`.

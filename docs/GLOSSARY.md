@@ -110,6 +110,9 @@ terms next to each other rather than in alphabetical order; adjacency is what ma
 | **Interchange formats** | Team TOML (Studio) and legacy `.4ccs` / `.4cct` files for moving team data between saves. | `plans/pes_savefile/README.md` |
 | **`PlayerSettings`** | The per-player aesthetic settings written from `settings.toml` into the savefile at compile time. | `plans/pes_savefile/README.md` |
 | **Savefile (`EDIT00000000`)** | PES's encrypted edit-data file holding players, teams, tactics; per-version crypto and schema in `pes_savefile`. | `plans/pes_savefile/README.md` |
+| **Game database (`pesdb`)** | PES's fixed-size-record tables under `common/etc/pesdb/` (Team, Player, Coach, CompetitionEntry, Ball, Stadium, …) declaring what exists; the 4cc DLC overrides them with the cup's own. Record layouts in `libs/pesdb`. | `plans/db_generator.md` "The `pesdb` lib crate" |
+| **Base player** | The per-version placeholder `PlayerEntry` (name `PLACEHOLDER`, default abilities and appearance) every cup player starts as; the DB generator writes it into the database and, on 19+, into the fresh save. | `plans/db_generator.md`, `plans/pes_savefile/operations.md` "Player section population" |
+| **Day-0 save** | The `EDIT00000000` a fresh install writes from the cup's database before any team is edited; on 19+ it lacks player records until populated. | `plans/db_generator.md` "Background" |
 
 ## Stream-side tools
 

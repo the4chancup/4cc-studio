@@ -20,7 +20,7 @@ single-file plan.
 | [Container format and crypto](container.md) | Container format and crypto; Payload layout per version |
 | [Save codec](codec.md) | Schema-driven save codec |
 | [Data model](model.md) | Player/team/tactics model; Player settings model (settings.toml) |
-| [Operations](operations.md) | Cross-version player conversion; Save-to-save operations; Interchange formats |
+| [Operations](operations.md) | Cross-version player conversion; Save-to-save operations; Interchange formats; Player section population |
 | [Verification](verification.md) | Verification |
 
 ## Origin material
@@ -78,7 +78,8 @@ crates/libs/pes_savefile/src/
 │   ├── transplant.rs   #   aesthetics transplant (Midcupping)
 │   ├── fingerprint.rs  #   aesthetics fingerprinting / diff
 │   ├── compare.rs      #   comparator (gameplay + aesthetics)
-│   └── fpc.rs          #   maps libs/fpc player presets onto PlayerEntry; interference check
+│   ├── fpc.rs          #   maps libs/fpc player presets onto PlayerEntry; interference check
+│   └── populate.rs     #   placeholder player section for a fresh 19+ save (DB generator)
 └── interchange/        # text formats
     ├── team_toml.rs    #   Team TOML read/write (full fidelity)
     ├── legacy.rs       #   .4ccs / .4cct readers

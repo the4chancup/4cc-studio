@@ -482,4 +482,25 @@ wiring and adapters, not porting.
 compile in Chromium producing the same CPK as the desktop CPU path on the same export; embedded
 resource download size measured and, if it matters, lazy-fetched behind the template accessor.
 
+### Phase 19: DB generator (`tools/db_generator`, `libs/pesdb`)
+
+Small, and scheduled by need rather than by number: it depends only on Phase 2 (`teams_list`,
+`cpk`, `pes_savefile`) and Phase 8 (the shell), and a cup start is when it is wanted. Until then
+the Python scripts work. Plan: [DB generator](../db_generator.md).
+
+- `libs/pesdb`: the six database tables the generator writes as typed per-version records
+  (`Team`, `Player`, `PlayerAppearance`, `PlayerAssignment`, `Coach`, `CompetitionEntry`), the
+  blank-table and Konami-table lists per version; `Ball`/`BallCondition` and `Stadium` join when
+  Phases 14 and 9 need them (the Ball.bin writer planned inside the Balls compiler moves here)
+- `pes_savefile::ops::populate`: the 19+ placeholder player section written through the codec
+  (the scripts' hex-editor procedure), with the base player per version as a fixture
+- The tool: teams list → tables (Backup/VGL/Invitational placeholder rows classified into their
+  competitions), Konami tables copied from the configured install's data CPK, output as tree or
+  CPK, the populated EDIT; `generate` CLI; the view
+
+**Verification:** byte parity with the scripts' output on a three-team list per version (their
+trees committed as fixtures); `pesdb` round trips on real Konami tables; populating the PES 20
+fixture's stripped player section reproduces it byte for byte; in-game start with a generated
+database and EDIT (manual, per version).
+
 ---
