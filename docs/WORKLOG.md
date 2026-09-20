@@ -12,7 +12,7 @@ is in `AGENTS.md` ("Working documents").
 **Phase:** 2 (Library crates). Done: 2.1 `wezlib`, 2.2 `cpk`, 2.3 `fpk`, 2.4 `ftex`, 2.5 `dds_convert` (CPU),
 2.6 `fmdl` (format, model, ops, check), 2.7 `pes_model` (format, mtl, model, ops, check), 2.8 `uniparam`, 2.9 `fox2`, 2.10 `archives`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`, 2.14 `color_tools`, 2.15 `elevation`. Review
 rounds A and B (2026-09-13) closed: 2.5c, 2.12b, 2.13b done.
-**In progress:** 2.17 `pes_savefile` (a–f done; g next), then 2.18 `python_bindings`. Review
+**In progress:** 2.17 `pes_savefile` (a–g done; h next), then 2.18 `python_bindings`. Review
 round C (2026-09-19) closed as 2.19a; its leftovers are listed under 2.20.
 **Blocked on:** nothing
 
@@ -423,20 +423,17 @@ Spec: `docs/plans/core/development_plan.md` "Phase 2", `docs/plans/libs/README.m
     compile-policy rewrites; 16 → 15 drops the run's last four bytes and 15 → 16 keeps the
     target's; a rejected conversion leaves the target unchanged; the converted target
     `write_player`s into the target schema without error
-- [ ] 2.17g `ops/{transplant,fingerprint,compare}` (`pes_savefile/operations.md` "Save-to-save
-  operations"), in two slices; the lead's golden tests (`ops/transplant_golden.rs`,
-  `ops/compare_golden.rs`: the scripts' byte rules as literal offsets over every fixture
-  player) are written first and each slice declares and turns green its own:
-  - [ ] 2.17g-1 `ops/transplant.rs` (`transplant_player`, `transplant`, `parse_selection`),
-    `ops/fingerprint.rs` (`FaceHash`, `face_hash`) → verify: `transplant_golden` green (the
-    slice rule and the compare script's fields and hash, every fixture player); `transplant`
-    on two loaded fixtures is all-or-nothing on a bad id and refuses a version mismatch;
-    `parse_selection` reproduces the scripts' four forms and refuses what they refuse
-  - [ ] 2.17g-2 `ops/compare.rs` (`compare_players`, `PlayerDiff`, `DiffScope`, `compare`,
-    `SaveDiff`) → verify: `compare_golden` green (the script's diff outcome on every fixture
-    player's transplanted twin); a single-field edit yields exactly its row with old → new for
-    a field, a text, a face bit and an undecoded run bit; `compare` pairs by id and lists the
-    unmatched
+- [x] 2.17g `ops/{transplant,fingerprint,compare}` (`pes_savefile/operations.md` "Save-to-save
+  operations") — done in two slices (`74136aa`, `7a7ab4a` plus the review rework): the lead's
+  golden tests hold the scripts' byte rules as literal offsets and pass on every fixture player
+  (transplant slice rule, the compare script's fifteen fields and hash, its diff outcome on a
+  transplanted twin); `transplant_player`/`transplant`/`parse_selection`, `FaceHash`/`face_hash`,
+  `compare_players`/`PlayerDiff`/`DiffScope`/`compare`. Checkpoint (b) review (`gpt-astra-high`):
+  six concerns, all verified and fixed (the by-value `appearance` schema change reverted, it
+  contradicted the codec plan block and the generator; duplicate ids resolve first-wins as
+  `EditFile::player` does; the 15/16 appearance record's `Id` is not a second row; three vacuous
+  tests strengthened, `scope()` pinned mechanically to what `transplant_player` moves). Crate 113
+  tests; `mutants-diff` 31 caught + 3 boundary survivors killed, then 21/21
 - [ ] 2.17h `interchange/{team_toml,legacy,texport}` (texport write is a manual game check)
 - [ ] 2.18 `python_bindings` (maturin build + Python smoke test; add the `just bindings` recipe
   and the CI job deferred from step 1.2)
@@ -648,3 +645,8 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   roster-slot pairing over the gameplay fields); the run's tail bytes measured zero on every
   16+ fixture player, so the transplant copies the block whole (decision entry). Plan section
   written with the API blocks, two golden tests written, 2.17g split into two slices.
+- **2026-09-20** - 2.17g done (`806adcd` plan + goldens, `74136aa` transplant/fingerprint,
+  `7a7ab4a` compare, plus the review rework): the transplant copies the appearance block whole
+  (tail bytes measured zero), the comparator walks the schema's stored fields and tags rows by
+  scope, `FaceRun` fires only for undecoded bits. Checkpoint (b) closed. Next: 2.17h
+  `interchange/{team_toml,legacy,texport}`.

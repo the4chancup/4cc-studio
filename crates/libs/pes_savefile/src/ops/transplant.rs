@@ -189,9 +189,20 @@ mod tests {
         for version in [PesVersion::Pes16, PesVersion::Pes17] {
             let (mut target, donor) = saves(version, 70205);
             assert!(target.player(70103).is_some(), "{version:?} has 70103");
+            assert_ne!(
+                target.player(70103).expect("in target").appearance,
+                donor.player(70205).expect("in donor").appearance,
+                "{version:?}: the pair discriminates the copy"
+            );
             let before: Vec<PlayerEntry> = target.players().to_vec();
             let mut pairs = parse_selection("70103:70205").expect("pair");
-            pairs.extend(parse_selection("701").expect("team"));
+            // Team 701 onto donor team 702: cross-id pairs, not self-pairs.
+            pairs.extend(
+                parse_selection("701")
+                    .expect("team")
+                    .into_iter()
+                    .map(|(t, _)| (t, t + 100)),
+            );
             transplant(&mut target, &donor, &pairs).expect("transplants");
 
             // Pairs apply in order; a later pair onto the same id wins
@@ -215,17 +226,28 @@ mod tests {
     #[test]
     fn transplant_is_all_or_nothing() {
         let missing = 999999;
-        let (mut target, donor) = saves(PesVersion::Pes16, 70103);
+        let (mut target, donor) = saves(PesVersion::Pes16, 70205);
+        assert!(target.player(70103).is_some());
+        assert_ne!(
+            target.player(70103).expect("in target").appearance,
+            donor.player(70205).expect("in donor").appearance,
+            "the first pair discriminates the copy"
+        );
         assert!(target.player(missing).is_none());
         let before: Vec<PlayerEntry> = target.players().to_vec();
 
-        // A valid first pair, then an absent donor id: nothing is written.
-        let pairs = [(70103, 70103), (70104, missing)];
+        // A valid first pair that would write, then an absent donor id:
+        // nothing is written.
+        let pairs = [(70103, 70205), (70104, missing)];
         assert_eq!(
             transplant(&mut target, &donor, &pairs),
             Err(TransplantError::DonorMissing(missing))
         );
         assert_eq!(target.players(), &before[..]);
+        assert_eq!(
+            target.player(70103).expect("in target"),
+            before.iter().find(|p| p.id == 70103).expect("in before")
+        );
 
         let pairs = [(missing, 70103)];
         assert_eq!(

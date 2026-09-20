@@ -1551,3 +1551,20 @@ version stores, so a comparator that reads it cannot miss a field the way both r
 the transplant preview and the "did anything visual change" question both reduce to the
 aesthetics rows, so a separate fingerprint struct would be a second copy of `PlayerAppearance`.
 Plan: `pes_savefile/operations.md` "Save-to-save operations".
+
+## 2026-09-20 - pes_savefile - 2.17g review rulings: schema stays `&'static`, first id wins, no second `Id` row
+Decision (lead, at the 2.17g checkpoint review): `VersionSchema.appearance` keeps the codec
+plan's `Option<(SectionLayout, &'static RecordSchema)>` shape (a by-value change made to satisfy
+a test's match arms was reverted: the plan block and `scripts/derive_savefile_schema.py` both
+say `&APPEARANCE`, and a shape the generator cannot emit is a shape the tables cannot be
+regenerated into). `compare` indexes the second save first-record-wins, as `EditFile::player`
+resolves a duplicate id, so the two APIs never disagree. The 15/16 appearance record's walk skips
+every field the player record already stores (`Id`), so one identity difference is one row on
+every version. `compare_players` propagates every codec error: a field the schema stores that
+either entry lacks is `Err`, two unread entries included (a both-sides swallow was removed).
+Why: the reviewer showed three tests that passed on a no-op or eager implementation because the
+fixture pairs they used were identical; the fixes are in the tests, and `scope()` is now pinned
+to the plan's own definition ("what `transplant_player` moves") by a test that flips every PES
+21 field once.
+Plan: `pes_savefile/operations.md` "Save-to-save operations" (unchanged; the rulings implement
+it), `pes_savefile/codec.md` `VersionSchema` block (unchanged, reaffirmed).

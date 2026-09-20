@@ -18,7 +18,7 @@ use crate::test_support::{FIXTURES, appearance_for, count, payload, record};
 /// The appearance block of `p`, as the record bytes our writer produces.
 fn block(p: &PlayerEntry, schema: &VersionSchema) -> Vec<u8> {
     let (record_schema, run) = match &schema.appearance {
-        Some((_, appearance)) => (appearance, appearance.ingame_face.as_ref()),
+        Some((_, appearance)) => (*appearance, appearance.ingame_face.as_ref()),
         None => (schema.player, schema.player.ingame_face.as_ref()),
     };
     let start = run.expect("run").byte_offset as usize - 22;
