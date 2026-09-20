@@ -587,14 +587,17 @@ pub enum ImportNote {
     /// A label the target version cannot encode (a PES 18 instruction into 17, a style the
     /// target's list lacks); written as `off`/the list's rule.
     NotEncodable { path: String, label: String },
-    /// A face type above the target's cap or skin 7 into a no-custom-skin version; capped/reset.
+    /// A face type above the target's cap (reset to 0, the 2.17f rule) or skin 7 into a
+    /// no-custom-skin version (reset to 1); `to` is what was written.
     Capped { path: String, from: u8, to: u8 },
     /// A `[players.NN]` whose target roster slot is empty; skipped.
     EmptySlot { slot: u8 },
 }
 
 impl TeamToml {
-    /// Every field of the team and its roster's players, `Some`. `version` is the save's.
+    /// Every field of the team and its roster's players, `Some`. `version` is the save's. An
+    /// empty `players` gives a team/tactics-only document; a non-empty one missing a rostered
+    /// id is `PlayerMissing` (a partial pool is a caller bug, a silent drop is data loss).
     pub fn from_team(version: PesVersion, team: &TeamEntry, players: &[&PlayerEntry]) -> Result<Self, TeamTomlError>;
     pub fn parse(text: &str) -> Result<Self, TeamTomlError>;
     /// The plan block's layout: one key per line, tables in the block's order, the range comments.
@@ -611,11 +614,14 @@ pub fn shirt_name_from(name: &str, version: PesVersion) -> String;
 
 Rules of `apply`: `pes_version` absent means "the target's version" (no conversion); the
 ingame-face hex is written first (prefix-copied, `min(len)` bytes, the 2.17f rule), then the
-`appearance` table through `PlayerSettings::apply`; `base_copy_id` equal to the file's own player
+`appearance` table through `settings_toml`'s shared writer; `base_copy_id` equal to the file's own player
 id (the file's team id × 100 + slot) becomes the target player's id; a `stats` key the target
 version lacks is `NotInThisVersion` when the versions differ and `TeamTomlError::NotInThisVersion`
 when they are equal (a same-version file with a foreign key is a mistake, a converted one is
-expected to shed keys); skills the target lacks are dropped with a note; the playing style goes
+expected to shed keys); a skill the *source* version lacks is not written (the target's stands,
+pair-wide, no note) and a skill the target lacks is dropped with a note; `name`/`shirt_name`
+(and the team's) must fit the target version's text fields or `apply` is `TextTooLong` before
+any write; the playing style goes
 through `schema::playstyle::encode` for the target (2.17f's lists); instructions through
 `schema::instruction::encode`; PES 15/16 targets drop the instructions table silently (the version
 has none: a pair-wide fact). What `shirt_name_from` keeps of the character set beyond upper-casing
@@ -775,18 +781,22 @@ impl Texport {
     /// team and players (`team_mut`/`players_mut`).
     pub fn new(version: PesVersion, team: &TeamEntry, players: &[&PlayerEntry], salt: &[u8; 320]) -> Result<Texport, TexportError>;
     pub fn version(&self) -> PesVersion;
-    pub fn team(&self) -> &TeamEntry;            // team + roster + tactics
+    pub fn team(&self) -> &TeamEntry;            // team + roster + tactics (15-17: the tactics record's id,
+                                                 //   the roster the consecutive records imply, no names)
     pub fn players(&self) -> &[PlayerEntry];     // roster order, empty slots skipped
     pub fn team_mut(&mut self) -> &mut TeamEntry;
     pub fn players_mut(&mut self) -> &mut [PlayerEntry];
     /// The records re-encoded into the plaintext (unmodeled bytes as read), then encrypted:
     /// XOR with the file's own key on 18-21, the container with `salt` on 15-17.
     pub fn to_bytes(&self, salt: &[u8; 320]) -> Result<Vec<u8>, TexportError>;
+    /// The import document: `TeamToml::from_team` over the texport; on 15-17 the `[team]` section
+    /// is reduced to `id` and shirt numbers are absent (the file carries neither).
+    pub fn to_team_toml(&self) -> Result<TeamToml, TeamTomlError>;
 }
 ```
 
 Import never trusts the file's player IDs: players map onto the target team's roster by slot
-order, which is `TeamToml::from_team(texport.version(), texport.team(), texport.players())` then
+order, which is `texport.to_team_toml()` then
 `TeamToml::apply` — one import path for every format, conversion included (the reference zeroes
 15/16 skills 28-41 and sets tight possession/aggression/physical contact to 77: the target's
 values stand in for those instead, per the 2.17f rule). Because the game itself consumes these,

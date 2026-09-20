@@ -12,7 +12,7 @@ is in `AGENTS.md` ("Working documents").
 **Phase:** 2 (Library crates). Done: 2.1 `wezlib`, 2.2 `cpk`, 2.3 `fpk`, 2.4 `ftex`, 2.5 `dds_convert` (CPU),
 2.6 `fmdl` (format, model, ops, check), 2.7 `pes_model` (format, mtl, model, ops, check), 2.8 `uniparam`, 2.9 `fox2`, 2.10 `archives`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`, 2.14 `color_tools`, 2.15 `elevation`. Review
 rounds A and B (2026-09-13) closed: 2.5c, 2.12b, 2.13b done.
-**In progress:** 2.17 `pes_savefile` (a–g done; h next), then 2.18 `python_bindings`. Review
+**In progress:** 2.17 `pes_savefile` (a–h done; 2.18 `python_bindings` next). Review
 round C (2026-09-19) closed as 2.19a; its leftovers are listed under 2.20.
 **Blocked on:** nothing
 
@@ -436,7 +436,7 @@ Spec: `docs/plans/core/development_plan.md` "Phase 2", `docs/plans/libs/README.m
   `EditFile::player` does; the 15/16 appearance record's `Id` is not a second row; three vacuous
   tests strengthened, `scope()` pinned mechanically to what `transplant_player` moves). Crate 113
   tests; `mutants-diff` 31 caught + 3 boundary survivors killed, then 21/21
-- [ ] 2.17h `interchange/{team_toml,legacy,texport}` (`pes_savefile/operations.md` "Interchange
+- [x] 2.17h `interchange/{team_toml,legacy,texport}` (`pes_savefile/operations.md` "Interchange
   formats", rewritten from measurement on the real files: three 17 / four 18 / eleven 19 / five 21
   texports, two `.4ccs`; decision entry 2026-09-20). Texport write is a manual game check.
   Slices, vertical first (real input in, real output out):
@@ -463,7 +463,13 @@ Spec: `docs/plans/core/development_plan.md` "Phase 2", `docs/plans/libs/README.m
     version) after a 104 s test was cut to 9 s and `from_team` sped up ~9x (`player_field_set`)
   - [x] 2.17h-4 `interchange/legacy.rs` (`1ae6e16`): both goldens green; `from_team` pool rule
     (empty = team-only document, partial = `PlayerMissing`)
-  - [ ] 2.17h-5 checkpoint (b) review of the 2.17h surface, rework, closeout
+  - [x] 2.17h-5 checkpoint (b) review (`gpt-astra-high`, seven concerns, all verified and fixed,
+    `28e2eab`): the 15-17 texport import path (implied roster, `to_team_toml`), source-version
+    skill gating on up-conversion, face types reset to 0 as 2.17f, `TextTooLong` before write,
+    legacy tactics gated by the exporting version, stored-range mode bounded by bit width with
+    label-less values as integers, two hostile-input panics, a test oracle built from the
+    post-apply state. Plus the 16 2.17h-3 mutation survivors, all missing tests. Crate 181
+    tests. Manual game check of a written texport (`new` and edited) still open
 - [ ] 2.18 `python_bindings` (maturin build + Python smoke test; add the `just bindings` recipe
   and the CI job deferred from step 1.2)
 - [ ] 2.19 Phase verification: every crate's tests per `libs/README.md` "Testing" green; `wasm32` check
@@ -547,6 +553,14 @@ pruned when their phase closes; they stay in git history.
   holds a kit-slot block at +48 (`00 40 af 00 | 01 40 af 00 | 80 40 af 00`: numbers 0, 1, 0x80
   with team 701 x 0x40) that the reference reads only on PES 17 (at +28); the 18-21 tables have no
   `KitSlot*` rows. Measure 18/19 and add the rows when the Save editor needs kit bindings.
+- **Texport write is unverified in-game** (2.17h): `Texport::new` synthesizes 18-21 files from
+  measured templates and `to_bytes` rewrites read files; both round-trip byte-identical, but no
+  generated file has been imported by the game yet (`verification.md` "Texport write": manual,
+  per version; a `new` file and an edited round-tripped one). PES 15/16/20 texports have no
+  fixture at all (offsets/key index are the reference's; PES 20's size is derived).
+- **`file::tests::save_and_load_round_trip_through_the_filesystem` failed once** while a
+  `cargo mutants` run was executing the same suite in a temp copy (2026-09-21), passed alone and
+  in every later full run. Suspected temp-dir contention; not reproduced.
 
 ---
 
@@ -684,3 +698,9 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
 - **2026-09-20** - pes-db-generator planned into the suite: `db_generator.md` (tool, Phase 19,
   scheduled by need), `libs/pesdb` (the Konami table layouts; Ball/Stadium bins move there),
   `pes_savefile::ops::populate` (the 19+ player-section fill). Decision entry. Next: 2.17h.
+- **2026-09-21** - 2.17h done (`6122b09` plan, `3575b19` fixtures + goldens, `8385437` texport,
+  `2d9365c` instruction + Team TOML team half, `ceb9b6f` player half, `1ae6e16` legacy,
+  `28e2eab` review rework): the interchange formats measured on the real files (texport 18-21
+  is the save's records concatenated; PES 20/21 store a 17th instruction), Team TOML as the one
+  import path with schema-gated notes and stored ranges, `.4ccs`/`.4cct` readers. Crate 113 → 181
+  tests; four decision entries. Next: 2.18 `python_bindings`.
