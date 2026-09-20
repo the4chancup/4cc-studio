@@ -68,22 +68,36 @@ impl IngameFace {
         &self.0
     }
 
-    /// The run with the player-gloves and skin bits zeroed: what the
-    /// fingerprint hashes (the reference masks the same two, because they
-    /// overlap fields it lists separately).
-    pub fn normalized(&self) -> Vec<u8> {
+    /// The run with `fields`' bits zeroed.
+    fn masked(&self, fields: impl Iterator<Item = IngameFaceField>) -> Vec<u8> {
         let mut out = self.0.clone();
-        for field in [
-            IngameFaceField::PlayerGloves,
-            IngameFaceField::PlayerGlovesColor,
-            IngameFaceField::SkinColor,
-        ] {
+        for field in fields {
             let spec = spec(field);
             if self.covers(spec) {
                 bits::write_bits(&mut out, spec.bit_offset, spec.bit_width, 0);
             }
         }
         out
+    }
+
+    /// The run with the player-gloves and skin bits zeroed: what the
+    /// fingerprint hashes (the reference masks the same two, because they
+    /// overlap fields it lists separately).
+    pub fn normalized(&self) -> Vec<u8> {
+        self.masked(
+            [
+                IngameFaceField::PlayerGloves,
+                IngameFaceField::PlayerGlovesColor,
+                IngameFaceField::SkinColor,
+            ]
+            .into_iter(),
+        )
+    }
+
+    /// The run with every known field's bits zeroed: the part of the run no
+    /// `IngameFaceField` names, which the comparator reports as one row.
+    pub(crate) fn undecoded(&self) -> Vec<u8> {
+        self.masked(IngameFaceField::ALL.into_iter())
     }
 
     /// Copies `source`'s bytes over this run's prefix (`min` of the two
