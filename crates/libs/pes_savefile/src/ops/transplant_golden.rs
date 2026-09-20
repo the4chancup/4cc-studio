@@ -93,7 +93,11 @@ fn transplant_matches_the_scripts_slice_rule_on_every_fixture_player() {
                         record(&payload, &schema.players, schema.player.size, *i).to_vec();
                     let before = player_rec.clone();
                     write_player(&moved, &mut player_rec, schema.player).expect("write");
-                    assert_eq!(player_rec, before, "{version:?} {}: player record", target.id);
+                    assert_eq!(
+                        player_rec, before,
+                        "{version:?} {}: player record",
+                        target.id
+                    );
                 }
                 None => write_player(&moved, &mut actual, schema.player).expect("write"),
             }
@@ -103,7 +107,12 @@ fn transplant_matches_the_scripts_slice_rule_on_every_fixture_player() {
                 target.id, donor.id
             );
         }
-        assert!(changed > all.len() / 2, "{version:?}: the donors differ from the targets ({changed})");
+        // Non-vacuity: most fixture players are placeholders sharing one block
+        // (PES 15: 1049 of 5060 pairs differ), so a floor, not a majority.
+        assert!(
+            changed > 100,
+            "{version:?}: the donors differ from the targets ({changed})"
+        );
     }
 }
 
@@ -129,22 +138,66 @@ fn fingerprint_fields_and_hash_match_the_compare_script_on_every_fixture_player(
             // (playerID, bootsGlovesData, faceID) = unpack('< III', appearance[0:12])
             assert_eq!(u32::from_le_bytes(block[0..4].try_into().unwrap()), id);
             let boots_gloves = u32::from_le_bytes(block[4..8].try_into().unwrap());
-            assert_eq!(p.appearance.boots_id, (boots_gloves >> 4) & 0x3fff, "{version:?} {id} boots");
-            assert_eq!(p.appearance.gloves_id, (boots_gloves >> 18) & 0x3fff, "{version:?} {id} gloves");
+            assert_eq!(
+                p.appearance.boots_id,
+                (boots_gloves >> 4) & 0x3fff,
+                "{version:?} {id} boots"
+            );
+            assert_eq!(
+                p.appearance.gloves_id,
+                (boots_gloves >> 18) & 0x3fff,
+                "{version:?} {id} gloves"
+            );
             assert_eq!(
                 p.appearance.base_copy_id,
                 u32::from_le_bytes(block[8..12].try_into().unwrap()),
                 "{version:?} {id} face"
             );
-            assert_eq!(u32::from(p.appearance.wrist_taping & 1), bits(block, 19, 6, 1), "{version:?} {id} right wrist");
-            assert_eq!(u32::from(p.appearance.wrist_taping >> 1), bits(block, 19, 7, 1), "{version:?} {id} left wrist");
-            assert_eq!(u32::from(p.appearance.spectacles_style), bits(block, 20, 3, 3), "{version:?} {id} glasses");
-            assert_eq!(u32::from(p.appearance.sleeves), bits(block, 20, 6, 2), "{version:?} {id} sleeves");
-            assert_eq!(u32::from(p.appearance.inners), bits(block, 20, 8, 2), "{version:?} {id} inners");
-            assert_eq!(u32::from(p.appearance.socks), bits(block, 20, 10, 2), "{version:?} {id} socks");
-            assert_eq!(u32::from(p.appearance.undershorts), bits(block, 20, 12, 2), "{version:?} {id} undershorts");
-            assert_eq!(u32::from(p.appearance.untucked), bits(block, 20, 14, 1), "{version:?} {id} shirt");
-            assert_eq!(u32::from(p.appearance.ankle_taping), bits(block, 20, 15, 1), "{version:?} {id} ankle");
+            assert_eq!(
+                u32::from(p.appearance.wrist_taping & 1),
+                bits(block, 19, 6, 1),
+                "{version:?} {id} right wrist"
+            );
+            assert_eq!(
+                u32::from(p.appearance.wrist_taping >> 1),
+                bits(block, 19, 7, 1),
+                "{version:?} {id} left wrist"
+            );
+            assert_eq!(
+                u32::from(p.appearance.spectacles_style),
+                bits(block, 20, 3, 3),
+                "{version:?} {id} glasses"
+            );
+            assert_eq!(
+                u32::from(p.appearance.sleeves),
+                bits(block, 20, 6, 2),
+                "{version:?} {id} sleeves"
+            );
+            assert_eq!(
+                u32::from(p.appearance.inners),
+                bits(block, 20, 8, 2),
+                "{version:?} {id} inners"
+            );
+            assert_eq!(
+                u32::from(p.appearance.socks),
+                bits(block, 20, 10, 2),
+                "{version:?} {id} socks"
+            );
+            assert_eq!(
+                u32::from(p.appearance.undershorts),
+                bits(block, 20, 12, 2),
+                "{version:?} {id} undershorts"
+            );
+            assert_eq!(
+                u32::from(p.appearance.untucked),
+                bits(block, 20, 14, 1),
+                "{version:?} {id} shirt"
+            );
+            assert_eq!(
+                u32::from(p.appearance.ankle_taping),
+                bits(block, 20, 15, 1),
+                "{version:?} {id} ankle"
+            );
             assert_eq!(
                 u32::from(face.get(IngameFaceField::PlayerGloves).unwrap()),
                 bits(block, 22, 0, 1),
@@ -171,6 +224,9 @@ fn fingerprint_fields_and_hash_match_the_compare_script_on_every_fixture_player(
             assert_eq!(actual.0, digest[..4], "{version:?} {id} hash bytes");
             hashes.insert(expected);
         }
-        assert!(hashes.len() > 1, "{version:?}: the fixture has more than one face");
+        assert!(
+            hashes.len() > 1,
+            "{version:?}: the fixture has more than one face"
+        );
     }
 }

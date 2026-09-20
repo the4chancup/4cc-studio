@@ -82,3 +82,58 @@ pub(crate) fn find_player(payload: &[u8], schema: &VersionSchema, id: u32) -> Pl
     }
     panic!("player {id} not in the save");
 }
+
+/// The master key matching a fixture version.
+fn key(version: PesVersion) -> crate::container::MasterKey {
+    use crate::container::MasterKey;
+    match version {
+        PesVersion::Pes15 => panic!("PES 15 is not keyed"),
+        PesVersion::Pes16 => MasterKey::Pes16,
+        PesVersion::Pes17 => MasterKey::Pes17,
+        PesVersion::Pes18 => MasterKey::Pes18,
+        PesVersion::Pes19 => MasterKey::Pes19,
+        PesVersion::Pes20 => MasterKey::Pes20,
+        PesVersion::Pes21 => MasterKey::Pes21,
+    }
+}
+
+/// A `SaveContainer` around a fixture's inflated payload.
+pub(crate) fn fixture_container(version: PesVersion) -> crate::container::SaveContainer {
+    use crate::container::{SaveContainer, Scheme};
+    let mut description = b"Edit Data".to_vec();
+    description.resize(384, 0);
+    match version {
+        PesVersion::Pes15 => SaveContainer {
+            scheme: Scheme::Pes15,
+            description,
+            logo: Vec::new(),
+            payload: payload(version),
+            identifier: Vec::new(),
+            serial: Vec::new(),
+        },
+        _ => {
+            let key = key(version);
+            SaveContainer {
+                scheme: Scheme::Keyed(key),
+                description,
+                logo: Vec::new(),
+                payload: payload(version),
+                identifier: vec![0; key.header_size() - 80],
+                serial: Vec::new(),
+            }
+        }
+    }
+}
+
+/// The salt the tests write with.
+pub(crate) fn test_salt() -> [u8; 320] {
+    std::array::from_fn(|i| (i % 251) as u8 + 1)
+}
+
+/// A fixture as an `EditFile`, plus the container bytes it decoded from.
+pub(crate) fn open(version: PesVersion) -> (crate::file::EditFile, Vec<u8>) {
+    let container = fixture_container(version);
+    let bytes = container.to_bytes(&test_salt()).expect("container encodes");
+    let file = crate::file::EditFile::from_bytes(&bytes).expect("the save opens");
+    (file, bytes)
+}

@@ -376,59 +376,7 @@ mod tests {
     use pes_version::PesVersion;
 
     use super::*;
-    use crate::container::{MasterKey, Scheme};
-    use crate::test_support::{FIXTURES, payload};
-
-    /// The master key matching a fixture version.
-    fn key(version: PesVersion) -> MasterKey {
-        match version {
-            PesVersion::Pes15 => panic!("PES 15 is not keyed"),
-            PesVersion::Pes16 => MasterKey::Pes16,
-            PesVersion::Pes17 => MasterKey::Pes17,
-            PesVersion::Pes18 => MasterKey::Pes18,
-            PesVersion::Pes19 => MasterKey::Pes19,
-            PesVersion::Pes20 => MasterKey::Pes20,
-            PesVersion::Pes21 => MasterKey::Pes21,
-        }
-    }
-
-    /// A `SaveContainer` around a fixture's inflated payload.
-    fn fixture_container(version: PesVersion) -> SaveContainer {
-        let mut description = b"Edit Data".to_vec();
-        description.resize(384, 0);
-        match version {
-            PesVersion::Pes15 => SaveContainer {
-                scheme: Scheme::Pes15,
-                description,
-                logo: Vec::new(),
-                payload: payload(version),
-                identifier: Vec::new(),
-                serial: Vec::new(),
-            },
-            _ => {
-                let key = key(version);
-                SaveContainer {
-                    scheme: Scheme::Keyed(key),
-                    description,
-                    logo: Vec::new(),
-                    payload: payload(version),
-                    identifier: vec![0; key.header_size() - 80],
-                    serial: Vec::new(),
-                }
-            }
-        }
-    }
-
-    fn test_salt() -> [u8; 320] {
-        std::array::from_fn(|i| (i % 251) as u8 + 1)
-    }
-
-    fn open(version: PesVersion) -> (EditFile, Vec<u8>) {
-        let container = fixture_container(version);
-        let bytes = container.to_bytes(&test_salt()).expect("container encodes");
-        let file = EditFile::from_bytes(&bytes).expect("the save opens");
-        (file, bytes)
-    }
+    use crate::test_support::{FIXTURES, open, test_salt};
 
     #[test]
     fn every_fixture_opens_and_rewrites_byte_for_byte() {
