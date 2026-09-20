@@ -1527,3 +1527,27 @@ Why: the plan sentence "each such case is reported as a note" was written for th
 per-player cases and read literally contradicted the plan's own `ConvertNote` block, which has
 no such variants; the sentence was narrowed rather than the enum widened.
 Plan: `pes_savefile/operations.md` "What the Rust module is" (first paragraph).
+
+## 2026-09-20 - pes_savefile - transplant copies the whole appearance block; the comparator compares every stored field, aesthetics = what a transplant moves
+Decision (lead, opening 2.17g): `ops::transplant::transplant_player` copies `appearance` (the
+ingame-face run whole) and the four appearance edit flags, where the reference script copies
+bytes 4..68 of the block and so leaves a 16+ run's last four bytes. Measured first: those bytes
+are zero on all 24 656 players of the 16/17/18/19/21 fixtures, so the outputs are byte-identical
+on real saves. `ops::compare::compare_players` walks the version schema's stored fields through
+the model (plus the texts and the known ingame-face bits) rather than a hand-kept list, and
+tags each row by `DiffScope`: aesthetics is the set `transplant_player` moves, everything else
+(motion, the other edit flags, nationality) is gameplay. A change inside a known face field is
+one `Face` row; `FaceRun` (the reference's fingerprint, old and new) is emitted only when bits
+no `IngameFaceField` names differ. Saves are paired by player id. There is no `Fingerprint`
+struct: `PlayerAppearance` is already the comparable value and `FaceHash` is the only thing the
+struct would have added.
+Rejected: reproducing the 46-byte slice (two rules for one block, and the plan's run is a unit);
+a hand-written field list for the comparator (the reference editor's omits motion, edit flags
+and nationality by accident of its author's needs, and a list drifts from the schema); reporting
+`FaceRun` on any normalized-run difference (a nose change would print twice); the reference
+editor's roster-slot pairing (a reshuffle is not an edit).
+Why: byte parity is the standard and it holds; the schema is the one place that knows what a
+version stores, so a comparator that reads it cannot miss a field the way both references do;
+the transplant preview and the "did anything visual change" question both reduce to the
+aesthetics rows, so a separate fingerprint struct would be a second copy of `PlayerAppearance`.
+Plan: `pes_savefile/operations.md` "Save-to-save operations".
