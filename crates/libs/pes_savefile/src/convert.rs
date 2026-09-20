@@ -112,8 +112,16 @@ pub fn convert_player(
             PlayerText::Name => (&mut out.name, &source.name),
             PlayerText::ShirtName => (&mut out.shirt_name, &source.shirt_name),
         };
-        let value = cut(original, spec.len as usize - 1);
-        if value.len() < original.len() {
+        // `Name` is UTF-8 (cut at a byte boundary); `ShirtName` is single-byte
+        // text on disk, one char per stored byte (cut at a char count).
+        let value = match spec.text {
+            PlayerText::Name => cut(original, spec.len as usize - 1),
+            PlayerText::ShirtName => original
+                .chars()
+                .take(spec.len as usize - 1)
+                .collect::<String>(),
+        };
+        if value != *original {
             notes.push(ConvertNote::TextTruncated { text: spec.text });
         }
         *slot = value;
@@ -593,18 +601,9 @@ mod tests {
         assert_eq!(target, before, "all-or-nothing");
     }
 
-    #[test]
-    fn skills_the_target_lacks_are_dropped_with_notes() {
-        let mut source = first(V::Pes21);
-        source.skills.skills = [true; 41];
-        let schema15 = schema_for(V::Pes15).player;
-        let missing: Vec<u8> = (0..41)
-            .filter(|&i| !schema15.has(PlayerField::Skill(i)))
-            .collect();
-        assert!(!missing.is_empty(), "PES 15 lacks some skills");
-        let mut target = first(V::Pes15);
-        let notes = convert_player(&source, V::Pes21, &mut target, V::Pes15).expect("converts");
-        let dropped: Vec<u8> = notes
+    /// The `SkillDropped` indices of a conversion's notes.
+    fn dropped(notes: &[ConvertNote]) -> Vec<u8> {
+        notes
             .iter()
             .filter_map(|note| {
                 if let N::SkillDropped { index } = note {
@@ -613,9 +612,39 @@ mod tests {
                     None
                 }
             })
-            .collect();
-        assert_eq!(dropped, missing);
-        for &i in &missing {
+            .collect()
+    }
+
+    #[test]
+    fn skills_the_target_lacks_are_dropped_with_notes() {
+        // PES 15's skill rows (schema/pes15.rs): 0-5, 7-9, 11-15, 18-20,
+        // 22-23, 25-27; every other index drops.
+        const PES15_DROPS: &[u8] = &[
+            6, 10, 16, 17, 21, 24, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40,
+        ];
+        // PES 16's skills are one array of 28 (schema/pes16.rs `Skill` spec).
+        const PES16_DROPS: &[u8] = &[28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40];
+
+        let mut source = first(V::Pes21);
+        source.skills.skills = [true; 41];
+        let mut target = first(V::Pes15);
+        let notes = convert_player(&source, V::Pes21, &mut target, V::Pes15).expect("converts");
+        assert_eq!(dropped(&notes), PES15_DROPS);
+        for i in 0..41u8 {
+            assert_eq!(
+                target.skills.skills[usize::from(i)],
+                !PES15_DROPS.contains(&i),
+                "skill {i}"
+            );
+        }
+
+        let mut target = first(V::Pes16);
+        let notes = convert_player(&source, V::Pes21, &mut target, V::Pes16).expect("converts");
+        assert_eq!(dropped(&notes), PES16_DROPS);
+        for i in 0..28usize {
+            assert!(target.skills.skills[i], "skill {i} survives the array path");
+        }
+        for &i in PES16_DROPS {
             assert!(!target.skills.skills[usize::from(i)]);
         }
 
@@ -697,6 +726,31 @@ mod tests {
         convert_player(&source, V::Pes19, &mut target, V::Pes16).expect("converts");
         assert_eq!(target.name.len(), 44);
         assert!(target.name.is_char_boundary(target.name.len()));
+        writes_ok(V::Pes16, &target);
+    }
+
+    #[test]
+    fn the_shirt_name_counts_chars_not_utf8_bytes() {
+        // ShirtName is single-byte text on disk: 15 'é' is a 15-byte payload.
+        let mut source = first(V::Pes16);
+        source.shirt_name = "é".repeat(15);
+        let mut target = first(V::Pes19);
+        let notes = convert_player(&source, V::Pes16, &mut target, V::Pes19).expect("converts");
+        assert_eq!(target.shirt_name, "é".repeat(15));
+        assert!(!notes.iter().any(|note| matches!(
+            note,
+            N::TextTruncated {
+                text: PlayerText::ShirtName,
+            }
+        )));
+
+        source.shirt_name = "é".repeat(16);
+        let mut target = first(V::Pes16);
+        let notes = convert_player(&source, V::Pes16, &mut target, V::Pes16).expect("converts");
+        assert_eq!(target.shirt_name, "é".repeat(15));
+        assert!(notes.contains(&N::TextTruncated {
+            text: PlayerText::ShirtName,
+        }));
         writes_ok(V::Pes16, &target);
     }
 

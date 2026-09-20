@@ -41,6 +41,8 @@ pub fn face_type_cap(version: PesVersion, field: IngameFaceField) -> Option<u8> 
 mod tests {
     use super::*;
 
+    use PesVersion as V;
+
     /// The eleven face-type fields, in `IngameFaceField::ALL` order.
     const TYPES: [IngameFaceField; 11] = [
         F::CheekType,
@@ -66,6 +68,42 @@ mod tests {
                 } else {
                     assert_eq!(cap, None, "{version:?} {field:?}");
                 }
+            }
+        }
+    }
+
+    /// The plan's table, as literals: the 19 → 16 converter's caps (PES 16
+    /// column) and the 16 → 21 converter's (PES 21 column), in `TYPES` order.
+    const GOLDEN: [(u8, u8); 11] = [
+        (3, 3),
+        (5, 5),
+        (12, 19),
+        (4, 4),
+        (6, 7),
+        (2, 6),
+        (5, 7),
+        (2, 3),
+        (6, 7),
+        (3, 4),
+        (2, 4),
+    ];
+
+    #[test]
+    fn the_caps_are_the_converters_values() {
+        for (field, (older, newer)) in TYPES.into_iter().zip(GOLDEN) {
+            for version in [V::Pes15, V::Pes16, V::Pes17, V::Pes18, V::Pes19] {
+                assert_eq!(
+                    face_type_cap(version, field),
+                    Some(older),
+                    "{version:?} {field:?}"
+                );
+            }
+            for version in [V::Pes20, V::Pes21] {
+                assert_eq!(
+                    face_type_cap(version, field),
+                    Some(newer),
+                    "{version:?} {field:?}"
+                );
             }
         }
     }
