@@ -1,0 +1,6 @@
+# Leave two logical processors free of rustc/cargo work so the machine stays usable during a
+# build. A negative `jobs` is relative to the logical CPU count (cargo >= 1.63), so CI's small
+# runners are capped the same way instead of oversubscribed by a hard number. rustc's codegen
+# threads draw from the same jobserver budget, so this caps the whole build, not just cargo.
+[build]
+jobs = -2
