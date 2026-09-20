@@ -22,6 +22,8 @@ mod pes20;
 pub mod playstyle;
 #[cfg(test)]
 mod playstyle_golden;
+/// The per-version Texport file layouts (18-21) and payload offsets (15-17).
+pub mod texport;
 
 use pes_version::PesVersion;
 

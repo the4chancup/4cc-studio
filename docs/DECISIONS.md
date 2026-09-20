@@ -1641,3 +1641,16 @@ roster of a 15-17 texport come from the target save until measured), `shirt_name
 character set beyond upper-casing.
 Plan: `pes_savefile/operations.md` "Interchange formats" (rewritten), `pes_savefile/README.md`
 crate tree, `pes_savefile/verification.md`.
+
+## 2026-09-21 - pes_savefile - PES 20 Texport size is derived from its record sizes, not the reference's 0x39E4
+Decision (lead, on the sidekick's finding in 2.17h-1): the reference editor assumes PES 20 and
+21 texports share one size (`0x39E4`) and differ only in key index. PES 20's team record is 528
+bytes and its roster 244 against 21's 588/284, so a 21-sized body cannot hold `team | coach |
+roster | tactics | 660 | 40 players | tail` with 20's records: the width invariant failed on the
+first test. `schema/texport.rs` therefore gives PES 20 the size its own records derive
+(`0x39A8`), the reference's key index `0x14` and PES 21's header/coach/tail templates, all marked
+unverified; detection is by size alone, every size now distinct. Rejected: keeping `0x39E4` and
+a two-way detection - a layout that contradicts its own schema cannot be right, and the
+detection rule would encode the contradiction. When a PES 20 texport is measured, the layout is
+one table row to fix.
+Plan: `pes_savefile/operations.md` "Texport (read + write)".
