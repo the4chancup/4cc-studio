@@ -1512,3 +1512,18 @@ and the census sides with the arrays. The model keeps the index because the code
 in hand and only conversion and interchange need the canonical value.
 Plan: `pes_savefile/operations.md` "Cross-version player conversion" (playing styles table),
 `pes_savefile/model.md` "Player/team/tactics model" version quirks paragraph.
+
+## 2026-09-20 - pes_savefile - a `ConvertNote` reports what depends on the player's data, not on the version pair
+Decision (lead): `convert_player` emits a note for every non-carry that a *different player*
+would not trigger (a face type over the cap, skin 7 across a no-custom-skin side, a style or
+skill the target lacks *and the player has set*, a text cut, a 50-byte run onto a 46-byte
+target). What is the same for every player of a version pair is not a note: a gated stat the
+target version has no field for (the target's `None` stands), or the four tail bytes a 16+
+template keeps against a PES 15 source.
+Rejected: `GatedFieldDropped`/`FaceTailFromTemplate` variants (raised by the checkpoint
+review). They would fire on every player of a 19 → 15 or 15 → 16 conversion and bury the
+per-player notes; the caller knows the version pair and states the fact once.
+Why: the plan sentence "each such case is reported as a note" was written for the lossy
+per-player cases and read literally contradicted the plan's own `ConvertNote` block, which has
+no such variants; the sentence was narrowed rather than the enum widened.
+Plan: `pes_savefile/operations.md` "What the Rust module is" (first paragraph).

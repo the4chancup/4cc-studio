@@ -12,10 +12,9 @@ is in `AGENTS.md` ("Working documents").
 **Phase:** 2 (Library crates). Done: 2.1 `wezlib`, 2.2 `cpk`, 2.3 `fpk`, 2.4 `ftex`, 2.5 `dds_convert` (CPU),
 2.6 `fmdl` (format, model, ops, check), 2.7 `pes_model` (format, mtl, model, ops, check), 2.8 `uniparam`, 2.9 `fox2`, 2.10 `archives`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`, 2.14 `color_tools`, 2.15 `elevation`. Review
 rounds A and B (2026-09-13) closed: 2.5c, 2.12b, 2.13b done.
-**In progress:** 2.17 `pes_savefile` (a–e done; f next), then 2.18 `python_bindings`. Review
+**In progress:** 2.17 `pes_savefile` (a–f done; g next), then 2.18 `python_bindings`. Review
 round C (2026-09-19) closed as 2.19a; its leftovers are listed under 2.20.
-**Blocked on:** nothing (the two 2.17e decisions were made 2026-09-19: key table and option A,
-`DECISIONS.md`)
+**Blocked on:** nothing
 
 ---
 
@@ -403,15 +402,22 @@ Spec: `docs/plans/core/development_plan.md` "Phase 2", `docs/plans/libs/README.m
   instead of panicking, NUL in a name refused, the copy test now proves the undecoded bits are
   carried not copied), one accepted as a doc/plan sharpening (`is_fpc_player` classifies what
   the save shows; decision entry). Crate 75 tests; workspace gates green
-- [ ] 2.17f `convert.rs` cross-version conversion (`pes_savefile/operations.md` "Cross-version
-  player conversion", "What the Rust module is"), in two slices:
-  - [ ] 2.17f-1 `model/playstyle.rs` + `schema/playstyle.rs` (`decode`/`encode`, the four lists,
+- [x] 2.17f `convert.rs` cross-version conversion (`pes_savefile/operations.md` "Cross-version
+  player conversion", "What the Rust module is"), in two slices — done (`da6e60b`, `17d011c` plus
+  the review rework); checkpoint (b) review (`gpt-astra-high`): five concerns, four accepted and
+  fixed (shirt name cut by chars, not UTF-8 bytes, since it is single-byte text on disk; the skill
+  test asserts literal drop lists for PES 15 and the PES 16 array path instead of re-asserting
+  `has`; the caps table has a literal golden test; `copy_from` is `pub(crate)`), one resolved in
+  the plan (a version-wide non-carry, a gated field the target lacks or the tail a 16+ template
+  keeps, is not a note; decision entry). Crate 93 tests; `mutants-diff` 33 + 2 + 6 caught, 0
+  survived:
+  - [x] 2.17f-1 `model/playstyle.rs` + `schema/playstyle.rs` (`decode`/`encode`, the four lists,
     `CodecError::UnknownPlayingStyle`), `schema/limits.rs` (`face_type_cap`), `settings_toml`
     face-key widest ranges derived from it → verify: the lead's golden test reproduces the
     reference editor's twelve conversion arrays through `encode(to, decode(from, i))`; every
     player of every fixture decodes; ≥ 95 % of registered goalkeepers with a style decode to a
     goalkeeper style on every fixture; the `settings.toml` template is byte-identical to before
-  - [ ] 2.17f-2 `convert.rs` (`convert_player`, `ConvertNote`, `ConvertError`),
+  - [x] 2.17f-2 `convert.rs` (`convert_player`, `ConvertNote`, `ConvertError`),
     `IngameFace::copy_from`, `RecordSchema::has` → verify: 19 → 16 and 16 → 21 of fixture players
     match the converters' appearance writes field by field (copy-through, caps, skin) bar their
     compile-policy rewrites; 16 → 15 drops the run's last four bytes and 15 → 16 keeps the
@@ -618,3 +624,9 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   the review rework): the ingame-face run, `PlayerSettings` with the key table and the TOML
   half, `ops::fpc`; checkpoint (b) review closed. Next: 2.17f `convert.rs` (the 46/50-byte run
   padding rule is its first decision).
+- **2026-09-20** - 2.17f done in three commits (`b9d5535` plan, `da6e60b` playstyle lists +
+  caps, `17d011c` `convert.rs` plus the review rework): canonical `PlayStyle` with the reference
+  editor's twelve arrays as golden data, `face_type_cap`, `convert_player` as a rewrite into a
+  target-version template (prefix copy of the ingame-face run, `min(len)` bytes). Checkpoint (b)
+  closed, one plan sharpening (what is and is not a `ConvertNote`). Next: 2.17g
+  `ops/{transplant,fingerprint,compare}`.

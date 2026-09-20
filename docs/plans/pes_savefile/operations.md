@@ -38,8 +38,11 @@ against the models present, the edit flags, taping and player gloves cleared) is
 not layout translation, and in this suite that policy belongs to the Team compiler's
 `PlayerSettings`/`ops::fpc` pass that runs *after* conversion. `convert.rs` therefore does the
 version-dependent half only: **everything that translates one-to-one is copied through; what does
-not translate is capped, dropped or filled from the target, and each such case is reported as a
-note**, never silently. The converters' compile-policy rewrites are not in this module (decision
+not translate is capped, dropped or filled from the target, and each such case that depends on
+the player's data is reported as a note**, never silently. What depends on the version pair
+alone is not a note: a gated field the target version lacks, or the four tail bytes a 16+
+template keeps against a PES 15 source, is the same for every player of that pair and is the
+caller's to state once (decision entry, 2.17f). The converters' compile-policy rewrites are not in this module (decision
 entry, 2.17f).
 
 The operation is a rewrite **into a template**, as in the reference: the target entry is a player
