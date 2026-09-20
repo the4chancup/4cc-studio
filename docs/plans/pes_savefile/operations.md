@@ -535,9 +535,41 @@ pub struct TeamToml {
     pub tactics: TacticsSection,    // [tactics], .set_pieces, .auto, preset_1..3 with their sub-tables
     pub players: BTreeMap<u8, PlayerSection>,   // roster slot (1-based, as in the key) -> the player's tables
 }
-/// One `[players.NN]`: the scalar keys, `stats`/`positions`/`skills`/`edit_flags` tables of
-/// `Option`s, `ingame_face: Option<Vec<u8>>` and `appearance: AppearanceSettings` (settings_toml's).
-pub struct PlayerSection { /* … */ }
+/// The sections mirror the tables, field names = key names, every leaf `Option`; what the TOML
+/// writes as a label is the model's value here (positions `u8`, switches `bool`, `PlayStyle`,
+/// `Instruction`), the label tables being the parser's and emitter's alone.
+pub struct TeamSection { pub id: Option<u32>, pub name: Option<String>, pub short_name: Option<String>,
+    pub manager_id: Option<u32>, pub stadium_id: Option<u16>, pub color_1: Option<[u8; 3]>,
+    pub color_2: Option<[u8; 3]>, pub kit_slots: Option<[KitSlot; 10]>, pub edit_flags: TeamEditFlagsSection }
+pub struct TeamEditFlagsSection { pub name: Option<bool>, pub short_name: Option<bool>, pub stadium: Option<bool>, pub strip: Option<bool> }
+pub struct TacticsSection { pub starting_eleven: Option<[u8; 11]>, pub bench_order: Option<[u8; 21]>,
+    pub players_to_join_attack: Option<[u8; 3]>, pub set_pieces: SetPiecesSection, pub auto: AutoSection,
+    pub presets: [PresetSection; 3] }
+pub struct SetPiecesSection { /* the seven takers, `Option<u8>` each, names as in `SetPieceTakers` */ }
+pub struct AutoSection { pub substitution: Option<u8>, pub offside_trap: Option<bool>, pub preset_change: Option<bool>, pub attack_defence_levels: Option<bool> }
+pub struct PresetSection { pub style: StyleSection, pub sliders: SlidersSection,
+    pub formations: [Option<[FormationSlot; 11]>; 3], pub instructions: Option<InstructionsSection> }
+pub struct StyleSection { /* the seven switches + `fluid`, `Option<bool>` each, names as in `TacticStyle` */ }
+pub struct SlidersSection { /* the five sliders, `Option<u8>` each, names as in `TacticSliders` */ }
+pub struct InstructionsSection { pub attack: [InstructionEntry; 2], pub defence: [InstructionEntry; 2] }
+pub struct InstructionEntry { pub instruction: Instruction, pub player: u8 }
+/// One `[players.NN]`.
+pub struct PlayerSection { pub name: Option<String>, pub shirt_name: Option<String>, pub number: Option<u16>,
+    pub nationality: Option<u16>, pub age: Option<u8>, pub boots_id: Option<u32>, pub gloves_id: Option<u32>,
+    pub base_copy_id: Option<u32>, pub ingame_face: Option<Vec<u8>>, pub stats: StatsSection,
+    pub positions: PositionsSection, pub skills: SkillsSection, pub edit_flags: EditFlagsSection,
+    pub appearance: AppearanceSettings }
+pub struct StatsSection { /* one `Option<u8>` per `[players.NN.stats]` key, names as in the block */ }
+pub struct PositionsSection { pub registered: Option<u8>, pub playable: Option<[u8; 13]>,
+    pub playing_style: Option<PlayStyle>, pub stronger_foot: Option<u8>, pub stronger_hand: Option<u8> }
+pub struct SkillsSection { pub skills: Option<[bool; 41]>, pub com_styles: Option<[bool; 7]> }
+pub struct EditFlagsSection { /* the fourteen flags, `Option<bool>` each, names as in `PlayerEditFlags` */ }
+
+/// `interchange/legacy.rs`: the read-only formats, each into a `TeamToml` (see below).
+pub fn read_squad(bytes: &[u8]) -> Result<TeamToml, LegacyError>;     // .4ccs
+pub fn read_tactics(bytes: &[u8]) -> Result<TeamToml, LegacyError>;   // .4cct
+pub enum LegacyError { BadTag { expected: &'static str, found: String }, BadVersion(String), Truncated { needed: usize, len: usize },
+    UnknownPlayingStyle { version: PesVersion, value: u8 }, Text(String) }
 
 /// What an import did not apply as written. Version-pair-wide facts are not notes (the 2.17f rule).
 pub enum ImportNote {
