@@ -61,7 +61,7 @@ steps, which every phase has: **converge** (the lead's own audit first, then the
 reviewer's, both against the phase's plan sections and acceptance IDs; each gap becomes a new
 step above it, and the phase waits for them) and **rewrite**
 (the phase's plan sections rewritten in the present tense, in place). Then collapse its step list
-below to this one row; the step-level detail stays in git history. Tool phases (3–6, 8–15) also
+below to this one row; the step-level detail stays in git history. Tool phases (3–6, 8–15, 17, 19) also
 open with an **acceptance** step: the tool plan's "Acceptance" section for that phase, written
 before any code (GUI scenarios that no automated test can prove are marked `manual` and proven by
 a recorded check at converge — `CONTRIBUTING.md` "Testing"). Procedure: `AGENTS.md` "Working
@@ -85,7 +85,9 @@ documents".
 | 14 | Balls compiler | `balls_compiler` | todo |
 | 15 | Player aesthetics editor | `player_aesthetics_editor` | todo |
 | 16 | Polish and distribution | — | todo |
-| 17 | Studio Web (post-release) | — | todo |
+| 17 | Team creator (post-release) | `team_creator` | todo |
+| 18 | Studio Web (post-release) | — | todo |
+| 19 | DB generator (scheduled by need, after 2 and 8) | `db_generator`, `pesdb`, `pes_savefile` `ops/populate.rs` | todo |
 
 ---
 
@@ -652,3 +654,6 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   both rewrite byte-identical with their own salt; `compare` between them finds exactly the 414
   named players. Day-0 save is now the `pes20` fixture, in `FIXTURES` (every fixture-wide test
   runs on it; two non-vacuity floors carry its measured thinness). PES 20 open issue closed.
+- **2026-09-20** - pes-db-generator planned into the suite: `db_generator.md` (tool, Phase 19,
+  scheduled by need), `libs/pesdb` (the Konami table layouts; Ball/Stadium bins move there),
+  `pes_savefile::ops::populate` (the 19+ player-section fill). Decision entry. Next: 2.17h.

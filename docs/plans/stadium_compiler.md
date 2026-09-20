@@ -42,7 +42,7 @@ parsers to the format lib crates.
 | Format | Source | Size | Placement |
 |--------|--------|------|-----------|
 | **fox2** (Fox Engine entity files) | `Engines/stages/lib/fox2.py` + `Engines/stages/lib/fox2_xml.py` | 72KB | `libs/fox2` (general Fox Engine format, reusable) |
-| **Stadium DB bins** (Stadium.bin per version) | `Engines/stages/lib/st_bin_gen.py` | 9KB | `tools/stadium_compiler` (stadium-specific) |
+| **Stadium DB bins** (Stadium.bin per version) | `Engines/stages/lib/st_bin_gen.py` | 9KB | record layout in `libs/pesdb` ([DB generator plan](db_generator.md)), the stadium-specific content rules in `tools/stadium_compiler` |
 
 The fox2 parser is a pure-Python port of Atvaark's FoxTool (C#), including a CityHash64
 implementation for string hash lookup. It compiles XML to fox2 binaries and back, byte-identical to

@@ -465,3 +465,36 @@ template-patching: load a real texport of that version and rewrite the fields we
 model.
 
 ---
+
+## Player section population
+
+The savefile half of the [DB generator](../db_generator.md): from PES 19 the game writes a
+fresh `EDIT00000000` from the database with the player count declared and **no player
+records**, so the day-0 save has to be given its placeholder players before anyone (the game
+included) can edit them. The scripts do it with a hex editor; here it is one operation:
+
+```rust
+/// Writes one base player per (team, slot) into the player section, ids `team*100 + 1..=n`
+/// in team order, and sets the count. `overwrite = false` refuses a section that already holds
+/// records (the day-0 save of a cup that was hand-populated is not to be flattened by accident).
+pub fn populate_players(
+    file: &mut EditFile,
+    teams: &[TeamId],
+    per_team: u8,
+    base: &PlayerEntry,
+    overwrite: bool,
+) -> Result<usize, PopulateError>;
+```
+
+Rules: `base` is the version's **base player**, the `PlayerEntry` the scripts' EDIT-layout
+templates decode to (`Player_Edit_Base_NN.bin` + `PlayerAppearance_Base_16.bin` assembled as
+`player_edit.py` does; committed as a fixture with its provenance), and the operation patches
+only `id` and `base_copy_id` (the record's own id copy, `base_copy_id == id` meaning "unset");
+`per_team` is capped at the version's roster width; the payload's player section grows to
+`teams × per_team` records through `EditFile` — the one place player records are added, since
+`to_bytes` otherwise keeps the file's own record count and order; on 15–18 the operation is
+allowed but pointless (their fresh saves carry the players) and says so through a finding. The
+PES 20 fixture is the day-0 save of a database these scripts generated, so populating a copy
+with its player section stripped must reproduce it byte for byte.
+
+---
