@@ -175,7 +175,10 @@ pub struct VersionSchema {
     pub player: &'static RecordSchema<PlayerField, PlayerText>,
     /// PES 15/16: the separate appearance array (keyed by player id at +0); `None` when the
     /// appearance fields are inside the player record.
-    pub appearance: Option<(SectionLayout, RecordSchema<PlayerField, PlayerText>)>,
+    pub appearance: Option<(
+        SectionLayout,
+        &'static RecordSchema<PlayerField, PlayerText>,
+    )>,
     /// The team record section.
     pub teams: SectionLayout,
     /// The team record layout.
@@ -309,7 +312,7 @@ mod tests {
                 "player",
             );
             if let Some((_, appearance)) = &schema.appearance {
-                check_runs(&mut record_runs(appearance), appearance.size, "appearance");
+                check_runs(&mut record_runs(*appearance), appearance.size, "appearance");
             }
             check_runs(&mut record_runs(schema.team), schema.team.size, "team");
             check_runs(

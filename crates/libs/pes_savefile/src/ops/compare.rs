@@ -178,14 +178,20 @@ impl PlayerDiff {
     }
 }
 
-/// `Field` rows of one record schema, in schema order.
+/// `Field` rows of one record schema, in schema order. `seen`, when given,
+/// is a record whose fields are skipped (the 15/16 appearance record
+/// repeats `Id`).
 fn record_diffs(
     a: &PlayerEntry,
     b: &PlayerEntry,
     schema: &RecordSchema<PlayerField, PlayerText>,
+    seen: Option<&RecordSchema<PlayerField, PlayerText>>,
     diffs: &mut Vec<PlayerDiff>,
 ) -> Result<(), CodecError> {
     for (field, _, _) in codec::runs(schema) {
+        if seen.is_some_and(|seen| seen.has(field)) {
+            continue;
+        }
         let (old, new) = (a.get(field)?, b.get(field)?);
         if old != new {
             diffs.push(PlayerDiff::Field { field, old, new });
@@ -214,9 +220,9 @@ pub fn compare_players(
             field: String::from("ingame_face"),
         });
     }
-    record_diffs(a, b, schema.player, &mut diffs)?;
+    record_diffs(a, b, schema.player, None, &mut diffs)?;
     if let Some((_, appearance)) = &schema.appearance {
-        record_diffs(a, b, appearance, &mut diffs)?;
+        record_diffs(a, b, appearance, Some(schema.player), &mut diffs)?;
     }
     for (text, old, new) in [
         (PlayerText::Name, &a.name, &b.name),
@@ -288,7 +294,12 @@ pub fn compare(a: &EditFile, b: &EditFile) -> Result<SaveDiff, CompareError> {
         });
     }
     let schema = crate::schema::schema_for(a.version());
-    let b_by_id: HashMap<u32, &PlayerEntry> = b.players().iter().map(|p| (p.id, p)).collect();
+    // `or_insert` keeps the first record of a duplicate id, as `player` does.
+    let b_by_id: HashMap<u32, &PlayerEntry> =
+        b.players().iter().fold(HashMap::new(), |mut map, p| {
+            map.entry(p.id).or_insert(p);
+            map
+        });
     let mut diff = SaveDiff::default();
     let mut a_ids = HashSet::new();
     for pa in a.players() {
@@ -467,6 +478,95 @@ mod tests {
                 new: skin ^ 1,
             }]
         );
+    }
+
+    #[test]
+    fn a_field_is_aesthetics_exactly_when_transplant_moves_it() {
+        let schema = schema_for(PesVersion::Pes21);
+        let a = player(PesVersion::Pes21, 70101);
+        for (field, _, width) in crate::codec::runs(schema.player) {
+            let old = a.get(field).expect("covered");
+            let new = if old == 0 { 1 } else { 0 };
+            assert!(width == 32 || new < (1u32 << width), "{field:?}");
+            let mut b = a.clone();
+            b.set(field, new).expect("fits");
+            let diffs = compare_players(&a, &b, schema).expect("compares");
+            assert_eq!(diffs, [PlayerDiff::Field { field, old, new }], "{field:?}");
+            let mut c = a.clone();
+            crate::ops::transplant::transplant_player(&mut c, &b);
+            let moved = c.get(field).expect("covered") == new;
+            assert_eq!(
+                diffs[0].scope() == DiffScope::Aesthetics,
+                moved,
+                "{field:?}"
+            );
+        }
+
+        // The texts are gameplay.
+        let mut b = a.clone();
+        b.name.push('X');
+        b.shirt_name.push('X');
+        let diffs = compare_players(&a, &b, schema).expect("compares");
+        assert_eq!(diffs.len(), 2, "{diffs:?}");
+        for diff in &diffs {
+            assert_eq!(diff.scope(), DiffScope::Gameplay, "{diff:?}");
+        }
+    }
+
+    #[test]
+    fn a_face_field_and_an_undecoded_bit_are_two_rows() {
+        let a = player(PesVersion::Pes21, 70101);
+        let schema = schema_for(PesVersion::Pes21);
+        let face = &a.appearance.ingame_face;
+        let nose = face.get(IngameFaceField::NoseType).expect("covered");
+        let (byte, bit) = an_undecoded_bit(face.bytes().len());
+
+        let mut b = a.clone();
+        let mut run = face.bytes().to_vec();
+        run[byte] ^= 1 << bit;
+        b.appearance.ingame_face = IngameFace::from_bytes(run);
+        b.appearance
+            .ingame_face
+            .set(IngameFaceField::NoseType, nose ^ 1)
+            .expect("fits");
+
+        let diffs = compare_players(&a, &b, schema).expect("compares");
+        assert_eq!(
+            diffs,
+            [
+                PlayerDiff::Face {
+                    field: IngameFaceField::NoseType,
+                    old: nose,
+                    new: nose ^ 1,
+                },
+                PlayerDiff::FaceRun {
+                    old: face_hash(face),
+                    new: face_hash(&b.appearance.ingame_face),
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn the_appearance_records_id_is_not_a_second_id_row() {
+        let schema = schema_for(PesVersion::Pes16);
+        let a = player(PesVersion::Pes16, 70101);
+        let b = player(PesVersion::Pes16, 70202);
+        assert_ne!(a.id, b.id);
+        let ids: Vec<PlayerDiff> = compare_players(&a, &b, schema)
+            .expect("compares")
+            .into_iter()
+            .filter(|d| {
+                matches!(
+                    d,
+                    PlayerDiff::Field {
+                        field: PlayerField::Id,
+                        ..
+                    }
+                )
+            })
+            .collect();
+        assert_eq!(ids.len(), 1, "{ids:?}");
     }
 
     #[test]

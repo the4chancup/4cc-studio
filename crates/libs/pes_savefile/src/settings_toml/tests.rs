@@ -26,7 +26,7 @@ fn every_settings_field_is_a_key_and_every_key_a_settings_field() {
         let schema = schema_for(version);
         fields.extend(runs(schema.player).map(|(f, _, _)| f));
         if let Some((_, appearance)) = &schema.appearance {
-            fields.extend(runs(appearance).map(|(f, _, _)| f));
+            fields.extend(runs(*appearance).map(|(f, _, _)| f));
         }
     }
     let mut settings = HashSet::new();

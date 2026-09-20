@@ -321,7 +321,7 @@ pub(crate) static PLAYER: RecordSchema<PlayerField, PlayerText> = RecordSchema {
 };
 
 /// The PES 16 appearance record; the player id at +0 keys it to its player record.
-pub(crate) const APPEARANCE: RecordSchema<PlayerField, PlayerText> = RecordSchema {
+pub(crate) static APPEARANCE: RecordSchema<PlayerField, PlayerText> = RecordSchema {
     size: 72,
     fields: &[
         FieldSpec {
@@ -719,7 +719,7 @@ pub(crate) static PES16: VersionSchema = VersionSchema {
             offset: 0x2ab9cc,
             count_offset: 0x36,
         },
-        APPEARANCE,
+        &APPEARANCE,
     )),
     teams: SectionLayout {
         offset: 0x46310c,
