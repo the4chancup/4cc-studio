@@ -2051,4 +2051,49 @@ mod tests {
             17
         );
     }
+
+    /// A team text of exactly the field's capacity applies; one byte over
+    /// is `TextTooLong` and writes nothing.
+    #[test]
+    fn a_team_text_at_the_fields_capacity_applies_and_one_more_is_refused() {
+        let (file, _) = open(PesVersion::Pes19);
+        let team = file.teams().first().expect("a team");
+        let texts = schema_for(PesVersion::Pes19).team.texts;
+        let name_max = text_max(texts, TeamText::Name);
+        let short_max = text_max(texts, TeamText::ShortName);
+        let doc = |name: &str, short: &str| {
+            TeamToml::parse(&format!(
+                "[team]\nname = \"{name}\"\nshort_name = \"{short}\"\n"
+            ))
+            .expect("parses")
+        };
+
+        let mut target = team.clone();
+        doc(&"N".repeat(name_max), &"S".repeat(short_max))
+            .apply(PesVersion::Pes19, &mut target, &mut [])
+            .expect("at capacity applies");
+        assert_eq!(target.name, "N".repeat(name_max));
+        assert_eq!(target.short_name, "S".repeat(short_max));
+
+        for (name_over, short_over, key, max) in [
+            (true, false, "team.name", name_max),
+            (false, true, "team.short_name", short_max),
+        ] {
+            let name = "N".repeat(name_max + usize::from(name_over));
+            let short = "S".repeat(short_max + usize::from(short_over));
+            let mut target = team.clone();
+            let err = doc(&name, &short)
+                .apply(PesVersion::Pes19, &mut target, &mut [])
+                .expect_err("one byte over");
+            assert!(
+                matches!(
+                    err,
+                    TeamTomlError::TextTooLong { ref path, max: m }
+                        if path == key && m == max
+                ),
+                "{err:?}"
+            );
+            assert_eq!(&target, team, "nothing was written");
+        }
+    }
 }

@@ -1535,6 +1535,60 @@ mod tests {
         assert_eq!(&target, team, "nothing was written");
     }
 
+    /// A name or shirt name of exactly the field's capacity applies; one
+    /// byte over is `TextTooLong`.
+    #[test]
+    fn a_player_text_at_the_fields_capacity_applies_and_one_more_is_refused() {
+        let (file, _) = open(PesVersion::Pes16);
+        let (team, slot) = first_slot(&file);
+        let id = team.roster[slot].player_id;
+        let texts = schema_for(PesVersion::Pes16).player.texts;
+        let name_max = text_max(texts, PlayerText::Name);
+        let shirt_max = text_max(texts, PlayerText::ShirtName);
+
+        let section = PlayerSection {
+            name: Some("N".repeat(name_max)),
+            shirt_name: Some("S".repeat(shirt_max)),
+            ..PlayerSection::default()
+        };
+        let mut target = team.clone();
+        let mut players = file.players().to_vec();
+        one_section(PesVersion::Pes16, slot, section)
+            .apply(PesVersion::Pes16, &mut target, &mut players)
+            .expect("at capacity applies");
+        let applied = players
+            .iter()
+            .find(|player| player.id == id)
+            .expect("the player");
+        assert_eq!(applied.name, "N".repeat(name_max));
+        assert_eq!(applied.shirt_name, "S".repeat(shirt_max));
+
+        for (name_over, shirt_over, leaf, max) in [
+            (true, false, "name", name_max),
+            (false, true, "shirt_name", shirt_max),
+        ] {
+            let section = PlayerSection {
+                name: Some("N".repeat(name_max + usize::from(name_over))),
+                shirt_name: Some("S".repeat(shirt_max + usize::from(shirt_over))),
+                ..PlayerSection::default()
+            };
+            let mut target = team.clone();
+            let mut players = file.players().to_vec();
+            let err = one_section(PesVersion::Pes16, slot, section)
+                .apply(PesVersion::Pes16, &mut target, &mut players)
+                .expect_err("one byte over");
+            assert!(
+                matches!(
+                    err,
+                    TeamTomlError::TextTooLong { ref path, max: m }
+                        if *path == format!("players.{:02}.{leaf}", slot + 1) && m == max
+                ),
+                "{err:?}"
+            );
+            assert_eq!(&target, team, "nothing was written");
+        }
+    }
+
     /// The `NotEncodable` note names the label of the style the target
     /// cannot store — not some other style's.
     #[test]

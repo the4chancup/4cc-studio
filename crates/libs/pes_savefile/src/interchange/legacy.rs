@@ -814,6 +814,33 @@ mod tests {
             .expect("applies to a PES 16 team");
     }
 
+    /// Each of the block's last four bytes lands on its own auto field:
+    /// substitution, offside trap, preset change, attack/defence levels.
+    #[test]
+    fn each_auto_byte_lands_on_its_own_field() {
+        let mut bytes = NIGHTLY.to_vec();
+        bytes[13 + TACTICS - 4..13 + TACTICS].copy_from_slice(&[0, 1, 0, 1]);
+        let doc = read_tactics(&bytes).expect("a .4cct");
+        assert_eq!(doc.tactics.auto.substitution, Some(0));
+        assert_eq!(doc.tactics.auto.offside_trap, Some(true));
+        assert_eq!(doc.tactics.auto.preset_change, Some(false));
+        assert_eq!(doc.tactics.auto.attack_defence_levels, Some(true));
+    }
+
+    /// Exactly forty records — the roster's width — parse; the numbers
+    /// block covers them all.
+    #[test]
+    fn a_squad_of_exactly_forty_players_parses() {
+        let record = &SQUAD[HEADER..HEADER + RECORD];
+        let mut bytes = b"21a19".to_vec();
+        for _ in 0..40 {
+            bytes.extend_from_slice(record);
+        }
+        bytes.extend_from_slice(&[0u8; NUMBERS]);
+        let doc = read_squad(&bytes).expect("forty players parse");
+        assert_eq!(doc.players.len(), 40);
+    }
+
     /// More records than the 40-slot roster is `TooManyPlayers`, never an
     /// index panic on the shirt-number block.
     #[test]
