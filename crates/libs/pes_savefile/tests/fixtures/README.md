@@ -21,3 +21,15 @@ Per version `NN`:
 | 19 | `Documents/KONAMI/PRO EVOLUTION SOCCER 2019/<account>/save/EDIT00000000` (identical to `Cups/Genso Cup 2/EDIT00000000`) | 7350036 / 27504 / 46 | header 208; `PRO EVOLUTION SOCCER 2019` |
 | 20 | `Documents/KONAMI/eFootball PES 2020/<account>/save/EDIT00000000-day0` (a 4cc invitational's day-0 save: 414 named players on two-ish teams, the other 4646 `PLACEHOLDER`; the sibling `EDIT00000000` is the fresh game-generated save with every player a placeholder, which some golden non-vacuity floors cannot meet) | 10964500 / 13951 / 44 | header 208; `eFootball PES 2020` |
 | 21 | `Documents/KONAMI/eFootball PES 2021 SEASON UPDATE/<account>/save/EDIT00000000` | 10995800 / 14235 / 45 | header 208; `eFootball PES 2021 SEASON UPDATE` |
+
+## Interchange fixtures (2.17h)
+
+Extracted by `scripts/provenance/fixtures/interchange_fixtures.py`, which also prints the literals
+the golden tests hold.
+
+| File | Holds |
+|---|---|
+| `pes18_texport.ted`, `pes19_texport.ted`, `pes21_texport.ted` | Whole real Texport files (8128 / 9648 / 14820 bytes; no personal data beyond the team's content): `WEPES/osyearduh.ted` (PES 18, team 736 `/o/`), `WEPES/98HU.ted` (PES 19, team 841 `/98hu/`), `WEPES/98hu_vrl4_v1.ted` (PES 21, team 841). 23 players each |
+| `pes17_texport_head.bin`, `pes17_texport_payload_enc_head.bin`, `pes17_texport_payload.bin.zz` | The save-style slices of `Saves/pesXcrypter/TEXPORT00000000`, a PES 17 texport (team 736, 23 players): container header 176, payload 5578704, logo 31590, description `Team Export Data 03`, serial 46 units; payload MD5 `d7a58b1b07efd13fb9861fa5fd53a6a6` |
+| `pes19_squad.4ccs` | A real `.4ccs` (`PRO EVOLUTION SOCCER 2019/<account>/save/CM.4ccs`, team 713, 23 players, tag `20a`, no tactics block) |
+| `pes19_tactics.4cct` | **Synthesized**: the reference editor's `save_tactical_data` write walk (transcribed in the script) over team 713's tactics record of the PES 19 payload fixture, header `001` + `19` + `713`; block MD5 `4985ec743656067c618235ef11e9a2a3`. No real `.4cct` exists on the machine |
