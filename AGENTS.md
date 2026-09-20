@@ -59,7 +59,11 @@ the sidekick. A brief names the plan section(s) and `CONTRIBUTING.md` as reading
 coding (the sidekick does not inherit this file's context), tells the sidekick to invoke the
 `karpathy-guidelines` skill first (skills the lead has loaded are not active in the sidekick;
 an uninstructed sidekick never invokes one), plus the acceptance IDs, the `→ verify:`
-criterion, and the rule that a plan gap is *reported*, never silently decided. The brief's
+criterion, and the rule that a plan gap is *reported*, never silently decided. The same rule
+covers the brief itself: an item of the brief that turns out unused or wrong (a dependency the
+code never calls, a helper that does not exist) is reported in the closing section, not
+implemented verbatim; the sidekick sees the code, the lead wrote the brief from a reading of it
+(2.18's brief listed a `log` dependency the crate never used, and it landed until review). The brief's
 verification list names the tests of every crate that *consumes* the one being changed, not
 only the crate's own: a change to `fmdl`'s reader that every game `body.skl` tripped passed
 `cargo test -p fmdl` and was caught only by `model_convert`'s tests at the lead's gate run. The lead
