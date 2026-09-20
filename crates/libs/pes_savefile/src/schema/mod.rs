@@ -9,6 +9,11 @@ pub mod fields;
 /// The ingame-face run's field table, hand-written (the run is opaque bytes
 /// the table names known bits of).
 pub mod ingame_face;
+/// The per-version advanced-instruction mappings (`decode`/`encode` between a
+/// stored value and `model::instruction::Instruction`).
+pub mod instruction;
+#[cfg(test)]
+mod instruction_golden;
 /// The per-version caps on the ingame-face type fields.
 pub mod limits;
 mod pes15;
@@ -157,6 +162,33 @@ pub struct TacticsSchema {
     pub formations: FormationLayout,
     /// The advanced-instruction block layout; `None` on PES 15/16.
     pub instructions: Option<InstructionLayout>,
+}
+
+impl TacticsSchema {
+    /// Whether the tactics record stores `field` (scalar fields and arrays, as
+    /// `RecordSchema::has`; preset settings via [`Self::has_preset`],
+    /// formations always, instructions when `instructions` is `Some`).
+    pub fn has(&self, field: TacticsField) -> bool {
+        if let TacticsField::Preset { field, .. } = field {
+            return self.has_preset(field);
+        }
+        if let TacticsField::Formation { .. } = field {
+            return true;
+        }
+        if let TacticsField::Instruction { .. } = field {
+            return self.instructions.is_some();
+        }
+        self.fields.iter().any(|spec| spec.field == field)
+            || self
+                .arrays
+                .iter()
+                .any(|array| (0..array.count).any(|i| (array.make)(i) == field))
+    }
+
+    /// Whether each preset block stores `field`.
+    pub fn has_preset(&self, field: PresetField) -> bool {
+        self.presets.iter().any(|spec| spec.field == field)
+    }
 }
 
 /// Where a section of records sits in the payload.

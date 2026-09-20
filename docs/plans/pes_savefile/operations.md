@@ -505,25 +505,31 @@ low_lofted_pass low_punt_trajectory long_throw gk_long_throw malicia man_marking
 acrobatic_clear captaincy super_sub fighting_spirit double_touch crossover_turn step_on_skill
 chip_shot dipping_shots rising_shots no_look_pass gk_high_punt penalty_specialist
 gk_penalty_specialist interception long_range_shooting through_passing`. Advanced instruction
-names, in the canonical 17-based order 0-15: `off hug_the_touchline false_no_9 false_full_backs
+names, in the canonical 17-based order 0-16: `off hug_the_touchline false_no_9 false_full_backs
 attacking_full_backs wing_rotation tiki_taka centering_targets swarm_the_box deep_defensive_line
-gegenpress tight_marking counter_target defensive false_winger wing_back`; the per-version
-encodings are `schema/instruction.rs` (below).
+gegenpress tight_marking counter_target defensive false_winger wing_back anchoring`; the
+per-version encodings are `schema/instruction.rs` (below). The reference editor's table ends at
+`wing_back`; the PES 20 and 21 fixture saves store a value `0x10` in seven instruction slots (the
+instruction PES 2020 added; the name is the game's list's, unverified against these saves'
+edit screen), canonical 0x10 here and absent before PES 20.
 
 ```rust
 /// `model/instruction.rs`. The canonical advanced instruction, in the reference editor's
-/// 17-based order: 0x00-0x0C are PES 17's own values, 0x0D-0x0F the three PES 18 added.
+/// 17-based order: 0x00-0x0C are PES 17's own values, 0x0D-0x0F the three PES 18 added,
+/// 0x10 the one PES 20 added.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Instruction { Off, HugTheTouchline, FalseNo9, FalseFullBacks, AttackingFullBacks,
     WingRotation, TikiTaka, CenteringTargets, SwarmTheBox, DeepDefensiveLine, Gegenpress,
-    TightMarking, CounterTarget, Defensive, FalseWinger, WingBack }
+    TightMarking, CounterTarget, Defensive, FalseWinger, WingBack, Anchoring }
 
 /// `schema/instruction.rs`. PES 17 stores the canonical value; PES 18-21 store 0x01-0x07 as is,
 /// Defensive/FalseWinger at 0x08/0x09, SwarmTheBox..CounterTarget at 0x0A-0x0E, WingBack at
-/// 0x0F. PES 15/16 have no instructions (`None` for every value). A stored value outside the
-/// version's list is `CodecError::UnknownInstruction { version, value }`.
+/// 0x0F; PES 20/21 add Anchoring at 0x10. PES 15/16 have no instructions (`None` for every
+/// value). A stored value outside the version's list is
+/// `CodecError::UnknownInstruction { version, value }`.
 pub fn decode(version: PesVersion, stored: u8) -> Result<Option<Instruction>, CodecError>;
-/// `None` when the version has no such instruction (a PES 17 target for the three PES 18 ones).
+/// `None` when the version has no such instruction (a PES 17 target for the three PES 18 ones,
+/// a 19-or-earlier target for Anchoring).
 pub fn encode(version: PesVersion, instruction: Instruction) -> Option<u8>;
 ```
 

@@ -101,6 +101,15 @@ pub enum CodecError {
         /// The stored index (out of range or a hole).
         value: u8,
     },
+    /// A stored advanced-instruction value names no instruction of the
+    /// version's table.
+    #[error("{version:?}: advanced-instruction value {value} is not a value of its table")]
+    UnknownInstruction {
+        /// The version whose table was consulted.
+        version: PesVersion,
+        /// The stored value past the table's end.
+        value: u8,
+    },
 }
 
 /// Every `FieldSpec` and every expanded `ArraySpec` element of a record schema

@@ -4,6 +4,9 @@
 
 /// The ingame-face run: opaque bytes with typed accessors.
 pub mod ingame_face;
+/// The canonical advanced-instruction enum (the stored value is a per-version
+/// index into `schema::instruction`).
+pub mod instruction;
 /// Save-name helpers: colour-code stripping for display.
 pub mod names;
 /// The player model.
@@ -17,6 +20,7 @@ pub mod tactics;
 pub mod team;
 
 pub use ingame_face::IngameFace;
+pub use instruction::Instruction;
 pub use player::{
     PlayerAppearance, PlayerBasics, PlayerEditFlags, PlayerEntry, PlayerMotion, PlayerPositions,
     PlayerSkills, PlayerStats,
