@@ -251,6 +251,12 @@ Do not include agent co-authoring lines.
   `wasm32-unknown-unknown` target); rustup picks it up on checkout. Bumping the version is its own
   commit: run the gates on the new toolchain, fix what the new clippy lints flag, then commit. Never
   let a `rustup update` be the reason the gate is red.
+- **Builds leave two logical processors free.** `.cargo/config.toml` sets `build.jobs = -2`
+  (relative to the CPU count, so CI is capped the same way); rustc's codegen threads share that
+  jobserver budget. Pass `--jobs N` to override for one run.
+- **`cfg`-gated code is compiled on every CI OS.** A module built `#[cfg(any(windows, test))]`
+  exists on Linux only for its tests, so every item in it needs a portable test or the Linux
+  gate fails with `dead_code` while the Windows gate, where the real caller exists, stays green.
 - **PowerShell false failures with cargo.** cargo writes progress to stderr; redirecting (`2>&1`)
   or piping turns that into a `NativeCommandError` and a nonzero exit code on success. Judge by the
   output (`Finished`, `test result: ok`), or run the command bare and echo `$LASTEXITCODE` after.

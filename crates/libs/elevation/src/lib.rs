@@ -113,6 +113,19 @@ mod tests {
         }
     }
 
+    #[test]
+    fn join_arguments_quotes_each_and_separates_with_one_space() {
+        let arguments: Vec<OsString> = ["abc", "a b", "", "C:\\dir\\"]
+            .into_iter()
+            .map(OsString::from)
+            .collect();
+        assert_eq!(
+            command_line::join_arguments(&arguments),
+            "abc \"a b\" \"\" \"C:\\dir\\\\\""
+        );
+        assert_eq!(command_line::join_arguments(&[]), "");
+    }
+
     #[cfg(windows)]
     #[test]
     fn quoting_round_trips_through_the_os() {
