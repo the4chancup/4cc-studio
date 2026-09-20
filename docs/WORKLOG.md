@@ -12,7 +12,7 @@ is in `AGENTS.md` ("Working documents").
 **Phase:** 2 (Library crates). Done: 2.1 `wezlib`, 2.2 `cpk`, 2.3 `fpk`, 2.4 `ftex`, 2.5 `dds_convert` (CPU),
 2.6 `fmdl` (format, model, ops, check), 2.7 `pes_model` (format, mtl, model, ops, check), 2.8 `uniparam`, 2.9 `fox2`, 2.10 `archives`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`, 2.14 `color_tools`, 2.15 `elevation`. Review
 rounds A and B (2026-09-13) closed: 2.5c, 2.12b, 2.13b done.
-**In progress:** 2.17 `pes_savefile` (a–h done; 2.18 `python_bindings` next). Review
+**In progress:** 2.17 `pes_savefile` and 2.18 `python_bindings` done; 2.19 Phase verification next. Review
 round C (2026-09-19) closed as 2.19a; its leftovers are listed under 2.20.
 **Blocked on:** nothing
 
@@ -470,8 +470,15 @@ Spec: `docs/plans/core/development_plan.md` "Phase 2", `docs/plans/libs/README.m
     label-less values as integers, two hostile-input panics, a test oracle built from the
     post-apply state. Plus the 16 2.17h-3 mutation survivors, all missing tests. Crate 181
     tests. Manual game check of a written texport (`new` and edited) still open
-- [ ] 2.18 `python_bindings` (maturin build + Python smoke test; add the `just bindings` recipe
-  and the CI job deferred from step 1.2)
+- [x] 2.18 `python_bindings` (`core/development_plan.md` "Phase 2" `python_bindings`; decision
+  entry 2026-09-21): `pes_models_native` wheel (`Fmdl`/`Skl`/`Model`/`MaterialSet` `read`/`write`,
+  `FormatError`, `pyo3-log`), `abi3-py311`, a `cdylib` member with `test = false`; `just bindings
+  [interpreter]` → `scripts/bindings_check.py` (maturin build, wheel unzipped onto `sys.path`,
+  `tests/smoke.py`: 27 fixtures, byte identity where the crates prove it, idempotence elsewhere,
+  junk → `FormatError`, no warning on a clean read); green under the dev Python 3.14, Blender
+  5.2's 3.13 and Blender 5.0's 3.11. CI `bindings` job (both platforms) added; `pyo3` joins the
+  deps table. Not verified: the Linux wheel (CI's first run), loading from inside a running
+  Blender (only its interpreter was used)
 - [ ] 2.19 Phase verification: every crate's tests per `libs/README.md` "Testing" green; `wasm32` check
   green on every lib
 - [x] 2.19a Review round C (2026-09-19): the first mutation runs and a workspace read-through,
@@ -703,3 +710,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   tests; four decision entries. A flaky `file` test fixed on the way: PES 15's one-byte seed made
   `assert_ne!(saved, original)` fail once in 256 saves; the test now saves a PES 16 fixture.
   Next: 2.18 `python_bindings`.
+- **2026-09-21** - 2.18 done: the `pes_models_native` wheel (codec `read`/`write` only, the Blender
+  accessors wait for the extension's hot-path step), `just bindings`, the CI job deferred from 1.2.
+  Mutation runs capped like the builds (`.cargo/mutants.toml`: two mutant processes at 7 build
+  jobs / 7 test threads each). Next: 2.19.

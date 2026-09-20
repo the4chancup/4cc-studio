@@ -1,0 +1,25 @@
+[package]
+name = "python_bindings"
+description = "The pes_models_native extension module: the fmdl and pes_model codecs exposed to Blender's bundled Python via PyO3"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+# A cdylib Python extension: the interpreter that imports it provides libpython, so
+# `cargo test`/`cargo doc` must never link it (core plan, "Phase 2", `python_bindings`).
+[lib]
+name = "pes_models_native"
+crate-type = ["cdylib"]
+test = false
+doctest = false
+
+[dependencies]
+fmdl.workspace = true
+pes_model.workspace = true
+pyo3.workspace = true
+pyo3-log.workspace = true
+
+[lints]
+workspace = true
