@@ -347,6 +347,240 @@ ingame-face parameters (which the legacy formats omit). Goals:
   the version's field length and character set. Used by the Team creator's defaults and offered
   by the Save editor as a one-click fill; the lib owns the limits, so no tool carries a copy.
 
+**The file.** Every table is addressable by name so that "absent = untouched" holds at every
+level (a `[[presets]]` array could not leave preset 2 alone while setting preset 1). Players are
+keyed by **roster slot**, never by id: slot `NN` of the file is roster slot `NN` of the team it
+is applied to (the aesthetics patch and Texport use the same rule), so a team's file imports
+onto any team, and a file never carries a player id. Gameplay values are the **stored** numbers
+(the record's, ranges from the bit widths: this is a dump, and the manager-facing reinterpreted
+numbers belong to `settings.toml`); what the model already names canonically is written as a
+label: positions, playable ratings, the playing style, skills, COM styles, the advanced
+instructions, the style switches, the stronger foot/hand. The `[players.NN.appearance]` table is
+`settings.toml`'s `[appearance]` table verbatim (same keys, same kinds, same ranges, parsed and
+emitted by `PlayerSettings`' own code), so a player's aesthetics can be pasted between the two
+files.
+
+```toml
+# team.toml — one team of one save. Absent = untouched on import, at every level.
+pes_version = 19                # the save this was written from; import into another version converts
+
+[team]
+id = 841                        # informational: the caller chooses the target team
+name = "/98hu/"                 # colour codes as in the save
+short_name = "I1"
+manager_id = 1000               # PES 19+
+stadium_id = 12                 # PES 19+
+color_1 = [31, 58, 15]          # PES 17+; stored channels, 0-63 each
+color_2 = [63, 63, 63]
+kit_slots = [{ number = 0, binding = 0 }, ...]   # PES 17 only; ten entries, values as stored
+
+[team.edit_flags]
+name = true
+short_name = false              # PES 15 only
+stadium = false                 # PES 20/21 only
+strip = false                   # PES 17 only
+
+[tactics]
+starting_eleven = [0, 10, 3, 1, 5, 4, 9, 2, 6, 7, 8]  # roster slots, 0-based as stored
+bench_order = [11, 12, ...]     # 21 roster slots
+players_to_join_attack = [255, 255, 255]             # roster slots; 255 = none
+
+[tactics.set_pieces]            # roster slots; 255 = none
+free_kick_long = 3
+free_kick_short = 3
+free_kick_second = 4
+corner_left = 5
+corner_right = 5
+penalty = 9
+captain = 0
+
+[tactics.auto]
+substitution = 0                # PES 16+; the stored setting byte
+offside_trap = false            # PES 16+
+preset_change = false           # PES 16+
+attack_defence_levels = false   # PES 17+
+
+[tactics.preset_1]              # preset_1 .. preset_3
+[tactics.preset_1.style]
+attacking_style = "possession"  # "counter_attack" | "possession"
+attacking_zone = "wide"         # "centre" | "wide"
+buildup = "short_pass"          # "long_pass" | "short_pass"
+positioning = "flexible"        # "maintain" | "flexible"
+defensive_style = "frontline_pressure"   # "frontline_pressure" | "all_out_defence"
+containment_area = "middle"     # "middle" | "wide"
+pressure = "aggressive"         # "aggressive" | "conservative"
+fluid = false                   # PES 16+
+[tactics.preset_1.sliders]
+support_range = 4               # 1-10
+defensive_line = 3              # 1-10
+compactness = 7                 # 1-10
+numbers_in_attack = 3           # 1-3
+numbers_in_defence = 3          # 1-3
+[tactics.preset_1.formation_1]  # formation_1 kick-off, formation_2 in possession, formation_3 out of possession
+players = [{ position = "GK", x = 52, y = 2 }, ...]  # eleven; position "GK" .. "CF"; x, y as stored
+[tactics.preset_1.instructions] # PES 17+; canonical names, re-encoded per version on import
+attack = [{ instruction = "hug_the_touchline", player = 3 }, { instruction = "off", player = 0 }]
+defence = [{ instruction = "off", player = 0 }, { instruction = "off", player = 0 }]
+
+[players.01]                    # roster slot 01 .. 40 (32 on PES 15-18)
+name = "YOUR SKILL: A FAILURE"
+shirt_name = "SCORE"
+number = 1                      # shirt number, the roster's
+nationality = 231
+age = 25
+boots_id = 3601
+gloves_id = 0
+base_copy_id = 84101            # equal to the player's own id in the file = unset; becomes the target's own id
+ingame_face = "0102...ff"       # the appearance block's undecoded run, hex, 50 bytes (46 on PES 15); applied before [players.NN.appearance]
+
+[players.01.stats]              # stored values; abilities 40-99 (the game's range), the rest by bit width
+attacking_prowess = 77
+ball_control = 77
+dribbling = 77
+tight_possession = 77           # PES 20+
+low_pass = 77
+lofted_pass = 77
+finishing = 77
+heading = 77
+place_kicking = 77
+swerve = 77
+defensive_prowess = 77
+ball_winning = 77
+aggression = 77                 # PES 20+
+kicking_power = 77
+speed = 77
+explosive_power = 77
+body_control = 77
+physical_contact = 77           # PES 17+
+jump = 77
+stamina = 77
+goalkeeping = 40
+catching = 40
+clearing = 40                   # PES 16+
+reflexes = 40                   # PES 16+
+coverage = 40                   # PES 16+
+weak_foot_usage = 1             # 0-3 stored
+weak_foot_accuracy = 1          # 0-3 stored
+form = 3                        # 0-7 stored
+injury_resistance = 1           # 0-2 stored
+star = 2                        # PES 19+, 0-7 stored
+playing_attitude = 0            # PES 20+, stored
+
+[players.01.positions]
+registered = "CF"               # "GK" "CB" "LB" "RB" "DMF" "CMF" "LMF" "RMF" "AMF" "LWF" "RWF" "SS" "CF"
+playable = { CF = "A", SS = "B", GK = "none", ... }   # thirteen keys; "none" | "C" | "B" | "A"
+playing_style = "goal_poacher"  # canonical `PlayStyle` name in snake_case; "none" for none
+stronger_foot = "right"         # "right" | "left"
+stronger_hand = "right"         # PES 20+
+
+[players.01.skills]
+skills = ["scissors_feint", "heading"]      # the set skills, canonical names (table below)
+com_styles = ["trickster"]                  # "trickster" "mazing_run" "speeding_bullet" "incisive_run" "long_ball_expert" "early_cross" "long_ranger"
+
+[players.01.edit_flags]         # the game's own flags, all bool
+player = true
+basic_settings = true
+registered_position = false
+playable_positions = false
+abilities = true
+skills = false
+playing_style = false
+com_styles = false
+motion = false
+base_copy = false
+face = true
+hair = true
+physique = false
+strip = false
+
+[players.01.appearance]         # settings.toml's [appearance] table, verbatim
+skin_color = 1
+# ... [players.01.appearance.physique] / .strip / .motion / .face, as in settings.toml
+```
+
+Skill names, in the model's slot order 0-40: `scissors_feint flip_flap marseille_turn sombrero
+cut_behind_and_turn scotch_move heading long_range_drive knuckle_shot acrobatic_finishing
+heel_trick first_time_shot one_touch_pass weighted_pass pinpoint_crossing outside_curler rabona
+low_lofted_pass low_punt_trajectory long_throw gk_long_throw malicia man_marking track_back
+acrobatic_clear captaincy super_sub fighting_spirit double_touch crossover_turn step_on_skill
+chip_shot dipping_shots rising_shots no_look_pass gk_high_punt penalty_specialist
+gk_penalty_specialist interception long_range_shooting through_passing`. Advanced instruction
+names, in the canonical 17-based order 0-15: `off hug_the_touchline false_no_9 false_full_backs
+attacking_full_backs wing_rotation tiki_taka centering_targets swarm_the_box deep_defensive_line
+gegenpress tight_marking counter_target defensive false_winger wing_back`; the per-version
+encodings are `schema/instruction.rs` (below).
+
+```rust
+/// `model/instruction.rs`. The canonical advanced instruction, in the reference editor's
+/// 17-based order: 0x00-0x0C are PES 17's own values, 0x0D-0x0F the three PES 18 added.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Instruction { Off, HugTheTouchline, FalseNo9, FalseFullBacks, AttackingFullBacks,
+    WingRotation, TikiTaka, CenteringTargets, SwarmTheBox, DeepDefensiveLine, Gegenpress,
+    TightMarking, CounterTarget, Defensive, FalseWinger, WingBack }
+
+/// `schema/instruction.rs`. PES 17 stores the canonical value; PES 18-21 store 0x01-0x07 as is,
+/// Defensive/FalseWinger at 0x08/0x09, SwarmTheBox..CounterTarget at 0x0A-0x0E, WingBack at
+/// 0x0F. PES 15/16 have no instructions (`None` for every value). A stored value outside the
+/// version's list is `CodecError::UnknownInstruction { version, value }`.
+pub fn decode(version: PesVersion, stored: u8) -> Result<Option<Instruction>, CodecError>;
+/// `None` when the version has no such instruction (a PES 17 target for the three PES 18 ones).
+pub fn encode(version: PesVersion, instruction: Instruction) -> Option<u8>;
+```
+
+```rust
+/// `interchange/team_toml/`. The document: every leaf `Option`, `None` = absent.
+pub struct TeamToml {
+    pub pes_version: Option<PesVersion>,
+    pub team: TeamSection,          // the [team] keys and [team.edit_flags]
+    pub tactics: TacticsSection,    // [tactics], .set_pieces, .auto, preset_1..3 with their sub-tables
+    pub players: BTreeMap<u8, PlayerSection>,   // roster slot (1-based, as in the key) -> the player's tables
+}
+/// One `[players.NN]`: the scalar keys, `stats`/`positions`/`skills`/`edit_flags` tables of
+/// `Option`s, `ingame_face: Option<Vec<u8>>` and `appearance: AppearanceSettings` (settings_toml's).
+pub struct PlayerSection { /* … */ }
+
+/// What an import did not apply as written. Version-pair-wide facts are not notes (the 2.17f rule).
+pub enum ImportNote {
+    /// A key the target version has no field for (`tight_possession` into PES 19); dropped.
+    NotInThisVersion { path: String },
+    /// A label the target version cannot encode (a PES 18 instruction into 17, a style the
+    /// target's list lacks); written as `off`/the list's rule.
+    NotEncodable { path: String, label: String },
+    /// A face type above the target's cap or skin 7 into a no-custom-skin version; capped/reset.
+    Capped { path: String, from: u8, to: u8 },
+    /// A `[players.NN]` whose target roster slot is empty; skipped.
+    EmptySlot { slot: u8 },
+}
+
+impl TeamToml {
+    /// Every field of the team and its roster's players, `Some`. `version` is the save's.
+    pub fn from_team(version: PesVersion, team: &TeamEntry, players: &[&PlayerEntry]) -> Result<Self, TeamTomlError>;
+    pub fn parse(text: &str) -> Result<Self, TeamTomlError>;
+    /// The plan block's layout: one key per line, tables in the block's order, the range comments.
+    pub fn to_toml(&self) -> Result<String, TeamTomlError>;
+    /// Applies the `Some` fields onto `team` (id kept) and onto the players its roster slots
+    /// name, all or nothing; `to` is the save's version, conversion happens when it differs from
+    /// `pes_version`. Team TOML never adds players: an empty slot is a note.
+    pub fn apply(&self, to: PesVersion, team: &mut TeamEntry, players: &mut [PlayerEntry]) -> Result<Vec<ImportNote>, TeamTomlError>;
+}
+/// `shirt_name_from`: the name upper-cased, colour codes stripped, cut to the version's shirt-name
+/// field (the schema's text length minus the terminator) by characters.
+pub fn shirt_name_from(name: &str, version: PesVersion) -> String;
+```
+
+Rules of `apply`: `pes_version` absent means "the target's version" (no conversion); the
+ingame-face hex is written first (prefix-copied, `min(len)` bytes, the 2.17f rule), then the
+`appearance` table through `PlayerSettings::apply`; `base_copy_id` equal to the file's own player
+id (the file's team id × 100 + slot) becomes the target player's id; a `stats` key the target
+version lacks is `NotInThisVersion` when the versions differ and `TeamTomlError::NotInThisVersion`
+when they are equal (a same-version file with a foreign key is a mistake, a converted one is
+expected to shed keys); skills the target lacks are dropped with a note; the playing style goes
+through `schema::playstyle::encode` for the target (2.17f's lists); instructions through
+`schema::instruction::encode`; PES 15/16 targets drop the instructions table silently (the version
+has none: a pair-wide fact). What `shirt_name_from` keeps of the character set beyond upper-casing
+is unmeasured (the game's own edit screen restricts it); the function is the one place to
+tighten when it is.
+
 ### Aesthetics patch (new)
 
 The file the Team compiler writes on **every** compile and the save editor applies: the resolved
@@ -407,62 +641,115 @@ Rules:
 
 ### Legacy 4ccEditor formats (read-only)
 
-- **`.4ccs` squad files** (version tag "21a"): binary `player_export` array +
-  shirt numbers + optional trailing tactics block (the same version-neutral
-  layout as `.4cct` below, written when the save's version has tactics support —
-  16–21 — and gated by an import-time checkbox). Readable and importable; never
-  written.
-- **`.4cct` "nightly" tactics files** (version tag "001"): `"001"` + 2-char PES
-  version + 8-char team ID + a version-neutral tactics block (405 bytes: per
-  preset, the 3×3 formations, 7 style bytes, 2+2 advanced instructions each as
-  canonical-enum byte + player byte, 5 sliders + fluid; then starting XI,
-  21 bench, 6 set-piece takers, 3 join-attack, 4 auto flags — **no captain**;
-  instructions stored in the canonical 17-based enum and re-encoded per target
-  version on load). Readable and importable; never written. Import targets PES
-  16–18 only (4ccEditor's own gate — later saves go through Texport instead),
-  and the file header records the exporting PES version, which the import must
-  match exactly.
+Both are raw dumps of the reference editor's in-memory structs; both parse into a `TeamToml`
+(`interchange/legacy.rs`), so the import path is Team TOML's and there is one. Never written.
 
-Both parse into the same model structs; the write path is Team TOML only.
+- **`.4ccs` squad files**: `"21a"` (3 ASCII bytes; the real files on this machine, written by an
+  earlier build, carry `"20a"` with the same record — both tags are accepted, decision entry
+  2.17h) + 2 ASCII digits of the exporting PES version + one **356-byte `player_export`
+  record per rostered player**, in roster order + `[u16; 40]` shirt numbers (80 bytes) +
+  optionally the 405-byte tactics block below (present when the file is 405 bytes longer than
+  `5 + n × 356 + 80`; the editor writes it when tactics are enabled). The record is the MSVC
+  layout of `player_export` (`editor.h`): little-endian, 4-byte alignment, `bool` one byte,
+  `wchar_t[61]` UTF-16 name, `char[21]` shirt name, one padding byte at 271; the offsets are
+  `scripts/provenance/fixtures/interchange_fixtures.py`'s ctypes table, the golden test holds
+  them as literals. Fields the exporting version lacks are ignored whatever the bytes (the writer
+  fills `phys_cont`/`clearing`/`reflex`/`cover` from `body_ctrl` on 15/16); the playing style is
+  the exporting version's index. The record has no id and no ingame-face run: `ingame_face` is
+  absent, skin/iris/player-gloves go to the `appearance` keys. Importable into any version
+  through `TeamToml::apply` (the reference converts styles by version pair and clamps 19+ shirt
+  numbers to 231 on older saves; the roster model's `u16` makes the clamp the codec's concern).
+- **`.4cct` "nightly" tactics files**: `"001"` + 2-char PES version + 8-char team id (ASCII,
+  NUL-padded) + the **405-byte tactics block**: per preset, 3 × (11 position bytes, then 11 y/x
+  pairs), 7 style bytes (attacking style, buildup, attacking zone, positioning, defensive style,
+  containment area, pressure), 2 + 2 instructions each as canonical byte + player byte, support
+  range, numbers in attack, defensive line, compactness, numbers in defence, fluid; then starting
+  XI (11), bench (21), 6 set-piece takers (FK long, FK short, FK 2, CK left, CK right, PK), 3
+  join-attack, 4 auto flags (substitution, offside trap, preset change, attack/defence levels) —
+  **no captain**. The reference imports only into 16-18 and only from the same version (its
+  x/y "conversion factor" is 1 for every pair); here the block parses into `TeamToml.tactics`
+  and `apply`'s version rule decides, the header's version being `pes_version`. No real `.4cct`
+  exists on this machine: the fixture is transcribed from the reference's write walk over the
+  PES 19 fixture save's team 713 (provenance in the fixtures README), and the test's evidence is
+  that the Rust reader's `TeamTactics` equals the schema codec's for that team.
 
 ### Texport (read + write)
 
-Texport files are **PES's own in-game team export/import format** — a different
-internal layout from the savefile (tactics record first, then player entries;
-4ccEditor's `handle_texport` + `fill_player_entryXX_texport`/
-`fill_team_tacticsXX_texport` are the reference). The crypto splits by era:
-15–17 `.ted` files use the same container crypto as that version's savefile
-(`decryptFile15` / `decryptWithKeyOld` + master keys), while 18–21 use a
-self-contained XOR scheme instead — 0x30-byte header, a 0x20-byte key at 0x30,
-payload from 0x50 XOR'd against the key starting at index 0x12/0x13/0x14/0x15
-(18/19/20/21) and wrapping at 0x20 (decrypted sizes 0x1FC0/0x25B0/0x39E4; the
-PES 20 key index is 4ccEditor's untested guess). The tactics record is the save
-record layout verbatim, including its 4-byte team ID; player entries carry the
-player's own record plus appearance data inline (17's reader consumes no
-appearance — whether absent or skipped is unverified). Per-version record
-offsets:
+Texport files are **PES's own in-game team export/import format**. Measured on real files
+(three 17 texports, four 18, eleven 19, five 21; none for 15, 16 or 20): the file is a
+concatenation of the **save's own records, in the save's own layouts**, so the schema codec
+reads and writes every record and `interchange/texport.rs` adds only the crypto and the layout
+table (`schema/texport.rs`). Two eras:
 
-| Version | Tactics | Players |
-|---------|---------|---------|
-| 15 | 0x10298 | 0x51065C |
-| 16 | 0x10298 | 0x510660 |
-| 17 | 0x10330 | 0x510840 |
-| 18 | 0x32C | 0x834 |
-| 19 | 0x33C | 0x844 |
-| 20/21 | 0x410 | 0x918 |
+- **15-17** (`TEXPORT00000000`, ~5.6 MB): the version's savefile container (`SaveContainer`
+  decrypts it unchanged; the description reads `Team Export Data NN` + the team name where a
+  save's reads `Edit Data`). Tactics record at `0x10298` (15/16) / `0x10330` (17), player
+  records at `0x51065C` / `0x510660` / `0x510840`, consecutive in roster order (15/16: player
+  record then appearance record per player). The team and roster records' positions are not yet
+  measured (the 17 payload holds the team id at `0x10054`, `0x10058`, `0x10234`, `0x1028C` before
+  the tactics record); until they are, a 15-17 texport's team and roster come from the target
+  save and only tactics and players are read. 15 and 16 offsets are the reference editor's,
+  unverified.
+- **18-21** (`.ted`, 8128 / 9648 / 14820 bytes for 18 / 19 / 20-21): plaintext header `0x00..0x30`,
+  a 32-byte key at `0x30`, then the body XOR'd with the key starting at key index `0x12` / `0x13` /
+  `0x14` / `0x15` (18 / 19 / 20 / 21) and wrapping at 32 (PES 20's index is the reference
+  editor's untested guess; no file exists). The body is `team record | 88-byte coach block |
+  roster record | tactics record | 660-byte block | player records × roster width | 12-byte tail`,
+  every size the save schema's (18: 480/164/628/188 × 32; 19: 416/244/628/188 × 40; 21:
+  588/284/628/312 × 40), so tactics land at `0x32C` / `0x33C` / `0x410` and players at `0x834` /
+  `0x844` / `0x918` as the reference reads them. The header is constant per version except the
+  u32 at `0x0C` (two values seen on 18, one each on 19 and 21, independent of content) and the
+  u32s at `0x10`/`0x14` (0 or 4): no content checksum was found (byte sums, CRC-32 and Adler-32
+  of plaintext and ciphertext, with and without the key, match nothing). The coach block is
+  `team id (u32) | 4 constant bytes | flag byte | "MANAGER" | zeros`; the 660-byte block is zero
+  or a 125-188-byte run (an edited coach, presumably) and the tail is a per-version constant.
 
-Import never trusts the file's player IDs: players map onto the target team's
-roster by slot order (`team_id*100 + 1 + slot`), and a 15/16 import zeroes the
-stats that don't exist yet (play_skill 28–41, tight_pos/aggression/physical =
-77) — the same defaults cross-version conversion applies.
-Because the game itself consumes these, full compatibility matters in both
-directions: read (4ccEditor already does) **and write** (new — 4ccEditor is
-import-only), so the editor can produce a file PES can import. Write support
-needs the full texport layout, not just the fields 4ccEditor reads; transcribe it
-per version and verify by importing the output into the game. If full-layout
-transcription proves impractical for some version, the fallback is
-template-patching: load a real texport of that version and rewrite the fields we
-model.
+```rust
+/// `schema/texport.rs`: the 18-21 layout, offsets derived from the record sizes.
+pub struct TexportLayout {
+    pub key_index: usize,       // first key byte used
+    pub size: usize,            // whole file
+    pub header: [u8; 0x30],     // the fixture's header, the writer's template
+    pub coach: [u8; 88],        // the fixture's coach block minus the id, the writer's template
+    pub tail: [u8; 12],
+}
+pub fn texport_layout(version: PesVersion) -> Option<&'static TexportLayout>;   // None on 15-17
+
+/// `interchange/texport.rs`.
+pub struct Texport { /* version, the plaintext (18-21) or the SaveContainer (15-17), team, players */ }
+pub enum TexportError { UnknownVersion, WrongSize { version, expected, actual }, Container(ContainerError), Codec(CodecError), RosterMismatch { slot, roster: u32, player: u32 }, NoTemplate(PesVersion) }
+
+impl Texport {
+    /// `version = None` detects: the container's version for 15-17; by size for 18/19; 20 and 21
+    /// share a size, so both indices are tried and the one whose team, roster and tactics record
+    /// ids agree wins (`UnknownVersion` when neither or both do).
+    pub fn from_bytes(bytes: &[u8], version: Option<PesVersion>) -> Result<Texport, TexportError>;
+    /// A fresh 18-21 file from the layout's templates: header, coach (id patched), zero block,
+    /// tail, a key from `salt[..32]`; `players` in roster order, ids checked against the roster
+    /// (`RosterMismatch`). 15-17 is `NoTemplate`: write by reading a real file and replacing its
+    /// team and players (`team_mut`/`players_mut`).
+    pub fn new(version: PesVersion, team: &TeamEntry, players: &[&PlayerEntry], salt: &[u8; 320]) -> Result<Texport, TexportError>;
+    pub fn version(&self) -> PesVersion;
+    pub fn team(&self) -> &TeamEntry;            // team + roster + tactics
+    pub fn players(&self) -> &[PlayerEntry];     // roster order, empty slots skipped
+    pub fn team_mut(&mut self) -> &mut TeamEntry;
+    pub fn players_mut(&mut self) -> &mut [PlayerEntry];
+    /// The records re-encoded into the plaintext (unmodeled bytes as read), then encrypted:
+    /// XOR with the file's own key on 18-21, the container with `salt` on 15-17.
+    pub fn to_bytes(&self, salt: &[u8; 320]) -> Result<Vec<u8>, TexportError>;
+}
+```
+
+Import never trusts the file's player IDs: players map onto the target team's roster by slot
+order, which is `TeamToml::from_team(texport.version(), texport.team(), texport.players())` then
+`TeamToml::apply` — one import path for every format, conversion included (the reference zeroes
+15/16 skills 28-41 and sets tight possession/aggression/physical contact to 77: the target's
+values stand in for those instead, per the 2.17f rule). Because the game itself consumes these,
+full compatibility matters in both directions: read (the reference already does) **and write**
+(new — the reference is import-only), so the editor can produce a file PES can import. The
+round trip `from_bytes` → `to_bytes` is byte-identical on every fixture (the codec and the
+carried bytes cover the whole file); whether the game accepts a `new` file, and a file whose
+records were edited, is the manual per-version check in [Verification](verification.md).
 
 ---
 

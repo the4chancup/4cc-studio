@@ -62,7 +62,9 @@ crates/libs/pes_savefile/src/
 │   ├── pes17.rs        #   first unified block (+ phys_cont)
 │   ├── pes18.rs        #   new container header, unified block
 │   ├── pes19.rs        #   + star, 39 skills
-│   └── pes20.rs        #   20/21 shared (+ mo_drib, tight_pos, aggres, play_attit, strong_hand; 41 skills)
+│   ├── pes20.rs        #   20/21 shared (+ mo_drib, tight_pos, aggres, play_attit, strong_hand; 41 skills)
+│   ├── instruction.rs  #   canonical advanced instruction ↔ per-version stored value
+│   └── texport.rs      #   the 18–21 Texport layout (key index, size, header/coach/tail templates)
 ├── codec/              # the one generic engine
 │   ├── mod.rs          #   read_player / write_player / read_team / … over a &VersionSchema
 │   └── bits.rs         #   bit-run reads/writes crossing byte boundaries (data_util.cpp's job)
@@ -71,6 +73,7 @@ crates/libs/pes_savefile/src/
 │   ├── player.rs       #   PlayerEntry: abilities, skills, appearance, playstyles
 │   ├── team.rs         #   TeamEntry: identity, roster, kit refs, colors
 │   ├── tactics.rs      #   presets, formations, advanced instructions
+│   ├── instruction.rs  #   Instruction: the canonical (17-based) advanced instruction enum
 │   └── names.rs        #   UTF-8 names, colour-code stripping (display_name)
 ├── settings_toml.rs    # PlayerSettings (the settings.toml model) ↔ PlayerEntry merge
 ├── convert.rs          # cross-version player conversion (bitfield surgery, playstyle/skill maps)
@@ -80,10 +83,10 @@ crates/libs/pes_savefile/src/
 │   ├── compare.rs      #   comparator (gameplay + aesthetics)
 │   ├── fpc.rs          #   maps libs/fpc player presets onto PlayerEntry; interference check
 │   └── populate.rs     #   placeholder player section for a fresh 19+ save (DB generator)
-└── interchange/        # text formats
-    ├── team_toml.rs    #   Team TOML read/write (full fidelity)
-    ├── legacy.rs       #   .4ccs / .4cct readers
-    └── texport.rs      #   Texport read/write
+└── interchange/        # team interchange formats (Team TOML is the one import path)
+    ├── team_toml/      #   Team TOML read/write (full fidelity): document, key tables, apply
+    ├── legacy.rs       #   .4ccs / .4cct readers, into a TeamToml
+    └── texport.rs      #   Texport read/write over the schema codec (layout: schema/texport.rs)
 ```
 
 Placement rules:
