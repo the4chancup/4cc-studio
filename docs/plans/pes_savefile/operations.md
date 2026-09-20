@@ -705,7 +705,8 @@ Both are raw dumps of the reference editor's in-memory structs; both parse into 
   the exporting version's index. The record has no id and no ingame-face run: `ingame_face` is
   absent, skin/iris/player-gloves go to the `appearance` keys. Importable into any version
   through `TeamToml::apply` (the reference converts styles by version pair and clamps 19+ shirt
-  numbers to 231 on older saves; the roster model's `u16` makes the clamp the codec's concern).
+  numbers to 231 on older saves; `apply` instead refuses a number wider than the target's roster
+  field before any write, like a too-long text, so a squad never applies and then fails to save).
 - **`.4cct` "nightly" tactics files**: `"001"` + 2-char PES version + 8-char team id (ASCII,
   NUL-padded) + the **405-byte tactics block**: per preset, 3 × (11 position bytes, then 11 y/x
   pairs), 7 style bytes (attacking style, buildup, attacking zone, positioning, defensive style,

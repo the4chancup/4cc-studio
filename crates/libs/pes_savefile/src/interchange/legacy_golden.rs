@@ -11,8 +11,11 @@ use pes_version::PesVersion;
 
 use crate::interchange::legacy::{LegacyError, read_squad, read_tactics};
 use crate::interchange::team_toml::TeamToml;
+use crate::interchange::team_toml::player_keys::PlayerKey;
 use crate::model::instruction::Instruction;
 use crate::schema::playstyle;
+use crate::settings_toml::get_appearance;
+use crate::settings_toml::keys::SettingKey;
 use crate::test_support::open;
 
 const SQUAD: &[u8] = include_bytes!("../../tests/fixtures/pes19_squad.4ccs");
@@ -222,6 +225,223 @@ fn read_squad_decodes_the_struct_dump() {
         // Fields PES 19 lacks are absent whatever the bytes say.
         assert!(p.stats.tight_possession.is_none());
         assert!(p.positions.stronger_hand.is_none());
+    }
+}
+
+/// Every `u8` field the reader maps to a `PlayerKey`, `(offset, key)`; the
+/// offsets are the ctypes layout's, not `legacy.rs`'s constants, so a mapping
+/// dropped or moved there fails here.
+const U8_KEYS: &[(usize, PlayerKey)] = &[
+    (8, PlayerKey::AttackingProwess),
+    (9, PlayerKey::DefensiveProwess),
+    (10, PlayerKey::Goalkeeping),
+    (11, PlayerKey::Dribbling),
+    (13, PlayerKey::Finishing),
+    (14, PlayerKey::LowPass),
+    (15, PlayerKey::LoftedPass),
+    (16, PlayerKey::Heading),
+    (17, PlayerKey::Form),
+    (19, PlayerKey::Swerve),
+    (20, PlayerKey::Catching),
+    (21, PlayerKey::Clearing),
+    (22, PlayerKey::Reflexes),
+    (23, PlayerKey::InjuryResistance),
+    (25, PlayerKey::BodyControl),
+    (26, PlayerKey::PhysicalContact),
+    (27, PlayerKey::KickingPower),
+    (28, PlayerKey::ExplosivePower),
+    (31, PlayerKey::Age),
+    (32, PlayerKey::Registered),
+    (34, PlayerKey::BallControl),
+    (35, PlayerKey::BallWinning),
+    (36, PlayerKey::WeakFootAccuracy),
+    (37, PlayerKey::Jump),
+    (40, PlayerKey::Coverage),
+    (41, PlayerKey::WeakFootUsage),
+    (58, PlayerKey::PlaceKicking),
+    (59, PlayerKey::Star),
+    (61, PlayerKey::TightPossession),
+    (62, PlayerKey::Aggression),
+    (63, PlayerKey::PlayingAttitude),
+    (67, PlayerKey::Stamina),
+    (68, PlayerKey::Speed),
+    (73, PlayerKey::StrongerFoot),
+    (74, PlayerKey::StrongerHand),
+];
+
+/// The `bool` edit flags, `(offset, key)`.
+const FLAG_KEYS: &[(usize, PlayerKey)] = &[
+    (18, PlayerKey::EditedPlayer),
+    (24, PlayerKey::EditedBasicSettings),
+    (30, PlayerKey::EditedRegisteredPosition),
+    (64, PlayerKey::EditedPlayablePositions),
+    (65, PlayerKey::EditedAbilities),
+    (66, PlayerKey::EditedSkills),
+    (69, PlayerKey::EditedPlayingStyle),
+    (70, PlayerKey::EditedComStyles),
+    (71, PlayerKey::EditedMotion),
+    (72, PlayerKey::EditedBaseCopy),
+    (267, PlayerKey::EditedFace),
+    (268, PlayerKey::EditedHair),
+    (269, PlayerKey::EditedPhysique),
+    (270, PlayerKey::EditedStrip),
+];
+
+/// The `u32` ids, `(offset, key)`.
+const U32_KEYS: &[(usize, PlayerKey)] = &[
+    (0, PlayerKey::Nationality),
+    (272, PlayerKey::BootsId),
+    (276, PlayerKey::GlovesId),
+    (280, PlayerKey::BaseCopyId),
+];
+
+/// `u8` bytes that land in `appearance`, `(offset, key)`.
+const APPEARANCE_U8_KEYS: &[(usize, SettingKey)] = &[
+    (4, SettingKey::Height),
+    (5, SettingKey::Weight),
+    (6, SettingKey::GoalCelebration1),
+    (7, SettingKey::GoalCelebration2),
+    (12, SettingKey::FreeKick),
+    (29, SettingKey::ArmMovementDribbling),
+    (38, SettingKey::ArmMovementRunning),
+    (39, SettingKey::CornerKick),
+    (55, SettingKey::HunchingDribbling),
+    (56, SettingKey::HunchingRunning),
+    (57, SettingKey::PenaltyKick),
+    (60, SettingKey::Dribbling),
+    (340, SettingKey::WristTapeColorLeft),
+    (341, SettingKey::WristTapeColorRight),
+    (342, SettingKey::WristTaping),
+    (343, SettingKey::SpectaclesColor),
+    (344, SettingKey::Spectacles),
+    (345, SettingKey::Sleeves),
+    (346, SettingKey::Inners),
+    (347, SettingKey::Socks),
+    (348, SettingKey::Undershorts),
+    (352, SettingKey::GlovesColor),
+    (353, SettingKey::SkinColor),
+    (354, SettingKey::IrisColor),
+];
+
+/// `bool` bytes that land in `appearance.strip`, `(offset, key)`.
+const APPEARANCE_BOOL_KEYS: &[(usize, SettingKey)] = &[
+    (349, SettingKey::Untucked),
+    (350, SettingKey::AnkleTaping),
+    (351, SettingKey::Gloves),
+];
+
+/// The fourteen `i32` physique fields from offset 284, in struct order.
+const PHYSIQUE_KEYS: &[SettingKey] = &[
+    SettingKey::NeckLength,
+    SettingKey::NeckSize,
+    SettingKey::ShoulderHeight,
+    SettingKey::ShoulderWidth,
+    SettingKey::Chest,
+    SettingKey::Waist,
+    SettingKey::ArmSize,
+    SettingKey::ArmLength,
+    SettingKey::Thigh,
+    SettingKey::Calf,
+    SettingKey::LegLength,
+    SettingKey::HeadLength,
+    SettingKey::HeadWidth,
+    SettingKey::HeadDepth,
+];
+
+/// Mapped fields PES 19 does not store: four PES 20 added, and the base-copy
+/// edit flag, which the 15-18 schemas hold and 19's does not. Absent whatever
+/// the bytes hold. Dribbling motion (PES 20 too) is `APPEARANCE_ABSENT_ON_19`.
+const ABSENT_ON_19: &[PlayerKey] = &[
+    PlayerKey::TightPossession,
+    PlayerKey::StrongerHand,
+    PlayerKey::Aggression,
+    PlayerKey::PlayingAttitude,
+    PlayerKey::EditedBaseCopy,
+];
+const APPEARANCE_ABSENT_ON_19: &[SettingKey] = &[SettingKey::Dribbling];
+
+#[test]
+fn read_squad_decodes_every_record_and_every_mapped_field() {
+    let doc = read_squad(SQUAD).expect("a valid .4ccs");
+    let numbers = &SQUAD[HEADER + 23 * RECORD..];
+    for i in 0..23 {
+        let p = &doc.players[&(i as u8 + 1)];
+        let rec = raw(i);
+        assert_eq!(
+            p.name.as_deref(),
+            Some(wide_string(&rec[NAME..NAME + 122]).as_str()),
+            "[{i}] name"
+        );
+        assert_eq!(
+            p.shirt_name.as_deref(),
+            Some(c_string(&rec[SHIRT_NAME..SHIRT_NAME + 21]).as_str()),
+            "[{i}] shirt"
+        );
+        assert_eq!(
+            p.number,
+            Some(u16::from_le_bytes([numbers[2 * i], numbers[2 * i + 1]])),
+            "[{i}] number"
+        );
+        for &(at, key) in U8_KEYS {
+            let expected = (!ABSENT_ON_19.contains(&key)).then_some(u32::from(rec[at]));
+            assert_eq!(key.get_section(p), expected, "[{i}] {key:?} at {at}");
+        }
+        for &(at, key) in FLAG_KEYS {
+            let expected = (!ABSENT_ON_19.contains(&key)).then_some(u32::from(rec[at] != 0));
+            assert_eq!(key.get_section(p), expected, "[{i}] {key:?} at {at}");
+        }
+        for &(at, key) in U32_KEYS {
+            assert_eq!(
+                key.get_section(p),
+                Some(u32_at(rec, at)),
+                "[{i}] {key:?} at {at}"
+            );
+        }
+        for &(at, key) in APPEARANCE_U8_KEYS {
+            let expected = (!APPEARANCE_ABSENT_ON_19.contains(&key)).then_some(rec[at]);
+            assert_eq!(
+                get_appearance(&p.appearance, key),
+                expected,
+                "[{i}] {key:?} at {at}"
+            );
+        }
+        for &(at, key) in APPEARANCE_BOOL_KEYS {
+            assert_eq!(
+                get_appearance(&p.appearance, key),
+                Some(u8::from(rec[at] != 0)),
+                "[{i}] {key:?} at {at}"
+            );
+        }
+        for (k, &key) in PHYSIQUE_KEYS.iter().enumerate() {
+            let at = 284 + 4 * k;
+            let value = i32::from_le_bytes(rec[at..at + 4].try_into().expect("four bytes"));
+            assert_eq!(
+                get_appearance(&p.appearance, key),
+                Some(u8::try_from(value).expect("the fixture's physique fits u8")),
+                "[{i}] {key:?} at {at}"
+            );
+        }
+        assert_eq!(
+            p.positions.playable,
+            Some(rec[42..55].try_into().expect("thirteen bytes")),
+            "[{i}] playable"
+        );
+        assert_eq!(
+            p.positions.playing_style,
+            Some(playstyle::decode(PesVersion::Pes19, rec[33]).expect("listed")),
+            "[{i}] style"
+        );
+        let mut skills = [false; 41];
+        for (k, set) in skills.iter_mut().enumerate() {
+            *set = rec[82 + k] != 0;
+        }
+        assert_eq!(p.skills.skills, Some(skills), "[{i}] skills");
+        let mut com = [false; 7];
+        for (k, set) in com.iter_mut().enumerate() {
+            *set = rec[75 + k] != 0;
+        }
+        assert_eq!(p.skills.com_styles, Some(com), "[{i}] com styles");
+        assert!(p.ingame_face.is_none(), "[{i}] no ingame-face run");
     }
 }
 

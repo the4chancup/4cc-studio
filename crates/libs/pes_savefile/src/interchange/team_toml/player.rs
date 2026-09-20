@@ -18,7 +18,7 @@ use crate::model::ingame_face::IngameFace;
 use crate::model::player::PlayerEntry;
 use crate::model::playstyle::PlayStyle;
 use crate::model::team::TeamEntry;
-use crate::schema::fields::{PlayerField, PlayerText};
+use crate::schema::fields::{PlayerField, PlayerText, RosterField};
 use crate::schema::limits::face_type_cap;
 use crate::schema::{playstyle, schema_for};
 use crate::settings_toml::keys::{SettingKey, Source};
@@ -629,6 +629,22 @@ fn apply_player(
         return Err(TeamTomlError::PlayerMissing { id: player_id });
     };
     if let Some(number) = section.number {
+        // The roster's number field is 8 bits on the ≤ 18 schemas; a wider
+        // value would fail `write_roster` after `apply` said Ok, so it is
+        // refused here instead of clamped.
+        let max = schema_for(target.context.to)
+            .roster
+            .arrays
+            .iter()
+            .find(|a| matches!((a.make)(0), RosterField::Number(0)))
+            .map_or(u32::from(u16::MAX), |a| (1 << a.bit_width) - 1);
+        if u32::from(number) > max {
+            return Err(TeamTomlError::OutOfRange {
+                key: format!("{path}.number"),
+                value: i64::from(number),
+                range: format!("0 to {max}"),
+            });
+        }
         target.team.roster[index].number = number;
     }
     if let Some(name) = &section.name {
@@ -668,11 +684,11 @@ fn apply_player(
             continue;
         }
         let value = if key == PlayerKey::BaseCopyId
-            && target
-                .context
-                .team_id
-                .is_some_and(|id| value == id * 100 + u32::from(slot))
-        {
+            && target.context.team_id.is_some_and(|id| {
+                id.checked_mul(100)
+                    .and_then(|base| base.checked_add(u32::from(slot)))
+                    == Some(value)
+            }) {
             // The file's own-id convention: equal to team id x 100 + slot
             // means "unset" — the target's own id stands in.
             player.id
@@ -1732,5 +1748,99 @@ mod tests {
         );
         let parsed = TeamToml::parse(&text).expect("reparses");
         assert_eq!(parsed, doc);
+    }
+
+    /// A shirt number wider than the target's roster field is refused at
+    /// apply (`write_roster` would fail after `apply` returned Ok), never
+    /// clamped. PES 18's field is 8 bits; PES 19's is 16.
+    #[test]
+    fn a_number_past_the_target_fields_width_is_refused() {
+        let doc =
+            TeamToml::parse("pes_version = 19\n\n[players.01]\nnumber = 999\n").expect("parses");
+
+        let (file18, _) = open(PesVersion::Pes18);
+        let team18 = file18
+            .teams()
+            .iter()
+            .find(|team| team.roster.first().is_some_and(|s| s.player_id != 0))
+            .expect("a team with slot 01 rostered");
+        let mut players18 = file18.players().to_vec();
+        let mut target = team18.clone();
+        let err = doc
+            .apply(PesVersion::Pes18, &mut target, &mut players18)
+            .expect_err("999 does not fit an 8-bit number field");
+        assert!(
+            matches!(
+                err,
+                TeamTomlError::OutOfRange {
+                    ref key,
+                    value: 999,
+                    ref range,
+                } if key == "players.01.number" && range == "0 to 255"
+            ),
+            "{err:?}"
+        );
+        assert_eq!(&target, team18, "nothing was written");
+        let edge =
+            TeamToml::parse("pes_version = 19\n\n[players.01]\nnumber = 255\n").expect("parses");
+        edge.apply(PesVersion::Pes18, &mut target, &mut players18)
+            .expect("255 is the 8-bit field's last value");
+        assert_eq!(target.roster[0].number, 255);
+
+        let (file19, _) = open(PesVersion::Pes19);
+        let team19 = file19
+            .teams()
+            .iter()
+            .find(|team| team.roster.first().is_some_and(|s| s.player_id != 0))
+            .expect("a team with slot 01 rostered");
+        let mut players19 = file19.players().to_vec();
+        let mut target = team19.clone();
+        doc.apply(PesVersion::Pes19, &mut target, &mut players19)
+            .expect("PES 19's 16-bit field holds 999");
+        assert_eq!(target.roster[0].number, 999);
+    }
+
+    /// Hostile integers reach the stored-width check through checked math:
+    /// the `value + 7` / `value - 1` shifts of Signed7 and OneBased keys do
+    /// not overflow-panic.
+    #[test]
+    fn extreme_integers_are_out_of_range_not_a_panic() {
+        use crate::settings_toml::SettingsError;
+
+        for (table, key, value) in [
+            ("physique", "neck_length", "9223372036854775807"),
+            ("motion", "hunching_dribbling", "-9223372036854775808"),
+        ] {
+            let doc = format!("[players.01.appearance.{table}]\n{key} = {value}\n");
+            let err = TeamToml::parse(&doc).expect_err("out of range");
+            assert!(
+                matches!(
+                    err,
+                    TeamTomlError::Settings(SettingsError::OutOfRange { .. })
+                ),
+                "{key} = {value}: {err:?}"
+            );
+        }
+    }
+
+    /// The own-id convention compares with checked math: a team id near
+    /// `u32::MAX` cannot be `id * 100 + slot`, so it compares false and the
+    /// document's value lands, rather than panicking in debug builds.
+    #[test]
+    fn a_maximal_team_id_does_not_overflow_the_own_id_check() {
+        let (file, _) = open(PesVersion::Pes19);
+        let (team, slot) = first_slot(&file);
+        let mut players = file.players().to_vec();
+        let mut target = team.clone();
+        let doc = TeamToml::parse(&format!(
+            "pes_version = 19\n\n[team]\nid = 4294967295\n\n[players.{:02}]\nbase_copy_id = 7\n",
+            slot + 1
+        ))
+        .expect("parses");
+        doc.apply(PesVersion::Pes19, &mut target, &mut players)
+            .expect("applies");
+        let id = team.roster[slot].player_id;
+        let player = players.iter().find(|p| p.id == id).expect("rostered");
+        assert_eq!(player.appearance.base_copy_id, 7);
     }
 }

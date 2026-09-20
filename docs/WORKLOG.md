@@ -470,6 +470,13 @@ Spec: `docs/plans/core/development_plan.md` "Phase 2", `docs/plans/libs/README.m
     label-less values as integers, two hostile-input panics, a test oracle built from the
     post-apply state. Plus the 16 2.17h-3 mutation survivors, all missing tests. Crate 181
     tests. Manual game check of a written texport (`new` and edited) still open
+  - [x] 2.17h-6 second review round (the first returned seven, all accepted, so the cap was
+    binding; `AGENTS.md` "Second opinion" now bounds rounds by accept rate; decision entry):
+    seven more, all verified and fixed: 15-17 texport writer refuses ids the reader cannot
+    read back, NUL in Team TOML text refused at parse, shirt numbers checked against the
+    target's field width at `apply`, checked arithmetic on user integers, legacy playable
+    ratings validated at ingestion, unknown members of inline records rejected, the `.4ccs`
+    golden extended to all 23 records and every mapped field (lead). Crate 194 tests
 - [x] 2.18 `python_bindings` (`core/development_plan.md` "Phase 2" `python_bindings`; decision
   entry 2026-09-21): `pes_models_native` wheel (`Fmdl`/`Skl`/`Model`/`MaterialSet` `read`/`write`,
   `FormatError`, `pyo3-log`), `abi3-py311`, a `cdylib` member with `test = false`; `just bindings
@@ -714,3 +721,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   accessors wait for the extension's hot-path step), `just bindings`, the CI job deferred from 1.2.
   Mutation runs capped like the builds (`.cargo/mutants.toml`: two mutant processes at 7 build
   jobs / 7 test threads each). Next: 2.19.
+- **2026-09-21** - Review rounds are now bounded by accept rate (`AGENTS.md`), and the rule applied
+  retroactively to 2.17h: a second round found seven more real concerns (2.17h-6), the largest a
+  15-17 texport that wrote a reordered squad and reopened short. Next: 2.19, then 2.20 with the
+  bounded loop per crate.
