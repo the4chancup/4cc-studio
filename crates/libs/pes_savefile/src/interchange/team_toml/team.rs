@@ -1269,6 +1269,59 @@ pub(super) fn gated(
     }
 }
 
+/// The apply-side text rule all four text fields share: no NUL (the codec's
+/// fields are NUL-terminated, so the value would reload truncated), no char
+/// above U+00FF when `single_byte` (the codec encodes one byte per char), and
+/// the field's capacity — UTF-8 bytes for the `name` fields, chars for the
+/// single-byte `short_name`/`shirt_name`.
+pub(super) fn check_text(
+    path: &str,
+    text: &str,
+    max: usize,
+    single_byte: bool,
+) -> Result<(), TeamTomlError> {
+    if text.contains('\0') {
+        return Err(TeamTomlError::WrongType {
+            key: path.to_string(),
+            expected: "a string without NUL",
+        });
+    }
+    if single_byte && text.chars().any(|c| c > '\u{ff}') {
+        return Err(TeamTomlError::WrongType {
+            key: path.to_string(),
+            expected: "a string of chars at most U+00FF",
+        });
+    }
+    let len = if single_byte {
+        text.chars().count()
+    } else {
+        text.len()
+    };
+    if len > max {
+        return Err(TeamTomlError::TextTooLong {
+            path: path.to_string(),
+            max,
+        });
+    }
+    Ok(())
+}
+
+/// The apply-side width rule: a stored value the target's `width`-bit field
+/// cannot hold would fail the codec's writer after `apply` returned Ok, so
+/// it is refused up front. No field is wider than 32 bits, so the shift
+/// cannot overflow.
+pub(super) fn check_width(path: &str, value: u32, width: u32) -> Result<(), TeamTomlError> {
+    let max = (1u64 << width) - 1;
+    if u64::from(value) > max {
+        return Err(TeamTomlError::OutOfRange {
+            key: path.to_string(),
+            value: i64::from(value),
+            range: format!("0 to {max}"),
+        });
+    }
+    Ok(())
+}
+
 fn apply_team(
     section: &TeamSection,
     schema: &crate::schema::RecordSchema<TeamField, crate::schema::fields::TeamText>,
@@ -1277,23 +1330,21 @@ fn apply_team(
     notes: &mut Vec<ImportNote>,
 ) -> Result<(), TeamTomlError> {
     if let Some(name) = &section.name {
-        let max = text_max(schema.texts, TeamText::Name);
-        if name.len() > max {
-            return Err(TeamTomlError::TextTooLong {
-                path: "team.name".to_string(),
-                max,
-            });
-        }
+        check_text(
+            "team.name",
+            name,
+            text_max(schema.texts, TeamText::Name),
+            false,
+        )?;
         next.name = name.clone();
     }
     if let Some(short_name) = &section.short_name {
-        let max = text_max(schema.texts, TeamText::ShortName);
-        if short_name.chars().count() > max {
-            return Err(TeamTomlError::TextTooLong {
-                path: "team.short_name".to_string(),
-                max,
-            });
-        }
+        check_text(
+            "team.short_name",
+            short_name,
+            text_max(schema.texts, TeamText::ShortName),
+            true,
+        )?;
         next.short_name = short_name.clone();
     }
     if let Some(manager_id) = section.manager_id
@@ -1340,6 +1391,16 @@ fn apply_team(
             "team.kit_slots",
         )?
     {
+        // `binding` is a u32 in the document but the field is narrower (24
+        // bits on PES 17); refuse before `write_team` would have to.
+        let width = schema
+            .arrays
+            .iter()
+            .find(|a| matches!((a.make)(0), TeamField::KitSlotTeam(0)))
+            .map_or(32, |a| a.bit_width);
+        for (i, slot) in kit_slots.iter().enumerate() {
+            check_width(&format!("team.kit_slots.{i}.binding"), slot.binding, width)?;
+        }
         next.kit_slots = Some(kit_slots);
     }
     let flags = &section.edit_flags;
@@ -2172,5 +2233,68 @@ mod tests {
                 other => panic!("{key}: expected UnknownKey, got {other:?}"),
             }
         }
+    }
+
+    /// The kit slot's bound team id is a 24-bit field: `binding` past
+    /// 2^24 - 1 is refused at apply, not left for `write_team` to reject.
+    #[test]
+    fn a_kit_slot_binding_past_the_field_width_is_refused() {
+        let (file, _) = open(PesVersion::Pes17);
+        let team = file.teams().first().expect("a team");
+        let slot = "{ number = 0, binding = 0 }";
+        let doc = |binding: u32| {
+            TeamToml::parse(&format!(
+                "pes_version = 17\n\n[team]\nkit_slots = [{{ number = 0, binding = {binding} }}, {}]\n",
+                (0..9).map(|_| slot).collect::<Vec<_>>().join(", ")
+            ))
+            .expect("parses")
+        };
+
+        let mut target = team.clone();
+        doc(16777215)
+            .apply(PesVersion::Pes17, &mut target, &mut [])
+            .expect("2^24 - 1 fits");
+
+        let mut target = team.clone();
+        let err = doc(16777216)
+            .apply(PesVersion::Pes17, &mut target, &mut [])
+            .expect_err("2^24 does not fit 24 bits");
+        assert!(
+            matches!(
+                err,
+                TeamTomlError::OutOfRange {
+                    ref key,
+                    value: 16777216,
+                    ..
+                } if key.starts_with("team.kit_slots")
+            ),
+            "{err:?}"
+        );
+        assert_eq!(&target, team, "nothing was written");
+    }
+
+    /// `short_name` is the codec's single-byte field: a char above U+00FF is
+    /// refused at apply with nothing written.
+    #[test]
+    fn an_unencodable_short_name_is_refused_at_apply() {
+        let (file, _) = open(PesVersion::Pes19);
+        let team = file.teams().first().expect("a team");
+        let doc =
+            TeamToml::parse("pes_version = 19\n\n[team]\nshort_name = \"Ā\"\n").expect("parses");
+        let mut target = team.clone();
+        let err = doc
+            .apply(PesVersion::Pes19, &mut target, &mut [])
+            .expect_err("Ā is above U+00FF");
+        assert!(
+            matches!(
+                err,
+                TeamTomlError::WrongType {
+                    ref key,
+                    ..
+                } if key == "team.short_name"
+            ),
+            "{err:?}"
+        );
+        assert_eq!(&target, team, "nothing was written");
     }
 }

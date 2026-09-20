@@ -19,15 +19,18 @@ use crate::model::player::PlayerEntry;
 use crate::model::playstyle::PlayStyle;
 use crate::model::team::TeamEntry;
 use crate::schema::fields::{PlayerField, PlayerText, RosterField};
+use crate::schema::ingame_face::INGAME_FACE_FIELDS;
 use crate::schema::limits::face_type_cap;
-use crate::schema::{playstyle, schema_for};
+use crate::schema::{bit_width, playstyle, schema_for};
 use crate::settings_toml::keys::{SettingKey, Source};
 use crate::settings_toml::{
     AppearanceSettings, appearance_from, apply_appearance, emit_appearance, get_appearance,
     parse_appearance, set_appearance,
 };
 
-use super::team::{as_table, emit, gated, opt, padded, reject, text, text_max, u16_val};
+use super::team::{
+    as_table, check_text, check_width, emit, gated, opt, padded, reject, text, text_max, u16_val,
+};
 
 // ---------------------------------------------------------------------------
 // From the model
@@ -625,6 +628,17 @@ fn apply_player(
         target.notes.push(ImportNote::EmptySlot { slot });
         return Ok(());
     }
+    // Checks first: a stored value the target's field cannot hold would fail
+    // `write_player` after `apply` returned Ok, so it is refused up front.
+    for key in PlayerKey::ALL {
+        let Some(value) = key.get_section(section) else {
+            continue;
+        };
+        let Some(width) = bit_width(target.context.to, key.spec().field) else {
+            continue;
+        };
+        check_width(&format!("{path}.{}", key.spec().path), value, width)?;
+    }
     let Some(player) = target.players.iter_mut().find(|p| p.id == player_id) else {
         return Err(TeamTomlError::PlayerMissing { id: player_id });
     };
@@ -648,26 +662,24 @@ fn apply_player(
         target.team.roster[index].number = number;
     }
     if let Some(name) = &section.name {
-        let max = text_max(schema_for(target.context.to).player.texts, PlayerText::Name);
-        if name.len() > max {
-            return Err(TeamTomlError::TextTooLong {
-                path: format!("{path}.name"),
-                max,
-            });
-        }
+        check_text(
+            &format!("{path}.name"),
+            name,
+            text_max(schema_for(target.context.to).player.texts, PlayerText::Name),
+            false,
+        )?;
         player.name = name.clone();
     }
     if let Some(shirt_name) = &section.shirt_name {
-        let max = text_max(
-            schema_for(target.context.to).player.texts,
-            PlayerText::ShirtName,
-        );
-        if shirt_name.chars().count() > max {
-            return Err(TeamTomlError::TextTooLong {
-                path: format!("{path}.shirt_name"),
-                max,
-            });
-        }
+        check_text(
+            &format!("{path}.shirt_name"),
+            shirt_name,
+            text_max(
+                schema_for(target.context.to).player.texts,
+                PlayerText::ShirtName,
+            ),
+            true,
+        )?;
         player.shirt_name = shirt_name.clone();
     }
     for key in PlayerKey::ALL {
@@ -791,11 +803,7 @@ fn apply_appearance_table(
             let Some(value) = get_appearance(&appearance, key) else {
                 continue;
             };
-            let leaf = format!(
-                "{path}.appearance{}.{}",
-                &key.spec().table["appearance".len()..],
-                key.spec().name
-            );
+            let leaf = appearance_leaf(path, key);
             match key.source() {
                 Source::Player(field) => {
                     if !context.fields.contains(&field) {
@@ -828,8 +836,35 @@ fn apply_appearance_table(
             });
         }
     }
+    // The same width check on the post-adjustment values: a value the
+    // target's field cannot hold is refused before any write.
+    for key in SettingKey::ALL {
+        let Some(value) = get_appearance(&appearance, key) else {
+            continue;
+        };
+        let width = match key.source() {
+            Source::Player(field) => bit_width(context.to, field),
+            Source::Face(field) => INGAME_FACE_FIELDS
+                .iter()
+                .find(|spec| spec.field == field)
+                .map(|spec| spec.bit_width),
+        };
+        let Some(width) = width else {
+            continue;
+        };
+        check_width(&appearance_leaf(path, key), u32::from(value), width)?;
+    }
     apply_appearance(&appearance, player)?;
     Ok(())
+}
+
+/// The dotted path of an appearance key's leaf (`…appearance.strip.sleeves`).
+fn appearance_leaf(path: &str, key: SettingKey) -> String {
+    format!(
+        "{path}.appearance{}.{}",
+        &key.spec().table["appearance".len()..],
+        key.spec().name
+    )
 }
 
 // ---------------------------------------------------------------------------
@@ -1605,6 +1640,54 @@ mod tests {
         }
     }
 
+    /// A `shirt_name` of exactly the field's capacity applies; one more char
+    /// is `TextTooLong` (pins `check_text`'s `len > max` at the boundary).
+    #[test]
+    fn a_shirt_name_at_capacity_applies_and_one_more_is_refused() {
+        let (file, _) = open(PesVersion::Pes19);
+        let (team, slot) = first_slot(&file);
+        let id = team.roster[slot].player_id;
+        let max = text_max(
+            schema_for(PesVersion::Pes19).player.texts,
+            PlayerText::ShirtName,
+        );
+
+        let section = PlayerSection {
+            shirt_name: Some("a".repeat(max)),
+            ..PlayerSection::default()
+        };
+        let mut target = team.clone();
+        let mut players = file.players().to_vec();
+        one_section(PesVersion::Pes19, slot, section)
+            .apply(PesVersion::Pes19, &mut target, &mut players)
+            .expect("at capacity applies");
+        let applied = players
+            .iter()
+            .find(|player| player.id == id)
+            .expect("the player");
+        assert_eq!(applied.shirt_name, "a".repeat(max));
+
+        let section = PlayerSection {
+            shirt_name: Some("a".repeat(max + 1)),
+            ..PlayerSection::default()
+        };
+        let mut target = team.clone();
+        let mut players = file.players().to_vec();
+        let err = one_section(PesVersion::Pes19, slot, section)
+            .apply(PesVersion::Pes19, &mut target, &mut players)
+            .expect_err("one char over");
+        assert!(
+            matches!(
+                err,
+                TeamTomlError::TextTooLong { ref path, max: m }
+                    if *path == format!("players.{:02}.shirt_name", slot + 1) && m == max
+            ),
+            "{err:?}"
+        );
+        assert_eq!(&target, team, "nothing was written");
+        assert_eq!(players, file.players(), "nothing was written");
+    }
+
     /// The `NotEncodable` note names the label of the style the target
     /// cannot store — not some other style's.
     #[test]
@@ -1842,5 +1925,196 @@ mod tests {
         let id = team.roster[slot].player_id;
         let player = players.iter().find(|p| p.id == id).expect("rostered");
         assert_eq!(player.appearance.base_copy_id, 7);
+    }
+
+    /// A stored value the target version's field cannot hold is refused at
+    /// apply — `write_player` would reject it afterwards, breaking the
+    /// all-or-nothing contract. `free_kick` is stored 4 bits on 15-19 and
+    /// 5 bits on 20/21, so `free_kick = 17` (stored 16) is a real width
+    /// difference between versions.
+    #[test]
+    fn a_value_past_the_target_fields_width_is_refused() {
+        let (file19, _) = open(PesVersion::Pes19);
+        let (team19, slot) = first_slot(&file19);
+        let doc = TeamToml::parse(&format!(
+            "pes_version = 19\n\n[players.{:02}.appearance.motion]\nfree_kick = 17\n",
+            slot + 1
+        ))
+        .expect("parses");
+
+        let mut players19 = file19.players().to_vec();
+        let mut target19 = team19.clone();
+        let err = doc
+            .apply(PesVersion::Pes19, &mut target19, &mut players19)
+            .expect_err("16 does not fit a 4-bit field");
+        assert!(
+            matches!(
+                err,
+                TeamTomlError::OutOfRange {
+                    ref key,
+                    value: 16,
+                    ref range,
+                } if key.ends_with(".appearance.motion.free_kick") && range == "0 to 15"
+            ),
+            "{err:?}"
+        );
+        assert_eq!(&target19, team19, "the team changed");
+        assert_eq!(players19, file19.players(), "a player changed");
+
+        let (file21, _) = open(PesVersion::Pes21);
+        let (team21, slot21) = first_slot(&file21);
+        let doc21 = TeamToml::parse(&format!(
+            "pes_version = 21\n\n[players.{:02}.appearance.motion]\nfree_kick = 17\n",
+            slot21 + 1
+        ))
+        .expect("parses");
+        let mut players21 = file21.players().to_vec();
+        let mut target21 = team21.clone();
+        doc21
+            .apply(PesVersion::Pes21, &mut target21, &mut players21)
+            .expect("PES 21's 5-bit field holds it");
+    }
+
+    /// The boundary, not just a miss: `boots_id`'s 14-bit field takes 16383
+    /// and refuses 16384.
+    #[test]
+    fn a_value_at_the_width_boundary_applies_and_one_over_is_refused() {
+        let (file, _) = open(PesVersion::Pes19);
+        let (team, slot) = first_slot(&file);
+        let doc = |value| {
+            TeamToml::parse(&format!(
+                "pes_version = 19\n\n[players.{:02}]\nboots_id = {value}\n",
+                slot + 1
+            ))
+            .expect("parses")
+        };
+
+        let mut players = file.players().to_vec();
+        let mut target = team.clone();
+        doc(16383)
+            .apply(PesVersion::Pes19, &mut target, &mut players)
+            .expect("16383 fits 14 bits");
+
+        let mut players = file.players().to_vec();
+        let mut target = team.clone();
+        let err = doc(16384)
+            .apply(PesVersion::Pes19, &mut target, &mut players)
+            .expect_err("16384 does not fit 14 bits");
+        assert!(
+            matches!(
+                err,
+                TeamTomlError::OutOfRange {
+                    ref key,
+                    value: 16384,
+                    ref range,
+                } if key.ends_with(".boots_id") && range == "0 to 16383"
+            ),
+            "{err:?}"
+        );
+        assert_eq!(&target, team);
+        assert_eq!(players, file.players());
+    }
+
+    /// The same check on a caller-built document (no parse): an appearance
+    /// value wider than its field — `sleeves` is 2 bits — is refused.
+    #[test]
+    fn a_caller_built_appearance_value_past_the_field_width_is_refused() {
+        let (file, _) = open(PesVersion::Pes19);
+        let (team, slot) = first_slot(&file);
+        let mut section = PlayerSection::default();
+        section.appearance.strip.sleeves = Some(5);
+        let mut doc = TeamToml::default();
+        doc.players
+            .insert(u8::try_from(slot + 1).expect("a slot"), section);
+
+        let mut players = file.players().to_vec();
+        let mut target = team.clone();
+        let err = doc
+            .apply(PesVersion::Pes19, &mut target, &mut players)
+            .expect_err("5 does not fit a 2-bit field");
+        assert!(
+            matches!(
+                err,
+                TeamTomlError::OutOfRange {
+                    ref key,
+                    value: 5,
+                    ref range,
+                } if key.ends_with(".appearance.strip.sleeves") && range == "0 to 3"
+            ),
+            "{err:?}"
+        );
+        assert_eq!(&target, team);
+        assert_eq!(players, file.players());
+    }
+
+    /// A char above U+00FF cannot encode into the single-byte fields:
+    /// `shirt_name = "Ā"` is refused at apply with nothing written, and a
+    /// caller-built document with a NUL in `name` is refused the same way.
+    #[test]
+    fn unencodable_text_is_refused_at_apply() {
+        let (file, _) = open(PesVersion::Pes19);
+        let (team, slot) = first_slot(&file);
+        let key = u8::try_from(slot + 1).expect("a slot");
+
+        let doc = TeamToml::parse(&format!(
+            "pes_version = 19\n\n[players.{key:02}]\nshirt_name = \"Ā\"\n"
+        ))
+        .expect("parses");
+        let mut players = file.players().to_vec();
+        let mut target = team.clone();
+        let err = doc
+            .apply(PesVersion::Pes19, &mut target, &mut players)
+            .expect_err("Ā is above U+00FF");
+        assert!(
+            matches!(err, TeamTomlError::WrongType { ref key, .. } if key.ends_with(".shirt_name")),
+            "{err:?}"
+        );
+        assert_eq!(&target, team);
+        assert_eq!(players, file.players());
+
+        let section = PlayerSection {
+            name: Some("A\0B".to_string()),
+            ..PlayerSection::default()
+        };
+        let mut doc = TeamToml::default();
+        doc.players.insert(key, section);
+        let mut players = file.players().to_vec();
+        let mut target = team.clone();
+        let err = doc
+            .apply(PesVersion::Pes19, &mut target, &mut players)
+            .expect_err("a NUL is refused");
+        assert!(
+            matches!(err, TeamTomlError::WrongType { ref key, .. } if key.ends_with(".name")),
+            "{err:?}"
+        );
+        assert_eq!(&target, team);
+        assert_eq!(players, file.players());
+    }
+
+    /// `é` and `ÿ` (U+00FF, the last single-byte char) are one byte each in
+    /// the single-byte encoding: they apply and survive a
+    /// `write_player`/`read_player` round trip on the PES 19 fixture.
+    #[test]
+    fn a_latin1_shirt_name_round_trips_through_the_codec() {
+        let (file, _) = open(PesVersion::Pes19);
+        let (team, slot) = first_slot(&file);
+        let doc = TeamToml::parse(&format!(
+            "pes_version = 19\n\n[players.{:02}]\nshirt_name = \"éÿ\"\n",
+            slot + 1
+        ))
+        .expect("parses");
+        let mut players = file.players().to_vec();
+        let mut target = team.clone();
+        doc.apply(PesVersion::Pes19, &mut target, &mut players)
+            .expect("applies");
+
+        let id = team.roster[slot].player_id;
+        let player = players.iter().find(|p| p.id == id).expect("rostered");
+        assert_eq!(player.shirt_name, "éÿ");
+        let schema = schema_for(PesVersion::Pes19);
+        let mut record = vec![0u8; schema.player.size];
+        crate::codec::write_player(player, &mut record, schema.player).expect("write_player");
+        let back = crate::codec::read_player(&record, schema.player).expect("read_player");
+        assert_eq!(back.shirt_name, "éÿ");
     }
 }

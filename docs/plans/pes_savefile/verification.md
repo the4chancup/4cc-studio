@@ -42,10 +42,13 @@ Part of the [Savefile plan](README.md). Section headings are unchanged from the 
   the same team reproduces the team and its players field for field on every fixture save, and
   `to_toml` of the parsed document is the emitted text again; a partial file touches only the
   fields it carries (a one-key file leaves everything else byte-identical after `write_player`);
-  `.4ccs` decodes the real PES 19 fixture file's 23 players against the ctypes offsets held as
-  literals in the golden test; the `.4cct` fixture's tactics equal the schema codec's for the same
-  team; Texport `from_bytes` → `to_bytes` is byte-identical on the real 17, 18, 19 and 21 fixtures
-  and every record decodes to the same values the fixture save's codec produces for the same
-  layout; the 18/19/21 key indices and layouts are measured, 15/16/20's are the reference's.
+  `.4ccs` decodes the real PES 19 fixture file's 23 players, every mapped field, against the
+  ctypes offsets held as literals in the golden test (the fields PES 19's schema lacks are a
+  literal list and must be absent); the `.4cct` fixture's tactics equal the schema codec's for
+  the same team; Texport `from_bytes` → `to_bytes` is byte-identical on the real 17, 18, 19 and
+  21 fixtures and the whole tactics and every player record equal what the schema codec reads at
+  the golden's literal offsets; `apply` refuses, before any write, a value wider than the target
+  version's field, a text the target's field cannot encode or hold, and a NUL; the 18/19/21 key
+  indices and layouts are measured, 15/16/20's are the reference's.
 - **Texport write**: import the generated file in the actual game (manual, per version; a `new`
   file and an edited round-tripped one).
