@@ -1711,6 +1711,37 @@ Decision (lead, on the cross-family review of the 2.17h surface; seven concerns,
 Plan: `pes_savefile/operations.md` "Team TOML" (`apply` rules, `from_team` doc, `Capped`),
 "Texport (read + write)" (`team()`, `to_team_toml`).
 
+## 2026-09-21 - pes_savefile - 2.17h second review round: the cap was binding
+Decision (lead): the first round returned seven concerns, all accepted, so under the new
+`AGENTS.md` rule (rounds continue while a round returns seven with at least five accepted) a
+second round ran over the same surface with the rework diff and the prior rulings. It returned
+seven more, all verified, all accepted:
+- **A 15-17 texport refuses a player list it could not read back.** The reader's termination
+  rule (`id == team.id * 100 + 1 + slot`) is ours, unmeasured; the writer laid records out
+  positionally, so a reordered list wrote fine and reopened short. `to_bytes` now returns
+  `OldPlayerIds` before any write. Rejected: loosening the reader to "until id 0", which would
+  accept files whose real termination rule we have not measured.
+- **Team TOML text refuses an embedded NUL at parse** (`WrongType`, "a string without NUL"),
+  the 2.17e rule for `settings.toml`: the codec's fields are NUL-terminated, so the value would
+  reload truncated.
+- **A shirt number wider than the target's roster field is refused at `apply`**, not clamped to
+  the reference's 231: same wrong-layer break as `TextTooLong` (applied Ok, then `write_roster`
+  failed). Width from the target schema's `RosterField::Number`, never a literal.
+- **Checked arithmetic on user integers**: the stored-range shifts (`+7`, `-1`) and the own-id
+  convention (`team_id * 100 + slot`) overflowed on `i64::MAX`/`i64::MIN`/`u32::MAX`; `None`
+  is `OutOfRange` or "not the convention".
+- **A legacy playable rating past the four labels is refused at `read_squad`**, not at emission
+  (`to_toml` stays infallible for it).
+- **Inline records reject unknown members** like top-level keys (`UnknownKey` with the array
+  index in the path); `toml_edit::InlineTable` is `TableLike`, so the existing `reject` serves.
+- **The `.4ccs` golden covers all 23 records and every mapped field** with the ctypes offsets
+  as literals, so a mapping dropped from `legacy.rs` fails. Writing it surfaced a schema fact
+  the sampled golden had not: PES 19 stores no `Aggression`, `PlayingAttitude`,
+  `TightPossession`, `StrongerHand`, dribbling motion (PES 20 added them) and no base-copy edit
+  flag (15-18 hold it); the golden lists them as literals. The 19 base-copy flag is the codec
+  phase's table, not re-measured here.
+Plan: `pes_savefile/operations.md` "Legacy 4ccEditor formats" (the number sentence).
+
 ## 2026-09-21 - python_bindings - 2.18 shape: a codec-only wheel, `abi3-py311`, a workspace member that `cargo test` never links
 Decision (agent, within the plan's "PyO3 shim, proves guardrail 4 with a real cdylib build and a
 smoke test"):

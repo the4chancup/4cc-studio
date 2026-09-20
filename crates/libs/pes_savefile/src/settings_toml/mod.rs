@@ -930,7 +930,14 @@ fn value(
         Kind::Signed7 => {
             let value = integer("an integer")?;
             if stored_ranges {
-                return wide(value + 7);
+                let Some(shifted) = value.checked_add(7) else {
+                    return Err(SettingsError::OutOfRange {
+                        key: dotted.to_string(),
+                        value,
+                        range: format!("0 to {}", stored_bound(key)),
+                    });
+                };
+                return wide(shifted);
             }
             if !(-7..=7).contains(&value) {
                 return Err(SettingsError::OutOfRange {
@@ -944,7 +951,14 @@ fn value(
         Kind::OneBased { max } => {
             let value = integer("an integer")?;
             if stored_ranges {
-                return wide(value - 1);
+                let Some(shifted) = value.checked_sub(1) else {
+                    return Err(SettingsError::OutOfRange {
+                        key: dotted.to_string(),
+                        value,
+                        range: format!("0 to {}", stored_bound(key)),
+                    });
+                };
+                return wide(shifted);
             }
             if !(1..=i64::from(max)).contains(&value) {
                 return Err(SettingsError::OutOfRange {

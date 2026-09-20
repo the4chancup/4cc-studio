@@ -139,7 +139,15 @@ reviewer *pointers* (plan sections, file paths, a diff written to `.tmp/review.d
 acceptance IDs), never your own summary, which carries the assumptions it is there to catch. It
 returns at most seven ranked concerns, each marked verified or suspected. Answer every one in the
 turn report: accepted → what changed; rejected → one line why. A concern silently dropped is the
-failure mode this exists to prevent. The user can request a critique at any time with `/duck`.
+failure mode this exists to prevent. **The cap is per round, and rounds are bounded by the accept
+rate, not by the lead's sense of importance.** Seven slots force ranking and starve the reviewer's
+taste for impossible edge cases, but on a large surface the eighth concern is unknown: 2.17h's one
+round returned seven, all accepted. So a critique of one surface runs another round only when the
+last round returned seven *and* at least five were accepted (the cap was binding and the signal
+was real); the next round gets the rework diff and the prior rulings so it does not repeat them,
+and the loop stops at a round under seven, a round under five accepted, or three rounds. At
+converge the surface is one crate (or one coupled pair), never the phase, so the cap is not the
+bottleneck there. The user can request a critique at any time with `/duck`.
 
 ## Read order by task
 

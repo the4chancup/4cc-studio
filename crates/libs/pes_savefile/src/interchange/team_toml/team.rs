@@ -943,13 +943,22 @@ pub(super) fn boolean(item: &Item, key: &str) -> Result<bool, TeamTomlError> {
 }
 
 pub(super) fn text(item: &Item, key: &str) -> Result<String, TeamTomlError> {
-    item.as_value()
-        .and_then(|v| v.as_str())
-        .map(str::to_string)
-        .ok_or_else(|| TeamTomlError::WrongType {
+    let text =
+        item.as_value()
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| TeamTomlError::WrongType {
+                key: key.to_string(),
+                expected: "a string",
+            })?;
+    // The codec's text fields are NUL-terminated; an embedded NUL would
+    // reload as a different string, so it is refused like settings.toml's.
+    if text.contains('\0') {
+        return Err(TeamTomlError::WrongType {
             key: key.to_string(),
-            expected: "a string",
-        })
+            expected: "a string without NUL",
+        });
+    }
+    Ok(text.to_string())
 }
 
 pub(super) fn label(item: &Item, key: &str, labels: &[&str]) -> Result<bool, TeamTomlError> {
@@ -1036,13 +1045,14 @@ pub(super) fn kit_slots(item: &Item, key: &str) -> Result<[KitSlot; 10], TeamTom
         });
     }
     let mut slots = [KitSlot::default(); 10];
-    for (slot, value) in slots.iter_mut().zip(array.iter()) {
+    for (i, (slot, value)) in slots.iter_mut().zip(array.iter()).enumerate() {
         let entry = value
             .as_inline_table()
             .ok_or_else(|| TeamTomlError::WrongType {
                 key: key.to_string(),
                 expected: "an array of ten { number, binding } tables",
             })?;
+        reject(entry, &format!("{key}.{i}"), &["number", "binding"])?;
         let number = entry
             .get("number")
             .ok_or_else(|| TeamTomlError::WrongType {
@@ -1087,13 +1097,14 @@ pub(super) fn formation_players(
         });
     }
     let mut players = [FormationSlot::default(); 11];
-    for (slot, value) in players.iter_mut().zip(array.iter()) {
+    for (i, (slot, value)) in players.iter_mut().zip(array.iter()).enumerate() {
         let entry = value
             .as_inline_table()
             .ok_or_else(|| TeamTomlError::WrongType {
                 key: key.to_string(),
                 expected,
             })?;
+        reject(entry, &format!("{key}.{i}"), &["position", "x", "y"])?;
         let position = entry
             .get("position")
             .and_then(|v| v.as_str())
@@ -1149,13 +1160,14 @@ pub(super) fn instruction_entries(
         });
     }
     let mut entries = [InstructionEntry::default(); 2];
-    for (entry, value) in entries.iter_mut().zip(array.iter()) {
+    for (i, (entry, value)) in entries.iter_mut().zip(array.iter()).enumerate() {
         let table = value
             .as_inline_table()
             .ok_or_else(|| TeamTomlError::WrongType {
                 key: key.to_string(),
                 expected,
             })?;
+        reject(table, &format!("{key}.{i}"), &["instruction", "player"])?;
         let name = table
             .get("instruction")
             .and_then(|v| v.as_str())
@@ -2094,6 +2106,71 @@ mod tests {
                 "{err:?}"
             );
             assert_eq!(&target, team, "nothing was written");
+        }
+    }
+
+    /// An embedded NUL would reload as a truncated string at the codec's
+    /// terminator; refused at parse like settings.toml's name (2.17e).
+    #[test]
+    fn a_nul_inside_a_text_is_refused_at_parse() {
+        for (key, doc) in [
+            ("team.name", "[team]\nname = \"A\\u0000B\"\n"),
+            ("team.short_name", "[team]\nshort_name = \"A\\u0000B\"\n"),
+            ("players.01.name", "[players.01]\nname = \"A\\u0000B\"\n"),
+            (
+                "players.01.shirt_name",
+                "[players.01]\nshirt_name = \"A\\u0000B\"\n",
+            ),
+        ] {
+            match TeamToml::parse(doc) {
+                Err(TeamTomlError::WrongType {
+                    key: found,
+                    expected,
+                }) => {
+                    assert_eq!(found, key);
+                    assert_eq!(expected, "a string without NUL");
+                }
+                other => panic!("{key}: expected WrongType, got {other:?}"),
+            }
+        }
+    }
+
+    /// An unknown member inside an inline record is `UnknownKey`, the same
+    /// rule as top-level keys: a dropped member would not survive emission.
+    #[test]
+    fn an_unknown_member_of_an_inline_record_is_rejected() {
+        let kit_slot = "{ number = 0, binding = 0 }";
+        let formation_player = "{ position = \"CF\", x = 1, y = 1 }";
+        let instruction = "{ instruction = \"off\", player = 0 }";
+        for (key, doc) in [
+            (
+                "team.kit_slots.0.extra",
+                format!(
+                    "[team]\nkit_slots = [{{ number = 0, binding = 0, extra = 3 }}, {}]\n",
+                    (0..9).map(|_| kit_slot).collect::<Vec<_>>().join(", ")
+                ),
+            ),
+            (
+                "tactics.preset_1.formation_1.players.0.extra",
+                format!(
+                    "[tactics.preset_1.formation_1]\nplayers = [{{ position = \"CF\", x = 1, y = 1, extra = 2 }}, {}]\n",
+                    (0..10)
+                        .map(|_| formation_player)
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                ),
+            ),
+            (
+                "tactics.preset_1.instructions.attack.0.extra",
+                format!(
+                    "[tactics.preset_1.instructions]\nattack = [{{ instruction = \"off\", player = 0, extra = 1 }}, {instruction}]\ndefence = [{instruction}, {instruction}]\n"
+                ),
+            ),
+        ] {
+            match TeamToml::parse(&doc) {
+                Err(TeamTomlError::UnknownKey { key: found }) => assert_eq!(found, key),
+                other => panic!("{key}: expected UnknownKey, got {other:?}"),
+            }
         }
     }
 }

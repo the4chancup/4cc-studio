@@ -18,7 +18,7 @@ use crate::codec::CodecError;
 use crate::interchange::team_toml::player_keys::PlayerKey;
 use crate::interchange::team_toml::{
     AutoSection, InstructionsSection, PlayerSection, SetPiecesSection, SlidersSection,
-    StyleSection, TacticsSection, TeamToml, TeamTomlError,
+    StyleSection, TacticsSection, TeamToml, TeamTomlError, labels,
 };
 use crate::model::instruction::Instruction;
 use crate::model::tactics::FormationSlot;
@@ -614,6 +614,18 @@ pub fn read_squad(bytes: &[u8]) -> Result<TeamToml, LegacyError> {
     };
     for i in 0..players {
         let record = &bytes[HEADER + i * RECORD..HEADER + (i + 1) * RECORD];
+        // A playable rating the label table does not hold would index-panic
+        // when the document is emitted; refuse it at ingestion.
+        for (j, &byte) in record[PLAY_POS..PLAY_POS + 13].iter().enumerate() {
+            if usize::from(byte) >= labels::RATINGS.len() {
+                return Err(TeamTomlError::OutOfRange {
+                    key: format!("record {} offset {}", i + 1, PLAY_POS + j),
+                    value: i64::from(byte),
+                    range: format!("0 to {}", labels::RATINGS.len() - 1),
+                }
+                .into());
+            }
+        }
         let number = Some(u16::from_le_bytes([numbers[2 * i], numbers[2 * i + 1]]));
         let section = read_player(version, &fields, record, number)?;
         out.players.insert(
@@ -854,6 +866,26 @@ mod tests {
         let err = read_squad(&bytes).expect_err("41 players");
         assert!(
             matches!(err, LegacyError::TooManyPlayers { count: 41 }),
+            "{err:?}"
+        );
+    }
+
+    /// A playable rating past the four labels would index-panic when the
+    /// document is emitted; the reader refuses it.
+    #[test]
+    fn a_playable_rating_past_the_label_table_is_refused() {
+        let mut bytes = SQUAD.to_vec();
+        bytes[HEADER + PLAY_POS] = 4;
+        let err = read_squad(&bytes).expect_err("a rating of 4 has no label");
+        assert!(
+            matches!(
+                err,
+                LegacyError::Value(TeamTomlError::OutOfRange {
+                    ref key,
+                    value: 4,
+                    ..
+                }) if key.starts_with("record 1 offset")
+            ),
             "{err:?}"
         );
     }

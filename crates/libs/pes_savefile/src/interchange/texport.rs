@@ -88,11 +88,32 @@ pub enum TexportError {
     /// `new` cannot synthesize a 15-17 file: there is no measured template.
     #[error("no texport template exists for {0:?}; write by editing a read file")]
     NoTemplate(PesVersion),
+    /// The 15-17 writer lays player records out positionally and the reader
+    /// stops at the first record whose id is not `team.id * 100 + 1 + slot`;
+    /// that termination rule is ours (unmeasured), so the writer refuses a
+    /// player list it could not read back rather than guessing.
+    #[error("old-layout record {slot} must be player id {expected}, not {got}")]
+    OldPlayerIds {
+        /// The 0-based record position.
+        slot: usize,
+        /// The id the position must carry (`u64`: a team id over
+        /// ~42 million has no representable layout).
+        expected: u64,
+        /// The player id found there.
+        got: u32,
+    },
 }
 
 /// The little-endian u32 id at a record's start.
 fn record_id(record: &[u8]) -> u32 {
     u32::from_le_bytes(record[..4].try_into().expect("an id field"))
+}
+
+/// The id a 15-17 record must carry at position `i` (`team.id * 100 + 1 +
+/// i`), in u64 so a team id over ~42 million mismatches instead of
+/// overflowing.
+fn old_record_id(team_id: u32, i: u32) -> u64 {
+    u64::from(team_id) * 100 + 1 + u64::from(i)
 }
 
 /// The derived record offsets of an 18-21 file.
@@ -344,7 +365,7 @@ impl Texport {
             };
             let id = record_id(record);
             let Ok(i) = u32::try_from(i) else { break };
-            if id == 0 || id != team.id * 100 + 1 + i {
+            if id == 0 || u64::from(id) != old_record_id(team.id, i) {
                 break;
             }
             let mut player = read_player(record, schema.player)?;
@@ -373,7 +394,11 @@ impl Texport {
         team.roster = (0..width)
             .map(|i| crate::model::team::RosterSlot {
                 player_id: if i < players.len() {
-                    team.id * 100 + 1 + u32::try_from(i).expect("a roster is narrower than u32")
+                    u32::try_from(old_record_id(
+                        team.id,
+                        u32::try_from(i).expect("a roster is narrower than u32"),
+                    ))
+                    .expect("a record the reader accepted carries an id that fits u32")
                 } else {
                     0
                 },
@@ -486,6 +511,20 @@ impl Texport {
             File::Old(container) => {
                 let schema = schema_for(self.version);
                 let old = texport_old(self.version).expect("an old holds offsets");
+                // The records write positionally and the reader stops at the
+                // first id that is not `team.id * 100 + 1 + slot`; refuse a
+                // list this write could not read back.
+                for (i, player) in self.players.iter().enumerate() {
+                    let expected =
+                        u32::try_from(i).map_or(u64::MAX, |i| old_record_id(self.team.id, i));
+                    if u64::from(player.id) != expected {
+                        return Err(TexportError::OldPlayerIds {
+                            slot: i,
+                            expected,
+                            got: player.id,
+                        });
+                    }
+                }
                 let mut container = container.clone();
                 write_tactics(
                     &self.team,
@@ -849,5 +888,23 @@ mod tests {
                 "shirt numbers are not the file's to give"
             );
         }
+    }
+
+    /// The 15-17 writer lays players out positionally and the reader stops
+    /// at the first id that is not `team.id * 100 + 1 + slot`: a swapped
+    /// order would write fine and reopen with fewer players, so it is
+    /// refused.
+    #[test]
+    fn an_old_layout_refuses_player_ids_that_do_not_match_the_slots() {
+        let bytes = crate::interchange::texport_golden::pes17_texport_bytes();
+        let mut texport = Texport::from_bytes(&bytes, None).expect("opens");
+        texport.players_mut().swap(0, 1);
+        let err = texport
+            .to_bytes(&test_salt())
+            .expect_err("swapped players cannot be written positionally");
+        assert!(
+            matches!(err, TexportError::OldPlayerIds { slot: 0, .. }),
+            "{err:?}"
+        );
     }
 }
