@@ -440,25 +440,29 @@ Spec: `docs/plans/core/development_plan.md` "Phase 2", `docs/plans/libs/README.m
   formats", rewritten from measurement on the real files: three 17 / four 18 / eleven 19 / five 21
   texports, two `.4ccs`; decision entry 2026-09-20). Texport write is a manual game check.
   Slices, vertical first (real input in, real output out):
-  - [ ] 2.17h-0 lead: fixtures (`pes17_texport_*` slices, `pes18/19/21_texport.ted`,
+  - [x] 2.17h-0 lead: fixtures (`pes17_texport_*` slices, `pes18/19/21_texport.ted`,
     `pes19_squad.4ccs`, synthesized `pes19_tactics.4cct`) via
     `scripts/provenance/fixtures/interchange_fixtures.py`; golden tests holding the `.4ccs`
-    ctypes offsets and the texport layout literals
-  - [ ] 2.17h-1 `schema/texport.rs` + `interchange/texport.rs` (`Texport::from_bytes`/`new`/
-    `to_bytes`, detection, `TexportError`) → verify: round trip byte-identical on the four
-    fixtures; every record decodes; 20/21 detection picks 21 on the 21 fixture
-  - [ ] 2.17h-2 `model/instruction.rs` + `schema/instruction.rs` (lead golden: the reference's
-    `translate_adv_instruction` table as literals) + `interchange/team_toml/` team and tactics
-    half (`TeamToml` document, `TeamSection`, `TacticsSection`, parse/`to_toml`/`from_team`/
-    `apply` for those tables) → verify: `from_team` → `to_toml` → `parse` → `apply` reproduces
-    every fixture team; a one-key file changes one field
-  - [ ] 2.17h-3 `team_toml/` player half (`PlayerSection`, the stats/positions/skills/edit-flag
-    key tables, `ingame_face`, `appearance` through `PlayerSettings`, `ImportNote` conversion
-    rules, `shirt_name_from`) → verify: round trip on every fixture player; a 21 → 19 apply drops
-    the 20+ keys with notes and caps the face types
-  - [ ] 2.17h-4 `interchange/legacy.rs` (`.4ccs`/`.4cct` → `TeamToml`) → verify: the lead's
-    `.4ccs` golden (23 players, literal offsets); the `.4cct` fixture's tactics equal the codec's
-    for team 713
+    ctypes offsets and the texport layout literals (`3575b19`)
+  - [x] 2.17h-1 `schema/texport.rs` + `interchange/texport.rs` (`8385437`): round trip
+    byte-identical on the 17/18/19/21 fixtures, `new` reproduces the fixtures' header/coach/tail
+    bytes, a synthesized PES 16 texport pins the player+appearance stride; PES 20's size derived
+    from its own records (decision). `mutants-diff` 137 caught, 2 equivalent (documented in the
+    2.17h-1 rework brief: integer division absorbs the tail, a slice length `record_id` ignores)
+  - [x] 2.17h-2 `model/instruction.rs` + `schema/instruction.rs` + `team_toml/{mod,labels,team}.rs`
+    (`2d9365c`): the 20/21 fixtures store a 17th instruction value (0x10, `Anchoring`; plan and
+    golden updated); team/tactics parse/emit/`from_team`/`apply` with schema-gated notes,
+    multi-line formations. `mutants-diff` 99 caught, 10 survivors: 9 missing tests added in
+    2.17h-3 (`TacticsSchema::has`/`has_preset`, `shirt_name_from`), 1 equivalent (the two colour
+    gates co-vary). `team.rs` is ~1600 non-test lines of per-key three-pass code; accepted,
+    the player half was made table-driven instead (design-health input for converge)
+  - [x] 2.17h-3 `team_toml/{player,player_keys}.rs` (`ceb9b6f`): `PlayerKey` table drives
+    parse/emit/apply; `settings_toml` parser/emitter shared through `pub(crate)` seams; stored
+    ranges, not editor ranges (decision: real saves hold face types past the caps); fixture
+    round trips exhaustive at the model level, TOML text sampled (first/last/densest team per
+    version) after a 104 s test was cut to 9 s and `from_team` sped up ~9x (`player_field_set`)
+  - [x] 2.17h-4 `interchange/legacy.rs` (`1ae6e16`): both goldens green; `from_team` pool rule
+    (empty = team-only document, partial = `PlayerMissing`)
   - [ ] 2.17h-5 checkpoint (b) review of the 2.17h surface, rework, closeout
 - [ ] 2.18 `python_bindings` (maturin build + Python smoke test; add the `just bindings` recipe
   and the CI job deferred from step 1.2)
