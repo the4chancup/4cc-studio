@@ -1782,3 +1782,20 @@ smoke test"):
   `maturin` is a developer tool like `just`, pinned in CI (`1.15.0`, 2026-08) and installed with pip.
 Plan: `core/development_plan.md` "Phase 2" (`python_bindings`), `core/README.md` "External
 Dependencies", `CONTRIBUTING.md` "Testing and verification" (the maturin line).
+
+## 2026-09-21 - development plan - the GPU BC7 backend moves from Phase 2 to Phase 4
+Decision (user): worklog step 2.5b (`dds_convert` GPU BC7: wgpu device, CPU fallback, cold-start
+and throughput measured) leaves Phase 2 and is built in Phase 4 with the Team compiler's texture
+step. Phase 2 delivers the CPU reference only.
+Why: build it with its consumer, not before it, because every rule the plan gives the GPU path
+(bounded batches against the memory budget, cancellation, writer progress, one encoded result
+shared by all consumers, the fallback report) is pipeline integration; a Phase 2 version would be
+shaped without a caller and reshaped once the texture step exists, the same "no consumer yet"
+risk that made Phase 3 open with a tracer bullet. Rejected: a standalone proof now (device + one
+encode + decode within the CPU tolerance), because the measurement it would produce (cold
+pipeline creation, upload/readback) is only actionable once there is a pipeline to schedule
+around, and the CPU path already satisfies the fixture-based quality checks the GPU output must
+meet.
+Plan: `core/development_plan.md` "Phase 2" (`ftex` + `dds_convert` bullet), "Phase 4"
+(`processing/` bullet). `libs/README.md` "First-release desktop GPU BC7" is the backend's spec
+and is phase-agnostic; unchanged.

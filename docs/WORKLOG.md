@@ -14,7 +14,7 @@ is in `AGENTS.md` ("Working documents").
 rounds A and B (2026-09-13) closed: 2.5c, 2.12b, 2.13b done.
 **In progress:** 2.17 `pes_savefile`, 2.18 `python_bindings`, 2.19 Phase verification done; 2.20
 Converge next (per crate, bounded review loop). Review round C (2026-09-19) closed as 2.19a; its
-leftovers are listed under 2.20. 2.5b (GPU BC7) is the one Phase 2 code step still open.
+leftovers are listed under 2.20. 2.5b (GPU BC7) deferred to Phase 4 (user decision 2026-09-21).
 **Blocked on:** nothing
 
 ---
@@ -130,9 +130,9 @@ Spec: `docs/plans/core/development_plan.md` "Phase 2", `docs/plans/libs/README.m
   was wrong: the small mips are pathological for any BC1 line); DXT5nm per engine; cache. `ftex`
   gained `pub mod dds` (`read_layout`, `header_bytes`) and a fix for a zlib chunk that is exactly
   its piece's size (read as raw by every reader). 10 + 7 tests
-- [ ] 2.5b `dds_convert` GPU BC7 (wgpu backend of `block_compression`): Vulkan/Metal device, CPU
-  fallback, cold-start and throughput measured → verify: GPU and CPU outputs decode within the
-  same tolerance; fallback path exercised by forcing no adapter
+- [x] 2.5b `dds_convert` GPU BC7 — deferred to Phase 4 by user decision 2026-09-21 (decision
+  entry; `core/development_plan.md` "Phase 2" and "Phase 4"): built with the texture step that
+  consumes it. The step text lives under Phase 4 below
 - [x] 2.6a-1 `fmdl::format` container (raw records per block, raw section-1 blocks) and SKL codec
   — done (sidekick): byte-identical on the three Konami FMDLs and three SKLs; add-on FMDLs
   round-trip semantically (`oral` pads blocks to 16, ours does not); unknown block ids survive as
@@ -497,7 +497,7 @@ Spec: `docs/plans/core/development_plan.md` "Phase 2", `docs/plans/libs/README.m
   `python_bindings` the one documented exclusion), `just deps-check` (`licenses ok` with the
   LLVM-exception allowance), `just bindings` (27 fixtures under Python 3.14); CI run 18 on the
   same commit green on all five jobs, the Linux `bindings` job included (closes 2.18's open item).
-  Per-crate counts in the commit message. Still open in the phase: 2.5b (GPU BC7)
+  Per-crate counts in the commit message
 - [x] 2.19a Review round C (2026-09-19): the first mutation runs and a workspace read-through,
   fixed across six commits (`0fe5e33`..`77b6362`): `cargo-mutants` adopted (decision entry);
   kit_config/fpk/vtree/cpk/ftex/dds_convert test gaps the runs found; fmdl and model_convert
@@ -547,6 +547,17 @@ Steps are itemized when Phase 2 closes; the first is fixed:
   binary registering `team_compiler`, Team compiler `view/` with settings, run button and a plain
   `PipelineEvent` log. → verify: manual, recorded in the converge step: the 3.3 fixture compiled
   from the GUI with its events visible, on Windows; Linux when a machine is available
+
+### Phase 4 — Processing logic
+
+Steps are itemized when Phase 3 closes; one is fixed already:
+
+- [ ] 4.x `dds_convert` GPU BC7 (deferred from 2.5b, decision entry 2026-09-21; spec
+  `libs/README.md` "First-release desktop GPU BC7"): `block_compression`'s wgpu backend on a
+  Vulkan/Metal device, CPU fallback with the fallback reason reported, cold pipeline creation
+  and upload/readback measured first, then the texture step's bounded batches → verify: GPU and
+  CPU outputs decode within the same tolerance on the `dds_convert` fixtures; the fallback path
+  exercised by forcing no adapter
 
 ---
 
@@ -737,5 +748,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   all the same class (a value `apply` accepted and the codec refused at write), and stopped the
   loop. Next: 2.19, then 2.20 with the bounded loop per crate.
 - **2026-09-21** - 2.19 done: gates, deps-check and bindings green locally at `43b4ccb` and in CI
-  on both platforms (658 tests over 40 crate binaries). Next: 2.20 converge, one crate at a time;
-  2.5b's fate (do now or defer) is a user decision before the phase can close.
+  on both platforms (658 tests over 40 crate binaries). User decisions: 2.5b GPU BC7 deferred to
+  Phase 4 (decision entry); 2.20 runs per crate with the bounded reviewer loop, the tiny leaves
+  batched into one reviewer round, `pes_savefile::interchange`'s reviewer half counted as done by
+  2.17h's three rounds. Next: 2.20, tiny leaves first.
