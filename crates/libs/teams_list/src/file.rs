@@ -3,8 +3,9 @@
 //! Contract: tab-separated, a required header line whose fields are preserved
 //! verbatim on write, `ID` and `Name` located by header position in either
 //! order, every line's cells carried verbatim, the `Name` column folded
-//! through [`TeamName::new`] on load, lines whose `Name` does not fold kept
-//! verbatim as placeholders and never looked up, BOM tolerated on read and
+//! through [`TeamName::new`] on load, lines whose `Name` cell is not
+//! slash-wrapped or does not fold kept verbatim as placeholders and never
+//! looked up, BOM tolerated on read and
 //! never written, blank lines dropped, CRLF or LF read and CRLF always
 //! written. A placeholder whose `ID` cell holds a number in 701..=920 still
 //! claims that id: the file rejects any two rows sharing one.
@@ -83,8 +84,17 @@ impl TeamsList {
                 .parse::<u16>()
                 .ok()
                 .and_then(|value| TeamId::new(value).ok());
-            match TeamName::new(&raw_name) {
-                Ok(name) => {
+            // Only a slash-wrapped Name cell is a team: `TeamName::new` also
+            // folds bare tokens (export names come in bare), but a bare list
+            // cell loads as an inert placeholder and never matches.
+            let team_name = {
+                let trimmed = raw_name.trim();
+                (trimmed.len() >= 3 && trimmed.starts_with('/') && trimmed.ends_with('/'))
+                    .then(|| TeamName::new(&raw_name).ok())
+                    .flatten()
+            };
+            match team_name {
+                Some(name) => {
                     let id = id.ok_or_else(|| TeamsListError::InvalidId {
                         line,
                         text: id_text.clone(),
@@ -100,7 +110,7 @@ impl TeamsList {
                     }
                     rows.push(Row::Team { cells, id, name });
                 }
-                Err(_) => {
+                None => {
                     // A placeholder's numeric in-range id is still part of
                     // the id space.
                     if let Some(id) = id

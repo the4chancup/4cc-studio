@@ -75,6 +75,7 @@ mod tests {
     #[test]
     fn folds_to_canonical_form() {
         assert_eq!(TeamName::new("co").unwrap().as_str(), "/co/");
+        assert_eq!(TeamName::new("CO").unwrap().to_string(), "/co/");
         assert_eq!(TeamName::new("/CO/").unwrap().as_str(), "/co/");
         assert_eq!(TeamName::new(" co ").unwrap().as_str(), "/co/");
         assert_eq!(TeamName::new("/umaJP/").unwrap().as_str(), "/umajp/");

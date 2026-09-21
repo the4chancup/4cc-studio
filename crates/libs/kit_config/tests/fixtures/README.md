@@ -9,6 +9,7 @@ Konami-derived files are Konami's, kept for interoperability (see the repository
 | `konami_pes21_100_DEF_GK1st_realUni.bin` | PES 2021 `dt00_x64` `UniformParameter.bin`, entry `100_DEF_GK1st_realUni.bin` | a stock goalkeeper config: shirt model 160, long sleeves 0x3E |
 | `konami_pes21_model144_100_DEF_1st_realUni.bin` | same container, entry `100_DEF_1st_realUni.bin` | shirt model 144, long sleeves 0xBB (undershirt only), byte 0x13 nonzero |
 | `konami_pes21_referee_EU_1.bin` | same container, entry `referee_EU_1.bin` | a referee config: short-sleeves bits = 3, a value the old editor never produced (13 of the 1372 stock configs carry it); shirt model 176 |
+| `blue_pes18_UniformParameter.bin`, `blue_pes19_UniformParameter.bin` | 4cc aet compiler Blue, `lib/bins/UniformParameter18.bin` / `UniformParameter19.bin` (the 4cc kit configs of those seasons, written by the two Kit Manager variants and by Red/Blue), WESYS-wrapped by `scripts/provenance/fixtures/kit_config_containers.py` | the plan's "every entry of the bundled UniformParameter18/19.bin" mass round trip at PES 18 and PES 19: 2214 and 2210 entries, the 4cc configs with Name Y in the 5-bit encoding |
 
 The whole PES 2021 container (1372 configs of 120 bytes; 802 further entries of 96 bytes are a
 different record type and not kit configs) is `crates/libs/uniparam/tests/fixtures/konami_pes21_UniformParameter.bin`,

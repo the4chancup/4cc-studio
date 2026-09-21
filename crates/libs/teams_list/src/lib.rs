@@ -24,6 +24,15 @@ mod tests {
         TeamsList::parse(text).unwrap()
     }
 
+    /// A merged list must still satisfy the file's own invariants.
+    fn reparses(list: &TeamsList) {
+        assert!(
+            TeamsList::parse(&list.write()).is_ok(),
+            "merged list does not parse:\n{}",
+            list.write()
+        );
+    }
+
     #[test]
     fn upstream_parses_to_220_rows() {
         let list = list(TeamsList::UPSTREAM);
@@ -51,7 +60,7 @@ mod tests {
             &list.rows()[71],
             Row::Placeholder { cells } if cells[0] == "772" && cells[1] == "Backup 1" && cells.len() == 4
         ));
-        assert_eq!(list.teams().count(), 220 - placeholders);
+        assert_eq!(list.teams().count(), 125);
     }
 
     #[test]
@@ -147,6 +156,126 @@ mod tests {
             merged.id_of(&TeamName::new("shared").unwrap()),
             TeamId::new(799).ok()
         );
+        reparses(&merged);
+    }
+
+    #[test]
+    fn reconcile_maps_columns_by_header_when_they_differ() {
+        // The working list's header order differs from the incoming one: the
+        // id and name cells land in the working columns, not the positions
+        // they held in the incoming list.
+        let working = list(
+            "Name\tID\tNotes\n\
+             /co/\t701\tx\n\
+             Backup 1\t772\tnote\n",
+        );
+        let incoming = list(
+            "ID\tName\n\
+             701\t/co/\n\
+             772\t/new/\n\
+             750\t/other/\n",
+        );
+        let (merged, summary) = reconcile(&working, &incoming);
+
+        assert!(summary.unresolved.is_empty());
+        // The placeholder slot takes the incoming row, id and name written
+        // into the working list's columns.
+        assert!(matches!(
+            &merged.rows()[1],
+            Row::Team { cells, id, name }
+                if *id == TeamId::new(772).unwrap()
+                    && name.as_str() == "/new/"
+                    && cells == &["/new/".to_owned(), "772".to_owned(), "note".to_owned()]
+        ));
+        // The appended row is blank except the id and name cells, placed by
+        // the working header.
+        let last = merged.rows().last().unwrap();
+        assert!(matches!(
+            last,
+            Row::Team { cells, id, name }
+                if *id == TeamId::new(750).unwrap()
+                    && name.as_str() == "/other/"
+                    && cells == &["/other/".to_owned(), "750".to_owned(), String::new()]
+        ));
+        assert_eq!(
+            summary.added,
+            [
+                (TeamId::new(772).unwrap(), TeamName::new("new").unwrap()),
+                (TeamId::new(750).unwrap(), TeamName::new("other").unwrap())
+            ]
+        );
+        reparses(&merged);
+    }
+
+    #[test]
+    fn reconcile_resizes_a_placeholder_shorter_than_the_name_column() {
+        // A one-cell placeholder claiming 705: the incoming team takes the
+        // slot and the cells grow to cover the name column.
+        let working = list("ID\tName\tNotes\n705\n");
+        let incoming = list("ID\tName\n705\t/xx/\n");
+        let (merged, summary) = reconcile(&working, &incoming);
+
+        assert_eq!(
+            summary.added,
+            [(TeamId::new(705).unwrap(), TeamName::new("xx").unwrap())]
+        );
+        assert!(matches!(
+            merged.rows(),
+            [Row::Team { cells, id, name }]
+                if *id == TeamId::new(705).unwrap()
+                    && name.as_str() == "/xx/"
+                    && cells == &["705".to_owned(), "/xx/".to_owned()]
+        ));
+        reparses(&merged);
+    }
+
+    #[test]
+    fn reconcile_reverts_a_collision_cascade() {
+        // Reverting one collision can reveal another: /a/ takes 702 while /b/
+        // still holds it and is reverted — and now /c/'s appended 701 collides
+        // with the restored /a/, so a second pass must revert /c/ too.
+        let working = list("ID\tName\n701\t/a/\n702\t/b/\n");
+        let incoming = list("ID\tName\n702\t/a/\n701\t/c/\n");
+        let (merged, summary) = reconcile(&working, &incoming);
+
+        assert_eq!(merged, working);
+        assert_eq!(
+            summary.unresolved,
+            [
+                (TeamId::new(702).unwrap(), TeamName::new("a").unwrap()),
+                (TeamId::new(701).unwrap(), TeamName::new("c").unwrap())
+            ]
+        );
+        assert!(summary.added.is_empty());
+        assert_eq!(summary.kept, 2);
+        reparses(&merged);
+    }
+
+    #[test]
+    fn reconcile_override_consumes_the_placeholder_holding_its_new_id() {
+        // /a/ moves to 702, which a placeholder claims: the placeholder's
+        // slot is freed, so the merged list holds exactly one row claiming
+        // 702 and still parses under the file's duplicate rule.
+        let working = list("ID\tName\n701\t/a/\n702\tBackup 1\n");
+        let incoming = list("ID\tName\n702\t/a/\n");
+        let (merged, summary) = reconcile(&working, &incoming);
+
+        assert_eq!(
+            summary.overridden,
+            [(
+                TeamName::new("a").unwrap(),
+                TeamId::new(701).unwrap(),
+                TeamId::new(702).unwrap()
+            )]
+        );
+        assert!(summary.added.is_empty());
+        assert!(summary.unresolved.is_empty());
+        assert!(matches!(
+            merged.rows(),
+            [Row::Team { id, name, .. }]
+                if *id == TeamId::new(702).unwrap() && name.as_str() == "/a/"
+        ));
+        reparses(&merged);
     }
 
     #[test]
@@ -160,6 +289,7 @@ mod tests {
         );
         assert_eq!(merged.teams().count(), 2);
         assert!(merged.id_of(&TeamName::new("other").unwrap()).is_none());
+        reparses(&merged);
 
         // Existing name but the incoming id belongs to a different row ->
         // unresolved by name.
@@ -172,6 +302,23 @@ mod tests {
             merged.id_of(&TeamName::new("co").unwrap()),
             TeamId::new(701).ok()
         );
+        reparses(&merged);
+    }
+
+    #[test]
+    fn reconcile_override_reverted_leaves_every_claim_unique() {
+        // The unresolved form of the same shape: /a/ cannot move to 702
+        // because /b/ sits there, so nothing changes and the working list's
+        // claims stay valid.
+        let working = list("ID\tName\n701\t/a/\n702\t/b/\n");
+        let (merged, summary) = reconcile(&working, &list("ID\tName\n702\t/a/\n"));
+        assert_eq!(
+            summary.unresolved,
+            [(TeamId::new(702).unwrap(), TeamName::new("a").unwrap())]
+        );
+        assert!(summary.added.is_empty());
+        assert_eq!(merged, working);
+        reparses(&merged);
     }
 
     #[test]
@@ -190,6 +337,29 @@ mod tests {
             TeamId::new(701).ok()
         );
         assert_eq!(reordered.write(), "Name\tID\r\n/co/\t701\r\n");
+    }
+
+    #[test]
+    fn only_slash_wrapped_name_cells_are_teams() {
+        // A bare token folds for export names but stays inert in the list:
+        // only a cell that starts AND ends with `/` makes a team row.
+        for text in ["701\tBackup\n", "701\t/co\n", "701\tco/\n"] {
+            let parsed = list(&format!("ID\tName\n{text}"));
+            assert!(
+                matches!(parsed.rows(), [Row::Placeholder { .. }]),
+                "{text:?} must be a placeholder"
+            );
+        }
+        let parsed = list("ID\tName\n701\t/co/\n");
+        assert_eq!(
+            parsed.id_of(&TeamName::new("/co/").unwrap()),
+            TeamId::new(701).ok()
+        );
+        // The bare-token placeholder still claims its numeric id.
+        assert!(matches!(
+            TeamsList::parse("ID\tName\n701\tBackup\n701\t/co/\n"),
+            Err(TeamsListError::DuplicateId { line: 3, id: 701 })
+        ));
     }
 
     #[test]
@@ -220,6 +390,7 @@ mod tests {
                 if *id == TeamId::new(772).unwrap() && name.as_str() == "/new/"
         ));
         assert_eq!(merged.write(), "ID\tName\r\n772\t/new/\r\n");
+        reparses(&merged);
     }
 
     #[test]
@@ -248,6 +419,7 @@ mod tests {
         assert!(summary.unresolved.is_empty());
         // The rows stay in place; only the ids moved.
         assert_eq!(merged.write(), "ID\tName\r\n702\t/co/\r\n701\t/a/\r\n");
+        reparses(&merged);
 
         // A one-sided move collides: `/a/` cannot take 701 while `/co/` keeps
         // it, so the change is reverted and reported.
@@ -257,5 +429,6 @@ mod tests {
             [(TeamId::new(701).unwrap(), TeamName::new("a").unwrap())]
         );
         assert_eq!(merged, working);
+        reparses(&merged);
     }
 }
