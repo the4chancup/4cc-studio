@@ -508,8 +508,29 @@ Spec: `docs/plans/core/development_plan.md` "Phase 2", `docs/plans/libs/README.m
   wrapping casts on write; `hand_split`'s `u16::MAX` sentinel; `sampler_settings_defaulted`
   finding; `formats/{fmdl,pes_model}` split into import/export halves; `.tmp` cleanup on a
   failed save; fmdl read-side and dds_convert mip copies removed; unused `log`/`serde` deps
-- [ ] 2.20 Converge: own audit then reviewer subagent, each crate against its plan section
+- [~] 2.20 Converge: own audit then reviewer subagent, each crate against its plan section
   (`libs/README.md`, `model_conversion/README.md`, `pes_savefile/README.md`, `core/development_plan.md` "Phase 2"); gaps become steps.
+  Per crate: whole-crate mutation run (sidekick), lead audit (plan blocks, constants, `pub`
+  inventory, design sweep, survivor triage), one rework brief, the bounded reviewer loop, one
+  commit. Batches: A the seven small leaves in one reviewer round; then `teams_list` +
+  `kit_config`; `cpk`; `ftex` + `dds_convert`; `fox2`; `fmdl`; `pes_model`; `model_convert`;
+  `pes_savefile` (lead audit whole, reviewer on the non-interchange modules: 2.17h's three
+  rounds are the interchange half); `python_bindings`.
+  - [x] 2.20a batch A (`wezlib` `uniparam` `elevation` `archives` `fpc` `color_tools` `fpk`) —
+    done (`efcc580` + the third-round commit): 315 mutants, 54 survivors triaged (36 missing
+    tests written with independent oracles where one exists: shell32 `IsUserAnAdmin`, `getuid`;
+    13 `relaunch_elevated` documented untestable in `mutants.toml`; 6 bin-key mutants
+    equivalent under the distance merge). Reviewer rounds: 7 → 6 accepted, then 4 → 4
+    accepted (under the cap, loop ends): `DuplicateName` collisions, drive-relative prefixes,
+    lossless UTF-16 argument quoting, color_tools' exact-length contract, 7z skip predicate
+    shared with the cache and declared-vs-decoded size check, uniparam NUL names refused at
+    `insert` (now `Result`); plan corrections for the zip open cost, uniparam's canonical
+    layout (Konami's measured), the stale `libs/README.md` color_tools testing paragraph.
+    Fixtures: three archives codec/encryption archives, the colored kit template at 128x128
+    as the region constants' independent oracle. Rejected once: fallible writers for 4 GiB
+    in-memory containers. fpc's PES 19+ confirmation moved to Phase 4 (decision entry).
+    Untested by construction: fpk's u64→usize checks (64-bit host), the 7z size check (header
+    CRC), the POSIX `is_elevated` oracle (runs in CI only)
   Known inputs from round C: (a) whole-crate mutation runs left survivors to triage in cpk (28),
   ftex (80), dds_convert (30): table-variant arms, boundary comparisons, `write_cell` and
   `Writer::finish` padding math; the other thirteen crates have not been run; (b)

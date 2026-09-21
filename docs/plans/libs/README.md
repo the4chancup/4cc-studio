@@ -109,11 +109,14 @@ fn cpk_roundtrip() {
 }
 ```
 
-`color_tools` extraction is tested against a set of real kit textures with
-manager-provided `colors.txt` entries as ground truth: the derived pair doesn't
-have to match exactly, but must land within a perceptual-distance tolerance of
-the human-picked colors (also the calibration harness for the region rectangles
-and thresholds).
+`color_tools` extraction is tested on synthetic textures painted into the region constants
+(every pick-order step, the merge and distinctness boundaries, the buffer contract) and on
+one real oracle independent of those constants: the community's colored template sheet,
+subsampled to 128x128, whose shirt zone is two reds and whose shorts zones are two yellows,
+counted by a script rather than by the crate. Managers' `colors.txt` entries are *not* a
+usable ground truth (`color_tools.md` "Calibration evidence": only 55 of 133 declared shirt
+colors appear in the shirt region at all), so no tolerance test against them exists; the
+thresholds came from the visual swatch-sheet check the calibration harness produced.
 
 ---
 
