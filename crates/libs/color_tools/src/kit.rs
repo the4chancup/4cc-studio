@@ -178,6 +178,15 @@ fn mean_color(count: u64, sum: [u64; 3]) -> [u8; 3] {
 /// order is deterministic), each merged into the first existing cluster whose mean lies
 /// within `MERGE_DISTANCE`, else starting a new one.
 fn cluster(rgba: &[u8], width: u32, height: u32, regions: &[Region]) -> Vec<Cluster> {
+    // The buffer must hold exactly 4 * width * height bytes: a short one would cluster a
+    // partial image and huge dimensions would overflow the pixel math in `sample`.
+    if (width as usize)
+        .checked_mul(height as usize)
+        .and_then(|pixels| pixels.checked_mul(4))
+        != Some(rgba.len())
+    {
+        return Vec::new();
+    }
     let (bins, total) = sample(rgba, width, height, regions);
     if total == 0 {
         return Vec::new();
@@ -214,13 +223,15 @@ fn cluster(rgba: &[u8], width: u32, height: u32, regions: &[Region]) -> Vec<Clus
     result
 }
 
-/// Ranked color clusters of one region of an RGBA8 texture (`rgba.len() == 4 * width * height`).
-/// A shorter `rgba` yields an empty list: pixels are read through `get`, never indexed.
+/// Ranked color clusters of one region of an RGBA8 texture. `rgba.len()` must be exactly
+/// `4 * width * height`; anything else yields an empty list, as does an empty region or a
+/// fully transparent image.
 pub fn dominant_colors(rgba: &[u8], width: u32, height: u32, region: Region) -> Vec<Cluster> {
     cluster(rgba, width, height, &[region])
 }
 
 /// The kit's two menu colors; `None` when the shirt region has no opaque pixel.
+/// `rgba.len()` must be exactly `4 * width * height`; anything else yields `None`.
 pub fn extract_kit_colors(rgba: &[u8], width: u32, height: u32) -> Option<KitColors> {
     let shirt = cluster(rgba, width, height, &[SHIRT]);
     let shirt_dominant = *shirt.first()?;
@@ -450,6 +461,184 @@ mod tests {
         let short = vec![255u8; 40];
         assert!(extract_kit_colors(&short, SIZE, SIZE).is_none());
         assert!(dominant_colors(&short, SIZE, SIZE, SHIRT).is_empty());
+    }
+
+    #[test]
+    fn region_edges_are_exclusive() {
+        // A color starting exactly on x1 or y1 is outside the region.
+        let left_half = Region {
+            x0: 0.0,
+            y0: 0.0,
+            x1: 0.5,
+            y1: 1.0,
+        };
+        let vertical = texture(16, 16, |x, _| {
+            if x < 8 {
+                [255, 0, 0, 255]
+            } else {
+                [0, 0, 255, 255]
+            }
+        });
+        let clusters = dominant_colors(&vertical, 16, 16, left_half);
+        assert_eq!(clusters.len(), 1);
+        assert_eq!(clusters[0].color, [255, 0, 0]);
+
+        let top_half = Region {
+            x0: 0.0,
+            y0: 0.0,
+            x1: 1.0,
+            y1: 0.5,
+        };
+        let horizontal = texture(16, 16, |_, y| {
+            if y < 8 {
+                [255, 0, 0, 255]
+            } else {
+                [0, 0, 255, 255]
+            }
+        });
+        let clusters = dominant_colors(&horizontal, 16, 16, top_half);
+        assert_eq!(clusters.len(), 1);
+        assert_eq!(clusters[0].color, [255, 0, 0]);
+    }
+
+    #[test]
+    fn clusters_merge_within_merge_distance_only() {
+        // RGB distance exactly MERGE_DISTANCE does not merge; below it would.
+        let whole = Region {
+            x0: 0.0,
+            y0: 0.0,
+            x1: 1.0,
+            y1: 1.0,
+        };
+        let rgba = texture(16, 16, |x, _| {
+            if x < 8 {
+                [0, 0, 0, 255]
+            } else {
+                [24, 0, 0, 255]
+            }
+        });
+        assert_eq!(dominant_colors(&rgba, 16, 16, whole).len(), 2);
+    }
+
+    #[test]
+    fn bin_mean_rounds_half_up() {
+        // [200,30,30] and [201,31,31] share one 5-bit bin; the .5 mean rounds up.
+        let whole = Region {
+            x0: 0.0,
+            y0: 0.0,
+            x1: 1.0,
+            y1: 1.0,
+        };
+        let rgba = texture(16, 16, |x, _| {
+            if (x / 4) % 2 == 0 {
+                [200, 30, 30, 255]
+            } else {
+                [201, 31, 31, 255]
+            }
+        });
+        let clusters = dominant_colors(&rgba, 16, 16, whole);
+        assert_eq!(clusters.len(), 1);
+        assert_eq!(clusters[0].color, [201, 31, 31]);
+    }
+
+    #[test]
+    fn dominant_colors_returns_the_region_clusters() {
+        let rgba = texture(SIZE, SIZE, |x, y| {
+            if in_shirt(x, y) {
+                [200, 30, 30, 255]
+            } else if in_shorts(x, y) {
+                [20, 20, 90, 255]
+            } else {
+                GREY
+            }
+        });
+        let clusters = dominant_colors(&rgba, SIZE, SIZE, SHIRT);
+        assert_eq!(clusters.len(), 1);
+        assert_eq!(clusters[0].color, [200, 30, 30]);
+        assert!(clusters[0].share > 0.99, "{}", clusters[0].share);
+    }
+
+    #[test]
+    fn shorts_second_cluster_wins_when_shirt_trim_is_too_small() {
+        // Shirt black with a badge under the trim share (about 5%, as logo_is_ignored);
+        // shorts black with about 40% of a distinct blue on part of one panel: color 2
+        // is the shorts' second cluster.
+        let (x0, y0, _, _) = shirt_px();
+        let rgba = texture(SIZE, SIZE, |x, y| {
+            if in_shirt(x, y) {
+                if (x0 + 8..x0 + 28).contains(&x) && (y0 + 8..y0 + 56).contains(&y) {
+                    [255, 255, 255, 255]
+                } else {
+                    [0, 0, 0, 255]
+                }
+            } else if in_shorts(x, y) {
+                if x < 61 {
+                    [20, 20, 90, 255]
+                } else {
+                    [0, 0, 0, 255]
+                }
+            } else {
+                GREY
+            }
+        });
+        let kit = extract_kit_colors(&rgba, SIZE, SIZE).expect("colors");
+        assert_eq!(kit.color1, [0, 0, 0]);
+        assert_eq!(kit.color2, [20, 20, 90]);
+        assert_eq!(kit.color2_source, Color2Source::ShortsSecond);
+    }
+
+    #[test]
+    fn one_color_kit_keeps_a_second_shorts_cluster() {
+        // Shorts black with about 40% of grey [30,30,30] on part of one panel: a
+        // separate cluster (distance about 52 > MERGE_DISTANCE) that is not a distinct
+        // color (< DISTINCT_DISTANCE), so color 2 falls back to the shorts' dominant.
+        let rgba = texture(SIZE, SIZE, |x, y| {
+            if in_shirt(x, y) {
+                [0, 0, 0, 255]
+            } else if in_shorts(x, y) {
+                if x < 61 {
+                    [30, 30, 30, 255]
+                } else {
+                    [0, 0, 0, 255]
+                }
+            } else {
+                GREY
+            }
+        });
+        let kit = extract_kit_colors(&rgba, SIZE, SIZE).expect("colors");
+        assert_eq!(kit.color1, [0, 0, 0]);
+        assert_eq!(kit.color2, [0, 0, 0]);
+        assert_eq!(kit.color2_source, Color2Source::SameAsColor1);
+        assert_eq!(kit.shorts.len(), 2);
+    }
+
+    #[test]
+    fn short_buffer_is_empty_not_partial() {
+        let whole = Region {
+            x0: 0.0,
+            y0: 0.0,
+            x1: 1.0,
+            y1: 1.0,
+        };
+        // 4 opaque bytes declared 2x2: not 4 * width * height, so empty rather
+        // than a partial cluster.
+        let rgba = [255, 0, 0, 255];
+        assert!(dominant_colors(&rgba, 2, 2, whole).is_empty());
+        assert!(extract_kit_colors(&rgba, 2, 2).is_none());
+    }
+
+    #[test]
+    fn huge_dimensions_are_empty_without_overflow() {
+        let whole = Region {
+            x0: 0.0,
+            y0: 0.0,
+            x1: 1.0,
+            y1: 1.0,
+        };
+        // The pixel-count arithmetic would overflow: empty, not a panic or a wrap.
+        let rgba = vec![255u8; 16];
+        assert!(dominant_colors(&rgba, u32::MAX, u32::MAX, whole).is_empty());
+        assert!(extract_kit_colors(&rgba, u32::MAX, u32::MAX).is_none());
     }
 
     #[test]

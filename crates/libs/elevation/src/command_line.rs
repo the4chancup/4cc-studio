@@ -1,50 +1,62 @@
 //! Building a Windows command line from argv: the quoting rules `CommandLineToArgvW` applies
 //! when it parses the line back. `relaunch_elevated` passes its arguments through
 //! `ShellExecuteExW`'s single `lpParameters` string, so this is where argv is reconstructed.
+//! Everything here works on UTF-16 code units, so an argument that is not valid Unicode
+//! (an unpaired surrogate) survives the round trip unchanged.
 
-use std::ffi::{OsStr, OsString};
+/// `"` as a code unit.
+const QUOTE: u16 = '"' as u16;
+/// `\` as a code unit.
+const BACKSLASH: u16 = '\\' as u16;
+/// ` ` as a code unit.
+const SPACE: u16 = ' ' as u16;
+/// `\t` as a code unit.
+const TAB: u16 = '\t' as u16;
 
 /// One argument quoted for a Windows command line, by `CommandLineToArgvW`'s rules: an
 /// argument without spaces, tabs or quotes — and not ending in a backslash — is passed as
 /// is; the empty argument is `""`; otherwise it is wrapped in `"` with each `"` escaped as
 /// `\"` (doubling any backslashes immediately before it) and the run of backslashes at the
-/// very end doubled before the closing quote. The `OsStr` conversion is lossy: the OS
-/// receives a best-effort rendering of non-UTF-16 text.
-pub(crate) fn quote_argument(arg: &OsStr) -> String {
-    let text = arg.to_string_lossy();
-    let needs_quotes = text.is_empty()
-        || text.ends_with('\\')
-        || text.chars().any(|c| matches!(c, ' ' | '\t' | '"'));
+/// very end doubled before the closing quote. The units are copied verbatim: the caller
+/// converts with `OsStr::encode_wide`, so nothing is lost on non-Unicode text.
+pub(crate) fn quote_argument(arg: &[u16]) -> Vec<u16> {
+    let needs_quotes = arg.is_empty()
+        || arg.last() == Some(&BACKSLASH)
+        || arg.iter().any(|unit| matches!(*unit, SPACE | TAB | QUOTE));
     if !needs_quotes {
-        return text.into_owned();
+        return arg.to_vec();
     }
-    let mut quoted = String::with_capacity(text.len() + 2);
-    quoted.push('"');
+    let mut quoted = Vec::with_capacity(arg.len() + 2);
+    quoted.push(QUOTE);
     let mut backslashes = 0usize;
-    for c in text.chars() {
-        match c {
-            '\\' => backslashes += 1,
-            '"' => {
-                quoted.push_str(&"\\".repeat(backslashes * 2 + 1));
-                quoted.push('"');
+    for &unit in arg {
+        match unit {
+            BACKSLASH => backslashes += 1,
+            QUOTE => {
+                quoted.extend(std::iter::repeat_n(BACKSLASH, backslashes * 2 + 1));
+                quoted.push(QUOTE);
                 backslashes = 0;
             }
             _ => {
-                quoted.push_str(&"\\".repeat(backslashes));
+                quoted.extend(std::iter::repeat_n(BACKSLASH, backslashes));
                 backslashes = 0;
-                quoted.push(c);
+                quoted.push(unit);
             }
         }
     }
-    quoted.push_str(&"\\".repeat(backslashes * 2));
-    quoted.push('"');
+    quoted.extend(std::iter::repeat_n(BACKSLASH, backslashes * 2));
+    quoted.push(QUOTE);
     quoted
 }
 
-/// The `lpParameters` string: every argument quoted and joined with single spaces.
-pub(crate) fn join_arguments(args: &[OsString]) -> String {
-    args.iter()
-        .map(|arg| quote_argument(arg))
-        .collect::<Vec<_>>()
-        .join(" ")
+/// The `lpParameters` units: every argument quoted and joined with single spaces.
+pub(crate) fn join_arguments(args: &[Vec<u16>]) -> Vec<u16> {
+    let mut joined = Vec::new();
+    for (index, arg) in args.iter().enumerate() {
+        if index > 0 {
+            joined.push(SPACE);
+        }
+        joined.extend_from_slice(&quote_argument(arg));
+    }
+    joined
 }

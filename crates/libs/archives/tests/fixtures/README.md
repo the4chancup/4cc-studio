@@ -1,7 +1,8 @@
 # archives fixtures
 
-One small export-like tree, `sample/`, and the same tree packed six ways by the tools members
-use (`scripts/provenance/fixtures/archives_fixtures.py`). The three binary files in the tree are
+One small export-like tree, `sample/`, and the same tree packed nine ways by the tools members
+use (`scripts/provenance/fixtures/archives_fixtures.py` and
+`scripts/provenance/fixtures/archives_fixtures_codecs.py`). The three binary files in the tree are
 Konami-derived PES files from a real referee export (a 176-byte `face.dds`, a 476-byte
 `materials.mtl`, a 960-byte `face_diff.bin`), kept for interoperability (see the repository
 README); the text files are ours. The container is what is under test, not the contents.
@@ -15,6 +16,9 @@ README); the text files are ours. The container is what is under test, not the c
 | `sample_ps.zip` | PowerShell `Compress-Archive` | Deflate with the UTF-8 name flag; no entry for the empty folder's parent |
 | `encrypted.7z` | 7-Zip, `-pfoo -mhe=on` | header encryption: fails at open |
 | `encrypted.zip` | 7-Zip, `-pfoo` | entry encryption: lists, fails at read |
+| `sample_ppmd.7z` | 7-Zip, `-t7z -m0=PPMd` | PPMd codec: lists, a codec error at `read` |
+| `encrypted_names.7z` | 7-Zip, `-t7z -pfoo` | entry encryption with a readable header: lists, `Encrypted` at `read` |
+| `sample_bzip2.zip` | 7-Zip, `-tzip -mm=BZip2` | BZip2-compressed entries beside stored ones: lists, codec error at `read` |
 
 The archives all contain the tree under a top-level `Sample Export/` folder, as a member's
 archive would.
