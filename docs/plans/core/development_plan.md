@@ -90,11 +90,15 @@ implementations to translate:
 - `wezlib`
 - `cpk` (read + write, CRILAYLA inside)
 - `fpk`
-- `ftex` + `dds_convert` (`texture2ddecoder`, `image`, and `block_compression` CPU BC1/BC3/BC7
-  plus desktop GPU BC7). Establish the CPU reference and an early GPU integration proof using
-  Vulkan on Windows/Linux and Metal on macOS, with CPU fallback rather than automatic DX12 fallback.
-  Measure cold pipeline creation and upload/readback cost before relying on launch acceleration.
-  BC7 output is PES 19–21 only; PES 15–18 use BC3 or eligible opaque-color BC1 — see [libs](../libs/README.md).
+- `ftex` + `dds_convert` (`texture2ddecoder`, `image`, and `block_compression` CPU BC1/BC3/BC7):
+  the CPU reference only. The desktop GPU BC7 backend (`libs/README.md` "First-release desktop
+  GPU BC7") is built in Phase 4 with the texture step that consumes it, not here: every rule the
+  plan gives it (bounded batches against the memory budget, cancellation, writer progress, one
+  encoded result shared by all consumers, the fallback report) is pipeline integration, so a
+  Phase 2 version would be shaped without its caller and reshaped once. The cold-start and
+  upload/readback measurements are the first thing Phase 4's GPU step does, before relying on
+  it. BC7 output is PES 19–21 only; PES 15–18 use BC3 or eligible opaque-color BC1 — see
+  [libs](../libs/README.md).
 - `fmdl` — `format/` (read/write, byte-identical round-trip), `ops/` (mesh splitting, split vertex
   encoding, anti-blur, multi-FMDL merging, path-table editing), `check.rs`
 - `pes_model` — `format/` (.model + sibling .mtl), `ops/` (mesh splitting, split vertex encoding,
@@ -255,7 +259,10 @@ nothing about the Rust code.
   cross-format conversion via `model_convert`, multi-model merging and SKL pairing
   (`fmdl_editing`); texture conversion with the CPU/GPU
   converter integrated as bounded batches with readback, cancellation and CPU fallback — desktop
-  GPU BC7 is a first-release feature — plus WESYS wrapping and relocation to common (`textures`);
+  GPU BC7 is a first-release feature, and its backend in `dds_convert` (`block_compression`'s
+  wgpu path on a Vulkan/Metal device, CPU fallback, cold-start and throughput measured first;
+  `libs/README.md` "First-release desktop GPU BC7") is built in this phase, deferred from Phase
+  2 so the texture step shapes it — plus WESYS wrapping and relocation to common (`textures`);
   MTL / face XML / `materials.toml` editing (`xml_editing`); kit folders: config
   generation/reconciliation/emission via `libs/kit_config` (TOML in exports, binary at compile
   time), FPC patching via `fpc`, kit colors from per-kit `colors.txt` (Team Note entry format) or
