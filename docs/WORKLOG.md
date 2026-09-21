@@ -12,8 +12,9 @@ is in `AGENTS.md` ("Working documents").
 **Phase:** 2 (Library crates). Done: 2.1 `wezlib`, 2.2 `cpk`, 2.3 `fpk`, 2.4 `ftex`, 2.5 `dds_convert` (CPU),
 2.6 `fmdl` (format, model, ops, check), 2.7 `pes_model` (format, mtl, model, ops, check), 2.8 `uniparam`, 2.9 `fox2`, 2.10 `archives`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`, 2.14 `color_tools`, 2.15 `elevation`. Review
 rounds A and B (2026-09-13) closed: 2.5c, 2.12b, 2.13b done.
-**In progress:** 2.17 `pes_savefile` and 2.18 `python_bindings` done; 2.19 Phase verification next. Review
-round C (2026-09-19) closed as 2.19a; its leftovers are listed under 2.20.
+**In progress:** 2.17 `pes_savefile`, 2.18 `python_bindings`, 2.19 Phase verification done; 2.20
+Converge next (per crate, bounded review loop). Review round C (2026-09-19) closed as 2.19a; its
+leftovers are listed under 2.20. 2.5b (GPU BC7) is the one Phase 2 code step still open.
 **Blocked on:** nothing
 
 ---
@@ -489,10 +490,14 @@ Spec: `docs/plans/core/development_plan.md` "Phase 2", `docs/plans/libs/README.m
   `tests/smoke.py`: 27 fixtures, byte identity where the crates prove it, idempotence elsewhere,
   junk → `FormatError`, no warning on a clean read); green under the dev Python 3.14, Blender
   5.2's 3.13 and Blender 5.0's 3.11. CI `bindings` job (both platforms) added; `pyo3` joins the
-  deps table. Not verified: the Linux wheel (CI's first run), loading from inside a running
-  Blender (only its interpreter was used)
-- [ ] 2.19 Phase verification: every crate's tests per `libs/README.md` "Testing" green; `wasm32` check
-  green on every lib
+  deps table. The Linux wheel built and passed the smoke test in CI run 18 (2.19). Not verified:
+  loading from inside a running Blender (only its interpreter was used)
+- [x] 2.19 Phase verification — done 2026-09-21 at `43b4ccb`: `just gates` green (41 test
+  binaries, 658 tests, 0 failed/ignored; clippy clean; wasm32 check on the 19 libs + `studio_core`,
+  `python_bindings` the one documented exclusion), `just deps-check` (`licenses ok` with the
+  LLVM-exception allowance), `just bindings` (27 fixtures under Python 3.14); CI run 18 on the
+  same commit green on all five jobs, the Linux `bindings` job included (closes 2.18's open item).
+  Per-crate counts in the commit message. Still open in the phase: 2.5b (GPU BC7)
 - [x] 2.19a Review round C (2026-09-19): the first mutation runs and a workspace read-through,
   fixed across six commits (`0fe5e33`..`77b6362`): `cargo-mutants` adopted (decision entry);
   kit_config/fpk/vtree/cpk/ftex/dds_convert test gaps the runs found; fmdl and model_convert
@@ -731,3 +736,6 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   15-17 texport that wrote a reordered squad and reopened short; a third found three (2.17h-7),
   all the same class (a value `apply` accepted and the codec refused at write), and stopped the
   loop. Next: 2.19, then 2.20 with the bounded loop per crate.
+- **2026-09-21** - 2.19 done: gates, deps-check and bindings green locally at `43b4ccb` and in CI
+  on both platforms (658 tests over 40 crate binaries). Next: 2.20 converge, one crate at a time;
+  2.5b's fate (do now or defer) is a user decision before the phase can close.
