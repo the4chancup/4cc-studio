@@ -21,17 +21,23 @@ updater depend on the whole export object model for one file format.
 - `file.rs` — `TeamsList`: parse / write `teams_list.txt` per the contract in the Team compiler
   plan ("Export identity resolution" and the "`teams_list.txt` contract" open question): tab-split,
   `ID` and `Name` columns located by header label in any order, every other cell carried verbatim
-  and written back in place, Name folded through `TeamName::new` on load, rows that do not fold to
-  a slash-wrapped name kept verbatim as inert placeholders whose numeric ids still count in the
-  duplicate check; lookup by `TeamName`; the embedded upstream list as a `const`.
+  and written back in place, a slash-wrapped Name cell (`/xx/`, the file's own convention)
+  folded through `TeamName::new` on load, every other row (`Backup 1`, a bare `Backup`, a
+  half-wrapped `/co`) kept verbatim as an inert placeholder whose numeric id still counts in the
+  duplicate check; the wrapping is checked on the raw cell because `TeamName::new` itself accepts
+  bare tokens, being the export side's fold too; lookup by `TeamName`; the embedded upstream list
+  as a `const`.
 - `reconcile.rs` — the merge of an incoming list (embedded upstream, or a savefile's team table)
   into the working list: rows only in the incoming list added, rows only in the working list kept,
   conflicts (same name, different ID) taken from the incoming list, an incoming team whose ID a
-  placeholder holds taking that slot, then uniqueness of IDs validated on the *final* mapping (so
-  two teams swapping IDs merge cleanly) with every incoming change behind a remaining collision
-  reverted; returns a `MergeSummary` (added / kept / overridden / unresolved) for the caller to
-  show before writing. Never writes: callers own filesystem I/O and the read-only handling
-  (`teams_list_read_only`).
+  placeholder holds taking that slot (a new name replaces the placeholder row in place; an
+  existing name keeps its own row and the placeholder row is removed), then uniqueness of IDs
+  validated on the *final* mapping over every row's claimed id, placeholders included (so two
+  teams swapping IDs merge cleanly, and the merged file always parses again), with every
+  incoming change behind a remaining collision dropped and the rows recomputed from the working
+  list (compute the changes once, then drop and recompute: no undo bookkeeping); returns a
+  `MergeSummary` (added / kept / overridden / unresolved) for the caller to show before writing.
+  Never writes: callers own filesystem I/O and the read-only handling (`teams_list_read_only`).
 
 Consumers: `aesthetics_export` (identity resolution), `team_compiler` (ID cell write),
 `save_editor` (`export-teams-list`), `studio` (post-update merge). `wasm32`-clean. Tested against

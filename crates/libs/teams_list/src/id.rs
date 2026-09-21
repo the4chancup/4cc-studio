@@ -46,6 +46,7 @@ mod tests {
     #[test]
     fn range_is_enforced() {
         assert_eq!(TeamId::new(701).unwrap().get(), 701);
+        assert_eq!(TeamId::new(701).unwrap().to_string(), "701");
         assert_eq!(TeamId::new(920).unwrap().get(), 920);
         assert_eq!(TeamId::new(700), Err(TeamIdError(700)));
         assert_eq!(TeamId::new(921), Err(TeamIdError(921)));

@@ -216,7 +216,7 @@ pub fn encode_with_names(
     bytes[0x00] = match config.shirt.short_sleeves {
         ShortSleeves::Normal => 1,
         ShortSleeves::CutOut => 2,
-        ShortSleeves::Raw(value) => value & 0x3,
+        ShortSleeves::Raw(value) => value.min(limit("shirt.short_sleeves")),
     };
     apply_unknown(&mut bytes, 0x00, 0xFC);
 

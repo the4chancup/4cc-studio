@@ -66,7 +66,7 @@ pub enum ShortSleeves {
     Normal,
     /// 2, cut-out (shirt model 144 only).
     CutOut,
-    /// 0 or 3, preserved verbatim.
+    /// Any other value, kept verbatim and clamped to the field max on encode.
     Raw(u8),
 }
 
@@ -213,18 +213,51 @@ pub struct FieldLimit {
     pub get: fn(&KitConfig) -> u8,
 }
 
+/// The offsets that carry undecoded bits and their remainder masks, as the
+/// codec's `keep_unknown`/`apply_unknown` calls define them. `0x1C` takes
+/// the union of its per-version masks (0x0F covers both), since the TOML
+/// form is version-neutral.
+pub(crate) const UNKNOWN_MASKS: [(u8, u8); 17] = [
+    (0x00, 0xFC),
+    (0x13, 0xFF),
+    (0x16, 0x21),
+    (0x17, 0x04),
+    (0x18, 0x20),
+    (0x19, 0xCC),
+    (0x1B, 0x70),
+    (0x1C, 0x0F),
+    (0x1E, 0x02),
+    (0x1F, 0x08),
+    (0x20, 0x20),
+    (0x21, 0x80),
+    (0x23, 0xFE),
+    (0x24, 0x0F),
+    (0x25, 0xFF),
+    (0x26, 0xFF),
+    (0x27, 0xFF),
+];
+
 /// Every clamped field's limit for `version`: the field's bit width, except
 /// `name.y`, which the game bounds at 0-16 on PES <= 20 and 0-39 on PES 21
 /// (kit_config_editor plan, "Version differences"). This is the one table
 /// `validate`'s `kit_value_out_of_range` finding and `encode`'s clamp both
 /// read, so they cannot disagree.
-pub fn field_limits(version: PesVersion) -> [FieldLimit; 20] {
+pub fn field_limits(version: PesVersion) -> [FieldLimit; 21] {
     let name_y_max = if version >= PesVersion::Pes21 { 39 } else { 16 };
     [
         FieldLimit {
             field: "shirt.pattern",
             max: 15,
             get: |config| config.shirt.pattern,
+        },
+        FieldLimit {
+            field: "shirt.short_sleeves",
+            max: 3,
+            get: |config| match config.shirt.short_sleeves {
+                ShortSleeves::Normal => 1,
+                ShortSleeves::CutOut => 2,
+                ShortSleeves::Raw(value) => value,
+            },
         },
         FieldLimit {
             field: "name.y",

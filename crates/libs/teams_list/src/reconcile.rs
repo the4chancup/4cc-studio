@@ -1,31 +1,39 @@
 //! Merging an incoming list into the working list.
 //!
-//! Every incoming team is applied first: a working team row with the same
+//! Every incoming team produces one change: a working team row with the same
 //! name takes the incoming id (the row stays in place, its other cells kept),
 //! a name absent from the working teams replaces a working placeholder that
 //! holds the incoming id (the placeholder's other cells survive) or is
-//! appended at the end. Uniqueness is then validated on the final mapping:
-//! while any id is held by more than one team row, the incoming changes that
-//! produced the collision are reverted and reported as `unresolved`.
-//! Placeholders in `incoming` are ignored.
+//! appended at the end. Uniqueness is then validated on the merged mapping:
+//! while any id is claimed by more than one row — team or placeholder — the
+//! accepted changes behind the collision are moved to `unresolved` and the
+//! rows recomputed. Placeholders in `incoming` are ignored.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 
 use crate::file::{Row, TeamsList};
 use crate::id::TeamId;
 use crate::name::TeamName;
 
-/// One applied incoming change, so it can be reverted if its id collides.
+/// One incoming change, computed once against the working list.
 struct Change {
-    /// Index into the merged row vector.
-    row: usize,
-    /// The id the incoming row assigned.
+    /// Where the change lands and the cells it writes.
+    kind: ChangeKind,
+    /// Working rows the change frees (a placeholder that claimed the
+    /// incoming id and is neither the rewritten row nor an append).
+    removed: Vec<usize>,
+    /// The id the incoming row assigns.
     id: TeamId,
     /// The incoming row's folded name.
     name: TeamName,
-    /// How to undo the change: `Some` restores the row that stood there,
-    /// `None` removes a row that was appended.
-    before: Option<Row>,
+}
+
+enum ChangeKind {
+    /// Rewrites working row `row`: an override of a team row or a taken
+    /// placeholder slot.
+    Rewrite { row: usize, cells: Vec<String> },
+    /// Appended after the working rows.
+    Append { cells: Vec<String> },
 }
 
 /// The id a row claims: a team's validated id, or a placeholder's numeric
@@ -52,27 +60,57 @@ fn appended_cells(working: &TeamsList, incoming: &TeamsList, cells: &[String]) -
         return cells;
     }
     let mut out = vec![String::new(); width];
-    if working.id_column() < width {
-        out[working.id_column()] = cells.get(incoming.id_column()).cloned().unwrap_or_default();
-    }
-    if working.name_column() < width {
-        out[working.name_column()] = cells
-            .get(incoming.name_column())
-            .cloned()
-            .unwrap_or_default();
-    }
+    out[working.id_column()] = cells.get(incoming.id_column()).cloned().unwrap_or_default();
+    out[working.name_column()] = cells
+        .get(incoming.name_column())
+        .cloned()
+        .unwrap_or_default();
     out
+}
+
+/// The merged rows: the working list with every accepted change applied.
+fn merged_rows(working: &TeamsList, changes: &[Change]) -> Vec<Row> {
+    let mut rows = working.rows().to_vec();
+    let mut removed = BTreeSet::new();
+    let mut appended = Vec::new();
+    for change in changes {
+        removed.extend(change.removed.iter().copied());
+        match &change.kind {
+            ChangeKind::Rewrite { row, cells } => {
+                rows[*row] = Row::Team {
+                    cells: cells.clone(),
+                    id: change.id,
+                    name: change.name.clone(),
+                };
+            }
+            ChangeKind::Append { cells } => appended.push(Row::Team {
+                cells: cells.clone(),
+                id: change.id,
+                name: change.name.clone(),
+            }),
+        }
+    }
+    // Removed rows index into the working prefix, before any append.
+    let mut kept: Vec<Row> = rows
+        .into_iter()
+        .enumerate()
+        .filter(|(index, _)| !removed.contains(index))
+        .map(|(_, row)| row)
+        .collect();
+    kept.extend(appended);
+    kept
 }
 
 /// Merges `incoming` into `working`, returning the merged list and a summary
 /// for the caller to show before writing.
 pub fn reconcile(working: &TeamsList, incoming: &TeamsList) -> (TeamsList, MergeSummary) {
-    let mut rows = working.rows().to_vec();
     let working_team_count = working.teams().count();
     let id_column = working.id_column();
     let name_column = working.name_column();
     let mut changes: Vec<Change> = Vec::new();
 
+    // The match never depends on other changes: names are unique within each
+    // list and a placeholder claim is read off the working rows.
     for incoming_row in incoming.rows() {
         let Row::Team {
             cells: incoming_cells,
@@ -82,157 +120,136 @@ pub fn reconcile(working: &TeamsList, incoming: &TeamsList) -> (TeamsList, Merge
         else {
             continue;
         };
-        let incoming_raw_name = incoming_cells
-            .get(incoming.name_column())
-            .cloned()
-            .unwrap_or_default();
 
-        let same_name = rows
+        if let Some(position) = working
+            .rows()
             .iter()
-            .position(|row| matches!(row, Row::Team { name, .. } if name == incoming_name));
-        if let Some(position) = same_name {
-            let Row::Team { id: old_id, .. } = &rows[position] else {
+            .position(|row| matches!(row, Row::Team { name, .. } if name == incoming_name))
+        {
+            let Row::Team {
+                cells, id: old_id, ..
+            } = &working.rows()[position]
+            else {
                 continue;
             };
-            if *old_id == *incoming_id {
+            if old_id == incoming_id {
                 continue;
             }
-            let mut updated = rows[position].clone();
-            if let Row::Team { id, cells, .. } = &mut updated {
-                *id = *incoming_id;
-                cells[id_column] = incoming_id.get().to_string();
-            }
+            let mut cells = cells.clone();
+            cells[id_column] = incoming_id.get().to_string();
+            // A working placeholder may already claim the new id; taking it
+            // over frees the placeholder's row. If the change is later
+            // reverted, the removal goes with it.
+            let removed = working
+                .rows()
+                .iter()
+                .position(|row| {
+                    matches!(row, Row::Placeholder { .. })
+                        && claimed_id(row, id_column) == Some(*incoming_id)
+                })
+                .into_iter()
+                .collect();
             changes.push(Change {
-                row: position,
+                kind: ChangeKind::Rewrite {
+                    row: position,
+                    cells,
+                },
+                removed,
                 id: *incoming_id,
                 name: incoming_name.clone(),
-                before: Some(std::mem::replace(&mut rows[position], updated)),
             });
             continue;
         }
 
-        let holding_placeholder = rows.iter().position(|row| {
+        let holding_placeholder = working.rows().iter().position(|row| {
             matches!(row, Row::Placeholder { .. })
                 && claimed_id(row, id_column) == Some(*incoming_id)
         });
         match holding_placeholder {
             Some(position) => {
-                let Row::Placeholder { cells: before } = &rows[position] else {
+                let Row::Placeholder { cells: before } = &working.rows()[position] else {
                     continue;
                 };
-                let mut slot_cells = before.clone();
-                slot_cells.resize(
-                    slot_cells.len().max(id_column + 1).max(name_column + 1),
-                    String::new(),
-                );
-                slot_cells[id_column] = incoming_id.get().to_string();
-                slot_cells[name_column] = incoming_raw_name;
+                let incoming_raw_name = incoming_cells
+                    .get(incoming.name_column())
+                    .cloned()
+                    .unwrap_or_default();
+                let mut cells = before.clone();
+                // `cells` holds at least `id_column + 1` cells: the placeholder
+                // claimed this id, which its `ID` cell must carry.
+                cells.resize(cells.len().max(name_column + 1), String::new());
+                cells[id_column] = incoming_id.get().to_string();
+                cells[name_column] = incoming_raw_name;
                 changes.push(Change {
-                    row: position,
+                    kind: ChangeKind::Rewrite {
+                        row: position,
+                        cells,
+                    },
+                    removed: Vec::new(),
                     id: *incoming_id,
                     name: incoming_name.clone(),
-                    before: Some(std::mem::replace(
-                        &mut rows[position],
-                        Row::Team {
-                            cells: slot_cells,
-                            id: *incoming_id,
-                            name: incoming_name.clone(),
-                        },
-                    )),
                 });
             }
-            None => {
-                changes.push(Change {
-                    row: rows.len(),
-                    id: *incoming_id,
-                    name: incoming_name.clone(),
-                    before: None,
-                });
-                rows.push(Row::Team {
+            None => changes.push(Change {
+                kind: ChangeKind::Append {
                     cells: appended_cells(working, incoming, incoming_cells),
-                    id: *incoming_id,
-                    name: incoming_name.clone(),
-                });
-            }
+                },
+                removed: Vec::new(),
+                id: *incoming_id,
+                name: incoming_name.clone(),
+            }),
         }
     }
 
-    // While an id is held by more than one team row, revert the incoming
-    // changes that produced the collision. Each pass removes at least one
-    // change, so the loop terminates.
+    // While an id is claimed by more than one row — team or placeholder —
+    // drop the accepted changes behind the collision. Every duplicate
+    // involves a change (the working list's own claims are unique), so each
+    // pass moves at least one and the loop terminates.
     let mut unresolved = Vec::new();
     loop {
         let mut seen = BTreeSet::new();
         let mut duplicated = BTreeSet::new();
-        for row in &rows {
-            if let Row::Team { id, .. } = row
-                && !seen.insert(*id)
+        for row in merged_rows(working, &changes) {
+            if let Some(id) = claimed_id(&row, id_column)
+                && !seen.insert(id)
             {
-                duplicated.insert(*id);
+                duplicated.insert(id);
             }
         }
         if duplicated.is_empty() {
             break;
         }
-        let mut reverted = false;
-        for change in &changes {
+        let before = changes.len();
+        changes.retain(|change| {
             if duplicated.contains(&change.id) {
                 unresolved.push((change.id, change.name.clone()));
-                if let Some(before) = &change.before {
-                    rows[change.row] = before.clone();
-                }
-                reverted = true;
+                false
+            } else {
+                true
             }
-        }
-        // Remove appended rows whose change was reverted, then fix the row
-        // indices of the surviving changes.
-        let removed: BTreeSet<usize> = changes
-            .iter()
-            .filter(|change| duplicated.contains(&change.id) && change.before.is_none())
-            .map(|change| change.row)
-            .collect();
-        changes.retain(|change| !duplicated.contains(&change.id));
-        if !removed.is_empty() {
-            let mut kept_rows = Vec::with_capacity(rows.len() - removed.len());
-            let mut remap: BTreeMap<usize, usize> = BTreeMap::new();
-            for (index, row) in rows.into_iter().enumerate() {
-                if removed.contains(&index) {
-                    continue;
-                }
-                remap.insert(index, kept_rows.len());
-                kept_rows.push(row);
-            }
-            rows = kept_rows;
-            for change in &mut changes {
-                change.row = remap[&change.row];
-            }
-        }
-        if !reverted {
+        });
+        if changes.len() == before {
             break;
         }
     }
 
     let mut added = Vec::new();
     let mut overridden = Vec::new();
-    let mut surviving_overrides = 0usize;
     for change in &changes {
-        match &change.before {
-            Some(Row::Team { id: old_id, .. }) => {
-                overridden.push((change.row, (change.name.clone(), *old_id, change.id)))
-            }
-            Some(Row::Placeholder { .. }) | None => {
-                added.push((change.id, change.name.clone()));
-            }
+        match &change.kind {
+            ChangeKind::Rewrite { row, .. } => match &working.rows()[*row] {
+                Row::Team { id: old_id, .. } => {
+                    overridden.push((*row, (change.name.clone(), *old_id, change.id)))
+                }
+                Row::Placeholder { .. } => added.push((change.id, change.name.clone())),
+            },
+            ChangeKind::Append { .. } => added.push((change.id, change.name.clone())),
         }
     }
-    // `overridden` is reported in working row order; `added` in the order the
-    // rows were appended.
+    // `added` is in the order the changes were computed; `overridden` is
+    // reported in working row order.
     overridden.sort_by_key(|(row, _)| *row);
-    for change in &changes {
-        if matches!(change.before, Some(Row::Team { .. })) {
-            surviving_overrides += 1;
-        }
-    }
+    let surviving_overrides = overridden.len();
     let summary = MergeSummary {
         added,
         kept: working_team_count - surviving_overrides,
@@ -244,7 +261,7 @@ pub fn reconcile(working: &TeamsList, incoming: &TeamsList) -> (TeamsList, Merge
         working.header().to_vec(),
         working.id_column(),
         working.name_column(),
-        rows,
+        merged_rows(working, &changes),
     );
     (merged, summary)
 }

@@ -56,7 +56,7 @@ preserved on rewrite.
 
 | Offset | Bits | Field | Values |
 |--------|------|-------|--------|
-| 0x00 | 0–1 | Short sleeves type | 1 = normal, 2 = cut-out (shirt model 144 only); 13 PES 2021 stock configs (referees) carry 3, preserved as a raw value |
+| 0x00 | 0–1 | Short sleeves type | 1 = normal, 2 = cut-out (shirt model 144 only); 13 PES 2021 stock configs (referees) carry 3, preserved as a raw value; a TOML value above 3 is kept, reported by `validate` and clamped to 3 on emission like every other packed field |
 | 0x00 | 2–7 | ? | 0 in samples |
 | 0x01 | all | Shirt model | literal: 144 (0x90), 160 (0xA0), 176 (0xB0) |
 | 0x02 | all | Long sleeves type | two values (verified): 0x3E = "Normal & U-Shirt" — one combo entry, the editor's default; 0xBB = "Only-Undershirt" (shirt model 144 only — the editor forces 0x3E on any other model) |
@@ -259,7 +259,13 @@ The format knowledge as a lib crate:
 
 - `KitConfig` struct ↔ 120-byte binary (per-version encode/decode) ↔ TOML, including
   optional raw source texture-name bytes for standalone roundtrips; zlib'd input is
-  tolerated on read (`tryDecompress` behavior carried over).
+  tolerated on read (`tryDecompress` behavior carried over). The TOML side follows the
+  suite rule that user-facing TOML is edited, never regenerated: `update_toml` writes every
+  value into the existing document in place (an `[unknown]` key or a badge table keeps its
+  comments and its form), refuses a document whose section is not a table instead of
+  panicking, and `from_toml` refuses an `[unknown]` entry the codec could not carry (an
+  offset with no undecoded bits, a remainder outside that offset's mask, two spellings of one
+  offset) rather than dropping it on the next write.
 - The template defaults (from the bundled `XXX_DEF_xxx_realUni.bin` template) and
   `apply_fpc` / `matches_fpc`, used by the Team compiler's reconciliation
   (`kit_config_fpc_adjusted`) and by this tool's FPC indicator. The per-version FPC values

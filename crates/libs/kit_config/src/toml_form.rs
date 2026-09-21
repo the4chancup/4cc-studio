@@ -226,7 +226,7 @@ pub fn from_toml(text: &str) -> Result<KitConfig, KitConfigError> {
                     })? {
                         1 => ShortSleeves::Normal,
                         2 => ShortSleeves::CutOut,
-                        raw => ShortSleeves::Raw(raw & 0x3),
+                        raw => ShortSleeves::Raw(raw),
                     }
                 }
                 _ => {
@@ -365,14 +365,24 @@ pub fn from_toml(text: &str) -> Result<KitConfig, KitConfigError> {
         }
     }
     if let Some(unknown) = reader.table("unknown")? {
+        let mut seen = std::collections::BTreeSet::new();
         for (key, value) in unknown {
+            let bad_key = || KitConfigError::InvalidValue {
+                key: "unknown",
+                value: key.clone(),
+            };
             let offset = key
                 .strip_prefix("0x")
                 .and_then(|hex| u8::from_str_radix(hex, 16).ok())
-                .ok_or_else(|| KitConfigError::InvalidValue {
-                    key: "unknown",
-                    value: key.clone(),
-                })?;
+                .ok_or_else(bad_key)?;
+            // Only the codec's unknown-bearing offsets are valid, and two
+            // spellings of one offset ("0x1C"/"0x1c") are a duplicate.
+            let Some(&(_, mask)) = UNKNOWN_MASKS.iter().find(|(o, _)| *o == offset) else {
+                return Err(bad_key());
+            };
+            if !seen.insert(offset) {
+                return Err(bad_key());
+            }
             let remainder = value
                 .as_integer()
                 .and_then(|v| u8::try_from(v).ok())
@@ -380,6 +390,12 @@ pub fn from_toml(text: &str) -> Result<KitConfig, KitConfigError> {
                     key: "unknown",
                     value: value.to_string(),
                 })?;
+            if remainder & !mask != 0 {
+                return Err(KitConfigError::InvalidValue {
+                    key: "unknown",
+                    value: value.to_string(),
+                });
+            }
             if remainder == 0 {
                 config.unknown.remove(&offset);
             } else {
@@ -586,9 +602,56 @@ pub fn to_toml(config: &KitConfig) -> String {
     out
 }
 
+/// Every section or subsection `update_toml` writes must be a table when
+/// present — checked before any edit so a malformed document is left
+/// untouched rather than panicking on `toml_edit`'s indexing.
+fn check_update_shape(document: &DocumentMut) -> Result<(), KitConfigError> {
+    fn check(item: Option<&Item>, key: &'static str) -> Result<(), KitConfigError> {
+        match item {
+            None | Some(Item::None) => Ok(()),
+            Some(item) if item.as_table_like().is_some() => Ok(()),
+            _ => Err(KitConfigError::NotATable { key }),
+        }
+    }
+    for key in [
+        "shirt",
+        "shorts",
+        "colors",
+        "name",
+        "number",
+        "badge",
+        "unknown",
+        "source_texture_names",
+    ] {
+        check(document.get(key), key)?;
+    }
+    if let Some(number) = document.get("number").and_then(|item| item.as_table_like()) {
+        for (sub, key) in [
+            ("back", "number.back"),
+            ("chest", "number.chest"),
+            ("shorts", "number.shorts"),
+        ] {
+            check(number.get(sub), key)?;
+        }
+    }
+    if let Some(badge) = document.get("badge").and_then(|item| item.as_table_like()) {
+        for (sub, key) in [
+            ("right_short", "badge.right_short"),
+            ("left_short", "badge.left_short"),
+            ("right_long", "badge.right_long"),
+            ("left_long", "badge.left_long"),
+        ] {
+            check(badge.get(sub), key)?;
+        }
+    }
+    Ok(())
+}
+
 /// Sets every value in an existing document, preserving its comments and
-/// formatting; `[unknown]` keys are added or removed as needed.
-pub fn update_toml(config: &KitConfig, document: &mut DocumentMut) {
+/// formatting; `[unknown]` keys are added, updated or removed as needed.
+pub fn update_toml(config: &KitConfig, document: &mut DocumentMut) -> Result<(), KitConfigError> {
+    check_update_shape(document)?;
+
     fn set(item: &mut Item, value: toml_edit::Value) {
         let decor = item.as_value().map(|old| old.decor().clone());
         *item = Item::Value(value);
@@ -714,37 +777,61 @@ pub fn update_toml(config: &KitConfig, document: &mut DocumentMut) {
         ("right_long", config.badges.right_long),
         ("left_long", config.badges.left_long),
     ] {
-        let mut inline = toml_edit::InlineTable::new();
-        inline.insert("x", i64::from(position.x).into());
-        inline.insert("y", i64::from(position.y).into());
-        set(
-            &mut document["badge"][name],
-            toml_edit::Value::InlineTable(inline),
-        );
+        let entry = &mut document["badge"][name];
+        if entry.is_none() {
+            // Missing position: emit the inline form `to_toml` writes.
+            let mut inline = toml_edit::InlineTable::new();
+            inline.insert("x", i64::from(position.x).into());
+            inline.insert("y", i64::from(position.y).into());
+            set(entry, toml_edit::Value::InlineTable(inline));
+        } else {
+            // A present table (standard or inline, preflight-checked) keeps
+            // its form: write x/y into it.
+            set(&mut entry["x"], i64::from(position.x).into());
+            set(&mut entry["y"], i64::from(position.y).into());
+        }
     }
 
     let template = template();
-    let needed: Vec<(String, u8)> = (0u8..120)
+    let needed: Vec<(u8, u8)> = (0u8..120)
         .map(|offset| (offset, remainder(&config.unknown, offset)))
         .filter(|(offset, value)| *value != remainder(&template.unknown, *offset))
-        .map(|(offset, value)| (format!("0x{offset:02X}"), value))
         .collect();
     if needed.is_empty() {
         document.remove("unknown");
     } else {
+        // Preflight made `unknown` a table or absent.
         let entry = document["unknown"].or_insert(Item::Table(Table::new()));
-        // A non-table `unknown` (`unknown = 5`) cannot hold the keys;
-        // replace it rather than silently dropping them.
-        if !entry.is_table() {
-            *entry = Item::Table(Table::new());
-        }
         if let Item::Table(table) = entry {
-            let existing: Vec<String> = table.iter().map(|(key, _)| key.to_owned()).collect();
-            for key in existing {
-                table.remove(&key);
+            // Update still-needed keys in place (keeping each key's spelling
+            // and decor), drop keys whose remainder returned to the
+            // template's, then add the missing ones.
+            let existing: Vec<(String, Option<u8>)> = table
+                .iter()
+                .map(|(key, _)| {
+                    (
+                        key.to_owned(),
+                        key.strip_prefix("0x")
+                            .and_then(|hex| u8::from_str_radix(hex, 16).ok()),
+                    )
+                })
+                .collect();
+            let mut written = std::collections::BTreeSet::new();
+            for (key, offset) in existing {
+                match offset.and_then(|offset| needed.iter().find(|(o, _)| *o == offset)) {
+                    Some(&(offset, value)) => {
+                        written.insert(offset);
+                        set(&mut table[key.as_str()], i64::from(value).into());
+                    }
+                    None => {
+                        table.remove(&key);
+                    }
+                }
             }
-            for (key, value) in needed {
-                table[key.as_str()] = toml_edit::value(i64::from(value));
+            for (offset, value) in needed {
+                if !written.contains(&offset) {
+                    table[format!("0x{offset:02X}").as_str()] = toml_edit::value(i64::from(value));
+                }
             }
         }
     }
@@ -762,4 +849,5 @@ pub fn update_toml(config: &KitConfig, document: &mut DocumentMut) {
             document.remove("source_texture_names");
         }
     }
+    Ok(())
 }

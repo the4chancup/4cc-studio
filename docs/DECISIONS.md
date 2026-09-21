@@ -1833,3 +1833,27 @@ due "when `kit_config` lands" and did not happen: no PES 21 FPC team's kit confi
 on the machine, and the stock configs `kit_config` measured are not FPC kits. It is now the
 first PES 21 FPC export compiled in Phase 4 (`matches_fpc` on its configs).
 Plan: `libs/fpc.md` (`kit.rs` bullet).
+
+## 2026-09-21 - teams_list, kit_config - Phase 2 converge rulings
+Decision (agent, cross-family review at converge):
+- **Team rows are the slash-wrapped Name cells only.** `TeamName::new` accepts bare tokens
+  because it is the export side's fold too, so `701\tBackup` was loading as team `/backup/`;
+  the file parser now checks the wrapping on the raw cell, per the Team compiler contract
+  ("rows whose Name is not slash-wrapped load but can never match").
+- **Reconcile validates uniqueness over every claimed id and consumes a placeholder whose id
+  an existing name takes**, so the merged list always parses again (it did not: a same-name
+  override onto a placeholder's id left two rows claiming it). The revert loop is gone:
+  changes are computed once against the working list, colliding ones dropped, rows recomputed
+  (the 2.12b simplification note).
+- **kit_config's TOML writes are in-place** (`update_toml` keeps `[unknown]` and badge-table
+  comments and forms, returns `Result` instead of panicking on a non-table section), short
+  sleeves join the clamp table (kept, reported, clamped; not masked), `[unknown]` entries the
+  codec cannot carry are refused at parse. Two lead goldens pin the codec to the plan's
+  offset table by hand (the referee fixture field by field, five distinct colors at the
+  table's offsets), since no fixture had two distinguishable values in every same-width field.
+- **Blue's `UniformParameter18/19.bin`** are fixtures: 2214 + 2210 configs round-trip
+  bit-identically at PES 18/19; 17 GK configs per season carry a shirt model outside
+  144/160/176 (reported as `kit_shirt_model_unknown`, Info), so the PES 21 model-range
+  assertion is not made on them.
+Plan: `libs/teams_list.md` (`file.rs`, `reconcile.rs` bullets), `kit_config_editor.md` ("The
+format" row 0x00, "`libs/kit_config`" first bullet).
