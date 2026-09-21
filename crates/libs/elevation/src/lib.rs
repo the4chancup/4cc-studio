@@ -73,14 +73,25 @@ pub fn is_access_denied(error: &std::io::Error) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::ffi::OsStr;
     use std::io::ErrorKind;
 
+    #[cfg(windows)]
     #[test]
-    fn is_elevated_is_stable() {
-        // The value itself depends on how the test process was launched; what must hold is
-        // that the query works and does not flip between calls.
-        assert_eq!(is_elevated(), is_elevated());
+    fn is_elevated_matches_the_os_answer() {
+        use ::windows::Win32::UI::Shell::IsUserAnAdmin;
+
+        // The token query must agree with shell32's own elevation check.
+        // SAFETY: IsUserAnAdmin has no preconditions.
+        let shell_answer = unsafe { IsUserAnAdmin() }.as_bool();
+        assert_eq!(is_elevated(), shell_answer);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn is_elevated_matches_root() {
+        // A test process has uid == euid, so the euid check must agree with getuid.
+        // SAFETY: getuid has no preconditions and cannot fail.
+        assert_eq!(is_elevated(), unsafe { libc::getuid() } == 0);
     }
 
     #[test]
@@ -106,24 +117,31 @@ mod tests {
         ];
         for (argument, expected) in cases {
             assert_eq!(
-                command_line::quote_argument(OsStr::new(argument)),
-                expected,
+                command_line::quote_argument(&argument.encode_utf16().collect::<Vec<u16>>()),
+                expected.encode_utf16().collect::<Vec<u16>>(),
                 "{argument}"
             );
         }
+        // An unpaired surrogate passes through unchanged.
+        assert_eq!(
+            command_line::quote_argument(&[0x61, 0xD800, 0x62]),
+            [0x61, 0xD800, 0x62]
+        );
     }
 
     #[test]
     fn join_arguments_quotes_each_and_separates_with_one_space() {
-        let arguments: Vec<OsString> = ["abc", "a b", "", "C:\\dir\\"]
+        let arguments: Vec<Vec<u16>> = ["abc", "a b", "", "C:\\dir\\"]
             .into_iter()
-            .map(OsString::from)
+            .map(|argument| argument.encode_utf16().collect())
             .collect();
         assert_eq!(
             command_line::join_arguments(&arguments),
             "abc \"a b\" \"\" \"C:\\dir\\\\\""
+                .encode_utf16()
+                .collect::<Vec<u16>>()
         );
-        assert_eq!(command_line::join_arguments(&[]), "");
+        assert_eq!(command_line::join_arguments(&[]), Vec::<u16>::new());
     }
 
     #[cfg(windows)]
@@ -132,8 +150,9 @@ mod tests {
         use ::windows::Win32::Foundation::{HLOCAL, LocalFree};
         use ::windows::Win32::UI::Shell::CommandLineToArgvW;
         use ::windows::core::PCWSTR;
+        use std::os::windows::ffi::{OsStrExt, OsStringExt};
 
-        let arguments: Vec<OsString> = [
+        let mut arguments: Vec<OsString> = [
             "abc",
             "a b",
             "",
@@ -146,28 +165,32 @@ mod tests {
         .into_iter()
         .map(OsString::from)
         .collect();
-        let line = format!("prog.exe {}", command_line::join_arguments(&arguments));
-        let wide: Vec<u16> = line.encode_utf16().chain(std::iter::once(0)).collect();
-        // SAFETY: `wide` is a NUL-terminated UTF-16 buffer that outlives the call;
+        // An unpaired high surrogate: not valid Unicode, still a legal OS argument.
+        arguments.push(OsString::from_wide(&[0x61, 0xD800, 0x62]));
+
+        let units: Vec<Vec<u16>> = arguments
+            .iter()
+            .map(|arg| arg.as_os_str().encode_wide().collect())
+            .collect();
+        let mut line: Vec<u16> = "prog.exe ".encode_utf16().collect();
+        line.extend_from_slice(&command_line::join_arguments(&units));
+        line.push(0);
+        // SAFETY: `line` is a NUL-terminated UTF-16 buffer that outlives the call;
         // `CommandLineToArgvW` returns a heap block of `count` NUL-terminated PWSTRs that is
         // freed with LocalFree.
         let parsed = unsafe {
             let mut count = 0i32;
-            let argv = CommandLineToArgvW(PCWSTR::from_raw(wide.as_ptr()), &mut count);
+            let argv = CommandLineToArgvW(PCWSTR::from_raw(line.as_ptr()), &mut count);
             assert!(!argv.is_null(), "CommandLineToArgvW failed");
             let mut parsed = Vec::with_capacity(count as usize);
             for i in 0..count as usize {
-                parsed.push((*argv.add(i)).to_string().expect("argv text"));
+                parsed.push((*argv.add(i)).as_wide().to_vec());
             }
             LocalFree(Some(HLOCAL(argv as *mut _)));
             parsed
         };
-        let mut expected = vec!["prog.exe".to_string()];
-        expected.extend(
-            arguments
-                .iter()
-                .map(|arg| arg.to_string_lossy().into_owned()),
-        );
+        let mut expected: Vec<Vec<u16>> = vec!["prog.exe".encode_utf16().collect()];
+        expected.extend(units);
         assert_eq!(parsed, expected);
     }
 

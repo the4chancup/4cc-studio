@@ -2,6 +2,7 @@
 //! `ShellExecuteExW` with the `runas` verb for `relaunch_elevated`.
 
 use std::ffi::OsString;
+use std::os::windows::ffi::OsStrExt;
 use std::path::Path;
 
 use windows::Win32::Foundation::{CloseHandle, ERROR_CANCELLED, GetLastError, HANDLE};
@@ -14,8 +15,9 @@ use windows::core::PCWSTR;
 use crate::ElevationError;
 use crate::command_line;
 
-/// A NUL-terminated UTF-16 string for the Win32 wide APIs. The `String` side of the
-/// conversion is lossy by design: the OS receives a best-effort rendering of unusual names.
+/// A NUL-terminated UTF-16 string for the Win32 wide APIs, for text that is already a
+/// `&str` (the `runas` verb). Paths and arguments use `OsStr::encode_wide` instead so
+/// non-Unicode text reaches the OS unchanged.
 fn wide(text: &str) -> Vec<u16> {
     text.encode_utf16().chain(std::iter::once(0)).collect()
 }
@@ -47,8 +49,19 @@ pub(crate) fn is_elevated() -> bool {
 
 pub(crate) fn relaunch_elevated(program: &Path, args: &[OsString]) -> Result<(), ElevationError> {
     let verb = wide("runas");
-    let file = wide(&program.as_os_str().to_string_lossy());
-    let parameters = wide(&command_line::join_arguments(args));
+    // `encode_wide` is lossless: a program path or argument that is not valid Unicode
+    // (an unpaired surrogate) reaches the OS unchanged.
+    let file: Vec<u16> = program
+        .as_os_str()
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect();
+    let arguments: Vec<Vec<u16>> = args
+        .iter()
+        .map(|arg| arg.as_os_str().encode_wide().collect())
+        .collect();
+    let mut parameters = command_line::join_arguments(&arguments);
+    parameters.push(0);
     // SAFETY: `info` is a zeroed `SHELLEXECUTEINFOW` with `cbSize` set as the API requires;
     // `verb`, `file` and `parameters` point at NUL-terminated wide buffers bound to locals
     // that outlive the call. `hProcess` is a handle we own (SEE_MASK_NOCLOSEPROCESS) and is
@@ -74,5 +87,16 @@ pub(crate) fn relaunch_elevated(program: &Path, args: &[OsString]) -> Result<(),
                 ElevationError::Failed(error.to_hresult().message())
             })
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn wide_is_nul_terminated_utf16() {
+        assert_eq!(wide("ab"), [0x61, 0x62, 0]);
+        assert_eq!(wide(""), [0]);
     }
 }

@@ -65,6 +65,21 @@ Rules:
 - Core plan guardrail 4 (PyO3-buildable, dependency denylist) applies to the whole crate; the split
   does not relax it for `ops/`.
 
+### `uniparam`: a canonical writer, parity with the reference writer
+
+`UniformParameter` reads any container (WESYS-wrapped or not; every offset bounds-checked,
+duplicate names refused) and writes one canonical layout: entries in byte-wise name order, the
+name pool directly after the entry table, each content padded to 16. That layout is the
+reference writer's (pes-file-tools, which Red uses to rebuild the container), reproduced byte for
+byte on its sample, because Red's output is the compiler's parity standard. Konami's own PES 21
+container differs from it in two measured ways, so a Konami file rewritten is equal in entries
+but not in bytes: its table is in name order with `_` collating before the digits (`1_DEF…`
+before `10_DEF…`), and its content pool starts 16-aligned (nine bytes of padding after the name
+pool). Neither is reproduced: the game reads both layouts, and matching Red is what the parity
+tests need. So the crate's round-trip standard is `read(write(x))` equal in entries, not the
+byte identity a pure `format/` layer owes; the byte test is against the reference writer's
+sample.
+
 ### `fmdl::model`: the semantic layer the ops work on
 
 `format/` is records and buffers; the ops (splitting, anti-blur, merging, path editing) reason

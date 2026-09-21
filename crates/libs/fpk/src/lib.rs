@@ -122,25 +122,31 @@ impl FpkFile {
         let mut entries = BTreeMap::new();
         for _ in 0..header.file_count {
             let record = EntryRecord::read(&mut cursor).map_err(|_| FpkError::Truncated)?;
+            // The u64 ranges do not fit a 32-bit usize (wasm32): reject rather than
+            // truncate into the wrong slice.
+            let name_start =
+                usize::try_from(record.name_offset).map_err(|_| FpkError::Truncated)?;
             let name_end = record
                 .name_offset
                 .checked_add(record.name_length)
                 .ok_or(FpkError::Truncated)?;
-            let name_bytes = bytes
-                .get(record.name_offset as usize..name_end as usize)
-                .ok_or(FpkError::Truncated)?;
+            let name_end = usize::try_from(name_end).map_err(|_| FpkError::Truncated)?;
+            let name_bytes = bytes.get(name_start..name_end).ok_or(FpkError::Truncated)?;
             let name = String::from_utf8(name_bytes.to_vec())
                 .map_err(|_| FpkError::Utf8(String::from_utf8_lossy(name_bytes).into_owned()))?;
             let digest: [u8; 16] = Md5::digest(name_bytes).into();
             if digest != record.checksum {
                 return Err(FpkError::Checksum(name));
             }
+            let content_start =
+                usize::try_from(record.content_offset).map_err(|_| FpkError::Truncated)?;
             let content_end = record
                 .content_offset
                 .checked_add(record.content_length)
                 .ok_or(FpkError::Truncated)?;
+            let content_end = usize::try_from(content_end).map_err(|_| FpkError::Truncated)?;
             let content = bytes
-                .get(record.content_offset as usize..content_end as usize)
+                .get(content_start..content_end)
                 .ok_or(FpkError::OutOfBounds { name: name.clone() })?;
             if entries.insert(name.clone(), content.to_vec()).is_some() {
                 return Err(FpkError::DuplicateEntry(name));

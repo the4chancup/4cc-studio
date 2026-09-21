@@ -36,6 +36,9 @@ pub enum ArchiveError {
     /// An entry name that cannot name a tree file (empty, `.`/`..` segments, drive prefix).
     #[error("invalid entry name {0:?}")]
     InvalidName(String),
+    /// Two entries normalize to the same tree path.
+    #[error("two entries normalize to the same path {0:?}")]
+    DuplicateName(String),
     /// The archive or entry needs a password; there is no prompting here.
     #[error("archive is encrypted")]
     Encrypted,
@@ -60,7 +63,7 @@ fn normalize(raw: &str) -> Result<String, ArchiveError> {
     }
     let first = segments.first().copied().unwrap_or("");
     let mut chars = first.chars();
-    if let (Some(drive), Some(':'), None) = (chars.next(), chars.next(), chars.next())
+    if let (Some(drive), Some(':')) = (chars.next(), chars.next())
         && drive.is_ascii_alphabetic()
     {
         return Err(ArchiveError::InvalidName(raw.to_string()));
@@ -71,19 +74,30 @@ fn normalize(raw: &str) -> Result<String, ArchiveError> {
     Ok(segments.join("/"))
 }
 
-/// Whether the raw name names a directory: the crate's flag or a trailing slash.
+/// A collected entry list must not hold two paths: `a/b`, `a\b` and `./a/b` all
+/// normalize to `a/b`, and silently picking a winner hides the collision.
+fn check_unique(entries: &[Entry]) -> Result<(), ArchiveError> {
+    let mut seen = std::collections::HashSet::new();
+    for entry in entries {
+        if !seen.insert(entry.path.as_str()) {
+            return Err(ArchiveError::DuplicateName(entry.path.clone()));
+        }
+    }
+    Ok(())
+}
+
+/// Whether a raw 7z entry name ends in a separator: the name-based fallback for a
+/// directory entry whose `is_directory` flag is unset. The zip path does not need it:
+/// the zip crate's own `is_dir` is already this same check.
 fn is_dir_name(raw: &str) -> bool {
     raw.ends_with('/') || raw.ends_with('\\')
 }
 
-/// A 7z crate error to ours: password and encryption-codec failures are `Encrypted`.
+/// A 7z crate error to ours. The crate is built without its `aes256` feature and always given
+/// the empty password, so encryption (of the header or of the entries) surfaces as the AES
+/// coder being an unsupported method, never as the crate's password errors.
 fn seven_error(error: sevenz_rust2::Error) -> ArchiveError {
     match &error {
-        // An encrypted header surfaces as the AES codec being missing rather than as a
-        // password request.
-        sevenz_rust2::Error::PasswordRequired | sevenz_rust2::Error::MaybeBadPassword(_) => {
-            ArchiveError::Encrypted
-        }
         sevenz_rust2::Error::UnsupportedCompressionMethod(method) if method == "AES256_SHA256" => {
             ArchiveError::Encrypted
         }
@@ -123,7 +137,7 @@ impl<R: Read + Seek> Archive<R> {
             let file = archive
                 .by_index_raw(i)
                 .map_err(|error| ArchiveError::Zip(error.to_string()))?;
-            if file.is_dir() || is_dir_name(file.name()) {
+            if file.is_dir() {
                 continue;
             }
             let path = normalize(file.name())?;
@@ -133,6 +147,7 @@ impl<R: Read + Seek> Archive<R> {
             });
             index.insert(path, (i, file.encrypted()));
         }
+        check_unique(&entries)?;
         Ok(Archive {
             entries,
             inner: Inner::Zip { archive, index },
@@ -153,6 +168,7 @@ impl<R: Read + Seek> Archive<R> {
                 size: file.size(),
             });
         }
+        check_unique(&entries)?;
         Ok(Archive {
             entries,
             inner: Inner::SevenZ {
@@ -244,6 +260,9 @@ mod tests {
     const SAMPLE_PS_ZIP: &[u8] = include_bytes!("../tests/fixtures/sample_ps.zip");
     const ENCRYPTED_7Z: &[u8] = include_bytes!("../tests/fixtures/encrypted.7z");
     const ENCRYPTED_ZIP: &[u8] = include_bytes!("../tests/fixtures/encrypted.zip");
+    const PPMD_7Z: &[u8] = include_bytes!("../tests/fixtures/sample_ppmd.7z");
+    const ENCRYPTED_NAMES_7Z: &[u8] = include_bytes!("../tests/fixtures/encrypted_names.7z");
+    const BZIP2_ZIP: &[u8] = include_bytes!("../tests/fixtures/sample_bzip2.zip");
 
     /// The six expected entries, sorted by path.
     fn expected() -> Vec<Entry> {
@@ -343,6 +362,42 @@ mod tests {
     }
 
     #[test]
+    fn entry_encrypted_7z_lists_but_refuses_reads() {
+        // Entries encrypted, header readable: the entry list works, `read` is Encrypted.
+        let mut archive = Archive::seven_z(Cursor::new(ENCRYPTED_NAMES_7Z)).expect("header");
+        let mut sorted = archive.entries().to_vec();
+        sorted.sort_by(|a, b| a.path.cmp(&b.path));
+        assert_eq!(sorted, expected());
+        let path = archive.entries()[0].path.clone();
+        assert!(matches!(archive.read(&path), Err(ArchiveError::Encrypted)));
+    }
+
+    #[test]
+    fn unsupported_codecs_are_read_errors() {
+        // PPMd 7z: the header lists the tree, the first read reports the codec.
+        let mut ppmd = Archive::seven_z(Cursor::new(PPMD_7Z)).expect("ppmd header");
+        let mut sorted = ppmd.entries().to_vec();
+        sorted.sort_by(|a, b| a.path.cmp(&b.path));
+        assert_eq!(sorted, expected(), "ppmd");
+        let path = ppmd.entries()[0].path.clone();
+        assert!(matches!(ppmd.read(&path), Err(ArchiveError::SevenZ(_))));
+
+        // BZip2 zip: bzip2 entries are read errors, stored entries still read.
+        let mut bzip2 = Archive::zip(Cursor::new(BZIP2_ZIP)).expect("bzip2 zip");
+        let mut sorted = bzip2.entries().to_vec();
+        sorted.sort_by(|a, b| a.path.cmp(&b.path));
+        assert_eq!(sorted, expected(), "bzip2");
+        assert!(matches!(
+            bzip2.read("Sample Export/Faces/Player One/face.dds"),
+            Err(ArchiveError::Zip(_))
+        ));
+        assert_eq!(
+            bzip2.read("Sample Export/Faces/Player Two/empty.txt").ok(),
+            Some(sample_bytes("Sample Export/Faces/Player Two/empty.txt"))
+        );
+    }
+
+    #[test]
     fn names_are_normalized() {
         assert_eq!(normalize("a\\b/c.txt").ok().as_deref(), Some("a/b/c.txt"));
         assert!(matches!(
@@ -360,6 +415,58 @@ mod tests {
         ));
         assert!(matches!(normalize(""), Err(ArchiveError::InvalidName(_))));
         assert_eq!(normalize("a//b").ok().as_deref(), Some("a/b"));
+        // Leading "./" and "/" are both stripped, one pass per prefix.
+        assert_eq!(normalize("./a/b").ok().as_deref(), Some("a/b"));
+        assert_eq!(normalize("/./a").ok().as_deref(), Some("a"));
+        // A drive prefix is a letter followed by `:` with anything after it.
+        assert!(matches!(
+            normalize("C:x"),
+            Err(ArchiveError::InvalidName(_))
+        ));
+        assert!(matches!(
+            normalize("c:\\x"),
+            Err(ArchiveError::InvalidName(_))
+        ));
+        assert_eq!(normalize("ab:c").ok().as_deref(), Some("ab:c"));
+    }
+
+    #[test]
+    fn directory_names_end_with_a_separator() {
+        assert!(is_dir_name("a/"));
+        assert!(is_dir_name("a\\"));
+        assert!(!is_dir_name("a"));
+    }
+
+    #[test]
+    fn duplicate_normalized_names_error() {
+        let make = |path: &str| Entry {
+            path: path.to_string(),
+            size: 0,
+        };
+        assert!(matches!(
+            check_unique(&[make("a/b"), make("a/b")]),
+            Err(ArchiveError::DuplicateName(ref path)) if path == "a/b"
+        ));
+        assert!(check_unique(&[make("a/b"), make("a/c")]).is_ok());
+    }
+
+    #[test]
+    fn zip_rejects_names_that_normalize_to_the_same_path() {
+        use std::io::Write;
+
+        let options = zip::write::SimpleFileOptions::default()
+            .compression_method(zip::CompressionMethod::Stored);
+        let mut writer = zip::ZipWriter::new(Cursor::new(Vec::new()));
+        writer.start_file("x/y.txt", options).unwrap();
+        writer.write_all(b"a").unwrap();
+        writer.start_file("./x/y.txt", options).unwrap();
+        writer.write_all(b"b").unwrap();
+        let bytes = writer.finish().unwrap().into_inner();
+        match Archive::zip(Cursor::new(bytes)) {
+            Err(ArchiveError::DuplicateName(path)) => assert_eq!(path, "x/y.txt"),
+            Err(error) => panic!("unexpected error: {error}"),
+            Ok(_) => panic!("expected DuplicateName"),
+        }
     }
 
     #[cfg(not(target_arch = "wasm32"))]

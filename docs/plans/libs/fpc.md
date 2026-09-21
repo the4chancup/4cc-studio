@@ -19,8 +19,10 @@ knowledge is a **leaf crate with no dependencies**, holding data and pure rules 
   `kit_values(version)` returns the same four values (shirt model 176, shorts model 16, collar
   105, winter collar 105) for PES 16, 17, 19, 20 and 21 and `None` for PES 15 and 18, where no FPC
   system exists. The wiki page documents the PES 17 values and calls the PES 19+ system "mostly
-  identical"; that the four values are the same on PES 19+ is to be confirmed against a PES 21 FPC
-  kit config when `kit_config` lands (Phase 2.13).
+  identical"; that the four values are the same on PES 19+ is still to be confirmed against a
+  real PES 21 FPC team's kit config (none was identified on the writing machine at Phase 2
+  converge; the stock configs `kit_config` was measured on are not FPC kits). The check belongs
+  to the first compile of a PES 21 FPC export (Phase 4's kit step): `matches_fpc` on its configs.
 - `player.rs` — the three appearance presets above, expressed in the crate's own small vocabulary
   (`Sleeves`, `Tuck`, `Socks`, boots/gloves IDs, skin color), not in `pes_savefile` field terms;
   and `custom_skin_available(version) -> bool`, true for PES 15 to 17 only (the Fox games dropped

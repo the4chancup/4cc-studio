@@ -210,8 +210,10 @@ mod tests {
         let before: Vec<(&str, &[u8])> = up.entries().collect();
         let after: Vec<(&str, &[u8])> = reread.entries().collect();
         assert_eq!(before, after);
-        // Konami's layout differs from the writer's by 9 bytes, so a byte
-        // comparison against the unwrapped original is not asserted.
+        // Konami's layout differs from the reference writer's (table order, a
+        // 16-aligned content pool: `format_crates.md` "`uniparam`"), so the
+        // standard here is entry equality; byte identity is tested against
+        // the reference writer's sample above.
     }
 
     #[test]
@@ -245,5 +247,32 @@ mod tests {
             UniformParameter::read(&dup),
             Err(UniparamError::DuplicateEntry(_))
         ));
+    }
+
+    #[test]
+    fn empty_container_writes_the_eight_header_bytes() {
+        let up = UniformParameter::new();
+        assert!(up.is_empty());
+        // Entry count 0, table offset 8: an empty container is exactly the header.
+        let bytes = up.write();
+        assert_eq!(bytes, [0, 0, 0, 0, 8, 0, 0, 0]);
+        let reread = UniformParameter::read(&bytes).unwrap();
+        assert!(reread.is_empty());
+        assert_eq!(reread.len(), 0);
+    }
+
+    #[test]
+    fn remove_returns_content_and_drops_the_entry() {
+        let mut up = UniformParameter::new();
+        up.insert("a.bin".to_owned(), vec![1, 2, 3]);
+        up.insert("b.bin".to_owned(), vec![4]);
+        assert!(!up.is_empty());
+
+        assert_eq!(up.remove("a.bin"), Some(vec![1, 2, 3]));
+        assert_eq!(up.get("a.bin"), None);
+        assert_eq!(up.len(), 1);
+        assert_eq!(up.remove("a.bin"), None);
+        assert_eq!(up.remove("b.bin"), Some(vec![4]));
+        assert!(up.is_empty());
     }
 }

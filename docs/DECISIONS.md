@@ -1799,3 +1799,37 @@ meet.
 Plan: `core/development_plan.md` "Phase 2" (`ftex` + `dds_convert` bullet), "Phase 4"
 (`processing/` bullet). `libs/README.md` "First-release desktop GPU BC7" is the backend's spec
 and is phase-agnostic; unchanged.
+
+## 2026-09-21 - archives - `DuplicateName`, the zip open cost, the codec fixtures
+Decision (agent, at Phase 2 converge, cross-family review):
+- **`ArchiveError::DuplicateName(String)`** joins the plan block: two entries normalizing to one
+  tree path (`a/b` and `a\b`) were silently resolved by `HashMap` insertion order, against the
+  plan-wide rule that collisions are rejected. Exact-duplicate raw names in a zip are collapsed
+  by the `zip` crate's name index before the crate sees them; accepted, no tool writes such a zip.
+- **`zip` reads each entry's local header at open**, not "the central directory only": `zip`
+  8.6 exposes sizes and the encryption flag only through its raw entry view, which seeks to the
+  local header. One seek per entry, no decompression; the plan sentence now says so rather than
+  the code pretending otherwise.
+- **Three codec fixtures** (PPMd `.7z`, entry-encrypted `.7z` with a readable header, BZip2
+  `.zip`) pin the plan sentences that were untested: unsupported codecs list and fail at `read`;
+  encryption is `Encrypted` at `read` when the header is readable. With `sevenz-rust2` built
+  without AES and given the empty password, the crate's password errors are unreachable, so the
+  arm matching them was dead code and is gone.
+Plan: `libs/archives.md` (the block, the codec and encryption paragraph, the fixtures paragraph).
+
+## 2026-09-21 - uniparam - canonical writer, entry-level round trip; Konami's layout measured
+Decision (agent, at Phase 2 converge): `UniformParameter::write` keeps the reference writer's
+layout (byte-wise name order, name pool directly after the table, contents padded to 16) and
+the crate's round-trip standard is entry equality, with byte identity tested against the
+reference writer's sample only. Konami's PES 21 container was measured: table order with `_`
+before the digits, content pool 16-aligned (nine pad bytes), otherwise identical; not
+reproduced, because Red's output (pes-file-tools' writer) is the parity standard and the game
+reads both. Rejected: reproducing Konami's layout (a second layout the compiler never emits).
+Plan: `libs/format_crates.md` "`uniparam`: a canonical writer, parity with the reference writer" (new).
+
+## 2026-09-21 - fpc - the PES 19+ kit-value confirmation moves to Phase 4
+Decision (agent): the confirmation that the FPC kit values (176/16/105/105) hold on PES 19+ was
+due "when `kit_config` lands" and did not happen: no PES 21 FPC team's kit config was identified
+on the machine, and the stock configs `kit_config` measured are not FPC kits. It is now the
+first PES 21 FPC export compiled in Phase 4 (`matches_fpc` on its configs).
+Plan: `libs/fpc.md` (`kit.rs` bullet).

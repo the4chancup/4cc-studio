@@ -16,4 +16,15 @@ exclude_re = [
     # into disjoint ranges). The kit_config probe had 25 of its 46 survivors here, all equivalent.
     # Accepted loss: an OR of overlapping operands is no longer mutated either.
     "replace \\| with \\^",
+    # `relaunch_elevated` mutants can only be exercised through the UAC consent prompt,
+    # which no test can click: the `-> Ok(())` replacements, the SHELLEXECUTEINFOW field
+    # deletes (a separate mutant genre whose name the function pattern does not match, hence
+    # the second entry) and the ERROR_CANCELLED arm all live behind it. The plan
+    # (libs/elevation.md) makes the relaunch a manual check at the first tool phase that
+    # needs it. The not-windows-not-unix `is_elevated` arm is unreachable on every host we
+    # test on for the same underlying reason (the platform it belongs to never runs the
+    # suite): it is not matched by either pattern and will keep appearing in missed.txt,
+    # accepted as unreachable.
+    "relaunch_elevated",
+    "SHELLEXECUTEINFOW",
 ]
