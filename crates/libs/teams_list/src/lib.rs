@@ -374,6 +374,123 @@ mod tests {
     }
 
     #[test]
+    fn appended_cells_follow_the_header_labels() {
+        // A different header order still carries every shared label: the
+        // appended team's Notes lands in the working Notes column, and a
+        // working column the incoming header does not have stays blank.
+        let working = list("ID\tName\tNotes\tExtra\n701\t/co/\tx\te\n");
+        let incoming = list("Name\tID\tNotes\n/zz/\t750\tn7\n");
+        let (merged, summary) = reconcile(&working, &incoming);
+        assert_eq!(
+            summary.added,
+            [(TeamId::new(750).unwrap(), TeamName::new("zz").unwrap())]
+        );
+        assert!(matches!(
+            merged.rows().last(),
+            Some(Row::Team { cells, .. })
+                if cells == &["750".to_owned(), "/zz/".to_owned(), "n7".to_owned(), String::new()]
+        ));
+        reparses(&merged);
+    }
+
+    #[test]
+    fn reconcile_appends_new_incoming_placeholders() {
+        // A placeholder only in the incoming list is carried over verbatim.
+        let working = list("ID\tName\n");
+        let incoming = list("ID\tName\n701\tBackup 1\n");
+        let (merged, summary) = reconcile(&working, &incoming);
+        assert_eq!(summary.placeholders_added, ["Backup 1".to_owned()]);
+        assert!(matches!(
+            merged.rows(),
+            [Row::Placeholder { cells }]
+                if cells == &["701".to_owned(), "Backup 1".to_owned()]
+        ));
+        reparses(&merged);
+
+        // An id the working list already claims leaves the placeholder out.
+        let working = list("ID\tName\n701\t/co/\n");
+        let (merged, summary) = reconcile(&working, &incoming);
+        assert!(summary.placeholders_added.is_empty());
+        assert_eq!(merged, working);
+        reparses(&merged);
+
+        // A working row claiming a different id does not block the append.
+        let working = list("ID\tName\n799\t/co/\n");
+        let (merged, summary) = reconcile(&working, &incoming);
+        assert_eq!(summary.placeholders_added, ["Backup 1".to_owned()]);
+        reparses(&merged);
+
+        // A working placeholder showing the same raw Name does.
+        let working = list("ID\tName\n701\tBackup 1\n");
+        let incoming = list("ID\tName\n702\tBackup 1\n");
+        let (merged, summary) = reconcile(&working, &incoming);
+        assert!(summary.placeholders_added.is_empty());
+        assert_eq!(merged, working);
+        reparses(&merged);
+
+        // Two new placeholders both carry over, in order.
+        let working = list("ID\tName\n");
+        let incoming = list("ID\tName\n701\tBackup 1\n702\tBackup 2\n");
+        let (merged, summary) = reconcile(&working, &incoming);
+        assert_eq!(
+            summary.placeholders_added,
+            ["Backup 1".to_owned(), "Backup 2".to_owned()]
+        );
+        assert_eq!(merged.rows().len(), 2);
+        reparses(&merged);
+
+        // An unrelated collision elsewhere does not touch the append.
+        let working = list("ID\tName\n701\t/a/\n702\t/b/\n");
+        let incoming = list("ID\tName\n702\t/a/\n750\tBackup 1\n");
+        let (merged, summary) = reconcile(&working, &incoming);
+        assert_eq!(summary.placeholders_added, ["Backup 1".to_owned()]);
+        assert_eq!(
+            summary.unresolved,
+            [(TeamId::new(702).unwrap(), TeamName::new("a").unwrap())]
+        );
+        assert!(matches!(
+            merged.rows().last(),
+            Some(Row::Placeholder { cells })
+                if cells == &["750".to_owned(), "Backup 1".to_owned()]
+        ));
+        reparses(&merged);
+    }
+
+    #[test]
+    fn reconcile_placeholder_append_loses_to_an_incoming_team() {
+        // The same id incoming as a team and as a placeholder: the team is
+        // added, the placeholder dropped, nothing unresolved.
+        let working = list("ID\tName\n");
+        let incoming = TeamsList::from_parts(
+            vec!["ID".to_owned(), "Name".to_owned()],
+            0,
+            1,
+            vec![
+                Row::Team {
+                    cells: vec!["701".to_owned(), "/xx/".to_owned()],
+                    id: TeamId::new(701).unwrap(),
+                    name: TeamName::new("/xx/").unwrap(),
+                },
+                Row::Placeholder {
+                    cells: vec!["701".to_owned(), "Backup 1".to_owned()],
+                },
+            ],
+        );
+        let (merged, summary) = reconcile(&working, &incoming);
+        assert_eq!(
+            summary.added,
+            [(TeamId::new(701).unwrap(), TeamName::new("xx").unwrap())]
+        );
+        assert!(summary.unresolved.is_empty());
+        assert!(summary.placeholders_added.is_empty());
+        assert!(matches!(
+            merged.rows(),
+            [Row::Team { id, .. }] if *id == TeamId::new(701).unwrap()
+        ));
+        reparses(&merged);
+    }
+
+    #[test]
     fn reconcile_takes_a_placeholder_slot() {
         let working = list("ID\tName\n772\tBackup 1\n");
         let incoming = list("ID\tName\n772\t/new/\n");
