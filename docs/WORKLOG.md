@@ -531,6 +531,21 @@ Spec: `docs/plans/core/development_plan.md` "Phase 2", `docs/plans/libs/README.m
     in-memory containers. fpc's PES 19+ confirmation moved to Phase 4 (decision entry).
     Untested by construction: fpk's u64→usize checks (64-bit host), the 7z size check (header
     CRC), the POSIX `is_elevated` oracle (runs in CI only)
+  - [x] 2.20b `teams_list` + `kit_config` — done (`7c4dcc9` + the second-round commit):
+    teams_list 71 mutants / 14 survivors (five missing tests, dead guards, one equivalent
+    term removed), the revert loop replaced by compute-once-then-recompute; kit_config 310
+    mutants / 0 survivors. Reviewer rounds: 7 → 7 accepted, then 4 → 4 (loop ends): only
+    slash-wrapped Name cells are teams (a bare `Backup` loaded as team `/backup/`); reconcile
+    validates over every claimed id, consumes a placeholder whose id an existing name takes,
+    maps appended cells by header label and carries incoming placeholders
+    (`MergeSummary::placeholders_added`), every merged list reparses (upstream: 125 teams, 95
+    placeholders); kit_config `update_toml` edits `[unknown]` (standard or inline) and badge
+    tables in place and returns `Result` instead of panicking on a non-table section, short
+    sleeves kept/reported/clamped, `[unknown]` validated at parse, `source_texture_names` is
+    `None` without its table. Lead goldens: the referee fixture hand-decoded from the plan
+    table field by field, five distinct colors at the table's offsets. Fixtures: Blue's PES
+    18/19 UniformParameter containers (4424 configs bit-identical at their versions; 17 GK
+    configs per season carry a shirt model outside 144/160/176). Decision entry
   Known inputs from round C: (a) whole-crate mutation runs left survivors to triage in cpk (28),
   ftex (80), dds_convert (30): table-variant arms, boundary comparisons, `write_cell` and
   `Writer::finish` padding math; the other thirteen crates have not been run; (b)

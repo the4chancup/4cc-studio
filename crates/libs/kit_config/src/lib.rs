@@ -329,7 +329,10 @@ mod tests {
     #[test]
     fn toml_round_trip_carries_everything() {
         assert!(!KitConfig::template().to_toml().contains("[unknown]"));
-        assert_eq!(KitConfig::from_toml("").unwrap(), KitConfig::template());
+        // No `[source_texture_names]` table in the text, no names carried.
+        let mut without_names = KitConfig::template();
+        without_names.source_texture_names = None;
+        assert_eq!(KitConfig::from_toml("").unwrap(), without_names);
         for bytes in FIXTURES {
             let config = KitConfig::decode(bytes, PesVersion::Pes21).unwrap();
             let parsed = KitConfig::from_toml(&config.to_toml()).unwrap();
@@ -337,9 +340,23 @@ mod tests {
         }
         // A minimal document fills the rest from the template.
         let minimal = KitConfig::from_toml("[shirt]\nmodel = 144\n").unwrap();
-        let mut expected = KitConfig::template();
+        let mut expected = without_names;
         expected.shirt.model = 144;
         assert_eq!(minimal, expected);
+    }
+
+    #[test]
+    fn toml_without_source_texture_names_carries_none() {
+        // The table is the only carrier of texture names in TOML: without it
+        // the config is `None`, emits no section and encodes zero names.
+        let config = KitConfig::from_toml("").unwrap();
+        assert_eq!(config.source_texture_names, None);
+        assert!(
+            !config.to_toml().contains("[source_texture_names]"),
+            "{}",
+            config.to_toml()
+        );
+        assert_eq!(&config.encode(PesVersion::Pes21)[0x28..0x78], &[0u8; 80]);
     }
 
     #[test]
@@ -725,6 +742,35 @@ mod tests {
         let before = document.to_string();
         config.update_toml(&mut document).unwrap();
         assert_eq!(document.to_string(), before);
+    }
+
+    #[test]
+    fn update_toml_updates_an_inline_unknown_table_in_place() {
+        // `unknown = { ... }` is a table too: keys are updated, added and
+        // removed inside it instead of being skipped.
+        let mut document = "unknown = { \"0x25\" = 3 }\n"
+            .parse::<toml_edit::DocumentMut>()
+            .unwrap();
+        let mut config = KitConfig::template();
+        config
+            .unknown
+            .insert(0x25, TEMPLATE[0x25].wrapping_add(1).max(1));
+        config
+            .unknown
+            .insert(0x26, TEMPLATE[0x26].wrapping_add(1).max(1));
+        config.update_toml(&mut document).unwrap();
+        let inline = document["unknown"]
+            .as_inline_table()
+            .expect("the table stays inline");
+        assert_eq!(
+            inline["0x25"].as_integer(),
+            Some(i64::from(config.unknown[&0x25]))
+        );
+        assert_eq!(
+            inline["0x26"].as_integer(),
+            Some(i64::from(config.unknown[&0x26]))
+        );
+        assert_eq!(KitConfig::from_toml(&document.to_string()).unwrap(), config);
     }
 
     #[test]

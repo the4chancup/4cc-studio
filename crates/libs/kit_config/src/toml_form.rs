@@ -411,6 +411,10 @@ pub fn from_toml(text: &str) -> Result<KitConfig, KitConfigError> {
             }
         }
         config.source_texture_names = Some(names);
+    } else {
+        // The table is the only carrier of texture names in TOML; without
+        // it the config does not inherit the template's.
+        config.source_texture_names = None;
     }
 
     Ok(config)
@@ -800,9 +804,9 @@ pub fn update_toml(config: &KitConfig, document: &mut DocumentMut) -> Result<(),
     if needed.is_empty() {
         document.remove("unknown");
     } else {
-        // Preflight made `unknown` a table or absent.
+        // Preflight made `unknown` a table — standard or inline — or absent.
         let entry = document["unknown"].or_insert(Item::Table(Table::new()));
-        if let Item::Table(table) = entry {
+        if let Some(table) = entry.as_table_like_mut() {
             // Update still-needed keys in place (keeping each key's spelling
             // and decor), drop keys whose remainder returned to the
             // template's, then add the missing ones.
@@ -821,7 +825,9 @@ pub fn update_toml(config: &KitConfig, document: &mut DocumentMut) -> Result<(),
                 match offset.and_then(|offset| needed.iter().find(|(o, _)| *o == offset)) {
                     Some(&(offset, value)) => {
                         written.insert(offset);
-                        set(&mut table[key.as_str()], i64::from(value).into());
+                        if let Some(item) = table.get_mut(&key) {
+                            set(item, i64::from(value).into());
+                        }
                     }
                     None => {
                         table.remove(&key);
@@ -830,7 +836,9 @@ pub fn update_toml(config: &KitConfig, document: &mut DocumentMut) -> Result<(),
             }
             for (offset, value) in needed {
                 if !written.contains(&offset) {
-                    table[format!("0x{offset:02X}").as_str()] = toml_edit::value(i64::from(value));
+                    table
+                        .entry(format!("0x{offset:02X}").as_str())
+                        .or_insert(toml_edit::value(i64::from(value)));
                 }
             }
         }
