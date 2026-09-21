@@ -30,6 +30,10 @@ pub enum UniparamError {
     /// Two entries share a name.
     #[error("duplicate entry: {0}")]
     DuplicateEntry(String),
+    /// An entry name holding a NUL byte, which the format's NUL-terminated
+    /// name pool cannot store.
+    #[error("entry name holds a NUL byte: {0:?}")]
+    InvalidName(String),
     /// An entry name is not valid UTF-8.
     #[error("entry name is not utf-8")]
     Utf8,
@@ -142,9 +146,18 @@ impl UniformParameter {
         self.entries.get(name).map(Vec::as_slice)
     }
 
-    /// Inserts or replaces `name`, returning the replaced content if any.
-    pub fn insert(&mut self, name: String, content: Vec<u8>) -> Option<Vec<u8>> {
-        self.entries.insert(name, content)
+    /// Inserts or replaces `name`, returning the replaced content if any. A
+    /// name holding a NUL byte cannot round-trip through the NUL-terminated
+    /// pool and is `InvalidName`; an empty name stores a lone terminator.
+    pub fn insert(
+        &mut self,
+        name: String,
+        content: Vec<u8>,
+    ) -> Result<Option<Vec<u8>>, UniparamError> {
+        if name.contains('\0') {
+            return Err(UniparamError::InvalidName(name));
+        }
+        Ok(self.entries.insert(name, content))
     }
 
     /// Removes `name`, returning its content if present.
@@ -198,7 +211,7 @@ mod tests {
             sample_entries()[0].clone(),
             sample_entries()[1].clone(),
         ] {
-            rebuilt.insert(name, content);
+            rebuilt.insert(name, content).unwrap();
         }
         assert_eq!(rebuilt.write(), SAMPLE);
     }
@@ -262,10 +275,23 @@ mod tests {
     }
 
     #[test]
+    fn insert_refuses_a_name_with_a_nul_byte() {
+        let mut up = UniformParameter::new();
+        // Names are NUL-terminated in the pool: `a\0b` would write `a\0b\0`
+        // and read back as `a`.
+        let name = "a\0b".to_owned();
+        assert!(matches!(
+            up.insert(name.clone(), vec![1]),
+            Err(UniparamError::InvalidName(rejected)) if rejected == name
+        ));
+        assert!(up.is_empty());
+    }
+
+    #[test]
     fn remove_returns_content_and_drops_the_entry() {
         let mut up = UniformParameter::new();
-        up.insert("a.bin".to_owned(), vec![1, 2, 3]);
-        up.insert("b.bin".to_owned(), vec![4]);
+        up.insert("a.bin".to_owned(), vec![1, 2, 3]).unwrap();
+        up.insert("b.bin".to_owned(), vec![4]).unwrap();
         assert!(!up.is_empty());
 
         assert_eq!(up.remove("a.bin"), Some(vec![1, 2, 3]));

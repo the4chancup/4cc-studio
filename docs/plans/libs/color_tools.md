@@ -52,7 +52,9 @@ the caller decodes, so the crate stays pure logic with no image dependency):
      cluster, identical or near-identical to color 1, and the result says so.
 
 Calibration evidence (134 texture/config pairs from the exports on the writing
-machine, 2048 and 4096 DXT1/DXT5 kits, the harness in `scripts/provenance/calib`): the
+machine, 2048 and 4096 DXT1/DXT5 kits, the harness in `scripts/provenance/calib`, which
+predates the crate and carries its own clustering: it is the record of how the thresholds
+were chosen, not a second implementation to keep in step): the
 declared config colors are **not** a usable ground truth: only 55 of
 133 declared shirt colors appear anywhere in the shirt region's top four clusters
 (managers leave the template's colors or pick an accent), and among the two-tone
@@ -61,7 +63,11 @@ real two-tone kits and 0–19% for trims, which is where the 25% and 10% thresho
 sit. The check that stands is visual: swatch sheets of every kit next to its
 extracted pair read right on every standard-template kit; the only wrong answers
 are textures that are not on the template at all (custom kit models whose atlas is
-mostly black), which no region choice can fix.
+mostly black), which no region choice can fix. The region constants themselves are pinned by
+a test against the colored template sheet (`Kit_col_template_pes19.png` subsampled to
+128x128, `tests/fixtures/`): the shirt region must contain only the sheet's two shirt reds
+and the shorts regions only its two yellows, with the expected literals counted by a script,
+not by the crate.
 
 The same routine powers suggestion swatches in GUI tools, so it returns the full
 ranked cluster list per region, not just the two winners.

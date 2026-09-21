@@ -93,6 +93,13 @@ fn is_dir_name(raw: &str) -> bool {
     raw.ends_with('/') || raw.ends_with('\\')
 }
 
+/// Whether a 7z entry is a directory, by its flag or its name. The constructor and
+/// the `read` cache must agree: an unflagged `x/` skipped at open but cached at read
+/// would normalize to `x` and could shadow a real file entry of that name.
+fn is_directory_entry(flagged: bool, name: &str) -> bool {
+    flagged || is_dir_name(name)
+}
+
 /// A 7z crate error to ours. The crate is built without its `aes256` feature and always given
 /// the empty password, so encryption (of the header or of the entries) surfaces as the AES
 /// coder being an unsupported method, never as the crate's password errors.
@@ -160,7 +167,7 @@ impl<R: Read + Seek> Archive<R> {
             sevenz_rust2::ArchiveReader::new(reader, Password::empty()).map_err(seven_error)?;
         let mut entries = Vec::new();
         for file in &reader.archive().files {
-            if file.is_directory() || is_dir_name(file.name()) {
+            if is_directory_entry(file.is_directory(), file.name()) {
                 continue;
             }
             entries.push(Entry {
@@ -206,16 +213,33 @@ impl<R: Read + Seek> Archive<R> {
             Inner::SevenZ { reader, contents } => {
                 if contents.is_none() {
                     let mut all: HashMap<String, Vec<u8>> = HashMap::new();
+                    // The callback yields the crate's own `Result`, so a size mismatch
+                    // cannot be our error: it is collected and surfaced after the
+                    // iteration stops.
+                    let mut mismatch: Option<ArchiveError> = None;
                     let result = reader.for_each_entries(|entry, data| {
-                        if entry.is_directory() {
+                        if is_directory_entry(entry.is_directory(), entry.name()) {
                             return Ok(true);
                         }
                         let mut bytes = Vec::new();
                         data.read_to_end(&mut bytes)?;
+                        let decoded = u64::try_from(bytes.len()).expect("usize fits u64");
+                        if decoded != entry.size() {
+                            mismatch = Some(ArchiveError::SevenZ(format!(
+                                "entry {}: declared {} bytes, decoded {}",
+                                entry.name(),
+                                entry.size(),
+                                bytes.len()
+                            )));
+                            return Ok(false);
+                        }
                         all.insert(entry.name().to_string(), bytes);
                         Ok(true)
                     });
                     result.map_err(seven_error)?;
+                    if let Some(error) = mismatch {
+                        return Err(error);
+                    }
                     let mut normalized = HashMap::with_capacity(all.len());
                     for (raw, bytes) in all {
                         normalized.insert(normalize(&raw)?, bytes);
@@ -431,10 +455,11 @@ mod tests {
     }
 
     #[test]
-    fn directory_names_end_with_a_separator() {
-        assert!(is_dir_name("a/"));
-        assert!(is_dir_name("a\\"));
-        assert!(!is_dir_name("a"));
+    fn directory_entries_are_flagged_or_separator_named() {
+        assert!(is_directory_entry(false, "a/"));
+        assert!(is_directory_entry(false, "a\\"));
+        assert!(is_directory_entry(true, "a"));
+        assert!(!is_directory_entry(false, "a"));
     }
 
     #[test]

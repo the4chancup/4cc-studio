@@ -68,7 +68,8 @@ Rules:
 ### `uniparam`: a canonical writer, parity with the reference writer
 
 `UniformParameter` reads any container (WESYS-wrapped or not; every offset bounds-checked,
-duplicate names refused) and writes one canonical layout: entries in byte-wise name order, the
+duplicate names refused), refuses at `insert` a name holding a NUL (the name pool is
+NUL-terminated, so such a name could not read back), and writes one canonical layout: entries in byte-wise name order, the
 name pool directly after the entry table, each content padded to 16. That layout is the
 reference writer's (pes-file-tools, which Red uses to rebuild the container), reproduced byte for
 byte on its sample, because Red's output is the compiler's parity standard. Konami's own PES 21

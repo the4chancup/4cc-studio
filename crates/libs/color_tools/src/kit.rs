@@ -641,6 +641,43 @@ mod tests {
         assert!(extract_kit_colors(&rgba, u32::MAX, u32::MAX).is_none());
     }
 
+    /// The community's PES 19 colored template sheet, 128x128 nearest-neighbour, raw RGBA8
+    /// (`tests/fixtures/README.md`).
+    const TEMPLATE: &[u8] = include_bytes!("../tests/fixtures/kit_col_template_pes19_128.rgba");
+
+    /// The region constants against the real template layout: the sheet paints the shirt's
+    /// front and back two reds and the shorts two yellows, so the shirt region must see only
+    /// reds and the shorts region only yellows (literals measured on the fixture by
+    /// `scripts/provenance/fixtures/color_tools_template_fixture.py`, independently of this
+    /// crate). Front and back are near-equal halves, so which red or yellow ranks first is
+    /// not asserted; the pair of clusters and their shares are.
+    #[test]
+    fn template_sheet_regions_land_on_the_shirt_and_shorts() {
+        let reds = [[165, 10, 10], [197, 14, 14]];
+        let yellows = [[226, 181, 0], [255, 216, 0]];
+        let kit = extract_kit_colors(TEMPLATE, 128, 128).expect("colors");
+
+        let shirt: Vec<[u8; 3]> = kit.shirt.iter().take(2).map(|c| c.color).collect();
+        assert!(reds.iter().all(|red| shirt.contains(red)), "{shirt:?}");
+        for cluster in &kit.shirt[..2] {
+            assert!((0.40..=0.55).contains(&cluster.share), "{cluster:?}");
+        }
+        let shorts: Vec<[u8; 3]> = kit.shorts.iter().take(2).map(|c| c.color).collect();
+        assert!(
+            yellows.iter().all(|yellow| shorts.contains(yellow)),
+            "{shorts:?}"
+        );
+        for cluster in &kit.shorts[..2] {
+            assert!((0.40..=0.55).contains(&cluster.share), "{cluster:?}");
+        }
+
+        // The two reds are 32 apart: separate clusters but not distinct, so color 2 is
+        // the shorts' dominant yellow.
+        assert!(reds.contains(&kit.color1), "{:?}", kit.color1);
+        assert!(yellows.contains(&kit.color2), "{:?}", kit.color2);
+        assert_eq!(kit.color2_source, Color2Source::Shorts);
+    }
+
     #[test]
     fn deterministic() {
         let rgba = texture(SIZE, SIZE, |x, y| {
