@@ -210,9 +210,14 @@ validates its own arguments (one bad `newline=` emptied a 600-line source file t
 copy of). Write to a sibling temp path and `os.replace` it, and run every assertion before the
 write. Small edits use the editor tool, not a script. Before editing a tree the sidekick left,
 `git add -A` first, so every file, untracked ones included, has a blob in the index to restore
-from. Never redirect to `nul` from bash: on Windows that creates a real file named `nul`, which
-git cannot index (`git add -A` fails outright) and which only `Remove-Item -LiteralPath
-"\\?\<full path>"` can delete; use `/dev/null` in bash, `$null` in PowerShell.
+from. **No `git checkout -- <path>`, `git restore`, `git reset --hard` or `git stash` over
+uncommitted work**: each discards whatever the index does not hold, and nothing in the reflog
+gets it back (a checkout meant to undo a one-line perturbation also erased the unstaged golden it
+sat in). A deliberate perturbation is undone with the editor tool, by hand; a git restore is
+allowed only after `git add -A` has given every file a blob to restore from. Never redirect to
+`nul` from bash: on Windows that creates a real file named `nul`, which git cannot index
+(`git add -A` fails outright) and which only `Remove-Item -LiteralPath "\\?\<full path>"` can
+delete; use `/dev/null` in bash, `$null` in PowerShell.
 
 Three model families, three roles. Lead: Claude (Fable) in Devin CLI's Fusion mode. Sidekick:
 SWE-2 (Kimi lineage), reached through the `sidekick` tool; a cold probe on a spec-in-hand crate
@@ -222,6 +227,16 @@ is trusted with implementation, not with judgment. Reviewer subagent profiles (g
 when you do not know what model you are**; `fable-medium` (Claude) only when you know you are a
 GPT. The reviewer reviews; it is never asked to edit. Cost is not the constraint on any of these;
 time is, hence the batching rule above.
+
+Two harness limits, both measured. **`run_subagent` profiles have `read`, `grep` and
+`find_file_by_name` only**: no `skill` tool, no shell. A reviewer brief that says "invoke the
+`karpathy-guidelines` skill" sends it globbing the repo for a file that is not there; give it the
+file to read instead, `%APPDATA%\devin\skills\karpathy-guidelines\SKILL.md` (outside the repo,
+and its `read` tool reaches it). The `sidekick` tool has the `skill` tool, so its briefs keep the
+invoke wording. **Compaction does not fire while a sidekick handoff or a background subagent is in
+flight**, so a run started "to save time" ahead of the `[[/compact]]` sentinel costs the
+compaction instead (2.20b's mutation runs were started that way and the sentinel was ignored).
+Compact first, then start the run in the resumed turn.
 
 ## When the plan has gaps
 
