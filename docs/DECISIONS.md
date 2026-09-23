@@ -1857,3 +1857,25 @@ Decision (agent, cross-family review at converge):
   assertion is not made on them.
 Plan: `libs/teams_list.md` (`file.rs`, `reconcile.rs` bullets), `kit_config_editor.md` ("The
 format" row 0x00, "`libs/kit_config`" first bullet).
+
+## 2026-09-23 - cpk - Phase 2 converge rulings
+Decision (agent, lead audit and cross-family review at converge):
+- **The crate's public surface is what the tools need**: `CpkArchive::{open, entries, read}`,
+  `CpkEntry`, `CpkTimestamp`, `CpkWriter::{new, add, finish}`, `CpkError`. The @UTF table
+  types, `header()`, `into_inner` and the `crilayla` module had no consumer in the workspace or
+  the plan (`core/architecture.md`: CRILAYLA is used only inside `cpk`) and are `pub(crate)` or
+  gone; a later consumer re-exposes what it needs.
+- **The reader follows the reference reader where it is stricter and where it is lenient**:
+  pool strings that are not UTF-8 are refused (`InvalidUtf8`; pes-file-tools' `readString`
+  raises), header and TOC integer cells are read by name regardless of U32/U64 width (its
+  `row['ExtractSize']` is untyped), an entry whose sizes differ but carries no CRILAYLA magic
+  comes back raw (its `read` does the same). Beyond the reference: every file-declared count
+  and offset is bounds-checked before the allocation it would size (row area, row count,
+  `FileOffset + base`, the CRILAYLA payload against `ExtractSize`), so a hostile archive is an
+  `Err`, not an abort.
+- **The writer refuses what the format cannot carry** rather than writing it truncated: a path
+  holding a NUL (`InvalidPath`; the string pool is NUL-terminated) and a `Tvers` long enough
+  to push the header table past the 0x800 bytes reserved before the first file
+  (`HeaderTooLarge`). Its bytes are unchanged (parity test untouched).
+Plan: no plan edit needed; the crate has no code block, and `libs/README.md` "Testing" already
+states the fixture standard these tests follow.

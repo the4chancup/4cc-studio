@@ -514,8 +514,10 @@ Spec: `docs/plans/core/development_plan.md` "Phase 2", `docs/plans/libs/README.m
   inventory, design sweep, survivor triage), one rework brief, the bounded reviewer loop, one
   commit. Batches: A the seven small leaves in one reviewer round; then `teams_list` +
   `kit_config`; `cpk`; `ftex` + `dds_convert`; `fox2`; `fmdl`; `pes_model`; `model_convert`;
-  `pes_savefile` (lead audit whole, reviewer on the non-interchange modules: 2.17h's three
-  rounds are the interchange half); `python_bindings`.
+  then read the user-found fork `https://github.com/jasonjk192/pesXdecrypter` for savefile
+  facts worth adding to `pes_savefile` before its audit; `pes_savefile` (lead audit whole,
+  reviewer on the non-interchange modules: 2.17h's three rounds are the interchange half);
+  `python_bindings`.
   - [x] 2.20a batch A (`wezlib` `uniparam` `elevation` `archives` `fpc` `color_tools` `fpk`) —
     done (`efcc580` + the third-round commit): 315 mutants, 54 survivors triaged (36 missing
     tests written with independent oracles where one exists: shell32 `IsUserAnAdmin`, `getuid`;
@@ -546,6 +548,22 @@ Spec: `docs/plans/core/development_plan.md` "Phase 2", `docs/plans/libs/README.m
     table field by field, five distinct colors at the table's offsets. Fixtures: Blue's PES
     18/19 UniformParameter containers (4424 configs bit-identical at their versions; 17 GK
     configs per season carry a shirt model outside 144/160/176). Decision entry
+  - [x] 2.20c `cpk` — done: 28 survivors triaged (23 missing tests written; 5 sat in code
+    removed as dead or redundant: the required-column loop, the `read_table` pre-check the EOF
+    helper made redundant, a dead store); after the rework 249 mutants, 0 missed (2 killed by
+    timeout: the zero-row-length loop). Public
+    surface shrunk to `CpkArchive::{open, entries, read}`, `CpkEntry`, `CpkTimestamp`,
+    `CpkWriter::{new, add, finish}`, `CpkError` (no consumer for the @UTF types, `header()`,
+    `into_inner`, `crilayla`). Reader: one `read_exact` helper for EOF→`Truncated`, checked
+    `FileOffset + base`, row area and row count bounded before any allocation, pool strings
+    decoded strictly (`InvalidUtf8`, the reference raises), U32 `EtocOffset` accepted, CRILAYLA
+    payload size checked against `ExtractSize` before allocating. Writer: `HashSet` duplicate
+    check, NUL paths refused (`InvalidPath`), a header past 0x800 refused (`HeaderTooLarge`).
+    Lead goldens: three hand-built CRILAYLA streams (literals only at an exact byte boundary,
+    one back-reference, one run through every length-chunk width), decoded by Blue's reference
+    decoder before committing. Reviewer rounds: 5 → 5 accepted, then (as an experiment, see the
+    2026-09-23 log line) 3 → 3 accepted; loop ended. Decision entry. Untested by construction:
+    the wasm32 `checked_add`s in `utf.rs` (64-bit host)
   Known inputs from round C: (a) whole-crate mutation runs left survivors to triage in cpk (28),
   ftex (80), dds_convert (30): table-variant arms, boundary comparisons, `write_cell` and
   `Writer::finish` padding math; the other thirteen crates have not been run; (b)
@@ -788,3 +806,11 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   Phase 4 (decision entry); 2.20 runs per crate with the bounded reviewer loop, the tiny leaves
   batched into one reviewer round, `pes_savefile::interchange`'s reviewer half counted as done by
   2.17h's three rounds. Next: 2.20, tiny leaves first.
+- **2026-09-23** - 2.20c `cpk` done. Method finding: the reviewer's first round returned five,
+  and its reasoning trace (read by the user) showed it aiming for "3-5 strong concerns" because
+  the brief said "do not pad"; a second round run as an experiment returned three verified
+  concerns, all accepted (row-count allocation with a zero row length, contradicting a lead
+  ruling; a `Tvers` long enough to overwrite the first file; NUL paths colliding in the string
+  pool). `AGENTS.md` "Second opinion" now continues on the accept count alone (five or more
+  accepted, whatever was returned) and bans "do not pad" from the brief. Next: 2.20d `ftex` +
+  `dds_convert`.

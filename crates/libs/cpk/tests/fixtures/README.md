@@ -13,3 +13,6 @@ are the smallest archives on hand that exercise each writer variant; one per var
 | `crilayla/settings_json.bin` | the same entry decompressed (Blue's `crilayla.decompressCrilayla`) | 1614 bytes; genuinely begins with 256 spaces, then CRLF and `{` |
 | `crilayla/symbol_816_dds.crilayla` | PES 2021 `Data/dt14_all.cpk`, entry `common/render/symbol/player/816.dds` as stored | 7364 bytes CRILAYLA |
 | `crilayla/symbol_816_dds.bin` | the same entry decompressed | 16512 bytes, a DDS file |
+| `crilayla/handbuilt_literals.crilayla` | hand-built from the bit grammar by the lead (`.tmp/crilayla_handbuilt.py`), decoded by Blue's `crilayla.decompressCrilayla` to the expected bytes before committing | 8 literals (`ABCDEFGH`), exactly 9 stream bytes |
+| `crilayla/handbuilt_backref.crilayla` | same | 3 literals, then one back-reference of offset 3 length 6 (`xyzxyzxyz`) |
+| `crilayla/handbuilt_chained.crilayla` | same | 3 literals, then one run of 47 (`a` * 50); the run length crosses the 2/3/5/8-bit chunks |

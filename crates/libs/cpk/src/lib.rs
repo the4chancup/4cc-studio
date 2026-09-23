@@ -8,13 +8,12 @@
 //! entries is byte-identical to theirs; `CpkWriter::new` takes the `Tvers`
 //! tool-version string so that parity is testable.
 
-pub mod crilayla;
+mod crilayla;
 mod read;
 mod utf;
 mod write;
 
 pub use read::{CpkArchive, CpkEntry, CpkTimestamp};
-pub use utf::{UtfColumn, UtfKind, UtfStorage, UtfTable, UtfValue};
 pub use write::CpkWriter;
 
 /// Why a CPK read or write failed.
@@ -48,6 +47,17 @@ pub enum CpkError {
     /// value.
     #[error("missing required utf column {0}")]
     MissingColumn(&'static str),
+    /// A string in the table's pool is not UTF-8.
+    #[error("utf table string is not utf-8")]
+    InvalidUtf8,
+    /// The `CPK ` header table does not fit the 0x800 bytes before the first
+    /// file.
+    #[error("header table larger than the 0x800-byte reserved region")]
+    HeaderTooLarge,
+    /// An archive path holds a NUL byte, which the @UTF string pool cannot
+    /// carry.
+    #[error("path holds a NUL byte: {0:?}")]
+    InvalidPath(String),
     /// A CRILAYLA buffer is malformed (bad magic, too short, or the bitstream
     /// ran out before the output was full).
     #[error("crilayla: {0}")]
@@ -66,6 +76,8 @@ mod tests {
 
     use super::*;
 
+    use crate::utf::{UtfKind, UtfValue};
+
     const PES17: &[u8] = include_bytes!("../tests/fixtures/konami_pes17_dt42_win.cpk");
     const PES21: &[u8] = include_bytes!("../tests/fixtures/konami_pes21_dt42_all.cpk");
     const RED: &[u8] = include_bytes!("../tests/fixtures/red_pes16_face_73113.cpk");
@@ -75,12 +87,62 @@ mod tests {
         CpkArchive::open(Cursor::new(bytes)).unwrap()
     }
 
+    fn table(
+        tag: &[u8; 4],
+        name: &str,
+        columns: &[(&str, UtfKind)],
+        rows: Vec<Vec<UtfValue>>,
+    ) -> Vec<u8> {
+        utf::UtfTable {
+            name: name.to_owned(),
+            columns: columns
+                .iter()
+                .map(|(name, kind)| utf::UtfColumn {
+                    name: (*name).to_owned(),
+                    kind: *kind,
+                    storage: utf::UtfStorage::Variable,
+                })
+                .collect(),
+            rows,
+        }
+        .write(tag)
+    }
+
+    /// The `CPK ` table at offset 0; `read` accepts a slice longer than the
+    /// table.
+    fn header_of(bytes: &[u8]) -> utf::UtfTable {
+        utf::UtfTable::read(bytes, b"CPK ").unwrap()
+    }
+
+    /// Writes each byte run at its offset into a zero-filled buffer sized to
+    /// the largest end.
+    fn place(parts: &[(u64, &[u8])]) -> Vec<u8> {
+        let len = parts
+            .iter()
+            .map(|(offset, bytes)| *offset as usize + bytes.len())
+            .max()
+            .unwrap_or(0);
+        let mut buffer = vec![0u8; len];
+        for (offset, bytes) in parts {
+            buffer[*offset as usize..*offset as usize + bytes.len()].copy_from_slice(bytes);
+        }
+        buffer
+    }
+
+    const TOC_COLUMNS: &[(&str, UtfKind)] = &[
+        ("DirName", UtfKind::String),
+        ("FileName", UtfKind::String),
+        ("FileSize", UtfKind::U32),
+        ("ExtractSize", UtfKind::U32),
+        ("FileOffset", UtfKind::U64),
+    ];
+
     #[test]
     fn konami_pes17_header_and_entries() {
         let mut archive = open(PES17);
-        assert_eq!(archive.header().columns.len(), 35);
+        assert_eq!(header_of(PES17).columns.len(), 35);
         assert_eq!(
-            archive.header().get(0, "Tvers"),
+            header_of(PES17).get(0, "Tvers"),
             Some(&UtfValue::String("CPKMC2.21.10, DLL3.00.00".into()))
         );
         let entries = archive.entries().to_vec();
@@ -100,7 +162,7 @@ mod tests {
     #[test]
     fn konami_pes21_header_and_entries() {
         let archive = open(PES21);
-        assert_eq!(archive.header().columns.len(), 44);
+        assert_eq!(header_of(PES21).columns.len(), 44);
         let paths: Vec<&str> = archive.entries().iter().map(|e| e.path.as_str()).collect();
         assert_eq!(paths.len(), 5);
         assert_eq!(paths[0], "common/sound/config/Announce/sa_config.bin");
@@ -135,7 +197,7 @@ mod tests {
     #[test]
     fn placeholder_entry_keeps_leading_slash() {
         let archive = open(PLACEHOLDER);
-        assert_eq!(archive.header().columns.len(), 24);
+        assert_eq!(header_of(PLACEHOLDER).columns.len(), 24);
         assert_eq!(archive.entries().len(), 1);
         assert_eq!(archive.entries()[0].path, "/placeholder");
         assert_eq!(archive.entries()[0].size, 11);
@@ -197,28 +259,50 @@ mod tests {
     }
 
     #[test]
-    fn a_u64_id_column_resolves_the_etoc_timestamp() {
-        fn table(
-            tag: &[u8; 4],
-            name: &str,
-            columns: &[(&str, UtfKind)],
-            rows: Vec<Vec<UtfValue>>,
-        ) -> Vec<u8> {
-            utf::UtfTable {
-                name: name.to_owned(),
-                columns: columns
-                    .iter()
-                    .map(|(name, kind)| utf::UtfColumn {
-                        name: (*name).to_owned(),
-                        kind: *kind,
-                        storage: utf::UtfStorage::Variable,
-                    })
-                    .collect(),
-                rows,
-            }
-            .write(tag)
-        }
+    fn a_tool_version_that_overflows_the_header_region_is_an_error() {
+        let mut writer = CpkWriter::new(Cursor::new(Vec::new()), &"x".repeat(3000)).unwrap();
+        writer.add("a.bin", b"x", None).unwrap();
+        assert!(matches!(writer.finish(), Err(CpkError::HeaderTooLarge)));
+    }
 
+    #[test]
+    fn a_header_exactly_one_block_still_fits() {
+        let mut writer = CpkWriter::new(Cursor::new(Vec::new()), "").unwrap();
+        writer.add("a.bin", b"x", None).unwrap();
+        let produced = writer.finish().unwrap().into_inner();
+        let base_len = 16 + u64::from_le_bytes(produced[8..16].try_into().unwrap()) as usize;
+
+        // The header plaintext always ends 8-aligned (the string pool is
+        // 8-padded and the data pool is empty), so a Tvers longer by a
+        // multiple of 8 grows the header by exactly that.
+        let pad = 0x800 - base_len;
+        assert_eq!(pad % 8, 0);
+        let mut writer = CpkWriter::new(Cursor::new(Vec::new()), &"x".repeat(pad)).unwrap();
+        writer.add("a.bin", b"x", None).unwrap();
+        let produced = writer.finish().unwrap().into_inner();
+        let content_len = u64::from_le_bytes(produced[8..16].try_into().unwrap());
+        assert_eq!(16 + content_len as usize, 0x800);
+
+        // The boundary header fills the reserved region without touching the
+        // first file.
+        let mut archive = CpkArchive::open(Cursor::new(&produced[..])).unwrap();
+        let entries = archive.entries().to_vec();
+        assert_eq!(archive.read(&entries[0]).unwrap(), b"x");
+    }
+
+    #[test]
+    fn a_path_with_a_nul_byte_is_rejected() {
+        let mut writer = CpkWriter::new(Cursor::new(Vec::new()), "studio-test").unwrap();
+        assert!(matches!(
+            writer.add("a.bin\0x", b"x", None),
+            Err(CpkError::InvalidPath(_))
+        ));
+        // Nothing was recorded: the same base name still goes in.
+        writer.add("a.bin", b"x", None).unwrap();
+    }
+
+    #[test]
+    fn a_u64_id_column_resolves_the_etoc_timestamp() {
         let stamp = CpkTimestamp {
             year: 2020,
             month: 5,
@@ -270,14 +354,303 @@ mod tests {
                 UtfValue::U64(etoc_offset),
             ]],
         );
-        let mut bytes = vec![0u8; etoc_offset as usize + etoc.len()];
-        bytes[..header.len()].copy_from_slice(&header);
-        bytes[toc_offset as usize..][..toc.len()].copy_from_slice(&toc);
-        bytes[etoc_offset as usize..][..etoc.len()].copy_from_slice(&etoc);
+        let bytes = place(&[(0, &header), (toc_offset, &toc), (etoc_offset, &etoc)]);
 
         let archive = CpkArchive::open(Cursor::new(&bytes[..])).unwrap();
         assert_eq!(archive.entries().len(), 1);
         assert_eq!(archive.entries()[0].modified, Some(stamp));
+    }
+
+    #[test]
+    fn a_u32_etoc_offset_resolves_the_timestamp() {
+        let stamp = CpkTimestamp {
+            year: 2020,
+            month: 5,
+            day: 4,
+            hour: 3,
+            minute: 2,
+            second: 1,
+        };
+        let toc = table(
+            b"TOC ",
+            "CpkTocInfo",
+            &[
+                ("DirName", UtfKind::String),
+                ("FileName", UtfKind::String),
+                ("FileSize", UtfKind::U32),
+                ("ExtractSize", UtfKind::U32),
+                ("FileOffset", UtfKind::U64),
+                ("ID", UtfKind::U32),
+            ],
+            vec![vec![
+                UtfValue::String(String::new()),
+                UtfValue::String("a.bin".into()),
+                UtfValue::U32(4),
+                UtfValue::U32(4),
+                UtfValue::U64(0),
+                UtfValue::U32(0),
+            ]],
+        );
+        let etoc = table(
+            b"ETOC",
+            "CpkEtocInfo",
+            &[("UpdateDateTime", UtfKind::U64)],
+            vec![vec![UtfValue::U64(stamp.to_packed())]],
+        );
+        let toc_offset = 0x400u64;
+        let etoc_offset = toc_offset + toc.len() as u64;
+        let header = table(
+            b"CPK ",
+            "CpkHeader",
+            &[
+                ("ContentOffset", UtfKind::U64),
+                ("TocOffset", UtfKind::U64),
+                ("EtocOffset", UtfKind::U32),
+            ],
+            vec![vec![
+                UtfValue::U64(0x800),
+                UtfValue::U64(toc_offset),
+                UtfValue::U32(etoc_offset as u32),
+            ]],
+        );
+        let bytes = place(&[(0, &header), (toc_offset, &toc), (etoc_offset, &etoc)]);
+
+        let archive = CpkArchive::open(Cursor::new(&bytes[..])).unwrap();
+        assert_eq!(archive.entries()[0].modified, Some(stamp));
+    }
+
+    #[test]
+    fn crilayla_entry_decompresses_and_a_same_size_one_is_raw() {
+        let packed: &[u8] = include_bytes!("../tests/fixtures/crilayla/settings_json.crilayla");
+        let plain: &[u8] = include_bytes!("../tests/fixtures/crilayla/settings_json.bin");
+        // Carries the CRILAYLA magic but is stored uncompressed.
+        let mut raw = [0u8; 32];
+        raw[..8].copy_from_slice(b"CRILAYLA");
+
+        let header = table(
+            b"CPK ",
+            "CpkHeader",
+            &[("ContentOffset", UtfKind::U64), ("TocOffset", UtfKind::U64)],
+            vec![vec![UtfValue::U64(0x1000), UtfValue::U64(0x800)]],
+        );
+        let toc = table(
+            b"TOC ",
+            "CpkTocInfo",
+            TOC_COLUMNS,
+            vec![
+                vec![
+                    UtfValue::String(String::new()),
+                    UtfValue::String("settings.json".into()),
+                    UtfValue::U32(packed.len() as u32),
+                    UtfValue::U32(plain.len() as u32),
+                    UtfValue::U64(0x800),
+                ],
+                vec![
+                    UtfValue::String(String::new()),
+                    UtfValue::String("raw.bin".into()),
+                    UtfValue::U32(raw.len() as u32),
+                    UtfValue::U32(raw.len() as u32),
+                    UtfValue::U64(0x1000),
+                ],
+            ],
+        );
+        let bytes = place(&[
+            (0, &header),
+            (0x800, &toc),
+            (0x1000, packed),
+            (0x1800, &raw),
+        ]);
+
+        let mut archive = open(&bytes);
+        let entries = archive.entries().to_vec();
+        assert_eq!(archive.read(&entries[0]).unwrap(), plain);
+        assert_eq!(archive.read(&entries[1]).unwrap(), raw);
+    }
+
+    #[test]
+    fn an_entry_ending_exactly_at_the_end_reads() {
+        let content = b"tail bytes of the archive";
+        let header = table(
+            b"CPK ",
+            "CpkHeader",
+            &[("ContentOffset", UtfKind::U64), ("TocOffset", UtfKind::U64)],
+            vec![vec![UtfValue::U64(0x1000), UtfValue::U64(0x800)]],
+        );
+        let toc = table(
+            b"TOC ",
+            "CpkTocInfo",
+            TOC_COLUMNS,
+            vec![vec![
+                UtfValue::String(String::new()),
+                UtfValue::String("tail.bin".into()),
+                UtfValue::U32(content.len() as u32),
+                UtfValue::U32(content.len() as u32),
+                UtfValue::U64(0x800),
+            ]],
+        );
+        let bytes = place(&[(0, &header), (0x800, &toc), (0x1000, content)]);
+
+        let mut archive = open(&bytes);
+        let entries = archive.entries().to_vec();
+        assert_eq!(archive.read(&entries[0]).unwrap(), content);
+
+        let mut archive = open(&bytes[..bytes.len() - 1]);
+        assert!(matches!(
+            archive.read(&entries[0]),
+            Err(CpkError::Truncated)
+        ));
+    }
+
+    #[test]
+    fn a_table_offset_past_the_end_is_truncated() {
+        let header = table(
+            b"CPK ",
+            "CpkHeader",
+            &[("ContentOffset", UtfKind::U64), ("TocOffset", UtfKind::U64)],
+            vec![vec![UtfValue::U64(0x800), UtfValue::U64(1 << 20)]],
+        );
+        let bytes = place(&[(0, &header)]);
+        assert!(matches!(
+            CpkArchive::open(Cursor::new(&bytes[..])),
+            Err(CpkError::Truncated)
+        ));
+    }
+
+    #[test]
+    fn u32_header_offsets_and_u64_toc_sizes_are_accepted() {
+        // The reference reader reads these cells by name regardless of width.
+        let header = table(
+            b"CPK ",
+            "CpkHeader",
+            &[("ContentOffset", UtfKind::U32), ("TocOffset", UtfKind::U32)],
+            vec![vec![UtfValue::U32(0x1000), UtfValue::U32(0x800)]],
+        );
+        let toc = table(
+            b"TOC ",
+            "CpkTocInfo",
+            &[
+                ("DirName", UtfKind::String),
+                ("FileName", UtfKind::String),
+                ("FileSize", UtfKind::U64),
+                ("ExtractSize", UtfKind::U64),
+                ("FileOffset", UtfKind::U32),
+            ],
+            vec![vec![
+                UtfValue::String(String::new()),
+                UtfValue::String("a.bin".into()),
+                UtfValue::U64(4),
+                UtfValue::U64(4),
+                UtfValue::U32(0x800),
+            ]],
+        );
+        let bytes = place(&[(0, &header), (0x800, &toc), (0x1000, b"data")]);
+
+        let mut archive = open(&bytes);
+        let entries = archive.entries().to_vec();
+        assert_eq!(entries.len(), 1);
+        assert_eq!((entries[0].size, entries[0].packed_size), (4, 4));
+        assert_eq!(entries[0].offset, 0x1000);
+        assert_eq!(archive.read(&entries[0]).unwrap(), b"data");
+    }
+
+    #[test]
+    fn a_hostile_file_offset_is_truncated_not_a_panic() {
+        let header = table(
+            b"CPK ",
+            "CpkHeader",
+            &[("ContentOffset", UtfKind::U64), ("TocOffset", UtfKind::U64)],
+            vec![vec![UtfValue::U64(0x1000), UtfValue::U64(0x800)]],
+        );
+        let toc = table(
+            b"TOC ",
+            "CpkTocInfo",
+            TOC_COLUMNS,
+            vec![vec![
+                UtfValue::String(String::new()),
+                UtfValue::String("a.bin".into()),
+                UtfValue::U32(4),
+                UtfValue::U32(4),
+                UtfValue::U64(u64::MAX),
+            ]],
+        );
+        let bytes = place(&[(0, &header), (0x800, &toc)]);
+        assert!(matches!(
+            CpkArchive::open(Cursor::new(&bytes[..])),
+            Err(CpkError::Truncated)
+        ));
+    }
+
+    #[test]
+    fn a_toc_without_file_offset_is_missing_column() {
+        let header = table(
+            b"CPK ",
+            "CpkHeader",
+            &[("ContentOffset", UtfKind::U64), ("TocOffset", UtfKind::U64)],
+            vec![vec![UtfValue::U64(0x1000), UtfValue::U64(0x800)]],
+        );
+        let toc = table(
+            b"TOC ",
+            "CpkTocInfo",
+            &[
+                ("DirName", UtfKind::String),
+                ("FileName", UtfKind::String),
+                ("FileSize", UtfKind::U32),
+                ("ExtractSize", UtfKind::U32),
+            ],
+            vec![vec![
+                UtfValue::String(String::new()),
+                UtfValue::String("a.bin".into()),
+                UtfValue::U32(4),
+                UtfValue::U32(4),
+            ]],
+        );
+        let bytes = place(&[(0, &header), (0x800, &toc)]);
+        assert!(matches!(
+            CpkArchive::open(Cursor::new(&bytes[..])),
+            Err(CpkError::MissingColumn("FileOffset"))
+        ));
+    }
+
+    #[test]
+    fn a_large_archive_round_trips() {
+        let stamp = CpkTimestamp {
+            year: 2026,
+            month: 1,
+            day: 15,
+            hour: 8,
+            minute: 30,
+            second: 0,
+        };
+        let mut writer = CpkWriter::new(Cursor::new(Vec::new()), "studio-test").unwrap();
+        for i in 0..120 {
+            writer
+                .add(
+                    &format!("dir{i}/file{i}.bin"),
+                    format!("content-{i}").as_bytes(),
+                    Some(stamp),
+                )
+                .unwrap();
+        }
+        let bytes = writer.finish().unwrap().into_inner();
+
+        let mut archive = CpkArchive::open(Cursor::new(&bytes[..])).unwrap();
+        // The TOC must exceed one 0x800 block for this to exercise the ETOC
+        // padding path.
+        let toc_size = match header_of(&bytes).get(0, "TocSize") {
+            Some(&UtfValue::U64(v)) => v,
+            _ => panic!("TocSize missing"),
+        };
+        assert!(toc_size > 0x800);
+        let entries = archive.entries().to_vec();
+        assert_eq!(entries.len(), 120);
+        for entry in &entries {
+            assert_eq!(entry.modified, Some(stamp));
+            let i = &entry.path[3..entry.path.find('/').unwrap()];
+            assert_eq!(
+                archive.read(entry).unwrap(),
+                format!("content-{i}").as_bytes()
+            );
+        }
     }
 
     #[test]
@@ -286,7 +659,10 @@ mod tests {
         writer.add("a.txt", b"x", None).unwrap();
         let bytes = writer.finish().unwrap().into_inner();
         let archive = CpkArchive::open(Cursor::new(&bytes[..])).unwrap();
-        assert_eq!(archive.header().get(0, "EtocOffset"), Some(&UtfValue::Null));
+        assert_eq!(
+            header_of(&bytes).get(0, "EtocOffset"),
+            Some(&UtfValue::Null)
+        );
         assert_eq!(archive.entries()[0].modified, None);
     }
 }
