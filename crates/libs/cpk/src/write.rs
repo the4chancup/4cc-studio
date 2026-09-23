@@ -26,6 +26,7 @@ pub struct CpkWriter<W: Write + Seek> {
     writer: W,
     position: u64,
     files: Vec<PendingEntry>,
+    paths: std::collections::HashSet<String>,
     tool_version: String,
 }
 
@@ -40,6 +41,7 @@ impl<W: Write + Seek> CpkWriter<W> {
             writer,
             position: ALIGNMENT,
             files: Vec::new(),
+            paths: std::collections::HashSet::new(),
             tool_version: tool_version.to_owned(),
         })
     }
@@ -52,9 +54,13 @@ impl<W: Write + Seek> CpkWriter<W> {
         content: &[u8],
         modified: Option<CpkTimestamp>,
     ) -> Result<(), CpkError> {
-        if self.files.iter().any(|f| f.path == path) {
+        if path.contains('\0') {
+            return Err(CpkError::InvalidPath(path.to_owned()));
+        }
+        if !self.paths.insert(path.to_owned()) {
             return Err(CpkError::DuplicatePath(path.to_owned()));
         }
+        let len = content.len() as u64;
         self.files.push(PendingEntry {
             path: path.to_owned(),
             size: content.len() as u32,
@@ -62,9 +68,9 @@ impl<W: Write + Seek> CpkWriter<W> {
             modified,
         });
         self.writer.write_all(content)?;
-        let padding = (ALIGNMENT - u64::from(content.len() as u32) % ALIGNMENT) % ALIGNMENT;
+        let padding = (ALIGNMENT - len % ALIGNMENT) % ALIGNMENT;
         self.writer.write_all(&vec![0u8; padding as usize])?;
-        self.position += content.len() as u64 + padding;
+        self.position += len + padding;
         Ok(())
     }
 
@@ -132,7 +138,6 @@ impl<W: Write + Seek> CpkWriter<W> {
             let bytes = etoc.write(b"ETOC");
             let size = bytes.len() as u64;
             self.writer.write_all(&bytes)?;
-            self.position += size;
             (Some(offset), Some(size))
         } else {
             (None, None)
@@ -140,6 +145,9 @@ impl<W: Write + Seek> CpkWriter<W> {
 
         let header = self.header_table(toc_offset, toc_size, etoc_offset, etoc_size, total_size);
         let header_bytes = header.write(b"CPK ");
+        if header_bytes.len() as u64 > ALIGNMENT {
+            return Err(CpkError::HeaderTooLarge);
+        }
         self.writer.seek(SeekFrom::Start(0))?;
         self.writer.write_all(&header_bytes)?;
         Ok(self.writer)

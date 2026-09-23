@@ -19,8 +19,7 @@ pub struct CpkEntry {
     /// Stored size (`FileSize`); smaller than `size` when CRILAYLA-packed.
     pub packed_size: u32,
     /// Absolute offset in the archive: `FileOffset` plus the CRI base, which
-    /// is `min(ContentOffset, TocOffset)` — 0x800 in every PES file on hand
-    /// (every PES archive on hand gives 0x800).
+    /// is `min(ContentOffset, TocOffset)` — 0x800 in every PES file on hand.
     pub offset: u64,
     /// The ETOC timestamp, when the archive carries one for this entry.
     pub modified: Option<CpkTimestamp>,
@@ -46,7 +45,7 @@ pub struct CpkTimestamp {
 impl CpkTimestamp {
     /// Unpacks the `UpdateDateTime` bitfield
     /// (`year<<48 | month<<40 | day<<32 | hour<<24 | minute<<16 | second<<8`).
-    pub fn from_packed(value: u64) -> Self {
+    pub(crate) fn from_packed(value: u64) -> Self {
         CpkTimestamp {
             year: (value >> 48) as u16,
             month: (value >> 40) as u8,
@@ -58,7 +57,7 @@ impl CpkTimestamp {
     }
 
     /// Packs the timestamp back into `UpdateDateTime` form.
-    pub fn to_packed(self) -> u64 {
+    pub(crate) fn to_packed(self) -> u64 {
         (u64::from(self.year) << 48)
             | (u64::from(self.month) << 40)
             | (u64::from(self.day) << 32)
@@ -73,7 +72,6 @@ impl CpkTimestamp {
 pub struct CpkArchive<R: Read + Seek> {
     reader: R,
     file_len: u64,
-    header: UtfTable,
     entries: Vec<CpkEntry>,
 }
 
@@ -84,27 +82,16 @@ impl<R: Read + Seek> CpkArchive<R> {
         let file_len = reader.seek(SeekFrom::End(0))?;
         let header = read_table(&mut reader, file_len, 0, b"CPK ")?;
 
-        let content_offset = header_u64(&header, "ContentOffset")?;
-        let toc_offset = header_u64(&header, "TocOffset")?;
+        let content_offset = cell_u64(&header, 0, "ContentOffset")?;
+        let toc_offset = cell_u64(&header, 0, "TocOffset")?;
         // The real content base libcpk uses is the earlier of the two header
         // offsets; every PES archive on hand gives 0x800.
         let base = content_offset.min(toc_offset);
 
         let toc = read_table(&mut reader, file_len, toc_offset, b"TOC ")?;
-        for required in [
-            "DirName",
-            "FileName",
-            "FileSize",
-            "FileOffset",
-            "ExtractSize",
-        ] {
-            if !toc.columns.iter().any(|c| c.name == required) {
-                return Err(CpkError::MissingColumn(required));
-            }
-        }
 
-        let etoc = match header_value(&header, "EtocOffset") {
-            Some(&UtfValue::U64(offset)) => {
+        let etoc = match as_u64(header.get(0, "EtocOffset")) {
+            Some(offset) => {
                 let table = read_table(&mut reader, file_len, offset, b"ETOC")?;
                 if table.columns.iter().any(|c| c.name == "UpdateDateTime") {
                     Some(table)
@@ -112,7 +99,7 @@ impl<R: Read + Seek> CpkArchive<R> {
                     None
                 }
             }
-            _ => None,
+            None => None,
         };
 
         let mut entries = Vec::with_capacity(toc.rows.len());
@@ -126,7 +113,9 @@ impl<R: Read + Seek> CpkArchive<R> {
             );
             let size = cell_u32(&toc, row, "ExtractSize")?;
             let packed_size = cell_u32(&toc, row, "FileSize")?;
-            let offset = cell_u64(&toc, row, "FileOffset")? + base;
+            let offset = cell_u64(&toc, row, "FileOffset")?
+                .checked_add(base)
+                .ok_or(CpkError::Truncated)?;
             let modified = match toc.get(row, "ID") {
                 Some(UtfValue::U32(id)) => etoc_timestamp(etoc.as_ref(), *id as usize),
                 Some(UtfValue::U64(id)) => {
@@ -147,14 +136,8 @@ impl<R: Read + Seek> CpkArchive<R> {
         Ok(CpkArchive {
             reader,
             file_len,
-            header,
             entries,
         })
-    }
-
-    /// The `CPK ` header table (Tvers, Align, the offsets, ...).
-    pub fn header(&self) -> &UtfTable {
-        &self.header
     }
 
     /// The file entries in `TOC ` order.
@@ -168,14 +151,9 @@ impl<R: Read + Seek> CpkArchive<R> {
     pub fn read(&mut self, entry: &CpkEntry) -> Result<Vec<u8>, CpkError> {
         let content = self.read_at(entry.offset, entry.packed_size as usize)?;
         if entry.size != entry.packed_size && content.starts_with(b"CRILAYLA") {
-            return crilayla::decompress(&content);
+            return crilayla::decompress(&content, entry.size as usize);
         }
         Ok(content)
-    }
-
-    /// Hands the wrapped reader back.
-    pub fn into_inner(self) -> R {
-        self.reader
     }
 
     fn read_at(&mut self, offset: u64, len: usize) -> Result<Vec<u8>, CpkError> {
@@ -184,15 +162,20 @@ impl<R: Read + Seek> CpkArchive<R> {
         }
         self.reader.seek(SeekFrom::Start(offset))?;
         let mut buffer = vec![0u8; len];
-        self.reader.read_exact(&mut buffer).map_err(|e| {
-            if e.kind() == std::io::ErrorKind::UnexpectedEof {
-                CpkError::Truncated
-            } else {
-                CpkError::Io(e)
-            }
-        })?;
+        read_exact(&mut self.reader, &mut buffer)?;
         Ok(buffer)
     }
+}
+
+/// `read_exact` that reports end-of-input as [`CpkError::Truncated`].
+fn read_exact<R: Read>(reader: &mut R, buf: &mut [u8]) -> Result<(), CpkError> {
+    reader.read_exact(buf).map_err(|e| {
+        if e.kind() == std::io::ErrorKind::UnexpectedEof {
+            CpkError::Truncated
+        } else {
+            CpkError::Io(e)
+        }
+    })
 }
 
 /// Reads one tagged @UTF table starting at `offset` inside `reader`.
@@ -202,12 +185,9 @@ fn read_table<R: Read + Seek>(
     offset: u64,
     tag: &[u8; 4],
 ) -> Result<UtfTable, CpkError> {
-    if offset.checked_add(16).ok_or(CpkError::Truncated)? > file_len {
-        return Err(CpkError::Truncated);
-    }
     reader.seek(SeekFrom::Start(offset))?;
     let mut outer = [0u8; 16];
-    reader.read_exact(&mut outer)?;
+    read_exact(reader, &mut outer)?;
     let length = u64::from_le_bytes(outer[8..16].try_into().unwrap_or([0; 8]));
     if offset
         .checked_add(16)
@@ -221,27 +201,9 @@ fn read_table<R: Read + Seek>(
     let mut table_bytes = Vec::with_capacity(16 + length);
     table_bytes.extend_from_slice(&outer);
     let mut content = vec![0u8; length];
-    reader.read_exact(&mut content).map_err(|e| {
-        if e.kind() == std::io::ErrorKind::UnexpectedEof {
-            CpkError::Truncated
-        } else {
-            CpkError::Io(e)
-        }
-    })?;
+    read_exact(reader, &mut content)?;
     table_bytes.extend_from_slice(&content);
     UtfTable::read(&table_bytes, tag)
-}
-
-fn header_value<'a>(header: &'a UtfTable, column: &str) -> Option<&'a UtfValue> {
-    header.get(0, column)
-}
-
-fn header_u64(header: &UtfTable, column: &'static str) -> Result<u64, CpkError> {
-    match header_value(header, column) {
-        Some(&UtfValue::U64(v)) => Ok(v),
-        Some(&UtfValue::U32(v)) => Ok(u64::from(v)),
-        _ => Err(CpkError::MissingColumn(column)),
-    }
 }
 
 fn etoc_timestamp(etoc: Option<&UtfTable>, id: usize) -> Option<CpkTimestamp> {
@@ -266,10 +228,14 @@ fn cell_u32(table: &UtfTable, row: usize, column: &'static str) -> Result<u32, C
     }
 }
 
-fn cell_u64(table: &UtfTable, row: usize, column: &'static str) -> Result<u64, CpkError> {
-    match table.get(row, column) {
-        Some(&UtfValue::U64(v)) => Ok(v),
-        Some(&UtfValue::U32(v)) => Ok(u64::from(v)),
-        _ => Err(CpkError::MissingColumn(column)),
+fn as_u64(value: Option<&UtfValue>) -> Option<u64> {
+    match value {
+        Some(&UtfValue::U64(v)) => Some(v),
+        Some(&UtfValue::U32(v)) => Some(u64::from(v)),
+        _ => None,
     }
+}
+
+fn cell_u64(table: &UtfTable, row: usize, column: &'static str) -> Result<u64, CpkError> {
+    as_u64(table.get(row, column)).ok_or(CpkError::MissingColumn(column))
 }

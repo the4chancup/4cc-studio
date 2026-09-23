@@ -11,17 +11,22 @@ use crate::CpkError;
 
 const PREFIX_LEN: usize = 0x100;
 
-/// Inflates a CRILAYLA buffer to its payload.
+/// Inflates a CRILAYLA buffer to its payload; `expected_len` is the
+/// uncompressed size the archive's `ExtractSize` declared for it.
 ///
 /// # Errors
 /// [`CpkError::Crilayla`] when the magic is wrong, the buffer is too short for
-/// the header plus prefix, or the bitstream runs out (or a back-reference
-/// points outside the output) before the payload is full.
-pub fn decompress(bytes: &[u8]) -> Result<Vec<u8>, CpkError> {
+/// the header plus prefix, the declared payload size does not match
+/// `expected_len`, or the bitstream runs out (or a back-reference points
+/// outside the output) before the payload is full.
+pub(crate) fn decompress(bytes: &[u8], expected_len: usize) -> Result<Vec<u8>, CpkError> {
     if bytes.len() < 16 || bytes[..8] != *b"CRILAYLA" {
         return Err(CpkError::Crilayla("bad magic"));
     }
     let payload_size = u32::from_le_bytes(bytes[8..12].try_into().unwrap_or([0; 4])) as usize;
+    if PREFIX_LEN.checked_add(payload_size) != Some(expected_len) {
+        return Err(CpkError::Crilayla("declared size differs from the entry's"));
+    }
     let prefix_offset = u32::from_le_bytes(bytes[12..16].try_into().unwrap_or([0; 4])) as usize;
     let prefix_start = 0x10usize
         .checked_add(prefix_offset)
@@ -118,29 +123,64 @@ mod tests {
     fn fixtures_decompress_to_the_expected_payloads() {
         let packed = include_bytes!("../tests/fixtures/crilayla/settings_json.crilayla");
         let plain = include_bytes!("../tests/fixtures/crilayla/settings_json.bin");
-        assert_eq!(decompress(packed).unwrap(), plain);
+        assert_eq!(decompress(packed, plain.len()).unwrap(), plain);
 
         let packed = include_bytes!("../tests/fixtures/crilayla/symbol_816_dds.crilayla");
         let plain = include_bytes!("../tests/fixtures/crilayla/symbol_816_dds.bin");
-        assert_eq!(decompress(packed).unwrap(), plain);
+        assert_eq!(decompress(packed, plain.len()).unwrap(), plain);
+    }
+
+    #[test]
+    fn handbuilt_streams_decode() {
+        let prefix: Vec<u8> = (0u8..=255).collect();
+
+        // Eight literals: the shortest stream that decodes anything.
+        let mut expected = prefix.clone();
+        expected.extend_from_slice(b"ABCDEFGH");
+        let packed = include_bytes!("../tests/fixtures/crilayla/handbuilt_literals.crilayla");
+        assert_eq!(decompress(packed, expected.len()).unwrap(), expected);
+
+        // Three literals, then one back-reference (offset 3, length 6).
+        let mut expected = prefix.clone();
+        expected.extend_from_slice(b"xyzxyzxyz");
+        let packed = include_bytes!("../tests/fixtures/crilayla/handbuilt_backref.crilayla");
+        assert_eq!(decompress(packed, expected.len()).unwrap(), expected);
+
+        // Three literals, then one run of 47 whose length carries through the
+        // 2/3/5/8-bit chunks.
+        let mut expected = prefix;
+        expected.extend_from_slice(&[b'a'; 50]);
+        let packed = include_bytes!("../tests/fixtures/crilayla/handbuilt_chained.crilayla");
+        assert_eq!(decompress(packed, expected.len()).unwrap(), expected);
     }
 
     #[test]
     fn malformed_input_errors() {
         assert!(matches!(
-            decompress(b"not-crilayla"),
+            decompress(b"not-crilayla", 0),
+            Err(CpkError::Crilayla("bad magic"))
+        ));
+        // Valid magic but too short for the header: an error, not a panic.
+        assert!(decompress(b"CRILAYLA\0\0", 0).is_err());
+        let wrong_magic = [0xAAu8; 24];
+        assert!(matches!(
+            decompress(&wrong_magic, 0),
             Err(CpkError::Crilayla("bad magic"))
         ));
         let mut header_only = *b"CRILAYLA\0\0\0\0\0\0\0\0";
         assert!(matches!(
-            decompress(&header_only),
+            decompress(&header_only, PREFIX_LEN),
             Err(CpkError::Crilayla("buffer too short"))
         ));
         let packed = include_bytes!("../tests/fixtures/crilayla/settings_json.crilayla");
         header_only[..8].copy_from_slice(&packed[..8]);
         assert!(matches!(
-            decompress(&packed[..200]),
+            decompress(&packed[..200], 1614),
             Err(CpkError::Crilayla("buffer too short"))
+        ));
+        assert!(matches!(
+            decompress(packed, 1613),
+            Err(CpkError::Crilayla("declared size differs from the entry's"))
         ));
     }
 }

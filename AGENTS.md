@@ -142,10 +142,17 @@ turn report: accepted → what changed; rejected → one line why. A concern sil
 failure mode this exists to prevent. **The cap is per round, and rounds are bounded by the accept
 rate, not by the lead's sense of importance.** Seven slots force ranking and starve the reviewer's
 taste for impossible edge cases, but on a large surface the eighth concern is unknown: 2.17h's one
-round returned seven, all accepted. So a critique of one surface runs another round only when the
-last round returned seven *and* at least five were accepted (the cap was binding and the signal
-was real); the next round gets the rework diff and the prior rulings so it does not repeat them,
-and the loop stops at a round under seven, a round under five accepted, or three rounds. At
+round returned seven, all accepted. So a critique of one surface runs another round only when at
+least five of the last round's concerns were accepted (the signal was real); the next round gets
+the rework diff and the prior rulings so it does not repeat them, and the loop stops at a round
+under five accepted, or three rounds. The count *returned* is not a stop signal: the reviewer
+does not fill the cap when it has more (2.20c's first round returned five with its reasoning
+trace saying it aimed for "3-5 strong concerns" because the brief said "do not pad"; the second
+round, run as an experiment, returned three verified concerns, all accepted, one of them
+contradicting a lead ruling). So the brief never says "do not pad" or names a smaller number;
+it says the cap is seven, a cap, not a target, and that a round with fewer than five accepted
+ends the loop, so a verified concern is never withheld to keep the list short; padding is
+caught by the accept rate, which is what that rule is for. At
 converge the surface is one crate (or one coupled pair), never the phase, so the cap is not the
 bottleneck there. The user can request a critique at any time with `/duck`.
 

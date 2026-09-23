@@ -12,7 +12,7 @@ use crate::CpkError;
 /// `Vec<UtfValue>` per row (`rows[i][j]` is column `j`). Cells of
 /// `Null`-storage columns read as [`UtfValue::Null`].
 #[derive(Debug, Clone)]
-pub struct UtfTable {
+pub(crate) struct UtfTable {
     /// The table's name from the string pool (`CpkHeader`, `CpkTocInfo`, ...).
     pub name: String,
     /// Columns in file order.
@@ -23,7 +23,7 @@ pub struct UtfTable {
 
 /// One @UTF column: a name, the datum type, and how values are stored.
 #[derive(Debug, Clone)]
-pub struct UtfColumn {
+pub(crate) struct UtfColumn {
     /// Column name from the string pool.
     pub name: String,
     /// The datum type (low nibble of the flags byte).
@@ -36,7 +36,7 @@ pub struct UtfColumn {
 
 /// @UTF datum type (low nibble of the column flags byte).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum UtfKind {
+pub(crate) enum UtfKind {
     /// `>B`, 1 byte.
     U8,
     /// `>H`, 2 bytes.
@@ -55,7 +55,7 @@ pub enum UtfKind {
 
 /// @UTF column storage (high nibble of the column flags byte).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum UtfStorage {
+pub(crate) enum UtfStorage {
     /// No value stored; every cell reads as [`UtfValue::Null`].
     Null,
     /// The value follows the column definition inline and applies to all rows.
@@ -66,7 +66,7 @@ pub enum UtfStorage {
 
 /// One cell of an @UTF table.
 #[derive(Debug, Clone, PartialEq)]
-pub enum UtfValue {
+pub(crate) enum UtfValue {
     /// A `Null`-storage column cell (no stored value).
     Null,
     /// `U8` cell.
@@ -200,7 +200,7 @@ impl<'a> Reader<'a> {
 
 impl UtfTable {
     /// The cell at `row` in the column named `column`, if both exist.
-    pub fn get(&self, row: usize, column: &str) -> Option<&UtfValue> {
+    pub(crate) fn get(&self, row: usize, column: &str) -> Option<&UtfValue> {
         let index = self.columns.iter().position(|c| c.name == column)?;
         self.rows.get(row)?.get(index)
     }
@@ -258,12 +258,8 @@ impl UtfTable {
 
         let read_string = |offset: usize| -> Result<String, CpkError> {
             let rest = strings.get(offset..).ok_or(CpkError::Truncated)?;
-            let end = rest
-                .iter()
-                .position(|b| *b == 0)
-                .map(|p| offset + p)
-                .unwrap_or(strings.len());
-            Ok(String::from_utf8_lossy(&strings[offset..end]).into_owned())
+            let end = rest.iter().position(|b| *b == 0).unwrap_or(rest.len());
+            String::from_utf8(rest[..end].to_vec()).map_err(|_| CpkError::InvalidUtf8)
         };
 
         let read_value = |reader: &mut Reader<'_>, kind: UtfKind| -> Result<UtfValue, CpkError> {
@@ -277,7 +273,8 @@ impl UtfTable {
                 UtfKind::Bytes => {
                     let offset = reader.u32()? as usize;
                     let len = reader.u32()? as usize;
-                    let slice = data.get(offset..offset + len).ok_or(CpkError::Truncated)?;
+                    let end = offset.checked_add(len).ok_or(CpkError::Truncated)?;
+                    let slice = data.get(offset..end).ok_or(CpkError::Truncated)?;
                     UtfValue::Bytes(slice.to_vec())
                 }
             })
@@ -307,12 +304,23 @@ impl UtfTable {
             constants.push(constant);
         }
 
-        let mut rows = Vec::with_capacity(row_count);
+        // A table cannot declare more rows than it has bytes; at a zero
+        // row_length this is the only bound the loop has.
+        if row_count > body.len() {
+            return Err(CpkError::Truncated);
+        }
+        // The declared row area must fit before any row allocation happens.
+        let rows_len = row_count
+            .checked_mul(row_length)
+            .filter(|total| *total <= rows_area.len())
+            .ok_or(CpkError::Truncated)?;
+        let rows_area = &rows_area[..rows_len];
+
+        let mut rows = Vec::new();
         for i in 0..row_count {
             let start = i.checked_mul(row_length).ok_or(CpkError::Truncated)?;
-            let row_bytes = rows_area
-                .get(start..start + row_length)
-                .ok_or(CpkError::Truncated)?;
+            let end = start.checked_add(row_length).ok_or(CpkError::Truncated)?;
+            let row_bytes = rows_area.get(start..end).ok_or(CpkError::Truncated)?;
             let mut row_reader = Reader::new(row_bytes, 0);
             let mut row = Vec::with_capacity(column_count);
             for (column, constant) in columns.iter().zip(constants.iter()) {
@@ -332,8 +340,8 @@ impl UtfTable {
         })
     }
 
-    /// Serializes the table under `tag`, in the fixed layout
-    /// exactly: columns in order, `Null` storage only when the table has
+    /// Serializes the table under `tag` in the reference writer's layout:
+    /// columns in order, `Null` storage only when the table has
     /// exactly one row and that cell is null (`Constant` is never written),
     /// strings deduplicated in first-use order with the table name first, data
     /// pool entries 8-padded, the string pool 8-padded before the data pool,
@@ -471,8 +479,8 @@ fn write_cell(
             row.extend_from_slice(&(b.len() as u32).to_be_bytes());
         }
         // A null or type-mismatched cell in a variable column: emit the
-        // zero-equivalent so the row keeps its declared length. the legacy layout
-        // crashes here; the parity path never produces this.
+        // zero-equivalent so the row keeps its declared length. The reference
+        // writer has no such case; the parity path never produces one.
         (UtfKind::U8, _) => row.push(0),
         (UtfKind::U16, _) => row.extend_from_slice(&0u16.to_be_bytes()),
         (UtfKind::U32, _) => row.extend_from_slice(&0u32.to_be_bytes()),
@@ -493,7 +501,7 @@ mod tests {
     use super::*;
 
     fn sample_table() -> UtfTable {
-        let mut table = UtfTable {
+        UtfTable {
             name: "Sample".to_owned(),
             columns: vec![
                 UtfColumn {
@@ -511,9 +519,7 @@ mod tests {
                 vec![UtfValue::U32(7), UtfValue::String("one".to_owned())],
                 vec![UtfValue::U32(8), UtfValue::String("two".to_owned())],
             ],
-        };
-        table.name = "Sample".to_owned();
-        table
+        }
     }
 
     #[test]
@@ -524,6 +530,141 @@ mod tests {
         assert_eq!(table.columns.len(), 2);
         assert_eq!(table.get(0, "Label"), Some(&UtfValue::String("one".into())));
         assert_eq!(table.get(1, "Id"), Some(&UtfValue::U32(8)));
+    }
+
+    #[test]
+    fn f32_and_bytes_columns_round_trip_and_the_data_pool_is_8_padded() {
+        let table = UtfTable {
+            name: "Floats".to_owned(),
+            columns: vec![
+                UtfColumn {
+                    name: "F".to_owned(),
+                    kind: UtfKind::F32,
+                    storage: UtfStorage::Variable,
+                },
+                UtfColumn {
+                    name: "B".to_owned(),
+                    kind: UtfKind::Bytes,
+                    storage: UtfStorage::Variable,
+                },
+            ],
+            rows: vec![
+                vec![UtfValue::F32(1.5), UtfValue::Bytes(vec![1, 2, 3])],
+                vec![UtfValue::F32(-2.25), UtfValue::Bytes(vec![4, 5, 6, 7, 8])],
+            ],
+        };
+        let bytes = table.write(b"TEST");
+        let back = UtfTable::read(&bytes, b"TEST").unwrap();
+        assert_eq!(back.get(0, "F"), Some(&UtfValue::F32(1.5)));
+        assert_eq!(back.get(1, "F"), Some(&UtfValue::F32(-2.25)));
+        assert_eq!(back.get(0, "B"), Some(&UtfValue::Bytes(vec![1, 2, 3])));
+        assert_eq!(
+            back.get(1, "B"),
+            Some(&UtfValue::Bytes(vec![4, 5, 6, 7, 8]))
+        );
+
+        // The reference writer's addData pads each datum to 8 bytes: the two
+        // cells must sit at data-pool offsets 0 and 8, and the pool is
+        // exactly 16 bytes.
+        let mut plain = bytes;
+        let length = usize::try_from(u64::from_le_bytes(plain[8..16].try_into().unwrap())).unwrap();
+        crypt(&mut plain[16..16 + length]);
+        let content = &plain[16..16 + length];
+        let body_length = u32::from_be_bytes(content[4..8].try_into().unwrap()) as usize;
+        let rows_offset = u32::from_be_bytes(content[8..12].try_into().unwrap()) as usize;
+        let data_offset = u32::from_be_bytes(content[16..20].try_into().unwrap()) as usize;
+        let row_length = u16::from_be_bytes(content[26..28].try_into().unwrap()) as usize;
+        // F32 then Bytes(offset,length) in each row; the data-pool offset is
+        // the row's second cell's first field.
+        let row0 = &content[8 + rows_offset..8 + rows_offset + row_length];
+        let offset0 = u32::from_be_bytes(row0[4..8].try_into().unwrap());
+        let row1 = &content[8 + rows_offset + row_length..8 + rows_offset + 2 * row_length];
+        let offset1 = u32::from_be_bytes(row1[4..8].try_into().unwrap());
+        assert_eq!((offset0, offset1), (0, 8));
+        assert_eq!(body_length - data_offset, 16);
+    }
+
+    #[test]
+    fn a_non_utf8_pool_string_is_rejected() {
+        let mut bytes = sample_table().write(b"TEST");
+        let length = usize::try_from(u64::from_le_bytes(bytes[8..16].try_into().unwrap())).unwrap();
+        crypt(&mut bytes[16..16 + length]);
+        let content = &mut bytes[16..16 + length];
+        // Corrupt the first byte of "one" in the string pool; pool offsets are
+        // relative to the body (content[8..]).
+        let strings = u32::from_be_bytes(content[12..16].try_into().unwrap()) as usize;
+        let at = content[8 + strings..]
+            .windows(4)
+            .position(|w| w == b"one\0")
+            .unwrap();
+        content[8 + strings + at] = 0xFF;
+        assert!(matches!(
+            UtfTable::read(&bytes, b"TEST"),
+            Err(CpkError::InvalidUtf8)
+        ));
+    }
+
+    #[test]
+    fn a_huge_row_count_is_truncated_not_an_allocation() {
+        let mut bytes = sample_table().write(b"TEST");
+        let length = usize::try_from(u64::from_le_bytes(bytes[8..16].try_into().unwrap())).unwrap();
+        crypt(&mut bytes[16..16 + length]);
+        // Row count is the last big-endian u32 of the @UTF header.
+        bytes[16 + 28..16 + 32].copy_from_slice(&u32::MAX.to_be_bytes());
+        assert!(matches!(
+            UtfTable::read(&bytes, b"TEST"),
+            Err(CpkError::Truncated)
+        ));
+    }
+
+    /// A plaintext-`@UTF` `TEST` table with one Constant `U8` column ("C")
+    /// holding 0xAB and `row_count` zero-length rows.
+    fn constant_u8_table(row_count: u32) -> Vec<u8> {
+        let mut content = Vec::new();
+        content.extend_from_slice(b"@UTF");
+        content.extend_from_slice(&34u32.to_be_bytes()); // body length
+        content.extend_from_slice(&30u32.to_be_bytes()); // rows offset
+        content.extend_from_slice(&30u32.to_be_bytes()); // strings offset
+        content.extend_from_slice(&34u32.to_be_bytes()); // data offset
+        content.extend_from_slice(&0u32.to_be_bytes()); // table name in pool
+        content.extend_from_slice(&1u16.to_be_bytes()); // column count
+        content.extend_from_slice(&0u16.to_be_bytes()); // row length
+        content.extend_from_slice(&row_count.to_be_bytes());
+        content.push(0x30); // Constant storage, U8 kind
+        content.extend_from_slice(&2u32.to_be_bytes()); // column name in pool
+        content.push(0xAB); // the constant value
+        content.extend_from_slice(b"T\0C\0");
+
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(b"TEST");
+        bytes.extend_from_slice(&0u32.to_le_bytes());
+        bytes.extend_from_slice(&(content.len() as u64).to_le_bytes());
+        bytes.extend_from_slice(&content);
+        bytes
+    }
+
+    #[test]
+    fn a_constant_storage_column_applies_to_every_row() {
+        let bytes = constant_u8_table(2);
+        let table = UtfTable::read(&bytes, b"TEST").unwrap();
+        assert_eq!(table.name, "T");
+        assert_eq!(table.rows.len(), 2);
+        assert_eq!(table.get(0, "C"), Some(&UtfValue::U8(0xAB)));
+        assert_eq!(table.get(1, "C"), Some(&UtfValue::U8(0xAB)));
+    }
+
+    #[test]
+    fn a_huge_row_count_with_zero_row_length_is_truncated() {
+        // row_length is 0, so the area check is no bound; a table still
+        // cannot declare more rows than it has bytes.
+        let bytes = constant_u8_table(u32::MAX);
+        assert!(matches!(
+            UtfTable::read(&bytes, b"TEST"),
+            Err(CpkError::Truncated)
+        ));
+        // The boundary is allowed: 34 rows in a 34-byte body.
+        let bytes = constant_u8_table(34);
+        assert_eq!(UtfTable::read(&bytes, b"TEST").unwrap().rows.len(), 34);
     }
 
     #[test]
