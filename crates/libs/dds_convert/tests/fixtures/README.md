@@ -18,6 +18,22 @@ decoder. Every `.dds` carries the full mip chain (6 levels: 32x16 down to 1x1).
 | `bc3_nm_prefox.dds` | `-f BC3_UNORM -dx9 -swizzle gggr` on `source.png` | the pre-Fox DXT5nm layout (R = G = B = Y, A = X) from the reference encoder: the baseline the normal-map encode is judged against |
 | `*.decoded.dds` | `texconv -f R8G8B8A8_UNORM -dx10` on the encoded file | the reference decode of every mip, as raw R8G8B8A8 pixels; the expected output of `decode` for the matching `.dds`. `rgba8`, `bgra8_dx9`, `bc5` and `ati2` decode to identical files |
 
+Added at converge (2.20d) by `scripts/provenance/fixtures/fixtures_dds_converge.py`, the same
+texconv, the same image unless stated; each `*.decoded.dds` is texconv's decode as above:
+
+| File | Made with | Notes |
+|---|---|---|
+| `bc2.dds` | `-f BC2_UNORM -dx9` | FourCC `DXT3` |
+| `bc4.dds` | `-f BC4_UNORM -dx10` | DX10 header, DXGI 80 |
+| `ati1.dds` | `-f BC4_UNORM -dx9` | FourCC `ATI1` (texconv's default header for BC4); decodes identically to `bc4.dds` |
+| `r8.dds` | `-f R8_UNORM -dx10` | DX10 header, DXGI 61 |
+| `l8_dx9.dds` | `-f R8_UNORM -dx9` | the legacy luminance header texconv writes for R8 (`DDPF_LUMINANCE`, 8 bits, R mask 0xff); decodes identically to `r8.dds` |
+| `bc4_equal_endpoints.dds` | hand-built, one 4x4 BC4 block (DX10) | endpoints equal (100, 100), so the six-value mode, texel indices 0..7 then 7..0: indices 6 and 7 decode to 0 and 255. Decoded with `-m 1` |
+| `bgr24_dword_rows.dds` | hand-built 6x2 24-bit BGR, two mips | rows DWORD-padded: level 0 declares pitch 20 (tight 18), level 1 (3x1, tight 9) stored in 12 bytes, pad bytes 0xee/0xdd. Decoded with `-dword` (texconv's byte-aligned default reads it differently) |
+
+texconv expands every one-channel format (BC4, R8, L8) to R = G = B with alpha 255; BC5 decodes
+with B = 0.
+
 Copied from `ftex`'s fixtures (Konami PES 2021 files, kept for interoperability; provenance in
 that crate's README): `konami_bc1_bibs_metalness.ftex` and its `.dds` twin (16x16 BC1, 3 mips: the
 FTEX source path), and `konami_bc1_cubemap_default_reflection.dds` (a cube map: the rejection path).

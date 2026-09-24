@@ -20,9 +20,6 @@ const CHUNK_SIZE: usize = 1 << 14;
 /// field (Linear 0x1, Srgb 0x3, Normal 0x9); the cube-map bit is added from
 /// the DDS capabilities.
 pub fn dds_to_ftex(dds: &[u8], color_space: ColorSpace) -> Result<Vec<u8>, FtexError> {
-    if dds.len() < 128 {
-        return Err(FtexError::Truncated);
-    }
     let mut cursor = Cursor::new(dds);
     let dds_header = DdsHeader::read(&mut cursor).map_err(|_| FtexError::Truncated)?;
     if dds_header.magic != *b"DDS " {
@@ -32,11 +29,7 @@ pub fn dds_to_ftex(dds: &[u8], color_space: ColorSpace) -> Result<Vec<u8>, FtexE
         return Err(FtexError::UnsupportedDds("header size != 124"));
     }
 
-    let mipmap_count = if dds_header.capabilities1 & 0x400000 != 0 && dds_header.mipmap_count > 1 {
-        dds_header.mipmap_count
-    } else {
-        1
-    };
+    let mipmap_count = crate::dds::mip_count(&dds_header);
 
     let is_cube_map = if dds_header.capabilities2 & 0x200 != 0 {
         if dds_header.capabilities2 & 0xfe00 != 0xfe00 {
@@ -83,9 +76,10 @@ pub fn dds_to_ftex(dds: &[u8], color_space: ColorSpace) -> Result<Vec<u8>, FtexE
         for level in 0..mipmap_count {
             let length = mip_size(format, dds_header.width, dds_header.height, depth, level);
             let start = cursor.position() as usize;
-            let frame = dds.get(start..start + length).ok_or(FtexError::Truncated)?;
+            let end = start.checked_add(length).ok_or(FtexError::Truncated)?;
+            let frame = dds.get(start..end).ok_or(FtexError::Truncated)?;
             let (encoded, chunk_count) = encode_image(frame)?;
-            cursor.set_position((start + length) as u64);
+            cursor.set_position(end as u64);
             records.push(MipRecord {
                 offset: 0, // filled below
                 uncompressed_size: length as u32,
@@ -172,7 +166,11 @@ fn detect_format(
 /// streams of 16 KiB pieces, the whole area padded to 8.
 fn encode_image(data: &[u8]) -> Result<(Vec<u8>, u16), FtexError> {
     let chunk_count = data.len().div_ceil(CHUNK_SIZE);
-    let chunk_buffer_offset = chunk_count * 8;
+    let chunk_count = u16::try_from(chunk_count).map_err(|_| FtexError::HeaderFieldOverflow {
+        what: "chunk count",
+        value: chunk_count,
+    })?;
+    let chunk_buffer_offset = usize::from(chunk_count) * 8;
 
     let mut header_buffer = Vec::new();
     let mut chunk_buffer = Vec::new();
@@ -189,22 +187,11 @@ fn encode_image(data: &[u8]) -> Result<(Vec<u8>, u16), FtexError> {
         } else {
             packed.as_slice()
         };
-        let stored_len =
-            u16::try_from(stored.len()).map_err(|_| FtexError::HeaderFieldOverflow {
-                what: "compressed chunk size",
-                value: stored.len(),
-            })?;
-        let piece_len = u16::try_from(piece.len()).map_err(|_| FtexError::HeaderFieldOverflow {
-            what: "uncompressed chunk size",
-            value: piece.len(),
-        })?;
-        let chunk_offset =
-            u32::try_from(chunk_buffer.len() + chunk_buffer_offset).map_err(|_| {
-                FtexError::HeaderFieldOverflow {
-                    what: "chunk buffer offset",
-                    value: chunk_buffer.len() + chunk_buffer_offset,
-                }
-            })?;
+        let stored_len = u16::try_from(stored.len())
+            .expect("a 16 KiB piece's zlib stream is at most 16395 bytes");
+        let piece_len = u16::try_from(piece.len()).expect("a piece is at most 16 KiB");
+        let chunk_offset = u32::try_from(chunk_buffer.len() + chunk_buffer_offset)
+            .expect("65535 chunks of at most 16395 bytes plus their records stay under u32::MAX");
         header_buffer.extend_from_slice(&stored_len.to_le_bytes());
         header_buffer.extend_from_slice(&piece_len.to_le_bytes());
         header_buffer.extend_from_slice(&chunk_offset.to_le_bytes());
@@ -214,9 +201,5 @@ fn encode_image(data: &[u8]) -> Result<(Vec<u8>, u16), FtexError> {
     let mut output = header_buffer;
     output.extend_from_slice(&chunk_buffer);
     output.resize(output.len() + (8 - output.len() % 8) % 8, 0);
-    let chunk_count = u16::try_from(chunk_count).map_err(|_| FtexError::HeaderFieldOverflow {
-        what: "chunk count",
-        value: chunk_count,
-    })?;
     Ok((output, chunk_count))
 }

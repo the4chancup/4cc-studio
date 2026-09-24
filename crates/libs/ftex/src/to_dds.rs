@@ -39,11 +39,10 @@ pub fn ftex_to_dds(ftex: &[u8]) -> Result<Vec<u8>, FtexError> {
             return Err(FtexError::UnsupportedVariant("cube map with depth > 1"));
         }
         (6u32, 1u32, true)
-    } else if header.depth > 1 {
-        // Volume texture.
-        (1, u32::from(header.depth), false)
     } else {
-        (1, 1, false)
+        // A depth above 1 is a volume texture; `build_header` writes the
+        // volume fields from it.
+        (1, u32::from(header.depth.max(1)), false)
     };
 
     let mut cursor = Cursor::new(ftex);
@@ -112,9 +111,6 @@ pub fn ftex_to_dds(ftex: &[u8]) -> Result<Vec<u8>, FtexError> {
 }
 
 fn read_header(ftex: &[u8]) -> Result<FtexHeader, FtexError> {
-    if ftex.len() < 64 {
-        return Err(FtexError::Truncated);
-    }
     let header = FtexHeader::read(&mut Cursor::new(ftex)).map_err(|_| FtexError::Truncated)?;
     if header.magic != *b"FTEX" {
         return Err(FtexError::BadMagic);

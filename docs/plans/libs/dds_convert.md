@@ -11,8 +11,11 @@ approach in production, in `Engines/stages/lib/dxt.py` + the `texture2ddecoder` 
   that encodes, so one dependency covers both directions; the `texture2ddecoder` crate the plan
   first named is not used. `dds_convert`/`ftex` handle the DDS/FTEX containers and normalize
   decoded channel order to RGBA. Parity is verified against DirectXTex `texconv`, the reference
-  decoder: the `dds_convert` fixtures are texconv-encoded BC1/BC3/BC5/BC7 files with texconv's own
-  decode of every mip as the expected output, and the tests require an exact match.
+  decoder: the `dds_convert` fixtures are texconv-encoded BC1/BC2/BC3/BC4/BC5/BC7, R8 and legacy
+  luminance (L8) files with texconv's own decode of every mip as the expected output, and the
+  tests require an exact match. The reference build is texconv 2024.1.1.1, the binary the legacy
+  compilers shipped; a one-channel source (BC4, R8, L8) decodes grey (`R = G = B`, alpha 255) as
+  it does, since its R-to-RGB conversion splats the channel (BC5 keeps `B = 0`).
 - **Decoding (raster sources)**: the `image` crate decodes all accepted raster formats to RGBA
   in pure Rust (no C dependencies). See the format matrix below.
 - **Encoding**: use `block_compression`'s Rust CPU backend for BC1, BC3, and BC7, rather than
@@ -106,7 +109,7 @@ format. Two image files with the same stem but different extensions is a conflic
 
 | Format | Decoder | Extensions | Notes |
 |--------|---------|------------|-------|
-| DDS | `block_compression::decode` | `.dds` | BC7, BC5, BC4, BC3/DXT5, BC2, BC1/DXT1, uncompressed 32-bit |
+| DDS | `block_compression::decode` | `.dds` | BC7, BC5, BC4, BC3/DXT5, BC2, BC1/DXT1, uncompressed with byte-aligned 8-bit channel masks (R8/L8 included) |
 | FTEX | `ftex` crate | `.ftex` | Fox Engine native texture |
 | PNG | `image` crate | `.png` | Pure Rust |
 | JPEG | `image` crate | `.jpg`, `.jpeg` | Pure Rust |
@@ -181,15 +184,18 @@ impl Converter {
 }
 ```
 
-`decode` rejects cube maps, volume textures, texture arrays and the signed BC4/BC5 formats
-(`ConvertError::Unsupported`): nothing in an export is one, and a signed block relabelled unsigned
-would silently change a normal map. An uncompressed DDS whose header declares a row pitch wider
+`decode` rejects cube maps, volume textures, texture arrays and the signed block formats (BC4/BC5
+SNORM, BC6H SF16) (`ConvertError::Unsupported`): nothing in an export is one, and a signed block
+relabelled unsigned would silently change the texture. It also rejects a zero width or height and
+a mip count past what the dimensions halve into (`log2(larger side) + 1`), as D3D and texconv's
+default loader do; `ftex`'s own FTEX↔DDS conversions keep pes-file-tools' acceptance of both. An uncompressed DDS whose header declares a row pitch wider
 than its rows (some exporters pad rows to 4 bytes) is read at that pitch, each lower mip at the
 same 4-byte row alignment. `Decoded.authored_mips` says whether the source format carries a mip
 chain (DDS/FTEX, its level count is kept) or not (raster, a chain is generated). A WESYS-wrapped DDS (PES 15–17 sources) is unwrapped first through `wezlib`. The DDS
 header knowledge (`DdsHeader`, `Dx10Header`, the FourCC/mask/DXGI table) lives in `ftex`, which
 already needed it in both directions; `ftex` exposes it as `ftex::dds` (`read_layout`,
-`header_bytes`) and `dds_convert` uses that instead of carrying a second copy. Encoder settings
+`header_bytes`, and `DdsPixel::row_bytes`, the one tight-row rule) and `dds_convert` uses that
+instead of carrying a second copy. Encoder settings
 join the cache key with 2.5b, when a second encoder exists.
 
 ### In-memory conversion cache
