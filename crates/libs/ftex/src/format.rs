@@ -35,7 +35,7 @@ pub enum PixelFormat {
 
 impl PixelFormat {
     /// The id stored in the FTEX header.
-    pub fn id(self) -> u16 {
+    pub(crate) fn id(self) -> u16 {
         match self {
             PixelFormat::Argb8 => 0,
             PixelFormat::R8 => 1,
@@ -54,7 +54,7 @@ impl PixelFormat {
     }
 
     /// The format for an FTEX id, if known.
-    pub fn from_id(id: u16) -> Option<Self> {
+    pub(crate) fn from_id(id: u16) -> Option<Self> {
         Some(match id {
             0 => PixelFormat::Argb8,
             1 => PixelFormat::R8,
@@ -75,7 +75,7 @@ impl PixelFormat {
 
     /// (Pixels per block side, bytes per block) used by [`mip_size`]. A block
     /// side of 1 means uncompressed.
-    pub fn block_size(self) -> (u32, u32) {
+    pub(crate) fn block_size(self) -> (u32, u32) {
         match self {
             PixelFormat::Argb8 => (1, 4),
             PixelFormat::R8 => (1, 1),
@@ -93,7 +93,7 @@ impl PixelFormat {
 
     /// The DXGI format number for the DX10 extension header, or `None` for the
     /// FourCC-only legacy formats (Argb8, Bc1, Bc2, Bc3).
-    pub fn dxgi(self) -> Option<u32> {
+    pub(crate) fn dxgi(self) -> Option<u32> {
         Some(match self {
             PixelFormat::Argb8 | PixelFormat::Bc1 | PixelFormat::Bc2 | PixelFormat::Bc3 => {
                 return None;
@@ -113,7 +113,7 @@ impl PixelFormat {
     /// The DDS pixel-format FourCC: `DXT1`/`DXT3`/`DXT5` for the legacy BCn
     /// formats, `DX10` for the DXGI-mapped ones, `None` for Argb8 (which
     /// writes zero FourCC and mask fields instead).
-    pub fn fourcc(self) -> Option<[u8; 4]> {
+    pub(crate) fn fourcc(self) -> Option<[u8; 4]> {
         Some(match self {
             PixelFormat::Argb8 => return None,
             PixelFormat::Bc1 => *b"DXT1",
@@ -169,16 +169,22 @@ pub struct FtexInfo {
 }
 
 /// Bytes one mip level of one image occupies in the DDS stream
-/// (block-rounded, at least one block per side).
+/// (block-rounded, at least one block per side). Dimensions shifted down
+/// past level 31 read as 0 and clamp to 1, the same result the reference's
+/// `x // 2**j` produces.
 pub fn mip_size(format: PixelFormat, width: u32, height: u32, depth: u32, level: u32) -> usize {
     let (block_pixels, block_bytes) = format.block_size();
-    let w = (width >> level).max(1);
-    let h = (height >> level).max(1);
-    let d = (depth >> level).max(1);
+    let w = width.checked_shr(level).unwrap_or(0).max(1);
+    let h = height.checked_shr(level).unwrap_or(0).max(1);
+    let d = depth.checked_shr(level).unwrap_or(0).max(1);
     let blocks_w = w.div_ceil(block_pixels);
     let blocks_h = h.div_ceil(block_pixels);
-    // u64: the u32 product wraps for a 64k x 64k x deep-enough volume.
-    (u64::from(blocks_w) * u64::from(blocks_h) * u64::from(d) * u64::from(block_bytes)) as usize
+    // A size that does not fit usize cannot be held in memory, so the slice
+    // lookup it bounds fails as `Truncated`.
+    usize::try_from(
+        u64::from(blocks_w) * u64::from(blocks_h) * u64::from(d) * u64::from(block_bytes),
+    )
+    .unwrap_or(usize::MAX)
 }
 
 /// The 64-byte FTEX header (little-endian).

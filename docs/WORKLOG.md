@@ -564,6 +564,18 @@ Spec: `docs/plans/core/development_plan.md` "Phase 2", `docs/plans/libs/README.m
     decoder before committing. Reviewer rounds: 5 → 5 accepted, then (as an experiment, see the
     2026-09-23 log line) 3 → 3 accepted; loop ended. Decision entry. Untested by construction:
     the wasm32 `checked_add`s in `utf.rs` (64-bit host)
+  - [~] 2.20d `ftex` + `dds_convert` — first rework landed: 110 survivors triaged (tests for
+    the table arms, boundaries, cube/volume/ftexs guards, raw and single-zlib frames, extensions,
+    mip rounding; four redundant length pre-checks removed; one mip-count rule; the volume/2D
+    branches merged; dead arms and unfireable `encode_image` errors gone). Fixes: one-channel
+    decode grey (BC4/R8/L8, as texconv), DXGI 96 refused as signed, `mip_size` panic-free past
+    level 31, checked `dds_convert` sizes, `read_layout` rejects zero dimensions and excess mips,
+    `DdsPixel::row_bytes` the one tight-row rule, `ftex`'s unconsumed `pub` items crate-private.
+    Rework finding: texconv 2024.1.1.1 (the fixtures' build) truncates BC4's R8 store (upstream
+    rounds since 2026, #671), so BC4 is not recomputed. Mutants: ftex 262 / 0 missed, dds_convert
+    292 / 0 missed (4 timeouts, the `mips.rs` loop condition diverging). Lead fixtures
+    (`ftex_fixtures.py`, `fixtures_dds_converge.py`), census `.tmp/ftex_census*.txt`. Plan
+    sentences + decision entry written. Next: reviewer loop, then close
   Known inputs from round C: (a) whole-crate mutation runs left survivors to triage in cpk (28),
   ftex (80), dds_convert (30): table-variant arms, boundary comparisons, `write_cell` and
   `Writer::finish` padding math; the other thirteen crates have not been run; (b)

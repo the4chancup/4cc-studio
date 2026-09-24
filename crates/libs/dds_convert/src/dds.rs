@@ -27,13 +27,15 @@ pub(crate) fn decode_dds(dds: &[u8]) -> Result<Decoded, ConvertError> {
     for level in 0..layout.mipmaps {
         let width = (layout.width >> level).max(1);
         let height = (layout.height >> level).max(1);
-        let size = mip_size(&layout, level, width, height);
-        let data = dds
-            .get(offset..offset + size)
+        let size = mip_size(&layout, level, width, height)?;
+        let end = usize::try_from(size)
+            .ok()
+            .and_then(|size| offset.checked_add(size))
             .ok_or(ConvertError::Truncated)?;
+        let data = dds.get(offset..end).ok_or(ConvertError::Truncated)?;
         mips.push(decode_mip(&layout, codec, level, width, height, data)?);
         blocks.push(data.to_vec());
-        offset += size;
+        offset = end;
     }
 
     Ok(Decoded {
@@ -48,36 +50,29 @@ pub(crate) fn decode_dds(dds: &[u8]) -> Result<Decoded, ConvertError> {
     })
 }
 
-/// Bytes one tightly packed row takes, for the layouts that have rows.
-fn tight_row(pixel: &DdsPixel, width: u32) -> Option<u32> {
-    match pixel {
-        DdsPixel::Uncompressed { bit_count, .. } => Some(width * bit_count / 8),
-        DdsPixel::Format(PixelFormat::Argb8) => Some(width * 4),
-        DdsPixel::Format(PixelFormat::R8) => Some(width),
-        DdsPixel::Format(_) => None,
-    }
-}
-
 /// The row pitch a level's data uses in the stream: level 0 keeps the
 /// header's declared pitch, lower levels round their tight width up to a
 /// multiple of 4 bytes (the DWORD rule those exporters follow).
-fn mip_row_pitch(layout: &DdsLayout, level: u32, tight_row: u32) -> u32 {
+fn mip_row_pitch(layout: &DdsLayout, level: u32, tight_row: u64) -> u64 {
     match layout.row_pitch {
-        Some(pitch) if level == 0 => pitch,
+        Some(pitch) if level == 0 => u64::from(pitch),
         Some(_) => tight_row.div_ceil(4) * 4,
         None => tight_row,
     }
 }
 
 /// Bytes one mip level occupies in the DDS stream.
-fn mip_size(layout: &DdsLayout, level: u32, width: u32, height: u32) -> usize {
-    match tight_row(&layout.pixel, width) {
-        Some(row) => (mip_row_pitch(layout, level, row) * height) as usize,
-        None => match layout.pixel {
-            DdsPixel::Format(format) => ftex::mip_size(format, width, height, 1, 0),
-            DdsPixel::Uncompressed { bit_count, .. } => (width * height * bit_count / 8) as usize,
-        },
+fn mip_size(layout: &DdsLayout, level: u32, width: u32, height: u32) -> Result<u64, ConvertError> {
+    if let Some(row) = layout.pixel.row_bytes(width) {
+        return mip_row_pitch(layout, level, row)
+            .checked_mul(u64::from(height))
+            .ok_or(ConvertError::Truncated);
     }
+    // `row_bytes` is None exactly for the block and float formats.
+    let DdsPixel::Format(format) = layout.pixel else {
+        unreachable!("row_bytes is Some for every Uncompressed layout")
+    };
+    Ok(ftex::mip_size(format, width, height, 1, 0) as u64)
 }
 
 /// The block codec behind the layout's pixel format, when it is one this
@@ -110,23 +105,29 @@ fn decode_mip(
     height: u32,
     data: &[u8],
 ) -> Result<Vec<u8>, ConvertError> {
-    let row_pitch =
-        tight_row(&layout.pixel, width).map(|tight| mip_row_pitch(layout, level, tight) as usize);
+    // The stream row pitch for the row-stored layouts; the block arm does
+    // not read it.
+    let row_pitch = match layout.pixel.row_bytes(width) {
+        Some(tight) => usize::try_from(mip_row_pitch(layout, level, tight))
+            .map_err(|_| ConvertError::Truncated)?,
+        None => 0,
+    };
     match layout.pixel {
         DdsPixel::Format(PixelFormat::Argb8) => decode_uncompressed(
             width,
             height,
             32,
             [0x00ff0000, 0x0000ff00, 0x000000ff, 0xff000000],
-            row_pitch.unwrap_or(0),
+            row_pitch,
             data,
         ),
         DdsPixel::Format(PixelFormat::R8) => decode_uncompressed(
             width,
             height,
             8,
-            [0xff, 0, 0, 0],
-            row_pitch.unwrap_or(0),
+            // The reference decoder splats the single channel into G and B.
+            [0xff, 0xff, 0xff, 0],
+            row_pitch,
             data,
         ),
         DdsPixel::Uncompressed {
@@ -140,7 +141,7 @@ fn decode_mip(
             height,
             bit_count,
             [r_mask, g_mask, b_mask, a_mask],
-            row_pitch.unwrap_or(0),
+            row_pitch,
             data,
         ),
         DdsPixel::Format(_) => {
@@ -160,8 +161,12 @@ fn decompress_mip(variant: CompressionVariant, width: u32, height: u32, blocks: 
     decompress_blocks_as_rgba8(variant, padded_width, padded_height, blocks, &mut padded);
 
     // The decoder truncates the interpolated index values; the reference
-    // decoder rounds them to nearest, so the alpha-indexed channels (BC3
-    // alpha, the BC4/BC5 data channels) are recomputed from the endpoints.
+    // decoder's byte store (texconv 2024.1.1.1, the fixtures' build) rounds
+    // them to nearest for BC3's RGBA and BC5's R8G8 output but truncates for
+    // BC4's R8, which matches what the decoder produced, so only BC3's alpha
+    // and BC5's data channels are recomputed from the endpoints. DirectXTex
+    // added the rounding bias to R8 in 2026 (#671); fixtures from a later
+    // build would move BC4 into the recomputed set.
     fix_interpolated_channels(variant, padded_width, padded_height, blocks, &mut padded);
 
     let mut rgba = vec![0u8; (width * height * 4) as usize];
@@ -171,7 +176,14 @@ fn decompress_mip(variant: CompressionVariant, width: u32, height: u32, blocks: 
         rgba[to..to + width as usize * 4].copy_from_slice(&padded[from..from + width as usize * 4]);
     }
     // The block decoder leaves missing channels zero; the reference decoder
-    // reports the one/two-channel formats as opaque (alpha 255).
+    // reports the one-channel format with R splatted into G and B, and both
+    // formats' alpha as opaque (BC5 keeps B = 0).
+    if let CompressionVariant::BC4 = variant {
+        for pixel in rgba.as_chunks_mut::<4>().0.iter_mut() {
+            pixel[1] = pixel[0];
+            pixel[2] = pixel[0];
+        }
+    }
     if matches!(variant, CompressionVariant::BC4 | CompressionVariant::BC5) {
         for pixel in rgba.as_chunks_mut::<4>().0.iter_mut() {
             pixel[3] = 255;
@@ -181,9 +193,10 @@ fn decompress_mip(variant: CompressionVariant, width: u32, height: u32, blocks: 
 }
 
 /// Rewrites the alpha-indexed channels of `padded` with rounded
-/// interpolation: BC3's alpha and BC4/BC5's data channels use the 8-byte
+/// interpolation: BC3's alpha and BC5's data channels use the 8-byte
 /// endpoint+3-bit-index format, whose interpolated entries are
-/// `(e0*(n-i) + e1*i + n/2) / n`.
+/// `(e0*(n-i) + e1*i + n/2) / n`. BC4's store truncates, which the block
+/// decoder already does, so it is not recomputed.
 fn fix_interpolated_channels(
     variant: CompressionVariant,
     padded_width: u32,
@@ -195,7 +208,6 @@ fn fix_interpolated_channels(
     // per alpha block)
     let (block_bytes, alpha_blocks): (usize, &[(usize, usize)]) = match variant {
         CompressionVariant::BC3 => (16, &[(0, 3)]),
-        CompressionVariant::BC4 => (8, &[(0, 0)]),
         CompressionVariant::BC5 => (16, &[(0, 0), (8, 1)]),
         _ => return,
     };
@@ -222,7 +234,8 @@ fn fix_interpolated_channels(
 }
 
 /// The 8-entry value ramp of an alpha-indexed block: endpoints then the
-/// interpolated entries, rounded to nearest as the reference decoder does.
+/// interpolated entries, rounded to nearest as the reference decoder's
+/// R8G8 and RGBA byte stores do.
 fn alpha_ramp(a0: u8, a1: u8) -> [u8; 8] {
     let mut ramp = [a0, a1, 0, 0, 0, 0, 0, 0];
     if a0 > a1 {
@@ -240,9 +253,9 @@ fn alpha_ramp(a0: u8, a1: u8) -> [u8; 8] {
 }
 
 /// Expands one uncompressed mip to RGBA8 through its channel masks. Rows
-/// are `row_pitch` bytes apart in the data (0 means tightly packed). Every
-/// mask must be a byte-aligned 8-bit field; anything else is rejected. A
-/// zero alpha mask yields 255.
+/// are `row_pitch` bytes apart in the data. Every mask must be a
+/// byte-aligned 8-bit field; anything else is rejected. A channel with no
+/// mask reads 0; a missing alpha mask yields 255.
 fn decode_uncompressed(
     width: u32,
     height: u32,
@@ -255,12 +268,9 @@ fn decode_uncompressed(
         8 | 16 | 24 | 32 => (bit_count / 8) as usize,
         _ => return Err(ConvertError::Unsupported("pixel bit count")),
     };
-    let row_pitch = if row_pitch == 0 {
-        width as usize * bytes_per_pixel
-    } else {
-        row_pitch
-    };
-    let row_bytes = width as usize * bytes_per_pixel;
+    // Checked so a dimension product cannot wrap on a 32-bit target.
+    let row_bytes = usize::try_from(u64::from(width) * bytes_per_pixel as u64)
+        .map_err(|_| ConvertError::Truncated)?;
     let mut channels = [None; 4];
     for (channel, mask) in masks.iter().enumerate() {
         if *mask == 0 {
@@ -270,18 +280,25 @@ fn decode_uncompressed(
         if *mask != 0xff << shift || shift % 8 != 0 || shift >= bit_count {
             return Err(ConvertError::Unsupported("pixel masks"));
         }
+        // `shift < bit_count` and a multiple of 8, so the byte index is
+        // always inside the pixel.
         channels[channel] = Some(shift / 8);
     }
 
-    let mut rgba = Vec::with_capacity((width * height * 4) as usize);
+    let mut rgba = Vec::with_capacity(
+        usize::try_from(u64::from(width) * u64::from(height) * 4)
+            .map_err(|_| ConvertError::Truncated)?,
+    );
     for y in 0..height as usize {
-        let row = data
-            .get(y * row_pitch..y * row_pitch + row_bytes)
+        let start = y.checked_mul(row_pitch).ok_or(ConvertError::Truncated)?;
+        let end = start
+            .checked_add(row_bytes)
             .ok_or(ConvertError::Truncated)?;
+        let row = data.get(start..end).ok_or(ConvertError::Truncated)?;
         for pixel in row.chunks_exact(bytes_per_pixel) {
             for (channel, rgba_channel) in channels.iter().enumerate() {
                 let value = match rgba_channel {
-                    Some(byte) if *byte < bytes_per_pixel as u32 => pixel[*byte as usize],
+                    Some(byte) => pixel[*byte as usize],
                     _ if channel == 3 => 255,
                     _ => 0,
                 };

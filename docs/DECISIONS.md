@@ -1879,3 +1879,29 @@ Decision (agent, lead audit and cross-family review at converge):
   (`HeaderTooLarge`). Its bytes are unchanged (parity test untouched).
 Plan: no plan edit needed; the crate has no code block, and `libs/README.md` "Testing" already
 states the fixture standard these tests follow.
+
+## 2026-09-24 - ftex, dds_convert - Phase 2 converge rulings
+Decision (agent, lead audit at converge):
+- **One-channel sources decode grey.** BC4, DX10 R8 and legacy L8 decode to `R = G = B`, alpha
+  255, because texconv (the reference decoder) does: its R-to-RGB conversion splats the channel
+  (measured on texconv 2024.1.1.1; `DirectXTexConvert.cpp` "R format -> RGB format"). The GPU
+  samples DX10 R8 as `(r, 0, 0, 1)`; conversion parity follows the reference decoder, not the
+  sampler. BC4's interpolated values stay truncated: that build's R8 store truncates (BC5's R8G8
+  and BC3's RGBA stores round). DirectXTex added the R8 rounding bias in 2026 (#671), so the
+  fixtures pin the 2024.1.1.1 build, the one the legacy compilers shipped.
+- **DXGI 96 is refused as signed** (`BC6H_SF16`); it had been mapped to FTEX's unsigned BC6H.
+- **`dds_convert` rejects a zero dimension and a mip count past `log2(larger side) + 1`**, as
+  D3D and texconv's default loader do (`CalculateMipLevels` → `E_INVALIDARG`; only
+  `--permissive` clamps). `ftex`'s FTEX↔DDS conversions keep pes-file-tools' acceptance (no
+  PES 2021 FTEX of 10370 exceeds the bound; the conversions stay lossless for any that would);
+  `mip_size` no longer panics past level 31 (the reference's floor division, 0 → 1).
+- **The `ftex` surface is `read_layout`, `header_bytes`, `DdsLayout`, `DdsPixel` (with
+  `row_bytes`, the tight-row rule both crates use) and the FTEX functions**; `DdsHeader`,
+  `Dx10Header` and `PixelFormat`'s id/DXGI/FourCC/block-size methods had no consumer outside the
+  crate and are `pub(crate)`.
+- **Retained gaps:** a hostile FTEX can make `ftex_to_dds` pad a frame to a large size (the
+  reference pads without limit); `build_header` truncates a linear size past 4 GiB to its u32
+  field; RGBA32F stays DXGI 2 (`R32G32B32A32_FLOAT`) although pes-file-tools' reader expects 1
+  (the TYPELESS id; its own writer emits 2).
+Plan: `libs/dds_convert.md` ("In-process DDS conversion" decoding bullet, the accepted-format
+table's DDS row, the `decode` paragraph under "`dds_convert` API").

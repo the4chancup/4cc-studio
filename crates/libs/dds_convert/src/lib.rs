@@ -212,6 +212,20 @@ mod tests {
     const RGBA8_D: &[u8] = include_bytes!("../tests/fixtures/rgba8.decoded.dds");
     const BGRA8: &[u8] = include_bytes!("../tests/fixtures/bgra8_dx9.dds");
     const BGRA8_D: &[u8] = include_bytes!("../tests/fixtures/bgra8_dx9.decoded.dds");
+    const BC2: &[u8] = include_bytes!("../tests/fixtures/bc2.dds");
+    const BC2_D: &[u8] = include_bytes!("../tests/fixtures/bc2.decoded.dds");
+    const BC4: &[u8] = include_bytes!("../tests/fixtures/bc4.dds");
+    const BC4_D: &[u8] = include_bytes!("../tests/fixtures/bc4.decoded.dds");
+    const ATI1: &[u8] = include_bytes!("../tests/fixtures/ati1.dds");
+    const ATI1_D: &[u8] = include_bytes!("../tests/fixtures/ati1.decoded.dds");
+    const R8_DDS: &[u8] = include_bytes!("../tests/fixtures/r8.dds");
+    const R8_D: &[u8] = include_bytes!("../tests/fixtures/r8.decoded.dds");
+    const L8: &[u8] = include_bytes!("../tests/fixtures/l8_dx9.dds");
+    const L8_D: &[u8] = include_bytes!("../tests/fixtures/l8_dx9.decoded.dds");
+    const BC4_EQ: &[u8] = include_bytes!("../tests/fixtures/bc4_equal_endpoints.dds");
+    const BC4_EQ_D: &[u8] = include_bytes!("../tests/fixtures/bc4_equal_endpoints.decoded.dds");
+    const BGR24: &[u8] = include_bytes!("../tests/fixtures/bgr24_dword_rows.dds");
+    const BGR24_D: &[u8] = include_bytes!("../tests/fixtures/bgr24_dword_rows.decoded.dds");
     const NM_PREFOX_D: &[u8] = include_bytes!("../tests/fixtures/bc3_nm_prefox.decoded.dds");
     const PNG: &[u8] = include_bytes!("../tests/fixtures/source.png");
     const PNG_OPAQUE: &[u8] = include_bytes!("../tests/fixtures/source_opaque.png");
@@ -338,10 +352,15 @@ mod tests {
     fn decode_matches_the_reference_decode_exactly() {
         for (stem, encoded, decoded) in [
             ("bc1_opaque", BC1, BC1_D),
+            ("bc2", BC2, BC2_D),
             ("bc3", BC3, BC3_D),
+            ("bc4", BC4, BC4_D),
+            ("ati1", ATI1, ATI1_D),
             ("bc5", BC5, BC5_D),
             ("ati2", ATI2, ATI2_D),
             ("bc7", BC7, BC7_D),
+            ("r8", R8_DDS, R8_D),
+            ("l8_dx9", L8, L8_D),
             ("rgba8", RGBA8, RGBA8_D),
             ("bgra8_dx9", BGRA8, BGRA8_D),
         ] {
@@ -737,32 +756,44 @@ mod tests {
         assert_eq!(&dds[layout.data_offset..], &BC3[128..]);
     }
 
+    /// A minimal uncompressed DDS: legacy header declaring `bit_count`-bit
+    /// pixels with `masks` and a row pitch of `pitch` bytes, then space for
+    /// `mipmaps` levels of data appended by the caller.
+    fn uncompressed_dds(
+        width: u32,
+        height: u32,
+        pitch: u32,
+        bit_count: u32,
+        masks: [u32; 4],
+        mipmaps: u32,
+    ) -> Vec<u8> {
+        let mut dds = Vec::new();
+        dds.extend_from_slice(b"DDS ");
+        dds.extend_from_slice(&124u32.to_le_bytes());
+        dds.extend_from_slice(&(0x1u32 | 0x2 | 0x4 | 0x8 | 0x1000).to_le_bytes());
+        dds.extend_from_slice(&height.to_le_bytes());
+        dds.extend_from_slice(&width.to_le_bytes());
+        dds.extend_from_slice(&pitch.to_le_bytes());
+        dds.extend_from_slice(&0u32.to_le_bytes()); // depth
+        dds.extend_from_slice(&mipmaps.to_le_bytes());
+        dds.extend_from_slice(&[0u8; 44]);
+        dds.extend_from_slice(&32u32.to_le_bytes()); // pixel format size
+        dds.extend_from_slice(&0x40u32.to_le_bytes()); // DDPF_RGB
+        dds.extend_from_slice(&[0u8; 4]); // fourcc
+        dds.extend_from_slice(&bit_count.to_le_bytes());
+        for mask in masks {
+            dds.extend_from_slice(&mask.to_le_bytes());
+        }
+        let caps1 = 0x1000u32 | if mipmaps > 1 { 0x8 | 0x400000 } else { 0 };
+        dds.extend_from_slice(&caps1.to_le_bytes());
+        dds.extend_from_slice(&[0u8; 16]);
+        dds
+    }
+
     #[test]
     fn padded_rows_decode() {
         // A 2x2 24-bit BGR DDS whose rows are padded to 8 bytes.
-        let header = |pitch: u32| {
-            let mut dds = Vec::new();
-            dds.extend_from_slice(b"DDS ");
-            dds.extend_from_slice(&124u32.to_le_bytes());
-            dds.extend_from_slice(&(0x1u32 | 0x2 | 0x4 | 0x8 | 0x1000).to_le_bytes());
-            dds.extend_from_slice(&2u32.to_le_bytes()); // height
-            dds.extend_from_slice(&2u32.to_le_bytes()); // width
-            dds.extend_from_slice(&pitch.to_le_bytes());
-            dds.extend_from_slice(&0u32.to_le_bytes()); // depth
-            dds.extend_from_slice(&1u32.to_le_bytes()); // mipmap count
-            dds.extend_from_slice(&[0u8; 44]);
-            dds.extend_from_slice(&32u32.to_le_bytes()); // pixel format size
-            dds.extend_from_slice(&0x40u32.to_le_bytes()); // DDPF_RGB
-            dds.extend_from_slice(&[0u8; 4]); // fourcc
-            dds.extend_from_slice(&24u32.to_le_bytes());
-            dds.extend_from_slice(&0xff0000u32.to_le_bytes()); // r
-            dds.extend_from_slice(&0x00ff00u32.to_le_bytes()); // g
-            dds.extend_from_slice(&0x0000ffu32.to_le_bytes()); // b
-            dds.extend_from_slice(&0u32.to_le_bytes()); // a
-            dds.extend_from_slice(&0x1000u32.to_le_bytes()); // caps1
-            dds.extend_from_slice(&[0u8; 16]);
-            dds
-        };
+        let header = |pitch: u32| uncompressed_dds(2, 2, pitch, 24, [0xff0000, 0xff00, 0xff, 0], 1);
         let expected: Vec<u8> = [
             [255, 0, 0, 255], // stored BGR 0,0,255
             [0, 255, 0, 255], // stored BGR 0,255,0
@@ -788,6 +819,144 @@ mod tests {
             decode(&tight, SourceFormat::Dds).unwrap().mips,
             [&expected[..]]
         );
+    }
+
+    #[test]
+    fn dword_padded_rows_decode_at_their_own_pitch() {
+        // The fixture: level 0 at the declared pitch 20 (tight 18), level 1
+        // (3x1) at its DWORD-rounded tight pitch (9 -> 12), matching the
+        // reference decoder's -dword read of the same file.
+        let ours = decode(BGR24, SourceFormat::Dds).unwrap();
+        let expected = decode(BGR24_D, SourceFormat::Dds).unwrap();
+        assert_eq!(ours.mips, expected.mips);
+
+        // The same rule on a file whose lower level has two rows, so the
+        // row pitch actually moves the second row: 6x4, declared pitch 22
+        // (tight 18); level 1 is 3x2 at 12-byte rows.
+        let masks = [0xff0000, 0xff00, 0xff, 0];
+        let mut dds = uncompressed_dds(6, 4, 22, 24, masks, 2);
+        for y in 0..4u8 {
+            for x in 0..6u8 {
+                let base = y * 64 + x * 8;
+                dds.extend_from_slice(&[base, base + 1, base + 2]);
+            }
+            dds.extend_from_slice(&[0xee; 4]);
+        }
+        for y in 0..2u8 {
+            for x in 0..3u8 {
+                let base = 128 + y * 32 + x * 8;
+                dds.extend_from_slice(&[base, base + 1, base + 2]);
+            }
+            dds.extend_from_slice(&[0xdd; 3]);
+        }
+        let mut level0 = Vec::new();
+        for y in 0..4u8 {
+            for x in 0..6u8 {
+                let base = y * 64 + x * 8;
+                level0.extend_from_slice(&[base + 2, base + 1, base, 255]);
+            }
+        }
+        let mut level1 = Vec::new();
+        for y in 0..2u8 {
+            for x in 0..3u8 {
+                let base = 128 + y * 32 + x * 8;
+                level1.extend_from_slice(&[base + 2, base + 1, base, 255]);
+            }
+        }
+        assert_eq!(
+            decode(&dds, SourceFormat::Dds).unwrap().mips,
+            [level0, level1]
+        );
+    }
+
+    #[test]
+    fn an_oversized_uncompressed_declaration_is_truncated_not_a_panic() {
+        // 70000x70000 32-bit rows need ~20 GB of stream data the buffer does
+        // not hold: the mip lookup is Truncated rather than an arithmetic
+        // overflow panic.
+        let mut dds =
+            uncompressed_dds(70000, 70000, 0, 32, [0xff0000, 0xff00, 0xff, 0xff000000], 1);
+        dds.extend_from_slice(&[0u8; 16]);
+        assert!(matches!(
+            decode(&dds, SourceFormat::Dds),
+            Err(ConvertError::Truncated)
+        ));
+    }
+
+    #[test]
+    fn uncompressed_pixel_masks_are_byte_aligned_or_rejected() {
+        // A 2x1 24-bit row to decode against.
+        let bgr = |masks: [u32; 4]| {
+            let mut dds = uncompressed_dds(2, 1, 0, 24, masks, 1);
+            dds.extend_from_slice(&[1, 2, 3, 4, 5, 6]);
+            dds
+        };
+        // A mask narrower than eight bits.
+        assert!(matches!(
+            decode(&bgr([0x0f, 0xff00, 0xff, 0]), SourceFormat::Dds),
+            Err(ConvertError::Unsupported("pixel masks"))
+        ));
+        // A mask not aligned to a byte.
+        assert!(matches!(
+            decode(&bgr([0xff0, 0xff00, 0xff, 0]), SourceFormat::Dds),
+            Err(ConvertError::Unsupported("pixel masks"))
+        ));
+        // An alpha channel past the pixel's own 24 bits.
+        assert!(matches!(
+            decode(
+                &bgr([0xff0000, 0xff00, 0xff, 0xff000000]),
+                SourceFormat::Dds
+            ),
+            Err(ConvertError::Unsupported("pixel masks"))
+        ));
+        // A channel with no mask reads 0 (alpha reads 255); the bytes are
+        // B,G,R so 1,2,3 decodes to R=3, B=1.
+        let decoded = decode(&bgr([0xff0000, 0, 0xff, 0]), SourceFormat::Dds).unwrap();
+        assert_eq!(decoded.mips[0], [3, 0, 1, 255, 6, 0, 4, 255]);
+    }
+
+    #[test]
+    fn a_bc5_source_encodes_dxt5nm_whatever_the_role() {
+        // A BC5 source on a pre-Fox target is DXT5nm (BC3 with X in alpha, Y
+        // in green) whether the texture is a normal map or not.
+        let decoded = decode(BC5, SourceFormat::Dds).unwrap();
+        let color = convert(
+            &decoded,
+            Target {
+                version: PesVersion::Pes17,
+                role: TextureRole::Color,
+            },
+        )
+        .unwrap();
+        let normal = convert(
+            &decoded,
+            Target {
+                version: PesVersion::Pes17,
+                role: TextureRole::Normal,
+            },
+        )
+        .unwrap();
+        assert_eq!(color, normal);
+        let layout = ftex::dds::read_layout(&color).unwrap();
+        assert_eq!(
+            layout.pixel,
+            ftex::dds::DdsPixel::Format(ftex::PixelFormat::Bc3)
+        );
+    }
+
+    #[test]
+    fn mip_generation_rounds_to_nearest() {
+        // Channel values 0, 0, 1, 1: a sum of 2 over 4 texels rounds to 1,
+        // not 0.
+        let mut pixels = vec![0u8; 2 * 2 * 4];
+        pixels[2 * 4] = 1;
+        pixels[3 * 4] = 1;
+        let chain = mips::generate(2, 2, &pixels);
+        assert_eq!(chain[0].pixels[0], 1);
+        // 1x2 with 40 and 81: (40 + 81 + 1) / 2 = 61.
+        let pixels = [40, 0, 0, 255, 81, 0, 0, 255];
+        let chain = mips::generate(1, 2, &pixels);
+        assert_eq!(chain[0].pixels[0], 61);
     }
 
     #[test]
@@ -919,6 +1088,103 @@ mod tests {
     }
 
     #[test]
+    fn bc4_equal_endpoints_decode_the_constant_indices() {
+        // a0 == a1 is the six-value mode: indices 6 and 7 are the constants
+        // 0 and 255, so texels 6 and 7 of the block are 0 and 255 while the
+        // rest are the endpoint value.
+        let ours = decode(BC4_EQ, SourceFormat::Dds).unwrap();
+        assert_eq!(ours.mips.len(), 1);
+        let expected = decode(BC4_EQ_D, SourceFormat::Dds).unwrap();
+        assert_eq!(ours.mips[0], expected.mips[0]);
+        // Texels 6 and 7 carry indices 6 and 7: the 0 and 255 constants,
+        // splatted to all three channels by the one-channel decode.
+        assert_eq!(
+            &ours.mips[0][6 * 4..8 * 4],
+            [0, 0, 0, 255, 255, 255, 255, 255]
+        );
+    }
+
+    #[test]
+    fn bc5_equal_endpoints_decode_the_constant_indices() {
+        // The same construction as the BC4 fixture, hand-built for the
+        // two-channel format (DXGI 83): both channel blocks declare equal
+        // endpoints, so indices 6 and 7 are the constants 0 and 255.
+        let mut dds = Vec::new();
+        dds.extend_from_slice(b"DDS ");
+        dds.extend_from_slice(&124u32.to_le_bytes());
+        dds.extend_from_slice(&(0x1u32 | 0x2 | 0x4 | 0x1000 | 0x80000).to_le_bytes());
+        dds.extend_from_slice(&4u32.to_le_bytes()); // height
+        dds.extend_from_slice(&4u32.to_le_bytes()); // width
+        dds.extend_from_slice(&16u32.to_le_bytes()); // pitch
+        dds.extend_from_slice(&0u32.to_le_bytes()); // depth
+        dds.extend_from_slice(&1u32.to_le_bytes()); // mipmaps
+        dds.extend_from_slice(&[0u8; 44]);
+        dds.extend_from_slice(&32u32.to_le_bytes()); // pixel format size
+        dds.extend_from_slice(&0x4u32.to_le_bytes()); // DDPF_FOURCC
+        dds.extend_from_slice(b"DX10");
+        dds.extend_from_slice(&[0u8; 20]); // bit count and masks
+        dds.extend_from_slice(&0x1000u32.to_le_bytes()); // caps1: texture
+        dds.extend_from_slice(&[0u8; 16]);
+        dds.extend_from_slice(&83u32.to_le_bytes()); // DXGI BC5_UNORM
+        dds.extend_from_slice(&3u32.to_le_bytes()); // 2D
+        dds.extend_from_slice(&0u32.to_le_bytes()); // misc flags
+        dds.extend_from_slice(&1u32.to_le_bytes()); // array size
+        dds.extend_from_slice(&0u32.to_le_bytes()); // misc flags 2
+        // Indices 0..7 then 7..0 across the 16 texels.
+        let indices = [0u64, 1, 2, 3, 4, 5, 6, 7, 7, 6, 5, 4, 3, 2, 1, 0]
+            .iter()
+            .enumerate()
+            .fold(0u64, |packed, (texel, index)| {
+                packed | (index << (3 * texel))
+            });
+        let channel = |endpoint: u8| {
+            let mut block = [endpoint, endpoint, 0, 0, 0, 0, 0, 0];
+            block[2..].copy_from_slice(&indices.to_le_bytes()[..6]);
+            block
+        };
+        dds.extend_from_slice(&channel(100)); // R block
+        dds.extend_from_slice(&channel(200)); // G block
+
+        let ours = decode(&dds, SourceFormat::Dds).unwrap();
+        // Texel 5 is an interpolated index: equal endpoints decode to the
+        // endpoint value. Texels 6 and 7 carry the constant indices.
+        assert_eq!(&ours.mips[0][5 * 4..6 * 4], [100, 200, 0, 255]);
+        assert_eq!(
+            &ours.mips[0][6 * 4..8 * 4],
+            [0, 0, 0, 255, 255, 255, 0, 255]
+        );
+    }
+
+    #[test]
+    fn accepted_extensions_resolve() {
+        for (extension, format) in [
+            ("dds", SourceFormat::Dds),
+            ("ftex", SourceFormat::Ftex),
+            ("png", SourceFormat::Png),
+            ("jpg", SourceFormat::Jpeg),
+            ("jpeg", SourceFormat::Jpeg),
+            ("bmp", SourceFormat::Bmp),
+            ("webp", SourceFormat::WebP),
+            ("tga", SourceFormat::Tga),
+            ("tif", SourceFormat::Tiff),
+            ("tiff", SourceFormat::Tiff),
+        ] {
+            assert_eq!(
+                SourceFormat::from_extension(extension),
+                Some(format),
+                "{extension}"
+            );
+            assert_eq!(
+                SourceFormat::from_extension(&extension.to_uppercase()),
+                Some(format),
+                "{extension} upper-case"
+            );
+        }
+        assert_eq!(SourceFormat::from_extension("gif"), None);
+        assert_eq!(SourceFormat::from_extension(""), None);
+    }
+
+    #[test]
     fn malformed_sources_error() {
         assert!(matches!(
             decode(&BC3[..100], SourceFormat::Dds),
@@ -928,15 +1194,6 @@ mod tests {
             decode(CUBE, SourceFormat::Dds),
             Err(ConvertError::Ftex(ftex::FtexError::UnsupportedDds(_)))
         ));
-        assert_eq!(
-            SourceFormat::from_extension("JPG"),
-            Some(SourceFormat::Jpeg)
-        );
-        assert_eq!(
-            SourceFormat::from_extension("tif"),
-            Some(SourceFormat::Tiff)
-        );
-        assert_eq!(SourceFormat::from_extension("gif"), None);
         assert!(matches!(
             decode(b"not a png", SourceFormat::Png),
             Err(ConvertError::Image(_))

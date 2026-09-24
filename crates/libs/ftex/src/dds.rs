@@ -13,7 +13,7 @@ use crate::format::{PixelFormat, mip_size};
 /// The 128-byte DDS header (little-endian), including magic.
 #[derive(Debug, BinRead, BinWrite)]
 #[brw(little)]
-pub struct DdsHeader {
+pub(crate) struct DdsHeader {
     /// `b"DDS "`.
     pub magic: [u8; 4],
     /// Always 124.
@@ -57,7 +57,7 @@ pub struct DdsHeader {
 /// The 20-byte DX10 extension header that follows a `DX10` FourCC.
 #[derive(Debug, BinRead, BinWrite)]
 #[brw(little)]
-pub struct Dx10Header {
+pub(crate) struct Dx10Header {
     /// The `DXGI_FORMAT` number.
     pub dxgi_format: u32,
     /// `D3D10_RESOURCE_DIMENSION` (3 = 2D, 4 = 3D/volume).
@@ -93,6 +93,21 @@ pub enum DdsPixel {
     },
 }
 
+impl DdsPixel {
+    /// Bytes one tightly packed row of `width` pixels occupies in the
+    /// stream, for the layouts that store rows (`Uncompressed`, `Argb8`,
+    /// `R8`). `None` for the block and float formats, whose stream size is
+    /// counted in blocks, not rows.
+    pub fn row_bytes(self, width: u32) -> Option<u64> {
+        Some(match self {
+            DdsPixel::Uncompressed { bit_count, .. } => u64::from(width) * u64::from(bit_count) / 8,
+            DdsPixel::Format(PixelFormat::Argb8) => u64::from(width) * 4,
+            DdsPixel::Format(PixelFormat::R8) => u64::from(width),
+            DdsPixel::Format(_) => return None,
+        })
+    }
+}
+
 /// The layout of a 2D DDS: enough to walk its mip chain.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct DdsLayout {
@@ -124,11 +139,9 @@ const DX10_MISC_CUBE: u32 = 0x4;
 /// Parses the DDS header(s) of a 2D texture. Cube maps and volume textures
 /// are `FtexError::UnsupportedDds("cube map")` / `("volume texture")`. A
 /// missing mipmap flag or a count of 0 means 1 mip. sRGB DXGI ids map to
-/// their UNORM twins.
+/// their UNORM twins. A zero dimension, and a mip count the dimensions
+/// cannot halve into, are refused: D3D rejects both at texture creation.
 pub fn read_layout(dds: &[u8]) -> Result<DdsLayout, FtexError> {
-    if dds.len() < 128 {
-        return Err(FtexError::Truncated);
-    }
     let mut cursor = Cursor::new(dds);
     let header = DdsHeader::read(&mut cursor).map_err(|_| FtexError::Truncated)?;
     if header.magic != *b"DDS " {
@@ -143,6 +156,15 @@ pub fn read_layout(dds: &[u8]) -> Result<DdsLayout, FtexError> {
     if header.capabilities2 & CAPS2_VOLUME != 0 {
         return Err(FtexError::UnsupportedDds("volume texture"));
     }
+    if header.width == 0 || header.height == 0 {
+        return Err(FtexError::UnsupportedDds("zero dimension"));
+    }
+    let mipmaps = mip_count(&header);
+    // A mip halves the larger side; the count that bottoms out at 1x1 is
+    // log2(max side) + 1 = 32 - leading_zeros.
+    if mipmaps > 32 - header.width.max(header.height).leading_zeros() {
+        return Err(FtexError::UnsupportedDds("mip count past the dimensions"));
+    }
 
     let mut data_offset = 128usize;
     let pixel = if header.format_flags & 0x4 == 0 {
@@ -150,9 +172,6 @@ pub fn read_layout(dds: &[u8]) -> Result<DdsLayout, FtexError> {
     } else {
         match &header.fourcc {
             b"DX10" => {
-                if dds.len() < 148 {
-                    return Err(FtexError::Truncated);
-                }
                 let ext = Dx10Header::read(&mut cursor).map_err(|_| FtexError::Truncated)?;
                 if ext.dimension == 4 || header.depth > 1 {
                     return Err(FtexError::UnsupportedDds("volume texture"));
@@ -171,33 +190,13 @@ pub fn read_layout(dds: &[u8]) -> Result<DdsLayout, FtexError> {
         }
     };
 
-    let mipmaps = if header.capabilities1 & 0x400000 != 0 {
-        header.mipmap_count.max(1)
-    } else {
-        1
-    };
-    // Bytes one tightly packed row takes, for the layouts that have rows.
-    let row_overflow = || FtexError::HeaderFieldOverflow {
-        what: "dds row pitch",
-        value: header.width as usize,
-    };
-    let tight_row = match pixel {
-        DdsPixel::Uncompressed { bit_count, .. } => Some(
-            header
-                .width
-                .checked_mul(bit_count)
-                .ok_or_else(row_overflow)?
-                / 8,
-        ),
-        DdsPixel::Format(PixelFormat::Argb8) => {
-            Some(header.width.checked_mul(4).ok_or_else(row_overflow)?)
-        }
-        DdsPixel::Format(PixelFormat::R8) => Some(header.width),
-        DdsPixel::Format(_) => None,
-    };
-    let row_pitch = tight_row
-        .filter(|tight| header.flags & DDSD_PITCH != 0 && header.pitch_or_linear_size > *tight);
-    let row_pitch = row_pitch.map(|_| header.pitch_or_linear_size);
+    // The declared pitch counts only when it is wider than a tight row.
+    let row_pitch = pixel
+        .row_bytes(header.width)
+        .filter(|tight| {
+            header.flags & DDSD_PITCH != 0 && u64::from(header.pitch_or_linear_size) > *tight
+        })
+        .map(|_| header.pitch_or_linear_size);
     Ok(DdsLayout {
         pixel,
         width: header.width,
@@ -206,6 +205,17 @@ pub fn read_layout(dds: &[u8]) -> Result<DdsLayout, FtexError> {
         data_offset,
         row_pitch,
     })
+}
+
+/// The mip count a header declares: the `DDSCAPS_MIPMAP` bit gates the
+/// count field, so without it the texture has one level whatever the field
+/// says.
+pub(crate) fn mip_count(header: &DdsHeader) -> u32 {
+    if header.capabilities1 & 0x400000 != 0 {
+        header.mipmap_count.max(1)
+    } else {
+        1
+    }
 }
 
 /// Rejects a DX10 header that describes more than one image: texture arrays
@@ -263,8 +273,8 @@ pub(crate) fn fourcc_format(fourcc: &[u8; 4]) -> Option<PixelFormat> {
 /// and 87 (B8G8R8A8) maps to Argb8, as FTEX stores it. DXGI 28/29
 /// (R8G8B8A8) and 88/92 (B8G8R8X8, whose fourth byte is not alpha) have no
 /// FTEX twin and stay masks. The signed block formats (81 BC4_SNORM, 84
-/// BC5_SNORM) are refused: their blocks mean different values, so relabelling
-/// them unsigned would silently change a normal map.
+/// BC5_SNORM, 96 BC6H_SF16) are refused: their blocks mean different values,
+/// so relabelling them unsigned would silently change the texture.
 pub(crate) fn dxgi_pixel(dxgi: u32) -> Result<DdsPixel, FtexError> {
     let format = match dxgi {
         87 | 91 => PixelFormat::Argb8,
@@ -274,9 +284,9 @@ pub(crate) fn dxgi_pixel(dxgi: u32) -> Result<DdsPixel, FtexError> {
         77 | 78 => PixelFormat::Bc3,
         80 => PixelFormat::Bc4,
         83 => PixelFormat::Bc5,
-        95 | 96 => PixelFormat::Bc6h,
+        95 => PixelFormat::Bc6h,
         98 | 99 => PixelFormat::Bc7,
-        81 | 84 => return Err(FtexError::UnsupportedDds("signed block format")),
+        81 | 84 | 96 => return Err(FtexError::UnsupportedDds("signed block format")),
         88 | 92 => {
             return Ok(DdsPixel::Uncompressed {
                 bit_count: 32,
