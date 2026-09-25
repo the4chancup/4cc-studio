@@ -144,7 +144,7 @@ fn compression_variant(codec: BlockCodec, emit: &[Mip]) -> CompressionVariant {
 }
 
 /// The FTEX pixel format a container header names for an emitted codec.
-fn pixel_format(codec: BlockCodec) -> ftex::PixelFormat {
+pub(crate) fn pixel_format(codec: BlockCodec) -> ftex::PixelFormat {
     match codec {
         BlockCodec::Bc1 => ftex::PixelFormat::Bc1,
         BlockCodec::Bc2 => ftex::PixelFormat::Bc2,

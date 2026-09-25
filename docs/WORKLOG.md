@@ -575,7 +575,11 @@ Spec: `docs/plans/core/development_plan.md` "Phase 2", `docs/plans/libs/README.m
     rounds since 2026, #671), so BC4 is not recomputed. Mutants: ftex 262 / 0 missed, dds_convert
     292 / 0 missed (4 timeouts, the `mips.rs` loop condition diverging). Lead fixtures
     (`ftex_fixtures.py`, `fixtures_dds_converge.py`), census `.tmp/ftex_census*.txt`. Plan
-    sentences + decision entry written. Next: reviewer loop, then close
+    sentences + decision entry written (`c621896`). Reviewer round 1: 7 returned, 7 accepted
+    (`.tmp/review_rulings_2_20d.md`): bounded frame reads and saturating `mip_size`, premultiplied
+    alpha and mask-less headers refused, `dds_to_ftex` refuses padded rows, `convert` validates a
+    caller-built `Decoded`, cache retention moved to Phase 4 step 4.y; mutants-diff 68 / 0 missed.
+    Next: round 2
   Known inputs from round C: (a) whole-crate mutation runs left survivors to triage in cpk (28),
   ftex (80), dds_convert (30): table-variant arms, boundary comparisons, `write_cell` and
   `Writer::finish` padding math; the other thirteen crates have not been run; (b)
@@ -616,7 +620,7 @@ Steps are itemized when Phase 2 closes; the first is fixed:
 
 ### Phase 4 — Processing logic
 
-Steps are itemized when Phase 3 closes; one is fixed already:
+Steps are itemized when Phase 3 closes; two are fixed already:
 
 - [ ] 4.x `dds_convert` GPU BC7 (deferred from 2.5b, decision entry 2026-09-21; spec
   `libs/README.md` "First-release desktop GPU BC7"): `block_compression`'s wgpu backend on a
@@ -624,6 +628,13 @@ Steps are itemized when Phase 3 closes; one is fixed already:
   and upload/readback measured first, then the texture step's bounded batches → verify: GPU and
   CPU outputs decode within the same tolerance on the `dds_convert` fixtures; the fallback path
   exercised by forcing no adapter
+- [ ] 4.y `dds_convert` cache retention bound (found at 2.20d converge; spec `libs/dds_convert.md`
+  "In-memory conversion cache", "Retention is separately bounded and budgeted"): the
+  `Converter` holds every distinct conversion until `clear`; the pipeline's memory budget
+  charges `retained_bytes` and evicts under pressure, and repeated edits do not keep every
+  superseded conversion → verify: a test compiling the same export with one texture edited N
+  times retains one conversion of it, and a budget smaller than the cache evicts rather than
+  blocking a task
 
 ---
 

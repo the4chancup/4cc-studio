@@ -181,10 +181,12 @@ pub fn mip_size(format: PixelFormat, width: u32, height: u32, depth: u32, level:
     let blocks_h = h.div_ceil(block_pixels);
     // A size that does not fit usize cannot be held in memory, so the slice
     // lookup it bounds fails as `Truncated`.
-    usize::try_from(
-        u64::from(blocks_w) * u64::from(blocks_h) * u64::from(d) * u64::from(block_bytes),
-    )
-    .unwrap_or(usize::MAX)
+    u64::from(blocks_w)
+        .checked_mul(u64::from(blocks_h))
+        .and_then(|blocks| blocks.checked_mul(u64::from(d)))
+        .and_then(|size| size.checked_mul(u64::from(block_bytes)))
+        .and_then(|size| usize::try_from(size).ok())
+        .unwrap_or(usize::MAX)
 }
 
 /// The 64-byte FTEX header (little-endian).

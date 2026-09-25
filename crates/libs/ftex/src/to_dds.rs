@@ -90,6 +90,7 @@ pub fn ftex_to_dds(ftex: &[u8]) -> Result<Vec<u8>, FtexError> {
             spec.chunk_count,
             spec.uncompressed_size,
             spec.compressed_size,
+            spec.expected_size,
         )?;
         // Every frame is padded or truncated to its expected mip size.
         frame.resize(spec.expected_size, 0);
@@ -129,12 +130,16 @@ fn read_header(ftex: &[u8]) -> Result<FtexHeader, FtexError> {
 
 /// Reads one frame: a raw block, a single zlib stream, or a chunked stream
 /// whose records carry (compressed, uncompressed, frame-relative offset).
+/// No read produces more than the frame's `expected_size` bytes: chunks
+/// past a full frame are never consulted and inflation stops at the bytes
+/// still needed.
 fn read_frame(
     ftex: &[u8],
     offset: u32,
     chunk_count: u16,
     uncompressed_size: u32,
     compressed_size: u32,
+    expected_size: usize,
 ) -> Result<Vec<u8>, FtexError> {
     let mut cursor = Cursor::new(ftex);
     cursor.seek(SeekFrom::Start(u64::from(offset)))?;
@@ -144,7 +149,7 @@ fn read_frame(
             return take(&mut cursor, ftex, uncompressed_size as usize);
         }
         let packed = take(&mut cursor, ftex, compressed_size as usize)?;
-        return inflate(&packed);
+        return inflate(&packed, expected_size);
     }
 
     let mut chunks = Vec::with_capacity(usize::from(chunk_count));
@@ -154,16 +159,20 @@ fn read_frame(
     }
     let mut frame = Vec::new();
     for chunk in &chunks {
+        if frame.len() >= expected_size {
+            break;
+        }
         let at = offset
             .checked_add(chunk.offset & !(1 << 31))
             .ok_or(FtexError::Truncated)?;
         let mut chunk_cursor = Cursor::new(ftex);
         chunk_cursor.seek(SeekFrom::Start(u64::from(at)))?;
         let data = take(&mut chunk_cursor, ftex, usize::from(chunk.compressed_size))?;
+        let remaining = expected_size - frame.len();
         if chunk.compressed_size != chunk.uncompressed_size {
-            frame.extend_from_slice(&inflate(&data)?);
+            frame.extend_from_slice(&inflate(&data, remaining)?);
         } else {
-            frame.extend_from_slice(&data);
+            frame.extend_from_slice(&data[..data.len().min(remaining)]);
         }
     }
     Ok(frame)
@@ -177,8 +186,12 @@ fn take(cursor: &mut Cursor<&[u8]>, whole: &[u8], len: usize) -> Result<Vec<u8>,
     Ok(slice.to_vec())
 }
 
-fn inflate(bytes: &[u8]) -> Result<Vec<u8>, FtexError> {
+/// Inflates at most `limit` bytes; a stream that would produce more is
+/// read only that far.
+fn inflate(bytes: &[u8], limit: usize) -> Result<Vec<u8>, FtexError> {
     let mut output = Vec::new();
-    ZlibDecoder::new(bytes).read_to_end(&mut output)?;
+    ZlibDecoder::new(bytes)
+        .take(limit as u64)
+        .read_to_end(&mut output)?;
     Ok(output)
 }

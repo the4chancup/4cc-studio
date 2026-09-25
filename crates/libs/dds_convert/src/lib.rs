@@ -149,8 +149,53 @@ pub fn decode(bytes: &[u8], format: SourceFormat) -> Result<Decoded, ConvertErro
 /// blocks pass through with only a container rebuild, everything else is
 /// re-encoded per target and role. Returns a DDS for PES 15-17, an FTEX
 /// for PES 18-21.
+///
+/// # Errors
+///
+/// `ConvertError::InvalidDecoded` when a caller-built `Decoded` breaks the
+/// rules a `decode` product follows (zero dimensions, missing or
+/// undersized mips, block buffers of the wrong size).
 pub fn convert(decoded: &Decoded, target: Target) -> Result<Vec<u8>, ConvertError> {
+    validate(decoded)?;
     encode::convert(decoded, target)
+}
+
+/// Refuses a caller-built `Decoded` that `decode` could not produce.
+fn validate(decoded: &Decoded) -> Result<(), ConvertError> {
+    if decoded.width == 0 || decoded.height == 0 {
+        return Err(ConvertError::InvalidDecoded("zero dimension"));
+    }
+    if decoded.mips.is_empty() {
+        return Err(ConvertError::InvalidDecoded("no mips"));
+    }
+    if !decoded.authored_mips && decoded.mips.len() > 1 {
+        return Err(ConvertError::InvalidDecoded("unauthored mip chain"));
+    }
+    // A mip chain bottoms out at 1x1: log2(max side) + 1 levels.
+    if decoded.mips.len() as u32 > 32 - decoded.width.max(decoded.height).leading_zeros() {
+        return Err(ConvertError::InvalidDecoded(
+            "mip count past the dimensions",
+        ));
+    }
+    for (level, mip) in decoded.mips.iter().enumerate() {
+        let w = decoded.width.checked_shr(level as u32).unwrap_or(0).max(1);
+        let h = decoded.height.checked_shr(level as u32).unwrap_or(0).max(1);
+        if mip.len() as u64 != u64::from(w) * u64::from(h) * 4 {
+            return Err(ConvertError::InvalidDecoded("mip size"));
+        }
+    }
+    if let Some(blocks) = &decoded.blocks {
+        if blocks.mips.len() != decoded.mips.len() {
+            return Err(ConvertError::InvalidDecoded("block mip count"));
+        }
+        let format = encode::pixel_format(blocks.codec);
+        for (level, mip) in blocks.mips.iter().enumerate() {
+            if mip.len() != ftex::mip_size(format, decoded.width, decoded.height, 1, level as u32) {
+                return Err(ConvertError::InvalidDecoded("block mip size"));
+            }
+        }
+    }
+    Ok(())
 }
 
 /// SHA-256 of the source bytes, computed once when the file is
@@ -187,6 +232,9 @@ pub enum ConvertError {
     /// A feature of the source or request this crate does not handle.
     #[error("unsupported: {0}")]
     Unsupported(&'static str),
+    /// A caller-built `Decoded` breaks the rules a decoded one follows.
+    #[error("inconsistent decoded texture: {0}")]
+    InvalidDecoded(&'static str),
     /// The buffer ends before a structure that extends past it.
     #[error("buffer is truncated")]
     Truncated,
@@ -913,6 +961,113 @@ mod tests {
         // B,G,R so 1,2,3 decodes to R=3, B=1.
         let decoded = decode(&bgr([0xff0000, 0, 0xff, 0]), SourceFormat::Dds).unwrap();
         assert_eq!(decoded.mips[0], [3, 0, 1, 255, 6, 0, 4, 255]);
+    }
+
+    #[test]
+    fn an_all_zero_pixel_mask_set_is_rejected() {
+        // A DDPF_PALETTEINDEXED8 (0x20) header with no channel masks
+        // decodes nothing.
+        let mut dds = uncompressed_dds(2, 1, 2, 8, [0, 0, 0, 0], 1);
+        dds[80..84].copy_from_slice(&0x20u32.to_le_bytes()); // format_flags
+        dds.extend_from_slice(&[3, 5]);
+        assert!(matches!(
+            decode(&dds, SourceFormat::Dds),
+            Err(ConvertError::Unsupported("pixel masks"))
+        ));
+        // A8 — alpha mask only — still decodes to (0, 0, 0, a).
+        let mut a8 = uncompressed_dds(2, 1, 2, 8, [0, 0, 0, 0xff], 1);
+        a8.extend_from_slice(&[3, 5]);
+        assert_eq!(
+            decode(&a8, SourceFormat::Dds).unwrap().mips[0],
+            [0, 0, 0, 3, 0, 0, 0, 5]
+        );
+    }
+
+    #[test]
+    fn a_u32_max_dimension_declaration_is_truncated_not_a_panic() {
+        // u32::MAX x u32::MAX blocks overflow the mip-size product: the mip
+        // lookup is Truncated rather than an arithmetic panic.
+        let mut dds = Vec::new();
+        dds.extend_from_slice(b"DDS ");
+        dds.extend_from_slice(&124u32.to_le_bytes());
+        dds.extend_from_slice(&(0x1u32 | 0x2 | 0x4 | 0x1000).to_le_bytes());
+        dds.extend_from_slice(&u32::MAX.to_le_bytes()); // height
+        dds.extend_from_slice(&u32::MAX.to_le_bytes()); // width
+        dds.extend_from_slice(&0u32.to_le_bytes()); // linear size
+        dds.extend_from_slice(&0u32.to_le_bytes()); // depth
+        dds.extend_from_slice(&1u32.to_le_bytes()); // mipmaps
+        dds.extend_from_slice(&[0u8; 44]);
+        dds.extend_from_slice(&32u32.to_le_bytes()); // pixel format size
+        dds.extend_from_slice(&0x4u32.to_le_bytes()); // DDPF_FOURCC
+        dds.extend_from_slice(b"DXT5");
+        dds.extend_from_slice(&[0u8; 20]); // bit count and masks
+        dds.extend_from_slice(&0x1000u32.to_le_bytes()); // caps1: texture
+        dds.extend_from_slice(&[0u8; 16]);
+        assert!(matches!(
+            decode(&dds, SourceFormat::Dds),
+            Err(ConvertError::Truncated)
+        ));
+    }
+
+    #[test]
+    fn convert_rejects_an_inconsistent_decoded() {
+        let target = Target {
+            version: PesVersion::Pes17,
+            role: TextureRole::Color,
+        };
+        let base = || decode(BC3, SourceFormat::Dds).unwrap();
+        let refuse = |decoded: &Decoded, what: &str| {
+            assert!(
+                matches!(
+                    convert(decoded, target),
+                    Err(ConvertError::InvalidDecoded(_))
+                ),
+                "{what}"
+            );
+        };
+
+        let mut zero = base();
+        zero.width = 0;
+        refuse(&zero, "zero dimension");
+
+        // Zero on one axis alone, with a mip sized for it: only the
+        // dimension rule can fire.
+        let mut thin = base();
+        thin.width = 0;
+        thin.mips = vec![vec![0u8; 16 * 4]];
+        thin.blocks = None;
+        refuse(&thin, "zero on one axis");
+
+        let mut empty = base();
+        empty.mips.clear();
+        refuse(&empty, "no mips");
+
+        // authored_mips = false means a raster decode, which is one mip.
+        let mut raster = base();
+        raster.authored_mips = false;
+        raster.blocks = None;
+        refuse(&raster, "unauthored chain");
+
+        // 32x16 bottoms out at six levels; a seventh has no pixels left.
+        let mut deep = base();
+        deep.mips.push(deep.mips.last().unwrap().clone());
+        deep.blocks = None;
+        refuse(&deep, "mip count past the dimensions");
+
+        let mut short = base();
+        short.mips[0].truncate(4);
+        refuse(&short, "mip size");
+
+        let mut count = base();
+        count.blocks.as_mut().unwrap().mips.pop();
+        refuse(&count, "block mip count");
+
+        let mut size = base();
+        size.blocks.as_mut().unwrap().mips[0].push(0);
+        refuse(&size, "block mip size");
+
+        // A decoded value always validates.
+        convert(&base(), target).unwrap();
     }
 
     #[test]
