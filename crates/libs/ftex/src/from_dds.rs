@@ -51,6 +51,16 @@ pub fn dds_to_ftex(dds: &[u8], color_space: ColorSpace) -> Result<Vec<u8>, FtexE
 
     let format = detect_format(dds_header.format_flags, &dds_header, &mut cursor)?;
 
+    // FTEX has no pitch field: a declared row pitch wider than the tight
+    // row would land its padding in the pixels.
+    if dds_header.flags & crate::dds::DDSD_PITCH != 0
+        && DdsPixel::Format(format)
+            .row_bytes(dds_header.width)
+            .is_some_and(|tight| u64::from(dds_header.pitch_or_linear_size) > tight)
+    {
+        return Err(FtexError::UnsupportedDds("padded rows"));
+    }
+
     let mut texture_type = color_space.texture_type();
     if is_cube_map {
         texture_type |= 0x4;

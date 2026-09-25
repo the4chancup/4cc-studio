@@ -425,6 +425,16 @@ mod tests {
     }
 
     #[test]
+    fn mip_size_saturates_past_usize() {
+        // A u32::MAX square cannot fit usize even on 64-bit; the size
+        // saturates so the slice lookup it bounds fails as `Truncated`.
+        assert_eq!(
+            mip_size(PixelFormat::Argb8, u32::MAX, u32::MAX, 1, 0),
+            usize::MAX
+        );
+    }
+
+    #[test]
     fn dx10_volume_declarations_are_rejected() {
         let dx10 = ftex_to_dds(BC7).unwrap();
         // A 3D resource dimension, depth field 1.
@@ -441,6 +451,29 @@ mod tests {
             dds::read_layout(&deep),
             Err(FtexError::UnsupportedDds("volume texture"))
         ));
+    }
+
+    #[test]
+    fn dx10_premultiplied_alpha_is_refused() {
+        // misc_flags2's low three bits are the alpha mode: 2 is
+        // premultiplied, which the straight-alpha decode cannot honour.
+        let dx10 = ftex_to_dds(BC7).unwrap();
+        let mut premultiplied = dx10.clone();
+        premultiplied[144..148].copy_from_slice(&2u32.to_le_bytes());
+        assert!(matches!(
+            dds::read_layout(&premultiplied),
+            Err(FtexError::UnsupportedDds("premultiplied alpha"))
+        ));
+        // Straight (1) and opaque (3) still read.
+        for mode in [1u32, 3] {
+            let mut dds = dx10.clone();
+            dds[144..148].copy_from_slice(&mode.to_le_bytes());
+            assert_eq!(
+                dds::read_layout(&dds).unwrap().pixel,
+                dds::DdsPixel::Format(PixelFormat::Bc7),
+                "mode {mode}"
+            );
+        }
     }
 
     /// A minimal 128-byte legacy-header DDS: `format_flags` carries the
@@ -812,5 +845,163 @@ mod tests {
         // single zlib stream (chunk count 0, compressed size > 0).
         assert_eq!(ftex_to_dds(RAW_FRAMES).unwrap(), BC1_DDS);
         assert_eq!(ftex_to_dds(SINGLE_ZLIB).unwrap(), BC1_DDS);
+    }
+
+    #[test]
+    fn a_chunk_past_the_filled_frame_is_not_read() {
+        // BC1's first frame gets one extra chunk record, dangling past the
+        // end of the file; the frame's own chunks already fill it, so the
+        // dangling record is never consulted.
+        let record = |index: usize| &BC1[64 + 16 * index..80 + 16 * index];
+        let frame_offset =
+            |index: usize| u32::from_le_bytes(record(index)[..4].try_into().unwrap()) as usize;
+        // Konami stores the frames smallest-first: the end of each frame is
+        // the next offset in sorted order (or the end of the file).
+        let mut offsets: Vec<usize> = (0..3).map(&frame_offset).collect();
+        offsets.sort_unstable();
+        let end = |start: usize| {
+            offsets
+                .iter()
+                .copied()
+                .find(|offset| *offset > start)
+                .unwrap_or(BC1.len())
+        };
+        let frames: Vec<&[u8]> = (0..3)
+            .map(|index| &BC1[frame_offset(index)..end(frame_offset(index))])
+            .collect();
+        let chunk_count = u16::from_le_bytes(record(0)[14..16].try_into().unwrap()) as usize;
+
+        let mut ftex = BC1[..64].to_vec();
+        let mut position = (64 + 3 * 16) as u32;
+        for index in 0..3 {
+            let mut patched = record(index).to_vec();
+            patched[..4].copy_from_slice(&position.to_le_bytes());
+            if index == 0 {
+                patched[14..16].copy_from_slice(&((chunk_count as u16 + 1).to_le_bytes()));
+                // The frame blob grew by the record's eight bytes.
+                let size = u32::from_le_bytes(patched[8..12].try_into().unwrap()) + 8;
+                patched[8..12].copy_from_slice(&size.to_le_bytes());
+                position += frames[0].len() as u32 + 8;
+            } else {
+                position += frames[index].len() as u32;
+            }
+            ftex.extend_from_slice(&patched);
+        }
+        // The widened chunk table shifts every stored offset by a record.
+        let mut table = frames[0][..8 * chunk_count].to_vec();
+        for index in 0..chunk_count {
+            let offset =
+                u32::from_le_bytes(table[8 * index + 4..8 * index + 8].try_into().unwrap()) + 8;
+            table[8 * index + 4..8 * index + 8].copy_from_slice(&offset.to_le_bytes());
+        }
+        ftex.extend_from_slice(&table);
+        ftex.extend_from_slice(&8u16.to_le_bytes()); // dangling compressed size
+        ftex.extend_from_slice(&8u16.to_le_bytes()); // dangling uncompressed size
+        ftex.extend_from_slice(&0x1000000u32.to_le_bytes()); // dangling offset
+        ftex.extend_from_slice(&frames[0][8 * chunk_count..]);
+        ftex.extend_from_slice(frames[1]);
+        ftex.extend_from_slice(frames[2]);
+
+        assert_eq!(ftex_to_dds(&ftex).unwrap(), BC1_DDS);
+    }
+
+    #[test]
+    fn a_single_zlib_frame_inflates_only_to_its_expected_size() {
+        use std::io::Write as _;
+        // One mip stored as a single zlib stream that inflates to a
+        // megabyte, far past the 128-byte BC1 mip it describes. The stream
+        // is cut after the bytes the frame needs, so only a bounded
+        // inflate can finish.
+        let mut encoder = flate2::write::ZlibEncoder::new(Vec::new(), flate2::Compression::new(3));
+        encoder.write_all(&[0xABu8; 1 << 20]).unwrap();
+        let mut stream = encoder.finish().unwrap();
+        stream.truncate(stream.len() / 2);
+
+        let mut ftex = BC1[..64].to_vec();
+        ftex[16] = 1; // one mip level
+        ftex.extend_from_slice(&80u32.to_le_bytes()); // frame offset
+        ftex.extend_from_slice(&128u32.to_le_bytes()); // uncompressed size
+        ftex.extend_from_slice(&(stream.len() as u32).to_le_bytes()); // compressed size
+        ftex.extend_from_slice(&[0u8, 0]); // mip index, ftexs number
+        ftex.extend_from_slice(&0u16.to_le_bytes()); // chunk count: one stream
+        ftex.extend_from_slice(&stream);
+
+        let dds = ftex_to_dds(&ftex).unwrap();
+        assert_eq!(dds.len(), 128 + 128);
+        assert_eq!(dds[128..].to_vec(), vec![0xABu8; 128]);
+    }
+
+    #[test]
+    fn a_chunk_inflates_only_the_bytes_the_frame_needs() {
+        use std::io::Write as _;
+        // The frame's first raw chunk leaves four bytes; the second chunk's
+        // stream is cut after the first bytes it inflates, so only an
+        // inflate bounded to the bytes still needed can finish.
+        let mut encoder = flate2::write::ZlibEncoder::new(Vec::new(), flate2::Compression::new(3));
+        let content: Vec<u8> = (0..512u16).map(|i| (i % 256) as u8).collect();
+        encoder.write_all(&content).unwrap();
+        let mut stream = encoder.finish().unwrap();
+        stream.truncate(stream.len() / 2);
+
+        let mut ftex = BC1[..64].to_vec();
+        ftex[16] = 1; // one mip level
+        ftex.extend_from_slice(&80u32.to_le_bytes()); // frame offset
+        ftex.extend_from_slice(&128u32.to_le_bytes()); // uncompressed size
+        ftex.extend_from_slice(&0u32.to_le_bytes()); // compressed size
+        ftex.extend_from_slice(&[0u8, 0]); // mip index, ftexs number
+        ftex.extend_from_slice(&2u16.to_le_bytes()); // chunk count
+        // Chunk records: a raw 124-byte piece, then the broken stream.
+        ftex.extend_from_slice(&124u16.to_le_bytes()); // stored
+        ftex.extend_from_slice(&124u16.to_le_bytes()); // uncompressed
+        ftex.extend_from_slice(&16u32.to_le_bytes()); // after the two records
+        ftex.extend_from_slice(&(stream.len() as u16).to_le_bytes());
+        ftex.extend_from_slice(&512u16.to_le_bytes());
+        ftex.extend_from_slice(&140u32.to_le_bytes()); // after the raw piece
+        ftex.extend_from_slice(&[0xEEu8; 124]);
+        ftex.extend_from_slice(&stream);
+
+        let dds = ftex_to_dds(&ftex).unwrap();
+        assert_eq!(
+            dds[128..].to_vec(),
+            [&[0xEEu8; 124][..], &content[..4][..]].concat()
+        );
+    }
+
+    #[test]
+    fn dds_to_ftex_rejects_a_row_pitch_past_the_tight_row() {
+        // A 2x2 DX10 R8 source declaring pitch 4 when its tight row is 2:
+        // the padding would land in the pixels, and FTEX has no pitch
+        // field to carry it.
+        let mut dds = Vec::new();
+        dds.extend_from_slice(b"DDS ");
+        dds.extend_from_slice(&124u32.to_le_bytes());
+        dds.extend_from_slice(&(0x1u32 | 0x2 | 0x4 | 0x8 | 0x1000).to_le_bytes());
+        dds.extend_from_slice(&2u32.to_le_bytes()); // height
+        dds.extend_from_slice(&2u32.to_le_bytes()); // width
+        dds.extend_from_slice(&4u32.to_le_bytes()); // declared pitch
+        dds.extend_from_slice(&0u32.to_le_bytes()); // depth
+        dds.extend_from_slice(&1u32.to_le_bytes()); // mipmaps
+        dds.extend_from_slice(&[0u8; 44]);
+        dds.extend_from_slice(&32u32.to_le_bytes()); // pixel format size
+        dds.extend_from_slice(&0x4u32.to_le_bytes()); // DDPF_FOURCC
+        dds.extend_from_slice(b"DX10");
+        dds.extend_from_slice(&[0u8; 20]); // bit count and masks
+        dds.extend_from_slice(&0x1000u32.to_le_bytes()); // caps1: texture
+        dds.extend_from_slice(&[0u8; 16]);
+        dds.extend_from_slice(&61u32.to_le_bytes()); // DXGI R8_UNORM
+        dds.extend_from_slice(&3u32.to_le_bytes()); // 2D
+        dds.extend_from_slice(&0u32.to_le_bytes()); // misc flags
+        dds.extend_from_slice(&1u32.to_le_bytes()); // array size
+        dds.extend_from_slice(&0u32.to_le_bytes()); // misc flags 2
+        // Two rows padded to four bytes.
+        dds.extend_from_slice(&[10, 20, 0, 0, 30, 40, 0, 0]);
+        assert!(matches!(
+            dds_to_ftex(&dds, ColorSpace::Linear),
+            Err(FtexError::UnsupportedDds("padded rows"))
+        ));
+        // Without DDSD_PITCH the field is a linear size, not a row pitch:
+        // the same header converts.
+        dds[8..12].copy_from_slice(&(0x1u32 | 0x2 | 0x4 | 0x1000).to_le_bytes());
+        assert!(dds_to_ftex(&dds, ColorSpace::Linear).is_ok());
     }
 }

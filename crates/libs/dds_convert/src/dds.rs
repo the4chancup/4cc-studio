@@ -146,7 +146,7 @@ fn decode_mip(
         ),
         DdsPixel::Format(_) => {
             let (_, variant) = codec.ok_or(ConvertError::Unsupported("pixel format"))?;
-            Ok(decompress_mip(variant, width, height, data))
+            decompress_mip(variant, width, height, data)
         }
     }
 }
@@ -154,10 +154,24 @@ fn decode_mip(
 /// Decompresses one mip's blocks. The decoder writes whole 4x4 blocks, so a
 /// mip smaller than 4 on a side is decoded at its block-rounded size and
 /// cropped; rows beyond the mip's own pitch are dropped.
-fn decompress_mip(variant: CompressionVariant, width: u32, height: u32, blocks: &[u8]) -> Vec<u8> {
-    let padded_width = width.div_ceil(4) * 4;
-    let padded_height = height.div_ceil(4) * 4;
-    let mut padded = vec![0u8; (padded_width * padded_height * 4) as usize];
+fn decompress_mip(
+    variant: CompressionVariant,
+    width: u32,
+    height: u32,
+    blocks: &[u8],
+) -> Result<Vec<u8>, ConvertError> {
+    // The decoder takes u32 dimensions; the block grid is computed in u64
+    // so a dimension at the type's edge cannot wrap.
+    let padded_width =
+        u32::try_from(u64::from(width).div_ceil(4) * 4).map_err(|_| ConvertError::Truncated)?;
+    let padded_height =
+        u32::try_from(u64::from(height).div_ceil(4) * 4).map_err(|_| ConvertError::Truncated)?;
+    let padded_len = u64::from(padded_width)
+        .checked_mul(u64::from(padded_height))
+        .and_then(|pixels| pixels.checked_mul(4))
+        .and_then(|len| usize::try_from(len).ok())
+        .ok_or(ConvertError::Truncated)?;
+    let mut padded = vec![0u8; padded_len];
     decompress_blocks_as_rgba8(variant, padded_width, padded_height, blocks, &mut padded);
 
     // The decoder truncates the interpolated index values; the reference
@@ -169,7 +183,12 @@ fn decompress_mip(variant: CompressionVariant, width: u32, height: u32, blocks: 
     // build would move BC4 into the recomputed set.
     fix_interpolated_channels(variant, padded_width, padded_height, blocks, &mut padded);
 
-    let mut rgba = vec![0u8; (width * height * 4) as usize];
+    let rgba_len = u64::from(width)
+        .checked_mul(u64::from(height))
+        .and_then(|pixels| pixels.checked_mul(4))
+        .and_then(|len| usize::try_from(len).ok())
+        .ok_or(ConvertError::Truncated)?;
+    let mut rgba = vec![0u8; rgba_len];
     for y in 0..height as usize {
         let from = y * padded_width as usize * 4;
         let to = y * width as usize * 4;
@@ -189,7 +208,7 @@ fn decompress_mip(variant: CompressionVariant, width: u32, height: u32, blocks: 
             pixel[3] = 255;
         }
     }
-    rgba
+    Ok(rgba)
 }
 
 /// Rewrites the alpha-indexed channels of `padded` with rounded
@@ -271,6 +290,10 @@ fn decode_uncompressed(
     // Checked so a dimension product cannot wrap on a 32-bit target.
     let row_bytes = usize::try_from(u64::from(width) * bytes_per_pixel as u64)
         .map_err(|_| ConvertError::Truncated)?;
+    // No channel masks at all leaves nothing to decode.
+    if masks == [0; 4] {
+        return Err(ConvertError::Unsupported("pixel masks"));
+    }
     let mut channels = [None; 4];
     for (channel, mask) in masks.iter().enumerate() {
         if *mask == 0 {

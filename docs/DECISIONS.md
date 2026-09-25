@@ -1905,3 +1905,23 @@ Decision (agent, lead audit at converge):
   (the TYPELESS id; its own writer emits 2).
 Plan: `libs/dds_convert.md` ("In-process DDS conversion" decoding bullet, the accepted-format
 table's DDS row, the `decode` paragraph under "`dds_convert` API").
+
+## 2026-09-26 - ftex, dds_convert - converge review, first round
+Decision (agent, cross-family review at converge):
+- **Reads are bounded by what the texture needs, not by what the file declares.** `ftex_to_dds`
+  stops reading chunks once a frame holds its mip size and inflates only the bytes still
+  needed (a small file could otherwise inflate gigabytes that the frame then truncated), and
+  `mip_size` saturates instead of overflowing on `u32::MAX` dimensions. Output is unchanged for
+  every file the reference reads; a file corrupt only past the bytes a frame needs now converts
+  where the reference would raise.
+- **What has no straight-alpha RGBA decode is refused:** DX10 premultiplied alpha (alpha mode 2)
+  and uncompressed headers with no channel mask (paletted DDS), which decoded black.
+- **`dds_to_ftex` refuses a declared row pitch wider than the tight row** (`"padded rows"`): FTEX
+  has no pitch field, and the reference writes the padding into the pixels.
+- **`convert` validates a caller-built `Decoded`** (`InvalidDecoded`) rather than panicking or
+  passing wrongly sized blocks through; the 2.17h rule that a caller-built value meets a parsed
+  one's rules.
+- **Cache retention stays unbounded until the Phase 4 memory budget** exists (worklog 4.y);
+  `Converter` exposes `retained_bytes` and `clear` for it.
+Plan: `libs/dds_convert.md` (the `decode` paragraph under "`dds_convert` API", "In-memory
+conversion cache" retention bullet).

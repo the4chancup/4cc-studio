@@ -132,7 +132,7 @@ const CAPS2_CUBE: u32 = 0x200;
 /// The `DDSCAPS2` bit that marks a volume texture.
 const CAPS2_VOLUME: u32 = 0x200000;
 /// The `DDSD` flag saying `pitch_or_linear_size` is a row pitch.
-const DDSD_PITCH: u32 = 0x8;
+pub(crate) const DDSD_PITCH: u32 = 0x8;
 /// The DX10 `misc_flags` bit that marks a cube map.
 const DX10_MISC_CUBE: u32 = 0x4;
 
@@ -178,6 +178,11 @@ pub fn read_layout(dds: &[u8]) -> Result<DdsLayout, FtexError> {
                 }
                 if ext.misc_flags & DX10_MISC_CUBE != 0 {
                     return Err(FtexError::UnsupportedDds("cube map"));
+                }
+                // The low three bits of misc_flags2 are the alpha mode;
+                // 2 (premultiplied) has no straight-alpha decode.
+                if ext.misc_flags2 & 0x7 == 2 {
+                    return Err(FtexError::UnsupportedDds("premultiplied alpha"));
                 }
                 single_image(&ext)?;
                 data_offset = 148;

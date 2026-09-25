@@ -188,7 +188,12 @@ impl Converter {
 SNORM, BC6H SF16) (`ConvertError::Unsupported`): nothing in an export is one, and a signed block
 relabelled unsigned would silently change the texture. It also rejects a zero width or height and
 a mip count past what the dimensions halve into (`log2(larger side) + 1`), as D3D and texconv's
-default loader do; `ftex`'s own FTEX↔DDS conversions keep pes-file-tools' acceptance of both. An uncompressed DDS whose header declares a row pitch wider
+default loader do; `ftex`'s own FTEX↔DDS conversions keep pes-file-tools' acceptance of both. A DX10
+header declaring premultiplied alpha and an uncompressed header with no channel mask at all
+(a paletted DDS) are refused too, since neither has a straight-alpha decode. `convert` checks a
+`Decoded` it did not produce against the same rules (`ConvertError::InvalidDecoded`: nonzero
+dimensions, one mip per level with `width * height * 4` bytes, block buffers sized for their
+codec). An uncompressed DDS whose header declares a row pitch wider
 than its rows (some exporters pad rows to 4 bytes) is read at that pitch, each lower mip at the
 same 4-byte row alignment. `Decoded.authored_mips` says whether the source format carries a mip
 chain (DDS/FTEX, its level count is kept) or not (raster, a chain is generated). A WESYS-wrapped DDS (PES 15–17 sources) is unwrapped first through `wezlib`. The DDS
@@ -232,6 +237,9 @@ unchanged textures reuse its converted bytes; eviction may require conversion ag
   the shared memory budget even after a task finishes; evict reusable cache entries under pressure
   so they cannot prevent working tasks from acquiring memory. Bypassing the cache for a large run
   does not by itself release entries retained by earlier small runs.
+  The policy belongs to the Team compiler pipeline's memory budget (Phase 4), which does not
+  exist before it: until then `Converter` retains every distinct conversion until `clear`, and
+  exposes `retained_bytes` and `clear` as the hooks the budget uses.
 
 **What it covers and doesn't:** repeated one/two-team compiles benefit when their working set
 fits the cache. A fresh full-cup compile bypasses it and must pay for every required conversion.
