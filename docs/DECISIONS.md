@@ -1945,3 +1945,22 @@ Decision (agent, cross-family review at converge):
   `(L, A, 0, 255)`. Neither is a grey with alpha, and no export uses the format.
 Plan: `libs/dds_convert.md` (the accepted-format table's TIFF row, the `decode` paragraph under
 "`dds_convert` API").
+
+## 2026-09-26 - ftex, dds_convert, wezlib - converge review, third round
+Decision (agent, cross-family review at converge):
+- **`wezlib::decompress` inflates at most one byte past the declared length**, so a WESYS
+  wrapper cannot inflate more than it declares (the texture reader's bounds were bypassed by
+  the unwrap in front of them).
+- **Legacy bump-map headers are refused** (`DDPF_BUMPDUDV`, `DDPF_BUMPLUMINANCE`: signed
+  components), and **`BC4U` reads as BC4** (DirectXTex `DDSPF_BC4_UNORM`).
+- **TIFF associated alpha is un-multiplied at 16 bits** for every source, then reduced by
+  `image`; for 8-bit sources the result is byte-identical to an 8-bit un-multiply (checked over
+  every pair), so there is one path.
+- **The encoder borrows source mips and pads only unaligned ones**; its padded sizes are
+  checked (`InvalidDecoded("dimensions")`).
+- **Header size fields saturate**: `build_header` writes `u32::MAX` for an Argb8 pitch or a
+  linear size the field cannot hold, instead of panicking (debug) or truncating (release); this
+  replaces the 2026-09-24 truncation gap. Readers derive the size from the dimensions.
+- **Method (user decision):** the review loop has no round ceiling (`AGENTS.md` "Second
+  opinion"); this surface continues to a fourth round.
+Plan: `libs/dds_convert.md` (TIFF row, the `decode` paragraph under "`dds_convert` API").

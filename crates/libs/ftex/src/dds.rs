@@ -34,7 +34,7 @@ pub(crate) struct DdsHeader {
     #[brw(pad_before = 44)]
     pub pixel_format_size: u32,
     /// `DDPF_*` flags: 0x4 = FourCC, 0x40 = RGB, 0x1 = alpha pixels,
-    /// 0x20 = paletted, 0x20000 = luminance.
+    /// 0x20 = paletted, 0x40000/0x80000 = bump, 0x20000 = luminance.
     pub format_flags: u32,
     /// The FourCC code (`DXT1`, `DX10`, ...), zero when `format_flags` has no 0x4.
     pub fourcc: [u8; 4],
@@ -245,6 +245,11 @@ pub(crate) fn uncompressed_pixel(header: &DdsHeader) -> Result<DdsPixel, FtexErr
     if header.format_flags & 0x20 != 0 {
         return Err(FtexError::UnsupportedDds("paletted"));
     }
+    // DDPF_BUMPDUDV / DDPF_BUMPLUMINANCE: signed bump components, not
+    // unsigned pixels.
+    if header.format_flags & (0x80000 | 0x40000) != 0 {
+        return Err(FtexError::UnsupportedDds("signed bump map"));
+    }
     if header.format_flags & 0x40 != 0
         && header.format_flags & 0x1 != 0
         && header.r_mask == 0x00ff0000
@@ -282,7 +287,7 @@ pub(crate) fn fourcc_format(fourcc: &[u8; 4]) -> Option<PixelFormat> {
         b"DXT1" => PixelFormat::Bc1,
         b"DXT3" => PixelFormat::Bc2,
         b"DXT5" => PixelFormat::Bc3,
-        b"ATI1" => PixelFormat::Bc4,
+        b"ATI1" | b"BC4U" => PixelFormat::Bc4,
         b"ATI2" | b"BC5U" => PixelFormat::Bc5,
         _ => return None,
     })
@@ -364,7 +369,10 @@ pub(crate) fn build_header(
         if format == PixelFormat::Argb8 {
             dds_flags |= 0x8; // pitch
             (
-                4 * width,
+                // The u32 field cannot hold a size past its maximum; it
+                // saturates and readers derive the real size from the
+                // dimensions.
+                u32::try_from(4 * u64::from(width)).unwrap_or(u32::MAX),
                 0x41u32,
                 [0u8; 4],
                 32u32,
@@ -374,7 +382,7 @@ pub(crate) fn build_header(
         } else {
             dds_flags |= 0x80000;
             (
-                mip_size(format, width, height, depth, 0) as u32,
+                u32::try_from(mip_size(format, width, height, depth, 0) as u64).unwrap_or(u32::MAX),
                 0x4u32,
                 format.fourcc().unwrap_or([0; 4]),
                 0u32,

@@ -1,23 +1,26 @@
 //! Mipmap generation: a 2x2 box average of straight-alpha RGBA8 pixels.
 
-/// One RGBA8 mip level, tightly packed row-major.
+use std::borrow::Cow;
+
+/// One RGBA8 mip level, tightly packed row-major. A level copied from a
+/// decoded source borrows; a generated level owns.
 #[derive(Clone)]
-pub(crate) struct Mip {
+pub(crate) struct Mip<'a> {
     pub width: u32,
     pub height: u32,
-    pub pixels: Vec<u8>,
+    pub pixels: Cow<'a, [u8]>,
 }
 
 /// Builds the full mip chain below `top`, down to 1x1. Each output pixel is
 /// the 2x2 box average of the level above, rounded to nearest; on an odd
 /// edge the row or column that exists is averaged alone.
-pub(crate) fn generate(width: u32, height: u32, top: &[u8]) -> Vec<Mip> {
+pub(crate) fn generate(width: u32, height: u32, top: &[u8]) -> Vec<Mip<'static>> {
     let mut chain = Vec::new();
     let (mut width, mut height) = (width, height);
     while width > 1 || height > 1 {
         let pixels = chain
             .last()
-            .map_or(top, |level: &Mip| level.pixels.as_slice());
+            .map_or(top, |level: &Mip| level.pixels.as_ref());
         let level = downsample(width, height, pixels);
         width = level.width;
         height = level.height;
@@ -26,7 +29,7 @@ pub(crate) fn generate(width: u32, height: u32, top: &[u8]) -> Vec<Mip> {
     chain
 }
 
-fn downsample(source_width: u32, source_height: u32, source: &[u8]) -> Mip {
+fn downsample(source_width: u32, source_height: u32, source: &[u8]) -> Mip<'static> {
     let width = (source_width / 2).max(1);
     let height = (source_height / 2).max(1);
     let mut pixels = vec![0u8; (width * height * 4) as usize];
@@ -56,6 +59,6 @@ fn downsample(source_width: u32, source_height: u32, source: &[u8]) -> Mip {
     Mip {
         width,
         height,
-        pixels,
+        pixels: Cow::Owned(pixels),
     }
 }
