@@ -2000,3 +2000,20 @@ Decision (agent, cross-family review at converge):
 - **The DDS alpha-mask gate runs before classification**, so an undeclared alpha mask no longer
   keeps an L8 header from reading as R8.
 Plan: `libs/dds_convert.md` (TGA row, the `decode` paragraph under "`dds_convert` API").
+
+## 2026-09-26 - ftex, dds_convert - converge review, sixth round (loop ends)
+Decision (agent, cross-family review at converge):
+- **Allocation lengths derived from texture dimensions are refused past `isize::MAX`**
+  (`Unsupported`): on wasm32 a 2 GiB buffer passed every earlier check and panicked with a
+  capacity overflow. Mip generation keeps its infallible signature: its levels are smaller than
+  a top level that already exists in memory, under `validate`'s 4 GiB cap.
+- **ARGB8 and luminance-R8 classification match the bit count** (DirectXTex matches bit counts
+  before masks): a 24-bit header with ARGB8 masks read as 32-bit pixels.
+- **BC7 presets**: on fully opaque pixels `opaque_basic` and `alpha_basic` emit identical
+  blocks (measured on the fixture and on random opaque inputs); the opaque branch stays because
+  it does less work. The branch is tested through its translucent arm, where they differ.
+- **JPEG, BMP and WebP are decoded in tests** against Pillow's decodes (lead fixtures,
+  `fixtures_raster_formats.py`); JPEG within 2 per channel.
+- **Loop result:** six rounds, 7/7/7/7/5/4 accepted (round 4 the union of a resumed and a fresh
+  reviewer; round 5 plus one lead finding). The surface closes under the accept-rate rule.
+Plan: `libs/dds_convert.md` (the `decode` paragraph under "`dds_convert` API").

@@ -1153,6 +1153,39 @@ mod tests {
     }
 
     #[test]
+    fn pixel_format_shortcuts_check_the_bit_count() {
+        // DirectXTex matches bit counts before masks (DDS.cpp:222): the
+        // canonical ARGB8 masks on a 24-bit pixel fall to the generic
+        // layout, and the luminance-flag R8 match is bit-counted like the
+        // NVTT branch already is.
+        let argb8 = [0xff0000, 0xff00, 0xff, 0xff000000];
+        assert_eq!(
+            dds::read_layout(&legacy_dds(0x41, [0; 4], 24, argb8))
+                .unwrap()
+                .pixel,
+            dds::DdsPixel::Uncompressed {
+                bit_count: 24,
+                r_mask: 0xff0000,
+                g_mask: 0xff00,
+                b_mask: 0xff,
+                a_mask: 0xff000000,
+            }
+        );
+        assert_eq!(
+            dds::read_layout(&legacy_dds(0x20000, [0; 4], 16, [0xff, 0, 0, 0]))
+                .unwrap()
+                .pixel,
+            dds::DdsPixel::Uncompressed {
+                bit_count: 16,
+                r_mask: 0xff,
+                g_mask: 0,
+                b_mask: 0,
+                a_mask: 0,
+            }
+        );
+    }
+
+    #[test]
     fn rgb_headers_drop_an_undeclared_alpha_mask() {
         // Without DDPF_ALPHAPIXELS / DDPF_ALPHA the fourth mask declares
         // no channel (DirectXTex's RGB match ignores it, DDS.cpp:274-279).

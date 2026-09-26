@@ -564,41 +564,22 @@ Spec: `docs/plans/core/development_plan.md` "Phase 2", `docs/plans/libs/README.m
     decoder before committing. Reviewer rounds: 5 → 5 accepted, then (as an experiment, see the
     2026-09-23 log line) 3 → 3 accepted; loop ended. Decision entry. Untested by construction:
     the wasm32 `checked_add`s in `utf.rs` (64-bit host)
-  - [~] 2.20d `ftex` + `dds_convert` — first rework landed: 110 survivors triaged (tests for
-    the table arms, boundaries, cube/volume/ftexs guards, raw and single-zlib frames, extensions,
-    mip rounding; four redundant length pre-checks removed; one mip-count rule; the volume/2D
-    branches merged; dead arms and unfireable `encode_image` errors gone). Fixes: one-channel
-    decode grey (BC4/R8/L8, as texconv), DXGI 96 refused as signed, `mip_size` panic-free past
-    level 31, checked `dds_convert` sizes, `read_layout` rejects zero dimensions and excess mips,
-    `DdsPixel::row_bytes` the one tight-row rule, `ftex`'s unconsumed `pub` items crate-private.
-    Rework finding: texconv 2024.1.1.1 (the fixtures' build) truncates BC4's R8 store (upstream
-    rounds since 2026, #671), so BC4 is not recomputed. Mutants: ftex 262 / 0 missed, dds_convert
-    292 / 0 missed (4 timeouts, the `mips.rs` loop condition diverging). Lead fixtures
-    (`ftex_fixtures.py`, `fixtures_dds_converge.py`), census `.tmp/ftex_census*.txt`. Plan
-    sentences + decision entry written (`c621896`). Reviewer round 1: 7 returned, 7 accepted
-    (`.tmp/review_rulings_2_20d.md`): bounded frame reads and saturating `mip_size`, premultiplied
-    alpha and mask-less headers refused, `dds_to_ftex` refuses padded rows, `convert` validates a
-    caller-built `Decoded`, cache retention moved to Phase 4 step 4.y; mutants-diff 68 / 0 missed.
-    Round 2: 7 returned, 7 accepted (`6157fd7`..): raw frames bounded, TIFF associated alpha
-    un-multiplied (`tiff` direct dep at `image`'s version), paletted DDS refused, NVTT v1 L8 read
-    as R8, `row_bytes` for every pixel-stored format, `validate` checked, no discarded block
-    copy; lead fixtures `l8_nvtt1`, `rgba_{associated,unassociated}.tiff`
-    (`fixtures_dds_converge_r2.py`, Pillow as the TIFF oracle); mutants-diff 46 / 0 missed.
-    Round 3: 7 returned, 7 accepted: `wezlib` inflation bounded, bump maps refused, `BC4U`,
-    16-bit TIFF un-multiply, encoder borrows and pads only unaligned mips, header fields
-    saturate, parity test compares lengths; mutants-diff 59 / 1 equivalent, removed by merging
-    the two un-multiply paths. Ceiling removed (user). Round 4, run resumed and fresh in
-    parallel: resumed 4 (all within fresh's 7), union 7 accepted; reviewers stay fresh. Fixes:
-    `read_layout` mip count from the field alone (DirectXTex), legacy `DDSD_DEPTH` volumes and
-    block textures past the decoder's u32 offsets refused, alpha mask only under an alpha flag,
-    premultiplied TGA un-multiplied, 16-bit TGA refused, float TIFF un-multiplied in f32;
-    mutants-diff 63 / 2 missed, both equivalent (one removed by keeping the single integer
-    un-multiply path) (`9a4cce1`). Round 5: 5 returned, 5 accepted, plus the lead's all-zero-alpha
-    TGA finding: TGA allocation limit restored, interleaved TGA refused, all-zero-alpha TGA
-    opaque (texconv default), `validate` caps a caller-built `Decoded` at 4 GiB, `dds_to_ftex`
-    frame sizes/offsets checked (by construction), alpha-mask gate before L8 classification;
-    mutants-diff 34 / 9 missed: 4 in a dead record-table overflow check, since removed (at most
-    6 x 255 records), 1 equivalent, 4 in error values reachable only past 4 GiB. Next: round 6
+  - [x] 2.20d `ftex` + `dds_convert` — 110 survivors triaged (tests, redundant checks removed,
+    one mip-count rule, dead arms gone); `ftex`'s unconsumed `pub` items crate-private; lead
+    fixtures `ftex_fixtures.py`, `fixtures_dds_converge{,_r2}.py`, `fixtures_raster_formats.py`
+    (texconv 2024.1.1.1 and Pillow as oracles), census `.tmp/ftex_census*.txt` (`c621896`).
+    Reviewer loop, six rounds, 7/7/7/7/5/4 accepted (`6157fd7`, `0703e20`, `76d6a08`,
+    `9a4cce1`, `7af2de3`, this commit; rulings `.tmp/review_rulings_2_20d.md`): bounded reads
+    (FTEX frames, WESYS inflate), checked sizes and allocations (4 GiB decoder/validate caps,
+    `isize::MAX` on wasm32), texconv parity (one-channel grey, mip count from the field, NVTT
+    L8, `BC4U`, bit-count and alpha-flag matching, legacy `DDSD_DEPTH` volumes; TGA:
+    premultiplied, all-zero alpha, 16-bit and interleaved refused), straight alpha (TIFF at
+    source precision, premultiplied/paletted/bump/signed refused), encoder borrows source mips,
+    JPEG/BMP/WebP/opaque-BC7 tests. Round 4 ran a resumed and a fresh reviewer: resumed found
+    4, all within fresh's 7; reviewers stay fresh. Decision entries per round. Deferred: cache
+    retention (4.y). Retained gaps (decision entries): hostile FTEX padding in `ftex_to_dds`,
+    legacy A8L8 decode, DXGI 2 for RGBA32F. Untested by construction: `dds_to_ftex`'s frame
+    offset checks (need a >4 GiB frame area), the wasm32 `alloc_len` path (64-bit host)
   Known inputs from round C: (a) whole-crate mutation runs left survivors to triage in cpk (28),
   ftex (80), dds_convert (30): table-variant arms, boundary comparisons, `write_cell` and
   `Writer::finish` padding math; the other thirteen crates have not been run; (b)
@@ -856,3 +837,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   pool). `AGENTS.md` "Second opinion" now continues on the accept count alone (five or more
   accepted, whatever was returned) and bans "do not pad" from the brief. Next: 2.20d `ftex` +
   `dds_convert`.
+- **2026-09-26** - 2.20d `ftex` + `dds_convert` done after six reviewer rounds (7/7/7/7/5/4
+  accepted); the loop closed on the accept-rate rule with no ceiling. Method finding: a reviewer
+  resumed from the previous round found a strict subset (4 of 7) of what a fresh one found on
+  the same surface, so reviewers stay fresh (`AGENTS.md` "Second opinion"). Next: 2.20e `fox2`.

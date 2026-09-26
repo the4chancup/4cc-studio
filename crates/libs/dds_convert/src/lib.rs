@@ -160,6 +160,19 @@ pub fn convert(decoded: &Decoded, target: Target) -> Result<Vec<u8>, ConvertErro
     encode::convert(decoded, target)
 }
 
+/// The `usize` length of a buffer a texture dimension declares. On a
+/// 32-bit target a length past `isize::MAX` would panic with a capacity
+/// overflow where it should be a refusal.
+pub(crate) fn alloc_len(len: u64) -> Result<usize, ConvertError> {
+    if len > isize::MAX as u64 {
+        return Err(ConvertError::Unsupported(
+            "texture larger than this target can hold",
+        ));
+    }
+    usize::try_from(len)
+        .map_err(|_| ConvertError::Unsupported("texture larger than this target can hold"))
+}
+
 /// Refuses a caller-built `Decoded` that `decode` could not produce.
 fn validate(decoded: &Decoded) -> Result<(), ConvertError> {
     if decoded.width == 0 || decoded.height == 0 {
@@ -734,6 +747,160 @@ mod tests {
             ),
             Err(ConvertError::InvalidDecoded("past 4 GiB"))
         ));
+    }
+
+    #[test]
+    fn alloc_len_stops_at_the_targets_index_limit() {
+        // A buffer's length must fit isize::MAX on every target (wasm32's
+        // usize is 4 GiB wide but its capacity limit is 2 GiB - 1): the
+        // boundary itself is what the helper enforces.
+        assert_eq!(alloc_len(isize::MAX as u64).unwrap(), isize::MAX as usize);
+        assert!(matches!(
+            alloc_len(isize::MAX as u64 + 1),
+            Err(ConvertError::Unsupported(
+                "texture larger than this target can hold"
+            ))
+        ));
+    }
+
+    #[test]
+    fn a_24_bit_header_with_argb8_masks_is_not_argb8() {
+        // DirectXTex matches bit counts before masks (DDS.cpp:222): the
+        // canonical mask set on a 24-bit pixel is the generic layout,
+        // whose fourth channel then sits past the pixel and is refused.
+        let mut dds = uncompressed_dds(2, 1, 0, 24, [0xff0000, 0xff00, 0xff, 0xff000000], 1);
+        dds[80..84].copy_from_slice(&0x41u32.to_le_bytes()); // RGB | ALPHAPIXELS
+        dds.extend_from_slice(&[0; 6]);
+        assert_eq!(
+            ftex::dds::read_layout(&dds).unwrap().pixel,
+            ftex::dds::DdsPixel::Uncompressed {
+                bit_count: 24,
+                r_mask: 0xff0000,
+                g_mask: 0xff00,
+                b_mask: 0xff,
+                a_mask: 0xff000000,
+            }
+        );
+        assert!(matches!(
+            decode(&dds, SourceFormat::Dds),
+            Err(ConvertError::Unsupported("pixel masks"))
+        ));
+    }
+
+    #[test]
+    fn an_opaque_bc7_source_uses_the_opaque_preset() {
+        // A fully opaque chain takes the opaque settings branch: the
+        // emitted level-0 blocks are the CPU encoder's opaque_basic
+        // output for the same pixels.
+        use block_compression::encode::compress_rgba8;
+        use block_compression::{BC7Settings, CompressionVariant};
+        let decoded = decode(PNG_OPAQUE, SourceFormat::Png).unwrap();
+        let ftex = convert(
+            &decoded,
+            Target {
+                version: PesVersion::Pes21,
+                role: TextureRole::Color,
+            },
+        )
+        .unwrap();
+        let round_dds = ftex::ftex_to_dds(&ftex).unwrap();
+        let layout = ftex::dds::read_layout(&round_dds).unwrap();
+        assert_eq!(
+            layout.pixel,
+            ftex::dds::DdsPixel::Format(ftex::PixelFormat::Bc7)
+        );
+        let variant = CompressionVariant::BC7(BC7Settings::opaque_basic());
+        let mut expected = vec![0u8; variant.blocks_byte_size(32, 16)];
+        compress_rgba8(variant, &decoded.mips[0], &mut expected, 32, 16, 128);
+        assert_eq!(
+            &round_dds[layout.data_offset..layout.data_offset + expected.len()],
+            expected.as_slice()
+        );
+        // The two presets coincide on fully-opaque pixels (the alpha
+        // channel is constant, so the extra channel weight and mode-7
+        // tuning never change the argmin — checked exhaustively over
+        // random opaque inputs); the translucent source is what makes the
+        // branch distinguishable: its emitted blocks are the alpha_basic
+        // encode, which the presets differ on.
+        let translucent = decode(PNG, SourceFormat::Png).unwrap();
+        let alpha_variant = CompressionVariant::BC7(BC7Settings::alpha_basic());
+        let mut alpha = vec![0u8; alpha_variant.blocks_byte_size(32, 16)];
+        compress_rgba8(alpha_variant, &translucent.mips[0], &mut alpha, 32, 16, 128);
+        let mut opaque_blocks = vec![0u8; variant.blocks_byte_size(32, 16)];
+        compress_rgba8(
+            variant,
+            &translucent.mips[0],
+            &mut opaque_blocks,
+            32,
+            16,
+            128,
+        );
+        assert_ne!(alpha, opaque_blocks);
+        let translucent_ftex = convert(
+            &translucent,
+            Target {
+                version: PesVersion::Pes21,
+                role: TextureRole::Color,
+            },
+        )
+        .unwrap();
+        let translucent_round = ftex::ftex_to_dds(&translucent_ftex).unwrap();
+        let translucent_layout = ftex::dds::read_layout(&translucent_round).unwrap();
+        assert_eq!(
+            &translucent_round
+                [translucent_layout.data_offset..translucent_layout.data_offset + alpha.len()],
+            alpha.as_slice()
+        );
+        // The decoded quality, judged like the translucent BC7 encode.
+        let generated: Vec<Vec<u8>> = std::iter::once(decoded.mips[0].clone())
+            .chain(
+                mips::generate(32, 16, &decoded.mips[0])
+                    .into_iter()
+                    .map(|mip| mip.pixels.into_owned()),
+            )
+            .collect();
+        let round = decode(&round_dds, SourceFormat::Dds).unwrap();
+        assert_not_worse_than_reference(
+            "png opaque -> pes21 bc7",
+            &generated,
+            &round.mips,
+            &generated,
+            &mips_of(BC1_D),
+        );
+    }
+
+    #[test]
+    fn bmp_webp_and_jpeg_sources_decode_to_the_expected_rgba() {
+        // Pillow's decode is the expected RGBA8 (fixture README, sixth
+        // round): BMP and lossless WebP exactly; JPEG within the IDCT
+        // rounding between decoders.
+        const BMP: &[u8] = include_bytes!("../tests/fixtures/source_opaque.bmp");
+        const BMP_RGBA: &[u8] = include_bytes!("../tests/fixtures/source_opaque.bmp.rgba");
+        const WEBP: &[u8] = include_bytes!("../tests/fixtures/source.webp");
+        const WEBP_RGBA: &[u8] = include_bytes!("../tests/fixtures/source.webp.rgba");
+        const JPG: &[u8] = include_bytes!("../tests/fixtures/source_opaque.jpg");
+        const JPG_RGBA: &[u8] = include_bytes!("../tests/fixtures/source_opaque.jpg.rgba");
+        for (bytes, format, expected) in [
+            (BMP, SourceFormat::Bmp, BMP_RGBA),
+            (WEBP, SourceFormat::WebP, WEBP_RGBA),
+        ] {
+            let decoded = decode(bytes, format).unwrap();
+            assert_eq!((decoded.width, decoded.height), (32, 16));
+            assert_eq!(decoded.mips.len(), 1);
+            assert!(!decoded.authored_mips);
+            assert_eq!(decoded.mips[0].as_slice(), expected);
+        }
+        let decoded = decode(JPG, SourceFormat::Jpeg).unwrap();
+        assert_eq!((decoded.width, decoded.height), (32, 16));
+        assert_eq!(decoded.mips.len(), 1);
+        assert!(!decoded.authored_mips);
+        let max_diff = decoded.mips[0]
+            .iter()
+            .zip(JPG_RGBA)
+            .map(|(ours, theirs)| ours.abs_diff(*theirs))
+            .max()
+            .unwrap_or(0);
+        assert!(max_diff <= 2, "jpg max channel diff {max_diff}");
     }
 
     #[test]
