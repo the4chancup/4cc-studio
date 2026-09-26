@@ -968,6 +968,16 @@ mod tests {
     }
 
     #[test]
+    fn a_raw_frame_reads_only_the_expected_size() {
+        // The first frame's record declares an uncompressed size past the
+        // end of the file; the frame holds the mip's own bytes, which is
+        // all the read needs.
+        let mut ftex = RAW_FRAMES.to_vec();
+        ftex[68..72].copy_from_slice(&0x1000000u32.to_le_bytes()); // rec0 uncompressed size
+        assert_eq!(ftex_to_dds(&ftex).unwrap(), BC1_DDS);
+    }
+
+    #[test]
     fn dds_to_ftex_rejects_a_row_pitch_past_the_tight_row() {
         // A 2x2 DX10 R8 source declaring pitch 4 when its tight row is 2:
         // the padding would land in the pixels, and FTEX has no pitch
@@ -1003,5 +1013,101 @@ mod tests {
         // the same header converts.
         dds[8..12].copy_from_slice(&(0x1u32 | 0x2 | 0x4 | 0x1000).to_le_bytes());
         assert!(dds_to_ftex(&dds, ColorSpace::Linear).is_ok());
+    }
+
+    #[test]
+    fn dds_to_ftex_rejects_a_padded_float_row() {
+        // A 1x2 DX10 R16G16B16A16_FLOAT source declaring pitch 16 when its
+        // tight row is 8: pixel-stored formats have a tight row pitch too.
+        let mut dds = Vec::new();
+        dds.extend_from_slice(b"DDS ");
+        dds.extend_from_slice(&124u32.to_le_bytes());
+        dds.extend_from_slice(&(0x1u32 | 0x2 | 0x4 | 0x8 | 0x1000).to_le_bytes());
+        dds.extend_from_slice(&2u32.to_le_bytes()); // height
+        dds.extend_from_slice(&1u32.to_le_bytes()); // width
+        dds.extend_from_slice(&16u32.to_le_bytes()); // declared pitch
+        dds.extend_from_slice(&0u32.to_le_bytes()); // depth
+        dds.extend_from_slice(&1u32.to_le_bytes()); // mipmaps
+        dds.extend_from_slice(&[0u8; 44]);
+        dds.extend_from_slice(&32u32.to_le_bytes()); // pixel format size
+        dds.extend_from_slice(&0x4u32.to_le_bytes()); // DDPF_FOURCC
+        dds.extend_from_slice(b"DX10");
+        dds.extend_from_slice(&[0u8; 20]); // bit count and masks
+        dds.extend_from_slice(&0x1000u32.to_le_bytes()); // caps1: texture
+        dds.extend_from_slice(&[0u8; 16]);
+        dds.extend_from_slice(&10u32.to_le_bytes()); // DXGI R16G16B16A16_FLOAT
+        dds.extend_from_slice(&3u32.to_le_bytes()); // 2D
+        dds.extend_from_slice(&0u32.to_le_bytes()); // misc flags
+        dds.extend_from_slice(&1u32.to_le_bytes()); // array size
+        dds.extend_from_slice(&0u32.to_le_bytes()); // misc flags 2
+        dds.extend_from_slice(&[0u8; 32]); // two padded rows
+        assert!(matches!(
+            dds_to_ftex(&dds, ColorSpace::Linear),
+            Err(FtexError::UnsupportedDds("padded rows"))
+        ));
+    }
+
+    #[test]
+    fn row_bytes_covers_every_pixel_stored_format() {
+        for (pixel, expected) in [
+            (PixelFormat::Argb8, Some(12)),
+            (PixelFormat::R8, Some(3)),
+            (PixelFormat::Rgba16F, Some(24)),
+            (PixelFormat::Rgba32F, Some(48)),
+            (PixelFormat::Rgb10A2, Some(12)),
+            (PixelFormat::Rg11B10F, Some(12)),
+            (PixelFormat::Bc1, None),
+            (PixelFormat::Bc2, None),
+            (PixelFormat::Bc3, None),
+            (PixelFormat::Bc4, None),
+            (PixelFormat::Bc5, None),
+            (PixelFormat::Bc6h, None),
+            (PixelFormat::Bc7, None),
+        ] {
+            assert_eq!(
+                dds::DdsPixel::Format(pixel).row_bytes(3),
+                expected,
+                "{pixel:?}"
+            );
+        }
+        // A mask-described uncompressed layout stores rows as well.
+        assert_eq!(
+            dds::DdsPixel::Uncompressed {
+                bit_count: 24,
+                r_mask: 0,
+                g_mask: 0,
+                b_mask: 0,
+                a_mask: 0,
+            }
+            .row_bytes(3),
+            Some(9)
+        );
+    }
+
+    #[test]
+    fn paletted_headers_are_rejected() {
+        // DDPF_PALETTEINDEXED8: the pixels index a palette, which the
+        // decode has no table to resolve.
+        assert!(matches!(
+            dds::read_layout(&legacy_dds(0x20, [0; 4], 8, [0; 4])),
+            Err(FtexError::UnsupportedDds("paletted"))
+        ));
+        // A8P8 keeps the palette bit while declaring an alpha channel.
+        assert!(matches!(
+            dds::read_layout(&legacy_dds(0x21, [0; 4], 16, [0, 0, 0, 0xff00])),
+            Err(FtexError::UnsupportedDds("paletted"))
+        ));
+    }
+
+    #[test]
+    fn nvtt1_l8_is_recognized_as_r8() {
+        // NVTT v1 writes luminance under the plain RGB flag (DirectXTex's
+        // DDSPF_L8_NVTT1); the reference maps it to R8.
+        assert_eq!(
+            dds::read_layout(&legacy_dds(0x40, [0; 4], 8, [0xff, 0, 0, 0]))
+                .unwrap()
+                .pixel,
+            dds::DdsPixel::Format(PixelFormat::R8)
+        );
     }
 }

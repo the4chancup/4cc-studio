@@ -1925,3 +1925,23 @@ Decision (agent, cross-family review at converge):
   `Converter` exposes `retained_bytes` and `clear` for it.
 Plan: `libs/dds_convert.md` (the `decode` paragraph under "`dds_convert` API", "In-memory
 conversion cache" retention bullet).
+
+## 2026-09-26 - ftex, dds_convert - converge review, second round
+Decision (agent, cross-family review at converge):
+- **TIFF associated alpha is un-multiplied** (`ExtraSamples = 1`): `tiff` 0.11.3 reports it as
+  plain RGBA and `image` copies the samples, so the decode was premultiplied. `tiff` becomes a
+  direct dependency of `dds_convert` at the version `image` already pulls (no crate enters the
+  graph) to read the tag; channels are `min(255, (c * 255 + a / 2) / a)`, zero alpha unchanged,
+  checked against Pillow's decode of the lead fixtures.
+- **Paletted DDS is refused** (`DDPF_PALETTEINDEXED8`, P8 and A8P8), and **NVTT v1's L8 header
+  reads as R8** (DirectXTex `DDSPF_L8_NVTT1`): it decoded red where texconv decodes grey. Through
+  `dds_to_ftex` it now converts to an FTEX R8 like the luminance-flag L8 (pes-file-tools refuses
+  both; FTEX has the format).
+- **Raw FTEX frames read at most their mip size**, completing the first round's bounded reads.
+- **`row_bytes` covers every pixel-stored format** (the float and packed ones included), so the
+  padded-row refusal and the row-size rule apply to all of them.
+- **Retained gap:** legacy A8L8 headers (luminance or NVTT v1 RGB flag, R 0xff, A 0xff00) decode
+  by their masks to `(L, 0, 0, A)`; texconv 2024.1.1.1 maps them to R8G8 and decodes
+  `(L, A, 0, 255)`. Neither is a grey with alpha, and no export uses the format.
+Plan: `libs/dds_convert.md` (the accepted-format table's TIFF row, the `decode` paragraph under
+"`dds_convert` API").

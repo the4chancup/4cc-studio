@@ -579,7 +579,12 @@ Spec: `docs/plans/core/development_plan.md` "Phase 2", `docs/plans/libs/README.m
     (`.tmp/review_rulings_2_20d.md`): bounded frame reads and saturating `mip_size`, premultiplied
     alpha and mask-less headers refused, `dds_to_ftex` refuses padded rows, `convert` validates a
     caller-built `Decoded`, cache retention moved to Phase 4 step 4.y; mutants-diff 68 / 0 missed.
-    Next: round 2
+    Round 2: 7 returned, 7 accepted (`6157fd7`..): raw frames bounded, TIFF associated alpha
+    un-multiplied (`tiff` direct dep at `image`'s version), paletted DDS refused, NVTT v1 L8 read
+    as R8, `row_bytes` for every pixel-stored format, `validate` checked, no discarded block
+    copy; lead fixtures `l8_nvtt1`, `rgba_{associated,unassociated}.tiff`
+    (`fixtures_dds_converge_r2.py`, Pillow as the TIFF oracle); mutants-diff 46 / 0 missed.
+    Next: round 3 (the ceiling)
   Known inputs from round C: (a) whole-crate mutation runs left survivors to triage in cpk (28),
   ftex (80), dds_convert (30): table-variant arms, boundary comparisons, `write_cell` and
   `Writer::finish` padding math; the other thirteen crates have not been run; (b)

@@ -31,6 +31,13 @@ texconv, the same image unless stated; each `*.decoded.dds` is texconv's decode 
 | `bc4_equal_endpoints.dds` | hand-built, one 4x4 BC4 block (DX10) | endpoints equal (100, 100), so the six-value mode, texel indices 0..7 then 7..0: indices 6 and 7 decode to 0 and 255. Decoded with `-m 1` |
 | `bgr24_dword_rows.dds` | hand-built 6x2 24-bit BGR, two mips | rows DWORD-padded: level 0 declares pitch 20 (tight 18), level 1 (3x1, tight 9) stored in 12 bytes, pad bytes 0xee/0xdd. Decoded with `-dword` (texconv's byte-aligned default reads it differently) |
 
+Added in the second review round by `scripts/provenance/fixtures/fixtures_dds_converge_r2.py`:
+
+| File | Made with | Notes |
+|---|---|---|
+| `l8_nvtt1.dds` | hand-built 4x4, 8 bits, `DDPF_RGB`, R mask 0xff | the L8 header NVTT v1 wrote (DirectXTex `DDSPF_L8_NVTT1`); `l8_nvtt1.decoded.dds` is texconv's decode (`-m 1`), grey like `l8_dx9` |
+| `rgba_associated.tiff` / `rgba_unassociated.tiff` | hand-built 2x1 uncompressed RGBA8 TIFF | identical stored samples (128, 0, 0, 128), (0, 0, 0, 0); ExtraSamples 1 (associated alpha, color stored premultiplied) vs 2 (unassociated). Pillow reads the first as straight (255, 0, 0, 128), (0, 0, 0, 0) and the second as stored: the expected decodes |
+
 texconv expands every one-channel format (BC4, R8, L8) to R = G = B with alpha 255; BC5 decodes
 with B = 0.
 
