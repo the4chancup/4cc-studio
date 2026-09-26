@@ -159,6 +159,7 @@ dependencies = [
  "pes_version",
  "sha2",
  "thiserror",
+ "tiff",
  "wezlib",
 ]
 

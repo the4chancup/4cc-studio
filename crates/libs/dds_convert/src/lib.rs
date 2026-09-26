@@ -180,7 +180,11 @@ fn validate(decoded: &Decoded) -> Result<(), ConvertError> {
     for (level, mip) in decoded.mips.iter().enumerate() {
         let w = decoded.width.checked_shr(level as u32).unwrap_or(0).max(1);
         let h = decoded.height.checked_shr(level as u32).unwrap_or(0).max(1);
-        if mip.len() as u64 != u64::from(w) * u64::from(h) * 4 {
+        let expected = u64::from(w)
+            .checked_mul(u64::from(h))
+            .and_then(|pixels| pixels.checked_mul(4))
+            .ok_or(ConvertError::InvalidDecoded("mip size"))?;
+        if mip.len() as u64 != expected {
             return Err(ConvertError::InvalidDecoded("mip size"));
         }
     }
@@ -274,6 +278,10 @@ mod tests {
     const BC4_EQ_D: &[u8] = include_bytes!("../tests/fixtures/bc4_equal_endpoints.decoded.dds");
     const BGR24: &[u8] = include_bytes!("../tests/fixtures/bgr24_dword_rows.dds");
     const BGR24_D: &[u8] = include_bytes!("../tests/fixtures/bgr24_dword_rows.decoded.dds");
+    const L8_NVTT: &[u8] = include_bytes!("../tests/fixtures/l8_nvtt1.dds");
+    const L8_NVTT_D: &[u8] = include_bytes!("../tests/fixtures/l8_nvtt1.decoded.dds");
+    const TIFF_ASSOCIATED: &[u8] = include_bytes!("../tests/fixtures/rgba_associated.tiff");
+    const TIFF_UNASSOCIATED: &[u8] = include_bytes!("../tests/fixtures/rgba_unassociated.tiff");
     const NM_PREFOX_D: &[u8] = include_bytes!("../tests/fixtures/bc3_nm_prefox.decoded.dds");
     const PNG: &[u8] = include_bytes!("../tests/fixtures/source.png");
     const PNG_OPAQUE: &[u8] = include_bytes!("../tests/fixtures/source_opaque.png");
@@ -409,13 +417,17 @@ mod tests {
             ("bc7", BC7, BC7_D),
             ("r8", R8_DDS, R8_D),
             ("l8_dx9", L8, L8_D),
+            ("l8_nvtt1", L8_NVTT, L8_NVTT_D),
             ("rgba8", RGBA8, RGBA8_D),
             ("bgra8_dx9", BGRA8, BGRA8_D),
         ] {
             let ours = decode(encoded, SourceFormat::Dds).unwrap();
             let expected = decode(decoded, SourceFormat::Dds).unwrap();
-            assert_eq!((ours.width, ours.height), (32, 16));
-            assert_eq!(ours.mips.len(), 6, "{stem}");
+            assert_eq!(
+                (ours.width, ours.height, ours.mips.len()),
+                (expected.width, expected.height, expected.mips.len()),
+                "{stem}"
+            );
             for (level, (ours_mip, expected_mip)) in
                 ours.mips.iter().zip(&expected.mips).enumerate()
             {
@@ -433,6 +445,44 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn an_nvtt1_l8_header_reads_as_r8() {
+        assert_eq!(
+            ftex::dds::read_layout(L8_NVTT).unwrap().pixel,
+            ftex::dds::DdsPixel::Format(ftex::PixelFormat::R8)
+        );
+    }
+
+    #[test]
+    fn tiff_associated_alpha_is_un_premultiplied() {
+        // ExtraSamples = 1 marks the stored RGBA premultiplied; the decode
+        // restores straight alpha. ExtraSamples = 2 (or none) is copied
+        // through unchanged.
+        let associated = decode(TIFF_ASSOCIATED, SourceFormat::Tiff).unwrap();
+        assert_eq!(associated.mips[0], [255, 0, 0, 128, 0, 0, 0, 0]);
+        let unassociated = decode(TIFF_UNASSOCIATED, SourceFormat::Tiff).unwrap();
+        assert_eq!(unassociated.mips[0], [128, 0, 0, 128, 0, 0, 0, 0]);
+    }
+
+    #[test]
+    fn tiff_un_premultiply_rounds_to_nearest() {
+        use std::io::Cursor;
+        use tiff::encoder::{TiffEncoder, colortype};
+        use tiff::tags::Tag;
+        // A stored premultiplied channel of 1 under alpha 2 un-multiplies
+        // to 128 (255/2 rounding up), not 127: the half-alpha bias in the
+        // divide is what makes the difference.
+        let mut bytes = Cursor::new(Vec::new());
+        {
+            let mut tiff = TiffEncoder::new(&mut bytes).unwrap();
+            let mut image = tiff.new_image::<colortype::RGBA8>(1, 1).unwrap();
+            image.encoder().write_tag(Tag::ExtraSamples, 1u16).unwrap();
+            image.write_data(&[1, 0, 0, 2]).unwrap();
+        }
+        let decoded = decode(&bytes.into_inner(), SourceFormat::Tiff).unwrap();
+        assert_eq!(decoded.mips[0], [128, 0, 0, 2]);
     }
 
     #[test]
@@ -965,10 +1015,8 @@ mod tests {
 
     #[test]
     fn an_all_zero_pixel_mask_set_is_rejected() {
-        // A DDPF_PALETTEINDEXED8 (0x20) header with no channel masks
-        // decodes nothing.
+        // A DDPF_RGB header with no channel masks decodes nothing.
         let mut dds = uncompressed_dds(2, 1, 2, 8, [0, 0, 0, 0], 1);
-        dds[80..84].copy_from_slice(&0x20u32.to_le_bytes()); // format_flags
         dds.extend_from_slice(&[3, 5]);
         assert!(matches!(
             decode(&dds, SourceFormat::Dds),
@@ -1065,6 +1113,15 @@ mod tests {
         let mut size = base();
         size.blocks.as_mut().unwrap().mips[0].push(0);
         refuse(&size, "block mip size");
+
+        // A mip whose size overflows u64 cannot exist: the declaration is
+        // invalid rather than an arithmetic panic.
+        let mut huge = base();
+        huge.width = 1 << 31;
+        huge.height = 1 << 31;
+        huge.mips = vec![vec![]];
+        huge.blocks = None;
+        refuse(&huge, "overflowing mip size");
 
         // A decoded value always validates.
         convert(&base(), target).unwrap();

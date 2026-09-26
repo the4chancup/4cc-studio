@@ -33,7 +33,8 @@ pub(crate) struct DdsHeader {
     /// Always 32.
     #[brw(pad_before = 44)]
     pub pixel_format_size: u32,
-    /// `DDPF_*` flags: 0x4 = FourCC, 0x40 = RGB, 0x1 = alpha pixels, 0x20000 = luminance.
+    /// `DDPF_*` flags: 0x4 = FourCC, 0x40 = RGB, 0x1 = alpha pixels,
+    /// 0x20 = paletted, 0x20000 = luminance.
     pub format_flags: u32,
     /// The FourCC code (`DXT1`, `DX10`, ...), zero when `format_flags` has no 0x4.
     pub fourcc: [u8; 4],
@@ -95,16 +96,20 @@ pub enum DdsPixel {
 
 impl DdsPixel {
     /// Bytes one tightly packed row of `width` pixels occupies in the
-    /// stream, for the layouts that store rows (`Uncompressed`, `Argb8`,
-    /// `R8`). `None` for the block and float formats, whose stream size is
+    /// stream, for the layouts that store rows (`Uncompressed` plus every
+    /// pixel-stored format: `Argb8`, `R8` and the float/packed layouts).
+    /// `None` for the block-compressed formats, whose stream size is
     /// counted in blocks, not rows.
     pub fn row_bytes(self, width: u32) -> Option<u64> {
-        Some(match self {
-            DdsPixel::Uncompressed { bit_count, .. } => u64::from(width) * u64::from(bit_count) / 8,
-            DdsPixel::Format(PixelFormat::Argb8) => u64::from(width) * 4,
-            DdsPixel::Format(PixelFormat::R8) => u64::from(width),
-            DdsPixel::Format(_) => return None,
-        })
+        match self {
+            DdsPixel::Uncompressed { bit_count, .. } => {
+                Some(u64::from(width) * u64::from(bit_count) / 8)
+            }
+            DdsPixel::Format(format) => {
+                let (block_pixels, block_bytes) = format.block_size();
+                (block_pixels == 1).then(|| u64::from(width) * u64::from(block_bytes))
+            }
+        }
     }
 }
 
@@ -235,6 +240,11 @@ pub(crate) fn single_image(ext: &Dx10Header) -> Result<(), FtexError> {
 /// The uncompressed (no FourCC) pixel description: the mask layouts FTEX
 /// knows become `DdsPixel::Format`, everything else stays masks.
 pub(crate) fn uncompressed_pixel(header: &DdsHeader) -> Result<DdsPixel, FtexError> {
+    // DDPF_PALETTEINDEXED8: the pixels index a palette the decode has no
+    // table for.
+    if header.format_flags & 0x20 != 0 {
+        return Err(FtexError::UnsupportedDds("paletted"));
+    }
     if header.format_flags & 0x40 != 0
         && header.format_flags & 0x1 != 0
         && header.r_mask == 0x00ff0000
@@ -244,11 +254,15 @@ pub(crate) fn uncompressed_pixel(header: &DdsHeader) -> Result<DdsPixel, FtexErr
     {
         return Ok(DdsPixel::Format(PixelFormat::Argb8));
     }
-    if header.format_flags & 0x20000 != 0
-        && header.r_mask == 0xff
+    // Luminance, under the legacy DDPF_LUMINANCE flag or NVTT v1's form
+    // (the plain RGB flag, 8 bits, an R mask only; DirectXTex
+    // DDSPF_L8_NVTT1). The reference maps both to R8.
+    if header.r_mask == 0xff
         && header.g_mask == 0
         && header.b_mask == 0
         && header.a_mask == 0
+        && (header.format_flags & 0x20000 != 0
+            || (header.format_flags & 0x40 != 0 && header.rgb_bit_count == 8))
     {
         return Ok(DdsPixel::Format(PixelFormat::R8));
     }

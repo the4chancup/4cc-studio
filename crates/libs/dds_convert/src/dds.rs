@@ -22,7 +22,7 @@ pub(crate) fn decode_dds(dds: &[u8]) -> Result<Decoded, ConvertError> {
     let layout = read_layout(dds)?;
     let codec = block_codec(&layout);
     let mut mips = Vec::with_capacity(layout.mipmaps as usize);
-    let mut blocks = Vec::with_capacity(layout.mipmaps as usize);
+    let mut blocks = codec.map(|_| Vec::with_capacity(layout.mipmaps as usize));
     let mut offset = layout.data_offset;
     for level in 0..layout.mipmaps {
         let width = (layout.width >> level).max(1);
@@ -34,18 +34,20 @@ pub(crate) fn decode_dds(dds: &[u8]) -> Result<Decoded, ConvertError> {
             .ok_or(ConvertError::Truncated)?;
         let data = dds.get(offset..end).ok_or(ConvertError::Truncated)?;
         mips.push(decode_mip(&layout, codec, level, width, height, data)?);
-        blocks.push(data.to_vec());
+        if let Some(blocks) = &mut blocks {
+            blocks.push(data.to_vec());
+        }
         offset = end;
     }
 
+    let blocks = codec
+        .zip(blocks)
+        .map(|((codec, _), mips)| Blocks { codec, mips });
     Ok(Decoded {
         width: layout.width,
         height: layout.height,
         mips,
-        blocks: codec.map(|(codec, _)| Blocks {
-            codec,
-            mips: blocks,
-        }),
+        blocks,
         authored_mips: true,
     })
 }
@@ -68,7 +70,7 @@ fn mip_size(layout: &DdsLayout, level: u32, width: u32, height: u32) -> Result<u
             .checked_mul(u64::from(height))
             .ok_or(ConvertError::Truncated);
     }
-    // `row_bytes` is None exactly for the block and float formats.
+    // `row_bytes` is None exactly for the block-compressed formats.
     let DdsPixel::Format(format) = layout.pixel else {
         unreachable!("row_bytes is Some for every Uncompressed layout")
     };

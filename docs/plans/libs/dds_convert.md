@@ -116,7 +116,7 @@ format. Two image files with the same stem but different extensions is a conflic
 | BMP | `image` crate | `.bmp` | Pure Rust |
 | WebP | `image` crate | `.webp` | Pure Rust |
 | TGA | `image` crate | `.tga` | Pure Rust |
-| TIFF | `image` crate | `.tif`, `.tiff` | Pure Rust; Photoshop users |
+| TIFF | `image` crate | `.tif`, `.tiff` | Pure Rust; Photoshop users. Associated (premultiplied) alpha, `ExtraSamples = 1`, is un-multiplied after the decode (the tag is read with `tiff`, the crate `image` decodes through) |
 
 **Not accepted** (enable only the accepted decoders explicitly; the `image` crate's default
 features and AVIF backends vary by release):
@@ -189,8 +189,10 @@ SNORM, BC6H SF16) (`ConvertError::Unsupported`): nothing in an export is one, an
 relabelled unsigned would silently change the texture. It also rejects a zero width or height and
 a mip count past what the dimensions halve into (`log2(larger side) + 1`), as D3D and texconv's
 default loader do; `ftex`'s own FTEX↔DDS conversions keep pes-file-tools' acceptance of both. A DX10
-header declaring premultiplied alpha and an uncompressed header with no channel mask at all
-(a paletted DDS) are refused too, since neither has a straight-alpha decode. `convert` checks a
+header declaring premultiplied alpha, a paletted header (`DDPF_PALETTEINDEXED8`) and an
+uncompressed header with no channel mask at all are refused too, since none has a straight-alpha
+decode; NVTT v1's L8 header (the RGB flag, 8 bits, an R mask only) reads as R8, as DirectXTex
+reads it. `convert` checks a
 `Decoded` it did not produce against the same rules (`ConvertError::InvalidDecoded`: nonzero
 dimensions, one mip per level with `width * height * 4` bytes, block buffers sized for their
 codec). An uncompressed DDS whose header declares a row pitch wider

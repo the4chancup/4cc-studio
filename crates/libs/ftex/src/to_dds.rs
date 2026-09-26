@@ -146,7 +146,13 @@ fn read_frame(
 
     if chunk_count == 0 {
         if compressed_size == 0 {
-            return take(&mut cursor, ftex, uncompressed_size as usize);
+            // A raw frame needs at most the mip's own bytes; a record
+            // declaring more must not read (or retain) past the frame.
+            return take(
+                &mut cursor,
+                ftex,
+                (uncompressed_size as usize).min(expected_size),
+            );
         }
         let packed = take(&mut cursor, ftex, compressed_size as usize)?;
         return inflate(&packed, expected_size);
