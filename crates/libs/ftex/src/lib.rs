@@ -544,15 +544,22 @@ mod tests {
                 .pixel,
             dds::DdsPixel::Format(PixelFormat::R8)
         );
-        // The luminance flag cleared, and each mask condition false alone.
-        // None of these flag sets carries an alpha flag, so the fourth
-        // mask reads 0 whatever it declares.
+        // The luminance flag cleared, and each mask condition false
+        // alone. None of these flag sets carries an alpha flag, so the
+        // fourth mask reads 0 whatever it declares — including the L8
+        // shape with a stray alpha-mask field, which still reads as R8
+        // (DirectXTex's LUMINANCE match ignores the undeclared mask).
+        assert_eq!(
+            dds::read_layout(&legacy_dds(0x20000, [0; 4], 8, [0xff, 0, 0, 1]))
+                .unwrap()
+                .pixel,
+            dds::DdsPixel::Format(PixelFormat::R8)
+        );
         for (flags, masks) in [
             (0, L8),
             (0x20000, [0, 0, 0, 0]),
             (0x20000, [0xff, 1, 0, 0]),
             (0x20000, [0xff, 0, 1, 0]),
-            (0x20000, [0xff, 0, 0, 1]),
         ] {
             assert_eq!(
                 dds::read_layout(&legacy_dds(flags, [0; 4], 8, masks))
@@ -1130,6 +1137,19 @@ mod tests {
             dds::read_layout(&legacy_dds(0x40000, [0; 4], 16, [0x1f, 0x3e0, 0xfc00, 0])),
             Err(FtexError::UnsupportedDds("signed bump map"))
         ));
+    }
+
+    #[test]
+    fn an_l8_header_with_an_undeclared_alpha_mask_still_reads_as_r8() {
+        // DirectXTex's LUMINANCE and RGB matches ignore a mask no flag
+        // declares (DDS.cpp:234-247,274-279): the gate applies before the
+        // classification, not after it.
+        let mut dds = include_bytes!("../../dds_convert/tests/fixtures/l8_nvtt1.dds").to_vec();
+        dds[104..108].copy_from_slice(&0xff000000u32.to_le_bytes()); // a_mask
+        assert_eq!(
+            dds::read_layout(&dds).unwrap().pixel,
+            dds::DdsPixel::Format(PixelFormat::R8)
+        );
     }
 
     #[test]

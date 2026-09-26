@@ -593,8 +593,12 @@ Spec: `docs/plans/core/development_plan.md` "Phase 2", `docs/plans/libs/README.m
     block textures past the decoder's u32 offsets refused, alpha mask only under an alpha flag,
     premultiplied TGA un-multiplied, 16-bit TGA refused, float TIFF un-multiplied in f32;
     mutants-diff 63 / 2 missed, both equivalent (one removed by keeping the single integer
-    un-multiply path). Next: round 5, whose rework also carries the lead finding in the rulings
-    file (32-bit TGA with all-zero alpha: DirectXTex forces opaque)
+    un-multiply path) (`9a4cce1`). Round 5: 5 returned, 5 accepted, plus the lead's all-zero-alpha
+    TGA finding: TGA allocation limit restored, interleaved TGA refused, all-zero-alpha TGA
+    opaque (texconv default), `validate` caps a caller-built `Decoded` at 4 GiB, `dds_to_ftex`
+    frame sizes/offsets checked (by construction), alpha-mask gate before L8 classification;
+    mutants-diff 34 / 9 missed: 4 in a dead record-table overflow check, since removed (at most
+    6 x 255 records), 1 equivalent, 4 in error values reachable only past 4 GiB. Next: round 6
   Known inputs from round C: (a) whole-crate mutation runs left survivors to triage in cpk (28),
   ftex (80), dds_convert (30): table-variant arms, boundary comparisons, `write_cell` and
   `Writer::finish` padding math; the other thirteen crates have not been run; (b)

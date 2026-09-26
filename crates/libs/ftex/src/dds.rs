@@ -250,6 +250,15 @@ pub(crate) fn uncompressed_pixel(header: &DdsHeader) -> Result<DdsPixel, FtexErr
     if header.format_flags & (0x80000 | 0x40000) != 0 {
         return Err(FtexError::UnsupportedDds("signed bump map"));
     }
+    // The fourth mask declares a channel only under an alpha flag;
+    // DirectXTex's LUMINANCE and RGB matches ignore it
+    // (DDS.cpp:234-247,274-279), so the gate applies before the
+    // classification, not after it.
+    let a_mask = if header.format_flags & (0x1 | 0x2) != 0 {
+        header.a_mask
+    } else {
+        0
+    };
     if header.format_flags & 0x40 != 0
         && header.format_flags & 0x1 != 0
         && header.r_mask == 0x00ff0000
@@ -265,7 +274,7 @@ pub(crate) fn uncompressed_pixel(header: &DdsHeader) -> Result<DdsPixel, FtexErr
     if header.r_mask == 0xff
         && header.g_mask == 0
         && header.b_mask == 0
-        && header.a_mask == 0
+        && a_mask == 0
         && (header.format_flags & 0x20000 != 0
             || (header.format_flags & 0x40 != 0 && header.rgb_bit_count == 8))
     {
@@ -276,14 +285,7 @@ pub(crate) fn uncompressed_pixel(header: &DdsHeader) -> Result<DdsPixel, FtexErr
         r_mask: header.r_mask,
         g_mask: header.g_mask,
         b_mask: header.b_mask,
-        // The fourth mask declares a channel only under an alpha flag;
-        // DirectXTex's RGB match reads these headers as opaque
-        // (DDS.cpp:274-279).
-        a_mask: if header.format_flags & (0x1 | 0x2) != 0 {
-            header.a_mask
-        } else {
-            0
-        },
+        a_mask,
     })
 }
 
