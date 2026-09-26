@@ -29,7 +29,7 @@ pub fn dds_to_ftex(dds: &[u8], color_space: ColorSpace) -> Result<Vec<u8>, FtexE
         return Err(FtexError::UnsupportedDds("header size != 124"));
     }
 
-    let mipmap_count = crate::dds::mip_count(&dds_header);
+    let mipmap_count = mip_count(&dds_header);
 
     let is_cube_map = if dds_header.capabilities2 & 0x200 != 0 {
         if dds_header.capabilities2 & 0xfe00 != 0xfe00 {
@@ -141,6 +141,17 @@ pub fn dds_to_ftex(dds: &[u8], color_space: ColorSpace) -> Result<Vec<u8>, FtexE
     output.extend_from_slice(&mip_buffer);
     output.extend_from_slice(&frame_buffer);
     Ok(output)
+}
+
+/// The mip count a header declares: the `DDSCAPS_MIPMAP` bit gates the
+/// count field, so without it the texture has one level whatever the field
+/// says (the reference's rule, ftex.py:409-414).
+fn mip_count(header: &DdsHeader) -> u32 {
+    if header.capabilities1 & 0x400000 != 0 {
+        header.mipmap_count.max(1)
+    } else {
+        1
+    }
 }
 
 /// Maps the DDS pixel-format fields to an FTEX format, through the same

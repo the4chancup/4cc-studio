@@ -21,6 +21,21 @@ pub(crate) fn decode_ftex(bytes: &[u8]) -> Result<Decoded, ConvertError> {
 pub(crate) fn decode_dds(dds: &[u8]) -> Result<Decoded, ConvertError> {
     let layout = read_layout(dds)?;
     let codec = block_codec(&layout);
+    // block_compression offsets its RGBA output in u32 (decode.rs:221): a
+    // padded level-0 mip past 4 GiB would wrap the offset.
+    if codec.is_some() {
+        let padded_rgba = u64::from(layout.width)
+            .div_ceil(4)
+            .saturating_mul(4)
+            .saturating_mul(u64::from(layout.height).div_ceil(4))
+            .saturating_mul(4)
+            .saturating_mul(4);
+        if padded_rgba > u64::from(u32::MAX) {
+            return Err(ConvertError::Unsupported(
+                "block texture past the decoder's 4 GiB limit",
+            ));
+        }
+    }
     let mut mips = Vec::with_capacity(layout.mipmaps as usize);
     let mut blocks = codec.map(|_| Vec::with_capacity(layout.mipmaps as usize));
     let mut offset = layout.data_offset;

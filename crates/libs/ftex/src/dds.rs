@@ -138,12 +138,15 @@ const CAPS2_CUBE: u32 = 0x200;
 const CAPS2_VOLUME: u32 = 0x200000;
 /// The `DDSD` flag saying `pitch_or_linear_size` is a row pitch.
 pub(crate) const DDSD_PITCH: u32 = 0x8;
+/// The `DDSD` flag saying `depth` carries a volume's slice count.
+const DDSD_DEPTH: u32 = 0x800000;
 /// The DX10 `misc_flags` bit that marks a cube map.
 const DX10_MISC_CUBE: u32 = 0x4;
 
 /// Parses the DDS header(s) of a 2D texture. Cube maps and volume textures
-/// are `FtexError::UnsupportedDds("cube map")` / `("volume texture")`. A
-/// missing mipmap flag or a count of 0 means 1 mip. sRGB DXGI ids map to
+/// are `FtexError::UnsupportedDds("cube map")` / `("volume texture")`. The
+/// mip count is the count field alone, 0 meaning 1, as DirectXTex reads it
+/// (`dds_to_ftex` keeps the reference's caps-bit rule). sRGB DXGI ids map to
 /// their UNORM twins. A zero dimension, and a mip count the dimensions
 /// cannot halve into, are refused: D3D rejects both at texture creation.
 pub fn read_layout(dds: &[u8]) -> Result<DdsLayout, FtexError> {
@@ -161,10 +164,18 @@ pub fn read_layout(dds: &[u8]) -> Result<DdsLayout, FtexError> {
     if header.capabilities2 & CAPS2_VOLUME != 0 {
         return Err(FtexError::UnsupportedDds("volume texture"));
     }
+    // A legacy header declaring depth through DDSD_DEPTH is a volume
+    // texture the same way (DirectXTex DDS.cpp:489-494); the DX10 arm
+    // below refuses through `ext.dimension` / `header.depth` itself.
+    if header.flags & DDSD_DEPTH != 0 && header.depth > 1 {
+        return Err(FtexError::UnsupportedDds("volume texture"));
+    }
     if header.width == 0 || header.height == 0 {
         return Err(FtexError::UnsupportedDds("zero dimension"));
     }
-    let mipmaps = mip_count(&header);
+    // DirectXTex reads the count field alone, whatever the caps bit says
+    // (DDS.cpp:370-374); 0 still means one level.
+    let mipmaps = header.mipmap_count.max(1);
     // A mip halves the larger side; the count that bottoms out at 1x1 is
     // log2(max side) + 1 = 32 - leading_zeros.
     if mipmaps > 32 - header.width.max(header.height).leading_zeros() {
@@ -217,17 +228,6 @@ pub fn read_layout(dds: &[u8]) -> Result<DdsLayout, FtexError> {
     })
 }
 
-/// The mip count a header declares: the `DDSCAPS_MIPMAP` bit gates the
-/// count field, so without it the texture has one level whatever the field
-/// says.
-pub(crate) fn mip_count(header: &DdsHeader) -> u32 {
-    if header.capabilities1 & 0x400000 != 0 {
-        header.mipmap_count.max(1)
-    } else {
-        1
-    }
-}
-
 /// Rejects a DX10 header that describes more than one image: texture arrays
 /// have no FTEX form and nothing in an export is one.
 pub(crate) fn single_image(ext: &Dx10Header) -> Result<(), FtexError> {
@@ -276,7 +276,14 @@ pub(crate) fn uncompressed_pixel(header: &DdsHeader) -> Result<DdsPixel, FtexErr
         r_mask: header.r_mask,
         g_mask: header.g_mask,
         b_mask: header.b_mask,
-        a_mask: header.a_mask,
+        // The fourth mask declares a channel only under an alpha flag;
+        // DirectXTex's RGB match reads these headers as opaque
+        // (DDS.cpp:274-279).
+        a_mask: if header.format_flags & (0x1 | 0x2) != 0 {
+            header.a_mask
+        } else {
+            0
+        },
     })
 }
 

@@ -371,13 +371,14 @@ mod tests {
     }
 
     #[test]
-    fn a_dds_without_the_mipmap_caps_bit_has_one_level() {
-        // BC1_DDS declares three mips; with DDSCAPS_MIPMAP cleared the count
-        // field is meaningless and the texture has one level.
+    fn the_mipmap_caps_bit_gates_the_count_only_for_dds_to_ftex() {
+        // BC1_DDS declares three mips. DirectXTex reads the count field
+        // alone, but pes-file-tools treats a cleared DDSCAPS_MIPMAP as one
+        // level — and `dds_to_ftex` follows the reference converter.
         let mut dds = BC1_DDS.to_vec();
         let caps = u32::from_le_bytes(dds[108..112].try_into().unwrap()) & !0x400000;
         dds[108..112].copy_from_slice(&caps.to_le_bytes());
-        assert_eq!(dds::read_layout(&dds).unwrap().mipmaps, 1);
+        assert_eq!(dds::read_layout(&dds).unwrap().mipmaps, 3);
         let ftex = dds_to_ftex(&dds, ColorSpace::Linear).unwrap();
         assert_eq!(info(&ftex).unwrap().mipmaps, 1);
     }
@@ -506,14 +507,15 @@ mod tests {
             dds::DdsPixel::Format(PixelFormat::Argb8)
         );
         // Each condition false alone falls through to the mask-described
-        // layout: rgb flag, alpha flag, then each mask.
-        for (flags, masks) in [
-            (0x1, ARGB8),
-            (0x40, ARGB8),
-            (0x41, [0xfe0000, 0xff00, 0xff, 0xff000000]),
-            (0x41, [0xff0000, 0xfe00, 0xff, 0xff000000]),
-            (0x41, [0xff0000, 0xff00, 0xfe, 0xff000000]),
-            (0x41, [0xff0000, 0xff00, 0xff, 0xfe000000]),
+        // layout: rgb flag, alpha flag, then each mask. Without an alpha
+        // flag the fourth mask declares no channel, so it reads 0.
+        for (flags, masks, a_mask) in [
+            (0x1, ARGB8, 0xff000000),
+            (0x40, ARGB8, 0),
+            (0x41, [0xfe0000, 0xff00, 0xff, 0xff000000], 0xff000000),
+            (0x41, [0xff0000, 0xfe00, 0xff, 0xff000000], 0xff000000),
+            (0x41, [0xff0000, 0xff00, 0xfe, 0xff000000], 0xff000000),
+            (0x41, [0xff0000, 0xff00, 0xff, 0xfe000000], 0xfe000000),
         ] {
             assert_eq!(
                 dds::read_layout(&legacy_dds(flags, [0; 4], 32, masks))
@@ -524,7 +526,7 @@ mod tests {
                     r_mask: masks[0],
                     g_mask: masks[1],
                     b_mask: masks[2],
-                    a_mask: masks[3],
+                    a_mask,
                 }
             );
         }
@@ -543,6 +545,8 @@ mod tests {
             dds::DdsPixel::Format(PixelFormat::R8)
         );
         // The luminance flag cleared, and each mask condition false alone.
+        // None of these flag sets carries an alpha flag, so the fourth
+        // mask reads 0 whatever it declares.
         for (flags, masks) in [
             (0, L8),
             (0x20000, [0, 0, 0, 0]),
@@ -559,7 +563,7 @@ mod tests {
                     r_mask: masks[0],
                     g_mask: masks[1],
                     b_mask: masks[2],
-                    a_mask: masks[3],
+                    a_mask: 0,
                 }
             );
         }
@@ -1126,6 +1130,68 @@ mod tests {
             dds::read_layout(&legacy_dds(0x40000, [0; 4], 16, [0x1f, 0x3e0, 0xfc00, 0])),
             Err(FtexError::UnsupportedDds("signed bump map"))
         ));
+    }
+
+    #[test]
+    fn rgb_headers_drop_an_undeclared_alpha_mask() {
+        // Without DDPF_ALPHAPIXELS / DDPF_ALPHA the fourth mask declares
+        // no channel (DirectXTex's RGB match ignores it, DDS.cpp:274-279).
+        assert_eq!(
+            dds::read_layout(&legacy_dds(
+                0x40,
+                [0; 4],
+                32,
+                [0xff0000, 0xff00, 0xff, 0xff000000]
+            ))
+            .unwrap()
+            .pixel,
+            dds::DdsPixel::Uncompressed {
+                bit_count: 32,
+                r_mask: 0xff0000,
+                g_mask: 0xff00,
+                b_mask: 0xff,
+                a_mask: 0,
+            }
+        );
+        // DDPF_ALPHA alone still carries the mask.
+        assert_eq!(
+            dds::read_layout(&legacy_dds(0x2, [0; 4], 8, [0, 0, 0, 0xff]))
+                .unwrap()
+                .pixel,
+            dds::DdsPixel::Uncompressed {
+                bit_count: 8,
+                r_mask: 0,
+                g_mask: 0,
+                b_mask: 0,
+                a_mask: 0xff,
+            }
+        );
+    }
+
+    #[test]
+    fn legacy_volume_is_refused_by_the_depth_flag() {
+        // DDSD_DEPTH with depth > 1 means volume texture even without the
+        // caps2 bit (DirectXTex DDS.cpp:489-494).
+        let mut dds = legacy_dds(0x4, *b"DXT1", 0, [0; 4]);
+        dds[8..12].copy_from_slice(&0x800000u32.to_le_bytes()); // DDSD_DEPTH
+        dds[24..28].copy_from_slice(&2u32.to_le_bytes()); // depth
+        assert!(matches!(
+            dds::read_layout(&dds),
+            Err(FtexError::UnsupportedDds("volume texture"))
+        ));
+        // Depth 0/1 stays a plain 2D texture.
+        dds[24..28].copy_from_slice(&1u32.to_le_bytes());
+        assert_eq!(
+            dds::read_layout(&dds).unwrap().pixel,
+            dds::DdsPixel::Format(PixelFormat::Bc1)
+        );
+        // Without DDSD_DEPTH the depth field is not read at all.
+        dds[24..28].copy_from_slice(&2u32.to_le_bytes());
+        dds[8..12].copy_from_slice(&0u32.to_le_bytes());
+        assert_eq!(
+            dds::read_layout(&dds).unwrap().pixel,
+            dds::DdsPixel::Format(PixelFormat::Bc1)
+        );
     }
 
     #[test]

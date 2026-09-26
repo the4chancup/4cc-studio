@@ -1964,3 +1964,25 @@ Decision (agent, cross-family review at converge):
 - **Method (user decision):** the review loop has no round ceiling (`AGENTS.md` "Second
   opinion"); this surface continues to a fourth round.
 Plan: `libs/dds_convert.md` (TIFF row, the `decode` paragraph under "`dds_convert` API").
+
+## 2026-09-26 - ftex, dds_convert - converge review, fourth round
+Decision (agent, cross-family review at converge):
+- **`read_layout` reads the DDS mip count from the count field alone** (DirectXTex
+  `DecodeDDSHeader`), so a file with its levels but no `DDSCAPS_MIPMAP` bit keeps them;
+  `dds_to_ftex` keeps pes-file-tools' caps-bit rule, the reference it is parity with.
+- **A legacy header's `DDSD_DEPTH` with depth > 1 is a volume** (refused), as DirectXTex
+  classifies it; it decoded as its first slice.
+- **An uncompressed header's alpha mask needs `DDPF_ALPHAPIXELS` or `DDPF_ALPHA`**: DirectXTex
+  matches RGB headers on the colour masks alone and decodes them opaque.
+- **A block texture whose padded top mip exceeds 4 GiB of RGBA is refused**:
+  `block_compression` 0.10.0 computes its output offsets in u32 (wrapped writes in release).
+- **TGA**: a TGA 2.0 extension with attributes type 4 (premultiplied) is un-multiplied; 16-bit
+  TGA is refused with a resave message (`image` drops the alpha bit, DirectXTex keeps it; a
+  hand decoder for a format no export is known to use was not worth its code). A 16-bit TGA
+  whose alpha bits are all clear decodes opaque in both, and is refused anyway.
+- **Float TIFF associated alpha is un-multiplied in f32**; integer sources keep the 16-bit path
+  (the f32 path differs from it on 98 of the 8-bit pairs, so the integer bytes stay as they were).
+- **Method (user question):** round four ran twice on the same surface, a reviewer resumed from
+  round three and a fresh one; the resumed one found four, all among the fresh one's seven.
+  Reviewers stay fresh (`AGENTS.md` "Second opinion").
+Plan: `libs/dds_convert.md` (TGA and TIFF rows, the `decode` paragraph under "`dds_convert` API").

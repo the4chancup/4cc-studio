@@ -587,8 +587,14 @@ Spec: `docs/plans/core/development_plan.md` "Phase 2", `docs/plans/libs/README.m
     Round 3: 7 returned, 7 accepted: `wezlib` inflation bounded, bump maps refused, `BC4U`,
     16-bit TIFF un-multiply, encoder borrows and pads only unaligned mips, header fields
     saturate, parity test compares lengths; mutants-diff 59 / 1 equivalent, removed by merging
-    the two un-multiply paths. Ceiling removed (user); next: round 4, run resumed and fresh in
-    parallel to measure whether a resumed reviewer finds as much
+    the two un-multiply paths. Ceiling removed (user). Round 4, run resumed and fresh in
+    parallel: resumed 4 (all within fresh's 7), union 7 accepted; reviewers stay fresh. Fixes:
+    `read_layout` mip count from the field alone (DirectXTex), legacy `DDSD_DEPTH` volumes and
+    block textures past the decoder's u32 offsets refused, alpha mask only under an alpha flag,
+    premultiplied TGA un-multiplied, 16-bit TGA refused, float TIFF un-multiplied in f32;
+    mutants-diff 63 / 2 missed, both equivalent (one removed by keeping the single integer
+    un-multiply path). Next: round 5, whose rework also carries the lead finding in the rulings
+    file (32-bit TGA with all-zero alpha: DirectXTex forces opaque)
   Known inputs from round C: (a) whole-crate mutation runs left survivors to triage in cpk (28),
   ftex (80), dds_convert (30): table-variant arms, boundary comparisons, `write_cell` and
   `Writer::finish` padding math; the other thirteen crates have not been run; (b)

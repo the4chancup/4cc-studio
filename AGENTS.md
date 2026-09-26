@@ -151,7 +151,12 @@ stopped the loop where its signal was strongest. The stop therefore rests on the
 rulings: a concern is rejected, with its one-line reason, when its input cannot reach the code,
 the plan or a decision entry already settles it, or it restates an accepted concern's class
 without a new defect. Past the fifth round on one surface the lead reports the counts and the
-classes found to the user and continues unless told otherwise: a check-in, not a stop. The
+classes found to the user and continues unless told otherwise: a check-in, not a stop. Each
+round's reviewer is a fresh `run_subagent`, never a resumed one (`resume`), even though resuming
+saves the re-exploration: 2.20d's fourth round ran both on the same surface, and the reviewer
+resumed from round three returned four concerns, all among the fresh reviewer's seven, which
+found three more, all accepted; a resumed reviewer keeps its earlier reading and its blind spots
+with it. The
 count *returned* is not a stop signal: the reviewer
 does not fill the cap when it has more (2.20c's first round returned five with its reasoning
 trace saying it aimed for "3-5 strong concerns" because the brief said "do not pad"; the second

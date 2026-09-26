@@ -115,8 +115,8 @@ format. Two image files with the same stem but different extensions is a conflic
 | JPEG | `image` crate | `.jpg`, `.jpeg` | Pure Rust |
 | BMP | `image` crate | `.bmp` | Pure Rust |
 | WebP | `image` crate | `.webp` | Pure Rust |
-| TGA | `image` crate | `.tga` | Pure Rust |
-| TIFF | `image` crate | `.tif`, `.tiff` | Pure Rust; Photoshop users. Associated (premultiplied) alpha, `ExtraSamples = 1`, is un-multiplied after the decode, at 16-bit precision (the tag is read with `tiff`, the crate `image` decodes through) |
+| TGA | `image` crate | `.tga` | Pure Rust. A TGA 2.0 extension declaring premultiplied alpha (attributes type 4) is un-multiplied like TIFF's; 16-bit TGA (5-bit primaries) is refused with a resave message, since `image` drops its alpha bit and DirectXTex keeps it |
+| TIFF | `image` crate | `.tif`, `.tiff` | Pure Rust; Photoshop users. Associated (premultiplied) alpha, `ExtraSamples = 1`, is un-multiplied after the decode, at the source's precision (f32 for float samples, 16 bits otherwise; the tag is read with `tiff`, the crate `image` decodes through) |
 
 **Not accepted** (enable only the accepted decoders explicitly; the `image` crate's default
 features and AVIF backends vary by release):
@@ -184,11 +184,17 @@ impl Converter {
 }
 ```
 
-`decode` rejects cube maps, volume textures, texture arrays and the signed block formats (BC4/BC5
+`decode` rejects cube maps, volume textures (the caps2 bit, or a legacy header's `DDSD_DEPTH`
+with a depth above 1, as DirectXTex classifies them), texture arrays and the signed block formats (BC4/BC5
 SNORM, BC6H SF16) (`ConvertError::Unsupported`): nothing in an export is one, and a signed block
 relabelled unsigned would silently change the texture. It also rejects a zero width or height and
 a mip count past what the dimensions halve into (`log2(larger side) + 1`), as D3D and texconv's
-default loader do; `ftex`'s own FTEX↔DDS conversions keep pes-file-tools' acceptance of both. A DX10
+default loader do; `ftex`'s own FTEX↔DDS conversions keep pes-file-tools' acceptance of both. The
+mip count is the header's count field alone, as DirectXTex reads it; `dds_to_ftex` keeps
+pes-file-tools' rule that a cleared `DDSCAPS_MIPMAP` means one level. The alpha mask of an
+uncompressed header counts only under `DDPF_ALPHAPIXELS` or `DDPF_ALPHA` (DirectXTex reads an RGB
+header as opaque). A block texture whose padded top mip decodes past 4 GiB is refused: the block
+decoder offsets its output in 32 bits. A DX10
 header declaring premultiplied alpha, a paletted header (`DDPF_PALETTEINDEXED8`), a legacy bump-map
 header (`DDPF_BUMPDUDV`/`DDPF_BUMPLUMINANCE`, signed) and an uncompressed header with no channel
 mask at all are refused too, since none has a straight-alpha unsigned decode; BC4 is read under
