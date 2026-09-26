@@ -145,7 +145,14 @@ taste for impossible edge cases, but on a large surface the eighth concern is un
 round returned seven, all accepted. So a critique of one surface runs another round only when at
 least five of the last round's concerns were accepted (the signal was real); the next round gets
 the rework diff and the prior rulings so it does not repeat them, and the loop stops at a round
-under five accepted, or three rounds. The count *returned* is not a stop signal: the reviewer
+under five accepted. There is no round ceiling: 2.20d's first three rounds each returned seven,
+all accepted, most of them parity and memory defects rather than padding, so a ceiling of three
+stopped the loop where its signal was strongest. The stop therefore rests on the lead's
+rulings: a concern is rejected, with its one-line reason, when its input cannot reach the code,
+the plan or a decision entry already settles it, or it restates an accepted concern's class
+without a new defect. Past the fifth round on one surface the lead reports the counts and the
+classes found to the user and continues unless told otherwise: a check-in, not a stop. The
+count *returned* is not a stop signal: the reviewer
 does not fill the cap when it has more (2.20c's first round returned five with its reasoning
 trace saying it aimed for "3-5 strong concerns" because the brief said "do not pad"; the second
 round, run as an experiment, returned three verified concerns, all accepted, one of them
