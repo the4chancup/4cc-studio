@@ -261,6 +261,7 @@ pub(crate) fn uncompressed_pixel(header: &DdsHeader) -> Result<DdsPixel, FtexErr
     };
     if header.format_flags & 0x40 != 0
         && header.format_flags & 0x1 != 0
+        && header.rgb_bit_count == 32
         && header.r_mask == 0x00ff0000
         && header.g_mask == 0x0000ff00
         && header.b_mask == 0x000000ff
@@ -275,8 +276,8 @@ pub(crate) fn uncompressed_pixel(header: &DdsHeader) -> Result<DdsPixel, FtexErr
         && header.g_mask == 0
         && header.b_mask == 0
         && a_mask == 0
-        && (header.format_flags & 0x20000 != 0
-            || (header.format_flags & 0x40 != 0 && header.rgb_bit_count == 8))
+        && header.rgb_bit_count == 8
+        && (header.format_flags & 0x20000 != 0 || header.format_flags & 0x40 != 0)
     {
         return Ok(DdsPixel::Format(PixelFormat::R8));
     }

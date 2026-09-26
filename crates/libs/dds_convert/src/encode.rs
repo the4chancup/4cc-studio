@@ -10,7 +10,7 @@ use block_compression::{BC7Settings, CompressionVariant};
 use pes_version::{Engine, PesVersion};
 
 use crate::mips::{self, Mip};
-use crate::{BlockCodec, ConvertError, Decoded, Target, TextureRole};
+use crate::{BlockCodec, ConvertError, Decoded, Target, TextureRole, alloc_len};
 
 /// Emits the DDS or FTEX bytes for `decoded` on `target`, per the codec
 /// rules of the conversion plan.
@@ -126,7 +126,9 @@ fn fully_opaque(pixels: &[u8]) -> bool {
 }
 
 /// The `block_compression` variant for an emitted codec. BC7 takes the
-/// alpha preset only when an emitted mip actually carries alpha.
+/// alpha preset only when an emitted mip actually carries alpha: on opaque
+/// pixels both presets emit the same blocks (measured), and the opaque one
+/// does less work (it skips mode 7 and the fourth channel).
 fn compression_variant(codec: BlockCodec, emit: &[Mip]) -> CompressionVariant {
     match codec {
         BlockCodec::Bc1 => CompressionVariant::BC1,
@@ -204,15 +206,15 @@ fn encode_mip(
         .checked_mul(4)
         .ok_or(ConvertError::InvalidDecoded("dimensions"))?;
     if padded_width == width && padded_height == height {
-        let mut blocks = vec![0u8; variant.blocks_byte_size(width, height)];
+        let mut blocks = vec![0u8; alloc_len(variant.blocks_byte_size(width, height) as u64)?];
         compress_rgba8(variant, rgba, &mut blocks, width, height, stride);
         return Ok(blocks);
     }
     let padded_len = u64::from(padded_width)
         .checked_mul(u64::from(padded_height))
         .and_then(|area| area.checked_mul(4))
-        .and_then(|len| usize::try_from(len).ok())
-        .ok_or(ConvertError::InvalidDecoded("dimensions"))?;
+        .ok_or(ConvertError::InvalidDecoded("dimensions"))
+        .and_then(alloc_len)?;
     let mut padded = vec![0u8; padded_len];
     for y in 0..padded_height as usize {
         let source_y = y.min(height as usize - 1);
@@ -223,7 +225,8 @@ fn encode_mip(
             padded[to..to + 4].copy_from_slice(&rgba[from..from + 4]);
         }
     }
-    let mut blocks = vec![0u8; variant.blocks_byte_size(padded_width, padded_height)];
+    let mut blocks =
+        vec![0u8; alloc_len(variant.blocks_byte_size(padded_width, padded_height) as u64)?];
     compress_rgba8(
         variant,
         &padded,

@@ -7,7 +7,7 @@ use block_compression::decode::decompress_blocks_as_rgba8;
 use ftex::PixelFormat;
 use ftex::dds::{DdsLayout, DdsPixel, read_layout};
 
-use crate::{BlockCodec, Blocks, ConvertError, Decoded};
+use crate::{BlockCodec, Blocks, ConvertError, Decoded, alloc_len};
 
 /// Decodes an FTEX source by converting it to DDS first; the DDS path then
 /// applies unchanged.
@@ -186,8 +186,8 @@ fn decompress_mip(
     let padded_len = u64::from(padded_width)
         .checked_mul(u64::from(padded_height))
         .and_then(|pixels| pixels.checked_mul(4))
-        .and_then(|len| usize::try_from(len).ok())
-        .ok_or(ConvertError::Truncated)?;
+        .ok_or(ConvertError::Truncated)
+        .and_then(alloc_len)?;
     let mut padded = vec![0u8; padded_len];
     decompress_blocks_as_rgba8(variant, padded_width, padded_height, blocks, &mut padded);
 
@@ -203,8 +203,8 @@ fn decompress_mip(
     let rgba_len = u64::from(width)
         .checked_mul(u64::from(height))
         .and_then(|pixels| pixels.checked_mul(4))
-        .and_then(|len| usize::try_from(len).ok())
-        .ok_or(ConvertError::Truncated)?;
+        .ok_or(ConvertError::Truncated)
+        .and_then(alloc_len)?;
     let mut rgba = vec![0u8; rgba_len];
     for y in 0..height as usize {
         let from = y * padded_width as usize * 4;
@@ -325,10 +325,11 @@ fn decode_uncompressed(
         channels[channel] = Some(shift / 8);
     }
 
-    let mut rgba = Vec::with_capacity(
-        usize::try_from(u64::from(width) * u64::from(height) * 4)
-            .map_err(|_| ConvertError::Truncated)?,
-    );
+    let mut rgba = Vec::with_capacity(alloc_len(
+        u64::from(width)
+            .saturating_mul(u64::from(height))
+            .saturating_mul(4),
+    )?);
     for y in 0..height as usize {
         let start = y.checked_mul(row_pitch).ok_or(ConvertError::Truncated)?;
         let end = start

@@ -194,7 +194,10 @@ mip count is the header's count field alone, as DirectXTex reads it; `dds_to_fte
 pes-file-tools' rule that a cleared `DDSCAPS_MIPMAP` means one level. The alpha mask of an
 uncompressed header counts only under `DDPF_ALPHAPIXELS` or `DDPF_ALPHA` (DirectXTex reads an RGB
 header as opaque). A block texture whose padded top mip decodes past 4 GiB is refused: the block
-decoder offsets its output in 32 bits. A DX10
+decoder offsets its output in 32 bits, and any buffer a texture's dimensions size past the
+target's `isize::MAX` (2 GiB on wasm32) is refused rather than a capacity panic. The named
+uncompressed layouts (32-bit ARGB8, 8-bit luminance) are matched on the bit count as well as the
+masks, as DirectXTex matches them. A DX10
 header declaring premultiplied alpha, a paletted header (`DDPF_PALETTEINDEXED8`), a legacy bump-map
 header (`DDPF_BUMPDUDV`/`DDPF_BUMPLUMINANCE`, signed) and an uncompressed header with no channel
 mask at all are refused too, since none has a straight-alpha unsigned decode; BC4 is read under

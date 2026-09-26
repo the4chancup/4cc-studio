@@ -38,6 +38,16 @@ Added in the second review round by `scripts/provenance/fixtures/fixtures_dds_co
 | `l8_nvtt1.dds` | hand-built 4x4, 8 bits, `DDPF_RGB`, R mask 0xff | the L8 header NVTT v1 wrote (DirectXTex `DDSPF_L8_NVTT1`); `l8_nvtt1.decoded.dds` is texconv's decode (`-m 1`), grey like `l8_dx9` |
 | `rgba_associated.tiff` / `rgba_unassociated.tiff` | hand-built 2x1 uncompressed RGBA8 TIFF | identical stored samples (128, 0, 0, 128), (0, 0, 0, 0); ExtraSamples 1 (associated alpha, color stored premultiplied) vs 2 (unassociated). Pillow reads the first as straight (255, 0, 0, 128), (0, 0, 0, 0) and the second as stored: the expected decodes |
 
+Added in the sixth review round by `scripts/provenance/fixtures/fixtures_raster_formats.py`
+(Pillow, an independent reader, supplies each expected decode as `<file>.rgba`: RGBA8,
+row-major, 32x16):
+
+| File | Made with | Notes |
+|---|---|---|
+| `source_opaque.bmp` | Pillow, 24-bit BMP of `source_opaque.png` | lossless: its decode equals the PNG's pixels |
+| `source.webp` | Pillow, lossless WebP of `source.png` with `exact` | keeps RGB under zero alpha; its decode equals the PNG's pixels |
+| `source_opaque.jpg` | Pillow, baseline JPEG of `source_opaque.png`, quality 95, 4:4:4 | lossy (max channel difference 4 from the PNG); decoders may differ by IDCT rounding, so the expected decode is Pillow's, compared within a tolerance |
+
 texconv expands every one-channel format (BC4, R8, L8) to R = G = B with alpha 255; BC5 decodes
 with B = 0.
 
