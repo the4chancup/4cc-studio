@@ -92,8 +92,10 @@ pub fn dds_to_ftex(dds: &[u8], color_space: ColorSpace) -> Result<Vec<u8>, FtexE
             cursor.set_position(end as u64);
             records.push(MipRecord {
                 offset: 0, // filled below
-                uncompressed_size: length as u32,
-                compressed_size: encoded.len() as u32,
+                uncompressed_size: u32::try_from(length)
+                    .map_err(|_| field("frame size", length))?,
+                compressed_size: u32::try_from(encoded.len())
+                    .map_err(|_| field("frame size", encoded.len()))?,
                 index: level as u8,
                 ftexs_number: 0,
                 chunk_count,
@@ -102,12 +104,27 @@ pub fn dds_to_ftex(dds: &[u8], color_space: ColorSpace) -> Result<Vec<u8>, FtexE
         }
     }
 
+    // At most 6 images x 255 mips of 16-byte records: the table cannot pass
+    // u32. Each frame's offset is a u32 field too: a frame area past 4 GiB
+    // is an error, not a wrapped offset.
     let frame_buffer_offset = 64u32 + records.len() as u32 * 16;
     let mut mip_writer = Cursor::new(Vec::new());
     let mut relative = 0u32;
     for record in &mut records {
-        record.offset = frame_buffer_offset + relative;
-        relative += record.compressed_size;
+        record.offset = frame_buffer_offset.checked_add(relative).ok_or_else(|| {
+            field(
+                "frame offset",
+                (frame_buffer_offset as usize).saturating_add(relative as usize),
+            )
+        })?;
+        relative = relative
+            .checked_add(record.compressed_size)
+            .ok_or_else(|| {
+                field(
+                    "frame offset",
+                    (relative as usize).saturating_add(record.compressed_size as usize),
+                )
+            })?;
         record
             .write(&mut mip_writer)
             .unwrap_or_else(|_| unreachable!("Vec write is infallible"));

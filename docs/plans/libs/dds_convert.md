@@ -115,7 +115,7 @@ format. Two image files with the same stem but different extensions is a conflic
 | JPEG | `image` crate | `.jpg`, `.jpeg` | Pure Rust |
 | BMP | `image` crate | `.bmp` | Pure Rust |
 | WebP | `image` crate | `.webp` | Pure Rust |
-| TGA | `image` crate | `.tga` | Pure Rust. A TGA 2.0 extension declaring premultiplied alpha (attributes type 4) is un-multiplied like TIFF's; 16-bit TGA (5-bit primaries) is refused with a resave message, since `image` drops its alpha bit and DirectXTex keeps it |
+| TGA | `image` crate | `.tga` | Pure Rust, under `image`'s default allocation limit. A TGA 2.0 extension declaring premultiplied alpha (attributes type 4) is un-multiplied like TIFF's; alpha that is 0 in every pixel is read as opaque, as texconv does by default. 16-bit TGA (5-bit primaries) is refused with a resave message, since `image` drops its alpha bit and DirectXTex keeps it; interleaved TGA is refused, as DirectXTex does |
 | TIFF | `image` crate | `.tif`, `.tiff` | Pure Rust; Photoshop users. Associated (premultiplied) alpha, `ExtraSamples = 1`, is un-multiplied after the decode, at the source's precision (f32 for float samples, 16 bits otherwise; the tag is read with `tiff`, the crate `image` decodes through) |
 
 **Not accepted** (enable only the accepted decoders explicitly; the `image` crate's default
@@ -201,7 +201,8 @@ mask at all are refused too, since none has a straight-alpha unsigned decode; BC
 both its FourCCs (`ATI1`, `BC4U`); NVTT v1's L8 header (the RGB flag, 8 bits, an R mask only) reads as R8, as DirectXTex
 reads it. `convert` checks a
 `Decoded` it did not produce against the same rules (`ConvertError::InvalidDecoded`: nonzero
-dimensions, one mip per level with `width * height * 4` bytes, block buffers sized for their
+dimensions, a top level of at most 4 GiB of RGBA since mip generation and the codecs index in
+32 bits, one mip per level with `width * height * 4` bytes, block buffers sized for their
 codec). An uncompressed DDS whose header declares a row pitch wider
 than its rows (some exporters pad rows to 4 bytes) is read at that pitch, each lower mip at the
 same 4-byte row alignment. `Decoded.authored_mips` says whether the source format carries a mip

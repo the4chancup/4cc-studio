@@ -165,6 +165,14 @@ fn validate(decoded: &Decoded) -> Result<(), ConvertError> {
     if decoded.width == 0 || decoded.height == 0 {
         return Err(ConvertError::InvalidDecoded("zero dimension"));
     }
+    // mips::downsample and the block codecs index pixels in u32: a top
+    // level past 4 GiB of RGBA has no valid downstream representation.
+    let top_level_rgba = u64::from(decoded.width)
+        .saturating_mul(u64::from(decoded.height))
+        .saturating_mul(4);
+    if top_level_rgba > u64::from(u32::MAX) {
+        return Err(ConvertError::InvalidDecoded("past 4 GiB"));
+    }
     if decoded.mips.is_empty() {
         return Err(ConvertError::InvalidDecoded("no mips"));
     }
@@ -624,6 +632,108 @@ mod tests {
             decode(&dangling, SourceFormat::Tga).unwrap().mips[0],
             [128, 0, 0, 128]
         );
+    }
+
+    #[test]
+    fn a_tga_declaration_past_the_allocation_limit_is_refused() {
+        // A 16384x16384 header declares 1 GiB of RGBA: the allocation
+        // limit image::ImageReader::decode applies refuses before
+        // allocating, whatever pixel bytes follow.
+        let tga = vec![
+            0, 0, 2, // no id, no colormap, truecolor
+            0, 0, 0, 0, 0, // colormap spec
+            0, 0, 0, 0, // origin
+            0, 64, 0, 64, // 16384x16384
+            32, 0x28, // 32 bits, top-left, eight attribute bits
+        ];
+        assert!(matches!(
+            decode(&tga, SourceFormat::Tga),
+            Err(ConvertError::Image(image::ImageError::Limits(_)))
+        ));
+    }
+
+    #[test]
+    fn an_interleaved_tga_is_refused() {
+        // Descriptor bits 6-7 declare interleaving DirectXTex refuses
+        // (DirectXTexTGA.cpp:159-162); image decodes storage order.
+        let mut tga = vec![
+            0, 0, 2, // no id, no colormap, truecolor
+            0, 0, 0, 0, 0, // colormap spec
+            0, 0, 0, 0, // origin
+            1, 0, 4, 0, // 1x4
+            24, 0x60, // 24 bits, two-way interleaved
+        ];
+        tga.extend_from_slice(&[
+            0, 0, 255, // red
+            255, 0, 0, // blue
+            0, 255, 0, // green
+            255, 255, 255, // white
+        ]);
+        assert!(matches!(
+            decode(&tga, SourceFormat::Tga),
+            Err(ConvertError::Unsupported("interleaved tga"))
+        ));
+    }
+
+    #[test]
+    fn an_all_zero_alpha_tga_is_opaque() {
+        // texconv's default (no -tgazeroalpha) forces a TGA whose every
+        // alpha sample is 0 to opaque (DirectXTexTGA.cpp:689-693).
+        let mut tga = vec![
+            0, 0, 2, // no id, no colormap, truecolor
+            0, 0, 0, 0, 0, // colormap spec
+            0, 0, 0, 0, // origin
+            2, 0, 1, 0, // 2x1
+            32, 0x28, // 32 bits, top-left, eight attribute bits
+        ];
+        tga.extend_from_slice(&[0, 0, 255, 0, 0, 255, 0, 0]); // BGRA
+        assert_eq!(
+            decode(&tga, SourceFormat::Tga).unwrap().mips[0],
+            [255, 0, 0, 255, 0, 255, 0, 255]
+        );
+        // One nonzero alpha keeps the alphas as stored.
+        tga.truncate(tga.len() - 4);
+        tga.extend_from_slice(&[0, 255, 0, 1]);
+        assert_eq!(
+            decode(&tga, SourceFormat::Tga).unwrap().mips[0],
+            [255, 0, 0, 0, 0, 255, 0, 1]
+        );
+    }
+
+    #[test]
+    fn an_l8_header_with_an_undeclared_alpha_mask_decodes_like_l8() {
+        // DirectXTex's LUMINANCE match ignores a mask no flag declares
+        // (DDS.cpp:274-279): a patched-in alpha mask changes nothing.
+        let mut patched = L8_NVTT.to_vec();
+        patched[104..108].copy_from_slice(&0xff000000u32.to_le_bytes());
+        assert_eq!(
+            decode(&patched, SourceFormat::Dds).unwrap().mips[0],
+            decode(L8_NVTT, SourceFormat::Dds).unwrap().mips[0]
+        );
+    }
+
+    #[test]
+    fn a_top_level_past_the_codecs_4gib_indexing_is_refused() {
+        // 32768x32770 needs more than 4 GiB of RGBA: mips::downsample and
+        // the block codecs index in u32, so the declaration is invalid
+        // outright rather than a size mismatch.
+        let decoded = Decoded {
+            width: 32768,
+            height: 32770,
+            mips: vec![vec![]],
+            blocks: None,
+            authored_mips: false,
+        };
+        assert!(matches!(
+            convert(
+                &decoded,
+                Target {
+                    version: PesVersion::Pes17,
+                    role: TextureRole::Color,
+                }
+            ),
+            Err(ConvertError::InvalidDecoded("past 4 GiB"))
+        ));
     }
 
     #[test]

@@ -27,14 +27,26 @@ fn image_format(format: SourceFormat) -> Option<ImageFormat> {
 }
 
 /// The `image` crate's decode of a raster buffer. TGA goes through its own
-/// decoder first so the 16-bit primary layout whose attribute bit `image`
-/// silently drops can be refused instead of mis-decoded.
+/// decoder first: the 16-bit primary layout whose attribute bit `image`
+/// silently drops is refused, the interleaved storage `image` decodes in
+/// order is refused (DirectXTexTGA.cpp:159-162), and the allocation limit
+/// `ImageReader::decode` applies (image_reader_type.rs:314-320) is applied
+/// to the declared size before the decode.
 fn decode_image(bytes: &[u8], format: SourceFormat) -> Result<DynamicImage, ConvertError> {
     if format == SourceFormat::Tga {
-        let decoder = TgaDecoder::new(Cursor::new(bytes))?;
+        if bytes
+            .get(17)
+            .is_some_and(|descriptor| descriptor & 0xC0 != 0)
+        {
+            return Err(ConvertError::Unsupported("interleaved tga"));
+        }
+        let mut decoder = TgaDecoder::new(Cursor::new(bytes))?;
         if decoder.original_color_type() == ExtendedColorType::Rgb5x1 {
             return Err(ConvertError::Unsupported("16-bit tga: resave as 32-bit"));
         }
+        let mut limits = image::Limits::default();
+        limits.reserve(decoder.total_bytes())?;
+        decoder.set_limits(limits)?;
         return Ok(DynamicImage::from_decoder(decoder)?);
     }
     let image_format = image_format(format).ok_or(ConvertError::Unsupported("raster format"))?;
@@ -85,11 +97,23 @@ pub(crate) fn decode_raster(bytes: &[u8], format: SourceFormat) -> Result<Decode
         SourceFormat::Tga => tga_premultiplied(bytes),
         _ => false,
     };
-    let pixels = if premultiplied {
+    let has_alpha = image.color().has_alpha();
+    let mut pixels = if premultiplied {
         unpremultiply(image)
     } else {
         image.to_rgba8().into_raw()
     };
+    // texconv's default (no -tgazeroalpha) forces a TGA whose every alpha
+    // sample is 0 to opaque (DirectXTexTGA.cpp:689-693,
+    // texconv.cpp:2104-2106).
+    if format == SourceFormat::Tga
+        && has_alpha
+        && pixels.as_chunks::<4>().0.iter().all(|pixel| pixel[3] == 0)
+    {
+        for pixel in pixels.as_chunks_mut::<4>().0 {
+            pixel[3] = 255;
+        }
+    }
     Ok(Decoded {
         width,
         height,

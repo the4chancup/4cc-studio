@@ -1986,3 +1986,17 @@ Decision (agent, cross-family review at converge):
   round three and a fresh one; the resumed one found four, all among the fresh one's seven.
   Reviewers stay fresh (`AGENTS.md` "Second opinion").
 Plan: `libs/dds_convert.md` (TGA and TIFF rows, the `decode` paragraph under "`dds_convert` API").
+
+## 2026-09-26 - ftex, dds_convert - converge review, fifth round
+Decision (agent, cross-family review at converge):
+- **TGA decodes under `image`'s default allocation limit** (the round-4 direct decoder had
+  dropped it), **interleaved TGA is refused** (DirectXTex refuses it; `image` decodes storage
+  order), and **a TGA whose alpha is 0 in every pixel reads opaque**: texconv's default
+  (without `-tgazeroalpha`), and the common "unused alpha" TGA would otherwise encode invisible.
+- **`convert` refuses a caller-built `Decoded` past 4 GiB of top-level RGBA**
+  (`InvalidDecoded`): mip generation and the block codecs index in u32.
+- **`dds_to_ftex` checks frame sizes and offsets against their u32 fields**
+  (`HeaderFieldOverflow`), untested by construction (a frame area past 4 GiB).
+- **The DDS alpha-mask gate runs before classification**, so an undeclared alpha mask no longer
+  keeps an L8 header from reading as R8.
+Plan: `libs/dds_convert.md` (TGA row, the `decode` paragraph under "`dds_convert` API").
