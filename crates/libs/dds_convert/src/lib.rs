@@ -542,6 +542,133 @@ mod tests {
     }
 
     #[test]
+    fn tiff_float_associated_alpha_un_premultiplies_in_f32() {
+        use std::io::Cursor;
+        use tiff::encoder::{TiffEncoder, colortype};
+        use tiff::tags::Tag;
+        // The channel 5e-6 under alpha 1e-5 is 0.5 straight; quantizing to
+        // u16 or u8 first would have zeroed it before the divide. A zero
+        // alpha leaves the stored channel as decoded.
+        let mut bytes = Cursor::new(Vec::new());
+        {
+            let mut tiff = TiffEncoder::new(&mut bytes).unwrap();
+            let mut image = tiff.new_image::<colortype::RGBA32Float>(2, 1).unwrap();
+            image.encoder().write_tag(Tag::ExtraSamples, 1u16).unwrap();
+            image
+                .write_data(&[5e-6f32, 0.0, 0.0, 1e-5, 0.5, 0.0, 0.0, 0.0])
+                .unwrap();
+        }
+        let decoded = decode(&bytes.into_inner(), SourceFormat::Tiff).unwrap();
+        assert_eq!(decoded.mips[0], [128, 0, 0, 0, 128, 0, 0, 0]);
+    }
+
+    #[test]
+    fn a_16_bit_tga_is_refused() {
+        // A 2x1 truecolor TGA at 16 bits holds 5-bit primaries plus one
+        // alpha bit the `image` decoder drops.
+        let mut tga = vec![
+            0, 0, 2, // no id, no colormap, truecolor
+            0, 0, 0, 0, 0, // colormap spec
+            0, 0, 0, 0, // origin
+            2, 0, 1, 0, // 2x1
+            16, 0x21, // 16 bits, top-left, one attribute bit
+        ];
+        tga.extend_from_slice(&[0x00, 0x7c, 0x00, 0xfc]); // two red pixels
+        assert!(matches!(
+            decode(&tga, SourceFormat::Tga),
+            Err(ConvertError::Unsupported("16-bit tga: resave as 32-bit"))
+        ));
+    }
+
+    fn premultiplied_tga(attributes_type: u8, extension_offset: u32) -> Vec<u8> {
+        // A 1x1 32-bit TGA 2.0 file: 18-byte header, one BGRA pixel, a
+        // 495-byte extension area and the 26-byte footer.
+        let mut tga = vec![
+            0, 0, 2, // no id, no colormap, truecolor
+            0, 0, 0, 0, 0, // colormap spec
+            0, 0, 0, 0, // origin
+            1, 0, 1, 0, // 1x1
+            32, 0x28, // 32 bits, top-left, eight attribute bits
+        ];
+        tga.extend_from_slice(&[0, 0, 128, 128]); // BGRA, premultiplied red
+        assert_eq!(tga.len(), 22);
+        let mut extension = vec![0u8; 495];
+        extension[0..2].copy_from_slice(&495u16.to_le_bytes()); // wSize
+        extension[494] = attributes_type;
+        tga.extend_from_slice(&extension);
+        tga.extend_from_slice(&extension_offset.to_le_bytes());
+        tga.extend_from_slice(&0u32.to_le_bytes()); // developer dir
+        tga.extend_from_slice(b"TRUEVISION-XFILE.\0");
+        tga
+    }
+
+    #[test]
+    fn premultiplied_tga_is_un_premultiplied() {
+        // Extension attributes type 4 declares premultiplied alpha: the
+        // premultiplied red of 128 under alpha 128 straightens to 255.
+        let tga = premultiplied_tga(4, 22);
+        assert_eq!(
+            decode(&tga, SourceFormat::Tga).unwrap().mips[0],
+            [255, 0, 0, 128]
+        );
+        // Type 3 (unassociated) keeps the stored values.
+        let unassociated = premultiplied_tga(3, 22);
+        assert_eq!(
+            decode(&unassociated, SourceFormat::Tga).unwrap().mips[0],
+            [128, 0, 0, 128]
+        );
+        // An extension offset past the end of the file is not
+        // premultiplied, and does not panic.
+        let dangling = premultiplied_tga(4, 1 << 20);
+        assert_eq!(
+            decode(&dangling, SourceFormat::Tga).unwrap().mips[0],
+            [128, 0, 0, 128]
+        );
+    }
+
+    #[test]
+    fn the_mip_count_comes_from_the_field_not_the_caps_bit() {
+        // DirectXTex reads mipmap_count alone; a file whose DDSCAPS_MIPMAP
+        // bit is cleared still carries its levels.
+        let mut dds = BC3.to_vec();
+        let caps = u32::from_le_bytes(dds[108..112].try_into().unwrap());
+        dds[108..112].copy_from_slice(&(caps & !0x400000).to_le_bytes());
+        let ours = decode(&dds, SourceFormat::Dds).unwrap();
+        let expected = decode(BC3_D, SourceFormat::Dds).unwrap();
+        assert_eq!(ours.mips.len(), expected.mips.len());
+        assert_eq!(ours.mips.len(), 6);
+    }
+
+    #[test]
+    fn a_block_texture_past_the_decoders_4gib_limit_is_refused() {
+        // DXT1 at 32768x32772: the padded RGBA mip exceeds the u32 offsets
+        // block_compression's decoder writes with. The header alone (no
+        // data) reaches the refusal before any slicing.
+        let mut dds = uncompressed_dds(32768, 32772, 0, 0, [0; 4], 1);
+        dds[80..84].copy_from_slice(&0x4u32.to_le_bytes()); // DDPF_FOURCC
+        dds[84..88].copy_from_slice(b"DXT1");
+        assert!(matches!(
+            decode(&dds, SourceFormat::Dds),
+            Err(ConvertError::Unsupported(
+                "block texture past the decoder's 4 GiB limit"
+            ))
+        ));
+    }
+
+    #[test]
+    fn an_rgb_header_ignores_an_undeclared_alpha_mask() {
+        // DDPF_RGB without DDPF_ALPHAPIXELS: the fourth mask does not
+        // exist as far as the decode is concerned (DirectXTex's RGB
+        // match), so the pixel is opaque whatever the mask says.
+        let mut dds = uncompressed_dds(2, 1, 8, 32, [0xff0000, 0xff00, 0xff, 0xff000000], 1);
+        dds.extend_from_slice(&[0, 0, 255, 0, 0, 255, 0, 0]);
+        assert_eq!(
+            decode(&dds, SourceFormat::Dds).unwrap().mips[0],
+            [255, 0, 0, 255, 0, 255, 0, 255]
+        );
+    }
+
+    #[test]
     fn compatible_blocks_pass_through() {
         // BC7 -> PES 21: FTEX carrying the untouched blocks.
         let decoded = decode(BC7, SourceFormat::Dds).unwrap();
@@ -1055,12 +1182,13 @@ mod tests {
             decode(&bgr([0xff0, 0xff00, 0xff, 0]), SourceFormat::Dds),
             Err(ConvertError::Unsupported("pixel masks"))
         ));
-        // An alpha channel past the pixel's own 24 bits.
+        // An alpha channel past the pixel's own 24 bits. DDPF_ALPHAPIXELS
+        // is what keeps the fourth mask a channel at all; the blue mask is
+        // absent so the header is not the canonical Argb8 shape.
+        let mut past = bgr([0xff0000, 0xff00, 0, 0xff000000]);
+        past[80..84].copy_from_slice(&0x41u32.to_le_bytes());
         assert!(matches!(
-            decode(
-                &bgr([0xff0000, 0xff00, 0xff, 0xff000000]),
-                SourceFormat::Dds
-            ),
+            decode(&past, SourceFormat::Dds),
             Err(ConvertError::Unsupported("pixel masks"))
         ));
         // A channel with no mask reads 0 (alpha reads 255); the bytes are
@@ -1078,8 +1206,10 @@ mod tests {
             decode(&dds, SourceFormat::Dds),
             Err(ConvertError::Unsupported("pixel masks"))
         ));
-        // A8 — alpha mask only — still decodes to (0, 0, 0, a).
+        // A8 — DDPF_ALPHA with an alpha mask only — still decodes to
+        // (0, 0, 0, a).
         let mut a8 = uncompressed_dds(2, 1, 2, 8, [0, 0, 0, 0xff], 1);
+        a8[80..84].copy_from_slice(&0x2u32.to_le_bytes()); // DDPF_ALPHA
         a8.extend_from_slice(&[3, 5]);
         assert_eq!(
             decode(&a8, SourceFormat::Dds).unwrap().mips[0],
@@ -1088,9 +1218,9 @@ mod tests {
     }
 
     #[test]
-    fn a_u32_max_dimension_declaration_is_truncated_not_a_panic() {
-        // u32::MAX x u32::MAX blocks overflow the mip-size product: the mip
-        // lookup is Truncated rather than an arithmetic panic.
+    fn a_u32_max_dimension_declaration_is_unsupported_not_a_panic() {
+        // u32::MAX x u32::MAX is a block texture past the decoder's 4 GiB
+        // output limit: refused rather than an arithmetic panic.
         let mut dds = Vec::new();
         dds.extend_from_slice(b"DDS ");
         dds.extend_from_slice(&124u32.to_le_bytes());
@@ -1109,7 +1239,9 @@ mod tests {
         dds.extend_from_slice(&[0u8; 16]);
         assert!(matches!(
             decode(&dds, SourceFormat::Dds),
-            Err(ConvertError::Truncated)
+            Err(ConvertError::Unsupported(
+                "block texture past the decoder's 4 GiB limit"
+            ))
         ));
     }
 
