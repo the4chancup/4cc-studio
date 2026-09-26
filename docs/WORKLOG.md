@@ -584,7 +584,11 @@ Spec: `docs/plans/core/development_plan.md` "Phase 2", `docs/plans/libs/README.m
     as R8, `row_bytes` for every pixel-stored format, `validate` checked, no discarded block
     copy; lead fixtures `l8_nvtt1`, `rgba_{associated,unassociated}.tiff`
     (`fixtures_dds_converge_r2.py`, Pillow as the TIFF oracle); mutants-diff 46 / 0 missed.
-    Next: round 3 (the ceiling)
+    Round 3: 7 returned, 7 accepted: `wezlib` inflation bounded, bump maps refused, `BC4U`,
+    16-bit TIFF un-multiply, encoder borrows and pads only unaligned mips, header fields
+    saturate, parity test compares lengths; mutants-diff 59 / 1 equivalent, removed by merging
+    the two un-multiply paths. Ceiling removed (user); next: round 4, run resumed and fresh in
+    parallel to measure whether a resumed reviewer finds as much
   Known inputs from round C: (a) whole-crate mutation runs left survivors to triage in cpk (28),
   ftex (80), dds_convert (30): table-variant arms, boundary comparisons, `write_cell` and
   `Writer::finish` padding math; the other thirteen crates have not been run; (b)

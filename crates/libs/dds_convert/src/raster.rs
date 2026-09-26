@@ -38,20 +38,13 @@ fn associated_alpha(bytes: &[u8]) -> Result<bool, ConvertError> {
 /// Decodes a raster file to a single-mip RGBA8 texture.
 pub(crate) fn decode_raster(bytes: &[u8], format: SourceFormat) -> Result<Decoded, ConvertError> {
     let image_format = image_format(format).ok_or(ConvertError::Unsupported("raster format"))?;
-    let image = image::load_from_memory_with_format(bytes, image_format)?.to_rgba8();
-    let (width, height) = image.dimensions();
-    let mut pixels = image.into_raw();
-    if format == SourceFormat::Tiff && associated_alpha(bytes)? {
-        for pixel in pixels.as_chunks_mut::<4>().0 {
-            let alpha = u32::from(pixel[3]);
-            for channel in &mut pixel[..3] {
-                // A zero alpha leaves the pixel as decoded.
-                if let Some(straight) = (u32::from(*channel) * 255 + alpha / 2).checked_div(alpha) {
-                    *channel = straight.min(255) as u8;
-                }
-            }
-        }
-    }
+    let image = image::load_from_memory_with_format(bytes, image_format)?;
+    let (width, height) = (image.width(), image.height());
+    let pixels = if format == SourceFormat::Tiff && associated_alpha(bytes)? {
+        unpremultiply(image)
+    } else {
+        image.to_rgba8().into_raw()
+    };
     Ok(Decoded {
         width,
         height,
@@ -59,4 +52,23 @@ pub(crate) fn decode_raster(bytes: &[u8], format: SourceFormat) -> Result<Decode
         blocks: None,
         authored_mips: false,
     })
+}
+
+/// Restores straight alpha in a premultiplied image at 16-bit precision
+/// (an 8-bit reduction first would drop low-alpha color), then reduces it
+/// with `image`'s own conversion. For 8-bit sources this gives the same
+/// bytes as un-multiplying at 8 bits (checked over every (c, a) pair), so
+/// one path serves both.
+fn unpremultiply(image: image::DynamicImage) -> Vec<u8> {
+    let mut rgba = image.to_rgba16();
+    for pixel in rgba.as_chunks_mut::<4>().0 {
+        let alpha = u64::from(pixel[3]);
+        for channel in &mut pixel[..3] {
+            // A zero alpha leaves the pixel as decoded.
+            if let Some(straight) = (u64::from(*channel) * 65535 + alpha / 2).checked_div(alpha) {
+                *channel = straight.min(65535) as u16;
+            }
+        }
+    }
+    image::DynamicImage::ImageRgba16(rgba).to_rgba8().into_raw()
 }

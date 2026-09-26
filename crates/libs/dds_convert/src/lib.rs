@@ -431,6 +431,11 @@ mod tests {
             for (level, (ours_mip, expected_mip)) in
                 ours.mips.iter().zip(&expected.mips).enumerate()
             {
+                assert_eq!(
+                    ours_mip.len(),
+                    expected_mip.len(),
+                    "{stem} mip {level} length"
+                );
                 let diffs: Vec<(usize, u8, u8)> = ours_mip
                     .iter()
                     .zip(expected_mip)
@@ -483,6 +488,57 @@ mod tests {
         }
         let decoded = decode(&bytes.into_inner(), SourceFormat::Tiff).unwrap();
         assert_eq!(decoded.mips[0], [128, 0, 0, 2]);
+    }
+
+    #[test]
+    fn tiff_associated_alpha_un_premultiplies_at_source_precision() {
+        use std::io::Cursor;
+        use tiff::encoder::{TiffEncoder, colortype};
+        use tiff::tags::Tag;
+        // 16-bit premultiplied: the channel 128 under alpha 256 is 0x8000
+        // straight at 16 bits; reducing to 8 bits first would have zeroed
+        // the channel before the divide. The second pixel's half-alpha
+        // bias changes the rounded result by a step.
+        let mut bytes = Cursor::new(Vec::new());
+        {
+            let mut tiff = TiffEncoder::new(&mut bytes).unwrap();
+            let mut image = tiff.new_image::<colortype::RGBA16>(2, 1).unwrap();
+            image.encoder().write_tag(Tag::ExtraSamples, 1u16).unwrap();
+            image
+                .write_data(&[128u16, 0, 0, 256, 4, 0, 0, 157])
+                .unwrap();
+        }
+        let decoded = decode(&bytes.into_inner(), SourceFormat::Tiff).unwrap();
+        assert_eq!(decoded.mips[0], [128, 0, 0, 1, 6, 0, 0, 1]);
+    }
+
+    #[test]
+    fn tiff_un_premultiplies_8_bit_at_8_bit_precision() {
+        use std::io::Cursor;
+        use tiff::encoder::{TiffEncoder, colortype};
+        use tiff::tags::Tag;
+        // (1, 6) un-multiplies to 43 in the u8 formula.
+        let mut bytes = Cursor::new(Vec::new());
+        {
+            let mut tiff = TiffEncoder::new(&mut bytes).unwrap();
+            let mut image = tiff.new_image::<colortype::RGBA8>(1, 1).unwrap();
+            image.encoder().write_tag(Tag::ExtraSamples, 1u16).unwrap();
+            image.write_data(&[1, 0, 0, 6]).unwrap();
+        }
+        let decoded = decode(&bytes.into_inner(), SourceFormat::Tiff).unwrap();
+        assert_eq!(decoded.mips[0], [43, 0, 0, 6]);
+    }
+
+    #[test]
+    fn bc4u_fourcc_decodes_as_bc4() {
+        // DirectXTex's DDSPF_BC4_UNORM spells the FourCC BC4U where the
+        // fixture says ATI1; the blocks are the same.
+        let mut dds = ATI1.to_vec();
+        dds[84..88].copy_from_slice(b"BC4U");
+        assert_eq!(
+            decode(&dds, SourceFormat::Dds).unwrap().mips,
+            decode(ATI1_D, SourceFormat::Dds).unwrap().mips
+        );
     }
 
     #[test]
@@ -627,7 +683,7 @@ mod tests {
             .chain(
                 mips::generate(32, 16, &decoded.mips[0])
                     .into_iter()
-                    .map(|mip| mip.pixels),
+                    .map(|mip| mip.pixels.into_owned()),
             )
             .collect();
         assert_not_worse_than_reference(
@@ -1215,14 +1271,14 @@ mod tests {
         let pixels = [40, 0, 0, 255, 80, 0, 0, 255];
         let chain = mips::generate(1, 2, &pixels);
         assert_eq!(chain.len(), 1);
-        assert_eq!(chain[0].pixels, [60, 0, 0, 255]);
+        assert_eq!(chain[0].pixels.as_ref(), &[60, 0, 0, 255]);
 
         // 3x1: floor halving emits one pixel covering columns 0-1; the odd
         // third column is not sampled. (100 + 200 + 1) / 2 = 150.
         let pixels = [100, 0, 0, 255, 200, 0, 0, 255, 60, 0, 0, 255];
         let chain = mips::generate(3, 1, &pixels);
         assert_eq!(chain.len(), 1);
-        assert_eq!(chain[0].pixels, [150, 0, 0, 255]);
+        assert_eq!(chain[0].pixels.as_ref(), &[150, 0, 0, 255]);
     }
 
     #[test]

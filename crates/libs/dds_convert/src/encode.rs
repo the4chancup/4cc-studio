@@ -3,6 +3,8 @@
 //! normal maps, block encoding via `block_compression`, and the DDS/FTEX
 //! container wrap.
 
+use std::borrow::Cow;
+
 use block_compression::encode::compress_rgba8;
 use block_compression::{BC7Settings, CompressionVariant};
 use pes_version::{Engine, PesVersion};
@@ -37,14 +39,14 @@ pub(crate) fn convert(decoded: &Decoded, target: Target) -> Result<Vec<u8>, Conv
             emit.push(Mip {
                 width: (decoded.width >> level).max(1),
                 height: (decoded.height >> level).max(1),
-                pixels: pixels.clone(),
+                pixels: Cow::Borrowed(pixels.as_slice()),
             });
         }
     } else {
         emit.push(Mip {
             width: decoded.width,
             height: decoded.height,
-            pixels: decoded.mips[0].clone(),
+            pixels: Cow::Borrowed(decoded.mips[0].as_slice()),
         });
         emit.extend(mips::generate(
             decoded.width,
@@ -66,7 +68,7 @@ pub(crate) fn convert(decoded: &Decoded, target: Target) -> Result<Vec<u8>, Conv
         } else {
             &mip.pixels
         };
-        blocks.push(encode_mip(variant, mip.width, mip.height, rgba));
+        blocks.push(encode_mip(variant, mip.width, mip.height, rgba)?);
     }
     container(
         target.version,
@@ -159,7 +161,7 @@ pub(crate) fn pixel_format(codec: BlockCodec) -> ftex::PixelFormat {
 /// green. pre-Fox files carry a grey Y in the color block (`R = B = Y`);
 /// Fox files carry `R = 255`, `B = 0`.
 fn normal_swizzle(mip: &Mip, engine: Engine) -> Vec<u8> {
-    let mut rgba = mip.pixels.clone();
+    let mut rgba = mip.pixels.to_vec();
     for pixel in rgba.as_chunks_mut::<4>().0.iter_mut() {
         let x = pixel[0];
         let y = pixel[1];
@@ -180,13 +182,38 @@ fn normal_swizzle(mip: &Mip, engine: Engine) -> Vec<u8> {
 }
 
 /// Encodes one mip's RGBA8 pixels to blocks. The encoder requires
-/// dimensions that are multiples of 4, so the mip is padded by edge
-/// replication; the resulting block count is exactly what the logical
-/// dimensions need, so nothing is trimmed.
-fn encode_mip(variant: CompressionVariant, width: u32, height: u32, rgba: &[u8]) -> Vec<u8> {
-    let padded_width = width.div_ceil(4) * 4;
-    let padded_height = height.div_ceil(4) * 4;
-    let mut padded = vec![0u8; (padded_width * padded_height * 4) as usize];
+/// dimensions that are multiples of 4, so an unaligned mip is padded by
+/// edge replication; the resulting block count is exactly what the logical
+/// dimensions need, so nothing is trimmed. Dimensions whose padded product
+/// cannot exist are `InvalidDecoded`, checked before the buffer is read.
+fn encode_mip(
+    variant: CompressionVariant,
+    width: u32,
+    height: u32,
+    rgba: &[u8],
+) -> Result<Vec<u8>, ConvertError> {
+    let padded_width = width
+        .div_ceil(4)
+        .checked_mul(4)
+        .ok_or(ConvertError::InvalidDecoded("dimensions"))?;
+    let padded_height = height
+        .div_ceil(4)
+        .checked_mul(4)
+        .ok_or(ConvertError::InvalidDecoded("dimensions"))?;
+    let stride = padded_width
+        .checked_mul(4)
+        .ok_or(ConvertError::InvalidDecoded("dimensions"))?;
+    if padded_width == width && padded_height == height {
+        let mut blocks = vec![0u8; variant.blocks_byte_size(width, height)];
+        compress_rgba8(variant, rgba, &mut blocks, width, height, stride);
+        return Ok(blocks);
+    }
+    let padded_len = u64::from(padded_width)
+        .checked_mul(u64::from(padded_height))
+        .and_then(|area| area.checked_mul(4))
+        .and_then(|len| usize::try_from(len).ok())
+        .ok_or(ConvertError::InvalidDecoded("dimensions"))?;
+    let mut padded = vec![0u8; padded_len];
     for y in 0..padded_height as usize {
         let source_y = y.min(height as usize - 1);
         for x in 0..padded_width as usize {
@@ -203,9 +230,9 @@ fn encode_mip(variant: CompressionVariant, width: u32, height: u32, rgba: &[u8])
         &mut blocks,
         padded_width,
         padded_height,
-        padded_width * 4,
+        stride,
     );
-    blocks
+    Ok(blocks)
 }
 
 /// Wraps the emitted blocks in the container the version reads: a DDS for
@@ -227,4 +254,27 @@ fn container(
     // why: the conversion plan's "FTEX texture type" bullet writes every Fox
     // output as 0x9, color and normal alike.
     Ok(ftex::dds_to_ftex(&dds, ftex::ColorSpace::Normal)?)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn encode_mip_pads_an_unaligned_width() {
+        // 6x4: the width alone pads to 8, so the encoded buffer is the
+        // padded 8x4 block count.
+        let blocks = encode_mip(CompressionVariant::BC1, 6, 4, &[0u8; 6 * 4 * 4]).unwrap();
+        assert_eq!(blocks.len(), CompressionVariant::BC1.blocks_byte_size(8, 4));
+    }
+
+    #[test]
+    fn encode_mip_reports_oversized_dimensions() {
+        // u32::MAX - 2 wide pads past u32; the error comes before the
+        // (deliberately tiny) pixel buffer is touched.
+        assert!(matches!(
+            encode_mip(CompressionVariant::BC1, u32::MAX - 2, 1, &[0u8; 4]),
+            Err(ConvertError::InvalidDecoded("dimensions"))
+        ));
+    }
 }

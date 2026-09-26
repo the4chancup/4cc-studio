@@ -701,6 +701,8 @@ mod tests {
         ] {
             assert_eq!(format.fourcc(), Some(*b"DX10"), "{format:?}");
         }
+        // BC4U is DirectXTex's BC4_UNORM spelling, read alongside ATI1.
+        assert_eq!(dds::fourcc_format(b"BC4U"), Some(PixelFormat::Bc4));
     }
 
     #[test]
@@ -1108,6 +1110,32 @@ mod tests {
                 .unwrap()
                 .pixel,
             dds::DdsPixel::Format(PixelFormat::R8)
+        );
+    }
+
+    #[test]
+    fn bump_map_headers_are_rejected() {
+        // DDPF_BUMPDUDV (V8U8) and DDPF_BUMPLUMINANCE (L6V5U5) hold signed
+        // bump components the unsigned mask decode cannot represent
+        // (DirectXTex DDSPF_V8U8 / DDSPF_L6V5U5).
+        assert!(matches!(
+            dds::read_layout(&legacy_dds(0x80000, [0; 4], 16, [0xff, 0xff00, 0, 0])),
+            Err(FtexError::UnsupportedDds("signed bump map"))
+        ));
+        assert!(matches!(
+            dds::read_layout(&legacy_dds(0x40000, [0; 4], 16, [0x1f, 0x3e0, 0xfc00, 0])),
+            Err(FtexError::UnsupportedDds("signed bump map"))
+        ));
+    }
+
+    #[test]
+    fn a_pitch_past_the_header_field_writes_its_max() {
+        // The u32 pitch field cannot hold 4 * (1 << 30); the header writes
+        // its maximum and readers derive the real size from the dimensions.
+        let dds = dds::header_bytes(PixelFormat::Argb8, 1 << 30, 1, 1);
+        assert_eq!(
+            u32::from_le_bytes(dds[20..24].try_into().unwrap()),
+            u32::MAX
         );
     }
 }

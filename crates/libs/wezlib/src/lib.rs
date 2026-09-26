@@ -42,16 +42,18 @@ pub fn is_wrapped(bytes: &[u8]) -> bool {
     bytes.len() >= HEADER_LEN && bytes[3..8] == *b"WESYS"
 }
 
-/// Unwraps and inflates a WESYS buffer. Errors when the input is not wrapped
-/// ([`Error::NotWrapped`]), the zlib stream is corrupt ([`Error::Zlib`]), or
-/// the payload length differs from the header's uncompressed length
-/// ([`Error::LengthMismatch`]).
+/// Unwraps and inflates a WESYS buffer. At most one byte past the declared
+/// uncompressed length is inflated, so a stream longer than the header
+/// says is [`Error::LengthMismatch`] without being held whole. Errors when
+/// the input is not wrapped ([`Error::NotWrapped`]), the zlib stream is
+/// corrupt ([`Error::Zlib`]), or the payload length differs from the
+/// header's uncompressed length ([`Error::LengthMismatch`]).
 pub fn decompress(bytes: &[u8]) -> Result<Vec<u8>, Error> {
     if !is_wrapped(bytes) {
         return Err(Error::NotWrapped);
     }
     let expected = u32::from_le_bytes([bytes[12], bytes[13], bytes[14], bytes[15]]);
-    let payload = inflate(&bytes[HEADER_LEN..])?;
+    let payload = inflate(&bytes[HEADER_LEN..], u64::from(expected) + 1)?;
     if payload.len() != expected as usize {
         return Err(Error::LengthMismatch {
             expected,
@@ -94,9 +96,11 @@ pub fn compress(bytes: &[u8]) -> Vec<u8> {
     output
 }
 
-fn inflate(stream: &[u8]) -> Result<Vec<u8>, Error> {
+fn inflate(stream: &[u8], limit: u64) -> Result<Vec<u8>, Error> {
     let mut payload = Vec::new();
-    ZlibDecoder::new(stream).read_to_end(&mut payload)?;
+    ZlibDecoder::new(stream)
+        .take(limit)
+        .read_to_end(&mut payload)?;
     Ok(payload)
 }
 
@@ -135,6 +139,50 @@ mod tests {
             PAYLOAD.len() as u32
         );
         assert_eq!(decompress(&wrapped).unwrap(), PAYLOAD);
+    }
+
+    #[test]
+    fn an_oversized_declaration_inflates_only_one_byte_past_it() {
+        // 64 MiB of zeros compressed to ~62 KiB; the wrapper declares one
+        // byte, so at most expected + 1 is inflated: the mismatch reports
+        // 2 bytes produced, not the stream's whole 64 MiB.
+        let mut encoder = ZlibEncoder::new(Vec::new(), Compression::new(3));
+        encoder.write_all(&[0u8; 64 << 20]).unwrap();
+        let stream = encoder.finish().unwrap();
+        let mut wrapped = HEADER_PREFIX.to_vec();
+        wrapped.extend_from_slice(&(stream.len() as u32).to_le_bytes());
+        wrapped.extend_from_slice(&1u32.to_le_bytes());
+        wrapped.extend_from_slice(&stream);
+        assert!(matches!(
+            decompress(&wrapped),
+            Err(Error::LengthMismatch {
+                expected: 1,
+                actual: 2
+            })
+        ));
+    }
+
+    #[test]
+    fn a_stream_cut_past_the_needed_bytes_still_reports_the_length() {
+        // The stream's bytes past expected + 1 are missing: a bounded
+        // inflate never reaches them, so the answer is LengthMismatch
+        // rather than Zlib.
+        let mut encoder = ZlibEncoder::new(Vec::new(), Compression::new(3));
+        let content: Vec<u8> = (0..512u16).map(|i| (i % 256) as u8).collect();
+        encoder.write_all(&content).unwrap();
+        let mut stream = encoder.finish().unwrap();
+        stream.truncate(stream.len() / 2);
+        let mut wrapped = HEADER_PREFIX.to_vec();
+        wrapped.extend_from_slice(&(stream.len() as u32).to_le_bytes());
+        wrapped.extend_from_slice(&100u32.to_le_bytes());
+        wrapped.extend_from_slice(&stream);
+        assert!(matches!(
+            decompress(&wrapped),
+            Err(Error::LengthMismatch {
+                expected: 100,
+                actual: 101
+            })
+        ));
     }
 
     #[test]
