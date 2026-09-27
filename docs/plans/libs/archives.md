@@ -14,8 +14,8 @@ with the disk-path opener behind `cfg(not(target_arch = "wasm32"))`:
 pub struct Entry { pub path: String, pub size: u64 }   // forward slashes, no leading `/`, files only
 pub struct Archive<R: Read + Seek> { /* zip or 7z state */ }
 impl<R: Read + Seek> Archive<R> {
-    pub fn zip(reader: R) -> Result<Self, ArchiveError>;      // reads the central directory and each entry's local header, decompresses nothing
-    pub fn seven_z(reader: R) -> Result<Self, ArchiveError>;  // reads the header only
+    pub fn zip(reader: R) -> Result<Self, ArchiveError>;      // reads the central directory and each entry's local header, decompresses nothing; any encrypted entry is `Encrypted`
+    pub fn seven_z(reader: R) -> Result<Self, ArchiveError>;  // reads the header only; an encrypted header or any AES-coded block is `Encrypted`
     pub fn entries(&self) -> &[Entry];
     pub fn read(&mut self, path: &str) -> Result<Vec<u8>, ArchiveError>;
 }
@@ -52,10 +52,15 @@ Non-ASCII names: a zip stores names in UTF-8 when its flag bit 11 is set (PowerS
 `zip` crate reads as cp437 (7-Zip on a Western Windows writes `é` as `0x82`, which cp437 maps
 back correctly; a name outside cp437 from a non-Western Windows will come out wrong, and no fix
 exists without knowing the writer's code page). `.7z` names are always UTF-16 and safe.
-Encrypted archives are `Encrypted`, never a prompt: with `sevenz-rust2` built without its AES
-feature and always given the empty password, encryption of the header or of the entries surfaces
-as the AES coder being an unsupported method, which is what the crate maps to `Encrypted` (the
-crate's own password errors are unreachable in that configuration and are not matched). Codecs:
+Password-protected archives are refused at open with `Encrypted`, never at `read` and never with
+a prompt: the Team compiler's live shallow check opens an archive the moment it appears, so the
+member sees the refusal then, not at compile start. A zip with any encrypted entry is refused
+(the flag comes from each entry's raw view, already read at open). A 7z is refused when its
+header is encrypted (with `sevenz-rust2` built without its AES feature and always given the
+empty password, that surfaces as the AES coder being an unsupported method) or when any block's
+coder chain holds the AES method (`EncoderMethod::ID_AES256_SHA256`), checked on the header
+already read. The crate's own password errors are unreachable in that configuration and are
+not matched. Codecs:
 `zip` with Deflate and Store (the two every zip writer in use emits; Deflate64, bzip2 and LZMA
 zips list and fail at `read` with the zip crate's message), `sevenz-rust2` with its built-in
 LZMA, LZMA2 and BCJ filters (7-Zip's defaults; a PPMd or BZip2 7z lists and fails at the first
@@ -69,7 +74,7 @@ a `Kits/Réf.txt` with a non-ASCII name) packed six ways: 7-Zip `.7z` (LZMA2 sol
 PowerShell `Compress-Archive` (Deflate, UTF-8 flag), 7-Zip encrypted `.7z` (header encrypted
 too), `.7z` with the header readable and the entries encrypted, and `.zip`; plus a PPMd `.7z` and
 a BZip2 `.zip` for the codecs the crate does not carry. Every readable archive must list the same
-six file entries with the same sizes and yield bytes equal to the tree's files; the encrypted
-ones must fail with `Encrypted` at `read` (or at open when the header itself is encrypted); the
+six file entries with the same sizes and yield bytes equal to the tree's files; the three
+encrypted ones must fail with `Encrypted` at open; the
 PPMd and BZip2 ones list the six entries and fail at `read` with the container crate's message,
 their stored entries still readable.

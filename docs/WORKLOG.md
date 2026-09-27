@@ -898,3 +898,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   reviewer briefs rank concerns by reachability; briefs tell the sidekick to insert tests
   inside the test module. Maintainer decided the executable is `4cc-studio` (decision entry).
   `fmdl`: the combine reorder gate's `>`/`>=` survivor was a missing test, now written.
+- **2026-09-27** - Maintainer decisions: `archives` refuses password-protected archives at open
+  (a zip with any encrypted entry, a 7z with an encrypted header or an AES-coded block), so the
+  live check reports them at once; maintenance mode is a Phase 16 deliverable with its outline in
+  `core/development_plan.md`, not per-file ADRs (decision entries).
