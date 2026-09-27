@@ -10,13 +10,19 @@ use super::{
     BONE_LIMIT_SOFT, BoneMapping, FACE_LIMIT_SOFT, PREFERRED_BASE_BONES, StorableItems,
     VERTEX_LIMIT_SOFT, bone_mapping, empty_like, push_vertex,
 };
-use crate::ops::vertex_enc::topological_key;
-
-/// Vertex `index`'s split key: the stored bytes of position, weights and
-/// bone indices (all vertices of one mesh share the bone group, so group
-/// slot numbers compare correctly here).
-fn split_key(mesh: &Mesh, index: usize) -> Vec<u8> {
-    topological_key(&mesh.vertices, index)
+/// Vertex `index`'s split key: the stored bytes of its position followed
+/// by its `(model bone, weight)` pairs — the identity `combine` matches on,
+/// so a zero-weight lane's raw index never splits coincident vertices.
+fn split_key(mesh: &Mesh, index: usize, mapping: &BoneMapping) -> Vec<u8> {
+    let mut key = Vec::new();
+    for component in mesh.vertices.positions[index] {
+        key.extend(component.to_le_bytes());
+    }
+    for &(bone, weight) in mapping {
+        key.extend(bone.to_le_bytes());
+        key.push(weight);
+    }
+    key
 }
 
 /// The static data of one mesh being split: faces as vertex indices, the
@@ -82,7 +88,8 @@ fn select_base_bone(
 
 /// The first principal axis of the vertex cloud in `items`, oriented from
 /// `bone_position` toward the cloud's centre. Power iteration on the 3x3
-/// covariance matrix, eight iterations.
+/// covariance matrix, eight iterations from each basis vector, keeping the
+/// result with the largest Rayleigh quotient.
 fn sort_vector(points: &[[f32; 3]], bone_position: [f32; 3]) -> [f32; 3] {
     let count = points.len() as f32;
     let mut mean = [0.0f32; 3];
@@ -100,22 +107,27 @@ fn sort_vector(points: &[[f32; 3]], bone_position: [f32; 3]) -> [f32; 3] {
             }
         }
     }
-    // Start from the axis of largest variance so a degenerate cloud still
-    // gives a deterministic vector.
-    let diagonal = [covariance[0][0], covariance[1][1], covariance[2][2]];
-    let mut vector = [0.0f32; 3];
-    vector[if diagonal[1] > diagonal[0] {
-        if diagonal[2] > diagonal[1] { 2 } else { 1 }
-    } else if diagonal[2] > diagonal[0] {
-        2
-    } else {
-        0
-    }] = 1.0;
-    for _ in 0..8 {
-        let next = multiply(&covariance, vector);
-        let norm = (next[0] * next[0] + next[1] * next[1] + next[2] * next[2]).sqrt();
-        if norm > 0.0 {
-            vector = [next[0] / norm, next[1] / norm, next[2] / norm];
+    // Power-iterate from each basis vector in turn — a single seed can sit
+    // on a non-principal eigenvector — and keep the result with the
+    // largest Rayleigh quotient v . (C v) (strictly larger replaces, so a
+    // tie keeps the earlier start; a degenerate cloud keeps x).
+    let mut vector = [1.0f32, 0.0, 0.0];
+    let mut best = f32::NEG_INFINITY;
+    for start in [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]] {
+        let mut candidate = start;
+        for _ in 0..8 {
+            let next = multiply(&covariance, candidate);
+            let norm = (next[0] * next[0] + next[1] * next[1] + next[2] * next[2]).sqrt();
+            if norm > 0.0 {
+                candidate = [next[0] / norm, next[1] / norm, next[2] / norm];
+            }
+        }
+        let product = multiply(&covariance, candidate);
+        let quotient =
+            candidate[0] * product[0] + candidate[1] * product[1] + candidate[2] * product[2];
+        if quotient > best {
+            best = quotient;
+            vector = candidate;
         }
     }
     let mut dot = 0.0f32;
@@ -376,7 +388,7 @@ pub(super) fn split_mesh(
     let mut sets: Vec<Vec<usize>> = Vec::new();
     let mut key_to_set: HashMap<Vec<u8>, usize> = HashMap::new();
     for (index, slot) in set_of.iter_mut().enumerate() {
-        let key = split_key(mesh, index);
+        let key = split_key(mesh, index, &mappings[index]);
         match key_to_set.get(&key) {
             Some(&set) => {
                 sets[set].push(index);
@@ -567,6 +579,29 @@ mod tests {
             let mut expected = [0.0; 3];
             expected[axis] = 1.0;
             assert_eq!(vector, expected);
+        }
+    }
+
+    #[test]
+    fn sort_vector_finds_the_principal_axis() {
+        // Covariance [[18,0,0],[0,10,10],[0,10,10]]: the principal axis is
+        // (0, 1, 1)/sqrt(2) (eigenvalue 20), not x (18) — a seed on the
+        // largest diagonal alone would sit on x.
+        let points = vec![
+            [3.0, 0.0, 0.0],
+            [-3.0, 0.0, 0.0],
+            [0.0, 2.0, 2.0],
+            [0.0, -2.0, -2.0],
+            [0.0, 1.0, 1.0],
+            [0.0, -1.0, -1.0],
+        ];
+        let vector = sort_vector(&points, [0.0, -1.0, -1.0]);
+        let s = 1.0f32 / 2.0f32.sqrt();
+        for axis in 0..3 {
+            assert!(
+                (vector[axis] - [0.0, s, s][axis]).abs() < 1e-5,
+                "{vector:?} is not (0, 1, 1)/sqrt(2)"
+            );
         }
     }
 

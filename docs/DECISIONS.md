@@ -2136,3 +2136,22 @@ Decision (cross-family review at converge, 7 of 7 accepted):
 - Deferred with an issue: u16 faces cap a reassembled split mesh at 65536 referenced vertices.
 Plan: `libs/format_crates.md` ("Layout of the format crates" byte-identity rule, "Custom
 bounding boxes", new "Mesh-group assignments"); `model_conversion/ir.md` (merge sentence).
+
+## 2026-09-27 - fmdl - converge review, second round
+Decision (cross-family review at converge, 5 of 6 accepted):
+- **`antiblur::encode` is a no-op when `extensions.antiblur` is set**; idempotence no longer
+  rests on a duplicate sitting right after its source, which a split breaks.
+- **The split key is position plus the positive-weight bone mapping**, the identity `combine`
+  matches on; with raw bone-index lanes a zero-weight lane could split coincident vertices
+  apart and the decode weld them back.
+- **`combine` reorders vertices only when a referenced index would pass u16**, so a loose loop
+  stays next to its owner.
+- **`vertex_enc::encode` refuses an owner map joining different topological keys** (it
+  panicked).
+- **The principal axis is found from all three basis starts, keeping the largest Rayleigh
+  quotient**: a single start on the largest diagonal can sit on a non-principal eigenvector,
+  which the 2026-09-13 decision already ruled out.
+- Rejected: merging a loop-flagged part with an unflagged one reads the unflagged part's
+  convention runs as loops; `model_conversion/ir.md` "Extension algorithms" settles that.
+Plan: no plan edit needed: these are implementation rules inside `fmdl::ops` the plan leaves
+open, and the axis rule restates the 2026-09-13 entry.

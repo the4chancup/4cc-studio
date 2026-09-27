@@ -68,6 +68,13 @@ pub fn encode(mesh: &mut Mesh, owner: &[usize]) -> Result<Vec<usize>, FmdlError>
     let topological: Vec<Vec<u8>> = (0..count)
         .map(|index| topological_key(vertices, index))
         .collect();
+    for (index, &vertex) in owner.iter().enumerate() {
+        if topological[index] != topological[vertex] {
+            return Err(FmdlError::VertexMismatch(
+                "owner map joins vertices with different topological keys",
+            ));
+        }
+    }
     let nontopological: Vec<Vec<u8>> = (0..count)
         .map(|index| nontopological_encoding(vertices, index))
         .collect();
@@ -501,5 +508,31 @@ mod tests {
             custom_bounding_box: None,
         };
         assert_eq!(decode(&mesh).unwrap(), [0, 1]);
+    }
+
+    #[test]
+    fn owner_map_cannot_join_different_keys() {
+        // owners [0, 0, 2] over three distinct positions joins vertex 1
+        // under an owner of a different topological key.
+        let mut mesh = Mesh {
+            vertices: MeshVertices {
+                positions: vec![[0.0; 3], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
+                ..MeshVertices::default()
+            },
+            faces: vec![[0, 1, 2]],
+            bone_group: Vec::new(),
+            material: 0,
+            alpha_flags: 0,
+            shadow_flags: 0,
+            has_antiblur_meshes: false,
+            is_antiblur_mesh: false,
+            custom_bounding_box: None,
+        };
+        assert!(matches!(
+            encode(&mut mesh, &[0, 0, 2]),
+            Err(FmdlError::VertexMismatch(
+                "owner map joins vertices with different topological keys"
+            ))
+        ));
     }
 }
