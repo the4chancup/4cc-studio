@@ -1075,3 +1075,89 @@ fn the_bone_matrix_block_tracks_the_bone_list() {
     let file = plain_model().to_file().unwrap();
     assert_eq!(file.bone_matrices, None);
 }
+
+#[test]
+fn a_group_with_nonconsecutive_meshes_reloads() {
+    // A group's non-consecutive mesh list is written as one assignment
+    // record per run, all naming the group's one bounding box; reading it
+    // back must accept the repeated assignment.
+    let boxed = BoundingBox {
+        max: [10.0, 10.0, 10.0, 1.0],
+        min: [-10.0, -10.0, -10.0, 1.0],
+    };
+    let mut model = grouped_model(
+        vec![
+            mesh_with(plain_vertices()),
+            mesh_with(plain_vertices()),
+            mesh_with(plain_vertices()),
+        ],
+        vec![vec![0, 2], vec![1]],
+    );
+    for group in &mut model.mesh_groups {
+        group.bounding_box = Some(boxed);
+    }
+    let file = model.to_file().unwrap();
+    // Three records: group 0's runs [0] and [2], group 1's [1].
+    assert_eq!(file.mesh_group_assignments.len(), 3);
+    let again = Model::from_file(&file).unwrap();
+    assert_eq!(again, model);
+
+    // A second assignment naming a *different* bounding box is refused.
+    let mut file = model.to_file().unwrap();
+    let other = file.mesh_group_assignments[2].bounding_box_id;
+    file.mesh_group_assignments[1].bounding_box_id = other;
+    assert!(matches!(
+        Model::from_file(&file),
+        Err(FmdlError::BadMeshGroupAssignment(
+            "mesh group assigned two bounding boxes"
+        ))
+    ));
+}
+
+#[test]
+fn a_split_mesh_among_siblings_reloads() {
+    // [small, skinned-over-the-limit, small] in one group: the split's
+    // components move to a child split group, leaving the group's own
+    // meshes non-consecutive.
+    let boxed = BoundingBox {
+        max: [10.0, 10.0, 10.0, 1.0],
+        min: [-10.0, -10.0, -10.0, 1.0],
+    };
+    let mut big = mesh_with(MeshVertices {
+        positions: vec![[0.0; 3], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
+        bone_weights: Some(vec![[255, 0, 0, 0]; 3]),
+        bone_indices: Some(vec![[0; 4]; 3]),
+        ..MeshVertices::default()
+    });
+    big.bone_group = (0..40).collect();
+    let mut model = grouped_model(
+        vec![
+            mesh_with(plain_vertices()),
+            big,
+            mesh_with(plain_vertices()),
+        ],
+        vec![vec![0, 1, 2]],
+    );
+    model.bones = (0usize..40)
+        .map(|index| Bone {
+            name: format!("bone{index}"),
+            parent: index.checked_sub(1),
+            bounding_box: BoundingBox {
+                max: [0.0; 4],
+                min: [0.0; 4],
+            },
+            local_position: [0.0; 4],
+            world_position: [0.0; 4],
+        })
+        .collect();
+    model.bone_matrices = Some(Vec::new());
+    for group in &mut model.mesh_groups {
+        group.bounding_box = Some(boxed);
+    }
+    crate::ops::split::encode(&mut model, None).unwrap();
+    // The group now names its siblings apart: [0, 2].
+    assert_eq!(model.mesh_groups[0].meshes, [0, 2]);
+    let file = model.to_file().unwrap();
+    let again = Model::from_file(&file).unwrap();
+    assert_eq!(again, model);
+}

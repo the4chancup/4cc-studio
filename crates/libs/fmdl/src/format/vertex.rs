@@ -620,6 +620,20 @@ impl FmdlFile {
                 ));
             }
         }
+        // Aliased uv maps share one buffer span (`to_file` writes identical
+        // maps once); maps sharing storage must be supplied equal, and this
+        // must be checked before anything is written.
+        for (later, attribute) in uv_attributes.iter().enumerate() {
+            let map = uv_index(attribute.datum_type).expect("Uv0..Uv3 always name a uv map");
+            for earlier in &uv_attributes[..later] {
+                let other = uv_index(earlier.datum_type).expect("Uv0..Uv3 always name a uv map");
+                if attribute.offset == earlier.offset && vertices.uvs[map] != vertices.uvs[other] {
+                    return Err(FmdlError::VertexMismatch(
+                        "uv maps that share storage differ",
+                    ));
+                }
+            }
+        }
 
         let buffer = self.buffer.as_deref_mut().ok_or(FmdlError::BadReference {
             what: "vertex buffer",
@@ -635,35 +649,26 @@ impl FmdlFile {
                         let values = vertices
                             .bone_weights
                             .as_ref()
-                            .ok_or(FmdlError::VertexMismatch("attribute missing"))?;
+                            .expect("presence checked above");
                         write_quad8(buffer, range, values[vertex])?;
                     }
                     DatumType::Normal => {
-                        let values = vertices
-                            .normals
-                            .as_ref()
-                            .ok_or(FmdlError::VertexMismatch("attribute missing"))?;
+                        let values = vertices.normals.as_ref().expect("presence checked above");
                         write_quad16(buffer, range, values[vertex])?;
                     }
                     DatumType::Color => {
-                        let values = vertices
-                            .colors
-                            .as_ref()
-                            .ok_or(FmdlError::VertexMismatch("attribute missing"))?;
+                        let values = vertices.colors.as_ref().expect("presence checked above");
                         write_quad8(buffer, range, values[vertex])?;
                     }
                     DatumType::BoneIndices => {
                         let values = vertices
                             .bone_indices
                             .as_ref()
-                            .ok_or(FmdlError::VertexMismatch("attribute missing"))?;
+                            .expect("presence checked above");
                         write_quad8(buffer, range, values[vertex])?;
                     }
                     DatumType::Tangent => {
-                        let values = vertices
-                            .tangents
-                            .as_ref()
-                            .ok_or(FmdlError::VertexMismatch("attribute missing"))?;
+                        let values = vertices.tangents.as_ref().expect("presence checked above");
                         write_quad16(buffer, range, values[vertex])?;
                     }
                     DatumType::Uv0 | DatumType::Uv1 | DatumType::Uv2 | DatumType::Uv3 => {
@@ -1066,5 +1071,78 @@ mod tests {
             broken.vertex_attributes(0),
             Err(FmdlError::UnsupportedVertexFormat { datum_type: 5, .. })
         ));
+    }
+
+    #[test]
+    fn aliased_uv_maps_must_agree() {
+        // A model whose two identical uv maps share one span when written.
+        let vertices = MeshVertices {
+            positions: vec![[0.0; 3], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
+            uvs: vec![vec![[0.5, 0.5]; 3], vec![[0.5, 0.5]; 3]],
+            uv_high_precision: vec![false, false],
+            ..MeshVertices::default()
+        };
+        let mesh = Mesh {
+            vertices,
+            faces: vec![[0, 1, 2]],
+            bone_group: Vec::new(),
+            material: 0,
+            alpha_flags: 0,
+            shadow_flags: 0,
+            has_antiblur_meshes: false,
+            is_antiblur_mesh: false,
+            custom_bounding_box: None,
+        };
+        let model = Model {
+            bones: Vec::new(),
+            materials: vec![MaterialInstance {
+                name: "mat".to_owned(),
+                shader: "shader".to_owned(),
+                technique: "technique".to_owned(),
+                textures: Vec::new(),
+                parameters: Vec::new(),
+            }],
+            meshes: vec![mesh],
+            mesh_groups: vec![MeshGroup {
+                name: "group".to_owned(),
+                parent: None,
+                meshes: vec![0],
+                bounding_box: None,
+                visible: true,
+                split_mesh_group: false,
+            }],
+            extensions: Extensions::default(),
+            bone_matrices: None,
+        };
+        let mut file = model.to_file().unwrap();
+        let attributes = file.vertex_attributes(0).unwrap();
+        let uvs: Vec<&VertexAttribute> = attributes
+            .iter()
+            .filter(|attribute| uv_index(attribute.datum_type).is_some())
+            .collect();
+        assert_eq!(uvs.len(), 2);
+        assert_ne!(uvs[0].datum_type, uvs[1].datum_type);
+        assert_eq!(uvs[0].offset, uvs[1].offset);
+
+        // Changing only the first map cannot be stored: both share a span.
+        let mut changed = model.meshes[0].vertices.clone();
+        changed.uvs[0][0] = [9.0, 9.0];
+        let before = file.buffer.clone().unwrap();
+        assert!(matches!(
+            file.encode_vertices(0, &changed),
+            Err(FmdlError::VertexMismatch(
+                "uv maps that share storage differ"
+            ))
+        ));
+        assert_eq!(file.buffer.as_deref(), Some(before.as_slice()));
+
+        // Changing both identically writes through; decode shows it.
+        let mut changed = model.meshes[0].vertices.clone();
+        changed.uvs[0][0] = [9.0, 9.0];
+        changed.uvs[1][0] = [9.0, 9.0];
+        file.encode_vertices(0, &changed).unwrap();
+        let decoded = file.decode_vertices(0).unwrap();
+        assert_eq!(decoded.uvs[0][0], [9.0, 9.0]);
+        assert_eq!(decoded.uvs[1][0], [9.0, 9.0]);
     }
 }

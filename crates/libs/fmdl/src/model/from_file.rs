@@ -211,9 +211,12 @@ fn read_mesh_groups(
     }
 
     // Assignments hand runs of consecutive meshes and one bounding box
-    // to a group; every mesh must land in exactly one group.
+    // to a group; every mesh must land in exactly one group. A group's
+    // non-consecutive runs repeat the assignment with the same box —
+    // a different box id is the add-on reader's error.
     let mut assigned: Vec<Option<usize>> = vec![None; file.meshes.len()];
     let mut mesh_boxes: Vec<Option<BoundingBox>> = vec![None; file.meshes.len()];
+    let mut group_boxes: Vec<Option<u16>> = vec![None; mesh_groups.len()];
     for record in &file.mesh_group_assignments {
         let group = usize::from(record.mesh_group_id);
         if group >= mesh_groups.len() {
@@ -251,12 +254,17 @@ fn read_mesh_groups(
             mesh_boxes[mesh_index] = Some(bounding_box);
             mesh_groups[group].meshes.push(mesh_index);
         }
-        if mesh_groups[group].bounding_box.is_some() {
-            return Err(FmdlError::BadMeshGroupAssignment(
-                "mesh group assigned two bounding boxes",
-            ));
+        match group_boxes[group] {
+            Some(first_id) if first_id != record.bounding_box_id => {
+                return Err(FmdlError::BadMeshGroupAssignment(
+                    "mesh group assigned two bounding boxes",
+                ));
+            }
+            _ => {
+                group_boxes[group] = Some(record.bounding_box_id);
+                mesh_groups[group].bounding_box = Some(bounding_box);
+            }
         }
-        mesh_groups[group].bounding_box = Some(bounding_box);
     }
     for assignment in &assigned {
         if assignment.is_none() {

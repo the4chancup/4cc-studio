@@ -12,11 +12,12 @@ use crate::model::{MaterialInstance, Model, Texture};
 const TEXTURE_DIRECTORY: &str = "/Assets/pes16/model/character/common/sourceimages/";
 
 /// Adds the anti-blur duplicate of every mesh flagged `has_antiblur_meshes`
-/// right after it, with a fuzzblock material, and sets
-/// `extensions.antiblur`. Idempotent on a model already encoded (a mesh
-/// flagged `is_antiblur_mesh` is never duplicated, and a source mesh
-/// followed by its duplicate is skipped). An invalid model (a dangling
-/// index `Model::validate` names) is an error, never a panic.
+/// right after it, with a fuzzblock material and the source's custom
+/// bounding box, and sets `extensions.antiblur`. Idempotent on a model
+/// already encoded (a mesh flagged `is_antiblur_mesh` is never duplicated,
+/// and a source mesh followed by its duplicate is skipped). An invalid
+/// model (a dangling index `Model::validate` names) is an error, never a
+/// panic.
 pub fn encode(model: &mut Model) -> Result<(), FmdlError> {
     model.validate()?;
     let old_meshes = std::mem::take(&mut model.meshes);
@@ -45,7 +46,6 @@ pub fn encode(model: &mut Model) -> Result<(), FmdlError> {
             duplicate.shadow_flags = 1;
             duplicate.has_antiblur_meshes = false;
             duplicate.is_antiblur_mesh = true;
-            duplicate.custom_bounding_box = None;
             duplicates.insert(index, meshes.len());
             meshes.push(duplicate);
         }
@@ -177,6 +177,7 @@ fn antiblur_material(source: &MaterialInstance) -> MaterialInstance {
 mod tests {
     use super::*;
     use crate::format::FmdlFile;
+    use crate::model::BoundingBox;
 
     const ORAL: &[u8] = include_bytes!("../../tests/fixtures/addon_oral.fmdl");
     const AU_LOW: &[u8] = include_bytes!("../../tests/fixtures/konami_au_Low_parts.fmdl");
@@ -198,7 +199,10 @@ mod tests {
         assert!(!duplicate.has_antiblur_meshes);
         assert_eq!(duplicate.alpha_flags, 128);
         assert_eq!(duplicate.shadow_flags, 1);
-        assert_eq!(duplicate.custom_bounding_box, None);
+        assert_eq!(
+            duplicate.custom_bounding_box,
+            model.meshes[0].custom_bounding_box
+        );
         assert_eq!(duplicate.vertices, model.meshes[0].vertices);
         assert_eq!(duplicate.faces, model.meshes[0].faces);
         assert_eq!(duplicate.bone_group, model.meshes[0].bone_group);
@@ -352,5 +356,30 @@ mod tests {
         assert_eq!(model.meshes[0].material, 0);
         assert_eq!(model.materials[0].name, "Material");
         assert!(!model.extensions.antiblur);
+    }
+
+    // A hand-set box follows the duplicate, so the group's computed box
+    // does not grow back to the geometry.
+    #[test]
+    fn a_duplicate_keeps_the_custom_bounding_box() {
+        let mut model = load(ORAL);
+        let custom = BoundingBox {
+            max: [0.01, 1.5, 0.01, 1.0],
+            min: [-0.01, 1.49, -0.01, 1.0],
+        };
+        model.meshes[0].custom_bounding_box = Some(custom);
+        model.meshes[0].has_antiblur_meshes = true;
+        model.mesh_groups[0].bounding_box = None;
+        encode(&mut model).unwrap();
+        assert_eq!(model.meshes[1].custom_bounding_box, Some(custom));
+
+        let file = model.to_file().unwrap();
+        // The group's computed box is the custom box, and the header
+        // lists both meshes.
+        let box_id = usize::from(file.mesh_group_assignments[0].bounding_box_id);
+        assert_eq!(file.bounding_boxes[box_id].max, [0.01, 1.5, 0.01, 1.0]);
+        assert_eq!(file.bounding_boxes[box_id].min, [-0.01, 1.49, -0.01, 1.0]);
+        let tail = String::from_utf8_lossy(file.extension_tail());
+        assert!(tail.contains("Custom-Bounding-Box-Meshes: 0, 1"));
     }
 }

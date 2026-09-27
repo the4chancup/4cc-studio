@@ -662,6 +662,12 @@ Steps are itemized when Phase 3 closes; two are fixed already:
 Bugs, unexpected behavior, things to revisit. `open` / `resolved (date)`. Resolved issues are
 pruned when their phase closes; they stay in git history.
 
+- open — u16 face indices cap a reassembled split mesh (found at 2.20f review): `fmdl::Mesh`
+  and the IR (`ir.md` "IR struct") store faces as `[u16; 3]`, so `fmdl::ops::split::decode`
+  refuses (loud `VertexMismatch`) an add-on file whose components together reference more
+  than 65536 vertices, and vertex-limit splitting of an IR mesh can only move loose vertices.
+  No cup model is known to reach it; decide the face type at Phase 7 (glTF brings u32
+  indices), or earlier if a real model hits the error.
 - open — `model_convert` converge questions (2.20): (1) Fox decal shaders (`translucent`,
   `3ddc`, `eyeocclusion`) infer `Shaded` *exact* through the `3ddf` rule, so the highneck
   fixture converts to an opaque `Basic_C`, where the 19to16 converter wrote `Overlay` with alpha

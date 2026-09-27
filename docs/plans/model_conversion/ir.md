@@ -334,8 +334,9 @@ are unchanged). The legacy converters reorder the same way. A same-format round 
 compared against the input with the same encoders applied, never byte for byte (see "Testing: IR
 roundtrips").
 
-`fmdl` also owns **multi-FMDL mesh merging** — bone lists unioned by name (per-mesh bone groups
-remapped), meshes and mesh groups concatenated, materials merged by name (same-name materials with
+`fmdl` also owns **multi-FMDL mesh merging** — bone lists unioned by name (a shared bone's
+bounding box is the union of the parts' boxes, since a bone's box covers every vertex weighted
+to it; per-mesh bone groups remapped), meshes and mesh groups concatenated, materials merged by name (same-name materials with
 differing definitions rejected), buffers and headers rebuilt. It is not an IR operation: the Team
 compiler calls it directly to assemble multi-part models and to bake Common-linked models into
 player FMDLs on Fox targets, where the engine cannot load models from the Common folder (see "Common
