@@ -122,8 +122,9 @@ thresholds came from the visual swatch-sheet check the calibration harness produ
 
 ## First-release desktop GPU BC7
 
-GPU BC7 for PES 19–21 is a first-release target, using `block_compression`'s existing wgpu backend
-inside `dds_convert`. The library supplies the kernels; Studio implements bounded batching,
+GPU BC7 for PES 19–21 is a first-release (1.0.0) target, using `block_compression`'s existing wgpu
+backend inside `dds_convert`, built in Phase 16 on the Team compiler's texture step; Release 0.1.0
+ships the CPU encoder only (`core/development_plan.md` "Releases"). The library supplies the kernels; Studio implements bounded batching,
 upload/readback, pipeline integration, and fallback. It can remain the permanent GPU backend.
 BC1/BC3 stay on the CPU initially; already-compatible compressed inputs and cache hits need no
 encoding at all.

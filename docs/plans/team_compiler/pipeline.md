@@ -224,7 +224,10 @@ then processed as an independent parallel task (Blue: `coordinator._model_folder
    from the opposite native format**; duplicate sources within the selected representation are
    ambiguous and drop the folder (`model_source_ambiguous`). If the selected model's format doesn't
    match the target PES version, convert via the IR (see the [Model conversion
-   plan](../model_conversion/README.md)).
+   plan](../model_conversion/README.md)). Until glTF support lands (Phase 7, after Release
+   0.1.0), a selected glTF representation drops the folder with an error rather than falling
+   through to the opposite native format, so the same export never compiles differently once
+   glTF is read.
 2. **ID replacement** — dummy team IDs are replaced in file contents (FMDL texture path tables via
    `fmdl_id_change`; `.mtl` texture IDs pre-Fox) and in file names.
 3. **Fox mode fixups** — FMDL files renamed by stripping prefixes to the allowed names (arbitrary
