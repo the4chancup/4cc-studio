@@ -1,7 +1,7 @@
 //! The property value model: one `Values` variant per data type word, plus the
 //! `FoxString`/`Container`/`EntityLink`/`WideVector3` shapes they carry.
 
-use crate::file::Fox2Error;
+use crate::file::{Fox2Error, le_bytes, slice_at};
 use crate::hash::hash_string;
 
 /// A string the file stores as a hash: resolved to its text or still opaque.
@@ -39,7 +39,7 @@ pub enum Container {
 
 impl Container {
     /// The container for `word`, or `None` for an unknown one.
-    pub fn from_word(word: u8) -> Option<Container> {
+    pub(crate) fn from_word(word: u8) -> Option<Container> {
         match word {
             0 => Some(Container::StaticArray),
             1 => Some(Container::DynamicArray),
@@ -50,7 +50,7 @@ impl Container {
     }
 
     /// The XML name (`StaticArray`, `DynamicArray`, `StringMap`, `List`).
-    pub fn name(self) -> &'static str {
+    pub(crate) fn name(self) -> &'static str {
         match self {
             Container::StaticArray => "StaticArray",
             Container::DynamicArray => "DynamicArray",
@@ -60,7 +60,7 @@ impl Container {
     }
 
     /// The container an XML name gives, or `None` for an unknown one.
-    pub fn from_name(name: &str) -> Option<Container> {
+    pub(crate) fn from_name(name: &str) -> Option<Container> {
         match name {
             "StaticArray" => Some(Container::StaticArray),
             "DynamicArray" => Some(Container::DynamicArray),
@@ -71,7 +71,7 @@ impl Container {
     }
 
     /// The word the container serializes as.
-    pub fn word(self) -> u8 {
+    pub(crate) fn word(self) -> u8 {
         match self {
             Container::StaticArray => 0,
             Container::DynamicArray => 1,
@@ -199,29 +199,6 @@ pub struct WideVector3 {
     pub b: u16,
 }
 
-/// `at + len`, `Truncated` on overflow.
-fn offset_sum(at: usize, len: usize) -> Result<usize, Fox2Error> {
-    at.checked_add(len).ok_or(Fox2Error::Truncated)
-}
-
-fn slice_at(bytes: &[u8], at: usize, len: usize) -> Result<&[u8], Fox2Error> {
-    bytes
-        .get(at..offset_sum(at, len)?)
-        .ok_or(Fox2Error::Truncated)
-}
-
-fn u16_at(bytes: &[u8], at: usize) -> Result<u16, Fox2Error> {
-    let mut word = [0u8; 2];
-    word.copy_from_slice(slice_at(bytes, at, 2)?);
-    Ok(u16::from_le_bytes(word))
-}
-
-fn u64_at(bytes: &[u8], at: usize) -> Result<u64, Fox2Error> {
-    let mut word = [0u8; 8];
-    word.copy_from_slice(slice_at(bytes, at, 8)?);
-    Ok(u64::from_le_bytes(word))
-}
-
 fn f32s_at<const N: usize>(bytes: &[u8], at: usize) -> Result<[f32; N], Fox2Error> {
     let mut floats = [0.0f32; N];
     let (words, _) = slice_at(bytes, at, 4 * N)?.as_chunks::<4>();
@@ -297,31 +274,6 @@ impl Values {
         self.len() == 0
     }
 
-    /// The bytes one value of the variant occupies.
-    pub(crate) fn element_size(&self) -> usize {
-        match self {
-            Values::Int8(_) | Values::Uint8(_) | Values::Bool(_) => 1,
-            Values::Int16(_) | Values::Uint16(_) => 2,
-            Values::Int32(_) | Values::Uint32(_) | Values::Float(_) => 4,
-            Values::Int64(_)
-            | Values::Uint64(_)
-            | Values::Double(_)
-            | Values::String(_)
-            | Values::Path(_)
-            | Values::FilePtr(_)
-            | Values::EntityPtr(_)
-            | Values::EntityHandle(_) => 8,
-            Values::Vector3(_)
-            | Values::Vector4(_)
-            | Values::Quat(_)
-            | Values::Color(_)
-            | Values::WideVector3(_) => 16,
-            Values::EntityLink(_) => 32,
-            Values::Matrix3(_) => 36,
-            Values::Matrix4(_) => 64,
-        }
-    }
-
     /// An empty `Values` of the type `word` names, `UnsupportedDataType` for PropertyInfo
     /// (23) or any word above 24.
     pub(crate) fn empty(word: u8) -> Result<Values, Fox2Error> {
@@ -359,67 +311,43 @@ impl Values {
 pub(crate) fn read_value(values: &mut Values, bytes: &[u8], at: usize) -> Result<usize, Fox2Error> {
     match values {
         Values::Int8(list) => {
-            list.push(slice_at(bytes, at, 1)?[0] as i8);
+            list.push(i8::from_le_bytes(le_bytes(bytes, at)?));
             Ok(1)
         }
         Values::Uint8(list) => {
-            list.push(slice_at(bytes, at, 1)?[0]);
+            list.push(u8::from_le_bytes(le_bytes(bytes, at)?));
             Ok(1)
         }
         Values::Int16(list) => {
-            list.push(i16::from_le_bytes(
-                slice_at(bytes, at, 2)?
-                    .try_into()
-                    .map_err(|_| Fox2Error::Truncated)?,
-            ));
+            list.push(i16::from_le_bytes(le_bytes(bytes, at)?));
             Ok(2)
         }
         Values::Uint16(list) => {
-            list.push(u16_at(bytes, at)?);
+            list.push(u16::from_le_bytes(le_bytes(bytes, at)?));
             Ok(2)
         }
         Values::Int32(list) => {
-            list.push(i32::from_le_bytes(
-                slice_at(bytes, at, 4)?
-                    .try_into()
-                    .map_err(|_| Fox2Error::Truncated)?,
-            ));
+            list.push(i32::from_le_bytes(le_bytes(bytes, at)?));
             Ok(4)
         }
         Values::Uint32(list) => {
-            list.push(u32::from_le_bytes(
-                slice_at(bytes, at, 4)?
-                    .try_into()
-                    .map_err(|_| Fox2Error::Truncated)?,
-            ));
+            list.push(u32::from_le_bytes(le_bytes(bytes, at)?));
             Ok(4)
         }
         Values::Int64(list) => {
-            list.push(i64::from_le_bytes(
-                slice_at(bytes, at, 8)?
-                    .try_into()
-                    .map_err(|_| Fox2Error::Truncated)?,
-            ));
+            list.push(i64::from_le_bytes(le_bytes(bytes, at)?));
             Ok(8)
         }
         Values::Uint64(list) | Values::EntityPtr(list) | Values::EntityHandle(list) => {
-            list.push(u64_at(bytes, at)?);
+            list.push(u64::from_le_bytes(le_bytes(bytes, at)?));
             Ok(8)
         }
         Values::Float(list) => {
-            list.push(f32::from_le_bytes(
-                slice_at(bytes, at, 4)?
-                    .try_into()
-                    .map_err(|_| Fox2Error::Truncated)?,
-            ));
+            list.push(f32::from_le_bytes(le_bytes(bytes, at)?));
             Ok(4)
         }
         Values::Double(list) => {
-            list.push(f64::from_le_bytes(
-                slice_at(bytes, at, 8)?
-                    .try_into()
-                    .map_err(|_| Fox2Error::Truncated)?,
-            ));
+            list.push(f64::from_le_bytes(le_bytes(bytes, at)?));
             Ok(8)
         }
         Values::Bool(list) => {
@@ -427,7 +355,7 @@ pub(crate) fn read_value(values: &mut Values, bytes: &[u8], at: usize) -> Result
             Ok(1)
         }
         Values::String(list) | Values::Path(list) | Values::FilePtr(list) => {
-            list.push(FoxString::Hash(u64_at(bytes, at)?));
+            list.push(FoxString::Hash(u64::from_le_bytes(le_bytes(bytes, at)?)));
             Ok(8)
         }
         Values::Vector3(list)
@@ -447,10 +375,10 @@ pub(crate) fn read_value(values: &mut Values, bytes: &[u8], at: usize) -> Result
         }
         Values::EntityLink(list) => {
             list.push(EntityLink {
-                package: FoxString::Hash(u64_at(bytes, at)?),
-                archive: FoxString::Hash(u64_at(bytes, at + 8)?),
-                name: FoxString::Hash(u64_at(bytes, at + 16)?),
-                handle: u64_at(bytes, at + 24)?,
+                package: FoxString::Hash(u64::from_le_bytes(le_bytes(bytes, at)?)),
+                archive: FoxString::Hash(u64::from_le_bytes(le_bytes(bytes, at + 8)?)),
+                name: FoxString::Hash(u64::from_le_bytes(le_bytes(bytes, at + 16)?)),
+                handle: u64::from_le_bytes(le_bytes(bytes, at + 24)?),
             });
             Ok(32)
         }
@@ -460,8 +388,8 @@ pub(crate) fn read_value(values: &mut Values, bytes: &[u8], at: usize) -> Result
                 x,
                 y,
                 z,
-                a: u16_at(bytes, at + 12)?,
-                b: u16_at(bytes, at + 14)?,
+                a: u16::from_le_bytes(le_bytes(bytes, at + 12)?),
+                b: u16::from_le_bytes(le_bytes(bytes, at + 14)?),
             });
             Ok(16)
         }
@@ -471,7 +399,7 @@ pub(crate) fn read_value(values: &mut Values, bytes: &[u8], at: usize) -> Result
 /// Writes value `index` of `values` to `out` (index is in range by construction).
 pub(crate) fn write_values(values: &Values, index: usize, out: &mut Vec<u8>) {
     match values {
-        Values::Int8(list) => out.push(list[index] as u8),
+        Values::Int8(list) => out.extend_from_slice(&list[index].to_le_bytes()),
         Values::Uint8(list) => out.push(list[index]),
         Values::Int16(list) => out.extend_from_slice(&list[index].to_le_bytes()),
         Values::Uint16(list) => out.extend_from_slice(&list[index].to_le_bytes()),

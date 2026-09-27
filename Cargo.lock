@@ -557,7 +557,6 @@ dependencies = [
 name = "fox2"
 version = "0.1.0"
 dependencies = [
- "binrw",
  "roxmltree",
  "thiserror",
 ]

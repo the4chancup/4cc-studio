@@ -245,15 +245,14 @@ impl Fox2File {
         out.push_str("  <classes>\n");
         out.push_str("    <class name=\"Entity\" super=\"\" version=\"2\" />\n");
         out.push_str("    <class name=\"Data\" super=\"Entity\" version=\"2\" />\n");
-        let mut seen: HashSet<(String, String)> = HashSet::from([
-            ("Entity".to_string(), String::new()),
-            ("Data".to_string(), "Entity".to_string()),
-        ]);
+        // Only `Entity` is seeded: an entity of class `Data` is listed again, as the
+        // goldens' producer does.
+        let mut seen: HashSet<&str> = HashSet::from(["Entity"]);
         for entity in &self.entities {
-            let name = literal_text(&entity.class_name).to_string();
-            if seen.insert((name.clone(), String::new())) {
+            let name = literal_text(&entity.class_name);
+            if seen.insert(name) {
                 out.push_str("    <class");
-                attribute(&mut out, "name", &name);
+                attribute(&mut out, "name", name);
                 attribute(&mut out, "super", "");
                 attribute(&mut out, "version", &entity.version.to_string());
                 out.push_str(" />\n");
@@ -338,12 +337,17 @@ impl Fox2File {
     }
 }
 
-fn collect_literal(string: &FoxString, table: &mut Vec<TableEntry>, seen: &mut HashSet<u64>) {
+fn collect_literal<'a>(
+    string: &'a FoxString,
+    table: &mut Vec<TableEntry>,
+    seen: &mut HashSet<(u64, &'a str)>,
+) {
     if let FoxString::Literal(text) = string
         && !text.is_empty()
     {
         let hash = hash_string(text);
-        if seen.insert(hash) {
+        // Keyed on hash and text: two literals that collide in 48 bits each keep an entry.
+        if seen.insert((hash, text.as_str())) {
             table.push(TableEntry {
                 hash,
                 text: text.clone(),
@@ -352,11 +356,11 @@ fn collect_literal(string: &FoxString, table: &mut Vec<TableEntry>, seen: &mut H
     }
 }
 
-fn collect_value_literals(
-    values: &Values,
+fn collect_value_literals<'a>(
+    values: &'a Values,
     index: usize,
     table: &mut Vec<TableEntry>,
-    seen: &mut HashSet<u64>,
+    seen: &mut HashSet<(u64, &'a str)>,
 ) {
     match values {
         Values::String(list) | Values::Path(list) | Values::FilePtr(list) => {
@@ -368,8 +372,41 @@ fn collect_value_literals(
             collect_literal(&link.archive, table, seen);
             collect_literal(&link.name, table, seen);
         }
-        _ => {}
+        Values::Int8(_)
+        | Values::Uint8(_)
+        | Values::Int16(_)
+        | Values::Uint16(_)
+        | Values::Int32(_)
+        | Values::Uint32(_)
+        | Values::Int64(_)
+        | Values::Uint64(_)
+        | Values::Float(_)
+        | Values::Double(_)
+        | Values::Bool(_)
+        | Values::EntityPtr(_)
+        | Values::EntityHandle(_)
+        | Values::Vector3(_)
+        | Values::Vector4(_)
+        | Values::Quat(_)
+        | Values::Color(_)
+        | Values::Matrix3(_)
+        | Values::Matrix4(_)
+        | Values::WideVector3(_) => {}
     }
+}
+
+/// `node`'s text-node children concatenated in order (comments and processing instructions
+/// carry no text), `None` when there is no text child.
+fn element_text(node: &Node) -> Option<String> {
+    let chunks: Vec<&str> = node
+        .children()
+        .filter(|child| child.is_text())
+        .filter_map(|child| child.text())
+        .collect();
+    if chunks.is_empty() {
+        return None;
+    }
+    Some(chunks.concat())
 }
 
 /// The first child element named `tag`.
@@ -413,13 +450,12 @@ where
     T::try_from(parse_int(text, what)?).map_err(|_| bad(what, text))
 }
 
-/// An attribute as `f32`, missing or empty as `0.0`.
+/// An attribute as `f32`, missing as `0.0`; present but empty is `BadValue` (only a missing
+/// attribute defaults).
 fn float_attr(node: &Node, name: &str) -> Result<f32, XmlError> {
     match node.attribute(name) {
-        Some(text) if !text.trim().is_empty() => {
-            parse_float(text.trim()).ok_or_else(|| bad("float", text))
-        }
-        _ => Ok(0.0),
+        Some(text) => parse_float(text.trim()).ok_or_else(|| bad("float", text)),
+        None => Ok(0.0),
     }
 }
 
@@ -507,22 +543,22 @@ fn read_property(node: &Node) -> Result<Property, XmlError> {
 }
 
 fn read_xml_value(values: &mut Values, node: &Node) -> Result<(), XmlError> {
-    let text = node.text().unwrap_or_default();
+    let text = element_text(node).unwrap_or_default();
     match values {
-        Values::Int8(list) => list.push(int_as(text, "int8")?),
-        Values::Uint8(list) => list.push(int_as(text, "uint8")?),
-        Values::Int16(list) => list.push(int_as(text, "int16")?),
-        Values::Uint16(list) => list.push(int_as(text, "uint16")?),
-        Values::Int32(list) => list.push(int_as(text, "int32")?),
-        Values::Uint32(list) => list.push(int_as(text, "uint32")?),
-        Values::Int64(list) => list.push(int_as(text, "int64")?),
-        Values::Uint64(list) => list.push(int_as(text, "uint64")?),
+        Values::Int8(list) => list.push(int_as(&text, "int8")?),
+        Values::Uint8(list) => list.push(int_as(&text, "uint8")?),
+        Values::Int16(list) => list.push(int_as(&text, "int16")?),
+        Values::Uint16(list) => list.push(int_as(&text, "uint16")?),
+        Values::Int32(list) => list.push(int_as(&text, "int32")?),
+        Values::Uint32(list) => list.push(int_as(&text, "uint32")?),
+        Values::Int64(list) => list.push(int_as(&text, "int64")?),
+        Values::Uint64(list) => list.push(int_as(&text, "uint64")?),
         Values::Float(list) => {
             let trimmed = text.trim();
             list.push(if trimmed.is_empty() {
                 0.0
             } else {
-                parse_float(trimmed).ok_or_else(|| bad("float", text))?
+                parse_float(trimmed).ok_or_else(|| bad("float", &text))?
             });
         }
         Values::Double(list) => {
@@ -530,7 +566,7 @@ fn read_xml_value(values: &mut Values, node: &Node) -> Result<(), XmlError> {
             list.push(if trimmed.is_empty() {
                 0.0
             } else {
-                trimmed.parse::<f64>().map_err(|_| bad("double", text))?
+                trimmed.parse::<f64>().map_err(|_| bad("double", &text))?
             });
         }
         Values::Bool(list) => {
@@ -538,14 +574,14 @@ fn read_xml_value(values: &mut Values, node: &Node) -> Result<(), XmlError> {
             list.push(match trimmed {
                 "true" => true,
                 "false" | "" => false,
-                _ => return Err(bad("bool", text)),
+                _ => return Err(bad("bool", &text)),
             });
         }
         Values::String(list) | Values::Path(list) | Values::FilePtr(list) => {
             list.push(read_string(node)?);
         }
         Values::EntityPtr(list) | Values::EntityHandle(list) => {
-            list.push(int_as(text, "handle")?);
+            list.push(int_as(&text, "handle")?);
         }
         Values::Vector3(list) | Values::Vector4(list) | Values::Quat(list) => {
             list.push([
@@ -570,7 +606,7 @@ fn read_xml_value(values: &mut Values, node: &Node) -> Result<(), XmlError> {
                 package: link_string(node, "packagePath")?,
                 archive: link_string(node, "archivePath")?,
                 name: link_string(node, "nameInArchive")?,
-                handle: int_as(text, "handle")?,
+                handle: int_as(&text, "handle")?,
             });
         }
         Values::WideVector3(list) => {
@@ -588,8 +624,8 @@ fn read_xml_value(values: &mut Values, node: &Node) -> Result<(), XmlError> {
 
 /// Element text → `Literal`, else a `hash` attribute → `Hash`, else `Literal("")`.
 fn read_string(node: &Node) -> Result<FoxString, XmlError> {
-    if let Some(text) = node.text() {
-        return Ok(FoxString::Literal(text.to_string()));
+    if let Some(text) = element_text(node) {
+        return Ok(FoxString::Literal(text));
     }
     if let Some(hash) = node.attribute("hash") {
         return Ok(FoxString::Hash(int_as(hash, "hash")?));
@@ -927,6 +963,181 @@ mod tests {
         assert_eq!(
             file.entities[0].static_properties[0].keys,
             vec![FoxString::Literal("0xnothex".to_string())]
+        );
+    }
+
+    #[test]
+    fn escaping_covers_attributes_and_text() {
+        let file = Fox2File {
+            entities: vec![Entity {
+                class_name: FoxString::Literal("a&b\"c<d\te\nf\rg>".to_string()),
+                unknown1: 0,
+                unknown2: 0,
+                version: 0,
+                address: 0,
+                static_properties: vec![Property {
+                    name: FoxString::Literal("p".to_string()),
+                    container: Container::StaticArray,
+                    keys: Vec::new(),
+                    values: Values::String(vec![FoxString::Literal("h&i<j>k\rl\"m".to_string())]),
+                }],
+                dynamic_properties: Vec::new(),
+            }],
+            // Traversal order, as `from_xml` rebuilds the table.
+            string_table: ["a&b\"c<d\te\nf\rg>", "p", "h&i<j>k\rl\"m"]
+                .iter()
+                .map(|text| TableEntry {
+                    hash: hash_string(text),
+                    text: (*text).to_string(),
+                })
+                .collect(),
+        };
+        let xml = file.to_xml();
+        assert!(
+            xml.contains("class=\"a&amp;b&quot;c&lt;d&#9;e&#10;f&#13;g>\""),
+            "{xml}"
+        );
+        assert!(
+            xml.contains("<value>h&amp;i&lt;j&gt;k&#13;l\"m</value>"),
+            "{xml}"
+        );
+        assert_eq!(Fox2File::from_xml(&xml).as_ref(), Ok(&file), "{xml}");
+    }
+
+    #[test]
+    fn matrices_write_cell_by_cell() {
+        let file = Fox2File {
+            entities: vec![Entity {
+                class_name: FoxString::Literal("DataSet".to_string()),
+                unknown1: 0,
+                unknown2: 0,
+                version: 0,
+                address: 0,
+                static_properties: vec![
+                    Property {
+                        name: FoxString::Literal("m3".to_string()),
+                        container: Container::StaticArray,
+                        keys: Vec::new(),
+                        values: Values::Matrix3(vec![[
+                            1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0,
+                        ]]),
+                    },
+                    Property {
+                        name: FoxString::Literal("m4".to_string()),
+                        container: Container::StaticArray,
+                        keys: Vec::new(),
+                        values: Values::Matrix4(vec![[
+                            1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0,
+                            14.0, 15.0, 16.0,
+                        ]]),
+                    },
+                ],
+                dynamic_properties: Vec::new(),
+            }],
+            string_table: ["DataSet", "m3", "m4"]
+                .iter()
+                .map(|text| TableEntry {
+                    hash: hash_string(text),
+                    text: (*text).to_string(),
+                })
+                .collect(),
+        };
+        let xml = file.to_xml();
+        assert!(
+            xml.contains("<Row2 Column1=\"4\" Column2=\"5\" Column3=\"6\" />"),
+            "{xml}"
+        );
+        assert!(
+            xml.contains("<Row3 Column1=\"9\" Column2=\"10\" Column3=\"11\" Column4=\"12\" />"),
+            "{xml}"
+        );
+        assert_eq!(Fox2File::from_xml(&xml).as_ref(), Ok(&file), "{xml}");
+    }
+
+    #[test]
+    fn empty_float_attribute_is_an_error() {
+        let xml = |value: &str| {
+            format!(
+                "<fox><entities><entity><staticProperties>\
+                 <property type=\"Vector3\">{value}</property>\
+                 </staticProperties></entity></entities></fox>"
+            )
+        };
+        assert!(matches!(
+            Fox2File::from_xml(&xml("<value x=\"\" y=\"1\" z=\"2\" w=\"3\" />")),
+            Err(XmlError::BadValue { what: "float", .. })
+        ));
+        let file =
+            Fox2File::from_xml(&xml("<value x=\"1\" z=\"2\" w=\"3\" />")).expect("missing y");
+        assert_eq!(
+            file.entities[0].static_properties[0].values,
+            Values::Vector3(vec![[1.0, 0.0, 2.0, 3.0]])
+        );
+    }
+
+    #[test]
+    fn comments_do_not_split_value_text() {
+        let xml = |property_type: &str, value: &str| {
+            format!(
+                "<fox><entities><entity><staticProperties>\
+                 <property type=\"{property_type}\">{value}</property>\
+                 </staticProperties></entity></entities></fox>"
+            )
+        };
+        let file =
+            Fox2File::from_xml(&xml("String", "<value>ab<!-- c -->cd</value>")).expect("string");
+        assert_eq!(
+            file.entities[0].static_properties[0].values,
+            Values::String(vec![FoxString::Literal("abcd".to_string())])
+        );
+        let file = Fox2File::from_xml(&xml("int32", "<value><!-- c -->5</value>")).expect("int32");
+        assert_eq!(
+            file.entities[0].static_properties[0].values,
+            Values::Int32(vec![5])
+        );
+    }
+
+    #[test]
+    fn colliding_literals_both_reach_the_table() {
+        // A real 48-bit collision, found by hashing "c{n}" upward.
+        const A: &str = "c16803888";
+        const B: &str = "c21237791";
+        assert_eq!(hash_string(A), hash_string(B));
+        let xml = format!(
+            "<fox><entities><entity><staticProperties>\
+             <property type=\"String\"><value>{A}</value><value>{B}</value></property>\
+             </staticProperties></entity></entities></fox>"
+        );
+        let file = Fox2File::from_xml(&xml).expect("xml");
+        let texts: Vec<&str> = file
+            .string_table
+            .iter()
+            .filter(|entry| entry.hash == hash_string(A))
+            .map(|entry| entry.text.as_str())
+            .collect();
+        assert_eq!(texts, [A, B]);
+    }
+
+    #[test]
+    fn floats_parse_through_a_double() {
+        // The reference parses as binary64 then narrows; a direct `f32` parse gives
+        // 0x3F800001.
+        let text = "1.0000000596046448";
+        let xml = format!(
+            "<fox><entities><entity><staticProperties>\
+             <property type=\"float\"><value>{text}</value></property>\
+             <property type=\"Vector3\"><value x=\"{text}\" /></property>\
+             </staticProperties></entity></entities></fox>"
+        );
+        let file = Fox2File::from_xml(&xml).expect("xml");
+        let properties = &file.entities[0].static_properties;
+        assert_eq!(
+            properties[0].values,
+            Values::Float(vec![f32::from_bits(0x3F800000)])
+        );
+        assert_eq!(
+            properties[1].values,
+            Values::Vector3(vec![[f32::from_bits(0x3F800000), 0.0, 0.0, 0.0]])
         );
     }
 }

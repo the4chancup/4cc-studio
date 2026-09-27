@@ -26,57 +26,97 @@ fn general(value: f64, precision: usize) -> String {
     }
 }
 
-/// A `f32` as the XML form writes it: the shortest of 7 and 9 significant digits that reads
-/// back to the same value, `E+NN`/`E-NN` exponents, `-0` for negative zero, `nan`/`inf`/`-inf`
-/// for non-finite values.
-pub fn float_text(value: f32) -> String {
+/// A `f32` as the XML form writes it: 7 significant digits when that reads back to the same
+/// value, else 9 (which always round-trips an `f32`), `E+NN`/`E-NN` exponents, `-0` for
+/// negative zero, `nan`/`inf`/`-inf` for non-finite values.
+pub(crate) fn float_text(value: f32) -> String {
     if value.is_nan() {
         return "nan".to_string();
     }
     if value.is_infinite() {
-        return if value < 0.0 { "-inf" } else { "inf" }.to_string();
+        return if value.is_sign_negative() {
+            "-inf"
+        } else {
+            "inf"
+        }
+        .to_string();
     }
     if value == 0.0 {
         return if value.is_sign_negative() { "-0" } else { "0" }.to_string();
     }
-    for precision in [7, 9] {
-        let text = general(f64::from(value), precision);
-        if text.parse::<f32>().map(f32::to_bits) == Ok(value.to_bits()) {
-            return text;
-        }
+    let text = general(f64::from(value), 7);
+    if parse_float(&text).map(f32::to_bits) == Some(value.to_bits()) {
+        return text;
     }
     general(f64::from(value), 9)
+}
+
+/// `value`'s shortest exact-precision digits and its decimal exponent. `{:.*e}` rounds the
+/// last digit ties-to-even, which the shortest-digits `{e}`/`{}` forms do not.
+fn shortest_digits(value: f64) -> (String, i32) {
+    for precision in 1..=17 {
+        let scientific = format!("{:.*e}", precision - 1, value);
+        if scientific.parse::<f64>().map(f64::to_bits) == Ok(value.to_bits()) {
+            let (mantissa, exponent) = scientific.split_once('e').expect("exponent marker");
+            let digits: String = mantissa.chars().filter(|c| c.is_ascii_digit()).collect();
+            return (digits, exponent.parse().expect("decimal exponent"));
+        }
+    }
+    unreachable!("17 digits always round-trip an f64")
 }
 
 /// A `f64` the way the XML form writes it: the shortest text that reads back to the same
 /// value, lowercase `e`, exponent form when the decimal exponent is `< -4` or `>= 16`,
 /// a `.0` appended to an integral fixed value, `-0.0` for negative zero. Untested against a
-/// real file: no fixture carries a double, so this follows the rule without a golden.
-pub fn double_text(value: f64) -> String {
+/// real file: no fixture carries a double; `double_golden.tsv` pins the expected text.
+pub(crate) fn double_text(value: f64) -> String {
     if value.is_nan() {
         return "nan".to_string();
     }
     if value.is_infinite() {
-        return if value < 0.0 { "-inf" } else { "inf" }.to_string();
-    }
-    let scientific = format!("{value:e}");
-    let (mantissa, exponent) = scientific.split_once('e').expect("exponent marker");
-    let exponent: i32 = exponent.parse().expect("decimal exponent");
-    if !(-4..16).contains(&exponent) {
-        format!("{mantissa}e{exponent:+03}")
-    } else {
-        let fixed = format!("{value}");
-        if fixed.contains('.') {
-            fixed
+        return if value.is_sign_negative() {
+            "-inf"
         } else {
-            format!("{fixed}.0")
+            "inf"
         }
+        .to_string();
     }
+    let (digits, exponent) = shortest_digits(value);
+    let sign = if value.is_sign_negative() { "-" } else { "" };
+    if !(-4..16).contains(&exponent) {
+        let mut text = format!("{sign}{}", &digits[..1]);
+        if digits.len() > 1 {
+            text.push('.');
+            text.push_str(&digits[1..]);
+        }
+        text.push_str(&format!("e{exponent:+03}"));
+        return text;
+    }
+    let mut text = String::from(sign);
+    if exponent >= 0 {
+        let point = digits.len().min(exponent as usize + 1);
+        text.push_str(&digits[..point]);
+        text.push_str(&"0".repeat(exponent as usize + 1 - point));
+        if digits.len() <= point {
+            text.push_str(".0");
+        } else {
+            text.push('.');
+            text.push_str(&digits[point..]);
+        }
+    } else {
+        text.push_str("0.");
+        text.push_str(&"0".repeat((-exponent - 1) as usize));
+        text.push_str(&digits);
+    }
+    text
 }
 
-/// Reads what `float_text` writes (and plain decimal text); `-0` gives negative zero.
-pub fn parse_float(text: &str) -> Option<f32> {
-    text.parse::<f32>().ok()
+/// Reads what `float_text` writes (and plain decimal text), parsing as `f64` and narrowing:
+/// the double rounding is deliberate (the XML form's floats are read through binary64, so a
+/// 17-digit text compiles to the same bits as the goldens' producer), and `f64 as f32` is the
+/// rounding conversion (there is no `From`).
+pub(crate) fn parse_float(text: &str) -> Option<f32> {
+    text.parse::<f64>().ok().map(|value| value as f32)
 }
 
 #[cfg(test)]
@@ -94,6 +134,25 @@ mod tests {
             checked += 1;
         }
         assert_eq!(checked, 36);
+    }
+
+    #[test]
+    fn double_golden() {
+        let mut checked = 0;
+        for line in include_str!("../tests/fixtures/double_golden.tsv").lines() {
+            let (bits, text) = line.split_once('\t').expect("bits<TAB>text");
+            let bits = u64::from_str_radix(bits, 16).expect("hex bits");
+            assert_eq!(double_text(f64::from_bits(bits)), text, "bits {bits:016X}");
+            if text != "nan" {
+                assert_eq!(
+                    text.parse::<f64>().map(f64::to_bits),
+                    Ok(bits),
+                    "text {text:?}"
+                );
+            }
+            checked += 1;
+        }
+        assert_eq!(checked, 29);
     }
 
     #[test]
