@@ -631,8 +631,8 @@ fn read_xml_value(values: &mut Values, node: &Node) -> Result<(), XmlError> {
                 x: float_attr(node, "x")?,
                 y: float_attr(node, "y")?,
                 z: float_attr(node, "z")?,
-                a: int_as(node.attribute("a").unwrap_or("0"), "a")?,
-                b: int_as(node.attribute("b").unwrap_or("0"), "b")?,
+                a: required_int(node, "a")?,
+                b: required_int(node, "b")?,
             });
         }
     }
@@ -1177,6 +1177,23 @@ mod tests {
         assert_eq!(
             file.entities[0].static_properties[0].values,
             Values::Int32(vec![0])
+        );
+        // WideVector3's a/b are required integers too; missing still defaults to 0.
+        assert!(matches!(
+            Fox2File::from_xml(&value_xml("WideVector3", "<value a=\" \" b=\"7\" />")),
+            Err(XmlError::BadValue { .. })
+        ));
+        let file =
+            Fox2File::from_xml(&value_xml("WideVector3", "<value b=\"7\" />")).expect("missing a");
+        assert_eq!(
+            file.entities[0].static_properties[0].values,
+            Values::WideVector3(vec![WideVector3 {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+                a: 0,
+                b: 7,
+            }])
         );
     }
 
