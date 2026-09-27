@@ -19,8 +19,10 @@ use crate::model::{Mesh, Model};
 /// The mesh is not changed; meaningful when
 /// `Model::extensions.vertex_loop_preservation` is set, otherwise every
 /// vertex owns itself except where the convention happens to hold by
-/// chance.
-pub fn decode(mesh: &Mesh) -> Vec<usize> {
+/// chance. A mesh whose `validate_vertices` fails is an error, never a
+/// panic.
+pub fn decode(mesh: &Mesh) -> Result<Vec<usize>, FmdlError> {
+    mesh.validate_vertices()?;
     let vertices = &mesh.vertices;
     let count = vertices.positions.len();
     let topological: Vec<Vec<u8>> = (0..count)
@@ -40,7 +42,7 @@ pub fn decode(mesh: &Mesh) -> Vec<usize> {
             owner.push(index);
         }
     }
-    owner
+    Ok(owner)
 }
 
 /// Reorders `mesh.vertices` and remaps `mesh.faces` so that, per `owner`
@@ -50,7 +52,9 @@ pub fn decode(mesh: &Mesh) -> Vec<usize> {
 /// by decreasing first loop encoding (so they are never read as one
 /// vertex). Returns the owner map of the new order. `owner.len() != vertex
 /// count` or an owner index out of range -> `FmdlError::VertexMismatch`.
+/// A mesh whose `validate_vertices` fails is an error, never a panic.
 pub fn encode(mesh: &mut Mesh, owner: &[usize]) -> Result<Vec<usize>, FmdlError> {
+    mesh.validate_vertices()?;
     let count = mesh.vertices.positions.len();
     if owner.len() != count {
         return Err(FmdlError::VertexMismatch(
@@ -163,6 +167,7 @@ pub fn encode_model(
     model: &mut Model,
     owners: &[Vec<usize>],
 ) -> Result<Vec<Vec<usize>>, FmdlError> {
+    model.validate()?;
     if owners.len() != model.meshes.len() {
         return Err(FmdlError::VertexMismatch(
             "owner maps do not match the mesh count",
@@ -177,8 +182,9 @@ pub fn encode_model(
 }
 
 /// `decode` on every mesh when the extension is declared; identity maps
-/// otherwise.
-pub fn decode_model(model: &Model) -> Vec<Vec<usize>> {
+/// otherwise. An invalid model is an error, never a panic.
+pub fn decode_model(model: &Model) -> Result<Vec<Vec<usize>>, FmdlError> {
+    model.validate()?;
     model
         .meshes
         .iter()
@@ -186,7 +192,7 @@ pub fn decode_model(model: &Model) -> Vec<Vec<usize>> {
             if model.extensions.vertex_loop_preservation {
                 decode(mesh)
             } else {
-                (0..mesh.vertices.positions.len()).collect()
+                Ok((0..mesh.vertices.positions.len()).collect())
             }
         })
         .collect()
@@ -272,7 +278,7 @@ mod tests {
         for bytes in FIXTURES {
             let model = load(bytes);
             for mesh in &model.meshes {
-                let owner = decode(mesh);
+                let owner = decode(mesh).unwrap();
                 for (index, vertex) in owner.iter().enumerate() {
                     assert!(*vertex <= index);
                     assert_eq!(owner[*vertex], *vertex);
@@ -353,7 +359,7 @@ mod tests {
         assert!(mesh.vertices.uvs[0][2][0] < mesh.vertices.uvs[0][3][0]);
         // The decoded partition matches what was passed in: A's loops and
         // B's loops each sit under one owner.
-        assert_eq!(decode(&mesh), owner);
+        assert_eq!(decode(&mesh).unwrap(), owner);
         assert_eq!(face_tuples(&mesh), faces_before);
     }
 
@@ -395,7 +401,7 @@ mod tests {
         assert_eq!(mesh.vertices.uvs[0][1], [0.0, 0.0]);
         assert_eq!(owner, [0, 1]);
         // decode still separates them into two vertices.
-        let decoded = decode(&mesh);
+        let decoded = decode(&mesh).unwrap();
         assert_eq!(decoded, [0, 1]);
         assert_eq!(partition(&decoded).len(), 2);
     }
@@ -403,7 +409,7 @@ mod tests {
     #[test]
     fn model_level_round_trip() {
         let mut model = load(ORAL);
-        let owners = decode_model(&model);
+        let owners = decode_model(&model).unwrap();
         let new_owners = encode_model(&mut model, &owners).unwrap();
         assert!(model.extensions.vertex_loop_preservation);
         assert_eq!(
@@ -420,6 +426,7 @@ mod tests {
         assert!(again.extensions.vertex_loop_preservation);
         assert_eq!(
             decode_model(&again)
+                .unwrap()
                 .iter()
                 .map(|owner| partition(owner))
                 .collect::<Vec<_>>(),
@@ -441,5 +448,58 @@ mod tests {
             encode(&mut mesh, &[0, 1, 0, 9]),
             Err(FmdlError::VertexMismatch(_))
         ));
+    }
+
+    #[test]
+    fn encode_rejects_a_face_index_at_the_vertex_count() {
+        let mut mesh = loop_mesh(false);
+        mesh.faces[0][0] = 4;
+        assert!(matches!(
+            encode(&mut mesh, &[0, 1, 0, 1]),
+            Err(FmdlError::BadReference {
+                what: "face vertex",
+                index: 4
+            })
+        ));
+    }
+
+    #[test]
+    fn decode_rejects_a_short_attribute() {
+        let mut mesh = loop_mesh(false);
+        mesh.vertices.normals.as_mut().unwrap().pop();
+        assert!(matches!(
+            decode(&mesh),
+            Err(FmdlError::VertexMismatch("attribute count mismatch"))
+        ));
+    }
+
+    #[test]
+    fn decode_keeps_distinct_and_equal_encodings_apart() {
+        // Different positions: never one vertex's loops.
+        let mesh = loop_mesh(false);
+        let owner = decode(&mesh).unwrap();
+        assert_eq!(owner[0], 0);
+        assert_ne!(owner[1], owner[2]); // B's vertices differ in position
+
+        // Two vertices identical in every stored byte do not merge: an
+        // equal encoding is not *increasing*.
+        let mesh = Mesh {
+            vertices: MeshVertices {
+                positions: vec![[1.0, 2.0, 3.0], [1.0, 2.0, 3.0]],
+                normals: Some(vec![[0.0, 0.0, 1.0, 0.0]; 2]),
+                uvs: vec![vec![[0.0, 0.0], [0.0, 0.0]]],
+                uv_high_precision: vec![true],
+                ..MeshVertices::default()
+            },
+            faces: vec![[0, 1, 0]],
+            bone_group: Vec::new(),
+            material: 0,
+            alpha_flags: 0,
+            shadow_flags: 0,
+            has_antiblur_meshes: false,
+            is_antiblur_mesh: false,
+            custom_bounding_box: None,
+        };
+        assert_eq!(decode(&mesh).unwrap(), [0, 1]);
     }
 }

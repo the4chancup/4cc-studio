@@ -27,17 +27,17 @@ use crate::format::{FmdlError, MeshVertices};
 use crate::model::{Mesh, MeshGroup, Model};
 
 /// The largest bone group an FMDL mesh may reference.
-pub const BONE_LIMIT_HARD: usize = 32;
+pub(crate) const BONE_LIMIT_HARD: usize = 32;
 /// The bone-group size a split component tries to stay below.
-pub const BONE_LIMIT_SOFT: usize = 30;
+pub(crate) const BONE_LIMIT_SOFT: usize = 30;
 /// The largest vertex count an FMDL mesh may have.
-pub const VERTEX_LIMIT_HARD: usize = 65535;
+pub(crate) const VERTEX_LIMIT_HARD: usize = 65535;
 /// The vertex count a split component tries to stay below.
-pub const VERTEX_LIMIT_SOFT: usize = 63000;
+pub(crate) const VERTEX_LIMIT_SOFT: usize = 63000;
 /// The largest face count an FMDL mesh may have.
-pub const FACE_LIMIT_HARD: usize = 21845;
+pub(crate) const FACE_LIMIT_HARD: usize = 21845;
 /// The face count a split component tries to stay below.
-pub const FACE_LIMIT_SOFT: usize = 20000;
+pub(crate) const FACE_LIMIT_SOFT: usize = 20000;
 
 /// Bone names tried first as a fragment's base bone, in order.
 const PREFERRED_BASE_BONES: [&str; 5] = [
@@ -58,7 +58,7 @@ pub(super) type BoneMapping = Vec<(usize, u8)>;
 
 /// Whether a mesh exceeds a hard limit (bones in its group, vertices,
 /// faces).
-pub fn needs_splitting(mesh: &Mesh) -> bool {
+pub(crate) fn needs_splitting(mesh: &Mesh) -> bool {
     mesh.bone_group.len() > BONE_LIMIT_HARD
         || mesh.vertices.positions.len() > VERTEX_LIMIT_HARD
         || mesh.faces.len() > FACE_LIMIT_HARD
@@ -67,7 +67,7 @@ pub fn needs_splitting(mesh: &Mesh) -> bool {
 /// The effective parent of every bone for splitting: the model's parents,
 /// cycles broken, and the chest/belly/hip chain inverted so `sk_chest` is
 /// the root when that chain is intact.
-pub fn effective_parents(model: &Model) -> Vec<Option<usize>> {
+pub(crate) fn effective_parents(model: &Model) -> Vec<Option<usize>> {
     let mut parents = Vec::with_capacity(model.bones.len());
     for (index, bone) in model.bones.iter().enumerate() {
         let mut parent = bone.parent;
@@ -111,8 +111,10 @@ pub fn effective_parents(model: &Model) -> Vec<Option<usize>> {
 /// group named `split-mesh` (same box and visibility, `split_mesh_group`
 /// set) holding the components; sets `extensions.mesh_splitting`.
 /// `parents` overrides `effective_parents` (the model converter passes a
-/// skeleton-extended hierarchy). Returns whether anything was split.
+/// skeleton-extended hierarchy). Returns whether anything was split. An
+/// invalid model is an error, never a panic.
 pub fn encode(model: &mut Model, parents: Option<&[Option<usize>]>) -> Result<bool, FmdlError> {
+    model.validate()?;
     let effective = match parents {
         Some(given) => {
             if given.len() != model.bones.len() {
@@ -180,8 +182,10 @@ pub fn encode(model: &mut Model, parents: Option<&[Option<usize>]>) -> Result<bo
 /// (appended if the parent had none), removes the split groups, renumbers
 /// mesh and group indices, clears `extensions.mesh_splitting`. A split
 /// group with a parent that is `None`, or with children, is
-/// `FmdlError::BadMeshGroupAssignment`.
+/// `FmdlError::BadMeshGroupAssignment`. An invalid model is an error,
+/// never a panic.
 pub fn decode(model: &mut Model) -> Result<(), FmdlError> {
+    model.validate()?;
     let split_groups: Vec<usize> = model
         .mesh_groups
         .iter()
@@ -210,12 +214,7 @@ pub fn decode(model: &mut Model) -> Result<(), FmdlError> {
     let mut mesh_group_of: Vec<Option<usize>> = vec![None; model.meshes.len()];
     for &group_index in &split_groups {
         for &mesh_index in &model.mesh_groups[group_index].meshes {
-            *mesh_group_of
-                .get_mut(mesh_index)
-                .ok_or(FmdlError::BadReference {
-                    what: "mesh",
-                    index: mesh_index,
-                })? = Some(group_index);
+            mesh_group_of[mesh_index] = Some(group_index);
         }
     }
 
@@ -265,10 +264,7 @@ pub fn decode(model: &mut Model) -> Result<(), FmdlError> {
         let mut group = group.clone();
         let mut remapped = Vec::with_capacity(group.meshes.len());
         for &mesh in &group.meshes {
-            remapped.push(*new_index.get(mesh).ok_or(FmdlError::BadReference {
-                what: "mesh",
-                index: mesh,
-            })?);
+            remapped.push(new_index[mesh]);
         }
         group.meshes = remapped;
         for &split_index in &split_groups {
@@ -282,10 +278,9 @@ pub fn decode(model: &mut Model) -> Result<(), FmdlError> {
     }
     for group in &mut new_groups {
         if let Some(parent) = group.parent {
-            group.parent = Some(*group_map.get(parent).ok_or(FmdlError::BadReference {
-                what: "mesh group",
-                index: parent,
-            })?);
+            // A group's parent is never a split group — the children check
+            // above refused that — so its map entry is always set.
+            group.parent = Some(group_map[parent]);
         }
     }
     model.mesh_groups = new_groups;
@@ -393,31 +388,15 @@ pub(super) fn push_vertex(
 }
 
 /// An empty `MeshVertices` with `source`'s attribute layout.
-pub(super) fn empty_like(source: &MeshVertices, capacity: usize) -> MeshVertices {
+pub(super) fn empty_like(source: &MeshVertices) -> MeshVertices {
     MeshVertices {
-        positions: Vec::with_capacity(capacity),
-        normals: source
-            .normals
-            .as_ref()
-            .map(|_| Vec::with_capacity(capacity)),
-        tangents: source
-            .tangents
-            .as_ref()
-            .map(|_| Vec::with_capacity(capacity)),
-        colors: source.colors.as_ref().map(|_| Vec::with_capacity(capacity)),
-        uvs: source
-            .uvs
-            .iter()
-            .map(|_| Vec::with_capacity(capacity))
-            .collect(),
+        positions: Vec::new(),
+        normals: source.normals.as_ref().map(|_| Vec::new()),
+        tangents: source.tangents.as_ref().map(|_| Vec::new()),
+        colors: source.colors.as_ref().map(|_| Vec::new()),
+        uvs: source.uvs.iter().map(|_| Vec::new()).collect(),
         uv_high_precision: source.uv_high_precision.clone(),
-        bone_weights: source
-            .bone_weights
-            .as_ref()
-            .map(|_| Vec::with_capacity(capacity)),
-        bone_indices: source
-            .bone_indices
-            .as_ref()
-            .map(|_| Vec::with_capacity(capacity)),
+        bone_weights: source.bone_weights.as_ref().map(|_| Vec::new()),
+        bone_indices: source.bone_indices.as_ref().map(|_| Vec::new()),
     }
 }

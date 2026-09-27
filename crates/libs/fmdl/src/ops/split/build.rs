@@ -1,7 +1,7 @@
 //! Component construction: equipresent sets, per-bone storable items, the
 //! base-bone heuristic, the principal-axis sort, and the fragment builder.
 
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, HashSet};
 
 use crate::format::FmdlError;
 use crate::model::{Mesh, Model};
@@ -58,39 +58,26 @@ fn fits_in_submesh(items: &StorableItems, pieces: &Pieces) -> bool {
     true
 }
 
-/// A bone under which storable items remain: preferred names first, then
-/// every bone; a bone with nothing left under it hands over to its parent.
-/// `None` is the whole-mesh root.
+/// A bone under which storable items remain: the first preferred name
+/// with items left, else the lowest-index bone with items left, else
+/// `None` (the whole-mesh root takes the rest).
 fn select_base_bone(
     model: &Model,
-    parents: &[Option<usize>],
     items_per_bone: &HashMap<Option<usize>, StorableItems>,
 ) -> Option<usize> {
-    let mut queue: VecDeque<usize> = VecDeque::new();
-    for name in PREFERRED_BASE_BONES {
-        if let Some(index) = model.bones.iter().position(|bone| bone.name == name) {
-            queue.push_back(index);
-        }
-    }
-    queue.extend(0..model.bones.len());
-
-    let mut tried = HashSet::new();
-    while let Some(bone) = queue.pop_front() {
-        if !tried.insert(bone) {
-            continue;
-        }
-        let empty = items_per_bone
+    let has_items = |bone: usize| {
+        items_per_bone
             .get(&Some(bone))
-            .is_none_or(|items| items.faces.is_empty() && items.loose.is_empty());
-        if empty {
-            if let Some(parent) = parents[bone] {
-                queue.push_back(parent);
-            }
-            continue;
+            .is_some_and(|items| !items.faces.is_empty() || !items.loose.is_empty())
+    };
+    for name in PREFERRED_BASE_BONES {
+        if let Some(index) = model.bones.iter().position(|bone| bone.name == name)
+            && has_items(index)
+        {
+            return Some(index);
         }
-        return Some(bone);
     }
-    None
+    (0..model.bones.len()).find(|&bone| has_items(bone))
 }
 
 /// The first principal axis of the vertex cloud in `items`, oriented from
@@ -146,6 +133,12 @@ fn sort_vector(points: &[[f32; 3]], bone_position: [f32; 3]) -> [f32; 3] {
     }
 }
 
+/// A vertex's projection on `axis`: the score the fragment builder sorts
+/// faces and loose sets by.
+fn projection(position: [f32; 3], axis: [f32; 3]) -> f32 {
+    position[0] * axis[0] + position[1] * axis[1] + position[2] * axis[2]
+}
+
 /// Splits off one component from `items_per_bone`; returns it together with
 /// the face and loose-set indices it consumed.
 fn build_component(
@@ -162,7 +155,7 @@ fn build_component(
     let skinned = pieces.skinned;
 
     let base_bone = if skinned {
-        select_base_bone(model, parents, items_per_bone)
+        select_base_bone(model, items_per_bone)
     } else {
         None
     };
@@ -216,10 +209,7 @@ fn build_component(
             [position[0], position[1], position[2]]
         });
         let axis = sort_vector(&points, bone_position);
-        let score = |vertex: usize| -> f32 {
-            let position = mesh.vertices.positions[vertex];
-            position[0] * axis[0] + position[1] * axis[1] + position[2] * axis[2]
-        };
+        let score = |vertex: usize| -> f32 { projection(mesh.vertices.positions[vertex], axis) };
 
         let mut faces: Vec<usize> = storable.faces.iter().copied().collect();
         faces.sort_by(|a, b| {
@@ -322,7 +312,7 @@ fn build_component(
     // needs identical vertices in identical order in every component).
     let mut sorted_sets: Vec<usize> = selected_sets.iter().copied().collect();
     sorted_sets.sort_by_key(|&set| sets[set][0]);
-    let mut vertices = empty_like(&mesh.vertices, vertex_capacity(&sorted_sets, sets));
+    let mut vertices = empty_like(&mesh.vertices);
     let mut remap: HashMap<usize, usize> = HashMap::new();
     let bone_group: Vec<usize> = mesh
         .bone_group
@@ -330,11 +320,11 @@ fn build_component(
         .copied()
         .filter(|bone| selected_bones.contains(bone))
         .collect();
-    let index_of: HashMap<usize, u8> = bone_group
-        .iter()
-        .enumerate()
-        .map(|(slot, &bone)| (bone, slot as u8))
-        .collect();
+    let mut index_of: HashMap<usize, u8> = HashMap::new();
+    for (slot, &bone) in bone_group.iter().enumerate() {
+        let slot = u8::try_from(slot).map_err(|_| FmdlError::TooManyBones(bone_group.len()))?;
+        index_of.insert(bone, slot);
+    }
     for &set in &sorted_sets {
         for &vertex in &sets[set] {
             remap.insert(vertex, vertices.positions.len());
@@ -362,10 +352,6 @@ fn build_component(
     Ok((component, taken))
 }
 
-fn vertex_capacity(sets: &[usize], all_sets: &[Vec<usize>]) -> usize {
-    sets.iter().map(|&set| all_sets[set].len()).sum()
-}
-
 /// Splits `mesh` into component meshes each under the soft limits.
 pub(super) fn split_mesh(
     model: &Model,
@@ -373,17 +359,6 @@ pub(super) fn split_mesh(
     parents: &[Option<usize>],
 ) -> Result<Vec<Mesh>, FmdlError> {
     let count = mesh.vertices.positions.len();
-    for face in &mesh.faces {
-        for &index in face {
-            let vertex = usize::from(index);
-            if vertex >= count {
-                return Err(FmdlError::BadReference {
-                    what: "face vertex",
-                    index: vertex,
-                });
-            }
-        }
-    }
     let skinned = mesh.vertices.bone_indices.is_some();
     let mappings: Vec<BoneMapping> = (0..count)
         .map(|index| bone_mapping(mesh, index))
@@ -492,4 +467,186 @@ pub(super) fn split_mesh(
         components.push(component);
     }
     Ok(components)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::model::{Bone, BoundingBox, Extensions};
+
+    fn bone(name: &str, parent: Option<usize>) -> Bone {
+        Bone {
+            name: name.to_owned(),
+            parent,
+            bounding_box: BoundingBox {
+                max: [0.0; 4],
+                min: [0.0; 4],
+            },
+            local_position: [0.0; 4],
+            world_position: [0.0; 4],
+        }
+    }
+
+    fn model_with(bones: Vec<Bone>) -> Model {
+        Model {
+            bones,
+            materials: Vec::new(),
+            meshes: Vec::new(),
+            mesh_groups: Vec::new(),
+            extensions: Extensions::default(),
+            bone_matrices: None,
+        }
+    }
+
+    /// `StorableItems` holding `faces` of a mesh's face list.
+    fn items_with(faces: impl IntoIterator<Item = usize>) -> StorableItems {
+        StorableItems {
+            faces: faces.into_iter().collect(),
+            loose: HashSet::new(),
+        }
+    }
+
+    #[test]
+    fn projection_is_the_dot_product() {
+        assert_eq!(projection([1.0, 2.0, 3.0], [0.5, -1.0, 2.0]), 4.5);
+    }
+
+    #[test]
+    fn sort_vector_points_along_the_cloud() {
+        let o = [5.0, -3.0, 2.0];
+        let d = [1.0 / 3.0, 2.0 / 3.0, 2.0 / 3.0];
+        let points: Vec<[f32; 3]> = (0..10)
+            .map(|t| {
+                let t = t as f32;
+                [o[0] + t * d[0], o[1] + t * d[1], o[2] + t * d[2]]
+            })
+            .collect();
+        // Bone behind the cloud: the axis runs from the bone into it.
+        let behind = [o[0] - d[0], o[1] - d[1], o[2] - d[2]];
+        let vector = sort_vector(&points, behind);
+        let length = (vector[0] * vector[0] + vector[1] * vector[1] + vector[2] * vector[2]).sqrt();
+        assert!((length - 1.0).abs() < 1e-5);
+        for axis in 0..3 {
+            assert!((vector[axis] - d[axis]).abs() < 1e-5);
+        }
+        // Bone past the far end: the axis points back at the cloud.
+        let ahead = [o[0] + 20.0 * d[0], o[1] + 20.0 * d[1], o[2] + 20.0 * d[2]];
+        let vector = sort_vector(&points, ahead);
+        for axis in 0..3 {
+            assert!((vector[axis] + d[axis]).abs() < 1e-5);
+        }
+        // A degenerate cloud picks the first axis deterministically.
+        let same = vec![[5.0, -3.0, 2.0]; 5];
+        assert_eq!(sort_vector(&same, [0.0, 0.0, 0.0]), [1.0, 0.0, 0.0]);
+        // A cloud spread along a single axis picks that axis.
+        for axis in 0..3 {
+            let points: Vec<[f32; 3]> = (0..10)
+                .map(|t| {
+                    let mut point = [0.0; 3];
+                    point[axis] = t as f32;
+                    point
+                })
+                .collect();
+            let vector = sort_vector(&points, [-1.0, -1.0, -1.0]);
+            let mut expected = [0.0; 3];
+            expected[axis] = 1.0;
+            assert_eq!(vector, expected);
+        }
+    }
+
+    #[test]
+    fn select_base_bone_prefers_named_then_lowest() {
+        let items_at = |model: &Model, bones: &[usize]| {
+            let mut items: HashMap<Option<usize>, StorableItems> = HashMap::new();
+            items.insert(None, StorableItems::default());
+            for bone in 0..model.bones.len() {
+                items.insert(
+                    Some(bone),
+                    if bones.contains(&bone) {
+                        items_with([0])
+                    } else {
+                        StorableItems::default()
+                    },
+                );
+            }
+            items
+        };
+
+        // A preferred bone with items beats a lower-indexed one.
+        let model = model_with(vec![
+            bone("x0", None),
+            bone("sk_foot_l", Some(0)),
+            bone("x2", Some(1)),
+        ]);
+        let items = items_at(&model, &[0, 1]);
+        assert_eq!(select_base_bone(&model, &items), Some(1));
+
+        // A preferred bone with no items falls back to the lowest index.
+        let items = items_at(&model, &[0]);
+        assert_eq!(select_base_bone(&model, &items), Some(0));
+
+        // Nothing anywhere.
+        let items = items_at(&model, &[]);
+        assert_eq!(select_base_bone(&model, &items), None);
+
+        // `sk_foot_l2` is not a preferred name: bone 0 wins on index.
+        let model = model_with(vec![
+            bone("x0", None),
+            bone("sk_foot_l2", Some(0)),
+            bone("x2", Some(1)),
+        ]);
+        let items = items_at(&model, &[0, 1]);
+        assert_eq!(select_base_bone(&model, &items), Some(0));
+    }
+
+    #[test]
+    fn fits_in_submesh_holds_the_soft_limits() {
+        let make_pieces =
+            |sets: Vec<Vec<usize>>, mappings: Vec<BoneMapping>, skinned: bool| Pieces {
+                face_vertices: Vec::new(),
+                set_of: vec![0; 65_535],
+                sets,
+                mappings,
+                skinned,
+            };
+
+        // Faces at and one past the soft limit.
+        let mut pieces = make_pieces(vec![vec![0]], vec![Vec::new()], false);
+        pieces.face_vertices = vec![[0, 0, 0]; FACE_LIMIT_SOFT + 1];
+        let items = items_with(0..FACE_LIMIT_SOFT);
+        assert!(fits_in_submesh(&items, &pieces));
+        let items = items_with(0..FACE_LIMIT_SOFT + 1);
+        assert!(!fits_in_submesh(&items, &pieces));
+
+        // Vertices: one loose set holding the whole count.
+        let pieces = make_pieces(
+            vec![(0..VERTEX_LIMIT_SOFT).collect()],
+            vec![Vec::new()],
+            false,
+        );
+        let mut items = StorableItems::default();
+        items.loose.insert(0);
+        assert!(fits_in_submesh(&items, &pieces));
+        let pieces = make_pieces(
+            vec![(0..VERTEX_LIMIT_SOFT + 1).collect()],
+            vec![Vec::new()],
+            false,
+        );
+        assert!(!fits_in_submesh(&items, &pieces));
+
+        // Bones: one set mapped to 30 vs 31 distinct bones.
+        let at = |count: usize| {
+            (
+                vec![vec![0]],
+                vec![(0..count).map(|bone| (bone, 255u8)).collect()],
+                true,
+            )
+        };
+        let (sets, mappings, skinned) = at(BONE_LIMIT_SOFT);
+        let pieces = make_pieces(sets, mappings, skinned);
+        assert!(fits_in_submesh(&items, &pieces));
+        let (sets, mappings, skinned) = at(BONE_LIMIT_SOFT + 1);
+        let pieces = make_pieces(sets, mappings, skinned);
+        assert!(!fits_in_submesh(&items, &pieces));
+    }
 }

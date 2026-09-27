@@ -322,14 +322,14 @@ pub fn ir_to_fmdl(ir: &CanonicalModel) -> Result<ExportedFox, ConvertError> {
 
     // The encoders in the legacy pipeline's order (model2fmdl.py): anti-blur duplicates,
     // then the vertex-loop convention, then mesh splitting.
-    ::fmdl::ops::antiblur::encode(&mut model);
+    ::fmdl::ops::antiblur::encode(&mut model)?;
     // Recover the loops from the IR vertex order itself — the flag-gated `decode_model`
     // returns identity owners on a model built from the IR, losing an add-on's loops.
     let owners: Vec<Vec<usize>> = model
         .meshes
         .iter()
         .map(::fmdl::ops::vertex_enc::decode)
-        .collect();
+        .collect::<Result<Vec<_>, _>>()?;
     ::fmdl::ops::vertex_enc::encode_model(&mut model, &owners)?;
     let parents = split_parents(&model.bones);
     ::fmdl::ops::split::encode(&mut model, Some(&parents))?;
