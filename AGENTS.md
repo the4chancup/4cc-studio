@@ -256,6 +256,19 @@ allowed only after `git add -A` has given every file a blob to restore from. Nev
 (`git add -A` fails outright) and which only `Remove-Item -LiteralPath "\\?\<full path>"` can
 delete; use `/dev/null` in bash, `$null` in PowerShell.
 
+**Whole-crate mutation runs are split with the maintainer's VPS.** On the maintainer's PC the
+user environment variable `STUDIO_MUTANTS_REMOTE=bonfire` (an alias in `~/.ssh/config`) makes
+`just mutants <crate>` run half the mutants there (`scripts/mutants.py`: the working tree is
+sent as a git bundle, the remote shard runs at low priority, its results land in
+`mutants.out/remote/` and the combined survivors in `mutants.out/missed_all.txt`). Benchmarked
+on 2026-09-27 on one commit, the VPS is about as fast as the PC (`fox2` whole crate 167 s
+against 256 s, one eighth of `fmdl` 460 s against 433 s) with identical results, so the split
+should roughly halve a whole-crate run, and it moves half its energy off the home machine. Without the variable,
+`just mutants` runs locally as before. `mutants-diff` stays local: its runs take minutes, and
+the transfer plus the remote baseline build would eat the gain. Manual ssh from Git Bash uses
+`/c/Windows/System32/OpenSSH/ssh.exe bonfire`: Git's own `ssh` cannot reach the Windows agent
+that holds the key.
+
 Three model families, three roles. Lead: Claude (Fable) in Devin CLI's Fusion mode. Sidekick:
 SWE-2 (Kimi lineage), reached through the `sidekick` tool; a cold probe on a spec-in-hand crate
 showed it follows `CONTRIBUTING.md` literally and reports plan gaps instead of deciding them, so it

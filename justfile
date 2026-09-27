@@ -27,9 +27,9 @@ test:
 wasm-check:
     {{python}} scripts/wasm_check.py
 
-# Mutation run over one crate (converge); survivors are test gaps, equivalents or dead code
+# Mutation run over one crate (converge); survivors are test gaps, equivalents or dead code; split with STUDIO_MUTANTS_REMOTE when set
 mutants crate:
-    cargo mutants -p {{crate}} --jobs 2
+    {{python}} scripts/mutants.py {{crate}}
 
 # Mutation run over the lines changed since `base` (review of a landed diff)
 mutants-diff base="HEAD":
