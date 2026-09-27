@@ -75,8 +75,8 @@ pub enum FmdlError {
         /// The offending index.
         index: usize,
     },
-    /// The data handed to `encode_vertices`/`encode_faces` does not match
-    /// the mesh's declared counts or attribute set.
+    /// Data handed to an encoder or an op does not fit the mesh or model
+    /// it describes (counts, attribute set, owner or parent maps).
     #[error("vertex data mismatch: {0}")]
     VertexMismatch(&'static str),
     /// A bone or mesh group parent chain loops back on itself.

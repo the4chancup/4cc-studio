@@ -14,6 +14,62 @@ fn model(bytes: &[u8]) -> Model {
     Model::from_file(&FmdlFile::read(bytes).unwrap()).unwrap()
 }
 
+/// A mesh over `vertices`, one triangle, material 0.
+fn mesh_with(vertices: MeshVertices) -> Mesh {
+    Mesh {
+        vertices,
+        faces: vec![[0, 1, 2]],
+        bone_group: Vec::new(),
+        material: 0,
+        alpha_flags: 0,
+        shadow_flags: 0,
+        has_antiblur_meshes: false,
+        is_antiblur_mesh: false,
+        custom_bounding_box: None,
+    }
+}
+
+/// A `Model` of `meshes` split into one group per entry of `groups`.
+fn grouped_model(meshes: Vec<Mesh>, groups: Vec<Vec<usize>>) -> Model {
+    Model {
+        bones: Vec::new(),
+        materials: vec![MaterialInstance {
+            name: "mat".to_owned(),
+            shader: "shader".to_owned(),
+            technique: "technique".to_owned(),
+            textures: Vec::new(),
+            parameters: Vec::new(),
+        }],
+        meshes,
+        mesh_groups: groups
+            .iter()
+            .enumerate()
+            .map(|(index, meshes)| MeshGroup {
+                name: format!("group{index}"),
+                parent: None,
+                meshes: meshes.clone(),
+                bounding_box: None,
+                visible: true,
+                split_mesh_group: false,
+            })
+            .collect(),
+        extensions: Extensions::default(),
+        bone_matrices: None,
+    }
+}
+
+/// The usual smallest legal vertices: three positions, nothing else.
+fn plain_vertices() -> MeshVertices {
+    MeshVertices {
+        positions: vec![[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
+        ..MeshVertices::default()
+    }
+}
+
+fn plain_model() -> Model {
+    grouped_model(vec![mesh_with(plain_vertices())], vec![vec![0]])
+}
+
 #[test]
 fn every_fixture_loads() {
     for bytes in FIXTURES {
@@ -540,7 +596,7 @@ fn unboxed_group_gets_a_computed_box() {
 #[test]
 fn to_file_errors() {
     let mut too_many = model(HIGHNECK);
-    too_many.meshes[0].bone_group = (0..33).collect();
+    too_many.meshes[0].bone_group = vec![0; 33];
     assert!(matches!(
         too_many.to_file(),
         Err(FmdlError::TooManyBones(33))
@@ -567,4 +623,455 @@ fn to_file_errors() {
             count: 70_000
         })
     ));
+}
+
+// --- validate ---------------------------------------------------------------
+
+#[test]
+fn every_fixture_model_validates() {
+    for bytes in FIXTURES {
+        model(bytes).validate().unwrap();
+    }
+}
+
+#[test]
+fn validate_rejects_dangling_bone_and_group_indices() {
+    // A bone parent past the end of the list.
+    let mut bad = model(HIGHNECK);
+    bad.bones[0].parent = Some(bad.bones.len());
+    assert!(matches!(
+        bad.validate(),
+        Err(FmdlError::BadReference {
+            what: "bone",
+            index: 7
+        })
+    ));
+
+    // A bone-parent loop.
+    let mut bad = model(HIGHNECK);
+    bad.bones[0].parent = Some(0);
+    assert!(matches!(
+        bad.validate(),
+        Err(FmdlError::ParentCycle("bone"))
+    ));
+
+    // A mesh-group parent past the end of the list.
+    let mut bad = model(HIGHNECK);
+    bad.mesh_groups[0].parent = Some(1);
+    assert!(matches!(
+        bad.validate(),
+        Err(FmdlError::BadReference {
+            what: "mesh group",
+            index: 1
+        })
+    ));
+
+    // A mesh-group parent loop.
+    let mut bad = model(HIGHNECK);
+    bad.mesh_groups[0].parent = Some(0);
+    assert!(matches!(
+        bad.validate(),
+        Err(FmdlError::ParentCycle("mesh group"))
+    ));
+
+    // A group naming a mesh that does not exist.
+    let mut bad = model(HIGHNECK);
+    bad.mesh_groups[0].meshes.push(9);
+    assert!(matches!(
+        bad.validate(),
+        Err(FmdlError::BadReference {
+            what: "mesh",
+            index: 9
+        })
+    ));
+}
+
+#[test]
+fn validate_rejects_bad_mesh_references() {
+    // A material past the end of the list.
+    let mut bad = model(HIGHNECK);
+    bad.meshes[0].material = 9;
+    assert!(matches!(
+        bad.validate(),
+        Err(FmdlError::BadReference {
+            what: "material instance",
+            index: 9
+        })
+    ));
+
+    // A bone-group entry past the end of the bone list.
+    let mut bad = model(HIGHNECK);
+    bad.meshes[0].bone_group.push(bad.bones.len());
+    assert!(matches!(
+        bad.validate(),
+        Err(FmdlError::BadReference {
+            what: "bone",
+            index: 7
+        })
+    ));
+
+    // A face index at the vertex count.
+    let mut bad = model(HIGHNECK);
+    bad.meshes[0].faces[0][0] = u16::try_from(bad.meshes[0].vertices.positions.len()).unwrap();
+    assert!(matches!(
+        bad.validate(),
+        Err(FmdlError::BadReference {
+            what: "face vertex",
+            index: 204
+        })
+    ));
+}
+
+#[test]
+fn validate_rejects_misshapen_vertices() {
+    // An attribute vector one value short.
+    let mut bad = model(HIGHNECK);
+    bad.meshes[0].vertices.normals.as_mut().unwrap().pop();
+    assert!(matches!(
+        bad.validate(),
+        Err(FmdlError::VertexMismatch("attribute count mismatch"))
+    ));
+
+    // A uv map one value short.
+    let mut bad = model(HIGHNECK);
+    bad.meshes[0].vertices.uvs[0].pop();
+    assert!(matches!(
+        bad.validate(),
+        Err(FmdlError::VertexMismatch("attribute count mismatch"))
+    ));
+
+    // Five uv maps.
+    let mut bad = model(HIGHNECK);
+    let count = bad.meshes[0].vertices.positions.len();
+    bad.meshes[0].vertices.uvs = vec![vec![[0.0, 0.0]; count]; 5];
+    bad.meshes[0].vertices.uv_high_precision = vec![false; 5];
+    assert!(matches!(
+        bad.validate(),
+        Err(FmdlError::InvalidVertexFormat("more than four uv maps"))
+    ));
+
+    // Fewer precision flags than maps.
+    let mut bad = model(HIGHNECK);
+    bad.meshes[0].vertices.uv_high_precision.pop();
+    assert!(matches!(
+        bad.validate(),
+        Err(FmdlError::InvalidVertexFormat(
+            "uv precision flags do not match uv maps"
+        ))
+    ));
+
+    // Weights without indices.
+    let mut bad = model(HIGHNECK);
+    bad.meshes[0].vertices.bone_indices = None;
+    assert!(matches!(
+        bad.validate(),
+        Err(FmdlError::InvalidVertexFormat(
+            "bone weights and bone indices must come together"
+        ))
+    ));
+}
+
+#[test]
+fn from_file_rejects_a_face_index_at_the_vertex_count() {
+    let mut file = FmdlFile::read(HIGHNECK).unwrap();
+    let mut faces = file.decode_faces(0).unwrap();
+    faces[0][0] = file.meshes[0].vertex_count;
+    file.encode_faces(0, &faces).unwrap();
+    assert!(matches!(
+        Model::from_file(&file),
+        Err(FmdlError::BadReference {
+            what: "face vertex",
+            index: 204
+        })
+    ));
+}
+
+#[test]
+fn to_file_refuses_bad_group_assignment() {
+    // Mesh 0 in two groups.
+    let mut bad = model(HIGHNECK);
+    bad.mesh_groups.push(MeshGroup {
+        name: "second".to_owned(),
+        parent: None,
+        meshes: vec![0],
+        bounding_box: None,
+        visible: true,
+        split_mesh_group: false,
+    });
+    assert!(matches!(
+        bad.to_file(),
+        Err(FmdlError::BadMeshGroupAssignment(
+            "mesh assigned to two groups"
+        ))
+    ));
+
+    // Mesh 0 in no group.
+    let mut bad = model(HIGHNECK);
+    bad.mesh_groups[0].meshes.clear();
+    assert!(matches!(
+        bad.to_file(),
+        Err(FmdlError::BadMeshGroupAssignment(
+            "mesh not assigned to a group"
+        ))
+    ));
+}
+
+#[test]
+fn bone_parent_past_i16_overflows() {
+    // A chain of 32770 bones: bone 32769's parent is 32768, one past the
+    // signed 16-bit field's range.
+    let mut model = plain_model();
+    model.bones = (0usize..32_770)
+        .map(|index| Bone {
+            name: format!("bone{index}"),
+            parent: index.checked_sub(1),
+            bounding_box: BoundingBox {
+                max: [0.0; 4],
+                min: [0.0; 4],
+            },
+            local_position: [0.0; 4],
+            world_position: [0.0; 4],
+        })
+        .collect();
+    assert!(matches!(
+        model.to_file(),
+        Err(FmdlError::TableOverflow {
+            what: "bones",
+            count: 32_768
+        })
+    ));
+}
+
+#[test]
+fn custom_bounding_boxes() {
+    // A file whose tail marks mesh 0 reads that mesh with its group's box.
+    let mut file = FmdlFile::read(HIGHNECK).unwrap();
+    let mut table = file.string_table.clone().unwrap();
+    table.extend_from_slice(b"X-FMDL-Extensions: \nCustom-Bounding-Box-Meshes: 0\n\0");
+    file.string_table = Some(table);
+    let marked = Model::from_file(&file).unwrap();
+    assert_eq!(
+        marked.meshes[0].custom_bounding_box,
+        marked.mesh_groups[0].bounding_box
+    );
+    assert!(marked.meshes[0].custom_bounding_box.is_some());
+
+    // It writes the header back and round-trips.
+    let written = marked.to_file().unwrap();
+    let tail = std::str::from_utf8(written.extension_tail()).unwrap();
+    assert!(tail.contains("Custom-Bounding-Box-Meshes: 0"));
+    assert_eq!(Model::from_file(&written).unwrap(), marked);
+
+    // A group without a box uses a marked mesh's custom box (w forced to 1).
+    let mut mesh = mesh_with(plain_vertices());
+    mesh.custom_bounding_box = Some(BoundingBox {
+        max: [10.0, 10.0, 10.0, 0.0],
+        min: [-10.0, -10.0, -10.0, 0.0],
+    });
+    let file = grouped_model(vec![mesh.clone()], vec![vec![0]])
+        .to_file()
+        .unwrap();
+    let assignment = file
+        .mesh_group_assignments
+        .iter()
+        .find(|record| record.mesh_group_id == 0)
+        .unwrap();
+    let box_record = &file.bounding_boxes[usize::from(assignment.bounding_box_id)];
+    assert_eq!(box_record.max, [10.0, 10.0, 10.0, 1.0]);
+    assert_eq!(box_record.min, [-10.0, -10.0, -10.0, 1.0]);
+
+    // A second, unmarked mesh in the group widens the box to the union.
+    let wide = mesh_with(MeshVertices {
+        positions: vec![[20.0, 0.0, 0.0], [0.0, 20.0, 0.0], [0.0, 0.0, 20.0]],
+        ..MeshVertices::default()
+    });
+    let file = grouped_model(vec![mesh, wide], vec![vec![0, 1]])
+        .to_file()
+        .unwrap();
+    let assignment = file
+        .mesh_group_assignments
+        .iter()
+        .find(|record| record.mesh_group_id == 0)
+        .unwrap();
+    let box_record = &file.bounding_boxes[usize::from(assignment.bounding_box_id)];
+    assert_eq!(box_record.max, [20.0, 20.0, 20.0, 1.0]);
+    assert_eq!(box_record.min, [-10.0, -10.0, -10.0, 1.0]);
+}
+
+// --- to_file behavior pins --------------------------------------------------
+
+#[test]
+fn vertex_and_bone_group_limits() {
+    // 65535 vertices fit the u16 count; 65536 do not.
+    let vertices = MeshVertices {
+        positions: vec![[0.0, 0.0, 0.0]; 65_535],
+        ..MeshVertices::default()
+    };
+    grouped_model(vec![mesh_with(vertices)], vec![vec![0]])
+        .to_file()
+        .unwrap();
+    let vertices = MeshVertices {
+        positions: vec![[0.0, 0.0, 0.0]; 65_536],
+        ..MeshVertices::default()
+    };
+    assert!(matches!(
+        grouped_model(vec![mesh_with(vertices)], vec![vec![0]]).to_file(),
+        Err(FmdlError::TooManyVertices(65_536))
+    ));
+
+    // 32 bone-group entries fit the fixed array; 33 do not.
+    let skinned = || MeshVertices {
+        positions: vec![[0.0, 0.0, 0.0]; 3],
+        bone_weights: Some(vec![[255, 0, 0, 0]; 3]),
+        bone_indices: Some(vec![[0, 0, 0, 0]; 3]),
+        ..MeshVertices::default()
+    };
+    let mut model = grouped_model(vec![mesh_with(skinned())], vec![vec![0]]);
+    model.bones = vec![Bone {
+        name: "sk_root".to_owned(),
+        parent: None,
+        bounding_box: BoundingBox {
+            max: [0.0; 4],
+            min: [0.0; 4],
+        },
+        local_position: [0.0; 4],
+        world_position: [0.0; 4],
+    }];
+    model.meshes[0].bone_group = vec![0; 32];
+    model.to_file().unwrap();
+    model.meshes[0].bone_group = vec![0; 33];
+    assert!(matches!(model.to_file(), Err(FmdlError::TooManyBones(33))));
+}
+
+#[test]
+fn identical_uv_maps_share_one_offset() {
+    let map = vec![[0.5, 0.5]; 3];
+    let write = |uvs: Vec<Vec<[f32; 2]>>, precision: Vec<bool>| {
+        grouped_model(
+            vec![mesh_with(MeshVertices {
+                positions: vec![[0.0, 0.0, 0.0]; 3],
+                uvs,
+                uv_high_precision: precision,
+                ..MeshVertices::default()
+            })],
+            vec![vec![0]],
+        )
+        .to_file()
+        .unwrap()
+    };
+    let uv_offsets = |file: &FmdlFile| {
+        file.vertex_formats
+            .iter()
+            .filter(|record| record.datum_type == 8 || record.datum_type == 9)
+            .map(|record| record.offset)
+            .collect::<Vec<_>>()
+    };
+
+    // Two identical maps at the same precision share one entry in the buffer.
+    let shared = write(vec![map.clone(), map.clone()], vec![false, false]);
+    assert_eq!(uv_offsets(&shared), &[0, 0]);
+    let data = shared
+        .mesh_formats
+        .iter()
+        .find(|record| record.buffer_id == 1)
+        .unwrap();
+    assert_eq!(data.buffer_offset_increment, 4);
+
+    // Identical values at different precisions are two entries.
+    let mixed = write(vec![map.clone(), map.clone()], vec![true, false]);
+    assert_eq!(uv_offsets(&mixed), &[0, 8]);
+    let data = mixed
+        .mesh_formats
+        .iter()
+        .find(|record| record.buffer_id == 1)
+        .unwrap();
+    assert_eq!(data.buffer_offset_increment, 12);
+
+    // Different values at the same precision are two entries.
+    let other = vec![[0.25, 0.25]; 3];
+    let distinct = write(vec![map, other], vec![false, false]);
+    assert_eq!(uv_offsets(&distinct), &[0, 4]);
+    let data = distinct
+        .mesh_formats
+        .iter()
+        .find(|record| record.buffer_id == 1)
+        .unwrap();
+    assert_eq!(data.buffer_offset_increment, 8);
+}
+
+#[test]
+fn an_empty_mesh_format_group_writes_no_record() {
+    // An unskinned mesh with normals only: positions plus one data entry.
+    let file = grouped_model(
+        vec![mesh_with(MeshVertices {
+            positions: vec![[0.0, 0.0, 0.0]; 3],
+            normals: Some(vec![[0.0, 0.0, 1.0, 0.0]; 3]),
+            ..MeshVertices::default()
+        })],
+        vec![vec![0]],
+    )
+    .to_file()
+    .unwrap();
+    assert_eq!(file.mesh_formats.len(), 2);
+}
+
+#[test]
+fn written_record_details() {
+    let file = model(HIGHNECK).to_file().unwrap();
+    assert_eq!(file.meshes[0].face_vertex_count, 320 * 3);
+    for record in &file.mesh_groups {
+        assert_eq!(record.unknown_0x06, -1);
+    }
+    assert_eq!(&file.block_20[0].bytes[28..32], &(-1i32).to_le_bytes());
+}
+
+#[test]
+fn non_adjacent_meshes_write_one_assignment_each() {
+    // Group 0 lists meshes 0 and 2, group 1 lists mesh 1: two runs.
+    let file = grouped_model(
+        vec![
+            mesh_with(plain_vertices()),
+            mesh_with(plain_vertices()),
+            mesh_with(plain_vertices()),
+        ],
+        vec![vec![0, 2], vec![1]],
+    )
+    .to_file()
+    .unwrap();
+    let group0: Vec<_> = file
+        .mesh_group_assignments
+        .iter()
+        .filter(|record| record.mesh_group_id == 0)
+        .collect();
+    assert_eq!(group0.len(), 2);
+    assert_eq!(group0[0].first_mesh_id, 0);
+    assert_eq!(group0[0].mesh_count, 1);
+    assert_eq!(group0[1].first_mesh_id, 2);
+    assert_eq!(group0[1].mesh_count, 1);
+}
+
+#[test]
+fn the_extension_tail_tracks_the_headers() {
+    // No flags and no per-object headers: nothing after the last string.
+    let file = plain_model().to_file().unwrap();
+    assert!(file.extension_tail().is_empty());
+
+    // One per-object header with no flags.
+    let mut model = plain_model();
+    model.meshes[0].has_antiblur_meshes = true;
+    let file = model.to_file().unwrap();
+    assert!(file.extension_tail().starts_with(b"X-FMDL-Extensions: \n"));
+}
+
+#[test]
+fn the_bone_matrix_block_tracks_the_bone_list() {
+    // Bones present and no matrices: the writer emits an empty block.
+    let mut model = model(HIGHNECK);
+    model.bone_matrices = None;
+    let file = model.to_file().unwrap();
+    assert_eq!(file.bone_matrices, Some(Vec::new()));
+
+    // No bones and no matrices: no block at all.
+    let file = plain_model().to_file().unwrap();
+    assert_eq!(file.bone_matrices, None);
 }
