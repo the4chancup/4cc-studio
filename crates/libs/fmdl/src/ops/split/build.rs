@@ -93,9 +93,10 @@ fn sort_vector(points: &[[f32; 3]], bone_position: [f32; 3]) -> [f32; 3] {
     }
     let mut covariance = [[0.0f32; 3]; 3];
     for point in points {
+        let d = [point[0] - mean[0], point[1] - mean[1], point[2] - mean[2]];
         for a in 0..3 {
             for b in 0..3 {
-                covariance[a][b] += (point[a] - mean[a]) * (point[b] - mean[b]);
+                covariance[a][b] += d[a] * d[b];
             }
         }
     }
@@ -111,12 +112,7 @@ fn sort_vector(points: &[[f32; 3]], bone_position: [f32; 3]) -> [f32; 3] {
         0
     }] = 1.0;
     for _ in 0..8 {
-        let mut next = [0.0f32; 3];
-        for a in 0..3 {
-            for b in 0..3 {
-                next[a] += covariance[a][b] * vector[b];
-            }
-        }
+        let next = multiply(&covariance, vector);
         let norm = (next[0] * next[0] + next[1] * next[1] + next[2] * next[2]).sqrt();
         if norm > 0.0 {
             vector = [next[0] / norm, next[1] / norm, next[2] / norm];
@@ -131,6 +127,17 @@ fn sort_vector(points: &[[f32; 3]], bone_position: [f32; 3]) -> [f32; 3] {
     } else {
         vector
     }
+}
+
+/// `matrix` times `vector`: one power-iteration step of `sort_vector`.
+fn multiply(matrix: &[[f32; 3]; 3], vector: [f32; 3]) -> [f32; 3] {
+    let mut next = [0.0f32; 3];
+    for a in 0..3 {
+        for b in 0..3 {
+            next[a] += matrix[a][b] * vector[b];
+        }
+    }
+    next
 }
 
 /// A vertex's projection on `axis`: the score the fragment builder sorts
@@ -328,7 +335,7 @@ fn build_component(
     for &set in &sorted_sets {
         for &vertex in &sets[set] {
             remap.insert(vertex, vertices.positions.len());
-            push_vertex(&mut vertices, mesh, vertex, &index_of)?;
+            push_vertex(&mut vertices, mesh, vertex, &index_of);
         }
     }
     let mut faces = Vec::with_capacity(taken.faces.len());
@@ -508,7 +515,16 @@ mod tests {
 
     #[test]
     fn projection_is_the_dot_product() {
-        assert_eq!(projection([1.0, 2.0, 3.0], [0.5, -1.0, 2.0]), 4.5);
+        // `2 * 4` distinguishes the product from `2 / 4` (the old
+        // `[0.5, -1, 2]` axis could not).
+        assert_eq!(projection([1.0, 2.0, 3.0], [0.5, 4.0, 2.0]), 14.5);
+    }
+
+    #[test]
+    fn multiply_is_matrix_times_vector() {
+        // Non-symmetric on purpose: a dropped/add-minus term shows.
+        let matrix = [[1.0, 2.0, 3.0], [0.0, 1.0, 4.0], [5.0, 6.0, 0.0]];
+        assert_eq!(multiply(&matrix, [1.0, 0.5, -1.0]), [-1.0, -3.5, 8.0]);
     }
 
     #[test]
@@ -552,6 +568,33 @@ mod tests {
             expected[axis] = 1.0;
             assert_eq!(vector, expected);
         }
+    }
+
+    #[test]
+    fn sort_vector_breaks_degenerate_ties() {
+        // Equal y/z variance with no covariance: the deterministic pick
+        // is y.
+        let mut points = Vec::new();
+        for t in -5..=5 {
+            points.push([0.0, t as f32, 0.0]);
+            points.push([0.0, 0.0, t as f32]);
+        }
+        assert_eq!(sort_vector(&points, [-1.0, -1.0, -1.0]), [0.0, 1.0, 0.0]);
+
+        // Doubling the z arm makes z the principal axis.
+        let mut points = Vec::new();
+        for t in -5..=5 {
+            points.push([0.0, t as f32, 0.0]);
+            points.push([0.0, 0.0, 2.0 * t as f32]);
+        }
+        assert_eq!(sort_vector(&points, [-1.0, -1.0, -1.0]), [0.0, 0.0, 1.0]);
+
+        // An x-only cloud stays x: a far-off bone only orients the axis
+        // (a bad orientation computation flips this), and a bone at the
+        // mean — a zero dot — keeps the sign.
+        let points: Vec<[f32; 3]> = (-5..=5).map(|t| [t as f32, 0.0, 0.0]).collect();
+        assert_eq!(sort_vector(&points, [-1.0, 100.0, 100.0]), [1.0, 0.0, 0.0]);
+        assert_eq!(sort_vector(&points, [0.0, 0.0, 0.0]), [1.0, 0.0, 0.0]);
     }
 
     #[test]

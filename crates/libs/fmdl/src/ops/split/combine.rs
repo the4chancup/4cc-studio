@@ -115,7 +115,7 @@ pub(super) fn combine(meshes: &[Mesh], group: &MeshGroup) -> Result<Mesh, FmdlEr
                 continue;
             }
             let merged_index = vertices.positions.len();
-            push_vertex(&mut vertices, component, index, &index_of)?;
+            push_vertex(&mut vertices, component, index, &index_of);
             merged.entry(key).or_default().push(merged_index);
             *slot = merged_index;
         }

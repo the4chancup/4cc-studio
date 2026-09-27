@@ -64,13 +64,13 @@ pub(crate) fn needs_splitting(mesh: &Mesh) -> bool {
         || mesh.faces.len() > FACE_LIMIT_HARD
 }
 
-/// The effective parent of every bone for splitting: the model's parents,
-/// cycles broken, and the chest/belly/hip chain inverted so `sk_chest` is
-/// the root when that chain is intact.
-pub(crate) fn effective_parents(model: &Model) -> Vec<Option<usize>> {
-    let mut parents = Vec::with_capacity(model.bones.len());
-    for (index, bone) in model.bones.iter().enumerate() {
-        let mut parent = bone.parent;
+/// `parents` with every parent loop cut: walking up through the
+/// already-decided parents and reaching `index` again means `index`'s
+/// parent closes a loop, so it is dropped.
+fn cut_parent_cycles(parents: &[Option<usize>]) -> Vec<Option<usize>> {
+    let mut cut = Vec::with_capacity(parents.len());
+    for (index, &parent) in parents.iter().enumerate() {
+        let mut parent = parent;
         if let Some(candidate) = parent {
             // Walking up through already-decided parents, reaching `index`
             // again would be a parent loop: cut it.
@@ -80,11 +80,20 @@ pub(crate) fn effective_parents(model: &Model) -> Vec<Option<usize>> {
                     parent = None;
                     break;
                 }
-                ancestor = parents.get(bone_index).copied().flatten();
+                ancestor = cut.get(bone_index).copied().flatten();
             }
         }
-        parents.push(parent);
+        cut.push(parent);
     }
+    cut
+}
+
+/// The effective parent of every bone for splitting: the model's parents,
+/// cycles broken, and the chest/belly/hip chain inverted so `sk_chest` is
+/// the root when that chain is intact.
+pub(crate) fn effective_parents(model: &Model) -> Vec<Option<usize>> {
+    let raw: Vec<Option<usize>> = model.bones.iter().map(|bone| bone.parent).collect();
+    let mut parents = cut_parent_cycles(&raw);
 
     // Invert `sk_chest -> sk_belly -> dsk_hip` when the intact chain runs
     // that way (belly's parent is the hip), so the chest is the effective
@@ -122,7 +131,9 @@ pub fn encode(model: &mut Model, parents: Option<&[Option<usize>]>) -> Result<bo
                     "parents length does not match bone count",
                 ));
             }
-            given.to_vec()
+            // A supplied hierarchy gets the same cycle cut — a loop would
+            // otherwise hang the subtree climb.
+            cut_parent_cycles(given)
         }
         None => effective_parents(model),
     };
@@ -330,7 +341,7 @@ pub(super) fn push_vertex(
     source_mesh: &Mesh,
     source: usize,
     index_of: &HashMap<usize, u8>,
-) -> Result<(), FmdlError> {
+) {
     let source_vertices = &source_mesh.vertices;
     vertices.positions.push(source_vertices.positions[source]);
     if let (Some(target), Some(source_normals)) = (&mut vertices.normals, &source_vertices.normals)
@@ -356,35 +367,19 @@ pub(super) fn push_vertex(
     if let (Some(target), Some(source_indices)) =
         (&mut vertices.bone_indices, &source_vertices.bone_indices)
     {
-        let weights =
-            source_vertices
-                .bone_weights
-                .as_ref()
-                .ok_or(FmdlError::InvalidVertexFormat(
-                    "bone indices without bone weights",
-                ))?;
         let mut remapped = [0u8; 4];
         for component in 0..4 {
             let slot = usize::from(source_indices[source][component]);
-            match source_mesh.bone_group.get(slot).copied() {
-                Some(bone) => {
-                    if let Some(&mapped) = index_of.get(&bone) {
-                        remapped[component] = mapped;
-                    }
-                }
-                // A slot a zero weight never loads may hold anything.
-                None if weights[source][component] > 0 => {
-                    return Err(FmdlError::BadReference {
-                        what: "bone",
-                        index: slot,
-                    });
-                }
-                None => {}
+            // `bone_mapping` already refused a weighted slot past the bone
+            // group; an unweighted slot may hold anything.
+            if let Some(bone) = source_mesh.bone_group.get(slot).copied()
+                && let Some(&mapped) = index_of.get(&bone)
+            {
+                remapped[component] = mapped;
             }
         }
         target.push(remapped);
     }
-    Ok(())
 }
 
 /// An empty `MeshVertices` with `source`'s attribute layout.

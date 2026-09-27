@@ -2118,3 +2118,21 @@ headers carry mesh indices every op renumbers, and nothing known writes one. The
 Plan: `libs/format_crates.md` "Layout of the format crates" (bindings surface), "`fmdl::model`"
 (the `Extensions`/`validate` block, "One list of invariants", "Custom bounding boxes", the
 `to_file` box sentence).
+
+## 2026-09-27 - fmdl - converge review, first round
+Decision (cross-family review at converge, 7 of 7 accepted):
+- **`from_file` accepts repeated assignments to one group naming the same bounding-box id**
+  (a different id stays an error): `to_file` writes one assignment per run of a
+  non-consecutive group, and a split leaves exactly that, so the writer's output did not reload.
+- **`format/` owes byte identity on Konami's layout, not the add-on's** (every section-0 block
+  padded to 16): a plan correction, the behavior since 2.6a-1.
+- **`encode_vertices` refuses unequal values for uv maps that share storage**, which silently
+  lost an edit to one of them.
+- **A caller-supplied split hierarchy gets `effective_parents`' cycle cut**; a cycle hung the
+  subtree climb, and the IR exporter's render-parent fallback can build one.
+- **A shared bone's bounding box in a merge is the union of the parts' boxes**, not the first
+  part's.
+- **An anti-blur duplicate keeps its source's custom box**, as the add-on copies the header.
+- Deferred with an issue: u16 faces cap a reassembled split mesh at 65536 referenced vertices.
+Plan: `libs/format_crates.md` ("Layout of the format crates" byte-identity rule, "Custom
+bounding boxes", new "Mesh-group assignments"); `model_conversion/ir.md` (merge sentence).

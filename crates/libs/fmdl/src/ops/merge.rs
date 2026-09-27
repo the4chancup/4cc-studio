@@ -74,6 +74,16 @@ pub fn merge(parts: &[Model]) -> Result<Model, MergeError> {
                             name: bone.name.clone(),
                         });
                     }
+                    // A bone's box covers every vertex weighted to it: the
+                    // unioned bone's box is the union (w is unused — keep
+                    // the first part's).
+                    let bounding_box = &mut output.bones[unioned].bounding_box;
+                    for axis in 0..3 {
+                        bounding_box.max[axis] =
+                            bounding_box.max[axis].max(bone.bounding_box.max[axis]);
+                        bounding_box.min[axis] =
+                            bounding_box.min[axis].min(bone.bounding_box.min[axis]);
+                    }
                     bone_remap[index] = unioned;
                 }
                 None => {
@@ -174,6 +184,7 @@ pub fn merge(parts: &[Model]) -> Result<Model, MergeError> {
 mod tests {
     use super::*;
     use crate::format::FmdlFile;
+    use crate::model::BoundingBox;
 
     const HIGHNECK: &[u8] = include_bytes!("../../tests/fixtures/konami_highneck.fmdl");
     const MOUTH: &[u8] = include_bytes!("../../tests/fixtures/konami_mouth.fmdl");
@@ -390,5 +401,23 @@ mod tests {
                 index: 9
             }))
         ));
+    }
+
+    // A shared bone's bounding box is the union of the parts' boxes.
+    #[test]
+    fn a_shared_bones_box_is_the_union() {
+        let mut a = model(HIGHNECK);
+        let mut b = model(HIGHNECK);
+        a.bones[0].bounding_box = BoundingBox {
+            max: [2.0, 2.0, 2.0, 1.0],
+            min: [-1.0, -1.0, -1.0, 1.0],
+        };
+        b.bones[0].bounding_box = BoundingBox {
+            max: [1.0, 3.0, 1.0, 9.0],
+            min: [-2.0, 0.0, -2.0, 9.0],
+        };
+        let merged = merge(&[a, b]).unwrap();
+        assert_eq!(merged.bones[0].bounding_box.max, [2.0, 3.0, 2.0, 1.0]);
+        assert_eq!(merged.bones[0].bounding_box.min, [-2.0, -1.0, -2.0, 1.0]);
     }
 }

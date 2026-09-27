@@ -757,3 +757,174 @@ fn decode_group_parent_out_of_range_errors() {
         })
     ));
 }
+
+// A caller-supplied hierarchy with a cycle must not hang the climb; the
+// same cycle cut `effective_parents` applies runs on the slice.
+#[test]
+fn a_cyclic_parents_override_terminates() {
+    let model = grid_model(grid(60, 20, 40), 40);
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let mut model = model;
+        // Every bone's parent is its successor, the last pointing at 0.
+        let parents: Vec<Option<usize>> = (0..40).map(|index| Some((index + 1) % 40)).collect();
+        assert!(encode(&mut model, Some(&parents)).unwrap());
+        tx.send(model).expect("send the encoded model");
+    });
+    let model = rx
+        .recv_timeout(std::time::Duration::from_secs(30))
+        .expect("encode hung on a cyclic parents slice");
+    components_under_limits(&model);
+}
+
+// Vertex-limit binding in the fragment's face and loose loops: every
+// position carries eight loops, so a component fills its 63000 vertices
+// long before 20000 faces.
+#[test]
+fn vertex_limit_binds_before_faces() {
+    const WIDTH: usize = 101;
+    const HEIGHT: usize = 81;
+    let mut vertices = MeshVertices {
+        positions: Vec::new(),
+        normals: Some(Vec::new()),
+        tangents: None,
+        colors: None,
+        uvs: vec![Vec::new()],
+        uv_high_precision: vec![true],
+        bone_weights: None,
+        bone_indices: None,
+    };
+    for base in 0..WIDTH * HEIGHT {
+        for copy in 0..8 {
+            vertices.positions.push([base as f32, 0.0, 0.0]);
+            vertices
+                .normals
+                .as_mut()
+                .unwrap()
+                .push([0.0, 0.0, 1.0, 0.0]);
+            vertices.uvs[0].push([copy as f32, 0.0]);
+        }
+    }
+    // Loose vertices at unique positions (one set each).
+    for loose in 0..500 {
+        vertices.positions.push([0.0, 0.0, loose as f32 + 1.0]);
+        vertices
+            .normals
+            .as_mut()
+            .unwrap()
+            .push([0.0, 0.0, 1.0, 0.0]);
+        vertices.uvs[0].push([0.0, 0.0]);
+    }
+    let mut mesh = Mesh {
+        vertices,
+        faces: Vec::new(),
+        bone_group: Vec::new(),
+        material: 0,
+        alpha_flags: 0,
+        shadow_flags: 0,
+        has_antiblur_meshes: false,
+        is_antiblur_mesh: false,
+        custom_bounding_box: None,
+    };
+    for y in 0..HEIGHT - 1 {
+        for x in 0..WIDTH - 1 {
+            let v00 = 8 * (y * WIDTH + x);
+            let v10 = v00 + 8;
+            let v01 = v00 + 8 * WIDTH;
+            let v11 = v01 + 8;
+            mesh.faces.push([v00 as u16, v10 as u16, v11 as u16]);
+            mesh.faces.push([v00 as u16, v11 as u16, v01 as u16]);
+        }
+    }
+    loose_vertices_travel(mesh, 0);
+}
+
+// Bone-limit binding in the loose loop: one face on bone 0 plus 40 loose
+// vertices weighted to a different bone each; the root's items do not fit
+// a 30-bone group, so the fragment path must bound the loose loop by it.
+#[test]
+fn bone_limit_binds_in_the_loose_loop() {
+    let mut vertices = MeshVertices {
+        positions: vec![[0.0; 3], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
+        normals: Some(vec![[0.0, 0.0, 1.0, 0.0]; 3]),
+        tangents: None,
+        colors: None,
+        uvs: vec![vec![[0.0; 2]; 3]],
+        uv_high_precision: vec![true],
+        bone_weights: Some(vec![[255, 0, 0, 0]; 3]),
+        bone_indices: Some(vec![[0, 0, 0, 0]; 3]),
+    };
+    for bone in 0..40u8 {
+        vertices.positions.push([0.0, f32::from(bone) + 1.0, 0.0]);
+        vertices
+            .normals
+            .as_mut()
+            .unwrap()
+            .push([0.0, 0.0, 1.0, 0.0]);
+        vertices.uvs[0].push([0.0, 0.0]);
+        vertices.bone_weights.as_mut().unwrap().push([255, 0, 0, 0]);
+        vertices
+            .bone_indices
+            .as_mut()
+            .unwrap()
+            .push([bone, 0, 0, 0]);
+    }
+    let mesh = Mesh {
+        vertices,
+        faces: vec![[0, 1, 2]],
+        bone_group: (0..40).collect(),
+        material: 0,
+        alpha_flags: 0,
+        shadow_flags: 0,
+        has_antiblur_meshes: false,
+        is_antiblur_mesh: false,
+        custom_bounding_box: None,
+    };
+    let source: BTreeSet<VertexTuple> = (0..mesh.vertices.positions.len())
+        .map(|index| vertex_tuple(&mesh, index))
+        .collect();
+    let mut model = grid_model(mesh, 40);
+    assert!(encode(&mut model, None).unwrap());
+    for component in &model.meshes {
+        assert!(component.bone_group.len() <= BONE_LIMIT_SOFT);
+    }
+    let covered: BTreeSet<VertexTuple> = model
+        .meshes
+        .iter()
+        .flat_map(|mesh| (0..mesh.vertices.positions.len()).map(|index| vertex_tuple(mesh, index)))
+        .collect();
+    assert_eq!(covered, source);
+}
+
+// A loose vertex weighted to a bone lands in the climbed subtree's
+// component, not with whatever lower subtree owned it.
+#[test]
+fn a_loose_vertex_joins_the_climbed_subtree() {
+    let mut mesh = grid(60, 20, 40);
+    mesh.vertices.positions.push([999.0, -999.0, 999.0]);
+    mesh.vertices
+        .normals
+        .as_mut()
+        .unwrap()
+        .push([0.0, 0.0, 1.0, 0.0]);
+    mesh.vertices.uvs[0].push([0.0, 0.0]);
+    mesh.vertices
+        .bone_weights
+        .as_mut()
+        .unwrap()
+        .push([255, 0, 0, 0]);
+    mesh.vertices
+        .bone_indices
+        .as_mut()
+        .unwrap()
+        .push([39, 0, 0, 0]);
+    let mut model = grid_model(mesh, 40);
+    model.bones[20].name = "sk_hand_l".to_owned();
+    assert!(encode(&mut model, None).unwrap());
+    assert!(
+        model.meshes[0]
+            .vertices
+            .positions
+            .contains(&[999.0, -999.0, 999.0])
+    );
+}

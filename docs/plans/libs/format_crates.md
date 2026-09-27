@@ -55,7 +55,12 @@ crates/libs/fmdl/src/                 crates/libs/pes_model/src/
 Rules:
 
 - **`format/` is pure binrw**: structs, read, write, and nothing that changes a model's meaning. A
-  round-trip through `format/` alone is byte-identical (tested).
+  round-trip through `format/` alone is byte-identical on the layout the game's own files use
+  (tested on the Konami fixtures). Another writer's layout round-trips equal in records and
+  buffers but not in bytes: `fmdl`'s writer emits Konami's layout, and the community add-on
+  pads every section-0 block to 16 where Konami aligns only block 13. Nothing needs the
+  add-on's bytes back (FMDL parity against Red is compared on the decoded model), so the
+  writer does not carry a per-file padding mode.
 - **`ops/` are format-native transformations** for lossless same-format work; they operate on the
   crate's own types, never on `model_convert`'s IR (the dependency points the other way).
 - **`check.rs` returns findings, not messages** — stable codes with context, mapped to catalog
@@ -169,7 +174,15 @@ marks a mesh whose box the author set by hand, and the add-on folds that box int
 *group* box. We do the same both ways: `from_file` gives a marked mesh `custom_bounding_box =
 Some(its group's box)`; `to_file` emits the header for every mesh with `Some`, and when it
 computes a group box (the group had none) it uses a mesh's custom box in place of that mesh's
-vertex extent. A group box the model already carries is written as is. `to_file` lays a file out the way the add-on writer does, which
+vertex extent. A group box the model already carries is written as is. An anti-blur duplicate
+keeps its source's custom box (the add-on copies the source's headers onto the duplicate), so
+duplication never grows a hand-set group box back to the geometry.
+
+**Mesh-group assignments.** A group whose meshes are not consecutive (a split replaces a mesh
+by a child group, leaving its siblings apart) is written as one assignment record per run, all
+naming the group's one bounding box. `from_file` accepts repeated assignments to a group when
+they name the same bounding-box id and refuses a second, different id, which is the add-on
+reader's rule. `to_file` lays a file out the way the add-on writer does, which
 years of add-on-written models prove PES accepts: positions in buffer 0 (stride 12), the other
 attributes interleaved in buffer 1 in the order normal, tangent, color, bone weights, bone indices,
 uv maps (a uv map identical to an earlier one shares its offset), faces in buffer 2; strings
