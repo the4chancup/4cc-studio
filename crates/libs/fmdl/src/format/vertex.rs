@@ -155,6 +155,15 @@ fn uv_index(datum_type: DatumType) -> Option<usize> {
     }
 }
 
+/// Whether two uv maps are bit-identical: `==` conflates -0.0 and +0.0,
+/// which store different bytes.
+pub(crate) fn same_uv_bits(a: &[[f32; 2]], b: &[[f32; 2]]) -> bool {
+    a.len() == b.len()
+        && a.iter()
+            .zip(b.iter())
+            .all(|(a, b)| a[0].to_bits() == b[0].to_bits() && a[1].to_bits() == b[1].to_bits())
+}
+
 /// One attribute of a mesh's vertices, resolved to where it lives in
 /// section-1 block 2.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -427,6 +436,47 @@ impl FmdlFile {
         let mut vertices = MeshVertices::default();
         let mut uv_slots: [Option<Vec<[f32; 2]>>; 4] = [None, None, None, None];
         let mut uv_precision = [false; 4];
+        // The layout comes from the attribute list, not from data seen:
+        // a zero-vertex mesh still decodes every declared attribute as an
+        // empty vector.
+        for attribute in &attributes {
+            match attribute.datum_type {
+                DatumType::BoneWeights => {
+                    if vertices.bone_weights.is_none() {
+                        vertices.bone_weights = Some(Vec::new());
+                    }
+                }
+                DatumType::Normal => {
+                    if vertices.normals.is_none() {
+                        vertices.normals = Some(Vec::new());
+                    }
+                }
+                DatumType::Color => {
+                    if vertices.colors.is_none() {
+                        vertices.colors = Some(Vec::new());
+                    }
+                }
+                DatumType::BoneIndices => {
+                    if vertices.bone_indices.is_none() {
+                        vertices.bone_indices = Some(Vec::new());
+                    }
+                }
+                DatumType::Tangent => {
+                    if vertices.tangents.is_none() {
+                        vertices.tangents = Some(Vec::new());
+                    }
+                }
+                DatumType::Uv0 | DatumType::Uv1 | DatumType::Uv2 | DatumType::Uv3 => {
+                    let index =
+                        uv_index(attribute.datum_type).expect("Uv0..Uv3 always name a uv map");
+                    if uv_slots[index].is_none() {
+                        uv_slots[index] = Some(Vec::new());
+                    }
+                    uv_precision[index] = attribute.format == DatumFormat::DoubleFloat32;
+                }
+                DatumType::Position => {}
+            }
+        }
         for attribute in &attributes {
             for vertex in 0..vertex_count {
                 let range = span(attribute, vertex);
@@ -467,7 +517,6 @@ impl FmdlFile {
                     DatumType::Uv0 | DatumType::Uv1 | DatumType::Uv2 | DatumType::Uv3 => {
                         let index =
                             uv_index(attribute.datum_type).expect("Uv0..Uv3 always name a uv map");
-                        uv_precision[index] = attribute.format == DatumFormat::DoubleFloat32;
                         uv_slots[index].get_or_insert_with(Vec::new).push(read_uv(
                             buffer,
                             range,
@@ -627,7 +676,9 @@ impl FmdlFile {
             let map = uv_index(attribute.datum_type).expect("Uv0..Uv3 always name a uv map");
             for earlier in &uv_attributes[..later] {
                 let other = uv_index(earlier.datum_type).expect("Uv0..Uv3 always name a uv map");
-                if attribute.offset == earlier.offset && vertices.uvs[map] != vertices.uvs[other] {
+                if attribute.offset == earlier.offset
+                    && !same_uv_bits(&vertices.uvs[map], &vertices.uvs[other])
+                {
                     return Err(FmdlError::VertexMismatch(
                         "uv maps that share storage differ",
                     ));
@@ -1144,5 +1195,59 @@ mod tests {
         let decoded = file.decode_vertices(0).unwrap();
         assert_eq!(decoded.uvs[0][0], [9.0, 9.0]);
         assert_eq!(decoded.uvs[1][0], [9.0, 9.0]);
+    }
+
+    // -0.0 and +0.0 compare equal but store different bytes: editing one
+    // of two shared maps to -0.0 is a difference, so the aliased-map
+    // guard refuses it.
+    #[test]
+    fn a_minus_zero_edit_breaks_the_alias() {
+        let vertices = MeshVertices {
+            positions: vec![[0.0; 3], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
+            uvs: vec![vec![[0.0, 0.0]; 3], vec![[0.0, 0.0]; 3]],
+            uv_high_precision: vec![true, true],
+            ..MeshVertices::default()
+        };
+        let mesh = Mesh {
+            vertices,
+            faces: vec![[0, 1, 2]],
+            bone_group: Vec::new(),
+            material: 0,
+            alpha_flags: 0,
+            shadow_flags: 0,
+            has_antiblur_meshes: false,
+            is_antiblur_mesh: false,
+            custom_bounding_box: None,
+        };
+        let model = Model {
+            bones: Vec::new(),
+            materials: vec![MaterialInstance {
+                name: "mat".to_owned(),
+                shader: "shader".to_owned(),
+                technique: "technique".to_owned(),
+                textures: Vec::new(),
+                parameters: Vec::new(),
+            }],
+            meshes: vec![mesh],
+            mesh_groups: vec![MeshGroup {
+                name: "group".to_owned(),
+                parent: None,
+                meshes: vec![0],
+                bounding_box: None,
+                visible: true,
+                split_mesh_group: false,
+            }],
+            extensions: Extensions::default(),
+            bone_matrices: None,
+        };
+        let mut file = model.to_file().unwrap();
+        let mut changed = model.meshes[0].vertices.clone();
+        changed.uvs[1][0] = [-0.0, 0.0];
+        assert!(matches!(
+            file.encode_vertices(0, &changed),
+            Err(FmdlError::VertexMismatch(
+                "uv maps that share storage differ"
+            ))
+        ));
     }
 }

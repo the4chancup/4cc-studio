@@ -337,7 +337,10 @@ roundtrips").
 `fmdl` also owns **multi-FMDL mesh merging** — bone lists unioned by name (a shared bone's
 bounding box is the union of the parts' boxes, since a bone's box covers every vertex weighted
 to it; per-mesh bone groups remapped), meshes and mesh groups concatenated, materials merged by name (same-name materials with
-differing definitions rejected), buffers and headers rebuilt. It is not an IR operation: the Team
+differing definitions rejected), buffers and headers rebuilt. A part with repeated bone names
+is refused (union by name is ambiguous), and so are parts whose anti-blur requests are encoded
+in some and not in others: the merged model declares anti-blur only when every requesting part
+carries its duplicates, so a later `antiblur::encode` never skips one. It is not an IR operation: the Team
 compiler calls it directly to assemble multi-part models and to bake Common-linked models into
 player FMDLs on Fox targets, where the engine cannot load models from the Common folder (see "Common
 model links and model merging" in the [Team compiler plan](../team_compiler/README.md)). The pre-Fox

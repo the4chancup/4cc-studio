@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use super::{BoundingBox, Mesh, MeshGroup, Model};
 use crate::format::f16::f32_to_f16;
 use crate::format::records::*;
-use crate::format::{DatumFormat, DatumType, FmdlError, FmdlFile, table_u16};
+use crate::format::{DatumFormat, DatumType, FmdlError, FmdlFile, same_uv_bits, table_u16};
 
 impl Model {
     /// Rebuilds a fresh `FmdlFile`: positions in buffer 0 (stride 12), the
@@ -453,7 +453,7 @@ fn write_mesh(
         };
         let shared = (0..map).find(|earlier| {
             vertices.uv_high_precision[*earlier] == vertices.uv_high_precision[map]
-                && vertices.uvs[*earlier] == *uvs
+                && same_uv_bits(&vertices.uvs[*earlier], uvs)
         });
         match shared {
             Some(earlier) => {
@@ -614,6 +614,12 @@ fn compute_bounding_box(model: &Model, group: &MeshGroup) -> BoundingBox {
                 }
             }
         }
+    }
+    // Meshes without vertices or custom box leave the extremes untouched;
+    // the add-on writes the zero box for a group with nothing to measure.
+    if max[0] < min[0] {
+        max = [0.0; 4];
+        min = [0.0; 4];
     }
     max[3] = 1.0;
     min[3] = 1.0;

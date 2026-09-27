@@ -2155,3 +2155,22 @@ Decision (cross-family review at converge, 5 of 6 accepted):
   convention runs as loops; `model_conversion/ir.md` "Extension algorithms" settles that.
 Plan: no plan edit needed: these are implementation rules inside `fmdl::ops` the plan leaves
 open, and the axis rule restates the 2026-09-13 entry.
+
+## 2026-09-27 - fmdl - converge review, third round
+Decision (cross-family review at converge, 7 of 7 accepted):
+- **merge refuses a part with repeated bone names** (`MergeError::DuplicateBoneName`; union by
+  name is ambiguous there, and it panicked) **and parts mixing encoded and unencoded anti-blur
+  requests** (`MergeError::MixedAntiblur`); the merged `antiblur` flag is set only when every
+  part that requests anti-blur is encoded, so `antiblur::encode` never skips a part that still
+  needs duplicates.
+- **`split::decode` combines before it mutates**: a failed combine leaves the model intact.
+- **Split's principal axis is computed over points in sorted face/loose order**, so the
+  partition does not depend on `HashSet` iteration order.
+- **uv map sharing and the aliased-map guard compare bit patterns**, so -0.0 and +0.0 stay
+  distinct bytes.
+- **A zero-vertex mesh keeps its declared attribute layout on decode**; **vertex-loop encoding
+  refuses a face index past u16 after reordering** instead of wrapping it.
+- Lead, found while reviewing the rework: **a computed group box with nothing to measure (only
+  zero-vertex meshes, no custom box) is the zero box**, the add-on's value; it was written as
+  +/- infinity.
+Plan: `model_conversion/ir.md` "Extension algorithms" (merge sentence: anti-blur state).

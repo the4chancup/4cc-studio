@@ -229,17 +229,18 @@ pub fn decode(model: &mut Model) -> Result<(), FmdlError> {
         }
     }
 
-    // Combine each split group's components while the old mesh list is
-    // still intact, then rebuild the list: components collapse to their
-    // combined mesh at the first component's position.
-    let old_meshes = std::mem::take(&mut model.meshes);
+    // Combine each split group's components while the model is still
+    // intact, so a failed combine leaves it unchanged. Then rebuild the
+    // mesh list: components collapse to their combined mesh at the first
+    // component's position.
     let mut combined_meshes: HashMap<usize, Mesh> = HashMap::new();
     for &group_index in &split_groups {
         combined_meshes.insert(
             group_index,
-            combine::combine(&old_meshes, &model.mesh_groups[group_index])?,
+            combine::combine(&model.meshes, &model.mesh_groups[group_index])?,
         );
     }
+    let old_meshes = std::mem::take(&mut model.meshes);
     let mut combined_index: HashMap<usize, usize> = HashMap::new();
     let mut new_index = vec![usize::MAX; old_meshes.len()];
     for (index, mesh) in old_meshes.into_iter().enumerate() {

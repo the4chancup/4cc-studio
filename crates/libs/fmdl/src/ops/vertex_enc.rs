@@ -162,7 +162,8 @@ pub fn encode(mesh: &mut Mesh, owner: &[usize]) -> Result<Vec<usize>, FmdlError>
     }
     for face in &mut mesh.faces {
         for index in face.iter_mut() {
-            *index = new_index[collapsed_to[usize::from(*index)]] as u16;
+            *index = u16::try_from(new_index[collapsed_to[usize::from(*index)]])
+                .map_err(|_| FmdlError::TooManyVertices(count))?;
         }
     }
     Ok(new_owner)
@@ -533,6 +534,40 @@ mod tests {
             Err(FmdlError::VertexMismatch(
                 "owner map joins vertices with different topological keys"
             ))
+        ));
+    }
+
+    // Face indices are u16 on disk: a vertex reordered past index 65535
+    // errors instead of wrapping. The copy of vertex 0 emits first (same
+    // key, higher encoding), so vertex 65535 lands at index 65536.
+    #[test]
+    fn a_remapped_face_index_past_u16_errors() {
+        let count = usize::from(u16::MAX) + 2;
+        let mut vertices = MeshVertices {
+            positions: (0..count - 1)
+                .map(|index| [index as f32, 0.0, 0.0])
+                .collect(),
+            uvs: vec![vec![[0.0; 2]; count]],
+            uv_high_precision: vec![true],
+            ..MeshVertices::default()
+        };
+        vertices.positions.push(vertices.positions[0]);
+        vertices.uvs[0][count - 1] = [1.0, 0.0];
+        let mut mesh = Mesh {
+            vertices,
+            faces: vec![[u16::MAX, 0, 1]],
+            bone_group: Vec::new(),
+            material: 0,
+            alpha_flags: 0,
+            shadow_flags: 0,
+            has_antiblur_meshes: false,
+            is_antiblur_mesh: false,
+            custom_bounding_box: None,
+        };
+        let owners: Vec<usize> = (0..count).collect();
+        assert!(matches!(
+            encode(&mut mesh, &owners),
+            Err(FmdlError::TooManyVertices(_))
         ));
     }
 }

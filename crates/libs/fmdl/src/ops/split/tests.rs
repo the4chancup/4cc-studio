@@ -1057,3 +1057,62 @@ fn combine_keeps_loose_loops_next_to_their_owners() {
         vec![0, 0, 2, 3]
     );
 }
+
+// A combine failure leaves the model untouched: the second split group's
+// components disagree on layout, so decode errors — with the mesh list
+// still populated.
+#[test]
+fn a_failed_combine_leaves_the_model_intact() {
+    let mut model = grid_model(grid(2, 2, 0), 0);
+    // Group 0 stays a plain parent; add two split groups under it.
+    let parent = MeshGroup {
+        name: "parent".to_owned(),
+        parent: None,
+        meshes: Vec::new(),
+        bounding_box: None,
+        visible: true,
+        split_mesh_group: false,
+    };
+    let split_group = |meshes: Vec<usize>| MeshGroup {
+        name: "split".to_owned(),
+        parent: Some(0),
+        meshes,
+        bounding_box: None,
+        visible: true,
+        split_mesh_group: true,
+    };
+    let component = |colors: Option<Vec<[u8; 4]>>| Mesh {
+        vertices: MeshVertices {
+            positions: vec![[0.0; 3], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
+            normals: Some(vec![[0.0, 0.0, 1.0, 0.0]; 3]),
+            colors,
+            uvs: vec![vec![[0.0; 2]; 3]],
+            uv_high_precision: vec![true],
+            ..MeshVertices::default()
+        },
+        faces: vec![[0, 1, 2]],
+        bone_group: Vec::new(),
+        material: 0,
+        alpha_flags: 0,
+        shadow_flags: 0,
+        has_antiblur_meshes: false,
+        is_antiblur_mesh: false,
+        custom_bounding_box: None,
+    };
+    model.mesh_groups[0] = parent;
+    // Group 1's components are identical, so its combine succeeds.
+    model.meshes = vec![
+        component(Some(vec![[1, 2, 3, 4]; 3])),
+        component(Some(vec![[1, 2, 3, 4]; 3])),
+        component(None),
+        component(None),
+    ];
+    model.mesh_groups.push(split_group(vec![0, 1]));
+    // The second group's components disagree on layout: no normals here.
+    model.meshes[3].vertices.normals = None;
+    model.mesh_groups.push(split_group(vec![2, 3]));
+
+    let before = model.clone();
+    assert!(decode(&mut model).is_err());
+    assert_eq!(model, before);
+}

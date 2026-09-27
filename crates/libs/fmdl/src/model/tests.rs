@@ -1000,6 +1000,84 @@ fn identical_uv_maps_share_one_offset() {
 }
 
 #[test]
+fn a_minus_zero_uv_does_not_alias_plus_zero() {
+    // == would call the maps equal; their bytes are not.
+    let mut map = vec![[0.5, 0.5]; 3];
+    map[1] = [0.0, 0.0];
+    let mut negated = map.clone();
+    negated[1] = [-0.0, 0.0];
+    let file = grouped_model(
+        vec![mesh_with(MeshVertices {
+            positions: vec![[0.0, 0.0, 0.0]; 3],
+            uvs: vec![map, negated],
+            uv_high_precision: vec![true, true],
+            ..MeshVertices::default()
+        })],
+        vec![vec![0]],
+    )
+    .to_file()
+    .unwrap();
+    let offsets: Vec<_> = file
+        .vertex_formats
+        .iter()
+        .filter(|record| record.datum_type == 8 || record.datum_type == 9)
+        .map(|record| record.offset)
+        .collect();
+    assert_eq!(offsets.len(), 2);
+    assert_ne!(offsets[0], offsets[1]);
+    let back = Model::from_file(&file).unwrap();
+    assert_eq!(
+        back.meshes[0].vertices.uvs[1][1][0].to_bits(),
+        (-0.0f32).to_bits()
+    );
+}
+
+#[test]
+fn a_zero_vertex_skinned_mesh_keeps_its_layout() {
+    let mut model = grouped_model(
+        vec![mesh_with(MeshVertices {
+            positions: Vec::new(),
+            normals: Some(Vec::new()),
+            uvs: vec![Vec::new()],
+            uv_high_precision: vec![true],
+            bone_weights: Some(Vec::new()),
+            bone_indices: Some(Vec::new()),
+            ..MeshVertices::default()
+        })],
+        vec![vec![0]],
+    );
+    model.meshes[0].faces = Vec::new();
+    model.bones = (0usize..3)
+        .map(|index| Bone {
+            name: format!("bone{index}"),
+            parent: index.checked_sub(1),
+            bounding_box: BoundingBox {
+                max: [0.0; 4],
+                min: [0.0; 4],
+            },
+            local_position: [0.0; 4],
+            world_position: [0.0; 4],
+        })
+        .collect();
+    model.meshes[0].bone_group = vec![0, 1, 2];
+    // A group with no vertices computes no box, and an existing
+    // bone-matrices block reads back as an empty one.
+    model.mesh_groups[0].bounding_box = Some(BoundingBox {
+        max: [0.0; 4],
+        min: [0.0; 4],
+    });
+    model.bone_matrices = Some(Vec::new());
+
+    let mut file = model.to_file().unwrap();
+    let back = Model::from_file(&file).unwrap();
+    // The declared layout survives: every attribute is Some(empty), the
+    // uv precision flag and the bone group included.
+    assert_eq!(back, model);
+    // The decoded vertices still encode into the file.
+    file.encode_vertices(0, &back.meshes[0].vertices).unwrap();
+}
+
+#[test]
 fn an_empty_mesh_format_group_writes_no_record() {
     // An unskinned mesh with normals only: positions plus one data entry.
     let file = grouped_model(
@@ -1160,4 +1238,17 @@ fn a_split_mesh_among_siblings_reloads() {
     let file = model.to_file().unwrap();
     let again = Model::from_file(&file).unwrap();
     assert_eq!(again, model);
+}
+
+#[test]
+fn a_group_with_no_vertices_gets_a_zero_box() {
+    // Nothing to measure: the add-on writes the zero box, not an infinite one.
+    let empty = MeshVertices::default();
+    let mut mesh = mesh_with(empty);
+    mesh.faces.clear();
+    let file = grouped_model(vec![mesh], vec![vec![0]]).to_file().unwrap();
+    let assignment = &file.mesh_group_assignments[0];
+    let written = &file.bounding_boxes[usize::from(assignment.bounding_box_id)];
+    assert_eq!(written.max, [0.0, 0.0, 0.0, 1.0]);
+    assert_eq!(written.min, [0.0, 0.0, 0.0, 1.0]);
 }

@@ -6,7 +6,7 @@
 //! extension flags OR-ed. `parts` order is canonical and preserved, so the
 //! result is deterministic by construction.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::format::FmdlError;
 use crate::model::{Mesh, MeshGroup, Model};
@@ -27,6 +27,18 @@ pub enum MergeError {
         /// The conflicting bone name.
         name: String,
     },
+    /// A part lists the same bone name twice; union by name is ambiguous
+    /// there.
+    #[error("bone {name} appears twice in one part")]
+    DuplicateBoneName {
+        /// The repeated bone name.
+        name: String,
+    },
+    /// Some parts that request anti-blur carry their duplicates and
+    /// others do not; merging them would leave half of them unencoded
+    /// under the flag that suppresses `antiblur::encode`.
+    #[error("some parts carry their anti-blur duplicates and others do not")]
+    MixedAntiblur,
     /// A part fails `Model::validate`.
     #[error(transparent)]
     Other(#[from] FmdlError),
@@ -51,8 +63,34 @@ pub fn merge(parts: &[Model]) -> Result<Model, MergeError> {
     let mut bone_source: Vec<(usize, usize)> = Vec::new();
     let mut matrices_ok = true;
 
+    // A part *requests* anti-blur when any of its meshes is flagged
+    // `has_antiblur_meshes`; requesting parts must agree on whether the
+    // duplicates are already encoded (the flag), or the merged flag would
+    // suppress `antiblur::encode` on a part that still needs it.
+    let mut requested_antiblur: Option<bool> = None;
+
     for (part_index, part) in parts.iter().enumerate() {
         part.validate()?;
+
+        // Within one part a bone name must be unique: union by name is
+        // ambiguous otherwise.
+        let mut names = HashSet::new();
+        for bone in &part.bones {
+            if !names.insert(bone.name.as_str()) {
+                return Err(MergeError::DuplicateBoneName {
+                    name: bone.name.clone(),
+                });
+            }
+        }
+
+        if part.meshes.iter().any(|mesh| mesh.has_antiblur_meshes) {
+            match requested_antiblur {
+                Some(encoded) if encoded != part.extensions.antiblur => {
+                    return Err(MergeError::MixedAntiblur);
+                }
+                _ => requested_antiblur = Some(part.extensions.antiblur),
+            }
+        }
 
         // Bone union: identity of a bone is its name; a shared bone must
         // agree on positions and on the parent's *name*.
@@ -160,6 +198,13 @@ pub fn merge(parts: &[Model]) -> Result<Model, MergeError> {
                 output.extensions.other.push(extension.clone());
             }
         }
+    }
+
+    // When any part requests anti-blur the requesting parts' (common)
+    // value decides — a stray flag on a part that does not request it is
+    // a leftover, not a vote.
+    if let Some(encoded) = requested_antiblur {
+        output.extensions.antiblur = encoded;
     }
 
     // Bone matrices: one 64-byte matrix per unioned bone, taken from the
@@ -419,5 +464,115 @@ mod tests {
         let merged = merge(&[a, b]).unwrap();
         assert_eq!(merged.bones[0].bounding_box.max, [2.0, 3.0, 2.0, 1.0]);
         assert_eq!(merged.bones[0].bounding_box.min, [-2.0, -1.0, -2.0, 1.0]);
+    }
+
+    /// The smallest part: one mesh of one triangle, the named bones.
+    fn part(bones: &[(&str, Option<usize>)]) -> Model {
+        Model {
+            bones: bones
+                .iter()
+                .map(|&(name, parent)| crate::model::Bone {
+                    name: name.to_owned(),
+                    parent,
+                    bounding_box: BoundingBox {
+                        max: [0.0; 4],
+                        min: [0.0; 4],
+                    },
+                    local_position: [0.0; 4],
+                    world_position: [0.0; 4],
+                })
+                .collect(),
+            materials: vec![crate::model::MaterialInstance {
+                name: "mat".to_owned(),
+                shader: "shader".to_owned(),
+                technique: "technique".to_owned(),
+                textures: Vec::new(),
+                parameters: Vec::new(),
+            }],
+            meshes: vec![Mesh {
+                vertices: crate::format::MeshVertices {
+                    positions: vec![[0.0; 3], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
+                    ..crate::format::MeshVertices::default()
+                },
+                faces: vec![[0, 1, 2]],
+                bone_group: Vec::new(),
+                material: 0,
+                alpha_flags: 0,
+                shadow_flags: 0,
+                has_antiblur_meshes: false,
+                is_antiblur_mesh: false,
+                custom_bounding_box: None,
+            }],
+            mesh_groups: vec![MeshGroup {
+                name: "group".to_owned(),
+                parent: None,
+                meshes: vec![0],
+                bounding_box: None,
+                visible: true,
+                split_mesh_group: false,
+            }],
+            extensions: crate::model::Extensions::default(),
+            bone_matrices: None,
+        }
+    }
+
+    /// ORAL decoded back to the add-on's state: the request flag stays on
+    /// the mesh while `extensions.antiblur` is clear.
+    fn unencoded_oral() -> Model {
+        let mut oral = model(ORAL);
+        crate::ops::antiblur::decode(&mut oral).unwrap();
+        oral.meshes[0].has_antiblur_meshes = true;
+        oral
+    }
+
+    /// ORAL encoded and still requesting: flag set, duplicates present.
+    fn encoded_oral() -> Model {
+        let mut oral = model(ORAL);
+        oral.meshes[0].has_antiblur_meshes = true;
+        oral
+    }
+
+    #[test]
+    fn a_part_with_repeated_bone_names_errors() {
+        let part = part(&[("A", Some(2)), ("A", Some(2)), ("P", None)]);
+        assert!(matches!(
+            merge(&[part]),
+            Err(MergeError::DuplicateBoneName { ref name }) if name == "A"
+        ));
+    }
+
+    #[test]
+    fn mixed_antiblur_requests_error() {
+        assert!(matches!(
+            merge(&[encoded_oral(), unencoded_oral()]),
+            Err(MergeError::MixedAntiblur)
+        ));
+    }
+
+    #[test]
+    fn unencoded_requesting_parts_merge_flag_clear() {
+        let mut merged = merge(&[unencoded_oral(), unencoded_oral()]).unwrap();
+        assert!(!merged.extensions.antiblur);
+        // A later encode duplicates the flagged meshes of both parts.
+        crate::ops::antiblur::encode(&mut merged).unwrap();
+        assert!(merged.extensions.antiblur);
+        assert_eq!(
+            merged
+                .meshes
+                .iter()
+                .filter(|mesh| mesh.is_antiblur_mesh)
+                .count(),
+            2
+        );
+    }
+
+    #[test]
+    fn a_set_flag_on_a_non_requesting_part_does_not_win() {
+        // No mesh of this part asks for anti-blur, so its flag is only a
+        // leftover; the requesting part's clear flag wins.
+        let mut flagged = part(&[]);
+        flagged.extensions.antiblur = true;
+        let merged = merge(&[flagged, unencoded_oral()]).unwrap();
+        assert!(!merged.extensions.antiblur);
     }
 }

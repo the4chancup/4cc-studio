@@ -12,7 +12,7 @@ pub use container::{ByteBlock, RecordBlock};
 pub use file::FmdlFile;
 pub use skl::{SklBone, SklFile};
 pub use vertex::MeshVertices;
-pub(crate) use vertex::{DatumFormat, DatumType};
+pub(crate) use vertex::{DatumFormat, DatumType, same_uv_bits};
 
 /// Narrows a table count or index to the format's u16 field.
 pub(crate) fn table_u16(what: &'static str, count: usize) -> Result<u16, FmdlError> {
