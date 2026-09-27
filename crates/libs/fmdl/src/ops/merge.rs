@@ -575,4 +575,15 @@ mod tests {
         let merged = merge(&[flagged, unencoded_oral()]).unwrap();
         assert!(!merged.extensions.antiblur);
     }
+
+    // Two genuinely encoded, requesting parts merge with the flag set,
+    // and a following encode is a no-op.
+    #[test]
+    fn encoded_requesting_parts_stay_encoded() {
+        let mut merged = merge(&[encoded_oral(), encoded_oral()]).unwrap();
+        assert!(merged.extensions.antiblur);
+        let before = merged.clone();
+        crate::ops::antiblur::encode(&mut merged).unwrap();
+        assert_eq!(merged, before);
+    }
 }

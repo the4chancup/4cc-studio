@@ -1078,6 +1078,35 @@ fn a_zero_vertex_skinned_mesh_keeps_its_layout() {
 }
 
 #[test]
+fn a_groups_box_covers_its_children() {
+    // Group 0 holds mesh 0 (x 0..1); its child group 1 holds mesh 1
+    // (x 0..11). The parent's written box covers both.
+    let mut model = grouped_model(
+        vec![
+            mesh_with(plain_vertices()),
+            mesh_with(MeshVertices {
+                positions: vec![[0.0; 3], [11.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
+                ..MeshVertices::default()
+            }),
+        ],
+        vec![vec![0], vec![1]],
+    );
+    model.mesh_groups[1].parent = Some(0);
+    let group0_box = |file: &FmdlFile| {
+        let assignment = &file.mesh_group_assignments[0];
+        file.bounding_boxes[usize::from(assignment.bounding_box_id)].max[0]
+    };
+    assert_eq!(group0_box(&model.to_file().unwrap()), 11.0);
+
+    // A child's explicit box wins over its meshes' extent.
+    model.mesh_groups[1].bounding_box = Some(BoundingBox {
+        max: [20.0, 0.0, 0.0, 1.0],
+        min: [0.0; 4],
+    });
+    assert_eq!(group0_box(&model.to_file().unwrap()), 20.0);
+}
+
+#[test]
 fn an_empty_mesh_format_group_writes_no_record() {
     // An unskinned mesh with normals only: positions plus one data entry.
     let file = grouped_model(

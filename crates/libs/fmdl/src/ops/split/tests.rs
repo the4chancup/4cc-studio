@@ -142,11 +142,16 @@ fn vertex_tuple(mesh: &Mesh, index: usize) -> VertexTuple {
     )
 }
 
-fn face_tuples(mesh: &Mesh) -> BTreeSet<[VertexTuple; 3]> {
-    mesh.faces
+/// The mesh's faces as vertex tuples, sorted — a multiset comparison
+/// keeps a deliberately repeated face's multiplicity visible.
+fn face_tuples(mesh: &Mesh) -> Vec<[VertexTuple; 3]> {
+    let mut faces: Vec<[VertexTuple; 3]> = mesh
+        .faces
         .iter()
         .map(|face| face.map(|index| vertex_tuple(mesh, usize::from(index))))
-        .collect()
+        .collect();
+    faces.sort();
+    faces
 }
 
 fn components_under_limits(model: &Model) {
@@ -196,8 +201,17 @@ fn split_bones() {
 
     components_under_limits(&model);
     assert!(model.meshes.len() > 1);
-    let union: BTreeSet<[VertexTuple; 3]> = model.meshes.iter().flat_map(face_tuples).collect();
+    let mut union: Vec<[VertexTuple; 3]> = model.meshes.iter().flat_map(face_tuples).collect();
+    union.sort();
     assert_eq!(union, source_faces);
+    assert_eq!(
+        model
+            .meshes
+            .iter()
+            .map(|mesh| mesh.faces.len())
+            .sum::<usize>(),
+        source_faces.len()
+    );
 
     assert_eq!(model.mesh_groups.len(), 2);
     assert_eq!(model.mesh_groups[0].name, "group");
@@ -225,8 +239,26 @@ fn split_vertices() {
 
     components_under_limits(&model);
     assert!(model.meshes.len() > 1);
-    let union: BTreeSet<[VertexTuple; 3]> = model.meshes.iter().flat_map(face_tuples).collect();
+    let mut union: Vec<[VertexTuple; 3]> = model.meshes.iter().flat_map(face_tuples).collect();
+    union.sort();
     assert_eq!(union, source_faces);
+    assert_eq!(
+        model
+            .meshes
+            .iter()
+            .map(|mesh| mesh.faces.len())
+            .sum::<usize>(),
+        source_faces.len()
+    );
+}
+
+// A face written twice in the source must come back twice — the multiset
+// comparison in `check_round_trip` would not see a collapsed copy.
+#[test]
+fn a_repeated_triangle_survives_the_round_trip() {
+    let mut source = grid(60, 20, 40);
+    source.faces.push(source.faces[0]);
+    check_round_trip(grid_model(source.clone(), 40), source);
 }
 
 // S4
@@ -239,6 +271,7 @@ fn check_round_trip(mut model: Model, source: Mesh) {
     assert_eq!(model.meshes.len(), 1);
     let combined = &model.meshes[0];
     assert_eq!(face_tuples(combined), source_faces);
+    assert_eq!(combined.faces.len(), source.faces.len());
     assert_eq!(combined.material, source.material);
     assert_eq!(combined.alpha_flags, source.alpha_flags);
     assert_eq!(combined.shadow_flags, source.shadow_flags);

@@ -1,7 +1,8 @@
 //! Vertex-loop preservation: FMDL stores vertex/face geometry only, so a
 //! Blender-style vertex with several loops becomes several FMDL vertices
-//! sharing a *topological key* (position, bone weights, bone indices, as
-//! the bytes the file stores). The vertex/loop relation is encoded in the
+//! sharing a *topological key* (position plus each positive-weight bone
+//! lane's stored index and weight — a zero-weight lane contributes
+//! nothing). The vertex/loop relation is encoded in the
 //! vertex order: consecutive vertices with equal topological keys and
 //! strictly increasing *nontopological encoding* (normal, color, uv maps in
 //! order, tangent — the stored bytes concatenated) are loops of one vertex.
@@ -206,15 +207,21 @@ pub fn decode_model(model: &Model) -> Result<Vec<Vec<usize>>, FmdlError> {
         .collect()
 }
 
-/// Position, bone weights and bone indices as the bytes the file stores.
+/// Position plus each positive-weight lane's (bone index, weight) as the
+/// bytes the file stores, in lane order; a zero-weight lane — whose index
+/// a split rewrites — contributes nothing.
 pub(crate) fn topological_key(vertices: &MeshVertices, index: usize) -> Vec<u8> {
     let mut key = Vec::new();
     for component in vertices.positions[index] {
         key.extend(component.to_le_bytes());
     }
     if let (Some(weights), Some(indices)) = (&vertices.bone_weights, &vertices.bone_indices) {
-        key.extend(weights[index]);
-        key.extend(indices[index]);
+        for lane in 0..4 {
+            if weights[index][lane] > 0 {
+                key.push(indices[index][lane]);
+                key.push(weights[index][lane]);
+            }
+        }
     }
     key
 }
@@ -569,5 +576,30 @@ mod tests {
             encode(&mut mesh, &owners),
             Err(FmdlError::TooManyVertices(_))
         ));
+    }
+
+    // A zero-weight lane's index means nothing to the key — split rewrites
+    // it — so vertices differing only there share an owner.
+    #[test]
+    fn a_zero_weight_lane_does_not_split_owners() {
+        let mesh = Mesh {
+            vertices: MeshVertices {
+                positions: vec![[0.0; 3], [0.0; 3]],
+                uvs: vec![vec![[0.0, 0.0], [1.0, 0.0]]],
+                uv_high_precision: vec![true],
+                bone_weights: Some(vec![[255, 0, 0, 0]; 2]),
+                bone_indices: Some(vec![[0, 0, 0, 0], [0, 1, 0, 0]]),
+                ..MeshVertices::default()
+            },
+            faces: Vec::new(),
+            bone_group: vec![0],
+            material: 0,
+            alpha_flags: 0,
+            shadow_flags: 0,
+            has_antiblur_meshes: false,
+            is_antiblur_mesh: false,
+            custom_bounding_box: None,
+        };
+        assert_eq!(decode(&mesh).unwrap(), vec![0, 0]);
     }
 }
