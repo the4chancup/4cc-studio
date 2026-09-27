@@ -13,8 +13,9 @@ is in `AGENTS.md` ("Working documents").
 2.6 `fmdl` (format, model, ops, check), 2.7 `pes_model` (format, mtl, model, ops, check), 2.8 `uniparam`, 2.9 `fox2`, 2.10 `archives`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`, 2.14 `color_tools`, 2.15 `elevation`. Review
 rounds A and B (2026-09-13) closed: 2.5c, 2.12b, 2.13b done.
 **In progress:** 2.17 `pes_savefile`, 2.18 `python_bindings`, 2.19 Phase verification done; 2.20
-Converge next (per crate, bounded review loop). Review round C (2026-09-19) closed as 2.19a; its
-leftovers are listed under 2.20. 2.5b (GPU BC7) deferred to Phase 4 (user decision 2026-09-21).
+Converge in progress (a-d done, 2.20e `fox2` in progress). Review round C (2026-09-19) closed as
+2.19a; its leftovers are listed under 2.20. 2.5b (GPU BC7) deferred to Phase 4 (user decision
+2026-09-21).
 **Blocked on:** nothing
 
 ---
@@ -580,6 +581,19 @@ Spec: `docs/plans/core/development_plan.md` "Phase 2", `docs/plans/libs/README.m
     retention (4.y). Retained gaps (decision entries): hostile FTEX padding in `ftex_to_dds`,
     legacy A8L8 decode, DXGI 2 for RGBA32F. Untested by construction: `dds_to_ftex`'s frame
     offset checks (need a >4 GiB frame area), the wasm32 `alloc_len` path (64-bit host)
+  - [~] 2.20e `fox2` — first pass and reviewer round 1 committed: 502 mutants / 47 survivors
+    triaged (missing tests, error-branch re-reads, dead guards), after rework 459 / 0 missed.
+    Lead audit `.tmp/audit_2_20e.md`, briefs `.tmp/brief_2_20e{,_r1}.md`, rulings
+    `.tmp/review_rulings_2_20e.md`. Round 1: 7 → 5 accepted (comments in value text, floats
+    read through a double, repr ties, the reference's unmasked 33-64 byte sum, table dedup on
+    hash and text); 2 rejected under the user's "inputs are trusted" rule (now in `AGENTS.md`).
+    Lead goldens: `double_golden.tsv`, long and wrapping rows in `hash_golden.tsv`, raw
+    `city_hash64` values, a real 48-bit collision pair checked against the reference. Next:
+    round 2 (fresh reviewer, running), then close the step.
+  - Remaining 2.20 order after this: `fmdl`; `pes_model`; `model_convert` (+ the open questions below);
+    read the user-found fork `https://github.com/jasonjk192/pesXdecrypter` for savefile facts;
+    `pes_savefile` (lead audit whole, reviewer on non-interchange modules only);
+    `python_bindings`; then 2.21.
   Known inputs from round C: (a) whole-crate mutation runs left survivors to triage in cpk (28),
   ftex (80), dds_convert (30): table-variant arms, boundary comparisons, `write_cell` and
   `Writer::finish` padding math; the other thirteen crates have not been run; (b)

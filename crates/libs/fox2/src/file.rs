@@ -21,8 +21,26 @@ pub enum Fox2Error {
         /// The field that carried the value.
         what: &'static str,
         /// The value found.
-        value: u64,
+        value: i64,
     },
+    /// Write: a count or size does not fit the width of its field.
+    #[error("{what} does not fit its field")]
+    TooLarge {
+        /// The field that would overflow.
+        what: &'static str,
+    },
+    /// Write: a `StringMap` property whose keys are not one per value, or keys on another
+    /// container.
+    #[error("{keys} keys where {expected} are required")]
+    KeyCount {
+        /// The keys given.
+        keys: usize,
+        /// The keys the container requires (one per value, none for the others).
+        expected: usize,
+    },
+    /// Write: a string table entry with hash 0, which the format reads as the table's end.
+    #[error("string table entry with hash 0")]
+    ZeroTableHash,
     /// Data type word 23 (PropertyInfo) or above 24.
     #[error("unsupported data type {0}")]
     UnsupportedDataType(u8),
@@ -91,61 +109,40 @@ pub struct Property {
 }
 
 /// `at + len`, `Truncated` on overflow.
-fn offset_sum(at: usize, len: usize) -> Result<usize, Fox2Error> {
+pub(crate) fn offset_sum(at: usize, len: usize) -> Result<usize, Fox2Error> {
     at.checked_add(len).ok_or(Fox2Error::Truncated)
 }
 
-fn slice_at(bytes: &[u8], at: usize, len: usize) -> Result<&[u8], Fox2Error> {
+pub(crate) fn slice_at(bytes: &[u8], at: usize, len: usize) -> Result<&[u8], Fox2Error> {
     bytes
         .get(at..offset_sum(at, len)?)
         .ok_or(Fox2Error::Truncated)
 }
 
-fn unexpected(what: &'static str, value: u64) -> Fox2Error {
+/// `N` bytes at `at`, for `T::from_le_bytes`.
+pub(crate) fn le_bytes<const N: usize>(bytes: &[u8], at: usize) -> Result<[u8; N], Fox2Error> {
+    let mut array = [0u8; N];
+    array.copy_from_slice(slice_at(bytes, at, N)?);
+    Ok(array)
+}
+
+fn unexpected(what: &'static str, value: i64) -> Fox2Error {
     Fox2Error::UnexpectedConstant { what, value }
 }
 
-fn u8_at(bytes: &[u8], at: usize) -> Result<u8, Fox2Error> {
-    Ok(slice_at(bytes, at, 1)?[0])
-}
-
-fn u16_at(bytes: &[u8], at: usize) -> Result<u16, Fox2Error> {
-    let mut word = [0u8; 2];
-    word.copy_from_slice(slice_at(bytes, at, 2)?);
-    Ok(u16::from_le_bytes(word))
-}
-
-fn i16_at(bytes: &[u8], at: usize) -> Result<i16, Fox2Error> {
-    let mut word = [0u8; 2];
-    word.copy_from_slice(slice_at(bytes, at, 2)?);
-    Ok(i16::from_le_bytes(word))
-}
-
-fn u32_at(bytes: &[u8], at: usize) -> Result<u32, Fox2Error> {
-    let mut word = [0u8; 4];
-    word.copy_from_slice(slice_at(bytes, at, 4)?);
-    Ok(u32::from_le_bytes(word))
-}
-
-fn i32_at(bytes: &[u8], at: usize) -> Result<i32, Fox2Error> {
-    let mut word = [0u8; 4];
-    word.copy_from_slice(slice_at(bytes, at, 4)?);
-    Ok(i32::from_le_bytes(word))
-}
-
-fn u64_at(bytes: &[u8], at: usize) -> Result<u64, Fox2Error> {
-    let mut word = [0u8; 8];
-    word.copy_from_slice(slice_at(bytes, at, 8)?);
-    Ok(u64::from_le_bytes(word))
+/// `UnexpectedConstant` naming `what` when `value` is not the constant the layout fixes.
+fn expect_constant(value: i64, expected: i64, what: &'static str) -> Result<(), Fox2Error> {
+    if value != expected {
+        return Err(unexpected(what, value));
+    }
+    Ok(())
 }
 
 /// `len` zero bytes at `at` (`UnexpectedConstant` naming `what` otherwise).
 fn zeros_at(bytes: &[u8], at: usize, len: usize, what: &'static str) -> Result<(), Fox2Error> {
     let zeros = slice_at(bytes, at, len)?;
-    if zeros.iter().any(|byte| *byte != 0) {
-        let mut word = [0u8; 8];
-        word[..zeros.len().min(8)].copy_from_slice(&zeros[..zeros.len().min(8)]);
-        return Err(unexpected(what, u64::from_le_bytes(word)));
+    if let Some(byte) = zeros.iter().find(|byte| **byte != 0) {
+        return Err(unexpected(what, i64::from(*byte)));
     }
     Ok(())
 }
@@ -157,36 +154,29 @@ fn align16(at: usize) -> usize {
 
 /// A checked size field (`i32` in the file, `usize` for us).
 fn checked_size(field: i32, what: &'static str) -> Result<usize, Fox2Error> {
-    usize::try_from(field).map_err(|_| unexpected(what, field as i64 as u64))
+    usize::try_from(field).map_err(|_| unexpected(what, i64::from(field)))
 }
 
 fn read_property(bytes: &[u8], at: usize) -> Result<(Property, usize), Fox2Error> {
     let start = at;
-    let name = FoxString::Hash(u64_at(bytes, at)?);
-    let mut values = Values::empty(u8_at(bytes, at + 8)?)?;
-    let container = Container::from_word(u8_at(bytes, at + 9)?)
-        .ok_or(Fox2Error::UnknownContainer(bytes[at + 9]))?;
-    let count = usize::from(u16_at(bytes, at + 10)?);
-    if u16_at(bytes, at + 12)? != 32 {
-        return Err(unexpected(
-            "property offset",
-            u64::from(u16_at(bytes, at + 12)?),
-        ));
-    }
-    let size = usize::from(u16_at(bytes, at + 14)?);
+    let name = FoxString::Hash(u64::from_le_bytes(le_bytes(bytes, at)?));
+    let mut values = Values::empty(u8::from_le_bytes(le_bytes(bytes, at + 8)?))?;
+    let container_word = u8::from_le_bytes(le_bytes(bytes, at + 9)?);
+    let container =
+        Container::from_word(container_word).ok_or(Fox2Error::UnknownContainer(container_word))?;
+    let count = usize::from(u16::from_le_bytes(le_bytes(bytes, at + 10)?));
+    let offset_word = u16::from_le_bytes(le_bytes(bytes, at + 12)?);
+    expect_constant(i64::from(offset_word), 32, "property offset")?;
+    let size_word = u16::from_le_bytes(le_bytes(bytes, at + 14)?);
+    let size = usize::from(size_word);
     zeros_at(bytes, at + 16, 16, "property padding")?;
     let mut cursor = offset_sum(at, 32)?;
     let mut keys = Vec::new();
     if container == Container::StringMap {
-        // Every entry carries a key and at least one value byte; a count that cannot fit
-        // fails before the first push.
-        slice_at(
-            bytes,
-            cursor,
-            count.checked_mul(9).ok_or(Fox2Error::Truncated)?,
-        )?;
         for _ in 0..count {
-            keys.push(FoxString::Hash(u64_at(bytes, cursor)?));
+            keys.push(FoxString::Hash(u64::from_le_bytes(le_bytes(
+                bytes, cursor,
+            )?)));
             let consumed = read_value(&mut values, bytes, cursor + 8)?;
             let entry_end = offset_sum(cursor, 8)?
                 .checked_add(consumed)
@@ -196,18 +186,13 @@ fn read_property(bytes: &[u8], at: usize) -> Result<(Property, usize), Fox2Error
             cursor = padded;
         }
     } else {
-        // `count` elements of a known width must fit the buffer before any push.
-        let needed = count
-            .checked_mul(values.element_size())
-            .ok_or(Fox2Error::Truncated)?;
-        slice_at(bytes, cursor, needed)?;
         for _ in 0..count {
             cursor += read_value(&mut values, bytes, cursor)?;
         }
     }
     let end = offset_sum(start, size)?;
     if align16(cursor) != end {
-        return Err(unexpected("property size", size as u64));
+        return Err(unexpected("property size", i64::from(size_word)));
     }
     zeros_at(bytes, cursor, end - cursor, "property padding")?;
     Ok((
@@ -223,51 +208,27 @@ fn read_property(bytes: &[u8], at: usize) -> Result<(Property, usize), Fox2Error
 
 fn read_entity(bytes: &[u8], at: usize) -> Result<(Entity, usize), Fox2Error> {
     let start = at;
-    if i16_at(bytes, at)? != 64 {
-        return Err(unexpected(
-            "entity header size",
-            i16_at(bytes, at)? as i64 as u64,
-        ));
-    }
-    let unknown1 = i16_at(bytes, at + 2)?;
-    if i16_at(bytes, at + 4)? != 0 {
-        return Err(unexpected(
-            "entity padding",
-            i16_at(bytes, at + 4)? as i64 as u64,
-        ));
-    }
-    if u32_at(bytes, at + 6)? != 0x746E65 {
-        return Err(unexpected(
-            "entity magic",
-            u64::from(u32_at(bytes, at + 6)?),
-        ));
-    }
-    let address = u32_at(bytes, at + 10)?;
-    if u32_at(bytes, at + 14)? != 0 {
-        return Err(unexpected(
-            "entity padding",
-            u64::from(u32_at(bytes, at + 14)?),
-        ));
-    }
-    let unknown2 = i32_at(bytes, at + 18)?;
-    if i32_at(bytes, at + 22)? != 0 {
-        return Err(unexpected(
-            "entity zero word",
-            i32_at(bytes, at + 22)? as i64 as u64,
-        ));
-    }
-    let version = i16_at(bytes, at + 26)?;
-    let class_name = FoxString::Hash(u64_at(bytes, at + 28)?);
-    let static_count = usize::from(u16_at(bytes, at + 36)?);
-    let dynamic_count = usize::from(u16_at(bytes, at + 38)?);
-    if i32_at(bytes, at + 40)? != 64 {
-        return Err(unexpected(
-            "entity offset",
-            i32_at(bytes, at + 40)? as i64 as u64,
-        ));
-    }
-    let static_data_size = i32_at(bytes, at + 44)?;
-    let data_size = i32_at(bytes, at + 48)?;
+    let header_size = i16::from_le_bytes(le_bytes(bytes, at)?);
+    expect_constant(i64::from(header_size), 64, "entity header size")?;
+    let unknown1 = i16::from_le_bytes(le_bytes(bytes, at + 2)?);
+    let padding = i16::from_le_bytes(le_bytes(bytes, at + 4)?);
+    expect_constant(i64::from(padding), 0, "entity padding")?;
+    let magic = u32::from_le_bytes(le_bytes(bytes, at + 6)?);
+    expect_constant(i64::from(magic), 0x746E65, "entity magic")?;
+    let address = u32::from_le_bytes(le_bytes(bytes, at + 10)?);
+    let padding = u32::from_le_bytes(le_bytes(bytes, at + 14)?);
+    expect_constant(i64::from(padding), 0, "entity padding")?;
+    let unknown2 = i32::from_le_bytes(le_bytes(bytes, at + 18)?);
+    let zero_word = i32::from_le_bytes(le_bytes(bytes, at + 22)?);
+    expect_constant(i64::from(zero_word), 0, "entity zero word")?;
+    let version = i16::from_le_bytes(le_bytes(bytes, at + 26)?);
+    let class_name = FoxString::Hash(u64::from_le_bytes(le_bytes(bytes, at + 28)?));
+    let static_count = usize::from(u16::from_le_bytes(le_bytes(bytes, at + 36)?));
+    let dynamic_count = usize::from(u16::from_le_bytes(le_bytes(bytes, at + 38)?));
+    let offset = i32::from_le_bytes(le_bytes(bytes, at + 40)?);
+    expect_constant(i64::from(offset), 64, "entity offset")?;
+    let static_data_size = i32::from_le_bytes(le_bytes(bytes, at + 44)?);
+    let data_size = i32::from_le_bytes(le_bytes(bytes, at + 48)?);
     zeros_at(bytes, at + 52, 12, "entity padding")?;
 
     // Every property is at least its 32-byte header (an empty one is exactly that), so a
@@ -291,7 +252,7 @@ fn read_entity(bytes: &[u8], at: usize) -> Result<(Entity, usize), Fox2Error> {
     if cursor - start != checked_size(static_data_size, "entity static data size")? {
         return Err(unexpected(
             "entity static data size",
-            static_data_size as i64 as u64,
+            i64::from(static_data_size),
         ));
     }
     let mut dynamic_properties = Vec::with_capacity(dynamic_count);
@@ -301,7 +262,7 @@ fn read_entity(bytes: &[u8], at: usize) -> Result<(Entity, usize), Fox2Error> {
         cursor = end;
     }
     if cursor - start != checked_size(data_size, "entity data size")? {
-        return Err(unexpected("entity data size", data_size as i64 as u64));
+        return Err(unexpected("entity data size", i64::from(data_size)));
     }
     Ok((
         Entity {
@@ -321,34 +282,28 @@ impl Fox2File {
     /// Reads a `.fox2` binary. Strings stay `Hash`; the table stays verbatim, so a clean
     /// file rewrites byte-identically.
     pub fn read(bytes: &[u8]) -> Result<Fox2File, Fox2Error> {
-        if u32_at(bytes, 0)? != 0x786F62F2 {
+        if u32::from_le_bytes(le_bytes(bytes, 0)?) != 0x786F62F2 {
             return Err(Fox2Error::BadMagic);
         }
-        if u32_at(bytes, 4)? != 0x35 {
-            return Err(unexpected("version word", u64::from(u32_at(bytes, 4)?)));
-        }
-        let entity_count = i32_at(bytes, 8)?;
-        let string_table_offset = i32_at(bytes, 12)?;
-        if i32_at(bytes, 16)? != 32 {
-            return Err(unexpected("header size", i32_at(bytes, 16)? as i64 as u64));
-        }
+        let version = u32::from_le_bytes(le_bytes(bytes, 4)?);
+        expect_constant(i64::from(version), 0x35, "version word")?;
+        let entity_count = i32::from_le_bytes(le_bytes(bytes, 8)?);
+        let string_table_offset = i32::from_le_bytes(le_bytes(bytes, 12)?);
+        let header_size = i32::from_le_bytes(le_bytes(bytes, 16)?);
+        expect_constant(i64::from(header_size), 32, "header size")?;
         zeros_at(bytes, 20, 12, "header padding")?;
 
         // Each entity is at least its 64-byte header; a hostile count fails here, before
         // any allocation.
-        if entity_count < 0 {
-            return Err(Fox2Error::Truncated);
-        }
+        let entity_count = usize::try_from(entity_count).map_err(|_| Fox2Error::Truncated)?;
         slice_at(
             bytes,
             32,
-            (entity_count as usize)
-                .checked_mul(64)
-                .ok_or(Fox2Error::Truncated)?,
+            entity_count.checked_mul(64).ok_or(Fox2Error::Truncated)?,
         )?;
 
         let mut at = 32usize;
-        let mut entities = Vec::with_capacity(entity_count as usize);
+        let mut entities = Vec::with_capacity(entity_count);
         for _ in 0..entity_count {
             let (entity, end) = read_entity(bytes, at)?;
             entities.push(entity);
@@ -357,18 +312,19 @@ impl Fox2File {
         if at != checked_size(string_table_offset, "string table offset")? {
             return Err(unexpected(
                 "string table offset",
-                string_table_offset as i64 as u64,
+                i64::from(string_table_offset),
             ));
         }
 
         let mut string_table = Vec::new();
         loop {
-            let hash = u64_at(bytes, at)?;
+            let hash = u64::from_le_bytes(le_bytes(bytes, at)?);
             at += 8;
             if hash == 0 {
                 break;
             }
-            let len = usize::try_from(u32_at(bytes, at)?).map_err(|_| Fox2Error::Truncated)?;
+            let len = usize::try_from(u32::from_le_bytes(le_bytes(bytes, at)?))
+                .map_err(|_| Fox2Error::Truncated)?;
             at += 4;
             let text_bytes = slice_at(bytes, at, len)?;
             let text = std::str::from_utf8(text_bytes)
@@ -387,7 +343,7 @@ impl Fox2File {
                 trailer
                     .iter()
                     .enumerate()
-                    .map(|(index, byte)| u64::from(*byte) << (8 * index))
+                    .map(|(index, byte)| i64::from(*byte) << (8 * index))
                     .sum(),
             ));
         }
@@ -417,18 +373,26 @@ impl Fox2File {
     /// the zero terminator and the `end` trailer.
     pub fn write(&self) -> Result<Vec<u8>, Fox2Error> {
         let mut out = vec![0u8; 32];
-        let entity_count = i32::try_from(self.entities.len())
-            .map_err(|_| unexpected("entity count", self.entities.len() as u64))?;
+        let entity_count = i32::try_from(self.entities.len()).map_err(|_| Fox2Error::TooLarge {
+            what: "entity count",
+        })?;
         for entity in &self.entities {
             write_entity(entity, &mut out)?;
         }
-        let string_table_offset = i32::try_from(out.len())
-            .map_err(|_| unexpected("string table offset", out.len() as u64))?;
+        let string_table_offset = i32::try_from(out.len()).map_err(|_| Fox2Error::TooLarge {
+            what: "string table offset",
+        })?;
         for entry in &self.string_table {
+            // A zero hash reads back as the table's terminator.
+            if entry.hash == 0 {
+                return Err(Fox2Error::ZeroTableHash);
+            }
             out.extend_from_slice(&entry.hash.to_le_bytes());
             out.extend_from_slice(
                 &u32::try_from(entry.text.len())
-                    .map_err(|_| unexpected("string length", entry.text.len() as u64))?
+                    .map_err(|_| Fox2Error::TooLarge {
+                        what: "string length",
+                    })?
                     .to_le_bytes(),
             );
             out.extend_from_slice(entry.text.as_bytes());
@@ -501,7 +465,26 @@ fn resolve_values(values: &mut Values, lookup: &impl Fn(u64) -> Option<String>) 
                 resolve_string(&mut link.name, lookup);
             }
         }
-        _ => {}
+        Values::Int8(_)
+        | Values::Uint8(_)
+        | Values::Int16(_)
+        | Values::Uint16(_)
+        | Values::Int32(_)
+        | Values::Uint32(_)
+        | Values::Int64(_)
+        | Values::Uint64(_)
+        | Values::Float(_)
+        | Values::Double(_)
+        | Values::Bool(_)
+        | Values::EntityPtr(_)
+        | Values::EntityHandle(_)
+        | Values::Vector3(_)
+        | Values::Vector4(_)
+        | Values::Quat(_)
+        | Values::Color(_)
+        | Values::Matrix3(_)
+        | Values::Matrix4(_)
+        | Values::WideVector3(_) => {}
     }
 }
 
@@ -510,8 +493,9 @@ fn write_property(property: &Property, out: &mut Vec<u8>) -> Result<(), Fox2Erro
     out.extend_from_slice(&property.name.hash().to_le_bytes());
     out.push(property.values.data_type());
     out.push(property.container.word());
-    let count = u16::try_from(property.values.len())
-        .map_err(|_| unexpected("value count", property.values.len() as u64))?;
+    let count = u16::try_from(property.values.len()).map_err(|_| Fox2Error::TooLarge {
+        what: "value count",
+    })?;
     out.extend_from_slice(&count.to_le_bytes());
     out.extend_from_slice(&32u16.to_le_bytes());
     let size_word = out.len();
@@ -519,7 +503,10 @@ fn write_property(property: &Property, out: &mut Vec<u8>) -> Result<(), Fox2Erro
     out.resize(out.len() + 16, 0);
     if property.container == Container::StringMap {
         if property.keys.len() != property.values.len() {
-            return Err(unexpected("key count", property.keys.len() as u64));
+            return Err(Fox2Error::KeyCount {
+                keys: property.keys.len(),
+                expected: property.values.len(),
+            });
         }
         for (index, key) in property.keys.iter().enumerate() {
             out.extend_from_slice(&key.hash().to_le_bytes());
@@ -527,13 +514,20 @@ fn write_property(property: &Property, out: &mut Vec<u8>) -> Result<(), Fox2Erro
             out.resize(align16(out.len()), 0);
         }
     } else {
+        if !property.keys.is_empty() {
+            return Err(Fox2Error::KeyCount {
+                keys: property.keys.len(),
+                expected: 0,
+            });
+        }
         for index in 0..property.values.len() {
             write_values(&property.values, index, out);
         }
     }
     out.resize(align16(out.len()), 0);
-    let size = u16::try_from(out.len() - start)
-        .map_err(|_| unexpected("property size", (out.len() - start) as u64))?;
+    let size = u16::try_from(out.len() - start).map_err(|_| Fox2Error::TooLarge {
+        what: "property size",
+    })?;
     out[size_word..size_word + 2].copy_from_slice(&size.to_le_bytes());
     Ok(())
 }
@@ -550,11 +544,15 @@ fn write_entity(entity: &Entity, out: &mut Vec<u8>) -> Result<(), Fox2Error> {
     out.extend_from_slice(&0i32.to_le_bytes());
     out.extend_from_slice(&entity.version.to_le_bytes());
     out.extend_from_slice(&entity.class_name.hash().to_le_bytes());
-    let static_count = u16::try_from(entity.static_properties.len())
-        .map_err(|_| unexpected("property count", entity.static_properties.len() as u64))?;
+    let static_count =
+        u16::try_from(entity.static_properties.len()).map_err(|_| Fox2Error::TooLarge {
+            what: "property count",
+        })?;
     out.extend_from_slice(&static_count.to_le_bytes());
-    let dynamic_count = u16::try_from(entity.dynamic_properties.len())
-        .map_err(|_| unexpected("property count", entity.dynamic_properties.len() as u64))?;
+    let dynamic_count =
+        u16::try_from(entity.dynamic_properties.len()).map_err(|_| Fox2Error::TooLarge {
+            what: "property count",
+        })?;
     out.extend_from_slice(&dynamic_count.to_le_bytes());
     out.extend_from_slice(&64i32.to_le_bytes());
     let static_size_word = out.len();
@@ -570,10 +568,12 @@ fn write_entity(entity: &Entity, out: &mut Vec<u8>) -> Result<(), Fox2Error> {
     for property in &entity.dynamic_properties {
         write_property(property, out)?;
     }
-    let static_data_size = i32::try_from(static_end - start)
-        .map_err(|_| unexpected("entity static data size", (static_end - start) as u64))?;
-    let data_size = i32::try_from(out.len() - start)
-        .map_err(|_| unexpected("entity data size", (out.len() - start) as u64))?;
+    let static_data_size = i32::try_from(static_end - start).map_err(|_| Fox2Error::TooLarge {
+        what: "entity static data size",
+    })?;
+    let data_size = i32::try_from(out.len() - start).map_err(|_| Fox2Error::TooLarge {
+        what: "entity data size",
+    })?;
     out[static_size_word..static_size_word + 4].copy_from_slice(&static_data_size.to_le_bytes());
     out[data_size_word..data_size_word + 4].copy_from_slice(&data_size.to_le_bytes());
     Ok(())
@@ -958,5 +958,167 @@ mod tests {
                 ..
             })
         ));
+    }
+
+    #[test]
+    fn entity_padding_reports_the_value_found() {
+        // Entity 0 at 32; its zero `i16` word sits at +4.
+        let mut file = AUDI.to_vec();
+        file[36] = 1;
+        assert_eq!(
+            Fox2File::read(&file),
+            Err(Fox2Error::UnexpectedConstant {
+                what: "entity padding",
+                value: 1
+            })
+        );
+    }
+
+    #[test]
+    fn empty_file_writes_64_bytes_and_reads_back() {
+        let file = Fox2File {
+            entities: Vec::new(),
+            string_table: Vec::new(),
+        };
+        let bytes = file.write().expect("write");
+        // 32 header + 8 terminator, aligned to 48, 5 trailer bytes, aligned to 64.
+        assert_eq!(bytes.len(), 64);
+        assert_eq!(Fox2File::read(&bytes).as_ref(), Ok(&file));
+    }
+
+    #[test]
+    fn trailer_padding_is_checked_to_its_last_byte() {
+        // audi's terminator padding ends at 880, the trailer padding at 896; the existing
+        // test pokes the first byte of each span, this one the last.
+        let mut before_trailer = AUDI.to_vec();
+        before_trailer[879] = 1;
+        assert_eq!(
+            Fox2File::read(&before_trailer),
+            Err(Fox2Error::UnexpectedConstant {
+                what: "trailer padding",
+                value: 1
+            })
+        );
+        let mut after_trailer = AUDI.to_vec();
+        after_trailer[895] = 1;
+        assert_eq!(
+            Fox2File::read(&after_trailer),
+            Err(Fox2Error::UnexpectedConstant {
+                what: "trailer padding",
+                value: 1
+            })
+        );
+    }
+
+    #[test]
+    fn end_trailer_reports_the_bytes_found() {
+        // The trailer sits at 880: 00 00 'e' 'n' 'd'.
+        let mut file = AUDI.to_vec();
+        file[882] = b'x';
+        assert_eq!(
+            Fox2File::read(&file),
+            Err(Fox2Error::UnexpectedConstant {
+                what: "end trailer",
+                value: 0x64_6E78_0000
+            })
+        );
+    }
+
+    fn file_with(property: Property) -> Fox2File {
+        Fox2File {
+            entities: vec![Entity {
+                class_name: FoxString::Hash(hash_string("DataSet")),
+                unknown1: 0,
+                unknown2: 0,
+                version: 0,
+                address: 0,
+                static_properties: vec![property],
+                dynamic_properties: Vec::new(),
+            }],
+            string_table: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn counts_and_sizes_that_do_not_fit_error() {
+        assert_eq!(
+            file_with(property(
+                Container::StaticArray,
+                Values::Uint8(vec![0; 65535]),
+                &[]
+            ))
+            .write()
+            .err(),
+            Some(Fox2Error::TooLarge {
+                what: "property size"
+            })
+        );
+        assert_eq!(
+            file_with(property(
+                Container::StaticArray,
+                Values::Uint8(vec![0; 65536]),
+                &[]
+            ))
+            .write()
+            .err(),
+            Some(Fox2Error::TooLarge {
+                what: "value count"
+            })
+        );
+    }
+
+    #[test]
+    fn key_count_is_checked() {
+        assert_eq!(
+            file_with(property(
+                Container::StringMap,
+                Values::Int32(vec![1, 2]),
+                &["k"]
+            ))
+            .write()
+            .err(),
+            Some(Fox2Error::KeyCount {
+                keys: 1,
+                expected: 2
+            })
+        );
+        assert_eq!(
+            file_with(property(
+                Container::StaticArray,
+                Values::Int32(vec![1]),
+                &["k"]
+            ))
+            .write()
+            .err(),
+            Some(Fox2Error::KeyCount {
+                keys: 1,
+                expected: 0
+            })
+        );
+    }
+
+    #[test]
+    fn a_zero_table_hash_is_rejected() {
+        let file = Fox2File {
+            entities: Vec::new(),
+            string_table: vec![TableEntry {
+                hash: 0,
+                text: "a".to_string(),
+            }],
+        };
+        assert_eq!(file.write().err(), Some(Fox2Error::ZeroTableHash));
+    }
+
+    #[test]
+    fn resolve_leaves_hashes_the_dictionary_lacks() {
+        let mut file = Fox2File::read(AUDI).expect("audi");
+        file.resolve(Some(&Dictionary::from_lines("unrelated\n")));
+        assert_eq!(
+            file.entities[0].static_properties[0].values,
+            Values::String(vec![FoxString::Hash(0xB8A0BF169F98)])
+        );
+        let dictionary = Dictionary::from_lines("\u{FEFF}DataSet\nDataSet\n");
+        assert_eq!(dictionary.get(hash_string("DataSet")), Some("DataSet"));
+        assert_eq!(dictionary.get(hash_string("\u{FEFF}DataSet")), None);
     }
 }

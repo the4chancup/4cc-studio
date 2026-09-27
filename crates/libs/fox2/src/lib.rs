@@ -6,7 +6,7 @@ pub mod file;
 /// The 48-bit hash the format keys names by.
 pub mod hash;
 /// The round-trip float text the XML form uses.
-pub mod text;
+pub(crate) mod text;
 /// The property value model: `Values`, `FoxString`, `Container`.
 pub mod values;
 /// The XML form: `Fox2File::to_xml` / `from_xml`, `XmlError`.

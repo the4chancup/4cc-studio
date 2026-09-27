@@ -219,6 +219,12 @@ your question may already be listed, with the phase in which it gets resolved.
   tool's `messages.rs` maps them to user-facing text, severity and disposition. Tools report
   progress through `PipelineEvent`s addressed by `vtree::ScopePath`.
 - **Parallelism is `rayon` + `crossbeam-channel`.** No async runtime anywhere in the workspace.
+- **Inputs are trusted, not hostile** (maintainer, 2026-09-27). Files come from cup members'
+  exports and the game's own install, a fairly trustworthy environment. Malformed input still
+  errors instead of panicking or writing a wrong file, but hardening against deliberately
+  crafted files (allocation amplification, pathological sizes, characters no real file
+  carries) is not a goal: a review concern that needs a crafted file to trigger is rejected on
+  that ground, and reviewer briefs say so.
 
 ## Environment
 

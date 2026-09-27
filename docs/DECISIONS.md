@@ -2017,3 +2017,45 @@ Decision (agent, cross-family review at converge):
 - **Loop result:** six rounds, 7/7/7/7/5/4 accepted (round 4 the union of a resumed and a fresh
   reviewer; round 5 plus one lead finding). The surface closes under the accept-rate rule.
 Plan: `libs/dds_convert.md` (the `decode` paragraph under "`dds_convert` API").
+
+## 2026-09-27 - fox2 - converge rework: write refusals, one byte reader, double text as the reference writes it
+Decision (agent, lead audit at converge):
+- **`write` refuses what it cannot encode faithfully**: `TooLarge` for a count or size past its
+  field width, `KeyCount` for `StringMap` keys that are not one per value and for keys on any
+  other container (silently dropped before), `ZeroTableHash` for a table entry with hash 0 (an
+  early terminator). Read-side `UnexpectedConstant` carries an `i64` (every checked field fits).
+- **A present but empty float attribute is `BadValue`**; a missing one still reads `0.0`. The
+  reference's parse raises on the empty string; defaulting it hid a generator bug.
+- **Double text follows the reference's Python `repr`**, not the plan's "17 digits" (the XML the
+  reference writes is the parity target); pinned by a lead golden, `double_golden.tsv`.
+- **Dead guards and branches removed**: the per-property value-count pre-checks (the counts are
+  `u16` and the vectors grow only by successful reads, so they guarded no allocation), the empty
+  branch of the 0-16 byte hash (its input always ends with the NUL `hash_string` appends), the
+  unused `binrw` dependency, `parse_float`.
+- **Lead goldens**: five non-repetitive 129-257 byte rows in `hash_golden.tsv` (every row past
+  100 bytes was a run of `x`, so a wrong block offset in the above-64 loop passed), and raw
+  `city_hash64` values for the 1-3 byte branch, from the reference.
+Why: the whole-crate mutation run left 47 survivors; each was a missing test, a re-read inside an
+error branch, or dead code, and the sweep found duplicated byte readers, `_ =>` arms on `Values`
+and `as` casts. After the rework: 431 mutants, 0 missed.
+Plan: `libs/fox2.md` (the `Container` block, the `resolve`/`write` paragraph, double text, the
+`from_xml` defaults and trailer slack); `stadium_compiler.md` "New formats to port" (the stale
+`cityhash`/`binrw` sentence).
+
+## 2026-09-27 - fox2 - converge review, first round; inputs are trusted
+Decision (cross-family review at converge, and the maintainer):
+- **Inputs are trusted, not hostile** (maintainer): hardening against deliberately crafted files
+  is not a goal; review concerns that need one are rejected. Two were (resolve's allocation
+  amplification, a NUL in table text).
+- **A `<value>`'s text is all its text children** with comments dropped, as the reference's
+  parser reads it; `node.text()` had stopped at the first comment.
+- **Floats are read through a double and narrowed**, the reference's double rounding: a 17-digit
+  text otherwise compiles one ULP away from the reference's bytes.
+- **Double text rounds ties to even** (built on exact-precision formatting), as `repr` does.
+- **The table deduplicates on hash and text**, so two literals colliding in 48 bits both get an
+  entry (tested with a real collision, `c16803888`/`c21237791`).
+- **The hash follows CityHash where the reference does not**: the reference leaves one sum in
+  the 33-64 byte branch unmasked, which changes the hash of some non-ASCII strings; the game
+  and the C# tool wrap. Two golden rows hold the wrapping values.
+Plan: `libs/fox2.md` ("Strings are hashes", "String table", the `from_xml` paragraph);
+`AGENTS.md` "Fundamental concepts".

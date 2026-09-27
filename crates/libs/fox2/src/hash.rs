@@ -53,15 +53,13 @@ fn hash_len0to16(data: &[u8]) -> u64 {
             fetch32(data, length - 4),
         );
     }
-    if length > 0 {
-        let a = u64::from(data[0]);
-        let b = u64::from(data[length >> 1]);
-        let c = u64::from(data[length - 1]);
-        let y = a.wrapping_add(b << 8);
-        let z = (length as u64).wrapping_add(c << 2);
-        return shift_mix(y.wrapping_mul(K2) ^ z.wrapping_mul(K3)).wrapping_mul(K2);
-    }
-    0
+    // `data` always ends with the NUL `hash_string` appends, so it is never empty.
+    let a = u64::from(data[0]);
+    let b = u64::from(data[length >> 1]);
+    let c = u64::from(data[length - 1]);
+    let y = a.wrapping_add(b << 8);
+    let z = (length as u64).wrapping_add(c << 2);
+    shift_mix(y.wrapping_mul(K2) ^ z.wrapping_mul(K3)).wrapping_mul(K2)
 }
 
 fn hash_len17to32(data: &[u8]) -> u64 {
@@ -225,7 +223,7 @@ impl Dictionary {
     }
 
     /// The text for `hash`, when the dictionary knows it.
-    pub fn get(&self, hash: u64) -> Option<&str> {
+    pub(crate) fn get(&self, hash: u64) -> Option<&str> {
         self.0.get(&hash).map(String::as_str)
     }
 }
@@ -243,7 +241,16 @@ mod tests {
             assert_eq!(hash_string(text), hash, "text {text:?}");
             checked += 1;
         }
-        assert_eq!(checked, 46);
+        assert_eq!(checked, 53);
+    }
+
+    #[test]
+    fn city_hash64_reference_values() {
+        // Raw CityHash64 (no appended NUL, no seeds) against the reference's values.
+        assert_eq!(city_hash64(b"a"), 0x2420662CD003ACFA);
+        assert_eq!(city_hash64(b"ab"), 0x17F0A30FF3CC3F3E);
+        assert_eq!(city_hash64(b"abc"), 0x3A912F483A4ECE31);
+        assert_eq!(city_hash64(b"\xff\x01\xfe"), 0x7D7F01DA31C4198F);
     }
 
     #[test]

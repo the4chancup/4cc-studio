@@ -46,9 +46,9 @@ parsers to the format lib crates.
 
 The fox2 parser is a pure-Python port of Atvaark's FoxTool (C#), including a CityHash64
 implementation for string hash lookup. It compiles XML to fox2 binaries and back, byte-identical to
-the original tool. In Rust: the `cityhash` crate (or a direct port of the hash — it must match
-CityHash64 v1.0.3 exactly) plus a `binrw`-based fox2 structure. The byte-identical requirement makes
-this a good roundtrip-test target.
+the original tool. In Rust it is `libs/fox2` (spec: [libs/fox2.md](libs/fox2.md)): the hash is a
+direct port of the CityHash64 1.0.3 variant (no crate pins it), the layout hand-read, and the
+byte-identical requirement is its round-trip test standard.
 
 ## Tool-specific logic to port
 

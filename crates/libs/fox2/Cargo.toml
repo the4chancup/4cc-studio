@@ -8,7 +8,6 @@ repository.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-binrw.workspace = true
 roxmltree.workspace = true
 thiserror.workspace = true
 
