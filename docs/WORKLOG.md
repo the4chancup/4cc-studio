@@ -496,7 +496,9 @@ Spec: `docs/plans/core/development_plan.md` "Phase 2", `docs/plans/libs/README.m
   and rejects 101 and a `boots_id` inside `[appearance]` or `[appearance.strip]`, each naming the
   key; `from_player` on fixture players gives `None` for 0 and custom IDs and `Some` for 1 to 100;
   `apply` writes an authored ID and leaves the field alone for `None`; the completeness test and
-  every Team TOML test pass unchanged. Before the `pes_savefile` converge
+  every Team TOML test pass unchanged. Also: the "Goalkeeper gloves model id" doc comments in
+  `schema/fields.rs` and `model/player.rs` become "Gloves model id (any player; 0 = normal
+  hands)". Before the `pes_savefile` converge
 - [x] 2.18 `python_bindings` (`core/development_plan.md` "Phase 2" `python_bindings`; decision
   entry 2026-09-21): `pes_models_native` wheel (`Fmdl`/`Skl`/`Model`/`MaterialSet` `read`/`write`,
   `FormatError`, `pyo3-log`), `abi3-py311`, a `cdylib` member with `test = false`; `just bindings

@@ -44,8 +44,11 @@ means **default** and is the same as an absent key. Each category resolves in th
    `settings_model_id_conflict` (W).
 2. A numeric key → that stock ID, whatever FPC marker the folder carries.
 3. Default (`""` or absent) → the folder's FPC marker decides: `fpc.on` writes the hide preset's
-   nonexistent IDs (boots 55, gloves 11), `fpc.off` writes 0 for both, and with neither marker
-   the savefile's current IDs stay unchanged.
+   nonexistent IDs (boots 55, gloves 11), `fpc.off` writes 0 for both (the default boots and a
+   pair of normal hands), and with neither marker the savefile's current IDs stay unchanged.
+
+Gloves are not a goalkeeper-only model here: the cup's gloves system lets any player wear a gloves
+model, which is why gloves ID 0 is a set of normal hands rather than "no gloves".
 
 Default is what nearly every player wants: an FPC player (a face model carrying the full body,
 no boots/gloves folders) needs the blank IDs, which the marker supplies without a key. Pre-Fox
@@ -69,7 +72,7 @@ name inside `[appearance]` would collide with.
 # name for players.txt-mapped folders); "text" = write as is; absent = leave untouched.
 name = "Snuffy"
 boots_id = ""                   # "" = default (fpc.on: hidden, fpc.off: 0, no marker: untouched); 0 to 100, a stock boots model; ignored when the folder has boots models or a boots link
-gloves_id = ""                  # "" = default (fpc.on: hidden, fpc.off: 0, no marker: untouched); 0 to 100, stock goalkeeper gloves; ignored when the folder has gloves models or a gloves link
+gloves_id = ""                  # "" = default (fpc.on: hidden, fpc.off: 0, no marker: untouched); 0 to 100, a stock gloves model (0 = normal hands); ignored when the folder has gloves models or a gloves link
 
 [appearance]
 skin_color = 1                  # 0 white, 1 light, 2 fair, 3 medium, 4 olive, 5 brown, 6 black, 7 custom (invisible body, PES 15 to 17 only)
@@ -179,8 +182,8 @@ other savefile write path (see "Post-processing" in the [Team compiler plan](../
 
 The save editor view can also **generate** these TOML files from an existing savefile, giving teams
 a migration path from the current workflow. Generation (`PlayerSettings::from_player`, shared with
-the Export upgrader) emits `boots_id`/`gloves_id` only for a stored ID from 1 to 100: 0 is the
-game's default model and stays unset, and an ID above 100 is custom content, which the upgrader
+the Export upgrader) emits `boots_id`/`gloves_id` only for a stored ID from 1 to 100: 0 (the
+default boots, normal hands) stays unset, and an ID above 100 is custom content, which the upgrader
 migrates into a folder or link (the old per-team blocks start at 101 too) and the save editor
 leaves out.
 

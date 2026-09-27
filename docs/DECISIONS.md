@@ -2296,3 +2296,12 @@ space), `pes_savefile/model.md` (`PlayerSettings`, `from_player`), `pes_savefile
 (aesthetics patch), `core/README.md` (decisions table), `GLOSSARY.md`. Supersedes the
 compiler-owned classification of boots/gloves IDs in the 2026-09-12 aesthetics patch entry and the
 2026-09-19 `settings.toml` key table entry.
+
+## 2026-09-28 - boots/gloves - gloves ID 0 is a set of normal hands
+Decision (maintainer, fact): gloves ID 0 is a pair of normal hands, not "no gloves": the cup's
+gloves system lets any player wear a customized gloves model, which required 0 to render plain
+hands. So `fpc.off` writing gloves 0 shows normal hands, gloves are not goalkeeper-only anywhere
+in the plans, and the `settings.toml` template says "0 = normal hands".
+Why: recorded so no later rule treats gloves as a goalkeeper field or 0 as an absent model.
+Plan: `aesthetics_export/settings_toml.md`, `libs/fpc.md`, `save_editor.md` ("Appearance", FPC),
+`GLOSSARY.md` ("Stock band"); code doc comments in worklog step 2.17i.

@@ -218,8 +218,8 @@ mirroring 4ccEditor's structure without its dialog sprawl:
     version-gated extras (star 19+, playing attitude & stronger hand 20+).
   - **Appearance** — edit flags (face/hair/physique/strip, base copy + copy-from
     ID), physique sliders (14 values), colors (wrist tape L/R, spectacles), strip
-    style (boots ID, GK gloves ID, taping, spectacles, sleeves, inners, socks,
-    undershorts, shirttail, gloves), motion (hunching, arm movement, kick
+    style (boots ID, gloves ID — any player's, 0 = normal hands — taping, spectacles,
+    sleeves, inners, socks, undershorts, shirttail, the player-gloves checkbox), motion (hunching, arm movement, kick
     motions, gc1/gc2, randomize; dribbling motion 20+), skin/iris color.
     **Read-only by default** — see "Read-only aesthetics" below.
   - **Team** — team name/short name, colors 1–2 (RGB), manager ID, stadium ID,
@@ -309,7 +309,7 @@ that don't just replace the head and neck but the player's entire body. It works
 in two halves: the cup DLC replaces some default kit model pieces with blank
 models, selected via kit config values (shirt/shorts/collar model fields — the
 [Team compiler](team_compiler/README.md) handles that side), and the player's savefile
-settings hide the rest — boots ID 55 and GK gloves ID 11 (conventional
+settings hide the rest — boots ID 55 and gloves ID 11 (conventional
 **nonexistent IDs**, so nothing renders) plus strip settings that suppress the
 remaining default geometry. Together they make the default player model
 invisible, leaving only the FBM visible.
