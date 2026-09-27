@@ -87,8 +87,9 @@ Principles:
   keep-with-flag, as in Red, while retaining the original severity. Not eligible: findings whose
   content cannot exist (failed conversion/packing, unproducible logos), unused content
   (`shared_folder_orphaned`), ambiguous model-source or texture identity/conflicts, foundational
-  unsafe-path/ambiguous-roster/required-metadata failures, `DropSlot`, `DropExport`, `AbortRun`, and
-  environment-level dispositions. Written errored content
+  unsafe-path/ambiguous-roster/required-metadata failures, geometry far from the origin
+  (`vertex_too_far_from_origin`: the lag it causes persists for the whole matchday),
+  `DropSlot`, `DropExport`, `AbortRun`, and environment-level dispositions. Written errored content
   receives a distinct `DoneWithErrors` outcome rather than an ordinary red error state.
 - **No blocking console prompts.** Red's prompts are replaced, not kept: unknown team ID becomes the
   grid's inline-editable ID cell (including its reassignment confirmation — see the GUI section),
@@ -186,6 +187,7 @@ savefile messages are new.
 | `merged_texture_conflict` | E | two merge-copied parts within one output model produce the same texture destination with different bytes (no canonical winner exists inside one model) | folder discarded (`DropFolder`); identical bytes deduplicate |
 | `model_source_ambiguous` | E | duplicate model sources within the selected representation (target-native > glTF > convertible opposite) | folder discarded (`DropFolder`) |
 | `model_conversion_failed` | E | selected model cannot be converted to the target format | folder discarded (`DropFolder`) |
+| `vertex_too_far_from_origin` | E | a model has a vertex more than 5000 units from the origin (the format crate's `fmdl_vertex_far_from_origin` / `model_vertex_far_from_origin`, run on every model the compiler processes: native sources as loaded, converted and glTF sources in their target-format form, before any merge; context: model file, offending vertex count). Text: "Model too far away, it will cause persistent lag for the whole matchday" | folder discarded (`DropFolder`); not pass-through-eligible |
 | `folder_pack_failed` | E/F | a task cannot build its packed batch | folder/task: `DropFolder`; output-writer/global: `AbortRun` |
 | `model_name_invalid` | E | pre-Fox: `.model` not in the allowed names for its category | folder discarded |
 | `xml_broken` | E | XML fails to parse (with line/column) | folder discarded |

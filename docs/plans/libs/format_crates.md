@@ -65,6 +65,13 @@ Rules:
   crate's own types, never on `model_convert`'s IR (the dependency points the other way).
 - **`check.rs` returns findings, not messages** — stable codes with context, mapped to catalog
   entries by the consuming tool, mirroring `aesthetics_export`'s rule.
+- **Geometry far from the origin is an Error in both crates' `check`**
+  (`fmdl_vertex_far_from_origin`, `model_vertex_far_from_origin`, one finding per mesh, `count` =
+  the vertices past the limit): a vertex more than 5000 units from the origin (Euclidean
+  distance of its position; exactly 5000 passes) makes the game lag persistently for the whole
+  matchday. Every vertex counts, referenced by a face or loose; edges and faces need no test of
+  their own, since every point of one lies within the reach of its farthest vertex. The Team
+  compiler refuses such a model (`vertex_too_far_from_origin` in its catalog).
 - **The `python_bindings` surface is `format/` + `ops/`**, exposed as-is; if a function is awkward to
   expose, that is a hint it belongs in the Team compiler rather than here. "As-is" means the
   entry points (file read/write, vertex and face decode/encode, the ops), not the codec's
