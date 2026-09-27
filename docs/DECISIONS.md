@@ -2214,3 +2214,26 @@ Why: per-file ADRs would add a second home for decisions the plans already carry
 `Plan:` field, and two homes drift. A procedure written now, far ahead of its use, would go
 stale, the same reason Acceptance sections are written just in time.
 Plan: `core/development_plan.md` "Phase 16" (maintenance-mode bullet).
+
+## 2026-09-27 - team compiler, fmdl, pes_model - geometry far from the origin is refused
+Decision (maintainer): a model with a vertex more than 5000 units from the origin is an Error:
+`fmdl::check` and `pes_model::check` report it per mesh (`fmdl_vertex_far_from_origin`,
+`model_vertex_far_from_origin`), and the Team compiler maps both to `vertex_too_far_from_origin`
+("Model too far away, it will cause persistent lag for the whole matchday"), dropping the folder.
+Lead, applied as recommended: the check runs on every model in its target-format form before any
+merge, so glTF and converted sources are covered and the finding names the source file; the
+distance is Euclidean with 5000 itself passing; only vertices are tested, since edges and faces
+lie within their vertices' reach; the finding is not pass-through-eligible, since the lag
+persists for the whole matchday.
+Why: far-away geometry makes the game lag persistently for the whole matchday; a warning or
+pass-through would let one export degrade the rest of it.
+Plan: `libs/format_crates.md` (the check bullet), `team_compiler/messages.md` (catalog row,
+pass-through exclusions).
+
+## 2026-09-27 - code style - no legacy tools or project history in code
+Decision (maintainer): code comments, doc comments and identifiers do not name or allude to the
+tools the suite replaces or mirrors ("the reference", "the add-on", "the 4cc compilers", "has
+always produced"); parity tests, literals a file carries and fixture provenance are exempt.
+Why: the history is evidence the plans hold; in code it goes stale and describes another tool
+instead of the format. The earlier rule named only a few tools and was widely missed.
+Plan: `CONTRIBUTING.md` (the rule), `AGENTS.md` (design sweep).

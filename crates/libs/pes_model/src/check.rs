@@ -10,6 +10,8 @@
 //! - `model_mesh_over_bone_limit` / `model_mesh_over_vertex_limit` /
 //!   `model_mesh_over_face_limit` (Error): the mesh exceeds a hard `.model`
 //!   limit; the game cannot load it. `ops::split::encode` is the fix.
+//! - `model_vertex_far_from_origin` (Error): a vertex more than 5000 units
+//!   from the origin; the game lags for the whole matchday.
 //! - `model_face_index_out_of_range` (Error): a face of any LOD level
 //!   references a vertex that does not exist; the mesh reads out of bounds.
 //! - `model_bone_slot_out_of_range` (Warning): a weighted bone index
@@ -99,6 +101,9 @@ const STATE_NAMES: [&str; 7] = [
     "blendmode",
 ];
 
+/// Far geometry lags the game for the whole matchday.
+const MAX_DISTANCE_FROM_ORIGIN: f32 = 5000.0;
+
 /// Rules over a `Model`, in model order (meshes, materials, bones, then
 /// the model).
 pub fn check(model: &Model) -> Vec<Finding> {
@@ -134,6 +139,26 @@ pub fn check(model: &Model) -> Vec<Finding> {
                 severity: Severity::Error,
                 subject: subject.clone(),
                 count: mesh.faces.len(),
+            });
+        }
+
+        // f64: a huge coordinate cannot overflow the squared-distance sum.
+        let limit = f64::from(MAX_DISTANCE_FROM_ORIGIN) * f64::from(MAX_DISTANCE_FROM_ORIGIN);
+        let far = mesh
+            .vertices
+            .positions
+            .iter()
+            .filter(|&position| {
+                let [x, y, z] = position.map(f64::from);
+                x * x + y * y + z * z > limit
+            })
+            .count();
+        if far > 0 {
+            findings.push(Finding {
+                code: "model_vertex_far_from_origin",
+                severity: Severity::Error,
+                subject: subject.clone(),
+                count: far,
             });
         }
 
@@ -462,6 +487,49 @@ mod tests {
             Subject::Mesh(0),
             65536,
         )));
+    }
+
+    #[test]
+    fn vertices_past_5000_units_from_the_origin_are_errors() {
+        let mut model = load(CARD);
+        {
+            let positions = &mut model.meshes[0].vertices.positions;
+            // 5657 away, only by the Euclidean sum.
+            positions[0] = [4000.0, 4000.0, 0.0];
+            positions[1] = [0.0, 0.0, -6000.0];
+            // Exactly on the limit: passes.
+            positions[2] = [5000.0, 0.0, 0.0];
+            // Loose, referenced by no face: still counts.
+            positions.push([1e30, 0.0, 0.0]);
+        }
+        let findings = check(&model);
+        let mut matching = findings
+            .iter()
+            .filter(|finding| finding.code == "model_vertex_far_from_origin");
+        assert_eq!(
+            matching.next(),
+            Some(&finding(
+                "model_vertex_far_from_origin",
+                Severity::Error,
+                Subject::Mesh(0),
+                3,
+            ))
+        );
+        assert!(matching.next().is_none());
+
+        let mut model = load(CARD);
+        {
+            let positions = &mut model.meshes[0].vertices.positions;
+            positions[0] = [4000.0, 2999.0, 0.0];
+            positions[1] = [0.0, 0.0, -4999.0];
+            positions[2] = [5000.0, 0.0, 0.0];
+            positions.push([1.0, 1.0, 1.0]);
+        }
+        assert!(
+            !check(&model)
+                .iter()
+                .any(|finding| finding.code == "model_vertex_far_from_origin")
+        );
     }
 
     #[test]
