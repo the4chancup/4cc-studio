@@ -15,7 +15,8 @@ rounds A and B (2026-09-13) closed: 2.5c, 2.12b, 2.13b done.
 **In progress:** 2.17 `pes_savefile`, 2.18 `python_bindings`, 2.19 Phase verification done; 2.20
 Converge in progress (a-f done, 2.20g `pes_model` next). Review round C (2026-09-19) closed as
 2.19a; its leftovers are listed under 2.20. 2.5b (GPU BC7) deferred to Phase 4 (user decision
-2026-09-21).
+2026-09-21). Release target (2026-09-28): 0.1.0 after Phase 8; phase order 1–6, 8, 0.1.0, 7,
+9–16 (`core/development_plan.md` "Releases").
 **Blocked on:** nothing
 
 ---
@@ -77,8 +78,9 @@ documents".
 | 4 | Processing logic | `team_compiler` (`plan/` `processing/` `bins/` `output/`), `aesthetics_export` deep validation | todo |
 | 5 | Savefile integration | `save_editor` logic, `aatf`, `team_compiler` `output/savefile.rs` | todo |
 | 6 | Export upgrader | `export_upgrader` | todo |
-| 7 | glTF support | `model_convert` (glTF half) | todo |
+| 7 | glTF support (runs after Release 0.1.0) | `model_convert` (glTF half) | todo |
 | 8 | GUI | `studio_core` shell, `studio`, tool views, `color_tools` widget | todo |
+| 0.1.0 | Release 0.1.0, after Phase 8 (`core/development_plan.md` "Release 0.1.0") | `just release`, `CHANGELOG.md`, help chapters, update check + notice, teams-list merge, maintenance mode | todo |
 | 9 | Stadium compiler | `stadium_compiler` | todo |
 | 10 | Music tools | `music_player`, `music_export_editor`, `music_export`, `audio_engine` | todo |
 | 11 | Match tracker | `match_tracker`, `match_feed` | todo |
@@ -655,14 +657,9 @@ Steps are itemized when Phase 2 closes; the first is fixed:
 
 ### Phase 4 — Processing logic
 
-Steps are itemized when Phase 3 closes; two are fixed already:
+Steps are itemized when Phase 3 closes; one is fixed already (the GPU BC7 step moved to Phase 16,
+decision entry 2026-09-28):
 
-- [ ] 4.x `dds_convert` GPU BC7 (deferred from 2.5b, decision entry 2026-09-21; spec
-  `libs/README.md` "First-release desktop GPU BC7"): `block_compression`'s wgpu backend on a
-  Vulkan/Metal device, CPU fallback with the fallback reason reported, cold pipeline creation
-  and upload/readback measured first, then the texture step's bounded batches → verify: GPU and
-  CPU outputs decode within the same tolerance on the `dds_convert` fixtures; the fallback path
-  exercised by forcing no adapter
 - [ ] 4.y `dds_convert` cache retention bound (found at 2.20d converge; spec `libs/dds_convert.md`
   "In-memory conversion cache", "Retention is separately bounded and budgeted"): the
   `Converter` holds every distinct conversion until `clear`; the pipeline's memory budget
@@ -670,6 +667,17 @@ Steps are itemized when Phase 3 closes; two are fixed already:
   superseded conversion → verify: a test compiling the same export with one texture edited N
   times retains one conversion of it, and a budget smaller than the cache evicts rather than
   blocking a task
+
+### Phase 16 — Polish and distribution
+
+Steps are itemized when Phase 15 closes; one is fixed already:
+
+- [ ] 16.x `dds_convert` GPU BC7 (deferred from 2.5b to Phase 4, decision entry 2026-09-21, then
+  past Release 0.1.0, decision entry 2026-09-28; spec `libs/README.md` "First-release desktop GPU
+  BC7"): `block_compression`'s wgpu backend on a Vulkan/Metal device, CPU fallback with the
+  fallback reason reported, cold pipeline creation and upload/readback measured first, then the
+  texture step's bounded batches → verify: GPU and CPU outputs decode within the same tolerance
+  on the `dds_convert` fixtures; the fallback path exercised by forcing no adapter
 
 ---
 
@@ -910,3 +918,6 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   units from the origin (Team compiler: `vertex_too_far_from_origin`, folder dropped); code no
   longer names or alludes to the legacy tools (`CONTRIBUTING.md` rule broadened, design sweep
   entry in `AGENTS.md`), swept across 44 files; parity tests keep their tool names.
+- **2026-09-28** - Release target set (maintainer): 0.1.0 after Phase 8 (Windows, CPU textures,
+  native models, updater check + notice); Phase 7 and GPU BC7 (now 16.x) move after it; no
+  Pre-Studio input path. Plan-only change (decision entry). Next: another plan change, then 2.20g.

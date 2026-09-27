@@ -16,6 +16,17 @@ tracker](../match_tracker/README.md), phase 12 in [kit config editor](../kit_con
 arranger](../refs_arranger.md), phase 14 in [balls compiler](../balls_compiler.md), and phase 15 in
 [player aesthetics editor](../player_aesthetics_editor.md).
 
+**Releases.** The suite first ships as **0.1.0 at the end of Phase 8** ("Release 0.1.0" below):
+the Team compiler with compile-time savefile writing, the Save editor and the Export upgrader, on
+Windows, with the CPU texture encoder and the native model formats only. Phase 8 is the line
+because it is the first point where the two main tools exist with a GUI, and because its own
+verification (community feedback) needs a distributed build; every later tool replaces a legacy
+tool that keeps working until then. The phases therefore run in the order 1–6, 8, Release 0.1.0,
+7, 9–16: glTF (Phase 7) moves after the release, since no current export carries glTF and it
+depends on the Blender `pes-models` codec outside this workspace. Phase numbers are kept, since
+every pointer names them. Releases stay `0.x` until Phase 16 closes with **1.0.0**; "first
+release" in the plans means 1.0.0, so a "first-release" feature may land after 0.1.0.
+
 ### Phase 1: Workspace bootstrap + core skeleton
 
 Done (2026-09-13). The guardrails above apply "from the first commit", so the first commit is the
@@ -92,12 +103,12 @@ implementations to translate:
 - `fpk`
 - `ftex` + `dds_convert` (`texture2ddecoder`, `image`, and `block_compression` CPU BC1/BC3/BC7):
   the CPU reference only. The desktop GPU BC7 backend (`libs/README.md` "First-release desktop
-  GPU BC7") is built in Phase 4 with the texture step that consumes it, not here: every rule the
-  plan gives it (bounded batches against the memory budget, cancellation, writer progress, one
-  encoded result shared by all consumers, the fallback report) is pipeline integration, so a
-  Phase 2 version would be shaped without its caller and reshaped once. The cold-start and
-  upload/readback measurements are the first thing Phase 4's GPU step does, before relying on
-  it. BC7 output is PES 19–21 only; PES 15–18 use BC3 or eligible opaque-color BC1 — see
+  GPU BC7") is built in Phase 16, after 0.1.0, on top of Phase 4's texture step, not here: every
+  rule the plan gives it (bounded batches against the memory budget, cancellation, writer
+  progress, one encoded result shared by all consumers, the fallback report) is pipeline
+  integration, so a Phase 2 version would be shaped without its caller and reshaped once. The
+  cold-start and upload/readback measurements are the first thing the GPU step does, before
+  relying on it. BC7 output is PES 19–21 only; PES 15–18 use BC3 or eligible opaque-color BC1 — see
   [libs](../libs/README.md).
 - `fmdl` — `format/` (read/write, byte-identical round-trip), `ops/` (mesh splitting, split vertex
   encoding, anti-blur, multi-FMDL merging, path-table editing), `check.rs`
@@ -257,12 +268,14 @@ nothing about the Rust code.
   duplicate-refs preflight, `sideload/` precedence (`team_id_get`).
 - **`processing/`** — per-task work over `rayon` with memory permits: model format selection,
   cross-format conversion via `model_convert`, multi-model merging and SKL pairing
-  (`fmdl_editing`); texture conversion with the CPU/GPU
-  converter integrated as bounded batches with readback, cancellation and CPU fallback — desktop
-  GPU BC7 is a first-release feature, and its backend in `dds_convert` (`block_compression`'s
-  wgpu path on a Vulkan/Metal device, CPU fallback, cold-start and throughput measured first;
-  `libs/README.md` "First-release desktop GPU BC7") is built in this phase, deferred from Phase
-  2 so the texture step shapes it — plus WESYS wrapping and relocation to common (`textures`);
+  (`fmdl_editing`); model source selection before glTF exists: a folder whose selected
+  representation would be glTF (no target-native source beside it) is refused with a
+  folder-discarding error until Phase 7, never compiled from the opposite native format
+  instead, since that output would change silently once glTF lands (the code is named in this
+  phase's Acceptance section; `team_compiler/pipeline.md` "Per-export pipeline walkthrough");
+  texture conversion with the CPU converter as bounded batches with cancellation (0.1.0 ships
+  CPU-only; the desktop GPU BC7 backend, `libs/README.md` "First-release desktop GPU BC7", is
+  built on this step in Phase 16) — plus WESYS wrapping and relocation to common (`textures`);
   MTL / face XML / `materials.toml` editing (`xml_editing`); kit folders: config
   generation/reconciliation/emission via `libs/kit_config` (TOML in exports, binary at compile
   time), FPC patching via `fpc`, kit colors from per-kit `colors.txt` (Team Note entry format) or
@@ -322,6 +335,10 @@ compare game-facing output against Red's output for the same exports.
 
 ### Phase 7: glTF support
 
+Runs after Release 0.1.0 (see "Releases" above). Besides the codec, it lifts the Team compiler's
+interim refusal of glTF sources (Phase 4) and enables the Export upgrader's `--convert-to-gltf`
+pass (`export_upgrader.md` step 13).
+
 - Add the `gltf` crate dependency to `model_convert` (Phase 2 built its native-format half)
 - Implement `gltf_to_ir` and `ir_to_gltf` with a shared PES_bone/PES_mesh and materials.toml contract
 - Coordinate with the Blender project's `pes-models` PES glTF codec (its implementation lives there)
@@ -337,7 +354,8 @@ this phase completes it.
 - Complete the `studio_core` app shell (sidebar, tool registry rendering, settings menu with per-tool
   collapsible sections, status bar with its three slots and static empty state, window title
   from activities and the held notice, help window with chapter tree, generated Messages topics,
-  search, log-panel message links, and `4cc-studio help`)
+  search, log-panel message links, and `4cc-studio help`), and the first-run data-location dialog
+  (`distribution.md` "Data location: asked on first run")
 - Build the common widgets: progress grid, log panel (auto-scroll, filters, grid cross-linking),
   run strip
 - Implement each tool's `view()`: Team compiler grid (live validation), save editor
@@ -348,9 +366,47 @@ this phase completes it.
   cache
 - Wire event channels to egui rendering
 - Implement cancellation
-- Test on Windows and Linux
+- Test on Windows (Linux is a Phase 16 item: no Linux machine is available, and 0.1.0 is
+  Windows-only)
 
-**Verification:** Manual testing + user feedback from the modding community.
+**Verification:** Manual testing on Windows; user feedback from the modding community arrives
+through Release 0.1.0, which follows.
+
+### Release 0.1.0
+
+Cut once Phase 8 closes. It is a milestone rather than a numbered phase: its deliverables are the
+slice of Phase 16 an early release cannot do without, pulled forward.
+
+**Ships:** the Team compiler (Phases 3–5: native FMDL/`.model` sources, CPU texture encoding,
+compile-time savefile writing), the Save editor (Phase 5 logic and the full Phase 8 view), and the
+Export upgrader (Phase 6, structural migration; its glTF pass waits for Phase 7), as the Windows
+portable bundle. Old-format exports reach the compiler through the upgrader; Red's Pre-Studio
+preview layout gets no dedicated input path, since few members are expected to use it (the
+reserved-subfolder legacy support in `aesthetics_export/player_folders.md` stays as it is).
+
+**Does not ship:** glTF (Phase 7), desktop GPU BC7, the Linux bundle, and the updater's
+download/swap/rollback (all Phase 16), and the tools of Phases 9–15.
+
+- Release bundling as the `just release <version>` recipe, Windows bundle only (`distribution.md`
+  "Distribution: portable .7z bundle", "Changelog and version display"): the `.7z` with a SHA256
+  checksum asset, the release body copied from the version's `CHANGELOG.md` section
+- `CHANGELOG.md` started; help chapters for the shipped tools and the core chapters (Red's two
+  readmes migrated into the Team compiler and core chapters); `4cc-studio help --export` wired
+  into the release process
+- The updater's check and notice (`distribution.md` "Self-update: in-place binary swap", step 1,
+  and step 2 reduced to a notice): the release notes and a link to the release page, with *Skip
+  this version* / *Remind me later*; the CLI one-line notice. Plus step 5, the teams-list
+  reconciliation on the first start of a new version: it runs on a new binary's first start
+  however the binary arrived, so a manual update needs it as much as the swap does
+- Maintenance mode, moved here from Phase 16: the `AGENTS.md` section written as 0.1.0 is cut,
+  since from this release on the released surfaces (export layout, `settings.toml`/`config.toml`
+  keys, CLI flags and exit codes, finding codes) are compatibility contracts. The outline is Phase
+  16's bullet. Phases 7 and 9–15 keep the phase procedure; each may ship as a `0.x` release
+
+**Verification:** `just release 0.1.0` produces the bundle and checksum; a recorded manual check
+on a clean Windows machine: the bundle extracted to a fresh folder, the first-run dialog, a
+fixture export compiled through `quick_compile.bat`, and the update notice shown against a test
+release with a higher tag. The release closes with converge and rewrite over its own sections.
 
 ### Phase 9: Stadium compiler (`tools/stadium_compiler`)
 
@@ -468,18 +524,24 @@ from unintended conversion loss.
 
 ### Phase 16: Polish and distribution
 
-- Release bundling, as the `just release <version>` recipe: the portable `.7z` (binary + launcher
-  + readme) with a SHA256 checksum asset, the release body copied from that version's
-  `CHANGELOG.md` section (see `distribution.md` "Distribution and updates", `distribution.md` "Changelog and version display")
-- Self-updater: check, dialog, download/verify/swap, teams-list merge, rollback button (see
-  `distribution.md` "Distribution and updates")
-- Documentation: every shipped tool's `help/` chapter written for members (Red's two readmes
-  migrated into the Team compiler and core chapters), `CHANGELOG.md` started, `4cc-studio help
-  --export` wired into the release process; the bundled readme stays a pointer (the window itself
-  is Phase 8)
-- Maintenance mode: a section in `AGENTS.md` on how the project changes once released, written
-  as this phase closes (not earlier: a procedure written far ahead of its use goes stale).
-  Agreed outline: the plans stay the spec, edited in place, and `DECISIONS.md` stays the
+Closes with the **1.0.0** release. Release 0.1.0 already delivered the Windows `just release`
+recipe, `CHANGELOG.md`, the first help chapters, the update check and notice with the teams-list
+merge, and the maintenance-mode section; this phase completes them.
+
+- Release bundling: the Linux bundle joins the `just release <version>` recipe (see
+  `distribution.md` "Distribution and updates", `distribution.md` "Changelog and version
+  display"); Linux tested on a real machine
+- Self-updater, the rest of it: the *Update now* option, download/verify/swap, `4cc-studio
+  update`, rollback button (see `distribution.md` "Distribution and updates")
+- Desktop GPU BC7 on Phase 4's texture step (`libs/README.md` "First-release desktop GPU BC7"):
+  cold pipeline creation and upload/readback measured first, then bounded batches, the Auto/CPU
+  setting and the fallback report
+- Documentation: every shipped tool's `help/` chapter written for members (a tool shipping in a
+  `0.x` release carries its chapter from that release); the bundled readme stays a pointer (the
+  window itself is Phase 8)
+- Maintenance mode: the `AGENTS.md` section on how the project changes once released is written
+  at Release 0.1.0 (not earlier: a procedure written far ahead of its use goes stale) and reviewed
+  here for 1.0.0. Agreed outline: the plans stay the spec, edited in place, and `DECISIONS.md` stays the
   decision (ADR) log, split per year past about 4-5k lines, with no per-file ADRs or ADR
   tooling. A fix is a failing regression test first, a plan edit only if behavior changes, and
   `mutants-diff`. A feature runs the phase procedure at small scale (acceptance scenarios,

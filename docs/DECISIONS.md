@@ -2237,3 +2237,35 @@ always produced"); parity tests, literals a file carries and fixture provenance 
 Why: the history is evidence the plans hold; in code it goes stale and describes another tool
 instead of the format. The earlier rule named only a few tools and was widely missed.
 Plan: `CONTRIBUTING.md` (the rule), `AGENTS.md` (design sweep).
+
+## 2026-09-28 - development plan - 0.1.0 ships at the end of Phase 8; glTF and GPU BC7 after it
+Decision (maintainer, from the lead's feasibility evaluation): the suite's first release is
+0.1.0, cut after Phase 8: Team compiler with compile-time savefile writing, Save editor (full
+Phase 8 view), Export upgrader (structural migration), Windows only, CPU texture encoding, native
+model formats only. Phase 7 (glTF) runs after it (order 1-6, 8, 0.1.0, 7, 9-16, numbers kept);
+GPU BC7 (worklog 4.x, now 16.x) and Linux move to Phase 16; the updater ships as check + notice.
+Red's Pre-Studio preview layout gets no dedicated input path (maintainer: few members will use
+it). Lead, applied as recommended:
+- **Pulled forward from Phase 16:** the Windows `just release` recipe, `CHANGELOG.md`, help
+  chapters for the shipped tools, the update check and notice, and the maintenance-mode section,
+  because from 0.1.0 on the released surfaces are compatibility contracts; `0.x` does not loosen
+  that rule. Releases stay `0.x` until Phase 16 closes with 1.0.0; "first release" in the plans
+  means 1.0.0, so the "First-release desktop GPU BC7" headings keep their names and pointers.
+- **The teams-list merge ships in 0.1.0** with the check: it runs on a new binary's first start
+  however the binary arrived, and without it a manually updated install never receives new
+  upstream teams.
+- **glTF sources are refused, not skipped, until Phase 7:** a folder whose selected
+  representation would be glTF is dropped with an error instead of compiling from the opposite
+  native format, since that output would change silently once Phase 7 selects the glTF.
+- **The first-run data-location dialog** joins Phase 8's shell bullet; no phase listed it.
+Why: Phase 8 is the first point with both main tools and a GUI, and its verification (community
+feedback) needs a distributed build; every later tool replaces a legacy tool that keeps working.
+glTF has no current export using it and depends on the Blender codec outside this workspace; the
+CPU encoder already meets the texture quality checks. Rejected: keeping Phases 3-8 whole
+(a later release for work no 0.1.0 user needs) and trimming the Save editor view (maintainer
+kept it).
+Plan: `core/development_plan.md` ("Releases", "Phase 2", "Phase 4", "Phase 7", "Phase 8",
+"Release 0.1.0", "Phase 16"), `core/distribution.md` ("Self-update: in-place binary swap",
+"Versioning"), `libs/README.md` "First-release desktop GPU BC7", `team_compiler/README.md`
+"First-release GPU BC7", `team_compiler/pipeline.md` (format conversion step). Supersedes the
+Phase 4 placement in the 2026-09-21 GPU BC7 entry.

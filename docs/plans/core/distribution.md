@@ -104,7 +104,9 @@ release checking, download/verification, and binary replacement; `studio` separa
 `teams_list`'s parse/reconcile logic for teams-list reconciliation. Core knows neither
 teams-list/team-ID semantics nor team-format types. No plugin hook or new updater framework is
 needed. This is desktop-only (`#[cfg(not(target_arch = "wasm32"))]`); the browser build updates
-server-side:
+server-side. Release 0.1.0 ships step 1, step 2 as a notice (release notes and a link to the
+release page, no *Update now*) and step 5; steps 3, 4, 6, the `update` subcommand and rollback
+arrive in Phase 16:
 
 1. **Check** (startup, non-blocking background task): if `check_for_updates` is on and the last
    check is older than the check interval, query the GitHub Releases API (`releases/latest`),
@@ -205,7 +207,9 @@ Rationale:
 
 A release is cut (tag, GitHub Release, `.7z` asset) when there's something to distribute; not every
 commit is a release. The workspace version is the next-release version; the tag is what the updater
-compares against.
+compares against. The suite ships `0.x` releases from 0.1.0 (end of Phase 8) until 1.0.0 (end of
+Phase 16; `development_plan.md` "Releases"); `0.x` does not loosen the compatibility rule for
+released surfaces, which binds from 0.1.0 (`development_plan.md` "Release 0.1.0").
 
 **One exception: `python_bindings`.** It is built via maturin into a wheel that Blender users
 install independently of the Studio binary, and its consumers are not Studio users. Its version is

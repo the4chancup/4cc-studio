@@ -223,8 +223,9 @@ This documents the dependency without changing the phase order in the core plan.
 Desktop GPU BC7 for PES 19–21 uses `block_compression`'s library backend in the first release.
 Auto is the default, with CPU fallback and an explicit CPU mode for reproducible builds. The
 [library crates plan](../libs/README.md) owns backend selection, startup, batching, memory, and fallback requirements; the
-the reproducibility paragraph in `testing.md` "Testing: parity against Red (adapted from Blue)" records the accepted texture-byte exception. Integrate this into
-Phase 4's processing pipeline after the early Phase 2 GPU proof, rather than waiting for 3D preview.
+the reproducibility paragraph in `testing.md` "Testing: parity against Red (adapted from Blue)" records the accepted texture-byte exception. Phase 4
+builds the texture step CPU-only and Release 0.1.0 ships that way; the GPU backend is integrated
+into it in Phase 16, rather than waiting for 3D preview.
 
 ## Future Features
 
