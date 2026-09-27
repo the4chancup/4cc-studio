@@ -176,6 +176,7 @@ savefile messages are new.
 | `settings_toml_name_shared` | W | `name` given in a folder mapped to multiple players | name applied to all of them |
 | `fpc_conflict` | E | both `fpc.on` and `fpc.off` present in a player folder | folder discarded |
 | `fpc_strip_conflict` | W | `settings.toml` strip keys conflict with the folder's FPC marker | FPC preset wins; keys ignored |
+| `settings_model_id_conflict` | W | `settings.toml` sets `boots_id` or `gloves_id` for a category the folder's own models or a link file already provide (context: the category) | the compiler-assigned ID wins; key ignored |
 | `fmdl_name_invalid` | E | Fox: FMDL in a boots/gloves shared folder not resolving to that category's allowed names | folder discarded |
 | `fmdl_fcl_hair_fallback` | I | Fox: arbitrary-named FMDL treated as a face model, routed into the `fcl_hair.fmdl` merge (Red's single-file fallback, generalized) | none |
 | `fmdl_merged` | I | Fox: multiple models resolve to the same allowed name; meshes merged into one FMDL (alphabetical source order) | none |

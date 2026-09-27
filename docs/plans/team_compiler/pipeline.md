@@ -644,7 +644,8 @@ describes behavior, not a serial scheduling requirement:
 - **Aesthetics patch** — written on **every** compile, beside the output CPK, as
   `aesthetics_patch.toml`: the resolved savefile writes for every compiled player (format and rules
   in "Aesthetics patch" in the [Savefile plan](../pes_savefile/operations.md)) — settings.toml settings with
-  `name = true` and FPC markers resolved to concrete values, and the auto-assigned boots/gloves IDs
+  `name = true` and FPC markers resolved to concrete values, authored stock boots/gloves IDs for
+  categories with no folder content, and the auto-assigned boots/gloves IDs
   **only for content that was actually packed**: if a boots/gloves task failed, the affected players
   keep their existing savefile IDs rather than pointing at absent CPK content, while their
   independent valid settings still apply. The patch travels with the CPK: it describes the CPK it

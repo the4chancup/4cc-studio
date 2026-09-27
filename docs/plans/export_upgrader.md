@@ -127,13 +127,18 @@ to moving, flattening, or removing files describe that draft, not destructive ed
    in a type, or carry none, are untouched.
 8. **Generates `settings.toml`** for each player, populated from the savefile's aesthetic data
    (physique, strip style, skin/iris color, etc.) — the same TOML-generation logic the save editor
-   uses. Boots/gloves IDs are omitted: old IDs help resolve the wearers during migration, but the
-   migrated models/links determine Studio's automatic assignments. Since name writing is opt-in, the upgrader emits `name = true` when the folder name's name
+   uses. Custom boots/gloves IDs (above 100) are omitted: old IDs help resolve the wearers during
+   migration, but the migrated models/links determine Studio's automatic assignments. A stock ID
+   (1 to 100: a game model, which no folder carries) is kept as `boots_id`/`gloves_id`, or the
+   player would lose it. A custom ID worn by a player that no model folder of the export claims is
+   reported (step 10): the content is missing, and writing the number would point at whatever
+   Studio's block scheme later assigns there. Since name writing is opt-in, the upgrader emits `name = true` when the folder name's name
    part equals the savefile name, or the explicit string otherwise — which is the case whenever the
    folder was named from the face folder rather than the savefile, and whenever the savefile name
    can't be expressed in a folder name (filesystem-invalid characters, **including name colour
    codes**, which the explicit string preserves byte-for-byte so a compile never strips them). Players whose savefile settings match
-   `pes_savefile`'s FPC enable preset get an `fpc.on` marker file instead of the raw strip settings.
+   `pes_savefile`'s FPC enable preset get an `fpc.on` marker file instead of the raw strip settings,
+   and their boots/gloves keys stay at the default `""`, since the marker supplies the hide IDs.
 9. **Migrates referee exports**: the old referee layout (`refs.txt` + per-referee
    face/boots/gloves/common subfolders — the prototype of the player-folder format) compiles as it is
    thanks to the compiler's legacy acceptance (reserved subfolders, `refs.txt` alias), but is
