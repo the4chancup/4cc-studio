@@ -1,5 +1,5 @@
-//! Writing a [`PreFoxModel`] back out: lays a fresh file out the add-on's
-//! way — sections in the order ModelBounds, BoneData, BoneNames,
+//! Writing a [`PreFoxModel`] back out: lays a fresh file out in the export
+//! layout — sections in the order ModelBounds, BoneData, BoneNames,
 //! MaterialNames, AnnotationRecords, Cloth, MaterialCombinations, Locators,
 //! Geometry, AnnotationStrings, Meshes, each padded to 4, the version-19
 //! record sizes throughout, no alignment gaps.
@@ -383,7 +383,7 @@ impl SectionList {
 }
 
 impl PreFoxModel {
-    /// The container `write` emits: sections built the add-on's way.
+    /// The container `write` emits: sections built in the export layout.
     pub fn to_container(&self) -> Result<ModelContainer, ModelError> {
         if self.bones.len() > u16::MAX as usize {
             return Err(ModelError::WriteLayout("more bones than u16 can index"));

@@ -213,7 +213,7 @@ fn read_mesh_groups(
     // Assignments hand runs of consecutive meshes and one bounding box
     // to a group; every mesh must land in exactly one group. A group's
     // non-consecutive runs repeat the assignment with the same box —
-    // a different box id is the add-on reader's error.
+    // a different box id is a read error.
     let mut assigned: Vec<Option<usize>> = vec![None; file.meshes.len()];
     let mut mesh_boxes: Vec<Option<BoundingBox>> = vec![None; file.meshes.len()];
     let mut group_boxes: Vec<Option<u16>> = vec![None; mesh_groups.len()];

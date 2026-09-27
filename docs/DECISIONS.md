@@ -2219,7 +2219,7 @@ Plan: `core/development_plan.md` "Phase 16" (maintenance-mode bullet).
 Decision (maintainer): a model with a vertex more than 5000 units from the origin is an Error:
 `fmdl::check` and `pes_model::check` report it per mesh (`fmdl_vertex_far_from_origin`,
 `model_vertex_far_from_origin`), and the Team compiler maps both to `vertex_too_far_from_origin`
-("Model too far away, it will cause persistent lag for the whole matchday"), dropping the folder.
+("Vertex too far away, it will cause persistent lag for the whole matchday"), dropping the folder.
 Lead, applied as recommended: the check runs on every model in its target-format form before any
 merge, so glTF and converted sources are covered and the finding names the source file; the
 distance is Euclidean with 5000 itself passing; only vertices are tested, since edges and faces

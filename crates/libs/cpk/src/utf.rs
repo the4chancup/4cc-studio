@@ -340,8 +340,8 @@ impl UtfTable {
         })
     }
 
-    /// Serializes the table under `tag` in the reference writer's layout:
-    /// columns in order, `Null` storage only when the table has
+    /// Serializes the table under `tag`: columns in order, `Null` storage
+    /// only when the table has
     /// exactly one row and that cell is null (`Constant` is never written),
     /// strings deduplicated in first-use order with the table name first, data
     /// pool entries 8-padded, the string pool 8-padded before the data pool,
@@ -479,8 +479,8 @@ fn write_cell(
             row.extend_from_slice(&(b.len() as u32).to_be_bytes());
         }
         // A null or type-mismatched cell in a variable column: emit the
-        // zero-equivalent so the row keeps its declared length. The reference
-        // writer has no such case; the parity path never produces one.
+        // zero-equivalent so the row keeps its declared length. A written
+        // table never carries one.
         (UtfKind::U8, _) => row.push(0),
         (UtfKind::U16, _) => row.extend_from_slice(&0u16.to_be_bytes()),
         (UtfKind::U32, _) => row.extend_from_slice(&0u32.to_be_bytes()),
@@ -563,9 +563,8 @@ mod tests {
             Some(&UtfValue::Bytes(vec![4, 5, 6, 7, 8]))
         );
 
-        // The reference writer's addData pads each datum to 8 bytes: the two
-        // cells must sit at data-pool offsets 0 and 8, and the pool is
-        // exactly 16 bytes.
+        // Each data-pool datum pads to 8 bytes: the two cells must sit at
+        // data-pool offsets 0 and 8, and the pool is exactly 16 bytes.
         let mut plain = bytes;
         let length = usize::try_from(u64::from_le_bytes(plain[8..16].try_into().unwrap())).unwrap();
         crypt(&mut plain[16..16 + length]);

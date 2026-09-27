@@ -1,9 +1,8 @@
 //! Fox Engine FTEX texture container: FTEX <-> DDS.
 //!
-//! [`ftex_to_dds`] produces the DDS layout the 4cc compilers have always
-//! emitted for an FTEX, byte for byte; [`dds_to_ftex`] produces the FTEX layout
-//! they emitted, except that the zlib streams are miniz_oxide's, so round-trip
-//! parity is verified by converting back to DDS.
+//! [`ftex_to_dds`] rebuilds the DDS from the FTEX header, one frame per mip,
+//! deterministically; [`dds_to_ftex`] produces the FTEX layout PES accepts,
+//! with miniz_oxide's zlib streams, so tests check it by converting back to DDS.
 
 /// The DDS container knowledge (header records, layout walk, header writer)
 /// shared with crates that read or rebuild DDS files.
@@ -373,8 +372,8 @@ mod tests {
     #[test]
     fn the_mipmap_caps_bit_gates_the_count_only_for_dds_to_ftex() {
         // BC1_DDS declares three mips. DirectXTex reads the count field
-        // alone, but pes-file-tools treats a cleared DDSCAPS_MIPMAP as one
-        // level — and `dds_to_ftex` follows the reference converter.
+        // alone, but a cleared DDSCAPS_MIPMAP bit means one level, and
+        // `dds_to_ftex` applies that.
         let mut dds = BC1_DDS.to_vec();
         let caps = u32::from_le_bytes(dds[108..112].try_into().unwrap()) & !0x400000;
         dds[108..112].copy_from_slice(&caps.to_le_bytes());
@@ -406,7 +405,7 @@ mod tests {
     #[test]
     fn mip_size_past_level_31_reads_as_one_block() {
         // The dimension shifted down past level 31 is 0, clamped to 1: the
-        // same value the reference's floor division computes.
+        // same value a floor division by 2**level computes.
         assert_eq!(mip_size(PixelFormat::Bc1, 16, 16, 1, 40), 8);
     }
 
@@ -665,9 +664,8 @@ mod tests {
     }
 
     #[test]
-    fn pixel_format_ids_and_fourccs_match_the_reference() {
-        // The id table, as the format comment at the top of the reference
-        // lists it.
+    fn pixel_format_ids_and_fourccs_round_trip() {
+        // The format's id table, complete.
         for (id, format) in [
             (0, PixelFormat::Argb8),
             (1, PixelFormat::R8),
@@ -1115,7 +1113,7 @@ mod tests {
     #[test]
     fn nvtt1_l8_is_recognized_as_r8() {
         // NVTT v1 writes luminance under the plain RGB flag (DirectXTex's
-        // DDSPF_L8_NVTT1); the reference maps it to R8.
+        // DDSPF_L8_NVTT1); it maps to R8.
         assert_eq!(
             dds::read_layout(&legacy_dds(0x40, [0; 4], 8, [0xff, 0, 0, 0]))
                 .unwrap()

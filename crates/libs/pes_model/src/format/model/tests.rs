@@ -24,7 +24,7 @@ fn every_fixture_round_trips_semantically() {
         let container = ModelContainer::read(bytes).unwrap();
         let model = PreFoxModel::from_container(&container).unwrap();
         let written = model.to_container().unwrap();
-        // The written file parses and has the add-on's section order.
+        // The written file parses and has the export section order.
         assert_eq!(
             written.sections.iter().map(|s| s.kind).collect::<Vec<_>>(),
             [

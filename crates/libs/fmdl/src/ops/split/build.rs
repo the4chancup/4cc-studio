@@ -535,8 +535,7 @@ mod tests {
 
     #[test]
     fn dot_is_the_dot_product() {
-        // `2 * 4` distinguishes the product from `2 / 4` (the old
-        // `[0.5, -1, 2]` axis could not).
+        // `2 * 4` distinguishes the product from `2 / 4`.
         assert_eq!(dot([1.0, 2.0, 3.0], [0.5, 4.0, 2.0]), 14.5);
     }
 

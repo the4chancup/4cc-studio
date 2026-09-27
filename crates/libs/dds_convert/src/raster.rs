@@ -103,9 +103,8 @@ pub(crate) fn decode_raster(bytes: &[u8], format: SourceFormat) -> Result<Decode
     } else {
         image.to_rgba8().into_raw()
     };
-    // texconv's default (no -tgazeroalpha) forces a TGA whose every alpha
-    // sample is 0 to opaque (DirectXTexTGA.cpp:689-693,
-    // texconv.cpp:2104-2106).
+    // A TGA whose every alpha sample is 0 comes from a writer that stored no alpha:
+    // force opaque. One nonzero sample keeps the alphas as stored.
     if format == SourceFormat::Tga
         && has_alpha
         && pixels.as_chunks::<4>().0.iter().all(|pixel| pixel[3] == 0)

@@ -2,7 +2,7 @@
 //! array of eleven `u32` section offsets at file offset 24, relative to
 //! 24, indexed by [`SectionKind`]), then the eleven sections back to back
 //! from offset 80 in whatever order the writer chose. Konami writes them
-//! 0 1 2 3 4 5 6 8 9 10 7, the add-on 7 0 5 6 3 8 9 10 1 2 4; the table
+//! 0 1 2 3 4 5 6 8 9 10 7, export files 7 0 5 6 3 8 9 10 1 2 4; the table
 //! is indexed by kind so file order is the only thing `sections` records.
 
 use std::io::Cursor;

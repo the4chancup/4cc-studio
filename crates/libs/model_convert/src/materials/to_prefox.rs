@@ -463,8 +463,8 @@ mod tests {
 
     #[test]
     fn transparent_leaves_a_stored_alphatest_alone() {
-        // The add-on card heads store `alphatest: 1, alphablend: 1`; `transparent` was read
-        // off `alphablend` alone and must not rewrite `alphatest`.
+        // Card heads in export files store `alphatest: 1, alphablend: 1`; `transparent`
+        // was read off `alphablend` alone and must not rewrite `alphatest`.
         let mut mat = material(MaterialFamily::Shaded);
         mat.transparent = Some(true);
         mat.prefox = Some(PreFoxMaterial {

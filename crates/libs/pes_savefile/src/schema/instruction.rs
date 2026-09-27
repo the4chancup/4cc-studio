@@ -11,8 +11,7 @@ use crate::model::instruction::Instruction;
 
 use Instruction as I;
 
-/// PES 18/19: the stored value indexes this list (the reference editor's
-/// table verbatim — it ends at 0x0F).
+/// PES 18/19: the stored value indexes this list (the table ends at 0x0F).
 const STORED_18: [Instruction; 16] = [
     I::Off,
     I::HugTheTouchline,
@@ -33,9 +32,8 @@ const STORED_18: [Instruction; 16] = [
 ];
 
 /// PES 20/21: the 18/19 list plus `Anchoring` at 0x10, the instruction PES
-/// 2020 added — measured on the 20/21 fixture saves (the reference's table
-/// ends at 0x0F); the name is the game's, unverified against the saves' edit
-/// screen.
+/// 2020 added — measured on the 20/21 fixture saves; the name is the
+/// game's, unverified against the saves' edit screen.
 const STORED_20: [Instruction; 17] = [
     I::Off,
     I::HugTheTouchline,

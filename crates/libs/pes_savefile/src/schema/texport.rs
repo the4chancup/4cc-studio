@@ -5,9 +5,9 @@
 //!
 //! Provenance: the 18/19/21 constants are measured on real files (four 18,
 //! eleven 19, five 21 texports; counts in `operations.md` "Interchange
-//! formats"). No PES 15/16/20 texport exists: 15/16's offsets are the
-//! reference editor's, unverified, and PES 20's key index `0x14` is the
-//! reference editor's untested guess over PES 21's templates.
+//! formats"). No PES 15/16/20 texport exists: 15/16's offsets are
+//! unverified, and PES 20's key index `0x14` is an untested guess over PES
+//! 21's templates.
 
 use pes_version::PesVersion;
 
@@ -95,8 +95,8 @@ static PES19: TexportLayout = TexportLayout {
     tail: hex("000000000400000001000000"),
 };
 
-/// PES 20: no file exists to measure. The key index is the reference
-/// editor's untested guess and the templates are PES 21's, but PES 20's team
+/// PES 20: no file exists to measure. The key index is an untested guess
+/// and the templates are PES 21's, but PES 20's team
 /// record is 60 bytes shorter than 21's, so the size is the derived one
 /// (0x39A8), not 21's 0x39E4.
 static PES20: TexportLayout = TexportLayout {
@@ -119,7 +119,7 @@ static PES21: TexportLayout = TexportLayout {
     tail: hex("000000000000000001000000"),
 };
 
-// PES 15/16's offsets are the reference editor's, unverified.
+// PES 15/16's offsets are unverified.
 static PES15_OLD: TexportOld = TexportOld {
     tactics_at: 0x10298,
     players_at: 0x51065C,

@@ -122,8 +122,8 @@ fn section1(file: &FmdlFile, id: u16) -> Option<&[u8]> {
     }
 }
 
-/// A `Some` block is emitted even when empty (the add-on fixtures carry an
-/// empty bone-name block 1); `None` stays absent.
+/// A `Some` block is emitted even when empty (the `addon_*` fixtures carry
+/// an empty bone-name block 1); `None` stays absent.
 fn byte_block(id: u32, bytes: &Option<Vec<u8>>) -> Option<ByteBlock> {
     bytes.as_ref().map(|bytes| ByteBlock {
         id,
@@ -308,7 +308,7 @@ mod tests {
     }
 
     #[test]
-    fn addon_files_round_trip_through_the_typed_layer() {
+    fn third_party_files_round_trip_through_the_typed_layer() {
         for bytes in [ORAL, PLACEHOLDER] {
             let file = FmdlFile::read(bytes).unwrap();
             assert_eq!(FmdlFile::read(&file.write()).unwrap(), file);

@@ -1,5 +1,5 @@
 //! FTEX -> DDS: one frame per mip per image, DDS header rebuilt from the FTEX
-//! header, byte-identical to the conversion the 4cc compilers have shipped.
+//! header.
 
 use std::io::{Cursor, Read, Seek, SeekFrom};
 
@@ -27,7 +27,7 @@ pub fn info(ftex: &[u8]) -> Result<FtexInfo, FtexError> {
 }
 
 /// Converts a whole FTEX buffer to a DDS file: headers, frame order and
-/// per-frame padding exactly as the 4cc compilers have always emitted them.
+/// per-frame padding.
 pub fn ftex_to_dds(ftex: &[u8]) -> Result<Vec<u8>, FtexError> {
     let header = read_header(ftex)?;
     let format = PixelFormat::from_id(header.pixel_format)

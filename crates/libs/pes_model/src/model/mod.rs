@@ -1,10 +1,9 @@
 //! `Model`: the semantic layer the ops work on. `from_file` decodes the
 //! vertices, splits the face stream into level 0 and the lower LOD levels,
 //! resolves each mesh's bone group to `bones` indices, and sorts the
-//! annotations by meaning: the add-on's kind 128 is the mesh name and kind
-//! 129 a per-mesh extension header; every other kind is a Konami tag kept as
-//! `(kind, text)`. `to_file` writes it back the add-on's way;
-//! `from_file(to_file(m)) == m`.
+//! annotations by meaning: kind 128 is the mesh name and kind 129 a per-mesh
+//! extension header; every other kind is a Konami tag kept as `(kind, text)`.
+//! `to_file` writes it back; `from_file(to_file(m)) == m`.
 //!
 //! One place is not lossless at the format level, and the plan accepts it:
 //! a tag annotation's section-3 record index and `unknown` word are dropped
@@ -31,8 +30,8 @@ pub struct Model {
     pub materials: Vec<String>,
     /// Meshes in file order.
     pub meshes: Vec<Mesh>,
-    /// Annotation strings no mesh refers to: the add-on's model-level headers
-    /// (`Skeleton-Type: Simplified`).
+    /// Annotation strings no mesh refers to: the model-level extension
+    /// headers (`Skeleton-Type: Simplified`).
     pub extension_headers: Vec<String>,
     /// The model's bounds, as read; recomputed by ops that move vertices.
     pub bounds: BoundingBox,
@@ -44,9 +43,9 @@ pub struct Model {
 /// reference resolved.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Mesh {
-    /// The add-on's mesh name (annotation kind 128).
+    /// The mesh name (annotation kind 128).
     pub name: Option<String>,
-    /// The add-on's per-mesh extension headers (annotation kind 129), in file order.
+    /// Per-mesh extension headers (annotation kind 129), in file order.
     pub extension_headers: Vec<String>,
     /// Konami's annotations, `(kind, text)` in file order: 1 the part name, 2 `DSpecularS`, 7 a
     /// normal-map name, 10 the part name again (meanings as observed, not documented).
@@ -89,8 +88,7 @@ fn check_indices<'a>(
     Ok(())
 }
 
-/// `text`'s index in `strings`, appending it when new (the add-on's
-/// de-duplication).
+/// `text`'s index in `strings`, appending it when new.
 fn intern(strings: &mut Vec<String>, text: &str) -> usize {
     match strings.iter().position(|entry| entry == text) {
         Some(index) => index,
@@ -202,7 +200,7 @@ impl Model {
         })
     }
 
-    /// Writes the model out as a fresh `PreFoxModel`, laid out the add-on's way.
+    /// Writes the model out as a fresh `PreFoxModel` in the export layout.
     pub fn to_file(&self) -> Result<PreFoxModel, ModelError> {
         let mut bone_groups = Vec::new();
         let mut mesh_bone_group = Vec::with_capacity(self.meshes.len());

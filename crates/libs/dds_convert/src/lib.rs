@@ -690,8 +690,8 @@ mod tests {
 
     #[test]
     fn an_all_zero_alpha_tga_is_opaque() {
-        // texconv's default (no -tgazeroalpha) forces a TGA whose every
-        // alpha sample is 0 to opaque (DirectXTexTGA.cpp:689-693).
+        // An all-zero alpha channel comes from a TGA writer that stored no alpha:
+        // the decode reports opaque.
         let mut tga = vec![
             0, 0, 2, // no id, no colormap, truecolor
             0, 0, 0, 0, 0, // colormap spec

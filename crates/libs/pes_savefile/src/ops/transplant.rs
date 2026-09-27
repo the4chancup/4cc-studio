@@ -1,7 +1,6 @@
 //! Aesthetics transplant: copy the appearance data of selected players from a
-//! donor save into a target save of the same version (the scripts' four
-//! selection forms kept as-is: single player id, `target:donor` id pairs,
-//! whole team, team ranges).
+//! donor save into a target save of the same version (four selection forms:
+//! single player id, `target:donor` id pairs, whole team, team ranges).
 
 use pes_version::PesVersion;
 
@@ -67,7 +66,7 @@ pub fn transplant(
     Ok(())
 }
 
-/// A selection argument that is not one of the scripts' four forms.
+/// A selection argument that is not one of the four forms.
 #[derive(Debug, thiserror::Error, PartialEq)]
 pub enum SelectionError {
     /// Not a number, or a pair/range with more than one separator.
@@ -78,11 +77,11 @@ pub enum SelectionError {
     BadRange(String),
 }
 
-/// One selection argument in the scripts' four forms, expanded to `(target,
+/// One selection argument in the four forms, expanded to `(target,
 /// donor)` pairs: `70103` (one player, onto itself), `70103:70205`
 /// (target:donor), `701` (a team: its slots 1-23, `team * 100 + 1..=23`, onto
 /// themselves), `701-720` (a team range, likewise). A number below 1000 is a
-/// team, as in the scripts.
+/// team.
 pub fn parse_selection(arg: &str) -> Result<Vec<(u32, u32)>, SelectionError> {
     let number = |part: &str| {
         part.parse::<u32>()

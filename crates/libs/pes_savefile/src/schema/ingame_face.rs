@@ -1,15 +1,13 @@
-//! The known bit runs inside the ingame-face run: the fifteen the legacy tools
-//! read or write, as `FieldSpec<IngameFaceField>` rows (the one place these
-//! offsets appear). The offsets are the appearance block's bytes 22 onward,
-//! relative to the run's first byte, and come from the two legacy converters'
-//! write walks and the reference save editor's reads. Hand-written, not
-//! generated: the run is opaque bytes no read walk decodes as a whole.
+//! The known bit runs inside the ingame-face run, as
+//! `FieldSpec<IngameFaceField>` rows (the one place these offsets appear).
+//! The offsets are the appearance block's bytes 22 onward, relative to the
+//! run's first byte. Hand-written, not generated: the run is opaque bytes
+//! never decoded as a whole.
 
 use super::FieldSpec;
 
-/// A known bit run inside the ingame-face run; the fifteen the legacy tools
-/// read or write. Offsets are relative to the run's first byte (byte 22 of the
-/// appearance block).
+/// A known bit run inside the ingame-face run. Offsets are relative to the
+/// run's first byte (byte 22 of the appearance block).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum IngameFaceField {
     /// Player (outfield) gloves, byte 0 bit 0.

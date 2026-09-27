@@ -170,8 +170,8 @@ pub struct FtexInfo {
 
 /// Bytes one mip level of one image occupies in the DDS stream
 /// (block-rounded, at least one block per side). Dimensions shifted down
-/// past level 31 read as 0 and clamp to 1, the same result the reference's
-/// `x // 2**j` produces.
+/// past level 31 read as 0 and clamp to 1, the same result a floor division
+/// by `2**level` produces.
 pub fn mip_size(format: PixelFormat, width: u32, height: u32, depth: u32, level: u32) -> usize {
     let (block_pixels, block_bytes) = format.block_size();
     let w = width.checked_shr(level).unwrap_or(0).max(1);

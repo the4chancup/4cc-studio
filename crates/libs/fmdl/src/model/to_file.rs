@@ -104,7 +104,7 @@ impl Model {
         self.write_mesh_groups(&mut file, &mut strings)?;
         self.write_extension_text(&mut strings);
 
-        // The constant blocks the add-on writer emits.
+        // The constant blocks a written file carries.
         file.block_18.push(Block18Record { bytes: [0; 8] });
         let mut block_20 = [0u8; 128];
         block_20[0..4].copy_from_slice(&0.0f32.to_le_bytes());
@@ -637,8 +637,8 @@ fn compute_bounding_box(model: &Model, group_index: usize) -> BoundingBox {
             }
         }
     }
-    // A child group's box counts toward its parent's (the add-on culls the
-    // subtree with it): the child's explicit box, or its computed one.
+    // A child group's box counts toward its parent's: the child's explicit
+    // box, or its computed one.
     for (child, _) in model
         .mesh_groups
         .iter()
@@ -653,7 +653,7 @@ fn compute_bounding_box(model: &Model, group_index: usize) -> BoundingBox {
         }
     }
     // Meshes without vertices or custom box leave the extremes untouched;
-    // the add-on writes the zero box for a group with nothing to measure.
+    // a group with nothing to measure gets the zero box.
     if max[0] < min[0] {
         max = [0.0; 4];
         min = [0.0; 4];
