@@ -118,24 +118,27 @@ fn sort_vector(points: &[[f32; 3]], bone_position: [f32; 3]) -> [f32; 3] {
         let mut candidate = start;
         for _ in 0..8 {
             let next = multiply(&covariance, candidate);
+            // A start in the covariance's null space normalizes to NaN;
+            // its Rayleigh quotient never beats `best`.
             let norm = (next[0] * next[0] + next[1] * next[1] + next[2] * next[2]).sqrt();
-            if norm > 0.0 {
-                candidate = [next[0] / norm, next[1] / norm, next[2] / norm];
-            }
+            candidate = [next[0] / norm, next[1] / norm, next[2] / norm];
         }
         let product = multiply(&covariance, candidate);
-        let quotient =
-            candidate[0] * product[0] + candidate[1] * product[1] + candidate[2] * product[2];
+        let quotient = dot(candidate, product);
         if quotient > best {
             best = quotient;
             vector = candidate;
         }
     }
-    let mut dot = 0.0f32;
-    for axis in 0..3 {
-        dot += (mean[axis] - bone_position[axis]) * vector[axis];
-    }
-    if dot < 0.0 {
+    let towards = dot(
+        [
+            mean[0] - bone_position[0],
+            mean[1] - bone_position[1],
+            mean[2] - bone_position[2],
+        ],
+        vector,
+    );
+    if towards < 0.0 {
         [-vector[0], -vector[1], -vector[2]]
     } else {
         vector
@@ -153,10 +156,10 @@ fn multiply(matrix: &[[f32; 3]; 3], vector: [f32; 3]) -> [f32; 3] {
     next
 }
 
-/// A vertex's projection on `axis`: the score the fragment builder sorts
-/// faces and loose sets by.
-fn projection(position: [f32; 3], axis: [f32; 3]) -> f32 {
-    position[0] * axis[0] + position[1] * axis[1] + position[2] * axis[2]
+/// The dot product: a vertex's projection on the sort axis, and the
+/// Rayleigh quotient in `sort_vector`.
+fn dot(a: [f32; 3], b: [f32; 3]) -> f32 {
+    a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
 }
 
 /// Splits off one component from `items_per_bone`; returns it together with
@@ -235,7 +238,7 @@ fn build_component(
             [position[0], position[1], position[2]]
         });
         let axis = sort_vector(&points, bone_position);
-        let score = |vertex: usize| -> f32 { projection(mesh.vertices.positions[vertex], axis) };
+        let score = |vertex: usize| -> f32 { dot(mesh.vertices.positions[vertex], axis) };
 
         faces.sort_by(|a, b| {
             let score_a = face_vertices[*a]
@@ -531,10 +534,10 @@ mod tests {
     }
 
     #[test]
-    fn projection_is_the_dot_product() {
+    fn dot_is_the_dot_product() {
         // `2 * 4` distinguishes the product from `2 / 4` (the old
         // `[0.5, -1, 2]` axis could not).
-        assert_eq!(projection([1.0, 2.0, 3.0], [0.5, 4.0, 2.0]), 14.5);
+        assert_eq!(dot([1.0, 2.0, 3.0], [0.5, 4.0, 2.0]), 14.5);
     }
 
     #[test]
@@ -585,6 +588,15 @@ mod tests {
             expected[axis] = 1.0;
             assert_eq!(vector, expected);
         }
+        // An exactly representable mean of zero: the orientation dot is
+        // exactly 0 and the axis must not flip on it.
+        let points = vec![
+            [-2.0, 0.0, 0.0],
+            [-1.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [2.0, 0.0, 0.0],
+        ];
+        assert_eq!(sort_vector(&points, [0.0, 0.0, 0.0]), [1.0, 0.0, 0.0]);
     }
 
     #[test]

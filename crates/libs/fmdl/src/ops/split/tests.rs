@@ -261,6 +261,72 @@ fn a_repeated_triangle_survives_the_round_trip() {
     check_round_trip(grid_model(source.clone(), 40), source);
 }
 
+// A referenced vertex can land past index 65535 in the merged emission
+// order even though every source face index fits u16: the first
+// component fills on the 20000-face cap and tops up on loose vertices,
+// so the one remaining face lands in the second component behind the
+// loose sets — and `combine` must reorder rather than wrap.
+#[test]
+fn a_referenced_vertex_past_u16_reorders_the_combine() {
+    const LOOSE_BEFORE: usize = 2537; // deferred to component 2, emit first
+    const FILLERS: usize = 20000; // the per-component face cap
+    const LOOSE_FILL: usize = 3000; // taken into component 1's loose fill
+    let mut vertices = MeshVertices {
+        positions: Vec::new(),
+        normals: Some(Vec::new()),
+        tangents: None,
+        colors: None,
+        uvs: vec![Vec::new()],
+        uv_high_precision: vec![true],
+        bone_weights: None,
+        bone_indices: None,
+    };
+    let push = |vertices: &mut MeshVertices, position: [f32; 3]| {
+        vertices.positions.push(position);
+        vertices
+            .normals
+            .as_mut()
+            .unwrap()
+            .push([0.0, 0.0, 1.0, 0.0]);
+        vertices.uvs[0].push([0.0, 0.0]);
+    };
+    // Component-2 loose vertices first: projection 0, the lowest scores.
+    for index in 0..LOOSE_BEFORE {
+        push(&mut vertices, [0.0, index as f32 + 1.0, 0.0]);
+    }
+    // Filler faces: three distinct vertices each, all scoring above 0.
+    for index in 0..FILLERS * 3 {
+        push(&mut vertices, [index as f32 + 1.0, 0.0, 0.0]);
+    }
+    let target = vertices.positions.len();
+    push(&mut vertices, [0.0, 0.0, 0.0]);
+    push(&mut vertices, [0.0, 0.0, 1.0]);
+    push(&mut vertices, [0.0, 1.0, 0.0]);
+    // Component-1 loose vertices: the highest scores of the loose sets.
+    for index in 0..LOOSE_FILL {
+        push(&mut vertices, [index as f32 + 60001.0, 0.0, 0.0]);
+    }
+    let mut faces: Vec<[u16; 3]> = (0..FILLERS)
+        .map(|face| {
+            let first = LOOSE_BEFORE + 3 * face;
+            [first as u16, (first + 1) as u16, (first + 2) as u16]
+        })
+        .collect();
+    faces.push([target as u16, (target + 1) as u16, (target + 2) as u16]);
+    let mesh = Mesh {
+        vertices,
+        faces,
+        bone_group: Vec::new(),
+        material: 0,
+        alpha_flags: 0,
+        shadow_flags: 0,
+        has_antiblur_meshes: false,
+        is_antiblur_mesh: false,
+        custom_bounding_box: None,
+    };
+    check_round_trip(grid_model(mesh.clone(), 0), mesh);
+}
+
 // S4
 fn check_round_trip(mut model: Model, source: Mesh) {
     let source_faces = face_tuples(&source);
@@ -750,7 +816,7 @@ fn a_fitting_subtree_climbs() {
 }
 
 // S19: vertices no face references still travel into a component.
-fn loose_vertices_travel(mesh: Mesh, bones: usize) {
+fn loose_vertices_travel(mesh: Mesh, bones: usize) -> Model {
     let source: BTreeSet<VertexTuple> = (0..mesh.vertices.positions.len())
         .map(|index| vertex_tuple(&mesh, index))
         .collect();
@@ -763,6 +829,7 @@ fn loose_vertices_travel(mesh: Mesh, bones: usize) {
         .flat_map(|mesh| (0..mesh.vertices.positions.len()).map(|index| vertex_tuple(mesh, index)))
         .collect();
     assert_eq!(covered, source);
+    model
 }
 
 #[test]
@@ -811,11 +878,12 @@ fn a_cyclic_parents_override_terminates() {
 }
 
 // Vertex-limit binding in the fragment's face and loose loops: every
-// position carries eight loops, so a component fills its 63000 vertices
-// long before 20000 faces.
+// position carries eight loops, so a component keeps filling on loose
+// sets after the faces are in, and a few sets defer to the next
+// component.
 #[test]
 fn vertex_limit_binds_before_faces() {
-    const WIDTH: usize = 101;
+    const WIDTH: usize = 96;
     const HEIGHT: usize = 81;
     let mut vertices = MeshVertices {
         positions: Vec::new(),
@@ -838,15 +906,19 @@ fn vertex_limit_binds_before_faces() {
             vertices.uvs[0].push([copy as f32, 0.0]);
         }
     }
-    // Loose vertices at unique positions (one set each).
+    // Loose vertices in 16-copy sets: a mis-scaled bound in either loop
+    // moves the count by whole sets, and a `+`-as-`-` bound overshoots
+    // the cap instead of landing on it.
     for loose in 0..500 {
-        vertices.positions.push([0.0, 0.0, loose as f32 + 1.0]);
-        vertices
-            .normals
-            .as_mut()
-            .unwrap()
-            .push([0.0, 0.0, 1.0, 0.0]);
-        vertices.uvs[0].push([0.0, 0.0]);
+        for _ in 0..16 {
+            vertices.positions.push([0.0, 0.0, loose as f32 + 1.0]);
+            vertices
+                .normals
+                .as_mut()
+                .unwrap()
+                .push([0.0, 0.0, 1.0, 0.0]);
+            vertices.uvs[0].push([0.0, 0.0]);
+        }
     }
     let mut mesh = Mesh {
         vertices,
@@ -869,7 +941,10 @@ fn vertex_limit_binds_before_faces() {
             mesh.faces.push([v00 as u16, v11 as u16, v01 as u16]);
         }
     }
-    loose_vertices_travel(mesh, 0);
+    let model = loose_vertices_travel(mesh, 0);
+    // The loose loop keeps filling: the first component ends within one
+    // set of the vertex cap.
+    assert!(model.meshes[0].vertices.positions.len() >= VERTEX_LIMIT_SOFT - 8);
 }
 
 // Bone-limit binding in the loose loop: one face on bone 0 plus 40 loose

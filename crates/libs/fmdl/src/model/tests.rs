@@ -1107,6 +1107,64 @@ fn a_groups_box_covers_its_children() {
 }
 
 #[test]
+fn a_childless_groups_box_flows_through_an_empty_middle_group() {
+    // Group 0 holds mesh 0 (x 0..1); its child group 1 is empty and
+    // unboxed; its grandchild group 2 holds mesh 1 (x 0..11).
+    let mut model = grouped_model(
+        vec![
+            mesh_with(plain_vertices()),
+            mesh_with(MeshVertices {
+                positions: vec![[0.0; 3], [11.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
+                ..MeshVertices::default()
+            }),
+        ],
+        vec![vec![0], vec![], vec![1]],
+    );
+    model.mesh_groups[1].parent = Some(0);
+    model.mesh_groups[2].parent = Some(1);
+    let file = model.to_file().unwrap();
+    // The empty middle group writes no assignment; records are in group
+    // order, so [0] is group 0's and its box must reach x = 11.
+    assert_eq!(file.mesh_group_assignments.len(), 2);
+    let id = usize::from(file.mesh_group_assignments[0].bounding_box_id);
+    assert_eq!(file.bounding_boxes[id].max[0], 11.0);
+}
+
+#[test]
+fn consecutive_meshes_write_one_assignment() {
+    let model = grouped_model(
+        vec![
+            mesh_with(plain_vertices()),
+            mesh_with(plain_vertices()),
+            mesh_with(plain_vertices()),
+        ],
+        vec![vec![0, 1, 2]],
+    );
+    let file = model.to_file().unwrap();
+    assert_eq!(file.mesh_group_assignments.len(), 1);
+    let record = &file.mesh_group_assignments[0];
+    assert_eq!(record.first_mesh_id, 0);
+    assert_eq!(record.mesh_count, 3);
+}
+
+#[test]
+fn a_flat_extreme_is_not_the_zero_box() {
+    // Every vertex sits at x = 5: max == min, but that is a real extent,
+    // not "nothing to measure".
+    let model = grouped_model(
+        vec![mesh_with(MeshVertices {
+            positions: vec![[5.0; 3]; 3],
+            ..MeshVertices::default()
+        })],
+        vec![vec![0]],
+    );
+    let file = model.to_file().unwrap();
+    let id = usize::from(file.mesh_group_assignments[0].bounding_box_id);
+    assert_eq!(file.bounding_boxes[id].max[0], 5.0);
+    assert_eq!(file.bounding_boxes[id].min[0], 5.0);
+}
+
+#[test]
 fn an_empty_mesh_format_group_writes_no_record() {
     // An unskinned mesh with normals only: positions plus one data entry.
     let file = grouped_model(

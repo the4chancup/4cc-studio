@@ -602,4 +602,30 @@ mod tests {
         };
         assert_eq!(decode(&mesh).unwrap(), vec![0, 0]);
     }
+
+    // Two coincident vertices whose positive-weight lanes differ have
+    // different keys: the second starts its own owner run even at the
+    // same position.
+    #[test]
+    fn different_weights_keep_their_own_owners() {
+        let mesh = Mesh {
+            vertices: MeshVertices {
+                positions: vec![[0.0; 3], [0.0; 3]],
+                uvs: vec![vec![[0.0, 0.0], [1.0, 0.0]]],
+                uv_high_precision: vec![true],
+                bone_weights: Some(vec![[255, 0, 0, 0], [128, 127, 0, 0]]),
+                bone_indices: Some(vec![[0, 0, 0, 0]; 2]),
+                ..MeshVertices::default()
+            },
+            faces: Vec::new(),
+            bone_group: vec![0, 1],
+            material: 0,
+            alpha_flags: 0,
+            shadow_flags: 0,
+            has_antiblur_meshes: false,
+            is_antiblur_mesh: false,
+            custom_bounding_box: None,
+        };
+        assert_eq!(decode(&mesh).unwrap(), vec![0, 1]);
+    }
 }
