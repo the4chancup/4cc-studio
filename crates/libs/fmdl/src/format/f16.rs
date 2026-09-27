@@ -75,3 +75,72 @@ pub(crate) fn f32_to_f16(value: f32) -> u16 {
     }
     sign | result
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn golden() {
+        let mut checked = 0;
+        for line in include_str!("../../tests/fixtures/f16_golden.tsv").lines() {
+            let mut fields = line.split('\t');
+            let f32_bits =
+                u32::from_str_radix(fields.next().expect("f32 bits"), 16).expect("f32 hex");
+            let f16_bits =
+                u16::from_str_radix(fields.next().expect("f16 bits"), 16).expect("f16 hex");
+            assert_eq!(
+                f32_to_f16(f32::from_bits(f32_bits)),
+                f16_bits,
+                "encode {f32_bits:08X}"
+            );
+            if fields.next() == Some("1") {
+                assert_eq!(
+                    f16_to_f32(f16_bits).to_bits(),
+                    f32_bits,
+                    "decode {f16_bits:04X}"
+                );
+            }
+            checked += 1;
+        }
+        assert_eq!(checked, 1870);
+    }
+
+    #[test]
+    fn nan_payloads() {
+        // The IEEE conversion keeps the payload's top bits and sets the
+        // quiet bit; an empty payload becomes the canonical quiet NaN.
+        assert_eq!(f16_to_f32(0x7C01).to_bits(), 0x7FC0_2000);
+        assert_eq!(f16_to_f32(0xFF55).to_bits(), 0xFFEA_A000);
+        assert_eq!(f32_to_f16(f32::from_bits(0x7FC0_2000)), 0x7E01);
+        assert_eq!(f32_to_f16(f32::from_bits(0xFFEA_A000)), 0xFF55);
+        assert_eq!(f32_to_f16(f32::from_bits(0x7F80_0001)), 0x7E00);
+    }
+
+    #[test]
+    fn half_exhaustive_round_trip() {
+        for bits in 0u16..=u16::MAX {
+            let value = f16_to_f32(bits);
+            let back = f32_to_f16(value);
+            if bits & 0x7C00 == 0x7C00 && bits & 0x03FF != 0 {
+                // NaN in, NaN out.
+                assert!(value.is_nan(), "{bits:#06x}");
+                assert!(back & 0x7C00 == 0x7C00 && back & 0x03FF != 0, "{bits:#06x}");
+            } else {
+                assert_eq!(back, bits, "{bits:#06x}");
+            }
+        }
+    }
+
+    #[test]
+    fn half_rounding_cases() {
+        assert_eq!(f32_to_f16(1.0), 0x3C00);
+        assert_eq!(f32_to_f16(-2.0), 0xC000);
+        assert_eq!(f32_to_f16(65504.0), 0x7BFF);
+        assert_eq!(f32_to_f16(65520.0), 0x7C00);
+        assert_eq!(f32_to_f16(1.0 + 2f32.powi(-11)), 0x3C00);
+        assert_eq!(f32_to_f16(1.0 + 3.0 * 2f32.powi(-11)), 0x3C02);
+        assert_eq!(f32_to_f16(2f32.powi(-25)), 0x0000);
+        assert_eq!(f32_to_f16(2f32.powi(-24)), 0x0001);
+    }
+}

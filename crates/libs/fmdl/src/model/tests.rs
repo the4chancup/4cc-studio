@@ -1,4 +1,5 @@
 use super::*;
+use crate::format::container::FmdlContainer;
 use crate::format::{FmdlError, FmdlFile};
 
 const HIGHNECK: &[u8] = include_bytes!("../../tests/fixtures/konami_highneck.fmdl");
@@ -366,6 +367,19 @@ fn extensions_flags() {
 }
 
 #[test]
+fn a_second_extensions_line_is_not_flags() {
+    // Only the first line feeds the flags list; a repeated
+    // `X-FMDL-Extensions` key lands in the object headers, which no
+    // extension flag is ever looked up through.
+    let mut file = FmdlFile::read(HIGHNECK).unwrap();
+    let mut table = file.string_table.clone().unwrap();
+    table.extend_from_slice(b"X-FMDL-Extensions: \nX-FMDL-Extensions: mesh-splitting\n\0");
+    file.string_table = Some(table);
+    let model = Model::from_file(&file).unwrap();
+    assert!(!model.extensions.mesh_splitting);
+}
+
+#[test]
 fn bad_material_reference() {
     let mut file = FmdlFile::read(HIGHNECK).unwrap();
     file.meshes[0].material_instance_id = 9;
@@ -420,7 +434,7 @@ fn written_file_is_a_valid_container() {
         let model = model(bytes);
         let written = model.to_file().unwrap().write();
         let file = FmdlFile::read(&written).unwrap();
-        let container = crate::FmdlContainer::read(&written).unwrap();
+        let container = FmdlContainer::read(&written).unwrap();
         assert_eq!(file.bones.is_empty(), !has_bones);
         assert_eq!(
             container.section1.iter().any(|block| block.id == 1),

@@ -2081,3 +2081,40 @@ Decision (cross-family review at converge):
 - **WideVector3 `a`/`b` present but blank are `BadValue`**, like the other strict integers.
 - **Loop result:** three rounds, 5/5/2 accepted; the surface closes under the accept-rate rule.
 Plan: `libs/fox2.md` (the `from_xml` paragraph).
+
+## 2026-09-27 - workflow - a lead recommendation is applied and logged, not asked
+Decision: when the lead has a clear recommended choice for a point `AGENTS.md` lists under
+"Stop and ask", it applies the choice, logs it (plan edit, decision entry) and names it in the
+turn report; it asks only when the choice is truly ambiguous or needs information only the
+maintainer has. New dependencies and `unsafe` still need a yes first.
+Why: the maintainer's instruction at 2.20f, after three converge questions that each carried a
+recommendation he accepted: asking costs a round trip and adds nothing when the answer is
+already the lead's recommendation, and the report keeps every such choice reversible.
+Plan: `AGENTS.md` "When the plan has gaps".
+
+## 2026-09-27 - fmdl - converge audit: custom boxes, one `Model::validate`, a narrower surface
+Decision (lead audit at 2.20f, the first two confirmed by the maintainer):
+- **`Custom-Bounding-Box-Meshes` follows the add-on both ways**: a marked mesh reads back with
+  its group's box as `custom_bounding_box`; `to_file` emits the header for meshes with one and
+  uses the custom box in place of the mesh's vertex extent when it computes a group box. Before,
+  the field was never filled or written anywhere, the IR's copy included.
+- **`Model::validate`** is the one list of model invariants (index ranges, parent cycles, face
+  indices, attribute lengths). `from_file` ends with it, `to_file` and every op start with it;
+  `antiblur::encode/decode` and `vertex_enc::decode`/`decode_model` become fallible (they
+  panicked on a dangling index, round C's open item (b)); `to_file` also refuses a mesh in two
+  groups or none, as `from_file` does.
+- **Codec internals `pub(crate)`**: `FmdlContainer`, the vertex-attribute layout types and
+  `FmdlFile::vertex_attributes`, `FmdlFile::string`, split's limits, `needs_splitting`,
+  `effective_parents`. No crate, binding or plan section calls them.
+- **Per-object extension headers other than the four known ones are dropped** on read; unknown
+  `X-FMDL-Extensions` flags stay in `Extensions::other` (already the code; the plan block lacked
+  the field).
+Why: the add-on is the only writer of the header and its semantics are the only evidence; a
+dead field in two plans is worse than either implementing or removing it, and implementing
+keeps hand-set culling boxes through a rewrite. Five partial copies of the index checks had
+already drifted (antiblur had none), so one function is the fix, not a sixth copy. Unknown
+headers carry mesh indices every op renumbers, and nothing known writes one. The plan said
+`to_file` writes a box per mesh; the format has none.
+Plan: `libs/format_crates.md` "Layout of the format crates" (bindings surface), "`fmdl::model`"
+(the `Extensions`/`validate` block, "One list of invariants", "Custom bounding boxes", the
+`to_file` box sentence).

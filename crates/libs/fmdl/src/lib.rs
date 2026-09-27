@@ -10,5 +10,5 @@ pub mod model;
 pub mod ops;
 
 pub use format::records::*;
-pub use format::{FmdlContainer, FmdlError, FmdlFile, SklFile};
+pub use format::{FmdlError, FmdlFile, SklFile};
 pub use model::*;

@@ -13,3 +13,4 @@ version is 2.03 in every file. Mesh/bone/material counts are from the reference 
 | `konami_boots.skl` | PES 2021 `common_package_fpk/.../character/common/boots.skl` | SKL: 276 bytes |
 | `konami_referee_f_close.skl` | `.../referee_flag/scenes/referee_f_close.skl` | SKL: 156 bytes |
 | `konami_au00.skl` | unpacked from `konami_audiLowParts_model.fpk` | SKL: 1088 bytes, 16 bones (pairs with `konami_au_Low_parts.fmdl`) |
+| `f16_golden.tsv` | `scripts/provenance/fixtures/fmdl_f16_golden.py` (numpy 2.4.5) | `F32BITS<TAB>F16BITS<TAB>EXACT`, 1870 rows: numpy's float32 to float16 cast (ties to even) as the encoder's oracle; `EXACT` = 1 when the input is a half value, so the row also checks the decoder. Every half exponent at ten mantissas, the tie to the next half and one ulp either side, negated copies, the overflow and subnormal edges. No NaN rows |

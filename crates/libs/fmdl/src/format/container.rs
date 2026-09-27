@@ -19,7 +19,7 @@ use crate::format::FmdlError;
 /// fixed-size records, every section-1 block as raw bytes. Blocks are kept
 /// in the order they were read; `write` sorts them by id.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct FmdlContainer {
+pub(crate) struct FmdlContainer {
     /// The header version field (`0x4001eb85` for the 2.03 files PES ships).
     pub version: u32,
     /// The record blocks of section 0.
@@ -112,10 +112,7 @@ impl FmdlContainer {
     /// Parses an FMDL buffer. Blocks keep the order their descriptors give;
     /// a section-0 block whose id has no known record size is kept as one
     /// raw span running to the next block's offset (or the section end).
-    pub fn read(bytes: &[u8]) -> Result<Self, FmdlError> {
-        if bytes.len() < 64 {
-            return Err(FmdlError::Truncated);
-        }
+    pub(crate) fn read(bytes: &[u8]) -> Result<Self, FmdlError> {
         let mut cursor = Cursor::new(bytes);
         let header = Header::read(&mut cursor).map_err(|_| FmdlError::Truncated)?;
         if header.magic != *b"FMDL" {
@@ -204,10 +201,10 @@ impl FmdlContainer {
             // Stored lengths occasionally run past the file end; the block
             // data is whatever is left. Block 3 is always read to the end.
             let remaining = bytes.len().saturating_sub(start);
-            let length = if u64::from(descriptor.length) > remaining as u64 || descriptor.id == 3 {
+            let length = if descriptor.id == 3 {
                 remaining
             } else {
-                descriptor.length as usize
+                (descriptor.length as usize).min(remaining)
             };
             let span = bytes
                 .get(start..start + length)
@@ -228,7 +225,7 @@ impl FmdlContainer {
     /// Serializes the container: blocks sorted by id, descriptors padded to
     /// 16, section-0 block 13 16-byte aligned, section 0 padded to 16 at the
     /// end, section 1 written back to back.
-    pub fn write(&self) -> Vec<u8> {
+    pub(crate) fn write(&self) -> Vec<u8> {
         let mut section0: Vec<&RecordBlock> = self.section0.iter().collect();
         section0.sort_by_key(|block| block.id);
         let mut section1: Vec<&ByteBlock> = self.section1.iter().collect();
@@ -308,7 +305,7 @@ impl FmdlContainer {
 
     /// The record size for a section-0 block id, when the format defines
     /// one.
-    pub fn record_size(id: u16) -> Option<usize> {
+    pub(crate) fn record_size(id: u16) -> Option<usize> {
         RECORD_SIZES
             .iter()
             .find(|(block_id, _)| *block_id == id)
@@ -425,6 +422,72 @@ mod tests {
                 .collect::<Vec<_>>()
         );
         assert_eq!(reread.section1, container.section1);
+    }
+
+    #[test]
+    fn a_header_only_container_writes_64_bytes() {
+        let container = FmdlContainer {
+            version: 0x4001eb85,
+            section0: Vec::new(),
+            section1: Vec::new(),
+        };
+        let written = container.write();
+        assert_eq!(written.len(), 64);
+        assert_eq!(FmdlContainer::read(&written).unwrap(), container);
+        // A descriptor table offset past the buffer end is truncated.
+        let mut bad = written.clone();
+        bad[8..16].copy_from_slice(&80u64.to_le_bytes());
+        assert!(matches!(
+            FmdlContainer::read(&bad),
+            Err(FmdlError::Truncated)
+        ));
+    }
+
+    #[test]
+    fn section1_lengths_clamp_but_block3_reads_to_the_end() {
+        // A non-3 block whose stored length runs past the file end reads
+        // what is left.
+        let container = FmdlContainer {
+            version: 0x4001eb85,
+            section0: Vec::new(),
+            section1: vec![
+                ByteBlock {
+                    id: 2,
+                    bytes: b"ab".to_vec(),
+                },
+                ByteBlock {
+                    id: 5,
+                    bytes: b"cdef".to_vec(),
+                },
+            ],
+        };
+        let mut written = container.write();
+        // Block 5's descriptor is the second 12-byte section-1 entry, at
+        // 64 + 12; its length field sits 8 bytes in.
+        written[84..88].copy_from_slice(&u32::MAX.to_le_bytes());
+        assert_eq!(
+            FmdlContainer::read(&written).unwrap().section1,
+            container.section1
+        );
+
+        // Block 3 reads to the end even when its stored length is short.
+        let container = FmdlContainer {
+            version: 0x4001eb85,
+            section0: Vec::new(),
+            section1: vec![
+                ByteBlock {
+                    id: 3,
+                    bytes: b"ab".to_vec(),
+                },
+                ByteBlock {
+                    id: 4,
+                    bytes: b"cd".to_vec(),
+                },
+            ],
+        };
+        let reread = FmdlContainer::read(&container.write()).unwrap();
+        assert_eq!(reread.section1[0].bytes, b"abcd");
+        assert_eq!(reread.section1[1].bytes, b"cd");
     }
 
     #[test]

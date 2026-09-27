@@ -8,7 +8,7 @@
 use std::collections::HashMap;
 
 use crate::StringRecord;
-use crate::format::{FmdlError, FmdlFile};
+use crate::format::{FmdlError, FmdlFile, table_u16};
 
 /// One texture reference of the file's texture table.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -61,17 +61,7 @@ pub fn rewrite_texture_paths(
 
     // The tail is whatever followed the last block-3 string's NUL: the
     // extension-header text when present.
-    let table = file.string_table.as_deref().unwrap_or(&[]);
-    let last_end = file
-        .strings
-        .iter()
-        .filter(|record| record.string_block_id == 3)
-        .map(|record| record.offset as usize + usize::from(record.length))
-        .max();
-    let tail: Vec<u8> = match last_end {
-        Some(end) if end < table.len() => table[end + 1..].to_vec(),
-        _ => table.to_vec(),
-    };
+    let tail: Vec<u8> = file.extension_tail().to_vec();
 
     // Every string's text, then the new strings appended de-duplicated.
     let mut texts: Vec<String> = Vec::with_capacity(file.strings.len());
@@ -95,8 +85,8 @@ pub fn rewrite_texture_paths(
     let count = changed.len();
     for (index, path) in changed {
         let texture = &mut file.textures[index];
-        texture.filename_string_id = by_text[&path.file_name] as u16;
-        texture.directory_string_id = by_text[&path.directory] as u16;
+        texture.filename_string_id = table_u16("strings", by_text[&path.file_name])?;
+        texture.directory_string_id = table_u16("strings", by_text[&path.directory])?;
     }
 
     // Rebuild the descriptors of block 3 and the block itself: each string
@@ -104,18 +94,22 @@ pub fn rewrite_texture_paths(
     let mut new_table = Vec::new();
     let original_count = file.strings.len();
     for (index, text) in texts.iter().enumerate() {
+        let offset = u32::try_from(new_table.len()).map_err(|_| FmdlError::TableOverflow {
+            what: "string table bytes",
+            count: new_table.len(),
+        })?;
         if index < original_count {
             let record = &mut file.strings[index];
             if record.string_block_id != 3 {
                 continue;
             }
-            record.length = text.len() as u16;
-            record.offset = new_table.len() as u32;
+            record.length = table_u16("string", text.len())?;
+            record.offset = offset;
         } else {
             file.strings.push(StringRecord {
                 string_block_id: 3,
-                length: text.len() as u16,
-                offset: new_table.len() as u32,
+                length: table_u16("string", text.len())?,
+                offset,
             });
         }
         new_table.extend(text.as_bytes());
@@ -301,6 +295,45 @@ mod tests {
         assert!(model.extensions.antiblur);
         assert!(model.extensions.vertex_loop_preservation);
         assert!(!model.extensions.mesh_splitting);
+    }
+
+    #[test]
+    fn a_rewrite_appends_one_new_string() {
+        let original = FmdlFile::read(HIGHNECK).unwrap();
+        let mut file = original.clone();
+        rewrite_texture_paths(&mut file, |path| {
+            path.directory =
+                "/Assets/pes16/model/character/face/real/12345/sourceimages/".to_owned();
+        })
+        .unwrap();
+        // The four references share one directory string: one new entry.
+        assert_eq!(file.strings.len(), original.strings.len() + 1);
+    }
+
+    #[test]
+    fn a_table_without_the_final_nul_rewrites_clean() {
+        let mut file = FmdlFile::read(HIGHNECK).unwrap();
+        // The last string's NUL is gone: its bytes run to the table's end.
+        let last_end = file
+            .strings
+            .iter()
+            .filter(|record| record.string_block_id == 3)
+            .map(|record| record.offset as usize + usize::from(record.length))
+            .max()
+            .unwrap();
+        file.string_table = Some(file.string_table.as_deref().unwrap()[..last_end].to_vec());
+        rewrite_texture_paths(&mut file, |path| {
+            path.directory = "/new/dir/".to_owned();
+        })
+        .unwrap();
+        // The new table is exactly the strings, each NUL-terminated: no
+        // copy of the old table is appended.
+        let mut expected = Vec::new();
+        for index in 0..file.strings.len() {
+            expected.extend_from_slice(file.string(index).unwrap().as_bytes());
+            expected.push(0);
+        }
+        assert_eq!(file.string_table.as_deref(), Some(expected.as_slice()));
     }
 
     #[test]

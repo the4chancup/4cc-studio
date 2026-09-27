@@ -176,6 +176,14 @@ mod tests {
     }
 
     #[test]
+    fn an_empty_skeleton_writes_12_bytes() {
+        let skl = SklFile { bones: Vec::new() };
+        let written = skl.write();
+        assert_eq!(written.len(), 12);
+        assert_eq!(SklFile::read(&written).unwrap(), skl);
+    }
+
+    #[test]
     fn fixture_bone_counts_and_parents() {
         for (bytes, count) in [(AU00, 16usize), (BOOTS, 4), (REFEREE, 2)] {
             let skl = SklFile::read(bytes).unwrap();

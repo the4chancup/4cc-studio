@@ -9,7 +9,7 @@ use crate::format::f16::{f16_to_f32, f32_to_f16};
 
 /// What a vertex attribute holds.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum DatumType {
+pub(crate) enum DatumType {
     /// Vertex position.
     Position,
     /// How strongly each bone pulls the vertex.
@@ -34,7 +34,7 @@ pub enum DatumType {
 
 impl DatumType {
     /// The id the vertex-format record stores.
-    pub fn id(self) -> u8 {
+    pub(crate) fn id(self) -> u8 {
         match self {
             DatumType::Position => 0,
             DatumType::BoneWeights => 1,
@@ -50,7 +50,7 @@ impl DatumType {
     }
 
     /// The type for an id, `None` outside the set the format defines.
-    pub fn from_id(id: u8) -> Option<Self> {
+    pub(crate) fn from_id(id: u8) -> Option<Self> {
         Some(match id {
             0 => DatumType::Position,
             1 => DatumType::BoneWeights,
@@ -69,7 +69,7 @@ impl DatumType {
 
 /// How a vertex attribute is stored.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum DatumFormat {
+pub(crate) enum DatumFormat {
     /// Three `f32`.
     TripleFloat32,
     /// Two `f32`.
@@ -86,7 +86,7 @@ pub enum DatumFormat {
 
 impl DatumFormat {
     /// The id the vertex-format record stores.
-    pub fn id(self) -> u8 {
+    pub(crate) fn id(self) -> u8 {
         match self {
             DatumFormat::TripleFloat32 => 1,
             DatumFormat::DoubleFloat32 => 2,
@@ -98,7 +98,7 @@ impl DatumFormat {
     }
 
     /// The format for an id, `None` outside the set the format defines.
-    pub fn from_id(id: u8) -> Option<Self> {
+    pub(crate) fn from_id(id: u8) -> Option<Self> {
         Some(match id {
             1 => DatumFormat::TripleFloat32,
             2 => DatumFormat::DoubleFloat32,
@@ -146,14 +146,19 @@ fn uv_index(datum_type: DatumType) -> Option<usize> {
         DatumType::Uv1 => Some(1),
         DatumType::Uv2 => Some(2),
         DatumType::Uv3 => Some(3),
-        _ => None,
+        DatumType::Position
+        | DatumType::BoneWeights
+        | DatumType::Normal
+        | DatumType::Color
+        | DatumType::BoneIndices
+        | DatumType::Tangent => None,
     }
 }
 
 /// One attribute of a mesh's vertices, resolved to where it lives in
 /// section-1 block 2.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct VertexAttribute {
+pub(crate) struct VertexAttribute {
     /// What the attribute holds.
     pub datum_type: DatumType,
     /// How it is stored.
@@ -291,7 +296,7 @@ impl FmdlFile {
     /// The attributes of mesh `index`, resolved through its mesh-format
     /// assignment, mesh formats, vertex formats and buffer offsets to
     /// absolute spans of section-1 block 2.
-    pub fn vertex_attributes(&self, mesh: usize) -> Result<Vec<VertexAttribute>, FmdlError> {
+    pub(crate) fn vertex_attributes(&self, mesh: usize) -> Result<Vec<VertexAttribute>, FmdlError> {
         let mesh_record = self.meshes.get(mesh).ok_or(FmdlError::BadReference {
             what: "mesh",
             index: mesh,
@@ -419,10 +424,7 @@ impl FmdlFile {
             index: 2,
         })?;
 
-        let mut vertices = MeshVertices {
-            positions: Vec::with_capacity(vertex_count),
-            ..MeshVertices::default()
-        };
+        let mut vertices = MeshVertices::default();
         let mut uv_slots: [Option<Vec<[f32; 2]>>; 4] = [None, None, None, None];
         let mut uv_precision = [false; 4];
         for attribute in &attributes {
@@ -463,8 +465,8 @@ impl FmdlFile {
                             .push(read_quad16(buffer, range)?);
                     }
                     DatumType::Uv0 | DatumType::Uv1 | DatumType::Uv2 | DatumType::Uv3 => {
-                        let index = uv_index(attribute.datum_type)
-                            .ok_or(FmdlError::InvalidVertexFormat("uv datum without a map"))?;
+                        let index =
+                            uv_index(attribute.datum_type).expect("Uv0..Uv3 always name a uv map");
                         uv_precision[index] = attribute.format == DatumFormat::DoubleFloat32;
                         uv_slots[index].get_or_insert_with(Vec::new).push(read_uv(
                             buffer,
@@ -608,8 +610,7 @@ impl FmdlFile {
             ));
         }
         for attribute in &uv_attributes {
-            let map = uv_index(attribute.datum_type)
-                .ok_or(FmdlError::InvalidVertexFormat("uv datum without a map"))?;
+            let map = uv_index(attribute.datum_type).expect("Uv0..Uv3 always name a uv map");
             if vertices.uvs[map].len() != vertex_count {
                 return Err(FmdlError::VertexMismatch("wrong vertex count"));
             }
@@ -666,8 +667,8 @@ impl FmdlFile {
                         write_quad16(buffer, range, values[vertex])?;
                     }
                     DatumType::Uv0 | DatumType::Uv1 | DatumType::Uv2 | DatumType::Uv3 => {
-                        let map = uv_index(attribute.datum_type)
-                            .ok_or(FmdlError::InvalidVertexFormat("uv datum without a map"))?;
+                        let map =
+                            uv_index(attribute.datum_type).expect("Uv0..Uv3 always name a uv map");
                         write_uv(
                             buffer,
                             range,
@@ -738,7 +739,7 @@ impl FmdlFile {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::format::f16::{f16_to_f32, f32_to_f16};
+    use crate::model::{Extensions, MaterialInstance, Mesh, MeshGroup, Model};
 
     const HIGHNECK: &[u8] = include_bytes!("../../tests/fixtures/konami_highneck.fmdl");
     const MOUTH: &[u8] = include_bytes!("../../tests/fixtures/konami_mouth.fmdl");
@@ -763,31 +764,233 @@ mod tests {
         }
     }
 
-    #[test]
-    fn half_exhaustive_round_trip() {
-        for bits in 0u16..=u16::MAX {
-            let value = f16_to_f32(bits);
-            let back = f32_to_f16(value);
-            if bits & 0x7C00 == 0x7C00 && bits & 0x03FF != 0 {
-                // NaN in, NaN out.
-                assert!(value.is_nan(), "{bits:#06x}");
-                assert!(back & 0x7C00 == 0x7C00 && back & 0x03FF != 0, "{bits:#06x}");
-            } else {
-                assert_eq!(back, bits, "{bits:#06x}");
-            }
+    /// A one-mesh `Model` over `vertices` for encode/write testing.
+    fn one_mesh_model(vertices: MeshVertices) -> Model {
+        Model {
+            bones: Vec::new(),
+            materials: vec![MaterialInstance {
+                name: "mat".to_owned(),
+                shader: "shader".to_owned(),
+                technique: "technique".to_owned(),
+                textures: Vec::new(),
+                parameters: Vec::new(),
+            }],
+            meshes: vec![Mesh {
+                vertices,
+                faces: vec![[0, 1, 2]],
+                bone_group: Vec::new(),
+                material: 0,
+                alpha_flags: 0,
+                shadow_flags: 0,
+                has_antiblur_meshes: false,
+                is_antiblur_mesh: false,
+                custom_bounding_box: None,
+            }],
+            mesh_groups: vec![MeshGroup {
+                name: "group".to_owned(),
+                parent: None,
+                meshes: vec![0],
+                bounding_box: None,
+                visible: true,
+                split_mesh_group: false,
+            }],
+            extensions: Extensions::default(),
+            bone_matrices: None,
         }
     }
 
     #[test]
-    fn half_rounding_cases() {
-        assert_eq!(f32_to_f16(1.0), 0x3C00);
-        assert_eq!(f32_to_f16(-2.0), 0xC000);
-        assert_eq!(f32_to_f16(65504.0), 0x7BFF);
-        assert_eq!(f32_to_f16(65520.0), 0x7C00);
-        assert_eq!(f32_to_f16(1.0 + 2f32.powi(-11)), 0x3C00);
-        assert_eq!(f32_to_f16(1.0 + 3.0 * 2f32.powi(-11)), 0x3C02);
-        assert_eq!(f32_to_f16(2f32.powi(-25)), 0x0000);
-        assert_eq!(f32_to_f16(2f32.powi(-24)), 0x0001);
+    fn datum_ids_round_trip() {
+        for datum_type in [
+            DatumType::Position,
+            DatumType::BoneWeights,
+            DatumType::Normal,
+            DatumType::Color,
+            DatumType::BoneIndices,
+            DatumType::Uv0,
+            DatumType::Uv1,
+            DatumType::Uv2,
+            DatumType::Uv3,
+            DatumType::Tangent,
+        ] {
+            assert_eq!(DatumType::from_id(datum_type.id()), Some(datum_type));
+        }
+        for format in [
+            DatumFormat::TripleFloat32,
+            DatumFormat::DoubleFloat32,
+            DatumFormat::QuadFloat16,
+            DatumFormat::DoubleFloat16,
+            DatumFormat::QuadFloat8,
+            DatumFormat::QuadInt8,
+        ] {
+            assert_eq!(DatumFormat::from_id(format.id()), Some(format));
+        }
+        assert_eq!(
+            (0..=255u8)
+                .filter(|id| DatumType::from_id(*id).is_some())
+                .count(),
+            10
+        );
+        assert_eq!(
+            (0..=255u8)
+                .filter(|id| DatumFormat::from_id(*id).is_some())
+                .count(),
+            6
+        );
+    }
+
+    #[test]
+    fn a_mismatched_format_is_rejected() {
+        let mut file = FmdlFile::read(HIGHNECK).unwrap();
+        // Position must be TripleFloat32; storing it as QuadFloat16 is
+        // a pairing the format rejects.
+        file.vertex_formats[0].datum_format = DatumFormat::QuadFloat16.id();
+        assert!(matches!(
+            file.vertex_attributes(0),
+            Err(FmdlError::UnsupportedVertexFormat {
+                datum_type: 0,
+                datum_format: 6
+            })
+        ));
+    }
+
+    #[test]
+    fn a_uv_map_without_the_lower_ones_is_rejected() {
+        let mut file = FmdlFile::read(HIGHNECK).unwrap();
+        // Mesh 0's format ends with Uv0; renaming it Uv1 leaves a gap.
+        file.vertex_formats[5].datum_type = DatumType::Uv1.id();
+        assert!(matches!(
+            file.vertex_attributes(0),
+            Err(FmdlError::InvalidVertexFormat(_))
+        ));
+    }
+
+    #[test]
+    fn a_vertex_format_past_the_table_is_a_bad_reference() {
+        let mut file = FmdlFile::read(HIGHNECK).unwrap();
+        // Entry 0 resolves (the last record); entry 1 is off the end.
+        let first = file.vertex_formats.len() - 1;
+        file.mesh_format_assignments[0].first_vertex_format_id = first as u16;
+        assert!(matches!(
+            file.vertex_attributes(0),
+            Err(FmdlError::BadReference {
+                what: "vertex format",
+                index
+            }) if index == first + 1
+        ));
+    }
+
+    #[test]
+    fn encode_vertices_rewrites_the_buffer() {
+        let file = FmdlFile::read(HIGHNECK).unwrap();
+        let mut vertices = file.decode_vertices(0).unwrap();
+        for position in &mut vertices.positions {
+            position[0] += 1.0;
+        }
+        // Negation is exact in a half, so these round-trip bit for bit.
+        for quad in vertices.normals.iter_mut().flatten() {
+            *quad = quad.map(|value| -value);
+        }
+        for quad in vertices.tangents.iter_mut().flatten() {
+            *quad = quad.map(|value| -value);
+        }
+        for uv in vertices.uvs.iter_mut().flatten() {
+            *uv = uv.map(|value| -value);
+        }
+        for quad in vertices.colors.iter_mut().flatten() {
+            quad.reverse();
+        }
+        for quad in vertices.bone_weights.iter_mut().flatten() {
+            quad.reverse();
+        }
+        for quad in vertices.bone_indices.iter_mut().flatten() {
+            quad.reverse();
+        }
+        let mut edited = file.clone();
+        edited.encode_vertices(0, &vertices).unwrap();
+        assert_eq!(edited.decode_vertices(0).unwrap(), vertices);
+
+        // A buffer too short for the attribute spans errors, no panic.
+        let mut truncated = file;
+        let length = truncated.buffer.as_deref().unwrap().len() / 2;
+        truncated.buffer.as_mut().unwrap().truncate(length);
+        assert!(matches!(
+            truncated.encode_vertices(0, &vertices),
+            Err(FmdlError::Truncated)
+        ));
+    }
+
+    #[test]
+    fn encode_vertices_reports_the_mismatch() {
+        // A format without normals rejects vertices that carry them.
+        let mut bare = one_mesh_model(MeshVertices {
+            positions: vec![[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
+            ..MeshVertices::default()
+        })
+        .to_file()
+        .unwrap();
+        let vertices = MeshVertices {
+            positions: vec![[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
+            normals: Some(vec![[0.0; 4]; 3]),
+            ..MeshVertices::default()
+        };
+        assert!(matches!(
+            bare.encode_vertices(0, &vertices),
+            Err(FmdlError::VertexMismatch(
+                "attribute not in the mesh format"
+            ))
+        ));
+
+        let mut file = FmdlFile::read(HIGHNECK).unwrap();
+        let mut vertices = file.decode_vertices(0).unwrap();
+        vertices.normals = None;
+        assert!(matches!(
+            file.encode_vertices(0, &vertices),
+            Err(FmdlError::VertexMismatch("attribute missing"))
+        ));
+        let mut vertices = file.decode_vertices(0).unwrap();
+        vertices.normals.as_mut().unwrap().pop();
+        assert!(matches!(
+            file.encode_vertices(0, &vertices),
+            Err(FmdlError::VertexMismatch("wrong vertex count"))
+        ));
+        let mut vertices = file.decode_vertices(0).unwrap();
+        let extra = vertices.uvs[0].clone();
+        vertices.uvs.push(extra);
+        vertices.uv_high_precision.push(false);
+        assert!(matches!(
+            file.encode_vertices(0, &vertices),
+            Err(FmdlError::VertexMismatch(
+                "uv maps do not match the mesh format"
+            ))
+        ));
+        let mut vertices = file.decode_vertices(0).unwrap();
+        vertices.uv_high_precision.pop();
+        assert!(matches!(
+            file.encode_vertices(0, &vertices),
+            Err(FmdlError::VertexMismatch(
+                "uv maps do not match the mesh format"
+            ))
+        ));
+    }
+
+    #[test]
+    fn four_uv_maps_survive_a_write_and_decode() {
+        // Two high-precision and two half maps, every value exact in half.
+        let vertices = MeshVertices {
+            positions: vec![[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
+            uvs: vec![
+                vec![[0.5, 0.25], [0.75, -0.5], [1.5, -1.0]],
+                vec![[0.25, -0.25], [-0.5, 0.75], [-1.0, 1.5]],
+                vec![[0.125, -0.125], [0.375, 0.5], [-0.75, -1.5]],
+                vec![[2.0, 0.5], [-0.25, 0.125], [1.0, -2.0]],
+            ],
+            uv_high_precision: vec![true, true, false, false],
+            ..MeshVertices::default()
+        };
+        let model = one_mesh_model(vertices.clone());
+        let file = FmdlFile::read(&model.to_file().unwrap().write()).unwrap();
+        assert_eq!(file.decode_vertices(0).unwrap(), vertices);
     }
 
     #[test]

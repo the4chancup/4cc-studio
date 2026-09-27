@@ -61,7 +61,10 @@ Rules:
 - **`check.rs` returns findings, not messages** — stable codes with context, mapped to catalog
   entries by the consuming tool, mirroring `aesthetics_export`'s rule.
 - **The `python_bindings` surface is `format/` + `ops/`**, exposed as-is; if a function is awkward to
-  expose, that is a hint it belongs in the Team compiler rather than here.
+  expose, that is a hint it belongs in the Team compiler rather than here. "As-is" means the
+  entry points (file read/write, vertex and face decode/encode, the ops), not the codec's
+  internals: `fmdl` keeps its raw container, vertex-attribute layout types, string lookup and
+  split limits `pub(crate)` until a consumer names one.
 - Core plan guardrail 4 (PyO3-buildable, dependency denylist) applies to the whole crate; the split
   does not relax it for `ops/`.
 
@@ -123,24 +126,56 @@ pub struct Mesh {
     pub custom_bounding_box: Option<BoundingBox>,
 }
 pub struct MeshGroup { pub name: String, pub parent: Option<usize>, pub meshes: Vec<usize>, pub bounding_box: Option<BoundingBox>, pub visible: bool, pub split_mesh_group: bool }
-pub struct Extensions { pub mesh_splitting: bool, pub antiblur: bool, pub vertex_loop_preservation: bool }
+pub struct Extensions {
+    pub mesh_splitting: bool, pub antiblur: bool, pub vertex_loop_preservation: bool,
+    /// `X-FMDL-Extensions` values outside the three, kept verbatim for the rewrite.
+    pub other: Vec<String>,
+}
 impl Model {
     pub fn from_file(file: &FmdlFile) -> Result<Model, FmdlError>;
     pub fn to_file(&self) -> Result<FmdlFile, FmdlError>;
+    /// The invariants every op and `to_file` rely on; `from_file` output always passes.
+    pub fn validate(&self) -> Result<(), FmdlError>;
 }
 ```
+
+**One list of invariants.** `Model`'s fields are public, so a caller (the IR exporter, a
+merge, a test) can build a model whose indices dangle. `validate` is the one place that says
+what a well-formed `Model` is: bone and mesh-group parents in range and acyclic, every mesh's
+material and bone-group entries in range, every face index below the mesh's vertex count,
+every attribute vector one value per vertex (at most four uv maps, one precision flag each,
+bone weights and indices together), every group's mesh indices in range. It does not check the
+format limits (32 bones, 65535 vertices, 21845 faces: `ops::split` exists to take meshes over
+them) or a weighted bone slot past the mesh's bone group (Konami files carry those; `check.rs`
+warns). `from_file` ends with it, `to_file` and every op in `ops/` start with it, and none of
+them re-checks an index it covers, so an invalid model is an error, never a panic, and the
+list cannot drift between five partial copies (before 2.20f `to_file`, `merge` and `split`
+each checked a different subset and `antiblur` none). `to_file` adds one rule of its own,
+the one `from_file` enforces on read: every mesh in exactly one group, so it never writes a
+file its own reader refuses.
 
 `from_file` resolves every index through the tables (strings, bounding boxes, bone groups,
 materials, textures, parameter assignments, mesh-group assignments) and reads the extension
 headers from the string table's tail (`X-FMDL-Extensions:` plus per-object headers such as
 `Has-Antiblur-Meshes: 0,3` listing mesh indices, `Split-Mesh-Groups: 2` listing group indices,
 `Custom-Bounding-Box-Meshes`), the `key: value, value` grammar the add-ons write. Every dangling
-index is an error, never a panic. `to_file` lays a file out the way the add-on writer does, which
+index is an error, never a panic, face indices included. Per-object headers other than those
+four are dropped: their values are mesh or group indices that any op renumbers, and no known
+writer emits another (unknown `X-FMDL-Extensions` flags carry no index and are kept in
+`Extensions::other`).
+
+**Custom bounding boxes.** The format has no per-mesh box; `Custom-Bounding-Box-Meshes` only
+marks a mesh whose box the author set by hand, and the add-on folds that box into the mesh's
+*group* box. We do the same both ways: `from_file` gives a marked mesh `custom_bounding_box =
+Some(its group's box)`; `to_file` emits the header for every mesh with `Some`, and when it
+computes a group box (the group had none) it uses a mesh's custom box in place of that mesh's
+vertex extent. A group box the model already carries is written as is. `to_file` lays a file out the way the add-on writer does, which
 years of add-on-written models prove PES accepts: positions in buffer 0 (stride 12), the other
 attributes interleaved in buffer 1 in the order normal, tangent, color, bone weights, bone indices,
 uv maps (a uv map identical to an earlier one shares its offset), faces in buffer 2; strings
-de-duplicated; a bounding box per bone, mesh group and mesh (computed from the vertices when the
-source had none, which is why the legacy writer failed on Konami files); one level-of-detail record;
+de-duplicated; a bounding box per bone and per mesh group that has meshes (computed from its
+meshes when the source had none, which is why the legacy writer failed on Konami files; a group
+without meshes or box gets no assignment record, Konami's own layout); one level-of-detail record;
 the fixed blocks 18 and 20 as the add-on writes them; the extension headers re-emitted after the
 last string. The codec's per-mesh vertex kinds (normal, tangent, color, bone mapping, uv count and
 precision) are exactly what `MeshVertices` carries, so no separate "vertex fields" record exists.
