@@ -81,8 +81,8 @@ impl IngameFace {
     }
 
     /// The run with the player-gloves and skin bits zeroed: what the
-    /// fingerprint hashes (the reference masks the same two, because they
-    /// overlap fields it lists separately).
+    /// fingerprint hashes (masked out because they overlap fields the schema
+    /// lists separately).
     pub fn normalized(&self) -> Vec<u8> {
         self.masked(
             [

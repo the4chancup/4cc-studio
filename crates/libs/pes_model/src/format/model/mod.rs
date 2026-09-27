@@ -1,6 +1,6 @@
 //! `PreFoxModel`: the typed layer over [`ModelContainer`]. Reading resolves
 //! every cross-section pointer into an index; writing lays a fresh file out
-//! the add-on's way (see `write.rs`).
+//! in the export layout (see `write.rs`).
 
 use crate::format::datum::{DatumFormat, DatumType};
 use crate::format::records::RecordArray;
@@ -152,7 +152,7 @@ pub struct Mesh {
     /// The mesh's annotations, in file order.
     pub annotations: Vec<Annotation>,
     /// `None` when the record has no editor-data pointer (version-17 layout) or a zero one
-    /// (add-on files); `Some(vec![])` for Konami's present-but-empty array.
+    /// (export files); `Some(vec![])` for Konami's present-but-empty array.
     pub editor_data: Option<Vec<EditorItem>>,
 }
 
@@ -162,20 +162,20 @@ pub struct Mesh {
 pub struct Annotation {
     /// Index into `annotation_strings`.
     pub string: usize,
-    /// Index into `annotation_records`; `None` for a zero pointer (add-on files).
+    /// Index into `annotation_records`; `None` for a zero pointer (export files).
     pub record: Option<usize>,
     /// 7 in every Konami file (8 in third-party props).
     pub unknown: u32,
     /// The annotation kind (see [`Annotation::MESH_NAME`] and
-    /// [`Annotation::EXTENSION_HEADER`] for the add-on's; Konami uses 1, 2,
-    /// 7 and 10).
+    /// [`Annotation::EXTENSION_HEADER`] for the export kinds; Konami uses
+    /// 1, 2, 7 and 10).
     pub kind: u32,
 }
 
 impl Annotation {
-    /// The add-on's mesh-name annotation kind.
+    /// The mesh-name annotation kind in export files.
     pub const MESH_NAME: u32 = 128;
-    /// The add-on's extension-header annotation kind.
+    /// The extension-header annotation kind in export files.
     pub const EXTENSION_HEADER: u32 = 129;
 }
 

@@ -185,8 +185,8 @@ mod tests {
             let mut file = FmdlFile::read(bytes).unwrap();
             assert_eq!(rewrite_texture_paths(&mut file, |_| {}).unwrap(), 0);
             // The typed write is byte-identical for Konami files; for the
-            // add-on files the guarantee is `read(write(x)) == x`, so the
-            // assertion is against the untouched file's own serialization.
+            // `addon_*` fixtures the guarantee is `read(write(x)) == x`, so
+            // the assertion is against the untouched file's own serialization.
             assert_eq!(file.write(), FmdlFile::read(bytes).unwrap().write());
         }
         for bytes in [HIGHNECK, MOUTH, AU_LOW] {

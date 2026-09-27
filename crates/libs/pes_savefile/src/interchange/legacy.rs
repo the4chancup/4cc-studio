@@ -1,12 +1,10 @@
-//! The legacy 4ccEditor formats, read-only: `.4ccs` squad dumps and `.4cct`
-//! "nightly" tactics files. Both decode into a [`TeamToml`] so that
-//! [`TeamToml::apply`] is the only code that writes interchange data into a
-//! save.
+//! The `.4ccs` squad dumps and `.4cct` "nightly" tactics files, read-only.
+//! Both decode into a [`TeamToml`] so that [`TeamToml::apply`] is the only
+//! code that writes interchange data into a save.
 //!
-//! The `.4ccs` record is the MSVC layout of the reference editor's
-//! `player_export` struct — a foreign tool's in-memory layout, not a save
-//! record, so its offsets live here as `const`s and not in `schema/`. They are
-//! mirrored from the ctypes table in
+//! The `.4ccs` record is the MSVC memory layout of a foreign player struct,
+//! not a save record, so its offsets live here as `const`s and not in
+//! `schema/`. They are mirrored from the ctypes table in
 //! `scripts/provenance/fixtures/interchange_fixtures.py`; the field names in
 //! the comments are that struct's.
 
@@ -462,10 +460,9 @@ fn put_appearance(
     Ok(())
 }
 
-/// The 405-byte tactics block both formats carry, into `tactics`. The byte
-/// order is the reference's `save_tactical_data` write walk. Fields the
-/// exporting version's tactics schema does not store are left `None` — the
-/// block carries their bytes anyway on every version.
+/// The 405-byte tactics block both formats carry, into `tactics`, read in
+/// file order. Fields the exporting version's tactics schema does not store
+/// are left `None` — the block carries their bytes anyway on every version.
 fn tactics_block(block: &[u8], version: PesVersion) -> Result<TacticsSection, LegacyError> {
     debug_assert_eq!(block.len(), TACTICS);
     let tactic = schema_for(version).tactic;

@@ -27,7 +27,7 @@ pub struct Model {
     /// The `X-FMDL-Extensions` header: which encodings the file declares.
     pub extensions: Extensions,
     /// Section-1 block 1, 64 bytes per bone in Konami files; carried as is
-    /// (the add-on writes it empty).
+    /// (a non-Konami file may carry it empty).
     pub bone_matrices: Option<Vec<u8>>,
 }
 

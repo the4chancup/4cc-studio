@@ -1329,7 +1329,7 @@ fn a_split_mesh_among_siblings_reloads() {
 
 #[test]
 fn a_group_with_no_vertices_gets_a_zero_box() {
-    // Nothing to measure: the add-on writes the zero box, not an infinite one.
+    // Nothing to measure: the written box is zero, not an infinite one.
     let empty = MeshVertices::default();
     let mut mesh = mesh_with(empty);
     mesh.faces.clear();

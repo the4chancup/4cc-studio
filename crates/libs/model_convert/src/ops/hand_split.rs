@@ -1,7 +1,10 @@
 //! The hand auto-split: separating glove geometry (vertices weighted to `skh_` hand bones)
-//! from a body model. The semantics are Blender's select -> Select More -> Separate by
-//! selection, done in process — no geometric cut, no reweighting, positions and weights
-//! untouched.
+//! from a body model. A vertex class (same position, bone row and weight bits, so a UV
+//! seam stays one vertex) is selected when any entry carries a positive weight on one of
+//! the hand's `skh_` bones; the selection then grows once along faces, a face touching a
+//! seed class selecting every class it touches. The glove part gets the faces fully
+//! inside the selection, the body the rest, in place — no geometric cut, no
+//! reweighting, positions and weights untouched.
 
 use std::collections::HashMap;
 

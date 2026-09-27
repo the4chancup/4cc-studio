@@ -1,4 +1,4 @@
-//! DDS -> FTEX in the layout PES accepts from the 4cc compilers: 16 KiB
+//! DDS -> FTEX in the layout PES accepts: 16 KiB
 //! chunks zlib-compressed at level 3, 8-byte padded chunk areas, mip records
 //! with ftexs 0, and a header with nrt 0x02, flags 0x11, zero hashes. The
 //! deflate bytes are miniz_oxide's rather than zlib's, so the output is
@@ -162,7 +162,7 @@ pub fn dds_to_ftex(dds: &[u8], color_space: ColorSpace) -> Result<Vec<u8>, FtexE
 
 /// The mip count a header declares: the `DDSCAPS_MIPMAP` bit gates the
 /// count field, so without it the texture has one level whatever the field
-/// says (the reference's rule, ftex.py:409-414).
+/// says.
 fn mip_count(header: &DdsHeader) -> u32 {
     if header.capabilities1 & 0x400000 != 0 {
         header.mipmap_count.max(1)

@@ -3,10 +3,9 @@
 //! A CPK file is a `CPK ` header @UTF table (version fields, offsets to the
 //! other tables), the file contents, a `TOC ` table of file entries, and
 //! optionally an `ETOC` table of modification times. All @UTF content is
-//! XOR-encrypted with the CRI keystream. The writer's layout is the one the
-//! 4cc compilers have always produced, so an archive written from the same
-//! entries is byte-identical to theirs; `CpkWriter::new` takes the `Tvers`
-//! tool-version string so that parity is testable.
+//! XOR-encrypted with the CRI keystream. The writer lays every archive out
+//! one fixed way (see `write.rs`), so the same entries and `Tvers` tool-version
+//! string (the one `CpkWriter::new` takes) always give the same bytes.
 
 mod crilayla;
 mod read;
@@ -518,7 +517,8 @@ mod tests {
 
     #[test]
     fn u32_header_offsets_and_u64_toc_sizes_are_accepted() {
-        // The reference reader reads these cells by name regardless of width.
+        // Real files may carry these cells at other widths: read them by name
+        // regardless of width.
         let header = table(
             b"CPK ",
             "CpkHeader",

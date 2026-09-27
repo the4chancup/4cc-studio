@@ -146,7 +146,8 @@ const DX10_MISC_CUBE: u32 = 0x4;
 /// Parses the DDS header(s) of a 2D texture. Cube maps and volume textures
 /// are `FtexError::UnsupportedDds("cube map")` / `("volume texture")`. The
 /// mip count is the count field alone, 0 meaning 1, as DirectXTex reads it
-/// (`dds_to_ftex` keeps the reference's caps-bit rule). sRGB DXGI ids map to
+/// (`dds_to_ftex` instead gates the count on the `DDSCAPS_MIPMAP` bit). sRGB
+/// DXGI ids map to
 /// their UNORM twins. A zero dimension, and a mip count the dimensions
 /// cannot halve into, are refused: D3D rejects both at texture creation.
 pub fn read_layout(dds: &[u8]) -> Result<DdsLayout, FtexError> {
@@ -271,7 +272,7 @@ pub(crate) fn uncompressed_pixel(header: &DdsHeader) -> Result<DdsPixel, FtexErr
     }
     // Luminance, under the legacy DDPF_LUMINANCE flag or NVTT v1's form
     // (the plain RGB flag, 8 bits, an R mask only; DirectXTex
-    // DDSPF_L8_NVTT1). The reference maps both to R8.
+    // DDSPF_L8_NVTT1). Both map to R8.
     if header.r_mask == 0xff
         && header.g_mask == 0
         && header.b_mask == 0

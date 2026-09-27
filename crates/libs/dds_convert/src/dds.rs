@@ -142,7 +142,7 @@ fn decode_mip(
             width,
             height,
             8,
-            // The reference decoder splats the single channel into G and B.
+            // DirectXTex splats the single channel into G and B.
             [0xff, 0xff, 0xff, 0],
             row_pitch,
             data,
@@ -191,9 +191,9 @@ fn decompress_mip(
     let mut padded = vec![0u8; padded_len];
     decompress_blocks_as_rgba8(variant, padded_width, padded_height, blocks, &mut padded);
 
-    // The decoder truncates the interpolated index values; the reference
-    // decoder's byte store (texconv 2024.1.1.1, the fixtures' build) rounds
-    // them to nearest for BC3's RGBA and BC5's R8G8 output but truncates for
+    // The decoder truncates the interpolated index values; DirectXTex's byte
+    // store (2024.1.1.1, the fixtures' build) rounds them to nearest for BC3's
+    // RGBA and BC5's R8G8 output but truncates for
     // BC4's R8, which matches what the decoder produced, so only BC3's alpha
     // and BC5's data channels are recomputed from the endpoints. DirectXTex
     // added the rounding bias to R8 in 2026 (#671); fixtures from a later
@@ -211,9 +211,9 @@ fn decompress_mip(
         let to = y * width as usize * 4;
         rgba[to..to + width as usize * 4].copy_from_slice(&padded[from..from + width as usize * 4]);
     }
-    // The block decoder leaves missing channels zero; the reference decoder
-    // reports the one-channel format with R splatted into G and B, and both
-    // formats' alpha as opaque (BC5 keeps B = 0).
+    // The block decoder leaves missing channels zero; DirectXTex reports the
+    // one-channel format with R splatted into G and B, and both formats'
+    // alpha as opaque (BC5 keeps B = 0).
     if let CompressionVariant::BC4 = variant {
         for pixel in rgba.as_chunks_mut::<4>().0.iter_mut() {
             pixel[1] = pixel[0];
@@ -270,8 +270,8 @@ fn fix_interpolated_channels(
 }
 
 /// The 8-entry value ramp of an alpha-indexed block: endpoints then the
-/// interpolated entries, rounded to nearest as the reference decoder's
-/// R8G8 and RGBA byte stores do.
+/// interpolated entries, rounded to nearest as DirectXTex's R8G8 and RGBA
+/// byte stores do.
 fn alpha_ramp(a0: u8, a1: u8) -> [u8; 8] {
     let mut ramp = [a0, a1, 0, 0, 0, 0, 0, 0];
     if a0 > a1 {

@@ -1,4 +1,4 @@
-//! Writing a CPK archive in the layout the 4cc compilers have always produced:
+//! Writing a CPK archive in the layout PES loads:
 //! files stored back to back at 0x800 alignment, then `TOC `, then `ETOC`
 //! (only when every entry carries a timestamp), then the `CPK ` header table
 //! written over the leading padding at offset 0.

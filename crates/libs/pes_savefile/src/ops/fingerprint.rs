@@ -12,7 +12,7 @@ use sha2::{Digest, Sha256};
 use crate::model::ingame_face::IngameFace;
 
 /// The first four bytes of SHA-256 over `IngameFace::normalized()`; `Display`
-/// is the eight lower-case hex characters the reference prints.
+/// is the eight lower-case hex characters of the digest.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct FaceHash(pub [u8; 4]);
 

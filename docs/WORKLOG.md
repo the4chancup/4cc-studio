@@ -906,3 +906,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   `STUDIO_MUTANTS_REMOTE` is set (`scripts/mutants.py`; `AGENTS.md` "Environment" has the
   benchmark). Verified on `archives`: the split's totals equal a local run's (24 caught, 6
   unviable). Its first whole-crate use is 2.20g's `pes_model` run.
+- **2026-09-27** - Maintainer decisions: `fmdl`/`pes_model` `check` flag vertices more than 5000
+  units from the origin (Team compiler: `vertex_too_far_from_origin`, folder dropped); code no
+  longer names or alludes to the legacy tools (`CONTRIBUTING.md` rule broadened, design sweep
+  entry in `AGENTS.md`), swept across 44 files; parity tests keep their tool names.

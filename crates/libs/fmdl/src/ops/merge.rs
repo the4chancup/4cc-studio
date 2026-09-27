@@ -516,7 +516,7 @@ mod tests {
         }
     }
 
-    /// ORAL decoded back to the add-on's state: the request flag stays on
+    /// ORAL decoded back to its written state: the request flag stays on
     /// the mesh while `extensions.antiblur` is clear.
     fn unencoded_oral() -> Model {
         let mut oral = model(ORAL);

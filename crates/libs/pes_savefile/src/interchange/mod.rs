@@ -2,7 +2,7 @@
 //! teams in. Each module reads its format into `model/` entries; the crypto
 //! and layout tables live in `container`/`schema`.
 
-/// The legacy 4ccEditor formats (`.4ccs`, `.4cct`), read-only.
+/// The `.4ccs` and `.4cct` interchange formats, read-only.
 pub mod legacy;
 /// `team.toml`: the full-fidelity team interchange format.
 pub mod team_toml;

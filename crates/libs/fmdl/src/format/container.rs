@@ -353,14 +353,14 @@ mod tests {
     }
 
     #[test]
-    fn addon_files_round_trip_semantically() {
+    fn third_party_files_round_trip_semantically() {
         for bytes in [ORAL, PLACEHOLDER] {
             let container = FmdlContainer::read(bytes).unwrap();
             let written = container.write();
             assert_eq!(FmdlContainer::read(&written).unwrap(), container);
         }
-        // The add-on pads every section-0 block to 16 in `oral`; ours does
-        // not. `placeholder`'s blocks are all naturally 16-aligned, so its
+        // `oral` pads every section-0 block to 16; ours does not.
+        // `placeholder`'s blocks are all naturally 16-aligned, so its
         // rewrite comes out the same length.
         let oral = FmdlContainer::read(ORAL).unwrap();
         assert!(oral.write().len() < ORAL.len());

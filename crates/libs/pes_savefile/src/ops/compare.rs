@@ -1,7 +1,6 @@
 //! The comparator: every difference between two players of the same version
-//! (the compare script's fields plus the reference editor's full walk, so
-//! each reference is a subset of these rows), and the save-level diff pairing
-//! players by id. `ops/` reads `model/` only; the field list is the schema's.
+//! over the whole field walk, and the save-level diff pairing players by id.
+//! `ops/` reads `model/` only; the field list is the schema's.
 
 use std::collections::{HashMap, HashSet};
 
@@ -255,9 +254,8 @@ pub fn compare_players(
     Ok(diffs)
 }
 
-/// The player-level diff of two saves, players paired by id (the compare
-/// script's pairing; the reference editor pairs by roster slot, which reports
-/// a reshuffle as edits).
+/// The player-level diff of two saves, players paired by id — roster-slot
+/// pairing would report a reshuffle as edits.
 #[derive(Debug, Default)]
 pub struct SaveDiff {
     /// Players in both saves with at least one difference, in `a`'s record

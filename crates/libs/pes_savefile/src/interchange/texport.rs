@@ -3,7 +3,7 @@
 //! - 18-21 `.ted`: a 0x50 plaintext header, a 32-byte XOR key at 0x30, then
 //!   the save's own team, roster, tactics and player records concatenated
 //!   (sizes in `schema/texport.rs`, measured on real 18/19/21 files; PES 20's
-//!   key index is the reference editor's untested guess).
+//!   key index is an untested guess).
 //! - 15-17 `TEXPORT00000000`: a whole savefile container; the tactics and
 //!   player records' payload offsets are `schema::texport::texport_old`'s
 //!   (the team and roster records' positions are unmeasured, so the team
@@ -734,7 +734,7 @@ mod tests {
         ));
     }
 
-    /// A PES 16 texport built the way the reference reads one (tactics
+    /// A PES 16 texport built in the format's understood layout (tactics
     /// record, then player record + appearance record per rostered player)
     /// wrapped in the savefile container. Self-consistency against our own
     /// construction: no real PES 15/16 texport exists, so this pins the
