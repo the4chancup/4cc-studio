@@ -902,3 +902,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   (a zip with any encrypted entry, a 7z with an encrypted header or an AES-coded block), so the
   live check reports them at once; maintenance mode is a Phase 16 deliverable with its outline in
   `core/development_plan.md`, not per-file ADRs (decision entries).
+- **2026-09-27** - `just mutants <crate>` splits the run with the maintainer's VPS when
+  `STUDIO_MUTANTS_REMOTE` is set (`scripts/mutants.py`; `AGENTS.md` "Environment" has the
+  benchmark). Verified on `archives`: the split's totals equal a local run's (24 caught, 6
+  unviable). Its first whole-crate use is 2.20g's `pes_model` run.

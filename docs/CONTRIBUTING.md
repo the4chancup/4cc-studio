@@ -222,7 +222,9 @@ Requirements:
   tests; a mutant the suite does not catch ("missed") is an assertion nobody wrote. It runs at two
   points, never as a gate (a whole-workspace run is an hour today and grows with the code):
   `just mutants-diff [base]` over the lines a step changed, as part of the lead's review of that
-  step, and `just mutants <crate>` over each of a phase's crates at converge. Every survivor is
+  step, and `just mutants <crate>` over each of a phase's crates at converge (when
+  `STUDIO_MUTANTS_REMOTE` names an ssh host, it runs half the mutants there; prerequisites in
+  `scripts/mutants.py`). Every survivor is
   triaged into one of three: a missing test (write it, or a worklog step), an equivalent mutant
   (the mutated code computes the same value; its pattern goes into `.cargo/mutants.toml` with
   the equivalence named, so that file is the list of what the runs no longer measure), or
