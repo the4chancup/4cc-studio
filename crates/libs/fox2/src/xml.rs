@@ -259,25 +259,29 @@ impl Fox2File {
             }
         }
         out.push_str("  </classes>\n");
-        out.push_str("  <entities>\n");
-        for entity in &self.entities {
-            indent(&mut out, 2);
-            out.push_str("<entity");
-            attribute(&mut out, "class", literal_text(&entity.class_name));
-            if let FoxString::Hash(_) = entity.class_name {
-                attribute(&mut out, "classHash", &hash_attr(&entity.class_name));
+        if self.entities.is_empty() {
+            out.push_str("  <entities />\n");
+        } else {
+            out.push_str("  <entities>\n");
+            for entity in &self.entities {
+                indent(&mut out, 2);
+                out.push_str("<entity");
+                attribute(&mut out, "class", literal_text(&entity.class_name));
+                if let FoxString::Hash(_) = entity.class_name {
+                    attribute(&mut out, "classHash", &hash_attr(&entity.class_name));
+                }
+                attribute(&mut out, "classVersion", &entity.version.to_string());
+                attribute(&mut out, "addr", &format!("0x{:08X}", entity.address));
+                attribute(&mut out, "unknown1", &entity.unknown1.to_string());
+                attribute(&mut out, "unknown2", &entity.unknown2.to_string());
+                out.push_str(">\n");
+                properties_xml(&mut out, "staticProperties", &entity.static_properties);
+                properties_xml(&mut out, "dynamicProperties", &entity.dynamic_properties);
+                indent(&mut out, 2);
+                out.push_str("</entity>\n");
             }
-            attribute(&mut out, "classVersion", &entity.version.to_string());
-            attribute(&mut out, "addr", &format!("0x{:08X}", entity.address));
-            attribute(&mut out, "unknown1", &entity.unknown1.to_string());
-            attribute(&mut out, "unknown2", &entity.unknown2.to_string());
-            out.push_str(">\n");
-            properties_xml(&mut out, "staticProperties", &entity.static_properties);
-            properties_xml(&mut out, "dynamicProperties", &entity.dynamic_properties);
-            indent(&mut out, 2);
-            out.push_str("</entity>\n");
+            out.push_str("  </entities>\n");
         }
-        out.push_str("  </entities>\n");
         out.push_str("</fox>");
         out
     }
@@ -450,6 +454,19 @@ where
     T::try_from(parse_int(text, what)?).map_err(|_| bad(what, text))
 }
 
+/// The attribute `name` as an integer, `0` when missing; present but blank is `BadValue`
+/// (a blank number is a typo, not a default), the attribute name as `what`.
+fn required_int<T>(node: &Node, name: &'static str) -> Result<T, XmlError>
+where
+    T: TryFrom<i128>,
+{
+    match node.attribute(name) {
+        Some(text) if text.trim().is_empty() => Err(bad(name, text)),
+        Some(text) => int_as(text, name),
+        None => int_as("0", name),
+    }
+}
+
 /// An attribute as `f32`, missing as `0.0`; present but empty is `BadValue` (only a missing
 /// attribute defaults).
 fn float_attr(node: &Node, name: &str) -> Result<f32, XmlError> {
@@ -489,12 +506,10 @@ fn read_entity(node: &Node) -> Result<Entity, XmlError> {
     };
     Ok(Entity {
         class_name,
-        unknown1: int_as(node.attribute("unknown1").unwrap_or("0"), "unknown1")?,
-        unknown2: int_as(node.attribute("unknown2").unwrap_or("0"), "unknown2")?,
-        version: int_as(
-            node.attribute("classVersion").unwrap_or("0"),
-            "classVersion",
-        )?,
+        unknown1: required_int(node, "unknown1")?,
+        unknown2: required_int(node, "unknown2")?,
+        version: required_int(node, "classVersion")?,
+        // `addr` reads blank as 0, like the integer values.
         address: int_as(node.attribute("addr").unwrap_or("0"), "addr")?,
         static_properties,
         dynamic_properties,
@@ -555,7 +570,9 @@ fn read_xml_value(values: &mut Values, node: &Node) -> Result<(), XmlError> {
         Values::Uint64(list) => list.push(int_as(&text, "uint64")?),
         Values::Float(list) => {
             let trimmed = text.trim();
-            list.push(if trimmed.is_empty() {
+            // An absent text child is empty and defaults to 0.0; a present but blank one is
+            // an error.
+            list.push(if text.is_empty() {
                 0.0
             } else {
                 parse_float(trimmed).ok_or_else(|| bad("float", &text))?
@@ -563,7 +580,7 @@ fn read_xml_value(values: &mut Values, node: &Node) -> Result<(), XmlError> {
         }
         Values::Double(list) => {
             let trimmed = text.trim();
-            list.push(if trimmed.is_empty() {
+            list.push(if text.is_empty() {
                 0.0
             } else {
                 trimmed.parse::<f64>().map_err(|_| bad("double", &text))?
@@ -1119,8 +1136,118 @@ mod tests {
     }
 
     #[test]
+    fn blank_numbers_are_errors() {
+        let entity_xml =
+            |attribute: &str| format!("<fox><entities><entity {attribute} /></entities></fox>");
+        for name in ["classVersion", "unknown1", "unknown2"] {
+            assert!(matches!(
+                Fox2File::from_xml(&entity_xml(&format!("{name}=\" \""))),
+                Err(XmlError::BadValue { .. })
+            ));
+            let file = Fox2File::from_xml(&entity_xml("")).expect("missing attribute");
+            let entity = &file.entities[0];
+            assert_eq!(
+                (entity.version, entity.unknown1, entity.unknown2),
+                (0, 0, 0)
+            );
+        }
+        // `addr` reads blank as 0, like the integer values.
+        let file = Fox2File::from_xml(&entity_xml("addr=\" \"")).expect("blank addr");
+        assert_eq!(file.entities[0].address, 0);
+        let value_xml = |property_type: &str, value: &str| {
+            format!(
+                "<fox><entities><entity><staticProperties>\
+                 <property type=\"{property_type}\">{value}</property>\
+                 </staticProperties></entity></entities></fox>"
+            )
+        };
+        for property_type in ["float", "double"] {
+            assert!(matches!(
+                Fox2File::from_xml(&value_xml(property_type, "<value> </value>")),
+                Err(XmlError::BadValue { .. })
+            ));
+        }
+        // No text child still defaults to 0.0; an integer still reads blank as 0.
+        let file = Fox2File::from_xml(&value_xml("float", "<value />")).expect("no text");
+        assert_eq!(
+            file.entities[0].static_properties[0].values,
+            Values::Float(vec![0.0])
+        );
+        let file = Fox2File::from_xml(&value_xml("int32", "<value> </value>")).expect("blank int");
+        assert_eq!(
+            file.entities[0].static_properties[0].values,
+            Values::Int32(vec![0])
+        );
+    }
+
+    #[test]
+    fn dynamic_properties_survive_xml() {
+        let file = Fox2File {
+            entities: vec![Entity {
+                class_name: FoxString::Literal("DataSet".to_string()),
+                unknown1: 0,
+                unknown2: 0,
+                version: 0,
+                address: 0,
+                static_properties: vec![Property {
+                    name: FoxString::Literal("s".to_string()),
+                    container: Container::StaticArray,
+                    keys: Vec::new(),
+                    values: Values::Int32(vec![1]),
+                }],
+                dynamic_properties: vec![
+                    Property {
+                        name: FoxString::Literal("d".to_string()),
+                        container: Container::DynamicArray,
+                        keys: Vec::new(),
+                        values: Values::Int32(vec![2]),
+                    },
+                    Property {
+                        name: FoxString::Literal("m".to_string()),
+                        container: Container::StringMap,
+                        keys: vec![FoxString::Literal("k".to_string())],
+                        values: Values::String(vec![FoxString::Literal("v".to_string())]),
+                    },
+                ],
+            }],
+            // Traversal order: class, then each property's name, keys and values, static
+            // before dynamic.
+            string_table: ["DataSet", "s", "d", "m", "k", "v"]
+                .iter()
+                .map(|text| TableEntry {
+                    hash: hash_string(text),
+                    text: (*text).to_string(),
+                })
+                .collect(),
+        };
+        let xml = file.to_xml();
+        assert!(xml.contains("<dynamicProperties>"), "{xml}");
+        assert!(xml.contains("name=\"s\""), "{xml}");
+        assert!(xml.contains("name=\"d\""), "{xml}");
+        assert!(xml.contains("name=\"m\""), "{xml}");
+        assert_eq!(Fox2File::from_xml(&xml).as_ref(), Ok(&file), "{xml}");
+    }
+
+    #[test]
+    fn an_empty_file_writes_a_self_closing_entities() {
+        let file = Fox2File {
+            entities: Vec::new(),
+            string_table: Vec::new(),
+        };
+        let xml = file.to_xml();
+        assert_eq!(
+            xml,
+            "<fox formatVersion=\"2\" fileVersion=\"0\" originalVersion=\"\">\n  <classes>\n    \
+             <class name=\"Entity\" super=\"\" version=\"2\" />\n    \
+             <class name=\"Data\" super=\"Entity\" version=\"2\" />\n  </classes>\n  \
+             <entities />\n</fox>"
+        );
+        assert_eq!(Fox2File::from_xml(&xml).as_ref(), Ok(&file));
+    }
+
+    #[test]
     fn floats_parse_through_a_double() {
-        // The reference parses as binary64 then narrows; a direct `f32` parse gives
+        // Read as binary64 then narrowed (the goldens' rounding); a direct `f32` parse gives
         // 0x3F800001.
         let text = "1.0000000596046448";
         let xml = format!(

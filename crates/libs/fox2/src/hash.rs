@@ -246,7 +246,7 @@ mod tests {
 
     #[test]
     fn city_hash64_reference_values() {
-        // Raw CityHash64 (no appended NUL, no seeds) against the reference's values.
+        // Raw CityHash64 (no appended NUL, no seeds) against the goldens' producer.
         assert_eq!(city_hash64(b"a"), 0x2420662CD003ACFA);
         assert_eq!(city_hash64(b"ab"), 0x17F0A30FF3CC3F3E);
         assert_eq!(city_hash64(b"abc"), 0x3A912F483A4ECE31);

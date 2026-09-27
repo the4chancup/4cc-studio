@@ -18,6 +18,9 @@ CASES = [
     # An exact tie at 17 digits: repr rounds half to even (...312), a shortest-digits
     # formatter that rounds ties up prints ...313.
     1.00000762939453125,
+    # A power of two: the gap below is half the gap above, so the nearest 16-digit text
+    # (...062, ties to even) does not read back and repr takes the next one up (...063).
+    2.0 ** -24,
 ]
 
 def main() -> None:
@@ -29,7 +32,7 @@ def main() -> None:
         text = repr(value)
         assert "\t" not in text and "\n" not in text
         rows.append(f"{bits:016X}\t{text}\n")
-    assert len(rows) == len(CASES) == 29
+    assert len(rows) == len(CASES) == 30
     temporary = target + ".tmp"
     with open(temporary, "wb") as handle:
         handle.write("".join(rows).encode("ascii"))

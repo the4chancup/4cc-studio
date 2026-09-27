@@ -100,7 +100,7 @@ container, which the layout has no room for), and a table entry with hash 0, whi
 as the table's terminator. `to_xml(&self) -> String` writes
 the FoxTool layout: two-space indent, `<fox formatVersion="2" fileVersion="0"
 originalVersion="">`, a `<classes>` list of `Entity`, `Data`, then each class as first met with
-its entity's version, `<entities>` with `class classVersion addr unknown1 unknown2`,
+its entity's version, `<entities>` (self-closing when there are none) with `class classVersion addr unknown1 unknown2`,
 `<staticProperties>`/`<dynamicProperties>` holding `<property name type container arraySize>`
 and `<value>` children; a `Literal` is element text (`<value></value>` for the empty string), a
 `Hash` the attribute `hash="0x%08X"`; integers decimal, floats in C#'s round-trip text (the
@@ -108,7 +108,8 @@ shortest of 7 and 9 significant digits that reads back to the same `f32`, `E+NN`
 exponents, `-0`; `float_golden.tsv` holds 36 reference cases), doubles as the reference writes
 them, which is Python's `repr` and not C#'s round-trip form (the shortest text that reads back,
 lowercase `e+NN`/`e-NN` outside `1e-4 <= |x| < 1e16`, `.0` on an integral value, `-0.0`,
-`nan`/`inf`/`-inf`; `double_golden.tsv` holds 28 cases; no `.fox2` on the machine has a double),
+`nan`/`inf`/`-inf`; ties round to even, and below a power of two the shortest text may be the
+one above the nearest; `double_golden.tsv` holds 30 cases; no `.fox2` on the machine has a double),
 bools `true`/`false`, pointers, handles and `addr` `0x%08X`, Vector3/Vector4/Quat as `x y z w`
 attributes, Color `r g b a`, Matrix3/4 as `<RowN ColumnM="..">` children, EntityLink as
 `packagePath archivePath nameInArchive` attributes (`...Hash` when unresolved) with the handle
@@ -123,8 +124,11 @@ compiler's ID rewrite would otherwise inherit). A `StringMap` key literal is amb
 hash when it starts with `0x`; the format has no way around that, no file on the machine has
 one, and `from_xml` reads `0x` followed by hex as a hash and anything else as a literal.
 `Fox2File::from_xml(&str)` reads that layout with `roxmltree` (missing attributes default as the
-reference's do: `0`, `""`, container `StaticArray`; a float attribute that is present but empty
-is an error, as the reference's parse of it is; a `bool` must read `true`, `false` or empty,
+reference's do: `0`, `""`, container `StaticArray`; blank text where the reference parses
+strictly is an error, as its parse is: a present but blank float attribute, `classVersion`,
+`unknown1` or `unknown2`, and a float or double value whose text is only whitespace (a value
+with no text is `0`; blank `addr` and blank integer values read `0`, as the reference's
+lenient integer parse does); a `bool` must read `true`, `false` or empty,
 anything else is an error rather than the reference's silent `false`; a value's text is all its
 text children with comments dropped; float text is parsed as a double and narrowed to `f32`, the
 reference's double rounding, so a 17-digit text compiles to the reference's bits) and builds the

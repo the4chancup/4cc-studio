@@ -2059,3 +2059,17 @@ Decision (cross-family review at converge, and the maintainer):
   and the C# tool wrap. Two golden rows hold the wrapping values.
 Plan: `libs/fox2.md` ("Strings are hashes", "String table", the `from_xml` paragraph);
 `AGENTS.md` "Fundamental concepts".
+
+## 2026-09-27 - fox2 - converge review, second round
+Decision (cross-family review at converge):
+- **Blank text where the reference parses strictly is an error**: `classVersion`, `unknown1`,
+  `unknown2`, and whitespace-only float/double value text. Missing attributes, a value with no
+  text, blank `addr` and blank integer values still read 0, as the reference's lenient integer
+  parse does.
+- **Double text takes the digit count from the shortest round-trip form and prefers the
+  ties-to-even text at that count when it reads back**; below a power of two the nearest text
+  may not, and `repr` prints the next one up (`2^-24`, golden row 30).
+- **An empty entity list writes `<entities />`**, the reference's self-closing element.
+- Tests added for dynamic properties through XML, table-over-dictionary precedence and the
+  opaque-entry skip.
+Plan: `libs/fox2.md` (the XML layout paragraph, double text, the `from_xml` defaults).
