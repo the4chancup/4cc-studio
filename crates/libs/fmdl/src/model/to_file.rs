@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use super::{BoundingBox, Mesh, MeshGroup, Model};
+use super::{BoundingBox, Mesh, Model};
 use crate::format::f16::f32_to_f16;
 use crate::format::records::*;
 use crate::format::{DatumFormat, DatumType, FmdlError, FmdlFile, same_uv_bits, table_u16};
@@ -242,7 +242,7 @@ impl Model {
             let bounding_box_id = match group.bounding_box {
                 Some(bounding_box) => Some(add_bounding_box(file, bounding_box)?),
                 None if group.meshes.is_empty() => None,
-                None => Some(add_bounding_box(file, compute_bounding_box(self, group))?),
+                None => Some(add_bounding_box(file, compute_bounding_box(self, index))?),
             };
             // Runs of consecutive mesh indices, one assignment record each,
             // all naming the group's bounding box.
@@ -591,9 +591,31 @@ fn write_mesh(
     Ok(())
 }
 
-/// The bounding box of a group's meshes, `w` set to the 1.0 the Konami
-/// boxes carry; a mesh's custom box stands in for its vertex extent.
-fn compute_bounding_box(model: &Model, group: &MeshGroup) -> BoundingBox {
+/// The box a group contributes to its parent's computed box: its own
+/// `bounding_box`, else its computed box when it has meshes or children
+/// that contribute; `None` for a group with nothing to measure.
+fn contributed_box(model: &Model, group_index: usize) -> Option<BoundingBox> {
+    let group = &model.mesh_groups[group_index];
+    if let Some(bounding_box) = group.bounding_box {
+        return Some(bounding_box);
+    }
+    let child_contributes = model
+        .mesh_groups
+        .iter()
+        .enumerate()
+        .filter(|(_, candidate)| candidate.parent == Some(group_index))
+        .any(|(child, _)| contributed_box(model, child).is_some());
+    if group.meshes.is_empty() && !child_contributes {
+        return None;
+    }
+    Some(compute_bounding_box(model, group_index))
+}
+
+/// The bounding box of a group's meshes and its direct child groups'
+/// boxes, `w` set to the 1.0 the Konami boxes carry; a mesh's custom box
+/// stands in for its vertex extent.
+fn compute_bounding_box(model: &Model, group_index: usize) -> BoundingBox {
+    let group = &model.mesh_groups[group_index];
     let mut max = [f32::NEG_INFINITY; 4];
     let mut min = [f32::INFINITY; 4];
     for mesh in &group.meshes {
@@ -612,6 +634,21 @@ fn compute_bounding_box(model: &Model, group: &MeshGroup) -> BoundingBox {
                         min[axis] = min[axis].min(position[axis]);
                     }
                 }
+            }
+        }
+    }
+    // A child group's box counts toward its parent's (the add-on culls the
+    // subtree with it): the child's explicit box, or its computed one.
+    for (child, _) in model
+        .mesh_groups
+        .iter()
+        .enumerate()
+        .filter(|(_, candidate)| candidate.parent == Some(group_index))
+    {
+        if let Some(child_box) = contributed_box(model, child) {
+            for axis in 0..3 {
+                max[axis] = max[axis].max(child_box.max[axis]);
+                min[axis] = min[axis].min(child_box.min[axis]);
             }
         }
     }

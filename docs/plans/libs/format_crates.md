@@ -186,9 +186,10 @@ reader's rule. `to_file` lays a file out the way the add-on writer does, which
 years of add-on-written models prove PES accepts: positions in buffer 0 (stride 12), the other
 attributes interleaved in buffer 1 in the order normal, tangent, color, bone weights, bone indices,
 uv maps (a uv map identical to an earlier one shares its offset), faces in buffer 2; strings
-de-duplicated; a bounding box per bone and per mesh group that has meshes (computed from its
-meshes when the source had none, which is why the legacy writer failed on Konami files; a group
-without meshes or box gets no assignment record, Konami's own layout); one level-of-detail record;
+de-duplicated; a bounding box per bone and per mesh group that has meshes (computed when the
+source had none, which is why the legacy writer failed on Konami files: over its meshes and its
+child groups' boxes, as the add-on computes it; a group without meshes or box gets no
+assignment record, Konami's own layout); one level-of-detail record;
 the fixed blocks 18 and 20 as the add-on writes them; the extension headers re-emitted after the
 last string. The codec's per-mesh vertex kinds (normal, tangent, color, bone mapping, uv count and
 precision) are exactly what `MeshVertices` carries, so no separate "vertex fields" record exists.

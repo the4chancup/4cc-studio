@@ -2174,3 +2174,14 @@ Decision (cross-family review at converge, 7 of 7 accepted):
   zero-vertex meshes, no custom box) is the zero box**, the add-on's value; it was written as
   +/- infinity.
 Plan: `model_conversion/ir.md` "Extension algorithms" (merge sentence: anti-blur state).
+
+## 2026-09-27 - fmdl - converge review, fourth round (loop ends)
+Decision (cross-family review at converge, 4 of 4 accepted):
+- **The vertex-loop key is position plus the positive-weight bone lanes**; a zero-weight lane,
+  which a split rewrites, no longer decides whether two vertices are loops of one.
+- **A computed group box also covers its child groups' boxes**, as the add-on's does; a group
+  with neither meshes nor box still gets no assignment record.
+- Tests: merging genuinely encoded parts, split round trips compared as face multisets.
+- **Loop result:** four rounds, 7/5/7/4 accepted; the surface closes under the accept-rate
+  rule.
+Plan: `libs/format_crates.md` "`fmdl::model`" (the `to_file` box sentence).
