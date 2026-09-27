@@ -126,12 +126,15 @@ one, and `from_xml` reads `0x` followed by hex as a hash and anything else as a 
 `Fox2File::from_xml(&str)` reads that layout with `roxmltree` (missing attributes default as the
 reference's do: `0`, `""`, container `StaticArray`; blank text where the reference parses
 strictly is an error, as its parse is: a present but blank float attribute, `classVersion`,
-`unknown1` or `unknown2`, and a float or double value whose text is only whitespace (a value
+`unknown1`, `unknown2`, WideVector3 `a` or `b`, and a float or double value whose text is only
+whitespace (a value
 with no text is `0`; blank `addr` and blank integer values read `0`, as the reference's
 lenient integer parse does); a `bool` must read `true`, `false` or empty,
 anything else is an error rather than the reference's silent `false`; a value's text is all its
 text children with comments dropped; float text is parsed as a double and narrowed to `f32`, the
-reference's double rounding, so a 17-digit text compiles to the reference's bits) and builds the
+reference's double rounding, so a 17-digit text compiles to the reference's bits; a finite text
+past `f32::MAX` is an error, as the reference's packing of it is, while `inf` reads as infinity)
+and builds the
 string table in traversal order. The binary reader validates every padding span it skips (property tails,
 `StringMap` entries, the trailer) as zero, since a rewrite zero-fills them; measured true on all
 87 files, whose trailers also all end exactly at the file end. Zero bytes past the aligned

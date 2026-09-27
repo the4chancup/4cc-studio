@@ -13,7 +13,7 @@ is in `AGENTS.md` ("Working documents").
 2.6 `fmdl` (format, model, ops, check), 2.7 `pes_model` (format, mtl, model, ops, check), 2.8 `uniparam`, 2.9 `fox2`, 2.10 `archives`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`, 2.14 `color_tools`, 2.15 `elevation`. Review
 rounds A and B (2026-09-13) closed: 2.5c, 2.12b, 2.13b done.
 **In progress:** 2.17 `pes_savefile`, 2.18 `python_bindings`, 2.19 Phase verification done; 2.20
-Converge in progress (a-d done, 2.20e `fox2` in progress). Review round C (2026-09-19) closed as
+Converge in progress (a-e done, 2.20f `fmdl` next). Review round C (2026-09-19) closed as
 2.19a; its leftovers are listed under 2.20. 2.5b (GPU BC7) deferred to Phase 4 (user decision
 2026-09-21).
 **Blocked on:** nothing
@@ -581,15 +581,20 @@ Spec: `docs/plans/core/development_plan.md` "Phase 2", `docs/plans/libs/README.m
     retention (4.y). Retained gaps (decision entries): hostile FTEX padding in `ftex_to_dds`,
     legacy A8L8 decode, DXGI 2 for RGBA32F. Untested by construction: `dds_to_ftex`'s frame
     offset checks (need a >4 GiB frame area), the wasm32 `alloc_len` path (64-bit host)
-  - [~] 2.20e `fox2` — first pass and reviewer round 1 committed: 502 mutants / 47 survivors
-    triaged (missing tests, error-branch re-reads, dead guards), after rework 459 / 0 missed.
-    Lead audit `.tmp/audit_2_20e.md`, briefs `.tmp/brief_2_20e{,_r1}.md`, rulings
-    `.tmp/review_rulings_2_20e.md`. Round 1: 7 → 5 accepted (comments in value text, floats
-    read through a double, repr ties, the reference's unmasked 33-64 byte sum, table dedup on
-    hash and text); 2 rejected under the user's "inputs are trusted" rule (now in `AGENTS.md`).
-    Lead goldens: `double_golden.tsv`, long and wrapping rows in `hash_golden.tsv`, raw
-    `city_hash64` values, a real 48-bit collision pair checked against the reference. Next:
-    round 2 (fresh reviewer, running), then close the step.
+  - [x] 2.20e `fox2` — 502 mutants / 47 survivors triaged (missing tests, constants re-read in
+    their error branches, dead guards and branches), 0 missed after every round. One byte
+    reader, write refusals (`TooLarge`, `KeyCount`, `ZeroTableHash`), explicit `Values` arms,
+    unused `binrw` dropped, `text`/`Container` helpers `pub(crate)`. Reviewer loop, three
+    rounds, 5/5/2 accepted (`871e7b2`, `3d41122`, this commit; rulings
+    `.tmp/review_rulings_2_20e.md`, audit `.tmp/audit_2_20e.md`): XML value text across
+    comments, floats read through a double and refused past `f32::MAX`, double text as `repr`
+    (ties to even, power-of-two boundary), table dedup on hash and text, blank numbers the
+    reference refuses, `<entities />`; the reference's unmasked 33-64 byte hash sum is not
+    followed (we match CityHash and the game). Two concerns rejected under the user's "inputs
+    are trusted" rule (now `AGENTS.md`). Lead goldens: `double_golden.tsv`, long and wrapping
+    rows in `hash_golden.tsv`, raw `city_hash64` values, a real 48-bit collision. Plan
+    corrections: double text, `resolve`/`write` rules, `from_xml` defaults, trailer slack,
+    `stadium_compiler.md`'s stale `cityhash`/`binrw` line. Decision entries per round
   - Remaining 2.20 order after this: `fmdl`; `pes_model`; `model_convert` (+ the open questions below);
     read the user-found fork `https://github.com/jasonjk192/pesXdecrypter` for savefile facts;
     `pes_savefile` (lead audit whole, reviewer on non-interchange modules only);
@@ -855,3 +860,9 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   accepted); the loop closed on the accept-rate rule with no ceiling. Method finding: a reviewer
   resumed from the previous round found a strict subset (4 of 7) of what a fresh one found on
   the same surface, so reviewers stay fresh (`AGENTS.md` "Second opinion"). Next: 2.20e `fox2`.
+- **2026-09-27** - 2.20e `fox2` done after three reviewer rounds (5/5/2 accepted). The
+  maintainer ruled that inputs come from a trusted environment, so concerns that need a crafted
+  file are rejected (`AGENTS.md` "Fundamental concepts"); two of round 1's were. Finding: the
+  reference is not always the oracle: its 33-64 byte hash leaves a sum unmasked, so for
+  non-ASCII text we follow CityHash (the game's hash) and pin it with goldens that assert the
+  disagreement. Next: 2.20f `fmdl`.

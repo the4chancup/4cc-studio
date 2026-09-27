@@ -126,9 +126,13 @@ pub(crate) fn double_text(value: f64) -> String {
 /// Reads what `float_text` writes (and plain decimal text), parsing as `f64` and narrowing:
 /// the double rounding is deliberate (the XML form's floats are read through binary64, so a
 /// 17-digit text compiles to the same bits as the goldens' producer), and `f64 as f32` is the
-/// rounding conversion (there is no `From`).
+/// rounding conversion (there is no `From`). A finite text that overflows to `f32` infinity is
+/// `None` (the value cannot be stored); `inf`/`nan` texts keep their `f32` value.
 pub(crate) fn parse_float(text: &str) -> Option<f32> {
-    text.parse::<f64>().ok().map(|value| value as f32)
+    text.parse::<f64>().ok().and_then(|value| {
+        let narrowed = value as f32;
+        (!value.is_finite() || narrowed.is_finite()).then_some(narrowed)
+    })
 }
 
 #[cfg(test)]
@@ -146,6 +150,25 @@ mod tests {
             checked += 1;
         }
         assert_eq!(checked, 36);
+    }
+
+    #[test]
+    fn finite_text_past_f32_max_is_rejected() {
+        assert_eq!(parse_float("3.402824e38"), None);
+        assert_eq!(parse_float("-3.402824e38"), None);
+        assert_eq!(
+            parse_float("3.4028235e38").map(f32::to_bits),
+            Some(0x7F7FFFFF)
+        );
+        assert_eq!(parse_float("inf"), Some(f32::INFINITY));
+        assert_eq!(parse_float("-inf"), Some(f32::NEG_INFINITY));
+        let xml = "<fox><entities><entity><staticProperties>\
+                   <property type=\"float\"><value>3.402824e38</value></property>\
+                   </staticProperties></entity></entities></fox>";
+        assert!(matches!(
+            crate::file::Fox2File::from_xml(xml),
+            Err(crate::xml::XmlError::BadValue { .. })
+        ));
     }
 
     #[test]

@@ -2073,3 +2073,11 @@ Decision (cross-family review at converge):
 - Tests added for dynamic properties through XML, table-over-dictionary precedence and the
   opaque-entry skip.
 Plan: `libs/fox2.md` (the XML layout paragraph, double text, the `from_xml` defaults).
+
+## 2026-09-27 - fox2 - converge review, third round (loop ends)
+Decision (cross-family review at converge):
+- **A finite float text past `f32::MAX` is `BadValue`** (the reference's packing raises; the
+  narrowing had made it infinity silently); `inf`/`-inf` texts still read as infinities.
+- **WideVector3 `a`/`b` present but blank are `BadValue`**, like the other strict integers.
+- **Loop result:** three rounds, 5/5/2 accepted; the surface closes under the accept-rate rule.
+Plan: `libs/fox2.md` (the `from_xml` paragraph).
