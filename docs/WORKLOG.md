@@ -13,7 +13,7 @@ is in `AGENTS.md` ("Working documents").
 2.6 `fmdl` (format, model, ops, check), 2.7 `pes_model` (format, mtl, model, ops, check), 2.8 `uniparam`, 2.9 `fox2`, 2.10 `archives`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`, 2.14 `color_tools`, 2.15 `elevation`. Review
 rounds A and B (2026-09-13) closed: 2.5c, 2.12b, 2.13b done.
 **In progress:** 2.17 `pes_savefile`, 2.18 `python_bindings`, 2.19 Phase verification done; 2.20
-Converge in progress (a-e done, 2.20f `fmdl` next). Review round C (2026-09-19) closed as
+Converge in progress (a-f done, 2.20g `pes_model` next). Review round C (2026-09-19) closed as
 2.19a; its leftovers are listed under 2.20. 2.5b (GPU BC7) deferred to Phase 4 (user decision
 2026-09-21).
 **Blocked on:** nothing
@@ -595,7 +595,23 @@ Spec: `docs/plans/core/development_plan.md` "Phase 2", `docs/plans/libs/README.m
     rows in `hash_golden.tsv`, raw `city_hash64` values, a real 48-bit collision. Plan
     corrections: double text, `resolve`/`write` rules, `from_xml` defaults, trailer slack,
     `stadium_compiler.md`'s stale `cityhash`/`binrw` line. Decision entries per round
-  - Remaining 2.20 order after this: `fmdl`; `pes_model`; `model_convert` (+ the open questions below);
+  - [x] 2.20f `fmdl` — 858 mutants / 207 survivors triaged (missing tests; redundant
+    pre-checks and capacity hints removed; `select_base_bone`'s dead parent hand-over), three
+    rework slices (`cb040b0` format/, `b727747` model/, `b8ce894` ops/): `Model::validate` as the
+    one invariant list (`from_file` ends with it, `to_file` and every op start with it;
+    `antiblur::encode/decode`, `vertex_enc::decode` fallible, round C's item (b)),
+    `Custom-Bounding-Box-Meshes` as the add-on writes it, from/to_file split per table, codec
+    internals `pub(crate)`, `MergeError` on thiserror; lead golden `f16_golden.tsv` (numpy as
+    the f32->half oracle). Reviewer loop, four rounds, 7/5/7/4 accepted (`25130bb`, `62b124a`,
+    `2865a96`, `c2a8f60`; rulings `.tmp/review_rulings_2_20f.md`, audit `.tmp/audit_2_20f.md`):
+    split output reloads (repeated assignments with one box id), aliased uv maps, cyclic split
+    hierarchies, merge (shared bone boxes, duplicate names, mixed anti-blur), split key and loop
+    key on weighted lanes only, true principal axis, decode-before-mutate, -0.0 uvs, zero-vertex
+    layout, group boxes over child groups. Final mutation run 873 / 13 missed, triaged in the
+    closing commit. Plan corrections: byte identity on Konami's layout only, no per-mesh box.
+    Deferred: u16 faces cap a reassembled split mesh (issue below). Decision entries per round
+  - Remaining 2.20 order after this: `pes_model` (the `fmdl` port: check it for the same
+    classes: one invariant list, merge rules, split/loop keys, pub surface); `model_convert` (+ the open questions below);
     read the user-found fork `https://github.com/jasonjk192/pesXdecrypter` for savefile facts;
     `pes_savefile` (lead audit whole, reviewer on non-interchange modules only);
     `python_bindings`; then 2.21.
@@ -872,3 +888,8 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   reference is not always the oracle: its 33-64 byte hash leaves a sum unmasked, so for
   non-ASCII text we follow CityHash (the game's hash) and pin it with goldens that assert the
   disagreement. Next: 2.20f `fmdl`.
+- **2026-09-27** - 2.20f `fmdl` done after four reviewer rounds (7/5/7/4 accepted). The
+  maintainer asked that a lead recommendation be applied and logged rather than asked
+  (`AGENTS.md` "When the plan has gaps"). Finding: every round found real defects in paths no
+  fixture exercises (split output that did not reload, a hang, panics); `pes_model` is the
+  `fmdl` port, so its audit starts from this list. Next: 2.20g `pes_model`.
