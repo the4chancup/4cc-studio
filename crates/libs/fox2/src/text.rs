@@ -51,18 +51,30 @@ pub(crate) fn float_text(value: f32) -> String {
     general(f64::from(value), 9)
 }
 
-/// `value`'s shortest exact-precision digits and its decimal exponent. `{:.*e}` rounds the
-/// last digit ties-to-even, which the shortest-digits `{e}`/`{}` forms do not.
+/// `value`'s shortest digits and its decimal exponent. `{value:e}` finds the shortest digit
+/// count that reads back to the same bits (the closest such text); the exact-precision text
+/// at that count can differ in the last digit (ties to even) — prefer it when it round-trips
+/// too, which is what `repr` prints at a power-of-two boundary.
 fn shortest_digits(value: f64) -> (String, i32) {
-    for precision in 1..=17 {
-        let scientific = format!("{:.*e}", precision - 1, value);
-        if scientific.parse::<f64>().map(f64::to_bits) == Ok(value.to_bits()) {
-            let (mantissa, exponent) = scientific.split_once('e').expect("exponent marker");
-            let digits: String = mantissa.chars().filter(|c| c.is_ascii_digit()).collect();
-            return (digits, exponent.parse().expect("decimal exponent"));
-        }
+    let digits_and_exponent = |scientific: String| -> (String, i32) {
+        let (mantissa, exponent) = scientific.split_once('e').expect("exponent marker");
+        let digits = mantissa.chars().filter(|c| c.is_ascii_digit()).collect();
+        (digits, exponent.parse().expect("decimal exponent"))
+    };
+    let shortest = format!("{value:e}");
+    let digit_count = shortest
+        .split_once('e')
+        .expect("exponent marker")
+        .0
+        .chars()
+        .filter(|c| c.is_ascii_digit())
+        .count();
+    let exact = format!("{:.*e}", digit_count - 1, value);
+    if exact.parse::<f64>().map(f64::to_bits) == Ok(value.to_bits()) {
+        digits_and_exponent(exact)
+    } else {
+        digits_and_exponent(shortest)
     }
-    unreachable!("17 digits always round-trip an f64")
 }
 
 /// A `f64` the way the XML form writes it: the shortest text that reads back to the same
@@ -152,7 +164,7 @@ mod tests {
             }
             checked += 1;
         }
-        assert_eq!(checked, 29);
+        assert_eq!(checked, 30);
     }
 
     #[test]

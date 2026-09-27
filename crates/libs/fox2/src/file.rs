@@ -1121,4 +1121,61 @@ mod tests {
         assert_eq!(dictionary.get(hash_string("DataSet")), Some("DataSet"));
         assert_eq!(dictionary.get(hash_string("\u{FEFF}DataSet")), None);
     }
+
+    #[test]
+    fn opaque_table_entries_are_skipped() {
+        // The stored hash disagrees with the text's own hash: the entry is opaque.
+        let mut file = Fox2File {
+            entities: vec![Entity {
+                class_name: FoxString::Hash(hash_string("alpha")),
+                unknown1: 0,
+                unknown2: 0,
+                version: 0,
+                address: 0,
+                static_properties: Vec::new(),
+                dynamic_properties: Vec::new(),
+            }],
+            string_table: vec![TableEntry {
+                hash: hash_string("alpha"),
+                text: "beta".to_string(),
+            }],
+        };
+        file.resolve(None);
+        assert_eq!(
+            file.entities[0].class_name,
+            FoxString::Hash(hash_string("alpha"))
+        );
+        file.resolve(Some(&Dictionary::from_lines("alpha\n")));
+        assert_eq!(
+            file.entities[0].class_name,
+            FoxString::Literal("alpha".to_string())
+        );
+    }
+
+    #[test]
+    fn the_table_wins_over_the_dictionary() {
+        // c16803888 and c21237791 are a real 48-bit collision (see the xml tests).
+        const A: &str = "c16803888";
+        const B: &str = "c21237791";
+        let mut file = Fox2File {
+            entities: vec![Entity {
+                class_name: FoxString::Hash(hash_string(A)),
+                unknown1: 0,
+                unknown2: 0,
+                version: 0,
+                address: 0,
+                static_properties: Vec::new(),
+                dynamic_properties: Vec::new(),
+            }],
+            string_table: vec![TableEntry {
+                hash: hash_string(A),
+                text: A.to_string(),
+            }],
+        };
+        file.resolve(Some(&Dictionary::from_lines(&format!("{B}\n"))));
+        assert_eq!(
+            file.entities[0].class_name,
+            FoxString::Literal(A.to_string())
+        );
+    }
 }
