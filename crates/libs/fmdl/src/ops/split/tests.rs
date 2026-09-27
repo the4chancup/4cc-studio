@@ -928,3 +928,132 @@ fn a_loose_vertex_joins_the_climbed_subtree() {
             .contains(&[999.0, -999.0, 999.0])
     );
 }
+
+// Coincident vertices differing only in a zero-weight bone-index lane
+// share one equipresent set: the split key is the positive-weight bone
+// mapping, not the raw index lanes.
+#[test]
+fn coincident_vertices_share_the_mapping_key() {
+    const FILLERS: usize = 63_000;
+    let mut vertices = MeshVertices {
+        positions: vec![[0.0; 3], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
+        normals: Some(vec![[0.0, 0.0, 1.0, 0.0]; 3]),
+        tangents: None,
+        colors: None,
+        uvs: vec![vec![[0.0; 2]; 3]],
+        uv_high_precision: vec![true],
+        bone_weights: Some(vec![[255, 0, 0, 0]; 3]),
+        bone_indices: Some(vec![[0, 0, 0, 0]; 3]),
+    };
+    // Vertex 3: a loose copy of vertex 0 whose only difference is a
+    // zero-weight lane (index 7, weight 0).
+    vertices.positions.push([0.0; 3]);
+    vertices
+        .normals
+        .as_mut()
+        .unwrap()
+        .push([0.0, 0.0, 1.0, 0.0]);
+    vertices.uvs[0].push([0.0, 0.0]);
+    vertices.bone_weights.as_mut().unwrap().push([255, 0, 0, 0]);
+    vertices.bone_indices.as_mut().unwrap().push([0, 7, 0, 0]);
+    // Loose vertices at strictly higher projections fill the first
+    // component, so the copy is what spills over.
+    for filler in 0..FILLERS {
+        vertices.positions.push([filler as f32 + 2.0, 0.0, 0.0]);
+        vertices
+            .normals
+            .as_mut()
+            .unwrap()
+            .push([0.0, 0.0, 1.0, 0.0]);
+        vertices.uvs[0].push([0.0, 0.0]);
+        vertices.bone_weights.as_mut().unwrap().push([255, 0, 0, 0]);
+        vertices.bone_indices.as_mut().unwrap().push([0, 0, 0, 0]);
+    }
+    let mesh = Mesh {
+        vertices,
+        faces: vec![[0, 1, 2]],
+        bone_group: (0..40).collect(),
+        material: 0,
+        alpha_flags: 0,
+        shadow_flags: 0,
+        has_antiblur_meshes: false,
+        is_antiblur_mesh: false,
+        custom_bounding_box: None,
+    };
+    let faces_before = face_tuples(&mesh);
+    let count_before = mesh.vertices.positions.len();
+    let mut model = grid_model(mesh, 40);
+    assert!(encode(&mut model, None).unwrap());
+
+    // One component holds both copies of position [0, 0, 0].
+    let holders: Vec<usize> = model
+        .meshes
+        .iter()
+        .enumerate()
+        .filter(|(_, mesh)| mesh.vertices.positions.contains(&[0.0; 3]))
+        .map(|(index, _)| index)
+        .collect();
+    assert_eq!(holders.len(), 1);
+    assert_eq!(
+        model.meshes[holders[0]]
+            .vertices
+            .positions
+            .iter()
+            .filter(|position| **position == [0.0; 3])
+            .count(),
+        2
+    );
+
+    // Nothing welds back apart: the combined mesh is the source mesh.
+    decode(&mut model).unwrap();
+    assert_eq!(model.meshes.len(), 1);
+    assert_eq!(model.meshes[0].vertices.positions.len(), count_before);
+    assert_eq!(face_tuples(&model.meshes[0]), faces_before);
+}
+
+// A combined mesh keeps the emission order when every referenced index
+// fits u16: a loose loop stays right after its owner.
+#[test]
+fn combine_keeps_loose_loops_next_to_their_owners() {
+    // [A0, A1, B, C] where A1 is an unreferenced loop of A0 (same position,
+    // later uv); the face references A0, B, C.
+    let component = Mesh {
+        vertices: MeshVertices {
+            positions: vec![[0.0; 3], [0.0; 3], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
+            normals: Some(vec![[0.0, 0.0, 1.0, 0.0]; 4]),
+            tangents: None,
+            colors: None,
+            uvs: vec![vec![[0.0, 0.0], [1.0, 0.0], [0.0, 0.0], [0.0, 0.0]]],
+            uv_high_precision: vec![true],
+            bone_weights: None,
+            bone_indices: None,
+        },
+        faces: vec![[0, 2, 3]],
+        bone_group: Vec::new(),
+        material: 0,
+        alpha_flags: 0,
+        shadow_flags: 0,
+        has_antiblur_meshes: false,
+        is_antiblur_mesh: false,
+        custom_bounding_box: None,
+    };
+    let group = MeshGroup {
+        name: SPLIT_GROUP_NAME.to_owned(),
+        parent: Some(0),
+        meshes: vec![0],
+        bounding_box: None,
+        visible: true,
+        split_mesh_group: true,
+    };
+    let combined = combine::combine(&[component], &group).unwrap();
+    // Emission order stands: A1 is still right after A0.
+    assert_eq!(
+        combined.vertices.positions,
+        vec![[0.0; 3], [0.0; 3], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]]
+    );
+    // And the vertex decode still reads it as A0's loop.
+    assert_eq!(
+        crate::ops::vertex_enc::decode(&combined).unwrap(),
+        vec![0, 0, 2, 3]
+    );
+}

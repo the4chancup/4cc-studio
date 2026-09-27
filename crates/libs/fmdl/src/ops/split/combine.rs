@@ -129,33 +129,44 @@ pub(super) fn combine(meshes: &[Mesh], group: &MeshGroup) -> Result<Mesh, FmdlEr
     }
 
     // Face indices are u16: the merged vertex order is the component
-    // emission order, which can put a referenced vertex past 65535. Move
-    // every referenced vertex to the front; they are deduplicates of
-    // source vertices that were u16-referenced, so at most 65536 exist.
-    let mut order: Vec<usize> = Vec::with_capacity(vertices.positions.len());
-    let mut referenced = vec![false; vertices.positions.len()];
-    for face in &faces {
-        for &index in face {
-            referenced[index] = true;
-        }
-    }
-    order.extend((0..referenced.len()).filter(|&index| referenced[index]));
-    order.extend((0..referenced.len()).filter(|&index| !referenced[index]));
-    if let Some(&first_unreferenced) = order.get(usize::from(u16::MAX) + 1)
-        && referenced[first_unreferenced]
+    // emission order, which can put a referenced vertex past 65535. Only
+    // then is the order rewritten — referenced vertices to the front (they
+    // are deduplicates of source vertices that were u16-referenced, so at
+    // most 65536 exist); otherwise the order stands and a loose loop stays
+    // next to its owner.
+    if faces
+        .iter()
+        .any(|face| face.iter().any(|&index| index > usize::from(u16::MAX)))
     {
-        return Err(FmdlError::VertexMismatch(
-            "a combined split mesh references more than 65536 vertices",
-        ));
+        let mut order: Vec<usize> = Vec::with_capacity(vertices.positions.len());
+        let mut referenced = vec![false; vertices.positions.len()];
+        for face in &faces {
+            for &index in face {
+                referenced[index] = true;
+            }
+        }
+        order.extend((0..referenced.len()).filter(|&index| referenced[index]));
+        order.extend((0..referenced.len()).filter(|&index| !referenced[index]));
+        if let Some(&first_unreferenced) = order.get(usize::from(u16::MAX) + 1)
+            && referenced[first_unreferenced]
+        {
+            return Err(FmdlError::VertexMismatch(
+                "a combined split mesh references more than 65536 vertices",
+            ));
+        }
+        let mut new_index = vec![0usize; order.len()];
+        for (position, &vertex) in order.iter().enumerate() {
+            new_index[vertex] = position;
+        }
+        permute_vertices(&mut vertices, &order);
+        faces = faces
+            .iter()
+            .map(|face| face.map(|index| new_index[index]))
+            .collect();
     }
-    let mut new_index = vec![0usize; order.len()];
-    for (position, &vertex) in order.iter().enumerate() {
-        new_index[vertex] = position;
-    }
-    permute_vertices(&mut vertices, &order);
     let faces: Vec<[u16; 3]> = faces
         .iter()
-        .map(|face| face.map(|index| new_index[index] as u16))
+        .map(|face| face.map(|index| index as u16))
         .collect();
 
     Ok(Mesh {

@@ -10,11 +10,11 @@
 //! encoding (modulo bone-index differences between different bone
 //! groups) *and* X and Y are both the Nth vertex of that encoding in
 //! their component. To keep that convention decodable, every vertex that
-//! shares a source vertex's *split key* (topological key: position, bone
-//! weights and bone indices as stored) travels with it into every
-//! component that takes any of them, in the same relative order; this is
-//! also what keeps `vertex-loop-preservation` loops intact across a
-//! split.
+//! shares a source vertex's *split key* (position and the positive-weight
+//! bone mapping — the identity `combine` matches on) travels with it into
+//! every component that takes any of them, in the same relative order;
+//! this is also what keeps `vertex-loop-preservation` loops intact across
+//! a split.
 
 mod build;
 mod combine;

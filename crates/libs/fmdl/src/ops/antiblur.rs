@@ -13,13 +13,15 @@ const TEXTURE_DIRECTORY: &str = "/Assets/pes16/model/character/common/sourceimag
 
 /// Adds the anti-blur duplicate of every mesh flagged `has_antiblur_meshes`
 /// right after it, with a fuzzblock material and the source's custom
-/// bounding box, and sets `extensions.antiblur`. Idempotent on a model
-/// already encoded (a mesh flagged `is_antiblur_mesh` is never duplicated,
-/// and a source mesh followed by its duplicate is skipped). An invalid
-/// model (a dangling index `Model::validate` names) is an error, never a
-/// panic.
+/// bounding box, and sets `extensions.antiblur`. Does nothing on a model
+/// that already declares anti-blur (a file carrying the flag already has
+/// its duplicates; `decode` is what clears it). An invalid model (a
+/// dangling index `Model::validate` names) is an error, never a panic.
 pub fn encode(model: &mut Model) -> Result<(), FmdlError> {
     model.validate()?;
+    if model.extensions.antiblur {
+        return Ok(());
+    }
     let old_meshes = std::mem::take(&mut model.meshes);
     let mut meshes = Vec::with_capacity(old_meshes.len());
     // Old mesh index to its index in the new list, and to its duplicate's.
@@ -29,10 +31,7 @@ pub fn encode(model: &mut Model) -> Result<(), FmdlError> {
     for (index, mesh) in old_meshes.iter().enumerate() {
         old_to_new.push(meshes.len());
         meshes.push(mesh.clone());
-        let already_duplicated = old_meshes
-            .get(index + 1)
-            .is_some_and(|next| next.is_antiblur_mesh);
-        if mesh.has_antiblur_meshes && !mesh.is_antiblur_mesh && !already_duplicated {
+        if mesh.has_antiblur_meshes && !mesh.is_antiblur_mesh {
             let material = *antiblur_materials.entry(mesh.material).or_insert_with(|| {
                 let index = model.materials.len();
                 model
@@ -177,7 +176,7 @@ fn antiblur_material(source: &MaterialInstance) -> MaterialInstance {
 mod tests {
     use super::*;
     use crate::format::FmdlFile;
-    use crate::model::BoundingBox;
+    use crate::model::{Bone, BoundingBox};
 
     const ORAL: &[u8] = include_bytes!("../../tests/fixtures/addon_oral.fmdl");
     const AU_LOW: &[u8] = include_bytes!("../../tests/fixtures/konami_au_Low_parts.fmdl");
@@ -189,6 +188,7 @@ mod tests {
     #[test]
     fn encode_flagged_oral() {
         let mut model = load(ORAL);
+        model.extensions.antiblur = false;
         model.meshes[0].has_antiblur_meshes = true;
         encode(&mut model).unwrap();
 
@@ -273,6 +273,7 @@ mod tests {
     #[test]
     fn encode_is_idempotent() {
         let mut model = load(ORAL);
+        model.extensions.antiblur = false;
         model.meshes[0].has_antiblur_meshes = true;
         encode(&mut model).unwrap();
         let once = model.clone();
@@ -283,6 +284,7 @@ mod tests {
     #[test]
     fn uvscroll_source_gets_uvscroll_material() {
         let mut model = load(ORAL);
+        model.extensions.antiblur = false;
         model.meshes[0].has_antiblur_meshes = true;
         model.materials[0]
             .parameters
@@ -308,6 +310,7 @@ mod tests {
     #[test]
     fn encoded_model_survives_a_file_round_trip() {
         let mut model = load(ORAL);
+        model.extensions.antiblur = false;
         model.meshes[0].has_antiblur_meshes = true;
         encode(&mut model).unwrap();
         let again = Model::from_file(&model.to_file().unwrap()).unwrap();
@@ -344,6 +347,7 @@ mod tests {
     #[test]
     fn decode_keeps_a_shared_material() {
         let mut model = load(ORAL);
+        model.extensions.antiblur = false;
         model.meshes[0].has_antiblur_meshes = true;
         encode(&mut model).unwrap();
         // Point the anti-blur mesh at the material its source also uses.
@@ -363,6 +367,7 @@ mod tests {
     #[test]
     fn a_duplicate_keeps_the_custom_bounding_box() {
         let mut model = load(ORAL);
+        model.extensions.antiblur = false;
         let custom = BoundingBox {
             max: [0.01, 1.5, 0.01, 1.0],
             min: [-0.01, 1.49, -0.01, 1.0],
@@ -381,5 +386,58 @@ mod tests {
         assert_eq!(file.bounding_boxes[box_id].min, [-0.01, 1.49, -0.01, 1.0]);
         let tail = String::from_utf8_lossy(file.extension_tail());
         assert!(tail.contains("Custom-Bounding-Box-Meshes: 0, 1"));
+    }
+
+    // A flagged mesh split into components between two encodes: the
+    // `extensions.antiblur` flag, not adjacency, keeps encode idempotent.
+    #[test]
+    fn encode_is_idempotent_after_a_split() {
+        let mut model = load(ORAL);
+        model.extensions.antiblur = false;
+        model.meshes[0].has_antiblur_meshes = true;
+        encode(&mut model).unwrap();
+        assert_eq!(model.meshes.len(), 2);
+
+        // Make the source need splitting: a bone group over the limit and
+        // loose vertices weighted across it, so it fragments into more
+        // than one component (adjacency then no longer shields it).
+        model.bones.extend((1usize..40).map(|index| Bone {
+            name: format!("bone{index}"),
+            parent: index.checked_sub(1),
+            bounding_box: BoundingBox {
+                max: [0.0; 4],
+                min: [0.0; 4],
+            },
+            local_position: [0.0; 4],
+            world_position: [0.0, index as f32, 0.0, 1.0],
+        }));
+        let mesh = &mut model.meshes[0];
+        mesh.bone_group = (0..40).collect();
+        for slot in 1usize..40 {
+            mesh.vertices.positions.push([10.0 + slot as f32, 0.0, 0.0]);
+            if let Some(normals) = &mut mesh.vertices.normals {
+                normals.push(normals[0]);
+            }
+            if let Some(tangents) = &mut mesh.vertices.tangents {
+                tangents.push(tangents[0]);
+            }
+            if let Some(colors) = &mut mesh.vertices.colors {
+                colors.push(colors[0]);
+            }
+            for uvs in &mut mesh.vertices.uvs {
+                uvs.push(uvs[0]);
+            }
+            if let Some(weights) = &mut mesh.vertices.bone_weights {
+                weights.push([255, 0, 0, 0]);
+            }
+            if let Some(indices) = &mut mesh.vertices.bone_indices {
+                indices.push([slot as u8, 0, 0, 0]);
+            }
+        }
+        crate::ops::split::encode(&mut model, None).unwrap();
+        assert!(model.meshes.len() > 2);
+        let before = model.clone();
+        encode(&mut model).unwrap();
+        assert_eq!(model, before);
     }
 }
