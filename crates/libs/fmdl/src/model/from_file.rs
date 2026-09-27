@@ -25,23 +25,12 @@ impl ExtensionHeaders {
 /// NUL-terminated `X-FMDL-Extensions:` text (case-insensitive) with
 /// HTTP-style `key: v1, v2` lines. `None` when no such text is present.
 fn extension_headers(file: &FmdlFile) -> Option<ExtensionHeaders> {
-    let table = file.string_table.as_deref()?;
-    let last_end = file
-        .strings
-        .iter()
-        .filter(|record| record.string_block_id == 3)
-        .map(|record| record.offset as usize + usize::from(record.length))
-        .max()?;
-    let position = last_end + 1;
-    if position >= table.len() {
-        return None;
-    }
-    let end = table[position..]
+    let tail = file.extension_tail();
+    let end = tail
         .iter()
         .position(|byte| *byte == 0)
-        .map(|index| position + index)
-        .unwrap_or(table.len());
-    let text = std::str::from_utf8(&table[position..end]).ok()?;
+        .unwrap_or(tail.len());
+    let text = std::str::from_utf8(&tail[..end]).ok()?;
     if !text.to_lowercase().starts_with("x-fmdl-extensions:") {
         return None;
     }
@@ -52,14 +41,9 @@ fn extension_headers(file: &FmdlFile) -> Option<ExtensionHeaders> {
         let Some(colon) = line.find(':') else {
             continue;
         };
+        // Only the fixed keys are ever looked up, so a key that could never
+        // be one (empty, inner whitespace) needs no filter.
         let key = line[..colon].trim().to_lowercase();
-        if key.is_empty()
-            || key
-                .chars()
-                .any(|c| c == ' ' || c == '\t' || c == '\r' || c == '\n')
-        {
-            continue;
-        }
         let values: Vec<String> = line[colon + 1..]
             .split(',')
             .map(|value| value.trim().to_owned())

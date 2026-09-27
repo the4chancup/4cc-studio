@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use super::{BoundingBox, MeshGroup, Model};
 use crate::format::f16::f32_to_f16;
 use crate::format::records::*;
-use crate::format::{DatumFormat, DatumType, FmdlError, FmdlFile, MeshVertices};
+use crate::format::{DatumFormat, DatumType, FmdlError, FmdlFile, MeshVertices, table_u16};
 
 impl Model {
     /// Rebuilds a fresh `FmdlFile`: positions in buffer 0 (stride 12), the
@@ -588,11 +588,6 @@ fn compute_bounding_box(model: &Model, group: &MeshGroup) -> BoundingBox {
     max[3] = 1.0;
     min[3] = 1.0;
     BoundingBox { max, min }
-}
-
-/// Narrows a table count or index to the format's u16 field.
-fn table_u16(what: &'static str, count: usize) -> Result<u16, FmdlError> {
-    u16::try_from(count).map_err(|_| FmdlError::TableOverflow { what, count })
 }
 
 /// Appends a bounding-box record, returning its id.

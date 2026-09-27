@@ -254,8 +254,25 @@ impl FmdlFile {
         .write()
     }
 
+    /// The bytes after the NUL that ends the last block-3 string: the
+    /// extension-header text when a writer left one. Empty when there is no
+    /// block-3 string or nothing follows it.
+    pub(crate) fn extension_tail(&self) -> &[u8] {
+        let table = self.string_table.as_deref().unwrap_or(&[]);
+        let Some(last_end) = self
+            .strings
+            .iter()
+            .filter(|record| record.string_block_id == 3)
+            .map(|record| record.offset as usize + usize::from(record.length))
+            .max()
+        else {
+            return &[];
+        };
+        table.get(last_end + 1..).unwrap_or(&[])
+    }
+
     /// The string `strings[index]` names: a span inside a section-1 block.
-    pub fn string(&self, index: usize) -> Result<&str, FmdlError> {
+    pub(crate) fn string(&self, index: usize) -> Result<&str, FmdlError> {
         let record = self
             .strings
             .get(index)
@@ -391,6 +408,40 @@ mod tests {
         }
         assert_eq!(FmdlFile::read(ORAL).unwrap().bone_matrices, Some(vec![]));
         assert_eq!(FmdlFile::read(PLACEHOLDER).unwrap().bone_matrices, None);
+    }
+
+    #[test]
+    fn strings_resolve_through_any_section1_block() {
+        let mut file = FmdlFile::read(HIGHNECK).unwrap();
+        file.material_parameters = Some(b"mat".to_vec());
+        file.bone_matrices = Some(b"bone".to_vec());
+        file.buffer = Some(b"buf".to_vec());
+        file.unknown_buffers = vec![ByteBlock {
+            id: 7,
+            bytes: b"unk".to_vec(),
+        }];
+        let base = file.strings.len();
+        for (block_id, text) in [(0u16, "mat"), (1, "bone"), (2, "buf"), (7, "unk")] {
+            file.strings.push(StringRecord {
+                string_block_id: block_id,
+                length: text.len() as u16,
+                offset: 0,
+            });
+        }
+        assert_eq!(file.string(base).unwrap(), "mat");
+        assert_eq!(file.string(base + 1).unwrap(), "bone");
+        assert_eq!(file.string(base + 2).unwrap(), "buf");
+        assert_eq!(file.string(base + 3).unwrap(), "unk");
+        // A block id the file does not hold at all.
+        file.strings.push(StringRecord {
+            string_block_id: 9,
+            length: 3,
+            offset: 0,
+        });
+        assert!(matches!(
+            file.string(base + 4),
+            Err(FmdlError::BadStringReference { .. })
+        ));
     }
 
     #[test]

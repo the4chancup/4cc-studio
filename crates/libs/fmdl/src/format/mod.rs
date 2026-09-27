@@ -1,17 +1,23 @@
 //! The `format/` half of `fmdl`: pure codecs that reproduce what PES reads
 //! and writes, with no interpretation of the data inside the blocks.
 
-mod container;
+pub(crate) mod container;
 pub(crate) mod f16;
 mod file;
 pub mod records;
 mod skl;
 mod vertex;
 
-pub use container::{ByteBlock, FmdlContainer, RecordBlock};
+pub use container::{ByteBlock, RecordBlock};
 pub use file::FmdlFile;
 pub use skl::{SklBone, SklFile};
-pub use vertex::{DatumFormat, DatumType, MeshVertices, VertexAttribute};
+pub use vertex::MeshVertices;
+pub(crate) use vertex::{DatumFormat, DatumType};
+
+/// Narrows a table count or index to the format's u16 field.
+pub(crate) fn table_u16(what: &'static str, count: usize) -> Result<u16, FmdlError> {
+    u16::try_from(count).map_err(|_| FmdlError::TableOverflow { what, count })
+}
 
 /// Why a byte buffer is not a readable FMDL or SKL.
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
