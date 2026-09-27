@@ -1166,6 +1166,46 @@ fn combine_keeps_loose_loops_next_to_their_owners() {
     );
 }
 
+// At exactly index 65535 every face index still fits u16, so the
+// emission order stands; the reorder is only for `> u16::MAX`.
+#[test]
+fn combine_keeps_emission_order_at_index_65535() {
+    let count = usize::from(u16::MAX) + 1;
+    let component = Mesh {
+        vertices: MeshVertices {
+            positions: (0..count).map(|index| [index as f32, 0.0, 0.0]).collect(),
+            normals: Some(vec![[0.0, 0.0, 1.0, 0.0]; count]),
+            tangents: None,
+            colors: None,
+            uvs: vec![vec![[0.0, 0.0]; count]],
+            uv_high_precision: vec![true],
+            bone_weights: None,
+            bone_indices: None,
+        },
+        // Vertices 1 and 3..=65534 are loose; 65535 is the largest
+        // referenced index and still fits u16.
+        faces: vec![[0, 2, 65535]],
+        bone_group: Vec::new(),
+        material: 0,
+        alpha_flags: 0,
+        shadow_flags: 0,
+        has_antiblur_meshes: false,
+        is_antiblur_mesh: false,
+        custom_bounding_box: None,
+    };
+    let group = MeshGroup {
+        name: SPLIT_GROUP_NAME.to_owned(),
+        parent: Some(0),
+        meshes: vec![0],
+        bounding_box: None,
+        visible: true,
+        split_mesh_group: true,
+    };
+    let combined = combine::combine(std::slice::from_ref(&component), &group).unwrap();
+    assert_eq!(combined.vertices.positions, component.vertices.positions);
+    assert_eq!(combined.faces, vec![[0, 2, 65535]]);
+}
+
 // A combine failure leaves the model untouched: the second split group's
 // components disagree on layout, so decode errors — with the mesh list
 // still populated.
