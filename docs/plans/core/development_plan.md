@@ -477,6 +477,17 @@ from unintended conversion loss.
   migrated into the Team compiler and core chapters), `CHANGELOG.md` started, `4cc-studio help
   --export` wired into the release process; the bundled readme stays a pointer (the window itself
   is Phase 8)
+- Maintenance mode: a section in `AGENTS.md` on how the project changes once released, written
+  as this phase closes (not earlier: a procedure written far ahead of its use goes stale).
+  Agreed outline: the plans stay the spec, edited in place, and `DECISIONS.md` stays the
+  decision (ADR) log, split per year past about 4-5k lines, with no per-file ADRs or ADR
+  tooling. A fix is a failing regression test first, a plan edit only if behavior changes, and
+  `mutants-diff`. A feature runs the phase procedure at small scale (acceptance scenarios,
+  converge, present-tense rewrite), as Phases 17-18 already do. Released surfaces become
+  compatibility contracts (`settings.toml`/`config.toml` keys, CLI flags and exit codes, the
+  export layout, finding codes, `.4ccm`): breaking one needs an Export upgrader migration or a
+  clear refusal, never a silent reinterpretation. Converge runs per release over the commits
+  since the last tag: the plan sections they touched, and `mutants-diff <last tag>`
 
 ### Phase 17: Team creator (`tools/team_creator`, post-release)
 

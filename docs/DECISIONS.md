@@ -2196,3 +2196,21 @@ cannot start with a digit anyway.
 Plan: `core/architecture.md` "Crate structure" (naming bullets); CLI and file-name mentions across
 `core/`, `team_compiler/`, `db_generator.md`, `refs_arranger.md`, `player_aesthetics_editor.md`,
 `match_tracker/match_feed.md`, `GLOSSARY.md`.
+
+## 2026-09-27 - archives - password-protected archives are refused at open
+Decision (maintainer): `Archive::zip` refuses a zip with any encrypted entry and
+`Archive::seven_z` a 7z whose header is encrypted or whose blocks carry the AES coder, both
+with `Encrypted` at open; `read` no longer meets encryption.
+Why: at open, the Team compiler's live shallow check reports a password-protected export the
+moment it appears; refusing at `read` postponed it to the compile-start deep check. Passwords
+are never prompted for, so no archive with an encrypted part can ever be compiled anyway.
+Plan: `libs/archives.md` (the block, the encryption paragraph, the fixtures paragraph).
+
+## 2026-09-27 - method - maintenance mode is a Phase 16 deliverable, not ADRs
+Decision (maintainer): no per-file ADRs; `DECISIONS.md` already is the ADR log and the plans
+the spec. What is missing is the procedure once the project is released, planned as a Phase 16
+deliverable with its outline recorded now.
+Why: per-file ADRs would add a second home for decisions the plans already carry through the
+`Plan:` field, and two homes drift. A procedure written now, far ahead of its use, would go
+stale, the same reason Acceptance sections are written just in time.
+Plan: `core/development_plan.md` "Phase 16" (maintenance-mode bullet).

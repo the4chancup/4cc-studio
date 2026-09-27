@@ -39,7 +39,8 @@ pub enum ArchiveError {
     /// Two entries normalize to the same tree path.
     #[error("two entries normalize to the same path {0:?}")]
     DuplicateName(String),
-    /// The archive or entry needs a password; there is no prompting here.
+    /// The archive is password-protected (any encrypted part); refused at open,
+    /// there is no prompting here.
     #[error("archive is encrypted")]
     Encrypted,
 }
@@ -101,8 +102,9 @@ fn is_directory_entry(flagged: bool, name: &str) -> bool {
 }
 
 /// A 7z crate error to ours. The crate is built without its `aes256` feature and always given
-/// the empty password, so encryption (of the header or of the entries) surfaces as the AES
-/// coder being an unsupported method, never as the crate's password errors.
+/// the empty password, so an encrypted header surfaces as the AES coder being an unsupported
+/// method, never as the crate's password errors. Encrypted entries are caught by the block
+/// check in `seven_z`.
 fn seven_error(error: sevenz_rust2::Error) -> ArchiveError {
     match &error {
         sevenz_rust2::Error::UnsupportedCompressionMethod(method) if method == "AES256_SHA256" => {
@@ -115,8 +117,8 @@ fn seven_error(error: sevenz_rust2::Error) -> ArchiveError {
 enum Inner<R: Read + Seek> {
     Zip {
         archive: zip::ZipArchive<R>,
-        /// Normalized path → (zip index, is encrypted).
-        index: HashMap<String, (usize, bool)>,
+        /// Normalized path → zip index.
+        index: HashMap<String, usize>,
     },
     SevenZ {
         reader: Box<sevenz_rust2::ArchiveReader<R>>,
@@ -133,26 +135,31 @@ pub struct Archive<R: Read + Seek> {
 }
 
 impl<R: Read + Seek> Archive<R> {
-    /// A zip: reads the central directory only.
+    /// A zip: reads the central directory and each entry's local header, decompressing
+    /// nothing. Any encrypted entry is `Encrypted`.
     pub fn zip(reader: R) -> Result<Self, ArchiveError> {
         let mut archive =
             zip::ZipArchive::new(reader).map_err(|error| ArchiveError::Zip(error.to_string()))?;
         let mut entries = Vec::new();
         let mut index = HashMap::new();
         for i in 0..archive.len() {
-            // The raw view leaves the data stream alone: encrypted entries still list.
+            // The raw view is where the size and the encryption flag are readable
+            // without decompressing.
             let file = archive
                 .by_index_raw(i)
                 .map_err(|error| ArchiveError::Zip(error.to_string()))?;
             if file.is_dir() {
                 continue;
             }
+            if file.encrypted() {
+                return Err(ArchiveError::Encrypted);
+            }
             let path = normalize(file.name())?;
             entries.push(Entry {
                 path: path.clone(),
                 size: file.size(),
             });
-            index.insert(path, (i, file.encrypted()));
+            index.insert(path, i);
         }
         check_unique(&entries)?;
         Ok(Archive {
@@ -161,10 +168,19 @@ impl<R: Read + Seek> Archive<R> {
         })
     }
 
-    /// A 7z: reads the header only.
+    /// A 7z: reads the header only. An encrypted header or any AES-coded block is
+    /// `Encrypted`.
     pub fn seven_z(reader: R) -> Result<Self, ArchiveError> {
         let reader =
             sevenz_rust2::ArchiveReader::new(reader, Password::empty()).map_err(seven_error)?;
+        let encrypted = reader.archive().blocks.iter().any(|block| {
+            block.coders.iter().any(|coder| {
+                coder.encoder_method_id() == sevenz_rust2::EncoderMethod::ID_AES256_SHA256
+            })
+        });
+        if encrypted {
+            return Err(ArchiveError::Encrypted);
+        }
         let mut entries = Vec::new();
         for file in &reader.archive().files {
             if is_directory_entry(file.is_directory(), file.name()) {
@@ -196,12 +212,9 @@ impl<R: Read + Seek> Archive<R> {
     pub fn read(&mut self, path: &str) -> Result<Vec<u8>, ArchiveError> {
         match &mut self.inner {
             Inner::Zip { archive, index } => {
-                let Some(&(i, encrypted)) = index.get(path) else {
+                let Some(&i) = index.get(path) else {
                     return Err(ArchiveError::NotFound(path.to_string()));
                 };
-                if encrypted {
-                    return Err(ArchiveError::Encrypted);
-                }
                 let mut file = archive
                     .by_index(i)
                     .map_err(|error| ArchiveError::Zip(error.to_string()))?;
@@ -371,29 +384,28 @@ mod tests {
 
     #[test]
     fn encrypted_archives_are_refused() {
+        // Both kinds are refused at open: a 7z whose header is encrypted
+        // and a zip carrying encrypted entries.
         match Archive::seven_z(Cursor::new(ENCRYPTED_7Z)) {
             Err(ArchiveError::Encrypted) => {}
-            Ok(mut archive) => {
-                let path = archive.entries()[0].path.clone();
-                assert!(matches!(archive.read(&path), Err(ArchiveError::Encrypted)));
-            }
             Err(error) => panic!("encrypted 7z: {error}"),
+            Ok(_) => panic!("encrypted 7z listed"),
         }
-        let mut zip = Archive::zip(Cursor::new(ENCRYPTED_ZIP)).expect("encrypted zip lists");
-        assert_eq!(zip.entries().len(), 6);
-        let path = zip.entries()[0].path.clone();
-        assert!(matches!(zip.read(&path), Err(ArchiveError::Encrypted)));
+        match Archive::zip(Cursor::new(ENCRYPTED_ZIP)) {
+            Err(ArchiveError::Encrypted) => {}
+            Err(error) => panic!("encrypted zip: {error}"),
+            Ok(_) => panic!("encrypted zip listed"),
+        }
     }
 
     #[test]
-    fn entry_encrypted_7z_lists_but_refuses_reads() {
-        // Entries encrypted, header readable: the entry list works, `read` is Encrypted.
-        let mut archive = Archive::seven_z(Cursor::new(ENCRYPTED_NAMES_7Z)).expect("header");
-        let mut sorted = archive.entries().to_vec();
-        sorted.sort_by(|a, b| a.path.cmp(&b.path));
-        assert_eq!(sorted, expected());
-        let path = archive.entries()[0].path.clone();
-        assert!(matches!(archive.read(&path), Err(ArchiveError::Encrypted)));
+    fn entry_encrypted_7z_is_refused_at_open() {
+        // Entries encrypted, header readable: still refused at open.
+        match Archive::seven_z(Cursor::new(ENCRYPTED_NAMES_7Z)) {
+            Err(ArchiveError::Encrypted) => {}
+            Err(error) => panic!("entry-encrypted 7z: {error}"),
+            Ok(_) => panic!("entry-encrypted 7z listed"),
+        }
     }
 
     #[test]
