@@ -332,9 +332,10 @@ positions, motion, edit flags, and the complete aesthetics including the
 ingame-face parameters (which the legacy formats omit). Goals:
 
 - Readable and editable in a text editor without opening 4cc Studio.
-- The per-player authorable settings use the exact `PlayerSettings` schema from `settings.toml`.
-  Full player records additionally retain boots/gloves IDs for save interchange; these fields
-  are not part of the aesthetic export's settings schema.
+- The per-player authorable appearance tables use the exact `PlayerSettings` schema from
+  `settings.toml`. Full player records additionally retain boots/gloves IDs over their whole
+  stored range for save interchange, at player level; `settings.toml`'s own top-level
+  `boots_id`/`gloves_id` accept only the stock band (0 to 100).
 - Version-gated fields serialize as optional keys; importing into an older
   version applies the cross-version conversion (caps + playstyle maps) with
   warnings.
@@ -652,7 +653,7 @@ name = "/a/"                 # for the reader; the id is what is applied
 
 [teams.players.03]           # slot 03 → player 70103
 name = "Snuffy"              # resolved: `name = true` became the string
-boots_id = 28043             # compiler-owned fields, as assigned
+boots_id = 3601              # resolved: the assigned custom ID, or the authored stock ID
 gloves_id = 0
 edit_flags = 12
 
@@ -663,8 +664,10 @@ skin_color = 2
 
 Rules:
 
-- **Per player, the file carries the `PlayerSettings` schema plus the compiler-owned fields**
-  (`boots_id`, `gloves_id`, `edit_flags`) — the same union Team TOML's player aesthetics section
+- **Per player, the file carries the `PlayerSettings` schema plus the compiler-owned
+  `edit_flags`**, with `boots_id`/`gloves_id` over their full stored range: the resolved ID is a
+  committed custom output's assigned ID, or the authored stock ID (0 to 100) when the folder
+  requested no output for that category — the same union Team TOML's player aesthetics section
   holds; nothing is invented for the patch. Only fields the compile resolved to a write appear;
   **absent = untouched** at every level (field, player, team), which is what lets a midcup patch
   covering three teams apply to a save cleanly after a full-cup one.
@@ -673,7 +676,7 @@ Rules:
   "only for content that was actually packed" rule. The patch answers "what will the save contain",
   never "what did the export say" — the export is not needed to apply it.
 - **Applying is `pes_savefile`'s operation** (`apply_patch`): for each player, apply the
-  `PlayerSettings` and set the compiler-owned fields, through the same code the compiler's own
+  `PlayerSettings` and set the IDs and edit flags, through the same code the compiler's own
   savefile stage uses — because that stage *is* "apply the patch just produced to the local save"
   (see "Savefile update" in the [Team compiler plan](../team_compiler/README.md)). One path, so a patch applied
   a week later by someone else yields the same bytes the DLC builder's machine wrote.

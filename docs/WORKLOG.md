@@ -486,6 +486,17 @@ Spec: `docs/plans/core/development_plan.md` "Phase 2", `docs/plans/libs/README.m
     `check_text` (NUL, single-byte encodability, capacity) at all four text sites; the texport
     golden compares whole tactics and every player with the schema codec's reads at the literal
     offsets on all four fixtures (lead). Crate 202 tests
+- [ ] 2.17i `settings.toml` stock boots/gloves IDs (decision entry 2026-09-28; spec
+  `aesthetics_export/settings_toml.md` "Player settings in exports", `pes_savefile/model.md`
+  "Player settings model"): top-level `boots_id`/`gloves_id` in `PlayerSettings` (0 to 100 or
+  `""` = default), `BootsId`/`GlovesId` reclassified from compiler-owned to settings, `from_player`
+  emitting only 1 to 100, `to_toml`/`update_toml` writing an unset ID as `""`; Team TOML's
+  player-level full-range IDs and its `[appearance]` embedding unchanged → verify: `to_toml` of
+  `Default` equals the updated plan block literally (`PLAN_BLOCK`); parse accepts 0, 100 and `""`
+  and rejects 101 and a `boots_id` inside `[appearance]` or `[appearance.strip]`, each naming the
+  key; `from_player` on fixture players gives `None` for 0 and custom IDs and `Some` for 1 to 100;
+  `apply` writes an authored ID and leaves the field alone for `None`; the completeness test and
+  every Team TOML test pass unchanged. Before the `pes_savefile` converge
 - [x] 2.18 `python_bindings` (`core/development_plan.md` "Phase 2" `python_bindings`; decision
   entry 2026-09-21): `pes_models_native` wheel (`Fmdl`/`Skl`/`Model`/`MaterialSet` `read`/`write`,
   `FormatError`, `pyo3-log`), `abi3-py311`, a `cdylib` member with `test = false`; `just bindings
@@ -921,3 +932,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
 - **2026-09-28** - Release target set (maintainer): 0.1.0 after Phase 8 (Windows, CPU textures,
   native models, updater check + notice); Phase 7 and GPU BC7 (now 16.x) move after it; no
   Pre-Studio input path. Plan-only change (decision entry). Next: another plan change, then 2.20g.
+- **2026-09-28** - `settings.toml` gains top-level stock `boots_id`/`gloves_id` (0 to 100, `""` =
+  default: FPC marker or savefile decides); plan-only change across ten documents (decision
+  entry), code step 2.17i added. Test 1 files for the appearance-fallback idea are in
+  `.tmp/apptest/out/`, awaiting the maintainer's in-game run.

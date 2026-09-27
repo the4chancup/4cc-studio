@@ -20,12 +20,15 @@ Part of the [Savefile plan](README.md). Section headings are unchanged from the 
   saves through the AET compiler Red's `savefile.py` reader, which shares this
   plan's offsets; `display_name()` must strip every colour code in those saves'
   ~30 decorated names and leave every undecorated name unchanged.
-- **Export settings versus save interchange**: generated `settings.toml` omits boots/gloves IDs,
-  and authored ID keys are rejected; full Team TOML still round-trips those IDs as player-record
-  data. Compiler ID assignment remains independent of the authorable settings serializer.
+- **Export settings versus save interchange**: generated `settings.toml` carries a boots/gloves
+  ID only when the stored ID is 1 to 100, never 0 or a custom ID above 100; an authored ID above
+  100 is `OutOfRange` naming the key; full Team TOML still round-trips every stored ID as
+  player-record data. Compiler ID assignment remains independent of the authorable settings
+  serializer.
 - **Settings completeness**: for every version, each appearance field in the schema table is
   marked `settings` or `compiler_owned`, and the `settings` set equals `PlayerSettings`' fields;
-  the generated template contains every `PlayerSettings` key (a commented line for each unset one).
+  the generated template contains every `PlayerSettings` key (a commented line for each unset
+  one; `boots_id`/`gloves_id` as `""`, which parses back to unset).
 - **Patch equivalence**: compiling a fixture export against a save, and compiling it without a save
   then applying the produced patch to a copy of that save, yield byte-identical savefiles; applying
   a second patch covering a subset of teams changes only those teams' players and only the fields

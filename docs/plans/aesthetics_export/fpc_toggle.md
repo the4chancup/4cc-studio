@@ -32,10 +32,11 @@ folder view tells the whole story about how the player's models render:
 |---|---|
 | Requested local/shared output committed | Compiler-assigned ID wins over the preset's hide/default ID |
 | Requested output failed or was dropped | Existing savefile ID is preserved; failure is not treated as absence |
-| No standalone output requested | Apply the marker's preset ID, or preserve the existing ID if there is no marker |
+| No standalone output requested, `settings.toml` sets the category's stock `boots_id`/`gloves_id` to a number | The authored stock ID wins over the preset's hide/default ID |
+| No standalone output requested, the key at its default (`""` or absent) | Apply the marker's preset ID (`fpc.on`: boots 55, gloves 11; `fpc.off`: 0 and 0), or preserve the existing ID if there is no marker |
 
 Other preset fields still apply normally. Pre-Fox local models embedded in face XML do not request
-a standalone boots/gloves output, so they follow the third row.
+a standalone boots/gloves output, so they follow the last two rows.
 
 **Team kit-FPC status and kit configs.** FPC also requires settings on **every one of the team's kit
 configs, including the goalkeeper kit** (modern system, per the [wiki's PES17 FPC

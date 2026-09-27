@@ -134,10 +134,11 @@ left alone.
 physique, strip style (taping, spectacles and their colour, sleeves, inners, socks, undershorts,
 shirttail, player gloves and their colour), wrist-tape colours, skin and iris colour, the motion
 block (hunching, arm movement, kick motions, gc1/gc2, dribbling motion on 20+; visual choices a
-team makes, so aesthetics), and the eleven ingame-face feature types — with exactly two exclusions,
-both **compiler-owned**: the boots/gloves model IDs (derived from the models and links present)
-and the edit flags plus base-copy ID (derived from what was written). Export `settings.toml`
-neither accepts the excluded keys nor emits them when generated from a save.
+team makes, so aesthetics), the eleven ingame-face feature types, and the boots/gloves model IDs
+**within the stock band** (0 to 100; custom IDs are derived by the compiler from the models and
+links present, see the Aesthetics export plan's "Player settings in exports") — with one exclusion,
+**compiler-owned**: the edit flags plus base-copy ID (derived from what was written). Export
+`settings.toml` neither accepts the excluded keys nor emits them when generated from a save.
 
 **The ingame-face run.** From its 22nd byte to its end, the appearance block (72 bytes on PES 16 to
 21, 68 on PES 15; a separate record on 15/16, inside the player record from 17) is a run no legacy
@@ -217,7 +218,8 @@ test asserts that the `Settings` set equals the set of fields the `SettingKey` t
 a field added to a schema cannot be silently left out of the authorable set. The generated
 template (the Export upgrader's and the save editor's `settings.toml` output, and the blank
 template for a new player folder) lists **every** `SettingKey`, one per line, each followed by the
-comment carrying its range: set ones with their value, unset ones as commented lines, so the file
+comment carrying its range: set ones with their value, unset ones as commented lines (unset
+boots/gloves IDs as `""`), so the file
 itself shows what can be authored and "absent = untouched" stays true for the unset ones. The key
 table, its order, its comments and its ranges are the block in the
 [Aesthetics export plan](../aesthetics_export/settings_toml.md) ("Player settings in exports"),
@@ -237,11 +239,16 @@ pub enum NameSetting { FromFolder, Explicit(String) }
 pub enum SettingKey { SkinColor, IrisColor, Height, /* … every key of the block, in its order */ LowerLipType }
 
 /// Every leaf is `Option`; `None` = leave the savefile value alone. The struct mirrors the
-/// TOML tables (`appearance`, `appearance.physique`, `.strip`, `.motion`, `.face`) with the
-/// model's storage types (`u8`/`bool`), not the TOML surface types: the string labels and the
-/// signed physique numbers exist only at the parse/emit boundary.
+/// TOML tables (top level, `appearance`, `appearance.physique`, `.strip`, `.motion`, `.face`)
+/// with the model's storage types (`u8`/`bool`), not the TOML surface types: the string labels
+/// and the signed physique numbers exist only at the parse/emit boundary. `boots_id`/`gloves_id`
+/// are top-level keys (0 to 100, the stock band, or `""` = `None` = default: the compiler
+/// resolves it from the folder's content and FPC marker), outside
+/// `AppearanceSettings`, because Team TOML embeds `AppearanceSettings` beside its own full-range
+/// player-level IDs. `to_toml` writes a `None` ID as `""`, uncommented.
 #[derive(Debug, Clone, PartialEq, Default)]
-pub struct PlayerSettings { pub name: Option<NameSetting>, pub appearance: AppearanceSettings }
+pub struct PlayerSettings { pub name: Option<NameSetting>, pub boots_id: Option<u8>,
+                            pub gloves_id: Option<u8>, pub appearance: AppearanceSettings }
 
 impl PlayerSettings {
     /// Parses a file: unknown keys and tables, wrong types, out-of-range values and unknown
@@ -250,8 +257,10 @@ impl PlayerSettings {
     /// would silently truncate on reload).
     pub fn parse(text: &str) -> Result<Self, SettingsError>;
     /// Every key `Some` from the player; `name` is `Explicit(raw name)`, colour codes included.
-    /// A stored value the key table cannot express (a 2-bit sleeves field holding 3, which the
-    /// reference scripts label "broken") is `OutOfRange` naming the key, not a panic later.
+    /// `boots_id`/`gloves_id` are the exception: `Some` only for a stored ID from 1 to 100 (0 is
+    /// the game's default, an ID above 100 is custom content a folder owns), so they are never
+    /// `OutOfRange`. Any other stored value the key table cannot express (a 2-bit sleeves field
+    /// holding 3, which the reference scripts label "broken") is `OutOfRange` naming the key.
     pub fn from_player(player: &PlayerEntry) -> Result<Self, SettingsError>;
     /// Sets a stored value; `OutOfRange` when the key's kind cannot represent it, so a
     /// `PlayerSettings` built through `set` is always one the emitters can write.
@@ -277,8 +286,8 @@ impl PlayerSettings {
 ```rust
 /// Writes one preset's appearance (sleeves, tuck, socks, boots/gloves IDs, skin), all or
 /// nothing: every check (custom skin available, the face run present) runs before the first
-/// write. The caller substitutes a custom model's own boots/gloves IDs into `appearance` first
-/// (the compiler's precedence table). `SkinColor::Custom` writes skin 7 on versions that have a
+/// write. The caller substitutes a custom model's own boots/gloves IDs, or an authored stock
+/// ID, into `appearance` first (the compiler's precedence table). `SkinColor::Custom` writes skin 7 on versions that have a
 /// custom skin (`fpc::custom_skin_available`) and is `FpcError::CustomSkinUnavailable` elsewhere;
 /// `SkinColor::Preset` resets a skin of 7 to 1 (light) and leaves any other skin alone.
 pub fn apply(player: &mut PlayerEntry, appearance: &fpc::Appearance, version: PesVersion)
@@ -293,9 +302,10 @@ pub fn strip_style(player: &PlayerEntry) -> Result<fpc::StripStyle, FpcError>;
 pub fn is_fpc_player(player: &PlayerEntry) -> Result<bool, FpcError>;
 ```
 
-The authorable settings subset shares one schema between export `settings.toml` and Team TOML.
-Full-fidelity Team TOML additionally preserves the save's boots/gloves IDs as player-record data
-outside that subset; generating an aesthetic export must not copy those IDs into `settings.toml`.
+The authorable appearance tables are one schema shared by export `settings.toml` and Team TOML.
+Full-fidelity Team TOML additionally preserves the save's boots/gloves IDs over their whole stored
+range as player-record data; generating an aesthetic export copies them into `settings.toml` only
+through `from_player`'s stock-band rule.
 
 The crate also owns the **version-aware FPC enable/disable presets** (Full
 Player Customization invisibility — nonexistent boots/gloves IDs plus strip
@@ -304,7 +314,7 @@ the [Save editor plan](../save_editor.md)). Both the save editor's FPC toggle an
 the Team compiler's `fpc.on`/`fpc.off` marker files use the same preset values. The compiler
 composes the boots/gloves ID fields with asset outcomes: a successful requested standalone output
 uses its assigned ID, a failed requested output preserves the existing save ID, and no requested
-standalone output allows the preset ID. Other preset fields still apply normally; the full
+standalone output allows the authored stock ID, else the preset ID. Other preset fields still apply normally; the full
 precedence rule lives in the [Aesthetics export plan](../aesthetics_export/fpc_toggle.md)'s "FPC toggle" section.
 
 ---

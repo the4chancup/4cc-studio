@@ -2269,3 +2269,30 @@ Plan: `core/development_plan.md` ("Releases", "Phase 2", "Phase 4", "Phase 7", "
 "Versioning"), `libs/README.md` "First-release desktop GPU BC7", `team_compiler/README.md`
 "First-release GPU BC7", `team_compiler/pipeline.md` (format conversion step). Supersedes the
 Phase 4 placement in the 2026-09-21 GPU BC7 entry.
+
+## 2026-09-28 - settings.toml - stock boots/gloves IDs are authorable, `""` is default
+Decision (maintainer): `settings.toml` gains top-level `boots_id` and `gloves_id`, for players
+who wear one of the game's own models and so have no folder to express it. Accepted values: 0 to
+100 (the stock band: the cup's stock kit always compacts Konami's boots and gloves into it, and
+the compiler's per-team blocks start at 101) or `""`, meaning default, the same as an absent key.
+Both keys appear in the template uncommented as `""`. Per category: folder models or a link win
+(a numeric key is then ignored with `settings_model_id_conflict`, W); else a numeric key is
+written; else the FPC marker decides (`fpc.on`: the hide preset's 55/11, `fpc.off`: 0/0), and
+with no marker the savefile's IDs stay unchanged, so an FPC player needs no key at all.
+Lead, applied as recommended: the keys sit at the file's top level beside `name`, not in
+`[appearance]`, because Team TOML embeds the `[appearance]` tables beside its own player-level
+full-range IDs; a numeric key wins over an FPC marker's preset ID (an explicit choice, as a
+custom model's ID already does); generators (`from_player`, the Export upgrader, the save editor)
+emit a stored ID only from 1 to 100 (0 is the game default, above 100 is custom content a folder
+owns) and leave FPC-detected players at `""`; the upgrader reports a custom ID no export folder
+claims instead of writing it.
+Why: the earlier rule (boots/gloves IDs never authored) left stock-model players with no way to
+state their boots, which only survived as long as nobody rebuilt the save.
+Plan: `aesthetics_export/settings_toml.md` (the rule, the precedence, the template),
+`aesthetics_export/fpc_toggle.md` (precedence table), `aesthetics_export/player_folders.md` (ID
+space), `pes_savefile/model.md` (`PlayerSettings`, `from_player`), `pes_savefile/operations.md`
+(Team TOML, aesthetics patch), `pes_savefile/verification.md`, `export_upgrader.md` step 8,
+`save_editor.md` (generation), `team_compiler/messages.md`, `team_compiler/pipeline.md`
+(aesthetics patch), `core/README.md` (decisions table), `GLOSSARY.md`. Supersedes the
+compiler-owned classification of boots/gloves IDs in the 2026-09-12 aesthetics patch entry and the
+2026-09-19 `settings.toml` key table entry.

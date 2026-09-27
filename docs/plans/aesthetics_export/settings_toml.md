@@ -12,7 +12,8 @@ setting untouched"; model-derived ID assignments and FPC directives are separate
 **The file can express every known aesthetic setting the savefile holds.** Its schema is
 `pes_savefile`'s `PlayerSettings`: all of the decoded player appearance record — physique, strip
 style, wrist-tape and spectacle colours, skin and iris colour, the motion block, the eleven
-ingame-face feature types — except the two compiler-owned groups (boots/gloves IDs, edit flags).
+ingame-face feature types, and stock boots/gloves IDs (below) — except the compiler-owned edit
+flags and base-copy ID.
 "Known" is the one qualifier: the ingame-face run also carries bits no tool has decoded (hair,
 face-slider positions, colours beyond skin and iris); `pes_savefile` carries them byte for byte
 through every edit and transplant, but nothing can author them until they are measured (see
@@ -23,24 +24,52 @@ save editor applies the patch, and the editor's own appearance fields are read-o
 (see "Read-only aesthetics" in the [Save editor plan](../save_editor.md)). The **template** — what
 the Export upgrader and the save editor generate, and what a new player folder starts from —
 therefore lists every key, one per line, each followed on the same line by the comment that gives
-its range: set ones with their value, unset ones as commented lines, so a team can see what is
+its range: set ones with their value, unset ones as commented lines (the boots/gloves IDs as
+`""`, see below), so a team can see what is
 authorable without any other document. The block below is the complete key table; `to_toml`
 emits it in this order and with these comments.
 
-**Boots/gloves IDs are not authored settings.** Export `settings.toml` neither accepts nor generates
-boots/gloves ID keys. Local models and shared link files determine the compiler's player-exclusive
-or shared assignments, using the existing per-target rules; users never copy numeric IDs into this
-file. Pre-Fox local models embedded in face XML still need no standalone ID, as described above.
+**Boots/gloves IDs are authored only for stock models.** Custom boots and gloves are folder
+content: local models and shared link files determine the compiler's player-exclusive or shared
+assignments (see "Player folders"), and users never copy a custom model's numeric ID into this
+file. A player who wears one of the game's own models has no folder to express that, so the two
+top-level keys `boots_id` and `gloves_id` name a model of the **stock band**, IDs 0 to 100: the
+cup's stock kit compacts Konami's boots and gloves into that range, and the compiler's per-team
+blocks start at 101, so an ID above 100 is always some team's custom content and is rejected at
+parse (`OutOfRange` naming the key). Besides an integer, both keys accept the empty string, which
+means **default** and is the same as an absent key. Each category resolves in this order:
+
+1. The folder's own models or a link file provide the category → the compiler-assigned ID, or
+   the savefile's current ID when that output fails. A numeric key is ignored with
+   `settings_model_id_conflict` (W).
+2. A numeric key → that stock ID, whatever FPC marker the folder carries.
+3. Default (`""` or absent) → the folder's FPC marker decides: `fpc.on` writes the hide preset's
+   nonexistent IDs (boots 55, gloves 11), `fpc.off` writes 0 for both, and with neither marker
+   the savefile's current IDs stay unchanged.
+
+Default is what nearly every player wants: an FPC player (a face model carrying the full body,
+no boots/gloves folders) needs the blank IDs, which the marker supplies without a key. Pre-Fox
+local models embedded in face XML request no standalone output, so they fall through to steps 2
+and 3. This is the precedence table of "FPC toggle". The template writes both keys uncommented
+as `""`, the only keys shown with a value that sets nothing: every other key has a neutral value
+to display, while any boots/gloves ID is a real model, and TOML has no bare `key =`. They sit at
+the file's top level, next to `name`, rather than in
+`[appearance]`: Team TOML embeds the `[appearance]` tables and has its own player-level
+`boots_id`/`gloves_id` over the full stored range (save interchange), which two keys of the same
+name inside `[appearance]` would collide with.
 
 ```toml
 # settings.toml, inside a player folder. Every key is optional: an absent key leaves
-# that savefile setting untouched. A commented key shows what can be set and its range.
-# The file never references models: what a player wears is decided by the folder
-# contents (models present, link files pointing at shared folders).
+# that savefile setting untouched (boots_id/gloves_id: see their comments). A commented
+# key shows what can be set and its range. The file never references the export's
+# models: what a player wears is decided by the folder contents (models present, link
+# files pointing at shared folders); boots_id/gloves_id only name the game's stock models.
 
 # true = derive from the folder name ("15 - Snuffy" gives "Snuffy"; the whole folder
 # name for players.txt-mapped folders); "text" = write as is; absent = leave untouched.
 name = "Snuffy"
+boots_id = ""                   # "" = default (fpc.on: hidden, fpc.off: 0, no marker: untouched); 0 to 100, a stock boots model; ignored when the folder has boots models or a boots link
+gloves_id = ""                  # "" = default (fpc.on: hidden, fpc.off: 0, no marker: untouched); 0 to 100, stock goalkeeper gloves; ignored when the folder has gloves models or a gloves link
 
 [appearance]
 skin_color = 1                  # 0 white, 1 light, 2 fair, 3 medium, 4 olive, 5 brown, 6 black, 7 custom (invisible body, PES 15 to 17 only)
@@ -105,7 +134,8 @@ upper_lip_type = 0              # 0 to 3 (PES 20 and 21: 0 to 4)
 lower_lip_type = 0              # 0 to 2 (PES 20 and 21: 0 to 4)
 ```
 
-Where the ranges come from, so a wrong one can be traced: the colour, spectacle, sleeve, inner,
+Where the ranges come from, so a wrong one can be traced: the boots/gloves range is the stock
+band below the compiler's first team block (`player_folders.md` "Assigns IDs automatically"); the colour, spectacle, sleeve, inner,
 sock, undershort, shirttail and wrist-taping lists are the reference save editor's combo boxes
 (stored value = list position; wrist taping 1 = right, 2 = left, 3 = both, matching the two taping
 bits); the physique numbers are the editor's spin ranges (stored value = number + 7); the motion
@@ -139,7 +169,8 @@ Name-writing rules, in full — **not writing is the default**; writing is opt-i
    name is applied to all of them, with a warning (`settings_toml_name_shared`).
 
 Compile-time flow: resolve boots/gloves IDs from the models and link files present (a broken link is
-caught as `link_target_missing` — a check impossible in the current split-tool workflow) → parse
+caught as `link_target_missing` — a check impossible in the current split-tool workflow), falling
+back per category to the authored stock `boots_id`/`gloves_id` → parse
 accepted TOML → compile → resolve the settings and the IDs of content that was actually written into
 the **aesthetics patch** written beside the CPK → if a local savefile is configured, apply that
 patch to it through `pes_savefile` (decrypt, apply, re-encrypt, `.bak`). The patch is what a DLC
@@ -147,6 +178,10 @@ builder hands to the savefile builder, who applies it in the save editor; the co
 other savefile write path (see "Post-processing" in the [Team compiler plan](../team_compiler/pipeline.md)).
 
 The save editor view can also **generate** these TOML files from an existing savefile, giving teams
-a migration path from the current workflow.
+a migration path from the current workflow. Generation (`PlayerSettings::from_player`, shared with
+the Export upgrader) emits `boots_id`/`gloves_id` only for a stored ID from 1 to 100: 0 is the
+game's default model and stays unset, and an ID above 100 is custom content, which the upgrader
+migrates into a folder or link (the old per-team blocks start at 101 too) and the save editor
+leaves out.
 
 ---

@@ -413,8 +413,9 @@ the editor exposes them as:
   compiler, never by the editor.
 - **`settings.toml` generation** — per player folder, for migrating a team to the
   [Team compiler](team_compiler/README.md)'s compile-time savefile writing. Uses the
-  shared authorable `PlayerSettings` subset, omitting boots/gloves IDs even when the source
-  save contains them; those are compiler-assigned from models/links, not export settings.
+  shared authorable `PlayerSettings` subset; boots/gloves IDs are emitted only when they name a
+  stock model (1 to 100), since custom IDs are compiler-assigned from models/links, not export
+  settings.
   Full Team TOML remains a full-fidelity save interchange. Name handling follows the
   Export upgrader's rule: `name = true` only when the folder's name part
   equals the savefile name, the explicit string otherwise — in particular a

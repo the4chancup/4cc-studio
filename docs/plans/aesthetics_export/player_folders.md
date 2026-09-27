@@ -515,8 +515,10 @@ At compile time, the pipeline:
    model links and model merging")
 2. **Assigns IDs automatically** (Fox needs both pools; pre-Fox only the shared one, having no
    player-exclusive boots/gloves folders — except under `ingame_face`, see "ingame_face marker") —
-   from a **hardcoded per-team block of 40 IDs** in the 4-digit boots/gloves ID space: the first 100
-   IDs are reserved for the stock PES boots, then each team gets a fixed block starting from team ID
+   from a **hardcoded per-team block of 40 IDs** in the 4-digit boots/gloves ID space: IDs 0 to 100
+   are the **stock band** (the cup's stock kit compacts Konami's boots and gloves into it; a player
+   wearing one names it with `settings.toml`'s `boots_id`/`gloves_id`, see "Player settings in
+   exports"), then each team gets a fixed block starting from team ID
    701 (`block_start = 101 + (team_id - 701) × 40`; team 701 gets 101–140). The block splits into
    the player-exclusive part (deterministic: `block_start + player_number - 1` for slots 01–23,
    extending the 16→21 converter's `bootsId = base_id + player_number - 1` scheme) and the **17
