@@ -61,10 +61,7 @@ fn permute_vertices(vertices: &mut MeshVertices, order: &[usize]) {
 pub(super) fn combine(meshes: &[Mesh], group: &MeshGroup) -> Result<Mesh, FmdlError> {
     let mut components = Vec::with_capacity(group.meshes.len());
     for &mesh_index in &group.meshes {
-        components.push(meshes.get(mesh_index).ok_or(FmdlError::BadReference {
-            what: "mesh",
-            index: mesh_index,
-        })?);
+        components.push(&meshes[mesh_index]);
     }
     let first: &Mesh = components
         .first()
@@ -90,13 +87,13 @@ pub(super) fn combine(meshes: &[Mesh], group: &MeshGroup) -> Result<Mesh, FmdlEr
         }
     }
     let bone_group: Vec<usize> = used_bones.iter().copied().collect();
-    let index_of: HashMap<usize, u8> = bone_group
-        .iter()
-        .enumerate()
-        .map(|(slot, &bone)| (bone, slot as u8))
-        .collect();
+    let mut index_of: HashMap<usize, u8> = HashMap::new();
+    for (slot, &bone) in bone_group.iter().enumerate() {
+        let slot = u8::try_from(slot).map_err(|_| FmdlError::TooManyBones(bone_group.len()))?;
+        index_of.insert(bone, slot);
+    }
 
-    let mut vertices = empty_like(&first.vertices, 0);
+    let mut vertices = empty_like(&first.vertices);
     let mut faces = Vec::new();
     let mut merged: HashMap<(Vec<u8>, BoneMapping), Vec<usize>> = HashMap::new();
     for component in components {
@@ -125,12 +122,7 @@ pub(super) fn combine(meshes: &[Mesh], group: &MeshGroup) -> Result<Mesh, FmdlEr
         for face in &component.faces {
             let mut mapped = [0usize; 3];
             for (lane, &index) in face.iter().enumerate() {
-                mapped[lane] = *local
-                    .get(usize::from(index))
-                    .ok_or(FmdlError::BadReference {
-                        what: "face vertex",
-                        index: usize::from(index),
-                    })?;
+                mapped[lane] = local[usize::from(index)];
             }
             faces.push(mapped);
         }

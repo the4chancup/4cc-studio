@@ -21,19 +21,20 @@ fn read_fmdl(bytes: &[u8]) -> ::fmdl::Model {
 fn decoded(model: &::fmdl::Model) -> ::fmdl::Model {
     let mut model = model.clone();
     ::fmdl::ops::split::decode(&mut model).expect("split decode");
-    ::fmdl::ops::antiblur::decode(&mut model);
+    ::fmdl::ops::antiblur::decode(&mut model).expect("antiblur decode");
     model
 }
 
 /// `ir_to_fmdl`'s encoder half, run on a decoded model for comparison.
 fn encoded(decoded: &::fmdl::Model) -> ::fmdl::Model {
     let mut model = decoded.clone();
-    ::fmdl::ops::antiblur::encode(&mut model);
+    ::fmdl::ops::antiblur::encode(&mut model).expect("antiblur encode");
     let owners: Vec<Vec<usize>> = model
         .meshes
         .iter()
         .map(::fmdl::ops::vertex_enc::decode)
-        .collect();
+        .collect::<Result<Vec<_>, _>>()
+        .expect("vertex decode");
     ::fmdl::ops::vertex_enc::encode_model(&mut model, &owners).expect("vertex encode");
     let parents = split_parents(&model.bones);
     ::fmdl::ops::split::encode(&mut model, Some(&parents)).expect("split encode");
@@ -429,7 +430,7 @@ fn seam_ir() -> CanonicalModel {
 fn vertex_owners_come_from_the_ir_order() {
     let exported = ir_to_fmdl(&seam_ir()).expect("export");
     assert_eq!(exported.model.meshes.len(), 1);
-    let owner = ::fmdl::ops::vertex_enc::decode(&exported.model.meshes[0]);
+    let owner = ::fmdl::ops::vertex_enc::decode(&exported.model.meshes[0]).expect("decode");
     // The flag-gated `decode_model` returned identity owners [0, 1, 2, 3]; here
     // vertex 2 is the second loop of vertex 1.
     assert_eq!(owner, vec![0, 1, 1, 3]);
@@ -538,13 +539,14 @@ fn out_of_range_parents_error() {
             index: 5
         }))
     ));
-    // The same for the model's own parent index.
+    // The same for the model's own parent index — caught by the model
+    // validation `split::decode` runs before the importer's name lookup.
     let mut model = fmdl_model(fmdl_mesh(0, 0), vec![instance("mat")]);
     model.bones[0].parent = Some(7);
     assert!(matches!(
         fmdl_to_ir(&model, None),
         Err(ConvertError::Fmdl(::fmdl::FmdlError::BadReference {
-            what: "bone parent",
+            what: "bone",
             index: 7
         }))
     ));

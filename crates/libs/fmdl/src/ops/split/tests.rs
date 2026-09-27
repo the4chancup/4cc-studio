@@ -548,7 +548,196 @@ fn decode_mesh_index_out_of_range_errors() {
     ));
 }
 
-// S13
+// S14
+#[test]
+fn needs_splitting_boundaries() {
+    let mut mesh = grid(4, 4, 0);
+    mesh.bone_group = vec![0; BONE_LIMIT_HARD];
+    assert!(!needs_splitting(&mesh));
+    mesh.bone_group = vec![0; BONE_LIMIT_HARD + 1];
+    assert!(needs_splitting(&mesh));
+
+    let mut mesh = grid(4, 4, 0);
+    mesh.vertices.positions = vec![[0.0; 3]; VERTEX_LIMIT_HARD];
+    assert!(!needs_splitting(&mesh));
+    mesh.vertices.positions.push([0.0; 3]);
+    assert!(needs_splitting(&mesh));
+
+    let mut mesh = grid(4, 4, 0);
+    mesh.faces = vec![[0, 1, 2]; FACE_LIMIT_HARD];
+    assert!(!needs_splitting(&mesh));
+    mesh.faces.push([0, 1, 2]);
+    assert!(needs_splitting(&mesh));
+}
+
+#[test]
+fn encode_rejects_a_wrong_length_parents() {
+    // The model has no bones; one entry is one too many.
+    let mut model = grid_model(grid(4, 4, 0), 0);
+    assert!(matches!(
+        encode(&mut model, Some(&[None])),
+        Err(FmdlError::VertexMismatch(
+            "parents length does not match bone count"
+        ))
+    ));
+}
+
+// S15: a weighted slot past the component's group is a bad reference;
+// the same slot at zero weight writes 0.
+#[test]
+fn zero_weight_slot_past_the_bone_group() {
+    let mut mesh = grid(60, 20, 40);
+    mesh.vertices.bone_indices.as_mut().unwrap()[0] = [40, 0, 0, 0];
+    mesh.vertices.bone_weights.as_mut().unwrap()[0] = [0, 0, 0, 0];
+    // The zero-weight slot does not appear in the vertex's bone mapping.
+    assert!(bone_mapping(&mesh, 0).unwrap().is_empty());
+    let mut model = grid_model(mesh, 40);
+    assert!(encode(&mut model, None).unwrap());
+    // The component holding vertex 0's position wrote slot 0.
+    let (component, index) = model
+        .meshes
+        .iter()
+        .enumerate()
+        .flat_map(|(m, mesh)| (0..mesh.vertices.positions.len()).map(move |v| (m, v)))
+        .find(|&(m, v)| model.meshes[m].vertices.positions[v] == [0.0, 0.0, 0.0])
+        .unwrap();
+    assert_eq!(
+        model.meshes[component]
+            .vertices
+            .bone_indices
+            .as_ref()
+            .unwrap()[index][0],
+        0
+    );
+
+    // With weight the same slot is a bad reference.
+    let mut mesh = grid(60, 20, 40);
+    mesh.vertices.bone_indices.as_mut().unwrap()[0] = [40, 0, 0, 0];
+    assert!(matches!(
+        bone_mapping(&mesh, 0),
+        Err(FmdlError::BadReference {
+            what: "bone",
+            index: 40
+        })
+    ));
+    let mut model = grid_model(mesh, 40);
+    assert!(matches!(
+        encode(&mut model, None),
+        Err(FmdlError::BadReference {
+            what: "bone",
+            index: 40
+        })
+    ));
+}
+
+// S16: a combined mesh can name more bones than the u8 slot field holds.
+#[test]
+fn combine_past_256_bones_overflows() {
+    let skinned_vertex = |slot: u8| {
+        let mut vertices = MeshVertices::default();
+        vertices.positions.push([0.0; 3]);
+        vertices.bone_weights = Some(vec![[255, 0, 0, 0]]);
+        vertices.bone_indices = Some(vec![[slot, 0, 0, 0]]);
+        vertices
+    };
+    let component = |bones: std::ops::Range<usize>, vertices| Mesh {
+        vertices,
+        faces: Vec::new(),
+        bone_group: bones.collect(),
+        material: 0,
+        alpha_flags: 0,
+        shadow_flags: 0,
+        has_antiblur_meshes: false,
+        is_antiblur_mesh: false,
+        custom_bounding_box: None,
+    };
+    // Component A uses model bones 0..256; B uses bone 256. Their union
+    // needs 257 slots — one past the u8 bone index.
+    let a = component(
+        0..256,
+        (0..256).fold(MeshVertices::default(), |mut vertices, slot| {
+            vertices.positions.push([slot as f32, 0.0, 0.0]);
+            vertices
+                .bone_weights
+                .get_or_insert_with(Vec::new)
+                .push([255, 0, 0, 0]);
+            vertices
+                .bone_indices
+                .get_or_insert_with(Vec::new)
+                .push([slot as u8, 0, 0, 0]);
+            vertices
+        }),
+    );
+    let b = component(256..257, skinned_vertex(0));
+    let group = MeshGroup {
+        name: "split-mesh".to_owned(),
+        parent: Some(0),
+        meshes: vec![0, 1],
+        bounding_box: None,
+        visible: true,
+        split_mesh_group: true,
+    };
+    assert!(matches!(
+        combine::combine(&[a, b], &group),
+        Err(FmdlError::TooManyBones(257))
+    ));
+}
+
+// S17: components with different attribute sets cannot combine.
+#[test]
+fn combine_rejects_mismatched_layouts() {
+    let with_normals = grid(4, 4, 0);
+    let mut without_normals = grid(4, 4, 0);
+    without_normals.vertices.normals = None;
+    let group = MeshGroup {
+        name: "split-mesh".to_owned(),
+        parent: Some(0),
+        meshes: vec![0, 1],
+        bounding_box: None,
+        visible: true,
+        split_mesh_group: true,
+    };
+    assert!(matches!(
+        combine::combine(&[with_normals, without_normals], &group),
+        Err(FmdlError::VertexMismatch(
+            "split components have different vertex layouts"
+        ))
+    ));
+}
+
+// S18: a fitting subtree climbs from a preferred bone to its ancestors.
+#[test]
+fn a_fitting_subtree_climbs() {
+    let mut model = grid_model(grid(60, 20, 40), 40);
+    model.bones[20].name = "sk_hand_l".to_owned();
+    assert!(encode(&mut model, None).unwrap());
+    // The first component's bone group covers the whole fitting subtree
+    // (without the climb it would stop at bone 20's own, about 21 bones).
+    assert!(model.meshes[0].bone_group.len() >= 28);
+}
+
+// S19: vertices no face references still travel into a component.
+fn loose_vertices_travel(mesh: Mesh, bones: usize) {
+    let source: BTreeSet<VertexTuple> = (0..mesh.vertices.positions.len())
+        .map(|index| vertex_tuple(&mesh, index))
+        .collect();
+    let mut model = grid_model(mesh, bones);
+    assert!(encode(&mut model, None).unwrap());
+    components_under_limits(&model);
+    let covered: BTreeSet<VertexTuple> = model
+        .meshes
+        .iter()
+        .flat_map(|mesh| (0..mesh.vertices.positions.len()).map(|index| vertex_tuple(mesh, index)))
+        .collect();
+    assert_eq!(covered, source);
+}
+
+#[test]
+fn loose_vertices_unskinned() {
+    loose_vertices_travel(grid(400, 400, 0), 0);
+}
+
+// S20
 #[test]
 fn decode_group_parent_out_of_range_errors() {
     let mut model = grid_model(grid(4, 4, 0), 0);

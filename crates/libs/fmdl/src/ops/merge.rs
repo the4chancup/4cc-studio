@@ -12,28 +12,24 @@ use crate::format::FmdlError;
 use crate::model::{Mesh, MeshGroup, Model};
 
 /// Why several parts could not be merged into one model.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, thiserror::Error)]
 pub enum MergeError {
     /// Two parts define a material instance of this name differently.
+    #[error("material instance {name} is defined differently in two parts")]
     MaterialConflict {
         /// The conflicting material name.
         name: String,
     },
     /// A bone present in several parts has different positions or a
     /// different parent name.
+    #[error("bone {name} differs between parts (position or parent)")]
     SkeletonConflict {
         /// The conflicting bone name.
         name: String,
     },
-    /// A part's meshes carry a vertex layout the merged model cannot hold
-    /// (never expected; reported, not fixed).
-    Other(FmdlError),
-}
-
-impl From<FmdlError> for MergeError {
-    fn from(error: FmdlError) -> Self {
-        MergeError::Other(error)
-    }
+    /// A part fails `Model::validate`.
+    #[error(transparent)]
+    Other(#[from] FmdlError),
 }
 
 /// Merges `parts` (caller-supplied canonical order, preserved) into one
@@ -56,19 +52,10 @@ pub fn merge(parts: &[Model]) -> Result<Model, MergeError> {
     let mut matrices_ok = true;
 
     for (part_index, part) in parts.iter().enumerate() {
+        part.validate()?;
+
         // Bone union: identity of a bone is its name; a shared bone must
         // agree on positions and on the parent's *name*.
-        for bone in &part.bones {
-            if let Some(parent) = bone.parent
-                && parent >= part.bones.len()
-            {
-                return Err(FmdlError::BadReference {
-                    what: "bone parent",
-                    index: parent,
-                }
-                .into());
-            }
-        }
         let mut bone_remap = vec![usize::MAX; part.bones.len()];
         for (index, bone) in part.bones.iter().enumerate() {
             match bone_of.get(bone.name.as_str()) {
@@ -140,17 +127,9 @@ pub fn merge(parts: &[Model]) -> Result<Model, MergeError> {
         let mesh_offset = output.meshes.len();
         for mesh in &part.meshes {
             let mut mesh: Mesh = mesh.clone();
-            mesh.material = *material_remap
-                .get(mesh.material)
-                .ok_or(FmdlError::BadReference {
-                    what: "material instance",
-                    index: mesh.material,
-                })?;
+            mesh.material = material_remap[mesh.material];
             for bone in &mut mesh.bone_group {
-                *bone = *bone_remap.get(*bone).ok_or(FmdlError::BadReference {
-                    what: "bone",
-                    index: *bone,
-                })?;
+                *bone = bone_remap[*bone];
             }
             output.meshes.push(mesh);
         }
@@ -288,6 +267,76 @@ mod tests {
         );
     }
 
+    // A bone differing only in world position is a skeleton conflict.
+    #[test]
+    fn skeleton_conflict_world_position() {
+        let highneck = model(HIGHNECK);
+        let mut moved = highneck.clone();
+        moved.bones[0].world_position[0] += 1.0;
+        assert_eq!(
+            merge(&[highneck, moved]),
+            Err(MergeError::SkeletonConflict {
+                name: "sk_chest".to_owned()
+            })
+        );
+    }
+
+    // Group parents re-base by the first part's group count.
+    #[test]
+    fn group_parents_rebase() {
+        let mut part = model(HIGHNECK);
+        part.mesh_groups.push(MeshGroup {
+            name: "child".to_owned(),
+            parent: Some(0),
+            meshes: Vec::new(),
+            bounding_box: None,
+            visible: true,
+            split_mesh_group: false,
+        });
+        let merged = merge(&[model(HIGHNECK), part]).unwrap();
+        assert_eq!(merged.mesh_groups.len(), 3);
+        assert_eq!(merged.mesh_groups[2].parent, Some(1));
+    }
+
+    // The three extension flags OR across parts, either order; an `other`
+    // flag both parts carry appears once.
+    #[test]
+    fn extension_flags_or() {
+        let mut a = model(ORAL);
+        a.extensions.mesh_splitting = true;
+        let b = model(ORAL);
+        for parts in [[a.clone(), b.clone()], [b.clone(), a.clone()]] {
+            assert!(merge(&parts).unwrap().extensions.mesh_splitting);
+        }
+        let mut a = model(ORAL);
+        a.extensions.antiblur = true;
+        let b = model(ORAL);
+        for parts in [[a.clone(), b.clone()], [b.clone(), a.clone()]] {
+            assert!(merge(&parts).unwrap().extensions.antiblur);
+        }
+        let mut a = model(ORAL);
+        a.extensions.vertex_loop_preservation = true;
+        let b = model(ORAL);
+        for parts in [[a.clone(), b.clone()], [b, a]] {
+            assert!(merge(&parts).unwrap().extensions.vertex_loop_preservation);
+        }
+
+        let mut a = model(ORAL);
+        a.extensions.other.push("custom".to_owned());
+        let mut b = model(ORAL);
+        b.extensions.other.push("custom".to_owned());
+        let merged = merge(&[a, b]).unwrap();
+        assert_eq!(
+            merged
+                .extensions
+                .other
+                .iter()
+                .filter(|flag| *flag == "custom")
+                .count(),
+            1
+        );
+    }
+
     // G5
     #[test]
     fn file_round_trip() {
@@ -337,7 +386,7 @@ mod tests {
         assert!(matches!(
             merge(&[part]),
             Err(MergeError::Other(FmdlError::BadReference {
-                what: "bone parent",
+                what: "bone",
                 index: 9
             }))
         ));

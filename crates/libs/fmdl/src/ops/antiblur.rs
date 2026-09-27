@@ -4,6 +4,7 @@
 
 use std::collections::HashMap;
 
+use crate::format::FmdlError;
 use crate::model::{MaterialInstance, Model, Texture};
 
 /// The directory the fuzzblock materials' dummy normal and specular maps
@@ -14,8 +15,10 @@ const TEXTURE_DIRECTORY: &str = "/Assets/pes16/model/character/common/sourceimag
 /// right after it, with a fuzzblock material, and sets
 /// `extensions.antiblur`. Idempotent on a model already encoded (a mesh
 /// flagged `is_antiblur_mesh` is never duplicated, and a source mesh
-/// followed by its duplicate is skipped).
-pub fn encode(model: &mut Model) {
+/// followed by its duplicate is skipped). An invalid model (a dangling
+/// index `Model::validate` names) is an error, never a panic.
+pub fn encode(model: &mut Model) -> Result<(), FmdlError> {
+    model.validate()?;
     let old_meshes = std::mem::take(&mut model.meshes);
     let mut meshes = Vec::with_capacity(old_meshes.len());
     // Old mesh index to its index in the new list, and to its duplicate's.
@@ -59,12 +62,15 @@ pub fn encode(model: &mut Model) {
         group.meshes = list;
     }
     model.extensions.antiblur = true;
+    Ok(())
 }
 
 /// Removes every mesh flagged `is_antiblur_mesh` and every material only
 /// those meshes used, renumbers group mesh lists and mesh material indices,
-/// and clears `extensions.antiblur`.
-pub fn decode(model: &mut Model) {
+/// and clears `extensions.antiblur`. An invalid model (a dangling index
+/// `Model::validate` names) is an error, never a panic.
+pub fn decode(model: &mut Model) -> Result<(), FmdlError> {
+    model.validate()?;
     let mut kept = Vec::with_capacity(model.meshes.len());
     let mut old_to_new = vec![usize::MAX; model.meshes.len()];
     let mut removable = vec![false; model.materials.len()];
@@ -102,6 +108,7 @@ pub fn decode(model: &mut Model) {
         }
     }
     model.extensions.antiblur = false;
+    Ok(())
 }
 
 /// The fuzzblock material for `source`: `<name> antiblur`, the uvscroll
@@ -182,7 +189,7 @@ mod tests {
     fn encode_flagged_oral() {
         let mut model = load(ORAL);
         model.meshes[0].has_antiblur_meshes = true;
-        encode(&mut model);
+        encode(&mut model).unwrap();
 
         assert_eq!(model.meshes.len(), 2);
         assert_eq!(model.materials.len(), 2);
@@ -240,22 +247,22 @@ mod tests {
         oral.meshes[0].has_antiblur_meshes = true;
         oral.extensions.antiblur = false;
         let mut encoded = oral.clone();
-        encode(&mut encoded);
-        decode(&mut encoded);
+        encode(&mut encoded).unwrap();
+        decode(&mut encoded).unwrap();
         assert_eq!(encoded, oral);
 
         let mut au_low = load(AU_LOW);
         au_low.meshes[0].has_antiblur_meshes = true;
         au_low.meshes[2].has_antiblur_meshes = true;
         let mut encoded = au_low.clone();
-        encode(&mut encoded);
+        encode(&mut encoded).unwrap();
         assert_eq!(encoded.meshes.len(), 6);
         for group in &encoded.mesh_groups {
             for mesh in &group.meshes {
                 assert!(*mesh < encoded.meshes.len());
             }
         }
-        decode(&mut encoded);
+        decode(&mut encoded).unwrap();
         assert_eq!(encoded, au_low);
     }
 
@@ -263,9 +270,9 @@ mod tests {
     fn encode_is_idempotent() {
         let mut model = load(ORAL);
         model.meshes[0].has_antiblur_meshes = true;
-        encode(&mut model);
+        encode(&mut model).unwrap();
         let once = model.clone();
-        encode(&mut model);
+        encode(&mut model).unwrap();
         assert_eq!(model, once);
     }
 
@@ -279,7 +286,7 @@ mod tests {
         model.materials[0]
             .parameters
             .push(("Offset".to_owned(), [1.0; 4]));
-        encode(&mut model);
+        encode(&mut model).unwrap();
 
         let material = &model.materials[1];
         assert_eq!(material.shader, "fox3ddf_blin_fuzzblock_uvscroll");
@@ -298,19 +305,46 @@ mod tests {
     fn encoded_model_survives_a_file_round_trip() {
         let mut model = load(ORAL);
         model.meshes[0].has_antiblur_meshes = true;
-        encode(&mut model);
+        encode(&mut model).unwrap();
         let again = Model::from_file(&model.to_file().unwrap()).unwrap();
         assert_eq!(again, model);
+    }
+
+    #[test]
+    fn encode_rejects_a_dangling_material() {
+        let mut model = load(ORAL);
+        model.meshes[0].material = model.materials.len();
+        model.meshes[0].has_antiblur_meshes = true;
+        assert!(matches!(
+            encode(&mut model),
+            Err(FmdlError::BadReference {
+                what: "material instance",
+                index: 1
+            })
+        ));
+    }
+
+    #[test]
+    fn decode_rejects_a_dangling_group_mesh() {
+        let mut model = load(ORAL);
+        model.mesh_groups[0].meshes.push(model.meshes.len());
+        assert!(matches!(
+            decode(&mut model),
+            Err(FmdlError::BadReference {
+                what: "mesh",
+                index: 1
+            })
+        ));
     }
 
     #[test]
     fn decode_keeps_a_shared_material() {
         let mut model = load(ORAL);
         model.meshes[0].has_antiblur_meshes = true;
-        encode(&mut model);
+        encode(&mut model).unwrap();
         // Point the anti-blur mesh at the material its source also uses.
         model.meshes[1].material = 0;
-        decode(&mut model);
+        decode(&mut model).unwrap();
         assert_eq!(model.meshes.len(), 1);
         // Material 0 was shared and stays; the orphaned fuzzblock material
         // is not one only the removed meshes used, so it stays too.

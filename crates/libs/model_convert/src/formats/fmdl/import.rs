@@ -24,7 +24,7 @@ pub fn fmdl_to_ir(
     // The legacy pipeline's order: reassemble split meshes first, then strip the anti-blur
     // duplicates.
     ::fmdl::ops::split::decode(&mut model)?;
-    ::fmdl::ops::antiblur::decode(&mut model);
+    ::fmdl::ops::antiblur::decode(&mut model)?;
     let model = &model;
 
     let mut findings = Vec::new();
