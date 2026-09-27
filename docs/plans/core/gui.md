@@ -183,8 +183,8 @@ Like the settings menu it is **assembled from the tools**, not written centrally
   exists, but it adds a class of platform bugs that a text reader does not need. Rendering is
   `egui_commonmark` (CommonMark subset with tables, code blocks and links); a hand-rolled
   renderer was considered and rejected as a permanent maintenance item for a solved problem.
-- **CLI equivalence.** `studio help [tool-id] [topic]` prints the Markdown to stdout, and
-  `studio help --export <dir>` writes every chapter out as `.md` files — the wiki and the release
+- **CLI equivalence.** `4cc-studio help [tool-id] [topic]` prints the Markdown to stdout, and
+  `4cc-studio help --export <dir>` writes every chapter out as `.md` files — the wiki and the release
   page get the same text with no second source, and the `--export` output is what the release
   process publishes.
 - **Authoring rule.** Topics are written for members, not maintainers: what to put where, what a

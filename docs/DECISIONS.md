@@ -2185,3 +2185,14 @@ Decision (cross-family review at converge, 4 of 4 accepted):
 - **Loop result:** four rounds, 7/5/7/4 accepted; the surface closes under the accept-rate
   rule.
 Plan: `libs/format_crates.md` "`fmdl::model`" (the `to_file` box sentence).
+
+## 2026-09-27 - studio - the executable is `4cc-studio`
+Decision (maintainer): the shipped executable is `4cc-studio` (`4cc-studio.exe`), set by the
+`studio` crate's `[[bin]] name`; CLI examples in the plans follow. The crates keep `studio` and
+`studio_core`.
+Why: the binary ships standalone and lands in download folders, where a bare `studio.exe` says
+nothing about what it is. Renaming the crates would change nothing a user sees, and a crate name
+cannot start with a digit anyway.
+Plan: `core/architecture.md` "Crate structure" (naming bullets); CLI and file-name mentions across
+`core/`, `team_compiler/`, `db_generator.md`, `refs_arranger.md`, `player_aesthetics_editor.md`,
+`match_tracker/match_feed.md`, `GLOSSARY.md`.

@@ -44,7 +44,11 @@ over the whole phase's code rather than one diff, `just mutants <crate>` run ove
 every survivor triaged (`CONTRIBUTING.md` "Mutation runs"), and every `pub` item listed with the
 consumer that justifies it (a crate, the CLI, the bindings, or a plan section naming one). Coverage asks
 "is everything the plan wants there?"; this pass asks "did the phase make the code harder to
-change?", which no test or lint measures and which compounds silently across phases; (2) **rewrite** the parts of the phase's plan sections
+change?", which no test or lint measures and which compounds silently across phases. The
+whole-crate run happens twice per crate: in the lead's audit, where its survivors seed the first
+rework brief, and once at close, after the reviewer loop ends. Each rework round in between is
+measured with `just mutants-diff <commit the round started from>` (2.20f: 45-53 minutes per
+whole-crate run, 3 for a round's diff); (2) **rewrite** the parts of the phase's plan sections
 that the phase delivered in the present tense, as a description of what now exists (acceptance IDs
 stay, as the behavior contract), moving nothing to a new document and leaving deferred parts as
 they are; (3) collapse the worklog's step list to the phase row. Converting per phase, not at the
@@ -66,7 +70,10 @@ implemented verbatim; the sidekick sees the code, the lead wrote the brief from 
 (2.18's brief listed a `log` dependency the crate never used, and it landed until review). The brief's
 verification list names the tests of every crate that *consumes* the one being changed, not
 only the crate's own: a change to `fmdl`'s reader that every game `body.skl` tripped passed
-`cargo test -p fmdl` and was caught only by `model_convert`'s tests at the lead's gate run. The lead
+`cargo test -p fmdl` and was caught only by `model_convert`'s tests at the lead's gate run. A
+brief that adds tests says to insert them with the editor tool inside the file's existing
+`#[cfg(test)]` module, never to append them with shell redirection, which lands them after the
+module's closing brace (three times in 2.20f). The lead
 reads the whole diff before it lands, not the report about it; the report is a claim, the diff is
 the evidence. Two failed sidekick attempts on one brief means the brief is suspect before the
 sidekick is. **A brief is sized for one review.** Past about 500 lines of new code, a diff is
@@ -150,7 +157,12 @@ all accepted, most of them parity and memory defects rather than padding, so a c
 stopped the loop where its signal was strongest. The stop therefore rests on the lead's
 rulings: a concern is rejected, with its one-line reason, when its input cannot reach the code,
 the plan or a decision entry already settles it, or it restates an accepted concern's class
-without a new defect. Past the fifth round on one surface the lead reports the counts and the
+without a new defect. **Reviewer briefs rank concerns by reachability.** First comes what a
+real file, the crate's own readers or its own operations produce. A hand-built value that none
+of them produce is low value when the crate refuses it with an error, and earns a slot only
+when it panics, hangs, or writes a wrong file without an error. From 2.20f's second round on,
+slots went to models no reader or operation produces. Round 4's brief carried this line, and
+none of its four concerns needed a hand-built model. Past the fifth round on one surface the lead reports the counts and the
 classes found to the user and continues unless told otherwise: a check-in, not a stop. Each
 round's reviewer is a fresh `run_subagent`, never a resumed one (`resume`), even though resuming
 saves the re-exploration: 2.20d's fourth round ran both on the same surface, and the reviewer
@@ -195,8 +207,8 @@ your question may already be listed, with the phase in which it gets resolved.
 - **Platform + plugins.** `studio_core` holds only what runs with zero tools installed (shell,
   `StudioTool` trait, settings framework, common widgets, `PipelineEvent` types). Every tool is its
   own crate under `crates/tools/`; every piece of shared functionality is its own lib crate under
-  `crates/libs/`; `studio` is the single binary that registers tools and launches the GUI or
-  dispatches `studio <tool-id> <command>`.
+  `crates/libs/`; `studio` is the crate of the single binary, `4cc-studio`, that registers tools
+  and launches the GUI or dispatches `4cc-studio <tool-id> <command>`.
 - **Two engines, one IR.** PES 15–17 use pre-Fox formats (`.model` + `.mtl`); PES 18–21 use Fox
   formats (FMDL, FPK, FTEX). Cross-format model conversion goes through `model_convert`'s IR at
   compile time; same-format work stays in the format crate's `ops/` and skips the IR unless the plan

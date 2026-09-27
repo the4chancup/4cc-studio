@@ -34,11 +34,11 @@ copyleft crate cannot enter the dependency graph unnoticed. The list lives in `d
 
 There is no installer. Each release is a `.7z` archive containing:
 
-- `studio.exe` (or the Linux binary) — the single self-contained binary
+- `4cc-studio.exe` (or the `4cc-studio` Linux binary) — the single self-contained binary
 - `quick_compile.bat` (`quick_compile.sh` on Linux) — the double-click launcher: opens the GUI on
   the Team compiler and starts a compile (see `architecture.md` "Launch modes" under Architecture)
 - a basic readme (pointing into the app: the full help and the changelog live in the help window
-  — see `gui.md` "Help window" under GUI Design — and `studio help --export` produces the same text as
+  — see `gui.md` "Help window" under GUI Design — and `4cc-studio help --export` produces the same text as
   files for the release page), with the two license files beside it
 
 The current teams list is not a bundle file: it is embedded in the binary and materialized as
@@ -99,7 +99,7 @@ engine files that must be replaced wholesale, with user data interleaved. 4cc St
 a few files, so the update inverts: **the folder stays, the binary is swapped in place**, and there
 is almost nothing to migrate.
 
-The desktop flow is coordinated by `studio` (the binary). `studio_core::updater` provides generic
+The desktop flow is coordinated by `studio` (the binary crate). `studio_core::updater` provides generic
 release checking, download/verification, and binary replacement; `studio` separately calls
 `teams_list`'s parse/reconcile logic for teams-list reconciliation. Core knows neither
 teams-list/team-ID semantics nor team-format types. No plugin hook or new updater framework is
@@ -113,7 +113,7 @@ server-side:
 2. **Offer**: if a newer version exists and it isn't the `skipped_version`, show a dialog with the
    release notes inline and the options *Update now* / *Skip this version* / *Remind me later*; a
    *Disable update checks* option lives in settings (kept out of the dialog — Red's `fuckoff`). The
-   CLI equivalent is a one-line notice plus a `studio update` subcommand that performs the
+   CLI equivalent is a one-line notice plus a `4cc-studio update` subcommand that performs the
    check+apply non-interactively.
 3. **Download + verify**: fetch the release's `.7z` asset (the same artifact users download manually
    — one artifact serves both paths) into a temp folder, verify its SHA256 against a checksum asset,
@@ -150,7 +150,7 @@ server-side:
 
 ### Rollback
 
-`old/studio.exe` is kept (one version deep — each update replaces it), and the settings menu gets a
+`old/4cc-studio.exe` is kept (one version deep — each update replaces it), and the settings menu gets a
 **"Roll back to previous version"** button that swaps the two binaries back and relaunches. This
 covers the "new version is broken" case that Red handles by preserving the entire old folder.
 
@@ -191,7 +191,7 @@ all crates at once.
 
 Rationale:
 
-- **The binary is the release unit.** Users download `studio.exe`; the self-updater compares
+- **The binary is the release unit.** Users download `4cc-studio.exe`; the self-updater compares
   `CARGO_PKG_VERSION` against a GitHub Release tag. The version they see *is* the suite version.
   Independent crate versions would be invisible to every actual consumer.
 - **Nothing is published to crates.io.** Per-crate semver exists to signal breaking changes to
@@ -239,7 +239,7 @@ appears:
 
 - **Status bar empty state** — the one always-visible place, and the line to paste into a report.
 - **About** (logo click) — the detailed block with Copy (see `gui.md` "Sidebar" item 1).
-- **`studio --version`** — the same one-liner on stdout (CLI equivalence).
+- **`4cc-studio --version`** — the same one-liner on stdout (CLI equivalence).
 - **Not the title bar**: the title is what the taskbar and alt-tab show — the surface for what
   the Studio is *doing* while the window is not in front (see `gui.md` "Window title"), and it is outside
   every screenshot a user crops to the window content. **Not beside the logo**: duplicate of the

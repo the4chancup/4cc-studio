@@ -324,12 +324,12 @@ maintained by cup staff as folders.
 
 ### CLI
 
-`studio refs-arranger chances ./exports/refs_export` — prints the
+`4cc-studio refs-arranger chances ./exports/refs_export` — prints the
 per-referee appearance estimates (and per-slot assignments), labeled as probability for PES 15/16
 or expected count for PES 17–21 (on 18–21 additionally the per-list, per-position counts from
 `ref_lists.txt`), derived from the export's current files, using the active PES version's table.
 
-`studio refs-arranger randomize ./exports/refs_export --lists 12` — writes `ref_lists.txt`
+`4cc-studio refs-arranger randomize ./exports/refs_export --lists 12` — writes `ref_lists.txt`
 with *n* randomized lists over the export's referees (same algorithm as the button; refuses
 to overwrite without `--yes`), for the staff member who rotates from a script. Arrangement by
 hand is GUI-only; drag-and-drop has no meaningful CLI analogue.

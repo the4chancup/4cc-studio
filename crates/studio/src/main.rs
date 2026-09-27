@@ -37,7 +37,7 @@ fn main() -> ExitCode {
     };
     match launch.mode {
         LaunchMode::Gui | LaunchMode::GuiAutorun { .. } => {
-            eprintln!("The GUI is not built yet; see `studio --help` for the CLI.");
+            eprintln!("The GUI is not built yet; see `4cc-studio --help` for the CLI.");
             ExitCode::from(2)
         }
         LaunchMode::Cli { tool, matches } => {

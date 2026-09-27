@@ -121,9 +121,13 @@ crates.io, so no blanket prefix is needed):
   `ddsfile`), `python_bindings`, `archives`, `pipeline`, `vtree`, `music_export` (the format is
   ".4ccm", which can't start a crate name; "music export" is the community's term), `audio_engine`,
   `match_feed`, `color_tools`.
-- **The `studio` prefix is reserved for the platform itself**: `studio` (the binary) and
-  `studio_core`, where it is meaningful rather than a lazy namespace.
-- **CLI subcommands and tool ids keep hyphens** (`studio team-compiler ...`, id `"team-compiler"`) —
+- **The `studio` prefix is reserved for the platform itself**: `studio` (the crate that builds
+  the executable) and `studio_core`, where it is meaningful rather than a lazy namespace.
+- **The executable is `4cc-studio`** (`4cc-studio.exe` on Windows), set by the `studio` crate's
+  `[[bin]] name`. It ships standalone and lands in download folders, where a bare `studio.exe`
+  says nothing about what it is. The crates keep `studio`/`studio_core`: a crate name cannot
+  start with a digit, and no user sees crate names.
+- **CLI subcommands and tool ids keep hyphens** (`4cc-studio team-compiler ...`, id `"team-compiler"`) —
   that's CLI convention, independent of package names.
 
 **`studio_core`** — the platform, containing only what runs with zero tools:
@@ -148,7 +152,7 @@ crates/studio_core/src/
 ├── help/
 │   ├── mod.rs        #   HelpSection/HelpTopic, HelpTarget (tool, topic, anchor), catalog-topic generation
 │   ├── search.rs     #   substring search over every topic's paragraphs and catalog rows
-│   ├── export.rs     #   `studio help` printing and `--export` to Markdown files
+│   ├── export.rs     #   `4cc-studio help` printing and `--export` to Markdown files
 │   └── core/         #   the core chapters' Markdown (setting up, data location, updates) + CHANGELOG.md
 ├── settings/
 │   ├── mod.rs        #   settings framework: load/merge defaults/save, per-tool sections keyed by id
@@ -255,21 +259,21 @@ The binary has three launch modes, distinguished by its arguments:
 
 | Invocation | Behavior |
 |---|---|
-| `studio` | GUI, last-used tool active |
-| `studio <tool-id> <command> [args]` | Headless CLI: the tool's `cli_run`, console output, exit code |
-| `studio --gui <tool-id> <command> [args]` | **GUI autorun**: the GUI opens with `<tool-id>` active and the tool performs `<command>` inside the GUI, exactly as if the user had pressed the corresponding button |
+| `4cc-studio` | GUI, last-used tool active |
+| `4cc-studio <tool-id> <command> [args]` | Headless CLI: the tool's `cli_run`, console output, exit code |
+| `4cc-studio --gui <tool-id> <command> [args]` | **GUI autorun**: the GUI opens with `<tool-id>` active and the tool performs `<command>` inside the GUI, exactly as if the user had pressed the corresponding button |
 
-Besides the tools' subcommands, the shell owns `studio help`, `studio update` and `studio
+Besides the tools' subcommands, the shell owns `4cc-studio help`, `4cc-studio update` and `4cc-studio
 --version` (see `gui.md` "Help window", `distribution.md` "Distribution and updates", `distribution.md` "Changelog and version display").
 
 The `--gui` form exists for the release bundle's **`quick_compile.bat`** — the successor to Red's
 `0_all_in_one.bat`, the one script almost every user runs: copy an export into `exports/`,
-double-click, done. The launcher is two lines (`start "" "%~dp0studio.exe" --gui team-compiler
+double-click, done. The launcher is two lines (`start "" "%~dp04cc-studio.exe" --gui team-compiler
 compile`) so its console window closes immediately and only the GUI remains; the Linux bundle ships
 the equivalent `quick_compile.sh`. Red's other staged bats (`1_`–`3_`) have no successor: the
 unified pipeline has no stages to run separately. Users who want the plain GUI double-click the exe.
 
-`--gui` is a global flag parsed by `studio` before tool dispatch, so no tool's `clap::Command`
+`--gui` is a global flag parsed by `4cc-studio` before tool dispatch, so no tool's `clap::Command`
 knows about it. The shell reuses the tool's own CLI parser for the arguments (one grammar for both
 modes) and hands the parsed `ArgMatches` to the tool's `gui_run` hook (see the trait below) once
 its view exists. Commands a tool does not implement in `gui_run` fail at startup with a clear
@@ -284,7 +288,7 @@ It is built as a GUI-subsystem exe (`#![windows_subsystem = "windows"]`) so doub
 Known caveat of this standard arrangement: an *interactive* `cmd.exe` prompt does not wait for
 GUI-subsystem processes, so output can interleave with the returned prompt (batch files,
 `start /wait`, and PowerShell pipelines are unaffected). If that proves to annoy CLI users, the
-escape hatch is a tiny console-subsystem `studio-cli.exe` shim that spawns the main exe and waits;
+escape hatch is a tiny console-subsystem `4cc-studio-cli.exe` shim that spawns the main exe and waits;
 deferred until the annoyance is real. Linux has no subsystem split.
 
 ### Tool plugin interface
@@ -328,7 +332,7 @@ pub trait StudioTool {
     fn cli_command(&self) -> clap::Command;
     fn cli_run(&self, matches: &clap::ArgMatches, ctx: &ToolContext) -> anyhow::Result<()>;
 
-    /// GUI autorun for `studio --gui <tool-id> <command>` (see "Launch modes"):
+    /// GUI autorun for `4cc-studio --gui <tool-id> <command>` (see "Launch modes"):
     /// perform the already-parsed CLI command inside the GUI, as if the user had
     /// pressed the corresponding button. Called once by the shell after the
     /// tool's view has been created; the tool may queue the action until its
@@ -402,19 +406,19 @@ CLI dispatch uses standard clap subcommands (each tool contributes one), which i
 CLI shape:
 
 ```
-studio team-compiler compile ./exports_folder
-studio team-compiler check ./exports_folder
-studio save-editor export-toml ./EDIT00000000 --team 701 -o ./aaa.toml
-studio stadium-compiler compile ./stadium_exports
-studio export-upgrader ./old_export.zip
-studio music-export-editor check ./team.4ccm
-studio match-tracker watch
-studio kit-config-editor convert ./config.bin ./config.toml
-studio refs-arranger chances ./exports/refs_export
-studio balls-compiler compile
+4cc-studio team-compiler compile ./exports_folder
+4cc-studio team-compiler check ./exports_folder
+4cc-studio save-editor export-toml ./EDIT00000000 --team 701 -o ./aaa.toml
+4cc-studio stadium-compiler compile ./stadium_exports
+4cc-studio export-upgrader ./old_export.zip
+4cc-studio music-export-editor check ./team.4ccm
+4cc-studio match-tracker watch
+4cc-studio kit-config-editor convert ./config.bin ./config.toml
+4cc-studio refs-arranger chances ./exports/refs_export
+4cc-studio balls-compiler compile
 ```
 
-(An argument-flag style like `studio --team-compiler compile ...` would work too, but subcommands
+(An argument-flag style like `4cc-studio --team-compiler compile ...` would work too, but subcommands
 are what clap and CLI conventions are built around — better help output, completion support, and
 per-subcommand argument validation.)
 

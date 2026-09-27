@@ -2,9 +2,9 @@
 //!
 //! | Invocation | Mode |
 //! |---|---|
-//! | `studio` | GUI, last-used tool active |
-//! | `studio <tool-id> <command> [args]` | headless CLI |
-//! | `studio --gui <tool-id> <command> [args]` | GUI autorun: the GUI opens on the tool and runs the command |
+//! | `4cc-studio` | GUI, last-used tool active |
+//! | `4cc-studio <tool-id> <command> [args]` | headless CLI |
+//! | `4cc-studio --gui <tool-id> <command> [args]` | GUI autorun: the GUI opens on the tool and runs the command |
 //!
 //! Every tool contributes one clap subcommand named after its id; `--gui` and `-v` are the
 //! shell's own flags, parsed here so no tool's command knows about them.
@@ -47,13 +47,13 @@ pub enum LaunchMode {
     },
 }
 
-/// The root `studio` command with one subcommand per registered tool.
+/// The root `4cc-studio` command with one subcommand per registered tool.
 ///
 /// # Panics
 /// If two tools share an id, or a tool uses the reserved settings key `common` as its id: the
 /// registry is a compile-time list, so this is a programming error caught at startup.
 pub fn root_command(tools: &[Box<dyn StudioTool>]) -> Command {
-    let mut command = Command::new("studio")
+    let mut command = Command::new("4cc-studio")
         .about("4cc Studio: the 4cc community's PES tools")
         .arg(
             Arg::new("gui")

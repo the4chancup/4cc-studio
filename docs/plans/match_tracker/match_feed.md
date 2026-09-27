@@ -350,7 +350,7 @@ the prior terminal/released match cursor; provisional team corrections retain th
 and always process a `None`-sequence replay snapshot, using its `through_sequence` only as
 the reliable-event cursor.
 
-- **In-process pub/sub**: the studio binary owns the feed and passes publish/subscribe
+- **In-process pub/sub**: the `studio` binary crate owns the feed and passes publish/subscribe
   handles to tools via constructor injection (`match_tracker::Tool::new(feed.publisher())`,
   `music_player::Tool::new(feed.subscribe())`), not through `ToolContext` — `studio_core`
   must stay minimal and cannot depend on `match_feed`. Subscribers drain a channel in
@@ -561,7 +561,7 @@ the reliable-event cursor.
   lag-dropping watch lane
   prevents high-frequency ticks from accumulating in a subscriber's queue.
 - **No built-in pipe/socket server**: the old named pipe's only consumer is gone.
-  `studio match-tracker watch` runs the tracker headlessly in that CLI process and emits
+  `4cc-studio match-tracker watch` runs the tracker headlessly in that CLI process and emits
   its own JSON-lines stream; it does not attach to or expose a concurrently running GUI
   instance. Each line is a separately versioned feed-wire envelope
   (`{"feed_schema": {"major": 1, "minor": 0}, "message": ...}`). Feed schema 1.0

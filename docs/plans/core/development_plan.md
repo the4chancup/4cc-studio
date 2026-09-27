@@ -73,7 +73,7 @@ is still empty; the GUI modes exit with a message until Phase 8.
 **Verification (done):** all four gates green on the workspace and `just deps-check` green; 38
 unit tests, including settings round-trip and recursive default-merge, `ScopePath` rejection and
 collision cases, and a stub tool registered through the trait and dispatched from
-`studio stub ping x`. CI's first green run and one deliberately red run are recorded in the
+`4cc-studio stub ping x`. CI's first green run and one deliberately red run are recorded in the
 worklog when the first push happens.
 
 ### Phase 2: Library crates
@@ -215,7 +215,7 @@ projection, and roster-entry scope/disposition semantics (details in the Team co
   `PlanReport`, `plan_run`, and `process_task` stay in `team_compiler`.
 - Implement the pipeline orchestration (reader, coordinator, writer) with `rayon` (shared scaffolding in
   `libs/pipeline`)
-- Implement CLI execution with console output (`studio team-compiler compile ...`)
+- Implement CLI execution with console output (`4cc-studio team-compiler compile ...`)
 - **Shell slice, last.** The thinnest GUI path that runs: `studio_core`'s app shell reduced to a
   window, the sidebar listing the registered tools, and the selected tool's `view()`; the
   `studio` binary launching it with `team_compiler` registered; and the Team compiler's `view/`
@@ -315,7 +315,7 @@ saves); save editor operations exercised through the CLI on fixture saves.
 - Implement kit restructuring (binary kit configs → `config.toml`, `colors.txt`/`icon.txt` from Team
   Note colors)
 - Implement `settings.toml` generation from savefile aesthetics
-- CLI: `studio export-upgrader ./old_export.zip`
+- CLI: `4cc-studio export-upgrader ./old_export.zip`
 
 **Verification:** Upgrade the full library of existing old-format exports; compile the results;
 compare game-facing output against Red's output for the same exports.
@@ -337,7 +337,7 @@ this phase completes it.
 - Complete the `studio_core` app shell (sidebar, tool registry rendering, settings menu with per-tool
   collapsible sections, status bar with its three slots and static empty state, window title
   from activities and the held notice, help window with chapter tree, generated Messages topics,
-  search, log-panel message links, and `studio help`)
+  search, log-panel message links, and `4cc-studio help`)
 - Build the common widgets: progress grid, log panel (auto-scroll, filters, grid cross-linking),
   run strip
 - Implement each tool's `view()`: Team compiler grid (live validation), save editor
@@ -474,7 +474,7 @@ from unintended conversion loss.
 - Self-updater: check, dialog, download/verify/swap, teams-list merge, rollback button (see
   `distribution.md` "Distribution and updates")
 - Documentation: every shipped tool's `help/` chapter written for members (Red's two readmes
-  migrated into the Team compiler and core chapters), `CHANGELOG.md` started, `studio help
+  migrated into the Team compiler and core chapters), `CHANGELOG.md` started, `4cc-studio help
   --export` wired into the release process; the bundled readme stays a pointer (the window itself
   is Phase 8)
 

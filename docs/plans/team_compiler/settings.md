@@ -41,7 +41,7 @@ differing new default is a deliberate decision, explained in the Controls column
 | `savefile_path` | — | auto | `EDIT00000000` to update. `auto` runs `pes_savefile`'s discovery under the user's **Documents\KONAMI** folder for the selected version (the savefile is never inside the PES install, so `pes_folder_path` plays no part — see "Savefile discovery" in the Savefile plan); newest account wins when several exist (`savefile_autodetected`); nothing found → `savefile_missing` (Red never touches the savefile) |
 | `teams_list_path` | `teams_list.txt` (hardcoded, beside the exe) | `teams_list.txt` | Location of the working teams list; relative paths resolve in the data directory (see "Path resolution"). Created from the embedded list on first run |
 | `dt00_overwrite_allow` | — | 0 | Allow `ref_marker.dds` injection into the `dt00_x64.cpk` system file (replaces Red's interactive prompt) |
-| `quick_compile_close_on_success` | — | 0 | After a compile started by GUI autorun (`quick_compile.bat` → `studio --gui team-compiler compile`), close the window when the run completes with no Error-level findings and nothing skipped for errors; stay open on errors, failed deployment, or cancellation so the grid/log can be reviewed. Warnings alone still close (they are in the logs, as Red's `pause_allow = 0` reasoned). Never applies to a manual Compile click |
+| `quick_compile_close_on_success` | — | 0 | After a compile started by GUI autorun (`quick_compile.bat` → `4cc-studio --gui team-compiler compile`), close the window when the run completes with no Error-level findings and nothing skipped for errors; stay open on errors, failed deployment, or cancellation so the grid/log can be reviewed. Warnings alone still close (they are in the logs, as Red's `pause_allow = 0` reasoned). Never applies to a manual Compile click |
 
 Output mode (normal / test / sider) is not a persisted setting: it is the Compile button's dropdown
 in the GUI and a flag on the CLI subcommand, as in Blue's `--mode` argument.
@@ -93,10 +93,10 @@ resolved export source.
 ### CLI
 
 ```text
-studio team-compiler compile [exports-root] [--mode normal|test|sider] [--export <path>]... [--no-deploy]
-studio team-compiler check [exports-root] [--export <path>]...
-studio team-compiler upgrade-dpfl [--yes]      # replace the installed DpFileList with the bundled official one
-studio --gui team-compiler compile [exports-root] [--mode normal|test|sider]   # GUI autorun
+4cc-studio team-compiler compile [exports-root] [--mode normal|test|sider] [--export <path>]... [--no-deploy]
+4cc-studio team-compiler check [exports-root] [--export <path>]...
+4cc-studio team-compiler upgrade-dpfl [--yes]      # replace the installed DpFileList with the bundled official one
+4cc-studio --gui team-compiler compile [exports-root] [--mode normal|test|sider]   # GUI autorun
 ```
 
 (Refreshing `teams_list.txt` from a savefile is the Save editor's `export-teams-list`; see the
@@ -124,7 +124,7 @@ it was loaded from (it knows the export from the launch manifest — see the Pla
 plan), then runs
 
 ```text
-studio team-compiler compile --mode sider --export "D:\exports\aaa_export"
+4cc-studio team-compiler compile --mode sider --export "D:\exports\aaa_export"
 ```
 
 and PES, with Sider running, shows the result on the next model load. Without `--export` the plugin
