@@ -10,6 +10,7 @@ use super::{
     BONE_LIMIT_SOFT, BoneMapping, FACE_LIMIT_SOFT, PREFERRED_BASE_BONES, StorableItems,
     VERTEX_LIMIT_SOFT, bone_mapping, empty_like, push_vertex,
 };
+
 /// Vertex `index`'s split key: the stored bytes of its position followed
 /// by its `(model bone, weight)` pairs — the identity `combine` matches on,
 /// so a zero-weight lane's raw index never splits coincident vertices.
@@ -214,13 +215,19 @@ fn build_component(
         // A fragment: faces in decreasing order of their best projection on
         // the sort vector, added while the soft limits hold.
         let storable = &items_per_bone[&base_bone];
+        // Faces by index, then loose sets by index: the f32 accumulation
+        // in `sort_vector` must not depend on HashSet iteration order.
+        let mut faces: Vec<usize> = storable.faces.iter().copied().collect();
+        faces.sort_unstable();
+        let mut loose: Vec<usize> = storable.loose.iter().copied().collect();
+        loose.sort_unstable();
         let mut points = Vec::new();
-        for &face in &storable.faces {
+        for &face in &faces {
             for &vertex in &face_vertices[face] {
                 points.push(mesh.vertices.positions[vertex]);
             }
         }
-        for &set in &storable.loose {
+        for &set in &loose {
             points.push(mesh.vertices.positions[sets[set][0]]);
         }
         let bone_position = base_bone.map_or([0.0; 3], |bone| {
@@ -230,7 +237,6 @@ fn build_component(
         let axis = sort_vector(&points, bone_position);
         let score = |vertex: usize| -> f32 { projection(mesh.vertices.positions[vertex], axis) };
 
-        let mut faces: Vec<usize> = storable.faces.iter().copied().collect();
         faces.sort_by(|a, b| {
             let score_a = face_vertices[*a]
                 .iter()
@@ -242,7 +248,6 @@ fn build_component(
                 .fold(f32::MIN, f32::max);
             score_b.total_cmp(&score_a).then(a.cmp(b))
         });
-        let mut loose: Vec<usize> = storable.loose.iter().copied().collect();
         loose.sort_by(|a, b| {
             score(sets[*b][0])
                 .total_cmp(&score(sets[*a][0]))
@@ -302,7 +307,7 @@ fn build_component(
         // still goes out as its own component.
         if taken_faces.is_empty() && taken_loose.is_empty() {
             let storable = &items_per_bone[&base_bone];
-            if let Some(&face) = storable.faces.iter().next() {
+            if let Some(&face) = storable.faces.iter().min() {
                 taken_faces.insert(face);
                 for &vertex in &face_vertices[face] {
                     let set = set_of[vertex];
@@ -312,7 +317,7 @@ fn build_component(
                         }
                     }
                 }
-            } else if let Some(&set) = storable.loose.iter().next() {
+            } else if let Some(&set) = storable.loose.iter().min() {
                 taken_loose.insert(set);
                 selected_sets.insert(set);
                 for &(bone, _) in &mappings[sets[set][0]] {
@@ -726,5 +731,119 @@ mod tests {
         let (sets, mappings, skinned) = at(BONE_LIMIT_SOFT + 1);
         let pieces = make_pieces(sets, mappings, skinned);
         assert!(!fits_in_submesh(&items, &pieces));
+    }
+
+    // The fragment partition must not depend on HashSet iteration order:
+    // the same items, inserted in opposite orders, give the same
+    // component. Paired x/y-axis faces make xx == yy exactly, so the axis
+    // is pure accumulation rounding and an order-dependent sum picks a
+    // different one — dropping different faces at the bone limit.
+    #[test]
+    fn the_fragment_axis_ignores_set_order() {
+        let face_count = 2 * (BONE_LIMIT_SOFT + 1);
+        let vertex_count = 3 * face_count;
+        let loose_count = 4;
+        // Face 2k sits on the x axis, face 2k+1 on the y axis at the same
+        // radius; magnitudes vary so the sum's rounding is order-shaped.
+        let positions: Vec<[f32; 3]> = (0..face_count + loose_count)
+            .flat_map(|face| {
+                let r = 1.0e4f32 * (1.0 + (face / 2 % 8) as f32);
+                let points: &[[f32; 3]] = if face % 2 == 0 {
+                    &[[r, 0.0, 0.0], [-r, 0.0, 0.0], [r, 0.0, 0.0]]
+                } else {
+                    &[[0.0, r, 0.0], [0.0, -r, 0.0], [0.0, r, 0.0]]
+                };
+                if face < face_count {
+                    points.to_vec()
+                } else {
+                    vec![points[0]]
+                }
+            })
+            .collect();
+        let vertex_total = positions.len();
+        let mesh = Mesh {
+            vertices: crate::format::MeshVertices {
+                positions,
+                bone_weights: Some(vec![[255, 0, 0, 0]; vertex_total]),
+                bone_indices: Some(
+                    (0..vertex_total)
+                        .map(|vertex| [(vertex / 3) as u8, 0, 0, 0])
+                        .collect(),
+                ),
+                ..crate::format::MeshVertices::default()
+            },
+            faces: (0..face_count)
+                .map(|face| {
+                    [
+                        3 * face as u16,
+                        (3 * face + 1) as u16,
+                        (3 * face + 2) as u16,
+                    ]
+                })
+                .collect(),
+            bone_group: (0..face_count).collect(),
+            material: 0,
+            alpha_flags: 0,
+            shadow_flags: 0,
+            has_antiblur_meshes: false,
+            is_antiblur_mesh: false,
+            custom_bounding_box: None,
+        };
+        let model = model_with(
+            (0..face_count)
+                .map(|index| bone(&format!("b{index}"), index.checked_sub(1)))
+                .collect(),
+        );
+        let parents: Vec<Option<usize>> =
+            (0..face_count).map(|index| index.checked_sub(1)).collect();
+        let pieces = Pieces {
+            face_vertices: mesh
+                .faces
+                .iter()
+                .map(|face| face.map(usize::from))
+                .collect(),
+            // Vertices of one face share a set; the loose vertices get
+            // their own.
+            sets: (0..vertex_total).map(|vertex| vec![vertex]).collect(),
+            set_of: (0..vertex_total).collect(),
+            mappings: (0..vertex_total)
+                .map(|vertex| {
+                    let bone = if vertex < vertex_count {
+                        vertex / 3
+                    } else {
+                        vertex - vertex_count
+                    };
+                    vec![(bone, 255)]
+                })
+                .collect(),
+            skinned: true,
+        };
+
+        // Each HashSet gets its own random state, so iteration order varies
+        // set to set; repeat so an order-dependent axis shows.
+        let items = |ascending: bool| {
+            let order: Vec<usize> = if ascending {
+                (0..face_count).collect()
+            } else {
+                (0..face_count).rev().collect()
+            };
+            let mut items = StorableItems::default();
+            for &face in &order {
+                items.faces.insert(face);
+            }
+            for set in vertex_count..vertex_total {
+                items.loose.insert(set);
+            }
+            let mut per_bone = HashMap::new();
+            per_bone.insert(Some(0), items);
+            per_bone
+        };
+        for _ in 0..32 {
+            let (a, _) = build_component(&model, &mesh, &parents, &items(true), &pieces).unwrap();
+            let (b, _) = build_component(&model, &mesh, &parents, &items(false), &pieces).unwrap();
+            assert_eq!(a.vertices.positions, b.vertices.positions);
+            assert_eq!(a.faces, b.faces);
+            assert_eq!(a.bone_group, b.bone_group);
+        }
     }
 }
