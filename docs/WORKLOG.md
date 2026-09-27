@@ -893,3 +893,8 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   (`AGENTS.md` "When the plan has gaps"). Finding: every round found real defects in paths no
   fixture exercises (split output that did not reload, a hang, panics); `pes_model` is the
   `fmdl` port, so its audit starts from this list. Next: 2.20g `pes_model`.
+- **2026-09-27** - Method review after 2.20f (`AGENTS.md`): whole-crate mutation runs at the
+  start and close of a crate's converge only, `mutants-diff` for the rework rounds between;
+  reviewer briefs rank concerns by reachability; briefs tell the sidekick to insert tests
+  inside the test module. Maintainer decided the executable is `4cc-studio` (decision entry).
+  `fmdl`: the combine reorder gate's `>`/`>=` survivor was a missing test, now written.

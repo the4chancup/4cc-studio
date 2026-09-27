@@ -26,7 +26,7 @@ terms next to each other rather than in alphabetical order; adjacency is what ma
 | **`PipelineEvent`** | The typed progress/result event tools emit (`ExportStarted`, `FolderStatus`, `Message`, `Progress`, `Complete`); GUI and CLI render it. | `plans/core/architecture.md` "Event system" |
 | **`ScopePath`** | `vtree`'s canonical, platform-neutral, validated path inside an export; addresses events, findings and grid cells. | `plans/libs/README.md` "`vtree` path types" |
 | **Stale-result envelope** | `PipelineEventEnvelope` carrying `run_id` and `export_revision`, so results from an outdated filesystem snapshot cannot overwrite newer state. | `plans/core/architecture.md` "Event system" |
-| **`studio`** | The single binary: registers tools, launches the GUI or dispatches `studio <tool-id> <command>`. | `plans/core/architecture.md` "Crate structure" |
+| **`studio`** | The crate of the single binary, `4cc-studio`: registers tools, launches the GUI or dispatches `4cc-studio <tool-id> <command>`. | `plans/core/architecture.md` "Crate structure" |
 | **`studio_core`** | The platform crate: shell, `StudioTool` trait, settings framework, common widgets, event types. Holds only what runs with zero tools installed; its module tree is closed. | `plans/core/architecture.md` "Architecture" |
 | **`StudioTool` / `ToolContext`** | The plugin trait every tool implements (id, settings, `cli_run`, `gui_run`) and the platform services handed to it. | `plans/core/architecture.md` "Tool plugin interface" |
 | **Studio Web** | Post-release, deliberately lite browser edition; the reason every lib crate stays `wasm32`-checkable. | `plans/core/gui.md` "Browser deployment" |

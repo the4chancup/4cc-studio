@@ -177,7 +177,7 @@ crates/tools/db_generator/
     └── parity/         # the scripts' output for the three-team list, per version
 ```
 
-CLI: `studio db-generator generate --version 21 --teams-list teams_list.txt --out ./database_21
+CLI: `4cc-studio db-generator generate --version 21 --teams-list teams_list.txt --out ./database_21
 [--pes-install <dir>] [--cpk] [--edit <EDIT00000000>]`.
 
 ## Verification

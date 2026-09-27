@@ -155,7 +155,7 @@ location per launch:
   "manifest_version": 1,
   "player": { "folder": "C:/.../Players/15 - Snuffy", "name": "Snuffy",
               "export": "team_x", "export_path": "C:/.../exports/team_x" },
-  "studio": { "exe": "C:/.../studio.exe", "pes_version": 19 },
+  "studio": { "exe": "C:/.../4cc-studio.exe", "pes_version": 19 },
   "settings_toml": "C:/.../15 - Snuffy/settings.toml",
   "settings_schema": [
     { "group": "appearance", "key": "skin_color", "type": "int", "min": 1, "max": 7,
@@ -204,7 +204,7 @@ location per launch:
   a clear message instead of misloading.
 - **`player.export_path` and `studio.exe`** exist for the plugin's **"Export model and compile for
   Sider"** button: after saving the model into `player.folder`, the plugin runs
-  `<studio.exe> team-compiler compile --mode sider --export <export_path>` and reports the exit
+  `<4cc-studio.exe> team-compiler compile --mode sider --export <export_path>` and reports the exit
   code (see "CLI" in the Team compiler plan). The CLI is the whole integration — no IPC with the
   running Studio, no Python-side knowledge of the pipeline. `studio.pes_version` is informational,
   letting the plugin label the button with the target version — but **only in a Blender session
@@ -340,8 +340,8 @@ The point of planning this tool early — what moves where:
 ## CLI
 
 ```
-studio player-aesthetics-editor launch <player-folder>
-studio player-aesthetics-editor convert <player-folder> [--geometry fox|prefox]
+4cc-studio player-aesthetics-editor launch <player-folder>
+4cc-studio player-aesthetics-editor convert <player-folder> [--geometry fox|prefox]
 ```
 
 ## Effort valves

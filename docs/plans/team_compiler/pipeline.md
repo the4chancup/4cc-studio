@@ -605,7 +605,7 @@ describes behavior, not a serial scheduling requirement:
   - missing any target of this run (an old official DPFL — typically the pre-`teams` layout) →
     `dpfilelist_outdated` (E; the run degrades like any deployment failure) and the GUI shows
     **Upgrade DpFileList**; the CLI prints the equivalent subcommand,
-    `studio team-compiler upgrade-dpfl`, and never upgrades on its own.
+    `4cc-studio team-compiler upgrade-dpfl`, and never upgrades on its own.
   - The upgrade is an **override, not a merge**: the bundled official DPFL replaces the installed
     file byte for byte, the old one kept as `DpFileList.bin.bak`. The aesthetics community gives
     zero support for custom-edited DPFLs — they have caused a long tail of problems — so preserving
