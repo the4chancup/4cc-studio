@@ -8,6 +8,7 @@ mod from_file;
 #[cfg(test)]
 mod tests;
 mod to_file;
+mod validate;
 
 use crate::format::MeshVertices;
 

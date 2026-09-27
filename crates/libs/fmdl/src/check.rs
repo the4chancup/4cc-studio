@@ -308,6 +308,95 @@ mod tests {
     }
 
     #[test]
+    fn hard_limit_boundaries() {
+        // A bone group at the limit is fine.
+        let mut mesh = small_mesh();
+        mesh.bone_group = (0..32).collect();
+        assert!(
+            !check(&small_model(mesh))
+                .iter()
+                .any(|finding| finding.code == "fmdl_mesh_over_bone_limit")
+        );
+
+        // A vertex count at and over the u16 limit.
+        let mut mesh = small_mesh();
+        mesh.vertices.positions = vec![[0.0; 3]; 65_535];
+        assert!(
+            !check(&small_model(mesh.clone()))
+                .iter()
+                .any(|finding| finding.code == "fmdl_mesh_over_vertex_limit")
+        );
+        mesh.vertices.positions.push([0.0; 3]);
+        assert!(check(&small_model(mesh)).iter().any(|finding| {
+            finding.code == "fmdl_mesh_over_vertex_limit" && finding.count == 65_536
+        }));
+
+        // A face count at and over the limit.
+        let mut mesh = small_mesh();
+        mesh.faces = vec![[0, 1, 2]; 21_845];
+        assert!(
+            !check(&small_model(mesh.clone()))
+                .iter()
+                .any(|finding| finding.code == "fmdl_mesh_over_face_limit")
+        );
+        mesh.faces.push([0, 1, 2]);
+        assert!(check(&small_model(mesh)).iter().any(|finding| {
+            finding.code == "fmdl_mesh_over_face_limit" && finding.count == 21_846
+        }));
+    }
+
+    #[test]
+    fn bone_slot_out_of_range() {
+        let model_with = |index: u8, weight: u8| {
+            let mut mesh = small_mesh();
+            mesh.bone_group = vec![0];
+            mesh.vertices.bone_weights = Some(vec![[weight, 0, 0, 0]]);
+            mesh.vertices.bone_indices = Some(vec![[index, 0, 0, 0]]);
+            small_model(mesh)
+        };
+
+        // Slot 1 is one past the one-entry group; its weight is nonzero.
+        assert!(check(&model_with(1, 255)).iter().any(|finding| {
+            finding.code == "fmdl_bone_slot_out_of_range" && finding.count == 1
+        }));
+        // The same slot carries no weight: the game never reads it.
+        assert!(
+            !check(&model_with(1, 0))
+                .iter()
+                .any(|finding| finding.code == "fmdl_bone_slot_out_of_range")
+        );
+        // A slot inside the group.
+        assert!(
+            !check(&model_with(0, 255))
+                .iter()
+                .any(|finding| finding.code == "fmdl_bone_slot_out_of_range")
+        );
+    }
+
+    #[test]
+    fn unnormalized_weight_boundaries() {
+        let model_with = |weights: [u8; 4]| {
+            let mut mesh = small_mesh();
+            mesh.bone_group = vec![0];
+            mesh.vertices.bone_weights = Some(vec![weights]);
+            mesh.vertices.bone_indices = Some(vec![[0, 0, 0, 0]]);
+            small_model(mesh)
+        };
+
+        assert!(check(&model_with([254, 0, 0, 0])).iter().any(|finding| {
+            finding.code == "fmdl_weights_not_normalized" && finding.count == 1
+        }));
+        // A full-weight and an all-zero row are both fine.
+        for weights in [[255, 0, 0, 0], [0, 0, 0, 0]] {
+            assert!(
+                !check(&model_with(weights))
+                    .iter()
+                    .any(|finding| finding.code == "fmdl_weights_not_normalized")
+            );
+        }
+    }
+
+    #[test]
     fn face_index_out_of_range() {
         let mut mesh = small_mesh();
         mesh.faces.push([0, 1, 9]);
