@@ -777,8 +777,9 @@ pruned when their phase closes; they stay in git history.
   and the IR (`ir.md` "IR struct") store faces as `[u16; 3]`, so `fmdl::ops::split::decode`
   refuses (loud `VertexMismatch`) an add-on file whose components together reference more
   than 65536 vertices, and vertex-limit splitting of an IR mesh can only move loose vertices.
-  No cup model is known to reach it; decide the face type at Phase 7 (glTF brings u32
-  indices), or earlier if a real model hits the error.
+  The 2.20h conversion census found 114 real files over it. Since 2.20h such a group stays
+  split rather than erroring (`conversion.md` split rules), so nothing refuses them now. The
+  face type is still Phase 7's decision (glTF brings u32 indices).
 - resolved (2026-09-28) — repeated `.mtl` states: the `.mtl` census found no file on the
   machine that repeats a state; every reader now takes the first value.
 - open — `model_convert` converge questions (2.20): (1) Fox decal shaders (`translucent`,

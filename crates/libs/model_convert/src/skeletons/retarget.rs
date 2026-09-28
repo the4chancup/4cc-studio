@@ -38,16 +38,21 @@ fn normalized(v: [f32; 3]) -> Option<[f32; 3]> {
     (len > 0.0).then(|| [v[0] / len, v[1] / len, v[2] / len])
 }
 
-/// Conforms `ir` to `target`'s skeleton in place: folds standard bones the target lacks onto
-/// the bones that take their weight, then re-binds every surviving standard bone from its
-/// source pose (`Bone.matrix`) to the target's. Custom bones pass through. Returns the losses.
-pub fn retarget(ir: &mut CanonicalModel, target: PesVersion) -> Result<Vec<Finding>, ConvertError> {
+/// Conforms `ir` to `target`'s skeleton: folds standard bones the target lacks onto the
+/// bones that take their weight, then re-binds every surviving standard bone from its
+/// source pose (`Bone.matrix`) to the target's. Custom bones pass through. Takes the
+/// model by value, so an error can never leave a half-retargeted model behind; returns
+/// it with the losses.
+pub fn retarget(
+    mut ir: CanonicalModel,
+    target: PesVersion,
+) -> Result<(CanonicalModel, Vec<Finding>), ConvertError> {
     let tables = skeletons(target);
     let mut findings = Vec::new();
 
     // ---- Fold: resolve every fold before mutating (two folds may share a target). ----
     let count = ir.bones.len();
-    let weighted = |bone: usize| -> bool { crate::ir::bone_is_weighted(ir, bone) };
+    let weighted = |bone: usize| -> bool { crate::ir::bone_is_weighted(&ir, bone) };
     let mut folds: Vec<Option<String>> = vec![None; count];
     for (index, bone) in ir.bones.iter().enumerate() {
         if !is_standard(&bone.name) || version_bone(tables, &bone.name).is_some() {
@@ -229,8 +234,8 @@ pub fn retarget(ir: &mut CanonicalModel, target: PesVersion) -> Result<Vec<Findi
         });
     }
 
-    validate(ir)?;
-    Ok(findings)
+    validate(&ir)?;
+    Ok((ir, findings))
 }
 
 #[cfg(test)]
@@ -352,8 +357,8 @@ mod tests {
     fn pes17_to_pes15_folds_the_legacy_six() {
         let names: Vec<String> = body_names(PesVersion::Pes17);
         let refs: Vec<&str> = names.iter().map(String::as_str).collect();
-        let mut ir = ir_with_bones(&refs, PesVersion::Pes17);
-        let findings = retarget(&mut ir, PesVersion::Pes15).expect("retarget");
+        let ir = ir_with_bones(&refs, PesVersion::Pes17);
+        let (ir, findings) = retarget(ir, PesVersion::Pes15).expect("retarget");
         let folds: Vec<&Finding> = findings
             .iter()
             .filter(|finding| finding.code == "bone_folded_for_version")
@@ -412,8 +417,8 @@ mod tests {
     fn pes19_to_pes16_folds_46() {
         let names: Vec<String> = body_names(PesVersion::Pes19);
         let refs: Vec<&str> = names.iter().map(String::as_str).collect();
-        let mut ir = ir_with_bones(&refs, PesVersion::Pes19);
-        let findings = retarget(&mut ir, PesVersion::Pes16).expect("retarget");
+        let ir = ir_with_bones(&refs, PesVersion::Pes19);
+        let (ir, findings) = retarget(ir, PesVersion::Pes16).expect("retarget");
         assert_eq!(
             findings
                 .iter()
@@ -464,8 +469,8 @@ mod tests {
     fn pes19_to_pes21_folds_the_pos_helpers() {
         let names: Vec<String> = body_names(PesVersion::Pes19);
         let refs: Vec<&str> = names.iter().map(String::as_str).collect();
-        let mut ir = ir_with_bones(&refs, PesVersion::Pes19);
-        let findings = retarget(&mut ir, PesVersion::Pes21).expect("retarget");
+        let ir = ir_with_bones(&refs, PesVersion::Pes19);
+        let (_, findings) = retarget(ir, PesVersion::Pes21).expect("retarget");
         assert_eq!(
             findings
                 .iter()
@@ -494,17 +499,17 @@ mod tests {
     fn same_version_is_a_noop() {
         let names: Vec<String> = body_names(PesVersion::Pes21);
         let refs: Vec<&str> = names.iter().map(String::as_str).collect();
-        let mut ir = ir_with_bones(&refs, PesVersion::Pes21);
+        let ir = ir_with_bones(&refs, PesVersion::Pes21);
         let before = ir.clone();
-        let findings = retarget(&mut ir, PesVersion::Pes21).expect("retarget");
+        let (ir, findings) = retarget(ir, PesVersion::Pes21).expect("retarget");
         assert_eq!(ir, before);
         assert_eq!(findings, Vec::<Finding>::new());
     }
 
     #[test]
     fn a_bone_with_no_fold_entry_folds_by_position() {
-        let mut ir = ir_with_bones(&["sk_belly", "dsk_back"], PesVersion::Pes21);
-        let findings = retarget(&mut ir, PesVersion::Pes15).expect("retarget");
+        let ir = ir_with_bones(&["sk_belly", "dsk_back"], PesVersion::Pes21);
+        let (ir, findings) = retarget(ir, PesVersion::Pes15).expect("retarget");
         assert!(findings.contains(&Finding {
             code: "bone_folded_by_position",
             subject: Subject::Bone(1),
@@ -515,8 +520,8 @@ mod tests {
 
     #[test]
     fn a_custom_bone_passes_through() {
-        let mut ir = ir_with_bones(&["sk_belly", "sk_flag"], PesVersion::Pes21);
-        let findings = retarget(&mut ir, PesVersion::Pes15).expect("retarget");
+        let ir = ir_with_bones(&["sk_belly", "sk_flag"], PesVersion::Pes21);
+        let (ir, findings) = retarget(ir, PesVersion::Pes15).expect("retarget");
         let flag = ir
             .bones
             .iter()
@@ -543,7 +548,7 @@ mod tests {
             [1.0, 0.0, 0.0, 0.0],
             [1.0, 0.0, 0.0, 0.0],
         ]);
-        retarget(&mut ir, PesVersion::Pes15).expect("retarget");
+        let ir = retarget(ir, PesVersion::Pes15).expect("retarget").0;
         let vertices = &ir.meshes[0].vertices;
         assert_eq!(ir.meshes[0].bone_group, [0, 1]);
         assert_eq!(
@@ -573,7 +578,7 @@ mod tests {
         source.0[3] += 0.1;
         ir.bones[0].matrix = source;
         let at = ir.meshes[0].vertices.positions[0];
-        let findings = retarget(&mut ir, PesVersion::Pes15).expect("retarget");
+        let (ir, findings) = retarget(ir, PesVersion::Pes15).expect("retarget");
         let moved = ir.meshes[0].vertices.positions[0];
         for axis in 0..3 {
             let want = at[axis] + [-0.1, 0.0, 0.0][axis];
@@ -603,7 +608,7 @@ mod tests {
             target.translation(),
         )
         .multiply(&target);
-        retarget(&mut ir, PesVersion::Pes15).expect("retarget");
+        let ir = retarget(ir, PesVersion::Pes15).expect("retarget").0;
         let normal = ir.meshes[0].vertices.normals.as_ref().expect("normals")[0];
         for axis in 0..3 {
             assert!(
@@ -615,9 +620,9 @@ mod tests {
 
     #[test]
     fn unmoved_bones_and_vertices_are_untouched() {
-        let mut ir = ir_with_bones(&["sk_belly", "dsk_deltoid_l"], PesVersion::Pes21);
+        let ir = ir_with_bones(&["sk_belly", "dsk_deltoid_l"], PesVersion::Pes21);
         let before = ir.clone();
-        retarget(&mut ir, PesVersion::Pes18).expect("retarget");
+        let ir = retarget(ir, PesVersion::Pes18).expect("retarget").0;
         assert_eq!(ir.bones[0], before.bones[0]); // sk_belly, bit for bit
         assert_eq!(
             ir.meshes[0].vertices.positions[0],
@@ -639,7 +644,7 @@ mod tests {
         // past the one-entry group but unweighted and must not be remapped.
         let mut ir = ir_with_bones(&["dsk_deltoid_l"], PesVersion::Pes17);
         ir.meshes[0].vertices.bone_indices = Some(vec![[0, 5, 0, 0]]);
-        retarget(&mut ir, PesVersion::Pes15).expect("retarget");
+        let ir = retarget(ir, PesVersion::Pes15).expect("retarget").0;
         let vertices = &ir.meshes[0].vertices;
         assert_eq!(
             vertices.bone_indices.as_ref().expect("indices")[0],

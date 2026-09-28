@@ -188,7 +188,9 @@ pub(crate) fn split_group_key(header: &str) -> Option<String> {
 /// Reassembles every `Split-Mesh` group into one mesh placed where the
 /// group's first component sat; meshes without the header stay. A group
 /// whose combined mesh would reference more than 65536 distinct
-/// vertices stays split, its components and headers kept as they are.
+/// vertices, or whose components are not one mesh (their material, bone
+/// weight width or vertex layout disagree), stays split, its components
+/// and headers kept as they are.
 /// The combined mesh takes the first component's `name`, `material`,
 /// `tags`, `order`, `editor_data`, `bone_weight_width` and its
 /// `extension_headers` minus the `Split-Mesh` header.
@@ -224,8 +226,9 @@ pub fn decode(model: &mut Model) -> Result<(), ModelError> {
     // intact — a failed combine then leaves the model untouched — and
     // only then rebuild the list: components collapse to their combined
     // mesh at the first component's position. A group whose combined
-    // mesh cannot be indexed in u16 stays split — its components and
-    // markers are kept as they are.
+    // mesh cannot be indexed in u16, or whose components are not one
+    // mesh (their material, bone weight width or vertex layout disagree),
+    // stays split — its components and markers are kept as they are.
     let mut combined_meshes: HashMap<String, Mesh> = HashMap::new();
     let mut kept: HashSet<String> = HashSet::new();
     for key in &group_keys {
@@ -233,7 +236,7 @@ pub fn decode(model: &mut Model) -> Result<(), ModelError> {
             Ok(mesh) => {
                 combined_meshes.insert(key.clone(), mesh);
             }
-            Err(ModelError::SplitTooLarge) => {
+            Err(ModelError::SplitTooLarge) | Err(ModelError::SplitIncompatible(_)) => {
                 kept.insert(key.clone());
             }
             Err(error) => return Err(error),

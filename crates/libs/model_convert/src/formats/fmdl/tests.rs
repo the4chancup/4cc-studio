@@ -140,14 +140,22 @@ fn highneck_imports_on_the_template_skeleton() {
         material.fox.as_ref().expect("fox").shader,
         "pes_3ddf_basic_color_translucent"
     );
-    // The file carries the redundant local-space bone-matrix block.
+    // The file carries the redundant local-space bone-matrix block, and the
+    // `translucent` shader is one of the rare names with no family.
     assert_eq!(
         imported.findings,
-        vec![Finding {
-            code: "native_field_dropped",
-            subject: Subject::Model,
-            detail: "bone_matrices".to_string(),
-        }]
+        vec![
+            Finding {
+                code: "native_field_dropped",
+                subject: Subject::Model,
+                detail: "bone_matrices".to_string(),
+            },
+            Finding {
+                code: "material_family_approximated",
+                subject: Subject::Material(0),
+                detail: "accessory".to_string(),
+            },
+        ]
     );
 }
 

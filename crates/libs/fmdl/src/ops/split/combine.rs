@@ -71,9 +71,7 @@ pub(super) fn combine(meshes: &[Mesh], group: &MeshGroup) -> Result<Mesh, FmdlEr
         ))?;
     for component in &components[1..] {
         if !same_layout(&component.vertices, &first.vertices) {
-            return Err(FmdlError::VertexMismatch(
-                "split components have different vertex layouts",
-            ));
+            return Err(FmdlError::SplitIncompatible("vertex layouts disagree"));
         }
     }
 

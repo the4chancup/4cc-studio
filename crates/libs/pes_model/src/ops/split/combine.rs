@@ -85,19 +85,13 @@ pub(super) fn combine(meshes: &[Mesh], indices: &[usize]) -> Result<Mesh, ModelE
         ))?;
     for component in &components[1..] {
         if component.material != first.material {
-            return Err(ModelError::InvalidModel(
-                "split components disagree on material",
-            ));
+            return Err(ModelError::SplitIncompatible("materials disagree"));
         }
         if component.vertices.bone_weight_width != first.vertices.bone_weight_width {
-            return Err(ModelError::InvalidModel(
-                "split components disagree on bone weight width",
-            ));
+            return Err(ModelError::SplitIncompatible("bone weight widths disagree"));
         }
         if !same_layout(&component.vertices, &first.vertices) {
-            return Err(ModelError::InvalidModel(
-                "split components have different vertex layouts",
-            ));
+            return Err(ModelError::SplitIncompatible("vertex layouts disagree"));
         }
         if !component.lower_lods.is_empty() {
             return Err(ModelError::InvalidModel(
