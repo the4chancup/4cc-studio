@@ -252,8 +252,14 @@ Bone records (N × 56 bytes, starting at offset 12):
   f32[12] transform   — 3×4 row-major [rotation_3x3 | translation_3x1]
 
 Name table (at offset 12 + N×56):
-  concatenated null-terminated ASCII strings, padded to 4-byte alignment
+  concatenated null-terminated ASCII strings, then trailing bytes
 ```
+
+The trailing bytes are not fixed. The fmdl census of every SKL on the maintainer's machine
+(2026-09-28) found Konami's own `dt00` skeletons ending right after the last name's NUL, most
+files padded to 4, and one padded by 4 more. `SklFile` keeps whatever follows the name table as
+read and writes it back verbatim, so byte identity holds on every SKL. A skeleton built from
+scratch (`SklFile::new`) pads to 4, as the reference writer does.
 
 Each transform row is `[rot_x, rot_y, rot_z, translation]`, giving a 3×3 bind-pose rotation plus a
 model-space position per bone. The positions correspond to the `PesSkeletonData._positions`
