@@ -121,6 +121,9 @@ pub struct SamplerSettings {
     pub srgb: Option<bool>,
     /// The minification filter.
     pub minfilter: Option<Filter>,
+    /// The maxification filter (the `.mtl` schema's attribute between
+    /// `minfilter` and `magfilter`).
+    pub maxfilter: Option<Filter>,
     /// The magnification filter.
     pub magfilter: Option<Filter>,
     /// The mip filter.

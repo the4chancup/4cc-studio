@@ -10,10 +10,13 @@ use crate::formats::ConvertError;
 use crate::ir::{Bone, CanonicalModel, validate};
 use crate::loss::{Finding, Subject};
 
-use super::{fold_target, is_standard, render_parent, skeletons, version_bone};
+use super::{
+    PesBone, fold_target, is_standard, render_parent, skeletons, version_bone,
+    version_bone_hand_first,
+};
 
 /// The moved threshold on a delta matrix's components (the plan's 1e-3).
-const MOVED_TOLERANCE: f32 = 1e-3;
+pub(crate) const MOVED_TOLERANCE: f32 = 1e-3;
 
 /// `target · source⁻¹`, `None` when `source` is singular.
 pub(crate) fn bone_delta(source: &Affine, target: &Affine) -> Option<Affine> {
@@ -49,6 +52,17 @@ pub fn retarget(
 ) -> Result<(CanonicalModel, Vec<Finding>), ConvertError> {
     let tables = skeletons(target);
     let mut findings = Vec::new();
+    // A model with `skh_` weights conforms to the `hand_*` tables: shared
+    // wrist/forearm names carry a different pose there than in `body`
+    // (conversion.md "Hands and face"). Existence checks keep `version_bone`.
+    let hand = crate::ops::hand_split::has_hand_weights(&ir);
+    let conforming = |name: &str| -> Option<&PesBone> {
+        if hand {
+            version_bone_hand_first(tables, name)
+        } else {
+            version_bone(tables, name)
+        }
+    };
 
     // ---- Fold: resolve every fold before mutating (two folds may share a target). ----
     let count = ir.bones.len();
@@ -112,8 +126,8 @@ pub fn retarget(
             if ir.bones.iter().any(|bone| bone.name == *name) {
                 continue;
             }
-            let table_bone = version_bone(tables, name)
-                .expect("a resolved fold target is in the target's tables");
+            let table_bone =
+                conforming(name).expect("a resolved fold target is in the target's tables");
             let parent = render_parent(name)
                 .and_then(|parent| ir.bones.iter().position(|bone| bone.name == parent));
             ir.bones.push(Bone {
@@ -145,7 +159,7 @@ pub fn retarget(
     let mut deltas: Vec<Option<Affine>> = vec![None; ir.bones.len()];
     let mut moved = 0;
     for (index, bone) in ir.bones.iter_mut().enumerate() {
-        let Some(table_bone) = version_bone(tables, &bone.name) else {
+        let Some(table_bone) = conforming(&bone.name) else {
             continue;
         };
         let source = bone.matrix;
@@ -182,6 +196,10 @@ pub fn retarget(
                 if !any_moved {
                     continue;
                 }
+                // The stored weights may not sum to 1 (validation only bounds them);
+                // divide the blend by their sum so a part-weighted vertex still
+                // tracks its bone's full delta instead of sinking toward the origin.
+                let sum: f32 = ws.iter().sum();
                 let blend = |point: [f32; 3]| -> [f32; 3] {
                     let mut out = [0.0; 3];
                     for slot in 0..4 {
@@ -190,6 +208,11 @@ pub fn retarget(
                             for axis in 0..3 {
                                 out[axis] += ws[slot] * moved[axis];
                             }
+                        }
+                    }
+                    if sum > 0.0 {
+                        for component in &mut out {
+                            *component /= sum;
                         }
                     }
                     out
@@ -202,6 +225,11 @@ pub fn retarget(
                             for axis in 0..3 {
                                 out[axis] += ws[slot] * moved[axis];
                             }
+                        }
+                    }
+                    if sum > 0.0 {
+                        for component in &mut out {
+                            *component /= sum;
                         }
                     }
                     out
@@ -619,6 +647,36 @@ mod tests {
     }
 
     #[test]
+    fn a_part_weighted_vertex_tracks_the_full_delta() {
+        // A single weight of 0.5 on a moved bone: the vertex moves by the
+        // full delta, not by half the transformed position; stored weights
+        // stay as authored.
+        let target = skeletons(PesVersion::Pes15)
+            .body
+            .bone("sk_belly")
+            .expect("sk_belly")
+            .matrix;
+        let mut ir = ir_with_bones(&["sk_belly"], PesVersion::Pes15);
+        let mut source = target;
+        source.0[3] += 0.1;
+        ir.bones[0].matrix = source;
+        ir.meshes[0].vertices.bone_weights = Some(vec![[0.5, 0.0, 0.0, 0.0]]);
+        let at = ir.meshes[0].vertices.positions[0];
+        let (ir, _) = retarget(ir, PesVersion::Pes15).expect("retarget");
+        let moved = ir.meshes[0].vertices.positions[0];
+        for axis in 0..3 {
+            assert!(
+                (moved[axis] - (at[axis] + [-0.1, 0.0, 0.0][axis])).abs() < 1e-6,
+                "axis {axis}: {moved:?}"
+            );
+        }
+        assert_eq!(
+            ir.meshes[0].vertices.bone_weights,
+            Some(vec![[0.5, 0.0, 0.0, 0.0]])
+        );
+    }
+
+    #[test]
     fn unmoved_bones_and_vertices_are_untouched() {
         let ir = ir_with_bones(&["sk_belly", "dsk_deltoid_l"], PesVersion::Pes21);
         let before = ir.clone();
@@ -725,6 +783,25 @@ mod tests {
             vertices.bone_indices.as_ref().expect("indices")[0],
             [1, 0, 0, 0]
         );
+    }
+
+    #[test]
+    fn a_hand_model_conforms_shared_bones_to_the_hand_table() {
+        // PES15's hand table carries the wrist/forearm chain at a different
+        // pose than its body table; a `skh_`-weighted model conforms to it.
+        let tables = skeletons(PesVersion::Pes15);
+        let hand_pose = tables
+            .hand_l
+            .bone("sk_forearm_l")
+            .expect("hand table")
+            .matrix;
+        let body_pose = tables.body.bone("sk_forearm_l").expect("body table").matrix;
+        assert!(hand_pose.max_component_delta(&body_pose) > MOVED_TOLERANCE);
+        let mut ir = ir_with_bones(&["skh_index_mcp_l", "sk_forearm_l"], PesVersion::Pes15);
+        // The glove's forearm sits at the PES15 hand pose, not the body pose.
+        ir.bones[1].matrix = hand_pose;
+        let (ir, _) = retarget(ir, PesVersion::Pes15).expect("retarget");
+        assert_eq!(ir.bones[1].matrix, hand_pose);
     }
 
     #[test]

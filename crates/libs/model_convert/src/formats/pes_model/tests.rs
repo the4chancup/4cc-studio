@@ -8,7 +8,7 @@ use crate::affine::Affine;
 use crate::formats::{ConvertError, fmdl};
 use crate::ir::{Bone, CanonicalModel, Material, Mesh, MeshGroup, SourceFormat, Texture, Vertices};
 use crate::loss::{Finding, Subject};
-use crate::materials::{PreFoxMaterial, TextureRole, to_prefox};
+use crate::materials::{FoxMaterial, PreFoxMaterial, TextureRole, to_prefox};
 use crate::skeletons;
 
 use crate::materials::MaterialFamily;
@@ -23,6 +23,8 @@ const GLASSES_T: &[u8] = include_bytes!("../../../tests/fixtures/konami_accessor
 const CARDHEAD_M: &[u8] = include_bytes!("../../../tests/fixtures/cardhead_face_high.model");
 const CARDHEAD_T: &[u8] = include_bytes!("../../../tests/fixtures/cardhead_materials.mtl");
 const HIGHNECK: &[u8] = include_bytes!("../../../tests/fixtures/konami_highneck.fmdl");
+const MAXFILTER_T: &[u8] =
+    include_bytes!("../../../../pes_model/tests/fixtures/community_maxfilter.mtl");
 
 fn model(bytes: &[u8]) -> Model {
     Model::from_file(&::pes_model::format::PreFoxModel::read(bytes).expect("parse")).expect("model")
@@ -138,6 +140,28 @@ fn of_kind(entries: &[mtl::MaterialEntry], kind: u8) -> Vec<mtl::MaterialEntry> 
         })
         .cloned()
         .collect()
+}
+
+#[test]
+fn maxfilter_round_trips() {
+    // `community_maxfilter.mtl`'s `fox_eyeOcclusion_mat` is the one sampler in
+    // the fixture carrying `maxfilter`; it survives `.model -> IR -> .model`.
+    let mut model = pes_model(vec!["sk_belly"], pes_mesh(vec![0]));
+    model.materials[0] = "fox_eyeOcclusion_mat".to_string();
+    let ir = model_to_ir(&model, &set(MAXFILTER_T))
+        .expect("import")
+        .model;
+    let exported = ir_to_model(&ir).expect("export");
+    let material = &exported.mtl.materials[0];
+    let sampler = material
+        .entries
+        .iter()
+        .find_map(|entry| match entry {
+            mtl::MaterialEntry::Sampler(sampler) if sampler.name == "DiffuseMap" => Some(sampler),
+            _ => None,
+        })
+        .expect("DiffuseMap");
+    assert_eq!(sampler.maxfilter, Some(mtl::Filter::Linear));
 }
 
 #[test]
@@ -519,7 +543,72 @@ fn fox_ir_exports_to_pre_fox() {
         exported.mtl.materials[0].shader,
         to_prefox::default_shader(material.family, &roles)
     );
-    assert_eq!(exported.findings, Vec::<Finding>::new());
+    // The pre-Fox resolver carries nothing of the `fox` table: the native
+    // sampler and parameters it held are findings.
+    assert_eq!(
+        exported.findings,
+        [
+            Finding {
+                code: "material_texture_unused",
+                subject: Subject::Material(0),
+                detail: "Translucent_Tex_LIN".to_string(),
+            },
+            Finding {
+                code: "material_parameter_dropped",
+                subject: Subject::Material(0),
+                detail: "MatParamIndex_0".to_string(),
+            },
+            Finding {
+                code: "material_parameter_dropped",
+                subject: Subject::Material(0),
+                detail: "SelfColor".to_string(),
+            },
+        ]
+    );
+}
+
+#[test]
+fn a_dropped_fox_parameter_is_a_finding() {
+    // A canonical parameter is carried while a `fox`-only name drops next to
+    // it: the finding names only the dropped one.
+    let mut ir = ir_over(
+        Vertices {
+            positions: vec![[0.0; 3]],
+            ..Vertices::default()
+        },
+        vec![[0, 0, 0]],
+    );
+    ir.materials[0].parameters = vec![("Shininess".to_string(), [0.5, 0.0, 0.0, 0.0])];
+    ir.materials[0].fox = Some(FoxMaterial {
+        shader: "fox3ddf_blin".to_string(),
+        technique: "fox3DDF_Blin".to_string(),
+        alpha_flags: 0,
+        shadow_flags: 0,
+        cast_shadow: None,
+        invisible: None,
+        base_linear: false,
+        textures: vec![],
+        parameters: vec![("SelfColor".to_string(), [1.0, 1.0, 1.0, 1.0])],
+    });
+    let exported = ir_to_model(&ir).expect("export");
+    assert_eq!(
+        exported.findings,
+        [Finding {
+            code: "material_parameter_dropped",
+            subject: Subject::Material(0),
+            detail: "SelfColor".to_string(),
+        }]
+    );
+    // The canonical parameter rode along in the `.mtl`.
+    let vectors: Vec<String> = exported.mtl.materials[0]
+        .entries
+        .iter()
+        .filter_map(|entry| match entry {
+            mtl::MaterialEntry::Vector(vector) => Some(vector.name.clone()),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(vectors, ["Shininess".to_string()]);
 }
 
 /// A minimal consistent IR around `vertices`/`faces`: one bone, one mesh weighted

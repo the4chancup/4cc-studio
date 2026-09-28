@@ -38,6 +38,7 @@ fn sampler_settings(sampler: &mtl::Sampler) -> SamplerSettings {
     SamplerSettings {
         srgb: sampler.srgb,
         minfilter: sampler.minfilter.map(filter),
+        maxfilter: sampler.maxfilter.map(filter),
         magfilter: sampler.magfilter.map(filter),
         mipfilter: sampler.mipfilter.map(filter),
         uaddr: sampler.uaddr.map(address),

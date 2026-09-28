@@ -26,13 +26,18 @@ pub struct ExportedFox {
     pub findings: Vec<loss::Finding>,
 }
 
-/// The per-vertex weight quantization: the byte total `round(sum * 255)` (in f64 — the
-/// f32 product lands on representable halves that round wrong) is preserved as far as
-/// the positive-weight lanes hold it, 255 each; a lane above 1 clamps to 255 (the caller
-/// counts those vertices for `weight_clamped`) and the rest of the total drops rather
-/// than land on a zero-weight lane. Slots in decreasing weight (ties by slot index) get
-/// `round(weight / remaining_weight * remaining_total)` each, the last gets what is left.
+/// The per-vertex weight quantization: a lane above 1 clamps to 1 first (`u8`
+/// cannot carry it; the caller counts those vertices for `weight_clamped`), then
+/// the byte total `round(clamped_sum * 255)` (in f64 — the f32 product lands on
+/// representable halves that round wrong) is preserved as far as the
+/// positive-weight lanes hold it, 255 each; the rest of the total drops rather
+/// than land on a zero-weight lane. `[1.5, 0.5]` keeps the clamped lanes' total
+/// `round(1.5 * 255)` = 383 as `[255, 128]`, not `[255, 255]`. Slots in
+/// decreasing weight (ties by slot index) get
+/// `round(weight / remaining_weight * remaining_total)` each, the last gets what
+/// is left.
 pub(super) fn quantize_weights(weights: [f32; 4]) -> [u8; 4] {
+    let weights = weights.map(|weight| weight.min(1.0));
     let sum: f32 = weights.iter().sum();
     let lanes = weights.iter().filter(|weight| **weight > 0.0).count() as i32;
     let mut total = ((sum as f64 * 255.0).round() as i32).min(255 * lanes);
@@ -128,6 +133,32 @@ pub fn ir_to_fmdl(ir: &CanonicalModel) -> Result<ExportedFox, ConvertError> {
                 subject: Subject::Material(index),
                 detail: format!("{role:?}"),
             });
+        }
+        // The resolver carries nothing of the `prefox` table: every native
+        // sampler or parameter it held is a loss worth reporting.
+        if let Some(prefox) = &material.prefox {
+            for (name, _) in &prefox.textures {
+                if !resolved.textures.iter().any(|(sampler, _)| sampler == name) {
+                    findings.push(Finding {
+                        code: "material_texture_unused",
+                        subject: Subject::Material(index),
+                        detail: name.clone(),
+                    });
+                }
+            }
+            for (name, _) in &prefox.parameters {
+                if !resolved
+                    .parameters
+                    .iter()
+                    .any(|(parameter, _)| parameter == name)
+                {
+                    findings.push(Finding {
+                        code: "material_parameter_dropped",
+                        subject: Subject::Material(index),
+                        detail: name.clone(),
+                    });
+                }
+            }
         }
         let mut textures: Vec<(String, ::fmdl::Texture)> = resolved
             .textures
@@ -228,17 +259,24 @@ pub fn ir_to_fmdl(ir: &CanonicalModel) -> Result<ExportedFox, ConvertError> {
         .iter()
         .any(|mesh| mesh.vertices.bone_indices.is_none())
         .then(|| {
-            bones.push(::fmdl::Bone {
-                name: "static".to_string(),
-                parent: None,
-                bounding_box: ::fmdl::BoundingBox {
-                    min: [0.0; 4],
-                    max: [0.0; 4],
-                },
-                local_position: [0.0; 4],
-                world_position: [0.2, 0.0, 0.0, 1.0],
-            });
-            bones.len() - 1
+            // An IR that already has a `static` bone — a re-exported bundle —
+            // reuses it rather than appending a second one.
+            bones
+                .iter()
+                .position(|bone| bone.name == "static")
+                .unwrap_or_else(|| {
+                    bones.push(::fmdl::Bone {
+                        name: "static".to_string(),
+                        parent: None,
+                        bounding_box: ::fmdl::BoundingBox {
+                            min: [0.0; 4],
+                            max: [0.0; 4],
+                        },
+                        local_position: [0.0; 4],
+                        world_position: [0.2, 0.0, 0.0, 1.0],
+                    });
+                    bones.len() - 1
+                })
         });
 
     let mut meshes = Vec::with_capacity(ir.meshes.len());
@@ -366,10 +404,21 @@ pub fn ir_to_fmdl(ir: &CanonicalModel) -> Result<ExportedFox, ConvertError> {
     let parents = split_parents(&model.bones);
     ::fmdl::ops::split::encode(&mut model, Some(&parents))?;
 
-    // The SKL covers every exported bone the template lacks, from the IR matrices by name
-    // (identity for `static`, which has no IR bone).
-    let unknown = |bone: &::fmdl::Bone| template_matrix(&bone.name).is_none();
-    let skl = model.bones.iter().any(unknown).then(|| {
+    // The SKL covers every exported bone the template lacks *or has at a different
+    // pose*: without it a reimport assumes the PES21 pose and a retargeted bone
+    // gets retargeted again. `static` has no IR bone and never gates by itself —
+    // its `None` template lookup is what puts an SKL on an unskinned export.
+    let needs_skl = |bone: &::fmdl::Bone| match template_matrix(&bone.name) {
+        None => true,
+        Some(template) => ir
+            .bones
+            .iter()
+            .find(|b| b.name == bone.name)
+            .is_some_and(|b| {
+                crate::skeletons::retarget::bone_moved(&b.matrix, &template) != Some(false)
+            }),
+    };
+    let skl = model.bones.iter().any(needs_skl).then(|| {
         ::fmdl::SklFile::new(
             model
                 .bones

@@ -10,6 +10,9 @@ use crate::materials::MaterialFamily;
 use crate::materials::TextureRole;
 
 const HIGHNECK: &[u8] = include_bytes!("../../../tests/fixtures/konami_highneck.fmdl");
+const HEAD_HI: &[u8] =
+    include_bytes!("../../../../pes_model/tests/fixtures/konami_headHi.wesys.model");
+const HEAD_HI_MTL: &[u8] = include_bytes!("../../../../pes_model/tests/fixtures/konami_headHi.mtl");
 const ORAL: &[u8] = include_bytes!("../../../tests/fixtures/addon_oral.fmdl");
 const AU: &[u8] = include_bytes!("../../../tests/fixtures/konami_au_Low_parts.fmdl");
 const AU_SKL: &[u8] = include_bytes!("../../../tests/fixtures/konami_au00.skl");
@@ -646,6 +649,10 @@ fn quantization_preserves_the_total_past_one() {
     assert_eq!(quantize_weights([1.5, 0.0, 0.0, 0.0]), [255, 0, 0, 0]);
     assert_eq!(quantize_weights([1.0000001, 0.0, 0.0, 0.0]), [255, 0, 0, 0]);
     assert_eq!(quantize_weights([2.0, 2.0, 2.0, 2.0]), [255, 255, 255, 255]);
+    // The clamped lanes keep *their* total: `round(1.5 * 255)` = 383 lands as
+    // `round(1.0 / 1.5 * 383)` = 255 then `round(0.5 / 0.5 * 128)` = 128 —
+    // the excess does not carry onto the second lane.
+    assert_eq!(quantize_weights([1.5, 0.5, 0.0, 0.0]), [255, 128, 0, 0]);
 }
 
 #[test]
@@ -692,6 +699,17 @@ fn a_lane_above_one_reports_weight_clamped() {
         clamped([1.5, 0.0, 0.0, 0.0]),
         [(Subject::Mesh(0), "1".to_string())]
     );
+    // `[1.5, 0.5]` quantizes to `[255, 128]` — the clamped lanes' total —
+    // and still reports the lane above one.
+    let exported = ir_to_fmdl(&skinned([1.5, 0.5, 0.0, 0.0])).expect("export");
+    assert_eq!(
+        exported.model.meshes[0].vertices.bone_weights,
+        Some(vec![[255, 128, 0, 0]])
+    );
+    assert_eq!(
+        clamped([1.5, 0.5, 0.0, 0.0]),
+        [(Subject::Mesh(0), "1".to_string())]
+    );
     // Float noise at and below the threshold clamps silently.
     let exported = ir_to_fmdl(&skinned([1.0000001, 0.0, 0.0, 0.0])).expect("export");
     assert_eq!(
@@ -707,6 +725,45 @@ fn a_lane_above_one_reports_weight_clamped() {
         Some(vec![[178, 0, 0, 0]])
     );
     assert!(clamped([0.7, 0.0, 0.0, 0.0]).is_empty());
+}
+
+#[test]
+fn uncarried_prefox_samplers_and_parameters_are_findings() {
+    // `konami_headHi`'s native `.mtl` samplers `Normal2` and `Mapping` bind
+    // textures the Fox resolver does not carry; the canonical `NormalMap`
+    // maps to `NormalMap_Tex_NRM` and is not reported.
+    let file = ::pes_model::format::PreFoxModel::read(HEAD_HI).expect("read");
+    let model = ::pes_model::model::Model::from_file(&file).expect("model");
+    let mtl = ::pes_model::format::mtl::MaterialSet::read(HEAD_HI_MTL).expect("mtl");
+    let ir = crate::formats::pes_model::model_to_ir(&model, &mtl)
+        .expect("import")
+        .model;
+    let exported = ir_to_fmdl(&ir).expect("export");
+    assert_eq!(
+        exported.findings,
+        [
+            Finding {
+                code: "material_texture_unused",
+                subject: Subject::Material(0),
+                detail: "Normal2".to_string(),
+            },
+            Finding {
+                code: "material_texture_unused",
+                subject: Subject::Material(0),
+                detail: "Mapping".to_string(),
+            },
+            Finding {
+                code: "dummy_texture_added",
+                subject: Subject::Material(0),
+                detail: "SpecularMap_Tex_LIN".to_string(),
+            },
+            Finding {
+                code: "vertex_bitangents_dropped",
+                subject: Subject::Mesh(0),
+                detail: String::new(),
+            },
+        ]
+    );
 }
 
 #[test]

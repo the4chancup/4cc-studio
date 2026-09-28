@@ -78,6 +78,7 @@ pub fn sampler_for_role(role: TextureRole) -> Option<(&'static str, SamplerSetti
                 SamplerSettings {
                     srgb: Some(false),
                     minfilter: Some(Filter::Anisotropic),
+                    maxfilter: None,
                     magfilter: Some(Filter::Linear),
                     mipfilter: None,
                     uaddr: Some(Address::Wrap),
@@ -565,6 +566,7 @@ mod tests {
                 SamplerSettings {
                     srgb: Some(false),
                     minfilter: Some(Filter::Point),
+                    maxfilter: None,
                     magfilter: None,
                     mipfilter: None,
                     uaddr: Some(Address::Clamp),
