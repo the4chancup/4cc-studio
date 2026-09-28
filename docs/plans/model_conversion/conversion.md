@@ -54,7 +54,11 @@ Rules both format crates' split ops follow, from the conversion census (see `ir.
 files carry"):
 - **Decode leaves a group that cannot be whole.** When a group's combined mesh would reference
   more than 65536 distinct vertices (114 community files), `split::decode` leaves that group's
-  components and markers as they are and combines the other groups. It is not an error.
+  components and markers as they are and combines the other groups. It is not an error. The
+  same holds for a group whose components are not one mesh: their material, vertex layout or
+  `.model` weight width disagree. That happens in 1 cup file, `70210 - Panzer vor/parts_body.model`,
+  whose components carry different materials. Such a group was never one mesh and renders as
+  its components.
 - **Encode never leaves an empty container.** A mesh over a limit that yields no components
   (no faces and no vertices: a face export's bone-marker mesh) stays as it is, unsplit.
 - **FMDL `Split-Mesh-Groups` over-flagging.** Some writers also list root groups, or empty
