@@ -333,18 +333,17 @@ fn geometry(section: &mut SectionBuilder, model_geometry: &Geometry) -> Result<u
     ]));
     let face_descriptor_offset = section.add_blob(&face_descriptor.finish()?);
 
-    let mut extras =
-        SectionBuilder::new(4, if model_geometry.order.is_some() { 3 } else { 2 }, &[]);
+    // `write` always emits the version-19 layout: three extras records,
+    // the order word 0 when the file had none.
+    let mut extras = SectionBuilder::new(4, 3, &[]);
     let mut bounds = f32s(&model_geometry.bounds.min);
     bounds.extend_from_slice(&f32s(&model_geometry.bounds.max));
     let at = extras.add_blob(&bounds);
     extras.add_record(&offset(at));
     let at = extras.add_blob(&u32s(&[1, 0, 0, 0]));
     extras.add_record(&offset(at));
-    if let Some(order) = model_geometry.order {
-        let at = extras.add_blob(&order.to_le_bytes());
-        extras.add_record(&offset(at));
-    }
+    let at = extras.add_blob(&model_geometry.order.unwrap_or(0).to_le_bytes());
+    extras.add_record(&offset(at));
     let extras_offset = section.add_blob(&extras.finish()?);
 
     Ok(section.add_record(&u32s(&[

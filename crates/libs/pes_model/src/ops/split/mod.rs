@@ -168,7 +168,7 @@ pub fn encode(model: &mut Model, parents: &[Option<usize>]) -> Result<bool, Mode
 /// `header`'s split-group key: `Some(value)` when the header splits at its
 /// first `:` into a key equal to `split-mesh` after `trim` + ASCII
 /// lowercase, the value likewise trimmed and lowercased.
-fn split_group_key(header: &str) -> Option<String> {
+pub(crate) fn split_group_key(header: &str) -> Option<String> {
     let (key, value) = header.split_once(':')?;
     if key.trim().eq_ignore_ascii_case(SPLIT_MESH_HEADER) {
         Some(value.trim().to_lowercase())
@@ -210,17 +210,18 @@ pub fn decode(model: &mut Model) -> Result<(), ModelError> {
         }
     }
 
-    // Combine each group's components while the old mesh list is still
-    // intact, then rebuild the list: components collapse to their combined
+    // Combine each group's components while the mesh list is still
+    // intact — a failed combine then leaves the model untouched — and
+    // only then rebuild the list: components collapse to their combined
     // mesh at the first component's position.
-    let old_meshes = std::mem::take(&mut model.meshes);
     let mut combined_meshes: HashMap<String, Mesh> = HashMap::new();
     for key in &group_keys {
         combined_meshes.insert(
             key.clone(),
-            combine::combine(&old_meshes, &group_meshes[key])?,
+            combine::combine(&model.meshes, &group_meshes[key])?,
         );
     }
+    let old_meshes = std::mem::take(&mut model.meshes);
     for (index, mesh) in old_meshes.into_iter().enumerate() {
         match &group_of[index] {
             None => model.meshes.push(mesh),

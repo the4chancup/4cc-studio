@@ -748,6 +748,12 @@ pruned when their phase closes; they stay in git history.
   than 65536 vertices, and vertex-limit splitting of an IR mesh can only move loose vertices.
   No cup model is known to reach it; decide the face type at Phase 7 (glTF brings u32
   indices), or earlier if a real model hits the error.
+- open — repeated `.mtl` states (found at the 2.20g review, for 2.20h): a material may list
+  one state name twice. `pes_model::check` takes the last value, `model_convert`'s import the
+  first, and its export drops the later one, so checking and conversion disagree about, for
+  example, `alphablend`. Which occurrence PES honors is unmeasured. First step at 2.20h: a
+  census of every `.mtl` on the machine (how often a state repeats, and with which values),
+  then one rule for all three.
 - open — `model_convert` converge questions (2.20): (1) Fox decal shaders (`translucent`,
   `3ddc`, `eyeocclusion`) infer `Shaded` *exact* through the `3ddf` rule, so the highneck
   fixture converts to an opaque `Basic_C`, where the 19to16 converter wrote `Overlay` with alpha

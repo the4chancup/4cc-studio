@@ -44,14 +44,30 @@ fn every_fixture_round_trips_semantically() {
         let reread_bytes = written.write();
         ModelContainer::read(&reread_bytes).unwrap();
         let reread = PreFoxModel::read(&reread_bytes).unwrap();
-        // `write` always emits header version 19.
+        // `write` always emits header version 19 — and therefore the
+        // version-19 geometry layout, a missing order word becoming 0.
         let mut expected = model.clone();
         expected.version = 19;
+        for geometry in &mut expected.geometries {
+            if geometry.order.is_none() {
+                geometry.order = Some(0);
+            }
+        }
         assert_eq!(reread, expected);
     }
     assert_eq!(PreFoxModel::read(CARDHEAD).unwrap().version, 19);
+    // The version-17 file gains the order word 0 on write.
     let shadow = PreFoxModel::read(SHADOW).unwrap();
     assert_eq!(shadow.to_container().unwrap().version, 19);
+    let shadow_bytes = shadow.to_container().unwrap().write();
+    let shadow_reread = PreFoxModel::read(&shadow_bytes).unwrap();
+    assert_eq!(shadow_reread.version, 19);
+    assert!(
+        shadow_reread
+            .geometries
+            .iter()
+            .all(|geometry| geometry.order == Some(0))
+    );
 }
 
 #[test]
