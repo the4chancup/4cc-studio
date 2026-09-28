@@ -36,7 +36,7 @@ crates/libs/model_convert/src/
 ├── affine.rs           # Affine: 3×4 row-major bone transform (multiply, invert, apply)
 ├── ir/                 # the canonical model — a data structure, not a behavior
 │   ├── mod.rs          #   CanonicalModel, Mesh, Vertices, Bone, MeshGroup, Texture
-│   └── validate.rs     #   IR invariants (indices in range, weights normalized, one skin per mesh)
+│   └── validate.rs     #   IR invariants (indices in range, weights finite and non-negative, one skin per mesh)
 ├── formats/            # one module per format: to_ir + from_ir, nothing else
 │   ├── fmdl/           #   fmdl_to_ir (import.rs) / ir_to_fmdl (export.rs; calls the fmdl crate's ops
 │   │                   #   for splitting/encoding); mod.rs re-exports and the shared helpers

@@ -333,6 +333,18 @@ semantic change. Byte parity is tested on the regular fixtures (card head, `head
 `shadow`), the semantic round trip on all of them. An element or attribute the grammar does not
 name is a read error, never dropped.
 
+The census of every `.mtl` on the maintainer's machine (2026-09-28: 1509 distinct PES material
+sets read, 405 Wavefront OBJ `.mtl` files correctly refused) added three rules:
+- **`maxfilter`** is a sampler attribute: 3 community exports write it between `minfilter` and
+  `magfilter`. It is read and written back in that position with the filter values, and is
+  absent in every Konami file.
+- **Content after the root element is ignored.** In 8 community files the real
+  `</materialset>` is followed by a second closing tag or binary junk. The reader parses up
+  to the end of the first root element; a rewrite drops the tail.
+- **A repeated state name takes its first value**, in `check` as in `model_convert`'s import.
+  No file on the machine repeats one, so this only makes the three readers agree.
+Stray text inside a material (2 hand-typed files) stays a read error.
+
 ### `pes_model::model`: the semantic layer the ops work on
 
 As for `fmdl`, the ops reason about bones, materials and meshes, not records: `Model` is built

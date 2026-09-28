@@ -2323,3 +2323,24 @@ that uses every vertex, and the files have no faithful reading without it (lead 
 act-then-log per the maintainer's standing instruction).
 Plan: `libs/format_crates.md` "`pes_model::format`" (community rules) and "`pes_model::model`"
 (the repair; replaces the "known gap, to decide at converge" sentence).
+
+## 2026-09-28 - model_convert, fmdl, pes_model - conversion follows what real files carry
+Decision: the IR accepts unnormalized weights (finite, non-negative; above 1 kept, clamped to 1
+only by the `u8` FMDL export with a `weight_clamped` finding past float noise); `fmdl_to_ir`
+reorders bones parent-first as `model_to_ir` does; a `Split-Mesh` group whose combined mesh
+would exceed 65536 distinct vertices stays split (both format crates' decode), its components
+imported as separate meshes; split encode never emits an empty container; an FMDL
+`Split-Mesh-Groups` entry is a container only when the group has a parent and a mesh; the
+pre-Fox export refuses a material name XML cannot carry; a vertexless mesh is written to FMDL
+with an empty bone group; `.mtl` reading accepts `maxfilter`, ignores content after the root
+element, and every reader takes a repeated state's first value.
+Why: a conversion census (every readable `.model` bundle and FMDL on the maintainer's machine
+converted to the other engine and back) failed on about one file in six, each class traced by
+measurement (weights 879 files, 80k-360k-vertex split groups 114, forward parents 79 with no
+cycle, over-flagged groups 4, our own empty split container 12, NUL names 4) and a `.mtl`
+census found the three reader classes (11 files) and no repeated state anywhere. Each rule
+keeps what the file renders as, or refuses loudly where nothing faithful exists; the split rule
+avoids changing the IR face type before Phase 7 (lead recommendation, act-then-log).
+Plan: `model_conversion/ir.md` "What real files carry", `model_conversion/conversion.md` "mesh
+splitting" rules, `model_conversion/README.md` (validate), `libs/format_crates.md` (`.mtl`
+census rules).

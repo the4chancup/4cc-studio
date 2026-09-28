@@ -103,12 +103,43 @@ Shapes this settled after reading the format crates (each is a decision entry): 
 struct of arrays, not a `Vec<Vertex>`; `Bone.children` is gone (derivable, and a second copy to
 keep in step through folds and prunes); `Mesh` carries no `alpha_flags`/`shadow_flags`/anti-blur
 fields (lifted to the material's `fox` table, see "Engine mapping") and no `split_group_id` (the
-importers call the format crates' split *decode*, so an imported mesh is whole; a glTF `PES_mesh`
+importers call the format crates' split *decode*, so an imported mesh is whole unless its group
+was too large to be, see below; a glTF `PES_mesh`
 identity is Phase 7's); `extension_headers` are sets of raw header lines, since both format
 crates already type the known headers; the template display positions (`start`/`end`) wait for the
 Blender export in Phase 7. `Affine` is the crate's own 3×4 row-major matrix type (`affine.rs`:
 multiply, invert, transform point/direction), because the only matrix work in the suite is bone
 transforms and a dependency on `nalgebra` would add a generic API for four functions.
+
+**What real files carry (the conversion census).** Every `.model` and FMDL on the maintainer's
+machine that its format crate reads was converted to the other engine and back (2026-09-28,
+`.tmp/convert_census/`: 3695 `.model` bundles with their `.mtl`, 4088 FMDLs). About one in six
+failed on rules the IR had assumed. They now read as follows:
+
+- **Weights need not sum to 1.** Community exports routinely store unnormalized weights: `u8`
+  bytes that do not total 255, and `f32` weights totalling 0.5 to 4 (879 files, most of them
+  far past quantization noise). They render as stored, so the IR keeps them as stored. `validate`
+  requires only that each weight is finite and not negative. A weight above 1 (a `.model`
+  can store one) is kept. The FMDL export, whose `u8` cannot store it, clamps it to 1 with a
+  `weight_clamped` finding, silently when the excess is float noise (at most `1e-6`, which is
+  what `f32` accumulation leaves).
+- **Fox bones are made parent-first on import**, as `.model` bones already are ("Bone order"
+  below). 79 community FMDLs list a child before its parent, never in a cycle, as the game's
+  own `body.skl` does. `fmdl_to_ir` moves a bone right after its parent (stable otherwise) and
+  remaps the bone groups.
+- **A split group that cannot be whole stays split.** In 114 files a `Split-Mesh` group's
+  components together reference more than 65536 distinct vertices, which `u16` faces cannot
+  hold. The format crates' split decode leaves such a group as it is, and the importer takes
+  its components as separate meshes, the split marker dropped as for any decoded group (the
+  target's export re-splits any component over its own limits). So an imported mesh is whole
+  unless its source group was too large to be. The `u16` face type itself is still Phase 7's
+  question (glTF brings `u32` indices).
+- **Names the `.mtl` cannot carry.** Four corrupted FMDLs name a material with NUL bytes, which
+  XML cannot represent even escaped. The pre-Fox export refuses such a name
+  (`ConvertError`) rather than write a `.mtl` no reader accepts.
+- **A mesh without vertices** (face exports carry one holding a 33-bone group as a marker)
+  skins nothing, so the FMDL export writes it with an empty bone group
+  (`empty_mesh_bone_group_dropped`, Info) instead of splitting it into nothing.
 
 **What a `.model` import drops** (reported through `loss.rs`, never silently): Konami's lower LOD
 face lists (no 4cc export carries any; the add-on writes none), Konami's `(kind, text)` tags, the
