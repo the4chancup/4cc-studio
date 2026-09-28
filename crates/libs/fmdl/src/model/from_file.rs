@@ -273,6 +273,14 @@ fn read_mesh_groups(
             ));
         }
     }
+    // A `Split-Mesh-Groups` entry is a container only when the group has
+    // a parent and at least one mesh: writers also list roots and empty
+    // groups, which read as ordinary groups so a rewrite drops them.
+    for group in &mut mesh_groups {
+        if group.split_mesh_group && (group.parent.is_none() || group.meshes.is_empty()) {
+            group.split_mesh_group = false;
+        }
+    }
     Ok((mesh_groups, mesh_boxes))
 }
 

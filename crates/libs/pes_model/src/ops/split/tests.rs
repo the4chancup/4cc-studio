@@ -618,6 +618,83 @@ fn combine_keeps_emission_order_at_index_65535() {
     assert_eq!(combined.faces, vec![[0, 2, 65535]]);
 }
 
+// A group whose combined mesh cannot be indexed in u16 stays split:
+// its components and their `Split-Mesh` markers are kept as they are
+// while another group still combines.
+#[test]
+fn a_group_over_65536_stays_split() {
+    let component = |offset: usize, count: usize, faces: usize, key: &str| Mesh {
+        name: None,
+        extension_headers: vec![format!("{SPLIT_MESH_HEADER}: {key}")],
+        tags: Vec::new(),
+        vertices: MeshVertices {
+            positions: (0..count)
+                .map(|index| [(offset + index) as f32, 0.0, 0.0])
+                .collect(),
+            normals: Some(vec![[0.0, 0.0, 1.0]; count]),
+            tangents: None,
+            bitangents: None,
+            colors: None,
+            uvs: vec![vec![[0.0, 0.0]; count]],
+            bone_indices: None,
+            bone_weights: None,
+            bone_weight_width: 4,
+        },
+        faces: (0..faces)
+            .map(|face| {
+                [
+                    (3 * face) as u16,
+                    (3 * face + 1) as u16,
+                    (3 * face + 2) as u16,
+                ]
+            })
+            .collect(),
+        lower_lods: Vec::new(),
+        bone_group: Vec::new(),
+        material: 0,
+        bounds: BoundingBox::of(&[]),
+        order: 0,
+        editor_data: Vec::new(),
+    };
+    // Group 1's two components reference 69999 distinct vertices
+    // together; group 2's two components fit.
+    let big_a = component(0, 40000, 13333, "1");
+    let big_b = component(40000, 30000, 10000, "1");
+    let small_a = component(70000, 4, 1, "2");
+    let small_b = component(70004, 4, 1, "2");
+    let mut model = grid_model(big_a.clone(), 0);
+    model.meshes = vec![big_a.clone(), big_b.clone(), small_a, small_b];
+    decode(&mut model).unwrap();
+    assert_eq!(model.meshes.len(), 3);
+    assert_eq!(model.meshes[0], big_a);
+    assert_eq!(model.meshes[1], big_b);
+    // The small group combined into one unmarked mesh of 8 vertices and
+    // both faces.
+    let combined = &model.meshes[2];
+    assert!(combined.extension_headers.is_empty());
+    assert_eq!(combined.vertices.positions.len(), 8);
+    assert_eq!(combined.faces, vec![[0, 1, 2], [4, 5, 6]]);
+}
+
+// A face export's bone-marker mesh — no vertices or faces, a bone group
+// advertising the whole skeleton — needs splitting by bone count but
+// yields no components: it stays in place, unsplit, with no marker.
+#[test]
+fn a_mesh_with_no_split_items_stays_unsplit() {
+    let mut marker = grid(1, 1, 0);
+    marker.vertices.positions.clear();
+    marker.vertices.normals.as_mut().unwrap().clear();
+    marker.vertices.uvs[0].clear();
+    marker.faces.clear();
+    marker.bone_group = (0..65).collect();
+    marker.vertices.bone_indices = Some(Vec::new());
+    marker.vertices.bone_weights = Some(Vec::new());
+    let mut model = grid_model(marker.clone(), 65);
+    assert_eq!(encode(&mut model, &[None; 65]), Ok(false));
+    assert_eq!(model.meshes, vec![marker]);
+    decode(&mut model).unwrap();
+}
+
 // The group key recognizes only `Split-Mesh` headers.
 #[test]
 fn split_group_key_matches_only_split_headers() {

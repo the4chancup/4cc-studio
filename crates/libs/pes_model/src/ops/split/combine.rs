@@ -188,9 +188,7 @@ pub(super) fn combine(meshes: &[Mesh], indices: &[usize]) -> Result<Mesh, ModelE
         if let Some(&first_unreferenced) = order.get(usize::from(u16::MAX) + 1)
             && referenced[first_unreferenced]
         {
-            return Err(ModelError::VertexMismatch(
-                "a combined split mesh references more than 65536 vertices",
-            ));
+            return Err(ModelError::SplitTooLarge);
         }
         let mut new_index = vec![0usize; order.len()];
         for (position, &vertex) in order.iter().enumerate() {

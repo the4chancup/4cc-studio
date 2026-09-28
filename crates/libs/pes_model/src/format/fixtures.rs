@@ -66,8 +66,14 @@ pub(crate) const SHADOW_MTL: &[u8] = include_bytes!("../../tests/fixtures/konami
 pub(crate) const ACCESSORY_MTL: &[u8] = include_bytes!("../../tests/fixtures/konami_accessory.mtl");
 pub(crate) const HEAD_HI_MTL: &[u8] = include_bytes!("../../tests/fixtures/konami_headHi.mtl");
 pub(crate) const HAIR_MTL: &[u8] = include_bytes!("../../tests/fixtures/konami_hair.mtl");
+pub(crate) const MAXFILTER_MTL: &[u8] =
+    include_bytes!("../../tests/fixtures/community_maxfilter.mtl");
+pub(crate) const SECOND_CLOSE_TAG_MTL: &[u8] =
+    include_bytes!("../../tests/fixtures/community_second_close_tag.mtl");
+pub(crate) const TRAILING_JUNK_MTL: &[u8] =
+    include_bytes!("../../tests/fixtures/community_trailing_junk.mtl");
 
-/// All seven material-set fixtures.
+/// All ten material-set fixtures.
 pub(crate) const ALL_MTL: &[&[u8]] = &[
     CARDHEAD_MTL,
     CARD_RED_MTL,
@@ -76,4 +82,7 @@ pub(crate) const ALL_MTL: &[&[u8]] = &[
     ACCESSORY_MTL,
     HEAD_HI_MTL,
     HAIR_MTL,
+    MAXFILTER_MTL,
+    SECOND_CLOSE_TAG_MTL,
+    TRAILING_JUNK_MTL,
 ];

@@ -436,6 +436,31 @@ fn a_second_extensions_line_is_not_flags() {
 }
 
 #[test]
+fn over_flagged_split_mesh_groups_read_as_ordinary() {
+    // Writers also list roots and empty groups in `Split-Mesh-Groups`:
+    // a listed group is a container only with a parent and a mesh.
+    let mut source = plain_model();
+    source.mesh_groups[0].split_mesh_group = true; // a root holding mesh 0
+    source.mesh_groups.push(MeshGroup {
+        name: "split-mesh".to_owned(),
+        parent: Some(0),
+        meshes: Vec::new(),
+        bounding_box: None,
+        visible: true,
+        split_mesh_group: true,
+    });
+    source.extensions.mesh_splitting = true;
+    let written = source.to_file().unwrap().write();
+    let mut again = model(&written);
+    assert!(!again.mesh_groups[0].split_mesh_group);
+    assert!(!again.mesh_groups[1].split_mesh_group);
+    // Decode sees no container; a rewrite lists neither group.
+    crate::ops::split::decode(&mut again).unwrap();
+    let rewritten = again.to_file().unwrap().write();
+    assert_eq!(model(&rewritten), again);
+}
+
+#[test]
 fn bad_material_reference() {
     let mut file = FmdlFile::read(HIGHNECK).unwrap();
     file.meshes[0].material_instance_id = 9;

@@ -108,8 +108,11 @@ pub(crate) fn effective_parents(model: &Model, parents: &[Option<usize>]) -> Vec
 }
 
 /// Splits every mesh over a hard limit into component meshes under the
-/// soft limits, in place in `model.meshes`. Each split mesh's components
-/// sit consecutively where the source sat, each carrying the extension
+/// soft limits, in place in `model.meshes`. A mesh over a limit that
+/// yields no components (a face export's bone-marker: no vertices or
+/// faces) stays as it is, unsplit and unmarked. Each split mesh's
+/// components sit consecutively where the source sat, each carrying the
+/// extension
 /// header `Split-Mesh: N` with `N` the source's split number in the model
 /// from 1. `parents` is the bone hierarchy the format does not store:
 /// `parents[i]` the parent of bone `i` or `None` for a root, one entry
@@ -140,7 +143,12 @@ pub fn encode(model: &mut Model, parents: &[Option<usize>]) -> Result<bool, Mode
                     "cannot split a mesh with LOD levels",
                 ));
             }
-            components.insert(index, build::split_mesh(model, mesh, &effective)?);
+            let component_meshes = build::split_mesh(model, mesh, &effective)?;
+            // A mesh with nothing to emit (a bone-marker: no vertices,
+            // no faces) stays as it is — no components, no marker.
+            if !component_meshes.is_empty() {
+                components.insert(index, component_meshes);
+            }
         }
     }
     if components.is_empty() {
@@ -178,9 +186,11 @@ pub(crate) fn split_group_key(header: &str) -> Option<String> {
 }
 
 /// Reassembles every `Split-Mesh` group into one mesh placed where the
-/// group's first component sat; meshes without the header stay. The
-/// combined mesh takes the first component's `name`, `material`, `tags`,
-/// `order`, `editor_data`, `bone_weight_width` and its
+/// group's first component sat; meshes without the header stay. A group
+/// whose combined mesh would reference more than 65536 distinct
+/// vertices stays split, its components and headers kept as they are.
+/// The combined mesh takes the first component's `name`, `material`,
+/// `tags`, `order`, `editor_data`, `bone_weight_width` and its
 /// `extension_headers` minus the `Split-Mesh` header.
 pub fn decode(model: &mut Model) -> Result<(), ModelError> {
     model.validate()?;
@@ -213,20 +223,30 @@ pub fn decode(model: &mut Model) -> Result<(), ModelError> {
     // Combine each group's components while the mesh list is still
     // intact — a failed combine then leaves the model untouched — and
     // only then rebuild the list: components collapse to their combined
-    // mesh at the first component's position.
+    // mesh at the first component's position. A group whose combined
+    // mesh cannot be indexed in u16 stays split — its components and
+    // markers are kept as they are.
     let mut combined_meshes: HashMap<String, Mesh> = HashMap::new();
+    let mut kept: HashSet<String> = HashSet::new();
     for key in &group_keys {
-        combined_meshes.insert(
-            key.clone(),
-            combine::combine(&model.meshes, &group_meshes[key])?,
-        );
+        match combine::combine(&model.meshes, &group_meshes[key]) {
+            Ok(mesh) => {
+                combined_meshes.insert(key.clone(), mesh);
+            }
+            Err(ModelError::SplitTooLarge) => {
+                kept.insert(key.clone());
+            }
+            Err(error) => return Err(error),
+        }
     }
     let old_meshes = std::mem::take(&mut model.meshes);
     for (index, mesh) in old_meshes.into_iter().enumerate() {
         match &group_of[index] {
             None => model.meshes.push(mesh),
             Some(key) => {
-                if group_meshes[key][0] == index {
+                if kept.contains(key) {
+                    model.meshes.push(mesh);
+                } else if group_meshes[key][0] == index {
                     model.meshes.push(combined_meshes.remove(key).ok_or(
                         ModelError::VertexMismatch("split group lost its combined mesh"),
                     )?);

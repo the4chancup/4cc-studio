@@ -116,7 +116,9 @@ pub(crate) fn effective_parents(model: &Model) -> Vec<Option<usize>> {
 }
 
 /// Splits every mesh over a hard limit into component meshes under the
-/// soft limits. Each split mesh is replaced, in its group, by a child
+/// soft limits. A mesh over a limit that yields no components (a face
+/// export's bone-marker: no vertices or faces) stays as it is, unsplit
+/// and unmarked. Each split mesh is replaced, in its group, by a child
 /// group named `split-mesh` (same box and visibility, `split_mesh_group`
 /// set) holding the components; sets `extensions.mesh_splitting`.
 /// `parents` overrides `effective_parents` (the model converter passes a
@@ -141,7 +143,12 @@ pub fn encode(model: &mut Model, parents: Option<&[Option<usize>]>) -> Result<bo
     let mut components: HashMap<usize, Vec<Mesh>> = HashMap::new();
     for (index, mesh) in model.meshes.iter().enumerate() {
         if needs_splitting(mesh) {
-            components.insert(index, build::split_mesh(model, mesh, &effective)?);
+            let component_meshes = build::split_mesh(model, mesh, &effective)?;
+            // A mesh with nothing to emit (a bone-marker: no vertices,
+            // no faces) stays as it is — no container, no marker.
+            if !component_meshes.is_empty() {
+                components.insert(index, component_meshes);
+            }
         }
     }
     if components.is_empty() {
@@ -191,10 +198,12 @@ pub fn encode(model: &mut Model, parents: Option<&[Option<usize>]>) -> Result<bo
 /// Reassembles every `split_mesh_group`'s components into one mesh placed
 /// in the parent group where the split group sat among its meshes
 /// (appended if the parent had none), removes the split groups, renumbers
-/// mesh and group indices, clears `extensions.mesh_splitting`. A split
-/// group with a parent that is `None`, or with children, is
-/// `FmdlError::BadMeshGroupAssignment`. An invalid model is an error,
-/// never a panic.
+/// mesh and group indices, clears `extensions.mesh_splitting` unless a
+/// group stays. A group whose combined mesh would reference more than
+/// 65536 distinct vertices stays split — group, flag and components kept
+/// as they are. A split group with a parent that is `None`, or with
+/// children, is `FmdlError::BadMeshGroupAssignment`. An invalid model is
+/// an error, never a panic.
 pub fn decode(model: &mut Model) -> Result<(), FmdlError> {
     model.validate()?;
     let split_groups: Vec<usize> = model
@@ -232,13 +241,21 @@ pub fn decode(model: &mut Model) -> Result<(), FmdlError> {
     // Combine each split group's components while the model is still
     // intact, so a failed combine leaves it unchanged. Then rebuild the
     // mesh list: components collapse to their combined mesh at the first
-    // component's position.
+    // component's position. A group whose combined mesh cannot be
+    // indexed in u16 stays split — group, flag and components kept as
+    // they are.
     let mut combined_meshes: HashMap<usize, Mesh> = HashMap::new();
+    let mut kept: HashSet<usize> = HashSet::new();
     for &group_index in &split_groups {
-        combined_meshes.insert(
-            group_index,
-            combine::combine(&model.meshes, &model.mesh_groups[group_index])?,
-        );
+        match combine::combine(&model.meshes, &model.mesh_groups[group_index]) {
+            Ok(mesh) => {
+                combined_meshes.insert(group_index, mesh);
+            }
+            Err(FmdlError::SplitTooLarge) => {
+                kept.insert(group_index);
+            }
+            Err(error) => return Err(error),
+        }
     }
     let old_meshes = std::mem::take(&mut model.meshes);
     let mut combined_index: HashMap<usize, usize> = HashMap::new();
@@ -246,6 +263,10 @@ pub fn decode(model: &mut Model) -> Result<(), FmdlError> {
     for (index, mesh) in old_meshes.into_iter().enumerate() {
         match mesh_group_of[index] {
             None => {
+                new_index[index] = model.meshes.len();
+                model.meshes.push(mesh);
+            }
+            Some(group_index) if kept.contains(&group_index) => {
                 new_index[index] = model.meshes.len();
                 model.meshes.push(mesh);
             }
@@ -265,11 +286,12 @@ pub fn decode(model: &mut Model) -> Result<(), FmdlError> {
         }
     }
 
-    // Rebuild the group list without the split groups, then fix parents.
+    // Rebuild the group list without the combined split groups — a kept
+    // group stays with its components — then fix parents.
     let mut group_map = vec![usize::MAX; model.mesh_groups.len()];
     let mut new_groups: Vec<MeshGroup> = Vec::new();
     for (index, group) in model.mesh_groups.iter().enumerate() {
-        if group.split_mesh_group {
+        if group.split_mesh_group && !kept.contains(&index) {
             continue;
         }
         group_map[index] = new_groups.len();
@@ -296,7 +318,7 @@ pub fn decode(model: &mut Model) -> Result<(), FmdlError> {
         }
     }
     model.mesh_groups = new_groups;
-    model.extensions.mesh_splitting = false;
+    model.extensions.mesh_splitting = !kept.is_empty();
     Ok(())
 }
 
