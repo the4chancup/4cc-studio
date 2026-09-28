@@ -175,6 +175,45 @@ pub(crate) fn bone_is_weighted(ir: &CanonicalModel, bone: usize) -> bool {
     )
 }
 
+/// The IR's parent-first bone order over `parents`: file order except a bone listed
+/// before its parent, which moves right after it (placing a bone places its waiting
+/// children right after it, in file order). `Err` with the first offending bone when a
+/// parent index is past the list or a chain never reaches a root — both an FMDL file can
+/// carry.
+pub(crate) fn parent_first_order(parents: &[Option<usize>]) -> Result<Vec<usize>, usize> {
+    if let Some(bone) = parents
+        .iter()
+        .position(|parent| parent.is_some_and(|parent| parent >= parents.len()))
+    {
+        return Err(bone);
+    }
+    let mut order: Vec<usize> = Vec::with_capacity(parents.len());
+    let mut placed = vec![false; parents.len()];
+    let mut waiting: Vec<Vec<usize>> = vec![Vec::new(); parents.len()];
+    let mut stack = Vec::new();
+    for index in 0..parents.len() {
+        if placed[index] {
+            continue;
+        }
+        if let Some(parent) = parents[index]
+            && !placed[parent]
+        {
+            waiting[parent].push(index);
+            continue;
+        }
+        stack.push(index);
+        while let Some(bone) = stack.pop() {
+            placed[bone] = true;
+            order.push(bone);
+            stack.extend(waiting[bone].iter().rev());
+        }
+    }
+    match placed.iter().position(|placed| !placed) {
+        None => Ok(order),
+        Some(bone) => Err(bone),
+    }
+}
+
 /// Rebuilds `bones` keeping only the bones `keep` marks, in order: a kept bone's parent
 /// becomes its nearest kept ancestor (`None` at a root). Returns each kept bone's new
 /// index, `None` for the dropped.

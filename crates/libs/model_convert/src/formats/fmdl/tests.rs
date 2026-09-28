@@ -306,6 +306,173 @@ fn a_bone_slot_past_the_group_is_dropped() {
 }
 
 #[test]
+fn a_bone_listed_before_its_parent_moves_after_it() {
+    let mesh = ::fmdl::Mesh {
+        vertices: ::fmdl::format::MeshVertices {
+            positions: vec![[0.0; 3]],
+            bone_indices: Some(vec![[0, 1, 0, 0]]),
+            bone_weights: Some(vec![[128, 127, 0, 0]]),
+            ..::fmdl::format::MeshVertices::default()
+        },
+        faces: vec![[0, 0, 0]],
+        bone_group: vec![0, 1],
+        material: 0,
+        alpha_flags: 0,
+        shadow_flags: 0,
+        has_antiblur_meshes: false,
+        is_antiblur_mesh: false,
+        custom_bounding_box: None,
+    };
+    let mut model = fmdl_model(mesh, vec![instance("mat")]);
+    // File order: the child first, its parent second — the `body.skl` order.
+    let parent_of = |name: &str, parent| ::fmdl::Bone {
+        name: name.to_string(),
+        parent,
+        bounding_box: ::fmdl::BoundingBox {
+            min: [0.0; 4],
+            max: [0.0; 4],
+        },
+        local_position: [0.0; 4],
+        world_position: [0.0; 4],
+    };
+    model.bones = vec![parent_of("sk_chest", Some(1)), parent_of("sk_belly", None)];
+    let imported = fmdl_to_ir(&model, None).expect("import");
+    assert_eq!(
+        imported
+            .model
+            .bones
+            .iter()
+            .map(|bone| (bone.name.as_str(), bone.parent))
+            .collect::<Vec<_>>(),
+        [("sk_belly", None), ("sk_chest", Some(0))]
+    );
+    // The group remapped to the new order; the vertex slots did not move.
+    assert_eq!(imported.model.meshes[0].bone_group, [1, 0]);
+    assert_eq!(
+        imported.model.meshes[0].vertices.bone_indices,
+        Some(vec![[0, 1, 0, 0]])
+    );
+    // Export goes back through the same parents.
+    let exported = ir_to_fmdl(&imported.model).expect("export");
+    assert_eq!(exported.model.bones[1].parent, Some(0));
+}
+
+#[test]
+fn a_bone_parent_cycle_stays_an_error() {
+    let mut model = fmdl_model(fmdl_mesh(0, 0), vec![instance("mat")]);
+    let parent_of = |name: &str, parent| ::fmdl::Bone {
+        name: name.to_string(),
+        parent,
+        bounding_box: ::fmdl::BoundingBox {
+            min: [0.0; 4],
+            max: [0.0; 4],
+        },
+        local_position: [0.0; 4],
+        world_position: [0.0; 4],
+    };
+    model.bones = vec![parent_of("a", Some(1)), parent_of("b", Some(0))];
+    assert!(matches!(
+        fmdl_to_ir(&model, None),
+        Err(ConvertError::Fmdl(::fmdl::FmdlError::ParentCycle("bone")))
+    ));
+}
+
+#[test]
+fn a_group_that_stays_split_imports_as_an_ordinary_group() {
+    let component = |offset: usize, count: usize, faces: usize| ::fmdl::Mesh {
+        vertices: ::fmdl::format::MeshVertices {
+            positions: (0..count)
+                .map(|index| [(offset + index) as f32, 0.0, 0.0])
+                .collect(),
+            ..::fmdl::format::MeshVertices::default()
+        },
+        faces: (0..faces)
+            .map(|face| {
+                [
+                    (3 * face) as u16,
+                    (3 * face + 1) as u16,
+                    (3 * face + 2) as u16,
+                ]
+            })
+            .collect(),
+        bone_group: Vec::new(),
+        material: 0,
+        alpha_flags: 0,
+        shadow_flags: 0,
+        has_antiblur_meshes: false,
+        is_antiblur_mesh: false,
+        custom_bounding_box: None,
+    };
+    // Two components referencing 70000 distinct vertices: u16 faces cannot
+    // index the combined mesh, so the decode keeps the container split.
+    let mut model = fmdl_model(component(0, 40000, 13333), vec![instance("mat")]);
+    model.meshes.push(component(40000, 30000, 10000));
+    model.mesh_groups[0].meshes = Vec::new();
+    model.mesh_groups.push(::fmdl::MeshGroup {
+        name: "split-mesh".to_string(),
+        parent: Some(0),
+        meshes: vec![0, 1],
+        bounding_box: None,
+        visible: true,
+        split_mesh_group: true,
+    });
+    model.extensions.mesh_splitting = true;
+    let imported = fmdl_to_ir(&model, None).expect("import");
+    // The container reads as an ordinary group holding its two components.
+    assert_eq!(imported.model.meshes.len(), 2);
+    let group = imported
+        .model
+        .mesh_groups
+        .iter()
+        .find(|group| group.name == "split-mesh")
+        .expect("the container's group");
+    assert_eq!(group.meshes, vec![0, 1]);
+    // Export and re-import keep working.
+    let exported = ir_to_fmdl(&imported.model).expect("export");
+    fmdl_to_ir(&exported.model, exported.skl.as_ref()).expect("reimport");
+}
+
+#[test]
+fn a_vertexless_mesh_gets_an_empty_bone_group() {
+    // A face export's marker mesh: no vertices or faces, a 33-entry bone
+    // group holding the whole skeleton as data — over the format's 32.
+    let mut ir = minimal_ir();
+    ir.bones = (0..33)
+        .map(|index| Bone {
+            name: format!("b{index}"),
+            parent: None,
+            matrix: Affine::IDENTITY,
+            global_position: None,
+            local_position: None,
+            bounding_box: None,
+        })
+        .collect();
+    ir.meshes[0].vertices = Vertices {
+        bone_indices: Some(vec![]),
+        bone_weights: Some(vec![]),
+        ..Vertices::default()
+    };
+    ir.meshes[0].faces = vec![];
+    ir.meshes[0].bone_group = (0..33).collect();
+    let exported = ir_to_fmdl(&ir).expect("export");
+    assert_eq!(exported.model.meshes[0].bone_group, Vec::<usize>::new());
+    assert_eq!(
+        exported
+            .findings
+            .iter()
+            .filter(|f| f.code == "empty_mesh_bone_group_dropped")
+            .map(|f| (f.subject.clone(), f.detail.as_str()))
+            .collect::<Vec<_>>(),
+        [(Subject::Mesh(0), "33")]
+    );
+    // It writes and re-imports — before, to_file met the 33-entry group.
+    let bytes = exported.model.to_file().expect("to_file").write();
+    let model = ::fmdl::Model::from_file(&::fmdl::FmdlFile::read(&bytes).expect("read"))
+        .expect("from_file");
+    fmdl_to_ir(&model, exported.skl.as_ref()).expect("reimport");
+}
+
+#[test]
 fn missing_maps_get_the_game_dummies() {
     let mut ir = minimal_ir();
     ir.textures = vec![Texture {
@@ -394,6 +561,81 @@ fn quantization_preserves_the_total() {
     assert_eq!(quantize_weights([0.5, 0.5, 0.0, 0.0]), [128, 127, 0, 0]);
     let weights = quantize_weights([1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0, 0.0]);
     assert_eq!(weights.iter().map(|w| u32::from(*w)).sum::<u32>(), 255);
+}
+
+#[test]
+fn quantization_preserves_the_total_past_one() {
+    // A vertex the IR accepted unnormalized keeps `round(sum * 255)`
+    // across the positive lanes, each at most 255.
+    assert_eq!(quantize_weights([0.7, 0.0, 0.0, 0.0]), [178, 0, 0, 0]);
+    assert_eq!(quantize_weights([1.0, 1.0, 0.0, 0.0]), [255, 255, 0, 0]);
+    // One lane alone can hold 255; the rest of its total has nowhere to
+    // go — never onto a zero-weight lane.
+    assert_eq!(quantize_weights([2.0, 0.0, 0.0, 0.0]), [255, 0, 0, 0]);
+    assert_eq!(quantize_weights([1.5, 0.0, 0.0, 0.0]), [255, 0, 0, 0]);
+    assert_eq!(quantize_weights([1.0000001, 0.0, 0.0, 0.0]), [255, 0, 0, 0]);
+    assert_eq!(quantize_weights([2.0, 2.0, 2.0, 2.0]), [255, 255, 255, 255]);
+}
+
+#[test]
+fn a_lane_above_one_reports_weight_clamped() {
+    let skinned = |weights: [f32; 4]| CanonicalModel {
+        bones: vec![Bone {
+            name: "sk_belly".to_string(),
+            parent: None,
+            matrix: Affine::IDENTITY,
+            global_position: None,
+            local_position: None,
+            bounding_box: None,
+        }],
+        meshes: vec![Mesh {
+            vertices: Vertices {
+                positions: vec![[0.0; 3]],
+                bone_indices: Some(vec![[0, 0, 0, 0]]),
+                bone_weights: Some(vec![weights]),
+                ..Vertices::default()
+            },
+            faces: vec![[0, 0, 0]],
+            bone_group: vec![0],
+            material: 0,
+            extension_headers: Default::default(),
+            custom_bounding_box: None,
+        }],
+        ..minimal_ir()
+    };
+    let clamped = |weights| {
+        ir_to_fmdl(&skinned(weights))
+            .expect("export")
+            .findings
+            .iter()
+            .filter(|f| f.code == "weight_clamped")
+            .map(|f| (f.subject.clone(), f.detail.clone()))
+            .collect::<Vec<_>>()
+    };
+    let exported = ir_to_fmdl(&skinned([1.5, 0.0, 0.0, 0.0])).expect("export");
+    assert_eq!(
+        exported.model.meshes[0].vertices.bone_weights,
+        Some(vec![[255, 0, 0, 0]])
+    );
+    assert_eq!(
+        clamped([1.5, 0.0, 0.0, 0.0]),
+        [(Subject::Mesh(0), "1".to_string())]
+    );
+    // Float noise at and below the threshold clamps silently.
+    let exported = ir_to_fmdl(&skinned([1.0000001, 0.0, 0.0, 0.0])).expect("export");
+    assert_eq!(
+        exported.model.meshes[0].vertices.bone_weights,
+        Some(vec![[255, 0, 0, 0]])
+    );
+    assert!(clamped([1.0000001, 0.0, 0.0, 0.0]).is_empty());
+    assert!(clamped([1.0 + 1e-6, 0.0, 0.0, 0.0]).is_empty());
+    // Unnormalized but under 1 clamps nothing.
+    let exported = ir_to_fmdl(&skinned([0.7, 0.0, 0.0, 0.0])).expect("export");
+    assert_eq!(
+        exported.model.meshes[0].vertices.bone_weights,
+        Some(vec![[178, 0, 0, 0]])
+    );
+    assert!(clamped([0.7, 0.0, 0.0, 0.0]).is_empty());
 }
 
 /// A flat `fmdl::Mesh` over no bone group with the given alpha flags and material.

@@ -83,29 +83,12 @@ pub fn model_to_ir(model: &Model, mtl: &mtl::MaterialSet) -> Result<Imported, Co
         })
         .collect();
 
-    // Parent-first order: a bone listed before its parent waits on it; placing a bone
-    // places its waiting children right after it, in file order.
-    let mut order: Vec<usize> = Vec::with_capacity(model.bones.len());
-    let mut placed = vec![false; model.bones.len()];
-    let mut waiting: Vec<Vec<usize>> = vec![Vec::new(); model.bones.len()];
-    let mut stack = Vec::new();
-    for index in 0..model.bones.len() {
-        if placed[index] {
-            continue;
-        }
-        if let Some(parent) = render_parents[index]
-            && !placed[parent]
-        {
-            waiting[parent].push(index);
-            continue;
-        }
-        stack.push(index);
-        while let Some(bone) = stack.pop() {
-            placed[bone] = true;
-            order.push(bone);
-            stack.extend(waiting[bone].iter().rev());
-        }
-    }
+    // Parent-first order: a bone listed before its render parent moves right after it.
+    let order = crate::ir::parent_first_order(&render_parents).map_err(|_| {
+        ConvertError::PesModel(::pes_model::format::ModelError::InvalidModel(
+            "bone parent cycle",
+        ))
+    })?;
     let mut new_index = vec![0usize; model.bones.len()];
     for (new, &old) in order.iter().enumerate() {
         new_index[old] = new;
@@ -274,11 +257,16 @@ pub fn model_to_ir(model: &Model, mtl: &mtl::MaterialSet) -> Result<Imported, Co
             faces: mesh.faces.iter().map(|&[a, b, c]| [a, c, b]).collect(),
             bone_group,
             material: mesh.material,
+            // The `Split-Mesh` marker a kept split group still carries is dropped like
+            // a decoded group's: the IR keeps the component as an ordinary mesh.
             extension_headers: mesh
                 .extension_headers
                 .iter()
                 .filter(|header| {
                     header.as_str() != ::pes_model::ops::vertex_enc::VERTEX_LOOP_PRESERVATION
+                        && !header
+                            .split_once(':')
+                            .is_some_and(|(key, _)| key.trim().eq_ignore_ascii_case("Split-Mesh"))
                 })
                 .cloned()
                 .collect(),

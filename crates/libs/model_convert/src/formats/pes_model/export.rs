@@ -43,6 +43,21 @@ fn narrow(rows: &[[f32; 4]]) -> Vec<[f32; 3]> {
     rows.iter().map(|row| [row[0], row[1], row[2]]).collect()
 }
 
+/// `Err` carrying `text` when it holds a character XML 1.0 cannot represent — the
+/// `.mtl` is XML, so a material name, sampler name or texture path carrying one (the
+/// corrupted FMDL name tables' NULs) is an error, not a file no reader accepts.
+fn mtl_text(text: &str) -> Result<(), ConvertError> {
+    if text.chars().any(|c| {
+        matches!(
+            c,
+            '\u{0}'..='\u{8}' | '\u{b}'..='\u{c}' | '\u{e}'..='\u{1f}' | '\u{fffe}' | '\u{ffff}'
+        )
+    }) {
+        return Err(ConvertError::MtlName(text.to_string()));
+    }
+    Ok(())
+}
+
 /// IR → `.model` + `.mtl`. Validates, resolves each material for pre-Fox, writes the
 /// inverse bind matrices back, and runs the format crate's encoders in the legacy
 /// `saveModel` order (the vertex-loop convention, then mesh splitting).
@@ -68,12 +83,16 @@ pub fn ir_to_model(ir: &CanonicalModel) -> Result<ExportedPreFox, ConvertError> 
                 detail: name.clone(),
             });
         }
+        mtl_text(&material.name)?;
         let mut entries = Vec::new();
         for (name, settings, texture) in &resolved.samplers {
             let texture = &ir.textures[*texture];
+            let path = format!("{}{}", texture.directory, texture.file_name);
+            mtl_text(name)?;
+            mtl_text(&path)?;
             entries.push(mtl::MaterialEntry::Sampler(mtl::Sampler {
                 name: name.clone(),
-                path: format!("{}{}", texture.directory, texture.file_name),
+                path,
                 srgb: settings.srgb,
                 minfilter: settings.minfilter.map(mtl_filter),
                 maxfilter: None,
