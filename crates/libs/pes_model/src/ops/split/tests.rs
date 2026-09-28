@@ -778,6 +778,91 @@ fn split_mesh_registers_items_under_their_ancestors() {
     );
 }
 
+// A chain leaf -> mid1 -> mid2 -> the preferred bone: faces and loose
+// sets must register at every level up the chain, so the preferred
+// bone's fragment pool holds the whole subtree. Registering only three
+// levels — a vertex short — leaves the preferred bone out.
+#[test]
+fn split_mesh_registers_items_under_deep_ancestors() {
+    const LEAVES: usize = BONE_LIMIT_SOFT + 1;
+    const MID2: usize = 1;
+    const MID1: usize = 2;
+    let mut mesh = grid(1, 1, LEAVES);
+    mesh.vertices.positions.clear();
+    mesh.vertices.normals.as_mut().unwrap().clear();
+    mesh.vertices.uvs[0].clear();
+    mesh.vertices.bone_indices.as_mut().unwrap().clear();
+    mesh.vertices.bone_weights.as_mut().unwrap().clear();
+    mesh.faces.clear();
+    for leaf in 0..LEAVES {
+        // Leaf 0's face projects past every other, so it sorts first and
+        // its bone is selected into the first component.
+        let x = if leaf == 0 { 10_000.0 } else { leaf as f32 };
+        for _ in 0..3 {
+            mesh.vertices.positions.push([x, 0.0, 0.0]);
+            mesh.vertices
+                .normals
+                .as_mut()
+                .unwrap()
+                .push([0.0, 0.0, 1.0]);
+            mesh.vertices.uvs[0].push([0.0, 0.0]);
+            mesh.vertices
+                .bone_indices
+                .as_mut()
+                .unwrap()
+                .push([leaf as u8, 0, 0, 0]);
+            mesh.vertices
+                .bone_weights
+                .as_mut()
+                .unwrap()
+                .push([1.0, 0.0, 0.0, 0.0]);
+        }
+        mesh.faces
+            .push([3 * leaf as u16, 3 * leaf as u16 + 1, 3 * leaf as u16 + 2]);
+    }
+    // One loose vertex weighted to leaf 0's bone.
+    mesh.vertices.positions.push([999.0, 9.0, 9.0]);
+    mesh.vertices
+        .normals
+        .as_mut()
+        .unwrap()
+        .push([0.0, 0.0, 1.0]);
+    mesh.vertices.uvs[0].push([9.0, 9.0]);
+    mesh.vertices
+        .bone_indices
+        .as_mut()
+        .unwrap()
+        .push([0, 0, 0, 0]);
+    mesh.vertices
+        .bone_weights
+        .as_mut()
+        .unwrap()
+        .push([1.0, 0.0, 0.0, 0.0]);
+    mesh.bone_group = (3..LEAVES + 3).collect();
+    let model = {
+        let mut model = grid_model(grid(1, 1, 0), LEAVES + 3);
+        model.bones[0].name = "sk_foot_l".to_owned();
+        model
+    };
+    let mut parents = vec![None; LEAVES + 3];
+    parents[MID2] = Some(0);
+    parents[MID1] = Some(MID2);
+    for parent in parents.iter_mut().skip(3) {
+        *parent = Some(MID1);
+    }
+    let components = build::split_mesh(&model, &mesh, &parents).unwrap();
+    assert_eq!(components.len(), 2);
+    assert_eq!(components[0].faces.len(), BONE_LIMIT_SOFT);
+    // The loose vertex travels in the first component: leaf 0's face
+    // selected its bone already.
+    assert!(
+        components[0]
+            .vertices
+            .positions
+            .contains(&[999.0, 9.0, 9.0])
+    );
+}
+
 // Coincident vertices differing only in a zero-weight bone-index lane
 // share one equipresent set: the split key is the positive-weight bone
 // mapping, not the raw index lanes.

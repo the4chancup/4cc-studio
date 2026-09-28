@@ -42,7 +42,13 @@ phase) is not a gap and stays future tense. The lead's audit ends with a **desig
 over the phase's crates, separate from requirements coverage: the design-tell sweep (below) run
 over the whole phase's code rather than one diff, `just mutants <crate>` run over each crate with
 every survivor triaged (`CONTRIBUTING.md` "Mutation runs"), and every `pub` item listed with the
-consumer that justifies it (a crate, the CLI, the bindings, or a plan section naming one). Coverage asks
+consumer that justifies it (a crate, the CLI, the bindings, or a plan section naming one). A crate
+that reads a file format also gets a **census**: every file of that format on the maintainer's
+machine (found through the Everything index, archives opened) run through read, the semantic
+round trip and `check`, tallied by outcome, each failing class diagnosed before it is fixed or
+recorded as a refusal, and re-run after every fix with a regression check (`.tmp/model_census/`
+is the template). Fixtures and mutation runs only test the files someone thought to add; the
+first census, at 2.20g, found about 1900 community `.model` files the reader refused. Coverage asks
 "is everything the plan wants there?"; this pass asks "did the phase make the code harder to
 change?", which no test or lint measures and which compounds silently across phases. The
 whole-crate run happens twice per crate: in the lead's audit, where its survivors seed the first

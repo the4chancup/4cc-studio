@@ -13,7 +13,7 @@ is in `AGENTS.md` ("Working documents").
 2.6 `fmdl` (format, model, ops, check), 2.7 `pes_model` (format, mtl, model, ops, check), 2.8 `uniparam`, 2.9 `fox2`, 2.10 `archives`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`, 2.14 `color_tools`, 2.15 `elevation`. Review
 rounds A and B (2026-09-13) closed: 2.5c, 2.12b, 2.13b done.
 **In progress:** 2.17 `pes_savefile`, 2.18 `python_bindings`, 2.19 Phase verification done; 2.20
-Converge in progress (a-f done, 2.20g `pes_model` next). Review round C (2026-09-19) closed as
+Converge in progress (a-g done, 2.20g-fmdl census next, then 2.20h `model_convert`). Review round C (2026-09-19) closed as
 2.19a; its leftovers are listed under 2.20. 2.5b (GPU BC7) deferred to Phase 4 (user decision
 2026-09-21). Release target (2026-09-28): 0.1.0 after Phase 8; phase order 1–6, 8, 0.1.0, 7,
 9–16 (`core/development_plan.md` "Releases").
@@ -629,20 +629,38 @@ Spec: `docs/plans/core/development_plan.md` "Phase 2", `docs/plans/libs/README.m
     layout, group boxes over child groups. Final mutation run 873 / 13 missed, triaged in the
     closing commit. Plan corrections: byte identity on Konami's layout only, no per-mesh box.
     Deferred: u16 faces cap a reassembled split mesh (issue below). Decision entries per round
-  - [~] 2.20g `pes_model`: whole-crate run 915 mutants / 203 missed (survivors kept in
-    `.tmp/mutants_2_20g_whole/`); lead audit `.tmp/audit_2_20g.md`. New converge method: a
-    census of every file of the format on the maintainer's machine (`.tmp/model_census/`,
-    6575 distinct `.model` files) held the reader to real community files, not only the
-    Konami set. Slices: 1 census round 1 (`a238c0b`: offsets past their section, template
-    annotations; 4112 -> 5774 read); 2 census round 2 (zero-length reads, repeated field
-    types, loose-vertex repair); 3a `Model::validate` + format/check survivors + format pub
-    surface; 3b ops entry points (validate, no panics, pub surface); 3c split/vertex_enc
-    ports of fmdl's round 2-4 fixes + ops survivors; then the reviewer loop and the closing
-    whole-crate run. Briefs `.tmp/brief_2_20g_s*.md`
-  - [ ] 2.20g-fmdl census: the same census over every FMDL on the machine (maintainer
-    request 2026-09-28), run once `pes_model` closes; every class it finds becomes a step
-  - Remaining 2.20 order after this: `pes_model` (the `fmdl` port: check it for the same
-    classes: one invariant list, merge rules, split/loop keys, pub surface); `model_convert` (+ the open questions below);
+  - [x] 2.20g `pes_model` — 915 mutants / 203 survivors triaged (tests; five equivalences in
+    `mutants.toml` with proofs; dead `ModelContainer::sections` and `select_base_bone`
+    hand-over removed); lead audit `.tmp/audit_2_20g.md`. New converge method: a **census**
+    of every file of the format on the maintainer's machine (`.tmp/model_census/`, 6575
+    distinct `.model` files) held the reader to community files, not only the Konami set:
+    4145 -> 5999 readable of 6037 PES-format files, 0 regressions per round (plan
+    "Community files break two of those regularities", decision entry). Slices `a238c0b`
+    (offsets past their section, template annotations), `c796f4b` (zero-length reads,
+    repeated field types, loose-vertex repair), `727a92b` (`Model::validate`, empty-array
+    header, format/check survivors, format pub surface crate-private), `b862183` (ops start
+    with validate; four panics or wraps become errors; split pub surface), `f9c8888` (fmdl
+    round 2-4 ports: split and loop keys on positive-weight lanes, principal axis from
+    every seed, deterministic points, combine reorders only past u16, encode fails before
+    it mutates). Reviewer loop, one round, 4/4 accepted (rulings
+    `.tmp/review_rulings_2_20g.md`; `edf68e6`: merge renumbers split groups, decode rolls
+    back, v19 extras always; repeated `.mtl` states deferred to 2.20h, issue below). Closing
+    run 933 mutants / 10 missed, all killed by tests in the closing commit (filtered re-run
+    46 / 0 missed); timeouts are hang-class. Census leftovers, all refused loudly: 19 PES 16
+    cloth pants (second vertex set), 7 files with several face descriptors (balls, the PES 16
+    shadow), 3 X360, 4 genuinely truncated or corrupt, 5 singles
+  - [ ] 2.20g-fmdl census (maintainer request 2026-09-28; `.tmp/fmdl_census/`, first run
+    `outcomes_before.tsv`: 8805 paths incl. every `.fmdl`/`.skl` inside `.fpk`, 4135
+    distinct): (a) **SKL trailing padding**: 13 SKLs, Konami's own `dt00` files among them,
+    do not rewrite byte-identically; only the tail differs (Konami ends unpadded after the
+    last name, some writers pad 8), so the plan's "byte identity on every SKL" needs the tail
+    carried; (b) 13 FMDL failures to triage (flags with bone group reference 0, 65535
+    references in test files, a duplicate section-1 block, 3 experimental balls; O's
+    `Winter 20 Additions/Boots/k0977/boots.fmdl` is genuinely truncated: 1.39 MB of a declared
+    4.28 MB); (c) 64 `.fpk` files with a magic `fpk` refuses, to identify; each class a fix,
+    a decision, or a recorded refusal, with fixtures chosen by the lead
+  - Remaining 2.20 order after this: the fmdl census above; `model_convert` (+ the open
+    questions below and a `.mtl` census);
     read the user-found fork `https://github.com/jasonjk192/pesXdecrypter` for savefile facts;
     `pes_savefile` (lead audit whole, reviewer on non-interchange modules only);
     `python_bindings`; then 2.21.
@@ -990,3 +1008,8 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
 - **2026-09-28** - Hard gate set (maintainer): step 4.0, the appearance-fallback test, stands at
   the end of Phase 3; no agent goes past it until the maintainer reports the result. Phase 2's
   remaining converge, 2.17i and Phase 3 proceed. Next: 2.20g `pes_model`.
+- **2026-09-28** - 2.20g `pes_model` done (one reviewer round, 4/4 accepted). Method finding:
+  the Konami-measured reader refused about 1900 of the machine's 6037 community `.model`
+  files, cup exports among them, and no fixture, mutation run or reviewer would have found
+  it; a census of every real file of the format now belongs in each format crate's converge
+  (`.tmp/model_census/` as the template). Next: 2.20g-fmdl census, then 2.20h.

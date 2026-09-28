@@ -898,6 +898,81 @@ mod tests {
         assert_eq!(component.faces, vec![[0, 1, 2]]);
     }
 
+    // Faces whose equipresent sets hold four members each: the vertex
+    // soft limit binds after 15750 faces, before the face one — a
+    // miscounted member total takes them all.
+    #[test]
+    fn build_component_takes_faces_to_the_vertex_limit() {
+        const FACES: usize = FACE_LIMIT_SOFT;
+        let count = FACES * 4;
+        let sets: Vec<Vec<usize>> = (0..FACES)
+            .map(|face| (0..4).map(|member| face * 4 + member).collect())
+            .collect();
+        let face_vertices: Vec<[usize; 3]> =
+            sets.iter().map(|set| [set[0], set[1], set[2]]).collect();
+        let pieces = pieces_of(face_vertices, sets, vec![Vec::new(); count], false);
+        let mesh = mesh_of(count);
+        let mut items: HashMap<Option<usize>, StorableItems> = HashMap::new();
+        items.insert(None, items_with(0..FACES));
+        let model = model_with(vec![]);
+        let (component, taken) = build_component(&model, &mesh, &[], &items, &pieces).unwrap();
+        assert_eq!(taken.faces.len(), VERTEX_LIMIT_SOFT / 4);
+        assert_eq!(component.vertices.positions.len(), VERTEX_LIMIT_SOFT);
+    }
+
+    // Sixty-one loose singletons weighted to their own bones, in a
+    // skinned fragment: the bone soft limit stops the loose loop at
+    // sixty — the bone and vertex checks must both hold for a take.
+    #[test]
+    fn build_component_takes_loose_sets_to_the_bone_limit() {
+        const BONES: usize = BONE_LIMIT_SOFT + 1;
+        let sets: Vec<Vec<usize>> = (0..BONES).map(|i| vec![i]).collect();
+        let mappings: Vec<BoneMapping> = (0..BONES).map(|bone| vec![(bone, 1.0)]).collect();
+        let pieces = pieces_of(vec![], sets, mappings, true);
+        let mut mesh = mesh_of(BONES);
+        mesh.bone_group = (0..BONES).collect();
+        mesh.vertices.bone_indices = Some((0..BONES).map(|bone| [bone as u8, 0, 0, 0]).collect());
+        mesh.vertices.bone_weights = Some(vec![[1.0, 0.0, 0.0, 0.0]; BONES]);
+        let mut items: HashMap<Option<usize>, StorableItems> = HashMap::new();
+        items.insert(
+            None,
+            StorableItems {
+                faces: HashSet::new(),
+                loose: (0..BONES).collect(),
+            },
+        );
+        let model = model_with((0..BONES).map(|index| bone(&format!("b{index}"))).collect());
+        let (component, taken) = build_component(&model, &mesh, &[], &items, &pieces).unwrap();
+        assert_eq!(taken.loose.len(), BONE_LIMIT_SOFT);
+        assert_eq!(component.vertices.positions.len(), BONE_LIMIT_SOFT);
+    }
+
+    // Two-member loose sets: the vertex count stops the loose loop at
+    // the soft limit, and a member length counted wrong — none or all —
+    // takes half or twice as many sets.
+    #[test]
+    fn build_component_vertex_limit_counts_multi_member_loose_sets() {
+        const SETS: usize = 32_000;
+        let count = SETS * 2;
+        let sets: Vec<Vec<usize>> = (0..SETS)
+            .map(|set| (0..2).map(|member| set * 2 + member).collect())
+            .collect();
+        let pieces = pieces_of(vec![], sets, vec![Vec::new(); count], false);
+        let mesh = mesh_of(count);
+        let mut items: HashMap<Option<usize>, StorableItems> = HashMap::new();
+        items.insert(
+            None,
+            StorableItems {
+                faces: HashSet::new(),
+                loose: (0..SETS).collect(),
+            },
+        );
+        let model = model_with(vec![]);
+        let (component, taken) = build_component(&model, &mesh, &[], &items, &pieces).unwrap();
+        assert_eq!(taken.loose.len(), VERTEX_LIMIT_SOFT / 2);
+        assert_eq!(component.vertices.positions.len(), VERTEX_LIMIT_SOFT);
+    }
+
     #[test]
     fn vertex_capacity_counts_selected_members() {
         let sets = vec![vec![0], vec![1, 2], vec![3, 4, 5]];
