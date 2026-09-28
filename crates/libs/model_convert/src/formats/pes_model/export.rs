@@ -191,7 +191,7 @@ pub fn ir_to_model(ir: &CanonicalModel) -> Result<ExportedPreFox, ConvertError> 
         .meshes
         .iter()
         .map(::pes_model::ops::vertex_enc::decode)
-        .collect();
+        .collect::<Result<_, _>>()?;
     ::pes_model::ops::vertex_enc::encode_model(&mut model, &owners)?;
     let parents: Vec<Option<usize>> = ir.bones.iter().map(|bone| bone.parent).collect();
     ::pes_model::ops::split::encode(&mut model, &parents)?;

@@ -336,11 +336,14 @@ fn build_component(
     // The component's bone group: the selected model bones sorted by model
     // bone index (deterministic).
     let bone_group: Vec<usize> = selected_bones.iter().copied().collect();
-    let index_of: HashMap<usize, u8> = bone_group
-        .iter()
-        .enumerate()
-        .map(|(slot, &bone)| (bone, slot as u8))
-        .collect();
+    let mut index_of: HashMap<usize, u8> = HashMap::with_capacity(bone_group.len());
+    for (slot, &bone) in bone_group.iter().enumerate() {
+        index_of.insert(
+            bone,
+            u8::try_from(slot)
+                .map_err(|_| ModelError::InvalidModel("bone group over 256 bones"))?,
+        );
+    }
     for &set in &sorted_sets {
         for &vertex in &sets[set] {
             remap.insert(vertex, vertices.positions.len());

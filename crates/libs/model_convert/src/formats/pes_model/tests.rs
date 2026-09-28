@@ -50,7 +50,8 @@ fn expected(model: &Model) -> Model {
         .meshes
         .iter()
         .map(::pes_model::ops::vertex_enc::decode)
-        .collect();
+        .collect::<Result<_, _>>()
+        .expect("vertex decode");
     ::pes_model::ops::vertex_enc::encode_model(&mut model, &owners).expect("vertex encode");
     let parents: Vec<Option<usize>> = model
         .bones
@@ -501,7 +502,8 @@ fn vertex_owners_come_from_the_ir_order() {
     );
     let exported = ir_to_model(&ir).expect("export");
     assert_eq!(exported.model.meshes.len(), 1);
-    let owner = ::pes_model::ops::vertex_enc::decode(&exported.model.meshes[0]);
+    let owner =
+        ::pes_model::ops::vertex_enc::decode(&exported.model.meshes[0]).expect("vertex decode");
     // The flag-gated `decode_model` returned identity owners [0, 1, 2, 3]; here
     // vertex 2 is the second loop of vertex 1.
     assert_eq!(owner, vec![0, 1, 1, 3]);

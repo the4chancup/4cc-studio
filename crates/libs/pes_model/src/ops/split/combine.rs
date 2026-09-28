@@ -116,11 +116,14 @@ pub(super) fn combine(meshes: &[Mesh], indices: &[usize]) -> Result<Mesh, ModelE
         }
     }
     let bone_group: Vec<usize> = used_bones.iter().copied().collect();
-    let index_of: HashMap<usize, u8> = bone_group
-        .iter()
-        .enumerate()
-        .map(|(slot, &bone)| (bone, slot as u8))
-        .collect();
+    let mut index_of: HashMap<usize, u8> = HashMap::with_capacity(bone_group.len());
+    for (slot, &bone) in bone_group.iter().enumerate() {
+        index_of.insert(
+            bone,
+            u8::try_from(slot)
+                .map_err(|_| ModelError::InvalidModel("bone group over 256 bones"))?,
+        );
+    }
 
     let mut vertices = empty_like(&first.vertices, 0);
     let mut faces: Vec<[usize; 3]> = Vec::new();
