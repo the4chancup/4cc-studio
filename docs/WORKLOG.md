@@ -704,7 +704,12 @@ Spec: `docs/plans/core/development_plan.md` "Phase 2", `docs/plans/libs/README.m
     a text field holds `len` bytes, no NUL when full (codec write, `text_max`, `convert`;
     `shirt_name_from` keeps its free byte); (3) stays a refusal. → verify: census re-run,
     the 9 saves of (1)-(2) round-trip byte-identical, 0 regressions, (3) still refused; codec
-    and Team TOML tests for a full field and one byte over, red first. The whole-crate mutation run was stopped at about 87
+    and Team TOML tests for a full field and one byte over, red first. Done in the text-fix
+    commit: re-run (`.tmp/save_census/census_after.txt`, `compare.py`) has all 6 of the 9
+    still on disk round-tripping (the Discord backup folder holding the other 3 and 58 more
+    paths is gone), no other outcome changed, and the '£' save still refused (now also at
+    `Pro Evolution Soccer 2017/save/EDIT00000000`, a copy the maintainer made to test it).
+    `mutants-diff 6aeeecf`: 16 mutants, 0 missed. The whole-crate mutation run was stopped at about 87
     minutes on the maintainer's request. The partial local shard (385 of 805 mutants) left 20
     survivors, all reading as missing tests (discovery's account-folder filter,
     `section_records` bounds, the `*_mut` accessors, `fresh_salt`, `codec/team.rs` index

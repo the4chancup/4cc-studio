@@ -432,8 +432,8 @@ fn text_writes_patch_the_field_and_keep_the_old_tail() {
         record[at + 3..at + name.len as usize]
     );
 
-    // A name longer than len - 1 bytes is refused.
-    player.name = "x".repeat(name.len as usize);
+    // A name one byte longer than its field is refused.
+    player.name = "x".repeat(name.len as usize + 1);
     assert!(matches!(
         write_player(&player, &mut written, schema.player),
         Err(CodecError::Text { .. })
@@ -459,6 +459,80 @@ fn text_writes_patch_the_field_and_keep_the_old_tail() {
         write_player(&player, &mut written, schema.player),
         Err(CodecError::Text { .. })
     ));
+}
+
+#[test]
+fn a_text_filling_its_field_writes_with_no_nul() {
+    let payload = payload(PesVersion::Pes17);
+    let schema = schema_for(PesVersion::Pes17);
+    let record = record(&payload, &schema.players, schema.player.size, 0);
+    let mut player = read_player(record, schema.player).expect("decode");
+    let mut written = record.to_vec();
+
+    // A Name of exactly the field's length writes unterminated and reads back.
+    let name = schema
+        .player
+        .texts
+        .iter()
+        .find(|t| t.text == PlayerText::Name)
+        .expect("name spec");
+    player.name = "n".repeat(name.len as usize);
+    write_player(&player, &mut written, schema.player).expect("encode");
+    let at = name.byte_offset as usize;
+    assert_eq!(&written[at..at + name.len as usize], player.name.as_bytes());
+    let reread = read_player(&written, schema.player).expect("redecode");
+    assert_eq!(reread.name, player.name);
+
+    // One byte more is refused.
+    player.name = "n".repeat(name.len as usize + 1);
+    assert!(matches!(
+        write_player(&player, &mut written, schema.player),
+        Err(CodecError::Text { .. })
+    ));
+
+    // The same boundary holds for the single-byte ShirtName.
+    let shirt = schema
+        .player
+        .texts
+        .iter()
+        .find(|t| t.text == PlayerText::ShirtName)
+        .expect("shirt spec");
+    player.name = "AB".to_string();
+    player.shirt_name = "s".repeat(shirt.len as usize);
+    write_player(&player, &mut written, schema.player).expect("encode");
+    let at = shirt.byte_offset as usize;
+    assert_eq!(
+        &written[at..at + shirt.len as usize],
+        player.shirt_name.as_bytes()
+    );
+    let reread = read_player(&written, schema.player).expect("redecode");
+    assert_eq!(reread.shirt_name, player.shirt_name);
+    player.shirt_name = "s".repeat(shirt.len as usize + 1);
+    assert!(matches!(
+        write_player(&player, &mut written, schema.player),
+        Err(CodecError::Text { .. })
+    ));
+}
+
+#[test]
+fn a_full_field_name_round_trips_byte_for_byte() {
+    // The census's PES 17 shape: a Name of 46 bytes with no NUL.
+    let payload = payload(PesVersion::Pes17);
+    let schema = schema_for(PesVersion::Pes17);
+    let mut record = record(&payload, &schema.players, schema.player.size, 0).to_vec();
+    let name = schema
+        .player
+        .texts
+        .iter()
+        .find(|t| t.text == PlayerText::Name)
+        .expect("name spec");
+    let at = name.byte_offset as usize;
+    record[at..at + name.len as usize].fill(b'A');
+    let player = read_player(&record, schema.player).expect("decode");
+    assert_eq!(player.name, "A".repeat(name.len as usize));
+    let mut written = record.clone();
+    write_player(&player, &mut written, schema.player).expect("encode");
+    assert_eq!(written, record);
 }
 
 #[test]
@@ -747,6 +821,35 @@ fn team_701_and_team_100_literals() {
     let kit = team.kit_slots.expect("PES 17 teams have kit slots")[0];
     assert_eq!(kit.number, 0);
     assert_eq!(kit.binding, 701 * 0x40);
+}
+
+#[test]
+fn a_team_text_filling_its_field_writes_with_no_nul() {
+    let payload = payload(PesVersion::Pes19);
+    let schema = schema_for(PesVersion::Pes19);
+    let record = record(&payload, &schema.teams, schema.team.size, 0);
+    let mut team = read_team(record, schema.team).expect("decode team");
+    let mut written = record.to_vec();
+
+    // A team name of exactly the field's length writes unterminated and
+    // reads back; one byte more is refused.
+    let name = schema
+        .team
+        .texts
+        .iter()
+        .find(|t| t.text == TeamText::Name)
+        .expect("name spec");
+    team.name = "n".repeat(name.len as usize);
+    write_team(&team, &mut written, schema.team).expect("encode");
+    let at = name.byte_offset as usize;
+    assert_eq!(&written[at..at + name.len as usize], team.name.as_bytes());
+    let reread = read_team(&written, schema.team).expect("redecode");
+    assert_eq!(reread.name, team.name);
+    team.name = "n".repeat(name.len as usize + 1);
+    assert!(matches!(
+        write_team(&team, &mut written, schema.team),
+        Err(CodecError::Text { .. })
+    ));
 }
 
 #[test]

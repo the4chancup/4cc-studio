@@ -39,15 +39,15 @@ pub(super) fn value_or(value: Option<String>, neutral: &str) -> String {
     value.unwrap_or_else(|| neutral.to_string())
 }
 
-/// The capacity of `text` in `texts`: the field's byte length minus its
-/// terminator — what the codec accepts before `CodecError::Text`.
+/// The capacity of `text` in `texts`: the field's byte length — what the
+/// codec accepts before `CodecError::Text`.
 pub(super) fn text_max<T: Copy + PartialEq>(texts: &[TextSpec<T>], text: T) -> usize {
     let len = texts
         .iter()
         .find(|spec| spec.text == text)
         .map(|spec| spec.len)
         .expect("every version stores the text");
-    usize::try_from(len - 1).expect("a text field's length fits usize")
+    usize::try_from(len).expect("a text field's length fits usize")
 }
 
 impl TeamToml {
@@ -239,7 +239,9 @@ impl TeamToml {
 }
 
 /// The shirt name a display name produces: colour codes stripped, uppercased,
-/// cut to the version's shirt-name field minus its terminator.
+/// cut to the version's shirt-name field minus one byte. A generated name keeps
+/// one byte free for a NUL because it is new text, and no in-game check has
+/// shown a full-field shirt name displaying whole.
 pub fn shirt_name_from(name: &str, version: PesVersion) -> String {
     let len = schema_for(version)
         .player

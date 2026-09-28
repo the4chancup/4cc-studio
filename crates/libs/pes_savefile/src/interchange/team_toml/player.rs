@@ -1547,8 +1547,8 @@ mod tests {
         assert_eq!(stored, 2);
     }
 
-    /// A name longer than the target field minus its terminator is
-    /// `TextTooLong`, returned before anything is written.
+    /// A name longer than the target field is `TextTooLong`, returned
+    /// before anything is written.
     #[test]
     fn a_name_longer_than_the_field_is_refused_and_writes_nothing() {
         let (file, _) = open(PesVersion::Pes16);
@@ -1560,11 +1560,10 @@ mod tests {
                 .iter()
                 .find(|spec| spec.text == PlayerText::Name)
                 .expect("a name field")
-                .len
-                - 1,
+                .len,
         )
         .expect("fits usize");
-        assert_eq!(max, 45, "the field holds 46 bytes, terminator included");
+        assert_eq!(max, 46, "the field holds 46 bytes");
 
         let section = PlayerSection {
             name: Some("N".repeat(60)),
@@ -1578,7 +1577,7 @@ mod tests {
         assert!(
             matches!(
                 err,
-                TeamTomlError::TextTooLong { ref path, max: 45 }
+                TeamTomlError::TextTooLong { ref path, max: 46 }
                     if *path == format!("players.{:02}.name", slot + 1)
             ),
             "{err:?}"

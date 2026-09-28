@@ -458,12 +458,12 @@ pub enum TeamTomlError {
         /// The roster slot (1-based, as the key spells it).
         slot: u8,
     },
-    /// A text longer than the target version's field minus its terminator.
+    /// A text longer than the target version's field.
     #[error("{path}: does not fit the field (max {max})")]
     TextTooLong {
         /// The dotted key path.
         path: String,
-        /// The field's capacity: its byte length minus the terminator.
+        /// The field's capacity: its byte length.
         max: usize,
     },
 }
