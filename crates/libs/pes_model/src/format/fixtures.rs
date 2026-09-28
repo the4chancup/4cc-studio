@@ -17,8 +17,12 @@ pub(crate) const COLLAR: &[u8] =
     include_bytes!("../../tests/fixtures/konami_collar_052.wesys.model");
 pub(crate) const SHADOW: &[u8] =
     include_bytes!("../../tests/fixtures/konami_shadow_win32.wesys.model");
+pub(crate) const COMMUNITY_TAIL_DATA: &[u8] =
+    include_bytes!("../../tests/fixtures/community_tail_data_hair_d.wesys.model");
+pub(crate) const COMMUNITY_TEMPLATE_ANNOTATION: &[u8] =
+    include_bytes!("../../tests/fixtures/community_template_annotation_ad.wesys.model");
 
-/// All twelve fixtures.
+/// All fourteen fixtures.
 pub(crate) const ALL: &[&[u8]] = &[
     CARD,
     CARDHEAD,
@@ -32,6 +36,8 @@ pub(crate) const ALL: &[&[u8]] = &[
     HAIR_HIGH,
     COLLAR,
     SHADOW,
+    COMMUNITY_TAIL_DATA,
+    COMMUNITY_TEMPLATE_ANNOTATION,
 ];
 
 pub(crate) const CARDHEAD_MTL: &[u8] =

@@ -412,3 +412,51 @@ fn editor_kind_and_value_must_agree() {
         ))
     );
 }
+
+#[test]
+fn annotation_with_dangling_record_pointer_is_dropped() {
+    use crate::format::records::RecordArray;
+    // A resolvable string pointer but a non-zero record pointer that
+    // does not land on a section-3 record: the annotation is dropped,
+    // the mesh's other annotations stay.
+    let mut container = ModelContainer::read(GLASSES).unwrap();
+    let delta = (container.section_offset(SectionKind::BoneData) as i64
+        - container.section_offset(SectionKind::Meshes) as i64) as i32;
+    let meshes = &mut container
+        .sections
+        .iter_mut()
+        .find(|section| section.kind == SectionKind::Meshes)
+        .unwrap()
+        .bytes;
+    let mesh_array = RecordArray::read(meshes, 0).unwrap();
+    let annotation_offset =
+        u32::from_le_bytes(mesh_array.records[0].bytes[8..12].try_into().unwrap()) as usize;
+    let annotations_array = RecordArray::read(meshes, annotation_offset).unwrap();
+    let at = annotations_array.records[0].offset + 4;
+    meshes[at..at + 4].copy_from_slice(&delta.to_le_bytes());
+    let model = PreFoxModel::from_container(&container).unwrap();
+    assert_eq!(annotations(&model.meshes[0]), [(0, Some(1), 7, 10)]);
+    assert_eq!(
+        annotations(&model.meshes[1]),
+        [(0, Some(0), 7, 1), (0, Some(0), 7, 10)]
+    );
+}
+
+#[test]
+fn invalid_utf8_string_reports_its_offset() {
+    use crate::format::records::RecordArray;
+    let mut container = ModelContainer::read(CARD).unwrap();
+    let names = &mut container
+        .sections
+        .iter_mut()
+        .find(|section| section.kind == SectionKind::MaterialNames)
+        .unwrap()
+        .bytes;
+    let array = RecordArray::read(names, 0).unwrap();
+    let offset = u32::from_le_bytes(array.records[0].bytes[..4].try_into().unwrap()) as usize;
+    names[offset] = 0xFF;
+    assert_eq!(
+        PreFoxModel::from_container(&container),
+        Err(ModelError::InvalidUtf8 { offset })
+    );
+}
