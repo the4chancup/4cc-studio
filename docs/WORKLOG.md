@@ -649,16 +649,19 @@ Spec: `docs/plans/core/development_plan.md` "Phase 2", `docs/plans/libs/README.m
     46 / 0 missed); timeouts are hang-class. Census leftovers, all refused loudly: 19 PES 16
     cloth pants (second vertex set), 7 files with several face descriptors (balls, the PES 16
     shadow), 3 X360, 4 genuinely truncated or corrupt, 5 singles
-  - [ ] 2.20g-fmdl census (maintainer request 2026-09-28; `.tmp/fmdl_census/`, first run
-    `outcomes_before.tsv`: 8805 paths incl. every `.fmdl`/`.skl` inside `.fpk`, 4135
-    distinct): (a) **SKL trailing padding**: 13 SKLs, Konami's own `dt00` files among them,
-    do not rewrite byte-identically; only the tail differs (Konami ends unpadded after the
-    last name, some writers pad 8), so the plan's "byte identity on every SKL" needs the tail
-    carried; (b) 13 FMDL failures to triage (flags with bone group reference 0, 65535
-    references in test files, a duplicate section-1 block, 3 experimental balls; O's
-    `Winter 20 Additions/Boots/k0977/boots.fmdl` is genuinely truncated: 1.39 MB of a declared
-    4.28 MB); (c) 64 `.fpk` files with a magic `fpk` refuses, to identify; each class a fix,
-    a decision, or a recorded refusal, with fixtures chosen by the lead
+  - [x] 2.20g-fmdl census (maintainer request 2026-09-28) — done: `.tmp/fmdl_census/` over
+    8805 paths (every `.fmdl`, `.skl`, `.fpk` and the models inside each `.fpk`), 4135
+    distinct. Readers held up far better than `pes_model`'s: 4088 of 4101 FMDLs read. (a) SKL
+    trailing bytes: 13 SKLs (Konami's own `dt00` among them) did not rewrite byte-identically,
+    only the tail differing; `SklFile::trailing` carries it, `SklFile::new` pads fresh files
+    to 4 (plan "SKL binary format"); now every SKL but one bad-magic file rewrites exactly.
+    (b) the 13 FMDL failures are all correct refusals, and the community add-on refuses every
+    one the same way: VAT flags with skin fields but no bone table, 0xFFFF bone and string ids
+    in test faces, a stadium part with one box for three groups, hand-scrambled experimental
+    balls, a tombstoned duplicate block, the `fpk` crate's synthetic fixtures, and O's
+    `Winter 20 Additions/Boots/k0977/boots.fmdl`, genuinely truncated (1.39 MB of a declared
+    4.28 MB: broken in that export). (c) The 64 refused `.fpk` are another game's archives
+    (`chr_FUC`, `stg_fuc`), not PES files
   - Remaining 2.20 order after this: the fmdl census above; `model_convert` (+ the open
     questions below and a `.mtl` census);
     read the user-found fork `https://github.com/jasonjk192/pesXdecrypter` for savefile facts;

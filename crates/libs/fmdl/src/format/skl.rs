@@ -1,6 +1,6 @@
 //! The Fox skeleton (`.skl`) codec: a 12-byte header, one 56-byte record
 //! per bone (name offset, parent index, 3x4 row-major transform), then the
-//! NUL-terminated name table padded to 4.
+//! NUL-terminated name table and whatever bytes followed it in the file.
 
 use std::io::Cursor;
 
@@ -17,6 +17,9 @@ pub struct SklFile {
     /// The bones in file order. Parents need not precede children: the game's
     /// `body.skl` files put bones 1 and 2 under bone 18.
     pub bones: Vec<SklBone>,
+    /// The bytes after the name table, as read: most files pad to 4, Konami's
+    /// `dt00` skeletons end at the last name's NUL, one pads by 4 more.
+    pub trailing: Vec<u8>,
 }
 
 /// One SKL bone record resolved to a name and a transform.
@@ -41,6 +44,17 @@ struct Header {
 }
 
 impl SklFile {
+    /// A skeleton built from `bones` alone, its tail the zero bytes that
+    /// pad the file to 4, as the reference writer does.
+    pub fn new(bones: Vec<SklBone>) -> SklFile {
+        let name_table: usize = bones.iter().map(|bone| bone.name.len() + 1).sum();
+        let length = 12 + bones.len() * RECORD_SIZE as usize + name_table;
+        SklFile {
+            bones,
+            trailing: vec![0; (4 - length % 4) % 4],
+        }
+    }
+
     /// Parses an SKL buffer: header, bone records and the name table each
     /// record's name offset points into.
     pub fn read(bytes: &[u8]) -> Result<Self, FmdlError> {
@@ -62,6 +76,7 @@ impl SklFile {
         let records = bytes.get(12..records_end).ok_or(FmdlError::Truncated)?;
 
         let mut bones = Vec::with_capacity(header.bone_count as usize);
+        let mut table_end = records_end;
         for record in records.as_chunks::<{ RECORD_SIZE as usize }>().0 {
             // The record is exactly RECORD_SIZE bytes, so the fixed-width
             // field slices always convert.
@@ -94,6 +109,7 @@ impl SklFile {
                 .ok_or(FmdlError::Truncated)?;
             let name =
                 String::from_utf8(name_bytes.to_vec()).map_err(|_| FmdlError::InvalidName)?;
+            table_end = table_end.max(name_end + 1);
             // A parent may come later in the file, but it must exist.
             let parent = if parent_index >= 0 {
                 let parent = parent_index as usize;
@@ -118,11 +134,14 @@ impl SklFile {
                 translation: [floats[3], floats[7], floats[11]],
             });
         }
-        Ok(SklFile { bones })
+        Ok(SklFile {
+            bones,
+            trailing: bytes[table_end..].to_vec(),
+        })
     }
 
     /// Serializes the skeleton: records in bone order, the name table
-    /// concatenated behind them, the file padded to 4.
+    /// concatenated behind them, then `trailing` verbatim.
     pub fn write(&self) -> Vec<u8> {
         let name_table_offset = 12 + self.bones.len() * RECORD_SIZE as usize;
         let mut name_table = Vec::new();
@@ -153,9 +172,7 @@ impl SklFile {
             }
         }
         output.extend_from_slice(&name_table);
-        while output.len() % 4 != 0 {
-            output.push(0);
-        }
+        output.extend_from_slice(&self.trailing);
         output
     }
 }
@@ -167,6 +184,7 @@ mod tests {
     const AU00: &[u8] = include_bytes!("../../tests/fixtures/konami_au00.skl");
     const BOOTS: &[u8] = include_bytes!("../../tests/fixtures/konami_boots.skl");
     const REFEREE: &[u8] = include_bytes!("../../tests/fixtures/konami_referee_f_close.skl");
+    const CURSOR: &[u8] = include_bytes!("../../tests/fixtures/konami_d2_manual_cursor.skl");
 
     #[test]
     fn konami_files_rewrite_byte_identically() {
@@ -176,8 +194,36 @@ mod tests {
     }
 
     #[test]
+    fn an_unpadded_konami_skeleton_rewrites_byte_identically() {
+        // `dt00`'s SKLs end right after the last name's NUL: no padding.
+        assert_eq!(SklFile::read(CURSOR).unwrap().write(), CURSOR);
+    }
+
+    #[test]
+    fn trailing_bytes_rewrite_verbatim() {
+        // Eight bytes past the name table come back as they were read.
+        let mut bytes = BOOTS.to_vec();
+        bytes.extend_from_slice(&[0; 8]);
+        assert_eq!(SklFile::read(&bytes).unwrap().write(), bytes);
+    }
+
+    #[test]
+    fn new_pads_the_file_to_four() {
+        // One bone, name "a": 12 + 56 + 2 = 70 bytes, padded to 72.
+        let skl = SklFile::new(vec![SklBone {
+            name: "a".to_string(),
+            parent: None,
+            rotation: [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
+            translation: [0.0; 3],
+        }]);
+        let written = skl.write();
+        assert_eq!(written.len(), 72);
+        assert_eq!(SklFile::read(&written).unwrap(), skl);
+    }
+
+    #[test]
     fn an_empty_skeleton_writes_12_bytes() {
-        let skl = SklFile { bones: Vec::new() };
+        let skl = SklFile::new(Vec::new());
         let written = skl.write();
         assert_eq!(written.len(), 12);
         assert_eq!(SklFile::read(&written).unwrap(), skl);
