@@ -2370,3 +2370,12 @@ older exporter, and the test case (Bedford Rascal, about 700 faces over, most ou
 cannot show missing faces in game, so the in-game check cannot overturn the tool (maintainer,
 2026-09-28). `ops::split` still takes such meshes apart.
 Plan: `libs/format_crates.md` "`pes_model::model`" ("One list of invariants").
+
+## 2026-09-28 - pes_savefile - no second whole-crate mutation run
+Decision (maintainer): the whole-crate run at `40a07be` is the last one over `pes_savefile`; its
+converge closes on `just mutants-diff 40a07be` over the rework instead of the second whole-crate
+run `AGENTS.md` "Closing a phase" asks for.
+Why: the crate is about 27k lines, and the run at `40a07be`, split with the VPS, was still going
+after more than two hours (the first attempt was stopped at 87 minutes, half done). The diff run measures
+every line the rework touches, which is where a closing run's new survivors would come from.
+Plan: no plan edit needed (process, not spec); worklog step 2.20i records it.

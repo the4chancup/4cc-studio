@@ -705,18 +705,23 @@ Spec: `docs/plans/core/development_plan.md` "Phase 2", `docs/plans/libs/README.m
     `shirt_name_from` keeps its free byte); (3) stays a refusal. → verify: census re-run,
     the 9 saves of (1)-(2) round-trip byte-identical, 0 regressions, (3) still refused; codec
     and Team TOML tests for a full field and one byte over, red first. Done in the text-fix
-    commit: re-run (`.tmp/save_census/census_after.txt`, `compare.py`) has all 6 of the 9
-    still on disk round-tripping (the Discord backup folder holding the other 3 and 58 more
-    paths is gone), no other outcome changed, and the '£' save still refused (now also at
-    `Pro Evolution Soccer 2017/save/EDIT00000000`, a copy the maintainer made to test it).
+    commit: re-run (`.tmp/save_census/census_after_moved.txt`, `compare.py`; the Discord
+    backup's 61 paths repointed to `Tools_Mine/bonfire/discord-backup` by `repoint.py`) has
+    all 9 round-tripping, no other outcome changed, and the '£' save still refused (now also
+    at `Pro Evolution Soccer 2017/save/EDIT00000000`, a copy the maintainer made to test it).
     `mutants-diff 6aeeecf`: 16 mutants, 0 missed. The whole-crate mutation run was stopped at about 87
     minutes on the maintainer's request. The partial local shard (385 of 805 mutants) left 20
     survivors, all reading as missing tests (discovery's account-folder filter,
     `section_records` bounds, the `*_mut` accessors, `fresh_salt`, `codec/team.rs` index
     math, container boundary checks). Rerun it whole next session. Round C input (c) is ruled
     no change: discovery returning an empty list for both "no Documents" and "no saves" feeds
-    only the Open menu's shortcut entries, where both mean "no entries". Next: brief the text
-    fix, rerun the whole crate, lead audit, reviewer on the non-interchange modules.
+    only the Open menu's shortcut entries, where both mean "no entries". Whole-crate run at
+    `40a07be` (`.tmp/mutants_2_20i_whole/`): 806 mutants, 716 caught, 24 missed, 2 timeouts,
+    64 unviable, all on this PC in 3 h 23 min (see the sharding issue below); the VPS half
+    is discarded. This run is the crate's last (maintainer, 2026-09-28, decision entry): the closing
+    measurement is `just mutants-diff 40a07be` over every rework commit, not a second
+    whole-crate run. Next: rework from the lead audit (`.tmp/audit_2_20i.md`) and the run's
+    survivors, reviewer on the non-interchange modules.
   - Remaining 2.20 order after this:
     `python_bindings`; then 2.21.
   Known inputs from round C: (a) whole-crate mutation runs left survivors to triage in cpk (28),
@@ -816,6 +821,12 @@ pruned when their phase closes; they stay in git history.
   cannot load it") is wrong. `split::encode` still takes them apart harmlessly. Needs the
   maintainer: is one of those models known to render in game? Decide before Phase 3 maps the
   code in the Team compiler's catalog.
+- open — `just mutants` sharding (found at 2.20i): at `40a07be` the local half, started by
+  `scripts/mutants.py` with `--shard 0/2 --sharding round-robin`, tested all 806 mutants
+  (`outcomes.json` `total_mutants` 806, every outcome recorded), while the 2.20g/2.20h runs
+  halved as intended. The VPS half ran in parallel on a tree that listed 805 mutants, then
+  died when ssh dropped after 323 outcomes. So this run's split doubled the work instead of
+  halving it. Find why before the next whole-crate run on any crate.
 - open — u16 face indices cap a reassembled split mesh (found at 2.20f review): `fmdl::Mesh`
   and the IR (`ir.md` "IR struct") store faces as `[u16; 3]`, so `fmdl::ops::split::decode`
   refuses (loud `VertexMismatch`) an add-on file whose components together reference more
@@ -1079,3 +1090,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
 - **2026-09-28** - Maintainer rulings: the CP1252 save stays refused (4ccEditor cannot load it),
   the 21845-face limit stays. Text fields hold their full length (decision entry). Test 1's
   step-by-step guide is `.tmp/apptest/out/GUIDE.txt`. Next: the 2.20i text fix.
+- **2026-09-28** - 2.20i text fix landed (`40a07be`); census clean. Whole-crate run done
+  (24 survivors, `.tmp/mutants_2_20i_whole/missed.txt`), the crate's last (maintainer). Lead
+  audit in `.tmp/audit_2_20i.md` (F1-F7). Next: slice A = survivors + F1-F4, F6, F7; slice B =
+  F5's pure moves; each checked with `mutants-diff`; then the reviewer.
