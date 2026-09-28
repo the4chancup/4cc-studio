@@ -2,8 +2,17 @@
 
 With `STUDIO_MUTANTS_REMOTE` set to an ssh host (e.g. `bonfire`) the run is sharded
 round-robin: this machine runs `--shard 0/2`, the host runs `--shard 1/2`, and the
-remote half's results merge into `mutants.out/remote/`. Unset or empty, the plain
-local command runs.
+remote half's results merge into `mutants.out/remote/`. Unset (in the process
+and, on Windows, in the user's registry environment) or empty, the plain local
+command runs.
+
+The remote half runs detached on the host (`setsid nohup`, its state in
+`~/studio-mutants/run/`), and this machine only polls it with short ssh calls,
+so a dropped connection costs one poll, not the run: cargo-mutants cannot
+resume, and a remote half tied to one long ssh session died with it (2.20i).
+If this script itself stops, `just mutants-collect` waits for the remote half
+and fetches it. A new run refuses to start while a remote half is running or
+finished but not yet collected.
 
 The remote needs: git, a C toolchain, rustup and cargo-mutants at the local
 version (the pinned toolchain installs itself on first use inside the tree).
@@ -24,6 +33,20 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 REMOTE_BASE = "~/studio-mutants"
 REMOTE_REF = "refs/mutants/remote"
+# The detached remote half's files: `pid`, `log`, `exit` ("<code> <seconds>",
+# written when cargo-mutants returns) and `collected` (written by the fetch).
+REMOTE_RUN = f"{REMOTE_BASE}/run"
+POLL_SECONDS = 30
+# Consecutive failed polls before giving up (an hour at 30 s); the remote half
+# keeps running and `just mutants-collect` picks it up later.
+MAX_POLL_FAILURES = 120
+# Keepalives let a dead link fail a call in about a minute instead of hanging it.
+SSH_OPTIONS = [
+    "-o", "BatchMode=yes",
+    "-o", "ConnectTimeout=20",
+    "-o", "ServerAliveInterval=15",
+    "-o", "ServerAliveCountMax=4",
+]
 
 
 def ssh_binary() -> str:
@@ -38,9 +61,7 @@ def ssh_binary() -> str:
 
 
 def ssh(host: str, remote: str, **kwargs) -> subprocess.CompletedProcess:
-    return subprocess.run(
-        [ssh_binary(), "-o", "BatchMode=yes", host, remote], **kwargs
-    )
+    return subprocess.run([ssh_binary(), *SSH_OPTIONS, host, remote], **kwargs)
 
 
 def git(*args: str, **kwargs) -> subprocess.CompletedProcess:
@@ -148,17 +169,91 @@ def local_mutants_version() -> str:
     ).stdout.strip()
 
 
+def remote_run_state(host: str) -> str | None:
+    """`none` (no run, or the last one collected), `running`, `finished` (not yet
+    collected) or `died` (a pid and no exit file: killed, or the host rebooted);
+    None when the host could not be reached."""
+    probe = ssh(
+        host,
+        f"cd {REMOTE_RUN} 2>/dev/null || {{ echo none; exit 0; }}; "
+        "if [ -f collected ]; then echo none; "
+        "elif [ -f exit ]; then echo finished; "
+        "elif [ -f pid ] && kill -0 \"$(cat pid)\" 2>/dev/null; then echo running; "
+        "elif [ -f pid ]; then echo died; "
+        "else echo none; fi",
+        capture_output=True, text=True,
+    )
+    state = probe.stdout.strip()
+    if probe.returncode != 0 or state not in ("none", "running", "finished", "died"):
+        return None
+    return state
+
+
+def launch_remote(host: str, crate: str) -> None:
+    """Starts the remote half detached from this ssh session, which returns at
+    once: its own session (`setsid`), no terminal, output to `run/log`, and
+    `run/exit` written when cargo-mutants returns."""
+    job = (
+        "start=$(date +%s); . ~/.cargo/env && "
+        f"nice -n 19 ionice -c3 cargo mutants -p {crate} --jobs 2 "
+        "--shard 1/2 --sharding round-robin --config ../mutants.remote.toml; "
+        "code=$?; echo \"$code $(( $(date +%s) - start ))\" > ../run/exit"
+    )
+    ssh(
+        host,
+        f"mkdir -p {REMOTE_RUN} && cd {REMOTE_RUN} && rm -f pid log exit collected && "
+        f"cd {REMOTE_BASE}/tree && "
+        f"(setsid nohup bash -c '{job}' > ../run/log 2>&1 < /dev/null & "
+        "echo $! > ../run/pid)",
+        check=True,
+    )
+
+
+def wait_remote(host: str) -> tuple[int, float]:
+    """Polls until the remote half finishes; returns its exit code and its own
+    seconds. A failed poll is retried; only MAX_POLL_FAILURES in a row give up,
+    and the remote half is still collectable after that."""
+    failures = 0
+    announced = False
+    while True:
+        state = remote_run_state(host)
+        if state is None:
+            failures += 1
+            print(f"remote poll failed ({failures} in a row), retrying", flush=True)
+            if failures >= MAX_POLL_FAILURES:
+                raise RuntimeError(
+                    f"could not reach {host} for {failures} polls; the remote half keeps "
+                    "running there: collect it with `just mutants-collect`"
+                )
+        elif state == "finished":
+            exit_line = ssh(
+                host, f"cat {REMOTE_RUN}/exit", capture_output=True, text=True, check=True
+            ).stdout.split()
+            return int(exit_line[0]), float(exit_line[1])
+        elif state == "died":
+            raise RuntimeError(
+                "the remote half stopped without an exit code (killed, or the host "
+                "rebooted): `just mutants-collect` fetches its partial results"
+            )
+        elif state == "none":
+            raise RuntimeError("no remote half was started")
+        else:
+            failures = 0
+            if not announced:
+                print("waiting for the remote half", flush=True)
+                announced = True
+        time.sleep(POLL_SECONDS)
+
+
 def run_split(
     crate: str, host: str, tree: str, remote_head: str | None, remote_tree: str | None,
     nproc: int,
-) -> tuple[int, int, Path, float, float]:
+) -> tuple[int, int, float, float]:
     """The local shard starts at once, in the foreground with console output as
-    today; a thread transfers the snapshot, writes the remote config and runs the
-    remote shard, so the transfer counts against the remote side only. Returns
-    (local, remote) codes, the remote console log's path and each side's seconds
-    from the common start, so the summary shows which side waited."""
-    log = tempfile.NamedTemporaryFile(mode="w+b", suffix=".log", delete=False)
-    log.close()
+    today; a thread transfers the snapshot, writes the remote config and launches
+    the remote shard, so the transfer counts against the remote side only. Returns
+    the (local, remote) codes and seconds: the local half's from the common
+    start, the remote half's from its own launch."""
     start = time.monotonic()
     remote: dict = {}
 
@@ -169,20 +264,11 @@ def run_split(
             else:
                 transfer(host, remote_head)
             remote_config(host, nproc)
-            with open(log.name, "wb") as out:
-                remote["code"] = subprocess.run(
-                    [
-                        ssh_binary(), "-o", "BatchMode=yes", host,
-                        f"cd {REMOTE_BASE}/tree && . ~/.cargo/env && "
-                        f"nice -n 19 ionice -c3 cargo mutants -p {crate} --jobs 2 "
-                        "--shard 1/2 --sharding round-robin --config ../mutants.remote.toml",
-                    ],
-                    stdout=out, stderr=subprocess.STDOUT,
-                ).returncode
+            launch_remote(host, crate)
+            print("remote half launched", flush=True)
         except (OSError, subprocess.CalledProcessError, TypeError) as error:
             # Re-raised in the main thread once the local half is done.
             remote["error"] = error
-        remote["seconds"] = time.monotonic() - start
 
     thread = threading.Thread(target=remote_half)
     thread.start()
@@ -200,13 +286,13 @@ def run_split(
             "the remote half failed before running; the local half covered shard 0/2 "
             "only (rerun, or unset STUDIO_MUTANTS_REMOTE for a local run)"
         ) from remote["error"]
-    return (
-        local.returncode, remote["code"], Path(log.name),
-        local_seconds, remote["seconds"],
-    )
+    remote_code, remote_seconds = wait_remote(host)
+    return local.returncode, remote_code, local_seconds, remote_seconds
 
 
-def fetch_remote(host: str, log_path: Path) -> None:
+def fetch_remote(host: str) -> None:
+    """Copies the remote half's `mutants.out` and console log into
+    `mutants.out/remote/`, then marks the run collected."""
     out = ROOT / "mutants.out" / "remote"
     fetched = ssh(
         host, f"tar -C {REMOTE_BASE}/tree -cf - mutants.out", capture_output=True
@@ -217,8 +303,9 @@ def fetch_remote(host: str, log_path: Path) -> None:
             tar.extractall(out, filter="data")
     else:
         print("warning: remote produced no mutants.out", file=sys.stderr)
-    (out / "remote_console.txt").write_bytes(log_path.read_bytes())
-    log_path.unlink(missing_ok=True)
+    log = ssh(host, f"cat {REMOTE_RUN}/log 2>/dev/null || true", capture_output=True, check=True)
+    (out / "remote_console.txt").write_bytes(log.stdout)
+    ssh(host, f"touch {REMOTE_RUN}/collected", check=True)
 
 
 def count_lines(path: Path) -> int:
@@ -226,7 +313,8 @@ def count_lines(path: Path) -> int:
 
 
 def summarize(
-    local_code: int, remote_code: int, log_path: Path, seconds: tuple[float, float]
+    local_code: int, remote_code: int, log_path: Path,
+    seconds: tuple[float | None, float | None],
 ) -> int:
     local = ROOT / "mutants.out"
     remote = local / "remote" / "mutants.out"
@@ -237,9 +325,10 @@ def summarize(
         counts = {name: count_lines(base / f"{name}.txt") for name in names}
         for name in names:
             totals[name] += counts[name]
+        elapsed_text = "-" if elapsed is None else f"{elapsed:.0f}"
         print(
             f"{label:8}{counts['caught']:>7}{counts['missed']:>7}"
-            f"{counts['timeout']:>8}{counts['unviable']:>9}{elapsed:>9.0f}"
+            f"{counts['timeout']:>8}{counts['unviable']:>9}{elapsed_text:>9}"
         )
     print(
         f"{'total':8}{totals['caught']:>7}{totals['missed']:>7}"
@@ -258,13 +347,80 @@ def summarize(
     return max(local_code, remote_code)
 
 
+def collect(host: str) -> int:
+    """`just mutants-collect`: waits for a remote half this script launched but
+    did not fetch (it was stopped, or gave up polling), fetches it and prints the
+    summary against whatever local `mutants.out` holds. A died half's partial
+    results are fetched too, and the run exits 1."""
+    state = remote_run_state(host)
+    if state is None:
+        print(f"cannot reach {host}")
+        return 1
+    if state == "none":
+        print("no uncollected remote half")
+        return 1
+    if state == "died":
+        print("the remote half died before it finished; fetching its partial results")
+        remote_code, remote_seconds = 1, None
+    else:
+        remote_code, remote_seconds = wait_remote(host)
+    fetch_remote(host)
+    return summarize(
+        0, remote_code,
+        ROOT / "mutants.out" / "remote" / "remote_console.txt",
+        (None, remote_seconds),
+    )
+
+
+def remote_host() -> str | None:
+    """`STUDIO_MUTANTS_REMOTE` from the process, else (Windows) from the user's
+    registry environment. A process started before the variable was set, such as
+    an IDE's or an agent's shell, does not see it, and at 2.20i that silently
+    turned a split run into a full local one. An empty value in the process
+    opts out."""
+    host = os.environ.get("STUDIO_MUTANTS_REMOTE")
+    if host is None and os.name == "nt":
+        import winreg
+
+        try:
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, "Environment") as key:
+                host = winreg.QueryValueEx(key, "STUDIO_MUTANTS_REMOTE")[0]
+        except OSError:
+            host = None
+    return host or None
+
+
 def main(argv: list[str]) -> int:
+    host = remote_host()
+    if argv[1] == "--collect":
+        if host is None:
+            print("STUDIO_MUTANTS_REMOTE is not set")
+            return 1
+        return collect(host)
     crate = argv[1]
-    host = os.environ.get("STUDIO_MUTANTS_REMOTE") or None
     if host is None:
+        print("STUDIO_MUTANTS_REMOTE is not set: running every mutant on this machine", flush=True)
         return subprocess.run(
             ["cargo", "mutants", "-p", crate, "--jobs", "2"], cwd=ROOT
         ).returncode
+
+    print(f"splitting the run with {host}", flush=True)
+    # The remote must be free before the transfer rewrites its tree.
+    state = remote_run_state(host)
+    if state is None:
+        print(f"cannot reach {host}")
+        return 1
+    if state != "none":
+        status = {
+            "running": "is still running",
+            "finished": "has finished but is not collected",
+            "died": "stopped before it finished",
+        }[state]
+        print(
+            f"the remote half of an earlier run {status}: `just mutants-collect` "
+            "fetches it, then start the new run"
+        )
+        return 1
 
     # The snapshot and the one-call probe come first (a few seconds), so a
     # version mismatch stops before the local half starts.
@@ -279,10 +435,10 @@ def main(argv: list[str]) -> int:
         )
         return 1
 
-    local_code, remote_code, log, local_seconds, remote_seconds = run_split(
+    local_code, remote_code, local_seconds, remote_seconds = run_split(
         crate, host, tree, remote_head, remote_tree, nproc
     )
-    fetch_remote(host, log)
+    fetch_remote(host)
     return summarize(
         local_code, remote_code,
         ROOT / "mutants.out" / "remote" / "remote_console.txt",
