@@ -13,7 +13,8 @@ is in `AGENTS.md` ("Working documents").
 2.6 `fmdl` (format, model, ops, check), 2.7 `pes_model` (format, mtl, model, ops, check), 2.8 `uniparam`, 2.9 `fox2`, 2.10 `archives`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`, 2.14 `color_tools`, 2.15 `elevation`. Review
 rounds A and B (2026-09-13) closed: 2.5c, 2.12b, 2.13b done.
 **In progress:** 2.17 `pes_savefile`, 2.18 `python_bindings`, 2.19 Phase verification done; 2.20
-Converge in progress (a-h done; next 2.17i, then 2.20i `pes_savefile`). Review round C (2026-09-19) closed as
+Converge in progress (a-h done, 2.17i done; 2.20i `pes_savefile` started: census triaged,
+three text-field classes to decide, whole-crate mutation run to redo). Review round C (2026-09-19) closed as
 2.19a; its leftovers are listed under 2.20. 2.5b (GPU BC7) deferred to Phase 4 (user decision
 2026-09-21). Release target (2026-09-28): 0.1.0 after Phase 8; phase order 1–6, 8, 0.1.0, 7,
 9–16 (`core/development_plan.md` "Releases").
@@ -689,9 +690,28 @@ Spec: `docs/plans/core/development_plan.md` "Phase 2", `docs/plans/libs/README.m
     PES 15 routine into pesXdecrypter. The seed-byte LCG `(c * 21 + 7) % 32768`, key `c % 255`,
     restarted per chunk, with the 4-byte chunk lengths left clear, is what
     `pes_savefile::container::pes15` already does. Nothing to add
-  - Remaining 2.20 order after this: 2.17i, then `pes_savefile` (a savefile census over every
-    `EDIT*`/texport on the machine first; lead audit whole, reviewer on non-interchange
-    modules only);
+  - [~] 2.20i `pes_savefile`. The **savefile census** (`.tmp/save_census/`: every
+    `EDIT` + 8 digits file on the machine, 228 distinct) decrypts, decodes, re-encodes and
+    compares each decrypted payload byte for byte. 186 files round-trip exactly (PES 16-21).
+    32 archives and shortcuts are correctly refused. There are no PES 15 saves on the machine.
+    The triage traced three failing classes (not yet fixed):
+    - (1) 6 PES 16 saves, the maintainer's own among them: a `ShirtName` fills all 16 bytes
+      with no NUL (`MEAT ON THE BONE`). Read accepts it; write refuses it (`len < field`).
+    - (2) 3 PES 17 saves: a UTF-8 `Name` exactly 46 bytes long, the same asymmetry.
+    - (3) 1 PES 17 save: a `Name` with a CP1252 byte `0xA3` ('£'), refused on read as
+      not UTF-8. 4ccEditor truncates (1-2) and mangles (3).
+    Proposed and not yet decided: (1)-(2) the writer accepts a full field and omits the NUL
+    when it is exactly full, so the round trip is lossless. (3) stays a refusal unless the
+    maintainer wants a relaxed read. The whole-crate mutation run was stopped at about 87
+    minutes on the maintainer's request. The partial local shard (385 of 805 mutants) left 20
+    survivors, all reading as missing tests (discovery's account-folder filter,
+    `section_records` bounds, the `*_mut` accessors, `fresh_salt`, `codec/team.rs` index
+    math, container boundary checks). Rerun it whole next session. Round C input (c) is ruled
+    no change: discovery returning an empty list for both "no Documents" and "no saves" feeds
+    only the Open menu's shortcut entries, where both mean "no entries". Next: decide (1)-(3),
+    brief the fixes, rerun the whole crate, lead audit, reviewer on the non-interchange
+    modules.
+  - Remaining 2.20 order after this:
     `python_bindings`; then 2.21.
   Known inputs from round C: (a) whole-crate mutation runs left survivors to triage in cpk (28),
   ftex (80), dds_convert (30): table-variant arms, boundary comparisons, `write_cell` and
@@ -1044,3 +1064,8 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   one failure in six (weights, split groups, bone order, flags, our own empty containers),
   each traced by measurement before a rule was written. Reviewer rounds 7/3. Next: 2.17i, then
   2.20i `pes_savefile`, opening with a savefile census.
+- **2026-09-28** - 2.17i done. 2.20i started: the savefile census found three text-field
+  classes that read but do not round-trip (full-length names with no NUL on PES 16/17, and a
+  CP1252 byte in a PES 17 name). The session was stopped on the maintainer's request during
+  the whole-crate mutation run (partial results in the 2.20i step). Next: decide the text
+  rules, fix, rerun `just mutants pes_savefile`.
