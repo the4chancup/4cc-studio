@@ -85,7 +85,7 @@ pub fn write_player(
             PlayerText::Name => player.name.as_bytes().to_vec(),
             PlayerText::ShirtName => single_byte(&player.shirt_name, "ShirtName")?,
         };
-        if bytes.len() >= spec.len as usize {
+        if bytes.len() > spec.len as usize {
             return Err(CodecError::Text {
                 text: format!("{:?}", spec.text),
                 reason: "the text does not fit its field",

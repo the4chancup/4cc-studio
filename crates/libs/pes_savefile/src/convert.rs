@@ -115,11 +115,8 @@ pub fn convert_player(
         // `Name` is UTF-8 (cut at a byte boundary); `ShirtName` is single-byte
         // text on disk, one char per stored byte (cut at a char count).
         let value = match spec.text {
-            PlayerText::Name => cut(original, spec.len as usize - 1),
-            PlayerText::ShirtName => original
-                .chars()
-                .take(spec.len as usize - 1)
-                .collect::<String>(),
+            PlayerText::Name => cut(original, spec.len as usize),
+            PlayerText::ShirtName => original.chars().take(spec.len as usize).collect::<String>(),
         };
         if value != *original {
             notes.push(ConvertNote::TextTruncated { text: spec.text });
@@ -702,13 +699,31 @@ mod tests {
     }
 
     #[test]
+    fn a_full_field_name_carries_whole_with_no_note() {
+        // PES 17 and 18 name fields are both 46 bytes: a name that fills its
+        // field (the census's no-NUL shape) converts untouched.
+        let mut source = first(V::Pes17);
+        source.name = "a".repeat(46);
+        let mut target = first(V::Pes18);
+        let notes = convert_player(&source, V::Pes17, &mut target, V::Pes18).expect("converts");
+        assert_eq!(target.name, source.name);
+        assert!(
+            !notes
+                .iter()
+                .any(|note| matches!(note, N::TextTruncated { .. })),
+            "{notes:?}"
+        );
+        writes_ok(V::Pes18, &target);
+    }
+
+    #[test]
     fn text_cuts_at_the_target_length_on_a_char_boundary() {
         let mut source = first(V::Pes19);
         source.name = "A".repeat(60);
         source.shirt_name = String::from("SHORT");
         let mut target = first(V::Pes16);
         let notes = convert_player(&source, V::Pes19, &mut target, V::Pes16).expect("converts");
-        assert_eq!(target.name.len(), 45);
+        assert_eq!(target.name.len(), 46);
         assert_eq!(
             notes
                 .iter()
@@ -720,7 +735,7 @@ mod tests {
         );
         writes_ok(V::Pes16, &target);
 
-        // Byte 45 lands inside the 3-byte '€': the cut backs off to 44.
+        // The cut at byte 46 lands inside the 3-byte '€': it backs off to 44.
         source.name = format!("{}€{}", "a".repeat(44), "b".repeat(10));
         let mut target = first(V::Pes16);
         convert_player(&source, V::Pes19, &mut target, V::Pes16).expect("converts");
@@ -744,10 +759,10 @@ mod tests {
             }
         )));
 
-        source.shirt_name = "é".repeat(16);
+        source.shirt_name = "é".repeat(17);
         let mut target = first(V::Pes16);
         let notes = convert_player(&source, V::Pes16, &mut target, V::Pes16).expect("converts");
-        assert_eq!(target.shirt_name, "é".repeat(15));
+        assert_eq!(target.shirt_name, "é".repeat(16));
         assert!(notes.contains(&N::TextTruncated {
             text: PlayerText::ShirtName,
         }));

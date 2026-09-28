@@ -160,7 +160,7 @@ pub fn write_team(
             TeamText::Name => team.name.as_bytes().to_vec(),
             TeamText::ShortName => single_byte(&team.short_name, "ShortName")?,
         };
-        if bytes.len() >= spec.len as usize {
+        if bytes.len() > spec.len as usize {
             return Err(CodecError::Text {
                 text: format!("{:?}", spec.text),
                 reason: "the text does not fit its field",

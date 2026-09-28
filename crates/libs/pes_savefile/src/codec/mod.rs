@@ -168,13 +168,16 @@ pub(crate) fn text_bytes(record: &[u8], byte_offset: u32, len: u32) -> &[u8] {
     &field[..end]
 }
 
-/// Writes `bytes` at the field's start, one NUL after them, and leaves the
-/// remaining bytes of the field untouched (real saves carry old bytes there).
-/// The caller has already checked `bytes` fits `len - 1`.
+/// Writes `bytes` at the field's start. A text shorter than the field gets one
+/// NUL after it and the remaining bytes of the field are left untouched (real
+/// saves carry old bytes there); a text that fills the field exactly is written
+/// with no NUL. The caller has already checked `bytes` fits `len`.
 pub(crate) fn write_text(record: &mut [u8], byte_offset: u32, len: u32, bytes: &[u8]) {
     let field = &mut record[byte_offset as usize..(byte_offset + len) as usize];
     field[..bytes.len()].copy_from_slice(bytes);
-    field[bytes.len()] = 0;
+    if bytes.len() < field.len() {
+        field[bytes.len()] = 0;
+    }
 }
 
 /// The single-byte encoding shared by shirt and team short names: each char is

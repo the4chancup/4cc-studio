@@ -61,13 +61,14 @@ pub struct ArraySpec<F> {
     pub bit_width: u32,
 }
 
-/// A NUL-terminated byte string field.
+/// A byte string field: NUL-terminated when the text is shorter than the field, unterminated
+/// when it fills the field exactly.
 pub struct TextSpec<T> {
     /// The model text the bytes decode to.
     pub text: T,
     /// Byte offset from the record's first byte.
     pub byte_offset: u32,
-    /// Byte length of the whole field, terminator included.
+    /// Byte length of the whole field.
     pub len: u32,
 }
 
