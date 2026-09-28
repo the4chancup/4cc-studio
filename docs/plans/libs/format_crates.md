@@ -298,8 +298,9 @@ bounds. Its `write` lays a fresh file out the add-on's way (section order, 4-pad
 alignment gaps, the version-19 record sizes) and always writes version 19 in the header: that
 word with that layout is the one combination years of add-on-written models prove PES 16 and 17
 accept, and a version-17 word over version-19 record sizes has never been seen by a game. So a
-version-17 file rewritten becomes a version-19 file, and `read(write(m)) == m` holds on every
-fixture once `version` is set to 19; otherwise the layer is semantically lossless, not
+version-17 file rewritten becomes a version-19 file, with the version-19 layout throughout (a
+geometry without an order word gets order 0, so three extras), and `read(write(m)) == m` holds
+on every fixture once `version` is set to 19 and a missing order word to 0; otherwise the layer is semantically lossless, not
 byte-identical, because reproducing Konami's padding would mean carrying every offset. Everything Konami writes and the add-on drops is kept: annotation types 1, 2, 7 and 10
 with their section-3 records, LOD tables and the LOD record. Sections 8, 9 and 10 are written
 empty; a model whose geometry or meshes reference them (cloth, material combinations, locators,
@@ -412,7 +413,10 @@ pub enum MergeError {
   names is kept (Konami shares one `.mtl` between models); a model naming a material its `.mtl`
   lacks is `check_bundle`'s finding, not the merge's. The merged `.mtl` takes the first part's
   `MtlStyle`.
-- **Meshes** concatenated in part order with only `material` and `bone_group` rewritten.
+- **Meshes** concatenated in part order with only `material` and `bone_group` rewritten, and
+  split components renumbered: each part numbers its `Split-Mesh` groups from 1, so the merge
+  renumbers them in output order from 1 across all parts (a part's components keep their
+  grouping, and two parts' groups never meet in `split::decode`).
 - **Model level**: `extension_headers` unioned, deduplicated, first-seen order; `flags` must
   agree; `bounds` is the union of the parts' boxes; `lod` is `LodRecord::for_levels(n)` with `n`
   the most levels any mesh carries (`1 + lower_lods.len()`, 0 without lower levels), which

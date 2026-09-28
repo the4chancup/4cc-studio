@@ -394,10 +394,13 @@ fn decode_errors() {
         .push("Split-Mesh: 1".to_owned());
     second.extension_headers.push("Split-Mesh: 1".to_owned());
     model.meshes.push(second);
+    let before = model.clone();
     assert!(matches!(
         decode(&mut model),
         Err(ModelError::InvalidModel(_))
     ));
+    // A failed decode leaves the model as it was.
+    assert_eq!(model, before);
 
     // A component with a face index past its vertices.
     let mut model = grid_model(grid(4, 4, 0), 0);

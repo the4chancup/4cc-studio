@@ -84,6 +84,10 @@ pub fn merge(parts: &[(&Model, &MaterialSet)]) -> Result<(Model, MaterialSet), M
     let mut material_of: HashMap<&str, usize> = HashMap::new();
     let mut mtl_material_of: HashMap<&str, usize> = HashMap::new();
     let mut level_count = 0usize;
+    // Split-group renumbering: each part numbers its `Split-Mesh` groups
+    // from 1, so merged parts renumber to keep group identity per part
+    // and no collisions across parts.
+    let mut next_group = 1usize;
 
     for &(part, part_set) in parts {
         part.validate()?;
@@ -142,11 +146,22 @@ pub fn merge(parts: &[(&Model, &MaterialSet)]) -> Result<(Model, MaterialSet), M
             }
         }
 
+        let mut split_groups: HashMap<String, usize> = HashMap::new();
         for mesh in &part.meshes {
             let mut mesh = mesh.clone();
             mesh.material = material_remap[mesh.material];
             for slot in &mut mesh.bone_group {
                 *slot = bone_remap[*slot];
+            }
+            for header in &mut mesh.extension_headers {
+                if let Some(value) = crate::ops::split::split_group_key(header) {
+                    let number = *split_groups.entry(value).or_insert_with(|| {
+                        let number = next_group;
+                        next_group += 1;
+                        number
+                    });
+                    *header = format!("{}: {number}", crate::ops::split::SPLIT_MESH_HEADER);
+                }
             }
             if !mesh.lower_lods.is_empty() {
                 level_count = level_count.max(1 + mesh.lower_lods.len());
@@ -177,8 +192,8 @@ pub fn merge(parts: &[(&Model, &MaterialSet)]) -> Result<(Model, MaterialSet), M
 mod tests {
     use super::*;
     use crate::format::fixtures::*;
-    use crate::format::mtl::MaterialSet;
-    use crate::format::{LodRecord, PreFoxModel};
+    use crate::format::mtl::{MaterialSet, MtlStyle};
+    use crate::format::{LodRecord, MeshVertices, PreFoxModel};
     use crate::model::Model;
 
     fn model(bytes: &[u8]) -> Model {
@@ -187,6 +202,63 @@ mod tests {
 
     fn set(bytes: &[u8]) -> MaterialSet {
         MaterialSet::read(bytes).unwrap()
+    }
+
+    // A model whose single mesh is over the hard bone limit: each face is
+    // weighted to its own bone. `shift` separates two parts' geometry.
+    fn over_limit_model(shift: f32) -> Model {
+        const BONES: usize = 65;
+        let mut positions = Vec::new();
+        let mut faces = Vec::new();
+        let mut indices = Vec::new();
+        for bone in 0..BONES {
+            for corner in 0..3 {
+                positions.push([shift + bone as f32, corner as f32, 0.0]);
+                indices.push([bone as u8, 0, 0, 0]);
+            }
+            faces.push([
+                (3 * bone) as u16,
+                (3 * bone) as u16 + 1,
+                (3 * bone) as u16 + 2,
+            ]);
+        }
+        let mesh = crate::model::Mesh {
+            name: None,
+            extension_headers: Vec::new(),
+            tags: Vec::new(),
+            vertices: MeshVertices {
+                positions,
+                normals: Some(vec![[0.0, 0.0, 1.0]; 3 * BONES]),
+                tangents: None,
+                bitangents: None,
+                colors: None,
+                uvs: vec![vec![[0.0, 0.0]; 3 * BONES]],
+                bone_indices: Some(indices),
+                bone_weights: Some(vec![[1.0, 0.0, 0.0, 0.0]; 3 * BONES]),
+                bone_weight_width: 4,
+            },
+            faces,
+            lower_lods: Vec::new(),
+            bone_group: (0..BONES).collect(),
+            material: 0,
+            bounds: crate::format::BoundingBox::of(&[]),
+            order: 0,
+            editor_data: Vec::new(),
+        };
+        Model {
+            flags: 0,
+            bones: (0..BONES)
+                .map(|index| crate::format::Bone {
+                    name: format!("b{index}"),
+                    matrix: [0.0; 12],
+                })
+                .collect(),
+            materials: vec!["material".to_owned()],
+            meshes: vec![mesh],
+            extension_headers: Vec::new(),
+            bounds: crate::format::BoundingBox::of(&[]),
+            lod: LodRecord::for_levels(0),
+        }
     }
 
     #[test]
@@ -359,6 +431,34 @@ mod tests {
         // Just under it is the same bone.
         b[0] = BONE_MATRIX_TOLERANCE * 0.99;
         assert!(same_matrix(&a, &b));
+    }
+
+    // Independently encoded parts all number their groups from 1: the
+    // merge must renumber them, or `split::decode` welds different parts'
+    // components into one mesh.
+    #[test]
+    fn split_groups_are_renumbered_across_parts() {
+        let mut part_a = over_limit_model(0.0);
+        let mut part_b = over_limit_model(1000.0);
+        let parents: Vec<Option<usize>> = vec![None; 65];
+        crate::ops::split::encode(&mut part_a, &parents).unwrap();
+        crate::ops::split::encode(&mut part_b, &parents).unwrap();
+        assert!(part_a.meshes.len() > 1 && part_b.meshes.len() > 1);
+
+        let set = MaterialSet {
+            materials: Vec::new(),
+            style: MtlStyle::default(),
+        };
+        let (mut merged, _) = merge(&[(&part_a, &set), (&part_b, &set)]).unwrap();
+        crate::ops::split::decode(&mut merged).unwrap();
+
+        let mut solo_a = part_a.clone();
+        crate::ops::split::decode(&mut solo_a).unwrap();
+        let mut solo_b = part_b.clone();
+        crate::ops::split::decode(&mut solo_b).unwrap();
+        assert_eq!(merged.meshes.len(), 2);
+        assert_eq!(merged.meshes[0], solo_a.meshes[0]);
+        assert_eq!(merged.meshes[1], solo_b.meshes[0]);
     }
 
     #[test]
