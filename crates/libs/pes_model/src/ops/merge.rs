@@ -350,6 +350,18 @@ mod tests {
     }
 
     #[test]
+    fn same_matrix_tolerance_is_exclusive() {
+        let a = [0.0f32; 12];
+        let mut b = a;
+        // A component exactly at the tolerance is a different bone.
+        b[0] = BONE_MATRIX_TOLERANCE;
+        assert!(!same_matrix(&a, &b));
+        // Just under it is the same bone.
+        b[0] = BONE_MATRIX_TOLERANCE * 0.99;
+        assert!(same_matrix(&a, &b));
+    }
+
+    #[test]
     fn parts_are_validated() {
         // A part's own invariants are checked before its indices reach
         // the remap vectors: a face index out of range is an error, not

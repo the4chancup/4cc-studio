@@ -1,7 +1,7 @@
 //! Component construction: equipresent sets, per-bone storable items, the
 //! base-bone heuristic, the principal-axis sort, and the fragment builder.
 
-use std::collections::{BTreeSet, HashMap, HashSet, VecDeque};
+use std::collections::{BTreeSet, HashMap, HashSet};
 
 use crate::format::{Bone, BoundingBox, ModelError};
 use crate::model::{Mesh, Model};
@@ -10,13 +10,20 @@ use super::{
     BONE_LIMIT_SOFT, BoneMapping, FACE_LIMIT_SOFT, PREFERRED_BASE_BONES, StorableItems,
     VERTEX_LIMIT_SOFT, bone_mapping, empty_like, push_vertex,
 };
-use crate::ops::vertex_enc::topological_key;
-
-/// Vertex `index`'s split key: the stored bytes of position, weights and
-/// bone indices (all vertices of one mesh share the bone group, so group
-/// slot numbers compare correctly here).
-fn split_key(mesh: &Mesh, index: usize) -> Vec<u8> {
-    topological_key(&mesh.vertices, index)
+/// Vertex `index`'s split key: the stored bytes of its position followed
+/// by its `(model bone, weight)` pairs — the identity `combine` matches
+/// on, so a zero-weight lane's raw index never splits coincident
+/// vertices.
+fn split_key(mesh: &Mesh, index: usize, mapping: &BoneMapping) -> Vec<u8> {
+    let mut key = Vec::new();
+    for component in mesh.vertices.positions[index] {
+        key.extend(component.to_le_bytes());
+    }
+    for &(bone, weight) in mapping {
+        key.extend(bone.to_le_bytes());
+        key.extend(weight.to_le_bytes());
+    }
+    key
 }
 
 /// The static data of one mesh being split: faces as vertex indices, the
@@ -58,39 +65,26 @@ fn fits_in_submesh(items: &StorableItems, pieces: &Pieces) -> bool {
     true
 }
 
-/// A bone under which storable items remain: preferred names first, then
-/// every bone; a bone with nothing left under it hands over to its parent.
-/// `None` is the whole-mesh root.
+/// A bone under which storable items remain: the first preferred name that
+/// has any, else the lowest-index bone that has any. `None` when no bone
+/// has items left (the whole-mesh root takes over).
 fn select_base_bone(
     model: &Model,
-    parents: &[Option<usize>],
     items_per_bone: &HashMap<Option<usize>, StorableItems>,
 ) -> Option<usize> {
-    let mut queue: VecDeque<usize> = VecDeque::new();
-    for name in PREFERRED_BASE_BONES {
-        if let Some(index) = model.bones.iter().position(|bone| bone.name == name) {
-            queue.push_back(index);
-        }
-    }
-    queue.extend(0..model.bones.len());
-
-    let mut tried = HashSet::new();
-    while let Some(bone) = queue.pop_front() {
-        if !tried.insert(bone) {
-            continue;
-        }
-        let empty = items_per_bone
+    let has_items = |bone: usize| {
+        items_per_bone
             .get(&Some(bone))
-            .is_none_or(|items| items.faces.is_empty() && items.loose.is_empty());
-        if empty {
-            if let Some(parent) = parents[bone] {
-                queue.push_back(parent);
-            }
-            continue;
+            .is_some_and(|items| !items.faces.is_empty() || !items.loose.is_empty())
+    };
+    for name in PREFERRED_BASE_BONES {
+        if let Some(index) = model.bones.iter().position(|bone| bone.name == name)
+            && has_items(index)
+        {
+            return Some(index);
         }
-        return Some(bone);
     }
-    None
+    (0..model.bones.len()).find(|&bone| has_items(bone))
 }
 
 /// The bone's world position, recovered from its inverse bind matrix:
@@ -107,7 +101,8 @@ fn bone_position(bone: &Bone) -> [f32; 3] {
 
 /// The first principal axis of the vertex cloud in `items`, oriented from
 /// `bone_position` toward the cloud's centre. Power iteration on the 3x3
-/// covariance matrix, eight iterations.
+/// covariance matrix, eight iterations from each basis vector, keeping the
+/// result with the largest Rayleigh quotient.
 fn sort_vector(points: &[[f32; 3]], bone_position: [f32; 3]) -> [f32; 3] {
     let count = points.len() as f32;
     let mut mean = [0.0f32; 3];
@@ -118,44 +113,65 @@ fn sort_vector(points: &[[f32; 3]], bone_position: [f32; 3]) -> [f32; 3] {
     }
     let mut covariance = [[0.0f32; 3]; 3];
     for point in points {
+        let d = [point[0] - mean[0], point[1] - mean[1], point[2] - mean[2]];
         for a in 0..3 {
             for b in 0..3 {
-                covariance[a][b] += (point[a] - mean[a]) * (point[b] - mean[b]);
+                covariance[a][b] += d[a] * d[b];
             }
         }
     }
-    // Start from the axis of largest variance so a degenerate cloud still
-    // gives a deterministic vector.
-    let diagonal = [covariance[0][0], covariance[1][1], covariance[2][2]];
-    let mut vector = [0.0f32; 3];
-    vector[if diagonal[1] > diagonal[0] {
-        if diagonal[2] > diagonal[1] { 2 } else { 1 }
-    } else if diagonal[2] > diagonal[0] {
-        2
-    } else {
-        0
-    }] = 1.0;
-    for _ in 0..8 {
-        let mut next = [0.0f32; 3];
-        for a in 0..3 {
-            for b in 0..3 {
-                next[a] += covariance[a][b] * vector[b];
-            }
+    // Power-iterate from each basis vector in turn — a single seed can sit
+    // on a non-principal eigenvector — and keep the result with the
+    // largest Rayleigh quotient v . (C v) (strictly larger replaces, so a
+    // tie keeps the earlier start; a degenerate cloud keeps x).
+    let mut vector = [1.0f32, 0.0, 0.0];
+    let mut best = f32::NEG_INFINITY;
+    for start in [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]] {
+        let mut candidate = start;
+        for _ in 0..8 {
+            let next = multiply(&covariance, candidate);
+            // A start in the covariance's null space normalizes to NaN;
+            // its Rayleigh quotient never beats `best`.
+            let norm = (next[0] * next[0] + next[1] * next[1] + next[2] * next[2]).sqrt();
+            candidate = [next[0] / norm, next[1] / norm, next[2] / norm];
         }
-        let norm = (next[0] * next[0] + next[1] * next[1] + next[2] * next[2]).sqrt();
-        if norm > 0.0 {
-            vector = [next[0] / norm, next[1] / norm, next[2] / norm];
+        let product = multiply(&covariance, candidate);
+        let quotient = dot(candidate, product);
+        if quotient > best {
+            best = quotient;
+            vector = candidate;
         }
     }
-    let mut dot = 0.0f32;
-    for axis in 0..3 {
-        dot += (mean[axis] - bone_position[axis]) * vector[axis];
-    }
-    if dot < 0.0 {
+    let towards = dot(
+        [
+            mean[0] - bone_position[0],
+            mean[1] - bone_position[1],
+            mean[2] - bone_position[2],
+        ],
+        vector,
+    );
+    if towards < 0.0 {
         [-vector[0], -vector[1], -vector[2]]
     } else {
         vector
     }
+}
+
+/// `matrix` times `vector`: one power-iteration step of `sort_vector`.
+fn multiply(matrix: &[[f32; 3]; 3], vector: [f32; 3]) -> [f32; 3] {
+    let mut next = [0.0f32; 3];
+    for a in 0..3 {
+        for b in 0..3 {
+            next[a] += matrix[a][b] * vector[b];
+        }
+    }
+    next
+}
+
+/// The dot product: a vertex's projection on the sort axis, and the
+/// Rayleigh quotient in `sort_vector`.
+fn dot(a: [f32; 3], b: [f32; 3]) -> f32 {
+    a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
 }
 
 /// Splits off one component from `items_per_bone`; returns it together with
@@ -174,7 +190,7 @@ fn build_component(
     let skinned = pieces.skinned;
 
     let base_bone = if skinned {
-        select_base_bone(model, parents, items_per_bone)
+        select_base_bone(model, items_per_bone)
     } else {
         None
     };
@@ -214,23 +230,25 @@ fn build_component(
         // A fragment: faces in decreasing order of their best projection on
         // the sort vector, added while the soft limits hold.
         let storable = &items_per_bone[&base_bone];
+        // Faces by index, then loose sets by index: the f32 accumulation
+        // in `sort_vector` must not depend on HashSet iteration order.
+        let mut faces: Vec<usize> = storable.faces.iter().copied().collect();
+        faces.sort_unstable();
+        let mut loose: Vec<usize> = storable.loose.iter().copied().collect();
+        loose.sort_unstable();
         let mut points = Vec::new();
-        for &face in &storable.faces {
+        for &face in &faces {
             for &vertex in &face_vertices[face] {
                 points.push(mesh.vertices.positions[vertex]);
             }
         }
-        for &set in &storable.loose {
+        for &set in &loose {
             points.push(mesh.vertices.positions[sets[set][0]]);
         }
         let bone_position = base_bone.map_or([0.0; 3], |bone| bone_position(&model.bones[bone]));
         let axis = sort_vector(&points, bone_position);
-        let score = |vertex: usize| -> f32 {
-            let position = mesh.vertices.positions[vertex];
-            position[0] * axis[0] + position[1] * axis[1] + position[2] * axis[2]
-        };
+        let score = |vertex: usize| -> f32 { dot(mesh.vertices.positions[vertex], axis) };
 
-        let mut faces: Vec<usize> = storable.faces.iter().copied().collect();
         faces.sort_by(|a, b| {
             let score_a = face_vertices[*a]
                 .iter()
@@ -242,7 +260,6 @@ fn build_component(
                 .fold(f32::MIN, f32::max);
             score_b.total_cmp(&score_a).then(a.cmp(b))
         });
-        let mut loose: Vec<usize> = storable.loose.iter().copied().collect();
         loose.sort_by(|a, b| {
             score(sets[*b][0])
                 .total_cmp(&score(sets[*a][0]))
@@ -299,10 +316,11 @@ fn build_component(
             }
         }
         // Guarantee progress: a single face bigger than the soft limits
-        // still goes out as its own component.
+        // still goes out as its own component. The minimum index keeps
+        // the pick off HashSet iteration order.
         if taken_faces.is_empty() && taken_loose.is_empty() {
             let storable = &items_per_bone[&base_bone];
-            if let Some(&face) = storable.faces.iter().next() {
+            if let Some(&face) = storable.faces.iter().min() {
                 taken_faces.insert(face);
                 for &vertex in &face_vertices[face] {
                     let set = set_of[vertex];
@@ -312,7 +330,7 @@ fn build_component(
                         }
                     }
                 }
-            } else if let Some(&set) = storable.loose.iter().next() {
+            } else if let Some(&set) = storable.loose.iter().min() {
                 taken_loose.insert(set);
                 selected_sets.insert(set);
                 for &(bone, _) in &mappings[sets[set][0]] {
@@ -395,7 +413,7 @@ pub(super) fn split_mesh(
     let mut sets: Vec<Vec<usize>> = Vec::new();
     let mut key_to_set: HashMap<Vec<u8>, usize> = HashMap::new();
     for (index, slot) in set_of.iter_mut().enumerate() {
-        let key = split_key(mesh, index);
+        let key = split_key(mesh, index, &mappings[index]);
         match key_to_set.get(&key) {
             Some(&set) => {
                 sets[set].push(index);
@@ -493,4 +511,396 @@ pub(super) fn split_mesh(
         components.push(component);
     }
     Ok(components)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::format::{LodRecord, MeshVertices};
+
+    fn bone(name: &str) -> Bone {
+        Bone {
+            name: name.to_owned(),
+            matrix: [
+                1.0, 0.0, 0.0, 0.0, //
+                0.0, 1.0, 0.0, 0.0, //
+                0.0, 0.0, 1.0, 0.0,
+            ],
+        }
+    }
+
+    fn model_with(bones: Vec<Bone>) -> Model {
+        Model {
+            flags: 0,
+            bones,
+            materials: Vec::new(),
+            meshes: Vec::new(),
+            extension_headers: Vec::new(),
+            bounds: BoundingBox::of(&[]),
+            lod: LodRecord::for_levels(0),
+        }
+    }
+
+    /// `StorableItems` holding `faces` of a mesh's face list.
+    fn items_with(faces: impl IntoIterator<Item = usize>) -> StorableItems {
+        StorableItems {
+            faces: faces.into_iter().collect(),
+            loose: HashSet::new(),
+        }
+    }
+
+    #[test]
+    fn dot_is_the_dot_product() {
+        // `2 * 4` distinguishes the product from `2 / 4`.
+        assert_eq!(dot([1.0, 2.0, 3.0], [0.5, 4.0, 2.0]), 14.5);
+    }
+
+    #[test]
+    fn multiply_is_matrix_times_vector() {
+        // Non-symmetric on purpose: a dropped/add-minus term shows.
+        let matrix = [[1.0, 2.0, 3.0], [0.0, 1.0, 4.0], [5.0, 6.0, 0.0]];
+        assert_eq!(multiply(&matrix, [1.0, 0.5, -1.0]), [-1.0, -3.5, 8.0]);
+    }
+
+    #[test]
+    fn bone_position_recovers_the_bind_translation() {
+        // Rotation about axis (1, 2, 2)/3 with cos 0.6, sin 0.8 — every
+        // entry nonzero so no product term vanishes — plus translation
+        // (2, 5, 7): the world position is -R^T * t = (-58/45, -55/9,
+        // -281/45).
+        let mut bone = bone("bone");
+        bone.matrix = [
+            29.0 / 45.0,
+            -4.0 / 9.0,
+            28.0 / 45.0,
+            2.0, //
+            28.0 / 45.0,
+            7.0 / 9.0,
+            -4.0 / 45.0,
+            5.0, //
+            -4.0 / 9.0,
+            4.0 / 9.0,
+            7.0 / 9.0,
+            7.0,
+        ];
+        let position = bone_position(&bone);
+        let expected = [-58.0f32 / 45.0, -55.0 / 9.0, -281.0 / 45.0];
+        for component in 0..3 {
+            assert!((position[component] - expected[component]).abs() < 1e-6);
+        }
+    }
+
+    #[test]
+    fn sort_vector_points_along_the_cloud() {
+        let o = [5.0, -3.0, 2.0];
+        let d = [1.0 / 3.0, 2.0 / 3.0, 2.0 / 3.0];
+        let points: Vec<[f32; 3]> = (0..10)
+            .map(|t| {
+                let t = t as f32;
+                [o[0] + t * d[0], o[1] + t * d[1], o[2] + t * d[2]]
+            })
+            .collect();
+        // Bone behind the cloud: the axis runs from the bone into it.
+        let behind = [o[0] - d[0], o[1] - d[1], o[2] - d[2]];
+        let vector = sort_vector(&points, behind);
+        let length = (vector[0] * vector[0] + vector[1] * vector[1] + vector[2] * vector[2]).sqrt();
+        assert!((length - 1.0).abs() < 1e-5);
+        for axis in 0..3 {
+            assert!((vector[axis] - d[axis]).abs() < 1e-5);
+        }
+        // Bone past the far end: the axis points back at the cloud.
+        let ahead = [o[0] + 20.0 * d[0], o[1] + 20.0 * d[1], o[2] + 20.0 * d[2]];
+        let vector = sort_vector(&points, ahead);
+        for axis in 0..3 {
+            assert!((vector[axis] + d[axis]).abs() < 1e-5);
+        }
+        // A degenerate cloud picks the first axis deterministically.
+        let same = vec![[5.0, -3.0, 2.0]; 5];
+        assert_eq!(sort_vector(&same, [0.0, 0.0, 0.0]), [1.0, 0.0, 0.0]);
+        // A cloud spread along a single axis picks that axis.
+        for axis in 0..3 {
+            let points: Vec<[f32; 3]> = (0..10)
+                .map(|t| {
+                    let mut point = [0.0; 3];
+                    point[axis] = t as f32;
+                    point
+                })
+                .collect();
+            let vector = sort_vector(&points, [-1.0, -1.0, -1.0]);
+            let mut expected = [0.0; 3];
+            expected[axis] = 1.0;
+            assert_eq!(vector, expected);
+        }
+        // An exactly representable mean of zero: the orientation dot is
+        // exactly 0 and the axis must not flip on it.
+        let points = vec![
+            [-2.0, 0.0, 0.0],
+            [-1.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [2.0, 0.0, 0.0],
+        ];
+        assert_eq!(sort_vector(&points, [0.0, 0.0, 0.0]), [1.0, 0.0, 0.0]);
+    }
+
+    #[test]
+    fn sort_vector_finds_the_principal_axis() {
+        // Covariance [[18,0,0],[0,10,10],[0,10,10]]: the principal axis is
+        // (0, 1, 1)/sqrt(2) (eigenvalue 20), not x (18) — a seed on the
+        // largest diagonal alone would sit on x.
+        let points = vec![
+            [3.0, 0.0, 0.0],
+            [-3.0, 0.0, 0.0],
+            [0.0, 2.0, 2.0],
+            [0.0, -2.0, -2.0],
+            [0.0, 1.0, 1.0],
+            [0.0, -1.0, -1.0],
+        ];
+        let vector = sort_vector(&points, [0.0, -1.0, -1.0]);
+        let s = 1.0f32 / 2.0f32.sqrt();
+        for axis in 0..3 {
+            assert!(
+                (vector[axis] - [0.0, s, s][axis]).abs() < 1e-5,
+                "{vector:?} is not (0, 1, 1)/sqrt(2)"
+            );
+        }
+    }
+
+    #[test]
+    fn sort_vector_breaks_degenerate_ties() {
+        // Equal y/z variance with no covariance: the deterministic pick
+        // is y.
+        let mut points = Vec::new();
+        for t in -5..=5 {
+            points.push([0.0, t as f32, 0.0]);
+            points.push([0.0, 0.0, t as f32]);
+        }
+        assert_eq!(sort_vector(&points, [-1.0, -1.0, -1.0]), [0.0, 1.0, 0.0]);
+
+        // Doubling the z arm makes z the principal axis.
+        let mut points = Vec::new();
+        for t in -5..=5 {
+            points.push([0.0, t as f32, 0.0]);
+            points.push([0.0, 0.0, 2.0 * t as f32]);
+        }
+        assert_eq!(sort_vector(&points, [-1.0, -1.0, -1.0]), [0.0, 0.0, 1.0]);
+
+        // An x-only cloud stays x: a far-off bone only orients the axis
+        // (a bad orientation computation flips this), and a bone at the
+        // mean — a zero dot — keeps the sign.
+        let points: Vec<[f32; 3]> = (-5..=5).map(|t| [t as f32, 0.0, 0.0]).collect();
+        assert_eq!(sort_vector(&points, [-1.0, 100.0, 100.0]), [1.0, 0.0, 0.0]);
+        assert_eq!(sort_vector(&points, [0.0, 0.0, 0.0]), [1.0, 0.0, 0.0]);
+    }
+
+    #[test]
+    fn select_base_bone_prefers_named_then_lowest() {
+        let items_at = |model: &Model, bones: &[usize]| {
+            let mut items: HashMap<Option<usize>, StorableItems> = HashMap::new();
+            items.insert(None, StorableItems::default());
+            for bone in 0..model.bones.len() {
+                items.insert(
+                    Some(bone),
+                    if bones.contains(&bone) {
+                        items_with([0])
+                    } else {
+                        StorableItems::default()
+                    },
+                );
+            }
+            items
+        };
+
+        // A preferred bone with items beats a lower-indexed one.
+        let model = model_with(vec![bone("x0"), bone("sk_foot_l"), bone("x2")]);
+        let items = items_at(&model, &[0, 1]);
+        assert_eq!(select_base_bone(&model, &items), Some(1));
+
+        // A preferred bone with no items falls back to the lowest index.
+        let items = items_at(&model, &[0]);
+        assert_eq!(select_base_bone(&model, &items), Some(0));
+
+        // A bone whose items are loose-only still counts.
+        let items = {
+            let mut items = items_at(&model, &[]);
+            items.get_mut(&Some(2)).unwrap().loose.insert(0);
+            items
+        };
+        assert_eq!(select_base_bone(&model, &items), Some(2));
+
+        // Nothing left under any bone: `None`, the whole-mesh root.
+        let items = items_at(&model, &[]);
+        assert_eq!(select_base_bone(&model, &items), None);
+    }
+
+    /// `pieces` over `count` singleton sets of one vertex each; `faces`
+    /// selects which of `face_vertices` exist.
+    fn pieces_of(
+        face_vertices: Vec<[usize; 3]>,
+        sets: Vec<Vec<usize>>,
+        mappings: Vec<BoneMapping>,
+        skinned: bool,
+    ) -> Pieces {
+        let mut set_of = vec![0usize; mappings.len()];
+        for (set, members) in sets.iter().enumerate() {
+            for &member in members {
+                set_of[member] = set;
+            }
+        }
+        Pieces {
+            face_vertices,
+            sets,
+            set_of,
+            mappings,
+            skinned,
+        }
+    }
+
+    #[test]
+    fn fits_in_submesh_at_and_past_each_soft_limit() {
+        // Faces: exactly the soft limit fits, one more does not.
+        let pieces = pieces_of(
+            vec![[0, 1, 2]; FACE_LIMIT_SOFT + 1],
+            vec![vec![0], vec![1], vec![2]],
+            vec![Vec::new(); 3],
+            false,
+        );
+        assert!(fits_in_submesh(&items_with(0..FACE_LIMIT_SOFT), &pieces));
+        assert!(!fits_in_submesh(
+            &items_with(0..FACE_LIMIT_SOFT + 1),
+            &pieces
+        ));
+
+        // Vertices: a loose set of exactly the soft limit fits, one
+        // member more does not.
+        let pieces = pieces_of(
+            vec![],
+            vec![(0..VERTEX_LIMIT_SOFT).collect()],
+            vec![Vec::new(); VERTEX_LIMIT_SOFT],
+            false,
+        );
+        let loose = StorableItems {
+            faces: HashSet::new(),
+            loose: [0].into_iter().collect(),
+        };
+        assert!(fits_in_submesh(&loose, &pieces));
+        let pieces = pieces_of(
+            vec![],
+            vec![(0..VERTEX_LIMIT_SOFT + 1).collect()],
+            vec![Vec::new(); VERTEX_LIMIT_SOFT + 1],
+            false,
+        );
+        assert!(!fits_in_submesh(&loose, &pieces));
+
+        // Bones: singleton sets mapped to BONE_LIMIT_SOFT bones fit, one
+        // bone more does not.
+        let mappings: Vec<BoneMapping> = (0..BONE_LIMIT_SOFT + 1)
+            .map(|bone| vec![(bone, 1.0)])
+            .collect();
+        let pieces = pieces_of(
+            vec![],
+            (0..BONE_LIMIT_SOFT + 1).map(|i| vec![i]).collect(),
+            mappings,
+            true,
+        );
+        let loose = StorableItems {
+            faces: HashSet::new(),
+            loose: (0..BONE_LIMIT_SOFT).collect(),
+        };
+        assert!(fits_in_submesh(&loose, &pieces));
+        let loose = StorableItems {
+            faces: HashSet::new(),
+            loose: (0..BONE_LIMIT_SOFT + 1).collect(),
+        };
+        assert!(!fits_in_submesh(&loose, &pieces));
+    }
+
+    fn mesh_of(count: usize) -> Mesh {
+        Mesh {
+            name: None,
+            extension_headers: Vec::new(),
+            tags: Vec::new(),
+            vertices: MeshVertices {
+                positions: vec![[0.0; 3]; count],
+                normals: None,
+                tangents: None,
+                bitangents: None,
+                colors: None,
+                uvs: vec![vec![[0.0; 2]; count]],
+                bone_indices: None,
+                bone_weights: None,
+                bone_weight_width: 4,
+            },
+            faces: Vec::new(),
+            lower_lods: Vec::new(),
+            bone_group: Vec::new(),
+            material: 0,
+            bounds: BoundingBox::of(&[]),
+            order: 0,
+            editor_data: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn build_component_takes_faces_to_the_soft_limit() {
+        // FACE_LIMIT_SOFT + 2 faces of three singleton sets each: the
+        // fragment takes exactly FACE_LIMIT_SOFT.
+        let count = (FACE_LIMIT_SOFT + 2) * 3;
+        let sets: Vec<Vec<usize>> = (0..FACE_LIMIT_SOFT + 2)
+            .map(|face| (0..3).map(|vertex| face * 3 + vertex).collect())
+            .collect();
+        let face_vertices: Vec<[usize; 3]> =
+            sets.iter().map(|set| [set[0], set[1], set[2]]).collect();
+        let pieces = pieces_of(face_vertices, sets, vec![Vec::new(); count], false);
+        let mesh = mesh_of(count);
+        let mut items: HashMap<Option<usize>, StorableItems> = HashMap::new();
+        items.insert(None, items_with(0..FACE_LIMIT_SOFT + 2));
+        let model = model_with(vec![]);
+        let (component, taken) = build_component(&model, &mesh, &[], &items, &pieces).unwrap();
+        assert_eq!(taken.faces.len(), FACE_LIMIT_SOFT);
+        assert_eq!(component.faces.len(), FACE_LIMIT_SOFT);
+    }
+
+    #[test]
+    fn build_component_takes_loose_sets_to_the_soft_limit() {
+        let sets: Vec<Vec<usize>> = (0..VERTEX_LIMIT_SOFT + 2).map(|i| vec![i]).collect();
+        let pieces = pieces_of(vec![], sets, vec![Vec::new(); VERTEX_LIMIT_SOFT + 2], false);
+        let mesh = mesh_of(VERTEX_LIMIT_SOFT + 2);
+        let mut items: HashMap<Option<usize>, StorableItems> = HashMap::new();
+        items.insert(
+            None,
+            StorableItems {
+                faces: HashSet::new(),
+                loose: (0..VERTEX_LIMIT_SOFT + 2).collect(),
+            },
+        );
+        let model = model_with(vec![]);
+        let (component, taken) = build_component(&model, &mesh, &[], &items, &pieces).unwrap();
+        assert_eq!(taken.loose.len(), VERTEX_LIMIT_SOFT);
+        assert_eq!(component.vertices.positions.len(), VERTEX_LIMIT_SOFT);
+    }
+
+    #[test]
+    fn build_component_emits_one_over_limit_face_for_progress() {
+        // A single face whose equipresent set exceeds the vertex limit
+        // cannot fit anywhere: it still goes out as its own component.
+        let pieces = pieces_of(
+            vec![[0, 1, 2]],
+            vec![(0..VERTEX_LIMIT_SOFT + 1).collect()],
+            vec![Vec::new(); VERTEX_LIMIT_SOFT + 1],
+            false,
+        );
+        let mesh = mesh_of(VERTEX_LIMIT_SOFT + 1);
+        let mut items: HashMap<Option<usize>, StorableItems> = HashMap::new();
+        items.insert(None, items_with([0]));
+        let model = model_with(vec![]);
+        let (component, taken) = build_component(&model, &mesh, &[], &items, &pieces).unwrap();
+        assert_eq!(taken.faces.len(), 1);
+        assert_eq!(component.faces, vec![[0, 1, 2]]);
+    }
+
+    #[test]
+    fn vertex_capacity_counts_selected_members() {
+        let sets = vec![vec![0], vec![1, 2], vec![3, 4, 5]];
+        assert_eq!(vertex_capacity(&[0, 2], &sets), 4);
+    }
 }
