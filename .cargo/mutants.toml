@@ -58,4 +58,24 @@ exclude_re = [
     # `<material`; the scan back over spaces/tabs stops at that tag's
     # bytes and start can never reach 0 for `>=` to differ (or panic).
     "replace > with >= in detect_style",
+    # model_convert 2.20h equivalences:
+    # `assemble`'s `skip(g + 1)` -> `skip(g)` is equivalent. `Model::validate`
+    # rejects a group that is its own parent, so on every validated model the
+    # group's own entry already fails `keep[g]` independently of the child
+    # scan: including the group itself in `group_children` changes nothing.
+    "hand_split\\.rs:210:25: replace \\+ with \\*",
+    # `quantize_weights`' `remaining_weight > 0.0` -> `>=` is equivalent.
+    # `remaining_weight` reaches exactly 0 only when every unprocessed slot's
+    # weight is 0 (IR weights are non-negative), and `0.0 / 0.0` then gives
+    # NaN whose `as i32` cast saturates to 0 — the same byte the `else` arm
+    # writes.
+    "replace > with >= in quantize_weights",
+    # `retarget`'s `weights[slot] > 0.0` -> `>=` at lines 188 and 200 are
+    # equivalent. A zero-weight slot entering the blend arm contributes
+    # `0.0 * moved` — exactly 0 whichever transform `delta[slot]` holds —
+    # so the accumulated point/direction is unchanged either way. (Line
+    # 175's gate indexes the bone group and is not equivalent: without a
+    # fold remap, an out-of-range unweighted entry panics there.)
+    "retarget\\.rs:188:37: replace > with >=",
+    "retarget\\.rs:200:37: replace > with >=",
 ]

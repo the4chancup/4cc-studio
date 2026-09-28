@@ -2,11 +2,11 @@
 //! texture roles) plus one optional verbatim table per engine.
 
 /// Reading a shader family off a native shader name.
-pub mod family;
+pub(crate) mod family;
 /// Resolving a material for an FMDL export.
-pub mod to_fox;
+pub(crate) mod to_fox;
 /// Resolving a material for a `.model` export.
-pub mod to_prefox;
+pub(crate) mod to_prefox;
 
 /// The shader family: what a material *is*, engine-neutral (format plan "Shader families").
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

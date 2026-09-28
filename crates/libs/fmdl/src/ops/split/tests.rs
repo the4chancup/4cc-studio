@@ -1427,3 +1427,65 @@ fn a_group_whose_components_are_not_one_mesh_stays_split() {
     assert_eq!(model.mesh_groups[0].meshes, vec![2]);
     assert!(model.extensions.mesh_splitting);
 }
+
+// Every field a combined mesh takes from its first component —
+// material, the flag words, the anti-blur pair, the custom box — marks
+// the group as never-one-mesh when components disagree on it.
+#[test]
+fn a_group_whose_components_disagree_on_fields_stays_split() {
+    let mutates: [fn(&mut Mesh); 6] = [
+        |component| component.material = 1,
+        |component| component.alpha_flags = 2,
+        |component| component.shadow_flags = 1,
+        |component| component.has_antiblur_meshes = true,
+        |component| component.is_antiblur_mesh = true,
+        |component| {
+            component.custom_bounding_box = Some(BoundingBox {
+                max: [1.0; 4],
+                min: [0.0; 4],
+            })
+        },
+    ];
+    for mutate in mutates {
+        let mut model = grid_model(grid(2, 2, 0), 0);
+        let split_group = |meshes: Vec<usize>| MeshGroup {
+            name: "split".to_owned(),
+            parent: Some(0),
+            meshes,
+            bounding_box: None,
+            visible: true,
+            split_mesh_group: true,
+        };
+        let component = || Mesh {
+            vertices: MeshVertices {
+                positions: vec![[0.0; 3], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
+                normals: Some(vec![[0.0, 0.0, 1.0, 0.0]; 3]),
+                uvs: vec![vec![[0.0; 2]; 3]],
+                uv_high_precision: vec![true],
+                ..MeshVertices::default()
+            },
+            faces: vec![[0, 1, 2]],
+            bone_group: Vec::new(),
+            material: 0,
+            alpha_flags: 0,
+            shadow_flags: 0,
+            has_antiblur_meshes: false,
+            is_antiblur_mesh: false,
+            custom_bounding_box: None,
+        };
+        let mut second = component();
+        mutate(&mut second);
+        model.materials.push(material());
+        model.meshes = vec![component(), second, component(), component()];
+        model.mesh_groups[0].meshes = Vec::new();
+        model.mesh_groups.push(split_group(vec![0, 1]));
+        model.mesh_groups.push(split_group(vec![2, 3]));
+        let components = model.meshes[..2].to_vec();
+
+        decode(&mut model).expect("an incompatible group stays split");
+
+        assert_eq!(model.meshes.len(), 3);
+        assert_eq!(model.meshes[..2], components[..]);
+        assert_eq!(model.mesh_groups[1].meshes, vec![0, 1]);
+    }
+}

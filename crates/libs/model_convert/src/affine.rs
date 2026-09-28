@@ -245,5 +245,46 @@ mod tests {
         assert!((direction[0]).abs() < 1e-6, "{direction:?}");
         assert!((direction[1]).abs() < 1e-6, "{direction:?}");
         assert!((direction[2] - -1.0).abs() < 1e-6, "{direction:?}");
+        // Every term nonzero: (1,2,3) -> (3,2,-1) under the same rotation.
+        let direction = m.transform_direction([1.0, 2.0, 3.0]);
+        assert!((direction[0] - 3.0).abs() < 1e-6, "{direction:?}");
+        assert!((direction[1] - 2.0).abs() < 1e-6, "{direction:?}");
+        assert!((direction[2] - -1.0).abs() < 1e-6, "{direction:?}");
+    }
+
+    #[test]
+    fn a_scaled_matrix_inverts() {
+        // det 8, not 1: the cofactor division matters.
+        let m = Affine::from_rotation_translation(
+            [[2.0, 0.0, 0.0], [0.0, 2.0, 0.0], [0.0, 0.0, 2.0]],
+            [1.0, 2.0, 3.0],
+        );
+        let inverse = m.inverse().expect("inverse");
+        assert_close(&m.multiply(&inverse), &Affine::IDENTITY);
+        assert_close(&inverse.multiply(&m), &Affine::IDENTITY);
+    }
+
+    #[test]
+    fn a_determinant_at_the_singular_bound_still_inverts() {
+        // |det| == 1e-12 exactly, at the `<` bound: still invertible.
+        let m = Affine::from_rotation_translation(
+            [
+                [6.7166366e-5, 0.0, 0.0],
+                [0.0, 1.2198576e-4, 0.0],
+                [0.0, 0.0, 1.2205035e-4],
+            ],
+            [0.0; 3],
+        );
+        assert!(m.inverse().is_some());
+    }
+
+    #[test]
+    fn transform_direction_adds_all_three_terms() {
+        let m = Affine::from_rotation_translation(
+            [[0.5, 0.5, 0.5], [0.5, -0.5, 0.5], [0.5, 0.5, -0.5]],
+            [0.0; 3],
+        );
+        let direction = m.transform_direction([1.0, 1.0, 1.0]);
+        assert_eq!(direction, [1.5, 0.5, 0.5]);
     }
 }

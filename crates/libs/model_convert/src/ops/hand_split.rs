@@ -37,7 +37,7 @@ pub struct HandSplit {
 
 /// Whether `bone` is a hand-skeleton-exclusive bone (`skh_` prefix) and for which hand
 /// (`_l` / `_r` suffix); `None` for every other name.
-pub fn hand_of(bone: &str) -> Option<Hand> {
+pub(crate) fn hand_of(bone: &str) -> Option<Hand> {
     if !bone.starts_with("skh_") {
         return None;
     }
@@ -52,7 +52,7 @@ pub fn hand_of(bone: &str) -> Option<Hand> {
 
 /// Whether any vertex carries a positive weight on a hand bone (the plan's detection
 /// rule: names in a bone list do not count, weights do).
-pub fn has_hand_weights(ir: &CanonicalModel) -> bool {
+pub(crate) fn has_hand_weights(ir: &CanonicalModel) -> bool {
     ir.meshes.iter().any(|mesh| {
         let (Some(indices), Some(weights)) =
             (&mesh.vertices.bone_indices, &mesh.vertices.bone_weights)
@@ -842,6 +842,53 @@ mod tests {
                 ("arm", Some(0), vec![0]),
                 ("head", Some(0), vec![1]),
             ]
+        );
+    }
+
+    #[test]
+    fn a_parent_with_no_surviving_descendant_drops() {
+        // The child's only mesh went whole to the glove; the root that held
+        // nothing but the child drops on the body side too.
+        let mesh = Mesh {
+            vertices: Vertices {
+                positions: vec![[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
+                bone_indices: Some(vec![[0, 1, 0, 0]; 3]),
+                bone_weights: Some(vec![[0.5, 0.5, 0.0, 0.0]; 3]),
+                bone_weight_width: Some(4),
+                ..Vertices::default()
+            },
+            faces: vec![[0, 1, 2]],
+            bone_group: vec![0, 1],
+            material: 0,
+            extension_headers: Default::default(),
+            custom_bounding_box: None,
+        };
+        let mut ir = model(vec![bone("skh_index_l"), bone("skh_index_r")], mesh);
+        ir.mesh_groups = vec![
+            MeshGroup {
+                name: "root".to_string(),
+                parent: None,
+                meshes: vec![],
+                visible: true,
+            },
+            MeshGroup {
+                name: "child".to_string(),
+                parent: Some(0),
+                meshes: vec![0],
+                visible: true,
+            },
+        ];
+        let split = split_by_skeleton_group(&ir);
+        assert!(split.body.mesh_groups.is_empty());
+        // The glove side keeps the chain: child holds the mesh, root its parent.
+        let glove = split.glove_l.expect("left glove");
+        assert_eq!(
+            glove
+                .mesh_groups
+                .iter()
+                .map(|g| (g.name.as_str(), g.parent))
+                .collect::<Vec<_>>(),
+            [("root", None), ("child", Some(0))]
         );
     }
 

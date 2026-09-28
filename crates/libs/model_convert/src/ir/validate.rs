@@ -381,6 +381,7 @@ mod tests {
     fn the_minimal_model_validates() {
         assert_eq!(validate(&valid()), Ok(()));
         assert!(Vertices::default().is_empty());
+        assert!(!valid().meshes[0].vertices.is_empty());
     }
 
     #[test]

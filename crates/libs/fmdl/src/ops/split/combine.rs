@@ -73,6 +73,27 @@ pub(super) fn combine(meshes: &[Mesh], group: &MeshGroup) -> Result<Mesh, FmdlEr
         if !same_layout(&component.vertices, &first.vertices) {
             return Err(FmdlError::SplitIncompatible("vertex layouts disagree"));
         }
+        // The combined mesh takes these fields from the first component, so a
+        // disagreement means the group was never one mesh.
+        if component.material != first.material {
+            return Err(FmdlError::SplitIncompatible("materials disagree"));
+        }
+        if component.alpha_flags != first.alpha_flags {
+            return Err(FmdlError::SplitIncompatible("alpha flags disagree"));
+        }
+        if component.shadow_flags != first.shadow_flags {
+            return Err(FmdlError::SplitIncompatible("shadow flags disagree"));
+        }
+        if component.has_antiblur_meshes != first.has_antiblur_meshes
+            || component.is_antiblur_mesh != first.is_antiblur_mesh
+        {
+            return Err(FmdlError::SplitIncompatible("anti-blur flags disagree"));
+        }
+        if component.custom_bounding_box != first.custom_bounding_box {
+            return Err(FmdlError::SplitIncompatible(
+                "custom bounding boxes disagree",
+            ));
+        }
     }
 
     // The combined bone group: every used model bone, in model bone order.

@@ -355,6 +355,41 @@ mod tests {
     }
 
     #[test]
+    fn flag_overrides_set_and_clear_bits() {
+        // TRANSPARENT_BIT 128: the Shaded default carries it; Some(false)
+        // clears it, Some(true) keeps it set.
+        let mut mat = material(MaterialFamily::Shaded);
+        mat.transparent = Some(false);
+        assert_eq!(resolve(&mat).alpha_flags, 0);
+        mat.two_sided = Some(true);
+        assert_eq!(resolve(&mat).alpha_flags, 32);
+        mat.transparent = Some(true);
+        assert_eq!(resolve(&mat).alpha_flags, 160);
+        // NO_SHADOW_CAST_BIT 1 and INVISIBLE_BIT 2 on the table's word.
+        let mut mat = material(MaterialFamily::Shaded);
+        mat.fox = Some(FoxMaterial {
+            shader: "s".to_string(),
+            technique: "t".to_string(),
+            alpha_flags: 0,
+            shadow_flags: 3,
+            cast_shadow: Some(true),
+            invisible: Some(false),
+            base_linear: false,
+            textures: vec![],
+            parameters: vec![],
+        });
+        // cast_shadow clears bit 1 (3 -> 2); invisible Some(false) clears
+        // bit 2 (2 -> 0).
+        assert_eq!(resolve(&mat).shadow_flags, 0);
+        // cast_shadow Some(false) sets bit 1 (2 -> 3); the clear still lands.
+        mat.fox.as_mut().expect("fox").cast_shadow = Some(false);
+        assert_eq!(resolve(&mat).shadow_flags, 1);
+        // invisible Some(true) sets bit 2 back.
+        mat.fox.as_mut().expect("fox").invisible = Some(true);
+        assert_eq!(resolve(&mat).shadow_flags, 3);
+    }
+
+    #[test]
     fn a_native_table_skips_the_family_defaults() {
         let mut mat = material(MaterialFamily::Shaded);
         mat.fox = Some(FoxMaterial {

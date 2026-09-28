@@ -13,7 +13,8 @@ pub use crate::materials::{
     Address, Filter, FoxMaterial, Material, MaterialFamily, PreFoxMaterial, SamplerSettings,
     TextureRole,
 };
-pub use validate::{ValidationError, validate};
+pub use validate::ValidationError;
+pub(crate) use validate::validate;
 
 /// Which native format a model was imported from.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

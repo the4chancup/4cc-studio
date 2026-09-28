@@ -314,6 +314,69 @@ fn a_bone_slot_past_the_group_is_dropped() {
 }
 
 #[test]
+fn a_zero_weight_slot_past_the_group_is_kept() {
+    // Only a weighted stale slot drops; a zero-weight one is inert and the
+    // vertex keeps the file's exact (unnormalized) weights.
+    let mesh = ::fmdl::Mesh {
+        vertices: ::fmdl::format::MeshVertices {
+            positions: vec![[0.0; 3]],
+            bone_indices: Some(vec![[0, 3, 0, 0]]),
+            bone_weights: Some(vec![[128, 0, 0, 0]]),
+            ..::fmdl::format::MeshVertices::default()
+        },
+        faces: vec![[0, 0, 0]],
+        bone_group: vec![0],
+        material: 0,
+        alpha_flags: 0,
+        shadow_flags: 0,
+        has_antiblur_meshes: false,
+        is_antiblur_mesh: false,
+        custom_bounding_box: None,
+    };
+    let imported = fmdl_to_ir(&fmdl_model(mesh, vec![instance("mat")]), None).expect("import");
+    assert_eq!(
+        imported.model.meshes[0].vertices.bone_weights,
+        Some(vec![[128.0 / 255.0, 0.0, 0.0, 0.0]])
+    );
+    assert_eq!(imported.findings, vec![]);
+}
+
+#[test]
+fn a_vertex_that_loses_all_its_slots_keeps_zero_weights() {
+    // Every weighted slot is out of group: they drop to an all-zero row,
+    // not a division by the remaining zero sum.
+    let mesh = ::fmdl::Mesh {
+        vertices: ::fmdl::format::MeshVertices {
+            positions: vec![[0.0; 3]],
+            bone_indices: Some(vec![[1, 1, 1, 1]]),
+            bone_weights: Some(vec![[255, 0, 0, 0]]),
+            ..::fmdl::format::MeshVertices::default()
+        },
+        faces: vec![[0, 0, 0]],
+        bone_group: vec![0],
+        material: 0,
+        alpha_flags: 0,
+        shadow_flags: 0,
+        has_antiblur_meshes: false,
+        is_antiblur_mesh: false,
+        custom_bounding_box: None,
+    };
+    let imported = fmdl_to_ir(&fmdl_model(mesh, vec![instance("mat")]), None).expect("import");
+    assert_eq!(
+        imported.model.meshes[0].vertices.bone_weights,
+        Some(vec![[0.0, 0.0, 0.0, 0.0]])
+    );
+    assert_eq!(
+        imported.findings,
+        vec![Finding {
+            code: "bone_slot_dropped",
+            subject: Subject::Mesh(0),
+            detail: "1".to_string(),
+        }]
+    );
+}
+
+#[test]
 fn a_bone_listed_before_its_parent_moves_after_it() {
     let mesh = ::fmdl::Mesh {
         vertices: ::fmdl::format::MeshVertices {
@@ -644,6 +707,186 @@ fn a_lane_above_one_reports_weight_clamped() {
         Some(vec![[178, 0, 0, 0]])
     );
     assert!(clamped([0.7, 0.0, 0.0, 0.0]).is_empty());
+}
+
+#[test]
+fn a_mesh_matches_its_own_flag_combination() {
+    // Two flag combinations on one instance: a mesh's material is the
+    // entry matching all three flags, not the first sharing one.
+    let mesh = |alpha, shadow| ::fmdl::Mesh {
+        vertices: ::fmdl::format::MeshVertices {
+            positions: vec![[0.0; 3]],
+            ..::fmdl::format::MeshVertices::default()
+        },
+        faces: vec![[0, 0, 0]],
+        bone_group: vec![],
+        material: 0,
+        alpha_flags: alpha,
+        shadow_flags: shadow,
+        has_antiblur_meshes: false,
+        is_antiblur_mesh: false,
+        custom_bounding_box: None,
+    };
+    let mut model = fmdl_model(mesh(1, 1), vec![instance("mat")]);
+    model.meshes.push(mesh(0, 1));
+    model.mesh_groups[0].meshes = vec![0, 1];
+    let imported = fmdl_to_ir(&model, None).expect("import");
+    assert_eq!(
+        imported
+            .model
+            .materials
+            .iter()
+            .map(|m| m.name.as_str())
+            .collect::<Vec<_>>(),
+        ["mat", "mat_2"]
+    );
+    assert_eq!(imported.model.meshes[0].material, 0);
+    assert_eq!(imported.model.meshes[1].material, 1);
+}
+
+#[test]
+fn a_second_sampler_for_one_role_goes_native() {
+    // The first `Base_Tex_*` wins the canonical Base role; a second is a
+    // native sampler, not a duplicate canonical entry.
+    let mut inst = instance("mat");
+    inst.textures = vec![
+        (
+            "Base_Tex_LIN".to_string(),
+            ::fmdl::Texture {
+                file_name: "a.tga".to_string(),
+                directory: String::new(),
+            },
+        ),
+        (
+            "Base_Tex_SRGB".to_string(),
+            ::fmdl::Texture {
+                file_name: "b.tga".to_string(),
+                directory: String::new(),
+            },
+        ),
+    ];
+    let imported = fmdl_to_ir(&fmdl_model(fmdl_mesh(0, 0), vec![inst]), None).expect("import");
+    let material = &imported.model.materials[0];
+    assert_eq!(material.textures, vec![(TextureRole::Base, 0)]);
+    assert_eq!(
+        material.fox.as_ref().expect("fox").textures,
+        vec![("Base_Tex_SRGB".to_string(), 1)]
+    );
+}
+
+#[test]
+fn exported_bone_bounding_boxes_cover_their_weighted_vertices() {
+    // A bone's SKL box spans the vertices weighted to it: unweighted
+    // slots and other bones' vertices do not reach in.
+    let mut ir = minimal_ir();
+    ir.bones = vec![
+        Bone {
+            name: "sk_a".to_string(),
+            parent: None,
+            matrix: Affine::IDENTITY,
+            global_position: None,
+            local_position: None,
+            bounding_box: None,
+        },
+        Bone {
+            name: "sk_b".to_string(),
+            parent: None,
+            matrix: Affine::IDENTITY,
+            global_position: None,
+            local_position: None,
+            bounding_box: None,
+        },
+    ];
+    ir.meshes = vec![Mesh {
+        vertices: Vertices {
+            positions: vec![
+                [1.0, 2.0, 3.0],
+                [4.0, 5.0, 6.0],
+                [99.0, 99.0, 99.0],
+                [-50.0, -50.0, -50.0],
+            ],
+            bone_indices: Some(vec![[0, 0, 0, 0]; 4]),
+            bone_weights: Some(vec![
+                [1.0, 0.0, 0.0, 0.0],
+                [1.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0],
+                [0.0, 1.0, 0.0, 0.0],
+            ]),
+            bone_weight_width: Some(4),
+            ..Vertices::default()
+        },
+        faces: vec![[0, 1, 3]],
+        bone_group: vec![0, 1],
+        material: 0,
+        extension_headers: Default::default(),
+        custom_bounding_box: None,
+    }];
+    // v3 weights slot 1 -> bone group[1] = bone 1; bone_indices slot 0
+    // is a decoy pointing at group[0] on an unweighted slot.
+    ir.meshes[0]
+        .vertices
+        .bone_indices
+        .as_mut()
+        .expect("indices")[3] = [0, 1, 0, 0];
+    let exported = ir_to_fmdl(&ir).expect("export");
+    assert_eq!(
+        exported.model.bones[0].bounding_box.min,
+        [1.0, 2.0, 3.0, 1.0]
+    );
+    assert_eq!(
+        exported.model.bones[0].bounding_box.max,
+        [4.0, 5.0, 6.0, 1.0]
+    );
+    assert_eq!(
+        exported.model.bones[1].bounding_box.min,
+        [-50.0, -50.0, -50.0, 1.0]
+    );
+    assert_eq!(
+        exported.model.bones[1].bounding_box.max,
+        [-50.0, -50.0, -50.0, 1.0]
+    );
+}
+
+#[test]
+fn split_parents_uses_the_render_parent_name() {
+    let bone = |name: &str, parent: Option<usize>| ::fmdl::Bone {
+        name: name.to_string(),
+        parent,
+        bounding_box: ::fmdl::BoundingBox {
+            min: [0.0; 4],
+            max: [0.0; 4],
+        },
+        local_position: [0.0; 4],
+        world_position: [0.0; 4],
+    };
+    let parents = split_parents(&[bone("dsk_hip", None), bone("sk_belly", None)]);
+    assert_eq!(parents, vec![None, Some(0)]);
+}
+
+#[test]
+fn exported_local_position_is_world_minus_parent_world() {
+    let mut ir = minimal_ir();
+    ir.bones = vec![
+        Bone {
+            name: "sk_a".to_string(),
+            parent: None,
+            matrix: Affine::IDENTITY,
+            global_position: Some([10.0, 10.0, 10.0, 1.0]),
+            local_position: None,
+            bounding_box: None,
+        },
+        Bone {
+            name: "sk_b".to_string(),
+            parent: Some(0),
+            matrix: Affine::IDENTITY,
+            global_position: Some([11.0, 13.0, 15.0, 1.0]),
+            local_position: None,
+            bounding_box: None,
+        },
+    ];
+    let exported = ir_to_fmdl(&ir).expect("export");
+    assert_eq!(exported.model.bones[1].local_position, [1.0, 3.0, 5.0, 1.0]);
+    assert_eq!(exported.model.bones[0].local_position, [0.0, 0.0, 0.0, 1.0]);
 }
 
 /// A flat `fmdl::Mesh` over no bone group with the given alpha flags and material.

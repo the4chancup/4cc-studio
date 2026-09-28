@@ -83,8 +83,9 @@ pub enum FmdlError {
     /// vertices; its faces cannot be indexed in `u16`.
     #[error("a combined split mesh references more than 65536 vertices")]
     SplitTooLarge,
-    /// A split group's components cannot be one mesh — their vertex layouts
-    /// disagree; the group stays split.
+    /// A split group's components cannot be one mesh — their vertex layout
+    /// or a field the combined mesh has one of (material, flags, anti-blur,
+    /// bounding box) disagree; the group stays split.
     #[error("split components are not one mesh: {0}")]
     SplitIncompatible(&'static str),
     /// A bone or mesh group parent chain loops back on itself.
