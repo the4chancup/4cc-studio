@@ -460,3 +460,92 @@ fn invalid_utf8_string_reports_its_offset() {
         Err(ModelError::InvalidUtf8 { offset })
     );
 }
+
+#[test]
+fn unexpected_constants_report_their_values() {
+    use crate::format::records::RecordArray;
+    // A bone-data entry whose header is not [2, 0, 0, 0] reports its
+    // first word as the unexpected constant's value.
+    let mut container = ModelContainer::read(CAP).unwrap();
+    let bone_data = &mut container
+        .sections
+        .iter_mut()
+        .find(|section| section.kind == SectionKind::BoneData)
+        .unwrap()
+        .bytes;
+    let entries = RecordArray::read(bone_data, 0).unwrap();
+    let entry = u32::from_le_bytes(entries.records[1].bytes[..4].try_into().unwrap()) as usize;
+    bone_data[entry + 12] = 9;
+    assert_eq!(
+        PreFoxModel::from_container(&container),
+        Err(ModelError::UnexpectedConstant {
+            what: "bone data entry header",
+            value: 9
+        })
+    );
+}
+
+#[test]
+fn record_size_rules() {
+    // Every section whose records the reader decodes checks their size.
+    for (kind, size, what) in [
+        (
+            SectionKind::AnnotationRecords,
+            24u32,
+            "annotation record size",
+        ),
+        (SectionKind::Geometry, 16, "geometry record size"),
+        (SectionKind::Meshes, 12, "mesh record size"),
+    ] {
+        let mut container = ModelContainer::read(CAP).unwrap();
+        container
+            .sections
+            .iter_mut()
+            .find(|section| section.kind == kind)
+            .unwrap()
+            .bytes[8..12]
+            .copy_from_slice(&size.to_le_bytes());
+        assert_eq!(
+            PreFoxModel::from_container(&container),
+            Err(ModelError::UnexpectedConstant { what, value: size })
+        );
+    }
+}
+
+#[test]
+fn bone_matrix_record_needs_kind_and_count() {
+    use crate::format::records::RecordArray;
+    // The right kind word with a wrong count still fails the check.
+    let mut container = ModelContainer::read(CAP).unwrap();
+    let bone_data = &mut container
+        .sections
+        .iter_mut()
+        .find(|section| section.kind == SectionKind::BoneData)
+        .unwrap()
+        .bytes;
+    let entries = RecordArray::read(bone_data, 0).unwrap();
+    let entry = u32::from_le_bytes(entries.records[0].bytes[..4].try_into().unwrap()) as usize;
+    let matrices = RecordArray::read(bone_data, entry).unwrap();
+    let count_at = matrices.records[0].offset + 8;
+    bone_data[count_at..count_at + 4].copy_from_slice(&2u32.to_le_bytes());
+    assert_eq!(
+        PreFoxModel::from_container(&container),
+        Err(ModelError::UnexpectedConstant {
+            what: "bone matrix record",
+            value: 7
+        })
+    );
+}
+
+#[test]
+fn empty_array_with_header_past_the_buffer_reads() {
+    // CARD's section 8 (Cloth) is an empty array; community exports can
+    // carry a garbage first_record_offset there. With zero records the
+    // array reads as having no header, so the file reads identically.
+    let mut bytes = CARD.to_vec();
+    let cloth = ModelContainer::read(&bytes)
+        .unwrap()
+        .section_offset(SectionKind::Cloth);
+    bytes[cloth..cloth + 4].copy_from_slice(&0x6E6F_6974u32.to_le_bytes());
+    assert_eq!(PreFoxModel::read(&bytes), PreFoxModel::read(CARD));
+}

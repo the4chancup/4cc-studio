@@ -63,17 +63,18 @@ impl RecordArray {
         if toc.record_size == 0 && toc.record_count > 0 {
             return Err(ModelError::BadRecordArray { at });
         }
-        let header_end = at
+        let header_end = match at
             .checked_add(toc.first_record_offset as usize)
-            .ok_or(ModelError::Truncated)?;
-        let header = if toc.first_record_offset >= 12 {
-            buffer
-                .get(toc_end..header_end)
-                .ok_or(ModelError::Truncated)?
-                .to_vec()
-        } else {
-            Vec::new()
+            .filter(|end| buffer.get(toc_end..*end).is_some())
+        {
+            Some(end) => end,
+            // An empty array may carry a garbage first_record_offset
+            // naming a header the file does not have; it reads as
+            // having no header. Arrays with records keep every check.
+            None if toc.record_count == 0 => toc_end,
+            None => return Err(ModelError::Truncated),
         };
+        let header = buffer[toc_end..header_end].to_vec();
         // The whole record run must fit before any of it is read; on a
         // 32-bit `usize` a hostile count * size wraps to a small value
         // instead of failing, hence the checked arithmetic.
@@ -168,5 +169,26 @@ mod tests {
             12u8, 0, 0, 0, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
         ];
         assert_eq!(RecordArray::read(&hostile, 0), Err(ModelError::Truncated));
+        // A declared record of 0 bytes: reading it would loop or alias.
+        let zero_size = [12u8, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0];
+        assert_eq!(
+            RecordArray::read(&zero_size, 0),
+            Err(ModelError::BadRecordArray { at: 0 })
+        );
+        // ...but only when the array declares records at all.
+        let zero_count = [12u8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        assert!(
+            RecordArray::read(&zero_count, 0)
+                .unwrap()
+                .records
+                .is_empty()
+        );
+        // The empty-array header repair is only for empty arrays: one
+        // record behind a header that runs past the buffer is truncated.
+        let bad_header = [0x74, 0x69, 0x6F, 0x6E, 1, 0, 0, 0, 4, 0, 0, 0, 9, 9, 9, 9];
+        assert_eq!(
+            RecordArray::read(&bad_header, 0),
+            Err(ModelError::Truncated)
+        );
     }
 }

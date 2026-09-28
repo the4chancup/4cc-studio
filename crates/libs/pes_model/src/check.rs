@@ -501,6 +501,59 @@ mod tests {
     }
 
     #[test]
+    fn at_limits() {
+        // Each hard limit itself is allowed.
+        let mut model = load(CARD);
+        model.meshes[0].bone_group = vec![0; 64];
+        assert!(
+            !check(&model)
+                .iter()
+                .any(|finding| finding.code == "model_mesh_over_bone_limit")
+        );
+
+        let mut model = load(CARD);
+        model.meshes[0].faces = vec![model.meshes[0].faces[0]; 21845];
+        assert!(
+            !check(&model)
+                .iter()
+                .any(|finding| finding.code == "model_mesh_over_face_limit")
+        );
+
+        let mut model = load(CARD);
+        let vertices = &mut model.meshes[0].vertices;
+        let last = vertices.positions.len() - 1;
+        while vertices.positions.len() < 65535 {
+            vertices.positions.push(vertices.positions[last]);
+            if let Some(normals) = &mut vertices.normals {
+                normals.push(normals[last]);
+            }
+            if let Some(tangents) = &mut vertices.tangents {
+                tangents.push(tangents[last]);
+            }
+            if let Some(bitangents) = &mut vertices.bitangents {
+                bitangents.push(bitangents[last]);
+            }
+            if let Some(colors) = &mut vertices.colors {
+                colors.push(colors[last]);
+            }
+            for uvs in &mut vertices.uvs {
+                uvs.push(uvs[last]);
+            }
+            if let Some(indices) = &mut vertices.bone_indices {
+                indices.push(indices[last]);
+            }
+            if let Some(weights) = &mut vertices.bone_weights {
+                weights.push(weights[last]);
+            }
+        }
+        assert!(
+            !check(&model)
+                .iter()
+                .any(|finding| finding.code == "model_mesh_over_vertex_limit")
+        );
+    }
+
+    #[test]
     fn vertices_past_5000_units_from_the_origin_are_errors() {
         let mut model = load(CARD);
         {
@@ -618,6 +671,16 @@ mod tests {
         model.meshes[0].faces[0] = [1, 1, 2];
         let findings = check(&model);
         assert!(findings.contains(&finding(
+            "model_degenerate_face",
+            Severity::Info,
+            Subject::Mesh(0),
+            1,
+        )));
+
+        // Two equal indices, whichever pair they are.
+        let mut model = load(CARD);
+        model.meshes[0].faces[0] = [1, 2, 2];
+        assert!(check(&model).contains(&finding(
             "model_degenerate_face",
             Severity::Info,
             Subject::Mesh(0),

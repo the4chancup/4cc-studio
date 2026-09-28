@@ -36,7 +36,7 @@ struct Header {
 /// runs, in the order they sit in the file. Every `SectionKind` appears exactly once;
 /// `new` and `read` enforce it. `write(read(x)) == x` for every file PES ships.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ModelContainer {
+pub(crate) struct ModelContainer {
     /// Header version word (19 for every PES 2017 part but the shadow model, which is 17).
     pub version: u16,
     /// Header flags word (0; 4 in two face-montage models, meaning unknown).
@@ -48,7 +48,7 @@ pub struct ModelContainer {
 /// One section: which of the eleven it is, and its bytes up to the start of the next section
 /// in the file (so any zero padding a writer left belongs to the section before it).
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Section {
+pub(crate) struct Section {
     /// Which of the eleven sections this is.
     pub kind: SectionKind,
     /// The section's bytes.
@@ -57,7 +57,7 @@ pub struct Section {
 
 /// The eleven sections of a `.model`, numbered as the section table indexes them.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum SectionKind {
+pub(crate) enum SectionKind {
     /// Bone data: entry 0 is the inverse bind matrices, the rest bone groups.
     BoneData = 0,
     /// Geometry: per mesh the vertex set, face descriptor and extras.
@@ -106,7 +106,11 @@ impl SectionKind {
 
 impl ModelContainer {
     /// A container from parts; every `SectionKind` must appear exactly once.
-    pub fn new(version: u16, flags: u32, sections: Vec<Section>) -> Result<Self, ModelError> {
+    pub(crate) fn new(
+        version: u16,
+        flags: u32,
+        sections: Vec<Section>,
+    ) -> Result<Self, ModelError> {
         for kind in SectionKind::ALL {
             if sections
                 .iter()
@@ -124,17 +128,12 @@ impl ModelContainer {
         })
     }
 
-    /// The sections in file order.
-    pub fn sections(&self) -> &[Section] {
-        &self.sections
-    }
-
     /// Parses a `.model`, unwrapped or WESYS-wrapped.
     ///
     /// The sections are cut by the table's offsets in increasing order: a
     /// section's bytes run to the next section's start, so zero padding a
     /// writer left between them belongs to the section before it.
-    pub fn read(bytes: &[u8]) -> Result<Self, ModelError> {
+    pub(crate) fn read(bytes: &[u8]) -> Result<Self, ModelError> {
         let unwrapped = wezlib::decompress_if_wrapped(bytes)
             .map_err(|error| ModelError::Wesys(error.to_string()))?;
         let bytes: &[u8] = &unwrapped;
@@ -225,7 +224,7 @@ impl ModelContainer {
     /// Serializes the container, unwrapped. Sections are written in their
     /// stored file order; the table keeps its kind indexing. Wrapping in
     /// WESYS, when wanted, is the caller's job.
-    pub fn write(&self) -> Vec<u8> {
+    pub(crate) fn write(&self) -> Vec<u8> {
         let mut offset_of = [0u32; 11];
         let mut cursor = FIRST_SECTION_RELATIVE;
         for section in &self.sections {
@@ -255,7 +254,8 @@ impl ModelContainer {
     ///
     /// The `expect` is the container's invariant: `new` and `read` reject a
     /// section list where any `SectionKind` is missing or duplicated.
-    pub fn section(&self, kind: SectionKind) -> &[u8] {
+    #[cfg(test)]
+    pub(crate) fn section(&self, kind: SectionKind) -> &[u8] {
         &self
             .sections
             .iter()
@@ -266,7 +266,7 @@ impl ModelContainer {
 
     /// The byte offset `kind`'s section starts at in the serialized file
     /// `write` produces.
-    pub fn section_offset(&self, kind: SectionKind) -> usize {
+    pub(crate) fn section_offset(&self, kind: SectionKind) -> usize {
         let before: usize = self
             .sections
             .iter()
@@ -411,6 +411,26 @@ mod tests {
             ModelContainer::read(&patched),
             Err(ModelError::BadSectionTable(60))
         );
+    }
+
+    #[test]
+    fn a_minimal_file_reads() {
+        // The shortest file read accepts: the header, the table's 56
+        // bytes, and eleven sections all empty at offset 80.
+        let mut minimal = vec![0u8; 80];
+        minimal[..8].copy_from_slice(b"MODEL\0\0\0");
+        minimal[8..12].copy_from_slice(&16u32.to_le_bytes());
+        minimal[14..16].copy_from_slice(&19u16.to_le_bytes());
+        minimal[16..20].copy_from_slice(&9u32.to_le_bytes());
+        minimal[24..28].copy_from_slice(&12u32.to_le_bytes());
+        minimal[28..32].copy_from_slice(&11u32.to_le_bytes());
+        minimal[32..36].copy_from_slice(&4u32.to_le_bytes());
+        for entry in minimal[36..80].as_chunks_mut::<4>().0 {
+            *entry = 56u32.to_le_bytes();
+        }
+        let container = ModelContainer::read(&minimal).unwrap();
+        assert_eq!(container.sections.len(), 11);
+        assert!(container.sections.iter().all(|s| s.bytes.is_empty()));
     }
 
     #[test]

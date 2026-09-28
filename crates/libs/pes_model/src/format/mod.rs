@@ -11,11 +11,11 @@ mod datum;
 pub(crate) mod fixtures;
 mod model;
 pub mod mtl;
-pub mod records;
+pub(crate) mod records;
 mod vertex;
 mod write;
 
-pub use container::{ModelContainer, Section, SectionKind};
+pub(crate) use container::{ModelContainer, Section, SectionKind};
 pub use datum::{DatumFormat, DatumType};
 pub use model::{
     Annotation, Bone, BoundingBox, EditorItem, EditorValue, FaceStream, Geometry, LodRecord, Mesh,

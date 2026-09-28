@@ -562,7 +562,7 @@ impl PreFoxModel {
     }
 
     /// Resolves every cross-section pointer of `container` into indices.
-    pub fn from_container(container: &ModelContainer) -> Result<Self, ModelError> {
+    pub(crate) fn from_container(container: &ModelContainer) -> Result<Self, ModelError> {
         // `write` is byte-identical to the unwrapped input, so each
         // section reads as a view to the file's end: an offset may name
         // data past the section's run.

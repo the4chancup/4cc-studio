@@ -27,4 +27,35 @@ exclude_re = [
     # accepted as unreachable.
     "relaunch_elevated",
     "SHELLEXECUTEINFOW",
+    # pes_model 2.20g equivalences, each checked by reasoning rather than a
+    # distinguishing input existing:
+    # `locate`'s `relative < section.bytes.len()` -> `<=` is equivalent. The
+    # only address where they differ is one equal to a section's end, which
+    # is the next section's start; `record_at` never finds a record there
+    # (records sit at offsets >= 12 inside their array, and an empty array
+    # has none), so `resolve` returns the same BadReference either way.
+    "replace < with <= in locate",
+    # `check_stream`'s `(end - start)` -> `(end + start)` is equivalent.
+    # The expression evaluates only on ranges that passed start ==
+    # expected_start, end >= start and end <= len; inductively every such
+    # start is a multiple of 3 (the first is 0 and each passed range ends
+    # at start + 3k), so end + start and end - start agree mod 3.
+    "replace - with \\+ in check_stream",
+    # `check`'s weights `(sum - 1.0).abs() > 1e-3` -> `>=` is equivalent.
+    # f32(1e-3) = 0x3A83126F = 0.0010000000474974; a sum's exact f32
+    # difference from 1.0 is k*2^-23 above (nearest: 8388*2^-23 = 0.0009999
+    # and 8389*2^-23 = 0.00100005) or k*2^-24 below — neither side lands
+    # exactly on the threshold, so `>=` can never fire where `>` does not.
+    "check\\.rs:210:39: replace > with >=",
+    # `SectionList::push`'s `bytes.len() + pad4(len)` -> `-` is equivalent.
+    # Everything pushed is `SectionBuilder::finish`/`name_section` output:
+    # 12-byte TOC plus 4-aligned header, records and blobs — always a
+    # multiple of 4, so pad4 returns 0 and `len + 0`/`len - 0` resize the
+    # same.
+    "replace \\+ with - in SectionList::push",
+    # `detect_style`'s two `start > 0` -> `>=` are equivalent. It runs only
+    # after the document parsed, so a root element sits before the first
+    # `<material`; the scan back over spaces/tabs stops at that tag's
+    # bytes and start can never reach 0 for `>=` to differ (or panic).
+    "replace > with >= in detect_style",
 ]

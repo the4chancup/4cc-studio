@@ -379,3 +379,137 @@ fn out_of_range_faces_numbering_vertex_count_are_repaired() {
     let model = Model::from_file(&file).unwrap();
     assert_eq!(model.meshes[0].faces, original.meshes[0].faces);
 }
+
+#[test]
+fn from_file_output_passes_validate() {
+    for bytes in ALL {
+        Model::from_file(&PreFoxModel::read(bytes).unwrap())
+            .unwrap()
+            .validate()
+            .unwrap();
+    }
+}
+
+#[test]
+fn validate_rejects_bad_mesh_references() {
+    // A material past the end of the list.
+    let mut bad = Model::from_file(&PreFoxModel::read(CAP).unwrap()).unwrap();
+    bad.meshes[0].material = bad.materials.len();
+    assert!(matches!(
+        bad.validate(),
+        Err(ModelError::BadReference {
+            what: "material",
+            offset: 1
+        })
+    ));
+    assert!(matches!(
+        bad.to_file(),
+        Err(ModelError::BadReference {
+            what: "material",
+            offset: 1
+        })
+    ));
+
+    // A bone-group entry past the bone list.
+    let mut bad = Model::from_file(&PreFoxModel::read(CAP).unwrap()).unwrap();
+    bad.meshes[0].bone_group = vec![bad.bones.len()];
+    assert!(matches!(
+        bad.validate(),
+        Err(ModelError::BadReference {
+            what: "bone",
+            offset: 4
+        })
+    ));
+    assert!(matches!(
+        bad.to_file(),
+        Err(ModelError::BadReference {
+            what: "bone",
+            offset: 4
+        })
+    ));
+
+    // A face index at the vertex count, at level 0 and in a lower LOD.
+    let mut bad = Model::from_file(&PreFoxModel::read(CAP).unwrap()).unwrap();
+    bad.meshes[0].faces[0][0] = bad.meshes[0].vertices.len() as u16;
+    assert!(matches!(
+        bad.validate(),
+        Err(ModelError::BadReference {
+            what: "vertex",
+            offset: 56
+        })
+    ));
+    assert!(matches!(
+        bad.to_file(),
+        Err(ModelError::BadReference {
+            what: "vertex",
+            offset: 56
+        })
+    ));
+
+    let mut bad = Model::from_file(&PreFoxModel::read(COLLAR).unwrap()).unwrap();
+    bad.meshes[0].lower_lods[0][0][0] = bad.meshes[0].vertices.len() as u16;
+    assert!(matches!(
+        bad.validate(),
+        Err(ModelError::BadReference { what: "vertex", .. })
+    ));
+    assert!(matches!(
+        bad.to_file(),
+        Err(ModelError::BadReference { what: "vertex", .. })
+    ));
+}
+
+#[test]
+fn validate_rejects_misshapen_vertices() {
+    // An attribute vector one value short.
+    let mut bad = Model::from_file(&PreFoxModel::read(CAP).unwrap()).unwrap();
+    bad.meshes[0].vertices.normals.as_mut().unwrap().pop();
+    assert!(matches!(
+        bad.validate(),
+        Err(ModelError::VertexMismatch("attribute count mismatch"))
+    ));
+    assert!(matches!(
+        bad.to_file(),
+        Err(ModelError::VertexMismatch("attribute count mismatch"))
+    ));
+
+    // Five uv maps.
+    let mut bad = Model::from_file(&PreFoxModel::read(CAP).unwrap()).unwrap();
+    let count = bad.meshes[0].vertices.len();
+    bad.meshes[0].vertices.uvs = vec![vec![[0.0, 0.0]; count]; 5];
+    assert!(matches!(
+        bad.validate(),
+        Err(ModelError::InvalidVertexFormat("more than four uv maps"))
+    ));
+    assert!(matches!(
+        bad.to_file(),
+        Err(ModelError::InvalidVertexFormat("more than four uv maps"))
+    ));
+
+    // Bone weights without bone indices.
+    let mut bad = Model::from_file(&PreFoxModel::read(CAP).unwrap()).unwrap();
+    bad.meshes[0].vertices.bone_indices = None;
+    assert!(matches!(
+        bad.validate(),
+        Err(ModelError::InvalidVertexFormat(
+            "bone weights without bone indices"
+        ))
+    ));
+    assert!(matches!(
+        bad.to_file(),
+        Err(ModelError::InvalidVertexFormat(
+            "bone weights without bone indices"
+        ))
+    ));
+
+    // A weight width outside 2, 3 or 4.
+    let mut bad = Model::from_file(&PreFoxModel::read(CAP).unwrap()).unwrap();
+    bad.meshes[0].vertices.bone_weight_width = 5;
+    assert!(matches!(
+        bad.validate(),
+        Err(ModelError::VertexMismatch("bone weight width"))
+    ));
+    assert!(matches!(
+        bad.to_file(),
+        Err(ModelError::VertexMismatch("bone weight width"))
+    ));
+}
