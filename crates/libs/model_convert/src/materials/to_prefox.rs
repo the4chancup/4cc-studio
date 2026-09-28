@@ -367,6 +367,33 @@ mod tests {
     }
 
     #[test]
+    fn role_for_sampler_names_the_six_canonical_samplers() {
+        for (name, role) in [
+            ("DiffuseMap", TextureRole::Base),
+            ("NormalMap", TextureRole::Normal),
+            ("SpecularMap", TextureRole::Specular),
+            ("EnvironmentMap", TextureRole::Environment),
+            ("DetailMaterialMap", TextureRole::DetailMaterial),
+            ("DetailNormalMap", TextureRole::DetailNormal),
+        ] {
+            assert_eq!(role_for_sampler(name), Some(role), "{name}");
+        }
+        assert_eq!(role_for_sampler("DiffuseMap2"), None);
+    }
+
+    #[test]
+    fn a_metal_material_without_a_table_gets_reflection_parameters() {
+        let resolved = resolve(&material(MaterialFamily::Metal));
+        assert_eq!(
+            resolved.parameters,
+            vec![
+                ("Reflection".to_string(), vec![1.0, 1.0, 1.0, 0.0]),
+                ("Shininess".to_string(), vec![0.9, 0.0, 0.0, 1.0]),
+            ]
+        );
+    }
+
+    #[test]
     fn resolve_glass_is_transparent() {
         let resolved = resolve(&material(MaterialFamily::Glass));
         assert_eq!(resolved.shader, "Basic_C");

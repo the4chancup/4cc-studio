@@ -201,7 +201,8 @@ pub fn encode(model: &mut Model, parents: Option<&[Option<usize>]>) -> Result<bo
 /// mesh and group indices, clears `extensions.mesh_splitting` unless a
 /// group stays. A group whose combined mesh would reference more than
 /// 65536 distinct vertices, or whose components are not one mesh (their
-/// vertex layouts disagree), stays split — group, flag and components
+/// vertex layouts, materials, flag words, anti-blur flags or custom
+/// bounding boxes disagree), stays split — group, flag and components
 /// kept as they are. A split group with a parent that is `None`, or with
 /// children, is `FmdlError::BadMeshGroupAssignment`. An invalid model is
 /// an error, never a panic.

@@ -676,3 +676,109 @@ fn a_stored_sampler_name_without_settings_reports() {
         }]
     );
 }
+
+#[test]
+fn states_reach_the_canonical_flags() {
+    // `two_sided`/`transparent` come from the material's state entries.
+    let mut mtl = mtl_of("mat", "Basic_C");
+    mtl.materials[0].entries = vec![
+        mtl::MaterialEntry::State(mtl::State {
+            name: "twosided".to_string(),
+            value: 1,
+        }),
+        mtl::MaterialEntry::State(mtl::State {
+            name: "alphablend".to_string(),
+            value: 1,
+        }),
+    ];
+    let input = pes_model(vec!["sk_belly"], pes_mesh(vec![0, 0]));
+    let imported = model_to_ir(&input, &mtl).expect("import");
+    assert_eq!(imported.model.materials[0].two_sided, Some(true));
+    assert_eq!(imported.model.materials[0].transparent, Some(true));
+}
+
+#[test]
+fn a_second_sampler_for_one_role_stays_native() {
+    // The first `DiffuseMap` wins the canonical Base role; a second sampler
+    // mapping to the same role is a native one.
+    let sampler = |name: &str, path: &str| {
+        mtl::MaterialEntry::Sampler(mtl::Sampler {
+            name: name.to_string(),
+            path: path.to_string(),
+            srgb: None,
+            minfilter: None,
+            maxfilter: None,
+            magfilter: None,
+            mipfilter: None,
+            uaddr: None,
+            vaddr: None,
+            waddr: None,
+            maxaniso: None,
+        })
+    };
+    let mut mtl = mtl_of("mat", "Basic_C");
+    mtl.materials[0].entries = vec![
+        sampler("DiffuseMap", "a.dds"),
+        sampler("DiffuseMap", "b.dds"),
+        sampler("NormalMap", "n.dds"),
+    ];
+    let input = pes_model(vec!["sk_belly"], pes_mesh(vec![0, 0]));
+    let imported = model_to_ir(&input, &mtl).expect("import");
+    let material = &imported.model.materials[0];
+    assert_eq!(
+        material.textures,
+        vec![(TextureRole::Base, 0), (TextureRole::Normal, 2)]
+    );
+    assert_eq!(
+        material.prefox.as_ref().expect("prefox").textures,
+        vec![("DiffuseMap".to_string(), 0)]
+    );
+}
+
+#[test]
+fn a_stored_weight_width_is_kept() {
+    // `synthesized` is indices-without-weights only; a stored column keeps
+    // its own width.
+    let mut mesh = pes_mesh(vec![0, 0]);
+    mesh.vertices.bone_weight_width = 2;
+    mesh.vertices.bone_weights = Some(vec![[1.0, 0.0, 0.0, 0.0]]);
+    mesh.vertices.bone_indices = Some(vec![[0, 0, 0, 0]]);
+    let input = pes_model(vec!["sk_belly"], mesh);
+    let imported = model_to_ir(&input, &mtl_of("mat", "Basic_C")).expect("import");
+    assert_eq!(imported.model.meshes[0].vertices.bone_weight_width, Some(2));
+}
+
+#[test]
+fn a_weighted_slot_past_the_group_drops_and_reports() {
+    // The stale weighted index drops, the rest of the row renormalizes,
+    // and the drop is a finding.
+    let input = pes_model(vec!["sk_belly"], pes_mesh(vec![0]));
+    let imported = model_to_ir(&input, &mtl_of("mat", "Basic_C")).expect("import");
+    assert_eq!(
+        imported.model.meshes[0].vertices.bone_weights,
+        Some(vec![[1.0, 0.0, 0.0, 0.0]])
+    );
+    assert_eq!(
+        imported
+            .findings
+            .iter()
+            .filter(|finding| finding.code == "bone_slot_dropped")
+            .map(|finding| finding.detail.as_str())
+            .collect::<Vec<_>>(),
+        ["1"]
+    );
+}
+
+#[test]
+fn an_ordinary_extension_header_survives_import() {
+    // Only the vertex-loop marker and Split-Mesh headers are stripped.
+    let mut mesh = pes_mesh(vec![0, 0]);
+    mesh.extension_headers = vec!["Custom-Header: value".to_string()];
+    let input = pes_model(vec!["sk_belly"], mesh);
+    let imported = model_to_ir(&input, &mtl_of("mat", "Basic_C")).expect("import");
+    assert!(
+        imported.model.meshes[0]
+            .extension_headers
+            .contains("Custom-Header: value")
+    );
+}

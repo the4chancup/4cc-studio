@@ -544,4 +544,106 @@ mod tests {
             PesVersion::Pes17
         ));
     }
+
+    #[test]
+    fn a_custom_bone_in_a_used_group_does_not_force_conversion() {
+        // A non-table name is skipped, not sent to `version_bone`: the rest
+        // of the bundle matches PES21, so it still passes through native.
+        let NativeModelBundle::Fox { mut model, skl } = fox(HIGHNECK) else {
+            unreachable!()
+        };
+        model.bones.push(::fmdl::Bone {
+            name: "cup_flair".to_string(),
+            parent: None,
+            bounding_box: ::fmdl::BoundingBox {
+                min: [0.0; 4],
+                max: [0.0; 4],
+            },
+            local_position: [0.0; 4],
+            world_position: [0.0; 4],
+        });
+        model.meshes[0].bone_group.push(model.bones.len() - 1);
+        assert!(!needs_conversion(
+            &NativeModelBundle::Fox { model, skl },
+            PesVersion::Pes21
+        ));
+    }
+
+    #[test]
+    fn an_skl_pose_that_differs_needs_conversion() {
+        // The SKL is the source pose; the PES21 table is only the fallback
+        // for a name the SKL lacks.
+        let NativeModelBundle::Fox { model, .. } = fox(HIGHNECK) else {
+            unreachable!()
+        };
+        let used = model.meshes[0]
+            .bone_group
+            .iter()
+            .copied()
+            .find(|&index| is_standard(&model.bones[index].name))
+            .expect("a standard used bone");
+        let moved = ::fmdl::format::SklBone {
+            name: model.bones[used].name.clone(),
+            parent: None,
+            rotation: [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
+            translation: [9.0, 0.0, 0.0],
+        };
+        let skl = ::fmdl::SklFile {
+            bones: vec![moved],
+            trailing: Vec::new(),
+        };
+        assert!(needs_conversion(
+            &NativeModelBundle::Fox {
+                model,
+                skl: Some(skl)
+            },
+            PesVersion::Pes21
+        ));
+    }
+
+    #[test]
+    fn an_skl_pose_matching_the_table_does_not_convert() {
+        // The name lookup must be an equality: with the used bone's SKL pose
+        // equal to its PES21 table pose, nothing asks for conversion — even
+        // with an unrelated SKL bone present.
+        let NativeModelBundle::Fox { model, .. } = fox(HIGHNECK) else {
+            unreachable!()
+        };
+        let used = model.meshes[0]
+            .bone_group
+            .iter()
+            .copied()
+            .find(|&index| is_standard(&model.bones[index].name))
+            .expect("a standard used bone");
+        let name = model.bones[used].name.clone();
+        let pose = skeletons(PesVersion::Pes21)
+            .body
+            .bone(&name)
+            .expect("a PES21 table bone")
+            .matrix;
+        let skl = ::fmdl::SklFile {
+            bones: vec![
+                ::fmdl::format::SklBone {
+                    name,
+                    parent: None,
+                    rotation: pose.rotation(),
+                    translation: pose.translation(),
+                },
+                ::fmdl::format::SklBone {
+                    name: "sk_decoy".to_string(),
+                    parent: None,
+                    rotation: [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
+                    translation: [9.0, 0.0, 0.0],
+                },
+            ],
+            trailing: Vec::new(),
+        };
+        assert!(!needs_conversion(
+            &NativeModelBundle::Fox {
+                model,
+                skl: Some(skl)
+            },
+            PesVersion::Pes21
+        ));
+    }
 }

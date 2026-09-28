@@ -129,7 +129,7 @@ pub fn skeletons(version: PesVersion) -> &'static VersionSkeletons {
 }
 
 /// The render hierarchy: `None` for a render root or a name outside the table.
-pub fn render_parent(name: &str) -> Option<&'static str> {
+pub(crate) fn render_parent(name: &str) -> Option<&'static str> {
     render_parents::RENDER_PARENTS
         .binary_search_by(|(key, _)| key.cmp(&name))
         .ok()
@@ -158,7 +158,7 @@ pub(crate) fn is_standard(name: &str) -> bool {
 }
 
 /// The bone that takes `name`'s weight when a version lacks it (one hop; callers chain).
-pub fn fold_target(name: &str) -> Option<&'static str> {
+pub(crate) fn fold_target(name: &str) -> Option<&'static str> {
     fold::FOLD_TARGETS
         .binary_search_by(|(key, _)| key.cmp(&name))
         .ok()

@@ -90,6 +90,8 @@ mod tests {
             ("eyeocclusion_lambert", MaterialFamily::Shadeless, true),
             ("fox3ddf_blin", MaterialFamily::Shaded, false),
             ("fox3ddf_blin_fuzzblock", MaterialFamily::Shaded, false),
+            // `3ddf` with none of the other rules' tokens still exacts Shaded.
+            ("fox3ddf_plain", MaterialFamily::Shaded, false),
             (
                 "pes_3ddf_basic_color_translucent",
                 MaterialFamily::Shaded,

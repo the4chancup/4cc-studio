@@ -639,16 +639,124 @@ mod tests {
     }
 
     #[test]
+    fn normalized_recovers_unit_length() {
+        assert_eq!(normalized([2.0, 0.0, 0.0]), Some([1.0, 0.0, 0.0]));
+        let out = normalized([1.0, 1.0, 1.0]).expect("normalizes");
+        let len = (out[0] * out[0] + out[1] * out[1] + out[2] * out[2]).sqrt();
+        assert!((len - 1.0).abs() < 1e-6, "{out:?}");
+        assert!(normalized([0.0, 0.0, 0.0]).is_none());
+    }
+
+    #[test]
+    fn distance_is_a_difference_not_a_sum() {
+        assert_eq!(distance([3.0, 0.0, 0.0], [1.0, 0.0, 0.0]), 2.0);
+        assert_eq!(distance([0.0, 0.0, 3.0], [0.0, 0.0, 1.0]), 2.0);
+    }
+
+    #[test]
+    fn a_delta_at_the_moved_bound_is_not_moved() {
+        // Exactly MOVED_TOLERANCE is not "moved"; anything past it is.
+        let target = Affine::IDENTITY;
+        let at = Affine::from_rotation_translation(
+            [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
+            [-MOVED_TOLERANCE, 0.0, 0.0],
+        );
+        assert_eq!(bone_moved(&at, &target), Some(false));
+        let past = Affine::from_rotation_translation(
+            [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
+            [-MOVED_TOLERANCE * 2.0, 0.0, 0.0],
+        );
+        assert_eq!(bone_moved(&past, &target), Some(true));
+    }
+
+    #[test]
+    fn a_bone_at_the_moved_bound_keeps_its_pose() {
+        // dsk_pos_belly_ba_l's table matrix is the identity; a source pose
+        // translated by exactly MOVED_TOLERANCE is not re-bound.
+        let mut ir = ir_with_bones(&["dsk_pos_belly_ba_l"], PesVersion::Pes21);
+        let source = Affine::from_rotation_translation(
+            [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
+            [-MOVED_TOLERANCE, 0.0, 0.0],
+        );
+        ir.bones[0].matrix = source;
+        let (ir, findings) = retarget(ir, PesVersion::Pes21).expect("retarget");
+        assert_eq!(ir.bones[0].matrix, source);
+        assert!(
+            !findings
+                .iter()
+                .any(|finding| finding.code == "skeleton_retargeted")
+        );
+    }
+
+    #[test]
+    fn an_inserted_fold_target_parents_to_its_render_parent() {
+        // dsk_back folds onto sk_belly; the inserted belly's parent is its
+        // render parent dsk_hip, not whichever bone the lookup happens to
+        // hit first.
+        let ir = ir_with_bones(&["dsk_hip", "dsk_back"], PesVersion::Pes21);
+        let (ir, _) = retarget(ir, PesVersion::Pes15).expect("retarget");
+        let belly = ir
+            .bones
+            .iter()
+            .position(|bone| bone.name == "sk_belly")
+            .expect("inserted sk_belly");
+        let hip = ir
+            .bones
+            .iter()
+            .position(|bone| bone.name == "dsk_hip")
+            .expect("dsk_hip");
+        assert_eq!(ir.bones[belly].parent, Some(hip));
+    }
+
+    #[test]
+    fn a_stale_index_in_a_weighted_row_is_safe() {
+        // The stale slot shares the row with a weighted one: the blend must
+        // still skip the unweighted stale entry. sk_belly keeps `moved` on
+        // so the per-vertex pass runs.
+        let mut ir = ir_with_bones(&["dsk_deltoid_l", "sk_belly"], PesVersion::Pes17);
+        ir.meshes[0].vertices.bone_indices = Some(vec![[0, 5, 0, 0], [0, 0, 0, 0]]);
+        ir.meshes[0].vertices.bone_weights = Some(vec![[0.5, 0.0, 0.5, 0.0], [1.0, 0.0, 0.0, 0.0]]);
+        let (ir, _) = retarget(ir, PesVersion::Pes15).expect("retarget");
+        let vertices = &ir.meshes[0].vertices;
+        assert!(vertices.positions[0].iter().all(|c| c.is_finite()));
+        // The weighted slot remaps to the fold target's group slot; the
+        // stale unweighted entry zeroes.
+        assert_eq!(
+            vertices.bone_indices.as_ref().expect("indices")[0],
+            [1, 0, 0, 0]
+        );
+    }
+
+    #[test]
+    fn a_stale_unweighted_index_is_skipped_when_nothing_folds() {
+        // No fold remaps the row: the out-of-group unweighted entry reaches
+        // the delta pick as stored and must be skipped, not indexed.
+        let mut ir = ir_with_bones(&["sk_belly"], PesVersion::Pes15);
+        // A pose away from the PES15 table keeps `moved` on so the
+        // per-vertex pass runs.
+        ir.bones[0].matrix = Affine::IDENTITY;
+        ir.meshes[0].vertices.bone_indices = Some(vec![[0, 5, 0, 0]]);
+        let (ir, _) = retarget(ir, PesVersion::Pes15).expect("retarget");
+        assert!(
+            ir.meshes[0].vertices.positions[0]
+                .iter()
+                .all(|c| c.is_finite())
+        );
+    }
+
+    #[test]
     fn a_stale_index_in_an_unweighted_slot_is_safe() {
         // PES17 -> PES15 folds dsk_deltoid_l onto dsk_upperarm_l; slot 1's index 5 is
-        // past the one-entry group but unweighted and must not be remapped.
-        let mut ir = ir_with_bones(&["dsk_deltoid_l"], PesVersion::Pes17);
-        ir.meshes[0].vertices.bone_indices = Some(vec![[0, 5, 0, 0]]);
+        // past the group but unweighted and must not be remapped. sk_belly keeps
+        // `moved` on so the per-vertex pass runs.
+        let mut ir = ir_with_bones(&["dsk_deltoid_l", "sk_belly"], PesVersion::Pes17);
+        ir.meshes[0].vertices.bone_indices = Some(vec![[0, 5, 0, 0], [0, 0, 0, 0]]);
+        ir.meshes[0].vertices.bone_weights = Some(vec![[1.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0]]);
         let ir = retarget(ir, PesVersion::Pes15).expect("retarget").0;
         let vertices = &ir.meshes[0].vertices;
         assert_eq!(
             vertices.bone_indices.as_ref().expect("indices")[0],
-            [0, 0, 0, 0]
+            [1, 0, 0, 0]
         );
         assert_eq!(
             vertices.bone_weights.as_ref().expect("weights")[0],
