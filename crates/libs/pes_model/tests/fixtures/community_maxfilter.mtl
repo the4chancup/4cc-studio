@@ -1,0 +1,102 @@
+<materialset>
+  <material name="nose" shader="Basic_C">
+    <sampler name="DiffuseMap" path="./nose.dds" srgb="1" minfilter="linear" magfilter="linear" />
+    <state name="ztest" value="1" />
+    <state name="zwrite" value="1" />
+    <state name="twosided" value="0" />
+    <state name="alphatest" value="1" />
+    <state name="alpharef" value="0" />
+    <state name="alphablend" value="0" />
+    <state name="blendmode" value="0" />
+  </material>
+  <material name="glove_l_arm_mat" shader="Basic_C">
+    <sampler name="DiffuseMap" path="./arm_1_bsm.dds" srgb="1" minfilter="linear" magfilter="linear" />
+    <state name="ztest" value="1" />
+    <state name="zwrite" value="1" />
+    <state name="twosided" value="1" />
+    <state name="alphatest" value="1" />
+    <state name="alpharef" value="0" />
+    <state name="alphablend" value="0" />
+    <state name="blendmode" value="0" />
+  </material>
+  <material name="boots_arm_mat" shader="Basic_C">
+    <sampler name="DiffuseMap" path="./arm_1_bsm.dds" srgb="1" minfilter="linear" magfilter="linear" />
+    <state name="ztest" value="1" />
+    <state name="zwrite" value="1" />
+    <state name="twosided" value="0" />
+    <state name="alphatest" value="1" />
+    <state name="alpharef" value="0" />
+    <state name="alphablend" value="0" />
+    <state name="blendmode" value="0" />
+  </material>
+  <material name="uni_shirts" shader="Basic_C">
+    <sampler name="DiffuseMap" path="model/character/uniform/common/XXX/dummy_kit.dds" srgb="1" minfilter="linear" magfilter="linear" />
+    <state name="ztest" value="1" />
+    <state name="zwrite" value="1" />
+    <state name="twosided" value="0" />
+    <state name="alphatest" value="1" />
+    <state name="alpharef" value="0" />
+    <state name="alphablend" value="0" />
+    <state name="blendmode" value="0" />
+  </material>
+  <material name="basic_L_fx" shader="Basic_C">
+    <sampler name="DiffuseMap" path="./ek0061_c_L_bsm_alp.dds" srgb="1" minfilter="linear" magfilter="linear" />
+    <state name="ztest" value="1" />
+    <state name="zwrite" value="1" />
+    <state name="twosided" value="0" />
+    <state name="alphatest" value="1" />
+    <state name="alpharef" value="0" />
+    <state name="alphablend" value="0" />
+    <state name="blendmode" value="0" />
+  </material>
+  <material name="thigh_mat" shader="Basic_C">
+    <sampler name="DiffuseMap" path="./thigh_1_bsm.dds" srgb="1" minfilter="linear" magfilter="linear" />
+    <state name="ztest" value="1" />
+    <state name="zwrite" value="1" />
+    <state name="twosided" value="0" />
+    <state name="alphatest" value="1" />
+    <state name="alpharef" value="0" />
+    <state name="alphablend" value="0" />
+    <state name="blendmode" value="0" />
+  </material>
+  <material name="fox_skin_mat" shader="Basic_C">
+    <sampler name="DiffuseMap" path="./face_bsm_alp.dds" srgb="1" minfilter="linear" magfilter="linear" />
+    <state name="ztest" value="1" />
+    <state name="zwrite" value="1" />
+    <state name="twosided" value="0" />
+    <state name="alphatest" value="1" />
+    <state name="alpharef" value="0" />
+    <state name="alphablend" value="0" />
+    <state name="blendmode" value="0" />
+  </material>
+  <material name="fox_eyeOcclusion_mat" shader="Overlay">
+    <sampler name="DiffuseMap" path="./eye_occlusion_alp.dds" srgb="1" minfilter="linear" maxfilter="linear" magfilter="linear" />
+    <state name="ztest" value="1" />
+    <state name="zwrite" value="0" />
+    <state name="twosided" value="1" />
+    <state name="alphatest" value="0" />
+    <state name="alpharef" value="0" />
+    <state name="alphablend" value="1" />
+    <state name="blendmode" value="0" />
+  </material>
+  <material name="fox_hair_mat" shader="Basic_C">
+    <sampler name="DiffuseMap" path="./hair_parts_bsm_alp.dds" srgb="1" minfilter="linear" magfilter="linear" />
+    <state name="ztest" value="1" />
+    <state name="zwrite" value="0" />
+    <state name="twosided" value="1" />
+    <state name="alphatest" value="0" />
+    <state name="alpharef" value="0" />
+    <state name="alphablend" value="1" />
+    <state name="blendmode" value="0" />
+  </material>
+  <material name="fox_head_shell_mat" shader="Basic_C">
+    <sampler name="DiffuseMap" path="./face_bsm_alp.dds" srgb="1" minfilter="linear" magfilter="linear" />
+    <state name="ztest" value="1" />
+    <state name="zwrite" value="1" />
+    <state name="twosided" value="1" />
+    <state name="alphatest" value="1" />
+    <state name="alpharef" value="0" />
+    <state name="alphablend" value="0" />
+    <state name="blendmode" value="0" />
+  </material>
+</materialset>

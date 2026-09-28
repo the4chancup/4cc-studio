@@ -28,6 +28,14 @@ the record it left). Header version 19 everywhere except `konami_shadow_win32` (
 | `community_duplicate_field_flat_player.wesys.model` | the community flat-player template (`Models/Templates_prefox/Flat player template - anime shading doublesided/oral_2dplayer_win32.model`) | **a field type listed twice**: geometry 0 (8 vertices) carries a second bone-weights descriptor (4 vertices, offset 37472, inside the first one's data) after the real one; the first descriptor of a type is the field; 23972 wrapped, 38604 unwrapped. One of 4 census files |
 | `community_loose_vertex_hair.wesys.model` | a cup export's hair (`Teams_Main/JP/nijiura/NIJIURA JP Aesthetic Export/Faces/89420/hair_high_win32.model`) | **indices shifted past loose vertices**: geometry 2 (1058 vertices, 6018 face indices) uses 1058 distinct indices with maximum 1058, one value below it unused (an old exporter counted loose vertices it did not write); geometries 0 and 1 are clean; 191474 wrapped, 312148 unwrapped. One of 4 census files meeting the repair condition (a fifth, with indices up to 65428, does not) |
 
+Community `.mtl` representatives from the 2026-09-28 `.mtl` census, each one of its class:
+
+| File | Source | Notes |
+|---|---|---|
+| `community_maxfilter.mtl` | a Winter 26 cup export (`4CCTANGIBLES/Faces/XXX01 - Nose/materials.mtl`) | samplers with a `maxfilter` attribute between `minfilter` and `magfilter`; 4582 bytes; one of 3 |
+| `community_second_close_tag.mtl` | `Teams_Guest/h/72219 - Faceless/hands.mtl` | a second `</materialset>` after the root; 1863 bytes; one of 6 |
+| `community_trailing_junk.mtl` | `Teams_Guest/bird/0Faces/88902 - USA/face.mtl` | binary bytes after the root; 421 bytes; one of 2 |
+
 The `.mtl` files differ in whitespace between Konami folders (`konami_shadow.mtl` and
 `konami_accessory.mtl` are CRLF with tabs, `konami_headHi.mtl` LF with tabs, `konami_hair.mtl`
 CRLF with four-space indents), so `.mtl` byte parity is per file, not one canonical formatting.

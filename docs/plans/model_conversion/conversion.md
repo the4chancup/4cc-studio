@@ -50,6 +50,18 @@ bones, 65535 vertices, 21845 faces) into sub-meshes. It involves:
 - Vertex deduplication across sub-mesh boundaries
 - Face reordering
 
+Rules both format crates' split ops follow, from the conversion census (see `ir.md`, "What real
+files carry"):
+- **Decode leaves a group that cannot be whole.** When a group's combined mesh would reference
+  more than 65536 distinct vertices (114 community files), `split::decode` leaves that group's
+  components and markers as they are and combines the other groups. It is not an error.
+- **Encode never leaves an empty container.** A mesh over a limit that yields no components
+  (no faces and no vertices: a face export's bone-marker mesh) stays as it is, unsplit.
+- **FMDL `Split-Mesh-Groups` over-flagging.** Some writers also list root groups, or empty
+  groups, in the header (4 community files). A listed group is a split container only when
+  it has a parent and at least one mesh. Any other listed group reads as an ordinary group,
+  and a rewrite does not list it.
+
 This is O(V×F) in the worst case — tight loops over vertex arrays with per-iteration set operations.
 This is where Rust's performance is essential:
 
