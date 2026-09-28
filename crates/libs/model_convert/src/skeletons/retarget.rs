@@ -153,6 +153,12 @@ pub fn retarget(
         for mesh in &mut ir.meshes {
             crate::ir::remap_bone_group(mesh, &old_to_new, &redirect);
         }
+        // A fold target just gained the removed bone's weighted vertices;
+        // its cached bounding box no longer covers them — the FMDL export
+        // recomputes a missing box from the weighted vertices.
+        for target in redirect.iter().flatten() {
+            ir.bones[*target].bounding_box = None;
+        }
     }
 
     // ---- Re-bind: every surviving standard bone from its source pose to the target's. ----
@@ -783,6 +789,35 @@ mod tests {
             vertices.bone_indices.as_ref().expect("indices")[0],
             [1, 0, 0, 0]
         );
+    }
+
+    #[test]
+    fn a_fold_targets_bounding_box_is_recomputed() {
+        // `dsk_thigh_l` folds onto `sk_thigh_l` for PES18: the vertex that
+        // lands on the target must be inside the box the export writes —
+        // a cached box from before the fold would be stale.
+        let mut ir = ir_with_bones(&["dsk_thigh_l", "sk_thigh_l"], PesVersion::Pes19);
+        ir.bones[1].bounding_box = Some(crate::ir::BoundingBox {
+            min: [99.0, 99.0, 99.0, 1.0],
+            max: [100.0, 100.0, 100.0, 1.0],
+        });
+        let (ir, findings) = retarget(ir, PesVersion::Pes18).expect("retarget");
+        assert_eq!(ir.bones.len(), 1);
+        assert_eq!(ir.bones[0].name, "sk_thigh_l");
+        assert!(ir.bones[0].bounding_box.is_none());
+        assert!(findings.iter().any(|f| f.code == "bone_folded_for_version"));
+        let exported = crate::formats::fmdl::ir_to_fmdl(&ir).expect("export");
+        let bone = &exported.model.bones[0];
+        let position = exported.model.meshes[0].vertices.positions[0];
+        for axis in 0..3 {
+            assert!(
+                bone.bounding_box.min[axis] <= position[axis]
+                    && position[axis] <= bone.bounding_box.max[axis],
+                "axis {axis}: {position:?} not in {:?}..{:?}",
+                bone.bounding_box.min,
+                bone.bounding_box.max
+            );
+        }
     }
 
     #[test]

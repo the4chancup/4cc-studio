@@ -3,7 +3,7 @@
 use crate::affine::Affine;
 use crate::ir::{BoundingBox, CanonicalModel, validate};
 use crate::loss::{self, Finding, Subject};
-use crate::materials::{MaterialFamily, to_fox};
+use crate::materials::{MaterialFamily, to_fox, to_prefox};
 use crate::skeletons;
 
 use super::super::ConvertError;
@@ -146,11 +146,26 @@ pub fn ir_to_fmdl(ir: &CanonicalModel) -> Result<ExportedFox, ConvertError> {
                     });
                 }
             }
-            for (name, _) in &prefox.parameters {
-                if !resolved
-                    .parameters
-                    .iter()
-                    .any(|(parameter, _)| parameter == name)
+            for (name, value) in &prefox.parameters {
+                // Equal (padded to four components) to the family's pre-Fox
+                // default: converting back to `.mtl` regenerates it verbatim.
+                let regenerated = to_prefox::default_parameters(material.family).iter().any(
+                    |(default_name, default)| {
+                        default_name == name
+                            && value.len() <= 4
+                            && value
+                                .iter()
+                                .copied()
+                                .chain(std::iter::repeat(0.0))
+                                .take(4)
+                                .eq(default.iter().copied())
+                    },
+                );
+                if !regenerated
+                    && !resolved
+                        .parameters
+                        .iter()
+                        .any(|(parameter, _)| parameter == name)
                 {
                     findings.push(Finding {
                         code: "material_parameter_dropped",

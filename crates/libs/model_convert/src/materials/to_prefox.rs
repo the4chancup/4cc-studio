@@ -99,6 +99,18 @@ pub fn sampler_for_role(role: TextureRole) -> Option<(&'static str, SamplerSetti
     Some((name, settings))
 }
 
+/// The parameters `resolve` regenerates for `family` when no `prefox` table is
+/// stored — Metal's two; every other family's list is empty.
+pub(crate) fn default_parameters(family: MaterialFamily) -> &'static [(&'static str, [f32; 4])] {
+    match family {
+        MaterialFamily::Metal => &[
+            ("Reflection", [1.0, 1.0, 1.0, 0.0]),
+            ("Shininess", [0.9, 0.0, 0.0, 1.0]),
+        ],
+        _ => &[],
+    }
+}
+
 /// The inverse of [`sampler_for_role`]: `None` for any name that is not a canonical role's
 /// pre-Fox sampler (it stays a native sampler).
 pub fn role_for_sampler(sampler: &str) -> Option<TextureRole> {
@@ -217,6 +229,14 @@ pub fn resolve(material: &Material) -> ResolvedPreFox {
     for (role, texture) in ordered {
         match sampler_for_role(role) {
             Some((name, defaults)) => {
+                let mut defaults = defaults;
+                // `Base_Tex_LIN` reads the map linear: the `DiffuseMap` it
+                // becomes gets `srgb="0"`.
+                if role == TextureRole::Base
+                    && material.fox.as_ref().is_some_and(|fox| fox.base_linear)
+                {
+                    defaults.srgb = Some(false);
+                }
                 // A stored row replaces the role defaults wholesale: an attribute absent from
                 // the `.mtl` resolves to `None`, not to the generated default.
                 let settings = prefox
@@ -244,9 +264,10 @@ pub fn resolve(material: &Material) -> ResolvedPreFox {
     }
 
     let mut parameters = Vec::new();
-    if prefox.is_none() && material.family == MaterialFamily::Metal {
-        merge(&mut parameters, "Reflection", vec![1.0, 1.0, 1.0, 0.0]);
-        merge(&mut parameters, "Shininess", vec![0.9, 0.0, 0.0, 1.0]);
+    if prefox.is_none() {
+        for (name, value) in default_parameters(material.family) {
+            merge(&mut parameters, name, value.to_vec());
+        }
     }
     for (name, value) in &material.parameters {
         merge(&mut parameters, name, value.to_vec());
@@ -273,7 +294,7 @@ pub fn resolve(material: &Material) -> ResolvedPreFox {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::materials::PreFoxMaterial;
+    use crate::materials::{FoxMaterial, PreFoxMaterial};
 
     /// The state's current value, 0 when absent.
     fn state(states: &[(String, u32)], name: &str) -> u32 {
@@ -505,6 +526,31 @@ mod tests {
         let resolved = resolve(&mat);
         assert_eq!(state(&resolved.states, "alphatest"), 1);
         assert_eq!(state(&resolved.states, "alphablend"), 1);
+    }
+
+    #[test]
+    fn a_linear_fox_base_stays_linear() {
+        // `Base_Tex_LIN`'s `fox.base_linear` writes `srgb="0"` on the
+        // `DiffuseMap` it maps to.
+        let mut mat = material(MaterialFamily::Shadeless);
+        mat.textures = vec![(TextureRole::Base, 0)];
+        mat.fox = Some(FoxMaterial {
+            shader: "fox3ddf_blin".to_string(),
+            technique: "fox3DDF_Blin".to_string(),
+            alpha_flags: 0,
+            shadow_flags: 0,
+            cast_shadow: None,
+            invisible: None,
+            base_linear: true,
+            textures: vec![],
+            parameters: vec![],
+        });
+        let (_, settings, _) = &resolve(&mat).samplers[0];
+        assert_eq!(settings.srgb, Some(false));
+        // Without the flag the role default `srgb="1"` stands.
+        mat.fox.as_mut().expect("fox").base_linear = false;
+        let (_, settings, _) = &resolve(&mat).samplers[0];
+        assert_eq!(settings.srgb, Some(true));
     }
 
     #[test]

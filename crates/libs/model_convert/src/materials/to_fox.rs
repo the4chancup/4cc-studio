@@ -8,9 +8,9 @@ const TWO_SIDED_BIT: u8 = 32;
 /// Alpha flag bit for transparency; owned by `transparent` when that is set explicitly.
 const TRANSPARENT_BIT: u8 = 128;
 /// Shadow flag bit for "does not cast a shadow"; owned by `cast_shadow` (true clears it).
-const NO_SHADOW_CAST_BIT: u8 = 1;
+pub(crate) const NO_SHADOW_CAST_BIT: u8 = 1;
 /// Shadow flag bit for "renders nothing"; owned by `invisible`.
-const INVISIBLE_BIT: u8 = 2;
+pub(crate) const INVISIBLE_BIT: u8 = 2;
 
 /// The family's Fox defaults (format plan "Shader families", Fox columns).
 pub struct FoxDefaults {
@@ -173,7 +173,20 @@ pub fn resolve(material: &Material) -> ResolvedFox {
         };
     }
 
-    let base_linear = fox.is_some_and(|f| f.base_linear);
+    // The base texture's colour space rides both directions: `Base_Tex_LIN`
+    // sets `fox.base_linear`, a `.mtl` `DiffuseMap` with `srgb="0"` means it
+    // too — the first `prefox` sampler whose name holds the Base role is the
+    // one that produced the canonical binding.
+    let base_linear = fox.is_some_and(|f| f.base_linear)
+        || material
+            .prefox
+            .as_ref()
+            .and_then(|prefox| {
+                prefox.samplers.iter().find(|(name, _)| {
+                    super::to_prefox::role_for_sampler(name) == Some(TextureRole::Base)
+                })
+            })
+            .is_some_and(|(_, settings)| settings.srgb == Some(false));
     let mut textures = Vec::new();
     let mut unused_roles = Vec::new();
     let mut roles: Vec<(TextureRole, usize)> = material.textures.clone();
@@ -220,7 +233,7 @@ pub fn resolve(material: &Material) -> ResolvedFox {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::materials::FoxMaterial;
+    use crate::materials::{FoxMaterial, PreFoxMaterial, SamplerSettings};
 
     fn material(family: MaterialFamily) -> Material {
         Material {
@@ -387,6 +400,31 @@ mod tests {
         // invisible Some(true) sets bit 2 back.
         mat.fox.as_mut().expect("fox").invisible = Some(true);
         assert_eq!(resolve(&mat).shadow_flags, 3);
+    }
+
+    #[test]
+    fn a_linear_prefox_base_stays_linear() {
+        // A `.mtl` `DiffuseMap` with `srgb="0"` (the wideface exports' case)
+        // maps to `Base_Tex_LIN`, not the sRGB default.
+        let mut mat = material(MaterialFamily::Shadeless);
+        mat.textures = vec![(TextureRole::Base, 0)];
+        mat.prefox = Some(PreFoxMaterial {
+            shader: "Shadeless".to_string(),
+            states: vec![],
+            samplers: vec![(
+                "DiffuseMap".to_string(),
+                SamplerSettings {
+                    srgb: Some(false),
+                    ..SamplerSettings::default()
+                },
+            )],
+            textures: vec![],
+            parameters: vec![],
+        });
+        assert_eq!(resolve(&mat).textures, [("Base_Tex_LIN".to_string(), 0)]);
+        // `srgb="1"` keeps the sRGB sampler.
+        mat.prefox.as_mut().expect("prefox").samplers[0].1.srgb = Some(true);
+        assert_eq!(resolve(&mat).textures, [("Base_Tex_SRGB".to_string(), 0)]);
     }
 
     #[test]

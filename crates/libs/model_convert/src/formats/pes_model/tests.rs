@@ -8,7 +8,7 @@ use crate::affine::Affine;
 use crate::formats::{ConvertError, fmdl};
 use crate::ir::{Bone, CanonicalModel, Material, Mesh, MeshGroup, SourceFormat, Texture, Vertices};
 use crate::loss::{Finding, Subject};
-use crate::materials::{FoxMaterial, PreFoxMaterial, TextureRole, to_prefox};
+use crate::materials::{FoxMaterial, PreFoxMaterial, TextureRole, to_fox, to_prefox};
 use crate::skeletons;
 
 use crate::materials::MaterialFamily;
@@ -23,6 +23,7 @@ const GLASSES_T: &[u8] = include_bytes!("../../../tests/fixtures/konami_accessor
 const CARDHEAD_M: &[u8] = include_bytes!("../../../tests/fixtures/cardhead_face_high.model");
 const CARDHEAD_T: &[u8] = include_bytes!("../../../tests/fixtures/cardhead_materials.mtl");
 const HIGHNECK: &[u8] = include_bytes!("../../../tests/fixtures/konami_highneck.fmdl");
+const ORAL: &[u8] = include_bytes!("../../../tests/fixtures/addon_oral.fmdl");
 const MAXFILTER_T: &[u8] =
     include_bytes!("../../../../pes_model/tests/fixtures/community_maxfilter.mtl");
 
@@ -568,6 +569,97 @@ fn fox_ir_exports_to_pre_fox() {
 }
 
 #[test]
+fn cast_shadow_and_invisible_override_the_finding_bits() {
+    let ir_for = |cast_shadow: Option<bool>, invisible: Option<bool>, shadow_flags| {
+        let mut ir = ir_over(
+            Vertices {
+                positions: vec![[0.0; 3]],
+                ..Vertices::default()
+            },
+            vec![[0, 0, 0]],
+        );
+        ir.materials[0].fox = Some(FoxMaterial {
+            shader: "fox3ddf_blin".to_string(),
+            technique: "fox3DDF_Blin".to_string(),
+            alpha_flags: 0,
+            shadow_flags,
+            cast_shadow,
+            invisible,
+            base_linear: false,
+            textures: vec![],
+            parameters: vec![],
+        });
+        ir
+    };
+    let dropped_details = |ir: &CanonicalModel| {
+        ir_to_model(ir)
+            .expect("export")
+            .findings
+            .into_iter()
+            .filter(|f| f.code == "native_field_dropped")
+            .map(|f| f.detail)
+            .collect::<Vec<_>>()
+    };
+    // `cast_shadow = false` sets the no-shadow bit even when the raw flags
+    // don't carry it; `invisible = true` sets the invisible bit.
+    assert_eq!(
+        dropped_details(&ir_for(Some(false), Some(true), 0)),
+        ["no_shadow_cast".to_string(), "invisible".to_string()],
+    );
+    // `cast_shadow = true` clears a set raw bit — the material casts shadows.
+    assert_eq!(
+        dropped_details(&ir_for(Some(true), None, to_fox::NO_SHADOW_CAST_BIT)),
+        Vec::<String>::new(),
+    );
+    // `invisible = false` clears a set raw bit — the material is visible.
+    assert_eq!(
+        dropped_details(&ir_for(None, Some(false), to_fox::INVISIBLE_BIT)),
+        Vec::<String>::new(),
+    );
+    // Clearing one bit must not clobber the other.
+    assert_eq!(
+        dropped_details(&ir_for(
+            Some(true),
+            None,
+            to_fox::NO_SHADOW_CAST_BIT | to_fox::INVISIBLE_BIT
+        )),
+        ["invisible".to_string()],
+    );
+    assert_eq!(
+        dropped_details(&ir_for(
+            None,
+            Some(false),
+            to_fox::NO_SHADOW_CAST_BIT | to_fox::INVISIBLE_BIT
+        )),
+        ["no_shadow_cast".to_string()],
+    );
+}
+
+#[test]
+fn fox_shadow_flag_bits_are_findings() {
+    // `addon_oral`'s `shadow_flags = 131` carries both engine-only bits;
+    // the `.mtl` has no home for them.
+    let oral = fmdl::fmdl_to_ir(
+        &::fmdl::Model::from_file(&::fmdl::FmdlFile::read(ORAL).expect("parse")).expect("model"),
+        None,
+    )
+    .expect("import");
+    let exported = ir_to_model(&oral.model).expect("export");
+    let flag_findings: Vec<(Subject, String)> = exported
+        .findings
+        .iter()
+        .filter(|f| f.code == "native_field_dropped")
+        .map(|f| (f.subject.clone(), f.detail.clone()))
+        .collect();
+    for name in ["no_shadow_cast", "invisible"] {
+        assert!(
+            flag_findings.iter().any(|(_, detail)| detail == name),
+            "missing a native_field_dropped for {name}: {flag_findings:?}"
+        );
+    }
+}
+
+#[test]
 fn a_dropped_fox_parameter_is_a_finding() {
     // A canonical parameter is carried while a `fox`-only name drops next to
     // it: the finding names only the dropped one.
@@ -609,6 +701,44 @@ fn a_dropped_fox_parameter_is_a_finding() {
         })
         .collect();
     assert_eq!(vectors, ["Shininess".to_string()]);
+}
+
+#[test]
+fn a_default_valued_fox_parameter_is_not_a_finding() {
+    // `MatParamIndex_0 = [0,0,0,0]` is the family's Fox default: converting
+    // back to FMDL regenerates it verbatim, so its loss is silent. A
+    // non-default `SelfColor` is still reported.
+    let mut ir = ir_over(
+        Vertices {
+            positions: vec![[0.0; 3]],
+            ..Vertices::default()
+        },
+        vec![[0, 0, 0]],
+    );
+    ir.materials[0].family = MaterialFamily::Shaded;
+    ir.materials[0].fox = Some(FoxMaterial {
+        shader: "fox3ddf_blin".to_string(),
+        technique: "fox3DDF_Blin".to_string(),
+        alpha_flags: 0,
+        shadow_flags: 0,
+        cast_shadow: None,
+        invisible: None,
+        base_linear: false,
+        textures: vec![],
+        parameters: vec![
+            ("MatParamIndex_0".to_string(), [0.0, 0.0, 0.0, 0.0]),
+            ("SelfColor".to_string(), [1.0, 1.0, 1.0, 1.0]),
+        ],
+    });
+    let exported = ir_to_model(&ir).expect("export");
+    assert_eq!(
+        exported.findings,
+        [Finding {
+            code: "material_parameter_dropped",
+            subject: Subject::Material(0),
+            detail: "SelfColor".to_string(),
+        }]
+    );
 }
 
 /// A minimal consistent IR around `vertices`/`faces`: one bone, one mesh weighted
