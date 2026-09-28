@@ -490,7 +490,7 @@ Spec: `docs/plans/core/development_plan.md` "Phase 2", `docs/plans/libs/README.m
     `check_text` (NUL, single-byte encodability, capacity) at all four text sites; the texport
     golden compares whole tactics and every player with the schema codec's reads at the literal
     offsets on all four fixtures (lead). Crate 202 tests
-- [ ] 2.17i `settings.toml` stock boots/gloves IDs (decision entry 2026-09-28; spec
+- [x] 2.17i — done (the commit after `faa35e0`; 207 tests, mutants-diff 50/0 missed) `settings.toml` stock boots/gloves IDs (decision entry 2026-09-28; spec
   `aesthetics_export/settings_toml.md` "Player settings in exports", `pes_savefile/model.md`
   "Player settings model"): top-level `boots_id`/`gloves_id` in `PlayerSettings` (0 to 100 or
   `""` = default), `BootsId`/`GlovesId` reclassified from compiler-owned to settings, `from_player`
