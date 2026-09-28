@@ -662,8 +662,18 @@ Spec: `docs/plans/core/development_plan.md` "Phase 2", `docs/plans/libs/README.m
     `Winter 20 Additions/Boots/k0977/boots.fmdl`, genuinely truncated (1.39 MB of a declared
     4.28 MB: broken in that export). (c) The 64 refused `.fpk` are another game's archives
     (`chr_FUC`, `stg_fuc`), not PES files
-  - Remaining 2.20 order after this: the fmdl census above; `model_convert` (+ the open
-    questions below and a `.mtl` census);
+  - [~] 2.20h `model_convert`: started with a **conversion census** (`.tmp/convert_census/`:
+    every readable `.model` bundle and FMDL converted to the other engine and back) and a
+    `.mtl` census (`.tmp/mtl_census/`); triage report in the sidekick log, decisions in the
+    plan (`ir.md` "What real files carry", `conversion.md` split rules) and one decision entry.
+    Slices: `dc19c62` A2 format-crate rules (split groups that cannot be whole stay split, no
+    empty containers, FMDL over-flagged groups, `.mtl` `maxfilter` / trailing content / first
+    repeated state); `8d30428` A1 IR and conversion rules (unnormalized weights, Fox bones
+    parent-first, `MtlName`, vertexless meshes): 1151 conversions fixed, 0 regressions; B open
+    questions (1)-(3) (decal families approximate, hand split left-first + material pruning,
+    `retarget` by value) plus incompatible split groups stay split. Next: the whole-crate
+    mutation run, lead audit, reviewer loop. Questions (4)-(6) stay open (issue below)
+  - Remaining 2.20 order after this:
     read the user-found fork `https://github.com/jasonjk192/pesXdecrypter` for savefile facts;
     `pes_savefile` (lead audit whole, reviewer on non-interchange modules only);
     `python_bindings`; then 2.21.
@@ -769,12 +779,8 @@ pruned when their phase closes; they stay in git history.
   than 65536 vertices, and vertex-limit splitting of an IR mesh can only move loose vertices.
   No cup model is known to reach it; decide the face type at Phase 7 (glTF brings u32
   indices), or earlier if a real model hits the error.
-- open — repeated `.mtl` states (found at the 2.20g review, for 2.20h): a material may list
-  one state name twice. `pes_model::check` takes the last value, `model_convert`'s import the
-  first, and its export drops the later one, so checking and conversion disagree about, for
-  example, `alphablend`. Which occurrence PES honors is unmeasured. First step at 2.20h: a
-  census of every `.mtl` on the machine (how often a state repeats, and with which values),
-  then one rule for all three.
+- resolved (2026-09-28) — repeated `.mtl` states: the `.mtl` census found no file on the
+  machine that repeats a state; every reader now takes the first value.
 - open — `model_convert` converge questions (2.20): (1) Fox decal shaders (`translucent`,
   `3ddc`, `eyeocclusion`) infer `Shaded` *exact* through the `3ddf` rule, so the highneck
   fixture converts to an opaque `Basic_C`, where the 19to16 converter wrote `Overlay` with alpha
