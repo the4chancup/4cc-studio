@@ -17,7 +17,9 @@ Converge in progress (a-f done, 2.20g `pes_model` next). Review round C (2026-09
 2.19a; its leftovers are listed under 2.20. 2.5b (GPU BC7) deferred to Phase 4 (user decision
 2026-09-21). Release target (2026-09-28): 0.1.0 after Phase 8; phase order 1–6, 8, 0.1.0, 7,
 9–16 (`core/development_plan.md` "Releases").
-**Blocked on:** nothing
+**Blocked on:** nothing yet. **Hard gate at the end of Phase 3:** step 4.0 (the maintainer's
+in-game appearance-fallback test) must be done before any agent itemizes Phase 4 or writes
+anything for Phase 4, 5 or 6. Everything up to and including Phase 3's close may proceed.
 
 ---
 
@@ -670,8 +672,26 @@ Steps are itemized when Phase 2 closes; the first is fixed:
 
 ### Phase 4 — Processing logic
 
-Steps are itemized when Phase 3 closes; one is fixed already (the GPU BC7 step moved to Phase 16,
-decision entry 2026-09-28):
+Steps are itemized when Phase 3 closes, and only after 4.0 is done; one more is fixed already
+(the GPU BC7 step moved to Phase 16, decision entry 2026-09-28):
+
+- [ ] 4.0 **GATE, maintainer only: in-game appearance-fallback test.** No agent itemizes Phase 4,
+  writes a Phase 4/5/6 Acceptance section, or starts Phase 4/5/6 work until the maintainer has
+  run the test and reported the result. The idea under test: a savefile player whose appearance
+  record's player ID is -1 (`0xFFFFFFFF`) takes his appearance from the database table
+  `PlayerAppearance.bin` instead, and his boots and gloves from `BootsList.bin`/`GloveList.bin`
+  (player ID, item ID pairs next to the boots/glove models). If that holds, the compiler writes
+  those three tables into its CPK the way it writes `UniColor.bin`/`TeamColor.bin`, and the
+  savefile patch shrinks to names and the stats half. What the result decides: Phase 4 `plan/`
+  (boots/gloves assignment output) and `bins/` (which tables are accumulated; `libs/pesdb`
+  possibly moving up from Phase 19), Phase 5 savefile writing and the patch format, what an
+  absent `settings.toml` key means, the Save editor's appearance, transplant and diff features,
+  and Phase 6's "`settings.toml` from savefile aesthetics". Test 1 (PES 2021, team `/a/`) files
+  are prepared, outside git, in `.tmp/apptest/out/` with install, undo and reading instructions
+  in its `manifest.txt`. Follow-ups (field meaning in `Player.bin`, whether an in-game edit
+  writes the record back, other PES versions: 2017 tables in `E:\PES2017\Data\dt10_win_files\
+  common\etc\pesdb`) are planned from Test 1's result → done when: the result is recorded in the
+  log and in a decision entry, and the plan changes it implies are written
 
 - [ ] 4.y `dds_convert` cache retention bound (found at 2.20d converge; spec `libs/dds_convert.md`
   "In-memory conversion cache", "Retention is separately bounded and budgeted"): the
@@ -938,3 +958,6 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   default: FPC marker or savefile decides); plan-only change across ten documents (decision
   entry), code step 2.17i added. Test 1 files for the appearance-fallback idea are in
   `.tmp/apptest/out/`, awaiting the maintainer's in-game run.
+- **2026-09-28** - Hard gate set (maintainer): step 4.0, the appearance-fallback test, stands at
+  the end of Phase 3; no agent goes past it until the maintainer reports the result. Phase 2's
+  remaining converge, 2.17i and Phase 3 proceed. Next: 2.20g `pes_model`.
