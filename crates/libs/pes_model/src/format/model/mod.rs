@@ -208,7 +208,12 @@ fn offset_sum(base: usize, offset: usize) -> Result<usize, ModelError> {
     base.checked_add(offset).ok_or(ModelError::Truncated)
 }
 
+/// The `len` bytes starting at `at`; empty when `len` is zero, whatever
+/// `at` is — only a nonempty read past the end is `Truncated`.
 fn slice_at(bytes: &[u8], at: usize, len: usize) -> Result<&[u8], ModelError> {
+    if len == 0 {
+        return Ok(&[]);
+    }
     bytes
         .get(at..offset_sum(at, len)?)
         .ok_or(ModelError::Truncated)

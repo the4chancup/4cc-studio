@@ -2305,3 +2305,21 @@ in the plans, and the `settings.toml` template says "0 = normal hands".
 Why: recorded so no later rule treats gloves as a goalkeeper field or 0 as an absent model.
 Plan: `aesthetics_export/settings_toml.md`, `libs/fpc.md`, `save_editor.md` ("Appearance", FPC),
 `GLOSSARY.md` ("Stock band"); code doc comments in worklog step 2.17i.
+
+## 2026-09-28 - pes_model - the reader follows community files the census found
+Decision: `PreFoxModel` resolves every section's offsets against the unwrapped file from the
+section's start to the file's end (not to the next section); drops an annotation whose string
+or non-zero record pointer lands off a section-2/3 record; lets a zero-length read point
+anywhere; takes the first descriptor of each vertex-field type and ignores later repeats; and
+`Model::from_file` repairs faces an old exporter shifted past loose vertices when the distinct
+indices number exactly the vertex count (rank mapping), any other out-of-range index staying
+`BadReference`. The container's byte identity is unchanged.
+Why: a census of every `.model` on the maintainer's machine (6575 distinct files, the method
+added to converge at 2.20g) found about 1900 community files, cup exports among them, that the
+Konami-measured reader refused: 1640 with data past their section, 228 with template annotation
+pointers, and a handful per remaining class. Each rule matches how the reference parser and the
+game read those files; the repair is the reference importer's, the only order-preserving reading
+that uses every vertex, and the files have no faithful reading without it (lead recommendation,
+act-then-log per the maintainer's standing instruction).
+Plan: `libs/format_crates.md` "`pes_model::format`" (community rules) and "`pes_model::model`"
+(the repair; replaces the "known gap, to decide at converge" sentence).

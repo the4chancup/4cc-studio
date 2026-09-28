@@ -53,6 +53,8 @@ being true. Permanent toolchain facts go in `docs/CONTRIBUTING.md` "Toolchain no
   the encode tests compare the chain-wide mean for that reason. Revisit with representative kit
   and face textures when the Team compiler can produce them (plan: "tune against representative
   textures").
+- `just mutants-diff` reuses `mutants.out/`: it wipes a whole-crate run's results. Copy
+  `mutants.out/` aside (for example to `.tmp/mutants_<step>_whole/`) before the first diff run.
 - `block_compression` 0.10's BC3/BC4/BC5 decoder truncates the alpha-ramp interpolation where
   DirectX rounds; `dds_convert::dds::fix_interpolated_channels` re-derives those channels. Drop
   it if a later release rounds (the exact-match test will say).
@@ -627,6 +629,18 @@ Spec: `docs/plans/core/development_plan.md` "Phase 2", `docs/plans/libs/README.m
     layout, group boxes over child groups. Final mutation run 873 / 13 missed, triaged in the
     closing commit. Plan corrections: byte identity on Konami's layout only, no per-mesh box.
     Deferred: u16 faces cap a reassembled split mesh (issue below). Decision entries per round
+  - [~] 2.20g `pes_model`: whole-crate run 915 mutants / 203 missed (survivors kept in
+    `.tmp/mutants_2_20g_whole/`); lead audit `.tmp/audit_2_20g.md`. New converge method: a
+    census of every file of the format on the maintainer's machine (`.tmp/model_census/`,
+    6575 distinct `.model` files) held the reader to real community files, not only the
+    Konami set. Slices: 1 census round 1 (`a238c0b`: offsets past their section, template
+    annotations; 4112 -> 5774 read); 2 census round 2 (zero-length reads, repeated field
+    types, loose-vertex repair); 3a `Model::validate` + format/check survivors + format pub
+    surface; 3b ops entry points (validate, no panics, pub surface); 3c split/vertex_enc
+    ports of fmdl's round 2-4 fixes + ops survivors; then the reviewer loop and the closing
+    whole-crate run. Briefs `.tmp/brief_2_20g_s*.md`
+  - [ ] 2.20g-fmdl census: the same census over every FMDL on the machine (maintainer
+    request 2026-09-28), run once `pes_model` closes; every class it finds becomes a step
   - Remaining 2.20 order after this: `pes_model` (the `fmdl` port: check it for the same
     classes: one invariant list, merge rules, split/loop keys, pub surface); `model_convert` (+ the open questions below);
     read the user-found fork `https://github.com/jasonjk192/pesXdecrypter` for savefile facts;
@@ -719,6 +733,15 @@ Steps are itemized when Phase 15 closes; one is fixed already:
 Bugs, unexpected behavior, things to revisit. `open` / `resolved (date)`. Resolved issues are
 pruned when their phase closes; they stay in git history.
 
+- open — `.model` face limit 21845 contradicted by cup files (found at the 2.20g census):
+  193 community `.model` files carry a mesh over `FACE_LIMIT_HARD` (more than 65535 face
+  indices; the face count field is `u32`), among them cup exports (`Teams_Main/O/Exports/O
+  Aesthetic Export from Autumn 17/Faces/73618 - Bedford Rascal/oral_rascal_win32.model`), and no
+  Konami file does. The limit comes from the old add-on's own constant ("the maximum that can
+  be saved"). If PES loads such meshes, `check`'s `model_mesh_over_face_limit` (Error, "the game
+  cannot load it") is wrong. `split::encode` still takes them apart harmlessly. Needs the
+  maintainer: is one of those models known to render in game? Decide before Phase 3 maps the
+  code in the Team compiler's catalog.
 - open — u16 face indices cap a reassembled split mesh (found at 2.20f review): `fmdl::Mesh`
   and the IR (`ir.md` "IR struct") store faces as `[u16; 3]`, so `fmdl::ops::split::decode`
   refuses (loud `VertexMismatch`) an add-on file whose components together reference more

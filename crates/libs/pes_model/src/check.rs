@@ -424,10 +424,21 @@ mod tests {
 
     #[test]
     fn fixtures_are_clean() {
-        for bytes in ALL {
+        for bytes in ALL
+            .iter()
+            .filter(|bytes| **bytes != COMMUNITY_EMPTY_GEOMETRY)
+        {
             let findings = check(&load(bytes));
             assert!(findings.is_empty(), "{findings:?}");
         }
+        // The boots template's two meshes are legitimately empty.
+        assert_eq!(
+            check(&load(COMMUNITY_EMPTY_GEOMETRY)),
+            [
+                finding("model_mesh_empty", Severity::Warning, Subject::Mesh(0), 0,),
+                finding("model_mesh_empty", Severity::Warning, Subject::Mesh(1), 0,),
+            ]
+        );
     }
 
     #[test]
