@@ -173,11 +173,19 @@ pub struct FaceSettings {
     pub lower_lip_type: Option<u8>,
 }
 
-/// A settings.toml's player: the name plus the appearance tables.
+/// A settings.toml's player: the name, the two stock-model IDs and the
+/// appearance tables. The IDs are top-level keys, outside
+/// `AppearanceSettings`, because Team TOML embeds the appearance tables
+/// beside its own player-level full-range IDs.
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct PlayerSettings {
     /// The name setting; `None` = never write a name.
     pub name: Option<NameSetting>,
+    /// A stock boots model ID (0 to 100); `None`/`""` = default.
+    pub boots_id: Option<u8>,
+    /// A stock gloves model ID (0 to 100; 0 = normal hands); `None`/`""` =
+    /// default.
+    pub gloves_id: Option<u8>,
     /// The `[appearance]` tables.
     pub appearance: AppearanceSettings,
 }
@@ -241,6 +249,10 @@ pub enum SettingsError {
 pub(crate) fn get_appearance(appearance: &AppearanceSettings, key: SettingKey) -> Option<u8> {
     let a = appearance;
     match key {
+        // Top-level keys live on `PlayerSettings`, not in the appearance
+        // tables; the appearance walks never reach them (`PlayerSettings`
+        // methods match them out first).
+        SettingKey::BootsId | SettingKey::GlovesId => None,
         SettingKey::SkinColor => a.skin_color,
         SettingKey::IrisColor => a.iris_color,
         SettingKey::Height => a.physique.height,
@@ -305,6 +317,7 @@ pub(crate) fn set_appearance(
 ) {
     let a = appearance;
     match key {
+        SettingKey::BootsId | SettingKey::GlovesId => {}
         SettingKey::SkinColor => a.skin_color = value,
         SettingKey::IrisColor => a.iris_color = value,
         SettingKey::Height => a.physique.height = value,
@@ -362,11 +375,16 @@ pub(crate) fn set_appearance(
 
 /// The stored value behind `key` on `player`, `None` for a gated `Option`
 /// the version lacks. `CodecError` from the ingame-face reads propagates.
+/// The stock-model keys read `Some` only for the authored band 1 to 100: 0
+/// is the game's default (emitted as `""`) and an ID above 100 is custom
+/// content a folder owns, not a settings value.
 fn read(player: &PlayerEntry, key: SettingKey) -> Result<Option<u8>, SettingsError> {
     let face = &player.appearance.ingame_face;
     let a = &player.appearance;
     let m = &player.motion;
     Ok(match key {
+        SettingKey::BootsId => stock_id(a.boots_id),
+        SettingKey::GlovesId => stock_id(a.gloves_id),
         SettingKey::SkinColor => Some(face.get(IngameFaceField::SkinColor)?),
         SettingKey::IrisColor => Some(face.get(IngameFaceField::IrisColor)?),
         SettingKey::Height => Some(player.basic.height),
@@ -422,6 +440,12 @@ fn read(player: &PlayerEntry, key: SettingKey) -> Result<Option<u8>, SettingsErr
     })
 }
 
+/// `Some` for a stored boots/gloves ID inside the authored stock band,
+/// `None` for the game's default 0 and for a custom (folder-owned) ID.
+fn stock_id(id: u32) -> Option<u8> {
+    u8::try_from(id).ok().filter(|id| (1..=100).contains(id))
+}
+
 /// The player's appearance settings for Team TOML: every key `Some` with its
 /// raw stored value — a save can hold values past the editor's range (the
 /// field's bits are wider than the selectable range), and the interchange's
@@ -439,7 +463,11 @@ pub(crate) fn appearance_from(player: &PlayerEntry) -> Result<AppearanceSettings
 impl PlayerSettings {
     /// The stored value behind a key (`bool` as 0/1), `None` when unset.
     pub fn get(&self, key: SettingKey) -> Option<u8> {
-        get_appearance(&self.appearance, key)
+        match key {
+            SettingKey::BootsId => self.boots_id,
+            SettingKey::GlovesId => self.gloves_id,
+            _ => get_appearance(&self.appearance, key),
+        }
     }
 
     /// Sets a stored value; `OutOfRange` when the key's kind cannot represent
@@ -454,7 +482,11 @@ impl PlayerSettings {
                 range: range_text(spec.kind),
             });
         }
-        set_appearance(&mut self.appearance, key, Some(value));
+        match key {
+            SettingKey::BootsId => self.boots_id = Some(value),
+            SettingKey::GlovesId => self.gloves_id = Some(value),
+            _ => set_appearance(&mut self.appearance, key, Some(value)),
+        }
         Ok(())
     }
 
@@ -498,6 +530,12 @@ impl PlayerSettings {
         if let Some(NameSetting::Explicit(name)) = &self.name {
             next.name = name.clone();
         }
+        if let Some(id) = self.boots_id {
+            next.appearance.boots_id = u32::from(id);
+        }
+        if let Some(id) = self.gloves_id {
+            next.appearance.gloves_id = u32::from(id);
+        }
         write_appearance(&self.appearance, &mut next)?;
         *player = next;
         Ok(())
@@ -529,6 +567,8 @@ fn write_appearance(
             continue;
         };
         match key {
+            // `get_appearance` already filtered these out.
+            SettingKey::BootsId | SettingKey::GlovesId => {}
             SettingKey::SkinColor => face.set(IngameFaceField::SkinColor, value)?,
             SettingKey::IrisColor => face.set(IngameFaceField::IrisColor, value)?,
             SettingKey::Height => next.basic.height = value,
@@ -611,9 +651,7 @@ pub(crate) enum Ownership {
 #[cfg(test)]
 pub(crate) fn ownership(field: PlayerField) -> Ownership {
     match field {
-        PlayerField::BootsId
-        | PlayerField::GlovesId
-        | PlayerField::BaseCopyId
+        PlayerField::BaseCopyId
         | PlayerField::BaseCopy
         | PlayerField::EditedPlayer
         | PlayerField::EditedBasicSettings
@@ -628,7 +666,9 @@ pub(crate) fn ownership(field: PlayerField) -> Ownership {
         | PlayerField::EditedHair
         | PlayerField::EditedPhysique
         | PlayerField::EditedStrip => Ownership::CompilerOwned,
-        PlayerField::Height
+        PlayerField::BootsId
+        | PlayerField::GlovesId
+        | PlayerField::Height
         | PlayerField::Weight
         | PlayerField::NeckLength
         | PlayerField::NeckSize
@@ -737,21 +777,27 @@ pub(crate) fn face_ownership(field: IngameFaceField) -> Ownership {
 // `update_toml` rewrites the `Some` values inside an existing document while
 // preserving its comments and formatting.
 
-/// The header of a generated `settings.toml`: the plan block's four comment
+/// The header of a generated `settings.toml`: the plan block's five comment
 /// lines and the two-line `name` comment, verbatim.
 const HEADER: &str = "\
 # settings.toml, inside a player folder. Every key is optional: an absent key leaves
-# that savefile setting untouched. A commented key shows what can be set and its range.
-# The file never references models: what a player wears is decided by the folder
-# contents (models present, link files pointing at shared folders).
+# that savefile setting untouched (boots_id/gloves_id: see their comments). A commented
+# key shows what can be set and its range. The file never references the export's
+# models: what a player wears is decided by the folder contents (models present, link
+# files pointing at shared folders); boots_id/gloves_id only name the game's stock models.
 
 # true = derive from the folder name (\"15 - Snuffy\" gives \"Snuffy\"; the whole folder
 # name for players.txt-mapped folders); \"text\" = write as is; absent = leave untouched.
 ";
 
-/// The dotted path of a key ("appearance.strip.sleeves").
+/// The dotted path of a key ("appearance.strip.sleeves"; a top-level key is
+/// just its name).
 fn dotted(spec: &keys::KeySpec) -> String {
-    format!("{}.{}", spec.table, spec.name)
+    if spec.table.is_empty() {
+        spec.name.to_string()
+    } else {
+        format!("{}.{}", spec.table, spec.name)
+    }
 }
 
 /// The stored bound for `key` in `stored_ranges` (team TOML) mode: the
@@ -1004,8 +1050,12 @@ fn value(
 }
 
 /// The spec's table path under the appearance root `root` ("appearance" →
-/// `root`, "appearance.physique" → `root.physique`).
+/// `root`, "appearance.physique" → `root.physique`; a top-level key's table
+/// is the root itself, though its callers filter empty tables first).
 fn absolute(root: &str, table: &str) -> String {
+    if table.is_empty() {
+        return root.to_string();
+    }
     format!("{}{}", root, &table["appearance".len()..])
 }
 
@@ -1018,6 +1068,9 @@ fn reject_unknown(document: &DocumentMut) -> Result<(), SettingsError> {
         match name {
             "name" => {}
             "appearance" => reject_unknown_table(item, "appearance", "appearance")?,
+            _ if SettingKey::ALL
+                .iter()
+                .any(|key| key.spec().table.is_empty() && key.spec().name == name) => {}
             _ => {
                 return Err(SettingsError::UnknownKey {
                     key: name.to_string(),
@@ -1041,7 +1094,7 @@ fn reject_unknown_table(item: &Item, root: &str, path: &str) -> Result<(), Setti
         let child = format!("{path}.{leaf}");
         if SettingKey::ALL
             .iter()
-            .any(|key| absolute(root, key.spec().table) == child)
+            .any(|key| !key.spec().table.is_empty() && absolute(root, key.spec().table) == child)
         {
             if !sub.is_table_like() {
                 return Err(SettingsError::WrongType {
@@ -1050,14 +1103,37 @@ fn reject_unknown_table(item: &Item, root: &str, path: &str) -> Result<(), Setti
                 });
             }
             reject_unknown_table(sub, root, &child)?;
-        } else if !SettingKey::ALL
-            .iter()
-            .any(|key| absolute(root, key.spec().table) == path && key.spec().name == leaf)
-        {
+        } else if !SettingKey::ALL.iter().any(|key| {
+            !key.spec().table.is_empty()
+                && absolute(root, key.spec().table) == path
+                && key.spec().name == leaf
+        }) {
             return Err(SettingsError::UnknownKey { key: child });
         }
     }
     Ok(())
+}
+
+/// A top-level model-ID key's parsed value: `None` when absent or `""`
+/// (both mean default), `Some` for an integer inside the key's range. Any
+/// other string is `WrongType`; a non-integer defers to the `Number` kind's
+/// errors.
+fn model_id(document: &DocumentMut, key: SettingKey) -> Result<Option<u8>, SettingsError> {
+    let name = key.spec().name;
+    let Some(item) = document.get(name) else {
+        return Ok(None);
+    };
+    if let Some(text) = item.as_value().and_then(|v| v.as_str()) {
+        return if text.is_empty() {
+            Ok(None)
+        } else {
+            Err(SettingsError::WrongType {
+                key: name.to_string(),
+                expected: "an integer or \"\"",
+            })
+        };
+    }
+    value(name, key, item, false).map(Some)
 }
 
 /// The `[appearance]` table at `item` (dotted path `path`: "appearance" in a
@@ -1077,6 +1153,9 @@ pub(crate) fn parse_appearance(
     let mut out = AppearanceSettings::default();
     for key in SettingKey::ALL {
         let spec = key.spec();
+        if spec.table.is_empty() {
+            continue; // top-level keys are not in the appearance tables
+        }
         let Some(item) = lookup(appearance, &spec, path)? else {
             continue;
         };
@@ -1100,6 +1179,9 @@ pub(crate) fn emit_appearance(
     let mut table = "";
     for key in SettingKey::ALL {
         let spec = key.spec();
+        if spec.table.is_empty() {
+            continue; // top-level keys are not emitted inside a table
+        }
         if spec.table != table {
             out.push_str(&format!("\n[{}]\n", absolute(prefix, spec.table)));
             table = spec.table;
@@ -1147,6 +1229,8 @@ impl PlayerSettings {
                 }
             });
         }
+        settings.boots_id = model_id(&document, SettingKey::BootsId)?;
+        settings.gloves_id = model_id(&document, SettingKey::GlovesId)?;
         if let Some(item) = document.get("appearance") {
             settings.appearance = parse_appearance(item, "appearance", false)?;
         }
@@ -1166,6 +1250,20 @@ impl PlayerSettings {
                 out.push_str(&format!("name = {}\n", Value::from(name.as_str())));
             }
             None => out.push_str("# name = true\n"),
+        }
+        // The stock-model IDs are uncommented in every case: `""` is what a
+        // template shows for default (TOML has no bare `key =`).
+        for (key, id) in [
+            (SettingKey::BootsId, self.boots_id),
+            (SettingKey::GlovesId, self.gloves_id),
+        ] {
+            let spec = key.spec();
+            let body = match id {
+                Some(id) => format!("{} = {}", spec.name, toml_form(key, id, false)?),
+                None => format!("{} = \"\"", spec.name),
+            };
+            out.push_str(&padded(&body, spec.comment));
+            out.push('\n');
         }
         emit_appearance(&mut out, "appearance", &self.appearance, false)?;
         Ok(out)
@@ -1193,11 +1291,22 @@ impl PlayerSettings {
             }
             None => {}
         }
+        for (key, id) in [
+            (SettingKey::BootsId, self.boots_id),
+            (SettingKey::GlovesId, self.gloves_id),
+        ] {
+            if let Some(id) = id {
+                set(&mut document[key.spec().name], toml_form(key, id, false)?);
+            }
+        }
         for key in SettingKey::ALL {
+            let spec = key.spec();
+            if spec.table.is_empty() {
+                continue; // top-level keys were written above
+            }
             let Some(stored) = self.get(key) else {
                 continue;
             };
-            let spec = key.spec();
             let mut item = document.as_item_mut();
             let mut path = String::new();
             for segment in spec.table.split('.') {

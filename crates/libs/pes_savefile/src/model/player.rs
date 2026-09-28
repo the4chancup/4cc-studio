@@ -212,7 +212,7 @@ pub struct PlayerEditFlags {
 pub struct PlayerAppearance {
     /// Boots model id.
     pub boots_id: u32,
-    /// Goalkeeper gloves model id.
+    /// Gloves model id (any player; 0 = normal hands).
     pub gloves_id: u32,
     /// Base copy player id (the player's own id when unset).
     pub base_copy_id: u32,

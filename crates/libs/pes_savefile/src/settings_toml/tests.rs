@@ -350,7 +350,9 @@ fn get_after_set_round_trips_every_key() {
 
 #[test]
 fn the_key_specs_match_the_plan_table() {
-    let comments: [&str; 52] = [
+    let comments: [&str; 54] = [
+        "\"\" = default (fpc.on: hidden, fpc.off: 0, no marker: untouched); 0 to 100, a stock boots model; ignored when the folder has boots models or a boots link",
+        "\"\" = default (fpc.on: hidden, fpc.off: 0, no marker: untouched); 0 to 100, a stock gloves model (0 = normal hands); ignored when the folder has gloves models or a gloves link",
         "0 white, 1 light, 2 fair, 3 medium, 4 olive, 5 brown, 6 black, 7 custom (invisible body, PES 15 to 17 only)",
         "0 black, 1 dark brown, 2 brown, 3 sable, 4 navy blue, 5 charcoal, 6 gray, 7 blue, 8 sienna, 9 green, 10 violet",
         "cm",
@@ -415,7 +417,7 @@ fn the_key_specs_match_the_plan_table() {
         let spec = key.spec();
         assert_eq!(spec.comment, comment, "{key:?} comment");
         assert!(
-            tables.contains(&spec.table),
+            spec.table.is_empty() || tables.contains(&spec.table),
             "{key:?} table {:?}",
             spec.table
         );
@@ -443,13 +445,16 @@ fn an_unset_settings_is_empty_and_default() {
 /// pasted verbatim: `to_toml` of the settings it parses to must reproduce it
 /// byte for byte.
 const PLAN_BLOCK: &str = r#"# settings.toml, inside a player folder. Every key is optional: an absent key leaves
-# that savefile setting untouched. A commented key shows what can be set and its range.
-# The file never references models: what a player wears is decided by the folder
-# contents (models present, link files pointing at shared folders).
+# that savefile setting untouched (boots_id/gloves_id: see their comments). A commented
+# key shows what can be set and its range. The file never references the export's
+# models: what a player wears is decided by the folder contents (models present, link
+# files pointing at shared folders); boots_id/gloves_id only name the game's stock models.
 
 # true = derive from the folder name ("15 - Snuffy" gives "Snuffy"; the whole folder
 # name for players.txt-mapped folders); "text" = write as is; absent = leave untouched.
 name = "Snuffy"
+boots_id = ""                   # "" = default (fpc.on: hidden, fpc.off: 0, no marker: untouched); 0 to 100, a stock boots model; ignored when the folder has boots models or a boots link
+gloves_id = ""                  # "" = default (fpc.on: hidden, fpc.off: 0, no marker: untouched); 0 to 100, a stock gloves model (0 = normal hands); ignored when the folder has gloves models or a gloves link
 
 [appearance]
 skin_color = 1                  # 0 white, 1 light, 2 fair, 3 medium, 4 olive, 5 brown, 6 black, 7 custom (invisible body, PES 15 to 17 only)
@@ -529,14 +534,23 @@ fn to_toml_of_a_default_is_a_fully_commented_template() {
     let text = PlayerSettings::default().to_toml().expect("emit");
     for key in SettingKey::ALL {
         let spec = key.spec();
-        assert!(
-            text.contains(&format!("# {} = ", spec.name)),
-            "{key:?} is not a commented line"
-        );
+        if spec.table.is_empty() {
+            // The stock-model IDs are never commented: `""` is the shown
+            // default value.
+            assert!(
+                text.contains(&format!("{} = \"\"", spec.name)),
+                "{key:?} is not an uncommented \"\" line"
+            );
+        } else {
+            assert!(
+                text.contains(&format!("# {} = ", spec.name)),
+                "{key:?} is not a commented line"
+            );
+        }
         assert!(text.contains(spec.comment), "{key:?} comment absent");
     }
     assert!(text.contains("# name = true"), "name is commented");
-    // Every kind's commented line carries its neutral example value.
+    // Every kind's line carries its neutral example value.
     for (name, prefix) in [
         ("skin_color", "# skin_color = 0"),
         ("neck_length", "# neck_length = 0"),
@@ -544,10 +558,12 @@ fn to_toml_of_a_default_is_a_fully_commented_template() {
         ("untucked", "# untucked = false"),
         ("sleeves", "# sleeves = \"seasonal\""),
         ("name", "# name = true"),
+        ("boots_id", "boots_id = \"\""),
+        ("gloves_id", "gloves_id = \"\""),
     ] {
         let line = text
             .lines()
-            .find(|line| line.contains(&format!(" {name} =")))
+            .find(|line| line.contains(&format!("{name} =")))
             .unwrap_or_else(|| panic!("a line for {name}"));
         assert!(line.starts_with(prefix), "{line:?}");
     }
@@ -846,4 +862,146 @@ fn parse_maps_the_toml_values_to_the_stored_ones() {
     let settings =
         PlayerSettings::parse("[appearance.physique]\nneck_length = 7\n").expect("parses");
     assert_eq!(settings.get(SettingKey::NeckLength), Some(14));
+}
+
+#[test]
+fn stock_model_ids_parse_the_stock_band_and_the_default() {
+    // 0 and 100 are the stock band's ends; `""` is default.
+    let settings = PlayerSettings::parse("boots_id = 0\ngloves_id = 100\n").expect("parses");
+    assert_eq!(settings.boots_id, Some(0));
+    assert_eq!(settings.gloves_id, Some(100));
+    let settings = PlayerSettings::parse("boots_id = \"\"\n").expect("parses");
+    assert_eq!(settings.boots_id, None);
+    // An authored stock ID emits back as the integer.
+    let text = PlayerSettings::parse("boots_id = 42\n")
+        .expect("parses")
+        .to_toml()
+        .expect("emit");
+    assert!(text.lines().any(|line| line.starts_with("boots_id = 42")));
+    // 101 is past the stock band: the compiler's first team block.
+    match PlayerSettings::parse("boots_id = 101\n") {
+        Err(SettingsError::OutOfRange { key, value, range }) => {
+            assert_eq!(
+                (key.as_str(), value, range.as_str()),
+                ("boots_id", 101, "0 to 100")
+            );
+        }
+        other => panic!("expected OutOfRange, got {other:?}"),
+    }
+    // A non-empty string is neither an integer nor the default marker.
+    match PlayerSettings::parse("gloves_id = \"12\"\n") {
+        Err(SettingsError::WrongType { key, expected }) => {
+            assert_eq!(
+                (key.as_str(), expected),
+                ("gloves_id", "an integer or \"\"")
+            );
+        }
+        other => panic!("expected WrongType, got {other:?}"),
+    }
+}
+
+#[test]
+fn a_stock_model_id_inside_a_table_is_an_unknown_key() {
+    // The keys sit at the file's top level only: the same name inside
+    // `[appearance]` or `[appearance.strip]` collides with Team TOML's
+    // embedded appearance tables and is refused, naming the key.
+    for (text, key) in [
+        ("[appearance]\nboots_id = 5\n", "appearance.boots_id"),
+        (
+            "[appearance.strip]\ngloves_id = 5\n",
+            "appearance.strip.gloves_id",
+        ),
+    ] {
+        match PlayerSettings::parse(text) {
+            Err(SettingsError::UnknownKey { key: got }) => assert_eq!(got, key),
+            other => panic!("{text:?}: expected UnknownKey, got {other:?}"),
+        }
+    }
+}
+
+#[test]
+fn from_player_emits_an_id_only_in_the_stock_band() {
+    // 0 is the game's default.
+    let p21 = find_player(
+        &payload(PesVersion::Pes21),
+        schema_for(PesVersion::Pes21),
+        70101,
+    );
+    assert_eq!((p21.appearance.boots_id, p21.appearance.gloves_id), (0, 0));
+    let s21 = PlayerSettings::from_player(&p21).expect("from_player");
+    assert_eq!((s21.boots_id, s21.gloves_id), (None, None));
+    // Above 100 is custom content a folder owns, not an authorable setting.
+    let p19 = find_player(
+        &payload(PesVersion::Pes19),
+        schema_for(PesVersion::Pes19),
+        70101,
+    );
+    assert_eq!(
+        (p19.appearance.boots_id, p19.appearance.gloves_id),
+        (101, 101)
+    );
+    let s19 = PlayerSettings::from_player(&p19).expect("from_player");
+    assert_eq!((s19.boots_id, s19.gloves_id), (None, None));
+    // A stock ID in 1 to 100 emits.
+    let stock = find_player(
+        &payload(PesVersion::Pes21),
+        schema_for(PesVersion::Pes21),
+        79503,
+    );
+    assert_eq!(stock.appearance.gloves_id, 12);
+    assert!(stock.appearance.boots_id > 100);
+    let emitted = PlayerSettings::from_player(&stock).expect("from_player");
+    assert_eq!((emitted.boots_id, emitted.gloves_id), (None, Some(12)));
+    // The band's own ends.
+    let mut player = p21.clone();
+    player.appearance.boots_id = 1;
+    player.appearance.gloves_id = 100;
+    let emitted = PlayerSettings::from_player(&player).expect("from_player");
+    assert_eq!((emitted.boots_id, emitted.gloves_id), (Some(1), Some(100)));
+}
+
+#[test]
+fn apply_writes_an_authored_id_and_leaves_none_alone() {
+    let payload = payload(PesVersion::Pes19);
+    let schema = schema_for(PesVersion::Pes19);
+    let mut player = find_player(&payload, schema, 70101);
+    PlayerSettings {
+        boots_id: Some(42),
+        ..PlayerSettings::default()
+    }
+    .apply(&mut player)
+    .expect("apply");
+    assert_eq!(player.appearance.boots_id, 42);
+    assert_eq!(player.appearance.gloves_id, 101, "an unset ID is untouched");
+    // `None` leaves even the game's default alone.
+    let mut player = find_player(&payload, schema, 70101);
+    PlayerSettings::default().apply(&mut player).expect("apply");
+    assert_eq!(
+        (player.appearance.boots_id, player.appearance.gloves_id),
+        (101, 101)
+    );
+    // `""` parses to `None` and likewise leaves the field alone.
+    PlayerSettings::parse("boots_id = \"\"\n")
+        .expect("parses")
+        .apply(&mut player)
+        .expect("apply");
+    assert_eq!(player.appearance.boots_id, 101);
+}
+
+#[test]
+fn update_toml_writes_an_authored_id_and_keeps_the_users_default() {
+    let mut document: DocumentMut = "boots_id = \"\"  # the boots comment\n\
+gloves_id = \"\"   # the gloves comment\n"
+        .parse()
+        .expect("document parses");
+    PlayerSettings {
+        boots_id: Some(7),
+        ..PlayerSettings::default()
+    }
+    .update_toml(&mut document)
+    .expect("update");
+    assert_eq!(
+        document.to_string(),
+        "boots_id = 7  # the boots comment\ngloves_id = \"\"   # the gloves comment\n"
+    );
 }

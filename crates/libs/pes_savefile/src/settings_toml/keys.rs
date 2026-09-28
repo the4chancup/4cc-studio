@@ -11,8 +11,14 @@ use crate::schema::limits::face_type_cap;
 
 /// One TOML key of the table in the aesthetics export plan ("Player settings
 /// in exports"), in the table's order. `ALL` lists them in that order.
+/// `BootsId`/`GlovesId` are the block's two top-level keys (`table` is ""):
+/// they sit beside `name`, outside every table the `appearance` walkers read.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum SettingKey {
+    /// `boots_id` (top level)
+    BootsId,
+    /// `gloves_id` (top level)
+    GlovesId,
     /// `[appearance] skin_color`
     SkinColor,
     /// `[appearance] iris_color`
@@ -193,7 +199,9 @@ const SEVEN: &str = "-7 to 7";
 
 impl SettingKey {
     /// Every key, in the plan table's order.
-    pub const ALL: [SettingKey; 52] = [
+    pub const ALL: [SettingKey; 54] = [
+        SettingKey::BootsId,
+        SettingKey::GlovesId,
         SettingKey::SkinColor,
         SettingKey::IrisColor,
         SettingKey::Height,
@@ -251,6 +259,18 @@ impl SettingKey {
     /// The key's row in the plan table.
     pub fn spec(self) -> KeySpec {
         match self {
+            SettingKey::BootsId => KeySpec {
+                table: "",
+                name: "boots_id",
+                kind: Kind::Number { min: 0, max: 100 },
+                comment: "\"\" = default (fpc.on: hidden, fpc.off: 0, no marker: untouched); 0 to 100, a stock boots model; ignored when the folder has boots models or a boots link",
+            },
+            SettingKey::GlovesId => KeySpec {
+                table: "",
+                name: "gloves_id",
+                kind: Kind::Number { min: 0, max: 100 },
+                comment: "\"\" = default (fpc.on: hidden, fpc.off: 0, no marker: untouched); 0 to 100, a stock gloves model (0 = normal hands); ignored when the folder has gloves models or a gloves link",
+            },
             SettingKey::SkinColor => KeySpec {
                 table: APPEARANCE,
                 name: "skin_color",
@@ -425,6 +445,8 @@ impl SettingKey {
     /// The savefile field the key writes.
     pub(crate) fn source(self) -> Source {
         match self {
+            SettingKey::BootsId => Source::Player(PlayerField::BootsId),
+            SettingKey::GlovesId => Source::Player(PlayerField::GlovesId),
             SettingKey::SkinColor => Source::Face(IngameFaceField::SkinColor),
             SettingKey::IrisColor => Source::Face(IngameFaceField::IrisColor),
             SettingKey::Height => Source::Player(PlayerField::Height),

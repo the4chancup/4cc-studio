@@ -141,7 +141,7 @@ pub enum PlayerField {
     EditedStrip,
     /// Boots model id.
     BootsId,
-    /// Goalkeeper gloves model id.
+    /// Gloves model id (any player; 0 = normal hands).
     GlovesId,
     /// Base copy player id (the player's own id when unset).
     BaseCopyId,
