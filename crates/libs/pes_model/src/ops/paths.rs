@@ -161,6 +161,7 @@ mod tests {
                     path: "texture.dds".to_owned(),
                     srgb: None,
                     minfilter: None,
+                    maxfilter: None,
                     magfilter: None,
                     mipfilter: None,
                     uaddr: None,

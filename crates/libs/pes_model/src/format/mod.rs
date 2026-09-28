@@ -97,6 +97,10 @@ pub enum ModelError {
     /// fields: which rule.
     #[error("vertices do not fit the fields: {0}")]
     VertexMismatch(&'static str),
+    /// A split group's combined mesh references more than 65536 distinct
+    /// vertices; its faces cannot be indexed in `u16`.
+    #[error("a combined split mesh references more than 65536 vertices")]
+    SplitTooLarge,
     /// A face stream's index list or LOD table is malformed: which rule.
     #[error("invalid face stream: {0}")]
     InvalidFaceStream(&'static str),

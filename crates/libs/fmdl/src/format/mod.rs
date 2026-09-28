@@ -79,6 +79,10 @@ pub enum FmdlError {
     /// it describes (counts, attribute set, owner or parent maps).
     #[error("vertex data mismatch: {0}")]
     VertexMismatch(&'static str),
+    /// A split group's combined mesh references more than 65536 distinct
+    /// vertices; its faces cannot be indexed in `u16`.
+    #[error("a combined split mesh references more than 65536 vertices")]
+    SplitTooLarge,
     /// A bone or mesh group parent chain loops back on itself.
     #[error("parent cycle in {0}")]
     ParentCycle(&'static str),

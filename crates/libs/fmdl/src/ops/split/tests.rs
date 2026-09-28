@@ -497,6 +497,26 @@ fn untouched_mesh() {
     assert!(!model.extensions.mesh_splitting);
 }
 
+// A face export's bone-marker mesh — no vertices or faces, its bone
+// group advertising the skeleton — needs splitting by bone count but
+// yields no components: it stays in place, unsplit, with no container
+// and no marker.
+#[test]
+fn a_mesh_with_no_split_items_stays_unsplit() {
+    let mut marker = grid(1, 1, 0);
+    marker.vertices.positions.clear();
+    marker.vertices.normals.as_mut().unwrap().clear();
+    marker.vertices.uvs[0].clear();
+    marker.faces.clear();
+    marker.bone_group = (0..33).collect();
+    marker.vertices.bone_indices = Some(Vec::new());
+    marker.vertices.bone_weights = Some(Vec::new());
+    let mut model = grid_model(marker.clone(), 33);
+    assert_eq!(encode(&mut model, None), Ok(false));
+    assert_eq!(model.meshes, vec![marker]);
+    decode(&mut model).unwrap();
+}
+
 // S7
 #[test]
 fn file_round_trip() {
@@ -531,6 +551,88 @@ fn effective_parents_chain() {
     let parents = effective_parents(&highneck);
     let expected: Vec<Option<usize>> = highneck.bones.iter().map(|bone| bone.parent).collect();
     assert_eq!(parents, expected);
+}
+
+// A container whose combined mesh cannot be indexed in u16 stays split:
+// the group, its flag and its components are kept as they are while
+// another container still combines.
+#[test]
+fn a_group_over_65536_stays_split() {
+    let component = |offset: usize, count: usize, faces: usize| Mesh {
+        vertices: MeshVertices {
+            positions: (0..count)
+                .map(|index| [(offset + index) as f32, 0.0, 0.0])
+                .collect(),
+            normals: Some(vec![[0.0, 0.0, 1.0, 0.0]; count]),
+            tangents: None,
+            colors: None,
+            uvs: vec![vec![[0.0, 0.0]; count]],
+            uv_high_precision: vec![true],
+            bone_weights: None,
+            bone_indices: None,
+        },
+        faces: (0..faces)
+            .map(|face| {
+                [
+                    (3 * face) as u16,
+                    (3 * face + 1) as u16,
+                    (3 * face + 2) as u16,
+                ]
+            })
+            .collect(),
+        bone_group: Vec::new(),
+        material: 0,
+        alpha_flags: 0,
+        shadow_flags: 0,
+        has_antiblur_meshes: false,
+        is_antiblur_mesh: false,
+        custom_bounding_box: None,
+    };
+    // Container 1's two components reference 69999 distinct vertices
+    // together; container 2's two fit.
+    let big_a = component(0, 40000, 13333);
+    let big_b = component(40000, 30000, 10000);
+    let small_a = component(70000, 4, 1);
+    let small_b = component(70004, 4, 1);
+    let container = |name: &str, meshes: Vec<usize>| MeshGroup {
+        name: name.to_owned(),
+        parent: Some(0),
+        meshes,
+        bounding_box: None,
+        visible: true,
+        split_mesh_group: true,
+    };
+    let mut model = Model {
+        bones: Vec::new(),
+        materials: vec![material()],
+        meshes: vec![big_a.clone(), big_b.clone(), small_a, small_b],
+        mesh_groups: vec![
+            MeshGroup {
+                name: "root".to_owned(),
+                parent: None,
+                meshes: Vec::new(),
+                bounding_box: None,
+                visible: true,
+                split_mesh_group: false,
+            },
+            container("split-mesh", vec![0, 1]),
+            container("split-mesh.001", vec![2, 3]),
+        ],
+        extensions: Extensions::default(),
+        bone_matrices: None,
+    };
+    model.extensions.mesh_splitting = true;
+    decode(&mut model).unwrap();
+    // The oversized container kept its flag and its components; the
+    // fitting one collapsed into the root group.
+    assert_eq!(model.meshes.len(), 3);
+    assert_eq!(model.meshes[0], big_a);
+    assert_eq!(model.meshes[1], big_b);
+    assert_eq!(model.mesh_groups.len(), 2);
+    assert_eq!(model.mesh_groups[0].meshes, vec![2]);
+    assert!(model.mesh_groups[1].split_mesh_group);
+    assert_eq!(model.mesh_groups[1].meshes, vec![0, 1]);
+    assert!(model.extensions.mesh_splitting);
 }
 
 // S9

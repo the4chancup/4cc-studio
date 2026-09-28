@@ -79,6 +79,9 @@ pub struct Sampler {
     pub srgb: Option<bool>,
     /// The minification filter.
     pub minfilter: Option<Filter>,
+    /// The community `maxfilter` attribute some writers emit between
+    /// `minfilter` and `magfilter`; absent in every Konami file.
+    pub maxfilter: Option<Filter>,
     /// The magnification filter.
     pub magfilter: Option<Filter>,
     /// The mip filter.
@@ -274,6 +277,7 @@ fn read_sampler(node: roxmltree::Node) -> Result<Sampler, MtlError> {
         path: required(node, "sampler", "path")?.to_owned(),
         srgb: None,
         minfilter: None,
+        maxfilter: None,
         magfilter: None,
         mipfilter: None,
         uaddr: None,
@@ -296,6 +300,10 @@ fn read_sampler(node: roxmltree::Node) -> Result<Sampler, MtlError> {
             "minfilter" => {
                 sampler.minfilter =
                     Some(parsed("sampler", "minfilter", value, Filter::from_str_opt)?);
+            }
+            "maxfilter" => {
+                sampler.maxfilter =
+                    Some(parsed("sampler", "maxfilter", value, Filter::from_str_opt)?);
             }
             "magfilter" => {
                 sampler.magfilter =
@@ -452,8 +460,16 @@ impl MaterialSet {
         let unwrapped = wezlib::decompress_if_wrapped(bytes)
             .map_err(|error| MtlError::Wesys(error.to_string()))?;
         let text = std::str::from_utf8(&unwrapped).map_err(|_| MtlError::InvalidUtf8)?;
-        let document =
-            roxmltree::Document::parse(text).map_err(|error| MtlError::Xml(error.to_string()))?;
+        // A handful of community files carry a second closing tag or
+        // binary junk after the real root: parse only through the first
+        // root close. A root that never closes still errors.
+        const ROOT_CLOSE: &str = "</materialset>";
+        let end = text
+            .find(ROOT_CLOSE)
+            .map(|at| at + ROOT_CLOSE.len())
+            .unwrap_or(text.len());
+        let document = roxmltree::Document::parse(&text[..end])
+            .map_err(|error| MtlError::Xml(error.to_string()))?;
         let root = document.root_element();
         if root.tag_name().name() != "materialset" {
             return Err(MtlError::UnexpectedElement {
@@ -517,6 +533,7 @@ impl MaterialSet {
                         }
                         for (name, filter) in [
                             ("minfilter", sampler.minfilter),
+                            ("maxfilter", sampler.maxfilter),
                             ("magfilter", sampler.magfilter),
                             ("mipfilter", sampler.mipfilter),
                         ] {
@@ -619,6 +636,45 @@ mod tests {
     }
 
     #[test]
+    fn maxfilter_reads_and_writes_between_min_and_mag() {
+        let set = read(MAXFILTER_MTL);
+        let mut carried = 0;
+        for material in &set.materials {
+            for entry in &material.entries {
+                if let MaterialEntry::Sampler(sampler) = entry
+                    && let Some(filter) = sampler.maxfilter
+                {
+                    assert_eq!(filter, Filter::Linear);
+                    carried += 1;
+                }
+            }
+        }
+        assert_eq!(carried, 1);
+        let written = String::from_utf8_lossy(&set.write()).into_owned();
+        let line = written
+            .lines()
+            .find(|line| line.contains("maxfilter"))
+            .expect("written file carries maxfilter");
+        let min = line.find("minfilter=").expect("minfilter");
+        let max = line.find("maxfilter=").expect("maxfilter");
+        let mag = line.find("magfilter=").expect("magfilter");
+        assert!(min < max && max < mag, "{line}");
+    }
+
+    #[test]
+    fn content_after_the_first_root_close_is_dropped() {
+        for bytes in [SECOND_CLOSE_TAG_MTL, TRAILING_JUNK_MTL] {
+            let set = read(bytes);
+            assert_eq!(read(&set.write()), set);
+        }
+        // A root that never closes is still an error.
+        assert!(matches!(
+            MaterialSet::read(b"<materialset><material name=\"m\" shader=\"s\"/>"),
+            Err(MtlError::Xml(_))
+        ));
+    }
+
+    #[test]
     fn card_red_is_semantically_identical_but_reformatted() {
         // The file carries trailing spaces on some lines.
         let set = read(CARD_RED_MTL);
@@ -695,6 +751,7 @@ mod tests {
                 path: "./Glasses01.dds".to_owned(),
                 srgb: Some(true),
                 minfilter: Some(Filter::Linear),
+                maxfilter: None,
                 magfilter: Some(Filter::Linear),
                 mipfilter: None,
                 uaddr: None,
@@ -786,6 +843,7 @@ mod tests {
                     path: "a&b.dds".to_owned(),
                     srgb: None,
                     minfilter: None,
+                    maxfilter: None,
                     magfilter: None,
                     mipfilter: None,
                     uaddr: None,
@@ -952,6 +1010,7 @@ mod tests {
                     path: "p".to_owned(),
                     srgb: None,
                     minfilter: None,
+                    maxfilter: None,
                     magfilter: None,
                     mipfilter: None,
                     uaddr: None,

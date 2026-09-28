@@ -305,13 +305,14 @@ pub fn check_materials(set: &MaterialSet) -> Vec<Finding> {
         }
 
         // A state name appearing twice is legal XML and unremarkable;
-        // the last value wins for every value rule below.
+        // the first value wins for every value rule below, as
+        // `model_convert`'s import does.
         let mut states: HashMap<&str, u32> = HashMap::new();
         let mut unknown = 0;
         for entry in &material.entries {
             if let MaterialEntry::State(state) = entry {
                 if STATE_NAMES.contains(&state.name.as_str()) {
-                    states.insert(state.name.as_str(), state.value);
+                    states.entry(state.name.as_str()).or_insert(state.value);
                 } else {
                     unknown += 1;
                 }
@@ -791,6 +792,7 @@ mod tests {
             path: "p".to_owned(),
             srgb: None,
             minfilter: None,
+            maxfilter: None,
             magfilter: None,
             mipfilter: None,
             uaddr: None,
@@ -830,6 +832,19 @@ mod tests {
             Subject::MtlMaterial(0),
             3,
         )));
+
+        // A state listed twice keeps its first value, as the importer
+        // does: `ztest` is 1 here, not 0.
+        let set = materials(vec![material(
+            "m",
+            vec![state("ztest", 1), state("ztest", 0)],
+        )]);
+        let findings = check_materials(&set);
+        assert!(
+            !findings
+                .iter()
+                .any(|finding| finding.code == "mtl_state_invalid")
+        );
 
         let set = materials(vec![material("m", vec![state("blendmode", 1)])]);
         let findings = check_materials(&set);

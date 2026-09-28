@@ -76,6 +76,7 @@ pub fn ir_to_model(ir: &CanonicalModel) -> Result<ExportedPreFox, ConvertError> 
                 path: format!("{}{}", texture.directory, texture.file_name),
                 srgb: settings.srgb,
                 minfilter: settings.minfilter.map(mtl_filter),
+                maxfilter: None,
                 magfilter: settings.magfilter.map(mtl_filter),
                 mipfilter: settings.mipfilter.map(mtl_filter),
                 uaddr: settings.uaddr.map(mtl_address),
