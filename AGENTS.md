@@ -270,15 +270,25 @@ sent as a git bundle, the remote shard runs at low priority, its results land in
 `mutants.out/remote/` and the combined survivors in `mutants.out/missed_all.txt`). Benchmarked
 on 2026-09-27 on one commit, the VPS is about as fast as the PC (`fox2` whole crate 167 s
 against 256 s, one eighth of `fmdl` 460 s against 433 s) with identical results, so the split
-should roughly halve a whole-crate run, and it moves half its energy off the home machine. Without the variable,
-`just mutants` runs locally as before. `mutants-diff` stays local: its runs take minutes, and
-the transfer plus the remote baseline build would eat the gain. Manual ssh from Git Bash uses
-`/c/Windows/System32/OpenSSH/ssh.exe bonfire`: Git's own `ssh` cannot reach the Windows agent
-that holds the key. **A failed shard is reported, never restarted.** `cargo mutants` does not
-resume: rerunning a shard starts it from zero, hours of work. At 2.20i the ssh link dropped,
-and the sidekick restarted the VPS shard and waited on it, although the local half had
-already tested every mutant. A brief that starts a whole-crate run therefore says: if either
-half fails, stop and report what each half recorded.
+should roughly halve a whole-crate run, and it moves half its energy off the home machine.
+Agent and IDE shells started before the variable was set do not see it, so the script also
+reads it from the user's registry environment; the run's first line says which mode it took
+("splitting the run with bonfire" or "running every mutant on this machine"). At 2.20i an
+agent shell without the variable ran all 806 `pes_savefile` mutants locally, over three
+hours. An empty value in the process opts out. `mutants-diff` stays local: its runs take
+minutes, and the transfer plus the remote baseline build would eat the gain. Manual ssh from
+Git Bash uses `/c/Windows/System32/OpenSSH/ssh.exe bonfire`: Git's own `ssh` cannot reach the
+Windows agent that holds the key.
+
+**The remote half runs detached**, in its own session on the VPS (`~/studio-mutants/run/`:
+`pid`, `log`, `exit`), and the script polls it every 30 s with short ssh calls. A dropped link
+costs a poll, not the run: at 2.20i the remote half still hung off one long ssh session and
+died with it. If `just mutants` itself stops, `just mutants-collect` waits for the remote half
+and fetches it, including a died half's partial results. A new run refuses to start while a
+remote half is running or uncollected. **A failed half is reported, never restarted:**
+`cargo mutants` does not resume, so a rerun starts from zero, hours of work (at 2.20i the
+sidekick restarted the VPS half and waited on it although the local half had already tested
+every mutant). A brief that starts a whole-crate run says so.
 
 Three model families, three roles. Lead: Claude (Fable) in Devin CLI's Fusion mode. Sidekick:
 SWE-2 (Kimi lineage), reached through the `sidekick` tool; a cold probe on a spec-in-hand crate

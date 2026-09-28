@@ -821,12 +821,15 @@ pruned when their phase closes; they stay in git history.
   cannot load it") is wrong. `split::encode` still takes them apart harmlessly. Needs the
   maintainer: is one of those models known to render in game? Decide before Phase 3 maps the
   code in the Team compiler's catalog.
-- open — `just mutants` sharding (found at 2.20i): at `40a07be` the local half, started by
-  `scripts/mutants.py` with `--shard 0/2 --sharding round-robin`, tested all 806 mutants
-  (`outcomes.json` `total_mutants` 806, every outcome recorded), while the 2.20g/2.20h runs
-  halved as intended. The VPS half ran in parallel on a tree that listed 805 mutants, then
-  died when ssh dropped after 323 outcomes. So this run's split doubled the work instead of
-  halving it. Find why before the next whole-crate run on any crate.
+- resolved (2026-09-28) — `just mutants` sharding (found at 2.20i): at `40a07be` all 806
+  mutants ran locally while a VPS half also ran and then died when ssh dropped. Cause of the
+  local half: agent shells do not inherit the user variable `STUDIO_MUTANTS_REMOTE` (process
+  empty, user registry `bonfire`), so `just mutants` from one took the local-only path. Fixed
+  in `scripts/mutants.py`: the variable is read from the registry too, the mode is printed,
+  and the remote half runs detached with polling and `just mutants-collect` (`AGENTS.md`
+  "Environment"). Checked on `fpc`, `color_tools` and `cpk`: halves of 8/8, 46, 125/124; the
+  remote half survived its controller being killed and was collected; a died half is
+  refused as a new run and collected partially; an unreachable host retries then gives up.
 - open — u16 face indices cap a reassembled split mesh (found at 2.20f review): `fmdl::Mesh`
   and the IR (`ir.md` "IR struct") store faces as `[u16; 3]`, so `fmdl::ops::split::decode`
   refuses (loud `VertexMismatch`) an add-on file whose components together reference more
@@ -1094,3 +1097,6 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   (24 survivors, `.tmp/mutants_2_20i_whole/missed.txt`), the crate's last (maintainer). Lead
   audit in `.tmp/audit_2_20i.md` (F1-F7). Next: slice A = survivors + F1-F4, F6, F7; slice B =
   F5's pure moves; each checked with `mutants-diff`; then the reviewer.
+- **2026-09-28** - `just mutants` fixed: the remote half runs detached and survives a dropped
+  link or a killed controller (`just mutants-collect`), and the split no longer silently
+  becomes a full local run in shells without `STUDIO_MUTANTS_REMOTE`.

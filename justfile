@@ -31,6 +31,10 @@ wasm-check:
 mutants crate:
     {{python}} scripts/mutants.py {{crate}}
 
+# The remote half of a split run whose `just mutants` stopped early: waits for it, fetches it, prints the summary
+mutants-collect:
+    {{python}} scripts/mutants.py --collect
+
 # Mutation run over the lines changed since `base` (review of a landed diff)
 mutants-diff base="HEAD":
     {{python}} scripts/mutants_diff.py {{base}}

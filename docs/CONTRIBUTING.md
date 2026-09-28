@@ -158,7 +158,8 @@ repeatable sequences, each of which the plan names somewhere: `just deps-check` 
 the `fmdl`/`pes_model` denylist, plus the `cargo deny` license allowlist; see "License" in the
 core plan), `just acceptance` (the acceptance-ID scanner), `just parity`,
 `just bindings` (the `maturin` build of `python_bindings`), `just release <version>`, `just
-mutants <crate>` and `just mutants-diff [base]` (the mutation runs, below). `just --list` shows
+mutants <crate>`, `just mutants-collect` and `just mutants-diff [base]` (the mutation runs,
+below). `just --list` shows
 them with a one-line description each.
 
 Rules for the justfile, so it stays a command list and not a second build system:
