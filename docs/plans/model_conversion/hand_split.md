@@ -51,7 +51,12 @@ compiling hundreds of models must not require a Blender installation or per-mode
    boundary vertices where needed. Preserve positions, weights, UVs, normals, and materials — no
    geometric cutting, invented wrist plane, or reweighting.
 
-Prune unused bones from each result and remap indices to the target skeleton as usual. The extra
+The hands are separated in turn, the left first, as a user in Blender would. The right hand's
+selection is grown and separated from what the left hand's separation left, so a face fully
+selected by both (a thin wrist bridge) goes to `glove_l` only and is never duplicated.
+
+Prune unused bones, materials and textures from each result (a glove keeps only the materials
+its faces use), and remap indices to the target skeleton as usual. The extra
 row is part of the rule, not an optional refinement: vertices without finger weights can belong to
 the separated glove. Validate against stored expected output prepared with the same select → grow
 once → separate operation in Blender on a matching-topology fixture with a connected wrist, not

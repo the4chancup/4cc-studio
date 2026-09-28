@@ -171,9 +171,11 @@ of the **broken wrist pose in some PES15 animations (the pre-match entrance) on 
 pose-dependent error is exactly what wrong bind pivots produce. *Hypothesis; verify on a known-broken
 port once the pass exists.*
 
-The Studio runs one IR pass, `retarget(ir: &mut CanonicalModel, target: PesVersion) ->
-Result<Vec<loss::Finding>, ConvertError>` (`skeletons/retarget.rs`; the error is a singular bind
-matrix, which no importer lets through), in every export path after conversion and before mesh
+The Studio runs one IR pass, `retarget(ir: CanonicalModel, target: PesVersion) ->
+Result<(CanonicalModel, Vec<loss::Finding>), ConvertError>` (`skeletons/retarget.rs`; the error
+is a singular bind matrix, which no importer lets through, or the final `validate`). It takes
+the model by value, so an error can never leave a half-retargeted model behind. It runs in every
+export path after conversion and before mesh
 splitting. A bone is *standard* when some version's tables (any body, face or hand skeleton) name
 it, *custom* otherwise; only standard bones the target lacks are folded, and custom bones pass
 through untouched, matrices included. The source bind pose is already in the IR's
