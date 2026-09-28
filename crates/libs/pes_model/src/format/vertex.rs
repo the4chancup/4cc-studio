@@ -861,6 +861,11 @@ mod tests {
             vec![(0, 3)],
             vec![(0, 3), (0, 6)],
             vec![(0, 3), (4, 6)],
+            // An end before its start.
+            vec![(0, 3), (3, 1)],
+            // A range whose length is no multiple of 3, its error not
+            // hidden by the ranges that follow it.
+            vec![(0, 4), (4, 6)],
         ] {
             assert_eq!(
                 stream(ranges).faces(),
@@ -869,6 +874,66 @@ mod tests {
                 ))
             );
         }
+        // A zero-width range partitions fine.
+        assert_eq!(
+            stream(vec![(0, 3), (3, 3), (3, 6)]).faces(),
+            Ok(vec![[0, 1, 2], [3, 4, 5]])
+        );
         assert_eq!(stream(vec![(0, 3), (3, 6)]).level(1).unwrap(), [[3, 4, 5]]);
+    }
+
+    #[test]
+    fn mesh_vertices_is_empty() {
+        let mut vertices = MeshVertices {
+            positions: Vec::new(),
+            normals: None,
+            tangents: None,
+            bitangents: None,
+            colors: None,
+            uvs: Vec::new(),
+            bone_indices: None,
+            bone_weights: None,
+            bone_weight_width: 4,
+        };
+        assert!(vertices.is_empty());
+        vertices.positions.push([0.0; 3]);
+        assert!(!vertices.is_empty());
+    }
+
+    #[test]
+    fn to_fields_uv_boundaries() {
+        // Four uv maps produce the Uv0..Uv3 fields; a fifth is rejected.
+        let mut vertices = MeshVertices {
+            positions: vec![[0.0; 3]; 2],
+            normals: None,
+            tangents: None,
+            bitangents: None,
+            colors: None,
+            uvs: vec![vec![[0.0; 2]; 2]; 4],
+            bone_indices: None,
+            bone_weights: None,
+            bone_weight_width: 4,
+        };
+        let types: Vec<DatumType> = vertices
+            .to_fields()
+            .unwrap()
+            .iter()
+            .map(|field| field.datum_type)
+            .collect();
+        assert_eq!(
+            types,
+            [
+                DatumType::Position,
+                DatumType::Uv0,
+                DatumType::Uv1,
+                DatumType::Uv2,
+                DatumType::Uv3
+            ]
+        );
+        vertices.uvs.push(vec![[0.0; 2]; 2]);
+        assert_eq!(
+            vertices.to_fields(),
+            Err(ModelError::VertexMismatch("more than four uv maps"))
+        );
     }
 }

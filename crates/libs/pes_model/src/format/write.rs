@@ -384,7 +384,7 @@ impl SectionList {
 
 impl PreFoxModel {
     /// The container `write` emits: sections built in the export layout.
-    pub fn to_container(&self) -> Result<ModelContainer, ModelError> {
+    pub(crate) fn to_container(&self) -> Result<ModelContainer, ModelError> {
         if self.bones.len() > u16::MAX as usize {
             return Err(ModelError::WriteLayout("more bones than u16 can index"));
         }
@@ -491,5 +491,31 @@ impl PreFoxModel {
     /// The serialized `.model`, unwrapped.
     pub fn write(&self) -> Result<Vec<u8>, ModelError> {
         Ok(self.to_container()?.write())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::format::fixtures::*;
+
+    #[test]
+    fn pad4_pads_to_four() {
+        for (len, pad) in [(0, 0), (1, 3), (2, 2), (3, 1), (4, 0), (5, 3), (8, 0)] {
+            assert_eq!(pad4(len), pad, "pad4({len})");
+        }
+    }
+
+    #[test]
+    fn to_container_allows_the_bone_limit() {
+        // 65535 bones fit a u16 index; 65536 do not.
+        let mut file = PreFoxModel::read(CAP).unwrap();
+        file.bones = vec![file.bones[0].clone(); u16::MAX as usize];
+        assert!(file.to_container().is_ok());
+        file.bones.push(file.bones[0].clone());
+        assert_eq!(
+            file.to_container(),
+            Err(ModelError::WriteLayout("more bones than u16 can index"))
+        );
     }
 }

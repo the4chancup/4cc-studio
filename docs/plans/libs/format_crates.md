@@ -277,6 +277,11 @@ fixtures README names the representatives) is what the reader is held to beyond 
 - **Zero-length data anywhere.** Empty geometries (0 vertices, 0 face indices) point their field
   and face offsets at or past the end of the file; a zero-length read succeeds wherever it
   points, and only a read of at least one byte past the end is `Truncated`.
+- **An empty array's header.** In four files, section 8 (cloth, always empty) has a garbage
+  first-record offset: the previous section's string runs over the table's location. An array
+  with no records whose declared header would run past the end of the buffer reads as having
+  no header, as Konami's own section 8 with offset 0 does. An array with records keeps every
+  check.
 - **A field type listed twice.** A few files carry a second descriptor for a type already
   listed (a bone-weights descriptor covering half the vertices, inside the first one's data).
   The first descriptor of each type is the field; a later one of the same type is ignored by

@@ -190,7 +190,7 @@ pub enum MtlError {
 
 impl Filter {
     /// The attribute text (`linear`, `point`, `anisotropic`).
-    pub fn as_str(self) -> &'static str {
+    pub(crate) fn as_str(self) -> &'static str {
         match self {
             Filter::Linear => "linear",
             Filter::Point => "point",
@@ -199,7 +199,7 @@ impl Filter {
     }
 
     /// The filter a text names, or `None`.
-    pub fn from_str_opt(text: &str) -> Option<Filter> {
+    pub(crate) fn from_str_opt(text: &str) -> Option<Filter> {
         match text {
             "linear" => Some(Filter::Linear),
             "point" => Some(Filter::Point),
@@ -211,7 +211,7 @@ impl Filter {
 
 impl Address {
     /// The attribute text (`wrap`, `clamp`, `repeat`).
-    pub fn as_str(self) -> &'static str {
+    pub(crate) fn as_str(self) -> &'static str {
         match self {
             Address::Wrap => "wrap",
             Address::Clamp => "clamp",
@@ -220,7 +220,7 @@ impl Address {
     }
 
     /// The address mode a text names, or `None`.
-    pub fn from_str_opt(text: &str) -> Option<Address> {
+    pub(crate) fn from_str_opt(text: &str) -> Option<Address> {
         match text {
             "wrap" => Some(Address::Wrap),
             "clamp" => Some(Address::Clamp),
@@ -800,12 +800,45 @@ mod tests {
         let text = String::from_utf8_lossy(&written);
         assert!(text.contains("&amp;"));
         assert!(text.contains("&quot;"));
+        assert!(text.contains("&lt;"));
+        assert!(text.contains("&gt;"));
         let reread = read(&written);
         assert_eq!(reread.materials[0].name, "a&b \"c\" <d>");
         match &reread.materials[0].entries[0] {
             MaterialEntry::Sampler(sampler) => assert_eq!(sampler.path, "a&b.dds"),
             entry => panic!("expected a sampler, got {entry:?}"),
         }
+    }
+
+    #[test]
+    fn filter_and_address_words_round_trip() {
+        for (text, filter) in [
+            ("linear", Filter::Linear),
+            ("point", Filter::Point),
+            ("anisotropic", Filter::Anisotropic),
+        ] {
+            assert_eq!(Filter::from_str_opt(text), Some(filter));
+            assert_eq!(filter.as_str(), text);
+        }
+        for (text, address) in [
+            ("wrap", Address::Wrap),
+            ("clamp", Address::Clamp),
+            ("repeat", Address::Repeat),
+        ] {
+            assert_eq!(Address::from_str_opt(text), Some(address));
+            assert_eq!(address.as_str(), text);
+        }
+    }
+
+    #[test]
+    fn non_newline_material_indent_falls_back() {
+        // A `<material` preceded by whitespace that is not a newline does
+        // not set the file's indent.
+        let set = MaterialSet::read(
+            b"<materialset> <material name=\"m\" shader=\"s\"></material></materialset>",
+        )
+        .unwrap();
+        assert_eq!(set.style.indent, "    ");
     }
 
     #[test]

@@ -12,6 +12,7 @@
 
 #[cfg(test)]
 mod tests;
+mod validate;
 
 use crate::format::{
     Annotation, Bone, BoundingBox, EditorItem, FaceStream, Geometry as FileGeometry, LodRecord,
@@ -68,24 +69,6 @@ pub struct Mesh {
     pub order: u32,
     /// Editor-data items (none in any player part).
     pub editor_data: Vec<EditorItem>,
-}
-
-/// Checks that every face index is below `count`.
-fn check_indices<'a>(
-    faces: impl Iterator<Item = &'a [u16; 3]>,
-    count: usize,
-) -> Result<(), ModelError> {
-    for face in faces {
-        for index in face {
-            if usize::from(*index) >= count {
-                return Err(ModelError::BadReference {
-                    what: "vertex",
-                    offset: i64::from(*index),
-                });
-            }
-        }
-    }
-    Ok(())
 }
 
 /// `text`'s index in `strings`, appending it when new.
@@ -152,11 +135,6 @@ impl Model {
                             .expect("every face index is in the distinct set")
                             as u16;
                     }
-                } else {
-                    check_indices(
-                        faces.iter().chain(lower_lods.iter().flatten()),
-                        vertices.len(),
-                    )?;
                 }
             }
             let bone_group = match mesh.bone_group {
@@ -172,12 +150,6 @@ impl Model {
                     .collect(),
                 None => Vec::new(),
             };
-            if mesh.material >= file.material_names.len() {
-                return Err(ModelError::BadReference {
-                    what: "material",
-                    offset: mesh.material as i64,
-                });
-            }
             let mut name = None;
             let mut extension_headers = Vec::new();
             let mut tags = Vec::new();
@@ -225,7 +197,7 @@ impl Model {
             .filter(|(index, _)| !referenced[*index])
             .map(|(_, text)| text.clone())
             .collect();
-        Ok(Model {
+        let model = Model {
             flags: file.flags,
             bones: file.bones.clone(),
             materials: file.material_names.clone(),
@@ -233,11 +205,14 @@ impl Model {
             extension_headers,
             bounds: file.bounds.clone(),
             lod: file.lod.clone(),
-        })
+        };
+        model.validate()?;
+        Ok(model)
     }
 
     /// Writes the model out as a fresh `PreFoxModel` in the export layout.
     pub fn to_file(&self) -> Result<PreFoxModel, ModelError> {
+        self.validate()?;
         let mut bone_groups = Vec::new();
         let mut mesh_bone_group = Vec::with_capacity(self.meshes.len());
         for mesh in &self.meshes {
@@ -247,12 +222,6 @@ impl Model {
             }
             let mut group = Vec::with_capacity(mesh.bone_group.len());
             for bone in &mesh.bone_group {
-                if *bone >= self.bones.len() {
-                    return Err(ModelError::BadReference {
-                        what: "bone",
-                        offset: *bone as i64,
-                    });
-                }
                 group.push(
                     u16::try_from(*bone)
                         .map_err(|_| ModelError::WriteLayout("a bone index beyond u16"))?,
@@ -303,10 +272,6 @@ impl Model {
 
         let mut geometries = Vec::with_capacity(self.meshes.len());
         for mesh in &self.meshes {
-            check_indices(
-                mesh.faces.iter().chain(mesh.lower_lods.iter().flatten()),
-                mesh.vertices.len(),
-            )?;
             let mut indices = Vec::new();
             for face in mesh.faces.iter().chain(mesh.lower_lods.iter().flatten()) {
                 indices.extend_from_slice(face);
@@ -335,12 +300,6 @@ impl Model {
 
         let mut meshes = Vec::with_capacity(self.meshes.len());
         for (index, mesh) in self.meshes.iter().enumerate() {
-            if mesh.material >= self.materials.len() {
-                return Err(ModelError::BadReference {
-                    what: "material",
-                    offset: mesh.material as i64,
-                });
-            }
             meshes.push(FileMesh {
                 geometry: index,
                 material: mesh.material,

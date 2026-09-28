@@ -55,7 +55,7 @@ pub enum DatumFormat {
 
 impl DatumType {
     /// The type a word names, when the format defines one.
-    pub fn from_word(word: u32) -> Option<Self> {
+    pub(crate) fn from_word(word: u32) -> Option<Self> {
         match word {
             2 => Some(DatumType::Position),
             3 => Some(DatumType::Normal),
@@ -73,14 +73,14 @@ impl DatumType {
     }
 
     /// The word naming this type.
-    pub fn word(self) -> u32 {
+    pub(crate) fn word(self) -> u32 {
         self as u32
     }
 }
 
 impl DatumFormat {
     /// The format a word names, when the format defines one.
-    pub fn from_word(word: u32) -> Option<Self> {
+    pub(crate) fn from_word(word: u32) -> Option<Self> {
         match word {
             1 => Some(DatumFormat::Uint16),
             2 => Some(DatumFormat::Uint32),
@@ -96,7 +96,7 @@ impl DatumFormat {
     }
 
     /// The word naming this format.
-    pub fn word(self) -> u32 {
+    pub(crate) fn word(self) -> u32 {
         self as u32
     }
 
@@ -112,6 +112,55 @@ impl DatumFormat {
             DatumFormat::TripleFloat32 => 12,
             DatumFormat::QuadFloat32 => 16,
             DatumFormat::Float32Matrix34 => 48,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn type_words_round_trip() {
+        for (word, kind) in [
+            (2, DatumType::Position),
+            (3, DatumType::Normal),
+            (4, DatumType::Color),
+            (7, DatumType::Uv0),
+            (8, DatumType::Uv1),
+            (9, DatumType::Uv2),
+            (10, DatumType::Uv3),
+            (15, DatumType::Tangent),
+            (16, DatumType::Bitangent),
+            (17, DatumType::BoneWeights),
+            (18, DatumType::BoneIndices),
+        ] {
+            assert_eq!(DatumType::from_word(word), Some(kind));
+            assert_eq!(kind.word(), word);
+        }
+        for word in [0, 1, 5, 6, 11, 14, 19] {
+            assert_eq!(DatumType::from_word(word), None);
+        }
+    }
+
+    #[test]
+    fn format_words_round_trip() {
+        for (word, format) in [
+            (1, DatumFormat::Uint16),
+            (2, DatumFormat::Uint32),
+            (3, DatumFormat::Float32),
+            (4, DatumFormat::DoubleFloat32),
+            (5, DatumFormat::TripleFloat32),
+            (6, DatumFormat::QuadFloat32),
+            (7, DatumFormat::Float32Matrix34),
+            (8, DatumFormat::QuadInt8),
+            (9, DatumFormat::QuadFloat8),
+        ] {
+            assert_eq!(DatumFormat::from_word(word), Some(format));
+            assert_eq!(format.word(), word);
+        }
+        for word in [0, 10] {
+            assert_eq!(DatumFormat::from_word(word), None);
         }
     }
 }
