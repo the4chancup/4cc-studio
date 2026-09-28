@@ -337,25 +337,27 @@ pub fn ir_to_fmdl(ir: &CanonicalModel) -> Result<ExportedFox, ConvertError> {
     // The SKL covers every exported bone the template lacks, from the IR matrices by name
     // (identity for `static`, which has no IR bone).
     let unknown = |bone: &::fmdl::Bone| template_matrix(&bone.name).is_none();
-    let skl = model.bones.iter().any(unknown).then(|| ::fmdl::SklFile {
-        bones: model
-            .bones
-            .iter()
-            .map(|bone| {
-                let matrix = ir
-                    .bones
-                    .iter()
-                    .find(|b| b.name == bone.name)
-                    .map(|b| b.matrix)
-                    .unwrap_or(Affine::IDENTITY);
-                ::fmdl::format::SklBone {
-                    name: bone.name.clone(),
-                    parent: bone.parent,
-                    rotation: matrix.rotation(),
-                    translation: matrix.translation(),
-                }
-            })
-            .collect(),
+    let skl = model.bones.iter().any(unknown).then(|| {
+        ::fmdl::SklFile::new(
+            model
+                .bones
+                .iter()
+                .map(|bone| {
+                    let matrix = ir
+                        .bones
+                        .iter()
+                        .find(|b| b.name == bone.name)
+                        .map(|b| b.matrix)
+                        .unwrap_or(Affine::IDENTITY);
+                    ::fmdl::format::SklBone {
+                        name: bone.name.clone(),
+                        parent: bone.parent,
+                        rotation: matrix.rotation(),
+                        translation: matrix.translation(),
+                    }
+                })
+                .collect(),
+        )
     });
 
     Ok(ExportedFox {

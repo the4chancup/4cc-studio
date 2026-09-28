@@ -1,6 +1,7 @@
 use super::export::{quantize_weights, split_parents};
 use super::*;
 
+use crate::affine::Affine;
 use crate::formats::ConvertError;
 use crate::ir::{Bone, CanonicalModel, Material, Mesh, MeshGroup, SourceFormat, Texture, Vertices};
 use crate::loss::{Finding, Subject};
@@ -221,6 +222,25 @@ fn fmdl_round_trip() {
         }
         assert_eq!(exported.skl.is_some(), has_unknown_bone);
         assert_eq!(exported.findings, Vec::<Finding>::new());
+    }
+}
+
+#[test]
+fn an_exported_skl_carries_each_bones_ir_matrix() {
+    let skl = ::fmdl::SklFile::read(AU_SKL).expect("skl");
+    let imported = fmdl_to_ir(&read_fmdl(AU), Some(&skl)).expect("import");
+    let exported = ir_to_fmdl(&imported.model).expect("export");
+    let exported_skl = exported.skl.expect("skl");
+    for bone in &exported_skl.bones {
+        let matrix = imported
+            .model
+            .bones
+            .iter()
+            .find(|b| b.name == bone.name)
+            .map(|b| b.matrix)
+            .unwrap_or(Affine::IDENTITY);
+        assert_eq!(bone.rotation, matrix.rotation(), "bone {}", bone.name);
+        assert_eq!(bone.translation, matrix.translation(), "bone {}", bone.name);
     }
 }
 
@@ -492,22 +512,20 @@ fn a_disagreeing_skl_parent_reports_native_field_dropped() {
         local_position: [0.0; 4],
         world_position: [0.0; 4],
     });
-    let skl = ::fmdl::SklFile {
-        bones: vec![
-            ::fmdl::format::SklBone {
-                name: "sk_belly".to_string(),
-                parent: None,
-                rotation: [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
-                translation: [0.0; 3],
-            },
-            ::fmdl::format::SklBone {
-                name: "sk_chest".to_string(),
-                parent: Some(0),
-                rotation: [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
-                translation: [0.0; 3],
-            },
-        ],
-    };
+    let skl = ::fmdl::SklFile::new(vec![
+        ::fmdl::format::SklBone {
+            name: "sk_belly".to_string(),
+            parent: None,
+            rotation: [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
+            translation: [0.0; 3],
+        },
+        ::fmdl::format::SklBone {
+            name: "sk_chest".to_string(),
+            parent: Some(0),
+            rotation: [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
+            translation: [0.0; 3],
+        },
+    ]);
     let imported = fmdl_to_ir(&model, Some(&skl)).expect("import");
     assert_eq!(imported.model.bones[1].parent, None);
     assert_eq!(
@@ -524,14 +542,12 @@ fn a_disagreeing_skl_parent_reports_native_field_dropped() {
 fn out_of_range_parents_error() {
     let model = fmdl_model(fmdl_mesh(0, 0), vec![instance("mat")]);
     // An SKL bone parented past the skeleton's own bone count.
-    let skl = ::fmdl::SklFile {
-        bones: vec![::fmdl::format::SklBone {
-            name: "sk_belly".to_string(),
-            parent: Some(5),
-            rotation: [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
-            translation: [0.0; 3],
-        }],
-    };
+    let skl = ::fmdl::SklFile::new(vec![::fmdl::format::SklBone {
+        name: "sk_belly".to_string(),
+        parent: Some(5),
+        rotation: [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
+        translation: [0.0; 3],
+    }]);
     assert!(matches!(
         fmdl_to_ir(&model, Some(&skl)),
         Err(ConvertError::Fmdl(::fmdl::FmdlError::BadReference {
