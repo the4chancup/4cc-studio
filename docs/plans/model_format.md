@@ -515,7 +515,10 @@ shader (right-hand column). There is deliberately no family for the rare shaders
 `Overlay` decal shader, Fox `3ddc`/`eyeocclusion`/`translucent`): in a decade of exports they have not
 been used by members, so they stay reachable through the engine tables only (see the advanced
 example), and a native import of one keeps its shader verbatim there with the family that best
-approximates it for the other engine.
+approximates it for the other engine. That inference is always marked approximate
+(`material_family_approximated`), even where a family substring also matches, as `3ddf` does in
+`pes_3ddf_basic_color_translucent` and `lambert` does in `eyeocclusion_lambert`: shader names
+containing `translucent`, `3ddc` or `eyeocclusion` are checked first.
 
 | Family | Use | Fox shader / technique | Fox defaults | Pre-Fox shader | Pre-Fox defaults | Inferred from |
 |---|---|---|---|---|---|---|
