@@ -5,7 +5,7 @@ use ::pes_model::model::Model;
 
 use crate::ir::{CanonicalModel, validate};
 use crate::loss::{self, Finding, Subject};
-use crate::materials::{self, to_prefox};
+use crate::materials::{self, to_fox, to_prefox};
 
 use super::super::ConvertError;
 
@@ -99,16 +99,52 @@ pub fn ir_to_model(ir: &CanonicalModel) -> Result<ExportedPreFox, ConvertError> 
                     });
                 }
             }
-            for (name, _) in &fox.parameters {
-                if !resolved
+            for (name, value) in &fox.parameters {
+                // Equal to the family's Fox default: converting the emitted
+                // `.mtl` back to FMDL regenerates it verbatim — no loss.
+                let regenerated = to_fox::defaults(material.family)
                     .parameters
                     .iter()
-                    .any(|(parameter, _)| parameter == name)
+                    .any(|(default_name, default)| default_name == name && default == value);
+                if !regenerated
+                    && !resolved
+                        .parameters
+                        .iter()
+                        .any(|(parameter, _)| parameter == name)
                 {
                     findings.push(Finding {
                         code: "material_parameter_dropped",
                         subject: Subject::Material(index),
                         detail: name.clone(),
+                    });
+                }
+            }
+            // The `.mtl` schema has no home for the shadow flags' two
+            // engine-only bits (the plan's "Engine mapping" flag rule).
+            let mut shadow_flags = fox.shadow_flags;
+            if let Some(cast_shadow) = fox.cast_shadow {
+                shadow_flags = if cast_shadow {
+                    shadow_flags & !to_fox::NO_SHADOW_CAST_BIT
+                } else {
+                    shadow_flags | to_fox::NO_SHADOW_CAST_BIT
+                };
+            }
+            if let Some(invisible) = fox.invisible {
+                shadow_flags = if invisible {
+                    shadow_flags | to_fox::INVISIBLE_BIT
+                } else {
+                    shadow_flags & !to_fox::INVISIBLE_BIT
+                };
+            }
+            for (bit, name) in [
+                (to_fox::NO_SHADOW_CAST_BIT, "no_shadow_cast"),
+                (to_fox::INVISIBLE_BIT, "invisible"),
+            ] {
+                if shadow_flags & bit != 0 {
+                    findings.push(Finding {
+                        code: "native_field_dropped",
+                        subject: Subject::Material(index),
+                        detail: name.to_string(),
                     });
                 }
             }

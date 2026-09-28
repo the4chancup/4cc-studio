@@ -728,6 +728,42 @@ fn a_lane_above_one_reports_weight_clamped() {
 }
 
 #[test]
+fn a_default_valued_prefox_parameter_is_not_a_finding() {
+    // `MatParamIndex_0 = [0,0,0,0]` is the family's Fox default: the resolver
+    // regenerates it, so its `.mtl` name dropping carries no loss. Metal's
+    // `Reflection` is likewise what a `.mtl` back-conversion regenerates.
+    // A non-default `SelfColor` is still reported.
+    let mut ir = minimal_ir();
+    ir.materials[0].family = MaterialFamily::Metal;
+    ir.materials[0].prefox = Some(crate::materials::PreFoxMaterial {
+        shader: "Basic_CNSR".to_string(),
+        states: vec![],
+        samplers: vec![],
+        textures: vec![],
+        parameters: vec![
+            ("MatParamIndex_0".to_string(), vec![0.0, 0.0, 0.0, 0.0]),
+            ("Reflection".to_string(), vec![1.0, 1.0, 1.0, 0.0]),
+            // A default name with a *different* value is a real loss.
+            ("Shininess".to_string(), vec![9.0, 9.0, 9.0, 9.0]),
+            ("SelfColor".to_string(), vec![1.0, 1.0, 1.0, 1.0]),
+        ],
+    });
+    let exported = ir_to_fmdl(&ir).expect("export");
+    assert_eq!(
+        exported
+            .findings
+            .iter()
+            .filter(|f| f.code == "material_parameter_dropped")
+            .map(|f| (f.subject.clone(), f.detail.clone()))
+            .collect::<Vec<_>>(),
+        [
+            (Subject::Material(0), "Shininess".to_string()),
+            (Subject::Material(0), "SelfColor".to_string()),
+        ]
+    );
+}
+
+#[test]
 fn uncarried_prefox_samplers_and_parameters_are_findings() {
     // `konami_headHi`'s native `.mtl` samplers `Normal2` and `Mapping` bind
     // textures the Fox resolver does not carry; the canonical `NormalMap`
