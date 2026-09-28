@@ -1,7 +1,8 @@
 //! Vertex-loop preservation: a `.model` stores vertex/face geometry only,
 //! so a Blender-style vertex with several loops becomes several `.model`
-//! vertices sharing a *topological key* (position, bone indices, bone
-//! weights, as the bytes the file stores). The vertex/loop relation is
+//! vertices sharing a *topological key* (position plus each
+//! positive-weight bone lane's stored index and weight — a zero-weight
+//! lane contributes nothing). The vertex/loop relation is
 //! encoded in the vertex order: consecutive vertices with equal topological
 //! keys and strictly increasing *nontopological encoding* (normal, color, uv
 //! maps in order, tangent, bitangent — the stored bytes concatenated) are
@@ -12,6 +13,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 
 use crate::format::{MeshVertices, ModelError};
 use crate::model::{Mesh, Model};
+use crate::ops::split::weight_of;
 
 /// The extension header marking a mesh whose vertex order carries the
 /// vertex/loop relation.
@@ -140,6 +142,29 @@ pub fn encode(mesh: &mut Mesh, owner: &[usize]) -> Result<Vec<usize>, ModelError
         new_index[*vertex] = index;
     }
 
+    // The remapped faces are fallible; compute them before anything is
+    // permuted, so an error leaves the mesh untouched.
+    let remap = |faces: &[[u16; 3]]| -> Result<Vec<[u16; 3]>, ModelError> {
+        faces
+            .iter()
+            .map(|face| {
+                let mut mapped = [0u16; 3];
+                for (slot, &index) in mapped.iter_mut().zip(face) {
+                    *slot = u16::try_from(new_index[collapsed_to[usize::from(index)]]).map_err(
+                        |_| ModelError::VertexMismatch("a remapped face index exceeds u16"),
+                    )?;
+                }
+                Ok(mapped)
+            })
+            .collect()
+    };
+    let new_faces = remap(&mesh.faces)?;
+    let new_lower_lods = mesh
+        .lower_lods
+        .iter()
+        .map(|lod| remap(lod))
+        .collect::<Result<Vec<_>, _>>()?;
+
     fn permute<T: Clone>(values: &mut Vec<T>, order: &[usize]) {
         *values = order.iter().map(|index| values[*index].clone()).collect();
     }
@@ -166,16 +191,8 @@ pub fn encode(mesh: &mut Mesh, owner: &[usize]) -> Result<Vec<usize>, ModelError
     if let Some(weights) = &mut vertices.bone_weights {
         permute(weights, &order);
     }
-    for face in mesh
-        .faces
-        .iter_mut()
-        .chain(mesh.lower_lods.iter_mut().flatten())
-    {
-        for index in face.iter_mut() {
-            *index = u16::try_from(new_index[collapsed_to[usize::from(*index)]])
-                .map_err(|_| ModelError::VertexMismatch("a remapped face index exceeds u16"))?;
-        }
-    }
+    mesh.faces = new_faces;
+    mesh.lower_lods = new_lower_lods;
     if !mesh
         .extension_headers
         .iter()
@@ -227,18 +244,21 @@ pub fn decode_model(model: &Model) -> Result<Vec<Vec<usize>>, ModelError> {
         .collect()
 }
 
-/// Position, bone indices and bone weights as the bytes the file stores.
+/// Position plus each positive-weight lane's (bone index, weight) as the
+/// bytes the file stores, in lane order; a zero-weight lane — whose index
+/// a split rewrites — contributes nothing.
 pub(crate) fn topological_key(vertices: &MeshVertices, index: usize) -> Vec<u8> {
     let mut key = Vec::new();
     for component in vertices.positions[index] {
         key.extend(component.to_le_bytes());
     }
     if let Some(indices) = &vertices.bone_indices {
-        key.extend(indices[index]);
-    }
-    if let Some(weights) = &vertices.bone_weights {
-        for component in &weights[index][..vertices.bone_weight_width as usize] {
-            key.extend(component.to_le_bytes());
+        for (lane, &bone) in indices[index].iter().enumerate() {
+            let weight = weight_of(vertices, index, lane);
+            if weight > 0.0 {
+                key.push(bone);
+                key.extend(weight.to_le_bytes());
+            }
         }
     }
     key
@@ -277,7 +297,7 @@ pub(crate) fn nontopological_encoding(vertices: &MeshVertices, index: usize) -> 
 mod tests {
     use super::*;
     use crate::format::fixtures::*;
-    use crate::format::{BoundingBox, PreFoxModel};
+    use crate::format::{Bone, BoundingBox, LodRecord, PreFoxModel};
     use std::collections::BTreeSet;
 
     fn load(bytes: &[u8]) -> Model {
@@ -494,12 +514,169 @@ mod tests {
         vertices.uvs[0][count - 1] = [1.0, 0.0];
         let mut mesh = bare_mesh(vertices, vec![[u16::MAX, 0, 1]]);
         let owners: Vec<usize> = (0..count).collect();
+        let before = mesh.clone();
         assert_eq!(
             encode(&mut mesh, &owners),
             Err(ModelError::VertexMismatch(
                 "a remapped face index exceeds u16"
             ))
         );
+        // A failed remap must not leave the mesh half-permuted.
+        assert_eq!(mesh, before);
+    }
+
+    // A zero-weight lane's index means nothing to the key — a split
+    // rewrites it — so vertices differing only there share an owner.
+    #[test]
+    fn a_zero_weight_lane_does_not_split_owners() {
+        let mesh = bare_mesh(
+            MeshVertices {
+                positions: vec![[0.0; 3], [0.0; 3]],
+                normals: None,
+                tangents: None,
+                bitangents: None,
+                colors: None,
+                uvs: vec![vec![[0.0, 0.0], [1.0, 0.0]]],
+                bone_indices: Some(vec![[0, 0, 0, 0], [0, 1, 0, 0]]),
+                bone_weights: Some(vec![[1.0, 0.0, 0.0, 0.0]; 2]),
+                bone_weight_width: 4,
+            },
+            Vec::new(),
+        );
+        assert_eq!(decode(&mesh).unwrap(), vec![0, 0]);
+    }
+
+    // Two coincident vertices whose positive-weight lanes differ have
+    // different keys: the second starts its own owner run even at the
+    // same position.
+    #[test]
+    fn different_weights_keep_their_own_owners() {
+        let mesh = bare_mesh(
+            MeshVertices {
+                positions: vec![[0.0; 3], [0.0; 3]],
+                normals: None,
+                tangents: None,
+                bitangents: None,
+                colors: None,
+                uvs: vec![vec![[0.0, 0.0], [1.0, 0.0]]],
+                bone_indices: Some(vec![[0, 0, 0, 0]; 2]),
+                bone_weights: Some(vec![[1.0, 0.0, 0.0, 0.0], [0.5, 0.5, 0.0, 0.0]]),
+                bone_weight_width: 4,
+            },
+            Vec::new(),
+        );
+        assert_eq!(decode(&mesh).unwrap(), vec![0, 1]);
+    }
+
+    // A combine rewrites a zero-weight lane whose slot falls outside the
+    // component's bone group; a topological key counting it would merge
+    // the encoded owners on the way back.
+    #[test]
+    fn combine_rewriting_zero_lanes_preserves_owners() {
+        let mut mesh = bare_mesh(
+            MeshVertices {
+                positions: vec![[0.0; 3], [0.0; 3]],
+                normals: None,
+                tangents: None,
+                bitangents: None,
+                colors: None,
+                uvs: vec![vec![[0.0, 0.0], [1.0, 0.0]]],
+                bone_indices: Some(vec![[0, 7, 0, 0], [0, 5, 0, 0]]),
+                bone_weights: Some(vec![[1.0, 0.0, 0.0, 0.0]; 2]),
+                bone_weight_width: 4,
+            },
+            Vec::new(),
+        );
+        mesh.bone_group = vec![0];
+        mesh.extension_headers.push("Split-Mesh: 1".to_owned());
+        let owners = decode(&mesh).unwrap();
+        let owners = encode(&mut mesh, &owners).unwrap();
+        let mut model = Model {
+            flags: 0,
+            bones: vec![Bone {
+                name: "bone".to_owned(),
+                matrix: [
+                    1.0, 0.0, 0.0, 0.0, //
+                    0.0, 1.0, 0.0, 0.0, //
+                    0.0, 0.0, 1.0, 0.0,
+                ],
+            }],
+            materials: vec!["material".to_owned()],
+            meshes: vec![mesh],
+            extension_headers: Vec::new(),
+            bounds: BoundingBox::of(&[]),
+            lod: LodRecord::for_levels(0),
+        };
+        crate::ops::split::decode(&mut model).unwrap();
+        assert_eq!(decode(&model.meshes[0]).unwrap(), owners);
+    }
+
+    // Two consecutive vertices identical in every byte are not loops of
+    // one vertex: only a strictly increasing encoding continues a run.
+    #[test]
+    fn identical_consecutive_vertices_own_themselves() {
+        let mesh = bare_mesh(
+            MeshVertices {
+                positions: vec![[0.0; 3], [0.0; 3]],
+                normals: None,
+                tangents: None,
+                bitangents: None,
+                colors: None,
+                uvs: vec![vec![[0.0, 0.0], [0.0, 0.0]]],
+                bone_indices: None,
+                bone_weights: None,
+                bone_weight_width: 4,
+            },
+            Vec::new(),
+        );
+        assert_eq!(decode(&mesh).unwrap(), vec![0, 1]);
+    }
+
+    #[test]
+    fn encode_adds_the_marker_only_once() {
+        let mut mesh = loop_mesh(false);
+        mesh.extension_headers
+            .push(VERTEX_LOOP_PRESERVATION.to_owned());
+        encode(&mut mesh, &[0, 1, 0, 1]).unwrap();
+        assert_eq!(
+            mesh.extension_headers
+                .iter()
+                .filter(|header| *header == VERTEX_LOOP_PRESERVATION)
+                .count(),
+            1
+        );
+    }
+
+    // Without the marker a mesh decodes to the identity, even where its
+    // vertex order happens to satisfy the ordering convention — and even
+    // with another extension header present.
+    #[test]
+    fn decode_model_is_identity_without_the_marker() {
+        let mut mesh = bare_mesh(
+            MeshVertices {
+                positions: vec![[0.0; 3], [0.0; 3]],
+                normals: None,
+                tangents: None,
+                bitangents: None,
+                colors: None,
+                uvs: vec![vec![[0.0, 0.0], [1.0, 0.0]]],
+                bone_indices: None,
+                bone_weights: None,
+                bone_weight_width: 4,
+            },
+            Vec::new(),
+        );
+        mesh.extension_headers.push("unrelated".to_owned());
+        let model = Model {
+            flags: 0,
+            bones: Vec::new(),
+            materials: vec!["material".to_owned()],
+            meshes: vec![mesh],
+            extension_headers: Vec::new(),
+            bounds: BoundingBox::of(&[]),
+            lod: LodRecord::for_levels(0),
+        };
+        assert_eq!(decode_model(&model).unwrap(), vec![vec![0, 1]]);
     }
 
     #[test]

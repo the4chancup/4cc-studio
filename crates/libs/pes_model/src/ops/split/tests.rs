@@ -1,4 +1,4 @@
-use std::collections::{BTreeSet, HashSet};
+use std::collections::HashSet;
 
 use super::*;
 use crate::format::{Bone, BoundingBox, LodRecord, PreFoxModel};
@@ -117,11 +117,16 @@ fn vertex_tuple(mesh: &Mesh, index: usize) -> VertexTuple {
     )
 }
 
-fn face_tuples(mesh: &Mesh) -> BTreeSet<[VertexTuple; 3]> {
-    mesh.faces
+/// The mesh's faces as vertex tuples, sorted — a multiset comparison
+/// keeps a deliberately repeated face's multiplicity visible.
+fn face_tuples(mesh: &Mesh) -> Vec<[VertexTuple; 3]> {
+    let mut faces: Vec<[VertexTuple; 3]> = mesh
+        .faces
         .iter()
         .map(|face| face.map(|index| vertex_tuple(mesh, usize::from(index))))
-        .collect()
+        .collect();
+    faces.sort();
+    faces
 }
 
 fn components_under_limits(model: &Model) {
@@ -224,7 +229,8 @@ fn split_bones() {
 
     components_under_limits(&model);
     assert!(model.meshes.len() > 1);
-    let union: BTreeSet<[VertexTuple; 3]> = model.meshes.iter().flat_map(face_tuples).collect();
+    let mut union: Vec<[VertexTuple; 3]> = model.meshes.iter().flat_map(face_tuples).collect();
+    union.sort();
     assert_eq!(union, source_faces);
 
     decode(&mut model).unwrap();
@@ -244,7 +250,8 @@ fn split_vertices() {
 
     components_under_limits(&model);
     assert!(model.meshes.len() > 1);
-    let union: BTreeSet<[VertexTuple; 3]> = model.meshes.iter().flat_map(face_tuples).collect();
+    let mut union: Vec<[VertexTuple; 3]> = model.meshes.iter().flat_map(face_tuples).collect();
+    union.sort();
     assert_eq!(union, source_faces);
 }
 
@@ -279,6 +286,16 @@ fn round_trip_vertices() {
     let source = grid(300, 300, 0);
     let model = grid_model(source.clone(), 0);
     check_round_trip(model, source, &[]);
+}
+
+// A face written twice in the source must come back twice — the multiset
+// comparison in `check_round_trip` would not see a collapsed copy.
+#[test]
+fn a_repeated_triangle_survives_the_round_trip() {
+    let mut source = grid(70, 20, 70);
+    source.faces.push(source.faces[0]);
+    let model = grid_model(source.clone(), 70);
+    check_round_trip(model, source, &vec![None; 70]);
 }
 
 // 7: two byte-identical vertices, each referenced by faces that must
@@ -448,11 +465,7 @@ fn split_parents_must_index_bones() {
     // read and must error, not panic. All-zero weights leave every bone's
     // items empty, so the walk reaches the bad parent.
     let mut mesh = grid(8, 8, 65);
-    mesh.vertices
-        .bone_weights
-        .as_mut()
-        .unwrap()
-        .fill([0.0; 4]);
+    mesh.vertices.bone_weights.as_mut().unwrap().fill([0.0; 4]);
     let mut model = Model {
         flags: 0,
         bones: std::iter::once(bone("sk_foot_l"))
@@ -523,6 +536,319 @@ fn combine_limits_the_bone_group_to_u8() {
         decode(&mut model),
         Err(ModelError::InvalidModel("bone group over 256 bones"))
     );
+}
+
+// A combined mesh keeps the emission order when every referenced index
+// fits u16: a loose loop stays right after its owner.
+#[test]
+fn combine_keeps_loose_loops_next_to_their_owners() {
+    // [A0, A1, B, C] where A1 is an unreferenced loop of A0 (same
+    // position, later uv); the face references A0, B, C.
+    let component = Mesh {
+        name: None,
+        extension_headers: Vec::new(),
+        tags: Vec::new(),
+        vertices: MeshVertices {
+            positions: vec![[0.0; 3], [0.0; 3], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
+            normals: Some(vec![[0.0, 0.0, 1.0]; 4]),
+            tangents: None,
+            bitangents: None,
+            colors: None,
+            uvs: vec![vec![[0.0, 0.0], [1.0, 0.0], [0.0, 0.0], [0.0, 0.0]]],
+            bone_indices: None,
+            bone_weights: None,
+            bone_weight_width: 4,
+        },
+        faces: vec![[0, 2, 3]],
+        lower_lods: Vec::new(),
+        bone_group: Vec::new(),
+        material: 0,
+        bounds: BoundingBox::of(&[]),
+        order: 0,
+        editor_data: Vec::new(),
+    };
+    let combined = combine::combine(&[component], &[0]).unwrap();
+    // Emission order stands: A1 is still right after A0.
+    assert_eq!(
+        combined.vertices.positions,
+        vec![[0.0; 3], [0.0; 3], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]]
+    );
+    // And the vertex decode still reads it as A0's loop.
+    assert_eq!(
+        crate::ops::vertex_enc::decode(&combined).unwrap(),
+        vec![0, 0, 2, 3]
+    );
+}
+
+// At exactly index 65535 every face index still fits u16, so the
+// emission order stands; the reorder is only for `> u16::MAX`.
+#[test]
+fn combine_keeps_emission_order_at_index_65535() {
+    let count = usize::from(u16::MAX) + 1;
+    let component = Mesh {
+        name: None,
+        extension_headers: Vec::new(),
+        tags: Vec::new(),
+        vertices: MeshVertices {
+            positions: (0..count).map(|index| [index as f32, 0.0, 0.0]).collect(),
+            normals: Some(vec![[0.0, 0.0, 1.0]; count]),
+            tangents: None,
+            bitangents: None,
+            colors: None,
+            uvs: vec![vec![[0.0, 0.0]; count]],
+            bone_indices: None,
+            bone_weights: None,
+            bone_weight_width: 4,
+        },
+        // Vertices 1 and 3..=65534 are loose; 65535 is the largest
+        // referenced index and still fits u16.
+        faces: vec![[0, 2, 65535]],
+        lower_lods: Vec::new(),
+        bone_group: Vec::new(),
+        material: 0,
+        bounds: BoundingBox::of(&[]),
+        order: 0,
+        editor_data: Vec::new(),
+    };
+    let combined = combine::combine(std::slice::from_ref(&component), &[0]).unwrap();
+    assert_eq!(combined.vertices.positions, component.vertices.positions);
+    assert_eq!(combined.faces, vec![[0, 2, 65535]]);
+}
+
+// The group key recognizes only `Split-Mesh` headers.
+#[test]
+fn split_group_key_matches_only_split_headers() {
+    assert_eq!(split_group_key("Split-Mesh: 1"), Some("1".to_owned()));
+    assert_eq!(split_group_key(" split-mesh :  7 "), Some("7".to_owned()));
+    assert!(split_group_key(crate::ops::vertex_enc::VERTEX_LOOP_PRESERVATION).is_none());
+    assert!(split_group_key("Material: 1").is_none());
+    assert!(split_group_key("no colon").is_none());
+}
+
+#[test]
+fn bone_mapping_excludes_zero_weights() {
+    let mut mesh = grid(1, 1, 8);
+    mesh.vertices.bone_indices = Some(vec![[0, 5, 0, 0]]);
+    mesh.vertices.bone_weights = Some(vec![[1.0, 0.0, 0.0, 0.0]]);
+    assert_eq!(bone_mapping(&mesh, 0).unwrap(), vec![(0, 1.0)]);
+}
+
+// A lane past the bone group with no weight writes 0 (Konami files
+// carry those); a positive weight past the group is an error.
+#[test]
+fn push_vertex_guards_past_group_slots() {
+    let mut mesh = grid(1, 1, 1);
+    mesh.vertices.bone_indices = Some(vec![[5, 0, 0, 0]]);
+    mesh.vertices.bone_weights = Some(vec![[0.0, 0.0, 0.0, 0.0]]);
+    let index_of: std::collections::HashMap<usize, u8> = [(0usize, 0u8)].into_iter().collect();
+    let mut vertices = empty_like(&mesh.vertices, 0);
+    push_vertex(&mut vertices, &mesh, 0, &index_of).unwrap();
+    assert_eq!(vertices.bone_indices.as_ref().unwrap()[0], [0, 0, 0, 0]);
+
+    mesh.vertices.bone_weights = Some(vec![[1.0, 0.0, 0.0, 0.0]]);
+    let mut vertices = empty_like(&mesh.vertices, 0);
+    assert_eq!(
+        push_vertex(&mut vertices, &mesh, 0, &index_of),
+        Err(ModelError::BadReference {
+            what: "bone",
+            offset: 5
+        })
+    );
+}
+
+#[test]
+fn decode_combines_two_groups_in_place() {
+    let mut a = grid(2, 2, 0);
+    a.extension_headers.push("Split-Mesh: 1".to_owned());
+    a.vertices.positions[0] = [10.0, 0.0, 0.0];
+    let mut b = a.clone();
+    b.vertices.positions[0] = [20.0, 0.0, 0.0];
+    let mut c = grid(2, 2, 0);
+    c.extension_headers.push("Split-Mesh: 2".to_owned());
+    c.vertices.positions[0] = [30.0, 0.0, 0.0];
+    let mut d = c.clone();
+    d.vertices.positions[0] = [40.0, 0.0, 0.0];
+    let plain = grid(2, 2, 0);
+    let mut model = grid_model(plain.clone(), 0);
+    model.meshes = vec![a, b, plain.clone(), c, d];
+    decode(&mut model).unwrap();
+    assert_eq!(model.meshes.len(), 3);
+    // Each group sits where its first component sat.
+    assert!(
+        model.meshes[0]
+            .vertices
+            .positions
+            .contains(&[10.0, 0.0, 0.0])
+    );
+    assert!(
+        model.meshes[0]
+            .vertices
+            .positions
+            .contains(&[20.0, 0.0, 0.0])
+    );
+    assert_eq!(model.meshes[1], plain);
+    assert!(
+        model.meshes[2]
+            .vertices
+            .positions
+            .contains(&[30.0, 0.0, 0.0])
+    );
+    assert!(
+        model.meshes[2]
+            .vertices
+            .positions
+            .contains(&[40.0, 0.0, 0.0])
+    );
+}
+
+// The preferred bone is the parent of 61 weighted bones: the parent walk
+// must register every face and loose set under it, so the fragment pool
+// is the whole subtree — sixty faces fit the bone soft limit, the rest
+// and the loose set spill to a second component.
+#[test]
+fn split_mesh_registers_items_under_their_ancestors() {
+    const CHILDREN: usize = BONE_LIMIT_SOFT + 1;
+    let mut mesh = grid(1, 1, CHILDREN);
+    mesh.vertices.positions.clear();
+    mesh.vertices.normals.as_mut().unwrap().clear();
+    mesh.vertices.uvs[0].clear();
+    mesh.vertices.bone_indices.as_mut().unwrap().clear();
+    mesh.vertices.bone_weights.as_mut().unwrap().clear();
+    mesh.faces.clear();
+    for child in 0..CHILDREN {
+        for _ in 0..3 {
+            mesh.vertices.positions.push([child as f32, 0.0, 0.0]);
+            mesh.vertices
+                .normals
+                .as_mut()
+                .unwrap()
+                .push([0.0, 0.0, 1.0]);
+            mesh.vertices.uvs[0].push([0.0, 0.0]);
+            mesh.vertices
+                .bone_indices
+                .as_mut()
+                .unwrap()
+                .push([child as u8, 0, 0, 0]);
+            mesh.vertices
+                .bone_weights
+                .as_mut()
+                .unwrap()
+                .push([1.0, 0.0, 0.0, 0.0]);
+        }
+        mesh.faces
+            .push([3 * child as u16, 3 * child as u16 + 1, 3 * child as u16 + 2]);
+    }
+    // One loose vertex weighted to the last child.
+    mesh.vertices.positions.push([999.0, 9.0, 9.0]);
+    mesh.vertices
+        .normals
+        .as_mut()
+        .unwrap()
+        .push([0.0, 0.0, 1.0]);
+    mesh.vertices.uvs[0].push([9.0, 9.0]);
+    mesh.vertices
+        .bone_indices
+        .as_mut()
+        .unwrap()
+        .push([CHILDREN as u8 - 1, 0, 0, 0]);
+    mesh.vertices
+        .bone_weights
+        .as_mut()
+        .unwrap()
+        .push([1.0, 0.0, 0.0, 0.0]);
+    mesh.bone_group = (1..CHILDREN + 1).collect();
+    let model = {
+        let mut model = grid_model(grid(1, 1, 0), CHILDREN + 1);
+        model.bones[0].name = "sk_foot_l".to_owned();
+        model
+    };
+    let mut parents = vec![None; CHILDREN + 1];
+    for parent in parents.iter_mut().skip(1) {
+        *parent = Some(0);
+    }
+    let components = build::split_mesh(&model, &mesh, &parents).unwrap();
+    assert_eq!(components.len(), 2);
+    assert_eq!(components[0].faces.len(), BONE_LIMIT_SOFT);
+    assert_eq!(
+        components.iter().map(|c| c.faces.len()).sum::<usize>(),
+        CHILDREN
+    );
+}
+
+// Coincident vertices differing only in a zero-weight bone-index lane
+// share one equipresent set: the split key is the positive-weight bone
+// mapping, not the raw index lanes.
+#[test]
+fn coincident_vertices_share_the_mapping_key() {
+    const FILLERS: usize = 65_532;
+    let mut vertices = MeshVertices {
+        positions: vec![[0.0; 3], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
+        normals: Some(vec![[0.0, 0.0, 1.0]; 3]),
+        tangents: None,
+        bitangents: None,
+        colors: None,
+        uvs: vec![vec![[0.0; 2]; 3]],
+        bone_indices: Some(vec![[0, 0, 0, 0]; 3]),
+        bone_weights: Some(vec![[1.0, 0.0, 0.0, 0.0]; 3]),
+        bone_weight_width: 4,
+    };
+    // Vertex 3: a loose copy of vertex 0 whose only difference is a
+    // zero-weight lane (index 7, weight 0).
+    vertices.positions.push([0.0; 3]);
+    vertices.normals.as_mut().unwrap().push([0.0, 0.0, 1.0]);
+    vertices.uvs[0].push([0.0, 0.0]);
+    vertices.bone_indices.as_mut().unwrap().push([0, 7, 0, 0]);
+    vertices
+        .bone_weights
+        .as_mut()
+        .unwrap()
+        .push([1.0, 0.0, 0.0, 0.0]);
+    // Loose vertices at strictly higher projections fill the first
+    // component, so the copy is what spills over.
+    for filler in 0..FILLERS {
+        vertices.positions.push([filler as f32 + 2.0, 0.0, 0.0]);
+        vertices.normals.as_mut().unwrap().push([0.0, 0.0, 1.0]);
+        vertices.uvs[0].push([0.0, 0.0]);
+        vertices.bone_indices.as_mut().unwrap().push([0, 0, 0, 0]);
+        vertices
+            .bone_weights
+            .as_mut()
+            .unwrap()
+            .push([1.0, 0.0, 0.0, 0.0]);
+    }
+    let mut mesh = grid(1, 1, 40);
+    mesh.vertices = vertices;
+    mesh.faces = vec![[0, 1, 2]];
+    mesh.bone_group = (0..40).collect();
+    let faces_before = face_tuples(&mesh);
+    let count_before = mesh.vertices.positions.len();
+    let mut model = grid_model(mesh, 40);
+    assert!(encode(&mut model, &[None; 40]).unwrap());
+
+    // One component holds both copies of position [0, 0, 0].
+    let holders: Vec<usize> = model
+        .meshes
+        .iter()
+        .enumerate()
+        .filter(|(_, mesh)| mesh.vertices.positions.contains(&[0.0; 3]))
+        .map(|(index, _)| index)
+        .collect();
+    assert_eq!(holders.len(), 1);
+    assert_eq!(
+        model.meshes[holders[0]]
+            .vertices
+            .positions
+            .iter()
+            .filter(|position| **position == [0.0; 3])
+            .count(),
+        2
+    );
+
+    // Nothing welds back apart: the combined mesh is the source mesh.
+    decode(&mut model).unwrap();
+    assert_eq!(model.meshes.len(), 1);
+    assert_eq!(model.meshes[0].vertices.positions.len(), count_before);
+    assert_eq!(face_tuples(&model.meshes[0]), faces_before);
 }
 
 // 13
