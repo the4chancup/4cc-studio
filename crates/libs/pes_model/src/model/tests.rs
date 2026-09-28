@@ -472,6 +472,13 @@ fn validate_rejects_misshapen_vertices() {
         Err(ModelError::VertexMismatch("attribute count mismatch"))
     ));
 
+    // Four uv maps is the most the layout carries: valid.
+    let mut model = Model::from_file(&PreFoxModel::read(CAP).unwrap()).unwrap();
+    let count = model.meshes[0].vertices.len();
+    model.meshes[0].vertices.uvs = vec![vec![[0.0, 0.0]; count]; 4];
+    model.validate().unwrap();
+    model.to_file().unwrap();
+
     // Five uv maps.
     let mut bad = Model::from_file(&PreFoxModel::read(CAP).unwrap()).unwrap();
     let count = bad.meshes[0].vertices.len();
