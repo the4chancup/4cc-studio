@@ -254,6 +254,35 @@ fixtures in `crates/libs/pes_model/tests/fixtures/` are the representatives, one
   non-empty array, so the typed layer's decode of it is specified but unverified against a real
   sample, and says so in its doc comment.
 
+Community files break two of those regularities, and the census of every `.model` on the
+maintainer's machine (2026-09-28: 6575 distinct files, 4145 read before the fixes below; the
+fixtures README names the representatives) is what the reader is held to beyond the Konami set:
+
+- **Offsets reach past their section.** An offset is relative to its array's own start, but
+  nothing confines the data it names to the section's run: in 1640 files a geometry's
+  vertex-field and face offsets land after the last section in file order (section 1's own run
+  sometimes holding a stale, unreferenced copy). That is how the game and the reference parser
+  read them, as a stream over the whole file from the section's start. So the typed layer
+  resolves every section's offsets against the unwrapped file from that section's start to the
+  file's end. The container's runs (a section's bytes up to the next section's start) stay what
+  byte identity is measured on; a rewrite through the typed layer moves such data back into its
+  section.
+- **Annotations that point nowhere.** One writer puts the constant pointers `-124`/`-84` (word
+  8, kind 1) in every annotation of every file (228 files, stadium parts, balls, faces and boots
+  among them), so they land wherever those offsets happen to fall. An annotation whose string
+  pointer does not land on a section-2 record, or whose non-zero record pointer does not land on
+  a section-3 record, is dropped on read, as the reference parser drops it; the reference notes
+  PES reads neither section, and these files are in cup use. The strings no kept annotation
+  references become model-level headers, as for any unreferenced string.
+- **Zero-length data anywhere.** Empty geometries (0 vertices, 0 face indices) point their field
+  and face offsets at or past the end of the file; a zero-length read succeeds wherever it
+  points, and only a read of at least one byte past the end is `Truncated`.
+- **A field type listed twice.** A few files carry a second descriptor for a type already
+  listed (a bone-weights descriptor covering half the vertices, inside the first one's data).
+  The first descriptor of each type is the field; a later one of the same type is ignored by
+  decoding (and left untouched by `encode_vertices`), as the reference parser does, before the
+  vertex-count and duplicate rules apply to the rest.
+
 So the crate has two format layers, like `fmdl`: **`ModelContainer`** (header fields, the eleven
 sections as opaque byte runs in file order) is the byte-identical one (`write(read(x)) == x` on
 every fixture, the WESYS-wrapped ones compared unwrapped), and **`PreFoxModel`** is the typed
@@ -313,9 +342,30 @@ constructor for new models (`level_count`, `0.0625, 4.0`, `0.3` with LODs and `0
 `to_file` writes one section-3 record per Konami tag, a bone-group entry per mesh, and a present
 but empty editor-data array unless the mesh carries items; a face index past the mesh's vertex
 count is an error, never a panic. Degenerate faces are kept (the reference importer drops them;
-a model layer that alters faces on read cannot claim to be lossless). Known gap, to decide at
-converge: the reference importer repairs meshes an old add-on exported with loose vertices
-(indices shifted past the vertex table); ours rejects them.
+a model layer that alters faces on read cannot claim to be lossless). One repair is the
+exception, because its input has no faithful reading at all: an old exporter counted loose
+vertices it did not write, so every face index past such a vertex is too high by the number
+of skipped ones and some point past the vertex table (4 census files, cup exports among them).
+When a mesh has a face index at or past its vertex count and the distinct indices over all its
+LOD levels number exactly its vertex count, `from_file` maps each index to its rank among those
+distinct indices, the one order-preserving reading that uses every vertex (the reference
+importer's repair, which modders saw in Blender when they imported the file). Any other
+out-of-range index is `BadReference`, as before.
+
+**One list of invariants**, as in `fmdl::model`: `Model::validate(&self) -> Result<(),
+ModelError>` is the one place that says what a well-formed `Model` is: every mesh's `material`
+and `bone_group` entries in range; every attribute vector one value per vertex (normals,
+tangents, bitangents, colors, each uv map, bone indices, bone weights), at most four uv maps,
+bone weights only together with bone indices (indices alone are the referee-card case) and
+`bone_weight_width` 2, 3 or 4 when weights are present; every face index of every LOD level
+below the vertex count. It does not check the format limits (64 bones, 65535 vertices, 21845
+faces: `ops::split` takes meshes over them) or a weighted bone slot past the bone group
+(`check.rs` warns). `from_file` ends with it; `to_file`, `merge` (on each part) and
+`split::encode`/`decode` start with it; `vertex_enc`'s per-mesh `encode` and `decode` start
+with its mesh-local half (`Mesh::validate`, crate-private), and `decode`/`decode_model` return
+`Result` for that. None of them re-checks an index it covers, so an invalid model is an error,
+never a panic. `split::encode` also checks the hierarchy its caller supplies: one entry per
+bone, every parent in range (cycles are cut, as before).
 
 ### `pes_model::ops::merge`: several parts into one `.model` + `.mtl`
 

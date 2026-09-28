@@ -230,6 +230,15 @@ fn i32_at(bytes: &[u8], at: usize) -> Result<i32, ModelError> {
     ))
 }
 
+/// `kind`'s section as the typed layer reads it in `file` (the
+/// serialized container): from the section's file offset to the file's
+/// end, not to the next section — an offset may name data past the
+/// section's own run, and every offset stays relative to the section's
+/// start.
+fn section_view<'a>(container: &ModelContainer, file: &'a [u8], kind: SectionKind) -> &'a [u8] {
+    &file[container.section_offset(kind)..]
+}
+
 fn floats_at<const N: usize>(bytes: &[u8], at: usize) -> Result<[f32; N], ModelError> {
     let mut floats = [0.0f32; N];
     let (words, _) = slice_at(bytes, at, 4 * N)?.as_chunks::<4>();
@@ -254,10 +263,7 @@ fn string_at(bytes: &[u8], at: usize) -> Result<String, ModelError> {
         .iter()
         .position(|byte| *byte == 0)
         .ok_or(ModelError::Truncated)?;
-    String::from_utf8(rest[..end].to_vec()).map_err(|_| ModelError::BadReference {
-        what: "string",
-        offset: at as i64,
-    })
+    String::from_utf8(rest[..end].to_vec()).map_err(|_| ModelError::InvalidUtf8 { offset: at })
 }
 
 /// The `u32` offset a pointer record holds.
@@ -552,7 +558,11 @@ impl PreFoxModel {
 
     /// Resolves every cross-section pointer of `container` into indices.
     pub fn from_container(container: &ModelContainer) -> Result<Self, ModelError> {
-        let bone_data = container.section(SectionKind::BoneData);
+        // `write` is byte-identical to the unwrapped input, so each
+        // section reads as a view to the file's end: an offset may name
+        // data past the section's run.
+        let file = container.write();
+        let bone_data = section_view(container, &file, SectionKind::BoneData);
         let entries = RecordArray::read(bone_data, 0)?;
         if entries.records.is_empty() {
             return Err(ModelError::UnexpectedConstant {
@@ -590,8 +600,8 @@ impl PreFoxModel {
             )?);
         }
 
-        let bone_names = RecordArray::read(container.section(SectionKind::BoneNames), 0)?;
-        let name_bytes = container.section(SectionKind::BoneNames);
+        let name_bytes = section_view(container, &file, SectionKind::BoneNames);
+        let bone_names = RecordArray::read(name_bytes, 0)?;
         let mut names = Vec::with_capacity(bone_names.records.len());
         for record in &bone_names.records {
             names.push(string_at(name_bytes, pointer_of(&record.bytes)?)?);
@@ -613,14 +623,14 @@ impl PreFoxModel {
             bone_groups.push(read_bone_group(bone_data, *entry, bones.len())?);
         }
 
-        let material_section = container.section(SectionKind::MaterialNames);
+        let material_section = section_view(container, &file, SectionKind::MaterialNames);
         let material_array = RecordArray::read(material_section, 0)?;
         let mut material_names = Vec::with_capacity(material_array.records.len());
         for record in &material_array.records {
             material_names.push(string_at(material_section, pointer_of(&record.bytes)?)?);
         }
 
-        let string_section = container.section(SectionKind::AnnotationStrings);
+        let string_section = section_view(container, &file, SectionKind::AnnotationStrings);
         let string_array = RecordArray::read(string_section, 0)?;
         let mut annotation_strings = Vec::with_capacity(string_array.records.len());
         for record in &string_array.records {
@@ -635,7 +645,7 @@ impl PreFoxModel {
             annotation_strings.push(string_at(string_section, offset)?);
         }
 
-        let record_section = container.section(SectionKind::AnnotationRecords);
+        let record_section = section_view(container, &file, SectionKind::AnnotationRecords);
         let record_array = RecordArray::read(record_section, 0)?;
         if !record_array.records.is_empty() && record_array.record_size != 28 {
             return Err(ModelError::UnexpectedConstant {
@@ -652,7 +662,7 @@ impl PreFoxModel {
             annotation_records.push(words);
         }
 
-        let geometry_section = container.section(SectionKind::Geometry);
+        let geometry_section = section_view(container, &file, SectionKind::Geometry);
         let geometry_array = RecordArray::read(geometry_section, 0)?;
         if !geometry_array.records.is_empty() && geometry_array.record_size != 20 {
             return Err(ModelError::UnexpectedConstant {
@@ -671,13 +681,13 @@ impl PreFoxModel {
             (SectionKind::MaterialCombinations, "material combinations"),
             (SectionKind::Locators, "locators"),
         ] {
-            let array = RecordArray::read(container.section(kind), 0)?;
+            let array = RecordArray::read(section_view(container, &file, kind), 0)?;
             if !array.records.is_empty() {
                 return Err(ModelError::Unsupported(what));
             }
         }
 
-        let bounds_section = container.section(SectionKind::ModelBounds);
+        let bounds_section = section_view(container, &file, SectionKind::ModelBounds);
         let bounds_array = RecordArray::read(bounds_section, 0)?;
         if bounds_array.records.len() != 2 {
             return Err(ModelError::UnexpectedConstant {
@@ -692,7 +702,7 @@ impl PreFoxModel {
             parameters: floats_at(bounds_section, offset_sum(lod_offset, 4)?)?,
         };
 
-        let mesh_section = container.section(SectionKind::Meshes);
+        let mesh_section = section_view(container, &file, SectionKind::Meshes);
         let mesh_array = RecordArray::read(mesh_section, 0)?;
         if !mesh_array.records.is_empty()
             && mesh_array.record_size != 20
@@ -821,24 +831,35 @@ fn read_mesh(
     if annotation_offset != 0 {
         let array = RecordArray::read(section, annotation_offset)?;
         for record in &array.records {
-            let string = resolve(
+            // An annotation whose string pointer does not land on a
+            // section-2 record, or whose non-zero record pointer does
+            // not land on a section-3 record, is dropped.
+            let string = match resolve(
                 container,
                 tables.strings,
                 SectionKind::AnnotationStrings,
                 i32_at(&record.bytes, 0)?,
                 "annotation string",
-            )?;
+            ) {
+                Ok(index) => index,
+                Err(ModelError::BadReference { .. }) => continue,
+                Err(error) => return Err(error),
+            };
             let record_pointer = i32_at(&record.bytes, 4)?;
             let annotation_record = if record_pointer == 0 {
                 None
             } else {
-                Some(resolve(
+                match resolve(
                     container,
                     tables.records,
                     SectionKind::AnnotationRecords,
                     record_pointer,
                     "annotation record",
-                )?)
+                ) {
+                    Ok(index) => Some(index),
+                    Err(ModelError::BadReference { .. }) => continue,
+                    Err(error) => return Err(error),
+                }
             };
             annotations.push(Annotation {
                 string,

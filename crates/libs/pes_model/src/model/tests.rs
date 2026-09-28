@@ -115,8 +115,10 @@ fn helpers() {
             max: [0.0; 4]
         }
     );
-    // The stored box contains the vertices; Konami's may be looser.
-    for bytes in ALL {
+    // The stored box contains the vertices; Konami's may be looser. The
+    // tail-data fixture's writer repointed the geometry at new data and
+    // left the old box, which the reader carries as read.
+    for bytes in ALL.iter().filter(|bytes| **bytes != COMMUNITY_TAIL_DATA) {
         let model = Model::from_file(&PreFoxModel::read(bytes).unwrap()).unwrap();
         for mesh in &model.meshes {
             let around = BoundingBox::of(&mesh.vertices.positions);
@@ -210,4 +212,54 @@ fn dangling_references_error() {
         Model::from_file(&file),
         Err(ModelError::BadReference { what: "vertex", .. })
     ));
+}
+
+#[test]
+fn community_tail_data_content() {
+    // Offsets name data past the end of the last section in file order;
+    // the typed layer resolves them against the whole file.
+    let model = Model::from_file(&PreFoxModel::read(COMMUNITY_TAIL_DATA).unwrap()).unwrap();
+    assert_eq!(model.meshes.len(), 1);
+    let mesh = &model.meshes[0];
+    assert_eq!(mesh.vertices.len(), 171);
+    assert_eq!(mesh.faces.len(), 246);
+    assert_eq!(mesh.faces[0], [0, 65, 1]);
+    assert_eq!(mesh.faces[1], [39, 65, 0]);
+    assert_eq!(
+        mesh.vertices.positions[0].map(f32::to_bits),
+        [0xb207_8325, 0x3fcc_cccd, 0x3d4c_ccce]
+    );
+    assert_eq!(
+        mesh.tags,
+        [(1, "nld0027_d".to_owned()), (10, "nld0027_d".to_owned())]
+    );
+    assert_eq!(model.materials, ["modD_phone"]);
+    let written = model.to_file().unwrap().write().unwrap();
+    assert_eq!(
+        Model::from_file(&PreFoxModel::read(&written).unwrap()).unwrap(),
+        model
+    );
+}
+
+#[test]
+fn community_template_annotation_content() {
+    // The annotation's constant -124/-84 pointers land off sections 2
+    // and 3, so it is dropped and the unreferenced string becomes a
+    // model-level extension header.
+    let model =
+        Model::from_file(&PreFoxModel::read(COMMUNITY_TEMPLATE_ANNOTATION).unwrap()).unwrap();
+    assert_eq!(model.meshes.len(), 1);
+    let mesh = &model.meshes[0];
+    assert_eq!(mesh.vertices.len(), 3);
+    assert_eq!(mesh.faces.len(), 1);
+    assert_eq!(mesh.name, None);
+    assert!(mesh.tags.is_empty());
+    assert!(mesh.extension_headers.is_empty());
+    assert_eq!(model.extension_headers, ["\u{5}\u{14}\u{2}\u{5}"]);
+    assert_eq!(model.materials, ["empty"]);
+    let written = model.to_file().unwrap().write().unwrap();
+    assert_eq!(
+        Model::from_file(&PreFoxModel::read(&written).unwrap()).unwrap(),
+        model
+    );
 }
