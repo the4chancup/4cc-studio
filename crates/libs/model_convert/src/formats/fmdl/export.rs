@@ -26,12 +26,16 @@ pub struct ExportedFox {
     pub findings: Vec<loss::Finding>,
 }
 
-/// The per-vertex weight quantization: the byte total `round(sum * 255)` is preserved; slots
-/// in decreasing weight (ties by slot index) get `round(weight / remaining_weight *
-/// remaining_total)` each, the last gets what is left.
+/// The per-vertex weight quantization: the byte total `round(sum * 255)` (in f64 — the
+/// f32 product lands on representable halves that round wrong) is preserved as far as
+/// the positive-weight lanes hold it, 255 each; a lane above 1 clamps to 255 (the caller
+/// counts those vertices for `weight_clamped`) and the rest of the total drops rather
+/// than land on a zero-weight lane. Slots in decreasing weight (ties by slot index) get
+/// `round(weight / remaining_weight * remaining_total)` each, the last gets what is left.
 pub(super) fn quantize_weights(weights: [f32; 4]) -> [u8; 4] {
     let sum: f32 = weights.iter().sum();
-    let mut total = (sum * 255.0).round() as i32;
+    let lanes = weights.iter().filter(|weight| **weight > 0.0).count() as i32;
+    let mut total = ((sum as f64 * 255.0).round() as i32).min(255 * lanes);
     let mut remaining_weight = sum;
     let mut order = [0usize, 1, 2, 3];
     order.sort_by(|a, b| weights[*b].total_cmp(&weights[*a]).then(a.cmp(b)));
@@ -247,7 +251,7 @@ pub fn ir_to_fmdl(ir: &CanonicalModel) -> Result<ExportedFox, ConvertError> {
             });
         }
         let material = &resolved[mesh.material];
-        let (bone_weights, bone_indices, bone_group) =
+        let (bone_weights, bone_indices, mut bone_group) =
             match (static_bone, &mesh.vertices.bone_indices) {
                 (Some(static_bone), None) => {
                     findings.push(Finding {
@@ -261,15 +265,43 @@ pub fn ir_to_fmdl(ir: &CanonicalModel) -> Result<ExportedFox, ConvertError> {
                         vec![static_bone],
                     )
                 }
-                _ => (
-                    mesh.vertices
-                        .bone_weights
-                        .as_ref()
-                        .map(|rows| rows.iter().map(|row| quantize_weights(*row)).collect()),
-                    mesh.vertices.bone_indices.clone(),
-                    mesh.bone_group.clone(),
-                ),
+                _ => {
+                    // `u8` cannot carry a lane above 1: `quantize_weights` clamps it to
+                    // 255 and the excess of the byte total drops. Past float noise
+                    // (`1e-6`, what f32 accumulation leaves) that is a finding.
+                    if let Some(rows) = &mesh.vertices.bone_weights {
+                        let clamped = rows
+                            .iter()
+                            .filter(|row| row.iter().any(|weight| *weight > 1.0 + 1e-6))
+                            .count();
+                        if clamped > 0 {
+                            findings.push(Finding {
+                                code: "weight_clamped",
+                                subject: Subject::Mesh(index),
+                                detail: clamped.to_string(),
+                            });
+                        }
+                    }
+                    (
+                        mesh.vertices
+                            .bone_weights
+                            .as_ref()
+                            .map(|rows| rows.iter().map(|row| quantize_weights(*row)).collect()),
+                        mesh.vertices.bone_indices.clone(),
+                        mesh.bone_group.clone(),
+                    )
+                }
             };
+        // A vertexless mesh skins nothing: its group is written empty, not split —
+        // a face export's marker mesh carries a whole-skeleton group as data.
+        if mesh.vertices.positions.is_empty() && !bone_group.is_empty() {
+            findings.push(Finding {
+                code: "empty_mesh_bone_group_dropped",
+                subject: Subject::Mesh(index),
+                detail: bone_group.len().to_string(),
+            });
+            bone_group.clear();
+        }
         meshes.push(::fmdl::Mesh {
             vertices: ::fmdl::format::MeshVertices {
                 positions: mesh.vertices.positions.clone(),

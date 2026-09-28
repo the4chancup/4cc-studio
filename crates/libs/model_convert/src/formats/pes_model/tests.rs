@@ -419,6 +419,91 @@ fn dropped_fields_report_each_field() {
 }
 
 #[test]
+fn a_group_that_stays_split_imports_without_its_marker() {
+    let component = |offset: usize, count: usize, faces: usize| {
+        let mut mesh = pes_mesh(vec![]);
+        mesh.extension_headers = vec!["Split-Mesh: 1".to_string()];
+        mesh.vertices = ::pes_model::format::MeshVertices {
+            positions: (0..count)
+                .map(|index| [(offset + index) as f32, 0.0, 0.0])
+                .collect(),
+            normals: None,
+            tangents: None,
+            bitangents: None,
+            colors: None,
+            uvs: vec![],
+            bone_indices: None,
+            bone_weights: None,
+            bone_weight_width: 4,
+        };
+        mesh.faces = (0..faces)
+            .map(|face| {
+                [
+                    (3 * face) as u16,
+                    (3 * face + 1) as u16,
+                    (3 * face + 2) as u16,
+                ]
+            })
+            .collect();
+        mesh.bounds = ::pes_model::format::BoundingBox::of(&mesh.vertices.positions);
+        mesh
+    };
+    // Two components referencing 70000 distinct vertices: u16 faces cannot
+    // index the combined mesh, so the decode keeps the group split.
+    let mut input = pes_model(vec![], component(0, 40000, 13333));
+    input.meshes.push(component(40000, 30000, 10000));
+    let imported = model_to_ir(&input, &mtl_of("mat", "Basic_C")).expect("import");
+    assert_eq!(imported.model.meshes.len(), 2);
+    assert_eq!(imported.model.mesh_groups.len(), 2);
+    for mesh in &imported.model.meshes {
+        assert!(mesh.extension_headers.is_empty());
+    }
+    // Export and re-import keep working.
+    let exported = ir_to_model(&imported.model).expect("export");
+    model_to_ir(&exported.model, &exported.mtl).expect("reimport");
+}
+
+#[test]
+fn a_name_the_mtl_cannot_carry_is_an_error() {
+    // The `.mtl` is XML: a NUL-holding material name is an error, not a file
+    // no reader accepts (the corrupted FMDL name tables' case).
+    let mut ir = ir_over(Vertices::default(), vec![]);
+    ir.materials[0].name = "bad\0name".to_string();
+    assert!(matches!(
+        ir_to_model(&ir),
+        Err(ConvertError::MtlName(name)) if name == "bad\0name"
+    ));
+    // A texture path is checked the same way.
+    let mut ir = ir_over(Vertices::default(), vec![]);
+    ir.materials[0].textures = vec![(TextureRole::Base, 0)];
+    ir.textures = vec![Texture {
+        directory: "./".to_string(),
+        file_name: "t\0.dds".to_string(),
+    }];
+    assert!(matches!(
+        ir_to_model(&ir),
+        Err(ConvertError::MtlName(path)) if path == "./t\0.dds"
+    ));
+    // And a stored sampler name.
+    let mut ir = ir_over(Vertices::default(), vec![]);
+    ir.materials[0].prefox = Some(PreFoxMaterial {
+        shader: "Basic_C".to_string(),
+        states: vec![],
+        samplers: vec![("sa\0m".to_string(), Default::default())],
+        textures: vec![("sa\0m".to_string(), 0)],
+        parameters: vec![],
+    });
+    ir.textures = vec![Texture {
+        directory: "./".to_string(),
+        file_name: "t.dds".to_string(),
+    }];
+    assert!(matches!(
+        ir_to_model(&ir),
+        Err(ConvertError::MtlName(name)) if name == "sa\0m"
+    ));
+}
+
+#[test]
 fn fox_ir_exports_to_pre_fox() {
     let highneck = fmdl::fmdl_to_ir(
         &::fmdl::Model::from_file(&::fmdl::FmdlFile::read(HIGHNECK).expect("parse"))

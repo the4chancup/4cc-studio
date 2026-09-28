@@ -33,6 +33,11 @@ pub enum ConvertError {
     /// A material name the model binds has no `.mtl` definition.
     #[error("material `{0}` bound by the model has no `.mtl` definition")]
     MaterialUndefined(String),
+    /// A material name, sampler name or texture path holds a character XML 1.0 cannot
+    /// represent (U+0000–U+001F except tab, LF and CR; U+FFFE; U+FFFF) — the `.mtl` no
+    /// reader could accept would be written.
+    #[error("a name or path for the `.mtl` holds a character XML 1.0 cannot represent: {0:?}")]
+    MtlName(String),
     /// A bone's stored inverse-bind matrix could not be inverted.
     #[error("bone {0}'s stored matrix is singular")]
     SingularBoneMatrix(usize),

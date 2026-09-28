@@ -4,9 +4,6 @@
 
 use super::CanonicalModel;
 
-/// The weight-sum tolerance, as `pes_model::check`.
-const WEIGHT_TOLERANCE: f32 = 1e-3;
-
 /// Why a `CanonicalModel` is not internally consistent. Exporters and ops assume a validated
 /// model, so the importers and any op that rebuilds indices call `validate` before returning.
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
@@ -61,18 +58,6 @@ pub enum ValidationError {
         /// The expected length (`positions.len()`, or `uvs.len()` for `uv_high_precision`).
         vertices: usize,
     },
-    /// A vertex's weights sum to neither 0 (unskinned) nor 1.
-    #[error(
-        "mesh {mesh}: vertex {vertex} weights sum to {sum}, not 1 (or 0 for an unskinned vertex)"
-    )]
-    Weights {
-        /// The mesh's index.
-        mesh: usize,
-        /// The vertex's index.
-        vertex: usize,
-        /// The offending weight sum.
-        sum: f32,
-    },
     /// A vertex's weighted bone slot points past the mesh's bone group (unweighted slots are
     /// not checked: the game ignores them and Konami files leave stale indices there).
     #[error("mesh {mesh}: vertex {vertex} bone slot {slot} is past the bone group ({group} bones)")]
@@ -86,9 +71,11 @@ pub enum ValidationError {
         /// The bone group's length.
         group: usize,
     },
-    /// A weight component is not a finite value in `0..=1` — components outside the range
-    /// can still sum to 1, so the sum check alone does not catch them.
-    #[error("mesh {mesh}: vertex {vertex} weight slot {slot} must be a finite weight in 0..=1")]
+    /// A weight component is not a finite, non-negative value — community exports carry
+    /// unnormalized and above-1 weights, which render as stored and are kept.
+    #[error(
+        "mesh {mesh}: vertex {vertex} weight slot {slot} must be a finite, non-negative weight"
+    )]
     BoneWeightRange {
         /// The mesh's index.
         mesh: usize,
@@ -246,13 +233,9 @@ pub fn validate(model: &CanonicalModel) -> Result<(), ValidationError> {
             (Some(indices), Some(weights)) => {
                 for (vertex, row) in weights.iter().enumerate() {
                     for (slot, weight) in row.iter().enumerate() {
-                        if !weight.is_finite() || !(0.0..=1.0).contains(weight) {
+                        if !weight.is_finite() || *weight < 0.0 {
                             return Err(ValidationError::BoneWeightRange { mesh, vertex, slot });
                         }
-                    }
-                    let sum: f32 = row.iter().sum();
-                    if sum != 0.0 && (sum - 1.0).abs() > WEIGHT_TOLERANCE {
-                        return Err(ValidationError::Weights { mesh, vertex, sum });
                     }
                 }
                 // Only weighted slots matter: the game ignores an unweighted slot, and Konami
@@ -484,19 +467,60 @@ mod tests {
     }
 
     #[test]
-    fn weights_sum_to_one_or_zero() {
+    fn weights_are_finite_and_non_negative() {
+        // Community exports carry sums far from 1; they render as stored.
         let mut model = valid();
         model.meshes[0].vertices.bone_weights = Some(vec![
-            [0.5, 0.5, 0.0, 0.0],
+            [0.7, 0.0, 0.0, 0.0],
+            [1.0, 1.0, 0.0, 0.0],
             [0.0, 0.0, 0.0, 0.0],
-            [0.5, 0.5, 0.5, 0.0],
+        ]);
+        assert_eq!(validate(&model), Ok(()));
+        // A lane above 1 is kept.
+        model.meshes[0].vertices.bone_weights = Some(vec![
+            [0.5, 0.5, 0.0, 0.0],
+            [1.5, 0.0, 0.0, 0.0],
+            [0.5, 0.5, 0.0, 0.0],
+        ]);
+        assert_eq!(validate(&model), Ok(()));
+        // What is rejected: a negative or non-finite lane.
+        model.meshes[0].vertices.bone_weights = Some(vec![
+            [0.5, 0.5, 0.0, 0.0],
+            [0.5, 0.5, 0.0, 0.0],
+            [-0.5, 1.5, 0.0, 0.0],
         ]);
         assert_eq!(
             validate(&model),
-            Err(ValidationError::Weights {
+            Err(ValidationError::BoneWeightRange {
                 mesh: 0,
                 vertex: 2,
-                sum: 1.5
+                slot: 0
+            })
+        );
+        model.meshes[0].vertices.bone_weights = Some(vec![
+            [0.5, 0.5, 0.0, 0.0],
+            [0.5, 0.5, 0.0, 0.0],
+            [f32::NAN, 1.0, 0.0, 0.0],
+        ]);
+        assert_eq!(
+            validate(&model),
+            Err(ValidationError::BoneWeightRange {
+                mesh: 0,
+                vertex: 2,
+                slot: 0
+            })
+        );
+        model.meshes[0].vertices.bone_weights = Some(vec![
+            [0.5, 0.5, 0.0, 0.0],
+            [0.5, 0.5, 0.0, 0.0],
+            [0.5, 0.5, 0.0, f32::INFINITY],
+        ]);
+        assert_eq!(
+            validate(&model),
+            Err(ValidationError::BoneWeightRange {
+                mesh: 0,
+                vertex: 2,
+                slot: 3
             })
         );
     }
@@ -610,8 +634,9 @@ mod tests {
     }
 
     #[test]
-    fn every_weight_is_finite_and_in_range() {
-        // [2, -1] sums to 1 — the sum check alone cannot catch it.
+    fn every_weight_is_finite_and_non_negative() {
+        // A lane above 1 is legal; a negative one is not — 2.0 passes, -1.0 is
+        // the offending slot.
         let mut model = valid();
         model.meshes[0].vertices.bone_weights = Some(vec![
             [0.5, 0.5, 0.0, 0.0],
@@ -623,7 +648,7 @@ mod tests {
             Err(ValidationError::BoneWeightRange {
                 mesh: 0,
                 vertex: 1,
-                slot: 0
+                slot: 1
             })
         );
         let mut model = valid();

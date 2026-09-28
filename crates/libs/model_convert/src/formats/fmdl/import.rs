@@ -38,23 +38,24 @@ pub fn fmdl_to_ir(
         });
     }
 
+    // Parent-first order, as `.model` bones already arrive ("Bone order" in ir.md): a
+    // bone listed before its parent moves right after it, file order otherwise; every
+    // bone index — parents, bone groups — remaps. `decode` validated the parents' range
+    // and acyclicity, so an `Err` here cannot come from a file the crate read.
+    let fmdl_parents: Vec<Option<usize>> = model.bones.iter().map(|bone| bone.parent).collect();
+    let order = crate::ir::parent_first_order(&fmdl_parents)
+        .map_err(|_| ConvertError::Fmdl(::fmdl::FmdlError::ParentCycle("bone")))?;
+    let mut new_index = vec![0usize; model.bones.len()];
+    for (new, &old) in order.iter().enumerate() {
+        new_index[old] = new;
+    }
+
     let mut bones = Vec::with_capacity(model.bones.len());
-    for (index, bone) in model.bones.iter().enumerate() {
+    for (index, &old) in order.iter().enumerate() {
+        let bone = &model.bones[old];
         let skl_bone =
             skl.and_then(|skl| skl.bones.iter().find(|skl_bone| skl_bone.name == bone.name));
-        let fmdl_parent = bone
-            .parent
-            .map(|parent| {
-                model
-                    .bones
-                    .get(parent)
-                    .map(|bone| bone.name.as_str())
-                    .ok_or(ConvertError::Fmdl(::fmdl::FmdlError::BadReference {
-                        what: "bone parent",
-                        index: parent,
-                    }))
-            })
-            .transpose()?;
+        let fmdl_parent = bone.parent.map(|parent| model.bones[parent].name.as_str());
         if let (Some(skl), Some(skl_bone)) = (skl, skl_bone) {
             // The FMDL's own parent wins; an SKL disagreeing loses a field.
             let skl_parent = skl_bone
@@ -92,7 +93,7 @@ pub fn fmdl_to_ir(
             });
         bones.push(Bone {
             name: bone.name.clone(),
-            parent: bone.parent,
+            parent: bone.parent.map(|parent| new_index[parent]),
             matrix,
             global_position: Some(bone.world_position),
             local_position: Some(bone.local_position),
@@ -268,7 +269,11 @@ pub fn fmdl_to_ir(
                 bone_weight_width: None,
             },
             faces: mesh.faces.clone(),
-            bone_group: mesh.bone_group.clone(),
+            bone_group: mesh
+                .bone_group
+                .iter()
+                .map(|bone| new_index[*bone])
+                .collect(),
             material,
             extension_headers: Default::default(),
             custom_bounding_box: mesh.custom_bounding_box.map(|b| BoundingBox {

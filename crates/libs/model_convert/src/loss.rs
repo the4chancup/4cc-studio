@@ -33,6 +33,12 @@
 //!   `detail` is how many bones moved.
 //! - `static_bone_added` (Mesh): an unskinned mesh was weighted to the `static` bone an
 //!   FMDL needs (FMDL binds every vertex).
+//! - `weight_clamped` (Mesh): a weight lane above `1.0 + 1e-6` was clamped to the `u8`
+//!   FMDL weight's 255 (below that the excess is `f32` noise and clamps silently);
+//!   `detail` is how many vertices carried one.
+//! - `empty_mesh_bone_group_dropped` (Mesh): a vertexless mesh's bone group was written
+//!   empty — it skins nothing (a face export's marker mesh carries a whole-skeleton
+//!   group as data); `detail` is the dropped group size.
 
 /// What a finding is about.
 #[derive(Debug, Clone, PartialEq, Eq)]
