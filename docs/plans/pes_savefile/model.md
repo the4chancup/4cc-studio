@@ -254,8 +254,8 @@ pub struct PlayerSettings { pub name: Option<NameSetting>, pub boots_id: Option<
 impl PlayerSettings {
     /// Parses a file: unknown keys and tables, wrong types, out-of-range values and unknown
     /// labels are `SettingsError`s naming the key; the compiler-owned keys are unknown keys.
-    /// An explicit name containing a NUL is `WrongType` (the save field is NUL-terminated; it
-    /// would silently truncate on reload).
+    /// An explicit name containing a NUL is `WrongType` (reading a save field stops at the
+    /// first NUL, so it would silently truncate on reload).
     pub fn parse(text: &str) -> Result<Self, SettingsError>;
     /// Every key `Some` from the player; `name` is `Explicit(raw name)`, colour codes included.
     /// `boots_id`/`gloves_id` are the exception: `Some` only for a stored ID from 1 to 100 (0 is

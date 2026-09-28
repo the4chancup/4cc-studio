@@ -274,7 +274,11 @@ should roughly halve a whole-crate run, and it moves half its energy off the hom
 `just mutants` runs locally as before. `mutants-diff` stays local: its runs take minutes, and
 the transfer plus the remote baseline build would eat the gain. Manual ssh from Git Bash uses
 `/c/Windows/System32/OpenSSH/ssh.exe bonfire`: Git's own `ssh` cannot reach the Windows agent
-that holds the key.
+that holds the key. **A failed shard is reported, never restarted.** `cargo mutants` does not
+resume: rerunning a shard starts it from zero, hours of work. At 2.20i the ssh link dropped,
+and the sidekick restarted the VPS shard and waited on it, although the local half had
+already tested every mutant. A brief that starts a whole-crate run therefore says: if either
+half fails, stop and report what each half recorded.
 
 Three model families, three roles. Lead: Claude (Fable) in Devin CLI's Fusion mode. Sidekick:
 SWE-2 (Kimi lineage), reached through the `sidekick` tool; a cold probe on a spec-in-hand crate
