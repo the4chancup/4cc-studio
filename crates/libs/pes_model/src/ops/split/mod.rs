@@ -28,17 +28,17 @@ use crate::format::{MeshVertices, ModelError};
 use crate::model::{Mesh, Model};
 
 /// The largest bone group a `.model` mesh may reference.
-pub const BONE_LIMIT_HARD: usize = 64;
+pub(crate) const BONE_LIMIT_HARD: usize = 64;
 /// The bone-group size a split component tries to stay below.
-pub const BONE_LIMIT_SOFT: usize = 60;
+pub(crate) const BONE_LIMIT_SOFT: usize = 60;
 /// The largest vertex count a `.model` mesh may have.
-pub const VERTEX_LIMIT_HARD: usize = 65535;
+pub(crate) const VERTEX_LIMIT_HARD: usize = 65535;
 /// The vertex count a split component tries to stay below.
-pub const VERTEX_LIMIT_SOFT: usize = 63000;
+pub(crate) const VERTEX_LIMIT_SOFT: usize = 63000;
 /// The largest face count a `.model` mesh may have.
-pub const FACE_LIMIT_HARD: usize = 21845;
+pub(crate) const FACE_LIMIT_HARD: usize = 21845;
 /// The face count a split component tries to stay below.
-pub const FACE_LIMIT_SOFT: usize = 20000;
+pub(crate) const FACE_LIMIT_SOFT: usize = 20000;
 
 /// Bone names tried first as a fragment's base bone, in order.
 const PREFERRED_BASE_BONES: [&str; 5] = [
@@ -50,7 +50,7 @@ const PREFERRED_BASE_BONES: [&str; 5] = [
 ];
 
 /// The extension-header key marking a split component (`Split-Mesh: N`).
-pub const SPLIT_MESH_HEADER: &str = "Split-Mesh";
+pub(crate) const SPLIT_MESH_HEADER: &str = "Split-Mesh";
 
 /// A vertex's bone mapping: `(model bone index, weight)` for every weight
 /// greater than zero. Compared across components whose bone groups differ,
@@ -59,7 +59,7 @@ pub(super) type BoneMapping = Vec<(usize, f32)>;
 
 /// Whether a mesh exceeds a hard limit (bones in its group, vertices,
 /// faces).
-pub fn needs_splitting(mesh: &Mesh) -> bool {
+pub(crate) fn needs_splitting(mesh: &Mesh) -> bool {
     mesh.bone_group.len() > BONE_LIMIT_HARD
         || mesh.vertices.positions.len() > VERTEX_LIMIT_HARD
         || mesh.faces.len() > FACE_LIMIT_HARD
@@ -68,7 +68,7 @@ pub fn needs_splitting(mesh: &Mesh) -> bool {
 /// The effective parent of every bone for splitting: `parents` as given,
 /// cycles broken, and the chest/belly/hip chain inverted so `sk_chest` is
 /// the root when that chain is intact.
-pub fn effective_parents(model: &Model, parents: &[Option<usize>]) -> Vec<Option<usize>> {
+pub(crate) fn effective_parents(model: &Model, parents: &[Option<usize>]) -> Vec<Option<usize>> {
     let mut effective = Vec::with_capacity(model.bones.len());
     for (index, &parent) in parents.iter().enumerate() {
         let mut parent = parent;
@@ -116,9 +116,18 @@ pub fn effective_parents(model: &Model, parents: &[Option<usize>]) -> Vec<Option
 /// per `model.bones`; a caller without a skeleton table passes all `None`.
 /// Returns whether anything was split.
 pub fn encode(model: &mut Model, parents: &[Option<usize>]) -> Result<bool, ModelError> {
+    model.validate()?;
     if parents.len() != model.bones.len() {
         return Err(ModelError::VertexMismatch(
             "parents length does not match bone count",
+        ));
+    }
+    if parents
+        .iter()
+        .any(|parent| parent.is_some_and(|index| index >= model.bones.len()))
+    {
+        return Err(ModelError::VertexMismatch(
+            "split parents index out of range",
         ));
     }
     let effective = effective_parents(model, parents);
@@ -174,6 +183,7 @@ fn split_group_key(header: &str) -> Option<String> {
 /// `order`, `editor_data`, `bone_weight_width` and its
 /// `extension_headers` minus the `Split-Mesh` header.
 pub fn decode(model: &mut Model) -> Result<(), ModelError> {
+    model.validate()?;
     // mesh index -> the split group it is a component of.
     let group_of: Vec<Option<String>> = model
         .meshes

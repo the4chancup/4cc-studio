@@ -442,6 +442,91 @@ fn file_round_trip() {
 
 // 11
 #[test]
+fn split_parents_must_index_bones() {
+    // `sk_foot_l` is the first preferred base bone; with nothing under it
+    // it hands over to its parent, so a parent past the end reaches that
+    // read and must error, not panic. All-zero weights leave every bone's
+    // items empty, so the walk reaches the bad parent.
+    let mut mesh = grid(8, 8, 65);
+    mesh.vertices
+        .bone_weights
+        .as_mut()
+        .unwrap()
+        .fill([0.0; 4]);
+    let mut model = Model {
+        flags: 0,
+        bones: std::iter::once(bone("sk_foot_l"))
+            .chain((1..66).map(|index| bone(&format!("bone{index}"))))
+            .collect(),
+        materials: vec!["Material".to_owned()],
+        meshes: vec![mesh],
+        extension_headers: Vec::new(),
+        bounds: BoundingBox::of(&[]),
+        lod: LodRecord::for_levels(0),
+    };
+    let mut parents: Vec<Option<usize>> = vec![None; 66];
+    parents[0] = Some(66);
+    assert_eq!(
+        encode(&mut model, &parents),
+        Err(ModelError::VertexMismatch(
+            "split parents index out of range"
+        ))
+    );
+}
+
+// 12
+#[test]
+fn combine_limits_the_bone_group_to_u8() {
+    // Two components of one split group weighted to disjoint halves of
+    // 257 model bones: their combined group cannot fit a u8 slot.
+    let component = |group: Vec<usize>| {
+        let count = group.len();
+        Mesh {
+            name: None,
+            extension_headers: vec!["Split-Mesh: 1".to_owned()],
+            tags: Vec::new(),
+            vertices: MeshVertices {
+                positions: (0..count).map(|i| [i as f32, 0.0, 0.0]).collect(),
+                normals: None,
+                tangents: None,
+                bitangents: None,
+                colors: None,
+                uvs: vec![vec![[0.0, 0.0]; count]],
+                bone_indices: Some((0..count).map(|i| [i as u8, 0, 0, 0]).collect()),
+                bone_weights: Some(vec![[1.0, 0.0, 0.0, 0.0]; count]),
+                bone_weight_width: 4,
+            },
+            faces: vec![[0, 1, 2]],
+            lower_lods: Vec::new(),
+            bone_group: group,
+            material: 0,
+            bounds: BoundingBox::of(&[]),
+            order: 0,
+            editor_data: Vec::new(),
+        }
+    };
+    let mut model = Model {
+        flags: 0,
+        bones: (0..257)
+            .map(|index| bone(&format!("bone{index}")))
+            .collect(),
+        materials: vec!["Material".to_owned()],
+        meshes: vec![
+            component((0..129).collect()),
+            component((129..257).collect()),
+        ],
+        extension_headers: Vec::new(),
+        bounds: BoundingBox::of(&[]),
+        lod: LodRecord::for_levels(0),
+    };
+    assert_eq!(
+        decode(&mut model),
+        Err(ModelError::InvalidModel("bone group over 256 bones"))
+    );
+}
+
+// 13
+#[test]
 fn two_sources_number_from_one() {
     let mut model = Model {
         flags: 0,

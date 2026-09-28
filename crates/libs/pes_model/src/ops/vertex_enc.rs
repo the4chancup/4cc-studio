@@ -22,8 +22,9 @@ pub const VERTEX_LOOP_PRESERVATION: &str = "vertex-loop-preservation";
 /// The mesh is not changed; meaningful when the mesh carries
 /// `VERTEX_LOOP_PRESERVATION` in `extension_headers`, otherwise every
 /// vertex owns itself except where the convention happens to hold by
-/// chance.
-pub fn decode(mesh: &Mesh) -> Vec<usize> {
+/// chance. An invalid mesh is an error, never a panic.
+pub fn decode(mesh: &Mesh) -> Result<Vec<usize>, ModelError> {
+    mesh.validate()?;
     let vertices = &mesh.vertices;
     let count = vertices.positions.len();
     let topological: Vec<Vec<u8>> = (0..count)
@@ -43,7 +44,7 @@ pub fn decode(mesh: &Mesh) -> Vec<usize> {
             owner.push(index);
         }
     }
-    owner
+    Ok(owner)
 }
 
 /// Reorders `mesh.vertices` and remaps `mesh.faces` and `mesh.lower_lods` so
@@ -52,9 +53,11 @@ pub fn decode(mesh: &Mesh) -> Vec<usize> {
 /// collapse to one, and distinct vertices that share a topological key are
 /// ordered by decreasing first loop encoding (so they are never read as one
 /// vertex). Adds the marker to `mesh.extension_headers` when absent. Returns
-/// the owner map of the new order. `owner.len() != vertex count` or an owner
-/// index out of range -> `ModelError::VertexMismatch`.
+/// the owner map of the new order. `owner.len() != vertex count`, an owner
+/// index out of range, an owner map joining different topological keys, or
+/// an invalid mesh -> `ModelError::VertexMismatch` or the validation error.
 pub fn encode(mesh: &mut Mesh, owner: &[usize]) -> Result<Vec<usize>, ModelError> {
+    mesh.validate()?;
     let count = mesh.vertices.positions.len();
     if owner.len() != count {
         return Err(ModelError::VertexMismatch(
@@ -73,9 +76,16 @@ pub fn encode(mesh: &mut Mesh, owner: &[usize]) -> Result<Vec<usize>, ModelError
         .collect();
 
     // Owner -> its loops, in original order. Identical loops collapse to
-    // the first occurrence; survivors sort by increasing encoding.
+    // the first occurrence; survivors sort by increasing encoding. A member
+    // must share its owner's topological key; joining two keys leaves a key
+    // with no entry in `key_owners`.
     let mut members: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
     for (index, vertex) in owner.iter().enumerate() {
+        if topological[index] != topological[*vertex] {
+            return Err(ModelError::VertexMismatch(
+                "owner map joins vertices with different topological keys",
+            ));
+        }
         members.entry(*vertex).or_default().push(index);
     }
     let mut collapsed_to: Vec<usize> = (0..count).collect();
@@ -162,7 +172,8 @@ pub fn encode(mesh: &mut Mesh, owner: &[usize]) -> Result<Vec<usize>, ModelError
         .chain(mesh.lower_lods.iter_mut().flatten())
     {
         for index in face.iter_mut() {
-            *index = new_index[collapsed_to[usize::from(*index)]] as u16;
+            *index = u16::try_from(new_index[collapsed_to[usize::from(*index)]])
+                .map_err(|_| ModelError::VertexMismatch("a remapped face index exceeds u16"))?;
         }
     }
     if !mesh
@@ -176,11 +187,13 @@ pub fn encode(mesh: &mut Mesh, owner: &[usize]) -> Result<Vec<usize>, ModelError
     Ok(new_owner)
 }
 
-/// `encode` on every mesh (owners per mesh).
+/// `encode` on every mesh (owners per mesh). An invalid model is an
+/// error, never a panic.
 pub fn encode_model(
     model: &mut Model,
     owners: &[Vec<usize>],
 ) -> Result<Vec<Vec<usize>>, ModelError> {
+    model.validate()?;
     if owners.len() != model.meshes.len() {
         return Err(ModelError::VertexMismatch(
             "owner maps do not match the mesh count",
@@ -194,7 +207,9 @@ pub fn encode_model(
 }
 
 /// `decode` on every mesh that carries the marker; identity maps otherwise.
-pub fn decode_model(model: &Model) -> Vec<Vec<usize>> {
+/// An invalid model is an error, never a panic.
+pub fn decode_model(model: &Model) -> Result<Vec<Vec<usize>>, ModelError> {
+    model.validate()?;
     model
         .meshes
         .iter()
@@ -206,7 +221,7 @@ pub fn decode_model(model: &Model) -> Vec<Vec<usize>> {
             {
                 decode(mesh)
             } else {
-                (0..mesh.vertices.positions.len()).collect()
+                Ok((0..mesh.vertices.positions.len()).collect())
             }
         })
         .collect()
@@ -303,7 +318,7 @@ mod tests {
             mesh.extension_headers
                 .contains(&VERTEX_LOOP_PRESERVATION.to_owned())
         );
-        let owner = decode(mesh);
+        let owner = decode(mesh).unwrap();
         assert_eq!(owner.len(), 16);
         // The same map computed straight from the convention.
         let mut expected = Vec::new();
@@ -376,7 +391,7 @@ mod tests {
         // A has a single loop left, owning itself.
         assert_eq!(owner, [0, 1, 1]);
         assert_eq!(face_tuples(&mesh), faces_before);
-        assert_eq!(decode(&mesh), owner);
+        assert_eq!(decode(&mesh).unwrap(), owner);
         assert!(
             mesh.extension_headers
                 .contains(&VERTEX_LOOP_PRESERVATION.to_owned())
@@ -398,7 +413,7 @@ mod tests {
         assert_eq!(mesh.vertices.positions[3], [4.0, 5.0, 6.0]);
         assert!(mesh.vertices.uvs[0][0][0] < mesh.vertices.uvs[0][1][0]);
         assert!(mesh.vertices.uvs[0][2][0] < mesh.vertices.uvs[0][3][0]);
-        assert_eq!(decode(&mesh), owner);
+        assert_eq!(decode(&mesh).unwrap(), owner);
         assert_eq!(face_tuples(&mesh), faces_before);
     }
 
@@ -426,7 +441,7 @@ mod tests {
         assert_eq!(mesh.vertices.uvs[0][1], [0.0, 0.0]);
         assert_eq!(owner, [0, 1]);
         // decode still separates them into two vertices.
-        let decoded = decode(&mesh);
+        let decoded = decode(&mesh).unwrap();
         assert_eq!(decoded, [0, 1]);
         assert_eq!(partition(&decoded).len(), 2);
     }
@@ -445,13 +460,56 @@ mod tests {
     }
 
     #[test]
+    fn owner_map_must_share_topological_keys() {
+        // Vertex 1 is not a loop of vertex 0: their positions differ.
+        let mut mesh = loop_mesh(false);
+        assert_eq!(
+            encode(&mut mesh, &[0, 0, 0, 0]),
+            Err(ModelError::VertexMismatch(
+                "owner map joins vertices with different topological keys"
+            ))
+        );
+    }
+
+    // The last vertex shares vertex 0's topological key with the larger
+    // loop encoding, so the remap puts it first and index 65535 lands at
+    // index 65536.
+    #[test]
+    fn a_remapped_face_index_past_u16_errors() {
+        let count = usize::from(u16::MAX) + 2;
+        let mut vertices = MeshVertices {
+            positions: (0..count - 1)
+                .map(|index| [index as f32, 0.0, 0.0])
+                .collect(),
+            normals: None,
+            tangents: None,
+            bitangents: None,
+            colors: None,
+            uvs: vec![vec![[0.0; 2]; count]],
+            bone_indices: None,
+            bone_weights: None,
+            bone_weight_width: 4,
+        };
+        vertices.positions.push(vertices.positions[0]);
+        vertices.uvs[0][count - 1] = [1.0, 0.0];
+        let mut mesh = bare_mesh(vertices, vec![[u16::MAX, 0, 1]]);
+        let owners: Vec<usize> = (0..count).collect();
+        assert_eq!(
+            encode(&mut mesh, &owners),
+            Err(ModelError::VertexMismatch(
+                "a remapped face index exceeds u16"
+            ))
+        );
+    }
+
+    #[test]
     fn model_level_round_trip() {
         for bytes in ALL {
             let model = load(bytes);
-            let owners = decode_model(&model);
+            let owners = decode_model(&model).unwrap();
             let mut again = model.clone();
             let new_owners = encode_model(&mut again, &owners).unwrap();
-            assert_eq!(decode_model(&again), new_owners);
+            assert_eq!(decode_model(&again).unwrap(), new_owners);
             for (index, mesh) in again.meshes.iter().enumerate() {
                 for index in mesh
                     .faces
@@ -481,10 +539,10 @@ mod tests {
     fn lower_lods_remap() {
         let model = load(COLLAR);
         let mut mesh = model.meshes[0].clone();
-        let owner = decode(&mesh);
+        let owner = decode(&mesh).unwrap();
         let owner = encode(&mut mesh, &owner).unwrap();
         assert_eq!(mesh.lower_lods.len(), 5);
-        assert_eq!(decode(&mesh), owner);
+        assert_eq!(decode(&mesh).unwrap(), owner);
         for (level, before) in mesh.lower_lods.iter().zip(&model.meshes[0].lower_lods) {
             assert_eq!(level.len(), before.len());
             for face in level {

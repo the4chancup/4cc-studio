@@ -19,28 +19,26 @@ use crate::format::{BoundingBox, LodRecord};
 use crate::model::Model;
 
 /// Why several parts could not be merged into one model.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, thiserror::Error)]
 pub enum MergeError {
     /// Two parts define one material name differently.
+    #[error("material {name} is defined differently in two parts")]
     MaterialConflict {
         /// The conflicting material name.
         name: String,
     },
     /// Two parts carry one bone name with different matrices.
+    #[error("bone {name} differs between parts")]
     SkeletonConflict {
         /// The conflicting bone name.
         name: String,
     },
     /// Header flags differ (meaning unknown, so no merging rule).
+    #[error("header flags differ between parts")]
     FlagsConflict,
-    /// A part's index out of range (never expected).
-    Other(ModelError),
-}
-
-impl From<ModelError> for MergeError {
-    fn from(error: ModelError) -> Self {
-        MergeError::Other(error)
-    }
+    /// A part fails `Model::validate`, or an operation error.
+    #[error(transparent)]
+    Other(#[from] ModelError),
 }
 
 /// The absolute per-component difference at which two same-named bones are
@@ -88,6 +86,7 @@ pub fn merge(parts: &[(&Model, &MaterialSet)]) -> Result<(Model, MaterialSet), M
     let mut level_count = 0usize;
 
     for &(part, part_set) in parts {
+        part.validate()?;
         if part.flags != output.flags {
             return Err(MergeError::FlagsConflict);
         }
@@ -144,24 +143,10 @@ pub fn merge(parts: &[(&Model, &MaterialSet)]) -> Result<(Model, MaterialSet), M
         }
 
         for mesh in &part.meshes {
-            let material =
-                material_remap
-                    .get(mesh.material)
-                    .copied()
-                    .ok_or(ModelError::BadReference {
-                        what: "material",
-                        offset: mesh.material as i64,
-                    })?;
             let mut mesh = mesh.clone();
-            mesh.material = material;
+            mesh.material = material_remap[mesh.material];
             for slot in &mut mesh.bone_group {
-                *slot = bone_remap
-                    .get(*slot)
-                    .copied()
-                    .ok_or(ModelError::BadReference {
-                        what: "bone",
-                        offset: *slot as i64,
-                    })?;
+                *slot = bone_remap[*slot];
             }
             if !mesh.lower_lods.is_empty() {
                 level_count = level_count.max(1 + mesh.lower_lods.len());
@@ -362,5 +347,22 @@ mod tests {
             merge(&[]),
             Err(MergeError::Other(ModelError::InvalidModel(_)))
         ));
+    }
+
+    #[test]
+    fn parts_are_validated() {
+        // A part's own invariants are checked before its indices reach
+        // the remap vectors: a face index out of range is an error, not
+        // a merged model.
+        let mut bad = model(CARD);
+        bad.meshes[0].faces[0][0] = 999;
+        let card_red = set(CARD_RED_MTL);
+        assert_eq!(
+            merge(&[(&bad, &card_red)]),
+            Err(MergeError::Other(ModelError::BadReference {
+                what: "vertex",
+                offset: 999
+            }))
+        );
     }
 }
