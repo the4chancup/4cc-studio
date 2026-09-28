@@ -316,27 +316,41 @@ impl MeshVertices {
     }
 }
 
+/// The first descriptor of each datum type, in order: a descriptor
+/// whose type appeared earlier is ignored.
+fn first_of_each_type(fields: &[VertexField]) -> Vec<&VertexField> {
+    let mut seen = Vec::with_capacity(fields.len());
+    let mut kept = Vec::with_capacity(fields.len());
+    for field in fields {
+        if !seen.contains(&field.datum_type) {
+            seen.push(field.datum_type);
+            kept.push(field);
+        }
+    }
+    kept
+}
+
 impl Geometry {
-    /// Decodes the vertex fields. Every field must have the same vertex count, no datum type
-    /// may appear twice, a position field is required, uv maps must be `Uv0..UvN` without a gap.
+    /// Decodes the vertex fields. The first descriptor of a type is the field; a later one
+    /// is ignored, validation included. Every field must have the same vertex count, a
+    /// position field is required, uv maps must be `Uv0..UvN` without a gap.
     pub fn decode_vertices(&self) -> Result<MeshVertices, ModelError> {
-        for field in &self.vertex_fields {
+        let fields = first_of_each_type(&self.vertex_fields);
+        for &field in &fields {
             check_pairing(field)?;
         }
-        let count = self.vertex_fields.first().map_or(0, |field| field.count());
-        let mut seen = Vec::with_capacity(self.vertex_fields.len());
-        for field in &self.vertex_fields {
+        let count = fields.first().map_or(0, |field| field.count());
+        for &field in &fields {
             if field.count() != count {
                 return Err(ModelError::InvalidVertexFormat(
                     "field vertex counts differ",
                 ));
             }
-            if seen.contains(&field.datum_type) {
-                return Err(ModelError::InvalidVertexFormat("duplicate field"));
-            }
-            seen.push(field.datum_type);
         }
-        if !seen.contains(&DatumType::Position) {
+        if !fields
+            .iter()
+            .any(|field| field.datum_type == DatumType::Position)
+        {
             return Err(ModelError::InvalidVertexFormat("no position field"));
         }
 
@@ -351,7 +365,7 @@ impl Geometry {
             bone_weights: None,
             bone_weight_width: 4,
         };
-        for field in &self.vertex_fields {
+        for &field in &fields {
             match field.datum_type {
                 DatumType::Position => vertices.positions = triples(&field.data),
                 DatumType::Normal => vertices.normals = Some(triples(&field.data)),
@@ -387,16 +401,14 @@ impl Geometry {
     }
 
     /// Re-encodes `vertices` into the existing fields, in place: same field order, same
-    /// formats, so `decode` then `encode` leaves every field's bytes identical. The attribute
-    /// set must match the fields exactly (a field with no attribute, or an attribute with no
-    /// field, is `VertexMismatch`), and `vertices.bone_weight_width` must match the weight
-    /// field's format.
+    /// formats, so `decode` then `encode` leaves every field's bytes identical — the first
+    /// descriptor of a type is the field, and a later duplicate is skipped with its bytes
+    /// untouched. The attribute set must match the fields exactly (a field with no attribute,
+    /// or an attribute with no field, is `VertexMismatch`), and `vertices.bone_weight_width`
+    /// must match the weight field's format.
     pub fn encode_vertices(&mut self, vertices: &MeshVertices) -> Result<(), ModelError> {
-        let has = |kind: DatumType| {
-            self.vertex_fields
-                .iter()
-                .any(|field| field.datum_type == kind)
-        };
+        let fields = first_of_each_type(&self.vertex_fields);
+        let has = |kind: DatumType| fields.iter().any(|field| field.datum_type == kind);
         if !has(DatumType::Position) {
             return Err(ModelError::VertexMismatch("no position field"));
         }
@@ -424,8 +436,7 @@ impl Geometry {
                 return Err(ModelError::VertexMismatch(what));
             }
         }
-        let uv_fields = self
-            .vertex_fields
+        let uv_fields = fields
             .iter()
             .filter(|field| {
                 matches!(
@@ -440,8 +451,8 @@ impl Geometry {
 
         // Build every field's new bytes first so a failed encode leaves the
         // geometry untouched.
-        let mut new_data = Vec::with_capacity(self.vertex_fields.len());
-        for field in &self.vertex_fields {
+        let mut new_data = Vec::with_capacity(fields.len());
+        for &field in &fields {
             check_pairing(field)?;
             let data = match field.datum_type {
                 DatumType::Position => encode_triples(&vertices.positions),
@@ -507,8 +518,14 @@ impl Geometry {
             }
             new_data.push(data);
         }
-        for (field, data) in self.vertex_fields.iter_mut().zip(new_data) {
-            field.data = data;
+        // A later duplicate is skipped and its bytes stay as they are.
+        let mut new_data = new_data.into_iter();
+        let mut seen = Vec::with_capacity(self.vertex_fields.len());
+        for field in &mut self.vertex_fields {
+            if !seen.contains(&field.datum_type) {
+                seen.push(field.datum_type);
+                field.data = new_data.next().expect("one entry per kept field");
+            }
         }
         Ok(())
     }
@@ -609,7 +626,15 @@ mod tests {
                 let mut again = geometry.clone();
                 again.encode_vertices(&vertices).unwrap();
                 assert_eq!(again, *geometry);
-                assert_eq!(vertices.to_fields().unwrap(), geometry.vertex_fields);
+                // The file's first descriptor of a type is the field;
+                // every fixture without a repeat has only those.
+                assert_eq!(
+                    vertices.to_fields().unwrap(),
+                    first_of_each_type(&geometry.vertex_fields)
+                        .into_iter()
+                        .cloned()
+                        .collect::<Vec<_>>()
+                );
             }
         }
     }
@@ -737,6 +762,15 @@ mod tests {
             Err(ModelError::InvalidVertexFormat(_))
         ));
 
+        let mut geometry = cap.geometries[0].clone();
+        geometry
+            .vertex_fields
+            .retain(|field| field.datum_type != DatumType::Position);
+        assert_eq!(
+            geometry.decode_vertices(),
+            Err(ModelError::InvalidVertexFormat("no position field"))
+        );
+
         let vertices = cap.geometries[0].decode_vertices().unwrap();
         let mut geometry = cap.geometries[0].clone();
         geometry
@@ -802,6 +836,18 @@ mod tests {
             Err(ModelError::VertexMismatch(_))
         ));
         assert_eq!(edited, geometry);
+    }
+
+    #[test]
+    fn encode_vertices_writes_changed_data() {
+        let mut geometry = PreFoxModel::read(CAP).unwrap().geometries[0].clone();
+        let mut vertices = geometry.decode_vertices().unwrap();
+        vertices.positions[0] = [1.0, 2.0, 3.0];
+        geometry.encode_vertices(&vertices).unwrap();
+        assert_eq!(
+            geometry.decode_vertices().unwrap().positions[0],
+            [1.0, 2.0, 3.0]
+        );
     }
 
     #[test]

@@ -21,8 +21,14 @@ pub(crate) const COMMUNITY_TAIL_DATA: &[u8] =
     include_bytes!("../../tests/fixtures/community_tail_data_hair_d.wesys.model");
 pub(crate) const COMMUNITY_TEMPLATE_ANNOTATION: &[u8] =
     include_bytes!("../../tests/fixtures/community_template_annotation_ad.wesys.model");
+pub(crate) const COMMUNITY_EMPTY_GEOMETRY: &[u8] =
+    include_bytes!("../../tests/fixtures/community_empty_geometry_boots.wesys.model");
+pub(crate) const COMMUNITY_DUPLICATE_FIELD: &[u8] =
+    include_bytes!("../../tests/fixtures/community_duplicate_field_flat_player.wesys.model");
+pub(crate) const COMMUNITY_LOOSE_VERTEX: &[u8] =
+    include_bytes!("../../tests/fixtures/community_loose_vertex_hair.wesys.model");
 
-/// All fourteen fixtures.
+/// All seventeen fixtures.
 pub(crate) const ALL: &[&[u8]] = &[
     CARD,
     CARDHEAD,
@@ -38,6 +44,18 @@ pub(crate) const ALL: &[&[u8]] = &[
     SHADOW,
     COMMUNITY_TAIL_DATA,
     COMMUNITY_TEMPLATE_ANNOTATION,
+    COMMUNITY_EMPTY_GEOMETRY,
+    COMMUNITY_DUPLICATE_FIELD,
+    COMMUNITY_LOOSE_VERTEX,
+];
+
+/// The community fixtures.
+pub(crate) const COMMUNITY: &[&[u8]] = &[
+    COMMUNITY_TAIL_DATA,
+    COMMUNITY_TEMPLATE_ANNOTATION,
+    COMMUNITY_EMPTY_GEOMETRY,
+    COMMUNITY_DUPLICATE_FIELD,
+    COMMUNITY_LOOSE_VERTEX,
 ];
 
 pub(crate) const CARDHEAD_MTL: &[u8] =

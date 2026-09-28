@@ -101,7 +101,11 @@ fn intern(strings: &mut Vec<String>, text: &str) -> usize {
 
 impl Model {
     /// Builds a `Model` from a `PreFoxModel`, resolving every index through
-    /// the file's tables.
+    /// the file's tables. A mesh with face indices past its vertex count,
+    /// whose distinct face indices over all LOD levels are exactly as many
+    /// as its vertices, has every index remapped to its rank among them (an
+    /// old exporter's loose-vertex shift); any other out-of-range index is
+    /// `BadReference`.
     pub fn from_file(file: &PreFoxModel) -> Result<Model, ModelError> {
         let mut meshes = Vec::with_capacity(file.meshes.len());
         let mut referenced = vec![false; file.annotation_strings.len()];
@@ -114,15 +118,47 @@ impl Model {
                     offset: mesh.geometry as i64,
                 })?;
             let vertices = geometry.decode_vertices()?;
-            let faces = geometry.faces.level(0)?;
+            let mut faces = geometry.faces.level(0)?;
             let mut lower_lods = Vec::with_capacity(geometry.faces.lod_ranges.len());
             for level in 1..geometry.faces.lod_ranges.len() {
                 lower_lods.push(geometry.faces.level(level)?);
             }
-            check_indices(
-                faces.iter().chain(lower_lods.iter().flatten()),
-                vertices.len(),
-            )?;
+            // An old exporter counted loose vertices it did not write:
+            // when the distinct indices over all levels number exactly
+            // the vertex count, every index is remapped to its rank
+            // among them; anything else is a BadReference.
+            if faces
+                .iter()
+                .chain(lower_lods.iter().flatten())
+                .flatten()
+                .any(|index| usize::from(*index) >= vertices.len())
+            {
+                let mut distinct: Vec<u16> = faces
+                    .iter()
+                    .chain(lower_lods.iter().flatten())
+                    .flatten()
+                    .copied()
+                    .collect();
+                distinct.sort_unstable();
+                distinct.dedup();
+                if distinct.len() == vertices.len() {
+                    for index in faces
+                        .iter_mut()
+                        .chain(lower_lods.iter_mut().flatten())
+                        .flatten()
+                    {
+                        *index = distinct
+                            .binary_search(index)
+                            .expect("every face index is in the distinct set")
+                            as u16;
+                    }
+                } else {
+                    check_indices(
+                        faces.iter().chain(lower_lods.iter().flatten()),
+                        vertices.len(),
+                    )?;
+                }
+            }
             let bone_group = match mesh.bone_group {
                 Some(index) => file
                     .bone_groups
