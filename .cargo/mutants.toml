@@ -70,14 +70,14 @@ exclude_re = [
     # NaN whose `as i32` cast saturates to 0 — the same byte the `else` arm
     # writes.
     "replace > with >= in quantize_weights",
-    # `retarget`'s `weights[slot] > 0.0` -> `>=` at lines 188 and 200 are
+    # `retarget`'s `weights[slot] > 0.0` -> `>=` at lines 212 and 229 are
     # equivalent. A zero-weight slot entering the blend arm contributes
     # `0.0 * moved` — exactly 0 whichever transform `delta[slot]` holds —
     # so the accumulated point/direction is unchanged either way. (Line
-    # 175's gate indexes the bone group and is not equivalent: without a
+    # 195's gate indexes the bone group and is not equivalent: without a
     # fold remap, an out-of-range unweighted entry panics there.)
-    "retarget\\.rs:188:37: replace > with >=",
-    "retarget\\.rs:200:37: replace > with >=",
+    "retarget\\.rs:212:37: replace > with >=",
+    "retarget\\.rs:229:37: replace > with >=",
     # model_convert 2.20h round-1 equivalences:
     # `fox_has_hand_weights` in every form. The helper feeds only
     # `needs_conversion`'s Fox branch, which runs for Fox targets (18/19/21)
@@ -86,14 +86,14 @@ exclude_re = [
     # `conforming` returns a bone whose matrix `bone_moved` always judges
     # the same whichever table order is used.
     "fox_has_hand_weights",
-    # `blend_direction`'s `sum` guard and `/=` division (retarget.rs:230,
-    # :232) are equivalent in any form: the caller passes the closure's
+    # `blend_direction`'s `sum` guard and `/=` division (retarget.rs:236,
+    # :238) are equivalent in any form: the caller passes the closure's
     # output through `normalized()`, which absorbs any positive scalar —
     # the division changes only the length `normalized()` rewrites. And
-    # `blend`'s `sum > 0.0` -> `>=` (retarget.rs:213) is equivalent: a
+    # `blend`'s `sum > 0.0` -> `>=` (retarget.rs:219) is equivalent: a
     # vertex reaches the blend only when `any_moved`, which requires a
     # positive weight, so `sum` is always positive there.
-    "retarget\\.rs:230:28: replace > with",
-    "retarget\\.rs:232:40: replace /= with \\*=",
-    "retarget\\.rs:213:28: replace > with >=",
+    "retarget\\.rs:236:28: replace > with",
+    "retarget\\.rs:238:40: replace /= with \\*=",
+    "retarget\\.rs:219:28: replace > with >=",
 ]

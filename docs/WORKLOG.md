@@ -13,7 +13,7 @@ is in `AGENTS.md` ("Working documents").
 2.6 `fmdl` (format, model, ops, check), 2.7 `pes_model` (format, mtl, model, ops, check), 2.8 `uniparam`, 2.9 `fox2`, 2.10 `archives`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`, 2.14 `color_tools`, 2.15 `elevation`. Review
 rounds A and B (2026-09-13) closed: 2.5c, 2.12b, 2.13b done.
 **In progress:** 2.17 `pes_savefile`, 2.18 `python_bindings`, 2.19 Phase verification done; 2.20
-Converge in progress (a-g done, 2.20g-fmdl census next, then 2.20h `model_convert`). Review round C (2026-09-19) closed as
+Converge in progress (a-h done; next 2.17i, then 2.20i `pes_savefile`). Review round C (2026-09-19) closed as
 2.19a; its leftovers are listed under 2.20. 2.5b (GPU BC7) deferred to Phase 4 (user decision
 2026-09-21). Release target (2026-09-28): 0.1.0 after Phase 8; phase order 1–6, 8, 0.1.0, 7,
 9–16 (`core/development_plan.md` "Releases").
@@ -662,20 +662,36 @@ Spec: `docs/plans/core/development_plan.md` "Phase 2", `docs/plans/libs/README.m
     `Winter 20 Additions/Boots/k0977/boots.fmdl`, genuinely truncated (1.39 MB of a declared
     4.28 MB: broken in that export). (c) The 64 refused `.fpk` are another game's archives
     (`chr_FUC`, `stg_fuc`), not PES files
-  - [~] 2.20h `model_convert`: started with a **conversion census** (`.tmp/convert_census/`:
-    every readable `.model` bundle and FMDL converted to the other engine and back) and a
-    `.mtl` census (`.tmp/mtl_census/`); triage report in the sidekick log, decisions in the
-    plan (`ir.md` "What real files carry", `conversion.md` split rules) and one decision entry.
-    Slices: `dc19c62` A2 format-crate rules (split groups that cannot be whole stay split, no
-    empty containers, FMDL over-flagged groups, `.mtl` `maxfilter` / trailing content / first
-    repeated state); `8d30428` A1 IR and conversion rules (unnormalized weights, Fox bones
-    parent-first, `MtlName`, vertexless meshes): 1151 conversions fixed, 0 regressions; B open
-    questions (1)-(3) (decal families approximate, hand split left-first + material pruning,
-    `retarget` by value) plus incompatible split groups stay split. Next: the whole-crate
-    mutation run, lead audit, reviewer loop. Questions (4)-(6) stay open (issue below)
-  - Remaining 2.20 order after this:
-    read the user-found fork `https://github.com/jasonjk192/pesXdecrypter` for savefile facts;
-    `pes_savefile` (lead audit whole, reviewer on non-interchange modules only);
+  - [x] 2.20h `model_convert` — done. It opened with a **conversion census**
+    (`.tmp/convert_census/`: every readable `.model` bundle and FMDL on the machine converted to
+    the other engine and back, written and read back) and a `.mtl` census (`.tmp/mtl_census/`).
+    Before, about one conversion in six failed. Now every file converts except 4 with NUL
+    material names, which are refused on purpose (`MtlName`). The decisions are in `ir.md`
+    "What real files carry", the `conversion.md` split rules, and two decision entries.
+    Slices:
+    - `dc19c62`: split groups that cannot be whole stay split, no empty containers, FMDL
+      over-flagged groups, `.mtl` `maxfilter` and trailing content.
+    - `8d30428`: unnormalized weights, Fox bones parent-first, `MtlName`, vertexless meshes.
+    - `1bf6a0f`: open questions (1)-(3) settled (decal families approximate, hand split
+      left-first with material pruning, `retarget` by value); incompatible split groups stay
+      split.
+    - `3f3f7d5`: 568 mutants / 74 survivors triaged; fmdl's combine no longer welds components
+      with different materials; helpers crate-private.
+
+    Reviewer loop, two rounds, 7/3 accepted (`e335a6e`: poses travel in an SKL, the retarget
+    blend normalizes, clamp-then-total quantization, hand-table conformance for gloves'
+    shared bones, native texture and parameter loss reported, one `static` bone, `maxfilter`
+    through the IR; `fe33060`: linear base colour space, stale bone boxes, Fox flag loss, and
+    default-valued parameters silent). Rulings: `.tmp/review_rulings_2_20h.md`. Closing run:
+    616 mutants / 7 missed, all known equivalences whose line patterns moved. Questions (4)-(6)
+    stay open (issue below)
+  - [x] pesXdecrypter fork read (`jasonjk192/pesXdecrypter`): it merges `libpes15crypter`'s
+    PES 15 routine into pesXdecrypter. The seed-byte LCG `(c * 21 + 7) % 32768`, key `c % 255`,
+    restarted per chunk, with the 4-byte chunk lengths left clear, is what
+    `pes_savefile::container::pes15` already does. Nothing to add
+  - Remaining 2.20 order after this: 2.17i, then `pes_savefile` (a savefile census over every
+    `EDIT*`/texport on the machine first; lead audit whole, reviewer on non-interchange
+    modules only);
     `python_bindings`; then 2.21.
   Known inputs from round C: (a) whole-crate mutation runs left survivors to triage in cpk (28),
   ftex (80), dds_convert (30): table-variant arms, boundary comparisons, `write_cell` and
@@ -1023,3 +1039,8 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   files, cup exports among them, and no fixture, mutation run or reviewer would have found
   it; a census of every real file of the format now belongs in each format crate's converge
   (`.tmp/model_census/` as the template). Next: 2.20g-fmdl census, then 2.20h.
+- **2026-09-28** - 2.20g-fmdl census and 2.20h `model_convert` done. The fmdl census found only
+  SKL tails, and every other failure was a correct refusal. The conversion census found about
+  one failure in six (weights, split groups, bone order, flags, our own empty containers),
+  each traced by measurement before a rule was written. Reviewer rounds 7/3. Next: 2.17i, then
+  2.20i `pes_savefile`, opening with a savefile census.
