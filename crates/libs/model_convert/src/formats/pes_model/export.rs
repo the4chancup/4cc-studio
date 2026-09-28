@@ -83,6 +83,36 @@ pub fn ir_to_model(ir: &CanonicalModel) -> Result<ExportedPreFox, ConvertError> 
                 detail: name.clone(),
             });
         }
+        // The resolver carries nothing of the `fox` table: every native
+        // sampler or parameter it held is a loss worth reporting.
+        if let Some(fox) = &material.fox {
+            for (name, _) in &fox.textures {
+                if !resolved
+                    .samplers
+                    .iter()
+                    .any(|(sampler, _, _)| sampler == name)
+                {
+                    findings.push(Finding {
+                        code: "material_texture_unused",
+                        subject: Subject::Material(index),
+                        detail: name.clone(),
+                    });
+                }
+            }
+            for (name, _) in &fox.parameters {
+                if !resolved
+                    .parameters
+                    .iter()
+                    .any(|(parameter, _)| parameter == name)
+                {
+                    findings.push(Finding {
+                        code: "material_parameter_dropped",
+                        subject: Subject::Material(index),
+                        detail: name.clone(),
+                    });
+                }
+            }
+        }
         mtl_text(&material.name)?;
         let mut entries = Vec::new();
         for (name, settings, texture) in &resolved.samplers {
@@ -95,7 +125,7 @@ pub fn ir_to_model(ir: &CanonicalModel) -> Result<ExportedPreFox, ConvertError> 
                 path,
                 srgb: settings.srgb,
                 minfilter: settings.minfilter.map(mtl_filter),
-                maxfilter: None,
+                maxfilter: settings.maxfilter.map(mtl_filter),
                 magfilter: settings.magfilter.map(mtl_filter),
                 mipfilter: settings.mipfilter.map(mtl_filter),
                 uaddr: settings.uaddr.map(mtl_address),

@@ -78,4 +78,22 @@ exclude_re = [
     # fold remap, an out-of-range unweighted entry panics there.)
     "retarget\\.rs:188:37: replace > with >=",
     "retarget\\.rs:200:37: replace > with >=",
+    # model_convert 2.20h round-1 equivalences:
+    # `fox_has_hand_weights` in every form. The helper feeds only
+    # `needs_conversion`'s Fox branch, which runs for Fox targets (18/19/21)
+    # alone; on all three versions a shared name's `hand_*` matrix differs
+    # from `body`'s by <=1.3e-5, far under `MOVED_TOLERANCE` (1e-3), so
+    # `conforming` returns a bone whose matrix `bone_moved` always judges
+    # the same whichever table order is used.
+    "fox_has_hand_weights",
+    # `blend_direction`'s `sum` guard and `/=` division (retarget.rs:230,
+    # :232) are equivalent in any form: the caller passes the closure's
+    # output through `normalized()`, which absorbs any positive scalar —
+    # the division changes only the length `normalized()` rewrites. And
+    # `blend`'s `sum > 0.0` -> `>=` (retarget.rs:213) is equivalent: a
+    # vertex reaches the blend only when `any_moved`, which requires a
+    # positive weight, so `sum` is always positive there.
+    "retarget\\.rs:230:28: replace > with",
+    "retarget\\.rs:232:40: replace /= with \\*=",
+    "retarget\\.rs:213:28: replace > with >=",
 ]

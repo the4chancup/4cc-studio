@@ -12,7 +12,7 @@ use crate::affine::Affine;
 use crate::formats::{ConvertError, Imported};
 use crate::loss::Finding;
 use crate::skeletons::retarget::{bone_moved, retarget};
-use crate::skeletons::{is_standard, skeletons, version_bone};
+use crate::skeletons::{is_standard, skeletons, version_bone, version_bone_hand_first};
 
 /// A model in one of the native formats, at the semantic layer of its format crate.
 pub enum NativeModelBundle {
@@ -98,6 +98,9 @@ pub fn needs_conversion(bundle: &NativeModelBundle, target: PesVersion) -> bool 
             }
             let tables = skeletons(target);
             let pes21 = skeletons(PesVersion::Pes21);
+            // A model weighted to `skh_` bones conforms to the `hand_*`
+            // tables (same rule retarget uses).
+            let hand = fox_has_hand_weights(model);
             for index in used_bones(model.meshes.iter().map(|m| &m.bone_group)) {
                 let Some(bone) = model.bones.get(index) else {
                     return true;
@@ -105,7 +108,7 @@ pub fn needs_conversion(bundle: &NativeModelBundle, target: PesVersion) -> bool 
                 if !is_standard(&bone.name) {
                     continue;
                 }
-                let Some(table_bone) = version_bone(tables, &bone.name) else {
+                let Some(table_bone) = conforming(tables, hand, &bone.name) else {
                     return true;
                 };
                 // The source pose: the SKL bone of that name, else PES21's tables; an
@@ -129,6 +132,7 @@ pub fn needs_conversion(bundle: &NativeModelBundle, target: PesVersion) -> bool 
                 return true;
             }
             let tables = skeletons(target);
+            let hand = prefox_has_hand_weights(model);
             for index in used_bones(model.meshes.iter().map(|m| &m.bone_group)) {
                 let Some(bone) = model.bones.get(index) else {
                     return true;
@@ -136,7 +140,7 @@ pub fn needs_conversion(bundle: &NativeModelBundle, target: PesVersion) -> bool 
                 if !is_standard(&bone.name) {
                     continue;
                 }
-                let Some(table_bone) = version_bone(tables, &bone.name) else {
+                let Some(table_bone) = conforming(tables, hand, &bone.name) else {
                     return true;
                 };
                 // The source pose is the inline inverse bind matrix, inverted; a singular
@@ -156,6 +160,62 @@ pub fn needs_conversion(bundle: &NativeModelBundle, target: PesVersion) -> bool 
 /// The bone indices any mesh's bone group references.
 fn used_bones<'a>(groups: impl Iterator<Item = &'a Vec<usize>>) -> BTreeSet<usize> {
     groups.flatten().copied().collect()
+}
+
+/// `version_bone`, or `version_bone_hand_first` for a `skh_`-weighted model.
+fn conforming<'a>(
+    tables: &'a crate::skeletons::VersionSkeletons,
+    hand: bool,
+    name: &str,
+) -> Option<&'a crate::skeletons::PesBone> {
+    if hand {
+        version_bone_hand_first(tables, name)
+    } else {
+        version_bone(tables, name)
+    }
+}
+
+/// Whether the Fox bundle weights any vertex to a `skh_` bone (weighted
+/// slots only, per the plan's detection rule).
+fn fox_has_hand_weights(model: &::fmdl::Model) -> bool {
+    model.meshes.iter().any(|mesh| {
+        let (Some(indices), Some(weights)) =
+            (&mesh.vertices.bone_indices, &mesh.vertices.bone_weights)
+        else {
+            return false;
+        };
+        indices.iter().zip(weights).any(|(row, ws)| {
+            row.iter().enumerate().any(|(slot, &entry)| {
+                ws[slot] > 0
+                    && mesh
+                        .bone_group
+                        .get(usize::from(entry))
+                        .and_then(|&bone| model.bones.get(bone))
+                        .is_some_and(|bone| crate::ops::hand_split::hand_of(&bone.name).is_some())
+            })
+        })
+    })
+}
+
+/// The `.model` side of `fox_has_hand_weights`.
+fn prefox_has_hand_weights(model: &::pes_model::model::Model) -> bool {
+    model.meshes.iter().any(|mesh| {
+        let (Some(indices), Some(weights)) =
+            (&mesh.vertices.bone_indices, &mesh.vertices.bone_weights)
+        else {
+            return false;
+        };
+        indices.iter().zip(weights).any(|(row, ws)| {
+            row.iter().enumerate().any(|(slot, &entry)| {
+                ws[slot] > 0.0
+                    && mesh
+                        .bone_group
+                        .get(usize::from(entry))
+                        .and_then(|&bone| model.bones.get(bone))
+                        .is_some_and(|bone| crate::ops::hand_split::hand_of(&bone.name).is_some())
+            })
+        })
+    })
 }
 
 #[cfg(test)]
@@ -257,6 +317,16 @@ mod tests {
                 ("native_field_dropped", Subject::Mesh(0), "tags"),
                 ("skeleton_retargeted", Subject::Model, "1"),
                 (
+                    "material_parameter_dropped",
+                    Subject::Material(0),
+                    "SpecularColor"
+                ),
+                (
+                    "material_parameter_dropped",
+                    Subject::Material(0),
+                    "Shininess"
+                ),
+                (
                     "dummy_texture_added",
                     Subject::Material(0),
                     "NormalMap_Tex_NRM"
@@ -269,6 +339,26 @@ mod tests {
                 ("vertex_bitangents_dropped", Subject::Mesh(0), ""),
             ]
         );
+    }
+
+    #[test]
+    fn a_bone_moved_off_the_template_pose_writes_an_skl() {
+        // PES18's `dsk_deltoid_l` pose differs from PES21's; the Fox export
+        // carries it in an SKL, and the converted bundle is already native
+        // to PES18 (a second conversion is a no-op).
+        let converted = convert(prefox(CAP_M, CAP_T), PesVersion::Pes18).expect("convert");
+        let NativeModelBundle::Fox { model, skl } = converted.bundle else {
+            panic!("expected a Fox bundle");
+        };
+        let skl = skl.expect("a moved bone's pose must be recorded");
+        assert!(skl.bones.iter().any(|bone| bone.name == "dsk_deltoid_l"));
+        assert!(!needs_conversion(
+            &NativeModelBundle::Fox {
+                model,
+                skl: Some(skl)
+            },
+            PesVersion::Pes18
+        ));
     }
 
     /// The (position, normal xyz, uv0) multiset comparison the brief specifies; every
@@ -418,9 +508,9 @@ mod tests {
         assert_eq!(s.magfilter, ls.magfilter);
     }
 
-    #[test]
-    fn unskinned_mesh_gets_the_static_bone() {
-        let ir = CanonicalModel {
+    /// The unskinned IR of `unskinned_mesh_gets_the_static_bone`.
+    fn unskinned_ir() -> CanonicalModel {
+        CanonicalModel {
             bones: vec![],
             meshes: vec![Mesh {
                 vertices: Vertices {
@@ -453,7 +543,12 @@ mod tests {
             textures: vec![],
             extension_headers: Default::default(),
             source_format: SourceFormat::PreFox,
-        };
+        }
+    }
+
+    #[test]
+    fn unskinned_mesh_gets_the_static_bone() {
+        let ir = unskinned_ir();
         let exported = crate::formats::fmdl::ir_to_fmdl(&ir).expect("export");
         assert_eq!(
             exported
@@ -506,6 +601,36 @@ mod tests {
         assert_eq!(
             mesh.vertices.bone_weights,
             Some(vec![[1.0, 0.0, 0.0, 0.0]; 3])
+        );
+    }
+
+    #[test]
+    fn an_existing_static_bone_is_reused() {
+        // The same IR plus a bone already named `static`: the unskinned mesh
+        // binds to it rather than gaining a second `static` bone.
+        let mut ir = unskinned_ir();
+        ir.bones.push(crate::ir::Bone {
+            name: "static".to_string(),
+            parent: None,
+            matrix: Affine::IDENTITY,
+            global_position: None,
+            local_position: None,
+            bounding_box: None,
+        });
+        let exported = crate::formats::fmdl::ir_to_fmdl(&ir).expect("export");
+        assert_eq!(
+            exported
+                .model
+                .bones
+                .iter()
+                .filter(|b| b.name == "static")
+                .count(),
+            1
+        );
+        assert_eq!(exported.model.meshes[0].bone_group, vec![0]);
+        assert_eq!(
+            exported.model.meshes[0].vertices.bone_weights,
+            Some(vec![[255, 0, 0, 0]; 3])
         );
     }
 
@@ -644,6 +769,141 @@ mod tests {
                 skl: Some(skl)
             },
             PesVersion::Pes21
+        ));
+    }
+
+    #[test]
+    fn a_hand_bundle_on_the_hand_pose_needs_no_conversion() {
+        // The glove's shared forearm is bound at the PES15 hand pose; with
+        // the hand tables checked first the bundle is already native.
+        let tables = skeletons(PesVersion::Pes15);
+        let inverse = |name: &str| {
+            tables
+                .hand_l
+                .bone(name)
+                .expect("hand table")
+                .matrix
+                .inverse()
+                .expect("invertible")
+                .0
+        };
+        let model = ::pes_model::model::Model {
+            flags: 0,
+            bones: vec![
+                ::pes_model::format::Bone {
+                    name: "skh_index_mcp_l".to_string(),
+                    matrix: inverse("skh_index_mcp_l"),
+                },
+                ::pes_model::format::Bone {
+                    name: "sk_forearm_l".to_string(),
+                    matrix: inverse("sk_forearm_l"),
+                },
+            ],
+            materials: vec!["mat".to_string()],
+            meshes: vec![::pes_model::model::Mesh {
+                name: None,
+                extension_headers: vec![],
+                tags: vec![],
+                vertices: ::pes_model::format::MeshVertices {
+                    positions: vec![[0.0; 3]],
+                    normals: None,
+                    tangents: None,
+                    bitangents: None,
+                    colors: None,
+                    uvs: vec![],
+                    bone_indices: Some(vec![[0, 1, 0, 0]]),
+                    bone_weights: Some(vec![[0.5, 0.5, 0.0, 0.0]]),
+                    bone_weight_width: 4,
+                },
+                faces: vec![[0, 0, 0]],
+                lower_lods: vec![],
+                bone_group: vec![0, 1],
+                material: 0,
+                bounds: ::pes_model::format::BoundingBox::of(&[[0.0; 3]]),
+                order: 0,
+                editor_data: vec![],
+            }],
+            extension_headers: vec![],
+            bounds: ::pes_model::format::BoundingBox::of(&[[0.0; 3]]),
+            lod: ::pes_model::format::LodRecord::for_levels(0),
+        };
+        assert!(!needs_conversion(
+            &NativeModelBundle::PreFox {
+                model,
+                mtl: ::pes_model::format::mtl::MaterialSet {
+                    materials: vec![],
+                    style: ::pes_model::format::mtl::MtlStyle::default(),
+                },
+            },
+            PesVersion::Pes15
+        ));
+    }
+
+    #[test]
+    fn a_body_bundle_stays_on_the_body_table() {
+        // A `skh_` name in the group without weight is not a hand model: the
+        // shared forearm at the *body* pose is already native to PES15.
+        let tables = skeletons(PesVersion::Pes15);
+        let inverse = |skeleton: &crate::skeletons::Skeleton, name: &str| {
+            skeleton
+                .bone(name)
+                .expect("table")
+                .matrix
+                .inverse()
+                .expect("invertible")
+                .0
+        };
+        let model = ::pes_model::model::Model {
+            flags: 0,
+            bones: vec![
+                ::pes_model::format::Bone {
+                    name: "skh_index_mcp_l".to_string(),
+                    matrix: inverse(&tables.hand_l, "skh_index_mcp_l"),
+                },
+                ::pes_model::format::Bone {
+                    name: "sk_forearm_l".to_string(),
+                    matrix: inverse(&tables.body, "sk_forearm_l"),
+                },
+            ],
+            materials: vec!["mat".to_string()],
+            meshes: vec![::pes_model::model::Mesh {
+                name: None,
+                extension_headers: vec![],
+                tags: vec![],
+                vertices: ::pes_model::format::MeshVertices {
+                    positions: vec![[0.0; 3]],
+                    normals: None,
+                    tangents: None,
+                    bitangents: None,
+                    colors: None,
+                    uvs: vec![],
+                    bone_indices: Some(vec![[0, 1, 0, 0]]),
+                    // Weight lands on the forearm only: `skh_` is a group
+                    // entry, not a weighted bone.
+                    bone_weights: Some(vec![[0.0, 1.0, 0.0, 0.0]]),
+                    bone_weight_width: 4,
+                },
+                faces: vec![[0, 0, 0]],
+                lower_lods: vec![],
+                bone_group: vec![0, 1],
+                material: 0,
+                bounds: ::pes_model::format::BoundingBox::of(&[[0.0; 3]]),
+                order: 0,
+                editor_data: vec![],
+            }],
+            extension_headers: vec![],
+            bounds: ::pes_model::format::BoundingBox::of(&[[0.0; 3]]),
+            lod: ::pes_model::format::LodRecord::for_levels(0),
+        };
+        assert!(!needs_conversion(
+            &NativeModelBundle::PreFox {
+                model,
+                mtl: ::pes_model::format::mtl::MaterialSet {
+                    materials: vec![],
+                    style: ::pes_model::format::mtl::MtlStyle::default(),
+                },
+            },
+            PesVersion::Pes15
         ));
     }
 }

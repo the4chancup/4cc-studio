@@ -143,6 +143,19 @@ pub(crate) fn version_bone<'a>(tables: &'a VersionSkeletons, name: &str) -> Opti
         .find_map(|skeleton| skeleton.bone(name))
 }
 
+/// `version_bone` with the hand tables first: the conforming lookup for a model carrying
+/// `skh_` weights — shared wrist/forearm names sit at a different pose in `hand_*` than
+/// in `body` (conversion.md, "Hands and face conform ... against the target's `hand_*`
+/// tables"). On versions where the tables agree this returns the same bone either way.
+pub(crate) fn version_bone_hand_first<'a>(
+    tables: &'a VersionSkeletons,
+    name: &str,
+) -> Option<&'a PesBone> {
+    [&tables.hand_l, &tables.hand_r, &tables.body, &tables.face]
+        .iter()
+        .find_map(|skeleton| skeleton.bone(name))
+}
+
 /// Whether `name` is a bone some version's tables know (PES20 is PES21).
 pub(crate) fn is_standard(name: &str) -> bool {
     [

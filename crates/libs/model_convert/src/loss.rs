@@ -13,7 +13,10 @@
 //! - `material_split_by_flags` (Material): meshes of one FMDL material instance carried
 //!   different flags, so the instance split; `detail` is the new material's name.
 //! - `material_texture_unused` (Material): a canonical role the target format has no sampler
-//!   for; `detail` is the role.
+//!   for (`detail` is the role), or a native sampler of the other engine's material table
+//!   the target resolver does not carry (`detail` is the sampler name).
+//! - `material_parameter_dropped` (Material): a native parameter of the other engine's
+//!   material table the target resolver does not carry; `detail` is the parameter name.
 //! - `sampler_settings_defaulted` (Material): a stored `.mtl` sampler name with no stored
 //!   settings table; it exports with the all-`None` defaults and `detail` is the name.
 //! - `vertex_bitangents_dropped` (Mesh): FMDL has no bitangent attribute.
