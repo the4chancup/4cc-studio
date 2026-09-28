@@ -1100,3 +1100,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
 - **2026-09-28** - `just mutants` fixed: the remote half runs detached and survives a dropped
   link or a killed controller (`just mutants-collect`), and the split no longer silently
   becomes a full local run in shells without `STUDIO_MUTANTS_REMOTE`.
+- **2026-09-28** - Maintainer check of the full-field shirt name (`EDIT00000000 prespoon`,
+  PES 16): 4ccEditor shows `MEAT ON THE BON`, and the save crashes PES 16 after the start
+  screen, cause unknown (the maintainer doubts the shirt name). `shirt_name_from` keeps its
+  free byte. Next: 2.20i slice A (`.tmp/brief_2_20i_a.md`).
