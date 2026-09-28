@@ -36,7 +36,8 @@ pub struct ArraySpec<F> {
     pub bit_width: u32,
 }
 
-/// A NUL-terminated byte string field.
+/// A byte string field: NUL-terminated when the text is shorter than the field, unterminated
+/// when it fills the field exactly.
 pub struct TextSpec<T> {
     pub text: T,
     pub byte_offset: u32,
@@ -130,6 +131,19 @@ readable model names (`TightPossession`, not `tight_pos`); the table module's do
 which reference walk it was derived from, and this section is the evidence trail. The generator
 is `scripts/derive_savefile_schema.py <reference source dir> <crate>/src/schema`; it is committed so
 the tables can be regenerated, and the tables it wrote are committed as ordinary source.
+
+**Text fields hold `len` bytes, not `len - 1`.** A text that fills its field is stored without a
+NUL; a shorter one gets one NUL after it and the rest of the field keeps its old bytes. The
+savefile census (2.20i, every save on the maintainer's machine) found real saves in both
+shapes: PES 16 shirt names of exactly 16 bytes (`MEAT ON THE BONE`) and PES 17 names of exactly
+46 bytes. Reading stops at the first NUL or the field end; writing refuses only a text longer
+than the field, so every save we read writes back byte for byte, and a Team TOML carried from
+such a save applies back. We do not cut a full text by one character to make room for a NUL,
+which silently renames the player on the first save. The one place that still keeps a byte
+free is `shirt_name_from` (`operations.md`), because it invents text rather than carrying it.
+A name whose bytes are not UTF-8 (one PES 17 save carries a CP1252 `£`, byte `0xA3`) is refused
+on read, not decoded lossily: that save does not load in 4ccEditor either (maintainer,
+2026-09-28), so no working save carries one.
 
 **Derivation, not transcription.** The tables are not typed in by hand: a lead script interprets
 each reference read walk (`fill_player_entry17`, `fill_team_ids21`, …) over a symbolic byte

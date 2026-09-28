@@ -377,7 +377,10 @@ tangents, bitangents, colors, each uv map, bone indices, bone weights), at most 
 bone weights only together with bone indices (indices alone are the referee-card case) and
 `bone_weight_width` 2, 3 or 4 when weights are present; every face index of every LOD level
 below the vertex count. It does not check the format limits (64 bones, 65535 vertices, 21845
-faces: `ops::split` takes meshes over them) or a weighted bone slot past the bone group
+faces: `ops::split` takes meshes over them; `check`'s `model_mesh_over_face_limit` stays an
+Error at 21845 although 193 community files, made with an old exporter, go past it: the
+current modelling add-on enforces that limit, and a few hundred missing faces are too few to
+settle it in game, maintainer 2026-09-28) or a weighted bone slot past the bone group
 (`check.rs` warns). `from_file` ends with it; `to_file`, `merge` (on each part) and
 `split::encode`/`decode` start with it; `vertex_enc`'s per-mesh `encode` and `decode` start
 with its mesh-local half (`Mesh::validate`, crate-private), and `decode`/`decode_model` return

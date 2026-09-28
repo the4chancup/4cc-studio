@@ -19,7 +19,9 @@ Part of the [Savefile plan](README.md). Section headings are unchanged from the 
   from real PES 19 (`PRO EVOLUTION SOCCER 2019` KONAMI save) and PES 21 cup
   saves through the AET compiler Red's `savefile.py` reader, which shares this
   plan's offsets; `display_name()` must strip every colour code in those saves'
-  ~30 decorated names and leave every undecorated name unchanged.
+  ~30 decorated names and leave every undecorated name unchanged. A text that fills its field
+  (no NUL) reads whole and writes back byte-identical; one byte more is refused; a non-UTF-8
+  name is refused on read (`codec.md` "Text fields hold `len` bytes").
 - **Export settings versus save interchange**: generated `settings.toml` carries a boots/gloves
   ID only when the stored ID is 1 to 100, never 0 or a custom ID above 100; an authored ID above
   100 is `OutOfRange` naming the key; full Team TOML still round-trips every stored ID as
