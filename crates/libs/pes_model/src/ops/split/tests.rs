@@ -384,24 +384,6 @@ fn duplicate_vertices() {
 // 8
 #[test]
 fn decode_errors() {
-    // Two components of one group disagreeing on material.
-    let mut model = grid_model(grid(4, 4, 0), 0);
-    model.materials.push("Other".to_owned());
-    let mut second = model.meshes[0].clone();
-    second.material = 1;
-    model.meshes[0]
-        .extension_headers
-        .push("Split-Mesh: 1".to_owned());
-    second.extension_headers.push("Split-Mesh: 1".to_owned());
-    model.meshes.push(second);
-    let before = model.clone();
-    assert!(matches!(
-        decode(&mut model),
-        Err(ModelError::InvalidModel(_))
-    ));
-    // A failed decode leaves the model as it was.
-    assert_eq!(model, before);
-
     // A component with a face index past its vertices.
     let mut model = grid_model(grid(4, 4, 0), 0);
     let mut second = model.meshes[0].clone();
@@ -411,24 +393,69 @@ fn decode_errors() {
     second.extension_headers.push("Split-Mesh: 1".to_owned());
     second.faces[0][0] = u16::MAX;
     model.meshes.push(second);
+    let before = model.clone();
     assert!(matches!(
         decode(&mut model),
         Err(ModelError::BadReference { what: "vertex", .. })
     ));
+    // A failed decode leaves the model as it was.
+    assert_eq!(model, before);
 
-    // Components disagreeing on bone weight width.
-    let mut model = grid_model(grid(4, 4, 2), 2);
+    // A split component carrying LOD levels stays an error — it is not a
+    // kept group.
+    let mut model = grid_model(grid(4, 4, 0), 0);
     let mut second = model.meshes[0].clone();
     model.meshes[0]
         .extension_headers
         .push("Split-Mesh: 1".to_owned());
-    second.vertices.bone_weight_width = 3;
+    second.lower_lods = vec![vec![[0, 1, 2]]];
     second.extension_headers.push("Split-Mesh: 1".to_owned());
     model.meshes.push(second);
+    let before = model.clone();
     assert!(matches!(
         decode(&mut model),
-        Err(ModelError::InvalidModel(message)) if message == "split components disagree on bone weight width"
+        Err(ModelError::InvalidModel(message)) if message == "a split component carries LOD levels"
     ));
+    assert_eq!(model, before);
+}
+
+#[test]
+fn a_group_whose_components_are_not_one_mesh_stays_split() {
+    // Material, bone weight width and vertex layout: a group whose
+    // components disagree was never one mesh, so it stays split while
+    // the other groups combine.
+    let mutates: [fn(&mut Mesh); 3] = [
+        |component| component.material = 1,
+        |component| component.vertices.bone_weight_width = 3,
+        |component| {
+            component
+                .vertices
+                .uvs
+                .push(vec![[0.0; 2]; component.vertices.uvs[0].len()])
+        },
+    ];
+    for mutate in mutates {
+        let mut model = grid_model(grid(4, 4, 2), 2);
+        model.materials.push("Other".to_owned());
+        let mut second = model.meshes[0].clone();
+        model.meshes[0]
+            .extension_headers
+            .push("Split-Mesh: 1".to_owned());
+        mutate(&mut second);
+        second.extension_headers.push("Split-Mesh: 1".to_owned());
+        model.meshes.push(second);
+        // A second group whose components do combine.
+        for _ in 0..2 {
+            let mut component = model.meshes[0].clone();
+            component.extension_headers = vec!["Split-Mesh: 2".to_owned()];
+            model.meshes.push(component);
+        }
+        let components = model.meshes[..2].to_vec();
+        decode(&mut model).expect("incompatible groups stay split");
+        assert_eq!(model.meshes.len(), 3);
+        assert_eq!(model.meshes[..2], components[..]);
+        assert!(model.meshes[2].extension_headers.is_empty());
+    }
 }
 
 // 9

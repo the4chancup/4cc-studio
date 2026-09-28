@@ -200,8 +200,9 @@ pub fn encode(model: &mut Model, parents: Option<&[Option<usize>]>) -> Result<bo
 /// (appended if the parent had none), removes the split groups, renumbers
 /// mesh and group indices, clears `extensions.mesh_splitting` unless a
 /// group stays. A group whose combined mesh would reference more than
-/// 65536 distinct vertices stays split — group, flag and components kept
-/// as they are. A split group with a parent that is `None`, or with
+/// 65536 distinct vertices, or whose components are not one mesh (their
+/// vertex layouts disagree), stays split — group, flag and components
+/// kept as they are. A split group with a parent that is `None`, or with
 /// children, is `FmdlError::BadMeshGroupAssignment`. An invalid model is
 /// an error, never a panic.
 pub fn decode(model: &mut Model) -> Result<(), FmdlError> {
@@ -242,8 +243,9 @@ pub fn decode(model: &mut Model) -> Result<(), FmdlError> {
     // intact, so a failed combine leaves it unchanged. Then rebuild the
     // mesh list: components collapse to their combined mesh at the first
     // component's position. A group whose combined mesh cannot be
-    // indexed in u16 stays split — group, flag and components kept as
-    // they are.
+    // indexed in u16, or whose components are not one mesh (their vertex
+    // layouts disagree), stays split — group, flag and components kept
+    // as they are.
     let mut combined_meshes: HashMap<usize, Mesh> = HashMap::new();
     let mut kept: HashSet<usize> = HashSet::new();
     for &group_index in &split_groups {
@@ -251,7 +253,7 @@ pub fn decode(model: &mut Model) -> Result<(), FmdlError> {
             Ok(mesh) => {
                 combined_meshes.insert(group_index, mesh);
             }
-            Err(FmdlError::SplitTooLarge) => {
+            Err(FmdlError::SplitTooLarge) | Err(FmdlError::SplitIncompatible(_)) => {
                 kept.insert(group_index);
             }
             Err(error) => return Err(error),

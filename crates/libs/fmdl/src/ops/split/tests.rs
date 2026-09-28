@@ -900,9 +900,7 @@ fn combine_rejects_mismatched_layouts() {
     };
     assert!(matches!(
         combine::combine(&[with_normals, without_normals], &group),
-        Err(FmdlError::VertexMismatch(
-            "split components have different vertex layouts"
-        ))
+        Err(FmdlError::SplitIncompatible("vertex layouts disagree"))
     ));
 }
 
@@ -1309,8 +1307,8 @@ fn combine_keeps_emission_order_at_index_65535() {
 }
 
 // A combine failure leaves the model untouched: the second split group's
-// components disagree on layout, so decode errors — with the mesh list
-// still populated.
+// second component weights a slot past its bone group, so combine errors —
+// with the mesh list still populated.
 #[test]
 fn a_failed_combine_leaves_the_model_intact() {
     let mut model = grid_model(grid(2, 2, 0), 0);
@@ -1358,11 +1356,74 @@ fn a_failed_combine_leaves_the_model_intact() {
         component(None),
     ];
     model.mesh_groups.push(split_group(vec![0, 1]));
-    // The second group's components disagree on layout: no normals here.
-    model.meshes[3].vertices.normals = None;
+    // The second group's second component weights a slot past its bone
+    // group: a real combine error, not a kept group.
+    for mesh in &mut model.meshes[2..] {
+        mesh.vertices.bone_weights = Some(vec![[255, 0, 0, 0]; 3]);
+        mesh.vertices.bone_indices = Some(vec![[0, 0, 0, 0]; 3]);
+        mesh.bone_group = vec![0];
+    }
+    model.meshes[3].vertices.bone_indices = Some(vec![[9, 0, 0, 0]; 3]);
     model.mesh_groups.push(split_group(vec![2, 3]));
 
     let before = model.clone();
     assert!(decode(&mut model).is_err());
     assert_eq!(model, before);
+}
+
+// A group whose components are not one mesh stays split: their vertex
+// layouts disagree, so the components and flag pass through while the
+// other groups combine.
+#[test]
+fn a_group_whose_components_are_not_one_mesh_stays_split() {
+    let mut model = grid_model(grid(2, 2, 0), 0);
+    let split_group = |meshes: Vec<usize>| MeshGroup {
+        name: "split".to_owned(),
+        parent: Some(0),
+        meshes,
+        bounding_box: None,
+        visible: true,
+        split_mesh_group: true,
+    };
+    let component = |normals: Option<Vec<[f32; 4]>>| Mesh {
+        vertices: MeshVertices {
+            positions: vec![[0.0; 3], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
+            normals,
+            uvs: vec![vec![[0.0; 2]; 3]],
+            uv_high_precision: vec![true],
+            ..MeshVertices::default()
+        },
+        faces: vec![[0, 1, 2]],
+        bone_group: Vec::new(),
+        material: 0,
+        alpha_flags: 0,
+        shadow_flags: 0,
+        has_antiblur_meshes: false,
+        is_antiblur_mesh: false,
+        custom_bounding_box: None,
+    };
+    let normals = Some(vec![[0.0, 0.0, 1.0, 0.0]; 3]);
+    model.meshes = vec![
+        component(normals.clone()),
+        component(None),
+        component(normals.clone()),
+        component(normals),
+    ];
+    model.mesh_groups[0].meshes = Vec::new();
+    // Group 1's components disagree on layout; group 2's combine.
+    model.mesh_groups.push(split_group(vec![0, 1]));
+    model.mesh_groups.push(split_group(vec![2, 3]));
+    let components = model.meshes[..2].to_vec();
+
+    decode(&mut model).expect("an incompatible group stays split");
+
+    assert_eq!(model.meshes.len(), 3);
+    assert_eq!(model.meshes[..2], components[..]);
+    // The kept container stays flagged and lists its components; the
+    // combined group's container is gone and its mesh joined the parent.
+    assert_eq!(model.mesh_groups.len(), 2);
+    assert!(model.mesh_groups[1].split_mesh_group);
+    assert_eq!(model.mesh_groups[1].meshes, vec![0, 1]);
+    assert_eq!(model.mesh_groups[0].meshes, vec![2]);
+    assert!(model.extensions.mesh_splitting);
 }

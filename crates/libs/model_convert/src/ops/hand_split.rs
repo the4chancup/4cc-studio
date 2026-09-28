@@ -101,9 +101,17 @@ fn classes(mesh: &Mesh) -> Vec<usize> {
 }
 
 /// The per-class selection for `hand` on `mesh`: seeds (a positive weight on a slot
-/// whose group bone is `hand`'s) grown once along faces. `class` is the entry →
-/// class map from [`classes`]; the returned vector is indexed by class.
-fn selected(mesh: &Mesh, class: &[usize], bones: &[Bone], hand: Hand) -> Vec<bool> {
+/// whose group bone is `hand`'s) grown once along `grow_faces` — the faces still
+/// present, which for the right hand excludes what the left separation took.
+/// `class` is the entry → class map from [`classes`]; the returned vector is
+/// indexed by class.
+fn selected(
+    mesh: &Mesh,
+    class: &[usize],
+    bones: &[Bone],
+    hand: Hand,
+    grow_faces: &[[u16; 3]],
+) -> Vec<bool> {
     let classes = class.iter().copied().max().map_or(0, |max| max + 1);
     let mut sel = vec![false; classes];
     if let (Some(indices), Some(weights)) =
@@ -119,7 +127,7 @@ fn selected(mesh: &Mesh, class: &[usize], bones: &[Bone], hand: Hand) -> Vec<boo
     // Grow once: one pass over the faces against the seed set (chaining off a
     // just-grown class would be a flood fill, not one Select More).
     let seeds = sel.clone();
-    for face in &mesh.faces {
+    for face in grow_faces {
         if face.iter().any(|&i| seeds[class[usize::from(i)]]) {
             for &i in face {
                 sel[class[usize::from(i)]] = true;
@@ -177,8 +185,8 @@ fn part_mesh(mesh: &Mesh, faces: &[[u16; 3]]) -> Mesh {
 
 /// The model made of the mesh parts `parts` gives (`None` drops the mesh): mesh indices
 /// in groups remap, a group survives when it lists a surviving mesh or is an ancestor of
-/// one, and unweighted bones are pruned. Materials, textures, extension headers and the
-/// source format copy whole.
+/// one, and unused bones, materials and textures are pruned — a glove keeps only the
+/// materials its faces use. Extension headers and the source format copy whole.
 fn assemble(source: &CanonicalModel, parts: Vec<Option<Mesh>>) -> CanonicalModel {
     let mut mesh_of = vec![usize::MAX; source.meshes.len()];
     let mut meshes = Vec::new();
@@ -239,11 +247,67 @@ fn assemble(source: &CanonicalModel, parts: Vec<Option<Mesh>>) -> CanonicalModel
     for mesh in &mut model.meshes {
         remap_bone_group(mesh, &old_to_new, &no_redirect);
     }
+    // Materials and textures prune the same way: a part keeps only what its
+    // meshes reference, indices remapped to the smaller lists.
+    let mut material_of = vec![usize::MAX; model.materials.len()];
+    let mut materials = Vec::new();
+    for (old, material) in model.materials.iter().enumerate() {
+        if model.meshes.iter().any(|mesh| mesh.material == old) {
+            material_of[old] = materials.len();
+            materials.push(material.clone());
+        }
+    }
+    for mesh in &mut model.meshes {
+        mesh.material = material_of[mesh.material];
+    }
+    let mut used = vec![false; model.textures.len()];
+    for material in &materials {
+        for &(_, index) in &material.textures {
+            used[index] = true;
+        }
+        if let Some(fox) = &material.fox {
+            for &(_, index) in &fox.textures {
+                used[index] = true;
+            }
+        }
+        if let Some(prefox) = &material.prefox {
+            for &(_, index) in &prefox.textures {
+                used[index] = true;
+            }
+        }
+    }
+    let mut texture_of = vec![usize::MAX; model.textures.len()];
+    let mut textures = Vec::new();
+    for (old, texture) in model.textures.iter().enumerate() {
+        if used[old] {
+            texture_of[old] = textures.len();
+            textures.push(texture.clone());
+        }
+    }
+    for material in &mut materials {
+        for (_, index) in &mut material.textures {
+            *index = texture_of[*index];
+        }
+        if let Some(fox) = &mut material.fox {
+            for (_, index) in &mut fox.textures {
+                *index = texture_of[*index];
+            }
+        }
+        if let Some(prefox) = &mut material.prefox {
+            for (_, index) in &mut prefox.textures {
+                *index = texture_of[*index];
+            }
+        }
+    }
+    model.materials = materials;
+    model.textures = textures;
     validate(&model).expect("hand split keeps a consistent IR");
     model
 }
 
-/// The plan's select -> grow once -> separate, per hand, in Rust.
+/// The plan's select -> grow once -> separate, per hand in turn, in Rust: the
+/// left hand first, then the right hand on what the left separation left, so a
+/// face fully selected by both goes to `glove_l` only and is never duplicated.
 pub fn split_by_skeleton_group(ir: &CanonicalModel) -> HandSplit {
     if !has_hand_weights(ir) {
         return HandSplit {
@@ -255,55 +319,65 @@ pub fn split_by_skeleton_group(ir: &CanonicalModel) -> HandSplit {
     // Selections run over topological classes: two entries at a UV seam are one vertex,
     // so a class is selected or not, never half.
     let class: Vec<Vec<usize>> = ir.meshes.iter().map(classes).collect();
-    // The two hands are independent selections of the input.
     let sel_l: Vec<Vec<bool>> = ir
         .meshes
         .iter()
         .enumerate()
-        .map(|(m, mesh)| selected(mesh, &class[m], &ir.bones, Hand::Left))
+        .map(|(m, mesh)| selected(mesh, &class[m], &ir.bones, Hand::Left, &mesh.faces))
+        .collect();
+    // What the left separation leaves.
+    let remaining: Vec<Vec<[u16; 3]>> = ir
+        .meshes
+        .iter()
+        .enumerate()
+        .map(|(m, mesh)| {
+            mesh.faces
+                .iter()
+                .copied()
+                .filter(|f| !f.iter().all(|&i| sel_l[m][class[m][usize::from(i)]]))
+                .collect()
+        })
         .collect();
     let sel_r: Vec<Vec<bool>> = ir
         .meshes
         .iter()
         .enumerate()
-        .map(|(m, mesh)| selected(mesh, &class[m], &ir.bones, Hand::Right))
+        .map(|(m, mesh)| selected(mesh, &class[m], &ir.bones, Hand::Right, &remaining[m]))
         .collect();
-    // A face goes to a glove when all three corners' classes are in its selection;
-    // every other face stays with the body.
-    let glove_part = |sel: &[Vec<bool>]| -> Vec<Option<Mesh>> {
-        ir.meshes
-            .iter()
-            .enumerate()
-            .map(|(m, mesh)| {
-                let faces: Vec<[u16; 3]> = mesh
-                    .faces
-                    .iter()
-                    .copied()
-                    .filter(|f| f.iter().all(|&i| sel[m][class[m][usize::from(i)]]))
-                    .collect();
-                (!faces.is_empty()).then(|| part_mesh(mesh, &faces))
-            })
-            .collect()
+    // A face goes to a glove when all three corners' classes are in its
+    // selection; every other remaining face stays with the body.
+    let part = |mesh: &Mesh, faces: Vec<[u16; 3]>| -> Option<Mesh> {
+        (!faces.is_empty()).then(|| part_mesh(mesh, &faces))
     };
-    let glove_l = glove_part(&sel_l);
-    let glove_r = glove_part(&sel_r);
-    let body_parts: Vec<Option<Mesh>> = ir
-        .meshes
-        .iter()
-        .enumerate()
-        .map(|(m, mesh)| {
-            let faces: Vec<[u16; 3]> = mesh
-                .faces
+    let mut glove_l = Vec::with_capacity(ir.meshes.len());
+    let mut glove_r = Vec::with_capacity(ir.meshes.len());
+    let mut body_parts = Vec::with_capacity(ir.meshes.len());
+    for (m, mesh) in ir.meshes.iter().enumerate() {
+        glove_l.push(part(
+            mesh,
+            mesh.faces
                 .iter()
                 .copied()
-                .filter(|f| {
-                    !(f.iter().all(|&i| sel_l[m][class[m][usize::from(i)]])
-                        || f.iter().all(|&i| sel_r[m][class[m][usize::from(i)]]))
-                })
-                .collect();
-            (!faces.is_empty()).then(|| part_mesh(mesh, &faces))
-        })
-        .collect();
+                .filter(|f| f.iter().all(|&i| sel_l[m][class[m][usize::from(i)]]))
+                .collect(),
+        ));
+        glove_r.push(part(
+            mesh,
+            remaining[m]
+                .iter()
+                .copied()
+                .filter(|f| f.iter().all(|&i| sel_r[m][class[m][usize::from(i)]]))
+                .collect(),
+        ));
+        body_parts.push(part(
+            mesh,
+            remaining[m]
+                .iter()
+                .copied()
+                .filter(|f| !f.iter().all(|&i| sel_r[m][class[m][usize::from(i)]]))
+                .collect(),
+        ));
+    }
     HandSplit {
         body: assemble(ir, body_parts),
         glove_l: glove_l
@@ -597,6 +671,121 @@ mod tests {
                 bones
             );
         }
+    }
+
+    #[test]
+    fn a_face_selected_by_both_hands_goes_left_only() {
+        // One triangle weighted half left, half right per vertex: every
+        // class seeds both selections.
+        let mesh = Mesh {
+            vertices: Vertices {
+                positions: vec![[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
+                bone_indices: Some(vec![[0, 1, 0, 0]; 3]),
+                bone_weights: Some(vec![[0.5, 0.5, 0.0, 0.0]; 3]),
+                bone_weight_width: Some(4),
+                ..Vertices::default()
+            },
+            faces: vec![[0, 1, 2]],
+            bone_group: vec![0, 1],
+            material: 0,
+            extension_headers: Default::default(),
+            custom_bounding_box: None,
+        };
+        let ir = model(vec![bone("skh_index_l"), bone("skh_index_r")], mesh);
+        let split = split_by_skeleton_group(&ir);
+        let glove = split.glove_l.expect("left glove");
+        assert_eq!(glove.meshes[0].faces.len(), 1);
+        // The right hand gets no part of it and the body keeps no copy.
+        assert_eq!(split.glove_r, None);
+        assert_eq!(split.body.meshes.len(), 0);
+    }
+
+    #[test]
+    fn a_glove_keeps_only_its_own_materials_and_textures() {
+        // A body-only mesh on material 0 and a hand mesh on material 1 with
+        // its own texture; each part keeps only what its meshes use.
+        let mut body_mesh = wrist_mesh();
+        body_mesh.vertices.bone_indices = Some(vec![[0, 0, 0, 0]; body_mesh.vertices.len()]);
+        body_mesh.vertices.bone_weights =
+            Some(vec![[1.0, 0.0, 0.0, 0.0]; body_mesh.vertices.len()]);
+        body_mesh.bone_group = vec![0];
+        body_mesh.material = 0;
+        let mut hand_mesh = wrist_mesh();
+        hand_mesh.material = 1;
+        let mut ir = model(
+            vec![bone("sk_forearm_l"), bone("sk_hand_l"), bone("skh_index_l")],
+            body_mesh,
+        );
+        ir.meshes.push(hand_mesh);
+        ir.mesh_groups[0].meshes = vec![0, 1];
+        ir.materials.push(Material {
+            name: "glove".to_string(),
+            family: MaterialFamily::Shaded,
+            two_sided: None,
+            transparent: None,
+            antiblur: None,
+            textures: vec![(crate::materials::TextureRole::Base, 1)],
+            parameters: vec![],
+            fox: None,
+            prefox: None,
+        });
+        // A material and a texture nothing references drop from every result.
+        ir.materials.push(Material {
+            name: "spare".to_string(),
+            family: MaterialFamily::Shaded,
+            two_sided: None,
+            transparent: None,
+            antiblur: None,
+            textures: vec![(crate::materials::TextureRole::Base, 2)],
+            parameters: vec![],
+            fox: None,
+            prefox: None,
+        });
+        ir.textures = vec![
+            crate::ir::Texture {
+                directory: "./".to_string(),
+                file_name: "body.dds".to_string(),
+            },
+            crate::ir::Texture {
+                directory: "./".to_string(),
+                file_name: "glove.dds".to_string(),
+            },
+            crate::ir::Texture {
+                directory: "./".to_string(),
+                file_name: "spare.dds".to_string(),
+            },
+        ];
+        let split = split_by_skeleton_group(&ir);
+        let glove = split.glove_l.expect("left glove");
+        assert_eq!(glove.materials.len(), 1);
+        assert_eq!(glove.materials[0].name, "glove");
+        assert_eq!(
+            glove.materials[0].textures,
+            vec![(crate::materials::TextureRole::Base, 0)]
+        );
+        assert_eq!(glove.textures.len(), 1);
+        assert_eq!(glove.textures[0].file_name, "glove.dds");
+        // The hand mesh's boundary part stays in the body on material 1, so
+        // the body keeps both used materials — but "mat" carries no texture,
+        // so body.dds drops with the spare.
+        assert_eq!(
+            split
+                .body
+                .materials
+                .iter()
+                .map(|m| m.name.as_str())
+                .collect::<Vec<_>>(),
+            ["mat", "glove"]
+        );
+        assert_eq!(
+            split
+                .body
+                .textures
+                .iter()
+                .map(|t| t.file_name.as_str())
+                .collect::<Vec<_>>(),
+            ["glove.dds"]
+        );
     }
 
     #[test]

@@ -15,12 +15,16 @@ pub struct InferredFamily {
 
 /// From an FMDL shader name, case-insensitive substring rules in this order: `glass` → Glass;
 /// `ggx` → Metal; `constant` or `lambert` → Shadeless; `blin`, `3ddf` or `hair` → Shaded;
-/// any other `3dfw` → Shadeless approximate; anything else → Shaded approximate.
+/// any other `3dfw` → Shadeless approximate; anything else → Shaded approximate. The rare
+/// shaders have no family ("Shader families"): a name containing `translucent`, `3ddc` or
+/// `eyeocclusion` gets the family the other rules would give, always `approximate`.
 pub fn from_fox_shader(shader: &str) -> InferredFamily {
     let name = shader.to_lowercase();
+    let approximate =
+        name.contains("translucent") || name.contains("3ddc") || name.contains("eyeocclusion");
     let exact = |family| InferredFamily {
         family,
-        approximate: false,
+        approximate,
     };
     if name.contains("glass") {
         exact(MaterialFamily::Glass)
@@ -83,14 +87,15 @@ mod tests {
                 MaterialFamily::Shadeless,
                 false,
             ),
-            ("eyeocclusion_lambert", MaterialFamily::Shadeless, false),
+            ("eyeocclusion_lambert", MaterialFamily::Shadeless, true),
             ("fox3ddf_blin", MaterialFamily::Shaded, false),
             ("fox3ddf_blin_fuzzblock", MaterialFamily::Shaded, false),
             (
                 "pes_3ddf_basic_color_translucent",
                 MaterialFamily::Shaded,
-                false,
+                true,
             ),
+            ("fox3ddf_ggx_translucent", MaterialFamily::Metal, true),
             ("fox3ddf_hair", MaterialFamily::Shaded, false),
             ("fox3dfw_something_else", MaterialFamily::Shadeless, true),
             ("fox_3ddc_basic", MaterialFamily::Shaded, true),

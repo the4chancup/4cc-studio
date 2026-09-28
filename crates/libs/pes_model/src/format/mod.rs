@@ -101,6 +101,10 @@ pub enum ModelError {
     /// vertices; its faces cannot be indexed in `u16`.
     #[error("a combined split mesh references more than 65536 vertices")]
     SplitTooLarge,
+    /// A split group's components cannot be one mesh — their material,
+    /// bone weight width or vertex layout disagree; the group stays split.
+    #[error("split components are not one mesh: {0}")]
+    SplitIncompatible(&'static str),
     /// A face stream's index list or LOD table is malformed: which rule.
     #[error("invalid face stream: {0}")]
     InvalidFaceStream(&'static str),

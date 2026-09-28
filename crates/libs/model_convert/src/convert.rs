@@ -63,8 +63,8 @@ pub fn convert(bundle: NativeModelBundle, target: PesVersion) -> Result<Converte
             crate::formats::pes_model::model_to_ir(model, mtl)?
         }
     };
-    let mut ir = model;
-    findings.extend(retarget(&mut ir, target)?);
+    let (ir, retargeted) = retarget(model, target)?;
+    findings.extend(retargeted);
     let bundle = match target.engine() {
         Engine::Fox => {
             let exported = crate::formats::fmdl::ir_to_fmdl(&ir)?;
