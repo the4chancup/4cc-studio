@@ -2344,3 +2344,29 @@ avoids changing the IR face type before Phase 7 (lead recommendation, act-then-l
 Plan: `model_conversion/ir.md` "What real files carry", `model_conversion/conversion.md` "mesh
 splitting" rules, `model_conversion/README.md` (validate), `libs/format_crates.md` (`.mtl`
 census rules).
+
+## 2026-09-28 - pes_savefile - a text field holds its full length; a non-UTF-8 name is refused
+Decision: a savefile text field holds up to `len` bytes: a text that fills it is written with no
+NUL, only a longer one is refused (codec write, Team TOML's `text_max`, `convert`'s cuts). The
+generated `shirt_name_from` keeps its one free byte. A player name that is not UTF-8 stays a
+read refusal, with no lossy or relaxed mode.
+Why: the savefile census found 6 PES 16 saves with 16-byte shirt names and 3 PES 17 saves with
+46-byte names, none NUL-terminated; with `len - 1` we read them and refused to write them back,
+and cutting a character (what 4ccEditor does) renames the player on the first save. Carried
+text is therefore written as found; invented text stays conservative until a full field is seen
+displaying in game. The one non-UTF-8 save (a CP1252 `£` in PES 17) does not load in 4ccEditor
+either (maintainer, 2026-09-28), so no save in use carries one, and a lossy decode would write
+back a different byte (lead recommendation for the length rule, act-then-log; maintainer for the
+refusal).
+Plan: `pes_savefile/codec.md` "Text fields hold `len` bytes" (new) and the `TextSpec` block,
+`pes_savefile/model.md` field comments, `pes_savefile/operations.md` `shirt_name_from`,
+`pes_savefile/verification.md` "Name fields".
+
+## 2026-09-28 - pes_model - the 21845-face limit stays an Error
+Decision: `check`'s `model_mesh_over_face_limit` keeps 21845 faces per mesh as an Error, although
+193 community `.model` files (cup exports among them) go past it.
+Why: the current modelling add-on enforces the limit; the files over it were made with a much
+older exporter, and the test case (Bedford Rascal, about 700 faces over, most out of sight)
+cannot show missing faces in game, so the in-game check cannot overturn the tool (maintainer,
+2026-09-28). `ops::split` still takes such meshes apart.
+Plan: `libs/format_crates.md` "`pes_model::model`" ("One list of invariants").

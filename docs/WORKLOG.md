@@ -14,7 +14,7 @@ is in `AGENTS.md` ("Working documents").
 rounds A and B (2026-09-13) closed: 2.5c, 2.12b, 2.13b done.
 **In progress:** 2.17 `pes_savefile`, 2.18 `python_bindings`, 2.19 Phase verification done; 2.20
 Converge in progress (a-h done, 2.17i done; 2.20i `pes_savefile` started: census triaged,
-three text-field classes to decide, whole-crate mutation run to redo). Review round C (2026-09-19) closed as
+text-field rules decided, fix and whole-crate mutation run next). Review round C (2026-09-19) closed as
 2.19a; its leftovers are listed under 2.20. 2.5b (GPU BC7) deferred to Phase 4 (user decision
 2026-09-21). Release target (2026-09-28): 0.1.0 after Phase 8; phase order 1–6, 8, 0.1.0, 7,
 9–16 (`core/development_plan.md` "Releases").
@@ -700,17 +700,18 @@ Spec: `docs/plans/core/development_plan.md` "Phase 2", `docs/plans/libs/README.m
     - (2) 3 PES 17 saves: a UTF-8 `Name` exactly 46 bytes long, the same asymmetry.
     - (3) 1 PES 17 save: a `Name` with a CP1252 byte `0xA3` ('£'), refused on read as
       not UTF-8. 4ccEditor truncates (1-2) and mangles (3).
-    Proposed and not yet decided: (1)-(2) the writer accepts a full field and omits the NUL
-    when it is exactly full, so the round trip is lossless. (3) stays a refusal unless the
-    maintainer wants a relaxed read. The whole-crate mutation run was stopped at about 87
+    Decided 2026-09-28 (`codec.md` "Text fields hold `len` bytes", decision entry): (1)-(2)
+    a text field holds `len` bytes, no NUL when full (codec write, `text_max`, `convert`;
+    `shirt_name_from` keeps its free byte); (3) stays a refusal. → verify: census re-run,
+    the 9 saves of (1)-(2) round-trip byte-identical, 0 regressions, (3) still refused; codec
+    and Team TOML tests for a full field and one byte over, red first. The whole-crate mutation run was stopped at about 87
     minutes on the maintainer's request. The partial local shard (385 of 805 mutants) left 20
     survivors, all reading as missing tests (discovery's account-folder filter,
     `section_records` bounds, the `*_mut` accessors, `fresh_salt`, `codec/team.rs` index
     math, container boundary checks). Rerun it whole next session. Round C input (c) is ruled
     no change: discovery returning an empty list for both "no Documents" and "no saves" feeds
-    only the Open menu's shortcut entries, where both mean "no entries". Next: decide (1)-(3),
-    brief the fixes, rerun the whole crate, lead audit, reviewer on the non-interchange
-    modules.
+    only the Open menu's shortcut entries, where both mean "no entries". Next: brief the text
+    fix, rerun the whole crate, lead audit, reviewer on the non-interchange modules.
   - Remaining 2.20 order after this:
     `python_bindings`; then 2.21.
   Known inputs from round C: (a) whole-crate mutation runs left survivors to triage in cpk (28),
@@ -769,7 +770,7 @@ Steps are itemized when Phase 3 closes, and only after 4.0 is done; one more is 
   absent `settings.toml` key means, the Save editor's appearance, transplant and diff features,
   and Phase 6's "`settings.toml` from savefile aesthetics". Test 1 (PES 2021, team `/a/`) files
   are prepared, outside git, in `.tmp/apptest/out/` with install, undo and reading instructions
-  in its `manifest.txt`. Follow-ups (field meaning in `Player.bin`, whether an in-game edit
+  in its `manifest.txt` and a step-by-step for the maintainer in `GUIDE.txt`. Follow-ups (field meaning in `Player.bin`, whether an in-game edit
   writes the record back, other PES versions: 2017 tables in `E:\PES2017\Data\dt10_win_files\
   common\etc\pesdb`) are planned from Test 1's result → done when: the result is recorded in the
   log and in a decision entry, and the plan changes it implies are written
@@ -800,7 +801,8 @@ Steps are itemized when Phase 15 closes; one is fixed already:
 Bugs, unexpected behavior, things to revisit. `open` / `resolved (date)`. Resolved issues are
 pruned when their phase closes; they stay in git history.
 
-- open — `.model` face limit 21845 contradicted by cup files (found at the 2.20g census):
+- resolved (2026-09-28, maintainer: the limit stays, decision entry) — `.model` face limit
+  21845 contradicted by cup files (found at the 2.20g census):
   193 community `.model` files carry a mesh over `FACE_LIMIT_HARD` (more than 65535 face
   indices; the face count field is `u32`), among them cup exports (`Teams_Main/O/Exports/O
   Aesthetic Export from Autumn 17/Faces/73618 - Bedford Rascal/oral_rascal_win32.model`), and no
@@ -1069,3 +1071,6 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   CP1252 byte in a PES 17 name). The session was stopped on the maintainer's request during
   the whole-crate mutation run (partial results in the 2.20i step). Next: decide the text
   rules, fix, rerun `just mutants pes_savefile`.
+- **2026-09-28** - Maintainer rulings: the CP1252 save stays refused (4ccEditor cannot load it),
+  the 21845-face limit stays. Text fields hold their full length (decision entry). Test 1's
+  step-by-step guide is `.tmp/apptest/out/GUIDE.txt`. Next: the 2.20i text fix.

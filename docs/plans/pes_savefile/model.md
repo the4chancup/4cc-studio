@@ -12,9 +12,10 @@ copy methods become derived `PartialEq`/`Clone`/serde.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PlayerEntry {
     pub id: u32,
-    pub name: String,          // on disk: null-terminated UTF-8, 46 B (17–19) / 61 B (20/21);
+    pub name: String,          // on disk: UTF-8, 46 B (17–19) / 61 B (20/21), NUL-terminated
+                               // unless it fills the field (codec.md "Text fields");
                                // 4ccEditor's wchar[61] is only its in-memory buffer
-    pub shirt_name: String,    // on disk: null-terminated ASCII, 18 B (17–19) / 61 B field (20/21,
+    pub shirt_name: String,    // on disk: single-byte, 18 B (17–19) / 61 B field (20/21,
                                // 21 read); 4ccEditor's char[21]
     pub basic: PlayerBasics,        // nation, age, height, weight, shirt number
     pub stats: PlayerStats,         // ~25 ability values + form, injury, weak foot
@@ -51,7 +52,7 @@ The team side is a full model, not just names — the save editor needs all of i
 ```rust
 pub struct TeamEntry {
     pub id: u32,
-    pub name: String,            // on disk: null-terminated UTF-8, 0x46 B (4ccEditor's wchar[0x46]
+    pub name: String,            // on disk: UTF-8, 0x46 B (4ccEditor's wchar[0x46]
                                  // is its in-memory buffer)
     pub short_name: String,      // 3 chars
     pub manager_id: u32,

@@ -609,7 +609,9 @@ impl TeamToml {
     pub fn apply(&self, to: PesVersion, team: &mut TeamEntry, players: &mut [PlayerEntry]) -> Result<Vec<ImportNote>, TeamTomlError>;
 }
 /// `shirt_name_from`: the name upper-cased, colour codes stripped, cut to the version's shirt-name
-/// field (the schema's text length minus the terminator) by characters.
+/// field (the schema's text length minus the terminator) by characters. Unlike every other text
+/// rule (`codec.md` "Text fields hold `len` bytes"), a generated shirt name keeps its NUL: it is
+/// new text, and no in-game check has yet shown a full-field shirt name displaying whole.
 pub fn shirt_name_from(name: &str, version: PesVersion) -> String;
 ```
 
