@@ -136,12 +136,13 @@ impl Offsets {
         let roster = coach + COACH;
         let tactics = roster + schema.roster.size;
         let players = tactics + schema.tactic.size + BLOCK;
-        let width = (layout.size - TAIL - players) / schema.player.size;
+        let body = layout.size - TAIL - players;
         debug_assert_eq!(
-            players + width * schema.player.size + TAIL,
-            layout.size,
-            "the player records and tail fill the file exactly"
+            body % schema.player.size,
+            0,
+            "the player records fill the space between the block and the tail exactly"
         );
+        let width = body / schema.player.size;
         Offsets {
             team,
             coach,
@@ -172,7 +173,7 @@ fn crypt(bytes: &[u8], layout: &TexportLayout) -> Vec<u8> {
 fn ids_agree(plaintext: &[u8], layout: &TexportLayout, version: PesVersion) -> bool {
     let schema = schema_for(version);
     let off = Offsets::of(layout, schema);
-    let id = |at: usize| record_id(&plaintext[at..at + 4]);
+    let id = |at: usize| record_id(&plaintext[at..]);
     id(off.team) == id(off.roster) && id(off.roster) == id(off.tactics)
 }
 
