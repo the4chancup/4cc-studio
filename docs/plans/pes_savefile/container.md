@@ -140,8 +140,9 @@ impl SaveContainer {
     /// (full LCG decrypt + three MD5s).
     pub fn decrypt(bytes: &[u8]) -> Result<SaveContainer, ContainerError>;
     /// PES 15 uses `salt[0]` as its seed byte; 16-21 use all 320 bytes. Errors only on a
-    /// container that cannot be written: an odd `serial` length (`OddSerial`) or an
-    /// `identifier` that is not `header_size - 80` bytes (`BadIdentifier`).
+    /// container that cannot be written: an odd `serial` length (`OddSerial`), an
+    /// `identifier` that is not `header_size - 80` bytes (`BadIdentifier`), or a PES 15
+    /// `description` that is not 384 bytes (`BadDescription`).
     pub fn to_bytes(&self, salt: &[u8; 320]) -> Result<Vec<u8>, ContainerError>;
 }
 ```
@@ -149,7 +150,9 @@ impl SaveContainer {
 `ContainerError` is `Unrecognized` (no key's 64-byte compare held and the PES 15 description
 digest did not match; also any input too short for either check: 384 bytes keyed, 433 PES 15),
 `Truncated { needed, available }` (a scheme identified itself but its declared sizes run past
-the input), `TrailingBytes(n)`, `OddSerial(n)`, `BadIdentifier { expected, got }`.
+the input), `TrailingBytes(n)`, `OddSerial(n)`, `BadIdentifier { expected, got }`,
+`BadDescription { expected, got }`, `SectionTooLarge { section, size }` (a section past the
+header's u32 size field).
 
 `decrypt(to_bytes(c, salt)) == c` for any salt, and `to_bytes` with a real save's own salt
 reproduces that save's bytes exactly (the fixtures below carry enough of a real file to prove it

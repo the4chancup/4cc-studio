@@ -72,6 +72,15 @@ pub enum ContainerError {
         /// The identifier's actual byte count.
         got: usize,
     },
+    /// `to_bytes` got a PES 15 description that is not the section's fixed
+    /// size; a wrong size would write the file misaligned.
+    #[error("description is {got} bytes, the PES 15 section wants {expected}")]
+    BadDescription {
+        /// The section's fixed byte count.
+        expected: usize,
+        /// The description's actual byte count.
+        got: usize,
+    },
     /// A section grew past the header's u32 size field.
     #[error("section {section} is {size} bytes, past the header's u32 field")]
     SectionTooLarge {
@@ -108,7 +117,7 @@ impl SaveContainer {
     /// 16-21 use all 320 bytes.
     pub fn to_bytes(&self, salt: &[u8; 320]) -> Result<Vec<u8>, ContainerError> {
         match self.scheme {
-            Scheme::Pes15 => Ok(pes15::encrypt(self, salt[0])),
+            Scheme::Pes15 => pes15::encrypt(self, salt[0]),
             Scheme::Keyed(key) => pes16_21::encrypt(self, salt, key),
         }
     }
@@ -625,6 +634,23 @@ mod tests {
             Err(ContainerError::BadIdentifier {
                 expected: 96,
                 got: 10
+            })
+        );
+        // PES 15's description is a fixed-size encrypted section: anything
+        // else would be written misaligned, so it is refused.
+        let container = SaveContainer {
+            scheme: Scheme::Pes15,
+            description: vec![0; 9],
+            logo: vec![7; 41],
+            payload: (0..777).map(|i| (i % 5) as u8).collect(),
+            identifier: Vec::new(),
+            serial: Vec::new(),
+        };
+        assert_eq!(
+            container.to_bytes(&test_salt()),
+            Err(ContainerError::BadDescription {
+                expected: 384,
+                got: 9
             })
         );
     }

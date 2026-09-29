@@ -110,6 +110,15 @@ pub enum CodecError {
         /// The stored value past the table's end.
         value: u8,
     },
+    /// A roster longer than the schema's slot count: the extra slots have
+    /// no run to write to and would be silently dropped.
+    #[error("roster is {got} slots, the schema's roster record holds {slots}")]
+    RosterTooLong {
+        /// The schema's roster slot count.
+        slots: usize,
+        /// The roster's actual length.
+        got: usize,
+    },
 }
 
 /// Every `FieldSpec` and every expanded `ArraySpec` element of a record schema
