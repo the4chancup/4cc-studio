@@ -2379,3 +2379,12 @@ Why: the crate is about 27k lines, and the run at `40a07be`, split with the VPS,
 after more than two hours (the first attempt was stopped at 87 minutes, half done). The diff run measures
 every line the rework touches, which is where a closing run's new survivors would come from.
 Plan: no plan edit needed (process, not spec); worklog step 2.20i records it.
+
+## 2026-09-29 - pes_savefile - the 40a07be run's unmeasured mutants run once
+Decision (maintainer): the mutants the `40a07be` whole-crate run never measured (486 at the
+slice A tree) run once, split with the VPS, and their survivors are triaged before 2.20i
+closes. It is not a second whole-crate run; the 2026-09-28 entry stands otherwise.
+Why: that run measured 1130 of 1611 mutants: its VPS half died at 324 of 805 when ssh
+dropped. Slice A's run over the survivors' functions found real gaps in that unrun tail (the
+PES 16-21 and PES 15 header bounds), so the rest is not assumed covered.
+Plan: no plan edit needed (process, not spec); worklog step 2.20i records it.

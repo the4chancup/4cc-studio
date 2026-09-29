@@ -375,9 +375,8 @@ def collect(host: str) -> int:
 def remote_host() -> str | None:
     """`STUDIO_MUTANTS_REMOTE` from the process, else (Windows) from the user's
     registry environment. A process started before the variable was set, such as
-    an IDE's or an agent's shell, does not see it, and at 2.20i that silently
-    turned a split run into a full local one. An empty value in the process
-    opts out."""
+    an IDE's or an agent's shell, does not see it, and would silently run every
+    mutant locally. An empty value in the process opts out."""
     host = os.environ.get("STUDIO_MUTANTS_REMOTE")
     if host is None and os.name == "nt":
         import winreg

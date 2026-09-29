@@ -4,8 +4,8 @@
 //! Everything that translates one-to-one is copied through; what does not is
 //! capped, dropped or filled from the target, and each such case is reported
 //! as a `ConvertNote`, never silently. The version-dependent facts live in
-//! `schema::playstyle` and `schema::limits`; the compile-policy rewrites the
-//! converters also did are the Team compiler's, not this module's.
+//! `schema::playstyle` and `schema::limits`; compile-policy rewrites beyond a
+//! straight carry are the Team compiler's, not this module's.
 
 use pes_version::PesVersion;
 
@@ -20,8 +20,8 @@ use crate::schema::{playstyle, schema_for};
 /// What could not be carried one-to-one; the conversion still succeeded.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ConvertNote {
-    /// A face type above the target's cap was reset to 0 (the converters'
-    /// default; not clamped).
+    /// A face type above the target's cap was reset to 0 rather than clamped
+    /// to the cap.
     FaceTypeReset {
         /// The capped field.
         field: IngameFaceField,

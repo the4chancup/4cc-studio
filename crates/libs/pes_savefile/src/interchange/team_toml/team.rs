@@ -21,18 +21,9 @@ use crate::model::team::{KitSlot, TeamColor, TeamEntry};
 use crate::schema::fields::{PlayerText, PresetField, TacticsField, TeamField, TeamText};
 use crate::schema::instruction;
 use crate::schema::{TacticsSchema, TextSpec, schema_for};
+use crate::settings_toml::padded;
 
 use super::{labels, player};
-
-/// `body` padded so `#` starts at character 33 (1-based); a body longer than
-/// the pad still gets one space before `#`.
-pub(super) fn padded(body: &str, comment: &str) -> String {
-    if comment.is_empty() {
-        return body.to_string();
-    }
-    let pad = 32_usize.saturating_sub(body.len()).max(1);
-    format!("{body}{}# {comment}", " ".repeat(pad))
-}
 
 /// The TOML text of a `Some` value, or `neutral` for a `None` key.
 pub(super) fn value_or(value: Option<String>, neutral: &str) -> String {
@@ -952,8 +943,8 @@ pub(super) fn text(item: &Item, key: &str) -> Result<String, TeamTomlError> {
                 key: key.to_string(),
                 expected: "a string",
             })?;
-    // The codec's text fields are NUL-terminated; an embedded NUL would
-    // reload as a different string, so it is refused like settings.toml's.
+    // The codec's text fields read up to the first NUL; an embedded NUL
+    // would reload truncated, so it is refused like settings.toml's.
     if text.contains('\0') {
         return Err(TeamTomlError::WrongType {
             key: key.to_string(),
@@ -1271,8 +1262,8 @@ pub(super) fn gated(
     }
 }
 
-/// The apply-side text rule all four text fields share: no NUL (the codec's
-/// fields are NUL-terminated, so the value would reload truncated), no char
+/// The apply-side text rule all four text fields share: no NUL (the codec
+/// reads up to the first NUL, so the value would reload truncated), no char
 /// above U+00FF when `single_byte` (the codec encodes one byte per char), and
 /// the field's capacity — UTF-8 bytes for the `name` fields, chars for the
 /// single-byte `short_name`/`shirt_name`.

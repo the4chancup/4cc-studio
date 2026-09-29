@@ -44,8 +44,8 @@ pub enum PlayerDiff {
         /// `b`'s value.
         new: u8,
     },
-    /// Bits of the run no `IngameFaceField` names differ; the hashes are the
-    /// reference's fingerprints of the two runs.
+    /// Bits of the run no `IngameFaceField` names differ; the hashes are
+    /// `ops::fingerprint`'s fingerprints of the two runs.
     FaceRun {
         /// `a`'s fingerprint.
         old: FaceHash,

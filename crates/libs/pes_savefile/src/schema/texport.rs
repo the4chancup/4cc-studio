@@ -29,7 +29,7 @@ pub struct TexportLayout {
 
 /// Where a 15-17 texport's readable records sit in the container's payload
 /// (the team and roster records' positions are unmeasured).
-pub struct TexportOld {
+pub(crate) struct TexportOld {
     /// Byte offset of the tactics record.
     pub tactics_at: usize,
     /// Byte offset of the first player record.
@@ -147,7 +147,7 @@ pub fn texport_layout(version: PesVersion) -> Option<&'static TexportLayout> {
 }
 
 /// The 15-17 payload offsets; `None` on 18-21.
-pub fn texport_old(version: PesVersion) -> Option<&'static TexportOld> {
+pub(crate) fn texport_old(version: PesVersion) -> Option<&'static TexportOld> {
     match version {
         PesVersion::Pes15 => Some(&PES15_OLD),
         PesVersion::Pes16 => Some(&PES16_OLD),

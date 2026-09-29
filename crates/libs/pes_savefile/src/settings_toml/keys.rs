@@ -165,12 +165,54 @@ impl Kind {
     }
 }
 
+/// The TOML table a settings key sits under.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum KeyTable {
+    /// The document root: the key is a top-level line.
+    Top,
+    /// `[appearance]` itself.
+    Appearance,
+    /// `[appearance.physique]`.
+    Physique,
+    /// `[appearance.strip]`.
+    Strip,
+    /// `[appearance.motion]`.
+    Motion,
+    /// `[appearance.face]`.
+    Face,
+}
+
+impl KeyTable {
+    /// The table's dotted TOML path ("" for `Top`).
+    pub fn path(self) -> &'static str {
+        match self {
+            KeyTable::Top => "",
+            KeyTable::Appearance => "appearance",
+            KeyTable::Physique => "appearance.physique",
+            KeyTable::Strip => "appearance.strip",
+            KeyTable::Motion => "appearance.motion",
+            KeyTable::Face => "appearance.face",
+        }
+    }
+
+    /// The sub-table name under `[appearance]`; `None` for `Top` and
+    /// `Appearance` (which is the root itself).
+    pub fn sub_table(self) -> Option<&'static str> {
+        match self {
+            KeyTable::Physique => Some("physique"),
+            KeyTable::Strip => Some("strip"),
+            KeyTable::Motion => Some("motion"),
+            KeyTable::Face => Some("face"),
+            KeyTable::Top | KeyTable::Appearance => None,
+        }
+    }
+}
+
 /// The columns of one key-table row.
 #[derive(Debug, Clone, Copy)]
 pub struct KeySpec {
-    /// The TOML table ("appearance", "appearance.physique", "appearance.strip",
-    /// "appearance.motion", "appearance.face").
-    pub table: &'static str,
+    /// The TOML table the key sits under.
+    pub table: KeyTable,
     /// The TOML key name.
     pub name: &'static str,
     /// How the TOML value maps to the stored `u8`.
@@ -190,11 +232,6 @@ pub(crate) enum Source {
     Face(IngameFaceField),
 }
 
-const PHYSIQUE: &str = "appearance.physique";
-const STRIP: &str = "appearance.strip";
-const MOTION: &str = "appearance.motion";
-const FACE: &str = "appearance.face";
-const APPEARANCE: &str = "appearance";
 const SEVEN: &str = "-7 to 7";
 
 impl SettingKey {
@@ -260,37 +297,37 @@ impl SettingKey {
     pub fn spec(self) -> KeySpec {
         match self {
             SettingKey::BootsId => KeySpec {
-                table: "",
+                table: KeyTable::Top,
                 name: "boots_id",
                 kind: Kind::Number { min: 0, max: 100 },
                 comment: "\"\" = default (fpc.on: hidden, fpc.off: 0, no marker: untouched); 0 to 100, a stock boots model; ignored when the folder has boots models or a boots link",
             },
             SettingKey::GlovesId => KeySpec {
-                table: "",
+                table: KeyTable::Top,
                 name: "gloves_id",
                 kind: Kind::Number { min: 0, max: 100 },
                 comment: "\"\" = default (fpc.on: hidden, fpc.off: 0, no marker: untouched); 0 to 100, a stock gloves model (0 = normal hands); ignored when the folder has gloves models or a gloves link",
             },
             SettingKey::SkinColor => KeySpec {
-                table: APPEARANCE,
+                table: KeyTable::Appearance,
                 name: "skin_color",
                 kind: Kind::Number { min: 0, max: 7 },
                 comment: "0 white, 1 light, 2 fair, 3 medium, 4 olive, 5 brown, 6 black, 7 custom (invisible body, PES 15 to 17 only)",
             },
             SettingKey::IrisColor => KeySpec {
-                table: APPEARANCE,
+                table: KeyTable::Appearance,
                 name: "iris_color",
                 kind: Kind::Number { min: 0, max: 10 },
                 comment: "0 black, 1 dark brown, 2 brown, 3 sable, 4 navy blue, 5 charcoal, 6 gray, 7 blue, 8 sienna, 9 green, 10 violet",
             },
             SettingKey::Height => KeySpec {
-                table: PHYSIQUE,
+                table: KeyTable::Physique,
                 name: "height",
                 kind: Kind::Number { min: 0, max: 255 },
                 comment: "cm",
             },
             SettingKey::Weight => KeySpec {
-                table: PHYSIQUE,
+                table: KeyTable::Physique,
                 name: "weight",
                 kind: Kind::Number { min: 0, max: 255 },
                 comment: "kg",
@@ -310,25 +347,25 @@ impl SettingKey {
             SettingKey::HeadWidth => physique("head_width"),
             SettingKey::HeadDepth => physique("head_depth"),
             SettingKey::Sleeves => KeySpec {
-                table: STRIP,
+                table: KeyTable::Strip,
                 name: "sleeves",
                 kind: Kind::Labels(&["seasonal", "short", "long"]),
                 comment: "\"seasonal\", \"short\", \"long\"",
             },
             SettingKey::Inners => KeySpec {
-                table: STRIP,
+                table: KeyTable::Strip,
                 name: "inners",
                 kind: Kind::Labels(&["off", "normal", "turtleneck"]),
                 comment: "\"off\", \"normal\", \"turtleneck\"",
             },
             SettingKey::Socks => KeySpec {
-                table: STRIP,
+                table: KeyTable::Strip,
                 name: "socks",
                 kind: Kind::Labels(&["standard", "long", "short"]),
                 comment: "\"standard\", \"long\", \"short\"",
             },
             SettingKey::Undershorts => KeySpec {
-                table: STRIP,
+                table: KeyTable::Strip,
                 name: "undershorts",
                 kind: Kind::Labels(&["off", "short", "winter_long", "short_winter_long"]),
                 comment: "\"off\", \"short\", \"winter_long\" (none in summer, long in winter), \"short_winter_long\" (short in summer, long in winter)",
@@ -336,7 +373,7 @@ impl SettingKey {
             SettingKey::Untucked => bool_key("untucked", "true, false"),
             SettingKey::AnkleTaping => bool_key("ankle_taping", "true, false"),
             SettingKey::WristTaping => KeySpec {
-                table: STRIP,
+                table: KeyTable::Strip,
                 name: "wrist_taping",
                 kind: Kind::Labels(&["off", "right", "left", "both"]),
                 comment: "\"off\", \"right\", \"left\", \"both\"",
@@ -344,13 +381,13 @@ impl SettingKey {
             SettingKey::WristTapeColorLeft => seven_color("wrist_tape_color_left"),
             SettingKey::WristTapeColorRight => seven_color("wrist_tape_color_right"),
             SettingKey::Spectacles => KeySpec {
-                table: STRIP,
+                table: KeyTable::Strip,
                 name: "spectacles",
                 kind: Kind::Number { min: 0, max: 7 },
                 comment: "0 none, 1 rectangle rimless, 2 rectangle half frame, 3 rectangle full frame, 4 oval rimless, 5 oval half frame, 6 oval full frame, 7 round full frame",
             },
             SettingKey::SpectaclesColor => KeySpec {
-                table: STRIP,
+                table: KeyTable::Strip,
                 name: "spectacles_color",
                 kind: Kind::Number { min: 0, max: 7 },
                 comment: "0 white, 1 black, 2 red, 3 blue, 4 yellow, 5 green, 6 pink, 7 turquoise",
@@ -383,7 +420,7 @@ impl SettingKey {
                 motion_1based("penalty_kick", 7, "1 to 4 (PES 20 and 21: 1 to 7)")
             }
             SettingKey::Dribbling => KeySpec {
-                table: MOTION,
+                table: KeyTable::Motion,
                 name: "dribbling",
                 kind: Kind::Number { min: 0, max: 3 },
                 comment: "0 to 3, PES 20 and 21 only",
@@ -505,7 +542,7 @@ impl SettingKey {
 
 fn physique(name: &'static str) -> KeySpec {
     KeySpec {
-        table: PHYSIQUE,
+        table: KeyTable::Physique,
         name,
         kind: Kind::Signed7,
         comment: SEVEN,
@@ -514,7 +551,7 @@ fn physique(name: &'static str) -> KeySpec {
 
 fn bool_key(name: &'static str, comment: &'static str) -> KeySpec {
     KeySpec {
-        table: STRIP,
+        table: KeyTable::Strip,
         name,
         kind: Kind::Bool,
         comment,
@@ -523,7 +560,7 @@ fn bool_key(name: &'static str, comment: &'static str) -> KeySpec {
 
 fn seven_color(name: &'static str) -> KeySpec {
     KeySpec {
-        table: STRIP,
+        table: KeyTable::Strip,
         name,
         kind: Kind::Number { min: 0, max: 7 },
         comment: "0 to 7",
@@ -532,7 +569,7 @@ fn seven_color(name: &'static str) -> KeySpec {
 
 fn motion_1based(name: &'static str, max: u8, comment: &'static str) -> KeySpec {
     KeySpec {
-        table: MOTION,
+        table: KeyTable::Motion,
         name,
         kind: Kind::OneBased { max },
         comment,
@@ -541,7 +578,7 @@ fn motion_1based(name: &'static str, max: u8, comment: &'static str) -> KeySpec 
 
 fn celebration(name: &'static str) -> KeySpec {
     KeySpec {
-        table: MOTION,
+        table: KeyTable::Motion,
         name,
         kind: Kind::Number { min: 0, max: 162 },
         comment: "0 none, 1 to 122 (PES 20 and 21: 1 to 162)",
@@ -557,7 +594,7 @@ fn face(name: &'static str, field: IngameFaceField, comment: &'static str) -> Ke
         .max()
         .expect("a face-type field has a cap");
     KeySpec {
-        table: FACE,
+        table: KeyTable::Face,
         name,
         kind: Kind::Number { min: 0, max },
         comment,

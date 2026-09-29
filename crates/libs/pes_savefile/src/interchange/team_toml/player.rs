@@ -25,11 +25,11 @@ use crate::schema::{bit_width, playstyle, schema_for};
 use crate::settings_toml::keys::{SettingKey, Source};
 use crate::settings_toml::{
     AppearanceSettings, appearance_from, apply_appearance, emit_appearance, get_appearance,
-    parse_appearance, set_appearance,
+    leaf_path, padded, parse_appearance, set_appearance,
 };
 
 use super::team::{
-    as_table, check_text, check_width, emit, gated, opt, padded, reject, text, text_max, u16_val,
+    as_table, check_text, check_width, emit, gated, opt, reject, text, text_max, u16_val,
 };
 
 // ---------------------------------------------------------------------------
@@ -803,7 +803,7 @@ fn apply_appearance_table(
             let Some(value) = get_appearance(&appearance, key) else {
                 continue;
             };
-            let leaf = appearance_leaf(path, key);
+            let leaf = leaf_path(&format!("{path}.appearance"), &key.spec());
             match key.source() {
                 Source::Player(field) => {
                     if !context.fields.contains(&field) {
@@ -852,19 +852,14 @@ fn apply_appearance_table(
         let Some(width) = width else {
             continue;
         };
-        check_width(&appearance_leaf(path, key), u32::from(value), width)?;
+        check_width(
+            &leaf_path(&format!("{path}.appearance"), &key.spec()),
+            u32::from(value),
+            width,
+        )?;
     }
     apply_appearance(&appearance, player)?;
     Ok(())
-}
-
-/// The dotted path of an appearance key's leaf (`…appearance.strip.sleeves`).
-fn appearance_leaf(path: &str, key: SettingKey) -> String {
-    format!(
-        "{path}.appearance{}.{}",
-        &key.spec().table["appearance".len()..],
-        key.spec().name
-    )
 }
 
 // ---------------------------------------------------------------------------

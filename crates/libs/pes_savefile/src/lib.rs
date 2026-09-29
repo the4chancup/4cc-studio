@@ -9,7 +9,7 @@
 //! and `file` (`EditFile`, the only module that composes container and codec).
 
 /// Records ↔ fields: the one generic bit codec over a `&VersionSchema`.
-pub mod codec;
+pub(crate) mod codec;
 /// Bytes ↔ decrypted sections: the PES 16-21 keyed container and the PES 15 LCG one.
 pub mod container;
 /// Cross-version player conversion: copy-through plus capped/dropped notes.
@@ -32,5 +32,6 @@ pub mod settings_toml;
 #[cfg(test)]
 mod test_support;
 
+pub use codec::CodecError;
 pub use convert::{ConvertError, ConvertNote, convert_player};
 pub use file::{EditFile, SaveError};

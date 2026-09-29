@@ -590,9 +590,9 @@ pub fn read_squad(bytes: &[u8]) -> Result<TeamToml, LegacyError> {
             Some(&bytes[bytes.len() - TACTICS..]),
         )
     } else {
-        // Either a truncated tactics block or a truncated record.
-        let rem = body % RECORD;
-        let needed = bytes.len() - rem + if rem <= TACTICS { TACTICS } else { RECORD };
+        // The tail is shorter than a record, so shorter than the block too:
+        // report it as a truncated tactics block.
+        let needed = bytes.len() - body % RECORD + TACTICS;
         return Err(LegacyError::Truncated {
             needed,
             len: bytes.len(),
@@ -738,6 +738,59 @@ mod tests {
     fn a_short_tactics_block_is_truncated() {
         let err = read_tactics(&NIGHTLY[..NIGHTLY.len() - 1]).expect_err("one byte short");
         assert!(matches!(err, LegacyError::Truncated { .. }), "{err:?}");
+    }
+
+    /// An instruction's `player` is the byte after its `instruction` byte —
+    /// `block[pos + 1]`, not the neighbouring byte at `pos - 1`.
+    #[test]
+    fn an_instructions_player_byte_follows_its_instruction() {
+        // Preset 2's first defence instruction sits at block offsets
+        // 120 + 106 + 4 (instruction) and +5 (player). NIGHTLY's player
+        // bytes are all 0 — a `pos - 1` read lands on 0 there — so set the
+        // player byte to a value the neighbouring bytes do not hold.
+        let mut bytes = NIGHTLY.to_vec();
+        bytes[13 + 120 + 106 + 5] = 7;
+        let doc = read_tactics(&bytes).expect("NIGHTLY with a player byte set");
+        let entry = doc.tactics.presets[1]
+            .instructions
+            .expect("instructions")
+            .defence[0];
+        assert_eq!(entry.player, 7);
+    }
+
+    /// A squad shorter than header + numbers (5 + 80) is `Truncated` to
+    /// exactly that minimum; at the minimum the tag check is what refuses
+    /// it.
+    #[test]
+    fn a_squad_shorter_than_the_minimum_reports_the_minimum() {
+        assert!(matches!(
+            read_squad(&[0u8; 84]),
+            Err(LegacyError::Truncated {
+                needed: 85,
+                len: 84
+            })
+        ));
+        assert!(matches!(
+            read_squad(&[0u8; 85]),
+            Err(LegacyError::BadTag { .. })
+        ));
+    }
+
+    /// A record count that leaves a partial tail is `Truncated` to the
+    /// tactics block's size: `needed = len - rem + TACTICS`.
+    #[test]
+    fn a_short_squad_reports_the_bytes_it_needs() {
+        let cut = &SQUAD[..SQUAD.len() - 1];
+        // 8187 body bytes = 23 * 356 + 355: the 355-byte tail is read as a
+        // truncated tactics block, so 405 - 355 = 50 more bytes are needed.
+        let err = read_squad(cut).expect_err("a byte short of a record");
+        assert!(
+            matches!(
+                err,
+                LegacyError::Truncated { needed, len } if needed == 8322 && len == 8272
+            ),
+            "{err:?}"
+        );
     }
 
     /// An instruction byte the canonical table does not hold is BadInstruction.

@@ -8,8 +8,8 @@ use toml_edit::DocumentMut;
 
 use super::keys::Source;
 use super::{
-    AppearanceSettings, Kind, NameSetting, Ownership, PlayerSettings, SettingKey, SettingsError,
-    face_ownership, ownership,
+    AppearanceSettings, KeyTable, Kind, NameSetting, Ownership, PlayerSettings, SettingKey,
+    SettingsError, face_ownership, ownership,
 };
 use crate::codec::{read_player, runs, write_player};
 use crate::model::ingame_face::IngameFace;
@@ -50,7 +50,7 @@ fn every_settings_field_is_a_key_and_every_key_a_settings_field() {
     // No key shares a (table, name) pair.
     let names: HashSet<(&str, &str)> = SettingKey::ALL
         .iter()
-        .map(|k| (k.spec().table, k.spec().name))
+        .map(|k| (k.spec().table.path(), k.spec().name))
         .collect();
     assert_eq!(
         names.len(),
@@ -415,9 +415,10 @@ fn the_key_specs_match_the_plan_table() {
     ];
     for (key, comment) in SettingKey::ALL.iter().zip(comments) {
         let spec = key.spec();
+        assert!(!spec.comment.is_empty(), "{key:?} comment");
         assert_eq!(spec.comment, comment, "{key:?} comment");
         assert!(
-            spec.table.is_empty() || tables.contains(&spec.table),
+            spec.table == KeyTable::Top || tables.contains(&spec.table.path()),
             "{key:?} table {:?}",
             spec.table
         );
@@ -534,7 +535,7 @@ fn to_toml_of_a_default_is_a_fully_commented_template() {
     let text = PlayerSettings::default().to_toml().expect("emit");
     for key in SettingKey::ALL {
         let spec = key.spec();
-        if spec.table.is_empty() {
+        if spec.table == KeyTable::Top {
             // The stock-model IDs are never commented: `""` is the shown
             // default value.
             assert!(

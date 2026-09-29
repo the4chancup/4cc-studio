@@ -11,7 +11,7 @@ use crate::model::ingame_face::IngameFace;
 use crate::model::player::PlayerEntry;
 use crate::model::team::TeamEntry;
 use crate::schema::fields::{
-    PlayerField, PlayerText, RosterField, TacticsField, TeamField, TeamText,
+    InstructionSide, PlayerField, PlayerText, RosterField, TacticsField, TeamField, TeamText,
 };
 use crate::schema::ingame_face::IngameFaceField;
 use crate::schema::{RecordSchema, TacticsSchema};
@@ -572,6 +572,161 @@ fn a_value_too_wide_for_its_run_is_refused() {
             ..
         })
     ));
+}
+
+/// `write_run`'s width check covers the writers that go through it
+/// (`write_roster`, `write_tactics`): a roster number above the 8-bit run is
+/// `ValueTooWide`.
+#[test]
+fn a_roster_number_too_wide_for_its_run_is_refused() {
+    let payload = payload(PesVersion::Pes17);
+    let schema = schema_for(PesVersion::Pes17);
+    let mut team = find_team(&payload, schema, 701);
+    team.roster[0].number = 300;
+    let mut rec = vec![0u8; schema.roster.size];
+    assert!(matches!(
+        write_roster(&team, &mut rec, schema.roster),
+        Err(CodecError::ValueTooWide {
+            value: 300,
+            width: 8,
+            ..
+        })
+    ));
+}
+
+/// The same check inline in `write_team`: a colour channel above its 6-bit
+/// run is `ValueTooWide`.
+#[test]
+fn a_team_colour_too_wide_for_its_run_is_refused() {
+    let payload = payload(PesVersion::Pes19);
+    let schema = schema_for(PesVersion::Pes19);
+    let mut team = find_team(&payload, schema, 100);
+    team.colors.as_mut().expect("PES 19 teams have colours")[0].red = 200;
+    let mut rec = vec![0u8; schema.team.size];
+    assert!(matches!(
+        write_team(&team, &mut rec, schema.team),
+        Err(CodecError::ValueTooWide {
+            value: 200,
+            width: 6,
+            ..
+        })
+    ));
+}
+
+/// Read and write share `tactics_runs`, so a round trip cannot see a wrong
+/// offset in it. The fixture bytes at the layout's own offsets decode to
+/// what `read_tactics_into` produced.
+#[test]
+fn tactics_bytes_sit_at_the_layouts_own_offsets() {
+    // A team whose two same-preset formations differ at some slot — the
+    // `formation` stride multiplies into the offset, so a wrong stride
+    // shows only where two formations hold different bytes. PES 17 then
+    // PES 19, the first difference found.
+    let mut found = None;
+    'versions: for version in [PesVersion::Pes17, PesVersion::Pes19] {
+        let payload = payload(version);
+        let schema = schema_for(version);
+        for i in 0..count(&payload, &schema.tactics) {
+            let rec = record(&payload, &schema.tactics, schema.tactic.size, i);
+            let mut team = TeamEntry {
+                id: tactics_id(rec, schema.tactic),
+                ..TeamEntry::default()
+            };
+            read_tactics_into(&mut team, rec, schema.tactic).expect("tactics record decodes");
+            for preset in 0..3 {
+                for slot in 0..11 {
+                    let a = team.tactics.presets[preset].formations[1].players[slot];
+                    let b = team.tactics.presets[preset].formations[2].players[slot];
+                    if a != b {
+                        found = Some((version, schema, team, rec.to_vec(), preset, slot));
+                        break 'versions;
+                    }
+                }
+            }
+        }
+    }
+    let (version, schema, team, rec, preset, slot) =
+        found.expect("a fixture team whose formations 1 and 2 differ");
+    let tactic = schema.tactic;
+    let f = &tactic.formations;
+    for (formation, want) in [
+        (
+            1u8,
+            team.tactics.presets[preset].formations[1].players[slot],
+        ),
+        (2, team.tactics.presets[preset].formations[2].players[slot]),
+    ] {
+        // The eleven positions are a contiguous run; the y/x pairs follow
+        // at the layout's own offsets.
+        let base = f.base_bit
+            + preset as u32 * tactic.preset_stride_bits
+            + u32::from(formation) * f.formation_stride_bits;
+        assert_eq!(
+            bits::read_bits(&rec, base + slot as u32 * f.slot_stride_bits, 8) as u8,
+            want.position,
+            "{version:?} preset {preset} formation {formation} slot {slot} position"
+        );
+        assert_eq!(
+            bits::read_bits(
+                &rec,
+                base + f.y_offset_bits + slot as u32 * f.pair_stride_bits,
+                8
+            ) as u8,
+            want.y,
+            "{version:?} preset {preset} formation {formation} slot {slot} y"
+        );
+        assert_eq!(
+            bits::read_bits(
+                &rec,
+                base + f.x_offset_bits + slot as u32 * f.pair_stride_bits,
+                8
+            ) as u8,
+            want.x,
+            "{version:?} preset {preset} formation {formation} slot {slot} x"
+        );
+    }
+    // The advanced instructions sit at the instruction layout's offsets,
+    // per preset, side and index.
+    let ins = tactic
+        .instructions
+        .as_ref()
+        .expect("PES 17 stores instructions");
+    for preset in 0..3u8 {
+        let preset_base = u32::from(preset) * tactic.preset_stride_bits;
+        for (side, s, entries) in [
+            (
+                InstructionSide::Attack,
+                0u32,
+                team.tactics.presets[usize::from(preset)]
+                    .attack_instructions
+                    .expect("attack instructions"),
+            ),
+            (
+                InstructionSide::Defence,
+                1u32,
+                team.tactics.presets[usize::from(preset)]
+                    .defence_instructions
+                    .expect("defence instructions"),
+            ),
+        ] {
+            for (index, entry) in entries.iter().enumerate() {
+                let at = preset_base
+                    + ins.base_bit
+                    + s * ins.side_stride_bits
+                    + index as u32 * ins.index_stride_bits;
+                assert_eq!(
+                    bits::read_bits(&rec, at, 8) as u8,
+                    entry.instruction,
+                    "preset {preset} {side:?} instruction {index}"
+                );
+                assert_eq!(
+                    bits::read_bits(&rec, at + ins.part_stride_bits, 8) as u8,
+                    entry.player,
+                    "preset {preset} {side:?} instruction {index} player"
+                );
+            }
+        }
+    }
 }
 
 /// The id a roster record carries, read through its schema.
