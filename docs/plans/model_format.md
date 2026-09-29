@@ -98,7 +98,7 @@ material toml, so the same `.glb` compiles typed on pre-Fox and merged into its 
 
   | Format | Decoder | Extensions |
   |--------|---------|------------|
-  | DDS (BC7/BC5/BC3/BC1/…) | `texture2ddecoder` | `.dds` |
+  | DDS (BC7/BC5/BC3/BC1/…) | `dds_convert` (`block_compression`) | `.dds` |
   | FTEX (Fox) | `ftex` crate | `.ftex` |
   | PNG | `image` crate (pure Rust) | `.png` |
   | JPEG | `image` crate (pure Rust) | `.jpg`, `.jpeg` |

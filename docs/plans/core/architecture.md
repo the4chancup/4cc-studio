@@ -58,7 +58,7 @@ The suite follows a **platform + plugins** model with strict modularity rules:
 │       ├── pes_model/                # .model (PreFox model) + sibling .mtl XML read/write
 │       │                             #   + .model mesh splitting, split vertex encoding decode/encode
 │       ├── ftex/                     # FTEX read/write
-│       ├── dds_convert/              # In-process DDS conversion (texture2ddecoder + image crate +
+│       ├── dds_convert/              # In-process DDS conversion (block_compression + image crate +
 │       │                             #   DXT5 encoder + in-memory conversion cache, ≤2-team limit)
 │       ├── color_tools/              # Dominant kit-color extraction + shared color-picker widget
 │       ├── team_widgets/             # Shared egui widgets over the pes_savefile team model: tactics

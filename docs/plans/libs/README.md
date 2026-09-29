@@ -86,11 +86,11 @@ or a path is data in the crate that owns the format, looked up by version, never
 
 | Tool | Current use | Rust replacement |
 |------|-------------|-----------------|
-| `7z.exe` | Extract `.7z` exports | `sevenz-rust` crate (native, no external binary) |
+| `7z.exe` | Extract `.7z` exports | `sevenz-rust2` crate (native, no external binary) |
 | `texconv.exe` | DDS DXT5 conversion (rare) | **Dropped** — in-process conversion (see below) |
 | `magick` (ImageMagick) | Texture conversion on Linux | **Dropped** — same in-process path on all platforms |
 
-The `sevenz-rust` crate eliminates the 7z subprocess and temp-folder extraction dance.
+The `sevenz-rust2` crate eliminates the 7z subprocess and temp-folder extraction dance.
 
 ## Testing: format parser unit tests
 

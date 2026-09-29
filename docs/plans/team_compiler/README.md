@@ -261,7 +261,7 @@ GUI: submit the folder descriptor + source provider to a cancellable background 
   ─ Read vertices (positions, normals, UVs) from the materialized model
   ─ Read faces (index buffer)
   ─ Read bone data (for optional skeleton overlay)
-  ─ Convert texture (DDS/FTEX → raw RGBA via texture2ddecoder)
+  ─ Convert texture (DDS/FTEX → raw RGBA via dds_convert)
         │
         ▼
 GUI: render with wgpu alongside egui
@@ -304,7 +304,7 @@ ui.painter().add(make_paint_callback(rect, callback_state));
 
 **Performance:** A 20K-vertex model is ~640KB of vertex data — uploaded to GPU once, rendered at
 negligible cost. `wgpu` handles millions of vertices trivially. Texture conversion (one 2K DDS → raw
-RGBA via `texture2ddecoder`) takes ~10ms. Only one model is previewed at a time, so memory is not a
+RGBA via `dds_convert`) takes ~10ms. Only one model is previewed at a time, so memory is not a
 concern.
 
 **Limitations:**

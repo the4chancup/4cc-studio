@@ -119,7 +119,7 @@ arrive in Phase 16:
    check+apply non-interactively.
 3. **Download + verify**: fetch the release's `.7z` asset (the same artifact users download manually
    — one artifact serves both paths) into a temp folder, verify its SHA256 against a checksum asset,
-   and extract it with the already-in-workspace `sevenz-rust`. The download **streams** the
+   and extract it with the already-in-workspace `sevenz-rust2`. The download **streams** the
    response body (`ureq`'s `into_reader()`) into the temp file, hashing and counting bytes as it
    goes — that is where the dialog's progress comes from, and it sidesteps `ureq`'s 10 MB default
    in-memory body limit, which the convenience readers (`read_to_vec`/`read_to_string`/`read_json`)
