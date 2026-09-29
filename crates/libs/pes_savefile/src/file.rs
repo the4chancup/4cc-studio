@@ -493,6 +493,74 @@ mod tests {
         }
     }
 
+    /// A payload ending exactly at a section's count field still reads the
+    /// count (and hits the record-end check); one byte shorter is the
+    /// count-offset `Layout` error.
+    #[test]
+    fn a_payload_ending_at_the_count_fields_end_reads_it() {
+        let schema = schema_for(PesVersion::Pes19);
+        let section = &schema.players;
+        let exact = section.count_offset + 2;
+        let mut payload = vec![0u8; exact];
+        // count 0: the count itself reads; the section's first record offset
+        // lands past the payload, which is the other Layout error.
+        let err = section_records(&payload, section, schema.player.size, "players")
+            .expect_err("a payload past the section's end");
+        match err {
+            SaveError::Layout { detail, .. } => assert!(detail.contains("need"), "{detail}"),
+            other => panic!("expected SaveError::Layout, got {other:?}"),
+        }
+        payload.pop();
+        let err = section_records(&payload, section, schema.player.size, "players")
+            .expect_err("a payload short of the count field");
+        match err {
+            SaveError::Layout { detail, .. } => {
+                assert!(detail.contains("count offset"), "{detail}")
+            }
+            other => panic!("expected SaveError::Layout, got {other:?}"),
+        }
+        // A payload ending exactly at the section's end is fine: count 0,
+        // `end == len` is inside bounds.
+        let payload = vec![0u8; section.offset];
+        assert!(
+            section_records(&payload, section, schema.player.size, "players")
+                .expect("count 0 fills the payload exactly")
+                .is_empty()
+        );
+    }
+
+    /// An edit through `players_mut`/`teams_mut` lands on the entry and
+    /// survives `to_bytes` -> `from_bytes`.
+    #[test]
+    fn edits_through_the_mut_slices_are_written_back() {
+        let (mut file, _) = open(PesVersion::Pes19);
+        let player_id = file.players()[0].id;
+        let team_id = file.teams()[0].id;
+        file.players_mut().first_mut().expect("a player").name = "MUTATED".to_string();
+        file.teams_mut().first_mut().expect("a team").short_name = "MTD".to_string();
+        assert_eq!(file.player(player_id).expect("the player").name, "MUTATED");
+        assert_eq!(file.team(team_id).expect("the team").short_name, "MTD");
+        let bytes = file.to_bytes(&test_salt()).expect("to_bytes");
+        let back = EditFile::from_bytes(&bytes).expect("the save reopens");
+        assert_eq!(back.player(player_id).expect("the player").name, "MUTATED");
+        assert_eq!(back.team(team_id).expect("the team").short_name, "MTD");
+    }
+
+    /// The write salt is 320 fresh bytes: nonzero, and its ten 32-byte
+    /// chunks pairwise different (they chain-hash the payload and clock).
+    #[test]
+    #[cfg(not(target_arch = "wasm32"))]
+    fn fresh_salt_is_diverse() {
+        let salt = fresh_salt(b"a payload");
+        assert!(salt.iter().any(|&b| b != 0), "an all-zero salt");
+        let chunks: Vec<&[u8]> = salt.chunks(32).collect();
+        for (i, a) in chunks.iter().enumerate() {
+            for b in &chunks[i + 1..] {
+                assert_ne!(a, b, "two salt chunks are equal");
+            }
+        }
+    }
+
     #[test]
     fn the_decorated_name_census_matches_the_measurement() {
         use crate::model::names::display_name;

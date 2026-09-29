@@ -13,8 +13,8 @@ is in `AGENTS.md` ("Working documents").
 2.6 `fmdl` (format, model, ops, check), 2.7 `pes_model` (format, mtl, model, ops, check), 2.8 `uniparam`, 2.9 `fox2`, 2.10 `archives`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`, 2.14 `color_tools`, 2.15 `elevation`. Review
 rounds A and B (2026-09-13) closed: 2.5c, 2.12b, 2.13b done.
 **In progress:** 2.17 `pes_savefile`, 2.18 `python_bindings`, 2.19 Phase verification done; 2.20
-Converge in progress (a-h done, 2.17i done; 2.20i `pes_savefile` started: census triaged,
-text-field rules decided, fix and whole-crate mutation run next). Review round C (2026-09-19) closed as
+Converge in progress (a-h done, 2.17i done; 2.20i `pes_savefile`: text fix and slice A done,
+the unmeasured mutation remainder, slice B and the reviewer next). Review round C (2026-09-19) closed as
 2.19a; its leftovers are listed under 2.20. 2.5b (GPU BC7) deferred to Phase 4 (user decision
 2026-09-21). Release target (2026-09-28): 0.1.0 after Phase 8; phase order 1–6, 8, 0.1.0, 7,
 9–16 (`core/development_plan.md` "Releases").
@@ -716,12 +716,24 @@ Spec: `docs/plans/core/development_plan.md` "Phase 2", `docs/plans/libs/README.m
     math, container boundary checks). Rerun it whole next session. Round C input (c) is ruled
     no change: discovery returning an empty list for both "no Documents" and "no saves" feeds
     only the Open menu's shortcut entries, where both mean "no entries". Whole-crate run at
-    `40a07be` (`.tmp/mutants_2_20i_whole/`): 806 mutants, 716 caught, 24 missed, 2 timeouts,
-    64 unviable, all on this PC in 3 h 23 min (see the sharding issue below); the VPS half
-    is discarded. This run is the crate's last (maintainer, 2026-09-28, decision entry): the closing
-    measurement is `just mutants-diff 40a07be` over every rework commit, not a second
-    whole-crate run. Next: rework from the lead audit (`.tmp/audit_2_20i.md`) and the run's
-    survivors, reviewer on the non-interchange modules.
+    `40a07be` (`.tmp/mutants_2_20i_whole/`), split, of the crate's 1611 mutants: this PC's
+    half, 806 mutants in 3 h 23 min: 716 caught, 24 missed, 2 timeouts, 64 unviable; the VPS
+    half recorded 324 of its 805 (292 caught, 12 missed, 19 unviable) before its ssh link
+    dropped. This run is the crate's last whole one (maintainer, 2026-09-28, decision entry):
+    the closing measurement is `just mutants-diff 40a07be` over every rework commit. The
+    mutants neither half measured are run once as a remainder (decision entry 2026-09-29).
+    Slice A (`.tmp/brief_2_20i_a.md`, rework `.tmp/brief_2_20i_a_rework.md`): a test for each
+    of the 24 local survivors and for the VPS half's 12. The run over the survivors'
+    functions (384 mutants, before the new tests were complete) left 12 missed, most of them in
+    the VPS half's unrun tail: `pes16_21` and `pes15` header bounds, `read_squad` sizes,
+    `display_name` edges. Tests added for those; re-run of the 58 sites: 0 missed. Also done: F1 `codec`, F2 `labels`, F2b
+    `TexportOld` crate-private (`CodecError` re-exported at the root); F3 one `padded`; F4
+    `KeyTable` enum for `KeySpec.table` (`leaf_path` shared with team.toml); F6/F7 comments;
+    `read_squad`'s unreachable size arm removed; `fresh_salt`'s `n >= 0` excluded as
+    equivalent. `mutants-diff b2045de`: 51, 0 missed, 7 unviable (`KeySpec` has no
+    `Default`). Next: the unmeasured remainder (`.tmp/remainder/run_remainder.py`: 486 plus
+    16 `delete field` siblings cargo-mutants selects along), its survivors, slice B (F5's
+    pure moves), then the reviewer on the non-interchange modules.
   - Remaining 2.20 order after this:
     `python_bindings`; then 2.21.
   Known inputs from round C: (a) whole-crate mutation runs left survivors to triage in cpk (28),
@@ -821,13 +833,14 @@ pruned when their phase closes; they stay in git history.
   cannot load it") is wrong. `split::encode` still takes them apart harmlessly. Needs the
   maintainer: is one of those models known to render in game? Decide before Phase 3 maps the
   code in the Team compiler's catalog.
-- resolved (2026-09-28) — `just mutants` sharding (found at 2.20i): at `40a07be` all 806
-  mutants ran locally while a VPS half also ran and then died when ssh dropped. Cause of the
-  local half: agent shells do not inherit the user variable `STUDIO_MUTANTS_REMOTE` (process
-  empty, user registry `bonfire`), so `just mutants` from one took the local-only path. Fixed
-  in `scripts/mutants.py`: the variable is read from the registry too, the mode is printed,
-  and the remote half runs detached with polling and `just mutants-collect` (`AGENTS.md`
-  "Environment"). Checked on `fpc`, `color_tools` and `cpk`: halves of 8/8, 46, 125/124; the
+- resolved (2026-09-28) — `just mutants` remote half died with its ssh link (found at
+  2.20i): at `40a07be` the split itself was right (this PC ran shard 0/2, 806 of 1611), but
+  the VPS half ran inside one long ssh session and died at 324 of 805 when it dropped. Fixed
+  in `scripts/mutants.py`: the remote half runs detached with polling and
+  `just mutants-collect` (`AGENTS.md` "Environment"). Also found: agent shells do not inherit
+  the user variable `STUDIO_MUTANTS_REMOTE` (process empty, user registry `bonfire`), which
+  would silently run everything locally; the variable is now read from the registry too,
+  and the mode is printed. Checked on `fpc`, `color_tools` and `cpk`: halves of 8/8, 46, 125/124; the
   remote half survived its controller being killed and was collected; a died half is
   refused as a new run and collected partially; an unreachable host retries then gives up.
 - open — u16 face indices cap a reassembled split mesh (found at 2.20f review): `fmdl::Mesh`
@@ -1098,9 +1111,12 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   audit in `.tmp/audit_2_20i.md` (F1-F7). Next: slice A = survivors + F1-F4, F6, F7; slice B =
   F5's pure moves; each checked with `mutants-diff`; then the reviewer.
 - **2026-09-28** - `just mutants` fixed: the remote half runs detached and survives a dropped
-  link or a killed controller (`just mutants-collect`), and the split no longer silently
-  becomes a full local run in shells without `STUDIO_MUTANTS_REMOTE`.
+  link or a killed controller (`just mutants-collect`), and shells without
+  `STUDIO_MUTANTS_REMOTE` read it from the registry.
 - **2026-09-28** - Maintainer check of the full-field shirt name (`EDIT00000000 prespoon`,
   PES 16): 4ccEditor shows `MEAT ON THE BON`, and the save crashes PES 16 after the start
   screen, cause unknown (the maintainer doubts the shirt name). `shirt_name_from` keeps its
   free byte. Next: 2.20i slice A (`.tmp/brief_2_20i_a.md`).
+- **2026-09-29** - 2.20i slice A done (survivor tests, F1-F4, F6, F7; `mutants-diff`: 0
+  missed). Correction: the `40a07be` whole-crate run measured 1130 of 1611 mutants, not all
+  of them (its VPS half died partway); the maintainer approved one run of the 486 unmeasured.

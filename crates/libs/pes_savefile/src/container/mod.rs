@@ -498,6 +498,118 @@ mod tests {
         );
     }
 
+    /// The crate's own PES 15 writer, cut at each boundary: the first missing
+    /// span is reported exactly — 433 bytes is a whole valid head, so it is
+    /// `Truncated` at the logo-length field, not `Unrecognized`.
+    #[test]
+    fn pes15_boundaries_report_the_first_missing_span() {
+        let container = SaveContainer {
+            scheme: Scheme::Pes15,
+            description: (0..384).map(|i| (i % 9) as u8).collect(),
+            logo: vec![7; 41],
+            payload: (0..777).map(|i| (i % 5) as u8).collect(),
+            identifier: Vec::new(),
+            serial: Vec::new(),
+        };
+        let bytes = container.to_bytes(&test_salt()).expect("to_bytes");
+        assert_eq!(
+            SaveContainer::decrypt(&bytes[..433]),
+            Err(ContainerError::Truncated {
+                needed: 437,
+                available: 433
+            })
+        );
+        // Inside the 4-byte logo-length field, then exactly at its end:
+        // what is missing next is the 41-byte logo plus the payload-length
+        // field.
+        assert_eq!(
+            SaveContainer::decrypt(&bytes[..435]),
+            Err(ContainerError::Truncated {
+                needed: 437,
+                available: 435
+            })
+        );
+        assert_eq!(
+            SaveContainer::decrypt(&bytes[..437]),
+            Err(ContainerError::Truncated {
+                needed: 437 + 41 + 4,
+                available: 437
+            })
+        );
+        // The whole logo plus its length field (482 bytes) reads fine; the
+        // payload declared in the header is what is missing.
+        assert_eq!(
+            SaveContainer::decrypt(&bytes[..482]),
+            Err(ContainerError::Truncated {
+                needed: 482 + 777,
+                available: 482
+            })
+        );
+        // Bytes after the declared sections are TrailingBytes, counted
+        // exactly.
+        let mut long = bytes.clone();
+        long.extend_from_slice(&[9u8; 7]);
+        assert_eq!(
+            SaveContainer::decrypt(&long),
+            Err(ContainerError::TrailingBytes(7))
+        );
+        // A corruption only inside the logo or only inside the payload
+        // still trips that section's digest.
+        let mut bad_logo = bytes.clone();
+        bad_logo[437] ^= 0xff;
+        assert_eq!(
+            SaveContainer::decrypt(&bad_logo),
+            Err(ContainerError::Unrecognized)
+        );
+        let mut bad_payload = bytes.clone();
+        let last = bad_payload.len() - 1;
+        bad_payload[last] ^= 0xff;
+        assert_eq!(
+            SaveContainer::decrypt(&bad_payload),
+            Err(ContainerError::Unrecognized)
+        );
+    }
+
+    /// A keyed file cut inside the header reports `salt + header_size` as
+    /// `needed` — the salt is not folded into the header length.
+    #[test]
+    fn a_short_keyed_header_reports_salt_plus_header() {
+        let bytes = synthetic(MasterKey::Pes17)
+            .to_bytes(&test_salt())
+            .expect("to_bytes");
+        // PES 17's header is 176 bytes; salt + 175 decrypts a partial header
+        // and reports 320 + 176.
+        assert_eq!(
+            SaveContainer::decrypt(&bytes[..495]),
+            Err(ContainerError::Truncated {
+                needed: 496,
+                available: 495
+            })
+        );
+        // 384 bytes is the salt plus the whole 64-byte compare span, but the
+        // header is still incomplete: `needed` is salt + header (496). At
+        // 496 the whole header is present and what is missing is past it.
+        assert_eq!(
+            SaveContainer::decrypt(&bytes[..384]),
+            Err(ContainerError::Truncated {
+                needed: 496,
+                available: 384
+            })
+        );
+        let err = SaveContainer::decrypt(&bytes[..496]).expect_err("past the header");
+        assert!(
+            matches!(err, ContainerError::Truncated { needed, available } if needed > 496 && available == 496),
+            "{err:?}"
+        );
+        // Trailing bytes are counted as `len - needed`, not a quotient.
+        let mut long = bytes.clone();
+        long.extend_from_slice(&[0; 7]);
+        assert_eq!(
+            SaveContainer::decrypt(&long),
+            Err(ContainerError::TrailingBytes(7))
+        );
+    }
+
     #[test]
     fn to_bytes_rejects_a_malformed_container() {
         let mut container = synthetic(MasterKey::Pes17);

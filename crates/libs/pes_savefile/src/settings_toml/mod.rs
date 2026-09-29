@@ -18,7 +18,7 @@ use crate::model::player::PlayerEntry;
 use crate::schema::fields::PlayerField;
 use crate::schema::ingame_face::IngameFaceField;
 
-pub use keys::{KeySpec, Kind, SettingKey};
+pub use keys::{KeySpec, KeyTable, Kind, SettingKey};
 
 /// The player-name setting: `true` in TOML derives from the folder, a string
 /// is written as is, absent leaves the savefile name untouched.
@@ -793,10 +793,10 @@ const HEADER: &str = "\
 /// The dotted path of a key ("appearance.strip.sleeves"; a top-level key is
 /// just its name).
 fn dotted(spec: &keys::KeySpec) -> String {
-    if spec.table.is_empty() {
+    if spec.table == KeyTable::Top {
         spec.name.to_string()
     } else {
-        format!("{}.{}", spec.table, spec.name)
+        format!("{}.{}", spec.table.path(), spec.name)
     }
 }
 
@@ -880,36 +880,37 @@ fn neutral_text(kind: Kind) -> String {
 }
 
 /// `body` padded so `#` starts at character 33 (1-based); a body longer than
-/// the pad still gets one space before `#`.
-fn padded(body: &str, comment: &str) -> String {
+/// the pad still gets one space before `#`. An empty comment leaves `body`
+/// unpadded.
+pub(crate) fn padded(body: &str, comment: &str) -> String {
+    if comment.is_empty() {
+        return body.to_string();
+    }
     let pad = 32_usize.saturating_sub(body.len()).max(1);
     format!("{body}{}# {comment}", " ".repeat(pad))
 }
 
 /// The key's dotted path under `root` (`root` = the appearance table's own
-/// path: "appearance" in settings.toml, "players.03.appearance" in team.toml).
-fn leaf_path(root: &str, spec: &keys::KeySpec) -> String {
-    match spec.table {
-        "appearance" => format!("{root}.{}", spec.name),
-        _ => format!(
-            "{root}.{}.{}",
-            &spec.table["appearance.".len()..],
-            spec.name
-        ),
+/// path: "appearance" in settings.toml, "players.03.appearance" in team.toml);
+/// a `Top` key never reaches it — its callers filter `Top` first.
+pub(crate) fn leaf_path(root: &str, spec: &keys::KeySpec) -> String {
+    match spec.table.sub_table() {
+        None => format!("{root}.{}", spec.name),
+        Some(sub) => format!("{root}.{sub}.{}", spec.name),
     }
 }
 
 /// The item at a key's `(table, name)` inside the `appearance` table, `None`
-/// when absent; `path` is the appearance table's dotted path for error keys.
+/// when absent; `path` is the appearance table's dotted path for error keys;
+/// a `Top` key never reaches it — its callers filter `Top` first.
 fn lookup<'a>(
     appearance: &'a dyn toml_edit::TableLike,
     spec: &keys::KeySpec,
     path: &str,
 ) -> Result<Option<&'a Item>, SettingsError> {
-    let table = match spec.table {
-        "appearance" => appearance,
-        _ => {
-            let sub = &spec.table["appearance.".len()..];
+    let table = match spec.table.sub_table() {
+        None => appearance,
+        Some(sub) => {
             let Some(item) = appearance.get(sub) else {
                 return Ok(None);
             };
@@ -1049,14 +1050,14 @@ fn value(
     }
 }
 
-/// The spec's table path under the appearance root `root` ("appearance" →
-/// `root`, "appearance.physique" → `root.physique`; a top-level key's table
-/// is the root itself, though its callers filter empty tables first).
-fn absolute(root: &str, table: &str) -> String {
-    if table.is_empty() {
-        return root.to_string();
+/// The spec's table path under the appearance root `root` (`Appearance` →
+/// `root`, `Physique` → `root.physique`; a top-level key's table is the root
+/// itself, though its callers filter `Top` first).
+fn absolute(root: &str, table: KeyTable) -> String {
+    match table.sub_table() {
+        None => root.to_string(),
+        Some(sub) => format!("{root}.{sub}"),
     }
-    format!("{}{}", root, &table["appearance".len()..])
 }
 
 /// Everything the value walk did not consume is refused. A leaf is known
@@ -1070,7 +1071,7 @@ fn reject_unknown(document: &DocumentMut) -> Result<(), SettingsError> {
             "appearance" => reject_unknown_table(item, "appearance", "appearance")?,
             _ if SettingKey::ALL
                 .iter()
-                .any(|key| key.spec().table.is_empty() && key.spec().name == name) => {}
+                .any(|key| key.spec().table == KeyTable::Top && key.spec().name == name) => {}
             _ => {
                 return Err(SettingsError::UnknownKey {
                     key: name.to_string(),
@@ -1092,10 +1093,9 @@ fn reject_unknown_table(item: &Item, root: &str, path: &str) -> Result<(), Setti
     };
     for (leaf, sub) in table.iter() {
         let child = format!("{path}.{leaf}");
-        if SettingKey::ALL
-            .iter()
-            .any(|key| !key.spec().table.is_empty() && absolute(root, key.spec().table) == child)
-        {
+        if SettingKey::ALL.iter().any(|key| {
+            key.spec().table != KeyTable::Top && absolute(root, key.spec().table) == child
+        }) {
             if !sub.is_table_like() {
                 return Err(SettingsError::WrongType {
                     key: child,
@@ -1104,7 +1104,7 @@ fn reject_unknown_table(item: &Item, root: &str, path: &str) -> Result<(), Setti
             }
             reject_unknown_table(sub, root, &child)?;
         } else if !SettingKey::ALL.iter().any(|key| {
-            !key.spec().table.is_empty()
+            key.spec().table != KeyTable::Top
                 && absolute(root, key.spec().table) == path
                 && key.spec().name == leaf
         }) {
@@ -1153,7 +1153,7 @@ pub(crate) fn parse_appearance(
     let mut out = AppearanceSettings::default();
     for key in SettingKey::ALL {
         let spec = key.spec();
-        if spec.table.is_empty() {
+        if spec.table == KeyTable::Top {
             continue; // top-level keys are not in the appearance tables
         }
         let Some(item) = lookup(appearance, &spec, path)? else {
@@ -1176,10 +1176,10 @@ pub(crate) fn emit_appearance(
     appearance: &AppearanceSettings,
     stored_ranges: bool,
 ) -> Result<(), SettingsError> {
-    let mut table = "";
+    let mut table = KeyTable::Top;
     for key in SettingKey::ALL {
         let spec = key.spec();
-        if spec.table.is_empty() {
+        if spec.table == KeyTable::Top {
             continue; // top-level keys are not emitted inside a table
         }
         if spec.table != table {
@@ -1301,7 +1301,7 @@ impl PlayerSettings {
         }
         for key in SettingKey::ALL {
             let spec = key.spec();
-            if spec.table.is_empty() {
+            if spec.table == KeyTable::Top {
                 continue; // top-level keys were written above
             }
             let Some(stored) = self.get(key) else {
@@ -1309,7 +1309,7 @@ impl PlayerSettings {
             };
             let mut item = document.as_item_mut();
             let mut path = String::new();
-            for segment in spec.table.split('.') {
+            for segment in spec.table.path().split('.') {
                 if !path.is_empty() {
                     path.push('.');
                 }

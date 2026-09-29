@@ -120,6 +120,27 @@ mod tests {
         dir
     }
 
+    /// The native entry point is `discover_savefiles_in` over the shell's
+    /// Documents folder — on a machine with saves, a no-discovery mutant
+    /// would return an empty list where the walk finds them.
+    #[test]
+    #[cfg(not(target_arch = "wasm32"))]
+    fn discover_savefiles_walks_the_documents_tree() {
+        let Some(dirs) = directories::UserDirs::new() else {
+            return;
+        };
+        let Some(documents) = dirs.document_dir() else {
+            return;
+        };
+        for version in PesVersion::ALL {
+            assert_eq!(
+                discover_savefiles(version),
+                discover_savefiles_in(documents, version),
+                "{version:?}"
+            );
+        }
+    }
+
     #[test]
     fn discovery_finds_saves_under_both_layouts() {
         let root = temp_dir("tree");
@@ -144,7 +165,20 @@ mod tests {
             .join("PRO EVOLUTION SOCCER 2019")
             .join("333333333333333333")
             .join("save");
-        for path in [&p17, &p19a, &p19b] {
+        // Not an account folder: 18 characters, not all digits; and an
+        // all-digit name of the wrong length. A save under either stays
+        // undiscovered.
+        let p19bad = konami
+            .join("PRO EVOLUTION SOCCER 2019")
+            .join("abcdefghijklmnopqr")
+            .join("save")
+            .join("EDIT00000000");
+        let p19short = konami
+            .join("PRO EVOLUTION SOCCER 2019")
+            .join("1234")
+            .join("save")
+            .join("EDIT00000000");
+        for path in [&p17, &p19a, &p19b, &p19bad, &p19short] {
             std::fs::create_dir_all(path.parent().expect("parent")).expect("mkdir");
             std::fs::write(path, b"save").expect("seed");
         }

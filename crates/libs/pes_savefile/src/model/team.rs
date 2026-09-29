@@ -214,3 +214,21 @@ impl TeamEntry {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// `roster_set` grows the roster to the written slot (`i + 1`), so
+    /// indexing it does not read past the end.
+    #[test]
+    fn roster_set_grows_the_roster_to_the_written_slot() {
+        let mut team = TeamEntry::default();
+        team.roster_set(RosterField::Player(0), 55).expect("slot 0");
+        assert_eq!(team.roster.len(), 1);
+        assert_eq!(team.roster[0].player_id, 55);
+        team.roster_set(RosterField::Number(2), 9).expect("slot 2");
+        assert_eq!(team.roster.len(), 3);
+        assert_eq!(team.roster[2].number, 9);
+    }
+}

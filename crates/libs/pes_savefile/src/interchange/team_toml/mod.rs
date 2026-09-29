@@ -7,7 +7,7 @@
 /// The label tables the format writes where the record stores a number or a
 /// bit (style-switch pairs, positions, instructions, ratings, styles, skills,
 /// COM styles, foot/hand).
-pub mod labels;
+pub(crate) mod labels;
 mod player;
 pub(crate) mod player_keys;
 mod team;

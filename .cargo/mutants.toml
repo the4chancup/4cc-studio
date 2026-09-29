@@ -96,4 +96,12 @@ exclude_re = [
     "retarget\\.rs:236:28: replace > with",
     "retarget\\.rs:238:40: replace /= with \\*=",
     "retarget\\.rs:219:28: replace > with >=",
+    # pes_savefile 2.20i equivalences:
+    # `fresh_salt`'s `n > 0` -> `n >= 0` is equivalent. It only rehashes
+    # chunk 0 as well, so every chunk is still a distinct link of the
+    # payload-and-clock hash chain, and the salt's only contract is that
+    # diversity (it has no fixed expected value). The `==` and `<` forms stop
+    # the chain after chunk 0, leave the chunks equal, and stay in: the
+    # pairwise-distinct test kills them.
+    "replace > with >= in fresh_salt",
 ]

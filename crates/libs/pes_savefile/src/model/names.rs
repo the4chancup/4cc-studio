@@ -62,4 +62,20 @@ mod tests {
         assert_eq!(display_name("plain"), "plain");
         assert_eq!(display_name("\x11x?"), "\x11x?");
     }
+
+    #[test]
+    fn codes_at_the_names_edge_are_stripped_or_kept_whole() {
+        // A complete \x11c code as the name's last ten bytes (the
+        // `i + end <= len` boundary, inclusive) is still a code.
+        assert_eq!(display_name("ab\x11c12345678"), "ab");
+        // A lone 0x11 as the last byte is not a code's start: kept.
+        assert_eq!(display_name("ab\x11"), "ab\x11");
+        // A \x11c code whose ten bytes end inside a multi-byte char is not
+        // a code: the boundary check rejects it even though the span fits.
+        assert_eq!(display_name("x\x11c1234567€"), "x\x11c1234567€");
+        // A \x11d reset two bytes after a two-byte char, before a
+        // three-byte one: the boundary is checked at i + 2 (just past the
+        // reset), not i - 2 (inside 'é').
+        assert_eq!(display_name("aéx\x11d€y"), "aéx€y");
+    }
 }
