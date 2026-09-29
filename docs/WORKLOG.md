@@ -13,7 +13,7 @@ is in `AGENTS.md` ("Working documents").
 2.6 `fmdl` (format, model, ops, check), 2.7 `pes_model` (format, mtl, model, ops, check), 2.8 `uniparam`, 2.9 `fox2`, 2.10 `archives`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`, 2.14 `color_tools`, 2.15 `elevation`. Review
 rounds A and B (2026-09-13) closed: 2.5c, 2.12b, 2.13b done.
 **In progress:** 2.17 `pes_savefile`, 2.18 `python_bindings`, 2.19 Phase verification done; 2.20
-Converge in progress (a-i done, 2.17i done; next 2.20j `python_bindings`, then 2.21). Review round C (2026-09-19) closed as
+Converge in progress (a-j done, 2.17i done; next 2.21). Review round C (2026-09-19) closed as
 2.19a; its leftovers are listed under 2.20. 2.5b (GPU BC7) deferred to Phase 4 (user decision
 2026-09-21). Release target (2026-09-28): 0.1.0 after Phase 8; phase order 1–6, 8, 0.1.0, 7,
 9–16 (`core/development_plan.md` "Releases").
@@ -53,6 +53,11 @@ being true. Permanent toolchain facts go in `docs/CONTRIBUTING.md` "Toolchain no
   the encode tests compare the chain-wide mean for that reason. Revisit with representative kit
   and face textures when the Team compiler can produce them (plan: "tune against representative
   textures").
+- **The VPS is off limits for mutation runs** (maintainer, 2026-09-29: heavy work on it for a
+  while) until the maintainer says otherwise. Every `just mutants <crate>` runs fully local:
+  start it with `STUDIO_MUTANTS_REMOTE` set to an empty string in the process (an empty value
+  opts out of the registry fallback), and check its first line says "running every mutant on
+  this machine". Every brief that starts a run says so.
 - `just mutants-diff` reuses `mutants.out/`: it wipes a whole-crate run's results. Copy
   `mutants.out/` aside (for example to `.tmp/mutants_<step>_whole/`) before the first diff run.
 - `block_compression` 0.10's BC3/BC4/BC5 decoder truncates the alpha-ramp interpolation where
@@ -760,8 +765,23 @@ Spec: `docs/plans/core/development_plan.md` "Phase 2", `docs/plans/libs/README.m
     `40a07be` (`b2045de`, `4ee834b` and `5b5e104`, all 0 missed), with slice B proven a pure
     move, so no single `mutants-diff 40a07be` was run. It would re-test slice B's ~1800
     moved lines. Crate 228 tests.
-  - Remaining 2.20 order after this:
-    `python_bindings`; then 2.21.
+  - [x] 2.20j `python_bindings` — done 2026-09-29. `just bindings` had been red since
+    2026-09-28: fixtures added to `fmdl` (`b3fc0c5`) and `pes_model` (`f013685`, `12498dd`)
+    left the smoke test's literal counts stale, and only CI run 24 saw it (now 5/4/17/10, 36
+    fixtures; `AGENTS.md` names `just bindings` among `fmdl`'s and `pes_model`'s consumer
+    tests). The smoke test now also passes **inside** Blender 5.0 and 5.2 in background mode
+    (`.tmp/pb_blender/run.py`), which closes 2.18's "not verified". Mutation: cargo-mutants
+    never compiles a `test = false` lib (46 "missed" in 0 s), so the crate is excluded in
+    `.cargo/mutants.toml` and measured by hand against `just bindings`
+    (`.tmp/pb_mutants/run.py`): 12 mutants, 11 caught; the survivor drops
+    `pyo3_log::init()`, unobservable while `fmdl`/`pes_model` do not depend on `log`. No `pub`
+    items; no census through the wheel (decision entry). Reviewer, two rounds, 5/1 accepted
+    (rulings `.tmp/review_rulings_2_20j.md`): plan text on the default `cargo build` path
+    corrected; `just bindings` quotes its interpreter (`quote()`; an apostrophe still breaks
+    PowerShell, documented); `bindings_check.py` refuses a wheel not tagged `cp311-abi3`;
+    `.mtl` byte identity asserted for the four fixtures `mtl.rs` proves; exact `FormatError`
+    text per codec. Decision entry
+  - Remaining 2.20 order after this: 2.21.
   Known inputs from round C: (a) whole-crate mutation runs left survivors to triage in cpk (28),
   ftex (80), dds_convert (30): table-variant arms, boundary comparisons, `write_cell` and
   `Writer::finish` padding math; the other thirteen crates have not been run; (b)
@@ -1170,3 +1190,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   per-process cap (`scripts/test_runner.py`). Both caught the mutant when re-run under the cap.
   A census of a bit-packed format now also tallies unmodeled set bits (`AGENTS.md`). Next:
   2.20j `python_bindings`.
+- **2026-09-29** - 2.20j done: the wheel's smoke test, stale since 2.20g-h's fixtures, passes
+  again and runs inside Blender 5.0/5.2; mutants measured by hand (11 of 12 caught); reviewer
+  5/1 accepted. The VPS is off limits for mutation runs until the maintainer says otherwise
+  (gotchas). Next: 2.21, the Phase 2 plan rewrite.

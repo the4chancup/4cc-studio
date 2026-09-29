@@ -10,6 +10,12 @@
 additional_cargo_args = ["--jobs", "-9"]
 additional_cargo_test_args = ["--", "--test-threads=7"]
 
+# python_bindings is a `test = false` cdylib whose one test is the wheel's smoke test (`just
+# bindings`). cargo-mutants cannot run that, and `cargo test`/`cargo check` never compile the
+# lib, so at 2.20j every mutant came back "missed" in 0 s without building (`PyResult::new()`
+# "succeeded" too). Its mutants are measured by hand against `just bindings` at converge.
+exclude_globs = ["crates/libs/python_bindings/**"]
+
 exclude_re = [
     # Bit packing: `a | b` and `a ^ b` are the same value when the operands share no set bit,
     # which is every packed-field write in the format crates (the fields are masked and shifted

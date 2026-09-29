@@ -2388,3 +2388,26 @@ Why: that run measured 1130 of 1611 mutants: its VPS half died at 324 of 805 whe
 dropped. Slice A's run over the survivors' functions found real gaps in that unrun tail (the
 PES 16-21 and PES 15 header bounds), so the rest is not assumed covered.
 Plan: no plan edit needed (process, not spec); worklog step 2.20i records it.
+
+## 2026-09-29 - python_bindings - 2.20j converge: plan text, mutation method, no census
+Decision: (1) the plan's "outside the default `cargo build` path" is corrected to what the
+2026-09-21 shape made true: a workspace member that a bare root `cargo build` compiles, that
+`cargo build -p studio` does not, and that `cargo test` never links. No `default-members`.
+(2) The crate's mutants are measured by hand against `just bindings`, and `.cargo/mutants.toml`
+excludes it from cargo-mutants. (3) No census through the wheel. (4) A justfile recipe
+parameter goes through `quote()`.
+Why: (1) `default-members` would have to list every other member by hand, and a lib crate
+missing from it would drop out of a bare `cargo test` without an error; `just gates` and CI pass
+`--workspace` anyway, and the build compiles fine where Python is installed, which every
+developer of this repo needs for its scripts. (2) cargo-mutants runs `cargo test`, which never
+compiles a `test = false` lib: all 46 mutants came back "missed" in 0 s, `--check` passed
+uncompilable ones. The hand run (11 mutants, one per behavior, `.tmp/pb_mutants/run.py`)
+caught 10; the survivor drops `pyo3_log::init()`, which nothing observes while `fmdl` and
+`pes_model` do not log (the plan installs it ahead of that on purpose). (3) The shim hands the
+bytes to the codecs unchanged, and those codecs' censuses (2.20f-g, 2.20g-fmdl) already ran
+every file on the machine through the same functions. (4) An interpreter path with a space
+(Blender under `Program Files`) was split into several arguments; `quote()`'s single-quoted
+literal is one argument in sh and in PowerShell.
+Plan: `core/architecture.md` (`python_bindings` paragraph), `core/distribution.md` "One
+exception", `core/development_plan.md` "Phase 2" (`python_bindings`, the abi3 tag check);
+`CONTRIBUTING.md` justfile rules.

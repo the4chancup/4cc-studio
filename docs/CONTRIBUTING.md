@@ -182,7 +182,11 @@ Rules for the justfile, so it stays a command list and not a second build system
   Git for Windows' `sh` is not on PATH from a plain PowerShell, and putting its `usr/bin` there
   shadows `find`, `sort` and `link.exe`). Two shells means recipe lines are bare commands: no
   pipes, no redirection, no quoted arguments; an argument that needs quoting goes into the script
-  the recipe calls. That is also what makes the PowerShell false-failure trap below not apply to
+  the recipe calls. The one exception is a recipe parameter, which the caller supplies and the
+  script cannot hold: it goes through just's `quote()` (`{{quote(interpreter)}}`), a
+  single-quoted literal both shells read as one argument, so a path with a space stays whole.
+  Its escape for an apostrophe is the POSIX `'\''`, which PowerShell does not read, so on
+  Windows a parameter containing `'` still breaks the recipe. That is also what makes the PowerShell false-failure trap below not apply to
   the gates: `just` stops at the first non-zero exit.
 - Nothing hardcodes `target/`: a developer may have moved the target directory (`build.target-dir`
   in a global cargo config), so a recipe that needs a built artifact asks cargo where it is
