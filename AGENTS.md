@@ -48,7 +48,10 @@ machine (found through the Everything index, archives opened) run through read, 
 round trip and `check`, tallied by outcome, each failing class diagnosed before it is fixed or
 recorded as a refusal, and re-run after every fix with a regression check (`.tmp/model_census/`
 is the template). Fixtures and mutation runs only test the files someone thought to add; the
-first census, at 2.20g, found about 1900 community `.model` files the reader refused. Coverage asks
+first census, at 2.20g, found about 1900 community `.model` files the reader refused. A census of
+a bit-packed format also tallies the bits real records set that no schema field covers: a round
+trip keeps them, so only this tally shows a field modeled too narrow (at 2.20i it found PES 18's
+dribbling-arm motion read as 2 bits of 3, misread for 2,808 players). Coverage asks
 "is everything the plan wants there?"; this pass asks "did the phase make the code harder to
 change?", which no test or lint measures and which compounds silently across phases. The
 whole-crate run happens twice per crate: in the lead's audit, where its survivors seed the first
@@ -280,8 +283,19 @@ minutes, and the transfer plus the remote baseline build would eat the gain. Man
 Git Bash uses `/c/Windows/System32/OpenSSH/ssh.exe bonfire`: Git's own `ssh` cannot reach the
 Windows agent that holds the key.
 
-**The remote half runs detached**, in its own session on the VPS (`~/studio-mutants/run/`:
-`pid`, `log`, `exit`), and the script polls it every 30 s with short ssh calls. A dropped link
+**The VPS's production Fluxer instance comes first.** The remote half runs as the transient
+system service `studio-mutants` (`sudo -n systemd-run`): `MemoryMax=6G` with no swap, so a
+runaway mutant is OOM-killed inside the unit and counts as caught; `OOMPolicy=continue`, so that
+kill does not stop cargo-mutants; `CPUWeight=idle`, because `nice` cannot keep a `user.slice`
+process off Fluxer's CPU under cgroup v2. On 2026-09-29 the old uncapped half filled the host's
+RAM and swap (`display_name` with `i *= 1`, a loop that grows a `Vec` forever), and the global
+OOM killer, which could as well have picked Postgres, took the test. The run prints its peak
+(`remote memory peak`); a normal peak near the cap means raising it is a question for the
+maintainer, not a local edit. A running half is stopped with `sudo systemctl stop
+studio-mutants` on the host.
+
+**The remote half runs detached** from any ssh session (`~/studio-mutants/run/`: `job.sh`,
+`pid`, `log`, `exit`, `memory_peak`), and the script polls it every 30 s with short ssh calls. A dropped link
 costs a poll, not the run: at 2.20i the remote half still hung off one long ssh session and
 died with it. If `just mutants` itself stops, `just mutants-collect` waits for the remote half
 and fetches it, including a died half's partial results. A new run refuses to start while a

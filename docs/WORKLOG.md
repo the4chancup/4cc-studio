@@ -1165,3 +1165,8 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   dribbling-arm motion stored in 3 bits where the schema read 2; a census of set-but-unmodeled
   bits found no other such field. Overfull rosters and malformed PES 15 descriptions are
   now refused at write. Next: 2.20j `python_bindings`.
+- **2026-09-29** - Memory caps after a mutant (`display_name`, `i *= 1`) OOMed the VPS: the
+  remote half is a capped, CPU-idle systemd unit, and Windows test binaries run under a 6 GB
+  per-process cap (`scripts/test_runner.py`). Both caught the mutant when re-run under the cap.
+  A census of a bit-packed format now also tallies unmodeled set bits (`AGENTS.md`). Next:
+  2.20j `python_bindings`.

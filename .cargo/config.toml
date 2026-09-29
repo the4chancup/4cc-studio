@@ -4,3 +4,11 @@
 # threads draw from the same jobserver budget, so this caps the whole build, not just cargo.
 [build]
 jobs = -2
+
+# Windows has no OOM killer: a runaway test binary (a mutant looping a Vec push
+# forever) pages until the commit limit runs out and an unrelated process fails
+# instead. The runner wraps every binary `cargo test`/`run`/`bench` launches in
+# a 6 GB per-process Job Object so it fails its own allocation and aborts alone.
+# Linux needs none: the kernel OOM-kills, and the VPS half runs memory-capped.
+[target.'cfg(windows)']
+runner = ["scripts/test_runner.cmd", "6G"]
