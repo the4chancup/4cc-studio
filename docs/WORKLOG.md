@@ -731,9 +731,15 @@ Spec: `docs/plans/core/development_plan.md` "Phase 2", `docs/plans/libs/README.m
     `KeyTable` enum for `KeySpec.table` (`leaf_path` shared with team.toml); F6/F7 comments;
     `read_squad`'s unreachable size arm removed; `fresh_salt`'s `n >= 0` excluded as
     equivalent. `mutants-diff b2045de`: 51, 0 missed, 7 unviable (`KeySpec` has no
-    `Default`). Next: the unmeasured remainder (`.tmp/remainder/run_remainder.py`: 486 plus
-    16 `delete field` siblings cargo-mutants selects along), its survivors, slice B (F5's
-    pure moves), then the reviewer on the non-interchange modules.
+    `Default`). Remainder (`.tmp/remainder/run_remainder.py`, `.tmp/mutants_2_20i_remainder/`):
+    486 unmeasured plus 16 `delete field` siblings cargo-mutants selects along. 502, split:
+    464 caught, 4 missed, 1 timeout (`display_name`'s scan stops advancing, hang class), 33
+    unviable. Of the missed, three are equivalent as written: `Offsets::of`'s width, the
+    colour field `if` in `apply_team`, `ids_agree`'s slice end. Each was rewritten so it is
+    not (a remainder assert, a field carried in the loop tuple, `record_id` on the open
+    slice). The fourth, `u8_val`, got a test. `mutants-diff 4ee834b`: 14, 0 missed, 1
+    unviable. Next: slice B (F5's pure moves, `.tmp/brief_2_20i_b.md`), then the reviewer
+    on the non-interchange modules.
   - Remaining 2.20 order after this:
     `python_bindings`; then 2.21.
   Known inputs from round C: (a) whole-crate mutation runs left survivors to triage in cpk (28),
@@ -1120,3 +1126,5 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
 - **2026-09-29** - 2.20i slice A done (survivor tests, F1-F4, F6, F7; `mutants-diff`: 0
   missed). Correction: the `40a07be` whole-crate run measured 1130 of 1611 mutants, not all
   of them (its VPS half died partway); the maintainer approved one run of the 486 unmeasured.
+- **2026-09-29** - 2.20i remainder run: 502 mutants, 4 missed (3 equivalent as written,
+  rewritten; 1 test added), `mutants-diff`: 0 missed. Next: slice B.

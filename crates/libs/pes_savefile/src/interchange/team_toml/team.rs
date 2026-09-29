@@ -1360,13 +1360,11 @@ fn apply_team(
     {
         next.stadium_id = Some(stadium_id);
     }
-    for (index, color) in [(0usize, section.color_1), (1, section.color_2)] {
+    for (index, color, field) in [
+        (0usize, section.color_1, TeamField::Color1Red),
+        (1, section.color_2, TeamField::Color2Red),
+    ] {
         let Some(color) = color else { continue };
-        let field = if index == 0 {
-            TeamField::Color1Red
-        } else {
-            TeamField::Color2Red
-        };
         if gated(
             notes,
             foreign,
@@ -1825,6 +1823,31 @@ mod tests {
         let mut expected = team.clone();
         expected.tactics.set_pieces.penalty = 3;
         assert_eq!(target, expected);
+    }
+
+    /// `tactics.auto.substitution` is `u8_val`'s only caller: a non-zero
+    /// value parses to exactly that value.
+    #[test]
+    fn a_non_zero_substitution_parses() {
+        let (file, _) = open(PesVersion::Pes19);
+        let team = file.teams().first().expect("a team");
+        let value = if team.tactics.auto.substitution == Some(7) {
+            8
+        } else {
+            7
+        };
+        let text = TeamToml::from_team(PesVersion::Pes19, team, &[])
+            .expect("from_team")
+            .to_toml()
+            .expect("to_toml");
+        // The emitted `substitution` line (commented or not) becomes a live
+        // `substitution = {value}`.
+        let at = text.find("substitution").expect("the emitted line");
+        let start = text[..at].rfind('\n').map_or(0, |i| i + 1);
+        let end = text[at..].find('\n').map_or(text.len(), |i| at + i + 1);
+        let text = format!("{}substitution = {value}\n{}", &text[..start], &text[end..]);
+        let parsed = TeamToml::parse(&text).expect("parses");
+        assert_eq!(parsed.tactics.auto.substitution, Some(value));
     }
 
     /// (c) A foreign document's unsupported key is a note; the target's own
