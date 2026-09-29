@@ -162,6 +162,17 @@ mutants <crate>`, `just mutants-collect` and `just mutants-diff [base]` (the mut
 below). `just --list` shows
 them with a one-line description each.
 
+On Windows every binary `cargo test`, `run` or `bench` launches goes through
+`scripts/test_runner.cmd` (`.cargo/config.toml` `runner`), which caps each process at 6 GB with
+a Job Object. Windows has no OOM killer: an unbounded allocation (a mutant, or the same bug
+written by mistake) would otherwise page the machine down until some unrelated program's
+allocation failed. At the cap the test's own allocation fails, it aborts (`0xC0000409`), and the
+runner prints `test_runner: <exe> hit the 6G per-process memory cap`. The largest normal test
+binary peaks under 0.5 GB (`pes_savefile`, 2026-09-29). rustc is not capped, so the cap cannot
+turn a mutant unviable. The figure matches the VPS mutation unit's `MemoryMax=6G` only in
+number: that one caps the whole run (builds, both workers, page cache), this one each test
+binary alone. Linux relies on the kernel's OOM killer.
+
 Rules for the justfile, so it stays a command list and not a second build system:
 
 - A recipe is a list of commands, never logic. Anything with a branch or a loop is a Python

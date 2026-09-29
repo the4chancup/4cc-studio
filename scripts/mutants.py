@@ -6,13 +6,19 @@ remote half's results merge into `mutants.out/remote/`. Unset (in the process
 and, on Windows, in the user's registry environment) or empty, the plain local
 command runs.
 
-The remote half runs detached on the host (`setsid nohup`, its state in
-`~/studio-mutants/run/`), and this machine only polls it with short ssh calls,
-so a dropped connection costs one poll, not the run: cargo-mutants cannot
-resume, and a remote half tied to one long ssh session died with it (2.20i).
-If this script itself stops, `just mutants-collect` waits for the remote half
-and fetches it. A new run refuses to start while a remote half is running or
-finished but not yet collected.
+The remote half runs as a transient systemd service on the host (`sudo -n
+systemd-run --unit=studio-mutants`), detached from the ssh session by
+construction, memory-capped and CPU-idle: the host also runs the production
+Fluxer instance, an allocating mutant filled its RAM and swap at 2.20i, and
+`nice` alone cannot keep the run off Fluxer's CPU (cgroup v2 weights ignore
+it). Its state lives in `~/studio-mutants/run/` (`job.sh`, `pid`, `log`,
+`exit`, `memory_peak`, `collected`), and this machine only polls it with
+short ssh calls, so a dropped connection costs one poll, not the run:
+cargo-mutants cannot resume, and a remote half tied to one long ssh session
+died with it (2.20i). If this script itself stops, `just mutants-collect`
+waits for the remote half and fetches it. A new run refuses to start while a
+remote half is running or finished but not yet collected. A running half is
+stopped by hand with `sudo systemctl stop studio-mutants` on the host.
 
 The remote needs: git, a C toolchain, rustup and cargo-mutants at the local
 version (the pinned toolchain installs itself on first use inside the tree).
@@ -33,8 +39,17 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 REMOTE_BASE = "~/studio-mutants"
 REMOTE_REF = "refs/mutants/remote"
-# The detached remote half's files: `pid`, `log`, `exit` ("<code> <seconds>",
-# written when cargo-mutants returns) and `collected` (written by the fetch).
+# The remote half's systemd unit: a transient service so its cgroup is
+# memory-capped and CPU-idle — an allocating mutant OOM-killed the host at
+# the 2.20i remainder run, and Fluxer's production services have priority.
+REMOTE_UNIT = "studio-mutants"
+# The unit's MemoryMax (with MemorySwapMax=0): at the cap the kernel
+# OOM-kills inside this unit only, never in Fluxer's.
+REMOTE_MEMORY_MAX = "6G"
+# The detached remote half's files: `job.sh`, `pid` (the service's MainPID),
+# `log`, `exit` ("<code> <seconds>", written when cargo-mutants returns),
+# `memory_peak` (the unit cgroup's peak memory) and `collected` (written by
+# the fetch).
 REMOTE_RUN = f"{REMOTE_BASE}/run"
 POLL_SECONDS = 30
 # Consecutive failed polls before giving up (an hour at 30 s); the remote half
@@ -190,21 +205,44 @@ def remote_run_state(host: str) -> str | None:
 
 
 def launch_remote(host: str, crate: str) -> None:
-    """Starts the remote half detached from this ssh session, which returns at
-    once: its own session (`setsid`), no terminal, output to `run/log`, and
-    `run/exit` written when cargo-mutants returns."""
+    """Writes `run/job.sh` and starts it as the `REMOTE_UNIT` transient
+    service (`sudo -n systemd-run`), detached from this ssh session by
+    construction: the unit is memory-capped (`MemoryMax`, no swap) and
+    CPU-idle so Fluxer's production services on the host win, and
+    `OOMPolicy=continue` keeps cargo-mutants alive past an in-unit OOM kill.
+    `run/pid` is the service's MainPID; a failed `systemd-run` fails the
+    launch (no fallback)."""
     job = (
-        "start=$(date +%s); . ~/.cargo/env && "
-        f"nice -n 19 ionice -c3 cargo mutants -p {crate} --jobs 2 "
-        "--shard 1/2 --sharding round-robin --config ../mutants.remote.toml; "
-        "code=$?; echo \"$code $(( $(date +%s) - start ))\" > ../run/exit"
+        "#!/bin/bash\n"
+        "exec > ../run/log 2>&1\n"
+        "start=$(date +%s)\n"
+        f". ~/.cargo/env && nice -n 19 ionice -c3 cargo mutants -p {crate} --jobs 2 "
+        "--shard 1/2 --sharding round-robin --config ../mutants.remote.toml\n"
+        "code=$?\n"
+        # `memory.peak` of this unit's cgroup tells whether the cap is tight;
+        # `exit` stays the last file written: pollers treat it as finished.
+        'peak="/sys/fs/cgroup$(cut -d: -f3 /proc/self/cgroup)/memory.peak"\n'
+        '[ -f "$peak" ] && cp "$peak" ../run/memory_peak\n'
+        'echo "$code $(( $(date +%s) - start ))" > ../run/exit\n'
     )
     ssh(
         host,
-        f"mkdir -p {REMOTE_RUN} && cd {REMOTE_RUN} && rm -f pid log exit collected && "
-        f"cd {REMOTE_BASE}/tree && "
-        f"(setsid nohup bash -c '{job}' > ../run/log 2>&1 < /dev/null & "
-        "echo $! > ../run/pid)",
+        f"mkdir -p {REMOTE_RUN} && "
+        f"rm -f {REMOTE_RUN}/pid {REMOTE_RUN}/log {REMOTE_RUN}/exit "
+        f"{REMOTE_RUN}/collected {REMOTE_RUN}/memory_peak && "
+        f"cat > {REMOTE_RUN}/job.sh",
+        # Bytes, not text: `text=True` translates \n to \r\n on Windows and a
+        # CRLF in the script makes bash and cargo-mutants fail.
+        input=job.encode("utf-8"),
+        check=True,
+    )
+    ssh(
+        host,
+        f"sudo -n systemd-run --unit={REMOTE_UNIT} --collect --uid=debian "
+        f"-p MemoryMax={REMOTE_MEMORY_MAX} -p MemorySwapMax=0 -p OOMPolicy=continue "
+        '-p CPUWeight=idle --working-directory="$HOME/studio-mutants/tree" '
+        f'/bin/bash "$HOME/studio-mutants/run/job.sh" && '
+        f"systemctl show -p MainPID --value {REMOTE_UNIT} > {REMOTE_RUN}/pid",
         check=True,
     )
 
@@ -305,6 +343,16 @@ def fetch_remote(host: str) -> None:
         print("warning: remote produced no mutants.out", file=sys.stderr)
     log = ssh(host, f"cat {REMOTE_RUN}/log 2>/dev/null || true", capture_output=True, check=True)
     (out / "remote_console.txt").write_bytes(log.stdout)
+    peak = ssh(
+        host,
+        f"cat {REMOTE_RUN}/memory_peak 2>/dev/null || true",
+        capture_output=True, text=True, check=True,
+    ).stdout.strip()
+    if peak:
+        print(
+            f"remote memory peak: {int(peak) / 2**30:.2f} GiB "
+            f"(cap {REMOTE_MEMORY_MAX})"
+        )
     ssh(host, f"touch {REMOTE_RUN}/collected", check=True)
 
 
