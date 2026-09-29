@@ -4,12 +4,14 @@ Part of the [Savefile plan](README.md). Section headings are unchanged from the 
 
 ## Player/team/tactics model
 
-One version-independent model, populated by whichever schema loaded the file.
-4ccEditor's ~100-line manual `operator==` and `PlayerExport()`/`PlayerImport()`
-copy methods become derived `PartialEq`/`Clone`/serde.
+One version-independent model (`model/player.rs`, `model/team.rs`, `model/tactics.rs`),
+populated by whichever schema loaded the file. 4ccEditor's ~100-line manual `operator==` and
+`PlayerExport()`/`PlayerImport()` copy methods are derived `PartialEq`/`Clone`; the model has
+no serde derives, because every text form (Team TOML, `settings.toml`, Texport) is its own
+format with its own writer in `interchange/` and `settings_toml/`.
 
 ```rust
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct PlayerEntry {
     pub id: u32,
     pub name: String,          // on disk: UTF-8, 46 B (17–19) / 61 B (20/21), NUL-terminated
@@ -17,22 +19,21 @@ pub struct PlayerEntry {
                                // 4ccEditor's wchar[61] is only its in-memory buffer
     pub shirt_name: String,    // on disk: single-byte, 18 B (17–19) / 61 B field (20/21,
                                // 21 read); 4ccEditor's char[21]
-    pub basic: PlayerBasics,        // nation, age, height, weight, shirt number
-    pub stats: PlayerStats,         // ~25 ability values + form, injury, weak foot
+    pub basic: PlayerBasics,        // nationality, age, height, weight
+    pub stats: PlayerStats,         // the ability values, form, injury, weak foot, and the
+                                    // version-gated ones: physical_contact (17+),
+                                    // catching (15), clearing/reflexes/coverage (16+),
+                                    // star (19+), tight_possession (20+)
     pub positions: PlayerPositions, // registered position, play_pos[13] (A/B/C), playstyle
     pub skills: PlayerSkills,       // play_skill[..41], com_style[7]
     pub motion: PlayerMotion,       // hunching, arm movement, kick motions, gc1/gc2
     pub edit_flags: PlayerEditFlags,// b_edit_face/hair/phys/strip/player/…, base copy
     pub appearance: PlayerAppearance, // boots/gloves IDs, physique, strip style,
                                       // colors, ingame face parameters
-    // Version-gated fields:
-    pub star: Option<u8>,             // 19+
-    pub tight_possession: Option<u8>, // 20+
-    // ...
 }
 ```
 
-Version-gated fields become `Option<T>`:
+Version-gated fields are `Option<T>` (`None` = this save's version has no such field):
 
 | Fields | Versions |
 |--------|----------|
@@ -49,36 +50,50 @@ maps between the two spellings.
 
 The team side is a full model, not just names — the save editor needs all of it:
 
+The save keeps a team in three records (team, roster, tactics) keyed by team id; the entry
+merges all three:
+
 ```rust
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct TeamEntry {
     pub id: u32,
     pub name: String,            // on disk: UTF-8, 0x46 B (4ccEditor's wchar[0x46]
                                  // is its in-memory buffer)
-    pub short_name: String,      // 3 chars
-    pub manager_id: u32,
-    pub stadium_id: u32,
-    pub colors: [Rgb; 2],
-    pub roster: Vec<RosterSlot>, // up to 40: player ID + shirt number
-    pub starting_eleven: [u8; 11],
-    pub bench_order: Vec<u8>,
-    pub kit_slots: Vec<StripSlot>,   // stripBlock[10]: kit number ↔ team ID binding
-    pub set_pieces: SetPieceTakers,  // FK long/short/2, CK L/R, PK, captain
-    pub auto_flags: TeamAutoFlags,   // auto sub, offside trap, atk/def levels, preset change
+    pub short_name: String,      // 3 chars, single-byte on disk
+    pub manager_id: Option<u32>,          // 19+
+    pub stadium_id: Option<u16>,          // 19+
+    pub colors: Option<[TeamColor; 2]>,   // 17+, 6 bits per channel
+    pub edit_flags: TeamEditFlags,        // name; short name (15), stadium (20/21), strip (17)
+    pub kit_slots: Option<[KitSlot; 10]>, // 17 only: kit number ↔ bound team id
+    pub roster: Vec<RosterSlot>, // one per roster array entry (32 or 40 by version):
+                                 // player id (0 = empty) + shirt number (u16; 19+ stores
+                                 // values above 99)
+    pub tactics: TeamTactics,
+}
+
+pub struct TeamTactics {
     pub presets: [TacticsPreset; 3],
+    pub starting_eleven: [u8; 11],        // roster slots
+    pub bench_order: [u8; 21],            // roster slots
+    pub set_pieces: SetPieceTakers,       // FK long/short/second, CK L/R, PK, captain;
+                                          // roster slots, 0xFF none
+    pub players_to_join_attack: [u8; 3],  // roster slots
+    pub auto: TeamAutoFlags,              // auto sub, offside trap, preset change (16+);
+                                          // attack/defence levels (17+)
 }
 
 pub struct TacticsPreset {
     pub style: TacticStyle,          // attacking/defensive style, zones, buildup,
-                                     // positioning, containment, pressure, fluid
+                                     // positioning, containment, pressure, fluid (16+)
     pub sliders: TacticSliders,      // support range, defensive line, compactness (1–10),
-                                     // numbers in attack/defense (1–3)
+                                     // numbers in attack/defence (1–3)
     pub formations: [Formation; 3],  // kick-off, in-possession, out-of-possession
-    pub attack_instructions: [AdvancedInstruction; 2],
-    pub defense_instructions: [AdvancedInstruction; 2],
+    pub attack_instructions: Option<[AdvancedInstruction; 2]>,  // 17+
+    pub defence_instructions: Option<[AdvancedInstruction; 2]>, // 17+
 }
 
 pub struct Formation {
-    pub players: [FormationSlot; 11], // x, y, position (GK..CF)
+    pub players: [FormationSlot; 11], // position (GK 0 .. CF 12), x, y
 }
 ```
 

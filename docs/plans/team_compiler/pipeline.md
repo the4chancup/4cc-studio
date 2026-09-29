@@ -53,7 +53,7 @@ export format.
 4. **Load** — the export's **structure** is always loaded eagerly (folder tree, file names/sizes,
    roster, link files — what validation, the grid, and ID assignment need; kilobytes); file
    **contents** load lazily per folder into the `VirtualTree` as their processing tasks start
-   (native `sevenz-rust`/zip parsing; `.db` and `.ini` files ignored). No mutable extraction or
+   (native `sevenz-rust2`/zip parsing; `.db` and `.ini` files ignored). No mutable extraction or
    patch-staging tree is used: export transformation happens in memory between source reads and CPK
    output. Final CPK output may use temporary files for atomic write-and-rename. **Source exports
    are read-only**: the compiler never writes into an export folder or archive — every auto-fix

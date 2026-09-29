@@ -90,19 +90,23 @@ worklog when the first push happens.
 ### Phase 2: Library crates
 
 Every lib crate that can be verified on its own — against real-file fixtures, the legacy tools'
-reference outputs, or documented data — is built here, before any tool. Libs whose API is shaped
-by a consumer (`aesthetics_export`, `pipeline`, `aatf`, `music_export`, `audio_engine`,
-`match_feed`) wait for the phase of the tool that first needs them. Leaf crates first, then their
-dependents; `python_bindings` last, once `fmdl` and `pes_model` are stable.
+reference outputs, or documented data — exists, built before any tool: leaf crates first, then
+their dependents, `python_bindings` last. Libs whose API is shaped by a consumer
+(`aesthetics_export`, `pipeline`, `aatf`, `music_export`, `audio_engine`, `match_feed`) wait for
+the phase of the tool that first needs them. Each crate went through a converge audit (worklog
+2.20): a whole-crate mutation run with every survivor triaged, a public-surface audit, a census
+of every file of its format on the maintainer's machine for the format readers, and the
+cross-family reviewer loop.
 
-**Format codecs** with `binrw`. Use Blue and the stadium compiler's parser variants
-(`fmdl_file.py`, `cpk.py`, `ftex.py`) as format evidence checked against fixtures, not as
-implementations to translate:
+**Format codecs**, with `binrw` where the layout is declarative (`fpk`, `ftex`, `fmdl`,
+`pes_model`) and hand-written readers elsewhere. Blue and the stadium compiler's parser variants
+(`fmdl_file.py`, `cpk.py`, `ftex.py`) were format evidence checked against fixtures, not
+implementations translated:
 - `wezlib`
 - `cpk` (read + write, CRILAYLA inside)
 - `fpk`
-- `ftex` + `dds_convert` (`texture2ddecoder`, `image`, and `block_compression` CPU BC1/BC3/BC7):
-  the CPU reference only. The desktop GPU BC7 backend (`libs/README.md` "First-release desktop
+- `ftex` + `dds_convert` (`image`, and `block_compression` for CPU BC1/BC3/BC7 encoding and for
+  decoding): the CPU reference only. The desktop GPU BC7 backend (`libs/README.md` "First-release desktop
   GPU BC7") is built in Phase 16, after 0.1.0, on top of Phase 4's texture step, not here: every
   rule the plan gives it (bounded batches against the memory budget, cancellation, writer
   progress, one encoded result shared by all consumers, the fallback report) is pipeline
@@ -116,7 +120,7 @@ implementations to translate:
   merging, texture stem rewriting), `check.rs`
 - `uniparam`
 - `fox2` (+ CityHash64, verified against fixtures)
-- `archives` (.zip/.7z via `sevenz-rust`)
+- `archives` (.zip/.7z via `zip` and `sevenz-rust2`)
 
 **Data and rule leaves:**
 - `fpc` (Full Player Customization as data: kit values, player presets, interference rules —
@@ -192,12 +196,18 @@ is unzipped onto `sys.path` of a subprocess rather than `pip install`ed, because
 Python has no pip and the test must run under it (`--python <interpreter>`). The wheel version is
 the crate's own (`distribution.md` "One exception"). CI runs `just bindings` on both platforms.
 
-**Verification:** per crate, per [libs](../libs/README.md) "Testing": format round-trips on real fixtures
-(byte-identical for `format/`); `color_tools` within perceptual tolerance of manager-picked
-`colors.txt`; `model_convert` IR round-trips + conversion output compared against the existing
-converters; `pes_savefile` round-trips on decrypted sections (fixed test RNG), per-version field
-round-trips, comparison against 4ccEditor edits of the same savefile, transplant/diff parity
-against Midcupping; `python_bindings` import + round-trip from Python.
+**Verification (done):** per crate, per [libs](../libs/README.md) "Testing" and each crate's own
+plan: format round-trips on real fixtures (byte-identical on the layout the game's own files use);
+`color_tools` on synthetic textures painted into its region constants and on the coloured kit
+template (managers' `colors.txt` proved no usable ground truth, `libs/README.md` "Testing: format parser unit tests");
+`model_convert` IR round-trips, with the
+19to16 converter's own output as a reference fixture; `pes_savefile` round-trips on decrypted
+sections (fixed test RNG), per-version field round-trips, and transplant, fingerprint and compare
+parity with the Midcupping scripts' byte rules held as literal offsets; `python_bindings` import
+and round-trip from Python and inside Blender 5.0 and 5.2. The converge censuses ran every
+`.model`, FMDL, SKL, FPK, FTEX and savefile on the maintainer's machine through the readers.
+At the close of converge (2026-09-29): `just gates` green, 1052 tests in 41 test runs, none
+failed or ignored; `just bindings` green.
 
 ### Phase 3: Team compiler skeleton (`tools/team_compiler`)
 

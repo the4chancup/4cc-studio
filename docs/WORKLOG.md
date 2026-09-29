@@ -13,7 +13,7 @@ is in `AGENTS.md` ("Working documents").
 2.6 `fmdl` (format, model, ops, check), 2.7 `pes_model` (format, mtl, model, ops, check), 2.8 `uniparam`, 2.9 `fox2`, 2.10 `archives`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`, 2.14 `color_tools`, 2.15 `elevation`. Review
 rounds A and B (2026-09-13) closed: 2.5c, 2.12b, 2.13b done.
 **In progress:** 2.17 `pes_savefile`, 2.18 `python_bindings`, 2.19 Phase verification done; 2.20
-Converge in progress (a-j done, 2.17i done; next 2.21). Review round C (2026-09-19) closed as
+Converge in progress (a-j done, 2.17i done; next 2.20k 4ccEditor value parity, then the rest of 2.21). Review round C (2026-09-19) closed as
 2.19a; its leftovers are listed under 2.20. 2.5b (GPU BC7) deferred to Phase 4 (user decision
 2026-09-21). Release target (2026-09-28): 0.1.0 after Phase 8; phase order 1–6, 8, 0.1.0, 7,
 9–16 (`core/development_plan.md` "Releases").
@@ -781,7 +781,19 @@ Spec: `docs/plans/core/development_plan.md` "Phase 2", `docs/plans/libs/README.m
     PowerShell, documented); `bindings_check.py` refuses a wheel not tagged `cp311-abi3`;
     `.mtl` byte identity asserted for the four fixtures `mtl.rs` proves; exact `FormatError`
     text per codec. Decision entry
-  - Remaining 2.20 order after this: 2.21.
+  - [ ] 2.20k `pes_savefile` parity with 4ccEditor's values, found at 2.21: `verification.md`
+    "Cross-implementation parity" asks that field values match 4ccEditor's for the same save,
+    and no test or log line shows it was done (the transplant, fingerprint and compare parity
+    is done; the `.4cct` golden compares a synthesized file). Evidence at hand:
+    `tests/fixtures/pes19_squad.4ccs` is 4ccEditor's own squad export (`export_squad`, team 713,
+    23 players) from a PES 19 save. Plan: a test decodes it and compares every field it
+    carries with the codec's read of team 713 from the PES 19 payload fixture; first confirm
+    the two share a state (same player ids and names), else find the save it came from. Each
+    differing field is diagnosed before anything changes: 4ccEditor is evidence, not truth
+    (its reader had PES 18's dribbling-arm motion at 2 bits of 3). Other versions need a
+    `.4ccs` exported by the maintainer from each fixture save (question asked 2026-09-29).
+    → verify: the comparison test passes, or each difference is a recorded ruling
+  - Remaining 2.20 order after this: 2.20k, then 2.21.
   Known inputs from round C: (a) whole-crate mutation runs left survivors to triage in cpk (28),
   ftex (80), dds_convert (30): table-variant arms, boundary comparisons, `write_cell` and
   `Writer::finish` padding math; the other thirteen crates have not been run; (b)
@@ -790,7 +802,18 @@ Spec: `docs/plans/core/development_plan.md` "Phase 2", `docs/plans/libs/README.m
   signature decision); (c) `pes_savefile::discovery` returns an empty candidate list both for
   "no Documents folder" and "no saves"; (d) `pes_savefile/README.md`'s `TeamEntry`/`TacticsPreset`/
   `PlayerEntry` blocks are rewritten from the code in 2.21 (decision entry 2026-09-19)
-- [ ] 2.21 Rewrite those sections in the present tense
+- [~] 2.21 Rewrite those sections in the present tense. Found mostly done: each crate's
+  converge rewrote its own plan sections, and a sweep for future-tense wording in `libs/`,
+  `model_conversion/` (Phase 7's glTF parts excepted), `pes_savefile/` and
+  `kit_config_editor.md` found only deferrals. Done so far: `core/development_plan.md`
+  "Phase 2" in the present tense with a done Verification paragraph (its `colors.txt`
+  tolerance line was stale: `libs/README.md` rules that data out as ground truth); round C
+  input (d), `pes_savefile/model.md`'s `PlayerEntry`/`TeamEntry`/`TeamTactics`/
+  `TacticsPreset` blocks rewritten from the code (no serde derives; `star` and
+  `tight_possession` in `stats`; `defence_instructions`); stale library names across the
+  plans (`sevenz-rust2`, no `texture2ddecoder`). Input (b) was settled in 2.20f (`antiblur`
+  fallible) and 2.20h (`remap_bone_group` never indexes an unweighted slot). Left: after
+  2.20k, mark 2.20 done and collapse the Phase 2 step list to its phase row
 
 ### Phase 3 — Team compiler skeleton
 
@@ -1194,3 +1217,6 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   again and runs inside Blender 5.0/5.2; mutants measured by hand (11 of 12 caught); reviewer
   5/1 accepted. The VPS is off limits for mutation runs until the maintainer says otherwise
   (gotchas). Next: 2.21, the Phase 2 plan rewrite.
+- **2026-09-29** - 2.21 in progress: Phase 2's development-plan section, `model.md`'s model
+  blocks and stale library names rewritten. It found a gap, now 2.20k: savefile field values
+  were never compared with 4ccEditor's. Next: 2.20k.
