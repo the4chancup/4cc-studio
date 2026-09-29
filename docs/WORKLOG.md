@@ -738,8 +738,16 @@ Spec: `docs/plans/core/development_plan.md` "Phase 2", `docs/plans/libs/README.m
     colour field `if` in `apply_team`, `ids_agree`'s slice end. Each was rewritten so it is
     not (a remainder assert, a field carried in the loop tuple, `record_id` on the open
     slice). The fourth, `u8_val`, got a test. `mutants-diff 4ee834b`: 14, 0 missed, 1
-    unviable. Next: slice B (F5's pure moves, `.tmp/brief_2_20i_b.md`), then the reviewer
-    on the non-interchange modules.
+    unviable. Slice B (`.tmp/brief_2_20i_b.md`), F5's pure moves:
+    - `team_toml/team.rs` split into `tactics.rs` (the `[tactics]` half) and `items.rs` (the
+      item helpers `team`, `tactics` and `player` share);
+    - `settings_toml/mod.rs` split, its TOML text side moved to `settings_toml/document.rs`;
+    - line counts: team 1129, tactics 853, items 374, settings mod 774, document 590.
+
+    `.tmp/pure_move_check.py` found the code lines identical as a multiset, apart from the
+    new module docs and one signature rustfmt wrapped after its `pub(super)`. So no mutation
+    run: the code and the tests are unchanged. Next: the reviewer on the non-interchange
+    modules (`.tmp/review_brief_2_20i_r1.md`).
   - Remaining 2.20 order after this:
     `python_bindings`; then 2.21.
   Known inputs from round C: (a) whole-crate mutation runs left survivors to triage in cpk (28),
@@ -1128,3 +1136,6 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   of them (its VPS half died partway); the maintainer approved one run of the 486 unmeasured.
 - **2026-09-29** - 2.20i remainder run: 502 mutants, 4 missed (3 equivalent as written,
   rewritten; 1 test added), `mutants-diff`: 0 missed. Next: slice B.
+- **2026-09-29** - 2.20i slice B done: pure moves split `team_toml/team.rs` (tactics, items)
+  and `settings_toml/mod.rs` (document), checked by `.tmp/pure_move_check.py`. Next: the
+  reviewer.

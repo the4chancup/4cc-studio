@@ -22,13 +22,13 @@ use crate::schema::fields::{PlayerField, PlayerText, RosterField};
 use crate::schema::ingame_face::INGAME_FACE_FIELDS;
 use crate::schema::limits::face_type_cap;
 use crate::schema::{bit_width, playstyle, schema_for};
+use crate::settings_toml::document::{emit_appearance, leaf_path, padded, parse_appearance};
 use crate::settings_toml::keys::{SettingKey, Source};
 use crate::settings_toml::{
-    AppearanceSettings, appearance_from, apply_appearance, emit_appearance, get_appearance,
-    leaf_path, padded, parse_appearance, set_appearance,
+    AppearanceSettings, appearance_from, apply_appearance, get_appearance, set_appearance,
 };
 
-use super::team::{
+use super::items::{
     as_table, check_text, check_width, emit, gated, opt, reject, text, text_max, u16_val,
 };
 
