@@ -4,12 +4,14 @@
 //! with every field optional: an absent key is "leave untouched" on import,
 //! which is what makes one-key patches and cross-version imports safe.
 //!
+mod items;
 /// The label tables the format writes where the record stores a number or a
 /// bit (style-switch pairs, positions, instructions, ratings, styles, skills,
 /// COM styles, foot/hand).
 pub(crate) mod labels;
 mod player;
 pub(crate) mod player_keys;
+mod tactics;
 mod team;
 
 pub use team::shirt_name_from;
