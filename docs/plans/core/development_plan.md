@@ -184,7 +184,9 @@ false`/`doctest = false` and `pyo3/extension-module` on by default, so `cargo te
 never tries to link it against a `libpython` (a Python extension links against the interpreter
 that loads it, not at build time); its one test is the wheel. `abi3-py311`: one wheel per platform
 loads in every Python from 3.11 up, which covers Blender 5.0 (Python 3.11) and 5.2 (3.13) and a
-developer's own interpreter. `just bindings` builds the wheel with `maturin` and runs the smoke
+developer's own interpreter; `scripts/bindings_check.py` refuses a wheel not tagged `cp311-abi3`,
+because CI builds under one Python (3.13) and a wheel that lost the feature would pass there and
+fail to load in Blender 5.0. `just bindings` builds the wheel with `maturin` and runs the smoke
 test (`crates/libs/python_bindings/tests/smoke.py`) through `scripts/bindings_check.py`: the wheel
 is unzipped onto `sys.path` of a subprocess rather than `pip install`ed, because Blender's bundled
 Python has no pip and the test must run under it (`--python <interpreter>`). The wheel version is

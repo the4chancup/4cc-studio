@@ -215,8 +215,8 @@ released surfaces, which binds from 0.1.0 (`development_plan.md` "Release 0.1.0"
 install independently of the Studio binary, and its consumers are not Studio users. Its version is
 meaningful to them (which wheel matches their Blender / which `fmdl`+`pes_model` API), so it keeps
 its own `version = "..."` and its own release cadence — shipping on demand when the
-`fmdl`/`pes_model` API surface it exposes changes. This is also why the plan builds it outside the
-default `cargo build` path.
+`fmdl`/`pes_model` API surface it exposes changes. This is also why its wheel is built by
+`maturin` (`just bindings`) rather than as part of the Studio binary's build.
 
 ### Changelog and version display
 

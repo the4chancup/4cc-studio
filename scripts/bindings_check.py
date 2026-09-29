@@ -54,6 +54,10 @@ def main() -> int:
         print(output)
         print("bindings_check: maturin reported no wheel path")
         return 1
+    if "-cp311-abi3-" not in wheel.name:
+        print(f"bindings_check: {wheel.name} is not a cp311-abi3 wheel "
+              "(the plan's one-wheel-per-platform rule)")
+        return 1
     print(f"bindings_check: wheel {wheel}")
 
     with tempfile.TemporaryDirectory(prefix="pes_models_native_") as temp:

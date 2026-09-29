@@ -242,8 +242,10 @@ that a same-format FMDL or .model round-trip in Blender is lossless and never ro
 crates do not depend on `model_convert`.
 
 `python_bindings` is a PyO3 shim crate that exposes `fmdl` and `pes_model` to Blender's bundled
-Python as a native extension (`.pyd`/`.so`). It is not imported by `studio` or any tool crate. It is
-built separately via `maturin` (not in the default `cargo build` path) and exists in the workspace
+Python as a native extension (`.pyd`/`.so`). It is not imported by `studio` or any tool crate. Its
+wheel is built separately via `maturin`; the crate is a workspace member, so `cargo clippy
+--workspace` and a bare `cargo build` at the root compile it too, but `cargo build -p studio` does
+not, and `cargo test` never links it. It exists in the workspace
 to enforce the PyO3-buildability guardrail below — if a change to `fmdl` or `pes_model` introduces a
 dependency that breaks the `cdylib` build, CI catches it at the PR rather than at a Blender user's
 runtime. It is a leaf crate: nothing depends on it, and it can be deleted in one commit when legacy

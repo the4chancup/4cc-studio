@@ -42,7 +42,7 @@ mutants-diff base="HEAD":
 # The python_bindings wheel: maturin build, then the smoke test with the wheel on sys.path
 # (`just bindings <interpreter>` runs the smoke test under that Python, e.g. Blender's)
 bindings interpreter=python:
-    {{python}} scripts/bindings_check.py --python {{interpreter}}
+    {{python}} scripts/bindings_check.py --python {{quote(interpreter)}}
 
 # Guardrail 4 (fmdl/pes_model dependency denylist) and the license allowlist (deny.toml)
 deps-check:

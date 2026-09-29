@@ -79,8 +79,10 @@ implemented verbatim; the sidekick sees the code, the lead wrote the brief from 
 (2.18's brief listed a `log` dependency the crate never used, and it landed until review). The brief's
 verification list names the tests of every crate that *consumes* the one being changed, not
 only the crate's own: a change to `fmdl`'s reader that every game `body.skl` tripped passed
-`cargo test -p fmdl` and was caught only by `model_convert`'s tests at the lead's gate run. A
-brief that adds tests says to insert them with the editor tool inside the file's existing
+`cargo test -p fmdl` and was caught only by `model_convert`'s tests at the lead's gate run.
+`fmdl`'s and `pes_model`'s consumers include `python_bindings`, whose test is `just bindings`,
+outside `just gates`: 2.20g-h added fixtures to both crates, the smoke test's fixture counts
+went stale, and only CI's `bindings` job saw it (run 24, 2026-09-29). A brief that adds tests says to insert them with the editor tool inside the file's existing
 `#[cfg(test)]` module, never to append them with shell redirection, which lands them after the
 module's closing brace (three times in 2.20f). The lead
 reads the whole diff before it lands, not the report about it; the report is a claim, the diff is
