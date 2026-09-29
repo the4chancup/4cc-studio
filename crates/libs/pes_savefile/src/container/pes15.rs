@@ -106,7 +106,15 @@ pub(crate) fn decrypt(bytes: &[u8]) -> Result<SaveContainer, ContainerError> {
 }
 
 /// `container` encrypted with `seed` as byte 0; the three digests are recomputed.
-pub(crate) fn encrypt(container: &SaveContainer, seed: u8) -> Vec<u8> {
+/// `BadDescription` when the description is not the section's fixed size —
+/// the header's description span would write the file misaligned.
+pub(crate) fn encrypt(container: &SaveContainer, seed: u8) -> Result<Vec<u8>, ContainerError> {
+    if container.description.len() != DESCRIPTION_SIZE {
+        return Err(ContainerError::BadDescription {
+            expected: DESCRIPTION_SIZE,
+            got: container.description.len(),
+        });
+    }
     let mut out = Vec::with_capacity(
         HEAD_SIZE
             + 8
@@ -123,5 +131,5 @@ pub(crate) fn encrypt(container: &SaveContainer, seed: u8) -> Vec<u8> {
     out.extend_from_slice(&lcg(seed, &container.logo));
     out.extend_from_slice(&(container.payload.len() as u32).to_le_bytes());
     out.extend_from_slice(&lcg(seed, &container.payload));
-    out
+    Ok(out)
 }

@@ -13,8 +13,7 @@ is in `AGENTS.md` ("Working documents").
 2.6 `fmdl` (format, model, ops, check), 2.7 `pes_model` (format, mtl, model, ops, check), 2.8 `uniparam`, 2.9 `fox2`, 2.10 `archives`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`, 2.14 `color_tools`, 2.15 `elevation`. Review
 rounds A and B (2026-09-13) closed: 2.5c, 2.12b, 2.13b done.
 **In progress:** 2.17 `pes_savefile`, 2.18 `python_bindings`, 2.19 Phase verification done; 2.20
-Converge in progress (a-h done, 2.17i done; 2.20i `pes_savefile`: text fix and slice A done,
-the unmeasured mutation remainder, slice B and the reviewer next). Review round C (2026-09-19) closed as
+Converge in progress (a-i done, 2.17i done; next 2.20j `python_bindings`, then 2.21). Review round C (2026-09-19) closed as
 2.19a; its leftovers are listed under 2.20. 2.5b (GPU BC7) deferred to Phase 4 (user decision
 2026-09-21). Release target (2026-09-28): 0.1.0 after Phase 8; phase order 1–6, 8, 0.1.0, 7,
 9–16 (`core/development_plan.md` "Releases").
@@ -690,7 +689,8 @@ Spec: `docs/plans/core/development_plan.md` "Phase 2", `docs/plans/libs/README.m
     PES 15 routine into pesXdecrypter. The seed-byte LCG `(c * 21 + 7) % 32768`, key `c % 255`,
     restarted per chunk, with the 4-byte chunk lengths left clear, is what
     `pes_savefile::container::pes15` already does. Nothing to add
-  - [~] 2.20i `pes_savefile`. The **savefile census** (`.tmp/save_census/`: every
+  - [x] 2.20i `pes_savefile` — done 2026-09-29 (census, text fix, whole run + remainder,
+    audit F1-F7, one reviewer round; crate 228 tests). The **savefile census** (`.tmp/save_census/`: every
     `EDIT` + 8 digits file on the machine, 228 distinct) decrypts, decodes, re-encodes and
     compares each decrypted payload byte for byte. 186 files round-trip exactly (PES 16-21).
     32 archives and shortcuts are correctly refused. There are no PES 15 saves on the machine.
@@ -746,8 +746,20 @@ Spec: `docs/plans/core/development_plan.md` "Phase 2", `docs/plans/libs/README.m
 
     `.tmp/pure_move_check.py` found the code lines identical as a multiset, apart from the
     new module docs and one signature rustfmt wrapped after its `pub(super)`. So no mutation
-    run: the code and the tests are unchanged. Next: the reviewer on the non-interchange
-    modules (`.tmp/review_brief_2_20i_r1.md`).
+    run: the code and the tests are unchanged. Reviewer (`gpt-astra-high`, one round,
+    rulings `.tmp/review_rulings_2_20i.md`): 4 concerns, 3 accepted, so the loop ends.
+    - PES 18 `ArmMovementDribbling` is 3 bits, not 2: measured, 2,808 of 59,102 records set
+      the third bit. The schema had copied the legacy reader, whose writer stores 3.
+    - An overfull roster is `RosterTooLong`; it used to be cut silently.
+    - A PES 15 description that is not 384 bytes is `BadDescription`.
+    - Rejected: the appearance id (open issue, decided with Phase 4).
+
+    The class sweep `.tmp/save_census/src/bin/gaps.rs` found no other field width short of
+    what saves set (open issue: unmodeled PES 18/16 bits). `mutants-diff 5b5e104`: 14, 0
+    missed. Closing measurement: the per-round diffs cover every rework commit since
+    `40a07be` (`b2045de`, `4ee834b` and `5b5e104`, all 0 missed), with slice B proven a pure
+    move, so no single `mutants-diff 40a07be` was run. It would re-test slice B's ~1800
+    moved lines. Crate 228 tests.
   - Remaining 2.20 order after this:
     `python_bindings`; then 2.21.
   Known inputs from round C: (a) whole-crate mutation runs left survivors to triage in cpk (28),
@@ -888,6 +900,16 @@ pruned when their phase closes; they stay in git history.
   holds a kit-slot block at +48 (`00 40 af 00 | 01 40 af 00 | 80 40 af 00`: numbers 0, 1, 0x80
   with team 701 x 0x40) that the reference reads only on PES 17 (at +28); the 18-21 tables have no
   `KitSlot*` rows. Measure 18/19 and add the rows when the Save editor needs kit bindings.
+- open — `pes_savefile` unmodeled player-record bits that real saves set (2.20i,
+  `.tmp/save_census/src/bin/gaps.rs` over every census save; retained on write, so nothing is
+  lost): PES 18 bits 252-254 (3 bits, set in about a third of records; most likely `Star`,
+  3 bits on 19/20, absent from the 18 schema); PES 16 bits 222 and 362 (437 records each).
+  Model them when the Save editor needs them.
+- open — `pes_savefile` player id versus appearance id (2.20i reviewer): the appearance
+  block's player id (+116 on 17-19, +240 on 20/21) is unmodeled, so changing
+  `PlayerEntry.id` leaves it stale. Nothing changes an id today. How the writer sets it is
+  decided with Phase 4, since step 4.0 tests exactly that field (-1 = fall back to
+  `PlayerAppearance.bin`).
 - **Texport write is unverified in-game** (2.17h): `Texport::new` synthesizes 18-21 files from
   measured templates and `to_bytes` rewrites read files; both round-trip byte-identical, but no
   generated file has been imported by the game yet (`verification.md` "Texport write": manual,
@@ -1139,3 +1161,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
 - **2026-09-29** - 2.20i slice B done: pure moves split `team_toml/team.rs` (tactics, items)
   and `settings_toml/mod.rs` (document), checked by `.tmp/pure_move_check.py`. Next: the
   reviewer.
+- **2026-09-29** - 2.20i done. The reviewer's round (3 of 4 accepted) found PES 18's
+  dribbling-arm motion stored in 3 bits where the schema read 2; a census of set-but-unmodeled
+  bits found no other such field. Overfull rosters and malformed PES 15 descriptions are
+  now refused at write. Next: 2.20j `python_bindings`.

@@ -9,7 +9,7 @@ use super::{
 };
 use crate::model::ingame_face::IngameFace;
 use crate::model::player::PlayerEntry;
-use crate::model::team::TeamEntry;
+use crate::model::team::{RosterSlot, TeamEntry};
 use crate::schema::fields::{
     InstructionSide, PlayerField, PlayerText, RosterField, TacticsField, TeamField, TeamText,
 };
@@ -408,6 +408,19 @@ fn version_gated_fields_are_none_where_the_version_lacks_them() {
     }
 }
 
+/// PES 18's `ArmMovementDribbling` is 3 bits at offset 295, ending where
+/// `ArmMovementRunning` begins at 298 — read as 2 bits it could never reach
+/// 4, but real saves carry 4 to 7.
+#[test]
+fn pes18_arm_movement_dribbling_reads_its_third_bit() {
+    let players = players(&payload(PesVersion::Pes18), schema_for(PesVersion::Pes18));
+    let four_or_more = players
+        .iter()
+        .filter(|p| p.motion.arm_movement_dribbling >= 4)
+        .count();
+    assert_eq!(four_or_more, 16);
+}
+
 #[test]
 fn text_writes_patch_the_field_and_keep_the_old_tail() {
     let payload = payload(PesVersion::Pes17);
@@ -592,6 +605,27 @@ fn a_roster_number_too_wide_for_its_run_is_refused() {
             ..
         })
     ));
+}
+
+/// A roster longer than the schema's slot count is refused rather than
+/// silently cut; the same roster at the count still writes.
+#[test]
+fn a_roster_longer_than_the_schema_is_refused() {
+    let payload = payload(PesVersion::Pes17);
+    let schema = schema_for(PesVersion::Pes17);
+    // PES 17's roster record holds 32 player slots.
+    let slots = 32;
+    let mut team = find_team(&payload, schema, 701);
+    assert_eq!(team.roster.len(), slots, "the fixture fills every slot");
+    team.roster.push(RosterSlot::default());
+    let mut rec = vec![0u8; schema.roster.size];
+    assert!(matches!(
+        write_roster(&team, &mut rec, schema.roster),
+        Err(CodecError::RosterTooLong { slots: s, got })
+            if s == slots && got == slots + 1
+    ));
+    team.roster.pop();
+    write_roster(&team, &mut rec, schema.roster).expect("the full roster writes");
 }
 
 /// The same check inline in `write_team`: a colour channel above its 6-bit

@@ -194,6 +194,9 @@ compiler's savefile update stage). An open `EditFile` keeps its detected version
 suite selector cannot reinterpret it. Compiler updates require a save matching the compile target.
 Retain unmodeled container sections, payload bytes, padding, and unknown bits, patching only the
 selected known fields; rebuilding only the modeled fields cannot satisfy lossless-save tests.
+A model value the record cannot hold is refused, never cut: a value wider than its field
+(`ValueTooWide`), a text longer than its field, a roster longer than the record's slots
+(`RosterTooLong`).
 
 ```rust
 /// An open save: the retained container plus the decoded players and teams.

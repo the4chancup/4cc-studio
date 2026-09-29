@@ -197,12 +197,27 @@ pub fn read_roster_into(
     Ok(())
 }
 
-/// Patches the schema's roster fields of `team` into `record`.
+/// Patches the schema's roster fields of `team` into `record`. A roster
+/// longer than the schema's slot count is `RosterTooLong` — the extra slots
+/// have no run and would be silently dropped.
 pub fn write_roster(
     team: &TeamEntry,
     record: &mut [u8],
     schema: &RecordSchema<RosterField, TeamText>,
 ) -> Result<(), CodecError> {
+    let slots = runs(schema)
+        .filter_map(|(field, _, _)| match field {
+            RosterField::Player(i) => Some(usize::from(i) + 1),
+            RosterField::TeamId | RosterField::Number(_) => None,
+        })
+        .max()
+        .unwrap_or(0);
+    if team.roster.len() > slots {
+        return Err(CodecError::RosterTooLong {
+            slots,
+            got: team.roster.len(),
+        });
+    }
     write_record(schema, record, |field| team.roster_get(field))
 }
 

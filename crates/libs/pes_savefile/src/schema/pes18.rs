@@ -194,7 +194,7 @@ pub(crate) static PLAYER: RecordSchema<PlayerField, PlayerText> = RecordSchema {
         FieldSpec {
             field: PlayerField::ArmMovementDribbling,
             bit_offset: 295,
-            bit_width: 2,
+            bit_width: 3,
         },
         FieldSpec {
             field: PlayerField::ArmMovementRunning,
