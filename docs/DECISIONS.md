@@ -2426,3 +2426,15 @@ only thing that can place it. The file is not made source-relative instead becau
 source save is not available when a cup member's `.4ccs` is imported.
 Plan: `pes_savefile/operations.md` (the `legacy.rs` block and "`.4ccs` squad files"),
 `pes_savefile/verification.md` ("Cross-implementation parity", "Interchange formats").
+
+## 2026-09-30 - process - Reviewer critiques have no concern cap
+Decision (maintainer): a cross-family reviewer returns every concern it finds, ranked by
+reachability; the seven-concern cap per round is gone. A round still runs again only when at
+least five of the last round's concerns were accepted, and a reviewer brief names no number of
+concerns, as a cap or a target.
+Why: the cap made reviewers curate instead of report. 3.1's first round set out, in its own
+reasoning, to pick "seven issues that a parent will likely accept, ideally five or more", so
+concerns it judged less likely to be accepted went unreported, with nothing guaranteeing a later
+round finds them. The accept-rate gate already bounds the loop and catches padding; the
+reachability ranking already keeps impossible edge cases at the bottom.
+Plan: `AGENTS.md` "Second opinion" (supersedes the cap in the 2026-09-10 methodology entry).
