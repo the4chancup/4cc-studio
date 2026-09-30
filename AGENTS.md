@@ -34,7 +34,7 @@ fixture and the parity standard *are* the spec.
 **Closing a phase**, in this order: (1) **converge**: audit the code against the phase's plan
 sections and acceptance IDs, the lead's own audit first (every plan code block compared line by
 line with the type it specifies, every step's verify criterion re-run), its gaps fixed, and only
-then the cross-family reviewer (below), so the reviewer's seven slots go to what the lead could
+then the cross-family reviewer (below), so the reviewer's attention goes to what the lead could
 not see rather than to what it did not look for; every requirement that is missing, partial or
 untested becomes a new worklog step, and the phase stays open until those are done. A requirement the plan *explicitly
 defers* to a later phase (a "before implementing X, extend Y" note, an open question naming its
@@ -156,24 +156,26 @@ diffs ride along with the next (b) review, or with converge. Never more than one
 critique per step; the reactive one (d) is an escalation and is exempt from the ceiling. Hand the
 reviewer *pointers* (plan sections, file paths, a diff written to `.tmp/review.diff`, the
 acceptance IDs), never your own summary, which carries the assumptions it is there to catch. It
-returns at most seven ranked concerns, each marked verified or suspected. Answer every one in the
+returns every concern it found, ranked, each marked verified or suspected. Answer every one in the
 turn report: accepted → what changed; rejected → one line why. A concern silently dropped is the
-failure mode this exists to prevent. **The cap is per round, and rounds are bounded by the accept
-rate, not by the lead's sense of importance.** Seven slots force ranking and starve the reviewer's
-taste for impossible edge cases, but on a large surface the eighth concern is unknown: 2.17h's one
-round returned seven, all accepted. So a critique of one surface runs another round only when at
+failure mode this exists to prevent. **There is no cap on concerns; rounds are bounded by the
+accept rate, not by the lead's sense of importance.** A cap made reviewers curate instead of
+report: 3.1's first round had a seven-concern cap, and its reasoning trace set out to pick "seven
+issues that a parent will likely accept, ideally five or more", so whatever it judged unlikely to
+be accepted went unreported, and a later round need not find it again. The ranking by
+reachability (below) is what keeps impossible edge cases at the bottom of the list. So a critique of one surface runs another round only when at
 least five of the last round's concerns were accepted (the signal was real); the next round gets
 the rework diff and the prior rulings so it does not repeat them, and the loop stops at a round
-under five accepted. There is no round ceiling: 2.20d's first three rounds each returned seven,
-all accepted, most of them parity and memory defects rather than padding, so a ceiling of three
+under five accepted. There is no round ceiling: 2.20d's first three rounds each returned seven
+(then the cap), all accepted, most of them parity and memory defects rather than padding, so a ceiling of three
 stopped the loop where its signal was strongest. The stop therefore rests on the lead's
 rulings: a concern is rejected, with its one-line reason, when its input cannot reach the code,
 the plan or a decision entry already settles it, or it restates an accepted concern's class
 without a new defect. **Reviewer briefs rank concerns by reachability.** First comes what a
 real file, the crate's own readers or its own operations produce. A hand-built value that none
-of them produce is low value when the crate refuses it with an error, and earns a slot only
+of them produce is low value when the crate refuses it with an error, and ranks high only
 when it panics, hangs, or writes a wrong file without an error. From 2.20f's second round on,
-slots went to models no reader or operation produces. Round 4's brief carried this line, and
+the top of the list went to models no reader or operation produces. Round 4's brief carried this line, and
 none of its four concerns needed a hand-built model. Past the fifth round on one surface the lead reports the counts and the
 classes found to the user and continues unless told otherwise: a check-in, not a stop. Each
 round's reviewer is a fresh `run_subagent`, never a resumed one (`resume`), even though resuming
@@ -181,16 +183,15 @@ saves the re-exploration: 2.20d's fourth round ran both on the same surface, and
 resumed from round three returned four concerns, all among the fresh reviewer's seven, which
 found three more, all accepted; a resumed reviewer keeps its earlier reading and its blind spots
 with it. The
-count *returned* is not a stop signal: the reviewer
-does not fill the cap when it has more (2.20c's first round returned five with its reasoning
-trace saying it aimed for "3-5 strong concerns" because the brief said "do not pad"; the second
-round, run as an experiment, returned three verified concerns, all accepted, one of them
-contradicting a lead ruling). So the brief never says "do not pad" or names a smaller number;
-it says the cap is seven, a cap, not a target, and that a round with fewer than five accepted
-ends the loop, so a verified concern is never withheld to keep the list short; padding is
-caught by the accept rate, which is what that rule is for. At
-converge the surface is one crate (or one coupled pair), never the phase, so the cap is not the
-bottleneck there. The user can request a critique at any time with `/duck`.
+count *returned* is not a stop signal: a reviewer told to keep the list short withholds
+(2.20c's first round returned five with its reasoning trace saying it aimed for "3-5 strong
+concerns" because the brief said "do not pad"; the second round, run as an experiment, returned
+three verified concerns, all accepted, one of them contradicting a lead ruling). So the brief
+never says "do not pad" or names any number of concerns, as a cap or a target; it says to report
+every concern found, ranked by reachability, and that a round with fewer than five accepted ends
+the loop, so a verified concern is never withheld to keep the list short; padding is caught by
+the accept rate, which is what that rule is for. At converge the surface is one crate (or one
+coupled pair), never the phase. The user can request a critique at any time with `/duck`.
 
 ## Read order by task
 
