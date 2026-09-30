@@ -48,6 +48,7 @@ crates/libs/pes_savefile/src/
 ├── lib.rs              # re-exports (PesVersion comes from the `pes_version` leaf crate, see ../libs/README.md)
 ├── file.rs             # EditFile: load (auto-detect) / save (.bak), retained unmodeled bytes
 ├── discovery.rs        # Documents\KONAMI layout per version → SavefileCandidate list
+├── test_support.rs     # the fixture containers/saves the test modules share
 ├── container/          # bytes ↔ decrypted sections (`container.md` "Container API")
 │   ├── mod.rs          #   SaveContainer, Scheme, ContainerError; decrypt (key/shape trial), to_bytes
 │   ├── pes16_21.rs     #   the shared 16–21 container (salt, header, MT19937 stream, integrity)
@@ -56,7 +57,10 @@ crates/libs/pes_savefile/src/
 │   └── keys.rs         #   MasterKey: the seven master keys, transcribed from masterkey.c
 ├── schema/             # per-version field tables — data only, no logic
 │   ├── mod.rs          #   FieldSpec, VersionSchema, SectionLayout; schema_for(version)
-│   ├── fields.rs       #   PlayerField / TeamField / TacticsField enums (the version-neutral vocabulary)
+│   ├── fields.rs       #   PlayerField / TeamField / TacticsField / RosterField enums (the version-neutral vocabulary)
+│   ├── ingame_face.rs  #   IngameFaceField + the ingame-face run's FieldSpec rows
+│   ├── limits.rs       #   per-version face-type caps (operations.md "Cross-version player conversion")
+│   ├── playstyle.rs    #   one playstyle list per version group + decode/encode
 │   ├── pes15.rs        #   player + separate appearance tables, own bit-read variant flag
 │   ├── pes16.rs        #   split player/appearance blocks
 │   ├── pes17.rs        #   first unified block (+ phys_cont)
@@ -64,29 +68,50 @@ crates/libs/pes_savefile/src/
 │   ├── pes19.rs        #   + star, 39 skills
 │   ├── pes20.rs        #   20/21 shared (+ mo_drib, tight_pos, aggres, play_attit, strong_hand; 41 skills)
 │   ├── instruction.rs  #   canonical advanced instruction ↔ per-version stored value
-│   └── texport.rs      #   the 18–21 Texport layout (key index, size, header/coach/tail templates)
+│   ├── texport.rs      #   the 18–21 Texport layout (key index, size, header/coach/tail templates)
+│   └── *_golden.rs     #   literal-offset goldens (instruction, playstyle)
 ├── codec/              # the one generic engine
-│   ├── mod.rs          #   read_player / write_player / read_team / … over a &VersionSchema
-│   └── bits.rs         #   bit-run reads/writes crossing byte boundaries (data_util.cpp's job)
+│   ├── mod.rs          #   CodecError; the read/write dispatch over a &VersionSchema
+│   ├── bits.rs         #   bit-run reads/writes crossing byte boundaries (data_util.cpp's job)
+│   ├── player.rs       #   read_player / write_player (and the 15/16 appearance record)
+│   ├── team.rs         #   read/write for team, roster and tactics records
+│   └── tests.rs        #   codec tests over the fixture payloads
 ├── model/              # what consumers edit
 │   ├── mod.rs
 │   ├── player.rs       #   PlayerEntry: abilities, skills, appearance, playstyles
 │   ├── team.rs         #   TeamEntry: identity, roster, kit refs, colors
 │   ├── tactics.rs      #   presets, formations, advanced instructions
 │   ├── instruction.rs  #   Instruction: the canonical (17-based) advanced instruction enum
+│   ├── ingame_face.rs  #   IngameFace: the opaque run plus typed accessors
+│   ├── playstyle.rs    #   PlayStyle: the canonical playstyle enum
 │   └── names.rs        #   UTF-8 names, colour-code stripping (display_name)
-├── settings_toml.rs    # PlayerSettings (the settings.toml model) ↔ PlayerEntry merge
+├── settings_toml/      # PlayerSettings (the settings.toml model) ↔ PlayerEntry merge
+│   ├── mod.rs          #   PlayerSettings, SettingKey, the classification tables
+│   ├── document.rs     #   the document text: header, keys, parse/emit/update
+│   ├── keys.rs         #   the SettingKey table (path, kind, range, comment)
+│   └── tests.rs        #   settings and template tests
 ├── convert.rs          # cross-version player conversion (bitfield surgery, playstyle/skill maps)
 ├── ops/                # save-to-save operations
 │   ├── transplant.rs   #   aesthetics transplant (Midcupping)
 │   ├── fingerprint.rs  #   aesthetics fingerprinting / diff
 │   ├── compare.rs      #   comparator (gameplay + aesthetics)
 │   ├── fpc.rs          #   maps libs/fpc player presets onto PlayerEntry; interference check
-│   └── populate.rs     #   placeholder player section for a fresh 19+ save (DB generator)
+│   ├── populate.rs     #   (Phase 19, DB generator; not built) placeholder player section
+│   └── *_golden.rs     #   parity goldens (transplant, compare)
 └── interchange/        # team interchange formats (Team TOML is the one import path)
+    ├── mod.rs
     ├── team_toml/      #   Team TOML read/write (full fidelity): document, key tables, apply
+    │   ├── mod.rs      #     TeamToml, TeamTomlError, ImportNote
+    │   ├── team.rs     #     [team] emit, parse and apply; the TeamToml entry points
+    │   ├── player.rs   #     [players.NN] emit, parse and apply
+    │   ├── tactics.rs  #     [tactics] emit, parse and apply
+    │   ├── items.rs    #     the shared item readers, emit line and apply-side checks
+    │   ├── player_keys.rs #  the [stats]/[positions]/[skills]/[edit_flags] key maps
+    │   └── labels.rs   #     the label vocabularies (positions, ratings, styles, skills)
     ├── legacy.rs       #   .4ccs / .4cct readers, into a TeamToml
-    └── texport.rs      #   Texport read/write over the schema codec (layout: schema/texport.rs)
+    ├── legacy_golden.rs#   the .4ccs parity + literal-offset goldens
+    ├── texport.rs      #   Texport read/write over the schema codec (layout: schema/texport.rs)
+    └── texport_golden.rs # the Texport parity goldens
 ```
 
 Placement rules:

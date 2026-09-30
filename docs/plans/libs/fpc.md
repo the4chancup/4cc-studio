@@ -13,7 +13,8 @@ a set of normal hands, since the cup's gloves system lets any player wear a glov
 preset for a custom body inside a stock jersey: short sleeves, untucked, standard socks, skin color
 Custom). Neither `kit_config` nor `pes_savefile` is the natural owner, and having each hold half
 would either duplicate the knowledge or make one format crate depend on the other. So the system's
-knowledge is a **leaf crate with no dependencies**, holding data and pure rules only:
+knowledge is a **leaf crate with no dependencies beyond `pes_version`**, holding data and pure
+rules only:
 
 - `kit.rs` — the kit-config FPC values per PES version (the modern system: PES 19+ and the 2024
   reimplementation for 16/17; the retro 16/17 system is documented as legacy and not supported).

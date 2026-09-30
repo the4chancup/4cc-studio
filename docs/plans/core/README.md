@@ -209,7 +209,7 @@ Trade-offs accepted:
 | `sevenz-rust2` | Native .7z reading (replaces 7z.exe); the maintained fork of `sevenz-rust`, which RUSTSEC-2026-0246 marks unmaintained | 0.22.2 in use, no default features (decode only: LZMA, LZMA2, BCJ) |
 | `zip` | Native .zip reading | 8.6.0 in use, no default features plus `deflate` |
 | `gltf` | glTF parsing | Production-ready |
-| `serde` + `serde_json` | Serialization (settings, IR, events) | Production-ready |
+| `serde` | Serialization: `PesVersion`'s two-digit number form and app settings today; `serde_json` joins with the Blender manifest (`player_aesthetics_editor.md`) and the match-event wire format (`match_feed.md`) in their phases | Production-ready |
 | `clap` | CLI argument parsing | Production-ready |
 | `thiserror` | Ergonomic error enums for the lib crates' error types | Production-ready |
 | `anyhow` | Error propagation in tool crates and the binary (`StudioTool::cli_run` returns `anyhow::Result`) | Production-ready |
@@ -222,10 +222,9 @@ Trade-offs accepted:
 | `egui_commonmark` | Markdown rendering for the help window (CommonMark subset: headings, lists, tables, code blocks, links) | Release not yet reviewed; pinned to the workspace egui version once selected. Chosen over a hand-rolled renderer (see `gui.md` "Help window") |
 | `egui_animation` | Easing helpers for cell-color fades and panel transitions (on top of egui's built-in `animate_*`) | Release not yet reviewed; dropped if the built-in helpers suffice |
 | `md-5` | FPK checksums, PES15 save integrity hashes | Production-ready |
-| `phf` | Compile-time static maps (skeleton data) | Production-ready |
+| `phf` | Compile-time static maps — the Team compiler's per-version game-paths table (team_compiler plan, "Crate layout" `paths.rs`; `model_convert`'s skeletons deliberately use a sorted `Vec`, see `conversion.md` "Skeleton data") | Production-ready |
 | `unicode-normalization` | NFC normalization for `vtree`'s collision detection (two spellings of `é` are one file name on disk) | Production-ready (0.1.25 in use) |
 | `roxmltree` | Read-only XML tree for `.mtl` material sets, `face.xml`, `face_diff.xml` (`pes_model`, the Team compiler); writing those small fixed shapes is done by hand so Konami's formatting is reproducible | Production-ready (0.21.1 in use) |
-| `nalgebra` | Matrix operations (bone transforms) | Production-ready |
 | `rfd` | Native file/folder dialogs | Production-ready |
 | `ureq` (3.x; features `rustls` [default], `platform-verifier`, `json`, `win-system-proxy`) | HTTP for the desktop updater: one Releases API GET and one streamed asset download per release | Production-ready (3.4.1 verified 2026-09-10). Chosen over `reqwest` because `reqwest` starts a Tokio runtime internally even in blocking mode, which breaks the "no async runtime" rule; the updater needs nothing `ureq` lacks. `platform-verifier` trusts the OS certificate store; `win-system-proxy` honors Windows proxy settings, env vars cover Linux |
 | `sha2` | SHA256 verification of downloaded updates | Production-ready |
@@ -234,6 +233,7 @@ Trade-offs accepted:
 | `toml_edit` | Comment/formatting-preserving edits to all auto-generated tomls (`settings.toml`, `materials.toml`, `config.toml`); comments are app-injected (predefined per-field documentation) and preserved across edits | Production-ready (the `toml` crate's own foundation) |
 | `rhai` | AATF rules file (parameters and check logic; sandboxed, see the Save editor plan's AATF section) | Production-ready |
 | `image` | Raster source decoding (PNG, JPEG, BMP, WebP, TGA, TIFF) for texture conversion — all formats interchangeable as sources for any model format | Production-ready (pure-Rust default formats, rayon-enabled) |
+| `tiff` | TIFF tag access `image` does not reach (the premultiplied-alpha metadata for `dds_convert`) | 0.11.3 in use |
 | `block_compression` | CPU BC1/BC3/BC7 encoding and BC1–BC7 decoding (one crate for both directions); first-release desktop GPU BC7 | 0.10.0 in use (features `bc15`, `bc7`; `wgpu` feature only for the GPU step); decode verified exact against texconv; GPU cold-start cost, throughput and fallback still to be verified |
 | (none: `fox2` ports CityHash64 1.0.3 directly) | fox2 string hashes must match the C# tool's embedded 1.0.3 variant exactly; no crate pins that variant, and the port is 150 lines verified by a reference golden and every fixture's string table | Not a dependency |
 | `notify` + `notify-debouncer-full` | Exports folder watching for live validation | Production-ready |

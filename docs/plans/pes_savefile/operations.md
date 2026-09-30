@@ -792,7 +792,9 @@ pub fn texport_layout(version: PesVersion) -> Option<&'static TexportLayout>;   
 
 /// `interchange/texport.rs`.
 pub struct Texport { /* version, the plaintext (18-21) or the SaveContainer (15-17), team, players */ }
-pub enum TexportError { UnknownVersion, WrongSize { version, expected, actual }, Container(ContainerError), Codec(CodecError), RosterMismatch { slot, roster: u32, player: u32 }, NoTemplate(PesVersion) }
+pub enum TexportError { UnknownVersion, WrongSize { version, expected, actual }, Container(ContainerError), Codec(CodecError), RosterMismatch { slot, roster: u32, player: u32 }, NoTemplate(PesVersion), OldPlayerIds { slot, expected: u64, got: u32 } }
+// `OldPlayerIds`: the 15-17 reader stops at the first record whose id is not
+// `team.id * 100 + 1 + slot`, so the writer refuses a player list it could not read back.
 
 impl Texport {
     /// `version = None` detects: by size for 18-21 (every size is distinct once 20's is derived;
@@ -833,10 +835,10 @@ records were edited, is the manual per-version check in [Verification](verificat
 
 ---
 
-## Player section population
+## Player section population (Phase 19, DB generator)
 
-The savefile half of the [DB generator](../db_generator.md): from PES 19 the game writes a
-fresh `EDIT00000000` from the database with the player count declared and **no player
+The savefile half of the [DB generator](../db_generator.md), specified here and implemented in
+that phase: from PES 19 the game writes a fresh `EDIT00000000` from the database with the player count declared and **no player
 records**, so the day-0 save has to be given its placeholder players before anyone (the game
 included) can edit them. The scripts do it with a hex editor; here it is one operation:
 

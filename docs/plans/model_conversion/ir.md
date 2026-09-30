@@ -190,7 +190,8 @@ pub struct PreFoxMaterial {
 // format crate.
 pub struct SamplerSettings {
     pub srgb: Option<bool>,
-    pub minfilter: Option<Filter>, pub magfilter: Option<Filter>, pub mipfilter: Option<Filter>,
+    pub minfilter: Option<Filter>, pub maxfilter: Option<Filter>,
+    pub magfilter: Option<Filter>, pub mipfilter: Option<Filter>,
     pub uaddr: Option<Address>, pub vaddr: Option<Address>, pub waddr: Option<Address>,
     pub maxaniso: Option<u32>,
 }
@@ -443,7 +444,7 @@ The existing direct converters are already lossy:
 Routing through the IR doesn't add new data loss, and removes the last one: bind transforms travel
 in `Bone.matrix` from the `.skl` or the `.model`'s inline bone table to whichever format is written
 (see "Skeleton in `.model`"). The other losses happen at different pipeline points. The IR
-preserves metadata (e.g., `antiblur_source`), so if exporting back to FMDL, the metadata is
+preserves metadata (e.g., `Material.antiblur`), so if exporting back to FMDL, the metadata is
 available.
 
 ---

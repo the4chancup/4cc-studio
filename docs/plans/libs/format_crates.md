@@ -36,21 +36,40 @@ consumer outside the workspace** (the Blender extension via `python_bindings`). 
 same two-level split so that boundary is visible in the tree:
 
 ```
-crates/libs/fmdl/src/                 crates/libs/pes_model/src/
-├── lib.rs                            ├── lib.rs
-├── format/     # the codec           ├── format/
-│   ├── mod.rs  #  FmdlFile           │   ├── mod.rs   # PreFoxModel
-│   ├── header.rs, sections.rs, …     │   ├── model.rs # .model blocks
-│   └── write.rs                      │   ├── mtl.rs   # sibling .mtl XML
-│                                     │   └── write.rs
-├── ops/        # algorithms          ├── ops/
-│   ├── split.rs    # mesh splitting  │   ├── split.rs
-│   ├── vertex_enc.rs # split vertex  │   ├── vertex_enc.rs
-│   ├── antiblur.rs                   │   ├── merge.rs
-│   ├── merge.rs    # multi-FMDL      │   └── paths.rs  # texture stem rewriting
-│   └── paths.rs    # path table edit └── check.rs    # deep validation → findings
-└── check.rs    # deep validation
+crates/libs/fmdl/src/
+├── lib.rs
+├── format/             # the codec
+│   ├── mod.rs          #   FmdlError
+│   ├── file.rs         #   FmdlFile
+│   ├── skl.rs          #   SklFile, the SKL codec
+│   └── container.rs, records.rs, f16.rs, vertex.rs
+├── model/              # the semantic layer: Model (mod.rs), from_file.rs, to_file.rs, validate.rs
+├── ops/                # algorithms
+│   ├── split/          #   mesh splitting (mod.rs, build.rs, combine.rs)
+│   ├── vertex_enc.rs   #   split vertex encoding
+│   ├── antiblur.rs
+│   ├── merge.rs        #   multi-FMDL merging
+│   └── paths.rs        #   path-table editing
+└── check.rs            # deep validation → findings
+
+crates/libs/pes_model/src/
+├── lib.rs
+├── format/             # the codec
+│   ├── mod.rs          #   ModelError
+│   ├── model/          #   PreFoxModel, the .model blocks
+│   ├── mtl.rs          #   sibling .mtl XML
+│   └── container.rs, datum.rs, records.rs, vertex.rs, write.rs, fixtures.rs
+├── model/              # the semantic layer: Model (mod.rs), validate.rs
+├── ops/                # algorithms
+│   ├── split/          #   mesh splitting (mod.rs, build.rs, combine.rs)
+│   ├── vertex_enc.rs
+│   ├── merge.rs
+│   └── paths.rs        #   texture stem rewriting
+└── check.rs            # deep validation → findings
 ```
+
+Each `model/`, `ops/split/` and (in `pes_model`) `format/model/` directory also holds its
+`tests.rs`.
 
 Rules:
 
