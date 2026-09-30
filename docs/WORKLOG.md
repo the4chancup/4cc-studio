@@ -10,8 +10,9 @@ is in `AGENTS.md` ("Working documents").
 ## Current status
 
 **Phase:** 3 (Team compiler skeleton). Phases 1 and 2 done (Phase 2 closed 2026-09-30).
-**In progress:** 3.6 slice (a): a1 landed (crate, `listing.rs`, `conventions/file_types.rs`
-`classify`, `validate/issues.rs` types, `slots.rs`); next a2, `parse/`. 2.5b (GPU BC7) is step 16.x (decision entries 2026-09-21 and 2026-09-28). Release
+**In progress:** 3.6: slice (a) landed as a1 (crate, `listing.rs`, `conventions/file_types.rs`
+`classify`, `validate/issues.rs` types, `slots.rs`) and a2 (`parse/`: canonicalization, root
+normalization, draft, identity, roster; 4 scenarios cited); next slice (b), `validate/`. 2.5b (GPU BC7) is step 16.x (decision entries 2026-09-21 and 2026-09-28). Release
 target (2026-09-28): 0.1.0 after Phase 8; phase order 1–6, 8, 0.1.0, 7, 9–16
 (`core/development_plan.md` "Releases").
 **Blocked on:** nothing yet. **Hard gate at the end of Phase 3:** step 4.0 (the maintainer's

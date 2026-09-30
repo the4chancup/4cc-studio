@@ -10,6 +10,7 @@
 
 mod conventions;
 mod listing;
+mod parse;
 mod slots;
 mod validate;
 
@@ -17,5 +18,9 @@ pub use conventions::{
     FileKind, Marker, MetadataFile, ModelFormat, SharedKind, classify, is_small_metadata,
 };
 pub use listing::{CanonicalListing, ListedEntry, ListedKind, SmallMetadata, ValidationContext};
+pub use parse::{
+    AestheticsExportDraft, ExportKind, FileDescriptor, FolderDraft, ParsedAestheticsExport,
+    RawRoster, RawRosterEntry, SourceError, parse_listing,
+};
 pub use slots::{PlayerSlot, RefSlot};
 pub use validate::{Disposition, ISSUE_CODES, IssueScope, ValidationIssue};
