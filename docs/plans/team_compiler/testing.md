@@ -56,8 +56,9 @@ Comparison uses four tiers:
 1. **Exact leaf bytes** for unaffected files such as DDS textures and raw bin outputs.
 2. **Decoded and normalized comparison** for FMDL, MTL, XML, kit configs, and other ID/path-bearing
    content; generated IDs and relocated paths are normalized before remaining fields are compared.
-   FTEX files are compared by the DDS each converts back to (`ftex::ftex_to_dds`), not by their
-   own bytes: their mip data sits in zlib chunks, and a different deflate encoder writes
+   FTEX files are compared by their header fields (`ftex::info`, texture type included) and by
+   the DDS each converts back to (`ftex::ftex_to_dds`), not by their own bytes: their mip data
+   sits in zlib chunks, and a different deflate encoder writes
    different chunks for the same pixels (the `ftex` crate's stated non-goal). The tracer's two
    FTEX entries differ from Red's in exactly that way and convert back identically.
 3. **Archive-entry equivalence** for CPK/FPK containers, whose container bytes may differ because of

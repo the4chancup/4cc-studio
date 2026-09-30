@@ -11,7 +11,7 @@ use anyhow::{Context, bail, ensure};
 use fmdl::FmdlFile;
 use fmdl::ops::paths::rewrite_texture_paths;
 use fpk::{FpkFile, FpkKind};
-use kit_config::{KitConfig, TexturePresence, texture_names};
+use kit_config::{KitConfig, KitSlot, TexturePresence, texture_names};
 use pes_version::{Engine, PesVersion};
 use teams_list::TeamId;
 use uniparam::UniformParameter;
@@ -261,12 +261,12 @@ fn compile_kit(
     version: PesVersion,
     writer: &mut cpk::CpkWriter<fs::File>,
 ) -> anyhow::Result<(String, [u8; 120])> {
-    let slot = folder
+    let folder_name = folder
         .file_name()
         .and_then(|name| name.to_str())
         .with_context(|| format!("kit path has no name: {}", folder.display()))?;
-    let suffix = kit_name_suffix(slot)
-        .with_context(|| format!("kit folder {slot:?} is not a plain slot (p1-p9 or g1)"))?;
+    let slot = KitSlot::parse(folder_name)
+        .with_context(|| format!("kit folder {folder_name:?} is not a plain slot (p1-p9 or g1)"))?;
 
     let mut config = None;
     let mut presence = TexturePresence::default();
@@ -274,7 +274,7 @@ fn compile_kit(
     for entry in read_dir_sorted(folder)? {
         ensure!(
             entry.path().is_file(),
-            "kit folder {slot:?} holds an unexpected folder {}",
+            "kit folder {folder_name:?} holds an unexpected folder {}",
             entry.file_name().to_string_lossy()
         );
         let name = entry.file_name().to_string_lossy().into_owned();
@@ -285,8 +285,9 @@ fn compile_kit(
         match name.as_str() {
             "config.toml" => {
                 config = Some(
-                    KitConfig::from_toml(&fs::read_to_string(entry.path())?)
-                        .with_context(|| format!("kit {slot:?}: cannot parse config.toml"))?,
+                    KitConfig::from_toml(&fs::read_to_string(entry.path())?).with_context(
+                        || format!("kit {folder_name:?}: cannot parse config.toml"),
+                    )?,
                 );
             }
             "icon.txt" | "colors.txt" => {
@@ -294,7 +295,9 @@ fn compile_kit(
                 // are Phase 4's bins.
             }
             _ if LAYOUT_MARKERS.contains(&name.as_str()) => {
-                bail!("kit folder {slot:?} carries a layout marker, which the tracer cannot honor");
+                bail!(
+                    "kit folder {folder_name:?} carries a layout marker, which the tracer cannot honor"
+                );
             }
             _ => match KIT_TEXTURE_STEMS.iter().position(|known| *known == stem) {
                 Some(index) if name.ends_with(".dds") => {
@@ -308,7 +311,7 @@ fn compile_kit(
                     *present[index] = true;
                     images.insert(stem.to_owned(), fs::read(entry.path())?);
                 }
-                _ => bail!("kit folder {slot:?} holds unrecognized file {name:?}"),
+                _ => bail!("kit folder {folder_name:?} holds unrecognized file {name:?}"),
             },
         }
     }
@@ -320,7 +323,7 @@ fn compile_kit(
         }
         let stem = KIT_TEXTURE_STEMS[index];
         let ftex = ftex::dds_to_ftex(&images[stem], ftex::ColorSpace::Normal)
-            .with_context(|| format!("kit {slot:?}: cannot convert {stem}.dds"))?;
+            .with_context(|| format!("kit {folder_name:?}: cannot convert {stem}.dds"))?;
         let texture_name = std::str::from_utf8(field)
             .context("kit texture name is not ASCII")?
             .trim_end_matches('\0');
@@ -333,7 +336,7 @@ fn compile_kit(
 
     let config = config.unwrap_or_else(KitConfig::template);
     let bytes = config.encode_with_names(version, &names);
-    let entry_name = format!("{}_DEF_{suffix}_realUni.bin", team.get());
+    let entry_name = slot.config_name(team.get());
     writer.add(
         &format!(
             "common/character0/model/character/uniform/team/{}/{entry_name}",
@@ -343,33 +346,4 @@ fn compile_kit(
         None,
     )?;
     Ok((entry_name, bytes))
-}
-
-/// The name a kit's output files carry: `1st`..`9th` for `p1`..`p9`, `GK1st`
-/// for `g1`.
-fn kit_name_suffix(slot: &str) -> Option<&'static str> {
-    if slot == "g1" {
-        return Some("GK1st");
-    }
-    let index = slot.strip_prefix('p')?.parse::<u8>().ok()?;
-    [
-        "1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th", "9th",
-    ]
-    .get(usize::from(index).checked_sub(1)?)
-    .copied()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn kit_name_suffix_maps_slots_or_refuses_them() {
-        assert_eq!(kit_name_suffix("p1"), Some("1st"));
-        assert_eq!(kit_name_suffix("p9"), Some("9th"));
-        assert_eq!(kit_name_suffix("g1"), Some("GK1st"));
-        for slot in ["p0", "p10", "g2", "x1"] {
-            assert_eq!(kit_name_suffix(slot), None);
-        }
-    }
 }

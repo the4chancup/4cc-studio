@@ -10,7 +10,7 @@ is in `AGENTS.md` ("Working documents").
 ## Current status
 
 **Phase:** 3 (Team compiler skeleton). Phases 1 and 2 done (Phase 2 closed 2026-09-30).
-**In progress:** nothing. Next: 3.4, the tracer's Phase 2 frictions. 2.5b (GPU BC7) is step 16.x (decision entries 2026-09-21 and 2026-09-28). Release
+**In progress:** nothing. Next: 3.5, the `aesthetics_export` shapes. 2.5b (GPU BC7) is step 16.x (decision entries 2026-09-21 and 2026-09-28). Release
 target (2026-09-28): 0.1.0 after Phase 8; phase order 1–6, 8, 0.1.0, 7, 9–16
 (`core/development_plan.md` "Releases").
 **Blocked on:** nothing yet. **Hard gate at the end of Phase 3:** step 4.0 (the maintainer's
@@ -148,23 +148,18 @@ Itemized 2026-09-30 at Phase 2's close. Order: the tracer first (one real export
   34 caught, 2 unviable, 7 missed, all refusal guards of `tracer.rs` (root/folder kind guards,
   the `.fclo`/`face_diff` name guards, the `.ftex` pass-through arm, the layout-marker and `.dds`
   guards), left untested because 3.9 deletes `tracer.rs`; the pipeline's own tests replace them
-- [ ] 3.4 The tracer's Phase 2 frictions, from 3.3's report; each fixed in its lib crate or
-  recorded as a decision entry: (a) `pipeline.md` step 2 names `fmdl_id_change`, which does not
-  exist: the placeholder `000` → team ID substitution in FMDL texture directories goes through
-  `fmdl::ops::paths::rewrite_texture_paths`; (b) the kit config file name (`p1`→`1st`..,
-  `g1`→`GK1st`, `{team}_DEF_{name}_realUni.bin`) is format knowledge: move `tracer.rs`'s
-  `kit_name_suffix` into `kit_config` beside `texture_names`; (c) `kit_config::texture_names`
-  takes a raw `u16` team and `&str` slot: decide with 3.5's kit slot type; (d) the player ID
-  (`team * 100 + NN`, up to 92023) overflows `u16`: 3.5's shapes give it a type; (e) `ftex::info`
-  exposes the raw texture type, no `ColorSpace`: no consumer until Phase 4's role table, record
-  it; (f) `CpkWriter::new`'s tool version: the tracer passes `"4cc-studio"`, 3.9's writer passes
-  the app version. → verify: every item closed; gates and the consuming crates' tests (`just
-  bindings` when `fmdl`/`pes_model` change)
+- [x] 3.4 The tracer's Phase 2 frictions — done: `kit_config::KitSlot` (parse, `as_str`,
+  `config_name`) replaces the tracer's `kit_name_suffix` and `texture_names`' `&str` slot; the team
+  id stays `u16`; `pipeline.md` step 2 names the real texture-path rewrite, "5. Writer" the tool
+  version; the parity test compares FTEX headers too (a kit written as sRGB now fails it, checked);
+  `FtexInfo` keeps its raw type; the player ID's type goes to 3.5. Decision entry. `mutants-diff`:
+  19, 17 caught, 1 unviable, 1 missed (the tracer's layout-marker guard, one of 3.3's seven)
 - [ ] 3.5 `aesthetics_export` shapes (lead, before any brief): the plan code blocks the crate's
   implementation starts from — `CanonicalListing`, `SmallMetadata`, `ValidationContext`,
   `ValidationIssue` and its scope, `FileDescriptor`/`FileKind`, the descriptor types, the error
-  types — in `object_model.md`, from "Core types" and "Validation semantics". → verify: every
-  type the crate layout names has a block or a line saying why none is needed
+  types — in `object_model.md`, from "Core types" and "Validation semantics"; the player ID
+  (`team * 100 + slot`, past `u16`) gets its type; kits key on `kit_config::KitSlot` (3.4).
+  → verify: every type the crate layout names has a block or a line saying why none is needed
 - [ ] 3.6 `libs/aesthetics_export`, two slices, each its own commit and review: (a) `listing`,
   `conventions/`, `parse/`; (b) `validate/` with the sanitized-scope rule and `resolve.rs`.
   `players_txt.rs` and `kit_config_toml.rs` wait for their consumers (Refs arranger, Phase 4 kit
@@ -581,3 +576,5 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
 - **2026-09-30** - 3.3 done: the tracer compiles /egg/'s Stormworks player face and kit g1 for
   PES 21 and matches Red's output on every row Phase 3 produces (FTEX by decoded content,
   decision entry). Six Phase 2 frictions listed as 3.4. Next: 3.4.
+- **2026-09-30** - 3.4 done: `kit_config::KitSlot`, FTEX headers in the parity comparison, the
+  plan's stale `fmdl_id_change` and the CPK tool version settled (decision entry). Next: 3.5.

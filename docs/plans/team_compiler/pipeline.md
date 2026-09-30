@@ -237,7 +237,8 @@ then processed as an independent parallel task (Blue: `coordinator._model_folder
    through to the opposite native format, so the same export never compiles differently once
    glTF is read.
 2. **ID replacement** — dummy team IDs are replaced in file contents (FMDL texture path tables via
-   `fmdl_id_change`; `.mtl` texture IDs pre-Fox) and in file names.
+   the `fmdl` crate's texture-path rewriting, `ops::paths::rewrite_texture_paths`; `.mtl` texture
+   IDs pre-Fox) and in file names.
 3. **Fox mode fixups** — FMDL files renamed by stripping prefixes to the allowed names (arbitrary
    names route to the `fcl_hair.fmdl` merge — Red's fallback generalized), and all models resolving
    to the same allowed name — including `.common` links to Common models, which Fox cannot load at
@@ -464,7 +465,8 @@ describes behavior, not a serial scheduling requirement:
    manifest (or, for deep-derived names, inside the owning task) — never by rayon completion or
    writer arrival order. The writer treats any path that still arrives twice as an internal
    invariant violation; canonical manifest order and normalized CPK timestamps make otherwise
-   identical builds reproducible.
+   identical builds reproducible. The CPK header's tool-version string is `4cc Studio <version>`
+   (the workspace version), so the same release reproduces the same bytes.
 4. **Bins last** — after all exports complete, the accumulated bins (committed mutations only) are
    written.
 5. **Output modes and targets** — normal (CPK), test (unpacked tree per export in `test_output/`),

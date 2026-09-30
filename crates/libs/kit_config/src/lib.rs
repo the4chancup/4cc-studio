@@ -18,7 +18,7 @@ pub use model::{
     NameText, Numbers, Position, Rgb, Shirt, ShortSleeves, Shorts, ShortsNumber, Side,
     TEXTURE_NAME_FIELDS, field_limits,
 };
-pub use names::{TexturePresence, texture_names};
+pub use names::{KitSlot, TexturePresence, texture_names};
 pub use validate::{Finding, OutOfRange, Severity, validate};
 
 use pes_version::PesVersion;
@@ -379,7 +379,7 @@ mod tests {
     fn texture_names_derive_from_team_slot_and_presence() {
         let names = texture_names(
             701,
-            "p1",
+            KitSlot::P1,
             TexturePresence {
                 kit: true,
                 back: true,
@@ -391,6 +391,31 @@ mod tests {
         assert_eq!(names[2], [0u8; 16]);
         assert_eq!(names[3], [0u8; 16]);
         assert_eq!(names[4], [0u8; 16]);
+    }
+
+    #[test]
+    fn kit_slots_parse_name_and_config_names() {
+        let slots = [
+            (KitSlot::P1, "p1", "792_DEF_1st_realUni.bin"),
+            (KitSlot::P2, "p2", "792_DEF_2nd_realUni.bin"),
+            (KitSlot::P3, "p3", "792_DEF_3rd_realUni.bin"),
+            (KitSlot::P4, "p4", "792_DEF_4th_realUni.bin"),
+            (KitSlot::P5, "p5", "792_DEF_5th_realUni.bin"),
+            (KitSlot::P6, "p6", "792_DEF_6th_realUni.bin"),
+            (KitSlot::P7, "p7", "792_DEF_7th_realUni.bin"),
+            (KitSlot::P8, "p8", "792_DEF_8th_realUni.bin"),
+            (KitSlot::P9, "p9", "792_DEF_9th_realUni.bin"),
+            (KitSlot::G1, "g1", "792_DEF_GK1st_realUni.bin"),
+        ];
+        for (slot, name, config_name) in slots {
+            assert_eq!(KitSlot::parse(name), Some(slot));
+            assert_eq!(KitSlot::parse(&name.to_ascii_uppercase()), Some(slot));
+            assert_eq!(slot.as_str(), name);
+            assert_eq!(slot.config_name(792), config_name);
+        }
+        for name in ["p0", "p10", "g2", "x1", "all", "", "p1 "] {
+            assert_eq!(KitSlot::parse(name), None);
+        }
     }
 
     #[test]

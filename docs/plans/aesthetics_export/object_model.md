@@ -463,7 +463,8 @@ pub fn split_player(
 - **Strong domain types.** Use validated `TeamName`, `TeamId`, `ExportIdentity`, `PlayerSlot`,
   `RefSlot`, `ExportSlot` (distinguishing team vs referee slots), `BootsId`, `GlovesId`, and
   `CpkStem` types at boundaries rather than passing unvalidated strings and integers through
-  processing code.
+  processing code. `KitSlot` is `kit_config`'s (the texture and config names it derives are
+  format knowledge); this crate parses kit folder names into it.
 - **Shared textures.** Rayon's model-folder tasks are cross-thread by construction, so textures
   referenced by multiple tasks use `Arc<[u8]>` exclusively; shared bytes stay charged to the memory
   budget until their last consumer is written.
