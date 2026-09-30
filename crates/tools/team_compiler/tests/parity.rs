@@ -142,6 +142,15 @@ fn compare_leaf(failures: &mut Vec<String>, name: &str, ours: Option<&[u8]>, ref
     match ours {
         None => failures.push(format!("{name}: missing from our CPK")),
         Some(our_bytes) if name.ends_with(".ftex") => {
+            let (our_info, reference_info) = (
+                ftex::info(our_bytes).unwrap(),
+                ftex::info(reference).unwrap(),
+            );
+            if our_info != reference_info {
+                failures.push(format!(
+                    "tier2 {name}: headers differ (ours {our_info:?}, reference {reference_info:?})"
+                ));
+            }
             if ftex::ftex_to_dds(our_bytes).unwrap() != ftex::ftex_to_dds(reference).unwrap() {
                 failures.push(format!("tier2 {name}: decoded DDS content differs"));
             }

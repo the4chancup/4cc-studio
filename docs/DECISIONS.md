@@ -2487,3 +2487,22 @@ sizes and streams (first difference at offset 0x48, the chunk table), while both
 to byte-identical DDS. Matching Red's bytes would mean reproducing one zlib build's deflate
 output, which `ftex` already declared a non-goal; the game reads the pixels, not the stream.
 Plan: `team_compiler/testing.md` "Testing: parity against Red", tier 2.
+
+## 2026-09-30 - kit_config / ftex / team_compiler - 3.4: the tracer's Phase 2 frictions
+Decision: (1) `kit_config` owns `KitSlot` (`p1`–`p9`, `g1`): its parse, the lowercase name the
+texture names carry, and the config entry name `{team}_DEF_{1st…9th|GK1st}_realUni.bin`;
+`texture_names` takes it, and `aesthetics_export` parses kit folder names into it rather than
+defining its own. The team id stays a `u16` whose range is the caller's. (2) `ftex::FtexInfo`
+keeps the raw `texture_type`, with no `ColorSpace` accessor. (3) The FTEX parity comparison also
+compares `ftex::info` of both sides. (4) The CPK tool version is `4cc Studio <version>`.
+(5) The player ID (`team * 100 + slot`, past `u16`) gets its type in 3.5's shapes.
+Why: (1) both names are the game's, so they are format knowledge, and one parser means the
+folder grammar and the emitted names cannot disagree; a `teams_list::TeamId` would add a
+dependency to a crate whose standalone conversion has no teams list. (2) Nothing reads a texture's
+color space until Phase 4's texture-role table; an accessor now would have no consumer. (3) The
+decoded-DDS comparison alone cannot see the texture type (a kit written as sRGB still passed); the
+header comparison fails it. (4) `CpkWriter::new` requires one, and a per-release string keeps
+builds reproducible within a release.
+Plan: `kit_config_editor.md` "`libs/kit_config`"; `aesthetics_export/object_model.md` "Design
+constraints"; `team_compiler/testing.md` tier 2; `team_compiler/pipeline.md` "5. Writer" and step 2
+of the model-folder tasks (which named a `fmdl_id_change` that does not exist).

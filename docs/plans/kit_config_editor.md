@@ -271,8 +271,14 @@ The format knowledge as a lib crate:
   (`kit_config_fpc_adjusted`) and by this tool's FPC indicator. The per-version FPC values
   themselves come from the leaf crate `libs/fpc` (see [libs](libs/README.md)), which also holds the
   player-side presets `pes_savefile` applies — one description of the system for every tool.
+- `KitSlot`, the game's ten kit slots (`p1`–`p9`, `g1`): `KitSlot::parse` reads a slot name
+  ASCII-case-insensitively (the kit folder grammar's slot part, `aesthetics_export`'s parse),
+  `as_str` gives the lowercase name the texture names carry, and `config_name(team_id)` the
+  slot's config entry name, `{team_id}_DEF_{1st…9th|GK1st}_realUni.bin`. `all` is folder
+  grammar, not a slot.
 - Texture-name derivation from a kit's *effective* texture set (own files plus what it inherits
-  from `Kits/all/`, as resolved by `aesthetics_export`) + team id + slot.
+  from `Kits/all/`, as resolved by `aesthetics_export`) + team id + `KitSlot`. The team id stays a
+  plain `u16` whose range is the caller's: the crate does not depend on `teams_list`.
 - Validation: range checks, cross-field constraints, version-fit warnings — one
   implementation for the editor's inline hints, the compiler's checks, and the CLI.
 
