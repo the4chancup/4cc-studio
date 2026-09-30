@@ -219,6 +219,19 @@ Steps are itemized when Phase 3 closes, and only after 4.0 is done; one more is 
   times retains one conversion of it, and a budget smaller than the cache evicts rather than
   blocking a task
 
+### Phase 5 — Savefile integration
+
+Steps are itemized when Phase 4 closes; one is fixed already:
+
+- [ ] 5.0 Check the latest commits made to the unofficial 4ccEditor fork (`Tools_4cc/4ccEditor-1`,
+  origin `AnonymousClouds/4ccEditor`; `pes_savefile/README.md` names it the reference): it is
+  under constant development. Fetch, then read every commit after `4a95b7c` (2026-06-19, "Add
+  Tactics tab for 16-21. Add ability to import Texports from 15-21"), the local clone's head at
+  Phase 2's close → done when: each savefile-relevant
+  change (schema fields, write behavior, `.4ccs`/`.4cct`/Texport formats) is reflected in
+  `pes_savefile` and its plans or recorded as not applying, before any Phase 5 writing code, and
+  the commit reached is in the log
+
 ### Phase 16 — Polish and distribution
 
 Steps are itemized when Phase 15 closes; one is fixed already:
