@@ -73,8 +73,9 @@ eligible, roster-entry scope and disposition; confirmed 2026-09-30).
 - **Who decides a consequence.** This crate decides each structural issue's disposition, because
   it builds the sanitized export from them: a `ValidationIssue` carries its code, scope, context,
   effective disposition, and whether `pass_through` changed it. The consuming tool owns only
-  severity, text and hint (the Team compiler's catalog in `messages.md`), and the tool tests that
-  every code this crate emits has a catalog row whose consequence agrees. Settings that change a
+  severity, text and hint (the Team compiler's catalog in `messages.md`); the tool tests that
+  every code in `ISSUE_CODES` has a catalog row, and its scenario tests observe the consequence
+  each row states. Settings that change a
   consequence reach the crate through `ValidationContext`: the target `PesVersion` (Fox or pre-Fox
   allowed names), `strict_file_type_check` and `pass_through`.
 - **Sanitized versus eligible.** `ValidatedAestheticsExport` holds exactly the eligible content:
@@ -136,17 +137,17 @@ crates/libs/aesthetics_export/src/
 │   ├── kits.rs         #   kit folder grammar (`<slot>[ - <label>]`, slots p1–p9, g1, all), `all/` inheritance, config.toml / colors.txt / icon.txt
 │   └── file_types.rs   #   allowlists per folder kind (strict vs info)
 ├── parse/              # listing → ParsedAestheticsExport (raw, everything retained)
-│   ├── mod.rs
+│   ├── mod.rs          #   canonicalization and root normalization
 │   ├── identity.rs     #   export_display_name → first token → teams_list::TeamName::new
-│   ├── roster.rs       #   players.txt → raw RosterEntry list (malformed lines retained)
-│   ├── links.rs        #   link files (Name.boots, .common) → unresolved references
-│   └── descriptors.rs  #   PlayerFolderDesc, SharedModelFolderDesc, KitsFolderDesc (structure only)
+│   ├── roster.rs       #   players.txt → RawRoster (malformed lines retained)
+│   └── draft.rs        #   AestheticsExportDraft, FolderDraft, FileDescriptor (structure only)
 ├── validate/           # ParsedAestheticsExport → ValidationReport { draft, issues, sanitized: Option<ValidatedAestheticsExport> }
 │   ├── mod.rs          #   the sanitized-scope rule; foundational vs isolated failures
 │   ├── structure.rs    #   folder tree, nesting, naming
 │   ├── roster.rs       #   ValidatedRoster: numbers, duplicates, DropSlot semantics
-│   ├── links.rs        #   link resolution against shared folders and Common
-│   └── issues.rs       #   ValidationIssue (stable code, scope, context) — no message text
+│   ├── links.rs        #   link files (Name.boots, .common) resolved against shared folders and Common
+│   ├── folders.rs      #   FolderDraft → PlayerFolder / SharedModelFolder / KitsFolder, and the root files
+│   └── issues.rs       #   ValidationIssue, ISSUE_CODES (stable code, scope, context) — no message text
 ├── resolve.rs          # ValidatedAestheticsExport + teams_list::TeamsList → ResolvedAestheticsExport (ExportIdentity, TeamId)
 ├── players_txt.rs      # players.txt writer (Refs arranger) with atomic replacement
 └── kit_config_toml.rs  # config.toml ↔ kit_config binary bridge for exports (comment-preserving)
@@ -182,14 +183,15 @@ Placement rules:
 ```rust
 pub struct ParsedAestheticsExport {
     pub draft: AestheticsExportDraft,
-    pub raw_roster: Vec<RawRosterEntry>,
-    pub issues: Vec<ValidationIssue>,
+    pub raw_roster: Option<RawRoster>,   // None: no roster file (numbered folder names instead)
+    pub metadata: SmallMetadata,         // as supplied; validate reads notes.txt and icon.txt from it
+    pub issues: Vec<ValidationIssue>,    // the parse's own (root normalization, the roster read)
 }
 
 pub struct ValidationReport {
     pub parsed: ParsedAestheticsExport,
     pub validated: Option<ValidatedAestheticsExport>,
-    pub issues: Vec<ValidationIssue>,
+    pub issues: Vec<ValidationIssue>,    // every issue: `parsed.issues`, then validation's
 }
 
 pub struct ValidatedAestheticsExport {
@@ -201,12 +203,22 @@ pub struct ValidatedAestheticsExport {
     pub boots: Vec<SharedModelFolder>,   //   (no IDs — IDs are assigned by run planning)
     pub gloves: Vec<SharedModelFolder>,
     pub kits: KitsFolder,                // per-kit subfolders (config.toml + colors.txt + textures)
-    pub portraits: PortraitFolder,
+    pub portraits: BTreeMap<PlayerSlot, FileDescriptor>, // `Portraits/player_NN.*`
     pub logo: Option<LogoFiles>,         // root `logo*` (+ optional `logo_small*`), each with its fit mode (see "Root files")
-    pub collars: CollarFolder,
-    pub common: CommonFolder,
+    pub collars: Vec<FileDescriptor>,    // `Collars/`, passed through
+    pub common: Vec<FileDescriptor>,     // `Common/`, the targets of `.common` links
     pub root: RootArtifacts,             // sanitized root colors/notes/referee marker
 }
+
+pub struct LogoFiles {
+    pub main: LogoFile,
+    pub small: Option<LogoFile>,
+}
+pub struct LogoFile {
+    pub file: FileDescriptor,
+    pub fit: Option<LogoFit>,            // the stem's tag; None: untagged (`fit` if not square)
+}
+pub enum LogoFit { Crop, Stretch, Fit }
 
 pub struct RootArtifacts {
     pub team_colors: Option<FileDescriptor>,
@@ -229,8 +241,8 @@ pub struct KitFolder {
     pub folder_name: String,                 // `p1` or `p1 - Lakers`
     pub label: Option<String>,               // the free part after ` - `; GUI/editor display only
     pub config: Option<FileDescriptor>,      // config.toml (absent → generated at compile time)
-    pub colors: Option<FileDescriptor>,      // colors.txt
-    pub icon: Option<FileDescriptor>,        // icon.txt
+    pub colors: Option<FileDescriptor>,      // colors.txt (grammar: Phase 4)
+    pub icon: Option<u8>,                    // icon.txt's number, 0–23; None: absent or kit_icon_invalid (the default 3 applies)
     pub layout: Option<KitLayout>,           // `fox` / `pre-fox` marker file; None = drawn for the target engine
     pub textures: Vec<KitTexture>,           // the *effective* set: own files, plus `all/` files for stems the kit lacks
 }
@@ -242,6 +254,7 @@ pub struct KitTexture {
     pub file: FileDescriptor,
     pub source: KitTextureSource,            // Own | Shared — provenance for the editor and `kit_textures_inherited`
 }
+pub enum KitTextureSource { Own, Shared }
 // Inheritance is resolved here, once, so the compiler, the Kit config editor and the upgrader
 // see the same effective set and derive the same texture-name fields from it.
 
@@ -290,8 +303,9 @@ pub fn parse_listing(
     metadata: SmallMetadata,
 ) -> Result<ParsedAestheticsExport, SourceError>;
 impl ParsedAestheticsExport {
-    pub fn validate(self, context: &ValidationContext)
-        -> Result<ValidationReport, FatalValidationError>;
+    // Infallible: every structural failure is a ValidationIssue, a foundational one included
+    // (DropExport, `validated: None`); what cannot be parsed at all is parse_listing's SourceError.
+    pub fn validate(self, context: &ValidationContext) -> ValidationReport;
 }
 impl ValidatedAestheticsExport {
     pub fn resolve_identity(self, teams_list: &TeamsList)
@@ -312,6 +326,153 @@ pub fn process_task(task: BuildTask, ctx: &CompileContext) -> TaskBatch;
 // those assignments, never allocates. The writer commits successful batches and
 // releases their permits.
 ```
+
+### Structure pass types
+
+The inputs, the draft, the issues and the small value types of the structure pass. The Core types
+above are the sanitized output; everything here is what reaches it.
+
+```rust
+// ---- Input (listing.rs). The consumer lists one export source; parse_listing canonicalizes.
+pub struct CanonicalListing {
+    pub display_name: String,        // the source's stem: folder name, or archive name without extension
+    pub entries: Vec<ListedEntry>,   // any order
+}
+pub struct ListedEntry {
+    pub path: String,                // as the source spells it, relative to the source root
+    pub kind: ListedKind,
+}
+pub enum ListedKind {
+    File { size: u64 },
+    Folder,                          // needed only for a folder with nothing below it (an empty kit)
+}
+
+/// The small files the structure pass reads, keyed by `ListedEntry::path`. The consumer reads
+/// every listed file `is_small_metadata` accepts; a failed read carries its reason
+/// (`source_read_failed`, with the disposition of what the file is: `DropExport` for a roster,
+/// `DropFile` for `notes.txt` or `icon.txt`). A listed file missing from the map was not read:
+/// Phase 3 treats it as a failed read; the GUI's shallow check gives it its own state in Phase 8.
+pub struct SmallMetadata {
+    pub files: BTreeMap<String, Result<Vec<u8>, String>>,
+}
+// conventions/mod.rs: `players.txt`, `refs.txt`, `notes.txt`, `icon.txt`, by name
+// (case-insensitive) at any depth, so the consumer needs no root normalization of its own.
+pub fn is_small_metadata(path: &str) -> bool;
+
+pub struct ValidationContext {
+    pub version: PesVersion,         // Fox or pre-Fox allowed names
+    pub strict_file_type_check: bool,
+    pub pass_through: bool,
+}
+
+// ---- Errors. A listing that cannot become a tree: the consumer's `export_extract_failed`.
+#[derive(Debug, thiserror::Error)]
+pub enum SourceError {
+    #[error("{path}: {error}")]
+    Path { path: String, error: vtree::PathError },    // escapes the root, not canonical
+    #[error("{path}: {error}")]
+    Collision { path: String, error: vtree::InsertError }, // two names fold to one
+}
+/// The canonical team name has no teams-list row (`team_name_unknown`).
+#[derive(Debug, thiserror::Error)]
+#[error("team {team_name} is not in the teams list")]
+pub struct IdentityError { pub team_name: TeamName }
+
+// ---- Draft (parse/). Everything the normalized tree holds, grouped by content folder,
+// nothing dropped; parse_listing first normalizes the root (`team_compiler/pipeline.md`
+// "Per-export serial steps", step 1), reporting nested_folders_fixed, nested_root_ambiguous
+// and nested_root_conflict.
+pub struct AestheticsExportDraft {
+    pub export_display_name: String,
+    pub team_name: Option<TeamName>,          // None: the stem has no token (team_name_unknown, empty name)
+    pub root_files: Vec<FileDescriptor>,      // files directly at the root
+    pub root_folders: Vec<vtree::ScopePath>,  // root folders that are no content folder (`wrapper/`)
+    pub stray_files: Vec<FileDescriptor>,     // files directly in Players/, Kits/, Faces/, Boots/, Gloves/
+    pub players: Vec<FolderDraft>,
+    pub faces: Vec<FolderDraft>,
+    pub boots: Vec<FolderDraft>,
+    pub gloves: Vec<FolderDraft>,
+    pub kits: Vec<FolderDraft>,               // `all/` included
+    pub portraits: Vec<FileDescriptor>,
+    pub collars: Vec<FileDescriptor>,
+    pub common: Vec<FileDescriptor>,
+}
+impl AestheticsExportDraft {
+    pub fn kind(&self) -> ExportKind;         // Referees exactly when team_name is `/refs/`
+}
+pub struct FolderDraft {
+    pub path: vtree::ScopePath,               // `Players/03 - A`, `Kits/p1 - Lakers`
+    pub files: Vec<FileDescriptor>,           // every file below it, reserved subfolders included
+}
+pub enum ExportKind { Team, Referees }
+
+/// The authoritative roster file: `players.txt`, or a referee export's `refs.txt` alias when
+/// it has no `players.txt`. A file that is not UTF-8 has no entries (players_txt_invalid).
+pub struct RawRoster {
+    pub file: vtree::ScopePath,
+    pub entries: Vec<RawRosterEntry>,         // nonblank lines, in file order
+}
+pub struct RawRosterEntry {
+    pub line: usize,                          // 1-based
+    pub slot: Option<u16>,                    // the leading decimal, range unchecked; None: none parsed
+    pub folder_name: Option<String>,          // the trimmed remainder; None: a bare slot
+}
+
+// ---- Issues (validate/issues.rs). The consumer maps each to its own Message.
+pub struct ValidationIssue {
+    pub code: &'static str,                   // stable; always one of ISSUE_CODES
+    pub scope: IssueScope,
+    pub context: Vec<(&'static str, String)>, // structured fields, in template order
+    pub disposition: Disposition,             // effective: Keep when pass_through kept the item
+    pub passed_through: bool,                 // pass_through turned a DropFile/DropFolder into Keep
+}
+pub enum IssueScope {                         // within the one export this crate sees
+    Export,
+    Folder(vtree::ScopePath),
+    File(vtree::ScopePath),
+    RosterEntry { file: vtree::ScopePath, line: usize, slot: Option<u16> },
+}
+pub enum Disposition { Keep, DropFile, DropSlot, DropFolder, DropExport }
+pub const ISSUE_CODES: &[&str];               // every code the crate emits
+
+// ---- File kinds (conventions/file_types.rs), from the name alone. A stray `.txt` after a
+// link or marker name is tolerated. The allowlist is, per folder kind, the set of kinds it
+// admits; `Other` is admitted nowhere, and strict_file_type_check changes only the disposition.
+pub enum FileKind {
+    Model(ModelFormat),
+    Texture,                  // an accepted image extension
+    Skl, Fclo, Xml, Mtl, MaterialsToml,
+    Bin,                      // `.bin`: a game bin (`face_diff.bin`) or a glTF buffer; deep glTF parsing tells them apart
+    SharedLink(SharedKind),   // `Crocs.boots`, `Longhair.face`, `Keeper gloves.gloves`
+    CommonLink,               // `<name>.common`: stands in for `Common/<name>`
+    Marker(Marker),
+    Metadata(MetadataFile),
+    Other,
+}
+pub enum ModelFormat { Fmdl, PesModel, Gltf }   // `.fmdl`, `.model`, `.glb`/`.gltf`
+pub enum Marker { IngameFace, FpcOn, FpcOff, PreFox, Fox }
+pub enum MetadataFile {
+    PlayersTxt, RefsTxt, RefLists, NotesTxt, ColorsTxt, IconTxt, ConfigToml, SettingsToml, Readme,
+}
+
+// ---- Slots.
+pub struct PlayerSlot(u8);                    // 01–23: a normal team's roster slot
+impl PlayerSlot {
+    pub fn new(slot: u8) -> Option<PlayerSlot>;
+    pub fn get(self) -> u8;
+    pub fn player_id(self, team: TeamId) -> u32; // team * 100 + slot (92023 at most: past u16)
+}
+pub struct RefSlot(u8);                       // 01–35: a referee roster slot
+impl RefSlot {
+    pub fn new(slot: u8) -> Option<RefSlot>;
+    pub fn get(self) -> u8;
+}
+```
+
+Kits key on `kit_config::KitSlot` ("Design constraints"). `ExportSlot` (a team or referee slot,
+`split_player`'s input) and `BootsId`/`GlovesId` belong to the Team compiler's Phase 4 planning,
+not to this crate. `players_txt.rs` and `kit_config_toml.rs` get their shapes with their
+consumers (the Refs arranger; the Phase 4 kit step).
 
 ### Model files
 
@@ -395,7 +556,8 @@ pub struct PlayerFolder {
     // slots map to folders in ValidatedAestheticsExport.roster (a referee folder is identical
     // regardless of how many slots point at it). Folder→slots, when needed
     // (process once, pack per slot), is derived by grouping the roster.
-    pub player_name: String,
+    pub path: vtree::ScopePath,     // `Players/03 - A`: the scope its issues and events name
+    pub player_name: String,        // the folder name without its `NN - ` number
     pub files: Vec<FileDescriptor>, // names, sizes, kinds — contents load later, per task
     pub links: Vec<SharedLink>,     // shared-folder link files (e.g. "Crocs.boots" → shared Boots/Crocs/);
                                     //   `.common` links (models, material files) are `files` entries
@@ -420,13 +582,15 @@ pub struct SharedLink {
     pub kind: SharedKind,           // Face / Boots / Gloves
     pub name: String,               // "Crocs"
 }
+pub enum SharedKind { Face, Boots, Gloves }
+pub enum FpcDirective { On, Off }
 
 pub struct FileDescriptor {
-    pub path: vtree::ScopePath,     // canonical virtual path within the export
+    pub path: vtree::ScopePath,     // canonical virtual path within the (normalized) export
+    pub source: vtree::ScopePath,   // the same file's path in the source, for reading it; differs
+                                    //   from `path` only under a flattened layer
     pub size: u64,
-    pub kind: FileKind,             // classified from extension/name (Fmdl, Model, Gltf,
-                                    // GltfBuffer, GltfImage, Texture, Xml, Mtl, MaterialsToml,
-                                    // Skl, Fclo, RawBin, Other)
+    pub kind: FileKind,             // classified from the name alone ("Structure pass types")
     // glTF files may reference external .bin buffers and image files (any
     // accepted format: DDS, FTEX, PNG, JPEG, BMP, WebP, TGA, TIFF): those
     // dependencies are restricted to the source model folder, loaded once each,

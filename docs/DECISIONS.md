@@ -2506,3 +2506,22 @@ builds reproducible within a release.
 Plan: `kit_config_editor.md` "`libs/kit_config`"; `aesthetics_export/object_model.md` "Design
 constraints"; `team_compiler/testing.md` tier 2; `team_compiler/pipeline.md` "5. Writer" and step 2
 of the model-folder tasks (which named a `fmdl_id_change` that does not exist).
+
+## 2026-09-30 - aesthetics_export - 3.5: the structure pass shapes
+Decision: the shapes in `object_model.md` "Structure pass types", with these departures from the
+earlier blocks: `validate` returns a `ValidationReport`, not a `Result` (no `FatalValidationError`);
+the draft is `AestheticsExportDraft` of `FolderDraft`s, and the validated `PlayerFolder`,
+`SharedModelFolder` and `KitsFolder` are the descriptors (no `*Desc` types); portraits, collars and
+common are plain collections (no wrapper structs); `KitFolder.icon` is the parsed number; a
+`FileDescriptor` carries its source path beside its virtual one; `parse_listing` does the root
+normalization; `ISSUE_CODES` is what the tool's catalog test iterates; `ExportSlot` moves to the
+Team compiler's Phase 4 planning.
+Why: every structural failure is already an issue with a disposition, so a fatal error type would
+have no variant. One set of validated types serves both the draft's consumers and the compile,
+and a wrapper around one `Vec` adds a name and nothing else. `icon.txt` is read by the structure
+pass anyway, so re-reading it downstream would repeat the parse. Flattening changes virtual paths,
+so reading needs the source's own. Root normalization is format knowledge every consumer of a
+listing needs, not a compiler step. A code list lets the tool check its catalog without emitting
+every issue; the consequence is observed by the scenario tests.
+Plan: `aesthetics_export/object_model.md` "Core types", "Structure pass types", "Player folders",
+the crate layout and "Validation semantics".
