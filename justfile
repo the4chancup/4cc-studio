@@ -8,8 +8,8 @@ set windows-shell := ["powershell.exe", "-NoLogo", "-NoProfile", "-Command"]
 
 python := if os_family() == "windows" { "python" } else { "python3" }
 
-# The four verification gates, in order. CI runs this same recipe.
-gates: fmt-check clippy test wasm-check
+# The five verification gates, in order. CI runs this same recipe.
+gates: fmt-check clippy test wasm-check acceptance
 
 # Gate 1: formatting
 fmt-check:
@@ -26,6 +26,11 @@ test:
 # Gate 4: studio_core and every lib crate check for wasm32 (list derived from the workspace)
 wasm-check:
     {{python}} scripts/wasm_check.py
+
+# Gate 5: the acceptance-ID scanner's own tests, then the scan (`report` fails on untrustworthy citations; `strict`, at converge, also on unproven scenarios)
+acceptance mode="report":
+    {{python}} scripts/acceptance_test.py
+    {{python}} scripts/acceptance.py {{mode}}
 
 # Mutation run over one crate (converge); survivors are test gaps, equivalents or dead code; split with STUDIO_MUTANTS_REMOTE when set
 mutants crate:

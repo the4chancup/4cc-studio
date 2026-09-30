@@ -150,13 +150,14 @@ just gates
 ```
 
 The root `justfile` is the one definition of the gates (`cargo fmt --all --check`, `cargo clippy
---workspace --all-targets -- -D warnings`, `cargo test --workspace`, and `cargo check --target
-wasm32-unknown-unknown` for `studio_core` and every lib crate), and CI runs the same recipe, so
+--workspace --all-targets -- -D warnings`, `cargo test --workspace`, `cargo check --target
+wasm32-unknown-unknown` for `studio_core` and every lib crate, and `just acceptance`, the
+acceptance-ID scanner in its `report` mode), and CI runs the same recipe, so
 the list cannot drift between this document, the local run and CI (it had, before the justfile
 existed: two spellings of the fmt gate in two documents). The other recipes are the project's
 repeatable sequences, each of which the plan names somewhere: `just deps-check` (guardrail 4,
 the `fmdl`/`pes_model` denylist, plus the `cargo deny` license allowlist; see "License" in the
-core plan), `just acceptance` (the acceptance-ID scanner), `just parity`,
+core plan), `just acceptance strict` (the scanner's converge mode, under "Requirements"), `just parity`,
 `just bindings` (the `maturin` build of `python_bindings`), `just release <version>`, `just
 mutants <crate>`, `just mutants-collect` and `just mutants-diff [base]` (the mutation runs,
 below). `just --list` shows
@@ -228,13 +229,23 @@ Requirements:
   parity standard (byte-identical CPK, format round-trips) is not restated as a scenario.
 - The test that proves a scenario carries the exact ID in a `//` comment on the line above the
   `#[test]` (`// TC-KIT-03`), so `rg TC-KIT-03` finds both the requirement and its proof; the
-  function name is free to be descriptive. One test may prove several IDs; one ID may need several
-  tests. A scenario without a citing test is what the phase-closing converge audit looks for.
+  function name is free to be descriptive. One test may prove several IDs (`// TC-KIT-03,
+  TC-KIT-04`, or one ID per comment line, all directly above the `#[test]`); one ID may need
+  several tests. A scenario without a citing test is what the phase-closing converge audit looks
+  for.
 - A scenario no automated test can prove (GUI interaction, a native dialog, a running PES) is
   marked `manual` after its ID in the Acceptance section. Its proof is a line in the worklog's
   converge step (`TC-GUI-04 manual: checked 2026-11-02, <what was done>`), and the converge check
-  treats that line as the citation. Prefer an automated proof whenever the UI toolkit allows one;
-  `manual` is for what it does not.
+  treats that line as the citation; collapsing the phase's step list keeps these lines. Prefer
+  an automated proof whenever the UI toolkit allows one; `manual` is for what it does not.
+- `scripts/acceptance.py` checks both halves. Every mode fails on a citation that proves nothing:
+  one naming an ID no scenario defines or a withdrawn one, an ID-only `//` comment not directly
+  above a `#[test]`, a manual check of a scenario not marked `manual`, an ID defined twice, or
+  an Acceptance-section line that starts with an ID but is not a scenario. `report` (gate 5)
+  lists unproven scenarios without failing, since an open phase's scenarios precede their
+  tests; `strict`, run at converge, also fails on each of them. Strict checks every scenario in
+  the plans: written just in time, they all belong to the closing phase or an earlier one, and
+  an earlier phase's proof that disappeared is a regression.
 - Code must build on Windows and Linux. No external converters or runtimes (texconv, 7z, ffmpeg,
   libmpv are all replaced in-process); the only subprocesses are the ones the plan names (Blender,
   PES, the elevated self-relaunch).
