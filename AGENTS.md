@@ -176,7 +176,17 @@ real file, the crate's own readers or its own operations produce. A hand-built v
 of them produce is low value when the crate refuses it with an error, and ranks high only
 when it panics, hangs, or writes a wrong file without an error. From 2.20f's second round on,
 the top of the list went to models no reader or operation produces. Round 4's brief carried this line, and
-none of its four concerns needed a hand-built model. Past the fifth round on one surface the lead reports the counts and the
+none of its four concerns needed a hand-built model. **Reviewer briefs also ask for
+over-engineering**, and the lead's rulings watch for it, above all on plans: a reviewer asked
+only for gaps reports only gaps, so each round adds a sentence per edge case it can name, and
+the fix for one concern becomes the next round's concern. The brief asks it to flag what could
+be cut (a special case a general rule already covers, machinery no scenario needs); the lead
+prefers one general rule over a growing list of cases, and rejects a narrow addition that
+distinguishes no behavior a real export reaches. At 3.1 (maintainer's warning), the rulings on
+the sidekick's round S2 replaced a growing list of "not compilable yet" cases with one short
+rule, what the tracer compiles, and rejected three narrow additions (a `NO_USE` inside a
+wrapper, folders inside `Common/`, a player folder named `Players`); from GPT round 6 on, both
+reviewers' briefs asked for over-engineering. Past the fifth round on one surface the lead reports the counts and the
 classes found to the user and continues unless told otherwise: a check-in, not a stop. Each
 round's reviewer is a fresh `run_subagent`, never a resumed one (`resume`), even though resuming
 saves the re-exploration: 2.20d's fourth round ran both on the same surface, and the reviewer
