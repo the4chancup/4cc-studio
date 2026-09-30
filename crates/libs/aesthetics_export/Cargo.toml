@@ -1,0 +1,16 @@
+[package]
+name = "aesthetics_export"
+description = "The Studio aesthetics export format: object model, conventions, structure validation"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+pes_version.workspace = true
+teams_list.workspace = true
+vtree.workspace = true
+
+[lints]
+workspace = true

@@ -125,12 +125,13 @@ eligible, roster-entry scope and disposition; confirmed 2026-09-30).
 
 Five consumers (Team compiler, Export upgrader, Kit config editor, Refs arranger, future Team
 Creator) read this crate, so its layout is organized by the **progression stage** a consumer can
-stop at, and each stage's types are only constructible through the previous one:
+stop at, and each stage is produced by the previous one's entry point:
 
 ```
 crates/libs/aesthetics_export/src/
 ├── lib.rs              # re-exports; the progression's entry points
 ├── listing.rs          # CanonicalListing: what the consumer supplies (paths, sizes, small metadata)
+├── slots.rs            # PlayerSlot, RefSlot
 ├── conventions/        # the export format as data, no logic
 │   ├── mod.rs          #   folder names, reserved team names (/refs/, /balls/), NO_USE markers
 │   ├── player_folder.rs#   allowed model names per slot, link-file extensions, settings.toml name

@@ -41,6 +41,7 @@ sevenz-rust2 = { version = "0.22.2", default-features = false }
 zip = { version = "8.6.0", default-features = false, features = ["deflate"] }
 
 # Workspace crates, so a member depends on another by name alone.
+aesthetics_export = { path = "crates/libs/aesthetics_export" }
 archives = { path = "crates/libs/archives" }
 color_tools = { path = "crates/libs/color_tools" }
 cpk = { path = "crates/libs/cpk" }
