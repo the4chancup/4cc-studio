@@ -1,0 +1,22 @@
+[package]
+name = "team_compiler"
+description = "The Team compiler: aesthetics exports to CPK archives"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+cpk.workspace = true
+fmdl.workspace = true
+fpk.workspace = true
+ftex.workspace = true
+kit_config.workspace = true
+pes_version.workspace = true
+teams_list.workspace = true
+uniparam.workspace = true
+
+[lints]
+workspace = true

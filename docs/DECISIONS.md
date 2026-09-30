@@ -2478,3 +2478,12 @@ installed to read and must build on the same base as Red to be comparable.
 Plan: `team_compiler/testing.md` "Testing: parity against Red" (a small tree is committed);
 `team_compiler/pipeline.md` "Resolved decisions" (the fallback bases' location and per-version
 choice); the fixture's `README.md`; `resources/bins/README.md`.
+
+## 2026-09-30 - team_compiler - 3.3: FTEX parity is by decoded content
+Decision: the parity test compares an FTEX entry by the DDS `ftex::ftex_to_dds` returns for each
+side (tier 2), not by its bytes; `ftex` keeps its `flate2` encoder.
+Why: the tracer's `shirt.ftex` and `u0792g1.ftex` differ from Red's only inside the zlib-chunk
+sizes and streams (first difference at offset 0x48, the chunk table), while both convert back
+to byte-identical DDS. Matching Red's bytes would mean reproducing one zlib build's deflate
+output, which `ftex` already declared a non-goal; the game reads the pixels, not the stream.
+Plan: `team_compiler/testing.md` "Testing: parity against Red", tier 2.

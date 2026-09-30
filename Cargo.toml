@@ -1,8 +1,6 @@
 [workspace]
 resolver = "3"
-# `crates/tools/*` joins this list with the first tool crate (Phase 3); cargo rejects a glob
-# that matches nothing.
-members = ["crates/studio", "crates/studio_core", "crates/libs/*"]
+members = ["crates/studio", "crates/studio_core", "crates/libs/*", "crates/tools/*"]
 
 [workspace.package]
 version = "0.1.0"
