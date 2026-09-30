@@ -163,6 +163,9 @@ Itemized 2026-09-30 at Phase 2's close. Order: the tracer first (one real export
   `players_txt.rs`/`kit_config_toml.rs` wait for their consumers. Decision entry
 - [ ] 3.6 `libs/aesthetics_export`, two slices, each its own commit and review: (a) `listing`,
   `conventions/`, `parse/`; (b) `validate/` with the sanitized-scope rule and `resolve.rs`.
+  Before briefing (b), the lead settles the per-folder-kind allowlist (which `FileKind`s a player,
+  shared, kit, `all/`, Portraits, Common and Collars folder admits): no plan section lists it
+  yet, and `file_type_disallowed` depends on it.
   `players_txt.rs` and `kit_config_toml.rs` wait for their consumers (Refs arranger, Phase 4 kit
   step). → verify: lib tests citing the TC-STR/ROS/KIT/ROOT/ID/DSP scenarios the structure pass
   decides; `wasm_check.py` includes the crate; `mutants-diff` per slice; reviewer (b) on the new
