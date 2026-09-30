@@ -5,13 +5,19 @@ Team compiler (aesthetics exports to CPK archives), a save editor, and the small
 them (kit configs, referees, balls, music, match tracking, model conversion), in a single binary
 that is both a GUI and a CLI.
 
-**Status: in development.** Phase 2 of 17 (the standalone library crates) is nearly done. The
-workspace holds 19 format/library crates covering the game's containers and archives (CPK,
-FPK/FPKD, FTEX, DDS, WESYS, uniparam, zip/7z), both model families (FMDL for PES 18-21,
-`.model`/`.mtl` for PES 15-17) with cross-version conversion through `model_convert`'s IR, kit
-configs, the teams list, and the savefile (`pes_savefile` decrypts, edits and rewrites real
-saves byte-identically). ~460 tests, all gates green. No tool crate or GUI exists yet;
-`studio` is a CLI-only skeleton.
+**Status: in development.** Phases 1 and 2 of 19 are done: the workspace skeleton and the
+standalone library crates, covering the game's containers and archives (CPK, FPK/FPKD, FTEX,
+DDS, WESYS, uniparam, zip/7z), both model families (FMDL for PES 18-21, `.model`/`.mtl` for
+PES 15-17) with cross-version conversion through `model_convert`'s IR, kit configs, the teams
+list, and the savefile (`pes_savefile` decrypts, edits and rewrites real saves
+byte-identically; its squad reads match 4ccEditor's exports on PES 15-21). Phase 3, the Team
+compiler skeleton, is under way:
+- a first `team_compiler` crate compiles a real export's face and kit for PES 21 and matches the
+  older compiler's output;
+- `aesthetics_export`, the export format's shared model, parses an export's structure and
+  roster, with the validation pass next.
+
+1,089 tests, all gates green. The GUI does not exist yet; `studio` is a CLI-only skeleton.
 
 The architectural plan lives in `docs/plans/` (start at `docs/plans/README.md`). `AGENTS.md` is
 the short orientation for anyone working on the code; `docs/CONTRIBUTING.md` holds the coding
