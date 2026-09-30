@@ -4,10 +4,11 @@ Part of the [Library crates plan](README.md). Section headings are unchanged fro
 
 ## `libs/color_tools`
 
-One small crate for the suite's color work: kit-color extraction (pure logic) plus
-the shared color-picker widget (egui). Splitting the widget into its own crate isn't
-worth the boilerplate at this size; if the egui dependency ever bothers a headless
-consumer, the widget module can move behind a feature flag.
+One small crate for the suite's color work: kit-color extraction (pure logic, the
+Phase 2 surface) plus the shared color-picker widget and the kit menu icon drawing
+routines (Phase 8, when `egui` joins the crate). Splitting the widget into its own
+crate isn't worth the boilerplate at this size; if the egui dependency ever bothers
+a headless consumer, the widget module can move behind a feature flag.
 
 ### Dominant kit-color extraction
 
@@ -72,7 +73,7 @@ not by the crate.
 The same routine powers suggestion swatches in GUI tools, so it returns the full
 ranked cluster list per region, not just the two winners.
 
-### Color-picker widget
+### Color-picker widget (Phase 8)
 
 egui ships a bare HSVA picker (`egui::color_picker`); this widget wraps it into the
 suite's standard picker popup: hex entry (`#RRGGBB`, matching the export text
@@ -85,7 +86,7 @@ Used by the Kit config editor (config colors and
 kit `colors.txt` colors) and by the Team creator; any later tool that
 needs a color field uses it too.
 
-### Kit menu icon rendering
+### Kit menu icon rendering (Phase 8)
 
 The 24 kit menu icons (`icon.txt`, 0–23) are simple two-color kit icon patterns —
 plain, striped, hooped, sashed, halved, contrast-sleeves, and so on. In game they

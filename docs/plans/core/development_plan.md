@@ -203,10 +203,12 @@ template (managers' `colors.txt` proved no usable ground truth, `libs/README.md`
 `model_convert` IR round-trips, with the
 19to16 converter's own output as a reference fixture; `pes_savefile` round-trips on decrypted
 sections (fixed test RNG), per-version field round-trips, and transplant, fingerprint and compare
-parity with the Midcupping scripts' byte rules held as literal offsets; `python_bindings` import
+parity with the Midcupping scripts' byte rules held as literal offsets, and field values equal to
+4ccEditor's own `.4ccs` export of one team per version (15–21) taken from the saves the payload
+fixtures hold ([Savefile verification](../pes_savefile/verification.md)); `python_bindings` import
 and round-trip from Python and inside Blender 5.0 and 5.2. The converge censuses ran every
 `.model`, FMDL, SKL, FPK, FTEX and savefile on the maintainer's machine through the readers.
-At the close of converge (2026-09-29): `just gates` green, 1052 tests in 41 test runs, none
+At the close of converge (2026-09-30): `just gates` green, 1057 tests in 41 test runs, none
 failed or ignored; `just bindings` green.
 
 ### Phase 3: Team compiler skeleton (`tools/team_compiler`)

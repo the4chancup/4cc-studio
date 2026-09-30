@@ -69,7 +69,7 @@ features, so no compression, encryption or time dependencies ride along.
 
 Fixtures (`crates/libs/archives/tests/fixtures/`): one small export-like tree (`sample/`: two
 player folders with real 176-byte, 476-byte and 960-byte PES files, an empty file, an empty folder,
-a `Kits/Réf.txt` with a non-ASCII name) packed six ways: 7-Zip `.7z` (LZMA2 solid), 7-Zip
+a `Kits/Réf.txt` with a non-ASCII name) packed seven ways: 7-Zip `.7z` (LZMA2 solid), 7-Zip
 `.zip` (Deflate, names in the OEM code page without the UTF-8 flag), 7-Zip stored `.zip`,
 PowerShell `Compress-Archive` (Deflate, UTF-8 flag), 7-Zip encrypted `.7z` (header encrypted
 too), `.7z` with the header readable and the entries encrypted, and `.zip`; plus a PPMd `.7z` and

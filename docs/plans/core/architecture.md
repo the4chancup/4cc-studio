@@ -60,8 +60,9 @@ The suite follows a **platform + plugins** model with strict modularity rules:
 │       ├── ftex/                     # FTEX read/write
 │       ├── dds_convert/              # In-process DDS conversion (block_compression + image crate +
 │       │                             #   DXT5 encoder + in-memory conversion cache, ≤2-team limit)
-│       ├── color_tools/              # Dominant kit-color extraction + shared color-picker widget
-│       ├── team_widgets/             # Shared egui widgets over the pes_savefile team model: tactics
+│       ├── color_tools/              # Dominant kit-color extraction (the color-picker widget and
+│       │                             #   kit icon routines join in Phase 8)
+│       ├── team_widgets/             # (Phase 8) Shared egui widgets over the pes_savefile team model: tactics
 │       │                             #   pitch/instructions, card pickers, AATF violations list
 │       │                             #   (Save editor + Team creator)
 │       ├── fox2/                     # Fox Engine entity files (+ CityHash64)
@@ -71,10 +72,10 @@ The suite follows a **platform + plugins** model with strict modularity rules:
 │       ├── pes_version/              # PesVersion (15–21) + Engine (pre-Fox/Fox): the one closed set every
 │       │                             #   version-aware crate shares (settings, savefile schemas, skeletons)
 │       ├── archives/                 # .zip/.7z loading
-│       ├── aesthetics_export/              # The aesthetics export format: object model, folder conventions,
+│       ├── aesthetics_export/        # (Phase 3) The aesthetics export format: object model, folder conventions,
 │       │                             #   validation (shared by compiler, upgrader, kit config
 │       │                             #   editor, refs arranger, team creator)
-│       ├── pipeline/                 # Shared pipeline scaffolding: reader/writer patterns,
+│       ├── pipeline/                 # (Phase 3) Shared pipeline scaffolding: reader/writer patterns,
 │       │                             #   memory budget, folder watcher, check cache, CpkStem
 │       ├── elevation/                 # Admin elevation: manifest execution level, detect +
 │       │                             #   elevated relaunch (UAC), CLI guidance
@@ -86,10 +87,10 @@ The suite follows a **platform + plugins** model with strict modularity rules:
 │       │                             #   and player_aesthetics_editor (labeled approximate preview)
 │       ├── python_bindings/          # PyO3 bindings exposing fmdl + pes_model crates to Blender's
 │       │                             #   Python; built separately via maturin, not in default build
-│       ├── aatf/                     # AATF rules engine (one Rhai rules file: parameters + checks)
-│       ├── music_export/             # .4ccm music export format: parse/write + condition model
-│       ├── audio_engine/             # Audio playback (kira/symphonia) + loudness analysis (ebur128)
-│       ├── match_feed/               # Live match event feed (match tracker → music player)
+│       ├── aatf/                     # (Phase 5) AATF rules engine (one Rhai rules file: parameters + checks)
+│       ├── music_export/             # (Phase 10) .4ccm music export format: parse/write + condition model
+│       ├── audio_engine/             # (Phase 10) Audio playback (kira/symphonia) + loudness analysis (ebur128)
+│       ├── match_feed/               # (Phase 11) Live match event feed (match tracker → music player)
 │       ├── kit_config/               # Kit config codec: binary ↔ TOML, validation (applies fpc values)
 │       └── fpc/                      # Full Player Customization as data: kit values, player presets,
 │                                     #   interference rules — leaf crate shared by kit_config,

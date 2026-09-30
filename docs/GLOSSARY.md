@@ -42,7 +42,7 @@ terms next to each other rather than in alphabetical order; adjacency is what ma
 | **Referee hook** | `fox_hook`'s `03_refmod.lua`: a trampoline on the Fox games' referee slot-writer that forces or remaps the referee id for each of a match's five positions, so which referee appears is decided by a script rather than by the game's slot draw (PES 18–21). | `plans/refs_arranger.md` "The Fox referee hook" |
 | **Referee list** | One line of `ref_lists.txt`: five distinct referee slot ids, one per match position, applied by the referee hook's script per match in file order. Written by the Refs arranger beside `players.txt`. | `plans/refs_arranger.md` "The lists file" |
 | **Balls export** | The third export kind: a ball selection compiled by the Balls compiler into its own CPK. Its name's first word is `balls`. | `plans/balls_compiler.md` |
-| **`BuildTask`** | One planned unit of compile work (a folder, a kit, a bin update) with its owning scope and planned model-ID assignments. | `plans/team_compiler/pipeline.md` "Planning" |
+| **`BuildTask`** | One planned unit of compile work (a folder, a kit, a bin update) with its owning scope and planned model-ID assignments. | `plans/team_compiler/pipeline.md` "Per-export serial steps" |
 | **Deep / shallow check** | Shallow: validate what is visible without extracting an archive (`PartialOk`/`PartialError`); deep: full validation (`FullOk`/`Error`). | `plans/core/architecture.md` "Event system" (`FolderStatus`) |
 | **Export revision** | The pinned identity of an export's source contents for one run; a change mid-run is `source_changed_during_run` (`AbortRun`). | `plans/team_compiler/messages.md` "Message catalog" |
 | **Export upgrader** | The tool that migrates old-layout exports to the Studio player-folder format once; the compiler does not read old layouts. | `plans/export_upgrader.md` |
@@ -95,7 +95,7 @@ terms next to each other rather than in alphabetical order; adjacency is what ma
 | **IR** | `model_convert`'s intermediate representation; cross-format conversion goes through it, same-format work stays in the format crate's `ops/`. | `plans/model_conversion/README.md` |
 | **Kit config** | The per-kit binary parameter block (collar, shorts, numbers…), reverse-engineered and editable as TOML `config.toml`. | `plans/kit_config_editor.md` |
 | **`.model` / `.mtl`** | Pre-Fox mesh and material files. | `plans/libs/README.md`; `plans/model_conversion/README.md` |
-| **uniparam** | The `UniformParameter` container in the team bins (kit configs, colors) the compiler accumulates into. | `plans/libs/README.md`; `plans/aesthetics_export/fpc_toggle.md` "FPC" |
+| **uniparam** | The `UniformParameter` container in the team bins (kit configs, colors) the compiler accumulates into. | `plans/libs/README.md`; `plans/aesthetics_export/fpc_toggle.md` "FPC toggle" |
 | **WESYS** | zlib wrapper with a custom header used by PES for some game files. | `plans/libs/README.md` "Format references" |
 
 ## Savefile

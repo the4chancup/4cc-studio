@@ -32,12 +32,14 @@ struct, and IR operations never touch a format** — and keeps the format crates
 
 ```
 crates/libs/model_convert/src/
-├── lib.rs              # re-exports; ModelFormat; NativeModelBundle; convert routing
+├── lib.rs              # re-exports
+├── convert.rs          # NativeModelBundle, Converted, convert, needs_conversion
 ├── affine.rs           # Affine: 3×4 row-major bone transform (multiply, invert, apply)
 ├── ir/                 # the canonical model — a data structure, not a behavior
 │   ├── mod.rs          #   CanonicalModel, Mesh, Vertices, Bone, MeshGroup, Texture
 │   └── validate.rs     #   IR invariants (indices in range, weights finite and non-negative, one skin per mesh)
 ├── formats/            # one module per format: to_ir + from_ir, nothing else
+│   ├── mod.rs          #   ConvertError, Imported
 │   ├── fmdl/           #   fmdl_to_ir (import.rs) / ir_to_fmdl (export.rs; calls the fmdl crate's ops
 │   │                   #   for splitting/encoding); mod.rs re-exports and the shared helpers
 │   ├── pes_model/      #   model_to_ir (import.rs) / ir_to_model (export.rs; + .mtl pairing; commits
@@ -54,17 +56,20 @@ crates/libs/model_convert/src/
 │   ├── toml.rs         #   Phase 7: materials.toml / *.materials.toml / .common link read + write
 │   └── matching.rs     #   Phase 7: name matching (startsWith/endsWith), layering, Common-first cascade
 ├── skeletons/          # per-version skeleton data and retargeting
-│   ├── mod.rs          #   PesBone, VersionSkeletons, skeletons(version): the embedded .skl files,
-│   │                   #     parsed once at first use through fmdl's SKL codec
+│   ├── mod.rs          #   PesBone, Skeleton, VersionSkeletons, skeletons(version): the embedded
+│   │                   #     .skl files, parsed once at first use through fmdl's SKL codec
 │   ├── render_parents.rs   # the hand-transcribed render hierarchy (see `conversion.md` "Skeleton data")
 │   ├── fold.rs         #   fold table (bones a version lacks → the bone that takes their weight)
 │   └── retarget.rs     #   retargeting + bone conformance (the cross-version IR operation)
 ├── ops/                # IR-level operations, format-agnostic
+│   ├── mod.rs
 │   ├── hand_split.rs   #   split_by_skeleton_group (gloves hand auto-split)
 │   ├── merge_parts.rs  #   merge_ir_parts (deferred: no planned caller, see `gltf.md` "IR part merge")
 │   └── superset.rs     #   Phase 7: dual-set superset merge for ir_to_gltf (Player aesthetics editor)
 └── loss.rs             # data-loss reporting: what a target format cannot represent, as findings
 ```
+
+Each `formats/<format>/` directory also holds its `tests.rs`.
 
 Placement rules:
 
