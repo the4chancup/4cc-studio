@@ -213,8 +213,9 @@ failed or ignored; `just bindings` green.
 
 ### Phase 3: Team compiler skeleton (`tools/team_compiler`)
 
-**Entry gates:** confirm normal-team/referee `ExportIdentity`, sanitized validated-versus-eligible
-projection, and roster-entry scope/disposition semantics (details in the Team compiler plan).
+**Entry gates:** normal-team/referee `ExportIdentity`, sanitized validated-versus-eligible
+projection, and roster-entry scope/disposition semantics, confirmed 2026-09-30 ([Aesthetics
+export](../aesthetics_export/object_model.md), "Validation semantics").
 
 - **Tracer bullet first.** Before the skeleton, the smallest real export compiled end to end:
   one Studio-format export with one player folder (a Fox face) and one kit, read from disk and

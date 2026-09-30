@@ -63,9 +63,17 @@ export format.
 
 ### 2. Per-export serial steps (coordinator)
 
-1. **Root normalization** — if the expected content isn't at the export root, nested child folders
-   are scanned for a usable export root; exactly one candidate is flattened in memory
-   (`nested_folders_fixed`) with loose root files preserved. **Intentional deviation from Red**
+1. **Root normalization** — a folder is a **usable export root** when it directly holds one of the
+   export's content folders (`Players`, `Kits`, `Faces`, `Boots`, `Gloves`, `Portraits`, `Common`,
+   `Collars`, case-insensitive) or a root `logo*` image; root metadata alone (`colors.txt`,
+   `notes.txt`, `players.txt`, `README.txt`, …) does not make one. If the export root is not
+   usable, its child folders are scanned for a usable export root; exactly one candidate is
+   flattened in memory (`nested_folders_fixed`) with loose root files preserved (an outer
+   `notes.txt` beside `wrapper/Players/` stays the export's `notes.txt`). Separately, a content
+   folder whose only entry is a folder of its own name that itself holds only folders
+   (`Players/Players/03 - A/`, `Kits/Kits/p1/`) is flattened one level too, reported with the same
+   `nested_folders_fixed`; an inner folder holding files is content, not a doubled layer
+   (`Boots/Boots/boots.fmdl` is the shared boots folder `Boots`). **Intentional deviation from Red**
    (whose `team_id_get.py` takes the first matching child): several usable candidates are ambiguous
    and reject the export (`nested_root_ambiguous`), and a loose root file colliding with a flattened
    file at the same virtual path rejects it too (`nested_root_conflict`) — consistent with the
@@ -149,7 +157,7 @@ format:
    prompts interactively; in 4cc Studio the grid's **team ID cell** turns red and editable — the
    user types an ID, confirms with Enter, and it is written to the teams list (see "GUI: the
    live-validating team grid"). In the CLI an unresolvable normal team is a hard error. A successful
-   lookup produces `ExportIdentity::Team { id, key }`; a referee export produces
+   lookup produces `ExportIdentity::Team { id, name }`; a referee export produces
    `ExportIdentity::Referees` without entering the normal teams list. The referee pipeline renders
    the game's fixed numeric ID 999 only at game-format boundaries. Either identity is wrapped in
    `ResolvedAestheticsExport` before run planning. (Red/Blue: `team_id_get.py`)
@@ -889,7 +897,8 @@ phase that owns them):
   support; the kit-side fallback policy is resolved above.
 - **Run-result semantics.** Define separate compile and deployment outcome types so scoped errors,
   `pass_through`, failed moves, and failed savefile writes map predictably to GUI state and CLI exit
-  codes. Deployment is transactional across generated CPKs, the savefile, and `dt00_x64.cpk`, with
+  codes. The compile half's exit codes are fixed (`settings.md` "CLI"); the deployment half is
+  Phase 4's. Deployment is transactional across generated CPKs, the savefile, and `dt00_x64.cpk`, with
   backups and rollback; PES launches only after the complete transaction succeeds.
 - **`dt00_x64.cpk` transaction.** Define backup and rollback behavior if referee-marker conversion
   or system-CPK replacement fails or is cancelled.
@@ -905,9 +914,10 @@ phase that owns them):
   subfolders; exact MTL/XML and Fox FMDL templates in "Texture relocation to common") to the Game
   paths table as the per-player common subfolder patterns (Phase 4 specification).
 
-**Pre-Phase-3 gates:** the normal-team versus referee `ExportIdentity` boundary, sanitized
-validated-versus-eligible projection, and roster-entry scope/disposition semantics must be confirmed
-before Phase 3 implementation begins.
+**Pre-Phase-3 gates** (the normal-team versus referee `ExportIdentity` boundary, sanitized
+validated-versus-eligible projection, roster-entry scope/disposition semantics): confirmed
+2026-09-30 in the [Aesthetics export plan](../aesthetics_export/object_model.md), "Validation
+semantics".
 
 **Pre-Phase-4 gates:** finalize analyzed-output enumeration and namespace allocation (including
 folder-internal deep-derived names, without adding a separate `AnalyzedRun` type) and freeze every

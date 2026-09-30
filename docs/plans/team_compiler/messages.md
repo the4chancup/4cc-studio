@@ -86,7 +86,9 @@ Principles:
 - **`pass_through`** overrides only eligible content-level `DropFile`/`DropFolder` dispositions to
   keep-with-flag, as in Red, while retaining the original severity. Not eligible: findings whose
   content cannot exist (failed conversion/packing, unproducible logos), unused content
-  (`shared_folder_orphaned`), ambiguous model-source or texture identity/conflicts, foundational
+  (`shared_folder_orphaned`), contradictory directives that leave no value to keep
+  (`fpc_conflict`, `kit_layout_conflict`, `shared_link_duplicate`), kit identities that cannot be kept (`kit_slot_duplicate`,
+  `kit_folder_invalid`), ambiguous model-source or texture identity/conflicts, foundational
   unsafe-path/ambiguous-roster/required-metadata failures, geometry far from the origin
   (`vertex_too_far_from_origin`: the lag it causes persists for the whole matchday),
   `DropSlot`, `DropExport`, `AbortRun`, and environment-level dispositions. Written errored content
@@ -111,7 +113,7 @@ savefile messages are new.
 
 | ID | Sev | Condition | Consequence |
 |---|---|---|---|
-| `export_extract_failed` | E | archive cannot be extracted/parsed | export skipped (`DropExport`) |
+| `export_extract_failed` | E | archive cannot be extracted/parsed, or its listing is refused (a path escaping the root, two names that fold to one; context: the path) | export skipped (`DropExport`) |
 | `export_disabled` | I | root `NO_USE` / `NO_USE.txt` marker disables this source | export skipped; omitted from the grid and from duplicate-ref detection |
 | `source_read_failed` | E/F | a pinned source entry cannot be read | optional root file: `DropFile`; folder/task producer: `DropFolder`; required export metadata or unusable source: `DropExport`; output/global source invariant: `AbortRun` |
 | `source_changed_during_run` | F | this export's pinned revision changes during planning/materialization | run aborted and partial output discarded (`AbortRun`) |
@@ -123,6 +125,7 @@ savefile messages are new.
 | `boots_id_pool_exhausted` | E | planned player-exclusive/shared boots outputs exceed the team's permanent ID block | export skipped (`DropExport`) |
 | `gloves_id_pool_exhausted` | E | planned player-exclusive/shared gloves outputs exceed the team's permanent ID block | export skipped (`DropExport`) |
 | `export_empty` | E | no usable content found at root | export skipped |
+| `content_not_yet_compiled` | E | Phase 3 only (withdrawn in Phase 4): what an export would output holds content `compile` cannot compile yet (`team_compiler/README.md` "Acceptance", Phase 3 scope; context: what) | export skipped by `compile` (`DropExport`); `check` unaffected |
 | `nested_folders_fixed` | W | content found nested one level down (exactly one usable root) | auto-fixed |
 | `nested_root_ambiguous` | E | several nested child folders are usable export roots | export skipped (`DropExport`) |
 | `nested_root_conflict` | E | loose root file collides with a flattened nested file at the same virtual path | export skipped (`DropExport`) |
@@ -131,9 +134,9 @@ savefile messages are new.
 | `teams_list_read_only` | W | a teams-list write (ID cell, updater merge) failed because the data directory is not writable | write dropped; the in-memory list is unchanged (no elevation — see `pipeline.md` "Resolved decisions", "Teams list") |
 | `team_colors_missing` | I | no root `colors.txt` (it is optional) | TeamColor.bin entry left untouched |
 | `color_entry_invalid` | W | unparsable RGB line in a `colors.txt` | entry skipped |
-| `root_file_unexpected` | W | unknown file at export root | file ignored |
+| `root_file_unexpected` | W | unknown file or folder at the export root (a folder other than the content folders — a stale `wrapper/` beside a usable root included), or a file directly inside `Players`, `Kits`, `Faces`, `Boots` or `Gloves`, which hold only folders (`Players/players.txt`) | file or folder ignored |
 | `portrait_conflict` | E | same player number with differing portraits in player folder and `Portraits/` | export skipped |
-| `notes_found` | I | non-empty valid root `notes.txt` present | collected into teamnotes.txt |
+| `notes_found` | I | non-empty valid root `notes.txt` present | collected into teamnotes.txt (from Phase 4; in Phase 3 validated only) |
 | `notes_encoding_invalid` | E | root `notes.txt` is not valid UTF-8 after optional BOM handling | note dropped; export otherwise continues (`DropFile`, not pass-through-eligible) |
 
 **Player folders and shared model folders**
@@ -151,6 +154,7 @@ savefile messages are new.
 | `players_txt_invalid` | E | file-level encoding failure or roster-wide ambiguity prevents trustworthy normalization, or a referee roster retains zero valid assignments | export skipped (`DropExport`; foundational). An empty normal-team roster remains valid for a kit-only export |
 | `players_txt_target_missing` | E | `players.txt` entry names a nonexistent folder | `RosterEntry` scoped assignment skipped (`DropSlot`) |
 | `link_target_missing` | E | link file references a nonexistent shared folder | folder discarded |
+| `link_target_dropped` | E | a shared-folder or `.common` link names a target the structure pass dropped, by its effective disposition (context: the link, the target and its finding) | folder discarded (`DropFolder`); not reported when `pass_through` keeps the target; never itself pass-through-eligible |
 | `shared_link_duplicate` | E | player folder has more than one shared link for any category (face, boots, or gloves) | folder discarded (`DropFolder`) |
 | `link_combined` | I | link file plus local models for the same category; the shared models become parts of the player's own set (Fox: mesh-merged, own ID) | none |
 | `shared_folder_orphaned` | W | shared folder referenced by no player | folder skipped |
@@ -210,7 +214,7 @@ game's three sizes)
 | `kit_texture_uncompressed` | E | main kit texture in uncompressed format | discarded |
 | `texture_type_mismatch` | E | header doesn't match extension (renamed, not resaved) | discarded |
 | `texture_codec_unsupported` | E | codec not convertible in-process | discarded |
-| `texture_stem_conflict` | E | two image files with the same stem but different extensions in one model folder | folder discarded |
+| `texture_stem_conflict` | E | two image files with the same stem in one lookup namespace, whatever their extensions: a model folder with its reserved subfolders (`hair.dds` beside `common/hair.dds`, or `hair.png`), a kit folder, or `Kits/all/` (`kit.png` beside `kit.dds`; a kit's own file overriding an `all/` file of its stem is not a conflict) | folder discarded (the kit; for `all/`, `all/` itself, so no kit inherits from it) |
 
 **XML/MTL content checks** (pre-Fox, plus `face_diff.xml` in Fox)
 

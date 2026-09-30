@@ -10,8 +10,7 @@ is in `AGENTS.md` ("Working documents").
 ## Current status
 
 **Phase:** 3 (Team compiler skeleton). Phases 1 and 2 done (Phase 2 closed 2026-09-30).
-**In progress:** nothing. Next: 3.1, the Team compiler's Acceptance section for the Phase 3
-scope. 2.5b (GPU BC7) is step 16.x (decision entries 2026-09-21 and 2026-09-28). Release
+**In progress:** nothing. Next: 3.2, the acceptance-ID scanner. 2.5b (GPU BC7) is step 16.x (decision entries 2026-09-21 and 2026-09-28). Release
 target (2026-09-28): 0.1.0 after Phase 8; phase order 1–6, 8, 0.1.0, 7, 9–16
 (`core/development_plan.md` "Releases").
 **Blocked on:** nothing yet. **Hard gate at the end of Phase 3:** step 4.0 (the maintainer's
@@ -124,10 +123,16 @@ phase's open questions are under "Issues".
 ### Phase 3 — Team compiler skeleton
 
 Spec: `docs/plans/core/development_plan.md` "Phase 3", `docs/plans/team_compiler/README.md`, `docs/plans/aesthetics_export/README.md`.
-Steps are itemized when Phase 2 closes; the first is fixed:
+Itemized 2026-09-30 at Phase 2's close. Order: the tracer first (one real export end to end), then
+`check` end to end over the structure pass, then `compile` through the pipeline, the shell last.
 
-- [ ] 3.1 Acceptance: write `team_compiler/README.md` "Acceptance" for the Phase 3 scope (format:
-  `CONTRIBUTING.md` "Testing")
+- [x] 3.1 Acceptance — done: `team_compiler/README.md` "Acceptance" (TC-SRC/STR/ROS/ID/KIT/ROOT/
+  DSP/CLI/OUT/GUI) with the Phase 3 scope, including the temporary compile subset and its
+  Phase-3-only `content_not_yet_compiled`; the entry gates in `aesthetics_export/object_model.md`
+  "Validation semantics"; CLI exit codes 0/1/2/3 (`settings.md` "CLI"); catalog additions
+  (`link_target_dropped`, wider `texture_stem_conflict` and `root_file_unexpected`, pass-through
+  exclusions); usable-root definition (`pipeline.md`). Reviewer: GPT 8 rounds, all ruled, with
+  sidekick loops between rounds 5-8 (rulings `.tmp/review_rulings_3_1.md`)
 - [ ] 3.2 Converge check script: extract every acceptance ID from the plans' "Acceptance" sections
   (skipping `withdrawn:` ones) and every `// XX-YYY-NN` citation in any `.rs` file under `crates/`
   (inline `#[cfg(test)]` modules included, not just `tests/`); report orphan citations (an ID no
@@ -143,11 +148,45 @@ Steps are itemized when Phase 2 closes; the first is fixed:
   the compile path and comparison are briefed. → verify: `cargo test -p team_compiler --test
   parity` green on the fixture, and every Phase 2 API friction met on the way listed in the
   brief's report (each is a lib-crate fix or a decision entry, made before 3.4)
+- [ ] 3.4 The tracer's Phase 2 frictions: each one fixed in its lib crate or recorded as a
+  decision entry. → verify: the list from 3.3's report, every item closed; gates and the
+  consuming crates' tests (`just bindings` when `fmdl`/`pes_model` change)
+- [ ] 3.5 `aesthetics_export` shapes (lead, before any brief): the plan code blocks the crate's
+  implementation starts from — `CanonicalListing`, `SmallMetadata`, `ValidationContext`,
+  `ValidationIssue` and its scope, `FileDescriptor`/`FileKind`, the descriptor types, the error
+  types — in `object_model.md`, from "Core types" and "Validation semantics". → verify: every
+  type the crate layout names has a block or a line saying why none is needed
+- [ ] 3.6 `libs/aesthetics_export`, two slices, each its own commit and review: (a) `listing`,
+  `conventions/`, `parse/`; (b) `validate/` with the sanitized-scope rule and `resolve.rs`.
+  `players_txt.rs` and `kit_config_toml.rs` wait for their consumers (Refs arranger, Phase 4 kit
+  step). → verify: lib tests citing the TC-STR/ROS/KIT/ROOT/ID/DSP scenarios the structure pass
+  decides; `wasm_check.py` includes the crate; `mutants-diff` per slice; reviewer (b) on the new
+  `pub` surface
+- [ ] 3.7 `libs/pipeline`: plan section first (lead; `core/parallelism.md` "Memory budget",
+  `CpkStem`'s contract in `pipeline.md` "Writer"), then the crate: `MemoryBudget` with the
+  oversized branch, thread count, `CpkStem`. The section also says how the structure pass's
+  solid-7z metadata read is charged (3.1 review, round S4). → verify: the `testing.md` "Infrastructure" cases
+  for these three; TC-CLI-05's stems
+- [ ] 3.8 `check` end to end: `team_compiler` settings struct and defaults, the clap surface of
+  `settings.md` "CLI", `reader/` (discovery, folder/.zip/.7z sources via `archives`, which must
+  start reporting directory entries so an archived empty kit folder survives (3.1 review), NO_USE,
+  balls, duplicate refs), the structure pass and identity through `aesthetics_export`, console
+  output, exit codes. → verify: TC-SRC-*, TC-CLI-01..05 and the check-observed TC-STR/ROS/KIT/
+  ROOT/ID scenarios, run through the binary
+- [ ] 3.9 `compile` through the pipeline: coordinator and writer on rayon over `libs/pipeline`,
+  the tracer's scaffolding replaced, dispositions and `pass_through` applied, the CPK written
+  atomically. → verify: TC-OUT-*, TC-DSP-*, the compile-observed TC-ROS/KIT/ID scenarios, and
+  3.3's parity case still green
 - [ ] 3.z Shell slice, last code step of the phase (`core/development_plan.md` "Phase 3", last bullet; decided
   2026-09-15): minimal `studio_core` shell (window, sidebar, selected tool's `view()`), `studio`
   binary registering `team_compiler`, Team compiler `view/` with settings, run button and a plain
   `PipelineEvent` log. → verify: manual, recorded in the converge step: the 3.3 fixture compiled
   from the GUI with its events visible, on Windows; Linux when a machine is available
+  (TC-GUI-01/02)
+- [ ] 3.y Converge (`AGENTS.md` "Closing a phase"): the lead's audit against the Phase 3 plan
+  sections and every TC ID (3.2's strict mode), design-health pass, `just mutants` per new
+  crate, then the reviewer loop; gaps become steps above this one
+- [ ] 3.x Rewrite the Phase 3 plan sections in the present tense, collapse this list
 
 ### Phase 4 — Processing logic
 
@@ -514,3 +553,6 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
 - **2026-09-30** - Phase 2 closed: 2.21 done. An as-built audit of the Phase 2 plans against
   the code (`.tmp/audit_2_21_as_built.md`) fixed stale crate trees, deps rows, two code blocks
   and unmarked Phase 8/19 parts. Step list collapsed. Next: 3.1, Phase 3's Acceptance section.
+- **2026-09-30** - 3.1 done: Phase 3's Acceptance section, the entry gates ("Validation
+  semantics") and the CLI exit codes, after 8 GPT review rounds and 4 sidekick rounds. Reviewers
+  are now uncapped (decision entry). Next: 3.2, the acceptance-ID scanner.
