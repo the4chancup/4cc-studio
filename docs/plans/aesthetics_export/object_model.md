@@ -56,6 +56,70 @@ planning)**. Parsing retains raw roster entries and issues so malformed input st
 planning resolves dependencies, IDs, destinations, and collisions serially before parallel work
 starts.
 
+### Validation semantics
+
+These settle the Team compiler plan's pre-Phase-3 gates (identity boundary, sanitized versus
+eligible, roster-entry scope and disposition; confirmed 2026-09-30).
+
+- **Identity boundary.** The export kind follows from the canonical `team_name`: `/refs/` is a
+  referee export, `/balls/` never reaches this crate (the consumer's discovery skips it), anything
+  else is a normal team. `validate` derives the kind from `team_name` itself, so the referee rules
+  (required `players.txt`, slots 01–35, repeated folders) need no input from the consumer.
+  `resolve_identity` maps `/refs/` to `ExportIdentity::Referees` without reading the teams list,
+  and any other name to `ExportIdentity::Team { id, name }` by `TeamsList` lookup, or to
+  `IdentityError` (the Team compiler's `team_name_unknown`). No referee value is ever a `TeamId`;
+  999 appears only where a game format writes it. An export stem with no token has no team name:
+  it is reported as `team_name_unknown` with an empty name and dropped.
+- **Who decides a consequence.** This crate decides each structural issue's disposition, because
+  it builds the sanitized export from them: a `ValidationIssue` carries its code, scope, context,
+  effective disposition, and whether `pass_through` changed it. The consuming tool owns only
+  severity, text and hint (the Team compiler's catalog in `messages.md`), and the tool tests that
+  every code this crate emits has a catalog row whose consequence agrees. Settings that change a
+  consequence reach the crate through `ValidationContext`: the target `PesVersion` (Fox or pre-Fox
+  allowed names), `strict_file_type_check` and `pass_through`.
+- **Sanitized versus eligible.** `ValidatedAestheticsExport` holds exactly the eligible content:
+  every item no issue drops. `ValidationReport.parsed` still holds everything and `issues` every
+  finding, so a dropped folder stays renderable and a broken roster repairable. `validated` is
+  `None` exactly when some issue's effective disposition is `DropExport`. `pass_through` turns an
+  eligible `DropFile`/`DropFolder` into `Keep`: the item stays in the validated export and its
+  issue stays in the report, marked as passed through, so the tool reports it at its severity and
+  finishes that scope as `DoneWithErrors`. `DropSlot`, `DropExport` and the codes the catalog
+  marks not eligible are never kept. The deep pass (Phase 4) applies the same rule to the
+  already-sanitized export.
+- **Roster entries.** A finding about one `players.txt` (or `refs.txt`) line is `RosterEntry`-scoped:
+  the file, the 1-based line number, and the slot when it parsed. Line-local findings
+  (`players_txt_line_invalid`, `players_txt_slot_invalid`, `players_txt_target_missing`) are
+  `DropSlot`: that assignment goes and the other lines stand. Duplicate slots are found first,
+  over every complete line (a slot and a folder name) whose slot is in range, before any target
+  is looked up (a bare `03` is `players_txt_line_invalid` and claims nothing): a stale
+  `03 OldName` above `03 NewName` is a duplicate even when `OldName` does not exist (both findings
+  are reported). Roster-wide findings drop the
+  export: a slot assigned twice (`players_txt_slot_duplicate`, on each later line), a file that is
+  not UTF-8, and a referee roster left with no valid assignment (`players_txt_invalid`,
+  `File`-scoped). A folder named by a line counts as listed even when that line is dropped, so it
+  gets no `player_unlisted` on top; a line whose slot does not parse names no folder. A folder no
+  remaining assignment maps is not compiled, and its links reference nothing: a shared folder
+  counts as referenced only by an eligible, roster-mapped player (otherwise
+  `shared_folder_orphaned`). Without `players.txt`, number findings are
+  `Folder`-scoped `DropFolder`: `player_folder_number_invalid`, and `player_number_duplicate` on
+  every folder claiming the slot.
+- **Dropped link targets.** Sanitizing never leaves a reference to something it removed. A
+  player folder whose shared-folder or `.common` link names a target the structure pass dropped
+  (a shared folder discarded for a disallowed file, a Common file discarded as disallowed) is
+  dropped too, with `link_target_dropped` naming the link and the target's own finding. The
+  trigger is the target's effective disposition: under `pass_through` a kept target keeps its
+  dependants and no `link_target_dropped` is reported.
+- **Unread metadata.** The CLI's `check` and `compile` read every small metadata file, from a
+  solid `.7z` too (the buffer that read decompresses is released before the next archive is
+  admitted; compiling decompresses again); only the GUI's shallow live check leaves a solid archive's roster unread, and
+  that state (a report that is neither valid nor refused) is designed with live validation in
+  Phase 8. `SmallMetadata` distinguishes a file that is absent from one that was not read, so
+  that addition changes no shape.
+- **Refused listings.** A listing `vtree` refuses (a path escaping the root, two names that fold
+  to one) is a `SourceError` from `parse_listing`: there is no draft to report on, and the
+  consumer reports it as a source failure naming the path (the Team compiler's
+  `export_extract_failed`).
+
 ### `aesthetics_export` crate layout
 
 Five consumers (Team compiler, Export upgrader, Kit config editor, Refs arranger, future Team

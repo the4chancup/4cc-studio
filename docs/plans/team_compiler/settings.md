@@ -117,7 +117,9 @@ DLC-production flag and the build-box flag, not something a regular user should 
 It is rejected together with `--mode test|sider`, which have no deployment to skip.
 
 `--export <path>` (repeatable) restricts the run to the named exports — a path to an export folder
-or archive, anywhere on disk, not necessarily under the exports root. This is the contract for
+or archive, anywhere on disk, not necessarily under the exports root. A path that does not exist,
+or is a file other than a `.zip`/`.7z`, is an invalid invocation (exit code 2, naming the path),
+and nothing runs. This is the contract for
 **external callers driving a Sider prototyping loop**, first of all the `pes-models` Blender
 extension's "export model and compile for Sider" button: it saves the model into the player folder
 it was loaded from (it knows the export from the launch manifest — see the Player aesthetics editor
@@ -129,9 +131,13 @@ plan), then runs
 
 and PES, with Sider running, shows the result on the next model load. Without `--export` the plugin
 would recompile every export in the folder on each iteration. Console output follows the ordinary
-`-` prefixed format, and the exit code distinguishes at least clean / errors in some scope / aborted
-(the exact mapping is fixed by the "Run-result semantics" open question) so a caller can show a
-one-line verdict and point at the log for detail. The CLI is a separate process with its own run
+`-` prefixed format, and the exit code gives a caller a one-line verdict: **0** clean (Warning and
+Info findings allowed), **1** finished with an Error finding in some scope (something was dropped,
+or kept by `pass_through`), **2** invalid invocation or configuration (clap's own code for the
+arguments, and a setting that fails its validation such as a `cpk_name` that is no `CpkStem`;
+nothing ran), **3** aborted (an `AbortRun` or Fatal finding, or an environment failure found
+before the run, such as an output folder that cannot be written). `check` and `compile` share the
+mapping; deployment outcomes extend it in Phase 4 ("Run-result semantics" open question). The CLI is a separate process with its own run
 and does not require the GUI to be closed. A Sider-mode run with PES open skips the savefile step
 (`savefile_skipped_pes_running`, see `pipeline.md` "Post-processing") — the model iteration lands via livecpk and
 the savefile catches up on the first compile after PES is closed; bins routing in Sider mode is part
