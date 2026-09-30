@@ -10,6 +10,7 @@ rust-version.workspace = true
 [dependencies]
 pes_version.workspace = true
 teams_list.workspace = true
+thiserror.workspace = true
 vtree.workspace = true
 
 [lints]

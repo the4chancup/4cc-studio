@@ -5,6 +5,42 @@ mod file_types;
 
 pub use file_types::{FileKind, Marker, MetadataFile, ModelFormat, SharedKind, classify};
 
+/// One of the eight content folders at the export root; the draft groups each
+/// by kind. `all/` lives inside `Kits/` and is not a kind of its own.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub(crate) enum ContentFolder {
+    /// `Players/`, the player folders.
+    Players,
+    /// `Faces/`, shared face folders.
+    Faces,
+    /// `Boots/`, shared boots folders.
+    Boots,
+    /// `Gloves/`, shared gloves folders.
+    Gloves,
+    /// `Kits/`, the kit folders (`all/` included).
+    Kits,
+    /// `Portraits/`.
+    Portraits,
+    /// `Collars/`.
+    Collars,
+    /// `Common/`, the team's shared content.
+    Common,
+}
+
+/// The eight content folder names at the export root (matched
+/// ASCII-case-insensitively): everything else at the root is an unrecognized
+/// folder.
+pub(crate) const CONTENT_FOLDERS: [(&str, ContentFolder); 8] = [
+    ("Players", ContentFolder::Players),
+    ("Faces", ContentFolder::Faces),
+    ("Boots", ContentFolder::Boots),
+    ("Gloves", ContentFolder::Gloves),
+    ("Kits", ContentFolder::Kits),
+    ("Portraits", ContentFolder::Portraits),
+    ("Common", ContentFolder::Common),
+    ("Collars", ContentFolder::Collars),
+];
+
 /// The small file names the structure pass reads eagerly: `players.txt`,
 /// `refs.txt`, `notes.txt`, `icon.txt`, by name (ASCII-case-insensitively) at
 /// any depth, so the consumer needs no root normalization of its own.

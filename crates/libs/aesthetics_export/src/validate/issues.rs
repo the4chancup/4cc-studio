@@ -57,5 +57,12 @@ pub enum Disposition {
 }
 
 /// Every code the crate emits, listed here so consumers can test their
-/// catalog against it. This slice emits none; the parse slice adds its codes.
-pub const ISSUE_CODES: &[&str] = &[];
+/// catalog against it.
+pub const ISSUE_CODES: &[&str] = &[
+    "nested_folders_fixed",
+    "nested_root_ambiguous",
+    "nested_root_conflict",
+    "players_txt_invalid",
+    "refs_txt_ignored",
+    "source_read_failed",
+];
