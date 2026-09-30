@@ -1,0 +1,64 @@
+[shirt]
+model = 176                 # 144 / 160 / 176
+collar = 105                # 1-107
+winter_collar = 105         # 1-107
+tight = false               # 144/160 only
+pattern = 5                 # 0-13 (PES15 output supports 0-5)
+long_sleeves = "normal"     # "normal" / "undershirt-only" (144 only)
+short_sleeves = "normal"    # "normal" / "cut-out" (144 only)
+
+[shorts]
+model = 16                  # 0-17
+
+[colors]                    # the config's five RGB fields
+shirt1 = "#315975"
+shirt2 = "#1C1C1C"
+undershirt = "#315975"
+shorts = "#1C1C1C"
+socks = "#000000"
+
+[name]
+show = true
+shape = "straight"          # straight / light-curve / medium-curve / extreme-curve
+y = 31                       # 0-16 (PES2021: 0-39)
+size = 12                   # 0-20
+
+[number.back]
+y = 18                      # 0-29
+size = 10                   # 0-13
+spacing = 2                 # 0-2
+
+[number.chest]
+x = 0                       # 0-14
+y = 0                       # 0-7
+size = 0                   # 0-15
+
+[number.shorts]
+side = "left"               # left / right
+x = 9                       # 0-14
+y = 2                       # 0-14
+size = 5                    # 0-13
+
+[badge]                     # sleeve badge positions; x 0-14, y 0-31
+right_short = { x = 7, y = 17 }
+left_short = { x = 7, y = 17 }
+right_long = { x = 7, y = 18 }
+left_long = { x = 7, y = 18 }
+
+[unknown]                   # undecoded bits, preserved verbatim (format table above);
+# keys only present when they differ from the template
+"0x13" = 0
+"0x17" = 4
+"0x19" = 196
+"0x1C" = 0
+"0x1E" = 0
+"0x20" = 0
+"0x23" = 0
+"0x24" = 0
+
+[source_texture_names]
+kit = "75303739346731000000000000000000"
+back = "00000000000000000000000000000000"
+chest = "00000000000000000000000000000000"
+leg = "00000000000000000000000000000000"
+name = "00000000000000000000000000000000"

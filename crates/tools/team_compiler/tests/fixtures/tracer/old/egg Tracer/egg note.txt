@@ -1,0 +1,8 @@
+Team: /egg/
+
+Team Colours:
+- 1st: #c11200
+- 2nd: #414141
+
+Kit Colours:
+- 1st GK: #c11200 - #414141 - 11

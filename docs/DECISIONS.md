@@ -2460,3 +2460,21 @@ earlier one, and an earlier proof that disappeared is a regression; that holds o
 earlier phases' manual proofs survive the collapse.
 Plan: `CONTRIBUTING.md` "Testing and verification" (gate list, citation form, the scanner's
 rules, manual proofs kept at collapse); `AGENTS.md` "Closing a phase" step (3).
+
+## 2026-09-30 - team_compiler - 3.3: the tracer fixture, its committed Red tree, the bundled bases
+Decision: the tracer fixture (`crates/tools/team_compiler/tests/fixtures/tracer/`) is /egg/'s
+"The Chad Stormworks Player" (face, boots, gloves, portrait) plus kit `g1`, cut from the
+maintainer's copy of the EGG VGL26 export (maintainer: a cup export, a player with folders in all
+three of Faces, Boots and Gloves, not the Test_stuff export). The old-layout source carries the
+whole player; the Studio twin carries the face and the kit now, and gains the boots, gloves and
+portrait in Phase 4 (maintainer's choice), since Fox boots and gloves need Phase 4's ID
+assignment. Red's output is committed as its extracted tree, not as a hash manifest. The
+`UniformParameter` fallback bases are Red's own, in `resources/bins/`.
+Why: kit `g1`'s 312-byte main texture keeps the fixture at 1.3 MB where a player kit's 5.5 MB
+texture would quadruple it. A manifest would make the parity case depend on a local Red install,
+so it could not run in CI; the manifest scheme exists for multi-GB trees, and this one is under
+1 MB. Red's bases, not the game's installed bins, because a from-scratch compile has nothing
+installed to read and must build on the same base as Red to be comparable.
+Plan: `team_compiler/testing.md` "Testing: parity against Red" (a small tree is committed);
+`team_compiler/pipeline.md` "Resolved decisions" (the fallback bases' location and per-version
+choice); the fixture's `README.md`; `resources/bins/README.md`.
