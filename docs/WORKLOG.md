@@ -13,7 +13,7 @@ is in `AGENTS.md` ("Working documents").
 2.6 `fmdl` (format, model, ops, check), 2.7 `pes_model` (format, mtl, model, ops, check), 2.8 `uniparam`, 2.9 `fox2`, 2.10 `archives`, 2.11 `fpc`, 2.12 `teams_list`, 2.13 `kit_config`, 2.14 `color_tools`, 2.15 `elevation`. Review
 rounds A and B (2026-09-13) closed: 2.5c, 2.12b, 2.13b done.
 **In progress:** 2.17 `pes_savefile`, 2.18 `python_bindings`, 2.19 Phase verification done; 2.20
-Converge in progress (a-j done, 2.17i done; next 2.20k 4ccEditor value parity, then the rest of 2.21). Review round C (2026-09-19) closed as
+Converge in progress (a-k done, 2.17i done; next the rest of 2.21). Review round C (2026-09-19) closed as
 2.19a; its leftovers are listed under 2.20. 2.5b (GPU BC7) deferred to Phase 4 (user decision
 2026-09-21). Release target (2026-09-28): 0.1.0 after Phase 8; phase order 1–6, 8, 0.1.0, 7,
 9–16 (`core/development_plan.md` "Releases").
@@ -53,11 +53,6 @@ being true. Permanent toolchain facts go in `docs/CONTRIBUTING.md` "Toolchain no
   the encode tests compare the chain-wide mean for that reason. Revisit with representative kit
   and face textures when the Team compiler can produce them (plan: "tune against representative
   textures").
-- **The VPS is off limits for mutation runs** (maintainer, 2026-09-29: heavy work on it for a
-  while) until the maintainer says otherwise. Every `just mutants <crate>` runs fully local:
-  start it with `STUDIO_MUTANTS_REMOTE` set to an empty string in the process (an empty value
-  opts out of the registry fallback), and check its first line says "running every mutant on
-  this machine". Every brief that starts a run says so.
 - `just mutants-diff` reuses `mutants.out/`: it wipes a whole-crate run's results. Copy
   `mutants.out/` aside (for example to `.tmp/mutants_<step>_whole/`) before the first diff run.
 - `block_compression` 0.10's BC3/BC4/BC5 decoder truncates the alpha-ramp interpolation where
@@ -781,19 +776,25 @@ Spec: `docs/plans/core/development_plan.md` "Phase 2", `docs/plans/libs/README.m
     PowerShell, documented); `bindings_check.py` refuses a wheel not tagged `cp311-abi3`;
     `.mtl` byte identity asserted for the four fixtures `mtl.rs` proves; exact `FormatError`
     text per codec. Decision entry
-  - [ ] 2.20k `pes_savefile` parity with 4ccEditor's values, found at 2.21: `verification.md`
-    "Cross-implementation parity" asks that field values match 4ccEditor's for the same save,
-    and no test or log line shows it was done (the transplant, fingerprint and compare parity
-    is done; the `.4cct` golden compares a synthesized file). Evidence at hand:
-    `tests/fixtures/pes19_squad.4ccs` is 4ccEditor's own squad export (`export_squad`, team 713,
-    23 players) from a PES 19 save. Plan: a test decodes it and compares every field it
-    carries with the codec's read of team 713 from the PES 19 payload fixture; first confirm
-    the two share a state (same player ids and names), else find the save it came from. Each
-    differing field is diagnosed before anything changes: 4ccEditor is evidence, not truth
-    (its reader had PES 18's dribbling-arm motion at 2 bits of 3). Other versions need a
-    `.4ccs` exported by the maintainer from each fixture save (question asked 2026-09-29).
-    → verify: the comparison test passes, or each difference is a recorded ruling
-  - Remaining 2.20 order after this: 2.20k, then 2.21.
+  - [x] 2.20k `pes_savefile` parity with 4ccEditor's values. The maintainer exported one team
+    per version with 4ccEditor from the saves the payload fixtures hold (payload SHA-256 equal;
+    `tests/fixtures/pesNN_parity.4ccs`, 15-21); read against that team, every player equals the
+    codec's read on every value the record carries (2209-2577 keys per version, zero
+    differences; `each_versions_4ccs_equals_the_codec_read_of_its_team`). The old
+    `pes19_squad.4ccs` is a later state of team 713 than the fixture (7 of 23 names), matching
+    two older saves exactly. The comparison showed 4ccEditor writes `.4ccs` records in the
+    save's record order, not roster order, and the orders differ on real PES 16/18 teams
+    (22 of 27 PES 16 saves; 438 of 508 teams in two PES 18 saves), so `read_squad` now takes
+    the target team and players and maps by the target's record order, with
+    `MoreRecordsThanRoster` (decision entry). The first PES 18 export repeated player 1 and
+    cleared 22 players' visual flags; a fresh re-export matched. Reviewer: 5 concerns, 3
+    accepted (plan: numbers only for slots that get a record, `clearing`/`reflex`/`cover`
+    filled on 15 only; the short-squad test now pins record order), 1 already fixed (PES 18
+    case), 1 rejected (the reference stops at the first empty roster slot; no save on the
+    machine has a player after one). `mutants-diff bbba5e0`: 32 of 32 caught. Files:
+    `interchange/legacy.rs`, `legacy_golden.rs`, seven fixtures and their README,
+    `pes_savefile/operations.md`, `verification.md`
+  - Remaining 2.20 order after this: 2.21.
   Known inputs from round C: (a) whole-crate mutation runs left survivors to triage in cpk (28),
   ftex (80), dds_convert (30): table-variant arms, boundary comparisons, `write_cell` and
   `Writer::finish` padding math; the other thirteen crates have not been run; (b)
@@ -1220,3 +1221,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
 - **2026-09-29** - 2.21 in progress: Phase 2's development-plan section, `model.md`'s model
   blocks and stale library names rewritten. It found a gap, now 2.20k: savefile field values
   were never compared with 4ccEditor's. Next: 2.20k.
+- **2026-09-30** - 2.20k done: 4ccEditor's own `.4ccs` exports from the fixture saves equal the
+  codec's read on every carried value, PES 15-21. It found `.4ccs` records ordered by save
+  record, not roster; `read_squad` now maps by the target's record order. VPS mutation runs
+  allowed again (maintainer). Next: the rest of 2.21.

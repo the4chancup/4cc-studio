@@ -13,13 +13,65 @@ use crate::interchange::legacy::{LegacyError, read_squad, read_tactics};
 use crate::interchange::team_toml::TeamToml;
 use crate::interchange::team_toml::player_keys::PlayerKey;
 use crate::model::instruction::Instruction;
+use crate::model::player::PlayerEntry;
+use crate::model::team::TeamEntry;
 use crate::schema::playstyle;
-use crate::settings_toml::get_appearance;
 use crate::settings_toml::keys::SettingKey;
+use crate::settings_toml::{FaceSettings, get_appearance};
 use crate::test_support::open;
 
 const SQUAD: &[u8] = include_bytes!("../../tests/fixtures/pes19_squad.4ccs");
 const NIGHTLY: &[u8] = include_bytes!("../../tests/fixtures/pes19_tactics.4cct");
+
+/// The `.4ccs` each version's fixture save exports for one of its teams —
+/// `(version, bytes, team id)`. The parity evidence of `verification.md`
+/// "Cross-implementation parity".
+const PARITY: &[(PesVersion, &[u8], u32)] = &[
+    (
+        PesVersion::Pes15,
+        include_bytes!("../../tests/fixtures/pes15_parity.4ccs"),
+        702,
+    ),
+    (
+        PesVersion::Pes16,
+        include_bytes!("../../tests/fixtures/pes16_parity.4ccs"),
+        702,
+    ),
+    (
+        PesVersion::Pes17,
+        include_bytes!("../../tests/fixtures/pes17_parity.4ccs"),
+        702,
+    ),
+    (
+        PesVersion::Pes18,
+        include_bytes!("../../tests/fixtures/pes18_parity.4ccs"),
+        702,
+    ),
+    (
+        PesVersion::Pes19,
+        include_bytes!("../../tests/fixtures/pes19_parity.4ccs"),
+        702,
+    ),
+    (
+        PesVersion::Pes20,
+        include_bytes!("../../tests/fixtures/pes20_parity.4ccs"),
+        857,
+    ),
+    (
+        PesVersion::Pes21,
+        include_bytes!("../../tests/fixtures/pes21_parity.4ccs"),
+        782,
+    ),
+];
+
+/// The `.4ccs` `SQUAD` was exported from team 713 of the PES 19 fixture
+/// save; the read is against that save's team and players.
+fn squad_target(file: &crate::file::EditFile) -> (&TeamEntry, &[PlayerEntry]) {
+    (
+        file.team(713).expect("team 713 is in the PES 19 fixture"),
+        file.players(),
+    )
+}
 
 /// `"21a"`/`"20a"` + two version digits.
 const HEADER: usize = 5;
@@ -180,7 +232,26 @@ fn the_struct_dump_reads_at_the_literal_offsets() {
 
 #[test]
 fn read_squad_decodes_the_struct_dump() {
-    let doc = read_squad(SQUAD).expect("a valid .4ccs");
+    let (file, _) = open(PesVersion::Pes19);
+    let (team, players) = squad_target(&file);
+    // The record-i-to-slot-i+1 comparisons below stand only while team
+    // 713's roster order is its record order.
+    let positions: Vec<usize> = team
+        .roster
+        .iter()
+        .filter(|slot| slot.player_id != 0)
+        .map(|slot| {
+            players
+                .iter()
+                .position(|p| p.id == slot.player_id)
+                .expect("a rostered id is in the save")
+        })
+        .collect();
+    assert!(
+        positions.windows(2).all(|w| w[0] < w[1]),
+        "team 713's roster order is its record order"
+    );
+    let doc = read_squad(SQUAD, team, players).expect("a valid .4ccs");
     assert_eq!(doc.pes_version, Some(PesVersion::Pes19));
     assert_eq!(doc.players.len(), 23);
     assert_eq!(
@@ -362,7 +433,9 @@ const APPEARANCE_ABSENT_ON_19: &[SettingKey] = &[SettingKey::Dribbling];
 
 #[test]
 fn read_squad_decodes_every_record_and_every_mapped_field() {
-    let doc = read_squad(SQUAD).expect("a valid .4ccs");
+    let (file, _) = open(PesVersion::Pes19);
+    let (team, players) = squad_target(&file);
+    let doc = read_squad(SQUAD, team, players).expect("a valid .4ccs");
     let numbers = &SQUAD[HEADER + 23 * RECORD..];
     for i in 0..23 {
         let p = &doc.players[&(i as u8 + 1)];
@@ -484,14 +557,41 @@ fn read_tactics_equals_the_codec_for_the_same_team() {
 
 #[test]
 fn a_wrong_tag_or_version_is_refused() {
-    let err = read_squad(NIGHTLY).expect_err("a .4cct is not a .4ccs");
+    let (file, _) = open(PesVersion::Pes19);
+    let (team, players) = squad_target(&file);
+    let err = read_squad(NIGHTLY, team, players).expect_err("a .4cct is not a .4ccs");
     assert!(matches!(err, LegacyError::BadTag { .. }), "{err:?}");
     let err = read_tactics(SQUAD).expect_err("a .4ccs is not a .4cct");
     assert!(matches!(err, LegacyError::BadTag { .. }), "{err:?}");
     let mut bad = SQUAD.to_vec();
     bad[3..5].copy_from_slice(b"1x");
-    let err = read_squad(&bad).expect_err("version digits");
+    let err = read_squad(&bad, team, players).expect_err("version digits");
     assert!(matches!(err, LegacyError::BadVersion(_)), "{err:?}");
-    let err = read_squad(&SQUAD[..HEADER + RECORD]).expect_err("truncated");
+    let err = read_squad(&SQUAD[..HEADER + RECORD], team, players).expect_err("truncated");
     assert!(matches!(err, LegacyError::Truncated { .. }), "{err:?}");
+}
+
+/// Every value a `.4ccs` carries equals the codec's read of the same team:
+/// each file was exported by 4ccEditor from the save the version's payload
+/// fixture holds.
+#[test]
+fn each_versions_4ccs_equals_the_codec_read_of_its_team() {
+    for &(version, bytes, team_id) in PARITY {
+        let (file, _) = open(version);
+        let team = file
+            .team(team_id)
+            .expect("the parity team is in the fixture save");
+        let players = file.players();
+        let doc = read_squad(bytes, team, players).expect("the .4ccs decodes");
+        let pool: Vec<&PlayerEntry> = players.iter().collect();
+        let mut ours = TeamToml::from_team(version, team, &pool).expect("the codec dumps the team");
+        // The record carries no ingame-face run and no face-type keys.
+        for section in ours.players.values_mut() {
+            section.ingame_face = None;
+            section.appearance.face = FaceSettings::default();
+        }
+        assert_eq!(doc.players.len(), 23, "{version:?}");
+        assert_eq!(doc.players, ours.players, "{version:?}");
+        assert_eq!(doc.pes_version, Some(version), "{version:?}");
+    }
 }

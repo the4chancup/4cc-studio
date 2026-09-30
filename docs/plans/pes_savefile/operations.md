@@ -576,10 +576,13 @@ pub struct SkillsSection { pub skills: Option<[bool; 41]>, pub com_styles: Optio
 pub struct EditFlagsSection { /* the fourteen flags, `Option<bool>` each, names as in `PlayerEditFlags` */ }
 
 /// `interchange/legacy.rs`: the read-only formats, each into a `TeamToml` (see below).
-pub fn read_squad(bytes: &[u8]) -> Result<TeamToml, LegacyError>;     // .4ccs
+/// `.4ccs` records carry no player id, so they are read against the team they import into.
+pub fn read_squad(bytes: &[u8], team: &TeamEntry, players: &[PlayerEntry]) -> Result<TeamToml, LegacyError>;
 pub fn read_tactics(bytes: &[u8]) -> Result<TeamToml, LegacyError>;   // .4cct
-pub enum LegacyError { BadTag { expected: &'static str, found: String }, BadVersion(String), Truncated { needed: usize, len: usize },
-    UnknownPlayingStyle { version: PesVersion, value: u8 }, Text(String) }
+pub enum LegacyError { BadTag { expected: &'static str, found: String }, BadVersion(String), BadTeamId(String),
+    Truncated { needed: usize, len: usize }, UnknownPlayingStyle { version: PesVersion, value: u8 },
+    BadInstruction(u8), TooManyPlayers { count: usize }, MoreRecordsThanRoster { records: usize, rostered: usize },
+    Value(TeamTomlError), Text(String) }
 
 /// What an import did not apply as written. Version-pair-wide facts are not notes (the 2.17f rule).
 pub enum ImportNote {
@@ -699,16 +702,32 @@ Both are raw dumps of the reference editor's in-memory structs; both parse into 
 - **`.4ccs` squad files**: `"21a"` (3 ASCII bytes; the real files on this machine, written by an
   earlier build, carry `"20a"` with the same record — both tags are accepted, decision entry
   2.17h) + 2 ASCII digits of the exporting PES version + one **356-byte `player_export`
-  record per rostered player**, in roster order + `[u16; 40]` shirt numbers (80 bytes) +
+  record per rostered player**, in the order the source save's player records hold them, not
+  roster order + `[u16; 40]` shirt numbers in roster order (80 bytes) +
   optionally the 405-byte tactics block below (present when the file is 405 bytes longer than
   `5 + n × 356 + 80`; the editor writes it when tactics are enabled). The record is the MSVC
   layout of `player_export` (`editor.h`): little-endian, 4-byte alignment, `bool` one byte,
   `wchar_t[61]` UTF-16 name, `char[21]` shirt name, one padding byte at 271; the offsets are
   `scripts/provenance/fixtures/interchange_fixtures.py`'s ctypes table, the golden test holds
   them as literals. Fields the exporting version lacks are ignored whatever the bytes (the writer
-  fills `phys_cont`/`clearing`/`reflex`/`cover` from `body_ctrl` on 15/16); the playing style is
+  fills `phys_cont` from `body_ctrl` on 15 and 16, and `clearing`/`reflex`/`cover` on 15 only);
+  the playing style is
   the exporting version's index. The record has no id and no ingame-face run: `ingame_face` is
-  absent, skin/iris/player-gloves go to the `appearance` keys. Importable into any version
+  absent, skin/iris/player-gloves go to the `appearance` keys. With no id, a record's player is
+  only its position, so `read_squad` takes the target team and its save's players, as the
+  reference's import does: record *k* goes to the roster slot of the *k*-th rostered player in
+  the target's record order, and number *i* to slot *i* when that slot received a record (the
+  reference copies all 40 numbers, empty slots included; a `TeamToml` section needs a rostered
+  player). The reference also counts the roster only up to its first empty slot; no save on the
+  machine has a player after an empty slot (2.20k, 30714 rostered teams), so `read_squad` simply
+  takes every rostered slot. We do not map record *k* to slot *k*,
+  because the two orders differ on real teams (at 2.20k, in 22 of the machine's 27 distinct
+  PES 16 saves, up to 27 cup teams each, and in 438 of 508 teams of two PES 18 saves; never on
+  17 or 19-21), and there that puts every stat and
+  appearance on the wrong player. A file with more records than the target has rostered
+  players is `MoreRecordsThanRoster` (the reference stops reading and then takes its shirt
+  numbers from the wrong offset); a shorter one fills the first rostered players in record
+  order and leaves the rest untouched. Importable into any version
   through `TeamToml::apply` (the reference converts styles by version pair and clamps 19+ shirt
   numbers to 231 on older saves; `apply` instead refuses a number wider than the target's roster
   field before any write, like a too-long text, so a squad never applies and then fails to save).
