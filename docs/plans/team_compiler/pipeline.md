@@ -771,7 +771,8 @@ Resolved decisions:
   `metal` family falls back to on pre-Fox (see the Unified model format plan's "Textures"),
   `kit_mask.dds` and the checkerboard `kit.dds` for placeholder kits, dummy model/MTL, `generic.fpkd`,
   `fcl_hair_sim.fclo`, the generic kit config, the
-  `TeamColor`/`UniColor`/`UniformParameter` fallback bases, and the current official per-version
+  `TeamColor`/`UniColor`/`UniformParameter` fallback bases (in `resources/bins/`, Red's own: PES 18
+  builds on `UniformParameter18.bin`, 19–21 on `UniformParameter19.bin`), and the current official per-version
   `DpFileList.bin` (for slot discovery and the DpFileList upgrade — see "Multi-CPK mode: teams
   parts" and "Post-processing") — ~6 MB total) ship inside the binary
   (`include_dir!`), version-locked to the compiler logic that consumes them; Red's

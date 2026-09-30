@@ -140,8 +140,7 @@ Itemized 2026-09-30 at Phase 2's close. Order: the tracer first (one real export
   problems; a planted orphan citation fails `report`, a planted valid one counts as proven. The
   scanner rides along with the next (b) review (3.6 slice b)
 - [ ] 3.3 Tracer bullet (`core/development_plan.md` "Phase 3", first bullet; decided 2026-09-15): fixture pair
-  (one old-layout face export, its hand-migrated Studio-layout twin, the hash manifest of Red's
-  output for it); the thin compile path through `fmdl`/`ftex`/`fpk`/`cpk`/`kit_config`; the
+  (one old-layout face export, its hand-migrated Studio-layout twin, Red's output for it); the thin compile path through `fmdl`/`ftex`/`fpk`/`cpk`/`kit_config`; the
   first `tests/parity` case. Lead writes the fixtures and the manifest (correctness-critical);
   the compile path and comparison are briefed. → verify: `cargo test -p team_compiler --test
   parity` green on the fixture, and every Phase 2 API friction met on the way listed in the

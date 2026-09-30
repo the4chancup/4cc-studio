@@ -25,7 +25,9 @@ to git**; instead, a **hash manifest** (content hash per file, keyed by normaliz
 is committed as the test fixture. The test regenerates the reference tree locally by running Red +
 extraction when the manifest is stale or the local tree is missing, and verifies the regenerated
 tree against the committed manifest before using it. This keeps the repo small while making the
-test reproducible without a pre-shared binary blob.
+test reproducible without a pre-shared binary blob. A reference tree small enough to commit is
+committed as the tree itself instead: the tracer bullet's (`tests/fixtures/tracer/red/`, under
+1 MB) runs its parity case anywhere, CI included, without Red.
 
 Intentional differences must be accounted for:
 
