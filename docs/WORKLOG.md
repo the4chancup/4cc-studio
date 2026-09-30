@@ -10,7 +10,7 @@ is in `AGENTS.md` ("Working documents").
 ## Current status
 
 **Phase:** 3 (Team compiler skeleton). Phases 1 and 2 done (Phase 2 closed 2026-09-30).
-**In progress:** nothing. Next: 3.2, the acceptance-ID scanner. 2.5b (GPU BC7) is step 16.x (decision entries 2026-09-21 and 2026-09-28). Release
+**In progress:** nothing. Next: 3.3, the tracer bullet. 2.5b (GPU BC7) is step 16.x (decision entries 2026-09-21 and 2026-09-28). Release
 target (2026-09-28): 0.1.0 after Phase 8; phase order 1–6, 8, 0.1.0, 7, 9–16
 (`core/development_plan.md` "Releases").
 **Blocked on:** nothing yet. **Hard gate at the end of Phase 3:** step 4.0 (the maintainer's
@@ -64,7 +64,7 @@ steps, which every phase has: **converge** (the lead's own audit first, then the
 reviewer's, both against the phase's plan sections and acceptance IDs; each gap becomes a new
 step above it, and the phase waits for them) and **rewrite**
 (the phase's plan sections rewritten in the present tense, in place). Then collapse its step list
-below to this one row; the step-level detail stays in git history. Tool phases (3–6, 8–15, 17, 19) also
+below to this one row, keeping its `manual: checked` lines; the step-level detail stays in git history. Tool phases (3–6, 8–15, 17, 19) also
 open with an **acceptance** step: the tool plan's "Acceptance" section for that phase, written
 before any code (GUI scenarios that no automated test can prove are marked `manual` and proven by
 a recorded check at converge — `CONTRIBUTING.md` "Testing"). Procedure: `AGENTS.md` "Working
@@ -74,7 +74,7 @@ documents".
 |---|---|---|---|
 | 1 | Workspace bootstrap + core skeleton | workspace, CI, non-GUI `studio_core`, `vtree`, `pes_version` | done |
 | 2 | Library crates (standalone-verifiable) | `wezlib` `cpk` `fpk` `ftex` `dds_convert` `fmdl` `pes_model` `uniparam` `fox2` `archives` `fpc` `teams_list` `kit_config` `color_tools` `elevation` `model_convert` (native) `pes_savefile` `python_bindings` | done |
-| 3 | Team compiler skeleton | `team_compiler`, `aesthetics_export`, `pipeline` | todo |
+| 3 | Team compiler skeleton | `team_compiler`, `aesthetics_export`, `pipeline` | in progress |
 | 4 | Processing logic | `team_compiler` (`plan/` `processing/` `bins/` `output/`), `aesthetics_export` deep validation | todo |
 | 5 | Savefile integration | `save_editor` logic, `aatf`, `team_compiler` `output/savefile.rs` | todo |
 | 6 | Export upgrader | `export_upgrader` | todo |
@@ -133,14 +133,12 @@ Itemized 2026-09-30 at Phase 2's close. Order: the tracer first (one real export
   (`link_target_dropped`, wider `texture_stem_conflict` and `root_file_unexpected`, pass-through
   exclusions); usable-root definition (`pipeline.md`). Reviewer: GPT 8 rounds, all ruled, with
   sidekick loops between rounds 5-8 (rulings `.tmp/review_rulings_3_1.md`)
-- [ ] 3.2 Converge check script: extract every acceptance ID from the plans' "Acceptance" sections
-  (skipping `withdrawn:` ones) and every `// XX-YYY-NN` citation in any `.rs` file under `crates/`
-  (inline `#[cfg(test)]` modules included, not just `tests/`); report orphan citations (an ID no
-  scenario defines) and unproven scenarios. Two modes: **report** — what CI runs on every change;
-  it fails only on orphan citations, since scenarios are written before the code that proves them
-  and unproven IDs are the normal state of an open phase; **strict** — run at converge for the
-  closing phase's IDs; unproven or `manual` scenarios without a recorded check fail it. Python or a
-  tiny Rust bin — decide when written (needs a decision entry either way, since it adds a gate)
+- [x] 3.2 Converge check script — done: `scripts/acceptance.py` + `acceptance_test.py` (15
+  tests; 19/19 hand mutants caught, `.tmp/acceptance_mutants.py`), `just acceptance
+  [report|strict]` as gate 5; rules in `CONTRIBUTING.md` "Testing and verification", collapse
+  keeps manual proofs (`AGENTS.md`); decision entry. Real repo: 75 scenarios (2 manual), no
+  problems; a planted orphan citation fails `report`, a planted valid one counts as proven. The
+  scanner rides along with the next (b) review (3.6 slice b)
 - [ ] 3.3 Tracer bullet (`core/development_plan.md` "Phase 3", first bullet; decided 2026-09-15): fixture pair
   (one old-layout face export, its hand-migrated Studio-layout twin, the hash manifest of Red's
   output for it); the thin compile path through `fmdl`/`ftex`/`fpk`/`cpk`/`kit_config`; the

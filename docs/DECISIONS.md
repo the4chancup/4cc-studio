@@ -2438,3 +2438,25 @@ concerns it judged less likely to be accepted went unreported, with nothing guar
 round finds them. The accept-rate gate already bounds the loop and catches padding; the
 reachability ranking already keeps impossible edge cases at the bottom.
 Plan: `AGENTS.md` "Second opinion" (supersedes the cap in the 2026-09-10 methodology entry).
+
+## 2026-09-30 - workspace - 3.2: the acceptance-ID scanner is a Python script and gate 5
+Decision: `scripts/acceptance.py` (with its tests in `scripts/acceptance_test.py`), run by
+`just acceptance [report|strict]`; `report` is a fifth `just gates` gate, so CI and every
+local gate run execute it. Beyond orphan citations, `report` fails on the other ways a citation
+or a definition proves nothing: a citation of a withdrawn scenario, an ID-only comment not
+directly above a `#[test]`, a manual check of a scenario not marked `manual`, a duplicate ID,
+and an ID line in an Acceptance section that is not a scenario. `strict` checks every scenario
+in the plans, not only the closing phase's, and collapsing a phase's worklog steps keeps its
+`manual: checked` lines.
+Why: Python, not a Rust bin, because the scanner reads Markdown and source text and needs no
+workspace code; a bin would add a crate to build for a text scan, and the other repeatable
+sequences are already Python scripts under `scripts/`. A gate, not only a CI job, because a
+check outside `just gates` goes stale unseen (`just bindings` was red from 2.20g-h's fixtures
+until 2.20j noticed). The
+extra failures are each a way a scenario would silently count as proven or silently vanish
+from strict. Strict over everything needs no phase marker in the plans: Acceptance sections are
+written just in time, so every scenario at a converge belongs to the closing phase or an
+earlier one, and an earlier proof that disappeared is a regression; that holds only if the
+earlier phases' manual proofs survive the collapse.
+Plan: `CONTRIBUTING.md` "Testing and verification" (gate list, citation form, the scanner's
+rules, manual proofs kept at collapse); `AGENTS.md` "Closing a phase" step (3).

@@ -60,7 +60,8 @@ measured with `just mutants-diff <commit the round started from>` (2.20f: 45-53 
 whole-crate run, 3 for a round's diff); (2) **rewrite** the parts of the phase's plan sections
 that the phase delivered in the present tense, as a description of what now exists (acceptance IDs
 stay, as the behavior contract), moving nothing to a new document and leaving deferred parts as
-they are; (3) collapse the worklog's step list to the phase row. Converting per phase, not at the
+they are; (3) collapse the worklog's step list to the phase row, keeping its `manual: checked`
+lines, which are the manual scenarios' proofs (`CONTRIBUTING.md` "Testing"). Converting per phase, not at the
 end of the project, is what keeps the plan true while the memory of the work is fresh.
 
 **Lead and sidekick.** Sessions run as a lead model that plans, briefs, reviews and talks to the
