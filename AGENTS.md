@@ -280,8 +280,15 @@ Agent and IDE shells started before the variable was set do not see it, so the s
 reads it from the user's registry environment; the run's first line says which mode it took
 ("splitting the run with bonfire" or "running every mutant on this machine"). At 2.20i an
 agent shell without the variable ran all 806 `pes_savefile` mutants locally, over three
-hours. An empty value in the process opts out. `mutants-diff` stays local: its runs take
-minutes, and the transfer plus the remote baseline build would eat the gain. Manual ssh from
+hours. An empty value in the process opts out. `mutants-diff` splits the same way only when
+its estimated local time is at least 4 minutes (`SPLIT_THRESHOLD_SECONDS`): the estimate is each
+mutant's crate's measured seconds per mutant (`target/mutants-cost.json`, refreshed by every
+local run; a never-run crate falls back to its size), because cost follows a crate's test
+suite, not the mutant count (0.7-1.4 s for most crates, 33-37 s for `pes_savefile`). Below
+that the split's fixed overhead, about a minute plus up to 30 s of polling, eats the gain. At
+2.20k a 32-mutant `pes_savefile` diff took 11 min 57 s locally; split, the local half took
+417 s and the remote half 502 s from its launch (the VPS ran about a fifth slower; the total
+wall time was not recorded). Manual ssh from
 Git Bash uses `/c/Windows/System32/OpenSSH/ssh.exe bonfire`: Git's own `ssh` cannot reach the
 Windows agent that holds the key.
 
