@@ -27,6 +27,7 @@ version (the pinned toolchain installs itself on first use inside the tree).
 import io
 import json
 import os
+import statistics
 import subprocess
 import sys
 import tarfile
@@ -51,7 +52,15 @@ REMOTE_MEMORY_MAX = "6G"
 # `memory_peak` (the unit cgroup's peak memory) and `collected` (written by
 # the fetch).
 REMOTE_RUN = f"{REMOTE_BASE}/run"
+# The measured seconds one mutant costs on this machine, per crate, updated
+# from the local half of every run. `target/` is gitignored and survives the
+# `mutants.out` wipes.
+COST_CACHE = ROOT / "target" / "mutants-cost.json"
 POLL_SECONDS = 30
+# Below this estimated local wall time a diff run stays local: the split's
+# fixed overhead (about a minute plus up to POLL_SECONDS of polling) eats
+# the halving.
+SPLIT_THRESHOLD_SECONDS = 240
 # Consecutive failed polls before giving up (an hour at 30 s); the remote half
 # keeps running and `just mutants-collect` picks it up later.
 MAX_POLL_FAILURES = 120
@@ -204,19 +213,24 @@ def remote_run_state(host: str) -> str | None:
     return state
 
 
-def launch_remote(host: str, crate: str) -> None:
-    """Writes `run/job.sh` and starts it as the `REMOTE_UNIT` transient
-    service (`sudo -n systemd-run`), detached from this ssh session by
-    construction: the unit is memory-capped (`MemoryMax`, no swap) and
+def launch_remote(host: str, selection: list[str]) -> None:
+    """Writes `run/job.sh` (and `run/in.diff` for a `--in-diff` selection,
+    the same diff the local half reads) and starts it as the `REMOTE_UNIT`
+    transient service (`sudo -n systemd-run`), detached from this ssh session
+    by construction: the unit is memory-capped (`MemoryMax`, no swap) and
     CPU-idle so Fluxer's production services on the host win, and
     `OOMPolicy=continue` keeps cargo-mutants alive past an in-unit OOM kill.
     `run/pid` is the service's MainPID; a failed `systemd-run` fails the
     launch (no fallback)."""
+    if selection[0] == "--in-diff":
+        remote_args = '--in-diff "$HOME/studio-mutants/run/in.diff"'
+    else:
+        remote_args = " ".join(selection)
     job = (
         "#!/bin/bash\n"
         "exec > ../run/log 2>&1\n"
         "start=$(date +%s)\n"
-        f". ~/.cargo/env && nice -n 19 ionice -c3 cargo mutants -p {crate} --jobs 2 "
+        f". ~/.cargo/env && nice -n 19 ionice -c3 cargo mutants {remote_args} --jobs 2 "
         "--shard 1/2 --sharding round-robin --config ../mutants.remote.toml\n"
         "code=$?\n"
         # `memory.peak` of this unit's cgroup tells whether the cap is tight;
@@ -229,13 +243,21 @@ def launch_remote(host: str, crate: str) -> None:
         host,
         f"mkdir -p {REMOTE_RUN} && "
         f"rm -f {REMOTE_RUN}/pid {REMOTE_RUN}/log {REMOTE_RUN}/exit "
-        f"{REMOTE_RUN}/collected {REMOTE_RUN}/memory_peak && "
+        f"{REMOTE_RUN}/collected {REMOTE_RUN}/memory_peak {REMOTE_RUN}/in.diff && "
         f"cat > {REMOTE_RUN}/job.sh",
         # Bytes, not text: `text=True` translates \n to \r\n on Windows and a
         # CRLF in the script makes bash and cargo-mutants fail.
         input=job.encode("utf-8"),
         check=True,
     )
+    if selection[0] == "--in-diff":
+        # Bytes again: the diff must stay LF for the remote cargo-mutants.
+        ssh(
+            host,
+            f"cat > {REMOTE_RUN}/in.diff",
+            input=Path(selection[1]).read_bytes(),
+            check=True,
+        )
     ssh(
         host,
         f"sudo -n systemd-run --unit={REMOTE_UNIT} --collect --uid=debian "
@@ -284,14 +306,16 @@ def wait_remote(host: str) -> tuple[int, float]:
 
 
 def run_split(
-    crate: str, host: str, tree: str, remote_head: str | None, remote_tree: str | None,
-    nproc: int,
+    selection: list[str], host: str, tree: str, remote_head: str | None,
+    remote_tree: str | None, nproc: int,
 ) -> tuple[int, int, float, float]:
     """The local shard starts at once, in the foreground with console output as
     today; a thread transfers the snapshot, writes the remote config and launches
-    the remote shard, so the transfer counts against the remote side only. Returns
-    the (local, remote) codes and seconds: the local half's from the common
-    start, the remote half's from its own launch."""
+    the remote shard, so the transfer counts against the remote side only.
+    `selection` is the mutant-selection arguments (`["-p", crate]` or
+    `["--in-diff", path]`); the remote reads an uploaded copy of a diff.
+    Returns the (local, remote) codes and seconds: the local half's from the
+    common start, the remote half's from its own launch."""
     start = time.monotonic()
     remote: dict = {}
 
@@ -302,7 +326,7 @@ def run_split(
             else:
                 transfer(host, remote_head)
             remote_config(host, nproc)
-            launch_remote(host, crate)
+            launch_remote(host, selection)
             print("remote half launched", flush=True)
         except (OSError, subprocess.CalledProcessError, TypeError) as error:
             # Re-raised in the main thread once the local half is done.
@@ -312,7 +336,7 @@ def run_split(
     thread.start()
     local = subprocess.run(
         [
-            "cargo", "mutants", "-p", crate, "--jobs", "2",
+            "cargo", "mutants", *selection, "--jobs", "2",
             "--shard", "0/2", "--sharding", "round-robin",
         ],
         cwd=ROOT,
@@ -420,37 +444,78 @@ def collect(host: str) -> int:
     )
 
 
-def remote_host() -> str | None:
-    """`STUDIO_MUTANTS_REMOTE` from the process, else (Windows) from the user's
-    registry environment. A process started before the variable was set, such as
-    an IDE's or an agent's shell, does not see it, and would silently run every
-    mutant locally. An empty value in the process opts out."""
-    host = os.environ.get("STUDIO_MUTANTS_REMOTE")
-    if host is None and os.name == "nt":
-        import winreg
-
-        try:
-            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, "Environment") as key:
-                host = winreg.QueryValueEx(key, "STUDIO_MUTANTS_REMOTE")[0]
-        except OSError:
-            host = None
-    return host or None
+def mutant_crate(file: str) -> str:
+    """The crate a mutant lives in: the path component after `crates/<group>/`
+    in its `file` field (`crates/libs/pes_savefile/...` -> `pes_savefile`)."""
+    return Path(file).parts[2]
 
 
-def main(argv: list[str]) -> int:
-    host = remote_host()
-    if argv[1] == "--collect":
-        if host is None:
-            print("STUDIO_MUTANTS_REMOTE is not set")
-            return 1
-        return collect(host)
-    crate = argv[1]
-    if host is None:
-        print("STUDIO_MUTANTS_REMOTE is not set: running every mutant on this machine", flush=True)
-        return subprocess.run(
-            ["cargo", "mutants", "-p", crate, "--jobs", "2"], cwd=ROOT
-        ).returncode
+def load_cost_cache() -> dict[str, float]:
+    """`target/mutants-cost.json`, or empty when no run has written it yet."""
+    if COST_CACHE.exists():
+        return json.loads(COST_CACHE.read_text(encoding="utf-8"))
+    return {}
 
+
+def cost_per_mutant(crate: str, cache: dict[str, float]) -> float:
+    """A crate's measured seconds per mutant, or the size fallback when it
+    has never run here: `1 + nonblank_lines / 1000` over
+    `crates/*/<crate>/src/**/*.rs` (overestimates the mid-size crates, which
+    errs toward splitting)."""
+    if crate in cache:
+        return cache[crate]
+    nonblank = 0
+    for src in ROOT.glob(f"crates/*/{crate}/src/**/*.rs"):
+        nonblank += sum(
+            1
+            for line in src.read_text(encoding="utf-8", errors="replace").splitlines()
+            if line.strip()
+        )
+    return 1 + nonblank / 1000
+
+
+def estimate_seconds(crates: list[str]) -> float:
+    """The estimated wall seconds of running these mutants locally only:
+    one per-mutant cost each over the two jobs, plus the slowest crate once
+    for the unmutated baseline."""
+    cache = load_cost_cache()
+    costs = [cost_per_mutant(crate, cache) for crate in crates]
+    return sum(costs) / 2 + max(costs, default=0.0)
+
+
+def update_cost_cache() -> None:
+    """Fold the local run's per-crate mutant cost into `COST_CACHE`: the
+    median of the summed phase durations over each crate's
+    CaughtMutant/MissedMutant outcomes, replacing the old value when the run
+    had at least 5 of them (below that the median is noise). Only the local
+    `mutants.out` counts; the remote half ran on other hardware."""
+    path = ROOT / "mutants.out" / "outcomes.json"
+    if not path.exists():
+        return
+    durations: dict[str, list[float]] = {}
+    for outcome in json.loads(path.read_text(encoding="utf-8"))["outcomes"]:
+        scenario = outcome["scenario"]
+        if not isinstance(scenario, dict) or outcome["summary"] not in (
+            "CaughtMutant",
+            "MissedMutant",
+        ):
+            continue
+        durations.setdefault(mutant_crate(scenario["Mutant"]["file"]), []).append(
+            sum(phase["duration"] for phase in outcome["phase_results"])
+        )
+    cache = load_cost_cache()
+    for crate, values in durations.items():
+        if len(values) >= 5:
+            cache[crate] = statistics.median(values)
+    COST_CACHE.parent.mkdir(parents=True, exist_ok=True)
+    temp = COST_CACHE.with_suffix(".tmp")
+    temp.write_text(json.dumps(cache, indent=1) + "\n", encoding="utf-8")
+    os.replace(temp, COST_CACHE)
+
+
+def split(selection: list[str], host: str) -> int:
+    """The whole split run for one selection: the busy-remote refusal, the
+    snapshot, the version check, both halves, the fetch and the summary."""
     print(f"splitting the run with {host}", flush=True)
     # The remote must be free before the transfer rewrites its tree.
     state = remote_run_state(host)
@@ -483,14 +548,51 @@ def main(argv: list[str]) -> int:
         return 1
 
     local_code, remote_code, local_seconds, remote_seconds = run_split(
-        crate, host, tree, remote_head, remote_tree, nproc
+        selection, host, tree, remote_head, remote_tree, nproc
     )
+    update_cost_cache()
     fetch_remote(host)
     return summarize(
         local_code, remote_code,
         ROOT / "mutants.out" / "remote" / "remote_console.txt",
         (local_seconds, remote_seconds),
     )
+
+
+def remote_host() -> str | None:
+    """`STUDIO_MUTANTS_REMOTE` from the process, else (Windows) from the user's
+    registry environment. A process started before the variable was set, such as
+    an IDE's or an agent's shell, does not see it, and would silently run every
+    mutant locally. An empty value in the process opts out."""
+    host = os.environ.get("STUDIO_MUTANTS_REMOTE")
+    if host is None and os.name == "nt":
+        import winreg
+
+        try:
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, "Environment") as key:
+                host = winreg.QueryValueEx(key, "STUDIO_MUTANTS_REMOTE")[0]
+        except OSError:
+            host = None
+    return host or None
+
+
+def main(argv: list[str]) -> int:
+    host = remote_host()
+    if argv[1] == "--collect":
+        if host is None:
+            print("STUDIO_MUTANTS_REMOTE is not set")
+            return 1
+        return collect(host)
+    crate = argv[1]
+    if host is None:
+        print("STUDIO_MUTANTS_REMOTE is not set: running every mutant on this machine", flush=True)
+        code = subprocess.run(
+            ["cargo", "mutants", "-p", crate, "--jobs", "2"], cwd=ROOT
+        ).returncode
+        update_cost_cache()
+        return code
+
+    return split(["-p", crate], host)
 
 
 if __name__ == "__main__":

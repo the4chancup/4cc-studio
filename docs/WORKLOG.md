@@ -1225,3 +1225,6 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   codec's read on every carried value, PES 15-21. It found `.4ccs` records ordered by save
   record, not roster; `read_squad` now maps by the target's record order. VPS mutation runs
   allowed again (maintainer). Next: the rest of 2.21.
+- **2026-09-30** - `just mutants-diff` splits with the VPS when its estimated local time is at
+  least 4 minutes, estimated from each crate's measured seconds per mutant
+  (`target/mutants-cost.json`); the 2.20k diff's slower half took 502 s against 717 s local-only.
