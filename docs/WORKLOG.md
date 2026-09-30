@@ -10,7 +10,7 @@ is in `AGENTS.md` ("Working documents").
 ## Current status
 
 **Phase:** 3 (Team compiler skeleton). Phases 1 and 2 done (Phase 2 closed 2026-09-30).
-**In progress:** nothing. Next: 3.5, the `aesthetics_export` shapes. 2.5b (GPU BC7) is step 16.x (decision entries 2026-09-21 and 2026-09-28). Release
+**In progress:** nothing. Next: 3.6 slice (a), `aesthetics_export` listing/conventions/parse. 2.5b (GPU BC7) is step 16.x (decision entries 2026-09-21 and 2026-09-28). Release
 target (2026-09-28): 0.1.0 after Phase 8; phase order 1–6, 8, 0.1.0, 7, 9–16
 (`core/development_plan.md` "Releases").
 **Blocked on:** nothing yet. **Hard gate at the end of Phase 3:** step 4.0 (the maintainer's
@@ -154,12 +154,11 @@ Itemized 2026-09-30 at Phase 2's close. Order: the tracer first (one real export
   version; the parity test compares FTEX headers too (a kit written as sRGB now fails it, checked);
   `FtexInfo` keeps its raw type; the player ID's type goes to 3.5. Decision entry. `mutants-diff`:
   19, 17 caught, 1 unviable, 1 missed (the tracer's layout-marker guard, one of 3.3's seven)
-- [ ] 3.5 `aesthetics_export` shapes (lead, before any brief): the plan code blocks the crate's
-  implementation starts from — `CanonicalListing`, `SmallMetadata`, `ValidationContext`,
-  `ValidationIssue` and its scope, `FileDescriptor`/`FileKind`, the descriptor types, the error
-  types — in `object_model.md`, from "Core types" and "Validation semantics"; the player ID
-  (`team * 100 + slot`, past `u16`) gets its type; kits key on `kit_config::KitSlot` (3.4).
-  → verify: every type the crate layout names has a block or a line saying why none is needed
+- [x] 3.5 `aesthetics_export` shapes — done: `object_model.md` "Structure pass types" (listing,
+  metadata, context, errors, draft, raw roster, issues and `ISSUE_CODES`, file kinds, slots with
+  `PlayerSlot::player_id` → `u32`), "Core types" adjusted (infallible `validate`, plain portrait/
+  collar/common collections, parsed kit icon, `FileDescriptor.source`), crate layout updated;
+  `players_txt.rs`/`kit_config_toml.rs` wait for their consumers. Decision entry
 - [ ] 3.6 `libs/aesthetics_export`, two slices, each its own commit and review: (a) `listing`,
   `conventions/`, `parse/`; (b) `validate/` with the sanitized-scope rule and `resolve.rs`.
   `players_txt.rs` and `kit_config_toml.rs` wait for their consumers (Refs arranger, Phase 4 kit
@@ -578,3 +577,5 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   decision entry). Six Phase 2 frictions listed as 3.4. Next: 3.4.
 - **2026-09-30** - 3.4 done: `kit_config::KitSlot`, FTEX headers in the parity comparison, the
   plan's stale `fmdl_id_change` and the CPK tool version settled (decision entry). Next: 3.5.
+- **2026-09-30** - 3.5 done: the `aesthetics_export` structure pass shapes written into
+  `object_model.md` (decision entry). Next: 3.6 slice (a).
