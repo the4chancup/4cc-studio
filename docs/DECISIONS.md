@@ -2411,3 +2411,18 @@ literal is one argument in sh and in PowerShell.
 Plan: `core/architecture.md` (`python_bindings` paragraph), `core/distribution.md` "One
 exception", `core/development_plan.md` "Phase 2" (`python_bindings`, the abi3 tag check);
 `CONTRIBUTING.md` justfile rules.
+
+## 2026-09-30 - pes_savefile - 2.20k: `.4ccs` records map to the target's record order
+Decision: `read_squad` takes the target team and its save's players, and gives `.4ccs` record
+*k* to the roster slot of the *k*-th rostered player in the target's player-record order
+(shirt number *i* still to slot *i*). A file with more records than the target has rostered
+players is the new `LegacyError::MoreRecordsThanRoster`.
+Why: the plan said the records are in roster order; 4ccEditor's `export_squad` writes them
+in the order of its player array, which is the save's record order, and `import_squad` reads
+them back the same way. The two orders differ on 22 of the 27 distinct PES 16 saves on the
+machine and on 438 of 508 teams of two PES 18 saves, and there record *k* to slot *k* puts
+every stat and appearance on the wrong player. The record has no id, so the target is the
+only thing that can place it. The file is not made source-relative instead because the
+source save is not available when a cup member's `.4ccs` is imported.
+Plan: `pes_savefile/operations.md` (the `legacy.rs` block and "`.4ccs` squad files"),
+`pes_savefile/verification.md` ("Cross-implementation parity", "Interchange formats").

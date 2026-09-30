@@ -36,9 +36,12 @@ Part of the [Savefile plan](README.md). Section headings are unchanged from the 
   a second patch covering a subset of teams changes only those teams' players and only the fields
   it carries; a patch with a different `pes_version` or an older `allocation_scheme_version` is
   refused without touching the save.
-- **Cross-implementation parity**: field values must match 4ccEditor's display
-  for the same save; aesthetics fingerprints must match `compare-saves-*.py`
-  output; transplant output must byte-match `transplant-aesthetics-*.py`.
+- **Cross-implementation parity**: field values must match 4ccEditor's for the same save. The
+  evidence is 4ccEditor's own `.4ccs` export of one team per version, taken by the maintainer
+  from the save each payload fixture holds (`tests/fixtures/pesNN_parity.4ccs`): read against
+  that team, every player equals the codec's read of it, `ingame_face` and the face-type keys
+  excepted (the record does not carry them). Aesthetics fingerprints must match
+  `compare-saves-*.py` output; transplant output must byte-match `transplant-aesthetics-*.py`.
 - **Cross-version conversion**: compare against the converters' verified behavior on real team
   data, excluding their documented stale PES20/21 offsets. Assert corrected name and appearance
   fields independently against the target schema; reproducing the known converter corruption is
@@ -49,7 +52,8 @@ Part of the [Savefile plan](README.md). Section headings are unchanged from the 
   fields it carries (a one-key file leaves everything else byte-identical after `write_player`);
   `.4ccs` decodes the real PES 19 fixture file's 23 players, every mapped field, against the
   ctypes offsets held as literals in the golden test (the fields PES 19's schema lacks are a
-  literal list and must be absent); the `.4cct` fixture's tactics equal the schema codec's for
+  literal list and must be absent); a `.4ccs` read against a team whose roster order differs from
+  its record order puts each record on its own player's slot; the `.4cct` fixture's tactics equal the schema codec's for
   the same team; Texport `from_bytes` → `to_bytes` is byte-identical on the real 17, 18, 19 and
   21 fixtures and the whole tactics and every player record equal what the schema codec reads at
   the golden's literal offsets; `apply` refuses, before any write, a value wider than the target
