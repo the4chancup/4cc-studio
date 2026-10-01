@@ -165,6 +165,69 @@ pub(crate) fn player_folder(draft: &FolderDraft, roster_file: bool) -> PlayerFol
     }
 }
 
+/// The `Kits/` folder, sanitized: one `KitFolder` per surviving kit, plus
+/// `all/`'s surviving textures as found.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct KitsFolder {
+    /// One per kit folder; `all/` is not a kit.
+    pub kits: BTreeMap<kit_config::KitSlot, KitFolder>,
+    /// `all/` textures as found (each also appears, as `Shared`, in every kit
+    /// lacking that stem).
+    pub shared: Vec<FileDescriptor>,
+}
+
+/// One kit folder's sanitized contents: the slot's own look plus what it
+/// inherits from `all/`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct KitFolder {
+    /// `p1` or `p1 - Lakers`.
+    pub folder_name: String,
+    /// The free part after ` - `; GUI/editor display only.
+    pub label: Option<String>,
+    /// `config.toml` (absent → generated at compile time).
+    pub config: Option<FileDescriptor>,
+    /// `colors.txt` (grammar: Phase 4).
+    pub colors: Option<FileDescriptor>,
+    /// `icon.txt`'s number, 0–23; `None` when absent or `kit_icon_invalid`
+    /// (the default 3 applies).
+    pub icon: Option<u8>,
+    /// `fox` / `pre-fox` marker file; `None` = drawn for the target engine.
+    pub layout: Option<KitLayout>,
+    /// The *effective* set: own files, plus `all/` files for stems the kit
+    /// lacks.
+    pub textures: Vec<KitTexture>,
+}
+
+/// Which engine's kit UV layout `kit` and its mask/srm are drawn for.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum KitLayout {
+    /// `pre-fox`.
+    PreFox,
+    /// `fox`.
+    Fox,
+}
+
+/// One texture in a kit's effective set.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct KitTexture {
+    /// `kit`, `kit_back`, … (lowercased).
+    pub stem: String,
+    /// The texture's descriptor.
+    pub file: FileDescriptor,
+    /// `Own` | `Shared` — provenance for the editor and
+    /// `kit_textures_inherited`.
+    pub source: KitTextureSource,
+}
+
+/// Where a `KitTexture` comes from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum KitTextureSource {
+    /// The kit folder itself.
+    Own,
+    /// Inherited from `all/` (the stem was missing).
+    Shared,
+}
+
 /// `FolderDraft` → `SharedModelFolder`, unchecked this slice.
 pub(crate) fn shared_model_folder(draft: &FolderDraft) -> SharedModelFolder {
     SharedModelFolder {
@@ -233,8 +296,34 @@ pub(crate) fn position(path: &ScopePath, folder: &ScopePath) -> Position {
     }
 }
 
+/// One `texture_stem_conflict` per folded stem two or more files share:
+/// `Folder`-scoped `DropFolder`, context `("stem", fold key)` and `("files",
+/// display names joined by `","`).
+pub(crate) fn stem_conflicts(
+    context: &ValidationContext,
+    scope: IssueScope,
+    stems: impl Iterator<Item = (String, String)>,
+    issues: &mut Vec<ValidationIssue>,
+) {
+    let mut groups: BTreeMap<String, Vec<String>> = BTreeMap::new();
+    for (key, display) in stems {
+        groups.entry(key).or_default().push(display);
+    }
+    for (stem, files) in groups {
+        if files.len() > 1 {
+            issues.push(issue_in(
+                context,
+                "texture_stem_conflict",
+                scope.clone(),
+                vec![("stem", stem), ("files", files.join(","))],
+                Disposition::DropFolder,
+            ));
+        }
+    }
+}
+
 /// `path` below `folder` as a relative path string (`extra/x.dds`).
-fn relative(path: &ScopePath, folder: &ScopePath) -> String {
+pub(crate) fn relative(path: &ScopePath, folder: &ScopePath) -> String {
     path.segments()
         .skip(folder.segments().count())
         .collect::<Vec<_>>()
@@ -275,7 +364,7 @@ fn reserved_allowed(kind: FileKind) -> bool {
 }
 
 /// A stem's tail: the name before its last `.` (`hair.dds` → `hair`).
-fn stem(name: &str) -> &str {
+pub(crate) fn stem(name: &str) -> &str {
     name.rsplit_once('.').map(|(stem, _)| stem).unwrap_or(name)
 }
 
@@ -430,30 +519,27 @@ pub(crate) fn check_player(
     }
 
     // 7. Texture stems collide across the whole namespace (direct + reserved).
-    let mut stems: BTreeMap<String, Vec<String>> = BTreeMap::new();
-    for file in &folder.files {
-        let linked = matches!(
-            position(&file.path, &folder.path),
-            Position::Direct | Position::Reserved(_)
-        );
-        if file.kind == FileKind::Texture && linked {
-            stems
-                .entry(fold(stem(file.path.name())))
-                .or_default()
-                .push(relative(&file.path, &folder.path));
-        }
-    }
-    for (stem, files) in stems {
-        if files.len() > 1 {
-            issues.push(issue_in(
-                context,
-                "texture_stem_conflict",
-                scope.clone(),
-                vec![("stem", stem), ("files", files.join(","))],
-                Disposition::DropFolder,
-            ));
-        }
-    }
+    stem_conflicts(
+        context,
+        scope.clone(),
+        folder
+            .files
+            .iter()
+            .filter(|file| {
+                file.kind == FileKind::Texture
+                    && matches!(
+                        position(&file.path, &folder.path),
+                        Position::Direct | Position::Reserved(_)
+                    )
+            })
+            .map(|file| {
+                (
+                    fold(stem(file.path.name())),
+                    relative(&file.path, &folder.path),
+                )
+            }),
+        issues,
+    );
 }
 
 /// The draft's shared folders of `kind`.
@@ -503,26 +589,16 @@ pub(crate) fn check_shared(
     }
 
     // Texture stems collide over the direct files.
-    let mut stems: BTreeMap<String, Vec<String>> = BTreeMap::new();
-    for file in &folder.files {
-        if file.kind == FileKind::Texture && directly_in(&file.path, &folder.path) {
-            stems
-                .entry(fold(stem(file.path.name())))
-                .or_default()
-                .push(file.path.name().to_owned());
-        }
-    }
-    for (stem, files) in stems {
-        if files.len() > 1 {
-            issues.push(issue_in(
-                context,
-                "texture_stem_conflict",
-                scope.clone(),
-                vec![("stem", stem), ("files", files.join(","))],
-                Disposition::DropFolder,
-            ));
-        }
-    }
+    stem_conflicts(
+        context,
+        scope.clone(),
+        folder
+            .files
+            .iter()
+            .filter(|file| file.kind == FileKind::Texture && directly_in(&file.path, &folder.path))
+            .map(|file| (fold(stem(file.path.name())), file.path.name().to_owned())),
+        issues,
+    );
 
     // On Fox every boots/gloves model must say so by suffix (`Faces/` takes
     // any name — nothing there can be a face anywhere else).

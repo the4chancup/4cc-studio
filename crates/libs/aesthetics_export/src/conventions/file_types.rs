@@ -190,6 +190,15 @@ impl SharedKind {
     }
 }
 
+/// `name` minus `prefix`, when the head equals it ASCII-case-insensitively.
+pub(crate) fn strip_prefix_ci<'a>(name: &'a str, prefix: &str) -> Option<&'a str> {
+    if name.get(..prefix.len())?.eq_ignore_ascii_case(prefix) {
+        Some(&name[prefix.len()..])
+    } else {
+        None
+    }
+}
+
 /// `name` minus `suffix`, when the tail equals it ASCII-case-insensitively.
 fn strip_suffix_ci<'a>(name: &'a str, suffix: &str) -> Option<&'a str> {
     let cut = name.len().checked_sub(suffix.len())?;

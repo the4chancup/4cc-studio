@@ -174,6 +174,21 @@ pub const ISSUE_CODES: &[&str] = &[
     "ingame_face_explicit_face_model",
     "texture_stem_conflict",
     "fmdl_name_invalid",
+    "kit_folder_invalid",
+    "kit_slot_duplicate",
+    "kit_texture_name_invalid",
+    "kit_layout_conflict",
+    "kit_icon_invalid",
+    "kit_all_file_ignored",
+    "kit_all_unused",
+    "kit_textures_inherited",
+    "portrait_name_invalid",
+    "logo_file_invalid",
+    "logo_role_duplicate",
+    "logo_small_without_main",
+    "root_file_unexpected",
+    "notes_found",
+    "notes_encoding_invalid",
 ];
 
 #[cfg(test)]

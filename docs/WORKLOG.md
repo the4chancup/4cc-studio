@@ -12,7 +12,7 @@ is in `AGENTS.md` ("Working documents").
 **Phase:** 3 (Team compiler skeleton). Phases 1 and 2 done (Phase 2 closed 2026-09-30).
 **In progress:** 3.6: slice (a) landed as a1 (crate, `listing.rs`, `conventions/file_types.rs`
 `classify`, `validate/issues.rs` types, `slots.rs`) and a2 (`parse/`: canonicalization, root
-normalization, draft, identity, roster; 4 scenarios cited); slice (b) runs as b1-b3: b1 landed (`validate` report, roster rules, player/shared folders built, export findings, `resolve.rs`, OS-artifact skip) and b2 (player/shared/Common checks, links, cascade, pass-through; 25 scenarios proven); next b3 (`.tmp/brief_3_6_b3.md`), then the reviewer on all of (b) (`.tmp/review_brief_3_6.md`). 2.5b (GPU BC7) is step 16.x (decision entries 2026-09-21 and 2026-09-28). Release
+normalization, draft, identity, roster; 4 scenarios cited); slice (b) runs as b1-b3: b1 landed (`validate` report, roster rules, player/shared folders built, export findings, `resolve.rs`, OS-artifact skip) and b2 (player/shared/Common checks, links, cascade, pass-through; 25 scenarios proven) and b3 (kits, portraits, logo, root files; 36 proven); next the reviewer on all of (b) (`.tmp/review_brief_3_6.md`). 2.5b (GPU BC7) is step 16.x (decision entries 2026-09-21 and 2026-09-28). Release
 target (2026-09-28): 0.1.0 after Phase 8; phase order 1–6, 8, 0.1.0, 7, 9–16
 (`core/development_plan.md` "Releases").
 **Blocked on:** nothing yet. **Hard gate at the end of Phase 3:** step 4.0 (the maintainer's
@@ -596,3 +596,9 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   Fox `fmdl_name_invalid`, the cascade and pass-through. Review rework: one link resolver, shared
   helpers for drops/strictness/mapped slots. `mutants-diff 0d7d489` (b1+b2): 221, 18 missed, all
   given tests; rerun 198 caught, 23 unviable, 0 missed. Next: b3.
+- **2026-10-01** - 3.6 slice b3 landed: kit grammar, duplicates, `all/` inheritance, kit
+  allowlist/names/markers/icon, portraits, logo grammar and roles, root allowlist and notes
+  (`kit_config` dependency). Review rework: one stem-conflict helper (b2's two copies included),
+  shared icon/marker/name checks, an invalid kit head gets no other finding (decision entry).
+  `mutants-diff 54e44f0`: 114, 15 missed (14 given tests, 1 equivalent removed by restructuring);
+  rerun 111, 97 caught, 14 unviable, 0 missed. Next: the reviewer on all of (b).

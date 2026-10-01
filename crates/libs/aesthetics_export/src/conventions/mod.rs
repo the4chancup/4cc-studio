@@ -5,7 +5,7 @@ mod file_types;
 mod player_folder;
 
 pub use file_types::{FileKind, Marker, MetadataFile, ModelFormat, SharedKind, classify};
-pub(crate) use file_types::{common_link_name, is_logo_texture, shared_link_name};
+pub(crate) use file_types::{common_link_name, is_logo_texture, shared_link_name, strip_prefix_ci};
 pub(crate) use player_folder::{is_boots, is_explicit_face, is_gloves, model_suffix};
 
 /// One of the eight content folders at the export root; the draft groups each

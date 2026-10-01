@@ -5,7 +5,9 @@
 
 mod folders;
 mod issues;
+mod kits;
 mod links;
+mod root;
 mod roster;
 
 use std::collections::BTreeMap;
@@ -13,9 +15,13 @@ use std::collections::BTreeMap;
 use crate::FileKind;
 use crate::conventions::{SharedKind, is_logo_texture};
 use crate::listing::ValidationContext;
-use crate::parse::{FileDescriptor, ParsedAestheticsExport};
+use crate::parse::{ExportKind, FileDescriptor, ParsedAestheticsExport};
+use crate::slots::PlayerSlot;
 
-pub use folders::{FpcDirective, PlayerFolder, SharedLink, SharedModelFolder};
+pub use folders::{
+    FpcDirective, KitFolder, KitLayout, KitTexture, KitTextureSource, KitsFolder, PlayerFolder,
+    SharedLink, SharedModelFolder,
+};
 pub use issues::{Disposition, ISSUE_CODES, IssueScope, ValidationIssue};
 pub(crate) use issues::{dropped_scopes, issue, issue_in, strict_disposition};
 pub use roster::{PlayerIndex, ValidatedRoster};
@@ -34,8 +40,48 @@ pub struct ValidationReport {
     pub issues: Vec<ValidationIssue>,
 }
 
-/// The sanitized export: exactly the content no issue dropped. `kits`,
-/// `portraits`, `logo` and `root` join when their checks land.
+/// The root `logo*` pair, each with its fit mode ("Root files").
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LogoFiles {
+    /// The main logo.
+    pub main: LogoFile,
+    /// The small logo, when present.
+    pub small: Option<LogoFile>,
+}
+
+/// One logo file with its fit tag.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LogoFile {
+    /// The image's descriptor.
+    pub file: FileDescriptor,
+    /// The stem's tag; `None`: untagged (`fit` if not square).
+    pub fit: Option<LogoFit>,
+}
+
+/// How a non-square logo becomes square.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum LogoFit {
+    /// `_crop`.
+    Crop,
+    /// `_stretch`.
+    Stretch,
+    /// `_fit`.
+    Fit,
+}
+
+/// Sanitized root colors/notes/referee marker. Invalid optional root
+/// artifacts are absent here but remain in `ValidationReport`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RootArtifacts {
+    /// The team's `colors.txt`.
+    pub team_colors: Option<FileDescriptor>,
+    /// The read `notes.txt`.
+    pub notes: Option<FileDescriptor>,
+    /// A referee export's `ref_marker.dds`.
+    pub referee_marker: Option<FileDescriptor>,
+}
+
+/// The sanitized export: exactly the content no issue dropped.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ValidatedAestheticsExport {
     /// Complete archive/folder stem; presentation/source identity.
@@ -53,10 +99,18 @@ pub struct ValidatedAestheticsExport {
     pub boots: Vec<SharedModelFolder>,
     /// Shared gloves folders.
     pub gloves: Vec<SharedModelFolder>,
+    /// Per-kit subfolders (config.toml + colors.txt + textures).
+    pub kits: KitsFolder,
+    /// `Portraits/player_NN.*`.
+    pub portraits: BTreeMap<PlayerSlot, FileDescriptor>,
+    /// Root `logo*` (+ optional `logo_small*`), each with its fit mode.
+    pub logo: Option<LogoFiles>,
     /// `Collars/`, passed through.
     pub collars: Vec<FileDescriptor>,
     /// `Common/`, the targets of `.common` links.
     pub common: Vec<FileDescriptor>,
+    /// Sanitized root colors/notes/referee marker.
+    pub root: RootArtifacts,
 }
 
 impl ParsedAestheticsExport {
@@ -119,6 +173,19 @@ impl ParsedAestheticsExport {
         }
         folders::check_common(draft, context, &mut issues);
         links::cascade(draft, &slot_map, context, &mut issues);
+
+        // Kits, portraits, logo and the root files: same order as the draft's
+        // content folders end (`Kits/`, then the loose root groups).
+        let kits = kits::check(draft, context, &self.metadata, &mut issues);
+        let portraits = root::check_portraits(draft, context, &mut issues);
+        let logo = root::check_logo(draft, context, &mut issues);
+        let root = root::check_root(
+            draft,
+            &self.metadata,
+            draft.kind() == ExportKind::Referees,
+            context,
+            &mut issues,
+        );
 
         // Sanitized `players`: the draft folders a surviving assignment maps
         // and no `DropFolder` issue drops, in draft order.
@@ -191,6 +258,9 @@ impl ParsedAestheticsExport {
                 faces: kept_folders(&draft.faces),
                 boots: kept_folders(&draft.boots),
                 gloves: kept_folders(&draft.gloves),
+                kits,
+                portraits,
+                logo,
                 collars: draft.collars.clone(),
                 common: draft
                     .common
@@ -198,6 +268,7 @@ impl ParsedAestheticsExport {
                     .filter(|file| !dropped_files.contains(&file.path.fold_key()))
                     .cloned()
                     .collect(),
+                root,
             })
         };
 
@@ -1212,6 +1283,633 @@ mod tests {
                 ("fpc_conflict", Disposition::DropFolder),
                 ("file_type_disallowed", Disposition::DropFolder),
             ]
+        );
+    }
+
+    fn file_scope(path: &str) -> IssueScope {
+        IssueScope::File(ScopePath::new(path).unwrap())
+    }
+
+    #[test]
+    fn kit_slots_and_labels_parse() {
+        let report = report(
+            "egg",
+            &[("Kits/p1 - Lakers/kit.dds", 9), ("Kits/g1/kit.dds", 9)],
+            &[],
+            &[],
+        );
+        assert_eq!(issue_codes(&report), vec![]);
+        let kits = &report.validated.unwrap().kits;
+        let lakers = &kits.kits[&kit_config::KitSlot::P1];
+        assert_eq!(lakers.folder_name, "p1 - Lakers");
+        assert_eq!(lakers.label.as_deref(), Some("Lakers"));
+        let goalie = &kits.kits[&kit_config::KitSlot::G1];
+        assert_eq!(goalie.folder_name, "g1");
+        assert_eq!(goalie.label, None);
+    }
+
+    // TC-KIT-02
+    #[test]
+    fn two_folders_of_one_slot_are_both_dropped() {
+        let report = report(
+            "egg",
+            &[("Kits/p1/kit.dds", 9), ("Kits/p1 - Lakers/kit.dds", 9)],
+            &[],
+            &[],
+        );
+        assert_eq!(
+            issue_codes(&report),
+            vec![
+                ("kit_slot_duplicate", Disposition::DropFolder),
+                ("kit_slot_duplicate", Disposition::DropFolder),
+            ]
+        );
+        assert_eq!(report.issues[0].scope, folder("Kits/p1"));
+        assert_eq!(report.issues[1].scope, folder("Kits/p1 - Lakers"));
+        assert!(report.validated.unwrap().kits.kits.is_empty());
+    }
+
+    // TC-KIT-03
+    #[test]
+    fn a_folder_name_with_no_kit_slot_is_invalid() {
+        let report = report("egg", &[], &["Kits/p10", "Kits/x1", "Kits/home"], &[]);
+        assert_eq!(
+            issue_codes(&report),
+            vec![
+                ("kit_folder_invalid", Disposition::DropFolder),
+                ("kit_folder_invalid", Disposition::DropFolder),
+                ("kit_folder_invalid", Disposition::DropFolder),
+            ]
+        );
+        assert_eq!(report.issues[0].scope, folder("Kits/home"));
+        assert_eq!(report.issues[1].scope, folder("Kits/p10"));
+        assert_eq!(report.issues[2].scope, folder("Kits/x1"));
+        assert!(report.validated.unwrap().kits.kits.is_empty());
+    }
+
+    #[test]
+    fn an_invalid_kit_head_gets_no_own_findings() {
+        let report = report("egg", &[("Kits/x1/back.dds", 9)], &[], &[]);
+        assert_eq!(
+            issue_codes(&report),
+            vec![("kit_folder_invalid", Disposition::DropFolder)]
+        );
+    }
+
+    // TC-KIT-04
+    #[test]
+    fn a_kit_inherits_only_the_stems_it_lacks() {
+        let report = report(
+            "egg",
+            &[
+                ("Kits/all/kit_back.dds", 9),
+                ("Kits/all/kit_name.dds", 9),
+                ("Kits/p2/kit_name.dds", 9),
+            ],
+            &[],
+            &[],
+        );
+        assert_eq!(
+            issue_codes(&report),
+            vec![("kit_textures_inherited", Disposition::Keep)]
+        );
+        assert_eq!(report.issues[0].scope, folder("Kits/p2"));
+        assert_eq!(report.issues[0].context, vec![("stems", "back".to_owned())]);
+        let kit = &report.validated.unwrap().kits.kits[&kit_config::KitSlot::P2];
+        assert_eq!(
+            kit.textures
+                .iter()
+                .map(|texture| (texture.stem.as_str(), texture.source))
+                .collect::<Vec<_>>(),
+            vec![
+                ("kit_back", KitTextureSource::Shared),
+                ("kit_name", KitTextureSource::Own),
+            ]
+        );
+    }
+
+    // TC-KIT-05
+    #[test]
+    fn all_files_and_an_unused_all_folder() {
+        let ignored = report("egg", &[("Kits/all/config.toml", 10)], &[], &[]);
+        assert_eq!(
+            issue_codes(&ignored),
+            vec![
+                ("kit_all_file_ignored", Disposition::DropFile),
+                ("kit_all_unused", Disposition::Keep),
+            ]
+        );
+        assert_eq!(ignored.issues[0].scope, file_scope("Kits/all/config.toml"));
+
+        let unused = report("egg", &[("Kits/all/kit_back.dds", 9)], &[], &[]);
+        assert_eq!(
+            issue_codes(&unused),
+            vec![("kit_all_unused", Disposition::Keep)]
+        );
+        assert_eq!(unused.issues[0].scope, folder("Kits/all"));
+        assert_eq!(unused.validated.unwrap().kits.shared.len(), 1);
+    }
+
+    // TC-KIT-06
+    #[test]
+    fn both_layout_markers_drop_the_kit() {
+        let report = report(
+            "egg",
+            &[
+                ("Kits/p1/kit.dds", 9),
+                ("Kits/p1/pre-fox", 0),
+                ("Kits/p1/fox", 0),
+            ],
+            &[],
+            &[],
+        );
+        assert_eq!(
+            issue_codes(&report),
+            vec![("kit_layout_conflict", Disposition::DropFolder)]
+        );
+        assert!(report.validated.unwrap().kits.kits.is_empty());
+    }
+
+    // TC-KIT-07
+    #[test]
+    fn a_texture_without_the_kit_prefix_drops_only_itself() {
+        let report = report(
+            "egg",
+            &[("Kits/p1/back.dds", 9), ("Kits/p1/kit.dds", 9)],
+            &[],
+            &[],
+        );
+        assert_eq!(
+            issue_codes(&report),
+            vec![("kit_texture_name_invalid", Disposition::DropFile)]
+        );
+        assert_eq!(report.issues[0].scope, file_scope("Kits/p1/back.dds"));
+        let kit = &report.validated.unwrap().kits.kits[&kit_config::KitSlot::P1];
+        assert_eq!(kit.textures.len(), 1);
+        assert_eq!(kit.textures[0].stem, "kit");
+    }
+
+    // TC-KIT-08
+    #[test]
+    fn an_out_of_range_icon_is_invalid_and_the_kit_kept() {
+        let report = report(
+            "egg",
+            &[("Kits/p1/icon.txt", 3), ("Kits/p1/kit.dds", 9)],
+            &[],
+            &[("Kits/p1/icon.txt", Ok(b"25"))],
+        );
+        assert_eq!(
+            issue_codes(&report),
+            vec![("kit_icon_invalid", Disposition::DropFile)]
+        );
+        assert_eq!(report.issues[0].scope, file_scope("Kits/p1/icon.txt"));
+        let kit = &report.validated.unwrap().kits.kits[&kit_config::KitSlot::P1];
+        assert_eq!(kit.icon, None);
+    }
+
+    // TC-KIT-09
+    #[test]
+    fn stem_conflicts_drop_the_folder_they_are_in() {
+        let own = report(
+            "egg",
+            &[("Kits/p1/kit.png", 9), ("Kits/p1/kit.dds", 9)],
+            &[],
+            &[],
+        );
+        assert_eq!(
+            issue_codes(&own),
+            vec![("texture_stem_conflict", Disposition::DropFolder)]
+        );
+        assert!(own.validated.unwrap().kits.kits.is_empty());
+
+        let shared = report(
+            "egg",
+            &[
+                ("Kits/all/kit_back.png", 9),
+                ("Kits/all/kit_back.dds", 9),
+                ("Kits/p2/kit.dds", 9),
+            ],
+            &[],
+            &[],
+        );
+        assert_eq!(
+            issue_codes(&shared),
+            vec![("texture_stem_conflict", Disposition::DropFolder)]
+        );
+        assert_eq!(shared.issues[0].scope, folder("Kits/all"));
+        let kits = &shared.validated.unwrap().kits;
+        assert!(kits.shared.is_empty());
+        assert_eq!(kits.kits[&kit_config::KitSlot::P2].textures.len(), 1);
+
+        let overridden = report(
+            "egg",
+            &[("Kits/all/kit_name.dds", 9), ("Kits/p3/kit_name.png", 9)],
+            &[],
+            &[],
+        );
+        assert_eq!(issue_codes(&overridden), vec![]);
+    }
+
+    // TC-ROOT-01
+    #[test]
+    fn unexpected_root_files_and_folders_are_dropped() {
+        let base = report(
+            "egg",
+            &[
+                ("extra.bin", 4),
+                ("readme.TXT", 20),
+                ("Players/players.txt", 10),
+                ("Players/03 - A/hair.dds", 9),
+            ],
+            &["wrapper"],
+            &[],
+        );
+        assert_eq!(
+            issue_codes(&base),
+            vec![
+                ("root_file_unexpected", Disposition::DropFile),
+                ("root_file_unexpected", Disposition::DropFolder),
+                ("root_file_unexpected", Disposition::DropFile),
+            ]
+        );
+        assert_eq!(base.issues[0].scope, file_scope("extra.bin"));
+        assert_eq!(base.issues[1].scope, folder("wrapper"));
+        assert_eq!(base.issues[2].scope, file_scope("Players/players.txt"));
+
+        // A referee export's ref_lists.txt is admitted.
+        let refs = report(
+            "refs Cup",
+            &[("players.txt", 10), ("ref_lists.txt", 10)],
+            &["Players/Keeper"],
+            &[
+                ("players.txt", Ok(b"01 Keeper")),
+                ("ref_lists.txt", Ok(&b"R1"[..])),
+            ],
+        );
+        assert!(
+            refs.issues
+                .iter()
+                .all(|issue| issue.code != "root_file_unexpected")
+        );
+    }
+
+    // TC-ROOT-03
+    #[test]
+    fn logo_files_get_one_of_each_role() {
+        let invalid = report("egg", &[("logo_zoom.png", 9)], &[], &[]);
+        assert_eq!(
+            issue_codes(&invalid),
+            vec![("logo_file_invalid", Disposition::DropFile)]
+        );
+        assert_eq!(invalid.validated.unwrap().logo, None);
+
+        let duplicate = report("egg", &[("logo.png", 9), ("logo.dds", 9)], &[], &[]);
+        assert_eq!(
+            issue_codes(&duplicate),
+            vec![("logo_role_duplicate", Disposition::DropFile)]
+        );
+        assert_eq!(duplicate.issues[0].scope, file_scope("logo.png"));
+        assert_eq!(
+            duplicate.issues[0].context,
+            vec![("other", "logo.dds".to_owned())]
+        );
+        assert_eq!(duplicate.validated.unwrap().logo, None);
+
+        let small_only = report("egg", &[("logo_small.png", 9)], &[], &[]);
+        assert_eq!(
+            issue_codes(&small_only),
+            vec![("logo_small_without_main", Disposition::DropFile)]
+        );
+        assert_eq!(small_only.validated.unwrap().logo, None);
+
+        let pair = report("egg", &[("logo.png", 9), ("logo_small.png", 9)], &[], &[]);
+        assert_eq!(issue_codes(&pair), vec![]);
+        let logo = pair.validated.unwrap().logo.unwrap();
+        assert_eq!(logo.main.file.path.as_str(), "logo.png");
+        assert_eq!(logo.small.unwrap().file.path.as_str(), "logo_small.png");
+    }
+
+    // TC-ROOT-04
+    #[test]
+    fn a_bad_portrait_name_drops_only_that_file() {
+        let report = report(
+            "egg",
+            &[
+                ("Portraits/player_24.dds", 9),
+                ("Portraits/player_03.dds", 9),
+            ],
+            &[],
+            &[],
+        );
+        assert_eq!(
+            issue_codes(&report),
+            vec![("portrait_name_invalid", Disposition::DropFile)]
+        );
+        assert_eq!(
+            report.issues[0].scope,
+            file_scope("Portraits/player_24.dds")
+        );
+        assert_eq!(
+            report
+                .validated
+                .unwrap()
+                .portraits
+                .keys()
+                .map(|slot| slot.get())
+                .collect::<Vec<_>>(),
+            vec![3]
+        );
+    }
+
+    #[test]
+    fn notes_are_read_or_dropped() {
+        // A non-empty note is kept and reported.
+        let note = report(
+            "egg",
+            &[("notes.txt", 12), ("Players/03 - A/hair.dds", 9)],
+            &[],
+            &[("notes.txt", Ok(b"good cup"))],
+        );
+        assert_eq!(issue_codes(&note), vec![("notes_found", Disposition::Keep)]);
+        assert_eq!(
+            note.validated.unwrap().root.notes.unwrap().path.as_str(),
+            "notes.txt"
+        );
+
+        // Not UTF-8: the note is dropped, the export still valid.
+        let bad = report(
+            "egg",
+            &[("notes.txt", 4), ("Players/03 - A/hair.dds", 9)],
+            &[],
+            &[("notes.txt", Ok(&b"\xff\xfe"[..]))],
+        );
+        assert_eq!(
+            issue_codes(&bad),
+            vec![("notes_encoding_invalid", Disposition::DropFile)]
+        );
+        let validated = bad.validated.unwrap();
+        assert_eq!(validated.root.notes, None);
+        assert_eq!(validated.players.len(), 1);
+
+        // Unreadable: source_read_failed, still validated.
+        let denied = report(
+            "egg",
+            &[("notes.txt", 5), ("Players/03 - A/hair.dds", 9)],
+            &[],
+            &[("notes.txt", Err("denied"))],
+        );
+        assert_eq!(
+            issue_codes(&denied),
+            vec![("source_read_failed", Disposition::DropFile)]
+        );
+        assert_eq!(
+            denied.issues[0].context,
+            vec![("reason", "denied".to_owned())]
+        );
+        assert!(denied.validated.is_some());
+
+        // Whitespace only: nothing.
+        let empty = report(
+            "egg",
+            &[("notes.txt", 3), ("Players/03 - A/hair.dds", 9)],
+            &[],
+            &[("notes.txt", Ok(b"  \n"))],
+        );
+        assert_eq!(issue_codes(&empty), vec![]);
+        assert_eq!(empty.validated.unwrap().root.notes, None);
+    }
+
+    #[test]
+    fn an_all_folder_beside_only_invalid_kits_is_unused() {
+        let report = report("egg", &[("Kits/all/kit.dds", 9)], &["Kits/x1"], &[]);
+        assert_eq!(
+            issue_codes(&report),
+            vec![
+                ("kit_folder_invalid", Disposition::DropFolder),
+                ("kit_all_unused", Disposition::Keep),
+            ]
+        );
+        assert_eq!(report.issues[1].scope, folder("Kits/all"));
+        assert_eq!(report.validated.unwrap().kits.shared.len(), 1);
+    }
+
+    #[test]
+    fn two_portraits_of_one_slot_conflict_each() {
+        let report = report(
+            "egg",
+            &[
+                ("Portraits/player_03.dds", 9),
+                ("Portraits/player_03.png", 9),
+            ],
+            &[],
+            &[],
+        );
+        assert_eq!(
+            issue_codes(&report),
+            vec![
+                ("texture_stem_conflict", Disposition::DropFile),
+                ("texture_stem_conflict", Disposition::DropFile),
+            ]
+        );
+        assert_eq!(
+            report.issues[0].scope,
+            file_scope("Portraits/player_03.dds")
+        );
+        assert_eq!(
+            report.issues[1].scope,
+            file_scope("Portraits/player_03.png")
+        );
+        assert!(report.validated.unwrap().portraits.is_empty());
+    }
+
+    #[test]
+    fn a_logo_pair_reads_its_fit_tags() {
+        let report = report(
+            "egg",
+            &[("logo_crop.png", 9), ("logo_small_fit.dds", 9)],
+            &[],
+            &[],
+        );
+        assert_eq!(issue_codes(&report), vec![]);
+        let logo = report.validated.unwrap().logo.unwrap();
+        assert_eq!(logo.main.fit, Some(LogoFit::Crop));
+        assert_eq!(logo.small.unwrap().fit, Some(LogoFit::Fit));
+    }
+
+    #[test]
+    fn a_non_texture_in_a_kit_drops_the_kit_strict() {
+        let report = report(
+            "egg",
+            &[("Kits/p1/kit.dds", 9), ("Kits/p1/hair.fmdl", 10)],
+            &[],
+            &[],
+        );
+        assert_eq!(
+            issue_codes(&report),
+            vec![("file_type_disallowed", Disposition::DropFolder)]
+        );
+        assert_eq!(report.issues[0].scope, folder("Kits/p1"));
+        assert!(report.validated.unwrap().kits.kits.is_empty());
+    }
+
+    #[test]
+    fn a_kit_file_below_a_subfolder_offends() {
+        let report = report(
+            "egg",
+            &[("Kits/p1/kit.dds", 9), ("Kits/p1/extra/kit_back.dds", 9)],
+            &[],
+            &[],
+        );
+        assert_eq!(
+            issue_codes(&report),
+            vec![("file_type_disallowed", Disposition::DropFolder)]
+        );
+        assert_eq!(
+            report.issues[0].context,
+            vec![("file", "extra/kit_back.dds".to_owned())]
+        );
+    }
+
+    #[test]
+    fn layout_markers_pick_the_kit_layout() {
+        let report = report(
+            "egg",
+            &[
+                ("Kits/p1/kit.dds", 9),
+                ("Kits/p1/fox", 0),
+                ("Kits/p2/kit.dds", 9),
+                ("Kits/p2/pre-fox", 0),
+                ("Kits/p3/kit.dds", 9),
+            ],
+            &[],
+            &[],
+        );
+        assert_eq!(issue_codes(&report), vec![]);
+        let kits = &report.validated.unwrap().kits;
+        assert_eq!(
+            kits.kits[&kit_config::KitSlot::P1].layout,
+            Some(KitLayout::Fox)
+        );
+        assert_eq!(
+            kits.kits[&kit_config::KitSlot::P2].layout,
+            Some(KitLayout::PreFox)
+        );
+        assert_eq!(kits.kits[&kit_config::KitSlot::P3].layout, None);
+    }
+
+    #[test]
+    fn a_valid_icon_with_bom_and_crlf_reads() {
+        let report = report(
+            "egg",
+            &[("Kits/p1/icon.txt", 5), ("Kits/p1/kit.dds", 9)],
+            &[],
+            &[("Kits/p1/icon.txt", Ok(&b"\xef\xbb\xbf 7\r\n"[..]))],
+        );
+        assert_eq!(issue_codes(&report), vec![]);
+        assert_eq!(
+            report.validated.unwrap().kits.kits[&kit_config::KitSlot::P1].icon,
+            Some(7)
+        );
+    }
+
+    #[test]
+    fn a_portrait_number_must_be_exactly_two_digits() {
+        let report = report("egg", &[("Portraits/player_003.dds", 9)], &[], &[]);
+        assert_eq!(
+            issue_codes(&report),
+            vec![("portrait_name_invalid", Disposition::DropFile)]
+        );
+        assert!(report.validated.unwrap().portraits.is_empty());
+    }
+
+    #[test]
+    fn a_logo_candidate_that_is_no_texture_is_invalid() {
+        let report = report(
+            "egg",
+            &[("logo.txt", 9), ("Players/03 - A/hair.dds", 9)],
+            &[],
+            &[],
+        );
+        assert_eq!(
+            issue_codes(&report),
+            vec![("logo_file_invalid", Disposition::DropFile)]
+        );
+        assert_eq!(report.validated.unwrap().logo, None);
+    }
+
+    #[test]
+    fn a_root_colors_file_is_the_team_colors() {
+        let report = report(
+            "egg",
+            &[("colors.txt", 10), ("Players/03 - A/hair.dds", 9)],
+            &[],
+            &[],
+        );
+        assert_eq!(issue_codes(&report), vec![]);
+        assert_eq!(
+            report
+                .validated
+                .unwrap()
+                .root
+                .team_colors
+                .unwrap()
+                .path
+                .as_str(),
+            "colors.txt"
+        );
+    }
+
+    #[test]
+    fn referee_files_are_unexpected_on_a_team_export() {
+        let report = report(
+            "egg",
+            &[
+                ("refs.txt", 10),
+                ("ref_lists.txt", 10),
+                ("ref_marker.dds", 9),
+                ("Players/03 - A/hair.dds", 9),
+            ],
+            &[],
+            &[],
+        );
+        assert_eq!(
+            issue_codes(&report),
+            vec![
+                ("root_file_unexpected", Disposition::DropFile),
+                ("root_file_unexpected", Disposition::DropFile),
+                ("root_file_unexpected", Disposition::DropFile),
+            ]
+        );
+        assert_eq!(report.issues[0].scope, file_scope("ref_lists.txt"));
+        assert_eq!(report.issues[1].scope, file_scope("ref_marker.dds"));
+        assert_eq!(report.issues[2].scope, file_scope("refs.txt"));
+        assert_eq!(report.validated.unwrap().root.referee_marker, None);
+    }
+
+    #[test]
+    fn a_ref_marker_is_admitted_on_a_refs_export() {
+        let report = report(
+            "refs Cup",
+            &[("players.txt", 10), ("ref_marker.dds", 9)],
+            &["Players/Keeper"],
+            &[("players.txt", Ok(b"01 Keeper"))],
+        );
+        assert!(
+            report
+                .issues
+                .iter()
+                .all(|issue| issue.code != "root_file_unexpected")
+        );
+        assert_eq!(
+            report
+                .validated
+                .unwrap()
+                .root
+                .referee_marker
+                .unwrap()
+                .path
+                .as_str(),
+            "ref_marker.dds"
         );
     }
 
