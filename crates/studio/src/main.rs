@@ -3,10 +3,10 @@
 
 mod console;
 
-use std::path::PathBuf;
 use std::process::ExitCode;
 use std::sync::{Arc, Mutex};
 
+use anyhow::Context;
 use clap::ArgMatches;
 use crossbeam_channel::unbounded;
 use log::LevelFilter;
@@ -17,9 +17,9 @@ use studio_core::{
 
 use crate::console::spawn_printer;
 
-/// The registered tools, in sidebar order. Empty until the first tool crate lands.
+/// The registered tools, in sidebar order.
 fn tools() -> Vec<Box<dyn StudioTool>> {
-    Vec::new()
+    vec![Box::new(team_compiler::Tool)]
 }
 
 /// The CLI diagnostic sink (core plan, "Diagnostic logging"): `-v` sets the level, `RUST_LOG`
@@ -39,22 +39,18 @@ fn install_cli_logger(verbosity: u8) {
 
 /// Resolves the data location (presence-based, never asked and never written from the CLI) and
 /// loads the settings from it, with every tool's defaults merged in memory. With no settings file
-/// yet, the defaults alone and no data directory. The error is the line to print after `error: `.
-fn load_settings(tools: &[Box<dyn StudioTool>]) -> Result<(Settings, AppPaths), String> {
-    let exe_dir = std::env::current_exe()
-        .ok()
-        .and_then(|exe| exe.parent().map(PathBuf::from))
-        .ok_or("cannot locate the executable's folder")?;
+/// yet, the defaults alone and no data directory.
+fn load_settings(tools: &[Box<dyn StudioTool>]) -> anyhow::Result<(Settings, AppPaths)> {
+    let exe = std::env::current_exe().context("cannot locate the executable")?;
+    let exe_dir = exe
+        .parent()
+        .context("the executable's path has no folder")?
+        .to_path_buf();
     let data_dir = resolve_data_dir(&exe_dir, user_config_dir().as_deref());
     let mut settings = match &data_dir {
         Some(dir) => {
             let path = dir.join(SETTINGS_FILE_NAME);
-            Settings::load(&path).map_err(|error| {
-                let cause = std::error::Error::source(&error)
-                    .map(|cause| format!(": {cause}"))
-                    .unwrap_or_default();
-                format!("{}: {error}{cause}", path.display())
-            })?
+            Settings::load(&path).with_context(|| path.display().to_string())?
         }
         None => Settings::default(),
     };
@@ -64,14 +60,15 @@ fn load_settings(tools: &[Box<dyn StudioTool>]) -> Result<(Settings, AppPaths), 
     Ok((settings, AppPaths { exe_dir, data_dir }))
 }
 
-/// Runs one tool subcommand headless and returns the process exit code: the tool's own, or 2 for
-/// a refusal that has none of its own.
+/// Runs one tool subcommand headless and returns the process exit code: the tool's own, 2 when
+/// the settings file cannot be loaded (a configuration error: nothing ran), or 3 when the console
+/// printer failed.
 #[expect(clippy::print_stderr, reason = "CLI result output is the binary's job")]
 fn run_cli_mode(tools: &[Box<dyn StudioTool>], tool: &str, matches: &ArgMatches) -> ExitCode {
     let (settings, paths) = match load_settings(tools) {
         Ok(loaded) => loaded,
-        Err(message) => {
-            eprintln!("error: {message}");
+        Err(error) => {
+            eprintln!("error: {error:#}");
             return ExitCode::from(2);
         }
     };
@@ -88,8 +85,10 @@ fn run_cli_mode(tools: &[Box<dyn StudioTool>], tool: &str, matches: &ArgMatches)
     // The printer ends when every sender is gone, and the context holds them.
     drop(ctx);
     if printer.join().is_err() {
+        // Findings were lost, so the tool's verdict cannot be reported as it stands: 3 is the
+        // code of a run that did not finish as reported.
         eprintln!("error: the console printer stopped unexpectedly");
-        return ExitCode::from(2);
+        return ExitCode::from(3);
     }
     match result {
         Ok(code) => ExitCode::from(code),

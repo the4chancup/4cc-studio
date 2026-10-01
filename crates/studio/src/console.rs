@@ -45,6 +45,7 @@ impl ConsolePrinter {
             None => String::new(),
             Some(export_id) => match self.names.get(&export_id) {
                 Some(name) => format!("{name}: "),
+                // A tool that reports before `ExportStarted` still gets a readable line.
                 None => format!("export {}: ", export_id.0),
             },
         };
