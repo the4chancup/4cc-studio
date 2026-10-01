@@ -5,7 +5,7 @@ compiler, Balls compiler, Stadium compiler) runs on. The reasons behind each pie
 plan's [Parallelism](../core/parallelism.md) section and the Team compiler's
 [pipeline walkthrough](../team_compiler/pipeline.md); this part is the crate's contract.
 
-Phase 3 builds three pieces: the memory budget, the thread count and `CpkStem`. The folder
+Phase 3 builds four pieces: the memory budget and its cap, the thread count and `CpkStem`. The folder
 watcher and the check cache join with live validation (Phase 8); the browser variants
 (`core/gui.md` "Browser deployment: Studio Web") with the web build's pipeline tier.
 
@@ -13,10 +13,11 @@ watcher and the check cache join with live validation (Phase 8); the browser var
 
 ```
 crates/libs/pipeline/
-├── Cargo.toml          # thiserror only
+├── Cargo.toml          # thiserror; windows (cfg(windows), Win32_System_SystemInformation)
 └── src/
     ├── lib.rs          # re-exports
     ├── budget.rs       # MemoryBudget, Permit, Cancelled
+    ├── memory.rs       # memory_cap: the available physical memory, per OS
     ├── threads.rs      # thread_count_detect
     └── cpk_stem.rs     # CpkStem, CpkStemError
 ```
@@ -96,6 +97,31 @@ from the structure pass to its tasks would hold all of them at once while the ru
 which is the residency the budget exists to prevent; the second decompression costs time only
 for 7z exports, and the main workflow uses folders.
 
+## Memory cap
+
+```rust
+/// The budget cap for a run: `percent` of the physical memory available now, or of
+/// `FALLBACK_AVAILABLE` where the OS cannot say. `percent` is validated by the caller's
+/// settings (`0 < percent <= 100`).
+pub fn memory_cap(percent: f64) -> usize;
+
+/// What `memory_cap` assumes is available where the OS cannot say: 4 GiB.
+pub const FALLBACK_AVAILABLE: u64 = 4 << 30;
+```
+
+The base is the memory **available** when the run starts, not the machine's total: the game,
+a browser or Blender may hold much of it, and a cap on the total would push the run into swap.
+It is read once, at run start; the budget does not follow later changes. On Windows it is
+`GlobalMemoryStatusEx`'s `ullAvailPhys` (the `windows` crate, one `unsafe` call), which counts the
+standby cache as available; on Linux the `MemAvailable` line of `/proc/meminfo` (no `unsafe`),
+the kernel's own estimate including reclaimable cache, where `sysinfo`'s free memory leaves
+the cache out and would undercount. Any other platform, and either read failing, uses
+`FALLBACK_AVAILABLE`; none of them is a target. There is no minimum cap: the oversized branch
+keeps the budget making progress at any cap, and a machine with little memory free should run
+tasks one at a time. The product is computed in `f64` and saturates at `usize::MAX`. The OS
+read is a private `fn available_memory() -> Option<u64>`; `memory_cap` takes it apart from a
+private `fn cap_of(available: u64, percent: f64) -> usize`, which the tests cover.
+
 ## Thread count
 
 ```rust
@@ -157,6 +183,10 @@ The `team_compiler/testing.md` "Infrastructure" cases for these three:
   two oversized waiters both complete, one at a time (stress: several threads, many rounds, a
   timeout guard so a lost wake-up fails the test rather than hanging it); `cancel` wakes a blocked
   ordinary and a blocked oversized waiter with `Cancelled`, and a held permit still releases.
+- **Memory cap:** `cap_of` gives 80% of 10 GiB as 8 GiB, 100% as the whole, a tiny percent as
+  its share (no floor), and saturates rather than overflowing on a huge `available`;
+  `available_memory()` returns `Some` on Windows and Linux (the CI and maintainer platforms), so
+  a silent fallback there fails a test.
 - **Thread count:** a non-zero request is returned as is; on 1 logical core the result is 1, on 2
   it is 1, on 8 it is 7.
 - **`CpkStem`:** accepted: `4cc_90_test`, a 28-character stem, `a.b`; refused with its variant:
