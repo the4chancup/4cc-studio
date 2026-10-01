@@ -325,6 +325,16 @@ remote half is running or uncollected. **A failed half is reported, never restar
 sidekick restarted the VPS half and waited on it although the local half had already tested
 every mutant). A brief that starts a whole-crate run says so.
 
+**An archived run keeps its summary, not its logs.** A run kept aside (in `.tmp/mutants_<step>_<what>/`, before
+the next run overwrites `mutants.out/`) copies only `*.txt` and `outcomes.json`, never the
+per-mutant `log/` or `remote/` trees: those are what reproduce a survivor, and a survivor is
+reproduced by re-running its mutant, not by reading a week-old log. Whole-folder copies had
+grown `.tmp/` to 17 GB by 3.8. Each local run builds in a `%TEMP%\cargo-mutants-4cc-studio-*.tmp`
+copy of the tree, deleted when the run ends normally; a killed run leaves its copy behind
+(some with a multi-GB `target/`), so after stopping one, delete its copy. `.cargo/mutants.toml`
+sets `gitignore = true` so the copies leave out `.tmp/` and `target/`: before 3.8 each copy
+carried all of `.tmp/`, and two 3.7 runs died of a full disk.
+
 Three model families, three roles. Lead: Claude (Fable) in Devin CLI's Fusion mode. Sidekick:
 SWE-2 (Kimi lineage), reached through the `sidekick` tool; a cold probe on a spec-in-hand crate
 showed it follows `CONTRIBUTING.md` literally and reports plan gaps instead of deciding them, so it

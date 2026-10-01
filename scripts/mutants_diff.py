@@ -1,7 +1,7 @@
 """`just mutants-diff [base]`: mutation-test only the lines changed since `base`.
 
-Runs `cargo mutants --in-diff` over `git diff <base>` (working tree and index against `base`,
-default HEAD), so a review measures the tests of the code under review rather than the whole
+Runs `cargo mutants --in-diff` over the diff from `base` (default HEAD) to the working tree,
+untracked files included, so a review measures the tests of the code under review rather than the whole
 workspace (CONTRIBUTING.md "Testing and verification", "Mutation runs"). The diff goes through
 a file because the justfile forbids pipes and redirection in recipe lines.
 
@@ -26,10 +26,13 @@ ROOT = Path(__file__).resolve().parent.parent
 
 def main(argv: list[str]) -> int:
     base = argv[1] if len(argv) > 1 else "HEAD"
+    # Against the whole working tree as a tree object, not `git diff <base>`,
+    # which leaves out untracked files: a new module's mutants would silently
+    # go unmeasured unless the tree was staged first (found at 3.8).
     # Bytes, not text: the file must be LF on both sides (text mode writes
     # CRLF on Windows).
     diff = subprocess.run(
-        ["git", "diff", base, "--", "crates"],
+        ["git", "diff", base, mutants.working_tree(), "--", "crates"],
         cwd=ROOT,
         check=True,
         capture_output=True,

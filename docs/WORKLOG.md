@@ -85,8 +85,9 @@ being true. Permanent toolchain facts go in `docs/CONTRIBUTING.md` "Toolchain no
   the encode tests compare the chain-wide mean for that reason. Revisit with representative kit
   and face textures when the Team compiler can produce them (plan: "tune against representative
   textures").
-- `just mutants-diff` reuses `mutants.out/`: it wipes a whole-crate run's results. Copy
-  `mutants.out/` aside (for example to `.tmp/mutants_<step>_whole/`) before the first diff run.
+- `just mutants-diff` reuses `mutants.out/`: it wipes a whole-crate run's results. Keep the
+  whole-crate run's summary aside (to `.tmp/mutants_<step>_whole/`, only `*.txt` and
+  `outcomes.json`: `AGENTS.md` "An archived run keeps its summary") before the first diff run.
 - `block_compression` 0.10's BC3/BC4/BC5 decoder truncates the alpha-ramp interpolation where
   DirectX rounds; `dds_convert::dds::fix_interpolated_channels` re-derives those channels. Drop
   it if a later release rounds (the exact-match test will say).
@@ -721,6 +722,16 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   subagent's open points: an unreadable root aborts (3); sources are listed before routing,
   so an unreadable one never counts as a refs duplicate; `export_extract_failed` carries
   `path` and `error`; the refs summary precedes the exports. Found: `mutants-diff` skips
-  untracked files (stage first); cargo-mutants copies the gitignored `.tmp/` into its build
+  untracked files (fixed in the detour below); cargo-mutants copies the gitignored `.tmp/` into its build
   copies, which filled the disk (3.7's two diff runs died of it). Next: the mutants/`.tmp`
   detour (maintainer), then 3.8d.
+- **2026-10-01** - Detour: neither 3.7 diff run had finished (the second reported 11 of 67
+  mutants before the disk filled), so its numbers above had no complete run behind them.
+  Re-run over `ab28300..3b6741e` (`pipeline` unchanged since): 67, 51 caught, 5 unviable, 6
+  timeouts (mutated `MemoryBudget::acquire` wait conditions that block forever), 5 missed, the
+  compiled-out Linux and other-platform `available_memory` arms the entry names. Every other
+  Phase 3 run had completed (3.3's and 3.4's survivors triaged in their steps). Fixed:
+  `mutants.toml` sets `gitignore = true` (the copies leave out `.tmp/`, checked in the run's
+  `debug.log`); `mutants_diff.py` diffs against the working tree written as a tree object
+  (`mutants.working_tree`, shared with the remote snapshot), so untracked files are measured
+  without staging. `AGENTS.md`: archived runs keep only their summaries.
