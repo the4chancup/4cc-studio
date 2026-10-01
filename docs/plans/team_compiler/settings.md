@@ -16,7 +16,7 @@ settings** live in the Team compiler's own settings section.
 | `pes_folder_path` | `C:\Program Files (x86)\Pro Evolution Soccer 20**` | `**` replaced with the version; derives `download/` path and `PES20{version}.exe` path |
 | `exports_folder_path` | `exports/` | Watched by the GUI and scanned once by the CLI; belongs in `studio_core` so the Team, Refs, and Balls tools share one export source. Relative paths resolve **beside the executable** in both data-location modes (see "Path resolution"), so the folder sits next to `quick_compile.bat` like Red's `exports_to_add/` |
 | `thread_count` | 0 (auto) | Was a Blue CLI arg; auto = logical cores − 1 |
-| `memory_cap_percent` | 80.0 | Was a Blue CLI arg; memory budget cap |
+| `memory_cap_percent` | 80.0 | Was a Blue CLI arg; memory budget cap, as a percent of the physical memory available at run start (`libs/pipeline.md` "Memory cap"); `0 < percent <= 100` |
 | `check_for_updates` | 1 | Was per-compiler (`updates_check` in Red's ini); becomes a suite-wide update check |
 
 ### Team compiler settings

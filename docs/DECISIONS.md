@@ -2599,3 +2599,19 @@ wake-up stress case). (3) Holding every 7z decompressed from the structure pass 
 make all of them resident while the run is planned. (4) Windows reserves `con.x` as it does
 `con`. (5) Phase 3's tasks know their source sizes up front.
 Plan: `libs/pipeline.md` (new part); `core/parallelism.md` "Memory budget" points to it.
+
+## 2026-10-01 — pipeline — the memory cap is a share of the memory available at run start
+Decision: `pipeline::memory_cap(percent)` reads the physical memory available when the run
+starts (Windows `GlobalMemoryStatusEx` `ullAvailPhys` through the `windows` crate's
+`Win32_System_SystemInformation` feature, one `unsafe` call; Linux `/proc/meminfo` `MemAvailable`)
+and returns that share, with no minimum and a 4 GiB assumption where the OS cannot say. The
+dependency change was approved by the maintainer on 2026-10-01.
+Why: the available memory, not the total, is what the run can take without pushing the game, a
+browser or Blender into swap. `MemAvailable` is the kernel's estimate including reclaimable
+cache, where `libc::sysinfo`'s free memory omits the cache and undercounts, and reading a file
+needs no `unsafe`. No floor: the oversized branch already keeps the budget moving at any cap, and
+a machine short of memory should run one task at a time. Windows has no way to ask without an OS
+call; a feature on the `windows` crate already in the workspace is the smallest one (a
+`sysinfo`-style crate would add a dependency tree for one number).
+Plan: `libs/pipeline.md` "Memory cap"; `team_compiler/settings.md` `memory_cap_percent`;
+`CONTRIBUTING.md` `unsafe` sites.

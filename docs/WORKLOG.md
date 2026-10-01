@@ -10,13 +10,39 @@ is in `AGENTS.md` ("Working documents").
 ## Current status
 
 **Phase:** 3 (Team compiler skeleton). Phases 1 and 2 done (Phase 2 closed 2026-09-30).
-**In progress:** 3.7 (`libs/pipeline`): its plan section comes first. 3.6 is done
-(`aesthetics_export`, 35 of 75 scenarios proven; the rest need `check`/`compile`). 2.5b (GPU BC7) is step 16.x (decision entries 2026-09-21 and 2026-09-28). Release
+**In progress:** 3.7 (`libs/pipeline`). Landed: the plan (`libs/pipeline.md`) and the crate's
+`MemoryBudget`/`Permit`/`Cancelled`, `thread_count_detect`, `CpkStem` (11 tests, gates green).
+Left, in order: (1) `memory.rs` per `libs/pipeline.md` "Memory cap" (planned and approved, not
+written; the `windows` feature `Win32_System_SystemInformation` goes on the workspace dependency,
+the crate takes `windows` under `cfg(windows)` as `elevation` does, a `// SAFETY:` comment on the
+one call); (2) `just mutants-diff ab28300` (the plan commit before the crate) with
+every survivor triaged; (3) the cross-family review (b) of the new `pub` surface, queued for the
+lead (see "Handover" below); (4) mark 3.7 done. 3.6 is done (`aesthetics_export`, 35 of 75
+scenarios proven; the rest need `check`/`compile`). 2.5b (GPU BC7) is step 16.x (decision entries 2026-09-21 and 2026-09-28). Release
 target (2026-09-28): 0.1.0 after Phase 8; phase order 1–6, 8, 0.1.0, 7, 9–16
 (`core/development_plan.md` "Releases").
 **Blocked on:** nothing yet. **Hard gate at the end of Phase 3:** step 4.0 (the maintainer's
 in-game appearance-fallback test) must be done before any agent itemizes Phase 4 or writes
 anything for Phase 4, 5 or 6. Everything up to and including Phase 3's close may proceed.
+
+**Handover (2026-10-01).** Until the maintainer says otherwise, the session runs as a single
+Claude agent with no sidekick and no reviewer of another model family. While that holds:
+
+- **Implement directly**, but keep everything else `AGENTS.md` asks of a sidekick's work: read the
+  plan section from the file first, paste the plan's code blocks, red-first tests (record each
+  test's failing assertion in the commit's log line, since no report carries it), the honesty and
+  design sweeps on your own diff, the gates, `mutants-diff` with every survivor triaged, one
+  commit per reviewable slice (about 500 lines).
+- **Cross-family reviews are queued, not skipped and not substituted.** A same-family subagent
+  shares the blind spots the review exists to catch, so it is no replacement. Each checkpoint
+  that `AGENTS.md` "Second opinion" would trigger goes on the queue below with the commit range
+  and the plan sections it covers; the lead runs the queue when it returns. Work may continue
+  past a queued review, but no phase closes with one outstanding.
+- **Queue:** 3.7 (b): `crates/libs/pipeline` from its first commit, against `libs/pipeline.md`
+  and `core/parallelism.md` "Memory budget"; the prior 3.6 rulings are in the log, and
+  `.tmp/review_brief_3_6.md` is a template for the brief.
+- Decisions the maintainer must make (new dependencies, `unsafe` outside the listed sites, game-
+  or format-facing behavior the plan does not settle) are still asked, not decided.
 
 ---
 
@@ -185,9 +211,8 @@ Itemized 2026-09-30 at Phase 2's close. Order: the tracer first (one real export
   start reporting directory entries so an archived empty kit folder survives (3.1 review), NO_USE,
   balls, duplicate refs), the structure pass and identity through `aesthetics_export`, console
   output, exit codes. → verify: TC-SRC-*, TC-CLI-01..05 and the check-observed TC-STR/ROS/KIT/
-  ROOT/ID scenarios, run through the binary. `memory_cap_percent` needs the machine's physical
-  memory: the `windows` crate's `Win32_System_SystemInformation` feature (`GlobalMemoryStatusEx`)
-  and `libc::sysinfo` on Linux, a dependency change the maintainer approves first; TC-STR-09 is cited only here, since its THEN names
+  ROOT/ID scenarios, run through the binary. `memory_cap_percent` goes through
+  `pipeline::memory_cap` (3.7); TC-STR-09 is cited only here, since its THEN names
   severities, which `messages.rs` maps (the lib test asserts dispositions; 3.6 review)
 - [ ] 3.9 `compile` through the pipeline: coordinator and writer on rayon over `libs/pipeline`,
   the tracer's scaffolding replaced, dispositions and `pass_through` applied, the CPK written
@@ -617,3 +642,10 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   file stays in the player's files; no logo findings on an undecided root; allowlist wording for
   `all/` and `Portraits/`), 4 rejected; the loop ends, and with it the 3.6 review.
   `mutants-diff 9030603`: 5, 4 caught, 1 unviable. 3.6 done. Next: 3.7, plan section first.
+- **2026-10-01** - 3.7 started: `libs/pipeline.md` written (permit, cancellation, oversized
+  priority, the solid-7z charge, thread count, `CpkStem`; decision entry), then the crate's
+  budget, thread count and `CpkStem` (11 tests, each group red against a stub; the oversized-
+  priority test red against a budget without `oversized_waiting`). The memory cap is a share of
+  the memory available at run start, read per OS (`windows` feature approved by the maintainer;
+  decision entry); its `memory.rs` is not written yet. Not yet run: `mutants-diff`, the
+  cross-family review (queued, see "Handover").
