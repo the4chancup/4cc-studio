@@ -11,12 +11,20 @@ use pipeline::CpkStem;
 use studio_core::{AppPaths, CliError, CommonSettings, ToolContext};
 use teams_list::TeamsList;
 
+use crate::check;
+use crate::messages::TOOL_ID;
+use crate::reader::is_archive;
 use crate::settings::{TeamCompilerSettings, from_table};
 
+// The exit codes are the command line's contract with scripts (`settings.md` "CLI").
+/// Exit code of a run that finished with no Error finding (warnings and notes allowed).
+pub(crate) const CLEAN: u8 = 0;
+/// Exit code of a run that finished, but some export had an Error finding.
+pub(crate) const ERRORS: u8 = 1;
 /// Exit code of an invalid invocation or configuration: nothing ran.
 const INVALID: u8 = 2;
 /// Exit code of a run aborted before or during its work.
-const ABORTED: u8 = 3;
+pub(crate) const ABORTED: u8 = 3;
 
 #[derive(Debug, Subcommand)]
 enum TeamCompilerCommand {
@@ -68,10 +76,13 @@ enum Mode {
 
 /// What the preflight resolved: everything `check` and `compile` start from.
 #[derive(Debug)]
-#[expect(dead_code, reason = "check and compile read these from step 3.8c on")]
 pub(crate) struct RunInputs {
+    /// The tool's settings section, already checked.
     pub(crate) settings: TeamCompilerSettings,
+    /// The suite-wide settings: the target PES version among them.
     pub(crate) common: CommonSettings,
+    /// The working teams list (the embedded one when none is installed), which maps each
+    /// export's team name to its id.
     pub(crate) teams_list: TeamsList,
     /// The folder scanned for exports.
     pub(crate) exports_root: PathBuf,
@@ -81,7 +92,7 @@ pub(crate) struct RunInputs {
 
 /// The `team-compiler` subcommand and its own subcommands.
 pub(crate) fn command() -> Command {
-    TeamCompilerCommand::augment_subcommands(Command::new(crate::TOOL_ID).subcommand_required(true))
+    TeamCompilerCommand::augment_subcommands(Command::new(TOOL_ID).subcommand_required(true))
 }
 
 /// Runs a parsed `team-compiler` command: the preflight, then the command.
@@ -91,16 +102,14 @@ pub(crate) fn run(matches: &clap::ArgMatches, ctx: &ToolContext) -> Result<u8, C
     match command {
         TeamCompilerCommand::Check(source) => {
             check_export_paths(&source.exports)?;
-            let (settings, common) =
-                read_settings(&ctx.tool_settings(crate::TOOL_ID), ctx.common())?;
+            let (settings, common) = read_settings(&ctx.tool_settings(TOOL_ID), ctx.common())?;
             let inputs = resolve_inputs(source, settings, common, ctx.paths())?;
-            check(inputs)
+            check::run(&inputs, ctx)
         }
         TeamCompilerCommand::Compile(args) => {
             refuse_mode(args.mode, args.no_deploy)?;
             check_export_paths(&args.source.exports)?;
-            let (settings, common) =
-                read_settings(&ctx.tool_settings(crate::TOOL_ID), ctx.common())?;
+            let (settings, common) = read_settings(&ctx.tool_settings(TOOL_ID), ctx.common())?;
             let cpk_stem = compile_settings(&settings)?;
             let inputs = resolve_inputs(args.source, settings, common, ctx.paths())?;
             compile(inputs, cpk_stem)
@@ -109,10 +118,6 @@ pub(crate) fn run(matches: &clap::ArgMatches, ctx: &ToolContext) -> Result<u8, C
             "upgrade-dpfl is not available yet in this version"
         ))),
     }
-}
-
-fn check(_inputs: RunInputs) -> Result<u8, CliError> {
-    Err(CliError::new(ABORTED, anyhow!("check is not built yet")))
 }
 
 fn compile(_inputs: RunInputs, _cpk_stem: CpkStem) -> Result<u8, CliError> {
@@ -171,21 +176,18 @@ fn check_export_paths(paths: &[PathBuf]) -> Result<(), CliError> {
     Ok(())
 }
 
-fn is_archive(path: &Path) -> bool {
-    path.extension()
-        .and_then(|extension| extension.to_str())
-        .is_some_and(|extension| {
-            extension.eq_ignore_ascii_case("zip") || extension.eq_ignore_ascii_case("7z")
-        })
-}
-
 /// The tool's settings from its table, and the common ones, with the checks both commands share.
 fn read_settings(
     table: &toml::Table,
     common: CommonSettings,
 ) -> Result<(TeamCompilerSettings, CommonSettings), CliError> {
-    let settings = from_table(table)
-        .map_err(|error| invalid(anyhow!("settings [{}]: {error}", crate::TOOL_ID)))?;
+    // A toml error's text ends with a newline, which would leave a blank line under `error: `.
+    let settings = from_table(table).map_err(|error| {
+        invalid(anyhow!(
+            "settings [{TOOL_ID}]: {}",
+            error.to_string().trim_end()
+        ))
+    })?;
     check_memory_cap(common.memory_cap_percent)?;
     Ok((settings, common))
 }
@@ -333,15 +335,6 @@ mod tests {
             let error = refuse_mode(mode, false).unwrap_err();
             assert!(error.to_string().contains("not available yet"), "{error}");
         }
-    }
-
-    #[test]
-    fn archive_extensions_are_case_insensitive() {
-        assert!(is_archive(Path::new("a.zip")));
-        assert!(is_archive(Path::new("a.ZIP")));
-        assert!(is_archive(Path::new("a.7Z")));
-        assert!(!is_archive(Path::new("a.rar")));
-        assert!(!is_archive(Path::new("zip")));
     }
 
     #[test]

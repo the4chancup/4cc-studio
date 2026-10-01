@@ -14,6 +14,7 @@ use vtree::{ScopePath, VirtualTree};
 pub use draft::{
     AestheticsExportDraft, ExportKind, FileDescriptor, FolderDraft, RawRoster, RawRosterEntry,
 };
+pub use identity::team_name;
 
 use crate::conventions::{
     CONTENT_FOLDERS, ContentFolder, classify, is_logo_texture, is_os_artifact,
