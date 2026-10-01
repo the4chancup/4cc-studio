@@ -245,7 +245,15 @@ the root and kit metadata files do not count (`notes.txt` and `icon.txt` are val
 nothing yet; `colors.txt` waits for its grammar, an open question for Phase 4; `README.txt` is
 ignored). An export holding anything else, targeting PES
 15–17, or a refs export is skipped with the Error `content_not_yet_compiled` naming the first
-such item, the target or `refs`, rather than writing an incomplete CPK. `check` runs the
+such item, the target or `refs`, rather than writing an incomplete CPK. That includes a face
+folder missing a file Phase 4 would inject (`face_diff.bin`; with an `fcl_hair.fmdl`, also
+`fcl_hair_sim.fclo` and the `fcl_hair.skl` pairing it: "Fox mode fixups" in `pipeline.md`), so
+no compiled face lacks what Red's would hold. An empty kit folder, or one whose effective
+textures lack `kit`, compiles as the placeholder kit (the checkerboard and the template config;
+its UniColor entry waits for Phase 4's bins), which TC-SRC-01 needs. Two exports resolving to
+one team, which `duplicate_aesthetics_export` reports from Phase 4's run planning, meet the
+writer's duplicate-path invariant meanwhile: `cpk_write_failed` aborts the run naming the path,
+and no CPK is written. `check` runs the
 structure pass on every export, including content `compile` refuses (deep format checks are
 Phase 4's). The code is withdrawn when Phase 4 compiles everything.
 Findings are observed

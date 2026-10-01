@@ -691,6 +691,64 @@ describes behavior, not a serial scheduling requirement:
 - **Run PES** — optional launch of `PES20{version}.exe`, only after the complete deployment
   transaction succeeds.
 
+### Run driver shapes (Phase 3)
+
+The Phase 3 subset of the walkthrough above, in the crate's own types (`pub(crate)`; Phase 4's
+entry gate may reshape them when run planning arrives). Field types not spelled out are the
+`aesthetics_export` types the validated export already carries.
+
+```rust
+// plan/: serial, over the identity-resolved exports in ExportId order.
+pub(crate) struct PlanReport {
+    pub(crate) manifest: BuildManifest,      // Phase 3 has no run-level fatal in planning
+    pub(crate) messages: Vec<Message>,       // content_not_yet_compiled, kit_config_*, ...
+    pub(crate) dropped: Vec<ExportId>,       // exports the subset gate skipped
+}
+pub(crate) struct BuildManifest {
+    pub(crate) tasks: Vec<BuildTask>,        // canonical order: export, then faces by first
+                                             // roster slot, then kits by KitSlot
+}
+pub(crate) struct BuildTask {
+    pub(crate) export_id: ExportId,
+    pub(crate) team_id: u16,
+    pub(crate) kind: TaskKind,
+    pub(crate) charge: usize,                // source bytes it reads; see "Memory budget"
+}
+pub(crate) enum TaskKind {
+    Face { folder: /* the mapped player folder */, player_ids: Vec<u32> }, // one task per folder:
+                                             // textures once, one face.fpk per roster slot
+    Kit { slot: KitSlot, kit: /* the validated kit, all/ inheritance applied */ },
+}
+// processing/: one task, run on the pool.
+pub(crate) fn process_task(task: BuildTask, ctx: &CompileContext) -> TaskBatch;
+pub(crate) struct TaskBatch {
+    pub(crate) index: usize,                 // its manifest position: the writer's order
+    pub(crate) export_id: ExportId,
+    pub(crate) entries: Vec<(String, Vec<u8>)>, // CPK path, bytes; empty when the task failed
+    pub(crate) uniparam: Option<(String, Vec<u8>)>, // a kit's config, applied only if committed
+    pub(crate) messages: Vec<Message>,
+    pub(crate) permit: Option<pipeline::Permit>, // released when the writer has the entries
+}
+```
+
+**Admission.** One coordinator thread acquires each task's permit in manifest order and only
+then hands the task to the pool; the writer, on its own thread, commits batches in manifest
+order from a reorder buffer and drops each batch's permit after writing it. Every task admitted
+before the next one in writer order is already running or done, so the batch the writer waits
+for always holds its permit and the run cannot stall on canonical order ("Admission must
+remain progress-safe", `core/parallelism.md`). A `.7z` export is opened once for its tasks and
+charged once, by the sum of its entries' sizes (`libs/pipeline.md`); its tasks share that
+permit and acquire none of their own, since an oversized export permit would otherwise block
+its own tasks' requests forever.
+
+**Output.** The CPK is written to `output/.staging/<pid>-<unix ms>/<cpk_name>.cpk` and renamed
+to `output/<cpk_name>.cpk` (the run id is per process, so two CLI runs never share a staging
+folder); a run that emits no entry writes nothing and leaves the previous CPK. The output
+folder is created and probed for writing (a file created and removed) before any export is
+read; a refusal is the CLI's exit 3 naming the path (TC-CLI-06), not a pipeline message.
+`deploy_skipped_by_flag` is emitted, naming the promoted path, when `--no-deploy` is given;
+without it Phase 3 promotes the same way and says nothing more (deployment is Phase 4's).
+
 ### Game paths reference
 
 | Content | Pre-Fox (PES 15–17) | Fox (PES 18+) |

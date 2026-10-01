@@ -2665,3 +2665,26 @@ Why: with 3.8d's `folders()` such an entry reached `normalize`, which refuses an
 an archive that lists its own root (before 3.8d, skipped like every directory entry) would have
 been refused whole as `export_extract_failed`; the entry carries no folder to report.
 Plan: `libs/archives.md` (normalization paragraph).
+
+## 2026-10-01 — team_compiler — 3.9: Phase 3 compile's edges
+Decision (lead, applied per the maintainer's standing rule; reversible): (1) A face folder
+missing a file Phase 4 would inject (`face_diff.bin`; with `fcl_hair.fmdl`, also
+`fcl_hair_sim.fclo` and the paired `fcl_hair.skl`) is "anything else": the export is skipped
+with `content_not_yet_compiled`. (2) The placeholder kit (checkerboard texture and template
+config, `kit_placeholder`) is Phase 3's, its UniColor entry Phase 4's. (3) Two exports of one
+team abort through the writer's duplicate-path invariant (`cpk_write_failed`) until Phase 4's
+`duplicate_aesthetics_export`. (4) Staging, promotion and the output preflight are Phase 3's
+(single CPK); Phase 4 adds the output sinks, deployment's `.partial` copy and multi-CPK.
+(5) Run driver shapes, admission in manifest order on one coordinator thread, a `.7z` export's
+tasks sharing its one permit; staging folder `<pid>-<unix ms>`. (6) No new message code for
+where the CPK went: `deploy_skipped_by_flag` with the flag, nothing without it until Phase 4
+deploys. (7) `rayon` enters the workspace now, as the plan's dependency table names it.
+Why: (1) the scope's own rule is "rather than writing an incomplete CPK", and Red injects
+these, so a CPK without them differs from Red's in game. (2) TC-SRC-01's THEN needs the
+placeholder; UniColor is bins work Phase 3 excludes. (3) Run planning is excluded from Phase 3
+by name; the invariant already refuses the CPK, which writes nothing wrong. (4) TC-OUT-03/05
+and TC-CLI-06 are Phase 3 scenarios. (5) Admission in writer order is the simplest
+progress-safe protocol `core/parallelism.md` asks for; a task request behind an oversized
+export permit would wait forever. (6) Every new code is user text Phase 8 must write.
+Plan: `team_compiler/README.md` "Phase 3 scope"; `team_compiler/pipeline.md` "Run driver
+shapes (Phase 3)"; `core/development_plan.md` (Phase 4 `output/` bullet, Phase 17 placeholder).

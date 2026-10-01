@@ -301,8 +301,10 @@ nothing about the Rust code.
   relocation to game paths and Fox FPK packing (`contents_packing`, `export_move`).
 - **`bins/`** — UniColor / TeamColor / UniformParameter accumulation via `uniparam`, DpFileList
   read/write and slot discovery (`bins_update`).
-- **`output/`** — canonical-order writer, `OutputSink` (CPK vs loose folder for test/sider),
-  staging with `.partial` + rename and promotion, writability preflight; access-denied output paths
+- **`output/`** — Phase 3 already writes one CPK through the canonical-order writer, staging and
+  promotion to `output/`, with the output folder's writability preflight (TC-OUT-*, TC-CLI-06);
+  Phase 4 adds `OutputSink` (CPK vs loose folder for test/sider), the `.partial` copy into
+  `download/` for deployment, multi-CPK; access-denied output paths
   fail cleanly via `libs/elevation` (the GUI's elevated-relaunch prompt is Phase 8).
   `output/savefile.rs` is Phase 5.
 - `dummy_kit_replace` is not ported — `dummy_kit*` stems are reserved game-substituted names, see
@@ -570,7 +572,7 @@ merge, and the maintenance-mode section; this phase completes them.
 
 Not a first-release gate: its users are the *next* cup's new managers, and it depends on the
 widest set of finished pieces — `libs/team_widgets` and `libs/aatf` with `apply_tier` (Phases 5
-and 8), the compiler's kit placeholder and layout-marker rules (Phase 4), `aesthetics_export`
+and 8), the compiler's kit placeholder (Phase 3, its UniColor entry Phase 4) and layout-marker rules (Phase 4), `aesthetics_export`
 writing, and the Player aesthetics editor to hand off to (Phase 15). Plan: [Team
 creator](../team_creator.md).
 
