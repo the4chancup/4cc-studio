@@ -9,8 +9,8 @@ Kit config editor, Refs arranger, and Team creator), specified in the
 [Model conversion](../model_conversion/README.md) (`model_convert` + the mesh algorithms in
 `fmdl`/`pes_model`) and [Savefile](../pes_savefile/README.md) (`pes_savefile`). The `pipeline`
 crate (reader/writer scaffolding, memory budget, folder watcher, check cache, shared `CpkStem`
-validation) is
-specified across the [core plan](../core/README.md) (Parallelism) and the
+validation) has its contract in [pipeline](pipeline.md); the reasons are in the
+[core plan](../core/README.md) (Parallelism) and the
 [Team compiler plan](../team_compiler/README.md) (walkthrough, live validation). The music lib
 crates (`music_export`, `audio_engine`) are specified in the
 [Music player plan](../music_player.md), the live-match event feed (`match_feed`)
@@ -38,6 +38,7 @@ single-file plan.
 | [elevation](elevation.md) | `libs/elevation` |
 | [fpc](fpc.md) | `libs/fpc` |
 | [teams_list](teams_list.md) | `libs/teams_list` |
+| [pipeline](pipeline.md) | `libs/pipeline`: memory budget, thread count, `CpkStem` |
 
 ## Format references in Blue
 

@@ -2582,3 +2582,20 @@ files drop each other, as in `Portraits/`. (2) Folding a stem or a link target b
 segment may end with); the fold itself needs no validation.
 Plan: `aesthetics_export/object_model.md` "Validation semantics", "Texture stems";
 `team_compiler/messages.md` `texture_stem_conflict`.
+
+## 2026-10-01 — pipeline — the Phase 3 contract: permit, oversized priority, 7z charge, `CpkStem`
+Decision: (1) `MemoryBudget::acquire` returns a `Permit` that releases on drop, or `Cancelled`
+once `cancel` has run; the core plan's `acquire`/`release` pair stays as the capacity sketch.
+(2) While an oversized request waits for the pipeline to drain, new ordinary requests wait too.
+(3) The structure pass charges a solid `.7z` export's full size while it reads the small metadata
+and releases it with the `Archive`; `compile` charges it again for its tasks. (4) `CpkStem` judges
+the reserved device names on the part before the first `.`. (5) A task acquires once, before
+loading, until Phase 4 settles the growing permit.
+Why: (1) a permit travels with its batch to the writer, and a drop cannot be forgotten on an
+error path as a `release` call can; the plan requires cancellation to wake waiters, and a waiter
+woken by it must not take bytes. (2) Without it, ordinary tasks arriving faster than others
+finish keep `in_flight` above zero, and the oversized request never runs (the plan's
+wake-up stress case). (3) Holding every 7z decompressed from the structure pass to its tasks would
+make all of them resident while the run is planned. (4) Windows reserves `con.x` as it does
+`con`. (5) Phase 3's tasks know their source sizes up front.
+Plan: `libs/pipeline.md` (new part); `core/parallelism.md` "Memory budget" points to it.

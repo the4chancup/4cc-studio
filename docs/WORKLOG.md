@@ -185,7 +185,9 @@ Itemized 2026-09-30 at Phase 2's close. Order: the tracer first (one real export
   start reporting directory entries so an archived empty kit folder survives (3.1 review), NO_USE,
   balls, duplicate refs), the structure pass and identity through `aesthetics_export`, console
   output, exit codes. → verify: TC-SRC-*, TC-CLI-01..05 and the check-observed TC-STR/ROS/KIT/
-  ROOT/ID scenarios, run through the binary; TC-STR-09 is cited only here, since its THEN names
+  ROOT/ID scenarios, run through the binary. `memory_cap_percent` needs the machine's physical
+  memory: the `windows` crate's `Win32_System_SystemInformation` feature (`GlobalMemoryStatusEx`)
+  and `libc::sysinfo` on Linux, a dependency change the maintainer approves first; TC-STR-09 is cited only here, since its THEN names
   severities, which `messages.rs` maps (the lib test asserts dispositions; 3.6 review)
 - [ ] 3.9 `compile` through the pipeline: coordinator and writer on rayon over `libs/pipeline`,
   the tracer's scaffolding replaced, dispositions and `pass_through` applied, the CPK written
