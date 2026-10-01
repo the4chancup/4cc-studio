@@ -35,7 +35,7 @@ tiff = { version = "0.11.3", default-features = false }
 toml = "0.9.8"
 toml_edit = "0.23.9"
 unicode-normalization = "0.1.25"
-windows = { version = "0.62.2", features = ["Win32_Foundation", "Win32_Security", "Win32_System_Registry", "Win32_System_Threading", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging"] }
+windows = { version = "0.62.2", features = ["Win32_Foundation", "Win32_Security", "Win32_System_Registry", "Win32_System_SystemInformation", "Win32_System_Threading", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging"] }
 roxmltree = "0.21.1"
 sevenz-rust2 = { version = "0.22.2", default-features = false }
 zip = { version = "8.6.0", default-features = false, features = ["deflate"] }
