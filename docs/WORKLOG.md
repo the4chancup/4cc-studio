@@ -10,14 +10,9 @@ is in `AGENTS.md` ("Working documents").
 ## Current status
 
 **Phase:** 3 (Team compiler skeleton). Phases 1 and 2 done (Phase 2 closed 2026-09-30).
-**In progress:** 3.7 (`libs/pipeline`). Landed: the plan (`libs/pipeline.md`) and the crate's
-`MemoryBudget`/`Permit`/`Cancelled`, `thread_count_detect`, `CpkStem` (11 tests, gates green).
-Left, in order: (1) `memory.rs` per `libs/pipeline.md` "Memory cap" (planned and approved, not
-written; the `windows` feature `Win32_System_SystemInformation` goes on the workspace dependency,
-the crate takes `windows` under `cfg(windows)` as `elevation` does, a `// SAFETY:` comment on the
-one call); (2) `just mutants-diff ab28300` (the plan commit before the crate) with
-every survivor triaged; (3) the cross-family review (b) of the new `pub` surface, queued for the
-lead (see "Handover" below); (4) mark 3.7 done. 3.6 is done (`aesthetics_export`, 35 of 75
+**In progress:** 3.8 (`check` end to end) is next. 3.7 (`libs/pipeline`) is implemented and
+mutation-clean; only its cross-family review is left, queued for the lead (see "Handover"
+below), and 3.7 is marked done once that review's rulings land. 3.6 is done (`aesthetics_export`, 35 of 75
 scenarios proven; the rest need `check`/`compile`). 2.5b (GPU BC7) is step 16.x (decision entries 2026-09-21 and 2026-09-28). Release
 target (2026-09-28): 0.1.0 after Phase 8; phase order 1–6, 8, 0.1.0, 7, 9–16
 (`core/development_plan.md` "Releases").
@@ -41,6 +36,11 @@ Claude agent with no sidekick and no reviewer of another model family. While tha
 - **Queue:** 3.7 (b): `crates/libs/pipeline` from its first commit, against `libs/pipeline.md`
   and `core/parallelism.md` "Memory budget"; the prior 3.6 rulings are in the log, and
   `.tmp/review_brief_3_6.md` is a template for the brief.
+- For the lead, on return: the review process on trial (maintainer, 3.1) runs a full sidekick
+  review loop after each GPT round and calls GPT again only once that loop has ended and GPT's
+  own loop has not; not yet in `AGENTS.md` (3.6: GPT 4 of 7 accepted, then sidekick S1 3 of 7,
+  so both loops ended after one round each). The sidekick's context was near its limit at the
+  handover, so its next brief must stand alone. Prior rulings: `.tmp/review_rulings_3_6.md`.
 - Decisions the maintainer must make (new dependencies, `unsafe` outside the listed sites, game-
   or format-facing behavior the plan does not settle) are still asked, not decided.
 
@@ -649,3 +649,10 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   the memory available at run start, read per OS (`windows` feature approved by the maintainer;
   decision entry); its `memory.rs` is not written yet. Not yet run: `mutants-diff`, the
   cross-family review (queued, see "Handover").
+- **2026-10-01** - 3.7 implemented: `pipeline::memory_cap` (Windows `GlobalMemoryStatusEx`,
+  Linux `/proc/meminfo` through a `mem_available` parse tested on every platform). `mutants-diff
+  ab28300`: 12 missed, 7 given tests (exact-cap request is ordinary, OS read and cap above a
+  floor, the 4 GiB fallback, the parse); the 5 left are the Linux and other-platform
+  `available_memory` arms, compiled out on Windows (the Linux arm is checked by
+  `the_os_reports_available_memory` on Linux CI; the other arm is a constant `None`). 17 tests.
+  Next: 3.8; the 3.7 review is queued.

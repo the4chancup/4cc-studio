@@ -262,6 +262,25 @@ mod tests {
     }
 
     #[test]
+    fn a_request_of_exactly_the_cap_is_ordinary() {
+        let budget = MemoryBudget::new(100);
+        let held = budget.acquire(50).unwrap();
+        // `size == cap` is an ordinary request: it waits for room like any
+        // other, and it does not hold later waiters back.
+        let big = waiter(&budget, 100);
+        big.blocked();
+        let fast = waiter(&budget, 10);
+        assert_eq!(fast.acquired(), Ok(()));
+        drop(held);
+        // 60 + 100 still does not fit: `big` waits for `fast` to release.
+        big.blocked();
+        fast.release();
+        assert_eq!(big.acquired(), Ok(()));
+        big.release();
+        assert_eq!(budget.in_flight(), 0);
+    }
+
+    #[test]
     fn two_oversized_waiters_complete_one_at_a_time() {
         let budget = MemoryBudget::new(100);
         let held = budget.acquire(10).unwrap();
