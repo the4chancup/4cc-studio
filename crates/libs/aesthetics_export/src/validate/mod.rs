@@ -12,7 +12,6 @@ mod roster;
 
 use std::collections::BTreeMap;
 
-use crate::FileKind;
 use crate::conventions::{SharedKind, is_logo_texture};
 use crate::listing::ValidationContext;
 use crate::parse::{ExportKind, FileDescriptor, ParsedAestheticsExport};
@@ -178,9 +177,14 @@ impl ParsedAestheticsExport {
         // content folders end (`Kits/`, then the loose root groups).
         let kits = kits::check(draft, context, &self.metadata, &mut issues);
         let portraits = root::check_portraits(draft, context, &mut issues);
-        let logo = root::check_logo(draft, context, &mut issues);
-        // No root findings on an undecided root: `nested_root_ambiguous` and
-        // `nested_root_conflict` leave it unresolved, as for `export_empty`.
+        // No root-level finding on an undecided root: `nested_root_ambiguous`
+        // and `nested_root_conflict` leave it unresolved, as for
+        // `export_empty` and `root_file_unexpected`.
+        let logo = if root_decided {
+            root::check_logo(draft, context, &mut issues)
+        } else {
+            None
+        };
         let root = if root_decided {
             root::check_root(
                 draft,
@@ -225,12 +229,14 @@ impl ParsedAestheticsExport {
                     })
                     .collect();
                 player.files.retain(|file| {
-                    file.kind != FileKind::CommonLink
-                        || resolved.iter().any(|link| {
-                            matches!(&link.kind, links::ResolvedLinkKind::Common(_))
-                                && link.target.is_some()
-                                && link.link_file == file.path
-                        })
+                    // Only a resolved `.common` link whose target is absent
+                    // (pass_through) comes off; a `.common` file at a
+                    // position that is never a link keeps its own finding.
+                    !resolved.iter().any(|link| {
+                        matches!(&link.kind, links::ResolvedLinkKind::Common(_))
+                            && link.target.is_none()
+                            && link.link_file == file.path
+                    })
                 });
                 kept.push(player);
             }
@@ -2080,6 +2086,59 @@ mod tests {
             issue_codes(&report),
             vec![("file_type_disallowed", Disposition::DropFolder)]
         );
+    }
+
+    #[test]
+    fn a_kept_disallowed_common_file_stays_in_the_players_files() {
+        // A `.common` file below `common/` is never a link position: its
+        // disallowed finding keeps it (strict off), so it stays in `files`.
+        let report = report_with(
+            &context_with(false, false),
+            "egg",
+            &[
+                ("Common/torso.fmdl", 10),
+                ("Players/03 - A/face_high.fmdl", 10),
+                ("Players/03 - A/common/torso.fmdl.common", 0),
+            ],
+            &[],
+            &[],
+        );
+        assert_eq!(
+            issue_codes(&report),
+            vec![("file_type_disallowed", Disposition::Keep)]
+        );
+        let player = &report.validated.unwrap().players[0];
+        assert!(
+            player
+                .files
+                .iter()
+                .any(|f| f.path.as_str() == "Players/03 - A/common/torso.fmdl.common"),
+            "{:?}",
+            player
+                .files
+                .iter()
+                .map(|f| f.path.as_str())
+                .collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn an_undecided_root_reports_no_logo_finding() {
+        let report = report(
+            "egg",
+            &[
+                ("logo.txt", 5),
+                ("a/Players/03 - A/face_high.fmdl", 10),
+                ("b/Players/03 - A/face_high.fmdl", 10),
+            ],
+            &[],
+            &[],
+        );
+        assert_eq!(
+            issue_codes(&report),
+            vec![("nested_root_ambiguous", Disposition::DropExport)]
+        );
+        assert!(report.validated.is_none());
     }
 
     #[test]

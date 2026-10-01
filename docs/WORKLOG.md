@@ -10,9 +10,8 @@ is in `AGENTS.md` ("Working documents").
 ## Current status
 
 **Phase:** 3 (Team compiler skeleton). Phases 1 and 2 done (Phase 2 closed 2026-09-30).
-**In progress:** 3.6: slice (a) landed as a1 (crate, `listing.rs`, `conventions/file_types.rs`
-`classify`, `validate/issues.rs` types, `slots.rs`) and a2 (`parse/`: canonicalization, root
-normalization, draft, identity, roster; 4 scenarios cited); slice (b) runs as b1-b3: b1 landed (`validate` report, roster rules, player/shared folders built, export findings, `resolve.rs`, OS-artifact skip) and b2 (player/shared/Common checks, links, cascade, pass-through; 25 scenarios proven) and b3 (kits, portraits, logo, root files; 36 proven); next the reviewer on all of (b) (`.tmp/review_brief_3_6.md`). 2.5b (GPU BC7) is step 16.x (decision entries 2026-09-21 and 2026-09-28). Release
+**In progress:** 3.7 (`libs/pipeline`): its plan section comes first. 3.6 is done
+(`aesthetics_export`, 35 of 75 scenarios proven; the rest need `check`/`compile`). 2.5b (GPU BC7) is step 16.x (decision entries 2026-09-21 and 2026-09-28). Release
 target (2026-09-28): 0.1.0 after Phase 8; phase order 1–6, 8, 0.1.0, 7, 9–16
 (`core/development_plan.md` "Releases").
 **Blocked on:** nothing yet. **Hard gate at the end of Phase 3:** step 4.0 (the maintainer's
@@ -161,7 +160,7 @@ Itemized 2026-09-30 at Phase 2's close. Order: the tracer first (one real export
   `PlayerSlot::player_id` → `u32`), "Core types" adjusted (infallible `validate`, plain portrait/
   collar/common collections, parsed kit icon, `FileDescriptor.source`), crate layout updated;
   `players_txt.rs`/`kit_config_toml.rs` wait for their consumers. Decision entry
-- [ ] 3.6 `libs/aesthetics_export`, two slices, each its own commit and review: (a) `listing`,
+- [x] 3.6 `libs/aesthetics_export`, two slices, each its own commit and review: (a) `listing`,
   `conventions/`, `parse/`; (b) `validate/` with the sanitized-scope rule and `resolve.rs`, in
   three slices: b1 the report, roster rules, player/shared folders built, export findings,
   `resolve_identity`, OS-artifact skip; b2 player/shared/Common checks (allowlist, links,
@@ -172,7 +171,10 @@ Itemized 2026-09-30 at Phase 2's close. Order: the tracer first (one real export
   `players_txt.rs` and `kit_config_toml.rs` wait for their consumers (Refs arranger, Phase 4 kit
   step). → verify: lib tests citing the TC-STR/ROS/KIT/ROOT/ID/DSP scenarios the structure pass
   decides; `wasm_check.py` includes the crate; `mutants-diff` per slice; reviewer (b) on the new
-  `pub` surface
+  `pub` surface. Done 2026-10-01 (commits `63c9599`..this one): 35 scenarios proven, every
+  slice's `mutants-diff` at 0 missed; review GPT round 1 (4 of 7 accepted) and sidekick S1 (3 of
+  7), rulings in the log. Files: `crates/libs/aesthetics_export/`, `vtree::fold_name`,
+  `object_model.md`, `messages.md`
 - [ ] 3.7 `libs/pipeline`: plan section first (lead; `core/parallelism.md` "Memory budget",
   `CpkStem`'s contract in `pipeline.md` "Writer"), then the crate: `MemoryBudget` with the
   oversized branch, thread count, `CpkStem`. The section also says how the structure pass's
@@ -609,3 +611,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   until 3.8), 3 rejected; the GPT loop ends (rulings `.tmp/review_rulings_3_6.md`; plan + decision
   entry). `mutants-diff 26775b0`: 31, 2 missed, both given tests; rerun 26 caught, 5 unviable, 0 missed. Next: the sidekick
   review loop.
+- **2026-10-01** - 3.6 sidekick review S1: 7 concerns, 3 accepted (a kept disallowed `.common`
+  file stays in the player's files; no logo findings on an undecided root; allowlist wording for
+  `all/` and `Portraits/`), 4 rejected; the loop ends, and with it the 3.6 review.
+  `mutants-diff 9030603`: 5, 4 caught, 1 unviable. 3.6 done. Next: 3.7, plan section first.
