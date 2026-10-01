@@ -406,8 +406,12 @@ pub struct AppPaths {
 
 The exit code is a `u8` returned by the tool, not an `anyhow` error the binary maps, because
 the meaning of each code is the tool's contract (the Team compiler's 0/1/2/3, `settings.md`
-"CLI"); the binary only adds clap's own 2 for an argument error and prints an `Err` as
-`error: …` before exiting with its code.
+"CLI"); the binary adds only the codes no tool can see, in the same meanings, and prints an `Err`
+as `error: …` before exiting with its code: clap's own 2 for an argument error (and `run_cli`'s
+2 for a subcommand no registered tool owns), 2 when the settings file cannot be loaded (a
+configuration error: nothing ran), and 3 when the executable's folder cannot be found or the
+console printer stops (an environment failure; a lost printer may have lost findings, so the
+tool's own verdict cannot stand).
 
 ```rust
 // studio (binary)

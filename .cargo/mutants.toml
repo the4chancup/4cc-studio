@@ -8,12 +8,12 @@
 # (CPUs - 9 = 7 on the maintainer's 16-thread machine; cargo floors it at 1 elsewhere), test threads
 # as a hard 7 because libtest has no relative form. Local tooling only; CI never runs mutants.
 additional_cargo_args = ["--jobs", "-9"]
+additional_cargo_test_args = ["--", "--test-threads=7"]
 
 # Each run copies the source tree to a `%TEMP%` build directory, and by default the copy includes
 # gitignored files: the session scratch `.tmp/` (17 GB of archived runs and probes at 3.8) filled
 # the disk and killed both of 3.7's diff runs. No test reads a gitignored file.
 gitignore = true
-additional_cargo_test_args = ["--", "--test-threads=7"]
 
 # python_bindings is a `test = false` cdylib whose one test is the wheel's smoke test (`just
 # bindings`). cargo-mutants cannot run that, and `cargo test`/`cargo check` never compile the

@@ -2688,3 +2688,11 @@ progress-safe protocol `core/parallelism.md` asks for; a task request behind an 
 export permit would wait forever. (6) Every new code is user text Phase 8 must write.
 Plan: `team_compiler/README.md` "Phase 3 scope"; `team_compiler/pipeline.md` "Run driver
 shapes (Phase 3)"; `core/development_plan.md` (Phase 4 `output/` bullet, Phase 17 placeholder).
+
+## 2026-10-01 — studio — the binary's own exit codes
+Decision (lead, from the code-style audit of 3.8): the binary's codes are listed in the plan, in
+the tools' meanings: 2 for clap's argument errors, a subcommand no tool owns and an unloadable
+settings file; 3 when the executable's folder cannot be found or the console printer stops.
+3.8a had exited 2 for a missing executable folder, an environment failure.
+Why: the plan named only clap's 2, so the other codes were bare literals no document owned.
+Plan: `core/architecture.md` (the exit-code paragraph under `AppPaths`).
