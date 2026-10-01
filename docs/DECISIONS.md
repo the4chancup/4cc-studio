@@ -2525,3 +2525,37 @@ listing needs, not a compiler step. A code list lets the tool check its catalog 
 every issue; the consequence is observed by the scenario tests.
 Plan: `aesthetics_export/object_model.md` "Core types", "Structure pass types", "Player folders",
 the crate layout and "Validation semantics".
+
+## 2026-10-01 - aesthetics_export - 3.6 (b): allowlist, OS artifacts, scopes, eligibility
+Decision: (1) the per-position file-type allowlist in `object_model.md` "Validation semantics",
+the same for every target; a file below an unnamed subfolder takes its holding folder's code;
+`Collars/` unchecked until Phase 4. (2) `Thumbs.db`, `desktop.ini` and `.DS_Store` are left out of
+the draft, silently. (3) Player and kit folder names share one `<head>[ - <label>]` split at the
+first `-`. (4) An issue's scope names the item its disposition acts on, so `file_type_disallowed`
+is `Folder`-scoped, one per file. (5) The structure pass's pass-through-eligible codes are
+`link_target_missing`, `common_link_missing`, `file_type_disallowed`, `common_file_disallowed`.
+(6) Drops cascade own findings → `link_target_dropped` → `shared_folder_orphaned`. (7) `validate`
+reports `team_name_unknown` (empty name) and `export_empty` itself. (8) `common_link_missing`'s
+context is the link file and the Common path, not a separate link kind. (9) The kit, portrait
+and logo details in "Kits, portraits, logo": `all` is a slot for duplicates and obeys the `kit`
+prefix, `kit_all_unused` is `Keep`, `Portraits/` is a stem namespace, `portrait_conflict` moves
+to the deep pass, a logo finding drops the logo as one unit.
+Why: (1) Red's per-engine lists (no `.fmdl` pre-Fox, no `.model` on Fox) predate conversion,
+which makes every model format a source for either engine; a version-dependent list would refuse
+inputs the plan converts. One fallback rule for subfolders covers `extra/`, `Common/sub/` and kit
+subfolders without a case each. (2) A census of the maintainer's machine found 225 such files in
+the model folders of real team exports; as `Other` they would drop each folder under the default
+strict check, for a file no author wrote. (3) Players and kits used the same shape in prose; one
+split rule means `03 - Jean-Pierre` and `p1 - Lakers` cannot parse differently. (4) A scenario
+reports one finding per disallowed file while the folder is what goes. (5) The catalog's
+not-eligible classes (identity, conflicts, unused content, contradictory directives) cover every
+other structure-pass drop; a list of four is what the code checks. (6) TC-STR-08 and TC-STR-16
+need a player dropped by a link to leave its other shared folders unreferenced. (7) The validated
+export needs a `TeamName`, and an empty root is visible only after normalization. (8) The
+link's own name (`torso.fmdl.common`, `hair.png.common`) already says what kind it is. (9) Two
+`all/` folders would make inheritance a pick; an `all/` texture becomes a kit's texture, so it
+needs a kit's name; an unused `all/` affects no output. `Portraits/` maps one file per slot, and
+two of one stem cannot both be it. "Differing portraits" needs the bytes the structure pass never
+reads. The game needs all three logo sizes from one source pair, so no partial logo exists.
+Plan: `aesthetics_export/object_model.md` "Validation semantics"; `team_compiler/messages.md`
+`common_link_missing`.

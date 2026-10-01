@@ -15,10 +15,11 @@ pub use draft::{
     AestheticsExportDraft, ExportKind, FileDescriptor, FolderDraft, RawRoster, RawRosterEntry,
 };
 
-use crate::FileKind;
-use crate::conventions::{CONTENT_FOLDERS, ContentFolder, classify};
+use crate::conventions::{
+    CONTENT_FOLDERS, ContentFolder, classify, is_logo_texture, is_os_artifact,
+};
 use crate::listing::{CanonicalListing, ListedKind, SmallMetadata};
-use crate::validate::{Disposition, ISSUE_CODES, IssueScope, ValidationIssue};
+use crate::validate::{Disposition, IssueScope, ValidationIssue, issue};
 
 /// A listing that cannot become a tree: the consumer's `export_extract_failed`.
 #[derive(Debug, thiserror::Error)]
@@ -162,30 +163,9 @@ fn is_usable_root(canon: &Canon, folder: Option<&ScopePath>) -> bool {
         CONTENT_FOLDERS
             .iter()
             .any(|(name, _)| file_name(path).eq_ignore_ascii_case(name))
-    }) || files.iter().any(|(path, _)| {
-        file_name(path)
-            .get(..4)
-            .is_some_and(|prefix| prefix.eq_ignore_ascii_case("logo"))
-            && classify(file_name(path)) == FileKind::Texture
-    })
-}
-
-/// The shared issue constructor: every code the crate emits must be listed in
-/// `ISSUE_CODES`.
-fn issue(
-    code: &'static str,
-    scope: IssueScope,
-    context: Vec<(&'static str, String)>,
-    disposition: Disposition,
-) -> ValidationIssue {
-    debug_assert!(ISSUE_CODES.contains(&code), "{code} not in ISSUE_CODES");
-    ValidationIssue {
-        code,
-        scope,
-        context,
-        disposition,
-        passed_through: false,
-    }
+    }) || files
+        .iter()
+        .any(|(path, _)| is_logo_texture(file_name(path)))
 }
 
 /// Lists one export source into a draft: canonicalize, normalize the root,
@@ -205,6 +185,9 @@ pub fn parse_listing(
             error,
         })?;
         match entry.kind {
+            // OS artifacts (Thumbs.db, desktop.ini, .DS_Store) never reach the
+            // tree and are reported nowhere.
+            ListedKind::File { .. } if is_os_artifact(file_name(&path)) => {}
             ListedKind::File { size } => files
                 .insert(
                     path.clone(),
@@ -549,34 +532,38 @@ fn build_draft(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::listing::{CanonicalListing, ListedEntry};
-
-    fn listing(name: &str, files: &[(&str, u64)], folders: &[&str]) -> CanonicalListing {
-        let entries = files
-            .iter()
-            .map(|(path, size)| ListedEntry {
-                path: (*path).to_owned(),
-                kind: ListedKind::File { size: *size },
-            })
-            .chain(folders.iter().map(|path| ListedEntry {
-                path: (*path).to_owned(),
-                kind: ListedKind::Folder,
-            }))
-            .collect();
-        CanonicalListing {
-            display_name: name.to_owned(),
-            entries,
-        }
-    }
+    use crate::ISSUE_CODES;
+    use crate::testing::{listing, parsed};
 
     fn parse(name: &str, files: &[(&str, u64)], folders: &[&str]) -> ParsedAestheticsExport {
-        parse_listing(
-            listing(name, files, folders),
-            SmallMetadata {
-                files: BTreeMap::new(),
-            },
-        )
-        .unwrap()
+        parsed(name, files, folders, &[])
+    }
+
+    #[test]
+    fn os_artifacts_never_reach_the_draft() {
+        let parsed = parse(
+            "egg",
+            &[
+                ("Thumbs.db", 5),
+                ("desktop.ini", 5),
+                (".DS_Store", 5),
+                ("Players/03 - A/Thumbs.DB", 5),
+                ("Players/03 - A/face_high.fmdl", 10),
+            ],
+            &[],
+        );
+        assert!(parsed.draft.root_files.is_empty());
+        assert_eq!(
+            parsed.draft.players[0]
+                .files
+                .iter()
+                .map(|file| file.path.as_str())
+                .collect::<Vec<_>>(),
+            vec!["Players/03 - A/face_high.fmdl"]
+        );
+        // A folder that held only an artifact does not exist in the tree.
+        let artifacts = parse("egg", &[("wrapper/Thumbs.db", 5)], &[]);
+        assert!(artifacts.draft.root_folders.is_empty());
     }
 
     #[test]

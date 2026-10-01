@@ -176,7 +176,7 @@ savefile messages are new.
 | `skeleton_retargeted` | I | the model's bind pose was re-bound from its source version's skeleton to the target's (bones moved more than tolerance) | none |
 | `kit_variant_missing` | W | a `kitN` reference has no variant for a kit number the export defines | lowest existing variant copied into the gap |
 | `kit_variant_model_fox` | W | per-kit model variants (`*_kit1`, `*_kit2`, …) on a Fox target, which has no model-path indirection | lowest variant used, others ignored |
-| `common_link_missing` | E | a `.common` link — model, material file or texture — names a file missing from the Common folder (context: link kind and the Common path looked for) | folder discarded |
+| `common_link_missing` | E | a `.common` link — model, material file or texture — names a file missing from the Common folder (context: the link file, whose name shows its kind, and the Common path looked for) | folder discarded |
 | `settings_toml_name_shared` | W | `name` given in a folder mapped to multiple players | name applied to all of them |
 | `fpc_conflict` | E | both `fpc.on` and `fpc.off` present in a player folder | folder discarded |
 | `fpc_strip_conflict` | W | `settings.toml` strip keys conflict with the folder's FPC marker | FPC preset wins; keys ignored |
@@ -214,7 +214,7 @@ game's three sizes)
 | `kit_texture_uncompressed` | E | main kit texture in uncompressed format | discarded |
 | `texture_type_mismatch` | E | header doesn't match extension (renamed, not resaved) | discarded |
 | `texture_codec_unsupported` | E | codec not convertible in-process | discarded |
-| `texture_stem_conflict` | E | two image files with the same stem in one lookup namespace, whatever their extensions: a model folder with its reserved subfolders (`hair.dds` beside `common/hair.dds`, or `hair.png`), a kit folder, or `Kits/all/` (`kit.png` beside `kit.dds`; a kit's own file overriding an `all/` file of its stem is not a conflict) | folder discarded (the kit; for `all/`, `all/` itself, so no kit inherits from it) |
+| `texture_stem_conflict` | E | two image files with the same stem in one lookup namespace, whatever their extensions: a model folder with its reserved subfolders (`hair.dds` beside `common/hair.dds`, or `hair.png`), a kit folder, or `Kits/all/` (`kit.png` beside `kit.dds`; a kit's own file overriding an `all/` file of its stem is not a conflict), or `Portraits/` (`player_03.dds` beside `player_03.png`) | folder discarded (the kit; for `all/`, `all/` itself, so no kit inherits from it); in `Portraits/`, both files |
 
 **XML/MTL content checks** (pre-Fox, plus `face_diff.xml` in Fox)
 

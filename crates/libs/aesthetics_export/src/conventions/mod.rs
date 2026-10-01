@@ -4,6 +4,7 @@
 mod file_types;
 
 pub use file_types::{FileKind, Marker, MetadataFile, ModelFormat, SharedKind, classify};
+pub(crate) use file_types::{is_logo_texture, shared_link_name};
 
 /// One of the eight content folders at the export root; the draft groups each
 /// by kind. `all/` lives inside `Kits/` and is not a kind of its own.
@@ -48,6 +49,32 @@ pub fn is_small_metadata(path: &str) -> bool {
     const NAMES: [&str; 4] = ["players.txt", "refs.txt", "notes.txt", "icon.txt"];
     let name = path.rsplit(['/', '\\']).next().unwrap_or(path);
     NAMES.iter().any(|known| name.eq_ignore_ascii_case(known))
+}
+
+/// File names a file browser writes, never an author: `parse_listing` leaves
+/// them out of the draft and reports nothing ("Validation semantics" → "OS
+/// artifacts").
+pub(crate) const OS_ARTIFACTS: [&str; 3] = ["thumbs.db", "desktop.ini", ".ds_store"];
+
+/// Whether `name` (a path's last segment) is an OS artifact, ASCII-case-
+/// insensitively.
+pub(crate) fn is_os_artifact(name: &str) -> bool {
+    OS_ARTIFACTS
+        .iter()
+        .any(|known| name.eq_ignore_ascii_case(known))
+}
+
+/// A player or kit folder's `<head>[ - <label>]` split ("Validation
+/// semantics" → "Folder names"): the name before the first `-`, trimmed, and
+/// the trimmed remainder when it is non-empty.
+pub(crate) fn split_folder_name(name: &str) -> (&str, Option<&str>) {
+    match name.split_once('-') {
+        Some((head, label)) => {
+            let label = label.trim();
+            (head.trim(), (!label.is_empty()).then_some(label))
+        }
+        None => (name.trim(), None),
+    }
 }
 
 #[cfg(test)]
