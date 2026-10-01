@@ -92,10 +92,10 @@ def git(*args: str, **kwargs) -> subprocess.CompletedProcess:
     return subprocess.run(["git", *args], cwd=ROOT, **kwargs)
 
 
-def snapshot() -> tuple[str, str]:
-    """Commit the whole working tree (tracked edits and untracked non-ignored
-    files: the run measures the tree under review) to `refs/mutants/remote`
-    without touching the real index. Returns (tree, commit)."""
+def working_tree() -> str:
+    """Write the whole working tree (tracked edits and untracked non-ignored
+    files: a run measures the tree under review) as a git tree object, through
+    a private index so the real one is not touched. Returns the tree's id."""
     index = git(
         "rev-parse", "--git-path", "mutants-remote.index",
         check=True, capture_output=True, text=True,
@@ -112,9 +112,15 @@ def snapshot() -> tuple[str, str]:
     )
     if added.returncode != 0:
         raise RuntimeError(f"git add -A failed:\n{added.stderr}")
-    tree = git(
+    return git(
         "write-tree", env=env, check=True, capture_output=True, text=True
     ).stdout.strip()
+
+
+def snapshot() -> tuple[str, str]:
+    """Commit the whole working tree (`working_tree`) to `refs/mutants/remote`.
+    Returns (tree, commit)."""
+    tree = working_tree()
     commit = git(
         "commit-tree", tree, "-p", "HEAD", "-m", "mutants remote snapshot",
         check=True, capture_output=True, text=True,
