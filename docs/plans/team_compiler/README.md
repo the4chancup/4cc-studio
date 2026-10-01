@@ -240,12 +240,20 @@ textures (DDS converted, FTEX as it is; the other image formats are Phase 4's) a
 `fcl_hair_sim.fclo`); and kits needing no layout conversion, their configs written into
 a `UniformParameter.bin` built on the bundled base, which the CPK carries only when it has kits
 (installed-bin lookup is Phase 4's). The test is over what would be emitted: content validation
-drops or leaves unmapped, an unused `all/`, files a lenient setting keeps despite a finding, and
-the root and kit metadata files do not count (`notes.txt` and `icon.txt` are validated and emit
-nothing yet; `colors.txt` waits for its grammar, an open question for Phase 4; `README.txt` is
-ignored). An export holding anything else, targeting PES
+drops or leaves unmapped, an unused `all/`, a link whose missing target `pass_through` keeps, a
+`kit_mask` on a Fox target (Fox has no mask slot), a player's `settings.toml` and `fpc.off`
+(savefile only), and the root and kit metadata files do not count (`notes.txt` and `icon.txt`
+are validated and emit nothing yet; `colors.txt` waits for its grammar, an open question for
+Phase 4; `README.txt` is ignored). Everything else the validated export holds counts: a file a
+lenient setting keeps despite its finding, a portrait, an `ingame_face` or `fpc.on` marker
+(the second changes every kit config), any shared folder, logo, collar or Common file. The
+validated export does not mark what a lenient setting kept, and a refusal never writes a CPK
+that differs from Phase 4's. An export holding anything else, targeting PES
 15–17, or a refs export is skipped with the Error `content_not_yet_compiled` naming the first
-such item, the target or `refs`, rather than writing an incomplete CPK. That includes a face
+such item (context `what`: its path, the target or `refs`; for a missing injected file,
+context `missing`: its path), rather than writing an incomplete CPK. The first item is found
+in a fixed order: the target, `refs`, then the players in the export's order (each folder's
+files before its missing files), the shared folders, the kits by slot, then the rest. That includes a face
 folder missing a file Phase 4 would inject (`face_diff.bin`; with an `fcl_hair.fmdl`, also
 `fcl_hair_sim.fclo` and the `fcl_hair.skl` pairing it: "Fox mode fixups" in `pipeline.md`), so
 no compiled face lacks what Red's would hold. An empty kit folder, or one whose effective

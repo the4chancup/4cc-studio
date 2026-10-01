@@ -281,17 +281,22 @@ Itemized 2026-09-30 at Phase 2's close. Order: the tracer first (one real export
     `tests/common/`; `aesthetics_export` `KitFolder.path`. Interim until 3.9b: a PES 15-17
     target ends the run with exit 3 and a refs export plans no task, both silently outside the
     gate 3.9b adds. 3.9c owes the `.7z` permit-choice test (`compile.rs` `==` survivor).
-  - [ ] 3.9b the subset gate (`content_not_yet_compiled`, the missing-template rule), task
-    failures as `DropFolder`, events (`FolderStatus`, `ExportProcessed`, `Complete`), the
-    teams list created by `compile` (`settings.md`). → verify: TC-DSP-*, TC-ROS-01/04/05/06/09,
-    TC-KIT-01, TC-ID-02, TC-OUT-02/04/06, TC-STR-01, TC-ROOT-02, TC-SRC-03/04/06/08, TC-CLI-04
+  - [ ] 3.9b the subset gate (`content_not_yet_compiled`, the missing-template rule; the
+    pre-Fox target and refs exports move into it from 3.9a's interim), the teams list created
+    by `compile` (`settings.md`), the help topic's gate limits (CONTRIBUTING: a behavior change
+    lands with its topic). Design: decision entry "3.9b: what the Phase 3 subset gate counts".
+    → verify: TC-OUT-02/04/06, TC-ID-02
+  - [ ] 3.9b2 events (`FolderStatus`, `ExportProcessed`, `Complete`) and the compile-observed
+    scenarios over behavior already built (split from 3.9b at 3.9a's review, to keep each
+    slice one review). → verify: TC-DSP-*, TC-ROS-01/04/05/06/09, TC-KIT-01, TC-STR-01,
+    TC-ROOT-02, TC-SRC-03/04/06/08, TC-CLI-04
   - [ ] 3.9c the rayon pool and admission (`pipeline.md` "Admission"), archive content read
     once per export with the `.7z` charge shared by its tasks. → verify: same CPK bytes under
     another completion order, a `.7z` over the cap compiles, TC-SRC-09, TC-ID-01, TC-ROOT-05
   - [ ] 3.9d output safety: the writability preflight, `cpk_write_failed` and
     `output_commit_failed` with nothing partial left. → verify: TC-CLI-06, TC-OUT-03, TC-OUT-05
   - [ ] 3.9e the placeholder kit (the checkerboard DDS is a lead-made resource) and
-    `kit_placeholder`; the help topic's Phase 3 limits. → verify: TC-SRC-01, every 3.9 ID
+    `kit_placeholder`, with its help topic line. → verify: TC-SRC-01, every 3.9 ID
     proven in `acceptance.py report`
 - [ ] 3.z Shell slice, last code step of the phase (`core/development_plan.md` "Phase 3", last bullet; decided
   2026-09-15): minimal `studio_core` shell (window, sidebar, selected tool's `view()`), `studio`

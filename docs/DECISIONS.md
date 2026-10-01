@@ -2719,3 +2719,25 @@ the normal case.
 Plan: `team_compiler/pipeline.md` "Run driver shapes (Phase 3)" (block, Admission, Output);
 `aesthetics_export/object_model.md` (`KitFolder`); `team_compiler/README.md` "Phase 3 scope"
 (the face files and texture formats named).
+
+## 2026-10-02 — team_compiler — 3.9b: what the Phase 3 subset gate counts
+Decision (lead, from a design pass before briefing 3.9b; reversible): the gate counts every
+item the validated export holds except what validation dropped or left unmapped, an unused
+`all/`, a link whose missing target `pass_through` keeps, a `kit_mask` on a Fox target (planning
+drops it from the kit's textures, silently), a player's `settings.toml` and `fpc.off`, and the
+root and kit metadata. A file a lenient setting keeps despite its finding counts, and so do a
+portrait, `ingame_face`, `fpc.on`, shared folders, logo, collars and Common. A mapped folder
+with no face model is refused (the scope's "holding one or more Fox face models"). The context
+is `what` (a path, the target or `refs`) or, for a missing injected file, `missing`. The
+first item is found in a fixed order (target, refs, players with files before missing files,
+shared folders, kits by slot, the rest). The gate and processing share one classification
+(`face_file`, the kit stems, the texture format), so processing keeps no "cannot be compiled
+yet" branch of its own. `fcl_hair_sim.fclo` without `fcl_hair.fmdl` is still packed.
+Why: the plan's "files a lenient setting keeps … do not count" cannot be implemented: the
+validated export does not mark them (`FileDescriptor` has no flag; only the issue list knows),
+and Phase 4's own treatment of them is unsettled; refusing never writes a CPK that differs from
+Phase 4's. `kit_mask` is not emitted on Fox in Phase 4 either (`pipeline.md` kit textures), and
+refusing it would skip 14 of 365 surveyed kits for nothing. `fpc.on` changes every kit config;
+`ingame_face` reroutes the face; both would emit something Phase 3 does not build.
+Plan: `team_compiler/README.md` "Phase 3 scope" (the "what would be emitted" sentence, context
+keys, order).
