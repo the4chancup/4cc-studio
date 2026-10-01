@@ -3,6 +3,7 @@
 
 mod console;
 
+use std::path::PathBuf;
 use std::process::ExitCode;
 use std::sync::{Arc, Mutex};
 
@@ -37,15 +38,22 @@ fn install_cli_logger(verbosity: u8) {
         .init();
 }
 
+/// The folder holding the executable, which the data location and path settings resolve against.
+fn exe_dir() -> anyhow::Result<PathBuf> {
+    let exe = std::env::current_exe().context("cannot locate the executable")?;
+    Ok(exe
+        .parent()
+        .context("the executable's path has no folder")?
+        .to_path_buf())
+}
+
 /// Resolves the data location (presence-based, never asked and never written from the CLI) and
 /// loads the settings from it, with every tool's defaults merged in memory. With no settings file
 /// yet, the defaults alone and no data directory.
-fn load_settings(tools: &[Box<dyn StudioTool>]) -> anyhow::Result<(Settings, AppPaths)> {
-    let exe = std::env::current_exe().context("cannot locate the executable")?;
-    let exe_dir = exe
-        .parent()
-        .context("the executable's path has no folder")?
-        .to_path_buf();
+fn load_settings(
+    tools: &[Box<dyn StudioTool>],
+    exe_dir: PathBuf,
+) -> anyhow::Result<(Settings, AppPaths)> {
     let data_dir = resolve_data_dir(&exe_dir, user_config_dir().as_deref());
     let mut settings = match &data_dir {
         Some(dir) => {
@@ -61,11 +69,19 @@ fn load_settings(tools: &[Box<dyn StudioTool>]) -> anyhow::Result<(Settings, App
 }
 
 /// Runs one tool subcommand headless and returns the process exit code: the tool's own, 2 when
-/// the settings file cannot be loaded (a configuration error: nothing ran), or 3 when the console
-/// printer failed.
+/// the settings file cannot be loaded (a configuration error: nothing ran), or 3 when the
+/// executable's folder cannot be found or the console printer failed (environment failures;
+/// `core/architecture.md`, the binary's own codes).
 #[expect(clippy::print_stderr, reason = "CLI result output is the binary's job")]
 fn run_cli_mode(tools: &[Box<dyn StudioTool>], tool: &str, matches: &ArgMatches) -> ExitCode {
-    let (settings, paths) = match load_settings(tools) {
+    let exe_dir = match exe_dir() {
+        Ok(dir) => dir,
+        Err(error) => {
+            eprintln!("error: {error:#}");
+            return ExitCode::from(3);
+        }
+    };
+    let (settings, paths) = match load_settings(tools, exe_dir) {
         Ok(loaded) => loaded,
         Err(error) => {
             eprintln!("error: {error:#}");
