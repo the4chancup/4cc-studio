@@ -17,6 +17,7 @@ impl<R: Read + Seek> Archive<R> {
     pub fn zip(reader: R) -> Result<Self, ArchiveError>;      // reads the central directory and each entry's local header, decompresses nothing; any encrypted entry is `Encrypted`
     pub fn seven_z(reader: R) -> Result<Self, ArchiveError>;  // reads the header only; an encrypted header or any AES-coded block is `Encrypted`
     pub fn entries(&self) -> &[Entry];
+    pub fn folders(&self) -> &[String];                        // the directory entries, normalized like `Entry::path`, archive order
     pub fn read(&mut self, path: &str) -> Result<Vec<u8>, ArchiveError>;
 }
 #[cfg(not(target_arch = "wasm32"))]
@@ -39,8 +40,14 @@ loading possible); on a 7z the first `read` decompresses the whole archive into 
 reads are lookups, because 7-Zip's default is one solid LZMA2 block and per-entry extraction of a
 solid archive is quadratic. The Team compiler's memory budget charges a 7z export by the sum of
 its `entries()` sizes for that reason (its plan already says so); dropping the `Archive` releases
-the buffer. Names are normalized (`\` to `/`, a leading `/` or `./` stripped), directory entries
-dropped, and a name with a `..` segment or a drive prefix (a first segment `X:...`, whatever
+the buffer. Names are normalized (`\` to `/`, a leading `/` or `./` stripped, a directory
+entry's trailing `/` too). Directory entries are listed apart, by `folders()`, not in
+`entries()`: an empty folder exists in an archive only as a directory entry, and an empty kit
+folder is a placeholder kit (Team compiler plan), so dropping them lost a kit; keeping
+`entries()` files only keeps its sizes the sum a 7z read decompresses, which is what the budget
+charges. A folder that also has entries below it may or may not be listed, as the writer chose;
+`folders()` carries no other guarantee and is not checked for duplicates (a folder holds no
+bytes for two spellings to disagree on). A name with a `..` segment or a drive prefix (a first segment `X:...`, whatever
 follows the colon) is `InvalidName` (a zip-slip name has no meaning in a tree that is never
 written to disk, and rejecting it keeps the guarantee visible). Two entries that normalize to one
 tree path (`a/b` and `a\b`, `./a/b`) are `DuplicateName`, the plan-wide rule that collisions are

@@ -2646,3 +2646,13 @@ Plan: `core/architecture.md` (trait block, `ToolContext`, CLI event line format)
 `anyhow` row; `core/distribution.md` "Data location"; `team_compiler/settings.md` (settings
 paragraph); `team_compiler/messages.md` (`export_identified`, text principle);
 `team_compiler/pipeline.md` "1. Reader" step 1.
+
+## 2026-10-01 — archives — directory entries listed apart, by `folders()`
+Decision (lead): `Archive::folders() -> &[String]` lists an archive's directory entries,
+normalized like file paths; `entries()` stays files only. Not chosen: a kind field on `Entry`.
+Why: an empty kit folder is a placeholder kit (2026-09-12), and in an archive an empty folder
+exists only as a directory entry, which the crate dropped (3.1 review); a mixed `entries()`
+would make every size sum (the 7z charge in `libs/pipeline.md`) filter out folders, and a
+caller that forgot would charge nothing wrong today but read a folder as a zero-byte file.
+Folders are not checked for duplicates: no bytes for two spellings to disagree on.
+Plan: `libs/archives.md` (API block, normalization paragraph).
