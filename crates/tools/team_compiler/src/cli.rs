@@ -1,5 +1,6 @@
-//! The Team compiler's command line (`team_compiler/settings.md` "CLI"): the clap surface and the
-//! preflight that refuses an invalid invocation or configuration before any export is read.
+//! The Team compiler's command line (`team_compiler/settings.md` "CLI"): a parsed command turned
+//! into a run, refused before any export is read when its invocation or configuration is
+//! invalid, and the run's outcome turned into the exit code scripts read.
 
 use std::fs;
 use std::io;
@@ -8,23 +9,23 @@ use std::path::{Path, PathBuf};
 use anyhow::anyhow;
 use clap::{Args, Command, FromArgMatches, Subcommand, ValueEnum};
 use pipeline::CpkStem;
-use studio_core::{AppPaths, CliError, CommonSettings, ToolContext};
+use studio_core::{AppPaths, CliError, CommonSettings, Severity, ToolContext};
 use teams_list::TeamsList;
 
-use crate::check;
 use crate::messages::TOOL_ID;
 use crate::reader::is_archive;
 use crate::settings::{TeamCompilerSettings, from_table};
+use crate::{check, compile};
 
 // The exit codes are the command line's contract with scripts (`settings.md` "CLI").
 /// Exit code of a run that finished with no Error finding (warnings and notes allowed).
-pub(crate) const CLEAN: u8 = 0;
+const CLEAN: u8 = 0;
 /// Exit code of a run that finished, but some export had an Error finding.
-pub(crate) const ERRORS: u8 = 1;
+const ERRORS: u8 = 1;
 /// Exit code of an invalid invocation or configuration: nothing ran.
 const INVALID: u8 = 2;
 /// Exit code of a run aborted before or during its work.
-pub(crate) const ABORTED: u8 = 3;
+const ABORTED: u8 = 3;
 
 #[derive(Debug, Subcommand)]
 enum TeamCompilerCommand {
@@ -102,17 +103,28 @@ pub(crate) fn run(matches: &clap::ArgMatches, ctx: &ToolContext) -> Result<u8, C
     match command {
         TeamCompilerCommand::Check(source) => {
             check_export_paths(&source.exports)?;
-            let (settings, common) = read_settings(&ctx.tool_settings(TOOL_ID), ctx.common())?;
+            let common = ctx.common();
+            let settings = read_settings(&ctx.tool_settings(TOOL_ID), &common)?;
             let inputs = resolve_inputs(source, settings, common, ctx.paths())?;
-            check::run(&inputs, ctx)
+            verdict(check::run(&inputs, ctx))
         }
         TeamCompilerCommand::Compile(args) => {
             refuse_mode(args.mode, args.no_deploy)?;
             check_export_paths(&args.source.exports)?;
-            let (settings, common) = read_settings(&ctx.tool_settings(TOOL_ID), ctx.common())?;
+            let common = ctx.common();
+            let settings = read_settings(&ctx.tool_settings(TOOL_ID), &common)?;
             let cpk_stem = compile_settings(&settings)?;
+            // `settings.md` "Path resolution": a relative output folder sits beside the
+            // executable; an absolute one replaces the base.
+            let output_folder = ctx.paths().exe_dir.join(&settings.output_folder_path);
             let inputs = resolve_inputs(args.source, settings, common, ctx.paths())?;
-            compile(inputs, cpk_stem)
+            verdict(compile::run(
+                &inputs,
+                &cpk_stem,
+                &output_folder,
+                args.no_deploy,
+                ctx,
+            ))
         }
         TeamCompilerCommand::UpgradeDpfl { .. } => Err(invalid(anyhow!(
             "upgrade-dpfl is not available yet in this version"
@@ -120,8 +132,22 @@ pub(crate) fn run(matches: &clap::ArgMatches, ctx: &ToolContext) -> Result<u8, C
     }
 }
 
-fn compile(_inputs: RunInputs, _cpk_stem: CpkStem) -> Result<u8, CliError> {
-    Err(CliError::new(ABORTED, anyhow!("compile is not built yet")))
+/// A run's outcome as the exit code: its worst finding's, or `ABORTED` with the error when the
+/// run could not go on.
+fn verdict(outcome: anyhow::Result<Option<Severity>>) -> Result<u8, CliError> {
+    outcome
+        .map(exit_code)
+        .map_err(|error| CliError::new(ABORTED, error))
+}
+
+/// `settings.md` "CLI": 1 when some export had an Error, 3 when the run hit a Fatal finding,
+/// else 0, warnings and notes included.
+fn exit_code(worst: Option<Severity>) -> u8 {
+    match worst {
+        Some(Severity::Fatal) => ABORTED,
+        Some(Severity::Error) => ERRORS,
+        Some(Severity::Warning | Severity::Info) | None => CLEAN,
+    }
 }
 
 fn invalid(error: anyhow::Error) -> CliError {
@@ -145,12 +171,12 @@ fn refuse_mode(mode: Mode, no_deploy: bool) -> Result<(), CliError> {
     Ok(())
 }
 
-fn mode_name(mode: Mode) -> &'static str {
-    match mode {
-        Mode::Normal => "normal",
-        Mode::Test => "test",
-        Mode::Sider => "sider",
-    }
+/// The mode as `--mode` spells it.
+fn mode_name(mode: Mode) -> String {
+    mode.to_possible_value()
+        .expect("no `Mode` variant is skipped, so each has a value on the command line")
+        .get_name()
+        .to_owned()
 }
 
 /// Each `--export` must be a folder or a `.zip`/`.7z` file; a relative path resolves against the
@@ -176,11 +202,12 @@ fn check_export_paths(paths: &[PathBuf]) -> Result<(), CliError> {
     Ok(())
 }
 
-/// The tool's settings from its table, and the common ones, with the checks both commands share.
+/// The tool's settings from its table, with the checks both commands share on them and on the
+/// common settings.
 fn read_settings(
     table: &toml::Table,
-    common: CommonSettings,
-) -> Result<(TeamCompilerSettings, CommonSettings), CliError> {
+    common: &CommonSettings,
+) -> Result<TeamCompilerSettings, CliError> {
     // A toml error's text ends with a newline, which would leave a blank line under `error: `.
     let settings = from_table(table).map_err(|error| {
         invalid(anyhow!(
@@ -189,7 +216,7 @@ fn read_settings(
         ))
     })?;
     check_memory_cap(common.memory_cap_percent)?;
-    Ok((settings, common))
+    Ok(settings)
 }
 
 fn check_memory_cap(percent: f32) -> Result<(), CliError> {
@@ -279,23 +306,13 @@ fn exports_root(argument: Option<&Path>, common: &CommonSettings, exe_dir: &Path
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::testing::scratch;
 
     fn parse(args: &[&str]) -> TeamCompilerCommand {
         let matches = command()
             .try_get_matches_from(std::iter::once("team-compiler").chain(args.iter().copied()))
             .unwrap();
         TeamCompilerCommand::from_arg_matches(&matches).unwrap()
-    }
-
-    /// A fresh `<temp>/team_compiler_cli_<name>_<pid>` folder.
-    fn scratch(name: &str) -> PathBuf {
-        let root =
-            std::env::temp_dir().join(format!("team_compiler_cli_{name}_{}", std::process::id()));
-        if root.exists() {
-            fs::remove_dir_all(&root).unwrap();
-        }
-        fs::create_dir_all(&root).unwrap();
-        root
     }
 
     #[test]
@@ -325,6 +342,30 @@ mod tests {
     }
 
     #[test]
+    fn the_worst_severity_decides_the_exit_code() {
+        assert_eq!(exit_code(None), 0);
+        assert_eq!(exit_code(Some(Severity::Info)), 0);
+        assert_eq!(exit_code(Some(Severity::Warning)), 0);
+        assert_eq!(exit_code(Some(Severity::Error)), 1);
+        assert_eq!(exit_code(Some(Severity::Fatal)), 3);
+    }
+
+    #[test]
+    fn a_run_that_cannot_go_on_is_aborted_with_its_error() {
+        assert_eq!(verdict(Ok(Some(Severity::Error))).unwrap(), 1);
+        let error = verdict(Err(anyhow!("the disk is full"))).unwrap_err();
+        assert_eq!(error.exit_code, 3);
+        assert_eq!(error.to_string(), "the disk is full");
+    }
+
+    #[test]
+    fn modes_are_named_as_the_command_line_spells_them() {
+        assert_eq!(mode_name(Mode::Normal), "normal");
+        assert_eq!(mode_name(Mode::Test), "test");
+        assert_eq!(mode_name(Mode::Sider), "sider");
+    }
+
+    #[test]
     fn no_deploy_is_refused_with_either_loose_file_mode_and_kept_with_normal() {
         assert!(refuse_mode(Mode::Normal, true).is_ok());
         assert!(refuse_mode(Mode::Normal, false).is_ok());
@@ -339,7 +380,7 @@ mod tests {
 
     #[test]
     fn export_paths_accept_folders_and_archives_only() {
-        let root = scratch("export_paths");
+        let root = scratch("cli_export_paths");
         fs::write(root.join("pack.7z"), "").unwrap();
         fs::write(root.join("notes.txt"), "").unwrap();
         assert!(check_export_paths(&[root.clone(), root.join("pack.7z")]).is_ok());
@@ -365,11 +406,11 @@ mod tests {
     #[test]
     fn settings_of_the_wrong_type_or_a_memory_cap_out_of_range_are_refused() {
         let table: toml::Table = toml::from_str("pass_through = true").unwrap();
-        let (settings, _) = read_settings(&table, CommonSettings::default()).unwrap();
+        let settings = read_settings(&table, &CommonSettings::default()).unwrap();
         assert!(settings.pass_through);
 
         let table: toml::Table = toml::from_str("pass_through = 1").unwrap();
-        let error = read_settings(&table, CommonSettings::default()).unwrap_err();
+        let error = read_settings(&table, &CommonSettings::default()).unwrap_err();
         assert_eq!(error.exit_code, INVALID);
         assert!(error.to_string().contains("pass_through"), "{error}");
 
@@ -377,7 +418,7 @@ mod tests {
             memory_cap_percent: 0.0,
             ..CommonSettings::default()
         };
-        let error = read_settings(&toml::Table::new(), common).unwrap_err();
+        let error = read_settings(&toml::Table::new(), &common).unwrap_err();
         assert!(error.to_string().contains("memory_cap_percent"), "{error}");
     }
 
@@ -397,7 +438,7 @@ mod tests {
     #[test]
     fn the_teams_list_falls_back_to_the_embedded_one_without_a_file() {
         let embedded = embedded_teams_list();
-        let root = scratch("teams_list");
+        let root = scratch("cli_teams_list");
         let relative = Path::new("teams_list.txt");
         assert_eq!(load_teams_list(relative, None).unwrap(), embedded);
         assert_eq!(load_teams_list(relative, Some(&root)).unwrap(), embedded);

@@ -236,8 +236,8 @@ configuration (exit code 2) until Phase 4 implements them, as is `upgrade-dpfl` 
 Likewise until Phase 4, `compile` compiles only what the tracer path does, for a normal team
 targeting a Fox version (18–21): roster-mapped player folders holding one or more Fox face
 models, at most one per face name (`face_high`, `hair_high`, `oral`, `fcl_hair`), with their
-textures and the files a Fox face folder carries beside them (a paired `.skl`, `face_diff`, an
-`.fclo`); and kits needing no layout conversion, their configs written into
+textures (DDS converted, FTEX as it is; the other image formats are Phase 4's) and the files a Fox face folder carries beside them (`fcl_hair.skl` beside `fcl_hair.fmdl`, `face_diff.bin`,
+`fcl_hair_sim.fclo`); and kits needing no layout conversion, their configs written into
 a `UniformParameter.bin` built on the bundled base, which the CPK carries only when it has kits
 (installed-bin lookup is Phase 4's). The test is over what would be emitted: content validation
 drops or leaves unmapped, an unused `all/`, files a lenient setting keeps despite a finding, and

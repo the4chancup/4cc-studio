@@ -2696,3 +2696,26 @@ settings file; 3 when the executable's folder cannot be found or the console pri
 3.8a had exited 2 for a missing executable folder, an environment failure.
 Why: the plan named only clap's 2, so the other codes were bare literals no document owned.
 Plan: `core/architecture.md` (the exit-code paragraph under `AppPaths`).
+
+## 2026-10-02 — team_compiler — 3.9a review: task reads on the coordinator, kit paths, staging
+Decision (lead, reviewing 3.9a; reversible): (1) The coordinator reads each task's files from
+its export's content source and hands the bytes to `process_task(index, task, files, ctx)`; a
+read failure is `source_read_failed` (`DropFolder`), a conversion or packing failure
+`folder_pack_failed`. `TaskBatch` carries no `export_id` (its messages carry their scopes).
+(2) `aesthetics_export::KitFolder` carries its `path` (as the export spells it) instead of
+`folder_name`. (3) A finished run removes its staging folder and `.staging/` when empty.
+(4) A face folder packs only what the tracer path packs: `face_diff.bin`,
+`fcl_hair_sim.fclo`, and `fcl_hair.skl` (as `fcl_hair_sim.skl`) only beside `fcl_hair.fmdl`;
+textures are `.dds` (converted) or `.ftex` (as they are). (5) An `--export` path that stopped
+being a folder or an archive between the preflight and discovery is an error naming it (exit 3).
+Why: (1) an archive is one sequential stream, so pool threads sharing a `&mut` source (3.9a's
+shape) would serialize on it in 3.9c, and messages.md gives reads their own code. (2) The kit
+scope was rebuilt as `Kits/<name>`, which differs from an export spelling `kits/`, so a GUI
+tree would hang the finding on a node that does not exist. (3) An empty `.staging/` left in the
+output folder is clutter a user sees and did not make. (4) 3.9a packed any `.bin`/`.fclo`
+under its own name and dropped the pairing check: game-facing content the Phase 3 scope does
+not name. (5) the race has no better owner than discovery; the preflight's exit 2 stands for
+the normal case.
+Plan: `team_compiler/pipeline.md` "Run driver shapes (Phase 3)" (block, Admission, Output);
+`aesthetics_export/object_model.md` (`KitFolder`); `team_compiler/README.md` "Phase 3 scope"
+(the face files and texture formats named).

@@ -18,6 +18,7 @@ fmdl.workspace = true
 fpk.workspace = true
 ftex.workspace = true
 kit_config.workspace = true
+log.workspace = true
 pes_version.workspace = true
 pipeline.workspace = true
 serde.workspace = true

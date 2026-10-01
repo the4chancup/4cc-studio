@@ -1,17 +1,19 @@
 //! Parity against the compiled output for the same export: compile
-//! `fixtures/tracer/studio/egg Tracer` and compare the CPK with the reference
-//! tree in `fixtures/tracer/red/`, one explicit row per reference entry under
-//! the tiers of `docs/plans/team_compiler/testing.md`.
+//! `fixtures/tracer/studio/egg Tracer` through the `compile` command and
+//! compare the CPK with the reference tree in `fixtures/tracer/red/`, one
+//! explicit row per reference entry under the tiers of
+//! `docs/plans/team_compiler/testing.md`.
+
+mod common;
 
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 use std::fs;
 use std::path::Path;
 
+use common::Sandbox;
 use fpk::FpkFile;
-use pes_version::PesVersion;
-use team_compiler::compile_tracer;
-use teams_list::TeamId;
+use studio_core::{PipelineEvent, Severity};
 
 /// How one entry of the reference tree is compared.
 enum Row {
@@ -208,16 +210,25 @@ fn compare_fpk(failures: &mut Vec<String>, name: &str, ours: &[u8], reference: &
 #[test]
 fn the_tracer_bullet_matches_the_reference_tree() {
     let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/tracer");
-    let cpk_path = Path::new(env!("CARGO_TARGET_TMPDIR")).join("tracer.cpk");
-    compile_tracer(
-        &fixture.join("studio/egg Tracer"),
-        TeamId::new(792).unwrap(),
-        PesVersion::Pes21,
-        &cpk_path,
-    )
-    .unwrap();
+    let sandbox = Sandbox::new("parity");
+    let output = sandbox.root.join("parity output");
+    let settings = format!(
+        "[common]\npes_version = 21\n[team-compiler]\noutput_folder_path = '{}'\n",
+        output.display()
+    );
+    let exports_root = fixture.join("studio");
+    let run = sandbox.run(&settings, &["compile", exports_root.to_str().unwrap()]);
+    assert_eq!(run.exit_code(), 0);
+    for envelope in &run.events {
+        if let PipelineEvent::Message(message) = &envelope.event {
+            assert!(
+                message.severity < Severity::Warning,
+                "the tracer compiles with notes only: {message:?}"
+            );
+        }
+    }
 
-    let ours = archive(&cpk_path);
+    let ours = archive(&output.join("4cc_90_test.cpk"));
     let reference = tree(&fixture.join("red"));
 
     let mut failures = Vec::new();

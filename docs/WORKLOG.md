@@ -10,7 +10,7 @@ is in `AGENTS.md` ("Working documents").
 ## Current status
 
 **Phase:** 3 (Team compiler skeleton). Phases 1 and 2 done (Phase 2 closed 2026-09-30).
-**In progress:** 3.9 (`compile` through the pipeline) is next. 3.7 (`libs/pipeline`) and 3.8
+**In progress:** 3.9 (`compile` through the pipeline): 3.9a done, 3.9b next. 3.7 (`libs/pipeline`) and 3.8
 (`check` end to end, slices a-d) are implemented and mutation-clean; only their cross-family
 reviews are left, queued for the lead (see "Handover" below), and each is marked done once its
 review's rulings land. 3.6 is done (`aesthetics_export`, 35 of 75
@@ -271,11 +271,16 @@ Itemized 2026-09-30 at Phase 2's close. Order: the tracer first (one real export
   (compile-observed, found uncited at slicing), and 3.3's parity case still green. Shapes:
   `pipeline.md` "Run driver shapes (Phase 3)"; scope edges: `README.md` "Phase 3 scope"
   (decision entry "3.9: Phase 3 compile's edges"). Slices, each its own brief, review, commit:
-  - [ ] 3.9a thinnest path: `compile` runs the structure pass shared with `check`, plans face and
+  - [x] 3.9a thinnest path: `compile` runs the structure pass shared with `check`, plans face and
     kit tasks from the validated export, processes them serially, writes the CPK through the
     canonical-order writer to staging and promotes it; `tracer.rs` deleted, `parity.rs` driven
     through `compile`. Until 3.9b, `compile` has no subset gate. → verify: parity green with an
     unchanged table, TC-OUT-01, a run emitting nothing writes no CPK and leaves no staging
+    folder. Done: `team_compiler` `compile.rs`, `structure.rs`, `events.rs`, `check.rs`,
+    `plan/`, `processing/`, `output/`, `paths.rs`, `templates.rs`, `testing.rs`,
+    `tests/common/`; `aesthetics_export` `KitFolder.path`. Interim until 3.9b: a PES 15-17
+    target ends the run with exit 3 and a refs export plans no task, both silently outside the
+    gate 3.9b adds. 3.9c owes the `.7z` permit-choice test (`compile.rs` `==` survivor).
   - [ ] 3.9b the subset gate (`content_not_yet_compiled`, the missing-template rule), task
     failures as `DropFolder`, events (`FolderStatus`, `ExportProcessed`, `Complete`), the
     teams list created by `compile` (`settings.md`). → verify: TC-DSP-*, TC-ROS-01/04/05/06/09,
@@ -793,3 +798,11 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   caught, 7 unviable, 0 missed. `team_compiler` now depends on `archives` (planned, in-tree).
   `mutants.toml` notes the `available_memory` platform arms; 3.w (mutants.toml audit) and
   4.0a (PES12 re-study, stash `pes12`) added at the maintainer's request. Next: 3.9.
+- 2026-10-02: 3.9a landed after one rework round. The lead's review of the first diff found
+  game-facing loosenings (any `.bin`/`.fclo` packed into `face.fpk`, the `fcl_hair.skl` pairing
+  check dropped, any image read as DDS), unreadable files reported as `folder_pack_failed`, kit
+  scopes rebuilt as `Kits/<name>`, an empty `.staging/` left behind, two struct lifetimes and a
+  three-noun `check` module; all fixed (decision entry "3.9a review"). The task's files are now
+  read by the coordinator, which 3.9c's pool needs. The slice ran ~600 lines with 14 audit items
+  folded in, over budget: later slices carry no unrelated fixes. `mutants-diff 6c254c3`: 146,
+  109 caught, 36 unviable, 1 missed: the `.7z` permit choice (3.9c's fixture).

@@ -11,6 +11,66 @@ use studio_core::{Disposition, ExportId, Message, MessageCode, Scope, Severity};
 /// The tool's id: its CLI subcommand, its settings section and the owner of its message codes.
 pub(crate) const TOOL_ID: &str = "team-compiler";
 
+/// The codes the tool reports itself, beside the structure pass's issues (whose codes are the
+/// lib's strings): discovery, routing, identity, planning, processing and output findings.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Code {
+    /// An archive cannot be opened, or its listing is refused.
+    ExportExtractFailed,
+    /// A `NO_USE` marker disables the export.
+    ExportDisabled,
+    /// The export's team, or the referees, as identified.
+    ExportIdentified,
+    /// A balls export, which the Balls compiler owns.
+    ExportBallsSkipped,
+    /// More than one non-disabled refs export in the run.
+    MultipleRefExports,
+    /// The export's first word names no teams-list row.
+    TeamNameUnknown,
+    /// A kit without `config.toml` gets the template config.
+    KitConfigGenerated,
+    /// A file a task reads cannot be read from its export; its folder is left out.
+    SourceReadFailed,
+    /// A task could not build its entries; its folder is left out.
+    FolderPackFailed,
+    /// `--no-deploy`: the CPK was promoted to the output folder instead of installed.
+    DeploySkippedByFlag,
+}
+
+impl Code {
+    /// Every code, for the catalog test: a variant missing here would make its first message
+    /// panic in `severity`, so a new variant is added to this list too.
+    #[cfg(test)]
+    const ALL: [Code; 10] = [
+        Code::ExportExtractFailed,
+        Code::ExportDisabled,
+        Code::ExportIdentified,
+        Code::ExportBallsSkipped,
+        Code::MultipleRefExports,
+        Code::TeamNameUnknown,
+        Code::KitConfigGenerated,
+        Code::SourceReadFailed,
+        Code::FolderPackFailed,
+        Code::DeploySkippedByFlag,
+    ];
+
+    /// The code as the catalog spells it, the stable id a message carries.
+    pub(crate) fn as_str(self) -> &'static str {
+        match self {
+            Code::ExportExtractFailed => "export_extract_failed",
+            Code::ExportDisabled => "export_disabled",
+            Code::ExportIdentified => "export_identified",
+            Code::ExportBallsSkipped => "export_balls_skipped",
+            Code::MultipleRefExports => "multiple_ref_exports",
+            Code::TeamNameUnknown => "team_name_unknown",
+            Code::KitConfigGenerated => "kit_config_generated",
+            Code::SourceReadFailed => "source_read_failed",
+            Code::FolderPackFailed => "folder_pack_failed",
+            Code::DeploySkippedByFlag => "deploy_skipped_by_flag",
+        }
+    }
+}
+
 /// A code's severity as the catalog's "Sev" column gives it; two codes depend on the run.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum CatalogSeverity {
@@ -32,6 +92,9 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("export_identified", CatalogSeverity::Info),
     ("export_balls_skipped", CatalogSeverity::Info),
     ("multiple_ref_exports", CatalogSeverity::Error),
+    ("kit_config_generated", CatalogSeverity::Info),
+    ("folder_pack_failed", CatalogSeverity::ErrorOrFatal),
+    ("deploy_skipped_by_flag", CatalogSeverity::Info),
     // The structure pass's codes, in `ISSUE_CODES` order.
     ("nested_folders_fixed", CatalogSeverity::Warning),
     ("nested_root_ambiguous", CatalogSeverity::Error),
@@ -83,7 +146,9 @@ fn severity(code: &str, disposition: Disposition, strict_file_type_check: bool) 
         .iter()
         .find(|(known, _)| *known == code)
         .map(|(_, severity)| *severity)
-        .expect("every emitted code has a catalog row: the catalog test covers every code");
+        .expect(
+            "every code has a catalog row: the catalog test checks `Code::ALL` and `ISSUE_CODES`",
+        );
     match catalog {
         CatalogSeverity::Info => Severity::Info,
         CatalogSeverity::Warning => Severity::Warning,
@@ -142,10 +207,9 @@ pub(crate) fn issue_message(
     )
 }
 
-/// A message for one of the tool's own codes (discovery, routing, identity), whose severity the
-/// strict setting never changes.
+/// A message for one of the tool's own codes, whose severity the strict setting never changes.
 pub(crate) fn tool_message(
-    code: &'static str,
+    code: Code,
     scope: Scope,
     disposition: Disposition,
     context: Vec<(&'static str, String)>,
@@ -154,7 +218,7 @@ pub(crate) fn tool_message(
         .into_iter()
         .map(|(key, value)| (key.to_owned(), value))
         .collect();
-    message(code, scope, disposition, context, false)
+    message(code.as_str(), scope, disposition, context, false)
 }
 
 fn message(
@@ -213,22 +277,25 @@ mod tests {
                 "{code} appears twice"
             );
         }
-        // The rows beyond the structure pass's are exactly the tool's own Phase 3 codes.
-        let own: Vec<&str> = CATALOG
+        for code in Code::ALL {
+            let rows = CATALOG
+                .iter()
+                .filter(|(known, _)| *known == code.as_str())
+                .count();
+            assert_eq!(rows, 1, "{code:?}");
+        }
+        // The rows beyond the structure pass's are exactly the tool's own codes.
+        let own: Vec<&str> = Code::ALL
+            .iter()
+            .map(|code| code.as_str())
+            .filter(|code| !ISSUE_CODES.contains(code))
+            .collect();
+        let extra: Vec<&str> = CATALOG
             .iter()
             .map(|(code, _)| *code)
             .filter(|code| !ISSUE_CODES.contains(code))
             .collect();
-        assert_eq!(
-            own,
-            [
-                "export_extract_failed",
-                "export_disabled",
-                "export_identified",
-                "export_balls_skipped",
-                "multiple_ref_exports"
-            ]
-        );
+        assert_eq!(extra, own);
     }
 
     #[test]
@@ -245,7 +312,7 @@ mod tests {
     }
 
     #[test]
-    fn a_failed_read_is_fatal_only_when_it_aborts_the_run() {
+    fn a_failed_pack_is_fatal_only_when_it_aborts_the_run() {
         for disposition in [
             Disposition::Keep,
             Disposition::DropFile,
@@ -253,11 +320,11 @@ mod tests {
             Disposition::DropFolder,
             Disposition::DropExport,
         ] {
-            let message = tool_message("source_read_failed", Scope::Run, disposition, vec![]);
+            let message = tool_message(Code::FolderPackFailed, Scope::Run, disposition, vec![]);
             assert_eq!(message.severity, Severity::Error, "{disposition:?}");
         }
         let message = tool_message(
-            "source_read_failed",
+            Code::FolderPackFailed,
             Scope::Run,
             Disposition::AbortRun,
             vec![],
@@ -284,7 +351,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "the catalog test covers every code")]
+    #[should_panic(expected = "the catalog test checks")]
     fn a_code_with_no_row_is_a_programming_error() {
         severity("no_such_code", Disposition::Keep, true);
     }
@@ -395,7 +462,7 @@ mod tests {
     #[test]
     fn a_tool_message_carries_its_scope_disposition_and_context() {
         let message = tool_message(
-            "multiple_ref_exports",
+            Code::MultipleRefExports,
             Scope::Run,
             Disposition::DropExport,
             vec![("exports", "refs a, refs b".to_owned())],

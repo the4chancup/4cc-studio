@@ -1316,10 +1316,10 @@ mod tests {
         assert_eq!(issue_codes(&report), vec![]);
         let kits = &report.validated.unwrap().kits;
         let lakers = &kits.kits[&kit_config::KitSlot::P1];
-        assert_eq!(lakers.folder_name, "p1 - Lakers");
+        assert_eq!(lakers.path.as_str(), "Kits/p1 - Lakers");
         assert_eq!(lakers.label.as_deref(), Some("Lakers"));
         let goalie = &kits.kits[&kit_config::KitSlot::G1];
-        assert_eq!(goalie.folder_name, "g1");
+        assert_eq!(goalie.path.as_str(), "Kits/g1");
         assert_eq!(goalie.label, None);
     }
 

@@ -9,7 +9,12 @@ The Team compiler also runs without its window, from a terminal opened in the fo
 ```
 
 `check` reads your exports and reports what it finds, without writing anything. `compile` reads
-them and builds the CPK.
+them, reports the same findings, and builds the CPK named by the `cpk_name` setting in the output
+folder (`output/` beside `4cc-studio` unless you changed the `output_folder_path` setting), as
+`<cpk_name>.cpk`. The CPK is written in full before it replaces the previous one, so
+`<cpk_name>.cpk` is never half-written. A run that finds nothing to compile writes nothing and leaves the
+previous CPK as it was. In this version `compile` builds for PES 2018 to 2021 only, and does not
+install the CPK into the game: it always leaves it in the output folder.
 
 `check` prints one line per finding: the export it is about, how serious it is, its code, where
 in the export it is, and its details in parentheses. The line `Info export_identified (team=/co/,
@@ -28,8 +33,9 @@ case) is reported as `export_extract_failed` and left out of the run.
 have to be inside the exports folder. Repeat it to name several exports. A path that does not
 exist, or a file that is not a `.zip` or `.7z`, stops the command before anything runs.
 
-`--no-deploy` builds the CPK into the output folder without installing it into the game. It
-cannot be combined with `--mode test` or `--mode sider`.
+`--no-deploy` builds the CPK into the output folder without installing it into the game, and
+says where it is with the line `Info deploy_skipped_by_flag (path=...)`. It cannot be combined
+with `--mode test` or `--mode sider`.
 
 In this version `compile` refuses `--mode test` and `--mode sider`, and refuses to run while the
 `multicpk_mode` setting is on. Use the normal mode with `multicpk_mode` off.

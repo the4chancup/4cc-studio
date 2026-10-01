@@ -2,22 +2,28 @@
 //!
 //! `Tool` registers the tool with the shell: its settings section, its help chapter and its
 //! `team-compiler` command line, whose preflight refuses an invalid invocation or configuration.
-//! `check` runs the structure pass over every export; `compile` is not built yet.
-//! `compile_tracer` compiles the Phase 3 subset (a Fox face plus kits) for the parity test until
-//! the real pipeline replaces it.
+//! `check` runs the structure pass over every export; `compile` runs the same pass, plans the
+//! kept exports' face and kit tasks, processes them and writes the CPK.
 
 mod check;
 mod cli;
+mod compile;
+mod events;
 mod messages;
+mod output;
+mod paths;
+mod plan;
+mod processing;
 mod reader;
 mod settings;
-mod tracer;
+mod structure;
+mod templates;
+#[cfg(test)]
+mod testing;
 
 use studio_core::{CliError, HelpSection, HelpTopic, StudioTool, ToolContext};
 
 use crate::messages::TOOL_ID;
-
-pub use tracer::compile_tracer;
 
 /// The Team compiler, as registered with the `studio` binary.
 pub struct Tool;

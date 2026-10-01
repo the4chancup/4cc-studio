@@ -1,0 +1,224 @@
+//! The canonical-order CPK writer (`team_compiler/pipeline.md` "5. Writer"): task batches go
+//! into the CPK in manifest order whatever order they arrive in, then the bins.
+
+use std::collections::BTreeMap;
+use std::fs::{self, File};
+use std::path::PathBuf;
+
+use anyhow::{Context, ensure};
+use cpk::CpkWriter;
+use pes_version::PesVersion;
+use uniparam::UniformParameter;
+
+use crate::paths;
+use crate::processing::TaskBatch;
+use crate::templates;
+
+/// The CPK header's tool-version string. One string per release, so a release compiling the
+/// same exports writes the same bytes.
+const TOOL_VERSION: &str = concat!("4cc Studio ", env!("CARGO_PKG_VERSION"));
+
+/// One CPK being written. The file is created with the first committed entry, so a run that
+/// commits nothing leaves no file and no folder behind.
+pub(crate) struct CpkOutput {
+    /// Where the CPK is written.
+    path: PathBuf,
+    cpk: Option<CpkWriter<File>>,
+    /// The manifest position of the next batch to commit.
+    next: usize,
+    /// Batches that arrived before an earlier one, by manifest position.
+    pending: BTreeMap<usize, TaskBatch>,
+    /// The committed kits' `UniformParameter.bin` entries.
+    uniform_parameters: Vec<(String, Vec<u8>)>,
+}
+
+impl CpkOutput {
+    /// A CPK to be written at `path`; nothing is created yet.
+    pub(crate) fn new(path: PathBuf) -> CpkOutput {
+        CpkOutput {
+            path,
+            cpk: None,
+            next: 0,
+            pending: BTreeMap::new(),
+            uniform_parameters: Vec::new(),
+        }
+    }
+
+    /// Takes `batch` and commits every batch that is now next in manifest order. Committing in
+    /// manifest order, not arrival order, is what makes the CPK's layout the same on every run.
+    pub(crate) fn submit(&mut self, batch: TaskBatch) -> anyhow::Result<()> {
+        self.pending.insert(batch.index, batch);
+        while let Some(batch) = self.pending.remove(&self.next) {
+            self.commit(batch)?;
+            self.next += 1;
+        }
+        Ok(())
+    }
+
+    /// Writes the bins and closes the CPK. Returns whether a CPK was written: `false` when no
+    /// batch committed anything, and then no file exists.
+    pub(crate) fn finish(mut self, version: PesVersion) -> anyhow::Result<bool> {
+        ensure!(
+            self.pending.is_empty(),
+            "the writer never received task {} of the manifest",
+            self.next
+        );
+        // The bins hold what every committed kit contributed, so they are built only once
+        // every batch is in, and go last.
+        if !self.uniform_parameters.is_empty() {
+            let base = templates::uniform_parameter_base(version)
+                .with_context(|| format!("{version} has no UniformParameter.bin"))?;
+            let mut bin = UniformParameter::read(base)
+                .context("cannot read the bundled UniformParameter base")?;
+            for (name, config) in std::mem::take(&mut self.uniform_parameters) {
+                bin.insert(name, config)?;
+            }
+            self.add(paths::UNIFORM_PARAMETER, &bin.write())?;
+        }
+        let Some(cpk) = self.cpk else {
+            return Ok(false);
+        };
+        cpk.finish()
+            .with_context(|| format!("{}: cannot write the CPK", self.path.display()))?;
+        Ok(true)
+    }
+
+    /// A failed task contributes nothing: no entry, and no kit config to the bins.
+    fn commit(&mut self, batch: TaskBatch) -> anyhow::Result<()> {
+        if batch.entries.is_empty() {
+            return Ok(());
+        }
+        for (path, bytes) in &batch.entries {
+            self.add(path, bytes)?;
+        }
+        self.uniform_parameters.extend(batch.uniparam);
+        // The task's bytes are in the CPK now, so the memory they were charged is free.
+        drop(batch.permit);
+        Ok(())
+    }
+
+    fn add(&mut self, path: &str, bytes: &[u8]) -> anyhow::Result<()> {
+        let cpk = match self.cpk.take() {
+            Some(cpk) => cpk,
+            None => self.create()?,
+        };
+        self.cpk
+            .insert(cpk)
+            .add(path, bytes, None)
+            .with_context(|| format!("{}: cannot add {path}", self.path.display()))
+    }
+
+    fn create(&self) -> anyhow::Result<CpkWriter<File>> {
+        let cannot_create = || format!("{}: cannot create the CPK", self.path.display());
+        if let Some(folder) = self.path.parent() {
+            fs::create_dir_all(folder).with_context(cannot_create)?;
+        }
+        let file = File::create(&self.path).with_context(cannot_create)?;
+        CpkWriter::new(file, TOOL_VERSION).with_context(cannot_create)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::Path;
+
+    use cpk::CpkArchive;
+
+    use super::*;
+    use crate::testing::scratch;
+
+    fn batch(index: usize, paths: &[&str], uniparam: Option<&str>) -> TaskBatch {
+        TaskBatch {
+            index,
+            entries: paths
+                .iter()
+                .map(|path| ((*path).to_owned(), path.as_bytes().to_vec()))
+                .collect(),
+            uniparam: uniparam.map(|name| (name.to_owned(), vec![7; 120])),
+            messages: Vec::new(),
+            permit: None,
+        }
+    }
+
+    /// The CPK's entries in the order their bytes sit in the file.
+    fn layout(path: &Path) -> Vec<String> {
+        let archive = CpkArchive::open(File::open(path).unwrap()).unwrap();
+        let mut entries = archive.entries().to_vec();
+        entries.sort_by_key(|entry| entry.offset);
+        entries.into_iter().map(|entry| entry.path).collect()
+    }
+
+    #[test]
+    fn batches_are_laid_out_in_manifest_order_and_the_bins_last() {
+        let folder = scratch("writer_order");
+        let path = folder.join("run/cup.cpk");
+        let mut output = CpkOutput::new(path.clone());
+
+        output.submit(batch(2, &["a/first.bin"], None)).unwrap();
+        output
+            .submit(batch(1, &["z/second.bin"], Some("kit")))
+            .unwrap();
+        assert!(!path.exists(), "nothing is written before task 0 arrives");
+        output
+            .submit(batch(0, &["m/third.bin", "b/fourth.bin"], None))
+            .unwrap();
+
+        assert!(output.finish(PesVersion::Pes21).unwrap());
+        assert_eq!(
+            layout(&path),
+            [
+                "m/third.bin",
+                "b/fourth.bin",
+                "z/second.bin",
+                "a/first.bin",
+                paths::UNIFORM_PARAMETER,
+            ]
+        );
+        let mut archive = CpkArchive::open(File::open(&path).unwrap()).unwrap();
+        let entry = archive
+            .entries()
+            .iter()
+            .find(|entry| entry.path == paths::UNIFORM_PARAMETER)
+            .unwrap()
+            .clone();
+        let bin = UniformParameter::read(&archive.read(&entry).unwrap()).unwrap();
+        assert_eq!(bin.get("kit"), Some(&[7; 120][..]));
+        let base =
+            UniformParameter::read(templates::uniform_parameter_base(PesVersion::Pes21).unwrap())
+                .unwrap();
+        assert_eq!(bin.len(), base.len() + 1, "the base's entries are kept");
+        fs::remove_dir_all(&folder).unwrap();
+    }
+
+    #[test]
+    fn a_failed_task_contributes_nothing_not_even_its_kit_config() {
+        let folder = scratch("writer_failed");
+        let path = folder.join("run/cup.cpk");
+        let mut output = CpkOutput::new(path.clone());
+
+        output.submit(batch(0, &[], Some("kit"))).unwrap();
+
+        assert!(!output.finish(PesVersion::Pes21).unwrap());
+        assert!(!folder.join("run").exists(), "no file and no folder");
+        fs::remove_dir_all(&folder).unwrap();
+    }
+
+    #[test]
+    fn a_batch_that_never_arrives_is_an_error() {
+        let mut output = CpkOutput::new(scratch("writer_gap").join("cup.cpk"));
+        output.submit(batch(1, &["a/b.bin"], None)).unwrap();
+        let error = output.finish(PesVersion::Pes21).unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            "the writer never received task 0 of the manifest"
+        );
+    }
+
+    #[test]
+    fn a_kit_config_for_a_version_without_the_bin_is_an_error() {
+        let mut output = CpkOutput::new(scratch("writer_pre_fox").join("cup.cpk"));
+        output.submit(batch(0, &["a/b.bin"], Some("kit"))).unwrap();
+        let error = output.finish(PesVersion::Pes17).unwrap_err();
+        assert_eq!(error.to_string(), "PES 2017 has no UniformParameter.bin");
+    }
+}

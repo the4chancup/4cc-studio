@@ -1,6 +1,6 @@
-//! One export source's eager structure (`team_compiler/pipeline.md` "1. Reader", step 4): its
-//! canonical listing and its small metadata files, the inputs of the structure pass, from a
-//! folder, a `.zip` or a `.7z`.
+//! One export source read (`team_compiler/pipeline.md` "1. Reader", step 4): its eager
+//! structure (the canonical listing and the small metadata files the structure pass needs), and
+//! the file contents its tasks load later, from a folder, a `.zip` or a `.7z`.
 
 use std::collections::BTreeMap;
 use std::fmt::Display;
@@ -12,7 +12,7 @@ use aesthetics_export::{
     CanonicalListing, ListedEntry, ListedKind, SmallMetadata, is_small_metadata,
 };
 use archives::Archive;
-use pipeline::MemoryBudget;
+use pipeline::{MemoryBudget, Permit};
 
 use super::{ExportSource, SourceKind};
 
@@ -55,9 +55,8 @@ impl OpenSource {
                 walk(&source.path, "", &mut entries)?;
                 OpenSource::Folder(source.path.clone())
             }
-            SourceKind::Archive => {
-                let archive =
-                    Archive::open(&source.path).map_err(|error| failure(&source.path, &error))?;
+            SourceKind::Zip | SourceKind::SevenZ => {
+                let archive = open_archive(&source.path, source.kind == SourceKind::SevenZ)?;
                 for entry in archive.entries() {
                     entries.push(ListedEntry {
                         path: entry.path.clone(),
@@ -72,12 +71,10 @@ impl OpenSource {
                         kind: ListedKind::Folder,
                     });
                 }
-                // The same extension test `Archive::open` dispatched on.
-                let charged = source
-                    .path
-                    .extension()
-                    .is_some_and(|extension| extension.eq_ignore_ascii_case("7z"));
-                OpenSource::Archive { archive, charged }
+                OpenSource::Archive {
+                    archive,
+                    charged: source.kind == SourceKind::SevenZ,
+                }
             }
         };
         let listing = CanonicalListing {
@@ -120,21 +117,20 @@ impl OpenSource {
 }
 
 /// `paths` read from `archive`, which is dropped before returning. A charged archive (a `.7z`)
-/// is read under a permit for the sum of its entries' sizes, what its first read decompresses
-/// (`libs/pipeline.md` "What a solid `.7z` is charged"); a sum over the cap waits for the
-/// budget to empty, then runs alone.
+/// is read under a permit for what its first read decompresses (`libs/pipeline.md` "What a
+/// solid `.7z` is charged"); a sum over the cap waits for the budget to empty, then runs alone.
+/// An archive with no metadata file to read is not decompressed, so not charged.
 fn read_archive_files(
     mut archive: Archive<File>,
     charged: bool,
     paths: &[&str],
     budget: &Arc<MemoryBudget>,
 ) -> BTreeMap<String, Result<Vec<u8>, String>> {
+    if paths.is_empty() {
+        return BTreeMap::new();
+    }
     let permit = if charged {
-        let total: u64 = archive.entries().iter().map(|entry| entry.size).sum();
-        // A sum past `usize` (a 32-bit host only) is over any cap, and so is the saturated
-        // value: the request is the same oversized one.
-        let size = usize::try_from(total).unwrap_or(usize::MAX);
-        match budget.acquire(size) {
+        match budget.acquire(decompressed_size(&archive)) {
             Ok(permit) => Some(permit),
             Err(cancelled) => {
                 return paths
@@ -159,6 +155,84 @@ fn read_archive_files(
     drop(archive);
     drop(permit);
     files
+}
+
+/// The file contents of one export, read for its tasks (`team_compiler/pipeline.md` "1. Reader",
+/// step 4, "Load"). A folder reads each file from disk. An archive is opened on the first read
+/// and stays open for the export's later reads, so its header is read once per export; a `.7z`
+/// is held under a permit for its whole decompressed size until the export's tasks are done.
+pub(crate) struct ContentSource {
+    path: PathBuf,
+    kind: SourceKind,
+    budget: Arc<MemoryBudget>,
+    // Declared before `permit`, so the decompressed buffer is freed before the bytes it was
+    // charged are released.
+    archive: Option<Archive<File>>,
+    permit: Option<Permit>,
+}
+
+impl ContentSource {
+    /// `source`'s contents, nothing opened yet; a `.7z`'s read is charged to `budget`.
+    pub(crate) fn new(source: &ExportSource, budget: &Arc<MemoryBudget>) -> ContentSource {
+        ContentSource {
+            path: source.path.clone(),
+            kind: source.kind,
+            budget: Arc::clone(budget),
+            archive: None,
+            permit: None,
+        }
+    }
+
+    /// The bytes of the file at `path`, a path of the source as a `FileDescriptor.source` gives
+    /// it. A failure names the file or archive that could not be read.
+    pub(crate) fn read(&mut self, path: &str) -> Result<Vec<u8>, SourceFailure> {
+        if self.kind == SourceKind::Folder {
+            let file = self.path.join(path);
+            return fs::read(&file).map_err(|error| failure(&file, &error));
+        }
+        let seven_z = self.kind == SourceKind::SevenZ;
+        let archive = match self.archive.take() {
+            Some(archive) => archive,
+            None => {
+                let archive = open_archive(&self.path, seven_z)?;
+                if seven_z {
+                    let permit = self
+                        .budget
+                        .acquire(decompressed_size(&archive))
+                        .map_err(|cancelled| failure(&self.path, &cancelled))?;
+                    self.permit = Some(permit);
+                }
+                archive
+            }
+        };
+        self.archive
+            .insert(archive)
+            .read(path)
+            .map_err(|error| SourceFailure {
+                path: path.to_owned(),
+                error: error.to_string(),
+            })
+    }
+}
+
+/// Opens the archive at `path`, a `.7z` when `seven_z`, else a `.zip`: the dispatch the
+/// extension decided once, at discovery.
+fn open_archive(path: &Path, seven_z: bool) -> Result<Archive<File>, SourceFailure> {
+    let file = File::open(path).map_err(|error| failure(path, &error))?;
+    let archive = if seven_z {
+        Archive::seven_z(file)
+    } else {
+        Archive::zip(file)
+    };
+    archive.map_err(|error| failure(path, &error))
+}
+
+/// What a `.7z`'s first read decompresses: the sum of its entries' sizes. A sum past `usize` (a
+/// 32-bit host only) is over any cap, and so is the saturated value: the request is the same
+/// oversized one.
+fn decompressed_size(archive: &Archive<File>) -> usize {
+    let total: u64 = archive.entries().iter().map(|entry| entry.size).sum();
+    usize::try_from(total).unwrap_or(usize::MAX)
 }
 
 /// Lists `folder` (at `prefix` within the source) and everything below it into `entries`.
@@ -215,25 +289,13 @@ mod tests {
     use studio_core::ExportId;
 
     use super::*;
+    use crate::testing::scratch;
 
     /// Long enough that a scheduling hiccup never outlives it; short enough that a permit that
     /// never comes fails the test rather than hanging it.
     const GUARD: Duration = Duration::from_secs(5);
     /// How long "still waiting" takes to observe.
     const BLOCKED: Duration = Duration::from_millis(100);
-
-    /// A fresh `<temp>/team_compiler_source_<name>_<pid>` folder.
-    fn scratch(name: &str) -> PathBuf {
-        let root = std::env::temp_dir().join(format!(
-            "team_compiler_source_{name}_{}",
-            std::process::id()
-        ));
-        if root.exists() {
-            fs::remove_dir_all(&root).unwrap();
-        }
-        fs::create_dir_all(&root).unwrap();
-        root
-    }
 
     fn folder_source(path: PathBuf) -> ExportSource {
         ExportSource {
@@ -251,8 +313,13 @@ mod tests {
         let path = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("tests/fixtures/sources")
             .join(name);
+        let kind = if name.ends_with(".7z") {
+            SourceKind::SevenZ
+        } else {
+            SourceKind::Zip
+        };
         ExportSource {
-            kind: SourceKind::Archive,
+            kind,
             file_name: name.to_owned(),
             ..folder_source(path)
         }
@@ -297,7 +364,7 @@ mod tests {
 
     #[test]
     fn a_folder_lists_every_file_with_its_size_and_every_folder() {
-        let root = scratch("listing");
+        let root = scratch("source_listing");
         fs::create_dir_all(root.join("Players/03 - A")).unwrap();
         fs::create_dir_all(root.join("Kits/p2")).unwrap();
         fs::write(root.join("Players/03 - A/face_high.fmdl"), "12345").unwrap();
@@ -325,7 +392,7 @@ mod tests {
 
     #[test]
     fn a_folder_that_cannot_be_listed_is_a_failure_naming_it() {
-        let missing = scratch("unlistable").join("gone");
+        let missing = scratch("source_unlistable").join("gone");
         let Err(failure) = OpenSource::open(&folder_source(missing.clone())) else {
             panic!("listed a missing folder");
         };
@@ -391,6 +458,118 @@ mod tests {
     }
 
     #[test]
+    fn a_7z_with_no_metadata_file_to_read_is_not_charged() {
+        let budget = MemoryBudget::new(1);
+        let _held = budget.acquire(1).unwrap();
+        let (done_tx, done) = channel();
+        let unheld = Arc::clone(&budget);
+        thread::spawn(move || {
+            let (open, mut listing) = OpenSource::open(&archive_source("co - Spring.7z")).unwrap();
+            listing
+                .entries
+                .retain(|entry| matches!(entry.kind, ListedKind::Folder));
+            done_tx.send(open.read_metadata(&listing, &unheld)).unwrap();
+        });
+
+        let metadata = done
+            .recv_timeout(GUARD)
+            .expect("nothing to read does not wait for the budget");
+        assert!(metadata.files.is_empty());
+    }
+
+    #[test]
+    fn content_is_read_from_a_folder_a_zip_and_a_7z() {
+        let root = scratch("source_content");
+        fs::create_dir_all(root.join("Kits")).unwrap();
+        fs::write(root.join("Kits/notes.txt"), "a note").unwrap();
+        let budget = MemoryBudget::new(1 << 20);
+
+        let mut folder = ContentSource::new(&folder_source(root.clone()), &budget);
+        assert_eq!(folder.read("Kits/notes.txt").unwrap(), b"a note");
+        for name in ["co - Spring.zip", "co - Spring.7z"] {
+            let mut archive = ContentSource::new(&archive_source(name), &budget);
+            assert_eq!(archive.read("players.txt").unwrap(), b"01 Keeper\n");
+            assert_eq!(
+                archive.read("notes.txt").unwrap(),
+                b"Spring kit placeholder.\n",
+                "{name}: a second read from the open archive"
+            );
+        }
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn a_7z_holds_its_charge_until_its_content_source_is_dropped() {
+        // The fixture's entries sum to 34 bytes, the whole cap: a second byte must wait.
+        let budget = MemoryBudget::new(34);
+        let mut content = ContentSource::new(&archive_source("co - Spring.7z"), &budget);
+        assert!(
+            admits(&budget, 34),
+            "nothing is charged before the first read"
+        );
+
+        content.read("players.txt").unwrap();
+
+        let (admitted_tx, admitted) = channel();
+        let waiting = Arc::clone(&budget);
+        thread::spawn(move || {
+            admitted_tx.send(waiting.acquire(1).is_ok()).unwrap();
+        });
+        assert_eq!(
+            admitted.recv_timeout(BLOCKED),
+            Err(RecvTimeoutError::Timeout),
+            "the read is charged"
+        );
+        drop(content);
+        assert_eq!(
+            admitted.recv_timeout(GUARD),
+            Ok(true),
+            "and released with the source"
+        );
+    }
+
+    #[test]
+    fn a_zip_read_is_not_charged() {
+        let budget = MemoryBudget::new(1);
+        let _held = budget.acquire(1).unwrap();
+        let (done_tx, done) = channel();
+        let unheld = Arc::clone(&budget);
+        thread::spawn(move || {
+            let mut content = ContentSource::new(&archive_source("co - Spring.zip"), &unheld);
+            done_tx.send(content.read("players.txt").is_ok()).unwrap();
+        });
+        assert_eq!(done.recv_timeout(GUARD), Ok(true));
+    }
+
+    #[test]
+    fn content_that_cannot_be_read_names_the_file_or_the_archive() {
+        let budget = MemoryBudget::new(1 << 20);
+        let root = scratch("source_unreadable");
+        let mut folder = ContentSource::new(&folder_source(root.clone()), &budget);
+        let failure = folder.read("Kits/gone.dds").unwrap_err();
+        assert_eq!(
+            failure.path,
+            root.join("Kits/gone.dds").display().to_string()
+        );
+
+        let mut archive = ContentSource::new(&archive_source("co - Spring.zip"), &budget);
+        let failure = archive.read("Kits/gone.dds").unwrap_err();
+        assert_eq!(
+            failure,
+            SourceFailure {
+                path: "Kits/gone.dds".to_owned(),
+                error: "no such entry \"Kits/gone.dds\"".to_owned(),
+            }
+        );
+
+        let source = archive_source("co - Escape.zip");
+        let mut refused = ContentSource::new(&source, &budget);
+        let failure = refused.read("x").unwrap_err();
+        assert_eq!(failure.path, source.path.display().to_string());
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
     fn a_zip_is_read_without_a_charge() {
         let budget = MemoryBudget::new(1);
         let _held = budget.acquire(1).unwrap();
@@ -420,7 +599,7 @@ mod tests {
 
     #[test]
     fn only_the_small_metadata_files_are_read_and_a_failed_read_keeps_its_reason() {
-        let root = scratch("metadata");
+        let root = scratch("source_metadata");
         fs::create_dir_all(root.join("Kits/p1")).unwrap();
         fs::write(root.join("players.txt"), "03 A").unwrap();
         fs::write(root.join("Kits/p1/icon.txt"), "3").unwrap();

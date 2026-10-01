@@ -16,7 +16,7 @@ use studio_core::ExportId;
 use teams_list::TeamName;
 
 use source::OpenSource;
-pub(crate) use source::SourceFailure;
+pub(crate) use source::{ContentSource, SourceFailure};
 
 /// One export source found by discovery: a folder or an archive.
 #[derive(Debug)]
@@ -32,17 +32,20 @@ pub(crate) struct ExportSource {
     pub(crate) file_name: String,
     /// The stem: the folder name, or the archive name without extension.
     pub(crate) display_name: String,
-    /// The canonical team name from the stem; `None` when the stem has no token.
+    /// The canonical team name from the stem; `None` when the stem has no token, or when its
+    /// first token does not fold to a valid team name.
     pub(crate) team_name: Option<TeamName>,
 }
 
-/// Whether an export source is a plain folder or an archive file.
+/// What an export source is, which decides how it is read.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum SourceKind {
     /// A plain folder.
     Folder,
-    /// A `.zip` or `.7z` file.
-    Archive,
+    /// A `.zip`: read one entry at a time.
+    Zip,
+    /// A `.7z`: its first read decompresses the whole archive.
+    SevenZ,
 }
 
 /// What the reader decided for one source before validation (pipeline.md steps 1 and 2).
@@ -65,20 +68,39 @@ pub(crate) enum Route {
     },
 }
 
-/// Whether `path` names a `.zip` or `.7z` archive: the extension compared ASCII-case-insensitively,
-/// as Windows treats file names.
+/// Whether `path` names a `.zip` or `.7z` archive.
 pub(crate) fn is_archive(path: &Path) -> bool {
-    path.extension()
-        .and_then(|extension| extension.to_str())
-        .is_some_and(|extension| {
-            extension.eq_ignore_ascii_case("zip") || extension.eq_ignore_ascii_case("7z")
-        })
+    archive_kind(path).is_some()
+}
+
+/// The archive kind `path`'s extension names, compared ASCII-case-insensitively, as Windows
+/// treats file names; `None` for any other extension.
+fn archive_kind(path: &Path) -> Option<SourceKind> {
+    let extension = path.extension()?.to_str()?;
+    if extension.eq_ignore_ascii_case("zip") {
+        Some(SourceKind::Zip)
+    } else if extension.eq_ignore_ascii_case("7z") {
+        Some(SourceKind::SevenZ)
+    } else {
+        None
+    }
+}
+
+/// What `path` is as an export source: a folder, or an archive by its extension.
+fn source_kind(path: &Path) -> Option<SourceKind> {
+    if path.is_dir() {
+        Some(SourceKind::Folder)
+    } else {
+        archive_kind(path)
+    }
 }
 
 /// The export sources of a run: exactly the `exports` paths when any are given (the root is then
 /// not scanned), else every folder and `.zip`/`.7z` file directly in `exports_root`, other files
-/// ignored. Sorted by folded file name, so the order is the same on every file system, and
-/// numbered in that order. An exports root that cannot be listed is an error naming it.
+/// ignored. Sorted by folded file name, then by the name itself, so the order is the same on
+/// every file system, names differing only in case included, and numbered in that order. An
+/// exports root that cannot be listed is an error naming it, and so is a named path that is no
+/// longer a folder or an archive.
 pub(crate) fn discover(
     exports_root: &Path,
     exports: &[PathBuf],
@@ -86,26 +108,41 @@ pub(crate) fn discover(
     let mut paths = if exports.is_empty() {
         scan_root(exports_root)?
     } else {
-        exports.to_vec()
+        named_paths(exports)?
     };
-    paths.sort_by_cached_key(|path| vtree::fold_name(&file_name(path)));
+    paths.sort_by_cached_key(|(path, _)| {
+        let name = file_name(path);
+        (vtree::fold_name(&name), name)
+    });
     Ok(paths
         .into_iter()
         .zip(0..)
-        .map(|(path, id)| source(path, ExportId(id)))
+        .map(|((path, kind), id)| source(path, kind, ExportId(id)))
         .collect())
 }
 
-fn scan_root(exports_root: &Path) -> anyhow::Result<Vec<PathBuf>> {
+fn scan_root(exports_root: &Path) -> anyhow::Result<Vec<(PathBuf, SourceKind)>> {
     let cannot_read = || format!("{}: cannot read the exports folder", exports_root.display());
     let mut paths = Vec::new();
     for entry in fs::read_dir(exports_root).with_context(cannot_read)? {
         let path = entry.with_context(cannot_read)?.path();
-        if path.is_dir() || is_archive(&path) {
-            paths.push(path);
+        if let Some(kind) = source_kind(&path) {
+            paths.push((path, kind));
         }
     }
     Ok(paths)
+}
+
+/// The `--export` paths with their kinds. The preflight refused any other path; one that
+/// changed since is an error naming it.
+fn named_paths(exports: &[PathBuf]) -> anyhow::Result<Vec<(PathBuf, SourceKind)>> {
+    exports
+        .iter()
+        .map(|path| match source_kind(path) {
+            Some(kind) => Ok((path.clone(), kind)),
+            None => anyhow::bail!("--export {}: not a folder, .zip or .7z", path.display()),
+        })
+        .collect()
 }
 
 /// The folder or archive name at the end of `path`. `--export .` has none of its own; the path
@@ -117,18 +154,12 @@ fn file_name(path: &Path) -> String {
     )
 }
 
-/// The source at `path`. `--export` was checked to be a folder or an archive by the preflight,
-/// so anything not a folder is an archive.
-fn source(path: PathBuf, export_id: ExportId) -> ExportSource {
-    let kind = if path.is_dir() {
-        SourceKind::Folder
-    } else {
-        SourceKind::Archive
-    };
+/// The source at `path`, of `kind`.
+fn source(path: PathBuf, kind: SourceKind, export_id: ExportId) -> ExportSource {
     let file_name = file_name(&path);
     let display_name = match kind {
         SourceKind::Folder => file_name.clone(),
-        SourceKind::Archive => path.file_stem().map_or_else(
+        SourceKind::Zip | SourceKind::SevenZ => path.file_stem().map_or_else(
             || file_name.clone(),
             |stem| stem.to_string_lossy().into_owned(),
         ),
@@ -152,14 +183,15 @@ pub(crate) fn route(sources: &[ExportSource], budget: &Arc<MemoryBudget>) -> Vec
         .iter()
         .map(|source| route_source(source, budget))
         .collect();
-    let refs: Vec<usize> = (0..sources.len())
-        .filter(|&index| {
-            matches!(routes[index], Route::Validate { .. })
-                && sources[index]
-                    .team_name
-                    .as_ref()
-                    .is_some_and(TeamName::is_referees)
+    let refs: Vec<usize> = sources
+        .iter()
+        .zip(&routes)
+        .enumerate()
+        .filter(|(_, (source, route))| {
+            matches!(route, Route::Validate { .. })
+                && source.team_name.as_ref().is_some_and(TeamName::is_referees)
         })
+        .map(|(index, _)| index)
         .collect();
     if refs.len() > 1 {
         for index in refs {
@@ -205,19 +237,7 @@ mod tests {
     use aesthetics_export::ListedEntry;
 
     use super::*;
-
-    /// A fresh `<temp>/team_compiler_reader_<name>_<pid>` folder.
-    fn scratch(name: &str) -> PathBuf {
-        let root = std::env::temp_dir().join(format!(
-            "team_compiler_reader_{name}_{}",
-            std::process::id()
-        ));
-        if root.exists() {
-            fs::remove_dir_all(&root).unwrap();
-        }
-        fs::create_dir_all(&root).unwrap();
-        root
-    }
+    use crate::testing::scratch;
 
     fn listing(files: &[&str]) -> CanonicalListing {
         CanonicalListing {
@@ -234,17 +254,19 @@ mod tests {
 
     #[test]
     fn archive_extensions_are_case_insensitive() {
-        assert!(is_archive(Path::new("a.zip")));
-        assert!(is_archive(Path::new("a.ZIP")));
+        assert_eq!(archive_kind(Path::new("a.zip")), Some(SourceKind::Zip));
+        assert_eq!(archive_kind(Path::new("a.ZIP")), Some(SourceKind::Zip));
+        assert_eq!(archive_kind(Path::new("a.7z")), Some(SourceKind::SevenZ));
+        assert_eq!(archive_kind(Path::new("a.7Z")), Some(SourceKind::SevenZ));
+        assert_eq!(archive_kind(Path::new("a.rar")), None);
+        assert_eq!(archive_kind(Path::new("zip")), None);
         assert!(is_archive(Path::new("a.7z")));
-        assert!(is_archive(Path::new("a.7Z")));
         assert!(!is_archive(Path::new("a.rar")));
-        assert!(!is_archive(Path::new("zip")));
     }
 
     #[test]
     fn discovery_takes_folders_and_archives_in_folded_name_order() {
-        let root = scratch("discovery");
+        let root = scratch("reader_discovery");
         for folder in ["b - Two", "A - One"] {
             fs::create_dir(root.join(folder)).unwrap();
         }
@@ -275,14 +297,14 @@ mod tests {
                     2,
                     "c - Three.ZIP",
                     "c - Three",
-                    SourceKind::Archive,
+                    SourceKind::Zip,
                     Some("/c/")
                 ),
                 (
                     3,
                     "D - Four.7z",
                     "D - Four",
-                    SourceKind::Archive,
+                    SourceKind::SevenZ,
                     Some("/d/")
                 ),
             ]
@@ -293,7 +315,7 @@ mod tests {
 
     #[test]
     fn named_exports_replace_the_scan() {
-        let root = scratch("named");
+        let root = scratch("reader_named");
         fs::create_dir(root.join("co - In root")).unwrap();
         fs::create_dir(root.join("zz - Named")).unwrap();
         fs::write(root.join("aa - Named.zip"), "").unwrap();
@@ -311,8 +333,46 @@ mod tests {
     }
 
     #[test]
+    fn names_differing_only_in_case_take_the_same_order_whatever_order_they_come_in() {
+        let root = scratch("reader_case_order");
+        for folder in ["one/co - a", "two/co - A", "three/CO - A"] {
+            fs::create_dir_all(root.join(folder)).unwrap();
+        }
+        let given = [
+            root.join("one/co - a"),
+            root.join("three/CO - A"),
+            root.join("two/co - A"),
+        ];
+        let mut reversed = given.clone();
+        reversed.reverse();
+
+        for paths in [given, reversed] {
+            let sources = discover(Path::new("no such root"), &paths).unwrap();
+            let names: Vec<&str> = sources
+                .iter()
+                .map(|source| source.file_name.as_str())
+                .collect();
+            assert_eq!(names, ["CO - A", "co - A", "co - a"]);
+        }
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn a_named_path_that_is_no_longer_an_export_is_an_error_naming_it() {
+        let root = scratch("reader_named_gone");
+        let error = discover(Path::new("no such root"), &[root.join("gone.txt")]).unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            format!(
+                "--export {}: not a folder, .zip or .7z",
+                root.join("gone.txt").display()
+            )
+        );
+    }
+
+    #[test]
     fn an_exports_root_that_cannot_be_read_is_an_error_naming_it() {
-        let root = scratch("missing").join("exports");
+        let root = scratch("reader_missing").join("exports");
         let error = discover(&root, &[]).unwrap_err();
         assert!(
             format!("{error:#}").contains(&root.display().to_string()),
@@ -341,7 +401,7 @@ mod tests {
 
     #[test]
     fn routing_sets_aside_disabled_balls_and_conflicting_refs_exports() {
-        let root = scratch("routing");
+        let root = scratch("reader_routing");
         let write = |relative: &str| {
             let path = root.join(relative);
             fs::create_dir_all(path.parent().unwrap()).unwrap();
@@ -386,7 +446,7 @@ mod tests {
 
     #[test]
     fn a_single_refs_export_is_validated() {
-        let root = scratch("single_refs");
+        let root = scratch("reader_single_refs");
         fs::create_dir_all(root.join("refs a")).unwrap();
         fs::write(root.join("refs a/players.txt"), "").unwrap();
         fs::create_dir_all(root.join("refs b")).unwrap();
