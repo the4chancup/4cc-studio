@@ -8,6 +8,7 @@ repository.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+kit_config.workspace = true
 pes_version.workspace = true
 teams_list.workspace = true
 thiserror.workspace = true

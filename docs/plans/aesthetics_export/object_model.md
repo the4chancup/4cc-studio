@@ -170,7 +170,9 @@ eligible, roster-entry scope and disposition; confirmed 2026-09-30).
   `export_empty`, both `DropExport`. `export_empty` is not reported beside `nested_root_ambiguous`
   or `nested_root_conflict`, which leave the root undecided. A name the teams list lacks is
   `resolve_identity`'s `IdentityError`.
-- **Kits, portraits, logo.** `all` counts as a slot for `kit_slot_duplicate`. `all/` textures
+- **Kits, portraits, logo.** A `kit_folder_invalid` folder gets no other finding: which
+  allowlist its contents answer to is unknown (it may be a misspelled `all`), and it is dropped
+  whole anyway. `all` counts as a slot for `kit_slot_duplicate`. `all/` textures
   follow a kit's `kit` prefix rule (`kit_texture_name_invalid`). `kit_all_unused` (no kit folder
   survives) changes nothing (`Keep`). `kit_textures_inherited` lists the inherited stems without
   their `kit_` prefix, alphabetically (`back, leg, name`). `icon.txt` is read trimmed: a failed

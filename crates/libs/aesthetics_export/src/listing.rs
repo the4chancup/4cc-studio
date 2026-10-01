@@ -50,6 +50,20 @@ pub struct SmallMetadata {
     pub files: BTreeMap<String, Result<Vec<u8>, String>>,
 }
 
+impl SmallMetadata {
+    /// The bytes for a descriptor's `source` path: the map is keyed by raw
+    /// listing paths, so each key is canonicalized before comparing. A
+    /// missing entry is a failed read (`"not read"`), as the roster's.
+    pub(crate) fn bytes_for(&self, file: &crate::parse::FileDescriptor) -> Result<&[u8], String> {
+        for (key, result) in &self.files {
+            if vtree::ScopePath::new(key).ok().as_ref() == Some(&file.source) {
+                return result.as_deref().map_err(Clone::clone);
+            }
+        }
+        Err("not read".to_owned())
+    }
+}
+
 /// The settings that change a consequence, supplied by the consumer.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ValidationContext {

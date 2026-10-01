@@ -2559,3 +2559,11 @@ two of one stem cannot both be it. "Differing portraits" needs the bytes the str
 reads. The game needs all three logo sizes from one source pair, so no partial logo exists.
 Plan: `aesthetics_export/object_model.md` "Validation semantics"; `team_compiler/messages.md`
 `common_link_missing`.
+
+## 2026-10-01 — aesthetics_export — an invalid kit folder name gets no other finding
+Decision: a kit folder reported `kit_folder_invalid` is not checked further (no allowlist,
+texture-name, marker, stem or `icon.txt` findings for its contents).
+Why: its head names no slot, so which allowlist applies is unknown (`Kits/alll/` holds `all/`
+content, which a kit's rules would misreport), and the folder is dropped whole regardless; its
+contents' findings would describe content that goes nowhere.
+Plan: `aesthetics_export/object_model.md` "Validation semantics", "Kits, portraits, logo".
