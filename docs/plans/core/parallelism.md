@@ -128,4 +128,7 @@ impl MemoryBudget {
 }
 ```
 
+The crate's contract, with the permit that releases on drop, cancellation and the priority an
+oversized request needs to run at all, is in [libs/pipeline](../libs/pipeline.md).
+
 ---
