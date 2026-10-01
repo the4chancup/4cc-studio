@@ -267,8 +267,27 @@ Itemized 2026-09-30 at Phase 2's close. Order: the tracer first (one real export
 - [ ] 3.9 `compile` through the pipeline: coordinator and writer on rayon over `libs/pipeline`,
   the tracer's scaffolding replaced, dispositions and `pass_through` applied, the CPK written
   atomically. → verify: TC-OUT-*, TC-DSP-*, the compile-observed TC-ROS/KIT/ID scenarios,
-  TC-SRC-01/03/04/06/08/09 and TC-CLI-04/06 (their compile halves), and 3.3's parity case
-  still green
+  TC-SRC-01/03/04/06/08/09 and TC-CLI-04/06 (their compile halves), TC-STR-01, TC-ROOT-02/05
+  (compile-observed, found uncited at slicing), and 3.3's parity case still green. Shapes:
+  `pipeline.md` "Run driver shapes (Phase 3)"; scope edges: `README.md` "Phase 3 scope"
+  (decision entry "3.9: Phase 3 compile's edges"). Slices, each its own brief, review, commit:
+  - [ ] 3.9a thinnest path: `compile` runs the structure pass shared with `check`, plans face and
+    kit tasks from the validated export, processes them serially, writes the CPK through the
+    canonical-order writer to staging and promotes it; `tracer.rs` deleted, `parity.rs` driven
+    through `compile`. Until 3.9b, `compile` has no subset gate. → verify: parity green with an
+    unchanged table, TC-OUT-01, a run emitting nothing writes no CPK and leaves no staging
+  - [ ] 3.9b the subset gate (`content_not_yet_compiled`, the missing-template rule), task
+    failures as `DropFolder`, events (`FolderStatus`, `ExportProcessed`, `Complete`), the
+    teams list created by `compile` (`settings.md`). → verify: TC-DSP-*, TC-ROS-01/04/05/06/09,
+    TC-KIT-01, TC-ID-02, TC-OUT-02/04/06, TC-STR-01, TC-ROOT-02, TC-SRC-03/04/06/08, TC-CLI-04
+  - [ ] 3.9c the rayon pool and admission (`pipeline.md` "Admission"), archive content read
+    once per export with the `.7z` charge shared by its tasks. → verify: same CPK bytes under
+    another completion order, a `.7z` over the cap compiles, TC-SRC-09, TC-ID-01, TC-ROOT-05
+  - [ ] 3.9d output safety: the writability preflight, `cpk_write_failed` and
+    `output_commit_failed` with nothing partial left. → verify: TC-CLI-06, TC-OUT-03, TC-OUT-05
+  - [ ] 3.9e the placeholder kit (the checkerboard DDS is a lead-made resource) and
+    `kit_placeholder`; the help topic's Phase 3 limits. → verify: TC-SRC-01, every 3.9 ID
+    proven in `acceptance.py report`
 - [ ] 3.z Shell slice, last code step of the phase (`core/development_plan.md` "Phase 3", last bullet; decided
   2026-09-15): minimal `studio_core` shell (window, sidebar, selected tool's `view()`), `studio`
   binary registering `team_compiler`, Team compiler `view/` with settings, run button and a plain
