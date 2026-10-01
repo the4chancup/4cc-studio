@@ -132,8 +132,8 @@ eligible, roster-entry scope and disposition; confirmed 2026-09-30).
   | directly in a shared folder | model content | `file_type_disallowed` |
   | directly in a kit folder | textures, `config.toml`, `colors.txt`, `icon.txt`, the `pre-fox` and `fox` markers | `file_type_disallowed` |
   | directly in `Common/` | model content | `common_file_disallowed` |
-  | anywhere in `Kits/all/` | textures | `kit_all_file_ignored` |
-  | anywhere in `Portraits/` | textures named `player_NN` | `portrait_name_invalid` |
+  | anywhere in `Kits/all/` | textures directly in it | `kit_all_file_ignored` |
+  | anywhere in `Portraits/` | textures named `player_NN` directly in it | `portrait_name_invalid` |
   | at the root | `players.txt`, `notes.txt`, `colors.txt`, `README.txt`, `logo*` textures; a referee export also `refs.txt`, `ref_lists.txt`, `ref_marker.dds` | `root_file_unexpected` |
 
   A file below a subfolder the table does not name takes the code of the folder holding that
@@ -167,9 +167,10 @@ eligible, roster-entry scope and disposition; confirmed 2026-09-30).
   and roster-mapped: a shared folder linked only by a dropped player is orphaned.
 - **Export findings of `validate`.** A stem with no token is `team_name_unknown` with an empty
   name, and an export holding no content-folder entry and no root `logo*` texture is
-  `export_empty`, both `DropExport`. `export_empty` and `root_file_unexpected` are not reported
-  beside `nested_root_ambiguous` or `nested_root_conflict`, which leave the root undecided (its
-  folders are the candidate roots, not stray content). A name the teams list lacks is
+  `export_empty`, both `DropExport`. No root-level finding (`export_empty`, `root_file_unexpected`,
+  the logo codes, `notes.txt`'s) is reported beside `nested_root_ambiguous` or
+  `nested_root_conflict`, which leave the root undecided (its folders are the candidate roots and
+  its files are not yet the export's root files). A name the teams list lacks is
   `resolve_identity`'s `IdentityError`.
 - **Texture stems.** A lookup namespace (`team_compiler/messages.md` `texture_stem_conflict`)
   holds its textures plus, in a player folder, each texture `.common` link under its linked name
