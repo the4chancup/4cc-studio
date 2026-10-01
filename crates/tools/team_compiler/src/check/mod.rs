@@ -6,6 +6,7 @@ use aesthetics_export::{
     ExportIdentity, IdentityError, ResolvedAestheticsExport, SourceError, ValidationContext,
     parse_listing,
 };
+use pipeline::MemoryBudget;
 use studio_core::{
     CliError, Disposition, ExportId, Message, PipelineEvent, PipelineEventEnvelope, RunId, Scope,
     Severity, ToolContext,
@@ -23,7 +24,11 @@ const RUN_ID: RunId = RunId(1);
 pub(crate) fn run(inputs: &RunInputs, ctx: &ToolContext) -> Result<u8, CliError> {
     let sources = reader::discover(&inputs.exports_root, &inputs.exports)
         .map_err(|error| CliError::new(ABORTED, error))?;
-    let routes = reader::route(&sources);
+    // One budget for the run: the structure pass charges each `.7z` read to it.
+    let budget = MemoryBudget::new(pipeline::memory_cap(f64::from(
+        inputs.common.memory_cap_percent,
+    )));
+    let routes = reader::route(&sources, &budget);
     let mut worst = None;
 
     // The duplicate-refs summary is a discovery finding about the run, so it comes first.
@@ -84,7 +89,7 @@ fn check_source(inputs: &RunInputs, source: &ExportSource, route: Route) -> Vec<
             context,
         )]
     };
-    let listing = match route {
+    let (listing, metadata) = match route {
         Route::Unreadable(failure) => {
             return skipped(
                 "export_extract_failed",
@@ -94,10 +99,9 @@ fn check_source(inputs: &RunInputs, source: &ExportSource, route: Route) -> Vec<
         Route::Disabled => return skipped("export_disabled", vec![]),
         Route::Balls => return skipped("export_balls_skipped", vec![]),
         Route::ConflictingRefs => return skipped("multiple_ref_exports", vec![]),
-        Route::Validate(listing) => listing,
+        Route::Validate { listing, metadata } => (listing, metadata),
     };
 
-    let metadata = reader::read_metadata(source, &listing);
     let parsed = match parse_listing(listing, metadata) {
         Ok(parsed) => parsed,
         Err(error) => {

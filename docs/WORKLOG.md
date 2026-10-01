@@ -10,13 +10,13 @@ is in `AGENTS.md` ("Working documents").
 ## Current status
 
 **Phase:** 3 (Team compiler skeleton). Phases 1 and 2 done (Phase 2 closed 2026-09-30).
-**In progress:** 3.8 (`check` end to end) is next. 3.7 (`libs/pipeline`) is implemented and
-mutation-clean; only its cross-family review is left, queued for the lead (see "Handover"
-below), and 3.7 is marked done once that review's rulings land. 3.6 is done (`aesthetics_export`, 35 of 75
+**In progress:** 3.9 (`compile` through the pipeline) is next. 3.7 (`libs/pipeline`) and 3.8
+(`check` end to end, slices a-d) are implemented and mutation-clean; only their cross-family
+reviews are left, queued for the lead (see "Handover" below), and each is marked done once its
+review's rulings land. 3.6 is done (`aesthetics_export`, 35 of 75
 scenarios proven; the rest need `check`/`compile`). 2.5b (GPU BC7) is step 16.x (decision entries 2026-09-21 and 2026-09-28). Release
 target (2026-09-28): 0.1.0 after Phase 8; phase order 1–6, 8, 0.1.0, 7, 9–16
 (`core/development_plan.md` "Releases").
-**Next:** 3.8d (archive sources); the mutants/`.tmp` detour is done (log, 2026-10-01).
 **Blocked on:** nothing yet. **Hard gate at the end of Phase 3:** step 4.0 (the maintainer's
 in-game appearance-fallback test) must be done before any agent itemizes Phase 4 or writes
 anything for Phase 4, 5 or 6. Everything up to and including Phase 3's close may proceed.
@@ -257,10 +257,13 @@ Itemized 2026-09-30 at Phase 2's close. Order: the tracer first (one real export
     tests; the binary file keeps its own seams), `aesthetics_export::team_name` re-exported.
     `mutants-diff 008a356`: 57, 45 caught, 12 unviable, 0 missed (3.8b's survivors gone but
     the `view`/`settings_view` placeholders, untestable until 3.z)
-  - [ ] 3.8d archive sources: `archives` reports folder entries, `.zip`/`.7z` listing and
-    metadata reads (the 7z charge, `libs/pipeline.md`), `export_extract_failed`, `--export`.
-    → verify: TC-SRC-02, TC-SRC-07; check halves of TC-SRC-01/06/08/09; `archives`' consumers'
-    tests
+  - [x] 3.8d archive sources — done: `archives::Archive::folders()` (directory entries apart
+    from `entries()`; a root entry `./` skipped), `reader/source.rs` `OpenSource` (an archive
+    opened once for its listing and metadata; a `.7z` read under a `MemoryBudget` permit for
+    its entries' sum, dropped with the archive; a zip uncharged), the budget made per run in
+    `check::run`, routing reading metadata only for exports headed for validation; fixtures
+    `tests/fixtures/sources/` (lead). TC-SRC-02 and TC-SRC-07 cited; the check halves of
+    TC-SRC-01/06/08/09 tested uncited.
 - [ ] 3.9 `compile` through the pipeline: coordinator and writer on rayon over `libs/pipeline`,
   the tracer's scaffolding replaced, dispositions and `pass_through` applied, the CPK written
   atomically. → verify: TC-OUT-*, TC-DSP-*, the compile-observed TC-ROS/KIT/ID scenarios,
@@ -272,6 +275,17 @@ Itemized 2026-09-30 at Phase 2's close. Order: the tracer first (one real export
   `PipelineEvent` log. → verify: manual, recorded in the converge step: the 3.3 fixture compiled
   from the GUI with its events visible, on Windows; Linux when a machine is available
   (TC-GUI-01/02)
+- [ ] 3.w `.cargo/mutants.toml` audit, before 3.y's whole-crate runs (they measure only what it
+  leaves in; maintainer, 2026-10-01: most entries came from Phase 2 sidekick work and none was
+  re-verified). The lead, not a sidekick, takes every `exclude_re`/`exclude_globs` entry:
+  (1) what it matches today (`cargo mutants --list` with and without it): a line-numbered
+  pattern (`check\.rs:210:39`, `hand_split\.rs:210:25`, the `retarget\.rs` ones) may have
+  drifted onto another expression or onto nothing; (2) the comment's equivalence argument
+  re-checked against the current code; (3) each matched mutant run with the entry removed,
+  confirming it survives. An entry that matches nothing, or whose mutant a test can kill, is
+  removed (a killable one becomes a test in the rework brief); a broad pattern is narrowed to
+  what it argues for. → verify: every surviving entry has its argument and a run showing its
+  mutants survive, listed in the converge record
 - [ ] 3.y Converge (`AGENTS.md` "Closing a phase"): the lead's audit against the Phase 3 plan
   sections and every TC ID (3.2's strict mode), design-health pass, `just mutants` per new
   crate, then the reviewer loop; gaps become steps above this one
@@ -282,6 +296,16 @@ Itemized 2026-09-30 at Phase 2's close. Order: the tracer first (one real export
 Steps are itemized when Phase 3 closes, and only after 4.0 is done; one more is fixed already
 (the GPU BC7 step moved to Phase 16, decision entry 2026-09-28):
 
+- [ ] 4.0a PES12 re-study, right after Phase 3 closes and before Phase 4 is itemized
+  (maintainer, 2026-10-01). A quick study of supporting PES12 (the tools in
+  `c:/Data/4cc/Tools_4cc/pes12tools` and `c:/Data/4cc/Tools_4cc/PES-Tools`) sits in the git
+  stash named `pes12` (`docs/plans/pes12.md` with glossary, plans-index and worklog lines);
+  read it with `git show 'stash@{0}^3:docs/plans/pes12.md'` (the file was untracked), never
+  `git stash pop`/`apply` over uncommitted work. Re-check it against the code as Phase 3 left
+  it and the two tool folders, then report to the maintainer where the codebase already
+  diverges from what PES12 support would need and which Phase 4+ choices would close or widen
+  that gap. → done when: the maintainer has the report and has decided what, if anything, enters
+  the plans
 - [ ] 4.0 **GATE, maintainer only: in-game appearance-fallback test.** No agent itemizes Phase 4,
   writes a Phase 4/5/6 Acceptance section, or starts Phase 4/5/6 work until the maintainer has
   run the test and reported the result. The idea under test: a savefile player whose appearance
@@ -728,7 +752,9 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   mutants before the disk filled), so its numbers above had no complete run behind them.
   Re-run over `ab28300..3b6741e` (`pipeline` unchanged since): 67, 51 caught, 5 unviable, 6
   timeouts (mutated `MemoryBudget::acquire` wait conditions that block forever), 5 missed, the
-  compiled-out Linux and other-platform `available_memory` arms the entry names. Every other
+  compiled-out Linux and other-platform `available_memory` arms the entry names; run on the
+  VPS (Linux, 4c7c424), the Linux arm's 3 are caught, leaving only the other-platform 2,
+  which no tested OS compiles. Every other
   Phase 3 run had completed (3.3's and 3.4's survivors triaged in their steps). Fixed:
   `mutants.toml` sets `gitignore = true` (the copies leave out `.tmp/`, checked in the run's
   `debug.log`); `mutants_diff.py` diffs against the working tree written as a tree object
@@ -739,3 +765,12 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   `.tmp/` 17 GB to 0.8 GB. `teams_list.txt` marked `-text` in `.gitattributes`: CRLF by its
   crate's contract (a test compares the shipped list with the crate's own write), so the
   remote snapshot's fresh `git add` had stored it LF. Next: 3.8d.
+- **2026-10-01** - 3.8d landed: archive sources in `check` (`archives::folders()`, one open per
+  source, the 7z read charged per `libs/pipeline.md`). Red: TC-SRC-01/02/06/07/08/09's check
+  tests all reported `archive sources arrive in step 3.8d` before the reader change. Lead's
+  review: a directory entry naming the root (`./`) skipped instead of refusing the archive
+  (decision entry); the brief's "cite every scenario" overrode 3.8's rule, so the tags of
+  the four compile-half scenarios were removed (44 proven). `mutants-diff 4c7c424`: 28, 21
+  caught, 7 unviable, 0 missed. `team_compiler` now depends on `archives` (planned, in-tree).
+  `mutants.toml` notes the `available_memory` platform arms; 3.w (mutants.toml audit) and
+  4.0a (PES12 re-study, stash `pes12`) added at the maintainer's request. Next: 3.9.

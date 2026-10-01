@@ -38,6 +38,11 @@ exclude_re = [
     # accepted as unreachable.
     "relaunch_elevated",
     "SHELLEXECUTEINFOW",
+    # Not excluded, accepted: `pipeline`'s `available_memory` has one arm per platform, and only
+    # the host's arm compiles, so each run lists the others' replacements as missed. The Windows
+    # arm is caught on Windows, the Linux arm on Linux (the VPS, measured 2026-10-01); the
+    # other-platform arm (a plain `None`) compiles on no tested OS. A pattern telling the arms
+    # apart would need line numbers, which drift.
     # pes_model 2.20g equivalences, each checked by reasoning rather than a
     # distinguishing input existing:
     # `locate`'s `relative < section.bytes.len()` -> `<=` is equivalent. The

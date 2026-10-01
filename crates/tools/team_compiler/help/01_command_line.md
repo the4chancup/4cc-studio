@@ -20,6 +20,10 @@ Both commands read every export in the exports folder from the settings (`export
 `4cc-studio` unless you changed it). To use another folder for one run, give its path as
 `exports-root`; the setting is not changed.
 
+An export can be a folder, a `.zip` or a `.7z`, read where it is: nothing is extracted. An archive
+that cannot be read (damaged, password-protected, or holding two files whose names differ only in
+case) is reported as `export_extract_failed` and left out of the run.
+
 `--export <path>` limits the run to one export: a folder, a `.zip` or a `.7z`, which does not
 have to be inside the exports folder. Repeat it to name several exports. A path that does not
 exist, or a file that is not a `.zip` or `.7z`, stops the command before anything runs.
