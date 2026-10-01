@@ -12,10 +12,14 @@ name = "4cc-studio"
 path = "src/main.rs"
 
 [dependencies]
+clap.workspace = true
 crossbeam-channel.workspace = true
 env_logger.workspace = true
 log.workspace = true
 studio_core.workspace = true
+
+[dev-dependencies]
+vtree.workspace = true
 
 [lints]
 workspace = true

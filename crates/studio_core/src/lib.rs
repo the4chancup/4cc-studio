@@ -18,6 +18,8 @@ pub use events::{
 };
 pub use help::{HelpSection, HelpTarget, HelpTopic};
 pub use settings::{COMMON_KEY, CommonSettings, Settings, SettingsError, Theme};
+#[cfg(not(target_arch = "wasm32"))]
+pub use settings::{SETTINGS_FILE_NAME, resolve_data_dir, user_config_dir};
 pub use shell::launch::{Launch, LaunchMode, parse_launch, run_cli};
 pub use status::{ActionEffect, Notice, NoticeAction, ShellCondition, ToolActivity};
-pub use tool::{ShellRequest, StudioTool, ToolContext};
+pub use tool::{AppPaths, CliError, ShellRequest, StudioTool, ToolContext};

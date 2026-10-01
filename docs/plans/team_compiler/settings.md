@@ -43,6 +43,15 @@ differing new default is a deliberate decision, explained in the Controls column
 | `dt00_overwrite_allow` | — | 0 | Allow `ref_marker.dds` injection into the `dt00_x64.cpk` system file (replaces Red's interactive prompt) |
 | `quick_compile_close_on_success` | — | 0 | After a compile started by GUI autorun (`quick_compile.bat` → `4cc-studio --gui team-compiler compile`), close the window when the run completes with no Error-level findings and nothing skipped for errors; stay open on errors, failed deployment, or cancellation so the grid/log can be reviewed. Warnings alone still close (they are in the logs, as Red's `pause_allow = 0` reasoned). Never applies to a manual Compile click |
 
+In the settings file the 0/1 settings are TOML booleans (`run_pes = false`). A setting enters
+`TeamCompilerSettings` and `default_settings()` with the phase whose code reads it, not before,
+so no key is written that nothing honors yet; Phase 3 reads `cpk_name`, `output_folder_path`,
+`multicpk_mode`, `strict_file_type_check`, `pass_through` and `teams_list_path`. A missing key
+loads as its default; a key of the wrong type is a configuration error (exit code 2, naming the
+key). A missing `teams_list.txt`, or no data directory yet, reads the embedded list without
+writing it (only `compile` creates the file); one that exists but cannot be read or parsed stops
+the run before any export is read (exit code 3, naming the path).
+
 Output mode (normal / test / sider) is not a persisted setting: it is the Compile button's dropdown
 in the GUI and a flag on the CLI subcommand, as in Blue's `--mode` argument.
 
@@ -109,7 +118,9 @@ upgrade" under "Post-processing".
 
 The optional positional argument is an exports-root override for that invocation; when omitted, both
 commands use the common `exports_folder_path`. It is not a single-export path and is never persisted
-back to settings.
+back to settings. A relative path given on the command line (the root or an `--export`) resolves
+against the current directory, as any command-line path does; only the settings' relative paths
+resolve beside the executable or in the data directory ("Path resolution").
 
 `--no-deploy` builds the CPKs into `output/` without touching the PES install or the savefile (see
 `pipeline.md` "Post-processing"). It is CLI-only and has no GUI or settings counterpart: it is the cup maintainer's

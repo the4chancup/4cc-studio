@@ -212,7 +212,7 @@ Trade-offs accepted:
 | `serde` | Serialization: `PesVersion`'s two-digit number form and app settings today; `serde_json` joins with the Blender manifest (`player_aesthetics_editor.md`) and the match-event wire format (`match_feed.md`) in their phases | Production-ready |
 | `clap` | CLI argument parsing | Production-ready |
 | `thiserror` | Ergonomic error enums for the lib crates' error types | Production-ready |
-| `anyhow` | Error propagation in tool crates and the binary (`StudioTool::cli_run` returns `anyhow::Result`) | Production-ready |
+| `anyhow` | Error propagation in tool crates and the binary (`StudioTool::cli_run`'s `CliError` wraps an `anyhow::Error`) | Production-ready |
 | `log` | Diagnostic logging facade in every lib and tool crate (see `architecture.md` "Diagnostic logging") | Production-ready |
 | `env_logger` | CLI-mode log sink in `studio` (`default-features = false`) | Production-ready |
 | `pyo3` | The Python extension module of `python_bindings` (`abi3-py311`, `extension-module`); built into a wheel by `maturin`, a developer tool installed with pip like `just` is with cargo | Production-ready |

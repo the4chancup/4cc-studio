@@ -23,6 +23,10 @@ anything for Phase 4, 5 or 6. Everything up to and including Phase 3's close may
 **Handover (2026-10-01).** Until the maintainer says otherwise, the session runs as a single
 Claude agent with no sidekick and no reviewer of another model family. While that holds:
 
+- **Since 2026-10-01 (maintainer):** the lead runs in Claude Code and delegates implementation
+  to a same-family subagent (Sonnet, high effort; Opus medium if its work falls short) under
+  the lead/sidekick rules, to keep the lead's context small. That subagent is the sidekick, not
+  a reviewer: the queue below still holds every cross-family checkpoint.
 - **Implement directly**, but keep everything else `AGENTS.md` asks of a sidekick's work: read the
   plan section from the file first, paste the plan's code blocks, red-first tests (record each
   test's failing assertion in the commit's log line, since no report carries it), the honesty and
@@ -35,7 +39,10 @@ Claude agent with no sidekick and no reviewer of another model family. While tha
   past a queued review, but no phase closes with one outstanding.
 - **Queue:** 3.7 (b): `crates/libs/pipeline` from its first commit, against `libs/pipeline.md`
   and `core/parallelism.md` "Memory budget"; the prior 3.6 rulings are in the log, and
-  `.tmp/review_brief_3_6.md` is a template for the brief.
+  `.tmp/review_brief_3_6.md` is a template for the brief. 3.8 (b): `studio_core`'s `CliError`/
+  `AppPaths`/location and the `team_compiler` CLI surface, from 3.8a's commit, against
+  `core/architecture.md` "Tool plugin interface", `core/distribution.md` "Data location" and
+  `team_compiler/settings.md` "CLI" (one review once 3.8 is done).
 - For the lead, on return: the review process on trial (maintainer, 3.1) runs a full sidekick
   review loop after each GPT round and calls GPT again only once that loop has ended and GPT's
   own loop has not; not yet in `AGENTS.md` (3.6: GPT 4 of 7 accepted, then sidekick S1 3 of 7,
@@ -213,11 +220,39 @@ Itemized 2026-09-30 at Phase 2's close. Order: the tracer first (one real export
   output, exit codes. → verify: TC-SRC-*, TC-CLI-01..05 and the check-observed TC-STR/ROS/KIT/
   ROOT/ID scenarios, run through the binary. `memory_cap_percent` goes through
   `pipeline::memory_cap` (3.7); TC-STR-09 is cited only here, since its THEN names
-  severities, which `messages.rs` maps (the lib test asserts dispositions; 3.6 review)
+  severities, which `messages.rs` maps (the lib test asserts dispositions; 3.6 review).
+  Shapes settled 2026-10-01 (decision entry "3.8: exit codes, console lines, …"). A scenario
+  whose WHEN includes compiling (TC-SRC-01/03/04/06/08/09, TC-CLI-04) is cited at 3.9, where
+  its compile half lands; 3.8 tests their check half uncited. TC-CLI-06 is 3.9's (output
+  preflight). Slices, each its own brief, review and commit:
+  - [x] 3.8a `studio_core`/`studio` plumbing: `cli_run` → `Result<u8, CliError>`, `AppPaths`
+    and `ToolContext::paths`, `settings/location.rs` (CLI resolution, never writes), the
+    binary's event printer thread and exit code. → verify: `studio_core` and `studio` tests
+    (printer line format per scope kind; location: portable wins, config dir, neither → no
+    data dir and nothing created); stub-tool exit codes through `run_cli`
+    Done: `CliError`/`AppPaths`/`paths()`, `settings/location.rs`, `studio/src/console.rs`,
+    `main.rs` (`load_settings`, `run_cli_mode`). `mutants-diff`: 23, 4 missed (1 fixed: the
+    config-dir test was vacuous; `run_cli_mode`, `main`, `print_line` wait for 3.8b/c's binary
+    tests)
+  - [ ] 3.8b `team_compiler` tool skeleton: `Tool` registered in `studio`, `settings.rs`
+    (Phase 3 subset), `cli.rs` (the `settings.md` "CLI" surface with the Phase 3 refusals and
+    the preflight: arguments, settings, teams list), a help topic, both commands stopping
+    after their preflight until 3.8c/3.9. → verify: binary tests TC-CLI-03, TC-CLI-05,
+    TC-CLI-07
+  - [ ] 3.8c `check` over folder sources: `messages.rs` (severity per code, every
+    `ISSUE_CODES` code covered, issue → `Message`), `reader/` discovery (folders, NO_USE,
+    balls, refs), structure pass, identity, findings as events, exit code. → verify: binary
+    tests TC-SRC-05, TC-STR-09, TC-CLI-01, TC-CLI-02; check halves of TC-SRC-03/04,
+    TC-ID-01/02
+  - [ ] 3.8d archive sources: `archives` reports folder entries, `.zip`/`.7z` listing and
+    metadata reads (the 7z charge, `libs/pipeline.md`), `export_extract_failed`, `--export`.
+    → verify: TC-SRC-02, TC-SRC-07; check halves of TC-SRC-01/06/08/09; `archives`' consumers'
+    tests
 - [ ] 3.9 `compile` through the pipeline: coordinator and writer on rayon over `libs/pipeline`,
   the tracer's scaffolding replaced, dispositions and `pass_through` applied, the CPK written
-  atomically. → verify: TC-OUT-*, TC-DSP-*, the compile-observed TC-ROS/KIT/ID scenarios, and
-  3.3's parity case still green
+  atomically. → verify: TC-OUT-*, TC-DSP-*, the compile-observed TC-ROS/KIT/ID scenarios,
+  TC-SRC-01/03/04/06/08/09 and TC-CLI-04/06 (their compile halves), and 3.3's parity case
+  still green
 - [ ] 3.z Shell slice, last code step of the phase (`core/development_plan.md` "Phase 3", last bullet; decided
   2026-09-15): minimal `studio_core` shell (window, sidebar, selected tool's `view()`), `studio`
   binary registering `team_compiler`, Team compiler `view/` with settings, run button and a plain
@@ -656,3 +691,9 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   `available_memory` arms, compiled out on Windows (the Linux arm is checked by
   `the_os_reports_available_memory` on Linux CI; the other arm is a constant `None`). 17 tests.
   Next: 3.8; the 3.7 review is queued.
+- **2026-10-01** - 3.8 shapes settled (decision entry; plan edits in `core/architecture.md`,
+  `distribution.md`, `team_compiler/settings.md`, `messages.md`, `pipeline.md`) and sliced
+  a-d. 3.8a landed: `cli_run` returns `Result<u8, CliError>`, `AppPaths`, CLI data location
+  (never writes), the binary's console printer. Red: the unknown-tool test failed `left: 1
+  right: 2` against a code-1 refusal; the rest is new code. Implemented by a Sonnet subagent
+  (handover note), reviewed by the lead. Next: 3.8b.

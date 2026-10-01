@@ -14,7 +14,7 @@ use std::ffi::OsString;
 use clap::{Arg, ArgAction, ArgMatches, Command};
 
 use crate::settings::COMMON_KEY;
-use crate::tool::{StudioTool, ToolContext};
+use crate::tool::{CliError, StudioTool, ToolContext};
 
 /// The parsed command line: the mode plus the shell's own flags.
 #[derive(Debug, Clone)]
@@ -106,22 +106,24 @@ pub fn parse_launch(
     Ok(Launch { mode, verbosity })
 }
 
-/// Runs a parsed CLI subcommand on the tool that owns it.
+/// Runs a parsed CLI subcommand on the tool that owns it and returns what the tool returned
+/// (its exit code, or its refusal) unchanged. An id no tool has is refused with exit code 2.
 pub fn run_cli(
     tools: &[Box<dyn StudioTool>],
     tool_id: &str,
     matches: &ArgMatches,
     ctx: &ToolContext,
-) -> anyhow::Result<()> {
+) -> Result<u8, CliError> {
     let tool = tools
         .iter()
         .find(|tool| tool.id() == tool_id)
-        .ok_or_else(|| anyhow::anyhow!("no tool with id `{tool_id}`"))?;
+        .ok_or_else(|| CliError::new(2, anyhow::anyhow!("no tool with id `{tool_id}`")))?;
     tool.cli_run(matches, ctx)
 }
 
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
     use std::sync::{Arc, Mutex};
 
     use crossbeam_channel::unbounded;
@@ -130,7 +132,7 @@ mod tests {
     use crate::help::HelpSection;
     use crate::settings::Settings;
     use crate::status::Notice;
-    use crate::tool::ShellRequest;
+    use crate::tool::{AppPaths, ShellRequest};
 
     struct StubTool;
 
@@ -155,17 +157,23 @@ mod tests {
         fn cli_command(&self) -> Command {
             Command::new("ignored-name")
                 .subcommand(Command::new("ping").arg(Arg::new("what").required(true)))
+                .subcommand(Command::new("verdict"))
+                .subcommand(Command::new("refuse"))
         }
-        fn cli_run(&self, matches: &ArgMatches, ctx: &ToolContext) -> anyhow::Result<()> {
-            let Some(("ping", ping)) = matches.subcommand() else {
-                anyhow::bail!("unknown command");
-            };
-            let what: &String = ping.get_one("what").unwrap();
-            ctx.notify(Notice {
-                text: format!("pong {what}"),
-                action: None,
-            });
-            Ok(())
+        fn cli_run(&self, matches: &ArgMatches, ctx: &ToolContext) -> Result<u8, CliError> {
+            match matches.subcommand() {
+                Some(("ping", ping)) => {
+                    let what: &String = ping.get_one("what").unwrap();
+                    ctx.notify(Notice {
+                        text: format!("pong {what}"),
+                        action: None,
+                    });
+                    Ok(0)
+                }
+                Some(("verdict", _)) => Ok(1),
+                Some(("refuse", _)) => Err(CliError::new(3, anyhow::anyhow!("refused"))),
+                _ => Err(CliError::new(2, anyhow::anyhow!("unknown command"))),
+            }
         }
     }
 
@@ -175,6 +183,30 @@ mod tests {
 
     fn tools() -> Vec<Box<dyn StudioTool>> {
         vec![Box::new(StubTool)]
+    }
+
+    fn test_context() -> (ToolContext, crossbeam_channel::Receiver<ShellRequest>) {
+        let (events_tx, _events_rx) = unbounded();
+        let (requests_tx, requests_rx) = unbounded();
+        let paths = AppPaths {
+            exe_dir: PathBuf::from("exe"),
+            data_dir: None,
+        };
+        let ctx = ToolContext::new(
+            Arc::new(Mutex::new(Settings::default())),
+            paths,
+            events_tx,
+            requests_tx,
+        );
+        (ctx, requests_rx)
+    }
+
+    fn cli_matches(tools: &[Box<dyn StudioTool>], list: &[&str]) -> (String, ArgMatches) {
+        let LaunchMode::Cli { tool, matches } = parse_launch(tools, args(list)).unwrap().mode
+        else {
+            panic!("expected CLI mode");
+        };
+        (tool, matches)
     }
 
     fn mode(list: &[&str]) -> LaunchMode {
@@ -233,21 +265,9 @@ mod tests {
     #[test]
     fn cli_dispatch_reaches_the_tool_with_its_context() {
         let tools = tools();
-        let LaunchMode::Cli { tool, matches } =
-            parse_launch(&tools, args(&["studio", "stub", "ping", "there"]))
-                .unwrap()
-                .mode
-        else {
-            panic!("expected CLI mode");
-        };
-        let (events_tx, _events_rx) = unbounded();
-        let (requests_tx, requests_rx) = unbounded();
-        let ctx = ToolContext::new(
-            Arc::new(Mutex::new(Settings::default())),
-            events_tx,
-            requests_tx,
-        );
-        run_cli(&tools, &tool, &matches, &ctx).unwrap();
+        let (tool, matches) = cli_matches(&tools, &["studio", "stub", "ping", "there"]);
+        let (ctx, requests_rx) = test_context();
+        assert_eq!(run_cli(&tools, &tool, &matches, &ctx).unwrap(), 0);
         assert_eq!(
             requests_rx.try_recv().unwrap(),
             ShellRequest::Notify(Notice {
@@ -255,6 +275,27 @@ mod tests {
                 action: None
             })
         );
-        assert!(run_cli(&tools, "missing", &matches, &ctx).is_err());
+    }
+
+    #[test]
+    fn unknown_tool_id_is_refused_with_exit_code_2() {
+        let tools = tools();
+        let (_, matches) = cli_matches(&tools, &["studio", "stub", "verdict"]);
+        let (ctx, _requests_rx) = test_context();
+        let error = run_cli(&tools, "missing", &matches, &ctx).unwrap_err();
+        assert_eq!(error.exit_code, 2);
+        assert_eq!(error.to_string(), "no tool with id `missing`");
+    }
+
+    #[test]
+    fn the_tools_exit_code_and_refusal_pass_through_unchanged() {
+        let tools = tools();
+        let (ctx, _requests_rx) = test_context();
+        let (tool, verdict) = cli_matches(&tools, &["studio", "stub", "verdict"]);
+        assert_eq!(run_cli(&tools, &tool, &verdict, &ctx).unwrap(), 1);
+        let (tool, refuse) = cli_matches(&tools, &["studio", "stub", "refuse"]);
+        let error = run_cli(&tools, &tool, &refuse, &ctx).unwrap_err();
+        assert_eq!(error.exit_code, 3);
+        assert_eq!(error.to_string(), "refused");
     }
 }

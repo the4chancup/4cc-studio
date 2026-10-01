@@ -7,6 +7,8 @@
 //! keeps the in-memory settings and raises the `data_dir_read_only` condition.
 
 mod common;
+#[cfg(not(target_arch = "wasm32"))]
+mod location;
 
 use std::collections::BTreeMap;
 use std::fs;
@@ -15,6 +17,8 @@ use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 pub use common::{CommonSettings, Theme};
+#[cfg(not(target_arch = "wasm32"))]
+pub use location::{SETTINGS_FILE_NAME, resolve_data_dir, user_config_dir};
 use toml::{Table, Value};
 
 /// The key of the common section; no tool may use it as its id.

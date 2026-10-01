@@ -3,6 +3,7 @@
 //! interface"). `ToolContext` is the tool's one handle on the platform: settings, the event sink,
 //! and requests to the shell (switch tool, notify).
 
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 use crossbeam_channel::Sender;
@@ -42,8 +43,10 @@ pub trait StudioTool {
     /// The tool's CLI subcommand. Its name must equal `id()`; the shell enforces it.
     fn cli_command(&self) -> clap::Command;
 
-    /// Runs the already-parsed CLI subcommand headless.
-    fn cli_run(&self, matches: &clap::ArgMatches, ctx: &ToolContext) -> anyhow::Result<()>;
+    /// Runs the already-parsed CLI subcommand headless. `Ok` carries the process exit code of a
+    /// command that reached a verdict (its findings went out as events); `Err` is a command
+    /// refused or failed before one, printed by the binary as `error: …`.
+    fn cli_run(&self, matches: &clap::ArgMatches, ctx: &ToolContext) -> Result<u8, CliError>;
 
     /// GUI autorun for `4cc-studio --gui <tool-id> <command>`: performs the parsed command inside the
     /// GUI as if the user had pressed the corresponding button. Called once after the tool's view
@@ -66,6 +69,36 @@ pub trait StudioTool {
     }
 }
 
+/// A CLI command refused or failed before it reached a verdict.
+#[derive(Debug, thiserror::Error)]
+#[error("{error:#}")]
+pub struct CliError {
+    /// The process exit code: the tool's own mapping (the Team compiler's 2 or 3).
+    pub exit_code: u8,
+    /// What went wrong, printed as `error: …`.
+    pub error: anyhow::Error,
+}
+
+impl CliError {
+    /// A refusal with the tool's exit code for it.
+    pub fn new(exit_code: u8, error: impl Into<anyhow::Error>) -> CliError {
+        CliError {
+            exit_code,
+            error: error.into(),
+        }
+    }
+}
+
+/// The base folders relative path settings resolve against (`team_compiler/settings.md`
+/// "Path resolution").
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AppPaths {
+    /// The folder holding the executable.
+    pub exe_dir: PathBuf,
+    /// The selected data directory; `None` when no settings file exists yet.
+    pub data_dir: Option<PathBuf>,
+}
+
 /// Something a tool asks the shell to do at the end of the frame.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ShellRequest {
@@ -82,22 +115,33 @@ pub enum ShellRequest {
 #[derive(Debug, Clone)]
 pub struct ToolContext {
     settings: Arc<Mutex<Settings>>,
+    paths: AppPaths,
     events: Sender<PipelineEventEnvelope>,
     requests: Sender<ShellRequest>,
 }
 
 impl ToolContext {
-    /// Builds a context over the shell's settings and its two receiving channels.
+    /// Builds a context over the shell's settings, the app's base folders and its two receiving
+    /// channels.
     pub fn new(
         settings: Arc<Mutex<Settings>>,
+        paths: AppPaths,
         events: Sender<PipelineEventEnvelope>,
         requests: Sender<ShellRequest>,
     ) -> Self {
         ToolContext {
             settings,
+            paths,
             events,
             requests,
         }
+    }
+
+    /// The two base folders relative path settings resolve against: the executable's folder and
+    /// the data directory (`None` before a settings file exists, as in a CLI run ahead of the
+    /// first GUI start). Tools never see the settings file itself.
+    pub fn paths(&self) -> &AppPaths {
+        &self.paths
     }
 
     /// A copy of the common settings as they are now.
