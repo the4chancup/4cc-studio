@@ -2567,3 +2567,18 @@ Why: its head names no slot, so which allowlist applies is unknown (`Kits/alll/`
 content, which a kit's rules would misreport), and the folder is dropped whole regardless; its
 contents' findings would describe content that goes nowhere.
 Plan: `aesthetics_export/object_model.md` "Validation semantics", "Kits, portraits, logo".
+
+## 2026-10-01 — aesthetics_export — texture links and `Common/` join the stem check; `vtree::fold_name`
+Decision: (1) a player folder's texture `.common` links count in its texture-stem namespace under
+their linked name, and `Common/` is a namespace of its own whose conflicting files drop each other
+(`File`, `DropFile`). (2) `vtree` gains `pub fn fold_name(name: &str) -> String`, the fold of one
+name with no path validation, used for every name-level lookup key in `aesthetics_export`.
+Why: (1) `model_format.md` makes a link count as the linked file being local, so `hair.dds`
+beside `hair.png.common` is the same ambiguity as `hair.dds` beside `hair.png`; Common materials
+resolve their stems against Common's images, which two files of one stem make ambiguous. Common
+cannot be dropped as a folder without dropping every player that links anything in it, so its
+files drop each other, as in `Portraits/`. (2) Folding a stem or a link target by building a
+`ScopePath` from it panicked on real names (`skin .png` has the stem `skin `, which no path
+segment may end with); the fold itself needs no validation.
+Plan: `aesthetics_export/object_model.md` "Validation semantics", "Texture stems";
+`team_compiler/messages.md` `texture_stem_conflict`.

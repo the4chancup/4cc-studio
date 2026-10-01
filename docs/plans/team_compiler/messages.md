@@ -214,7 +214,7 @@ game's three sizes)
 | `kit_texture_uncompressed` | E | main kit texture in uncompressed format | discarded |
 | `texture_type_mismatch` | E | header doesn't match extension (renamed, not resaved) | discarded |
 | `texture_codec_unsupported` | E | codec not convertible in-process | discarded |
-| `texture_stem_conflict` | E | two image files with the same stem in one lookup namespace, whatever their extensions: a model folder with its reserved subfolders (`hair.dds` beside `common/hair.dds`, or `hair.png`), a kit folder, or `Kits/all/` (`kit.png` beside `kit.dds`; a kit's own file overriding an `all/` file of its stem is not a conflict), or `Portraits/` (`player_03.dds` beside `player_03.png`) | folder discarded (the kit; for `all/`, `all/` itself, so no kit inherits from it); in `Portraits/`, both files |
+| `texture_stem_conflict` | E | two image files with the same stem in one lookup namespace, whatever their extensions: a model folder with its reserved subfolders (`hair.dds` beside `common/hair.dds`, or `hair.png`, or a texture link `hair.png.common`, which counts as a file of its linked name), `Common/` (`hair.dds` beside `hair.png`), a kit folder, or `Kits/all/` (`kit.png` beside `kit.dds`; a kit's own file overriding an `all/` file of its stem is not a conflict), or `Portraits/` (`player_03.dds` beside `player_03.png`) | folder discarded (the kit; for `all/`, `all/` itself, so no kit inherits from it); in `Portraits/` and `Common/`, both files (a player linking a dropped Common file follows `link_target_dropped`) |
 
 **XML/MTL content checks** (pre-Fox, plus `face_diff.xml` in Fox)
 

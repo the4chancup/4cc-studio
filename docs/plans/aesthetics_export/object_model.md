@@ -167,9 +167,15 @@ eligible, roster-entry scope and disposition; confirmed 2026-09-30).
   and roster-mapped: a shared folder linked only by a dropped player is orphaned.
 - **Export findings of `validate`.** A stem with no token is `team_name_unknown` with an empty
   name, and an export holding no content-folder entry and no root `logo*` texture is
-  `export_empty`, both `DropExport`. `export_empty` is not reported beside `nested_root_ambiguous`
-  or `nested_root_conflict`, which leave the root undecided. A name the teams list lacks is
+  `export_empty`, both `DropExport`. `export_empty` and `root_file_unexpected` are not reported
+  beside `nested_root_ambiguous` or `nested_root_conflict`, which leave the root undecided (its
+  folders are the candidate roots, not stray content). A name the teams list lacks is
   `resolve_identity`'s `IdentityError`.
+- **Texture stems.** A lookup namespace (`team_compiler/messages.md` `texture_stem_conflict`)
+  holds its textures plus, in a player folder, each texture `.common` link under its linked name
+  (`hair.png.common` is `hair`), as a link counts as the linked file being local
+  (`model_format.md` "Rules"). `Common/` is one namespace: its conflicting files drop each other
+  (`File`, `DropFile`), and the cascade then drops the players linking them.
 - **Kits, portraits, logo.** A `kit_folder_invalid` folder gets no other finding: which
   allowlist its contents answer to is unknown (it may be a misspelled `all`), and it is dropped
   whole anyway. `all` counts as a slot for `kit_slot_duplicate`. `all/` textures

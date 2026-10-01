@@ -179,13 +179,23 @@ impl ParsedAestheticsExport {
         let kits = kits::check(draft, context, &self.metadata, &mut issues);
         let portraits = root::check_portraits(draft, context, &mut issues);
         let logo = root::check_logo(draft, context, &mut issues);
-        let root = root::check_root(
-            draft,
-            &self.metadata,
-            draft.kind() == ExportKind::Referees,
-            context,
-            &mut issues,
-        );
+        // No root findings on an undecided root: `nested_root_ambiguous` and
+        // `nested_root_conflict` leave it unresolved, as for `export_empty`.
+        let root = if root_decided {
+            root::check_root(
+                draft,
+                &self.metadata,
+                draft.kind() == ExportKind::Referees,
+                context,
+                &mut issues,
+            )
+        } else {
+            RootArtifacts {
+                team_colors: None,
+                notes: None,
+                referee_marker: None,
+            }
+        };
 
         // Sanitized `players`: the draft folders a surviving assignment maps
         // and no `DropFolder` issue drops, in draft order.
@@ -655,7 +665,6 @@ mod tests {
         assert!(validated.boots.is_empty());
     }
 
-    // TC-STR-09
     #[test]
     fn a_disallowed_file_drops_strict_and_keeps_lenient() {
         let files = &[
@@ -1910,6 +1919,166 @@ mod tests {
                 .path
                 .as_str(),
             "ref_marker.dds"
+        );
+    }
+
+    #[test]
+    fn a_stem_ending_in_space_folds_without_panicking() {
+        // `skin .png`'s stem is `skin ` — no valid path segment, still a name.
+        let report = report(
+            "egg",
+            &[
+                ("Players/03 - A/skin .png", 9),
+                ("Players/03 - A/face_high.fmdl", 10),
+            ],
+            &[],
+            &[],
+        );
+        assert_eq!(issue_codes(&report), vec![]);
+        assert_eq!(report.validated.unwrap().players.len(), 1);
+    }
+
+    #[test]
+    fn a_link_name_ending_in_space_misses_its_target() {
+        // `Crocs .boots` names `Crocs ` — `Boots/Crocs` exists but does not
+        // match; the name folds rather than panicking.
+        let report = report(
+            "egg",
+            &[
+                ("Players/03 - A/Crocs .boots", 0),
+                ("Boots/Crocs/boots.fmdl", 10),
+            ],
+            &[],
+            &[],
+        );
+        assert_eq!(
+            issue_codes(&report),
+            vec![
+                ("link_target_missing", Disposition::DropFolder),
+                ("shared_folder_orphaned", Disposition::DropFolder),
+            ]
+        );
+    }
+
+    #[test]
+    fn a_flattened_folder_spelling_collision_is_a_conflict() {
+        // `Docs/b.txt` flattens onto `docs/`'s spelling — rejected, no panic.
+        let report = report(
+            "egg",
+            &[
+                ("docs/a.txt", 4),
+                ("wrapper/Docs/b.txt", 4),
+                ("wrapper/Players/03 - A/face_high.fmdl", 10),
+            ],
+            &[],
+            &[],
+        );
+        assert_eq!(
+            issue_codes(&report),
+            vec![("nested_root_conflict", Disposition::DropExport)]
+        );
+        assert!(report.validated.is_none());
+    }
+
+    #[test]
+    fn a_texture_common_link_joins_the_stem_namespace() {
+        let linked = report(
+            "egg",
+            &[
+                ("Common/hair.png", 9),
+                ("Players/03 - A/hair.dds", 9),
+                ("Players/03 - A/hair.png.common", 0),
+            ],
+            &[],
+            &[],
+        );
+        assert_eq!(
+            issue_codes(&linked),
+            vec![("texture_stem_conflict", Disposition::DropFolder)]
+        );
+        assert_eq!(linked.issues[0].scope, folder("Players/03 - A"));
+        assert!(linked.validated.unwrap().players.is_empty());
+
+        // A model link is not a texture: same stem, no conflict.
+        let model_link = report(
+            "egg",
+            &[
+                ("Common/torso.fmdl", 10),
+                ("Players/03 - A/torso.dds", 9),
+                ("Players/03 - A/torso.fmdl.common", 0),
+            ],
+            &[],
+            &[],
+        );
+        assert_eq!(issue_codes(&model_link), vec![]);
+    }
+
+    #[test]
+    fn common_textures_conflict_each_other_and_drop_the_linker() {
+        let report = report(
+            "egg",
+            &[
+                ("Common/hair.dds", 9),
+                ("Common/hair.png", 9),
+                ("Players/03 - A/hair.png.common", 0),
+            ],
+            &[],
+            &[],
+        );
+        assert_eq!(
+            issue_codes(&report),
+            vec![
+                ("texture_stem_conflict", Disposition::DropFile),
+                ("texture_stem_conflict", Disposition::DropFile),
+                ("link_target_dropped", Disposition::DropFolder),
+            ]
+        );
+        assert_eq!(report.issues[0].scope, file_scope("Common/hair.dds"));
+        assert_eq!(report.issues[1].scope, file_scope("Common/hair.png"));
+        assert_eq!(report.issues[2].scope, folder("Players/03 - A"));
+        let validated = report.validated.unwrap();
+        assert!(validated.common.is_empty());
+        assert!(validated.players.is_empty());
+    }
+
+    #[test]
+    fn two_collisions_on_one_loose_path_report_once() {
+        // Both flattened names claim `docs/`'s spelling: one finding.
+        let report = report(
+            "egg",
+            &[
+                ("docs/a.txt", 4),
+                ("wrapper/Docs/b.txt", 4),
+                ("wrapper/Docs/c.txt", 4),
+                ("wrapper/Players/03 - A/face_high.fmdl", 10),
+            ],
+            &[],
+            &[],
+        );
+        assert_eq!(
+            issue_codes(&report),
+            vec![("nested_root_conflict", Disposition::DropExport)]
+        );
+        assert!(report.validated.is_none());
+    }
+
+    #[test]
+    fn a_common_link_below_common_is_no_texture() {
+        // `common/` is not a link position: the file is disallowed there but
+        // never joins the stem namespace.
+        let report = report(
+            "egg",
+            &[
+                ("Common/hair.png", 9),
+                ("Players/03 - A/hair.dds", 9),
+                ("Players/03 - A/common/hair.png.common", 0),
+            ],
+            &[],
+            &[],
+        );
+        assert_eq!(
+            issue_codes(&report),
+            vec![("file_type_disallowed", Disposition::DropFolder)]
         );
     }
 

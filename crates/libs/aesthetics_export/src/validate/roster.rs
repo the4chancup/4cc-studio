@@ -4,8 +4,6 @@
 
 use std::collections::BTreeMap;
 
-use vtree::ScopePath;
-
 use crate::conventions::split_folder_name;
 use crate::parse::{AestheticsExportDraft, ExportKind, RawRoster};
 use crate::slots::{PlayerSlot, RefSlot};
@@ -43,12 +41,9 @@ impl SlotMap {
     }
 }
 
-/// A folder name's fold key for lookup (a path's last segment is itself a
-/// valid path).
+/// A folder name's fold key for lookup.
 fn folder_key(name: &str) -> String {
-    ScopePath::new(name)
-        .expect("a path's last segment is itself a valid path")
-        .fold_key()
+    vtree::fold_name(name)
 }
 
 /// The raw slot's strong type by the export kind; `None` when out of range
@@ -163,8 +158,8 @@ fn with_roster(
             ));
             continue;
         };
-        let name_key = ScopePath::new(folder_name).ok().map(|path| path.fold_key());
-        let Some(&index) = name_key.as_ref().and_then(|key| folders.get(key)) else {
+        let name_key = vtree::fold_name(folder_name);
+        let Some(&index) = folders.get(&name_key) else {
             issues.push(issue(
                 "players_txt_target_missing",
                 scope(entry),
@@ -179,13 +174,8 @@ fn with_roster(
     // A folder no complete line names is unlisted.
     let named: std::collections::BTreeSet<String> = complete
         .iter()
-        .filter_map(|entry| {
-            entry
-                .folder_name
-                .as_deref()
-                .and_then(|name| ScopePath::new(name).ok())
-                .map(|path| path.fold_key())
-        })
+        .filter_map(|entry| entry.folder_name.as_deref())
+        .map(vtree::fold_name)
         .collect();
     for folder in &draft.players {
         if !named.contains(&folder_key(folder.path.name())) {
@@ -303,6 +293,8 @@ fn into_map(referees: bool, assignments: BTreeMap<u8, usize>) -> SlotMap {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use vtree::ScopePath;
+
     use crate::Disposition;
     use crate::testing::report;
     use crate::validate::{IssueScope, ValidationReport};

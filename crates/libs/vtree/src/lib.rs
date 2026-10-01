@@ -76,6 +76,13 @@ impl AsRef<str> for ScopePath {
     }
 }
 
+/// The fold of one name (a segment or a stem), NFC + NTFS-style simple case
+/// folding — the same rule `ScopePath::fold_key` applies per segment. It
+/// validates nothing: a stem that is no valid path segment still folds.
+pub fn fold_name(name: &str) -> String {
+    fold_segments(std::iter::once(name))
+}
+
 /// A canonical path relative to a validated scope root; carries its root so it
 /// can only be joined back to it.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -538,6 +545,12 @@ mod tests {
         assert_eq!(path("Kit.DDS").fold_key(), path("kit.dds").fold_key());
         // NFC 'é' vs NFD 'e' + combining acute.
         assert_eq!(path("c\u{e9}/f").fold_key(), path("ce\u{301}/f").fold_key());
+    }
+
+    #[test]
+    fn fold_name_folds_one_name_without_validating() {
+        assert_eq!(fold_name("Skin "), fold_name("skin "));
+        assert_eq!(fold_name("Kit.DDS"), path("kit.dds").fold_key());
     }
 
     #[test]
