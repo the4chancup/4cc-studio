@@ -1,10 +1,22 @@
-//! `FolderDraft` → `PlayerFolder` / `SharedModelFolder`, and the pass-through
-//! file lists — the sanitized export's parts, before this slice's checks run
-//! (content checks are the deep pass's).
+//! `FolderDraft` → `PlayerFolder` / `SharedModelFolder`, the pass-through
+//! file lists, and each folder kind's own checks (the file-type allowlist,
+//! links, markers and naming rules of "Validation semantics").
+
+use std::collections::BTreeMap;
+
+use vtree::ScopePath;
 
 use crate::FileKind;
-use crate::conventions::{Marker, MetadataFile, SharedKind, shared_link_name, split_folder_name};
-use crate::parse::{FileDescriptor, FolderDraft};
+use crate::conventions::{
+    Marker, MetadataFile, SharedKind, classify, common_link_name, is_boots, is_explicit_face,
+    is_gloves, model_suffix, shared_link_name, split_folder_name,
+};
+use crate::listing::ValidationContext;
+use crate::parse::{AestheticsExportDraft, FileDescriptor, FolderDraft};
+use crate::validate::{Disposition, IssueScope, ValidationIssue};
+use crate::validate::{issue_in, strict_disposition};
+
+use super::links;
 
 /// A player folder: the sanitized main reference point for one player.
 /// Numbering is a roster property, not folder content; the roster maps the
@@ -31,8 +43,8 @@ pub struct PlayerFolder {
     /// The normalized `fpc.on`/`fpc.off` directive; `None` when absent or when
     /// both markers are present.
     pub fpc: Option<FpcDirective>,
-    /// A `portrait.*` texture directly in the folder (the first, in path
-    /// order, when several).
+    /// A `portrait.*` texture directly in the folder; a surviving folder has
+    /// at most one (two `portrait.*` stems is a `texture_stem_conflict`).
     pub portrait: Option<FileDescriptor>,
     /// `settings.toml`.
     pub settings: Option<FileDescriptor>,
@@ -107,8 +119,7 @@ pub(crate) fn player_folder(draft: &FolderDraft, roster_file: bool) -> PlayerFol
             FileKind::Texture
                 if name
                     .rsplit_once('.')
-                    .is_some_and(|(stem, _)| stem.eq_ignore_ascii_case("portrait"))
-                    && portrait.is_none() =>
+                    .is_some_and(|(stem, _)| stem.eq_ignore_ascii_case("portrait")) =>
             {
                 portrait = Some(file.clone());
             }
@@ -159,5 +170,401 @@ pub(crate) fn shared_model_folder(draft: &FolderDraft) -> SharedModelFolder {
     SharedModelFolder {
         folder_name: draft.path.name().to_owned(),
         files: draft.files.clone(),
+    }
+}
+
+/// A reserved player-folder subfolder's kind (matched
+/// ASCII-case-insensitively, one level deep).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Reserved {
+    /// `face/` — face parts wholesale.
+    Face,
+    /// `boots/` — boots parts wholesale.
+    Boots,
+    /// `gloves/` — gloves parts wholesale.
+    Gloves,
+    /// `common/` — textures only.
+    Common,
+}
+
+/// A file's position relative to a player folder: directly inside it,
+/// directly inside a reserved child, or anywhere else.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Position {
+    /// Directly in the folder.
+    Direct,
+    /// Directly inside a `face`/`boots`/`gloves`/`common` child.
+    Reserved(Reserved),
+    /// Deeper, or under another child folder.
+    Other,
+}
+
+/// Whether `path` is a file directly in `folder`.
+pub(crate) fn directly_in(path: &ScopePath, folder: &ScopePath) -> bool {
+    path.parent()
+        .is_some_and(|parent| parent.fold_key() == folder.fold_key())
+}
+
+/// Whether `path` is a file directly in `Common/` (two segments).
+pub(crate) fn is_direct_common_file(path: &ScopePath) -> bool {
+    path.segments().count() == 2
+}
+
+/// `path`'s position under `folder` (any depth down).
+pub(crate) fn position(path: &ScopePath, folder: &ScopePath) -> Position {
+    if directly_in(path, folder) {
+        return Position::Direct;
+    }
+    let Some(parent) = path.parent() else {
+        return Position::Other;
+    };
+    let Some(grandparent) = parent.parent() else {
+        return Position::Other;
+    };
+    if grandparent.fold_key() != folder.fold_key() {
+        return Position::Other;
+    }
+    match parent.name() {
+        name if name.eq_ignore_ascii_case("face") => Position::Reserved(Reserved::Face),
+        name if name.eq_ignore_ascii_case("boots") => Position::Reserved(Reserved::Boots),
+        name if name.eq_ignore_ascii_case("gloves") => Position::Reserved(Reserved::Gloves),
+        name if name.eq_ignore_ascii_case("common") => Position::Reserved(Reserved::Common),
+        _ => Position::Other,
+    }
+}
+
+/// `path` below `folder` as a relative path string (`extra/x.dds`).
+fn relative(path: &ScopePath, folder: &ScopePath) -> String {
+    path.segments()
+        .skip(folder.segments().count())
+        .collect::<Vec<_>>()
+        .join("/")
+}
+
+/// "Model content" (the allowlist table): models, textures, `.skl`, `.fclo`,
+/// `.xml`, `.mtl`, material tomls and `.bin`.
+fn is_model_content(kind: FileKind) -> bool {
+    matches!(
+        kind,
+        FileKind::Model(_)
+            | FileKind::Texture
+            | FileKind::Skl
+            | FileKind::Fclo
+            | FileKind::Xml
+            | FileKind::Mtl
+            | FileKind::MaterialsToml
+            | FileKind::Bin
+    )
+}
+
+/// What a file directly in a player folder may be (allowlist row 1).
+fn player_direct_allowed(kind: FileKind) -> bool {
+    is_model_content(kind)
+        || matches!(
+            kind,
+            FileKind::SharedLink(_)
+                | FileKind::CommonLink
+                | FileKind::Marker(Marker::IngameFace | Marker::FpcOn | Marker::FpcOff)
+                | FileKind::Metadata(MetadataFile::SettingsToml)
+        )
+}
+
+/// What a file directly in `face/`/`boots/`/`gloves/` may be (allowlist row 2).
+fn reserved_allowed(kind: FileKind) -> bool {
+    is_model_content(kind) || kind == FileKind::CommonLink
+}
+
+/// A stem's tail: the name before its last `.` (`hair.dds` → `hair`).
+fn stem(name: &str) -> &str {
+    name.rsplit_once('.').map(|(stem, _)| stem).unwrap_or(name)
+}
+
+/// A player folder's own findings, in the order the semantics list them:
+/// allowlist, duplicate links, missing targets, markers, stems.
+pub(crate) fn check_player(
+    draft: &AestheticsExportDraft,
+    folder: &FolderDraft,
+    context: &ValidationContext,
+    issues: &mut Vec<ValidationIssue>,
+) {
+    let scope = IssueScope::Folder(folder.path.clone());
+
+    // 1. The file-type allowlist.
+    for file in &folder.files {
+        let allowed = match position(&file.path, &folder.path) {
+            Position::Direct => player_direct_allowed(file.kind),
+            Position::Reserved(Reserved::Common) => file.kind == FileKind::Texture,
+            Position::Reserved(_) => reserved_allowed(file.kind),
+            Position::Other => false,
+        };
+        if !allowed {
+            issues.push(issue_in(
+                context,
+                "file_type_disallowed",
+                scope.clone(),
+                vec![("file", relative(&file.path, &folder.path))],
+                strict_disposition(context, Disposition::DropFolder),
+            ));
+        }
+    }
+
+    // 2. One shared link per kind.
+    for kind in [SharedKind::Face, SharedKind::Boots, SharedKind::Gloves] {
+        if folder
+            .files
+            .iter()
+            .filter(|file| {
+                position(&file.path, &folder.path) == Position::Direct
+                    && file.kind == FileKind::SharedLink(kind)
+            })
+            .count()
+            > 1
+        {
+            issues.push(issue_in(
+                context,
+                "shared_link_duplicate",
+                scope.clone(),
+                vec![("kind", kind.name().to_owned())],
+                Disposition::DropFolder,
+            ));
+        }
+    }
+
+    // 3.-4. A link's target must exist (the resolver is `links`'s).
+    let resolved = links::player_links(folder, draft);
+    for link in &resolved {
+        if let links::ResolvedLinkKind::Shared(_) = &link.kind
+            && link.target.is_none()
+        {
+            issues.push(issue_in(
+                context,
+                "link_target_missing",
+                scope.clone(),
+                vec![("link", link.link_name.clone())],
+                Disposition::DropFolder,
+            ));
+        }
+    }
+    for link in &resolved {
+        if let links::ResolvedLinkKind::Common(name) = &link.kind
+            && link.target.is_none()
+        {
+            issues.push(issue_in(
+                context,
+                "common_link_missing",
+                scope.clone(),
+                vec![
+                    ("link", link.link_name.clone()),
+                    ("path", format!("Common/{name}")),
+                ],
+                Disposition::DropFolder,
+            ));
+        }
+    }
+
+    // 5. Both fpc markers contradict.
+    let fpc_on = folder.files.iter().any(|file| {
+        file.kind == FileKind::Marker(Marker::FpcOn)
+            && position(&file.path, &folder.path) == Position::Direct
+    });
+    let fpc_off = folder.files.iter().any(|file| {
+        file.kind == FileKind::Marker(Marker::FpcOff)
+            && position(&file.path, &folder.path) == Position::Direct
+    });
+    if fpc_on && fpc_off {
+        issues.push(issue_in(
+            context,
+            "fpc_conflict",
+            scope.clone(),
+            vec![],
+            Disposition::DropFolder,
+        ));
+    }
+
+    // 6. `ingame_face` plus explicit face content contradict.
+    let ingame_face = folder.files.iter().any(|file| {
+        file.kind == FileKind::Marker(Marker::IngameFace)
+            && position(&file.path, &folder.path) == Position::Direct
+    });
+    if ingame_face {
+        let trigger = folder.files.iter().find(|file| {
+            let face_position = matches!(
+                position(&file.path, &folder.path),
+                Position::Direct | Position::Reserved(Reserved::Face)
+            );
+            match file.kind {
+                FileKind::SharedLink(SharedKind::Face) => {
+                    position(&file.path, &folder.path) == Position::Direct
+                }
+                FileKind::SharedLink(SharedKind::Boots | SharedKind::Gloves) => false,
+                FileKind::Model(_) => {
+                    face_position
+                        && model_suffix(stem(file.path.name())).is_some_and(is_explicit_face)
+                }
+                FileKind::CommonLink => {
+                    face_position
+                        && common_link_name(file.path.name())
+                            .is_some_and(|name| is_explicit_model_file(&name))
+                }
+                FileKind::Texture
+                | FileKind::Skl
+                | FileKind::Fclo
+                | FileKind::Xml
+                | FileKind::Mtl
+                | FileKind::MaterialsToml
+                | FileKind::Bin
+                | FileKind::Marker(_)
+                | FileKind::Metadata(_)
+                | FileKind::Other => false,
+            }
+        });
+        if let Some(file) = trigger {
+            issues.push(issue_in(
+                context,
+                "ingame_face_explicit_face_model",
+                scope.clone(),
+                vec![("file", file.path.name().to_owned())],
+                Disposition::DropFolder,
+            ));
+        }
+    }
+
+    // 7. Texture stems collide across the whole namespace (direct + reserved).
+    let mut stems: BTreeMap<String, Vec<String>> = BTreeMap::new();
+    for file in &folder.files {
+        let linked = matches!(
+            position(&file.path, &folder.path),
+            Position::Direct | Position::Reserved(_)
+        );
+        if file.kind == FileKind::Texture && linked {
+            stems
+                .entry(fold(stem(file.path.name())))
+                .or_default()
+                .push(relative(&file.path, &folder.path));
+        }
+    }
+    for (stem, files) in stems {
+        if files.len() > 1 {
+            issues.push(issue_in(
+                context,
+                "texture_stem_conflict",
+                scope.clone(),
+                vec![("stem", stem), ("files", files.join(","))],
+                Disposition::DropFolder,
+            ));
+        }
+    }
+}
+
+/// The draft's shared folders of `kind`.
+pub(crate) fn shared_folders(draft: &AestheticsExportDraft, kind: SharedKind) -> &Vec<FolderDraft> {
+    match kind {
+        SharedKind::Face => &draft.faces,
+        SharedKind::Boots => &draft.boots,
+        SharedKind::Gloves => &draft.gloves,
+    }
+}
+
+/// Whether `file_name` names a model file whose suffix is an explicit face
+/// model (the `.common` link's target side of the ingame-face rule).
+fn is_explicit_model_file(name: &str) -> bool {
+    matches!(classify(name), FileKind::Model(_))
+        && model_suffix(stem(name)).is_some_and(is_explicit_face)
+}
+
+/// A name's fold key for lookups (the same casing rule the tree uses).
+pub(crate) fn fold(name: &str) -> String {
+    ScopePath::new(name)
+        .expect("a path's last segment is itself a valid path")
+        .fold_key()
+}
+
+/// A shared folder's own findings: the allowlist, stem collisions, and the
+/// Fox-only boots/gloves naming rule.
+pub(crate) fn check_shared(
+    folder: &FolderDraft,
+    kind: SharedKind,
+    context: &ValidationContext,
+    issues: &mut Vec<ValidationIssue>,
+) {
+    let scope = IssueScope::Folder(folder.path.clone());
+
+    // Model content only, and only directly in the folder.
+    for file in &folder.files {
+        if !(directly_in(&file.path, &folder.path) && is_model_content(file.kind)) {
+            issues.push(issue_in(
+                context,
+                "file_type_disallowed",
+                scope.clone(),
+                vec![("file", relative(&file.path, &folder.path))],
+                strict_disposition(context, Disposition::DropFolder),
+            ));
+        }
+    }
+
+    // Texture stems collide over the direct files.
+    let mut stems: BTreeMap<String, Vec<String>> = BTreeMap::new();
+    for file in &folder.files {
+        if file.kind == FileKind::Texture && directly_in(&file.path, &folder.path) {
+            stems
+                .entry(fold(stem(file.path.name())))
+                .or_default()
+                .push(file.path.name().to_owned());
+        }
+    }
+    for (stem, files) in stems {
+        if files.len() > 1 {
+            issues.push(issue_in(
+                context,
+                "texture_stem_conflict",
+                scope.clone(),
+                vec![("stem", stem), ("files", files.join(","))],
+                Disposition::DropFolder,
+            ));
+        }
+    }
+
+    // On Fox every boots/gloves model must say so by suffix (`Faces/` takes
+    // any name — nothing there can be a face anywhere else).
+    if context.version.engine() != pes_version::Engine::Fox {
+        return;
+    }
+    for file in &folder.files {
+        let allowed = match kind {
+            SharedKind::Face => true,
+            SharedKind::Boots => model_suffix(stem(file.path.name())).is_some_and(is_boots),
+            SharedKind::Gloves => model_suffix(stem(file.path.name())).is_some_and(is_gloves),
+        };
+        if matches!(file.kind, FileKind::Model(_))
+            && directly_in(&file.path, &folder.path)
+            && !allowed
+        {
+            issues.push(issue_in(
+                context,
+                "fmdl_name_invalid",
+                scope.clone(),
+                vec![("file", file.path.name().to_owned())],
+                Disposition::DropFolder,
+            ));
+        }
+    }
+}
+
+/// The `Common/` allowlist: direct files only, model content only.
+pub(crate) fn check_common(
+    draft: &AestheticsExportDraft,
+    context: &ValidationContext,
+    issues: &mut Vec<ValidationIssue>,
+) {
+    for file in &draft.common {
+        if !is_direct_common_file(&file.path) || !is_model_content(file.kind) {
+            issues.push(issue_in(
+                context,
+                "common_file_disallowed",
+                IssueScope::File(file.path.clone()),
+                vec![],
+                strict_disposition(context, Disposition::DropFile),
+            ));
+        }
     }
 }

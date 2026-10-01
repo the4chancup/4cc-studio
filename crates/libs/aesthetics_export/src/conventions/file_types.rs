@@ -170,6 +170,26 @@ pub(crate) fn shared_link_name(name: &str) -> Option<(SharedKind, String)> {
     None
 }
 
+/// A `.common` link's target name: `torso.fmdl.common` and the tolerated
+/// `torso.fmdl.common.txt` alike give `torso.fmdl`.
+pub(crate) fn common_link_name(name: &str) -> Option<String> {
+    let name = strip_suffix_ci(name, ".txt").unwrap_or(name);
+    strip_suffix_ci(name, ".common")
+        .filter(|stem| !stem.is_empty())
+        .map(str::to_owned)
+}
+
+impl SharedKind {
+    /// The lowercase kind name (`shared_link_duplicate`'s context value).
+    pub(crate) fn name(self) -> &'static str {
+        match self {
+            SharedKind::Face => "face",
+            SharedKind::Boots => "boots",
+            SharedKind::Gloves => "gloves",
+        }
+    }
+}
+
 /// `name` minus `suffix`, when the tail equals it ASCII-case-insensitively.
 fn strip_suffix_ci<'a>(name: &'a str, suffix: &str) -> Option<&'a str> {
     let cut = name.len().checked_sub(suffix.len())?;
