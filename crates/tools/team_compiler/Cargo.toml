@@ -10,6 +10,7 @@ rust-version.workspace = true
 [dependencies]
 aesthetics_export.workspace = true
 anyhow.workspace = true
+archives.workspace = true
 clap.workspace = true
 cpk.workspace = true
 egui.workspace = true

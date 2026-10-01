@@ -2656,3 +2656,12 @@ would make every size sum (the 7z charge in `libs/pipeline.md`) filter out folde
 caller that forgot would charge nothing wrong today but read a folder as a zero-byte file.
 Folders are not checked for duplicates: no bytes for two spellings to disagree on.
 Plan: `libs/archives.md` (API block, normalization paragraph).
+
+## 2026-10-01 — archives — a directory entry naming the root is skipped
+Decision (lead, at 3.8d review): a directory entry made only of `/`, `\` and `.` segments
+(`./`, `/`, `.`) is left out of `folders()`; any other directory entry goes through the file
+names' `normalize`, so `..` is still `InvalidName`.
+Why: with 3.8d's `folders()` such an entry reached `normalize`, which refuses an empty name, so
+an archive that lists its own root (before 3.8d, skipped like every directory entry) would have
+been refused whole as `export_extract_failed`; the entry carries no folder to report.
+Plan: `libs/archives.md` (normalization paragraph).

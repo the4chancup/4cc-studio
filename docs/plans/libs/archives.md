@@ -47,7 +47,9 @@ folder is a placeholder kit (Team compiler plan), so dropping them lost a kit; k
 `entries()` files only keeps its sizes the sum a 7z read decompresses, which is what the budget
 charges. A folder that also has entries below it may or may not be listed, as the writer chose;
 `folders()` carries no other guarantee and is not checked for duplicates (a folder holds no
-bytes for two spellings to disagree on). A name with a `..` segment or a drive prefix (a first segment `X:...`, whatever
+bytes for two spellings to disagree on). A directory entry naming the archive's own root (`./`,
+`/`, `.`) is skipped, not refused: it names no folder, and refusing it would drop a whole
+export over an entry that says nothing. A name with a `..` segment or a drive prefix (a first segment `X:...`, whatever
 follows the colon) is `InvalidName` (a zip-slip name has no meaning in a tree that is never
 written to disk, and rejecting it keeps the guarantee visible). Two entries that normalize to one
 tree path (`a/b` and `a\b`, `./a/b`) are `DuplicateName`, the plan-wide rule that collisions are

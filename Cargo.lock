@@ -1402,6 +1402,7 @@ version = "0.1.0"
 dependencies = [
  "aesthetics_export",
  "anyhow",
+ "archives",
  "clap",
  "cpk",
  "crossbeam-channel",

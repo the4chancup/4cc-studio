@@ -46,7 +46,8 @@ pub enum ArchiveError {
 }
 
 /// A raw entry name to a tree path: `\` to `/`, a leading `/` or `./` stripped, `//`
-/// collapsed. Anything that cannot name a tree file is `InvalidName`.
+/// collapsed, a trailing `/` (a directory entry's) dropped. Anything that cannot name a tree
+/// file is `InvalidName`.
 fn normalize(raw: &str) -> Result<String, ArchiveError> {
     let mut name = raw.replace('\\', "/");
     while name.starts_with("./") || name.starts_with('/') {
@@ -73,6 +74,14 @@ fn normalize(raw: &str) -> Result<String, ArchiveError> {
         return Err(ArchiveError::InvalidName(raw.to_string()));
     }
     Ok(segments.join("/"))
+}
+
+/// Whether a directory entry names the archive's own root (`./`, `/`, `.`). It names no folder
+/// of the tree, so it is skipped, not refused: `normalize` refuses an empty name, which would
+/// refuse a whole export over an entry that says nothing.
+fn is_root_name(raw: &str) -> bool {
+    raw.split(['/', '\\'])
+        .all(|segment| segment.is_empty() || segment == ".")
 }
 
 /// A collected entry list must not hold two paths: `a/b`, `a\b` and `./a/b` all
@@ -131,6 +140,7 @@ enum Inner<R: Read + Seek> {
 /// An open archive: the entry list is eager, contents are read on demand.
 pub struct Archive<R: Read + Seek> {
     entries: Vec<Entry>,
+    folders: Vec<String>,
     inner: Inner<R>,
 }
 
@@ -141,6 +151,7 @@ impl<R: Read + Seek> Archive<R> {
         let mut archive =
             zip::ZipArchive::new(reader).map_err(|error| ArchiveError::Zip(error.to_string()))?;
         let mut entries = Vec::new();
+        let mut folders = Vec::new();
         let mut index = HashMap::new();
         for i in 0..archive.len() {
             // The raw view is where the size and the encryption flag are readable
@@ -149,6 +160,11 @@ impl<R: Read + Seek> Archive<R> {
                 .by_index_raw(i)
                 .map_err(|error| ArchiveError::Zip(error.to_string()))?;
             if file.is_dir() {
+                // A zip directory entry is named `Kits/p2/`; `normalize` drops empty
+                // segments, so the trailing separator goes with them.
+                if !is_root_name(file.name()) {
+                    folders.push(normalize(file.name())?);
+                }
                 continue;
             }
             if file.encrypted() {
@@ -164,6 +180,7 @@ impl<R: Read + Seek> Archive<R> {
         check_unique(&entries)?;
         Ok(Archive {
             entries,
+            folders,
             inner: Inner::Zip { archive, index },
         })
     }
@@ -182,8 +199,12 @@ impl<R: Read + Seek> Archive<R> {
             return Err(ArchiveError::Encrypted);
         }
         let mut entries = Vec::new();
+        let mut folders = Vec::new();
         for file in &reader.archive().files {
             if is_directory_entry(file.is_directory(), file.name()) {
+                if !is_root_name(file.name()) {
+                    folders.push(normalize(file.name())?);
+                }
                 continue;
             }
             entries.push(Entry {
@@ -194,6 +215,7 @@ impl<R: Read + Seek> Archive<R> {
         check_unique(&entries)?;
         Ok(Archive {
             entries,
+            folders,
             inner: Inner::SevenZ {
                 reader: Box::new(reader),
                 contents: None,
@@ -204,6 +226,14 @@ impl<R: Read + Seek> Archive<R> {
     /// The file entries, in archive order.
     pub fn entries(&self) -> &[Entry] {
         &self.entries
+    }
+
+    /// The directory entries, normalized like `Entry::path`, in archive order. An empty
+    /// folder exists in an archive only as one of these; a folder with files below it may or
+    /// may not be listed, as the writer chose. Not checked for duplicates: a folder holds no
+    /// bytes for two spellings to disagree on.
+    pub fn folders(&self) -> &[String] {
+        &self.folders
     }
 
     /// One entry's bytes. `path` is compared as given — pass what `entries()` returned.
@@ -379,6 +409,76 @@ mod tests {
                 archive.read("no/such.txt"),
                 Err(ArchiveError::NotFound(_))
             ));
+        }
+    }
+
+    #[test]
+    fn directory_entries_are_listed_apart_from_the_files() {
+        let seven_z = Archive::seven_z(Cursor::new(SAMPLE_7Z)).expect("7z");
+        let ps_zip = Archive::zip(Cursor::new(SAMPLE_PS_ZIP)).expect("ps zip");
+        let seven_zip_zip = Archive::zip(Cursor::new(SAMPLE_7ZIP_ZIP)).expect("7zip zip");
+        let every_folder = [
+            "Sample Export",
+            "Sample Export/Empty",
+            "Sample Export/Faces",
+            "Sample Export/Faces/Player One",
+            "Sample Export/Faces/Player Two",
+            "Sample Export/Kits",
+        ];
+        for (name, archive) in [("7z", &seven_z), ("7zip zip", &seven_zip_zip)] {
+            let mut folders = archive.folders().to_vec();
+            folders.sort();
+            assert_eq!(folders, every_folder, "{name}");
+        }
+        // This writer lists a folder only when no file sits directly in it.
+        assert_eq!(
+            ps_zip.folders(),
+            ["Sample Export/Empty", "Sample Export/Faces"]
+        );
+        for archive in [&seven_z, &ps_zip, &seven_zip_zip] {
+            assert!(
+                archive
+                    .entries()
+                    .iter()
+                    .all(|entry| !archive.folders().contains(&entry.path))
+            );
+        }
+    }
+
+    #[test]
+    fn a_zip_directory_entry_loses_its_trailing_separator() {
+        let options = zip::write::SimpleFileOptions::default()
+            .compression_method(zip::CompressionMethod::Stored);
+        let mut writer = zip::ZipWriter::new(Cursor::new(Vec::new()));
+        writer.add_directory("Kits/p2/", options).unwrap();
+        writer.start_file("players.txt", options).unwrap();
+        let bytes = writer.finish().unwrap().into_inner();
+        let archive = Archive::zip(Cursor::new(bytes)).expect("zip");
+        assert_eq!(archive.folders(), ["Kits/p2"]);
+        let paths: Vec<&str> = archive
+            .entries()
+            .iter()
+            .map(|entry| entry.path.as_str())
+            .collect();
+        assert_eq!(paths, ["players.txt"]);
+    }
+
+    #[test]
+    fn a_directory_entry_naming_the_root_is_skipped() {
+        let options = zip::write::SimpleFileOptions::default()
+            .compression_method(zip::CompressionMethod::Stored);
+        let mut writer = zip::ZipWriter::new(Cursor::new(Vec::new()));
+        writer.add_directory("./", options).unwrap();
+        writer.add_directory("Kits/", options).unwrap();
+        writer.start_file("players.txt", options).unwrap();
+        let bytes = writer.finish().unwrap().into_inner();
+        let archive = Archive::zip(Cursor::new(bytes)).expect("a root entry is not refused");
+        assert_eq!(archive.folders(), ["Kits"]);
+        for root in ["./", "/", ".", ".\\", "./."] {
+            assert!(is_root_name(root), "{root}");
+        }
+        for folder in ["Kits/", "./Kits/", "..", "../"] {
+            assert!(!is_root_name(folder), "{folder}");
         }
     }
 

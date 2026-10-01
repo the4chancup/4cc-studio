@@ -7,13 +7,16 @@ mod source;
 
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
-use aesthetics_export::{CanonicalListing, ListedKind};
+use aesthetics_export::{CanonicalListing, ListedKind, SmallMetadata};
 use anyhow::Context;
+use pipeline::MemoryBudget;
 use studio_core::ExportId;
 use teams_list::TeamName;
 
-pub(crate) use source::{SourceFailure, read_metadata};
+use source::OpenSource;
+pub(crate) use source::SourceFailure;
 
 /// One export source found by discovery: a folder or an archive.
 #[derive(Debug)]
@@ -53,8 +56,13 @@ pub(crate) enum Route {
     Balls,
     /// One of several non-disabled `/refs/` exports: `multiple_ref_exports`.
     ConflictingRefs,
-    /// To be validated, from this listing.
-    Validate(CanonicalListing),
+    /// To be validated, from this listing and the small metadata files read with it.
+    Validate {
+        /// Every file and folder in the source.
+        listing: CanonicalListing,
+        /// The listing's small metadata files, read from the source.
+        metadata: SmallMetadata,
+    },
 }
 
 /// Whether `path` names a `.zip` or `.7z` archive: the extension compared ASCII-case-insensitively,
@@ -136,22 +144,17 @@ fn source(path: PathBuf, export_id: ExportId) -> ExportSource {
     }
 }
 
-/// Each source's route, in the order given. A source is listed first, since a disabled one is
-/// recognized by its root's files; the duplicate-refs rule then counts only the `/refs/`
-/// exports still headed for validation, so a disabled or unreadable one never conflicts.
-pub(crate) fn route(sources: &[ExportSource]) -> Vec<Route> {
+/// Each source's route, in the order given, its `.7z` reads charged to `budget`. The
+/// duplicate-refs rule counts only the `/refs/` exports still headed for validation, so a
+/// disabled or unreadable one never conflicts.
+pub(crate) fn route(sources: &[ExportSource], budget: &Arc<MemoryBudget>) -> Vec<Route> {
     let mut routes: Vec<Route> = sources
         .iter()
-        .map(|source| match source::read_listing(source) {
-            Err(failure) => Route::Unreadable(failure),
-            Ok(listing) if is_disabled(&listing) => Route::Disabled,
-            Ok(_) if source.team_name.as_ref().is_some_and(TeamName::is_balls) => Route::Balls,
-            Ok(listing) => Route::Validate(listing),
-        })
+        .map(|source| route_source(source, budget))
         .collect();
     let refs: Vec<usize> = (0..sources.len())
         .filter(|&index| {
-            matches!(routes[index], Route::Validate(_))
+            matches!(routes[index], Route::Validate { .. })
                 && sources[index]
                     .team_name
                     .as_ref()
@@ -164,6 +167,25 @@ pub(crate) fn route(sources: &[ExportSource]) -> Vec<Route> {
         }
     }
     routes
+}
+
+/// One source's route before the duplicate-refs rule. The listing comes first, since a disabled
+/// export is recognized by its root's files; only an export headed for validation has its
+/// metadata read, from the source its listing opened, so a disabled or balls `.7z` is never
+/// decompressed.
+fn route_source(source: &ExportSource, budget: &Arc<MemoryBudget>) -> Route {
+    let (open, listing) = match OpenSource::open(source) {
+        Ok(opened) => opened,
+        Err(failure) => return Route::Unreadable(failure),
+    };
+    if is_disabled(&listing) {
+        return Route::Disabled;
+    }
+    if source.team_name.as_ref().is_some_and(TeamName::is_balls) {
+        return Route::Balls;
+    }
+    let metadata = open.read_metadata(&listing, budget);
+    Route::Validate { listing, metadata }
 }
 
 /// A `NO_USE` or `NO_USE.txt` file directly in the source's own root. Compared folded, as
@@ -334,14 +356,14 @@ mod tests {
         write("refs d.zip");
 
         let sources = discover(&root, &[]).unwrap();
-        let routes: Vec<String> = route(&sources)
+        let routes: Vec<String> = route(&sources, &MemoryBudget::new(1 << 20))
             .into_iter()
             .map(|route| match route {
                 Route::Unreadable(failure) => format!("unreadable: {}", failure.error),
                 Route::Disabled => "disabled".to_owned(),
                 Route::Balls => "balls".to_owned(),
                 Route::ConflictingRefs => "conflicting refs".to_owned(),
-                Route::Validate(listing) => format!("validate {}", listing.display_name),
+                Route::Validate { listing, .. } => format!("validate {}", listing.display_name),
             })
             .collect();
 
@@ -356,7 +378,7 @@ mod tests {
                 "conflicting refs",
                 // A disabled or unreadable refs export does not conflict.
                 "disabled",
-                "unreadable: archive sources arrive in step 3.8d",
+                "unreadable: zip: invalid Zip archive: Could not find EOCD",
             ]
         );
         fs::remove_dir_all(&root).unwrap();
@@ -370,8 +392,8 @@ mod tests {
         fs::create_dir_all(root.join("refs b")).unwrap();
         fs::write(root.join("refs b/NO_USE"), "").unwrap();
         let sources = discover(&root, &[]).unwrap();
-        let routes = route(&sources);
-        assert!(matches!(routes[0], Route::Validate(_)), "{routes:?}");
+        let routes = route(&sources, &MemoryBudget::new(1 << 20));
+        assert!(matches!(routes[0], Route::Validate { .. }), "{routes:?}");
         assert_eq!(routes[1], Route::Disabled);
         fs::remove_dir_all(&root).unwrap();
     }
