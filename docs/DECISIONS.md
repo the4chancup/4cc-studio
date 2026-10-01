@@ -2615,3 +2615,34 @@ call; a feature on the `windows` crate already in the workspace is the smallest 
 `sysinfo`-style crate would add a dependency tree for one number).
 Plan: `libs/pipeline.md` "Memory cap"; `team_compiler/settings.md` `memory_cap_percent`;
 `CONTRIBUTING.md` `unsafe` sites.
+
+## 2026-10-01 — studio_core / team_compiler — 3.8: exit codes, console lines, CLI data location, Phase 3 settings
+Decision: (1) `StudioTool::cli_run` returns `Result<u8, CliError>`: `Ok` is the exit code of a
+command that reached a verdict, `CliError { exit_code, error }` a command refused before one,
+printed by the binary as `error: …`. (2) The binary prints one self-contained `-` line per
+`Message` to stdout from its own thread (`<source>: <Severity> <code> at <scope> (k=v, …)`); the
+source is the export's file name, extension included, from `ExportStarted`. (3) `ToolContext`
+gains `paths()` (`AppPaths { exe_dir, data_dir: Option }`); the CLI resolves the data location
+presence-based but never asks or writes, running on in-memory defaults with no data directory
+when no settings file exists. (4) New Info code `export_identified` (context `team`, `id`) is how
+an export's identity is reported. (5) `messages.rs` holds severities only until Phase 8 needs
+text. (6) Team compiler settings enter the struct with the phase that reads them; 0/1 settings
+are TOML booleans; a missing teams list reads the embedded one, an unreadable or invalid one is
+exit 3. (7) Discovery: archive extensions and `NO_USE` compared case-insensitively, `NO_USE` at
+the source's own root, sources in `fold_name` order.
+Why: (1) the codes are each tool's contract (the Team compiler's 0/1/2/3), so the tool returns
+them; an `anyhow::Result<()>` let the binary report only success or 1, and a tool may not print.
+(2) A header-per-export format breaks once exports run in parallel; display stems alone cannot
+tell `co - Spring` from `co - Spring.zip` (TC-SRC-02). (3) Path settings resolve against the
+exe and data folders (`settings.md` "Path resolution"), which the tool had no way to learn; a
+CLI that wrote a settings file on first run would make `check` write (TC-CLI-01) and skip the
+GUI's first-run choice. (4) TC-ID-01/03 need the identity in the output, and `PipelineEvent` is
+tool-neutral by design. (5) The catalog plan gives no texts; inventing ~50 now would be
+rewritten when the help window defines their style. (6) Writing keys nothing honors yet
+(`dds_compression`, `cpk_part_max_size`) fixes their file shape before the code that reads them.
+(7) Windows file names are case-insensitive, and a marker below a wrapper folder is content of
+the nested root, not of the source.
+Plan: `core/architecture.md` (trait block, `ToolContext`, CLI event line format); `core/README.md`
+`anyhow` row; `core/distribution.md` "Data location"; `team_compiler/settings.md` (settings
+paragraph); `team_compiler/messages.md` (`export_identified`, text principle);
+`team_compiler/pipeline.md` "1. Reader" step 1.

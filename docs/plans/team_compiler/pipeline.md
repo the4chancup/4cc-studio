@@ -15,7 +15,12 @@ export format.
 ### 1. Reader
 
 1. **Discovery** — the exports folder (`exports/`) is scanned for directories and
-   `.zip`/`.7z` archives. Exports containing a `NO_USE` or `NO_USE.txt` marker file are skipped with
+   `.zip`/`.7z` archives (the extension compared case-insensitively; other files are ignored),
+   taken in the order of their source names (`vtree::fold_name`), and each source's
+   `ExportStarted` names it by its file name, extension included, so a folder and an archive
+   sharing a stem stay apart in every console line. Exports containing a `NO_USE` or
+   `NO_USE.txt` marker file at the source's own root (before nested-folder normalization; the
+   name compared case-insensitively) are skipped with
    `export_disabled`; they do not participate in duplicate-ref detection or run planning, are
    omitted from the grid, and produce only an informational log entry. In the GUI this scan is
    continuous (folder watcher, see `gui.md` "Live validation"); in the CLI it runs once. (Blue:

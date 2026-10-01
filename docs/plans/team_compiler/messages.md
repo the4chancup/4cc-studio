@@ -71,7 +71,9 @@ Principles:
 - **One condition, one ID.** Red repeats near-identical messages per folder type ("Bad face folders"
   / "Bad boots folders" / "Bad gloves folders"); here the folder identity is in the `scope`, so one
   `fmdl_name_invalid` ID covers all model folder kinds.
-- **Message text lives in one table** keyed by ID (template + remediation hint), not scattered
+- **Message text lives in one table** keyed by ID (template + remediation hint; until the help
+  window and the GUI log need the text, in Phase 8, `messages.rs` holds each code's severity
+  only, and the CLI prints the code with its context fields), not scattered
   through the pipeline. Red's remediation-hint style is kept ("Resize it so that both sizes are
   powers of 2").
 - **Consequences are explicit**: `Disposition` records whether the finding keeps content, drops a
@@ -115,6 +117,7 @@ savefile messages are new.
 |---|---|---|---|
 | `export_extract_failed` | E | archive cannot be extracted/parsed, or its listing is refused (a path escaping the root, two names that fold to one; context: the path) | export skipped (`DropExport`) |
 | `export_disabled` | I | root `NO_USE` / `NO_USE.txt` marker disables this source | export skipped; omitted from the grid and from duplicate-ref detection |
+| `export_identified` | I | the export's identity resolved (context: `team` and `id`, or `team` = `referees`) | none; how the CLI reports which team an export is |
 | `source_read_failed` | E/F | a pinned source entry cannot be read | optional root file: `DropFile`; folder/task producer: `DropFolder`; required export metadata or unusable source: `DropExport`; output/global source invariant: `AbortRun` |
 | `source_changed_during_run` | F | this export's pinned revision changes during planning/materialization | run aborted and partial output discarded (`AbortRun`) |
 | `template_override_unreadable` | E/F | a template override file exists but cannot be read (embedded defaults cannot be missing) | folder-local injected template: `DropFolder`; referee-export template: `DropExport`; global CPK/bin template: `AbortRun` |

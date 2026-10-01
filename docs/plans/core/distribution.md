@@ -72,6 +72,12 @@ location wins when both exist, choosing the config dir while a portable settings
 renames that file to `.bak` so it can't shadow the choice on the next start (EGG's exact fix for
 this edge).
 
+The CLI resolves the location the same way but never asks and never writes the settings file: a
+noninteractive run cannot make the choice, and a `check` that created files would not be a
+check. With neither settings file present it runs on the defaults in memory, with no data
+directory (`AppPaths::data_dir` is `None`): data-dir cargo is read from its embedded default
+(the teams list) and nothing is persisted, so the first GUI start still asks.
+
 `data/teams_list.txt` *is* data-dir cargo (the grid writes into it; see the [Team compiler
 plan](../team_compiler/pipeline.md), "Resolved decisions", "Teams list"), and writes to it are best-effort:
 an unwritable data directory makes the list read-only, never triggers elevation. The following

@@ -331,9 +331,11 @@ pub trait StudioTool {
     /// only. See `gui.md` "Help window".
     fn help(&self) -> HelpSection;
 
-    /// The tool's CLI subcommand definition and executor
+    /// The tool's CLI subcommand definition and executor. `Ok` carries the process exit code
+    /// of a command that reached a verdict (its findings went out as events); `Err` is a
+    /// command refused or failed before one, printed by the binary as `error: …`.
     fn cli_command(&self) -> clap::Command;
-    fn cli_run(&self, matches: &clap::ArgMatches, ctx: &ToolContext) -> anyhow::Result<()>;
+    fn cli_run(&self, matches: &clap::ArgMatches, ctx: &ToolContext) -> Result<u8, CliError>;
 
     /// GUI autorun for `4cc-studio --gui <tool-id> <command>` (see "Launch modes"):
     /// perform the already-parsed CLI command inside the GUI, as if the user had
@@ -373,7 +375,39 @@ tool the active view at the end of the frame. It is id-string based, so tools ca
 link to each other (the Refs arranger's handoff to the Team compiler) without
 depending on each other's crates. It also exposes `ctx.notify(Notice)`, the one way a
 tool puts something in the status bar (see `gui.md` "Status bar"); `Notice` is a typed item,
-not a string, so the bar cannot become a free-text dumping ground.
+not a string, so the bar cannot become a free-text dumping ground. `ctx.paths()` gives the two
+base folders a tool resolves its relative path settings against: the executable's folder
+(`exports/`, `output/`) and the data directory (`teams_list.txt`), the latter `None` when no
+settings file exists yet (a CLI run before the first GUI start; `distribution.md` "Data
+location"). Tools still never see the settings file itself.
+
+```rust
+// studio_core
+/// A CLI command refused or failed before it reached a verdict.
+#[derive(Debug, thiserror::Error)]
+#[error("{error:#}")]
+pub struct CliError {
+    /// The process exit code: the tool's own mapping (the Team compiler's 2 or 3).
+    pub exit_code: u8,
+    /// What went wrong, printed as `error: …`.
+    pub error: anyhow::Error,
+}
+
+/// The base folders relative path settings resolve against (`team_compiler/settings.md`
+/// "Path resolution").
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AppPaths {
+    /// The folder holding the executable.
+    pub exe_dir: PathBuf,
+    /// The selected data directory; `None` when no settings file exists yet.
+    pub data_dir: Option<PathBuf>,
+}
+```
+
+The exit code is a `u8` returned by the tool, not an `anyhow` error the binary maps, because
+the meaning of each code is the tool's contract (the Team compiler's 0/1/2/3, `settings.md`
+"CLI"); the binary only adds clap's own 2 for an argument error and prints an `Err` as
+`error: …` before exiting with its code.
 
 ```rust
 // studio (binary)
@@ -551,7 +585,21 @@ pub enum FolderStatus {
 }
 ```
 
-**CLI** translates events to the current `-` prefixed console format for familiarity.
+**CLI** translates events to the current `-` prefixed console format for familiarity: the
+binary drains the event channel on a thread of its own while the command runs and prints one
+self-contained line per `Message` to stdout, so lines from exports processed in parallel never
+need a header to be read:
+
+```text
+- co - Spring.zip: Warning player_unlisted at Players/15 - B
+- co - Spring: Error players_txt_line_invalid at players.txt line 1 (line=x3 A)
+- Error multiple_ref_exports (exports=refs a, refs b)
+```
+
+The source name comes from the export's `ExportStarted` event; the scope is the folder or file
+path, `<file> line <n>` for a roster entry, and nothing for the export itself or a run-wide
+finding; the context fields follow in parentheses, in template order. Other events print nothing
+until a tool needs them (Phase 4's progress).
 **GUI** receives events via channels and renders them as egui UI updates (grid cell colors, log
 lines, run strip).
 
