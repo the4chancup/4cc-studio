@@ -9,13 +9,19 @@ rust-version.workspace = true
 
 [dependencies]
 anyhow.workspace = true
+clap.workspace = true
 cpk.workspace = true
+egui.workspace = true
 fmdl.workspace = true
 fpk.workspace = true
 ftex.workspace = true
 kit_config.workspace = true
 pes_version.workspace = true
+pipeline.workspace = true
+serde.workspace = true
+studio_core.workspace = true
 teams_list.workspace = true
+toml.workspace = true
 uniparam.workspace = true
 
 [lints]

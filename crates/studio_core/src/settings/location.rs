@@ -27,6 +27,8 @@ pub fn resolve_data_dir(exe_dir: &Path, config_dir: Option<&Path>) -> Option<Pat
 /// The user config location: `%APPDATA%\4cc-studio` on Windows, `~/.config/4cc-studio`
 /// on Linux. `None` when the OS reports no home.
 pub fn user_config_dir() -> Option<PathBuf> {
+    // `BaseDirs`, not `ProjectDirs`: the latter appends `\config` on Windows, which is not the
+    // folder the plan names.
     Some(BaseDirs::new()?.config_dir().join("4cc-studio"))
 }
 

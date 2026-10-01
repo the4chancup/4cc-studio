@@ -24,7 +24,7 @@ anything for Phase 4, 5 or 6. Everything up to and including Phase 3's close may
 Claude agent with no sidekick and no reviewer of another model family. While that holds:
 
 - **Since 2026-10-01 (maintainer):** the lead runs in Claude Code and delegates implementation
-  to a same-family subagent (Sonnet, high effort; Opus medium if its work falls short) under
+  to a same-family subagent (Opus, medium effort, from 3.8b on; 3.8a used Sonnet) under
   the lead/sidekick rules, to keep the lead's context small. That subagent is the sidekick, not
   a reviewer: the queue below still holds every cross-family checkpoint.
 - **Implement directly**, but keep everything else `AGENTS.md` asks of a sidekick's work: read the
@@ -234,13 +234,19 @@ Itemized 2026-09-30 at Phase 2's close. Order: the tracer first (one real export
     `main.rs` (`load_settings`, `run_cli_mode`). `mutants-diff`: 23, 4 missed (1 fixed: the
     config-dir test was vacuous; `run_cli_mode`, `main`, `print_line` wait for 3.8b/c's binary
     tests)
-  - [ ] 3.8b `team_compiler` tool skeleton: `Tool` registered in `studio`, `settings.rs`
+  - [x] 3.8b `team_compiler` tool skeleton: `Tool` registered in `studio`, `settings.rs`
     (Phase 3 subset), `cli.rs` (the `settings.md` "CLI" surface with the Phase 3 refusals and
     the preflight: arguments, settings, teams list), a help topic, both commands stopping
     after their preflight until 3.8c/3.9. → verify: binary tests TC-CLI-03, TC-CLI-05,
     TC-CLI-07
+    Done: `settings.rs`, `cli.rs` (`RunInputs`), `lib.rs` `Tool`, `help/01_command_line.md`,
+    `studio` registers it, `crates/studio/tests/team_compiler_cli.rs`. `mutants-diff`: 52, 18
+    missed, all in `team_compiler` code proven only by `studio`'s binary tests, which
+    cargo-mutants does not run for a `team_compiler` mutant: the scenario tests move in-process
+    in 3.8c
   - [ ] 3.8c `check` over folder sources: `messages.rs` (severity per code, every
-    `ISSUE_CODES` code covered, issue → `Message`), `reader/` discovery (folders, NO_USE,
+    `ISSUE_CODES` code covered, issue → `Message`), the scenario tests in-process in
+    `team_compiler/tests/` (3.8b's moved there; the binary keeps its own seams), `reader/` discovery (folders, NO_USE,
     balls, refs), structure pass, identity, findings as events, exit code. → verify: binary
     tests TC-SRC-05, TC-STR-09, TC-CLI-01, TC-CLI-02; check halves of TC-SRC-03/04,
     TC-ID-01/02
@@ -697,3 +703,8 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   (never writes), the binary's console printer. Red: the unknown-tool test failed `left: 1
   right: 2` against a code-1 refusal; the rest is new code. Implemented by a Sonnet subagent
   (handover note), reviewed by the lead. Next: 3.8b.
+- **2026-10-01** - 3.8a re-checked at the maintainer's request: `load_settings` moved from a
+  `String` error and `current_exe().ok()` to `anyhow` with context; missing why-comments added
+  (`BaseDirs`, the printer fallback, the printer-failure exit code, now 3). 3.8b landed: the
+  tool skeleton and preflight; red: all 10 binary tests failed `unexpected argument
+  'team-compiler' found` before the subcommand existed. Subagents now Opus (maintainer). Next: 3.8c.

@@ -1341,11 +1341,13 @@ checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
 name = "studio"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "clap",
  "crossbeam-channel",
  "env_logger",
  "log",
  "studio_core",
+ "team_compiler",
  "vtree",
 ]
 
@@ -1399,13 +1401,19 @@ name = "team_compiler"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "clap",
  "cpk",
+ "egui",
  "fmdl",
  "fpk",
  "ftex",
  "kit_config",
  "pes_version",
+ "pipeline",
+ "serde",
+ "studio_core",
  "teams_list",
+ "toml",
  "uniparam",
 ]
 
