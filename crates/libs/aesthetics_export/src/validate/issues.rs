@@ -56,6 +56,24 @@ pub enum Disposition {
     DropExport,
 }
 
+/// The shared issue constructor: every code the crate emits must be listed in
+/// `ISSUE_CODES`.
+pub(crate) fn issue(
+    code: &'static str,
+    scope: IssueScope,
+    context: Vec<(&'static str, String)>,
+    disposition: Disposition,
+) -> ValidationIssue {
+    debug_assert!(ISSUE_CODES.contains(&code), "{code} not in ISSUE_CODES");
+    ValidationIssue {
+        code,
+        scope,
+        context,
+        disposition,
+        passed_through: false,
+    }
+}
+
 /// Every code the crate emits, listed here so consumers can test their
 /// catalog against it.
 pub const ISSUE_CODES: &[&str] = &[
@@ -65,4 +83,14 @@ pub const ISSUE_CODES: &[&str] = &[
     "players_txt_invalid",
     "refs_txt_ignored",
     "source_read_failed",
+    "export_empty",
+    "team_name_unknown",
+    "players_txt_missing",
+    "players_txt_line_invalid",
+    "players_txt_slot_invalid",
+    "players_txt_slot_duplicate",
+    "players_txt_target_missing",
+    "player_unlisted",
+    "player_folder_number_invalid",
+    "player_number_duplicate",
 ];

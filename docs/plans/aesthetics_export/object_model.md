@@ -120,6 +120,67 @@ eligible, roster-entry scope and disposition; confirmed 2026-09-30).
   to one) is a `SourceError` from `parse_listing`: there is no draft to report on, and the
   consumer reports it as a source failure naming the path (the Team compiler's
   `export_extract_failed`).
+- **File-type allowlist.** What a file may be depends on where it sits; a file the row does not
+  admit gets the row's code. *Model content* is models (any format), textures, `.skl`, `.fclo`,
+  `.xml`, `.mtl`, material tomls and `.bin`.
+
+  | Where the file sits | Admits | Otherwise |
+  |---|---|---|
+  | directly in a player folder | model content, shared and `.common` links, the `ingame_face`, `fpc.on` and `fpc.off` markers, `settings.toml` | `file_type_disallowed` |
+  | directly in a player folder's `face/`, `boots/` or `gloves/` | model content, `.common` links | `file_type_disallowed` |
+  | directly in a player folder's `common/` | textures | `file_type_disallowed` |
+  | directly in a shared folder | model content | `file_type_disallowed` |
+  | directly in a kit folder | textures, `config.toml`, `colors.txt`, `icon.txt`, the `pre-fox` and `fox` markers | `file_type_disallowed` |
+  | directly in `Common/` | model content | `common_file_disallowed` |
+  | anywhere in `Kits/all/` | textures | `kit_all_file_ignored` |
+  | anywhere in `Portraits/` | textures named `player_NN` | `portrait_name_invalid` |
+  | at the root | `players.txt`, `notes.txt`, `colors.txt`, `README.txt`, `logo*` textures; a referee export also `refs.txt`, `ref_lists.txt`, `ref_marker.dds` | `root_file_unexpected` |
+
+  A file below a subfolder the table does not name takes the code of the folder holding that
+  subfolder (`Players/03 - A/extra/x.dds` is `file_type_disallowed`). `Collars/` is not checked
+  until Phase 4 brings the collar grammar. The list is the same for every target: each model
+  format is a source for either engine through conversion, so what a target does not emit is the
+  deep pass's and processing's concern, not the allowlist's (Red's per-engine lists predate
+  conversion). With `strict_file_type_check` off, `file_type_disallowed` and
+  `common_file_disallowed` keep their item (`Keep`, which the consumer shows as Info) and the file
+  stays in the folder's files, to be packed as it is; a kit emits only its named textures, so a
+  kept kit simply does not use it.
+- **OS artifacts.** `Thumbs.db`, `desktop.ini` and `.DS_Store` (any case, at any depth) are
+  written by file browsers, never by authors: `parse_listing` leaves them out of the draft and
+  reports nothing. On 2026-10-01 the maintainer's team exports held 209 `Thumbs.db` and 16
+  `desktop.ini` files inside model folders; as disallowed files, each would have dropped its folder
+  under the default strict check.
+- **Folder names.** A player folder name (without `players.txt`) and a kit folder name are
+  `<head>[ - <label>]`: split at the first `-`, both sides trimmed. The head is the slot (decimal
+  `01`–`23`, or a `KitSlot`, or `all`); the label is the player name or the kit label, and a
+  player folder without one is named by its whole folder name, as every folder listed in
+  `players.txt` is. `03 - Jean-Pierre` is player 03, Jean-Pierre.
+- **Issue scope.** An issue's scope names the item its disposition acts on. `DropFile` issues are
+  `File`-scoped; a disallowed file's `file_type_disallowed` is `Folder`-scoped (the folder it
+  drops), one issue per file with the file in its context. Roster findings keep the scopes above.
+- **Pass-through eligibility.** In the structure pass, exactly `link_target_missing`,
+  `common_link_missing`, `file_type_disallowed` and `common_file_disallowed` are eligible; every
+  other drop it decides belongs to one of the not-eligible classes in `team_compiler/messages.md`
+  "Message structure".
+- **Drop order.** A folder's own findings come first, then `link_target_dropped` for each player
+  whose link target was dropped, then `shared_folder_orphaned` over the players still eligible
+  and roster-mapped: a shared folder linked only by a dropped player is orphaned.
+- **Export findings of `validate`.** A stem with no token is `team_name_unknown` with an empty
+  name, and an export holding no content-folder entry and no root `logo*` texture is
+  `export_empty`, both `DropExport`. `export_empty` is not reported beside `nested_root_ambiguous`
+  or `nested_root_conflict`, which leave the root undecided. A name the teams list lacks is
+  `resolve_identity`'s `IdentityError`.
+- **Kits, portraits, logo.** `all` counts as a slot for `kit_slot_duplicate`. `all/` textures
+  follow a kit's `kit` prefix rule (`kit_texture_name_invalid`). `kit_all_unused` (no kit folder
+  survives) changes nothing (`Keep`). `kit_textures_inherited` lists the inherited stems without
+  their `kit_` prefix, alphabetically (`back, leg, name`). `icon.txt` is read trimmed: a failed
+  read is `source_read_failed` (`DropFile`), anything but a decimal 0–23 `kit_icon_invalid`.
+  `Portraits/player_NN.*` maps to slot NN; two files of one stem there are
+  `texture_stem_conflict`, dropping both files. `portrait_conflict` compares contents, so it
+  belongs to the deep pass (Phase 4). Every root file whose stem starts with `logo` is a logo
+  candidate; `logo_file_invalid`, `logo_role_duplicate` and `logo_small_without_main` each drop
+  the logo as one unit (`File`-scoped on the offending file, `DropFile`, `logo: None`).
+  `team_colors_missing` belongs to the bins stage (Phase 4).
 
 ### `aesthetics_export` crate layout
 

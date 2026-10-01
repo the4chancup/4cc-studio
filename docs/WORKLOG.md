@@ -12,7 +12,7 @@ is in `AGENTS.md` ("Working documents").
 **Phase:** 3 (Team compiler skeleton). Phases 1 and 2 done (Phase 2 closed 2026-09-30).
 **In progress:** 3.6: slice (a) landed as a1 (crate, `listing.rs`, `conventions/file_types.rs`
 `classify`, `validate/issues.rs` types, `slots.rs`) and a2 (`parse/`: canonicalization, root
-normalization, draft, identity, roster; 4 scenarios cited); next slice (b), `validate/`. 2.5b (GPU BC7) is step 16.x (decision entries 2026-09-21 and 2026-09-28). Release
+normalization, draft, identity, roster; 4 scenarios cited); slice (b) runs as b1-b3: b1 landed (`validate` report, roster rules, player/shared folders built, export findings, `resolve.rs`, OS-artifact skip; 12 scenarios proven); next b2 (`.tmp/brief_3_6_b2.md`), then b3 (`.tmp/brief_3_6_b3.md`), then the reviewer on all of (b). 2.5b (GPU BC7) is step 16.x (decision entries 2026-09-21 and 2026-09-28). Release
 target (2026-09-28): 0.1.0 after Phase 8; phase order 1–6, 8, 0.1.0, 7, 9–16
 (`core/development_plan.md` "Releases").
 **Blocked on:** nothing yet. **Hard gate at the end of Phase 3:** step 4.0 (the maintainer's
@@ -162,10 +162,13 @@ Itemized 2026-09-30 at Phase 2's close. Order: the tracer first (one real export
   collar/common collections, parsed kit icon, `FileDescriptor.source`), crate layout updated;
   `players_txt.rs`/`kit_config_toml.rs` wait for their consumers. Decision entry
 - [ ] 3.6 `libs/aesthetics_export`, two slices, each its own commit and review: (a) `listing`,
-  `conventions/`, `parse/`; (b) `validate/` with the sanitized-scope rule and `resolve.rs`.
-  Before briefing (b), the lead settles the per-folder-kind allowlist (which `FileKind`s a player,
-  shared, kit, `all/`, Portraits, Common and Collars folder admits): no plan section lists it
-  yet, and `file_type_disallowed` depends on it.
+  `conventions/`, `parse/`; (b) `validate/` with the sanitized-scope rule and `resolve.rs`, in
+  three slices: b1 the report, roster rules, player/shared folders built, export findings,
+  `resolve_identity`, OS-artifact skip; b2 player/shared/Common checks (allowlist, links,
+  markers, reserved subfolders, stems, `fmdl_name_invalid`, cascade, orphans) with pass-through;
+  b3 kits, portraits, logo, root files (adds those `ValidatedAestheticsExport` fields). The
+  allowlist and the other rules (b) needed are settled in `object_model.md` "Validation
+  semantics" (decision entry 2026-10-01).
   `players_txt.rs` and `kit_config_toml.rs` wait for their consumers (Refs arranger, Phase 4 kit
   step). → verify: lib tests citing the TC-STR/ROS/KIT/ROOT/ID/DSP scenarios the structure pass
   decides; `wasm_check.py` includes the crate; `mutants-diff` per slice; reviewer (b) on the new
@@ -584,3 +587,8 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   plan's stale `fmdl_id_change` and the CPK tool version settled (decision entry). Next: 3.5.
 - **2026-09-30** - 3.5 done: the `aesthetics_export` structure pass shapes written into
   `object_model.md` (decision entry). Next: 3.6 slice (a).
+- **2026-10-01** - 3.6 (b) rules settled in `object_model.md` "Validation semantics" (allowlist
+  per position, OS artifacts, folder-name split, issue scope, eligibility, drop order, kits/
+  portraits/logo details; decision entry, census of 225 OS artifacts in real model folders).
+  Slice b1 landed (`mutants-diff`: 81, 59 caught, 15 unviable, 7 missed: 4 got tests, 2 went with a
+  redundant roster guard, 2 are the dropped-player filter b1 cannot reach and b2's tests cover). Next: b2.

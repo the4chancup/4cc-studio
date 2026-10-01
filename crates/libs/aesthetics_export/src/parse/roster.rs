@@ -141,38 +141,14 @@ pub fn read_roster(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::listing::{CanonicalListing, ListedEntry, ListedKind};
-    use std::collections::BTreeMap;
+    use crate::testing::{listing, metadata};
 
     fn parsed(
         name: &str,
         files: &[(&str, u64)],
-        metadata: &[(&str, Result<&[u8], &str>)],
+        metadata_items: &[(&str, Result<&[u8], &str>)],
     ) -> crate::ParsedAestheticsExport {
-        crate::parse_listing(
-            CanonicalListing {
-                display_name: name.to_owned(),
-                entries: files
-                    .iter()
-                    .map(|(path, size)| ListedEntry {
-                        path: (*path).to_owned(),
-                        kind: ListedKind::File { size: *size },
-                    })
-                    .collect(),
-            },
-            SmallMetadata {
-                files: metadata
-                    .iter()
-                    .map(|(path, result)| {
-                        (
-                            (*path).to_owned(),
-                            (*result).map(|bytes| bytes.to_vec()).map_err(String::from),
-                        )
-                    })
-                    .collect::<BTreeMap<_, _>>(),
-            },
-        )
-        .unwrap()
+        crate::parse_listing(listing(name, files, &[]), metadata(metadata_items)).unwrap()
     }
 
     // TC-ROS-08

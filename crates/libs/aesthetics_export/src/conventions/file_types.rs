@@ -148,6 +148,28 @@ const EXTENSIONS: [(&str, FileKind); 19] = [
     ("bin", FileKind::Bin),
 ];
 
+/// Whether `name` is a root `logo*` texture name: `logo`-prefixed (ASCII-
+/// case-insensitively) and an accepted image extension.
+pub(crate) fn is_logo_texture(name: &str) -> bool {
+    name.get(..4)
+        .is_some_and(|prefix| prefix.eq_ignore_ascii_case("logo"))
+        && classify(name) == FileKind::Texture
+}
+
+/// A shared-folder link's (kind, target name): `Crocs.boots` and the tolerated
+/// `Crocs.boots.txt` alike give `(Boots, "Crocs")`.
+pub(crate) fn shared_link_name(name: &str) -> Option<(SharedKind, String)> {
+    let name = strip_suffix_ci(name, ".txt").unwrap_or(name);
+    for (suffix, kind) in SHARED_LINKS {
+        if let Some(stem) = strip_suffix_ci(name, suffix)
+            && !stem.is_empty()
+        {
+            return Some((kind, stem.to_owned()));
+        }
+    }
+    None
+}
+
 /// `name` minus `suffix`, when the tail equals it ASCII-case-insensitively.
 fn strip_suffix_ci<'a>(name: &'a str, suffix: &str) -> Option<&'a str> {
     let cut = name.len().checked_sub(suffix.len())?;

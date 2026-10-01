@@ -11,7 +11,10 @@
 mod conventions;
 mod listing;
 mod parse;
+mod resolve;
 mod slots;
+#[cfg(test)]
+mod testing;
 mod validate;
 
 pub use conventions::{
@@ -22,5 +25,10 @@ pub use parse::{
     AestheticsExportDraft, ExportKind, FileDescriptor, FolderDraft, ParsedAestheticsExport,
     RawRoster, RawRosterEntry, SourceError, parse_listing,
 };
+pub use resolve::{ExportIdentity, IdentityError, ResolvedAestheticsExport};
 pub use slots::{PlayerSlot, RefSlot};
-pub use validate::{Disposition, ISSUE_CODES, IssueScope, ValidationIssue};
+pub use validate::{
+    Disposition, FpcDirective, ISSUE_CODES, IssueScope, PlayerFolder, PlayerIndex, SharedLink,
+    SharedModelFolder, ValidatedAestheticsExport, ValidatedRoster, ValidationIssue,
+    ValidationReport,
+};
