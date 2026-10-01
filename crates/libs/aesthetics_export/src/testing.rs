@@ -61,6 +61,15 @@ pub(crate) fn context() -> ValidationContext {
     }
 }
 
+/// A context with explicit strict-check and pass-through flags.
+pub(crate) fn context_with(strict_file_type_check: bool, pass_through: bool) -> ValidationContext {
+    ValidationContext {
+        strict_file_type_check,
+        pass_through,
+        ..context()
+    }
+}
+
 /// `parse_listing` + `validate` on the listing, with the default context.
 pub(crate) fn report(
     name: &str,
@@ -68,5 +77,16 @@ pub(crate) fn report(
     folders: &[&str],
     metadata_items: &[(&str, Result<&[u8], &str>)],
 ) -> ValidationReport {
-    parsed(name, files, folders, metadata_items).validate(&context())
+    report_with(&context(), name, files, folders, metadata_items)
+}
+
+/// `parse_listing` + `validate` on the listing, with a supplied context.
+pub(crate) fn report_with(
+    context: &ValidationContext,
+    name: &str,
+    files: &[(&str, u64)],
+    folders: &[&str],
+    metadata_items: &[(&str, Result<&[u8], &str>)],
+) -> ValidationReport {
+    parsed(name, files, folders, metadata_items).validate(context)
 }

@@ -5,17 +5,19 @@
 
 mod folders;
 mod issues;
+mod links;
 mod roster;
 
 use std::collections::BTreeMap;
 
-use crate::conventions::is_logo_texture;
+use crate::FileKind;
+use crate::conventions::{SharedKind, is_logo_texture};
 use crate::listing::ValidationContext;
 use crate::parse::{FileDescriptor, ParsedAestheticsExport};
 
 pub use folders::{FpcDirective, PlayerFolder, SharedLink, SharedModelFolder};
-pub(crate) use issues::issue;
 pub use issues::{Disposition, ISSUE_CODES, IssueScope, ValidationIssue};
+pub(crate) use issues::{dropped_scopes, issue, issue_in, strict_disposition};
 pub use roster::{PlayerIndex, ValidatedRoster};
 
 /// `ParsedAestheticsExport::validate`'s report: the parse retained, the
@@ -62,7 +64,7 @@ impl ParsedAestheticsExport {
     /// foundational one included (`DropExport`, `validated: None`); what
     /// cannot be parsed at all is `parse_listing`'s `SourceError`. The
     /// context is unused by this slice's checks.
-    pub fn validate(self, _context: &ValidationContext) -> ValidationReport {
+    pub fn validate(self, context: &ValidationContext) -> ValidationReport {
         let mut issues = self.issues.clone();
         let draft = &self.draft;
 
@@ -105,31 +107,55 @@ impl ParsedAestheticsExport {
         // The roster: authoritative lines, or the folder names' numbers.
         let slot_map = roster::check(draft, self.raw_roster.as_ref(), &self.issues, &mut issues);
 
+        // Own findings, in drop order: player folders, shared folders,
+        // `Common/`, then the cascade (dropped targets, orphaned shares).
+        for folder in &draft.players {
+            folders::check_player(draft, folder, context, &mut issues);
+        }
+        for kind in [SharedKind::Face, SharedKind::Boots, SharedKind::Gloves] {
+            for folder in folders::shared_folders(draft, kind) {
+                folders::check_shared(folder, kind, context, &mut issues);
+            }
+        }
+        folders::check_common(draft, context, &mut issues);
+        links::cascade(draft, &slot_map, context, &mut issues);
+
         // Sanitized `players`: the draft folders a surviving assignment maps
         // and no `DropFolder` issue drops, in draft order.
-        let dropped: Vec<vtree::ScopePath> = issues
-            .iter()
-            .filter(|issue| issue.disposition == Disposition::DropFolder)
-            .filter_map(|issue| match &issue.scope {
-                IssueScope::Folder(path) => Some(path.clone()),
-                _ => None,
-            })
-            .collect();
-        let is_dropped = |index: usize| {
-            dropped
-                .iter()
-                .any(|path| path.fold_key() == draft.players[index].path.fold_key())
-        };
-        let mapped: Vec<usize> = match &slot_map {
-            roster::SlotMap::Team(map) => map.values().copied().collect(),
-            roster::SlotMap::Referees(map) => map.values().copied().collect(),
-        };
+        let (dropped_folders, dropped_files) = dropped_scopes(&issues);
+        let is_dropped =
+            |index: usize| dropped_folders.contains(&draft.players[index].path.fold_key());
+        let mapped = slot_map.mapped();
         let mut kept = Vec::new();
         let mut index_of = BTreeMap::new();
         for (index, folder) in draft.players.iter().enumerate() {
             if mapped.contains(&index) && !is_dropped(index) {
                 index_of.insert(index, kept.len());
-                kept.push(folders::player_folder(folder, self.raw_roster.is_some()));
+                let mut player = folders::player_folder(folder, self.raw_roster.is_some());
+                // A kept player loses references to what is absent: a missing
+                // shared target (pass_through) comes off `links`, a missing
+                // `Common` target off `files`. A resolved link carries the
+                // target folder's own spelling.
+                let resolved = links::player_links(folder, draft);
+                player.links = resolved
+                    .iter()
+                    .filter_map(|link| match (&link.kind, &link.target) {
+                        (links::ResolvedLinkKind::Shared(kind), Some(target)) => Some(SharedLink {
+                            kind: *kind,
+                            name: target.name().to_owned(),
+                        }),
+                        _ => None,
+                    })
+                    .collect();
+                player.files.retain(|file| {
+                    file.kind != FileKind::CommonLink
+                        || resolved.iter().any(|link| {
+                            matches!(&link.kind, links::ResolvedLinkKind::Common(_))
+                                && link.target.is_some()
+                                && link.link_file == file.path
+                        })
+                });
+                kept.push(player);
             }
         }
 
@@ -147,6 +173,13 @@ impl ParsedAestheticsExport {
                     ValidatedRoster::Referees(renumber(&assignments, &index_of))
                 }
             };
+            let kept_folders = |drafts: &[crate::parse::FolderDraft]| {
+                drafts
+                    .iter()
+                    .filter(|folder| !dropped_folders.contains(&folder.path.fold_key()))
+                    .map(folders::shared_model_folder)
+                    .collect()
+            };
             Some(ValidatedAestheticsExport {
                 export_display_name: draft.export_display_name.clone(),
                 team_name: draft
@@ -155,23 +188,16 @@ impl ParsedAestheticsExport {
                     .expect("a surviving export has a team name"),
                 players: kept,
                 roster,
-                faces: draft
-                    .faces
-                    .iter()
-                    .map(folders::shared_model_folder)
-                    .collect(),
-                boots: draft
-                    .boots
-                    .iter()
-                    .map(folders::shared_model_folder)
-                    .collect(),
-                gloves: draft
-                    .gloves
-                    .iter()
-                    .map(folders::shared_model_folder)
-                    .collect(),
+                faces: kept_folders(&draft.faces),
+                boots: kept_folders(&draft.boots),
+                gloves: kept_folders(&draft.gloves),
                 collars: draft.collars.clone(),
-                common: draft.common.clone(),
+                common: draft
+                    .common
+                    .iter()
+                    .filter(|file| !dropped_files.contains(&file.path.fold_key()))
+                    .cloned()
+                    .collect(),
             })
         };
 
@@ -201,9 +227,10 @@ fn renumber<Slot: Copy + Ord>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::testing::report;
+    use crate::testing::{context_with, report, report_with};
     use crate::validate::IssueScope;
     use crate::{FileKind, ModelFormat, SharedKind};
+    use vtree::ScopePath;
 
     fn issue_codes(report: &ValidationReport) -> Vec<(&'static str, Disposition)> {
         report
@@ -264,13 +291,15 @@ mod tests {
         let report = report(
             "egg",
             &[
-                ("Players/03 - A/face_high.fmdl", 10),
+                ("Players/03 - A/hair.dds", 9),
+                ("Players/03 - A/gloves/glove_l.fmdl", 10),
+                ("Players/03 - A/common/skin.dds", 9),
                 ("Players/03 - A/Crocs.boots.txt", 0),
                 ("Players/03 - A/ingame_face", 0),
                 ("Players/03 - A/fpc.on", 0),
                 ("Players/03 - A/portrait.dds", 9),
                 ("Players/03 - A/settings.toml", 20),
-                ("Players/03 - A/extra/more.dds", 9),
+                ("Boots/Crocs/boots.fmdl", 10),
             ],
             &[],
             &[],
@@ -295,7 +324,7 @@ mod tests {
             folder.settings.as_ref().map(|f| f.path.as_str()),
             Some("Players/03 - A/settings.toml")
         );
-        // Pipeline content: the model and the file below `extra/` alike.
+        // Pipeline content: loose files and reserved-subfolder files alike.
         assert_eq!(
             folder
                 .files
@@ -303,8 +332,9 @@ mod tests {
                 .map(|f| f.path.as_str())
                 .collect::<Vec<_>>(),
             vec![
-                "Players/03 - A/extra/more.dds",
-                "Players/03 - A/face_high.fmdl"
+                "Players/03 - A/common/skin.dds",
+                "Players/03 - A/gloves/glove_l.fmdl",
+                "Players/03 - A/hair.dds",
             ]
         );
         assert_eq!(folder.files[1].kind, FileKind::Model(ModelFormat::Fmdl));
@@ -336,30 +366,35 @@ mod tests {
         );
     }
 
+    // TC-STR-13
     #[test]
-    fn the_first_portrait_in_path_order_wins() {
-        let report = report(
-            "egg",
+    fn two_textures_sharing_a_stem_drop_the_folder() {
+        for files in [
             &[
-                ("Players/03 - A/portrait.dds", 9),
-                ("Players/03 - A/portrait.png", 9),
-            ],
-            &[],
-            &[],
-        );
-        let folder = &report.validated.unwrap().players[0];
-        assert_eq!(
-            folder.portrait.as_ref().map(|file| file.path.as_str()),
-            Some("Players/03 - A/portrait.dds")
-        );
-        assert_eq!(
-            folder
-                .files
+                ("Players/03 - A/hair.dds", 9),
+                ("Players/03 - A/hair.png", 9),
+            ][..],
+            &[
+                ("Players/03 - A/hair.dds", 9),
+                ("Players/03 - A/common/hair.dds", 9),
+            ][..],
+        ] {
+            let report = report("egg", files, &[], &[]);
+            let issues: Vec<(&'static str, Disposition)> = report
+                .issues
                 .iter()
-                .map(|file| file.path.as_str())
-                .collect::<Vec<_>>(),
-            vec!["Players/03 - A/portrait.png"]
-        );
+                .map(|issue| (issue.code, issue.disposition))
+                .collect();
+            assert_eq!(
+                issues,
+                vec![("texture_stem_conflict", Disposition::DropFolder)]
+            );
+            assert_eq!(
+                report.issues[0].scope,
+                IssueScope::Folder(ScopePath::new("Players/03 - A").unwrap())
+            );
+            assert!(report.validated.unwrap().players.is_empty(), "{files:?}");
+        }
     }
 
     #[test]
@@ -379,20 +414,31 @@ mod tests {
         );
     }
 
+    // TC-STR-12
     #[test]
-    fn both_fpc_markers_leave_no_directive() {
+    fn both_fpc_markers_drop_the_folder() {
+        // A roster-mapped player dropped by its own finding.
         let report = report(
             "egg",
             &[
-                ("Players/03 - A/face_high.fmdl", 10),
-                ("Players/03 - A/fpc.on", 0),
-                ("Players/03 - A/fpc.off", 0),
+                ("players.txt", 5),
+                ("Players/A/hair.dds", 9),
+                ("Players/A/fpc.on", 0),
+                ("Players/A/fpc.off", 0),
             ],
             &[],
-            &[],
+            &[("players.txt", Ok(b"03 A"))],
         );
-        let folder = &report.validated.unwrap().players[0];
-        assert_eq!(folder.fpc, None);
+        assert_eq!(
+            issue_codes(&report),
+            vec![("fpc_conflict", Disposition::DropFolder)]
+        );
+        let validated = report.validated.unwrap();
+        assert!(validated.players.is_empty());
+        let ValidatedRoster::Team(map) = &validated.roster else {
+            panic!("a team export");
+        };
+        assert!(map.is_empty());
     }
 
     #[test]
@@ -400,6 +446,10 @@ mod tests {
         let report = report(
             "egg",
             &[
+                ("Players/03 - A/Longhair.face", 0),
+                ("Players/03 - A/Crocs.boots", 0),
+                ("Players/03 - A/Keeper gloves.gloves", 0),
+                ("Players/03 - A/hair.dds", 9),
                 ("Faces/Longhair/face_high.fmdl", 10),
                 ("Boots/Crocs/boots.fmdl", 10),
                 ("Gloves/Keeper gloves/glove_l.fmdl", 10),
@@ -420,5 +470,769 @@ mod tests {
         assert_eq!(validated.common[0].path.as_str(), "Common/hair.dds");
         assert_eq!(validated.common[0].kind, FileKind::Texture);
         assert_eq!(validated.collars[0].path.as_str(), "Collars/collar_101.dds");
+    }
+
+    fn folder(path: &str) -> IssueScope {
+        IssueScope::Folder(ScopePath::new(path).unwrap())
+    }
+
+    // TC-STR-05
+    #[test]
+    fn a_shared_link_resolves_with_or_without_the_txt_tail() {
+        for link_file in ["Crocs.boots", "Crocs.boots.txt"] {
+            let path = format!("Players/03 - A/{link_file}");
+            let report = report(
+                "egg",
+                &[
+                    ("Players/03 - A/hair.dds", 9),
+                    (path.as_str(), 0),
+                    ("Boots/Crocs/boots.fmdl", 10),
+                ],
+                &[],
+                &[],
+            );
+            assert_eq!(issue_codes(&report), vec![], "{link_file}");
+            let player = &report.validated.unwrap().players[0];
+            assert_eq!(
+                player.links,
+                vec![SharedLink {
+                    kind: SharedKind::Boots,
+                    name: "Crocs".to_owned(),
+                }],
+                "{link_file}"
+            );
+        }
+    }
+
+    // TC-STR-06
+    #[test]
+    fn a_link_to_a_missing_shared_folder_drops_the_player() {
+        let report = report(
+            "egg",
+            &[
+                ("Players/03 - A/hair.dds", 9),
+                ("Players/03 - A/Nowhere.boots", 0),
+            ],
+            &[],
+            &[],
+        );
+        assert_eq!(
+            issue_codes(&report),
+            vec![("link_target_missing", Disposition::DropFolder)]
+        );
+        assert_eq!(report.issues[0].scope, folder("Players/03 - A"));
+        assert_eq!(
+            report.issues[0].context,
+            vec![("link", "Nowhere.boots".to_owned())]
+        );
+        assert!(report.validated.unwrap().players.is_empty());
+    }
+
+    // TC-STR-07
+    #[test]
+    fn two_links_of_one_kind_drop_the_player() {
+        let report = report(
+            "egg",
+            &[
+                ("Players/03 - A/hair.dds", 9),
+                ("Players/03 - A/Crocs.boots", 0),
+                ("Players/03 - A/Mud.boots", 0),
+            ],
+            &[],
+            &[],
+        );
+        // Every finding is reported: the duplicate, and each missing target.
+        assert_eq!(
+            issue_codes(&report),
+            vec![
+                ("shared_link_duplicate", Disposition::DropFolder),
+                ("link_target_missing", Disposition::DropFolder),
+                ("link_target_missing", Disposition::DropFolder),
+            ]
+        );
+        assert_eq!(report.issues[0].context, vec![("kind", "boots".to_owned())]);
+        assert!(report.validated.unwrap().players.is_empty());
+    }
+
+    // TC-STR-08
+    #[test]
+    fn a_shared_folder_no_surviving_player_links_is_orphaned() {
+        let report = report(
+            "egg",
+            &[
+                ("players.txt", 5),
+                ("Boots/Solo/boots.fmdl", 10),
+                ("Boots/Duo/boots.fmdl", 10),
+                ("Players/Droppable/Duo.boots", 0),
+            ],
+            &["Players/A", "Players/Droppable"],
+            &[("players.txt", Ok(b"03 A"))],
+        );
+        assert_eq!(
+            issue_codes(&report),
+            vec![
+                ("player_unlisted", Disposition::DropFolder),
+                ("shared_folder_orphaned", Disposition::DropFolder),
+                ("shared_folder_orphaned", Disposition::DropFolder),
+            ]
+        );
+        assert_eq!(report.issues[0].scope, folder("Players/Droppable"));
+        assert_eq!(report.issues[1].scope, folder("Boots/Duo"));
+        assert_eq!(report.issues[2].scope, folder("Boots/Solo"));
+        let validated = report.validated.unwrap();
+        assert_eq!(validated.players.len(), 1);
+        assert!(validated.boots.is_empty());
+    }
+
+    // TC-STR-09
+    #[test]
+    fn a_disallowed_file_drops_strict_and_keeps_lenient() {
+        let files = &[
+            ("Players/03 - A/hair.dds", 9u64),
+            ("Players/03 - A/readme.txt", 20),
+        ];
+        let strict = report("egg", files, &[], &[]);
+        assert_eq!(
+            issue_codes(&strict),
+            vec![("file_type_disallowed", Disposition::DropFolder)]
+        );
+        assert!(strict.validated.unwrap().players.is_empty());
+
+        let lenient = report_with(&context_with(false, false), "egg", files, &[], &[]);
+        assert_eq!(
+            issue_codes(&lenient),
+            vec![("file_type_disallowed", Disposition::Keep)]
+        );
+        let player = &lenient.validated.unwrap().players[0];
+        assert_eq!(
+            player
+                .files
+                .iter()
+                .map(|file| file.path.name().to_owned())
+                .collect::<Vec<_>>(),
+            vec!["hair.dds", "readme.txt"]
+        );
+    }
+
+    // TC-STR-10
+    #[test]
+    fn both_ingame_face_spellings_mark_the_folder() {
+        let report = report(
+            "egg",
+            &[
+                ("Players/03 - A/ingame_face", 0),
+                ("Players/03 - A/hair.dds", 9),
+                ("Players/04 - B/ingame_face.txt", 0),
+                ("Players/04 - B/hair.dds", 9),
+            ],
+            &[],
+            &[],
+        );
+        assert_eq!(issue_codes(&report), vec![]);
+        let validated = report.validated.unwrap();
+        assert!(validated.players[0].ingame_face);
+        assert!(validated.players[1].ingame_face);
+    }
+
+    // TC-STR-11
+    #[test]
+    fn ingame_face_with_explicit_face_content_drops_the_folder() {
+        let local = report(
+            "egg",
+            &[
+                ("Players/03 - A/ingame_face", 0),
+                ("Players/03 - A/face_high.fmdl", 10),
+            ],
+            &[],
+            &[],
+        );
+        assert_eq!(
+            issue_codes(&local),
+            vec![("ingame_face_explicit_face_model", Disposition::DropFolder)]
+        );
+        assert!(local.validated.unwrap().players.is_empty());
+
+        let linked = report(
+            "egg",
+            &[
+                ("Players/03 - A/ingame_face", 0),
+                ("Players/03 - A/Long.face", 0),
+                ("Faces/Long/face_high.fmdl", 10),
+            ],
+            &[],
+            &[],
+        );
+        assert_eq!(
+            issue_codes(&linked),
+            vec![
+                ("ingame_face_explicit_face_model", Disposition::DropFolder),
+                ("shared_folder_orphaned", Disposition::DropFolder),
+            ]
+        );
+        let validated = linked.validated.unwrap();
+        assert!(validated.players.is_empty());
+        assert!(validated.faces.is_empty());
+    }
+
+    // TC-STR-14
+    #[test]
+    fn ingame_face_acts_by_subfolder_category() {
+        let report = report(
+            "egg",
+            &[
+                ("Players/03 - A/ingame_face", 0),
+                ("Players/03 - A/boots/hair_high.fmdl", 10),
+                ("Players/03 - A/gloves/glove_l.fmdl", 10),
+                ("Players/03 - A/common/skin.dds", 9),
+                ("Players/04 - B/ingame_face", 0),
+                ("Players/04 - B/face/hair_high.fmdl", 10),
+                ("Players/05 - C/ingame_face", 0),
+                ("Players/05 - C/common/x.fmdl", 10),
+                ("Players/05 - C/extra/x.dds", 9),
+            ],
+            &[],
+            &[],
+        );
+        assert_eq!(
+            issue_codes(&report),
+            vec![
+                ("ingame_face_explicit_face_model", Disposition::DropFolder),
+                ("file_type_disallowed", Disposition::DropFolder),
+                ("file_type_disallowed", Disposition::DropFolder),
+            ]
+        );
+        assert_eq!(report.issues[0].scope, folder("Players/04 - B"));
+        assert_eq!(report.issues[1].scope, folder("Players/05 - C"));
+        assert_eq!(
+            report.issues[1].context,
+            vec![("file", "common/x.fmdl".to_owned())]
+        );
+        assert_eq!(report.issues[2].scope, folder("Players/05 - C"));
+        assert_eq!(
+            report.issues[2].context,
+            vec![("file", "extra/x.dds".to_owned())]
+        );
+        // The boots/gloves/common files are those categories' parts: no
+        // finding for A.
+        let validated = report.validated.unwrap();
+        assert_eq!(
+            validated
+                .players
+                .iter()
+                .map(|player| player.path.as_str())
+                .collect::<Vec<_>>(),
+            vec!["Players/03 - A"]
+        );
+    }
+
+    // TC-STR-15
+    #[test]
+    fn a_common_link_resolves_or_drops_the_player() {
+        let report = report(
+            "egg",
+            &[
+                ("Common/torso.fmdl", 10),
+                ("Players/01 - A/torso.fmdl.common", 0),
+                ("Players/02 - B/torso.fmdl.common.txt", 0),
+                ("Players/03 - C/missing.fmdl.common", 0),
+            ],
+            &[],
+            &[],
+        );
+        assert_eq!(
+            issue_codes(&report),
+            vec![("common_link_missing", Disposition::DropFolder)]
+        );
+        assert_eq!(report.issues[0].scope, folder("Players/03 - C"));
+        assert_eq!(
+            report.issues[0].context,
+            vec![
+                ("link", "missing.fmdl.common".to_owned()),
+                ("path", "Common/missing.fmdl".to_owned()),
+            ]
+        );
+        let validated = report.validated.unwrap();
+        assert_eq!(
+            validated
+                .players
+                .iter()
+                .map(|player| player.path.as_str())
+                .collect::<Vec<_>>(),
+            vec!["Players/01 - A", "Players/02 - B"]
+        );
+        // Resolved `.common` links stay as link-kind files.
+        assert_eq!(validated.players[0].files[0].kind, FileKind::CommonLink);
+    }
+
+    // TC-STR-16
+    #[test]
+    fn a_dropped_link_target_drops_its_players_and_pass_through_keeps() {
+        let files = &[
+            ("Faces/Base/x.exe", 4u64),
+            ("Players/03 - A/Base.face", 0),
+            ("Players/03 - A/hair.dds", 9),
+        ];
+        let strict = report("egg", files, &[], &[]);
+        assert_eq!(
+            issue_codes(&strict),
+            vec![
+                ("file_type_disallowed", Disposition::DropFolder),
+                ("link_target_dropped", Disposition::DropFolder),
+            ]
+        );
+        assert_eq!(strict.issues[0].scope, folder("Faces/Base"));
+        assert_eq!(strict.issues[1].scope, folder("Players/03 - A"));
+        assert_eq!(
+            strict.issues[1].context,
+            vec![
+                ("link", "Base.face".to_owned()),
+                ("target", "Faces/Base".to_owned()),
+                ("finding", "file_type_disallowed".to_owned()),
+            ]
+        );
+        let validated = strict.validated.unwrap();
+        assert!(validated.players.is_empty());
+        assert!(validated.faces.is_empty());
+
+        // With pass_through the target stays, no link_target_dropped.
+        let kept = report_with(&context_with(true, true), "egg", files, &[], &[]);
+        assert_eq!(
+            issue_codes(&kept),
+            vec![("file_type_disallowed", Disposition::Keep)]
+        );
+        assert!(kept.issues[0].passed_through);
+        let validated = kept.validated.unwrap();
+        assert_eq!(validated.players.len(), 1);
+        assert_eq!(validated.faces.len(), 1);
+        assert_eq!(
+            validated.players[0].links,
+            vec![SharedLink {
+                kind: SharedKind::Face,
+                name: "Base".to_owned(),
+            }]
+        );
+
+        // A conflict is never pass-through-eligible: both drop.
+        let conflicted = report_with(
+            &context_with(true, true),
+            "egg",
+            &[
+                ("Faces/Base/hair.dds", 9),
+                ("Faces/Base/hair.png", 9),
+                ("Players/03 - A/Base.face", 0),
+                ("Players/03 - A/hair.dds", 9),
+            ],
+            &[],
+            &[],
+        );
+        assert_eq!(
+            issue_codes(&conflicted),
+            vec![
+                ("texture_stem_conflict", Disposition::DropFolder),
+                ("link_target_dropped", Disposition::DropFolder),
+            ]
+        );
+        assert!(conflicted.issues.iter().all(|issue| !issue.passed_through));
+        let validated = conflicted.validated.unwrap();
+        assert!(validated.players.is_empty());
+        assert!(validated.faces.is_empty());
+    }
+
+    // TC-STR-17
+    #[test]
+    fn a_wrongly_named_boots_model_drops_folder_and_linker() {
+        let report = report(
+            "egg",
+            &[
+                ("Boots/Crocs/torso.fmdl", 10),
+                ("Boots/Mud/kit_boots.fmdl", 10),
+                ("Players/01 - A/Crocs.boots", 0),
+                ("Players/01 - A/hair.dds", 9),
+                ("Players/02 - B/Mud.boots", 0),
+                ("Players/02 - B/hair.dds", 9),
+                ("Players/03 - C/torso.fmdl", 10),
+            ],
+            &[],
+            &[],
+        );
+        assert_eq!(
+            issue_codes(&report),
+            vec![
+                ("fmdl_name_invalid", Disposition::DropFolder),
+                ("link_target_dropped", Disposition::DropFolder),
+            ]
+        );
+        assert_eq!(report.issues[0].scope, folder("Boots/Crocs"));
+        assert_eq!(
+            report.issues[0].context,
+            vec![("file", "torso.fmdl".to_owned())]
+        );
+        assert_eq!(report.issues[1].scope, folder("Players/01 - A"));
+        let validated = report.validated.unwrap();
+        assert_eq!(
+            validated
+                .players
+                .iter()
+                .map(|player| player.path.as_str())
+                .collect::<Vec<_>>(),
+            vec!["Players/02 - B", "Players/03 - C"]
+        );
+        assert_eq!(
+            validated
+                .boots
+                .iter()
+                .map(|folder| folder.folder_name.as_str())
+                .collect::<Vec<_>>(),
+            vec!["Mud"]
+        );
+    }
+
+    #[test]
+    fn pass_through_keeps_a_dangling_link_player_minus_the_link() {
+        let report = report_with(
+            &context_with(true, true),
+            "egg",
+            &[
+                ("Players/03 - A/Nowhere.boots", 0),
+                ("Players/03 - A/hair.dds", 9),
+            ],
+            &[],
+            &[],
+        );
+        assert_eq!(
+            issue_codes(&report),
+            vec![("link_target_missing", Disposition::Keep)]
+        );
+        assert!(report.issues[0].passed_through);
+        let player = &report.validated.unwrap().players[0];
+        // The player is kept; the missing reference is not.
+        assert!(player.links.is_empty());
+    }
+
+    #[test]
+    fn a_common_file_off_the_allowlist_drops_or_keeps() {
+        let strict = report("egg", &[("Common/x.exe", 4)], &[], &[]);
+        assert_eq!(
+            issue_codes(&strict),
+            vec![("common_file_disallowed", Disposition::DropFile)]
+        );
+        assert_eq!(
+            strict.issues[0].scope,
+            IssueScope::File(ScopePath::new("Common/x.exe").unwrap())
+        );
+        assert!(strict.validated.unwrap().common.is_empty());
+
+        let lenient = report_with(
+            &context_with(false, false),
+            "egg",
+            &[("Common/x.exe", 4)],
+            &[],
+            &[],
+        );
+        assert_eq!(
+            issue_codes(&lenient),
+            vec![("common_file_disallowed", Disposition::Keep)]
+        );
+        assert_eq!(lenient.validated.unwrap().common.len(), 1);
+    }
+
+    #[test]
+    fn pass_through_keeps_the_resolved_common_link_and_prunes_the_other() {
+        let report = report_with(
+            &context_with(true, true),
+            "egg",
+            &[
+                ("players.txt", 5),
+                ("Common/torso.fmdl", 10),
+                ("Players/A/torso.fmdl.common", 0),
+                ("Players/A/missing.fmdl.common", 0),
+                ("Players/A/hair.dds", 9),
+            ],
+            &["Players/A"],
+            &[("players.txt", Ok(b"03 A"))],
+        );
+        assert_eq!(
+            issue_codes(&report),
+            vec![("common_link_missing", Disposition::Keep)]
+        );
+        assert!(report.issues[0].passed_through);
+        let player = &report.validated.unwrap().players[0];
+        assert_eq!(
+            player
+                .files
+                .iter()
+                .map(|file| file.path.name().to_owned())
+                .collect::<Vec<_>>(),
+            vec!["hair.dds", "torso.fmdl.common"]
+        );
+    }
+
+    #[test]
+    fn boots_and_fcl_hair_models_are_no_explicit_face_content() {
+        let report = report(
+            "egg",
+            &[
+                ("Players/03 - A/ingame_face", 0),
+                ("Players/03 - A/kit_boots.fmdl", 10),
+                ("Players/03 - A/x_fcl_hair.fmdl", 10),
+            ],
+            &[],
+            &[],
+        );
+        assert_eq!(issue_codes(&report), vec![]);
+        assert_eq!(report.validated.unwrap().players.len(), 1);
+    }
+
+    #[test]
+    fn wrong_suffixed_models_drop_their_shared_folders_and_linkers() {
+        let report = report(
+            "egg",
+            &[
+                ("Boots/X/glove_l.fmdl", 10),
+                ("Gloves/Y/kit_boots.fmdl", 10),
+                ("Players/01 - A/X.boots", 0),
+                ("Players/01 - A/hair.dds", 9),
+                ("Players/02 - B/Y.gloves", 0),
+                ("Players/02 - B/hair.dds", 9),
+            ],
+            &[],
+            &[],
+        );
+        assert_eq!(
+            issue_codes(&report),
+            vec![
+                ("fmdl_name_invalid", Disposition::DropFolder),
+                ("fmdl_name_invalid", Disposition::DropFolder),
+                ("link_target_dropped", Disposition::DropFolder),
+                ("link_target_dropped", Disposition::DropFolder),
+            ]
+        );
+        assert_eq!(report.issues[0].scope, folder("Boots/X"));
+        assert_eq!(report.issues[1].scope, folder("Gloves/Y"));
+        let validated = report.validated.unwrap();
+        assert!(validated.players.is_empty());
+        assert!(validated.boots.is_empty());
+        assert!(validated.gloves.is_empty());
+    }
+
+    #[test]
+    fn a_nested_common_file_is_disallowed_and_no_link_target() {
+        let report = report(
+            "egg",
+            &[
+                ("Common/sub/torso.fmdl", 10),
+                ("Players/03 - A/torso.fmdl.common", 0),
+            ],
+            &[],
+            &[],
+        );
+        assert_eq!(
+            issue_codes(&report),
+            vec![
+                ("common_link_missing", Disposition::DropFolder),
+                ("common_file_disallowed", Disposition::DropFile),
+            ]
+        );
+        assert_eq!(report.issues[0].scope, folder("Players/03 - A"));
+        assert_eq!(
+            report.issues[1].scope,
+            IssueScope::File(ScopePath::new("Common/sub/torso.fmdl").unwrap())
+        );
+    }
+
+    #[test]
+    fn reserved_folders_admit_only_model_content_and_common_links() {
+        let report = report(
+            "egg",
+            &[
+                ("Players/03 - A/face/settings.toml", 20),
+                ("Players/04 - B/boots/torso.fmdl.common", 0),
+                ("Common/torso.fmdl", 10),
+            ],
+            &[],
+            &[],
+        );
+        assert_eq!(
+            issue_codes(&report),
+            vec![("file_type_disallowed", Disposition::DropFolder)]
+        );
+        assert_eq!(report.issues[0].scope, folder("Players/03 - A"));
+        assert_eq!(
+            report.issues[0].context,
+            vec![("file", "face/settings.toml".to_owned())]
+        );
+        let validated = report.validated.unwrap();
+        assert_eq!(validated.players.len(), 1);
+    }
+
+    #[test]
+    fn ingame_face_and_common_links_act_by_target_and_position() {
+        let report = report(
+            "egg",
+            &[
+                ("Common/face_high.fmdl", 10),
+                ("Common/torso.fmdl", 10),
+                ("Common/face_high.dds", 9),
+                ("Players/01 - A/ingame_face", 0),
+                ("Players/01 - A/face_high.fmdl.common", 0),
+                ("Players/02 - B/ingame_face", 0),
+                ("Players/02 - B/torso.fmdl.common", 0),
+                ("Players/03 - C/ingame_face", 0),
+                ("Players/03 - C/face_high.dds.common", 0),
+                ("Players/04 - D/ingame_face", 0),
+                ("Players/04 - D/boots/face_high.fmdl.common", 0),
+            ],
+            &[],
+            &[],
+        );
+        // Only A's explicit-face-model link contradicts the marker.
+        assert_eq!(
+            issue_codes(&report),
+            vec![("ingame_face_explicit_face_model", Disposition::DropFolder)]
+        );
+        assert_eq!(report.issues[0].scope, folder("Players/01 - A"));
+        let validated = report.validated.unwrap();
+        assert_eq!(
+            validated
+                .players
+                .iter()
+                .map(|player| player.path.as_str())
+                .collect::<Vec<_>>(),
+            vec!["Players/02 - B", "Players/03 - C", "Players/04 - D"]
+        );
+    }
+
+    #[test]
+    fn a_shared_folder_with_different_kinds_of_one_stem_is_fine() {
+        let report = report(
+            "egg",
+            &[
+                ("Faces/Base/hair.dds", 9),
+                ("Faces/Base/hair.xml", 10),
+                ("Players/03 - A/Base.face", 0),
+            ],
+            &[],
+            &[],
+        );
+        assert_eq!(issue_codes(&report), vec![]);
+        let validated = report.validated.unwrap();
+        assert_eq!(validated.players.len(), 1);
+        assert_eq!(validated.faces.len(), 1);
+    }
+
+    #[test]
+    fn a_link_file_below_an_unreserved_subfolder_is_no_link() {
+        let report = report_with(
+            &context_with(false, false),
+            "egg",
+            &[
+                ("Players/03 - A/extra/Crocs.boots", 0),
+                ("Boots/Crocs/boots.fmdl", 10),
+            ],
+            &[],
+            &[],
+        );
+        assert_eq!(
+            issue_codes(&report),
+            vec![
+                ("file_type_disallowed", Disposition::Keep),
+                ("shared_folder_orphaned", Disposition::DropFolder),
+            ]
+        );
+        let player = &report.validated.unwrap().players[0];
+        assert!(player.links.is_empty());
+    }
+
+    #[test]
+    fn a_common_link_in_common_is_no_link_either() {
+        let report = report_with(
+            &context_with(false, false),
+            "egg",
+            &[("Players/03 - A/common/x.fmdl.common", 0)],
+            &[],
+            &[],
+        );
+        assert_eq!(
+            issue_codes(&report),
+            vec![("file_type_disallowed", Disposition::Keep)]
+        );
+    }
+
+    #[test]
+    fn a_dropped_target_names_its_own_first_finding() {
+        let report = report(
+            "egg",
+            &[
+                ("Players/01 - P/fpc.on", 0),
+                ("Players/01 - P/fpc.off", 0),
+                ("Players/01 - P/hair.dds", 9),
+                ("Players/02 - Q/Base.face", 0),
+                ("Players/02 - Q/hair.dds", 9),
+                ("Faces/Base/notes.txt", 10),
+            ],
+            &[],
+            &[],
+        );
+        assert_eq!(
+            issue_codes(&report),
+            vec![
+                ("fpc_conflict", Disposition::DropFolder),
+                ("file_type_disallowed", Disposition::DropFolder),
+                ("link_target_dropped", Disposition::DropFolder),
+            ]
+        );
+        assert_eq!(
+            report.issues[2].context,
+            vec![
+                ("link", "Base.face".to_owned()),
+                ("target", "Faces/Base".to_owned()),
+                ("finding", "file_type_disallowed".to_owned()),
+            ]
+        );
+    }
+
+    #[test]
+    fn a_player_dropped_by_its_own_finding_reports_no_dropped_target() {
+        let report = report(
+            "egg",
+            &[
+                ("players.txt", 5),
+                ("Players/A/fpc.on", 0),
+                ("Players/A/fpc.off", 0),
+                ("Players/A/Base.face", 0),
+                ("Players/A/hair.dds", 9),
+                ("Faces/Base/x.exe", 4),
+            ],
+            &[],
+            &[("players.txt", Ok(b"03 A"))],
+        );
+        assert_eq!(
+            issue_codes(&report),
+            vec![
+                ("fpc_conflict", Disposition::DropFolder),
+                ("file_type_disallowed", Disposition::DropFolder),
+            ]
+        );
+    }
+
+    #[test]
+    fn fmdl_name_invalid_does_not_apply_on_pre_fox() {
+        let report = report_with(
+            &ValidationContext {
+                version: pes_version::PesVersion::Pes16,
+                strict_file_type_check: true,
+                pass_through: false,
+            },
+            "egg",
+            &[
+                ("Boots/Crocs/torso.fmdl", 10),
+                ("Players/03 - A/Crocs.boots", 0),
+            ],
+            &[],
+            &[],
+        );
+        assert_eq!(issue_codes(&report), vec![]);
+        let validated = report.validated.unwrap();
+        assert_eq!(validated.boots.len(), 1);
     }
 }

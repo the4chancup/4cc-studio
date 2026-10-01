@@ -33,6 +33,16 @@ pub(crate) enum SlotMap {
     Referees(BTreeMap<RefSlot, usize>),
 }
 
+impl SlotMap {
+    /// The draft `players` indices a surviving assignment maps.
+    pub(crate) fn mapped(&self) -> Vec<usize> {
+        match self {
+            SlotMap::Team(map) => map.values().copied().collect(),
+            SlotMap::Referees(map) => map.values().copied().collect(),
+        }
+    }
+}
+
 /// A folder name's fold key for lookup (a path's last segment is itself a
 /// valid path).
 fn folder_key(name: &str) -> String {
