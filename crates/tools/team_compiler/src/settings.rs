@@ -6,8 +6,7 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
-/// The Team compiler's section of the settings file (`team_compiler/settings.md`); Phase 3's
-/// subset, each key entering with the phase that reads it.
+/// The Team compiler's settings, the keys Phase 3 reads.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub(crate) struct TeamCompilerSettings {

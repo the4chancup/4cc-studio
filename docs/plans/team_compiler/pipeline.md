@@ -719,11 +719,12 @@ pub(crate) enum TaskKind {
                                              // textures once, one face.fpk per roster slot
     Kit { slot: KitSlot, kit: /* the validated kit, all/ inheritance applied */ },
 }
-// processing/: one task, run on the pool.
-pub(crate) fn process_task(task: BuildTask, ctx: &CompileContext) -> TaskBatch;
+// processing/: one task. The coordinator reads its files from the export's content source
+// (opened once per export) and hands task and bytes to the pool, which only converts and packs.
+pub(crate) fn process_task(index: usize, task: BuildTask, files: TaskFiles, ctx: &CompileContext)
+    -> TaskBatch;                            // TaskFiles: the bytes of every file the task reads
 pub(crate) struct TaskBatch {
     pub(crate) index: usize,                 // its manifest position: the writer's order
-    pub(crate) export_id: ExportId,
     pub(crate) entries: Vec<(String, Vec<u8>)>, // CPK path, bytes; empty when the task failed
     pub(crate) uniparam: Option<(String, Vec<u8>)>, // a kit's config, applied only if committed
     pub(crate) messages: Vec<Message>,
@@ -739,11 +740,16 @@ for always holds its permit and the run cannot stall on canonical order ("Admiss
 remain progress-safe", `core/parallelism.md`). A `.7z` export is opened once for its tasks and
 charged once, by the sum of its entries' sizes (`libs/pipeline.md`); its tasks share that
 permit and acquire none of their own, since an oversized export permit would otherwise block
-its own tasks' requests forever.
+its own tasks' requests forever. The coordinator, not the pool, reads each task's files: an
+archive is one sequential stream, so pool threads sharing it would only wait on each other,
+and the pool's work (conversion, packing) needs no source handle. A file that cannot be read
+fails its task with `source_read_failed` (`DropFolder`, naming the file) before the pool sees
+it; a failure to convert or pack is `folder_pack_failed`.
 
 **Output.** The CPK is written to `output/.staging/<pid>-<unix ms>/<cpk_name>.cpk` and renamed
 to `output/<cpk_name>.cpk` (the run id is per process, so two CLI runs never share a staging
-folder); a run that emits no entry writes nothing and leaves the previous CPK. The output
+folder); the run's folder is then removed, and `.staging/` too when no other run's folder is
+in it, so a finished run leaves nothing but the CPK; a run that emits no entry writes nothing and leaves the previous CPK. The output
 folder is created and probed for writing (a file created and removed) before any export is
 read; a refusal is the CLI's exit 3 naming the path (TC-CLI-06), not a pipeline message.
 `deploy_skipped_by_flag` is emitted, naming the promoted path, when `--no-deploy` is given;

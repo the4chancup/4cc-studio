@@ -2,46 +2,17 @@
 //! preflight's refusals and `check`'s findings, observed as the exit code and the `Message`
 //! events the tool emits, which the binary prints one line each.
 
+mod common;
+
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
 
-use crossbeam_channel::unbounded;
-use studio_core::{
-    AppPaths, CliError, ExportId, PipelineEvent, PipelineEventEnvelope, RunId, Scope, Settings,
-    StudioTool, ToolContext,
-};
+use common::{Run, Sandbox};
+use studio_core::{ExportId, PipelineEvent, RunId, Scope, StudioTool};
 use team_compiler::Tool;
 
-/// The teams list every sandbox carries, so identities are predictable.
-const TEAMS_LIST: &str = "ID\tName\n701\t/co/\n";
-
-/// A fresh folder standing in for the executable's folder: `data/` holds the teams list, and the
-/// exports root defaults to `exports/` beside it.
-struct Sandbox {
-    root: PathBuf,
-}
-
-/// What one command returned, and the events it emitted.
-struct Run {
-    result: Result<u8, CliError>,
-    events: Vec<PipelineEventEnvelope>,
-}
-
 impl Sandbox {
-    fn new(name: &str) -> Sandbox {
-        let root = Path::new(env!("CARGO_TARGET_TMPDIR"))
-            .join("team_compiler_in_process")
-            .join(name);
-        if root.exists() {
-            fs::remove_dir_all(&root).unwrap();
-        }
-        fs::create_dir_all(root.join("data")).unwrap();
-        fs::write(root.join("data/teams_list.txt"), TEAMS_LIST).unwrap();
-        Sandbox { root }
-    }
-
     fn write(&self, relative: &str, contents: &[u8]) {
         let path = self.root.join(relative);
         fs::create_dir_all(path.parent().unwrap()).unwrap();
@@ -70,43 +41,9 @@ impl Sandbox {
     fn arg(&self, relative: &str) -> String {
         self.root.join(relative).to_str().unwrap().to_owned()
     }
-
-    /// Runs `team-compiler <args>` with `settings` as the settings file's text.
-    fn run(&self, settings: &str, args: &[&str]) -> Run {
-        let mut parsed = Settings::parse(settings).unwrap();
-        parsed.merge_defaults(Tool.id(), &Tool.default_settings());
-        let (events_tx, events_rx) = unbounded();
-        let (requests_tx, _requests_rx) = unbounded();
-        let ctx = ToolContext::new(
-            Arc::new(Mutex::new(parsed)),
-            AppPaths {
-                exe_dir: self.root.clone(),
-                data_dir: Some(self.root.join("data")),
-            },
-            events_tx,
-            requests_tx,
-        );
-        let matches = Tool
-            .cli_command()
-            .try_get_matches_from(std::iter::once("team-compiler").chain(args.iter().copied()))
-            .unwrap();
-        let result = Tool.cli_run(&matches, &ctx);
-        drop(ctx);
-        Run {
-            result,
-            events: events_rx.iter().collect(),
-        }
-    }
 }
 
 impl Run {
-    fn exit_code(&self) -> u8 {
-        match &self.result {
-            Ok(code) => *code,
-            Err(error) => panic!("refused with {}: {error}", error.exit_code),
-        }
-    }
-
     /// The refusal, asserting its exit code and that its message names every one of `names`.
     fn assert_refused(&self, exit_code: u8, names: &[&str]) {
         let error = match &self.result {
@@ -228,9 +165,10 @@ fn an_invalid_cpk_name_refuses_compile_before_any_export_is_read() {
         sandbox.write("exports/aaa_export/notes.txt", b"kept as it is");
         let before = snapshot(&sandbox.root);
 
+        // Reading this exports root, which does not exist, would abort with 3.
         let run = sandbox.run(
             &format!("[team-compiler]\ncpk_name = \"{name}\"\n"),
-            &["compile"],
+            &["compile", &sandbox.arg("no such exports")],
         );
 
         run.assert_refused(2, &[&format!("cpk_name = \"{name}\"")]);
@@ -301,13 +239,92 @@ fn modes_and_commands_this_version_lacks_are_refused() {
     assert_eq!(sandbox.run(multicpk, &["check"]).exit_code(), 0);
 }
 
+// ---------------------------------------------------------------- compile
+
+/// The tracer bullet's export, read in place.
+fn tracer_export() -> String {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/fixtures/tracer/studio/egg Tracer")
+        .to_str()
+        .unwrap()
+        .to_owned()
+}
+
+/// Settings targeting PES 21 with the PES folder at `<sandbox>/PES`.
+fn pes21_settings(sandbox: &Sandbox) -> String {
+    format!(
+        "[common]\npes_version = 21\npes_folder_path = '{}'\n",
+        sandbox.root.join("PES").display()
+    )
+}
+
+// TC-OUT-01
 #[test]
-fn a_valid_setup_passes_the_preflight() {
-    let sandbox = Sandbox::new("valid");
-    sandbox.write(&format!("exports/co - Spring/{CLEAN_PLAYER}"), b"");
-    let run = sandbox.run("", &["compile", "--mode", "normal"]);
-    run.assert_refused(3, &["compile is not built yet"]);
-    assert!(!sandbox.root.join("output").exists());
+fn compile_no_deploy_writes_the_cpk_to_the_output_folder_and_leaves_pes_alone() {
+    let sandbox = Sandbox::new("no_deploy");
+    sandbox.write("PES/download/4cc_90_test.cpk", b"the installed CPK");
+    sandbox.write("PES/PES2021.exe", b"the game");
+    let pes_before = snapshot(&sandbox.root.join("PES"));
+
+    let run = sandbox.run(
+        &pes21_settings(&sandbox),
+        &["compile", "--no-deploy", "--export", &tracer_export()],
+    );
+
+    assert_eq!(run.exit_code(), 0);
+    let promoted = sandbox.root.join("output").join("4cc_90_test.cpk");
+    let entries = cpk::CpkArchive::open(fs::File::open(&promoted).unwrap())
+        .unwrap()
+        .entries()
+        .len();
+    assert!(entries > 0, "the CPK holds the tracer's content");
+    assert_eq!(
+        run.messages(),
+        [
+            "egg Tracer: Info export_identified [Keep] (team=/egg/, id=792)".to_owned(),
+            format!(
+                "Info deploy_skipped_by_flag [Keep] (path={})",
+                promoted.display()
+            ),
+        ]
+    );
+    assert_eq!(snapshot(&sandbox.root.join("PES")), pes_before);
+    // The staging folder went with the rename: a finished run leaves only the CPK.
+    assert!(!sandbox.root.join("output/.staging").exists());
+}
+
+#[test]
+fn compile_without_no_deploy_promotes_the_cpk_silently() {
+    let sandbox = Sandbox::new("promoted");
+    let run = sandbox.run(
+        &pes21_settings(&sandbox),
+        &["compile", "--export", &tracer_export()],
+    );
+    assert_eq!(run.exit_code(), 0);
+    assert!(sandbox.root.join("output/4cc_90_test.cpk").is_file());
+    assert_eq!(
+        run.messages(),
+        ["egg Tracer: Info export_identified [Keep] (team=/egg/, id=792)"]
+    );
+}
+
+#[test]
+fn a_compile_that_emits_nothing_writes_no_cpk_and_no_staging_folder() {
+    let sandbox = Sandbox::new("emits_nothing");
+    sandbox.write("exports/co - Off/NO_USE", b"");
+    sandbox.write(&format!("exports/co - Off/{CLEAN_PLAYER}"), b"");
+    sandbox.write("output/4cc_90_test.cpk", b"the previous CPK");
+    let before = snapshot(&sandbox.root.join("output"));
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    assert_eq!(run.exit_code(), 0);
+    assert_eq!(
+        run.messages(),
+        ["co - Off: Info export_disabled [DropExport] ()"]
+    );
+    assert_eq!(snapshot(&sandbox.root.join("output")), before);
+    assert!(!sandbox.root.join("output/.staging").exists());
 }
 
 // ---------------------------------------------------------------- check

@@ -309,7 +309,8 @@ pub struct KitsFolder {
 }
 
 pub struct KitFolder {
-    pub folder_name: String,                 // `p1` or `p1 - Lakers`
+    pub path: ScopePath,                     // `Kits/p1` or `Kits/p1 - Lakers`, as the export spells it:
+                                             // the scope a consumer's kit findings name
     pub label: Option<String>,               // the free part after ` - `; GUI/editor display only
     pub config: Option<FileDescriptor>,      // config.toml (absent → generated at compile time)
     pub colors: Option<FileDescriptor>,      // colors.txt (grammar: Phase 4)

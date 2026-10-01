@@ -180,8 +180,9 @@ pub struct KitsFolder {
 /// inherits from `all/`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct KitFolder {
-    /// `p1` or `p1 - Lakers`.
-    pub folder_name: String,
+    /// `Kits/p1` or `Kits/p1 - Lakers`, as the export spells it: the scope a consumer's kit
+    /// findings name.
+    pub path: ScopePath,
     /// The free part after ` - `; GUI/editor display only.
     pub label: Option<String>,
     /// `config.toml` (absent → generated at compile time).

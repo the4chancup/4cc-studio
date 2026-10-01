@@ -200,7 +200,7 @@ pub(crate) fn check(
         kits.insert(
             slot,
             KitFolder {
-                folder_name: folder.path.name().to_owned(),
+                path: folder.path.clone(),
                 label: label.map(str::to_owned),
                 config: direct_metadata(folder, MetadataFile::ConfigToml),
                 colors: direct_metadata(folder, MetadataFile::ColorsTxt),
