@@ -40,32 +40,16 @@ pub(crate) fn check_portraits(
             ));
         }
     }
-    // Two files claiming one slot conflict, each dropped.
-    let mut slots: BTreeMap<PlayerSlot, Vec<&FileDescriptor>> = BTreeMap::new();
-    for (slot, file) in slotted {
-        slots.entry(slot).or_default().push(file);
+    // Two files claiming one stem (`player_NN`) conflict, each dropped;
+    // `file_stem_conflicts` is `Common/`'s same namespace rule.
+    super::folders::file_stem_conflicts(context, slotted.iter().map(|(_, file)| *file), issues);
+    let mut stems: BTreeMap<String, usize> = BTreeMap::new();
+    for (_, file) in &slotted {
+        *stems.entry(fold(stem(file.path.name()))).or_default() += 1;
     }
-    for (slot, files) in slots {
-        if files.len() > 1 {
-            let names = files
-                .iter()
-                .map(|file| file.path.name().to_owned())
-                .collect::<Vec<_>>()
-                .join(",");
-            for file in files {
-                issues.push(issue_in(
-                    context,
-                    "texture_stem_conflict",
-                    IssueScope::File(file.path.clone()),
-                    vec![
-                        ("stem", fold(stem(file.path.name()))),
-                        ("files", names.clone()),
-                    ],
-                    Disposition::DropFile,
-                ));
-            }
-        } else {
-            portraits.insert(slot, files[0].clone());
+    for (slot, file) in slotted {
+        if stems[&fold(stem(file.path.name()))] == 1 {
+            portraits.insert(slot, file.clone());
         }
     }
     portraits

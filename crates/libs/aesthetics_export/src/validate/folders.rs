@@ -296,6 +296,41 @@ pub(crate) fn position(path: &ScopePath, folder: &ScopePath) -> Position {
     }
 }
 
+/// One `texture_stem_conflict` per file of a folded stem two or more files
+/// share: `File`-scoped `DropFile` (`Portraits/` and `Common/` drop files,
+/// not folders).
+pub(crate) fn file_stem_conflicts<'a>(
+    context: &ValidationContext,
+    files: impl Iterator<Item = &'a FileDescriptor>,
+    issues: &mut Vec<ValidationIssue>,
+) {
+    let mut stems: BTreeMap<String, Vec<&FileDescriptor>> = BTreeMap::new();
+    for file in files {
+        stems
+            .entry(fold(stem(file.path.name())))
+            .or_default()
+            .push(file);
+    }
+    for (stem, files) in stems {
+        if files.len() > 1 {
+            let names = files
+                .iter()
+                .map(|file| file.path.name().to_owned())
+                .collect::<Vec<_>>()
+                .join(",");
+            for file in files {
+                issues.push(issue_in(
+                    context,
+                    "texture_stem_conflict",
+                    IssueScope::File(file.path.clone()),
+                    vec![("stem", stem.clone()), ("files", names.clone())],
+                    Disposition::DropFile,
+                ));
+            }
+        }
+    }
+}
+
 /// One `texture_stem_conflict` per folded stem two or more files share:
 /// `Folder`-scoped `DropFolder`, context `("stem", fold key)` and `("files",
 /// display names joined by `","`).
@@ -518,7 +553,9 @@ pub(crate) fn check_player(
         }
     }
 
-    // 7. Texture stems collide across the whole namespace (direct + reserved).
+    // 7. Texture stems collide across the whole namespace (direct + reserved):
+    // textures, plus each texture `.common` link under its linked name (a link
+    // counts as the linked file being local — `model_format.md` "Rules").
     stem_conflicts(
         context,
         scope.clone(),
@@ -537,7 +574,26 @@ pub(crate) fn check_player(
                     fold(stem(file.path.name())),
                     relative(&file.path, &folder.path),
                 )
-            }),
+            })
+            .chain(folder.files.iter().filter_map(|file| {
+                if file.kind != FileKind::CommonLink
+                    || !matches!(
+                        position(&file.path, &folder.path),
+                        Position::Direct
+                            | Position::Reserved(
+                                Reserved::Face | Reserved::Boots | Reserved::Gloves,
+                            )
+                    )
+                {
+                    return None;
+                }
+                let name = common_link_name(file.path.name())?;
+                if matches!(classify(&name), FileKind::Texture) {
+                    Some((fold(stem(&name)), relative(&file.path, &folder.path)))
+                } else {
+                    None
+                }
+            })),
         issues,
     );
 }
@@ -558,11 +614,10 @@ fn is_explicit_model_file(name: &str) -> bool {
         && model_suffix(stem(name)).is_some_and(is_explicit_face)
 }
 
-/// A name's fold key for lookups (the same casing rule the tree uses).
+/// A name's fold key for lookups (the same casing rule the tree uses, without
+/// the validation — a stem or link name need not be a valid path segment).
 pub(crate) fn fold(name: &str) -> String {
-    ScopePath::new(name)
-        .expect("a path's last segment is itself a valid path")
-        .fold_key()
+    vtree::fold_name(name)
 }
 
 /// A shared folder's own findings: the allowlist, stem collisions, and the
@@ -626,7 +681,8 @@ pub(crate) fn check_shared(
     }
 }
 
-/// The `Common/` allowlist: direct files only, model content only.
+/// The `Common/` allowlist and its own stem namespace: direct files only,
+/// model content only; conflicting textures drop each other.
 pub(crate) fn check_common(
     draft: &AestheticsExportDraft,
     context: &ValidationContext,
@@ -643,4 +699,12 @@ pub(crate) fn check_common(
             ));
         }
     }
+    file_stem_conflicts(
+        context,
+        draft
+            .common
+            .iter()
+            .filter(|file| file.kind == FileKind::Texture && is_direct_common_file(&file.path)),
+        issues,
+    );
 }

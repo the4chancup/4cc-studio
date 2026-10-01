@@ -183,7 +183,8 @@ Itemized 2026-09-30 at Phase 2's close. Order: the tracer first (one real export
   start reporting directory entries so an archived empty kit folder survives (3.1 review), NO_USE,
   balls, duplicate refs), the structure pass and identity through `aesthetics_export`, console
   output, exit codes. → verify: TC-SRC-*, TC-CLI-01..05 and the check-observed TC-STR/ROS/KIT/
-  ROOT/ID scenarios, run through the binary
+  ROOT/ID scenarios, run through the binary; TC-STR-09 is cited only here, since its THEN names
+  severities, which `messages.rs` maps (the lib test asserts dispositions; 3.6 review)
 - [ ] 3.9 `compile` through the pipeline: coordinator and writer on rayon over `libs/pipeline`,
   the tracer's scaffolding replaced, dispositions and `pass_through` applied, the CPK written
   atomically. → verify: TC-OUT-*, TC-DSP-*, the compile-observed TC-ROS/KIT/ID scenarios, and
@@ -602,3 +603,9 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   shared icon/marker/name checks, an invalid kit head gets no other finding (decision entry).
   `mutants-diff 54e44f0`: 114, 15 missed (14 given tests, 1 equivalent removed by restructuring);
   rerun 111, 97 caught, 14 unviable, 0 missed. Next: the reviewer on all of (b).
+- **2026-10-01** - 3.6 cross-family review, GPT round 1: 7 concerns, 4 accepted (fold panics on
+  real names → `vtree::fold_name`; flattening panic → insertion-built tree, no root findings on an
+  undecided root; texture `.common` links and `Common/` join the stem check; TC-STR-09 uncited
+  until 3.8), 3 rejected; the GPT loop ends (rulings `.tmp/review_rulings_3_6.md`; plan + decision
+  entry). `mutants-diff 26775b0`: 31, 2 missed, both given tests; rerun 26 caught, 5 unviable, 0 missed. Next: the sidekick
+  review loop.

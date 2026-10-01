@@ -283,41 +283,22 @@ fn normalize(canon: &mut Canon, issues: &mut Vec<ValidationIssue>) {
             ));
         } else if usable.len() == 1 {
             let child = &usable[0];
-            // A file left outside colliding with a flattened name rejects the
-            // export; report each such file once and keep the tree unmoved.
-            let prefix = format!("{}/", child.fold_key());
-            let outsiders: BTreeMap<String, &ScopePath> = canon
-                .files
-                .iter()
-                .filter(|(path, _)| !path.fold_key().starts_with(&prefix))
-                .map(|(path, _)| (path.fold_key(), path))
-                .collect();
-            let mut conflicts = Vec::new();
-            for (path, _) in canon.files.iter() {
-                if path.fold_key().starts_with(&prefix)
-                    && let Some(existing) = outsiders.get(&strip_first_segment(path).fold_key())
-                {
-                    conflicts.push((*existing).clone());
-                }
-            }
-            if conflicts.is_empty() {
-                flatten_child(canon, child);
-                issues.push(issue(
+            match try_flatten_child(canon, child) {
+                Ok(()) => issues.push(issue(
                     "nested_folders_fixed",
                     IssueScope::Export,
                     vec![("folder", file_name(child).to_owned())],
                     Disposition::Keep,
-                ));
-            } else {
-                conflicts.sort();
-                conflicts.dedup();
-                for path in conflicts {
-                    issues.push(issue(
-                        "nested_root_conflict",
-                        IssueScope::File(path),
-                        vec![],
-                        Disposition::DropExport,
-                    ));
+                )),
+                Err(conflicts) => {
+                    for path in conflicts {
+                        issues.push(issue(
+                            "nested_root_conflict",
+                            IssueScope::File(path),
+                            vec![],
+                            Disposition::DropExport,
+                        ));
+                    }
                 }
             }
         }
@@ -358,41 +339,66 @@ fn normalize(canon: &mut Canon, issues: &mut Vec<ValidationIssue>) {
     }
 }
 
-/// Moves `child`'s contents to the root: `wrapper/Players/x` → `Players/x`.
-/// `child` itself is gone — it became the root (its listed folder entry, if
-/// any, was dropped when its files went in the tree; only empties are held).
-fn flatten_child(canon: &mut Canon, child: &ScopePath) {
+/// Moves `child`'s contents to the root (`wrapper/Players/x` → `Players/x`)
+/// by building the moved tree through insertion: every insert error is a name
+/// claimed twice — `Err(conflicts)`, the moved tree discarded and the export
+/// unmoved. `child` itself is gone when it succeeds — it became the root (its
+/// listed folder entry, if any, was dropped when its files went in the tree;
+/// only empties are held).
+fn try_flatten_child(canon: &mut Canon, child: &ScopePath) -> Result<(), Vec<ScopePath>> {
     let prefix = format!("{}/", child.fold_key());
     let mut moved = VirtualTree::new();
-    for (path, entry) in canon.files.iter() {
-        let new_path = if path.fold_key().starts_with(&prefix) {
-            strip_first_segment(path)
-        } else {
-            path.clone()
-        };
-        // A flattened name cannot collide: conflicts are reported first.
+    let mut conflicts = Vec::new();
+    let insert = |moved: &mut VirtualTree<FileEntry>, path: ScopePath, entry: &FileEntry| {
         moved
             .insert(
-                new_path,
+                path.clone(),
                 FileEntry {
                     source: entry.source.clone(),
                     raw: entry.raw.clone(),
                     size: entry.size,
                 },
             )
-            .expect("conflicts are reported before flattening");
+            .map_err(|error| match error {
+                vtree::InsertError::Duplicate => path.clone(),
+                vtree::InsertError::Collision { existing }
+                | vtree::InsertError::FileFolderConflict { existing } => existing,
+            })
+    };
+    // The loose files first (the tree already held them: they cannot
+    // collide), then the flattened ones.
+    for (path, entry) in canon.files.iter() {
+        if !path.fold_key().starts_with(&prefix)
+            && let Err(path) = insert(&mut moved, path.clone(), entry)
+        {
+            conflicts.push(path);
+        }
     }
-    let mut empty_folders = BTreeMap::new();
-    for (key, path) in std::mem::take(&mut canon.empty_folders) {
-        let new_path = if key.starts_with(&prefix) {
-            strip_first_segment(&path)
-        } else {
-            path
-        };
-        empty_folders.insert(new_path.fold_key(), new_path);
+    for (path, entry) in canon.files.iter() {
+        if path.fold_key().starts_with(&prefix)
+            && let Err(path) = insert(&mut moved, strip_first_segment(path), entry)
+        {
+            conflicts.push(path);
+        }
     }
-    canon.files = moved;
-    canon.empty_folders = empty_folders;
+    if conflicts.is_empty() {
+        let mut empty_folders = BTreeMap::new();
+        for (key, path) in std::mem::take(&mut canon.empty_folders) {
+            let new_path = if key.starts_with(&prefix) {
+                strip_first_segment(&path)
+            } else {
+                path
+            };
+            empty_folders.insert(new_path.fold_key(), new_path);
+        }
+        canon.files = moved;
+        canon.empty_folders = empty_folders;
+        Ok(())
+    } else {
+        conflicts.sort_by_key(|path| path.fold_key());
+        conflicts.dedup_by(|a, b| a.fold_key() == b.fold_key());
+        Err(conflicts)
+    }
 }
 
 /// Removes `inner`'s extra `Name` layer under `folder` (`Players/Players/x` →
