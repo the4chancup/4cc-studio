@@ -11,6 +11,11 @@ The Team compiler also runs without its window, from a terminal opened in the fo
 `check` reads your exports and reports what it finds, without writing anything. `compile` reads
 them and builds the CPK.
 
+`check` prints one line per finding: the export it is about, how serious it is, its code, where
+in the export it is, and its details in parentheses. The line `Info export_identified (team=/co/,
+id=701)` tells you which team the export was recognized as: its name's first word, looked up in
+the teams list (`team=referees` for a `refs` export).
+
 Both commands read every export in the exports folder from the settings (`exports/` beside
 `4cc-studio` unless you changed it). To use another folder for one run, give its path as
 `exports-root`; the setting is not changed.

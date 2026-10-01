@@ -23,7 +23,7 @@ pub use conventions::{
 pub use listing::{CanonicalListing, ListedEntry, ListedKind, SmallMetadata, ValidationContext};
 pub use parse::{
     AestheticsExportDraft, ExportKind, FileDescriptor, FolderDraft, ParsedAestheticsExport,
-    RawRoster, RawRosterEntry, SourceError, parse_listing,
+    RawRoster, RawRosterEntry, SourceError, parse_listing, team_name,
 };
 pub use resolve::{ExportIdentity, IdentityError, ResolvedAestheticsExport};
 pub use slots::{PlayerSlot, RefSlot};

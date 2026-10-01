@@ -244,12 +244,17 @@ Itemized 2026-09-30 at Phase 2's close. Order: the tracer first (one real export
     missed, all in `team_compiler` code proven only by `studio`'s binary tests, which
     cargo-mutants does not run for a `team_compiler` mutant: the scenario tests move in-process
     in 3.8c
-  - [ ] 3.8c `check` over folder sources: `messages.rs` (severity per code, every
+  - [x] 3.8c `check` over folder sources: `messages.rs` (severity per code, every
     `ISSUE_CODES` code covered, issue → `Message`), the scenario tests in-process in
     `team_compiler/tests/` (3.8b's moved there; the binary keeps its own seams), `reader/` discovery (folders, NO_USE,
     balls, refs), structure pass, identity, findings as events, exit code. → verify: binary
     tests TC-SRC-05, TC-STR-09, TC-CLI-01, TC-CLI-02; check halves of TC-SRC-03/04,
     TC-ID-01/02
+    Done: `messages.rs` (47 rows, checked against `messages.md` by `.tmp/catalog_compare.py`),
+    `reader/{mod,source}.rs`, `check/mod.rs`, `team_compiler/tests/cli.rs` (22 in-process
+    tests; the binary file keeps its own seams), `aesthetics_export::team_name` re-exported.
+    `mutants-diff 008a356`: 57, 45 caught, 12 unviable, 0 missed (3.8b's survivors gone but
+    the `view`/`settings_view` placeholders, untestable until 3.z)
   - [ ] 3.8d archive sources: `archives` reports folder entries, `.zip`/`.7z` listing and
     metadata reads (the 7z charge, `libs/pipeline.md`), `export_extract_failed`, `--export`.
     → verify: TC-SRC-02, TC-SRC-07; check halves of TC-SRC-01/06/08/09; `archives`' consumers'
@@ -708,3 +713,12 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   (`BaseDirs`, the printer fallback, the printer-failure exit code, now 3). 3.8b landed: the
   tool skeleton and preflight; red: all 10 binary tests failed `unexpected argument
   'team-compiler' found` before the subcommand existed. Subagents now Opus (maintainer). Next: 3.8c.
+- **2026-10-01** - 3.8c landed: `check` over folder sources, the catalog, discovery and
+  routing, findings as events. Red: 15 of 22 in-process tests failed against 3.8b's stub (e.g.
+  TC-SRC-05 `left: []`, TC-CLI-01 `refused with 3: check is not built yet`). Rulings on the
+  subagent's open points: an unreadable root aborts (3); sources are listed before routing,
+  so an unreadable one never counts as a refs duplicate; `export_extract_failed` carries
+  `path` and `error`; the refs summary precedes the exports. Found: `mutants-diff` skips
+  untracked files (stage first); cargo-mutants copies the gitignored `.tmp/` into its build
+  copies, which filled the disk (3.7's two diff runs died of it). Next: the mutants/`.tmp`
+  detour (maintainer), then 3.8d.
