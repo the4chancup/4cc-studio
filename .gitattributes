@@ -3,3 +3,7 @@
 # Test fixtures are game files, never text, whatever their extension or contents
 crates/**/tests/fixtures/** -text
 crates/**/tests/fixtures/**/README.md text
+
+# CRLF by contract: the teams_list crate writes CRLF and a test compares the shipped list with
+# its own write byte for byte; as text, a fresh `git add` (the mutants remote snapshot) made it LF
+crates/libs/teams_list/data/teams_list.txt -text

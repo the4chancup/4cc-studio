@@ -16,8 +16,7 @@ below), and 3.7 is marked done once that review's rulings land. 3.6 is done (`ae
 scenarios proven; the rest need `check`/`compile`). 2.5b (GPU BC7) is step 16.x (decision entries 2026-09-21 and 2026-09-28). Release
 target (2026-09-28): 0.1.0 after Phase 8; phase order 1–6, 8, 0.1.0, 7, 9–16
 (`core/development_plan.md` "Releases").
-**Detour in progress (2026-10-01, maintainer):** mutation runs killed by disk space and
-`.tmp`/`%TEMP%` cleanup, before 3.8d; task list in `.tmp/detour_mutants_cleanup.md`.
+**Next:** 3.8d (archive sources); the mutants/`.tmp` detour is done (log, 2026-10-01).
 **Blocked on:** nothing yet. **Hard gate at the end of Phase 3:** step 4.0 (the maintainer's
 in-game appearance-fallback test) must be done before any agent itemizes Phase 4 or writes
 anything for Phase 4, 5 or 6. Everything up to and including Phase 3's close may proceed.
@@ -735,3 +734,8 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   `debug.log`); `mutants_diff.py` diffs against the working tree written as a tree object
   (`mutants.working_tree`, shared with the remote snapshot), so untracked files are measured
   without staging. `AGENTS.md`: archived runs keep only their summaries.
+- **2026-10-01** - Detour done. Cleanup (maintainer-approved): the 10 stale `%TEMP%` copies,
+  archived runs cut to their summaries, `bench/`, census and probe build outputs; 63 GB freed,
+  `.tmp/` 17 GB to 0.8 GB. `teams_list.txt` marked `-text` in `.gitattributes`: CRLF by its
+  crate's contract (a test compares the shipped list with the crate's own write), so the
+  remote snapshot's fresh `git add` had stored it LF. Next: 3.8d.
