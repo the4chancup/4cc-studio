@@ -39,7 +39,7 @@ terms next to each other rather than in alphabetical order; adjacency is what ma
 |---|---|---|
 | **Aesthetics export** | A team's folder or archive of player folders, kits, portraits and `settings.toml`; the Team compiler's unit of work and the project's primary motivation. | `plans/aesthetics_export/README.md` |
 | **Referee export** | An aesthetics export under the reserved `/refs/` team name; prepared by the Refs arranger, compiled by the Team compiler. Only one may be enabled. | `plans/refs_arranger.md`; `plans/team_compiler/README.md` |
-| **Referee hook** | `fox_hook`'s `03_refmod.lua`: a trampoline on the Fox games' referee slot-writer that forces or remaps the referee id for each of a match's five positions, so which referee appears is decided by a script rather than by the game's slot draw (PES 18–21). | `plans/refs_arranger.md` "The Fox referee hook" |
+| **Referee hook** | FoxDen's `03_refmod.lua`: a trampoline on the Fox games' referee slot-writer that forces or remaps the referee id for each of a match's five positions, so which referee appears is decided by a script rather than by the game's slot draw (PES 18–21). | `plans/refs_arranger.md` "The Fox referee hook" |
 | **Referee list** | One line of `ref_lists.txt`: five distinct referee slot ids, one per match position, applied by the referee hook's script per match in file order. Written by the Refs arranger beside `players.txt`. | `plans/refs_arranger.md` "The lists file" |
 | **Balls export** | The third export kind: a ball selection compiled by the Balls compiler into its own CPK. Its name's first word is `balls`. | `plans/balls_compiler.md` |
 | **`BuildTask`** | One planned unit of compile work (a folder, a kit, a bin update) with its owning scope and planned model-ID assignments. | `plans/team_compiler/pipeline.md` "Per-export serial steps" |
@@ -67,7 +67,7 @@ terms next to each other rather than in alphabetical order; adjacency is what ma
 | **Team ID** | The numeric PES team identifier (`TeamId`), valid 701–920 for normal teams; resolved from the team name via `teams_list.txt`. | `plans/libs/teams_list.md` "`libs/teams_list`"; `plans/team_compiler/pipeline.md` "Export identity resolution" |
 | **Templates override** | A `templates/` directory whose files shadow embedded CPK/bin templates; reported per file per run. | `plans/team_compiler/messages.md` "Message catalog" |
 | **Overrides folder** | `overrides/` in the data directory (Red's `sideload/`): files injected into the normal team CPK that win over export entries at the same output path. Not related to sideload mode. | `plans/team_compiler/pipeline.md` "5. Writer" (override priority) |
-| **Sideload mode** | The Team compiler output mode (`--mode sideload`) writing the unpacked PES folder structure to `sideload_output/`, for a sideloading tool (Sider's LiveCPK today) to serve to a running PES. | `plans/team_compiler/pipeline.md` "5. Writer" (output modes) |
+| **Sideload mode** | The Team compiler output mode (`--mode sideload`) writing the unpacked PES folder structure to the game folder's `livecpk\`, which FoxDen (PES 18–21) or the user's Sider 3 (PES 17) serves to a running PES; refused on PES 15/16. | `plans/team_compiler/pipeline.md` "5. Writer" (output modes) |
 
 ## Messages
 

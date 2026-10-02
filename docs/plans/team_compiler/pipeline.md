@@ -475,7 +475,7 @@ describes behavior, not a serial scheduling requirement:
 4. **Bins last** — after all exports complete, the accumulated bins (committed mutations only) are
    written.
 5. **Output modes and targets** — normal (CPK), test (unpacked tree per export in `test_output/`),
-   sideload (unpacked PES-folder structure in `sideload_output/`). Test-mode directory names derive from
+   sideload (unpacked PES-folder structure in the game folder's `livecpk\`). Test-mode directory names derive from
    the canonical source key, not from potentially duplicated display names. Multi-CPK mode (the cup
    DLC mode) routes team content into **size-split `teams` parts** plus the bins CPK — see
    "Multi-CPK mode: teams parts" below. Referee content always routes to its own CPK named by
@@ -546,7 +546,7 @@ describes behavior, not a serial scheduling requirement:
      compiler ships the current official per-version DPFL as an embedded template (see "Resolved
      decisions") and, when the installed one lacks the required slots, refuses the run with
      `dpfilelist_outdated` and offers the **DpFileList upgrade** described under "Post-processing".
-   `test_output/`, `sideload_output/`, and `teamnotes.txt` are resolved beneath `output_folder_path`; a
+   `test_output/` and `teamnotes.txt` are resolved beneath `output_folder_path`; a
    CLI positional exports-root overrides `exports_folder_path` for that invocation only.
 
    **Test mode is Red's step 1.** Red's `1_exports_to_extracted.bat` stopped after pre-processing,
@@ -561,11 +561,22 @@ describes behavior, not a serial scheduling requirement:
    texture was renamed. Sideload mode is the complementary view: the same content *after* relocation,
    unpacked — what the CPK would contain. In Red's terms it is **steps 1+2** (`extracted/` →
    `patches_contents/`, the PES folder structure that step 3 packed), and its purpose is
-   prototyping: a sideloading tool (Sider's LiveCPK today) serves loose files from that structure
-   without a CPK, without touching the PES install, and without restarting the game between
-   iterations, so a modeler can compile → alt-tab → see the change. Output goes to
-   `sideload_output_path` (default `output/sideload_output/`), which the user lists as one of the
-   tool's roots (with Sider, a `cpk.root` line in `sider.ini`; see the settings table).
+   prototyping for aesthetics makers (cup streams never sideload): a runtime in the game serves
+   loose files from that structure without a CPK, without touching `download/` or the DpFileList,
+   and without restarting the game between iterations, so a modeler can compile → alt-tab → see
+   the change. Output goes to `{pes_folder_path}\livecpk\`, the root that runtime serves (written
+   with the same access path as deployment to `download/`, elevation included); Studio
+   is the folder's only writer, so a sideload run replaces its whole contents with the run's
+   output and a file dropped from the export never lingers there. The runtime is not Studio's:
+   - **PES 18–21: FoxDen** (`Tools_4cc/FoxDen`, the community's `dinput8.dll` proxy, maintained by
+     a close contributor, who takes requests). Its LiveCPK serves `livecpk\` while the folder
+     exists, picks up files written while PES runs on their next load, and loads however PES is
+     started, so a PES the user launched is served too. Studio neither installs nor drives it.
+   - **PES 17: Sider 3**, the user's own, with `livecpk\` as a `cpk.root` line in its `sider.ini`.
+   - **PES 15/16: none exists**, so `--mode sideload` with those versions is refused as an
+     invalid configuration (exit code 2, the "CLI" section of `settings.md`) and the GUI disables
+     the mode. Pre-Fox sideloading is revisited after the first full release (decision entry
+     "sideloading through FoxDen").
 
    The cost Blue paid — a second code path in the coordinator — is contained by deciding the
    **output target once, at manifest planning**, and consuming it at exactly one seam: each task's

@@ -239,8 +239,9 @@ A single primary action:
 
 - **Compile** — the only button in the default view. During a run it becomes **Cancel**. It is a
   **split button**: the main part runs the compile in the *current output mode*, the arrow part opens
-  the mode list — **Compile** (normal, CPK), **Compile for sideloading** (unpacked PES folder structure,
-  Red's steps 1+2) and **Test output** (processed exports written unpacked in their original layout,
+  the mode list — **Compile** (normal, CPK), **Compile for sideloading** (unpacked PES folder structure
+  into the game folder's `livecpk\`, Red's steps 1+2; disabled on PES 15/16, where no runtime
+  serves it) and **Test output** (processed exports written unpacked in their original layout,
   Red's step 1) — see "Output modes and targets" in the Writer section. Picking a mode **sticks for
   the session** and relabels the main part, so the prototyping loop the sideload mode exists for
   (compile → alt-tab to PES → adjust → compile again) is one click per iteration after the first.
