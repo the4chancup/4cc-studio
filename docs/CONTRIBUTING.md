@@ -161,7 +161,9 @@ the list cannot drift between this document, the local run and CI (it had, befor
 existed: two spellings of the fmt gate in two documents). The other recipes are the project's
 repeatable sequences, each of which the plan names somewhere: `just deps-check` (guardrail 4,
 the `fmdl`/`pes_model` denylist, plus the `cargo deny` license allowlist; see "License" in the
-core plan), `just acceptance strict` (the scanner's converge mode, under "Requirements"), `just parity`,
+core plan; run it right after any change that adds a package to `Cargo.lock`, a transitive one
+included, because `just gates` does not run it: 3.z's `eframe` brought two `BSL-1.0` crates that
+only CI saw), `just acceptance strict` (the scanner's converge mode, under "Requirements"), `just parity`,
 `just bindings` (the `maturin` build of `python_bindings`), `just release <version>`, `just
 mutants <crate>`, `just mutants-collect` and `just mutants-diff [base]` (the mutation runs,
 below). `just --list` shows

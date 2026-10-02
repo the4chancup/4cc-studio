@@ -26,9 +26,12 @@ What the license does **not** cover: game-derived data kept for interoperability
 in `resources/skeletons/`, `DpFileList.bin` and the other embedded `.bin` templates, the kit-icon
 reference sheet. They are Konami's; the README states it. `just deps-check` enforces the
 dependency side with a `cargo deny` license allowlist (`MIT`, `Apache-2.0`, `BSD-2-Clause`,
-`BSD-3-Clause`, `ISC`, `Zlib`, `Unicode-*`, `MPL-2.0` for file-level copyleft crates only, plus
-the font licenses `OFL-1.1` and `Ubuntu-font-1.0` that egui's bundled default fonts carry), so a
-copyleft crate cannot enter the dependency graph unnoticed. The list lives in `deny.toml`.
+`BSD-3-Clause`, `ISC`, `Zlib`, `BSL-1.0`, `Unicode-*`, `MPL-2.0` for file-level copyleft crates
+only, plus the font licenses `OFL-1.1` and `Ubuntu-font-1.0` that egui's bundled default fonts
+carry), so a copyleft crate cannot enter the dependency graph unnoticed. The list lives in
+`deny.toml`. A license compatible with `MIT OR Apache-2.0` (it puts no copyleft obligation on
+Studio's source or binary) joins the list when a dependency needs it, without asking (maintainer,
+2026-10-03); any other license is a question for the maintainer.
 
 ### Distribution: portable .7z bundle
 

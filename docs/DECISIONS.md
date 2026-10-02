@@ -2902,3 +2902,15 @@ which shares the `.model` format) is decided after that release.
 Plan: `team_compiler/pipeline.md` "5. Writer" (output modes), `settings.md` (table, path
 resolution, CLI), `gui.md` (Compile button), `GLOSSARY.md`; `refs_arranger.md` (FoxDen name,
 PES 2020); `core/README.md` "Project context" (PES 2020); `model_conversion/conversion.md`.
+
+## 2026-10-03 — workspace — compatible licenses join the allowlist; deps-check after a new dependency
+Decision (maintainer): a license compatible with `MIT OR Apache-2.0` (no copyleft obligation on
+Studio's source or binary) is added to `deny.toml` when a dependency needs it, without asking;
+`BSL-1.0` is the first, for `clipboard-win` and `error-code` under `eframe`'s clipboard
+(`arboard`). `just deps-check` runs right after any change that adds a package to `Cargo.lock`,
+transitive ones included; it stays out of `just gates`.
+Why: 3.z added `eframe` and its two `BSL-1.0` crates, and nothing local ran the license check:
+Phases 1 and 2 had run `deps-check` by hand at close, Phase 3 did not, and only CI's
+`deps-check` job failed, on every push since 3.z. Boost is permissive and needs no notice in a
+binary, so asking would only have delayed the same answer.
+Plan: `core/distribution.md` "License"; `CONTRIBUTING.md` "Testing and verification"; `deny.toml`.
