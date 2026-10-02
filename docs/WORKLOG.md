@@ -809,3 +809,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
 - **2026-10-03** — 4.0e: sideloading goes through FoxDen's LiveCPK into the game folder's
   `livecpk\`; no Studio sideloader, the untracked stub deleted, PES 15/16 refused. FoxDen's gaps
   (2019/2021 sites, 2020, path length, in-match loads) are under "Issues". Still blocked on 4.0.
+- **2026-10-03** — CI's `deps-check` red since 3.z (`a691220`): `eframe` → `arboard` brought
+  `clipboard-win` and `error-code` under `BSL-1.0`, and Phase 3's close never ran the recipe.
+  `BSL-1.0` allowed; compatible licenses join without asking, and `deps-check` runs right after
+  any `Cargo.lock` addition (decision entry). `just deps-check` green locally.
