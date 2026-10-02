@@ -189,16 +189,23 @@ id=792)` then `Run finished: exit code 0`. Linux: not yet checked, no machine wi
 Steps are itemized only after 4.0 is done; one more is fixed already
 (the GPU BC7 step moved to Phase 16, decision entry 2026-09-28):
 
-- [!] 4.0a (reported 2026-10-02, awaiting the maintainer's decision) PES12 re-study, right after Phase 3 closes and before Phase 4 is itemized
-  (maintainer, 2026-10-01). A quick study of supporting PES12 (the tools in
-  `c:/Data/4cc/Tools_4cc/pes12tools` and `c:/Data/4cc/Tools_4cc/PES-Tools`) sits in the git
-  stash named `pes12` (`docs/plans/pes12.md` with glossary, plans-index and worklog lines);
-  read it with `git show 'stash@{0}^3:docs/plans/pes12.md'` (the file was untracked), never
-  `git stash pop`/`apply` over uncommitted work. Re-check it against the code as Phase 3 left
-  it and the two tool folders, then report to the maintainer where the codebase already
-  diverges from what PES12 support would need and which Phase 4+ choices would close or widen
-  that gap. → done when: the maintainer has the report and has decided what, if anything, enters
-  the plans
+- [x] 4.0a PES12 re-study (maintainer, 2026-10-01): the stashed stub (`git stash` entry `pes12`,
+  read with `git show 'stash@{0}^3:docs/plans/pes12.md'`, never popped or applied) checked against
+  the code and `Tools_4cc/pes12tools` (`058398f`) and `PES-Tools`. Done 2026-10-02: the maintainer
+  kept the road open for a third engine (`Engine` matched exhaustively, step 4.0c; the output sink
+  over output-relative paths) and nothing PES 12-specific enters the plans (decision entry "the
+  road stays open for a third engine"). Corrections for when the stub is restored: pes12tools
+  reads Red-format exports (`pes12_import_team.py` walks `Faces/`, `Kit Textures/`), not Studio's;
+  its main kit path is a draw-time UV remap (`runtime/kitforce.h`), the 1024x512 repaint the
+  fallback; licensing is moot (its author allows free use, and the suite only reproduces results);
+  its runtime and ID scheme may change as PES 12 modding progresses (CPK-like files, custom team
+  IDs), so the stub's runtime, ID and bins sections are to be re-checked then
+- [ ] 4.0c `Engine` matched exhaustively (decision entry "the road stays open for a third
+  engine"; `CONTRIBUTING.md` "Closed sets are enums"): `PesVersion::engine()` a `match`, and the
+  `==`/`!=` comparisons on `Engine` in `aesthetics_export` (`validate/folders.rs`),
+  `team_compiler` (`plan/mod.rs`, `plan/subset.rs`), `model_convert` (`convert.rs`) and
+  `dds_convert` (`encode.rs`) rewritten as `match`es; no behavior change → verify: `just gates`,
+  `mutants-diff` over the step, and a grep finding no `==`/`!=` on `Engine` left
 - [!] 4.0b (reported 2026-10-02, awaiting the maintainer's decision) Sider feasibility study, after 4.0a (maintainer, 2026-10-02): study the `sider`
   folder at `c:/Data/4cc/0Tools/sider` and whether it can join the suite as a new
   "Sideloader" tool, ideally with a status-bar button that runs it when compiling for Sider

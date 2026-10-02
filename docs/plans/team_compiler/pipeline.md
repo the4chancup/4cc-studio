@@ -576,7 +576,10 @@ describes behavior, not a serial scheduling requirement:
    are emitted in every mode. The loose-folder sink is shared between test and sider modes and is also
    the harness the unit and parity tests drive the pipeline into — trees are diffed directly, with no
    CPK parsing in the middle — so the sink is test infrastructure that the GUI happens to expose,
-   not a feature carried for one dropdown entry.
+   not a feature carried for one dropdown entry. A sink receives each entry by its output-relative
+   path and knows nothing of game paths, which are the materialize step's alone, so a new output
+   shape (another engine's archive tree, worklog 4.0a) is a new `OutputSink` variant, not a change
+   to the coordinator or the writer.
 
 ### 6. Post-processing
 

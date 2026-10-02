@@ -68,7 +68,10 @@ exist yet (every Phase 2 crate), the plan's data-shape rules stand in for one.
 - Closed sets are enums. A string that gets compared against literals, or matched with a `_ =>`
   arm, is an `enum`: `serde(rename_all)` for the file format, `Display`/`FromStr` for the CLI. A
   `_ =>` arm on one of our own enums is a smell; it is where the compiler stops catching the
-  missing case.
+  missing case. The same holds for `pes_version::Engine`, which may grow a third engine (PES 12,
+  worklog 4.0a): it is branched on with an exhaustive `match`, never compared with `==`/`!=`, and
+  never derived from an ordering of `PesVersion` (`>= Pes18`), so a new engine is a compile error
+  at every site that must decide, not a silent misroute.
 - Borrow parameters (`&str`, `&Path`, `&[u8]`); own what you store and return (`String`,
   `PathBuf`, `Vec<T>`). Generics over std traits (`impl Read + Seek`, `impl Write`,
   `impl Iterator<Item = T>`) are fine; generics over our own traits, and struct lifetimes, only
