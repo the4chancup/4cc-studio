@@ -11,8 +11,8 @@ is in `AGENTS.md` ("Working documents").
 
 **Phase:** 3 (Team compiler skeleton) closed 2026-10-02, its cross-family reviews queued (see
 "Handover"). Phases 1 and 2 done (Phase 2 closed 2026-09-30).
-**Next:** the maintainer's directive (2026-10-02): the two studies 4.0a (PES 12) and 4.0b (Sider
-as a "Sideloader" tool), each reported to the maintainer, then stop before Phase 4 itself. 2.5b
+**Next:** the studies 4.0a (PES 12) and 4.0b (Sider as a "Sideloader" tool) were reported to the
+maintainer on 2026-10-02 and await their decisions; per the directive, no Phase 4 work. 2.5b
 (GPU BC7) is step 16.x (decision entries 2026-09-21 and 2026-09-28). Release target
 (2026-09-28): 0.1.0 after Phase 8; phase order 1–6, 8, 0.1.0, 7, 9–16
 (`core/development_plan.md` "Releases").
@@ -189,7 +189,7 @@ id=792)` then `Run finished: exit code 0`. Linux: not yet checked, no machine wi
 Steps are itemized only after 4.0 is done; one more is fixed already
 (the GPU BC7 step moved to Phase 16, decision entry 2026-09-28):
 
-- [ ] 4.0a PES12 re-study, right after Phase 3 closes and before Phase 4 is itemized
+- [!] 4.0a (reported 2026-10-02, awaiting the maintainer's decision) PES12 re-study, right after Phase 3 closes and before Phase 4 is itemized
   (maintainer, 2026-10-01). A quick study of supporting PES12 (the tools in
   `c:/Data/4cc/Tools_4cc/pes12tools` and `c:/Data/4cc/Tools_4cc/PES-Tools`) sits in the git
   stash named `pes12` (`docs/plans/pes12.md` with glossary, plans-index and worklog lines);
@@ -199,7 +199,7 @@ Steps are itemized only after 4.0 is done; one more is fixed already
   diverges from what PES12 support would need and which Phase 4+ choices would close or widen
   that gap. → done when: the maintainer has the report and has decided what, if anything, enters
   the plans
-- [ ] 4.0b Sider feasibility study, after 4.0a (maintainer, 2026-10-02): study the `sider`
+- [!] 4.0b (reported 2026-10-02, awaiting the maintainer's decision) Sider feasibility study, after 4.0a (maintainer, 2026-10-02): study the `sider`
   folder at `c:/Data/4cc/0Tools/sider` and whether it can join the suite as a new
   "Sideloader" tool, ideally with a status-bar button that runs it when compiling for Sider
   (`--mode sider`, `team_compiler/settings.md`). Report to the maintainer what Sider is and
@@ -769,3 +769,6 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
 - **2026-10-02** — 3.x: Phase 3 closed, its cross-family reviews queued. The plan's Phase 3
   sections describe what exists (`development_plan.md` "Phase 3" with its done Verification:
   1402 tests, 77 of 77 scenarios); the step list collapsed. Next: 4.0a, 4.0b, then stop.
+- **2026-10-02** — 4.0a and 4.0b reported. PES 12: pes12tools reads the old export layout, has no
+  license and reshapes daily; keep the stub stashed. Sider: LiveCPK matches the planned Sider mode;
+  a launcher over the user's own Sider is recommended. Both await the maintainer's decisions.
