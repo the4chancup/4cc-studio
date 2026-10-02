@@ -372,13 +372,14 @@ mod tests {
 
     #[test]
     fn a_folder_lists_every_file_with_its_size_and_every_folder() {
-        let root = scratch("source_listing");
+        let temp = scratch("source_listing");
+        let root = temp.path();
         fs::create_dir_all(root.join("Players/03 - A")).unwrap();
         fs::create_dir_all(root.join("Kits/p2")).unwrap();
         fs::write(root.join("Players/03 - A/face_high.fmdl"), "12345").unwrap();
         fs::write(root.join("players.txt"), "03 A").unwrap();
 
-        let (_, listing) = OpenSource::open(&folder_source(root.clone())).unwrap();
+        let (_, listing) = OpenSource::open(&folder_source(root.to_path_buf())).unwrap();
 
         assert_eq!(listing.display_name, "co - Spring");
         assert_eq!(
@@ -395,12 +396,12 @@ mod tests {
                 ("players.txt", ListedKind::File { size: 4 }),
             ]
         );
-        fs::remove_dir_all(&root).unwrap();
     }
 
     #[test]
     fn a_folder_that_cannot_be_listed_is_a_failure_naming_it() {
-        let missing = scratch("source_unlistable").join("gone");
+        let temp = scratch("source_unlistable");
+        let missing = temp.path().join("gone");
         let Err(failure) = OpenSource::open(&folder_source(missing.clone())) else {
             panic!("listed a missing folder");
         };
@@ -487,12 +488,13 @@ mod tests {
 
     #[test]
     fn content_is_read_from_a_folder_a_zip_and_a_7z() {
-        let root = scratch("source_content");
+        let temp = scratch("source_content");
+        let root = temp.path();
         fs::create_dir_all(root.join("Kits")).unwrap();
         fs::write(root.join("Kits/notes.txt"), "a note").unwrap();
         let budget = MemoryBudget::new(1 << 20);
 
-        let mut folder = ContentSource::new(&folder_source(root.clone()), &budget);
+        let mut folder = ContentSource::new(&folder_source(root.to_path_buf()), &budget);
         assert_eq!(folder.read("Kits/notes.txt").unwrap(), b"a note");
         for name in ["co - Spring.zip", "co - Spring.7z"] {
             let mut archive = ContentSource::new(&archive_source(name), &budget);
@@ -503,7 +505,6 @@ mod tests {
                 "{name}: a second read from the open archive"
             );
         }
-        fs::remove_dir_all(&root).unwrap();
     }
 
     #[test]
@@ -590,8 +591,9 @@ mod tests {
     #[test]
     fn content_that_cannot_be_read_names_the_file_or_the_archive() {
         let budget = MemoryBudget::new(1 << 20);
-        let root = scratch("source_unreadable");
-        let mut folder = ContentSource::new(&folder_source(root.clone()), &budget);
+        let temp = scratch("source_unreadable");
+        let root = temp.path();
+        let mut folder = ContentSource::new(&folder_source(root.to_path_buf()), &budget);
         let failure = folder.read("Kits/gone.dds").unwrap_err();
         assert_eq!(
             failure.path,
@@ -612,7 +614,6 @@ mod tests {
         let mut refused = ContentSource::new(&source, &budget);
         let failure = refused.read("x").unwrap_err();
         assert_eq!(failure.path, source.path.display().to_string());
-        fs::remove_dir_all(&root).unwrap();
     }
 
     #[test]
@@ -645,7 +646,8 @@ mod tests {
 
     #[test]
     fn only_the_small_metadata_files_are_read_and_a_failed_read_keeps_its_reason() {
-        let root = scratch("source_metadata");
+        let temp = scratch("source_metadata");
+        let root = temp.path();
         fs::create_dir_all(root.join("Kits/p1")).unwrap();
         fs::write(root.join("players.txt"), "03 A").unwrap();
         fs::write(root.join("Kits/p1/icon.txt"), "3").unwrap();
@@ -668,8 +670,8 @@ mod tests {
             ],
         };
 
-        let metadata =
-            OpenSource::Folder(root.clone()).read_metadata(&listing, &MemoryBudget::new(1 << 20));
+        let metadata = OpenSource::Folder(root.to_path_buf())
+            .read_metadata(&listing, &MemoryBudget::new(1 << 20));
 
         let keys: Vec<&str> = metadata.files.keys().map(String::as_str).collect();
         assert_eq!(keys, ["Kits/p1/icon.txt", "notes.txt", "players.txt"]);
@@ -677,6 +679,5 @@ mod tests {
         assert_eq!(metadata.files["Kits/p1/icon.txt"], Ok(b"3".to_vec()));
         // Listed but missing on disk: the read fails with the system's reason.
         assert!(metadata.files["notes.txt"].is_err());
-        fs::remove_dir_all(&root).unwrap();
     }
 }

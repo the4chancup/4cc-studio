@@ -5,20 +5,20 @@
 use vtree::ScopePath;
 
 use super::draft::{ExportKind, RawRoster, RawRosterEntry};
-use super::{Canon, issue};
-use crate::listing::SmallMetadata;
+use super::{CanonicalTree, issue};
+use crate::listing::{SmallMetadata, metadata_text};
 use crate::validate::{Disposition, IssueScope};
 
 /// The roster bytes for the path the draft names: `Ok(bytes)` is read;
 /// `Err(reason)` or no map entry is a `source_read_failed` (a roster is
 /// required metadata → `DropExport`) and an empty roster.
 fn read_bytes<'a>(
-    canon: &'a Canon,
+    tree: &'a CanonicalTree,
     path: &ScopePath,
     metadata: &'a SmallMetadata,
     issues: &mut Vec<crate::validate::ValidationIssue>,
 ) -> Option<&'a [u8]> {
-    let file = canon.files.get(path)?;
+    let file = tree.files.get(path)?;
     match metadata.files.get(&file.raw) {
         Some(Ok(bytes)) => Some(bytes.as_slice()),
         other => {
@@ -64,8 +64,7 @@ fn parse_roster(
     bytes: &[u8],
     issues: &mut Vec<crate::validate::ValidationIssue>,
 ) -> RawRoster {
-    let bytes = bytes.strip_prefix(b"\xef\xbb\xbf").unwrap_or(bytes);
-    let Ok(text) = str::from_utf8(bytes) else {
+    let Ok(text) = metadata_text(bytes) else {
         issues.push(issue(
             "players_txt_invalid",
             IssueScope::File(path.clone()),
@@ -90,9 +89,8 @@ fn parse_roster(
 }
 
 /// A root-level file of the given name, looked up fold-insensitively.
-fn root_file(canon: &Canon, name: &str) -> Option<ScopePath> {
-    canon
-        .files
+fn root_file(tree: &CanonicalTree, name: &str) -> Option<ScopePath> {
+    tree.files
         .iter()
         .find(|(path, _)| {
             path.segments().count() == 1 && super::file_name(path).eq_ignore_ascii_case(name)
@@ -103,14 +101,14 @@ fn root_file(canon: &Canon, name: &str) -> Option<ScopePath> {
 /// The roster, when the export has one: `players.txt` first, a referee
 /// export's `refs.txt` alias second. A normal team's `refs.txt` is not a
 /// roster.
-pub fn read_roster(
+pub(crate) fn read_roster(
     draft: &super::AestheticsExportDraft,
-    canon: &Canon,
+    tree: &CanonicalTree,
     metadata: &SmallMetadata,
     issues: &mut Vec<crate::validate::ValidationIssue>,
 ) -> Option<RawRoster> {
-    let players = root_file(canon, "players.txt");
-    let refs = root_file(canon, "refs.txt");
+    let players = root_file(tree, "players.txt");
+    let refs = root_file(tree, "refs.txt");
     let path = match (draft.kind(), players, refs) {
         (_, Some(path), alias) => {
             if draft.kind() == ExportKind::Referees
@@ -126,9 +124,9 @@ pub fn read_roster(
             path
         }
         (ExportKind::Referees, None, Some(path)) => path,
-        _ => return None,
+        (ExportKind::Team, None, _) | (ExportKind::Referees, None, None) => return None,
     };
-    Some(match read_bytes(canon, &path, metadata, issues) {
+    Some(match read_bytes(tree, &path, metadata, issues) {
         Some(bytes) => parse_roster(&path, bytes, issues),
         // A roster that could not be read leaves an empty roster.
         None => RawRoster {

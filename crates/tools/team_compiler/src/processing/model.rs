@@ -71,11 +71,17 @@ pub(super) fn face(
     // The game opens a face's `.fpkd` beside its `.fpk`; with the textures in the common
     // folder there is nothing to put in it, so it is an empty package.
     let empty = FpkFile::new(FpkKind::Fpkd).write();
-    // The game finds a face by player id, so each slot gets its own copy of the package.
-    for player_id in player_ids {
-        let folder = paths::face_folder(*player_id);
-        entries.push((format!("{folder}/face.fpk"), package.clone()));
-        entries.push((format!("{folder}/face.fpkd"), empty.clone()));
+    // The game finds a face by player id, so each slot gets its own copy of the package; the
+    // last slot takes the buffer itself rather than one more copy.
+    if let Some((last_id, other_ids)) = player_ids.split_last() {
+        for player_id in other_ids {
+            let folder = paths::face_folder(*player_id);
+            entries.push((format!("{folder}/face.fpk"), package.clone()));
+            entries.push((format!("{folder}/face.fpkd"), empty.clone()));
+        }
+        let folder = paths::face_folder(*last_id);
+        entries.push((format!("{folder}/face.fpk"), package));
+        entries.push((format!("{folder}/face.fpkd"), empty));
     }
     Ok(entries)
 }

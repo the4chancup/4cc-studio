@@ -463,16 +463,16 @@ mod tests {
 
     #[test]
     fn export_paths_accept_folders_and_archives_only() {
-        let root = scratch("cli_export_paths");
+        let temp = scratch("cli_export_paths");
+        let root = temp.path();
         fs::write(root.join("pack.7z"), "").unwrap();
         fs::write(root.join("notes.txt"), "").unwrap();
-        assert!(check_export_paths(&[root.clone(), root.join("pack.7z")]).is_ok());
+        assert!(check_export_paths(&[root.to_path_buf(), root.join("pack.7z")]).is_ok());
         for refused in [root.join("notes.txt"), root.join("missing.zip")] {
             let error = check_export_paths(std::slice::from_ref(&refused)).unwrap_err();
             assert_eq!(error.exit_code, INVALID);
             assert!(error.to_string().contains(&refused.display().to_string()));
         }
-        fs::remove_dir_all(&root).unwrap();
     }
 
     #[test]
@@ -521,46 +521,47 @@ mod tests {
     #[test]
     fn the_teams_list_falls_back_to_the_embedded_one_without_a_file() {
         let embedded = embedded_teams_list();
-        let root = scratch("cli_teams_list");
+        let temp = scratch("cli_teams_list");
+        let root = temp.path();
         let relative = Path::new("teams_list.txt");
         assert_eq!(load_teams_list(relative, None).unwrap(), embedded);
-        assert_eq!(load_teams_list(relative, Some(&root)).unwrap(), embedded);
+        assert_eq!(load_teams_list(relative, Some(root)).unwrap(), embedded);
         assert!(!root.join("teams_list.txt").exists(), "nothing written");
 
         fs::write(root.join("teams_list.txt"), "ID\tName\n792\t/egg/\n").unwrap();
-        let own = load_teams_list(relative, Some(&root)).unwrap();
+        let own = load_teams_list(relative, Some(root)).unwrap();
         assert_eq!(own.teams().count(), 1);
         // An absolute path is read even with no data directory.
         let absolute = root.join("teams_list.txt");
         assert_eq!(load_teams_list(&absolute, None).unwrap(), own);
 
         fs::write(root.join("teams_list.txt"), "not a teams list").unwrap();
-        let error = load_teams_list(relative, Some(&root)).unwrap_err();
+        let error = load_teams_list(relative, Some(root)).unwrap_err();
         assert_eq!(error.exit_code, ABORTED);
         assert!(error.to_string().contains("teams_list.txt"), "{error}");
 
         // A path that exists but cannot be read as a file aborts too.
         fs::remove_file(root.join("teams_list.txt")).unwrap();
         fs::create_dir(root.join("teams_list.txt")).unwrap();
-        let error = load_teams_list(relative, Some(&root)).unwrap_err();
+        let error = load_teams_list(relative, Some(root)).unwrap_err();
         assert_eq!(error.exit_code, ABORTED);
         assert!(error.to_string().contains("cannot read"), "{error}");
-        fs::remove_dir_all(&root).unwrap();
     }
 
     #[test]
     fn a_missing_teams_list_is_created_only_with_a_data_directory() {
-        let root = scratch("cli_create_teams_list");
+        let temp = scratch("cli_create_teams_list");
+        let root = temp.path();
         let file = root.join("teams_list.txt");
         create_teams_list(&file, None).unwrap();
         assert!(!file.exists(), "no data directory, nothing written");
 
-        create_teams_list(Path::new("teams_list.txt"), Some(&root)).unwrap();
+        create_teams_list(Path::new("teams_list.txt"), Some(root)).unwrap();
         assert_eq!(fs::read(&file).unwrap(), TeamsList::UPSTREAM.as_bytes());
 
         let own = "ID\tName\n792\t/egg/\n";
         fs::write(&file, own).unwrap();
-        create_teams_list(Path::new("teams_list.txt"), Some(&root)).unwrap();
+        create_teams_list(Path::new("teams_list.txt"), Some(root)).unwrap();
         assert_eq!(
             fs::read_to_string(&file).unwrap(),
             own,
@@ -568,14 +569,13 @@ mod tests {
         );
 
         let error =
-            create_teams_list(Path::new("no folder/teams_list.txt"), Some(&root)).unwrap_err();
+            create_teams_list(Path::new("no folder/teams_list.txt"), Some(root)).unwrap_err();
         assert_eq!(error.exit_code, ABORTED);
         let text = error.to_string();
         assert!(
             text.contains("no folder") && text.contains("cannot write"),
             "{text}"
         );
-        fs::remove_dir_all(&root).unwrap();
     }
 
     #[test]
@@ -601,14 +601,15 @@ mod tests {
 
     #[test]
     fn a_missing_root_given_on_the_command_line_is_refused_and_not_created() {
-        let root = scratch("cli_root_command_line");
+        let temp = scratch("cli_root_command_line");
+        let root = temp.path();
         let given = root.join("given");
         let source = SourceArgs {
             exports_root: Some(given.clone()),
             exports: vec![],
         };
         let error =
-            prepare_exports_root(&source, &CommonSettings::default(), &app_paths(&root, None))
+            prepare_exports_root(&source, &CommonSettings::default(), &app_paths(root, None))
                 .unwrap_err();
         assert_eq!(error.exit_code, INVALID);
         assert_eq!(
@@ -619,27 +620,27 @@ mod tests {
             )
         );
         assert!(!given.exists(), "not created");
-        fs::remove_dir_all(&root).unwrap();
     }
 
     #[test]
     fn with_export_paths_a_missing_root_is_neither_created_nor_refused() {
-        let root = scratch("cli_root_named_exports");
+        let temp = scratch("cli_root_named_exports");
+        let root = temp.path();
         let source = SourceArgs {
             exports_root: None,
             exports: vec![root.join("co - A")],
         };
         let ready =
-            prepare_exports_root(&source, &CommonSettings::default(), &app_paths(&root, None))
+            prepare_exports_root(&source, &CommonSettings::default(), &app_paths(root, None))
                 .unwrap();
         assert_eq!(ready, root.join("exports"));
         assert!(!ready.exists(), "not created");
-        fs::remove_dir_all(&root).unwrap();
     }
 
     #[test]
     fn an_absolute_setting_naming_a_missing_folder_is_refused_naming_the_settings_file() {
-        let root = scratch("cli_root_absolute");
+        let temp = scratch("cli_root_absolute");
+        let root = temp.path();
         let missing = root.join("elsewhere");
         let common = CommonSettings {
             exports_folder_path: missing.clone(),
@@ -651,7 +652,7 @@ mod tests {
         };
         let data_dir = root.join("data");
         let error =
-            prepare_exports_root(&source, &common, &app_paths(&root, Some(&data_dir))).unwrap_err();
+            prepare_exports_root(&source, &common, &app_paths(root, Some(&data_dir))).unwrap_err();
         assert_eq!(error.exit_code, INVALID);
         assert_eq!(
             error.to_string(),
@@ -663,7 +664,7 @@ mod tests {
             )
         );
         // Without a data directory the sentence still reads, naming no file.
-        let error = prepare_exports_root(&source, &common, &app_paths(&root, None)).unwrap_err();
+        let error = prepare_exports_root(&source, &common, &app_paths(root, None)).unwrap_err();
         assert!(
             error
                 .to_string()
@@ -671,23 +672,23 @@ mod tests {
             "{error}"
         );
         assert!(!missing.exists(), "not created");
-        fs::remove_dir_all(&root).unwrap();
     }
 
     #[test]
     fn the_relative_default_is_created_and_a_folder_that_cannot_be_aborts() {
-        let root = scratch("cli_root_created");
+        let temp = scratch("cli_root_created");
+        let root = temp.path();
         let source = SourceArgs {
             exports_root: None,
             exports: vec![],
         };
         let common = CommonSettings::default();
-        let ready = prepare_exports_root(&source, &common, &app_paths(&root, None)).unwrap();
+        let ready = prepare_exports_root(&source, &common, &app_paths(root, None)).unwrap();
         assert_eq!(ready, root.join("exports"));
         assert!(ready.is_dir(), "created");
         // Already there: returned as it is.
         assert_eq!(
-            prepare_exports_root(&source, &common, &app_paths(&root, None)).unwrap(),
+            prepare_exports_root(&source, &common, &app_paths(root, None)).unwrap(),
             ready
         );
 
@@ -704,6 +705,5 @@ mod tests {
             )),
             "{text}"
         );
-        fs::remove_dir_all(&root).unwrap();
     }
 }

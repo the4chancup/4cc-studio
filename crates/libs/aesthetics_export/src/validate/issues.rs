@@ -131,14 +131,17 @@ pub(crate) fn dropped_scopes(issues: &[ValidationIssue]) -> (BTreeSet<String>, B
     let mut folders = BTreeSet::new();
     let mut files = BTreeSet::new();
     for issue in issues {
-        match (&issue.scope, issue.disposition) {
-            (IssueScope::Folder(path), Disposition::DropFolder) => {
+        match &issue.scope {
+            IssueScope::Folder(path) if issue.disposition == Disposition::DropFolder => {
                 folders.insert(path.fold_key());
             }
-            (IssueScope::File(path), Disposition::DropFile) => {
+            IssueScope::File(path) if issue.disposition == Disposition::DropFile => {
                 files.insert(path.fold_key());
             }
-            _ => {}
+            IssueScope::Folder(_)
+            | IssueScope::File(_)
+            | IssueScope::Export
+            | IssueScope::RosterEntry { .. } => {}
         }
     }
     (folders, files)

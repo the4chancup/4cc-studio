@@ -28,16 +28,20 @@ fn tools() -> Vec<Box<dyn StudioTool>> {
 /// `RUST_LOG` overrides it. The GUI mode gets its own file sink in the GUI phase; until then it
 /// logs to the console window that opens beside it.
 fn install_cli_logger(verbosity: u8) {
-    let level = match verbosity {
+    env_logger::Builder::new()
+        .filter_level(log_level(verbosity))
+        .parse_default_env()
+        .init();
+}
+
+/// The level `-v` repeated `verbosity` times asks for: warnings only, then info, debug, trace.
+fn log_level(verbosity: u8) -> LevelFilter {
+    match verbosity {
         0 => LevelFilter::Warn,
         1 => LevelFilter::Info,
         2 => LevelFilter::Debug,
         _ => LevelFilter::Trace,
-    };
-    env_logger::Builder::new()
-        .filter_level(level)
-        .parse_default_env()
-        .init();
+    }
 }
 
 /// The folder holding the executable, which the data location and path settings resolve against.
@@ -168,5 +172,31 @@ fn main() -> ExitCode {
             ExitCode::from(2)
         }
         LaunchMode::Cli { tool, matches } => run_cli_mode(&tools, &tool, &matches),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn each_verbosity_maps_to_its_level() {
+        assert_eq!(log_level(0), LevelFilter::Warn);
+        assert_eq!(log_level(1), LevelFilter::Info);
+        assert_eq!(log_level(2), LevelFilter::Debug);
+        assert_eq!(log_level(3), LevelFilter::Trace);
+    }
+
+    // A process can install one logger only, so this is the one test that installs it.
+    #[test]
+    fn installing_the_logger_sets_the_verbosity_level() {
+        install_cli_logger(1);
+        // `RUST_LOG` in the environment overrides `-v` by design, so with it set the test can
+        // only check that a logger is installed.
+        if std::env::var_os("RUST_LOG").is_some() {
+            assert_ne!(log::max_level(), LevelFilter::Off);
+        } else {
+            assert_eq!(log::max_level(), LevelFilter::Info);
+        }
     }
 }

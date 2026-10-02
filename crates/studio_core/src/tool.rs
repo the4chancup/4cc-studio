@@ -239,6 +239,24 @@ mod tests {
     }
 
     #[test]
+    fn common_returns_the_settings_common_section_as_it_is() {
+        let mut settings = Settings::default();
+        settings.common.thread_count = 4;
+        let (events_tx, _events_rx) = unbounded();
+        let (requests_tx, _requests_rx) = unbounded();
+        let ctx = ToolContext::new(
+            Arc::new(Mutex::new(settings)),
+            AppPaths {
+                exe_dir: PathBuf::from("exe"),
+                data_dir: None,
+            },
+            events_tx,
+            requests_tx,
+        );
+        assert_eq!(ctx.common().thread_count, 4);
+    }
+
+    #[test]
     fn with_events_sends_events_to_the_new_receiver_only() {
         let (ctx, events_rx, _requests_rx) = context();
         let (own_tx, own_rx) = unbounded();

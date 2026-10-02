@@ -92,7 +92,8 @@ mod tests {
 
     #[test]
     fn the_output_folder_is_created_and_probed_leaving_nothing_in_it() {
-        let root = scratch("prepare_output");
+        let temp = scratch("prepare_output");
+        let root = temp.path();
         let output = root.join("new").join("output");
 
         prepare_output_folder(&output).unwrap();
@@ -103,12 +104,12 @@ mod tests {
             0,
             "no probe file is left"
         );
-        fs::remove_dir_all(&root).unwrap();
     }
 
     #[test]
     fn an_output_folder_under_a_file_is_refused_naming_the_folder() {
-        let root = scratch("prepare_output_blocked");
+        let temp = scratch("prepare_output_blocked");
+        let root = temp.path();
         fs::write(root.join("blocker"), "").unwrap();
         let output = root.join("blocker").join("out");
 
@@ -122,70 +123,69 @@ mod tests {
             )),
             "{text}"
         );
-        fs::remove_dir_all(&root).unwrap();
     }
 
     #[test]
     fn discarding_removes_the_run_folder_and_an_emptied_staging_folder() {
-        let output = scratch("discard");
-        let run_folder = staging_folder(&output);
+        let temp = scratch("discard");
+        let output = temp.path();
+        let run_folder = staging_folder(output);
         fs::create_dir_all(&run_folder).unwrap();
         fs::write(run_folder.join("cup.cpk"), "partial").unwrap();
 
-        discard(&run_folder, &output);
+        discard(&run_folder, output);
 
         assert!(!output.join(STAGING).exists());
-        fs::remove_dir_all(&output).unwrap();
     }
 
     #[test]
     fn discarding_keeps_the_staging_folder_another_run_still_uses() {
-        let output = scratch("discard_beside_another_run");
-        let run_folder = staging_folder(&output);
+        let temp = scratch("discard_beside_another_run");
+        let output = temp.path();
+        let run_folder = staging_folder(output);
         let other_run = output.join(STAGING).join("1-1");
         fs::create_dir_all(&run_folder).unwrap();
         fs::create_dir_all(&other_run).unwrap();
         fs::write(run_folder.join("cup.cpk"), "partial").unwrap();
 
-        discard(&run_folder, &output);
+        discard(&run_folder, output);
 
         assert!(!run_folder.exists());
         assert!(other_run.is_dir());
-        fs::remove_dir_all(&output).unwrap();
     }
 
     #[test]
     fn promotion_replaces_the_previous_cpk_and_removes_the_run_folder() {
-        let output = scratch("promote");
+        let temp = scratch("promote");
+        let output = temp.path();
         let stem = CpkStem::new("cup").unwrap();
-        let run_folder = staging_folder(&output);
+        let run_folder = staging_folder(output);
         fs::create_dir_all(&run_folder).unwrap();
         fs::write(run_folder.join("cup.cpk"), "new").unwrap();
         fs::write(output.join("cup.cpk"), "previous").unwrap();
 
-        let promoted = promote(&run_folder, &output, &stem).unwrap();
+        let promoted = promote(&run_folder, output, &stem).unwrap();
 
         assert_eq!(promoted, output.join("cup.cpk"));
         assert_eq!(fs::read(&promoted).unwrap(), b"new");
         assert!(!run_folder.exists());
         assert!(!output.join(".staging").exists());
-        fs::remove_dir_all(&output).unwrap();
     }
 
     #[test]
     fn promotion_keeps_the_staging_folder_another_run_still_uses() {
-        let output = scratch("promote_beside_another_run");
+        let temp = scratch("promote_beside_another_run");
+        let output = temp.path();
         let stem = CpkStem::new("cup").unwrap();
-        let run_folder = staging_folder(&output);
+        let run_folder = staging_folder(output);
         let other_run = output.join(".staging").join("1-1");
         fs::create_dir_all(&run_folder).unwrap();
         fs::create_dir_all(&other_run).unwrap();
         fs::write(run_folder.join("cup.cpk"), "new").unwrap();
 
-        promote(&run_folder, &output, &stem).unwrap();
+        promote(&run_folder, output, &stem).unwrap();
 
         assert!(!run_folder.exists());
         assert!(other_run.is_dir());
-        fs::remove_dir_all(&output).unwrap();
     }
 }

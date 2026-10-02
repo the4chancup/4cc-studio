@@ -52,7 +52,7 @@ pub enum LaunchMode {
 /// # Panics
 /// If two tools share an id, or a tool uses the reserved settings key `common` as its id: the
 /// registry is a compile-time list, so this is a programming error caught at startup.
-pub fn root_command(tools: &[Box<dyn StudioTool>]) -> Command {
+fn root_command(tools: &[Box<dyn StudioTool>]) -> Command {
     let mut command = Command::new("4cc-studio")
         .about("4cc Studio: the 4cc community's PES tools")
         .arg(
@@ -94,13 +94,13 @@ pub fn parse_launch(
     let verbosity = matches.get_count("verbose");
     let mode = match matches.subcommand() {
         None => LaunchMode::Gui,
-        Some((tool, sub)) if gui => LaunchMode::GuiAutorun {
+        Some((tool, subcommand)) if gui => LaunchMode::GuiAutorun {
             tool: tool.to_owned(),
-            matches: sub.clone(),
+            matches: subcommand.clone(),
         },
-        Some((tool, sub)) => LaunchMode::Cli {
+        Some((tool, subcommand)) => LaunchMode::Cli {
             tool: tool.to_owned(),
-            matches: sub.clone(),
+            matches: subcommand.clone(),
         },
     };
     Ok(Launch { mode, verbosity })
@@ -254,6 +254,15 @@ mod tests {
     fn duplicate_tool_ids_are_a_programming_error() {
         let twice: Vec<Box<dyn StudioTool>> = vec![Box::new(StubTool), Box::new(StubTool)];
         root_command(&twice);
+    }
+
+    #[test]
+    fn the_trait_defaults_refuse_a_gui_run_and_block_no_version_change() {
+        let mut tool = StubTool;
+        let (ctx, _requests_rx) = test_context();
+        let error = tool.gui_run(&ArgMatches::default(), &ctx).unwrap_err();
+        assert_eq!(error.to_string(), "stub has no GUI-runnable commands");
+        assert_eq!(tool.version_change_blocker(), None);
     }
 
     #[test]

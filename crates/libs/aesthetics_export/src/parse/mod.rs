@@ -3,7 +3,7 @@
 //! Parsing preserves invalid raw input for diagnostics and is source-neutral:
 //! the consumer supplies the listing and metadata; this module owns no I/O.
 
-pub mod draft;
+mod draft;
 mod identity;
 mod roster;
 
@@ -53,10 +53,10 @@ pub struct ParsedAestheticsExport {
     /// The authoritative roster file and its raw entries; `None` when the
     /// export has no roster file at all.
     pub raw_roster: Option<RawRoster>,
-    /// Every structural issue found while parsing.
-    pub issues: Vec<ValidationIssue>,
     /// The small metadata bytes as the consumer supplied them.
     pub metadata: SmallMetadata,
+    /// Every structural issue found while parsing.
+    pub issues: Vec<ValidationIssue>,
 }
 
 /// One canonical file: its value keeps the path it was listed under (the
@@ -72,14 +72,14 @@ struct FileEntry {
 
 /// The canonical export: files in the tree (implied folders included) plus
 /// the listed empty folders the tree cannot see.
-struct Canon {
+struct CanonicalTree {
     files: VirtualTree<FileEntry>,
     /// fold key → canonical path of each listed empty folder (nothing below
     /// it: the tree's implicit folders cover the rest).
     empty_folders: BTreeMap<String, ScopePath>,
 }
 
-impl Canon {
+impl CanonicalTree {
     /// Immediate children under `parent` (`None` = the root): direct files
     /// and direct folders, fold-sorted.
     fn children<'a>(
@@ -158,8 +158,8 @@ fn drop_segment(path: &ScopePath, depth: usize) -> ScopePath {
 /// Whether `folder` directly holds a content folder or a root `logo*` image —
 /// a usable export root (`pipeline.md` step 1: metadata alone does not make
 /// one).
-fn is_usable_root(canon: &Canon, folder: Option<&ScopePath>) -> bool {
-    let (files, folders) = canon.children(folder);
+fn is_usable_root(tree: &CanonicalTree, folder: Option<&ScopePath>) -> bool {
+    let (files, folders) = tree.children(folder);
     folders.iter().any(|path| {
         CONTENT_FOLDERS
             .iter()
@@ -232,7 +232,7 @@ pub fn parse_listing(
         }
         empty_folders.insert(path.fold_key(), path);
     }
-    let mut canon = Canon {
+    let mut tree = CanonicalTree {
         files,
         empty_folders,
     };
@@ -240,19 +240,19 @@ pub fn parse_listing(
     // Step 2: team name and root normalization.
     let team_name = identity::team_name(&listing.display_name);
     let mut issues = Vec::new();
-    normalize(&mut canon, &mut issues);
+    normalize(&mut tree, &mut issues);
 
     // Step 3: the draft.
-    let draft = build_draft(&listing.display_name, team_name, &canon);
+    let draft = build_draft(&listing.display_name, team_name, &tree);
 
     // Step 4: the roster.
-    let raw_roster = roster::read_roster(&draft, &canon, &metadata, &mut issues);
+    let raw_roster = roster::read_roster(&draft, &tree, &metadata, &mut issues);
 
     Ok(ParsedAestheticsExport {
         draft,
         raw_roster,
-        issues,
         metadata,
+        issues,
     })
 }
 
@@ -260,13 +260,13 @@ pub fn parse_listing(
 /// one usable nested root is flattened; several reject the export; loose
 /// files colliding with the flattened names reject it too. Then each content
 /// folder's doubled `Name/Name` layer is removed.
-fn normalize(canon: &mut Canon, issues: &mut Vec<ValidationIssue>) {
-    if !is_usable_root(canon, None) {
+fn normalize(tree: &mut CanonicalTree, issues: &mut Vec<ValidationIssue>) {
+    if !is_usable_root(tree, None) {
         // The root's direct child folders that are usable export roots.
-        let (_, children) = canon.children(None);
+        let (_, children) = tree.children(None);
         let mut usable = Vec::new();
         for path in children {
-            if is_usable_root(canon, Some(&path)) {
+            if is_usable_root(tree, Some(&path)) {
                 usable.push(path);
             }
         }
@@ -284,7 +284,7 @@ fn normalize(canon: &mut Canon, issues: &mut Vec<ValidationIssue>) {
             ));
         } else if usable.len() == 1 {
             let child = &usable[0];
-            match try_flatten_child(canon, child) {
+            match try_flatten_child(tree, child) {
                 Ok(()) => issues.push(issue(
                     "nested_folders_fixed",
                     IssueScope::Export,
@@ -307,7 +307,7 @@ fn normalize(canon: &mut Canon, issues: &mut Vec<ValidationIssue>) {
 
     // A doubled `Name/Name` layer inside a content folder is removed when the
     // inner folder is its only entry and holds no files directly.
-    let (_, root_folders) = canon.children(None);
+    let (_, root_folders) = tree.children(None);
     for (name, _) in CONTENT_FOLDERS {
         let folder = match root_folders
             .iter()
@@ -316,17 +316,17 @@ fn normalize(canon: &mut Canon, issues: &mut Vec<ValidationIssue>) {
             Some(path) => path.clone(),
             None => continue,
         };
-        let (files, folders) = canon.children(Some(&folder));
+        let (files, folders) = tree.children(Some(&folder));
         if files.is_empty() && folders.len() == 1 {
             let inner = folders[0].clone();
             if !file_name(&inner).eq_ignore_ascii_case(name) {
                 continue;
             }
-            let (inner_files, _) = canon.children(Some(&inner));
+            let (inner_files, _) = tree.children(Some(&inner));
             if !inner_files.is_empty() {
                 continue;
             }
-            remove_layer(canon, &folder, &inner);
+            remove_layer(tree, &folder, &inner);
             issues.push(issue(
                 "nested_folders_fixed",
                 IssueScope::Folder(folder.clone()),
@@ -346,7 +346,7 @@ fn normalize(canon: &mut Canon, issues: &mut Vec<ValidationIssue>) {
 /// unmoved. `child` itself is gone when it succeeds — it became the root (its
 /// listed folder entry, if any, was dropped when its files went in the tree;
 /// only empties are held).
-fn try_flatten_child(canon: &mut Canon, child: &ScopePath) -> Result<(), Vec<ScopePath>> {
+fn try_flatten_child(tree: &mut CanonicalTree, child: &ScopePath) -> Result<(), Vec<ScopePath>> {
     let prefix = format!("{}/", child.fold_key());
     let mut moved = VirtualTree::new();
     let mut conflicts = Vec::new();
@@ -368,14 +368,14 @@ fn try_flatten_child(canon: &mut Canon, child: &ScopePath) -> Result<(), Vec<Sco
     };
     // The loose files first (the tree already held them: they cannot
     // collide), then the flattened ones.
-    for (path, entry) in canon.files.iter() {
+    for (path, entry) in tree.files.iter() {
         if !path.fold_key().starts_with(&prefix)
             && let Err(path) = insert(&mut moved, path.clone(), entry)
         {
             conflicts.push(path);
         }
     }
-    for (path, entry) in canon.files.iter() {
+    for (path, entry) in tree.files.iter() {
         if path.fold_key().starts_with(&prefix)
             && let Err(path) = insert(&mut moved, strip_first_segment(path), entry)
         {
@@ -384,7 +384,7 @@ fn try_flatten_child(canon: &mut Canon, child: &ScopePath) -> Result<(), Vec<Sco
     }
     if conflicts.is_empty() {
         let mut empty_folders = BTreeMap::new();
-        for (key, path) in std::mem::take(&mut canon.empty_folders) {
+        for (key, path) in std::mem::take(&mut tree.empty_folders) {
             let new_path = if key.starts_with(&prefix) {
                 strip_first_segment(&path)
             } else {
@@ -392,8 +392,8 @@ fn try_flatten_child(canon: &mut Canon, child: &ScopePath) -> Result<(), Vec<Sco
             };
             empty_folders.insert(new_path.fold_key(), new_path);
         }
-        canon.files = moved;
-        canon.empty_folders = empty_folders;
+        tree.files = moved;
+        tree.empty_folders = empty_folders;
         Ok(())
     } else {
         conflicts.sort_by_key(|path| path.fold_key());
@@ -404,12 +404,12 @@ fn try_flatten_child(canon: &mut Canon, child: &ScopePath) -> Result<(), Vec<Sco
 
 /// Removes `inner`'s extra `Name` layer under `folder` (`Players/Players/x` →
 /// `Players/x`): the layer is a segment, removed from every path below it.
-fn remove_layer(canon: &mut Canon, folder: &ScopePath, inner: &ScopePath) {
+fn remove_layer(tree: &mut CanonicalTree, folder: &ScopePath, inner: &ScopePath) {
     let prefix = format!("{}/", inner.fold_key());
     // The layer segment sits one past `folder`'s depth.
     let depth = folder.segments().count();
     let mut moved = VirtualTree::new();
-    for (path, entry) in canon.files.iter() {
+    for (path, entry) in tree.files.iter() {
         let new_path = if path.fold_key().starts_with(&prefix) {
             drop_segment(path, depth)
         } else {
@@ -427,7 +427,7 @@ fn remove_layer(canon: &mut Canon, folder: &ScopePath, inner: &ScopePath) {
             .expect("a doubled layer holds only folders, nothing collides");
     }
     let mut empty_folders = BTreeMap::new();
-    for (key, path) in std::mem::take(&mut canon.empty_folders) {
+    for (key, path) in std::mem::take(&mut tree.empty_folders) {
         let new_path = if key.starts_with(&prefix) {
             drop_segment(&path, depth)
         } else {
@@ -435,8 +435,8 @@ fn remove_layer(canon: &mut Canon, folder: &ScopePath, inner: &ScopePath) {
         };
         empty_folders.insert(new_path.fold_key(), new_path);
     }
-    canon.files = moved;
-    canon.empty_folders = empty_folders;
+    tree.files = moved;
+    tree.empty_folders = empty_folders;
 }
 
 /// A file's draft descriptor: canonical path, raw source path, size, kind.
@@ -452,19 +452,19 @@ fn descriptor(path: &ScopePath, entry: &FileEntry) -> FileDescriptor {
 /// `folder`'s direct files (strays) and each direct child folder as a draft
 /// group of the folder kind it names (`Players/03 - A`, `Kits/all`).
 fn folder_drafts(
-    canon: &Canon,
+    tree: &CanonicalTree,
     folder: &ScopePath,
     stray: &mut Vec<FileDescriptor>,
     target: &mut Vec<FolderDraft>,
 ) {
-    let (files, folders) = canon.children(Some(folder));
+    let (files, folders) = tree.children(Some(folder));
     for (path, entry) in files {
         stray.push(descriptor(&path, entry));
     }
     for folder in folders {
         target.push(FolderDraft {
             path: folder.clone(),
-            files: canon
+            files: tree
                 .files_under(&folder)
                 .map(|(path, entry)| descriptor(path, entry))
                 .collect(),
@@ -476,7 +476,7 @@ fn folder_drafts(
 fn build_draft(
     display_name: &str,
     team_name: Option<teams_list::TeamName>,
-    canon: &Canon,
+    tree: &CanonicalTree,
 ) -> AestheticsExportDraft {
     let mut draft = AestheticsExportDraft {
         export_display_name: display_name.to_owned(),
@@ -493,7 +493,7 @@ fn build_draft(
         collars: Vec::new(),
         common: Vec::new(),
     };
-    let (root_files, root_folders) = canon.children(None);
+    let (root_files, root_folders) = tree.children(None);
     for (path, entry) in root_files {
         draft.root_files.push(descriptor(&path, entry));
     }
@@ -508,29 +508,29 @@ fn build_draft(
         };
         match content {
             ContentFolder::Players => {
-                folder_drafts(canon, &folder, &mut draft.stray_files, &mut draft.players)
+                folder_drafts(tree, &folder, &mut draft.stray_files, &mut draft.players)
             }
             ContentFolder::Faces => {
-                folder_drafts(canon, &folder, &mut draft.stray_files, &mut draft.faces)
+                folder_drafts(tree, &folder, &mut draft.stray_files, &mut draft.faces)
             }
             ContentFolder::Boots => {
-                folder_drafts(canon, &folder, &mut draft.stray_files, &mut draft.boots)
+                folder_drafts(tree, &folder, &mut draft.stray_files, &mut draft.boots)
             }
             ContentFolder::Gloves => {
-                folder_drafts(canon, &folder, &mut draft.stray_files, &mut draft.gloves)
+                folder_drafts(tree, &folder, &mut draft.stray_files, &mut draft.gloves)
             }
             ContentFolder::Kits => {
-                folder_drafts(canon, &folder, &mut draft.stray_files, &mut draft.kits)
+                folder_drafts(tree, &folder, &mut draft.stray_files, &mut draft.kits)
             }
             ContentFolder::Portraits => draft
                 .portraits
-                .extend(canon.files_under(&folder).map(|(p, e)| descriptor(p, e))),
+                .extend(tree.files_under(&folder).map(|(p, e)| descriptor(p, e))),
             ContentFolder::Collars => draft
                 .collars
-                .extend(canon.files_under(&folder).map(|(p, e)| descriptor(p, e))),
+                .extend(tree.files_under(&folder).map(|(p, e)| descriptor(p, e))),
             ContentFolder::Common => draft
                 .common
-                .extend(canon.files_under(&folder).map(|(p, e)| descriptor(p, e))),
+                .extend(tree.files_under(&folder).map(|(p, e)| descriptor(p, e))),
         }
     }
     draft

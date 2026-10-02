@@ -11,7 +11,7 @@ use vtree::ScopePath;
 use super::folders::{directly_in, fold, relative, stem, stem_conflicts};
 use crate::FileKind;
 use crate::conventions::{Marker, MetadataFile, split_folder_name};
-use crate::listing::{SmallMetadata, ValidationContext};
+use crate::listing::{SmallMetadata, ValidationContext, metadata_text};
 use crate::parse::{AestheticsExportDraft, FileDescriptor, FolderDraft};
 use crate::validate::{
     Disposition, IssueScope, KitFolder, KitLayout, KitTexture, KitTextureSource, KitsFolder,
@@ -322,8 +322,7 @@ fn check_kit(
 
 /// `icon.txt`'s number: optional BOM, strict UTF-8, a decimal in 0–23.
 fn parse_icon(bytes: &[u8]) -> Option<u8> {
-    let bytes = bytes.strip_prefix(b"\xef\xbb\xbf").unwrap_or(bytes);
-    str::from_utf8(bytes)
+    metadata_text(bytes)
         .ok()?
         .trim()
         .parse::<u8>()

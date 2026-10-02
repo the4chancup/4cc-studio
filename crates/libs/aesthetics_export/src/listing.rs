@@ -64,6 +64,12 @@ impl SmallMetadata {
     }
 }
 
+/// A small metadata file's text: an optional UTF-8 BOM stripped, then strict
+/// UTF-8 (the roster, `notes.txt` and `icon.txt` are all read this way).
+pub(crate) fn metadata_text(bytes: &[u8]) -> Result<&str, std::str::Utf8Error> {
+    str::from_utf8(bytes.strip_prefix(b"\xef\xbb\xbf").unwrap_or(bytes))
+}
+
 /// The settings that change a consequence, supplied by the consumer.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ValidationContext {
