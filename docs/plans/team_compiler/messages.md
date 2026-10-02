@@ -116,6 +116,7 @@ savefile messages are new.
 | ID | Sev | Condition | Consequence |
 |---|---|---|---|
 | `export_extract_failed` | E | archive cannot be extracted/parsed, or its listing is refused (a path escaping the root, two names that fold to one; context: the path) | export skipped (`DropExport`) |
+| `no_exports_found` | W | discovery finds no export folder, `.zip` or `.7z` in the exports folder (Run scope; context: the folder) — what a fresh install's created `exports/` reports until the user fills it | none; nothing is checked or compiled |
 | `export_disabled` | I | root `NO_USE` / `NO_USE.txt` marker disables this source | export skipped; omitted from the grid and from duplicate-ref detection |
 | `export_identified` | I | the export's identity resolved (context: `team` and `id`, or `team` = `referees`) | none; how the CLI reports which team an export is |
 | `source_read_failed` | E/F | a pinned source entry cannot be read | optional root file: `DropFile`; folder/task producer: `DropFolder`; required export metadata or unusable source: `DropExport`; output/global source invariant: `AbortRun` |
@@ -389,7 +390,16 @@ The `cpk_write_failed` and `output_commit_failed` consequences are required guar
 generated output is discarded and prior published output remains untouched. The corresponding open
 questions choose the `.partial`/rename/rollback implementation, not whether these guarantees apply.
 
-Fatal settings/environment problems (invalid PES version, unwritable output folder) are surfaced by
-the settings UI and CLI argument validation before a run starts, not as pipeline messages.
+Fatal settings/environment problems (invalid PES version, unwritable output folder, a missing
+exports folder) are surfaced by the settings UI and CLI argument validation before a run starts,
+not as pipeline messages. Their text is a sentence written for the user, naming the path and what
+to do, never a bare OS error (`The system cannot find the path specified. (os error 3)` is what a
+missing exports folder printed in Phase 3's shell slice). A missing exports folder reads
+`the exports folder <path> does not exist: create it and put your exports inside, or set
+exports_folder_path in <settings file> to the folder that holds them`; when the path came from the
+command line, `the exports folder <path> given on the command line does not exist`. It is a
+configuration error (exit code 2). The relative default is created instead (`settings.md` "Path
+resolution"); when it cannot be, the run is refused naming the path, as an unwritable output folder
+is (exit code 3).
 
 ---

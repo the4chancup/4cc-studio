@@ -551,6 +551,15 @@ TC-CLI-06  GIVEN an output_folder_path that cannot be created or written
 TC-CLI-07  GIVEN --export naming a path that does not exist
            WHEN check or compile runs
            THEN it is refused as an invalid invocation naming the path, with exit code 2
+TC-CLI-08  GIVEN an absolute exports_folder_path naming a folder that does not exist
+           WHEN check or compile runs
+           THEN it is refused before any export is read with the message messages.md gives,
+                naming the path and the settings file, no OS error text, and exit code 2
+TC-CLI-09  GIVEN the default relative exports_folder_path and no exports folder beside the
+           executable
+           WHEN compile runs
+           THEN the folder is created, no_exports_found is reported naming it, nothing is
+                written to the output folder, and the exit code is 0
 TC-OUT-01  GIVEN the tracer bullet's export
            WHEN compile --no-deploy runs
            THEN <output_folder_path>/<cpk_name>.cpk is written, the PES folder and the savefile

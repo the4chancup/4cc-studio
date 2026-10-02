@@ -10,8 +10,9 @@ is in `AGENTS.md` ("Working documents").
 ## Current status
 
 **Phase:** 3 (Team compiler skeleton). Phases 1 and 2 done (Phase 2 closed 2026-09-30).
-**In progress:** Phase 3's code steps are done (3.9 at 73 of 75 scenarios; 3.z's TC-GUI-01/02
-are manual, pending the maintainer's run); 3.w next, then 3.y and 3.x. 3.7 (`libs/pipeline`) and 3.8
+**In progress:** Phase 3's code steps are done but 3.9f (3.9 at 73 of 75 scenarios; 3.z's
+TC-GUI-01/02 checked by hand); 3.w in progress, then 3.9f, 3.y and 3.x. The maintainer's
+directive (2026-10-02): stop once Phase 3 is done, its queued GPT reviews aside; 4.0a waits. 3.7 (`libs/pipeline`) and 3.8
 (`check` end to end, slices a-d) are implemented and mutation-clean; only their cross-family
 reviews are left, queued for the lead (see "Handover" below), and each is marked done once its
 review's rulings land. 3.6 is done (`aesthetics_export`, 35 of 75
@@ -49,6 +50,10 @@ Claude agent with no sidekick and no reviewer of another model family. While tha
   `EventLines`; three crates), against `core/gui.md` "Shell layout" and "Event wiring",
   `core/architecture.md` "Tool plugin interface" and "Event system", `core/development_plan.md`
   "Phase 3" (the shell slice bullet) and the decision entry "3.z: the shell slice's edges".
+  3.9f (a): TC-CLI-08 and TC-CLI-09 (`team_compiler/README.md` "CLI and output"), against
+  `team_compiler/settings.md` "Path resolution", `team_compiler/messages.md` (`no_exports_found`
+  and the settings/environment paragraph) and the decision entry "a missing exports folder is
+  created or refused in plain words"; the 3.9f code rides along with it.
 - For the lead, on return: the review process on trial (maintainer, 3.1) runs a full sidekick
   review loop after each GPT round and calls GPT again only once that loop has ended and GPT's
   own loop has not; not yet in `AGENTS.md` (3.6: GPT 4 of 7 accepted, then sidekick S1 3 of 7,
@@ -332,8 +337,17 @@ Itemized 2026-09-30 at Phase 2's close. Order: the tracer first (one real export
   (`ToolContext::with_events`), `events.rs` (`EventLines`, moved from `studio`'s console);
   `studio` `main.rs` (GUI mode, startup shared with the CLI); `team_compiler` `gui_run.rs`
   (`RunLog`: `compile` through the CLI path on a thread), `view/mod.rs`, `Tool::new()`; `eframe`
-  0.36.2, `egui` raised to it. Decision entry "3.z: the shell slice's edges". Manual
-  TC-GUI-01/02: pending the maintainer's run (Windows), recorded at 3.y.
+  0.36.2, `egui` raised to it. Decision entry "3.z: the shell slice's edges".
+  TC-GUI-01 manual: checked 2026-10-02 by the maintainer on Windows, the window, the sidebar's
+  Team compiler entry, its Settings, Compile button and log.
+  TC-GUI-02 manual: checked 2026-10-02 by the maintainer on Windows, the /egg/ tracer export
+  compiled from the window, the log showing `egg Tracer: Info export_identified (team=/egg/,
+  id=792)` then `Run finished: exit code 0`. The same run with no exports folder printed a raw
+  OS error, which became 3.9f. Linux: not yet checked, no machine with a display.
+- [ ] 3.9f Exports folder created or refused in plain words (decision entry "a missing exports
+  folder is created or refused in plain words"; `team_compiler/settings.md` "Path resolution",
+  `messages.md` `no_exports_found` and the settings/environment paragraph). → verify: TC-CLI-08,
+  TC-CLI-09
 - [ ] 3.w `.cargo/mutants.toml` audit, before 3.y's whole-crate runs (they measure only what it
   leaves in; maintainer, 2026-10-01: most entries came from Phase 2 sidekick work and none was
   re-verified). The lead, not a sidekick, takes every `exclude_re`/`exclude_globs` entry:

@@ -2810,3 +2810,23 @@ emits no `Complete` (decision "Phase 3 emits no FolderStatus, Progress or Comple
 Plan: `core/architecture.md` "Event system" (the GUI paragraph) and the `events.rs` line of the
 crate tree; `core/development_plan.md` "Phase 3" (the shell slice bullet); `team_compiler/
 README.md` TC-GUI-02.
+
+## 2026-10-02 — team_compiler — a missing exports folder is created or refused in plain words
+Decision (lead, reversible; asked for by the maintainer after the TC-GUI-01/02 run): the
+relative `exports_folder_path` (the default `exports/`) is created when missing, before a run
+reads it; an exports folder named any other way (an absolute setting, the CLI's positional
+root) is never created, and a missing one is refused before the run with a sentence naming the
+path and the setting to change, exit code 2. When the relative default cannot be created, the
+run is refused naming the path, exit code 3. A new Warning, `no_exports_found` (Run scope,
+context: the folder), reports an exports folder holding no export. TC-CLI-08 and TC-CLI-09
+cover both.
+Why: the plan already said the folder is "created on first run" but not by whom or when, and
+gave no text for a missing one, so Phase 3 printed `cannot read the exports folder: The system
+cannot find the path specified. (os error 3)` with exit code 3, which tells a cup member
+neither that the folder is missing nor what to do. Creating a folder the user named outside the
+executable's directory would hide a typo in the setting; exit code 2 matches `--export` naming a
+missing path (TC-CLI-07). Without `no_exports_found`, the freshly created folder compiles to a
+run that ends at "exit code 0" with nothing in the log.
+Plan: `team_compiler/settings.md` "Path resolution" (the exports row); `team_compiler/messages.md`
+"Catalog" (`no_exports_found`, and the settings/environment paragraph after "Output stage and
+savefile"); `team_compiler/README.md` TC-CLI-08, TC-CLI-09.
