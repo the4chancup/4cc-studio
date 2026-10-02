@@ -466,7 +466,7 @@ mod tests {
         assert_eq!(load_teams_list(relative, Some(&root)).unwrap(), embedded);
         assert!(!root.join("teams_list.txt").exists(), "nothing written");
 
-        fs::write(root.join("teams_list.txt"), "ID\tName\n701\t/egg/\n").unwrap();
+        fs::write(root.join("teams_list.txt"), "ID\tName\n792\t/egg/\n").unwrap();
         let own = load_teams_list(relative, Some(&root)).unwrap();
         assert_eq!(own.teams().count(), 1);
         // An absolute path is read even with no data directory.
@@ -497,7 +497,7 @@ mod tests {
         create_teams_list(Path::new("teams_list.txt"), Some(&root)).unwrap();
         assert_eq!(fs::read(&file).unwrap(), TeamsList::UPSTREAM.as_bytes());
 
-        let own = "ID\tName\n701\t/egg/\n";
+        let own = "ID\tName\n792\t/egg/\n";
         fs::write(&file, own).unwrap();
         create_teams_list(Path::new("teams_list.txt"), Some(&root)).unwrap();
         assert_eq!(

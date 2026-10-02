@@ -74,7 +74,7 @@ fn a_refusal_prints_one_error_line_and_exits_with_its_code() {
 #[test]
 fn check_prints_one_line_per_finding_and_exits_with_the_worst() {
     let sandbox = Sandbox::new("check", "");
-    sandbox.write("data/teams_list.txt", "ID\tName\n701\t/co/\n");
+    sandbox.write("data/teams_list.txt", "ID\tName\n714\t/co/\n");
     sandbox.write("exports/co - Clean/Players/03 - A/face_high.fmdl", "");
     sandbox.write("exports/co - Error/Players/03 - A/readme.txt", "");
 
@@ -82,7 +82,7 @@ fn check_prints_one_line_per_finding_and_exits_with_the_worst() {
     assert_eq!(output.status.code(), Some(0), "stderr: {}", stderr(&output));
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
-        "- co - Clean: Info export_identified (team=/co/, id=701)\n"
+        "- co - Clean: Info export_identified (team=/co/, id=714)\n"
     );
 
     let output = sandbox.run(&["team-compiler", "check", "--export", "exports/co - Error"]);
@@ -90,7 +90,7 @@ fn check_prints_one_line_per_finding_and_exits_with_the_worst() {
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
         "- co - Error: Error file_type_disallowed at Players/03 - A (file=readme.txt)\n\
-         - co - Error: Info export_identified (team=/co/, id=701)\n"
+         - co - Error: Info export_identified (team=/co/, id=714)\n"
     );
     assert!(stderr(&output).is_empty(), "{}", stderr(&output));
 }
@@ -100,10 +100,10 @@ fn check_prints_one_line_per_finding_and_exits_with_the_worst() {
 fn compile_with_a_positional_root_compiles_it_and_leaves_the_settings_file_alone() {
     let settings = "[common]\npes_version = 21\n";
     let sandbox = Sandbox::new("positional_root", settings);
-    sandbox.write("data/teams_list.txt", "ID\tName\n701\t/co/\n702\t/da/\n");
+    sandbox.write("data/teams_list.txt", "ID\tName\n714\t/co/\n790\t/dbg/\n");
     let kit = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../tools/team_compiler/tests/fixtures/tracer/studio/egg Tracer/Kits/g1/kit.dds");
-    for folder in ["elsewhere/co - Kit/Kits/p1", "exports/da - Other/Kits/p1"] {
+    for folder in ["elsewhere/co - Kit/Kits/p1", "exports/dbg - Other/Kits/p1"] {
         let folder = sandbox.root.join(folder);
         fs::create_dir_all(&folder).unwrap();
         fs::copy(&kit, folder.join("kit.dds")).unwrap();
@@ -114,7 +114,7 @@ fn compile_with_a_positional_root_compiles_it_and_leaves_the_settings_file_alone
     assert_eq!(output.status.code(), Some(0), "stderr: {}", stderr(&output));
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
-        "- co - Kit: Info export_identified (team=/co/, id=701)\n\
+        "- co - Kit: Info export_identified (team=/co/, id=714)\n\
          - co - Kit: Info kit_config_generated at Kits/p1\n"
     );
     assert!(sandbox.root.join("output/4cc_90_test.cpk").is_file());

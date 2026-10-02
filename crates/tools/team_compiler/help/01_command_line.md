@@ -22,7 +22,7 @@ it always leaves it in the output folder.
 
 `check` prints one line per finding: the export it is about, how serious it is, its code, where
 in the export it is, and its details in parentheses. The line `Info export_identified (team=/co/,
-id=701)` tells you which team the export was recognized as: its name's first word, looked up in
+id=714)` tells you which team the export was recognized as: its name's first word, looked up in
 the teams list (`team=referees` for a `refs` export).
 
 Both commands read every export in the exports folder from the settings (`exports/` beside

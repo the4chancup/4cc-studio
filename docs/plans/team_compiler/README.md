@@ -434,9 +434,9 @@ TC-ROS-12  GIVEN a refs export whose players.txt maps one folder to slots 01, 20
 **Identity**
 
 ```
-TC-ID-01   GIVEN "co - Spring 2026.zip" and a teams list with the row 701 /co/
+TC-ID-01   GIVEN "co - Spring 2026.zip" and a teams list with the row 714 /co/
            WHEN it is compiled
-           THEN the export is reported as /co/ (701)
+           THEN the export is reported as /co/ (714)
 TC-ID-02   GIVEN an export whose first word is not in the teams list, beside a valid export
            WHEN the root is compiled
            THEN team_name_unknown is reported, that export is skipped, the other is compiled,

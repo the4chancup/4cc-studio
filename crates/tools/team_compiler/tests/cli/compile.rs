@@ -158,7 +158,7 @@ fn compiled_players(sandbox: &Sandbox) -> Vec<u32> {
     players
 }
 
-/// The name of every kit texture in the sandbox's compiled CPK (`u0701g1`), sorted.
+/// The name of every kit texture in the sandbox's compiled CPK (`u0714g1`), sorted.
 fn compiled_kits(sandbox: &Sandbox) -> Vec<String> {
     let mut kits: Vec<String> = cpk_paths(&sandbox.root.join("output/4cc_90_test.cpk"))
         .iter()
@@ -188,10 +188,10 @@ fn compile_skips_an_export_holding_content_it_cannot_build_yet_and_builds_the_ot
     let sandbox = Sandbox::new("not_yet_compiled");
     boots_only_export(&sandbox, "co - Boots");
     sandbox.copy_tracer("egg Tracer");
-    sandbox.write("exports/da - Kits/Kits/p1/kit.dds", &tracer_kit());
-    sandbox.write("exports/da - Kits/players.txt", b"");
+    sandbox.write("exports/dbg - Kits/Kits/p1/kit.dds", &tracer_kit());
+    sandbox.write("exports/dbg - Kits/players.txt", b"");
     // No roster slot maps this folder, so it would emit nothing.
-    sandbox.write("exports/da - Kits/Players/Boots Only/boots.fmdl", b"");
+    sandbox.write("exports/dbg - Kits/Players/Boots Only/boots.fmdl", b"");
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
 
@@ -199,13 +199,13 @@ fn compile_skips_an_export_holding_content_it_cannot_build_yet_and_builds_the_ot
     assert_eq!(
         findings_of(&lines, "co - Boots"),
         [
-            "Info export_identified [Keep] (team=/co/, id=701)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
             "Error content_not_yet_compiled [DropExport] (what=Players/Boots Only/boots.fmdl)",
         ]
     );
     assert_eq!(run.exit_code(), 1);
     let entries = cpk_paths(&sandbox.root.join("output/4cc_90_test.cpk"));
-    for texture in ["u0792g1", "u0702p1"] {
+    for texture in ["u0792g1", "u0790p1"] {
         assert!(entries.contains(&kit_texture(texture)), "{entries:#?}");
     }
 
@@ -332,10 +332,10 @@ fn a_dropped_player_folder_is_left_out_of_the_cpk() {
         findings_of(&run.messages(), "co - Links"),
         [
             "Error link_target_missing [DropFolder] at Players/07 - B (link=Crocs.boots)",
-            "Info export_identified [Keep] (team=/co/, id=701)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
         ]
     );
-    assert_eq!(compiled_players(&sandbox), [70103]);
+    assert_eq!(compiled_players(&sandbox), [71403]);
     assert_eq!(run.exit_code(), 1);
 }
 
@@ -351,10 +351,10 @@ fn pass_through_compiles_a_folder_with_a_missing_link_and_still_reports_the_erro
         findings_of(&run.messages(), "co - Links"),
         [
             "Error link_target_missing [Keep] at Players/07 - B (link=Crocs.boots)",
-            "Info export_identified [Keep] (team=/co/, id=701)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
         ]
     );
-    assert_eq!(compiled_players(&sandbox), [70103, 70107]);
+    assert_eq!(compiled_players(&sandbox), [71403, 71407]);
     assert_eq!(run.exit_code(), 1);
 }
 
@@ -405,9 +405,9 @@ const DROP_CASES: [DropCase; 8] = [
         },
         findings: &[
             "Error players_txt_slot_invalid [DropSlot] at players.txt line 2 slot Some(24) ()",
-            "Info export_identified [Keep] (team=/co/, id=701)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
         ],
-        compiled: Some((&[70103], &[])),
+        compiled: Some((&[71403], &[])),
         exit_code: 1,
     },
     DropCase {
@@ -420,9 +420,9 @@ const DROP_CASES: [DropCase; 8] = [
         // so the missing content_not_yet_compiled shows the folder was dropped.
         findings: &[
             "Warning shared_folder_orphaned [DropFolder] at Boots/Solo ()",
-            "Info export_identified [Keep] (team=/co/, id=701)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
         ],
-        compiled: Some((&[70103], &[])),
+        compiled: Some((&[71403], &[])),
         exit_code: 0,
     },
     DropCase {
@@ -435,9 +435,9 @@ const DROP_CASES: [DropCase; 8] = [
         },
         findings: &[
             "Error fpc_conflict [DropFolder] at Players/07 - B ()",
-            "Info export_identified [Keep] (team=/co/, id=701)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
         ],
-        compiled: Some((&[70103], &[])),
+        compiled: Some((&[71403], &[])),
         exit_code: 1,
     },
     DropCase {
@@ -450,9 +450,9 @@ const DROP_CASES: [DropCase; 8] = [
         },
         findings: &[
             "Error kit_layout_conflict [DropFolder] at Kits/p1 ()",
-            "Info export_identified [Keep] (team=/co/, id=701)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
         ],
-        compiled: Some((&[70103], &[])),
+        compiled: Some((&[71403], &[])),
         exit_code: 1,
     },
     DropCase {
@@ -469,9 +469,9 @@ const DROP_CASES: [DropCase; 8] = [
             "Error shared_link_duplicate [DropFolder] at Players/07 - B (kind=boots)",
             "Error link_target_missing [Keep] at Players/07 - B (link=Crocs.boots)",
             "Error link_target_missing [Keep] at Players/07 - B (link=Mud.boots)",
-            "Info export_identified [Keep] (team=/co/, id=701)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
         ],
-        compiled: Some((&[70103], &[])),
+        compiled: Some((&[71403], &[])),
         exit_code: 1,
     },
     DropCase {
@@ -485,10 +485,10 @@ const DROP_CASES: [DropCase; 8] = [
         findings: &[
             "Error kit_slot_duplicate [DropFolder] at Kits/p1 ()",
             "Error kit_slot_duplicate [DropFolder] at Kits/p1 - Lakers ()",
-            "Info export_identified [Keep] (team=/co/, id=701)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
             "Info kit_config_generated [Keep] at Kits/g1 ()",
         ],
-        compiled: Some((&[70103], &["u0701g1"])),
+        compiled: Some((&[71403], &["u0714g1"])),
         exit_code: 1,
     },
     DropCase {
@@ -500,10 +500,10 @@ const DROP_CASES: [DropCase; 8] = [
         },
         findings: &[
             "Error kit_folder_invalid [DropFolder] at Kits/p10 ()",
-            "Info export_identified [Keep] (team=/co/, id=701)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
             "Info kit_config_generated [Keep] at Kits/g1 ()",
         ],
-        compiled: Some((&[70103], &["u0701g1"])),
+        compiled: Some((&[71403], &["u0714g1"])),
         exit_code: 1,
     },
 ];
@@ -575,9 +575,9 @@ fn without_players_txt_each_folder_is_the_player_its_number_names() {
 
     assert_eq!(
         findings_of(&run.messages(), "co - Numbers"),
-        ["Info export_identified [Keep] (team=/co/, id=701)"]
+        ["Info export_identified [Keep] (team=/co/, id=714)"]
     );
-    assert_eq!(compiled_players(&sandbox), [70103, 70115]);
+    assert_eq!(compiled_players(&sandbox), [71403, 71415]);
     assert_eq!(run.exit_code(), 0);
 }
 
@@ -595,10 +595,10 @@ fn players_txt_maps_a_folder_by_name_and_leaves_an_unlisted_one_out() {
         findings_of(&run.messages(), "co - Roster"),
         [
             "Warning player_unlisted [DropFolder] at Players/15 - B ()",
-            "Info export_identified [Keep] (team=/co/, id=701)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
         ]
     );
-    assert_eq!(compiled_players(&sandbox), [70103]);
+    assert_eq!(compiled_players(&sandbox), [71403]);
     assert_eq!(run.exit_code(), 0);
 }
 
@@ -613,9 +613,9 @@ fn a_folder_listed_under_two_slots_is_compiled_for_both() {
 
     assert_eq!(
         findings_of(&run.messages(), "co - Twice"),
-        ["Info export_identified [Keep] (team=/co/, id=701)"]
+        ["Info export_identified [Keep] (team=/co/, id=714)"]
     );
-    assert_eq!(compiled_players(&sandbox), [70103, 70107]);
+    assert_eq!(compiled_players(&sandbox), [71403, 71407]);
     assert_eq!(run.exit_code(), 0);
 }
 
@@ -640,10 +640,10 @@ fn each_bad_roster_line_is_reported_and_only_the_good_one_compiled() {
             "Error players_txt_slot_invalid [DropSlot] at players.txt line 2 slot Some(24) ()",
             "Error players_txt_target_missing [DropSlot] at players.txt line 3 slot Some(5) (folder=Nobody)",
             "Warning player_unlisted [DropFolder] at Players/A ()",
-            "Info export_identified [Keep] (team=/co/, id=701)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
         ]
     );
-    assert_eq!(compiled_players(&sandbox), [70107]);
+    assert_eq!(compiled_players(&sandbox), [71407]);
     assert_eq!(run.exit_code(), 1);
 }
 
@@ -661,12 +661,12 @@ fn an_empty_players_txt_compiles_the_kits_and_no_player() {
         findings_of(&run.messages(), "co - Empty"),
         [
             "Warning player_unlisted [DropFolder] at Players/03 - A ()",
-            "Info export_identified [Keep] (team=/co/, id=701)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
             "Info kit_config_generated [Keep] at Kits/p1 ()",
         ]
     );
     assert!(compiled_players(&sandbox).is_empty());
-    assert_eq!(compiled_kits(&sandbox), ["u0701p1"]);
+    assert_eq!(compiled_kits(&sandbox), ["u0714p1"]);
     assert_eq!(run.exit_code(), 0);
 }
 
@@ -682,12 +682,12 @@ fn kit_folders_are_compiled_as_the_slot_their_name_starts_with() {
     assert_eq!(
         findings_of(&run.messages(), "co - Kits"),
         [
-            "Info export_identified [Keep] (team=/co/, id=701)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
             "Info kit_config_generated [Keep] at Kits/p1 - Lakers ()",
             "Info kit_config_generated [Keep] at Kits/g1 ()",
         ]
     );
-    assert_eq!(compiled_kits(&sandbox), ["u0701g1", "u0701p1"]);
+    assert_eq!(compiled_kits(&sandbox), ["u0714g1", "u0714p1"]);
     assert_eq!(run.exit_code(), 0);
 }
 
@@ -697,7 +697,7 @@ fn content_nested_one_folder_down_compiles_as_if_at_the_root() {
     let sandbox = Sandbox::new("str_nested");
     sandbox.write("exports/co - Wrapped/notes.txt", b"Notes.\n");
     sandbox.copy_tracer_face("exports/co - Wrapped/wrapper/Players/03 - A");
-    sandbox.copy_tracer_face("exports/da - Doubled/Players/Players/03 - A");
+    sandbox.copy_tracer_face("exports/dbg - Doubled/Players/Players/03 - A");
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
 
@@ -707,17 +707,17 @@ fn content_nested_one_folder_down_compiles_as_if_at_the_root() {
         [
             "Warning nested_folders_fixed [Keep] (folder=wrapper)",
             "Info notes_found [Keep] at notes.txt ()",
-            "Info export_identified [Keep] (team=/co/, id=701)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
         ]
     );
     assert_eq!(
-        findings_of(&lines, "da - Doubled"),
+        findings_of(&lines, "dbg - Doubled"),
         [
             "Warning nested_folders_fixed [Keep] at Players (folder=Players/Players)",
-            "Info export_identified [Keep] (team=/da/, id=702)",
+            "Info export_identified [Keep] (team=/dbg/, id=790)",
         ]
     );
-    assert_eq!(compiled_players(&sandbox), [70103, 70203]);
+    assert_eq!(compiled_players(&sandbox), [71403, 79003]);
     assert_eq!(run.exit_code(), 0);
 }
 
@@ -747,8 +747,8 @@ fn a_disabled_export_is_reported_once_by_check_and_compile_and_not_compiled() {
     let sandbox = Sandbox::new("src_disabled");
     sandbox.write("exports/co - One/NO_USE", b"");
     sandbox.copy_tracer_face("exports/co - One/Players/03 - A");
-    sandbox.write("exports/da - Two/no_use.txt", b"");
-    sandbox.copy_tracer_face("exports/da - Two/Players/03 - A");
+    sandbox.write("exports/dbg - Two/no_use.txt", b"");
+    sandbox.copy_tracer_face("exports/dbg - Two/Players/03 - A");
 
     for command in ["check", "compile"] {
         let run = sandbox.run(&pes21_settings(&sandbox), &[command]);
@@ -756,7 +756,7 @@ fn a_disabled_export_is_reported_once_by_check_and_compile_and_not_compiled() {
             run.messages(),
             [
                 "co - One: Info export_disabled [DropExport] ()",
-                "da - Two: Info export_disabled [DropExport] ()",
+                "dbg - Two: Info export_disabled [DropExport] ()",
             ],
             "{command}"
         );
@@ -813,10 +813,10 @@ fn export_paths_restrict_check_and_compile_to_the_named_exports() {
     let sandbox = Sandbox::new("src_named_exports");
     sandbox.copy_tracer_face("exports/co - A/Players/03 - A");
     sandbox.copy_tracer("egg Tracer");
-    sandbox.copy_tracer_face("elsewhere/da - D/Players/03 - A");
+    sandbox.copy_tracer_face("elsewhere/dbg - D/Players/03 - A");
     let named = [
         "--export",
-        &sandbox.arg("elsewhere/da - D"),
+        &sandbox.arg("elsewhere/dbg - D"),
         "--export",
         &sandbox.arg("exports/co - A"),
     ];
@@ -827,13 +827,13 @@ fn export_paths_restrict_check_and_compile_to_the_named_exports() {
         assert_eq!(
             run.messages(),
             [
-                "co - A: Info export_identified [Keep] (team=/co/, id=701)",
-                "da - D: Info export_identified [Keep] (team=/da/, id=702)",
+                "co - A: Info export_identified [Keep] (team=/co/, id=714)",
+                "dbg - D: Info export_identified [Keep] (team=/dbg/, id=790)",
             ],
             "{command}"
         );
         assert_eq!(run.exit_code(), 0, "{command}");
     }
-    assert_eq!(compiled_players(&sandbox), [70103, 70203]);
+    assert_eq!(compiled_players(&sandbox), [71403, 79003]);
     assert!(compiled_kits(&sandbox).is_empty());
 }

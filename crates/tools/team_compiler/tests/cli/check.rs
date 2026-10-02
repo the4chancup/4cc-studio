@@ -97,7 +97,7 @@ fn a_disallowed_file_is_an_error_when_strict_and_an_info_when_lenient() {
         strict.messages(),
         [
             "co - Spring: Error file_type_disallowed [DropFolder] at Players/03 - A (file=readme.txt)",
-            "co - Spring: Info export_identified [Keep] (team=/co/, id=701)",
+            "co - Spring: Info export_identified [Keep] (team=/co/, id=714)",
         ]
     );
     assert_eq!(strict.exit_code(), 1);
@@ -110,7 +110,7 @@ fn a_disallowed_file_is_an_error_when_strict_and_an_info_when_lenient() {
         lenient.messages(),
         [
             "co - Spring: Info file_type_disallowed [Keep] at Players/03 - A (file=readme.txt)",
-            "co - Spring: Info export_identified [Keep] (team=/co/, id=701)",
+            "co - Spring: Info export_identified [Keep] (team=/co/, id=714)",
         ]
     );
     assert_eq!(lenient.exit_code(), 0);
@@ -125,7 +125,7 @@ fn pass_through_keeps_a_disallowed_file_at_its_error_severity() {
         run.messages(),
         [
             "co - Spring: Error file_type_disallowed [Keep] at Players/03 - A (file=readme.txt)",
-            "co - Spring: Info export_identified [Keep] (team=/co/, id=701)",
+            "co - Spring: Info export_identified [Keep] (team=/co/, id=714)",
         ]
     );
     assert_eq!(run.exit_code(), 1);
@@ -169,7 +169,7 @@ fn check_exits_one_only_for_an_error_finding() {
         [
             "co - Notes: Warning root_file_unexpected [DropFile] at extra.bin ()",
             "co - Notes: Info notes_found [Keep] at notes.txt ()",
-            "co - Notes: Info export_identified [Keep] (team=/co/, id=701)",
+            "co - Notes: Info export_identified [Keep] (team=/co/, id=714)",
         ]
     );
     assert_eq!(run.exit_code(), 0);
@@ -182,7 +182,7 @@ fn check_exits_one_only_for_an_error_finding() {
         run.messages(),
         [
             "co - Error: Error file_type_disallowed [DropFolder] at Players/03 - A (file=readme.txt)",
-            "co - Error: Info export_identified [Keep] (team=/co/, id=701)",
+            "co - Error: Info export_identified [Keep] (team=/co/, id=714)",
         ]
     );
     assert_eq!(run.exit_code(), 1);
@@ -193,7 +193,7 @@ fn check_exits_one_only_for_an_error_finding() {
     );
     assert_eq!(
         run.messages(),
-        ["co - Clean: Info export_identified [Keep] (team=/co/, id=701)"]
+        ["co - Clean: Info export_identified [Keep] (team=/co/, id=714)"]
     );
     assert_eq!(run.exit_code(), 0);
 }
@@ -217,7 +217,7 @@ fn a_disabled_export_reports_only_that_whatever_the_marker_case() {
             "co - One: Info export_disabled [DropExport] ()",
             "co - Three: Warning nested_folders_fixed [Keep] (folder=wrapper)",
             "co - Three: Warning root_file_unexpected [DropFile] at NO_USE ()",
-            "co - Three: Info export_identified [Keep] (team=/co/, id=701)",
+            "co - Three: Info export_identified [Keep] (team=/co/, id=714)",
             "co - Two: Info export_disabled [DropExport] ()",
         ]
     );
@@ -247,7 +247,7 @@ fn an_export_is_identified_by_its_first_word() {
     assert_eq!(
         run.messages(),
         [
-            "co - Spring 2026: Info export_identified [Keep] (team=/co/, id=701)",
+            "co - Spring 2026: Info export_identified [Keep] (team=/co/, id=714)",
             "refs Cup: Info export_identified [Keep] (team=referees)",
         ]
     );
@@ -265,7 +265,7 @@ fn an_unknown_team_is_an_error_and_the_export_beside_it_is_still_checked() {
         run.messages(),
         [
             "---: Error team_name_unknown [DropExport] (team_name=)",
-            "co - Spring: Info export_identified [Keep] (team=/co/, id=701)",
+            "co - Spring: Info export_identified [Keep] (team=/co/, id=714)",
             "zz - Spring: Error team_name_unknown [DropExport] (team_name=/zz/)",
         ]
     );
@@ -299,8 +299,8 @@ fn export_paths_restrict_the_run_to_the_named_sources() {
     assert_eq!(
         run.messages(),
         [
-            "co - B: Info export_identified [Keep] (team=/co/, id=701)",
-            "co - D: Info export_identified [Keep] (team=/co/, id=701)",
+            "co - B: Info export_identified [Keep] (team=/co/, id=714)",
+            "co - D: Info export_identified [Keep] (team=/co/, id=714)",
         ]
     );
     assert_eq!(run.exit_code(), 0);
