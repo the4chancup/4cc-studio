@@ -379,7 +379,9 @@ a clear recommended choice for one of the cases above, it applies that choice an
 decision (plan edit, then decision entry), and the turn report names it so the maintainer can
 reverse it. It stops to ask only when the choice is truly ambiguous (no option is clearly
 better on the evidence) or needs information only the maintainer has (in-game behavior, cup
-practice, a preference). New dependencies and `unsafe` still need a yes first.
+practice, a preference). New dependencies and `unsafe` still need a yes first; a dependency the
+plan already names (`rayon`, `crossbeam-channel`, ...) is accounted for, not new (maintainer,
+2026-10-02).
 
 Logging a decision means, in this order: edit the relevant plan section so the plan stays the
 source of truth (keep its "we do X, not Y, because Y causes Z" style), then append an entry to

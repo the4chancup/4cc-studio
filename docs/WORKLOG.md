@@ -10,7 +10,7 @@ is in `AGENTS.md` ("Working documents").
 ## Current status
 
 **Phase:** 3 (Team compiler skeleton). Phases 1 and 2 done (Phase 2 closed 2026-09-30).
-**In progress:** 3.9 (`compile` through the pipeline): 3.9a, 3.9b and 3.9b2 done, 3.9c next. 3.7 (`libs/pipeline`) and 3.8
+**In progress:** 3.9 (`compile` through the pipeline): 3.9a-c done (3.9b2 included), 3.9d next. 3.7 (`libs/pipeline`) and 3.8
 (`check` end to end, slices a-d) are implemented and mutation-clean; only their cross-family
 reviews are left, queued for the lead (see "Handover" below), and each is marked done once its
 review's rulings land. 3.6 is done (`aesthetics_export`, 35 of 75
@@ -296,9 +296,15 @@ Itemized 2026-09-30 at Phase 2's close. Order: the tracer first (one real export
     `tests/cli/{main,preflight,check,compile,sources}.rs` (past a thousand lines), the scenarios
     in `compile.rs`, TC-CLI-04 in `studio/tests/team_compiler_cli.rs`; tests only, no `src/`
     change; 66 of 75 proven
-  - [ ] 3.9c the rayon pool and admission (`pipeline.md` "Admission"), archive content read
+  - [x] 3.9c the rayon pool and admission (`pipeline.md` "Admission"), archive content read
     once per export with the `.7z` charge shared by its tasks. → verify: same CPK bytes under
-    another completion order, a `.7z` over the cap compiles, TC-SRC-09, TC-ID-01, TC-ROOT-05
+    another completion order, a `.7z` over the cap compiles, TC-SRC-09, TC-ID-01, TC-ROOT-05.
+    Done: `compile.rs` (`coordinate` on the calling thread inside `pool.in_place_scope`,
+    `write_batches` on its own thread), `CpkOutput::submit` returning the committed batches'
+    messages and clearing its waiting batches on a failed commit, `ContentSource::into_permit`,
+    `TaskBatch.permit: Option<Arc<Permit>>`; `rayon` 1.12.0; fixtures `egg Tracer.zip`, `.7z`,
+    `bad notes.zip` (lead); 69 of 75 proven. Decision entry "3.9c: a `.7z`'s tasks share its
+    permit; the writer reports in order"
   - [ ] 3.9d output safety: the writability preflight, `cpk_write_failed` and
     `output_commit_failed` with nothing partial left. → verify: TC-CLI-06, TC-OUT-03, TC-OUT-05
   - [ ] 3.9e the placeholder kit (the checkerboard DDS is a lead-made resource) and
@@ -829,3 +835,10 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   shows its `link_target_missing` lines as `[Keep]`: each finding carries its own disposition,
   and the grid's cell (Phase 8) derives the folder's outcome from all of them. No mutation run
   (no `src/` change).
+- 2026-10-02: 3.9c landed first time. The sidekick found two brief gaps, both accepted:
+  `crossbeam-channel` was only a dev-dependency of `team_compiler`, and draining the channel
+  after a write error still left the writer's waiting batches holding permits an oversized
+  `acquire` could wait on forever (fix: `submit` clears them; red-first test). A write error
+  drops the messages of batches not yet reported; the run aborts on that error anyway.
+  `mutants-diff 1306cad`: 16, 10 caught, 5 unviable, 1 timeout (the `.7z` permit choice
+  `==` → `!=` deadlocks under the over-cap test, as it should: 3.9a's survivor is gone).

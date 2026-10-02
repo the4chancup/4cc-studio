@@ -3,8 +3,10 @@
 use std::fs;
 use std::path::Path;
 
+use studio_core::PipelineEvent;
+
 use crate::common::Sandbox;
-use crate::{CLEAN_PLAYER, findings_of, snapshot};
+use crate::{CLEAN_PLAYER, findings_of, snapshot, source_fixture};
 
 impl Sandbox {
     /// Copies every file under `source` into `<folder>`, leaving `source` untouched.
@@ -17,13 +19,13 @@ impl Sandbox {
     }
 
     /// Copies the tracer bullet's export to `exports/<name>`.
-    fn copy_tracer(&self, name: &str) {
+    pub(crate) fn copy_tracer(&self, name: &str) {
         self.copy_folder(Path::new(&tracer_export()), &format!("exports/{name}"));
     }
 
     /// Copies the tracer bullet's player folder into `<folder>`: a face folder holding only
     /// what Phase 3 compiles, so it compiles with no finding.
-    fn copy_tracer_face(&self, folder: &str) {
+    pub(crate) fn copy_tracer_face(&self, folder: &str) {
         let face = Path::new(&tracer_export()).join("Players/05 - The Chad Stormworks Player");
         self.copy_folder(&face, folder);
     }
@@ -45,7 +47,7 @@ fn tracer_kit() -> Vec<u8> {
 }
 
 /// Settings targeting PES 21 with the PES folder at `<sandbox>/PES`.
-fn pes21_settings(sandbox: &Sandbox) -> String {
+pub(crate) fn pes21_settings(sandbox: &Sandbox) -> String {
     format!(
         "[common]\npes_version = 21\npes_folder_path = '{}'\n",
         sandbox.root.join("PES").display()
@@ -145,7 +147,7 @@ fn kit_texture(name: &str) -> String {
 }
 
 /// The player id of every face in the sandbox's compiled CPK, sorted.
-fn compiled_players(sandbox: &Sandbox) -> Vec<u32> {
+pub(crate) fn compiled_players(sandbox: &Sandbox) -> Vec<u32> {
     let mut players: Vec<u32> = cpk_paths(&sandbox.root.join("output/4cc_90_test.cpk"))
         .iter()
         .filter_map(|path| {
@@ -836,4 +838,134 @@ fn export_paths_restrict_check_and_compile_to_the_named_exports() {
     }
     assert_eq!(compiled_players(&sandbox), [71403, 79003]);
     assert!(compiled_kits(&sandbox).is_empty());
+}
+
+// TC-ID-01
+#[test]
+fn a_zip_export_is_compiled_as_the_team_its_name_starts_with() {
+    let sandbox = Sandbox::new("id_zip");
+    sandbox.write(
+        "exports/co - Spring 2026.zip",
+        &source_fixture("egg Tracer.zip"),
+    );
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+    assert_eq!(
+        run.messages(),
+        ["co - Spring 2026.zip: Info export_identified [Keep] (team=/co/, id=714)"]
+    );
+    assert_eq!(compiled_players(&sandbox), [71405]);
+    assert_eq!(compiled_kits(&sandbox), ["u0714g1"]);
+    assert_eq!(run.exit_code(), 0);
+}
+
+// TC-ROOT-05
+#[test]
+fn a_root_notes_txt_that_cannot_be_read_is_dropped_and_the_rest_compiled() {
+    let sandbox = Sandbox::new("root_notes_unreadable");
+    sandbox.copy_fixture("egg Tracer bad notes.zip", "exports");
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+    assert_eq!(
+        run.messages(),
+        [
+            "egg Tracer bad notes.zip: Error source_read_failed [DropFile] at notes.txt (reason=Invalid checksum)",
+            "egg Tracer bad notes.zip: Info export_identified [Keep] (team=/egg/, id=792)",
+        ]
+    );
+    assert_eq!(compiled_players(&sandbox), [79205]);
+    assert_eq!(run.exit_code(), 1);
+}
+
+#[test]
+fn a_7z_over_the_memory_cap_compiles() {
+    let sandbox = Sandbox::new("seven_z_over_cap");
+    sandbox.copy_fixture("egg Tracer.7z", "exports");
+    // A cap of a few hundred bytes against the archive's 151 KB decompressed: its permit is
+    // oversized, so a task asking the budget for its own while it is held would wait forever.
+    let settings = format!(
+        "{}memory_cap_percent = 0.000001\n",
+        pes21_settings(&sandbox)
+    );
+
+    let run = sandbox.run(&settings, &["compile"]);
+
+    assert_eq!(
+        run.messages(),
+        ["egg Tracer.7z: Info export_identified [Keep] (team=/egg/, id=792)"]
+    );
+    assert_eq!(compiled_players(&sandbox), [79205]);
+    assert_eq!(compiled_kits(&sandbox), ["u0792g1"]);
+    assert_eq!(run.exit_code(), 0);
+}
+
+#[test]
+fn an_export_is_processed_after_its_last_task_or_after_planning_when_it_has_none() {
+    let sandbox = Sandbox::new("processed_order");
+    sandbox.write("exports/co - Kits/Kits/p1/kit.dds", &tracer_kit());
+    // Fails on the pool, so its finding is the writer's to report.
+    sandbox.write("exports/co - Kits/Kits/g1/kit.dds", b"not a texture");
+    sandbox.write("exports/dbg - Off/NO_USE", b"");
+    sandbox.write(&format!("exports/dbg - Off/{CLEAN_PLAYER}"), b"");
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+    let events: Vec<String> = run
+        .events
+        .iter()
+        .map(|envelope| match &envelope.event {
+            PipelineEvent::ExportStarted { export_id, .. } => format!("started {}", export_id.0),
+            PipelineEvent::Message(message) => format!("message {}", message.code.code),
+            PipelineEvent::ExportProcessed { export_id } => format!("processed {}", export_id.0),
+            other => format!("{other:?}"),
+        })
+        .collect();
+    assert_eq!(
+        events,
+        [
+            "started 0",
+            "message export_identified",
+            "started 1",
+            "message export_disabled",
+            "message kit_config_generated",
+            "message kit_config_generated",
+            "processed 1",
+            "message folder_pack_failed",
+            "processed 0",
+        ]
+    );
+    assert_eq!(run.exit_code(), 1);
+}
+
+#[test]
+fn the_worker_count_changes_neither_the_findings_nor_the_cpk() {
+    let mut outcomes = Vec::new();
+    for threads in [1, 8] {
+        let sandbox = Sandbox::new(&format!("worker_count_{threads}"));
+        sandbox.copy_tracer("egg Tracer");
+        sandbox.write("exports/dbg Seven.7z", &source_fixture("egg Tracer.7z"));
+        sandbox.write("exports/co - Kits/Kits/p1/kit.dds", &tracer_kit());
+        sandbox.write("exports/co - Kits/Kits/g1/kit.dds", &tracer_kit());
+        let settings = format!("{}thread_count = {threads}\n", pes21_settings(&sandbox));
+
+        let run = sandbox.run(&settings, &["compile"]);
+
+        assert_eq!(run.exit_code(), 0, "{threads} threads");
+        let cpk = fs::read(sandbox.root.join("output/4cc_90_test.cpk")).unwrap();
+        outcomes.push((run.messages(), cpk));
+    }
+    assert_eq!(outcomes[0].0, outcomes[1].0);
+    assert_eq!(
+        outcomes[0].0,
+        [
+            "co - Kits: Info export_identified [Keep] (team=/co/, id=714)",
+            "dbg Seven.7z: Info export_identified [Keep] (team=/dbg/, id=790)",
+            "egg Tracer: Info export_identified [Keep] (team=/egg/, id=792)",
+            "co - Kits: Info kit_config_generated [Keep] at Kits/p1 ()",
+            "co - Kits: Info kit_config_generated [Keep] at Kits/g1 ()",
+        ]
+    );
+    assert!(outcomes[0].1 == outcomes[1].1, "the CPKs differ");
 }

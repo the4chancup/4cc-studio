@@ -7,6 +7,7 @@ mod model;
 mod texture;
 
 use std::collections::BTreeMap;
+use std::sync::Arc;
 
 use aesthetics_export::FileDescriptor;
 use pes_version::PesVersion;
@@ -41,8 +42,9 @@ pub(crate) struct TaskBatch {
     pub(crate) uniparam: Option<Entry>,
     /// The task's findings.
     pub(crate) messages: Vec<Message>,
-    /// The memory the task was charged, released once the writer has its entries.
-    pub(crate) permit: Option<Permit>,
+    /// The memory the task was charged, released once the writer has its entries. A `.7z`
+    /// export's tasks share one, its whole decompressed size, released with the last of them.
+    pub(crate) permit: Option<Arc<Permit>>,
 }
 
 /// Runs `task`, the manifest's task number `index`, over `files`, the bytes of every file it

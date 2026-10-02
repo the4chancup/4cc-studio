@@ -3,7 +3,8 @@
 use std::fs;
 
 use crate::common::Sandbox;
-use crate::{CLEAN_PLAYER, findings_of, snapshot};
+use crate::compile::{compiled_players, pes21_settings};
+use crate::{CLEAN_PLAYER, findings_of, snapshot, source_fixture};
 
 /// The folder `exports/co - Spring/`, the same export as the `co - Spring` fixtures: git keeps no
 /// empty folder, so it is built here.
@@ -161,4 +162,23 @@ fn check_leaves_every_archive_and_nested_export_as_it_was() {
     assert_eq!(findings_of(&lines, "co - Spring.7z"), SPRING_FINDINGS);
     assert_eq!(findings_of(&lines, "co - Spring.zip"), SPRING_FINDINGS);
     assert_eq!(snapshot(&exports), before);
+}
+
+// TC-SRC-09
+#[test]
+fn check_and_compile_leave_every_source_as_it_was() {
+    let sandbox = Sandbox::new("sources_untouched");
+    sandbox.copy_tracer("egg Tracer");
+    sandbox.write("exports/co - Zip.zip", &source_fixture("egg Tracer.zip"));
+    sandbox.write("exports/dbg - Seven.7z", &source_fixture("egg Tracer.7z"));
+    sandbox.copy_tracer_face("exports/esg - Nested/wrapper/Players/03 - A");
+    let exports = sandbox.root.join("exports");
+    let before = snapshot(&exports);
+
+    let settings = pes21_settings(&sandbox);
+    assert_eq!(sandbox.run(&settings, &["check"]).exit_code(), 0);
+    assert_eq!(snapshot(&exports), before, "check");
+    assert_eq!(sandbox.run(&settings, &["compile"]).exit_code(), 0);
+    assert_eq!(snapshot(&exports), before, "compile");
+    assert_eq!(compiled_players(&sandbox), [71405, 79005, 79205, 79303]);
 }

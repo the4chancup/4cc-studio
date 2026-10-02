@@ -2754,3 +2754,20 @@ Phase 3 they would have no consumer and no observable behavior to test; `Complet
 documented placeholders, so emitting them now would build a shape the plan already says to
 replace. Emitting them with their consumer lets the grid's needs settle what they carry.
 Plan: `team_compiler/README.md` "Phase 3 scope" (last paragraph) and TC-DSP-02.
+
+## 2026-10-02 — team_compiler — 3.9c: a `.7z`'s tasks share its permit; the writer reports in order
+Decision (lead, reversible): `TaskBatch.permit` is `Option<Arc<pipeline::Permit>>`. The
+coordinator reads every task of a `.7z` export, then frees the archive and hands each task a
+share of the export's permit, released when the writer has committed the last of them; a
+folder or zip task holds its own. The writer thread reports each committed batch's messages,
+in manifest order, and an export's `ExportProcessed` after its last task; an export with no
+task reports it right after planning. The worker count is `pipeline::thread_count_detect`
+(the plan's), not `studio_core`'s `CommonSettings::worker_threads`, which duplicates it with no
+caller (left for the Phase 3 `pub` audit).
+Why: with tasks running in parallel, the coordinator moves to the next export while a `.7z`'s
+tasks still hold its bytes; dropping the permit with the content source (as the serial 3.9a
+did) would release a charge whose memory is still in use, and one plain `Permit` cannot be
+held by several tasks. Reporting from the pool would make the console's line order, and the
+scenario tests' expected lists, depend on thread timing.
+Plan: `team_compiler/pipeline.md` "Run driver shapes (Phase 3)" (the block's `permit`, and
+"Admission").
