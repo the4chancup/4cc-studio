@@ -266,7 +266,12 @@ structure pass on every export, including content `compile` refuses (deep format
 Phase 4's). The code is withdrawn when Phase 4 compiles everything.
 Findings are observed
 in `check`'s and `compile`'s console output, one line per finding naming its code and scope; the
-compiled CPK's content is the parity test's (`testing.md`), not a scenario's.
+compiled CPK's content is the parity test's (`testing.md`), not a scenario's. Of the events,
+Phase 3 emits `ExportStarted`, `Message` and `ExportProcessed` only: `FolderStatus`, `Progress`
+and `Complete` wait for their consumers, the progress grid and the run strip (Phase 8), which
+is also when `Complete`'s placeholder fields are restructured ("Event system" in
+`core/architecture.md`), so a cell's outcome (`DoneWithErrors`, "Cell states" in `gui.md`) is
+not one of these scenarios.
 
 **Sources**
 
@@ -507,8 +512,8 @@ TC-DSP-01  GIVEN an export with one valid player folder and one dropped by link_
            THEN the CPK holds the valid player's content only, and the exit code is 1
 TC-DSP-02  GIVEN the same export with pass_through on
            WHEN it is compiled
-           THEN both players are compiled, link_target_missing is still reported as an Error, the
-                export finishes as done with errors, and the exit code is 1
+           THEN both players are compiled, link_target_missing is still reported as an Error,
+                and the exit code is 1
 TC-DSP-03  GIVEN pass_through on and exports with players_txt_slot_duplicate, players_txt_slot_invalid,
            shared_folder_orphaned, fpc_conflict, kit_layout_conflict, shared_link_duplicate,
            kit_slot_duplicate or kit_folder_invalid

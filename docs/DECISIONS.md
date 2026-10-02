@@ -2741,3 +2741,16 @@ refusing it would skip 14 of 365 surveyed kits for nothing. `fpc.on` changes eve
 `ingame_face` reroutes the face; both would emit something Phase 3 does not build.
 Plan: `team_compiler/README.md` "Phase 3 scope" (the "what would be emitted" sentence, context
 keys, order).
+
+## 2026-10-02 — team_compiler — Phase 3 emits no FolderStatus, Progress or Complete
+Decision (lead, reversible): Phase 3's pipeline emits `ExportStarted`, `Message` and
+`ExportProcessed` only. `FolderStatus`, `Progress` and `Complete` are emitted from Phase 8, with
+the progress grid and the run strip that consume them; `Complete`'s placeholder fields are
+restructured then. TC-DSP-02 loses its "the export finishes as done with errors" clause: that
+outcome is a grid cell's, specified in `gui.md` "Cell states", and belongs to Phase 8's
+acceptance. Step 3.9b2 is the compile-observed scenario tests only.
+Why: the console prints none of the three, and 3.z's view is a plain log with no grid, so in
+Phase 3 they would have no consumer and no observable behavior to test; `Complete`'s fields are
+documented placeholders, so emitting them now would build a shape the plan already says to
+replace. Emitting them with their consumer lets the grid's needs settle what they carry.
+Plan: `team_compiler/README.md` "Phase 3 scope" (last paragraph) and TC-DSP-02.
