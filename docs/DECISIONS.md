@@ -2771,3 +2771,19 @@ held by several tasks. Reporting from the pool would make the console's line ord
 scenario tests' expected lists, depend on thread timing.
 Plan: `team_compiler/pipeline.md` "Run driver shapes (Phase 3)" (the block's `permit`, and
 "Admission").
+
+## 2026-10-02 — team_compiler — 3.9d: output failures are findings, and every one discards the staging
+Decision (lead, reversible): an output folder that cannot be created or written is refused by
+`compile` before any export is read (a probe file created and removed; exit 3 naming the
+folder). Any failure writing the CPK, the kits' `UniformParameter.bin` included, is reported as
+`cpk_write_failed`, and a failed rename onto the final path as `output_commit_failed`; both are
+Fatal `AbortRun` findings on the run scope, context `path` (the final CPK path) and `error`,
+and both discard the run's staging folder (and `.staging/` when empty), so the previous CPK is
+all that is left. A failure removing the emptied run folder after a successful rename is logged,
+not a commit failure: the new CPK is in place.
+Why: as `anyhow` errors (3.9a-c) these aborted with an `error:` line and left the staged CPK
+behind, which the catalog's "required guarantees" forbid. `uniparam_compile_failed` is not
+used yet: in Phase 3 the only bin is built on the bundled base, and its failure modes arrive
+with Phase 4's installed-bin lookup; until then the one code covers the whole write.
+Plan: no plan edit needed: `pipeline.md` "Output" and `messages.md` already state the probe
+and both guarantees; this entry records the Phase 3 mapping.

@@ -31,10 +31,22 @@ pub(crate) fn cpk_file_name(cpk_stem: &CpkStem) -> String {
     format!("{}.cpk", cpk_stem.as_str())
 }
 
+/// Creates the output folder `output` if it is missing and probes it for writing: a file
+/// created in it and removed. Each failure names the folder, not the probe.
+pub(crate) fn prepare_output_folder(output: &Path) -> anyhow::Result<()> {
+    fs::create_dir_all(output)
+        .with_context(|| format!("{}: cannot create the output folder", output.display()))?;
+    let cannot_write = || format!("{}: cannot write in the output folder", output.display());
+    let probe = output.join(format!(".write-probe-{}", std::process::id()));
+    fs::write(&probe, b"").with_context(cannot_write)?;
+    fs::remove_file(&probe).with_context(cannot_write)
+}
+
 /// Moves the CPK staged in `run_folder` to `<output>/<cpk_stem>.cpk`, replacing a previous
-/// one, and removes the emptied `run_folder`, then `.staging/` when no other run's folder is
-/// left in it. The rename stays on one volume, so the final path holds either the previous CPK
-/// or the whole new one, never part of it. Returns the promoted path.
+/// one, then discards the emptied `run_folder`. The rename stays on one volume, so the final
+/// path holds either the previous CPK or the whole new one, never part of it. Only the
+/// rename's failure is the commit's: once it is done the new CPK is in place, so a failure of
+/// the cleanup after it is logged, not returned. Returns the promoted path.
 pub(crate) fn promote(
     run_folder: &Path,
     output: &Path,
@@ -44,15 +56,23 @@ pub(crate) fn promote(
     let promoted = output.join(&name);
     fs::rename(run_folder.join(&name), &promoted)
         .with_context(|| format!("{}: cannot replace it with the new CPK", promoted.display()))?;
-    fs::remove_dir(run_folder)
-        .with_context(|| format!("{}: cannot remove the staging folder", run_folder.display()))?;
+    discard(run_folder, output);
+    Ok(promoted)
+}
+
+/// Removes the run's `run_folder` with whatever it holds, then `.staging/` when no other
+/// run's folder is left in it. A failure to remove is logged, not returned: a run that
+/// failed already carries the error that matters, and a promoted one has its CPK in place.
+pub(crate) fn discard(run_folder: &Path, output: &Path) {
+    if let Err(error) = fs::remove_dir_all(run_folder) {
+        log::debug!("{}: kept: {error}", run_folder.display());
+    }
     // Another run alive at once may still be using `.staging/`; it removes the folder when it
-    // finishes, so a refusal here is expected and not an error.
+    // finishes, so a refusal here is expected.
     let staging = output.join(STAGING);
     if let Err(error) = fs::remove_dir(&staging) {
         log::debug!("{}: kept: {error}", staging.display());
     }
-    Ok(promoted)
 }
 
 #[cfg(test)]
@@ -68,6 +88,70 @@ mod tests {
         let (pid, millis) = name.split_once('-').unwrap();
         assert_eq!(pid, std::process::id().to_string());
         assert!(millis.parse::<u128>().unwrap() > 0, "{name}");
+    }
+
+    #[test]
+    fn the_output_folder_is_created_and_probed_leaving_nothing_in_it() {
+        let root = scratch("prepare_output");
+        let output = root.join("new").join("output");
+
+        prepare_output_folder(&output).unwrap();
+
+        assert!(output.is_dir());
+        assert_eq!(
+            fs::read_dir(&output).unwrap().count(),
+            0,
+            "no probe file is left"
+        );
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn an_output_folder_under_a_file_is_refused_naming_the_folder() {
+        let root = scratch("prepare_output_blocked");
+        fs::write(root.join("blocker"), "").unwrap();
+        let output = root.join("blocker").join("out");
+
+        let error = prepare_output_folder(&output).unwrap_err();
+
+        let text = error.to_string();
+        assert!(
+            text.starts_with(&format!(
+                "{}: cannot create the output folder",
+                output.display()
+            )),
+            "{text}"
+        );
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn discarding_removes_the_run_folder_and_an_emptied_staging_folder() {
+        let output = scratch("discard");
+        let run_folder = staging_folder(&output);
+        fs::create_dir_all(&run_folder).unwrap();
+        fs::write(run_folder.join("cup.cpk"), "partial").unwrap();
+
+        discard(&run_folder, &output);
+
+        assert!(!output.join(STAGING).exists());
+        fs::remove_dir_all(&output).unwrap();
+    }
+
+    #[test]
+    fn discarding_keeps_the_staging_folder_another_run_still_uses() {
+        let output = scratch("discard_beside_another_run");
+        let run_folder = staging_folder(&output);
+        let other_run = output.join(STAGING).join("1-1");
+        fs::create_dir_all(&run_folder).unwrap();
+        fs::create_dir_all(&other_run).unwrap();
+        fs::write(run_folder.join("cup.cpk"), "partial").unwrap();
+
+        discard(&run_folder, &output);
+
+        assert!(!run_folder.exists());
+        assert!(other_run.is_dir());
+        fs::remove_dir_all(&output).unwrap();
     }
 
     #[test]

@@ -10,7 +10,7 @@ is in `AGENTS.md` ("Working documents").
 ## Current status
 
 **Phase:** 3 (Team compiler skeleton). Phases 1 and 2 done (Phase 2 closed 2026-09-30).
-**In progress:** 3.9 (`compile` through the pipeline): 3.9a-c done (3.9b2 included), 3.9d next. 3.7 (`libs/pipeline`) and 3.8
+**In progress:** 3.9 (`compile` through the pipeline): 3.9a-d done (3.9b2 included), 3.9e next. 3.7 (`libs/pipeline`) and 3.8
 (`check` end to end, slices a-d) are implemented and mutation-clean; only their cross-family
 reviews are left, queued for the lead (see "Handover" below), and each is marked done once its
 review's rulings land. 3.6 is done (`aesthetics_export`, 35 of 75
@@ -305,8 +305,13 @@ Itemized 2026-09-30 at Phase 2's close. Order: the tracer first (one real export
     `TaskBatch.permit: Option<Arc<Permit>>`; `rayon` 1.12.0; fixtures `egg Tracer.zip`, `.7z`,
     `bad notes.zip` (lead); 69 of 75 proven. Decision entry "3.9c: a `.7z`'s tasks share its
     permit; the writer reports in order"
-  - [ ] 3.9d output safety: the writability preflight, `cpk_write_failed` and
-    `output_commit_failed` with nothing partial left. → verify: TC-CLI-06, TC-OUT-03, TC-OUT-05
+  - [x] 3.9d output safety: the writability preflight, `cpk_write_failed` and
+    `output_commit_failed` with nothing partial left. → verify: TC-CLI-06, TC-OUT-03, TC-OUT-05.
+    Done: `deploy.rs` (`prepare_output_folder`, `discard`, `promote` failing only on its
+    rename), `compile.rs` (`abort_output`; the writer thread finishes the CPK, so its file is
+    closed before a failure removes the staging), `messages.rs` (two Fatal codes,
+    `CatalogSeverity::Fatal`), the probe in `cli.rs`; 72 of 75 proven. Decision entry "3.9d:
+    output failures are findings, and every one discards the staging"
   - [ ] 3.9e the placeholder kit (the checkerboard DDS is a lead-made resource) and
     `kit_placeholder`, with its help topic line. → verify: TC-SRC-01, every 3.9 ID
     proven in `acceptance.py report`
@@ -842,3 +847,9 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   drops the messages of batches not yet reported; the run aborts on that error anyway.
   `mutants-diff 1306cad`: 16, 10 caught, 5 unviable, 1 timeout (the `.7z` permit choice
   `==` → `!=` deadlocks under the over-cap test, as it should: 3.9a's survivor is gone).
+- 2026-10-02: 3.9d landed first time, the first slice by a Fable sidekick (maintainer's trial).
+  Its three reported brief errors were all right (no catalog `F` kind existed; TC-OUT-03's
+  chain names the face's texture, the first duplicate the writer meets, not `face.fpk`;
+  `promote` reuses `discard` whole), and it caught one the brief missed: the writer's
+  `CpkWriter` would still hold the staged file open when a failure removed the folder.
+  `mutants-diff cb6f0cf`: 12, 10 caught, 2 unviable, 0 missed.
