@@ -402,6 +402,10 @@ Differences from the desktop build:
   and resident in a `.wasm`. The template accessor (embedded → shadowed by the `templates/` override
   directory) is the single seam: the web build may swap the embedded source for lazy fetches behind
   it if the download size matters.
+- **Transfer size** (maintainer, 2026-10-02): a target, not a limit. The first load should stay at
+  a few MB as the browser receives it (brotli or gzip compressed), so a member on an ordinary
+  home connection waits seconds, not minutes; Phase 18 measures it. Past that, the embedded
+  resources are the first thing to fetch lazily (the bullet above).
 - **Native-only features stay unavailable**: live process tracking, Blender/PES launch, elevation,
   and binary self-update. Confirm archive and audio support on the chosen browser target before
   promising desktop parity.
