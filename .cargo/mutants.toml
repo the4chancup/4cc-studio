@@ -25,22 +25,31 @@ gitignore = true
 exclude_globs = ["crates/libs/python_bindings/**"]
 
 exclude_re = [
-    # Bit packing: `a | b` and `a ^ b` are the same value when the operands share no set bit,
-    # which is every packed-field write in the format crates (the fields are masked and shifted
-    # into disjoint ranges). The kit_config probe had 25 of its 46 survivors here, all equivalent.
-    # Accepted loss: an OR of overlapping operands is no longer mutated either.
-    "replace \\| with \\^",
-    # `relaunch_elevated` mutants can only be exercised through the UAC consent prompt,
-    # which no test can click: the `-> Ok(())` replacements, the SHELLEXECUTEINFOW field
-    # deletes (a separate mutant genre whose name the function pattern does not match, hence
-    # the second entry) and the ERROR_CANCELLED arm all live behind it. The plan
-    # (libs/elevation.md) makes the relaunch a manual check at the first tool phase that
-    # needs it. The not-windows-not-unix `is_elevated` arm is unreachable on every host we
-    # test on for the same underlying reason (the platform it belongs to never runs the
-    # suite): it is not matched by either pattern and will keep appearing in missed.txt,
-    # accepted as unreachable.
-    "relaunch_elevated",
-    "SHELLEXECUTEINFOW",
+    # Entries naming a `line:column` drift when the file changes above them: a drifted one
+    # matches nothing and its mutant reappears in missed.txt. Each phase's close re-checks
+    # every entry against `cargo mutants --list` (3.w did the first audit).
+    #
+    # Bit packing: `a | b` and `a ^ b` are the same value when the operands share no set bit.
+    # In the files of the first entry every `|` joins masked, shifted fields into disjoint
+    # ranges (the kit_config probe had 25 of its 46 survivors there, all equivalent); accepted
+    # loss: a new `|` added to one of them is excluded too. In `f16.rs` only the listed
+    # positions are disjoint: the quiet-NaN ORs at 17:25 and 39:30 overlap a payload bit, so `^`
+    # turns a NaN into an infinity, and the tests kill both. Left in as well: the material-flag
+    # ORs (`to_fox::resolve`, `pes_model/export.rs`), whose flags can already hold the bit
+    # being set, so `^` clears it.
+    "(color_tools/src/kit|cpk/src/(crilayla|read|utf)|fmdl/src/ops/antiblur|ftex/src/dds|kit_config/src/binary|pes_savefile/src/(codec/bits|container/mt19937|schema/texport))\\.rs:\\d+:\\d+: replace \\| with \\^",
+    "fmdl/src/format/f16\\.rs:(19:36|19:50|24:36|26:25|26:52|39:21|43:21|55:44|66:21|69:53|76:10): replace \\| with \\^",
+    # `relaunch_elevated`'s Windows arm can only be exercised through the UAC consent prompt,
+    # which no test can click: the `-> Ok(())` replacements of the body (`windows.rs`) and of
+    # its wrapper (`lib.rs:51`), and the ERROR_CANCELLED arm. The plan (libs/elevation.md) makes
+    # the relaunch a manual check at the first tool phase that needs it. The wrapper for other
+    # platforms (`lib.rs:65`) compiles on no tested OS. The Unix arm (`lib.rs:59`, `posix.rs`)
+    # stays in: `relaunch_is_unsupported` kills it on Linux, and on Windows, where it does not
+    # compile, it is listed as missed like `available_memory`'s arms below. Not excludable,
+    # accepted: the six SHELLEXECUTEINFOW field deletions, because cargo-mutants (27.1) applies
+    # neither `exclude_re` nor `--re` to "delete field" mutants (measured at 3.w), and the
+    # not-windows-not-unix `is_elevated` arm, which compiles on no tested OS either.
+    "elevation/src/(windows\\.rs:\\d+|lib\\.rs:(51|65)):\\d+: .*relaunch_elevated",
     # `studio_core::run_gui` and `studio`'s `run_gui_mode` open a native window and return
     # when it closes, which no test can do (the suite runs without a display, and a test that
     # opened one would wait for a person to close it). Everything the window shows is tested
@@ -89,11 +98,13 @@ exclude_re = [
     # group's own entry already fails `keep[g]` independently of the child
     # scan: including the group itself in `group_children` changes nothing.
     "hand_split\\.rs:210:25: replace \\+ with \\*",
-    # `quantize_weights`' `remaining_weight > 0.0` -> `>=` is equivalent.
-    # `remaining_weight` reaches exactly 0 only when every unprocessed slot's
-    # weight is 0 (IR weights are non-negative), and `0.0 / 0.0` then gives
-    # NaN whose `as i32` cast saturates to 0 — the same byte the `else` arm
-    # writes.
+    # `quantize_weights`' `remaining_weight > 0.0` -> `>=` is equivalent. Before the last
+    # slot, `remaining_weight` becomes exactly 0 only after a slot whose weight equals what
+    # remained (`x - y == 0` only when `x == y`), and that slot took `round(1.0 * total)`, the
+    # whole total left, so every later slot computes `weight / 0.0 * 0`, a NaN whose `as i32`
+    # cast is 0: the byte the `else` arm writes. Measured at 3.w: no differing output over 6
+    # million inputs. (The audit first took `[1.0, 2^-25, 0, 0]` to kill it; by the second
+    # slot that input's total is already 0.)
     "replace > with >= in quantize_weights",
     # `retarget`'s `weights[slot] > 0.0` -> `>=` at lines 212 and 229 are
     # equivalent. A zero-weight slot entering the blend arm contributes
@@ -109,8 +120,10 @@ exclude_re = [
     # alone; on all three versions a shared name's `hand_*` matrix differs
     # from `body`'s by <=1.3e-5, far under `MOVED_TOLERANCE` (1e-3), so
     # `conforming` returns a bone whose matrix `bone_moved` always judges
-    # the same whichever table order is used.
-    "fox_has_hand_weights",
+    # the same whichever table order is used. The `.model` side,
+    # `prefox_has_hand_weights`, is not covered by this argument and its tests
+    # kill it (3.w), hence the `replace`/` in` prefix keeping `prefox_` out.
+    "(replace| in) fox_has_hand_weights",
     # `blend_direction`'s `sum` guard and `/=` division (retarget.rs:236,
     # :238) are equivalent in any form: the caller passes the closure's
     # output through `normalized()`, which absorbs any positive scalar —

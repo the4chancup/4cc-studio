@@ -351,7 +351,7 @@ Itemized 2026-09-30 at Phase 2's close. Order: the tracer first (one real export
   list), `structure.rs` (`no_exports_found` on an empty scan), `messages.rs`, help; the old
   `a_missing_exports_root_aborts_naming_it` (exit 3) became the `check` half of TC-CLI-09;
   77 of 77 proven. `mutants-diff 5d8ac28` (with 3.w's tests): 14, 12 caught, 2 unviable
-- [ ] 3.w `.cargo/mutants.toml` audit, before 3.y's whole-crate runs (they measure only what it
+- [x] 3.w `.cargo/mutants.toml` audit, before 3.y's whole-crate runs (they measure only what it
   leaves in; maintainer, 2026-10-01: most entries came from Phase 2 sidekick work and none was
   re-verified). The lead, not a sidekick, takes every `exclude_re`/`exclude_globs` entry:
   (1) what it matches today (`cargo mutants --list` with and without it): a line-numbered
@@ -361,7 +361,21 @@ Itemized 2026-09-30 at Phase 2's close. Order: the tracer first (one real export
   confirming it survives. An entry that matches nothing, or whose mutant a test can kill, is
   removed (a killable one becomes a test in the rework brief); a broad pattern is narrowed to
   what it argues for. → verify: every surviving entry has its argument and a run showing its
-  mutants survive, listed in the converge record
+  mutants survive, listed in the converge record. Done: every entry's matches listed against
+  `--list --no-config` (union = the 150 the config removed), each argument re-read against the
+  code, and the 110 matched mutants (python_bindings' glob aside, measured by hand) run with
+  `exclude_re` off: 99 missed, 11 caught. Rewritten: `| -> ^` narrowed to the files whose every
+  OR packs disjoint fields plus 11 disjoint `f16.rs` positions (its quiet-NaN ORs and the
+  material-flag ORs of `to_fox::resolve` and `pes_model/export.rs` can overlap);
+  `relaunch_elevated` narrowed to the Windows arm (the Unix arm is killed on Linux);
+  `SHELLEXECUTEINFOW` removed (cargo-mutants 27.1 applies no regex, `-E` or `-F`, to "delete
+  field" mutants, so it matched nothing; the six stay as accepted survivors);
+  `fox_has_hand_weights` no longer matches `prefox_has_hand_weights` (its tests kill all six);
+  `quantize_weights` kept with a corrected argument (the lead's counterexample was wrong: the
+  total is already 0 there; no difference over 6 million inputs), its never-binding
+  `.min(255 * lanes)` cap removed. Tests added for the three overlapping ORs no test killed
+  (`to_fox.rs:148`, `pes_model/export.rs:129/134`). The config now removes 132; every other
+  entry's argument holds and its mutants survived the run (`.tmp/3w/mutants.out/`)
 - [ ] 3.y Converge (`AGENTS.md` "Closing a phase"): the lead's audit against the Phase 3 plan
   sections and every TC ID (3.2's strict mode), design-health pass, `just mutants` per new
   crate, then the reviewer loop; gaps become steps above this one
@@ -912,3 +926,9 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   and an empty one reports `no_exports_found`. Red runs: TC-CLI-08 exit `3` against `2`;
   TC-CLI-09 and its `check` half "the folder was created"; the `cli.rs` unit tests against an
   unconditional `Ok(root)`. Fable: landed first time.
+- **2026-10-02** - 3.w: `.cargo/mutants.toml` audited entry by entry (row 3.w); five entries
+  were wrong or too broad, the config now removes 132 mutants instead of 150, and three
+  `model_convert` tests kill the overlapping ORs the old entry hid. Red runs (mutation applied
+  by hand): `to_fox.rs:148` `left: 0 right: 32`; `pes_model/export.rs:129` `left: [] right:
+  ["no_shadow_cast"]`, `:134` `left: [] right: ["invisible"]`. Fable: landed first time and
+  disproved the lead's `quantize_weights` counterexample with a 6-million-input probe.
