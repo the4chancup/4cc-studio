@@ -2849,8 +2849,9 @@ Plan: `team_compiler/pipeline.md` "Run driver shapes (Phase 3)"; `aesthetics_exp
 object_model.md` "Core types" (the tool-side block); `core/parallelism.md` "Design".
 
 ## 2026-10-02 — pes_version, team_compiler — the road stays open for a third engine (4.0a)
-Decision: `pes_version::Engine` is branched on only with exhaustive `match`es (no `==`/`!=`, no
-`PesVersion` ordering standing in for an engine); Phase 4's `OutputSink` takes entries by
+Decision: `pes_version::Engine` is branched on only with exhaustive `match`es (no `==`/`!=`
+against one variant, no `PesVersion` ordering standing in for an engine; comparing two engines
+stays allowed); Phase 4's `OutputSink` takes entries by
 output-relative path, with game paths the materialize step's alone. Nothing PES 12-specific
 enters the plans: the study's stub stays stashed. ID allocation and bins are not made per-target
 (the maintainer: modding progress may give PES 12 CPK-like files and custom team IDs).

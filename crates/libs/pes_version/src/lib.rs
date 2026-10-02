@@ -70,10 +70,11 @@ impl PesVersion {
 
     /// Which engine the version's models and textures use.
     pub fn engine(self) -> Engine {
-        if self >= PesVersion::Pes18 {
-            Engine::Fox
-        } else {
-            Engine::PreFox
+        match self {
+            PesVersion::Pes15 | PesVersion::Pes16 | PesVersion::Pes17 => Engine::PreFox,
+            PesVersion::Pes18 | PesVersion::Pes19 | PesVersion::Pes20 | PesVersion::Pes21 => {
+                Engine::Fox
+            }
         }
     }
 
@@ -149,9 +150,19 @@ mod tests {
     use super::*;
 
     #[test]
-    fn engine_switches_at_pes18() {
-        assert_eq!(PesVersion::Pes17.engine(), Engine::PreFox);
-        assert_eq!(PesVersion::Pes18.engine(), Engine::Fox);
+    fn engine_of_every_version() {
+        let expected = [
+            Engine::PreFox,
+            Engine::PreFox,
+            Engine::PreFox,
+            Engine::Fox,
+            Engine::Fox,
+            Engine::Fox,
+            Engine::Fox,
+        ];
+        for (version, engine) in PesVersion::ALL.into_iter().zip(expected) {
+            assert_eq!(version.engine(), engine, "{version}");
+        }
     }
 
     #[test]

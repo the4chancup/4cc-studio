@@ -99,8 +99,9 @@ pub(crate) fn plan_run(
     let mut tasks = Vec::new();
     let mut messages = Vec::new();
     for (export_id, mut resolved) in exports {
-        if version.engine() == Engine::Fox {
-            drop_kit_masks(&mut resolved.export.kits);
+        match version.engine() {
+            Engine::Fox => drop_kit_masks(&mut resolved.export.kits),
+            Engine::PreFox => {}
         }
         if let Some(item) = first_not_compiled(&resolved, version) {
             messages.push(tool_message(

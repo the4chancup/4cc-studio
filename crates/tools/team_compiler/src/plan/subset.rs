@@ -118,8 +118,9 @@ pub(crate) fn first_not_compiled(
 ) -> Option<(&'static str, String)> {
     // The walk's order is the plan's ("Phase 3 scope"), so one export always names the same
     // item; reordering the checks changes which item a member is told about.
-    if version.engine() != Engine::Fox {
-        return Some(("what", version.to_string()));
+    match version.engine() {
+        Engine::Fox => {}
+        Engine::PreFox => return Some(("what", version.to_string())),
     }
     if resolved.identity == ExportIdentity::Referees {
         return Some(("what", "refs".to_owned()));
