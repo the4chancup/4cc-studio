@@ -10,8 +10,8 @@ is in `AGENTS.md` ("Working documents").
 ## Current status
 
 **Phase:** 3 (Team compiler skeleton). Phases 1 and 2 done (Phase 2 closed 2026-09-30).
-**In progress:** 3.9 (`compile` through the pipeline) done, 73 of 75 scenarios proven (the two
-left are 3.z's GUI ones); 3.z next. 3.7 (`libs/pipeline`) and 3.8
+**In progress:** Phase 3's code steps are done (3.9 at 73 of 75 scenarios; 3.z's TC-GUI-01/02
+are manual, pending the maintainer's run); 3.w next, then 3.y and 3.x. 3.7 (`libs/pipeline`) and 3.8
 (`check` end to end, slices a-d) are implemented and mutation-clean; only their cross-family
 reviews are left, queued for the lead (see "Handover" below), and each is marked done once its
 review's rulings land. 3.6 is done (`aesthetics_export`, 35 of 75
@@ -44,7 +44,11 @@ Claude agent with no sidekick and no reviewer of another model family. While tha
   `.tmp/review_brief_3_6.md` is a template for the brief. 3.8 (b): `studio_core`'s `CliError`/
   `AppPaths`/location and the `team_compiler` CLI surface, from 3.8a's commit, against
   `core/architecture.md` "Tool plugin interface", `core/distribution.md` "Data location" and
-  `team_compiler/settings.md` "CLI" (one review once 3.8 is done).
+  `team_compiler/settings.md` "CLI" (one review once 3.8 is done). 3.z (b): the shell slice,
+  from the 3.z commit (new `pub` `StudioApp`, `run_gui`, `ToolContext::with_events`,
+  `EventLines`; three crates), against `core/gui.md` "Shell layout" and "Event wiring",
+  `core/architecture.md` "Tool plugin interface" and "Event system", `core/development_plan.md`
+  "Phase 3" (the shell slice bullet) and the decision entry "3.z: the shell slice's edges".
 - For the lead, on return: the review process on trial (maintainer, 3.1) runs a full sidekick
   review loop after each GPT round and calls GPT again only once that loop has ended and GPT's
   own loop has not; not yet in `AGENTS.md` (3.6: GPT 4 of 7 accepted, then sidekick S1 3 of 7,
@@ -319,12 +323,17 @@ Itemized 2026-09-30 at Phase 2's close. Order: the tracer first (one real export
     (`kit_placeholder` after the kit's `kit_config_generated`), `processing/kit.rs` (the `kit`
     name field always set, the placeholder when the kit has no `kit` texture), `messages.rs`,
     help; `resources/kits/` (lead); 73 of 75 proven
-- [ ] 3.z Shell slice, last code step of the phase (`core/development_plan.md` "Phase 3", last bullet; decided
+- [x] 3.z Shell slice, last code step of the phase (`core/development_plan.md` "Phase 3", last bullet; decided
   2026-09-15): minimal `studio_core` shell (window, sidebar, selected tool's `view()`), `studio`
   binary registering `team_compiler`, Team compiler `view/` with settings, run button and a plain
   `PipelineEvent` log. → verify: manual, recorded in the converge step: the 3.3 fixture compiled
   from the GUI with its events visible, on Windows; Linux when a machine is available
-  (TC-GUI-01/02)
+  (TC-GUI-01/02). Done: `studio_core` `shell/mod.rs` (`StudioApp`, `run_gui`), `tool.rs`
+  (`ToolContext::with_events`), `events.rs` (`EventLines`, moved from `studio`'s console);
+  `studio` `main.rs` (GUI mode, startup shared with the CLI); `team_compiler` `gui_run.rs`
+  (`RunLog`: `compile` through the CLI path on a thread), `view/mod.rs`, `Tool::new()`; `eframe`
+  0.36.2, `egui` raised to it. Decision entry "3.z: the shell slice's edges". Manual
+  TC-GUI-01/02: pending the maintainer's run (Windows), recorded at 3.y.
 - [ ] 3.w `.cargo/mutants.toml` audit, before 3.y's whole-crate runs (they measure only what it
   leaves in; maintainer, 2026-10-01: most entries came from Phase 2 sidekick work and none was
   re-verified). The lead, not a sidekick, takes every `exclude_re`/`exclude_globs` entry:
@@ -457,6 +466,11 @@ pruned when their phase closes; they stay in git history.
   generated file has been imported by the game yet (`verification.md` "Texport write": manual,
   per version; a `new` file and an edited round-tripped one). PES 15/16/20 texports have no
   fixture at all (offsets/key index are the reference's; PES 20's size is derived).
+- open — a run that does not end cleanly leaves its staging (3.z): closing the window while
+  the GUI's compile runs ends the process mid-run, and the coordinator's `Cancelled` path does
+  not discard the staging either, so `output/.staging/<run>/` can be left beside the previous
+  CPK (which stays intact). Fixed with cancellation (`gui.md` "Cancellation", Phase 8): the
+  window stops the run and the cancelled path calls `deploy::discard`.
 
 ---
 
@@ -862,3 +876,11 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   line. Lead fixes: the help paragraph's "It skips" read as the kit folder after the new
   sentence; a second CPK-reading helper merged into `cpk_entries`. `mutants-diff 9072f79`: 11,
   10 caught, 1 unviable, 0 missed.
+- 2026-10-02: 3.z landed after one tests-only rework round (Fable): its first diff passed review
+  as written, and `mutants-diff` left 11 survivors in the window code. Eight are now proven
+  headless (`egui::Context::run_ui`, AccessKit bounds for clicks, `eframe::Frame::_new_kittest`);
+  `run_gui`/`run_gui_mode` open a native window and are excluded (`mutants.toml`, TC-GUI-01
+  proves them); the lead added the test that a poll never blocks on a run in flight. Final
+  local `mutants-diff 44c284f`: 38, 27 caught, 7 unviable, 4 timeouts (each a mutant that
+  never ends the run), 0 missed. `egui` raised to 0.36.2 with `eframe`. Manual TC-GUI-01/02
+  pending the maintainer.

@@ -254,7 +254,12 @@ export](../aesthetics_export/object_model.md), "Validation semantics").
   written to them; one real tool on the shell early is what shows whether the seam holds, and
   it is what Phase 10 needs to run in parallel ("once the shell exists"). Its proof is manual
   and recorded (`../../CONTRIBUTING.md` "Testing"): the one-face fixture compiled from the GUI with
-  the events visible.
+  the events visible. In Phase 3 the settings section shows the effective settings read-only
+  (editing them is the settings menu's, which needs the shell to save the file); the run button
+  runs `compile` with no arguments, through the same parser and preflight as the CLI, on a thread
+  of its own, and the log ends with the run's exit code (Phase 3 emits no `Complete`); the binary
+  stays a console-subsystem exe, so a console window opens beside the GUI, and `--gui` autorun
+  stays refused: both need what Phase 8 builds (`AttachConsole`, the initial exports check).
 
 **Verification:** The tracer bullet's parity case on its one-face fixture; structure parser and
 format-level validation tests on Studio-format fixtures; pipeline scaffolding

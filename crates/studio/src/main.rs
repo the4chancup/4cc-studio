@@ -1,5 +1,6 @@
 //! The 4cc Studio binary: registers the tools, then launches the GUI or dispatches the CLI.
-//! Until the GUI phase, only the CLI path exists.
+//! With no arguments it opens the shell on the registered tools; `--gui` autorun arrives with
+//! the GUI phase.
 
 mod console;
 
@@ -12,19 +13,20 @@ use clap::ArgMatches;
 use crossbeam_channel::unbounded;
 use log::LevelFilter;
 use studio_core::{
-    AppPaths, LaunchMode, SETTINGS_FILE_NAME, Settings, StudioTool, ToolContext, parse_launch,
-    resolve_data_dir, run_cli, user_config_dir,
+    AppPaths, LaunchMode, SETTINGS_FILE_NAME, Settings, StudioApp, StudioTool, ToolContext,
+    parse_launch, resolve_data_dir, run_cli, run_gui, user_config_dir,
 };
 
 use crate::console::spawn_printer;
 
 /// The registered tools, in sidebar order.
 fn tools() -> Vec<Box<dyn StudioTool>> {
-    vec![Box::new(team_compiler::Tool)]
+    vec![Box::new(team_compiler::Tool::new())]
 }
 
-/// The CLI diagnostic sink (core plan, "Diagnostic logging"): `-v` sets the level, `RUST_LOG`
-/// overrides it. The GUI mode gets its own file sink in the GUI phase.
+/// The diagnostic sink of both modes (core plan, "Diagnostic logging"): `-v` sets the level,
+/// `RUST_LOG` overrides it. The GUI mode gets its own file sink in the GUI phase; until then it
+/// logs to the console window that opens beside it.
 fn install_cli_logger(verbosity: u8) {
     let level = match verbosity {
         0 => LevelFilter::Warn,
@@ -68,25 +70,32 @@ fn load_settings(
     Ok((settings, AppPaths { exe_dir, data_dir }))
 }
 
-/// Runs one tool subcommand headless and returns the process exit code: the tool's own, 2 when
-/// the settings file cannot be loaded (a configuration error: nothing ran), or 3 when the
-/// executable's folder cannot be found or the console printer failed (environment failures;
+/// What both modes start from: the settings and the base folders. A failure is printed and
+/// becomes the exit code: 3 when the executable's folder cannot be found (an environment
+/// failure), 2 when the settings file cannot be loaded (a configuration error: nothing ran;
 /// `core/architecture.md`, the binary's own codes).
 #[expect(clippy::print_stderr, reason = "CLI result output is the binary's job")]
-fn run_cli_mode(tools: &[Box<dyn StudioTool>], tool: &str, matches: &ArgMatches) -> ExitCode {
+fn startup(tools: &[Box<dyn StudioTool>]) -> Result<(Settings, AppPaths), ExitCode> {
     let exe_dir = match exe_dir() {
         Ok(dir) => dir,
         Err(error) => {
             eprintln!("error: {error:#}");
-            return ExitCode::from(3);
+            return Err(ExitCode::from(3));
         }
     };
-    let (settings, paths) = match load_settings(tools, exe_dir) {
+    load_settings(tools, exe_dir).map_err(|error| {
+        eprintln!("error: {error:#}");
+        ExitCode::from(2)
+    })
+}
+
+/// Runs one tool subcommand headless and returns the process exit code: the tool's own, the
+/// startup failure's, or 3 when the console printer failed.
+#[expect(clippy::print_stderr, reason = "CLI result output is the binary's job")]
+fn run_cli_mode(tools: &[Box<dyn StudioTool>], tool: &str, matches: &ArgMatches) -> ExitCode {
+    let (settings, paths) = match startup(tools) {
         Ok(loaded) => loaded,
-        Err(error) => {
-            eprintln!("error: {error:#}");
-            return ExitCode::from(2);
-        }
+        Err(code) => return code,
     };
     let (events_tx, events_rx) = unbounded();
     let (requests_tx, _requests_rx) = unbounded();
@@ -115,6 +124,33 @@ fn run_cli_mode(tools: &[Box<dyn StudioTool>], tool: &str, matches: &ArgMatches)
     }
 }
 
+/// Opens the shell on the registered tools and returns when the window closes: 0, the startup
+/// failure's code, or 3 when the window could not be opened.
+#[expect(clippy::print_stderr, reason = "CLI result output is the binary's job")]
+fn run_gui_mode(tools: Vec<Box<dyn StudioTool>>) -> ExitCode {
+    let (settings, paths) = match startup(&tools) {
+        Ok(loaded) => loaded,
+        Err(code) => return code,
+    };
+    // The receiver is dropped at once (the `_` pattern): no shell part consumes events until
+    // the GUI phase's status bar, and a tool's run has its own sink (`ToolContext::with_events`).
+    let (events_tx, _) = unbounded();
+    let (requests_tx, requests_rx) = unbounded();
+    let ctx = ToolContext::new(
+        Arc::new(Mutex::new(settings)),
+        paths,
+        events_tx,
+        requests_tx,
+    );
+    match run_gui(StudioApp::new(tools, ctx, requests_rx)) {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(error) => {
+            eprintln!("error: {error:#}");
+            ExitCode::from(3)
+        }
+    }
+}
+
 #[expect(clippy::print_stderr, reason = "CLI result output is the binary's job")]
 fn main() -> ExitCode {
     let tools = tools();
@@ -122,14 +158,15 @@ fn main() -> ExitCode {
         Ok(launch) => launch,
         Err(error) => error.exit(),
     };
+    install_cli_logger(launch.verbosity);
     match launch.mode {
-        LaunchMode::Gui | LaunchMode::GuiAutorun { .. } => {
-            eprintln!("The GUI is not built yet; see `4cc-studio --help` for the CLI.");
+        LaunchMode::Gui => run_gui_mode(tools),
+        LaunchMode::GuiAutorun { .. } => {
+            eprintln!(
+                "`--gui` is not available yet; it arrives with the GUI phase. Run the command without it, or `4cc-studio` alone for the window."
+            );
             ExitCode::from(2)
         }
-        LaunchMode::Cli { tool, matches } => {
-            install_cli_logger(launch.verbosity);
-            run_cli_mode(&tools, &tool, &matches)
-        }
+        LaunchMode::Cli { tool, matches } => run_cli_mode(&tools, &tool, &matches),
     }
 }
