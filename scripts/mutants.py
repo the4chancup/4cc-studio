@@ -45,8 +45,15 @@ REMOTE_REF = "refs/mutants/remote"
 # the 2.20i remainder run, and Fluxer's production services have priority.
 REMOTE_UNIT = "studio-mutants"
 # The unit's MemoryMax (with MemorySwapMax=0): at the cap the kernel
-# OOM-kills inside this unit only, never in Fluxer's.
-REMOTE_MEMORY_MAX = "6G"
+# OOM-kills inside this unit only, never in Fluxer's. 8 GiB since 3.z
+# (maintainer): eframe's dependency tree outgrew 6 GiB while building, with
+# about 9.7 GiB available on the 16 GB host beside Fluxer.
+REMOTE_MEMORY_MAX = "8G"
+# Build jobs per remote cargo process (two run at once): fewer than the
+# remote's half-the-CPUs test threads, because a build's memory grows with
+# its parallel rustc processes and the GUI crates' dependencies (naga, wgpu,
+# wayland) are the largest the workspace builds (maintainer, 3.z).
+REMOTE_BUILD_JOBS = 2
 # The detached remote half's files: `job.sh`, `pid` (the service's MainPID),
 # `log`, `exit` ("<code> <seconds>", written when cargo-mutants returns),
 # `memory_peak` (the unit cgroup's peak memory) and `collected` (written by
@@ -175,15 +182,16 @@ def transfer(host: str, remote_head: str | None) -> None:
         Path(bundle.name).unlink(missing_ok=True)
 
 
-def sized_config(cpus: int) -> str:
+def sized_config(cpus: int, build_jobs: int | None = None) -> str:
     """`.cargo/mutants.toml`'s text with each of the two cargo processes (`--jobs
-    2`) given half of `cpus` logical CPUs, for build jobs and test threads
-    alike, so together they use every CPU without oversubscribing it. The
-    scripts run cargo-mutants at a low priority instead of holding CPUs back
-    (`below_normal`), so the machine stays usable."""
+    2`) given half of `cpus` logical CPUs, for test threads and, unless
+    `build_jobs` sets fewer, build jobs, so together they use every CPU
+    without oversubscribing it. The scripts run cargo-mutants at a low
+    priority instead of holding CPUs back (`below_normal`), so the machine
+    stays usable."""
     config = tomllib.loads((ROOT / ".cargo/mutants.toml").read_text(encoding="utf-8"))
     half = max(1, cpus // 2)
-    config["additional_cargo_args"] = ["--jobs", str(half)]
+    config["additional_cargo_args"] = ["--jobs", str(build_jobs or half)]
     config["additional_cargo_test_args"] = ["--", f"--test-threads={half}"]
     lines = []
     for key, value in config.items():
@@ -198,9 +206,10 @@ def sized_config(cpus: int) -> str:
 
 
 def remote_config(host: str, nproc: int) -> None:
-    """Write the remote's mutants.toml, sized for the remote's CPUs."""
+    """Write the remote's mutants.toml, sized for the remote's CPUs, its builds
+    held to `REMOTE_BUILD_JOBS` for the memory cap."""
     ssh(host, f"cat > {REMOTE_BASE}/mutants.remote.toml",
-        input=sized_config(nproc), text=True, check=True)
+        input=sized_config(nproc, REMOTE_BUILD_JOBS), text=True, check=True)
 
 
 def local_config() -> Path:
