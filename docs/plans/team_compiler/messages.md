@@ -358,7 +358,7 @@ overrides them, even when the referee CPK itself remains compilable.
 
 | ID | Sev | Condition | Consequence |
 |---|---|---|---|
-| `duplicate_path` | W/E | manifest preflight finds colliding output paths | folder collision: losing folder blocked (`DropFolder`, E); whole-export collision: losing export blocked (`DropExport`, E); sideload override: sideload wins (`Keep`, W) |
+| `duplicate_path` | W/E | manifest preflight finds colliding output paths | folder collision: losing folder blocked (`DropFolder`, E); whole-export collision: losing export blocked (`DropExport`, E); override: the `overrides/` file wins (`Keep`, W) |
 | `cpk_write_failed` | F | incremental CPK writing fails | run aborted and partial CPK discarded (`AbortRun`) |
 | `output_commit_failed` | F | a completed CPK/tree cannot be atomically committed to its final output path | run aborted; prior published outputs remain untouched (`AbortRun`) |
 | `uniparam_compile_failed` | F | UniformParameter compilation failed (output would crash PES) | run aborted |
@@ -373,11 +373,11 @@ overrides them, even when the referee CPK itself remains compilable.
 | `old_cpk_locked` | E | old CPK cannot be replaced (PES running) | deployment skipped; staged CPKs promoted to `output/`; savefile step skipped; GUI offers Retry (deployment only) and Open output folder |
 | `deploy_target_unwritable` | E | destination folder denies writes (typically elevation needed under `Program Files`) | deployment skipped; staged CPKs promoted to `output/`; savefile step skipped; GUI offers Relaunch as administrator. Normally pre-empted by the live writability preflight (see `pipeline.md` "Post-processing") |
 | `deploy_skipped_by_flag` | I | `--no-deploy` given (CLI) | staged CPKs promoted to `output/`; savefile step skipped; run is clean |
-| `sideload_active` | I | sideload folder present and injected | none |
+| `overrides_active` | I | `overrides/` folder present and injected | none |
 | `savefile_autodetected` | I | `savefile_path = auto` resolved a savefile under Documents\KONAMI (names the path; noted especially when several account folders existed and the newest was chosen) | none |
 | `patch_written` | I | the aesthetics patch was written beside the output CPK (names the path and the teams it covers) | none |
 | `savefile_missing` | W | aesthetics present but no savefile configured/found; the patch is the run's only savefile output | savefile step skipped; the message names the patch and the save editor's apply action |
-| `savefile_skipped_pes_running` | W | savefile changes pending but PES is running (any output mode; the motivating case is Sider-mode iteration) | savefile step skipped; applied by the next compile with PES closed |
+| `savefile_skipped_pes_running` | W | savefile changes pending but PES is running (any output mode; the motivating case is sideload-mode iteration) | savefile step skipped; applied by the next compile with PES closed |
 | `savefile_write_failed` | E | savefile could not be updated | deployment transaction fails and rolls back; compile artifacts remain available |
 
 Deployment-stage errors above mean no partial installation: preflight failures leave installed

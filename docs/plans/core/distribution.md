@@ -187,7 +187,7 @@ settings or lost their reason to exist:
 | `dt00_write_allowed.txt` | The `dt00_overwrite_allow` setting (team compiler) — standing consent as a setting, not a marker |
 | `first_run_done.txt` | Presence-based data-location resolution: the settings file's existence *is* the first-run marker (see "Data location") |
 | `admin_warned.txt` | Dropped — the one-time console explanation before Red's UAC relaunch becomes the `elevation` lib's GUI prompt, which explains itself every time it appears |
-| `sideload_warned.txt` | Dropped — the one-time sideload explanation becomes the per-run `sideload_active` Info message (team compiler catalog) |
+| `sideload_warned.txt` | Dropped — the one-time sideload explanation becomes the per-run `overrides_active` Info message (Red's `sideload/` folder is the compiler's `overrides/`) (team compiler catalog) |
 | `ver_mismatch_warned.txt` | Dropped — the suppressible console notice becomes the plain per-run `pes_version_mismatch` warning (team compiler catalog) plus the version selector's live red/yellow exe check (see `gui.md` "Sidebar") |
 
 ### Versioning: one workspace version, one exception

@@ -84,7 +84,7 @@ User exports (folders / .zip / .7z)
 │  ─ Incremental CPK writing                   │
 │  ─ Per-task atomicity: staged entries of     │
 │    failed tasks are discarded                │
-│  ─ Sideload folder injection                 │
+│  ─ Overrides folder injection                │
 │  ─ Duplicate invariant check                 │
 │  ─ Deploy CPKs to PES folder (or output/)    │
 └──────────────────┬───────────────────────────┘
@@ -130,7 +130,7 @@ crates/tools/team_compiler/
 │   │   ├── manifest.rs   #   BuildManifest, BuildTask kinds, output-path collision checks
 │   │   ├── ids.rs        #   PlannedModelIds: 40-ID team blocks, boots/gloves assignment
 │   │   ├── refs.rs       #   duplicate-refs preflight, referee slot planning
-│   │   └── sideload.rs   #   sideload/ tree precedence
+│   │   └── overrides.rs  #   overrides/ tree precedence
 │   ├── processing/       # stages 3–4: parallel per-task work, process_task(BuildTask) → TaskBatch
 │   │   ├── mod.rs        #   dispatch by task kind; memory permits; message collection
 │   │   ├── model.rs      #   model folders: format selection, conversion, merging, SKL pairing
@@ -145,7 +145,7 @@ crates/tools/team_compiler/
 │   │   └── dpfl.rs       #   DpFileList.bin read/write, slot discovery, upgrade (override)
 │   ├── output/           # stages 5–6: the writer and everything after it
 │   │   ├── writer.rs     #   canonical-order incremental writing, teams parts, placeholders
-│   │   ├── sink.rs       #   OutputSink: CPK (normal) vs loose folder (test/sider)
+│   │   ├── sink.rs       #   OutputSink: CPK (normal) vs loose folder (test/sideload)
 │   │   ├── deploy.rs     #   staging, .partial + rename, promotion, writability preflight
 │   │   └── savefile.rs   #   builds the aesthetics patch from commit outcomes; applies it to the local save (via pes_savefile)
 │   └── view/             # egui — renders state, owns no pipeline logic
@@ -226,9 +226,9 @@ dispositions ("Validation semantics" in the Aesthetics export plan), export iden
 and CLI surface, the pipeline scaffolding compiling the tracer bullet's content (Fox player folders
 with face models, and kits) into a CPK, and the shell slice. Not in Phase 3, so not here: deep
 format validation, run planning (IDs, collisions, `duplicate_aesthetics_export`), other content,
-bins beyond the kits' `UniformParameter.bin`, deployment, the savefile, the test and sider modes, and live validation. In Phase 3 every
+bins beyond the kits' `UniformParameter.bin`, deployment, the savefile, the test and sideload modes, and live validation. In Phase 3 every
 compile writes its CPK as `--no-deploy` does, deployment arriving in Phase 4, and `--mode
-test|sider`, like `multicpk_mode` on, is refused by `compile` as an invalid invocation or
+test|sideload`, like `multicpk_mode` on, is refused by `compile` as an invalid invocation or
 configuration (exit code 2) until Phase 4 implements them, as is `upgrade-dpfl` (`check` takes no `--mode` and ignores
 `multicpk_mode`).
 

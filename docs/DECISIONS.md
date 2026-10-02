@@ -2868,3 +2868,17 @@ truly needs it (maintainer). Dependencies are weighed against it on an optimized
 Why: the 50 MB the maintainer saw was the unoptimized debug build; the release build measures
 17.1 MiB, so the budget leaves room without letting dependency choices drift unmeasured.
 Plan: `core/distribution.md` "Distribution: portable .7z bundle" (the size budget paragraph).
+
+## 2026-10-02 — team_compiler — sideload mode and the overrides folder (4.0b)
+Decision: `--mode sider` is `--mode sideload` (output `sideload_output/`, setting
+`sideload_output_path`, GUI entry "Compile for sideloading"); Red's `sideload/` input folder is
+`overrides/` (message `overrides_active`). With the sideload mode selected, the Compile button has
+a **Launch PES** button beside it that starts the selected PES the ordinary way when it is not
+running. No status-bar entry.
+Why: the mode names its purpose, not one external tool, and Red's folder name collided with it:
+"sideload" meant both "files injected into the CPK" and "loose files served to a running game".
+The launch shortcut belongs where the prototyping loop happens, the Team compiler's view, not in
+the shell's typed status bar.
+Plan: `team_compiler/settings.md`, `pipeline.md`, `gui.md`, `messages.md`, `README.md`,
+`testing.md`; `player_aesthetics_editor.md`; `core/development_plan.md`, `core/distribution.md`;
+`GLOSSARY.md`. Step 4.0d renames the code.

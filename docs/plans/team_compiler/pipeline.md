@@ -216,14 +216,14 @@ format:
 
 After validation and export-identity resolution, a serial **run-level** planning phase resolves
 `duplicate_aesthetics_export`, shared/Common dependencies, deterministic IDs, cross-export and known-path
-collisions, sideload precedence, canonical export order, and staged non-model artifacts into an
+collisions, `overrides/` precedence, canonical export order, and staged non-model artifacts into an
 immutable **build manifest**. Its tasks cover model folders and the non-model work (kits, logo,
 Common, collars, portraits, referee marker) alike; each task is an atomic unit — it commits whole or
 not at all. Canonical export order uses normalized source-relative path plus source kind as its
 stable key, never the potentially duplicated `export_display_name`. The manifest allocates every
 task an output namespace that cannot conflict with another task's. A cross-export collision drops
 the losing task or export rather than an arbitrary entry that could leave its model/XML/package
-incomplete; a sideload replacement stays path-granular and intentionally supersedes the export
+incomplete; an override stays path-granular and intentionally supersedes the export
 entry. Folder-internal names that depend on deep parsing — glTF material-role image names, model
 fallback/merge products — are resolved deterministically inside that task and checked for collisions
 within its allocated namespace. All identity, allocation, roster, portrait-conflict, and run-global
@@ -457,10 +457,10 @@ describes behavior, not a serial scheduling requirement:
 
 ### 5. Writer (single-threaded)
 
-1. **Sideload priority** — manifest preflight gives the `sideload/` tree precedence over export
-   entries at the same output path, and the writer emits accepted sideload entries before export
-   content in canonical order. Sideload targets the normal team CPK(s); there is no refs-specific
-   sideload tree unless one is introduced later.
+1. **Override priority** — manifest preflight gives the `overrides/` tree (Red's `sideload/`)
+   precedence over export entries at the same output path, and the writer emits accepted
+   overrides before export content in canonical order. Overrides target the normal team CPK(s);
+   there is no refs-specific overrides tree unless one is introduced later.
 2. **Incremental CPK writing** — the writer accepts completed task batches as they arrive, but
    final payload layout follows canonical manifest order, not arrival order. Per-task atomicity
    discards every staged entry from a failed task. Ordered draining and memory admission must be
@@ -475,12 +475,12 @@ describes behavior, not a serial scheduling requirement:
 4. **Bins last** — after all exports complete, the accumulated bins (committed mutations only) are
    written.
 5. **Output modes and targets** — normal (CPK), test (unpacked tree per export in `test_output/`),
-   sider (unpacked PES-folder structure in `sider_output/`). Test-mode directory names derive from
+   sideload (unpacked PES-folder structure in `sideload_output/`). Test-mode directory names derive from
    the canonical source key, not from potentially duplicated display names. Multi-CPK mode (the cup
    DLC mode) routes team content into **size-split `teams` parts** plus the bins CPK — see
    "Multi-CPK mode: teams parts" below. Referee content always routes to its own CPK named by
    `refs_cpk_name`, separate from those team targets; `refs_cpk_name` affects only normal CPK mode
-   (test/sider retain their existing per-export layouts). Every emitted CPK name (team, teams part,
+   (test/sideload retain their existing per-export layouts). Every emitted CPK name (team, teams part,
    refs) is a validated `CpkStem` (shared `pipeline` type): filename stem only, 1–28 characters from
    ASCII alphanumeric, `_`, `-`, and `.`; no separators, control characters, trailing dot, Windows
    reserved-device names, or user-supplied `.cpk` suffix; uniqueness is checked case-insensitively.
@@ -546,7 +546,7 @@ describes behavior, not a serial scheduling requirement:
      compiler ships the current official per-version DPFL as an embedded template (see "Resolved
      decisions") and, when the installed one lacks the required slots, refuses the run with
      `dpfilelist_outdated` and offers the **DpFileList upgrade** described under "Post-processing".
-   `test_output/`, `sider_output/`, and `teamnotes.txt` are resolved beneath `output_folder_path`; a
+   `test_output/`, `sideload_output/`, and `teamnotes.txt` are resolved beneath `output_folder_path`; a
    CLI positional exports-root overrides `exports_folder_path` for that invocation only.
 
    **Test mode is Red's step 1.** Red's `1_exports_to_extracted.bat` stopped after pre-processing,
@@ -558,22 +558,22 @@ describes behavior, not a serial scheduling requirement:
    same name for the same reason; a regression suite does not replace it. The suite says *that* final
    output differs from a reference; test mode is for the moments without a reference — developing a
    new pipeline step (glTF conversion, a new version's game paths) or a cup maintainer asking why a
-   texture was renamed. Sider mode is the complementary view: the same content *after* relocation,
+   texture was renamed. Sideload mode is the complementary view: the same content *after* relocation,
    unpacked — what the CPK would contain. In Red's terms it is **steps 1+2** (`extracted/` →
    `patches_contents/`, the PES folder structure that step 3 packed), and its purpose is
-   prototyping: Sider's `livecpk` mechanism sideloads loose files from that structure without a CPK,
-   without touching the PES install, and without restarting the game between iterations, so a
-   modeler can compile → alt-tab → see the change. Output goes to `sider_output_path` (default
-   `output/sider_output/`), which the user either points at Sider's livecpk root or lists in
-   `sider.ini`'s `cpk.root` (see the settings table).
+   prototyping: a sideloading tool (Sider's LiveCPK today) serves loose files from that structure
+   without a CPK, without touching the PES install, and without restarting the game between
+   iterations, so a modeler can compile → alt-tab → see the change. Output goes to
+   `sideload_output_path` (default `output/sideload_output/`), which the user lists as one of the
+   tool's roots (with Sider, a `cpk.root` line in `sider.ini`; see the settings table).
 
    The cost Blue paid — a second code path in the coordinator — is contained by deciding the
    **output target once, at manifest planning**, and consuming it at exactly one seam: each task's
    final *materialize* step (relocation to game paths, Fox FPK packing). In test mode that step is
-   skipped and the task emits its processed entries with export-relative paths; in normal and sider
+   skipped and the task emits its processed entries with export-relative paths; in normal and sideload
    mode it runs. Everything upstream (checks, model conversion, texture work, name editing) and
    everything downstream (the writer, memory permits, events) is identical. Bins and `teamnotes.txt`
-   are emitted in every mode. The loose-folder sink is shared between test and sider modes and is also
+   are emitted in every mode. The loose-folder sink is shared between test and sideload modes and is also
    the harness the unit and parity tests drive the pipeline into — trees are diffed directly, with no
    CPK parsing in the middle — so the sink is test infrastructure that the GUI happens to expose,
    not a feature carried for one dropdown entry. A sink receives each entry by its output-relative
@@ -682,8 +682,8 @@ describes behavior, not a serial scheduling requirement:
   exit, so a write made now would not go live without a restart and would be overwritten by whatever
   the player changed in-game before closing. The step is skipped with `savefile_skipped_pes_running`
   (W) telling the user the settings will be applied by the next compile made with PES closed; the
-  rest of the run is unaffected. This matters mostly for **Sider mode**, whose whole point is
-  compiling while PES stays open — model iterations land immediately via livecpk, and the savefile
+  rest of the run is unaffected. This matters mostly for **sideload mode**, whose whole point is
+  compiling while PES stays open — model iterations land immediately through sideloading, and the savefile
   half of the export (boots/gloves IDs, player settings) catches up on the first compile after PES
   is closed. In normal mode a running PES already fails deployment on the locked CPK, so the rule
   adds nothing there. The check uses the same running-PES detection as the core plan's
@@ -993,8 +993,8 @@ phase that owns them):
   touched by a DLC compile, and vice versa — decide whether that needs a message) and the rule that
   an unrecognized user file is never deleted; retired official names are handled by the DpFileList
   upgrade's confirmed per-file deletion.
-- **Output-mode artifact routing.** Define routing for every artifact — bins, sideload, referee
-  content, and `teamnotes.txt` — across normal single-CPK, multi-CPK, refs, test, and sider modes.
+- **Output-mode artifact routing.** Define routing for every artifact — bins, overrides, referee
+  content, and `teamnotes.txt` — across normal single-CPK, multi-CPK, refs, test, and sideload modes.
 - **Per-player common path templates.** Add Red's referee common layout (name-keyed per-referee
   subfolders; exact MTL/XML and Fox FMDL templates in "Texture relocation to common") to the Game
   paths table as the per-player common subfolder patterns (Phase 4 specification).

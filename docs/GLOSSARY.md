@@ -66,6 +66,8 @@ terms next to each other rather than in alphabetical order; adjacency is what ma
 | **Team name** | A 4cc team's `/xx/` board name (`TeamName`), the canonical identity of an export: derived from the first word of the export's folder or archive name, lowercased and wrapped in slashes; `/refs/` and `/balls/` are reserved. In a 4cc savefile the in-game team name field holds the same `/xx/` name; the save editor edits that field, and "Export teams list" writes it into `teams_list.txt`. | `plans/libs/teams_list.md` "`libs/teams_list`" (type, fold); `plans/team_compiler/pipeline.md` "Export display name and team name" (derivation) |
 | **Team ID** | The numeric PES team identifier (`TeamId`), valid 701–920 for normal teams; resolved from the team name via `teams_list.txt`. | `plans/libs/teams_list.md` "`libs/teams_list`"; `plans/team_compiler/pipeline.md` "Export identity resolution" |
 | **Templates override** | A `templates/` directory whose files shadow embedded CPK/bin templates; reported per file per run. | `plans/team_compiler/messages.md` "Message catalog" |
+| **Overrides folder** | `overrides/` in the data directory (Red's `sideload/`): files injected into the normal team CPK that win over export entries at the same output path. Not related to sideload mode. | `plans/team_compiler/pipeline.md` "5. Writer" (override priority) |
+| **Sideload mode** | The Team compiler output mode (`--mode sideload`) writing the unpacked PES folder structure to `sideload_output/`, for a sideloading tool (Sider's LiveCPK today) to serve to a running PES. | `plans/team_compiler/pipeline.md` "5. Writer" (output modes) |
 
 ## Messages
 
