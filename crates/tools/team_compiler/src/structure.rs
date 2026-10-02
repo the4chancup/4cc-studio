@@ -41,8 +41,9 @@ pub(crate) fn run_budget(inputs: &RunInputs) -> Arc<MemoryBudget> {
 }
 
 /// Discovers the run's sources, routes them and runs the structure pass and identity on each
-/// one headed for validation; the structure pass's `.7z` reads are charged to `budget`. Only an
-/// exports folder that cannot be read is an error.
+/// one headed for validation; the structure pass's `.7z` reads are charged to `budget`. An
+/// exports folder holding no export is `no_exports_found`, on the run. Only an exports folder
+/// that cannot be read is an error.
 pub(crate) fn structure_pass(
     inputs: &RunInputs,
     budget: &Arc<MemoryBudget>,
@@ -50,13 +51,23 @@ pub(crate) fn structure_pass(
     let sources = reader::discover(&inputs.exports_root, &inputs.exports)?;
     let routes = reader::route(&sources, budget);
 
+    let mut run_messages = Vec::new();
+    // Every `--export` path yields a source, so no source at all means the root's scan found
+    // none.
+    if sources.is_empty() {
+        run_messages.push(tool_message(
+            Code::NoExportsFound,
+            Scope::Run,
+            Disposition::Keep,
+            vec![("folder", inputs.exports_root.display().to_string())],
+        ));
+    }
     let conflicting: Vec<&str> = sources
         .iter()
         .zip(&routes)
         .filter(|(_, route)| matches!(route, Route::ConflictingRefs))
         .map(|(source, _)| source.file_name.as_str())
         .collect();
-    let mut run_messages = Vec::new();
     if !conflicting.is_empty() {
         run_messages.push(tool_message(
             Code::MultipleRefExports,

@@ -273,10 +273,19 @@ fn an_unknown_team_is_an_error_and_the_export_beside_it_is_still_checked() {
 }
 
 #[test]
-fn a_missing_exports_root_aborts_naming_it() {
+fn check_creates_the_missing_default_exports_folder_and_reports_it_empty() {
     let sandbox = Sandbox::new("missing_root");
+    let exports = sandbox.root.join("exports");
     let run = sandbox.run("", &["check"]);
-    run.assert_refused(3, &[&sandbox.arg("exports")]);
+    assert!(exports.is_dir(), "the folder was created");
+    assert_eq!(
+        run.messages(),
+        [format!(
+            "Warning no_exports_found [Keep] (folder={})",
+            exports.display()
+        )]
+    );
+    assert_eq!(run.exit_code(), 0);
 }
 
 #[test]

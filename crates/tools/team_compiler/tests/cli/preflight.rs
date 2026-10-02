@@ -20,7 +20,7 @@ fn an_invalid_cpk_name_refuses_compile_before_any_export_is_read() {
         sandbox.write("exports/aaa_export/notes.txt", b"kept as it is");
         let before = snapshot(&sandbox.root);
 
-        // Reading this exports root, which does not exist, would abort with 3.
+        // This exports root does not exist: reaching it would refuse naming it instead.
         let run = sandbox.run(
             &format!("[team-compiler]\ncpk_name = \"{name}\"\n"),
             &["compile", &sandbox.arg("no such exports")],
@@ -44,6 +44,51 @@ fn an_export_path_that_is_missing_or_no_archive_is_an_invalid_invocation() {
         let run = sandbox.run("", &[command, "--export", &not_archive]);
         run.assert_refused(2, &[&not_archive, "not a folder, .zip or .7z"]);
     }
+}
+
+// TC-CLI-08
+#[test]
+fn an_absolute_exports_folder_setting_naming_a_missing_folder_is_refused_in_plain_words() {
+    let sandbox = Sandbox::new("absolute_exports_missing");
+    let missing = sandbox.root.join("elsewhere").join("exports");
+    let settings = format!("[common]\nexports_folder_path = '{}'\n", missing.display());
+    let sentence = format!(
+        "the exports folder {} does not exist: create it and put your exports inside, or set \
+         exports_folder_path in {} to the folder that holds them",
+        missing.display(),
+        sandbox.root.join("data").join("settings.toml").display()
+    );
+    for command in ["check", "compile"] {
+        let run = sandbox.run(&settings, &[command]);
+        run.assert_refused(2, &[&sentence]);
+        let Err(error) = &run.result else {
+            unreachable!("assert_refused checked the refusal")
+        };
+        assert!(!error.to_string().contains("os error"), "{error}");
+        assert!(!missing.exists(), "{command} created the folder");
+        assert!(!sandbox.root.join("output").exists(), "{command} wrote");
+    }
+}
+
+// TC-CLI-09
+#[test]
+fn a_missing_default_exports_folder_is_created_and_reported_empty() {
+    let sandbox = Sandbox::new("default_exports_missing");
+    let exports = sandbox.root.join("exports");
+    assert!(!exports.exists());
+
+    let run = sandbox.run("", &["compile"]);
+
+    assert!(exports.is_dir(), "the folder was created");
+    assert_eq!(
+        run.messages(),
+        [format!(
+            "Warning no_exports_found [Keep] (folder={})",
+            exports.display()
+        )]
+    );
+    assert!(!sandbox.root.join("output/4cc_90_test.cpk").exists());
+    assert_eq!(run.exit_code(), 0);
 }
 
 #[test]

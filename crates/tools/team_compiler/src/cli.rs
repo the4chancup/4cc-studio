@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 use anyhow::anyhow;
 use clap::{Args, Command, FromArgMatches, Subcommand, ValueEnum};
 use pipeline::CpkStem;
-use studio_core::{AppPaths, CliError, CommonSettings, Severity, ToolContext};
+use studio_core::{AppPaths, CliError, CommonSettings, SETTINGS_FILE_NAME, Severity, ToolContext};
 use teams_list::TeamsList;
 
 use crate::messages::TOOL_ID;
@@ -106,7 +106,9 @@ pub(crate) fn run(matches: &clap::ArgMatches, ctx: &ToolContext) -> Result<u8, C
             check_export_paths(&source.exports)?;
             let common = ctx.common();
             let settings = read_settings(&ctx.tool_settings(TOOL_ID), &common)?;
-            let inputs = resolve_inputs(source, settings, common, ctx.paths())?;
+            let exports_root = prepare_exports_root(&source, &common, ctx.paths())?;
+            let inputs =
+                resolve_inputs(exports_root, source.exports, settings, common, ctx.paths())?;
             verdict(check::run(&inputs, ctx))
         }
         TeamCompilerCommand::Compile(args) => {
@@ -115,6 +117,7 @@ pub(crate) fn run(matches: &clap::ArgMatches, ctx: &ToolContext) -> Result<u8, C
             let common = ctx.common();
             let settings = read_settings(&ctx.tool_settings(TOOL_ID), &common)?;
             let cpk_stem = compile_settings(&settings)?;
+            let exports_root = prepare_exports_root(&args.source, &common, ctx.paths())?;
             // `settings.md` "Path resolution": a relative output folder sits beside the
             // executable; an absolute one replaces the base.
             let output_folder = ctx.paths().exe_dir.join(&settings.output_folder_path);
@@ -123,7 +126,13 @@ pub(crate) fn run(matches: &clap::ArgMatches, ctx: &ToolContext) -> Result<u8, C
             deploy::prepare_output_folder(&output_folder)
                 .map_err(|error| CliError::new(ABORTED, error))?;
             create_teams_list(&settings.teams_list_path, ctx.paths().data_dir.as_deref())?;
-            let inputs = resolve_inputs(args.source, settings, common, ctx.paths())?;
+            let inputs = resolve_inputs(
+                exports_root,
+                args.source.exports,
+                settings,
+                common,
+                ctx.paths(),
+            )?;
             verdict(compile::run(
                 &inputs,
                 &cpk_stem,
@@ -250,20 +259,22 @@ fn compile_settings(settings: &TeamCompilerSettings) -> Result<CpkStem, CliError
     Ok(cpk_stem)
 }
 
+/// The run's inputs over the ready `exports_root` and the `--export` paths: the teams list is
+/// loaded here, last, so a refused root never reads it.
 fn resolve_inputs(
-    source: SourceArgs,
+    exports_root: PathBuf,
+    exports: Vec<PathBuf>,
     settings: TeamCompilerSettings,
     common: CommonSettings,
     paths: &AppPaths,
 ) -> Result<RunInputs, CliError> {
     let teams_list = load_teams_list(&settings.teams_list_path, paths.data_dir.as_deref())?;
-    let exports_root = exports_root(source.exports_root.as_deref(), &common, &paths.exe_dir);
     Ok(RunInputs {
         settings,
         common,
         teams_list,
         exports_root,
-        exports: source.exports,
+        exports,
     })
 }
 
@@ -328,6 +339,51 @@ fn exports_root(argument: Option<&Path>, common: &CommonSettings, exe_dir: &Path
         Some(root) => root.to_path_buf(),
         None => exe_dir.join(&common.exports_folder_path),
     }
+}
+
+/// The exports root, ready for the run's scan (`settings.md` "Path resolution"). The relative
+/// setting's folder is created when missing, so a fresh install has one to put exports in; a
+/// folder named any other way (an absolute setting, the command line's root) is never created,
+/// and a missing one is a configuration error naming the path and what to do. With `--export`
+/// paths the root is not scanned, so it is neither created nor checked.
+fn prepare_exports_root(
+    source: &SourceArgs,
+    common: &CommonSettings,
+    paths: &AppPaths,
+) -> Result<PathBuf, CliError> {
+    let root = exports_root(source.exports_root.as_deref(), common, &paths.exe_dir);
+    if !source.exports.is_empty() || root.is_dir() {
+        return Ok(root);
+    }
+    if source.exports_root.is_some() {
+        return Err(invalid(anyhow!(
+            "the exports folder {} given on the command line does not exist",
+            root.display()
+        )));
+    }
+    if common.exports_folder_path.is_absolute() {
+        // With no data directory there is no settings file, so the setting is the built-in
+        // relative default and this arm is not reached in practice.
+        let settings_file = match &paths.data_dir {
+            Some(data_dir) => data_dir.join(SETTINGS_FILE_NAME).display().to_string(),
+            None => "the settings file".to_owned(),
+        };
+        return Err(invalid(anyhow!(
+            "the exports folder {} does not exist: create it and put your exports inside, or \
+             set exports_folder_path in {settings_file} to the folder that holds them",
+            root.display()
+        )));
+    }
+    fs::create_dir_all(&root).map_err(|error| {
+        CliError::new(
+            ABORTED,
+            anyhow!(
+                "{}: cannot create the exports folder: {error}",
+                root.display()
+            ),
+        )
+    })?;
+    Ok(root)
 }
 
 #[cfg(test)]
@@ -534,5 +590,120 @@ mod tests {
             exports_root(None, &common, exe_dir),
             exe_dir.join("exports")
         );
+    }
+
+    fn app_paths(exe_dir: &Path, data_dir: Option<&Path>) -> AppPaths {
+        AppPaths {
+            exe_dir: exe_dir.to_path_buf(),
+            data_dir: data_dir.map(Path::to_path_buf),
+        }
+    }
+
+    #[test]
+    fn a_missing_root_given_on_the_command_line_is_refused_and_not_created() {
+        let root = scratch("cli_root_command_line");
+        let given = root.join("given");
+        let source = SourceArgs {
+            exports_root: Some(given.clone()),
+            exports: vec![],
+        };
+        let error =
+            prepare_exports_root(&source, &CommonSettings::default(), &app_paths(&root, None))
+                .unwrap_err();
+        assert_eq!(error.exit_code, INVALID);
+        assert_eq!(
+            error.to_string(),
+            format!(
+                "the exports folder {} given on the command line does not exist",
+                given.display()
+            )
+        );
+        assert!(!given.exists(), "not created");
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn with_export_paths_a_missing_root_is_neither_created_nor_refused() {
+        let root = scratch("cli_root_named_exports");
+        let source = SourceArgs {
+            exports_root: None,
+            exports: vec![root.join("co - A")],
+        };
+        let ready =
+            prepare_exports_root(&source, &CommonSettings::default(), &app_paths(&root, None))
+                .unwrap();
+        assert_eq!(ready, root.join("exports"));
+        assert!(!ready.exists(), "not created");
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn an_absolute_setting_naming_a_missing_folder_is_refused_naming_the_settings_file() {
+        let root = scratch("cli_root_absolute");
+        let missing = root.join("elsewhere");
+        let common = CommonSettings {
+            exports_folder_path: missing.clone(),
+            ..CommonSettings::default()
+        };
+        let source = SourceArgs {
+            exports_root: None,
+            exports: vec![],
+        };
+        let data_dir = root.join("data");
+        let error =
+            prepare_exports_root(&source, &common, &app_paths(&root, Some(&data_dir))).unwrap_err();
+        assert_eq!(error.exit_code, INVALID);
+        assert_eq!(
+            error.to_string(),
+            format!(
+                "the exports folder {} does not exist: create it and put your exports inside, \
+                 or set exports_folder_path in {} to the folder that holds them",
+                missing.display(),
+                data_dir.join("settings.toml").display()
+            )
+        );
+        // Without a data directory the sentence still reads, naming no file.
+        let error = prepare_exports_root(&source, &common, &app_paths(&root, None)).unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("exports_folder_path in the settings file to"),
+            "{error}"
+        );
+        assert!(!missing.exists(), "not created");
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn the_relative_default_is_created_and_a_folder_that_cannot_be_aborts() {
+        let root = scratch("cli_root_created");
+        let source = SourceArgs {
+            exports_root: None,
+            exports: vec![],
+        };
+        let common = CommonSettings::default();
+        let ready = prepare_exports_root(&source, &common, &app_paths(&root, None)).unwrap();
+        assert_eq!(ready, root.join("exports"));
+        assert!(ready.is_dir(), "created");
+        // Already there: returned as it is.
+        assert_eq!(
+            prepare_exports_root(&source, &common, &app_paths(&root, None)).unwrap(),
+            ready
+        );
+
+        // A file where the executable's folder should be: the folder cannot be created.
+        let blocker = root.join("blocker");
+        fs::write(&blocker, "").unwrap();
+        let error = prepare_exports_root(&source, &common, &app_paths(&blocker, None)).unwrap_err();
+        assert_eq!(error.exit_code, ABORTED);
+        let text = error.to_string();
+        assert!(
+            text.starts_with(&format!(
+                "{}: cannot create the exports folder: ",
+                blocker.join("exports").display()
+            )),
+            "{text}"
+        );
+        fs::remove_dir_all(&root).unwrap();
     }
 }

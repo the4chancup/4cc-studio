@@ -17,6 +17,9 @@ pub(crate) const TOOL_ID: &str = "team-compiler";
 pub(crate) enum Code {
     /// An archive cannot be opened, or its listing is refused.
     ExportExtractFailed,
+    /// The scan of the exports folder found no folder, `.zip` or `.7z`: nothing is checked or
+    /// compiled.
+    NoExportsFound,
     /// A `NO_USE` marker disables the export.
     ExportDisabled,
     /// The export's team, or the referees, as identified.
@@ -50,8 +53,9 @@ impl Code {
     /// Every code, for the catalog test: a variant missing here would make its first message
     /// panic in `severity`, so a new variant is added to this list too.
     #[cfg(test)]
-    const ALL: [Code; 14] = [
+    const ALL: [Code; 15] = [
         Code::ExportExtractFailed,
+        Code::NoExportsFound,
         Code::ExportDisabled,
         Code::ExportIdentified,
         Code::ExportBallsSkipped,
@@ -71,6 +75,7 @@ impl Code {
     pub(crate) fn as_str(self) -> &'static str {
         match self {
             Code::ExportExtractFailed => "export_extract_failed",
+            Code::NoExportsFound => "no_exports_found",
             Code::ExportDisabled => "export_disabled",
             Code::ExportIdentified => "export_identified",
             Code::ExportBallsSkipped => "export_balls_skipped",
@@ -106,6 +111,7 @@ enum CatalogSeverity {
 const CATALOG: &[(&str, CatalogSeverity)] = &[
     // The tool's own export-level codes.
     ("export_extract_failed", CatalogSeverity::Error),
+    ("no_exports_found", CatalogSeverity::Warning),
     ("export_disabled", CatalogSeverity::Info),
     ("export_identified", CatalogSeverity::Info),
     ("export_balls_skipped", CatalogSeverity::Info),

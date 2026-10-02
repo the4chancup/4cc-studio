@@ -29,7 +29,11 @@ the teams list (`team=referees` for a `refs` export).
 
 Both commands read every export in the exports folder from the settings (`exports/` beside
 `4cc-studio` unless you changed it). To use another folder for one run, give its path as
-`exports-root`; the setting is not changed.
+`exports-root`; the setting is not changed. The `exports/` folder beside `4cc-studio` is created
+for you when it is missing; a folder you named yourself, in the `exports_folder_path` setting or
+as `exports-root`, must already exist, or the command stops before anything runs and tells you
+so. An exports folder with no export in it is reported as `no_exports_found`, naming the folder,
+and nothing is checked or compiled.
 
 An export can be a folder, a `.zip` or a `.7z`, read where it is: nothing is extracted. An archive
 that cannot be read (damaged, password-protected, or holding two files whose names differ only in
