@@ -2830,3 +2830,20 @@ run that ends at "exit code 0" with nothing in the log.
 Plan: `team_compiler/settings.md` "Path resolution" (the exports row); `team_compiler/messages.md`
 "Catalog" (`no_exports_found`, and the settings/environment paragraph after "Output stage and
 savefile"); `team_compiler/README.md` TC-CLI-08, TC-CLI-09.
+
+## 2026-10-02 — team_compiler — 3.y: the run driver's plan shapes follow the code
+Decision (lead, reversible): the Phase 3 `PlanReport` has no `dropped` list, an export the
+subset gate skips being only its `DropExport` message; `plan_run` takes
+`Vec<(ExportId, ResolvedAestheticsExport)>` and the target `PesVersion`, as built since 3.9a;
+`aesthetics_export/object_model.md` stops restating `plan_run`/`process_task` and points at
+`team_compiler/pipeline.md` "Run driver shapes (Phase 3)"; `core/parallelism.md`'s run sketch
+is marked as the full design, with the Phase 3 names beside it.
+Why: the converge audit compared every plan code block with its type and found these the only
+undocumented differences in Phase 3's run driver. Nothing reads a list of dropped IDs in Phase 3
+(the console and the GUI log print messages), so carrying both would be two homes for one fact;
+Phase 4's entry gate, which may reshape these types, can add the list with its first reader.
+The `ExportId` pairs are how the gate's messages name their export, and a `CompileContext`
+holding only the version would be a wrapper around one value. Two plan files giving the same
+signature had already drifted apart (object_model.md kept the pre-3.9a `process_task`).
+Plan: `team_compiler/pipeline.md` "Run driver shapes (Phase 3)"; `aesthetics_export/
+object_model.md` "Core types" (the tool-side block); `core/parallelism.md` "Design".

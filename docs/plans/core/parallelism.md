@@ -35,8 +35,12 @@ manifest.tasks.into_par_iter().for_each(|task| {
 });
 ```
 
-`PlanReport` carries the manifest, all planning messages, and the IDs of exports dropped by scoped
-planning failures. The Team compiler separately performs duplicate-refs discovery preflight before
+This is the full design; Phase 3 builds the subset in `team_compiler/pipeline.md` "Run driver
+shapes (Phase 3)", whose names are the code's (the duplicate-refs preflight is `reader::route`
+plus a run-scoped `multiple_ref_exports`, and the coordinator admits tasks into the pool in
+manifest order instead of `into_par_iter`). `PlanReport` carries the manifest, all planning
+messages, and the IDs of exports dropped by scoped planning failures (from Phase 4; in Phase 3
+a dropped export is only its `DropExport` message, which nothing yet needs to look up by ID). The Team compiler separately performs duplicate-refs discovery preflight before
 validation, then merges that preflight's messages and dropped IDs into the same final report;
 `plan_run` continues to accept only identity-resolved `ResolvedAestheticsExport` values. Only an
 `AbortRun`/global fatal produces no manifest. No processing-time locks are needed for output
