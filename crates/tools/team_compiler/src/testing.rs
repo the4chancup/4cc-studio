@@ -18,14 +18,36 @@ use teams_list::TeamsList;
 use crate::messages::TOOL_ID;
 use crate::settings::default_table;
 
-/// A fresh, empty `<temp>/team_compiler_<name>_<pid>` folder; `name` is unique per test.
-pub(crate) fn scratch(name: &str) -> PathBuf {
-    let root = std::env::temp_dir().join(format!("team_compiler_{name}_{}", std::process::id()));
-    if root.exists() {
-        fs::remove_dir_all(&root).unwrap();
+/// A test's temporary folder, removed when the guard drops (a test that panics included).
+pub(crate) struct ScratchFolder {
+    path: PathBuf,
+}
+
+impl ScratchFolder {
+    pub(crate) fn path(&self) -> &Path {
+        &self.path
     }
-    fs::create_dir_all(&root).unwrap();
-    root
+}
+
+impl Drop for ScratchFolder {
+    fn drop(&mut self) {
+        // Best effort: the cleanup must not mask the test's result (a panic here during a failed
+        // test's unwind would abort the whole test process), so a folder that cannot be removed
+        // (a handle still open on Windows) is only logged.
+        if let Err(error) = fs::remove_dir_all(&self.path) {
+            log::debug!("{}: not removed: {error}", self.path.display());
+        }
+    }
+}
+
+/// A fresh, empty `<temp>/team_compiler_<name>_<pid>` folder; `name` is unique per test.
+pub(crate) fn scratch(name: &str) -> ScratchFolder {
+    let path = std::env::temp_dir().join(format!("team_compiler_{name}_{}", std::process::id()));
+    if path.exists() {
+        fs::remove_dir_all(&path).unwrap();
+    }
+    fs::create_dir_all(&path).unwrap();
+    ScratchFolder { path }
 }
 
 /// Copies every file under `source` into `target`, folders created as needed.
@@ -45,14 +67,15 @@ fn copy_tree(source: &Path, target: &Path) {
 /// A fresh `scratch` folder standing in for the executable's: a teams list holding `792 /egg/`
 /// under `data/` and the tracer bullet's export under `exports/egg Tracer`, so a `compile` with
 /// no arguments compiles it to `output/4cc_90_test.cpk`.
-pub(crate) fn sandbox(name: &str) -> PathBuf {
-    let root = scratch(name);
+pub(crate) fn sandbox(name: &str) -> ScratchFolder {
+    let temp = scratch(name);
+    let root = temp.path();
     fs::create_dir_all(root.join("data")).unwrap();
     fs::write(root.join("data/teams_list.txt"), "ID\tName\n792\t/egg/\n").unwrap();
     let tracer =
         Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/tracer/studio/egg Tracer");
     copy_tree(&tracer, &root.join("exports/egg Tracer"));
-    root
+    temp
 }
 
 /// A context whose executable folder is `root` (data directory `root/data`), over PES 21

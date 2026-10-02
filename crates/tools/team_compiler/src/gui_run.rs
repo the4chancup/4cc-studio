@@ -106,8 +106,6 @@ impl RunLog {
 
 #[cfg(test)]
 mod tests {
-    use std::fs;
-
     use studio_core::StudioTool;
 
     use super::*;
@@ -130,8 +128,9 @@ mod tests {
 
     #[test]
     fn a_compile_logs_the_consoles_lines_then_its_exit_code_and_a_rerun_replaces_them() {
-        let root = sandbox("gui_run_compile");
-        let ctx = tool_context(&root, "");
+        let temp = sandbox("gui_run_compile");
+        let root = temp.path();
+        let ctx = tool_context(root, "");
         let mut log = RunLog::default();
         assert!(!log.is_running());
 
@@ -144,7 +143,6 @@ mod tests {
         log.start_compile(&ctx);
         finish(&mut log);
         assert_eq!(log.lines(), TRACER_LINES);
-        fs::remove_dir_all(&root).unwrap();
     }
 
     #[test]
@@ -165,8 +163,9 @@ mod tests {
 
     #[test]
     fn the_tool_ticks_its_run_to_the_end() {
-        let root = sandbox("gui_run_tool_tick");
-        let ctx = tool_context(&root, "");
+        let temp = sandbox("gui_run_tool_tick");
+        let root = temp.path();
+        let ctx = tool_context(root, "");
         let mut tool = Tool::new();
         tool.run_log.start_compile(&ctx);
         poll_until_done(|| {
@@ -174,13 +173,13 @@ mod tests {
             tool.run_log.is_running()
         });
         assert_eq!(tool.run_log.lines(), TRACER_LINES);
-        fs::remove_dir_all(&root).unwrap();
     }
 
     #[test]
     fn a_refused_compile_logs_the_error_line_then_its_exit_code() {
-        let root = sandbox("gui_run_refused");
-        let ctx = tool_context(&root, "[team-compiler]\ncpk_name = 'a/b'\n");
+        let temp = sandbox("gui_run_refused");
+        let root = temp.path();
+        let ctx = tool_context(root, "[team-compiler]\ncpk_name = 'a/b'\n");
         let mut log = RunLog::default();
         log.start_compile(&ctx);
         finish(&mut log);
@@ -188,6 +187,5 @@ mod tests {
         assert_eq!(lines.len(), 2, "{lines:?}");
         assert!(lines[0].starts_with("error: "), "{lines:?}");
         assert_eq!(lines[1], "Run finished: exit code 2");
-        fs::remove_dir_all(&root).unwrap();
     }
 }

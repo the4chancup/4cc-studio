@@ -45,9 +45,9 @@ pub(crate) fn player_links(
 ) -> Vec<ResolvedLink> {
     let mut links = Vec::new();
     for file in &folder.files {
-        let pos = position(&file.path, &folder.path);
+        let file_position = position(&file.path, &folder.path);
         match file.kind {
-            FileKind::SharedLink(kind) if pos == Position::Direct => {
+            FileKind::SharedLink(kind) if file_position == Position::Direct => {
                 let (_, name) = shared_link_name(file.path.name())
                     .expect("a SharedLink kind implies a non-empty link stem");
                 let target = shared_folders(draft, kind)
@@ -63,7 +63,7 @@ pub(crate) fn player_links(
             }
             FileKind::CommonLink
                 if matches!(
-                    pos,
+                    file_position,
                     Position::Direct
                         | Position::Reserved(Reserved::Face | Reserved::Boots | Reserved::Gloves)
                 ) =>
@@ -101,7 +101,7 @@ fn first_drop(issues: &[ValidationIssue], key: &str) -> &'static str {
                 Disposition::DropFile | Disposition::DropFolder
             ) && match &issue.scope {
                 IssueScope::Folder(path) | IssueScope::File(path) => path.fold_key() == *key,
-                _ => false,
+                IssueScope::Export | IssueScope::RosterEntry { .. } => false,
             }
         })
         .map(|issue| issue.code)

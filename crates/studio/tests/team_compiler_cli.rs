@@ -32,9 +32,14 @@ impl Sandbox {
 
     /// Runs the copied binary with the sandbox as the current directory.
     fn run(&self, args: &[&str]) -> Output {
+        self.run_from(&self.root, args)
+    }
+
+    /// Runs the copied binary with `current_dir` as the current directory.
+    fn run_from(&self, current_dir: &Path, args: &[&str]) -> Output {
         Command::new(&self.exe)
             .args(args)
-            .current_dir(&self.root)
+            .current_dir(current_dir)
             .output()
             .unwrap()
     }
@@ -129,6 +134,15 @@ fn a_settings_file_that_is_not_toml_stops_the_binary_naming_it() {
     let sandbox = Sandbox::new("bad_settings", "this is = = not toml");
     let output = sandbox.run(&["team-compiler", "check"]);
     assert_refused(&output, 2, &["settings.toml"]);
+}
+
+#[test]
+fn the_settings_beside_the_executable_are_read_whatever_the_working_folder() {
+    let sandbox = Sandbox::new("working_folder", "[team-compiler]\ncpk_name = 'con'\n");
+    let elsewhere = sandbox.root.join("elsewhere");
+    fs::create_dir_all(&elsewhere).unwrap();
+    let output = sandbox.run_from(&elsewhere, &["team-compiler", "compile"]);
+    assert_refused(&output, 2, &["cpk_name"]);
 }
 
 #[test]

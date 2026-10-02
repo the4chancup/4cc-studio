@@ -2,7 +2,6 @@
 //! "Common settings").
 
 use std::path::PathBuf;
-use std::thread::available_parallelism;
 
 use pes_version::PesVersion;
 use serde::{Deserialize, Serialize};
@@ -63,20 +62,6 @@ impl Default for CommonSettings {
     }
 }
 
-impl CommonSettings {
-    /// The worker thread count a pipeline should use: `thread_count` when set, else the logical
-    /// core count minus one (a core is reserved for the reader and writer), never below one.
-    pub fn worker_threads(&self) -> usize {
-        if self.thread_count > 0 {
-            return self.thread_count;
-        }
-        let logical = available_parallelism()
-            .map(|count| count.get())
-            .unwrap_or(1);
-        logical.saturating_sub(1).max(1)
-    }
-}
-
 /// GUI color theme.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -85,17 +70,4 @@ pub enum Theme {
     Dark,
     /// Light background.
     Light,
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn explicit_thread_count_wins_and_auto_is_at_least_one() {
-        let mut settings = CommonSettings::default();
-        assert!(settings.worker_threads() >= 1);
-        settings.thread_count = 3;
-        assert_eq!(settings.worker_threads(), 3);
-    }
 }

@@ -4,10 +4,12 @@
 //! window and the common widgets join this module in the GUI phase (core plan, "Shell layout",
 //! "Crate structure").
 
-pub mod launch;
+mod launch;
 
 use crossbeam_channel::Receiver;
 use log::debug;
+
+pub use launch::{Launch, LaunchMode, parse_launch, run_cli};
 
 use crate::tool::{ShellRequest, StudioTool, ToolContext};
 

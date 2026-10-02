@@ -8,6 +8,7 @@ mod common;
 
 mod check;
 mod compile;
+mod compile_exports;
 mod preflight;
 mod sources;
 

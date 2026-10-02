@@ -55,7 +55,11 @@ Claude agent with no sidekick and no reviewer of another model family. While tha
   3.9f (a): TC-CLI-08 and TC-CLI-09 (`team_compiler/README.md` "CLI and output"), against
   `team_compiler/settings.md` "Path resolution", `team_compiler/messages.md` (`no_exports_found`
   and the settings/environment paragraph) and the decision entry "a missing exports folder is
-  created or refused in plain words"; the 3.9f code rides along with it.
+  created or refused in plain words"; the 3.9f code rides along with it. 3.y (c): the converge
+  reviewer loop, one surface per crate (`aesthetics_export`, `pipeline`, `team_compiler`, the
+  Phase 3 parts of `studio_core` and `studio`), against the Phase 3 plan sections and the TC
+  IDs, the lead's converge record in the 3.y row and its log line; after the loop ends, the
+  second whole-crate `just mutants` per crate (`AGENTS.md` "Closing a phase").
 - For the lead, on return: the review process on trial (maintainer, 3.1) runs a full sidekick
   review loop after each GPT round and calls GPT again only once that loop has ended and GPT's
   own loop has not; not yet in `AGENTS.md` (3.6: GPT 4 of 7 accepted, then sidekick S1 3 of 7,
@@ -378,9 +382,24 @@ Itemized 2026-09-30 at Phase 2's close. Order: the tracer first (one real export
   `.min(255 * lanes)` cap removed. Tests added for the three overlapping ORs no test killed
   (`to_fox.rs:148`, `pes_model/export.rs:129/134`). The config now removes 132; every other
   entry's argument holds and its mutants survived the run (`.tmp/3w/mutants.out/`)
-- [ ] 3.y Converge (`AGENTS.md` "Closing a phase"): the lead's audit against the Phase 3 plan
+- [x] 3.y Converge (`AGENTS.md` "Closing a phase"): the lead's audit against the Phase 3 plan
   sections and every TC ID (3.2's strict mode), design-health pass, `just mutants` per new
-  crate, then the reviewer loop; gaps become steps above this one
+  crate, then the reviewer loop; gaps become steps above this one. Done, the reviewer loop
+  aside (queued, see "Handover"): every plan code block compared with its type (24 blocks:
+  `PlanReport.dropped` and `plan_run`'s signature were the undocumented differences, the plan
+  now follows the code, decision entry "3.y: the run driver's plan shapes follow the code");
+  `acceptance` 77 of 77 proven; a design sweep and `pub` audit of the phase's crates; whole-crate
+  `just mutants` (`aesthetics_export` 425: 0 missed; `team_compiler` 270: 1 missed, the
+  `settings_view` placeholder that Phase 8's settings menu replaces; `pipeline` 67: only the
+  `available_memory` platform arms sharded onto the other OS, the Windows arm rerun here, all
+  caught; `studio_core` 59 and `studio` 16: 12 missed, now tested); every timeout a hang. The
+  rework (one slice): `validate/mod.rs`'s tests to `validate/tests.rs`, `tests/cli/compile.rs`
+  split (`compile_exports.rs`), one `metadata_text`, `_ =>` arms made explicit where they list
+  four patterns or fewer (`links.rs:88` and `root.rs:206` keep theirs: 11 and about 17
+  variants), full-word names, narrower visibility, `CommonSettings::worker_threads` removed,
+  the face package moved into its last slot, test scratch folders removed on drop (they had
+  leaked about 3000 into `%TEMP%`), tests for the 12 survivors. Rejected sweep findings, with
+  reasons, in the log line
 - [ ] 3.x Rewrite the Phase 3 plan sections in the present tense, collapse this list
 
 ### Phase 4 — Processing logic
@@ -462,6 +481,15 @@ Steps are itemized when Phase 15 closes; one is fixed already:
 
 Bugs, unexpected behavior, things to revisit. `open` / `resolved (date)`. Resolved issues are
 pruned when their phase closes; they stay in git history.
+
+- open — the headless egui test harness (a frame with AccessKit on, a node by label, a click as
+  press and release frames) exists twice, in `studio_core/src/shell/mod.rs` and
+  `team_compiler/src/view/mod.rs` (3.y design sweep). The next tool view in Phase 8 would be
+  the third copy: extract it then into `studio_core` behind a test-support feature, rather
+  than a third copy.
+- open — the VPS mutation half's memory peak reached 7.07 GiB of the 8 GiB cap on
+  `team_compiler` (3.y whole-crate run, 2 build jobs); no build was killed, and a killed one now
+  fails the run. Asked the maintainer whether to raise the cap before Phase 4 grows the crate.
 
 - open — u16 face indices cap a reassembled split mesh (found at 2.20f review): `fmdl::Mesh`
   and the IR (`ir.md` "IR struct") store faces as `[u16; 3]`, so `fmdl::ops::split::decode`
@@ -942,3 +970,17 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   by hand): `to_fox.rs:148` `left: 0 right: 32`; `pes_model/export.rs:129` `left: [] right:
   ["no_shadow_cast"]`, `:134` `left: [] right: ["invisible"]`. Fable: landed first time and
   disproved the lead's `quantize_weights` counterexample with a 6-million-input probe.
+- **2026-10-02** - 3.y converge, the reviewer loop aside (row 3.y). Rejected sweep findings: the
+  headless egui harness's second copy (the third, in Phase 8, extracts it: Issues), the two
+  `SmallMetadata` lookups (the parse stage has raw keys, validation only canonical ones), the
+  two `Disposition` enums (libs do not depend on `studio_core`; `messages.rs` is the seam),
+  `PLACEHOLDER_KIT.to_vec()` and the kit config copies (owned input, small), "legacy" for
+  `refs.txt` (the format's history, as `messages.md` says it), `ctx` (the plan's trait
+  signature), the plan-named or plan-deferred `pub` items, `Tool`'s `Default` beside `new`
+  (clippy's `new_without_default`). Red runs (mutation by hand): `Settings::load` guard
+  `matches!(…Io(error) if error.kind() != NotFound)` failed; `gui_run` default `unwrap_err()
+  on Ok`; `version_change_blocker` `left: Some("xyzzy") right: None`; `ToolContext::common`
+  `left: 0 right: 4`; `exe_dir` exit `Some(0)` against `Some(2)`; `install_cli_logger` `left:
+  Off`; `log_level` arm `left: Trace right: Info`. `mutants-diff b6d898c`: 58, 49 caught, 9
+  unviable. Fable: landed first time; a name it could not use as briefed (`position` shadows
+  the function) renamed `file_position` and reported.

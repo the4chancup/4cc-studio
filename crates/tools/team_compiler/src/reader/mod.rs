@@ -266,7 +266,8 @@ mod tests {
 
     #[test]
     fn discovery_takes_folders_and_archives_in_folded_name_order() {
-        let root = scratch("reader_discovery");
+        let temp = scratch("reader_discovery");
+        let root = temp.path();
         for folder in ["b - Two", "A - One"] {
             fs::create_dir(root.join(folder)).unwrap();
         }
@@ -274,7 +275,7 @@ mod tests {
             fs::write(root.join(file), "").unwrap();
         }
 
-        let sources = discover(&root, &[]).unwrap();
+        let sources = discover(root, &[]).unwrap();
 
         let summary: Vec<(u64, &str, &str, SourceKind, Option<&str>)> = sources
             .iter()
@@ -310,12 +311,12 @@ mod tests {
             ]
         );
         assert_eq!(sources[0].path, root.join("A - One"));
-        fs::remove_dir_all(&root).unwrap();
     }
 
     #[test]
     fn named_exports_replace_the_scan() {
-        let root = scratch("reader_named");
+        let temp = scratch("reader_named");
+        let root = temp.path();
         fs::create_dir(root.join("co - In root")).unwrap();
         fs::create_dir(root.join("zz - Named")).unwrap();
         fs::write(root.join("aa - Named.zip"), "").unwrap();
@@ -329,12 +330,12 @@ mod tests {
             .collect();
         assert_eq!(names, ["aa - Named.zip", "zz - Named"]);
         assert_eq!(sources[1].export_id, ExportId(1));
-        fs::remove_dir_all(&root).unwrap();
     }
 
     #[test]
     fn names_differing_only_in_case_take_the_same_order_whatever_order_they_come_in() {
-        let root = scratch("reader_case_order");
+        let temp = scratch("reader_case_order");
+        let root = temp.path();
         for folder in ["one/co - a", "two/co - A", "three/CO - A"] {
             fs::create_dir_all(root.join(folder)).unwrap();
         }
@@ -354,12 +355,12 @@ mod tests {
                 .collect();
             assert_eq!(names, ["CO - A", "co - A", "co - a"]);
         }
-        fs::remove_dir_all(&root).unwrap();
     }
 
     #[test]
     fn a_named_path_that_is_no_longer_an_export_is_an_error_naming_it() {
-        let root = scratch("reader_named_gone");
+        let temp = scratch("reader_named_gone");
+        let root = temp.path();
         let error = discover(Path::new("no such root"), &[root.join("gone.txt")]).unwrap_err();
         assert_eq!(
             error.to_string(),
@@ -372,7 +373,8 @@ mod tests {
 
     #[test]
     fn an_exports_root_that_cannot_be_read_is_an_error_naming_it() {
-        let root = scratch("reader_missing").join("exports");
+        let temp = scratch("reader_missing");
+        let root = temp.path().join("exports");
         let error = discover(&root, &[]).unwrap_err();
         assert!(
             format!("{error:#}").contains(&root.display().to_string()),
@@ -401,7 +403,8 @@ mod tests {
 
     #[test]
     fn routing_sets_aside_disabled_balls_and_conflicting_refs_exports() {
-        let root = scratch("reader_routing");
+        let temp = scratch("reader_routing");
+        let root = temp.path();
         let write = |relative: &str| {
             let path = root.join(relative);
             fs::create_dir_all(path.parent().unwrap()).unwrap();
@@ -415,7 +418,7 @@ mod tests {
         write("refs c/NO_USE.txt");
         write("refs d.zip");
 
-        let sources = discover(&root, &[]).unwrap();
+        let sources = discover(root, &[]).unwrap();
         let routes: Vec<String> = route(&sources, &MemoryBudget::new(1 << 20))
             .into_iter()
             .map(|route| match route {
@@ -441,20 +444,19 @@ mod tests {
                 "unreadable: zip: invalid Zip archive: Could not find EOCD",
             ]
         );
-        fs::remove_dir_all(&root).unwrap();
     }
 
     #[test]
     fn a_single_refs_export_is_validated() {
-        let root = scratch("reader_single_refs");
+        let temp = scratch("reader_single_refs");
+        let root = temp.path();
         fs::create_dir_all(root.join("refs a")).unwrap();
         fs::write(root.join("refs a/players.txt"), "").unwrap();
         fs::create_dir_all(root.join("refs b")).unwrap();
         fs::write(root.join("refs b/NO_USE"), "").unwrap();
-        let sources = discover(&root, &[]).unwrap();
+        let sources = discover(root, &[]).unwrap();
         let routes = route(&sources, &MemoryBudget::new(1 << 20));
         assert!(matches!(routes[0], Route::Validate { .. }), "{routes:?}");
         assert_eq!(routes[1], Route::Disabled);
-        fs::remove_dir_all(&root).unwrap();
     }
 }

@@ -49,7 +49,6 @@ fn show_settings(ui: &mut egui::Ui, ctx: &ToolContext) {
 
 #[cfg(test)]
 mod tests {
-    use std::fs;
     use std::path::Path;
 
     use crossbeam_channel::unbounded;
@@ -213,8 +212,9 @@ mod tests {
 
     #[test]
     fn a_compile_click_through_the_tool_starts_a_run() {
-        let root = sandbox("view_compile_click");
-        let ctx = tool_context(&root, "");
+        let temp = sandbox("view_compile_click");
+        let root = temp.path();
+        let ctx = tool_context(root, "");
         let mut tool = Tool::new();
         let mut window = Headless::new();
         let (_, nodes) = window.frame(Vec::new(), |ui| tool.view(ui, &ctx));
@@ -233,6 +233,5 @@ mod tests {
                 "Run finished: exit code 0",
             ]
         );
-        fs::remove_dir_all(&root).unwrap();
     }
 }

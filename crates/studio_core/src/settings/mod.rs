@@ -19,6 +19,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 pub use common::{CommonSettings, Theme};
 #[cfg(not(target_arch = "wasm32"))]
 pub use location::{SETTINGS_FILE_NAME, resolve_data_dir, user_config_dir};
+use log::debug;
 use toml::{Table, Value};
 
 /// The key of the common section; no tool may use it as its id.
@@ -84,17 +85,22 @@ impl Settings {
     pub fn save(&self, path: &Path) -> io::Result<()> {
         static SAVE_COUNTER: AtomicU64 = AtomicU64::new(0);
         let text = self.to_toml_string().map_err(io::Error::other)?;
-        let mut tmp_name = path.file_name().unwrap_or_default().to_owned();
+        let mut temp_name = path.file_name().unwrap_or_default().to_owned();
         let sequence = SAVE_COUNTER.fetch_add(1, Ordering::Relaxed);
-        tmp_name.push(format!(".{}-{sequence}.tmp", std::process::id()));
-        let tmp = path.with_file_name(tmp_name);
+        temp_name.push(format!(".{}-{sequence}.tmp", std::process::id()));
+        let temp = path.with_file_name(temp_name);
         let write_and_swap = || -> io::Result<()> {
-            fs::write(&tmp, text)?;
-            fs::rename(&tmp, path)
+            fs::write(&temp, text)?;
+            fs::rename(&temp, path)
         };
         if let Err(error) = write_and_swap() {
             // Best effort: the original error is the one to report.
-            drop(fs::remove_file(&tmp));
+            if let Err(cleanup_error) = fs::remove_file(&temp) {
+                debug!(
+                    "{}: the leftover temporary file was not removed: {cleanup_error}",
+                    temp.display()
+                );
+            }
             return Err(error);
         }
         Ok(())
@@ -170,6 +176,18 @@ mod tests {
         let dir = std::env::temp_dir().join("studio_core_settings_missing");
         let loaded = Settings::load(&dir.join("does_not_exist.toml")).unwrap();
         assert_eq!(loaded, Settings::default());
+    }
+
+    #[test]
+    fn a_settings_path_that_exists_but_is_not_a_file_is_an_error() {
+        let dir = std::env::temp_dir().join("studio_core_settings_dir_path");
+        fs::create_dir_all(&dir).unwrap();
+        // Only a missing file yields the defaults; a folder at the path is a read failure.
+        assert!(matches!(
+            Settings::load(&dir),
+            Err(SettingsError::Io(error)) if error.kind() != io::ErrorKind::NotFound
+        ));
+        fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]

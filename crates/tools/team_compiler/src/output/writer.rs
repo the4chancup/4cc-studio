@@ -190,7 +190,8 @@ mod tests {
 
     #[test]
     fn batches_are_laid_out_in_manifest_order_and_the_bins_last() {
-        let folder = scratch("writer_order");
+        let temp = scratch("writer_order");
+        let folder = temp.path();
         let path = folder.join("run/cup.cpk");
         let mut output = CpkOutput::new(path.clone());
 
@@ -227,12 +228,12 @@ mod tests {
             UniformParameter::read(templates::uniform_parameter_base(PesVersion::Pes21).unwrap())
                 .unwrap();
         assert_eq!(bin.len(), base.len() + 1, "the base's entries are kept");
-        fs::remove_dir_all(&folder).unwrap();
     }
 
     #[test]
     fn the_arrival_order_changes_no_byte_of_the_cpk() {
-        let folder = scratch("writer_arrival");
+        let temp = scratch("writer_arrival");
+        let folder = temp.path();
         let mut written = Vec::new();
         for (name, reversed) in [("forward", false), ("reversed", true)] {
             let path = folder.join(format!("{name}.cpk"));
@@ -248,12 +249,12 @@ mod tests {
             written.push(fs::read(&path).unwrap());
         }
         assert_eq!(written[0], written[1]);
-        fs::remove_dir_all(&folder).unwrap();
     }
 
     #[test]
     fn submit_returns_each_committed_batch_and_its_messages_in_manifest_order() {
-        let folder = scratch("writer_committed");
+        let temp = scratch("writer_committed");
+        let folder = temp.path();
         let mut output = CpkOutput::new(folder.join("cup.cpk"));
         let [first, second, third] = three_batches();
 
@@ -263,12 +264,12 @@ mod tests {
             output.submit(second).unwrap(),
             [(1, vec![note(1)]), (2, vec![note(2)])]
         );
-        fs::remove_dir_all(&folder).unwrap();
     }
 
     #[test]
     fn a_failed_commit_releases_the_permits_of_the_batches_waiting_behind_it() {
-        let folder = scratch("writer_failed_commit");
+        let temp = scratch("writer_failed_commit");
+        let folder = temp.path();
         let mut output = CpkOutput::new(folder.join("cup.cpk"));
         let budget = MemoryBudget::new(1);
         let mut waiting = batch(1, &["a/waiting.bin"], None);
@@ -291,12 +292,12 @@ mod tests {
             Ok(true),
             "the waiting batch's permit was released"
         );
-        fs::remove_dir_all(&folder).unwrap();
     }
 
     #[test]
     fn a_failed_task_contributes_nothing_not_even_its_kit_config() {
-        let folder = scratch("writer_failed");
+        let temp = scratch("writer_failed");
+        let folder = temp.path();
         let path = folder.join("run/cup.cpk");
         let mut output = CpkOutput::new(path.clone());
 
@@ -304,12 +305,12 @@ mod tests {
 
         assert!(!output.finish(PesVersion::Pes21).unwrap());
         assert!(!folder.join("run").exists(), "no file and no folder");
-        fs::remove_dir_all(&folder).unwrap();
     }
 
     #[test]
     fn a_batch_that_never_arrives_is_an_error() {
-        let mut output = CpkOutput::new(scratch("writer_gap").join("cup.cpk"));
+        let temp = scratch("writer_gap");
+        let mut output = CpkOutput::new(temp.path().join("cup.cpk"));
         output.submit(batch(1, &["a/b.bin"], None)).unwrap();
         let error = output.finish(PesVersion::Pes21).unwrap_err();
         assert_eq!(
@@ -320,7 +321,8 @@ mod tests {
 
     #[test]
     fn a_kit_config_for_a_version_without_the_bin_is_an_error() {
-        let mut output = CpkOutput::new(scratch("writer_pre_fox").join("cup.cpk"));
+        let temp = scratch("writer_pre_fox");
+        let mut output = CpkOutput::new(temp.path().join("cup.cpk"));
         output.submit(batch(0, &["a/b.bin"], Some("kit"))).unwrap();
         let error = output.finish(PesVersion::Pes17).unwrap_err();
         assert_eq!(error.to_string(), "PES 2017 has no UniformParameter.bin");

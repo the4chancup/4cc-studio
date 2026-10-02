@@ -7,7 +7,7 @@ use std::collections::BTreeMap;
 use super::folders::{fold, stem};
 use crate::FileKind;
 use crate::conventions::{MetadataFile, strip_prefix_ci};
-use crate::listing::{SmallMetadata, ValidationContext};
+use crate::listing::{SmallMetadata, ValidationContext, metadata_text};
 use crate::parse::{AestheticsExportDraft, FileDescriptor};
 use crate::slots::PlayerSlot;
 use crate::validate::{
@@ -256,8 +256,7 @@ fn check_notes(
             return;
         }
     };
-    let bytes = bytes.strip_prefix(b"\xef\xbb\xbf").unwrap_or(bytes);
-    let Ok(text) = str::from_utf8(bytes) else {
+    let Ok(text) = metadata_text(bytes) else {
         issues.push(issue_in(
             context,
             "notes_encoding_invalid",
