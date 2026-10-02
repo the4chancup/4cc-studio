@@ -11,8 +11,8 @@ is in `AGENTS.md` ("Working documents").
 
 **Phase:** 3 (Team compiler skeleton) closed 2026-10-02, its cross-family reviews queued (see
 "Handover"). Phases 1 and 2 done (Phase 2 closed 2026-09-30).
-**Next:** the studies 4.0a (PES 12) and 4.0b (Sider as a "Sideloader" tool) were reported to the
-maintainer on 2026-10-02 and await their decisions; per the directive, no Phase 4 work. 2.5b
+**Next:** 4.0d (the sideload renames in the code); the studies 4.0a and 4.0b are closed. Test 1
+of step 4.0 is installed for the maintainer's in-game check; per the directive, no Phase 4 work. 2.5b
 (GPU BC7) is step 16.x (decision entries 2026-09-21 and 2026-09-28). Release target
 (2026-09-28): 0.1.0 after Phase 8; phase order 1–6, 8, 0.1.0, 7, 9–16
 (`core/development_plan.md` "Releases").
@@ -208,14 +208,15 @@ Steps are itemized only after 4.0 is done; one more is fixed already
   `mutants-diff` over the step, and a grep finding no `==`/`!=` on `Engine` left. Done: the six
   sites and `engine()` are `match`es, `engine_of_every_version` tests all seven; gates green, 77
   of 77; `mutants-diff f678d4f`: 13, 11 caught, 2 unviable; the grep finds none
-- [!] 4.0b (reported 2026-10-02, awaiting the maintainer's decision) Sider feasibility study, after 4.0a (maintainer, 2026-10-02): study the `sider`
-  folder at `c:/Data/4cc/0Tools/sider` and whether it can join the suite as a new
-  "Sideloader" tool, ideally with a status-bar button that runs it when compiling for Sider
-  (`--mode sider`, `team_compiler/settings.md`). Report to the maintainer what Sider is and
-  does, how the suite would launch or embed it (licensing, binaries, process model, config it
-  needs), where it touches existing plans (the Team compiler's Sider mode, the status bar in
-  `core/gui.md`), and the options with a recommendation. → done when: the maintainer has the
-  report and has decided what, if anything, enters the plans. Then stop: no Phase 4 work
+- [x] 4.0b Sider feasibility study (maintainer, 2026-10-02): `c:/Data/4cc/0Tools/sider`. Done
+  2026-10-02: the Team compiler's `--mode sider` becomes `--mode sideload` and Red's `sideload/`
+  folder `overrides/`, with a plain **Launch PES** button beside Compile in sideload mode (decision
+  entry "sideload mode and the overrides folder"). The maintainer also wants a from-scratch
+  replacement for Sider's LiveCPK; the agent declined to design its in-game hooking part, so no
+  plan for it exists in `docs/plans/` (the study's notes are outside git, in `.tmp/`)
+- [ ] 4.0d The 4.0b renames in the code: `team_compiler` `Mode::Sider` → `Mode::Sideload`
+  (`--mode sideload`), its help topic and tests → verify: `just gates`; the refusal test asserts
+  `--mode sideload`; no `sider` left in `crates/tools/team_compiler`
 - [ ] 4.0 **GATE, maintainer only: in-game appearance-fallback test.** No agent itemizes Phase 4,
   writes a Phase 4/5/6 Acceptance section, or starts Phase 4/5/6 work until the maintainer has
   run the test and reported the result. The idea under test: a savefile player whose appearance
@@ -783,3 +784,6 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   a launcher over the user's own Sider is recommended. Both await the maintainer's decisions.
 - **2026-10-02** — 4.0c: `Engine` is matched exhaustively everywhere (Fable, landed first time,
   0 lead fixes). Sideloader decisions recorded in the lead's state; study part 2 running.
+- **2026-10-02** — 4.0b closed: sideload mode and the `overrides/` folder renamed in the plans,
+  a plain Launch PES button planned; 4.0d renames the code. Test 1 (step 4.0) installed for the
+  maintainer's in-game check, backups beside the save and `DpFileList.bin`.

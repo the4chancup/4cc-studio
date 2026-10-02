@@ -239,15 +239,19 @@ A single primary action:
 
 - **Compile** — the only button in the default view. During a run it becomes **Cancel**. It is a
   **split button**: the main part runs the compile in the *current output mode*, the arrow part opens
-  the mode list — **Compile** (normal, CPK), **Compile for Sider** (unpacked PES folder structure,
+  the mode list — **Compile** (normal, CPK), **Compile for sideloading** (unpacked PES folder structure,
   Red's steps 1+2) and **Test output** (processed exports written unpacked in their original layout,
   Red's step 1) — see "Output modes and targets" in the Writer section. Picking a mode **sticks for
-  the session** and relabels the main part, so the prototyping loop the Sider mode exists for
+  the session** and relabels the main part, so the prototyping loop the sideload mode exists for
   (compile → alt-tab to PES → adjust → compile again) is one click per iteration after the first.
   The mode resets to normal on the next launch (output mode is deliberately not a persisted
   setting), and a `--gui` autorun always uses its own `--mode`, so `quick_compile.bat` cannot be
   hijacked by a leftover session mode. No separate buttons: the three are the same compile with a
-  different sink, so they belong to the same control. Red's staged operations as separate runs
+  different sink, so they belong to the same control. With the sideload mode selected, a **Launch
+  PES** button sits beside it (maintainer, 2026-10-02): it starts the selected version's PES the
+  ordinary way (its Steam URL, else the exe in the game folder) when that PES is not running, and
+  is disabled while it runs (the running-PES poll, `core/architecture.md` `pes_process.rs`); it
+  starts the game and does nothing else. Red's staged operations as separate runs
   ("extracted → contents", "contents → CPK") are superseded by the unified pipeline and are not
   exposed. GUI autorun (`quick_compile.bat`, see
   `settings.md` "CLI") presses this button programmatically once the initial check completes; a run started that

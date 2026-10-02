@@ -68,7 +68,7 @@ Comparison uses four tiers:
 
 Maintain a versioned test matrix for PES 15–21 covering team and referee exports; folders, ZIP, and
 7z; native and converted pre-Fox/Fox models; local, shared, and combined models; normal, multi-CPK,
-test, and sider modes; savefile success/failure; and cancellation. Key behavior areas:
+test, and sideload modes; savefile success/failure; and cancellation. Key behavior areas:
 
 - **Dispositions and GUI**: pass-through and `DoneWithErrors`; an Error-level `DropFile` rendering
   red at check time and finishing `DoneWithErrors`; `DropFolder` outcomes; an effective `DropExport`
@@ -128,7 +128,7 @@ test, and sider modes; savefile success/failure; and cancellation. Key behavior 
   `collar_id_conflict` resolving by canonical export order, and a custom collar overriding the FPC
   collar value in every config).
 - **Planning and writer**: cross-export duplicate paths producing the same manifest under reversed
-  completion order; sideload-versus-export collision resolution; nested-root path collisions;
+  completion order; override-versus-export collision resolution; nested-root path collisions;
   partial planning continuing valid teams after refs or duplicate-team drops; a plan with no
   eligible tasks producing no output or deployment; a structural `DropFolder` still yielding a
   compilable export; a late model-task failure leaving no entries from that task while successful
@@ -146,7 +146,7 @@ test, and sider modes; savefile success/failure; and cancellation. Key behavior 
   markers with an already-FPC savefile (configs untouched); a mixed `fpc.on`/`fpc.off` team applying
   per-player presets while every kit config gains the FPC values; an FPC team's unexported kit slots
   patched from the installed cup entries (Fox and pre-Fox), including the no-existing-entry
-  `kit_config_fpc_unpatched` warning; logs/sideload/output path resolution in portable and
+  `kit_config_fpc_unpatched` warning; logs/overrides/output path resolution in portable and
   user-config modes; invalid-UTF-8 and empty `notes.txt`; invalid `settings.toml` preserving models
   and savefile values; atomic `players.txt` replacement never exposing a half-written roster to the
   watcher.
@@ -159,7 +159,7 @@ test, and sider modes; savefile success/failure; and cancellation. Key behavior 
 
 Separate **Red parity** (normalized archive-entry equivalence is acceptable) from **Rust
 reproducibility**. Explicit CPU mode is the deterministic reference: identical inputs and encoder
-configuration must produce byte-identical CPK, test, and sider artifacts, including canonical
+configuration must produce byte-identical CPK, test, and sideload artifacts, including canonical
 ordering and normalized timestamps. GPU mode may produce different valid encoded texture bytes
 across devices/drivers, and containers containing those textures may consequently differ too.
 That exception does not relax model/bin output, asset identities, collision decisions, or ordering;

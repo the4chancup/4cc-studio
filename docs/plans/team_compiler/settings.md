@@ -27,8 +27,8 @@ differing new default is a deliberate decision, explained in the Controls column
 | Setting | Old default | New default | Controls |
 |---|---|---|---|
 | `cpk_name` | `4cc_90_test` | same | Single-CPK output `CpkStem` (shared validation contract in the Writer section) |
-| `output_folder_path` | `patches_output/` (hardcoded) | `output/` | Root for promoted CPKs (degraded runs and `--no-deploy`), the `.staging/` folder, `test_output/`, `sider_output/`, and `teamnotes.txt`. Relative paths resolve **beside the executable** (Red's `patches_output/` in its new place; `%APPDATA%` is no place to look for a CPK) |
-| `sider_output_path` | — | `sider_output/` | Where Sider-mode runs write the unpacked PES folder structure; relative paths resolve beneath `output_folder_path`. For the prototyping loop the user either points this at Sider's livecpk root directly or adds the default folder to `sider.ini`'s `cpk.root` list — the settings UI shows the resolved absolute path for copy-pasting into `sider.ini` |
+| `output_folder_path` | `patches_output/` (hardcoded) | `output/` | Root for promoted CPKs (degraded runs and `--no-deploy`), the `.staging/` folder, `test_output/`, `sideload_output/`, and `teamnotes.txt`. Relative paths resolve **beside the executable** (Red's `patches_output/` in its new place; `%APPDATA%` is no place to look for a CPK) |
+| `sideload_output_path` | — | `sideload_output/` | Where sideload-mode runs write the unpacked PES folder structure; relative paths resolve beneath `output_folder_path`. For the prototyping loop the user lists it as a root of their sideloading tool (with Sider, a `cpk.root` line in `sider.ini`) — the settings UI shows the resolved absolute path for copy-pasting |
 | `run_pes` | 0 | same | Launch PES after compiling (only after a successful deployment; a degraded run never launches) |
 | `multicpk_mode` | 0 | same | Cup DLC mode: team content into size-split `teams` parts + the bins CPK (see "Multi-CPK mode: teams parts"); replaces Red's faces/uniform/bins content split |
 | `teams_cpk_name` | `4cc_40_faces` + `4cc_45_uniform` | `teams` | Stem of the teams part slots; the slots themselves are every DpFileList entry matching `{prefix}_{NN}_{stem}` (`4cc_40_teams`, `4cc_41_teams`, …), ordered by number. Replaces `faces_cpk_name` and `uniform_cpk_name` |
@@ -52,7 +52,7 @@ key). A missing `teams_list.txt`, or no data directory yet, reads the embedded l
 writing it (only `compile` creates the file); one that exists but cannot be read or parsed stops
 the run before any export is read (exit code 3, naming the path).
 
-Output mode (normal / test / sider) is not a persisted setting: it is the Compile button's dropdown
+Output mode (normal / test / sideload) is not a persisted setting: it is the Compile button's dropdown
 in the GUI and a flag on the CLI subcommand, as in Blue's `--mode` argument.
 
 **DDS compression cost.** Red's `dds_compression` is a separate pass at the end: walk
@@ -79,12 +79,12 @@ measurement decides the compression level, not whether the feature is on.
 | Logs and persistent state | Selected data directory |
 | Relative `exports_folder_path` | Executable directory in both data-location modes, so `exports/` sits beside `quick_compile.bat`; created when missing, before a run reads it (from Phase 8 also at GUI launch, for the watcher), so a fresh install has a folder to put exports in. An exports folder named any other way (an absolute setting, the CLI's positional root) is never created: a missing one is refused before the run (`messages.md`, the paragraph after "Output stage and savefile") |
 | Relative `output_folder_path` | Executable directory in both data-location modes (`output/` beside the exe, created on demand); holds `.staging/{run_id}/` during a run |
-| `sideload/` input | Selected data directory (an explicit sideload setting may be added later) |
+| `overrides/` input (Red's `sideload/`) | Selected data directory (an explicit setting may be added later) |
 | Relative `teams_list_path` | Selected data directory — the file is user data once the grid writes ID assignments into it, so it follows the settings file (see `pipeline.md` "Resolved decisions", "Teams list"); nothing is bundled beside the binary |
 | `templates/` override directory | Selected data directory; each file shadows the matching embedded template/fallback-bin resource (see `pipeline.md` "Resolved decisions") |
 | `savefile_path` | Absolute when explicitly set; `auto` resolves under the shell's Documents folder → `KONAMI\{game folder}[\{account id}]\save\EDIT00000000` per the Savefile plan's discovery table — independent of `pes_folder_path` |
 | `pes_folder_path` | Absolute PES installation path (after expanding its documented `**` version placeholder) |
-| Generated CPKs, `test_output/`, `sider_output/`, `teamnotes.txt` | Resolved `output_folder_path` |
+| Generated CPKs, `test_output/`, `sideload_output/`, `teamnotes.txt` | Resolved `output_folder_path` |
 | Installed CPKs | `{pes_folder_path}/download/` |
 
 The GUI and CLI use these same bases; a CLI exports-root override changes only that invocation's
@@ -102,10 +102,10 @@ resolved export source.
 ### CLI
 
 ```text
-4cc-studio team-compiler compile [exports-root] [--mode normal|test|sider] [--export <path>]... [--no-deploy]
+4cc-studio team-compiler compile [exports-root] [--mode normal|test|sideload] [--export <path>]... [--no-deploy]
 4cc-studio team-compiler check [exports-root] [--export <path>]...
 4cc-studio team-compiler upgrade-dpfl [--yes]      # replace the installed DpFileList with the bundled official one
-4cc-studio --gui team-compiler compile [exports-root] [--mode normal|test|sider]   # GUI autorun
+4cc-studio --gui team-compiler compile [exports-root] [--mode normal|test|sideload]   # GUI autorun
 ```
 
 (Refreshing `teams_list.txt` from a savefile is the Save editor's `export-teams-list`; see the
@@ -125,22 +125,22 @@ resolve beside the executable or in the data directory ("Path resolution").
 `--no-deploy` builds the CPKs into `output/` without touching the PES install or the savefile (see
 `pipeline.md` "Post-processing"). It is CLI-only and has no GUI or settings counterpart: it is the cup maintainer's
 DLC-production flag and the build-box flag, not something a regular user should find and leave on.
-It is rejected together with `--mode test|sider`, which have no deployment to skip.
+It is rejected together with `--mode test|sideload`, which have no deployment to skip.
 
 `--export <path>` (repeatable) restricts the run to the named exports — a path to an export folder
 or archive, anywhere on disk, not necessarily under the exports root. A path that does not exist,
 or is a file other than a `.zip`/`.7z`, is an invalid invocation (exit code 2, naming the path),
 and nothing runs. This is the contract for
-**external callers driving a Sider prototyping loop**, first of all the `pes-models` Blender
-extension's "export model and compile for Sider" button: it saves the model into the player folder
+**external callers driving a sideloading prototyping loop**, first of all the `pes-models` Blender
+extension's "export model and compile for sideloading" button: it saves the model into the player folder
 it was loaded from (it knows the export from the launch manifest — see the Player aesthetics editor
 plan), then runs
 
 ```text
-4cc-studio team-compiler compile --mode sider --export "D:\exports\aaa_export"
+4cc-studio team-compiler compile --mode sideload --export "D:\exports\aaa_export"
 ```
 
-and PES, with Sider running, shows the result on the next model load. Without `--export` the plugin
+and PES, with a sideloading tool active, shows the result on the next model load. Without `--export` the plugin
 would recompile every export in the folder on each iteration. Console output follows the ordinary
 `-` prefixed format, and the exit code gives a caller a one-line verdict: **0** clean (Warning and
 Info findings allowed), **1** finished with an Error finding in some scope (something was dropped,
@@ -149,9 +149,9 @@ arguments, and a setting that fails its validation such as a `cpk_name` that is 
 nothing ran), **3** aborted (an `AbortRun` or Fatal finding, or an environment failure found
 before the run, such as an output folder that cannot be written). `check` and `compile` share the
 mapping; deployment outcomes extend it in Phase 4 ("Run-result semantics" open question). The CLI is a separate process with its own run
-and does not require the GUI to be closed. A Sider-mode run with PES open skips the savefile step
-(`savefile_skipped_pes_running`, see `pipeline.md` "Post-processing") — the model iteration lands via livecpk and
-the savefile catches up on the first compile after PES is closed; bins routing in Sider mode is part
+and does not require the GUI to be closed. A sideload-mode run with PES open skips the savefile step
+(`savefile_skipped_pes_running`, see `pipeline.md` "Post-processing") — the model iteration lands through sideloading and
+the savefile catches up on the first compile after PES is closed; bins routing in sideload mode is part
 of the "Output-mode artifact routing" open question.
 
 The `--gui` form (the core plan's "Launch modes") is what `quick_compile.bat` runs. The tool's

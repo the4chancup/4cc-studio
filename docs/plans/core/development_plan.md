@@ -298,7 +298,7 @@ nothing about the Rust code.
   `check/` waits for Phase 8.
 - **`plan/`** — `BuildManifest` from a `ResolvedAestheticsExport`, `PlannedModelIds` (40-ID team
   blocks, deterministic boots/gloves assignment — assignment only; the savefile write is Phase 5),
-  duplicate-refs preflight, `sideload/` precedence (`team_id_get`).
+  duplicate-refs preflight, `overrides/` precedence (`team_id_get`).
 - **`processing/`** — per-task work over `rayon` with memory permits: model format selection,
   cross-format conversion via `model_convert`, multi-model merging and SKL pairing
   (`fmdl_editing`); model source selection before glTF exists: a folder whose selected
@@ -321,7 +321,7 @@ nothing about the Rust code.
   read/write and slot discovery (`bins_update`).
 - **`output/`** — Phase 3 already writes one CPK through the canonical-order writer, staging and
   promotion to `output/`, with the output folder's writability preflight (TC-OUT-*, TC-CLI-06);
-  Phase 4 adds `OutputSink` (CPK vs loose folder for test/sider), the `.partial` copy into
+  Phase 4 adds `OutputSink` (CPK vs loose folder for test/sideload), the `.partial` copy into
   `download/` for deployment, multi-CPK; access-denied output paths
   fail cleanly via `libs/elevation` (the GUI's elevated-relaunch prompt is Phase 8).
   `output/savefile.rs` is Phase 5.

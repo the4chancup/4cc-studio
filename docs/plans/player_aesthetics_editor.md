@@ -203,8 +203,8 @@ location per launch:
 - `manifest_version` gates compatibility: the plugin refuses newer majors with
   a clear message instead of misloading.
 - **`player.export_path` and `studio.exe`** exist for the plugin's **"Export model and compile for
-  Sider"** button: after saving the model into `player.folder`, the plugin runs
-  `<4cc-studio.exe> team-compiler compile --mode sider --export <export_path>` and reports the exit
+  sideloading"** button: after saving the model into `player.folder`, the plugin runs
+  `<4cc-studio.exe> team-compiler compile --mode sideload --export <export_path>` and reports the exit
   code (see "CLI" in the Team compiler plan). The CLI is the whole integration — no IPC with the
   running Studio, no Python-side knowledge of the pipeline. `studio.pes_version` is informational,
   letting the plugin label the button with the target version — but **only in a Blender session
