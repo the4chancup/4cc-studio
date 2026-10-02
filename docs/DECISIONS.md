@@ -2882,3 +2882,23 @@ the shell's typed status bar.
 Plan: `team_compiler/settings.md`, `pipeline.md`, `gui.md`, `messages.md`, `README.md`,
 `testing.md`; `player_aesthetics_editor.md`; `core/development_plan.md`, `core/distribution.md`;
 `GLOSSARY.md`. Step 4.0d renames the code.
+
+## 2026-10-03 — team_compiler — sideloading through FoxDen (4.0e)
+Decision (maintainer): Studio builds no sideloader of its own. Sideload mode writes the unpacked
+PES folder structure to `{pes_folder_path}\livecpk\`, the root FoxDen's LiveCPK serves on PES
+18–21 (the user's Sider 3 serves it on 17 through a `cpk.root` line); `sideload_output_path` is
+dropped. On PES 15/16 the mode is refused (exit code 2) and disabled in the GUI. Studio is the
+folder's only writer, so a sideload run replaces its whole contents (lead, on the maintainer's
+"Studio will be its only consumer": no stale file from an earlier run can keep overriding).
+FoxDen's gaps are requests to its maintainer, not Studio work (worklog "Issues").
+Why: FoxDen (formerly `fox_hook`, maintained by a close contributor who takes requests) already
+has a LiveCPK built from scratch, loads through a `dinput8.dll` proxy however PES is started, and
+picks up files written while PES runs, which is everything the planned sideloader was for, at no
+`unsafe`, 32-bit target or hook research in Studio. Sideloading only speeds up aesthetics
+makers' model iteration (cup streams never use it, for stability), and no runtime has ever
+served PES 15/16; Studio's first full release targets one Fox version the 4cc will play for at
+least a year, so pre-Fox sideloading (a 32-bit FoxDen, or previewing pre-Fox models in PES 17,
+which shares the `.model` format) is decided after that release.
+Plan: `team_compiler/pipeline.md` "5. Writer" (output modes), `settings.md` (table, path
+resolution, CLI), `gui.md` (Compile button), `GLOSSARY.md`; `refs_arranger.md` (FoxDen name,
+PES 2020); `core/README.md` "Project context" (PES 2020); `model_conversion/conversion.md`.

@@ -27,8 +27,7 @@ differing new default is a deliberate decision, explained in the Controls column
 | Setting | Old default | New default | Controls |
 |---|---|---|---|
 | `cpk_name` | `4cc_90_test` | same | Single-CPK output `CpkStem` (shared validation contract in the Writer section) |
-| `output_folder_path` | `patches_output/` (hardcoded) | `output/` | Root for promoted CPKs (degraded runs and `--no-deploy`), the `.staging/` folder, `test_output/`, `sideload_output/`, and `teamnotes.txt`. Relative paths resolve **beside the executable** (Red's `patches_output/` in its new place; `%APPDATA%` is no place to look for a CPK) |
-| `sideload_output_path` | — | `sideload_output/` | Where sideload-mode runs write the unpacked PES folder structure; relative paths resolve beneath `output_folder_path`. For the prototyping loop the user lists it as a root of their sideloading tool (with Sider, a `cpk.root` line in `sider.ini`) — the settings UI shows the resolved absolute path for copy-pasting |
+| `output_folder_path` | `patches_output/` (hardcoded) | `output/` | Root for promoted CPKs (degraded runs and `--no-deploy`), the `.staging/` folder, `test_output/`, and `teamnotes.txt`. Relative paths resolve **beside the executable** (Red's `patches_output/` in its new place; `%APPDATA%` is no place to look for a CPK) |
 | `run_pes` | 0 | same | Launch PES after compiling (only after a successful deployment; a degraded run never launches) |
 | `multicpk_mode` | 0 | same | Cup DLC mode: team content into size-split `teams` parts + the bins CPK (see "Multi-CPK mode: teams parts"); replaces Red's faces/uniform/bins content split |
 | `teams_cpk_name` | `4cc_40_faces` + `4cc_45_uniform` | `teams` | Stem of the teams part slots; the slots themselves are every DpFileList entry matching `{prefix}_{NN}_{stem}` (`4cc_40_teams`, `4cc_41_teams`, …), ordered by number. Replaces `faces_cpk_name` and `uniform_cpk_name` |
@@ -84,8 +83,9 @@ measurement decides the compression level, not whether the feature is on.
 | `templates/` override directory | Selected data directory; each file shadows the matching embedded template/fallback-bin resource (see `pipeline.md` "Resolved decisions") |
 | `savefile_path` | Absolute when explicitly set; `auto` resolves under the shell's Documents folder → `KONAMI\{game folder}[\{account id}]\save\EDIT00000000` per the Savefile plan's discovery table — independent of `pes_folder_path` |
 | `pes_folder_path` | Absolute PES installation path (after expanding its documented `**` version placeholder) |
-| Generated CPKs, `test_output/`, `sideload_output/`, `teamnotes.txt` | Resolved `output_folder_path` |
+| Generated CPKs, `test_output/`, `teamnotes.txt` | Resolved `output_folder_path` |
 | Installed CPKs | `{pes_folder_path}/download/` |
+| Sideload-mode output | `{pes_folder_path}/livecpk/`, the root the game-side runtime serves; no setting (`pipeline.md` "5. Writer", output modes) |
 
 The GUI and CLI use these same bases; a CLI exports-root override changes only that invocation's
 resolved export source.
@@ -140,7 +140,9 @@ plan), then runs
 4cc-studio team-compiler compile --mode sideload --export "D:\exports\aaa_export"
 ```
 
-and PES, with a sideloading tool active, shows the result on the next model load. Without `--export` the plugin
+and PES, with its sideloading runtime serving `livecpk\` (FoxDen on 18–21, Sider 3 on 17), shows
+the result on the next model load. `--mode sideload` with `pes_version` 15 or 16 is an invalid
+configuration (exit code 2): no sideloading runtime exists for them. Without `--export` the plugin
 would recompile every export in the folder on each iteration. Console output follows the ordinary
 `-` prefixed format, and the exit code gives a caller a one-line verdict: **0** clean (Warning and
 Info findings allowed), **1** finished with an Error finding in some scope (something was dropped,

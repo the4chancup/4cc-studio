@@ -72,7 +72,7 @@ enum Mode {
     Normal,
     /// Loose files in the output folder's test_output folder.
     Test,
-    /// Loose files in the output folder's sideload_output folder.
+    /// Loose files in the game folder's livecpk folder.
     Sideload,
 }
 

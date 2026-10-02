@@ -211,9 +211,17 @@ Steps are itemized only after 4.0 is done; one more is fixed already
 - [x] 4.0b Sider feasibility study (maintainer, 2026-10-02): `c:/Data/4cc/0Tools/sider`. Done
   2026-10-02: the Team compiler's `--mode sider` becomes `--mode sideload` and Red's `sideload/`
   folder `overrides/`, with a plain **Launch PES** button beside Compile in sideload mode (decision
-  entry "sideload mode and the overrides folder"). The maintainer also wants a from-scratch
-  replacement for Sider's LiveCPK; the agent declined to design its in-game hooking part, so no
-  plan for it exists in `docs/plans/` (the study's notes are outside git, in `.tmp/`)
+  entry "sideload mode and the overrides folder"). The from-scratch LiveCPK replacement the
+  maintainer asked for is superseded by 4.0e: FoxDen already serves it
+- [x] 4.0e Sideloading through FoxDen (maintainer, 2026-10-03; study notes outside git,
+  `.tmp/sider_info/`): no Studio sideloader; sideload mode writes `{pes_folder_path}\livecpk\`,
+  served by FoxDen on 18–21 and the user's Sider 3 on 17, refused on 15/16; `sideload_output_path`
+  dropped; the untracked `docs/plans/sideloader.md` stub deleted; `fox_hook` → FoxDen in the
+  Refs arranger plan; the PES 2020 history recorded (decision entry "sideloading through FoxDen")
+  → verify: no `sideload_output`, `Sider's LiveCPK` or `fox_hook` (outside the "formerly" note)
+  left in `docs/plans`, `GLOSSARY.md` or `crates/`; `cargo test -p team_compiler`. Done: the grep
+  finds only the "formerly" note; `cli.rs` `Mode::Sideload` doc comment; 171 tests, fmt, clippy
+  clean; acceptance 77 of 77. FoxDen gaps forwarded to its maintainer: under "Issues"
 - [x] 4.0d The 4.0b renames in the code: `team_compiler` `Mode::Sider` → `Mode::Sideload`
   (`--mode sideload`), its help topic and tests → verify: `just gates`; the refusal test asserts
   `--mode sideload`; no `sider` left in `crates/tools/team_compiler`. Done: `cli.rs` `Mode::Sideload`,
@@ -330,6 +338,14 @@ pruned when their phase closes; they stay in git history.
   generated file has been imported by the game yet (`verification.md` "Texport write": manual,
   per version; a `new` file and an edited round-tripped one). PES 15/16/20 texports have no
   fixture at all (offsets/key index are the reference's; PES 20's size is derived).
+- open — FoxDen's LiveCPK gaps that sideload mode depends on (forwarded by the maintainer to
+  FoxDen's maintainer, 2026-10-03; source `Tools_4cc/FoxDen/src/livecpk.c`, `patterns.c`):
+  (1) the call sites are found on PES 2018 only, 2019 and 2021 still to locate; (2) PES 2020 is
+  not recognised (proxy only); (3) a served path is limited to about 99 characters (redirect plus
+  name in the read request's 0x80-byte field; a face texture's folder alone is 59), longer names
+  silently fall back to the CPK; (4) only boot-time shader loads are verified in game, model,
+  texture and kit-bin loads under `livecpk\` are not (Sider's buffered-copy and CPK-size hooks
+  were not ported). Phase 4's sideload acceptance waits on them; recheck FoxDen when itemizing.
 - open — a run that does not end cleanly leaves its staging (3.z): closing the window while
   the GUI's compile runs ends the process mid-run, and the coordinator's `Cancelled` path does
   not discard the staging either, so `output/.staging/<run>/` can be left beside the previous
@@ -790,3 +806,6 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
 - **2026-10-02** — 4.0b closed: sideload mode and the `overrides/` folder renamed in the plans,
   a plain Launch PES button planned; 4.0d renames the code. Test 1 (step 4.0) installed for the
   maintainer's in-game check, backups beside the save and `DpFileList.bin`.
+- **2026-10-03** — 4.0e: sideloading goes through FoxDen's LiveCPK into the game folder's
+  `livecpk\`; no Studio sideloader, the untracked stub deleted, PES 15/16 refused. FoxDen's gaps
+  (2019/2021 sites, 2020, path length, in-match loads) are under "Issues". Still blocked on 4.0.

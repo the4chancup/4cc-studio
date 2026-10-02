@@ -128,7 +128,8 @@ player skeletons in the game data:
 | PES19 | `dt00_x64.cpk` | same | same |
 | PES21 | `dt00_x64.cpk` | same | same |
 
-PES20 was never used in a 4cc event and is not installed; **PES20 is assumed to equal PES21** until
+PES20 is not installed here and was used in one 4cc event only (core plan, "Project context");
+**PES20 is assumed to equal PES21** until
 its files are checked. Pre-Fox ships no hand or face SKL (its remaining `.skl` files are cutscene
 mobs/props and 2D overlays), which is why `.model` files carry only names and matrices and leave the
 hierarchy to the table; the hand and face hierarchies for pre-Fox targets come from PES19's files,

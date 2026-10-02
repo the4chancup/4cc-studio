@@ -4,7 +4,7 @@ The Refs arranger (`crates/tools/refs_arranger`, tool id `refs-arranger`, sideba
 label "Refs arranger") replaces the spreadsheet workflow the cup staff currently
 uses to decide which referees appear in matches. It edits two files inside a refs
 export: the slot allocation (`players.txt`), and — on Fox versions, where the
-community's `fox_hook` runtime can override the game's referee draw — the **referee
+community's FoxDen runtime can override the game's referee draw — the **referee
 lists** (`ref_lists.txt`) that the hook's script applies per match. Where the draw
 cannot be overridden (PES 15–17, or Fox without the hook) it falls back to shaping
 the draw statistically, against each PES version's measured slot appearance rates,
@@ -50,7 +50,7 @@ arranger replaces that spreadsheet, keeps the math, and writes the file itself.
 
 ### The Fox referee hook
 
-On PES 18–21 the draw can be overridden. `fox_hook` (`Tools_4cc/fox_hook`: a `dinput8.dll`
+On PES 18–21 the draw can be overridden. FoxDen (`Tools_4cc/FoxDen`, formerly `fox_hook`: a `dinput8.dll`
 that runs Lua scripts inside the Fox games' embedded engine, with a sider-compatible API)
 ships `03_refmod.lua`, a trampoline on the game's **referee slot-writer** — the routine the
 game calls once per match position, `slot 0..4`, with the referee id it drew (0..35). So a
@@ -63,7 +63,9 @@ hook offers two primitives, settable from Lua at any time and persistent across 
 | **Force** | five ids + an on/off flag | position *i* receives `force[i]` whatever the game drew (a forced 0 falls through to remap) |
 | **Remap** | 36-entry table, identity by default | the drawn id is replaced by `remap[drawn]` |
 
-The pattern scan covers PES 2018, 2019 and 2021; **PES 2020 is taken to match 2021**. The
+The pattern scan covers PES 2018, 2019 and 2021. FoxDen does not recognise PES 2020 yet (it
+only forwards DirectInput there; requested from its maintainer), and **PES 2020 is taken to match
+2021** once it does. The
 runtime's match context exposes the home and away team ids and a per-frame tick, so a
 companion script can re-set the force table whenever a new match starts; it exposes no stadium
 (not needed — per-match control is the requirement). Nothing in the hook reads a file today:
