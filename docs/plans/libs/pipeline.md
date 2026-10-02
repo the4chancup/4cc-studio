@@ -5,9 +5,10 @@ compiler, Balls compiler, Stadium compiler) runs on. The reasons behind each pie
 plan's [Parallelism](../core/parallelism.md) section and the Team compiler's
 [pipeline walkthrough](../team_compiler/pipeline.md); this part is the crate's contract.
 
-Phase 3 builds four pieces: the memory budget and its cap, the thread count and `CpkStem`. The folder
-watcher and the check cache join with live validation (Phase 8); the browser variants
-(`core/gui.md` "Browser deployment: Studio Web") with the web build's pipeline tier.
+The crate holds four pieces, built in Phase 3: the memory budget and its cap, the thread count
+and `CpkStem`. The folder watcher and the check cache join with live validation (Phase 8); the
+browser variants (`core/gui.md` "Browser deployment: Studio Web") with the web build's pipeline
+tier.
 
 ## Crate layout
 

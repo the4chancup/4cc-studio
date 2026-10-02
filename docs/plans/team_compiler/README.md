@@ -198,13 +198,12 @@ planning, processing, packing, bins, GUI, and CLI — lives in this crate and th
 
 ## Development phases
 
-**Phase 3 prerequisites:** the `ExportIdentity` boundary, sanitized validated-versus-eligible
-projection, and roster-entry scope/disposition semantics, confirmed 2026-09-30 in the
-[Aesthetics export plan](../aesthetics_export/object_model.md), "Validation semantics".
-
-- **Phase 3 — skeleton and shared export model:** implement `libs/aesthetics_export` structure parsing and
-  format-level validation, the Team compiler settings/CLI surface, and reader/coordinator/writer
-  scaffolding over `libs/pipeline`.
+- **Phase 3 — skeleton and shared export model (done 2026-10-02):** `libs/aesthetics_export`'s
+  structure parsing and format-level validation (on the `ExportIdentity` boundary, the sanitized
+  validated-versus-eligible projection and the roster-entry semantics of "Validation semantics"
+  in the [Aesthetics export plan](../aesthetics_export/object_model.md)), the Team compiler
+  settings/CLI surface, the reader/coordinator/writer over `libs/pipeline` compiling the subset
+  in "Phase 3 scope" below, and the shell slice's view.
 - **Phase 4 prerequisites:** finalize output enumeration/namespace allocation, including
   folder-internal deep-derived names, and freeze every model task's planned ID assignments in the
   manifest.

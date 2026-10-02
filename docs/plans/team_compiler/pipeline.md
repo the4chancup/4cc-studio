@@ -972,7 +972,8 @@ phase that owns them):
   UTF-8 BOM is tolerated on read and never written; blank lines are dropped; CRLF or LF read, CRLF
   written (the file Red's current version writes: 220 rows, all ASCII). Still open: atomic writes
   and concurrency between the grid's ID-cell write, the updater merge and the savefile import
-  (callers own I/O, so these are Phase 3 and Phase 16 questions).
+  (callers own I/O; Phase 3's one writer, `compile`, only creates a missing file, so the
+  question opens with the grid's ID-cell write in Phase 8 and the update merge of Release 0.1.0).
 - **`colors.txt` grammar and TeamColor capacity.** Define the grammar (UTF-8/BOM, decimal versus
   hex, comments, blank lines) and the exact team-color count `TeamColor.bin`'s fixed-size records
   support; the kit-side fallback policy is resolved above.

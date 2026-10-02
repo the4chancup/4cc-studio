@@ -9,27 +9,21 @@ is in `AGENTS.md` ("Working documents").
 
 ## Current status
 
-**Phase:** 3 (Team compiler skeleton). Phases 1 and 2 done (Phase 2 closed 2026-09-30).
-**In progress:** Phase 3's code steps are done but 3.9f (3.9 at 73 of 75 scenarios; 3.z's
-TC-GUI-01/02 checked by hand); 3.w in progress, then 3.9f, 3.y and 3.x. The maintainer's
-directive (2026-10-02, revised the same day): close Phase 3 (its queued GPT reviews aside), then
-do the two studies 4.0a (PES 12) and 4.0b (Sider as a "Sideloader" tool), then stop before
-Phase 4 itself. 3.7 (`libs/pipeline`) and 3.8
-(`check` end to end, slices a-d) are implemented and mutation-clean; only their cross-family
-reviews are left, queued for the lead (see "Handover" below), and each is marked done once its
-review's rulings land. 3.6 is done (`aesthetics_export`, 35 of 75
-scenarios proven; the rest need `check`/`compile`). 2.5b (GPU BC7) is step 16.x (decision entries 2026-09-21 and 2026-09-28). Release
-target (2026-09-28): 0.1.0 after Phase 8; phase order 1–6, 8, 0.1.0, 7, 9–16
+**Phase:** 3 (Team compiler skeleton) closed 2026-10-02, its cross-family reviews queued (see
+"Handover"). Phases 1 and 2 done (Phase 2 closed 2026-09-30).
+**Next:** the maintainer's directive (2026-10-02): the two studies 4.0a (PES 12) and 4.0b (Sider
+as a "Sideloader" tool), each reported to the maintainer, then stop before Phase 4 itself. 2.5b
+(GPU BC7) is step 16.x (decision entries 2026-09-21 and 2026-09-28). Release target
+(2026-09-28): 0.1.0 after Phase 8; phase order 1–6, 8, 0.1.0, 7, 9–16
 (`core/development_plan.md` "Releases").
-**Blocked on:** nothing yet. **Hard gate at the end of Phase 3:** step 4.0 (the maintainer's
-in-game appearance-fallback test) must be done before any agent itemizes Phase 4 or writes
-anything for Phase 4, 5 or 6. Everything up to and including Phase 3's close may proceed.
+**Blocked on:** step 4.0, the maintainer's in-game appearance-fallback test: no agent itemizes
+Phase 4 or writes anything for Phase 4, 5 or 6 before it is done.
 
 **Handover (2026-10-01).** Until the maintainer says otherwise, the session runs as a single
 Claude agent with no sidekick and no reviewer of another model family. While that holds:
 
 - **Since 2026-10-01 (maintainer):** the lead runs in Claude Code and delegates implementation
-  to a same-family subagent (Opus, medium effort, from 3.8b on; 3.8a used Sonnet) under
+  to a same-family subagent (Opus from 3.8b, Fable from 3.9d on; 3.8a used Sonnet) under
   the lead/sidekick rules, to keep the lead's context small. That subagent is the sidekick, not
   a reviewer: the queue below still holds every cross-family checkpoint.
 - **Implement directly**, but keep everything else `AGENTS.md` asks of a sidekick's work: read the
@@ -41,7 +35,8 @@ Claude agent with no sidekick and no reviewer of another model family. While tha
   shares the blind spots the review exists to catch, so it is no replacement. Each checkpoint
   that `AGENTS.md` "Second opinion" would trigger goes on the queue below with the commit range
   and the plan sections it covers; the lead runs the queue when it returns. Work may continue
-  past a queued review, but no phase closes with one outstanding.
+  past a queued review, but no phase closes with one outstanding (one exception: Phase 3
+  closed with its reviews queued, by the maintainer's directive of 2026-10-02).
 - **Queue:** 3.7 (b): `crates/libs/pipeline` from its first commit, against `libs/pipeline.md`
   and `core/parallelism.md` "Memory budget"; the prior 3.6 rulings are in the log, and
   `.tmp/review_brief_3_6.md` is a template for the brief. 3.8 (b): `studio_core`'s `CliError`/
@@ -126,7 +121,7 @@ documents".
 |---|---|---|---|
 | 1 | Workspace bootstrap + core skeleton | workspace, CI, non-GUI `studio_core`, `vtree`, `pes_version` | done |
 | 2 | Library crates (standalone-verifiable) | `wezlib` `cpk` `fpk` `ftex` `dds_convert` `fmdl` `pes_model` `uniparam` `fox2` `archives` `fpc` `teams_list` `kit_config` `color_tools` `elevation` `model_convert` (native) `pes_savefile` `python_bindings` | done |
-| 3 | Team compiler skeleton | `team_compiler`, `aesthetics_export`, `pipeline` | in progress |
+| 3 | Team compiler skeleton | `team_compiler`, `aesthetics_export`, `pipeline` | done (reviews queued) |
 | 4 | Processing logic | `team_compiler` (`plan/` `processing/` `bins/` `output/`), `aesthetics_export` deep validation | todo |
 | 5 | Savefile integration | `save_editor` logic, `aatf`, `team_compiler` `output/savefile.rs` | todo |
 | 6 | Export upgrader | `export_upgrader` | todo |
@@ -174,237 +169,24 @@ phase's open questions are under "Issues".
 
 ### Phase 3 — Team compiler skeleton
 
-Spec: `docs/plans/core/development_plan.md` "Phase 3", `docs/plans/team_compiler/README.md`, `docs/plans/aesthetics_export/README.md`.
-Itemized 2026-09-30 at Phase 2's close. Order: the tracer first (one real export end to end), then
-`check` end to end over the structure pass, then `compile` through the pipeline, the shell last.
+Done 2026-10-02, its cross-family reviews still queued (the maintainer's directive; "Handover"
+lists them, 3.7's and 3.8's among them; what they find becomes steps under this heading). Spec
+now describes what exists: `docs/plans/core/development_plan.md` "Phase 3",
+`team_compiler/README.md` ("Acceptance": 77 scenarios, 75 cited by tests, 2 manual),
+`team_compiler/pipeline.md` "Run driver shapes (Phase 3)", `aesthetics_export/object_model.md`,
+`libs/pipeline.md`. Step detail (3.1-3.9f, the 3.w `.cargo/mutants.toml` audit, the 3.y
+converge with its whole-crate mutation runs, the 3.z shell slice, 3.x this rewrite) in git
+history up to commit `32261dd`. Carried forward: the phase's open issues under "Issues".
 
-- [x] 3.1 Acceptance — done: `team_compiler/README.md` "Acceptance" (TC-SRC/STR/ROS/ID/KIT/ROOT/
-  DSP/CLI/OUT/GUI) with the Phase 3 scope, including the temporary compile subset and its
-  Phase-3-only `content_not_yet_compiled`; the entry gates in `aesthetics_export/object_model.md`
-  "Validation semantics"; CLI exit codes 0/1/2/3 (`settings.md` "CLI"); catalog additions
-  (`link_target_dropped`, wider `texture_stem_conflict` and `root_file_unexpected`, pass-through
-  exclusions); usable-root definition (`pipeline.md`). Reviewer: GPT 8 rounds, all ruled, with
-  sidekick loops between rounds 5-8 (rulings `.tmp/review_rulings_3_1.md`)
-- [x] 3.2 Converge check script — done: `scripts/acceptance.py` + `acceptance_test.py` (15
-  tests; 19/19 hand mutants caught, `.tmp/acceptance_mutants.py`), `just acceptance
-  [report|strict]` as gate 5; rules in `CONTRIBUTING.md` "Testing and verification", collapse
-  keeps manual proofs (`AGENTS.md`); decision entry. Real repo: 75 scenarios (2 manual), no
-  problems; a planted orphan citation fails `report`, a planted valid one counts as proven. The
-  scanner rides along with the next (b) review (3.6 slice b)
-- [x] 3.3 Tracer bullet — done: fixture `crates/tools/team_compiler/tests/fixtures/tracer/`
-  (/egg/'s Stormworks player + kit g1: old layout, Studio twin with face and kit, Red's extracted
-  CPK) and `resources/bins/` (`2938b4c`); crate `team_compiler` with `src/tracer.rs`
-  (`compile_tracer`, scaffolding) and `tests/parity.rs` (17-row table: 6 produced rows green, face
-  FMDL decoded-equal, UniformParameter/kit config/FPKD byte-equal, FTEX by decoded DDS; 11 Phase 4
-  rows). Decision entries: fixture and bases; FTEX parity by decoded content. `mutants-diff`: 43,
-  34 caught, 2 unviable, 7 missed, all refusal guards of `tracer.rs` (root/folder kind guards,
-  the `.fclo`/`face_diff` name guards, the `.ftex` pass-through arm, the layout-marker and `.dds`
-  guards), left untested because 3.9 deletes `tracer.rs`; the pipeline's own tests replace them
-- [x] 3.4 The tracer's Phase 2 frictions — done: `kit_config::KitSlot` (parse, `as_str`,
-  `config_name`) replaces the tracer's `kit_name_suffix` and `texture_names`' `&str` slot; the team
-  id stays `u16`; `pipeline.md` step 2 names the real texture-path rewrite, "5. Writer" the tool
-  version; the parity test compares FTEX headers too (a kit written as sRGB now fails it, checked);
-  `FtexInfo` keeps its raw type; the player ID's type goes to 3.5. Decision entry. `mutants-diff`:
-  19, 17 caught, 1 unviable, 1 missed (the tracer's layout-marker guard, one of 3.3's seven)
-- [x] 3.5 `aesthetics_export` shapes — done: `object_model.md` "Structure pass types" (listing,
-  metadata, context, errors, draft, raw roster, issues and `ISSUE_CODES`, file kinds, slots with
-  `PlayerSlot::player_id` → `u32`), "Core types" adjusted (infallible `validate`, plain portrait/
-  collar/common collections, parsed kit icon, `FileDescriptor.source`), crate layout updated;
-  `players_txt.rs`/`kit_config_toml.rs` wait for their consumers. Decision entry
-- [x] 3.6 `libs/aesthetics_export`, two slices, each its own commit and review: (a) `listing`,
-  `conventions/`, `parse/`; (b) `validate/` with the sanitized-scope rule and `resolve.rs`, in
-  three slices: b1 the report, roster rules, player/shared folders built, export findings,
-  `resolve_identity`, OS-artifact skip; b2 player/shared/Common checks (allowlist, links,
-  markers, reserved subfolders, stems, `fmdl_name_invalid`, cascade, orphans) with pass-through;
-  b3 kits, portraits, logo, root files (adds those `ValidatedAestheticsExport` fields). The
-  allowlist and the other rules (b) needed are settled in `object_model.md` "Validation
-  semantics" (decision entry 2026-10-01).
-  `players_txt.rs` and `kit_config_toml.rs` wait for their consumers (Refs arranger, Phase 4 kit
-  step). → verify: lib tests citing the TC-STR/ROS/KIT/ROOT/ID/DSP scenarios the structure pass
-  decides; `wasm_check.py` includes the crate; `mutants-diff` per slice; reviewer (b) on the new
-  `pub` surface. Done 2026-10-01 (commits `63c9599`..this one): 35 scenarios proven, every
-  slice's `mutants-diff` at 0 missed; review GPT round 1 (4 of 7 accepted) and sidekick S1 (3 of
-  7), rulings in the log. Files: `crates/libs/aesthetics_export/`, `vtree::fold_name`,
-  `object_model.md`, `messages.md`
-- [ ] 3.7 `libs/pipeline`: plan section first (lead; `core/parallelism.md` "Memory budget",
-  `CpkStem`'s contract in `pipeline.md` "Writer"), then the crate: `MemoryBudget` with the
-  oversized branch, thread count, `CpkStem`. The section also says how the structure pass's
-  solid-7z metadata read is charged (3.1 review, round S4). → verify: the `testing.md` "Infrastructure" cases
-  for these three; TC-CLI-05's stems
-- [ ] 3.8 `check` end to end: `team_compiler` settings struct and defaults, the clap surface of
-  `settings.md` "CLI", `reader/` (discovery, folder/.zip/.7z sources via `archives`, which must
-  start reporting directory entries so an archived empty kit folder survives (3.1 review), NO_USE,
-  balls, duplicate refs), the structure pass and identity through `aesthetics_export`, console
-  output, exit codes. → verify: TC-SRC-*, TC-CLI-01..05 and the check-observed TC-STR/ROS/KIT/
-  ROOT/ID scenarios, run through the binary. `memory_cap_percent` goes through
-  `pipeline::memory_cap` (3.7); TC-STR-09 is cited only here, since its THEN names
-  severities, which `messages.rs` maps (the lib test asserts dispositions; 3.6 review).
-  Shapes settled 2026-10-01 (decision entry "3.8: exit codes, console lines, …"). A scenario
-  whose WHEN includes compiling (TC-SRC-01/03/04/06/08/09, TC-CLI-04) is cited at 3.9, where
-  its compile half lands; 3.8 tests their check half uncited. TC-CLI-06 is 3.9's (output
-  preflight). Slices, each its own brief, review and commit:
-  - [x] 3.8a `studio_core`/`studio` plumbing: `cli_run` → `Result<u8, CliError>`, `AppPaths`
-    and `ToolContext::paths`, `settings/location.rs` (CLI resolution, never writes), the
-    binary's event printer thread and exit code. → verify: `studio_core` and `studio` tests
-    (printer line format per scope kind; location: portable wins, config dir, neither → no
-    data dir and nothing created); stub-tool exit codes through `run_cli`
-    Done: `CliError`/`AppPaths`/`paths()`, `settings/location.rs`, `studio/src/console.rs`,
-    `main.rs` (`load_settings`, `run_cli_mode`). `mutants-diff`: 23, 4 missed (1 fixed: the
-    config-dir test was vacuous; `run_cli_mode`, `main`, `print_line` wait for 3.8b/c's binary
-    tests)
-  - [x] 3.8b `team_compiler` tool skeleton: `Tool` registered in `studio`, `settings.rs`
-    (Phase 3 subset), `cli.rs` (the `settings.md` "CLI" surface with the Phase 3 refusals and
-    the preflight: arguments, settings, teams list), a help topic, both commands stopping
-    after their preflight until 3.8c/3.9. → verify: binary tests TC-CLI-03, TC-CLI-05,
-    TC-CLI-07
-    Done: `settings.rs`, `cli.rs` (`RunInputs`), `lib.rs` `Tool`, `help/01_command_line.md`,
-    `studio` registers it, `crates/studio/tests/team_compiler_cli.rs`. `mutants-diff`: 52, 18
-    missed, all in `team_compiler` code proven only by `studio`'s binary tests, which
-    cargo-mutants does not run for a `team_compiler` mutant: the scenario tests move in-process
-    in 3.8c
-  - [x] 3.8c `check` over folder sources: `messages.rs` (severity per code, every
-    `ISSUE_CODES` code covered, issue → `Message`), the scenario tests in-process in
-    `team_compiler/tests/` (3.8b's moved there; the binary keeps its own seams), `reader/` discovery (folders, NO_USE,
-    balls, refs), structure pass, identity, findings as events, exit code. → verify: binary
-    tests TC-SRC-05, TC-STR-09, TC-CLI-01, TC-CLI-02; check halves of TC-SRC-03/04,
-    TC-ID-01/02
-    Done: `messages.rs` (47 rows, checked against `messages.md` by `.tmp/catalog_compare.py`),
-    `reader/{mod,source}.rs`, `check/mod.rs`, `team_compiler/tests/cli.rs` (22 in-process
-    tests; the binary file keeps its own seams), `aesthetics_export::team_name` re-exported.
-    `mutants-diff 008a356`: 57, 45 caught, 12 unviable, 0 missed (3.8b's survivors gone but
-    the `view`/`settings_view` placeholders, untestable until 3.z)
-  - [x] 3.8d archive sources — done: `archives::Archive::folders()` (directory entries apart
-    from `entries()`; a root entry `./` skipped), `reader/source.rs` `OpenSource` (an archive
-    opened once for its listing and metadata; a `.7z` read under a `MemoryBudget` permit for
-    its entries' sum, dropped with the archive; a zip uncharged), the budget made per run in
-    `check::run`, routing reading metadata only for exports headed for validation; fixtures
-    `tests/fixtures/sources/` (lead). TC-SRC-02 and TC-SRC-07 cited; the check halves of
-    TC-SRC-01/06/08/09 tested uncited.
-- [x] 3.9 `compile` through the pipeline: coordinator and writer on rayon over `libs/pipeline`,
-  the tracer's scaffolding replaced, dispositions and `pass_through` applied, the CPK written
-  atomically. → verify: TC-OUT-*, TC-DSP-*, the compile-observed TC-ROS/KIT/ID scenarios,
-  TC-SRC-01/03/04/06/08/09 and TC-CLI-04/06 (their compile halves), TC-STR-01, TC-ROOT-02/05
-  (compile-observed, found uncited at slicing), and 3.3's parity case still green. Shapes:
-  `pipeline.md` "Run driver shapes (Phase 3)"; scope edges: `README.md` "Phase 3 scope"
-  (decision entry "3.9: Phase 3 compile's edges"). Slices, each its own brief, review, commit:
-  - [x] 3.9a thinnest path: `compile` runs the structure pass shared with `check`, plans face and
-    kit tasks from the validated export, processes them serially, writes the CPK through the
-    canonical-order writer to staging and promotes it; `tracer.rs` deleted, `parity.rs` driven
-    through `compile`. Until 3.9b, `compile` has no subset gate. → verify: parity green with an
-    unchanged table, TC-OUT-01, a run emitting nothing writes no CPK and leaves no staging
-    folder. Done: `team_compiler` `compile.rs`, `structure.rs`, `events.rs`, `check.rs`,
-    `plan/`, `processing/`, `output/`, `paths.rs`, `templates.rs`, `testing.rs`,
-    `tests/common/`; `aesthetics_export` `KitFolder.path`. Interim until 3.9b: a PES 15-17
-    target ends the run with exit 3 and a refs export plans no task, both silently outside the
-    gate 3.9b adds (both now in it). 3.9c owes the `.7z` permit-choice test (`compile.rs` `==` survivor).
-  - [x] 3.9b the subset gate (`content_not_yet_compiled`, the missing-template rule; the
-    pre-Fox target and refs exports move into it from 3.9a's interim), the teams list created
-    by `compile` (`settings.md`), the help topic's gate limits (CONTRIBUTING: a behavior change
-    lands with its topic). Design: decision entry "3.9b: what the Phase 3 subset gate counts".
-    → verify: TC-OUT-02/04/06, TC-ID-02. Done: `plan/subset.rs` (the gate and the one
-    classification `processing/` now reads), `plan_run(exports, version)`, `cli.rs`
-    `create_teams_list`, help; 49 of 75 proven. Every later compile scenario with players needs
-    a complete Phase 3 face folder (a face model plus `face_diff.bin`; `Sandbox::copy_tracer`).
-  - [x] 3.9b2 the compile-observed scenarios over behavior already built (split from 3.9b at
-    3.9a's review, to keep each slice one review; the events once listed here wait for Phase 8,
-    decision entry "Phase 3 emits no FolderStatus, Progress or Complete"). → verify: TC-DSP-*, TC-ROS-01/04/05/06/09, TC-KIT-01, TC-STR-01,
-    TC-ROOT-02, TC-SRC-03/04/06/08, TC-CLI-04. Done: `team_compiler/tests/cli.rs` split into
-    `tests/cli/{main,preflight,check,compile,sources}.rs` (past a thousand lines), the scenarios
-    in `compile.rs`, TC-CLI-04 in `studio/tests/team_compiler_cli.rs`; tests only, no `src/`
-    change; 66 of 75 proven
-  - [x] 3.9c the rayon pool and admission (`pipeline.md` "Admission"), archive content read
-    once per export with the `.7z` charge shared by its tasks. → verify: same CPK bytes under
-    another completion order, a `.7z` over the cap compiles, TC-SRC-09, TC-ID-01, TC-ROOT-05.
-    Done: `compile.rs` (`coordinate` on the calling thread inside `pool.in_place_scope`,
-    `write_batches` on its own thread), `CpkOutput::submit` returning the committed batches'
-    messages and clearing its waiting batches on a failed commit, `ContentSource::into_permit`,
-    `TaskBatch.permit: Option<Arc<Permit>>`; `rayon` 1.12.0; fixtures `egg Tracer.zip`, `.7z`,
-    `bad notes.zip` (lead); 69 of 75 proven. Decision entry "3.9c: a `.7z`'s tasks share its
-    permit; the writer reports in order"
-  - [x] 3.9d output safety: the writability preflight, `cpk_write_failed` and
-    `output_commit_failed` with nothing partial left. → verify: TC-CLI-06, TC-OUT-03, TC-OUT-05.
-    Done: `deploy.rs` (`prepare_output_folder`, `discard`, `promote` failing only on its
-    rename), `compile.rs` (`abort_output`; the writer thread finishes the CPK, so its file is
-    closed before a failure removes the staging), `messages.rs` (two Fatal codes,
-    `CatalogSeverity::Fatal`), the probe in `cli.rs`; 72 of 75 proven. Decision entry "3.9d:
-    output failures are findings, and every one discards the staging"
-  - [x] 3.9e the placeholder kit (the checkerboard DDS is a lead-made resource) and
-    `kit_placeholder`, with its help topic line. → verify: TC-SRC-01, every 3.9 ID
-    proven in `acceptance.py report`. Done: `templates.rs` `PLACEHOLDER_KIT`, `plan/mod.rs`
-    (`kit_placeholder` after the kit's `kit_config_generated`), `processing/kit.rs` (the `kit`
-    name field always set, the placeholder when the kit has no `kit` texture), `messages.rs`,
-    help; `resources/kits/` (lead); 73 of 75 proven
-- [x] 3.z Shell slice, last code step of the phase (`core/development_plan.md` "Phase 3", last bullet; decided
-  2026-09-15): minimal `studio_core` shell (window, sidebar, selected tool's `view()`), `studio`
-  binary registering `team_compiler`, Team compiler `view/` with settings, run button and a plain
-  `PipelineEvent` log. → verify: manual, recorded in the converge step: the 3.3 fixture compiled
-  from the GUI with its events visible, on Windows; Linux when a machine is available
-  (TC-GUI-01/02). Done: `studio_core` `shell/mod.rs` (`StudioApp`, `run_gui`), `tool.rs`
-  (`ToolContext::with_events`), `events.rs` (`EventLines`, moved from `studio`'s console);
-  `studio` `main.rs` (GUI mode, startup shared with the CLI); `team_compiler` `gui_run.rs`
-  (`RunLog`: `compile` through the CLI path on a thread), `view/mod.rs`, `Tool::new()`; `eframe`
-  0.36.2, `egui` raised to it. Decision entry "3.z: the shell slice's edges".
-  TC-GUI-01 manual: checked 2026-10-02 by the maintainer on Windows, the window, the sidebar's
-  Team compiler entry, its Settings, Compile button and log.
-  TC-GUI-02 manual: checked 2026-10-02 by the maintainer on Windows, the /egg/ tracer export
-  compiled from the window, the log showing `egg Tracer: Info export_identified (team=/egg/,
-  id=792)` then `Run finished: exit code 0`. The same run with no exports folder printed a raw
-  OS error, which became 3.9f. Linux: not yet checked, no machine with a display.
-- [x] 3.9f Exports folder created or refused in plain words (decision entry "a missing exports
-  folder is created or refused in plain words"; `team_compiler/settings.md` "Path resolution",
-  `messages.md` `no_exports_found` and the settings/environment paragraph). → verify: TC-CLI-08,
-  TC-CLI-09. Done: `cli.rs` `prepare_exports_root` (before the output folder and the teams
-  list), `structure.rs` (`no_exports_found` on an empty scan), `messages.rs`, help; the old
-  `a_missing_exports_root_aborts_naming_it` (exit 3) became the `check` half of TC-CLI-09;
-  77 of 77 proven. `mutants-diff 5d8ac28` (with 3.w's tests): 14, 12 caught, 2 unviable
-- [x] 3.w `.cargo/mutants.toml` audit, before 3.y's whole-crate runs (they measure only what it
-  leaves in; maintainer, 2026-10-01: most entries came from Phase 2 sidekick work and none was
-  re-verified). The lead, not a sidekick, takes every `exclude_re`/`exclude_globs` entry:
-  (1) what it matches today (`cargo mutants --list` with and without it): a line-numbered
-  pattern (`check\.rs:210:39`, `hand_split\.rs:210:25`, the `retarget\.rs` ones) may have
-  drifted onto another expression or onto nothing; (2) the comment's equivalence argument
-  re-checked against the current code; (3) each matched mutant run with the entry removed,
-  confirming it survives. An entry that matches nothing, or whose mutant a test can kill, is
-  removed (a killable one becomes a test in the rework brief); a broad pattern is narrowed to
-  what it argues for. → verify: every surviving entry has its argument and a run showing its
-  mutants survive, listed in the converge record. Done: every entry's matches listed against
-  `--list --no-config` (union = the 150 the config removed), each argument re-read against the
-  code, and the 110 matched mutants (python_bindings' glob aside, measured by hand) run with
-  `exclude_re` off: 99 missed, 11 caught. Rewritten: `| -> ^` narrowed to the files whose every
-  OR packs disjoint fields plus 11 disjoint `f16.rs` positions (its quiet-NaN ORs and the
-  material-flag ORs of `to_fox::resolve` and `pes_model/export.rs` can overlap);
-  `relaunch_elevated` narrowed to the Windows arm (the Unix arm is killed on Linux);
-  `SHELLEXECUTEINFOW` removed (cargo-mutants 27.1 applies no regex, `-E` or `-F`, to "delete
-  field" mutants, so it matched nothing; the six stay as accepted survivors);
-  `fox_has_hand_weights` no longer matches `prefox_has_hand_weights` (its tests kill all six);
-  `quantize_weights` kept with a corrected argument (the lead's counterexample was wrong: the
-  total is already 0 there; no difference over 6 million inputs), its never-binding
-  `.min(255 * lanes)` cap removed. Tests added for the three overlapping ORs no test killed
-  (`to_fox.rs:148`, `pes_model/export.rs:129/134`). The config now removes 132; every other
-  entry's argument holds and its mutants survived the run (`.tmp/3w/mutants.out/`)
-- [x] 3.y Converge (`AGENTS.md` "Closing a phase"): the lead's audit against the Phase 3 plan
-  sections and every TC ID (3.2's strict mode), design-health pass, `just mutants` per new
-  crate, then the reviewer loop; gaps become steps above this one. Done, the reviewer loop
-  aside (queued, see "Handover"): every plan code block compared with its type (24 blocks:
-  `PlanReport.dropped` and `plan_run`'s signature were the undocumented differences, the plan
-  now follows the code, decision entry "3.y: the run driver's plan shapes follow the code");
-  `acceptance` 77 of 77 proven; a design sweep and `pub` audit of the phase's crates; whole-crate
-  `just mutants` (`aesthetics_export` 425: 0 missed; `team_compiler` 270: 1 missed, the
-  `settings_view` placeholder that Phase 8's settings menu replaces; `pipeline` 67: only the
-  `available_memory` platform arms sharded onto the other OS, the Windows arm rerun here, all
-  caught; `studio_core` 59 and `studio` 16: 12 missed, now tested); every timeout a hang. The
-  rework (one slice): `validate/mod.rs`'s tests to `validate/tests.rs`, `tests/cli/compile.rs`
-  split (`compile_exports.rs`), one `metadata_text`, `_ =>` arms made explicit where they list
-  four patterns or fewer (`links.rs:88` and `root.rs:206` keep theirs: 11 and about 17
-  variants), full-word names, narrower visibility, `CommonSettings::worker_threads` removed,
-  the face package moved into its last slot, test scratch folders removed on drop (they had
-  leaked about 3000 into `%TEMP%`), tests for the 12 survivors. Rejected sweep findings, with
-  reasons, in the log line
-- [ ] 3.x Rewrite the Phase 3 plan sections in the present tense, collapse this list
+TC-GUI-01 manual: checked 2026-10-02 by the maintainer on Windows, the window, the sidebar's
+Team compiler entry, its Settings, Compile button and log.
+TC-GUI-02 manual: checked 2026-10-02 by the maintainer on Windows, the /egg/ tracer export
+compiled from the window, the log showing `egg Tracer: Info export_identified (team=/egg/,
+id=792)` then `Run finished: exit code 0`. Linux: not yet checked, no machine with a display.
 
 ### Phase 4 — Processing logic
 
-Steps are itemized when Phase 3 closes, and only after 4.0 is done; one more is fixed already
+Steps are itemized only after 4.0 is done; one more is fixed already
 (the GPU BC7 step moved to Phase 16, decision entry 2026-09-28):
 
 - [ ] 4.0a PES12 re-study, right after Phase 3 closes and before Phase 4 is itemized
@@ -984,3 +766,6 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   Off`; `log_level` arm `left: Trace right: Info`. `mutants-diff b6d898c`: 58, 49 caught, 9
   unviable. Fable: landed first time; a name it could not use as briefed (`position` shadows
   the function) renamed `file_position` and reported.
+- **2026-10-02** — 3.x: Phase 3 closed, its cross-family reviews queued. The plan's Phase 3
+  sections describe what exists (`development_plan.md` "Phase 3" with its done Verification:
+  1402 tests, 77 of 77 scenarios); the step list collapsed. Next: 4.0a, 4.0b, then stop.
