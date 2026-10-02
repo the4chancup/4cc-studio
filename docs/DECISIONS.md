@@ -2914,3 +2914,16 @@ Phases 1 and 2 had run `deps-check` by hand at close, Phase 3 did not, and only 
 `deps-check` job failed, on every push since 3.z. Boost is permissive and needs no notice in a
 binary, so asking would only have delayed the same answer.
 Plan: `core/distribution.md` "License"; `CONTRIBUTING.md` "Testing and verification"; `deny.toml`.
+
+## 2026-10-03 — workflow — who decided lives here, not in the plans
+Decision (maintainer): plans, `AGENTS.md` and `CONTRIBUTING.md` state a rule without a
+`(maintainer, <date>)` note; who decided and when is this file's. Four such notes had no entry,
+so they are recorded here, each the maintainer's: Studio Web's first load targets a few MB as
+transferred (2026-10-02, `core/gui.md` "Transfer size"); the local mutation half runs at
+below-normal priority on half the logical CPUs per cargo process instead of holding two CPUs back
+(2026-10-02, `AGENTS.md`); a dependency the plan already names needs no new yes (2026-10-02,
+`AGENTS.md`); the PES 2020 account in `core/README.md` "Project context" (2026-10-03, given
+because the question keeps coming up).
+Why: the notes repeated this file and bloated the documents every agent reads in full.
+Plan: `AGENTS.md` (decision logging); `core/distribution.md`, `core/gui.md`, `core/README.md`,
+`team_compiler/gui.md`, `pes_savefile/codec.md`.

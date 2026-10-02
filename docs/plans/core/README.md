@@ -75,7 +75,7 @@ It takes user-submitted "exports" (folders, `.zip`, or `.7z` archives containing
 faces, kits, boots, gloves, portraits, logos) and compiles them into CPK archive files that the game
 can load.
 
-**PES 2020** (maintainer, 2026-10-03; asked more than once): no official 4cc cup has used it. PES
+**PES 2020** (a recurring question): no official 4cc cup has used it. PES
 2021 is in theory the same game with a roster update, which does not matter to the 4cc, so 2020
 was skipped. It was used once, for a recent invitational, partly as a test, and Red gained a small
 addition to support it. Studio supports it like any version; where its game files have not been
