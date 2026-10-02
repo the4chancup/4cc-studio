@@ -1,11 +1,12 @@
 //! `compile`: the CPK it writes, the exports it skips, and the findings and exit code it reports.
 
+use std::collections::BTreeMap;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use studio_core::PipelineEvent;
 
-use crate::common::Sandbox;
+use crate::common::{Run, Sandbox};
 use crate::{CLEAN_PLAYER, findings_of, snapshot, source_fixture};
 
 impl Sandbox {
@@ -129,6 +130,124 @@ fn a_compile_that_emits_nothing_writes_no_cpk_and_no_staging_folder() {
     );
     assert_eq!(snapshot(&sandbox.root.join("output")), before);
     assert!(!sandbox.root.join("output/.staging").exists());
+}
+
+// TC-CLI-06
+#[test]
+fn an_output_folder_that_cannot_be_created_refuses_compile_before_any_export_is_read() {
+    let sandbox = Sandbox::new("output_unwritable");
+    sandbox.write("blocker", b"");
+    sandbox.copy_tracer("egg Tracer");
+    // Absolute, as `pes21_settings` writes the PES path; a file is in the way of its parent.
+    let output = format!("{}/blocker/out", sandbox.root.display());
+    let settings = format!(
+        "{}[team-compiler]\noutput_folder_path = '{output}'\n",
+        pes21_settings(&sandbox)
+    );
+
+    let run = sandbox.run(&settings, &["compile"]);
+
+    run.assert_refused(3, &[&output]);
+}
+
+// TC-OUT-03
+#[test]
+fn a_failed_cpk_write_discards_the_staging_and_leaves_the_previous_cpk() {
+    let sandbox = Sandbox::new("cpk_write_failed");
+    sandbox.write("output/4cc_90_test.cpk", b"the previous CPK");
+    // Two exports of one team with the same player: the CPK refuses the second's face path.
+    sandbox.copy_tracer_face("exports/co - A/Players/03 - A");
+    sandbox.copy_tracer_face("exports/co - B/Players/03 - A");
+    let before = snapshot(&sandbox.root.join("output"));
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+    let lines = run.messages();
+    let (last, first) = lines.split_last().unwrap();
+    assert_eq!(
+        first,
+        [
+            "co - A: Info export_identified [Keep] (team=/co/, id=714)",
+            "co - B: Info export_identified [Keep] (team=/co/, id=714)",
+        ]
+    );
+    // The error names the staged CPK, whose folder is this run's: `<pid>-<ms>` is left free.
+    let previous = sandbox.root.join("output").join("4cc_90_test.cpk");
+    let prefix = format!(
+        "Fatal cpk_write_failed [AbortRun] (path={}, error={}",
+        previous.display(),
+        sandbox.root.join("output").join(".staging").display()
+    );
+    let texture = "Asset/model/character/common/714/03 - A/sourceimages/#windx11/shirt.ftex";
+    let suffix = format!(
+        "{}4cc_90_test.cpk: cannot add {texture}: duplicate path in archive: {texture})",
+        std::path::MAIN_SEPARATOR
+    );
+    assert!(
+        last.starts_with(&prefix) && last.ends_with(&suffix),
+        "{last}"
+    );
+    assert_eq!(run.exit_code(), 3);
+    assert_eq!(snapshot(&sandbox.root.join("output")), before);
+    assert!(!sandbox.root.join("output/.staging").exists());
+}
+
+/// Asserts `run` compiled the tracer's export and then failed to replace the previous CPK:
+/// `output_commit_failed` naming it is the last finding, the exit code is 3, and `output/`
+/// holds exactly what it held `before`.
+fn assert_commit_failed(sandbox: &Sandbox, run: &Run, before: &BTreeMap<PathBuf, Vec<u8>>) {
+    let previous = sandbox.root.join("output").join("4cc_90_test.cpk");
+    let lines = run.messages();
+    let (last, first) = lines.split_last().unwrap();
+    assert_eq!(
+        first,
+        ["egg Tracer: Info export_identified [Keep] (team=/egg/, id=792)"]
+    );
+    // The error ends with the platform's own text, so only its shape is fixed.
+    let prefix = format!(
+        "Fatal output_commit_failed [AbortRun] (path={previous}, error={previous}: cannot replace it with the new CPK: ",
+        previous = previous.display()
+    );
+    assert!(last.starts_with(&prefix) && last.ends_with(')'), "{last}");
+    assert_eq!(run.exit_code(), 3);
+    assert_eq!(&snapshot(&sandbox.root.join("output")), before);
+    assert!(!sandbox.root.join("output/.staging").exists());
+}
+
+#[cfg(windows)]
+// TC-OUT-05
+#[test]
+fn a_previous_cpk_held_open_without_delete_sharing_fails_the_commit_and_is_kept() {
+    use std::os::windows::fs::OpenOptionsExt;
+    /// `FILE_SHARE_READ` alone: another process may read the file, not delete or replace it.
+    const FILE_SHARE_READ: u32 = 1;
+
+    let sandbox = Sandbox::new("output_commit_held_open");
+    sandbox.write("output/4cc_90_test.cpk", b"the previous CPK");
+    sandbox.copy_tracer("egg Tracer");
+    let before = snapshot(&sandbox.root.join("output"));
+    let held_open = fs::OpenOptions::new()
+        .read(true)
+        .share_mode(FILE_SHARE_READ)
+        .open(sandbox.root.join("output").join("4cc_90_test.cpk"))
+        .unwrap();
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+    drop(held_open);
+    assert_commit_failed(&sandbox, &run, &before);
+}
+
+#[test]
+fn a_previous_cpk_that_is_a_folder_fails_the_commit_and_is_kept() {
+    let sandbox = Sandbox::new("output_commit_folder");
+    sandbox.write("output/4cc_90_test.cpk/kept.txt", b"not a CPK");
+    sandbox.copy_tracer("egg Tracer");
+    let before = snapshot(&sandbox.root.join("output"));
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+    assert_commit_failed(&sandbox, &run, &before);
 }
 
 /// The path of every entry of the CPK at `path`.

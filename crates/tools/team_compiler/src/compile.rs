@@ -1,7 +1,8 @@
 //! The `compile` command (`team_compiler/pipeline.md` "Run driver shapes (Phase 3)"): the
 //! structure pass `check` runs, run planning, each task's files read in manifest order and the
 //! task processed on the worker pool, the writer thread committing the batches in manifest
-//! order, and the CPK promoted from staging to the output folder.
+//! order, and the CPK promoted from staging to the output folder, or the staging discarded
+//! when writing or promoting it fails.
 
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -23,8 +24,9 @@ use crate::reader::{ContentSource, ExportSource, SourceFailure, SourceKind};
 use crate::structure::{run_budget, structure_pass};
 
 /// Compiles every export the structure pass keeps into `<output_folder>/<cpk_stem>.cpk`,
-/// reported as events. Returns the worst severity reported. An exports folder that cannot be
-/// read, and a CPK that cannot be written, are errors.
+/// reported as events. Returns the worst severity reported: a CPK that cannot be written or
+/// put in place is a Fatal finding, after which the previous CPK is all that is left. An
+/// exports folder that cannot be read is an error.
 pub(crate) fn run(
     inputs: &RunInputs,
     cpk_stem: &CpkStem,
@@ -77,16 +79,20 @@ pub(crate) fn run(
         .build()
         .context("cannot start the worker threads")?;
     let run_folder = deploy::staging_folder(output_folder);
-    let output = CpkOutput::new(run_folder.join(deploy::cpk_file_name(cpk_stem)));
+    let cpk_name = deploy::cpk_file_name(cpk_stem);
+    let output = CpkOutput::new(run_folder.join(&cpk_name));
     let context = CompileContext { version };
-    let (coordinated, (output, mut events, written)) = std::thread::scope(|scope| {
+    let (coordinated, (mut events, written)) = std::thread::scope(|scope| {
         let (batches_tx, batches_rx) = unbounded();
         let last_tasks = &last_tasks;
         let writer = scope.spawn(move || {
             let mut output = output;
             let mut events = events;
-            let written = write_batches(batches_rx, &mut output, &mut events, last_tasks);
-            (output, events, written)
+            // The writer finishes the CPK too, so its file is closed when the thread ends,
+            // before a failure removes the staging folder.
+            let written = write_batches(batches_rx, &mut output, &mut events, last_tasks)
+                .and_then(|()| output.finish(version));
+            (events, written)
         });
         let coordinated = pool.in_place_scope(|pool_scope| {
             coordinate(&sources, tasks, &budget, &context, &batches_tx, pool_scope)
@@ -96,20 +102,71 @@ pub(crate) fn run(
         (coordinated, written)
     });
     coordinated?;
-    written?;
 
-    if output.finish(version)? {
-        let promoted = deploy::promote(&run_folder, output_folder, cpk_stem)?;
-        if no_deploy {
-            events.message(tool_message(
-                Code::DeploySkippedByFlag,
-                Scope::Run,
-                Disposition::Keep,
-                vec![("path", promoted.display().to_string())],
-            ));
+    let cpk_path = output_folder.join(&cpk_name);
+    // A bins failure is a CPK write failure too: `uniparam_compile_failed` arrives with Phase
+    // 4's installed-bin lookup; in Phase 3 the only bin is built on the bundled base.
+    let written = match written {
+        Ok(written) => written,
+        Err(error) => {
+            abort_output(
+                &mut events,
+                &run_folder,
+                output_folder,
+                &cpk_path,
+                Code::CpkWriteFailed,
+                error,
+            );
+            return Ok(events.worst());
         }
+    };
+    if !written {
+        return Ok(events.worst());
+    }
+    match deploy::promote(&run_folder, output_folder, cpk_stem) {
+        Ok(promoted) => {
+            if no_deploy {
+                events.message(tool_message(
+                    Code::DeploySkippedByFlag,
+                    Scope::Run,
+                    Disposition::Keep,
+                    vec![("path", promoted.display().to_string())],
+                ));
+            }
+        }
+        Err(error) => abort_output(
+            &mut events,
+            &run_folder,
+            output_folder,
+            &cpk_path,
+            Code::OutputCommitFailed,
+            error,
+        ),
     }
     Ok(events.worst())
+}
+
+/// A failure writing the CPK or putting it in place: the run's staging is discarded, so the
+/// previous CPK at `cpk_path` is all that is left, and the failure is reported as `code`,
+/// Fatal on the run, naming that path and the whole error chain.
+fn abort_output(
+    events: &mut RunEvents,
+    run_folder: &Path,
+    output_folder: &Path,
+    cpk_path: &Path,
+    code: Code,
+    error: anyhow::Error,
+) {
+    deploy::discard(run_folder, output_folder);
+    events.message(tool_message(
+        code,
+        Scope::Run,
+        Disposition::AbortRun,
+        vec![
+            ("path", cpk_path.display().to_string()),
+            ("error", format!("{error:#}")),
+        ],
+    ));
 }
 
 /// The coordinator: every task's files read from its export's source, in manifest order, and

@@ -13,6 +13,7 @@ use studio_core::{AppPaths, CliError, CommonSettings, Severity, ToolContext};
 use teams_list::TeamsList;
 
 use crate::messages::TOOL_ID;
+use crate::output::deploy;
 use crate::reader::is_archive;
 use crate::settings::{TeamCompilerSettings, from_table};
 use crate::{check, compile};
@@ -117,6 +118,10 @@ pub(crate) fn run(matches: &clap::ArgMatches, ctx: &ToolContext) -> Result<u8, C
             // `settings.md` "Path resolution": a relative output folder sits beside the
             // executable; an absolute one replaces the base.
             let output_folder = ctx.paths().exe_dir.join(&settings.output_folder_path);
+            // Probed before any export is read, so a run never does the work and then fails
+            // to write it.
+            deploy::prepare_output_folder(&output_folder)
+                .map_err(|error| CliError::new(ABORTED, error))?;
             create_teams_list(&settings.teams_list_path, ctx.paths().data_dir.as_deref())?;
             let inputs = resolve_inputs(args.source, settings, common, ctx.paths())?;
             verdict(compile::run(

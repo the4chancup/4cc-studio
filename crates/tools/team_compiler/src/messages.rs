@@ -35,6 +35,10 @@ pub(crate) enum Code {
     SourceReadFailed,
     /// A task could not build its entries; its folder is left out.
     FolderPackFailed,
+    /// The CPK could not be written; the run's staging is discarded.
+    CpkWriteFailed,
+    /// The written CPK could not replace the previous one; the run's staging is discarded.
+    OutputCommitFailed,
     /// `--no-deploy`: the CPK was promoted to the output folder instead of installed.
     DeploySkippedByFlag,
 }
@@ -43,7 +47,7 @@ impl Code {
     /// Every code, for the catalog test: a variant missing here would make its first message
     /// panic in `severity`, so a new variant is added to this list too.
     #[cfg(test)]
-    const ALL: [Code; 11] = [
+    const ALL: [Code; 13] = [
         Code::ExportExtractFailed,
         Code::ExportDisabled,
         Code::ExportIdentified,
@@ -54,6 +58,8 @@ impl Code {
         Code::ContentNotYetCompiled,
         Code::SourceReadFailed,
         Code::FolderPackFailed,
+        Code::CpkWriteFailed,
+        Code::OutputCommitFailed,
         Code::DeploySkippedByFlag,
     ];
 
@@ -70,6 +76,8 @@ impl Code {
             Code::ContentNotYetCompiled => "content_not_yet_compiled",
             Code::SourceReadFailed => "source_read_failed",
             Code::FolderPackFailed => "folder_pack_failed",
+            Code::CpkWriteFailed => "cpk_write_failed",
+            Code::OutputCommitFailed => "output_commit_failed",
             Code::DeploySkippedByFlag => "deploy_skipped_by_flag",
         }
     }
@@ -81,6 +89,7 @@ enum CatalogSeverity {
     Info,
     Warning,
     Error,
+    Fatal,
     /// `E/I`: an Error when `strict_file_type_check` is on, else an Info.
     ErrorOrInfo,
     /// `E/F`: Fatal when the disposition aborts the run, else an Error.
@@ -99,6 +108,8 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("kit_config_generated", CatalogSeverity::Info),
     ("content_not_yet_compiled", CatalogSeverity::Error),
     ("folder_pack_failed", CatalogSeverity::ErrorOrFatal),
+    ("cpk_write_failed", CatalogSeverity::Fatal),
+    ("output_commit_failed", CatalogSeverity::Fatal),
     ("deploy_skipped_by_flag", CatalogSeverity::Info),
     // The structure pass's codes, in `ISSUE_CODES` order.
     ("nested_folders_fixed", CatalogSeverity::Warning),
@@ -158,6 +169,7 @@ fn severity(code: &str, disposition: Disposition, strict_file_type_check: bool) 
         CatalogSeverity::Info => Severity::Info,
         CatalogSeverity::Warning => Severity::Warning,
         CatalogSeverity::Error => Severity::Error,
+        CatalogSeverity::Fatal => Severity::Fatal,
         // Keyed by the setting, not the disposition: `pass_through` keeps a disallowed file
         // (`Keep`) but its finding stays an Error.
         CatalogSeverity::ErrorOrInfo if strict_file_type_check => Severity::Error,
