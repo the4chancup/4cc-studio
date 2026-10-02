@@ -72,8 +72,8 @@ enum Mode {
     Normal,
     /// Loose files in the output folder's test_output folder.
     Test,
-    /// Loose files in the Sider folder.
-    Sider,
+    /// Loose files in the output folder's sideload_output folder.
+    Sideload,
 }
 
 /// What the preflight resolved: everything `check` and `compile` start from.
@@ -445,14 +445,14 @@ mod tests {
     fn modes_are_named_as_the_command_line_spells_them() {
         assert_eq!(mode_name(Mode::Normal), "normal");
         assert_eq!(mode_name(Mode::Test), "test");
-        assert_eq!(mode_name(Mode::Sider), "sider");
+        assert_eq!(mode_name(Mode::Sideload), "sideload");
     }
 
     #[test]
     fn no_deploy_is_refused_with_either_loose_file_mode_and_kept_with_normal() {
         assert!(refuse_mode(Mode::Normal, true).is_ok());
         assert!(refuse_mode(Mode::Normal, false).is_ok());
-        for mode in [Mode::Test, Mode::Sider] {
+        for mode in [Mode::Test, Mode::Sideload] {
             let error = refuse_mode(mode, true).unwrap_err();
             assert_eq!(error.exit_code, INVALID);
             assert!(error.to_string().contains("incompatible"), "{error}");

@@ -11,7 +11,7 @@ is in `AGENTS.md` ("Working documents").
 
 **Phase:** 3 (Team compiler skeleton) closed 2026-10-02, its cross-family reviews queued (see
 "Handover"). Phases 1 and 2 done (Phase 2 closed 2026-09-30).
-**Next:** 4.0d (the sideload renames in the code); the studies 4.0a and 4.0b are closed. Test 1
+**Next:** nothing queued; the studies 4.0a-4.0d are closed. Test 1
 of step 4.0 is installed for the maintainer's in-game check; per the directive, no Phase 4 work. 2.5b
 (GPU BC7) is step 16.x (decision entries 2026-09-21 and 2026-09-28). Release target
 (2026-09-28): 0.1.0 after Phase 8; phase order 1–6, 8, 0.1.0, 7, 9–16
@@ -214,9 +214,11 @@ Steps are itemized only after 4.0 is done; one more is fixed already
   entry "sideload mode and the overrides folder"). The maintainer also wants a from-scratch
   replacement for Sider's LiveCPK; the agent declined to design its in-game hooking part, so no
   plan for it exists in `docs/plans/` (the study's notes are outside git, in `.tmp/`)
-- [ ] 4.0d The 4.0b renames in the code: `team_compiler` `Mode::Sider` → `Mode::Sideload`
+- [x] 4.0d The 4.0b renames in the code: `team_compiler` `Mode::Sider` → `Mode::Sideload`
   (`--mode sideload`), its help topic and tests → verify: `just gates`; the refusal test asserts
-  `--mode sideload`; no `sider` left in `crates/tools/team_compiler`
+  `--mode sideload`; no `sider` left in `crates/tools/team_compiler`. Done: `cli.rs` `Mode::Sideload`,
+  `tests/cli/preflight.rs`, `help/01_command_line.md`; gates green, 77 of 77; `mutants-diff
+  b8e7393`: no mutants (a rename)
 - [ ] 4.0 **GATE, maintainer only: in-game appearance-fallback test.** No agent itemizes Phase 4,
   writes a Phase 4/5/6 Acceptance section, or starts Phase 4/5/6 work until the maintainer has
   run the test and reported the result. The idea under test: a savefile player whose appearance
@@ -279,9 +281,10 @@ pruned when their phase closes; they stay in git history.
   `team_compiler/src/view/mod.rs` (3.y design sweep). The next tool view in Phase 8 would be
   the third copy: extract it then into `studio_core` behind a test-support feature, rather
   than a third copy.
-- open — the VPS mutation half's memory peak reached 7.07 GiB of the 8 GiB cap on
-  `team_compiler` (3.y whole-crate run, 2 build jobs); no build was killed, and a killed one now
-  fails the run. Asked the maintainer whether to raise the cap before Phase 4 grows the crate.
+- resolved (2026-10-02) — the VPS mutation half's memory peak reached 7.07 GiB of the 8 GiB cap
+  on `team_compiler` (3.y whole-crate run, 2 build jobs); no build was killed, and a killed one
+  now fails the run. The maintainer keeps 8 GiB. (The 37 OOM kills of 2026-10-02 04:00 were the
+  3.z run under the old 6 GiB cap, the reason it was raised; none since.)
 
 - open — u16 face indices cap a reassembled split mesh (found at 2.20f review): `fmdl::Mesh`
   and the IR (`ir.md` "IR struct") store faces as `[u16; 3]`, so `fmdl::ops::split::decode`
