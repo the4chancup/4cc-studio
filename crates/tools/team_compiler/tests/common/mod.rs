@@ -42,8 +42,9 @@ impl Sandbox {
 
     /// Runs `team-compiler <args>` with `settings` as the settings file's text.
     pub fn run(&self, settings: &str, args: &[&str]) -> Run {
+        let tool = Tool::new();
         let mut parsed = Settings::parse(settings).unwrap();
-        parsed.merge_defaults(Tool.id(), &Tool.default_settings());
+        parsed.merge_defaults(tool.id(), &tool.default_settings());
         let (events_tx, events_rx) = unbounded();
         let (requests_tx, _requests_rx) = unbounded();
         let ctx = ToolContext::new(
@@ -55,11 +56,11 @@ impl Sandbox {
             events_tx,
             requests_tx,
         );
-        let matches = Tool
+        let matches = tool
             .cli_command()
             .try_get_matches_from(std::iter::once("team-compiler").chain(args.iter().copied()))
             .unwrap();
-        let result = Tool.cli_run(&matches, &ctx);
+        let result = tool.cli_run(&matches, &ctx);
         drop(ctx);
         Run {
             result,

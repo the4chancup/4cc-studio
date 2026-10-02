@@ -2787,3 +2787,26 @@ used yet: in Phase 3 the only bin is built on the bundled base, and its failure 
 with Phase 4's installed-bin lookup; until then the one code covers the whole write.
 Plan: no plan edit needed: `pipeline.md` "Output" and `messages.md` already state the probe
 and both guarantees; this entry records the Phase 3 mapping.
+
+## 2026-10-02 — studio_core, team_compiler — 3.z: the shell slice's edges
+Decision (lead, reversible): the Phase 3 shell is `StudioApp` in `studio_core::shell` (a
+sidebar listing the tools, the active tool's view, every tool ticked each frame, a
+`SwitchTool` request applied), launched by `4cc-studio` with no arguments on `eframe` 0.36.2, `egui` raised from 0.36.1
+in lockstep (the plan's GUI stack; default features, the wgpu renderer; 0.36.2 is the latest
+release, a patch whose eframe stops busy-looping a core while it waits for a redraw). A tool's run gets its own event
+sink through `ToolContext::with_events`; the shell consumes no events itself yet. The console's
+event lines move from the binary to `studio_core::EventLines`, used by the console printer and
+the Team compiler's log. The Team compiler's view shows its effective settings read-only, a
+Compile button that runs `compile` with no arguments through the CLI's own parser, preflight
+and verdict on a thread of its own, and a log of that run's lines ending with its exit code.
+The binary stays a console-subsystem exe and `--gui` autorun stays refused until Phase 8.
+Why: an envelope names no tool, so routing a run's events through the shell would make it
+guess whose log they belong to; one formatter keeps a finding's text the same in the terminal
+and the window, which TC-GUI-02 now asserts; editing settings needs the shell to save the file
+(the settings menu, Phase 8), and the GUI subsystem needs `AttachConsole`, an `unsafe` Windows
+call nothing else needs yet; the button reuses the CLI path so the GUI cannot compile anything
+the CLI would refuse. TC-GUI-02's "the run completing" becomes the exit-code line: Phase 3
+emits no `Complete` (decision "Phase 3 emits no FolderStatus, Progress or Complete").
+Plan: `core/architecture.md` "Event system" (the GUI paragraph) and the `events.rs` line of the
+crate tree; `core/development_plan.md` "Phase 3" (the shell slice bullet); `team_compiler/
+README.md` TC-GUI-02.

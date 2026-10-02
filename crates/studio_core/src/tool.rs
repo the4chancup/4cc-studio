@@ -137,6 +137,17 @@ impl ToolContext {
         }
     }
 
+    /// The same handle (settings, paths, shell requests) with its events sent to `events`. A
+    /// tool whose view shows a run's events gives the run its own sink this way and drains the
+    /// receiver in `tick`: an envelope names no tool, so events routed through the shell's
+    /// receiver could not be told apart by tool.
+    pub fn with_events(&self, events: Sender<PipelineEventEnvelope>) -> ToolContext {
+        ToolContext {
+            events,
+            ..self.clone()
+        }
+    }
+
     /// The two base folders relative path settings resolve against: the executable's folder and
     /// the data directory (`None` before a settings file exists, as in a CLI run ahead of the
     /// first GUI start). Tools never see the settings file itself.
@@ -188,5 +199,74 @@ impl ToolContext {
         if self.requests.send(request).is_err() {
             debug!("shell request dropped: no receiver");
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crossbeam_channel::{Receiver, unbounded};
+
+    use super::*;
+    use crate::events::{PipelineEvent, RunId};
+
+    /// A context over fresh channels, with the receivers it sends to.
+    fn context() -> (
+        ToolContext,
+        Receiver<PipelineEventEnvelope>,
+        Receiver<ShellRequest>,
+    ) {
+        let (events_tx, events_rx) = unbounded();
+        let (requests_tx, requests_rx) = unbounded();
+        let ctx = ToolContext::new(
+            Arc::new(Mutex::new(Settings::default())),
+            AppPaths {
+                exe_dir: PathBuf::from("exe"),
+                data_dir: None,
+            },
+            events_tx,
+            requests_tx,
+        );
+        (ctx, events_rx, requests_rx)
+    }
+
+    fn envelope() -> PipelineEventEnvelope {
+        PipelineEventEnvelope {
+            run_id: RunId(1),
+            export_id: None,
+            export_revision: None,
+            event: PipelineEvent::UnmigratedContentFound,
+        }
+    }
+
+    #[test]
+    fn with_events_sends_events_to_the_new_receiver_only() {
+        let (ctx, events_rx, _requests_rx) = context();
+        let (own_tx, own_rx) = unbounded();
+        ctx.with_events(own_tx).emit(envelope());
+        assert_eq!(own_rx.try_recv().unwrap(), envelope());
+        assert!(
+            events_rx.try_recv().is_err(),
+            "the original receiver got nothing"
+        );
+    }
+
+    #[test]
+    fn with_events_keeps_the_shell_requests_and_the_settings() {
+        let (ctx, _events_rx, requests_rx) = context();
+        let (own_tx, _own_rx) = unbounded();
+        let run_ctx = ctx.with_events(own_tx);
+        run_ctx.switch_to_tool("stub");
+        assert_eq!(
+            requests_rx.try_recv().unwrap(),
+            ShellRequest::SwitchTool("stub".to_owned())
+        );
+        let mut table = toml::Table::new();
+        table.insert("key".to_owned(), toml::Value::Integer(1));
+        run_ctx.set_tool_settings("stub", table.clone());
+        assert_eq!(ctx.tool_settings("stub"), table);
+        assert_eq!(
+            requests_rx.try_recv().unwrap(),
+            ShellRequest::SettingsChanged
+        );
     }
 }

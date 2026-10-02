@@ -588,8 +588,9 @@ TC-GUI-01  manual  GIVEN the studio binary
                         its settings, a Compile button and an event log
 TC-GUI-02  manual  GIVEN the tracer bullet's export in the exports folder
                    WHEN Compile is clicked
-                   THEN the CPK is written as in TC-OUT-01 and the log shows the run's events: the
-                        export starting, its findings, and the run completing
+                   THEN the CPK is written as in TC-OUT-01 and the log shows the run's findings as
+                        the console prints them (the export's export_identified line among
+                        them), then the run's exit code
 ```
 
 ---

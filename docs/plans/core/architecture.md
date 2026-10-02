@@ -148,7 +148,7 @@ else:
 crates/studio_core/src/
 ├── lib.rs            # re-exports only
 ├── tool.rs           # StudioTool trait, ToolContext (settings access, event sink, tool switch, notify)
-├── events.rs         # PipelineEvent, PipelineEventEnvelope, FolderStatus, Message + Severity/Disposition
+├── events.rs         # PipelineEvent, PipelineEventEnvelope, FolderStatus, Message + Severity/Disposition, EventLines (an event's one-line text)
 ├── status.rs         # ShellCondition, ToolActivity, Notice — the status bar's typed items
 ├── help/
 │   ├── mod.rs        #   HelpSection/HelpTopic, HelpTarget (tool, topic, anchor), catalog-topic generation
@@ -605,7 +605,13 @@ path, `<file> line <n>` for a roster entry, and nothing for the export itself or
 finding; the context fields follow in parentheses, in template order. Other events print nothing
 until a tool needs them (Phase 4's progress).
 **GUI** receives events via channels and renders them as egui UI updates (grid cell colors, log
-lines, run strip).
+lines, run strip). The line above is `studio_core`'s `EventLines` (in `events.rs`), shared by
+the console printer and the tools' plain logs, so a finding reads the same in the terminal and in
+the window. A tool whose view shows a run's events gives the run its own sink:
+`ctx.with_events(sender)` is the same handle (settings, paths, shell requests) with its events
+sent to `sender`, and the tool drains the receiver in `tick`. We do this, not route every event
+through the shell's receiver, because an envelope names no tool: the shell would have to guess
+whose log a finding belongs to.
 
 ### Diagnostic logging
 

@@ -158,10 +158,11 @@ const CLEAN_PLAYER: &str = "Players/03 - A/face_high.fmdl";
 
 #[test]
 fn the_tool_is_registered_as_the_team_compiler() {
-    assert_eq!(Tool.id(), "team-compiler");
-    assert_eq!(Tool.label(), "Team compiler");
+    let tool = Tool::new();
+    assert_eq!(tool.id(), "team-compiler");
+    assert_eq!(tool.label(), "Team compiler");
     assert_eq!(
-        Tool.default_settings()["cpk_name"].as_str(),
+        tool.default_settings()["cpk_name"].as_str(),
         Some("4cc_90_test")
     );
 }
