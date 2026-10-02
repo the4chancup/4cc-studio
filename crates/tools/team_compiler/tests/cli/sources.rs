@@ -21,7 +21,7 @@ fn spring_folder(sandbox: &Sandbox) {
 const SPRING_FINDINGS: [&str; 3] = [
     "Error players_txt_target_missing [DropSlot] at players.txt line 1 slot Some(1) (folder=Keeper)",
     "Info notes_found [Keep] at notes.txt ()",
-    "Info export_identified [Keep] (team=/co/, id=701)",
+    "Info export_identified [Keep] (team=/co/, id=714)",
 ];
 
 #[test]
@@ -76,7 +76,7 @@ fn a_corrupt_archive_is_skipped_and_the_export_beside_it_is_still_checked() {
     );
     assert_eq!(
         findings_of(&lines, "co - Spring"),
-        ["Info export_identified [Keep] (team=/co/, id=701)"]
+        ["Info export_identified [Keep] (team=/co/, id=714)"]
     );
     assert_eq!(run.exit_code(), 1);
 }
@@ -129,7 +129,7 @@ fn export_paths_may_name_an_archive_outside_the_root() {
     let lines = run.messages();
     assert_eq!(
         findings_of(&lines, "co - A"),
-        ["Info export_identified [Keep] (team=/co/, id=701)"]
+        ["Info export_identified [Keep] (team=/co/, id=714)"]
     );
     assert_eq!(findings_of(&lines, "co - Spring.zip"), SPRING_FINDINGS);
     // co - C, in the root but not named, is not reported.
@@ -155,7 +155,7 @@ fn check_leaves_every_archive_and_nested_export_as_it_was() {
         findings_of(&lines, "co - Nested"),
         [
             "Warning nested_folders_fixed [Keep] (folder=wrapper)",
-            "Info export_identified [Keep] (team=/co/, id=701)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
         ]
     );
     assert_eq!(findings_of(&lines, "co - Spring.7z"), SPRING_FINDINGS);

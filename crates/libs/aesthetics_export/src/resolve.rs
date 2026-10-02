@@ -72,9 +72,9 @@ mod tests {
     use super::*;
     use crate::testing::report;
 
-    /// A minimal teams list holding only `701 /co/`.
+    /// A minimal teams list holding only `714 /co/`.
     fn teams_list() -> TeamsList {
-        TeamsList::parse("ID\tName\n701\t/co/\n").unwrap()
+        TeamsList::parse("ID\tName\n714\t/co/\n").unwrap()
     }
 
     // TC-ID-03
@@ -102,7 +102,7 @@ mod tests {
         let ExportIdentity::Team { id, name } = resolved.unwrap().identity else {
             panic!("a team export");
         };
-        assert_eq!(id, TeamId::new(701).unwrap());
+        assert_eq!(id, TeamId::new(714).unwrap());
         assert_eq!(name.as_str(), "/co/");
     }
 

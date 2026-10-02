@@ -226,7 +226,7 @@ mod tests {
     #[test]
     fn tasks_go_by_export_then_faces_by_first_slot_then_kits_by_slot() {
         let first = resolved(
-            "da - Two",
+            "dbg - Two",
             &[
                 ("Players/Zed/face_high.fmdl", 10),
                 ("Players/Zed/face_diff.bin", 0),
@@ -259,12 +259,12 @@ mod tests {
         assert_eq!(
             summary(&report),
             [
-                "0 702 face Players/Zed [70203] charge 15",
-                "0 702 face Players/Amy [70207, 70209] charge 20",
-                "0 702 kit p1 Kits/p1 charge 0",
-                "0 702 kit p2 Kits/p2 - Away charge 8",
-                "0 702 kit g1 Kits/g1 charge 10",
-                "1 701 face Players/04 - B [70104] charge 1",
+                "0 790 face Players/Zed [79003] charge 15",
+                "0 790 face Players/Amy [79007, 79009] charge 20",
+                "0 790 kit p1 Kits/p1 charge 0",
+                "0 790 kit p2 Kits/p2 - Away charge 8",
+                "0 790 kit g1 Kits/g1 charge 10",
+                "1 714 face Players/04 - B [71404] charge 1",
             ]
         );
     }
@@ -345,7 +345,7 @@ mod tests {
             PesVersion::Pes21,
         );
 
-        assert_eq!(summary(&report), ["3 701 kit g1 Kits/g1 charge 1"]);
+        assert_eq!(summary(&report), ["3 714 kit g1 Kits/g1 charge 1"]);
         let [skipped, generated] = report.messages.as_slice() else {
             panic!("{:?}", report.messages);
         };
