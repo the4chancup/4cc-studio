@@ -260,8 +260,18 @@ fn cpk_paths(path: &Path) -> Vec<String> {
         .collect()
 }
 
+/// Every entry of the CPK at `path`, by its path, with its bytes.
+pub(crate) fn cpk_entries(path: &Path) -> BTreeMap<String, Vec<u8>> {
+    let mut cpk = cpk::CpkArchive::open(fs::File::open(path).unwrap()).unwrap();
+    let entries = cpk.entries().to_vec();
+    entries
+        .iter()
+        .map(|entry| (entry.path.clone(), cpk.read(entry).unwrap()))
+        .collect()
+}
+
 /// The CPK path of the kit texture `name` (`u0792g1`).
-fn kit_texture(name: &str) -> String {
+pub(crate) fn kit_texture(name: &str) -> String {
     format!("Asset/model/character/uniform/texture/#windx11/{name}.ftex")
 }
 
@@ -809,6 +819,41 @@ fn kit_folders_are_compiled_as_the_slot_their_name_starts_with() {
         ]
     );
     assert_eq!(compiled_kits(&sandbox), ["u0714g1", "u0714p1"]);
+    assert_eq!(run.exit_code(), 0);
+}
+
+#[test]
+fn a_kit_holding_only_a_back_texture_gets_the_placeholder_main_texture() {
+    let sandbox = Sandbox::new("kit_back_only");
+    sandbox.write("exports/co - Back/Kits/p4/kit_back.dds", &tracer_kit());
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+    assert_eq!(
+        findings_of(&run.messages(), "co - Back"),
+        [
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info kit_config_generated [Keep] at Kits/p4 ()",
+            "Info kit_placeholder [Keep] at Kits/p4 ()",
+        ]
+    );
+    assert_eq!(compiled_kits(&sandbox), ["u0714p4", "u0714p4_back"]);
+    let names = kit_config::texture_names(
+        714,
+        kit_config::KitSlot::P4,
+        kit_config::TexturePresence {
+            kit: true,
+            back: true,
+            ..kit_config::TexturePresence::default()
+        },
+    );
+    let config =
+        kit_config::KitConfig::template().encode_with_names(pes_version::PesVersion::Pes21, &names);
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_90_test.cpk"));
+    assert_eq!(
+        entries["common/character0/model/character/uniform/team/714/714_DEF_4th_realUni.bin"],
+        config
+    );
     assert_eq!(run.exit_code(), 0);
 }
 

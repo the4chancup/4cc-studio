@@ -1,9 +1,13 @@
 //! Archive sources: `.zip` and `.7z` exports read beside folder ones, and the ones refused.
 
 use std::fs;
+use std::path::Path;
+
+use kit_config::{KitConfig, KitSlot, TexturePresence, texture_names};
+use pes_version::PesVersion;
 
 use crate::common::Sandbox;
-use crate::compile::{compiled_players, pes21_settings};
+use crate::compile::{compiled_players, cpk_entries, kit_texture, pes21_settings};
 use crate::{CLEAN_PLAYER, findings_of, snapshot, source_fixture};
 
 /// The folder `exports/co - Spring/`, the same export as the `co - Spring` fixtures: git keeps no
@@ -25,8 +29,9 @@ const SPRING_FINDINGS: [&str; 3] = [
     "Info export_identified [Keep] (team=/co/, id=714)",
 ];
 
+// TC-SRC-01
 #[test]
-fn one_export_as_a_folder_a_zip_and_a_7z_reports_the_same_findings() {
+fn one_export_as_a_folder_a_zip_and_a_7z_reports_and_compiles_the_same() {
     let sandbox = Sandbox::new("same_export_three_ways");
     spring_folder(&sandbox);
     sandbox.copy_fixture("co - Spring.zip", "exports");
@@ -41,6 +46,72 @@ fn one_export_as_a_folder_a_zip_and_a_7z_reports_the_same_findings() {
     // Three exports of one team draw no finding about each other.
     assert_eq!(lines.len(), 3 * SPRING_FINDINGS.len(), "{lines:#?}");
     assert_eq!(run.exit_code(), 1);
+
+    // Each source compiled alone: the empty kit folder p2 is the placeholder kit.
+    let settings = pes21_settings(&sandbox);
+    let mut archives = Vec::new();
+    for source in ["co - Spring", "co - Spring.zip", "co - Spring.7z"] {
+        let run = sandbox.run(
+            &settings,
+            &[
+                "compile",
+                "--export",
+                &sandbox.arg(&format!("exports/{source}")),
+            ],
+        );
+        let lines = run.messages();
+        let expected: Vec<&str> = SPRING_FINDINGS
+            .iter()
+            .copied()
+            .chain([
+                "Info kit_config_generated [Keep] at Kits/p2 ()",
+                "Info kit_placeholder [Keep] at Kits/p2 ()",
+            ])
+            .collect();
+        assert_eq!(findings_of(&lines, source), expected, "{lines:#?}");
+        assert_eq!(run.exit_code(), 1, "{source}");
+        archives.push(cpk_entries(&sandbox.root.join("output/4cc_90_test.cpk")));
+    }
+    assert!(
+        archives[0] == archives[1],
+        "the folder's and the zip's CPKs differ"
+    );
+    assert!(
+        archives[0] == archives[2],
+        "the folder's and the 7z's CPKs differ"
+    );
+
+    let placeholder = fs::read(
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../resources/kits/placeholder_kit.dds"),
+    )
+    .unwrap();
+    let names = texture_names(
+        714,
+        KitSlot::P2,
+        TexturePresence {
+            kit: true,
+            ..TexturePresence::default()
+        },
+    );
+    let config = KitConfig::template().encode_with_names(PesVersion::Pes21, &names);
+    let paths: Vec<&str> = archives[0].keys().map(String::as_str).collect();
+    assert_eq!(
+        paths,
+        [
+            kit_texture("u0714p2"),
+            "common/character0/model/character/uniform/team/714/714_DEF_2nd_realUni.bin".to_owned(),
+            "common/character0/model/character/uniform/team/UniformParameter.bin".to_owned(),
+        ]
+    );
+    assert!(
+        archives[0][&kit_texture("u0714p2")]
+            == ftex::dds_to_ftex(&placeholder, ftex::ColorSpace::Normal).unwrap(),
+        "the p2 texture is not the placeholder converted"
+    );
+    assert_eq!(
+        archives[0]["common/character0/model/character/uniform/team/714/714_DEF_2nd_realUni.bin"],
+        config
+    );
 }
 
 // TC-SRC-02

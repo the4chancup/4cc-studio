@@ -10,7 +10,8 @@ is in `AGENTS.md` ("Working documents").
 ## Current status
 
 **Phase:** 3 (Team compiler skeleton). Phases 1 and 2 done (Phase 2 closed 2026-09-30).
-**In progress:** 3.9 (`compile` through the pipeline): 3.9a-d done (3.9b2 included), 3.9e next. 3.7 (`libs/pipeline`) and 3.8
+**In progress:** 3.9 (`compile` through the pipeline) done, 73 of 75 scenarios proven (the two
+left are 3.z's GUI ones); 3.z next. 3.7 (`libs/pipeline`) and 3.8
 (`check` end to end, slices a-d) are implemented and mutation-clean; only their cross-family
 reviews are left, queued for the lead (see "Handover" below), and each is marked done once its
 review's rulings land. 3.6 is done (`aesthetics_export`, 35 of 75
@@ -264,7 +265,7 @@ Itemized 2026-09-30 at Phase 2's close. Order: the tracer first (one real export
     `check::run`, routing reading metadata only for exports headed for validation; fixtures
     `tests/fixtures/sources/` (lead). TC-SRC-02 and TC-SRC-07 cited; the check halves of
     TC-SRC-01/06/08/09 tested uncited.
-- [ ] 3.9 `compile` through the pipeline: coordinator and writer on rayon over `libs/pipeline`,
+- [x] 3.9 `compile` through the pipeline: coordinator and writer on rayon over `libs/pipeline`,
   the tracer's scaffolding replaced, dispositions and `pass_through` applied, the CPK written
   atomically. → verify: TC-OUT-*, TC-DSP-*, the compile-observed TC-ROS/KIT/ID scenarios,
   TC-SRC-01/03/04/06/08/09 and TC-CLI-04/06 (their compile halves), TC-STR-01, TC-ROOT-02/05
@@ -312,9 +313,12 @@ Itemized 2026-09-30 at Phase 2's close. Order: the tracer first (one real export
     closed before a failure removes the staging), `messages.rs` (two Fatal codes,
     `CatalogSeverity::Fatal`), the probe in `cli.rs`; 72 of 75 proven. Decision entry "3.9d:
     output failures are findings, and every one discards the staging"
-  - [ ] 3.9e the placeholder kit (the checkerboard DDS is a lead-made resource) and
+  - [x] 3.9e the placeholder kit (the checkerboard DDS is a lead-made resource) and
     `kit_placeholder`, with its help topic line. → verify: TC-SRC-01, every 3.9 ID
-    proven in `acceptance.py report`
+    proven in `acceptance.py report`. Done: `templates.rs` `PLACEHOLDER_KIT`, `plan/mod.rs`
+    (`kit_placeholder` after the kit's `kit_config_generated`), `processing/kit.rs` (the `kit`
+    name field always set, the placeholder when the kit has no `kit` texture), `messages.rs`,
+    help; `resources/kits/` (lead); 73 of 75 proven
 - [ ] 3.z Shell slice, last code step of the phase (`core/development_plan.md` "Phase 3", last bullet; decided
   2026-09-15): minimal `studio_core` shell (window, sidebar, selected tool's `view()`), `studio`
   binary registering `team_compiler`, Team compiler `view/` with settings, run button and a plain
@@ -853,3 +857,8 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   `promote` reuses `discard` whole), and it caught one the brief missed: the writer's
   `CpkWriter` would still hold the staged file open when a failure removed the folder.
   `mutants-diff cb6f0cf`: 12, 10 caught, 2 unviable, 0 missed.
+- 2026-10-02: 3.9e landed first time (Fable), closing 3.9 at 73 of 75. A kit folder holding only
+  `config.toml` is a placeholder kit too, so one older planning test gained a `kit_placeholder`
+  line. Lead fixes: the help paragraph's "It skips" read as the kit folder after the new
+  sentence; a second CPK-reading helper merged into `cpk_entries`. `mutants-diff 9072f79`: 11,
+  10 caught, 1 unviable, 0 missed.

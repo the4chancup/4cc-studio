@@ -11,6 +11,13 @@ const UNIFORM_PARAMETER_19: &[u8] = include_bytes!(concat!(
     "/../../../resources/bins/UniformParameter19.bin"
 ));
 
+/// The `kit` texture of a placeholder kit: the magenta/black checkerboard, as a DDS
+/// (`resources/kits/README.md`).
+pub(crate) const PLACEHOLDER_KIT: &[u8] = include_bytes!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../../resources/kits/placeholder_kit.dds"
+));
+
 /// The `UniformParameter.bin` a compile adds its kit configs to when it has no installed one
 /// to start from: one base for PES 18, one for 19-21. `None` for the pre-Fox versions, which
 /// have no such bin.
