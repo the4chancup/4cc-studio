@@ -20,7 +20,8 @@ use subset::first_not_compiled;
 pub(crate) struct PlanReport {
     /// Every task of the run, in canonical order.
     pub(crate) manifest: BuildManifest,
-    /// Planning's findings (`content_not_yet_compiled`, `kit_config_generated`).
+    /// Planning's findings (`content_not_yet_compiled`, `kit_config_generated`,
+    /// `kit_placeholder`).
     pub(crate) messages: Vec<Message>,
 }
 
@@ -123,13 +124,22 @@ pub(crate) fn plan_run(
             ));
         }
         for (slot, kit) in export.kits.kits {
+            let folder = || Scope::Folder {
+                export_id,
+                path: kit.path.clone(),
+            };
             if kit.config.is_none() {
                 messages.push(tool_message(
                     Code::KitConfigGenerated,
-                    Scope::Folder {
-                        export_id,
-                        path: kit.path.clone(),
-                    },
+                    folder(),
+                    Disposition::Keep,
+                    vec![],
+                ));
+            }
+            if !kit.textures.iter().any(|texture| texture.stem == "kit") {
+                messages.push(tool_message(
+                    Code::KitPlaceholder,
+                    folder(),
                     Disposition::Keep,
                     vec![],
                 ));
@@ -198,7 +208,7 @@ mod tests {
     use studio_core::Severity;
 
     use super::*;
-    use crate::testing::resolved;
+    use crate::testing::{resolved, resolved_with_issues};
 
     /// Each task as one line: export, team, what it compiles, charge.
     fn summary(report: &PlanReport) -> Vec<String> {
@@ -295,9 +305,17 @@ mod tests {
             export_id: ExportId(3),
             path: ScopePath::new("Kits/p2 - Away").unwrap(),
         };
+        // p1 holds only its config, so it is a placeholder kit.
+        let p1 = Scope::Folder {
+            export_id: ExportId(3),
+            path: ScopePath::new("Kits/p1").unwrap(),
+        };
         assert_eq!(
             messages,
-            [("kit_config_generated", &scope, Disposition::Keep)]
+            [
+                ("kit_placeholder", &p1, Disposition::Keep),
+                ("kit_config_generated", &scope, Disposition::Keep),
+            ]
         );
         assert_eq!(
             report.manifest.tasks[1].kind.folder_path(),
@@ -307,6 +325,88 @@ mod tests {
             report.manifest.tasks[0].kind.folder_path(),
             scope_path("Kits/p1")
         );
+    }
+
+    /// Each planning message as (code, scope path, disposition).
+    fn message_summary(report: &PlanReport) -> Vec<(&str, &str, Disposition)> {
+        report
+            .messages
+            .iter()
+            .map(|message| {
+                let Scope::Folder { path, .. } = &message.scope else {
+                    panic!("{:?}", message.scope);
+                };
+                (
+                    message.code.code.as_ref(),
+                    path.as_str(),
+                    message.disposition,
+                )
+            })
+            .collect()
+    }
+
+    #[test]
+    fn a_kit_without_a_main_texture_reports_the_placeholder_after_its_config() {
+        let export = resolved(
+            "co - Kits",
+            &[
+                ("Kits/p1/kit.dds", 8),
+                ("Kits/p3/kit_back.dds", 8),
+                ("Kits/p4/config.toml", 3),
+            ],
+            &["Kits/p2"],
+            None,
+        );
+
+        let report = plan_run(vec![(ExportId(0), export)], PesVersion::Pes21);
+
+        assert_eq!(
+            message_summary(&report),
+            [
+                ("kit_config_generated", "Kits/p1", Disposition::Keep),
+                ("kit_config_generated", "Kits/p2", Disposition::Keep),
+                ("kit_placeholder", "Kits/p2", Disposition::Keep),
+                ("kit_config_generated", "Kits/p3", Disposition::Keep),
+                ("kit_placeholder", "Kits/p3", Disposition::Keep),
+                ("kit_placeholder", "Kits/p4", Disposition::Keep),
+            ]
+        );
+        assert!(
+            report
+                .messages
+                .iter()
+                .all(|message| message.context.is_empty()),
+            "{:?}",
+            report.messages
+        );
+    }
+
+    #[test]
+    fn a_kit_inheriting_the_main_texture_from_all_is_no_placeholder() {
+        // The inheritance finding is validation's, not planning's.
+        let (export, issues) = resolved_with_issues(
+            "co - Kits",
+            &[("Kits/all/kit.dds", 8), ("Kits/p1/config.toml", 3)],
+            &[],
+            None,
+        );
+        assert_eq!(issues, ["kit_textures_inherited"]);
+
+        let report = plan_run(vec![(ExportId(0), export)], PesVersion::Pes21);
+
+        assert!(report.messages.is_empty(), "{:?}", report.messages);
+        let [task] = report.manifest.tasks.as_slice() else {
+            panic!("{}", report.manifest.tasks.len());
+        };
+        let TaskKind::Kit { kit, .. } = &task.kind else {
+            panic!("a kit task");
+        };
+        let stems: Vec<&str> = kit
+            .textures
+            .iter()
+            .map(|texture| texture.stem.as_str())
+            .collect();
+        assert_eq!(stems, ["kit"]);
     }
 
     #[test]

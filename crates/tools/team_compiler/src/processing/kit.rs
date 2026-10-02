@@ -9,10 +9,12 @@ use pes_version::PesVersion;
 use super::{Entry, TaskFiles, take, texture};
 use crate::paths;
 use crate::plan::subset::{KIT_TEXTURE_STEMS, texture_format};
+use crate::templates::PLACEHOLDER_KIT;
 
 /// The kit `kit` in `slot` of team `team_id`, compiled for `version` from its files' bytes in
 /// `files`: its textures and its config as CPK entries, and the config as a
-/// `UniformParameter.bin` entry (name, bytes).
+/// `UniformParameter.bin` entry (name, bytes). A kit without a `kit` texture gets the bundled
+/// placeholder as its main texture.
 pub(super) fn kit(
     slot: KitSlot,
     kit: &KitFolder,
@@ -25,7 +27,9 @@ pub(super) fn kit(
         team_id,
         slot,
         TexturePresence {
-            kit: has("kit"),
+            // The game requires a main texture, so every compiled kit has one: the kit's own
+            // or the placeholder. The other four are optional and absent ones stay zero.
+            kit: true,
             back: has("kit_back"),
             chest: has("kit_chest"),
             leg: has("kit_leg"),
@@ -35,17 +39,18 @@ pub(super) fn kit(
 
     let mut entries = Vec::new();
     for (stem, field) in KIT_TEXTURE_STEMS.iter().zip(&names) {
-        let Some(texture) = kit.textures.iter().find(|texture| texture.stem == *stem) else {
-            continue;
+        let texture = kit.textures.iter().find(|texture| texture.stem == *stem);
+        let (file_name, bytes) = match texture {
+            Some(texture) => (texture.file.path.name(), take(files, &texture.file)),
+            None if *stem == "kit" => ("placeholder_kit.dds", PLACEHOLDER_KIT.to_vec()),
+            None => continue,
         };
         let name = std::str::from_utf8(field)
             .context("a kit texture name is ASCII")?
             .trim_end_matches('\0');
-        let file_name = texture.file.path.name();
         let format = texture_format(file_name).expect(
             "planning skips every export holding a kit texture in a format Phase 3 does not compile",
         );
-        let bytes = take(files, &texture.file);
         entries.push((
             paths::kit_texture(name),
             texture::to_ftex(format, file_name, bytes)?,
