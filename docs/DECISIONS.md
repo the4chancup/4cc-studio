@@ -2847,3 +2847,16 @@ holding only the version would be a wrapper around one value. Two plan files giv
 signature had already drifted apart (object_model.md kept the pre-3.9a `process_task`).
 Plan: `team_compiler/pipeline.md` "Run driver shapes (Phase 3)"; `aesthetics_export/
 object_model.md` "Core types" (the tool-side block); `core/parallelism.md` "Design".
+
+## 2026-10-02 — pes_version, team_compiler — the road stays open for a third engine (4.0a)
+Decision: `pes_version::Engine` is branched on only with exhaustive `match`es (no `==`/`!=`, no
+`PesVersion` ordering standing in for an engine); Phase 4's `OutputSink` takes entries by
+output-relative path, with game paths the materialize step's alone. Nothing PES 12-specific
+enters the plans: the study's stub stays stashed. ID allocation and bins are not made per-target
+(the maintainer: modding progress may give PES 12 CPK-like files and custom team IDs).
+Why: the PES 12 study found `engine()` an `if >= Pes18` and six `==`/`!=` sites, so a third
+engine would be silently treated as pre-Fox or Fox, not refused by the compiler; and an output
+sink that knows game paths would make another engine's archive tree a coordinator rewrite instead
+of a new variant. Per-target IDs and bins would be machinery for a target that may not need it.
+Plan: `docs/CONTRIBUTING.md` "Closed sets are enums"; `team_compiler/pipeline.md` "5. Writer"
+(the materialize paragraph after the output modes). Step 4.0c applies the rule to the existing sites.
