@@ -52,10 +52,14 @@ REMOTE_MEMORY_MAX = "6G"
 # `memory_peak` (the unit cgroup's peak memory) and `collected` (written by
 # the fetch).
 REMOTE_RUN = f"{REMOTE_BASE}/run"
-# The measured seconds one mutant costs on this machine, per crate, updated
-# from the local half of every run. `target/` is gitignored and survives the
-# `mutants.out` wipes.
+# What a run costs on this machine, measured per crate from the local half of
+# every run: the mean seconds of one mutant and the unmutated baseline's
+# seconds. `target/` is gitignored and survives the `mutants.out` wipes.
 COST_CACHE = ROOT / "target" / "mutants-cost.json"
+# The baseline (a cold build and test of the mutated packages in a fresh copy
+# of the tree) of a crate no local run has measured yet: the 3.z run's
+# 56 s + 8 s for team_compiler, studio_core and studio, rounded.
+DEFAULT_BASELINE_SECONDS = 60.0
 POLL_SECONDS = 30
 # Below this estimated local wall time a diff run stays local: the split's
 # fixed overhead (about a minute plus up to POLL_SECONDS of polling) eats
@@ -171,12 +175,14 @@ def transfer(host: str, remote_head: str | None) -> None:
         Path(bundle.name).unlink(missing_ok=True)
 
 
-def remote_config(host: str, nproc: int) -> None:
-    """Write the remote's mutants.toml: the local file's `--jobs -9` is sized for
-    the dev PC and would floor each remote cargo process at 1 job. Each of the
-    two cargo processes gets half the remote CPUs."""
+def sized_config(cpus: int) -> str:
+    """`.cargo/mutants.toml`'s text with each of the two cargo processes (`--jobs
+    2`) given half of `cpus` logical CPUs, for build jobs and test threads
+    alike, so together they use every CPU without oversubscribing it. The
+    scripts run cargo-mutants at a low priority instead of holding CPUs back
+    (`below_normal`), so the machine stays usable."""
     config = tomllib.loads((ROOT / ".cargo/mutants.toml").read_text(encoding="utf-8"))
-    half = max(1, nproc // 2)
+    half = max(1, cpus // 2)
     config["additional_cargo_args"] = ["--jobs", str(half)]
     config["additional_cargo_test_args"] = ["--", f"--test-threads={half}"]
     lines = []
@@ -188,8 +194,65 @@ def remote_config(host: str, nproc: int) -> None:
             raise TypeError(f"cannot write mutants.toml key {key!r}: {value!r}")
         # JSON escapes are valid TOML basic-string escapes.
         lines.append(f"{key} = {json.dumps(value)}")
+    return "\n".join(lines) + "\n"
+
+
+def remote_config(host: str, nproc: int) -> None:
+    """Write the remote's mutants.toml, sized for the remote's CPUs."""
     ssh(host, f"cat > {REMOTE_BASE}/mutants.remote.toml",
-        input="\n".join(lines) + "\n", text=True, check=True)
+        input=sized_config(nproc), text=True, check=True)
+
+
+def local_config() -> Path:
+    """Write `target/mutants.local.toml`, sized for this machine's CPUs, and
+    return its path for `--config`."""
+    path = ROOT / "target" / "mutants.local.toml"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp = path.with_suffix(".tmp")
+    temp.write_text(sized_config(os.cpu_count() or 2), encoding="utf-8")
+    os.replace(temp, path)
+    return path
+
+
+def below_normal() -> dict:
+    """`subprocess` keyword arguments that start cargo-mutants at a below-normal
+    priority, which every process it starts inherits (cargo, rustc, the
+    linker, the test binaries): the run takes every CPU cycle the user's own
+    work leaves idle, and yields the rest. On Windows the class is inherited
+    by children by definition; on Linux the nice value is."""
+    if os.name == "nt":
+        return {"creationflags": subprocess.BELOW_NORMAL_PRIORITY_CLASS}
+    return {"preexec_fn": lambda: os.nice(10)}
+
+
+def local_mutants(args: list[str]) -> subprocess.CompletedProcess:
+    """Runs `cargo mutants <args> --jobs 2` here, sized by `local_config` and at
+    `below_normal` priority."""
+    return subprocess.run(
+        ["cargo", "mutants", *args, "--jobs", "2", "--config", str(local_config())],
+        cwd=ROOT,
+        **below_normal(),
+    )
+
+
+def killed_builds(out_dir: Path) -> list[str]:
+    """The mutants under `out_dir` (a `mutants.out`) that cargo-mutants
+    reported unviable because a build process was killed, not because the
+    mutant does not compile. The remote half's memory cap kills a rustc that
+    outgrows it, and cargo-mutants files the failed build as unviable, so the
+    mutant goes untested without a miss or an error: at 3.z, 18 of the remote
+    half's 19 mutants, eframe's dependency tree outgrowing 6 GiB."""
+    path = out_dir / "outcomes.json"
+    if not path.exists():
+        return []
+    killed = []
+    for outcome in json.loads(path.read_text(encoding="utf-8"))["outcomes"]:
+        if outcome["summary"] != "Unviable" or not outcome.get("log_path"):
+            continue
+        log = (out_dir / outcome["log_path"]).read_text(encoding="utf-8", errors="replace")
+        if "SIGKILL" in log:
+            killed.append(outcome["scenario"]["Mutant"]["name"])
+    return killed
 
 
 def local_mutants_version() -> str:
@@ -340,13 +403,7 @@ def run_split(
 
     thread = threading.Thread(target=remote_half)
     thread.start()
-    local = subprocess.run(
-        [
-            "cargo", "mutants", *selection, "--jobs", "2",
-            "--shard", "0/2", "--sharding", "round-robin",
-        ],
-        cwd=ROOT,
-    )
+    local = local_mutants([*selection, "--shard", "0/2", "--sharding", "round-robin"])
     local_seconds = time.monotonic() - start
     thread.join()
     if "error" in remote:
@@ -422,7 +479,26 @@ def summarize(
         # cargo-mutants: 2 = missed mutants, 3 = timeouts, 4 = baseline failed.
         print("--- remote log tail ---")
         print("\n".join(log_path.read_text(encoding="utf-8", errors="replace").splitlines()[-20:]))
-    return max(local_code, remote_code)
+    return report_killed(max(local_code, remote_code))
+
+
+def report_killed(code: int) -> int:
+    """Lists the mutants whose build was killed (`killed_builds`), local half
+    and remote half, and turns `code` into a failure when there are any: those
+    mutants were never tested, and the counts above file them as unviable."""
+    local = ROOT / "mutants.out"
+    killed = killed_builds(local) + killed_builds(local / "remote" / "mutants.out")
+    if not killed:
+        return code
+    print(
+        f"{len(killed)} mutants were NOT tested: a build process was killed "
+        "(the remote half's memory cap, or out of memory), and cargo-mutants "
+        "counted them as unviable. Rerun them locally "
+        "(STUDIO_MUTANTS_REMOTE= just mutants-diff <base>):"
+    )
+    for name in killed:
+        print(f"  {name}")
+    return max(code, 1)
 
 
 def collect(host: str) -> int:
@@ -451,27 +527,43 @@ def collect(host: str) -> int:
 
 
 def mutant_crate(file: str) -> str:
-    """The crate a mutant lives in: the path component after `crates/<group>/`
-    in its `file` field (`crates/libs/pes_savefile/...` -> `pes_savefile`)."""
-    return Path(file).parts[2]
+    """The crate a mutant lives in: the folder of the nearest `Cargo.toml` above
+    its `file` field (`crates/libs/pes_savefile/src/...` -> `pes_savefile`,
+    `crates/studio_core/src/...` -> `studio_core`). Counting path components
+    instead named `studio` and `studio_core`, which sit directly under
+    `crates/`, both `src`."""
+    folder = (ROOT / file).parent
+    while not (folder / "Cargo.toml").exists() and folder.parent != folder:
+        folder = folder.parent
+    return folder.name
 
 
-def load_cost_cache() -> dict[str, float]:
-    """`target/mutants-cost.json`, or empty when no run has written it yet."""
-    if COST_CACHE.exists():
-        return json.loads(COST_CACHE.read_text(encoding="utf-8"))
-    return {}
+def load_cost_cache() -> dict[str, dict[str, float]]:
+    """`target/mutants-cost.json`: `mutant` (crate -> mean seconds per mutant)
+    and `baseline` (crate -> the baseline seconds of the last local run that
+    mutated it); empty tables when no run has written it yet. A cache in the
+    older flat form (crate -> median seconds per mutant) seeds `mutant` with
+    its values, minus the `src` key of the old crate naming: a median left
+    out the timeouts and the cold builds, so it underestimates, but it is
+    still nearer than the size fallback."""
+    if not COST_CACHE.exists():
+        return {"mutant": {}, "baseline": {}}
+    cache = json.loads(COST_CACHE.read_text(encoding="utf-8"))
+    if isinstance(cache.get("mutant"), dict) and isinstance(cache.get("baseline"), dict):
+        return cache
+    seeds = {crate: seconds for crate, seconds in cache.items() if crate != "src"}
+    return {"mutant": seeds, "baseline": {}}
 
 
-def cost_per_mutant(crate: str, cache: dict[str, float]) -> float:
-    """A crate's measured seconds per mutant, or the size fallback when it
-    has never run here: `1 + nonblank_lines / 1000` over
-    `crates/*/<crate>/src/**/*.rs` (overestimates the mid-size crates, which
+def cost_per_mutant(crate: str, cache: dict[str, dict[str, float]]) -> float:
+    """A crate's measured mean seconds per mutant, or the size fallback when
+    it has never run here: `1 + nonblank_lines / 1000` over
+    `crates/**/<crate>/src/**/*.rs` (overestimates the mid-size crates, which
     errs toward splitting)."""
-    if crate in cache:
-        return cache[crate]
+    if crate in cache["mutant"]:
+        return cache["mutant"][crate]
     nonblank = 0
-    for src in ROOT.glob(f"crates/*/{crate}/src/**/*.rs"):
+    for src in ROOT.glob(f"crates/**/{crate}/src/**/*.rs"):
         nonblank += sum(
             1
             for line in src.read_text(encoding="utf-8", errors="replace").splitlines()
@@ -481,38 +573,50 @@ def cost_per_mutant(crate: str, cache: dict[str, float]) -> float:
 
 
 def estimate_seconds(crates: list[str]) -> float:
-    """The estimated wall seconds of running these mutants locally only:
-    one per-mutant cost each over the two jobs, plus the slowest crate once
-    for the unmutated baseline."""
+    """The estimated wall seconds of running these mutants (one crate name per
+    mutant) locally only: the unmutated baseline, which runs alone first,
+    then every mutant's cost over the two jobs. The baseline is the largest
+    measured for any of the crates: a cold build of the mutated packages in a
+    fresh copy of the tree, a minute where a mutant takes seconds, so it
+    dominates a small diff (3.z: 64 s of a 270 s run, while counting it as
+    one mutant estimated the run at 80 s)."""
     cache = load_cost_cache()
     costs = [cost_per_mutant(crate, cache) for crate in crates]
-    return sum(costs) / 2 + max(costs, default=0.0)
+    baseline = max(
+        (cache["baseline"].get(crate, DEFAULT_BASELINE_SECONDS) for crate in set(crates)),
+        default=0.0,
+    )
+    return baseline + sum(costs) / 2
 
 
 def update_cost_cache() -> None:
-    """Fold the local run's per-crate mutant cost into `COST_CACHE`: the
-    median of the summed phase durations over each crate's
-    CaughtMutant/MissedMutant outcomes, replacing the old value when the run
-    had at least 5 of them (below that the median is noise). Only the local
-    `mutants.out` counts; the remote half ran on other hardware."""
+    """Fold the local run's measured costs into `COST_CACHE`. Per crate, the
+    mean of the summed phase durations over every mutant outcome, caught,
+    missed, timed out or unviable alike, replacing the old value when the run
+    had at least 5 of them (below that the mean is noise): each listed mutant
+    is one of these, and the mean carries what a median dropped, a timeout's
+    whole test timeout and each job's first, cold build (40-60 s at 3.z).
+    The baseline's duration is recorded for every crate the run mutated.
+    Only the local `mutants.out` counts; the remote half ran on other
+    hardware."""
     path = ROOT / "mutants.out" / "outcomes.json"
     if not path.exists():
         return
     durations: dict[str, list[float]] = {}
+    baseline = None
     for outcome in json.loads(path.read_text(encoding="utf-8"))["outcomes"]:
         scenario = outcome["scenario"]
-        if not isinstance(scenario, dict) or outcome["summary"] not in (
-            "CaughtMutant",
-            "MissedMutant",
-        ):
-            continue
-        durations.setdefault(mutant_crate(scenario["Mutant"]["file"]), []).append(
-            sum(phase["duration"] for phase in outcome["phase_results"])
-        )
+        seconds = sum(phase["duration"] for phase in outcome["phase_results"])
+        if isinstance(scenario, dict):
+            durations.setdefault(mutant_crate(scenario["Mutant"]["file"]), []).append(seconds)
+        elif scenario == "Baseline":
+            baseline = seconds
     cache = load_cost_cache()
     for crate, values in durations.items():
         if len(values) >= 5:
-            cache[crate] = statistics.median(values)
+            cache["mutant"][crate] = statistics.mean(values)
+        if baseline is not None:
+            cache["baseline"][crate] = baseline
     COST_CACHE.parent.mkdir(parents=True, exist_ok=True)
     temp = COST_CACHE.with_suffix(".tmp")
     temp.write_text(json.dumps(cache, indent=1) + "\n", encoding="utf-8")
@@ -592,11 +696,9 @@ def main(argv: list[str]) -> int:
     crate = argv[1]
     if host is None:
         print("STUDIO_MUTANTS_REMOTE is not set: running every mutant on this machine", flush=True)
-        code = subprocess.run(
-            ["cargo", "mutants", "-p", crate, "--jobs", "2"], cwd=ROOT
-        ).returncode
+        code = local_mutants(["-p", crate]).returncode
         update_cost_cache()
-        return code
+        return report_killed(code)
 
     return split(["-p", crate], host)
 
