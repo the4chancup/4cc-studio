@@ -344,10 +344,13 @@ Itemized 2026-09-30 at Phase 2's close. Order: the tracer first (one real export
   compiled from the window, the log showing `egg Tracer: Info export_identified (team=/egg/,
   id=792)` then `Run finished: exit code 0`. The same run with no exports folder printed a raw
   OS error, which became 3.9f. Linux: not yet checked, no machine with a display.
-- [ ] 3.9f Exports folder created or refused in plain words (decision entry "a missing exports
+- [x] 3.9f Exports folder created or refused in plain words (decision entry "a missing exports
   folder is created or refused in plain words"; `team_compiler/settings.md` "Path resolution",
   `messages.md` `no_exports_found` and the settings/environment paragraph). → verify: TC-CLI-08,
-  TC-CLI-09
+  TC-CLI-09. Done: `cli.rs` `prepare_exports_root` (before the output folder and the teams
+  list), `structure.rs` (`no_exports_found` on an empty scan), `messages.rs`, help; the old
+  `a_missing_exports_root_aborts_naming_it` (exit 3) became the `check` half of TC-CLI-09;
+  77 of 77 proven. `mutants-diff 5d8ac28` (with 3.w's tests): 14, 12 caught, 2 unviable
 - [ ] 3.w `.cargo/mutants.toml` audit, before 3.y's whole-crate runs (they measure only what it
   leaves in; maintainer, 2026-10-01: most entries came from Phase 2 sidekick work and none was
   re-verified). The lead, not a sidekick, takes every `exclude_re`/`exclude_globs` entry:
@@ -903,3 +906,9 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   and studio_core had been counted as one crate, `src`); local runs start at below-normal
   priority with half the CPUs per job; a build killed for memory is listed and fails the run
   instead of passing as unviable (12 remote mutants of 3.z, eframe's tree past the 6 GiB cap).
+- **2026-10-02** - 3.9f: the maintainer's TC-GUI-01/02 run passed; with no exports folder it
+  printed a raw OS error, so the relative exports folder is now created before a run, a missing
+  one named any other way is refused in a sentence naming the path and the setting (exit 2),
+  and an empty one reports `no_exports_found`. Red runs: TC-CLI-08 exit `3` against `2`;
+  TC-CLI-09 and its `check` half "the folder was created"; the `cli.rs` unit tests against an
+  unconditional `Ok(root)`. Fable: landed first time.
