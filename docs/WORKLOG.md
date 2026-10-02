@@ -884,3 +884,8 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   local `mutants-diff 44c284f`: 38, 27 caught, 7 unviable, 4 timeouts (each a mutant that
   never ends the run), 0 missed. `egui` raised to 0.36.2 with `eframe`. Manual TC-GUI-01/02
   pending the maintainer.
+- 2026-10-02: mutation tooling (maintainer's report and idea): `mutants-diff`'s estimate now
+  adds the measured baseline and averages every outcome (it said 80 s for a 270 s run; studio
+  and studio_core had been counted as one crate, `src`); local runs start at below-normal
+  priority with half the CPUs per job; a build killed for memory is listed and fails the run
+  instead of passing as unviable (12 remote mutants of 3.z, eframe's tree past the 6 GiB cap).

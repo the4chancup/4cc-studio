@@ -293,10 +293,22 @@ reads it from the user's registry environment; the run's first line says which m
 ("splitting the run with bonfire" or "running every mutant on this machine"). At 2.20i an
 agent shell without the variable ran all 806 `pes_savefile` mutants locally, over three
 hours. An empty value in the process opts out. `mutants-diff` splits the same way only when
-its estimated local time is at least 4 minutes (`SPLIT_THRESHOLD_SECONDS`): the estimate is each
-mutant's crate's measured seconds per mutant (`target/mutants-cost.json`, refreshed by every
-local run; a never-run crate falls back to its size), because cost follows a crate's test
-suite, not the mutant count (0.7-1.4 s for most crates, 33-37 s for `pes_savefile`). Below
+its estimated local time is at least 4 minutes (`SPLIT_THRESHOLD_SECONDS`): the estimate is the
+unmutated baseline plus each mutant's crate's measured mean seconds per mutant over the two
+jobs (`target/mutants-cost.json`, refreshed by every local run; a never-run crate falls back to
+its size, a never-measured baseline to 60 s), because cost follows a crate's test suite, not
+the mutant count (0.7-1.4 s for most crates, 33-37 s for `pes_savefile`). The baseline is a
+cold build in a fresh copy of the tree, about a minute, and the mean counts each job's cold
+first build and every timeout: until 3.z the estimate left all three out, and a 38-mutant diff
+estimated at 80 s took 270 s (now 266 s). The local half runs at below-normal priority with
+each of its two cargo processes given half the logical CPUs (`sized_config`, the remote half's
+sizing), not with two CPUs held back: the machine stays usable by priority, and the run gets
+what the user leaves idle (maintainer, 2026-10-02; measured level with the old cap on the 3.z
+diff). A starved test can then time out, so a timeout that no infinite loop explains is rerun
+before it counts as caught. A build killed for memory (the remote half's cap) is filed by
+cargo-mutants as unviable, which hides an untested mutant: at 3.z eframe's dependency tree
+outgrew the 6 GiB cap and 12 remote mutants went untested that way, so the scripts now list
+every killed build and fail the run. Below
 that the split's fixed overhead, about a minute plus up to 30 s of polling, eats the gain. At
 2.20k a 32-mutant `pes_savefile` diff took 11 min 57 s locally; split, the local half took
 417 s and the remote half 502 s from its launch (the VPS ran about a fifth slower; the total

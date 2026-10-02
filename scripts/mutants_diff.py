@@ -7,9 +7,9 @@ a file because the justfile forbids pipes and redirection in recipe lines.
 
 A run whose mutants would cost more than a few minutes locally splits with
 `STUDIO_MUTANTS_REMOTE` like `just mutants` does (see `mutants.py`): the
-estimate comes from the per-crate per-mutant costs this machine has measured
-(`mutants.estimate_seconds`), so a pes_savefile diff splits while a one-line
-`fpc` fix stays local.
+estimate is the baseline plus the per-crate per-mutant costs this machine has
+measured (`mutants.estimate_seconds`), so a pes_savefile diff splits while a
+one-line `fpc` fix stays local.
 """
 
 import json
@@ -62,17 +62,16 @@ def main(argv: list[str]) -> int:
     )
     print(
         f"mutants_diff: {len(found)} mutants ({names}), "
-        f"estimated {estimated / 60:.0f} min on this machine"
+        f"estimated {estimated:.0f} s on this machine"
     )
     host = mutants.remote_host()
     if host is not None and estimated >= mutants.SPLIT_THRESHOLD_SECONDS:
         return mutants.split(["--in-diff", diff_path], host)
     print("mutants_diff: running here", flush=True)
-    command = ["cargo", "mutants", "--in-diff", diff_path, "--jobs", "2"]
-    print("mutants_diff: " + " ".join(command), flush=True)
-    code = subprocess.run(command, cwd=ROOT).returncode
+    print(f"mutants_diff: cargo mutants --in-diff {diff_path}", flush=True)
+    code = mutants.local_mutants(["--in-diff", diff_path]).returncode
     mutants.update_cost_cache()
-    return code
+    return mutants.report_killed(code)
 
 
 if __name__ == "__main__":

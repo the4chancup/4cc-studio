@@ -2,11 +2,14 @@
 # What this file excludes is what the mutation runs stop measuring, so every entry names the
 # equivalence that makes the mutant unkillable; a mutant that is merely hard to kill stays in.
 
-# `just mutants`/`mutants-diff` run two cargo processes at once (`--jobs 2`), and `.cargo/config.toml`'s
-# `build.jobs = -2` caps each one separately, so together they took every logical processor. Each
-# process therefore gets half of the CPUs-minus-two budget: build jobs by cargo's negative form
-# (CPUs - 9 = 7 on the maintainer's 16-thread machine; cargo floors it at 1 elsewhere), test threads
-# as a hard 7 because libtest has no relative form. Local tooling only; CI never runs mutants.
+# These two lines size a bare `cargo mutants` only. `just mutants`/`mutants-diff` run two cargo
+# processes at once (`--jobs 2`) from a copy of this file that `scripts/mutants.py`
+# (`sized_config`) writes per machine, giving each process half the logical CPUs, and start
+# cargo-mutants at below-normal priority, so the run uses every CPU the user's own work leaves
+# idle rather than holding two back. A bare run keeps the old fixed budget: half of CPUs minus two
+# per process, build jobs by cargo's negative form (CPUs - 9 = 7 on the maintainer's 16-thread
+# machine; cargo floors it at 1 elsewhere), test threads a hard 7 because libtest has no relative
+# form. Local tooling only; CI never runs mutants.
 additional_cargo_args = ["--jobs", "-9"]
 additional_cargo_test_args = ["--", "--test-threads=7"]
 
@@ -38,6 +41,12 @@ exclude_re = [
     # accepted as unreachable.
     "relaunch_elevated",
     "SHELLEXECUTEINFOW",
+    # `studio_core::run_gui` and `studio`'s `run_gui_mode` open a native window and return
+    # when it closes, which no test can do (the suite runs without a display, and a test that
+    # opened one would wait for a person to close it). Everything the window shows is tested
+    # headless through `StudioApp`'s `logic`/`ui`; these two are what the manual TC-GUI-01 run
+    # proves (`team_compiler/README.md` "Shell slice").
+    "replace run_gui(_mode)? -> ",
     # Not excluded, accepted: `pipeline`'s `available_memory` has one arm per platform, and only
     # the host's arm compiles, so each run lists the others' replacements as missed. The Windows
     # arm is caught on Windows, the Linux arm on Linux (the VPS, measured 2026-10-01); the
