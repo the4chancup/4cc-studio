@@ -126,8 +126,8 @@ fn modes_and_commands_this_version_lacks_are_refused() {
     let sandbox = Sandbox::new("not_available");
     let run = sandbox.run("", &["compile", "--mode", "test"]);
     run.assert_refused(2, &["--mode test", "not available yet"]);
-    let run = sandbox.run("", &["compile", "--mode", "sider"]);
-    run.assert_refused(2, &["--mode sider", "not available yet"]);
+    let run = sandbox.run("", &["compile", "--mode", "sideload"]);
+    run.assert_refused(2, &["--mode sideload", "not available yet"]);
     let run = sandbox.run("", &["upgrade-dpfl"]);
     run.assert_refused(2, &["upgrade-dpfl", "not available yet"]);
 
