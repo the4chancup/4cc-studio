@@ -77,7 +77,7 @@ measurement decides the compression level, not whether the feature is on.
 | Artifact/input | Base location |
 |---|---|
 | Logs and persistent state | Selected data directory |
-| Relative `exports_folder_path` | Executable directory in both data-location modes, so `exports/` sits beside `quick_compile.bat`; created on first run |
+| Relative `exports_folder_path` | Executable directory in both data-location modes, so `exports/` sits beside `quick_compile.bat`; created when missing, before a run reads it (from Phase 8 also at GUI launch, for the watcher), so a fresh install has a folder to put exports in. An exports folder named any other way (an absolute setting, the CLI's positional root) is never created: a missing one is refused before the run (`messages.md`, the paragraph after "Output stage and savefile") |
 | Relative `output_folder_path` | Executable directory in both data-location modes (`output/` beside the exe, created on demand); holds `.staging/{run_id}/` during a run |
 | `sideload/` input | Selected data directory (an explicit sideload setting may be added later) |
 | Relative `teams_list_path` | Selected data directory — the file is user data once the grid writes ID assignments into it, so it follows the settings file (see `pipeline.md` "Resolved decisions", "Teams list"); nothing is bundled beside the binary |
