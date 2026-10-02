@@ -12,7 +12,9 @@ is in `AGENTS.md` ("Working documents").
 **Phase:** 3 (Team compiler skeleton). Phases 1 and 2 done (Phase 2 closed 2026-09-30).
 **In progress:** Phase 3's code steps are done but 3.9f (3.9 at 73 of 75 scenarios; 3.z's
 TC-GUI-01/02 checked by hand); 3.w in progress, then 3.9f, 3.y and 3.x. The maintainer's
-directive (2026-10-02): stop once Phase 3 is done, its queued GPT reviews aside; 4.0a waits. 3.7 (`libs/pipeline`) and 3.8
+directive (2026-10-02, revised the same day): close Phase 3 (its queued GPT reviews aside), then
+do the two studies 4.0a (PES 12) and 4.0b (Sider as a "Sideloader" tool), then stop before
+Phase 4 itself. 3.7 (`libs/pipeline`) and 3.8
 (`check` end to end, slices a-d) are implemented and mutation-clean; only their cross-family
 reviews are left, queued for the lead (see "Handover" below), and each is marked done once its
 review's rulings land. 3.6 is done (`aesthetics_export`, 35 of 75
@@ -396,6 +398,14 @@ Steps are itemized when Phase 3 closes, and only after 4.0 is done; one more is 
   diverges from what PES12 support would need and which Phase 4+ choices would close or widen
   that gap. → done when: the maintainer has the report and has decided what, if anything, enters
   the plans
+- [ ] 4.0b Sider feasibility study, after 4.0a (maintainer, 2026-10-02): study the `sider`
+  folder at `c:/Data/4cc/0Tools/sider` and whether it can join the suite as a new
+  "Sideloader" tool, ideally with a status-bar button that runs it when compiling for Sider
+  (`--mode sider`, `team_compiler/settings.md`). Report to the maintainer what Sider is and
+  does, how the suite would launch or embed it (licensing, binaries, process model, config it
+  needs), where it touches existing plans (the Team compiler's Sider mode, the status bar in
+  `core/gui.md`), and the options with a recommendation. → done when: the maintainer has the
+  report and has decided what, if anything, enters the plans. Then stop: no Phase 4 work
 - [ ] 4.0 **GATE, maintainer only: in-game appearance-fallback test.** No agent itemizes Phase 4,
   writes a Phase 4/5/6 Acceptance section, or starts Phase 4/5/6 work until the maintainer has
   run the test and reported the result. The idea under test: a savefile player whose appearance

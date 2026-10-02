@@ -386,14 +386,9 @@ impl ValidatedAestheticsExport {
 
 // tools/team_compiler: serial run-level planning over all resolved exports
 // produces the immutable manifest; scoped failures drop tasks/exports while
-// a manifest for valid siblings still proceeds (partial planning). The
-// planning result also carries all planning messages and the dropped exports.
-pub fn plan_run(
-    exports: Vec<ResolvedAestheticsExport>,
-    ctx: &CompileContext,
-) -> PlanReport;
-pub fn process_task(task: BuildTask, ctx: &CompileContext) -> TaskBatch;
-// A task batch carries the packed entries, messages, and the task's memory permit.
+// a manifest for valid siblings still proceeds (partial planning). `plan_run`,
+// `process_task` and their types are the tool's own: their shapes live in
+// `team_compiler/pipeline.md` "Run driver shapes (Phase 3)", not here.
 // Model tasks carry immutable IDs assigned by plan_run; processing only consumes
 // those assignments, never allocates. The writer commits successful batches and
 // releases their permits.

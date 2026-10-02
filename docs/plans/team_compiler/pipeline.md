@@ -699,10 +699,12 @@ entry gate may reshape them when run planning arrives). Field types not spelled 
 
 ```rust
 // plan/: serial, over the identity-resolved exports in ExportId order.
+pub(crate) fn plan_run(exports: Vec<(ExportId, ResolvedAestheticsExport)>, version: PesVersion)
+    -> PlanReport;
 pub(crate) struct PlanReport {
     pub(crate) manifest: BuildManifest,      // Phase 3 has no run-level fatal in planning
-    pub(crate) messages: Vec<Message>,       // content_not_yet_compiled, kit_config_*, ...
-    pub(crate) dropped: Vec<ExportId>,       // exports the subset gate skipped
+    pub(crate) messages: Vec<Message>,       // content_not_yet_compiled, kit_config_*, ...; an
+                                             // export the subset gate skips is its DropExport
 }
 pub(crate) struct BuildManifest {
     pub(crate) tasks: Vec<BuildTask>,        // canonical order: export, then faces by first
