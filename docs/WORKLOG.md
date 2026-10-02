@@ -10,7 +10,7 @@ is in `AGENTS.md` ("Working documents").
 ## Current status
 
 **Phase:** 3 (Team compiler skeleton). Phases 1 and 2 done (Phase 2 closed 2026-09-30).
-**In progress:** 3.9 (`compile` through the pipeline): 3.9a done, 3.9b next. 3.7 (`libs/pipeline`) and 3.8
+**In progress:** 3.9 (`compile` through the pipeline): 3.9a, 3.9b and 3.9b2 done, 3.9c next. 3.7 (`libs/pipeline`) and 3.8
 (`check` end to end, slices a-d) are implemented and mutation-clean; only their cross-family
 reviews are left, queued for the lead (see "Handover" below), and each is marked done once its
 review's rulings land. 3.6 is done (`aesthetics_export`, 35 of 75
@@ -289,10 +289,13 @@ Itemized 2026-09-30 at Phase 2's close. Order: the tracer first (one real export
     classification `processing/` now reads), `plan_run(exports, version)`, `cli.rs`
     `create_teams_list`, help; 49 of 75 proven. Every later compile scenario with players needs
     a complete Phase 3 face folder (a face model plus `face_diff.bin`; `Sandbox::copy_tracer`).
-  - [ ] 3.9b2 events (`FolderStatus`, `ExportProcessed`, `Complete`) and the compile-observed
-    scenarios over behavior already built (split from 3.9b at 3.9a's review, to keep each
-    slice one review). → verify: TC-DSP-*, TC-ROS-01/04/05/06/09, TC-KIT-01, TC-STR-01,
-    TC-ROOT-02, TC-SRC-03/04/06/08, TC-CLI-04
+  - [x] 3.9b2 the compile-observed scenarios over behavior already built (split from 3.9b at
+    3.9a's review, to keep each slice one review; the events once listed here wait for Phase 8,
+    decision entry "Phase 3 emits no FolderStatus, Progress or Complete"). → verify: TC-DSP-*, TC-ROS-01/04/05/06/09, TC-KIT-01, TC-STR-01,
+    TC-ROOT-02, TC-SRC-03/04/06/08, TC-CLI-04. Done: `team_compiler/tests/cli.rs` split into
+    `tests/cli/{main,preflight,check,compile,sources}.rs` (past a thousand lines), the scenarios
+    in `compile.rs`, TC-CLI-04 in `studio/tests/team_compiler_cli.rs`; tests only, no `src/`
+    change; 66 of 75 proven
   - [ ] 3.9c the rayon pool and admission (`pipeline.md` "Admission"), archive content read
     once per export with the `.7z` charge shared by its tasks. → verify: same CPK bytes under
     another completion order, a `.7z` over the cap compiles, TC-SRC-09, TC-ID-01, TC-ROOT-05
@@ -820,3 +823,9 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   settled every rule, and the diff followed it; its one reported gap (a `pass_through`-kept
   `.common` link) is already handled by the lib, which takes such a link off `files`. `mutants-diff 2c1f31e`: 68, 63 caught,
   5 unviable, 0 missed.
+- 2026-10-02: 3.9b2 landed first time, tests only: all 17 scenarios passed on the code as built.
+  The brief's one wrong expectation was the lead's (a kit with no `config.toml` also reports
+  `kit_config_generated`). With `pass_through`, a folder that `shared_link_duplicate` drops still
+  shows its `link_target_missing` lines as `[Keep]`: each finding carries its own disposition,
+  and the grid's cell (Phase 8) derives the folder's outcome from all of them. No mutation run
+  (no `src/` change).

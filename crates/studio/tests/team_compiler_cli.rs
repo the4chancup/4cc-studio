@@ -1,7 +1,7 @@
 //! The Team compiler's command line, run through the real binary: what only the binary does,
 //! which is loading the settings file, printing the console lines and a refusal's `error: ` line,
 //! and turning the tool's verdict into the process exit code. The tool's own refusals and
-//! findings are tested in-process, in the `team_compiler` crate's `tests/cli.rs`.
+//! findings are tested in-process, in the `team_compiler` crate's `tests/cli/`.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -93,6 +93,35 @@ fn check_prints_one_line_per_finding_and_exits_with_the_worst() {
          - co - Error: Info export_identified (team=/co/, id=701)\n"
     );
     assert!(stderr(&output).is_empty(), "{}", stderr(&output));
+}
+
+// TC-CLI-04
+#[test]
+fn compile_with_a_positional_root_compiles_it_and_leaves_the_settings_file_alone() {
+    let settings = "[common]\npes_version = 21\n";
+    let sandbox = Sandbox::new("positional_root", settings);
+    sandbox.write("data/teams_list.txt", "ID\tName\n701\t/co/\n702\t/da/\n");
+    let kit = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../tools/team_compiler/tests/fixtures/tracer/studio/egg Tracer/Kits/g1/kit.dds");
+    for folder in ["elsewhere/co - Kit/Kits/p1", "exports/da - Other/Kits/p1"] {
+        let folder = sandbox.root.join(folder);
+        fs::create_dir_all(&folder).unwrap();
+        fs::copy(&kit, folder.join("kit.dds")).unwrap();
+    }
+
+    let output = sandbox.run(&["team-compiler", "compile", "elsewhere"]);
+
+    assert_eq!(output.status.code(), Some(0), "stderr: {}", stderr(&output));
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "- co - Kit: Info export_identified (team=/co/, id=701)\n\
+         - co - Kit: Info kit_config_generated at Kits/p1\n"
+    );
+    assert!(sandbox.root.join("output/4cc_90_test.cpk").is_file());
+    assert_eq!(
+        fs::read(sandbox.root.join("data/settings.toml")).unwrap(),
+        settings.as_bytes()
+    );
 }
 
 #[test]
