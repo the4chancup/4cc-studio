@@ -30,8 +30,8 @@ dependency side with a `cargo deny` license allowlist (`MIT`, `Apache-2.0`, `BSD
 only, plus the font licenses `OFL-1.1` and `Ubuntu-font-1.0` that egui's bundled default fonts
 carry), so a copyleft crate cannot enter the dependency graph unnoticed. The list lives in
 `deny.toml`. A license compatible with `MIT OR Apache-2.0` (it puts no copyleft obligation on
-Studio's source or binary) joins the list when a dependency needs it, without asking (maintainer,
-2026-10-03); any other license is a question for the maintainer.
+Studio's source or binary) joins the list when a dependency needs it, without asking; any other
+license is a question for the maintainer.
 
 ### Distribution: portable .7z bundle
 
@@ -55,7 +55,7 @@ export into `exports/` (shipped empty beside the binary) and double-clicks
 first run — see "Data location" below. This is the same folder model Red uses, minus the ~80MB
 embedded Python runtime that made Red's updates a folder-replacement operation.
 
-**Size budget** (maintainer, 2026-10-02): the release binary stays under about 30 MB, and up to
+**Size budget:** the release binary stays under about 30 MB, and up to
 50 MB is acceptable where a feature truly needs it. A new dependency is weighed against this,
 measured on an optimized build, not a debug one. Measured on 2026-10-02 (default release profile,
 Phase 3's code): 17.1 MiB, about 70% of it the GUI stack (wgpu and naga, egui and its text

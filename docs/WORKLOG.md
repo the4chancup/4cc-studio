@@ -813,3 +813,5 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   `clipboard-win` and `error-code` under `BSL-1.0`, and Phase 3's close never ran the recipe.
   `BSL-1.0` allowed; compatible licenses join without asking, and `deps-check` runs right after
   any `Cargo.lock` addition (decision entry). `just deps-check` green locally.
+- **2026-10-03** — `(maintainer, <date>)` notes removed from the plans and `AGENTS.md`; the four
+  with no decision entry got one, and `AGENTS.md` keeps them out (decision entry).

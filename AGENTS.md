@@ -255,7 +255,7 @@ your question may already be listed, with the phase in which it gets resolved.
   tool's `messages.rs` maps them to user-facing text, severity and disposition. Tools report
   progress through `PipelineEvent`s addressed by `vtree::ScopePath`.
 - **Parallelism is `rayon` + `crossbeam-channel`.** No async runtime anywhere in the workspace.
-- **Inputs are trusted, not hostile** (maintainer, 2026-09-27). Files come from cup members'
+- **Inputs are trusted, not hostile.** Files come from cup members'
   exports and the game's own install, a fairly trustworthy environment. Malformed input still
   errors instead of panicking or writing a wrong file, but hardening against deliberately
   crafted files (allocation amplification, pathological sizes, characters no real file
@@ -303,9 +303,9 @@ first build and every timeout: until 3.z the estimate left all three out, and a 
 estimated at 80 s took 270 s (now 266 s). The local half runs at below-normal priority with
 each of its two cargo processes given half the logical CPUs (`sized_config`, the remote half's
 sizing), not with two CPUs held back: the machine stays usable by priority, and the run gets
-what the user leaves idle (maintainer, 2026-10-02; measured level with the old cap on the 3.z
-diff). A starved test can then time out, so a timeout that no infinite loop explains is rerun
-before it counts as caught. A build killed for memory (the remote half's cap) is filed by
+what the user leaves idle (measured level with the old cap on the 3.z diff). A starved test can
+then time out, so a timeout that no infinite loop explains is rerun before it counts as caught.
+A build killed for memory (the remote half's cap) is filed by
 cargo-mutants as unviable, which hides an untested mutant: at 3.z eframe's dependency tree
 outgrew the 6 GiB cap and 12 remote mutants went untested that way, so the scripts now list
 every killed build and fail the run. Below
@@ -388,18 +388,19 @@ oddity, or think of an improvement, do not ignore it and do not work around it s
 - it needs a new dependency, a new crate, a crate-boundary move, `unsafe`, or a clippy opt-out;
 - there are two reasonable options and no plan text picks one (user preference is involved).
 
-**A recommendation is applied, not asked** (maintainer, 2026-09-27). When the lead already has
+**A recommendation is applied, not asked.** When the lead already has
 a clear recommended choice for one of the cases above, it applies that choice and logs the
 decision (plan edit, then decision entry), and the turn report names it so the maintainer can
 reverse it. It stops to ask only when the choice is truly ambiguous (no option is clearly
 better on the evidence) or needs information only the maintainer has (in-game behavior, cup
 practice, a preference). New dependencies and `unsafe` still need a yes first; a dependency the
-plan already names (`rayon`, `crossbeam-channel`, ...) is accounted for, not new (maintainer,
-2026-10-02).
+plan already names (`rayon`, `crossbeam-channel`, ...) is accounted for, not new.
 
 Logging a decision means, in this order: edit the relevant plan section so the plan stays the
 source of truth (keep its "we do X, not Y, because Y causes Z" style), then append an entry to
 `docs/DECISIONS.md` (format at the top of that file) immediately, not at the end of the turn.
+Who decided and when is the entry's alone: no `(maintainer, <date>)` note in a plan, here or in
+`CONTRIBUTING.md`.
 
 ## Conduct
 
