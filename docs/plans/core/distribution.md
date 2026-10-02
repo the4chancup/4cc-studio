@@ -52,6 +52,12 @@ export into `exports/` (shipped empty beside the binary) and double-clicks
 first run — see "Data location" below. This is the same folder model Red uses, minus the ~80MB
 embedded Python runtime that made Red's updates a folder-replacement operation.
 
+**Size budget** (maintainer, 2026-10-02): the release binary stays under about 30 MB, and up to
+50 MB is acceptable where a feature truly needs it. A new dependency is weighed against this,
+measured on an optimized build, not a debug one. Measured on 2026-10-02 (default release profile,
+Phase 3's code): 17.1 MiB, about 70% of it the GUI stack (wgpu and naga, egui and its text
+rendering, winit, accesskit), and the Team compiler's embedded bins and templates 1.6 MiB.
+
 ### Data location: asked on first run
 
 Some users want a fully portable install, others want their data to survive replacing or moving the

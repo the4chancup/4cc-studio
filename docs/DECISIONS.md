@@ -2861,3 +2861,10 @@ sink that knows game paths would make another engine's archive tree a coordinato
 of a new variant. Per-target IDs and bins would be machinery for a target that may not need it.
 Plan: `docs/CONTRIBUTING.md` "Closed sets are enums"; `team_compiler/pipeline.md` "5. Writer"
 (the materialize paragraph after the output modes). Step 4.0c applies the rule to the existing sites.
+
+## 2026-10-02 — distribution — a size budget for the release binary
+Decision: the release binary stays under about 30 MB; up to 50 MB is acceptable where a feature
+truly needs it (maintainer). Dependencies are weighed against it on an optimized build.
+Why: the 50 MB the maintainer saw was the unoptimized debug build; the release build measures
+17.1 MiB, so the budget leaves room without letting dependency choices drift unmeasured.
+Plan: `core/distribution.md` "Distribution: portable .7z bundle" (the size budget paragraph).
