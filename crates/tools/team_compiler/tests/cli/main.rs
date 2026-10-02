@@ -29,10 +29,7 @@ impl Sandbox {
     /// Copies `tests/fixtures/sources/<name>` to `<relative folder>/<name>`, leaving the fixture
     /// untouched.
     fn copy_fixture(&self, name: &str, folder: &str) {
-        let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("tests/fixtures/sources")
-            .join(name);
-        self.write(&format!("{folder}/{name}"), &fs::read(fixture).unwrap());
+        self.write(&format!("{folder}/{name}"), &source_fixture(name));
     }
 
     /// The platform's spelling of a path inside the sandbox, as a source failure names it.
@@ -118,6 +115,14 @@ impl Run {
         }
         lines
     }
+}
+
+/// The bytes of `tests/fixtures/sources/<name>`, to be written under another name.
+fn source_fixture(name: &str) -> Vec<u8> {
+    let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/fixtures/sources")
+        .join(name);
+    fs::read(fixture).unwrap()
 }
 
 /// Every file under `root`, by relative path, with its bytes.

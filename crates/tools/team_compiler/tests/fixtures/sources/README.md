@@ -9,3 +9,12 @@ kept in the session scratch (`.tmp/make_source_fixtures.py`, not part of the rep
 | `co - Spring.7z` | the same files and folders, solid LZMA2 (`7z a -t7z -ms=on -m0=lzma2`; 7-Zip reports `Solid = +`) | TC-SRC-01, and the solid-7z memory charge (`libs/pipeline.md`) |
 | `co - Case.zip` | `players.txt` and `Players.txt` | TC-SRC-07: two names that fold to one |
 | `co - Escape.zip` | `players.txt` and `../x` | TC-SRC-07: a path escaping the root |
+
+Added at step 3.9c, by the lead, from `.tmp/make_tracer_archives.py` (same tools; the eight files of
+`../tracer/studio/egg Tracer/` at the archive root):
+
+| File | Contents | For |
+|---|---|---|
+| `egg Tracer.zip` | the tracer export, deflate | compile from a zip (TC-ID-01 copies it under another name) |
+| `egg Tracer.7z` | the tracer export, solid LZMA2 | compile from a `.7z`: its tasks share one permit, and one over the memory cap still compiles |
+| `egg Tracer bad notes.zip` | the tracer export plus a stored `notes.txt` whose CRC-32 is wrong in its local header and the central directory | TC-ROOT-05: that one read fails its checksum, the listing and every other entry read fine |

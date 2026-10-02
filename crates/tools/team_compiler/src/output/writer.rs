@@ -8,6 +8,7 @@ use std::path::PathBuf;
 use anyhow::{Context, ensure};
 use cpk::CpkWriter;
 use pes_version::PesVersion;
+use studio_core::Message;
 use uniparam::UniformParameter;
 
 use crate::paths;
@@ -46,13 +47,27 @@ impl CpkOutput {
 
     /// Takes `batch` and commits every batch that is now next in manifest order. Committing in
     /// manifest order, not arrival order, is what makes the CPK's layout the same on every run.
-    pub(crate) fn submit(&mut self, batch: TaskBatch) -> anyhow::Result<()> {
+    /// Returns the batches committed, in commit order, as each one's manifest position and
+    /// messages, so the caller reports findings in manifest order too; empty when `batch` waits
+    /// for an earlier one.
+    pub(crate) fn submit(
+        &mut self,
+        batch: TaskBatch,
+    ) -> anyhow::Result<Vec<(usize, Vec<Message>)>> {
         self.pending.insert(batch.index, batch);
-        while let Some(batch) = self.pending.remove(&self.next) {
-            self.commit(batch)?;
+        let mut committed = Vec::new();
+        while let Some(mut batch) = self.pending.remove(&self.next) {
+            let messages = std::mem::take(&mut batch.messages);
+            if let Err(error) = self.commit(batch) {
+                // The CPK is lost, so the batches waiting here go now: their permits may be
+                // what the coordinator is waiting for, and it must reach the end of the run.
+                self.pending.clear();
+                return Err(error);
+            }
+            committed.push((self.next, messages));
             self.next += 1;
         }
-        Ok(())
+        Ok(committed)
     }
 
     /// Writes the bins and closes the CPK. Returns whether a CPK was written: `false` when no
@@ -121,12 +136,19 @@ impl CpkOutput {
 #[cfg(test)]
 mod tests {
     use std::path::Path;
+    use std::sync::{Arc, mpsc};
+    use std::thread;
+    use std::time::Duration;
 
     use cpk::CpkArchive;
+    use pipeline::MemoryBudget;
+    use studio_core::{Disposition, Scope};
 
     use super::*;
+    use crate::messages::{Code, tool_message};
     use crate::testing::scratch;
 
+    /// A batch whose one message names its index.
     fn batch(index: usize, paths: &[&str], uniparam: Option<&str>) -> TaskBatch {
         TaskBatch {
             index,
@@ -135,9 +157,27 @@ mod tests {
                 .map(|path| ((*path).to_owned(), path.as_bytes().to_vec()))
                 .collect(),
             uniparam: uniparam.map(|name| (name.to_owned(), vec![7; 120])),
-            messages: Vec::new(),
+            messages: vec![note(index)],
             permit: None,
         }
+    }
+
+    fn note(index: usize) -> Message {
+        tool_message(
+            Code::FolderPackFailed,
+            Scope::Run,
+            Disposition::Keep,
+            vec![("task", index.to_string())],
+        )
+    }
+
+    /// Three batches, the second a kit with a config.
+    fn three_batches() -> [TaskBatch; 3] {
+        [
+            batch(0, &["m/third.bin", "b/fourth.bin"], None),
+            batch(1, &["z/second.bin"], Some("kit")),
+            batch(2, &["a/first.bin"], None),
+        ]
     }
 
     /// The CPK's entries in the order their bytes sit in the file.
@@ -187,6 +227,70 @@ mod tests {
             UniformParameter::read(templates::uniform_parameter_base(PesVersion::Pes21).unwrap())
                 .unwrap();
         assert_eq!(bin.len(), base.len() + 1, "the base's entries are kept");
+        fs::remove_dir_all(&folder).unwrap();
+    }
+
+    #[test]
+    fn the_arrival_order_changes_no_byte_of_the_cpk() {
+        let folder = scratch("writer_arrival");
+        let mut written = Vec::new();
+        for (name, reversed) in [("forward", false), ("reversed", true)] {
+            let path = folder.join(format!("{name}.cpk"));
+            let mut output = CpkOutput::new(path.clone());
+            let mut batches = three_batches();
+            if reversed {
+                batches.reverse();
+            }
+            for batch in batches {
+                output.submit(batch).unwrap();
+            }
+            assert!(output.finish(PesVersion::Pes21).unwrap());
+            written.push(fs::read(&path).unwrap());
+        }
+        assert_eq!(written[0], written[1]);
+        fs::remove_dir_all(&folder).unwrap();
+    }
+
+    #[test]
+    fn submit_returns_each_committed_batch_and_its_messages_in_manifest_order() {
+        let folder = scratch("writer_committed");
+        let mut output = CpkOutput::new(folder.join("cup.cpk"));
+        let [first, second, third] = three_batches();
+
+        assert_eq!(output.submit(third).unwrap(), [], "task 2 waits for 0");
+        assert_eq!(output.submit(first).unwrap(), [(0, vec![note(0)])]);
+        assert_eq!(
+            output.submit(second).unwrap(),
+            [(1, vec![note(1)]), (2, vec![note(2)])]
+        );
+        fs::remove_dir_all(&folder).unwrap();
+    }
+
+    #[test]
+    fn a_failed_commit_releases_the_permits_of_the_batches_waiting_behind_it() {
+        let folder = scratch("writer_failed_commit");
+        let mut output = CpkOutput::new(folder.join("cup.cpk"));
+        let budget = MemoryBudget::new(1);
+        let mut waiting = batch(1, &["a/waiting.bin"], None);
+        waiting.permit = Some(Arc::new(budget.acquire(1).unwrap()));
+        output.submit(waiting).unwrap();
+
+        // Two entries with one path: the CPK refuses the second.
+        let error = output
+            .submit(batch(0, &["a/twice.bin", "a/twice.bin"], None))
+            .unwrap_err();
+        assert!(
+            error.to_string().contains("cannot add a/twice.bin"),
+            "{error}"
+        );
+
+        let (admitted_tx, admitted) = mpsc::channel();
+        thread::spawn(move || admitted_tx.send(budget.acquire(1).is_ok()).unwrap());
+        assert_eq!(
+            admitted.recv_timeout(Duration::from_secs(5)),
+            Ok(true),
+            "the waiting batch's permit was released"
+        );
         fs::remove_dir_all(&folder).unwrap();
     }
 

@@ -213,6 +213,14 @@ impl ContentSource {
                 error: error.to_string(),
             })
     }
+
+    /// Closes the source and returns the permit it holds: `Some` only for a `.7z` that was read,
+    /// charged for its whole decompressed size. The archive is dropped first, since the permit
+    /// stands for its buffer; the caller keeps the permit for the bytes already read out of it.
+    pub(crate) fn into_permit(self) -> Option<Permit> {
+        drop(self.archive);
+        self.permit
+    }
 }
 
 /// Opens the archive at `path`, a `.7z` when `seven_z`, else a `.zip`: the dispatch the
@@ -526,6 +534,44 @@ mod tests {
             Ok(true),
             "and released with the source"
         );
+    }
+
+    #[test]
+    fn a_read_7z_hands_its_permit_on_and_the_charge_lasts_until_that_permit_is_dropped() {
+        // The fixture's entries sum to 34 bytes, the whole cap: a second byte must wait.
+        let budget = MemoryBudget::new(34);
+        let mut content = ContentSource::new(&archive_source("co - Spring.7z"), &budget);
+        content.read("players.txt").unwrap();
+
+        let permit = content.into_permit().expect("a read 7z holds a permit");
+
+        let (admitted_tx, admitted) = channel();
+        let waiting = Arc::clone(&budget);
+        thread::spawn(move || {
+            admitted_tx.send(waiting.acquire(1).is_ok()).unwrap();
+        });
+        assert_eq!(
+            admitted.recv_timeout(BLOCKED),
+            Err(RecvTimeoutError::Timeout),
+            "the charge outlives the content source"
+        );
+        drop(permit);
+        assert_eq!(
+            admitted.recv_timeout(GUARD),
+            Ok(true),
+            "and goes with the permit"
+        );
+    }
+
+    #[test]
+    fn a_read_zip_and_an_unread_7z_hand_on_no_permit() {
+        let budget = MemoryBudget::new(1 << 20);
+        let mut zip = ContentSource::new(&archive_source("co - Spring.zip"), &budget);
+        zip.read("players.txt").unwrap();
+        assert!(zip.into_permit().is_none(), "zip");
+
+        let unread = ContentSource::new(&archive_source("co - Spring.7z"), &budget);
+        assert!(unread.into_permit().is_none(), "unread 7z");
     }
 
     #[test]

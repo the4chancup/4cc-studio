@@ -728,7 +728,8 @@ pub(crate) struct TaskBatch {
     pub(crate) entries: Vec<(String, Vec<u8>)>, // CPK path, bytes; empty when the task failed
     pub(crate) uniparam: Option<(String, Vec<u8>)>, // a kit's config, applied only if committed
     pub(crate) messages: Vec<Message>,
-    pub(crate) permit: Option<pipeline::Permit>, // released when the writer has the entries
+    pub(crate) permit: Option<Arc<pipeline::Permit>>, // released when the writer has the
+                                             // entries; shared by a `.7z` export's tasks
 }
 ```
 
@@ -740,7 +741,13 @@ for always holds its permit and the run cannot stall on canonical order ("Admiss
 remain progress-safe", `core/parallelism.md`). A `.7z` export is opened once for its tasks and
 charged once, by the sum of its entries' sizes (`libs/pipeline.md`); its tasks share that
 permit and acquire none of their own, since an oversized export permit would otherwise block
-its own tasks' requests forever. The coordinator, not the pool, reads each task's files: an
+its own tasks' requests forever. The coordinator reads all of a `.7z` export's tasks before
+handing any to the pool, then frees the decompressed archive and gives each task a share of the
+export's permit (an `Arc`), so the charge stays held until the writer has the last of them.
+The writer reports each batch's messages as it commits it, so findings come out in manifest
+order whatever order the pool finishes in, and reports an export's `ExportProcessed` after its
+last task; an export with no task reports it once planning is done. The coordinator, not the
+pool, reads each task's files: an
 archive is one sequential stream, so pool threads sharing it would only wait on each other,
 and the pool's work (conversion, packing) needs no source handle. A file that cannot be read
 fails its task with `source_read_failed` (`DropFolder`, naming the file) before the pool sees

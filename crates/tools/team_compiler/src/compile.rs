@@ -1,12 +1,16 @@
 //! The `compile` command (`team_compiler/pipeline.md` "Run driver shapes (Phase 3)"): the
-//! structure pass `check` runs, run planning, each task's files read and the task processed and
-//! handed to the writer in manifest order, and the CPK promoted from staging to the output
-//! folder.
+//! structure pass `check` runs, run planning, each task's files read in manifest order and the
+//! task processed on the worker pool, the writer thread committing the batches in manifest
+//! order, and the CPK promoted from staging to the output folder.
 
+use std::collections::BTreeMap;
 use std::path::Path;
+use std::sync::Arc;
 
-use pipeline::CpkStem;
-use studio_core::{Disposition, Scope, Severity, ToolContext};
+use anyhow::Context;
+use crossbeam_channel::{Receiver, Sender, unbounded};
+use pipeline::{CpkStem, MemoryBudget, Permit};
+use studio_core::{Disposition, ExportId, Scope, Severity, ToolContext};
 
 use crate::cli::RunInputs;
 use crate::events::RunEvents;
@@ -15,7 +19,7 @@ use crate::output::deploy;
 use crate::output::writer::CpkOutput;
 use crate::plan::{BuildTask, plan_run};
 use crate::processing::{CompileContext, TaskBatch, TaskFiles, process_task};
-use crate::reader::{ContentSource, SourceFailure, SourceKind};
+use crate::reader::{ContentSource, ExportSource, SourceFailure, SourceKind};
 use crate::structure::{run_budget, structure_pass};
 
 /// Compiles every export the structure pass keeps into `<output_folder>/<cpk_stem>.cpk`,
@@ -53,34 +57,48 @@ pub(crate) fn run(
         events.message(message);
     }
 
-    let run_folder = deploy::staging_folder(output_folder);
-    let mut writer = CpkOutput::new(run_folder.join(deploy::cpk_file_name(cpk_stem)));
-    let context = CompileContext { version };
-    let mut tasks = report.manifest.tasks.into_iter().enumerate().peekable();
-    for source in &sources {
-        // Opened once for all of the export's tasks, which the manifest keeps together.
-        let mut content = ContentSource::new(source, &budget);
-        while let Some((index, task)) =
-            tasks.next_if(|(_, task)| task.export_id == source.export_id)
-        {
-            // A `.7z`'s tasks share the permit its content source holds for the whole
-            // decompressed archive; a task of another source is charged its own reads.
-            let permit = if source.kind == SourceKind::SevenZ {
-                None
-            } else {
-                Some(budget.acquire(task.charge)?)
-            };
-            let mut batch = task_batch(index, task, &mut content, &context);
-            batch.permit = permit;
-            for message in std::mem::take(&mut batch.messages) {
-                events.message(message);
-            }
-            writer.submit(batch)?;
-        }
-        events.processed(source.export_id);
+    let tasks = report.manifest.tasks;
+    let mut last_task_of: BTreeMap<ExportId, usize> = BTreeMap::new();
+    for (index, task) in tasks.iter().enumerate() {
+        last_task_of.insert(task.export_id, index);
     }
+    for source in &sources {
+        if !last_task_of.contains_key(&source.export_id) {
+            events.processed(source.export_id);
+        }
+    }
+    let last_tasks: BTreeMap<usize, ExportId> = last_task_of
+        .into_iter()
+        .map(|(export_id, index)| (index, export_id))
+        .collect();
 
-    if writer.finish(version)? {
+    let pool = rayon::ThreadPoolBuilder::new()
+        .num_threads(pipeline::thread_count_detect(inputs.common.thread_count))
+        .build()
+        .context("cannot start the worker threads")?;
+    let run_folder = deploy::staging_folder(output_folder);
+    let output = CpkOutput::new(run_folder.join(deploy::cpk_file_name(cpk_stem)));
+    let context = CompileContext { version };
+    let (coordinated, (output, mut events, written)) = std::thread::scope(|scope| {
+        let (batches_tx, batches_rx) = unbounded();
+        let last_tasks = &last_tasks;
+        let writer = scope.spawn(move || {
+            let mut output = output;
+            let mut events = events;
+            let written = write_batches(batches_rx, &mut output, &mut events, last_tasks);
+            (output, events, written)
+        });
+        let coordinated = pool.in_place_scope(|pool_scope| {
+            coordinate(&sources, tasks, &budget, &context, &batches_tx, pool_scope)
+        });
+        drop(batches_tx);
+        let written = writer.join().expect("the writer thread does not panic");
+        (coordinated, written)
+    });
+    coordinated?;
+    written?;
+
+    if output.finish(version)? {
         let promoted = deploy::promote(&run_folder, output_folder, cpk_stem)?;
         if no_deploy {
             events.message(tool_message(
@@ -94,18 +112,108 @@ pub(crate) fn run(
     Ok(events.worst())
 }
 
-/// The batch of `task`, the manifest's task number `index`: its files read from `content`, then
-/// processed. A file that cannot be read fails the task with `source_read_failed` naming it,
-/// on the task's folder, and the task is not processed.
+/// The coordinator: every task's files read from its export's source, in manifest order, and
+/// the task handed to `pool` with its permit, each finished batch sent to `batches`. Each
+/// export's source is opened once for all its tasks, which the manifest keeps together. Fails
+/// only when the run is cancelled while a task waits for its permit.
+fn coordinate<'scope>(
+    sources: &[ExportSource],
+    tasks: Vec<BuildTask>,
+    budget: &Arc<MemoryBudget>,
+    context: &'scope CompileContext,
+    batches: &'scope Sender<TaskBatch>,
+    pool: &rayon::Scope<'scope>,
+) -> anyhow::Result<()> {
+    let spawn = move |index: usize,
+                      task: BuildTask,
+                      files: Result<TaskFiles, SourceFailure>,
+                      permit: Option<Arc<Permit>>| {
+        pool.spawn(move |_| {
+            let mut batch = task_batch(index, task, files, context);
+            batch.permit = permit;
+            batches
+                .send(batch)
+                .expect("the writer receives until every sender is gone");
+        });
+    };
+    // The coordinator reads, not the task: an archive is one sequential stream, so tasks
+    // sharing it would only wait on each other, and processing needs no source handle.
+    let mut tasks = tasks.into_iter().enumerate().peekable();
+    for source in sources {
+        let mut content = ContentSource::new(source, budget);
+        if source.kind == SourceKind::SevenZ {
+            // A `.7z` holds one permit for its whole decompressed buffer, and a task asking
+            // for its own while that is held waits forever when the archive is over the cap.
+            // So every task is read first, the buffer freed, and the tasks share its permit.
+            let mut read = Vec::new();
+            while let Some((index, task)) =
+                tasks.next_if(|(_, task)| task.export_id == source.export_id)
+            {
+                let files = read_files(&task, &mut content);
+                read.push((index, task, files));
+            }
+            let permit = content.into_permit().map(Arc::new);
+            for (index, task, files) in read {
+                spawn(index, task, files, permit.clone());
+            }
+        } else {
+            while let Some((index, task)) =
+                tasks.next_if(|(_, task)| task.export_id == source.export_id)
+            {
+                let permit = Arc::new(budget.acquire(task.charge)?);
+                let files = read_files(&task, &mut content);
+                spawn(index, task, files, Some(permit));
+            }
+        }
+    }
+    Ok(())
+}
+
+/// The writer thread's work: each batch received is committed in manifest order, then every
+/// committed batch's messages reported, and its export's `ExportProcessed` after the export's
+/// last task (`last_tasks`, by manifest position). Returns the first error writing the CPK,
+/// once every batch has been received.
+fn write_batches(
+    batches: Receiver<TaskBatch>,
+    output: &mut CpkOutput,
+    events: &mut RunEvents,
+    last_tasks: &BTreeMap<usize, ExportId>,
+) -> anyhow::Result<()> {
+    for batch in &batches {
+        let committed = match output.submit(batch) {
+            Ok(committed) => committed,
+            Err(error) => {
+                // Keep receiving until the channel closes: a pool task's send must never
+                // find it closed, and the coordinator may be waiting for a permit that only
+                // dropping a later batch frees.
+                for unwritten in &batches {
+                    drop(unwritten);
+                }
+                return Err(error);
+            }
+        };
+        for (index, messages) in committed {
+            for message in messages {
+                events.message(message);
+            }
+            if let Some(export_id) = last_tasks.get(&index) {
+                events.processed(*export_id);
+            }
+        }
+    }
+    Ok(())
+}
+
+/// The batch of `task`, the manifest's task number `index`, processed over `files`, the
+/// coordinator's read of it. A file that could not be read fails the task with
+/// `source_read_failed` naming it, on the task's folder, and the task is not processed.
 fn task_batch(
     index: usize,
     task: BuildTask,
-    content: &mut ContentSource,
+    files: Result<TaskFiles, SourceFailure>,
     ctx: &CompileContext,
 ) -> TaskBatch {
-    // The coordinator reads, not the task: an archive is one sequential stream, so tasks
-    // sharing it would only wait on each other, and processing needs no source handle.
-    match read_files(&task, content) {
+    match files {
         Ok(files) => process_task(index, task, files, ctx),
         Err(failure) => TaskBatch {
             index,
@@ -191,10 +299,14 @@ mod tests {
             charge: 0,
         };
 
+        let files = read_files(
+            &task,
+            &mut ContentSource::new(&source, &MemoryBudget::new(1 << 30)),
+        );
         let batch = task_batch(
             3,
             task,
-            &mut ContentSource::new(&source, &MemoryBudget::new(1 << 30)),
+            files,
             &CompileContext {
                 version: PesVersion::Pes21,
             },
