@@ -5,8 +5,6 @@
 
 use std::path::Path;
 
-use anyhow::ensure;
-use pes_version::Engine;
 use pipeline::CpkStem;
 use studio_core::{Disposition, Scope, Severity, ToolContext};
 
@@ -31,10 +29,6 @@ pub(crate) fn run(
     ctx: &ToolContext,
 ) -> anyhow::Result<Option<Severity>> {
     let version = inputs.common.pes_version;
-    ensure!(
-        version.engine() == Engine::Fox,
-        "compile builds PES 18-21 only in this version, not {version}"
-    );
     let budget = run_budget(inputs);
     let pass = structure_pass(inputs, &budget)?;
     let mut events = RunEvents::new(ctx);
@@ -54,7 +48,7 @@ pub(crate) fn run(
         sources.push(checked.source);
     }
 
-    let report = plan_run(exports);
+    let report = plan_run(exports, version);
     for message in report.messages {
         events.message(message);
     }

@@ -2,21 +2,25 @@
 //! identity-resolved exports become one manifest of tasks, each an atomic unit that commits
 //! whole or not at all.
 
+pub(crate) mod subset;
+
 use aesthetics_export::{
-    ExportIdentity, FileDescriptor, KitFolder, PlayerFolder, PlayerIndex, ResolvedAestheticsExport,
-    ValidatedRoster,
+    ExportIdentity, FileDescriptor, KitFolder, KitsFolder, PlayerFolder, PlayerIndex,
+    ResolvedAestheticsExport, ValidatedRoster,
 };
 use kit_config::KitSlot;
+use pes_version::{Engine, PesVersion};
 use studio_core::{Disposition, ExportId, Message, Scope};
 use vtree::ScopePath;
 
 use crate::messages::{Code, tool_message};
+use subset::first_not_compiled;
 
 /// What planning produced: the manifest and the findings planning itself made.
 pub(crate) struct PlanReport {
     /// Every task of the run, in canonical order.
     pub(crate) manifest: BuildManifest,
-    /// Planning's findings (`kit_config_generated`).
+    /// Planning's findings (`content_not_yet_compiled`, `kit_config_generated`).
     pub(crate) messages: Vec<Message>,
 }
 
@@ -84,14 +88,30 @@ impl TaskKind {
     }
 }
 
-/// Plans the run over the identity-resolved exports, given in `ExportId` order.
-pub(crate) fn plan_run(exports: Vec<(ExportId, ResolvedAestheticsExport)>) -> PlanReport {
+/// Plans the run over the identity-resolved exports, given in `ExportId` order, for the target
+/// `version`. An export holding anything Phase 3 cannot compile yet plans no task and reports
+/// `content_not_yet_compiled` naming the first such item.
+pub(crate) fn plan_run(
+    exports: Vec<(ExportId, ResolvedAestheticsExport)>,
+    version: PesVersion,
+) -> PlanReport {
     let mut tasks = Vec::new();
     let mut messages = Vec::new();
-    for (export_id, resolved) in exports {
-        // The referee export's slots and paths are Phase 4's; it plans no task yet.
-        let ExportIdentity::Team { id, .. } = resolved.identity else {
+    for (export_id, mut resolved) in exports {
+        if version.engine() == Engine::Fox {
+            drop_kit_masks(&mut resolved.export.kits);
+        }
+        if let Some(item) = first_not_compiled(&resolved, version) {
+            messages.push(tool_message(
+                Code::ContentNotYetCompiled,
+                Scope::Export { export_id },
+                Disposition::DropExport,
+                vec![item],
+            ));
             continue;
+        }
+        let ExportIdentity::Team { id, .. } = resolved.identity else {
+            unreachable!("the subset gate skips every referee export");
         };
         let team_id = id.get();
         let export = resolved.export;
@@ -120,6 +140,15 @@ pub(crate) fn plan_run(exports: Vec<(ExportId, ResolvedAestheticsExport)>) -> Pl
     PlanReport {
         manifest: BuildManifest { tasks },
         messages,
+    }
+}
+
+/// Removes every kit's `kit_mask`. A Fox kit has no mask slot, so a Fox target never emits
+/// one; it goes before the subset gate, which would otherwise skip the export for it, and
+/// before the kit's task, which would otherwise read it.
+fn drop_kit_masks(kits: &mut KitsFolder) {
+    for kit in kits.kits.values_mut() {
+        kit.textures.retain(|texture| texture.stem != "kit_mask");
     }
 }
 
@@ -166,57 +195,10 @@ fn task(export_id: ExportId, team_id: u16, kind: TaskKind) -> BuildTask {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::BTreeMap;
-
-    use aesthetics_export::{
-        CanonicalListing, ListedEntry, ListedKind, SmallMetadata, ValidationContext, parse_listing,
-    };
-    use pes_version::PesVersion;
-    use teams_list::TeamsList;
+    use studio_core::Severity;
 
     use super::*;
-
-    /// The export `name` with these files (path, size), folders and `players.txt`, validated
-    /// for PES 21 and resolved against a teams list holding `701 /co/` and `702 /da/`.
-    fn resolved(
-        name: &str,
-        files: &[(&str, u64)],
-        folders: &[&str],
-        players_txt: Option<&[u8]>,
-    ) -> ResolvedAestheticsExport {
-        let roster = players_txt.map(|bytes| ("players.txt", bytes.len() as u64));
-        let files = files
-            .iter()
-            .copied()
-            .chain(roster)
-            .map(|(path, size)| (path.to_owned(), ListedKind::File { size }));
-        let folders = folders
-            .iter()
-            .map(|path| ((*path).to_owned(), ListedKind::Folder));
-        let listing = CanonicalListing {
-            display_name: name.to_owned(),
-            entries: files
-                .chain(folders)
-                .map(|(path, kind)| ListedEntry { path, kind })
-                .collect(),
-        };
-        let metadata = SmallMetadata {
-            files: players_txt
-                .map(|bytes| ("players.txt".to_owned(), Ok(bytes.to_vec())))
-                .into_iter()
-                .collect::<BTreeMap<_, _>>(),
-        };
-        let report = parse_listing(listing, metadata)
-            .unwrap()
-            .validate(&ValidationContext {
-                version: PesVersion::Pes21,
-                strict_file_type_check: true,
-                pass_through: false,
-            });
-        assert_eq!(report.issues, [], "a clean export");
-        let teams = TeamsList::parse("ID\tName\n701\t/co/\n702\t/da/\n").unwrap();
-        report.validated.unwrap().resolve_identity(&teams).unwrap()
-    }
+    use crate::testing::resolved;
 
     /// Each task as one line: export, team, what it compiles, charge.
     fn summary(report: &PlanReport) -> Vec<String> {
@@ -247,8 +229,10 @@ mod tests {
             "da - Two",
             &[
                 ("Players/Zed/face_high.fmdl", 10),
+                ("Players/Zed/face_diff.bin", 0),
                 ("Players/Zed/hair.dds", 5),
                 ("Players/Amy/face_high.fmdl", 20),
+                ("Players/Amy/face_diff.bin", 0),
                 ("Kits/g1/kit.dds", 7),
                 ("Kits/g1/config.toml", 3),
                 ("Kits/p2 - Away/kit.dds", 8),
@@ -259,12 +243,18 @@ mod tests {
         );
         let second = resolved(
             "co - One",
-            &[("Players/04 - B/face_high.fmdl", 1)],
+            &[
+                ("Players/04 - B/face_high.fmdl", 1),
+                ("Players/04 - B/face_diff.bin", 0),
+            ],
             &[],
             None,
         );
 
-        let report = plan_run(vec![(ExportId(0), first), (ExportId(1), second)]);
+        let report = plan_run(
+            vec![(ExportId(0), first), (ExportId(1), second)],
+            PesVersion::Pes21,
+        );
 
         assert_eq!(
             summary(&report),
@@ -288,7 +278,7 @@ mod tests {
             None,
         );
 
-        let report = plan_run(vec![(ExportId(3), export)]);
+        let report = plan_run(vec![(ExportId(3), export)], PesVersion::Pes21);
 
         let messages: Vec<(&str, &Scope, Disposition)> = report
             .messages
@@ -323,11 +313,14 @@ mod tests {
     fn a_face_task_names_its_player_folder() {
         let export = resolved(
             "co - One",
-            &[("Players/04 - B/face_high.fmdl", 1)],
+            &[
+                ("Players/04 - B/face_high.fmdl", 1),
+                ("Players/04 - B/face_diff.bin", 0),
+            ],
             &[],
             None,
         );
-        let report = plan_run(vec![(ExportId(0), export)]);
+        let report = plan_run(vec![(ExportId(0), export)], PesVersion::Pes21);
         assert_eq!(
             report.manifest.tasks[0].kind.folder_path(),
             scope_path("Players/04 - B")
@@ -335,19 +328,40 @@ mod tests {
     }
 
     #[test]
-    fn a_referee_export_plans_no_task() {
-        let export = resolved(
+    fn an_export_the_subset_gate_refuses_plans_no_task_and_reports_why() {
+        let referees = resolved(
             "refs Cup",
-            &[("Players/Keeper/face_high.fmdl", 1)],
+            &[
+                ("Players/Keeper/face_high.fmdl", 1),
+                ("Players/Keeper/face_diff.bin", 0),
+            ],
             &[],
             Some(b"01 Keeper\n"),
         );
-        assert!(
-            plan_run(vec![(ExportId(0), export)])
-                .manifest
-                .tasks
-                .is_empty()
+        let kit = resolved("co - Kit", &[("Kits/g1/kit.dds", 1)], &[], None);
+
+        let report = plan_run(
+            vec![(ExportId(2), referees), (ExportId(3), kit)],
+            PesVersion::Pes21,
         );
+
+        assert_eq!(summary(&report), ["3 701 kit g1 Kits/g1 charge 1"]);
+        let [skipped, generated] = report.messages.as_slice() else {
+            panic!("{:?}", report.messages);
+        };
+        assert_eq!(skipped.code.code, "content_not_yet_compiled");
+        assert_eq!(
+            (skipped.severity, skipped.disposition),
+            (Severity::Error, Disposition::DropExport)
+        );
+        assert_eq!(
+            skipped.scope,
+            Scope::Export {
+                export_id: ExportId(2)
+            }
+        );
+        assert_eq!(skipped.context, [("what".to_owned(), "refs".to_owned())]);
+        assert_eq!(generated.code.code, "kit_config_generated");
     }
 
     fn scope_path(text: &str) -> ScopePath {
