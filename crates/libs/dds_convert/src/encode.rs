@@ -251,12 +251,12 @@ fn container(
     for mip in blocks {
         dds.extend_from_slice(mip);
     }
-    if version.engine() == Engine::PreFox {
-        return Ok(dds);
+    match version.engine() {
+        Engine::PreFox => Ok(dds),
+        // why: the conversion plan's "FTEX texture type" bullet writes every Fox
+        // output as 0x9, color and normal alike.
+        Engine::Fox => Ok(ftex::dds_to_ftex(&dds, ftex::ColorSpace::Normal)?),
     }
-    // why: the conversion plan's "FTEX texture type" bullet writes every Fox
-    // output as 0x9, color and normal alike.
-    Ok(ftex::dds_to_ftex(&dds, ftex::ColorSpace::Normal)?)
 }
 
 #[cfg(test)]

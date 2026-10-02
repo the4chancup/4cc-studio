@@ -93,8 +93,9 @@ pub fn convert(bundle: NativeModelBundle, target: PesVersion) -> Result<Converte
 pub fn needs_conversion(bundle: &NativeModelBundle, target: PesVersion) -> bool {
     match bundle {
         NativeModelBundle::Fox { model, skl } => {
-            if target.engine() != Engine::Fox {
-                return true;
+            match target.engine() {
+                Engine::Fox => {}
+                Engine::PreFox => return true,
             }
             let tables = skeletons(target);
             let pes21 = skeletons(PesVersion::Pes21);
@@ -128,8 +129,9 @@ pub fn needs_conversion(bundle: &NativeModelBundle, target: PesVersion) -> bool 
             false
         }
         NativeModelBundle::PreFox { model, .. } => {
-            if target.engine() != Engine::PreFox {
-                return true;
+            match target.engine() {
+                Engine::PreFox => {}
+                Engine::Fox => return true,
             }
             let tables = skeletons(target);
             let hand = prefox_has_hand_weights(model);

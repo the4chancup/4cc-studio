@@ -200,12 +200,14 @@ Steps are itemized only after 4.0 is done; one more is fixed already
   fallback; licensing is moot (its author allows free use, and the suite only reproduces results);
   its runtime and ID scheme may change as PES 12 modding progresses (CPK-like files, custom team
   IDs), so the stub's runtime, ID and bins sections are to be re-checked then
-- [ ] 4.0c `Engine` matched exhaustively (decision entry "the road stays open for a third
+- [x] 4.0c `Engine` matched exhaustively (decision entry "the road stays open for a third
   engine"; `CONTRIBUTING.md` "Closed sets are enums"): `PesVersion::engine()` a `match`, and the
   `==`/`!=` comparisons on `Engine` in `aesthetics_export` (`validate/folders.rs`),
   `team_compiler` (`plan/mod.rs`, `plan/subset.rs`), `model_convert` (`convert.rs`) and
   `dds_convert` (`encode.rs`) rewritten as `match`es; no behavior change → verify: `just gates`,
-  `mutants-diff` over the step, and a grep finding no `==`/`!=` on `Engine` left
+  `mutants-diff` over the step, and a grep finding no `==`/`!=` on `Engine` left. Done: the six
+  sites and `engine()` are `match`es, `engine_of_every_version` tests all seven; gates green, 77
+  of 77; `mutants-diff f678d4f`: 13, 11 caught, 2 unviable; the grep finds none
 - [!] 4.0b (reported 2026-10-02, awaiting the maintainer's decision) Sider feasibility study, after 4.0a (maintainer, 2026-10-02): study the `sider`
   folder at `c:/Data/4cc/0Tools/sider` and whether it can join the suite as a new
   "Sideloader" tool, ideally with a status-bar button that runs it when compiling for Sider
@@ -779,3 +781,5 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
 - **2026-10-02** — 4.0a and 4.0b reported. PES 12: pes12tools reads the old export layout, has no
   license and reshapes daily; keep the stub stashed. Sider: LiveCPK matches the planned Sider mode;
   a launcher over the user's own Sider is recommended. Both await the maintainer's decisions.
+- **2026-10-02** — 4.0c: `Engine` is matched exhaustively everywhere (Fable, landed first time,
+  0 lead fixes). Sideloader decisions recorded in the lead's state; study part 2 running.

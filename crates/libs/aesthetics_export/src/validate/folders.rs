@@ -658,8 +658,9 @@ pub(crate) fn check_shared(
 
     // On Fox every boots/gloves model must say so by suffix (`Faces/` takes
     // any name — nothing there can be a face anywhere else).
-    if context.version.engine() != pes_version::Engine::Fox {
-        return;
+    match context.version.engine() {
+        pes_version::Engine::Fox => {}
+        pes_version::Engine::PreFox => return,
     }
     for file in &folder.files {
         let allowed = match kind {
