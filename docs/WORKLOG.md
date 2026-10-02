@@ -280,12 +280,15 @@ Itemized 2026-09-30 at Phase 2's close. Order: the tracer first (one real export
     `plan/`, `processing/`, `output/`, `paths.rs`, `templates.rs`, `testing.rs`,
     `tests/common/`; `aesthetics_export` `KitFolder.path`. Interim until 3.9b: a PES 15-17
     target ends the run with exit 3 and a refs export plans no task, both silently outside the
-    gate 3.9b adds. 3.9c owes the `.7z` permit-choice test (`compile.rs` `==` survivor).
-  - [ ] 3.9b the subset gate (`content_not_yet_compiled`, the missing-template rule; the
+    gate 3.9b adds (both now in it). 3.9c owes the `.7z` permit-choice test (`compile.rs` `==` survivor).
+  - [x] 3.9b the subset gate (`content_not_yet_compiled`, the missing-template rule; the
     pre-Fox target and refs exports move into it from 3.9a's interim), the teams list created
     by `compile` (`settings.md`), the help topic's gate limits (CONTRIBUTING: a behavior change
     lands with its topic). Design: decision entry "3.9b: what the Phase 3 subset gate counts".
-    → verify: TC-OUT-02/04/06, TC-ID-02
+    → verify: TC-OUT-02/04/06, TC-ID-02. Done: `plan/subset.rs` (the gate and the one
+    classification `processing/` now reads), `plan_run(exports, version)`, `cli.rs`
+    `create_teams_list`, help; 49 of 75 proven. Every later compile scenario with players needs
+    a complete Phase 3 face folder (a face model plus `face_diff.bin`; `Sandbox::copy_tracer`).
   - [ ] 3.9b2 events (`FolderStatus`, `ExportProcessed`, `Complete`) and the compile-observed
     scenarios over behavior already built (split from 3.9b at 3.9a's review, to keep each
     slice one review). → verify: TC-DSP-*, TC-ROS-01/04/05/06/09, TC-KIT-01, TC-STR-01,
@@ -811,3 +814,9 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   read by the coordinator, which 3.9c's pool needs. The slice ran ~600 lines with 14 audit items
   folded in, over budget: later slices carry no unrelated fixes. `mutants-diff 6c254c3`: 146,
   109 caught, 36 unviable, 1 missed: the `.7z` permit choice (3.9c's fixture).
+- 2026-10-02: 3.9b landed first time. A design pass (Plan subagent) before the brief found
+  the scope's "files a lenient setting keeps do not count" unimplementable (the validated
+  export does not mark them); the plan now lists what counts (decision entry "3.9b"). The brief
+  settled every rule, and the diff followed it; its one reported gap (a `pass_through`-kept
+  `.common` link) is already handled by the lib, which takes such a link off `files`. `mutants-diff 2c1f31e`: 68, 63 caught,
+  5 unviable, 0 missed.

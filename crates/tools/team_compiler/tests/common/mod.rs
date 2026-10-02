@@ -10,8 +10,8 @@ use studio_core::{AppPaths, CliError, PipelineEventEnvelope, Settings, StudioToo
 use team_compiler::Tool;
 
 /// The teams list every sandbox carries, so identities are predictable: `/co/` for the tests'
-/// own exports, `/egg/` for the tracer fixture.
-const TEAMS_LIST: &str = "ID\tName\n701\t/co/\n792\t/egg/\n";
+/// own exports, `/da/` for a second team of their own, `/egg/` for the tracer fixture.
+const TEAMS_LIST: &str = "ID\tName\n701\t/co/\n702\t/da/\n792\t/egg/\n";
 
 /// A fresh folder standing in for the executable's folder: `data/` holds the teams list, the
 /// exports root defaults to `exports/` beside it and the output folder to `output/`.

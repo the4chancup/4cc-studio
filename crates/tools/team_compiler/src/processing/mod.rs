@@ -93,11 +93,6 @@ fn take(files: &mut TaskFiles, file: &FileDescriptor) -> Vec<u8> {
         .expect("the coordinator reads every file `TaskKind::files` lists, each once")
 }
 
-/// A file name's stem: the name up to its last `.`.
-fn file_stem(name: &str) -> &str {
-    name.rsplit_once('.').map_or(name, |(stem, _)| stem)
-}
-
 #[cfg(test)]
 mod tests {
     use std::path::{Path, PathBuf};
@@ -194,26 +189,6 @@ mod tests {
             .iter()
             .map(|(path, _)| path.as_str())
             .collect()
-    }
-
-    /// The one message of a failed batch, as code, severity, disposition, scope path, error.
-    fn failure(batch: &TaskBatch) -> (&str, Severity, Disposition, &str, &str) {
-        assert!(batch.entries.is_empty() && batch.uniparam.is_none());
-        let [message] = batch.messages.as_slice() else {
-            panic!("{:?}", batch.messages);
-        };
-        let Scope::Folder { export_id, path } = &message.scope else {
-            panic!("{:?}", message.scope);
-        };
-        assert_eq!(*export_id, ExportId(4));
-        assert_eq!(message.context[0].0, "error");
-        (
-            message.code.code.as_ref(),
-            message.severity,
-            message.disposition,
-            path.as_str(),
-            message.context[0].1.as_str(),
-        )
     }
 
     #[test]
@@ -318,68 +293,37 @@ mod tests {
     }
 
     #[test]
-    fn a_kit_drawn_for_the_other_engine_fails_its_task() {
-        let batch = run(TaskKind::Kit {
-            slot: KitSlot::G1,
-            kit: kit(true, Some(KitLayout::PreFox)),
+    fn a_model_that_cannot_be_read_fails_its_task() {
+        // `face_diff.bin`'s bytes under a face model's name: a file with its Phase 3 role
+        // whose content cannot be read as an FMDL.
+        let mut folder = player(&["face_diff.bin"]);
+        let model = ScopePath::new(&format!("{PLAYER}/face_high.fmdl")).unwrap();
+        folder.files.push(FileDescriptor {
+            kind: aesthetics_export::classify(model.name()),
+            path: model,
+            ..file(&format!("{PLAYER}/face_diff.bin"))
         });
-        assert_eq!(
-            failure(&batch),
-            (
-                "folder_pack_failed",
-                Severity::Error,
-                Disposition::DropFolder,
-                "Kits/g1",
-                "a kit drawn for the other engine's layout cannot be compiled yet"
-            )
-        );
-    }
 
-    #[test]
-    fn a_kit_texture_the_config_has_no_field_for_fails_its_task() {
-        let mut folder = kit(true, None);
-        // The tracer has no `kit_mask.dds`; any bytes do, since its stem refuses it.
-        let mask = FileDescriptor {
-            path: ScopePath::new("Kits/g1/kit_mask.dds").unwrap(),
-            ..file("Kits/g1/kit.dds")
-        };
-        folder.textures.push(KitTexture {
-            stem: "kit_mask".to_owned(),
-            file: mask,
-            source: KitTextureSource::Own,
-        });
-        let batch = run(TaskKind::Kit {
-            slot: KitSlot::G1,
-            kit: folder,
-        });
-        assert_eq!(
-            failure(&batch).4,
-            "Kits/g1/kit_mask.dds: cannot be compiled yet"
-        );
-    }
-
-    #[test]
-    fn a_hair_skeleton_without_its_model_fails_its_task() {
         let batch = run(TaskKind::Face {
-            folder: player(&["face_diff.bin", "fcl_hair.skl", "shirt.dds"]),
+            folder,
             player_ids: vec![79205],
         });
-        assert_eq!(
-            failure(&batch),
-            (
-                "folder_pack_failed",
-                Severity::Error,
-                Disposition::DropFolder,
-                PLAYER,
-                "Players/05 - The Chad Stormworks Player/fcl_hair.skl: fcl_hair.skl needs fcl_hair.fmdl beside it"
-            )
-        );
-    }
 
-    #[test]
-    fn a_stem_is_the_name_up_to_its_last_dot() {
-        assert_eq!(file_stem("hair.png.common"), "hair.png");
-        assert_eq!(file_stem("shirt.dds"), "shirt");
-        assert_eq!(file_stem("NO_USE"), "NO_USE");
+        assert!(batch.entries.is_empty() && batch.uniparam.is_none());
+        let [message] = batch.messages.as_slice() else {
+            panic!("{:?}", batch.messages);
+        };
+        assert_eq!(message.code.code, "folder_pack_failed");
+        assert_eq!(
+            (message.severity, message.disposition),
+            (Severity::Error, Disposition::DropFolder)
+        );
+        assert_eq!(
+            message.scope,
+            Scope::Folder {
+                export_id: ExportId(4),
+                path: ScopePath::new(PLAYER).unwrap(),
+            }
+        );
     }
 }

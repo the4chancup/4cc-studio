@@ -13,8 +13,12 @@ them, reports the same findings, and builds the CPK named by the `cpk_name` sett
 folder (`output/` beside `4cc-studio` unless you changed the `output_folder_path` setting), as
 `<cpk_name>.cpk`. The CPK is written in full before it replaces the previous one, so
 `<cpk_name>.cpk` is never half-written. A run that finds nothing to compile writes nothing and leaves the
-previous CPK as it was. In this version `compile` builds for PES 2018 to 2021 only, and does not
-install the CPK into the game: it always leaves it in the output folder.
+previous CPK as it was. In this version `compile` builds exports for PES 2018 to 2021 that hold
+only face models of the players in the roster, with their textures, and kits. It skips any other
+export with the error `content_not_yet_compiled`, naming the first thing it cannot build yet: a
+PES 2015 to 2017 target, a referee export, or content other than face models, their textures and
+kits. `check` still checks those exports. `compile` does not install the CPK into the game yet:
+it always leaves it in the output folder.
 
 `check` prints one line per finding: the export it is about, how serious it is, its code, where
 in the export it is, and its details in parentheses. The line `Info export_identified (team=/co/,

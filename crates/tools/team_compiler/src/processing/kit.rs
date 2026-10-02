@@ -1,16 +1,14 @@
 //! One kit (`team_compiler/pipeline.md` "4. Per-export non-model steps", Kits): its textures as
 //! FTEX under the kit's game names, and its config encoded with those names.
 
-use aesthetics_export::{KitFolder, KitLayout};
-use anyhow::{Context, bail};
+use aesthetics_export::KitFolder;
+use anyhow::Context;
 use kit_config::{KitConfig, KitSlot, TexturePresence, texture_names};
-use pes_version::{Engine, PesVersion};
+use pes_version::PesVersion;
 
 use super::{Entry, TaskFiles, take, texture};
 use crate::paths;
-
-/// The kit texture stems, in the order of the config's texture-name fields.
-const KIT_TEXTURE_STEMS: [&str; 5] = ["kit", "kit_back", "kit_chest", "kit_leg", "kit_name"];
+use crate::plan::subset::{KIT_TEXTURE_STEMS, texture_format};
 
 /// The kit `kit` in `slot` of team `team_id`, compiled for `version` from its files' bytes in
 /// `files`: its textures and its config as CPK entries, and the config as a
@@ -22,21 +20,6 @@ pub(super) fn kit(
     version: PesVersion,
     files: &mut TaskFiles,
 ) -> anyhow::Result<(Vec<Entry>, Entry)> {
-    let target_layout = match version.engine() {
-        Engine::Fox => KitLayout::Fox,
-        Engine::PreFox => KitLayout::PreFox,
-    };
-    if kit.layout.is_some_and(|layout| layout != target_layout) {
-        bail!("a kit drawn for the other engine's layout cannot be compiled yet");
-    }
-    if let Some(texture) = kit
-        .textures
-        .iter()
-        .find(|texture| !KIT_TEXTURE_STEMS.contains(&texture.stem.as_str()))
-    {
-        bail!("{}: cannot be compiled yet", texture.file.path.as_str());
-    }
-
     let has = |stem: &str| kit.textures.iter().any(|texture| texture.stem == stem);
     let names = texture_names(
         team_id,
@@ -58,10 +41,14 @@ pub(super) fn kit(
         let name = std::str::from_utf8(field)
             .context("a kit texture name is ASCII")?
             .trim_end_matches('\0');
+        let file_name = texture.file.path.name();
+        let format = texture_format(file_name).expect(
+            "planning skips every export holding a kit texture in a format Phase 3 does not compile",
+        );
         let bytes = take(files, &texture.file);
         entries.push((
             paths::kit_texture(name),
-            texture::to_ftex(texture.file.path.name(), bytes)?,
+            texture::to_ftex(format, file_name, bytes)?,
         ));
     }
 

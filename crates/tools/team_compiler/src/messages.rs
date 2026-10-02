@@ -29,6 +29,8 @@ pub(crate) enum Code {
     TeamNameUnknown,
     /// A kit without `config.toml` gets the template config.
     KitConfigGenerated,
+    /// Phase 3 only: the export holds content `compile` cannot build yet; it is skipped.
+    ContentNotYetCompiled,
     /// A file a task reads cannot be read from its export; its folder is left out.
     SourceReadFailed,
     /// A task could not build its entries; its folder is left out.
@@ -41,7 +43,7 @@ impl Code {
     /// Every code, for the catalog test: a variant missing here would make its first message
     /// panic in `severity`, so a new variant is added to this list too.
     #[cfg(test)]
-    const ALL: [Code; 10] = [
+    const ALL: [Code; 11] = [
         Code::ExportExtractFailed,
         Code::ExportDisabled,
         Code::ExportIdentified,
@@ -49,6 +51,7 @@ impl Code {
         Code::MultipleRefExports,
         Code::TeamNameUnknown,
         Code::KitConfigGenerated,
+        Code::ContentNotYetCompiled,
         Code::SourceReadFailed,
         Code::FolderPackFailed,
         Code::DeploySkippedByFlag,
@@ -64,6 +67,7 @@ impl Code {
             Code::MultipleRefExports => "multiple_ref_exports",
             Code::TeamNameUnknown => "team_name_unknown",
             Code::KitConfigGenerated => "kit_config_generated",
+            Code::ContentNotYetCompiled => "content_not_yet_compiled",
             Code::SourceReadFailed => "source_read_failed",
             Code::FolderPackFailed => "folder_pack_failed",
             Code::DeploySkippedByFlag => "deploy_skipped_by_flag",
@@ -93,6 +97,7 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("export_balls_skipped", CatalogSeverity::Info),
     ("multiple_ref_exports", CatalogSeverity::Error),
     ("kit_config_generated", CatalogSeverity::Info),
+    ("content_not_yet_compiled", CatalogSeverity::Error),
     ("folder_pack_failed", CatalogSeverity::ErrorOrFatal),
     ("deploy_skipped_by_flag", CatalogSeverity::Info),
     // The structure pass's codes, in `ISSUE_CODES` order.

@@ -117,6 +117,7 @@ pub(crate) fn run(matches: &clap::ArgMatches, ctx: &ToolContext) -> Result<u8, C
             // `settings.md` "Path resolution": a relative output folder sits beside the
             // executable; an absolute one replaces the base.
             let output_folder = ctx.paths().exe_dir.join(&settings.output_folder_path);
+            create_teams_list(&settings.teams_list_path, ctx.paths().data_dir.as_deref())?;
             let inputs = resolve_inputs(args.source, settings, common, ctx.paths())?;
             verdict(compile::run(
                 &inputs,
@@ -285,6 +286,27 @@ fn load_teams_list(setting: &Path, data_dir: Option<&Path>) -> Result<TeamsList,
         CliError::new(
             ABORTED,
             anyhow!("{}: not a valid teams list: {error}", path.display()),
+        )
+    })
+}
+
+/// `compile` gives the member a teams list to edit: with a data directory and no file at the
+/// `teams_list_path` setting's path, it writes the embedded list there (`check` never writes
+/// it). A write failure aborts the run, naming the path.
+fn create_teams_list(setting: &Path, data_dir: Option<&Path>) -> Result<(), CliError> {
+    let Some(data_dir) = data_dir else {
+        return Ok(());
+    };
+    // An absolute setting replaces the data directory in the join, as `load_teams_list` reads it.
+    let path = data_dir.join(setting);
+    if path.exists() {
+        return Ok(());
+    }
+    // The bytes are written unchanged: the file's CRLF bytes are the upstream list's.
+    fs::write(&path, TeamsList::UPSTREAM).map_err(|error| {
+        CliError::new(
+            ABORTED,
+            anyhow!("{}: cannot write the teams list: {error}", path.display()),
         )
     })
 }
@@ -462,6 +484,36 @@ mod tests {
         let error = load_teams_list(relative, Some(&root)).unwrap_err();
         assert_eq!(error.exit_code, ABORTED);
         assert!(error.to_string().contains("cannot read"), "{error}");
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn a_missing_teams_list_is_created_only_with_a_data_directory() {
+        let root = scratch("cli_create_teams_list");
+        let file = root.join("teams_list.txt");
+        create_teams_list(&file, None).unwrap();
+        assert!(!file.exists(), "no data directory, nothing written");
+
+        create_teams_list(Path::new("teams_list.txt"), Some(&root)).unwrap();
+        assert_eq!(fs::read(&file).unwrap(), TeamsList::UPSTREAM.as_bytes());
+
+        let own = "ID\tName\n701\t/egg/\n";
+        fs::write(&file, own).unwrap();
+        create_teams_list(Path::new("teams_list.txt"), Some(&root)).unwrap();
+        assert_eq!(
+            fs::read_to_string(&file).unwrap(),
+            own,
+            "an existing file is kept"
+        );
+
+        let error =
+            create_teams_list(Path::new("no folder/teams_list.txt"), Some(&root)).unwrap_err();
+        assert_eq!(error.exit_code, ABORTED);
+        let text = error.to_string();
+        assert!(
+            text.contains("no folder") && text.contains("cannot write"),
+            "{text}"
+        );
         fs::remove_dir_all(&root).unwrap();
     }
 

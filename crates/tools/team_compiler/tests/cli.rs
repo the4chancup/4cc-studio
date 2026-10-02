@@ -41,6 +41,16 @@ impl Sandbox {
     fn arg(&self, relative: &str) -> String {
         self.root.join(relative).to_str().unwrap().to_owned()
     }
+
+    /// Copies the tracer bullet's export to `exports/<name>`, leaving the fixture untouched.
+    fn copy_tracer(&self, name: &str) {
+        let export = self.root.join("exports").join(name);
+        for (relative, bytes) in snapshot(Path::new(&tracer_export())) {
+            let path = export.join(relative);
+            fs::create_dir_all(path.parent().unwrap()).unwrap();
+            fs::write(path, bytes).unwrap();
+        }
+    }
 }
 
 impl Run {
@@ -325,6 +335,163 @@ fn a_compile_that_emits_nothing_writes_no_cpk_and_no_staging_folder() {
     );
     assert_eq!(snapshot(&sandbox.root.join("output")), before);
     assert!(!sandbox.root.join("output/.staging").exists());
+}
+
+/// The path of every entry of the CPK at `path`.
+fn cpk_paths(path: &Path) -> Vec<String> {
+    cpk::CpkArchive::open(fs::File::open(path).unwrap())
+        .unwrap()
+        .entries()
+        .iter()
+        .map(|entry| entry.path.clone())
+        .collect()
+}
+
+/// The CPK path of the kit texture `name` (`u0792g1`).
+fn kit_texture(name: &str) -> String {
+    format!("Asset/model/character/uniform/texture/#windx11/{name}.ftex")
+}
+
+/// `exports/<name>`, an export whose roster maps a player folder holding only `boots.fmdl`,
+/// which no run reads.
+fn boots_only_export(sandbox: &Sandbox, name: &str) {
+    sandbox.write(&format!("exports/{name}/players.txt"), b"03 Boots Only\n");
+    sandbox.write(
+        &format!("exports/{name}/Players/Boots Only/boots.fmdl"),
+        b"",
+    );
+}
+
+// TC-OUT-06
+#[test]
+fn compile_skips_an_export_holding_content_it_cannot_build_yet_and_builds_the_others() {
+    let sandbox = Sandbox::new("not_yet_compiled");
+    boots_only_export(&sandbox, "co - Boots");
+    sandbox.copy_tracer("egg Tracer");
+    let kit = fs::read(Path::new(&tracer_export()).join("Kits/g1/kit.dds")).unwrap();
+    sandbox.write("exports/da - Kits/Kits/p1/kit.dds", &kit);
+    sandbox.write("exports/da - Kits/players.txt", b"");
+    // No roster slot maps this folder, so it would emit nothing.
+    sandbox.write("exports/da - Kits/Players/Boots Only/boots.fmdl", b"");
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, "co - Boots"),
+        [
+            "Info export_identified [Keep] (team=/co/, id=701)",
+            "Error content_not_yet_compiled [DropExport] (what=Players/Boots Only/boots.fmdl)",
+        ]
+    );
+    assert_eq!(run.exit_code(), 1);
+    let entries = cpk_paths(&sandbox.root.join("output/4cc_90_test.cpk"));
+    for texture in ["u0792g1", "u0702p1"] {
+        assert!(entries.contains(&kit_texture(texture)), "{entries:#?}");
+    }
+
+    let check = sandbox.run(&pes21_settings(&sandbox), &["check"]);
+    let lines = check.messages();
+    assert!(
+        lines
+            .iter()
+            .all(|line| !line.contains("content_not_yet_compiled")),
+        "{lines:#?}"
+    );
+}
+
+// TC-OUT-02
+#[test]
+fn a_compile_whose_every_export_is_skipped_leaves_the_previous_cpk_as_it_was() {
+    let sandbox = Sandbox::new("every_export_skipped");
+    sandbox.write("output/4cc_90_test.cpk", b"the previous CPK");
+    sandbox.write("exports/refs Cup/players.txt", b"01 Keeper\n");
+    sandbox.write("exports/refs Cup/Players/Keeper/face_high.fmdl", b"");
+    boots_only_export(&sandbox, "co - Boots");
+    let before = snapshot(&sandbox.root.join("output"));
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+    // Each skipped export reports an Error, so the run exits with 1.
+    assert_eq!(run.exit_code(), 1);
+    assert_eq!(snapshot(&sandbox.root.join("output")), before);
+    assert!(!sandbox.root.join("output/.staging").exists());
+}
+
+// TC-OUT-04
+#[test]
+fn an_export_whose_only_player_folder_is_dropped_writes_no_cpk() {
+    let sandbox = Sandbox::new("only_folder_dropped");
+    sandbox.write("output/4cc_90_test.cpk", b"the previous CPK");
+    sandbox.write(&format!("exports/co - Links/{CLEAN_PLAYER}"), b"");
+    sandbox.write("exports/co - Links/Players/03 - A/Crocs.boots", b"");
+    let before = snapshot(&sandbox.root.join("output"));
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+    let lines = run.messages();
+    assert!(
+        findings_of(&lines, "co - Links").iter().any(
+            |line| line.starts_with("Error link_target_missing [DropFolder] at Players/03 - A")
+        ),
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 1);
+    assert_eq!(snapshot(&sandbox.root.join("output")), before);
+}
+
+// TC-ID-02
+#[test]
+fn an_export_of_an_unknown_team_is_skipped_and_the_one_beside_it_compiled() {
+    let sandbox = Sandbox::new("unknown_team_compiled");
+    sandbox.write(&format!("exports/zz - Spring/{CLEAN_PLAYER}"), b"");
+    sandbox.copy_tracer("egg Tracer");
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, "zz - Spring"),
+        ["Error team_name_unknown [DropExport] (team_name=/zz/)"]
+    );
+    let entries = cpk_paths(&sandbox.root.join("output/4cc_90_test.cpk"));
+    assert!(entries.contains(&kit_texture("u0792g1")), "{entries:#?}");
+    assert_eq!(run.exit_code(), 1);
+}
+
+#[test]
+fn a_pre_fox_compile_skips_every_export_naming_the_target() {
+    let sandbox = Sandbox::new("pre_fox_compile");
+    sandbox.copy_tracer("egg Tracer");
+
+    let run = sandbox.run("[common]\npes_version = 17\n", &["compile"]);
+
+    let lines = run.messages();
+    assert!(
+        lines.contains(
+            &"egg Tracer: Error content_not_yet_compiled [DropExport] (what=PES 2017)".to_owned()
+        ),
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 1);
+    assert!(!sandbox.root.join("output/4cc_90_test.cpk").exists());
+}
+
+#[test]
+fn compile_creates_a_missing_teams_list_and_check_does_not() {
+    let sandbox = Sandbox::new("teams_list_created");
+    fs::create_dir_all(sandbox.root.join("exports")).unwrap();
+    let list = sandbox.root.join("data/teams_list.txt");
+    fs::remove_file(&list).unwrap();
+
+    assert_eq!(sandbox.run("", &["check"]).exit_code(), 0);
+    assert!(!list.exists(), "check writes nothing");
+
+    assert_eq!(sandbox.run("", &["compile"]).exit_code(), 0);
+    assert_eq!(
+        fs::read(&list).unwrap(),
+        teams_list::TeamsList::UPSTREAM.as_bytes()
+    );
 }
 
 // ---------------------------------------------------------------- check
