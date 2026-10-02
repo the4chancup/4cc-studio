@@ -213,57 +213,70 @@ failed or ignored; `just bindings` green.
 
 ### Phase 3: Team compiler skeleton (`tools/team_compiler`)
 
-**Entry gates:** normal-team/referee `ExportIdentity`, sanitized validated-versus-eligible
-projection, and roster-entry scope/disposition semantics, confirmed 2026-09-30 ([Aesthetics
-export](../aesthetics_export/object_model.md), "Validation semantics").
+The Team compiler checks and compiles the tracer bullet's content end to end, from the command
+line and from a minimal window. What `compile` accepts until Phase 4, and what it refuses with
+`content_not_yet_compiled`, is the Team compiler plan's "Phase 3 scope" (in its "Acceptance");
+the behavior contract is that section's TC scenarios, every automated one cited by a test. Its
+entry gates (normal-team/referee `ExportIdentity`, the sanitized validated-versus-eligible
+projection, roster-entry scope and disposition semantics) are in the [Aesthetics
+export](../aesthetics_export/object_model.md) plan's "Validation semantics".
 
-- **Tracer bullet first.** Before the skeleton, the smallest real export compiled end to end:
-  one Studio-format export with one player folder (a Fox face) and one kit, read from disk and
-  written as a CPK through the Phase 2 crates (`fmdl`, `ftex`, `fpk`, `cpk`, `kit_config`), with
-  a test comparing the result against Red's output for the same source export by the parity
-  tiers that apply to it (tier 1 for textures, tier 2 for the FMDL through `fmdl`'s decoded
-  model, tier 3 for the containers; "Testing: parity against Red" in the Team compiler plan).
-  The fixture is a small old-layout export migrated to the Studio layout by hand, since the
-  Export upgrader (Phase 6) does not exist yet; that same pair later becomes the upgrader's own
-  input/expected fixture. The tracer's scaffolding (a hardcoded walk of the one folder) is
-  replaced by `aesthetics_export` and the pipeline in the steps below; its test stays as the
-  first `tests/parity` case and grows with Phase 4. We do this first, not as Phase 4's
-  verification, because the Phase 2 crates' `pub` APIs have had no consumer until now: a shape
-  wrong across several crates (bulk-data ownership, finding codes, how a face's FPK is
-  assembled) found here is a one-crate fix, found after the skeleton is built on it is shotgun
-  surgery through the tool.
-- Define the tool's settings struct and CLI subcommands (via the `StudioTool` trait)
-- Build `libs/aesthetics_export`: the source-neutral object model for the Studio export format (canonical
-  `vtree::ScopePath` listing → `ParsedAestheticsExport` → sanitized `ValidatedAestheticsExport` →
-  `ResolvedAestheticsExport`, with `ExportIdentity`, strong `ValidatedRoster`, `PlayerFolder`,
-  `SharedModelFolder`, and `KitsFolder`) plus its folder conventions and validation rules — shared
-  with the Export upgrader, Kit config editor, and Refs arranger. Tool-local `BuildManifest`,
-  `PlanReport`, `plan_run`, and `process_task` stay in `team_compiler`.
-- Implement the pipeline orchestration (reader, coordinator, writer) with `rayon` (shared scaffolding in
-  `libs/pipeline`)
-- Implement CLI execution with console output (`4cc-studio team-compiler compile ...`)
+- **Tracer bullet first.** Before the skeleton, the smallest real export was compiled end to
+  end: /egg/'s one player folder (a Fox face) and one kit, read from disk and written as a CPK
+  through the Phase 2 crates (`fmdl`, `ftex`, `fpk`, `cpk`, `kit_config`). Its test,
+  `team_compiler/tests/parity.rs`, compares the result against Red's output for the same source
+  export by the parity tiers that apply to it (tier 1 for textures, tier 2 for the FMDL through
+  `fmdl`'s decoded model, tier 3 for the containers; "Testing: parity against Red" in the Team
+  compiler plan), and now runs through `compile`; it grows with Phase 4. The fixture
+  (`tests/fixtures/tracer/`) is a small old-layout export migrated to the Studio layout by hand,
+  since the Export upgrader (Phase 6) does not exist yet; that same pair later becomes the
+  upgrader's own input/expected fixture. The tracer's scaffolding (a hardcoded walk of the one
+  folder) was replaced by `aesthetics_export` and the pipeline. We did this first, not as Phase
+  4's verification, because the Phase 2 crates' `pub` APIs had had no consumer: a shape wrong
+  across several crates (bulk-data ownership, finding codes, how a face's FPK is assembled)
+  found there is a one-crate fix, found after the skeleton is built on it is shotgun surgery
+  through the tool.
+- The tool's settings struct and its two CLI subcommands, `check` and `compile`, through the
+  `StudioTool` trait, with the exit codes 0/1/2/3 (`team_compiler/settings.md` "CLI").
+- `libs/aesthetics_export`: the source-neutral object model for the Studio export format
+  (canonical `vtree::ScopePath` listing → `ParsedAestheticsExport` → sanitized
+  `ValidatedAestheticsExport` → `ResolvedAestheticsExport`, with `ExportIdentity`, strong
+  `ValidatedRoster`, `PlayerFolder`, `SharedModelFolder`, and `KitsFolder`) plus its folder
+  conventions and the structure pass's validation rules, shared with the Export upgrader, Kit
+  config editor, and Refs arranger. Tool-local `BuildManifest`, `PlanReport`, `plan_run`, and
+  `process_task` stay in `team_compiler`.
+- The pipeline orchestration (reader, coordinator, writer) on `rayon`, over `libs/pipeline`'s
+  memory budget, thread count and `CpkStem`; the run driver's shapes are the Team compiler
+  plan's "Run driver shapes (Phase 3)" (`pipeline.md`).
+- CLI execution with console output (`4cc-studio team-compiler compile ...`), one line per
+  finding (`core/architecture.md` "Event system").
 - **Shell slice, last.** The thinnest GUI path that runs: `studio_core`'s app shell reduced to a
   window, the sidebar listing the registered tools, and the selected tool's `view()`; the
   `studio` binary launching it with `team_compiler` registered; and the Team compiler's `view/`
   reduced to its settings section, a run button and a plain log of the `PipelineEvent`s the
   Phase 3 pipeline emits (no progress grid, no live validation). Everything else in the
   "Phase 8" list (common widgets, help window, status bar, watcher, cancellation, the other
-  tools' views) stays in Phase 8, which completes this shell rather than starting it. We do this
-  here, not in Phase 8, because the `StudioTool` trait, the event channels and the render-only
-  `view/` rule are otherwise designed against zero real tools until five tool crates have been
-  written to them; one real tool on the shell early is what shows whether the seam holds, and
-  it is what Phase 10 needs to run in parallel ("once the shell exists"). Its proof is manual
-  and recorded (`../../CONTRIBUTING.md` "Testing"): the one-face fixture compiled from the GUI with
-  the events visible. In Phase 3 the settings section shows the effective settings read-only
-  (editing them is the settings menu's, which needs the shell to save the file); the run button
-  runs `compile` with no arguments, through the same parser and preflight as the CLI, on a thread
-  of its own, and the log ends with the run's exit code (Phase 3 emits no `Complete`); the binary
-  stays a console-subsystem exe, so a console window opens beside the GUI, and `--gui` autorun
-  stays refused: both need what Phase 8 builds (`AttachConsole`, the initial exports check).
+  tools' views) stays in Phase 8, which completes this shell rather than starting it. We built
+  it here, not in Phase 8, because the `StudioTool` trait, the event channels and the
+  render-only `view/` rule would otherwise be designed against zero real tools until five tool
+  crates had been written to them; one real tool on the shell early is what shows whether the
+  seam holds, and it is what Phase 10 needs to run in parallel ("once the shell exists"). The
+  settings section shows the effective settings read-only (editing them is the settings menu's,
+  which needs the shell to save the file); the run button runs `compile` with no arguments,
+  through the same parser and preflight as the CLI, on a thread of its own, and the log ends
+  with the run's exit code (Phase 3 emits no `Complete`); the binary is a console-subsystem exe,
+  so a console window opens beside the GUI, and `--gui` autorun is refused: both need what Phase
+  8 builds (`AttachConsole`, the initial exports check).
 
-**Verification:** The tracer bullet's parity case on its one-face fixture; structure parser and
-format-level validation tests on Studio-format fixtures; pipeline scaffolding
-(reader/coordinator/writer) smoke tests; the shell slice's recorded manual check. Full
+**Verification (done):** the tracer bullet's parity case on its one-face fixture; the
+`aesthetics_export` structure pass and `team_compiler`'s `check` and `compile` against the TC
+scenarios, run in-process over Studio-format fixtures (folders, a `.zip` and a solid `.7z`),
+with the binary's own seams (settings location, exit codes, the console printer) run through
+the built `4cc-studio`; `scripts/acceptance.py` proving every automated scenario cited by a
+test; the shell slice's two manual scenarios (TC-GUI-01/02) checked by the maintainer on Windows
+(Linux not yet, no machine with a display). Converge ran a whole-crate mutation run over each of
+the phase's crates, every survivor triaged. At the close (2026-10-02): `just gates` green, 1402
+tests in 50 test runs, none failed or ignored; acceptance 77 scenarios, 77 proven. Full
 packed-output comparison belongs to Phase 4.
 
 ### Phase 4: Processing logic

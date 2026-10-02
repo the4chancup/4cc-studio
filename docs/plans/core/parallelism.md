@@ -35,7 +35,7 @@ manifest.tasks.into_par_iter().for_each(|task| {
 });
 ```
 
-This is the full design; Phase 3 builds the subset in `team_compiler/pipeline.md` "Run driver
+This is the full design; Phase 3 built the subset in `team_compiler/pipeline.md` "Run driver
 shapes (Phase 3)", whose names are the code's (the duplicate-refs preflight is `reader::route`
 plus a run-scoped `multiple_ref_exports`, and the coordinator admits tasks into the pool in
 manifest order instead of `into_par_iter`). `PlanReport` carries the manifest, all planning

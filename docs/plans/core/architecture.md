@@ -72,11 +72,11 @@ The suite follows a **platform + plugins** model with strict modularity rules:
 │       ├── pes_version/              # PesVersion (15–21) + Engine (pre-Fox/Fox): the one closed set every
 │       │                             #   version-aware crate shares (settings, savefile schemas, skeletons)
 │       ├── archives/                 # .zip/.7z loading
-│       ├── aesthetics_export/        # (Phase 3) The aesthetics export format: object model, folder conventions,
+│       ├── aesthetics_export/        # The aesthetics export format: object model, folder conventions,
 │       │                             #   validation (shared by compiler, upgrader, kit config
 │       │                             #   editor, refs arranger, team creator)
-│       ├── pipeline/                 # (Phase 3) Shared pipeline scaffolding: reader/writer patterns,
-│       │                             #   memory budget, folder watcher, check cache, CpkStem
+│       ├── pipeline/                 # Shared pipeline scaffolding: memory budget, thread count,
+│       │                             #   CpkStem (folder watcher and check cache join in Phase 8)
 │       ├── elevation/                 # Admin elevation: manifest execution level, detect +
 │       │                             #   elevated relaunch (UAC), CLI guidance
 │       ├── model_convert/            # IR + importers/exporters + skeleton data; glTF+PES_bone/PES_mesh
@@ -442,6 +442,9 @@ fn tools(ctx: &egui::Context) -> Vec<Box<dyn StudioTool>> {
     ]
 }
 ```
+
+That is the full registry. Today `tools()` registers the Team compiler alone and takes no
+context; the `egui::Context` parameter arrives with the match feed (Phase 11), its first user.
 
 CLI dispatch uses standard clap subcommands (each tool contributes one), which is the conventional
 CLI shape:
