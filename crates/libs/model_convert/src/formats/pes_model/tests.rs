@@ -606,6 +606,15 @@ fn cast_shadow_and_invisible_override_the_finding_bits() {
         dropped_details(&ir_for(Some(false), Some(true), 0)),
         ["no_shadow_cast".to_string(), "invisible".to_string()],
     );
+    // A set raw bit stays set when the boolean agrees with it.
+    assert_eq!(
+        dropped_details(&ir_for(Some(false), None, to_fox::NO_SHADOW_CAST_BIT)),
+        ["no_shadow_cast".to_string()],
+    );
+    assert_eq!(
+        dropped_details(&ir_for(None, Some(true), to_fox::INVISIBLE_BIT)),
+        ["invisible".to_string()],
+    );
     // `cast_shadow = true` clears a set raw bit — the material casts shadows.
     assert_eq!(
         dropped_details(&ir_for(Some(true), None, to_fox::NO_SHADOW_CAST_BIT)),

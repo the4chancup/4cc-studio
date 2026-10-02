@@ -29,9 +29,8 @@ pub struct ExportedFox {
 /// The per-vertex weight quantization: a lane above 1 clamps to 1 first (`u8`
 /// cannot carry it; the caller counts those vertices for `weight_clamped`), then
 /// the byte total `round(clamped_sum * 255)` (in f64 — the f32 product lands on
-/// representable halves that round wrong) is preserved as far as the
-/// positive-weight lanes hold it, 255 each; the rest of the total drops rather
-/// than land on a zero-weight lane. `[1.5, 0.5]` keeps the clamped lanes' total
+/// representable halves that round wrong) is preserved, 255 per lane at most.
+/// `[1.5, 0.5]` keeps the clamped lanes' total
 /// `round(1.5 * 255)` = 383 as `[255, 128]`, not `[255, 255]`. Slots in
 /// decreasing weight (ties by slot index) get
 /// `round(weight / remaining_weight * remaining_total)` each, the last gets what
@@ -39,8 +38,7 @@ pub struct ExportedFox {
 pub(super) fn quantize_weights(weights: [f32; 4]) -> [u8; 4] {
     let weights = weights.map(|weight| weight.min(1.0));
     let sum: f32 = weights.iter().sum();
-    let lanes = weights.iter().filter(|weight| **weight > 0.0).count() as i32;
-    let mut total = ((sum as f64 * 255.0).round() as i32).min(255 * lanes);
+    let mut total = (sum as f64 * 255.0).round() as i32;
     let mut remaining_weight = sum;
     let mut order = [0usize, 1, 2, 3];
     order.sort_by(|a, b| weights[*b].total_cmp(&weights[*a]).then(a.cmp(b)));

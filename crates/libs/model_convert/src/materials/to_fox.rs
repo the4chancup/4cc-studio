@@ -378,6 +378,21 @@ mod tests {
         assert_eq!(resolve(&mat).alpha_flags, 32);
         mat.transparent = Some(true);
         assert_eq!(resolve(&mat).alpha_flags, 160);
+        // TWO_SIDED_BIT 32 already on the table's word: Some(true) keeps it set.
+        let mut mat = material(MaterialFamily::Shaded);
+        mat.two_sided = Some(true);
+        mat.fox = Some(FoxMaterial {
+            shader: "s".to_string(),
+            technique: "t".to_string(),
+            alpha_flags: TWO_SIDED_BIT,
+            shadow_flags: 0,
+            cast_shadow: None,
+            invisible: None,
+            base_linear: false,
+            textures: vec![],
+            parameters: vec![],
+        });
+        assert_eq!(resolve(&mat).alpha_flags, 32);
         // NO_SHADOW_CAST_BIT 1 and INVISIBLE_BIT 2 on the table's word.
         let mut mat = material(MaterialFamily::Shaded);
         mat.fox = Some(FoxMaterial {
