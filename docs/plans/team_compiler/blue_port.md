@@ -55,25 +55,30 @@ What carries over from Red as compiler-internal behavior (invisible in the forma
   subfolder (see `pipeline.md` "Per-model-folder parallel steps"), which is Red's referee-only preprocessing
   generalized to all players
 - Referee base template content (`refscpk` templates)
-- `ref_marker.dds` handling, pre-Fox: template injection (the marker replaces
-  `common/character1/model/character/parts/referee/incom_bsm.dds` in the refs CPK)
 
-What does not carry over is Red's Fox marker, which it wrote into the system file
-`Data/dt00_x64.cpk` (as `Asset/model/character/common/sourceimages/#windx11/cup_logo.ftex`)
-after an interactive prompt. On Fox the marker is shown through a **reserved collar** instead,
-so nothing outside the refs CPK is ever written and no consent, backup or rollback is needed:
+What does not carry over is how Red showed the referee marker (`ref_marker.dds`): pre-Fox it
+replaced a texture of the referee template (`parts/referee/incom_bsm.dds` in the refs CPK), and
+on Fox it wrote `cup_logo.ftex` into the system file `Data/dt00_x64.cpk` after an interactive
+prompt. Both engines show the marker through a **reserved collar** instead, one method with no
+pre-Fox exception, so nothing outside the refs CPK is ever written and no consent, backup or
+rollback is needed:
 
-- one stock collar ID that no team uses is reserved for the referees, as 105 is for FPC; a team
-  export claiming it reports `collar_id_invalid`;
+- stock collar **77** is reserved for the referees, as 105 is for FPC (a stock collar of every
+  target version, and one that none of the 4,635 kit configs on the maintainer's machine uses,
+  Konami's and the cup's alike, surveyed 2026-10-03). A regular team may not use it: a `Collars/` file claiming it reports `collar_id_invalid`, and a team kit whose
+  effective collar or winter collar (after FPC reconciliation and custom-collar rewriting) is
+  the reserved one reports `kit_collar_reserved` and is dropped, since its players would wear
+  the referees' marker;
 - the refs CPK carries the marker model as that collar, at the collar's `nocloth` path ("Game
-  paths reference" in `pipeline.md`), bundled with the compiler like the other referee templates;
-- the model's texture path names the marker texture in the referees' Common output
-  (`common/999/sourceimages/`), which is `ref_marker.dds` converted like any Common texture;
+  paths reference" in `pipeline.md`), in the target's format, bundled with the compiler like the
+  other referee templates;
+- the model's texture path names the marker texture in the referees' Common output, which is
+  `ref_marker.dds` converted like any Common texture;
 - the referee template kit configs name that collar.
 
 Without `ref_marker.dds` the collar model and the texture are not emitted, and the template
-configs keep the collar they had. Open until the referee step: which ID is reserved (a survey of
-the collar IDs teams use picks a free one) and the marker model itself, both the maintainer's.
+configs keep the collar they had. Open until the referee step: the marker model itself, in
+both formats, which the maintainer supplies.
 
 ### Features that disappear in a compiled GUI app
 

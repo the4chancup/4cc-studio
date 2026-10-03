@@ -1106,19 +1106,23 @@ TC-REF-03  GIVEN a refs export with Faces/Base/ linked by Ref A and Ref B
                 own
 TC-REF-04  GIVEN a refs export with ref_marker.dds
            WHEN it is compiled for PES 17
-           THEN the referee CPK holds the marker at the pre-Fox template's path
+           THEN the referee CPK holds the marker model as collar_077.model with its .mtl, the
+                marker texture in the referees' Common output, and referee kit configs whose
+                collar is 77
 TC-REF-05  GIVEN a refs export compiled with --mode test
            WHEN it runs
            THEN output/test_output/<refs source key>/Players/Ref A/ holds the processed files once,
                 not per slot
 TC-REF-06  GIVEN a refs export with ref_marker.dds, and a PES folder with dt00_x64.cpk
            WHEN it is compiled for PES 21
-           THEN the referee CPK holds the marker model as the reserved collar, the marker's FTEX
-                under common/999/sourceimages/, and referee kit configs whose collar is the
-                reserved one; dt00_x64.cpk is byte-identical and the exit code is 0
-TC-REF-07  GIVEN a /co/ export holding Collars/collar_<the reserved referee collar>.fmdl
+           THEN the referee CPK holds the marker model as collar_077.fmdl, the marker's FTEX
+                under common/999/sourceimages/, and referee kit configs whose collar is 77;
+                dt00_x64.cpk is byte-identical and the exit code is 0
+TC-REF-07  GIVEN a /co/ export holding Collars/collar_77.fmdl, p1/config.toml with collar 77 and
+           p2/config.toml with winter collar 77
            WHEN it is compiled for PES 21
-           THEN collar_id_invalid is reported and the file is dropped
+           THEN collar_id_invalid is reported and the file dropped, and kit_collar_reserved is
+                reported for p1 and for p2, each kit dropped
 ```
 
 **Output modes, deployment, multi-CPK**

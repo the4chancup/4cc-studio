@@ -353,17 +353,21 @@ every miss as a warning.
 | `logo_small_without_main` | E | `logo_small*` present with no main `logo*` | no logo emitted (the small image is not a source for the large sizes) |
 | `logo_fit_applied` | I | a non-square source was made square; names the mode (`fit` by default, or the file's tag) | — |
 | `logo_upscaled` | W | a source is smaller than its largest target (512² for main, 128² for small) | emitted upscaled |
-| `collar_id_invalid` | E | collar filename doesn't parse as `collar_<ID>` (zero padding optional), the ID is not a stock collar of the target version (PES 21: 1-131 and 901-913; PES 17: 1-116 and 901-916, both counted in the installed base data CPKs' `nocloth` set; PES 15, 16, 18, 19 and 20: the two sets' intersection, 1-116 and 901-913, until an install is measured), or it names a reserved collar: 105 (FPC) or the referees' marker collar (`blue_port.md` "Referee export processing") | collar file discarded |
+| `collar_id_invalid` | E | collar filename doesn't parse as `collar_<ID>` (zero padding optional), the ID is not a stock collar of the target version (PES 21: 1-131 and 901-913; PES 17: 1-116 and 901-916, both counted in the installed base data CPKs' `nocloth` set; PES 15, 16, 18, 19 and 20: the two sets' intersection, 1-116 and 901-913, until an install is measured), or it names a reserved collar: 105 (FPC) or 77 (the referees' marker, `blue_port.md` "Referee export processing") | collar file discarded |
 | `collar_id_conflict` | E | another export already claimed this stock collar ID in this run (canonical export order) | later team's collar discarded; its configs not rewritten |
 | `common_file_disallowed` | E/I | as `file_type_disallowed`, Common scope | files discarded / kept |
 
 **Referees** — referee exports use the same player-folder format (see `blue_port.md` "Referee export processing"),
-so all player-folder, texture, and XML/MTL messages above apply as-is, and there is no
-referee-specific code. The Fox referee marker needs none either: it is a model on the referees' reserved collar
-and a texture in their Common output, both inside the refs CPK (`blue_port.md` "Referee export
-processing"), so its failures are the texture codes above, on `ref_marker.dds`. Red's injection
-into the system `dt00_x64.cpk`, and with it `ref_marker_needs_consent` and `dt00_write_failed`,
-is gone.
+so all player-folder, texture, and XML/MTL messages above apply as-is. The referee marker needs
+no code of its own on a refs export: on both engines it is a model on the referees' reserved
+collar and a texture in their Common output, both inside the refs CPK (`blue_port.md` "Referee
+export processing"), so its failures are the texture codes above, on `ref_marker.dds`. Red's
+injection into the system `dt00_x64.cpk`, and with it `ref_marker_needs_consent` and
+`dt00_write_failed`, is gone. The one addition guards the reserved collar on regular teams:
+
+| ID | Sev | Condition | Consequence |
+|---|---|---|---|
+| `kit_collar_reserved` | E | a regular team's kit whose effective collar or winter collar, after FPC reconciliation and custom-collar rewriting, is 77, the referees' reserved collar (context: the kit, the field) | kit discarded: its players would wear the referee marker |
 
 **Output stage and savefile** (Run scope)
 

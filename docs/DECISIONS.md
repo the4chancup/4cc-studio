@@ -3259,3 +3259,36 @@ Why: the cup maintains one layout. Not verified: that one file's bytes serve eve
 step 4.25's brief checks it with the reader.
 Plan: `team_compiler/pipeline.md` "Post-processing" (DpFileList upgrade), "Multi-CPK mode",
 "Resolved decisions" (templates); worklog steps 4.24, 4.25.
+
+## 2026-10-03 — team_compiler — the referees' collar is 77, on both engines; a team using it is an Error
+Decision (user): collar 77 is reserved for the referee marker; the pre-Fox marker moves to the
+collar too; a regular team using the reserved collar is an Error. Shaped by the lead: a
+`Collars/collar_77.*` file is `collar_id_invalid`, and a kit whose effective collar or winter
+collar is 77 is the new `kit_collar_reserved`, which drops the kit.
+Why: 77 is a stock collar of every version that none of the 4,635 kit configs on the
+maintainer's machine uses (69 and 68, the first choices, appear in 2016 configs of /tv/, /m/
+and /pol/). One method for both engines: pre-Fox support is second-class, so it gets no
+exception. A team kit on collar 77 would dress its players in the referee marker.
+Plan: `team_compiler/blue_port.md` "Referee export processing"; `messages.md` "Referees",
+`collar_id_invalid`; `pipeline.md` "Collars", "Collar contract"; `README.md` TC-REF-04,
+TC-REF-06, TC-REF-07; worklog steps 4.9, 4.27.
+
+## 2026-10-03 — team_compiler — the texture lookup searches only the CPKs before the one compiled
+Decision (user): the installed CPKs searched for a Common texture are those the DpFileList
+names before the CPK being compiled, nearest first (compiling `4cc_67_midcup`: 66, then 65,
+...), never a later one, and with no filter on the name.
+Why: each midcup CPK is additive over the ones before it, and removing a later one must not
+break it; it is the walk the bins already use. Added by the lead: a list that does not name the
+CPK being compiled leaves the lookup undecidable, which is the Warning case.
+Plan: `team_compiler/pipeline.md` "Resolved decisions" ("A texture a model names must exist");
+worklog step 4.29.
+
+## 2026-10-03 — team_compiler — the official DpFileList carries the size-split slot run
+Decision (user): the one official list replaces the faces/uniform CPKs with the size-split run
+(the 4 GiB limit of Git for Windows), which "Multi-CPK mode" already planned as `teams` slots.
+Why: verified against the plan and the installs: the plan has the run, but no installed list
+does (PES 17's still names `4cc_40_faces`/`4cc_45_uniform`), so step 4.25's embedded file is
+authored from an entry list the maintainer fixes. Open: the entries, and whether the stem is
+`teams` (the plan) or `players` (the maintainer's word).
+Plan: `team_compiler/pipeline.md` "Post-processing" (DpFileList upgrade); worklog step 4.25 and
+"Phase 4 open questions".

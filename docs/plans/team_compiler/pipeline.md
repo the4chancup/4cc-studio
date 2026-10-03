@@ -448,8 +448,8 @@ describes behavior, not a serial scheduling requirement:
   reference"). A name that doesn't parse, an ID that is not a stock collar of the target version
   (the per-version sets, counted in the installed games' base data CPKs, are in `messages.md`,
   `collar_id_invalid`), or a
-  reserved ID (105, the FPC collar — replacing it would break FPC teams everywhere — and the
-  referees' marker collar, `blue_port.md` "Referee export processing") reports
+  reserved ID (105, the FPC collar — replacing it would break FPC teams everywhere — and 77,
+  the referees' marker collar, `blue_port.md` "Referee export processing") reports
   `collar_id_invalid`. Two teams replacing the same stock collar ID is an error: planning is serial,
   so a run-wide list of the IDs claimed so far catches duplicates without any advance cross-checking
   — the later claimant in canonical export order reports `collar_id_conflict` and its collar is
@@ -684,9 +684,14 @@ describes behavior, not a serial scheduling requirement:
   consent-based action. The current official DPFL ships as an embedded template
   (`templates/` override applies, so maintainers can hot-swap it between releases). There is
   one official list, not one per PES version: the standard layout, with the midcup CPKs up to
-  79 and `4cc_90_test`; every other layout an install may carry is obsolete, including the list
-  of the last PES 21 cup, which predates `4cc_90_test` (a default-settings compile on such an
-  install reports `dpfilelist_outdated` and offers the upgrade, which is the intended path). At deployment
+  79, `4cc_90_test`, and the size-split slot run of "Multi-CPK mode" in place of
+  `4cc_40_faces`/`4cc_45_uniform` (the faces/uniform split is obsolete). Every other layout an
+  install may carry is obsolete, including the list of the last PES 21 cup, which predates
+  `4cc_90_test` (a default-settings compile on such an install reports `dpfilelist_outdated`
+  and offers the upgrade, which is the intended path). No installed list has the slot run yet
+  (PES 17's, the newest, still lists `4cc_40_faces`, `4cc_45_uniform` and the two `other_`
+  CPKs), so the embedded file is authored for the release from an entry list the maintainer
+  fixes. At deployment
   preflight the installed DPFL's entry set is compared with the bundled one:
   - identical, or a superset that still contains every target of this run → nothing to do;
   - missing any target of this run (an old official DPFL — typically the pre-`teams` layout) →
@@ -982,8 +987,8 @@ Resolved decisions:
   (`savefile_missing` is a supported mode), and rewriting user data as a side effect of a compile
   would be a surprise. Placeholder rows (`Backup N`, `Invitational N`) come along and are inert.
 - **Collar contract**: the replaced stock collar ID comes from the `collar_[ID]` filename
-  (`collar_id_invalid` otherwise); ID 105 is reserved for FPC and one more for the referees'
-  Fox marker, and neither can be replaced; two teams
+  (`collar_id_invalid` otherwise); ID 105 is reserved for FPC and 77 for the referees'
+  marker, and neither can be replaced (a team kit using 77 is `kit_collar_reserved`); two teams
   claiming the same ID is an error caught by a run-wide claimed-ID list during serial planning
   (`collar_id_conflict`, later claimant in canonical order loses). Custom collars are compatible
   with team FPC — collar rewriting runs after FPC reconciliation and deliberately overrides the FPC
@@ -1060,14 +1065,18 @@ Resolved decisions:
   day, and its `Common/` is not in the export. For the same reason a texture `.common` link
   whose target is not in the export (`common_link_missing`) is satisfied by an installed CPK
   holding the texture at the team's Common path; a model link is not, since a Fox merge needs
-  the source model. The installed CPKs are the ones the installed `DpFileList.bin` lists in
-  `download/`, minus those this run writes, their tables of contents read once per run (the
-  walk "Bins accumulation" already makes); Red looked only in CPKs named `midcup`, `uniform` or
-  `faces`, a filter the list's layout no longer needs. A path naming anything else (the game's
-  own textures, `dummy_*`) is kept as it is and not looked up: the game's data CPKs are not
-  read. When no install can be read (no PES folder, no `DpFileList.bin`), case 3 cannot be
-  decided, and the finding is a Warning that keeps the folder and says the textures could not
-  be looked for. Red never checked a Fox model's textures at all, and only warned for a
+  the source model. The CPKs searched are those the installed `DpFileList.bin` lists **before**
+  the CPK being compiled, nearest first, and never a later one: compiling `4cc_67_midcup` looks
+  in `4cc_66_midcup`, then `4cc_65_midcup`, and so on down the list. Each midcup CPK is additive
+  over the ones before it, so it may rely on them, and removing a later one must not break it.
+  It is the walk "Bins accumulation" makes for the working bins; Red's texture lookup also
+  kept only CPKs named `midcup`, `uniform` or `faces`, a filter dropped here. A
+  multi-CPK run searches before the first CPK it writes. Each CPK's table of contents is read
+  once per run. A path naming anything else (the game's own textures, `dummy_*`) is kept as it
+  is and not looked up: the game's data CPKs are not read. When the lookup cannot be made (no
+  PES folder, no `DpFileList.bin`, or a list that does not name the CPK being compiled, so
+  nothing is known to come before it), case 3 cannot be decided, and the finding is a Warning
+  that keeps the folder and says the textures could not be looked for. Red never checked a Fox model's textures at all, and only warned for a
   pre-Fox one; its warning for an FMDL with no team ID in its texture paths
   (`fmdl_no_texture_ids`) has no equivalent, since nothing is found by ID here.
 - **Conversion cache engages only for ≤2 teams**: the in-memory texture conversion cache is

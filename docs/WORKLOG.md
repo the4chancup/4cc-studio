@@ -521,7 +521,10 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   half is Phase 5); `Collars/` gets its allowlist row in `ae` (model files named `collar_<ID>`,
   any model format; the per-version stock sets are in `messages.md` `collar_id_invalid`; waits on
   the maintainer: its confirmation, game-facing), `collar_<ID>` parsed with or without zero
-  padding, `collar_id_invalid` (not a stock collar of the target version, 105),
+  padding, `collar_id_invalid` (not a stock collar of the target version, or a reserved one:
+  105 for FPC, 77 for the referees' marker), `kit_collar_reserved` for a regular team's kit
+  whose effective collar or winter collar is 77 (kit dropped; `blue_port.md` "Referee export
+  processing", TC-REF-07),
   `collar_id_conflict` in canonical export order, every kit config's collar fields rewritten
   after FPC, collar files passed through to `uniform/nocloth/#Win/` under the game's three-digit
   name. Plan: `fpc_toggle.md` "Team
@@ -777,11 +780,13 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   open by the test: `old_cpk_locked`, `output/4cc_90_test.cpk` holds the run's CPK, the old one
   is byte-identical, exit 1
 
-- [ ] 4.25 **DpFileList upgrade**: the one official `DpFileList.bin` embedded, the standard
-  layout with the midcup CPKs up to 79 and `4cc_90_test` (lead first: as a lead-authored fixture
-  with a provenance README, from the installed PES 17 file, which has that layout; the brief
-  confirms with the reader of 4.21 that one file serves every PES version, and reports if a
-  version needs its own bytes);
+- [ ] 4.25 **DpFileList upgrade** (waits on the maintainer: the official list's entries, under
+  "Phase 4 open questions"): the one official `DpFileList.bin` embedded, the standard layout
+  with the midcup CPKs up to 79, `4cc_90_test` and the size-split slot run (lead first: the
+  file written from the maintainer's entry list in the layout measured at 4.21, as a
+  lead-authored fixture with a provenance README; no installed list has the slot run, PES 17's
+  still lists `4cc_40_faces` and `4cc_45_uniform`; the brief confirms with the reader of 4.21
+  that one file serves every PES version, and reports if a version needs its own bytes);
   `upgrade-dpfl [--yes]`: the entries the official list lacks printed with the size of each
   matching `download/*.cpk`, nothing written without `--yes`, the installed file replaced byte
   for byte with `DpFileList.bin.bak` kept, no CPK ever deleted by the command;
@@ -809,20 +814,22 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `4cc_41_teams.cpk` the third, `4cc_42`..`44` are each 6,272 bytes equal to the placeholder
   fixture, `4cc_08_bins.cpk` holds the bins and nothing else
 
-- [ ] 4.27 **Fox referee marker as a reserved collar** (waits on the maintainer: the reserved
-  collar ID, picked from a survey of the collar IDs teams use, and the marker model; the lead
-  can run the survey over the kit configs of the VGL26 corpus and the maintainer's library):
-  the marker model bundled as a referee template and emitted in the refs CPK as the reserved
-  collar, its texture path naming `ref_marker.dds` converted into the referees' Common output,
-  the referee template kit configs naming that collar; `collar_id_invalid` for a team export
-  claiming the reserved ID; nothing written outside the refs CPK (no `dt00_x64.cpk` write, no
-  setting, no finding of its own). Plan: `blue_port.md` "Referee export processing";
-  `messages.md` "Referees", `collar_id_invalid`; `pipeline.md` "Collars". IDs: TC-REF-06..07.
-  Crates: tc (`processing/referee.rs`, `processing/team_assets.rs`), resources → verify: a refs
-  export with `ref_marker.dds` compiled for PES 21 beside a sandbox `dt00_x64.cpk`: the refs
-  CPK holds `nocloth/#Win/collar_<reserved>.fmdl` whose texture path resolves to the marker's
-  FTEX under `common/999/sourceimages/`, each referee kit config decodes with that collar, and
-  `dt00_x64.cpk` is byte-identical
+- [ ] 4.27 **Referee marker as reserved collar 77, both engines** (waits on the maintainer: the
+  marker model, as an FMDL and as a `.model` with its `.mtl`): the marker model bundled as a
+  referee template and emitted in the refs CPK as collar 77, its texture path naming
+  `ref_marker.dds` converted into the referees' Common output, the referee template kit configs
+  naming collar 77; on a regular team, `collar_id_invalid` for `Collars/collar_77.*` and
+  `kit_collar_reserved` (kit dropped) for a kit whose effective collar or winter collar is 77
+  (the kit half lands with 4.9 if that step comes first); nothing written outside the refs CPK
+  (no `dt00_x64.cpk` write, no setting). Plan: `blue_port.md` "Referee export processing";
+  `messages.md` "Referees", `collar_id_invalid`; `pipeline.md` "Collars". IDs: TC-REF-04,
+  TC-REF-06..07. Crates: tc (`processing/referee.rs`, `processing/team_assets.rs`,
+  `processing/kit.rs`), resources → verify: a refs export with `ref_marker.dds` compiled for
+  PES 21 beside a sandbox `dt00_x64.cpk`: the refs CPK holds `nocloth/#Win/collar_077.fmdl`
+  whose texture path resolves to the marker's FTEX under `common/999/sourceimages/`, each
+  referee kit config decodes with collar 77, and `dt00_x64.cpk` is byte-identical; a `/co/`
+  export with `p1/config.toml` naming collar 77 reports `kit_collar_reserved` and p1 is absent
+  from the CPK
 
 - [ ] 4.28 **Complete memory accounting**: the permit grows with decoded textures, converted
   models, merged meshes and packed entries (the open question "Complete memory accounting"); a
@@ -838,8 +845,9 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
 - [ ] 4.29 **A texture a model names must exist** (after 4.21, whose walk of the installed CPKs
   it reuses): `fmdl_texture_not_found` on Fox for a mesh's texture supplied by nobody: stem not
   in the folder, path naming the team's Common output, and neither the export's `Common/` nor an
-  installed CPK's table of contents holding it; an Error dropping the folder, a Warning keeping
-  it when no install can be read; a texture `.common` link with no target in the export
+  installed CPK's table of contents holding it, the CPKs searched being those the installed
+  list names before the CPK being compiled, nearest first, never a later one; an Error dropping
+  the folder, a Warning keeping it when the lookup cannot be made; a texture `.common` link with no target in the export
   satisfied by an installed CPK the same way; paths naming anything else kept and not looked
   up. The pre-Fox half (`mtl_texture_not_found`) lands with 4.15 under the same rule. Plan:
   `pipeline.md` "Resolved decisions" ("A texture a model names must exist"); `messages.md`
@@ -918,12 +926,20 @@ administrator, Upgrade DpFileList dialog): Phase 8; glTF sources: Phase 7; the G
 
 Phase 4 open questions (maintainer):
 
-- The referees' reserved collar (4.27): which stock collar ID is reserved for the Fox referee
-  marker, and the marker model itself. The ID comes from a survey of the collar IDs teams use;
-  the lead can tally the collar fields of every kit config in the VGL26 corpus and the
-  maintainer's library and propose the free ones, the maintainer picks. Also to confirm: the
-  pre-Fox marker keeps Red's method (it replaces a texture inside the refs CPK, no system file),
-  or moves to the collar too.
+- The referee marker model (4.27): the model shown as collar 77, as an FMDL and as a `.model`
+  with its `.mtl`, its texture named so the compiler can point it at the referees' Common
+  output. (The ID is settled: the survey of 2026-10-03, `.tmp/collar_survey.py`, read the collar
+  and winter collar of all 4,635 `*realUni.bin` files on the maintainer's machine; of the stock
+  IDs 1-116 only 41, 72, 77, 82, 87, 92 and 115 are used by none, 69 by one 2016 config of
+  /tv/ and 68 by 2016 configs of /m/ and /pol/ and by Konami teams.)
+- The official DpFileList's entries (4.25, 4.26): the one standard list with the size-split
+  slot run does not exist yet. Needed: its entry names in order, in particular the slot run
+  that replaces `4cc_40_faces`/`4cc_45_uniform` (the plan has five slots, `4cc_40_teams` to
+  `4cc_44_teams`, stem set by `teams_cpk_name`; the maintainer called them "players" CPKs on
+  2026-10-03, so the stem may be `players`), what becomes of `4cc_50_other_faces` and
+  `4cc_55_other_uniform`, and which of the two installs' other names stand (PES 17's list has
+  `4cc_01_db`, `4cc_02_misc`, `4cc_30_stadiums0`/`1`/`2`; PES 21's `4cc_01_base`,
+  `4cc_03_stockkit`, `4cc_10_interface`, `4cc_12_competition`, `4cc_30_stadiums`).
 - Kit layout fixture pair (4.10; 4.16's inverse-table check uses it). The two engines lay a kit
   texture out differently: the shirt, sleeves and collar strip sit in the same place, but the
   sock and shorts islands moved and changed width between PES 15-17 and PES 18-21. The compiler
@@ -1604,3 +1620,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   (4.29); `base64` for `face_diff.xml`; `colors.txt` one color per line; marker names (4.30);
   the Fox referee marker as a reserved collar (4.27 rewritten); one official DpFileList. Step
   4.31 (pre-Fox parity reference) is the lead's. Lead on Fable 5.1, sidekick on Opus 5.5.
+- **2026-10-03** — more rulings recorded: collar 77 reserved for the referee marker on both
+  engines, `kit_collar_reserved` for a team kit using it (survey: 4,635 kit configs, 77 unused);
+  the texture lookup searches only the CPKs before the one compiled; the official DpFileList's
+  slot run is still to be authored (open question).
