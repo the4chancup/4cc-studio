@@ -3107,3 +3107,16 @@ two `skin.dds` there are `texture_stem_conflict` and validation drops the folder
 compile; the scenario as written could never reach `shared_texture_conflict`. Two sources of
 one player holding a stem exist only when a shared folder is combined.
 Plan: `team_compiler/README.md` "Acceptance", TC-MOD-04.
+
+## 2026-10-03 — team_compiler — Fox's Common textures are one task no player task waits on
+Decision: on Fox, every texture directly in `Common/` is converted by one task per export
+(after its shared folders, before its portraits) into `Asset/model/character/common/{team_id}/
+sourceimages/#windx11/`, committed on its own. A player package baking in a `.common`-linked
+model reads the Common model itself and points the part's stems Common holds there. A failure of
+the Common task is reported and the linking players still commit.
+Why: one Common texture serves every linking player, so putting the task in a player's writer
+group would tie all of them together; dropping the linking players on its failure would need a
+cross-group dependency in the writer, for a failure fixed in one place. A player linking a shared
+output that failed is already kept the same way.
+Plan: `team_compiler/pipeline.md` "Resolved decisions" (new bullet) and the "Shared/Common
+dependency graph" open question narrowed to cache ownership.

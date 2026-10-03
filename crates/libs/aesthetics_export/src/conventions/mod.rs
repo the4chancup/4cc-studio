@@ -4,8 +4,10 @@
 mod file_types;
 mod player_folder;
 
-pub use file_types::{FileKind, Marker, MetadataFile, ModelFormat, SharedKind, classify};
-pub(crate) use file_types::{common_link_name, is_logo_texture, shared_link_name, strip_prefix_ci};
+pub use file_types::{
+    FileKind, Marker, MetadataFile, ModelFormat, SharedKind, classify, common_link_name,
+};
+pub(crate) use file_types::{is_logo_texture, shared_link_name, strip_prefix_ci};
 pub use player_folder::{ModelSuffix, model_suffix};
 pub(crate) use player_folder::{is_boots, is_explicit_face, is_gloves};
 

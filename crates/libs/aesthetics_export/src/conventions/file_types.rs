@@ -172,7 +172,7 @@ pub(crate) fn shared_link_name(name: &str) -> Option<(SharedKind, String)> {
 
 /// A `.common` link's target name: `torso.fmdl.common` and the tolerated
 /// `torso.fmdl.common.txt` alike give `torso.fmdl`.
-pub(crate) fn common_link_name(name: &str) -> Option<String> {
+pub fn common_link_name(name: &str) -> Option<String> {
     let name = strip_suffix_ci(name, ".txt").unwrap_or(name);
     strip_suffix_ci(name, ".common")
         .filter(|stem| !stem.is_empty())

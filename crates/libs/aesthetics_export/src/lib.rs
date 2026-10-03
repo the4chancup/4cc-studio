@@ -19,7 +19,7 @@ mod validate;
 
 pub use conventions::{
     FileKind, Marker, MetadataFile, ModelFormat, ModelSuffix, SharedKind, classify,
-    is_small_metadata, model_suffix,
+    common_link_name, is_small_metadata, model_suffix,
 };
 pub use listing::{CanonicalListing, ListedEntry, ListedKind, SmallMetadata, ValidationContext};
 pub use parse::{

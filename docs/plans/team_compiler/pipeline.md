@@ -1013,6 +1013,15 @@ Resolved decisions:
   exists — the parts are equal-standing inputs of one model, so the child drops rather than silently
   corrupting one part's look. Group-wide collisions across a player's face/boots/gloves tasks keep
   the `shared_texture_conflict` rule, which does have a canonical winner (face > boots > gloves).
+- **Common textures are one task of their export, which no player task waits on (Fox).** Every
+  texture directly in `Common/` is converted once, by one task placed after the export's shared
+  folders and before its portraits, into the team's Common output. A player package that bakes in a
+  Common-linked model reads the Common model itself and points the part's stems that Common holds
+  at that output. The task commits on its own, not inside a player's group: its textures serve every
+  linking player, so a group holding it would tie all of them together. When it fails, its failure
+  is reported and the linking players still commit, as a player linking a shared output that failed
+  does; dropping them instead would need the writer to track a dependency across groups, for a
+  failure the member fixes in one place, `Common/`.
 - **Texture references are stem-based (input)**: all material references (FMDL path tables,
   `.mtl`, `.materials.toml`) name textures by stem (filename without extension) in their
   source/authoring form. Any image format (DDS, FTEX, PNG, JPEG, BMP, WebP, TGA, TIFF) may be
@@ -1044,9 +1053,10 @@ Resolved decisions:
 Open questions — **implementation/spec work** (no user preference involved; resolved during the
 phase that owns them):
 
-- **Shared/Common dependency graph.** Define dependency ordering and cache ownership when a player
-  task needs shared or Common models for a Fox merge while those folders also have independent
-  output work.
+- **Shared/Common dependency graph.** Define cache ownership when a player task needs shared or
+  Common models for a Fox merge while those folders also have independent output work (each
+  player task reads and converts its parts itself today; the ordering of Fox's Common textures is
+  settled above).
 - **Task-batch commit protocol.** The required guarantee is fixed: incremental CPK writing must
   never expose entries from a failed atomic task. Define the exact stage/commit boundaries between
   workers, the per-player shared-texture aggregation, and the writer.
