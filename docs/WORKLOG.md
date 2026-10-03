@@ -62,6 +62,11 @@ Claude agent with no sidekick and no reviewer of another model family. While tha
   and TC-PRT/MOD/TEX/CHK/XML/KIT-10../ROOT-06../CMN/BIN/PLN/REF/OUT-07../DEP) and the decision
   entry "Phase 4 itemization rulings", against `development_plan.md` "Phase 4" and the
   `pipeline.md` walkthrough, from the 4.1 commit.
+  4.3-4.4 (b): `team_compiler` from `69be25b` to `a86ade1` plus `aesthetics_export`'s
+  `SharedModelFolder.path` (two crates, new `pub(crate)` shapes: `ModelFolder`, `TaskGroup`,
+  `TextureHome`, `TaskFailure`), against `pipeline.md` steps 3, 6 and 7, `player_folders.md` "ID
+  allocation", "Shared models" to "Merge constraint", TC-MOD-01..09, TC-PLN-01/02, and the
+  decision entries of 2026-10-03 from "a player folder's tasks commit as one group" on.
 - For the lead, on return: the review process on trial (maintainer, 3.1) runs a full sidekick
   review loop after each GPT round and calls GPT again only once that loop has ended and GPT's
   own loop has not; not yet in `AGENTS.md` (3.6: GPT 4 of 7 accepted, then sidekick S1 3 of 7,
