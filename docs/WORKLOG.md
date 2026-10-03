@@ -612,7 +612,9 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
     within one export"; `pipeline.md` "Deep format pass"): an export's model folders and
     `Common/` files checked in parallel, a folder's files too, findings in file order;
     `ContentSource::read` on `&self`, an archive behind a lock; the sources routed in
-    parallel; `check` and `compile` share one pool → verify: the timing table above measured
+    parallel; folder and `.zip` exports checked in parallel with each other, `.7z` ones in
+    turn (decision entry "folder and zip exports are checked in parallel");
+    `check` and `compile` share one pool → verify: the timing table above measured
     again, every existing test unchanged
   - (f) a `.7z` decompressed once for the structure pass and the deep pass ("Issues": the
     third decompression; to design after (e): routing reads every source's metadata before
@@ -708,7 +710,10 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   rerouted to the player-exclusive boots folder (merged, the paired `.skl` becoming `boots.skl`);
   gloves parts to the player's gloves folders; a boots/gloves link combined with local parts
   under the marker; an empty `face/` ignored; a player without face models and without the marker
-  gets the blank face folder (its contents per engine: `pipeline.md` step 4). Plan:
+  gets the blank face folder (its contents per engine: `pipeline.md` step 4), always with the
+  bundled face diff; to settle here: how a `face_diff.bin` left in a folder with no face
+  model is reported (today the gate refuses it as `content_not_yet_compiled`; 467 face
+  folders of the VGL26 exports are like that, `.tmp/face_diff_blank_census.py`). Plan:
   `player_folders.md` "`ingame_face` marker", "`ingame_face` with shared links"; `pipeline.md`
   "2. Per-export serial steps" step 4. IDs:
   TC-MOD-16..19. Crates: tc (`processing/model.rs`, `plan/`) → verify: a `/co/` slot 05 folder
@@ -1881,3 +1886,8 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   serial deep pass is up to 47% of a folder compile, so it goes on the worker pool within
   each export (4.7e, decision entry; the maintainer asked for it), and the `.7z`'s three
   decompressions get a step of their own (4.7f).
+- **2026-10-03** — The maintainer's answers: cups are compiled from plain folders, so
+  folder and `.zip` exports are checked in parallel with each other (4.7e; only `.7z`
+  exports in turn, decision entry); a model-less face always takes the bundled face diff,
+  the two other files in the VGL26 exports being outdated FPC-dedicated diffs (decision
+  entry; 4.12 settles how the leftover file is reported).

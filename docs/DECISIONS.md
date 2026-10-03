@@ -3516,3 +3516,26 @@ beside a `.7z`'s whole-archive one, the wait compile's coordinator already had t
 around. (3) Routing's per-source read starts no nested work, so blocking on a permit there
 cannot deadlock.
 Plan: `team_compiler/pipeline.md` "2. Per-export serial steps", "Deep format pass".
+
+## 2026-10-03 — team_compiler — folder and zip exports are checked in parallel; only `.7z` ones in turn
+Decision: this replaces point (1) of the entry "the deep pass runs on the worker pool,
+within one export". Exports held as folders or `.zip` files are checked in parallel with
+each other on the run's worker pool (structure pass, deep pass, identity); `.7z` exports are
+checked one after another, once the others are done. Findings are still reported per source
+in discovery order.
+Why: the maintainer asked whether checking exports in turn would slow a cup's compilation,
+whose exports are almost never kept compressed. It would: an export whose check is one large
+model keeps one core busy while the others idle. The deadlock that ruled parallel exports
+out needs a check that waits for memory, and only a `.7z` does (its whole-archive permit);
+a folder's or a zip's check never waits, so nothing can be held below a waiting one.
+Plan: `team_compiler/pipeline.md` "2. Per-export serial steps", "Deep format pass".
+
+## 2026-10-03 — team_compiler — a blank face folder always takes the bundled face diff
+Decision: a player with no face model gets the blank face folder with the bundled template
+`face_diff.bin`, whatever `face_diff.bin` its folder holds.
+Why: the maintainer's ruling. Across the VGL26 exports 467 face folders hold a
+`face_diff.bin` and no model (a full-body model is loaded through the boots folder, which
+supports a custom skeleton); 122 hold the bundled template and the other 345 one of two
+older files, which are outdated FPC-dedicated diffs. How a `face_diff.bin` left in such a
+folder is reported is step 4.12's.
+Plan: `team_compiler/pipeline.md` "2. Per-export serial steps" step 4.

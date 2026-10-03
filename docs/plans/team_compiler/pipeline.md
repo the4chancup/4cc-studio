@@ -109,7 +109,7 @@ export format.
      `check` has no live check and runs both passes on every source kind, archives included, so a
      model error the next `compile` would report is never missed by the `check` before it.
 
-     The deep pass runs on the run's worker pool, one export after another. Within an export
+     The deep pass runs on the run's worker pool. Within an export
      its model folders (player and shared) and `Common/`'s files are checked in parallel, and
      so are the files of one folder, each worker reading its own file; the few files left
      (the `Portraits/` files, the kits, the logo) are checked in order. The findings are
@@ -117,10 +117,13 @@ export format.
      is one handle behind a lock (a `.zip` inflates one entry at a time, a `.7z`'s reads copy
      out of its one decompressed buffer), so there only the checks run in parallel. The file a
      worker holds is not charged to the memory budget: at most one per worker thread is held
-     at a time, and a `.7z`'s buffer is charged as before. Exports are not checked in parallel
-     with each other, because a worker waiting for its folder's files takes other work, and
-     an export's check started that way can wait for a `.7z` permit held by the export
-     suspended below it on the same thread, forever. Routing's read of one source (its listing
+     at a time, and a `.7z`'s buffer is charged as before. Exports held as folders or `.zip`
+     files are also checked in parallel with each other: nothing in their check waits for
+     memory, and a cup's exports are nearly always compiled from plain folders. `.7z` exports
+     are checked one after another, once the others are done, because a worker waiting for
+     its folder's files takes other work, and a `.7z` export's check started that way can
+     wait for a permit held by the export suspended below it on the same thread, forever.
+     Each source's findings are reported in discovery order either way. Routing's read of one source (its listing
      and metadata) starts no work of its own, so the sources are routed in parallel. Measured
      at 4.7 on two VGL26 exports of 0.6 and 1 GB, the serial pass took 0.5 to 0.8 s of a 1.7 to
      3.1 s folder compile: most of it model parsing on one, whole-file reads of 8192-pixel
@@ -221,7 +224,10 @@ format:
    `face/real/{id}{NN}.cpk` holding a `face.xml` with one
    `<model level="0" type="face_neck" path="./oral_dummy_win32.model" material="./dummy.mtl"/>` and
    a `<dif>` from the template `face_diff.bin`, plus `oral_dummy_win32.model` (the template
-   `dummy.model`) and `dummy.mtl` (an empty `<materialset>`). Conflicting portraits for the same
+   `dummy.model`) and `dummy.mtl` (an empty `<materialset>`). The blank folder's diff is always
+   the bundled template, whatever `face_diff.bin` the player folder holds: without a face
+   model the file has no face to shape, and the two other files found in such folders
+   across the VGL26 exports are outdated FPC-dedicated diffs. Conflicting portraits for the same
    number fail the export. Referee identity uses its separate slot-derived face paths and does not
    construct a normal `TeamId`. (Red: `portraits_move.py`, `export_move.py`)
 5. **Notes collection** — a root `notes.txt` is strict UTF-8; an optional UTF-8 BOM is stripped and
