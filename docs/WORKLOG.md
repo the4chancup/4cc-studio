@@ -280,17 +280,17 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `just acceptance` 203 scenarios, 77 proven, the 126 new ones unproven, no definition error;
   drafted and written by Fable from the lead's rulings (`.tmp/rulings_4_1.md`)
 
-- [ ] 4.2 **Portraits**: `TaskKind::Portrait`; a player folder's `portrait.*` and `Portraits/
-  player_NN.*` emitted as `common/render/symbol/player/{id}{NN}.dds` (PES 19-21) or
-  `player_{id}{NN}.dds` (15-18), any accepted image format converted to DDS (lead first: the
-  portrait output codec and mip rule, measured from a stock portrait of the installed game per
-  engine, written into `player_folders.md` "Portraits"); `portrait_conflict` (deep content
-  compare, both locations). The tracer's Studio fixture gains its `portrait.dds`
-  (`tests/fixtures/tracer/README.md` says it joins in Phase 4). Plan: `pipeline.md` "2. Per-export
-  serial steps" step 4, "Game paths reference" (Portraits). IDs: TC-PRT-01..03. Crates: tc
-  (`plan/`, `processing/team_assets.rs`, `paths.rs`) → verify: the tracer parity test's compared
-  set gains `common/render/symbol/player/79205.dds` and passes byte-identical against `red/`;
-  `rg "// TC-PRT-0[1-3]" crates/tools/team_compiler` finds all three
+- [~] 4.2 **Portraits (DDS, Fox targets)**: `TaskKind::Portrait`; a player folder's
+  `portrait.dds` (every slot it is mapped to) and `Portraits/player_NN.dds` emitted byte for byte
+  as `common/render/symbol/player/{id}{NN}.dds` (PES 19-21) or `player_{id}{NN}.dds` (PES 18);
+  still refused by the Phase 3 gate: a non-DDS portrait (encoding is 4.6's: BC3 with a full mip
+  chain, `player_folders.md` "Portraits") and a slot with both sources (`portrait_conflict` is
+  4.7's deep pass). The tracer's Studio fixture gains its `portrait.dds`. Plan: `pipeline.md` "2.
+  Per-export serial steps" step 4, "Game paths reference" (Portraits). IDs: none cited yet
+  (TC-PRT-01 and 03 complete at 4.6, TC-PRT-02 at 4.7). Crates: tc (`plan/`, `processing/`,
+  `paths.rs`) → verify: the tracer parity test's `79205.dds` row is `Exact` and passes; compile
+  tests show `71405.dds`/`71407.dds` on PES 21 and `player_71405.dds` on PES 18 byte-identical to
+  their sources, a two-slot mapping emitting both, and the two refusals
 
 - [ ] 4.3 **Planned IDs and player-exclusive boots/gloves (Fox)**: `plan/ids.rs` `PlannedModelIds`
   (block start `101 + (team_id - 701) * 40`, exclusive `block_start + NN - 1`, boots and gloves
@@ -351,7 +351,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   for runs of at most two teams; conversion in bounded batches on a cancel token
   (`MemoryBudget::cancel`). Plan: `pipeline.md` step 5; `libs/dds_convert.md` "In-memory
   conversion cache" (engagement); `messages.md` "Textures"; `development_plan.md` "Phase 4"
-  (CPU-only, GPU is 16.x). IDs: TC-TEX-01..06, TC-KIT-10. Crates: tc (`processing/texture.rs`,
+  (CPU-only, GPU is 16.x). IDs: TC-TEX-01..06, TC-KIT-10, TC-PRT-01, TC-PRT-03 (non-DDS portraits encoded here). Crates: tc (`processing/texture.rs`,
   `processing/kit.rs`) → verify: a `/co/` player with `skin.png` (1024x1024, alpha) compiled for
   PES 21 then PES 18: `ftex::info` of the emitted texture reports BC7 then BC3, each with an
   11-level mip chain; a 3x3 `skin.png` reports `Error texture_too_small [DropFolder]` and the
@@ -368,15 +368,14 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   format finding code has a catalog row. Plan: `pipeline.md` "2. Per-export serial steps" step 2
   (deep format pass); `object_model.md` "Validation semantics" (sanitized versus eligible: "the
   deep pass applies the same rule"); `messages.md` (`vertex_too_far_from_origin`). IDs:
-  TC-CHK-01..05. Crates: ae (`validate/deep.rs`, new), tc (`check.rs`, `compile.rs`,
+  TC-CHK-01..05, TC-PRT-02. Crates: ae (`validate/deep.rs`, new), tc (`check.rs`, `compile.rs`,
   `messages.rs`) → verify: `check` on a `/co/` export whose `boots.fmdl` holds a vertex 6000 units
   out prints `Error vertex_too_far_from_origin [DropFolder]` naming the file and exits 1;
   `compile` with `pass_through` on still leaves the folder out of the CPK
 
 - [ ] 4.8 **Kit colors, UniColor and TeamColor (the `bins/` module)**: kit `colors.txt` grammar
-  (lead first: the grammar and the TeamColor record count read from Red's note parsing and the
-  bin's layout into `player_folders.md` "Root files"; waits on the maintainer: its confirmation,
-  an export text format), `color_entry_invalid`, derivation via
+  (`player_folders.md` "Root files", "Colors"; waits on the maintainer: its confirmation, an
+  export text format), `color_entry_invalid`, derivation via
   `color_tools::kit::extract_kit_colors` on the decoded main texture (`kit_colors_derived`), the
   magenta/black pair (`kit_colors_missing`), `icon.txt` (default 3); `UniColor.bin` built on the
   bundled base (lead first: the `UniColor.bin` and `TeamColor.bin` bases as lead-authored
@@ -392,16 +391,19 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   tracer parity test compares `TeamColor.bin` byte-identical and `UniColor.bin` with g1's entry
   excluded (Red does not derive)
 
-- [ ] 4.9 **Kit configs, FPC reconciliation and collars**: team kit-FPC status (`fpc.on` in any
+- [ ] 4.9 **Kit configs, FPC reconciliation and collars** (the brief settles what a collar in
+  the other engine's format does: converted, or refused; `Collars/` admits any model format):
+  team kit-FPC status (`fpc.on` in any
   player folder → On), generated configs with FPC values (`kit_config::fpc::apply_fpc`), supplied
   configs reconciled upward (`kit_config_fpc_adjusted`, GK included),
   `kit_config_version_clamped`; `fpc.on`/`fpc.off` no longer refuse the export (their savefile
   half is Phase 5); `Collars/` gets its allowlist row in `ae` (model files named `collar_<ID>`,
-  any model format; lead first: the stock-collar range counted from the installed game's
-  `nocloth` set per version into `messages.md` `collar_id_invalid`; waits on the maintainer: its
-  confirmation, game-facing), `collar_[ID]` parsed, `collar_id_invalid` (range, 105),
+  any model format; the per-version stock sets are in `messages.md` `collar_id_invalid`; waits on
+  the maintainer: its confirmation, game-facing), `collar_<ID>` parsed with or without zero
+  padding, `collar_id_invalid` (not a stock collar of the target version, 105),
   `collar_id_conflict` in canonical export order, every kit config's collar fields rewritten
-  after FPC, collar files passed through to `uniform/nocloth/#Win/`. Plan: `fpc_toggle.md` "Team
+  after FPC, collar files passed through to `uniform/nocloth/#Win/` under the game's three-digit
+  name. Plan: `fpc_toggle.md` "Team
   kit-FPC status and kit configs"; `pipeline.md` "4. Per-export non-model steps" (Kits, Collars),
   "Resolved decisions" (Collar contract); `object_model.md` "File-type allowlist". IDs:
   TC-KIT-15..17, TC-CMN-01..03. Crates: ae (`conventions/file_types.rs`, `validate/folders.rs`),
@@ -409,7 +411,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `fpc.on` in slot 05 and a supplied `p1/config.toml` without FPC values: the emitted 120-byte
   config decodes with `kit_config::fpc::matches_fpc` true and `kit_config_fpc_adjusted` is
   reported for p1; with `Collars/collar_12.fmdl` added, every emitted config's collar fields read
-  12 and the file sits at `Asset/model/character/uniform/nocloth/#Win/collar_12.fmdl`
+  12 and the file sits at `Asset/model/character/uniform/nocloth/#Win/collar_012.fmdl`
 
 - [ ] 4.10 **Kit layout conversion**: `KIT_LAYOUT_REMAP` (lead-authored measurement,
   `kits/layout.rs`; band edges from texel correspondence plus the hand-adjusted fixture pair),
@@ -427,9 +429,9 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
 - [ ] 4.11 **Team root artifacts and Common**: logo (main decoded, made square per tag, Lanczos3 to
   512 and 256, `logo_small*` or main to 128, PNG with alpha, `logo_fit_applied`, `logo_upscaled`,
   one atomic producer, names `emblem_0{id}_r_ll/_r_l/_r.png` on PES 15-19 and `e_000{id}...` on
-  20-21; lead first: which of the three names is which size, read from PES 21's own files into
-  `pipeline.md` "Logo"); `notes.txt` → `output/teamnotes.txt` (UTF-8/LF, canonical order,
-  accepted exports only, `notes_found`); `kitN` variants completed (`kit_variant_missing` copies
+  20-21, `_r_ll` 512, `_r_l` 256, `_r` 128); `notes.txt` → `output/teamnotes.txt` (UTF-8/LF,
+  canonical order, accepted exports only, `notes_found`); `kitN` variants completed
+  (`kit_variant_missing` copies
   the lowest, `kit_variant_model_fox`), `dummy_kit*` stems skipped by the existence checks;
   `Common/` on Fox: textures converted into `common/{team_id}/sourceimages/`, models only
   reachable through `.common` links (4.5). Plan: `pipeline.md` "4. Per-export non-model steps"
@@ -444,9 +446,9 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   rerouted to the player-exclusive boots folder (merged, the paired `.skl` becoming `boots.skl`);
   gloves parts to the player's gloves folders; a boots/gloves link combined with local parts
   under the marker; an empty `face/` ignored; a player without face models and without the marker
-  gets the blank face folder (lead first: what the Fox blank face package holds, read from Red's
-  `export_move.py` into `pipeline.md` step 4). Plan: `player_folders.md` "`ingame_face` marker",
-  "`ingame_face` with shared links"; `pipeline.md` "2. Per-export serial steps" step 4. IDs:
+  gets the blank face folder (its contents per engine: `pipeline.md` step 4). Plan:
+  `player_folders.md` "`ingame_face` marker", "`ingame_face` with shared links"; `pipeline.md`
+  "2. Per-export serial steps" step 4. IDs:
   TC-MOD-16..19. Crates: tc (`processing/model.rs`, `plan/`) → verify: a `/co/` slot 05 folder
   with `ingame_face`, `torso.fmdl`, `torso.skl` and `glove_l.fmdl`: the CPK has no
   `face/real/71405/`, has `boots/k0625/#Win/boots.fpk` holding `boots.fmdl` and a `boots.skl`
@@ -546,11 +548,9 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
 
 - [ ] 4.19 **Referees**: a `/refs/` export compiled into `refs_cpk_name`'s CPK; slots 01-35 mapped
   by `players.txt`, a folder mapped to several slots prepared once and instantiated per slot; IDs
-  `k99XX`/`g99XX` and the referee face paths (lead first: the referee face path, the
-  `k99XX`/`g99XX` folders and the per-referee common template added to "Game paths reference"
-  from Red's `referee_tools.py`/`export_move.py`, the in-game-verified layout); the per-referee
-  common subfolder keyed by folder name under team 999; the refscpk template content (lead
-  first: as lead-authored fixtures with a provenance README); pre-Fox `ref_marker.dds` template
+  `k99XX`/`g99XX` and the referee face paths (the referee rows of "Game paths reference"); the
+  per-referee common subfolder keyed by folder name under team 999; the refscpk template content
+  (lead first: as lead-authored fixtures with a provenance README); pre-Fox `ref_marker.dds` template
   injection; the team CPK untouched by referee content. Plan: `blue_port.md` "Referee export
   processing"; `pipeline.md` step 6 (the referee layout), "5. Writer" step 5 (refs CPK);
   `player_folders.md` "Multi-mapped processing". IDs: TC-REF-01..05. Crates: tc
@@ -569,8 +569,8 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   withdrawn and no test citing it
 
 - [ ] 4.21 **Bins from the installed CPKs**: `bins/dpfl.rs` `DpFileList.bin` reader (16-byte
-  header, fixed-width records, width verified per version; waits on the maintainer: a
-  `DpFileList.bin` fixture per PES version from the installed games, small files); the walk from
+  header, 48-byte records, an all-zero tail of any length ignored; measured on the PES 17 and 21
+  files, the PES 15/16/18/19/20 files when an install exists); the walk from
   the entry of next-lower priority than the output CPK upward, each bin from the first CPK that
   holds it (`cpk::CpkArchive`, `wezlib::decompress_if_wrapped`), the supplying CPK reported with
   `bin_source` (I; `bundled` when the embedded base was used); the bundled bases when no install
@@ -640,7 +640,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   is byte-identical, exit 1
 
 - [ ] 4.25 **DpFileList upgrade**: the official per-version `DpFileList.bin` embedded (lead first:
-  as lead-authored fixtures with a provenance README, from the files 4.21 waits on);
+  as lead-authored fixtures with a provenance README, from the installed PES 17 and 21 files);
   `upgrade-dpfl [--yes]`: the entries the official list lacks printed with the size of each
   matching `download/*.cpk`, nothing written without `--yes`, the installed file replaced byte
   for byte with `DpFileList.bin.bak` kept, no CPK ever deleted by the command;
@@ -654,9 +654,10 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
 - [ ] 4.26 **Multi-CPK mode**: `multicpk_mode` honored (the Phase 3 refusal removed); slots from
   the DPFL entries matching `{prefix}_{NN}_{teams_cpk_name}` exactly, ordered by number; whole
   teams placed first-fit by exact size under `cpk_part_max_size`; every unfilled slot written as
-  the empty placeholder CPK, byte-identical to the shipped one (waits on the maintainer: the
-  shipped `4cc_68_midcup.cpk` committed as the placeholder fixture); `cpk_slots_exhausted`,
-  `cpk_team_exceeds_cap`, `cpk_size_over_limit` (single-CPK); the bins CPK (`bins_cpk_name`), the
+  the empty placeholder CPK, byte-identical to the shipped one (the lead commits
+  `E:/PES2021/download/4cc_68_midcup.cpk`, 6,272 bytes, as the placeholder fixture);
+  `cpk_slots_exhausted`, `cpk_team_exceeds_cap`, `cpk_size_over_limit` (single-CPK); the bins CPK
+  (`bins_cpk_name`), the
   refs CPK beside them; `dds_compression = auto` follows the mode; deployment per generated CPK.
   Plan: `pipeline.md` "5. Writer" step 6 ("Multi-CPK mode: teams parts"); `settings.md`
   (`multicpk_mode`, `teams_cpk_name`, `cpk_part_max_size`, `bins_cpk_name`). IDs: TC-OUT-12..16,
@@ -732,19 +733,21 @@ administrator, Upgrade DpFileList dialog): Phase 8; glTF sources: Phase 7; the G
 
 Phase 4 open questions (maintainer):
 
-- `colors.txt` grammar and TeamColor capacity: the lead reads the entry format from Red's note
-  parsing and the record count from the bin's layout; the maintainer confirms, since it is an
-  export text format. 4.8 waits on the confirmation.
+- `colors.txt` grammar: confirm the grammar now in `player_folders.md` "Root files", "Colors"
+  (one grammar for the root and the kit files, four team colors), since it is an export text
+  format. 4.8 waits on the confirmation.
 - `dt00_x64.cpk` transaction: the backup and rollback protocol for the Fox referee marker, and
   whether FoxDen's LiveCPK could serve the marker from `livecpk/` instead of editing a system CPK,
   which would retire `dt00_overwrite_allow`. 4.27 waits on it.
 - Kit layout fixture pair: one 4cc kit an author shipped for both a 16/17-era and a 21-era cup,
   from the maintainer's library (Everything index). 4.10 waits on it; 4.16's inverse-table check
   uses it.
-- Placeholder CPK fixture: the shipped `4cc_68_midcup.cpk` (6,272 bytes) committed as the
-  fixture the placeholder writer is tested against. 4.26 waits on it.
-- `DpFileList.bin` per PES version: a fixture from each installed PES 15-21 (small files), to
-  verify the record width per version. 4.21 and 4.25 wait on them.
+- The default `cpk_name` on PES 21: the cup's official PES 2021 `DpFileList.bin` has no
+  `4cc_90_test` entry (PES 2017's has), so a default-settings compile on a PES 21 install would
+  report `cpk_name_unlisted` and skip deployment. A per-version default, a test slot in the
+  official list, or intended? 4.24 waits on it.
+- `DpFileList.bin` per PES version: the PES 15/16/18/19/20 files, when an install exists (17 and
+  21 are measured). 4.25 embeds each as it arrives.
 - Pre-Fox parity reference: a Red run on PES 17 over a hand-migrated Studio twin of a small
   pre-Fox export (as the tracer was made), committed under `tests/fixtures/tracer_prefox/` if
   under 1 MB. Without it every pre-Fox byte of 4.14-4.17 is unchecked until Phase 6.
@@ -1337,3 +1340,8 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   Acceptance section written (126 scenarios); 27 plan gaps found, the lead-decidable ones ruled
   (decision entry), the rest under "Phase 4 open questions". A VGL26 corpus of 53 old-layout
   exports (`C:/Data/4cc/Lab/Gud`, 15 GB) is the converge census's input once Phase 6 upgrades it.
+- **2026-10-03** — Phase 4 pre-step plan text (decision entry "Phase 4 pre-step measurements"):
+  portraits pass DDS through, the stock collar sets per version, logo sizes, the `colors.txt`
+  grammar, referee paths, the blank face folder and the DpFileList layout, measured on the PES
+  2021/2017 installs and Red. The sidekick's three contradictions answered (trailing icon kept,
+  `4cc_90_test` on PES 21 asked, cross-engine collars at 4.9).

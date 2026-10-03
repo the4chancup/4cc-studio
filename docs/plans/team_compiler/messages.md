@@ -137,7 +137,7 @@ savefile messages are new.
 | `team_id_out_of_range` | E | resolved ID outside 701–920 | export skipped |
 | `teams_list_read_only` | W | a teams-list write (ID cell, updater merge) failed because the data directory is not writable | write dropped; the in-memory list is unchanged (no elevation — see `pipeline.md` "Resolved decisions", "Teams list") |
 | `team_colors_missing` | I | no root `colors.txt` (it is optional) | TeamColor.bin entry left untouched |
-| `color_entry_invalid` | W | unparsable RGB line in a `colors.txt` | entry skipped |
+| `color_entry_invalid` | W | a `colors.txt` line that does not parse; a valid line past the file's color count (two for a kit, four for the team); or a lone trailing number after complete colors (an old Team Note icon, which belongs in `icon.txt`). Grammar: "Root files" (Colors) in `aesthetics_export/player_folders.md` | the line skipped; for the trailing number only the number is ignored, the colors kept |
 | `root_file_unexpected` | W | unknown file or folder at the export root (a folder other than the content folders — a stale `wrapper/` beside a usable root included), or a file directly inside `Players`, `Kits`, `Faces`, `Boots` or `Gloves`, which hold only folders (`Players/players.txt`) | file or folder ignored |
 | `portrait_conflict` | E | same player number with differing portraits in player folder and `Portraits/` | export skipped |
 | `notes_found` | I | non-empty valid root `notes.txt` present | collected into teamnotes.txt (from Phase 4; in Phase 3 validated only) |
@@ -341,7 +341,7 @@ every miss as a warning.
 | `logo_small_without_main` | E | `logo_small*` present with no main `logo*` | no logo emitted (the small image is not a source for the large sizes) |
 | `logo_fit_applied` | I | a non-square source was made square; names the mode (`fit` by default, or the file's tag) | — |
 | `logo_upscaled` | W | a source is smaller than its largest target (512² for main, 128² for small) | emitted upscaled |
-| `collar_id_invalid` | E | collar filename doesn't parse as `collar_[ID]`, the ID is outside the supported stock-collar range, or it names the reserved FPC collar 105 | collar file discarded |
+| `collar_id_invalid` | E | collar filename doesn't parse as `collar_<ID>` (zero padding optional), the ID is not a stock collar of the target version (PES 21: 1-131 and 901-913; PES 17: 1-116 and 901-916, both counted in the installed base data CPKs' `nocloth` set; PES 15, 16, 18, 19 and 20: the two sets' intersection, 1-116 and 901-913, until an install is measured), or it names the reserved FPC collar 105 | collar file discarded |
 | `collar_id_conflict` | E | another export already claimed this stock collar ID in this run (canonical export order) | later team's collar discarded; its configs not rewritten |
 | `common_file_disallowed` | E/I | as `file_type_disallowed`, Common scope | files discarded / kept |
 

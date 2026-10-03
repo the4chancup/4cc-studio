@@ -243,9 +243,10 @@ a `UniformParameter.bin` built on the bundled base, which the CPK carries only w
 drops or leaves unmapped, an unused `all/`, a link whose missing target `pass_through` keeps, a
 `kit_mask` on a Fox target (Fox has no mask slot), a player's `settings.toml` and `fpc.off`
 (savefile only), and the root and kit metadata files do not count (`notes.txt` and `icon.txt`
-are validated and emit nothing yet; `colors.txt` waits for its grammar, an open question for
-Phase 4; `README.txt` is ignored). Everything else the validated export holds counts: a file a
-lenient setting keeps despite its finding, a portrait, an `ingame_face` or `fpc.on` marker
+are validated and emit nothing yet; `colors.txt` waits for step 4.8, which implements its grammar
+("Root files", "Colors" in `player_folders.md`); `README.txt` is ignored). Everything else the
+validated export holds counts: a file a lenient setting keeps despite its finding, a portrait, an
+`ingame_face` or `fpc.on` marker
 (the second changes every kit config), any shared folder, logo, collar or Common file. The
 validated export does not mark what a lenient setting kept, and a refusal never writes a CPK
 that differs from Phase 4's. An export holding anything else, targeting PES
@@ -969,7 +970,7 @@ TC-ROOT-10 GIVEN a root colors.txt with valid entries, and another export withou
                 team_colors_missing (Info) and its entry is the installed or base value
 TC-CMN-01  GIVEN Collars/collar_12.fmdl and p1/config.toml
            WHEN the export is compiled for PES 21
-           THEN Asset/model/character/uniform/nocloth/#Win/collar_12.fmdl is in the CPK and every
+           THEN Asset/model/character/uniform/nocloth/#Win/collar_012.fmdl is in the CPK and every
                 emitted kit config's collar fields read 12
 TC-CMN-02  GIVEN Collars/collar_105.fmdl, Collars/neck.fmdl and Collars/collar_9999.fmdl
            WHEN the export is checked

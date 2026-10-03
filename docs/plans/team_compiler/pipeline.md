@@ -168,8 +168,9 @@ format:
    `ExportIdentity::Referees` without entering the normal teams list. The referee pipeline renders
    the game's fixed numeric ID 999 only at game-format boundaries. Either identity is wrapped in
    `ResolvedAestheticsExport` before run planning. (Red/Blue: `team_id_get.py`)
-4. **Portrait extraction** — for `ExportIdentity::Team { id, .. }`, a `portrait.dds` inside a player
-   folder is renamed (`player_{id}{NN}.dds` for PES ≤18, `{id}{NN}.dds` for 19+; in Red
+4. **Portrait extraction** — for `ExportIdentity::Team { id, .. }`, a player folder's `portrait.*`
+   (any accepted image; a non-DDS source is encoded as "Portraits" in the export plan says) is
+   renamed (`player_{id}{NN}.dds` for PES ≤18, `{id}{NN}.dds` for 19+; in Red
    `portraits_move.py` stages face-folder portraits under the `player_` name and `export_move.py`'s
    Portraits pass applies the version-specific final name) and staged with the portraits; an
    `ingame_face` marker removes face-classified `ModelPart`s and face-specific ancillary files, and
@@ -187,9 +188,15 @@ format:
    player-exclusive boots/gloves folders with IDs from the per-team block scheme (see "ingame_face
    marker"). Without `ingame_face`, a player with boots/gloves but no face models still gets a
    (blank) face folder: the absence of the default PES face is the final element of FPC, so the
-   folder must exist (Red's current behavior, kept). Conflicting portraits for the same number fail
-   the export. Referee identity uses its separate slot-derived face paths and does not construct a
-   normal `TeamId`. (Red: `portraits_move.py`, `export_move.py`)
+   folder must exist (Red's current behavior, kept). On Fox the blank folder is
+   `face/real/{id}{NN}/#Win/face.fpk` holding only the template `face_diff.bin`, plus `face.fpkd`
+   (the template `generic.fpkd`): no model, no `.skl`, no `.fclo`. On pre-Fox it is
+   `face/real/{id}{NN}.cpk` holding a `face.xml` with one
+   `<model level="0" type="face_neck" path="./oral_dummy_win32.model" material="./dummy.mtl"/>` and
+   a `<dif>` from the template `face_diff.bin`, plus `oral_dummy_win32.model` (the template
+   `dummy.model`) and `dummy.mtl` (an empty `<materialset>`). Conflicting portraits for the same
+   number fail the export. Referee identity uses its separate slot-derived face paths and does not
+   construct a normal `TeamId`. (Red: `portraits_move.py`, `export_move.py`)
 5. **Notes collection** — a root `notes.txt` is strict UTF-8; an optional UTF-8 BOM is stripped and
    CRLF/CR newlines are normalized to LF. Invalid encoding reports the file-scoped
    `notes_encoding_invalid` and drops only the note. Empty or whitespace-only notes produce no
@@ -335,19 +342,21 @@ describes behavior, not a serial scheduling requirement:
 - **Kits** — per kit (each `KitFolder` of the validated export; `all/` is not one): missing kit
   configs (`config.toml`) are generated from the
   template, retaining the template's five `[colors]` defaults and applying the FPC kit values when
-  the team's FPC status is on; the kit's two-color `colors.txt` feeds only `UniColor.bin`, not the
-  config's distinct five RGB fields. Supplied configs' FPC fields are reconciled with the team's
-  status (see "FPC toggle" in the [Aesthetics export plan](../aesthetics_export/fpc_toggle.md)); the kit's
-  *effective* textures — own files plus the `all/` files it inherits, already merged by
-  `aesthetics_export` — are renamed by replacing the `kit` prefix with the kit's
-  ID — `u0{team_id}{slot}` (e.g. `kit_chest.dds` in team 701's `p2/` becomes `u0701p2_chest.dds`;
-  an inherited `all/kit_back.dds` becomes `u0701p1_back.dds`, `u0701p2_back.dds`, … one per kit,
-  since the game has no shared kit textures) — and converted. Each kit task reads a shared file
-  itself: kit tasks stay independent, and the game-facing output is byte-for-byte what a copy in
-  the kit folder would give. Two textures the game requires are **filled from bundled templates**
-  when the effective set lacks them: `kit.dds` from the placeholder kit texture — a placeholder
-  kit, reported once (`kit_placeholder`) — and, for pre-Fox targets only, `kit_mask.dds` from the
-  mask template, silently, as Red's `kit_masks_check` did (most kits ship no mask: 70 of 641
+  the team's FPC status is on; the kit's two-color `colors.txt` (grammar: "Root files", "Colors" in
+  the [Aesthetics export plan](../aesthetics_export/player_folders.md)) feeds only `UniColor.bin`,
+  not the config's distinct five RGB fields. Supplied configs' FPC fields are reconciled with the
+  team's status (see "FPC toggle" in the [Aesthetics export
+  plan](../aesthetics_export/fpc_toggle.md)); the kit's *effective* textures — own files plus the
+  `all/` files it inherits, already merged by `aesthetics_export` — are renamed by replacing the
+  `kit` prefix with the kit's ID — `u0{team_id}{slot}` (e.g. `kit_chest.dds` in team 701's `p2/`
+  becomes `u0701p2_chest.dds`; an inherited `all/kit_back.dds` becomes `u0701p1_back.dds`,
+  `u0701p2_back.dds`, … one per kit, since the game has no shared kit textures) — and converted.
+  Each kit task reads a shared file itself: kit tasks stay independent, and the game-facing output
+  is byte-for-byte what a copy in the kit folder would give. Two textures the game requires are
+  **filled from bundled templates** when the effective set lacks them: `kit.dds` from the
+  placeholder kit texture — a placeholder kit, reported once (`kit_placeholder`) — and, for pre-Fox
+  targets only, `kit_mask.dds` from the mask template, silently, as Red's `kit_masks_check` did
+  (most kits ship no mask: 70 of 641
   surveyed). **Mask and srm are engine-specific, not two names for one map**: pre-Fox reads
   `{kit}_mask`, Fox reads `{kit}_srm`, each by name convention only — the config's five texture
   fields (main, back, chest, leg, name) never name either, in any game (all 788 PES 17 and 1359
@@ -403,7 +412,9 @@ describes behavior, not a serial scheduling requirement:
   image. Alpha is preserved (formats without it yield opaque logos). The three sizes are the same
   in every supported version (checked against PES 21's own files, not only ≤19-era exports). The
   three are named `emblem_0{team_id}_r_ll/_r_l/_r.png` (PES ≤19) or `e_000{team_id}…` (PES 20+) —
-  Red's destination names unchanged, so the CPK layout is parity-identical. A source smaller than its
+  Red's destination names unchanged, so the CPK layout is parity-identical. `_r_ll` is the 512²
+  one, `_r_l` the 256² one and `_r` the 128² one (the one `logo_small*` feeds when present),
+  measured on team 701's files in PES 21's `4cc_45_uniform.cpk`. A source smaller than its
   largest target is upscaled and reported (`logo_upscaled`); a non-square source made square is
   reported with the mode applied (`logo_fit_applied`). The three files are one atomic producer:
   if any input fails to decode, no logo is emitted for the team.
@@ -413,7 +424,12 @@ describes behavior, not a serial scheduling requirement:
   custom model on every player at once — a quick alternative to per-player models. This automatic ID
   extraction and kit-config rewriting is an **intentional deviation from Red**, which passes collar
   files through without changing the configs. The replaced ID comes from the filename, which must be
-  `collar_[ID]`; a name that doesn't parse, an ID outside the supported stock-collar range, or the
+  `collar_<ID>`, the ID with or without zero padding (`collar_12` and `collar_012` name the same
+  collar); the file is emitted under the game's three-digit name, `collar_012.fmdl` on Fox and
+  `collar_012.model` plus its `.mtl` pre-Fox, at the target's `nocloth` path ("Game paths
+  reference"). A name that doesn't parse, an ID that is not a stock collar of the target version
+  (the per-version sets, counted in the installed games' base data CPKs, are in `messages.md`,
+  `collar_id_invalid`), or the
   reserved ID 105 (the FPC collar — replacing it would break FPC teams everywhere) reports
   `collar_id_invalid`. Two teams replacing the same stock collar ID is an error: planning is serial,
   so a run-wide list of the IDs claimed so far catches duplicates without any advance cross-checking
@@ -437,13 +453,17 @@ describes behavior, not a serial scheduling requirement:
   path is emitted verbatim. Red's `dummy_kit_replace.py` — copying the team's kit 1 textures over
   `dummy_kit*` in Common as a fallback for the substitution — is **not ported**: that fallback dates
   from when the substitution lived in Sider scripts; it is in the exes now and stable.
-- **Bins accumulation** — team colors (from the root `colors.txt`, when present) and per-kit colors
+- **Bins accumulation** — team colors (from the root `colors.txt`, when present: its first four
+  valid colors, the `TeamColor.bin` record's capacity, slots it does not fill keeping the working
+  bin's bytes) and per-kit colors
   (from each kit folder's `colors.txt`, or derived from the main kit texture when it's missing —
   shirt-region dominant color plus either the shirt's second tone or the shorts-region dominant;
   `libs/color_tools` — with the menu icon number from the kit's optional `icon.txt`, default 3) are
   staged for in-memory copies of `TeamColor.bin` and `UniColor.bin` (fixed per-team byte offsets;
-  Red: `bins_update.py`), and kit configs are staged for `UniformParameter.bin` compilation (Fox
-  only; Red's `UniformParameter{18,19}.bin` are only its bundled per-version fallback bases); when
+  Red: `bins_update.py`; the file's grammar is "Root files", "Colors" in the [Aesthetics export
+  plan](../aesthetics_export/player_folders.md)), and kit configs are staged for
+  `UniformParameter.bin` compilation (Fox only; Red's `UniformParameter{18,19}.bin` are only its
+  bundled per-version fallback bases); when
   the team's kit-FPC status is On, kit slots absent from the export are FPC-patched from the
   installed cup content (see "FPC toggle" in the [Aesthetics export plan](../aesthetics_export/fpc_toggle.md)). A kit's UniColor/UniformParameter entry is applied only
   if that kit's task actually commits — a failed kit never mutates the global bins. On Fox the
@@ -660,10 +680,14 @@ describes behavior, not a serial scheduling requirement:
     and offers deletion (renaming a 3.7 GB file as a backup is pointless; the user confirms per file,
     and nothing is deleted without that confirmation). No retired-names list is needed in the
     template: retired is simply "installed but not official".
-  - The DPFL binary format is small and version-stable enough to own here: a 16-byte header (`u32 0`,
-    `u32 entry_count`, 8 zero bytes) followed by fixed-width name records — verify the record width
-    per PES version against installed files before implementing; the reader already exists for the
-    bins walk, the upgrade adds the writer.
+  - The DPFL binary format is small and version-stable enough to own here. Measured on the PES
+    2021 and PES 2017 files: a 16-byte header (`u32 0`, `u32 entry_count`, 8 zero bytes), then
+    `entry_count` records of 48 bytes each (the CPK file name with `.cpk`, NUL-padded), then an
+    all-zero tail of no fixed length (1204 bytes on PES 21's file, 905 on PES 17's) that the reader
+    accepts and ignores. The upgrade writes the bundled file byte for byte, so the writer never
+    chooses a tail. PES 15, 16, 18, 19 and 20 are checked the same way when an install is
+    available. The reader already exists for the bins walk; the upgrade only copies the bundled
+    file.
 - **Destination writability preflight** — the two failure modes users actually hit (the download
   folder needs elevation because PES sits under `Program Files`; the old CPK is locked because PES
   is still running) are detectable long before Compile, so they are checked **live**, like the
@@ -807,6 +831,10 @@ without it Phase 3 promotes the same way and says nothing more (deployment is Ph
 | Kit textures | `common/character0/model/character/uniform/texture/` | `Asset/model/character/uniform/texture/#windx11/` |
 | Collars | `common/character0/model/character/uniform/nocloth/` | `Asset/model/character/uniform/nocloth/#Win/` |
 | Common | `common/character1/model/character/uniform/common/{team_id}/` | `Asset/model/character/common/{team_id}/` |
+| Referee faces (NN = slot 01-35) | `common/character0/model/character/face/real/referee0NN.cpk` | `Asset/model/character/face/real/referee0NN/#Win/` (`face.fpk` and `face.fpkd`; textures under `referee0NN/sourceimages/#windx11/`) |
+| Referee boots | `common/character0/model/character/boots/k99NN/` | `Asset/model/character/boots/k99NN/#Win/` (`boots.fpk` and `boots.fpkd`) |
+| Referee gloves | `common/character0/model/character/glove/g99NN/` | `Asset/model/character/glove/g99NN/#Win/` (`glove.fpk` and `glove.fpkd`) |
+| Referee common (per referee folder) | `common/character1/model/character/uniform/common/999/{folder}/` (MTL/XML paths `model/character/uniform/common/999/{folder}/`) | `Asset/model/character/common/999/{folder}/sourceimages/#windx11/` (FMDL paths `/Assets/pes16/model/character/common/999/{folder}/sourceimages/`) |
 | Portraits | `common/render/symbol/player/` | same |
 | Logos | `common/render/symbol/flag/` | same |
 | TeamColor.bin | `common/etc/TeamColor.bin` | same |
@@ -854,6 +882,14 @@ Resolved decisions:
   held, and a stand-in such as the team's root colors looks right while being unchosen. The
   pair matches the placeholder texture, so a fully placeholder kit is consistently "unfinished"
   everywhere it appears.
+- **`colors.txt` grammar and TeamColor capacity**: one grammar for the root and the kit files,
+  written in "Root files", "Colors" in the [Aesthetics export
+  plan](../aesthetics_export/player_folders.md); the root file fills up to four team colors, the
+  `TeamColor.bin` record's capacity. The maintainer confirms the grammar at step 4.8, as it is an
+  export text format.
+- **Per-player common path templates**: the referee rows of "Game paths reference" carry Red's
+  name-keyed per-referee common layout on both engines, the shape of "Texture relocation to
+  common" with 999 as the team ID.
 - **FPC markers are player-level presets** (`fpc.on` = hide, `fpc.off` = un-hide, for that player's
   savefile settings only); non-FPC players are valid on FPC teams, so mixed-marker teams are
   ordinary supported usage. Team **kit**-FPC status is two-state (`On`/`Unknown`): any `fpc.on`
@@ -1021,9 +1057,6 @@ phase that owns them):
   and concurrency between the grid's ID-cell write, the updater merge and the savefile import
   (callers own I/O; Phase 3's one writer, `compile`, only creates a missing file, so the
   question opens with the grid's ID-cell write in Phase 8 and the update merge of Release 0.1.0).
-- **`colors.txt` grammar and TeamColor capacity.** Define the grammar (UTF-8/BOM, decimal versus
-  hex, comments, blank lines) and the exact team-color count `TeamColor.bin`'s fixed-size records
-  support; the kit-side fallback policy is resolved above.
 - **Run-result semantics.** Define separate compile and deployment outcome types so scoped errors,
   `pass_through`, failed moves, and failed savefile writes map predictably to GUI state and CLI exit
   codes. The exit codes are fixed (`settings.md` "CLI"): deployment adds none, a degraded run
@@ -1038,9 +1071,6 @@ phase that owns them):
   touched by a DLC compile, and vice versa — decide whether that needs a message) and the rule that
   an unrecognized user file is never deleted; retired official names are handled by the DpFileList
   upgrade's confirmed per-file deletion.
-- **Per-player common path templates.** Add Red's referee common layout (name-keyed per-referee
-  subfolders; exact MTL/XML and Fox FMDL templates in "Texture relocation to common") to the Game
-  paths table as the per-player common subfolder patterns (Phase 4 specification).
 
 **Pre-Phase-3 gates** (the normal-team versus referee `ExportIdentity` boundary, sanitized
 validated-versus-eligible projection, roster-entry scope/disposition semantics): confirmed

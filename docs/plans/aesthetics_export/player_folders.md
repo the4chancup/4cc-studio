@@ -410,7 +410,7 @@ authored kit config is the TOML file `config.toml` — the
 binary game format is never part of an export and exists only as compile output; old exports' binary
 configs are converted by the [Export upgrader](../export_upgrader.md) (schema and binary layout in the
 [Kit config editor plan](../kit_config_editor.md)); each kit folder also has a `colors.txt` with the
-kit's two menu colors, one per line, in the same color-entry format the old Team Note txt used, and
+kit's two menu colors (the grammar is under "Root files", "Colors"), and
 optionally an `icon.txt` holding the kit's menu icon number (0–23, the old Note txt kit entries'
 trailing number — selects the two-color kit icon pattern shown next to the formations in the
 prematch gameplan screens, which only PES 15/16 display; absent = default 3):
@@ -423,7 +423,7 @@ Kits/
 │   └── kit_name.dds
 ├── p1 - Lakers/              (slot, optionally ` - ` and a free label)
 │   ├── config.toml           (kit config — TOML; compiled to the game binary at compile time)
-│   ├── colors.txt            (the two menu colors, one per line; old Team Note color-entry format)
+│   ├── colors.txt            (the two menu colors; grammar under "Root files", "Colors")
 │   ├── icon.txt              (optional: menu icon number, 0-23; absent = default 3)
 │   ├── pre-fox               (optional empty marker, `pre-fox` or `fox`: which engine's kit layout the
 │   │                          main texture and mask are drawn for; absent = the compile target's)
@@ -442,7 +442,11 @@ Kits/
 ```
 
 **Portraits** — a player's portrait normally lives in their player folder (stem `portrait`, any
-accepted image format; the compiler converts to the game's DDS). The
+accepted image format). A DDS source passes through unchanged; any other accepted image format is
+encoded to BC3 (DXT5) at its own size with a full mip chain. The game is not fussy: the 1534
+portraits in the installed PES 2021 cup CPKs are all DDS passed through as their makers made them,
+in size classes from 64x64 DXT5 to 512x512 DXT5 (uncompressed BGRA8 included), and 128x128 DXT5
+with a full mip chain is the commonest class, so it is the one non-DDS sources are encoded to. The
 standalone `Portraits/` folder (`player_NN.dds` files) is deliberately kept alongside: some managers
 make custom portrait sets — while keeping the players' models unchanged — depending on the opponent
 team they are about to face, and the standalone folder supports those model-less portrait exports.
@@ -452,7 +456,7 @@ Conflicting portraits for the same player in both locations remain an error (`po
 
 ```
 <export root>/
-├── colors.txt                (optional: the team's colors, one per line — same format as a kit folder's colors.txt)
+├── colors.txt                (optional: the team's colors, up to four; same grammar as a kit folder's, see "Colors")
 ├── notes.txt                 (optional: strict UTF-8 free-form notes, collected into teamnotes.txt at compile time)
 ├── README.txt                (optional: for humans only — known to the model, ignored by the compiler;
 │                              the Team creator writes one with next steps)
@@ -470,9 +474,24 @@ Conflicting portraits for the same player in both locations remain an error (`po
 - **Team identity**: the canonical `team_name` is always derived from the first word of
   `export_display_name`; the complete stem remains presentation/source identity only. There is no
   `Team:` line anywhere.
-- **Team colors**: optional root `colors.txt`, feeding `TeamColor.bin` (absent: the team's existing
-  bin colors are left untouched).
-- **Kit colors**: each kit folder's `colors.txt` (plus optional `icon.txt`), feeding `UniColor.bin`.
+- **Colors**: one grammar for the optional root `colors.txt` (feeding `TeamColor.bin`; absent: the
+  team's existing bin colors are left untouched) and each kit folder's `colors.txt` (plus optional
+  `icon.txt`, feeding `UniColor.bin`). The file is UTF-8 with an optional BOM, LF or CRLF. Each
+  non-blank line holds one or more colors, optionally after a label ending in `:` (a leading `- `
+  is tolerated). A line is hex if its first token starts with `#`, each color then `#RRGGBB`;
+  otherwise it is decimal, three components 0-255 per color. Tokens are separated by spaces,
+  commas and `-`. A line that does not parse, or leaves a partial color, reports
+  `color_entry_invalid` and is skipped. One exception keeps the corpus's 18 kit lines of the form
+  `211 74 79 - 162 62 77 - 3`: a lone number after complete colors (an old Team Note icon) is
+  ignored, the colors kept, and reported by `color_entry_invalid` saying the icon belongs in
+  `icon.txt`. A kit's file uses its first two valid colors; the root file its first four,
+  the record's capacity (a `TeamColor.bin` record is `u16 team_id`, `u16 4`, then four 3-byte RGB
+  colors, and Red writes them with no cap, so a fifth would overwrite the next team's id). Valid
+  lines past those report `color_entry_invalid` ("more than N colors"). Team color slots the file
+  does not fill keep the working bin's bytes. This is the old Team Note color-entry format widened
+  to what a corpus of 53 VGL26 Team Notes holds: kit entries put both colors on one line
+  (`#F2F2F2 - #F2F2F2`, `211 74 79 - 162 62 77`), team entries one color per line. The maintainer
+  confirms the grammar at step 4.8, as it is an export text format.
 - **Notes**: optional strict-UTF-8 root `notes.txt`, replacing the old "Other Notes" section. An
   optional BOM is stripped, newlines normalize to LF, invalid encoding drops the note with
   `notes_encoding_invalid`, and empty/whitespace-only content produces no `teamnotes.txt` entry.

@@ -132,13 +132,14 @@ eligible, roster-entry scope and disposition; confirmed 2026-09-30).
   | directly in a shared folder | model content | `file_type_disallowed` |
   | directly in a kit folder | textures, `config.toml`, `colors.txt`, `icon.txt`, the `pre-fox` and `fox` markers | `file_type_disallowed` |
   | directly in `Common/` | model content | `common_file_disallowed` |
+  | directly in `Collars/` | model files named `collar_<ID>` (any model format), textures, `.mtl` and material tomls | `file_type_disallowed` |
   | anywhere in `Kits/all/` | textures directly in it | `kit_all_file_ignored` |
   | anywhere in `Portraits/` | textures named `player_NN` directly in it | `portrait_name_invalid` |
   | at the root | `players.txt`, `notes.txt`, `colors.txt`, `README.txt`, `logo*` textures; a referee export also `refs.txt`, `ref_lists.txt`, `ref_marker.dds` | `root_file_unexpected` |
 
   A file below a subfolder the table does not name takes the code of the folder holding that
-  subfolder (`Players/03 - A/extra/x.dds` is `file_type_disallowed`). `Collars/` is not checked
-  until Phase 4 brings the collar grammar. The list is the same for every target: each model
+  subfolder (`Players/03 - A/extra/x.dds` is `file_type_disallowed`). The list is the same for
+  every target: each model
   format is a source for either engine through conversion, so what a target does not emit is the
   deep pass's and processing's concern, not the allowlist's (Red's per-engine lists predate
   conversion). With `strict_file_type_check` off, `file_type_disallowed` and

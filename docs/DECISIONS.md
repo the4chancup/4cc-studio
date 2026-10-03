@@ -3010,3 +3010,32 @@ TC-SRC-01 edited); `team_compiler/messages.md` (`model_gltf_unsupported`, `bin_s
 Per-export serial steps" step 2, "6. Post-processing" Run PES, "Resolved decisions" Source
 snapshot and Output-mode artifact routing, "Run-result semantics"); `core/development_plan.md`
 Phases 4 and 8; `GLOSSARY.md` ("Output sink", "Teams part", "Placeholder CPK").
+
+## 2026-10-03 — team_compiler — Phase 4 pre-step measurements
+Decision: C2, `colors.txt` has one grammar for the root and the kit files (one or more colors per
+line, hex `#RRGGBB` or three decimals, label and `- `/`,` separators tolerated), a kit takes its
+first two valid colors, the root file its first four, unfilled team slots keep the working bin's
+bytes, and the maintainer confirms it at 4.8; C8, the referee face, boots, gloves and common paths
+on both engines join "Game paths reference" and the two marker paths join "Referee export
+processing"; C10, the blank face folder is Fox `face.fpk` with only `face_diff.bin` plus the
+template `face.fpkd`, pre-Fox a `face.xml` naming `oral_dummy_win32.model` and `dummy.mtl` with the
+template `face_diff.bin`; C17, `DpFileList.bin` is a 16-byte header, 48-byte records and an
+all-zero tail of no fixed length that the reader ignores, the upgrade copying the bundled file byte
+for byte; C19, `collar_<ID>` accepts the ID with or without zero padding, is emitted under the
+game's three-digit name, and must be a stock collar of the target version (21: 1-131 and 901-913;
+17: 1-116 and 901-916; unmeasured versions the intersection), 105 refused; C20, `_r_ll` is the
+512 logo, `_r_l` 256, `_r` 128; C24, a DDS portrait passes through unchanged and any other image
+format is encoded to BC3 at its own size with a full mip chain.
+Why: each was an open point the plan left for Phase 4, and each is now a measurement rather than a
+choice: PES 2021's and PES 2017's installed files (`E:/PES2021`, `E:/PES2017`: 1534 cup
+portraits, the two `DpFileList.bin` files, the `nocloth` sets of the base data CPKs, team 701's
+logos, `TeamColor.bin` and `UniColor.bin` in `4cc_08_bins.cpk`), Red's code (`bins_update.py`,
+`referee_tools.py`, `export_move.py`) for the parts the game files do not show, and a corpus of 53
+VGL26 Team Notes for the color lines authors actually write (`.tmp/measurements_4_pre.md` names
+the sources). Guessing any of them would have been a plan sentence the first test contradicted.
+Plan: `aesthetics_export/player_folders.md` ("Portraits", "Root files" "Colors");
+`aesthetics_export/object_model.md` ("File-type allowlist"); `team_compiler/pipeline.md` (step 4,
+"Kits", "Logo", "Collars", "Bins accumulation", "DpFileList upgrade", "Game paths reference",
+"Resolved decisions and open questions"); `team_compiler/messages.md` (`collar_id_invalid`);
+`team_compiler/README.md` (Phase 3 scope, TC-CMN-01); `team_compiler/blue_port.md` ("Referee
+export processing").

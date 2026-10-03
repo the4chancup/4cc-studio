@@ -55,8 +55,11 @@ What carries over from Red as compiler-internal behavior (invisible in the forma
   subfolder (see `pipeline.md` "Per-model-folder parallel steps"), which is Red's referee-only preprocessing
   generalized to all players
 - Referee base template content (`refscpk` templates)
-- `ref_marker.dds` handling: pre-Fox template injection, Fox `dt00_x64.cpk` injection (behind an
-  explicit consent setting instead of Red's interactive prompt)
+- `ref_marker.dds` handling: pre-Fox template injection (the marker replaces
+  `common/character1/model/character/parts/referee/incom_bsm.dds` in the refs CPK), Fox
+  `dt00_x64.cpk` injection (written as
+  `Asset/model/character/common/sourceimages/#windx11/cup_logo.ftex` into `Data/dt00_x64.cpk`,
+  behind an explicit consent setting instead of Red's interactive prompt)
 
 ### Features that disappear in a compiled GUI app
 
