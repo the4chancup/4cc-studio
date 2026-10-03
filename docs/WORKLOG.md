@@ -12,7 +12,7 @@ is in `AGENTS.md` ("Working documents").
 **Phase:** 3 (Team compiler skeleton) closed 2026-10-02, its cross-family reviews queued (see
 "Handover"). Phases 1 and 2 done (Phase 2 closed 2026-09-30).
 **Next:** Phase 4 is itemized and its Acceptance section written (step 4.1, 2026-10-03; its
-cross-family review (a) is queued). Next: 4.4b2 (shared face links, face merges, texture byte conflicts); 4.4a and 4.4b1 are done. 2.5b (GPU BC7) is step 16.x (decision entries
+cross-family review (a) is queued). Next: 4.5 (face assembly on Fox); 4.4 is done. 2.5b (GPU BC7) is step 16.x (decision entries
 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0 after Phase 8; phase order 1–6,
 8, 0.1.0, 7, 9–16 (`core/development_plan.md` "Releases"); first-class target the Fox version
 the cup moves to around April 2027 ("Target versions").
@@ -325,7 +325,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   81 of 203); `mutants-diff 99b7059`: 80 caught, 15 unviable, 1 timeout (an infinite loop), 1
   missed (`compile.rs:226` group guard), now killed by the shared-permit test
 
-- [ ] 4.4 **Shared folders and links (Fox)**: shared `Boots/`/`Gloves/` folders take the 17 shared
+- [x] 4.4 **Shared folders and links (Fox)**: shared `Boots/`/`Gloves/` folders take the 17 shared
   IDs (644 upward for `/co/`) in alphabetical folder-name order, `boots_id_pool_exhausted`/
   `gloves_id_pool_exhausted`; a link alone makes the player wear the shared ID (no per-player
   output); a link plus local parts merges the shared model into the player-exclusive folder
@@ -355,10 +355,19 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `subset::link_combines` shared by gate, IDs and planning, `processing::TaskFailure` carrying
   `merge_material_conflict`/`skl_merge_conflict`, `FolderModels.boots_stems`. TC-MOD-07/09 cited.
   Gates green (86 of 203); `mutants-diff 033eb1c`: 43, 36 caught, 7 unviable, 0 missed. Not
-  verified: the game loading a merged FMDL (`Model::to_file` re-lays it out)
+  verified: the game loading a merged FMDL (`Model::to_file` re-lays it out). (b2) done
+  2026-10-03 (Fable, first time, no contradiction; decision entry "texture conflicts by source
+  package"): face links combine, face parts merge (`fcl_hair_sim.skl` by the boots rule),
+  `ModelFolder::roles()` with the player's own `face_diff.bin`/`.fclo` winning,
+  `processing/texture.rs` resolving a stem per source package (`shared_texture_conflict` drops the
+  lower package via `TaskBatch.skipped`, `merged_texture_conflict` fails the textures task).
+  TC-MOD-08 cited; TC-MOD-04's halves tested uncited (its GIVEN needs 4.5's subfolders). Gates
+  green (87 of 203); `mutants-diff 304a0b2`: 34, 28 caught, 6 unviable, 0 missed. Texture-name
+  case questions in "Issues"
 
-- [ ] 4.5 **Face assembly (Fox)**: every model resolving to one allowed name merged (`torso.fmdl` +
-  `legs.fmdl.common` → `fcl_hair.fmdl`; `fmdl_fcl_hair_fallback` per routed file), `.common` model
+- [ ] 4.5 **Face assembly (Fox)**: unsuffixed models routed to the `fcl_hair` merge (`torso.fmdl` +
+  `legs.fmdl.common` → `fcl_hair.fmdl`; `fmdl_fcl_hair_fallback` per routed file; same-name
+  merges themselves landed at 4.4b, `processing/model.rs`), `.common` model
   links baked in with their textures referenced in place in the team's Common output
   (`Asset/model/character/common/{team_id}/sourceimages/#windx11/`), `merged_texture_conflict`;
   reserved subfolders `face/`/`boots/`/`gloves/`/`common/` force the category; a custom `.skl`
@@ -840,6 +849,15 @@ pruned when their phase closes; they stay in git history.
   The 2.20h conversion census found 114 real files over it. Since 2.20h such a group stays
   split rather than erroring (`conversion.md` split rules), so nothing refuses them now. The
   face type is still Phase 7's decision (glTF brings u32 indices).
+- open — texture names and case on Fox (found at 4.4b2): stems now compare case-folded when a
+  player's sources share one, but `processing/model.rs` still points a model's texture path at the
+  player's folder only when the referenced name matches a stem exactly (since 4.3), so a model
+  naming `Shirt.dds` beside `shirt.dds` keeps its original directory; the written `.ftex` keeps
+  one source's spelling while each model keeps its own. Whether the game's CPK lookup is
+  case-insensitive is unmeasured; measure it (or fold both sides) before 4.20 opens every export.
+  Also: per-stem conflict decisions are independent, so with two conflicts in one folder a
+  package can be dropped over a stem whose winner is a package already dropped for another stem
+  (rare; needs two differing stems across three packages).
 - open — `model_convert` converge questions (2.20): (1) Fox decal shaders (`translucent`,
   `3ddc`, `eyeocclusion`) infer `Shaded` *exact* through the `3ddf` rule, so the highneck
   fixture converts to an opaque `Basic_C`, where the 19to16 converter wrote `Overlay` with alpha
@@ -1400,3 +1418,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   exclusive package (`link_combined`, `fmdl_merged`, `skl_merge_conflict`,
   `merge_material_conflict`). The tracer's own files supply real conflicts: its `glove_l.fmdl`
   and `boots.fmdl` disagree on bone `sk_forearm_l`, its `fcl_hair.fmdl` on material `shirt`.
+- **2026-10-03** — 4.4b2, closing 4.4: a face link makes the shared face folder part of the
+  player's face, face parts merge like boots parts, and a texture stem two of a player's sources
+  hold is one entry when the bytes agree, else `shared_texture_conflict` (lower package dropped)
+  or `merged_texture_conflict` (folder dropped). Remote mutation half peaked at 7.14 GiB of 8G.

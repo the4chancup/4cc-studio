@@ -4,34 +4,118 @@
 use std::collections::BTreeMap;
 
 use anyhow::Context;
+use studio_core::Disposition;
 
-use super::{Entry, TaskFiles, take};
+use super::{Entry, Finding, TaskFailure, TaskFiles, take};
+use crate::messages::Code;
 use crate::plan::ModelFolder;
-use crate::plan::subset::{FolderModels, PlayerFile, TextureFormat, player_file};
+use crate::plan::subset::{ModelPackage, PlayerFile, TextureFormat};
+
+/// One source's copy of a texture: the package the source feeds, the stem as the source
+/// spells it, and the FTEX bytes.
+struct TextureCopy {
+    package: ModelPackage,
+    stem: String,
+    bytes: Vec<u8>,
+}
 
 /// The textures of `folder`, its own and its combined folders', converted from their bytes in
-/// `files` into the folder's texture home for team `team_id`, by stem: one entry per texture,
-/// however many of the folder's models use it and however many ids its packages are emitted
-/// under. The gate refuses a stem held by two of the folder's sources, so no entry is written
-/// twice.
+/// `files` into the folder's texture home for team `team_id`, by stem compared case-folded:
+/// one entry per stem, however many of the folder's models use it and however many ids its
+/// packages are emitted under. A stem several sources hold is one entry when their bytes agree.
+/// When they differ within one package the task fails with `merged_texture_conflict`: the one
+/// model those sources build has no winner. When they differ across packages the higher
+/// package in canonical order (face > boots > gloves) wins, `shared_texture_conflict` is noted
+/// in `findings` per stem and lower package, and the lower package is dropped: its textures
+/// task's entries leave out every texture only its sources hold, and the dropped packages are
+/// returned for the writer to skip their tasks.
 pub(super) fn folder_textures(
     folder: &ModelFolder,
     team_id: u16,
     files: &mut TaskFiles,
-) -> anyhow::Result<Vec<Entry>> {
-    let mut textures = BTreeMap::new();
-    for (source, source_files) in folder.sources() {
-        let models = FolderModels::of(source, source_files);
-        for file in source_files {
-            if let Some(PlayerFile::Texture(stem, format)) = player_file(source, file, &models) {
-                textures.insert(stem, to_ftex(format, file.path.name(), take(files, file))?);
-            }
+    findings: &mut Vec<Finding>,
+) -> Result<(Vec<Entry>, Vec<ModelPackage>), TaskFailure> {
+    // Each stem's copies in source order: the player's own folder's, then each combined
+    // folder's.
+    let mut copies: BTreeMap<String, Vec<TextureCopy>> = BTreeMap::new();
+    for (package, _, source_files) in folder.roles() {
+        for (file, role) in source_files {
+            let PlayerFile::Texture(stem, format) = role else {
+                continue;
+            };
+            let bytes = to_ftex(format, file.path.name(), take(files, file))?;
+            copies
+                .entry(vtree::fold_name(&stem))
+                .or_default()
+                .push(TextureCopy {
+                    package,
+                    stem,
+                    bytes,
+                });
         }
     }
-    Ok(textures
+    let mut dropped: Vec<ModelPackage> = Vec::new();
+    for stem_copies in copies.values() {
+        resolve_stem(stem_copies, &mut dropped, findings)?;
+    }
+    let entries = copies
+        .into_values()
+        .filter_map(|stem_copies| {
+            // The stem's one copy: the highest package's that is kept, the first of its
+            // sources'; the copies kept agree, so which of them is written changes no byte.
+            let kept = ModelPackage::ALL
+                .into_iter()
+                .filter(|package| !dropped.contains(package))
+                .find(|package| stem_copies.iter().any(|copy| copy.package == *package))?;
+            let copy = stem_copies.into_iter().find(|copy| copy.package == kept)?;
+            Some((folder.textures.texture(team_id, &copy.stem), copy.bytes))
+        })
+        .collect();
+    Ok((entries, dropped))
+}
+
+/// Decides one stem held by `copies`, several sources' in source order: a disagreement within
+/// one package fails the task; across packages, each package lower than the highest one holding
+/// the stem whose bytes differ from its is noted and added to `dropped`.
+fn resolve_stem(
+    copies: &[TextureCopy],
+    dropped: &mut Vec<ModelPackage>,
+    findings: &mut Vec<Finding>,
+) -> Result<(), TaskFailure> {
+    for package in ModelPackage::ALL {
+        let mut of_package = copies.iter().filter(|copy| copy.package == package);
+        if let Some(first) = of_package.next()
+            && of_package.any(|copy| copy.bytes != first.bytes)
+        {
+            return Err(TaskFailure {
+                code: Code::MergedTextureConflict,
+                context: vec![("texture", first.stem.clone())],
+            });
+        }
+    }
+    let Some(winner) = ModelPackage::ALL
         .into_iter()
-        .map(|(stem, bytes)| (folder.textures.texture(team_id, &stem), bytes))
-        .collect())
+        .find_map(|package| copies.iter().find(|copy| copy.package == package))
+    else {
+        return Ok(());
+    };
+    for copy in copies {
+        if copy.package == winner.package || copy.bytes == winner.bytes {
+            continue;
+        }
+        findings.push((
+            Code::SharedTextureConflict,
+            Disposition::DropFolder,
+            vec![
+                ("texture", winner.stem.clone()),
+                ("dropped", copy.package.name().to_owned()),
+            ],
+        ));
+        if !dropped.contains(&copy.package) {
+            dropped.push(copy.package);
+        }
+    }
+    Ok(())
 }
 
 /// The texture file `name`, in `format`, as FTEX: an FTEX passes through as it is, a DDS is

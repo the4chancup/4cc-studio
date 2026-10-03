@@ -291,6 +291,7 @@ fn task_batch(
             index,
             entries: Vec::new(),
             group: task.group.as_ref().map(|group| group.tasks.clone()),
+            skipped: Vec::new(),
             uniparam: None,
             messages: vec![tool_message(
                 Code::SourceReadFailed,
@@ -383,6 +384,7 @@ mod tests {
         ]);
         let group = TaskGroup {
             tasks: 0..2,
+            packages: vec![ModelPackage::Face],
             charge: 30,
         };
         let task = |kind, charge, group| BuildTask {

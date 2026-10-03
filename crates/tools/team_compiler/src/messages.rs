@@ -51,6 +51,14 @@ pub(crate) enum Code {
     /// Merged parts disagree on their skeleton (a bone, or their paired `.skl` files); the
     /// package is left out.
     SklMergeConflict,
+    /// Two of a player's sources feeding different packages hold a texture of one stem with
+    /// different bytes; the lower package in canonical order (face > boots > gloves) is left
+    /// out with the textures only its sources hold.
+    SharedTextureConflict,
+    /// Two of a player's sources feeding one package hold a texture of one stem with
+    /// different bytes, which the one model they build cannot choose between; the folder is
+    /// left out.
+    MergedTextureConflict,
     /// A file a task reads cannot be read from its export; its folder is left out.
     SourceReadFailed,
     /// A task could not build its entries; its folder is left out.
@@ -67,7 +75,7 @@ impl Code {
     /// Every code, for the catalog test: a variant missing here would make its first message
     /// panic in `severity`, so a new variant is added to this list too.
     #[cfg(test)]
-    const ALL: [Code; 21] = [
+    const ALL: [Code; 23] = [
         Code::ExportExtractFailed,
         Code::NoExportsFound,
         Code::ExportDisabled,
@@ -84,6 +92,8 @@ impl Code {
         Code::FmdlMerged,
         Code::MergeMaterialConflict,
         Code::SklMergeConflict,
+        Code::SharedTextureConflict,
+        Code::MergedTextureConflict,
         Code::SourceReadFailed,
         Code::FolderPackFailed,
         Code::CpkWriteFailed,
@@ -110,6 +120,8 @@ impl Code {
             Code::FmdlMerged => "fmdl_merged",
             Code::MergeMaterialConflict => "merge_material_conflict",
             Code::SklMergeConflict => "skl_merge_conflict",
+            Code::SharedTextureConflict => "shared_texture_conflict",
+            Code::MergedTextureConflict => "merged_texture_conflict",
             Code::SourceReadFailed => "source_read_failed",
             Code::FolderPackFailed => "folder_pack_failed",
             Code::CpkWriteFailed => "cpk_write_failed",
@@ -151,6 +163,8 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("fmdl_merged", CatalogSeverity::Info),
     ("merge_material_conflict", CatalogSeverity::Error),
     ("skl_merge_conflict", CatalogSeverity::Error),
+    ("shared_texture_conflict", CatalogSeverity::Error),
+    ("merged_texture_conflict", CatalogSeverity::Error),
     ("folder_pack_failed", CatalogSeverity::ErrorOrFatal),
     ("cpk_write_failed", CatalogSeverity::Fatal),
     ("output_commit_failed", CatalogSeverity::Fatal),

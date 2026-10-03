@@ -2,8 +2,10 @@
 //! ID, the skeleton packed with the boots, the folder's textures emitted once for every
 //! package; a shared `Boots/` or `Gloves/` folder players link, compiled once under one of
 //! the team's shared IDs, with `check` refusing an export needing more of them than the team
-//! has; and the merges: several parts under one name into one model, a shared folder a link
-//! combines with the player's own model into the player's package.
+//! has; the merges: several parts under one name into one model, a shared folder a link
+//! combines with the player's own model into the player's package, a shared `Faces/` folder
+//! into the player's face; and a texture two of the player's sources hold, packed once or
+//! resolved by its bytes.
 
 use std::collections::BTreeMap;
 use std::fs;
@@ -13,7 +15,7 @@ use fmdl::ops::paths::texture_paths;
 use fmdl::{FmdlFile, Model};
 
 use crate::common::Sandbox;
-use crate::compile::{cpk_entries, pes21_settings, tracer_player_file};
+use crate::compile::{cpk_entries, pes21_settings, tracer_kit, tracer_player_file};
 use crate::findings_of;
 
 /// The entry names of the FPK `bytes`.
@@ -349,6 +351,185 @@ fn a_boots_link_beside_a_local_boots_model_combines_the_shared_folder_into_the_p
     assert_eq!(
         entries[sole],
         entries["Asset/model/character/boots/k0644/#windx11/sole.ftex"]
+    );
+}
+
+/// Writes a face folder at `folder`: the tracer's hair model as `face_high.fmdl`, its
+/// `face_diff.bin`, and its `shirt.dds` under `texture_name`.
+fn write_face(sandbox: &Sandbox, folder: &str, texture_name: &str) {
+    sandbox.write(
+        &format!("{folder}/face_high.fmdl"),
+        &tracer_player_file("fcl_hair.fmdl"),
+    );
+    sandbox.write(
+        &format!("{folder}/face_diff.bin"),
+        &tracer_player_file("face_diff.bin"),
+    );
+    sandbox.write(
+        &format!("{folder}/{texture_name}"),
+        &tracer_player_file("shirt.dds"),
+    );
+}
+
+// TC-MOD-08
+#[test]
+fn a_face_link_combines_the_shared_face_folder_into_the_player_s_face() {
+    let sandbox = Sandbox::new("mod_face_link");
+    let export = "exports/co - Faces";
+    write_face(&sandbox, &format!("{export}/Players/05 - A"), "shirt.dds");
+    sandbox.write(&format!("{export}/Players/05 - A/Longhair.face"), b"");
+    // The tracer's boots model stands in for the shared hair model.
+    sandbox.write(
+        &format!("{export}/Faces/Longhair/hair_high.fmdl"),
+        &tracer_player_file("boots.fmdl"),
+    );
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+    assert_eq!(
+        findings_of(&run.messages(), "co - Faces"),
+        [
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info link_combined [Keep] at Players/05 - A (link=Longhair.face)",
+        ]
+    );
+    assert_eq!(run.exit_code(), 0);
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_90_test.cpk"));
+    let paths: Vec<&str> = entries.keys().map(String::as_str).collect();
+    assert_eq!(
+        paths,
+        [
+            "Asset/model/character/common/714/05 - A/sourceimages/#windx11/shirt.ftex",
+            "Asset/model/character/face/real/71405/#Win/face.fpk",
+            "Asset/model/character/face/real/71405/#Win/face.fpkd",
+        ],
+        "nothing for Longhair on its own"
+    );
+    assert_eq!(
+        package_names(&entries["Asset/model/character/face/real/71405/#Win/face.fpk"]),
+        ["face_diff.bin", "face_high.fmdl", "hair_high.fmdl"]
+    );
+}
+
+#[test]
+fn a_texture_the_face_and_a_combined_boots_folder_hold_is_packed_once_or_drops_the_boots() {
+    let export = "exports/co - Skin";
+    let skin = "Asset/model/character/common/714/05 - A/sourceimages/#windx11/skin.ftex";
+    let k0625 = "Asset/model/character/boots/k0625/#Win/boots.fpk";
+    let write = |sandbox: &Sandbox, shared_skin: &[u8]| {
+        write_face(sandbox, &format!("{export}/Players/05 - A"), "skin.dds");
+        sandbox.write(
+            &format!("{export}/Players/05 - A/kit_boots.fmdl"),
+            &tracer_player_file("boots.fmdl"),
+        );
+        sandbox.write(&format!("{export}/Players/05 - A/Crocs.boots"), b"");
+        sandbox.write(
+            &format!("{export}/Boots/Crocs/boots.fmdl"),
+            &tracer_player_file("boots.fmdl"),
+        );
+        sandbox.write(&format!("{export}/Boots/Crocs/skin.dds"), shared_skin);
+        sandbox.write(
+            &format!("{export}/Boots/Crocs/sole.dds"),
+            &tracer_player_file("shirt.dds"),
+        );
+    };
+
+    // The same bytes under one stem in both sources: packed once, no finding.
+    let same = Sandbox::new("mod_skin_same");
+    write(&same, &tracer_player_file("shirt.dds"));
+    let run = same.run(&pes21_settings(&same), &["compile"]);
+    assert_eq!(
+        findings_of(&run.messages(), "co - Skin"),
+        [
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info link_combined [Keep] at Players/05 - A (link=Crocs.boots)",
+            "Info fmdl_merged [Keep] at Players/05 - A (model=boots.fmdl)",
+        ]
+    );
+    assert_eq!(run.exit_code(), 0);
+    let entries = cpk_entries(&same.root.join("output/4cc_90_test.cpk"));
+    let paths: Vec<&str> = entries.keys().map(String::as_str).collect();
+    assert_eq!(
+        paths,
+        [
+            k0625,
+            "Asset/model/character/boots/k0625/#Win/boots.fpkd",
+            skin,
+            "Asset/model/character/common/714/05 - A/sourceimages/#windx11/sole.ftex",
+            "Asset/model/character/face/real/71405/#Win/face.fpk",
+            "Asset/model/character/face/real/71405/#Win/face.fpkd",
+        ]
+    );
+
+    // Different bytes: the face wins, the boots are left out with the texture only they
+    // brought, and the player's own `skin` is the one packed.
+    let differing = Sandbox::new("mod_skin_differing");
+    write(&differing, &tracer_kit());
+    let run = differing.run(&pes21_settings(&differing), &["compile"]);
+    assert_eq!(
+        findings_of(&run.messages(), "co - Skin"),
+        [
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info link_combined [Keep] at Players/05 - A (link=Crocs.boots)",
+            "Info fmdl_merged [Keep] at Players/05 - A (model=boots.fmdl)",
+            "Error shared_texture_conflict [DropFolder] at Players/05 - A (texture=skin, dropped=boots)",
+        ]
+    );
+    assert_eq!(run.exit_code(), 1);
+    let entries = cpk_entries(&differing.root.join("output/4cc_90_test.cpk"));
+    let paths: Vec<&str> = entries.keys().map(String::as_str).collect();
+    assert_eq!(
+        paths,
+        [
+            skin,
+            "Asset/model/character/face/real/71405/#Win/face.fpk",
+            "Asset/model/character/face/real/71405/#Win/face.fpkd",
+        ],
+        "no k0625 and no sole"
+    );
+    assert_eq!(
+        entries[skin],
+        ftex::dds_to_ftex(&tracer_player_file("shirt.dds"), ftex::ColorSpace::Normal).unwrap()
+    );
+}
+
+#[test]
+fn a_texture_the_player_s_folder_and_a_combined_face_folder_hold_differently_drops_the_player() {
+    let sandbox = Sandbox::new("mod_face_texture_conflict");
+    let export = "exports/co - Conflict";
+    write_face(&sandbox, &format!("{export}/Players/05 - A"), "skin.dds");
+    sandbox.write(&format!("{export}/Players/05 - A/Round.face"), b"");
+    sandbox.write(
+        &format!("{export}/Faces/Round/hair_high.fmdl"),
+        &tracer_player_file("boots.fmdl"),
+    );
+    sandbox.write(&format!("{export}/Faces/Round/skin.dds"), &tracer_kit());
+    // Slot 07: boots that compile, so the CPK is written.
+    sandbox.write(
+        &format!("{export}/Players/07 - B/boots.fmdl"),
+        &tracer_player_file("boots.fmdl"),
+    );
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+    assert_eq!(
+        findings_of(&run.messages(), "co - Conflict"),
+        [
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info link_combined [Keep] at Players/05 - A (link=Round.face)",
+            "Error merged_texture_conflict [DropFolder] at Players/05 - A (texture=skin)",
+        ]
+    );
+    assert_eq!(run.exit_code(), 1);
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_90_test.cpk"));
+    let paths: Vec<&str> = entries.keys().map(String::as_str).collect();
+    assert_eq!(
+        paths,
+        [
+            "Asset/model/character/boots/k0627/#Win/boots.fpk",
+            "Asset/model/character/boots/k0627/#Win/boots.fpkd",
+        ],
+        "nothing of slot 05"
     );
 }
 

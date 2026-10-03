@@ -26,13 +26,24 @@ the folders' name order (`Apple` before `Zebra`), and a player linking it gets n
 of their own. A player folder holding both a link file and a boots (or gloves) model of its own
 combines the two: the shared folder's models are merged into the player's own boots (or gloves)
 under the player's ID, its textures travel with them, and the line `link_combined` says so; the
-shared folder is still built on its own for any player linking it plainly. Several boots models
-in one folder (`a_boots.fmdl` beside `kit_boots.fmdl`), or several gloves models for one hand,
-are merged into one model in the alphabetical order of their file names, reported as
-`fmdl_merged`. Models merged into one must agree with each other: a material they define
-differently is reported as `merge_material_conflict`, and skeletons that differ (one model with
-a skeleton file and one without, two different files, or a bone placed differently) as
-`skl_merge_conflict`; either leaves that folder's boots (or gloves) out of the CPK. An export
+shared folder is still built on its own for any player linking it plainly. A link to a shared
+`Faces` folder (`Longhair.face` names `Faces/Longhair`) always combines: the shared folder's
+face models become part of the player's face, beside any face models of the player's own, and
+its `face_diff.bin` and `fcl_hair_sim.fclo` are used only when the player's folder has none of
+its own. Several boots models in one folder (`a_boots.fmdl` beside `kit_boots.fmdl`), several
+gloves models for one hand, or several face models under one name (`face_high.fmdl` beside
+`old_face_high.fmdl`), are merged into one model in the alphabetical order of their file names,
+reported as `fmdl_merged`. Models merged into one must agree with each other: a material they
+define differently is reported as `merge_material_conflict`, and skeletons that differ (one
+model with a skeleton file and one without, two different files, or a bone placed differently)
+as `skl_merge_conflict`; either leaves that folder's face, boots or gloves out of the CPK. A
+texture under one name in two of the places a player's models come from (the player's own
+folder, a shared folder it combines) is packed once when the two files are the same. When they
+differ, the face's copy wins over the boots' and the boots' over the gloves': the losing part
+is left out of the CPK, with the textures only it brought, and the line
+`shared_texture_conflict` names the texture and what was left out. When the two files belong
+to the face itself (the player's folder and a shared `Faces` folder), nothing can choose
+between them: nothing of that player is built, reported as `merged_texture_conflict`. An export
 using more than 17 shared boots folders, or more than 17 shared gloves folders, is skipped by
 both commands with the error `boots_id_pool_exhausted` or `gloves_id_pool_exhausted`, naming
 the count. A skeleton file named after a model (`kit_boots.skl` beside `kit_boots.fmdl`,
@@ -43,10 +54,9 @@ place and reported as `kit_placeholder`, so a kit nobody drew shows as missing i
 skips any other export with the error `content_not_yet_compiled`, naming the first thing it
 cannot build yet: a PES 2015 to 2017 target, a referee export, or content other than a player's
 own face, boots and gloves models, their textures, `.dds` portraits, kits and linked shared
-`Boots` and `Gloves` folders (two face models that would pack under one name, a shared `Faces`
-folder, a texture under one name in both a player's folder and a shared folder the player
-combines, or a model whose name says nothing about what it is, among others). `check` still
-checks those exports. `compile`
+`Faces`, `Boots` and `Gloves` folders (a model whose name says nothing about what it is, a
+texture in a format other than `.dds` or `.ftex`, or a hair model with no skeleton file beside
+it, among others). `check` still checks those exports. `compile`
 does not install the CPK into the game yet: it always leaves it in the output folder.
 
 `check` prints one line per finding: the export it is about, how serious it is, its code, where

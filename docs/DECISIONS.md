@@ -3081,3 +3081,19 @@ the shared models name; reading them there would load every shared model twice. 
 `Boots/`/`Gloves/` folder's textures are its models', so the difference is an unused file at
 most. Byte comparison of a handful of `.skl` files says what the plan's content hash says.
 Plan: `team_compiler/pipeline.md` "3. Per-model-folder parallel steps", step 6.
+
+## 2026-10-03 — team_compiler — texture conflicts by source package; the player's face files win
+Decision: a player's texture sources are its own folder and each folder it combines, each counting
+for the package it feeds (own folder and combined face: the face; combined boots/gloves: that
+package). One stem (case-folded) from two sources with different converted bytes is
+`shared_texture_conflict` across packages (the lower package dropped, with the textures only its
+sources hold) and `merged_texture_conflict` within one (the folder dropped). A shared face folder's
+`face_diff.bin`/`fcl_hair_sim.fclo` give way to the player folder's own.
+Why: the plan names the two codes per task and per model, but the textures are one task per
+folder and planning reads no model bytes, so which model names a texture is unknown there; the
+source's package is the nearest known stand-in, and dropping the lower package's whole source
+keeps every remaining model pointing at its own source's texture. The two face files are not
+model parts, so merging does not apply; "local parts layered over the base" says the player's
+own wins.
+Plan: `team_compiler/pipeline.md` step 6; `aesthetics_export/player_folders.md` "A link plus
+local models combines".

@@ -10,13 +10,14 @@ use fmdl::ops::merge::{MergeError, merge};
 use fmdl::ops::paths::rewrite_texture_paths;
 use fmdl::{FmdlFile, Model};
 use fpk::{FpkFile, FpkKind};
+use studio_core::Disposition;
 use vtree::ScopePath;
 
 use super::{Entry, Finding, TaskFailure, TaskFiles, take};
 use crate::messages::Code;
 use crate::paths;
 use crate::plan::ModelFolder;
-use crate::plan::subset::{FolderModels, ModelPackage, PlayerFile, file_stem, player_file};
+use crate::plan::subset::{ModelPackage, PlayerFile, file_stem};
 use crate::templates;
 
 /// One model of the package: a part of the output model its allowed name names, from the
@@ -46,14 +47,11 @@ pub(super) fn package(
     let mut parts: Vec<Part> = Vec::new();
     let mut texture_stems = BTreeSet::new();
     let mut fpk = FpkFile::new(FpkKind::Fpk);
-    for (source, source_files) in folder.sources() {
-        let folder_models = FolderModels::of(source, source_files);
-        // A boots skeleton pairs with the model of its stem in the same source folder.
+    for (_, _, source_files) in folder.roles() {
+        // A skeleton pairs with the model of its stem in the same source folder.
         let mut skeletons: BTreeMap<&str, Vec<u8>> = BTreeMap::new();
         let mut source_parts: Vec<Part> = Vec::new();
-        for file in source_files {
-            let role = player_file(source, file, &folder_models)
-                .expect("planning skips every export holding a player file with no role yet");
+        for (file, role) in source_files {
             match role {
                 PlayerFile::Model {
                     package: owner,
@@ -64,10 +62,7 @@ pub(super) fn package(
                     bytes: take(files, file),
                     skeleton: None,
                 }),
-                PlayerFile::Packed {
-                    package: owner,
-                    name: "boots.skl",
-                } if owner == package => {
+                PlayerFile::Skeleton { package: owner, .. } if owner == package => {
                     skeletons.insert(file_stem(file.path.name()), take(files, file));
                 }
                 PlayerFile::Packed {
@@ -81,20 +76,15 @@ pub(super) fn package(
                 PlayerFile::Texture(stem, _) => {
                     texture_stems.insert(stem);
                 }
-                PlayerFile::Model { .. } | PlayerFile::Packed { .. } => {}
+                PlayerFile::Model { .. }
+                | PlayerFile::Skeleton { .. }
+                | PlayerFile::Packed { .. } => {}
             }
         }
         for part in &mut source_parts {
             part.skeleton = skeletons.remove(file_stem(part.path.name()));
         }
         parts.extend(source_parts);
-    }
-    // The game loads boots with a `boots.skl` beside the model: the parts' own when they
-    // bring one, else the standard full-body one.
-    if package == ModelPackage::Boots {
-        let skeleton =
-            merged_skeleton(&mut parts)?.unwrap_or_else(|| templates::BOOTS_SKELETON.to_vec());
-        fpk.insert("boots.skl".to_owned(), skeleton);
     }
 
     // The parts of one output model go in alphabetical source order, by file name folded as
@@ -116,12 +106,22 @@ pub(super) fn package(
     // A texture the folder does not hold is one of the game's own; its directory names the
     // team as `000`, which becomes the team's id.
     let team_segment = format!("/{team_id}/");
-    for (name, parts) in by_name {
+    // The skeleton the package's parts bring. Only the `fcl_hair` and the `boots` parts pair
+    // one (`player_file`), so at most one name's parts have any.
+    let mut skeleton = None;
+    for (name, mut parts) in by_name {
+        if let Some(found) = merged_skeleton(&mut parts)? {
+            skeleton = Some(found);
+        }
         let mut model = match parts.as_slice() {
             [part] => FmdlFile::read(&part.bytes)?,
             _ => {
                 let merged = merge_parts(&parts)?;
-                findings.push((Code::FmdlMerged, vec![("model", format!("{name}.fmdl"))]));
+                findings.push((
+                    Code::FmdlMerged,
+                    Disposition::Keep,
+                    vec![("model", format!("{name}.fmdl"))],
+                ));
                 merged
             }
         };
@@ -133,6 +133,25 @@ pub(super) fn package(
             }
         })?;
         fpk.insert(format!("{name}.fmdl"), model.write());
+    }
+    // The game loads the boots and the hair with a skeleton beside them, under the slot's
+    // name (`player_folders.md` "SKL pairing"): the parts' own when they bring one; boots
+    // bringing none get the standard full-body one, while the hair's template is step 4.5's,
+    // so until then the gate refuses a hair without one.
+    match package {
+        ModelPackage::Boots => {
+            fpk.insert(
+                "boots.skl".to_owned(),
+                skeleton.unwrap_or_else(|| templates::BOOTS_SKELETON.to_vec()),
+            );
+        }
+        ModelPackage::Face => {
+            if let Some(skeleton) = skeleton {
+                fpk.insert("fcl_hair_sim.skl".to_owned(), skeleton);
+            }
+        }
+        // The gloves have no skeleton slot, and no `.skl` pairs with a glove.
+        ModelPackage::Gloves => {}
     }
 
     let fpk = fpk.write();
@@ -156,7 +175,7 @@ pub(super) fn package(
     Ok(entries)
 }
 
-/// The skeleton the parts of one boots model share, taken out of them: the one `.skl` every
+/// The skeleton the parts of one output model share, taken out of them: the one `.skl` every
 /// part brings (byte-identical files under several names are one skeleton), or `None` when no
 /// part brings one. Parts merged into one model must reference one skeleton
 /// (`player_folders.md` "Merge constraint"), so any other mix, a part with a skeleton beside

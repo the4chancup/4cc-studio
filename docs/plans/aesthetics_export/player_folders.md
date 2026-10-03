@@ -201,7 +201,9 @@ pre-Fox is far more permissive:
   (see below). The shared folder is left untouched for the players that link it plainly. A shared
   **face** link with no local face parts is the same mechanism one part deep: the shared face model
   becomes the player's face FMDL outright (a merge of one), since shared face folders take no ID and
-  have no independent output to be left untouched.
+  have no independent output to be left untouched. The face's other files (`face_diff.bin`,
+  `fcl_hair_sim.fclo`) are not parts to merge: one the player folder holds wins over the shared
+  folder's, the player's files being layered over the base.
 
 Combining is reported as `link_combined`. Consequences for Fox ID assignment: a player who combines
 gets their deterministic player-exclusive ID rather than the shared folder's, and a shared

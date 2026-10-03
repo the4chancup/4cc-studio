@@ -305,7 +305,15 @@ then processed as an independent parallel task (Blue: `coordinator._model_folder
    once, after all of the player's face/boots/gloves tasks report: identical destination bytes
    deduplicate, while the same destination with different bytes reports `shared_texture_conflict`
    and drops the losing task, chosen by canonical order (`face` > `boots` > `gloves`), never rayon
-   completion order. The writer commits a player folder's tasks as one group: it holds the
+   completion order. The player's texture sources are its own folder and each folder it combines
+   (a shared face, boots or gloves folder; on 4.5's reserved subfolders, `face/`, `boots/`,
+   `gloves/`), and a source counts for the package it feeds: the player's own folder and a
+   combined face folder for the face, a combined boots (gloves) folder for the boots (gloves).
+   Stems compare case-folded. Two sources of different packages holding one stem with different
+   bytes is `shared_texture_conflict`, the lower package dropped with every texture only its
+   sources hold; two sources of one package is `merged_texture_conflict`, since the one model
+   they build has no winner, and drops the folder. Planning cannot tell which model names which
+   texture (it reads no model bytes), so a source stands for its package. The writer commits a player folder's tasks as one group: it holds the
    folder's face/boots/gloves batches until the folder's textures batch arrives, then commits the
    packages that succeeded and the textures; if the textures fail (`folder_pack_failed`), none
    of the folder's packages commit, since each would point at a texture the CPK lacks; if every
