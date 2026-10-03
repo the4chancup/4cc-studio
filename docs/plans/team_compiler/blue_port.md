@@ -55,11 +55,25 @@ What carries over from Red as compiler-internal behavior (invisible in the forma
   subfolder (see `pipeline.md` "Per-model-folder parallel steps"), which is Red's referee-only preprocessing
   generalized to all players
 - Referee base template content (`refscpk` templates)
-- `ref_marker.dds` handling: pre-Fox template injection (the marker replaces
-  `common/character1/model/character/parts/referee/incom_bsm.dds` in the refs CPK), Fox
-  `dt00_x64.cpk` injection (written as
-  `Asset/model/character/common/sourceimages/#windx11/cup_logo.ftex` into `Data/dt00_x64.cpk`,
-  behind an explicit consent setting instead of Red's interactive prompt)
+- `ref_marker.dds` handling, pre-Fox: template injection (the marker replaces
+  `common/character1/model/character/parts/referee/incom_bsm.dds` in the refs CPK)
+
+What does not carry over is Red's Fox marker, which it wrote into the system file
+`Data/dt00_x64.cpk` (as `Asset/model/character/common/sourceimages/#windx11/cup_logo.ftex`)
+after an interactive prompt. On Fox the marker is shown through a **reserved collar** instead,
+so nothing outside the refs CPK is ever written and no consent, backup or rollback is needed:
+
+- one stock collar ID that no team uses is reserved for the referees, as 105 is for FPC; a team
+  export claiming it reports `collar_id_invalid`;
+- the refs CPK carries the marker model as that collar, at the collar's `nocloth` path ("Game
+  paths reference" in `pipeline.md`), bundled with the compiler like the other referee templates;
+- the model's texture path names the marker texture in the referees' Common output
+  (`common/999/sourceimages/`), which is `ref_marker.dds` converted like any Common texture;
+- the referee template kit configs name that collar.
+
+Without `ref_marker.dds` the collar model and the texture are not emitted, and the template
+configs keep the collar they had. Open until the referee step: which ID is reserved (a survey of
+the collar IDs teams use picks a free one) and the marker model itself, both the maintainer's.
 
 ### Features that disappear in a compiled GUI app
 

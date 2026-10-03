@@ -39,7 +39,6 @@ differing new default is a deliberate decision, explained in the Controls column
 | `pass_through` | 0 | same | Keep folders with errors instead of discarding them (cup DLC workflow) |
 | `savefile_path` | — | auto | `EDIT00000000` to update. `auto` runs `pes_savefile`'s discovery under the user's **Documents\KONAMI** folder for the selected version (the savefile is never inside the PES install, so `pes_folder_path` plays no part — see "Savefile discovery" in the Savefile plan); newest account wins when several exist (`savefile_autodetected`); nothing found → `savefile_missing` (Red never touches the savefile) |
 | `teams_list_path` | `teams_list.txt` (hardcoded, beside the exe) | `teams_list.txt` | Location of the working teams list; relative paths resolve in the data directory (see "Path resolution"). Created from the embedded list on first run |
-| `dt00_overwrite_allow` | — | 0 | Allow `ref_marker.dds` injection into the `dt00_x64.cpk` system file (replaces Red's interactive prompt) |
 | `quick_compile_close_on_success` | — | 0 | After a compile started by GUI autorun (`quick_compile.bat` → `4cc-studio --gui team-compiler compile`), close the window when the run completes with no Error-level findings and nothing skipped for errors; stay open on errors, failed deployment, or cancellation so the grid/log can be reviewed. Warnings alone still close (they are in the logs, as Red's `pause_allow = 0` reasoned). Never applies to a manual Compile click |
 
 In the settings file the 0/1 settings are TOML booleans (`run_pes = false`). A setting enters

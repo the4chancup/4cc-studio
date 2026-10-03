@@ -47,8 +47,10 @@ to moving, flattening, or removing files describe that draft, not destructive ed
    table — see the [Kit config editor plan](kit_config_editor.md)); kit textures are renamed from
    the old `u0XXXp1_…` pattern to the generic `kit` prefix (`kit.dds`, `kit_mask.dds`,
    `kit_chest.dds`, …) that the compiler re-expands at compile time; kit colors are extracted from
-   the Team Note txt into per-kit `colors.txt` files (a kit entry's trailing icon number, when
-   present and not the default 3, goes to that kit's `icon.txt`); the Note's kit-entry order maps
+   the Team Note txt into per-kit `colors.txt` files, one color per line (the Note's kit entry
+   holds both on one line, `211 74 79 - 162 62 77 - 3`; its trailing icon number, when present
+   and not the default 3, becomes that kit's icon marker, `icon_<N>`: "Marker names" in the
+   Aesthetics export plan); the Note's kit-entry order maps
    entries to slots (player entries → `p1`…, `gk:` entries → `g1`…), matching how Red numbered them
    in `UniColor.bin`. Kit folders are written as bare slots (`p1/`) — the old format has no kit
    names to carry. Then the shared textures are **hoisted into `Kits/all/`**: a stem present in

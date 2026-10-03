@@ -85,6 +85,14 @@ Principles:
   `DropExport` instead. Runtime failures derive their effective disposition from the owning scope:
   optional root file → `DropFile`, folder/task → `DropFolder`, required export metadata or unusable
   source → `DropExport`, output-writer/global invariant → `AbortRun`.
+- **What makes a finding an Error.** A file that cannot be produced, or whose compiled result is
+  unusable or visibly compromised in the game (a mesh that does not render, geometry that lags
+  the match, a texture the model names and nobody supplies), is an Error and drops its folder. A
+  file that compiles to something usable but may hide an issue is a Warning, and the folder
+  compiles. The format crates' `check` severities follow the same rule, so the deep pass maps a
+  format finding by its severity: Error is `DropFolder`, Warning and Info are `Keep`. A format
+  Error that a census shows on models the game renders fine is a wrong severity in the format
+  crate, fixed there, not an exception here.
 - **`pass_through`** overrides only eligible content-level `DropFile`/`DropFolder` dispositions to
   keep-with-flag, as in Red, while retaining the original severity. Not eligible: findings whose
   content cannot exist (failed conversion/packing, unproducible logos), unused content
@@ -97,8 +105,8 @@ Principles:
   receives a distinct `DoneWithErrors` outcome rather than an ordinary red error state.
 - **No blocking console prompts.** Red's prompts are replaced, not kept: unknown team ID becomes the
   grid's inline-editable ID cell (including its reassignment confirmation — see the GUI section),
-  standing consents become settings (`dt00_overwrite_allow`), and retry-on-locked-file becomes a
-  plain Error. The CLI never prompts: all of these are hard errors there.
+  the one standing consent (overwriting `dt00_x64.cpk` with the Fox referee marker) is gone with
+  the write it guarded, and retry-on-locked-file becomes a plain Error. The CLI never prompts: all of these are hard errors there.
 - **Progress chatter is not a message.** Red's "- Packing the face folders..." prints map to
   `Progress` events, not catalog entries.
 - **Logs**: `issues.log` (Warning+) and `suggestions.log` (Info) are kept as disk artifacts,
@@ -137,7 +145,7 @@ savefile messages are new.
 | `team_id_out_of_range` | E | resolved ID outside 701–920 | export skipped |
 | `teams_list_read_only` | W | a teams-list write (ID cell, updater merge) failed because the data directory is not writable | write dropped; the in-memory list is unchanged (no elevation — see `pipeline.md` "Resolved decisions", "Teams list") |
 | `team_colors_missing` | I | no root `colors.txt` (it is optional) | TeamColor.bin entry left untouched |
-| `color_entry_invalid` | W | a `colors.txt` line that does not parse; a valid line past the file's color count (two for a kit, four for the team); or a lone trailing number after complete colors (an old Team Note icon, which belongs in `icon.txt`). Grammar: "Root files" (Colors) in `aesthetics_export/player_folders.md` | the line skipped; for the trailing number only the number is ignored, the colors kept |
+| `color_entry_invalid` | W | a `colors.txt` line that does not parse as exactly one color (two colors on one line, the old Team Note kit entry, included), or a valid line past the file's color count (two for a kit, four for the team). Grammar: "Root files" (Colors) in `aesthetics_export/player_folders.md` | the line skipped |
 | `root_file_unexpected` | W | unknown file or folder at the export root (a folder other than the content folders — a stale `wrapper/` beside a usable root included), or a file directly inside `Players`, `Kits`, `Faces`, `Boots` or `Gloves`, which hold only folders (`Players/players.txt`) | file or folder ignored |
 | `portrait_conflict` | E | same player number with differing portraits in player folder and `Portraits/` | export skipped |
 | `notes_found` | I | non-empty valid root `notes.txt` present | collected into teamnotes.txt (from Phase 4; in Phase 3 validated only) |
@@ -205,7 +213,7 @@ savefile messages are new.
 | `mtl_broken` | E | MTL fails to parse (with line/column) | folder discarded |
 | `edithair_unsupported` | E | `face_edithair.xml` / `hair.xml` present | folder discarded |
 | `file_type_disallowed` | E/I | extension not in the mode's allowlist (E if `strict_file_type_check`, else I) | folder discarded / kept |
-| `fmdl_no_texture_ids` | W | no ID-bearing texture paths found in FMDL | none (double-check hint) |
+| `fmdl_texture_not_found` | E/W | Fox: a texture one of the model's meshes uses is supplied by nobody: its stem resolves to no file of the folder, and its path names the team's Common output, where neither the export's `Common/` nor an installed CPK holds it (`pipeline.md` "Resolved decisions", "A texture a model names must exist"; context: the model file, the texture path). W when no install could be read to look, since the texture may be there | folder discarded (`DropFolder`); kept when W |
 
 **Textures** (file-scoped; in model folders the folder fails, and so does a kit, whose config
 names its textures; elsewhere (`Common/`, portraits) the file is dropped; the logo sources are the
@@ -231,7 +239,7 @@ uncompressed kits needed)
 | ID | Sev | Condition | Consequence |
 |---|---|---|---|
 | `xml_texture_path_missing` | E | sampler with no texture path and not auto-fillable (sampler not in the suffix mapping table) | folder discarded |
-| `mtl_texture_not_found` | E | texture (by stem) used by one of the model's meshes missing from export | folder discarded |
+| `mtl_texture_not_found` | E/W | texture (by stem) used by one of the model's meshes supplied by nobody: not in the folder, and for a Common path neither in the export's `Common/` nor in an installed CPK (the rule of `fmdl_texture_not_found`, W included) | folder discarded; kept when W |
 | `mtl_texture_unused_missing` | I | texture referenced only by materials no mesh uses | none |
 | `xml_root_tag_invalid` | E | root tag is not `<config>` | folder discarded |
 | `xml_model_type_missing` | E | `<model>` without `type` | folder discarded |
@@ -345,20 +353,17 @@ every miss as a warning.
 | `logo_small_without_main` | E | `logo_small*` present with no main `logo*` | no logo emitted (the small image is not a source for the large sizes) |
 | `logo_fit_applied` | I | a non-square source was made square; names the mode (`fit` by default, or the file's tag) | — |
 | `logo_upscaled` | W | a source is smaller than its largest target (512² for main, 128² for small) | emitted upscaled |
-| `collar_id_invalid` | E | collar filename doesn't parse as `collar_<ID>` (zero padding optional), the ID is not a stock collar of the target version (PES 21: 1-131 and 901-913; PES 17: 1-116 and 901-916, both counted in the installed base data CPKs' `nocloth` set; PES 15, 16, 18, 19 and 20: the two sets' intersection, 1-116 and 901-913, until an install is measured), or it names the reserved FPC collar 105 | collar file discarded |
+| `collar_id_invalid` | E | collar filename doesn't parse as `collar_<ID>` (zero padding optional), the ID is not a stock collar of the target version (PES 21: 1-131 and 901-913; PES 17: 1-116 and 901-916, both counted in the installed base data CPKs' `nocloth` set; PES 15, 16, 18, 19 and 20: the two sets' intersection, 1-116 and 901-913, until an install is measured), or it names a reserved collar: 105 (FPC) or the referees' marker collar (`blue_port.md` "Referee export processing") | collar file discarded |
 | `collar_id_conflict` | E | another export already claimed this stock collar ID in this run (canonical export order) | later team's collar discarded; its configs not rewritten |
 | `common_file_disallowed` | E/I | as `file_type_disallowed`, Common scope | files discarded / kept |
 
 **Referees** — referee exports use the same player-folder format (see `blue_port.md` "Referee export processing"),
-so all player-folder, texture, and XML/MTL messages above apply as-is. Referee-specific additions:
-
-| ID | Sev | Condition | Consequence |
-|---|---|---|---|
-| `ref_marker_needs_consent` | E | Fox `ref_marker.dds` present but dt00 overwrite not enabled (setting) | marker skipped |
-| `dt00_write_failed` | E | `dt00_x64.cpk` cannot be updated with the converted Fox referee marker | deployment transaction fails and rolls back; compile artifacts remain available |
-
-Referee-marker deployment findings are environment-level dispositions: `pass_through` never
-overrides them, even when the referee CPK itself remains compilable.
+so all player-folder, texture, and XML/MTL messages above apply as-is, and there is no
+referee-specific code. The Fox referee marker needs none either: it is a model on the referees' reserved collar
+and a texture in their Common output, both inside the refs CPK (`blue_port.md` "Referee export
+processing"), so its failures are the texture codes above, on `ref_marker.dds`. Red's injection
+into the system `dt00_x64.cpk`, and with it `ref_marker_needs_consent` and `dt00_write_failed`,
+is gone.
 
 **Output stage and savefile** (Run scope)
 

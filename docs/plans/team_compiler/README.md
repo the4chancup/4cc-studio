@@ -805,9 +805,13 @@ TC-TEX-03  GIVEN textures of 3x3 pixels, of 300x300 pixels on a Fox face, and a 
 TC-TEX-04  GIVEN a .dds in a codec dds_convert cannot decode
            WHEN the export is compiled
            THEN texture_codec_unsupported is reported naming the file and the folder is dropped
-TC-TEX-05  GIVEN slot 05's face_high.fmdl whose path table holds no team-ID-bearing texture path
-           WHEN the export is checked
-           THEN fmdl_no_texture_ids is reported as a Warning and the folder is kept
+TC-TEX-05  GIVEN slot 05's face_high.fmdl naming hair in the team's Common output, an export with
+           no Common/hair.*, and a PES folder whose DpFileList lists 4cc_70_midcup.cpk
+           WHEN the export is compiled for PES 21 with that CPK holding
+           Asset/model/character/common/714/sourceimages/#windx11/hair.ftex, then without it, then
+           with no PES folder
+           THEN the first compiles with no finding; the second reports fmdl_texture_not_found as
+                an Error and drops the folder; the third reports it as a Warning and keeps it
 TC-TEX-06  GIVEN p1/kit.png, p1/kit_back.tga and Portraits/player_05.webp
            WHEN the export is compiled for PES 21
            THEN u0714p1.ftex and u0714p1_back.ftex are emitted and 71405.dds is a DDS
@@ -1102,22 +1106,19 @@ TC-REF-03  GIVEN a refs export with Faces/Base/ linked by Ref A and Ref B
                 own
 TC-REF-04  GIVEN a refs export with ref_marker.dds
            WHEN it is compiled for PES 17
-           THEN the referee CPK holds the marker at the pre-Fox template's path and no dt00
-                finding is reported
+           THEN the referee CPK holds the marker at the pre-Fox template's path
 TC-REF-05  GIVEN a refs export compiled with --mode test
            WHEN it runs
            THEN output/test_output/<refs source key>/Players/Ref A/ holds the processed files once,
                 not per slot
-TC-REF-06  GIVEN a refs export with ref_marker.dds, dt00_overwrite_allow off, and a PES folder with
-           dt00_x64.cpk
+TC-REF-06  GIVEN a refs export with ref_marker.dds, and a PES folder with dt00_x64.cpk
            WHEN it is compiled for PES 21
-           THEN ref_marker_needs_consent is reported, dt00_x64.cpk is byte-identical, the referee
-                CPK is deployed, and the exit code is 1
-TC-REF-07  GIVEN the same with dt00_overwrite_allow on
-           WHEN it is compiled
-           THEN dt00_x64.cpk's marker entry is the FTEX of ref_marker.dds, dt00_x64.cpk.bak equals
-                the old file, and with the write made to fail dt00_write_failed is reported and
-                dt00_x64.cpk equals the old file
+           THEN the referee CPK holds the marker model as the reserved collar, the marker's FTEX
+                under common/999/sourceimages/, and referee kit configs whose collar is the
+                reserved one; dt00_x64.cpk is byte-identical and the exit code is 0
+TC-REF-07  GIVEN a /co/ export holding Collars/collar_<the reserved referee collar>.fmdl
+           WHEN it is compiled for PES 21
+           THEN collar_id_invalid is reported and the file is dropped
 ```
 
 **Output modes, deployment, multi-CPK**

@@ -477,23 +477,36 @@ Conflicting portraits for the same player in both locations remain an error (`po
   `export_display_name`; the complete stem remains presentation/source identity only. There is no
   `Team:` line anywhere.
 - **Colors**: one grammar for the optional root `colors.txt` (feeding `TeamColor.bin`; absent: the
-  team's existing bin colors are left untouched) and each kit folder's `colors.txt` (plus optional
-  `icon.txt`, feeding `UniColor.bin`). The file is UTF-8 with an optional BOM, LF or CRLF. Each
-  non-blank line holds one or more colors, optionally after a label ending in `:` (a leading `- `
-  is tolerated). A line is hex if its first token starts with `#`, each color then `#RRGGBB`;
-  otherwise it is decimal, three components 0-255 per color. Tokens are separated by spaces,
-  commas and `-`. A line that does not parse, or leaves a partial color, reports
-  `color_entry_invalid` and is skipped. One exception keeps the corpus's 18 kit lines of the form
-  `211 74 79 - 162 62 77 - 3`: a lone number after complete colors (an old Team Note icon) is
-  ignored, the colors kept, and reported by `color_entry_invalid` saying the icon belongs in
-  `icon.txt`. A kit's file uses its first two valid colors; the root file its first four,
-  the record's capacity (a `TeamColor.bin` record is `u16 team_id`, `u16 4`, then four 3-byte RGB
-  colors, and Red writes them with no cap, so a fifth would overwrite the next team's id). Valid
-  lines past those report `color_entry_invalid` ("more than N colors"). Team color slots the file
-  does not fill keep the working bin's bytes. This is the old Team Note color-entry format widened
-  to what a corpus of 53 VGL26 Team Notes holds: kit entries put both colors on one line
-  (`#F2F2F2 - #F2F2F2`, `211 74 79 - 162 62 77`), team entries one color per line. The maintainer
-  confirms the grammar at step 4.8, as it is an export text format.
+  team's existing bin colors are left untouched) and each kit folder's `colors.txt` (feeding
+  `UniColor.bin`, with the kit's icon marker). The file is UTF-8 with an optional BOM, LF or
+  CRLF. Each non-blank line holds **one color**, optionally after a label ending in `:` (a
+  leading `- ` is tolerated): `#RRGGBB`, or three decimal components 0-255 separated by spaces
+  or commas. A kit's two colors are two lines:
+
+  ```
+  211 74 79
+  162 62 77
+  ```
+
+  A line that does not parse as exactly one color reports `color_entry_invalid` and is skipped.
+  That includes two colors on one line, the old Team Note kit entry (`211 74 79 - 162 62 77`,
+  with or without its trailing icon number): one color per line leaves no separator to get
+  wrong, and the Export upgrader splits a Note's kit entry into two lines and an icon marker
+  when it migrates it. A kit's file uses its first two valid colors; the root file its first
+  four, the record's capacity (a `TeamColor.bin` record is `u16 team_id`, `u16 4`, then four
+  3-byte RGB colors, and Red writes them with no cap, so a fifth would overwrite the next team's
+  id). Valid lines past those report `color_entry_invalid` ("more than N colors"). Team color
+  slots the file does not fill keep the working bin's bytes.
+- **Marker names**: a marker is an empty file whose name says something about its folder, and
+  every marker with a value is written `<name>_<value>`, like `collar_12` and `player_05`:
+  `fpc_on` and `fpc_off` in a player folder, `icon_<N>` (0-23, zero padding optional) in a kit
+  folder for its menu icon. A dot would make the value a file extension (`fpc.on`, the first
+  spelling), which file browsers hide, sort by and warn about on rename. The valueless markers
+  keep their names: `ingame_face`, and the kit layout's `pre-fox` and `fox`. Every marker
+  tolerates a `.txt` after its name, what Notepad's save dialog adds. A kit with two icon
+  markers, or one whose number is not 0-23, reports `kit_icon_invalid` and uses the default
+  icon. **Applied by worklog step 4.30**: until it lands, the code and the other plan sections
+  still write `fpc.on`, `fpc.off` and a kit's `icon.txt` holding the number.
 - **Notes**: optional strict-UTF-8 root `notes.txt`, replacing the old "Other Notes" section. An
   optional BOM is stripped, newlines normalize to LF, invalid encoding drops the note with
   `notes_encoding_invalid`, and empty/whitespace-only content produces no `teamnotes.txt` entry.

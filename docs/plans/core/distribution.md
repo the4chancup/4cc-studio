@@ -187,7 +187,7 @@ settings or lost their reason to exist:
 
 | Red state file | Fate |
 |---|---|
-| `dt00_write_allowed.txt` | The `dt00_overwrite_allow` setting (team compiler) — standing consent as a setting, not a marker |
+| `dt00_write_allowed.txt` | Dropped — the Team compiler never writes `dt00_x64.cpk`: the Fox referee marker is a reserved collar inside the refs CPK (`team_compiler/blue_port.md` "Referee export processing") |
 | `first_run_done.txt` | Presence-based data-location resolution: the settings file's existence *is* the first-run marker (see "Data location") |
 | `admin_warned.txt` | Dropped — the one-time console explanation before Red's UAC relaunch becomes the `elevation` lib's GUI prompt, which explains itself every time it appears |
 | `sideload_warned.txt` | Dropped — the one-time sideload explanation becomes the per-run `overrides_active` Info message (Red's `sideload/` folder is the compiler's `overrides/`) (team compiler catalog) |

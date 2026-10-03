@@ -447,8 +447,9 @@ describes behavior, not a serial scheduling requirement:
   `collar_012.model` plus its `.mtl` pre-Fox, at the target's `nocloth` path ("Game paths
   reference"). A name that doesn't parse, an ID that is not a stock collar of the target version
   (the per-version sets, counted in the installed games' base data CPKs, are in `messages.md`,
-  `collar_id_invalid`), or the
-  reserved ID 105 (the FPC collar — replacing it would break FPC teams everywhere) reports
+  `collar_id_invalid`), or a
+  reserved ID (105, the FPC collar — replacing it would break FPC teams everywhere — and the
+  referees' marker collar, `blue_port.md` "Referee export processing") reports
   `collar_id_invalid`. Two teams replacing the same stock collar ID is an error: planning is serial,
   so a run-wide list of the IDs claimed so far catches duplicates without any advance cross-checking
   — the later claimant in canonical export order reports `collar_id_conflict` and its collar is
@@ -593,7 +594,7 @@ describes behavior, not a serial scheduling requirement:
      `cpk_size_over_limit` (W), since the CPK is fine for PES and only the repository will object.
    - **No legacy DPFL support in multi-CPK mode.** Multi-CPK is run only by the cup maintainers
      assembling a whole DLC from the managers' exports; they are always on the latest tooling. The
-     compiler ships the current official per-version DPFL as an embedded template (see "Resolved
+     compiler ships the current official DPFL as an embedded template (see "Resolved
      decisions") and, when the installed one lacks the required slots, refuses the run with
      `dpfilelist_outdated` and offers the **DpFileList upgrade** described under "Post-processing".
    `test_output/` and `teamnotes.txt` are resolved beneath `output_folder_path`; a
@@ -680,8 +681,12 @@ describes behavior, not a serial scheduling requirement:
   unique behavior was reachable at zero cost by degradation; the flag covers the one deliberate case.
 - **DpFileList upgrade** — the compiler never edits `DpFileList.bin` as a side effect of a compile
   (the Balls compiler's "check, never write" rule holds for every tool). It does offer one explicit,
-  consent-based action. The current official per-version DPFL ships as an embedded template
-  (`templates/` override applies, so maintainers can hot-swap it between releases). At deployment
+  consent-based action. The current official DPFL ships as an embedded template
+  (`templates/` override applies, so maintainers can hot-swap it between releases). There is
+  one official list, not one per PES version: the standard layout, with the midcup CPKs up to
+  79 and `4cc_90_test`; every other layout an install may carry is obsolete, including the list
+  of the last PES 21 cup, which predates `4cc_90_test` (a default-settings compile on such an
+  install reports `dpfilelist_outdated` and offers the upgrade, which is the intended path). At deployment
   preflight the installed DPFL's entry set is compared with the bundled one:
   - identical, or a superset that still contains every target of this run → nothing to do;
   - missing any target of this run (an old official DPFL — typically the pre-`teams` layout) →
@@ -902,10 +907,9 @@ Resolved decisions:
   pair matches the placeholder texture, so a fully placeholder kit is consistently "unfinished"
   everywhere it appears.
 - **`colors.txt` grammar and TeamColor capacity**: one grammar for the root and the kit files,
-  written in "Root files", "Colors" in the [Aesthetics export
+  one color per line, written in "Root files", "Colors" in the [Aesthetics export
   plan](../aesthetics_export/player_folders.md); the root file fills up to four team colors, the
-  `TeamColor.bin` record's capacity. The maintainer confirms the grammar at step 4.8, as it is an
-  export text format.
+  `TeamColor.bin` record's capacity.
 - **Per-player common path templates**: the referee rows of "Game paths reference" carry Red's
   name-keyed per-referee common layout on both engines, the shape of "Texture relocation to
   common" with 999 as the team ID.
@@ -943,7 +947,7 @@ Resolved decisions:
   `kit_mask.dds` and the checkerboard `kit.dds` for placeholder kits, dummy model/MTL, `generic.fpkd`,
   `fcl_hair_sim.fclo`, the generic kit config, the
   `TeamColor`/`UniColor`/`UniformParameter` fallback bases (in `resources/bins/`, Red's own: PES 18
-  builds on `UniformParameter18.bin`, 19–21 on `UniformParameter19.bin`), and the current official per-version
+  builds on `UniformParameter18.bin`, 19–21 on `UniformParameter19.bin`), and the current official
   `DpFileList.bin` (for slot discovery and the DpFileList upgrade — see "Multi-CPK mode: teams
   parts" and "Post-processing") — ~6 MB total) ship inside the binary
   (`include_dir!`), version-locked to the compiler logic that consumes them; Red's
@@ -978,7 +982,8 @@ Resolved decisions:
   (`savefile_missing` is a supported mode), and rewriting user data as a side effect of a compile
   would be a surprise. Placeholder rows (`Backup N`, `Invitational N`) come along and are inert.
 - **Collar contract**: the replaced stock collar ID comes from the `collar_[ID]` filename
-  (`collar_id_invalid` otherwise); ID 105 is reserved for FPC and cannot be replaced; two teams
+  (`collar_id_invalid` otherwise); ID 105 is reserved for FPC and one more for the referees'
+  Fox marker, and neither can be replaced; two teams
   claiming the same ID is an error caught by a run-wide claimed-ID list during serial planning
   (`collar_id_conflict`, later claimant in canonical order loses). Custom collars are compatible
   with team FPC — collar rewriting runs after FPC reconciliation and deliberately overrides the FPC
@@ -1045,6 +1050,26 @@ Resolved decisions:
   makes the Common file resolve under that stem in the player folder. Where a texture resolved
   decides where it is packed (step 6): player folder → relocated to the player's common subfolder;
   Common → referenced in place, once per team.
+- **A texture a model names must exist** (`fmdl_texture_not_found`, `mtl_texture_not_found`): a
+  player whose texture nobody supplies does not look as its author meant, so the finding is an
+  Error and drops the folder. A texture used by one of the model's meshes is supplied when
+  (1) its stem resolves in the model's folder, links included; or (2) its path names the team's
+  Common output and the export's `Common/` holds the stem; or (3) its path names the team's
+  Common output and an **installed CPK** holds that path. Case 3 is the midcup export: a partial
+  export ships a changed player whose model points at Common textures compiled on an earlier
+  day, and its `Common/` is not in the export. For the same reason a texture `.common` link
+  whose target is not in the export (`common_link_missing`) is satisfied by an installed CPK
+  holding the texture at the team's Common path; a model link is not, since a Fox merge needs
+  the source model. The installed CPKs are the ones the installed `DpFileList.bin` lists in
+  `download/`, minus those this run writes, their tables of contents read once per run (the
+  walk "Bins accumulation" already makes); Red looked only in CPKs named `midcup`, `uniform` or
+  `faces`, a filter the list's layout no longer needs. A path naming anything else (the game's
+  own textures, `dummy_*`) is kept as it is and not looked up: the game's data CPKs are not
+  read. When no install can be read (no PES folder, no `DpFileList.bin`), case 3 cannot be
+  decided, and the finding is a Warning that keeps the folder and says the textures could not
+  be looked for. Red never checked a Fox model's textures at all, and only warned for a
+  pre-Fox one; its warning for an FMDL with no team ID in its texture paths
+  (`fmdl_no_texture_ids`) has no equivalent, since nothing is found by ID here.
 - **Conversion cache engages only for ≤2 teams**: the in-memory texture conversion cache is
   bypassed for compiles of 3+ teams; see the [library crates plan](../libs/README.md) for rationale.
 - **Output-mode artifact routing**: `teamnotes.txt` is written under `output_folder_path` in every
@@ -1069,8 +1094,8 @@ phase that owns them):
   published/installed outputs must remain untouched on failure or cancellation, as required by the
   runtime catalog. The mechanism is fixed in "Post-processing" (run-scoped `output/.staging/`,
   `.partial` copy + atomic rename in `download/`, promotion to `output/` on deployment failure);
-  what remains is the backup/rollback protocol across multiple CPKs, the savefile, and
-  `dt00_x64.cpk`, and cleanup of stale `.staging/` folders left by a crash.
+  what remains is the backup/rollback protocol across multiple CPKs and the savefile, and
+  cleanup of stale `.staging/` folders left by a crash.
 - **Complete memory accounting.** Source sizes do not cover decoded textures, converted models,
   merged meshes, or packed entries; evaluate an RAII budget permit that grows and shrinks with
   actual allocations. Solid 7z archives charge their full decompressed buffer until all dependent
@@ -1090,10 +1115,9 @@ phase that owns them):
   `pass_through`, failed moves, and failed savefile writes map predictably to GUI state and CLI exit
   codes. The exit codes are fixed (`settings.md` "CLI"): deployment adds none, a degraded run
   exits 1 and an aborted one 3; what remains is the outcome types for GUI state. Deployment is
-  transactional across generated CPKs, the savefile, and `dt00_x64.cpk`, with backups and
-  rollback; PES launches only after the complete transaction succeeds.
-- **`dt00_x64.cpk` transaction.** Define backup and rollback behavior if referee-marker conversion
-  or system-CPK replacement fails or is cancelled.
+  transactional across generated CPKs and the savefile, with backups and rollback; PES launches
+  only after the complete transaction succeeds. (No system CPK is part of it: the Fox referee
+  marker is a reserved collar inside the refs CPK, `blue_port.md` "Referee export processing".)
 - **Superseded installed outputs.** Within the teams slot run this is solved: every slot is written
   each multi-CPK run (content or the empty placeholder), so stale parts cannot survive. What remains
   is the single-CPK-versus-multi-CPK crossover (a `4cc_90_test` left from a test compile is not

@@ -141,8 +141,8 @@ test, and sideload modes; savefile success/failure; and cancellation. Key behavi
   while independent settings still apply; with either FPC marker, successful standalone assets
   overriding preset IDs, failed/dropped requested assets preserving existing IDs, and absent
   standalone assets using preset IDs (including pre-Fox face-XML-local parts); source modification after planning producing
-  `source_changed_during_run` (no final output published, no installed CPK/savefile/dt00 changed);
-  separate refs CPK installation; `dt00_x64.cpk` write failure; multi-CPK deployment failure; no FPC
+  `source_changed_during_run` (no final output published, no installed CPK or savefile changed);
+  separate refs CPK installation; multi-CPK deployment failure; no FPC
   markers with an already-FPC savefile (configs untouched); a mixed `fpc.on`/`fpc.off` team applying
   per-player presets while every kit config gains the FPC values; an FPC team's unexported kit slots
   patched from the installed cup entries (Fox and pre-Fox), including the no-existing-entry

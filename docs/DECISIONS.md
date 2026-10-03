@@ -3183,3 +3183,79 @@ the finding could only refuse a file the compiler fixes. Keeping it would refuse
 `kit.dds` while accepting the same pixels as a PNG.
 Plan: `team_compiler/messages.md` "Textures" (row removed, preamble sentence);
 `team_compiler/README.md` TC-CHK-04.
+
+## 2026-10-03 — team_compiler — a format finding drops its folder by severity
+Decision (user): a file that cannot be produced, or whose compiled result is unusable or visibly
+compromised, is an Error and drops its folder; one that compiles to something usable but may
+hide an issue is a Warning and compiles. The deep pass therefore maps a format crate's `check`
+finding by its severity (Error: `DropFolder`; Warning, Info: `Keep`).
+Why: one rule instead of a per-code table; a format Error seen on models the game renders is a
+wrong severity in the format crate, fixed there (the lead's `fmdl::check` census at 4.7 looks
+for them), not an exception in the compiler.
+Plan: `team_compiler/messages.md` "Message structure" ("What makes a finding an Error").
+
+## 2026-10-03 — team_compiler — a model's missing texture is an Error; installed CPKs are searched
+Decision (user): `fmdl_no_texture_ids` is dropped. A texture a model's meshes use and nobody
+supplies is an Error dropping the folder (`fmdl_texture_not_found`, and `mtl_texture_not_found`
+pre-Fox). A path naming the team's Common output is looked for in the export's `Common/`, then
+in the installed CPKs' tables of contents, so a partial (midcup) export pointing at Common
+textures compiled earlier is not refused; a texture `.common` link without a target in the
+export is satisfied the same way. Chosen by the lead where the ruling was silent: the CPKs
+searched are those the installed `DpFileList.bin` lists, minus the run's own (Red filtered by
+the names `midcup`, `uniform`, `faces`); paths naming anything else are not looked up; with no
+readable install the finding is a Warning that keeps the folder.
+Why: the player would not look as intended, which is the Error rule above; the old warning was
+about IDs in paths, which nothing here resolves by. Without the CPK lookup every midcup export
+would lose its changed players; without the Warning fallback, a compile on a machine with no
+PES install would.
+Plan: `team_compiler/pipeline.md` "Resolved decisions" ("A texture a model names must exist");
+`team_compiler/messages.md` (both codes); `team_compiler/README.md` TC-TEX-05 rewritten;
+worklog step 4.29.
+
+## 2026-10-03 — workspace — the `base64` crate decodes `face_diff.xml`
+Decision (user: either; the lead picked): the `base64` crate, not a hand-written decoder.
+Why: nothing to own or mutation-test, and `settings.toml`'s raw runs (`settings_toml.md`) will
+need an encoder too.
+Plan: `core/README.md` dependency table.
+
+## 2026-10-03 — aesthetics_export — `colors.txt` holds one color per line
+Decision (user): the kit file writes its two colors on two lines, like the root file, instead
+of the Team Note's `211 74 79 - 162 62 77`. Two colors on one line is `color_entry_invalid`;
+the tolerance for a trailing icon number is gone with it.
+Why: no separator to get wrong. The one-line form only exists in old Team Notes, which the
+Export upgrader splits when it migrates them.
+Plan: `aesthetics_export/player_folders.md` "Root files" (Colors); `team_compiler/messages.md`
+(`color_entry_invalid`); `export_upgrader.md`.
+
+## 2026-10-03 — aesthetics_export — marker names: `fpc_on`, `fpc_off`, `icon_<N>`
+Decision (user: a marker replaces `icon.txt`, one spelling for every marker; the lead picked the
+spelling): a kit's icon is the empty marker `icon_<N>`; a marker with a value is
+`<name>_<value>`, so `fpc.on`/`fpc.off` become `fpc_on`/`fpc_off`; `ingame_face`, `pre-fox` and
+`fox` keep their names; every marker tolerates `.txt`.
+Why: an underscore, not a dot or a hyphen, because the format already writes `collar_12` and
+`player_05`, and a dot makes the value a file extension, which file browsers hide and warn
+about. A marker instead of `icon.txt` removes a file to open and a small-metadata read.
+Plan: `aesthetics_export/player_folders.md` "Root files" ("Marker names"); the other sections
+and the code are renamed by worklog step 4.30.
+
+## 2026-10-03 — team_compiler — the Fox referee marker is a reserved collar, not a dt00 write
+Decision (user): one stock collar ID no team uses is reserved for the referees; the refs CPK
+carries the marker model as that collar, pointing at `ref_marker.dds` converted into the
+referees' Common output, and the referee template kit configs name the collar.
+`dt00_overwrite_allow`, `ref_marker_needs_consent` and `dt00_write_failed` are retired; a team
+claiming the reserved ID gets `collar_id_invalid`. Open: the ID (a survey picks it) and the
+marker model, both the maintainer's; whether the pre-Fox marker follows.
+Why: writing a system CPK needed a consent setting, a backup and a rollback protocol nobody had
+defined; a collar keeps everything inside the refs CPK.
+Plan: `team_compiler/blue_port.md` "Referee export processing"; `messages.md` "Referees",
+`collar_id_invalid`; `settings.md`; `pipeline.md` "Collars", open questions; `README.md`
+TC-REF-06, TC-REF-07 rewritten; `core/distribution.md`; worklog step 4.27.
+
+## 2026-10-03 — team_compiler — one official DpFileList for every PES version
+Decision (user): the embedded list is the one standard layout (midcup CPKs up to 79 and
+`4cc_90_test`), not a file per PES version; every other layout is obsolete. The PES 21
+install's list lacking `4cc_90_test` is such an old list, so the default `cpk_name` stays.
+Why: the cup maintains one layout. Not verified: that one file's bytes serve every PES version;
+step 4.25's brief checks it with the reader.
+Plan: `team_compiler/pipeline.md` "Post-processing" (DpFileList upgrade), "Multi-CPK mode",
+"Resolved decisions" (templates); worklog steps 4.24, 4.25.
