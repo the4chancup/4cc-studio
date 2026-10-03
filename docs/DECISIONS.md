@@ -3148,3 +3148,14 @@ Why: unoptimized, the BC7 encode of one 1024x1024 texture (TC-TEX-01) took 55.7 
 build against 8.6 s optimized, which every `cargo test`, CI job and mutant would pay; optimizing
 all dependencies would slow every clean build for no measured need.
 Plan: no plan edit needed (build configuration; the profile comment points here).
+
+## 2026-10-03 — team_compiler — a kit texture's finding drops the kit; a renamed file is sniffed
+Decision: a texture finding (`texture_too_small`, `texture_not_pow2`, `texture_type_mismatch`,
+`texture_codec_unsupported`) on a kit texture drops the kit, as in a model folder; in `Common/`
+and for a portrait only the file is dropped. `texture_type_mismatch` is a file whose bytes open
+with another accepted format's signature than its extension names.
+Why: the catalog said "elsewhere the file is normally dropped" without naming the kits; a kit
+config names the textures the kit has, so a kit emitted without one is not the kit the member
+drew, and `texture_stem_conflict` already drops the whole kit. The signature rule needs no
+decode, and TGA, which has none, can only be caught when it opens with another format's.
+Plan: `team_compiler/messages.md` "Textures" preamble.

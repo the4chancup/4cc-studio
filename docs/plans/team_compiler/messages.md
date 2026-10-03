@@ -207,9 +207,12 @@ savefile messages are new.
 | `file_type_disallowed` | E/I | extension not in the mode's allowlist (E if `strict_file_type_check`, else I) | folder discarded / kept |
 | `fmdl_no_texture_ids` | W | no ID-bearing texture paths found in FMDL | none (double-check hint) |
 
-**Textures** (file-scoped; in model folders the folder fails, elsewhere the file is normally
-dropped; the logo sources are the exception — main and `_small` fail as one atomic producer of the
-game's three sizes)
+**Textures** (file-scoped; in model folders the folder fails, and so does a kit, whose config
+names its textures; elsewhere (`Common/`, portraits) the file is dropped; the logo sources are the
+exception — main and `_small` fail as one atomic producer of the game's three sizes. A file is
+`texture_type_mismatch` when its bytes open with the signature of another accepted format than
+its extension's; TGA has no signature, so a `.tga` is a mismatch only when it opens with
+another's)
 
 | ID | Sev | Condition | Consequence |
 |---|---|---|---|
