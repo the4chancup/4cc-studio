@@ -7,7 +7,7 @@
 use aesthetics_export::{
     ExportIdentity, FileDescriptor, FileKind, FpcDirective, KitLayout, ModelFormat, ModelSuffix,
     PlayerFolder, PlayerSlot, ResolvedAestheticsExport, SharedKind, SharedLink, SharedModelFolder,
-    ValidatedAestheticsExport, ValidatedRoster, model_suffix,
+    ValidatedAestheticsExport, ValidatedRoster, classify, common_link_name, model_suffix,
 };
 use pes_version::{Engine, PesVersion};
 use vtree::ScopePath;
@@ -145,6 +145,15 @@ pub(crate) enum PlayerFile {
         package: ModelPackage,
         name: &'static str,
     },
+    /// A `.common` link to an FMDL (`legs.fmdl.common` → `Common/legs.fmdl`): the Common model
+    /// is a part of `package` under `name`, merged with the player's parts of that name, since
+    /// Fox cannot load a model from Common (`player_folders.md` "Common model links and model
+    /// merging"). The role is the link's; the Models task reads the Common model, which
+    /// planning resolves (`plan::CommonModel`), never the empty link.
+    CommonModel {
+        package: ModelPackage,
+        name: &'static str,
+    },
     /// A face file packed into `package` as it is, under `name`: `face_diff.bin` and
     /// `fcl_hair_sim.fclo`. Not a part to merge: the package holds one, the player folder's
     /// own over a combined face folder's (`player_folders.md` "A link plus local models
@@ -176,11 +185,59 @@ impl PlayerFile {
     pub(crate) fn package(&self) -> Option<ModelPackage> {
         match self {
             PlayerFile::Model { package, .. }
+            | PlayerFile::CommonModel { package, .. }
             | PlayerFile::Packed { package, .. }
             | PlayerFile::Skeleton { package, .. } => Some(*package),
             PlayerFile::SlotlessSkeleton | PlayerFile::Texture(..) => None,
         }
     }
+}
+
+/// The name the skeleton of a part of `package` under `name` packs as: `fcl_hair_sim.skl` for
+/// the hair, `boots.skl` for the boots, the two destinations with a skeleton slot
+/// (`player_folders.md` "SKL pairing"); `None` for `face_high`, `hair_high`, `oral` and the
+/// gloves.
+pub(crate) fn skeleton_slot(package: ModelPackage, name: &str) -> Option<&'static str> {
+    match (package, name) {
+        (ModelPackage::Face, "fcl_hair") => Some("fcl_hair_sim.skl"),
+        (ModelPackage::Boots, _) => Some("boots.skl"),
+        (ModelPackage::Face | ModelPackage::Gloves, _) => None,
+    }
+}
+
+/// The FMDL a `.common` link named `link_name` stands for (`legs.fmdl.common` → `legs.fmdl`);
+/// `None` for a link to anything else (a texture, a material file), which `compile` does not
+/// build yet.
+fn linked_fmdl(link_name: &str) -> Option<String> {
+    common_link_name(link_name).filter(|name| classify(name) == FileKind::Model(ModelFormat::Fmdl))
+}
+
+/// Whether `path` is a file directly in the export's `Common/` folder: the only place a link
+/// resolves, and the only place `compile` reads a Common file from.
+fn is_direct_common_file(path: &ScopePath) -> bool {
+    path.segments().count() == 2
+}
+
+/// The file named `name` directly in `Common/`, among `common` (the export's `Common/` files),
+/// matched as validation matched a link's target: by case-folded name.
+pub(crate) fn common_file<'a>(
+    common: &'a [FileDescriptor],
+    name: &str,
+) -> Option<&'a FileDescriptor> {
+    let key = vtree::fold_name(name);
+    common
+        .iter()
+        .find(|file| is_direct_common_file(&file.path) && vtree::fold_name(file.path.name()) == key)
+}
+
+/// The `.skl` directly in `Common/` paired with the Common model named `model_name`
+/// (`legs.skl` for `legs.fmdl`), when there is one: the skeleton that travels with a `.common`
+/// link (`player_folders.md` "SKL pairing").
+pub(crate) fn common_skeleton<'a>(
+    common: &'a [FileDescriptor],
+    model_name: &str,
+) -> Option<&'a FileDescriptor> {
+    common_file(common, &format!("{}.skl", file_stem(model_name)))
 }
 
 /// Where a file sits in its model folder: directly in it, or one level down in one of the
@@ -286,20 +343,33 @@ pub(crate) struct FolderModels {
 }
 
 impl FolderModels {
-    /// The models among `files` of the folder at `folder`: its `.fmdl` files, directly in it
-    /// or in a reserved subfolder, each with its resolved role.
+    /// The models among `files` of the folder at `folder`: its `.fmdl` files and its `.common`
+    /// links to one, directly in it or in a reserved subfolder, each with its resolved role. A
+    /// link counts as a model of its role's package, but pairs no skeleton of the folder's: a
+    /// Common model's skeleton is Common's, resolved at planning (`common_skeleton`).
     pub(crate) fn of(folder: &ScopePath, files: &[FileDescriptor]) -> FolderModels {
         let mut models = FolderModels::default();
         for file in files {
-            if file.kind != FileKind::Model(ModelFormat::Fmdl) {
-                continue;
-            }
             let Some(position) = position(folder, file) else {
                 continue;
             };
-            let Some((package, name)) = model_role(position, file_stem(file.path.name())) else {
+            let file_name = file.path.name();
+            let (model_name, local) = if file.kind == FileKind::Model(ModelFormat::Fmdl) {
+                (file_name.to_owned(), true)
+            } else if file.kind == FileKind::CommonLink
+                && let Some(linked) = linked_fmdl(file_name)
+            {
+                (linked, false)
+            } else {
                 continue;
             };
+            let Some((package, name)) = model_role(position, file_stem(&model_name)) else {
+                continue;
+            };
+            if !local {
+                models.face |= package == ModelPackage::Face;
+                continue;
+            }
             let stem = path_stem(file).to_owned();
             match (package, name) {
                 (ModelPackage::Face, "fcl_hair") => {
@@ -367,6 +437,12 @@ pub(crate) fn player_file(
         FileKind::Model(ModelFormat::Fmdl) => {
             model_role(position, stem).map(|(package, name)| PlayerFile::Model { package, name })
         }
+        // The link takes the role the linked model would have in its place; a link to anything
+        // but an FMDL has no role yet.
+        FileKind::CommonLink => linked_fmdl(name).and_then(|linked| {
+            model_role(position, file_stem(&linked))
+                .map(|(package, name)| PlayerFile::CommonModel { package, name })
+        }),
         FileKind::Texture => {
             texture_format(name).map(|format| PlayerFile::Texture(stem.to_owned(), format))
         }
@@ -397,15 +473,25 @@ pub(crate) fn player_file(
         | FileKind::Mtl
         | FileKind::MaterialsToml
         | FileKind::SharedLink(_)
-        | FileKind::CommonLink
         | FileKind::Marker(_)
         | FileKind::Metadata(_)
         | FileKind::Other => None,
     }
 }
 
-/// Whether the folder at `folder` holding `files` has a model that packs into `package`: on
-/// Fox, what gives a player its own package of that kind.
+/// Whether `role` is a part of `package`: a model of the folder's own, or a Common model its
+/// link brings in.
+pub(crate) fn is_part_of(role: &PlayerFile, package: ModelPackage) -> bool {
+    matches!(
+        role,
+        PlayerFile::Model { package: owner, .. } | PlayerFile::CommonModel { package: owner, .. }
+            if *owner == package
+    )
+}
+
+/// Whether the folder at `folder` holding `files` has a model that packs into `package`, its
+/// own or one a `.common` link brings in: on Fox, what gives a player its own package of that
+/// kind.
 pub(crate) fn holds_model(
     folder: &ScopePath,
     files: &[FileDescriptor],
@@ -413,10 +499,7 @@ pub(crate) fn holds_model(
 ) -> bool {
     let models = FolderModels::of(folder, files);
     files.iter().any(|file| {
-        matches!(
-            player_file(folder, file, &models),
-            Some(PlayerFile::Model { package: owner, .. }) if owner == package
-        )
+        player_file(folder, file, &models).is_some_and(|role| is_part_of(&role, package))
     })
 }
 
@@ -489,8 +572,36 @@ pub(crate) fn first_not_compiled(
         .map(|logo| &logo.main.file)
         .into_iter()
         .chain(&export.collars)
-        .chain(&export.common);
+        .chain(
+            export
+                .common
+                .iter()
+                .filter(|file| !common_file_compiled(file)),
+        );
     rest.next().map(what_entry)
+}
+
+/// Whether `compile` builds the `Common/` file, or accepts it: directly in the folder, an
+/// FMDL or a `.skl` (reached through a player's `.common` link; one no link names builds
+/// nothing) or a `.dds`/`.ftex` texture (the export's Common textures task). Any other kind,
+/// and any file deeper in the folder, is named.
+fn common_file_compiled(file: &FileDescriptor) -> bool {
+    is_direct_common_file(&file.path)
+        && match file.kind {
+            FileKind::Model(ModelFormat::Fmdl) | FileKind::Skl => true,
+            FileKind::Texture => texture_format(file.path.name()).is_some(),
+            FileKind::Model(ModelFormat::PesModel | ModelFormat::Gltf)
+            | FileKind::Fclo
+            | FileKind::Xml
+            | FileKind::Mtl
+            | FileKind::MaterialsToml
+            | FileKind::Bin
+            | FileKind::SharedLink(_)
+            | FileKind::CommonLink
+            | FileKind::Marker(_)
+            | FileKind::Metadata(_)
+            | FileKind::Other => false,
+        }
 }
 
 /// Whether `file` is a `.dds`, the one portrait format emitted as it is; every other image
@@ -523,7 +634,10 @@ fn player_not_compiled(
         let Some(role) = player_file(&folder.path, file, &models) else {
             return Some(what_entry(file));
         };
-        has_model |= matches!(role, PlayerFile::Model { .. });
+        has_model |= matches!(
+            role,
+            PlayerFile::Model { .. } | PlayerFile::CommonModel { .. }
+        );
     }
     let path = folder.path.as_str();
     // A boots or gloves link alone loads the shared output as it is; one beside a local model
@@ -577,8 +691,11 @@ fn shared_not_compiled(
         let Some(role) = player_file(path, file, &models) else {
             return Some(what_entry(file));
         };
-        // A model of another package has no package here.
-        if role.package().is_some_and(|owner| owner != package) {
+        // A model of another package has no package here, and a `.common` link (kept by a
+        // non-strict file-type check) resolves only from a player folder.
+        if role.package().is_some_and(|owner| owner != package)
+            || matches!(role, PlayerFile::CommonModel { .. })
+        {
             return Some(what_entry(file));
         }
         has_model |= matches!(role, PlayerFile::Model { .. });
@@ -1296,10 +1413,122 @@ mod tests {
     }
 
     #[test]
-    fn logo_collars_and_common_are_named() {
-        for file in ["logo.dds", "Collars/collar.dds", "Common/skin.dds"] {
+    fn logo_and_collars_are_named_and_common_holds_models_skeletons_and_textures() {
+        for file in ["logo.dds", "Collars/collar.dds"] {
             assert_eq!(gate(&[file]), what(file), "{file}");
         }
+        // Common's FMDLs and skeletons are reached through links, and one no link names
+        // builds nothing; its `.dds`/`.ftex` textures are the export's Common textures task's.
+        assert_eq!(
+            gate(&[
+                "Common/spare.fmdl",
+                "Common/spare.skl",
+                "Common/skin.dds",
+                "Common/hair.FTEX",
+            ]),
+            None
+        );
+        // Any other kind, and any file deeper in the folder, is named.
+        for file in ["Common/skin.png", "Common/body.mtl", "Common/legs.model"] {
+            assert_eq!(gate(&[file]), what(file), "{file}");
+        }
+        // A file under a subfolder of `Common/` is validation's `common_file_disallowed`, which
+        // drops it under the strict file-type check (so the gate never sees it) and keeps it
+        // otherwise: then the gate names it.
+        let (export, issues) = resolved_with_issues(
+            "co - Gate",
+            &[(FACE[0], 1), (FACE[1], 1), ("Common/sub/x.dds", 1)],
+            &[],
+            None,
+        );
+        assert_eq!(issues, ["common_file_disallowed"]);
+        assert!(export.export.common.is_empty());
+        for (path, compiled) in [
+            ("Common/sub/x.dds", false),
+            ("Common/sub/x.fmdl", false),
+            ("Common/x.dds", true),
+        ] {
+            let path = ScopePath::new(path).unwrap();
+            let file = FileDescriptor {
+                size: 0,
+                kind: aesthetics_export::classify(path.name()),
+                source: path.clone(),
+                path,
+            };
+            assert_eq!(
+                common_file_compiled(&file),
+                compiled,
+                "{}",
+                file.path.as_str()
+            );
+        }
+    }
+
+    #[test]
+    fn a_common_link_to_an_fmdl_is_a_model_of_the_folder_and_any_other_link_is_named() {
+        let legs = "Common/legs.fmdl";
+        // Alone, the link is the folder's model: no face needed with the link in `boots/`.
+        assert_eq!(first_hit(&["Players/03 - A/legs.fmdl.common", legs]), None);
+        assert_eq!(
+            first_hit(&["Players/03 - A/boots/legs.fmdl.common", legs]),
+            None
+        );
+        assert_eq!(
+            first_hit(&["Players/03 - A/face/legs.fmdl.common.txt", legs]),
+            None
+        );
+        // Beside a local model of its package, with the face's files, and with a skeleton of
+        // the model's stem in Common.
+        assert_eq!(
+            gate(&[
+                "Players/03 - A/torso.fmdl",
+                "Players/03 - A/legs.fmdl.common",
+                legs,
+                "Common/legs.skl",
+                "Common/cloth.dds",
+            ]),
+            None
+        );
+        // A boots link beside a shared boots link combines, as a local boots model would.
+        assert_eq!(
+            first_hit(&[
+                "Players/03 - A/kit_boots.fmdl.common",
+                "Players/03 - A/Crocs.boots",
+                "Boots/Crocs/boots.fmdl",
+                "Common/kit_boots.fmdl",
+            ]),
+            None
+        );
+        let folder = folder(&["kit_boots.fmdl.common"]);
+        assert!(holds_model(
+            &folder.path,
+            &folder.files,
+            ModelPackage::Boots
+        ));
+        assert!(!holds_model(
+            &folder.path,
+            &folder.files,
+            ModelPackage::Face
+        ));
+        // A link to a texture or a material file is named; so is a glove link that gives no
+        // side, and a `.skl` beside the link, which pairs with no model of the folder's.
+        for (link, target) in [
+            ("hair.dds.common", Some("Common/hair.dds")),
+            ("body.mtl.common", Some("Common/body.mtl")),
+            ("gloves/legs.fmdl.common", None),
+            ("legs.skl", None),
+        ] {
+            let file = format!("Players/03 - A/{link}");
+            let mut files = vec![file.as_str(), "Players/03 - A/legs.fmdl.common", legs];
+            files.extend(target);
+            assert_eq!(gate(&files), what(&file), "{link}");
+        }
+        // A shared folder's link (kept by a non-strict file-type check) resolves from no
+        // player folder: named.
+        assert_eq!(
+            shared_hit(SharedKind::Boots, &["boots.fmdl", "legs.fmdl.common"]),
+            what("Boots/Crocs/legs.fmdl.common")
+        );
     }
 
     #[test]
@@ -1604,6 +1833,112 @@ mod tests {
             };
             assert_eq!(stem, expected, "{name}");
         }
+    }
+
+    #[test]
+    fn a_common_link_takes_the_role_the_linked_model_would_have_in_its_place() {
+        for (link, package, allowed) in [
+            ("legs.fmdl.common", ModelPackage::Face, "fcl_hair"),
+            ("legs.FMDL.common.txt", ModelPackage::Face, "fcl_hair"),
+            ("x_face_high.fmdl.common", ModelPackage::Face, "face_high"),
+            ("kit_boots.fmdl.common", ModelPackage::Boots, "boots"),
+            ("boots/legs.fmdl.common", ModelPackage::Boots, "boots"),
+            ("face/kit_boots.fmdl.common", ModelPackage::Face, "fcl_hair"),
+            ("gloves/handL.fmdl.common", ModelPackage::Gloves, "glove_l"),
+        ] {
+            assert_eq!(
+                roles(&[link]),
+                [Some(PlayerFile::CommonModel {
+                    package,
+                    name: allowed
+                })],
+                "{link}"
+            );
+        }
+        for refused in [
+            "hair.dds.common",
+            "body.mtl.common",
+            "legs.model.common",
+            "gloves/legs.fmdl.common",
+            "common/legs.fmdl.common",
+            "other/legs.fmdl.common",
+        ] {
+            assert_eq!(roles(&[refused]), [None], "{refused}");
+        }
+        // The link is a face model for the face's files, but pairs no skeleton of the
+        // folder's: the Common model's skeleton is Common's.
+        assert_eq!(
+            roles(&["legs.fmdl.common", "face_diff.bin", "legs.skl"]),
+            [
+                Some(PlayerFile::CommonModel {
+                    package: ModelPackage::Face,
+                    name: "fcl_hair"
+                }),
+                packed(ModelPackage::Face, "face_diff.bin"),
+                None
+            ]
+        );
+        assert_eq!(
+            roles(&["kit_boots.fmdl.common", "face_diff.bin"]),
+            [
+                Some(PlayerFile::CommonModel {
+                    package: ModelPackage::Boots,
+                    name: "boots"
+                }),
+                None
+            ]
+        );
+        assert_eq!(
+            PlayerFile::CommonModel {
+                package: ModelPackage::Gloves,
+                name: "glove_l"
+            }
+            .package(),
+            Some(ModelPackage::Gloves)
+        );
+    }
+
+    #[test]
+    fn only_the_hair_and_the_boots_have_a_skeleton_slot() {
+        assert_eq!(
+            skeleton_slot(ModelPackage::Face, "fcl_hair"),
+            Some("fcl_hair_sim.skl")
+        );
+        assert_eq!(
+            skeleton_slot(ModelPackage::Boots, "boots"),
+            Some("boots.skl")
+        );
+        for name in ["face_high", "hair_high", "oral"] {
+            assert_eq!(skeleton_slot(ModelPackage::Face, name), None, "{name}");
+        }
+        assert_eq!(skeleton_slot(ModelPackage::Gloves, "glove_l"), None);
+    }
+
+    #[test]
+    fn a_common_file_is_found_directly_in_common_by_folded_name() {
+        let common: Vec<FileDescriptor> =
+            ["Common/Legs.fmdl", "Common/legs.skl", "Common/sub/x.fmdl"]
+                .iter()
+                .map(|path| {
+                    let path = ScopePath::new(path).unwrap();
+                    FileDescriptor {
+                        size: 0,
+                        kind: aesthetics_export::classify(path.name()),
+                        source: path.clone(),
+                        path,
+                    }
+                })
+                .collect();
+        assert_eq!(
+            common_file(&common, "legs.fmdl").map(|file| file.path.as_str()),
+            Some("Common/Legs.fmdl")
+        );
+        assert_eq!(common_file(&common, "x.fmdl"), None);
+        assert_eq!(
+            common_skeleton(&common, "LEGS.fmdl").map(|file| file.path.as_str()),
+            Some("Common/legs.skl")
+        );
+        assert_eq!(common_skeleton(&common, "torso.fmdl"), None);
     }
 
     #[test]

@@ -73,6 +73,20 @@ impl TextureHome {
     }
 }
 
+/// The directory an FMDL texture-path table names for a texture of the team's Common output
+/// (the Common row of "Game paths reference"), for team `team_id`: where a texture that
+/// resolves into the export's `Common/` folder stays, packed once for every player pointing at
+/// it (`pipeline.md` "3. Per-model-folder parallel steps", step 6).
+pub(crate) fn common_texture_directory(team_id: u16) -> String {
+    format!("/Assets/pes16/model/character/common/{team_id}/sourceimages/")
+}
+
+/// The CPK path of the texture `stem` of the team's Common output, converted to FTEX, for team
+/// `team_id`.
+pub(crate) fn common_texture(team_id: u16, stem: &str) -> String {
+    format!("Asset/model/character/common/{team_id}/sourceimages/#windx11/{stem}.ftex")
+}
+
 /// The CPK path of one kit texture, by its game name (`u0792g1`, `u0792g1_back`).
 pub(crate) fn kit_texture(name: &str) -> String {
     format!("Asset/model/character/uniform/texture/#windx11/{name}.ftex")
@@ -150,6 +164,18 @@ mod tests {
         assert_eq!(
             gloves.texture(714, "grip"),
             "Asset/model/character/glove/g0644/#windx11/grip.ftex"
+        );
+    }
+
+    #[test]
+    fn the_team_s_common_textures_sit_one_level_above_the_players_subfolders() {
+        assert_eq!(
+            common_texture_directory(714),
+            "/Assets/pes16/model/character/common/714/sourceimages/"
+        );
+        assert_eq!(
+            common_texture(714, "cloth"),
+            "Asset/model/character/common/714/sourceimages/#windx11/cloth.ftex"
         );
     }
 

@@ -30,9 +30,23 @@ shared folder is still built on its own for any player linking it plainly. A lin
 `Faces` folder (`Longhair.face` names `Faces/Longhair`) always combines: the shared folder's
 face models become part of the player's face, beside any face models of the player's own, and
 its `face_diff.bin` and `fcl_hair_sim.fclo` are used only when the player's folder has none of
-its own. Several boots models in one folder (`a_boots.fmdl` beside `kit_boots.fmdl`), several
-gloves models for one hand, or several face models under one name (`face_high.fmdl` beside
-`old_face_high.fmdl`), are merged into one model in the alphabetical order of their file names,
+its own. A player can also load a model kept in the export's `Common` folder through an empty
+link file named after it plus `.common` (`legs.fmdl.common` in the player's folder, or in its
+`face`, `boots` or `gloves` subfolder, names `Common/legs.fmdl`): the game cannot read a model
+from there, so the Common model is built into the player's own face, boots or gloves as if it
+were a model of the player's folder, under the name its own name or the subfolder gives it
+(`legs.fmdl.common` is face content, reported as `fmdl_fcl_hair_fallback` like a local
+`legs.fmdl`), and merged with the player's models of that name. A skeleton file named after it
+in `Common` (`Common/legs.skl`) comes with it. The textures in `Common` (`.dds` or `.ftex` files
+directly in it) are built once for the whole team, whether a player uses them or not, and a
+Common model's textures of those names are read from there, so twenty players sharing one
+Common model share one copy of its textures. A model of the player's own and a Common model
+must not define a material of the same name over textures kept in different places (the
+player's folder and `Common`): that is a `merge_material_conflict`. When a texture in `Common`
+cannot be converted, the line `folder_pack_failed` names it at `Common`, no Common texture is
+built, and the players linking Common models are still built. Several boots models in one
+folder (`a_boots.fmdl` beside `kit_boots.fmdl`), several gloves models for one hand, or
+several face models under one name (`face_high.fmdl` beside `old_face_high.fmdl`), are merged into one model in the alphabetical order of their file names,
 reported as `fmdl_merged`. Models merged into one must agree with each other: a material they
 define differently is reported as `merge_material_conflict`, and skeletons that differ (one
 model with a skeleton file and one without, two different files, or a bone placed differently)
@@ -68,10 +82,12 @@ no `kit` texture, an empty one included, is built with a magenta and black check
 place and reported as `kit_placeholder`, so a kit nobody drew shows as missing in the game. `compile`
 skips any other export with the error `content_not_yet_compiled`, naming the first thing it
 cannot build yet: a PES 2015 to 2017 target, a referee export, or content other than a player's
-own face, boots and gloves models, their textures, `.dds` portraits, kits and linked shared
-`Faces`, `Boots` and `Gloves` folders (a texture in a format other than `.dds` or `.ftex`, or a
-model in a `gloves` subfolder whose name does not say which hand it is, among others). `check`
-still checks those exports. `compile` does not install the CPK into the game yet: it always
+own face, boots and gloves models, their textures, `.dds` portraits, kits, linked shared
+`Faces`, `Boots` and `Gloves` folders, and a `Common` folder holding only `.fmdl`, `.skl`,
+`.dds` and `.ftex` files, its models reached through `.common` links (a texture in a format
+other than `.dds` or `.ftex`, a model in a `gloves` subfolder whose name does not say which hand
+it is, or a `.common` link to a texture or a material file, among others). `check` still checks
+those exports. `compile` does not install the CPK into the game yet: it always
 leaves it in the output folder.
 
 `check` prints one line per finding: the export it is about, how serious it is, its code, where

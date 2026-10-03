@@ -1,13 +1,13 @@
 //! One package of a model folder's Fox models (`team_compiler/pipeline.md` "3.
 //! Per-model-folder parallel steps", steps 2, 3 and 7): its models renamed to their allowed
-//! names, the parts resolving to one name merged into one model, their texture paths pointed
-//! at the folder's texture home, packed with the files that go beside them into one `.fpk`
+//! names, each part's texture paths pointed at where its textures go, the parts resolving to
+//! one name merged into one model, packed with the files that go beside them into one `.fpk`
 //! emitted under each of the package's ids.
 
 use std::collections::{BTreeMap, BTreeSet};
 
 use fmdl::ops::merge::{MergeError, merge};
-use fmdl::ops::paths::rewrite_texture_paths;
+use fmdl::ops::paths::{TexturePath, rewrite_texture_paths};
 use fmdl::{FmdlFile, Model};
 use fpk::{FpkFile, FpkKind};
 use studio_core::Disposition;
@@ -21,7 +21,8 @@ use crate::plan::subset::{ModelPackage, PlayerFile, file_stem};
 use crate::templates;
 
 /// One model of the package: a part of the output model its allowed name names, from the
-/// folder's own files or a combined shared folder's.
+/// folder's own files, a combined shared folder's, or the export's `Common/` folder through a
+/// `.common` link.
 struct Part {
     /// The allowed name the part resolves to (`boots`), the output model's.
     name: &'static str,
@@ -31,6 +32,20 @@ struct Part {
     bytes: Vec<u8>,
     /// The skeleton paired with the part: the `.skl` of its stem in its own source folder.
     skeleton: Option<Vec<u8>>,
+    /// Where the part's own textures are packed.
+    textures: PartTextures,
+}
+
+/// Where a part's own textures go, which its texture paths are rewritten to name
+/// (`pipeline.md` "3. Per-model-folder parallel steps", step 6).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum PartTextures {
+    /// The folder's texture home: the part is the folder's own or a combined folder's, and
+    /// its textures are the folder's textures task's.
+    Folder,
+    /// The team's Common output: the part is a Common model a `.common` link brings in, whose
+    /// textures stay in `Common/` and are the export's Common textures task's, never relocated.
+    Common,
 }
 
 /// The `package` of `folder`, compiled from its files' bytes in `files` for team `team_id`
@@ -54,16 +69,22 @@ pub(super) fn package(
         let mut skeletons: BTreeMap<&str, Vec<u8>> = BTreeMap::new();
         let mut source_parts: Vec<Part> = Vec::new();
         for (file, role) in source_files {
+            let mut part = |name, textures| Part {
+                name,
+                path: file.path.clone(),
+                bytes: take(files, file),
+                skeleton: None,
+                textures,
+            };
             match role {
                 PlayerFile::Model {
                     package: owner,
                     name,
-                } if owner == package => source_parts.push(Part {
+                } if owner == package => source_parts.push(part(name, PartTextures::Folder)),
+                PlayerFile::CommonModel {
+                    package: owner,
                     name,
-                    path: file.path.clone(),
-                    bytes: take(files, file),
-                    skeleton: None,
-                }),
+                } if owner == package => source_parts.push(part(name, PartTextures::Common)),
                 PlayerFile::Skeleton { package: owner, .. } if owner == package => {
                     skeletons.insert(file_stem(file.path.as_str()), take(files, file));
                 }
@@ -79,6 +100,7 @@ pub(super) fn package(
                     texture_stems.insert(stem);
                 }
                 PlayerFile::Model { .. }
+                | PlayerFile::CommonModel { .. }
                 | PlayerFile::Skeleton { .. }
                 | PlayerFile::SlotlessSkeleton
                 | PlayerFile::Packed { .. } => {}
@@ -104,10 +126,14 @@ pub(super) fn package(
     }
 
     // A folder's textures sit in its one texture home, once however many ids the package is
-    // emitted under: every copy of the model points at that one location.
+    // emitted under: every copy of the model points at that one location. A Common part's own
+    // textures stay in the team's Common output, where the export's Common textures task puts
+    // them once for every player linking the model (`pipeline.md` step 6: a texture resolved
+    // in Common is never relocated).
     let texture_directory = folder.textures.directory(team_id);
-    // A texture the folder does not hold is one of the game's own; its directory names the
-    // team as `000`, which becomes the team's id.
+    let common_directory = paths::common_texture_directory(team_id);
+    // A texture the part's source does not hold is one of the game's own; its directory names
+    // the team as `000`, which becomes the team's id.
     let team_segment = format!("/{team_id}/");
     // The skeleton the package's parts bring. Only the `fcl_hair` and the `boots` parts pair
     // one (`player_file`), so at most one name's parts have any.
@@ -116,26 +142,35 @@ pub(super) fn package(
         if let Some(found) = merged_skeleton(&mut parts)? {
             skeleton = Some(found);
         }
-        let mut model = match parts.as_slice() {
-            [part] => FmdlFile::read(&part.bytes)?,
+        // Each part's paths are rewritten before the merge: which textures are a part's own
+        // depends on where the part came from, and the merged model no longer tells its parts
+        // apart. One material two parts define over textures that now sit in different
+        // directories is the merge's `merge_material_conflict`, as intended.
+        let mut models = Vec::with_capacity(parts.len());
+        for part in &parts {
+            let (stems, directory) = match part.textures {
+                PartTextures::Folder => (&texture_stems, &texture_directory),
+                PartTextures::Common => (&folder.common_texture_stems, &common_directory),
+            };
+            let mut model = FmdlFile::read(&part.bytes)?;
+            rewrite_texture_paths(&mut model, |path| {
+                point_texture(path, stems, directory, &team_segment);
+            })?;
+            models.push(model);
+        }
+        let bytes = match models.as_slice() {
+            [model] => model.write(),
             _ => {
-                let merged = merge_parts(&parts)?;
+                let merged = merge_parts(&models)?;
                 findings.push((
                     Code::FmdlMerged,
                     Disposition::Keep,
                     vec![("model", format!("{name}.fmdl"))],
                 ));
-                merged
+                merged.write()
             }
         };
-        rewrite_texture_paths(&mut model, |path| {
-            if texture_stems.contains(file_stem(&path.file_name)) {
-                path.directory.clone_from(&texture_directory);
-            } else {
-                path.directory = path.directory.replace("/000/", &team_segment);
-            }
-        })?;
-        fpk.insert(format!("{name}.fmdl"), model.write());
+        fpk.insert(format!("{name}.fmdl"), bytes);
     }
     // The game loads the boots and the hair with a skeleton beside them, under the slot's
     // name (`player_folders.md` "SKL pairing"): the parts' own when they bring one, else the
@@ -210,12 +245,28 @@ fn merged_skeleton(parts: &mut [Part]) -> Result<Option<Vec<u8>>, TaskFailure> {
     Ok(first)
 }
 
-/// `parts`, several models resolving to one allowed name, merged into one FMDL in the given
-/// order.
-fn merge_parts(parts: &[Part]) -> Result<FmdlFile, TaskFailure> {
+/// Points `path`, one texture reference of a part, at where its texture is: `directory` when
+/// its stem is one of `stems`, the textures packed there for the part; any other texture is one
+/// of the game's own, whose directory names the team as `000`, replaced by `team_segment`.
+fn point_texture(
+    path: &mut TexturePath,
+    stems: &BTreeSet<String>,
+    directory: &str,
+    team_segment: &str,
+) {
+    if stems.contains(file_stem(&path.file_name)) {
+        path.directory = directory.to_owned();
+    } else {
+        path.directory = path.directory.replace("/000/", team_segment);
+    }
+}
+
+/// `parts`, several models resolving to one allowed name with their texture paths rewritten,
+/// merged into one FMDL in the given order.
+fn merge_parts(parts: &[FmdlFile]) -> Result<FmdlFile, TaskFailure> {
     let models = parts
         .iter()
-        .map(|part| Model::from_file(&FmdlFile::read(&part.bytes)?))
+        .map(Model::from_file)
         .collect::<Result<Vec<Model>, fmdl::FmdlError>>()?;
     Ok(merge(&models)?.to_file()?)
 }

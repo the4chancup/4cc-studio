@@ -320,6 +320,7 @@ fn read_files(task: &BuildTask, content: &mut ContentSource) -> Result<TaskFiles
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeSet;
     use std::path::Path;
 
     use aesthetics_export::FileDescriptor;
@@ -366,6 +367,8 @@ mod tests {
                 })
                 .collect(),
             combined: Vec::new(),
+            common_models: Vec::new(),
+            common_texture_stems: BTreeSet::new(),
             textures: TextureHome::PlayerCommon {
                 folder_name: "05 - The Chad Stormworks Player".to_owned(),
             },

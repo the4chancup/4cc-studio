@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use aesthetics_export::{
     ExportIdentity, FileDescriptor, ModelSuffix, ResolvedAestheticsExport, SharedKind, SourceError,
-    ValidationContext, model_suffix, parse_listing,
+    ValidationContext, common_link_name, model_suffix, parse_listing,
 };
 use pes_version::{Engine, PesVersion};
 use pipeline::MemoryBudget;
@@ -17,7 +17,9 @@ use crate::cli::RunInputs;
 use crate::messages::{Code, issue_message, tool_message};
 use crate::plan::ids::{SHARED_COUNT, shared_folders_taking_ids};
 use crate::plan::mapped_players;
-use crate::plan::subset::{FolderModels, ModelPackage, PlayerFile, file_stem, player_file};
+use crate::plan::subset::{
+    FolderModels, ModelPackage, PlayerFile, common_skeleton, file_stem, player_file,
+};
 use crate::reader::{self, ExportSource, Route};
 
 /// The structure pass's outcome for the whole run.
@@ -223,9 +225,11 @@ fn pool_messages(
 /// `oral` model, which has no slot to land in and is ignored (`player_folders.md` "Model
 /// names", "Reserved subfolders", "SKL pairing"; `team_compiler/README.md` TC-MOD-13):
 /// over every mapped player folder and every shared face folder, each finding on the folder
-/// holding the file. The roles are `subset::player_file`'s, so a finding never disagrees with
-/// the routing. A pre-Fox target types a model by its name and reads no `.skl`, so it reports
-/// neither.
+/// holding the file. A `.common` model link is reported like the model it brings in, naming
+/// the link: the fallback by the linked name's suffix, `skl_no_slot` when `Common/` holds the
+/// `.skl` of a slotless model's stem. The roles are `subset::player_file`'s, so a finding never
+/// disagrees with the routing. A pre-Fox target types a model by its name and reads no `.skl`,
+/// so it reports neither.
 fn model_name_messages(
     resolved: &ResolvedAestheticsExport,
     version: PesVersion,
@@ -243,6 +247,7 @@ fn model_name_messages(
             &folder.path,
             &folder.files,
             &models,
+            &export.common,
             export_id,
             &mut messages,
         );
@@ -255,6 +260,7 @@ fn model_name_messages(
             &folder.path,
             &folder.files,
             &models,
+            &export.common,
             export_id,
             &mut messages,
         );
@@ -263,11 +269,13 @@ fn model_name_messages(
 }
 
 /// `model_name_messages`'s findings on `files`, the files of the folder at `path` whose models
-/// are `models`, in file order.
+/// are `models`, in file order; `common` is the export's `Common/` files, where a `.common`
+/// link's model and skeleton are.
 fn file_role_messages(
     path: &ScopePath,
     files: &[FileDescriptor],
     models: &FolderModels,
+    common: &[FileDescriptor],
     export_id: ExportId,
     messages: &mut Vec<Message>,
 ) {
@@ -281,8 +289,29 @@ fn file_role_messages(
                 Code::FmdlFclHairFallback
             }
             Some(PlayerFile::SlotlessSkeleton) => Code::SklNoSlot,
+            Some(PlayerFile::CommonModel {
+                package: ModelPackage::Face,
+                name: allowed,
+            }) => {
+                let linked = common_link_name(name)
+                    .expect("a CommonModel role implies a `.common` link name");
+                if allowed == "fcl_hair" {
+                    if model_suffix(file_stem(&linked)) == Some(ModelSuffix::FclHair) {
+                        continue;
+                    }
+                    Code::FmdlFclHairFallback
+                } else if common_skeleton(common, &linked).is_some() {
+                    Code::SklNoSlot
+                } else {
+                    continue;
+                }
+            }
             Some(
                 PlayerFile::Model { .. }
+                | PlayerFile::CommonModel {
+                    package: ModelPackage::Boots | ModelPackage::Gloves,
+                    ..
+                }
                 | PlayerFile::Packed { .. }
                 | PlayerFile::Skeleton { .. }
                 | PlayerFile::Texture(..),
@@ -447,6 +476,37 @@ mod tests {
                 "Info fmdl_fcl_hair_fallback [Keep] at Players/03 - A (file=torso.fmdl)",
             ]
         );
+    }
+
+    #[test]
+    fn a_common_link_is_reported_like_the_model_it_brings_in_naming_the_link() {
+        let files = [
+            ("Players/03 - A/legs.fmdl.common", 0),
+            ("Players/03 - A/x_fcl_hair.fmdl.common", 0),
+            ("Players/03 - A/face_high.fmdl.common", 0),
+            ("Players/03 - A/oral.fmdl.common.txt", 0),
+            ("Players/03 - A/boots/hair_high.fmdl.common", 0),
+            ("Common/legs.fmdl", 1),
+            ("Common/legs.skl", 1),
+            ("Common/x_fcl_hair.fmdl", 1),
+            ("Common/face_high.fmdl", 1),
+            ("Common/face_high.skl", 1),
+            ("Common/oral.fmdl", 1),
+            ("Common/hair_high.fmdl", 1),
+            ("Common/hair_high.skl", 1),
+        ];
+        let export = resolved("co - Names", &files, &[], None);
+        // `legs` is hair content by its name; `face_high` has no slot for Common's skeleton,
+        // `oral` has none to report, and `boots/` makes `hair_high` the boots, whose skeleton
+        // has a slot.
+        assert_eq!(
+            names(&export, PesVersion::Pes21),
+            [
+                "Warning skl_no_slot [Keep] at Players/03 - A (file=face_high.fmdl.common)",
+                "Info fmdl_fcl_hair_fallback [Keep] at Players/03 - A (file=legs.fmdl.common)",
+            ]
+        );
+        assert_eq!(names(&export, PesVersion::Pes17), Vec::<String>::new());
     }
 
     #[test]

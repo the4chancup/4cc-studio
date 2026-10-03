@@ -12,7 +12,8 @@ is in `AGENTS.md` ("Working documents").
 **Phase:** 3 (Team compiler skeleton) closed 2026-10-02, its cross-family reviews queued (see
 "Handover"). Phases 1 and 2 done (Phase 2 closed 2026-09-30).
 **Next:** Phase 4 is itemized and its Acceptance section written (step 4.1, 2026-10-03; its
-cross-family review (a) is queued). Next: 4.5c (`.common` model links); 4.5a-b are done, 4.5d waits on the base64 question. 2.5b (GPU BC7) is step 16.x (decision entries
+cross-family review (a) is queued). Next: 4.6 (textures, all formats); 4.5a-c are done, 4.5d
+waits on the base64 question. 2.5b (GPU BC7) is step 16.x (decision entries
 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0 after Phase 8; phase order 1–6,
 8, 0.1.0, 7, 9–16 (`core/development_plan.md` "Releases"); first-class target the Fox version
 the cup moves to around April 2027 ("Target versions").
@@ -404,7 +405,16 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   TC-MOD-14 cited, TC-MOD-04 re-scoped and cited (decision entry). Gates green (91 of 203);
   `mutants-diff ffd4734`: 40, 34 caught, 6 unviable, 0 missed. For converge: the four reserved
   names are matched in both `aesthetics_export` (`validate::folders::position`, `pub(crate)`) and
-  `team_compiler` (`subset::position`); one exported matcher would remove the copy
+  `team_compiler` (`subset::position`); one exported matcher would remove the copy. (c) done
+  2026-10-03 (Fable; one contradiction accepted: with paths rewritten per part, TC-MOD-09's two
+  `shirt` materials differing only by source directory became one, so its fixture now differs
+  by shader): `PlayerFile::CommonModel`, `plan::CommonModel` resolved at planning, the Common
+  `.skl` travelling with a slotted link, texture paths rewritten per part before the merge, the
+  Common textures task (`TaskKind::CommonTextures`, decision entry); lead first: `aesthetics_export`
+  exports `common_link_name`. TC-MOD-10/11 cited. Gates green (93 of 203); `mutants-diff
+  c7086b5`: 86, 72 caught, 13 unviable, 1 missed (`model.rs` `CommonModel` package guard), given a
+  test in one rework round (red shown). For converge: `subset::is_direct_common_file` copies
+  validation's private check
 
 - [ ] 4.6 **Textures, all formats (Fox)**: every accepted image format (`dds_convert::decode`/
   `convert`) for player, shared, Common, kit and portrait textures; BC7 kept and encoded on PES
@@ -498,7 +508,10 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   (`kit_variant_missing` copies
   the lowest, `kit_variant_model_fox`), `dummy_kit*` stems skipped by the existence checks;
   `Common/` on Fox: textures converted into `common/{team_id}/sourceimages/`, models only
-  reachable through `.common` links (4.5). Plan: `pipeline.md` "4. Per-export non-model steps"
+  reachable through `.common` links (4.5; 4.5c already emits `Common/`'s `.dds`/`.ftex` as one
+  task); texture `.common` links (`hair.dds.common`: the player's stem resolves into Common and
+  its path names the team's Common output; found at 4.5c with no step and no acceptance ID, so
+  this step writes the scenario first). Plan: `pipeline.md` "4. Per-export non-model steps"
   (Logo, Common, Kit-dependent assets), "2. Per-export serial steps" step 5; `model_format.md`
   "Kit-dependent assets". IDs: TC-ROOT-06..09, TC-CMN-04..06. Crates: tc
   (`processing/team_assets.rs`) → verify: a 1000x600 `logo.png` yields three square PNGs decoding
@@ -637,7 +650,10 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   player's `gloves/` subfolder whose suffix gives no side is refused only by the gate; a shared
   `Gloves/` folder's is `fmdl_name_invalid` (validation, Fox), the likely finding for both.
   Likewise a `face_diff.bin`/`fcl_hair_sim.fclo` in `boots/` or `gloves/` (validation allows it,
-  no package has a slot for it). The
+  no package has a slot for it). Open first (found at 4.5c): a `.common` link to a texture or a
+  material file is refused only by the gate (4.11 and Phase 7 build them); a `Common/legs.skl`
+  beside a glove link's model is accepted and never read, while a local glove's `.skl` is refused
+  by the gate, so the two need one rule. The
   gate's role helpers (`FolderModels`, `player_file`,
   `holds_model`, `package_of`) move to their users, not out with it. Open first (found at 4.4a):
   a plainly linked shared folder holding no model (empty, or textures only) passes validation and
@@ -1461,3 +1477,8 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   compile on Fox, each forcing its category (Red's referee layout, kept as legacy support).
   TC-MOD-04 re-scoped: two `skin.dds` in one player's subfolders are `texture_stem_conflict`, so
   only a combined shared folder can reach `shared_texture_conflict`.
+- **2026-10-03** — 4.5c: a player's `.common` link to an FMDL bakes the Common model into its Fox
+  package as a part (its Common skeleton with it), and `Common/`'s `.dds`/`.ftex` are converted
+  once per export into the team's Common output, which a Common part's paths name. Each part's
+  texture paths are now rewritten before the merge. Texture `.common` links found with no step;
+  filed under 4.11.

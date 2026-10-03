@@ -5,12 +5,13 @@
 pub(crate) mod ids;
 pub(crate) mod subset;
 
+use std::collections::BTreeSet;
 use std::ops::Range;
 
 use aesthetics_export::{
     ExportIdentity, FileDescriptor, KitFolder, KitsFolder, PlayerFolder, PlayerIndex, PlayerSlot,
     ResolvedAestheticsExport, SharedKind, SharedModelFolder, ValidatedAestheticsExport,
-    ValidatedRoster,
+    ValidatedRoster, common_link_name,
 };
 use kit_config::KitSlot;
 use pes_version::{Engine, PesVersion};
@@ -21,8 +22,9 @@ use crate::messages::{Code, tool_message};
 use crate::paths::TextureHome;
 use ids::{PlannedModelIds, shared_folders_taking_ids};
 use subset::{
-    FolderModels, ModelPackage, PlayerFile, first_not_compiled, link_combines, link_name,
-    linked_folder, package_of, player_file,
+    FolderModels, ModelPackage, PlayerFile, common_file, common_skeleton, file_stem,
+    first_not_compiled, is_part_of, link_combines, link_name, linked_folder, package_of,
+    player_file, skeleton_slot, texture_format,
 };
 
 /// What planning produced: the manifest and the findings planning itself made.
@@ -37,9 +39,9 @@ pub(crate) struct PlanReport {
 /// The run's tasks in canonical order: by export, then each mapped player folder's tasks (its
 /// face, boots and gloves packages, then its textures) by first roster slot, the shared boots
 /// folders taking an id (each its package, then its textures) in id order, then the shared
-/// gloves folders the same way, the portraits by player id, then the kits by slot. The writer
-/// lays the CPK out in this order whatever order the tasks finish in, so the same exports always
-/// give the same bytes.
+/// gloves folders the same way, the export's Common textures as one task, the portraits by
+/// player id, then the kits by slot. The writer lays the CPK out in this order whatever order
+/// the tasks finish in, so the same exports always give the same bytes.
 pub(crate) struct BuildManifest {
     /// The tasks, in canonical order.
     pub(crate) tasks: Vec<BuildTask>,
@@ -93,8 +95,33 @@ pub(crate) struct ModelFolder {
     /// The shared folders a player folder combines, in link order. Empty for a shared folder,
     /// and for a player linking plainly or not at all.
     pub(crate) combined: Vec<CombinedFolder>,
+    /// The player folder's `.common` model links, each resolved to the Common model it brings
+    /// in as a part. Empty for a shared folder, which holds no link.
+    pub(crate) common_models: Vec<CommonModel>,
+    /// The stems, as spelled, of the textures directly in the export's `Common/` folder, which
+    /// the export's Common textures task emits into the team's Common output: a Common part's
+    /// texture paths of these stems name that output, not the folder's texture home
+    /// (`pipeline.md` "3. Per-model-folder parallel steps", step 6).
+    pub(crate) common_texture_stems: BTreeSet<String>,
     /// Where its textures go, which its models' texture paths are rewritten to name.
     pub(crate) textures: TextureHome,
+}
+
+/// A player folder's `.common` link to an FMDL, resolved against the export's `Common/` folder
+/// as validation resolved it (`player_folders.md` "Common model links and model merging"): the
+/// Common model is a part of the package the link's role names, and its skeleton travels with
+/// it ("SKL pairing").
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct CommonModel {
+    /// The link file's export path (`Players/05 - A/legs.fmdl.common`), which the folder's
+    /// files list and whose role (`PlayerFile::CommonModel`) the Common model takes.
+    pub(crate) link: ScopePath,
+    /// The Common model the link names (`Common/legs.fmdl`): what the Models task reads.
+    pub(crate) model: FileDescriptor,
+    /// The `.skl` of the model's stem directly in `Common/` (`Common/legs.skl`), when there is
+    /// one and the role has a skeleton slot; `None` otherwise, a slotless role's skeleton being
+    /// the structure pass's `skl_no_slot`.
+    pub(crate) skeleton: Option<FileDescriptor>,
 }
 
 /// A shared folder a player folder combines (`player_folders.md` "A link plus local models
@@ -125,7 +152,10 @@ impl ModelFolder {
     /// (`Boots/Crocs`'s `boots.skl` pairs with `Boots/Crocs`'s `boots.fmdl`, not the
     /// player's). The face's `face_diff.bin` and `fcl_hair_sim.fclo` come once: a combined
     /// face folder's copy is left out when the player folder holds one, and never read
-    /// (`player_folders.md` "A link plus local models combines").
+    /// (`player_folders.md` "A link plus local models combines"). A `.common` model link
+    /// stands for the Common files it resolved to (`common_models`): the Common model under
+    /// the link's role, in the link's place, and its Common skeleton under the role's slot,
+    /// paired with it by their shared `Common/<stem>`; the empty link itself is never read.
     pub(crate) fn roles(&self) -> Vec<SourceRoles<'_>> {
         let mut own = FolderModels::of(&self.path, &self.files);
         if self
@@ -150,11 +180,32 @@ impl ModelFolder {
                 let Some(role) = player_file(path, file, &models) else {
                     continue;
                 };
-                if let PlayerFile::Packed { name, .. } = role {
-                    if packed.contains(&name) {
+                match role {
+                    PlayerFile::Packed { name, .. } => {
+                        if packed.contains(&name) {
+                            continue;
+                        }
+                        packed.push(name);
+                    }
+                    PlayerFile::CommonModel { package, name } => {
+                        let resolved = self
+                            .common_models
+                            .iter()
+                            .find(|common| common.link == file.path)
+                            .expect("planning resolves every `.common` model link of a folder");
+                        source_roles.push((&resolved.model, role));
+                        if let Some(skeleton) = &resolved.skeleton {
+                            let name = skeleton_slot(package, name).expect(
+                                "planning pairs a skeleton only with a part that has a slot",
+                            );
+                            source_roles.push((skeleton, PlayerFile::Skeleton { package, name }));
+                        }
                         continue;
                     }
-                    packed.push(name);
+                    PlayerFile::Model { .. }
+                    | PlayerFile::Skeleton { .. }
+                    | PlayerFile::SlotlessSkeleton
+                    | PlayerFile::Texture(..) => {}
                 }
                 source_roles.push((file, role));
             }
@@ -195,6 +246,17 @@ pub(crate) enum TaskKind {
         /// The model folder.
         folder: ModelFolder,
     },
+    /// The textures directly in the export's `Common/` folder, converted once into the team's
+    /// Common output, whether or not a `.common` link uses them (`pipeline.md` "Resolved
+    /// decisions", "Common textures are one task of their export"). One task per export, in no
+    /// group: its textures serve every linking player, so it commits on its own, and when it
+    /// fails the linking players still commit.
+    CommonTextures {
+        /// The `Common/` folder's export path, the scope the task's findings name.
+        folder: ScopePath,
+        /// Its `.dds` and `.ftex` files.
+        textures: Vec<FileDescriptor>,
+    },
     /// One player's portrait, a DDS emitted as it is under the target version's file name.
     /// One task per player id: a folder two roster slots map gives two tasks over its one
     /// `portrait.dds`.
@@ -221,14 +283,16 @@ impl TaskKind {
             TaskKind::Models { folder, .. } | TaskKind::Textures { folder, .. } => {
                 folder.path.clone()
             }
+            TaskKind::CommonTextures { folder, .. } => folder.clone(),
             TaskKind::Portrait { file, .. } => file.path.clone(),
             TaskKind::Kit { kit, .. } => kit.path.clone(),
         }
     }
 
-    /// Every file the task reads from its export: a package's models and the files packed
-    /// beside them; a folder's textures; a portrait's one file; a kit's config, when it has
-    /// one, and its effective textures.
+    /// Every file the task reads from its export: a package's models (a `.common` link's
+    /// Common model and skeleton, never the link) and the files packed beside them; a folder's
+    /// textures; the Common textures; a portrait's one file; a kit's config, when it has one,
+    /// and its effective textures.
     pub(crate) fn files(&self) -> Vec<&FileDescriptor> {
         match self {
             TaskKind::Models {
@@ -237,6 +301,7 @@ impl TaskKind {
             TaskKind::Textures { folder, .. } => {
                 folder_files(folder, |role| matches!(role, PlayerFile::Texture(..)))
             }
+            TaskKind::CommonTextures { textures, .. } => textures.iter().collect(),
             TaskKind::Portrait { file, .. } => vec![file],
             TaskKind::Kit { kit, .. } => kit
                 .config
@@ -322,6 +387,8 @@ pub(crate) fn plan_run(
                     path: folder.path.clone(),
                     files: folder.files.clone(),
                     combined: Vec::new(),
+                    common_models: Vec::new(),
+                    common_texture_stems: BTreeSet::new(),
                     textures: TextureHome::SharedOutput {
                         package,
                         id: shared_id,
@@ -330,6 +397,19 @@ pub(crate) fn plan_run(
                 shared.push((folder, package, shared_id));
             }
         }
+        // The textures in `Common/`, which the gate has kept to `.dds` and `.ftex` files
+        // directly in it: one task of the export's, and the stems a Common part's paths name
+        // that task's output for.
+        let common_textures: Vec<FileDescriptor> = export
+            .common
+            .iter()
+            .filter(|file| texture_format(file.path.name()).is_some())
+            .cloned()
+            .collect();
+        let common_texture_stems: BTreeSet<String> = common_textures
+            .iter()
+            .map(|file| file_stem(file.path.name()).to_owned())
+            .collect();
         // A folder's portrait goes out once per slot mapping the folder; the gate has refused
         // any slot with a portrait from both sources, so no player id comes up twice.
         let mut portraits: Vec<(u32, FileDescriptor)> = Vec::new();
@@ -385,6 +465,8 @@ pub(crate) fn plan_run(
                 textures: TextureHome::PlayerCommon {
                     folder_name: folder.path.name().to_owned(),
                 },
+                common_models: common_models(&folder, &export.common),
+                common_texture_stems: common_texture_stems.clone(),
                 path: folder.path,
                 files: folder.files,
                 combined,
@@ -399,6 +481,20 @@ pub(crate) fn plan_run(
                 &[(package, vec![shared_id])],
                 &mut tasks,
             );
+        }
+        if let Some(first) = common_textures.first() {
+            let folder = first
+                .path
+                .parent()
+                .expect("a Common texture sits in the export's Common/ folder");
+            tasks.push(task(
+                export_id,
+                team_id,
+                TaskKind::CommonTextures {
+                    folder,
+                    textures: common_textures,
+                },
+            ));
         }
         portraits.extend(
             export
@@ -458,10 +554,7 @@ fn folder_tasks(
     let first = tasks.len();
     let mut held = Vec::new();
     for (package, ids) in packages {
-        let models = folder_files(
-            &folder,
-            |role| matches!(role, PlayerFile::Model { package: owner, .. } if owner == package),
-        );
+        let models = folder_files(&folder, |role| is_part_of(role, *package));
         if models.is_empty() {
             continue;
         }
@@ -530,6 +623,38 @@ fn player_folders(
         .collect()
 }
 
+/// The player folder's `.common` model links resolved against `common`, the export's `Common/`
+/// files, exactly as validation resolved them (a file directly in `Common/`, matched by
+/// case-folded name): each with its Common model and, when the link's role has a skeleton
+/// slot, the Common `.skl` of the model's stem. Validation drops a folder whose link names no
+/// Common file, so every link here resolves.
+fn common_models(folder: &PlayerFolder, common: &[FileDescriptor]) -> Vec<CommonModel> {
+    let models = FolderModels::of_player(folder);
+    folder
+        .files
+        .iter()
+        .filter_map(|file| {
+            let Some(PlayerFile::CommonModel { package, name }) =
+                player_file(&folder.path, file, &models)
+            else {
+                return None;
+            };
+            let linked = common_link_name(file.path.name())
+                .expect("a CommonModel role implies a `.common` link name");
+            let model = common_file(common, &linked)
+                .expect("validation drops a player folder whose link names no Common file");
+            let skeleton = skeleton_slot(package, name)
+                .and_then(|_| common_skeleton(common, &linked))
+                .cloned();
+            Some(CommonModel {
+                link: file.path.clone(),
+                model: model.clone(),
+                skeleton,
+            })
+        })
+        .collect()
+}
+
 /// The task compiling `kind`, charged the bytes of the files it reads. A sum past `usize` (a
 /// 32-bit host only) is over any memory cap, and so is the saturated value.
 fn task(export_id: ExportId, team_id: u16, kind: TaskKind) -> BuildTask {
@@ -565,6 +690,9 @@ mod tests {
                     } => format!("{package:?} {} {ids:?}", folder.path.as_str()),
                     TaskKind::Textures { folder } => {
                         format!("textures {}", folder.path.as_str())
+                    }
+                    TaskKind::CommonTextures { folder, textures } => {
+                        format!("common textures {} ({})", folder.as_str(), textures.len())
                     }
                     TaskKind::Portrait { player_id, file } => {
                         format!("portrait {player_id} {}", file.path.as_str())
@@ -769,7 +897,9 @@ mod tests {
                 TaskKind::Models { folder, .. } | TaskKind::Textures { folder } => {
                     Some(&folder.textures)
                 }
-                TaskKind::Portrait { .. } | TaskKind::Kit { .. } => None,
+                TaskKind::CommonTextures { .. }
+                | TaskKind::Portrait { .. }
+                | TaskKind::Kit { .. } => None,
             })
             .collect();
         assert_eq!(
@@ -967,6 +1097,126 @@ mod tests {
             ]
         );
         assert_eq!(files(1), ["Players/05 - A/common/skin.dds"]);
+    }
+
+    #[test]
+    fn a_common_link_s_task_reads_the_common_model_and_skeleton_and_the_common_textures_are_one_task()
+     {
+        let export = resolved(
+            "co - Common",
+            &[
+                ("Players/05 - A/torso.fmdl", 8),
+                ("Players/05 - A/legs.fmdl.common", 0),
+                ("Players/05 - A/boots/Kit_Boots.fmdl.common", 0),
+                ("Players/05 - A/face_high.fmdl.common", 0),
+                ("Players/05 - A/skin.dds", 4),
+                ("Players/07 - B/legs.fmdl.common", 0),
+                ("Players/07 - B/Crocs.boots", 0),
+                ("Boots/Crocs/boots.fmdl", 2),
+                ("Common/Legs.fmdl", 16),
+                ("Common/legs.skl", 1),
+                ("Common/kit_boots.fmdl", 32),
+                ("Common/kit_boots.skl", 64),
+                ("Common/face_high.fmdl", 128),
+                ("Common/face_high.skl", 256),
+                ("Common/spare.fmdl", 512),
+                ("Common/Cloth.dds", 1024),
+                ("Common/hair.ftex", 2048),
+                ("Portraits/player_05.dds", 3),
+            ],
+            &[],
+            None,
+        );
+
+        let report = plan_run(vec![(ExportId(0), export)], PesVersion::Pes21);
+
+        // Slot 05's face reads the local part, the two Common models and the hair's skeleton,
+        // never the links nor the slotless `face_high.skl`; its boots read Common's model and
+        // skeleton. The Common textures follow the shared folders and precede the portraits,
+        // and the unlinked `spare.fmdl` is read by nothing.
+        assert!(report.messages.is_empty(), "{:?}", report.messages);
+        assert_eq!(
+            summary(&report),
+            [
+                "0 714 Face Players/05 - A [71405] charge 153",
+                "0 714 Boots Players/05 - A [625] charge 96",
+                "0 714 textures Players/05 - A charge 4",
+                "0 714 Face Players/07 - B [71407] charge 17",
+                "0 714 Boots Boots/Crocs [644] charge 2",
+                "0 714 common textures Common (2) charge 3072",
+                "0 714 portrait 71405 Portraits/player_05.dds charge 3",
+            ]
+        );
+        let files = |index: usize| -> Vec<&str> {
+            report.manifest.tasks[index]
+                .kind
+                .files()
+                .iter()
+                .map(|file| file.path.as_str())
+                .collect()
+        };
+        assert_eq!(
+            files(0),
+            [
+                "Common/face_high.fmdl",
+                "Common/Legs.fmdl",
+                "Common/legs.skl",
+                "Players/05 - A/torso.fmdl",
+            ]
+        );
+        assert_eq!(files(1), ["Common/kit_boots.fmdl", "Common/kit_boots.skl"]);
+        assert_eq!(files(3), ["Common/Legs.fmdl", "Common/legs.skl"]);
+        assert_eq!(files(5), ["Common/Cloth.dds", "Common/hair.ftex"]);
+        let TaskKind::Models { folder, .. } = &report.manifest.tasks[0].kind else {
+            panic!("a package task");
+        };
+        let links: Vec<(&str, &str, Option<&str>)> = folder
+            .common_models
+            .iter()
+            .map(|common| {
+                (
+                    common.link.as_str(),
+                    common.model.path.as_str(),
+                    common.skeleton.as_ref().map(|file| file.path.as_str()),
+                )
+            })
+            .collect();
+        assert_eq!(
+            links,
+            [
+                (
+                    "Players/05 - A/boots/Kit_Boots.fmdl.common",
+                    "Common/kit_boots.fmdl",
+                    Some("Common/kit_boots.skl")
+                ),
+                (
+                    "Players/05 - A/face_high.fmdl.common",
+                    "Common/face_high.fmdl",
+                    None
+                ),
+                (
+                    "Players/05 - A/legs.fmdl.common",
+                    "Common/Legs.fmdl",
+                    Some("Common/legs.skl")
+                ),
+            ]
+        );
+        assert_eq!(
+            folder.common_texture_stems,
+            BTreeSet::from(["Cloth".to_owned(), "hair".to_owned()])
+        );
+        // The Common task is in no group: a player's packages never wait for it.
+        let common = &report.manifest.tasks[5];
+        assert_eq!(common.group, None);
+        assert_eq!(common.kind.folder_path(), scope_path("Common"));
+        assert_eq!(
+            report.manifest.tasks[2].group,
+            Some(TaskGroup {
+                tasks: 0..3,
+                packages: vec![ModelPackage::Face, ModelPackage::Boots],
+                charge: 253,
+            })
+        );
     }
 
     #[test]

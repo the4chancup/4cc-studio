@@ -19,7 +19,7 @@ use crate::compile::{cpk_entries, pes21_settings, tracer_kit, tracer_player_file
 use crate::findings_of;
 
 /// The entry names of the FPK `bytes`.
-fn package_names(bytes: &[u8]) -> Vec<String> {
+pub(crate) fn package_names(bytes: &[u8]) -> Vec<String> {
     fpk::FpkFile::read(bytes)
         .unwrap()
         .entries()
@@ -28,7 +28,7 @@ fn package_names(bytes: &[u8]) -> Vec<String> {
 }
 
 /// One of the bundled game skeletons, `resources/skeletons/<version>/body.skl`.
-fn body_skl(version: &str) -> Vec<u8> {
+pub(crate) fn body_skl(version: &str) -> Vec<u8> {
     fs::read(
         Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../../resources/skeletons")
@@ -365,7 +365,7 @@ fn template(name: &str) -> Vec<u8> {
 }
 
 /// The face package of slot 05 in `entries`.
-fn face_package(entries: &BTreeMap<String, Vec<u8>>) -> fpk::FpkFile {
+pub(crate) fn face_package(entries: &BTreeMap<String, Vec<u8>>) -> fpk::FpkFile {
     fpk::FpkFile::read(&entries["Asset/model/character/face/real/71405/#Win/face.fpk"]).unwrap()
 }
 
@@ -824,15 +824,26 @@ fn parts_with_a_skeleton_mismatch_or_a_material_defined_twice_drop_their_folder(
         &format!("{export}/Players/05 - A/shirt.dds"),
         &tracer_player_file("shirt.dds"),
     );
-    // Slot 07: the tracer's hair model as a boots part beside its boots: both define the
-    // material `shirt`, differently.
+    // Slot 07: the tracer's boots beside a copy whose `shirt` material another shader draws:
+    // both define `shirt`, differently. (A copy differing only in its textures' directories
+    // would not: every part's `shirt` is pointed at the player's own `shirt.dds` before the
+    // merge.)
     sandbox.write(
         &format!("{export}/Players/07 - B/boots.fmdl"),
         &tracer_player_file("boots.fmdl"),
     );
+    let mut other_shader =
+        Model::from_file(&FmdlFile::read(&tracer_player_file("boots.fmdl")).unwrap()).unwrap();
+    let shirt = other_shader
+        .materials
+        .iter_mut()
+        .find(|material| material.name == "shirt")
+        .unwrap();
+    shirt.shader = "fox3ddf_blin".to_owned();
+    shirt.technique = "fox3DDF_Blin".to_owned();
     sandbox.write(
         &format!("{export}/Players/07 - B/x_boots.fmdl"),
-        &tracer_player_file("fcl_hair.fmdl"),
+        &other_shader.to_file().unwrap().write(),
     );
     sandbox.write(
         &format!("{export}/Players/07 - B/shirt.dds"),

@@ -123,6 +123,10 @@ pub(crate) fn process_task(
                 },
             )
         }
+        TaskKind::CommonTextures { textures, .. } => {
+            texture::common_textures(textures, task.team_id, &mut files)
+                .map(|entries| (entries, None))
+        }
         // A DDS portrait is what the game reads: its bytes go out as they are.
         TaskKind::Portrait { player_id, file } => Ok((
             vec![(
@@ -195,6 +199,7 @@ fn take(files: &mut TaskFiles, file: &FileDescriptor) -> Vec<u8> {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeSet;
     use std::path::{Path, PathBuf};
 
     use aesthetics_export::{
@@ -208,7 +213,7 @@ mod tests {
 
     use super::*;
     use crate::paths::TextureHome;
-    use crate::plan::{CombinedFolder, ModelFolder};
+    use crate::plan::{CombinedFolder, CommonModel, ModelFolder};
     use crate::templates;
 
     const PLAYER: &str = "Players/05 - The Chad Stormworks Player";
@@ -242,6 +247,8 @@ mod tests {
                 .map(|name| file(&format!("{PLAYER}/{name}")))
                 .collect(),
             combined: Vec::new(),
+            common_models: Vec::new(),
+            common_texture_stems: BTreeSet::new(),
             textures: TextureHome::PlayerCommon {
                 folder_name: "05 - The Chad Stormworks Player".to_owned(),
             },
@@ -633,6 +640,8 @@ mod tests {
                 },
             ],
             combined: Vec::new(),
+            common_models: Vec::new(),
+            common_texture_stems: BTreeSet::new(),
             textures: TextureHome::SharedOutput {
                 package: ModelPackage::Gloves,
                 id: 644,
@@ -1031,7 +1040,8 @@ mod tests {
             )
         );
 
-        // The tracer's hair as a boots part: its `shirt` material differs from the boots'.
+        // The tracer's hair as a boots part: its `shirt` material names its texture in another
+        // directory than the boots', and no `shirt.dds` of the player's points both at one.
         let material = player_with(
             vec![
                 named(&format!("{PLAYER}/kit_boots.fmdl"), "boots.fmdl"),
@@ -1107,6 +1117,268 @@ mod tests {
             packed_model(&package, "glove_r.fmdl").meshes.len(),
             tracer_model("glove_r.fmdl").meshes.len(),
             "a single part is packed as it is"
+        );
+    }
+
+    /// The tracer's hair model as a Common model of its own: its materials renamed with a
+    /// `_common` tail and its `shirt.dds` renamed `cloth.dds`, so it merges with the hair itself
+    /// with no material in common.
+    fn common_hair_model() -> Vec<u8> {
+        let mut model = tracer_model("fcl_hair.fmdl");
+        for material in &mut model.materials {
+            material.name.push_str("_common");
+            for (_, texture) in &mut material.textures {
+                if texture.file_name == "shirt.dds" {
+                    texture.file_name = "cloth.dds".to_owned();
+                }
+            }
+        }
+        model.to_file().unwrap().write()
+    }
+
+    /// The tracer's player folder holding `torso.fmdl` (the hair model), `shirt.dds` and the
+    /// link `legs.fmdl.common` resolved to `Common/legs.fmdl`, the Common textures' stems being
+    /// `common_stems`; with `skeletons`, `torso.skl` beside the model and `Common/legs.skl` with
+    /// the Common one. The Common files' bytes come from the tracer's hair model and skeleton
+    /// unless `run_with` replaces them.
+    fn player_linking_common(common_stems: &[&str], skeletons: bool) -> ModelFolder {
+        let link = ScopePath::new(&format!("{PLAYER}/legs.fmdl.common")).unwrap();
+        let mut files = vec![
+            named(&format!("{PLAYER}/torso.fmdl"), "fcl_hair.fmdl"),
+            named(&format!("{PLAYER}/shirt.dds"), "shirt.dds"),
+            FileDescriptor {
+                kind: aesthetics_export::classify(link.name()),
+                path: link.clone(),
+                size: 0,
+                ..file(&format!("{PLAYER}/face_diff.bin"))
+            },
+        ];
+        if skeletons {
+            files.push(named(&format!("{PLAYER}/torso.skl"), "fcl_hair.skl"));
+        }
+        ModelFolder {
+            common_models: vec![CommonModel {
+                link,
+                model: named("Common/legs.fmdl", "fcl_hair.fmdl"),
+                skeleton: skeletons.then(|| named("Common/legs.skl", "fcl_hair.skl")),
+            }],
+            common_texture_stems: common_stems.iter().map(|stem| (*stem).to_owned()).collect(),
+            ..player_with(files, Vec::new())
+        }
+    }
+
+    #[test]
+    fn a_common_part_merges_in_with_its_skeleton_and_its_paths_name_the_team_s_common_output() {
+        let custom = other_skeleton();
+        let folder = player_linking_common(&["cloth"], true);
+        let kind = face(folder.clone());
+        let read: Vec<&str> = kind.files().iter().map(|file| file.path.as_str()).collect();
+        assert_eq!(
+            read,
+            [
+                "Players/05 - The Chad Stormworks Player/torso.fmdl",
+                "Common/legs.fmdl",
+                "Common/legs.skl",
+                "Players/05 - The Chad Stormworks Player/torso.skl",
+            ],
+            "the Common files in the link's place; the link itself is never read"
+        );
+
+        // Both parts bring the one custom skeleton: the Common part's pairs with it by their
+        // shared `Common/legs` stem.
+        let torso_skl = format!("{PLAYER}/torso.skl");
+        let batch = run_with(
+            face(folder),
+            &[
+                ("Common/legs.fmdl", &common_hair_model()),
+                ("Common/legs.skl", &custom),
+                (&torso_skl, &custom),
+            ],
+        );
+
+        assert_eq!(
+            one_message(&batch),
+            (
+                "fmdl_merged",
+                Severity::Info,
+                Disposition::Keep,
+                &[("model".to_owned(), "fcl_hair.fmdl".to_owned())][..]
+            )
+        );
+        assert_eq!(
+            package_names(&batch),
+            [
+                "face_diff.bin",
+                "fcl_hair.fmdl",
+                "fcl_hair_sim.fclo",
+                "fcl_hair_sim.skl"
+            ]
+        );
+        let package = FpkFile::read(&batch.entries[0].1).unwrap();
+        assert_eq!(package.get("fcl_hair_sim.skl").unwrap(), custom);
+        assert_eq!(
+            packed_model(&package, "fcl_hair.fmdl").meshes.len(),
+            2 * tracer_model("fcl_hair.fmdl").meshes.len()
+        );
+        // The player's own `shirt` points at its common subfolder, the Common model's `cloth`
+        // at the team's Common output, and the game's own textures at the team's.
+        let directories = texture_directories(&package, "fcl_hair.fmdl");
+        assert_rewritten(&directories);
+        assert!(
+            directories.contains(&(
+                "cloth.dds".to_owned(),
+                "/Assets/pes16/model/character/common/792/sourceimages/".to_owned()
+            )),
+            "{directories:?}"
+        );
+        assert!(
+            !directories.contains(&("cloth.dds".to_owned(), COMMON_DIRECTORY.to_owned())),
+            "{directories:?}"
+        );
+    }
+
+    #[test]
+    fn a_material_two_parts_define_over_textures_in_different_places_is_a_conflict() {
+        // The same hair model as the local part and the Common part, both naming `shirt.dds`:
+        // the player's copy is the player's own, Common's copy is the team's, so the two
+        // `shirt` materials no longer agree. (No skeleton with the Common part: the local part
+        // brings none, and a mix would be the skeleton's conflict first.)
+        let linking = |common_stems: &[&str]| player_linking_common(common_stems, false);
+        let batch = run(face(linking(&["shirt"])));
+        assert!(batch.entries.is_empty(), "{:?}", paths(&batch));
+        assert_eq!(
+            one_message(&batch),
+            (
+                "merge_material_conflict",
+                Severity::Error,
+                Disposition::DropFolder,
+                &[("material".to_owned(), "shirt".to_owned())][..]
+            )
+        );
+
+        // With no `shirt` in Common, the Common part's `shirt` is one of the game's own and
+        // still differs from the player's; renamed materials merge.
+        let batch = run(face(linking(&[])));
+        assert_eq!(one_message(&batch).0, "merge_material_conflict");
+        let batch = run_with(
+            face(linking(&[])),
+            &[("Common/legs.fmdl", &common_hair_model())],
+        );
+        assert_eq!(one_message(&batch).0, "fmdl_merged");
+    }
+
+    #[test]
+    fn a_common_part_goes_only_into_the_package_its_link_s_role_names() {
+        // A local hair model beside a Common boots link: the Common boots are the boots
+        // package's part and nothing of the face's.
+        let link = ScopePath::new(&format!("{PLAYER}/kit_boots.fmdl.common")).unwrap();
+        let folder = ModelFolder {
+            common_models: vec![CommonModel {
+                link: link.clone(),
+                model: named("Common/kit_boots.fmdl", "boots.fmdl"),
+                skeleton: None,
+            }],
+            ..player_with(
+                vec![
+                    named(&format!("{PLAYER}/fcl_hair.fmdl"), "fcl_hair.fmdl"),
+                    FileDescriptor {
+                        kind: aesthetics_export::classify(link.name()),
+                        source: link.clone(),
+                        path: link,
+                        size: 0,
+                    },
+                ],
+                Vec::new(),
+            )
+        };
+
+        // The face task is handed the Common boots' bytes too, which it never lists: a face
+        // package taking them as a part then fails on its contents, not on the coordinator's
+        // "every file listed" invariant.
+        let face_batch = run_with(
+            face(folder.clone()),
+            &[("Common/kit_boots.fmdl", &tracer_player_file("boots.fmdl"))],
+        );
+        let boots_batch = run(boots(folder));
+
+        assert!(face_batch.messages.is_empty(), "{:?}", face_batch.messages);
+        assert_eq!(
+            package_names(&face_batch),
+            [
+                "face_diff.bin",
+                "fcl_hair.fmdl",
+                "fcl_hair_sim.fclo",
+                "fcl_hair_sim.skl"
+            ]
+        );
+        assert!(
+            boots_batch.messages.is_empty(),
+            "{:?}",
+            boots_batch.messages
+        );
+        assert_eq!(package_names(&boots_batch), ["boots.fmdl", "boots.skl"]);
+        let package = FpkFile::read(&boots_batch.entries[0].1).unwrap();
+        assert_eq!(
+            packed_model(&package, "boots.fmdl").meshes.len(),
+            tracer_model("boots.fmdl").meshes.len()
+        );
+    }
+
+    #[test]
+    fn the_common_textures_go_once_into_the_team_s_common_output_or_fail_as_one() {
+        let folder = ScopePath::new("Common").unwrap();
+        let textures = vec![
+            named("Common/Cloth.dds", "shirt.dds"),
+            named("Common/hair.ftex", "shirt.dds"),
+        ];
+        let converted =
+            ftex::dds_to_ftex(&tracer_player_file("shirt.dds"), ftex::ColorSpace::Normal).unwrap();
+
+        let batch = run_with(
+            TaskKind::CommonTextures {
+                folder: folder.clone(),
+                textures: textures.clone(),
+            },
+            &[("Common/hair.ftex", &converted)],
+        );
+
+        assert!(batch.messages.is_empty(), "{:?}", batch.messages);
+        assert_eq!(batch.group, None);
+        assert_eq!(
+            paths(&batch),
+            [
+                "Asset/model/character/common/792/sourceimages/#windx11/Cloth.ftex",
+                "Asset/model/character/common/792/sourceimages/#windx11/hair.ftex",
+            ],
+            "each stem as spelled"
+        );
+        assert_eq!(batch.entries[0].1, converted);
+        assert_eq!(batch.entries[1].1, converted);
+
+        // One texture that cannot convert fails the task, on the Common folder.
+        let batch = run_with(
+            TaskKind::CommonTextures { folder, textures },
+            &[("Common/Cloth.dds", b"not a DDS")],
+        );
+        assert!(batch.entries.is_empty(), "{:?}", paths(&batch));
+        let [message] = batch.messages.as_slice() else {
+            panic!("{:?}", batch.messages);
+        };
+        assert_eq!(message.code.code, "folder_pack_failed");
+        assert_eq!(
+            message.scope,
+            Scope::Folder {
+                export_id: ExportId(4),
+                path: ScopePath::new("Common").unwrap(),
+            }
+        );
+        let [(key, error)] = message.context.as_slice() else {
+            panic!("{:?}", message.context);
+        };
+        assert_eq!(key, "error");
+        assert!(
+            error.starts_with("Cloth.dds: cannot convert to FTEX"),
+            "{error}"
         );
     }
 

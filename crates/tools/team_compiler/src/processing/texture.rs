@@ -1,15 +1,19 @@
-//! Texture conversion for the Fox engine, which reads FTEX, and a model folder's textures as
-//! one unit (`team_compiler/pipeline.md` "3. Per-model-folder parallel steps", step 6).
+//! Texture conversion for the Fox engine, which reads FTEX, a model folder's textures as one
+//! unit (`team_compiler/pipeline.md` "3. Per-model-folder parallel steps", step 6) and the
+//! export's Common textures as another ("Resolved decisions", "Common textures are one task
+//! of their export").
 
 use std::collections::BTreeMap;
 
+use aesthetics_export::FileDescriptor;
 use anyhow::Context;
 use studio_core::Disposition;
 
 use super::{Entry, Finding, TaskFailure, TaskFiles, take};
 use crate::messages::Code;
+use crate::paths;
 use crate::plan::ModelFolder;
-use crate::plan::subset::{ModelPackage, PlayerFile, TextureFormat};
+use crate::plan::subset::{ModelPackage, PlayerFile, TextureFormat, file_stem, texture_format};
 
 /// One source's copy of a texture: the package the source feeds, the stem as the source
 /// spells it, and the FTEX bytes.
@@ -116,6 +120,27 @@ fn resolve_stem(
         }
     }
     Ok(())
+}
+
+/// The export's Common `textures`, converted from their bytes in `files` into the team's Common
+/// output for team `team_id`, each under its stem as spelled: one entry per texture, whether or
+/// not a `.common` link uses it. A texture that cannot convert fails the task, and with it
+/// every Common texture; the players linking a Common model still commit on their own.
+pub(super) fn common_textures(
+    textures: &[FileDescriptor],
+    team_id: u16,
+    files: &mut TaskFiles,
+) -> Result<Vec<Entry>, TaskFailure> {
+    textures
+        .iter()
+        .map(|file| {
+            let name = file.path.name();
+            let format = texture_format(name)
+                .expect("planning lists only the `.dds` and `.ftex` files of `Common/`");
+            let bytes = to_ftex(format, name, take(files, file))?;
+            Ok((paths::common_texture(team_id, file_stem(name)), bytes))
+        })
+        .collect()
 }
 
 /// The texture file `name`, in `format`, as FTEX: an FTEX passes through as it is, a DDS is
