@@ -3,12 +3,15 @@
 use studio_core::{ExportId, PipelineEvent, RunId};
 
 use crate::common::Sandbox;
-use crate::{CLEAN_PLAYER, snapshot};
+use crate::{CLEAN_PLAYER, clean_model, snapshot};
 
 #[test]
 fn check_brackets_each_export_with_its_start_and_end() {
     let sandbox = Sandbox::new("envelopes");
-    sandbox.write(&format!("exports/co - Spring/{CLEAN_PLAYER}"), b"");
+    sandbox.write(
+        &format!("exports/co - Spring/{CLEAN_PLAYER}"),
+        &clean_model(),
+    );
     let run = sandbox.run("", &["check"]);
     assert_eq!(run.exit_code(), 0);
     let export = Some(ExportId(0));
@@ -60,7 +63,7 @@ fn two_refs_exports_are_both_skipped_and_a_disabled_one_is_left_out() {
         sandbox.write(&format!("exports/{name}/players.txt"), b"01 Keeper\n");
         sandbox.write(
             &format!("exports/{name}/Players/Keeper/face_high.fmdl"),
-            b"",
+            &clean_model(),
         );
         // Validated, this would be root_file_unexpected: its absence shows neither is.
         sandbox.write(&format!("exports/{name}/extra.bin"), b"");
@@ -137,7 +140,10 @@ fn check_writes_nothing() {
     let sandbox = Sandbox::new("writes_nothing");
     let settings = "[team-compiler]\ncpk_name = \"cup\"\n";
     sandbox.write("data/settings.toml", settings.as_bytes());
-    sandbox.write(&format!("exports/co - Spring/{CLEAN_PLAYER}"), b"model");
+    sandbox.write(
+        &format!("exports/co - Spring/{CLEAN_PLAYER}"),
+        &clean_model(),
+    );
     sandbox.write("exports/co - Spring/notes.txt", b"a note");
     sandbox.write("exports/zz - Autumn/Players/03 - B/readme.txt", b"text");
     let before = snapshot(&sandbox.root);
@@ -154,11 +160,17 @@ fn check_writes_nothing() {
 #[test]
 fn check_exits_one_only_for_an_error_finding() {
     let sandbox = Sandbox::new("exit_codes");
-    sandbox.write(&format!("exports/co - Notes/{CLEAN_PLAYER}"), b"");
+    sandbox.write(
+        &format!("exports/co - Notes/{CLEAN_PLAYER}"),
+        &clean_model(),
+    );
     sandbox.write("exports/co - Notes/notes.txt", b"a note");
     sandbox.write("exports/co - Notes/extra.bin", b"");
     sandbox.write("exports/co - Error/Players/03 - A/readme.txt", b"");
-    sandbox.write(&format!("exports/co - Clean/{CLEAN_PLAYER}"), b"");
+    sandbox.write(
+        &format!("exports/co - Clean/{CLEAN_PLAYER}"),
+        &clean_model(),
+    );
 
     let run = sandbox.run(
         "",
@@ -207,7 +219,10 @@ fn a_disabled_export_reports_only_that_whatever_the_marker_case() {
     }
     // A marker below the source's own root is the nested root's content, not a marker.
     sandbox.write("exports/co - Three/wrapper/NO_USE", b"");
-    sandbox.write(&format!("exports/co - Three/wrapper/{CLEAN_PLAYER}"), b"");
+    sandbox.write(
+        &format!("exports/co - Three/wrapper/{CLEAN_PLAYER}"),
+        &clean_model(),
+    );
 
     let run = sandbox.run("", &["check"]);
 
@@ -239,10 +254,16 @@ fn a_balls_export_is_skipped_unread() {
 #[test]
 fn an_export_is_identified_by_its_first_word() {
     let sandbox = Sandbox::new("identified");
-    sandbox.write(&format!("exports/co - Spring 2026/{CLEAN_PLAYER}"), b"");
+    sandbox.write(
+        &format!("exports/co - Spring 2026/{CLEAN_PLAYER}"),
+        &clean_model(),
+    );
     // A refs export needs no teams-list row.
     sandbox.write("exports/refs Cup/players.txt", b"01 Keeper\n");
-    sandbox.write("exports/refs Cup/Players/Keeper/face_high.fmdl", b"");
+    sandbox.write(
+        "exports/refs Cup/Players/Keeper/face_high.fmdl",
+        &clean_model(),
+    );
     let run = sandbox.run("", &["check"]);
     assert_eq!(
         run.messages(),
@@ -257,9 +278,15 @@ fn an_export_is_identified_by_its_first_word() {
 #[test]
 fn an_unknown_team_is_an_error_and_the_export_beside_it_is_still_checked() {
     let sandbox = Sandbox::new("unknown_team");
-    sandbox.write(&format!("exports/zz - Spring/{CLEAN_PLAYER}"), b"");
-    sandbox.write(&format!("exports/---/{CLEAN_PLAYER}"), b"");
-    sandbox.write(&format!("exports/co - Spring/{CLEAN_PLAYER}"), b"");
+    sandbox.write(
+        &format!("exports/zz - Spring/{CLEAN_PLAYER}"),
+        &clean_model(),
+    );
+    sandbox.write(&format!("exports/---/{CLEAN_PLAYER}"), &clean_model());
+    sandbox.write(
+        &format!("exports/co - Spring/{CLEAN_PLAYER}"),
+        &clean_model(),
+    );
     let run = sandbox.run("", &["check"]);
     assert_eq!(
         run.messages(),
@@ -292,9 +319,9 @@ fn check_creates_the_missing_default_exports_folder_and_reports_it_empty() {
 fn export_paths_restrict_the_run_to_the_named_sources() {
     let sandbox = Sandbox::new("named_sources");
     for name in ["co - A", "co - B", "co - C"] {
-        sandbox.write(&format!("exports/{name}/{CLEAN_PLAYER}"), b"");
+        sandbox.write(&format!("exports/{name}/{CLEAN_PLAYER}"), &clean_model());
     }
-    sandbox.write(&format!("elsewhere/co - D/{CLEAN_PLAYER}"), b"");
+    sandbox.write(&format!("elsewhere/co - D/{CLEAN_PLAYER}"), &clean_model());
     let run = sandbox.run(
         "",
         &[

@@ -353,7 +353,10 @@ game would read past the file's end. A longer file passes: of the 2,695 loose `f
 on the maintainer's machine (2026-10-03), 326 are 960 bytes long with counts that give 944,
 and they are in cups' CPKs. A folder holding both `face_diff.bin` and `face_diff.xml` gives
 one datum twice and is discarded (`xml_dif_conflict`); a player folder's own file over a
-combined shared face's is the ordinary layering, whichever form each has. No loose
+combined shared face's is the ordinary layering, whichever form each has. Both findings are
+the Team compiler's deep pass's: `check` reports them, the folder holding the file is dropped
+before any ID is planned for it, and neither is pass-through-eligible, as there is no usable
+diff to keep. No loose
 `face_diff.xml` exists on that machine, so the test fixtures are encoded from real
 `face_diff.bin` files. A diff is passed through for whatever target is compiled, although the
 two engines use it differently to shape the face skeleton: converting one engine's diff into

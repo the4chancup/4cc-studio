@@ -846,6 +846,14 @@ TC-CHK-04  GIVEN p1/kit.dds of 4096x4096 and p2/kit.dds uncompressed (RGBA8)
 TC-CHK-05  GIVEN a root logo.png whose bytes are not a decodable image
            WHEN the export is checked
            THEN logo_file_invalid is reported and no logo is emitted when compiled
+TC-CHK-06  GIVEN slot 05's boots.fmdl holding a mesh of 21846 faces, one over the hard limit
+           WHEN the export is checked and compiled, then again with pass_through on
+           THEN both report fmdl_mesh_over_face_limit as an Error naming the file; without
+                pass_through the folder is left out of the CPK, with it the folder is compiled
+TC-CHK-07  GIVEN slot 05's boots.fmdl holding bytes that are not a model
+           WHEN the export is checked, then compiled with pass_through on
+           THEN model_broken is reported naming the file and the reader's error, and the folder
+                is left out of the CPK
 ```
 
 **Pre-Fox XML and MTL checks**

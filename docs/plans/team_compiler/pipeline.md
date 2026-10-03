@@ -1056,7 +1056,10 @@ Resolved decisions:
   linking player, so a group holding it would tie all of them together. When it fails, its failure
   is reported and the linking players still commit, as a player linking a shared output that failed
   does; dropping them instead would need the writer to track a dependency across groups, for a
-  failure the member fixes in one place, `Common/`.
+  failure the member fixes in one place, `Common/`. That is the rule for a failure of the
+  conversion itself. A Common texture the deep pass finds wrong (`messages.md` "Textures") never
+  reaches the task: the file is dropped before planning, and a player whose texture link names
+  it follows `link_target_dropped`, like any link to a dropped target.
 - **Texture references are stem-based (input)**: all material references (FMDL path tables,
   `.mtl`, `.materials.toml`) name textures by stem (filename without extension) in their
   source/authoring form. Any image format (DDS, FTEX, PNG, JPEG, BMP, WebP, TGA, TIFF) may be

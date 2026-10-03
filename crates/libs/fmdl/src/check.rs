@@ -19,11 +19,11 @@
 //! - `fmdl_weights_not_normalized` (Info): a vertex's four weights sum to
 //!   neither 255 nor 0; the skinning result is off by that fraction.
 //! - `fmdl_mesh_empty` (Warning): a mesh with no faces renders nothing.
+//! - `fmdl_mesh_unassigned` (Error): no mesh group lists the mesh, so the
+//!   file would not contain it at all.
 //! - `fmdl_material_unused` (Info): a material instance no mesh uses.
 //! - `fmdl_duplicate_bone_name` (Warning): a second bone with an already
 //!   used name; name-based lookups (merges, skl matching) get ambiguous.
-//! - `fmdl_mesh_unassigned` (Error): no mesh group lists the mesh, so the
-//!   file would not contain it at all.
 
 use std::collections::HashSet;
 
@@ -64,8 +64,42 @@ pub struct Finding {
     pub severity: Severity,
     /// What it is about.
     pub subject: Subject,
-    /// How many items (faces, vertices, bones) tripped the rule.
+    /// How many items tripped the rule: the faces, vertices or bone slots
+    /// inside the subject, or 1 when the subject itself is the item (an
+    /// empty mesh, an unused material, a duplicated bone).
     pub count: usize,
+}
+
+/// Every code `check` can report, with its severity, in the module doc's
+/// firing order: the one place a code's severity is written, so a tool's
+/// message catalog can be tested against it.
+pub const CODES: &[(&str, Severity)] = &[
+    ("fmdl_mesh_over_bone_limit", Severity::Error),
+    ("fmdl_mesh_over_vertex_limit", Severity::Error),
+    ("fmdl_mesh_over_face_limit", Severity::Error),
+    ("fmdl_vertex_far_from_origin", Severity::Error),
+    ("fmdl_face_index_out_of_range", Severity::Error),
+    ("fmdl_bone_slot_out_of_range", Severity::Warning),
+    ("fmdl_weights_not_normalized", Severity::Info),
+    ("fmdl_mesh_empty", Severity::Warning),
+    ("fmdl_mesh_unassigned", Severity::Error),
+    ("fmdl_material_unused", Severity::Info),
+    ("fmdl_duplicate_bone_name", Severity::Warning),
+];
+
+/// A finding of `code`, at the severity `CODES` gives it.
+fn finding(code: &'static str, subject: Subject, count: usize) -> Finding {
+    let severity = CODES
+        .iter()
+        .find(|(known, _)| *known == code)
+        .map(|(_, severity)| *severity)
+        .expect("every code `check` reports is listed in `CODES`");
+    Finding {
+        code,
+        severity,
+        subject,
+        count,
+    }
 }
 
 /// Far geometry lags the game for the whole matchday.
@@ -90,28 +124,25 @@ pub fn check(model: &Model) -> Vec<Finding> {
         // The game cannot load a mesh over a hard limit; splitting with
         // `ops::split::encode` is the fix.
         if mesh.bone_group.len() > BONE_LIMIT_HARD {
-            findings.push(Finding {
-                code: "fmdl_mesh_over_bone_limit",
-                severity: Severity::Error,
-                subject: subject.clone(),
-                count: mesh.bone_group.len(),
-            });
+            findings.push(finding(
+                "fmdl_mesh_over_bone_limit",
+                subject.clone(),
+                mesh.bone_group.len(),
+            ));
         }
         if vertex_count > VERTEX_LIMIT_HARD {
-            findings.push(Finding {
-                code: "fmdl_mesh_over_vertex_limit",
-                severity: Severity::Error,
-                subject: subject.clone(),
-                count: vertex_count,
-            });
+            findings.push(finding(
+                "fmdl_mesh_over_vertex_limit",
+                subject.clone(),
+                vertex_count,
+            ));
         }
         if mesh.faces.len() > FACE_LIMIT_HARD {
-            findings.push(Finding {
-                code: "fmdl_mesh_over_face_limit",
-                severity: Severity::Error,
-                subject: subject.clone(),
-                count: mesh.faces.len(),
-            });
+            findings.push(finding(
+                "fmdl_mesh_over_face_limit",
+                subject.clone(),
+                mesh.faces.len(),
+            ));
         }
 
         // f64: a huge coordinate cannot overflow the squared-distance sum.
@@ -126,12 +157,7 @@ pub fn check(model: &Model) -> Vec<Finding> {
             })
             .count();
         if far > 0 {
-            findings.push(Finding {
-                code: "fmdl_vertex_far_from_origin",
-                severity: Severity::Error,
-                subject: subject.clone(),
-                count: far,
-            });
+            findings.push(finding("fmdl_vertex_far_from_origin", subject.clone(), far));
         }
 
         let out_of_range = mesh
@@ -143,12 +169,11 @@ pub fn check(model: &Model) -> Vec<Finding> {
             })
             .count();
         if out_of_range > 0 {
-            findings.push(Finding {
-                code: "fmdl_face_index_out_of_range",
-                severity: Severity::Error,
-                subject: subject.clone(),
-                count: out_of_range,
-            });
+            findings.push(finding(
+                "fmdl_face_index_out_of_range",
+                subject.clone(),
+                out_of_range,
+            ));
         }
 
         if let (Some(weights), Some(indices)) =
@@ -167,12 +192,11 @@ pub fn check(model: &Model) -> Vec<Finding> {
                 })
                 .count();
             if bad_slots > 0 {
-                findings.push(Finding {
-                    code: "fmdl_bone_slot_out_of_range",
-                    severity: Severity::Warning,
-                    subject: subject.clone(),
-                    count: bad_slots,
-                });
+                findings.push(finding(
+                    "fmdl_bone_slot_out_of_range",
+                    subject.clone(),
+                    bad_slots,
+                ));
             }
             let unnormalized = weights
                 .iter()
@@ -182,53 +206,32 @@ pub fn check(model: &Model) -> Vec<Finding> {
                 })
                 .count();
             if unnormalized > 0 {
-                findings.push(Finding {
-                    code: "fmdl_weights_not_normalized",
-                    severity: Severity::Info,
-                    subject: subject.clone(),
-                    count: unnormalized,
-                });
+                findings.push(finding(
+                    "fmdl_weights_not_normalized",
+                    subject.clone(),
+                    unnormalized,
+                ));
             }
         }
 
         if mesh.faces.is_empty() {
-            findings.push(Finding {
-                code: "fmdl_mesh_empty",
-                severity: Severity::Warning,
-                subject: subject.clone(),
-                count: 0,
-            });
+            findings.push(finding("fmdl_mesh_empty", subject.clone(), 1));
         }
         if !assigned.contains(&index) {
-            findings.push(Finding {
-                code: "fmdl_mesh_unassigned",
-                severity: Severity::Error,
-                subject,
-                count: 0,
-            });
+            findings.push(finding("fmdl_mesh_unassigned", subject, 1));
         }
     }
 
     for (index, _) in model.materials.iter().enumerate() {
         if !used_materials.contains(&index) {
-            findings.push(Finding {
-                code: "fmdl_material_unused",
-                severity: Severity::Info,
-                subject: Subject::Material(index),
-                count: 0,
-            });
+            findings.push(finding("fmdl_material_unused", Subject::Material(index), 1));
         }
     }
 
     let mut seen = HashSet::new();
     for (index, bone) in model.bones.iter().enumerate() {
         if !seen.insert(bone.name.as_str()) {
-            findings.push(Finding {
-                code: "fmdl_duplicate_bone_name",
-                severity: Severity::Warning,
-                subject: Subject::Bone(index),
-                count: 0,
-            });
+            findings.push(finding("fmdl_duplicate_bone_name", Subject::Bone(index), 1));
         }
     }
 
@@ -299,6 +302,27 @@ mod tests {
             extensions: Extensions::default(),
             bone_matrices: None,
         }
+    }
+
+    #[test]
+    fn the_code_list_is_the_module_doc_s_rules_in_firing_order() {
+        let codes: Vec<(&str, Severity)> = CODES.to_vec();
+        assert_eq!(
+            codes,
+            [
+                ("fmdl_mesh_over_bone_limit", Severity::Error),
+                ("fmdl_mesh_over_vertex_limit", Severity::Error),
+                ("fmdl_mesh_over_face_limit", Severity::Error),
+                ("fmdl_vertex_far_from_origin", Severity::Error),
+                ("fmdl_face_index_out_of_range", Severity::Error),
+                ("fmdl_bone_slot_out_of_range", Severity::Warning),
+                ("fmdl_weights_not_normalized", Severity::Info),
+                ("fmdl_mesh_empty", Severity::Warning),
+                ("fmdl_mesh_unassigned", Severity::Error),
+                ("fmdl_material_unused", Severity::Info),
+                ("fmdl_duplicate_bone_name", Severity::Warning),
+            ]
+        );
     }
 
     #[test]
@@ -477,6 +501,19 @@ mod tests {
     }
 
     #[test]
+    fn mesh_empty() {
+        let mut mesh = small_mesh();
+        mesh.faces.clear();
+        let findings = check(&small_model(mesh));
+        assert!(findings.contains(&Finding {
+            code: "fmdl_mesh_empty",
+            severity: Severity::Warning,
+            subject: Subject::Mesh(0),
+            count: 1,
+        }));
+    }
+
+    #[test]
     fn mesh_unassigned() {
         let mut model = small_model(small_mesh());
         model.mesh_groups[0].meshes.clear();
@@ -485,7 +522,7 @@ mod tests {
             code: "fmdl_mesh_unassigned",
             severity: Severity::Error,
             subject: Subject::Mesh(0),
-            count: 0,
+            count: 1,
         }));
     }
 
@@ -498,7 +535,7 @@ mod tests {
             code: "fmdl_material_unused",
             severity: Severity::Info,
             subject: Subject::Material(1),
-            count: 0,
+            count: 1,
         }));
     }
 
@@ -521,7 +558,7 @@ mod tests {
             code: "fmdl_duplicate_bone_name",
             severity: Severity::Warning,
             subject: Subject::Bone(2),
-            count: 0,
+            count: 1,
         }));
     }
 }

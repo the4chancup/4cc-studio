@@ -5,7 +5,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::common::{Run, Sandbox};
-use crate::{CLEAN_PLAYER, findings_of, snapshot};
+use crate::{CLEAN_PLAYER, clean_model, findings_of, snapshot};
 
 impl Sandbox {
     /// Copies every file under `source` into `<folder>`, leaving `source` untouched.
@@ -23,7 +23,8 @@ impl Sandbox {
     }
 
     /// Copies the tracer bullet's player folder into `<folder>`: a face folder, with its
-    /// `portrait.dds`, holding only what `compile` builds, so it compiles with no finding.
+    /// `portrait.dds`, holding only what `compile` builds, so it compiles with no Warning or
+    /// Error (its boots, hair and left glove models are Info `fmdl_weights_not_normalized`).
     pub(crate) fn copy_tracer_face(&self, folder: &str) {
         let face = Path::new(&tracer_export()).join("Players/05 - The Chad Stormworks Player");
         self.copy_folder(&face, folder);
@@ -105,11 +106,14 @@ fn compile_no_deploy_writes_the_cpk_to_the_output_folder_and_leaves_pes_alone() 
     assert_eq!(
         run.messages(),
         [
+            "egg Tracer: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=boots.fmdl, count=1662)".to_owned(),
+            "egg Tracer: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=fcl_hair.fmdl, count=1662)".to_owned(),
+            "egg Tracer: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=glove_l.fmdl, count=2)".to_owned(),
             "egg Tracer: Info export_identified [Keep] (team=/egg/, id=792)".to_owned(),
             format!(
                 "Info deploy_skipped_by_flag [Keep] (path={})",
                 promoted.display()
-            ),
+            )
         ]
     );
     assert_eq!(snapshot(&sandbox.root.join("PES")), pes_before);
@@ -128,7 +132,12 @@ fn compile_without_no_deploy_promotes_the_cpk_silently() {
     assert!(sandbox.root.join("output/4cc_90_test.cpk").is_file());
     assert_eq!(
         run.messages(),
-        ["egg Tracer: Info export_identified [Keep] (team=/egg/, id=792)"]
+        [
+            "egg Tracer: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=boots.fmdl, count=1662)",
+            "egg Tracer: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=fcl_hair.fmdl, count=1662)",
+            "egg Tracer: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=glove_l.fmdl, count=2)",
+            "egg Tracer: Info export_identified [Keep] (team=/egg/, id=792)"
+        ]
     );
 }
 
@@ -136,7 +145,7 @@ fn compile_without_no_deploy_promotes_the_cpk_silently() {
 fn a_compile_that_emits_nothing_writes_no_cpk_and_no_staging_folder() {
     let sandbox = Sandbox::new("emits_nothing");
     sandbox.write("exports/co - Off/NO_USE", b"");
-    sandbox.write(&format!("exports/co - Off/{CLEAN_PLAYER}"), b"");
+    sandbox.write(&format!("exports/co - Off/{CLEAN_PLAYER}"), &clean_model());
     sandbox.write("output/4cc_90_test.cpk", b"the previous CPK");
     let before = snapshot(&sandbox.root.join("output"));
 
@@ -186,8 +195,14 @@ fn a_failed_cpk_write_discards_the_staging_and_leaves_the_previous_cpk() {
     assert_eq!(
         first,
         [
+            "co - A: Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=boots.fmdl, count=1662)",
+            "co - A: Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=fcl_hair.fmdl, count=1662)",
+            "co - A: Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=glove_l.fmdl, count=2)",
             "co - A: Info export_identified [Keep] (team=/co/, id=714)",
-            "co - B: Info export_identified [Keep] (team=/co/, id=714)",
+            "co - B: Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=boots.fmdl, count=1662)",
+            "co - B: Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=fcl_hair.fmdl, count=1662)",
+            "co - B: Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=glove_l.fmdl, count=2)",
+            "co - B: Info export_identified [Keep] (team=/co/, id=714)"
         ]
     );
     // The error names the staged CPK, whose folder is this run's: `<pid>-<ms>` is left free.
@@ -222,7 +237,12 @@ fn assert_commit_failed(sandbox: &Sandbox, run: &Run, before: &BTreeMap<PathBuf,
     let (last, first) = lines.split_last().unwrap();
     assert_eq!(
         first,
-        ["egg Tracer: Info export_identified [Keep] (team=/egg/, id=792)"]
+        [
+            "egg Tracer: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=boots.fmdl, count=1662)",
+            "egg Tracer: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=fcl_hair.fmdl, count=1662)",
+            "egg Tracer: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=glove_l.fmdl, count=2)",
+            "egg Tracer: Info export_identified [Keep] (team=/egg/, id=792)"
+        ]
     );
     // The error ends with the platform's own text, so only its shape is fixed.
     let prefix = format!(
@@ -341,7 +361,7 @@ fn fpc_on_export(sandbox: &Sandbox, name: &str) {
     sandbox.write(&format!("exports/{name}/players.txt"), b"03 Fpc On\n");
     sandbox.write(
         &format!("exports/{name}/Players/Fpc On/face_high.fmdl"),
-        b"",
+        &clean_model(),
     );
     sandbox.write(&format!("exports/{name}/Players/Fpc On/fpc_on"), b"");
 }
@@ -389,7 +409,10 @@ fn a_compile_whose_every_export_is_skipped_leaves_the_previous_cpk_as_it_was() {
     let sandbox = Sandbox::new("every_export_skipped");
     sandbox.write("output/4cc_90_test.cpk", b"the previous CPK");
     sandbox.write("exports/refs Cup/players.txt", b"01 Keeper\n");
-    sandbox.write("exports/refs Cup/Players/Keeper/face_high.fmdl", b"");
+    sandbox.write(
+        "exports/refs Cup/Players/Keeper/face_high.fmdl",
+        &clean_model(),
+    );
     fpc_on_export(&sandbox, "co - Fpc");
     let before = snapshot(&sandbox.root.join("output"));
 
@@ -406,7 +429,10 @@ fn a_compile_whose_every_export_is_skipped_leaves_the_previous_cpk_as_it_was() {
 fn an_export_whose_only_player_folder_is_dropped_writes_no_cpk() {
     let sandbox = Sandbox::new("only_folder_dropped");
     sandbox.write("output/4cc_90_test.cpk", b"the previous CPK");
-    sandbox.write(&format!("exports/co - Links/{CLEAN_PLAYER}"), b"");
+    sandbox.write(
+        &format!("exports/co - Links/{CLEAN_PLAYER}"),
+        &clean_model(),
+    );
     sandbox.write("exports/co - Links/Players/03 - A/Crocs.boots", b"");
     let before = snapshot(&sandbox.root.join("output"));
 
@@ -427,7 +453,10 @@ fn an_export_whose_only_player_folder_is_dropped_writes_no_cpk() {
 #[test]
 fn an_export_of_an_unknown_team_is_skipped_and_the_one_beside_it_compiled() {
     let sandbox = Sandbox::new("unknown_team_compiled");
-    sandbox.write(&format!("exports/zz - Spring/{CLEAN_PLAYER}"), b"");
+    sandbox.write(
+        &format!("exports/zz - Spring/{CLEAN_PLAYER}"),
+        &clean_model(),
+    );
     sandbox.copy_tracer("egg Tracer");
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
@@ -496,7 +525,10 @@ fn a_dropped_player_folder_is_left_out_of_the_cpk() {
         findings_of(&run.messages(), "co - Links"),
         [
             "Error link_target_missing [DropFolder] at Players/07 - B (link=Crocs.boots)",
-            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=boots.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=fcl_hair.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=glove_l.fmdl, count=2)",
+            "Info export_identified [Keep] (team=/co/, id=714)"
         ]
     );
     assert_eq!(compiled_players(&sandbox), [71403]);
@@ -515,7 +547,13 @@ fn pass_through_compiles_a_folder_with_a_missing_link_and_still_reports_the_erro
         findings_of(&run.messages(), "co - Links"),
         [
             "Error link_target_missing [Keep] at Players/07 - B (link=Crocs.boots)",
-            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=boots.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=fcl_hair.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=glove_l.fmdl, count=2)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/07 - B (file=boots.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/07 - B (file=fcl_hair.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/07 - B (file=glove_l.fmdl, count=2)",
+            "Info export_identified [Keep] (team=/co/, id=714)"
         ]
     );
     assert_eq!(compiled_players(&sandbox), [71403, 71407]);
@@ -536,7 +574,7 @@ struct DropCase {
 /// The export every TC-DSP-03 case writes into.
 const CASE: &str = "exports/co - Case";
 
-/// Player 03, a face folder that compiles with no finding, in `co - Case`.
+/// Player 03, a face folder that compiles with no Warning or Error, in `co - Case`.
 fn case_player_03(sandbox: &Sandbox) {
     sandbox.copy_tracer_face(&format!("{CASE}/Players/03 - A"));
 }
@@ -569,6 +607,9 @@ const DROP_CASES: [DropCase; 8] = [
         },
         findings: &[
             "Error players_txt_slot_invalid [DropSlot] at players.txt line 2 slot Some(24) ()",
+            "Info fmdl_weights_not_normalized [Keep] at Players/A (file=boots.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/A (file=fcl_hair.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/A (file=glove_l.fmdl, count=2)",
             "Info export_identified [Keep] (team=/co/, id=714)",
         ],
         compiled: Some((&[71403], &[])),
@@ -583,6 +624,9 @@ const DROP_CASES: [DropCase; 8] = [
         // Kept, Boots/Solo would make the export's content one Phase 3 does not compile,
         // so the missing content_not_yet_compiled shows the folder was dropped.
         findings: &[
+            "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=boots.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=fcl_hair.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=glove_l.fmdl, count=2)",
             "Warning shared_folder_orphaned [DropFolder] at Boots/Solo ()",
             "Info export_identified [Keep] (team=/co/, id=714)",
         ],
@@ -599,6 +643,9 @@ const DROP_CASES: [DropCase; 8] = [
         },
         findings: &[
             "Error fpc_conflict [DropFolder] at Players/07 - B ()",
+            "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=boots.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=fcl_hair.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=glove_l.fmdl, count=2)",
             "Info export_identified [Keep] (team=/co/, id=714)",
         ],
         compiled: Some((&[71403], &[])),
@@ -613,6 +660,9 @@ const DROP_CASES: [DropCase; 8] = [
             sandbox.write(&format!("{CASE}/Kits/p1/fox"), b"");
         },
         findings: &[
+            "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=boots.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=fcl_hair.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=glove_l.fmdl, count=2)",
             "Error kit_layout_conflict [DropFolder] at Kits/p1 ()",
             "Info export_identified [Keep] (team=/co/, id=714)",
         ],
@@ -633,6 +683,9 @@ const DROP_CASES: [DropCase; 8] = [
             "Error shared_link_duplicate [DropFolder] at Players/07 - B (kind=boots)",
             "Error link_target_missing [Keep] at Players/07 - B (link=Crocs.boots)",
             "Error link_target_missing [Keep] at Players/07 - B (link=Mud.boots)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=boots.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=fcl_hair.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=glove_l.fmdl, count=2)",
             "Info export_identified [Keep] (team=/co/, id=714)",
         ],
         compiled: Some((&[71403], &[])),
@@ -647,6 +700,9 @@ const DROP_CASES: [DropCase; 8] = [
             case_kit(sandbox, "g1");
         },
         findings: &[
+            "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=boots.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=fcl_hair.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=glove_l.fmdl, count=2)",
             "Error kit_slot_duplicate [DropFolder] at Kits/p1 ()",
             "Error kit_slot_duplicate [DropFolder] at Kits/p1 - Lakers ()",
             "Info export_identified [Keep] (team=/co/, id=714)",
@@ -663,6 +719,9 @@ const DROP_CASES: [DropCase; 8] = [
             case_kit(sandbox, "g1");
         },
         findings: &[
+            "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=boots.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=fcl_hair.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=glove_l.fmdl, count=2)",
             "Error kit_folder_invalid [DropFolder] at Kits/p10 ()",
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info kit_config_generated [Keep] at Kits/g1 ()",

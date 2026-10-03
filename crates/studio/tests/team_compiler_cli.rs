@@ -80,7 +80,14 @@ fn a_refusal_prints_one_error_line_and_exits_with_its_code() {
 fn check_prints_one_line_per_finding_and_exits_with_the_worst() {
     let sandbox = Sandbox::new("check", "");
     sandbox.write("data/teams_list.txt", "ID\tName\n714\t/co/\n");
-    sandbox.write("exports/co - Clean/Players/03 - A/face_high.fmdl", "");
+    // `check` reads every model, so the clean export holds a real one with no finding: the
+    // tracer's right glove.
+    let glove = Path::new(env!("CARGO_MANIFEST_DIR")).join(
+        "../tools/team_compiler/tests/fixtures/tracer/studio/egg Tracer/Players/05 - The Chad Stormworks Player/glove_r.fmdl",
+    );
+    let clean = sandbox.root.join("exports/co - Clean/Players/03 - A");
+    fs::create_dir_all(&clean).unwrap();
+    fs::copy(&glove, clean.join("face_high.fmdl")).unwrap();
     sandbox.write("exports/co - Error/Players/03 - A/readme.txt", "");
 
     let output = sandbox.run(&["team-compiler", "check", "--export", "exports/co - Clean"]);

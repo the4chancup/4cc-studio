@@ -3400,3 +3400,23 @@ every version, so the function loses its `Option` at step 4.9.
 Why: PES 18's install has the FPC CPK, the same 15 files as PES 19's, but no team kit config
 to count, so the values needed the maintainer's word.
 Plan: `libs/fpc.md` "`libs/fpc`" (`kit.rs`).
+
+## 2026-10-03 — team_compiler, dds_convert — texture checks: from the header, in the deep pass
+Decision: the deep pass reports `texture_type_mismatch`, `texture_too_small`,
+`texture_not_pow2` and `kit_texture_too_big` from each texture's header, through a new
+`dds_convert::probe` that decodes nothing; processing stops checking its sources for them.
+Four rules the plan left open. (1) `texture_type_mismatch` is not pass-through-eligible; the
+three size findings are. (2) A texture whose header cannot be read gets no finding in the
+deep pass: its conversion fails its task. (3) `texture_codec_unsupported` stays conversion's
+finding, reported by `compile` only. (4) On a kit's main texture `kit_texture_too_big`
+covers the power-of-two rule, so `texture_not_pow2` is not reported beside it.
+Why: (1) a mismatched file cannot be converted as the format its name declares, so there is
+no content to keep, while an odd-sized texture converts and its effect in the game is the
+member's risk, which is what `pass_through` is for. (2) and (3): a header shows neither cut
+pixel data nor every refused layout without the decode's own code path, so a "broken texture"
+finding at `check` would promise more than the probe can see; TC-TEX-04 already says
+"compiled", TC-TEX-03 "checked". (4) one cause should print one line. The probe is in
+`dds_convert`, not the compiler, because the header knowledge (which reader, the WESYS
+unwrap, the chain a raster source gets) is that crate's.
+Plan: `team_compiler/messages.md` "Textures"; `libs/dds_convert.md` "`dds_convert` API";
+`team_compiler/pipeline.md` "Common textures are one task of their export".

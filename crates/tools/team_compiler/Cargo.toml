@@ -22,6 +22,7 @@ fpk.workspace = true
 ftex.workspace = true
 kit_config.workspace = true
 log.workspace = true
+pes_model.workspace = true
 pes_version.workspace = true
 pipeline.workspace = true
 rayon.workspace = true

@@ -3668,6 +3668,7 @@ dependencies = [
  "ftex",
  "kit_config",
  "log",
+ "pes_model",
  "pes_version",
  "pipeline",
  "rayon",

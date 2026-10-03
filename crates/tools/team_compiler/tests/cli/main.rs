@@ -158,8 +158,20 @@ fn findings_of<'a>(lines: &'a [String], source: &str) -> Vec<&'a str> {
         .collect()
 }
 
-/// One player folder with a face model: an export that validates with no finding.
+/// One player folder with a face model: written with `clean_model()`, an export that validates
+/// with no finding.
 const CLEAN_PLAYER: &str = "Players/03 - A/face_high.fmdl";
+
+/// A Fox model in which `fmdl`'s check finds nothing (the tracer's right glove), for a test
+/// whose model only has to be one: both commands read every model, so an empty file would be
+/// `model_broken`.
+fn clean_model() -> Vec<u8> {
+    fs::read(
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests/fixtures/tracer/studio/egg Tracer/Players/05 - The Chad Stormworks Player/glove_r.fmdl"),
+    )
+    .unwrap()
+}
 
 #[test]
 fn the_tool_is_registered_as_the_team_compiler() {

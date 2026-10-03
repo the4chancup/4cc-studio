@@ -92,6 +92,12 @@ pub(crate) enum Code {
     /// whole matchday; its folder is left out (a `Common/` model: the file), whatever
     /// `pass_through` says.
     VertexTooFarFromOrigin,
+    /// A model file (`.fmdl` or `.model`) that does not parse; its folder is left out (a
+    /// `Common/` model: the file), whatever `pass_through` says, since it cannot be processed.
+    ModelBroken,
+    /// A `.mtl` that does not parse; its folder is left out (a `Common/` file: the file),
+    /// whatever `pass_through` says.
+    MtlBroken,
     /// A file a task reads cannot be read from its export; its folder is left out.
     SourceReadFailed,
     /// A task could not build its entries; its folder is left out.
@@ -108,7 +114,7 @@ impl Code {
     /// Every code, for the catalog test: a variant missing here would make its first message
     /// panic in `severity`, so a new variant is added to this list too.
     #[cfg(test)]
-    const ALL: [Code; 33] = [
+    const ALL: [Code; 35] = [
         Code::ExportExtractFailed,
         Code::NoExportsFound,
         Code::ExportDisabled,
@@ -137,6 +143,8 @@ impl Code {
         Code::TextureTypeMismatch,
         Code::TextureCodecUnsupported,
         Code::VertexTooFarFromOrigin,
+        Code::ModelBroken,
+        Code::MtlBroken,
         Code::SourceReadFailed,
         Code::FolderPackFailed,
         Code::CpkWriteFailed,
@@ -175,6 +183,8 @@ impl Code {
             Code::TextureTypeMismatch => "texture_type_mismatch",
             Code::TextureCodecUnsupported => "texture_codec_unsupported",
             Code::VertexTooFarFromOrigin => "vertex_too_far_from_origin",
+            Code::ModelBroken => "model_broken",
+            Code::MtlBroken => "mtl_broken",
             Code::SourceReadFailed => "source_read_failed",
             Code::FolderPackFailed => "folder_pack_failed",
             Code::CpkWriteFailed => "cpk_write_failed",
@@ -228,10 +238,44 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("texture_type_mismatch", CatalogSeverity::Error),
     ("texture_codec_unsupported", CatalogSeverity::Error),
     ("vertex_too_far_from_origin", CatalogSeverity::Error),
+    ("model_broken", CatalogSeverity::Error),
+    ("mtl_broken", CatalogSeverity::Error),
     ("folder_pack_failed", CatalogSeverity::ErrorOrFatal),
     ("cpk_write_failed", CatalogSeverity::Fatal),
     ("output_commit_failed", CatalogSeverity::Fatal),
     ("deploy_skipped_by_flag", CatalogSeverity::Info),
+    // The format crates' check codes (`fmdl::check::CODES`, `pes_model::check::CODES`), which
+    // the deep pass reports under their own names, at the crate's severity: the far vertex
+    // excepted, reported as `vertex_too_far_from_origin`. In the order of the plan's "Model
+    // checks", then its `.mtl` rows and `model_material_undefined`.
+    ("fmdl_mesh_over_bone_limit", CatalogSeverity::Error),
+    ("fmdl_mesh_over_vertex_limit", CatalogSeverity::Error),
+    ("fmdl_mesh_over_face_limit", CatalogSeverity::Error),
+    ("fmdl_face_index_out_of_range", CatalogSeverity::Error),
+    ("fmdl_mesh_unassigned", CatalogSeverity::Error),
+    ("fmdl_bone_slot_out_of_range", CatalogSeverity::Warning),
+    ("fmdl_mesh_empty", CatalogSeverity::Warning),
+    ("fmdl_duplicate_bone_name", CatalogSeverity::Warning),
+    ("fmdl_weights_not_normalized", CatalogSeverity::Info),
+    ("fmdl_material_unused", CatalogSeverity::Info),
+    ("model_mesh_over_bone_limit", CatalogSeverity::Error),
+    ("model_mesh_over_vertex_limit", CatalogSeverity::Error),
+    ("model_mesh_over_face_limit", CatalogSeverity::Error),
+    ("model_face_index_out_of_range", CatalogSeverity::Error),
+    ("model_bone_slot_out_of_range", CatalogSeverity::Warning),
+    ("model_mesh_empty", CatalogSeverity::Warning),
+    ("model_duplicate_bone_name", CatalogSeverity::Warning),
+    ("model_lod_record_mismatch", CatalogSeverity::Warning),
+    ("model_weights_not_normalized", CatalogSeverity::Info),
+    ("model_degenerate_face", CatalogSeverity::Info),
+    ("model_material_unused", CatalogSeverity::Info),
+    ("mtl_material_duplicate", CatalogSeverity::Error),
+    ("mtl_state_invalid", CatalogSeverity::Error),
+    ("mtl_blendmode_nonzero", CatalogSeverity::Warning),
+    ("mtl_state_missing", CatalogSeverity::Info),
+    ("mtl_state_nonrecommended", CatalogSeverity::Info),
+    ("mtl_state_unknown", CatalogSeverity::Info),
+    ("model_material_undefined", CatalogSeverity::Error),
     // The structure pass's codes, in `ISSUE_CODES` order.
     ("nested_folders_fixed", CatalogSeverity::Warning),
     ("nested_root_ambiguous", CatalogSeverity::Error),
@@ -385,6 +429,7 @@ mod tests {
     use vtree::ScopePath;
 
     use super::*;
+    use crate::deep::FAR_VERTEX_CODES;
 
     fn issue(
         code: &'static str,
@@ -423,18 +468,66 @@ mod tests {
                 .count();
             assert_eq!(rows, 1, "{code:?}");
         }
-        // The rows beyond the structure pass's are exactly the tool's own codes.
+        for (code, severity) in format_codes() {
+            let rows: Vec<CatalogSeverity> = CATALOG
+                .iter()
+                .filter(|(known, _)| *known == code)
+                .map(|(_, severity)| *severity)
+                .collect();
+            assert_eq!(rows, [severity], "{code}");
+        }
+        for code in FAR_VERTEX_CODES {
+            assert!(CATALOG.iter().all(|(known, _)| *known != code), "{code}");
+        }
+        // The rows beyond the structure pass's are exactly the tool's own codes, in `Code::ALL`
+        // order, and the format crates', in the plan table's order, which no list in code
+        // holds: those are compared as a set.
+        let mut format: Vec<&str> = format_codes().into_iter().map(|(code, _)| code).collect();
         let own: Vec<&str> = Code::ALL
             .iter()
             .map(|code| code.as_str())
             .filter(|code| !ISSUE_CODES.contains(code))
             .collect();
-        let extra: Vec<&str> = CATALOG
-            .iter()
-            .map(|(code, _)| *code)
-            .filter(|code| !ISSUE_CODES.contains(code))
+        let beyond_structure = || {
+            CATALOG
+                .iter()
+                .map(|(code, _)| *code)
+                .filter(|code| !ISSUE_CODES.contains(code))
+        };
+        let own_rows: Vec<&str> = beyond_structure()
+            .filter(|code| !format.contains(code))
             .collect();
-        assert_eq!(extra, own);
+        assert_eq!(own_rows, own);
+        let mut format_rows: Vec<&str> = beyond_structure()
+            .filter(|code| !own.contains(code))
+            .collect();
+        format.sort_unstable();
+        format_rows.sort_unstable();
+        assert_eq!(format_rows, format);
+    }
+
+    /// The format crates' check codes the tool reports under their own names (every one but
+    /// the far vertex, reported as `vertex_too_far_from_origin`), at the crate's severity.
+    fn format_codes() -> Vec<(&'static str, CatalogSeverity)> {
+        let fox = fmdl::check::CODES.iter().map(|(code, severity)| {
+            let severity = match severity {
+                fmdl::check::Severity::Info => CatalogSeverity::Info,
+                fmdl::check::Severity::Warning => CatalogSeverity::Warning,
+                fmdl::check::Severity::Error => CatalogSeverity::Error,
+            };
+            (*code, severity)
+        });
+        let pre_fox = pes_model::check::CODES.iter().map(|(code, severity)| {
+            let severity = match severity {
+                pes_model::check::Severity::Info => CatalogSeverity::Info,
+                pes_model::check::Severity::Warning => CatalogSeverity::Warning,
+                pes_model::check::Severity::Error => CatalogSeverity::Error,
+            };
+            (*code, severity)
+        });
+        fox.chain(pre_fox)
+            .filter(|(code, _)| !FAR_VERTEX_CODES.contains(code))
+            .collect()
     }
 
     #[test]

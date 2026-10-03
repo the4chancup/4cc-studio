@@ -16,7 +16,7 @@ use fmdl::{FmdlFile, Model};
 
 use crate::common::Sandbox;
 use crate::compile::{cpk_entries, pes21_settings, tracer_kit, tracer_player_file};
-use crate::findings_of;
+use crate::{clean_model, findings_of};
 
 /// The entry names of the FPK `bytes`.
 pub(crate) fn package_names(bytes: &[u8]) -> Vec<String> {
@@ -58,14 +58,11 @@ fn write_player(sandbox: &Sandbox, folder: &str, boots_name: &str) {
     );
 }
 
-/// Compiles the sandbox for PES 21, asserting the export `name` reports only its identity,
-/// and returns the CPK's entries by path.
-fn compile_clean(sandbox: &Sandbox, name: &str) -> BTreeMap<String, Vec<u8>> {
+/// Compiles the sandbox for PES 21, asserting the export `name` reports exactly `findings`
+/// and the run exits with 0, and returns the CPK's entries by path.
+fn compile_clean(sandbox: &Sandbox, name: &str, findings: &[&str]) -> BTreeMap<String, Vec<u8>> {
     let run = sandbox.run(&pes21_settings(sandbox), &["compile"]);
-    assert_eq!(
-        findings_of(&run.messages(), name),
-        ["Info export_identified [Keep] (team=/co/, id=714)"]
-    );
+    assert_eq!(findings_of(&run.messages(), name), findings);
     assert_eq!(run.exit_code(), 0);
     cpk_entries(&sandbox.root.join("output/4cc_90_test.cpk"))
 }
@@ -80,7 +77,16 @@ fn a_player_s_own_boots_and_gloves_compile_under_its_exclusive_id_with_the_textu
         "kit_boots.fmdl",
     );
 
-    let entries = compile_clean(&sandbox, "co - Models");
+    let entries = compile_clean(
+        &sandbox,
+        "co - Models",
+        &[
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=fcl_hair.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=glove_l.fmdl, count=2)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=kit_boots.fmdl, count=1662)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+        ],
+    );
 
     let paths: Vec<&str> = entries.keys().map(String::as_str).collect();
     assert_eq!(
@@ -120,13 +126,31 @@ fn boots_skl_is_the_skeleton_named_after_the_boots_model_or_the_bundled_pes_21_b
     let custom = body_skl("pes19");
     assert_ne!(custom, body_skl("pes21"));
     paired.write("exports/co - Paired/Players/05 - A/kit_boots.skl", &custom);
-    let entries = compile_clean(&paired, "co - Paired");
+    let entries = compile_clean(
+        &paired,
+        "co - Paired",
+        &[
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=fcl_hair.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=glove_l.fmdl, count=2)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=kit_boots.fmdl, count=1662)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+        ],
+    );
     let package = fpk::FpkFile::read(&entries[boots_fpk]).unwrap();
     assert_eq!(package.get("boots.skl").unwrap(), custom);
 
     let bare = Sandbox::new("mod_boots_skl_bundled");
     write_player(&bare, "exports/co - Bare/Players/05 - A", "kit_boots.fmdl");
-    let entries = compile_clean(&bare, "co - Bare");
+    let entries = compile_clean(
+        &bare,
+        "co - Bare",
+        &[
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=fcl_hair.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=glove_l.fmdl, count=2)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=kit_boots.fmdl, count=1662)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+        ],
+    );
     let package = fpk::FpkFile::read(&entries[boots_fpk]).unwrap();
     assert_eq!(package.get("boots.skl").unwrap(), body_skl("pes21"));
 }
@@ -143,7 +167,14 @@ fn a_folder_mapped_to_two_slots_emits_its_boots_under_both_ids_and_its_textures_
         );
     }
 
-    let entries = compile_clean(&sandbox, "co - Twice");
+    let entries = compile_clean(
+        &sandbox,
+        "co - Twice",
+        &[
+            "Info fmdl_weights_not_normalized [Keep] at Players/A (file=boots.fmdl, count=1662)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+        ],
+    );
 
     let paths: Vec<&str> = entries.keys().map(String::as_str).collect();
     assert_eq!(
@@ -176,17 +207,25 @@ fn a_texture_that_cannot_convert_drops_the_whole_folder_and_the_folder_beside_it
 
     let lines = run.messages();
     let findings = findings_of(&lines, "co - Broken");
-    assert_eq!(findings.len(), 2, "{findings:?}");
+    assert_eq!(findings.len(), 8, "{findings:?}");
     assert_eq!(
-        findings[0],
-        "Info export_identified [Keep] (team=/co/, id=714)"
+        findings[..7],
+        [
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=boots.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=fcl_hair.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=glove_l.fmdl, count=2)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/07 - B (file=boots.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/07 - B (file=fcl_hair.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/07 - B (file=glove_l.fmdl, count=2)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+        ]
     );
     assert!(
-        findings[1].starts_with(
+        findings[7].starts_with(
             "Error folder_pack_failed [DropFolder] at Players/05 - A (error=shirt.dds: cannot convert"
         ),
         "{}",
-        findings[1]
+        findings[7]
     );
     assert_eq!(run.exit_code(), 1);
     let entries = cpk_entries(&sandbox.root.join("output/4cc_90_test.cpk"));
@@ -287,9 +326,13 @@ fn a_boots_link_beside_a_local_boots_model_combines_the_shared_folder_into_the_p
     assert_eq!(
         findings_of(&run.messages(), "co - Combined"),
         [
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=fcl_hair.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=glove_l.fmdl, count=2)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=kit_boots.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Boots/Crocs (file=boots.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info link_combined [Keep] at Players/05 - A (link=Crocs.boots)",
-            "Info fmdl_merged [Keep] at Players/05 - A (model=boots.fmdl)",
+            "Info fmdl_merged [Keep] at Players/05 - A (model=boots.fmdl)"
         ]
     );
     assert_eq!(run.exit_code(), 0);
@@ -323,9 +366,13 @@ fn a_boots_link_beside_a_local_boots_model_combines_the_shared_folder_into_the_p
     assert_eq!(
         findings_of(&run.messages(), "co - Combined"),
         [
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=fcl_hair.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=glove_l.fmdl, count=2)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=kit_boots.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Boots/Crocs (file=boots.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info link_combined [Keep] at Players/05 - A (link=Crocs.boots)",
-            "Info fmdl_merged [Keep] at Players/05 - A (model=boots.fmdl)",
+            "Info fmdl_merged [Keep] at Players/05 - A (model=boots.fmdl)"
         ]
     );
     assert_eq!(run.exit_code(), 0);
@@ -378,7 +425,14 @@ fn a_hair_model_alone_gets_the_bundled_face_diff_hair_simulation_and_body_skelet
         &tracer_player_file("fcl_hair.fmdl"),
     );
 
-    let entries = compile_clean(&sandbox, "co - Hair");
+    let entries = compile_clean(
+        &sandbox,
+        "co - Hair",
+        &[
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=fcl_hair.fmdl, count=1662)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+        ],
+    );
 
     let package = face_package(&entries);
     let names: Vec<&str> = package.entries().map(|(name, _)| name).collect();
@@ -415,6 +469,7 @@ fn a_skeleton_paired_with_a_face_model_without_a_slot_is_reported_and_not_packed
         &tracer_player_file("fcl_hair.skl"),
     );
     let findings = [
+        "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=face_high.fmdl, count=1662)",
         "Info export_identified [Keep] (team=/co/, id=714)",
         "Warning skl_no_slot [Keep] at Players/05 - A (file=face_high.skl)",
     ];
@@ -444,8 +499,9 @@ fn an_unsuffixed_model_is_reported_and_merged_into_the_hair_with_its_own_skeleto
     assert_eq!(
         findings_of(&check.messages(), "co - Torso"),
         [
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=torso.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
-            "Info fmdl_fcl_hair_fallback [Keep] at Players/05 - A (file=torso.fmdl)",
+            "Info fmdl_fcl_hair_fallback [Keep] at Players/05 - A (file=torso.fmdl)"
         ]
     );
     assert_eq!(check.exit_code(), 0);
@@ -476,9 +532,11 @@ fn an_unsuffixed_model_is_reported_and_merged_into_the_hair_with_its_own_skeleto
     assert_eq!(
         findings_of(&run.messages(), "co - Merged"),
         [
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=fcl_hair.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=torso.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info fmdl_fcl_hair_fallback [Keep] at Players/05 - A (file=torso.fmdl)",
-            "Info fmdl_merged [Keep] at Players/05 - A (model=fcl_hair.fmdl)",
+            "Info fmdl_merged [Keep] at Players/05 - A (model=fcl_hair.fmdl)"
         ]
     );
     assert_eq!(run.exit_code(), 0);
@@ -524,7 +582,14 @@ fn a_boots_subfolder_s_model_is_the_boots_and_a_common_subfolder_s_texture_is_th
     let boots_fpk = "Asset/model/character/boots/k0625/#Win/boots.fpk";
     let skin = "Asset/model/character/common/714/05 - A/sourceimages/#windx11/skin.ftex";
 
-    let entries = compile_clean(&sandbox, "co - Subfolders");
+    let entries = compile_clean(
+        &sandbox,
+        "co - Subfolders",
+        &[
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=boots/hair_high.fmdl, count=1662)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+        ],
+    );
 
     let paths: Vec<&str> = entries.keys().map(String::as_str).collect();
     assert_eq!(
@@ -571,7 +636,13 @@ fn assert_face_dropped(sandbox: &Sandbox, name: &str, finding: &str) {
     let run = sandbox.run(&pes21_settings(sandbox), &["compile"]);
     assert_eq!(
         findings_of(&run.messages(), name),
-        ["Info export_identified [Keep] (team=/co/, id=714)", finding]
+        [
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=boots.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=fcl_hair.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=glove_l.fmdl, count=2)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            finding
+        ]
     );
     assert_eq!(run.exit_code(), 1);
     let entries = cpk_entries(&sandbox.root.join("output/4cc_90_test.cpk"));
@@ -589,7 +660,16 @@ fn a_face_diff_xml_is_decoded_into_the_face_and_a_corrupt_one_drops_the_folder()
     let sandbox = Sandbox::new("mod_face_diff_xml");
     write_xml_face(&sandbox, "exports/co - Xml", &face_diff_fixture("dif.xml"));
 
-    let entries = compile_clean(&sandbox, "co - Xml");
+    let entries = compile_clean(
+        &sandbox,
+        "co - Xml",
+        &[
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=boots.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=fcl_hair.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=glove_l.fmdl, count=2)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+        ],
+    );
 
     assert_eq!(
         face_package(&entries).get("face_diff.bin").unwrap(),
@@ -669,9 +749,12 @@ fn a_subfolder_s_parts_combine_with_loose_root_files_of_their_category() {
     assert_eq!(
         findings_of(&run.messages(), "co - Parts"),
         [
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=face/torso.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=fcl_hair.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=glove_l.fmdl, count=2)",
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info fmdl_fcl_hair_fallback [Keep] at Players/05 - A (file=torso.fmdl)",
-            "Info fmdl_merged [Keep] at Players/05 - A (model=fcl_hair.fmdl)",
+            "Info fmdl_merged [Keep] at Players/05 - A (model=fcl_hair.fmdl)"
         ]
     );
     assert_eq!(run.exit_code(), 0);
@@ -712,9 +795,13 @@ fn a_subfolder_s_parts_combine_with_loose_root_files_of_their_category() {
 #[test]
 fn a_pre_fox_target_reports_neither_the_fallback_nor_a_slotless_skeleton() {
     let sandbox = Sandbox::new("mod_pre_fox_names");
-    for name in ["torso.fmdl", "face_high.fmdl", "face_high.skl"] {
-        sandbox.write(&format!("exports/co - Names/Players/05 - A/{name}"), b"");
+    for name in ["torso.fmdl", "face_high.fmdl"] {
+        sandbox.write(
+            &format!("exports/co - Names/Players/05 - A/{name}"),
+            &clean_model(),
+        );
     }
+    sandbox.write("exports/co - Names/Players/05 - A/face_high.skl", b"");
 
     let run = sandbox.run("[common]\npes_version = 17\n", &["check"]);
 
@@ -760,8 +847,10 @@ fn a_face_link_combines_the_shared_face_folder_into_the_player_s_face() {
     assert_eq!(
         findings_of(&run.messages(), "co - Faces"),
         [
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=face_high.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Faces/Longhair (file=hair_high.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
-            "Info link_combined [Keep] at Players/05 - A (link=Longhair.face)",
+            "Info link_combined [Keep] at Players/05 - A (link=Longhair.face)"
         ]
     );
     assert_eq!(run.exit_code(), 0);
@@ -813,9 +902,12 @@ fn a_texture_the_face_and_a_combined_boots_folder_hold_is_packed_once_or_drops_t
     assert_eq!(
         findings_of(&run.messages(), "co - Skin"),
         [
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=face_high.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=kit_boots.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Boots/Crocs (file=boots.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info link_combined [Keep] at Players/05 - A (link=Crocs.boots)",
-            "Info fmdl_merged [Keep] at Players/05 - A (model=boots.fmdl)",
+            "Info fmdl_merged [Keep] at Players/05 - A (model=boots.fmdl)"
         ]
     );
     assert_eq!(run.exit_code(), 0);
@@ -841,10 +933,13 @@ fn a_texture_the_face_and_a_combined_boots_folder_hold_is_packed_once_or_drops_t
     assert_eq!(
         findings_of(&run.messages(), "co - Skin"),
         [
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=face_high.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=kit_boots.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Boots/Crocs (file=boots.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info link_combined [Keep] at Players/05 - A (link=Crocs.boots)",
             "Info fmdl_merged [Keep] at Players/05 - A (model=boots.fmdl)",
-            "Error shared_texture_conflict [DropFolder] at Players/05 - A (texture=skin, dropped=boots)",
+            "Error shared_texture_conflict [DropFolder] at Players/05 - A (texture=skin, dropped=boots)"
         ]
     );
     assert_eq!(run.exit_code(), 1);
@@ -887,9 +982,12 @@ fn a_texture_the_player_s_folder_and_a_combined_face_folder_hold_differently_dro
     assert_eq!(
         findings_of(&run.messages(), "co - Conflict"),
         [
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=face_high.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/07 - B (file=boots.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Faces/Round (file=hair_high.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info link_combined [Keep] at Players/05 - A (link=Round.face)",
-            "Error merged_texture_conflict [DropFolder] at Players/05 - A (texture=skin)",
+            "Error merged_texture_conflict [DropFolder] at Players/05 - A (texture=skin)"
         ]
     );
     assert_eq!(run.exit_code(), 1);
@@ -961,9 +1059,14 @@ fn parts_with_a_skeleton_mismatch_or_a_material_defined_twice_drop_their_folder(
     assert_eq!(
         findings_of(&run.messages(), "co - Conflicts"),
         [
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=boots.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=kit_boots.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/07 - B (file=boots.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/07 - B (file=x_boots.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/09 - C (file=boots.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Error skl_merge_conflict [DropFolder] at Players/05 - A (skeleton=differs)",
-            "Error merge_material_conflict [DropFolder] at Players/07 - B (material=shirt)",
+            "Error merge_material_conflict [DropFolder] at Players/07 - B (material=shirt)"
         ]
     );
     assert_eq!(run.exit_code(), 1);
@@ -989,7 +1092,15 @@ fn shared_boots_folders_compile_once_each_under_the_shared_ids_in_name_order() {
     write_shared_boots(&sandbox, "co - Shared", "Mud", None, &[11]);
     write_shared_boots(&sandbox, "co - Shared", "Crocs", Some(&crocs_skl), &[3, 7]);
 
-    let entries = compile_clean(&sandbox, "co - Shared");
+    let entries = compile_clean(
+        &sandbox,
+        "co - Shared",
+        &[
+            "Info fmdl_weights_not_normalized [Keep] at Boots/Crocs (file=boots.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Boots/Mud (file=boots.fmdl, count=1662)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+        ],
+    );
 
     let paths: Vec<&str> = entries.keys().map(String::as_str).collect();
     assert_eq!(
@@ -1039,8 +1150,26 @@ fn eighteen_shared_boots_folders_exhaust_the_team_s_ids_and_check_skips_the_expo
     assert_eq!(
         run.messages(),
         [
+            "co - Pool: Info fmdl_weights_not_normalized [Keep] at Boots/S01 (file=boots.fmdl, count=1662)",
+            "co - Pool: Info fmdl_weights_not_normalized [Keep] at Boots/S02 (file=boots.fmdl, count=1662)",
+            "co - Pool: Info fmdl_weights_not_normalized [Keep] at Boots/S03 (file=boots.fmdl, count=1662)",
+            "co - Pool: Info fmdl_weights_not_normalized [Keep] at Boots/S04 (file=boots.fmdl, count=1662)",
+            "co - Pool: Info fmdl_weights_not_normalized [Keep] at Boots/S05 (file=boots.fmdl, count=1662)",
+            "co - Pool: Info fmdl_weights_not_normalized [Keep] at Boots/S06 (file=boots.fmdl, count=1662)",
+            "co - Pool: Info fmdl_weights_not_normalized [Keep] at Boots/S07 (file=boots.fmdl, count=1662)",
+            "co - Pool: Info fmdl_weights_not_normalized [Keep] at Boots/S08 (file=boots.fmdl, count=1662)",
+            "co - Pool: Info fmdl_weights_not_normalized [Keep] at Boots/S09 (file=boots.fmdl, count=1662)",
+            "co - Pool: Info fmdl_weights_not_normalized [Keep] at Boots/S10 (file=boots.fmdl, count=1662)",
+            "co - Pool: Info fmdl_weights_not_normalized [Keep] at Boots/S11 (file=boots.fmdl, count=1662)",
+            "co - Pool: Info fmdl_weights_not_normalized [Keep] at Boots/S12 (file=boots.fmdl, count=1662)",
+            "co - Pool: Info fmdl_weights_not_normalized [Keep] at Boots/S13 (file=boots.fmdl, count=1662)",
+            "co - Pool: Info fmdl_weights_not_normalized [Keep] at Boots/S14 (file=boots.fmdl, count=1662)",
+            "co - Pool: Info fmdl_weights_not_normalized [Keep] at Boots/S15 (file=boots.fmdl, count=1662)",
+            "co - Pool: Info fmdl_weights_not_normalized [Keep] at Boots/S16 (file=boots.fmdl, count=1662)",
+            "co - Pool: Info fmdl_weights_not_normalized [Keep] at Boots/S17 (file=boots.fmdl, count=1662)",
+            "co - Pool: Info fmdl_weights_not_normalized [Keep] at Boots/S18 (file=boots.fmdl, count=1662)",
             "co - Pool: Info export_identified [Keep] (team=/co/, id=714)",
-            "co - Pool: Error boots_id_pool_exhausted [DropExport] (count=18)",
+            "co - Pool: Error boots_id_pool_exhausted [DropExport] (count=18)"
         ]
     );
     assert_eq!(run.exit_code(), 1);
@@ -1061,17 +1190,41 @@ fn shared_ids_follow_the_folder_names_so_a_new_folder_shifts_the_ones_after_it()
     let k0645 = "Asset/model/character/boots/k0645/#Win/boots.fpk";
     let k0646 = "Asset/model/character/boots/k0646/#Win/boots.fpk";
 
-    let first = compile_clean(&sandbox, "co - Named");
+    let first = compile_clean(
+        &sandbox,
+        "co - Named",
+        &[
+            "Info fmdl_weights_not_normalized [Keep] at Boots/Apple (file=boots.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Boots/Zebra (file=boots.fmdl, count=1662)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+        ],
+    );
     assert!(!first.contains_key(k0646), "{:?}", first.keys());
     assert_eq!(boots_skl(&first, k0644), apple_skl, "Apple");
     assert_eq!(boots_skl(&first, k0645), body_skl("pes21"), "Zebra");
 
     write_shared_boots(&sandbox, "co - Named", "Mango", Some(&mango_skl), &[11]);
-    let second = compile_clean(&sandbox, "co - Named");
+    let second = compile_clean(
+        &sandbox,
+        "co - Named",
+        &[
+            "Info fmdl_weights_not_normalized [Keep] at Boots/Apple (file=boots.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Boots/Mango (file=boots.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Boots/Zebra (file=boots.fmdl, count=1662)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+        ],
+    );
     assert_eq!(boots_skl(&second, k0644), apple_skl, "Apple");
     assert_eq!(boots_skl(&second, k0645), mango_skl, "Mango");
     assert_eq!(boots_skl(&second, k0646), body_skl("pes21"), "Zebra");
 }
+
+/// What `co - Planned` reports at each compile.
+const PLANNED_FINDINGS: &[&str] = &[
+    "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=boots.fmdl, count=1662)",
+    "Info fmdl_weights_not_normalized [Keep] at Players/23 - B (file=glove_l.fmdl, count=2)",
+    "Info export_identified [Keep] (team=/co/, id=714)",
+];
 
 // TC-PLN-01
 #[test]
@@ -1086,9 +1239,9 @@ fn the_planned_ids_are_the_slot_s_and_two_compiles_write_the_same_bytes() {
         &tracer_player_file("glove_l.fmdl"),
     );
 
-    let first = compile_clean(&sandbox, "co - Planned");
+    let first = compile_clean(&sandbox, "co - Planned", PLANNED_FINDINGS);
     let first_cpk = fs::read(sandbox.root.join("output/4cc_90_test.cpk")).unwrap();
-    let second = compile_clean(&sandbox, "co - Planned");
+    let second = compile_clean(&sandbox, "co - Planned", PLANNED_FINDINGS);
     let second_cpk = fs::read(sandbox.root.join("output/4cc_90_test.cpk")).unwrap();
 
     let paths: Vec<&str> = first.keys().map(String::as_str).collect();

@@ -221,7 +221,10 @@ target form. A finding keeps the format crate's code and its severity, which "Wh
 finding an Error" sets; the one renamed is the far vertex, which both formats report as
 `vertex_too_far_from_origin`, above. An Error discards the folder and is
 pass-through-eligible, since the file can still be packed as it is; a Warning or an Info changes
-nothing. Context: the model file, and the number of items that tripped the rule. A finding on a
+nothing. One finding per file and code, however many meshes trip the rule. Context: the model
+file, and the number of items that tripped it over the whole file: faces, vertices or bone
+slots for a rule about a mesh's contents, and the meshes, materials or bones themselves for a
+rule about one of them (two empty meshes count 2). A finding on a
 `Common/` model acts on that file, and the players linking it follow `link_target_dropped`)
 
 | ID | Sev | Condition | Consequence |
@@ -258,12 +261,23 @@ another's. An uncompressed texture is no finding, a kit's included: it is encode
 raster source (`libs/dds_convert.md` "Passthrough"), which is what PES 15–17's crash on
 uncompressed kits needed)
 
+The deep pass reports `texture_type_mismatch`, `texture_too_small`, `texture_not_pow2` and
+`kit_texture_too_big` from each texture's header (`probe` in `libs/dds_convert.md`), without
+decoding it, so `check` reports them and the folder is dropped before any ID is planned for
+it. A mismatched file gets that one finding: its header is another format's, so its size is
+not read. `texture_type_mismatch` is not pass-through-eligible, because the file cannot be
+converted as the format its name declares; the three size findings are eligible: the texture
+converts, and what the game makes of it is the member's risk. A texture whose header cannot
+be read gets no finding here; converting it fails its task (`folder_pack_failed`), as does
+one whose pixel data is cut short, which no header shows. `texture_codec_unsupported` is
+conversion's own finding, reported when the file is compiled, not by `check`.
+
 | ID | Sev | Condition | Consequence |
 |---|---|---|---|
-| `texture_too_small` | E | dimension < 4 | discarded |
-| `texture_not_pow2` | E | portrait not power-of-2 / Fox mipmapped without pow2 side | discarded |
+| `texture_too_small` | E | a side under 4 pixels, one block | discarded |
+| `texture_not_pow2` | E | a side that is not a power of two, on a portrait (any target), or on a Fox target on a texture that carries a mip chain: a raster source always (its chain is generated), a DDS or FTEX source with more than one level (a single-level one passes at any size). Not reported on a kit's main texture, where `kit_texture_too_big` covers it | discarded |
 | `texture_not_div4` | E | pre-Fox compressed texture not divisible by 4 | discarded |
-| `kit_texture_too_big` | E | main kit texture > 2048² or not pow2 | discarded |
+| `kit_texture_too_big` | E | a kit's main texture (`kit`, its own or the one inherited from `all/`) wider or taller than 2048 pixels, or with a side that is not a power of two; any target | discarded |
 | `texture_type_mismatch` | E | header doesn't match extension (renamed, not resaved) | discarded |
 | `texture_codec_unsupported` | E | codec not convertible in-process | discarded |
 | `texture_stem_conflict` | E | two image files with the same stem in one lookup namespace, whatever their extensions: a model folder with its reserved subfolders (`hair.dds` beside `common/hair.dds`, or `hair.png`, or a texture link `hair.png.common`, which counts as a file of its linked name), `Common/` (`hair.dds` beside `hair.png`), a kit folder, or `Kits/all/` (`kit.png` beside `kit.dds`; a kit's own file overriding an `all/` file of its stem is not a conflict), or `Portraits/` (`player_03.dds` beside `player_03.png`) | folder discarded (the kit; for `all/`, `all/` itself, so no kit inherits from it); in `Portraits/` and `Common/`, both files (a player linking a dropped Common file follows `link_target_dropped`) |

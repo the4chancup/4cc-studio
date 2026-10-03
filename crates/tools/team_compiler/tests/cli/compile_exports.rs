@@ -12,7 +12,7 @@ use crate::compile::{
     pes21_settings, tracer_kit, tracer_portrait,
 };
 use crate::textures::texture_fixture;
-use crate::{CLEAN_PLAYER, findings_of, source_fixture};
+use crate::{CLEAN_PLAYER, clean_model, findings_of, source_fixture};
 
 // TC-ROS-01
 #[test]
@@ -25,7 +25,15 @@ fn without_players_txt_each_folder_is_the_player_its_number_names() {
 
     assert_eq!(
         findings_of(&run.messages(), "co - Numbers"),
-        ["Info export_identified [Keep] (team=/co/, id=714)"]
+        [
+            "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=boots.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=fcl_hair.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=glove_l.fmdl, count=2)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/15 - B (file=boots.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/15 - B (file=fcl_hair.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/15 - B (file=glove_l.fmdl, count=2)",
+            "Info export_identified [Keep] (team=/co/, id=714)"
+        ]
     );
     assert_eq!(compiled_players(&sandbox), [71403, 71415]);
     assert_eq!(run.exit_code(), 0);
@@ -45,7 +53,10 @@ fn players_txt_maps_a_folder_by_name_and_leaves_an_unlisted_one_out() {
         findings_of(&run.messages(), "co - Roster"),
         [
             "Warning player_unlisted [DropFolder] at Players/15 - B ()",
-            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/Snuffy (file=boots.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/Snuffy (file=fcl_hair.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/Snuffy (file=glove_l.fmdl, count=2)",
+            "Info export_identified [Keep] (team=/co/, id=714)"
         ]
     );
     assert_eq!(compiled_players(&sandbox), [71403]);
@@ -63,7 +74,12 @@ fn a_folder_listed_under_two_slots_is_compiled_for_both() {
 
     assert_eq!(
         findings_of(&run.messages(), "co - Twice"),
-        ["Info export_identified [Keep] (team=/co/, id=714)"]
+        [
+            "Info fmdl_weights_not_normalized [Keep] at Players/A (file=boots.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/A (file=fcl_hair.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/A (file=glove_l.fmdl, count=2)",
+            "Info export_identified [Keep] (team=/co/, id=714)"
+        ]
     );
     assert_eq!(compiled_players(&sandbox), [71403, 71407]);
     assert_eq!(run.exit_code(), 0);
@@ -90,7 +106,10 @@ fn each_bad_roster_line_is_reported_and_only_the_good_one_compiled() {
             "Error players_txt_slot_invalid [DropSlot] at players.txt line 2 slot Some(24) ()",
             "Error players_txt_target_missing [DropSlot] at players.txt line 3 slot Some(5) (folder=Nobody)",
             "Warning player_unlisted [DropFolder] at Players/A ()",
-            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/C (file=boots.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/C (file=fcl_hair.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/C (file=glove_l.fmdl, count=2)",
+            "Info export_identified [Keep] (team=/co/, id=714)"
         ]
     );
     assert_eq!(compiled_players(&sandbox), [71407]);
@@ -194,7 +213,12 @@ fn dds_portraits_from_both_sources_are_emitted_as_they_are_under_the_version_s_n
 
     assert_eq!(
         findings_of(&run.messages(), "co - Portraits"),
-        ["Info export_identified [Keep] (team=/co/, id=714)"]
+        [
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=boots.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=fcl_hair.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=glove_l.fmdl, count=2)",
+            "Info export_identified [Keep] (team=/co/, id=714)"
+        ]
     );
     assert_eq!(run.exit_code(), 0);
     assert_eq!(compiled_portraits(&sandbox), ["71405.dds", "71407.dds"]);
@@ -245,8 +269,11 @@ fn a_slot_with_a_portrait_in_its_folder_and_in_portraits_is_not_compiled_yet() {
     assert_eq!(
         findings_of(&run.messages(), "co - Both"),
         [
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=boots.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=fcl_hair.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=glove_l.fmdl, count=2)",
             "Info export_identified [Keep] (team=/co/, id=714)",
-            "Error content_not_yet_compiled [DropExport] (what=Portraits/player_05.dds)",
+            "Error content_not_yet_compiled [DropExport] (what=Portraits/player_05.dds)"
         ]
     );
     assert_eq!(run.exit_code(), 1);
@@ -284,7 +311,12 @@ fn a_dds_portrait_passes_through_and_a_png_one_is_encoded_to_bc3_under_the_versi
 
     assert_eq!(
         findings_of(&run.messages(), "co - Portraits"),
-        ["Info export_identified [Keep] (team=/co/, id=714)"]
+        [
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=boots.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=fcl_hair.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=glove_l.fmdl, count=2)",
+            "Info export_identified [Keep] (team=/co/, id=714)"
+        ]
     );
     assert_eq!(run.exit_code(), 0);
     assert_eq!(compiled_portraits(&sandbox), ["71405.dds", "71407.dds"]);
@@ -323,8 +355,11 @@ fn a_portrait_with_a_finding_is_left_out_alone() {
     assert_eq!(
         findings_of(&run.messages(), "co - Odd"),
         [
+            "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=boots.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=fcl_hair.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=glove_l.fmdl, count=2)",
             "Info export_identified [Keep] (team=/co/, id=714)",
-            "Error texture_not_pow2 [DropFile] at Portraits/player_05.png (file=player_05.png)",
+            "Error texture_not_pow2 [DropFile] at Portraits/player_05.png (file=player_05.png)"
         ]
     );
     assert_eq!(run.exit_code(), 1);
@@ -368,15 +403,21 @@ fn content_nested_one_folder_down_compiles_as_if_at_the_root() {
         findings_of(&lines, "co - Wrapped"),
         [
             "Warning nested_folders_fixed [Keep] (folder=wrapper)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=boots.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=fcl_hair.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=glove_l.fmdl, count=2)",
             "Info notes_found [Keep] at notes.txt ()",
-            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info export_identified [Keep] (team=/co/, id=714)"
         ]
     );
     assert_eq!(
         findings_of(&lines, "dbg - Doubled"),
         [
             "Warning nested_folders_fixed [Keep] at Players (folder=Players/Players)",
-            "Info export_identified [Keep] (team=/dbg/, id=790)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=boots.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=fcl_hair.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=glove_l.fmdl, count=2)",
+            "Info export_identified [Keep] (team=/dbg/, id=790)"
         ]
     );
     assert_eq!(compiled_players(&sandbox), [71403, 79003]);
@@ -395,8 +436,11 @@ fn pass_through_drops_notes_that_are_not_utf8_and_compiles_the_export() {
     assert_eq!(
         findings_of(&run.messages(), "egg Tracer"),
         [
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=boots.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=fcl_hair.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=glove_l.fmdl, count=2)",
             "Error notes_encoding_invalid [DropFile] at notes.txt ()",
-            "Info export_identified [Keep] (team=/egg/, id=792)",
+            "Info export_identified [Keep] (team=/egg/, id=792)"
         ]
     );
     assert_eq!(compiled_players(&sandbox), [79205]);
@@ -489,8 +533,14 @@ fn export_paths_restrict_check_and_compile_to_the_named_exports() {
         assert_eq!(
             run.messages(),
             [
+                "co - A: Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=boots.fmdl, count=1662)",
+                "co - A: Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=fcl_hair.fmdl, count=1662)",
+                "co - A: Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=glove_l.fmdl, count=2)",
                 "co - A: Info export_identified [Keep] (team=/co/, id=714)",
-                "dbg - D: Info export_identified [Keep] (team=/dbg/, id=790)",
+                "dbg - D: Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=boots.fmdl, count=1662)",
+                "dbg - D: Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=fcl_hair.fmdl, count=1662)",
+                "dbg - D: Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=glove_l.fmdl, count=2)",
+                "dbg - D: Info export_identified [Keep] (team=/dbg/, id=790)"
             ],
             "{command}"
         );
@@ -513,7 +563,10 @@ fn a_zip_export_is_compiled_as_the_team_its_name_starts_with() {
 
     assert_eq!(
         run.messages(),
-        ["co - Spring 2026.zip: Info export_identified [Keep] (team=/co/, id=714)"]
+        [
+            "co - Spring 2026.zip: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=fcl_hair.fmdl, count=1662)",
+            "co - Spring 2026.zip: Info export_identified [Keep] (team=/co/, id=714)"
+        ]
     );
     assert_eq!(compiled_players(&sandbox), [71405]);
     assert_eq!(compiled_kits(&sandbox), ["u0714g1"]);
@@ -531,8 +584,9 @@ fn a_root_notes_txt_that_cannot_be_read_is_dropped_and_the_rest_compiled() {
     assert_eq!(
         run.messages(),
         [
+            "egg Tracer bad notes.zip: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=fcl_hair.fmdl, count=1662)",
             "egg Tracer bad notes.zip: Error source_read_failed [DropFile] at notes.txt (reason=Invalid checksum)",
-            "egg Tracer bad notes.zip: Info export_identified [Keep] (team=/egg/, id=792)",
+            "egg Tracer bad notes.zip: Info export_identified [Keep] (team=/egg/, id=792)"
         ]
     );
     assert_eq!(compiled_players(&sandbox), [79205]);
@@ -554,7 +608,10 @@ fn a_7z_over_the_memory_cap_compiles() {
 
     assert_eq!(
         run.messages(),
-        ["egg Tracer.7z: Info export_identified [Keep] (team=/egg/, id=792)"]
+        [
+            "egg Tracer.7z: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=fcl_hair.fmdl, count=1662)",
+            "egg Tracer.7z: Info export_identified [Keep] (team=/egg/, id=792)"
+        ]
     );
     assert_eq!(compiled_players(&sandbox), [79205]);
     assert_eq!(compiled_kits(&sandbox), ["u0792g1"]);
@@ -568,7 +625,7 @@ fn an_export_is_processed_after_its_last_task_or_after_planning_when_it_has_none
     // Fails on the pool, so its finding is the writer's to report.
     sandbox.write("exports/co - Kits/Kits/g1/kit.dds", b"not a texture");
     sandbox.write("exports/dbg - Off/NO_USE", b"");
-    sandbox.write(&format!("exports/dbg - Off/{CLEAN_PLAYER}"), b"");
+    sandbox.write(&format!("exports/dbg - Off/{CLEAN_PLAYER}"), &clean_model());
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
 
@@ -621,10 +678,14 @@ fn the_worker_count_changes_neither_the_findings_nor_the_cpk() {
         outcomes[0].0,
         [
             "co - Kits: Info export_identified [Keep] (team=/co/, id=714)",
+            "dbg Seven.7z: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=fcl_hair.fmdl, count=1662)",
             "dbg Seven.7z: Info export_identified [Keep] (team=/dbg/, id=790)",
+            "egg Tracer: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=boots.fmdl, count=1662)",
+            "egg Tracer: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=fcl_hair.fmdl, count=1662)",
+            "egg Tracer: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=glove_l.fmdl, count=2)",
             "egg Tracer: Info export_identified [Keep] (team=/egg/, id=792)",
             "co - Kits: Info kit_config_generated [Keep] at Kits/p1 ()",
-            "co - Kits: Info kit_config_generated [Keep] at Kits/g1 ()",
+            "co - Kits: Info kit_config_generated [Keep] at Kits/g1 ()"
         ]
     );
     assert!(outcomes[0].1 == outcomes[1].1, "the CPKs differ");

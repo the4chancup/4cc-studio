@@ -125,12 +125,17 @@ in the export it is, and its details in parentheses. The line `Info export_ident
 id=714)` tells you which team the export was recognized as: its name's first word, looked up in
 the teams list (`team=referees` for a `refs` export).
 
-Both commands also read every `.fmdl` model of the export, an archive's included. A model with a
-vertex more than 5000 units from the origin lags the game for the whole matchday: it is reported
-as `vertex_too_far_from_origin`, naming the file and how many vertices are that far, and its
-folder is left out (a model in `Common`, only that file), even when `pass_through` is on. A
-player linking a shared folder or `Common` model left out this way is left out too, with the line
-`link_target_dropped`.
+Both commands also read every `.fmdl` and `.model` model and every `.mtl` material file of the
+export, an archive's included, and report what is wrong or suspicious in each, one line per file
+and problem, naming the file and how many faces, vertices or bones are concerned. A
+problem the game cannot live with (a mesh over a hard limit, a face naming a vertex that does not
+exist) is an Error: the folder is left out (a file in `Common`, only that file), unless
+`pass_through` is on, which keeps it as it is. A Warning or an Info leaves everything in. A model
+with a vertex more than 5000 units from the origin lags the game for the whole matchday: it is
+reported as `vertex_too_far_from_origin` and its folder is left out even when `pass_through` is
+on. So is a file that cannot be read as a model or a material file at all, reported as
+`model_broken` or `mtl_broken`. A player linking a shared folder or `Common` model left out this
+way is left out too, with the line `link_target_dropped`.
 
 Both commands read every export in the exports folder from the settings (`exports/` beside
 `4cc-studio` unless you changed it). To use another folder for one run, give its path as

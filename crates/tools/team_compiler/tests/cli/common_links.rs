@@ -96,10 +96,12 @@ fn a_common_model_link_bakes_the_model_into_the_face_and_its_texture_stays_in_th
     assert_eq!(
         findings_of(&run.messages(), "co - Link"),
         [
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=torso.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Common/legs.fmdl (file=legs.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info fmdl_fcl_hair_fallback [Keep] at Players/05 - A (file=legs.fmdl.common)",
             "Info fmdl_fcl_hair_fallback [Keep] at Players/05 - A (file=torso.fmdl)",
-            "Info fmdl_merged [Keep] at Players/05 - A (model=fcl_hair.fmdl)",
+            "Info fmdl_merged [Keep] at Players/05 - A (model=fcl_hair.fmdl)"
         ]
     );
     assert_eq!(run.exit_code(), 0);
@@ -177,7 +179,10 @@ fn a_boots_link_packs_the_common_skeleton_and_two_players_linking_one_model_shar
 
     assert_eq!(
         findings_of(&run.messages(), "co - Boots"),
-        ["Info export_identified [Keep] (team=/co/, id=714)"]
+        [
+            "Info fmdl_weights_not_normalized [Keep] at Common/legs.fmdl (file=legs.fmdl, count=1662)",
+            "Info export_identified [Keep] (team=/co/, id=714)"
+        ]
     );
     assert_eq!(run.exit_code(), 0);
     let entries = cpk_entries(&sandbox.root.join("output/4cc_90_test.cpk"));
@@ -233,9 +238,11 @@ fn a_boots_link_beside_a_shared_boots_link_combines_the_shared_folder() {
     assert_eq!(
         findings_of(&run.messages(), "co - Combined"),
         [
+            "Info fmdl_weights_not_normalized [Keep] at Boots/Crocs (file=boots.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Common/kit_boots.fmdl (file=kit_boots.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info link_combined [Keep] at Players/05 - A (link=Crocs.boots)",
-            "Info fmdl_merged [Keep] at Players/05 - A (model=boots.fmdl)",
+            "Info fmdl_merged [Keep] at Players/05 - A (model=boots.fmdl)"
         ]
     );
     assert_eq!(run.exit_code(), 0);
@@ -273,6 +280,7 @@ fn a_common_skeleton_of_a_slotless_face_model_is_reported_on_the_link_and_not_pa
         &tracer_player_file("fcl_hair.skl"),
     );
     let findings = [
+        "Info fmdl_weights_not_normalized [Keep] at Common/face_high.fmdl (file=face_high.fmdl, count=1662)",
         "Info export_identified [Keep] (team=/co/, id=714)",
         "Warning skl_no_slot [Keep] at Players/05 - A (file=face_high.fmdl.common)",
     ];
@@ -325,10 +333,13 @@ fn a_material_a_local_and_a_common_part_define_over_textures_in_two_places_drops
     assert_eq!(
         findings_of(&run.messages(), "co - Conflict"),
         [
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=torso.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/07 - B (file=boots.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Common/torso2.fmdl (file=torso2.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info fmdl_fcl_hair_fallback [Keep] at Players/05 - A (file=torso.fmdl)",
             "Info fmdl_fcl_hair_fallback [Keep] at Players/05 - A (file=torso2.fmdl.common)",
-            "Error merge_material_conflict [DropFolder] at Players/05 - A (material=shirt)",
+            "Error merge_material_conflict [DropFolder] at Players/05 - A (material=shirt)"
         ]
     );
     assert_eq!(run.exit_code(), 1);
@@ -367,20 +378,21 @@ fn a_common_texture_that_cannot_convert_fails_the_common_task_and_the_linking_pl
 
     let lines = run.messages();
     let findings = findings_of(&lines, "co - Broken");
-    assert_eq!(findings.len(), 3, "{findings:?}");
+    assert_eq!(findings.len(), 4, "{findings:?}");
     assert_eq!(
-        findings[..2],
+        findings[..3],
         [
+            "Info fmdl_weights_not_normalized [Keep] at Common/legs.fmdl (file=legs.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info fmdl_fcl_hair_fallback [Keep] at Players/05 - A (file=legs.fmdl.common)",
         ]
     );
     assert!(
-        findings[2].starts_with(
+        findings[3].starts_with(
             "Error folder_pack_failed [DropFolder] at Common (error=broken.dds: cannot convert"
         ),
         "{}",
-        findings[2]
+        findings[3]
     );
     assert_eq!(run.exit_code(), 1);
     let entries = cpk_entries(&sandbox.root.join("output/4cc_90_test.cpk"));
@@ -410,8 +422,9 @@ fn a_link_to_a_texture_or_a_nested_common_file_is_refused_and_an_unlinked_common
     assert_eq!(
         findings_of(&run.messages(), "co - Hair"),
         [
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=face_high.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
-            "Error content_not_yet_compiled [DropExport] (what=Players/05 - A/hair.dds.common)",
+            "Error content_not_yet_compiled [DropExport] (what=Players/05 - A/hair.dds.common)"
         ]
     );
     assert_eq!(run.exit_code(), 1);
@@ -436,8 +449,9 @@ fn a_link_to_a_texture_or_a_nested_common_file_is_refused_and_an_unlinked_common
         findings_of(&run.messages(), "co - Nested"),
         [
             "Info common_file_disallowed [Keep] at Common/sub/x.dds ()",
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=face_high.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
-            "Error content_not_yet_compiled [DropExport] (what=Common/sub/x.dds)",
+            "Error content_not_yet_compiled [DropExport] (what=Common/sub/x.dds)"
         ]
     );
     assert_eq!(run.exit_code(), 1);
@@ -460,7 +474,11 @@ fn a_link_to_a_texture_or_a_nested_common_file_is_refused_and_an_unlinked_common
     let run = unlinked.run(&pes21_settings(&unlinked), &["compile"]);
     assert_eq!(
         findings_of(&run.messages(), "co - Spare"),
-        ["Info export_identified [Keep] (team=/co/, id=714)"]
+        [
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=face_high.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Common/spare.fmdl (file=spare.fmdl, count=1662)",
+            "Info export_identified [Keep] (team=/co/, id=714)"
+        ]
     );
     assert_eq!(run.exit_code(), 0);
     let entries = cpk_entries(&unlinked.root.join("output/4cc_90_test.cpk"));

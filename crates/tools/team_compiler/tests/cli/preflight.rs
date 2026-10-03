@@ -1,7 +1,7 @@
 //! The preflight: the invocations and settings refused before any export is read.
 
 use crate::common::Sandbox;
-use crate::{CLEAN_PLAYER, snapshot};
+use crate::{CLEAN_PLAYER, clean_model, snapshot};
 
 // TC-CLI-03
 #[test]
@@ -135,6 +135,9 @@ fn modes_and_commands_this_version_lacks_are_refused() {
     let run = sandbox.run(multicpk, &["compile"]);
     run.assert_refused(2, &["multicpk_mode", "not available yet"]);
     // `check` ignores multicpk_mode.
-    sandbox.write(&format!("exports/co - Spring/{CLEAN_PLAYER}"), b"");
+    sandbox.write(
+        &format!("exports/co - Spring/{CLEAN_PLAYER}"),
+        &clean_model(),
+    );
     assert_eq!(sandbox.run(multicpk, &["check"]).exit_code(), 0);
 }

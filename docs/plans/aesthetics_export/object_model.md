@@ -93,7 +93,8 @@ eligible, roster-entry scope and disposition; confirmed 2026-09-30).
   consumer's code (not one of `ISSUE_CODES`), the scope, the context, the disposition asked
   for, and whether `pass_through` may keep it; an eligible `DropFile`/`DropFolder` becomes
   `Keep` under `pass_through`, marked as passed through, like the structure pass's own. In the
-  report's issues they stand after every folder's own findings and before the cascade, so a
+  report's issues they stand after the model folders' and `Common/`'s own findings and before
+  the cascade (the kit, portrait and root-file findings follow the cascade), so a
   player linking a shared folder or `Common/` file that a content finding drops gets
   `link_target_dropped` naming that finding, and a shared folder left with no linking player
   `shared_folder_orphaned`. What a scope drops: a `Folder` scope a player, shared or kit

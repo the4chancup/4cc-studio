@@ -55,13 +55,17 @@ fn write_skin_player(sandbox: &Sandbox, export: &str, texture_name: &str, bytes:
     sandbox.write(&format!("{player}/{texture_name}"), bytes);
 }
 
-/// Compiles the sandbox for PES `version`, asserting the export `name` reports only its
-/// identity, and returns the entry at `path`.
+/// Compiles the sandbox for PES `version`, asserting the export `name`, slot 05 written by
+/// `write_skin_player`, reports only the hair model's unnormalized weights and its identity,
+/// and returns the entry at `path`.
 fn compile_entry(sandbox: &Sandbox, name: &str, version: u8, path: &str) -> Vec<u8> {
     let run = sandbox.run(&pes_settings(sandbox, version), &["compile"]);
     assert_eq!(
         findings_of(&run.messages(), name),
-        ["Info export_identified [Keep] (team=/co/, id=714)"],
+        [
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=fcl_hair.fmdl, count=1662)",
+            "Info export_identified [Keep] (team=/co/, id=714)"
+        ],
         "PES {version}"
     );
     assert_eq!(run.exit_code(), 0, "PES {version}");
@@ -236,12 +240,13 @@ fn a_texture_finding_drops_the_player_folder_naming_the_file() {
         assert_eq!(
             findings_of(&run.messages(), "co - Drop"),
             [
+                "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=fcl_hair.fmdl, count=1662)".to_owned(),
                 "Info export_identified [Keep] (team=/co/, id=714)".to_owned(),
                 "Info kit_config_generated [Keep] at Kits/p1 ()".to_owned(),
                 format!(
                     "Error {} [DropFolder] at Players/05 - A (file={})",
                     case.code, case.name
-                ),
+                )
             ],
             "{}",
             case.code
@@ -308,8 +313,11 @@ fn a_common_texture_finding_leaves_that_file_out_and_the_rest_is_emitted() {
     assert_eq!(
         findings_of(&run.messages(), "co - Common"),
         [
+            "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=boots.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=fcl_hair.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=glove_l.fmdl, count=2)",
             "Info export_identified [Keep] (team=/co/, id=714)",
-            "Error texture_too_small [DropFile] at Common (file=tiny.png)",
+            "Error texture_too_small [DropFile] at Common (file=tiny.png)"
         ]
     );
     assert_eq!(run.exit_code(), 1);
@@ -349,8 +357,10 @@ fn a_common_texture_and_a_shared_folder_s_texture_in_png_are_emitted_as_ftex() {
     assert_eq!(
         findings_of(&run.messages(), "co - Png"),
         [
+            "Info fmdl_weights_not_normalized [Keep] at Boots/Crocs (file=boots.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Common/legs.fmdl (file=legs.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
-            "Info fmdl_fcl_hair_fallback [Keep] at Players/05 - A (file=legs.fmdl.common)",
+            "Info fmdl_fcl_hair_fallback [Keep] at Players/05 - A (file=legs.fmdl.common)"
         ]
     );
     assert_eq!(run.exit_code(), 0);

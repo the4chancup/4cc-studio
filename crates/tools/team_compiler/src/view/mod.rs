@@ -229,6 +229,9 @@ mod tests {
         assert_eq!(
             tool.run_log.lines(),
             [
+                "- egg Tracer: Info fmdl_weights_not_normalized at Players/05 - The Chad Stormworks Player (file=boots.fmdl, count=1662)",
+                "- egg Tracer: Info fmdl_weights_not_normalized at Players/05 - The Chad Stormworks Player (file=fcl_hair.fmdl, count=1662)",
+                "- egg Tracer: Info fmdl_weights_not_normalized at Players/05 - The Chad Stormworks Player (file=glove_l.fmdl, count=2)",
                 "- egg Tracer: Info export_identified (team=/egg/, id=792)",
                 "Run finished: exit code 0",
             ]

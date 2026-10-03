@@ -12,7 +12,7 @@ is in `AGENTS.md` ("Working documents").
 **Phase:** 3 (Team compiler skeleton) closed 2026-10-02, its cross-family reviews queued (see
 "Handover"). Phases 1 and 2 done (Phase 2 closed 2026-09-30).
 **Next:** Phase 4 is itemized and its Acceptance section written (step 4.1, 2026-10-03; its
-cross-family review (a) is queued). Next: 4.7 (deep validation pass, in four slices; (a) is done, (b) is briefed), then 4.8; 4.30, 4.6 and 4.5 are done (4.6c moved to Phase 8's cancellation). 2.5b (GPU BC7) is step 16.x (decision entries
+cross-family review (a) is queued). Next: 4.7 (deep validation pass, in slices; (a) and (b) are done, (c1) is briefed), then 4.8; 4.30, 4.6 and 4.5 are done (4.6c moved to Phase 8's cancellation). 2.5b (GPU BC7) is step 16.x (decision entries
 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0 after Phase 8; phase order 1–6,
 8, 0.1.0, 7, 9–16 (`core/development_plan.md` "Releases"); first-class target the Fox version
 the cup moves to around April 2027 ("Target versions").
@@ -77,6 +77,14 @@ Claude agent with no sidekick and no reviewer of another model family. While tha
   `messages.md` "Textures", `libs/dds_convert.md` "`dds_convert` API", TC-MOD-10/11,
   TC-TEX-01/02/04/06, TC-PRT-01, TC-KIT-10, and the decision entries of 2026-10-03 from "Fox's
   Common textures are one task" on.
+  4.7 (a) and (b), one review when the step's last slice lands: TC-CHK-06 and TC-CHK-07
+  (`team_compiler/README.md` "Deep checks"); `aesthetics_export`'s `ContentFinding` and
+  `ValidationReport::with_content_findings`, `team_compiler/src/deep.rs` and `validation.rs`,
+  `fmdl`'s and `pes_model`'s `check::CODES`, `dds_convert::probe`, from `d4126df` to the
+  step's last commit, against `pipeline.md` "2. Per-export serial steps" (deep format pass),
+  `object_model.md` "Validation semantics" (content findings), `messages.md` "Model checks"
+  and "Textures", and the decision entries "the deep pass: the compiler checks, the export
+  crate drops" and "texture checks: from the header, in the deep pass".
 - For the lead, on return: the review process on trial (maintainer, 3.1) runs a full sidekick
   review loop after each GPT round and calls GPT again only once that loop has ended and GPT's
   own loop has not; not yet in `AGENTS.md` (3.6: GPT 4 of 7 accepted, then sidekick S1 3 of 7,
@@ -515,19 +523,32 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
     every file as a model changes nothing; (b)'s `model_broken` makes it observable and
     its brief asks for the test). Not covered, for (c)/(d) if they need it: a drop naming
     `Kits/all`, a kit's `config.toml` or `colors.txt`, or the root `colors.txt`
-  - (b) every format finding by its severity: `fmdl::check`, `pes_model`'s three checks, each
-    crate's code list exported, a catalog row per code and the test that every `ISSUE_CODES`
-    entry and every format finding code has one; a model that does not read;
-    `face_diff_invalid` and `xml_dif_conflict` reported by the deep pass, where they drop the
-    folder (TC-MOD-15's wording; `player_folders.md` "`face_diff.xml`" says the Face task
-    only, to be rewritten with the slice)
-  - (c) textures from their headers (a probe in `dds_convert`, no decode): the four texture
-    findings, `kit_texture_too_big`, portraits, `portrait_conflict`, the logo's decode
-    (`logo_file_invalid`); processing's own checks on sources retired, since the deep pass
-    has run them and `pass_through` must be able to keep the file; `pipeline.md` "Common
-    textures are one task" loses its "the linking players still commit" for these findings.
-    TC-TEX-03, TC-PRT-02..03, TC-CHK-04..05
-  - (d) `kit_config_invalid`, `settings_toml_invalid` (parse only, through `pes_savefile`'s
+  - (b) every format finding by its severity. Done 2026-10-03 (Opus 5.5, one rework
+    round): the deep pass reads every `.fmdl`, `.model` and `.mtl` and reports each check
+    code of `fmdl` and `pes_model` once per file with its summed count (`deep.rs`); an Error
+    drops the folder and is pass-through-eligible, the far vertex and a file that does not
+    parse (`model_broken`, `mtl_broken`) are not; `CODES` in both crates' `check.rs` is the
+    one place a severity is written, and the catalog test holds every format code's row to
+    it; a rule about a mesh, material or bone itself now counts 1, not 0. TC-CHK-06..07
+    (new). The tracer's models carry `fmdl_weights_not_normalized` (Info), so most CLI
+    tests gained those lines; placeholder models in tests are now a real clean one. Gates
+    green (104 of 205); `mutants-diff 68db02d`: 96, 83 caught, 13 unviable, 0 missed. `check_bundle`
+    (`model_material_undefined`) is the pre-Fox face steps'
+  - (c1) textures of model folders, `Common/` and kits from their headers
+    (`dds_convert::probe`, no decode): `texture_type_mismatch`, `texture_too_small`,
+    `texture_not_pow2`, `kit_texture_too_big`; processing's own checks on those sources
+    retired, since the deep pass has run them and `pass_through` must be able to keep the
+    file (`texture_codec_unsupported` stays conversion's). Plan: `messages.md` "Textures",
+    `libs/dds_convert.md` "`dds_convert` API", decision entry "texture checks: from the
+    header, in the deep pass". TC-TEX-03, TC-CHK-04
+  - (c2) portraits from their headers (the file dropped; a power-of-two side always),
+    `portrait_conflict` (both sources, different bytes: the export dropped; equal bytes:
+    one portrait, and planning's refusal of a slot with both goes), the logo's decode
+    (`logo_file_invalid`), processing's portrait checks retired. TC-PRT-02..03, TC-CHK-05
+    (its "no logo is emitted" half is trivially true until 4.11)
+  - (d) `face_diff_invalid` and `xml_dif_conflict` reported by the deep pass, where they drop
+    the folder (`player_folders.md` "`face_diff.xml`"; the tests in `tests/cli/models.rs`
+    change); `kit_config_invalid`, `settings_toml_invalid` (parse only, through `pes_savefile`'s
     `PlayerSettings` TOML reader; the other `settings_*` and `fpc_strip_conflict` codes
     describe resolved values and are Phase 5's), TC-CHK-03; then `check` and `compile` timed
     on a large export as a folder and as a solid `.7z`, and the pass run on the worker pool
@@ -539,8 +560,9 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `color_tools::kit::extract_kit_colors` on the decoded main texture (`kit_colors_derived`), the
   magenta/black pair (`kit_colors_missing`), the icon marker (`icon_<N>`, step 4.30; default
   3); `UniColor.bin` built on the
-  bundled base (lead first: the `UniColor.bin` and `TeamColor.bin` bases as lead-authored
-  fixtures with a provenance README) at Red's per-team offsets, an entry applied only when its
+  bundled base (lead first, done 2026-10-03: `resources/bins/TeamColor.bin` and
+  `UniColor.bin`, Red's, with the measured record layout in the folder's README and
+  `scripts/provenance/fixtures/color_bins_compare.py`) at Red's per-team offsets, an entry applied only when its
   kit's task commits (placeholder kits included: TC-SRC-01's p2 gains its entry); root
   `colors.txt` → `TeamColor.bin`, `team_colors_missing` (I). Plan: `pipeline.md` "4. Per-export
   non-model steps" (Bins accumulation), "Resolved decisions" (Kit colors fallback);
@@ -1714,3 +1736,13 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   drops its folder (`vertex_too_far_from_origin`), with `pass_through` on too; a dropped shared
   folder or `Common/` model takes the players linking it. The export crate re-derives the
   sanitized export from the findings, so no drop or cascade code exists twice.
+- **2026-10-03** — 4.7b: `check` and `compile` now report every model check of the two model
+  formats and of `.mtl` files, one line per file and problem with a count. An Error (a mesh
+  over a hard limit, a face naming a missing vertex) drops the folder unless `pass_through`
+  keeps it; a file that is not a model at all is `model_broken` and always dropped. On the
+  VGL26 corpus (2,938 `.fmdl`): 89 files with a far vertex (dropped, as decided at 4.7),
+  640 with unnormalized weights (Info), 1 with an empty mesh (Warning), no other Error.
+  One rework round: counts of item rules (0 became 1), the catalog test's order check, two
+  acceptance IDs. Lead fix: `crates/studio`'s CLI test wrote an empty model, now a real
+  one. Also this session: the plan for the texture checks (4.7c, split in two) with its
+  decision entry, and 4.8's two bin bases bundled with their measured layout.

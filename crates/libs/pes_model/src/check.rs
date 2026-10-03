@@ -86,7 +86,9 @@ pub struct Finding {
     pub severity: Severity,
     /// What it is about.
     pub subject: Subject,
-    /// How many items (faces, vertices, bones) tripped the rule.
+    /// How many items tripped the rule: the faces, vertices or bone slots
+    /// inside the subject, or 1 when the subject itself is the item (an
+    /// empty mesh, an unused material, a duplicated bone).
     pub count: usize,
 }
 
@@ -100,6 +102,47 @@ const STATE_NAMES: [&str; 7] = [
     "alphablend",
     "blendmode",
 ];
+
+/// Every code `check`, `check_materials` and `check_bundle` can report,
+/// with its severity, in the module doc's firing order: the one place a
+/// code's severity is written, so a tool's message catalog can be tested
+/// against it.
+pub const CODES: &[(&str, Severity)] = &[
+    ("model_mesh_over_bone_limit", Severity::Error),
+    ("model_mesh_over_vertex_limit", Severity::Error),
+    ("model_mesh_over_face_limit", Severity::Error),
+    ("model_vertex_far_from_origin", Severity::Error),
+    ("model_face_index_out_of_range", Severity::Error),
+    ("model_bone_slot_out_of_range", Severity::Warning),
+    ("model_weights_not_normalized", Severity::Info),
+    ("model_degenerate_face", Severity::Info),
+    ("model_mesh_empty", Severity::Warning),
+    ("model_material_unused", Severity::Info),
+    ("model_duplicate_bone_name", Severity::Warning),
+    ("model_lod_record_mismatch", Severity::Warning),
+    ("mtl_material_duplicate", Severity::Error),
+    ("mtl_state_invalid", Severity::Error),
+    ("mtl_blendmode_nonzero", Severity::Warning),
+    ("mtl_state_nonrecommended", Severity::Info),
+    ("mtl_state_missing", Severity::Info),
+    ("mtl_state_unknown", Severity::Info),
+    ("model_material_undefined", Severity::Error),
+];
+
+/// A finding of `code`, at the severity `CODES` gives it.
+fn finding(code: &'static str, subject: Subject, count: usize) -> Finding {
+    let severity = CODES
+        .iter()
+        .find(|(known, _)| *known == code)
+        .map(|(_, severity)| *severity)
+        .expect("every code the checks report is listed in `CODES`");
+    Finding {
+        code,
+        severity,
+        subject,
+        count,
+    }
+}
 
 /// Far geometry lags the game for the whole matchday.
 const MAX_DISTANCE_FROM_ORIGIN: f32 = 5000.0;
@@ -118,28 +161,25 @@ pub fn check(model: &Model) -> Vec<Finding> {
         // The game cannot load a mesh over a hard limit; splitting with
         // `ops::split::encode` is the fix.
         if mesh.bone_group.len() > BONE_LIMIT_HARD {
-            findings.push(Finding {
-                code: "model_mesh_over_bone_limit",
-                severity: Severity::Error,
-                subject: subject.clone(),
-                count: mesh.bone_group.len(),
-            });
+            findings.push(finding(
+                "model_mesh_over_bone_limit",
+                subject.clone(),
+                mesh.bone_group.len(),
+            ));
         }
         if vertex_count > VERTEX_LIMIT_HARD {
-            findings.push(Finding {
-                code: "model_mesh_over_vertex_limit",
-                severity: Severity::Error,
-                subject: subject.clone(),
-                count: vertex_count,
-            });
+            findings.push(finding(
+                "model_mesh_over_vertex_limit",
+                subject.clone(),
+                vertex_count,
+            ));
         }
         if mesh.faces.len() > FACE_LIMIT_HARD {
-            findings.push(Finding {
-                code: "model_mesh_over_face_limit",
-                severity: Severity::Error,
-                subject: subject.clone(),
-                count: mesh.faces.len(),
-            });
+            findings.push(finding(
+                "model_mesh_over_face_limit",
+                subject.clone(),
+                mesh.faces.len(),
+            ));
         }
 
         // f64: a huge coordinate cannot overflow the squared-distance sum.
@@ -154,12 +194,11 @@ pub fn check(model: &Model) -> Vec<Finding> {
             })
             .count();
         if far > 0 {
-            findings.push(Finding {
-                code: "model_vertex_far_from_origin",
-                severity: Severity::Error,
-                subject: subject.clone(),
-                count: far,
-            });
+            findings.push(finding(
+                "model_vertex_far_from_origin",
+                subject.clone(),
+                far,
+            ));
         }
 
         let out_of_range = mesh
@@ -172,12 +211,11 @@ pub fn check(model: &Model) -> Vec<Finding> {
             })
             .count();
         if out_of_range > 0 {
-            findings.push(Finding {
-                code: "model_face_index_out_of_range",
-                severity: Severity::Error,
-                subject: subject.clone(),
-                count: out_of_range,
-            });
+            findings.push(finding(
+                "model_face_index_out_of_range",
+                subject.clone(),
+                out_of_range,
+            ));
         }
 
         if let Some(indices) = &mesh.vertices.bone_indices {
@@ -194,12 +232,11 @@ pub fn check(model: &Model) -> Vec<Finding> {
                 })
                 .count();
             if bad_slots > 0 {
-                findings.push(Finding {
-                    code: "model_bone_slot_out_of_range",
-                    severity: Severity::Warning,
-                    subject: subject.clone(),
-                    count: bad_slots,
-                });
+                findings.push(finding(
+                    "model_bone_slot_out_of_range",
+                    subject.clone(),
+                    bad_slots,
+                ));
             }
         }
         if let Some(weights) = &mesh.vertices.bone_weights {
@@ -211,12 +248,11 @@ pub fn check(model: &Model) -> Vec<Finding> {
                 })
                 .count();
             if unnormalized > 0 {
-                findings.push(Finding {
-                    code: "model_weights_not_normalized",
-                    severity: Severity::Info,
-                    subject: subject.clone(),
-                    count: unnormalized,
-                });
+                findings.push(finding(
+                    "model_weights_not_normalized",
+                    subject.clone(),
+                    unnormalized,
+                ));
             }
         }
 
@@ -227,44 +263,36 @@ pub fn check(model: &Model) -> Vec<Finding> {
             .filter(|face| face[0] == face[1] || face[1] == face[2] || face[0] == face[2])
             .count();
         if degenerate > 0 {
-            findings.push(Finding {
-                code: "model_degenerate_face",
-                severity: Severity::Info,
-                subject: subject.clone(),
-                count: degenerate,
-            });
+            findings.push(finding(
+                "model_degenerate_face",
+                subject.clone(),
+                degenerate,
+            ));
         }
 
         if mesh.faces.is_empty() {
-            findings.push(Finding {
-                code: "model_mesh_empty",
-                severity: Severity::Warning,
-                subject,
-                count: 0,
-            });
+            findings.push(finding("model_mesh_empty", subject, 1));
         }
     }
 
     for (index, _) in model.materials.iter().enumerate() {
         if !used_materials.contains(&index) {
-            findings.push(Finding {
-                code: "model_material_unused",
-                severity: Severity::Info,
-                subject: Subject::Material(index),
-                count: 0,
-            });
+            findings.push(finding(
+                "model_material_unused",
+                Subject::Material(index),
+                1,
+            ));
         }
     }
 
     let mut seen = HashSet::new();
     for (index, bone) in model.bones.iter().enumerate() {
         if !seen.insert(bone.name.as_str()) {
-            findings.push(Finding {
-                code: "model_duplicate_bone_name",
-                severity: Severity::Warning,
-                subject: Subject::Bone(index),
-                count: 0,
-            });
+            findings.push(finding(
+                "model_duplicate_bone_name",
+                Subject::Bone(index),
+                1,
+            ));
         }
     }
 
@@ -278,12 +306,7 @@ pub fn check(model: &Model) -> Vec<Finding> {
         .unwrap_or(0);
     let expected = if expected <= 1 { 0 } else { expected } as u32;
     if model.lod.level_count != expected {
-        findings.push(Finding {
-            code: "model_lod_record_mismatch",
-            severity: Severity::Warning,
-            subject: Subject::Model,
-            count: expected as usize,
-        });
+        findings.push(finding("model_lod_record_mismatch", Subject::Model, 1));
     }
 
     findings
@@ -296,12 +319,7 @@ pub fn check_materials(set: &MaterialSet) -> Vec<Finding> {
     for (index, material) in set.materials.iter().enumerate() {
         let subject = Subject::MtlMaterial(index);
         if !seen.insert(material.name.as_str()) {
-            findings.push(Finding {
-                code: "mtl_material_duplicate",
-                severity: Severity::Error,
-                subject: subject.clone(),
-                count: 0,
-            });
+            findings.push(finding("mtl_material_duplicate", subject.clone(), 1));
         }
 
         // A state name appearing twice is legal XML and unremarkable;
@@ -329,48 +347,23 @@ pub fn check_materials(set: &MaterialSet) -> Vec<Finding> {
             }
         }
         if invalid > 0 {
-            findings.push(Finding {
-                code: "mtl_state_invalid",
-                severity: Severity::Error,
-                subject: subject.clone(),
-                count: invalid,
-            });
+            findings.push(finding("mtl_state_invalid", subject.clone(), invalid));
         }
         if states.get("blendmode") == Some(&1) {
-            findings.push(Finding {
-                code: "mtl_blendmode_nonzero",
-                severity: Severity::Warning,
-                subject: subject.clone(),
-                count: 1,
-            });
+            findings.push(finding("mtl_blendmode_nonzero", subject.clone(), 1));
         }
         if states.get("alphablend") == Some(&1) && states.get("zwrite") == Some(&1) {
-            findings.push(Finding {
-                code: "mtl_state_nonrecommended",
-                severity: Severity::Info,
-                subject: subject.clone(),
-                count: 1,
-            });
+            findings.push(finding("mtl_state_nonrecommended", subject.clone(), 1));
         }
         let missing = STATE_NAMES
             .iter()
             .filter(|name| !states.contains_key(*name))
             .count();
         if missing > 0 {
-            findings.push(Finding {
-                code: "mtl_state_missing",
-                severity: Severity::Info,
-                subject: subject.clone(),
-                count: missing,
-            });
+            findings.push(finding("mtl_state_missing", subject.clone(), missing));
         }
         if unknown > 0 {
-            findings.push(Finding {
-                code: "mtl_state_unknown",
-                severity: Severity::Info,
-                subject,
-                count: unknown,
-            });
+            findings.push(finding("mtl_state_unknown", subject, unknown));
         }
     }
     findings
@@ -388,12 +381,11 @@ pub fn check_bundle(model: &Model, set: &MaterialSet) -> Vec<Finding> {
         .collect();
     for (index, name) in model.materials.iter().enumerate() {
         if !defined.contains(name.as_str()) {
-            findings.push(Finding {
-                code: "model_material_undefined",
-                severity: Severity::Error,
-                subject: Subject::Material(index),
-                count: 0,
-            });
+            findings.push(finding(
+                "model_material_undefined",
+                Subject::Material(index),
+                1,
+            ));
         }
     }
     findings
@@ -424,6 +416,35 @@ mod tests {
     }
 
     #[test]
+    fn the_code_list_is_the_module_doc_s_rules_in_firing_order() {
+        let codes: Vec<(&str, Severity)> = CODES.to_vec();
+        assert_eq!(
+            codes,
+            [
+                ("model_mesh_over_bone_limit", Severity::Error),
+                ("model_mesh_over_vertex_limit", Severity::Error),
+                ("model_mesh_over_face_limit", Severity::Error),
+                ("model_vertex_far_from_origin", Severity::Error),
+                ("model_face_index_out_of_range", Severity::Error),
+                ("model_bone_slot_out_of_range", Severity::Warning),
+                ("model_weights_not_normalized", Severity::Info),
+                ("model_degenerate_face", Severity::Info),
+                ("model_mesh_empty", Severity::Warning),
+                ("model_material_unused", Severity::Info),
+                ("model_duplicate_bone_name", Severity::Warning),
+                ("model_lod_record_mismatch", Severity::Warning),
+                ("mtl_material_duplicate", Severity::Error),
+                ("mtl_state_invalid", Severity::Error),
+                ("mtl_blendmode_nonzero", Severity::Warning),
+                ("mtl_state_nonrecommended", Severity::Info),
+                ("mtl_state_missing", Severity::Info),
+                ("mtl_state_unknown", Severity::Info),
+                ("model_material_undefined", Severity::Error),
+            ]
+        );
+    }
+
+    #[test]
     fn fixtures_are_clean() {
         for bytes in ALL
             .iter()
@@ -436,8 +457,8 @@ mod tests {
         assert_eq!(
             check(&load(COMMUNITY_EMPTY_GEOMETRY)),
             [
-                finding("model_mesh_empty", Severity::Warning, Subject::Mesh(0), 0,),
-                finding("model_mesh_empty", Severity::Warning, Subject::Mesh(1), 0,),
+                finding("model_mesh_empty", Severity::Warning, Subject::Mesh(0), 1,),
+                finding("model_mesh_empty", Severity::Warning, Subject::Mesh(1), 1,),
             ]
         );
     }
@@ -698,7 +719,7 @@ mod tests {
             "model_mesh_empty",
             Severity::Warning,
             Subject::Mesh(0),
-            0,
+            1,
         )));
 
         let mut model = load(CARD);
@@ -708,7 +729,7 @@ mod tests {
             "model_material_unused",
             Severity::Info,
             Subject::Material(1),
-            0,
+            1,
         )));
 
         let mut model = load(CARD);
@@ -720,7 +741,7 @@ mod tests {
             "model_duplicate_bone_name",
             Severity::Warning,
             Subject::Bone(at),
-            0,
+            1,
         )));
 
         let mut model = load(COLLAR);
@@ -730,7 +751,7 @@ mod tests {
             "model_lod_record_mismatch",
             Severity::Warning,
             Subject::Model,
-            6,
+            1,
         )));
 
         let mut model = load(CARD);
@@ -740,7 +761,7 @@ mod tests {
             "model_lod_record_mismatch",
             Severity::Warning,
             Subject::Model,
-            0,
+            1,
         )));
     }
 
@@ -814,7 +835,7 @@ mod tests {
             "mtl_material_duplicate",
             Severity::Error,
             Subject::MtlMaterial(1),
-            0,
+            1,
         )));
 
         let set = materials(vec![material(
@@ -882,7 +903,7 @@ mod tests {
             "model_material_undefined",
             Severity::Error,
             Subject::Material(0),
-            0,
+            1,
         )));
     }
 }

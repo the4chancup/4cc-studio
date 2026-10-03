@@ -8,7 +8,7 @@ use pes_version::PesVersion;
 
 use crate::common::Sandbox;
 use crate::compile::{compiled_players, cpk_entries, kit_texture, pes21_settings};
-use crate::{CLEAN_PLAYER, findings_of, snapshot, source_fixture};
+use crate::{CLEAN_PLAYER, clean_model, findings_of, snapshot, source_fixture};
 
 /// The folder `exports/co - Spring/`, the same export as the `co - Spring` fixtures: git keeps no
 /// empty folder, so it is built here.
@@ -134,7 +134,10 @@ fn a_corrupt_archive_is_skipped_and_the_export_beside_it_is_still_checked() {
     let sandbox = Sandbox::new("corrupt_archive");
     // The scan compares the extension in any case.
     sandbox.write("exports/co - Broken.ZIP", b"not a zip at all");
-    sandbox.write(&format!("exports/co - Spring/{CLEAN_PLAYER}"), b"");
+    sandbox.write(
+        &format!("exports/co - Spring/{CLEAN_PLAYER}"),
+        &clean_model(),
+    );
 
     let run = sandbox.run("", &["check"]);
 
@@ -183,8 +186,8 @@ fn an_archive_whose_names_collide_or_escape_is_skipped_naming_the_path() {
 #[test]
 fn export_paths_may_name_an_archive_outside_the_root() {
     let sandbox = Sandbox::new("named_archive");
-    sandbox.write(&format!("exports/co - A/{CLEAN_PLAYER}"), b"");
-    sandbox.write(&format!("exports/co - C/{CLEAN_PLAYER}"), b"");
+    sandbox.write(&format!("exports/co - A/{CLEAN_PLAYER}"), &clean_model());
+    sandbox.write(&format!("exports/co - C/{CLEAN_PLAYER}"), &clean_model());
     sandbox.copy_fixture("co - Spring.zip", "elsewhere");
 
     let run = sandbox.run(
@@ -215,7 +218,7 @@ fn check_leaves_every_archive_and_nested_export_as_it_was() {
     sandbox.copy_fixture("co - Spring.7z", "exports");
     sandbox.write(
         &format!("exports/co - Nested/wrapper/{CLEAN_PLAYER}"),
-        b"model",
+        &clean_model(),
     );
     let exports = sandbox.root.join("exports");
     let before = snapshot(&exports);

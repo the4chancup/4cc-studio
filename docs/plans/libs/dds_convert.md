@@ -174,6 +174,10 @@ pub fn convert(decoded: &Decoded, target: Target) -> Result<Vec<u8>, ConvertErro
 /// source's chain generated, a block source already in `codec` keeping its blocks.
 pub fn encode_dds(decoded: &Decoded, codec: BlockCodec) -> Result<Vec<u8>, ConvertError>;
 
+/// What a source's header says of its texture, read without decoding a pixel.
+pub struct Probe { pub width: u32, pub height: u32, pub mipmaps: u32 }
+pub fn probe(bytes: &[u8], format: SourceFormat) -> Result<Probe, ConvertError>;
+
 /// SHA-256 of the source bytes, computed once when the file is materialized and reused.
 pub struct SourceHash(pub [u8; 32]);
 pub fn source_hash(bytes: &[u8]) -> SourceHash;
@@ -222,6 +226,15 @@ already needed it in both directions; `ftex` exposes it as `ftex::dds` (`read_la
 `header_bytes`, and `DdsPixel::row_bytes`, the one tight-row rule) and `dds_convert` uses that
 instead of carrying a second copy. Encoder settings
 join the cache key with 2.5b, when a second encoder exists.
+
+`probe` reads a texture's size from its header alone. It exists for the Team compiler's deep
+pass, which checks every texture of an export and must not pay a decode for each: a DDS's layout
+through `ftex::dds::read_layout` (a WESYS-wrapped one unwrapped first), an FTEX's through
+`ftex::info`, a raster source's through the `image` decoder's dimensions. `Probe.mipmaps` is the
+level count the converted texture carries: a DDS or FTEX source's own count, and for a raster
+source the full chain down to 1x1, which conversion generates. `probe` fails on a header `decode`
+would fail to read; it says nothing of the pixel data behind the header, so a texture that
+probes can still fail to decode.
 
 ### In-memory conversion cache
 
