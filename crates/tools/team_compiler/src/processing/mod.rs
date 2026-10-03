@@ -11,6 +11,7 @@ use std::ops::Range;
 use std::sync::Arc;
 
 use aesthetics_export::FileDescriptor;
+use dds_convert::{CachePolicy, Converter};
 use pes_version::PesVersion;
 use pipeline::Permit;
 use studio_core::{Disposition, Message, Scope};
@@ -27,9 +28,37 @@ pub(crate) type TaskFiles = BTreeMap<ScopePath, Vec<u8>>;
 
 /// What every task of a run reads besides its own content.
 pub(crate) struct CompileContext {
-    /// The target version, which decides the kit config's encoding and the portraits' file
-    /// names.
+    /// The target version, which decides each texture's codec and container, the kit config's
+    /// encoding and the portraits' file names.
     pub(crate) version: PesVersion,
+    /// The run's texture converter, one for every task: the conversion cache in front of
+    /// `dds_convert` (`libs/dds_convert.md` "In-memory conversion cache").
+    pub(crate) converter: Converter,
+    /// Whether the converter keeps what it converts, from the run's export count.
+    pub(crate) cache: CachePolicy,
+}
+
+impl CompileContext {
+    /// The context of a run for `version` compiling `compiled_exports` exports (those with at
+    /// least one planned task), with a fresh converter.
+    pub(crate) fn new(version: PesVersion, compiled_exports: usize) -> CompileContext {
+        CompileContext {
+            version,
+            converter: Converter::new(),
+            cache: cache_policy(compiled_exports),
+        }
+    }
+}
+
+/// Whether a run compiling `compiled_exports` exports caches its conversions: at most two,
+/// the edit-and-test loop the cache is for; a larger run converts mostly first-seen textures
+/// and would retain every one for nothing (`libs/dds_convert.md` "Engagement limit").
+fn cache_policy(compiled_exports: usize) -> CachePolicy {
+    if compiled_exports <= 2 {
+        CachePolicy::Use
+    } else {
+        CachePolicy::Bypass
+    }
 }
 
 /// One file in a container: its path in a CPK, or its name in a bin, and its bytes.
@@ -116,7 +145,7 @@ pub(crate) fn process_task(
         )
         .map(|entries| (entries, None)),
         TaskKind::Textures { folder, .. } => {
-            texture::folder_textures(folder, task.team_id, &mut files, &mut findings).map(
+            texture::folder_textures(folder, task.team_id, ctx, &mut files, &mut findings).map(
                 |(entries, dropped)| {
                     skipped = dropped_positions(task.group.as_ref(), &dropped);
                     (entries, None)
@@ -124,7 +153,7 @@ pub(crate) fn process_task(
             )
         }
         TaskKind::CommonTextures { textures, .. } => {
-            texture::common_textures(textures, task.team_id, &mut files)
+            texture::common_textures(textures, task.team_id, ctx, &mut files)
                 .map(|entries| (entries, None))
         }
         // A DDS portrait is what the game reads: its bytes go out as they are.
@@ -135,7 +164,7 @@ pub(crate) fn process_task(
             )],
             None,
         )),
-        TaskKind::Kit { slot, kit } => kit::kit(*slot, kit, task.team_id, ctx.version, &mut files)
+        TaskKind::Kit { slot, kit } => kit::kit(*slot, kit, task.team_id, ctx, &mut files)
             .map(|(entries, config)| (entries, Some(config)))
             .map_err(TaskFailure::from),
     };
@@ -310,7 +339,7 @@ mod tests {
             charge: 0,
             group,
         };
-        process_task(3, task, files, &CompileContext { version })
+        process_task(3, task, files, &CompileContext::new(version, 1))
     }
 
     fn paths(batch: &TaskBatch) -> Vec<&str> {
@@ -706,6 +735,17 @@ mod tests {
         assert_eq!(
             batch.entries[0].1,
             ftex::dds_to_ftex(&dds, ftex::ColorSpace::Normal).unwrap()
+        );
+    }
+
+    #[test]
+    fn the_conversion_cache_engages_for_at_most_two_exports() {
+        assert_eq!(cache_policy(0), CachePolicy::Use);
+        assert_eq!(cache_policy(2), CachePolicy::Use);
+        assert_eq!(cache_policy(3), CachePolicy::Bypass);
+        assert_eq!(
+            CompileContext::new(PesVersion::Pes21, 48).cache,
+            CachePolicy::Bypass
         );
     }
 

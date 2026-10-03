@@ -13,6 +13,7 @@ mod compile_exports;
 mod models;
 mod preflight;
 mod sources;
+mod textures;
 
 use std::collections::BTreeMap;
 use std::fs;

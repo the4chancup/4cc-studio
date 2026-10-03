@@ -81,7 +81,7 @@ pub(crate) fn run(
     let run_folder = deploy::staging_folder(output_folder);
     let cpk_name = deploy::cpk_file_name(cpk_stem);
     let output = CpkOutput::new(run_folder.join(&cpk_name));
-    let context = CompileContext { version };
+    let context = CompileContext::new(version, last_tasks.len());
     let (coordinated, (mut events, written)) = std::thread::scope(|scope| {
         let (batches_tx, batches_rx) = unbounded();
         let last_tasks = &last_tasks;
@@ -424,9 +424,7 @@ mod tests {
             ),
         ];
         let budget = MemoryBudget::new(1 << 30);
-        let context = CompileContext {
-            version: PesVersion::Pes21,
-        };
+        let context = CompileContext::new(PesVersion::Pes21, 1);
         let pool = rayon::ThreadPoolBuilder::new()
             .num_threads(2)
             .build()
@@ -477,14 +475,7 @@ mod tests {
             &task,
             &mut ContentSource::new(&source, &MemoryBudget::new(1 << 30)),
         );
-        let batch = task_batch(
-            3,
-            task,
-            files,
-            &CompileContext {
-                version: PesVersion::Pes21,
-            },
-        );
+        let batch = task_batch(3, task, files, &CompileContext::new(PesVersion::Pes21, 1));
 
         assert_eq!(batch.index, 3);
         assert!(batch.entries.is_empty() && batch.uniparam.is_none());

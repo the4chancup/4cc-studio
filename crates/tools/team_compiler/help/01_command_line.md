@@ -18,7 +18,15 @@ only the models of the players in the roster, kept in each player's own folder: 
 boots (a model whose name ends in `boots`, such as `kit_boots.fmdl`) and gloves (`glove_l`,
 `glove_r`, or `handL`, `handR`), with their textures, their portraits as `.dds` files (a
 `portrait.dds` in the player's folder, or `player_NN.dds` in the `Portraits` folder, not both
-for one player), and kits. The boots and gloves get the ID reserved for the player's roster
+for one player), and kits. A texture (a player's, a shared folder's, a Common one or a kit's)
+can be a `.dds`, `.ftex`, `.png`, `.jpg`, `.bmp`, `.webp`, `.tga` or `.tif` file: each is
+converted to what the chosen PES version reads, BC7 for PES 2019 to 2021 and BC3 for PES 2018
+(BC1 when the image has no transparency at all; a `.dds` or `.ftex` already in a format the
+version reads is kept as it is), and an image
+without the smaller copies of itself the game needs (its mip levels) gets them generated. A
+texture whose name ends in `_nrm` (`skin_nrm.png`) is a normal map and is encoded as one. A
+texture that cannot be read is reported as `folder_pack_failed`, naming the file, and its
+folder is left out. The boots and gloves get the ID reserved for the player's roster
 slot, the same number for both. A shared `Boots` or `Gloves` folder that players point at with
 a link file (an empty `Crocs.boots` in the player's folder names `Boots/Crocs`) is built once,
 with its own textures, under one of the 17 IDs the team keeps for shared folders, given out in
@@ -37,8 +45,8 @@ from there, so the Common model is built into the player's own face, boots or gl
 were a model of the player's folder, under the name its own name or the subfolder gives it
 (`legs.fmdl.common` is face content, reported as `fmdl_fcl_hair_fallback` like a local
 `legs.fmdl`), and merged with the player's models of that name. A skeleton file named after it
-in `Common` (`Common/legs.skl`) comes with it. The textures in `Common` (`.dds` or `.ftex` files
-directly in it) are built once for the whole team, whether a player uses them or not, and a
+in `Common` (`Common/legs.skl`) comes with it. The textures in `Common` (image files directly
+in it) are built once for the whole team, whether a player uses them or not, and a
 Common model's textures of those names are read from there, so twenty players sharing one
 Common model share one copy of its textures. A model of the player's own and a Common model
 must not define a material of the same name over textures kept in different places (the
@@ -83,10 +91,10 @@ place and reported as `kit_placeholder`, so a kit nobody drew shows as missing i
 skips any other export with the error `content_not_yet_compiled`, naming the first thing it
 cannot build yet: a PES 2015 to 2017 target, a referee export, or content other than a player's
 own face, boots and gloves models, their textures, `.dds` portraits, kits, linked shared
-`Faces`, `Boots` and `Gloves` folders, and a `Common` folder holding only `.fmdl`, `.skl`,
-`.dds` and `.ftex` files, its models reached through `.common` links (a texture in a format
-other than `.dds` or `.ftex`, a model in a `gloves` subfolder whose name does not say which hand
-it is, or a `.common` link to a texture or a material file, among others). `check` still checks
+`Faces`, `Boots` and `Gloves` folders, and a `Common` folder holding only `.fmdl`, `.skl` and
+texture files, its models reached through `.common` links (a portrait in a format other than
+`.dds`, a model in a `gloves` subfolder whose name does not say which hand it is, or a `.common`
+link to a texture or a material file, among others). `check` still checks
 those exports. `compile` does not install the CPK into the game yet: it always
 leaves it in the output folder.
 

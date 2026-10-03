@@ -9,6 +9,7 @@ use aesthetics_export::{
     PlayerFolder, PlayerSlot, ResolvedAestheticsExport, SharedKind, SharedLink, SharedModelFolder,
     ValidatedAestheticsExport, ValidatedRoster, classify, common_link_name, model_suffix,
 };
+use dds_convert::SourceFormat;
 use pes_version::{Engine, PesVersion};
 use vtree::ScopePath;
 
@@ -19,26 +20,12 @@ use super::mapped_players;
 pub(crate) const KIT_TEXTURE_STEMS: [&str; 5] =
     ["kit", "kit_back", "kit_chest", "kit_leg", "kit_name"];
 
-/// The texture formats Phase 3 compiles for the Fox engine.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum TextureFormat {
-    /// `.dds`, converted to FTEX.
-    Dds,
-    /// `.ftex`, packed as it is.
-    Ftex,
-}
-
-/// The format of the texture file `name`, by its extension in any case; `None` for every other
-/// image format, which Phase 3 does not compile.
-pub(crate) fn texture_format(name: &str) -> Option<TextureFormat> {
+/// The source format of the texture file `name`, by its extension in any case: one of the
+/// image formats `dds_convert` converts (`libs/dds_convert.md` "Accepted image formats");
+/// `None` for a name without one.
+pub(crate) fn texture_format(name: &str) -> Option<SourceFormat> {
     let (_, extension) = name.rsplit_once('.')?;
-    if extension.eq_ignore_ascii_case("dds") {
-        Some(TextureFormat::Dds)
-    } else if extension.eq_ignore_ascii_case("ftex") {
-        Some(TextureFormat::Ftex)
-    } else {
-        None
-    }
+    SourceFormat::from_extension(extension)
 }
 
 /// The three Fox packages a player folder's models go to, each a `.fpk` and `.fpkd` pair in
@@ -174,8 +161,9 @@ pub(crate) enum PlayerFile {
     /// skeleton slot (`player_folders.md` "SKL pairing"): reported as `skl_no_slot` by the
     /// structure pass, and never read.
     SlotlessSkeleton,
-    /// A texture with this stem and format, converted once into the player's common folder.
-    Texture(String, TextureFormat),
+    /// A texture with this stem and source format, converted once into the player's common
+    /// folder.
+    Texture(String, SourceFormat),
 }
 
 impl PlayerFile {
@@ -583,8 +571,8 @@ pub(crate) fn first_not_compiled(
 
 /// Whether `compile` builds the `Common/` file, or accepts it: directly in the folder, an
 /// FMDL or a `.skl` (reached through a player's `.common` link; one no link names builds
-/// nothing) or a `.dds`/`.ftex` texture (the export's Common textures task). Any other kind,
-/// and any file deeper in the folder, is named.
+/// nothing) or a texture (the export's Common textures task). Any other kind, and any file
+/// deeper in the folder, is named.
 fn common_file_compiled(file: &FileDescriptor) -> bool {
     is_direct_common_file(&file.path)
         && match file.kind {
@@ -607,7 +595,7 @@ fn common_file_compiled(file: &FileDescriptor) -> bool {
 /// Whether `file` is a `.dds`, the one portrait format emitted as it is; every other image
 /// format, `.ftex` included, waits for its conversion.
 fn is_dds(file: &FileDescriptor) -> bool {
-    texture_format(file.path.name()) == Some(TextureFormat::Dds)
+    texture_format(file.path.name()) == Some(SourceFormat::Dds)
 }
 
 /// Whether the player folder `slot` maps in `export`, if one does, holds a `portrait.*`.
@@ -872,13 +860,37 @@ mod tests {
         // A file under any other subfolder, or a model in `common/`, is validation's
         // `file_type_disallowed` and never reaches the gate.
         for file in [
-            "Players/03 - A/hair.png",
             // A glove must say which hand it is.
             "Players/03 - A/gloves/keeper.fmdl",
             "Players/03 - A/boots/face_diff.bin",
         ] {
             assert_eq!(gate(&[file]), what(file), "{file}");
         }
+    }
+
+    #[test]
+    fn a_texture_in_any_accepted_image_format_is_compiled_wherever_a_texture_goes() {
+        // A player folder's, a combined shared folder's, Common's and a kit's, in the formats
+        // `dds_convert` converts; a portrait in one of them still waits for its conversion.
+        assert_eq!(
+            gate(&[
+                "Players/03 - A/skin.tga",
+                "Players/03 - A/hair.webp",
+                "Players/03 - A/oral.jpg",
+                "Players/03 - A/Crocs.boots",
+                "Players/03 - A/kit_boots.fmdl",
+                "Boots/Crocs/boots.fmdl",
+                "Boots/Crocs/sole.bmp",
+                "Common/hair.png",
+                "Kits/p1/kit.png",
+                "Kits/p1/kit_back.tga",
+            ]),
+            None
+        );
+        assert_eq!(
+            gate(&["Players/03 - A/skin.png", "Portraits/player_03.png"]),
+            what("Portraits/player_03.png")
+        );
     }
 
     #[test]
@@ -1160,9 +1172,9 @@ mod tests {
                 combining[0],
                 combining[1],
                 "Boots/Crocs/boots.fmdl",
-                "Boots/Crocs/sole.png",
+                "Boots/Crocs/face_diff.bin",
             ]),
-            what("Boots/Crocs/sole.png")
+            what("Boots/Crocs/face_diff.bin")
         );
         assert_eq!(
             gate(&[combining[0], combining[1], "Boots/Crocs/sole.dds"]),
@@ -1219,13 +1231,12 @@ mod tests {
             None
         );
         // A model of another package, a face file without a face model, a skeleton pairing
-        // with no model, a texture in another format: named, as in a player folder.
+        // with no model: named, as in a player folder.
         for named in [
             "Faces/Round/boots.fmdl",
             "Faces/Round/glove_l.fmdl",
             "Faces/Round/face_diff.bin",
             "Faces/Round/fcl_hair.skl",
-            "Faces/Round/skin.png",
         ] {
             assert_eq!(gate(&[link, named]), what(named), "{named}");
         }
@@ -1381,7 +1392,6 @@ mod tests {
                 &["boots.fmdl", "kit_boots.skl"],
                 "kit_boots.skl",
             ),
-            (SharedKind::Boots, &["boots.fmdl", "shirt.png"], "shirt.png"),
         ] {
             assert_eq!(
                 shared_hit(kind, names),
@@ -1406,10 +1416,9 @@ mod tests {
     }
 
     #[test]
-    fn a_kit_texture_the_config_has_no_field_for_or_in_another_format_is_named() {
-        for file in ["Kits/g1/kit_srm.dds", "Kits/g1/kit_back.png"] {
-            assert_eq!(gate(&["Kits/g1/kit.dds", file]), what(file), "{file}");
-        }
+    fn a_kit_texture_the_config_has_no_field_for_is_named() {
+        let file = "Kits/g1/kit_srm.dds";
+        assert_eq!(gate(&["Kits/g1/kit.dds", file]), what(file));
     }
 
     #[test]
@@ -1418,18 +1427,19 @@ mod tests {
             assert_eq!(gate(&[file]), what(file), "{file}");
         }
         // Common's FMDLs and skeletons are reached through links, and one no link names
-        // builds nothing; its `.dds`/`.ftex` textures are the export's Common textures task's.
+        // builds nothing; its textures are the export's Common textures task's.
         assert_eq!(
             gate(&[
                 "Common/spare.fmdl",
                 "Common/spare.skl",
                 "Common/skin.dds",
                 "Common/hair.FTEX",
+                "Common/cloth.png",
             ]),
             None
         );
         // Any other kind, and any file deeper in the folder, is named.
-        for file in ["Common/skin.png", "Common/body.mtl", "Common/legs.model"] {
+        for file in ["Common/body.mtl", "Common/legs.model"] {
             assert_eq!(gate(&[file]), what(file), "{file}");
         }
         // A file under a subfolder of `Common/` is validation's `common_file_disallowed`, which
@@ -1534,50 +1544,60 @@ mod tests {
     #[test]
     fn the_first_hit_follows_players_files_links_shared_folders_kits_then_the_rest() {
         let face_high = "Players/03 - A/face_high.fmdl";
-        let hair_png = "Players/03 - A/hair.png";
+        // In each place, something the gate names there: a skeleton pairing with no model,
+        // a kit texture the config has no field for, a portrait in a format not emitted yet.
+        let loose_skl = "Players/03 - A/torso.skl";
         let face_link = "Players/03 - A/Round.face";
         let shared_face = "Faces/Round/face_high.fmdl";
-        let shared_face_texture = "Faces/Round/hair.png";
+        let shared_face_skl = "Faces/Round/fcl_hair.skl";
         let link = "Players/03 - A/Crocs.boots";
         let shared = "Boots/Crocs/boots.fmdl";
-        let shared_texture = "Boots/Crocs/shirt.png";
-        let kit = "Kits/g1/kit.png";
+        let shared_skl = "Boots/Crocs/kit_boots.skl";
+        let kit = "Kits/g1/kit.dds";
+        let kit_extra = "Kits/g1/kit_srm.dds";
         let portrait = "Portraits/player_03.png";
         // A folder's own files come before its links' folders.
         assert_eq!(
             first_hit(&[
                 face_high,
-                hair_png,
+                loose_skl,
                 face_link,
                 shared_face,
-                shared_face_texture,
+                shared_face_skl,
                 link,
                 shared,
-                shared_texture,
+                shared_skl,
                 kit,
+                kit_extra,
                 portrait
             ]),
-            what(hair_png)
+            what(loose_skl)
         );
         assert_eq!(
             first_hit(&[
                 face_high,
                 face_link,
                 shared_face,
-                shared_face_texture,
+                shared_face_skl,
                 link,
                 shared,
-                shared_texture,
+                shared_skl,
                 kit,
+                kit_extra,
                 portrait
             ]),
-            what(shared_face_texture)
+            what(shared_face_skl)
         );
         assert_eq!(
-            first_hit(&[face_high, link, shared, shared_texture, kit, portrait]),
-            what(shared_texture)
+            first_hit(&[
+                face_high, link, shared, shared_skl, kit, kit_extra, portrait
+            ]),
+            what(shared_skl)
         );
-        assert_eq!(gate(&[link, shared, kit, portrait]), what(kit));
+        assert_eq!(
+            gate(&[link, shared, kit, kit_extra, portrait]),
+            what(kit_extra)
+        );
         assert_eq!(gate(&[portrait]), what(portrait));
     }
 
@@ -1729,11 +1749,15 @@ mod tests {
     fn each_other_player_file_has_its_role_or_none() {
         assert_eq!(
             role("skin.dds"),
-            Some(PlayerFile::Texture("skin".to_owned(), TextureFormat::Dds))
+            Some(PlayerFile::Texture("skin".to_owned(), SourceFormat::Dds))
         );
         assert_eq!(
             role("skin.ftex"),
-            Some(PlayerFile::Texture("skin".to_owned(), TextureFormat::Ftex))
+            Some(PlayerFile::Texture("skin".to_owned(), SourceFormat::Ftex))
+        );
+        assert_eq!(
+            role("skin.png"),
+            Some(PlayerFile::Texture("skin".to_owned(), SourceFormat::Png))
         );
         assert_eq!(
             role("fcl_hair.skl"),
@@ -1757,7 +1781,6 @@ mod tests {
             "boots.skl",
             "glove_l.skl",
             "face.xml",
-            "skin.png",
             "hair.png.common",
             "face_diff2.bin",
             "Face_Diff.bin",
@@ -2124,7 +2147,7 @@ mod tests {
 
     #[test]
     fn a_package_is_the_models_and_packed_files_but_not_the_textures() {
-        let texture = PlayerFile::Texture("skin".to_owned(), TextureFormat::Dds);
+        let texture = PlayerFile::Texture("skin".to_owned(), SourceFormat::Dds);
         assert_eq!(texture.package(), None);
         assert_eq!(PlayerFile::SlotlessSkeleton.package(), None);
         assert_eq!(
@@ -2154,11 +2177,14 @@ mod tests {
     }
 
     #[test]
-    fn a_texture_format_is_its_extension_in_any_case() {
-        assert_eq!(texture_format("kit.dds"), Some(TextureFormat::Dds));
-        assert_eq!(texture_format("kit.DDS"), Some(TextureFormat::Dds));
-        assert_eq!(texture_format("kit.FTEX"), Some(TextureFormat::Ftex));
-        for refused in ["kit.png", "kit.tga", "kit", "kit.dds.png"] {
+    fn a_texture_format_is_its_last_extension_in_any_case() {
+        assert_eq!(texture_format("kit.dds"), Some(SourceFormat::Dds));
+        assert_eq!(texture_format("kit.DDS"), Some(SourceFormat::Dds));
+        assert_eq!(texture_format("kit.FTEX"), Some(SourceFormat::Ftex));
+        assert_eq!(texture_format("kit.png"), Some(SourceFormat::Png));
+        assert_eq!(texture_format("kit.Tga"), Some(SourceFormat::Tga));
+        assert_eq!(texture_format("kit.dds.png"), Some(SourceFormat::Png));
+        for refused in ["kit", "kit.gif", "kit.dds."] {
             assert_eq!(texture_format(refused), None, "{refused}");
         }
     }

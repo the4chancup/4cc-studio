@@ -84,3 +84,9 @@ todo = "warn"
 # (core plan, "Phase 1"; DECISIONS.md 2026-09-12 "dependencies build without debug info").
 [profile.dev.package."*"]
 debug = false
+
+# The BC7 encoder is unusable unoptimized: one 1024x1024 texture took 56 s in a test build
+# against 9 s optimized, and every mutant reruns that test (DECISIONS.md 2026-10-03 "the BC7
+# encoder builds optimized in dev").
+[profile.dev.package.block_compression]
+opt-level = 3

@@ -3654,6 +3654,7 @@ dependencies = [
  "clap",
  "cpk",
  "crossbeam-channel",
+ "dds_convert",
  "egui",
  "fmdl",
  "fpk",

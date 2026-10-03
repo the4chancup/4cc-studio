@@ -14,6 +14,7 @@ archives.workspace = true
 clap.workspace = true
 cpk.workspace = true
 crossbeam-channel.workspace = true
+dds_convert.workspace = true
 egui.workspace = true
 fmdl.workspace = true
 fpk.workspace = true

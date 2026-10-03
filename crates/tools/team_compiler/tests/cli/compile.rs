@@ -63,8 +63,13 @@ pub(crate) fn tracer_portrait() -> Vec<u8> {
 
 /// Settings targeting PES 21 with the PES folder at `<sandbox>/PES`.
 pub(crate) fn pes21_settings(sandbox: &Sandbox) -> String {
+    pes_settings(sandbox, 21)
+}
+
+/// The settings text of a run for PES `version` whose game folder is the sandbox's `PES/`.
+pub(crate) fn pes_settings(sandbox: &Sandbox, version: u8) -> String {
     format!(
-        "[common]\npes_version = 21\npes_folder_path = '{}'\n",
+        "[common]\npes_version = {version}\npes_folder_path = '{}'\n",
         sandbox.root.join("PES").display()
     )
 }
@@ -331,26 +336,29 @@ pub(crate) fn compiled_kits(sandbox: &Sandbox) -> Vec<String> {
 }
 
 /// `exports/<name>`, an export whose roster maps a player folder holding a face model and
-/// `hair.png`, a texture in a format no run converts yet.
-fn png_texture_export(sandbox: &Sandbox, name: &str) {
+/// `portrait.png`, a portrait in a format no run converts yet.
+fn png_portrait_export(sandbox: &Sandbox, name: &str) {
     sandbox.write(&format!("exports/{name}/players.txt"), b"03 Png Only\n");
     sandbox.write(
         &format!("exports/{name}/Players/Png Only/face_high.fmdl"),
         b"",
     );
-    sandbox.write(&format!("exports/{name}/Players/Png Only/hair.png"), b"");
+    sandbox.write(
+        &format!("exports/{name}/Players/Png Only/portrait.png"),
+        b"",
+    );
 }
 
 // TC-OUT-06
 #[test]
 fn compile_skips_an_export_holding_content_it_cannot_build_yet_and_builds_the_others() {
     let sandbox = Sandbox::new("not_yet_compiled");
-    png_texture_export(&sandbox, "co - Png");
+    png_portrait_export(&sandbox, "co - Png");
     sandbox.copy_tracer("egg Tracer");
     sandbox.write("exports/dbg - Kits/Kits/p1/kit.dds", &tracer_kit());
     sandbox.write("exports/dbg - Kits/players.txt", b"");
     // No roster slot maps this folder, so it would emit nothing.
-    sandbox.write("exports/dbg - Kits/Players/Png Only/hair.png", b"");
+    sandbox.write("exports/dbg - Kits/Players/Png Only/portrait.png", b"");
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
 
@@ -359,7 +367,7 @@ fn compile_skips_an_export_holding_content_it_cannot_build_yet_and_builds_the_ot
         findings_of(&lines, "co - Png"),
         [
             "Info export_identified [Keep] (team=/co/, id=714)",
-            "Error content_not_yet_compiled [DropExport] (what=Players/Png Only/hair.png)",
+            "Error content_not_yet_compiled [DropExport] (what=Players/Png Only/portrait.png)",
         ]
     );
     assert_eq!(run.exit_code(), 1);
@@ -385,7 +393,7 @@ fn a_compile_whose_every_export_is_skipped_leaves_the_previous_cpk_as_it_was() {
     sandbox.write("output/4cc_90_test.cpk", b"the previous CPK");
     sandbox.write("exports/refs Cup/players.txt", b"01 Keeper\n");
     sandbox.write("exports/refs Cup/Players/Keeper/face_high.fmdl", b"");
-    png_texture_export(&sandbox, "co - Png");
+    png_portrait_export(&sandbox, "co - Png");
     let before = snapshot(&sandbox.root.join("output"));
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);

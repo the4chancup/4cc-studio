@@ -3140,3 +3140,11 @@ returns an FTEX, and on PES 15-17 an opaque source would come out BC1; the portr
 both the container and the codec, so the caller names them rather than `convert` growing a
 special case.
 Plan: `libs/dds_convert.md` "`dds_convert` API".
+
+## 2026-10-03 — workspace — the BC7 encoder builds optimized in dev
+Decision: the root manifest sets `opt-level = 3` for the `block_compression` package in the dev
+profile; every other dependency keeps the dev defaults.
+Why: unoptimized, the BC7 encode of one 1024x1024 texture (TC-TEX-01) took 55.7 s in a test
+build against 8.6 s optimized, which every `cargo test`, CI job and mutant would pay; optimizing
+all dependencies would slow every clean build for no measured need.
+Plan: no plan edit needed (build configuration; the profile comment points here).

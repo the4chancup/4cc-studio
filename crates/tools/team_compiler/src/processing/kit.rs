@@ -4,22 +4,21 @@
 use aesthetics_export::KitFolder;
 use anyhow::Context;
 use kit_config::{KitConfig, KitSlot, TexturePresence, texture_names};
-use pes_version::PesVersion;
 
-use super::{Entry, TaskFiles, take, texture};
+use super::{CompileContext, Entry, TaskFiles, take, texture};
 use crate::paths;
 use crate::plan::subset::{KIT_TEXTURE_STEMS, texture_format};
 use crate::templates::PLACEHOLDER_KIT;
 
-/// The kit `kit` in `slot` of team `team_id`, compiled for `version` from its files' bytes in
-/// `files`: its textures and its config as CPK entries, and the config as a
+/// The kit `kit` in `slot` of team `team_id`, compiled for the run's version from its files'
+/// bytes in `files`: its textures and its config as CPK entries, and the config as a
 /// `UniformParameter.bin` entry (name, bytes). A kit without a `kit` texture gets the bundled
-/// placeholder as its main texture.
+/// placeholder as its main texture, converted like any kit texture.
 pub(super) fn kit(
     slot: KitSlot,
     kit: &KitFolder,
     team_id: u16,
-    version: PesVersion,
+    ctx: &CompileContext,
     files: &mut TaskFiles,
 ) -> anyhow::Result<(Vec<Entry>, Entry)> {
     let has = |stem: &str| kit.textures.iter().any(|texture| texture.stem == stem);
@@ -48,12 +47,11 @@ pub(super) fn kit(
         let name = std::str::from_utf8(field)
             .context("a kit texture name is ASCII")?
             .trim_end_matches('\0');
-        let format = texture_format(file_name).expect(
-            "planning skips every export holding a kit texture in a format Phase 3 does not compile",
-        );
+        let format = texture_format(file_name)
+            .expect("a kit texture is classified by an extension `dds_convert` accepts");
         entries.push((
             paths::kit_texture(name),
-            texture::to_ftex(format, file_name, bytes)?,
+            texture::convert(ctx, format, file_name, &bytes)?,
         ));
     }
 
@@ -65,7 +63,7 @@ pub(super) fn kit(
         }
         None => KitConfig::template(),
     };
-    let config = config.encode_with_names(version, &names).to_vec();
+    let config = config.encode_with_names(ctx.version, &names).to_vec();
     let entry_name = slot.config_name(team_id);
     entries.push((paths::kit_config(team_id, &entry_name), config.clone()));
     Ok((entries, (entry_name, config)))

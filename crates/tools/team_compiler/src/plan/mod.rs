@@ -397,9 +397,8 @@ pub(crate) fn plan_run(
                 shared.push((folder, package, shared_id));
             }
         }
-        // The textures in `Common/`, which the gate has kept to `.dds` and `.ftex` files
-        // directly in it: one task of the export's, and the stems a Common part's paths name
-        // that task's output for.
+        // The textures directly in `Common/`: one task of the export's, and the stems a Common
+        // part's paths name that task's output for.
         let common_textures: Vec<FileDescriptor> = export
             .common
             .iter()
