@@ -3120,3 +3120,13 @@ cross-group dependency in the writer, for a failure fixed in one place. A player
 output that failed is already kept the same way.
 Plan: `team_compiler/pipeline.md` "Resolved decisions" (new bullet) and the "Shared/Common
 dependency graph" open question narrowed to cache ownership.
+
+## 2026-10-03 — team_compiler — a texture's role comes from its stem (`_nrm` is a normal map)
+Decision: the compiler converts a texture as a normal map (`dds_convert::TextureRole::Normal`)
+when its stem ends in `_nrm` in any case, and as color otherwise.
+Why: the plan says role-specific handling applies but not where the role comes from. Reading
+it from the FMDL sampler would make the folder's textures task read every model, and one stem
+is converted once per folder whichever models and samplers name it; the `_nrm` suffix is the
+Studio's own role table's and the game's (`skin_nrm`, `oral_nrm`, `dummy_nrm`). A DDS normal
+map already in BC3 passes through either way, so the rule matters for raster and BC7 sources.
+Plan: `team_compiler/pipeline.md` step 5.

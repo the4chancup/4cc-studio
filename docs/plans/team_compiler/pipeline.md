@@ -278,6 +278,11 @@ then processed as an independent parallel task (Blue: `coordinator._model_folder
    BC1 for eligible fully opaque color textures under the library plan's alpha/role rules.
    PES 19–21 retain supported BC7 inputs and use BC7 for newly encoded ordinary raster textures.
    Role-specific normal/data handling still applies; already-compatible blocks avoid re-encoding.
+   A texture's role comes from its stem: one ending in `_nrm` (any case) is a normal map, any
+   other is color, the suffix of the role table in the [Unified model format
+   plan](../model_format.md) and of the game's own maps (`skin_nrm`, `oral_nrm`, `dummy_nrm`).
+   It is not read from the sampler of the model naming it: a stem is converted once per folder,
+   whichever models and samplers name it, by a task that reads no model.
    Raster sources decode via `image`, missing mipmaps are generated, and Fox output uses FTEX with
    target-appropriate headers. Two image files with the same stem
    but different extensions is a conflict (`texture_stem_conflict`). Optional zlib DDS

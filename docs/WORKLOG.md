@@ -425,7 +425,18 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   for runs of at most two teams; conversion in bounded batches on a cancel token
   (`MemoryBudget::cancel`). Plan: `pipeline.md` step 5; `libs/dds_convert.md` "In-memory
   conversion cache" (engagement); `messages.md` "Textures"; `development_plan.md` "Phase 4"
-  (CPU-only, GPU is 16.x). IDs: TC-TEX-01..06, TC-KIT-10, TC-PRT-01, TC-PRT-03 (non-DDS portraits encoded here). Crates: tc (`processing/texture.rs`,
+  (CPU-only, GPU is 16.x). IDs: TC-TEX-01, TC-TEX-02, TC-TEX-04, TC-TEX-06, TC-KIT-10,
+  TC-PRT-01 (non-DDS portraits encoded here); TC-TEX-03, TC-TEX-05 and TC-PRT-03 say "checked",
+  so they are 4.7's: the deep pass parses textures and FMDLs (`pipeline.md` "2. Per-export serial
+  steps" step 2), while this step raises the texture codes at conversion, failing the task.
+  Sliced: (a) conversion core: `dds_convert` for every model-folder, Common and kit texture, the
+  codec by version, the role by stem (`_nrm`, decision entry), the run's `Converter` and its
+  team-count policy, the gate opened to every accepted format (TC-TEX-01, TC-TEX-02, the kit half
+  of TC-TEX-06); (b) the conversion findings as task failures (`texture_too_small`,
+  `texture_not_pow2`, `texture_type_mismatch`, `texture_codec_unsupported`; TC-TEX-04),
+  `kit_texture_not_used` (TC-KIT-10), portraits encoded to BC3 DDS (TC-PRT-01, TC-TEX-06's
+  portrait half; `dds_convert` has no DDS output for a Fox target yet, lead first); (c) bounded
+  batches on the cancel token. Crates: tc (`processing/texture.rs`,
   `processing/kit.rs`) → verify: a `/co/` player with `skin.png` (1024x1024, alpha) compiled for
   PES 21 then PES 18: `ftex::info` of the emitted texture reports BC7 then BC3, each with an
   11-level mip chain; a 3x3 `skin.png` reports `Error texture_too_small [DropFolder]` and the
@@ -442,7 +453,8 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   format finding code has a catalog row. Plan: `pipeline.md` "2. Per-export serial steps" step 2
   (deep format pass); `object_model.md` "Validation semantics" (sanitized versus eligible: "the
   deep pass applies the same rule"); `messages.md` (`vertex_too_far_from_origin`). IDs:
-  TC-CHK-01..05, TC-PRT-02. Crates: ae (`validate/deep.rs`, new), tc (`check.rs`, `compile.rs`,
+  TC-CHK-01..05, TC-PRT-02, and from 4.6 TC-TEX-03, TC-TEX-05, TC-PRT-03 (texture findings and
+  `fmdl_no_texture_ids` reported by `check`). Crates: ae (`validate/deep.rs`, new), tc (`check.rs`, `compile.rs`,
   `messages.rs`) → verify: `check` on a `/co/` export whose `boots.fmdl` holds a vertex 6000 units
   out prints `Error vertex_too_far_from_origin [DropFolder]` naming the file and exits 1;
   `compile` with `pass_through` on still leaves the folder out of the CPK
