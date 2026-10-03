@@ -564,10 +564,12 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `UniColor.bin`, Red's, with the measured record layout in the folder's README and
   `scripts/provenance/fixtures/color_bins_compare.py`) at Red's per-team offsets, an entry applied only when its
   kit's task commits (placeholder kits included: TC-SRC-01's p2 gains its entry); root
-  `colors.txt` → `TeamColor.bin`, `team_colors_missing` (I). Plan: `pipeline.md` "4. Per-export
+  `colors.txt` → `TeamColor.bin`, `team_colors_missing` (I); both bins written whole with
+  every record's header set from its position (TC-BIN-13; installed bins carry headerless
+  `TeamColor.bin` records). Plan: `pipeline.md` "4. Per-export
   non-model steps" (Bins accumulation), "Resolved decisions" (Kit colors fallback);
   `libs/color_tools.md` "Dominant kit-color extraction". IDs: TC-KIT-11..14, TC-ROOT-10,
-  TC-BIN-01..03. Crates: tc (`bins/mod.rs`, `processing/kit.rs`), resources (`resources/bins/`) →
+  TC-BIN-01..03, TC-BIN-13. Crates: tc (`bins/mod.rs`, `processing/kit.rs`), resources (`resources/bins/`) →
   verify: a `/co/` export with `p1/colors.txt`, `p2/kit.dds` without colors and an empty `p3/`:
   the CPK's `UniColor.bin` carries at team 714's p1 offset the file's two colors, at p2's the
   pair `extract_kit_colors` returns for the decoded texture, at p3's the magenta/black pair; the
@@ -1751,3 +1753,10 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   plan had assumed 1-124, what PES 19 and 21 share); its FPC CPK supplies the empty
   `collar_105` and `pants_016` like every other version's; it holds no team kit config and no
   color bins (`4cc_08_bins.cpk` is a placeholder).
+- **2026-10-03** — Two maintainer rulings. Color bins (4.8): the compiler writes both whole
+  on every run and sets every record's header, which repairs the headerless `TeamColor.bin`
+  records installed cups carry (decision entry; `pipeline.md` "Bins accumulation";
+  TC-BIN-13). Mutation runs: the VPS memory cap cannot be raised; when a build is killed at
+  it the run fails and names `REMOTE_BUILD_JOBS` as the setting to lower (`AGENTS.md`,
+  `scripts/mutants.py`). Also: PES 21's `download` folder now holds the last VGL's DLC, and
+  its kit-config tally in `libs/fpc.md` is redone on it (300 of 314 with the FPC values).

@@ -474,7 +474,8 @@ with a full mip chain is the commonest class, so it is the one non-DDS sources a
 standalone `Portraits/` folder (`player_NN.dds` files) is deliberately kept alongside: some managers
 make custom portrait sets — while keeping the players' models unchanged — depending on the opponent
 team they are about to face, and the standalone folder supports those model-less portrait exports.
-Conflicting portraits for the same player in both locations remain an error (`portrait_conflict`).
+A player with a portrait in both locations is an error when the two files differ
+(`portrait_conflict`, which skips the export); two byte-identical files are one portrait.
 
 **Root files** — the old Team Note txt is dismissed entirely. In its place:
 

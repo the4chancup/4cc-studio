@@ -3420,3 +3420,17 @@ finding at `check` would promise more than the probe can see; TC-TEX-04 already 
 unwrap, the chain a raster source gets) is that crate's.
 Plan: `team_compiler/messages.md` "Textures"; `libs/dds_convert.md` "`dds_convert` API";
 `team_compiler/pipeline.md` "Common textures are one task of their export".
+
+## 2026-10-03 — team_compiler — color bins: every record's header is set on every run
+Decision: the compiler writes `TeamColor.bin` and `UniColor.bin` whole on every run and sets
+every record's header from its position: the team ID (100 plus the record's index) and, in
+`TeamColor.bin`, the color count 4. Not: writing only the compiled teams' records, or only
+their colors after the header as Red does. A record whose header was overwritten keeps its
+other bytes; no finding is reported for the repair.
+Why (maintainer): installed cup bins carry `TeamColor.bin` records whose colors were written
+from the record's first byte, over the ID and the count (teams 799, 829 and 831 in the last
+VGL's PES 21 file, team 761 in an older cup's; `resources/bins/README.md`), which is the
+likely cause of team colors recently missing in the game. Nothing can go wrong from making
+sure every team has a header: on a sound record the write changes no byte, so a bin built on
+Red's base still compares byte-identical with Red's output.
+Plan: `team_compiler/pipeline.md` "Bins accumulation"; `team_compiler/README.md` TC-BIN-13.

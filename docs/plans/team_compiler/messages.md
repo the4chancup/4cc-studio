@@ -144,10 +144,10 @@ savefile messages are new.
 | `team_name_unknown` | E | canonical `team_name` not in `teams_list.txt` | export skipped (GUI: ID cell becomes editable for inline assignment) |
 | `team_id_out_of_range` | E | resolved ID outside 701–920 | export skipped |
 | `teams_list_read_only` | W | a teams-list write (ID cell, updater merge) failed because the data directory is not writable | write dropped; the in-memory list is unchanged (no elevation — see `pipeline.md` "Resolved decisions", "Teams list") |
-| `team_colors_missing` | I | no root `colors.txt` (it is optional) | TeamColor.bin entry left untouched |
+| `team_colors_missing` | I | no root `colors.txt` (it is optional) | the team's colors in `TeamColor.bin` are left as they are |
 | `color_entry_invalid` | W | a `colors.txt` line that does not parse as exactly one color (two colors on one line, the old Team Note kit entry, included), or a valid line past the file's color count (two for a kit, four for the team). Grammar: "Root files" (Colors) in `aesthetics_export/player_folders.md` | the line skipped |
 | `root_file_unexpected` | W | unknown file or folder at the export root (a folder other than the content folders — a stale `wrapper/` beside a usable root included), or a file directly inside `Players`, `Kits`, `Faces`, `Boots` or `Gloves`, which hold only folders (`Players/players.txt`) | file or folder ignored |
-| `portrait_conflict` | E | same player number with differing portraits in player folder and `Portraits/` | export skipped |
+| `portrait_conflict` | E | a slot with a portrait in its player folder and one in `Portraits/` whose bytes differ (the deep pass compares the two files; byte-identical files are one portrait and no finding) | export skipped: the compiler cannot tell which one the manager means |
 | `notes_found` | I | non-empty valid root `notes.txt` present | collected into teamnotes.txt (from Phase 4; in Phase 3 validated only) |
 | `notes_encoding_invalid` | E | root `notes.txt` is not valid UTF-8 after optional BOM handling | note dropped; export otherwise continues (`DropFile`, not pass-through-eligible) |
 
@@ -271,6 +271,13 @@ converts, and what the game makes of it is the member's risk. A texture whose he
 be read gets no finding here; converting it fails its task (`folder_pack_failed`), as does
 one whose pixel data is cut short, which no header shows. `texture_codec_unsupported` is
 conversion's own finding, reported when the file is compiled, not by `check`.
+
+A portrait (a `Portraits/` file or a player folder's `portrait.*`) is checked the same way and
+dropped alone, its player folder keeping everything else. Its sides must be powers of two
+whatever its level count and the target. A logo source is the one texture the deep pass
+decodes in full (an export has at most two, and nothing else can tell that the game's three
+sizes can be made from it): one that does not decode is `logo_file_invalid`, not
+pass-through-eligible, and the logo goes as one unit.
 
 | ID | Sev | Condition | Consequence |
 |---|---|---|---|

@@ -499,7 +499,12 @@ describes behavior, not a serial scheduling requirement:
   `libs/color_tools` — with the menu icon number from the kit's optional `icon_<N>` marker, default 3) are
   staged for in-memory copies of `TeamColor.bin` and `UniColor.bin` (fixed per-team byte offsets;
   Red: `bins_update.py`; the file's grammar is "Root files", "Colors" in the [Aesthetics export
-  plan](../aesthetics_export/player_folders.md)), and kit configs are staged for
+  plan](../aesthetics_export/player_folders.md)). Both color bins are written whole on every
+  run, with every record's header set from its position: the team ID (100 plus the record's
+  index) and, in `TeamColor.bin`, the color count 4. A sound record is unchanged by this; an
+  installed bin's record whose colors were written over its header (`resources/bins/README.md`
+  measures them) gets its header back, so the game finds the team again, and keeps its other
+  bytes until an export with colors is compiled for that team. Kit configs are staged for
   `UniformParameter.bin` compilation (Fox only; Red's `UniformParameter{18,19}.bin` are only its
   bundled per-version fallback bases); when
   the team's kit-FPC status is On, kit slots absent from the export are FPC-patched from the

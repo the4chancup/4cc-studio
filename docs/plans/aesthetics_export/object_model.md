@@ -90,7 +90,8 @@ eligible, roster-entry scope and disposition; confirmed 2026-09-30).
   the consumer, which checks the files of the first report's `validated` (what the structure
   pass dropped is not read). `ValidationReport::with_content_findings` takes them and returns
   the report validation would have made had they been its own. A `ContentFinding` carries the
-  consumer's code (not one of `ISSUE_CODES`), the scope, the context, the disposition asked
+  consumer's code (its own; the one `ISSUE_CODES` member a consumer also reports is
+  `logo_file_invalid`, for a logo that does not decode), the scope, the context, the disposition asked
   for, and whether `pass_through` may keep it; an eligible `DropFile`/`DropFolder` becomes
   `Keep` under `pass_through`, marked as passed through, like the structure pass's own. In the
   report's issues they stand after the model folders' and `Common/`'s own findings and before

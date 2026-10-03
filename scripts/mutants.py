@@ -505,7 +505,10 @@ def report_killed(code: int) -> int:
         f"{len(killed)} mutants were NOT tested: a build process was killed "
         "(the remote half's memory cap, or out of memory), and cargo-mutants "
         "counted them as unviable. Rerun them locally "
-        "(STUDIO_MUTANTS_REMOTE= just mutants-diff <base>):"
+        "(STUDIO_MUTANTS_REMOTE= just mutants-diff <base>). If the remote "
+        f"half's peak reached its cap ({REMOTE_MEMORY_MAX}, which cannot be "
+        f"raised), lower REMOTE_BUILD_JOBS (now {REMOTE_BUILD_JOBS}) in "
+        "scripts/mutants.py:"
     )
     for name in killed:
         print(f"  {name}")

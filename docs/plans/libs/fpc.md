@@ -26,8 +26,8 @@ rules only:
   identical", and says nothing of PES 15 or 18, but the cup's installs have FPC on all of them.
   Counted on the maintainer's installs (every `*_realUni.bin` in each install's `download`
   CPKs, decoded with `kit_config`): exactly these four values in 301 of 360 kit configs on PES
-  15, 285 of 338 on PES 16, 344 of 407 on PES 17, 35 of 49 on PES 19 and 474 of 637 on PES 21,
-  which also settles that PES 19+ uses the same four. Each install, PES 15 and 18 included, has
+  15, 285 of 338 on PES 16, 344 of 407 on PES 17, 35 of 49 on PES 19 and 300 of 314 on PES 21 (the last VGL's DLC; 474 of 637 on an
+  older cup's), which also settles that PES 19+ uses the same four. Each install, PES 15 and 18 included, has
   its own `4cc_04_fpc.cpk` supplying the empty `collar_105` and `pants_016` models; the stock
   PES 15 game has no collar 105 (its collars end at 101), so there the collar exists only
   through that CPK. The PES 18 install holds no team kit config to count; its FPC CPK holds

@@ -326,8 +326,10 @@ kill does not stop cargo-mutants; `CPUWeight=idle`, because `nice` cannot keep a
 process off Fluxer's CPU under cgroup v2. On 2026-09-29 the old uncapped half filled the host's
 RAM and swap (`display_name` with `i *= 1`, a loop that grows a `Vec` forever), and the global
 OOM killer, which could as well have picked Postgres, took the test. The run prints its peak
-(`remote memory peak`); a normal peak near the cap means raising it is a question for the
-maintainer, not a local edit. A running half is stopped with `sudo systemctl stop
+(`remote memory peak`). The cap is final: the host has no more memory to give (4.7b's run
+peaked at 8.43 GiB), so a peak near the cap changes nothing by itself. When a build is killed
+at the cap, the run fails and lists the untested mutants (`report_killed`), and the fix is
+then a lower `REMOTE_BUILD_JOBS`, never a higher cap. A running half is stopped with `sudo systemctl stop
 studio-mutants` on the host.
 
 **The remote half runs detached** from any ssh session (`~/studio-mutants/run/`: `job.sh`,

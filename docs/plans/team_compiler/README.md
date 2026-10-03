@@ -1061,6 +1061,11 @@ TC-BIN-11  GIVEN slot 05 holding boots.fmdl whose task fails, and an installed p
 TC-BIN-12  GIVEN slot 05 holding glove_l.fmdl and glove_r.fmdl, and slot 07 linking Gloves/Keeper/
            WHEN the export is compiled for PES 21
            THEN GloveList.bin holds (71405, 625) and (71407, 644)
+TC-BIN-13  GIVEN an installed TeamColor.bin whose record for team 799 starts with color bytes in
+           place of its team ID and color count
+           WHEN a /co/ export is compiled
+           THEN the emitted TeamColor.bin's record for team 799 starts with team ID 799 and
+                count 4, and every other installed record is unchanged
 ```
 
 **Planning**

@@ -36,4 +36,6 @@ compiler supports.
 Some installed `TeamColor.bin` records are corrupt: their colors were written from the
 record's first byte, over the ID and the count. The last VGL's file has three (teams 799, 829
 and 831, nine color bytes each), the older PES 21 cup's had one (team 761, twelve bytes). What
-wrote them is not known; Red writes a team's colors after the header.
+wrote them is not known; Red writes a team's colors after the header. The Team compiler sets
+every record's header on every run (Team compiler plan, `pipeline.md` "Bins accumulation"), so
+a bin it writes has none.
