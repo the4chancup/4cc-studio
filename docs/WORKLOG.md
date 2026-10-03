@@ -12,8 +12,7 @@ is in `AGENTS.md` ("Working documents").
 **Phase:** 3 (Team compiler skeleton) closed 2026-10-02, its cross-family reviews queued (see
 "Handover"). Phases 1 and 2 done (Phase 2 closed 2026-09-30).
 **Next:** Phase 4 is itemized and its Acceptance section written (step 4.1, 2026-10-03; its
-cross-family review (a) is queued). Next: 4.7 (deep validation pass; the lead's `fmdl::check` census is done, its one Error
-class stands), then 4.8; 4.30, 4.6 and 4.5 are done (4.6c moved to Phase 8's cancellation). 2.5b (GPU BC7) is step 16.x (decision entries
+cross-family review (a) is queued). Next: 4.7 (deep validation pass, in four slices; (a) is briefed), then 4.8; 4.30, 4.6 and 4.5 are done (4.6c moved to Phase 8's cancellation). 2.5b (GPU BC7) is step 16.x (decision entries
 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0 after Phase 8; phase order 1–6,
 8, 0.1.0, 7, 9–16 (`core/development_plan.md` "Releases"); first-class target the Fox version
 the cup moves to around April 2027 ("Target versions").
@@ -484,25 +483,46 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   11-level mip chain; a 3x3 `skin.png` reports `Error texture_too_small [DropFolder]` and the
   folder is absent from the CPK
 
-- [ ] 4.7 **Deep validation pass**: `ae` orchestrates the deep pass over the sanitized export with
-  the same scope rule and pass-through eligibility; the format crates' `check` findings mapped
-  by severity (`messages.md` "What makes a finding an Error": Error drops the folder, Warning
-  and Info keep it; before the mapping lands the lead runs `fmdl::check` over the VGL26 corpus,
-  `C:\Data\4cc\Lab\Gud`, and any Error class found on models the game renders is a severity
-  fixed in the format crate; `fmdl_vertex_far_from_origin`/`model_vertex_far_from_origin` →
-  `vertex_too_far_from_origin`, not pass-through-eligible), `portrait_conflict`, `logo_file_invalid` (decode),
-  `kit_config_invalid`, `kit_texture_too_big`, `settings_toml_invalid`
-  (parse only, through `pes_savefile`'s `PlayerSettings` TOML reader; the other `settings_*` and
-  `fpc_strip_conflict` codes describe resolved values and are Phase 5's); CLI `check` runs both
-  passes on every source kind, archives included; a test that every `ISSUE_CODES` entry and every
-  format finding code has a catalog row. Plan: `pipeline.md` "2. Per-export serial steps" step 2
-  (deep format pass); `object_model.md` "Validation semantics" (sanitized versus eligible: "the
-  deep pass applies the same rule"); `messages.md` (`vertex_too_far_from_origin`). IDs:
-  TC-CHK-01..05, TC-PRT-02, and from 4.6 TC-TEX-03 and TC-PRT-03 (texture findings reported by
-  `check`; TC-TEX-05 is 4.29's). Crates: ae (`validate/deep.rs`, new), tc (`check.rs`, `compile.rs`,
-  `messages.rs`) → verify: `check` on a `/co/` export whose `boots.fmdl` holds a vertex 6000 units
-  out prints `Error vertex_too_far_from_origin [DropFolder]` naming the file and exits 1;
-  `compile` with `pass_through` on still leaves the folder out of the CPK
+- [ ] 4.7 **Deep validation pass**, in four slices. The shape (decision entry "the deep pass:
+  the compiler checks, the export crate drops"): tc reads the files of the sanitized export
+  and runs the checks (`deep.rs`, new); `ae` takes what they find
+  (`ValidationReport::with_content_findings`) and derives the sanitized export again, so the
+  drops, the link cascade and `pass_through` are the structure pass's own; the pass runs
+  before identity and planning, in `check` and in `compile`, on every source kind, archives
+  included. A format finding maps by severity (`messages.md` "What makes a finding an Error":
+  Error drops the folder, Warning and Info keep it); the lead's `fmdl::check` census over the
+  VGL26 corpus (`C:\Data\4cc\Lab\Gud`) found one Error class, the far vertex, which stands.
+  Plan: `pipeline.md` "2. Per-export serial steps" step 2 (deep format pass);
+  `object_model.md` "Validation semantics" (content findings); `messages.md`
+  (`vertex_too_far_from_origin`). IDs: TC-CHK-01..05, TC-PRT-02, and from 4.6 TC-TEX-03 and
+  TC-PRT-03 (texture findings reported by `check`; TC-TEX-05 is 4.29's). Crates: ae
+  (`validate/`), tc (`deep.rs`, `structure.rs`, `check.rs`, `messages.rs`, `processing/`),
+  fmdl, pes_model, dds_convert (the code lists and the header probe)
+  → verify: `check` on a `/co/` export whose `boots.fmdl` holds a vertex 6000 units out prints
+  `Error vertex_too_far_from_origin [DropFolder]` naming the file and exits 1; `compile` with
+  `pass_through` on still leaves the folder out of the CPK
+  - (a) the thin path end to end: `ContentFinding` and `with_content_findings` in `ae`;
+    `deep.rs` reading every `.fmdl` of the player folders, the shared folders and `Common/`
+    and reporting `vertex_too_far_from_origin` (`DropFolder`, not pass-through-eligible) for
+    `fmdl_vertex_far_from_origin`; TC-CHK-01..02 (lead first: the far-vertex model and the
+    solid `.7z` holding it, `tests/fixtures/deep/`)
+  - (b) every format finding by its severity: `fmdl::check`, `pes_model`'s three checks, each
+    crate's code list exported, a catalog row per code and the test that every `ISSUE_CODES`
+    entry and every format finding code has one; a model that does not read;
+    `face_diff_invalid` and `xml_dif_conflict` reported by the deep pass, where they drop the
+    folder (TC-MOD-15's wording; `player_folders.md` "`face_diff.xml`" says the Face task
+    only, to be rewritten with the slice)
+  - (c) textures from their headers (a probe in `dds_convert`, no decode): the four texture
+    findings, `kit_texture_too_big`, portraits, `portrait_conflict`, the logo's decode
+    (`logo_file_invalid`); processing's own checks on sources retired, since the deep pass
+    has run them and `pass_through` must be able to keep the file; `pipeline.md` "Common
+    textures are one task" loses its "the linking players still commit" for these findings.
+    TC-TEX-03, TC-PRT-02..03, TC-CHK-04..05
+  - (d) `kit_config_invalid`, `settings_toml_invalid` (parse only, through `pes_savefile`'s
+    `PlayerSettings` TOML reader; the other `settings_*` and `fpc_strip_conflict` codes
+    describe resolved values and are Phase 5's), TC-CHK-03; then `check` and `compile` timed
+    on a large export as a folder and as a solid `.7z`, and the pass run on the worker pool
+    if the timing asks for it ("Issues": the third decompression)
 
 - [ ] 4.8 **Kit colors, UniColor and TeamColor (the `bins/` module)**: kit `colors.txt` grammar
   (`player_folders.md` "Root files", "Colors": one color per line in both files, the
@@ -1032,6 +1052,13 @@ pruned when their phase closes; they stay in git history.
   now fails the run. The maintainer keeps 8 GiB. (The 37 OOM kills of 2026-10-02 04:00 were the
   3.z run under the old 6 GiB cap, the reason it was raised; none since.)
 
+- open — the deep pass reads everything `compile` reads again (4.7): each checked file is
+  read once by the pass and once by its task, and a solid `.7z` is decompressed three times
+  (the metadata, the deep pass, the tasks). For a folder the second read comes from the
+  system's file cache; for a `.7z` it is a whole extra decompression per export. Not
+  measured yet: 4.7d times `check` and `compile` on a large export both ways. If the `.7z`
+  cost shows, the fix is to run the structure pass and the deep pass of one archive on one
+  decompression (the reader's route keeps the buffer until that source's deep pass is done).
 - open — a face diff is engine-specific (maintainer, 2026-10-03): how the game uses the diff to
   shape the face skeleton differs between pre-Fox and Fox, so a `face_diff.bin` (or the
   `face_diff.xml` and `<dif>` text forms of it) authored for one engine misplaces the face on

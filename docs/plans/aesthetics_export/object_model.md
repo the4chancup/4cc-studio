@@ -85,8 +85,21 @@ eligible, roster-entry scope and disposition; confirmed 2026-09-30).
   eligible `DropFile`/`DropFolder` into `Keep`: the item stays in the validated export and its
   issue stays in the report, marked as passed through, so the tool reports it at its severity and
   finishes that scope as `DoneWithErrors`. `DropSlot`, `DropExport` and the codes the catalog
-  marks not eligible are never kept. The deep pass (Phase 4) applies the same rule to the
-  already-sanitized export.
+  marks not eligible are never kept. The deep pass applies the same rule ("Content findings").
+- **Content findings.** This crate reads no file content, so the deep pass's findings come from
+  the consumer, which checks the files of the first report's `validated` (what the structure
+  pass dropped is not read). `ValidationReport::with_content_findings` takes them and returns
+  the report validation would have made had they been its own. A `ContentFinding` carries the
+  consumer's code (not one of `ISSUE_CODES`), the scope, the context, the disposition asked
+  for, and whether `pass_through` may keep it; an eligible `DropFile`/`DropFolder` becomes
+  `Keep` under `pass_through`, marked as passed through, like the structure pass's own. In the
+  report's issues they stand after every folder's own findings and before the cascade, so a
+  player linking a shared folder or `Common/` file that a content finding drops gets
+  `link_target_dropped` naming that finding, and a shared folder left with no linking player
+  `shared_folder_orphaned`. What a scope drops: a `Folder` scope a player, shared or kit
+  folder; a `File` scope a `Common/` file, a `Portraits/` file, a `Collars/` file, a logo file
+  (the logo goes as one unit), or a player folder's `settings.toml` or `portrait.*`, the folder
+  keeping everything else; `DropExport` on the `Export` scope leaves `validated: None`.
 - **Roster entries.** A finding about one `players.txt` (or `refs.txt`) line is `RosterEntry`-scoped:
   the file, the 1-based line number, and the slot when it parsed. Line-local findings
   (`players_txt_line_invalid`, `players_txt_slot_invalid`, `players_txt_target_missing`) are

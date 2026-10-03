@@ -3372,3 +3372,23 @@ holds no team kit config; its FPC CPK has the same 15 files as PES 19's. The `No
 version, as `collar_id_conflict` does, was right all along. Tool and output:
 `.tmp/fpc_kits/` (`src/main.rs`, `summary.txt`).
 Plan: `libs/fpc.md` "`libs/fpc`" (`kit.rs`).
+
+## 2026-10-03 — team_compiler, aesthetics_export — the deep pass: the compiler checks, the export crate drops
+Decision: the deep pass is split in two. The Team compiler reads the files of the sanitized
+export and runs the format crates' checks on them (`team_compiler/src/deep.rs`);
+`aesthetics_export` takes what they find as `ContentFinding`s
+(`ValidationReport::with_content_findings`) and derives the sanitized export again, so drops,
+the link cascade and `pass_through` are the structure pass's own code. The pass runs before
+identity and planning, in `check` and in `compile` alike. The worklog's step 4.7 had
+`aesthetics_export` orchestrate the format crates itself (`validate/deep.rs`).
+Why: the export crate's layout rules forbid it I/O and content parsing ("No I/O", "Deep format
+validation is not here"), and it is the Studio Web cheap tier's export knowledge, so it should
+not pull in the model and texture crates. Re-deriving from the parse, not patching the
+sanitized export, because the cascade (`link_target_dropped`, `shared_folder_orphaned`) is
+written over the draft: a second copy over the sanitized types would be two functions to keep
+equal. Before planning, not inside the tasks, because a content Error must drop the whole
+folder (TC-CHK-01) and free its IDs, and `portrait_conflict` drops the export; a task failure
+can do neither. The cost, not yet measured: `compile` reads each checked file twice, and a
+solid `.7z` is decompressed a third time (metadata, deep pass, tasks); worklog "Issues".
+Plan: `team_compiler/pipeline.md` "2. Per-export serial steps" (deep format pass);
+`aesthetics_export/object_model.md` "Validation semantics" (content findings).

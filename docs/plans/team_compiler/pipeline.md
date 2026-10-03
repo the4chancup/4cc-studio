@@ -92,8 +92,17 @@ export format.
      and **texture stem conflicts** (two image files with the same stem but different extensions in
      one model folder — `texture_stem_conflict`), without loading model, texture, or archive
      payloads. This is the pass used by shallow archive checks.
-   - **Deep format pass (format crates)**: materializes each scope under the memory budget and
-     delegates FMDL, `.model`/MTL/XML, glTF, texture, and kit-config parsing to their owning crates.
+   - **Deep format pass (format crates)**: runs over the sanitized export the structure pass
+     leaves, before identity and planning. The Team compiler materializes each scope under the
+     memory budget and delegates FMDL, `.model`/MTL/XML, glTF, texture, kit-config and
+     `settings.toml` parsing to their owning crates; what they find goes back to
+     `aesthetics_export` as content findings, and the sanitized export is derived again with
+     them ("Content findings" in the [Aesthetics export
+     plan](../aesthetics_export/object_model.md)). So a content finding follows the structure
+     pass's rules: it drops the folder or file it names before any ID is planned for it, a
+     dropped shared folder or `Common/` file takes the players linking it down, and
+     `pass_through` keeps what is eligible. A failure only processing can meet (a conversion,
+     a merge, a packing) stays a task failure: it drops the task's unit and cascades nowhere.
      Plain-folder full checks run both passes; packed archives run the structure pass during live
      checking and this deferred deep pass at compile start before eligibility is decided. The CLI
      `check` has no live check and runs both passes on every source kind, archives included, so a
