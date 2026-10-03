@@ -82,6 +82,9 @@ pub(crate) enum Code {
     /// A portrait with a side that is not a power of two, or a mipmapped Fox texture with
     /// one; discarded the same way.
     TextureNotPow2,
+    /// A kit's main texture (`kit`, its own or inherited from `all/`) wider or taller than
+    /// 2048 pixels, or with a side that is not a power of two; the kit is left out.
+    KitTextureTooBig,
     /// A texture whose bytes open with another accepted format's signature than its
     /// extension's (renamed, not resaved); discarded the same way.
     TextureTypeMismatch,
@@ -114,7 +117,7 @@ impl Code {
     /// Every code, for the catalog test: a variant missing here would make its first message
     /// panic in `severity`, so a new variant is added to this list too.
     #[cfg(test)]
-    const ALL: [Code; 35] = [
+    const ALL: [Code; 36] = [
         Code::ExportExtractFailed,
         Code::NoExportsFound,
         Code::ExportDisabled,
@@ -140,6 +143,7 @@ impl Code {
         Code::MergedTextureConflict,
         Code::TextureTooSmall,
         Code::TextureNotPow2,
+        Code::KitTextureTooBig,
         Code::TextureTypeMismatch,
         Code::TextureCodecUnsupported,
         Code::VertexTooFarFromOrigin,
@@ -180,6 +184,7 @@ impl Code {
             Code::MergedTextureConflict => "merged_texture_conflict",
             Code::TextureTooSmall => "texture_too_small",
             Code::TextureNotPow2 => "texture_not_pow2",
+            Code::KitTextureTooBig => "kit_texture_too_big",
             Code::TextureTypeMismatch => "texture_type_mismatch",
             Code::TextureCodecUnsupported => "texture_codec_unsupported",
             Code::VertexTooFarFromOrigin => "vertex_too_far_from_origin",
@@ -235,6 +240,7 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("merged_texture_conflict", CatalogSeverity::Error),
     ("texture_too_small", CatalogSeverity::Error),
     ("texture_not_pow2", CatalogSeverity::Error),
+    ("kit_texture_too_big", CatalogSeverity::Error),
     ("texture_type_mismatch", CatalogSeverity::Error),
     ("texture_codec_unsupported", CatalogSeverity::Error),
     ("vertex_too_far_from_origin", CatalogSeverity::Error),

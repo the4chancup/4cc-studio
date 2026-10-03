@@ -12,7 +12,7 @@ is in `AGENTS.md` ("Working documents").
 **Phase:** 3 (Team compiler skeleton) closed 2026-10-02, its cross-family reviews queued (see
 "Handover"). Phases 1 and 2 done (Phase 2 closed 2026-09-30).
 **Next:** Phase 4 is itemized and its Acceptance section written (step 4.1, 2026-10-03; its
-cross-family review (a) is queued). Next: 4.7 (deep validation pass, in slices; (a) and (b) are done, (c1) is briefed), then 4.8; 4.30, 4.6 and 4.5 are done (4.6c moved to Phase 8's cancellation). 2.5b (GPU BC7) is step 16.x (decision entries
+cross-family review (a) is queued). Next: 4.7 (deep validation pass, in slices; (a), (b) and (c1) are done, (c2) is briefed), then 4.8; 4.30, 4.6 and 4.5 are done (4.6c moved to Phase 8's cancellation). 2.5b (GPU BC7) is step 16.x (decision entries
 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0 after Phase 8; phase order 1–6,
 8, 0.1.0, 7, 9–16 (`core/development_plan.md` "Releases"); first-class target the Fox version
 the cup moves to around April 2027 ("Target versions").
@@ -540,7 +540,19 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
     retired, since the deep pass has run them and `pass_through` must be able to keep the
     file (`texture_codec_unsupported` stays conversion's). Plan: `messages.md` "Textures",
     `libs/dds_convert.md` "`dds_convert` API", decision entry "texture checks: from the
-    header, in the deep pass". TC-TEX-03, TC-CHK-04
+    header, in the deep pass". TC-TEX-03, TC-CHK-04. Done 2026-10-03 (Opus 5.5, one
+    tests-only rework round): `dds_convert::probe` (`Probe`; a raster source's level count
+    from `mips::chain_len`, the one place the chain's length is written); in `deep.rs`,
+    `Checked::Texture(SourceFormat, SizeRule)`, `texture_finding` (the first rule that
+    fires: mismatch, too small, then the kit's main texture or the Fox mip rule) and the
+    signature table, moved from processing; a kit's findings on the kit's folder, an
+    `all/` texture read once and named by its export path on each inheriting kit;
+    `texture::convert` checks nothing itself any more (a portrait's checks stay in
+    processing until (c2)); an unreadable texture is `source_read_failed` like a model.
+    Under `pass_through` a 3x3 texture converts and is packed. Gates green (106 of 206);
+    `mutants-diff 8e94394`: 123, 73 caught, 1 timeout (an infinite loop), 42 unviable, 7
+    missed, all the size rules asked about square textures only; after the rework's table
+    test: 123, 80 caught, 1 timeout, 42 unviable, 0 missed. `deep.rs` is 1,258 lines with its tests: (c2) splits it into `deep/`
   - (c2) portraits from their headers (the file dropped; a power-of-two side always),
     `portrait_conflict` (both sources, different bytes: the export dropped; equal bytes:
     one portrait, and planning's refusal of a slot with both goes), the logo's decode
@@ -1761,3 +1773,8 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   its kit-config tally in `libs/fpc.md` is redone on it (300 of 314 with the FPC values).
 - **2026-10-03** — The repaired bin headers are reported: `bin_header_repaired` (W), once per
   bin, naming the teams (maintainer; decision entry; `messages.md`, TC-BIN-13).
+- **2026-10-03** — 4.7c1: the deep pass checks textures from their headers
+  (`dds_convert::probe`), so `check` reports `texture_type_mismatch`, `texture_too_small`,
+  `texture_not_pow2` and the new `kit_texture_too_big`, each dropping its folder, kit or
+  `Common/` file before planning, and `pass_through` keeps the three size findings' files.
+  One tests-only rework round (the size rules' one-sided cases, from 7 mutation survivors).

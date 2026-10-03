@@ -3,19 +3,21 @@
 //! `dds_convert`, which picks the codec the target version reads; a model folder's textures as
 //! one unit (step 6) and the export's Common textures as another ("Resolved decisions",
 //! "Common textures are one task of their export"); a portrait as the DDS every engine reads
-//! (`player_folders.md` "Portraits"). The four ways a texture fails are findings on the file
-//! (`messages.md` "Textures"); what each drops is the task's business.
+//! (`player_folders.md` "Portraits"). A texture's signature and size are checked by the deep
+//! pass before planning, a portrait's still here; what conversion itself finds
+//! (`texture_codec_unsupported`, `messages.md` "Textures") is a finding on the file, and what
+//! it drops is the task's business.
 
 use std::collections::BTreeMap;
 
 use aesthetics_export::FileDescriptor;
-use anyhow::Context;
 use dds_convert::{
     BlockCodec, ConvertError, SourceFormat, Target, TextureRole, decode, encode_dds, source_hash,
 };
 use studio_core::Disposition;
 
 use super::{CompileContext, Entry, Finding, TaskFailure, TaskFiles, take};
+use crate::deep::signature_format;
 use crate::messages::Code;
 use crate::paths;
 use crate::plan::ModelFolder;
@@ -43,31 +45,9 @@ impl From<TextureError> for TaskFailure {
     }
 }
 
-/// The accepted formats that open with a fixed signature, and that signature; WebP's `RIFF`
-/// is checked with its `WEBP` tag below, and TGA has none.
-const SIGNATURES: [(&[u8], SourceFormat); 7] = [
-    (b"DDS ", SourceFormat::Dds),
-    (b"FTEX", SourceFormat::Ftex),
-    (b"\x89PNG", SourceFormat::Png),
-    (&[0xff, 0xd8, 0xff], SourceFormat::Jpeg),
-    (b"BM", SourceFormat::Bmp),
-    (b"II*\0", SourceFormat::Tiff),
-    (b"MM\0*", SourceFormat::Tiff),
-];
-
-/// The accepted format whose signature `bytes` open with, if any.
-fn signature_format(bytes: &[u8]) -> Option<SourceFormat> {
-    if bytes.len() >= 12 && &bytes[..4] == b"RIFF" && &bytes[8..12] == b"WEBP" {
-        return Some(SourceFormat::WebP);
-    }
-    SIGNATURES
-        .iter()
-        .find(|(signature, _)| bytes.starts_with(signature))
-        .map(|(_, format)| *format)
-}
-
-/// `texture_type_mismatch` when the file `name`'s `bytes` open with the signature of another
-/// accepted format than `format`, the one its extension names: a file renamed, not resaved.
+/// A portrait's `texture_type_mismatch`: the file `name`'s `bytes` open with the signature of
+/// another accepted format than `format`, the one its extension names: a file renamed, not
+/// resaved. (Every other texture is checked by the deep pass.)
 fn check_signature(format: SourceFormat, name: &str, bytes: &[u8]) -> Result<(), TextureError> {
     match signature_format(bytes) {
         Some(sniffed) if sniffed != format => Err(TextureError::Finding(
@@ -78,22 +58,17 @@ fn check_signature(format: SourceFormat, name: &str, bytes: &[u8]) -> Result<(),
     }
 }
 
-/// `texture_too_small` when a side of the file `name`'s texture is under 4 pixels, one block;
-/// `texture_not_pow2` when `needs_pow2` and a side is not a power of two (a portrait always; a
-/// Fox texture when it is mipmapped, so a single-level texture of any size passes).
-fn check_dimensions(
-    name: &str,
-    width: u32,
-    height: u32,
-    needs_pow2: bool,
-) -> Result<(), TextureError> {
+/// A portrait's size findings: `texture_too_small` when a side of the file `name`'s texture
+/// is under 4 pixels, one block; `texture_not_pow2` when a side is not a power of two,
+/// whatever its mip count. (Every other texture is checked by the deep pass.)
+fn check_dimensions(name: &str, width: u32, height: u32) -> Result<(), TextureError> {
     if width < 4 || height < 4 {
         return Err(TextureError::Finding(
             Code::TextureTooSmall,
             name.to_owned(),
         ));
     }
-    if needs_pow2 && !(width.is_power_of_two() && height.is_power_of_two()) {
+    if !(width.is_power_of_two() && height.is_power_of_two()) {
         return Err(TextureError::Finding(Code::TextureNotPow2, name.to_owned()));
     }
     Ok(())
@@ -226,9 +201,11 @@ fn resolve_stem(
 
 /// The export's Common `textures`, converted from their bytes in `files` into the team's Common
 /// output for team `team_id`, each under its stem as spelled: one entry per texture, whether or
-/// not a `.common` link uses it. A texture with a finding is left out alone, the finding noted
-/// in `findings` with `DropFile`, and the rest emitted; any other failure fails the task, and
-/// with it every Common texture. The players linking a Common model still commit on their own.
+/// not a `.common` link uses it. The deep pass has already dropped a texture its checks find
+/// wrong. A texture conversion reports a finding on (`texture_codec_unsupported`) is left out
+/// alone, the finding noted in `findings` with `DropFile`, and the rest emitted; any other
+/// failure fails the task, and with it every Common texture. The players linking a Common
+/// model still commit on their own.
 pub(super) fn common_textures(
     textures: &[FileDescriptor],
     team_id: u16,
@@ -254,16 +231,15 @@ pub(super) fn common_textures(
 
 /// The texture file `name`, in `format`, converted for the run's version through its
 /// converter: an FTEX on every Fox target, in the codec the version reads, with the mip chain
-/// a raster source lacks generated, in the role the file's stem gives it. The findings are
-/// checked around the conversion: the signature before it, the size on the FTEX written, which
-/// is the decoded size (its header is 64 bytes, so this costs no second decode).
+/// a raster source lacks generated, in the role the file's stem gives it. Its signature and
+/// size are the deep pass's checks, done before planning; a texture that reaches this point
+/// either passed them or is kept by `pass_through`, so it is converted as it is.
 pub(super) fn convert(
     ctx: &CompileContext,
     format: SourceFormat,
     name: &str,
     bytes: &[u8],
 ) -> Result<Vec<u8>, TextureError> {
-    check_signature(format, name, bytes)?;
     let target = Target {
         version: ctx.version,
         role: texture_role(file_stem(name)),
@@ -272,15 +248,6 @@ pub(super) fn convert(
         .converter
         .convert(source_hash(bytes), bytes, format, target, ctx.cache)
         .map_err(|error| conversion_failure(name, error))?;
-    let info = ftex::info(&converted)
-        .with_context(|| format!("{name}: the converted FTEX header"))
-        .map_err(TextureError::Other)?;
-    check_dimensions(
-        name,
-        u32::from(info.width),
-        u32::from(info.height),
-        info.mipmaps > 1,
-    )?;
     // The converter hands out the cache's own buffer, which it may hand out again for the same
     // source; the CPK entry owns its bytes, so the one copy of the texture is here.
     Ok(converted.to_vec())
@@ -297,7 +264,7 @@ pub(super) fn portrait(
 ) -> Result<Vec<u8>, TextureError> {
     check_signature(format, name, &bytes)?;
     let decoded = decode(&bytes, format).map_err(|error| conversion_failure(name, error))?;
-    check_dimensions(name, decoded.width, decoded.height, true)?;
+    check_dimensions(name, decoded.width, decoded.height)?;
     match format {
         SourceFormat::Dds => Ok(bytes),
         SourceFormat::Ftex
@@ -398,117 +365,34 @@ mod tests {
     }
 
     #[test]
-    fn each_accepted_format_s_signature_is_recognized_and_tga_has_none() {
-        // A real file of each format opens with its signature (the kit and portrait fixtures
-        // are real encoder output); a signature pasted onto nothing is still that format's.
-        assert_eq!(
-            signature_format(&tracer_kit()),
-            Some(SourceFormat::Dds),
-            "dds"
-        );
-        assert_eq!(
-            signature_format(&texture_fixture("kit.png")),
-            Some(SourceFormat::Png),
-            "png"
-        );
-        assert_eq!(
-            signature_format(&texture_fixture("portrait.webp")),
-            Some(SourceFormat::WebP),
-            "webp"
-        );
-        assert_eq!(
-            signature_format(&texture_fixture("kit_back.tga")),
-            None,
-            "tga has no signature"
-        );
-        for (bytes, format) in [
-            (&b"FTEX\x00\x00\x00\x00"[..], SourceFormat::Ftex),
-            (&[0xff, 0xd8, 0xff, 0xe0, 0, 0x10], SourceFormat::Jpeg),
-            (&b"BM\x36\x00\x00\x00"[..], SourceFormat::Bmp),
-            (&b"II*\0\x08\x00\x00\x00"[..], SourceFormat::Tiff),
-            (&b"MM\0*\x00\x00\x00\x08"[..], SourceFormat::Tiff),
-            (&b"RIFF\x00\x00\x00\x00WEBPVP8 "[..], SourceFormat::WebP),
-        ] {
-            assert_eq!(signature_format(bytes), Some(format), "{format:?}");
-        }
-        // A RIFF that is not WebP, and bytes opening with none of them, are no format.
-        assert_eq!(signature_format(b"RIFF\x00\x00\x00\x00WAVEfmt "), None);
-        assert_eq!(signature_format(b"RIFF"), None, "too short for the tag");
-        assert_eq!(signature_format(b"not a texture"), None);
-        assert_eq!(signature_format(b""), None);
+    fn a_texture_of_an_odd_size_converts_as_it_is() {
+        // The deep pass reports its size before planning; one `pass_through` keeps is
+        // converted: 300x300 with its generated chain down to 1x1.
+        let converted = convert(
+            &context(PesVersion::Pes21),
+            SourceFormat::Png,
+            "odd.png",
+            &texture_fixture("odd.png"),
+        )
+        .unwrap();
+        let info = ftex::info(&converted).unwrap();
+        assert_eq!((info.width, info.height, info.mipmaps), (300, 300, 9));
     }
 
     #[test]
-    fn a_file_opening_with_another_format_s_signature_is_a_type_mismatch() {
-        // PNG bytes under a `.dds` name: renamed, not resaved.
-        let png = texture_fixture("portrait.png");
-        assert_eq!(
-            finding(convert(
-                &context(PesVersion::Pes21),
-                SourceFormat::Dds,
-                "skin.dds",
-                &png
-            )),
-            (Code::TextureTypeMismatch, "skin.dds".to_owned())
-        );
-        // The same bytes under a `.tga` name: TGA has no signature, but PNG's is another's.
-        assert_eq!(
-            finding(convert(
-                &context(PesVersion::Pes21),
-                SourceFormat::Tga,
-                "skin.tga",
-                &png
-            )),
-            (Code::TextureTypeMismatch, "skin.tga".to_owned())
-        );
-        // A DDS with its header cut off opens with no signature: no mismatch, and the decode
-        // fails as before.
-        let cut = tracer_kit()[128..].to_vec();
-        assert!(matches!(
-            convert(
-                &context(PesVersion::Pes21),
-                SourceFormat::Dds,
-                "kit.dds",
-                &cut
-            ),
-            Err(TextureError::Other(_))
-        ));
-    }
-
-    #[test]
-    fn a_small_or_odd_texture_is_a_finding_and_a_single_level_odd_one_is_not() {
-        let ctx = context(PesVersion::Pes21);
-        assert_eq!(
-            finding(convert(
-                &ctx,
-                SourceFormat::Png,
-                "tiny.png",
-                &texture_fixture("tiny.png")
-            )),
-            (Code::TextureTooSmall, "tiny.png".to_owned())
-        );
-        assert_eq!(
-            finding(convert(
-                &ctx,
-                SourceFormat::Png,
-                "odd.png",
-                &texture_fixture("odd.png")
-            )),
-            (Code::TextureNotPow2, "odd.png".to_owned())
-        );
-        // The checks themselves: 4 is the smallest side, a side under it on either axis is
-        // too small whatever the other, and the power-of-two rule applies only when asked.
-        assert!(check_dimensions("t", 4, 4, true).is_ok());
-        assert!(check_dimensions("t", 300, 300, false).is_ok());
+    fn a_portrait_side_under_4_or_not_a_power_of_two_is_a_finding() {
+        // 4 is the smallest side, a side under it on either axis is too small whatever the
+        // other, and a side that is not a power of two is a finding.
+        assert!(check_dimensions("t", 4, 4).is_ok());
         for (width, height) in [(3, 300), (300, 3), (3, 3)] {
             assert!(matches!(
-                check_dimensions("t", width, height, false),
+                check_dimensions("t", width, height),
                 Err(TextureError::Finding(Code::TextureTooSmall, _))
             ));
         }
         for (width, height) in [(300, 256), (256, 300)] {
             assert!(matches!(
-                check_dimensions("t", width, height, true),
+                check_dimensions("t", width, height),
                 Err(TextureError::Finding(Code::TextureNotPow2, _))
             ));
         }

@@ -9,6 +9,8 @@
 //! [`Converter`] is the session cache in front of both. [`encode_dds`] is
 //! the one exception to choosing by version: a file every engine reads as a
 //! DDS in a codec the plan fixes (a player portrait, BC3) names its codec.
+//! [`probe`] reads a source's size from its header alone, for checks that
+//! must not pay a decode per texture.
 
 mod cache;
 mod dds;
@@ -173,6 +175,63 @@ pub fn convert(decoded: &Decoded, target: Target) -> Result<Vec<u8>, ConvertErro
 pub fn encode_dds(decoded: &Decoded, codec: BlockCodec) -> Result<Vec<u8>, ConvertError> {
     validate(decoded)?;
     encode::encode_dds(decoded, codec)
+}
+
+/// What a source's header says of its texture, read without decoding a pixel.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Probe {
+    /// Level-0 width in pixels.
+    pub width: u32,
+    /// Level-0 height in pixels.
+    pub height: u32,
+    /// The level count the converted texture carries: a DDS or FTEX
+    /// source's own, a raster source's full chain down to 1x1, which
+    /// conversion generates.
+    pub mipmaps: u32,
+}
+
+/// Reads a source's size and level count from its header alone, for checks
+/// that must not pay a decode per texture: a DDS's (WESYS-wrapped or not)
+/// through its DDS header, an FTEX's through its FTEX header, a raster
+/// source's through its decoder's header read.
+///
+/// # Errors
+///
+/// What [`decode`] returns for a header it cannot read. A texture that
+/// probes can still fail to decode: the pixel data is not read.
+pub fn probe(bytes: &[u8], format: SourceFormat) -> Result<Probe, ConvertError> {
+    match format {
+        SourceFormat::Dds => {
+            let unwrapped = wezlib::decompress_if_wrapped(bytes)?;
+            let layout = ftex::dds::read_layout(&unwrapped)?;
+            Ok(Probe {
+                width: layout.width,
+                height: layout.height,
+                mipmaps: layout.mipmaps,
+            })
+        }
+        SourceFormat::Ftex => {
+            let info = ftex::info(bytes)?;
+            Ok(Probe {
+                width: u32::from(info.width),
+                height: u32::from(info.height),
+                mipmaps: u32::from(info.mipmaps),
+            })
+        }
+        SourceFormat::Png
+        | SourceFormat::Jpeg
+        | SourceFormat::Bmp
+        | SourceFormat::WebP
+        | SourceFormat::Tga
+        | SourceFormat::Tiff => {
+            let (width, height) = raster::dimensions(bytes, format)?;
+            Ok(Probe {
+                width,
+                height,
+                mipmaps: mips::chain_len(width, height),
+            })
+        }
+    }
 }
 
 /// The `usize` length of a buffer a texture dimension declares. On a
@@ -1959,6 +2018,72 @@ mod tests {
             &ours.mips[0][6 * 4..8 * 4],
             [0, 0, 0, 255, 255, 255, 0, 255]
         );
+    }
+
+    /// A `width`x`height` 32-bit TGA, every pixel opaque grey.
+    fn grey_tga(width: u16, height: u16) -> Vec<u8> {
+        let mut tga = vec![
+            0, 0, 2, // no id, no colormap, truecolor
+            0, 0, 0, 0, 0, // colormap spec
+            0, 0, 0, 0, // origin
+        ];
+        tga.extend_from_slice(&width.to_le_bytes());
+        tga.extend_from_slice(&height.to_le_bytes());
+        tga.extend_from_slice(&[32, 0x28]); // 32 bits, top-left, eight attribute bits
+        for _ in 0..u32::from(width) * u32::from(height) {
+            tga.extend_from_slice(&[128, 128, 128, 255]); // BGRA
+        }
+        tga
+    }
+
+    #[test]
+    fn probe_agrees_with_decode_and_with_the_converted_level_count() {
+        let tga = grey_tga(6, 3);
+        for (name, bytes, format) in [
+            ("bc7.dds, six levels", BC7, SourceFormat::Dds),
+            ("rgba8.dds", RGBA8, SourceFormat::Dds),
+            ("bc1 ftex, three levels", FTEX_BC1, SourceFormat::Ftex),
+            ("source.png", PNG, SourceFormat::Png),
+            ("6x3 tga", tga.as_slice(), SourceFormat::Tga),
+        ] {
+            let probed = probe(bytes, format).unwrap();
+            let decoded = decode(bytes, format).unwrap();
+            assert_eq!(
+                (probed.width, probed.height),
+                (decoded.width, decoded.height),
+                "{name}"
+            );
+            let target = Target {
+                version: PesVersion::Pes21,
+                role: TextureRole::Color,
+            };
+            let converted = ftex::info(&convert(&decoded, target).unwrap()).unwrap();
+            assert_eq!(probed.mipmaps, u32::from(converted.mipmaps), "{name}");
+        }
+        // The generated chains, spelled out: 6x3, 3x1, 1x1.
+        assert_eq!(probe(&tga, SourceFormat::Tga).unwrap().mipmaps, 3);
+    }
+
+    #[test]
+    fn a_wesys_wrapped_dds_probes_like_the_unwrapped_one() {
+        let wrapped = wezlib::compress(BC7);
+        assert_eq!(
+            probe(&wrapped, SourceFormat::Dds).unwrap(),
+            probe(BC7, SourceFormat::Dds).unwrap()
+        );
+    }
+
+    #[test]
+    fn a_cut_header_does_not_probe() {
+        let tga = grey_tga(6, 3);
+        for (name, cut, format) in [
+            ("dds", &BC7[..100], SourceFormat::Dds),
+            ("ftex", &FTEX_BC1[..32], SourceFormat::Ftex),
+            ("png", &PNG[..20], SourceFormat::Png),
+            ("tga", &tga[..10], SourceFormat::Tga),
+        ] {
+            assert!(probe(cut, format).is_err(), "{name}");
+        }
     }
 
     #[test]

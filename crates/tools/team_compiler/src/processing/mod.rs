@@ -73,8 +73,8 @@ pub(crate) type Finding = (Code, Disposition, Vec<(&'static str, String)>);
 
 /// Why a task failed: the finding reported on its folder (its file, for a portrait). A merge
 /// conflict between parts has its own code (`merge_material_conflict`, `skl_merge_conflict`),
-/// and so has a texture finding (`texture_too_small`, ...); any other error is
-/// `folder_pack_failed` carrying the error chain.
+/// and so has a texture finding (`texture_codec_unsupported`, a portrait's `texture_too_small`,
+/// ...); any other error is `folder_pack_failed` carrying the error chain.
 pub(crate) struct TaskFailure {
     /// The finding's code.
     pub(crate) code: Code,
@@ -1439,18 +1439,20 @@ mod tests {
     #[test]
     fn a_common_texture_with_a_finding_is_left_out_alone_and_the_rest_emitted() {
         let folder = ScopePath::new("Common").unwrap();
+        // A codec conversion refuses is the finding conversion itself reports; the deep pass
+        // has already dropped the files its own checks find wrong.
         let textures = vec![
-            named("Common/tiny.png", "shirt.dds"),
+            named("Common/bc6h.dds", "shirt.dds"),
             named("Common/hair.dds", "shirt.dds"),
         ];
-        let tiny = std::fs::read(
-            Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/textures/tiny.png"),
+        let bc6h = std::fs::read(
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/textures/bc6h.dds"),
         )
         .unwrap();
 
         let batch = run_with(
             TaskKind::CommonTextures { folder, textures },
-            &[("Common/tiny.png", &tiny)],
+            &[("Common/bc6h.dds", &bc6h)],
         );
 
         assert_eq!(
@@ -1460,7 +1462,7 @@ mod tests {
         let [message] = batch.messages.as_slice() else {
             panic!("{:?}", batch.messages);
         };
-        assert_eq!(message.code.code, "texture_too_small");
+        assert_eq!(message.code.code, "texture_codec_unsupported");
         assert_eq!(
             (message.severity, message.disposition),
             (Severity::Error, Disposition::DropFile)
@@ -1474,7 +1476,7 @@ mod tests {
         );
         assert_eq!(
             message.context,
-            [("file".to_owned(), "tiny.png".to_owned())]
+            [("file".to_owned(), "bc6h.dds".to_owned())]
         );
     }
 

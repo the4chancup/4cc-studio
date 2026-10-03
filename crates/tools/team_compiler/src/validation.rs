@@ -158,7 +158,8 @@ fn check_source(
     // The deep pass reads only what the structure pass kept; its findings derive the report
     // again, so they drop, cascade and pass through as the structure pass's own do.
     if let Some(validated) = &report.validated {
-        let findings = deep::content_findings(validated, &source, budget);
+        let findings =
+            deep::content_findings(validated, &source, budget, inputs.common.pes_version);
         if !findings.is_empty() {
             report = report.with_content_findings(findings, &context);
         }

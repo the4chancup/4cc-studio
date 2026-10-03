@@ -7,7 +7,7 @@
 use std::io::Cursor;
 
 use image::codecs::tga::TgaDecoder;
-use image::{ColorType, DynamicImage, ExtendedColorType, ImageDecoder, ImageFormat};
+use image::{ColorType, DynamicImage, ExtendedColorType, ImageDecoder, ImageFormat, ImageReader};
 use tiff::decoder::Decoder;
 use tiff::tags::Tag;
 
@@ -26,24 +26,30 @@ fn image_format(format: SourceFormat) -> Option<ImageFormat> {
     })
 }
 
+/// The decoder of a TGA buffer, its header read: the 16-bit primary layout
+/// whose attribute bit `image` silently drops is refused, and so is the
+/// interleaved storage `image` decodes in order (DirectXTexTGA.cpp:159-162).
+fn tga_decoder(bytes: &[u8]) -> Result<TgaDecoder<Cursor<&[u8]>>, ConvertError> {
+    if bytes
+        .get(17)
+        .is_some_and(|descriptor| descriptor & 0xC0 != 0)
+    {
+        return Err(ConvertError::Unsupported("interleaved tga"));
+    }
+    let decoder = TgaDecoder::new(Cursor::new(bytes))?;
+    if decoder.original_color_type() == ExtendedColorType::Rgb5x1 {
+        return Err(ConvertError::Unsupported("16-bit tga: resave as 32-bit"));
+    }
+    Ok(decoder)
+}
+
 /// The `image` crate's decode of a raster buffer. TGA goes through its own
-/// decoder first: the 16-bit primary layout whose attribute bit `image`
-/// silently drops is refused, the interleaved storage `image` decodes in
-/// order is refused (DirectXTexTGA.cpp:159-162), and the allocation limit
-/// `ImageReader::decode` applies (image_reader_type.rs:314-320) is applied
-/// to the declared size before the decode.
+/// decoder (`tga_decoder`), with the allocation limit `ImageReader::decode`
+/// applies (image_reader_type.rs:314-320) applied to the declared size
+/// before the decode.
 fn decode_image(bytes: &[u8], format: SourceFormat) -> Result<DynamicImage, ConvertError> {
     if format == SourceFormat::Tga {
-        if bytes
-            .get(17)
-            .is_some_and(|descriptor| descriptor & 0xC0 != 0)
-        {
-            return Err(ConvertError::Unsupported("interleaved tga"));
-        }
-        let mut decoder = TgaDecoder::new(Cursor::new(bytes))?;
-        if decoder.original_color_type() == ExtendedColorType::Rgb5x1 {
-            return Err(ConvertError::Unsupported("16-bit tga: resave as 32-bit"));
-        }
+        let mut decoder = tga_decoder(bytes)?;
         let mut limits = image::Limits::default();
         limits.reserve(decoder.total_bytes())?;
         decoder.set_limits(limits)?;
@@ -51,6 +57,16 @@ fn decode_image(bytes: &[u8], format: SourceFormat) -> Result<DynamicImage, Conv
     }
     let image_format = image_format(format).ok_or(ConvertError::Unsupported("raster format"))?;
     Ok(image::load_from_memory_with_format(bytes, image_format)?)
+}
+
+/// The width and height a raster buffer's header declares, read through the
+/// same decoder `decode_image` uses, without decoding a pixel.
+pub(crate) fn dimensions(bytes: &[u8], format: SourceFormat) -> Result<(u32, u32), ConvertError> {
+    if format == SourceFormat::Tga {
+        return Ok(tga_decoder(bytes)?.dimensions());
+    }
+    let image_format = image_format(format).ok_or(ConvertError::Unsupported("raster format"))?;
+    Ok(ImageReader::with_format(Cursor::new(bytes), image_format).into_dimensions()?)
 }
 
 /// Whether a TIFF's first IFD declares ExtraSamples = 1 (associated —

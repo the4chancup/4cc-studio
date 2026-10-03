@@ -26,16 +26,24 @@ kept as it is), and an image without the smaller copies of itself the game needs
 levels) gets them generated. A portrait is the exception: the game reads it as a `.dds` on
 every version, so a `.dds` portrait is kept exactly as it is and a portrait in any other format
 becomes a BC3 `.dds` of the same size with its mip levels. A texture whose name ends in `_nrm`
-(`skin_nrm.png`) is a normal map and is encoded as one. Four lines name a texture that cannot be
+(`skin_nrm.png`) is a normal map and is encoded as one. Five lines name a texture that cannot be
 used, each with the file: `texture_too_small` (a side under 4 pixels), `texture_not_pow2` (a
 portrait whose width or height is not a power of two, or any other texture with mip levels
-whose width or height is not: 256, 512, 1024, ...), `texture_type_mismatch` (a file renamed
-to another format instead of resaved, a PNG called `skin.dds`) and `texture_codec_unsupported`
-(a `.dds` or `.ftex` in a format the compiler does not read, BC6H for one, or a 16-bit or
-interleaved `.tga`: resave it). What is left out depends on where the texture is: a player's
-or shared folder's texture leaves out the whole folder, a kit's texture the whole kit, a
-`Common` texture only that file (the rest of `Common` is still built), a portrait only that
-portrait. A texture that cannot be read for any other reason is reported as
+whose width or height is not: 256, 512, 1024, ...; a `.png` or other image always gets mip
+levels, a `.dds` or `.ftex` with a single level passes at any size), `kit_texture_too_big` (a
+kit's main `kit` texture, its own or the one from `all`, wider or taller than 2048 pixels or
+with a side that is not a power of two), `texture_type_mismatch` (a file renamed to another
+format instead of resaved, a PNG called `skin.dds`) and `texture_codec_unsupported` (a `.dds`
+or `.ftex` in a format the compiler does not read, BC6H for one, or a 16-bit or interleaved
+`.tga`: resave it). Both commands report the first four from the start of each file alone, so
+`check` finds them too; `texture_codec_unsupported` is found when the texture is converted, by
+`compile`. What is left out depends on where the texture is: a player's or shared folder's
+texture leaves out the whole folder, a kit's texture the whole kit (a texture in `all` leaves
+out every kit using it), a `Common` texture only that file (the rest of `Common` is still built,
+and a player linking that file is left out with the line `link_target_dropped`), a portrait only
+that portrait. With `pass_through` on, a texture other than a portrait with one of the three
+size lines is kept and converted as it is; a renamed one is still left out. A texture that
+cannot be read for any other reason is reported as
 `folder_pack_failed`, naming the file, and its folder is left out. A kit folder holding a
 `kit_mask` texture compiled for PES 2018 to 2021 gets the line `kit_texture_not_used`: these
 versions have no slot for it, so it is not built, and the rest of the kit is. The boots and
@@ -64,7 +72,7 @@ Common model's textures of those names are read from there, so twenty players sh
 Common model share one copy of its textures. A model of the player's own and a Common model
 must not define a material of the same name over textures kept in different places (the
 player's folder and `Common`): that is a `merge_material_conflict`. When a texture in `Common`
-cannot be read for a reason other than the four texture lines above, the line
+cannot be read for a reason other than the texture lines above, the line
 `folder_pack_failed` names it at `Common`, no Common texture is built, and the players linking
 Common models are still built. Several boots models in one
 folder (`a_boots.fmdl` beside `kit_boots.fmdl`), several gloves models for one hand, or
