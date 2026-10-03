@@ -648,9 +648,9 @@ mod tests {
     fn only_the_small_metadata_files_are_read_and_a_failed_read_keeps_its_reason() {
         let temp = scratch("source_metadata");
         let root = temp.path();
-        fs::create_dir_all(root.join("Kits/p1")).unwrap();
+        fs::create_dir_all(root.join("wrapper")).unwrap();
         fs::write(root.join("players.txt"), "03 A").unwrap();
-        fs::write(root.join("Kits/p1/icon.txt"), "3").unwrap();
+        fs::write(root.join("wrapper/players.txt"), "03 B").unwrap();
         fs::write(root.join("colors.txt"), "not metadata").unwrap();
         let file = |path: &str| ListedEntry {
             path: path.to_owned(),
@@ -660,7 +660,7 @@ mod tests {
             display_name: "co - Spring".to_owned(),
             entries: vec![
                 file("players.txt"),
-                file("Kits/p1/icon.txt"),
+                file("wrapper/players.txt"),
                 file("colors.txt"),
                 file("notes.txt"),
                 ListedEntry {
@@ -674,9 +674,9 @@ mod tests {
             .read_metadata(&listing, &MemoryBudget::new(1 << 20));
 
         let keys: Vec<&str> = metadata.files.keys().map(String::as_str).collect();
-        assert_eq!(keys, ["Kits/p1/icon.txt", "notes.txt", "players.txt"]);
+        assert_eq!(keys, ["notes.txt", "players.txt", "wrapper/players.txt"]);
         assert_eq!(metadata.files["players.txt"], Ok(b"03 A".to_vec()));
-        assert_eq!(metadata.files["Kits/p1/icon.txt"], Ok(b"3".to_vec()));
+        assert_eq!(metadata.files["wrapper/players.txt"], Ok(b"03 B".to_vec()));
         // Listed but missing on disk: the read fails with the system's reason.
         assert!(metadata.files["notes.txt"].is_err());
     }

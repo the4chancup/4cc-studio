@@ -52,14 +52,18 @@ pub enum ModelFormat {
 pub enum Marker {
     /// `ingame_face`: remove custom face parts, keep the rest.
     IngameFace,
-    /// `fpc.on`: apply the FPC preset.
+    /// `fpc_on`, or a bare `fpc`: apply the FPC preset.
     FpcOn,
-    /// `fpc.off`: un-apply the FPC preset.
+    /// `fpc_off`: un-apply the FPC preset.
     FpcOff,
     /// `pre-fox`: the kit's textures are drawn for the pre-Fox layout.
     PreFox,
     /// `fox`: the kit's textures are drawn for the Fox layout.
     Fox,
+    /// `icon_<N>`: the kit's menu icon, numbered by the digits after the
+    /// underscore (`icon_7`). Any digits make the marker, so an out-of-range
+    /// `icon_99` is still a kit's icon, reported as invalid by validation.
+    Icon,
 }
 
 /// A metadata file by its known name.
@@ -75,8 +79,6 @@ pub enum MetadataFile {
     NotesTxt,
     /// `colors.txt`: team or kit menu colors.
     ColorsTxt,
-    /// `icon.txt`: the kit's menu icon number.
-    IconTxt,
     /// `config.toml`: the authored kit config.
     ConfigToml,
     /// `settings.toml`: savefile settings for a player.
@@ -103,23 +105,25 @@ const SHARED_LINKS: [(&str, SharedKind); 3] = [
     (".gloves", SharedKind::Gloves),
 ];
 
-/// Marker names: `pre-fox` before `fox` only because they read as a pair.
-const MARKERS: [(&str, Marker); 5] = [
+/// Marker names with a fixed spelling: `pre-fox` before `fox` only because
+/// they read as a pair. A bare `fpc` reads as `fpc_on` (presence means on).
+/// The icon marker carries a number and is matched by `icon_digits`.
+const MARKERS: [(&str, Marker); 6] = [
     ("ingame_face", Marker::IngameFace),
-    ("fpc.on", Marker::FpcOn),
-    ("fpc.off", Marker::FpcOff),
+    ("fpc_on", Marker::FpcOn),
+    ("fpc_off", Marker::FpcOff),
+    ("fpc", Marker::FpcOn),
     ("pre-fox", Marker::PreFox),
     ("fox", Marker::Fox),
 ];
 
 /// Known metadata names, whole-name case-insensitive.
-const METADATA: [(&str, MetadataFile); 9] = [
+const METADATA: [(&str, MetadataFile); 8] = [
     ("players.txt", MetadataFile::PlayersTxt),
     ("refs.txt", MetadataFile::RefsTxt),
     ("ref_lists.txt", MetadataFile::RefLists),
     ("notes.txt", MetadataFile::NotesTxt),
     ("colors.txt", MetadataFile::ColorsTxt),
-    ("icon.txt", MetadataFile::IconTxt),
     ("config.toml", MetadataFile::ConfigToml),
     ("settings.toml", MetadataFile::SettingsToml),
     ("readme.txt", MetadataFile::Readme),
@@ -230,7 +234,26 @@ fn link_or_marker(name: &str) -> Option<FileKind> {
             return Some(FileKind::Marker(marker));
         }
     }
+    if icon_digits(name).is_some() {
+        return Some(FileKind::Marker(Marker::Icon));
+    }
     None
+}
+
+/// An icon marker's digits (`icon_07` gives `07`): `icon_`, ASCII-case-
+/// insensitively, then one or more ASCII digits and nothing else.
+fn icon_digits(name: &str) -> Option<&str> {
+    strip_prefix_ci(name, "icon_")
+        .filter(|digits| !digits.is_empty() && digits.bytes().all(|byte| byte.is_ascii_digit()))
+}
+
+/// An icon marker's number, read from its file name (`icon_07` and the
+/// tolerated `icon_07.txt` alike give 7); `None` when the name is no icon
+/// marker or its number does not fit a `u8` (wide enough: the game's icons
+/// are numbered 0–23).
+pub(crate) fn icon_number(file_name: &str) -> Option<u8> {
+    let name = strip_suffix_ci(file_name, ".txt").unwrap_or(file_name);
+    icon_digits(name)?.parse().ok()
 }
 
 /// One file name's `FileKind`, ASCII-case-insensitive throughout.
@@ -272,7 +295,7 @@ mod tests {
 
     #[test]
     fn classify_covers_the_convention_table() {
-        let cases: [(&str, FileKind); 58] = [
+        let cases: [(&str, FileKind); 57] = [
             ("Crocs.boots", FileKind::SharedLink(SharedKind::Boots)),
             ("Crocs.BOOTS.txt", FileKind::SharedLink(SharedKind::Boots)),
             ("Longhair.face", FileKind::SharedLink(SharedKind::Face)),
@@ -289,8 +312,8 @@ mod tests {
             (".common.txt", FileKind::Other),
             ("ingame_face", FileKind::Marker(Marker::IngameFace)),
             ("INGAME_FACE.txt", FileKind::Marker(Marker::IngameFace)),
-            ("fpc.on", FileKind::Marker(Marker::FpcOn)),
-            ("fpc.off.txt", FileKind::Marker(Marker::FpcOff)),
+            ("fpc_on", FileKind::Marker(Marker::FpcOn)),
+            ("fpc_off.txt", FileKind::Marker(Marker::FpcOff)),
             ("pre-fox", FileKind::Marker(Marker::PreFox)),
             ("Fox.txt", FileKind::Marker(Marker::Fox)),
             ("players.txt", FileKind::Metadata(MetadataFile::PlayersTxt)),
@@ -299,7 +322,6 @@ mod tests {
             ("refs.txt", FileKind::Metadata(MetadataFile::RefsTxt)),
             ("notes.txt", FileKind::Metadata(MetadataFile::NotesTxt)),
             ("colors.txt", FileKind::Metadata(MetadataFile::ColorsTxt)),
-            ("icon.txt", FileKind::Metadata(MetadataFile::IconTxt)),
             ("config.toml", FileKind::Metadata(MetadataFile::ConfigToml)),
             (
                 "settings.toml",
@@ -340,6 +362,27 @@ mod tests {
         ];
         for (name, expected) in cases {
             assert_eq!(classify(name), expected, "{name:?}");
+        }
+    }
+
+    #[test]
+    fn a_marker_value_follows_an_underscore() {
+        let markers = [
+            ("fpc_on", Marker::FpcOn),
+            ("FPC_OFF.txt", Marker::FpcOff),
+            ("fpc", Marker::FpcOn),
+            ("fpc.txt", Marker::FpcOn),
+            ("icon_7", Marker::Icon),
+            ("ICON_07.txt", Marker::Icon),
+            ("icon_99", Marker::Icon),
+        ];
+        for (name, marker) in markers {
+            assert_eq!(classify(name), FileKind::Marker(marker), "{name:?}");
+        }
+        for name in [
+            "fpc.on", "fpc.off", "icon.txt", "icon_", "icon_x", "icon_7b",
+        ] {
+            assert_eq!(classify(name), FileKind::Other, "{name:?}");
         }
     }
 }

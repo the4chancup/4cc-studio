@@ -136,7 +136,7 @@ format:
      "no colors chosen" pair (`kit_colors_missing`, W); a kit whose effective textures lack
      `kit.dds` — an empty folder included — is a **placeholder kit** (`kit_placeholder`, I): it
      gets the bundled checkerboard texture and is otherwise a normal kit (see "Kits" in the [Aesthetics export
-     plan](../aesthetics_export/README.md)); a present `icon.txt` must hold a number in 0–23 (`kit_icon_invalid` warns and
+     plan](../aesthetics_export/README.md)); a kit holds at most one `icon_<N>` marker, numbered 0–23 (`kit_icon_invalid` warns and
      falls back to the default); at most one layout marker (`pre-fox` / `fox`, `.txt` tolerated;
      both → `kit_layout_conflict`, kit discarded); textures validated as DDS and named with the `kit` prefix
      (`kit.dds`, `kit_mask.dds`, `kit_chest.dds`, …); supplied configs' FPC fields are checked
@@ -414,8 +414,18 @@ describes behavior, not a serial scheduling requirement:
   island is piecewise (two bands per island), not one scale. The exact band edges are settled in
   the Phase 4 kits step from two sources that must agree: texel correspondence through the models'
   3D positions (u only; the Fox body's different proportions make v matching unreliable, as a
-  shirt control run showed) and a hand-adjusted fixture — one 4cc kit an author shipped for both a
-  16/17-era and a 21-era cup. The table is lead-authored (it is a measurement) and lives with the
+  shirt control run showed) and a design drawn for both layouts. No cup kit is one (nobody in the
+  community ported a kit by hand), so the pair comes from PES Master's two kit creators, the
+  PES 2017 one and the PES 2018-2021 one, which draw the same 21 brand templates for each layout
+  from named layers. **Socks: the two sources agree** to within about 10 px. Along the leg (v)
+  nothing moves. Around the leg (u), on the left sock (the right one mirrored): the outer band,
+  pre-Fox u from about 195 to 440, shifts by -60 px at scale 1, and the inner band, u 8 to
+  about 195, is compressed onto 8 to about 137 (scale about 0.69). **Shorts: they disagree.**
+  PES Master draws the shorts identically in both layouts (20 of 21 templates), while the
+  models shift the Fox shorts body by 35 to 60 px along u (-36 at u 100-280, -48 at 300-400,
+  -56 at 460-560). One of the two is wrong for the game, and a third source decides before the
+  shorts rows are written: the same PES Master kit seen in PES 17 and in PES 21 (does the
+  shorts logo sit at the same height?). The table is lead-authored (it is a measurement) and lives with the
   kit step (`kits/layout.rs`). Placeholder textures are engine-neutral and are never re-laid out;
   `_chest`, `_back`, `_name` and `_leg` have their own UV spaces and are not touched — whether
   `_leg`'s space also changed is unchecked and belongs to the same Phase 4 step. The TOML config is compiled to the game's 120-byte binary via `libs/kit_config`
@@ -445,15 +455,16 @@ describes behavior, not a serial scheduling requirement:
   `collar_<ID>`, the ID with or without zero padding (`collar_12` and `collar_012` name the same
   collar); the file is emitted under the game's three-digit name, `collar_012.fmdl` on Fox and
   `collar_012.model` plus its `.mtl` pre-Fox, at the target's `nocloth` path ("Game paths
-  reference"). A name that doesn't parse, an ID that is not a stock collar of the target version
+  reference"). A name that doesn't parse, or an ID that is not a stock collar of the target version
   (the per-version sets, counted in the installed games' base data CPKs, are in `messages.md`,
-  `collar_id_invalid`), or a
-  reserved ID (105, the FPC collar — replacing it would break FPC teams everywhere — and 77,
-  the referees' marker collar, `blue_port.md` "Referee export processing") reports
-  `collar_id_invalid`. Two teams replacing the same stock collar ID is an error: planning is serial,
+  `collar_id_invalid`), reports `collar_id_invalid`. Two teams replacing the same stock collar ID
+  is an error: planning is serial,
   so a run-wide list of the IDs claimed so far catches duplicates without any advance cross-checking
   — the later claimant in canonical export order reports `collar_id_conflict` and its collar is
-  discarded. Custom collars are **compatible with team FPC**: collar rewriting runs after FPC
+  discarded. The list starts with the suite's own two claims, 105 (the FPC collar — replacing it
+  would break FPC teams everywhere) and 77 (the referees' marker collar, `blue_port.md` "Referee
+  export processing"), so a team's file named for either is the same conflict, not an invalid
+  ID: the ID is a real collar that someone else holds. Custom collars are **compatible with team FPC**: collar rewriting runs after FPC
   reconciliation, so the custom ID deliberately overrides the FPC collar value in the configs.
 - **Common** — pre-Fox: `.mtl` texture IDs and relative→absolute path fixes; both modes: texture
   conversion, dummy ID replacement, `oral_`/`_win32` model-name prefixes, face XML references to
@@ -477,7 +488,7 @@ describes behavior, not a serial scheduling requirement:
   bin's bytes) and per-kit colors
   (from each kit folder's `colors.txt`, or derived from the main kit texture when it's missing —
   shirt-region dominant color plus either the shirt's second tone or the shorts-region dominant;
-  `libs/color_tools` — with the menu icon number from the kit's optional `icon.txt`, default 3) are
+  `libs/color_tools` — with the menu icon number from the kit's optional `icon_<N>` marker, default 3) are
   staged for in-memory copies of `TeamColor.bin` and `UniColor.bin` (fixed per-team byte offsets;
   Red: `bins_update.py`; the file's grammar is "Root files", "Colors" in the [Aesthetics export
   plan](../aesthetics_export/player_folders.md)), and kit configs are staged for
@@ -918,9 +929,9 @@ Resolved decisions:
 - **Per-player common path templates**: the referee rows of "Game paths reference" carry Red's
   name-keyed per-referee common layout on both engines, the shape of "Texture relocation to
   common" with 999 as the team ID.
-- **FPC markers are player-level presets** (`fpc.on` = hide, `fpc.off` = un-hide, for that player's
+- **FPC markers are player-level presets** (`fpc_on` = hide, `fpc_off` = un-hide, for that player's
   savefile settings only); non-FPC players are valid on FPC teams, so mixed-marker teams are
-  ordinary supported usage. Team **kit**-FPC status is two-state (`On`/`Unknown`): any `fpc.on`
+  ordinary supported usage. Team **kit**-FPC status is two-state (`On`/`Unknown`): any `fpc_on`
   writes the FPC kit values into every config; otherwise supplied configs are left untouched — the
   compiler never auto-reverts FPC values. Kit slots absent from the export are FPC-patched from the
   installed cup content (`kit_config_fpc_adjusted`), so a midcup export can add an FPC player
@@ -987,10 +998,11 @@ Resolved decisions:
   (`savefile_missing` is a supported mode), and rewriting user data as a side effect of a compile
   would be a surprise. Placeholder rows (`Backup N`, `Invitational N`) come along and are inert.
 - **Collar contract**: the replaced stock collar ID comes from the `collar_[ID]` filename
-  (`collar_id_invalid` otherwise); ID 105 is reserved for FPC and 77 for the referees'
-  marker, and neither can be replaced (a team kit using 77 is `kit_collar_reserved`); two teams
+  (`collar_id_invalid` otherwise); two teams
   claiming the same ID is an error caught by a run-wide claimed-ID list during serial planning
-  (`collar_id_conflict`, later claimant in canonical order loses). Custom collars are compatible
+  (`collar_id_conflict`, later claimant in canonical order loses); the list starts with ID 105,
+  reserved for FPC, and 77, reserved for the referees' marker, so neither can be replaced (a
+  team kit using 77 is `kit_collar_reserved`). Custom collars are compatible
   with team FPC — collar rewriting runs after FPC reconciliation and deliberately overrides the FPC
   collar value (see "Collars").
 - **Missing savefile stays a warning**: deterministic ID allocation keeps a later savefile-inclusive

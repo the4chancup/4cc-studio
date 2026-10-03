@@ -63,8 +63,8 @@ means **default** and is the same as an absent key. Each category resolves in th
    pre-Fox: the savefile's current ID), so no ID points at content the CPK lacks. A numeric key
    is ignored with `settings_model_id_conflict` (W).
 2. A numeric key → that stock ID, whatever FPC marker the folder carries.
-3. Default (`""` or absent) → the folder's FPC marker decides: `fpc.on` writes the hide preset's
-   nonexistent IDs (boots 55, gloves 11); `fpc.off` or no marker writes 0 for both (the default
+3. Default (`""` or absent) → the folder's FPC marker decides: `fpc_on` writes the hide preset's
+   nonexistent IDs (boots 55, gloves 11); `fpc_off` or no marker writes 0 for both (the default
    boots and a pair of normal hands).
 
 Gloves are not a goalkeeper-only model here: the cup's gloves system lets any player wear a gloves
@@ -92,8 +92,8 @@ name inside `[appearance]` would collide with.
 # name for players.txt-mapped folders); "text" = write as is; absent = not written.
 name = "Snuffy"
 shirt_name = "SNUFFY"           # "text" = write as is; absent = not written
-boots_id = ""                   # "" = default (fpc.on: hidden, otherwise 0); 0 to 100, a stock boots model; ignored when the folder has boots models or a boots link
-gloves_id = ""                  # "" = default (fpc.on: hidden, otherwise 0); 0 to 100, a stock gloves model (0 = normal hands); ignored when the folder has gloves models or a gloves link
+boots_id = ""                   # "" = default (fpc_on: hidden, otherwise 0); 0 to 100, a stock boots model; ignored when the folder has boots models or a boots link
+gloves_id = ""                  # "" = default (fpc_on: hidden, otherwise 0); 0 to 100, a stock gloves model (0 = normal hands); ignored when the folder has gloves models or a gloves link
 
 [appearance]
 skin_color = 1                  # 0 white, 1 light, 2 fair, 3 medium, 4 olive, 5 brown, 6 black, 7 custom (invisible body, PES 15 to 17 only)

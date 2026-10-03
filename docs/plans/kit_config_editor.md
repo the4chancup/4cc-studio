@@ -318,9 +318,9 @@ to the Team compiler's reconciliation rather than leaving it as four magic numbe
 
 **Kit menu colors**: in export-folder mode each tab also edits the kit folder's
 `colors.txt` (the two `UniColor.bin` menu colors that drive the match-UI
-scoreboard and the kit-selection color dots) and its optional `icon.txt` (the
-menu icon number, 0–23 — written only when it differs from the default 3, so the
-file stays optional). Same picker, with its
+scoreboard and the kit-selection color dots) and its optional `icon_<N>` marker
+(the menu icon number, 0–23, carried in the empty file's name — written only when
+it differs from the default 3, so the marker stays optional). Same picker, with its
 suggestion swatches pre-loaded from `color_tools`' dominant-color extraction on
 the kit's textures — the manager sees what the compiler would derive on its own
 (its fallback when `colors.txt` is missing) and either accepts it with a click or
@@ -331,7 +331,7 @@ mouse-out, so a suggestion is judged in context before the click commits it. A
 small **menu-UI mockup** sits next to the color fields, showing the two menu
 colors as PES actually uses them: the kit-selection color-dot pair and a
 scoreboard strip — not just bare swatches. The **icon is picked visually**: a gallery of all 24
-kit icon patterns (`color_tools`' vector renditions — the `icon.txt` space,
+kit icon patterns (`color_tools`' vector renditions — the `icon_<N>` space,
 not the config's Shirt pattern field), each tinted live with the
 kit's current menu colors — never a bare number. A hint notes that only PES
 15/16 display the icon in game (the prematch gameplan screens); the tinted
@@ -391,7 +391,7 @@ studio kit-config-editor check <path>         # validate configs in an export / 
    shared constants with the Team compiler, not folklore numbers; built-in color
    pickers with texture-derived suggestions.
 6. **Kit menu colors in the same place** — each kit's `colors.txt` (UniColor menu
-   colors) and `icon.txt` (menu icon, picked from a live-tinted visual gallery)
+   colors) and `icon_<N>` marker (menu icon, picked from a live-tinted visual gallery)
    are edited alongside its config, seeded by the same dominant-color extraction
    the compiler falls back on.
 
@@ -411,6 +411,6 @@ studio kit-config-editor check <path>         # validate configs in an export / 
 | Version handling | Global PES version selector; version-neutral TOML, encode on emission | Matches the suite; the 2021 Name Y and PES15 pattern quirks are encoding details, not user concerns |
 | Format logic placement | `libs/kit_config`, shared with Team compiler and Export upgrader | One crate owns the format; all consumers agree on validity (the core plan's lib-crate rule) |
 | Preview | Schematic + real-texture composite, relative positions only | Honest about not knowing the game's exact mapping; avoids shipping megabytes of prerendered assets |
-| Kit menu colors | Export-folder mode also edits each kit's `colors.txt` + `icon.txt`, with `color_tools` extraction as suggestions | One place for all per-kit menu data; shows the manager exactly what the compiler's fallback would pick |
+| Kit menu colors | Export-folder mode also edits each kit's `colors.txt` + `icon_<N>` marker, with `color_tools` extraction as suggestions | One place for all per-kit menu data; shows the manager exactly what the compiler's fallback would pick |
 | Extraction preview | Hover live-apply on suggestion swatches + a menu-UI mockup (color dots, scoreboard strip) | Auto-derived colors are judged in their in-game role before committing, not as isolated swatches |
-| Menu icon storage | Own optional `icon.txt` per kit folder (0–23, absent = 3) | Fits neither `colors.txt` (it's not a color) nor `config.toml` (it's UniColor data, not kit-config data) |
+| Menu icon storage | Own optional empty `icon_<N>` marker per kit folder (0–23, absent = 3) | Fits neither `colors.txt` (it's not a color) nor `config.toml` (it's UniColor data, not kit-config data) |

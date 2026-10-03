@@ -40,7 +40,7 @@ pub struct PlayerFolder {
     pub links: Vec<SharedLink>,
     /// A recognized `ingame_face` / `ingame_face.txt` marker.
     pub ingame_face: bool,
-    /// The normalized `fpc.on`/`fpc.off` directive; `None` when absent or when
+    /// The normalized `fpc_on`/`fpc_off` directive; `None` when absent or when
     /// both markers are present.
     pub fpc: Option<FpcDirective>,
     /// A `portrait.*` texture directly in the folder; a surviving folder has
@@ -59,12 +59,12 @@ pub struct SharedLink {
     pub name: String,
 }
 
-/// The normalized `fpc.on`/`fpc.off` marker directive.
+/// The normalized `fpc_on`/`fpc_off` marker directive.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum FpcDirective {
-    /// `fpc.on`: apply the FPC preset.
+    /// `fpc_on`, or a bare `fpc`: apply the FPC preset.
     On,
-    /// `fpc.off`: un-apply the FPC preset.
+    /// `fpc_off`: un-apply the FPC preset.
     Off,
 }
 
@@ -134,14 +134,13 @@ pub(crate) fn player_folder(draft: &FolderDraft, roster_file: bool) -> PlayerFol
             | FileKind::MaterialsToml
             | FileKind::Bin
             | FileKind::CommonLink
-            | FileKind::Marker(Marker::PreFox | Marker::Fox)
+            | FileKind::Marker(Marker::PreFox | Marker::Fox | Marker::Icon)
             | FileKind::Metadata(
                 MetadataFile::PlayersTxt
                 | MetadataFile::RefsTxt
                 | MetadataFile::RefLists
                 | MetadataFile::NotesTxt
                 | MetadataFile::ColorsTxt
-                | MetadataFile::IconTxt
                 | MetadataFile::ConfigToml
                 | MetadataFile::Readme,
             )
@@ -191,8 +190,8 @@ pub struct KitFolder {
     pub config: Option<FileDescriptor>,
     /// `colors.txt` (grammar: Phase 4).
     pub colors: Option<FileDescriptor>,
-    /// `icon.txt`'s number, 0–23; `None` when absent or `kit_icon_invalid`
-    /// (the default 3 applies).
+    /// The `icon_<N>` marker's number, 0–23; `None` when absent or
+    /// `kit_icon_invalid` (the default 3 applies).
     pub icon: Option<u8>,
     /// `fox` / `pre-fox` marker file; `None` = drawn for the target engine.
     pub layout: Option<KitLayout>,

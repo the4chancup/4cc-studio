@@ -351,8 +351,8 @@ fn get_after_set_round_trips_every_key() {
 #[test]
 fn the_key_specs_match_the_plan_table() {
     let comments: [&str; 54] = [
-        "\"\" = default (fpc.on: hidden, fpc.off: 0, no marker: untouched); 0 to 100, a stock boots model; ignored when the folder has boots models or a boots link",
-        "\"\" = default (fpc.on: hidden, fpc.off: 0, no marker: untouched); 0 to 100, a stock gloves model (0 = normal hands); ignored when the folder has gloves models or a gloves link",
+        "\"\" = default (fpc_on: hidden, fpc_off: 0, no marker: untouched); 0 to 100, a stock boots model; ignored when the folder has boots models or a boots link",
+        "\"\" = default (fpc_on: hidden, fpc_off: 0, no marker: untouched); 0 to 100, a stock gloves model (0 = normal hands); ignored when the folder has gloves models or a gloves link",
         "0 white, 1 light, 2 fair, 3 medium, 4 olive, 5 brown, 6 black, 7 custom (invisible body, PES 15 to 17 only)",
         "0 black, 1 dark brown, 2 brown, 3 sable, 4 navy blue, 5 charcoal, 6 gray, 7 blue, 8 sienna, 9 green, 10 violet",
         "cm",
@@ -454,8 +454,8 @@ const PLAN_BLOCK: &str = r#"# settings.toml, inside a player folder. Every key i
 # true = derive from the folder name ("15 - Snuffy" gives "Snuffy"; the whole folder
 # name for players.txt-mapped folders); "text" = write as is; absent = leave untouched.
 name = "Snuffy"
-boots_id = ""                   # "" = default (fpc.on: hidden, fpc.off: 0, no marker: untouched); 0 to 100, a stock boots model; ignored when the folder has boots models or a boots link
-gloves_id = ""                  # "" = default (fpc.on: hidden, fpc.off: 0, no marker: untouched); 0 to 100, a stock gloves model (0 = normal hands); ignored when the folder has gloves models or a gloves link
+boots_id = ""                   # "" = default (fpc_on: hidden, fpc_off: 0, no marker: untouched); 0 to 100, a stock boots model; ignored when the folder has boots models or a boots link
+gloves_id = ""                  # "" = default (fpc_on: hidden, fpc_off: 0, no marker: untouched); 0 to 100, a stock gloves model (0 = normal hands); ignored when the folder has gloves models or a gloves link
 
 [appearance]
 skin_color = 1                  # 0 white, 1 light, 2 fair, 3 medium, 4 olive, 5 brown, 6 black, 7 custom (invisible body, PES 15 to 17 only)

@@ -32,7 +32,7 @@ Players/
 │   │                          *.materials.toml.common or *.mtl.common link pulls the file of
 │   │                          that name from Common/ — see the Unified model format plan)
 │   ├── ingame_face           (optional empty marker: remove custom face parts, keep other categories)
-│   ├── fpc.on                (optional empty marker: apply the FPC preset at compile time; see `fpc_toggle.md` "FPC toggle")
+│   ├── fpc_on                (optional empty marker: apply the FPC preset at compile time; see `fpc_toggle.md` "FPC toggle")
 │   ├── settings.toml         (savefile settings; see below)
 │   ├── face/  boots/  gloves/  common/
 │   │                         (optional reserved subfolders: their files are that category's parts
@@ -364,7 +364,7 @@ updated. The rule is per stem, so a kit can inherit `kit_back` and still overrid
 covers the main `kit.dds` too, for the rare team whose kits differ only by config. The five
 texture-name fields of each kit's config are derived from the *effective* set — an inherited
 `kit_back.dds` makes the kit's `back` field non-empty exactly as an own copy would. `all/` is not
-a kit: it has no cell, no `config.toml`, `colors.txt` or `icon.txt` (such files there are
+a kit: it has no cell, no `config.toml`, `colors.txt` or icon marker (such files there are
 reported and ignored), and an `all/` beside no kit folder is reported as unused. A shared base
 config was considered and rejected: a kit folder without `config.toml` means "the template", so
 the folder describes its own look and can be copied between exports unchanged. With an inherited
@@ -413,8 +413,8 @@ binary game format is never part of an export and exists only as compile output;
 configs are converted by the [Export upgrader](../export_upgrader.md) (schema and binary layout in the
 [Kit config editor plan](../kit_config_editor.md)); each kit folder also has a `colors.txt` with the
 kit's two menu colors (the grammar is under "Root files", "Colors"), and
-optionally an `icon.txt` holding the kit's menu icon number (0–23, the old Note txt kit entries'
-trailing number — selects the two-color kit icon pattern shown next to the formations in the
+optionally an empty `icon_<N>` marker whose name carries the kit's menu icon number (0–23, zero
+padding optional; the old Note txt kit entries' trailing number — selects the two-color kit icon pattern shown next to the formations in the
 prematch gameplan screens, which only PES 15/16 display; absent = default 3):
 
 ```
@@ -426,7 +426,7 @@ Kits/
 ├── p1 - Lakers/              (slot, optionally ` - ` and a free label)
 │   ├── config.toml           (kit config — TOML; compiled to the game binary at compile time)
 │   ├── colors.txt            (the two menu colors; grammar under "Root files", "Colors")
-│   ├── icon.txt              (optional: menu icon number, 0-23; absent = default 3)
+│   ├── icon_7                (optional empty marker: menu icon number, 0-23; absent = default 3)
 │   ├── pre-fox               (optional empty marker, `pre-fox` or `fox`: which engine's kit layout the
 │   │                          main texture and mask are drawn for; absent = the compile target's)
 │   ├── kit.dds               (main kit texture)
@@ -500,13 +500,12 @@ Conflicting portraits for the same player in both locations remain an error (`po
 - **Marker names**: a marker is an empty file whose name says something about its folder, and
   every marker with a value is written `<name>_<value>`, like `collar_12` and `player_05`:
   `fpc_on` and `fpc_off` in a player folder, `icon_<N>` (0-23, zero padding optional) in a kit
-  folder for its menu icon. A dot would make the value a file extension (`fpc.on`, the first
-  spelling), which file browsers hide, sort by and warn about on rename. The valueless markers
+  folder for its menu icon. A dot would make the value a file extension, which file browsers
+  hide, sort by and warn about on rename. The valueless markers
   keep their names: `ingame_face`, and the kit layout's `pre-fox` and `fox`. Every marker
   tolerates a `.txt` after its name, what Notepad's save dialog adds. A kit with two icon
   markers, or one whose number is not 0-23, reports `kit_icon_invalid` and uses the default
-  icon. **Applied by worklog step 4.30**: until it lands, the code and the other plan sections
-  still write `fpc.on`, `fpc.off` and a kit's `icon.txt` holding the number.
+  icon.
 - **Notes**: optional strict-UTF-8 root `notes.txt`, replacing the old "Other Notes" section. An
   optional BOM is stripped, newlines normalize to LF, invalid encoding drops the note with
   `notes_encoding_invalid`, and empty/whitespace-only content produces no `teamnotes.txt` entry.

@@ -12,7 +12,9 @@ kept in the session scratch (`.tmp/make_source_fixtures.py`, not part of the rep
 
 Added at step 3.9c, by the lead, from `.tmp/make_tracer_archives.py` (same tools; the eight files
 `../tracer/studio/egg Tracer/` held then, at the archive root; the `portrait.dds` it gained at
-step 4.2 is not in them, and the tests over these archives assert faces and kits only):
+step 4.2 is not in them, and the tests over these archives assert faces and kits only;
+rewritten at step 4.30 by `.tmp/make_tracer_archives_4_30.py`, the kit's icon file becoming the
+empty marker `Kits/g1/icon_11`, every other entry's bytes kept):
 
 | File | Contents | For |
 |---|---|---|

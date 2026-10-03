@@ -106,7 +106,7 @@ implementation detail; the manifest is the contract).
 **Settings panel.** A form over the selected folder's `settings.toml` — the name rule (absent /
 `true` / explicit string) and **every `PlayerSettings` key**, grouped as the schema groups them
 (appearance, physique, strip, motion, colours, ingame-face parameters) — plus the
-`fpc.on`/`fpc.off`/absent marker tri-state and the `ingame_face` marker. The form is **generated
+`fpc_on`/`fpc_off`/absent marker tri-state and the `ingame_face` marker. The form is **generated
 from the `PlayerSettings` schema**, not hand-built per field: `settings.toml` is the only route by
 which a team's aesthetics reach the game (the compiler builds the Fox appearance tables and the
 pre-Fox aesthetics patch from it, and the save editor's own fields are read-only — see "Player
@@ -117,7 +117,7 @@ app-injected comment as its tooltip. Writes preserve user comments and formattin
 validation is `aesthetics_export`'s, so the form can never write a file the compiler would reject.
 Comments in auto-generated tomls are app-injected (predefined per-field documentation, never
 user-authored from scratch); `toml_edit` preserves them and injects comments for newly added keys.
-This is the quick-edit path that doesn't need Blender running — for example flipping `fpc.off` on
+This is the quick-edit path that doesn't need Blender running — for example flipping `fpc_off` on
 a player without launching anything.
 
 The **ingame-face parameters** are the one group the form exposes but does not expect anyone to
@@ -133,8 +133,8 @@ suite decodes yet.
 **Unset values stay unset.** Missing FPC/strip settings are not inferred from a savefile and are
 not filled in merely by opening the folder. The preview may use a visible base body and default
 strip variants, clearly as preview defaults rather than the player's known in-game state. Wait
-for explicit user edits: turning FPC on writes the canonical `fpc.on` marker, turning it off writes
-`fpc.off`, and strip edits persist only the edited keys. Both panels follow this rule; there is no
+for explicit user edits: turning FPC on writes the canonical `fpc_on` marker, turning it off writes
+`fpc_off`, and strip edits persist only the edited keys. Both panels follow this rule; there is no
 second FPC boolean in `settings.toml`.
 
 **Conversion.** The "Convert to glTF" action (see below).
@@ -235,7 +235,7 @@ The loader module does four things:
    (`boots [shared: Crocs]`). Inactive sets import hidden — switching sets is
    toggling two collections.
 2. **Import the base models** into a `PES base body` collection, strip variants
-   as sub-collections, with visibility from the manifest. `fpc.on` hides the base body;
+   as sub-collections, with visibility from the manifest. `fpc_on` hides the base body;
    otherwise it is visible, using the manifest's strip variants. Missing settings remain
    visibly unset in the form; the resulting preview is not a claim about unknown savefile state.
 3. **Sidebar panel** (N-panel): the same `settings.toml` form as the Studio

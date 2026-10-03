@@ -126,11 +126,11 @@ eligible, roster-entry scope and disposition; confirmed 2026-09-30).
 
   | Where the file sits | Admits | Otherwise |
   |---|---|---|
-  | directly in a player folder | model content, shared and `.common` links, the `ingame_face`, `fpc.on` and `fpc.off` markers, `settings.toml` | `file_type_disallowed` |
+  | directly in a player folder | model content, shared and `.common` links, the `ingame_face`, `fpc_on` and `fpc_off` markers, `settings.toml` | `file_type_disallowed` |
   | directly in a player folder's `face/`, `boots/` or `gloves/` | model content, `.common` links | `file_type_disallowed` |
   | directly in a player folder's `common/` | textures | `file_type_disallowed` |
   | directly in a shared folder | model content | `file_type_disallowed` |
-  | directly in a kit folder | textures, `config.toml`, `colors.txt`, `icon.txt`, the `pre-fox` and `fox` markers | `file_type_disallowed` |
+  | directly in a kit folder | textures, `config.toml`, `colors.txt`, the `pre-fox`, `fox` and `icon_<N>` markers | `file_type_disallowed` |
   | directly in `Common/` | model content | `common_file_disallowed` |
   | directly in `Collars/` | model files named `collar_<ID>` (any model format), textures, `.mtl` and material tomls | `file_type_disallowed` |
   | anywhere in `Kits/all/` | textures directly in it | `kit_all_file_ignored` |
@@ -183,8 +183,10 @@ eligible, roster-entry scope and disposition; confirmed 2026-09-30).
   whole anyway. `all` counts as a slot for `kit_slot_duplicate`. `all/` textures
   follow a kit's `kit` prefix rule (`kit_texture_name_invalid`). `kit_all_unused` (no kit folder
   survives) changes nothing (`Keep`). `kit_textures_inherited` lists the inherited stems without
-  their `kit_` prefix, alphabetically (`back, leg, name`). `icon.txt` is read trimmed: a failed
-  read is `source_read_failed` (`DropFile`), anything but a decimal 0–23 `kit_icon_invalid`.
+  their `kit_` prefix, alphabetically (`back, leg, name`). A kit's icon is the number in its one
+  `icon_<N>` marker's name: one numbered above 23 is `kit_icon_invalid`, and two or more are
+  each `kit_icon_invalid` whatever their numbers (`File`, `DropFile`; the kit keeps the default
+  icon).
   `Portraits/player_NN.*` maps to slot NN; two files of one stem there are
   `texture_stem_conflict`, dropping both files. `portrait_conflict` compares contents, so it
   belongs to the deep pass (Phase 4). Every root file whose stem starts with `logo` is a logo
@@ -206,7 +208,7 @@ crates/libs/aesthetics_export/src/
 ├── conventions/        # the export format as data, no logic
 │   ├── mod.rs          #   folder names, reserved team names (/refs/, /balls/), NO_USE markers
 │   ├── player_folder.rs#   allowed model names per slot, link-file extensions, settings.toml name
-│   ├── kits.rs         #   kit folder grammar (`<slot>[ - <label>]`, slots p1–p9, g1, all), `all/` inheritance, config.toml / colors.txt / icon.txt
+│   ├── kits.rs         #   kit folder grammar (`<slot>[ - <label>]`, slots p1–p9, g1, all), `all/` inheritance, config.toml / colors.txt / the icon marker
 │   └── file_types.rs   #   allowlists per folder kind (strict vs info)
 ├── parse/              # listing → ParsedAestheticsExport (raw, everything retained)
 │   ├── mod.rs          #   canonicalization and root normalization
@@ -256,7 +258,7 @@ Placement rules:
 pub struct ParsedAestheticsExport {
     pub draft: AestheticsExportDraft,
     pub raw_roster: Option<RawRoster>,   // None: no roster file (numbered folder names instead)
-    pub metadata: SmallMetadata,         // as supplied; validate reads notes.txt and icon.txt from it
+    pub metadata: SmallMetadata,         // as supplied; validate reads notes.txt from it
     pub issues: Vec<ValidationIssue>,    // the parse's own (root normalization, the roster read)
 }
 
@@ -315,7 +317,7 @@ pub struct KitFolder {
     pub label: Option<String>,               // the free part after ` - `; GUI/editor display only
     pub config: Option<FileDescriptor>,      // config.toml (absent → generated at compile time)
     pub colors: Option<FileDescriptor>,      // colors.txt (grammar: Phase 4)
-    pub icon: Option<u8>,                    // icon.txt's number, 0–23; None: absent or kit_icon_invalid (the default 3 applies)
+    pub icon: Option<u8>,                    // the icon_<N> marker's number, 0–23; None: absent or kit_icon_invalid (the default 3 applies)
     pub layout: Option<KitLayout>,           // `fox` / `pre-fox` marker file; None = drawn for the target engine
     pub textures: Vec<KitTexture>,           // the *effective* set: own files, plus `all/` files for stems the kit lacks
 }
@@ -418,12 +420,12 @@ pub enum ListedKind {
 /// The small files the structure pass reads, keyed by `ListedEntry::path`. The consumer reads
 /// every listed file `is_small_metadata` accepts; a failed read carries its reason
 /// (`source_read_failed`, with the disposition of what the file is: `DropExport` for a roster,
-/// `DropFile` for `notes.txt` or `icon.txt`). A listed file missing from the map was not read:
+/// `DropFile` for `notes.txt`). A listed file missing from the map was not read:
 /// Phase 3 treats it as a failed read; the GUI's shallow check gives it its own state in Phase 8.
 pub struct SmallMetadata {
     pub files: BTreeMap<String, Result<Vec<u8>, String>>,
 }
-// conventions/mod.rs: `players.txt`, `refs.txt`, `notes.txt`, `icon.txt`, by name
+// conventions/mod.rs: `players.txt`, `refs.txt`, `notes.txt`, by name
 // (case-insensitive) at any depth, so the consumer needs no root normalization of its own.
 pub fn is_small_metadata(path: &str) -> bool;
 
@@ -518,9 +520,9 @@ pub enum FileKind {
     Other,
 }
 pub enum ModelFormat { Fmdl, PesModel, Gltf }   // `.fmdl`, `.model`, `.glb`/`.gltf`
-pub enum Marker { IngameFace, FpcOn, FpcOff, PreFox, Fox }
+pub enum Marker { IngameFace, FpcOn, FpcOff, PreFox, Fox, Icon }   // Icon: `icon_<N>`, the number in the name
 pub enum MetadataFile {
-    PlayersTxt, RefsTxt, RefLists, NotesTxt, ColorsTxt, IconTxt, ConfigToml, SettingsToml, Readme,
+    PlayersTxt, RefsTxt, RefLists, NotesTxt, ColorsTxt, ConfigToml, SettingsToml, Readme,
 }
 
 // ---- Slots.
@@ -631,7 +633,7 @@ pub struct PlayerFolder {
                                     //   `.common` links (models, material files) are `files` entries
                                     //   of link kind, resolved against the Common folder by the pipeline
     pub ingame_face: bool,          // recognized ingame_face / ingame_face.txt marker
-    pub fpc: Option<FpcDirective>,  // normalized fpc.on/fpc.off directive
+    pub fpc: Option<FpcDirective>,  // normalized fpc_on/fpc_off directive
     pub portrait: Option<FileDescriptor>,
     pub settings: Option<FileDescriptor>,  // settings.toml
 }

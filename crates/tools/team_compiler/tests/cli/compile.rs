@@ -336,14 +336,14 @@ pub(crate) fn compiled_kits(sandbox: &Sandbox) -> Vec<String> {
 }
 
 /// `exports/<name>`, an export whose roster maps a player folder holding a face model and
-/// `fpc.on`, a marker no run compiles yet.
+/// `fpc_on`, a marker no run compiles yet.
 fn fpc_on_export(sandbox: &Sandbox, name: &str) {
     sandbox.write(&format!("exports/{name}/players.txt"), b"03 Fpc On\n");
     sandbox.write(
         &format!("exports/{name}/Players/Fpc On/face_high.fmdl"),
         b"",
     );
-    sandbox.write(&format!("exports/{name}/Players/Fpc On/fpc.on"), b"");
+    sandbox.write(&format!("exports/{name}/Players/Fpc On/fpc_on"), b"");
 }
 
 // TC-OUT-06
@@ -355,7 +355,7 @@ fn compile_skips_an_export_holding_content_it_cannot_build_yet_and_builds_the_ot
     sandbox.write("exports/dbg - Kits/Kits/p1/kit.dds", &tracer_kit());
     sandbox.write("exports/dbg - Kits/players.txt", b"");
     // No roster slot maps this folder, so it would emit nothing.
-    sandbox.write("exports/dbg - Kits/Players/Fpc On/fpc.on", b"");
+    sandbox.write("exports/dbg - Kits/Players/Fpc On/fpc_on", b"");
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
 
@@ -364,7 +364,7 @@ fn compile_skips_an_export_holding_content_it_cannot_build_yet_and_builds_the_ot
         findings_of(&lines, "co - Fpc"),
         [
             "Info export_identified [Keep] (team=/co/, id=714)",
-            "Error content_not_yet_compiled [DropExport] (what=Players/Fpc On/fpc.on)",
+            "Error content_not_yet_compiled [DropExport] (what=Players/Fpc On/fpc_on)",
         ]
     );
     assert_eq!(run.exit_code(), 1);
@@ -594,8 +594,8 @@ const DROP_CASES: [DropCase; 8] = [
         setup: |sandbox| {
             case_player_03(sandbox);
             sandbox.copy_tracer_face(&format!("{CASE}/Players/07 - B"));
-            sandbox.write(&format!("{CASE}/Players/07 - B/fpc.on"), b"");
-            sandbox.write(&format!("{CASE}/Players/07 - B/fpc.off"), b"");
+            sandbox.write(&format!("{CASE}/Players/07 - B/fpc_on"), b"");
+            sandbox.write(&format!("{CASE}/Players/07 - B/fpc_off"), b"");
         },
         findings: &[
             "Error fpc_conflict [DropFolder] at Players/07 - B ()",

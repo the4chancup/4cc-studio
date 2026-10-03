@@ -349,7 +349,7 @@ The crate also owns the **version-aware FPC enable/disable presets** (Full
 Player Customization invisibility — nonexistent boots/gloves IDs plus strip
 settings, with small per-version differences like the pre-18 custom skin; see
 the [Save editor plan](../save_editor.md)). Both the save editor's FPC toggle and
-the Team compiler's `fpc.on`/`fpc.off` marker files use the same preset values. The compiler
+the Team compiler's `fpc_on`/`fpc_off` marker files use the same preset values. The compiler
 composes the boots/gloves ID fields with asset outcomes: a successful requested standalone output
 uses its assigned ID, a failed requested output preserves the existing save ID, and no requested
 standalone output allows the authored stock ID, else the preset ID. Other preset fields still apply normally; the full

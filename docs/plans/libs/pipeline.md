@@ -89,7 +89,7 @@ Admission rules:
   item in `team_compiler/pipeline.md`, decided with Phase 4's processing.
 
 **What a solid `.7z` is charged.** The structure pass needs a solid `.7z` export's small metadata
-(`players.txt`, `icon.txt`, `notes.txt`), and `archives` decompresses the whole archive on its
+(`players.txt`, `refs.txt`, `notes.txt`), and `archives` decompresses the whole archive on its
 first read. The structure pass (`check`, and the reading phase of `compile`) acquires the sum of
 the archive's `entries()` sizes before that read and drops the permit with the `Archive` once the
 metadata bytes are copied out; `compile` opens the archive again for its tasks and charges it

@@ -693,7 +693,7 @@ Rules:
   fields alone; the appearance block, and its player id at -1, are left as they are, so the
   player keeps taking his appearance from the database tables (see "Stripped save" in the
   [Save editor plan](../save_editor.md)).
-- **Everything is resolved.** `name = true` is the derived string; `fpc.on`/`fpc.off` are the
+- **Everything is resolved.** `name = true` is the derived string; `fpc_on`/`fpc_off` are the
   preset's concrete field values; the IDs are the assigned ones, already filtered by the compiler's
   "only for content that was actually packed" rule. The patch answers "what will the save contain",
   never "what did the export say" — the export is not needed to apply it.

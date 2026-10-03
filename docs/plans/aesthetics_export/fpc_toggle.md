@@ -2,7 +2,7 @@
 
 Part of the [Aesthetics export plan](README.md). Section headings are unchanged from the single-file plan, so an existing pointer to a section still names it; only the file part of the pointer changed.
 
-## FPC toggle (`fpc.on` / `fpc.off` marker files)
+## FPC toggle (`fpc_on` / `fpc_off` marker files)
 
 FPC (Full Player Customization — see the [Save editor plan](../save_editor.md)) makes the default
 player model invisible via a specific mix of savefile settings (blank-model boots/gloves IDs plus
@@ -11,33 +11,33 @@ player entirely. Setting it through individual `settings.toml` keys would be err
 version-dependent; instead it gets a folder-level toggle, consistent with the principle that the
 folder view tells the whole story about how the player's models render:
 
-- **`fpc.on`** — an empty marker file in a player folder. When present, the compile applies the
+- **`fpc_on`** — an empty marker file in a player folder. When present, the compile applies the
   version-appropriate **FPC enable preset** from `pes_savefile` to the player's settings (the same
   preset the save editor's FPC toggle uses — one implementation, so the two tools can never drift);
   they reach the game like every other setting (on Fox in his `PlayerAppearance.bin` row, on
   pre-Fox through the aesthetics patch).
-- **`fpc.off`** — applies the disable preset (visible defaults) instead. Since an absent key takes
+- **`fpc_off`** — applies the disable preset (visible defaults) instead. Since an absent key takes
   its default, it differs from no marker only where an authored strip key would otherwise apply.
 - **Absent = no FPC preset applied**: the player's strip keys and boots/gloves IDs are what his
   `settings.toml` and its defaults say. No earlier FPC state survives a compile without the
   marker, since a compiled player's appearance is his file and nothing else (see "Player settings
   in exports"). Model-derived ID assignments still apply.
-- Tolerances, in the same spirit as link files: a stray `.txt` suffix (`fpc.on.txt`) is accepted
-  silently, and a bare `fpc` file is accepted as `fpc.on` (presence reads as "on").
+- Tolerances, in the same spirit as link files: `fpc_on.txt`, and a bare `fpc` or `fpc.txt`,
+  read as `fpc_on` (presence reads as "on"); `fpc_off.txt` reads as `fpc_off`.
 - Both markers in the same folder raise `fpc_conflict` (error; folder discarded).
 - Either preset **overrides** any conflicting `[appearance.strip]` keys in the folder's
   `settings.toml`; explicitly-set keys that get overridden raise `fpc_strip_conflict`.
 - In a `players.txt` multi-mapped folder, the preset applies to all mapped players (like the rest of
   the folder's settings).
 
-**Boots/gloves ID precedence**, independently per category, for both `fpc.on` and `fpc.off`:
+**Boots/gloves ID precedence**, independently per category, for both `fpc_on` and `fpc_off`:
 
 | Standalone asset outcome | Savefile ID |
 |---|---|
 | Requested local/shared output committed | Compiler-assigned ID wins over the preset's hide/default ID |
 | Requested output failed or was dropped | Existing savefile ID is preserved; failure is not treated as absence |
 | No standalone output requested, `settings.toml` sets the category's stock `boots_id`/`gloves_id` to a number | The authored stock ID wins over the preset's hide/default ID |
-| No standalone output requested, the key at its default (`""` or absent) | Apply the marker's preset ID (`fpc.on`: boots 55, gloves 11; `fpc.off`: 0 and 0), or preserve the existing ID if there is no marker |
+| No standalone output requested, the key at its default (`""` or absent) | Apply the marker's preset ID (`fpc_on`: boots 55, gloves 11; `fpc_off`: 0 and 0); with no marker the key's own default applies, also 0 and 0 |
 
 Other preset fields still apply normally. Pre-Fox local models embedded in face XML do not request
 a standalone boots/gloves output, so they follow the last two rows.
@@ -50,16 +50,16 @@ alongside the presets, since the retro pre-2024 system differed). These kit valu
 prerequisite that enables per-player FPC**, not a per-player switch: with them in place, each
 player's own savefile settings decide whether that player's body is hidden, and non-FPC (head-only)
 players render normally on the same team. The markers are therefore strictly **player-level** —
-`fpc.off` says "this player needs its body", not "this team's kits must not be FPC" — and mixed
-teams (some `fpc.on` folders, some `fpc.off` or unmarked) are ordinary, supported usage;
+`fpc_off` says "this player needs its body", not "this team's kits must not be FPC" — and mixed
+teams (some `fpc_on` folders, some `fpc_off` or unmarked) are ordinary, supported usage;
 `fpc_conflict` only rejects both markers inside *one* folder.
 
 An export's **team kit-FPC status** is two-state — `EffectiveTeamKitFpc::{On, Unknown}`:
 
-- **On** when at least one player folder carries `fpc.on` — the configs must then carry the FPC
-  values for that player's hiding to work; **Unknown** otherwise — the absence of `fpc.on` markers
+- **On** when at least one player folder carries `fpc_on` — the configs must then carry the FPC
+  values for that player's hiding to work; **Unknown** otherwise — the absence of `fpc_on` markers
   makes no claim about the team (its FPC players may live only in the savefile, set through the save
-  editor), and `fpc.off` markers contribute nothing here because they are per-player statements.
+  editor), and `fpc_off` markers contribute nothing here because they are per-player statements.
 - **Generated kit configs** (the `kit_config_generated` path, when a kit folder has no
   `config.toml`) are created with the FPC values when On, and with the plain defaults when Unknown.
 - **Supplied kit configs are reconciled only upward** (`kit_config_fpc_adjusted`): On → the FPC

@@ -68,7 +68,7 @@ fn a_player_folder_builds_with_its_links_and_markers() {
             ("Players/03 - A/common/skin.dds", 9),
             ("Players/03 - A/Crocs.boots.txt", 0),
             ("Players/03 - A/ingame_face", 0),
-            ("Players/03 - A/fpc.on", 0),
+            ("Players/03 - A/fpc_on", 0),
             ("Players/03 - A/portrait.dds", 9),
             ("Players/03 - A/settings.toml", 20),
             ("Boots/Crocs/boots.fmdl", 10),
@@ -175,7 +175,7 @@ fn fpc_off_alone_is_an_off_directive() {
         "egg",
         &[
             ("Players/03 - A/face_high.fmdl", 10),
-            ("Players/03 - A/fpc.off", 0),
+            ("Players/03 - A/fpc_off", 0),
         ],
         &[],
         &[],
@@ -184,6 +184,52 @@ fn fpc_off_alone_is_an_off_directive() {
         report.validated.unwrap().players[0].fpc,
         Some(FpcDirective::Off)
     );
+}
+
+#[test]
+fn a_bare_fpc_marker_is_an_on_directive() {
+    let report = report(
+        "egg",
+        &[
+            ("Players/03 - A/face_high.fmdl", 10),
+            ("Players/03 - A/fpc", 0),
+        ],
+        &[],
+        &[],
+    );
+    assert_eq!(issue_codes(&report), vec![]);
+    assert_eq!(
+        report.validated.unwrap().players[0].fpc,
+        Some(FpcDirective::On)
+    );
+}
+
+#[test]
+fn the_dotted_marker_spellings_are_disallowed_files() {
+    for (files, folder_path, file) in [
+        (
+            &[
+                ("Players/03 - A/face_high.fmdl", 10),
+                ("Players/03 - A/fpc.on", 0),
+            ][..],
+            "Players/03 - A",
+            "fpc.on",
+        ),
+        (
+            &[("Kits/p1/kit.dds", 9), ("Kits/p1/icon.txt", 2)][..],
+            "Kits/p1",
+            "icon.txt",
+        ),
+    ] {
+        let report = report("egg", files, &[], &[]);
+        assert_eq!(
+            issue_codes(&report),
+            vec![("file_type_disallowed", Disposition::DropFolder)],
+            "{file}"
+        );
+        assert_eq!(report.issues[0].scope, folder(folder_path));
+        assert_eq!(report.issues[0].context, vec![("file", file.to_owned())]);
+    }
 }
 
 // TC-STR-12
@@ -195,8 +241,8 @@ fn both_fpc_markers_drop_the_folder() {
         &[
             ("players.txt", 5),
             ("Players/A/hair.dds", 9),
-            ("Players/A/fpc.on", 0),
-            ("Players/A/fpc.off", 0),
+            ("Players/A/fpc_on", 0),
+            ("Players/A/fpc_off", 0),
         ],
         &[],
         &[("players.txt", Ok(b"03 A"))],
@@ -934,8 +980,8 @@ fn a_dropped_target_names_its_own_first_finding() {
     let report = report(
         "egg",
         &[
-            ("Players/01 - P/fpc.on", 0),
-            ("Players/01 - P/fpc.off", 0),
+            ("Players/01 - P/fpc_on", 0),
+            ("Players/01 - P/fpc_off", 0),
             ("Players/01 - P/hair.dds", 9),
             ("Players/02 - Q/Base.face", 0),
             ("Players/02 - Q/hair.dds", 9),
@@ -968,8 +1014,8 @@ fn a_player_dropped_by_its_own_finding_reports_no_dropped_target() {
         "egg",
         &[
             ("players.txt", 5),
-            ("Players/A/fpc.on", 0),
-            ("Players/A/fpc.off", 0),
+            ("Players/A/fpc_on", 0),
+            ("Players/A/fpc_off", 0),
             ("Players/A/Base.face", 0),
             ("Players/A/hair.dds", 9),
             ("Faces/Base/x.exe", 4),
@@ -1149,22 +1195,127 @@ fn a_texture_without_the_kit_prefix_drops_only_itself() {
     assert_eq!(kit.textures[0].stem, "kit");
 }
 
+#[test]
+fn an_icon_marker_names_the_kit_icon() {
+    for (marker, icon) in [
+        ("icon_7", 7),
+        ("icon_07.txt", 7),
+        ("icon_0", 0),
+        ("icon_23", 23),
+    ] {
+        let path = format!("Kits/p1/{marker}");
+        let report = report(
+            "egg",
+            &[(path.as_str(), 0), ("Kits/p1/kit.dds", 9)],
+            &[],
+            &[],
+        );
+        assert_eq!(issue_codes(&report), vec![], "{marker}");
+        assert_eq!(
+            report.validated.unwrap().kits.kits[&kit_config::KitSlot::P1].icon,
+            Some(icon),
+            "{marker}"
+        );
+    }
+}
+
 // TC-KIT-08
 #[test]
 fn an_out_of_range_icon_is_invalid_and_the_kit_kept() {
-    let report = report(
+    for marker in ["icon_24", "icon_25", "icon_99999999999999999999"] {
+        let path = format!("Kits/p1/{marker}");
+        let report = report(
+            "egg",
+            &[(path.as_str(), 0), ("Kits/p1/kit.dds", 9)],
+            &[],
+            &[],
+        );
+        assert_eq!(
+            issue_codes(&report),
+            vec![("kit_icon_invalid", Disposition::DropFile)],
+            "{marker}"
+        );
+        assert_eq!(report.issues[0].scope, file_scope(&path));
+        let kit = &report.validated.unwrap().kits.kits[&kit_config::KitSlot::P1];
+        assert_eq!(kit.icon, None, "{marker}");
+    }
+}
+
+#[test]
+fn two_icon_markers_are_each_invalid() {
+    for (first, second) in [("icon_3", "icon_4"), ("icon_3", "icon_3.txt")] {
+        let first = format!("Kits/p1/{first}");
+        let second = format!("Kits/p1/{second}");
+        let report = report(
+            "egg",
+            &[
+                (first.as_str(), 0),
+                (second.as_str(), 0),
+                ("Kits/p1/kit.dds", 9),
+            ],
+            &[],
+            &[],
+        );
+        assert_eq!(
+            issue_codes(&report),
+            vec![
+                ("kit_icon_invalid", Disposition::DropFile),
+                ("kit_icon_invalid", Disposition::DropFile),
+            ],
+            "{second}"
+        );
+        assert_eq!(report.issues[0].scope, file_scope(&first));
+        assert_eq!(report.issues[1].scope, file_scope(&second));
+        let kit = &report.validated.unwrap().kits.kits[&kit_config::KitSlot::P1];
+        assert_eq!(kit.icon, None, "{second}");
+    }
+}
+
+#[test]
+fn an_icon_marker_outside_a_kit_folder_is_no_icon() {
+    let in_all = report(
         "egg",
-        &[("Kits/p1/icon.txt", 3), ("Kits/p1/kit.dds", 9)],
+        &[("Kits/all/icon_5", 0), ("Kits/p1/kit.dds", 9)],
         &[],
-        &[("Kits/p1/icon.txt", Ok(b"25"))],
+        &[],
     );
     assert_eq!(
-        issue_codes(&report),
-        vec![("kit_icon_invalid", Disposition::DropFile)]
+        issue_codes(&in_all),
+        vec![("kit_all_file_ignored", Disposition::DropFile)]
     );
-    assert_eq!(report.issues[0].scope, file_scope("Kits/p1/icon.txt"));
-    let kit = &report.validated.unwrap().kits.kits[&kit_config::KitSlot::P1];
-    assert_eq!(kit.icon, None);
+    assert_eq!(in_all.issues[0].scope, file_scope("Kits/all/icon_5"));
+
+    // In a player folder an icon marker is a kit marker out of place, as `pre-fox` is.
+    let in_player = |marker: &str| {
+        let path = format!("Players/03 - A/{marker}");
+        let report = report(
+            "egg",
+            &[(path.as_str(), 0), ("Players/03 - A/hair.dds", 9)],
+            &[],
+            &[],
+        );
+        report
+            .issues
+            .iter()
+            .map(|issue| (issue.code, issue.disposition, issue.context.clone()))
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(
+        in_player("icon_5"),
+        vec![(
+            "file_type_disallowed",
+            Disposition::DropFolder,
+            vec![("file", "icon_5".to_owned())]
+        )]
+    );
+    assert_eq!(
+        in_player("pre-fox"),
+        vec![(
+            "file_type_disallowed",
+            Disposition::DropFolder,
+            vec![("file", "pre-fox".to_owned())]
+        )]
+    );
 }
 
 // TC-KIT-09
@@ -1495,21 +1646,6 @@ fn layout_markers_pick_the_kit_layout() {
         Some(KitLayout::PreFox)
     );
     assert_eq!(kits.kits[&kit_config::KitSlot::P3].layout, None);
-}
-
-#[test]
-fn a_valid_icon_with_bom_and_crlf_reads() {
-    let report = report(
-        "egg",
-        &[("Kits/p1/icon.txt", 5), ("Kits/p1/kit.dds", 9)],
-        &[],
-        &[("Kits/p1/icon.txt", Ok(&b"\xef\xbb\xbf 7\r\n"[..]))],
-    );
-    assert_eq!(issue_codes(&report), vec![]);
-    assert_eq!(
-        report.validated.unwrap().kits.kits[&kit_config::KitSlot::P1].icon,
-        Some(7)
-    );
 }
 
 #[test]

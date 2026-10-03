@@ -88,7 +88,7 @@ needs a color field uses it too.
 
 ### Kit menu icon rendering (Phase 8)
 
-The 24 kit menu icons (`icon.txt`, 0–23) are simple two-color kit icon patterns —
+The 24 kit menu icons (`icon_<N>`, 0–23) are simple two-color kit icon patterns —
 plain, striped, hooped, sashed, halved, contrast-sleeves, and so on. In game they
 only ever appear in the PES 15/16 prematch gameplan screens, but suite-side they
 make a great compact kit-color visual, so the crate recreates them as **vector

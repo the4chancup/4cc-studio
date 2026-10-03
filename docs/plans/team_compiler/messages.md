@@ -190,7 +190,7 @@ savefile messages are new.
 | `kit_variant_model_fox` | W | per-kit model variants (`*_kit1`, `*_kit2`, …) on a Fox target, which has no model-path indirection | lowest variant used, others ignored |
 | `common_link_missing` | E | a `.common` link — model, material file or texture — names a file missing from the Common folder (context: the link file, whose name shows its kind, and the Common path looked for) | folder discarded |
 | `settings_toml_name_shared` | W | `name` given in a folder mapped to multiple players | name applied to all of them |
-| `fpc_conflict` | E | both `fpc.on` and `fpc.off` present in a player folder | folder discarded |
+| `fpc_conflict` | E | both `fpc_on` and `fpc_off` present in a player folder | folder discarded |
 | `fpc_strip_conflict` | W | `settings.toml` strip keys conflict with the folder's FPC marker | FPC preset wins; keys ignored |
 | `settings_unknown_other_version` | I | `settings.toml` holds an `[appearance.unknown.pesNN]` table for a version other than the compile's target (context: the table's version) | those bits stay at their default (0) for this compile; the table is kept in the file |
 | `settings_model_id_conflict` | W | `settings.toml` sets `boots_id` or `gloves_id` for a category the folder's own models or a link file already provide (context: the category) | the compiler-assigned ID wins; key ignored |
@@ -327,7 +327,7 @@ every miss as a warning.
 | `kit_folder_invalid` | E | subfolder name doesn't parse as `<slot>[ - <label>]` with the slot in `p1`–`p9`, `g1`, `all` | kit discarded |
 | `kit_slot_duplicate` | E | two subfolders resolve to the same slot (`p1/` and `p1 - Lakers/`) | both discarded — never a pick |
 | `kit_textures_inherited` | I | a kit lacks stems that `all/` provides; lists them (`p3: back, leg, name from all/`) | textures inherited |
-| `kit_all_file_ignored` | W | `all/` holds something other than kit textures (`config.toml`, `colors.txt`, `icon.txt`, anything else) | file ignored |
+| `kit_all_file_ignored` | W | `all/` holds something other than kit textures (`config.toml`, `colors.txt`, an `icon_<N>` marker, anything else) | file ignored |
 | `kit_all_unused` | W | `all/` present but no kit folder to inherit from it | — |
 | `kit_config_generated` | I | no `config.toml`; generated from template (with FPC values if team FPC is on) | auto-fixed |
 | `kit_config_invalid` | E | `config.toml` fails to parse or validate (ranges, cross-field constraints) | kit discarded |
@@ -337,7 +337,7 @@ every miss as a warning.
 | `kit_placeholder` | I | the kit's effective textures lack `kit.dds` (an empty folder included); the bundled checkerboard stands in | placeholder kit emitted: checkerboard texture, template config unless supplied, UniColor entry per the colors fallback |
 | `kit_colors_derived` | I | kit `colors.txt` missing, or present but yielding fewer than two valid colors; menu colors extracted from the kit's own main texture | auto-fixed |
 | `kit_colors_missing` | W | no usable `colors.txt` and no own main texture to derive from (placeholder kits without a `colors.txt` always) | the magenta/black "no colors chosen" pair is written, so the gap shows in the game menus |
-| `kit_icon_invalid` | W | `icon.txt` doesn't parse to a number in 0–23 | default icon (3) used |
+| `kit_icon_invalid` | W | a kit's `icon_<N>` marker is numbered above 23, or the kit holds two or more (each is reported) | default icon (3) used |
 | `kit_texture_name_invalid` | E | texture doesn't carry the `kit` prefix (`kit.dds`, `kit_mask.dds`, …) | file discarded |
 | `kit_texture_not_used` | I | the kit's effective set has a `kit_mask` on a Fox target or a `kit_srm` on a pre-Fox target — the other engine's map | file not emitted (never converted into the other map) |
 | `kit_layout_conflict` | E | both `pre-fox` and `fox` markers in one kit folder | kit discarded |
@@ -353,8 +353,8 @@ every miss as a warning.
 | `logo_small_without_main` | E | `logo_small*` present with no main `logo*` | no logo emitted (the small image is not a source for the large sizes) |
 | `logo_fit_applied` | I | a non-square source was made square; names the mode (`fit` by default, or the file's tag) | — |
 | `logo_upscaled` | W | a source is smaller than its largest target (512² for main, 128² for small) | emitted upscaled |
-| `collar_id_invalid` | E | collar filename doesn't parse as `collar_<ID>` (zero padding optional), the ID is not a stock collar of the target version (PES 21: 1-131 and 901-913; PES 17: 1-116 and 901-916, both counted in the installed base data CPKs' `nocloth` set; PES 15, 16, 18, 19 and 20: the two sets' intersection, 1-116 and 901-913, until an install is measured), or it names a reserved collar: 105 (FPC) or 77 (the referees' marker, `blue_port.md` "Referee export processing") | collar file discarded |
-| `collar_id_conflict` | E | another export already claimed this stock collar ID in this run (canonical export order) | later team's collar discarded; its configs not rewritten |
+| `collar_id_invalid` | E | collar filename doesn't parse as `collar_<ID>` (zero padding optional), the ID is not a stock collar of the target version (PES 21: 1-131 and 901-913; PES 17: 1-116 and 901-916, both counted in the installed base data CPKs' `nocloth` set; PES 15, 16, 18, 19 and 20: the two sets' intersection, 1-116 and 901-913, until an install is measured) | collar file discarded |
+| `collar_id_conflict` | E | the stock collar ID is already claimed: by another export earlier in this run (canonical export order), or by the suite itself, which reserves 105 (FPC) and 77 (the referees' marker, `blue_port.md` "Referee export processing") (context: the claimant, an export's name or `FPC` / `referees`) | the collar is discarded and its team's configs are not rewritten |
 | `common_file_disallowed` | E/I | as `file_type_disallowed`, Common scope | files discarded / kept |
 
 **Referees** — referee exports use the same player-folder format (see `blue_port.md` "Referee export processing"),

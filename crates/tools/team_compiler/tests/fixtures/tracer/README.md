@@ -32,8 +32,8 @@ gloves since step 4.3.
   face's, so the one file serves both. The `.fpk.xml` files are dropped.
 - `Kits/g1/`: `kit.dds` is `u0XXXg1.dds`; `config.toml` is `XXX_DEF_GK1st_realUni.bin` decoded as
   PES 21 by `kit_config` (`KitConfig::decode` then `to_toml`), and re-encoded with the `u0792g1`
-  texture name it gives back Red's `792_DEF_GK1st_realUni.bin` byte for byte; `icon.txt` is `11`,
-  the kit's icon in the note. No `colors.txt`: its grammar is a Phase 4 question.
+  texture name it gives back Red's `792_DEF_GK1st_realUni.bin` byte for byte; the empty marker `icon_11`
+  is the kit's icon in the note. No `colors.txt`: its grammar is a Phase 4 question.
 
 ## `red/`
 

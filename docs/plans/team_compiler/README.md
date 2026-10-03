@@ -241,12 +241,12 @@ textures (DDS converted, FTEX as it is; the other image formats are Phase 4's) a
 a `UniformParameter.bin` built on the bundled base, which the CPK carries only when it has kits
 (installed-bin lookup is Phase 4's). The test is over what would be emitted: content validation
 drops or leaves unmapped, an unused `all/`, a link whose missing target `pass_through` keeps, a
-`kit_mask` on a Fox target (Fox has no mask slot), a player's `settings.toml` and `fpc.off`
-(savefile only), and the root and kit metadata files do not count (`notes.txt` and `icon.txt`
-are validated and emit nothing yet; `colors.txt` waits for step 4.8, which implements its grammar
+`kit_mask` on a Fox target (Fox has no mask slot), a player's `settings.toml` and `fpc_off`
+(savefile only), and the root and kit metadata files and the kit icon marker do not count
+(`notes.txt` and `icon_<N>` are validated and emit nothing yet; `colors.txt` waits for step 4.8, which implements its grammar
 ("Root files", "Colors" in `player_folders.md`); `README.txt` is ignored). Everything else the
 validated export holds counts: a file a lenient setting keeps despite its finding, a portrait, an
-`ingame_face` or `fpc.on` marker
+`ingame_face` or `fpc_on` marker
 (the second changes every kit config), any shared folder, logo, collar or Common file. The
 validated export does not mark what a lenient setting kept, and a refusal never writes a CPK
 that differs from Phase 4's. An export holding anything else, targeting PES
@@ -351,7 +351,7 @@ TC-STR-10  GIVEN two player folders marked with ingame_face and with ingame_face
 TC-STR-11  GIVEN an ingame_face player folder that also holds face_high.fmdl, or a .face link
            WHEN it is checked
            THEN ingame_face_explicit_face_model is reported and that player folder is dropped
-TC-STR-12  GIVEN a player folder holding both fpc.on and fpc.off
+TC-STR-12  GIVEN a player folder holding both fpc_on and fpc_off
            WHEN it is checked
            THEN fpc_conflict is reported and that player folder is dropped
 TC-STR-13  GIVEN a player folder holding hair.dds and hair.png, and another holding hair.dds and
@@ -474,7 +474,7 @@ TC-KIT-06  GIVEN a kit folder holding both the pre-fox and fox markers
 TC-KIT-07  GIVEN a kit folder holding back.dds
            WHEN the export is checked
            THEN kit_texture_name_invalid is reported and only that file is dropped
-TC-KIT-08  GIVEN a kit icon.txt holding 25
+TC-KIT-08  GIVEN a kit folder holding an icon_25 marker
            WHEN the export is checked
            THEN kit_icon_invalid is reported and the kit is kept
 TC-KIT-09  GIVEN p1/ holding kit.png and kit.dds; then all/ holding kit_back.png and kit_back.dds
@@ -899,20 +899,20 @@ TC-KIT-12  GIVEN p1/colors.txt holding one valid entry and one unparsable line
            WHEN the export is compiled
            THEN color_entry_invalid is reported for the line, and the kit's colors are derived from
                 its texture (kit_colors_derived)
-TC-KIT-13  GIVEN p1/icon.txt holding 7, and p2 without icon.txt
+TC-KIT-13  GIVEN a p1/icon_7 marker, and p2 without an icon marker
            WHEN the export is compiled
            THEN p1's UniColor entry carries icon 7 and p2's icon 3
 TC-KIT-14  GIVEN a kit whose task fails (its config.toml is not UTF-8)
            WHEN the export is compiled
            THEN that kit has no UniColor entry change and no UniformParameter entry; the other kits'
                 entries are written
-TC-KIT-15  GIVEN fpc.on in slot 05's folder, p1/config.toml without the FPC values and p2/ without
+TC-KIT-15  GIVEN fpc_on in slot 05's folder, p1/config.toml without the FPC values and p2/ without
            a config
            WHEN the export is compiled for PES 21
            THEN both emitted configs carry the FPC values (shirt model, shorts model, collar,
                 winter collar), kit_config_fpc_adjusted is reported for p1 and
-                kit_config_generated for p2, and the export is compiled (Phase 3 refused fpc.on)
-TC-KIT-16  GIVEN no fpc.on anywhere and p1/config.toml carrying the FPC values
+                kit_config_generated for p2, and the export is compiled (Phase 3 refused fpc_on)
+TC-KIT-16  GIVEN no fpc_on anywhere and p1/config.toml carrying the FPC values
            WHEN the export is compiled
            THEN the config is emitted unchanged and no kit_config_fpc_adjusted is reported
 TC-KIT-17  GIVEN p1/config.toml whose name_y exceeds the PES 18 encoding
@@ -978,7 +978,8 @@ TC-CMN-01  GIVEN Collars/collar_12.fmdl and p1/config.toml
                 emitted kit config's collar fields read 12
 TC-CMN-02  GIVEN Collars/collar_105.fmdl, Collars/neck.fmdl and Collars/collar_9999.fmdl
            WHEN the export is checked
-           THEN collar_id_invalid is reported for each and each file is dropped
+           THEN collar_id_invalid is reported for neck.fmdl and collar_9999.fmdl,
+                collar_id_conflict for collar_105.fmdl (reserved for FPC), and each file is dropped
 TC-CMN-03  GIVEN exports /a/ and /co/ each holding Collars/collar_12.fmdl
            WHEN the root is compiled
            THEN /a/ keeps its collar (canonical order) and /co/ reports collar_id_conflict, its
@@ -1023,7 +1024,7 @@ TC-BIN-05  GIVEN a PES folder whose download/DpFileList.bin lists 4cc_08_bins, 4
                 output's) and the second run's carries A (the midcup CPK and everything above it
                 skipped), both with p2 set; bin_source names the supplying CPK for each bin
 TC-BIN-06  GIVEN an installed UniformParameter.bin holding team 714's p1 entry, and an export with
-           fpc.on and only p2/
+           fpc_on and only p2/
            WHEN it is compiled for PES 21
            THEN the emitted UniformParameter.bin's p1 entry carries the FPC values with
                 kit_config_fpc_adjusted reported for slot p1, and p3, which has no entry, reports
@@ -1121,7 +1122,7 @@ TC-REF-06  GIVEN a refs export with ref_marker.dds, and a PES folder with dt00_x
 TC-REF-07  GIVEN a /co/ export holding Collars/collar_77.fmdl, p1/config.toml with collar 77 and
            p2/config.toml with winter collar 77
            WHEN it is compiled for PES 21
-           THEN collar_id_invalid is reported and the file dropped, and kit_collar_reserved is
+           THEN collar_id_conflict is reported and the file dropped, and kit_collar_reserved is
                 reported for p1 and for p2, each kit dropped
 ```
 

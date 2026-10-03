@@ -3292,3 +3292,15 @@ authored from an entry list the maintainer fixes. Open: the entries, and whether
 `teams` (the plan) or `players` (the maintainer's word).
 Plan: `team_compiler/pipeline.md` "Post-processing" (DpFileList upgrade); worklog step 4.25 and
 "Phase 4 open questions".
+
+## 2026-10-03 — team_compiler — a `Collars/` file named for a reserved collar is a conflict
+Decision (user): a team's `Collars/` file named for collar 105 (FPC) or 77 (the referees'
+marker) reports `collar_id_conflict`, not `collar_id_invalid`: the run-wide claimed-ID list
+starts with the suite's own two claims. `kit_collar_reserved` stays for a team kit config
+naming collar 77, so a team doing both gets both codes.
+Why: the ID is a real stock collar that someone else holds, which is what a conflict says;
+"invalid" would send the user looking for a typo. Two codes, not one, because they are about
+two files with two outcomes: the collar model is dropped, the kit is dropped.
+Plan: `team_compiler/messages.md` `collar_id_invalid`, `collar_id_conflict`; `pipeline.md`
+"Collars", "Collar contract"; `blue_port.md` "Referee export processing"; `README.md`
+TC-CMN-02, TC-REF-07; worklog steps 4.9, 4.27.

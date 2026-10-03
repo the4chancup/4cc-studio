@@ -365,7 +365,7 @@ is a deferred verification completed after those phases land.
   asset-dependent mutations; final serialization applies only activated mutations while independent
   accepted `settings.toml` changes may still apply. The allocation scheme is fixed (40-ID per-team
   blocks — see the Team compiler plan), and Phase 4 model-task processing only consumes planned
-  assignments. `fpc.on`/`fpc.off` markers apply `pes_savefile`'s FPC presets here. The resolved
+  assignments. `fpc_on`/`fpc_off` markers apply `pes_savefile`'s FPC presets here. The resolved
   settings become, on Fox, each compiled player's appearance table rows (Phase 4's `bins/`) and an
   aesthetics patch of names only; on pre-Fox, the full aesthetics patch ("Player settings in
   exports" in the Aesthetics export plan).
@@ -390,8 +390,8 @@ default (otherwise the default becomes the base database row's bits).
 - Implement savefile-driven ID→player mapping
 - Implement player folder merging (single-user model folders) and shared folder + link file
   generation (multi-user folders)
-- Implement kit restructuring (binary kit configs → `config.toml`, `colors.txt`/`icon.txt` from Team
-  Note colors)
+- Implement kit restructuring (binary kit configs → `config.toml`, `colors.txt` and the `icon_<N>`
+  marker from Team Note colors)
 - Implement `settings.toml` generation from savefile aesthetics: every key, the save's unknown bits
   included, and names as explicit strings (a migrated player must look the same once his rows
   replace his stripped record)

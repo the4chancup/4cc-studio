@@ -40,10 +40,9 @@ pub enum ListedKind {
 /// The small files the structure pass reads, keyed by `ListedEntry::path`. The
 /// consumer reads every listed file `is_small_metadata` accepts; a failed read
 /// carries its reason (`source_read_failed`, with the disposition of what the
-/// file is: `DropExport` for a roster, `DropFile` for `notes.txt` or
-/// `icon.txt`). A listed file missing from the map was not read: Phase 3
-/// treats it as a failed read; the GUI's shallow check gives it its own state
-/// in Phase 8.
+/// file is: `DropExport` for a roster, `DropFile` for `notes.txt`). A listed
+/// file missing from the map was not read: Phase 3 treats it as a failed
+/// read; the GUI's shallow check gives it its own state in Phase 8.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SmallMetadata {
     /// Each small metadata file's content, or its read failure's reason.
@@ -65,7 +64,7 @@ impl SmallMetadata {
 }
 
 /// A small metadata file's text: an optional UTF-8 BOM stripped, then strict
-/// UTF-8 (the roster, `notes.txt` and `icon.txt` are all read this way).
+/// UTF-8 (the roster and `notes.txt` are both read this way).
 pub(crate) fn metadata_text(bytes: &[u8]) -> Result<&str, std::str::Utf8Error> {
     str::from_utf8(bytes.strip_prefix(b"\xef\xbb\xbf").unwrap_or(bytes))
 }

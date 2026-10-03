@@ -300,13 +300,13 @@ impl SettingKey {
                 table: KeyTable::Top,
                 name: "boots_id",
                 kind: Kind::Number { min: 0, max: 100 },
-                comment: "\"\" = default (fpc.on: hidden, fpc.off: 0, no marker: untouched); 0 to 100, a stock boots model; ignored when the folder has boots models or a boots link",
+                comment: "\"\" = default (fpc_on: hidden, fpc_off: 0, no marker: untouched); 0 to 100, a stock boots model; ignored when the folder has boots models or a boots link",
             },
             SettingKey::GlovesId => KeySpec {
                 table: KeyTable::Top,
                 name: "gloves_id",
                 kind: Kind::Number { min: 0, max: 100 },
-                comment: "\"\" = default (fpc.on: hidden, fpc.off: 0, no marker: untouched); 0 to 100, a stock gloves model (0 = normal hands); ignored when the folder has gloves models or a gloves link",
+                comment: "\"\" = default (fpc_on: hidden, fpc_off: 0, no marker: untouched); 0 to 100, a stock gloves model (0 = normal hands); ignored when the folder has gloves models or a gloves link",
             },
             SettingKey::SkinColor => KeySpec {
                 table: KeyTable::Appearance,

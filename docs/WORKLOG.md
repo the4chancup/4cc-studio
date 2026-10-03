@@ -12,8 +12,8 @@ is in `AGENTS.md` ("Working documents").
 **Phase:** 3 (Team compiler skeleton) closed 2026-10-02, its cross-family reviews queued (see
 "Handover"). Phases 1 and 2 done (Phase 2 closed 2026-09-30).
 **Next:** Phase 4 is itemized and its Acceptance section written (step 4.1, 2026-10-03; its
-cross-family review (a) is queued). Next: 4.30 (marker names), 4.5d (`face_diff.xml`), then 4.7 (deep validation pass, after the
-lead's `fmdl::check` census); 4.6 and 4.5a-c are done (4.6c moved to Phase 8's cancellation). 2.5b (GPU BC7) is step 16.x (decision entries
+cross-family review (a) is queued). Next: 4.5d (`face_diff.xml`), then 4.7 (deep validation pass, after the
+lead's `fmdl::check` census); 4.30, 4.6 and 4.5a-c are done (4.6c moved to Phase 8's cancellation). 2.5b (GPU BC7) is step 16.x (decision entries
 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0 after Phase 8; phase order 1–6,
 8, 0.1.0, 7, 9–16 (`core/development_plan.md` "Releases"); first-class target the Fox version
 the cup moves to around April 2027 ("Target versions").
@@ -514,36 +514,38 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
 
 - [ ] 4.9 **Kit configs, FPC reconciliation and collars** (the brief settles what a collar in
   the other engine's format does: converted, or refused; `Collars/` admits any model format):
-  team kit-FPC status (`fpc.on` in any
+  team kit-FPC status (`fpc_on` in any
   player folder → On), generated configs with FPC values (`kit_config::fpc::apply_fpc`), supplied
   configs reconciled upward (`kit_config_fpc_adjusted`, GK included),
-  `kit_config_version_clamped`; `fpc.on`/`fpc.off` no longer refuse the export (their savefile
+  `kit_config_version_clamped`; `fpc_on`/`fpc_off` no longer refuse the export (their savefile
   half is Phase 5); `Collars/` gets its allowlist row in `ae` (model files named `collar_<ID>`,
   any model format; the per-version stock sets are in `messages.md` `collar_id_invalid`; waits on
   the maintainer: its confirmation, game-facing), `collar_<ID>` parsed with or without zero
-  padding, `collar_id_invalid` (not a stock collar of the target version, or a reserved one:
-  105 for FPC, 77 for the referees' marker), `kit_collar_reserved` for a regular team's kit
+  padding, `collar_id_invalid` (not a stock collar of the target version),
+  `kit_collar_reserved` for a regular team's kit
   whose effective collar or winter collar is 77 (kit dropped; `blue_port.md` "Referee export
   processing", TC-REF-07),
-  `collar_id_conflict` in canonical export order, every kit config's collar fields rewritten
+  `collar_id_conflict` in canonical export order, the claimed-ID list starting with the
+  reserved 105 (FPC) and 77 (the referees' marker), every kit config's collar fields rewritten
   after FPC, collar files passed through to `uniform/nocloth/#Win/` under the game's three-digit
   name. Plan: `fpc_toggle.md` "Team
   kit-FPC status and kit configs"; `pipeline.md` "4. Per-export non-model steps" (Kits, Collars),
   "Resolved decisions" (Collar contract); `object_model.md` "File-type allowlist". IDs:
   TC-KIT-15..17, TC-CMN-01..03. Crates: ae (`conventions/file_types.rs`, `validate/folders.rs`),
   tc (`processing/kit.rs`, `processing/team_assets.rs`, `plan/`) → verify: a `/co/` export with
-  `fpc.on` in slot 05 and a supplied `p1/config.toml` without FPC values: the emitted 120-byte
+  `fpc_on` in slot 05 and a supplied `p1/config.toml` without FPC values: the emitted 120-byte
   config decodes with `kit_config::fpc::matches_fpc` true and `kit_config_fpc_adjusted` is
   reported for p1; with `Collars/collar_12.fmdl` added, every emitted config's collar fields read
   12 and the file sits at `Asset/model/character/uniform/nocloth/#Win/collar_012.fmdl`
 
 - [ ] 4.10 **Kit layout conversion**: `KIT_LAYOUT_REMAP` (lead-authored measurement,
-  `kits/layout.rs`; band edges from texel correspondence plus the hand-adjusted fixture pair),
+  `kits/layout.rs`; band edges from texel correspondence plus the PES Master pair),
   `kit_layout_converted`, Lanczos3 for bands whose width changes, every texel outside the islands
   copied, `_chest`/`_back`/`_name`/`_leg` untouched, placeholder never re-laid, the inverse table
   for `fox` kits on pre-Fox (exercised fully in 4.16). Plan: `pipeline.md` "4. Per-export
-  non-model steps" (Kits, "Layout conversion"); `player_folders.md` "Kit layout marker". (waits
-  on the fixture pair, described under "Phase 4 open questions".) IDs: TC-KIT-18..20. Crates: tc
+  non-model steps" (Kits, "Layout conversion"); `player_folders.md` "Kit layout marker". (The
+  socks' rows are measured; the shorts' wait on the in-game check and the golden on the fixture
+  question, both under "Phase 4 open questions".) IDs: TC-KIT-18..20. Crates: tc
   (`processing/kits/layout.rs`) → verify: a `pre-fox` kit compiled for PES 21 decodes to a
   texture whose every texel outside the sock and shorts islands equals the no-marker compile's
   and whose islands match the golden from the fixture pair; a synthetic flat-band texture
@@ -818,11 +820,11 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   marker model, as an FMDL and as a `.model` with its `.mtl`): the marker model bundled as a
   referee template and emitted in the refs CPK as collar 77, its texture path naming
   `ref_marker.dds` converted into the referees' Common output, the referee template kit configs
-  naming collar 77; on a regular team, `collar_id_invalid` for `Collars/collar_77.*` and
+  naming collar 77; on a regular team, `collar_id_conflict` for `Collars/collar_77.*` and
   `kit_collar_reserved` (kit dropped) for a kit whose effective collar or winter collar is 77
   (the kit half lands with 4.9 if that step comes first); nothing written outside the refs CPK
   (no `dt00_x64.cpk` write, no setting). Plan: `blue_port.md` "Referee export processing";
-  `messages.md` "Referees", `collar_id_invalid`; `pipeline.md` "Collars". IDs: TC-REF-04,
+  `messages.md` "Referees", `collar_id_conflict`; `pipeline.md` "Collars". IDs: TC-REF-04,
   TC-REF-06..07. Crates: tc (`processing/referee.rs`, `processing/team_assets.rs`,
   `processing/kit.rs`), resources → verify: a refs export with `ref_marker.dds` compiled for
   PES 21 beside a sandbox `dt00_x64.cpk`: the refs CPK holds `nocloth/#Win/collar_077.fmdl`
@@ -856,24 +858,21 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   texture, lacking it, no PES folder): no finding, Error with the folder out of the CPK, Warning
   with the folder in it
 
-- [ ] 4.30 **Marker names** (before 4.8 and 4.9, which read them): `fpc.on`/`fpc.off` become
-  `fpc_on`/`fpc_off`; a kit's `icon.txt` becomes the empty marker `icon_<N>` (0-23, zero padding
-  optional; two markers or a number out of range: `kit_icon_invalid`, default icon), so
-  `icon.txt` leaves the small metadata the readers load; every marker tolerates `.txt`;
-  `ingame_face`, `pre-fox` and `fox` unchanged. The step also renames them in every plan
-  section, the glossary, the help and the fixtures (the tracer's `Kits/g1/icon.txt` holding
-  `11` becomes `icon_11`, in the folder and in the three source archives, which the lead
-  regenerates), then removes the "Applied by worklog step 4.30" sentence. The old names get no
-  tolerance: the format is unreleased, so no export carries them. Found while
-  itemizing: `fpc_toggle.md` says a bare `fpc` file reads as `fpc.on`, which
-  `conventions/file_types.rs` never implemented; the step implements it or the brief reports
-  why not. Plan: `player_folders.md` "Root files" ("Marker names"). IDs: TC-STR-12, TC-KIT-08
-  (reworded by the step). Crates: ae (`conventions/file_types.rs`, `conventions/mod.rs`,
-  `listing.rs`, `validate/kits.rs`, `validate/folders.rs`), tc (`reader/source.rs`, tests) →
-  verify: a kit folder holding `icon_7` validates with icon 7 and `icon_07.txt` the same;
-  `icon_25`, and `icon_3` beside `icon_4`, report `kit_icon_invalid`; `fpc_on` beside `fpc_off`
-  reports `fpc_conflict`; `rg -n "fpc\.on|fpc\.off|icon\.txt" docs/plans docs/GLOSSARY.md
-  crates` is empty
+- [x] 4.30 **Marker names**: done 2026-10-03 (Opus 5.5, first time; one contradiction accepted:
+  it also renamed the markers in `pes_savefile`'s injected `settings.toml` comments, outside its
+  crates). The FPC markers are `fpc_on`/`fpc_off`, a bare `fpc` reads as on, and a kit's menu
+  icon is the empty marker `icon_<N>` (`Marker::Icon`; 0-23, zero padding optional; two
+  markers, or a number above 23, are `kit_icon_invalid` and the default icon applies), so
+  `icon.txt` left the small metadata the readers load; every marker tolerates `.txt`; the old
+  spellings are plain disallowed files. Renamed in every plan section, the glossary and the
+  fixtures (the tracer's `Kits/g1/icon_11`, the three source archives regenerated by the
+  lead). TC-STR-12 and TC-KIT-08 reworded. Files: ae `conventions/file_types.rs`,
+  `conventions/mod.rs`, `listing.rs`, `validate/{kits,folders,mod,tests}.rs`; ps
+  `settings_toml/{keys,tests}.rs`; tc `plan/subset.rs`, `reader/source.rs`,
+  `tests/cli/compile.rs`. Gates green (99 of 203); `mutants-diff 878e3a8`: 41, 35 caught, 6
+  unviable, 0 missed. `rg "fpc\.on|fpc\.off|icon\.txt" crates` leaves only the tests that
+  assert the old names are refused. Left for Phase 5: `keys.rs`' boots/gloves comments still
+  say "no marker: untouched", where `settings_toml.md` has said "otherwise 0" since step 4.0
 
 - [ ] 4.31 **Pre-Fox parity reference** (lead, before 4.14): a small pre-Fox export cut from one
   in the maintainer's library (one player with face, boots and gloves, one kit, as the Fox
@@ -940,23 +939,26 @@ Phase 4 open questions (maintainer):
   `4cc_55_other_uniform`, and which of the two installs' other names stand (PES 17's list has
   `4cc_01_db`, `4cc_02_misc`, `4cc_30_stadiums0`/`1`/`2`; PES 21's `4cc_01_base`,
   `4cc_03_stockkit`, `4cc_10_interface`, `4cc_12_competition`, `4cc_30_stadiums`).
-- Kit layout fixture pair (4.10; 4.16's inverse-table check uses it). The two engines lay a kit
-  texture out differently: the shirt, sleeves and collar strip sit in the same place, but the
-  sock and shorts islands moved and changed width between PES 15-17 and PES 18-21. The compiler
-  converts a kit drawn for one layout into the other with a table of rectangle moves
-  (`KIT_LAYOUT_REMAP`), and the table's numbers are not known yet. Measured from the two games'
-  uniform models: the outline of each island in both layouts, and that the mapping inside an
-  island is two bands with different scales, not one. Not measurable from the models: exactly
-  where the two bands meet, because the Fox body's proportions make the vertical match
-  unreliable. A real kit settles it: one design that an author drew for both layouts, shipped
-  in a PES 16/17-era cup and again in a PES 18-21-era cup. Laid side by side, the same design
-  feature (a stripe, a logo, a number on the socks or the shorts) is at a known texel in each,
-  which fixes the band edges, and the pair then becomes the step's golden test. A useful pair
-  has a busy sock and shorts design (flat colors show nothing) and is the same artwork in both
-  eras, not a redraw. Needed from the maintainer: the team and the two exports (or cups) to
-  take it from, or the word to search the library through the Everything index, which finds
-  teams present in both eras but cannot tell a careful port from a redraw without looking at
-  each pair.
+- Kit layout, the shorts (4.10; 4.16's inverse-table check uses the same table). The two engines
+  lay a kit texture out differently: the shirt, sleeves and collar strip sit in the same place,
+  but the sock and shorts islands differ between PES 15-17 and PES 18-21, and the compiler
+  converts between them with a table of rectangle moves (`KIT_LAYOUT_REMAP`). The table needs
+  two sources that agree. One is the two games' uniform models (texel matching,
+  `scripts/provenance/kit_uv/`). The other was to be a kit drawn for both layouts; no cup kit
+  is one, so on the maintainer's suggestion it was made with PES Master's two kit creators
+  (2026-10-03; driven with Edge, 21 shared templates rendered per layout, each layer saved on
+  its own and its runs paired; scripts, renders and `FINDINGS.md` in `.tmp/kit_creator/`).
+  **The socks are settled**: both sources give the numbers now in `pipeline.md` "Layout
+  conversion". **The shorts are not**: PES Master draws them identically in both layouts,
+  while the models put the Fox shorts body 35 to 60 px away along u. Needed from the
+  maintainer: an in-game look at one PES Master design made on both creators (for example
+  Adidas Condivo 16, `.tmp/kit_creator/out/<pes2017|current>/Adidas_Condivo_16/kit.png`), in
+  PES 17 and in PES 21: does the shorts logo sit at the same height on the thigh in both? If
+  it does, the shorts need no table rows and the model fit is wrong there; if the PES 21 one
+  sits visibly off, the model fit stands. Also open: whether the pair can be committed as the
+  step's golden fixture, since it carries PES Master's template artwork and brand logos; the
+  alternative is a synthetic texture (flat bands and stripes at the measured edges), which
+  tests the table's arithmetic but not its numbers.
 
 Answered 2026-10-03 (decision entries of that date; each is in the plan): the `colors.txt`
 grammar (one color per line, in both files); the kit icon as a marker file and the marker
@@ -1624,3 +1626,10 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   engines, `kit_collar_reserved` for a team kit using it (survey: 4,635 kit configs, 77 unused);
   the texture lookup searches only the CPKs before the one compiled; the official DpFileList's
   slot run is still to be authored (open question).
+- **2026-10-03** — 4.30: marker names (`fpc_on`, `fpc_off`, `icon_<N>`), the first slice by the
+  Opus 5.5 sidekick, landed first time. Also recorded: a `Collars/` file named for a reserved
+  collar (105, 77) is `collar_id_conflict`, not `collar_id_invalid` (decision entry); the kit
+  layout pair made with PES Master's two kit creators settles the socks and leaves the shorts
+  open ("Phase 4 open questions"); `fpc_toggle.md`'s precedence table no longer says a
+  default boots/gloves key with no marker preserves the installed ID (it is 0, as
+  `settings_toml.md` has said since 4.0).

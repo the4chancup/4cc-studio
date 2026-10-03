@@ -179,7 +179,7 @@ impl ParsedAestheticsExport {
 
         // Kits, portraits, logo and the root files: same order as the draft's
         // content folders end (`Kits/`, then the loose root groups).
-        let kits = kits::check(draft, context, &self.metadata, &mut issues);
+        let kits = kits::check(draft, context, &mut issues);
         let portraits = root::check_portraits(draft, context, &mut issues);
         // No root-level finding on an undecided root: `nested_root_ambiguous`
         // and `nested_root_conflict` leave it unresolved, as for

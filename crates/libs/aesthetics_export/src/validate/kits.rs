@@ -1,5 +1,5 @@
 //! The kit folders: the `<slot>[ - <label>]` grammar (`all/` aside), the
-//! allowlist, texture names, layout markers and `icon.txt` — the own
+//! allowlist, texture names, layout markers and the icon marker — the own
 //! findings — then the surviving `KitsFolder` with `all/` inheritance.
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -10,8 +10,8 @@ use vtree::ScopePath;
 
 use super::folders::{directly_in, fold, relative, stem, stem_conflicts};
 use crate::FileKind;
-use crate::conventions::{Marker, MetadataFile, split_folder_name};
-use crate::listing::{SmallMetadata, ValidationContext, metadata_text};
+use crate::conventions::{Marker, MetadataFile, icon_number, split_folder_name};
+use crate::listing::ValidationContext;
 use crate::parse::{AestheticsExportDraft, FileDescriptor, FolderDraft};
 use crate::validate::{
     Disposition, IssueScope, KitFolder, KitLayout, KitTexture, KitTextureSource, KitsFolder,
@@ -28,16 +28,14 @@ enum KitKind {
 }
 
 /// What a file directly in a kit folder may be (allowlist row "directly in a
-/// kit folder"): textures, `config.toml`, `colors.txt`, `icon.txt`, the
-/// `pre-fox` and `fox` markers.
+/// kit folder"): textures, `config.toml`, `colors.txt`, the `pre-fox`, `fox`
+/// and `icon_<N>` markers.
 fn kit_direct_allowed(kind: FileKind) -> bool {
     matches!(
         kind,
         FileKind::Texture
-            | FileKind::Metadata(
-                MetadataFile::ConfigToml | MetadataFile::ColorsTxt | MetadataFile::IconTxt
-            )
-            | FileKind::Marker(Marker::PreFox | Marker::Fox)
+            | FileKind::Metadata(MetadataFile::ConfigToml | MetadataFile::ColorsTxt)
+            | FileKind::Marker(Marker::PreFox | Marker::Fox | Marker::Icon)
     )
 }
 
@@ -55,7 +53,6 @@ fn is_kit_texture_name(stem: &str) -> bool {
 pub(crate) fn check(
     draft: &AestheticsExportDraft,
     context: &ValidationContext,
-    metadata: &SmallMetadata,
     issues: &mut Vec<ValidationIssue>,
 ) -> KitsFolder {
     // The head's kind per folder; an unparsable head is `kit_folder_invalid`.
@@ -105,7 +102,7 @@ pub(crate) fn check(
     for (index, folder) in draft.kits.iter().enumerate() {
         match claims[index] {
             Some(KitKind::All) => check_all(folder, context, issues),
-            Some(KitKind::Slot(_)) => check_kit(folder, context, metadata, issues),
+            Some(KitKind::Slot(_)) => check_kit(folder, context, issues),
             None => {}
         }
     }
@@ -204,7 +201,7 @@ pub(crate) fn check(
                 label: label.map(str::to_owned),
                 config: direct_metadata(folder, MetadataFile::ConfigToml),
                 colors: direct_metadata(folder, MetadataFile::ColorsTxt),
-                icon: read_icon(folder, metadata),
+                icon: kit_icon(folder),
                 layout: layout_of(folder),
                 textures,
             },
@@ -234,11 +231,26 @@ fn layout_of(folder: &FolderDraft) -> Option<KitLayout> {
     }
 }
 
-/// `icon.txt`'s number, or `None` when absent or it failed to read (`None`
-/// also stands for `kit_icon_invalid`).
-fn read_icon(folder: &FolderDraft, metadata: &SmallMetadata) -> Option<u8> {
-    let icon = direct_metadata(folder, MetadataFile::IconTxt)?;
-    parse_icon(metadata.bytes_for(&icon).ok()?)
+/// The kit's menu icon: its one icon marker's number, or `None` when it has
+/// no icon marker, several, or one out of range (`kit_icon_invalid` covers
+/// the last two).
+fn kit_icon(folder: &FolderDraft) -> Option<u8> {
+    match icon_markers(folder).collect::<Vec<_>>()[..] {
+        [only] => valid_icon(only),
+        _ => None,
+    }
+}
+
+/// `folder`'s direct icon markers (`icon_7`).
+fn icon_markers(folder: &FolderDraft) -> impl Iterator<Item = &FileDescriptor> {
+    folder.files.iter().filter(|file| {
+        file.kind == FileKind::Marker(Marker::Icon) && directly_in(&file.path, &folder.path)
+    })
+}
+
+/// An icon marker's number when it is one of the game's 24 menu icons, 0–23.
+fn valid_icon(marker: &FileDescriptor) -> Option<u8> {
+    icon_number(marker.path.name()).filter(|number| *number <= 23)
 }
 
 /// `folder`'s direct textures that passed the name check.
@@ -251,13 +263,8 @@ fn kit_textures(folder: &FolderDraft) -> impl Iterator<Item = &FileDescriptor> {
 }
 
 /// A kit folder's own findings: allowlist, texture names, markers, stems,
-/// `icon.txt`.
-fn check_kit(
-    folder: &FolderDraft,
-    context: &ValidationContext,
-    metadata: &SmallMetadata,
-    issues: &mut Vec<ValidationIssue>,
-) {
+/// the icon marker.
+fn check_kit(folder: &FolderDraft, context: &ValidationContext, issues: &mut Vec<ValidationIssue>) {
     let scope = IssueScope::Folder(folder.path.clone());
     let direct = |path: &ScopePath| directly_in(path, &folder.path);
 
@@ -297,37 +304,20 @@ fn check_kit(
         issues,
     );
 
-    // `icon.txt`: read, BOM, UTF-8, a decimal in 0–23.
-    if let Some(icon) = direct_metadata(folder, MetadataFile::IconTxt) {
-        let scope = IssueScope::File(icon.path.clone());
-        match metadata.bytes_for(&icon) {
-            Err(reason) => issues.push(issue_in(
-                context,
-                "source_read_failed",
-                scope,
-                vec![("reason", reason)],
-                Disposition::DropFile,
-            )),
-            Ok(bytes) if parse_icon(bytes).is_none() => issues.push(issue_in(
+    // The icon markers: one, numbered 0–23. With several, none says which
+    // icon was meant, so each is invalid whatever its number.
+    let icons: Vec<&FileDescriptor> = icon_markers(folder).collect();
+    for icon in &icons {
+        if icons.len() > 1 || valid_icon(icon).is_none() {
+            issues.push(issue_in(
                 context,
                 "kit_icon_invalid",
-                scope,
+                IssueScope::File(icon.path.clone()),
                 vec![],
                 Disposition::DropFile,
-            )),
-            Ok(_) => {}
+            ));
         }
     }
-}
-
-/// `icon.txt`'s number: optional BOM, strict UTF-8, a decimal in 0–23.
-fn parse_icon(bytes: &[u8]) -> Option<u8> {
-    metadata_text(bytes)
-        .ok()?
-        .trim()
-        .parse::<u8>()
-        .ok()
-        .filter(|number| *number <= 23)
 }
 
 /// Whether `folder` holds `marker` directly.

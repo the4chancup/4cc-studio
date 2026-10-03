@@ -639,9 +639,9 @@ fn player_not_compiled(
     if folder.ingame_face {
         return Some(("what", format!("{path}/ingame_face")));
     }
-    // `fpc.on` changes every kit config; `fpc.off` only reaches the savefile.
+    // `fpc_on` changes every kit config; `fpc_off` only reaches the savefile.
     if folder.fpc == Some(FpcDirective::On) {
-        return Some(("what", format!("{path}/fpc.on")));
+        return Some(("what", format!("{path}/fpc_on")));
     }
     // A folder with no model of its own and no link has nothing to compile; one with only a
     // link is a player wearing a shared output.
@@ -1039,8 +1039,8 @@ mod tests {
     #[test]
     fn ingame_face_or_fpc_on_is_named() {
         assert_eq!(
-            gate(&["Players/03 - A/fpc.on"]),
-            what("Players/03 - A/fpc.on")
+            gate(&["Players/03 - A/fpc_on"]),
+            what("Players/03 - A/fpc_on")
         );
         // `ingame_face` excludes an explicit face model, so this folder holds only the hair
         // model; the marker is named before the hair files it lacks.
@@ -1585,14 +1585,15 @@ mod tests {
 
     #[test]
     fn what_is_never_emitted_is_not_counted() {
-        // `fpc.off` and `settings.toml` go to the savefile; a kit's colors and icon and the
+        // `fpc_off` and `settings.toml` go to the savefile; a kit's colors and icon and the
         // root's metadata emit nothing yet.
         assert_eq!(
             gate(&[
-                "Players/03 - A/fpc.off",
+                "Players/03 - A/fpc_off",
                 "Players/03 - A/settings.toml",
                 "Kits/g1/kit.dds",
                 "Kits/g1/colors.txt",
+                "Kits/g1/icon_11",
                 "colors.txt",
             ]),
             None

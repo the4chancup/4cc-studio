@@ -47,7 +47,7 @@ it, one cell per player at a fixed position by number, plus one cell per kit:
   reserve-every-position rule as player cells; they use the same square shape and are separated from
   the player group by a small gap. Color carries status; the label carries identity. Once a kit's
   menu colors are known — its `colors.txt` parses at check time, or the compile derives them from
-  the texture — the cell additionally shows its **menu icon's pattern** (the `icon.txt` pattern
+  the texture — the cell additionally shows its **menu icon's pattern** (the `icon_<N>` marker's pattern
   rendered by `color_tools` in pattern-only mode — a flat two-color swatch, no shirt silhouette,
   which wouldn't read at cell size) drawn centered under the label on the status background. A
   failed kit keeps its error state and shows the existing base-`UniColor.bin` colors rather than the

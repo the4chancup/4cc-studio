@@ -7,7 +7,7 @@ mod player_folder;
 pub use file_types::{
     FileKind, Marker, MetadataFile, ModelFormat, SharedKind, classify, common_link_name,
 };
-pub(crate) use file_types::{is_logo_texture, shared_link_name, strip_prefix_ci};
+pub(crate) use file_types::{icon_number, is_logo_texture, shared_link_name, strip_prefix_ci};
 pub use player_folder::{ModelSuffix, model_suffix};
 pub(crate) use player_folder::{is_boots, is_explicit_face, is_gloves};
 
@@ -48,10 +48,10 @@ pub(crate) const CONTENT_FOLDERS: [(&str, ContentFolder); 8] = [
 ];
 
 /// The small file names the structure pass reads eagerly: `players.txt`,
-/// `refs.txt`, `notes.txt`, `icon.txt`, by name (ASCII-case-insensitively) at
-/// any depth, so the consumer needs no root normalization of its own.
+/// `refs.txt`, `notes.txt`, by name (ASCII-case-insensitively) at any depth,
+/// so the consumer needs no root normalization of its own.
 pub fn is_small_metadata(path: &str) -> bool {
-    const NAMES: [&str; 4] = ["players.txt", "refs.txt", "notes.txt", "icon.txt"];
+    const NAMES: [&str; 3] = ["players.txt", "refs.txt", "notes.txt"];
     let name = path.rsplit(['/', '\\']).next().unwrap_or(path);
     NAMES.iter().any(|known| name.eq_ignore_ascii_case(known))
 }
@@ -87,11 +87,11 @@ mod tests {
     use super::*;
 
     #[test]
-    fn is_small_metadata_recognizes_the_four_names_at_any_depth() {
+    fn is_small_metadata_recognizes_the_three_names_at_any_depth() {
         for path in [
             "players.txt",
             "wrapper/players.txt",
-            "Kits/p1/ICON.TXT",
+            "wrapper/NOTES.TXT",
             "notes.txt",
             "refs.txt",
             "a\\b\\players.txt",
@@ -99,6 +99,7 @@ mod tests {
             assert!(is_small_metadata(path), "{path}");
         }
         for path in [
+            "Kits/p1/icon.txt",
             "colors.txt",
             "Players/03 - A/settings.toml",
             "config.toml",

@@ -324,7 +324,7 @@ when disabled (IDs 0, untucked, short sleeves, standard socks, light skin
 pre-18). The ID constants become a suite-common setting consumed by
 the presets rather than being hardcoded (any nonexistent ID works;
 55/11 are the 4cc convention). The same presets serve the
-[Team compiler's](team_compiler/README.md) per-player-folder `fpc.on`/`fpc.off` marker
+[Team compiler's](team_compiler/README.md) per-player-folder `fpc_on`/`fpc_off` marker
 files, so the editor's toggle and the compiler's markers cannot drift apart.
 
 ---

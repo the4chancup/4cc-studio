@@ -65,7 +65,7 @@ rollback is needed:
 
 - stock collar **77** is reserved for the referees, as 105 is for FPC (a stock collar of every
   target version, and one that none of the 4,635 kit configs on the maintainer's machine uses,
-  Konami's and the cup's alike, surveyed 2026-10-03). A regular team may not use it: a `Collars/` file claiming it reports `collar_id_invalid`, and a team kit whose
+  Konami's and the cup's alike, surveyed 2026-10-03). A regular team may not use it: a `Collars/` file claiming it reports `collar_id_conflict`, and a team kit whose
   effective collar or winter collar (after FPC reconciliation and custom-collar rewriting) is
   the reserved one reports `kit_collar_reserved` and is dropped, since its players would wear
   the referees' marker;
