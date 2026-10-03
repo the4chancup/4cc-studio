@@ -5,7 +5,7 @@
 use std::sync::Arc;
 
 use aesthetics_export::{
-    ExportIdentity, FileDescriptor, ResolvedAestheticsExport, SharedKind, SourceError,
+    ExportIdentity, FileDescriptor, ModelSuffix, ResolvedAestheticsExport, SharedKind, SourceError,
     ValidationContext, model_suffix, parse_listing,
 };
 use pes_version::{Engine, PesVersion};
@@ -217,10 +217,11 @@ fn pool_messages(
     .collect()
 }
 
-/// `fmdl_fcl_hair_fallback` for each Fox model whose name says nothing about what it is, which
-/// the `fcl_hair` merge takes, and `skl_no_slot` for each `.skl` paired with a `face_high`,
-/// `hair_high` or `oral` model, which has no slot to land in and is ignored
-/// (`player_folders.md` "Model names", "SKL pairing"; `team_compiler/README.md` TC-MOD-13):
+/// `fmdl_fcl_hair_fallback` for each Fox model the `fcl_hair` merge takes without being named
+/// for it: one whose name says nothing about what it is, or one a `face/` subfolder makes
+/// face content, and `skl_no_slot` for each `.skl` paired with a `face_high`, `hair_high` or
+/// `oral` model, which has no slot to land in and is ignored (`player_folders.md` "Model
+/// names", "Reserved subfolders", "SKL pairing"; `team_compiler/README.md` TC-MOD-13):
 /// over every mapped player folder and every shared face folder, each finding on the folder
 /// holding the file. The roles are `subset::player_file`'s, so a finding never disagrees with
 /// the routing. A pre-Fox target types a model by its name and reads no `.skl`, so it reports
@@ -276,7 +277,9 @@ fn file_role_messages(
             Some(PlayerFile::Model {
                 package: ModelPackage::Face,
                 name: "fcl_hair",
-            }) if model_suffix(file_stem(name)).is_none() => Code::FmdlFclHairFallback,
+            }) if model_suffix(file_stem(name)) != Some(ModelSuffix::FclHair) => {
+                Code::FmdlFclHairFallback
+            }
             Some(PlayerFile::SlotlessSkeleton) => Code::SklNoSlot,
             Some(
                 PlayerFile::Model { .. }
@@ -420,6 +423,30 @@ mod tests {
             ]
         );
         assert_eq!(names(&export, PesVersion::Pes17), Vec::<String>::new());
+    }
+
+    #[test]
+    fn a_face_subfolder_s_forced_hair_part_is_reported_and_a_boots_subfolder_s_skeleton_is_not() {
+        let files = [
+            ("Players/03 - A/boots/hair_high.fmdl", 1),
+            ("Players/03 - A/boots/hair_high.skl", 1),
+            ("Players/03 - A/face/boots.fmdl", 1),
+            ("Players/03 - A/face/torso.fmdl", 1),
+            ("Players/03 - A/face/face_high.fmdl", 1),
+            ("Players/03 - A/face/face_high.skl", 1),
+            ("Players/03 - A/fcl_hair.fmdl", 1),
+        ];
+        let export = resolved("co - Names", &files, &[], None);
+        // `boots/` makes `hair_high` the boots, so its skeleton has a slot; `face/` makes
+        // `boots.fmdl` hair content, reported like an unsuffixed model.
+        assert_eq!(
+            names(&export, PesVersion::Pes21),
+            [
+                "Info fmdl_fcl_hair_fallback [Keep] at Players/03 - A (file=boots.fmdl)",
+                "Warning skl_no_slot [Keep] at Players/03 - A (file=face_high.skl)",
+                "Info fmdl_fcl_hair_fallback [Keep] at Players/03 - A (file=torso.fmdl)",
+            ]
+        );
     }
 
     #[test]

@@ -922,6 +922,54 @@ mod tests {
     }
 
     #[test]
+    fn a_reserved_subfolder_s_parts_join_their_category_s_task_and_a_link_of_it_combines() {
+        let export = resolved(
+            "co - Subfolders",
+            &[
+                ("Players/05 - A/boots/boots.fmdl", 8),
+                ("Players/05 - A/boots/boots.skl", 2),
+                ("Players/05 - A/common/skin.dds", 16),
+                ("Players/05 - A/Crocs.boots", 0),
+                ("Boots/Crocs/boots.fmdl", 4),
+            ],
+            &[],
+            None,
+        );
+
+        let report = plan_run(vec![(ExportId(0), export)], PesVersion::Pes21);
+
+        // The boots alone: no face task for a folder whose only model is in `boots/`.
+        assert_eq!(
+            summary(&report),
+            [
+                "0 714 Boots Players/05 - A [625] charge 14",
+                "0 714 textures Players/05 - A charge 16",
+            ]
+        );
+        assert_eq!(
+            message_summary(&report),
+            [("link_combined", "Players/05 - A", Disposition::Keep)]
+        );
+        let files = |index: usize| -> Vec<&str> {
+            report.manifest.tasks[index]
+                .kind
+                .files()
+                .iter()
+                .map(|file| file.path.as_str())
+                .collect()
+        };
+        assert_eq!(
+            files(0),
+            [
+                "Players/05 - A/boots/boots.fmdl",
+                "Players/05 - A/boots/boots.skl",
+                "Boots/Crocs/boots.fmdl",
+            ]
+        );
+        assert_eq!(files(1), ["Players/05 - A/common/skin.dds"]);
+    }
+
+    #[test]
     fn a_face_link_alone_makes_the_shared_face_the_player_s_and_the_player_s_face_files_win() {
         let export = resolved(
             "co - Faces",

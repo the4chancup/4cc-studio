@@ -508,6 +508,106 @@ fn an_unsuffixed_model_is_reported_and_merged_into_the_hair_with_its_own_skeleto
     );
 }
 
+// TC-MOD-14
+#[test]
+fn a_boots_subfolder_s_model_is_the_boots_and_a_common_subfolder_s_texture_is_the_player_s() {
+    let sandbox = Sandbox::new("mod_reserved_subfolders");
+    let player = "exports/co - Subfolders/Players/05 - A";
+    sandbox.write(
+        &format!("{player}/boots/hair_high.fmdl"),
+        &tracer_player_file("boots.fmdl"),
+    );
+    sandbox.write(
+        &format!("{player}/common/skin.dds"),
+        &tracer_player_file("shirt.dds"),
+    );
+    let boots_fpk = "Asset/model/character/boots/k0625/#Win/boots.fpk";
+    let skin = "Asset/model/character/common/714/05 - A/sourceimages/#windx11/skin.ftex";
+
+    let entries = compile_clean(&sandbox, "co - Subfolders");
+
+    let paths: Vec<&str> = entries.keys().map(String::as_str).collect();
+    assert_eq!(
+        paths,
+        [
+            boots_fpk,
+            "Asset/model/character/boots/k0625/#Win/boots.fpkd",
+            skin,
+        ],
+        "no face package for a folder whose only model is in boots/"
+    );
+    assert_eq!(
+        package_names(&entries[boots_fpk]),
+        ["boots.fmdl", "boots.skl"]
+    );
+    assert_eq!(
+        entries[skin],
+        ftex::dds_to_ftex(&tracer_player_file("shirt.dds"), ftex::ColorSpace::Normal).unwrap()
+    );
+}
+
+#[test]
+fn a_subfolder_s_parts_combine_with_loose_root_files_of_their_category() {
+    let sandbox = Sandbox::new("mod_subfolder_parts");
+    let player = "exports/co - Parts/Players/05 - A";
+    for (name, tracer_name) in [
+        ("fcl_hair.fmdl", "fcl_hair.fmdl"),
+        ("face/torso.fmdl", "fcl_hair.fmdl"),
+        ("glove_l.fmdl", "glove_l.fmdl"),
+        ("gloves/glove_r.fmdl", "glove_r.fmdl"),
+    ] {
+        sandbox.write(
+            &format!("{player}/{name}"),
+            &tracer_player_file(tracer_name),
+        );
+    }
+    let glove_fpk = "Asset/model/character/glove/g0625/#Win/glove.fpk";
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+    assert_eq!(
+        findings_of(&run.messages(), "co - Parts"),
+        [
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info fmdl_fcl_hair_fallback [Keep] at Players/05 - A (file=torso.fmdl)",
+            "Info fmdl_merged [Keep] at Players/05 - A (model=fcl_hair.fmdl)",
+        ]
+    );
+    assert_eq!(run.exit_code(), 0);
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_90_test.cpk"));
+    let paths: Vec<&str> = entries.keys().map(String::as_str).collect();
+    assert_eq!(
+        paths,
+        [
+            "Asset/model/character/face/real/71405/#Win/face.fpk",
+            "Asset/model/character/face/real/71405/#Win/face.fpkd",
+            glove_fpk,
+            "Asset/model/character/glove/g0625/#Win/glove.fpkd",
+        ]
+    );
+    let package = face_package(&entries);
+    let names: Vec<&str> = package.entries().map(|(name, _)| name).collect();
+    assert_eq!(
+        names,
+        [
+            "face_diff.bin",
+            "fcl_hair.fmdl",
+            "fcl_hair_sim.fclo",
+            "fcl_hair_sim.skl"
+        ]
+    );
+    let model = FmdlFile::read(package.get("fcl_hair.fmdl").unwrap()).unwrap();
+    let part = FmdlFile::read(&tracer_player_file("fcl_hair.fmdl")).unwrap();
+    assert_eq!(
+        Model::from_file(&model).unwrap().meshes.len(),
+        2 * Model::from_file(&part).unwrap().meshes.len()
+    );
+    assert_eq!(
+        package_names(&entries[glove_fpk]),
+        ["glove_l.fmdl", "glove_r.fmdl"]
+    );
+}
+
 #[test]
 fn a_pre_fox_target_reports_neither_the_fallback_nor_a_slotless_skeleton() {
     let sandbox = Sandbox::new("mod_pre_fox_names");

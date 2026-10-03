@@ -413,9 +413,9 @@ mod tests {
         bytes
     }
 
-    /// `kind`'s files read from the tracer folder, with the file at `path` replaced by
-    /// `bytes`, processed for PES 21 in no group.
-    fn run_with(kind: TaskKind, path: &str, bytes: Vec<u8>) -> TaskBatch {
+    /// `kind`'s files read from the tracer folder, each file at a path of `replacements`
+    /// replaced by the bytes given with it, processed for PES 21 in no group.
+    fn run_with(kind: TaskKind, replacements: &[(&str, &[u8])]) -> TaskBatch {
         let mut files: TaskFiles = kind
             .files()
             .into_iter()
@@ -424,7 +424,9 @@ mod tests {
                 (file.path.clone(), bytes)
             })
             .collect();
-        files.insert(ScopePath::new(path).unwrap(), bytes);
+        for (path, bytes) in replacements {
+            files.insert(ScopePath::new(path).unwrap(), bytes.to_vec());
+        }
         process(kind, PesVersion::Pes21, None, files)
     }
 
@@ -466,8 +468,7 @@ mod tests {
                 package: ModelPackage::Face,
                 ids: vec![79205],
             },
-            &format!("{PLAYER}/fcl_hair.skl"),
-            custom.clone(),
+            &[(&format!("{PLAYER}/fcl_hair.skl"), &custom)],
         );
         let package = FpkFile::read(&batch.entries[0].1).unwrap();
         assert_eq!(package.get("fcl_hair_sim.skl").unwrap(), custom);
@@ -507,8 +508,7 @@ mod tests {
                 package: ModelPackage::Face,
                 ids: vec![79205],
             },
-            &format!("{PLAYER}/torso.skl"),
-            custom.clone(),
+            &[(&format!("{PLAYER}/torso.skl"), &custom)],
         );
 
         assert!(batch.messages.is_empty(), "{:?}", batch.messages);
@@ -555,30 +555,23 @@ mod tests {
 
     #[test]
     fn a_skeleton_named_after_the_boots_model_is_packed_in_the_standard_one_s_place() {
-        // The tracer's hair skeleton stands in for a custom boots skeleton: its bytes are a
-        // real `.skl`, read as they are.
-        let mut folder = player(&["fcl_hair.skl"]);
-        let kit_boots = ScopePath::new(&format!("{PLAYER}/kit_boots.fmdl")).unwrap();
-        let kit_boots_skl = ScopePath::new(&format!("{PLAYER}/kit_boots.skl")).unwrap();
-        folder.files = vec![
-            FileDescriptor {
-                kind: aesthetics_export::classify(kit_boots.name()),
-                path: kit_boots,
-                ..file(&format!("{PLAYER}/boots.fmdl"))
-            },
-            FileDescriptor {
-                kind: aesthetics_export::classify(kit_boots_skl.name()),
-                path: kit_boots_skl,
-                ..file(&format!("{PLAYER}/fcl_hair.skl"))
-            },
-        ];
-        let custom = std::fs::read(tracer().join(format!("{PLAYER}/fcl_hair.skl"))).unwrap();
+        let custom = other_skeleton();
+        let folder = player_with(
+            vec![
+                named(&format!("{PLAYER}/kit_boots.fmdl"), "boots.fmdl"),
+                named(&format!("{PLAYER}/kit_boots.skl"), "fcl_hair.skl"),
+            ],
+            Vec::new(),
+        );
 
-        let batch = run(TaskKind::Models {
-            folder,
-            package: ModelPackage::Boots,
-            ids: vec![3745, 3747],
-        });
+        let batch = run_with(
+            TaskKind::Models {
+                folder,
+                package: ModelPackage::Boots,
+                ids: vec![3745, 3747],
+            },
+            &[(&format!("{PLAYER}/kit_boots.skl"), &custom)],
+        );
 
         assert!(batch.messages.is_empty(), "{:?}", batch.messages);
         assert_eq!(
@@ -934,18 +927,23 @@ mod tests {
 
     #[test]
     fn parts_with_one_skeleton_pack_it_and_a_part_without_one_beside_one_with_is_a_conflict() {
-        // The tracer's hair skeleton stands in for both parts' boots skeleton.
-        let custom = std::fs::read(tracer().join(format!("{PLAYER}/fcl_hair.skl"))).unwrap();
+        // One custom skeleton under both parts' names.
+        let custom = other_skeleton();
+        let kit_boots_skl = format!("{PLAYER}/kit_boots.skl");
+        let a_boots_skl = format!("{PLAYER}/a_boots.skl");
         let both = player_with(
             vec![
                 named(&format!("{PLAYER}/kit_boots.fmdl"), "boots.fmdl"),
-                named(&format!("{PLAYER}/kit_boots.skl"), "fcl_hair.skl"),
+                named(&kit_boots_skl, "fcl_hair.skl"),
                 named(&format!("{PLAYER}/a_boots.fmdl"), "boots.fmdl"),
-                named(&format!("{PLAYER}/a_boots.skl"), "fcl_hair.skl"),
+                named(&a_boots_skl, "fcl_hair.skl"),
             ],
             Vec::new(),
         );
-        let batch = run(boots(both));
+        let batch = run_with(
+            boots(both),
+            &[(&kit_boots_skl, &custom), (&a_boots_skl, &custom)],
+        );
         assert_eq!(one_message(&batch).0, "fmdl_merged");
         let package = FpkFile::read(&batch.entries[0].1).unwrap();
         assert_eq!(package.get("boots.skl").unwrap(), custom);
@@ -968,6 +966,46 @@ mod tests {
                 Disposition::DropFolder,
                 &[("skeleton".to_owned(), "differs".to_owned())][..]
             )
+        );
+    }
+
+    #[test]
+    fn a_boots_subfolder_s_skeleton_pairs_with_the_model_beside_it_and_a_root_part_keeps_its_own() {
+        let custom = other_skeleton();
+        let sub_skl = format!("{PLAYER}/boots/kit_boots.skl");
+        let alone = player_with(
+            vec![
+                named(&format!("{PLAYER}/boots/kit_boots.fmdl"), "boots.fmdl"),
+                named(&sub_skl, "fcl_hair.skl"),
+            ],
+            Vec::new(),
+        );
+        let batch = run_with(boots(alone), &[(&sub_skl, &custom)]);
+        assert!(batch.messages.is_empty(), "{:?}", batch.messages);
+        let package = FpkFile::read(&batch.entries[0].1).unwrap();
+        let names: Vec<&str> = package.entries().map(|(name, _)| name).collect();
+        assert_eq!(names, ["boots.fmdl", "boots.skl"]);
+        assert_eq!(package.get("boots.skl").unwrap(), custom);
+
+        // A root part of the same name beside it: each pairs the skeleton in its own
+        // directory, and the two, one file, merge without a conflict.
+        let root_skl = format!("{PLAYER}/kit_boots.skl");
+        let both = player_with(
+            vec![
+                named(&format!("{PLAYER}/kit_boots.fmdl"), "boots.fmdl"),
+                named(&root_skl, "fcl_hair.skl"),
+                named(&format!("{PLAYER}/boots/kit_boots.fmdl"), "boots.fmdl"),
+                named(&sub_skl, "fcl_hair.skl"),
+            ],
+            Vec::new(),
+        );
+        let batch = run_with(boots(both), &[(&root_skl, &custom), (&sub_skl, &custom)]);
+        assert_eq!(one_message(&batch).0, "fmdl_merged");
+        let package = FpkFile::read(&batch.entries[0].1).unwrap();
+        assert_eq!(package.get("boots.skl").unwrap(), custom);
+        assert_eq!(
+            packed_model(&package, "boots.fmdl").meshes.len(),
+            2 * tracer_model("boots.fmdl").meshes.len()
         );
     }
 

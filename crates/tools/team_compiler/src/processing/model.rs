@@ -48,7 +48,9 @@ pub(super) fn package(
     let mut texture_stems = BTreeSet::new();
     let mut fpk = FpkFile::new(FpkKind::Fpk);
     for (_, _, source_files) in folder.roles() {
-        // A skeleton pairs with the model of its stem in the same source folder.
+        // A skeleton pairs with the model of its stem in the same directory: keyed by the
+        // path up to the extension, since a player folder's reserved subfolder may hold a
+        // model of the same name as one directly in the folder.
         let mut skeletons: BTreeMap<&str, Vec<u8>> = BTreeMap::new();
         let mut source_parts: Vec<Part> = Vec::new();
         for (file, role) in source_files {
@@ -63,7 +65,7 @@ pub(super) fn package(
                     skeleton: None,
                 }),
                 PlayerFile::Skeleton { package: owner, .. } if owner == package => {
-                    skeletons.insert(file_stem(file.path.name()), take(files, file));
+                    skeletons.insert(file_stem(file.path.as_str()), take(files, file));
                 }
                 PlayerFile::Packed {
                     package: owner,
@@ -83,7 +85,7 @@ pub(super) fn package(
             }
         }
         for part in &mut source_parts {
-            part.skeleton = skeletons.remove(file_stem(part.path.name()));
+            part.skeleton = skeletons.remove(file_stem(part.path.as_str()));
         }
         parts.extend(source_parts);
     }

@@ -54,16 +54,25 @@ model (`kit_boots.skl` beside `kit_boots.fmdl`, `fcl_hair.skl` beside `fcl_hair.
 with it; boots and hair without one get the standard body skeleton. A skeleton named after a
 `face_high`, `hair_high` or `oral` model has no place in the game's face package: it is left out
 and reported as `skl_no_slot`. A face folder without a `face_diff.bin`, or a hair model without
-a `fcl_hair_sim.fclo` beside it, gets the bundled default file. A kit folder with
+a `fcl_hair_sim.fclo` beside it, gets the bundled default file. A player's folder may sort its
+files into the subfolders `face`, `boots`, `gloves` and `common` (the layout of older referee
+exports): every model in `boots` is the boots and every model in `face` is a face part,
+whatever their names (`boots/hair_high.fmdl` is packed as `boots.fmdl`; a model in `face`
+whose name is not a face name goes into `fcl_hair.fmdl` and is reported as
+`fmdl_fcl_hair_fallback`), a model in `gloves` must still say which hand it is, and `common`
+holds textures. The files in these subfolders work like files in the folder itself: a skeleton
+file pairs with the model beside it in the same subfolder, textures from any of them go to the
+player's common folder, and parts in a subfolder are merged with the folder's own models and
+with a linked shared folder of the same kind. A kit folder with
 no `kit` texture, an empty one included, is built with a magenta and black checkerboard in its
 place and reported as `kit_placeholder`, so a kit nobody drew shows as missing in the game. `compile`
 skips any other export with the error `content_not_yet_compiled`, naming the first thing it
 cannot build yet: a PES 2015 to 2017 target, a referee export, or content other than a player's
 own face, boots and gloves models, their textures, `.dds` portraits, kits and linked shared
 `Faces`, `Boots` and `Gloves` folders (a texture in a format other than `.dds` or `.ftex`, or a
-model inside a subfolder of the player's folder, among others). `check` still checks those
-exports. `compile` does not install the CPK into the game yet: it always leaves it in the output
-folder.
+model in a `gloves` subfolder whose name does not say which hand it is, among others). `check`
+still checks those exports. `compile` does not install the CPK into the game yet: it always
+leaves it in the output folder.
 
 `check` prints one line per finding: the export it is about, how serious it is, its code, where
 in the export it is, and its details in parentheses. The line `Info export_identified (team=/co/,
