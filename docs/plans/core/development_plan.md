@@ -319,10 +319,12 @@ nothing about the Rust code.
   target-native source beside it) is refused with `model_gltf_unsupported` (folder-discarding,
   not pass-through-eligible) until Phase 7, never compiled from the opposite native format
   instead, since that output would change silently once glTF lands (`team_compiler/pipeline.md`
-  "Per-export pipeline walkthrough"); texture conversion with the CPU converter as bounded
-  batches with cancellation (0.1.0 ships CPU-only; the desktop GPU BC7 backend, `libs/README.md`
-  "First-release desktop GPU BC7", is built on this step in Phase 16) — plus WESYS wrapping and
-  relocation to common (`textures`);
+  "Per-export pipeline walkthrough"); texture conversion with the CPU converter, each worker
+  converting one texture at a time, so the conversions in flight are bounded by the worker count
+  (0.1.0 ships CPU-only; the desktop GPU BC7 backend, `libs/README.md` "First-release desktop GPU
+  BC7", is built on this step in Phase 16; stopping a cancelled run between textures is Phase 8's
+  cancellation, which brings the Cancel that triggers it) — plus WESYS wrapping and relocation
+  to common (`textures`);
   MTL / face XML / `materials.toml` editing (`xml_editing`); kit folders: config
   generation/reconciliation/emission via `libs/kit_config` (TOML in exports, binary at compile
   time), FPC patching via `fpc`, kit colors from per-kit `colors.txt` (Team Note entry format) or
@@ -430,7 +432,9 @@ this phase completes it.
 - Implement the exports folder watcher (`notify` + debouncing) and the two-tier check system with
   cache
 - Wire event channels to egui rendering
-- Implement cancellation
+- Implement cancellation (`gui.md` "Cancellation"): the Compile button's Cancel, the pipeline
+  checking it between tasks and between a texture task's textures, the cancelled run's staging
+  discarded
 - The Team compiler's `run_pes` and sideload mode's Launch PES button as one launcher of
   `PES20{version}.exe` (`team_compiler/pipeline.md` "Post-processing", Run PES): both start the
   same exe the same way, and this phase holds its only manual check

@@ -3159,3 +3159,17 @@ config names the textures the kit has, so a kit emitted without one is not the k
 drew, and `texture_stem_conflict` already drops the whole kit. The signature rule needs no
 decode, and TGA, which has none, can only be caught when it opens with another format's.
 Plan: `team_compiler/messages.md` "Textures" preamble.
+
+## 2026-10-03 — development plan — a texture task's cancellation check moves to Phase 8
+Decision: Phase 4's "texture conversion as bounded batches with cancellation" ships as its bound
+only: each worker converts one texture at a time and `dds_convert` has no parallelism of its own,
+so the conversions in flight are bounded by the worker count. Checking for cancellation between a
+texture task's textures moves to Phase 8's "Implement cancellation", with the Cancel button and the
+cancelled run's staging discard.
+Why: nothing in Phase 4 cancels a run (the CLI has no interrupt handling, and the GUI's Cancel is
+Phase 8), so a check built now could not be exercised end to end. Stopping a task early would also
+need the run to discard its staging, which the coordinator's `Cancelled` path does not do yet, or
+a cancelled run could promote a CPK missing textures; and the run-result semantics are an open
+question. Built with its trigger, the check gets a test that cancels a real run.
+Plan: `core/development_plan.md` "Phase 4" (`processing/`) and "Phase 8" (cancellation);
+`core/gui.md` "Cancellation".

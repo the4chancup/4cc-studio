@@ -12,8 +12,8 @@ is in `AGENTS.md` ("Working documents").
 **Phase:** 3 (Team compiler skeleton) closed 2026-10-02, its cross-family reviews queued (see
 "Handover"). Phases 1 and 2 done (Phase 2 closed 2026-09-30).
 **Next:** Phase 4 is itemized and its Acceptance section written (step 4.1, 2026-10-03; its
-cross-family review (a) is queued). Next: 4.6c (conversion on the cancel token); 4.6a-b and 4.5a-c are done, 4.5d
-waits on the base64 question. 2.5b (GPU BC7) is step 16.x (decision entries
+cross-family review (a) is queued). Next: 4.7 (deep validation pass); 4.6 and 4.5a-c are done (4.6c moved to Phase 8's
+cancellation), 4.5d waits on the base64 question. 2.5b (GPU BC7) is step 16.x (decision entries
 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0 after Phase 8; phase order 1–6,
 8, 0.1.0, 7, 9–16 (`core/development_plan.md` "Releases"); first-class target the Fox version
 the cup moves to around April 2027 ("Target versions").
@@ -423,7 +423,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   test in one rework round (red shown). For converge: `subset::is_direct_common_file` copies
   validation's private check
 
-- [ ] 4.6 **Textures, all formats (Fox)**: every accepted image format (`dds_convert::decode`/
+- [x] 4.6 **Textures, all formats (Fox)**: every accepted image format (`dds_convert::decode`/
   `convert`) for player, shared, Common, kit and portrait textures; BC7 kept and encoded on PES
   19-21, BC7 transcoded to BC3 and raster encoded to BC3/BC1 on PES 18; missing mips generated;
   FTEX headers per version; `texture_too_small`, `texture_not_pow2`, `texture_type_mismatch`,
@@ -461,7 +461,10 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   (`needs_pow2`'s `mipmaps > 1`), given a test with the `single_level.dds` fixture in one rework
   round (red shown); the remote half peaked at 7.90 GiB of 8G (maintainer asked). Found:
   `texture_codec_unsupported` also covers `dds_convert`'s other `Unsupported` refusals (a 16-bit
-  TGA, the 4 GiB limit), which the help names. Crates: tc (`processing/texture.rs`,
+  TGA, the 4 GiB limit), which the help names. (c) moved to Phase 8's cancellation 2026-10-03
+  (decision entry): the bound already holds, one texture at a time per worker; nothing in Phase 4
+  cancels a run, so the between-textures check is built with the Cancel that triggers it.
+  Crates: tc (`processing/texture.rs`,
   `processing/kit.rs`) → verify: a `/co/` player with `skin.png` (1024x1024, alpha) compiled for
   PES 21 then PES 18: `ftex::info` of the emitted texture reports BC7 then BC3, each with an
   11-level mip chain; a 3x3 `skin.png` reports `Error texture_too_small [DropFolder]` and the
@@ -1007,7 +1010,8 @@ pruned when their phase closes; they stay in git history.
   the GUI's compile runs ends the process mid-run, and the coordinator's `Cancelled` path does
   not discard the staging either, so `output/.staging/<run>/` can be left beside the previous
   CPK (which stays intact). Fixed with cancellation (`gui.md` "Cancellation", Phase 8): the
-  window stops the run and the cancelled path calls `deploy::discard`.
+  window stops the run and the cancelled path calls `deploy::discard`. The same step adds the
+  check between a texture task's textures (4.6's slice (c)); a test cancels a real run partway.
 
 ---
 
@@ -1528,3 +1532,6 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   its kit, or only itself in `Common/` and for a portrait; a Fox `kit_mask` is reported
   (`kit_texture_not_used`); portraits come in any format, encoded to BC3 by
   `dds_convert::encode_dds`.
+- **2026-10-03** — 4.6 closed: slice (c), the cancellation check between a texture task's
+  textures, moved to Phase 8's cancellation, which brings the Cancel that triggers it; the
+  conversions in flight are already bounded, one texture at a time per worker.

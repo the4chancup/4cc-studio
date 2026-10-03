@@ -354,8 +354,10 @@ stadiums and cells = components.
 ### Cancellation
 
 During a run the Compile button becomes Cancel. Rust's rayon scopes or spawned tasks support
-cancellation via an `AtomicBool` flag. The pipeline checks the flag between tasks and aborts
-cleanly.
+cancellation via an `AtomicBool` flag. The pipeline checks the flag between tasks, and a
+texture task between its textures, since it converts them one after another and a folder of
+large BC7 encodes can be one of a run's longest tasks. It aborts cleanly: the run's staging is
+discarded and the previous outputs stay as they were.
 
 ### Browser deployment: Studio Web
 
