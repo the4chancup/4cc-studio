@@ -16,34 +16,48 @@
 4cc_06_gameplay.cpk
 4cc_08_bins.cpk
 4cc_10_seasonal.cpk
-4cc_15_billboard.cpk
-4cc_20_swipe.cpk
-4cc_25_gametips.cpk
-4cc_30_stadiums0.cpk
-4cc_31_stadiums1.cpk
-4cc_32_stadiums2.cpk
-4cc_35_referees.cpk
-4cc_38_balls.cpk
+4cc_11_billboard.cpk
+4cc_12_swipe.cpk
+4cc_14_gametips.cpk
+4cc_16_balls.cpk
+4cc_18_referees.cpk
+
+# Main stadiums cpk and stadiums midcups
+4cc_20_stadiums.cpk
+4cc_21_stadiums.cpk
+4cc_22_stadiums.cpk
+4cc_23_stadiums.cpk
+4cc_24_stadiums.cpk
+4cc_25_stadiums.cpk
+4cc_26_stadiums.cpk
+4cc_27_stadiums.cpk
+4cc_28_stadiums.cpk
+4cc_29_stadiums.cpk
+4cc_30_stadiums.cpk
+4cc_31_stadiums.cpk
+4cc_32_stadiums.cpk
+4cc_33_stadiums.cpk
+4cc_34_stadiums.cpk
+4cc_35_stadiums.cpk
 
 # CHANGED: replaces 4cc_40_faces.cpk and 4cc_45_uniform.cpk. All team content, split by
 # size so no CPK reaches the 4 GiB limit of Git for Windows. Five slots at 3 GB each hold
 # 15 GB, about 2.5 times a 48-team cup. To confirm: five slots.
-4cc_40_teams.cpk
 4cc_41_teams.cpk
 4cc_42_teams.cpk
 4cc_43_teams.cpk
 4cc_44_teams.cpk
+4cc_45_teams.cpk
 
 # CHANGED: replaces 4cc_50_other_faces.cpk and 4cc_55_other_uniform.cpk. A second run for a
 # side event, filled when `teams_cpk_name` is set to `teams2`. To confirm: whether a second
 # run is wanted at all, its name, and five slots.
-4cc_50_teams2.cpk
 4cc_51_teams2.cpk
 4cc_52_teams2.cpk
 4cc_53_teams2.cpk
 4cc_54_teams2.cpk
+4cc_55_teams2.cpk
 
-4cc_60_midcup.cpk
 4cc_61_midcup.cpk
 4cc_62_midcup.cpk
 4cc_63_midcup.cpk
@@ -59,9 +73,5 @@
 4cc_73_midcup.cpk
 4cc_74_midcup.cpk
 4cc_75_midcup.cpk
-4cc_76_midcup.cpk
-4cc_77_midcup.cpk
-4cc_78_midcup.cpk
-4cc_79_midcup.cpk
 
-4cc_90_test.cpk
+4cc_99_test.cpk

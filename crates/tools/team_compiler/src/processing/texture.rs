@@ -3,8 +3,8 @@
 //! `dds_convert`, which picks the codec the target version reads; a model folder's textures as
 //! one unit (step 6) and the export's Common textures as another ("Resolved decisions",
 //! "Common textures are one task of their export"); a portrait as the DDS every engine reads
-//! (`player_folders.md` "Portraits"). A texture's signature and size are checked by the deep
-//! pass before planning, a portrait's still here; what conversion itself finds
+//! (`player_folders.md` "Portraits"). A texture's signature and size, a portrait's included,
+//! are checked by the deep pass before planning; what conversion itself finds
 //! (`texture_codec_unsupported`, `messages.md` "Textures") is a finding on the file, and what
 //! it drops is the task's business.
 
@@ -17,7 +17,6 @@ use dds_convert::{
 use studio_core::Disposition;
 
 use super::{CompileContext, Entry, Finding, TaskFailure, TaskFiles, take};
-use crate::deep::signature_format;
 use crate::messages::Code;
 use crate::paths;
 use crate::plan::ModelFolder;
@@ -43,35 +42,6 @@ impl From<TextureError> for TaskFailure {
             TextureError::Other(error) => TaskFailure::from(error),
         }
     }
-}
-
-/// A portrait's `texture_type_mismatch`: the file `name`'s `bytes` open with the signature of
-/// another accepted format than `format`, the one its extension names: a file renamed, not
-/// resaved. (Every other texture is checked by the deep pass.)
-fn check_signature(format: SourceFormat, name: &str, bytes: &[u8]) -> Result<(), TextureError> {
-    match signature_format(bytes) {
-        Some(sniffed) if sniffed != format => Err(TextureError::Finding(
-            Code::TextureTypeMismatch,
-            name.to_owned(),
-        )),
-        Some(_) | None => Ok(()),
-    }
-}
-
-/// A portrait's size findings: `texture_too_small` when a side of the file `name`'s texture
-/// is under 4 pixels, one block; `texture_not_pow2` when a side is not a power of two,
-/// whatever its mip count. (Every other texture is checked by the deep pass.)
-fn check_dimensions(name: &str, width: u32, height: u32) -> Result<(), TextureError> {
-    if width < 4 || height < 4 {
-        return Err(TextureError::Finding(
-            Code::TextureTooSmall,
-            name.to_owned(),
-        ));
-    }
-    if !(width.is_power_of_two() && height.is_power_of_two()) {
-        return Err(TextureError::Finding(Code::TextureNotPow2, name.to_owned()));
-    }
-    Ok(())
 }
 
 /// The failure of converting the file `name`: `texture_codec_unsupported` for what
@@ -254,17 +224,18 @@ pub(super) fn convert(
 }
 
 /// The portrait file `name`, in `format`, holding `bytes`, as the DDS every engine reads
-/// (`player_folders.md` "Portraits"): a DDS source as it is, after the findings are checked on
-/// its decode; any other accepted format decoded and encoded to BC3 at its own size with the
-/// full mip chain. A portrait's sides must be powers of two whatever its mip count.
+/// (`player_folders.md` "Portraits"): a DDS source as it is, any other accepted format
+/// encoded to BC3 at its own size with the full mip chain. Its signature and size are the deep
+/// pass's checks; a portrait that reaches this point passed them or is kept by
+/// `pass_through`, so it is packed whatever its size.
 pub(super) fn portrait(
     format: SourceFormat,
     name: &str,
     bytes: Vec<u8>,
 ) -> Result<Vec<u8>, TextureError> {
-    check_signature(format, name, &bytes)?;
+    // Decoded even when the DDS goes out as it is: the deep pass reads only the header, and
+    // this decode is what fails the task of a portrait whose header or data is broken.
     let decoded = decode(&bytes, format).map_err(|error| conversion_failure(name, error))?;
-    check_dimensions(name, decoded.width, decoded.height)?;
     match format {
         SourceFormat::Dds => Ok(bytes),
         SourceFormat::Ftex
@@ -380,25 +351,6 @@ mod tests {
     }
 
     #[test]
-    fn a_portrait_side_under_4_or_not_a_power_of_two_is_a_finding() {
-        // 4 is the smallest side, a side under it on either axis is too small whatever the
-        // other, and a side that is not a power of two is a finding.
-        assert!(check_dimensions("t", 4, 4).is_ok());
-        for (width, height) in [(3, 300), (300, 3), (3, 3)] {
-            assert!(matches!(
-                check_dimensions("t", width, height),
-                Err(TextureError::Finding(Code::TextureTooSmall, _))
-            ));
-        }
-        for (width, height) in [(300, 256), (256, 300)] {
-            assert!(matches!(
-                check_dimensions("t", width, height),
-                Err(TextureError::Finding(Code::TextureNotPow2, _))
-            ));
-        }
-    }
-
-    #[test]
     fn a_codec_dds_convert_does_not_decode_is_codec_unsupported() {
         assert_eq!(
             finding(convert(
@@ -454,22 +406,14 @@ mod tests {
                 "{name}"
             );
         }
-        // The findings apply to a portrait as to any texture, the power-of-two rule whatever
-        // its mip count: a 64x128 DDS passes, a 300x300 PNG does not, nor a 3x3 one, nor a
-        // BC6H DDS, nor PNG bytes under a `.dds` name.
+        // A portrait's signature and size are the deep pass's checks: one `pass_through`
+        // keeps is packed whatever its size, a 300x300 PNG as a 300x300 BC3 DDS.
         let odd = texture_fixture("odd.png");
-        assert_eq!(
-            finding(portrait(SourceFormat::Png, "player_05.png", odd.clone())),
-            (Code::TextureNotPow2, "player_05.png".to_owned())
-        );
-        assert_eq!(
-            finding(portrait(
-                SourceFormat::Png,
-                "portrait.png",
-                texture_fixture("tiny.png")
-            )),
-            (Code::TextureTooSmall, "portrait.png".to_owned())
-        );
+        let dds = portrait(SourceFormat::Png, "player_05.png", odd.clone()).unwrap();
+        let decoded = decode(&dds, SourceFormat::Dds).unwrap();
+        assert_eq!((decoded.width, decoded.height), (300, 300));
+        // Every source is still decoded, a DDS included: a BC6H DDS is the codec finding, and
+        // PNG bytes under a `.dds` name fail the task.
         assert_eq!(
             finding(portrait(
                 SourceFormat::Dds,
@@ -478,10 +422,11 @@ mod tests {
             )),
             (Code::TextureCodecUnsupported, "portrait.dds".to_owned())
         );
-        assert_eq!(
-            finding(portrait(SourceFormat::Dds, "portrait.dds", odd)),
-            (Code::TextureTypeMismatch, "portrait.dds".to_owned())
-        );
+        let Err(TextureError::Other(error)) = portrait(SourceFormat::Dds, "portrait.dds", odd)
+        else {
+            panic!("PNG bytes under a `.dds` name are not a DDS");
+        };
+        assert_eq!(format!("{error}"), "portrait.dds: cannot convert");
     }
 
     #[test]

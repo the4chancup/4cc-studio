@@ -213,7 +213,7 @@ fn co_face(slot: u32) -> String {
 
 /// A single-level BC1 DDS of `width`x`height`, its blocks zero: built from the blocks, so
 /// nothing is encoded.
-fn bc1_dds(width: u32, height: u32) -> Vec<u8> {
+pub(crate) fn bc1_dds(width: u32, height: u32) -> Vec<u8> {
     let blocks = width.div_ceil(4) * height.div_ceil(4) * 8;
     let decoded = Decoded {
         width,

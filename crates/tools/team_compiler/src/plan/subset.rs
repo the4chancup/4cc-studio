@@ -6,8 +6,8 @@
 
 use aesthetics_export::{
     ExportIdentity, FileDescriptor, FileKind, FpcDirective, KitLayout, ModelFormat, ModelSuffix,
-    PlayerFolder, PlayerSlot, ResolvedAestheticsExport, SharedKind, SharedLink, SharedModelFolder,
-    ValidatedAestheticsExport, ValidatedRoster, classify, common_link_name, model_suffix,
+    PlayerFolder, ResolvedAestheticsExport, SharedKind, SharedLink, SharedModelFolder,
+    ValidatedAestheticsExport, classify, common_link_name, model_suffix,
 };
 use dds_convert::SourceFormat;
 use pes_version::{Engine, PesVersion};
@@ -553,13 +553,8 @@ pub(crate) fn first_not_compiled(
             return Some(what_entry(&texture.file));
         }
     }
-    for (slot, file) in &export.portraits {
-        // A slot with a portrait from both sources is refused by naming this file: whether
-        // the two agree is the deep pass's `portrait_conflict`, which compares their bytes.
-        if folder_holds_portrait(export, *slot) {
-            return Some(what_entry(file));
-        }
-    }
+    // A slot with a portrait from both sources is not refused: the deep pass has skipped an
+    // export whose two files differ (`portrait_conflict`), so identical ones are one portrait.
     // A small logo comes only with a main one, which is named first, so the small one is not
     // walked.
     let mut rest = export
@@ -598,18 +593,6 @@ fn common_file_compiled(file: &FileDescriptor) -> bool {
             | FileKind::Metadata(_)
             | FileKind::Other => false,
         }
-}
-
-/// Whether the player folder `slot` maps in `export`, if one does, holds a `portrait.*`.
-fn folder_holds_portrait(export: &ValidatedAestheticsExport, slot: PlayerSlot) -> bool {
-    // A referee roster never reaches here: the gate names `refs` before any file.
-    let ValidatedRoster::Team(slots) = &export.roster else {
-        return false;
-    };
-    slots
-        .get(&slot)
-        .and_then(|index| export.players.get(index.0))
-        .is_some_and(|folder| folder.portrait.is_some())
 }
 
 /// The first thing in the mapped player `folder` of `export` that `compile` cannot build into
@@ -1018,42 +1001,6 @@ mod tests {
         ] {
             assert_eq!(gate(&[file]), None, "{file}");
         }
-    }
-
-    #[test]
-    fn a_slot_with_a_portrait_from_both_sources_is_named_by_its_portraits_file() {
-        assert_eq!(
-            gate(&["Players/03 - A/portrait.dds", "Portraits/player_03.dds"]),
-            what("Portraits/player_03.dds")
-        );
-        // Another slot's file, mapped to a folder without a portrait or to no folder, is no
-        // conflict.
-        assert_eq!(
-            gate(&[
-                "Players/03 - A/portrait.dds",
-                "Players/07 - B/face_high.fmdl",
-                "Players/07 - B/face_diff.bin",
-                "Portraits/player_07.dds",
-                "Portraits/player_09.dds",
-            ]),
-            None
-        );
-        // The folder's portrait stands for every slot mapping the folder.
-        let export = resolved(
-            "co - Gate",
-            &[
-                ("Players/A/face_high.fmdl", 1),
-                ("Players/A/face_diff.bin", 1),
-                ("Players/A/portrait.dds", 1),
-                ("Portraits/player_07.dds", 1),
-            ],
-            &[],
-            Some(b"03 A\n07 A\n"),
-        );
-        assert_eq!(
-            first_not_compiled(&export, PesVersion::Pes21),
-            what("Portraits/player_07.dds")
-        );
     }
 
     #[test]

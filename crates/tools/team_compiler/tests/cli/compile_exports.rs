@@ -11,7 +11,7 @@ use crate::compile::{
     compiled_kits, compiled_players, compiled_portraits, cpk_entries, pass_through_settings,
     pes21_settings, tracer_kit, tracer_portrait,
 };
-use crate::textures::texture_fixture;
+use crate::textures::{bc1_dds, texture_fixture};
 use crate::{CLEAN_PLAYER, clean_model, findings_of, source_fixture};
 
 // TC-ROS-01
@@ -258,8 +258,9 @@ fn a_folder_listed_under_two_slots_emits_its_portrait_for_both() {
     }
 }
 
+// TC-PRT-02
 #[test]
-fn a_slot_with_a_portrait_in_its_folder_and_in_portraits_is_not_compiled_yet() {
+fn a_slot_s_two_portraits_skip_the_export_when_they_differ_and_are_one_when_identical() {
     let sandbox = Sandbox::new("portraits_both_sources");
     sandbox.copy_tracer_face("exports/co - Both/Players/05 - A");
     sandbox.write("exports/co - Both/Portraits/player_05.dds", &tracer_kit());
@@ -272,12 +273,33 @@ fn a_slot_with_a_portrait_in_its_folder_and_in_portraits_is_not_compiled_yet() {
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=boots.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=fcl_hair.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=glove_l.fmdl, count=2)",
-            "Info export_identified [Keep] (team=/co/, id=714)",
-            "Error content_not_yet_compiled [DropExport] (what=Portraits/player_05.dds)"
+            "Error portrait_conflict [DropExport] (folder_portrait=Players/05 - A/portrait.dds, portraits_file=Portraits/player_05.dds)",
         ]
     );
     assert_eq!(run.exit_code(), 1);
     assert!(!sandbox.root.join("output/4cc_90_test.cpk").exists());
+
+    // The same bytes in both places are one portrait.
+    sandbox.write(
+        "exports/co - Both/Portraits/player_05.dds",
+        &tracer_portrait(),
+    );
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+    assert_eq!(
+        findings_of(&run.messages(), "co - Both"),
+        [
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=boots.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=fcl_hair.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=glove_l.fmdl, count=2)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+        ]
+    );
+    assert_eq!(run.exit_code(), 0);
+    assert_eq!(compiled_portraits(&sandbox), ["71405.dds"]);
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_90_test.cpk"));
+    assert_eq!(entries[&portrait_path("71405.dds")], tracer_portrait());
 }
 
 /// Asserts `dds` is a BC3 DDS of 128x128 with the full 8-level chain: what a raster portrait
@@ -340,31 +362,67 @@ fn a_dds_portrait_passes_through_and_a_png_one_is_encoded_to_bc3_under_the_versi
     assert_bc3_portrait(&entries[&portrait_path("player_71407.dds")], "PES 18");
 }
 
-#[test]
-fn a_portrait_with_a_finding_is_left_out_alone() {
-    let sandbox = Sandbox::new("portraits_odd");
+/// Writes `exports/co - Odd`: slot 03 the tracer's player, its portrait included, and
+/// `Portraits/player_05.dds`, a single-level DDS of 300x300, not a power of two on either side.
+fn write_odd_portrait_export(sandbox: &Sandbox) {
     sandbox.copy_tracer_face("exports/co - Odd/Players/03 - A");
-    // 300x300: not a power of two on either side.
     sandbox.write(
-        "exports/co - Odd/Portraits/player_05.png",
-        &texture_fixture("odd.png"),
+        "exports/co - Odd/Portraits/player_05.dds",
+        &bc1_dds(300, 300),
     );
+}
+
+/// The lines `exports/co - Odd` gets, its portrait's finding with `disposition`.
+fn odd_portrait_findings(disposition: &str) -> [String; 5] {
+    [
+        "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=boots.fmdl, count=1662)".to_owned(),
+        "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=fcl_hair.fmdl, count=1662)".to_owned(),
+        "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=glove_l.fmdl, count=2)".to_owned(),
+        format!("Error texture_not_pow2 [{disposition}] at Portraits/player_05.dds (file=player_05.dds)"),
+        "Info export_identified [Keep] (team=/co/, id=714)".to_owned(),
+    ]
+}
+
+// TC-PRT-03
+#[test]
+fn a_portrait_whose_side_is_not_a_power_of_two_is_checked_and_left_out_alone() {
+    let sandbox = Sandbox::new("portraits_odd");
+    write_odd_portrait_export(&sandbox);
+
+    let check = sandbox.run(&pes21_settings(&sandbox), &["check"]);
+
+    assert_eq!(
+        findings_of(&check.messages(), "co - Odd"),
+        odd_portrait_findings("DropFile")
+    );
+    assert_eq!(check.exit_code(), 1);
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
 
     assert_eq!(
         findings_of(&run.messages(), "co - Odd"),
-        [
-            "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=boots.fmdl, count=1662)",
-            "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=fcl_hair.fmdl, count=1662)",
-            "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=glove_l.fmdl, count=2)",
-            "Info export_identified [Keep] (team=/co/, id=714)",
-            "Error texture_not_pow2 [DropFile] at Portraits/player_05.png (file=player_05.png)"
-        ]
+        odd_portrait_findings("DropFile")
     );
     assert_eq!(run.exit_code(), 1);
     assert_eq!(compiled_players(&sandbox), [71403]);
     assert_eq!(compiled_portraits(&sandbox), ["71403.dds"]);
+}
+
+#[test]
+fn pass_through_keeps_a_portrait_whose_side_is_not_a_power_of_two() {
+    let sandbox = Sandbox::new("portraits_odd_pass_through");
+    write_odd_portrait_export(&sandbox);
+
+    let run = sandbox.run(&pass_through_settings(&sandbox), &["compile"]);
+
+    assert_eq!(
+        findings_of(&run.messages(), "co - Odd"),
+        odd_portrait_findings("Keep")
+    );
+    assert_eq!(run.exit_code(), 1);
+    assert_eq!(compiled_portraits(&sandbox), ["71403.dds", "71405.dds"]);
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_90_test.cpk"));
+    assert_eq!(entries[&portrait_path("71405.dds")], bc1_dds(300, 300));
 }
 
 // TC-KIT-10

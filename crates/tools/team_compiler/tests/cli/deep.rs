@@ -231,3 +231,39 @@ fn a_model_that_does_not_parse_is_model_broken_and_drops_its_folder_even_with_pa
         ]
     );
 }
+
+// `compile` emits no logo yet, so until it does "no logo is emitted" holds for any export; the
+// exact entry list below is what keeps proving it afterwards.
+// TC-CHK-05
+#[test]
+fn a_logo_that_does_not_decode_is_logo_file_invalid_and_the_export_is_otherwise_kept() {
+    let sandbox = Sandbox::new("deep_logo_invalid");
+    sandbox.write("exports/co - Logo/logo.png", b"not an image");
+    sandbox.write(
+        "exports/co - Logo/Players/07 - Winger/boots.fmdl",
+        &tracer_player_file("boots.fmdl"),
+    );
+    let findings = [
+        WINGER_WEIGHTS,
+        "Error logo_file_invalid [DropFile] at logo.png (file=logo.png, error=image decode failed: Format error decoding Png: Invalid PNG signature.)",
+        IDENTIFIED,
+    ];
+
+    let check = sandbox.run("", &["check"]);
+    assert_eq!(findings_of(&check.messages(), "co - Logo"), findings);
+    assert_eq!(check.exit_code(), 1);
+
+    // Pass-through does not keep it: there is nothing the game's logo sizes can be made from.
+    let compile = sandbox.run(&pass_through_settings(&sandbox), &["compile"]);
+    assert_eq!(findings_of(&compile.messages(), "co - Logo"), findings);
+    assert_eq!(compile.exit_code(), 1);
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_90_test.cpk"));
+    let paths: Vec<&str> = entries.keys().map(String::as_str).collect();
+    assert_eq!(
+        paths,
+        [
+            "Asset/model/character/boots/k0627/#Win/boots.fpk",
+            "Asset/model/character/boots/k0627/#Win/boots.fpkd",
+        ]
+    );
+}

@@ -12,7 +12,7 @@ is in `AGENTS.md` ("Working documents").
 **Phase:** 3 (Team compiler skeleton) closed 2026-10-02, its cross-family reviews queued (see
 "Handover"). Phases 1 and 2 done (Phase 2 closed 2026-09-30).
 **Next:** Phase 4 is itemized and its Acceptance section written (step 4.1, 2026-10-03; its
-cross-family review (a) is queued). Next: 4.7 (deep validation pass, in slices; (a), (b) and (c1) are done, (c2) is briefed), then 4.8; 4.30, 4.6 and 4.5 are done (4.6c moved to Phase 8's cancellation). 2.5b (GPU BC7) is step 16.x (decision entries
+cross-family review (a) is queued). Next: 4.7 (deep validation pass, in slices; (a), (b), (c1) and (c2) are done, (d) is briefed), then 4.8; 4.30, 4.6 and 4.5 are done (4.6c moved to Phase 8's cancellation). 2.5b (GPU BC7) is step 16.x (decision entries
 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0 after Phase 8; phase order 1–6,
 8, 0.1.0, 7, 9–16 (`core/development_plan.md` "Releases"); first-class target the Fox version
 the cup moves to around April 2027 ("Target versions").
@@ -557,7 +557,19 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
     `portrait_conflict` (both sources, different bytes: the export dropped; equal bytes:
     one portrait, and planning's refusal of a slot with both goes), the logo's decode
     (`logo_file_invalid`), processing's portrait checks retired. TC-PRT-02..03, TC-CHK-05
-    (its "no logo is emitted" half is trivially true until 4.11)
+    (its "no logo is emitted" half is trivially true until 4.11; the test asserts the
+    CPK's exact entries, so it keeps proving it afterwards). Done 2026-10-03 (Opus 5.5,
+    first time): `deep.rs` split into `deep/mod.rs` (the walk), `deep/model.rs` and
+    `deep/texture.rs`, a pure move; a portrait checked on its own `File` scope
+    (`SizeRule::Portrait`), a player's after its folder's files, the `Portraits/` files
+    after `Common/`; `portrait_conflict` (`Export`, `DropExport`) compares the bytes of a
+    slot's two files whatever their own findings (each is read a second time for it);
+    planning keeps the folder's file for a player id with both, and the gate's refusal is
+    gone; the logo's files decoded last (`Checked::Logo`); `portrait` in processing still
+    decodes every source, so a broken one fails its task, and checks nothing else. Only
+    team rosters pair a folder's portrait with a `Portraits/` file. Not tested in the
+    deep pass: a folder two slots map, paired with each slot's file (planning's side is).
+    Gates green (109 of 206); `mutants-diff 8f2a216`: 65, 52 caught, 13 unviable, 0 missed
   - (d) `face_diff_invalid` and `xml_dif_conflict` reported by the deep pass, where they drop
     the folder (`player_folders.md` "`face_diff.xml`"; the tests in `tests/cli/models.rs`
     change); `kit_config_invalid`, `settings_toml_invalid` (parse only, through `pes_savefile`'s
@@ -1778,3 +1790,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   `texture_not_pow2` and the new `kit_texture_too_big`, each dropping its folder, kit or
   `Common/` file before planning, and `pass_through` keeps the three size findings' files.
   One tests-only rework round (the size rules' one-sided cases, from 7 mutation survivors).
+- **2026-10-03** — 4.7c2: `check` reports a portrait's texture findings and drops that file
+  alone (`pass_through` keeps a size finding's file); two differing portraits for one slot
+  are `portrait_conflict` and skip the export, identical ones compile as one; a logo that
+  does not decode is `logo_file_invalid`. `deep.rs` is now the `deep/` module.

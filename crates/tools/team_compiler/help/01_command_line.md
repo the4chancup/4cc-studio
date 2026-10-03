@@ -17,9 +17,12 @@ previous CPK as it was. In this version `compile` builds exports for PES 2018 to
 only the models of the players in the roster, kept in each player's own folder: face models,
 boots (a model whose name ends in `boots`, such as `kit_boots.fmdl`) and gloves (`glove_l`,
 `glove_r`, or `handL`, `handR`), with their textures, their portraits (a `portrait` image in
-the player's folder, or `player_NN` in the `Portraits` folder, not both for one player), and
-kits. A texture (a player's, a shared folder's, a Common one, a kit's or a portrait) can be a
-`.dds`, `.ftex`, `.png`, `.jpg`, `.bmp`, `.webp`, `.tga` or `.tif` file: each is converted to
+the player's folder, or `player_NN` in the `Portraits` folder; a player with both gets one
+portrait when the two files are identical, while two that differ are the line
+`portrait_conflict` and the whole export is skipped, since the compiler cannot tell which one
+is meant), and kits. A texture (a player's, a shared folder's, a Common one, a kit's or a
+portrait) can be a `.dds`, `.ftex`, `.png`, `.jpg`, `.bmp`, `.webp`, `.tga` or `.tif` file:
+each is converted to
 what the chosen PES version reads, BC7 for PES 2019 to 2021 and BC3 for PES 2018 (BC1 when the
 image has no transparency at all; a `.dds` or `.ftex` already in a format the version reads is
 kept as it is), and an image without the smaller copies of itself the game needs (its mip
@@ -41,8 +44,10 @@ or `.ftex` in a format the compiler does not read, BC6H for one, or a 16-bit or 
 texture leaves out the whole folder, a kit's texture the whole kit (a texture in `all` leaves
 out every kit using it), a `Common` texture only that file (the rest of `Common` is still built,
 and a player linking that file is left out with the line `link_target_dropped`), a portrait only
-that portrait. With `pass_through` on, a texture other than a portrait with one of the three
-size lines is kept and converted as it is; a renamed one is still left out. A texture that
+that portrait. With `pass_through` on, a texture with one of the three size lines, a portrait
+included, is kept and converted as it is; a renamed one is still left out. A `logo` image at
+the export's root that is not a readable image is the line `logo_file_invalid`, from both
+commands, and the logo is left out even with `pass_through` on. A texture that
 cannot be read for any other reason is reported as
 `folder_pack_failed`, naming the file, and its folder is left out. A kit folder holding a
 `kit_mask` texture compiled for PES 2018 to 2021 gets the line `kit_texture_not_used`: these

@@ -32,7 +32,9 @@ pub struct ValidationIssue {
 /// cascades and passes through like the structure pass's own findings.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ContentFinding {
-    /// The consumer's stable code; not one of `ISSUE_CODES`.
+    /// The consumer's own stable code; `logo_file_invalid`, for a logo
+    /// that does not decode, is the one `ISSUE_CODES` member a consumer
+    /// also reports.
     pub code: &'static str,
     /// What the finding is about: the item its disposition acts on (a
     /// `Folder` scope a player, shared or kit folder; a `File` scope a
@@ -128,9 +130,10 @@ pub(crate) fn issue_in(
     )
 }
 
-/// A consumer's content finding as an issue: its code is the consumer's, so
-/// `ISSUE_CODES` does not list it, and its own flag says whether
-/// `pass_through` may keep its item.
+/// A consumer's content finding as an issue: its code is the consumer's own
+/// (`logo_file_invalid` the one `ISSUE_CODES` lists too), so `issue`'s check
+/// does not apply, and its own flag says whether `pass_through` may keep its
+/// item.
 pub(crate) fn content_issue(
     finding: ContentFinding,
     context: &ValidationContext,

@@ -422,8 +422,9 @@ pub(crate) fn plan_run(
             .iter()
             .map(|file| file_stem(file.path.name()).to_owned())
             .collect();
-        // A folder's portrait goes out once per slot mapping the folder; the gate has refused
-        // any slot with a portrait from both sources, so no player id comes up twice.
+        // A folder's portrait goes out once per slot mapping the folder. A player id with a
+        // `Portraits/` file too comes up twice; the deep pass has skipped an export whose two
+        // files differ, so they are the same bytes and the folder's is packed once (below).
         let mut portraits: Vec<(u32, FileDescriptor)> = Vec::new();
         // The player folders are taken out so the rest of the export (its shared folders)
         // stays readable while each folder's links are resolved against it.
@@ -514,7 +515,10 @@ pub(crate) fn plan_run(
                 .into_iter()
                 .map(|(slot, file)| (slot.player_id(id), file)),
         );
+        // A stable sort keeps the folder's file, pushed first, ahead of the `Portraits/` file
+        // of its player id, and `dedup` keeps the first of each id.
         portraits.sort_by_key(|(player_id, _)| *player_id);
+        portraits.dedup_by_key(|(player_id, _)| *player_id);
         for (player_id, file) in portraits {
             tasks.push(task(
                 export_id,
@@ -1471,6 +1475,36 @@ mod tests {
             .map(|file| file.path.as_str())
             .collect();
         assert_eq!(files, ["Players/Zed/portrait.dds"]);
+    }
+
+    #[test]
+    fn a_player_id_with_a_portrait_from_both_sources_gets_one_task_over_the_folder_s_file() {
+        // Slot 07's `Portraits/` file beside the folder slots 03 and 07 map: the deep pass
+        // has found the two identical, so the folder's file is the one portrait.
+        let export = resolved(
+            "dbg - Portraits",
+            &[
+                ("Players/Zed/face_high.fmdl", 10),
+                ("Players/Zed/face_diff.bin", 0),
+                ("Players/Zed/portrait.dds", 4),
+                ("Portraits/player_07.dds", 4),
+                ("Portraits/player_05.dds", 6),
+            ],
+            &[],
+            Some(b"07 Zed\n03 Zed\n"),
+        );
+
+        let report = plan_run(vec![(ExportId(0), export)], PesVersion::Pes21);
+
+        assert_eq!(
+            summary(&report),
+            [
+                "0 790 Face Players/Zed [79003, 79007] charge 10",
+                "0 790 portrait 79003 Players/Zed/portrait.dds charge 4",
+                "0 790 portrait 79005 Portraits/player_05.dds charge 6",
+                "0 790 portrait 79007 Players/Zed/portrait.dds charge 4",
+            ]
+        );
     }
 
     #[test]

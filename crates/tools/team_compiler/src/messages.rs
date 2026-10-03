@@ -44,6 +44,9 @@ pub(crate) enum Code {
     BootsIdPoolExhausted,
     /// More shared gloves folders take an id than the team's block has; the export is skipped.
     GlovesIdPoolExhausted,
+    /// A slot with a portrait in its player folder and one in `Portraits/` whose bytes differ:
+    /// the export is skipped, since the compiler cannot tell which one the manager means.
+    PortraitConflict,
     /// A player holds a boots or gloves link beside a model of the same package: the shared
     /// folder's models become parts of the player's own package.
     LinkCombined,
@@ -117,7 +120,7 @@ impl Code {
     /// Every code, for the catalog test: a variant missing here would make its first message
     /// panic in `severity`, so a new variant is added to this list too.
     #[cfg(test)]
-    const ALL: [Code; 36] = [
+    const ALL: [Code; 37] = [
         Code::ExportExtractFailed,
         Code::NoExportsFound,
         Code::ExportDisabled,
@@ -131,6 +134,7 @@ impl Code {
         Code::ContentNotYetCompiled,
         Code::BootsIdPoolExhausted,
         Code::GlovesIdPoolExhausted,
+        Code::PortraitConflict,
         Code::LinkCombined,
         Code::FmdlFclHairFallback,
         Code::FmdlMerged,
@@ -172,6 +176,7 @@ impl Code {
             Code::ContentNotYetCompiled => "content_not_yet_compiled",
             Code::BootsIdPoolExhausted => "boots_id_pool_exhausted",
             Code::GlovesIdPoolExhausted => "gloves_id_pool_exhausted",
+            Code::PortraitConflict => "portrait_conflict",
             Code::LinkCombined => "link_combined",
             Code::FmdlFclHairFallback => "fmdl_fcl_hair_fallback",
             Code::FmdlMerged => "fmdl_merged",
@@ -228,6 +233,7 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("content_not_yet_compiled", CatalogSeverity::Error),
     ("boots_id_pool_exhausted", CatalogSeverity::Error),
     ("gloves_id_pool_exhausted", CatalogSeverity::Error),
+    ("portrait_conflict", CatalogSeverity::Error),
     ("link_combined", CatalogSeverity::Info),
     ("fmdl_fcl_hair_fallback", CatalogSeverity::Info),
     ("fmdl_merged", CatalogSeverity::Info),

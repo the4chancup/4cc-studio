@@ -73,8 +73,8 @@ pub(crate) type Finding = (Code, Disposition, Vec<(&'static str, String)>);
 
 /// Why a task failed: the finding reported on its folder (its file, for a portrait). A merge
 /// conflict between parts has its own code (`merge_material_conflict`, `skl_merge_conflict`),
-/// and so has a texture finding (`texture_codec_unsupported`, a portrait's `texture_too_small`,
-/// ...); any other error is `folder_pack_failed` carrying the error chain.
+/// and so has conversion's texture finding (`texture_codec_unsupported`); any other error is
+/// `folder_pack_failed` carrying the error chain.
 pub(crate) struct TaskFailure {
     /// The finding's code.
     pub(crate) code: Code,
@@ -1487,7 +1487,7 @@ mod tests {
             Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/textures/odd.png"),
         )
         .unwrap();
-        // PNG bytes under the `.dds` name: the signature check comes first.
+        // PNG bytes under the `.dds` name: decoding them as a DDS fails the task.
         let batch = run_with(
             TaskKind::Portrait {
                 player_id: 79205,
@@ -1500,7 +1500,7 @@ mod tests {
         let [message] = batch.messages.as_slice() else {
             panic!("{:?}", batch.messages);
         };
-        assert_eq!(message.code.code, "texture_type_mismatch");
+        assert_eq!(message.code.code, "folder_pack_failed");
         assert_eq!(
             (message.severity, message.disposition),
             (Severity::Error, Disposition::DropFile)
@@ -1514,7 +1514,11 @@ mod tests {
         );
         assert_eq!(
             message.context,
-            [("file".to_owned(), "portrait.dds".to_owned())]
+            [(
+                "error".to_owned(),
+                "portrait.dds: cannot convert: container conversion failed: invalid magic: invalid magic"
+                    .to_owned()
+            )]
         );
     }
 
