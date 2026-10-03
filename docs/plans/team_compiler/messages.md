@@ -447,6 +447,7 @@ injection into the system `dt00_x64.cpk`, and with it `ref_marker_needs_consent`
 | `deploy_skipped_by_flag` | I | `--no-deploy` given (CLI) | staged CPKs promoted to `output/`; savefile step skipped; run is clean |
 | `overrides_active` | I | `overrides/` folder present and injected | none |
 | `bin_source` | I | which installed CPK supplied a working bin in the DpFileList walk, or `bundled` when the embedded base was used (context: the bin, the CPK or `bundled`) | none |
+| `bin_header_repaired` | W | a working `TeamColor.bin` or `UniColor.bin` held records whose header was not their position's: the team ID, or in `TeamColor.bin` the color count. One finding per bin (context: the bin, the teams). It marks a corrupt installed bin, whatever wrote it, so the cause can be looked for | the headers are rewritten; each record's other bytes are kept, so those teams' colors may be wrong until their exports are compiled again |
 | `savefile_autodetected` | I | `savefile_path = auto` resolved a savefile under Documents\KONAMI (names the path; noted especially when several account folders existed and the newest was chosen) | none |
 | `patch_written` | I | the aesthetics patch was written beside the output CPK (names the path and the teams it covers) | none |
 | `savefile_missing` | W | aesthetics present but no savefile configured/found; the patch is the run's only savefile output | savefile step skipped; the message names the patch and the save editor's apply action |

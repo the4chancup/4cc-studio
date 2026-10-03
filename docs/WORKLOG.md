@@ -565,8 +565,8 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `scripts/provenance/fixtures/color_bins_compare.py`) at Red's per-team offsets, an entry applied only when its
   kit's task commits (placeholder kits included: TC-SRC-01's p2 gains its entry); root
   `colors.txt` → `TeamColor.bin`, `team_colors_missing` (I); both bins written whole with
-  every record's header set from its position (TC-BIN-13; installed bins carry headerless
-  `TeamColor.bin` records). Plan: `pipeline.md` "4. Per-export
+  every record's header set from its position, `bin_header_repaired` (W) when one was wrong
+  (TC-BIN-13; installed bins carry headerless `TeamColor.bin` records). Plan: `pipeline.md` "4. Per-export
   non-model steps" (Bins accumulation), "Resolved decisions" (Kit colors fallback);
   `libs/color_tools.md` "Dominant kit-color extraction". IDs: TC-KIT-11..14, TC-ROOT-10,
   TC-BIN-01..03, TC-BIN-13. Crates: tc (`bins/mod.rs`, `processing/kit.rs`), resources (`resources/bins/`) →
@@ -681,9 +681,8 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `edithair_unsupported`, `xml_oral_prefix_missing` (PES 16), `.model.common` as an XML Common
   path, `xml_common_path_invalid`. Plan: `pipeline.md` step 3 "Pre-Fox fixups", steps 5-7, "Game
   paths reference"; `player_folders.md` "A link plus local models combines" (pre-Fox), "Model
-  names". (waits on the maintainer: a Red run on PES 17 over a hand-migrated Studio twin of a
-  small pre-Fox export, committed under `tests/fixtures/tracer_prefox/` if under 1 MB, the
-  pre-Fox parity reference for 4.14-4.17; until it exists the step's checks are the ones below.)
+  names". (The pre-Fox parity reference for 4.14-4.17 is step 4.31's, the lead's; until it
+  exists the step's checks are the ones below.)
   IDs: TC-MOD-20..25, TC-TEX-07. Crates: tc (`processing/model.rs`, `processing/material.rs`,
   `processing/texture.rs`, `paths.rs`) → verify: a `/co/` slot 05 folder with the smallest
   `pes_model` fixture pair as `face.model` + `face.mtl` and `skin.dds`, compiled for PES 17: the
@@ -1760,3 +1759,5 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   it the run fails and names `REMOTE_BUILD_JOBS` as the setting to lower (`AGENTS.md`,
   `scripts/mutants.py`). Also: PES 21's `download` folder now holds the last VGL's DLC, and
   its kit-config tally in `libs/fpc.md` is redone on it (300 of 314 with the FPC values).
+- **2026-10-03** — The repaired bin headers are reported: `bin_header_repaired` (W), once per
+  bin, naming the teams (maintainer; decision entry; `messages.md`, TC-BIN-13).

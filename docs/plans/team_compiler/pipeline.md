@@ -504,7 +504,8 @@ describes behavior, not a serial scheduling requirement:
   index) and, in `TeamColor.bin`, the color count 4. A sound record is unchanged by this; an
   installed bin's record whose colors were written over its header (`resources/bins/README.md`
   measures them) gets its header back, so the game finds the team again, and keeps its other
-  bytes until an export with colors is compiled for that team. Kit configs are staged for
+  bytes until an export with colors is compiled for that team; `bin_header_repaired` names the
+  bin and the teams, so the corruption is noticed. Kit configs are staged for
   `UniformParameter.bin` compilation (Fox only; Red's `UniformParameter{18,19}.bin` are only its
   bundled per-version fallback bases); when
   the team's kit-FPC status is On, kit slots absent from the export are FPC-patched from the

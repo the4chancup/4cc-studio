@@ -1065,7 +1065,8 @@ TC-BIN-13  GIVEN an installed TeamColor.bin whose record for team 799 starts wit
            place of its team ID and color count
            WHEN a /co/ export is compiled
            THEN the emitted TeamColor.bin's record for team 799 starts with team ID 799 and
-                count 4, and every other installed record is unchanged
+                count 4, every other installed record is unchanged, and bin_header_repaired
+                is reported once, naming TeamColor.bin and team 799
 ```
 
 **Planning**

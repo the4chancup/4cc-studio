@@ -3434,3 +3434,14 @@ likely cause of team colors recently missing in the game. Nothing can go wrong f
 sure every team has a header: on a sound record the write changes no byte, so a bin built on
 Red's base still compares byte-identical with Red's output.
 Plan: `team_compiler/pipeline.md` "Bins accumulation"; `team_compiler/README.md` TC-BIN-13.
+
+## 2026-10-03 — team_compiler — color bins: a repaired header is reported
+Decision: when a working `TeamColor.bin` or `UniColor.bin` holds records whose header is not
+their position's, the compiler reports `bin_header_repaired` (Warning), once per bin, naming
+the bin and the teams. This replaces the earlier entry of this date's "no finding is reported
+for the repair"; the rest of that entry stands.
+Why (maintainer): a warning helps notice this sort of corruption and investigate what writes
+it. It also tells the organizer which teams' colors may still be wrong, since the repair
+keeps the record's other bytes.
+Plan: `team_compiler/messages.md` `bin_header_repaired`; `team_compiler/pipeline.md` "Bins
+accumulation"; `team_compiler/README.md` TC-BIN-13.
