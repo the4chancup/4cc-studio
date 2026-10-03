@@ -3,6 +3,7 @@ and a BC7 DDS with a full mip chain, for the compile tests of every accepted ima
 import hashlib
 import os
 import shutil
+import subprocess
 from pathlib import Path
 
 from PIL import Image
@@ -48,3 +49,28 @@ put("kit.png", lambda path: kit.save(path, format="PNG"))
 kit_back = gradient(128, 64, alpha=False)
 put("kit_back.tga", lambda path: kit_back.save(path, format="TGA", rle=False))
 put("bc7.dds", lambda path: shutil.copyfile(BC7_SOURCE, path))
+
+# Step 4.6b: portraits in raster formats, the sizes the conversion refuses, and a codec
+# `dds_convert` cannot decode.
+portrait = gradient(128, 128, alpha=False)
+put("portrait.png", lambda path: portrait.save(path, format="PNG"))
+put("portrait.webp", lambda path: portrait.save(path, format="WEBP", lossless=True))
+tiny = gradient(3, 3, alpha=False)
+put("tiny.png", lambda path: tiny.save(path, format="PNG"))
+odd = gradient(300, 300, alpha=False)
+put("odd.png", lambda path: odd.save(path, format="PNG"))
+
+TEXCONV = r"C:\Data\4cc\4cc aet compiler\_old\4cc-aet-compiler\Engines\texconv.exe"
+WORK = REPO / ".tmp" / "tc_textures_work"
+shutil.rmtree(WORK, ignore_errors=True)
+WORK.mkdir(parents=True)
+bc6h_source = WORK / "bc6h.png"
+gradient(32, 16, alpha=False).save(bc6h_source, format="PNG")
+completed = subprocess.run(
+    [TEXCONV, "-f", "BC6H_UF16", "-y", "-o", str(WORK), str(bc6h_source)],
+    capture_output=True,
+    text=True,
+)
+assert completed.returncode == 0, completed.stdout + completed.stderr
+put("bc6h.dds", lambda path: shutil.copyfile(WORK / "bc6h.DDS", path))
+shutil.rmtree(WORK)

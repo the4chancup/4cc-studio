@@ -10,4 +10,8 @@ the script and rerun it.
 | `skin.png` | 1024x1024 RGBA, an alpha ramp over the right half | a raster texture with alpha: BC7 on PES 19-21, BC3 on PES 18, 11 generated mip levels (TC-TEX-01) |
 | `kit.png` | 256x128 RGBA, fully opaque | a raster kit texture (TC-TEX-06) |
 | `kit_back.tga` | 128x64, 32-bit uncompressed TGA, fully opaque | a TGA kit texture (TC-TEX-06) |
+| `portrait.png`, `portrait.webp` | 128x128, fully opaque; the WebP lossless | raster portraits, encoded to a BC3 DDS (TC-PRT-01, TC-TEX-06) |
+| `tiny.png` | 3x3, fully opaque | a side under 4 pixels (`texture_too_small`) |
+| `odd.png` | 300x300, fully opaque | a side that is not a power of two (`texture_not_pow2`) |
+| `bc6h.dds` | 32x16 BC6H (`BC6H_UF16`, DX10 header), `texconv` 2024.1.1.1 on a gradient | a codec `dds_convert` does not decode (TC-TEX-04, `texture_codec_unsupported`) |
 | `bc7.dds` | a copy of `crates/libs/dds_convert/tests/fixtures/bc7.dds`: 32x16 BC7 (DX10 header), full 6-level mip chain, `texconv`-encoded (see that folder's README) | a source already BC7 with a full chain: kept on PES 19-21, transcoded to BC3 on PES 18 (TC-TEX-02) |
