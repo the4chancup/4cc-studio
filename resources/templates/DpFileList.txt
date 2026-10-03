@@ -1,14 +1,14 @@
 # The official 4cc DpFileList, as a list: one CPK per line, in load order (a later CPK's
 # files win over an earlier one's). Lines starting with # are comments.
 #
-# DRAFT for the maintainer to adjust. Worklog step 4.25 writes `DpFileList.bin` from this
-# list (the same file for every PES version) and embeds it as the DpFileList upgrade's
-# template.
+# Fixed by the maintainer on 2026-10-03. `DpFileList.bin` is written from this list (the
+# same file for every PES version) and embedded as the DpFileList upgrade's template, and
+# every compile compares the installed list with it.
 #
-# Base: the newest official list, the one in the maintainer's PES 2015 and PES 2017 installs
-# (39 entries, the two files byte-identical, read 2026-10-03). Two changes, both marked
-# below: the faces/uniform CPKs become the size-split `teams` run, and the `other_` pair
-# becomes a second run for a side event.
+# The numbering: a run of CPKs with one stem counts from 1 (`4cc_41_teams`, `4cc_61_midcup`).
+# The stadiums run counts from 0, because its first CPK is the base one and the stadium
+# midcups follow it. Each kind of midcup has fifteen CPKs, one per matchday of the longest
+# cups.
 
 4cc_01_db.cpk
 4cc_02_misc.cpk
@@ -40,24 +40,24 @@
 4cc_34_stadiums.cpk
 4cc_35_stadiums.cpk
 
-# CHANGED: replaces 4cc_40_faces.cpk and 4cc_45_uniform.cpk. All team content, split by
+# All team content (the older lists' 4cc_40_faces.cpk and 4cc_45_uniform.cpk), split by
 # size so no CPK reaches the 4 GiB limit of Git for Windows. Five slots at 3 GB each hold
-# 15 GB, about 2.5 times a 48-team cup. To confirm: five slots.
+# 15 GB, about 2.5 times a 48-team cup.
 4cc_41_teams.cpk
 4cc_42_teams.cpk
 4cc_43_teams.cpk
 4cc_44_teams.cpk
 4cc_45_teams.cpk
 
-# CHANGED: replaces 4cc_50_other_faces.cpk and 4cc_55_other_uniform.cpk. A second run for a
-# side event, filled when `teams_cpk_name` is set to `teams2`. To confirm: whether a second
-# run is wanted at all, its name, and five slots.
+# A second run for a side event (the older lists' 4cc_50_other_faces.cpk and
+# 4cc_55_other_uniform.cpk), filled when `teams_cpk_name` is set to `teams2`.
 4cc_51_teams2.cpk
 4cc_52_teams2.cpk
 4cc_53_teams2.cpk
 4cc_54_teams2.cpk
 4cc_55_teams2.cpk
 
+# Team midcups, one per matchday
 4cc_61_midcup.cpk
 4cc_62_midcup.cpk
 4cc_63_midcup.cpk

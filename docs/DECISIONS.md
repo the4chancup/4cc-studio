@@ -3445,3 +3445,35 @@ it. It also tells the organizer which teams' colors may still be wrong, since th
 keeps the record's other bytes.
 Plan: `team_compiler/messages.md` `bin_header_repaired`; `team_compiler/pipeline.md` "Bins
 accumulation"; `team_compiler/README.md` TC-BIN-13.
+
+## 2026-10-03 — team_compiler — the official DpFileList's entries, and a check on every compile
+Decision: the official list is `resources/templates/DpFileList.txt` as the maintainer edited
+it, 53 entries: the eleven base CPKs, `4cc_20_stadiums` to `4cc_35_stadiums`, `4cc_41_teams`
+to `4cc_45_teams`, `4cc_51_teams2` to `4cc_55_teams2`, `4cc_61_midcup` to `4cc_75_midcup`, and
+`4cc_99_test`, which replaces `4cc_90_test` as the default `cpk_name`. A numbered run counts
+from 1; the stadiums run counts from 0, its first CPK being the base one. Each kind of midcup
+has fifteen CPKs. And: every compile with a PES folder compares the installed list's entries
+with the official one's, in order; any difference that still lists the run's targets is
+`dpfilelist_not_official` (Warning), the run compiling and deploying all the same, with the
+upgrade offered (GUI) or named (CLI) and never applied without the user's yes. A list
+lacking a target of the run stays `dpfilelist_outdated` (Error), as before.
+Why (maintainer): stadium CPKs get the plain `stadiums` stem; midcups are used one per
+matchday and the longest cups have fifteen matchdays; a list that is not the official one
+should be noticed, but the user may have edited it on purpose or be working with an old DLC,
+so compiling for it must stay possible and replacing it must be asked first. Keeping the
+Error for a missing target is the lead's reading: the game would not load a CPK the list
+does not name, so deploying it would look like success and do nothing.
+Plan: `team_compiler/pipeline.md` "DpFileList upgrade", "Multi-CPK mode";
+`team_compiler/messages.md` `dpfilelist_not_official`; `team_compiler/README.md` TC-DEP-12.
+
+## 2026-10-03 — team_compiler — the DpFileList upgrade writes a placeholder for each missing CPK
+Decision: `upgrade-dpfl`, after replacing the list, writes the empty placeholder CPK for
+every official entry that has no file in `download/`, and never overwrites a file that is
+there. The default `refs_cpk_name` in the plan becomes `4cc_18_referees`, the official
+list's name.
+Why: the official list names 53 CPKs, more than any DLC ships and partly under new names, so
+an upgraded install would list CPKs that do not exist. Every installed list measured (PES 15
+to 20) names only files that are present, the unused slots as placeholders, so the game's
+behavior with a listed CPK that is missing is unknown, and the multi-CPK writer already
+avoids relying on it. Writing a 6,272-byte file where none exists cannot lose anything.
+Plan: `team_compiler/pipeline.md` "DpFileList upgrade"; `team_compiler/settings.md`.

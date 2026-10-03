@@ -1023,11 +1023,11 @@ TC-BIN-04  GIVEN a /co/ export with p1 and a root colors.txt
            WHEN it is compiled for PES 17
            THEN UniColor.bin and TeamColor.bin follow the pre-Fox layouts and no
                 UniformParameter.bin is written
-TC-BIN-05  GIVEN a PES folder whose download/DpFileList.bin lists 4cc_08_bins, 4cc_60_midcup and
-           4cc_90_test, 4cc_08_bins.cpk holding a UniColor.bin with team 714's p1 entry set to A and
-           4cc_60_midcup.cpk one with it set to B
-           WHEN /co/ with only p2/ is compiled with cpk_name 4cc_90_test, then with cpk_name
-           4cc_60_midcup
+TC-BIN-05  GIVEN a PES folder whose download/DpFileList.bin lists 4cc_08_bins, 4cc_61_midcup and
+           4cc_99_test, 4cc_08_bins.cpk holding a UniColor.bin with team 714's p1 entry set to A and
+           4cc_61_midcup.cpk one with it set to B
+           WHEN /co/ with only p2/ is compiled with cpk_name 4cc_99_test, then with cpk_name
+           4cc_61_midcup
            THEN the first run's UniColor.bin carries B at p1 (the highest-priority CPK below the
                 output's) and the second run's carries A (the midcup CPK and everything above it
                 skipped), both with p2 set; bin_source names the supplying CPK for each bin
@@ -1107,14 +1107,14 @@ TC-PLN-07  GIVEN a root with /co/ skipped by duplicate_aesthetics_export and /a/
 ```
 TC-REF-01  GIVEN a refs export whose players.txt maps "Ref A" (face_high.fmdl, boots.fmdl, skin.dds)
            to slots 01, 20 and 35
-           WHEN the root is compiled for PES 21 with refs_cpk_name 4cc_35_referees
-           THEN 4cc_35_referees.cpk holds the referee face package of slots 01, 20 and 35, boots
+           WHEN the root is compiled for PES 21 with refs_cpk_name 4cc_18_referees
+           THEN 4cc_18_referees.cpk holds the referee face package of slots 01, 20 and 35, boots
                 folders k9901, k9920 and k9935, one skin.ftex under common/999/Ref A/sourceimages/,
                 and the team CPK holds no 999 path
 TC-REF-02  GIVEN the same refs export and a /co/ export in one root
            WHEN the root is compiled
-           THEN two CPKs are written, 4cc_90_test.cpk without referee content and
-                4cc_35_referees.cpk without /co/'s, and both are deployed or promoted together
+           THEN two CPKs are written, 4cc_99_test.cpk without referee content and
+                4cc_18_referees.cpk without /co/'s, and both are deployed or promoted together
 TC-REF-03  GIVEN a refs export with Faces/Base/ linked by Ref A and Ref B
            WHEN it is compiled for PES 21
            THEN each referee's face package holds the merged face and Base has no output of its
@@ -1168,10 +1168,10 @@ TC-OUT-11  GIVEN compile --mode test with a kit and a root notes.txt
            THEN output/teamnotes.txt is written and the kit's UniColor entry is in the UniColor.bin
                 under test_output/_bins/
 TC-OUT-12  GIVEN multicpk_mode on, exports /a/, /b/ and /co/, cpk_part_max_size just above the
-           compiled size of /a/ and /b/ together, and a DPFL reserving 4cc_40_teams to 4cc_44_teams
+           compiled size of /a/ and /b/ together, and a DPFL reserving 4cc_41_teams to 4cc_45_teams
            WHEN the root is compiled
-           THEN 4cc_40_teams.cpk holds /a/ and /b/ whole, 4cc_41_teams.cpk holds /co/,
-                4cc_42_teams.cpk to 4cc_44_teams.cpk are each the 6,272-byte placeholder, and
+           THEN 4cc_41_teams.cpk holds /a/ and /b/ whole, 4cc_42_teams.cpk holds /co/,
+                4cc_43_teams.cpk to 4cc_45_teams.cpk are each the 6,272-byte placeholder, and
                 4cc_08_bins.cpk holds the bins only
 TC-OUT-13  GIVEN the same with cpk_part_max_size below one team's size
            WHEN the root is compiled
@@ -1183,17 +1183,17 @@ TC-OUT-14  GIVEN the same with a DPFL reserving one teams slot
 TC-OUT-15  GIVEN multicpk_mode off and cpk_part_max_size set below the single CPK's size
            WHEN the root is compiled
            THEN cpk_size_over_limit is a Warning, the CPK is written whole and the exit code is 0
-TC-OUT-16  GIVEN teams_cpk_name teams2 and a DPFL reserving 4cc_50_teams2 and 4cc_40_teams
+TC-OUT-16  GIVEN teams_cpk_name teams2 and a DPFL reserving 4cc_51_teams2 and 4cc_41_teams
            WHEN a multi-CPK compile runs
-           THEN only 4cc_50_teams2.cpk is written and 4cc_40_teams is not touched
-TC-DEP-01  GIVEN a PES folder with PES2021.exe, download/DpFileList.bin listing 4cc_90_test and an
-           old download/4cc_90_test.cpk
+           THEN only 4cc_51_teams2.cpk is written and 4cc_41_teams is not touched
+TC-DEP-01  GIVEN a PES folder with PES2021.exe, download/DpFileList.bin listing 4cc_99_test and an
+           old download/4cc_99_test.cpk
            WHEN the tracer is compiled for PES 21
-           THEN download/4cc_90_test.cpk holds the run's CPK, no .cpk.partial remains, the marker
+           THEN download/4cc_99_test.cpk holds the run's CPK, no .cpk.partial remains, the marker
                 file lists it, output/ holds no CPK and no .staging/, and the exit code is 0
 TC-DEP-02  GIVEN the same with the old CPK held open without delete sharing
            WHEN it is compiled
-           THEN old_cpk_locked is reported, output/4cc_90_test.cpk holds the run's CPK, the old
+           THEN old_cpk_locked is reported, output/4cc_99_test.cpk holds the run's CPK, the old
                 download CPK is byte-identical, and the exit code is 1
 TC-DEP-03  GIVEN pes_folder_path naming a folder that does not exist
            WHEN it is compiled
@@ -1212,7 +1212,7 @@ TC-DEP-06  GIVEN a PES folder holding PES2019.exe while pes_version is 21
 TC-DEP-07  GIVEN output/.staging/<a dead run's folder> left from a killed process
            WHEN compile starts
            THEN that folder is removed and the run's own staging is created and removed as usual
-TC-DEP-08  GIVEN an installed DPFL without 4cc_40_teams and multicpk_mode on
+TC-DEP-08  GIVEN an installed DPFL without 4cc_41_teams and multicpk_mode on
            WHEN the root is compiled
            THEN dpfilelist_outdated is reported naming upgrade-dpfl, every CPK is promoted to
                 output/, and the exit code is 1
@@ -1225,9 +1225,15 @@ TC-DEP-10  GIVEN the same
            THEN DpFileList.bin equals the bundled PES 21 list, DpFileList.bin.bak equals the old
                 file, and 4cc_40_faces.cpk is still present
 TC-DEP-11  GIVEN multicpk_mode on and a refs export beside two teams
-           WHEN the root is compiled with an old 4cc_41_teams.cpk locked
+           WHEN the root is compiled with an old 4cc_42_teams.cpk locked
            THEN old_cpk_locked is reported, every CPK of the run (parts, placeholders, bins, refs)
                 is promoted to output/ and none replaces an installed one
+TC-DEP-12  GIVEN an installed DPFL holding the official list's entries plus 4cc_80_mine, and
+           another holding exactly the official list's
+           WHEN /co/ is compiled on each with the default cpk_name
+           THEN the first reports dpfilelist_not_official naming 4cc_80_mine and upgrade-dpfl,
+                download/4cc_99_test.cpk holds the run's CPK and the exit code is 0; the second
+                reports neither DpFileList finding
 ```
 
 ---

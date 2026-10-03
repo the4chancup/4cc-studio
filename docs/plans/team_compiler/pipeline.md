@@ -574,19 +574,20 @@ describes behavior, not a serial scheduling requirement:
    itself, and one uniformly filled sequence of parts replaces it.
 
    - **The slots come from the DpFileList, midcup style.** The official DPFL reserves a run of
-     numbered names with the same stem — `4cc_40_teams`, `4cc_41_teams`, … — exactly like the
-     existing `4cc_60_midcup` … `4cc_79_midcup` run (and `4cc_30_stadiums0`…). The compiler takes as
+     numbered names with the same stem — `4cc_41_teams`, `4cc_42_teams`, … — exactly like the
+     `4cc_61_midcup` … `4cc_75_midcup` run (and `4cc_20_stadiums` … `4cc_35_stadiums`). The compiler takes as
      its part slots every DPFL entry matching `{prefix}_{NN}_{teams_cpk_stem}` (the `teams_cpk_name`
      setting names the stem, default `teams`), ordered by number. The stem match is **exact** — the
      text after `_NN_` must equal the stem, so `teams` never claims `teams2` slots — which is what
      makes a **second slot run usable for a side event**: with `teams_cpk_name = teams2` and the
-     DPFL reserving `4cc_50_teams2` … in place of the old `4cc_50_other_faces`/`4cc_55_other_uniform`,
+     DPFL reserving `4cc_51_teams2` … in place of the old `4cc_50_other_faces`/`4cc_55_other_uniform`,
      the same compile fills that run instead, sharing only the bins CPK (there was never an
      `other_bins`). There is no parts-count setting:
      capacity is a cup-level decision made once in the artifact every user already receives, and
      the compiler can never emit a part the users' game will not load. How many slots and which
-     numbers is the DPFL author's call; the planned layout is **five slots**, which at the default
-     cap gives 15 GB — roughly 2.5× a 48-team cup.
+     numbers is the DPFL author's call; the official list reserves **five slots** per run (41 to
+     45, and 51 to 55 for `teams2`), which at the default cap gives 15 GB — roughly 2.5× a
+     48-team cup.
    - **Filling is deterministic first-fit by canonical team order, one team per decision, made by
      the writer on exact sizes.** Teams are never split across parts: the writer holds a team's task
      batches until the team is complete, then places the whole team — into the current part if it
@@ -708,21 +709,31 @@ describes behavior, not a serial scheduling requirement:
   (the Balls compiler's "check, never write" rule holds for every tool). It does offer one explicit,
   consent-based action. The current official DPFL ships as an embedded template
   (`templates/` override applies, so maintainers can hot-swap it between releases). There is
-  one official list, not one per PES version: the standard layout, with the midcup CPKs up to
-  79, `4cc_90_test`, and the size-split slot run of "Multi-CPK mode" in place of
-  `4cc_40_faces`/`4cc_45_uniform` (the faces/uniform split is obsolete). Every other layout an
-  install may carry is obsolete, including the list of the last PES 21 cup, which predates
-  `4cc_90_test` (a default-settings compile on such an install reports `dpfilelist_outdated`
-  and offers the upgrade, which is the intended path). No installed list has the slot run yet
-  (PES 17's, the newest, still lists `4cc_40_faces`, `4cc_45_uniform` and the two `other_`
-  CPKs), so the embedded file is authored for the release from an entry list the maintainer
-  fixes. At deployment
-  preflight the installed DPFL's entry set is compared with the bundled one:
-  - identical, or a superset that still contains every target of this run → nothing to do;
-  - missing any target of this run (an old official DPFL — typically the pre-`teams` layout) →
-    `dpfilelist_outdated` (E; the run degrades like any deployment failure) and the GUI shows
-    **Upgrade DpFileList**; the CLI prints the equivalent subcommand,
-    `4cc-studio team-compiler upgrade-dpfl`, and never upgrades on its own.
+  one official list, not one per PES version, and its entries are
+  `resources/templates/DpFileList.txt`, one CPK per line in load order: the eleven base CPKs
+  (`4cc_01_db` to `4cc_18_referees`), `4cc_20_stadiums` and its fifteen midcups
+  (`4cc_21_stadiums` to `4cc_35_stadiums`), the size-split slot runs of "Multi-CPK mode"
+  (`4cc_41_teams` to `4cc_45_teams`, `4cc_51_teams2` to `4cc_55_teams2`) in place of the
+  obsolete faces/uniform split, fifteen midcups (`4cc_61_midcup` to `4cc_75_midcup`) and
+  `4cc_99_test`. A numbered run counts from 1; the stadiums run counts from 0 because its
+  first CPK is the base one, the midcups following it. Fifteen midcups of each kind are one
+  per matchday of the longest cups. Every other layout an install may carry is not the
+  official one, including the list of the last PES 21 cup. No installed list has this layout
+  yet, so the embedded file is written for the release from that entry list. On every compile
+  with a PES folder, at deployment preflight, the installed DPFL's entries are compared with
+  the bundled one's, in order:
+  - the same entries in the same order → nothing to do;
+  - any difference, while every target of this run is listed → `dpfilelist_not_official` (W):
+    the run compiles and deploys as usual, because a list edited on purpose, or an old DLC's,
+    must stay usable, and the finding says how the list differs (entries missing, entries the
+    official list lacks, or the order) and names the upgrade;
+  - missing any target of this run (typically the pre-`teams` layout, or a list without
+    `4cc_99_test` under the default `cpk_name`) → `dpfilelist_outdated` (E; the run degrades
+    like any deployment failure: the game would not load the CPK).
+
+  With either finding the GUI shows **Upgrade DpFileList**, which asks before it writes; the
+  CLI prints the equivalent subcommand, `4cc-studio team-compiler upgrade-dpfl`, and never
+  upgrades on its own.
   - The upgrade is an **override, not a merge**: the bundled official DPFL replaces the installed
     file byte for byte, the old one kept as `DpFileList.bin.bak`. The aesthetics community gives
     zero support for custom-edited DPFLs — they have caused a long tail of problems — so preserving
@@ -733,6 +744,12 @@ describes behavior, not a serial scheduling requirement:
     and offers deletion (renaming a 3.7 GB file as a backup is pointless; the user confirms per file,
     and nothing is deleted without that confirmation). No retired-names list is needed in the
     template: retired is simply "installed but not official".
+  - **The upgrade leaves no listed CPK missing.** For every official entry with no file in
+    `download/` it writes the empty placeholder CPK ("Every slot is always written" in
+    "Multi-CPK mode"); it never overwrites a file that is there. Every installed list measured
+    names only files that exist, so nothing shows what the game does with a listed CPK that
+    is missing, and the official list names 53 where an old DLC ships about 40 under partly
+    different names.
   - The DPFL binary format is small and version-stable enough to own here. Measured on the PES
     2021 and PES 2017 files: a 16-byte header (`u32 0`, `u32 entry_count`, 8 zero bytes), then
     `entry_count` records of 48 bytes each (the CPK file name with `.cpk`, NUL-padded), then an
@@ -1158,7 +1175,7 @@ phase that owns them):
   marker is a reserved collar inside the refs CPK, `blue_port.md` "Referee export processing".)
 - **Superseded installed outputs.** Within the teams slot run this is solved: every slot is written
   each multi-CPK run (content or the empty placeholder), so stale parts cannot survive. What remains
-  is the single-CPK-versus-multi-CPK crossover (a `4cc_90_test` left from a test compile is not
+  is the single-CPK-versus-multi-CPK crossover (a `4cc_99_test` left from a test compile is not
   touched by a DLC compile, and vice versa — decide whether that needs a message) and the rule that
   an unrecognized user file is never deleted; retired official names are handled by the DpFileList
   upgrade's confirmed per-file deletion.

@@ -22,7 +22,8 @@ is PES 21's `body.skl` (`../skeletons/pes21/`), as for `boots.skl`.
 
 The official 4cc DpFileList as a list, one CPK per line in load order, with comments: the
 source that worklog step 4.25 writes the embedded `DpFileList.bin` from (Team compiler plan,
-`pipeline.md` "6. Post-processing", DpFileList upgrade). A draft until the maintainer has
-adjusted it: the newest official list (the PES 2015 and PES 2017 installs', 39 entries) with
-the faces/uniform CPKs replaced by the size-split `teams` run and the `other_` pair by a
-`teams2` run. Not embedded in the binary yet.
+`pipeline.md` "6. Post-processing", DpFileList upgrade). Fixed by the maintainer on
+2026-10-03, 53 entries: it started from the newest installed list (the PES 2015 and PES 2017
+installs', 39 entries), with the faces/uniform CPKs replaced by the size-split `teams` run,
+the `other_` pair by a `teams2` run, the stadium CPKs under one `stadiums` stem with fifteen
+midcups, fifteen team midcups, and `4cc_99_test`. Not embedded in the binary yet.

@@ -190,6 +190,6 @@ The `team_compiler/testing.md` "Infrastructure" cases for these three:
   a silent fallback there fails a test.
 - **Thread count:** a non-zero request is returned as is; on 1 logical core the result is 1, on 2
   it is 1, on 8 it is 7.
-- **`CpkStem`:** accepted: `4cc_90_test`, a 28-character stem, `a.b`; refused with its variant:
+- **`CpkStem`:** accepted: `4cc_99_test`, a 28-character stem, `a.b`; refused with its variant:
   empty, 29 characters, a space, `/` and `\`, `con`, `CON.x`, `com1`, `lpt9`, `x.`, `x.CPK`.
   Case collisions are the consumer's (TC-CLI-05 is the Team compiler's, cited in 3.8).

@@ -817,10 +817,10 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   accumulation), "Resolved decisions" (Working-bin lookup, Templates and fallback bins);
   `fpc_toggle.md` "Kit slots absent from the export". IDs: TC-BIN-05..09. Crates: tc
   (`bins/dpfl.rs`, `bins/mod.rs`, `templates.rs`) → verify: a sandbox install whose DPFL lists
-  `4cc_08_bins`, `4cc_60_midcup` and `4cc_90_test` with a `4cc_08_bins.cpk` holding a
-  `UniColor.bin` in which team 714's p1 entry is set and a `4cc_60_midcup.cpk` holding one in
+  `4cc_08_bins`, `4cc_61_midcup` and `4cc_99_test` with a `4cc_08_bins.cpk` holding a
+  `UniColor.bin` in which team 714's p1 entry is set and a `4cc_61_midcup.cpk` holding one in
   which it differs: compiling `/co/` with only `p2/` leaves p1's bytes equal to the
-  higher-priority CPK's and p2's set; with `cpk_name = 4cc_60_midcup` the p1 bytes come from
+  higher-priority CPK's and p2's set; with `cpk_name = 4cc_61_midcup` the p1 bytes come from
   `4cc_08_bins.cpk`
 
 - [ ] 4.22 **Fox player tables**: `BootsList.bin` and `GloveList.bin` read from the installed (or
@@ -869,25 +869,34 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `pipeline.md` "6. Post-processing" (Staging, Deploy CPKs, Degraded run, `--no-deploy`,
   Destination writability preflight); `messages.md` "Output stage and savefile"; `settings.md`
   "CLI" (exit codes). IDs: TC-DEP-01..07. Crates: tc (`output/deploy.rs`, `cli.rs`) → verify: a
-  sandbox PES folder with `PES2021.exe`, a DPFL listing `4cc_90_test` and an old
-  `download/4cc_90_test.cpk`: `compile` leaves `download/4cc_90_test.cpk` equal to the staged
+  sandbox PES folder with `PES2021.exe`, a DPFL listing `4cc_99_test` and an old
+  `download/4cc_99_test.cpk`: `compile` leaves `download/4cc_99_test.cpk` equal to the staged
   bytes, no `.partial`, the marker beside it, nothing in `output/`, exit 0; with the old CPK held
-  open by the test: `old_cpk_locked`, `output/4cc_90_test.cpk` holds the run's CPK, the old one
+  open by the test: `old_cpk_locked`, `output/4cc_99_test.cpk` holds the run's CPK, the old one
   is byte-identical, exit 1
 
-- [ ] 4.25 **DpFileList upgrade** (waits on the maintainer: the adjusted entry list; the lead's
-  draft is under "Phase 4 open questions"): the one official `DpFileList.bin` embedded, the standard layout
-  with the midcup CPKs up to 79, `4cc_90_test` and the size-split slot run (lead first: the
+- [ ] 4.25a **The default `cpk_name` is `4cc_99_test`** (lead; mechanical): `4cc_90_test`
+  renamed in the code and its tests (81 mentions in 17 files of `crates/`), the plan having
+  it already → verify: no `4cc_90_test` left under `crates/`, `just gates` green
+
+- [ ] 4.25 **DpFileList upgrade and the official-list check** (the entry list is fixed:
+  `resources/templates/DpFileList.txt`, 53 entries; before this step, 4.25a renames the
+  default `cpk_name` in the code): the one official `DpFileList.bin` embedded; on every
+  compile with a PES folder the installed list's entries compared with it in order,
+  `dpfilelist_not_official` (W) for any difference that still lists the run's targets, the
+  run compiling and deploying all the same (TC-DEP-12) (lead first: the
   file written from the maintainer's entry list in the layout measured at 4.21, as a
   lead-authored fixture with a provenance README; no installed list has the slot run, PES 17's
   still lists `4cc_40_faces` and `4cc_45_uniform`; the brief confirms with the reader of 4.21
   that one file serves every PES version, and reports if a version needs its own bytes);
   `upgrade-dpfl [--yes]`: the entries the official list lacks printed with the size of each
   matching `download/*.cpk`, nothing written without `--yes`, the installed file replaced byte
-  for byte with `DpFileList.bin.bak` kept, no CPK ever deleted by the command;
+  for byte with `DpFileList.bin.bak` kept, the empty placeholder CPK written for every
+  official entry with no file in `download/` (an existing file is never overwritten), no
+  CPK ever deleted by the command;
   `dpfilelist_outdated` names the subcommand. Plan: `pipeline.md` "6. Post-processing"
-  (DpFileList upgrade); `settings.md` "CLI" (`upgrade-dpfl`). IDs: TC-DEP-08..10. Crates: tc
-  (`bins/dpfl.rs`, `cli.rs`), resources → verify: an installed DPFL lacking `4cc_40_teams` beside
+  (DpFileList upgrade); `settings.md` "CLI" (`upgrade-dpfl`). IDs: TC-DEP-08..10, TC-DEP-12. Crates: tc
+  (`bins/dpfl.rs`, `cli.rs`), resources → verify: an installed DPFL lacking `4cc_41_teams` beside
   a 1 KiB `download/4cc_40_faces.cpk`: `upgrade-dpfl` prints `4cc_40_faces` with `1 KiB` and
   exits without writing; `--yes` makes `DpFileList.bin` equal to the embedded list and
   `DpFileList.bin.bak` equal to the old file, `4cc_40_faces.cpk` still present
@@ -905,8 +914,8 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   TC-DEP-11. Crates: tc (`output/writer.rs`, `output/deploy.rs`, `settings.rs`), cpk (placeholder
   writer, if not already byte-identical) → verify: `/co/`, `/a/` and `/b/` exports with
   `cpk_part_max_size` set just above the first two teams' compiled size and a DPFL reserving
-  `4cc_40_teams`..`4cc_44_teams`: `4cc_40_teams.cpk` holds the first two teams whole,
-  `4cc_41_teams.cpk` the third, `4cc_42`..`44` are each 6,272 bytes equal to the placeholder
+  `4cc_41_teams`..`4cc_45_teams`: `4cc_41_teams.cpk` holds the first two teams whole,
+  `4cc_42_teams.cpk` the third, `4cc_43`..`45` are each 6,272 bytes equal to the placeholder
   fixture, `4cc_08_bins.cpk` holds the bins and nothing else
 
 - [ ] 4.27 **Referee marker as reserved collar 77, both engines** (lead first: the two
@@ -1019,13 +1028,17 @@ administrator, Upgrade DpFileList dialog): Phase 8; glTF sources: Phase 7; the G
 
 Phase 4 open questions (maintainer):
 
-- The official DpFileList (4.25, 4.26): the lead's draft is `resources/templates/DpFileList.txt`,
-  one CPK per line with comments, for the maintainer to adjust. It is the newest official
-  list (the PES 2015 install's on the external drive `F:`, byte-identical to PES 2017's, 39
-  entries) with `4cc_40_faces`/`4cc_45_uniform` replaced by `4cc_40_teams` to `4cc_44_teams`
-  and `4cc_50_other_faces`/`4cc_55_other_uniform` by `4cc_50_teams2` to `4cc_54_teams2`, 45
-  entries. To confirm: five slots per run, and whether the second run is wanted. The slot
-  stem is settled, `teams`.
+- The official DpFileList in the game (4.25; to test once per engine, pre-Fox and Fox):
+  that a list of 53 entries loads its last one. The longest installed list has 45 (PES
+  20's; the others 29 to 39; `.tmp/dpfl_compare.py` reads them), so nothing yet shows the
+  game takes 53. The test: the official list installed with its placeholders, and a visible
+  change (a kit) in `4cc_99_test.cpk`.
+- An old DLC under the official list (4.25): every installed list names 15 to 24 CPKs the
+  official one does not (`4cc_15_billboard`, `4cc_30_stadiums0`, `4cc_35_referees`,
+  `4cc_38_balls`, `4cc_40_faces`, ...), so after an upgrade that content is no longer
+  loaded until a DLC cut for the new names is installed. The upgrade says so and asks.
+  Open: whether it should also offer to rename the files that have one successor
+  (`4cc_38_balls` to `4cc_16_balls`), or leave that to the next DLC.
 - Collars beyond the stock set (4.9, 4.27; the maintainer's idea, 2026-10-03): PES 15 loads
   `collar_105`, which its stock game lacks, so the games probably accept collar IDs they do
   not ship. If so, the FPC collar and the referees' marker could move to IDs no stock collar
@@ -1038,7 +1051,10 @@ Phase 4 open questions (maintainer):
   a kit naming an ID above the version's stock set (200, say) with a visible collar model
   under that name. Until then 4.9 keeps the stock-set rule and the reserved 105 and 77.
 
-Answered 2026-10-03 (decision entries of that date; each is in the plan): the `colors.txt`
+Answered 2026-10-03 (decision entries of that date; each is in the plan): the official
+DpFileList's entries (`resources/templates/DpFileList.txt`, the maintainer's own edit of the
+lead's draft: 53 entries, the test CPK `4cc_99_test`) and the check of the installed list on
+every compile (`dpfilelist_not_official`); the `colors.txt`
 grammar (one color per line, in both files); the kit icon as a marker file and the marker
 spelling (4.30); the Fox referee marker as a reserved collar instead of a `dt00_x64.cpk` write
 (4.27); the default `cpk_name` on PES 21 (intended: that install's list is obsolete, and the
@@ -1794,3 +1810,18 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   alone (`pass_through` keeps a size finding's file); two differing portraits for one slot
   are `portrait_conflict` and skip the export, identical ones compile as one; a logo that
   does not decode is `logo_file_invalid`. `deep.rs` is now the `deep/` module.
+- **2026-10-03** — The official DpFileList is fixed by the maintainer
+  (`resources/templates/DpFileList.txt`, 53 entries: stadiums 20-35 with the base CPK at 20,
+  `teams` 41-45, `teams2` 51-55, midcups 61-75, `4cc_99_test`), and every compile is to compare
+  the installed list with it: `dpfilelist_not_official` (W) when it differs and still lists
+  the run's targets, the upgrade offered and never forced. The plan and the steps use the new
+  names; the code's default `cpk_name` follows at 4.25a. The list file's edit went into commit
+  `3951e7f` with slice 4.7c2 (the lead's `git add -A`), not into a commit of its own.
+- **2026-10-03** — The installs' DpFileLists compared with the official one
+  (`.tmp/dpfl_compare.py`): 29 to 45 entries each, every listed CPK present in `download/`,
+  15 to 24 names per install that the official list retires. So the upgrade also writes a
+  placeholder for each official entry with no file (decision entry), and two open questions
+  are added: a 53-entry list in the game, and an old DLC under the new list. The plan's
+  default `refs_cpk_name` is `4cc_18_referees`. PES 21's `download/` on the external drive
+  has no `DpFileList.bin` since the VGL DLC was copied in (the old one is in
+  `download_old/`).
