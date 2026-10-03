@@ -1097,15 +1097,6 @@ administrator, Upgrade DpFileList dialog): Phase 8; glTF sources: Phase 7; the G
 
 Phase 4 open questions (maintainer):
 
-- The official DpFileList in the game (4.25; to test once per engine, pre-Fox and Fox):
-  that a list of 53 entries loads its last one. The longest installed list has 45 (PES
-  20's; the others 29 to 39; `.tmp/dpfl_compare.py` reads them). The maintainer remembers a
-  test years ago in which the game held up to about 60 entries, and wants it re-tested. The
-  test: the official list installed with its placeholders, and a visible change (a kit) in
-  `4cc_99_test.cpk`. PES 2015 passed it (maintainer, 2026-10-03): its installed 39 entries
-  plus 14 midcup entries with placeholders, `4cc_90_test` last as entry 53
-  (`.tmp/dpfl_pes15_53.py`). PES 2021 is next, prepared the same way from the 37 entries of
-  `E:\PES2021\download` (`.tmp/dpfl_pes21_53/`, `4cc_99_test` last).
 - Collars beyond the stock set (4.9, 4.27; the maintainer's idea, 2026-10-03): PES 15 loads
   `collar_105`, which its stock game lacks, so the games probably accept collar IDs they do
   not ship. If so, the FPC collar and the referees' marker could move to IDs no stock collar
@@ -1126,7 +1117,10 @@ grammar (one color per line, in both files); the kit icon as a marker file and t
 spelling (4.30); the Fox referee marker as a reserved collar instead of a `dt00_x64.cpk` write
 (4.27); the default `cpk_name` on PES 21 (intended: that install's list is obsolete, and the
 upgrade to the one standard list is the path); one official `DpFileList.bin` for every version
-(4.25); `face_diff.xml` decoded with the `base64` crate (4.5d); a model's missing texture is an
+(4.25), whose 53 entries the game loads whole (the maintainer's in-game tests on PES 2015 and
+PES 2021: each install's own list extended to 53 entries with placeholder CPKs, the test CPK
+last, `.tmp/dpfl_pes15_53.py` and `.tmp/dpfl_pes21_53.py`; the versions between are taken to
+hold it too); `face_diff.xml` decoded with the `base64` crate (4.5d); a model's missing texture is an
 Error, with the installed CPKs searched for a partial export's Common textures (4.29), and
 `fmdl_no_texture_ids` is dropped; a format finding drops its folder by severity (4.7). The
 pre-Fox parity reference was never a question: it is the lead's step 4.31. The kit layout
@@ -1920,3 +1914,6 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   in turn; sources routed in parallel). `check` on a folder export went from 0.55 to
   0.32 s (FNG) and 0.82 to 0.34 s (DBG), both in one run from 1.31 to 0.55 s; no finding or
   order changed.
+- **2026-10-03** — The 53-entry DpFileList passed the maintainer's in-game test on PES 2015
+  and on PES 2021 (one per engine), so the official list's length is taken to hold on every
+  version and the open question is closed (decision entry).

@@ -743,7 +743,10 @@ describes behavior, not a serial scheduling requirement:
   first CPK is the base one, the midcups following it. Fifteen midcups of each kind are one
   per matchday of the longest cups. Every other layout an install may carry is not the
   official one, including the list of the last PES 21 cup. No installed list has this layout
-  yet, so the embedded file is written for the release from that entry list. On every compile
+  yet, so the embedded file is written for the release from that entry list. The game loads
+  a list of this length whole: PES 2015 and PES 2021, one per engine, each loaded the last
+  CPK of a 53-entry list in an in-game test (the longest installed list has 45), and the
+  versions between them are taken to do the same. On every compile
   with a PES folder, at deployment preflight, the installed DPFL's entries are compared with
   the bundled one's, in order:
   - the same entries in the same order → nothing to do;

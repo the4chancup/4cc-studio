@@ -3539,3 +3539,12 @@ supports a custom skeleton); 122 hold the bundled template and the other 345 one
 older files, which are outdated FPC-dedicated diffs. How a `face_diff.bin` left in such a
 folder is reported is step 4.12's.
 Plan: `team_compiler/pipeline.md` "2. Per-export serial steps" step 4.
+
+## 2026-10-03 — team_compiler — the official DpFileList's 53 entries hold on every PES version
+Decision: the official list keeps its 53 entries for every version, with no per-version
+shorter list and no further in-game test of its length.
+Why: the maintainer's ruling after two in-game tests, one per engine. PES 2015 and PES 2021
+each loaded the last CPK of a 53-entry list (the install's own list extended with midcup
+entries and placeholder CPKs, the test CPK last), where the longest installed list had 45.
+PES 2016 to 2020 were not tested and are taken to behave like the two around them.
+Plan: `team_compiler/pipeline.md` "DpFileList upgrade" (the entry list's paragraph).
