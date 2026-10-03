@@ -69,6 +69,9 @@ terms next to each other rather than in alphabetical order; adjacency is what ma
 | **Templates override** | A `templates/` directory whose files shadow embedded CPK/bin templates; reported per file per run. | `plans/team_compiler/messages.md` "Message catalog" |
 | **Overrides folder** | `overrides/` in the data directory (Red's `sideload/`): files injected into the normal team CPK that win over export entries at the same output path. Not related to sideload mode. | `plans/team_compiler/pipeline.md` "5. Writer" (override priority) |
 | **Sideload mode** | The Team compiler output mode (`--mode sideload`) writing the unpacked PES folder structure to the game folder's `livecpk\`, which FoxDen (PES 18–21) or the user's Sider 3 (PES 17) serves to a running PES; refused on PES 15/16. | `plans/team_compiler/pipeline.md` "5. Writer" (output modes) |
+| **Output sink** | `OutputSink`: where the writer puts each entry by its output-relative path, the CPK or the loose folder of test and sideload modes (also the harness the parity test drives); knows nothing of game paths, which the materialize step owns. | `plans/team_compiler/pipeline.md` "5. Writer" (output modes) |
+| **Teams part** | One CPK of the size-split `teams` sequence multi-CPK mode fills with whole teams, first-fit in canonical order under `cpk_part_max_size`; its slots are the DpFileList entries `{prefix}_{NN}_{teams_cpk_name}`. | `plans/team_compiler/pipeline.md` "5. Writer" ("Multi-CPK mode: teams parts") |
+| **Placeholder CPK** | The 6,272-byte zero-entry CPK the official DLC ships for unused slots (`4cc_68_midcup.cpk` is one); a multi-CPK run writes it into every teams slot it does not fill, so stale parts cannot survive. | `plans/team_compiler/pipeline.md` "5. Writer" ("Every slot is always written") |
 
 ## Messages
 

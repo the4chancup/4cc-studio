@@ -2970,3 +2970,43 @@ model.md` "Player settings model" (planned for Phase 5); `save_editor.md` "Read-
 accumulation", "Post-processing", game paths, resolved decision); `team_compiler/README.md`;
 `player_aesthetics_editor.md`; `core/development_plan.md` Phases 4, 5, 6; `core/README.md`;
 `GLOSSARY.md` ("Aesthetics patch", "Stripped save", "Autopilot team").
+
+## 2026-10-03 — team_compiler — Phase 4 itemization rulings
+Decision: the gaps found while itemizing Phase 4 (worklog step 4.1) are settled as follows. A
+folder whose selected model representation is glTF is dropped with the new catalog row
+`model_gltf_unsupported` (E, `DropFolder`, not pass-through-eligible) until Phase 7, and
+`content_not_yet_compiled` keeps its row until step 4.20 withdraws it. Phase 4 writes
+`BootsList.bin`/`GloveList.bin` rows only for compiled players whose custom boots/gloves output
+committed, keeps every other row, and passes `PlayerAppearance.bin` through unchanged; Phase 5
+adds the stock/default-ID rows and the appearance rows from `settings.toml`. Deployment adds no
+exit code: the existing mapping holds (an Error finding exits 1, a Fatal one 3). Output-mode
+artifact routing: `teamnotes.txt` under `output_folder_path` in every mode; sideload puts bins,
+overrides and referee content at their game paths in `livecpk/`; test puts bins under
+`test_output/_bins/` at game-relative paths, referee content per export like a team's, and does
+not apply overrides. `run_pes` moves to Phase 8 with sideload mode's Launch PES button, as one
+launcher. Phase 4 reports only `settings_toml_invalid` (parse) of the settings codes; the others
+describe resolved values and are Phase 5's. Hand auto-split is Phase 4 (step 4.18). The source
+snapshot is Phase 4, an export's revision being the listing's (path, size, modified time) set for
+a folder and the archive's size and modified time, pinned at planning and rechecked before each
+task's read. `dds_compression`'s level is chosen by measuring levels 1, 3 and 6 in step 4.16 and
+recorded in a decision entry. TC-GUI-02's THEN accepts both the deployed and the promoted outcome.
+CLI `check` runs both passes on every source kind. `model_source_ambiguous` keeps its row, its
+concrete input being two glTF files of one stem, so its scenario is Phase 7's. The new Info row
+`bin_source` names the CPK that supplied each working bin, or `bundled`. Step 4.6 emits
+`kit_texture_not_used` for a `kit_mask` on a Fox target, which Phase 3 dropped silently.
+Why: on each point the plan was silent or two plan sections disagreed, and the draft's reasons
+held: narrowing `content_not_yet_compiled` to a folder scope would change a code's disposition
+under an unchanged name; writing boots/gloves rows from the planned IDs is the only split that
+keeps Phase 4's CPK game-correct without reading `settings.toml`; a degraded run is "an Error
+finding in some scope" exactly as the mapping defines 1, and a fourth code would make callers
+special-case deployment; test mode shows what the compiler did to an export, and an override is
+not the export's; one launcher for both PES launches avoids two code paths for the same exe; the
+reader already lists (path, size, modified time) and the GUI watcher keys on the same value; a
+`check` that misses a model error the next `compile` reports defeats the command; a maintainer
+checking stale midcup colors needs to know which CPK a bin came from.
+Plan: `team_compiler/README.md` "Acceptance" (Phase 4 scope and scenarios; TC-OUT-02, TC-GUI-02,
+TC-SRC-01 edited); `team_compiler/messages.md` (`model_gltf_unsupported`, `bin_source`,
+`model_source_ambiguous`); `team_compiler/settings.md` "CLI"; `team_compiler/pipeline.md` ("2.
+Per-export serial steps" step 2, "6. Post-processing" Run PES, "Resolved decisions" Source
+snapshot and Output-mode artifact routing, "Run-result semantics"); `core/development_plan.md`
+Phases 4 and 8; `GLOSSARY.md` ("Output sink", "Teams part", "Placeholder CPK").

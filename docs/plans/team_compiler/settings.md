@@ -150,11 +150,14 @@ or kept by `pass_through`), **2** invalid invocation or configuration (clap's ow
 arguments, and a setting that fails its validation such as a `cpk_name` that is no `CpkStem`;
 nothing ran), **3** aborted (an `AbortRun` or Fatal finding, or an environment failure found
 before the run, such as an output folder that cannot be written). `check` and `compile` share the
-mapping; deployment outcomes extend it in Phase 4 ("Run-result semantics" open question). The CLI is a separate process with its own run
+mapping, and deployment adds no code to it: a degraded run (a deployment Error finding, the CPKs
+promoted to `output/`) exits 1 and an aborted deployment 3, as the mapping already says, so no
+caller special-cases deployment. The CLI is a separate process with its own run
 and does not require the GUI to be closed. A sideload-mode run with PES open skips the savefile step
 (`savefile_skipped_pes_running`, see `pipeline.md` "Post-processing") — the model iteration lands through sideloading and
-the savefile catches up on the first compile after PES is closed; bins routing in sideload mode is part
-of the "Output-mode artifact routing" open question.
+the savefile catches up on the first compile after PES is closed; in sideload mode the bins land at
+their game paths inside `livecpk/` ("Output-mode artifact routing" under `pipeline.md` "Resolved
+decisions").
 
 The `--gui` form (the core plan's "Launch modes") is what `quick_compile.bat` runs. The tool's
 `gui_run` implementation accepts `compile` only — `check` is meaningless in the GUI, where checking

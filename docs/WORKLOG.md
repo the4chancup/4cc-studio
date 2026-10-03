@@ -11,8 +11,8 @@ is in `AGENTS.md` ("Working documents").
 
 **Phase:** 3 (Team compiler skeleton) closed 2026-10-02, its cross-family reviews queued (see
 "Handover"). Phases 1 and 2 done (Phase 2 closed 2026-09-30).
-**Next:** step 4.0 is done (2026-10-03) and its plan rewrite written (decision entry "aesthetics
-travel in the database tables"; its cross-family review is queued). Next: Phase 4's itemization. 2.5b (GPU BC7) is step 16.x (decision entries
+**Next:** Phase 4 is itemized and its Acceptance section written (step 4.1, 2026-10-03; its
+cross-family review (a) is queued). Next: the lead's pre-step plan text, then 4.2. 2.5b (GPU BC7) is step 16.x (decision entries
 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0 after Phase 8; phase order 1–6,
 8, 0.1.0, 7, 9–16 (`core/development_plan.md` "Releases"); first-class target the Fox version
 the cup moves to around April 2027 ("Target versions").
@@ -58,6 +58,10 @@ Claude agent with no sidekick and no reviewer of another model family. While tha
   tables" and "Fox first; game-behavior changes go through FoxDen" (2026-10-03, its commit), against
   the step 4.0 row and `.tmp/apptest/results.txt` (the in-game evidence); the surfaces are the
   plan files those entries list, `settings_toml.md` and `save_editor.md` "Stripped save" first.
+  4.1 (a): the Phase 4 Acceptance section (`team_compiler/README.md`, the Phase 4 scope paragraph
+  and TC-PRT/MOD/TEX/CHK/XML/KIT-10../ROOT-06../CMN/BIN/PLN/REF/OUT-07../DEP) and the decision
+  entry "Phase 4 itemization rulings", against `development_plan.md` "Phase 4" and the
+  `pipeline.md` walkthrough, from the 4.1 commit.
 - For the lead, on return: the review process on trial (maintainer, 3.1) runs a full sidekick
   review loop after each GPT round and calls GPT again only once that loop has ended and GPT's
   own loop has not; not yet in `AGENTS.md` (3.6: GPT 4 of 7 accepted, then sidekick S1 3 of 7,
@@ -189,8 +193,14 @@ id=792)` then `Run finished: exit code 0`. Linux: not yet checked, no machine wi
 
 ### Phase 4 — Processing logic
 
-Steps are itemized only after 4.0 is done; one more is fixed already
-(the GPU BC7 step moved to Phase 16, decision entry 2026-09-28):
+Itemized 2026-10-03 (step 4.1). Each step is one reviewable slice (about 500 lines of new
+non-generated code; fixtures, tables and tests do not count); "Plan" names the section(s) the step
+implements; `ae` is `aesthetics_export`, `tc` is `team_compiler`. A `(lead first: ...)` note is
+plan text the lead writes before briefing the step; `(waits on the maintainer: ...)` names an input
+only the maintainer has (listed again under "Phase 4 open questions"). Test data: `/co/` is team
+714 (`teams_list.txt`), so its 40-ID block is 621-660, slot 05 is player 71405 with exclusive
+boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer fixture, slot 05 =
+79205 / 3745); `/a/` is 702, `/b/` is 707:
 
 - [x] 4.0a PES12 re-study (maintainer, 2026-10-01): the stashed stub (`git stash` entry `pes12`,
   read with `git show 'stash@{0}^3:docs/plans/pes12.md'`, never popped or applied) checked against
@@ -258,13 +268,486 @@ Steps are itemized only after 4.0 is done; one more is fixed already
   brings back his old save look; untouched players stay at -1. Plan changes: decision entry
   "aesthetics travel in the database tables"
 
+- [x] 4.1 **Acceptance step** (lead): the Phase 4 scope paragraph and 126 scenarios written into
+  `team_compiler/README.md` "Acceptance" (new areas `PRT`, `MOD`, `TEX`, `CHK`, `XML`, `CMN`,
+  `BIN`, `PLN`, `REF`, `DEP`; `KIT`, `ROOT`, `OUT` continued), with the Phase 3 edits of TC-OUT-02,
+  TC-GUI-02 and TC-SRC-01; the catalog rows `model_gltf_unsupported` and `bin_source`
+  (`messages.md`); the itemization rulings written into the plans (decision entry "Phase 4
+  itemization rulings"); `GLOSSARY.md` lines for teams part, placeholder CPK and output sink.
+  Plan: `AGENTS.md` "Working documents" (before a tool phase). Crates: none → verify: `just
+  acceptance` (report mode) lists every new ID as unproven and reports no definition error;
+  `rg -c "^TC-" docs/plans/team_compiler/README.md` equals 203 (77 plus 126). Done 2026-10-03:
+  `just acceptance` 203 scenarios, 77 proven, the 126 new ones unproven, no definition error;
+  drafted and written by Fable from the lead's rulings (`.tmp/rulings_4_1.md`)
+
+- [ ] 4.2 **Portraits**: `TaskKind::Portrait`; a player folder's `portrait.*` and `Portraits/
+  player_NN.*` emitted as `common/render/symbol/player/{id}{NN}.dds` (PES 19-21) or
+  `player_{id}{NN}.dds` (15-18), any accepted image format converted to DDS (lead first: the
+  portrait output codec and mip rule, measured from a stock portrait of the installed game per
+  engine, written into `player_folders.md` "Portraits"); `portrait_conflict` (deep content
+  compare, both locations). The tracer's Studio fixture gains its `portrait.dds`
+  (`tests/fixtures/tracer/README.md` says it joins in Phase 4). Plan: `pipeline.md` "2. Per-export
+  serial steps" step 4, "Game paths reference" (Portraits). IDs: TC-PRT-01..03. Crates: tc
+  (`plan/`, `processing/team_assets.rs`, `paths.rs`) → verify: the tracer parity test's compared
+  set gains `common/render/symbol/player/79205.dds` and passes byte-identical against `red/`;
+  `rg "// TC-PRT-0[1-3]" crates/tools/team_compiler` finds all three
+
+- [ ] 4.3 **Planned IDs and player-exclusive boots/gloves (Fox)**: `plan/ids.rs` `PlannedModelIds`
+  (block start `101 + (team_id - 701) * 40`, exclusive `block_start + NN - 1`, boots and gloves
+  namespaces independent; frozen in the manifest, processing never allocates: the Phase 4 entry
+  gate); `TaskKind::Boots`/`Gloves` for a folder's `*_boots`, `*_glove_l`/`gloveL`, `*_glove_r`/
+  `gloveR`, `handL`/`handR` models (the suffix table), prefix stripped (`kit_boots.fmdl` →
+  `boots.fmdl`); `boots.skl` injected from the PES 21 `body.skl` unless a same-basename `.skl`
+  pairs the model; packed into `Asset/model/character/boots/k{id}/#Win/boots.fpk` + `.fpkd`,
+  `glove/g{id}/#Win/glove.fpk`; the folder's textures relocated once to its common subfolder and
+  committed after its face/boots/gloves tasks (`shared_texture_conflict`, canonical winner face >
+  boots > gloves). The tracer's boots and gloves join the Studio fixture; the parity test's ID
+  normalization (k2180 → k3745) lands. Plan: `pipeline.md` "3. Per-model-folder parallel steps"
+  steps 2, 3, 6, 7; `player_folders.md` "Assigns IDs automatically", "Model names: a free part plus
+  a suffix", "SKL pairing"; `development_plan.md` "Phase 4" entry gates. IDs: TC-MOD-01..04,
+  TC-PLN-01. Crates: tc (`plan/ids.rs`, `plan/manifest.rs`, `processing/model.rs`) → verify: the
+  tracer parity test passes over all 17 `red/` files (IDs normalized, textures matched by
+  content); a `plan/ids.rs` unit test gives `/co/` slot 05 boots 625 and gloves 625, slot 23 643
+
+- [ ] 4.4 **Shared folders and links (Fox)**: shared `Boots/`/`Gloves/` folders take the 17 shared
+  IDs (644 upward for `/co/`) in alphabetical folder-name order, `boots_id_pool_exhausted`/
+  `gloves_id_pool_exhausted`; a link alone makes the player wear the shared ID (no per-player
+  output); a link plus local parts merges the shared model into the player-exclusive folder
+  (`link_combined`, `fmdl::ops::merge`, alphabetical source order, `fmdl_merged`), the shared
+  folder untouched; a shared folder every linker combines emits nothing and takes no ID; a shared
+  face link is the player's face FMDL (merge of one); `merge_material_conflict`,
+  `skl_merge_conflict` (content hash). Plan: `player_folders.md` "Shared models", "A link plus
+  local models combines", "Merge constraint"; `pipeline.md` step 3. IDs: TC-MOD-05..09, TC-PLN-02.
+  Crates: tc (`plan/ids.rs`, `processing/model.rs`) → verify: a `/co/` export with `Boots/Crocs/`
+  linked plainly by slots 03 and 07 and combined by slot 05 (own `kit_boots.fmdl`): the CPK holds
+  `boots/k0644/` once, `boots/k0625/` whose FMDL's mesh count equals Crocs's plus the local
+  model's, and no `k0623`/`k0627`
+
+- [ ] 4.5 **Face assembly (Fox)**: every model resolving to one allowed name merged (`torso.fmdl` +
+  `legs.fmdl.common` → `fcl_hair.fmdl`; `fmdl_fcl_hair_fallback` per routed file), `.common` model
+  links baked in with their textures referenced in place in the team's Common output
+  (`Asset/model/character/common/{team_id}/sourceimages/#windx11/`), `merged_texture_conflict`;
+  reserved subfolders `face/`/`boots/`/`gloves/`/`common/` force the category; a custom `.skl`
+  paired with the `fcl_hair` part replaces the injected `fcl_hair_sim.skl`, `skl_no_slot` for
+  `face_high`/`hair_high`/`oral`; `face_diff.bin` and `fcl_hair_sim.fclo` injected from templates
+  (lead first: the two templates as lead-authored fixtures with a provenance README,
+  `resources/bins/README.md` the model; the tracer's copies are byte-identical to Red's), so a
+  face folder lacking them compiles, which Phase 3 refused; `face_diff.xml` → `face_diff.bin`
+  (`face_diff_invalid`). Plan: `pipeline.md` step 3 "Fox mode fixups", step 6;
+  `player_folders.md` "Common model links and model merging", "Reserved subfolders", "What the
+  injected files are"; `model_format.md` "Link files". IDs: TC-MOD-10..15. Crates: tc
+  (`processing/model.rs`, `templates.rs`), resources → verify: a `/co/` player with `torso.fmdl`,
+  `legs.fmdl.common` and `Common/legs.fmdl` referencing `Common/cloth.dds`: the face package holds
+  one `fcl_hair.fmdl` whose mesh count is the sum, `cloth.ftex` sits once under
+  `common/714/sourceimages/#windx11/` and is absent from the player's common subfolder, and the
+  console shows `fmdl_fcl_hair_fallback` then `fmdl_merged`
+
+- [ ] 4.6 **Textures, all formats (Fox)**: every accepted image format (`dds_convert::decode`/
+  `convert`) for player, shared, Common, kit and portrait textures; BC7 kept and encoded on PES
+  19-21, BC7 transcoded to BC3 and raster encoded to BC3/BC1 on PES 18; missing mips generated;
+  FTEX headers per version; `texture_too_small`, `texture_not_pow2`, `texture_type_mismatch`,
+  `texture_codec_unsupported`, `fmdl_no_texture_ids`; `kit_texture_not_used` for a `kit_mask` on a
+  Fox target (Phase 3's silent drop was a stopgap, not a decision); the `Converter` cache engaged
+  for runs of at most two teams; conversion in bounded batches on a cancel token
+  (`MemoryBudget::cancel`). Plan: `pipeline.md` step 5; `libs/dds_convert.md` "In-memory
+  conversion cache" (engagement); `messages.md` "Textures"; `development_plan.md` "Phase 4"
+  (CPU-only, GPU is 16.x). IDs: TC-TEX-01..06, TC-KIT-10. Crates: tc (`processing/texture.rs`,
+  `processing/kit.rs`) → verify: a `/co/` player with `skin.png` (1024x1024, alpha) compiled for
+  PES 21 then PES 18: `ftex::info` of the emitted texture reports BC7 then BC3, each with an
+  11-level mip chain; a 3x3 `skin.png` reports `Error texture_too_small [DropFolder]` and the
+  folder is absent from the CPK
+
+- [ ] 4.7 **Deep validation pass**: `ae` orchestrates the deep pass over the sanitized export with
+  the same scope rule and pass-through eligibility; the format crates' `check` findings mapped
+  (`fmdl_vertex_far_from_origin`/`model_vertex_far_from_origin` → `vertex_too_far_from_origin`,
+  not pass-through-eligible), `portrait_conflict`, `logo_file_invalid` (decode),
+  `kit_config_invalid`, `kit_texture_too_big`, `kit_texture_uncompressed`, `settings_toml_invalid`
+  (parse only, through `pes_savefile`'s `PlayerSettings` TOML reader; the other `settings_*` and
+  `fpc_strip_conflict` codes describe resolved values and are Phase 5's); CLI `check` runs both
+  passes on every source kind, archives included; a test that every `ISSUE_CODES` entry and every
+  format finding code has a catalog row. Plan: `pipeline.md` "2. Per-export serial steps" step 2
+  (deep format pass); `object_model.md` "Validation semantics" (sanitized versus eligible: "the
+  deep pass applies the same rule"); `messages.md` (`vertex_too_far_from_origin`). IDs:
+  TC-CHK-01..05. Crates: ae (`validate/deep.rs`, new), tc (`check.rs`, `compile.rs`,
+  `messages.rs`) → verify: `check` on a `/co/` export whose `boots.fmdl` holds a vertex 6000 units
+  out prints `Error vertex_too_far_from_origin [DropFolder]` naming the file and exits 1;
+  `compile` with `pass_through` on still leaves the folder out of the CPK
+
+- [ ] 4.8 **Kit colors, UniColor and TeamColor (the `bins/` module)**: kit `colors.txt` grammar
+  (lead first: the grammar and the TeamColor record count read from Red's note parsing and the
+  bin's layout into `player_folders.md` "Root files"; waits on the maintainer: its confirmation,
+  an export text format), `color_entry_invalid`, derivation via
+  `color_tools::kit::extract_kit_colors` on the decoded main texture (`kit_colors_derived`), the
+  magenta/black pair (`kit_colors_missing`), `icon.txt` (default 3); `UniColor.bin` built on the
+  bundled base (lead first: the `UniColor.bin` and `TeamColor.bin` bases as lead-authored
+  fixtures with a provenance README) at Red's per-team offsets, an entry applied only when its
+  kit's task commits (placeholder kits included: TC-SRC-01's p2 gains its entry); root
+  `colors.txt` → `TeamColor.bin`, `team_colors_missing` (I). Plan: `pipeline.md` "4. Per-export
+  non-model steps" (Bins accumulation), "Resolved decisions" (Kit colors fallback);
+  `libs/color_tools.md` "Dominant kit-color extraction". IDs: TC-KIT-11..14, TC-ROOT-10,
+  TC-BIN-01..03. Crates: tc (`bins/mod.rs`, `processing/kit.rs`), resources (`resources/bins/`) →
+  verify: a `/co/` export with `p1/colors.txt`, `p2/kit.dds` without colors and an empty `p3/`:
+  the CPK's `UniColor.bin` carries at team 714's p1 offset the file's two colors, at p2's the
+  pair `extract_kit_colors` returns for the decoded texture, at p3's the magenta/black pair; the
+  tracer parity test compares `TeamColor.bin` byte-identical and `UniColor.bin` with g1's entry
+  excluded (Red does not derive)
+
+- [ ] 4.9 **Kit configs, FPC reconciliation and collars**: team kit-FPC status (`fpc.on` in any
+  player folder → On), generated configs with FPC values (`kit_config::fpc::apply_fpc`), supplied
+  configs reconciled upward (`kit_config_fpc_adjusted`, GK included),
+  `kit_config_version_clamped`; `fpc.on`/`fpc.off` no longer refuse the export (their savefile
+  half is Phase 5); `Collars/` gets its allowlist row in `ae` (model files named `collar_<ID>`,
+  any model format; lead first: the stock-collar range counted from the installed game's
+  `nocloth` set per version into `messages.md` `collar_id_invalid`; waits on the maintainer: its
+  confirmation, game-facing), `collar_[ID]` parsed, `collar_id_invalid` (range, 105),
+  `collar_id_conflict` in canonical export order, every kit config's collar fields rewritten
+  after FPC, collar files passed through to `uniform/nocloth/#Win/`. Plan: `fpc_toggle.md` "Team
+  kit-FPC status and kit configs"; `pipeline.md` "4. Per-export non-model steps" (Kits, Collars),
+  "Resolved decisions" (Collar contract); `object_model.md` "File-type allowlist". IDs:
+  TC-KIT-15..17, TC-CMN-01..03. Crates: ae (`conventions/file_types.rs`, `validate/folders.rs`),
+  tc (`processing/kit.rs`, `processing/team_assets.rs`, `plan/`) → verify: a `/co/` export with
+  `fpc.on` in slot 05 and a supplied `p1/config.toml` without FPC values: the emitted 120-byte
+  config decodes with `kit_config::fpc::matches_fpc` true and `kit_config_fpc_adjusted` is
+  reported for p1; with `Collars/collar_12.fmdl` added, every emitted config's collar fields read
+  12 and the file sits at `Asset/model/character/uniform/nocloth/#Win/collar_12.fmdl`
+
+- [ ] 4.10 **Kit layout conversion**: `KIT_LAYOUT_REMAP` (lead-authored measurement,
+  `kits/layout.rs`; band edges from texel correspondence plus the hand-adjusted fixture pair),
+  `kit_layout_converted`, Lanczos3 for bands whose width changes, every texel outside the islands
+  copied, `_chest`/`_back`/`_name`/`_leg` untouched, placeholder never re-laid, the inverse table
+  for `fox` kits on pre-Fox (exercised fully in 4.16). Plan: `pipeline.md` "4. Per-export
+  non-model steps" (Kits, "Layout conversion"); `player_folders.md` "Kit layout marker". (waits
+  on the maintainer: the fixture pair, one kit an author shipped for a 16/17-era and a 21-era
+  cup, from the maintainer's library; the step waits for it.) IDs: TC-KIT-18..20. Crates: tc
+  (`processing/kits/layout.rs`) → verify: a `pre-fox` kit compiled for PES 21 decodes to a
+  texture whose every texel outside the sock and shorts islands equals the no-marker compile's
+  and whose islands match the golden from the fixture pair; a synthetic flat-band texture
+  round-trips pre-Fox → Fox → pre-Fox exactly
+
+- [ ] 4.11 **Team root artifacts and Common**: logo (main decoded, made square per tag, Lanczos3 to
+  512 and 256, `logo_small*` or main to 128, PNG with alpha, `logo_fit_applied`, `logo_upscaled`,
+  one atomic producer, names `emblem_0{id}_r_ll/_r_l/_r.png` on PES 15-19 and `e_000{id}...` on
+  20-21; lead first: which of the three names is which size, read from PES 21's own files into
+  `pipeline.md` "Logo"); `notes.txt` → `output/teamnotes.txt` (UTF-8/LF, canonical order,
+  accepted exports only, `notes_found`); `kitN` variants completed (`kit_variant_missing` copies
+  the lowest, `kit_variant_model_fox`), `dummy_kit*` stems skipped by the existence checks;
+  `Common/` on Fox: textures converted into `common/{team_id}/sourceimages/`, models only
+  reachable through `.common` links (4.5). Plan: `pipeline.md` "4. Per-export non-model steps"
+  (Logo, Common, Kit-dependent assets), "2. Per-export serial steps" step 5; `model_format.md`
+  "Kit-dependent assets". IDs: TC-ROOT-06..09, TC-CMN-04..06. Crates: tc
+  (`processing/team_assets.rs`) → verify: a 1000x600 `logo.png` yields three square PNGs decoding
+  to 512, 256 and 128 pixels with transparent side borders and `logo_fit_applied` (`fit`);
+  `logo_small_crop.png` beside it changes only the 128 one; the notes of two accepted exports
+  appear in `output/teamnotes.txt` in canonical order and a skipped export's do not
+
+- [ ] 4.12 **`ingame_face` processing (Fox)**: no face package emitted; arbitrary-named models
+  rerouted to the player-exclusive boots folder (merged, the paired `.skl` becoming `boots.skl`);
+  gloves parts to the player's gloves folders; a boots/gloves link combined with local parts
+  under the marker; an empty `face/` ignored; a player without face models and without the marker
+  gets the blank face folder (lead first: what the Fox blank face package holds, read from Red's
+  `export_move.py` into `pipeline.md` step 4). Plan: `player_folders.md` "`ingame_face` marker",
+  "`ingame_face` with shared links"; `pipeline.md` "2. Per-export serial steps" step 4. IDs:
+  TC-MOD-16..19. Crates: tc (`processing/model.rs`, `plan/`) → verify: a `/co/` slot 05 folder
+  with `ingame_face`, `torso.fmdl`, `torso.skl` and `glove_l.fmdl`: the CPK has no
+  `face/real/71405/`, has `boots/k0625/#Win/boots.fpk` holding `boots.fmdl` and a `boots.skl`
+  byte-equal to `torso.skl`, and `glove/g0625/#Win/glove.fpk`
+
+- [ ] 4.13 **Run planning**: `duplicate_aesthetics_export`; canonical export order by normalized
+  source-relative path plus source kind; every task's output namespace allocated in planning,
+  `duplicate_path` (folder E, export E, override W); the `overrides/` tree of the data directory
+  injected first (`overrides_active`); the writer's duplicate invariant kept; export revision
+  pinning at planning, `source_changed_during_run` (a folder's revision is the listing's (path,
+  size, modified time) set, an archive's its size and modified time, pinned at planning and
+  rechecked before each task's read). Plan: `pipeline.md` "3. Per-model-folder parallel steps"
+  (the run-level planning paragraph), "5. Writer" steps 1-3, "Resolved decisions" (Cross-export
+  duplicate precedence, Source snapshot); `settings.md` "Path resolution" (`overrides/`). IDs:
+  TC-PLN-03..07. Crates: tc (`plan/mod.rs`, `plan/overrides.rs`, `reader/`) → verify: exports
+  `co - A/` and `co - B.zip` in one root both report `duplicate_aesthetics_export` and no CPK is
+  written; with `overrides/common/etc/TeamColor.bin` in the data directory the CPK's entry has
+  the override's bytes and the console shows `overrides_active` then `Warning duplicate_path
+  [Keep]`
+
+- [ ] 4.14 **Pre-Fox faces (PES 15-17, native `.model` + `.mtl`)**: `face.xml` generated from the
+  suffix table (`face_neck` for `face_high`, `parts`, `gloveL`/`gloveR`, `handL`/`handR`,
+  `model_type_<x>`, `_ratio_<n>`, `uniform` → `uniform_sub` on PES 15), `oral_`/`_win32` affixes,
+  `xml_face_neck_added` with the dummy model and MTL (lead first: both as lead-authored fixtures
+  with a provenance README); `.mtl` texture paths rewritten to
+  `model/character/uniform/common/{team_id}/{folder}/` with `.dds` extensions; textures as DDS
+  (BC7 transcoded to BC3, `texture_not_div4`); each face packed into
+  `common/character0/model/character/face/real/{id}.cpk`; portraits `player_{id}{NN}.dds`; a
+  shared face folder copied per linking player with local files on top; boots/gloves links keep
+  the shared folder's ID, the shared folders emitted as loose files under `boots/{id}/`; local
+  boots/gloves parts ride in the face XML (no per-player folders); `model_name_invalid`,
+  `edithair_unsupported`, `xml_oral_prefix_missing` (PES 16), `.model.common` as an XML Common
+  path, `xml_common_path_invalid`. Plan: `pipeline.md` step 3 "Pre-Fox fixups", steps 5-7, "Game
+  paths reference"; `player_folders.md` "A link plus local models combines" (pre-Fox), "Model
+  names". (waits on the maintainer: a Red run on PES 17 over a hand-migrated Studio twin of a
+  small pre-Fox export, committed under `tests/fixtures/tracer_prefox/` if under 1 MB, the
+  pre-Fox parity reference for 4.14-4.17; until it exists the step's checks are the ones below.)
+  IDs: TC-MOD-20..25, TC-TEX-07. Crates: tc (`processing/model.rs`, `processing/material.rs`,
+  `processing/texture.rs`, `paths.rs`) → verify: a `/co/` slot 05 folder with the smallest
+  `pes_model` fixture pair as `face.model` + `face.mtl` and `skin.dds`, compiled for PES 17: the
+  CPK holds `common/character0/model/character/face/real/71405.cpk` whose `face.xml` lists one
+  `face_neck` entry, whose MTL names `skin.dds` under `.../common/714/05 - .../`, and no `Asset/`
+  entry
+
+- [ ] 4.15 **Pre-Fox XML and MTL checks, user `face.xml`**: every `xml_*` and `mtl_*` row of the
+  catalog, the Error/Warning/Info line of "User-supplied `face.xml`", `xml_ignored_fox`,
+  `mtl_texture_not_found` deep (mesh-used materials) against `mtl_texture_unused_missing`, the
+  states checks also on a converted model's `[prefox.states]`. Plan: `messages.md` "XML/MTL
+  content checks", "User-supplied `face.xml`". IDs: TC-XML-01..07. Crates: tc
+  (`processing/material.rs`) → verify: the hand-written xml of `testing.md` ("user `face.xml`")
+  compiled for PES 17 is emitted with 714 substituted into its Common path, its unknown `type`
+  and extra attribute kept with `xml_type_unknown` and `xml_attribute_unknown`, `level="1"` kept
+  with `xml_level_lod`; a `<model>` without `path` drops the folder with `xml_model_path_missing`
+
+- [ ] 4.16 **Pre-Fox kits, bins and DDS compression**: `kit_mask` injected from the mask template
+  (lead first: the template as a lead-authored fixture with a provenance README) when absent,
+  `kit_srm` dropped with `kit_texture_not_used`, kit configs emitted as loose per-team bins under
+  `uniform/team/{team_id}/` (no `UniformParameter.bin` before PES 18), the pre-Fox
+  `UniColor`/`TeamColor` layouts, `fox` kits re-laid with the inverse table (4.10);
+  `dds_compression` (`auto` follows `multicpk_mode`, `true`, `false`) wrapping every emitted DDS
+  with `wezlib::compress` on PES 15-17 only, already-wrapped sources passed through, the level
+  chosen by measuring levels 1, 3 and 6 on the tracer's DDS set and recorded in a decision entry.
+  Plan: `pipeline.md` "4. Per-export non-model steps" (Kits: mask and srm); `settings.md`
+  (`dds_compression`, "DDS compression cost"). IDs: TC-KIT-21..23, TC-TEX-08, TC-BIN-04. Crates:
+  tc (`processing/kit.rs`, `processing/texture.rs`, `bins/`, `settings.rs`) → verify: PES 17
+  compile of `/co/` p1 without a mask emits `u0714p1_mask.dds` byte-identical to the template;
+  with `dds_compression = true` every `.dds` entry satisfies `wezlib::is_wrapped` and
+  decompresses to the `false` run's bytes; a `kit_srm.dds` reports `kit_texture_not_used` and no
+  `_srm` entry exists
+
+- [ ] 4.17 **Cross-format conversion and source selection**: target-native first, then glTF, then
+  the opposite native format converted through `model_convert::convert` (FMDL → `.model` + `.mtl`
+  as one bundle, `.model` → FMDL), `model_conversion_failed`; `model_source_ambiguous` keeps its
+  catalog row but its only input, two glTF files of one stem, is Phase 7's, so no scenario here; a
+  selected glTF representation refused with `model_gltf_unsupported` (folder dropped, not
+  pass-through-eligible); `bone_folded_for_version`, `skeleton_retargeted`, an SKL generated from
+  the IR for a converted model with bones outside the target's tables,
+  `vertex_too_far_from_origin` on the converted form, the `metal` family's environment-cubemap
+  sampler and template on pre-Fox (lead first: the cubemap as a lead-authored fixture with a
+  provenance README). Plan: `pipeline.md` step 3 "Format conversion", "Resolved decisions" (Model
+  source selection); `development_plan.md` "Phase 4" `processing/` (glTF refusal);
+  `model_conversion/README.md`. IDs: TC-MOD-26..30. Crates: tc (`processing/model.rs`) → verify:
+  the tracer's `fcl_hair.fmdl` compiled for PES 17 yields a `.model` + `.mtl` pair in the face
+  CPK that `pes_model` reads back with the FMDL's mesh count; `boots.fmdl` beside `boots.model`
+  on PES 21 compiles the FMDL with no conversion finding; `boots.glb` alone on PES 21 reports
+  `model_gltf_unsupported` and drops the folder
+
+- [ ] 4.18 **Hand auto-split**: `model_convert::ops::hand_split::split_by_skeleton_group` on every
+  model with `skh_*_l`/`skh_*_r` weights before categorization, the split parts as virtual
+  `glove_l`/`glove_r` parts, models without such weights untouched. Plan: `player_folders.md` "At
+  compile time, the pipeline" step 0; `development_plan.md` "Phase 4" `processing/`;
+  `model_conversion/README.md` (`ops/hand_split.rs`). IDs: TC-MOD-31. Crates: tc
+  (`processing/model.rs`) → verify: a `/co/` slot 05 folder holding `model_convert`'s hand-split
+  fixture as `body.fmdl`: the CPK holds `glove/g0625/#Win/glove.fpk` with `glove_l.fmdl` and
+  `glove_r.fmdl`, and the face's merged FMDL plus the two gloves hold exactly the source's vertex
+  count
+
+- [ ] 4.19 **Referees**: a `/refs/` export compiled into `refs_cpk_name`'s CPK; slots 01-35 mapped
+  by `players.txt`, a folder mapped to several slots prepared once and instantiated per slot; IDs
+  `k99XX`/`g99XX` and the referee face paths (lead first: the referee face path, the
+  `k99XX`/`g99XX` folders and the per-referee common template added to "Game paths reference"
+  from Red's `referee_tools.py`/`export_move.py`, the in-game-verified layout); the per-referee
+  common subfolder keyed by folder name under team 999; the refscpk template content (lead
+  first: as lead-authored fixtures with a provenance README); pre-Fox `ref_marker.dds` template
+  injection; the team CPK untouched by referee content. Plan: `blue_port.md` "Referee export
+  processing"; `pipeline.md` step 6 (the referee layout), "5. Writer" step 5 (refs CPK);
+  `player_folders.md` "Multi-mapped processing". IDs: TC-REF-01..05. Crates: tc
+  (`processing/referee.rs`, `plan/refs.rs`, `paths.rs`), resources → verify: a refs export
+  mapping `Ref A` to 01, 20 and 35 on PES 21 writes `4cc_35_referees.cpk` holding three face
+  packages, one `common/999/Ref A/sourceimages/` texture set, and `k9901`, `k9920`, `k9935`
+  boots folders when the folder has boots; the team CPK of the same run holds no `999` path
+
+- [ ] 4.20 **Withdraw the Phase 3 subset gate**: `plan/subset.rs` and `content_not_yet_compiled`
+  removed (the catalog row reads withdrawn), TC-OUT-06 withdrawn, every content kind and both
+  engines reach processing; the "Phase 3 scope" paragraph's refusals are gone except the glTF
+  one (4.17). Plan: `team_compiler/README.md` "Acceptance" (Phase 3 scope: "The code is withdrawn
+  when Phase 4 compiles everything"); `messages.md` (`content_not_yet_compiled`). IDs: TC-OUT-06
+  withdrawal. Crates: tc → verify: `rg content_not_yet_compiled crates/` finds nothing; `rg
+  "subset" crates/tools/team_compiler/src` finds nothing; `just acceptance` reports TC-OUT-06
+  withdrawn and no test citing it
+
+- [ ] 4.21 **Bins from the installed CPKs**: `bins/dpfl.rs` `DpFileList.bin` reader (16-byte
+  header, fixed-width records, width verified per version; waits on the maintainer: a
+  `DpFileList.bin` fixture per PES version from the installed games, small files); the walk from
+  the entry of next-lower priority than the output CPK upward, each bin from the first CPK that
+  holds it (`cpk::CpkArchive`, `wezlib::decompress_if_wrapped`), the supplying CPK reported with
+  `bin_source` (I; `bundled` when the embedded base was used); the bundled bases when no install
+  or DPFL is found; the `templates/` override directory (`template_override_active`,
+  `template_override_unreadable`); FPC patching of kit slots absent from the export from the
+  installed `UniformParameter` or pre-Fox kit bins (`kit_config_fpc_adjusted`,
+  `kit_config_fpc_unpatched`). Plan: `pipeline.md` "4. Per-export non-model steps" (Bins
+  accumulation), "Resolved decisions" (Working-bin lookup, Templates and fallback bins);
+  `fpc_toggle.md` "Kit slots absent from the export". IDs: TC-BIN-05..09. Crates: tc
+  (`bins/dpfl.rs`, `bins/mod.rs`, `templates.rs`) → verify: a sandbox install whose DPFL lists
+  `4cc_08_bins`, `4cc_60_midcup` and `4cc_90_test` with a `4cc_08_bins.cpk` holding a
+  `UniColor.bin` in which team 714's p1 entry is set and a `4cc_60_midcup.cpk` holding one in
+  which it differs: compiling `/co/` with only `p2/` leaves p1's bytes equal to the
+  higher-priority CPK's and p2's set; with `cpk_name = 4cc_60_midcup` the p1 bytes come from
+  `4cc_08_bins.cpk`
+
+- [ ] 4.22 **Fox player tables**: `BootsList.bin` and `GloveList.bin` read from the installed (or
+  seed) CPK by the same walk, the (player id, item id) pair of every compiled player whose
+  boots/gloves output committed replaced with the planned ID, a failed output keeping its row,
+  every other row kept, written whole, plain, sorted by id; `PlayerAppearance.bin` read and
+  written whole with no row changed (the rows are Phase 5's, with the stock and default-ID
+  boots/gloves rows). **External:** the in-game effect of a gloves row waits on FoxDen's gloves
+  patch (worklog "Issues"); the table content does not. Plan: `pipeline.md` "Bins accumulation"
+  (player appearance tables), "Game paths reference" (the three rows); `settings_toml.md` "Player
+  settings in exports" (Fox); `development_plan.md` "Phase 4" `bins/`. IDs: TC-BIN-10..12.
+  Crates: tc (`bins/mod.rs`, `paths.rs`) → verify: PES 21 compile of `/co/` with slot 05's
+  `boots.fmdl` over an installed `BootsList.bin` of ten pairs: the CPK's table holds eleven pairs
+  sorted by id with (71405, 625) among them and the ten unchanged; `GloveList.bin` is
+  byte-identical to the installed one; `PlayerAppearance.bin` is byte-identical to the installed
+  one
+
+- [ ] 4.23 **Output sink and modes**: `output/sink.rs` `OutputSink` (CPK, loose folder) fed by
+  output-relative paths; `processing/materialize.rs` the one seam (relocation and FPK packing,
+  skipped in test mode); `--mode test` writing `output/test_output/<canonical source key>/` with
+  export-relative processed entries and no FPK; `--mode sideload` replacing the whole contents of
+  `{pes_folder_path}/livecpk/` with the run's game-path tree, refused on PES 15/16 (exit 2);
+  artifact routing per mode (`teamnotes.txt` under `output_folder_path` in every mode; sideload:
+  bins, overrides and referee content at their game paths in `livecpk/`; test: bins under
+  `test_output/_bins/` at game-relative paths, referee content per export like a team's,
+  overrides not applied); the loose sink is the harness the parity test drives. **External:**
+  FoxDen's LiveCPK gaps (worklog "Issues": 2019/2021 sites, PES 2020, path length, in-match
+  loads) decide the in-game effect only; the written tree is what the scenarios test. Plan:
+  `pipeline.md` "5. Writer" step 5 and the output-modes paragraphs, "Resolved decisions"
+  (Output-mode artifact routing); `settings.md` "CLI", "Path resolution"; decision entry
+  "sideloading through FoxDen (4.0e)". IDs: TC-OUT-07..11. Crates: tc (`output/sink.rs`,
+  `processing/materialize.rs`, `cli.rs`) → verify: `--mode test` on the tracer writes
+  `output/test_output/egg Tracer/Players/05 - The Chad Stormworks Player/fcl_hair.fmdl` with its
+  texture path rewritten and no `.fpk` anywhere under `test_output/`; `--mode sideload` with a
+  stale `livecpk/old.txt` removes it and writes files whose relative paths and bytes equal the
+  entries of a normal-mode CPK of the same export
+
+- [ ] 4.24 **Deployment**: each staged CPK copied to `download/{name}.cpk.partial` and renamed over
+  the old one, the marker file, the staging folder removed; the preflight before any export is
+  read (`download/` probe; `pes_version_mismatch` W); degradation to `output/` with
+  `pes_folder_not_found`, `dpfilelist_missing`, `cpk_name_unlisted`, `old_cpk_locked`,
+  `deploy_target_unwritable` (`elevation::is_access_denied`), `dpfilelist_outdated` (the
+  installed list lacks a target the bundled one has, 4.25 supplies the template); `--no-deploy`
+  unchanged; stale `.staging/` folders of dead runs removed at start; deployment adds no exit
+  code (a degraded run exits 1, an aborted one 3, as the mapping already says). Plan:
+  `pipeline.md` "6. Post-processing" (Staging, Deploy CPKs, Degraded run, `--no-deploy`,
+  Destination writability preflight); `messages.md` "Output stage and savefile"; `settings.md`
+  "CLI" (exit codes). IDs: TC-DEP-01..07. Crates: tc (`output/deploy.rs`, `cli.rs`) → verify: a
+  sandbox PES folder with `PES2021.exe`, a DPFL listing `4cc_90_test` and an old
+  `download/4cc_90_test.cpk`: `compile` leaves `download/4cc_90_test.cpk` equal to the staged
+  bytes, no `.partial`, the marker beside it, nothing in `output/`, exit 0; with the old CPK held
+  open by the test: `old_cpk_locked`, `output/4cc_90_test.cpk` holds the run's CPK, the old one
+  is byte-identical, exit 1
+
+- [ ] 4.25 **DpFileList upgrade**: the official per-version `DpFileList.bin` embedded (lead first:
+  as lead-authored fixtures with a provenance README, from the files 4.21 waits on);
+  `upgrade-dpfl [--yes]`: the entries the official list lacks printed with the size of each
+  matching `download/*.cpk`, nothing written without `--yes`, the installed file replaced byte
+  for byte with `DpFileList.bin.bak` kept, no CPK ever deleted by the command;
+  `dpfilelist_outdated` names the subcommand. Plan: `pipeline.md` "6. Post-processing"
+  (DpFileList upgrade); `settings.md` "CLI" (`upgrade-dpfl`). IDs: TC-DEP-08..10. Crates: tc
+  (`bins/dpfl.rs`, `cli.rs`), resources → verify: an installed DPFL lacking `4cc_40_teams` beside
+  a 1 KiB `download/4cc_40_faces.cpk`: `upgrade-dpfl` prints `4cc_40_faces` with `1 KiB` and
+  exits without writing; `--yes` makes `DpFileList.bin` equal to the embedded PES 21 list and
+  `DpFileList.bin.bak` equal to the old file, `4cc_40_faces.cpk` still present
+
+- [ ] 4.26 **Multi-CPK mode**: `multicpk_mode` honored (the Phase 3 refusal removed); slots from
+  the DPFL entries matching `{prefix}_{NN}_{teams_cpk_name}` exactly, ordered by number; whole
+  teams placed first-fit by exact size under `cpk_part_max_size`; every unfilled slot written as
+  the empty placeholder CPK, byte-identical to the shipped one (waits on the maintainer: the
+  shipped `4cc_68_midcup.cpk` committed as the placeholder fixture); `cpk_slots_exhausted`,
+  `cpk_team_exceeds_cap`, `cpk_size_over_limit` (single-CPK); the bins CPK (`bins_cpk_name`), the
+  refs CPK beside them; `dds_compression = auto` follows the mode; deployment per generated CPK.
+  Plan: `pipeline.md` "5. Writer" step 6 ("Multi-CPK mode: teams parts"); `settings.md`
+  (`multicpk_mode`, `teams_cpk_name`, `cpk_part_max_size`, `bins_cpk_name`). IDs: TC-OUT-12..16,
+  TC-DEP-11. Crates: tc (`output/writer.rs`, `output/deploy.rs`, `settings.rs`), cpk (placeholder
+  writer, if not already byte-identical) → verify: `/co/`, `/a/` and `/b/` exports with
+  `cpk_part_max_size` set just above the first two teams' compiled size and a DPFL reserving
+  `4cc_40_teams`..`4cc_44_teams`: `4cc_40_teams.cpk` holds the first two teams whole,
+  `4cc_41_teams.cpk` the third, `4cc_42`..`44` are each 6,272 bytes equal to the placeholder
+  fixture, `4cc_08_bins.cpk` holds the bins and nothing else
+
+- [ ] 4.27 **Fox referee marker into `dt00_x64.cpk`** (waits on the maintainer: the transaction
+  protocol, and whether FoxDen's LiveCPK could serve the Fox marker instead, which would retire
+  the setting): `dt00_overwrite_allow` read; `ref_marker_needs_consent` when off; when on, the
+  converted marker written into the system CPK as part of the deployment transaction with
+  `dt00_x64.cpk.bak` kept and the old file restored on `dt00_write_failed`. Plan: `blue_port.md`
+  "Referee export processing" (`ref_marker.dds`); `messages.md` "Referees"; `pipeline.md`
+  "Resolved decisions and open questions" (`dt00_x64.cpk` transaction). IDs: TC-REF-06..07.
+  Crates: tc (`output/deploy.rs`, `processing/referee.rs`) → verify: a refs export with
+  `ref_marker.dds` and the setting off leaves a sandbox `dt00_x64.cpk` byte-identical and
+  reports `ref_marker_needs_consent`; on, the CPK's marker entry is the FTEX of the file and
+  `dt00_x64.cpk.bak` equals the old CPK
+
+- [ ] 4.28 **Complete memory accounting**: the permit grows with decoded textures, converted
+  models, merged meshes and packed entries (the open question "Complete memory accounting"); a
+  team's held batches in multi-CPK mode charged; shared and cache-owned bytes charged while
+  retained. Plan: `pipeline.md` "Resolved decisions and open questions" (Complete memory
+  accounting); `libs/pipeline.md` "Memory budget" (last bullet). IDs: none (not user-observable;
+  the measurement is the proof). Crates: pipeline (`Permit::grow`, or the shape the step
+  settles), tc → verify: a recording `MemoryBudget` wrapped around the tracer compile reports a
+  peak equal to the sum of the decoded and packed sizes the tasks allocated, not the source
+  sizes; with a cap below one decoded texture the task waits for an empty pipeline and completes
+  (the oversized rule)
+
 - [ ] 4.y `dds_convert` cache retention bound (found at 2.20d converge; spec `libs/dds_convert.md`
   "In-memory conversion cache", "Retention is separately bounded and budgeted"): the
   `Converter` holds every distinct conversion until `clear`; the pipeline's memory budget
   charges `retained_bytes` and evicts under pressure, and repeated edits do not keep every
   superseded conversion → verify: a test compiling the same export with one texture edited N
   times retains one conversion of it, and a budget smaller than the cache evicts rather than
-  blocking a task
+  blocking a task. (Placed after 4.28: eviction is the budget's policy, which 4.28 gives the
+  budget the accounting for.)
+
+- [ ] 4.y-conv **Converge** (`AGENTS.md` "Closing a phase" (1)): the lead's audit of
+  `team_compiler`, `aesthetics_export`, `pipeline` and the Phase 4 edits of the lib crates
+  against `development_plan.md` "Phase 4", the `pipeline.md` walkthrough, `messages.md`,
+  `settings.md` and every TC ID; `just acceptance strict`; the design-health pass (design-tell
+  sweep, `just mutants` per crate with every survivor triaged, `pub` census); the census over
+  every export on the maintainer's machine (Everything index) run through `check` and `compile
+  --mode test`, tallied by outcome; then the cross-family reviewer loop, one surface per crate
+  (queued per the handover if no reviewer is available); each gap a new step above this one →
+  verify: `just gates` green, `just acceptance strict` green, the census tally recorded in the
+  worklog with every failing class diagnosed
+
+- [ ] 4.z-rewrite **Rewrite** (`AGENTS.md` "Closing a phase" (2) and (3)): `development_plan.md`
+  "Phase 4", `pipeline.md` (the walkthrough's Phase 4 parts and the "Run driver shapes" block,
+  which becomes the Phase 4 shapes), `messages.md`, `settings.md`, `object_model.md` "Validation
+  semantics" (deep pass), `team_compiler/README.md` "Development phases" and the "Phase 3 scope"
+  paragraph (its refusal list replaced by what Phase 3 built) in the present tense; resolved open
+  questions moved to "Resolved decisions"; the worklog's step list collapsed to the phase row →
+  verify: `rg -n "Phase 4" docs/plans` shows no future-tense Phase 4 sentence outside deferred
+  items; the worklog's Phase 4 heading is one row plus any `manual: checked` lines
+
+Out of Phase 4 (named so the steps above do not absorb them): the savefile step, the aesthetics
+patch and every `savefile_*`/`patch_written` code (Phase 5, `output/savefile.rs`);
+`PlayerAppearance.bin` rows and the stock/default-ID boots and gloves rows from `settings.toml`
+(Phase 5); the other `settings_*` codes and `fpc_strip_conflict` (Phase 5, resolved values; Phase
+4 reports only `settings_toml_invalid`); `run_pes` and the Launch PES button as one launcher
+(Phase 8); `FolderStatus`, `Progress` and `Complete` events, live validation (`check/`,
+`watcher.rs`) and every GUI action on a degraded run (Retry, Open output folder, Relaunch as
+administrator, Upgrade DpFileList dialog): Phase 8; glTF sources: Phase 7; the GPU BC7 backend:
+16.x; the parity run over upgraded reference exports: after Phases 5 and 6
+(`development_plan.md` "Phase 4" Verification).
+
+Phase 4 open questions (maintainer):
+
+- `colors.txt` grammar and TeamColor capacity: the lead reads the entry format from Red's note
+  parsing and the record count from the bin's layout; the maintainer confirms, since it is an
+  export text format. 4.8 waits on the confirmation.
+- `dt00_x64.cpk` transaction: the backup and rollback protocol for the Fox referee marker, and
+  whether FoxDen's LiveCPK could serve the marker from `livecpk/` instead of editing a system CPK,
+  which would retire `dt00_overwrite_allow`. 4.27 waits on it.
+- Kit layout fixture pair: one 4cc kit an author shipped for both a 16/17-era and a 21-era cup,
+  from the maintainer's library (Everything index). 4.10 waits on it; 4.16's inverse-table check
+  uses it.
+- Placeholder CPK fixture: the shipped `4cc_68_midcup.cpk` (6,272 bytes) committed as the
+  fixture the placeholder writer is tested against. 4.26 waits on it.
+- `DpFileList.bin` per PES version: a fixture from each installed PES 15-21 (small files), to
+  verify the record width per version. 4.21 and 4.25 wait on them.
+- Pre-Fox parity reference: a Red run on PES 17 over a hand-migrated Studio twin of a small
+  pre-Fox export (as the tracer was made), committed under `tests/fixtures/tracer_prefox/` if
+  under 1 MB. Without it every pre-Fox byte of 4.14-4.17 is unchecked until Phase 6.
 
 ### Phase 5 — Savefile integration
 
@@ -850,3 +1333,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   FoxDen change ("Issues"). "Target versions" added to `development_plan.md` (Fox first,
   game-behavior changes through FoxDen) and the aesthetics design recorded (decision entries).
   Next: the plan rewrite those entries imply, then Phase 4's itemization.
+- **2026-10-03** — 4.1: Phase 4 itemized (4.2-4.28 plus 4.y, converge, rewrite) and its
+  Acceptance section written (126 scenarios); 27 plan gaps found, the lead-decidable ones ruled
+  (decision entry), the rest under "Phase 4 open questions". A VGL26 corpus of 53 old-layout
+  exports (`C:/Data/4cc/Lab/Gud`, 15 GB) is the converge census's input once Phase 6 upgrades it.

@@ -95,7 +95,9 @@ export format.
    - **Deep format pass (format crates)**: materializes each scope under the memory budget and
      delegates FMDL, `.model`/MTL/XML, glTF, texture, and kit-config parsing to their owning crates.
      Plain-folder full checks run both passes; packed archives run the structure pass during live
-     checking and this deferred deep pass at compile start before eligibility is decided.
+     checking and this deferred deep pass at compile start before eligibility is decided. The CLI
+     `check` has no live check and runs both passes on every source kind, archives included, so a
+     model error the next `compile` would report is never missed by the `check` before it.
 
    Together the two passes cover these categories, adapted from Red's `export_check.py` to the new
 format:
@@ -717,7 +719,9 @@ describes behavior, not a serial scheduling requirement:
   `--no-deploy` — because a savefile pointing at boots/gloves IDs whose content is not installed is
   exactly the incoherence the "only for content actually written" rule exists to prevent.
 - **Run PES** — optional launch of `PES20{version}.exe`, only after the complete deployment
-  transaction succeeds.
+  transaction succeeds. Built in Phase 8 together with sideload mode's Launch PES button, as one
+  launcher: both start the same exe the same way, and the GUI phase is where its only manual
+  check lives.
 
 ### Run driver shapes (Phase 3)
 
@@ -946,9 +950,13 @@ Resolved decisions:
   (see the [library crates plan](../libs/README.md)): traversal/absolute paths rejected, separators
   normalized, case/Unicode collisions detected before extraction or packing; `aesthetics_export` uses the
   shared type.
-- **Source snapshot**: export revisions are pinned at planning and verified around each folder
-  materialization; a change aborts the run via `source_changed_during_run`, and archive handles stay
-  bound to the opened archive revision.
+- **Source snapshot** (Phase 4): export revisions are pinned at planning and verified around each
+  folder materialization; a change aborts the run via `source_changed_during_run`, and archive
+  handles stay bound to the opened archive revision. An export's revision is, for a folder, the
+  set of (path, size, modified time) of the reader's listing, and for an archive its size and
+  modified time; it is pinned at planning and rechecked before each task's read. That is what the
+  reader already lists, and the GUI watcher (Phase 8) keys its stale-result envelopes on the same
+  value.
 - **Merge-copy collisions within one child** use the dedicated `merged_texture_conflict`: when two
   parts merged into the same output FMDL (Fox baking of local, shared, and `.common`-linked models
   into one allowed name) copy the same texture destination with different bytes, no canonical winner
@@ -975,6 +983,13 @@ Resolved decisions:
   Common → referenced in place, once per team.
 - **Conversion cache engages only for ≤2 teams**: the in-memory texture conversion cache is
   bypassed for compiles of 3+ teams; see the [library crates plan](../libs/README.md) for rationale.
+- **Output-mode artifact routing**: `teamnotes.txt` is written under `output_folder_path` in every
+  mode. In sideload mode the bins, the `overrides/` files and referee content land at their game
+  paths inside `livecpk/`, since that tree is what the CPK would contain. In test mode the bins go
+  under `test_output/_bins/` at their game-relative paths, referee content is written per export
+  like a team's, and overrides are not applied: test mode shows what the compiler did to an
+  export, and an override is not the export's. Normal single-CPK, multi-CPK and refs routing is
+  the writer's (step 5 above).
 
 Open questions — **implementation/spec work** (no user preference involved; resolved during the
 phase that owns them):
@@ -1011,9 +1026,10 @@ phase that owns them):
   support; the kit-side fallback policy is resolved above.
 - **Run-result semantics.** Define separate compile and deployment outcome types so scoped errors,
   `pass_through`, failed moves, and failed savefile writes map predictably to GUI state and CLI exit
-  codes. The compile half's exit codes are fixed (`settings.md` "CLI"); the deployment half is
-  Phase 4's. Deployment is transactional across generated CPKs, the savefile, and `dt00_x64.cpk`, with
-  backups and rollback; PES launches only after the complete transaction succeeds.
+  codes. The exit codes are fixed (`settings.md` "CLI"): deployment adds none, a degraded run
+  exits 1 and an aborted one 3; what remains is the outcome types for GUI state. Deployment is
+  transactional across generated CPKs, the savefile, and `dt00_x64.cpk`, with backups and
+  rollback; PES launches only after the complete transaction succeeds.
 - **`dt00_x64.cpk` transaction.** Define backup and rollback behavior if referee-marker conversion
   or system-CPK replacement fails or is cancelled.
 - **Superseded installed outputs.** Within the teams slot run this is solved: every slot is written
@@ -1022,8 +1038,6 @@ phase that owns them):
   touched by a DLC compile, and vice versa — decide whether that needs a message) and the rule that
   an unrecognized user file is never deleted; retired official names are handled by the DpFileList
   upgrade's confirmed per-file deletion.
-- **Output-mode artifact routing.** Define routing for every artifact — bins, overrides, referee
-  content, and `teamnotes.txt` — across normal single-CPK, multi-CPK, refs, test, and sideload modes.
 - **Per-player common path templates.** Add Red's referee common layout (name-keyed per-referee
   subfolders; exact MTL/XML and Fox FMDL templates in "Texture relocation to common") to the Game
   paths table as the per-player common subfolder patterns (Phase 4 specification).

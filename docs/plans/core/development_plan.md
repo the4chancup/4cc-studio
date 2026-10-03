@@ -312,14 +312,17 @@ nothing about the Rust code.
   duplicate-refs preflight, `overrides/` precedence (`team_id_get`).
 - **`processing/`** — per-task work over `rayon` with memory permits: model format selection,
   cross-format conversion via `model_convert`, multi-model merging and SKL pairing
-  (`fmdl_editing`); model source selection before glTF exists: a folder whose selected
-  representation would be glTF (no target-native source beside it) is refused with a
-  folder-discarding error until Phase 7, never compiled from the opposite native format
-  instead, since that output would change silently once glTF lands (the code is named in this
-  phase's Acceptance section; `team_compiler/pipeline.md` "Per-export pipeline walkthrough");
-  texture conversion with the CPU converter as bounded batches with cancellation (0.1.0 ships
-  CPU-only; the desktop GPU BC7 backend, `libs/README.md` "First-release desktop GPU BC7", is
-  built on this step in Phase 16) — plus WESYS wrapping and relocation to common (`textures`);
+  (`fmdl_editing`); hand auto-split (`model_convert::ops::hand_split`) on every model carrying
+  `skh_*_l`/`skh_*_r` weights before categorization, the split parts becoming the player's
+  `glove_l`/`glove_r` parts (`player_folders.md` "At compile time, the pipeline" step 0); model
+  source selection before glTF exists: a folder whose selected representation would be glTF (no
+  target-native source beside it) is refused with `model_gltf_unsupported` (folder-discarding,
+  not pass-through-eligible) until Phase 7, never compiled from the opposite native format
+  instead, since that output would change silently once glTF lands (`team_compiler/pipeline.md`
+  "Per-export pipeline walkthrough"); texture conversion with the CPU converter as bounded
+  batches with cancellation (0.1.0 ships CPU-only; the desktop GPU BC7 backend, `libs/README.md`
+  "First-release desktop GPU BC7", is built on this step in Phase 16) — plus WESYS wrapping and
+  relocation to common (`textures`);
   MTL / face XML / `materials.toml` editing (`xml_editing`); kit folders: config
   generation/reconciliation/emission via `libs/kit_config` (TOML in exports, binary at compile
   time), FPC patching via `fpc`, kit colors from per-kit `colors.txt` (Team Note entry format) or
@@ -329,9 +332,13 @@ nothing about the Rust code.
   referee code in `fmdl_editing`/`export_move`); `materialize.rs` as the single output-mode seam:
   relocation to game paths and Fox FPK packing (`contents_packing`, `export_move`).
 - **`bins/`** — UniColor / TeamColor / UniformParameter accumulation via `uniparam`, DpFileList
-  read/write and slot discovery (`bins_update`); on Fox the player appearance tables
-  (`PlayerAppearance.bin`, `BootsList.bin`, `GloveList.bin`): read from the installed CPKs, rows
-  replaced, written whole (the rows' content comes from Phase 5's settings resolution).
+  read/write and slot discovery (`bins_update`); on Fox the player appearance tables, read from
+  the installed CPKs by the same walk and written whole: `BootsList.bin` and `GloveList.bin` get
+  a row for every compiled player whose custom boots or gloves output committed (the planned ID),
+  every other row kept, a failed output keeping the installed row; `PlayerAppearance.bin` passes
+  through with no row changed. Phase 5 adds the stock and default-ID rows and the appearance rows
+  from `settings.toml`: this split is the only one in which Phase 4's CPK is game-correct for what
+  it compiled without reading `settings.toml`.
 - **`output/`** — Phase 3 already writes one CPK through the canonical-order writer, staging and
   promotion to `output/`, with the output folder's writability preflight (TC-OUT-*, TC-CLI-06);
   Phase 4 adds `OutputSink` (CPK vs loose folder for test/sideload), the `.partial` copy into
@@ -424,6 +431,9 @@ this phase completes it.
   cache
 - Wire event channels to egui rendering
 - Implement cancellation
+- The Team compiler's `run_pes` and sideload mode's Launch PES button as one launcher of
+  `PES20{version}.exe` (`team_compiler/pipeline.md` "Post-processing", Run PES): both start the
+  same exe the same way, and this phase holds its only manual check
 - Test on Windows (Linux is a Phase 16 item: no Linux machine is available, and 0.1.0 is
   Windows-only)
 
