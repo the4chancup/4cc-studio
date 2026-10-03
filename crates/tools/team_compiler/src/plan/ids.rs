@@ -11,7 +11,7 @@ use pes_version::Engine;
 use teams_list::TeamId;
 
 use super::mapped_players;
-use super::subset::{holds_model, package_of};
+use super::subset::link_combines;
 
 /// The first ID of the first team's block: IDs 0 to 100 are the stock band.
 const FIRST_BLOCK: u16 = 101;
@@ -96,21 +96,18 @@ pub(crate) fn shared_folders_taking_ids(
 }
 
 /// Whether `player` links the shared folder of `kind` whose folded name is `name_key` so that
-/// the shared output is loaded as it is. On Fox a player holding a model of the same package
-/// combines the link into its own exclusive package instead, and the shared folder is only a
-/// source of parts for it; pre-Fox has no exclusive packages, so every link is plain.
+/// the shared output is loaded as it is. On Fox a link that combines (`link_combines`) makes
+/// the shared folder only a source of parts for the player's own package; pre-Fox has no
+/// exclusive packages, so every link is plain.
 fn links_plainly(player: &PlayerFolder, engine: Engine, kind: SharedKind, name_key: &str) -> bool {
-    let linked = player
-        .links
-        .iter()
-        .any(|link| link.kind == kind && vtree::fold_name(&link.name) == name_key);
-    if !linked {
-        return false;
-    }
-    match engine {
-        Engine::PreFox => true,
-        Engine::Fox => !holds_model(&player.path, &player.files, package_of(kind)),
-    }
+    player.links.iter().any(|link| {
+        link.kind == kind
+            && vtree::fold_name(&link.name) == name_key
+            && match engine {
+                Engine::PreFox => true,
+                Engine::Fox => !link_combines(player, link),
+            }
+    })
 }
 
 #[cfg(test)]

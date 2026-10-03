@@ -313,8 +313,9 @@ then processed as an independent parallel task (Blue: `coordinator._model_folder
    per-user-count special cases — and textures shared between the player's face/boots/gloves are
    packed once for free. **Shared model folders normally keep their textures with their own ID-based
    shared-model output.** When Fox combination instead merges a shared model into a player-exclusive
-   FMDL, the textures used by that merged part are copied to the player's common subfolder and the
-   merged FMDL's paths are rewritten; a shared output that is still used plainly keeps its own
+   FMDL, the shared folder's textures are copied to the player's common subfolder (all of them, not only
+   those the merged part names: planning reads no model bytes, and a shared folder's textures are
+   its models') and the merged FMDL's paths are rewritten; a shared output that is still used plainly keeps its own
    texture copy. This is compiler-internal (the export format has no common concept; the models' own
    texture references are the ground truth) and generalizes Red's referee-only common preprocessing
    (`referee_tools.py`) to every player. **Textures that resolve into the export's `Common/` folder

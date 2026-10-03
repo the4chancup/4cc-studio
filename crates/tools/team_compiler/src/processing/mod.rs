@@ -34,6 +34,35 @@ pub(crate) struct CompileContext {
 /// One file in a container: its path in a CPK, or its name in a bin, and its bytes.
 pub(crate) type Entry = (String, Vec<u8>);
 
+/// A finding a task that succeeded makes on its folder (`fmdl_merged`): the code and its
+/// context, reported with `Keep`.
+pub(crate) type Finding = (Code, Vec<(&'static str, String)>);
+
+/// Why a task failed: the finding reported on its folder with `DropFolder`. A merge conflict
+/// between parts has its own code (`merge_material_conflict`, `skl_merge_conflict`); any other
+/// error is `folder_pack_failed` carrying the error chain.
+pub(crate) struct TaskFailure {
+    /// The finding's code.
+    pub(crate) code: Code,
+    /// Its context entries (`material=shirt`, `error=<chain>`).
+    pub(crate) context: Vec<(&'static str, String)>,
+}
+
+impl From<anyhow::Error> for TaskFailure {
+    fn from(error: anyhow::Error) -> TaskFailure {
+        TaskFailure {
+            code: Code::FolderPackFailed,
+            context: vec![("error", format!("{error:#}"))],
+        }
+    }
+}
+
+impl From<fmdl::FmdlError> for TaskFailure {
+    fn from(error: fmdl::FmdlError) -> TaskFailure {
+        TaskFailure::from(anyhow::Error::from(error))
+    }
+}
+
 /// One task's result, handed to the writer.
 pub(crate) struct TaskBatch {
     /// The task's position in the manifest: the writer commits batches in this order.
@@ -57,24 +86,33 @@ pub(crate) struct TaskBatch {
 }
 
 /// Runs `task`, the manifest's task number `index`, over `files`, the bytes of every file it
-/// reads. A task that fails commits nothing: its batch has no entries and reports
-/// `folder_pack_failed` on its folder, which is left out of the CPK.
+/// reads. A task that fails commits nothing: its batch has no entries and reports its
+/// `TaskFailure` on its folder, which is left out of the CPK.
 pub(crate) fn process_task(
     index: usize,
     task: BuildTask,
     mut files: TaskFiles,
     ctx: &CompileContext,
 ) -> TaskBatch {
+    let mut findings = Vec::new();
     let result = match &task.kind {
         TaskKind::Models {
             folder,
             package,
             ids,
-        } => model::package(folder, *package, ids, task.team_id, &mut files)
-            .map(|entries| (entries, None)),
+        } => model::package(
+            folder,
+            *package,
+            ids,
+            task.team_id,
+            &mut files,
+            &mut findings,
+        )
+        .map(|entries| (entries, None)),
         TaskKind::Textures { folder, .. } => {
             texture::folder_textures(folder, task.team_id, &mut files)
                 .map(|entries| (entries, None))
+                .map_err(TaskFailure::from)
         }
         // A DDS portrait is what the game reads: its bytes go out as they are.
         TaskKind::Portrait { player_id, file } => Ok((
@@ -85,7 +123,8 @@ pub(crate) fn process_task(
             None,
         )),
         TaskKind::Kit { slot, kit } => kit::kit(*slot, kit, task.team_id, ctx.version, &mut files)
-            .map(|(entries, config)| (entries, Some(config))),
+            .map(|(entries, config)| (entries, Some(config)))
+            .map_err(TaskFailure::from),
     };
     let mut batch = TaskBatch {
         index,
@@ -95,19 +134,28 @@ pub(crate) fn process_task(
         messages: Vec::new(),
         permit: None,
     };
+    let scope = Scope::Folder {
+        export_id: task.export_id,
+        path: task.kind.folder_path(),
+    };
     match result {
         Ok((entries, uniparam)) => {
             batch.entries = entries;
             batch.uniparam = uniparam;
+            batch.messages = findings
+                .into_iter()
+                .map(|(code, context)| {
+                    tool_message(code, scope.clone(), Disposition::Keep, context)
+                })
+                .collect();
         }
-        Err(error) => batch.messages.push(tool_message(
-            Code::FolderPackFailed,
-            Scope::Folder {
-                export_id: task.export_id,
-                path: task.kind.folder_path(),
-            },
+        // A failed task reports its failure alone: a note about a merge whose output is not
+        // in the CPK would describe nothing the member can find.
+        Err(failure) => batch.messages.push(tool_message(
+            failure.code,
+            scope,
             Disposition::DropFolder,
-            vec![("error", format!("{error:#}"))],
+            failure.context,
         )),
     }
     batch
@@ -124,9 +172,11 @@ fn take(files: &mut TaskFiles, file: &FileDescriptor) -> Vec<u8> {
 mod tests {
     use std::path::{Path, PathBuf};
 
-    use aesthetics_export::{KitFolder, KitLayout, KitTexture, KitTextureSource};
-    use fmdl::FmdlFile;
+    use aesthetics_export::{
+        KitFolder, KitLayout, KitTexture, KitTextureSource, SharedModelFolder,
+    };
     use fmdl::ops::paths::texture_paths;
+    use fmdl::{FmdlFile, Model};
     use fpk::{FpkFile, FpkKind};
     use kit_config::{KitConfig, KitSlot, TexturePresence, texture_names};
     use studio_core::{ExportId, Severity};
@@ -167,6 +217,7 @@ mod tests {
                 .iter()
                 .map(|name| file(&format!("{PLAYER}/{name}")))
                 .collect(),
+            combined: Vec::new(),
             textures: TextureHome::PlayerCommon {
                 folder_name: "05 - The Chad Stormworks Player".to_owned(),
             },
@@ -211,6 +262,16 @@ mod tests {
                 (file.path.clone(), bytes)
             })
             .collect();
+        process(kind, version, group, files)
+    }
+
+    /// `kind` processed for `version` as task 3 of export 4, in `group`, over `files`.
+    fn process(
+        kind: TaskKind,
+        version: PesVersion,
+        group: Option<TaskGroup>,
+        files: TaskFiles,
+    ) -> TaskBatch {
         let task = BuildTask {
             export_id: ExportId(4),
             team_id: 792,
@@ -420,6 +481,7 @@ mod tests {
                     ..file(&format!("{PLAYER}/shirt.dds"))
                 },
             ],
+            combined: Vec::new(),
             textures: TextureHome::SharedOutput {
                 package: ModelPackage::Gloves,
                 id: 644,
@@ -545,6 +607,305 @@ mod tests {
         let names = texture_names(792, KitSlot::G1, presence);
         let template = KitConfig::template().encode_with_names(PesVersion::Pes21, &names);
         assert_eq!(batch.uniparam.unwrap().1, template);
+    }
+
+    /// The export file at `path`, described as the structure pass would, whose bytes `run`
+    /// reads from the tracer's player file `tracer_name`.
+    fn named(path: &str, tracer_name: &str) -> FileDescriptor {
+        let path = ScopePath::new(path).unwrap();
+        FileDescriptor {
+            kind: aesthetics_export::classify(path.name()),
+            path,
+            ..file(&format!("{PLAYER}/{tracer_name}"))
+        }
+    }
+
+    /// The tracer's player folder holding `files` and combining the shared folders
+    /// `combined`, its textures going to its common subfolder.
+    fn player_with(files: Vec<FileDescriptor>, combined: Vec<SharedModelFolder>) -> ModelFolder {
+        ModelFolder {
+            combined,
+            files,
+            ..player(&[])
+        }
+    }
+
+    /// The shared folder at `path` (`Boots/Crocs`) holding `files`.
+    fn shared(path: &str, files: Vec<FileDescriptor>) -> SharedModelFolder {
+        let path = ScopePath::new(path).unwrap();
+        SharedModelFolder {
+            folder_name: path.name().to_owned(),
+            path,
+            files,
+        }
+    }
+
+    /// The boots task over the player folder `folder` under id 3745.
+    fn boots(folder: ModelFolder) -> TaskKind {
+        TaskKind::Models {
+            folder,
+            package: ModelPackage::Boots,
+            ids: vec![3745],
+        }
+    }
+
+    /// The tracer's model `name`, decoded.
+    fn tracer_model(name: &str) -> Model {
+        let bytes = std::fs::read(tracer().join(format!("{PLAYER}/{name}"))).unwrap();
+        Model::from_file(&FmdlFile::read(&bytes).unwrap()).unwrap()
+    }
+
+    /// The package's model `name`, decoded.
+    fn packed_model(package: &FpkFile, name: &str) -> Model {
+        Model::from_file(&FmdlFile::read(package.get(name).unwrap()).unwrap()).unwrap()
+    }
+
+    /// The batch's one message as (code, severity, disposition, context), asserting it is on
+    /// the tracer's player folder.
+    fn one_message(batch: &TaskBatch) -> (&str, Severity, Disposition, &[(String, String)]) {
+        let [message] = batch.messages.as_slice() else {
+            panic!("{:?}", batch.messages);
+        };
+        assert_eq!(
+            message.scope,
+            Scope::Folder {
+                export_id: ExportId(4),
+                path: ScopePath::new(PLAYER).unwrap(),
+            }
+        );
+        (
+            &message.code.code,
+            message.severity,
+            message.disposition,
+            &message.context,
+        )
+    }
+
+    #[test]
+    fn two_boots_parts_merge_into_one_model_with_the_standard_skeleton_and_the_merge_is_noted() {
+        let folder = player_with(
+            vec![
+                named(&format!("{PLAYER}/kit_boots.fmdl"), "boots.fmdl"),
+                named(&format!("{PLAYER}/a_boots.fmdl"), "boots.fmdl"),
+                named(&format!("{PLAYER}/shirt.dds"), "shirt.dds"),
+            ],
+            Vec::new(),
+        );
+
+        let batch = run(boots(folder));
+
+        assert_eq!(
+            one_message(&batch),
+            (
+                "fmdl_merged",
+                Severity::Info,
+                Disposition::Keep,
+                &[("model".to_owned(), "boots.fmdl".to_owned())][..]
+            )
+        );
+        assert_eq!(
+            paths(&batch),
+            [
+                "Asset/model/character/boots/k3745/#Win/boots.fpk",
+                "Asset/model/character/boots/k3745/#Win/boots.fpkd",
+            ]
+        );
+        let package = FpkFile::read(&batch.entries[0].1).unwrap();
+        let names: Vec<&str> = package.entries().map(|(name, _)| name).collect();
+        assert_eq!(names, ["boots.fmdl", "boots.skl"]);
+        assert_eq!(package.get("boots.skl").unwrap(), templates::BOOTS_SKELETON);
+        let merged = packed_model(&package, "boots.fmdl");
+        let part = tracer_model("boots.fmdl");
+        assert_eq!(merged.meshes.len(), 2 * part.meshes.len());
+        assert_eq!(
+            merged.bones.len(),
+            part.bones.len(),
+            "one skeleton, unioned by name"
+        );
+        // The merged model's own texture points at the player's common folder.
+        assert_rewritten(&texture_directories(&package, "boots.fmdl"));
+    }
+
+    #[test]
+    fn parts_merge_in_case_folded_name_order_whatever_the_folder_s_order() {
+        // `B_boots` is the tracer's boots with its first material renamed, so the merged
+        // model's first material says which part came first: `a_boots` folds before
+        // `B_boots`, though byte order would put `B` first.
+        let mut renamed = tracer_model("boots.fmdl");
+        renamed.materials[0].name = "kit_b".to_owned();
+        let renamed = renamed.to_file().unwrap().write();
+        let b_boots = ScopePath::new(&format!("{PLAYER}/B_boots.fmdl")).unwrap();
+        let folder = player_with(
+            vec![
+                FileDescriptor {
+                    kind: aesthetics_export::classify(b_boots.name()),
+                    path: b_boots.clone(),
+                    ..file(&format!("{PLAYER}/boots.fmdl"))
+                },
+                named(&format!("{PLAYER}/a_boots.fmdl"), "boots.fmdl"),
+            ],
+            Vec::new(),
+        );
+        let kind = boots(folder);
+        let mut files: TaskFiles = kind
+            .files()
+            .into_iter()
+            .map(|file| {
+                let bytes = std::fs::read(tracer().join(file.source.as_str())).unwrap();
+                (file.path.clone(), bytes)
+            })
+            .collect();
+        files.insert(b_boots, renamed);
+
+        let batch = process(kind, PesVersion::Pes21, None, files);
+
+        assert_eq!(one_message(&batch).0, "fmdl_merged");
+        let package = FpkFile::read(&batch.entries[0].1).unwrap();
+        let merged = packed_model(&package, "boots.fmdl");
+        let names: Vec<&str> = merged
+            .materials
+            .iter()
+            .map(|material| material.name.as_str())
+            .collect();
+        assert_eq!(names, ["kit", "shirt", "shirt antiblur", "kit_b"]);
+    }
+
+    #[test]
+    fn parts_with_one_skeleton_pack_it_and_a_part_without_one_beside_one_with_is_a_conflict() {
+        // The tracer's hair skeleton stands in for both parts' boots skeleton.
+        let custom = std::fs::read(tracer().join(format!("{PLAYER}/fcl_hair.skl"))).unwrap();
+        let both = player_with(
+            vec![
+                named(&format!("{PLAYER}/kit_boots.fmdl"), "boots.fmdl"),
+                named(&format!("{PLAYER}/kit_boots.skl"), "fcl_hair.skl"),
+                named(&format!("{PLAYER}/a_boots.fmdl"), "boots.fmdl"),
+                named(&format!("{PLAYER}/a_boots.skl"), "fcl_hair.skl"),
+            ],
+            Vec::new(),
+        );
+        let batch = run(boots(both));
+        assert_eq!(one_message(&batch).0, "fmdl_merged");
+        let package = FpkFile::read(&batch.entries[0].1).unwrap();
+        assert_eq!(package.get("boots.skl").unwrap(), custom);
+
+        let one = player_with(
+            vec![
+                named(&format!("{PLAYER}/kit_boots.fmdl"), "boots.fmdl"),
+                named(&format!("{PLAYER}/kit_boots.skl"), "fcl_hair.skl"),
+                named(&format!("{PLAYER}/a_boots.fmdl"), "boots.fmdl"),
+            ],
+            Vec::new(),
+        );
+        let batch = run(boots(one));
+        assert!(batch.entries.is_empty(), "{:?}", paths(&batch));
+        assert_eq!(
+            one_message(&batch),
+            (
+                "skl_merge_conflict",
+                Severity::Error,
+                Disposition::DropFolder,
+                &[("skeleton".to_owned(), "differs".to_owned())][..]
+            )
+        );
+    }
+
+    #[test]
+    fn parts_disagreeing_on_a_bone_or_a_material_fail_the_package_with_the_conflict_s_code() {
+        // The tracer's left glove as a boots part: its `sk_forearm_l` differs from the boots'.
+        let bone = player_with(
+            vec![
+                named(&format!("{PLAYER}/kit_boots.fmdl"), "boots.fmdl"),
+                named(&format!("{PLAYER}/a_boots.fmdl"), "glove_l.fmdl"),
+            ],
+            Vec::new(),
+        );
+        let batch = run(boots(bone));
+        assert!(batch.entries.is_empty(), "{:?}", paths(&batch));
+        assert_eq!(
+            one_message(&batch),
+            (
+                "skl_merge_conflict",
+                Severity::Error,
+                Disposition::DropFolder,
+                &[("bone".to_owned(), "sk_forearm_l".to_owned())][..]
+            )
+        );
+
+        // The tracer's hair as a boots part: its `shirt` material differs from the boots'.
+        let material = player_with(
+            vec![
+                named(&format!("{PLAYER}/kit_boots.fmdl"), "boots.fmdl"),
+                named(&format!("{PLAYER}/a_boots.fmdl"), "fcl_hair.fmdl"),
+            ],
+            Vec::new(),
+        );
+        let batch = run(boots(material));
+        assert!(batch.entries.is_empty(), "{:?}", paths(&batch));
+        assert_eq!(
+            one_message(&batch),
+            (
+                "merge_material_conflict",
+                Severity::Error,
+                Disposition::DropFolder,
+                &[("material".to_owned(), "shirt".to_owned())][..]
+            )
+        );
+    }
+
+    #[test]
+    fn a_combined_shared_folder_s_models_are_parts_and_its_textures_go_to_the_player_s_common() {
+        let folder = player_with(
+            vec![named(&format!("{PLAYER}/kit_boots.fmdl"), "boots.fmdl")],
+            vec![shared(
+                "Boots/Crocs",
+                vec![
+                    named("Boots/Crocs/boots.fmdl", "boots.fmdl"),
+                    named("Boots/Crocs/shirt.dds", "shirt.dds"),
+                ],
+            )],
+        );
+
+        let package = run(boots(folder.clone()));
+        let textures = run(TaskKind::Textures { folder });
+
+        assert_eq!(one_message(&package).0, "fmdl_merged");
+        let fpk = FpkFile::read(&package.entries[0].1).unwrap();
+        assert_eq!(
+            packed_model(&fpk, "boots.fmdl").meshes.len(),
+            2 * tracer_model("boots.fmdl").meshes.len()
+        );
+        // The shared folder's texture is the player's now: the merged model points at the
+        // player's common folder, where the textures task puts it.
+        assert_rewritten(&texture_directories(&fpk, "boots.fmdl"));
+        assert!(textures.messages.is_empty(), "{:?}", textures.messages);
+        assert_eq!(paths(&textures), [COMMON]);
+    }
+
+    #[test]
+    fn a_combined_gloves_folder_bringing_the_other_hand_merges_nothing() {
+        let folder = player_with(
+            vec![named(&format!("{PLAYER}/glove_l.fmdl"), "glove_l.fmdl")],
+            vec![shared(
+                "Gloves/Grip",
+                vec![named("Gloves/Grip/glove_r.fmdl", "glove_r.fmdl")],
+            )],
+        );
+
+        let batch = run(TaskKind::Models {
+            folder,
+            package: ModelPackage::Gloves,
+            ids: vec![3745],
+        });
+
+        assert!(batch.messages.is_empty(), "{:?}", batch.messages);
+        let package = FpkFile::read(&batch.entries[0].1).unwrap();
+        let names: Vec<&str> = package.entries().map(|(name, _)| name).collect();
+        assert_eq!(names, ["glove_l.fmdl", "glove_r.fmdl"]);
+        assert_eq!(
+            packed_model(&package, "glove_r.fmdl").meshes.len(),
+            tracer_model("glove_r.fmdl").meshes.len(),
+            "a single part is packed as it is"
+        );
     }
 
     #[test]

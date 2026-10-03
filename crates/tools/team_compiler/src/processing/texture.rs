@@ -9,19 +9,23 @@ use super::{Entry, TaskFiles, take};
 use crate::plan::ModelFolder;
 use crate::plan::subset::{FolderModels, PlayerFile, TextureFormat, player_file};
 
-/// The textures of `folder`, converted from their bytes in `files` into the folder's texture
-/// home for team `team_id`, by stem: one entry per texture, however many of the folder's
-/// models use it and however many ids its packages are emitted under.
+/// The textures of `folder`, its own and its combined folders', converted from their bytes in
+/// `files` into the folder's texture home for team `team_id`, by stem: one entry per texture,
+/// however many of the folder's models use it and however many ids its packages are emitted
+/// under. The gate refuses a stem held by two of the folder's sources, so no entry is written
+/// twice.
 pub(super) fn folder_textures(
     folder: &ModelFolder,
     team_id: u16,
     files: &mut TaskFiles,
 ) -> anyhow::Result<Vec<Entry>> {
-    let models = FolderModels::of(&folder.path, &folder.files);
     let mut textures = BTreeMap::new();
-    for file in &folder.files {
-        if let Some(PlayerFile::Texture(stem, format)) = player_file(&folder.path, file, &models) {
-            textures.insert(stem, to_ftex(format, file.path.name(), take(files, file))?);
+    for (source, source_files) in folder.sources() {
+        let models = FolderModels::of(source, source_files);
+        for file in source_files {
+            if let Some(PlayerFile::Texture(stem, format)) = player_file(source, file, &models) {
+                textures.insert(stem, to_ftex(format, file.path.name(), take(files, file))?);
+            }
         }
     }
     Ok(textures

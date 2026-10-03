@@ -3070,3 +3070,14 @@ reports the pool "when the export is checked", and `check` runs only the structu
 path was guessed from the first file's folder, which a nested file makes wrong.
 Plan: `team_compiler/pipeline.md` "Game paths reference" (new row);
 `aesthetics_export/player_folders.md` "At compile time", item 2.
+
+## 2026-10-03 — team_compiler — a combined shared folder's textures all go to the player
+Decision: when a player combines a boots/gloves link with local models, every texture of the
+shared folder is copied to the player's common subfolder, not only those the merged part names;
+the parts merged under one allowed name go in case-folded file-name order, ties by export path;
+two parts' skeletons agree when their paired `.skl` files are byte-identical or both absent.
+Why: planning, which builds the textures task, reads no model bytes, so it cannot see which stems
+the shared models name; reading them there would load every shared model twice. A shared
+`Boots/`/`Gloves/` folder's textures are its models', so the difference is an unused file at
+most. Byte comparison of a handful of `.skl` files says what the plan's content hash says.
+Plan: `team_compiler/pipeline.md` "3. Per-model-folder parallel steps", step 6.

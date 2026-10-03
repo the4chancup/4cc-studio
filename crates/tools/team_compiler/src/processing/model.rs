@@ -1,60 +1,113 @@
 //! One package of a model folder's Fox models (`team_compiler/pipeline.md` "3.
 //! Per-model-folder parallel steps", steps 2, 3 and 7): its models renamed to their allowed
-//! names, their texture paths pointed at the folder's texture home, packed with the files
-//! that go beside them into one `.fpk` emitted under each of the package's ids.
+//! names, the parts resolving to one name merged into one model, their texture paths pointed
+//! at the folder's texture home, packed with the files that go beside them into one `.fpk`
+//! emitted under each of the package's ids.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
-use fmdl::FmdlFile;
+use fmdl::ops::merge::{MergeError, merge};
 use fmdl::ops::paths::rewrite_texture_paths;
+use fmdl::{FmdlFile, Model};
 use fpk::{FpkFile, FpkKind};
+use vtree::ScopePath;
 
-use super::{Entry, TaskFiles, take};
+use super::{Entry, Finding, TaskFailure, TaskFiles, take};
+use crate::messages::Code;
 use crate::paths;
 use crate::plan::ModelFolder;
 use crate::plan::subset::{FolderModels, ModelPackage, PlayerFile, file_stem, player_file};
 use crate::templates;
 
+/// One model of the package: a part of the output model its allowed name names, from the
+/// folder's own files or a combined shared folder's.
+struct Part {
+    /// The allowed name the part resolves to (`boots`), the output model's.
+    name: &'static str,
+    /// The part's export path, which with its file name orders the parts of one output.
+    path: ScopePath,
+    /// The part's bytes, an FMDL.
+    bytes: Vec<u8>,
+    /// The skeleton paired with the part: the `.skl` of its stem in its own source folder.
+    skeleton: Option<Vec<u8>>,
+}
+
 /// The `package` of `folder`, compiled from its files' bytes in `files` for team `team_id`
-/// and emitted under each of `ids`: the package's `.fpk` and an empty `.fpkd` per id.
+/// and emitted under each of `ids`: the package's `.fpk` and an empty `.fpkd` per id. A
+/// merge of several parts into one model is noted in `findings` as `fmdl_merged`.
 pub(super) fn package(
     folder: &ModelFolder,
     package: ModelPackage,
     ids: &[u32],
     team_id: u16,
     files: &mut TaskFiles,
-) -> anyhow::Result<Vec<Entry>> {
-    let folder_models = FolderModels::of(&folder.path, &folder.files);
-    let mut models = Vec::new();
+    findings: &mut Vec<Finding>,
+) -> Result<Vec<Entry>, TaskFailure> {
+    let mut parts: Vec<Part> = Vec::new();
     let mut texture_stems = BTreeSet::new();
     let mut fpk = FpkFile::new(FpkKind::Fpk);
-    for file in &folder.files {
-        let role = player_file(&folder.path, file, &folder_models)
-            .expect("planning skips every export holding a player file with no role yet");
-        match role {
-            PlayerFile::Model {
-                package: owner,
-                name,
-            } if owner == package => {
-                models.push((name, FmdlFile::read(&take(files, file))?));
+    for (source, source_files) in folder.sources() {
+        let folder_models = FolderModels::of(source, source_files);
+        // A boots skeleton pairs with the model of its stem in the same source folder.
+        let mut skeletons: BTreeMap<&str, Vec<u8>> = BTreeMap::new();
+        let mut source_parts: Vec<Part> = Vec::new();
+        for file in source_files {
+            let role = player_file(source, file, &folder_models)
+                .expect("planning skips every export holding a player file with no role yet");
+            match role {
+                PlayerFile::Model {
+                    package: owner,
+                    name,
+                } if owner == package => source_parts.push(Part {
+                    name,
+                    path: file.path.clone(),
+                    bytes: take(files, file),
+                    skeleton: None,
+                }),
+                PlayerFile::Packed {
+                    package: owner,
+                    name: "boots.skl",
+                } if owner == package => {
+                    skeletons.insert(file_stem(file.path.name()), take(files, file));
+                }
+                PlayerFile::Packed {
+                    package: owner,
+                    name,
+                } if owner == package => {
+                    fpk.insert(name.to_owned(), take(files, file));
+                }
+                // The textures are the textures task's; this task only points its models at
+                // them.
+                PlayerFile::Texture(stem, _) => {
+                    texture_stems.insert(stem);
+                }
+                PlayerFile::Model { .. } | PlayerFile::Packed { .. } => {}
             }
-            PlayerFile::Packed {
-                package: owner,
-                name,
-            } if owner == package => {
-                fpk.insert(name.to_owned(), take(files, file));
-            }
-            // The textures are the textures task's; this task only points its models at them.
-            PlayerFile::Texture(stem, _) => {
-                texture_stems.insert(stem);
-            }
-            PlayerFile::Model { .. } | PlayerFile::Packed { .. } => {}
         }
+        for part in &mut source_parts {
+            part.skeleton = skeletons.remove(file_stem(part.path.name()));
+        }
+        parts.extend(source_parts);
     }
-    // The game loads boots with a `boots.skl` beside the model; a boots model with no
-    // skeleton of its own gets the standard full-body one.
-    if package == ModelPackage::Boots && fpk.get("boots.skl").is_none() {
-        fpk.insert("boots.skl".to_owned(), templates::BOOTS_SKELETON.to_vec());
+    // The game loads boots with a `boots.skl` beside the model: the parts' own when they
+    // bring one, else the standard full-body one.
+    if package == ModelPackage::Boots {
+        let skeleton =
+            merged_skeleton(&mut parts)?.unwrap_or_else(|| templates::BOOTS_SKELETON.to_vec());
+        fpk.insert("boots.skl".to_owned(), skeleton);
+    }
+
+    // The parts of one output model go in alphabetical source order, by file name folded as
+    // the file system folds it and then by export path, so a recompile gives the same model.
+    parts.sort_by_cached_key(|part| {
+        (
+            vtree::fold_name(part.path.name()),
+            part.path.as_str().to_owned(),
+        )
+    });
+    let mut by_name: BTreeMap<&'static str, Vec<Part>> = BTreeMap::new();
+    for part in parts {
+        by_name.entry(part.name).or_default().push(part);
     }
 
     // A folder's textures sit in its one texture home, once however many ids the package is
@@ -63,7 +116,15 @@ pub(super) fn package(
     // A texture the folder does not hold is one of the game's own; its directory names the
     // team as `000`, which becomes the team's id.
     let team_segment = format!("/{team_id}/");
-    for (name, mut model) in models {
+    for (name, parts) in by_name {
+        let mut model = match parts.as_slice() {
+            [part] => FmdlFile::read(&part.bytes)?,
+            _ => {
+                let merged = merge_parts(&parts)?;
+                findings.push((Code::FmdlMerged, vec![("model", format!("{name}.fmdl"))]));
+                merged
+            }
+        };
         rewrite_texture_paths(&mut model, |path| {
             if texture_stems.contains(file_stem(&path.file_name)) {
                 path.directory.clone_from(&texture_directory);
@@ -93,4 +154,56 @@ pub(super) fn package(
         entries.push((format!("{folder}/{stem}.fpkd"), empty));
     }
     Ok(entries)
+}
+
+/// The skeleton the parts of one boots model share, taken out of them: the one `.skl` every
+/// part brings (byte-identical files under several names are one skeleton), or `None` when no
+/// part brings one. Parts merged into one model must reference one skeleton
+/// (`player_folders.md` "Merge constraint"), so any other mix, a part with a skeleton beside
+/// one without included, is `skl_merge_conflict`.
+fn merged_skeleton(parts: &mut [Part]) -> Result<Option<Vec<u8>>, TaskFailure> {
+    let mut skeletons = parts.iter_mut().map(|part| part.skeleton.take());
+    let Some(first) = skeletons.next() else {
+        return Ok(None);
+    };
+    if skeletons.any(|skeleton| skeleton != first) {
+        return Err(TaskFailure {
+            code: Code::SklMergeConflict,
+            context: vec![("skeleton", "differs".to_owned())],
+        });
+    }
+    Ok(first)
+}
+
+/// `parts`, several models resolving to one allowed name, merged into one FMDL in the given
+/// order.
+fn merge_parts(parts: &[Part]) -> Result<FmdlFile, TaskFailure> {
+    let models = parts
+        .iter()
+        .map(|part| Model::from_file(&FmdlFile::read(&part.bytes)?))
+        .collect::<Result<Vec<Model>, fmdl::FmdlError>>()?;
+    Ok(merge(&models)?.to_file()?)
+}
+
+impl From<MergeError> for TaskFailure {
+    fn from(error: MergeError) -> TaskFailure {
+        match error {
+            MergeError::MaterialConflict { name } => TaskFailure {
+                code: Code::MergeMaterialConflict,
+                context: vec![("material", name)],
+            },
+            MergeError::SkeletonConflict { name } | MergeError::DuplicateBoneName { name } => {
+                TaskFailure {
+                    code: Code::SklMergeConflict,
+                    context: vec![("bone", name)],
+                }
+            }
+            // Not a disagreement between the parts a member resolves by name: a part that
+            // fails validation, or parts whose anti-blur duplicates are encoded in some and
+            // not others.
+            MergeError::MixedAntiblur | MergeError::Other(_) => {
+                TaskFailure::from(anyhow::Error::from(error))
+            }
+        }
+    }
 }

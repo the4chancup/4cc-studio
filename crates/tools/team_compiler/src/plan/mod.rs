@@ -9,7 +9,8 @@ use std::ops::Range;
 
 use aesthetics_export::{
     ExportIdentity, FileDescriptor, KitFolder, KitsFolder, PlayerFolder, PlayerIndex, PlayerSlot,
-    ResolvedAestheticsExport, SharedKind, ValidatedAestheticsExport, ValidatedRoster,
+    ResolvedAestheticsExport, SharedKind, SharedModelFolder, ValidatedAestheticsExport,
+    ValidatedRoster,
 };
 use kit_config::KitSlot;
 use pes_version::{Engine, PesVersion};
@@ -20,8 +21,8 @@ use crate::messages::{Code, tool_message};
 use crate::paths::TextureHome;
 use ids::{PlannedModelIds, shared_folders_taking_ids};
 use subset::{
-    FolderModels, ModelPackage, PlayerFile, first_not_compiled, holds_model, package_of,
-    player_file,
+    FolderModels, ModelPackage, PlayerFile, first_not_compiled, holds_model, link_combines,
+    link_name, linked_folder, package_of, player_file,
 };
 
 /// What planning produced: the manifest and the findings planning itself made.
@@ -83,10 +84,28 @@ pub(crate) struct TaskGroup {
 pub(crate) struct ModelFolder {
     /// The folder's export path (`Players/05 - A`, `Boots/Crocs`): the scope its findings name.
     pub(crate) path: ScopePath,
-    /// Its files.
+    /// Its own files.
     pub(crate) files: Vec<FileDescriptor>,
+    /// The shared boots or gloves folders a player folder combines (`player_folders.md` "A
+    /// link plus local models combines"): each one's models are parts of the player's package
+    /// of that kind like its own, and its textures join the player's textures task. Empty for
+    /// a shared folder, and for a player linking plainly or not at all.
+    pub(crate) combined: Vec<SharedModelFolder>,
     /// Where its textures go, which its models' texture paths are rewritten to name.
     pub(crate) textures: TextureHome,
+}
+
+impl ModelFolder {
+    /// The folder's sources of files, its own first and then each combined folder's, each with
+    /// the folder path its files' roles and `.skl` pairing resolve against (`Boots/Crocs`'s
+    /// `boots.skl` pairs with `Boots/Crocs`'s `boots.fmdl`, not the player's).
+    pub(crate) fn sources(&self) -> impl Iterator<Item = (&ScopePath, &[FileDescriptor])> {
+        std::iter::once((&self.path, self.files.as_slice())).chain(
+            self.combined
+                .iter()
+                .map(|shared| (&shared.path, shared.files.as_slice())),
+        )
+    }
 }
 
 /// What a task compiles.
@@ -163,16 +182,21 @@ impl TaskKind {
     }
 }
 
-/// The files of `folder` whose role `wanted` accepts, in the folder's order.
+/// The files of `folder` whose role `wanted` accepts: its own in their order, then each
+/// combined folder's.
 fn folder_files(
     folder: &ModelFolder,
     wanted: impl Fn(&PlayerFile) -> bool,
 ) -> Vec<&FileDescriptor> {
-    let models = FolderModels::of(&folder.path, &folder.files);
+    let wanted = &wanted;
     folder
-        .files
-        .iter()
-        .filter(|file| player_file(&folder.path, file, &models).is_some_and(|role| wanted(&role)))
+        .sources()
+        .flat_map(|(path, files)| {
+            let models = FolderModels::of(path, files);
+            files.iter().filter(move |file| {
+                player_file(path, file, &models).is_some_and(|role| wanted(&role))
+            })
+        })
         .collect()
 }
 
@@ -220,7 +244,7 @@ pub(crate) fn plan_run(
         };
         let team_id = id.get();
         let model_ids = PlannedModelIds::for_team(id);
-        let export = resolved.export;
+        let mut export = resolved.export;
         // The shared folders taking an id, each with its package and that id, in the id order
         // of the kind: the boots folders, then the gloves folders.
         let mut shared: Vec<(ModelFolder, ModelPackage, u32)> = Vec::new();
@@ -235,6 +259,7 @@ pub(crate) fn plan_run(
                 let folder = ModelFolder {
                     path: folder.path.clone(),
                     files: folder.files.clone(),
+                    combined: Vec::new(),
                     textures: TextureHome::SharedOutput {
                         package,
                         id: shared_id,
@@ -246,13 +271,38 @@ pub(crate) fn plan_run(
         // A folder's portrait goes out once per slot mapping the folder; the gate has refused
         // any slot with a portrait from both sources, so no player id comes up twice.
         let mut portraits: Vec<(u32, FileDescriptor)> = Vec::new();
-        for (folder, slots) in player_folders(export.players, &export.roster) {
+        // The player folders are taken out so the rest of the export (its shared folders)
+        // stays readable while each folder's links are resolved against it.
+        let players = std::mem::take(&mut export.players);
+        for (folder, slots) in player_folders(players, &export.roster) {
             if let Some(portrait) = &folder.portrait {
                 portraits.extend(
                     slots
                         .iter()
                         .map(|slot| (slot.player_id(id), portrait.clone())),
                 );
+            }
+            // A link beside a local model of its package combines: the shared folder's files
+            // become a second source of the player's folder, and the folder is reported once,
+            // however many slots map it.
+            let mut combined = Vec::new();
+            for link in folder
+                .links
+                .iter()
+                .filter(|link| link_combines(&folder, link))
+            {
+                let shared = linked_folder(&export, link)
+                    .expect("validation drops a player folder whose link names no shared folder");
+                messages.push(tool_message(
+                    Code::LinkCombined,
+                    Scope::Folder {
+                        export_id,
+                        path: folder.path.clone(),
+                    },
+                    Disposition::Keep,
+                    vec![("link", link_name(link.kind, &link.name))],
+                ));
+                combined.push(shared.clone());
             }
             let packages = ModelPackage::ALL.map(|package| {
                 let ids = slots
@@ -272,6 +322,7 @@ pub(crate) fn plan_run(
                 },
                 path: folder.path,
                 files: folder.files,
+                combined,
             };
             folder_tasks(export_id, team_id, model_folder, &packages, &mut tasks);
         }
@@ -687,6 +738,134 @@ mod tests {
             report.manifest.tasks[2].kind.folder_path(),
             scope_path("Boots/Zebra")
         );
+    }
+
+    #[test]
+    fn a_link_beside_a_local_model_combines_the_shared_folder_into_the_player_s_package() {
+        let files = [
+            ("Players/05 - A/Crocs.boots", 0),
+            ("Players/05 - A/kit_boots.fmdl", 8),
+            ("Players/05 - A/kit_boots.skl", 2),
+            ("Players/05 - A/Grip.gloves", 0),
+            ("Players/05 - A/glove_l.fmdl", 4),
+            ("Boots/Crocs/boots.fmdl", 16),
+            ("Boots/Crocs/boots.skl", 1),
+            ("Boots/Crocs/sole.dds", 32),
+            ("Gloves/Grip/glove_r.fmdl", 64),
+        ];
+        let export = resolved("co - Combined", &files, &[], None);
+
+        let report = plan_run(vec![(ExportId(0), export)], PesVersion::Pes21);
+
+        // The shared folders are only sources of parts: no shared id, no output of their own.
+        assert_eq!(
+            summary(&report),
+            [
+                "0 714 Boots Players/05 - A [625] charge 27",
+                "0 714 Gloves Players/05 - A [625] charge 68",
+                "0 714 textures Players/05 - A charge 32",
+            ]
+        );
+        assert_eq!(
+            message_summary(&report),
+            [
+                ("link_combined", "Players/05 - A", Disposition::Keep),
+                ("link_combined", "Players/05 - A", Disposition::Keep),
+            ]
+        );
+        let links: Vec<&str> = report
+            .messages
+            .iter()
+            .map(|message| message.context[0].1.as_str())
+            .collect();
+        assert_eq!(links, ["Crocs.boots", "Grip.gloves"]);
+        assert!(
+            report
+                .messages
+                .iter()
+                .all(|message| message.context[0].0 == "link"),
+            "{:?}",
+            report.messages
+        );
+        let files = |index: usize| -> Vec<&str> {
+            report.manifest.tasks[index]
+                .kind
+                .files()
+                .iter()
+                .map(|file| file.path.as_str())
+                .collect()
+        };
+        // The player's own files first, then each combined folder's, each skeleton pairing
+        // with the model of its stem in its own folder.
+        assert_eq!(
+            files(0),
+            [
+                "Players/05 - A/kit_boots.fmdl",
+                "Players/05 - A/kit_boots.skl",
+                "Boots/Crocs/boots.fmdl",
+                "Boots/Crocs/boots.skl",
+            ]
+        );
+        assert_eq!(
+            files(1),
+            ["Players/05 - A/glove_l.fmdl", "Gloves/Grip/glove_r.fmdl"]
+        );
+        assert_eq!(files(2), ["Boots/Crocs/sole.dds"]);
+        let TaskKind::Models { folder, .. } = &report.manifest.tasks[0].kind else {
+            panic!("a package task");
+        };
+        let combined: Vec<&str> = folder
+            .combined
+            .iter()
+            .map(|shared| shared.path.as_str())
+            .collect();
+        assert_eq!(combined, ["Boots/Crocs", "Gloves/Grip"]);
+        assert_eq!(
+            folder.textures,
+            TextureHome::PlayerCommon {
+                folder_name: "05 - A".to_owned()
+            }
+        );
+        let group = Some(TaskGroup {
+            tasks: 0..3,
+            charge: 127,
+        });
+        for index in 0..3 {
+            assert_eq!(report.manifest.tasks[index].group, group, "task {index}");
+        }
+    }
+
+    #[test]
+    fn a_combined_shared_folder_still_compiles_on_its_own_for_a_player_linking_it_plainly() {
+        let export = resolved(
+            "co - Combined",
+            &[
+                ("Players/05 - A/Crocs.boots", 0),
+                ("Players/05 - A/kit_boots.fmdl", 8),
+                ("Players/07 - B/Crocs.boots", 0),
+                ("Boots/Crocs/boots.fmdl", 16),
+            ],
+            &[],
+            None,
+        );
+
+        let report = plan_run(vec![(ExportId(0), export)], PesVersion::Pes21);
+
+        assert_eq!(
+            summary(&report),
+            [
+                "0 714 Boots Players/05 - A [625] charge 24",
+                "0 714 Boots Boots/Crocs [644] charge 16",
+            ]
+        );
+        assert_eq!(
+            message_summary(&report),
+            [("link_combined", "Players/05 - A", Disposition::Keep)]
+        );
+        let TaskKind::Models { folder, .. } = &report.manifest.tasks[1].kind else {
+            panic!("a package task");
+        };
+        assert!(folder.combined.is_empty(), "the shared folder's own task");
     }
 
     #[test]

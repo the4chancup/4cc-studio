@@ -1,15 +1,16 @@
 //! `compile` over boots and gloves models: a player folder's own under the player's planned
 //! ID, the skeleton packed with the boots, the folder's textures emitted once for every
-//! package; and a shared `Boots/` or `Gloves/` folder players link, compiled once under one of
+//! package; a shared `Boots/` or `Gloves/` folder players link, compiled once under one of
 //! the team's shared IDs, with `check` refusing an export needing more of them than the team
-//! has.
+//! has; and the merges: several parts under one name into one model, a shared folder a link
+//! combines with the player's own model into the player's package.
 
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::Path;
 
-use fmdl::FmdlFile;
 use fmdl::ops::paths::texture_paths;
+use fmdl::{FmdlFile, Model};
 
 use crate::common::Sandbox;
 use crate::compile::{cpk_entries, pes21_settings, tracer_player_file};
@@ -240,6 +241,178 @@ fn boots_skl(entries: &BTreeMap<String, Vec<u8>>, path: &str) -> Vec<u8> {
         .get("boots.skl")
         .unwrap()
         .to_vec()
+}
+
+/// The mesh count of the `boots.fmdl` of the boots package at `path` in `entries`.
+fn boots_mesh_count(entries: &BTreeMap<String, Vec<u8>>, path: &str) -> usize {
+    let package = fpk::FpkFile::read(&entries[path]).unwrap();
+    let model = FmdlFile::read(package.get("boots.fmdl").unwrap()).unwrap();
+    Model::from_file(&model).unwrap().meshes.len()
+}
+
+/// The mesh count of the tracer's boots model.
+fn tracer_boots_mesh_count() -> usize {
+    let model = FmdlFile::read(&tracer_player_file("boots.fmdl")).unwrap();
+    Model::from_file(&model).unwrap().meshes.len()
+}
+
+// TC-MOD-07
+#[test]
+fn a_boots_link_beside_a_local_boots_model_combines_the_shared_folder_into_the_player_s_boots() {
+    let sandbox = Sandbox::new("mod_link_combined");
+    let export = "exports/co - Combined";
+    write_player(
+        &sandbox,
+        &format!("{export}/Players/05 - A"),
+        "kit_boots.fmdl",
+    );
+    sandbox.write(&format!("{export}/Players/05 - A/Crocs.boots"), b"");
+    sandbox.write(
+        &format!("{export}/Boots/Crocs/boots.fmdl"),
+        &tracer_player_file("boots.fmdl"),
+    );
+    // A texture of the shared folder's own, under a stem the player does not hold.
+    sandbox.write(
+        &format!("{export}/Boots/Crocs/sole.dds"),
+        &tracer_player_file("shirt.dds"),
+    );
+    let k0625 = "Asset/model/character/boots/k0625/#Win/boots.fpk";
+    let k0644 = "Asset/model/character/boots/k0644/#Win/boots.fpk";
+    let sole = "Asset/model/character/common/714/05 - A/sourceimages/#windx11/sole.ftex";
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+    assert_eq!(
+        findings_of(&run.messages(), "co - Combined"),
+        [
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info link_combined [Keep] at Players/05 - A (link=Crocs.boots)",
+            "Info fmdl_merged [Keep] at Players/05 - A (model=boots.fmdl)",
+        ]
+    );
+    assert_eq!(run.exit_code(), 0);
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_90_test.cpk"));
+    let paths: Vec<&str> = entries.keys().map(String::as_str).collect();
+    assert_eq!(
+        paths,
+        [
+            "Asset/model/character/boots/k0625/#Win/boots.fpk",
+            "Asset/model/character/boots/k0625/#Win/boots.fpkd",
+            "Asset/model/character/common/714/05 - A/sourceimages/#windx11/shirt.ftex",
+            sole,
+            "Asset/model/character/face/real/71405/#Win/face.fpk",
+            "Asset/model/character/face/real/71405/#Win/face.fpkd",
+            "Asset/model/character/glove/g0625/#Win/glove.fpk",
+            "Asset/model/character/glove/g0625/#Win/glove.fpkd",
+        ],
+        "no k0644: the shared folder is only a source of parts"
+    );
+    assert_eq!(
+        boots_mesh_count(&entries, k0625),
+        2 * tracer_boots_mesh_count(),
+        "Crocs's meshes plus the local model's"
+    );
+    assert_eq!(boots_skl(&entries, k0625), body_skl("pes21"));
+
+    // Slot 07 links Crocs plainly: Crocs compiles on its own too, as it is, textures beside
+    // it, while slot 05's merge is unchanged.
+    sandbox.write(&format!("{export}/Players/07 - B/Crocs.boots"), b"");
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    assert_eq!(
+        findings_of(&run.messages(), "co - Combined"),
+        [
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info link_combined [Keep] at Players/05 - A (link=Crocs.boots)",
+            "Info fmdl_merged [Keep] at Players/05 - A (model=boots.fmdl)",
+        ]
+    );
+    assert_eq!(run.exit_code(), 0);
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_90_test.cpk"));
+    let added: Vec<&str> = entries
+        .keys()
+        .map(String::as_str)
+        .filter(|path| !paths.contains(path))
+        .collect();
+    assert_eq!(
+        added,
+        [
+            k0644,
+            "Asset/model/character/boots/k0644/#Win/boots.fpkd",
+            "Asset/model/character/boots/k0644/#windx11/sole.ftex",
+        ]
+    );
+    assert_eq!(boots_mesh_count(&entries, k0644), tracer_boots_mesh_count());
+    assert_eq!(
+        boots_mesh_count(&entries, k0625),
+        2 * tracer_boots_mesh_count()
+    );
+    assert_eq!(
+        entries[sole],
+        entries["Asset/model/character/boots/k0644/#windx11/sole.ftex"]
+    );
+}
+
+// TC-MOD-09
+#[test]
+fn parts_with_a_skeleton_mismatch_or_a_material_defined_twice_drop_their_folder() {
+    let sandbox = Sandbox::new("mod_merge_conflicts");
+    let export = "exports/co - Conflicts";
+    // Slot 05: two boots parts, one paired with a skeleton and one without.
+    for name in ["boots.fmdl", "kit_boots.fmdl"] {
+        sandbox.write(
+            &format!("{export}/Players/05 - A/{name}"),
+            &tracer_player_file("boots.fmdl"),
+        );
+    }
+    sandbox.write(
+        &format!("{export}/Players/05 - A/boots.skl"),
+        &body_skl("pes21"),
+    );
+    sandbox.write(
+        &format!("{export}/Players/05 - A/shirt.dds"),
+        &tracer_player_file("shirt.dds"),
+    );
+    // Slot 07: the tracer's hair model as a boots part beside its boots: both define the
+    // material `shirt`, differently.
+    sandbox.write(
+        &format!("{export}/Players/07 - B/boots.fmdl"),
+        &tracer_player_file("boots.fmdl"),
+    );
+    sandbox.write(
+        &format!("{export}/Players/07 - B/x_boots.fmdl"),
+        &tracer_player_file("fcl_hair.fmdl"),
+    );
+    sandbox.write(
+        &format!("{export}/Players/07 - B/shirt.dds"),
+        &tracer_player_file("shirt.dds"),
+    );
+    // Slot 09: boots that compile, so the CPK is written.
+    sandbox.write(
+        &format!("{export}/Players/09 - C/boots.fmdl"),
+        &tracer_player_file("boots.fmdl"),
+    );
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+    assert_eq!(
+        findings_of(&run.messages(), "co - Conflicts"),
+        [
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Error skl_merge_conflict [DropFolder] at Players/05 - A (skeleton=differs)",
+            "Error merge_material_conflict [DropFolder] at Players/07 - B (material=shirt)",
+        ]
+    );
+    assert_eq!(run.exit_code(), 1);
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_90_test.cpk"));
+    let paths: Vec<&str> = entries.keys().map(String::as_str).collect();
+    assert_eq!(
+        paths,
+        [
+            "Asset/model/character/boots/k0629/#Win/boots.fpk",
+            "Asset/model/character/boots/k0629/#Win/boots.fpkd",
+        ],
+        "nothing of slot 05 or 07, their textures included"
+    );
 }
 
 // TC-MOD-05

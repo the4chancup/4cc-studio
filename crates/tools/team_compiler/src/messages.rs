@@ -41,6 +41,16 @@ pub(crate) enum Code {
     BootsIdPoolExhausted,
     /// More shared gloves folders take an id than the team's block has; the export is skipped.
     GlovesIdPoolExhausted,
+    /// A player holds a boots or gloves link beside a model of the same package: the shared
+    /// folder's models become parts of the player's own package.
+    LinkCombined,
+    /// Several models of a package resolve to one allowed name and were merged into one FMDL.
+    FmdlMerged,
+    /// Two merged parts define a material of one name differently; the package is left out.
+    MergeMaterialConflict,
+    /// Merged parts disagree on their skeleton (a bone, or their paired `.skl` files); the
+    /// package is left out.
+    SklMergeConflict,
     /// A file a task reads cannot be read from its export; its folder is left out.
     SourceReadFailed,
     /// A task could not build its entries; its folder is left out.
@@ -57,7 +67,7 @@ impl Code {
     /// Every code, for the catalog test: a variant missing here would make its first message
     /// panic in `severity`, so a new variant is added to this list too.
     #[cfg(test)]
-    const ALL: [Code; 17] = [
+    const ALL: [Code; 21] = [
         Code::ExportExtractFailed,
         Code::NoExportsFound,
         Code::ExportDisabled,
@@ -70,6 +80,10 @@ impl Code {
         Code::ContentNotYetCompiled,
         Code::BootsIdPoolExhausted,
         Code::GlovesIdPoolExhausted,
+        Code::LinkCombined,
+        Code::FmdlMerged,
+        Code::MergeMaterialConflict,
+        Code::SklMergeConflict,
         Code::SourceReadFailed,
         Code::FolderPackFailed,
         Code::CpkWriteFailed,
@@ -92,6 +106,10 @@ impl Code {
             Code::ContentNotYetCompiled => "content_not_yet_compiled",
             Code::BootsIdPoolExhausted => "boots_id_pool_exhausted",
             Code::GlovesIdPoolExhausted => "gloves_id_pool_exhausted",
+            Code::LinkCombined => "link_combined",
+            Code::FmdlMerged => "fmdl_merged",
+            Code::MergeMaterialConflict => "merge_material_conflict",
+            Code::SklMergeConflict => "skl_merge_conflict",
             Code::SourceReadFailed => "source_read_failed",
             Code::FolderPackFailed => "folder_pack_failed",
             Code::CpkWriteFailed => "cpk_write_failed",
@@ -129,6 +147,10 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("content_not_yet_compiled", CatalogSeverity::Error),
     ("boots_id_pool_exhausted", CatalogSeverity::Error),
     ("gloves_id_pool_exhausted", CatalogSeverity::Error),
+    ("link_combined", CatalogSeverity::Info),
+    ("fmdl_merged", CatalogSeverity::Info),
+    ("merge_material_conflict", CatalogSeverity::Error),
+    ("skl_merge_conflict", CatalogSeverity::Error),
     ("folder_pack_failed", CatalogSeverity::ErrorOrFatal),
     ("cpk_write_failed", CatalogSeverity::Fatal),
     ("output_commit_failed", CatalogSeverity::Fatal),

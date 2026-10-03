@@ -364,6 +364,7 @@ mod tests {
                     }
                 })
                 .collect(),
+            combined: Vec::new(),
             textures: TextureHome::PlayerCommon {
                 folder_name: "05 - The Chad Stormworks Player".to_owned(),
             },

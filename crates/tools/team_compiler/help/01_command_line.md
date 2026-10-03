@@ -23,21 +23,30 @@ slot, the same number for both. A shared `Boots` or `Gloves` folder that players
 a link file (an empty `Crocs.boots` in the player's folder names `Boots/Crocs`) is built once,
 with its own textures, under one of the 17 IDs the team keeps for shared folders, given out in
 the folders' name order (`Apple` before `Zebra`), and a player linking it gets no boots or gloves
-of their own. An export using more than 17 shared boots folders, or more than 17 shared gloves
-folders, is skipped by both commands with the error `boots_id_pool_exhausted` or
-`gloves_id_pool_exhausted`, naming the count. A skeleton file named after a model
-(`kit_boots.skl` beside `kit_boots.fmdl`, `fcl_hair.skl` beside `fcl_hair.fmdl`, `boots.skl`
-beside a shared folder's `boots.fmdl`) is packed with it; boots without one get the standard
-body skeleton. A kit folder with
+of their own. A player folder holding both a link file and a boots (or gloves) model of its own
+combines the two: the shared folder's models are merged into the player's own boots (or gloves)
+under the player's ID, its textures travel with them, and the line `link_combined` says so; the
+shared folder is still built on its own for any player linking it plainly. Several boots models
+in one folder (`a_boots.fmdl` beside `kit_boots.fmdl`), or several gloves models for one hand,
+are merged into one model in the alphabetical order of their file names, reported as
+`fmdl_merged`. Models merged into one must agree with each other: a material they define
+differently is reported as `merge_material_conflict`, and skeletons that differ (one model with
+a skeleton file and one without, two different files, or a bone placed differently) as
+`skl_merge_conflict`; either leaves that folder's boots (or gloves) out of the CPK. An export
+using more than 17 shared boots folders, or more than 17 shared gloves folders, is skipped by
+both commands with the error `boots_id_pool_exhausted` or `gloves_id_pool_exhausted`, naming
+the count. A skeleton file named after a model (`kit_boots.skl` beside `kit_boots.fmdl`,
+`fcl_hair.skl` beside `fcl_hair.fmdl`, `boots.skl` beside a shared folder's `boots.fmdl`) is
+packed with it; boots without one get the standard body skeleton. A kit folder with
 no `kit` texture, an empty one included, is built with a magenta and black checkerboard in its
 place and reported as `kit_placeholder`, so a kit nobody drew shows as missing in the game. `compile`
 skips any other export with the error `content_not_yet_compiled`, naming the first thing it
 cannot build yet: a PES 2015 to 2017 target, a referee export, or content other than a player's
-own face, boots and gloves models, their textures, `.dds` portraits, kits and plainly linked
-shared `Boots` and `Gloves` folders (two models that would pack under one name, a shared `Faces`
-folder, a link file beside a model of the same kind (`Crocs.boots` beside `kit_boots.fmdl`), or a
-model whose name says nothing about what it is, among others). `check` still checks those
-exports. `compile`
+own face, boots and gloves models, their textures, `.dds` portraits, kits and linked shared
+`Boots` and `Gloves` folders (two face models that would pack under one name, a shared `Faces`
+folder, a texture under one name in both a player's folder and a shared folder the player
+combines, or a model whose name says nothing about what it is, among others). `check` still
+checks those exports. `compile`
 does not install the CPK into the game yet: it always leaves it in the output folder.
 
 `check` prints one line per finding: the export it is about, how serious it is, its code, where
