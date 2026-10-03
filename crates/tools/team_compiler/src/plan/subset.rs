@@ -548,7 +548,7 @@ pub(crate) fn first_not_compiled(
     for (slot, file) in &export.portraits {
         // A slot with a portrait from both sources is refused by naming this file: whether
         // the two agree is the deep pass's `portrait_conflict`, which compares their bytes.
-        if !is_dds(file) || folder_holds_portrait(export, *slot) {
+        if folder_holds_portrait(export, *slot) {
             return Some(what_entry(file));
         }
     }
@@ -590,12 +590,6 @@ fn common_file_compiled(file: &FileDescriptor) -> bool {
             | FileKind::Metadata(_)
             | FileKind::Other => false,
         }
-}
-
-/// Whether `file` is a `.dds`, the one portrait format emitted as it is; every other image
-/// format, `.ftex` included, waits for its conversion.
-fn is_dds(file: &FileDescriptor) -> bool {
-    texture_format(file.path.name()) == Some(SourceFormat::Dds)
 }
 
 /// Whether the player folder `slot` maps in `export`, if one does, holds a `portrait.*`.
@@ -641,11 +635,6 @@ fn player_not_compiled(
         if let Some(item) = shared_not_compiled(link.kind, shared) {
             return Some(item);
         }
-    }
-    if let Some(portrait) = &folder.portrait
-        && !is_dds(portrait)
-    {
-        return Some(what_entry(portrait));
     }
     if folder.ingame_face {
         return Some(("what", format!("{path}/ingame_face")));
@@ -870,13 +859,14 @@ mod tests {
 
     #[test]
     fn a_texture_in_any_accepted_image_format_is_compiled_wherever_a_texture_goes() {
-        // A player folder's, a combined shared folder's, Common's and a kit's, in the formats
-        // `dds_convert` converts; a portrait in one of them still waits for its conversion.
+        // A player folder's, a combined shared folder's, Common's, a kit's and a portrait from
+        // either source, in the formats `dds_convert` converts.
         assert_eq!(
             gate(&[
                 "Players/03 - A/skin.tga",
                 "Players/03 - A/hair.webp",
                 "Players/03 - A/oral.jpg",
+                "Players/03 - A/portrait.tif",
                 "Players/03 - A/Crocs.boots",
                 "Players/03 - A/kit_boots.fmdl",
                 "Boots/Crocs/boots.fmdl",
@@ -884,12 +874,9 @@ mod tests {
                 "Common/hair.png",
                 "Kits/p1/kit.png",
                 "Kits/p1/kit_back.tga",
+                "Portraits/player_07.png",
             ]),
             None
-        );
-        assert_eq!(
-            gate(&["Players/03 - A/skin.png", "Portraits/player_03.png"]),
-            what("Portraits/player_03.png")
         );
     }
 
@@ -1002,14 +989,14 @@ mod tests {
     }
 
     #[test]
-    fn a_portrait_in_another_format_than_dds_is_named() {
+    fn a_portrait_in_any_accepted_format_is_compiled() {
         for file in [
             "Players/03 - A/portrait.png",
             "Players/03 - A/portrait.ftex",
             "Portraits/player_03.png",
             "Portraits/player_07.ftex",
         ] {
-            assert_eq!(gate(&[file]), what(file), "{file}");
+            assert_eq!(gate(&[file]), None, "{file}");
         }
     }
 
@@ -1545,7 +1532,7 @@ mod tests {
     fn the_first_hit_follows_players_files_links_shared_folders_kits_then_the_rest() {
         let face_high = "Players/03 - A/face_high.fmdl";
         // In each place, something the gate names there: a skeleton pairing with no model,
-        // a kit texture the config has no field for, a portrait in a format not emitted yet.
+        // a kit texture the config has no field for, a logo (not emitted yet).
         let loose_skl = "Players/03 - A/torso.skl";
         let face_link = "Players/03 - A/Round.face";
         let shared_face = "Faces/Round/face_high.fmdl";
@@ -1555,7 +1542,7 @@ mod tests {
         let shared_skl = "Boots/Crocs/kit_boots.skl";
         let kit = "Kits/g1/kit.dds";
         let kit_extra = "Kits/g1/kit_srm.dds";
-        let portrait = "Portraits/player_03.png";
+        let logo = "logo.dds";
         // A folder's own files come before its links' folders.
         assert_eq!(
             first_hit(&[
@@ -1569,7 +1556,7 @@ mod tests {
                 shared_skl,
                 kit,
                 kit_extra,
-                portrait
+                logo
             ]),
             what(loose_skl)
         );
@@ -1584,21 +1571,16 @@ mod tests {
                 shared_skl,
                 kit,
                 kit_extra,
-                portrait
+                logo
             ]),
             what(shared_face_skl)
         );
         assert_eq!(
-            first_hit(&[
-                face_high, link, shared, shared_skl, kit, kit_extra, portrait
-            ]),
+            first_hit(&[face_high, link, shared, shared_skl, kit, kit_extra, logo]),
             what(shared_skl)
         );
-        assert_eq!(
-            gate(&[link, shared, kit, kit_extra, portrait]),
-            what(kit_extra)
-        );
-        assert_eq!(gate(&[portrait]), what(portrait));
+        assert_eq!(gate(&[link, shared, kit, kit_extra, logo]), what(kit_extra));
+        assert_eq!(gate(&[logo]), what(logo));
     }
 
     #[test]
@@ -1647,7 +1629,23 @@ mod tests {
 
         let report = plan_run(vec![(ExportId(0), export)], PesVersion::Pes21);
 
-        assert!(report.messages.is_empty(), "{:?}", report.messages);
+        // The drop is reported once, on the kit, naming the file.
+        let [message] = report.messages.as_slice() else {
+            panic!("{:?}", report.messages);
+        };
+        assert_eq!(message.code.code, "kit_texture_not_used");
+        assert_eq!(
+            message.scope,
+            studio_core::Scope::Folder {
+                export_id: ExportId(0),
+                path: ScopePath::new("Kits/g1").unwrap(),
+            }
+        );
+        assert_eq!(message.disposition, studio_core::Disposition::DropFile);
+        assert_eq!(
+            message.context,
+            [("file".to_owned(), "kit_mask.dds".to_owned())]
+        );
         let TaskKind::Kit { kit, .. } = &report.manifest.tasks[1].kind else {
             panic!("the second task is the kit's");
         };

@@ -73,4 +73,15 @@ completed = subprocess.run(
 )
 assert completed.returncode == 0, completed.stdout + completed.stderr
 put("bc6h.dds", lambda path: shutil.copyfile(WORK / "bc6h.DDS", path))
+
+# A side that is not a power of two on a single mip level: the one shape Fox takes unmipmapped.
+single_source = WORK / "single_level.png"
+gradient(12, 12, alpha=False).save(single_source, format="PNG")
+completed = subprocess.run(
+    [TEXCONV, "-f", "BC3_UNORM", "-dx9", "-m", "1", "-y", "-o", str(WORK), str(single_source)],
+    capture_output=True,
+    text=True,
+)
+assert completed.returncode == 0, completed.stdout + completed.stderr
+put("single_level.dds", lambda path: shutil.copyfile(WORK / "single_level.DDS", path))
 shutil.rmtree(WORK)

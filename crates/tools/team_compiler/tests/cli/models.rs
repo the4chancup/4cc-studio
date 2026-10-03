@@ -183,7 +183,7 @@ fn a_texture_that_cannot_convert_drops_the_whole_folder_and_the_folder_beside_it
     );
     assert!(
         findings[1].starts_with(
-            "Error folder_pack_failed [DropFolder] at Players/05 - A (error=shirt.dds: cannot convert to FTEX"
+            "Error folder_pack_failed [DropFolder] at Players/05 - A (error=shirt.dds: cannot convert"
         ),
         "{}",
         findings[1]

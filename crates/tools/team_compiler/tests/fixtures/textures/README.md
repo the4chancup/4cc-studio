@@ -14,4 +14,5 @@ the script and rerun it.
 | `tiny.png` | 3x3, fully opaque | a side under 4 pixels (`texture_too_small`) |
 | `odd.png` | 300x300, fully opaque | a side that is not a power of two (`texture_not_pow2`) |
 | `bc6h.dds` | 32x16 BC6H (`BC6H_UF16`, DX10 header), `texconv` 2024.1.1.1 on a gradient | a codec `dds_convert` does not decode (TC-TEX-04, `texture_codec_unsupported`) |
+| `single_level.dds` | 12x12 BC3 (`texconv -f BC3_UNORM -dx9 -m 1`), one mip level | a side that is not a power of two without mips, which Fox accepts (`texture_not_pow2` only for a mipmapped texture) |
 | `bc7.dds` | a copy of `crates/libs/dds_convert/tests/fixtures/bc7.dds`: 32x16 BC7 (DX10 header), full 6-level mip chain, `texconv`-encoded (see that folder's README) | a source already BC7 with a full chain: kept on PES 19-21, transcoded to BC3 on PES 18 (TC-TEX-02) |

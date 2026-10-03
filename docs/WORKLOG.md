@@ -12,7 +12,7 @@ is in `AGENTS.md` ("Working documents").
 **Phase:** 3 (Team compiler skeleton) closed 2026-10-02, its cross-family reviews queued (see
 "Handover"). Phases 1 and 2 done (Phase 2 closed 2026-09-30).
 **Next:** Phase 4 is itemized and its Acceptance section written (step 4.1, 2026-10-03; its
-cross-family review (a) is queued). Next: 4.6b (conversion findings, portraits); 4.6a and 4.5a-c are done, 4.5d
+cross-family review (a) is queued). Next: 4.6c (conversion on the cancel token); 4.6a-b and 4.5a-c are done, 4.5d
 waits on the base64 question. 2.5b (GPU BC7) is step 16.x (decision entries
 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0 after Phase 8; phase order 1–6,
 8, 0.1.0, 7, 9–16 (`core/development_plan.md` "Releases"); first-class target the Fox version
@@ -68,6 +68,13 @@ Claude agent with no sidekick and no reviewer of another model family. While tha
   `TextureHome`, `TaskFailure`), against `pipeline.md` steps 3, 6 and 7, `player_folders.md` "ID
   allocation", "Shared models" to "Merge constraint", TC-MOD-01..09, TC-PLN-01/02, and the
   decision entries of 2026-10-03 from "a player folder's tasks commit as one group" on.
+  4.5c-4.6b (b): `team_compiler` from `c7086b5` to the 4.6b commit plus `aesthetics_export`'s
+  `common_link_name` and `dds_convert`'s `encode_dds` (three crates, new `pub` items), against
+  `player_folders.md` "Common model links and model merging", "Portraits", `model_format.md`
+  "Link files", `pipeline.md` steps 5-6 and its "Common textures are one task" bullet,
+  `messages.md` "Textures", `libs/dds_convert.md` "`dds_convert` API", TC-MOD-10/11,
+  TC-TEX-01/02/04/06, TC-PRT-01, TC-KIT-10, and the decision entries of 2026-10-03 from "Fox's
+  Common textures are one task" on.
 - For the lead, on return: the review process on trial (maintainer, 3.1) runs a full sidekick
   review loop after each GPT round and calls GPT again only once that loop has ended and GPT's
   own loop has not; not yet in `AGENTS.md` (3.6: GPT 4 of 7 accepted, then sidekick S1 3 of 7,
@@ -444,7 +451,17 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   cited. Gates green (95 of 203); `mutants-diff 3b9cc36`: 23, 15 caught, 8 unviable, 0 missed.
   For converge: `Converter::convert` returns `Arc<[u8]>` even under `Bypass` and `Entry` owns a
   `Vec`, so each texture is copied once (`Use`) or twice (`Bypass`); an `.ftex` source is now
-  rebuilt rather than passed through. Crates: tc (`processing/texture.rs`,
+  rebuilt rather than passed through. (b) done 2026-10-03 (Fable; contradictions accepted: a
+  failed portrait task reports `DropFile`; the size checks read the written FTEX's header, so
+  no second decode; `kit_texture_not_used` is reported before the gate, noisy until 4.20; lead
+  first: the catalog's drop scopes and signature rule, decision entry, and the fixtures):
+  `dds_convert::encode_dds` (sharing `convert`'s steps), `texture::TextureError`, the four
+  findings, Common's `DropFile`, portraits in any format. TC-TEX-04/06, TC-PRT-01, TC-KIT-10
+  cited. Gates green (99 of 203); `mutants-diff 8ae37d9`: 75, 68 caught, 7 unviable, 1 missed
+  (`needs_pow2`'s `mipmaps > 1`), given a test with the `single_level.dds` fixture in one rework
+  round (red shown); the remote half peaked at 7.90 GiB of 8G (maintainer asked). Found:
+  `texture_codec_unsupported` also covers `dds_convert`'s other `Unsupported` refusals (a 16-bit
+  TGA, the 4 GiB limit), which the help names. Crates: tc (`processing/texture.rs`,
   `processing/kit.rs`) → verify: a `/co/` player with `skin.png` (1024x1024, alpha) compiled for
   PES 21 then PES 18: `ftex::info` of the emitted texture reports BC7 then BC3, each with an
   11-level mip chain; a 3x3 `skin.png` reports `Error texture_too_small [DropFolder]` and the
@@ -1506,3 +1523,8 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   format compiles on Fox through `dds_convert` (BC7 on PES 19-21, BC3/BC1 on PES 18, missing
   mips generated, `_nrm` stems as normal maps), with a per-run conversion cache for runs of at
   most two exports. The BC7 encoder now builds optimized in dev (56 s to 9 s for one test).
+- **2026-10-03** — 4.6b: a texture that cannot convert names its finding (`texture_too_small`,
+  `texture_not_pow2`, `texture_type_mismatch`, `texture_codec_unsupported`) and drops its folder,
+  its kit, or only itself in `Common/` and for a portrait; a Fox `kit_mask` is reported
+  (`kit_texture_not_used`); portraits come in any format, encoded to BC3 by
+  `dds_convert::encode_dds`.

@@ -19,7 +19,7 @@ use vtree::ScopePath;
 
 use crate::messages::{Code, tool_message};
 use crate::paths;
-use crate::plan::subset::ModelPackage;
+use crate::plan::subset::{ModelPackage, texture_format};
 use crate::plan::{BuildTask, TaskGroup, TaskKind};
 
 /// The bytes of every file a task reads (`TaskKind::files`), keyed by the file's export path:
@@ -66,12 +66,14 @@ pub(crate) type Entry = (String, Vec<u8>);
 
 /// A finding a task that succeeded makes on its folder: the code, what was done about it
 /// (`Keep` for `fmdl_merged`; `DropFolder` for a `shared_texture_conflict`, whose losing
-/// package the writer leaves out) and its context.
+/// package the writer leaves out; `DropFile` for a Common texture left out on a texture
+/// finding) and its context.
 pub(crate) type Finding = (Code, Disposition, Vec<(&'static str, String)>);
 
-/// Why a task failed: the finding reported on its folder with `DropFolder`. A merge conflict
-/// between parts has its own code (`merge_material_conflict`, `skl_merge_conflict`); any other
-/// error is `folder_pack_failed` carrying the error chain.
+/// Why a task failed: the finding reported on its folder (its file, for a portrait). A merge
+/// conflict between parts has its own code (`merge_material_conflict`, `skl_merge_conflict`),
+/// and so has a texture finding (`texture_too_small`, ...); any other error is
+/// `folder_pack_failed` carrying the error chain.
 pub(crate) struct TaskFailure {
     /// The finding's code.
     pub(crate) code: Code,
@@ -153,20 +155,24 @@ pub(crate) fn process_task(
             )
         }
         TaskKind::CommonTextures { textures, .. } => {
-            texture::common_textures(textures, task.team_id, ctx, &mut files)
+            texture::common_textures(textures, task.team_id, ctx, &mut files, &mut findings)
                 .map(|entries| (entries, None))
         }
-        // A DDS portrait is what the game reads: its bytes go out as they are.
-        TaskKind::Portrait { player_id, file } => Ok((
-            vec![(
-                paths::portrait(ctx.version, *player_id),
-                take(&mut files, file),
-            )],
-            None,
-        )),
+        TaskKind::Portrait { player_id, file } => {
+            let name = file.path.name();
+            let format = texture_format(name)
+                .expect("planning lists a portrait by an extension `dds_convert` accepts");
+            texture::portrait(format, name, take(&mut files, file))
+                .map(|bytes| {
+                    (
+                        vec![(paths::portrait(ctx.version, *player_id), bytes)],
+                        None,
+                    )
+                })
+                .map_err(TaskFailure::from)
+        }
         TaskKind::Kit { slot, kit } => kit::kit(*slot, kit, task.team_id, ctx, &mut files)
-            .map(|(entries, config)| (entries, Some(config)))
-            .map_err(TaskFailure::from),
+            .map(|(entries, config)| (entries, Some(config))),
     };
     let mut batch = TaskBatch {
         index,
@@ -193,13 +199,23 @@ pub(crate) fn process_task(
                 .collect();
         }
         // A failed task reports its failure alone: a note about a merge whose output is not
-        // in the CPK would describe nothing the member can find.
-        Err(failure) => batch.messages.push(tool_message(
-            failure.code,
-            scope,
-            Disposition::DropFolder,
-            failure.context,
-        )),
+        // in the CPK would describe nothing the member can find. What was dropped is the
+        // task's unit: a portrait task is its one file, every other task a folder.
+        Err(failure) => {
+            let disposition = match task.kind {
+                TaskKind::Portrait { .. } => Disposition::DropFile,
+                TaskKind::Models { .. }
+                | TaskKind::Textures { .. }
+                | TaskKind::CommonTextures { .. }
+                | TaskKind::Kit { .. } => Disposition::DropFolder,
+            };
+            batch.messages.push(tool_message(
+                failure.code,
+                scope,
+                disposition,
+                failure.context,
+            ));
+        }
     }
     batch
 }
@@ -1416,9 +1432,86 @@ mod tests {
             panic!("{:?}", message.context);
         };
         assert_eq!(key, "error");
-        assert!(
-            error.starts_with("Cloth.dds: cannot convert to FTEX"),
-            "{error}"
+        assert!(error.starts_with("Cloth.dds: cannot convert"), "{error}");
+    }
+
+    #[test]
+    fn a_common_texture_with_a_finding_is_left_out_alone_and_the_rest_emitted() {
+        let folder = ScopePath::new("Common").unwrap();
+        let textures = vec![
+            named("Common/tiny.png", "shirt.dds"),
+            named("Common/hair.dds", "shirt.dds"),
+        ];
+        let tiny = std::fs::read(
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/textures/tiny.png"),
+        )
+        .unwrap();
+
+        let batch = run_with(
+            TaskKind::CommonTextures { folder, textures },
+            &[("Common/tiny.png", &tiny)],
+        );
+
+        assert_eq!(
+            paths(&batch),
+            ["Asset/model/character/common/792/sourceimages/#windx11/hair.ftex"]
+        );
+        let [message] = batch.messages.as_slice() else {
+            panic!("{:?}", batch.messages);
+        };
+        assert_eq!(message.code.code, "texture_too_small");
+        assert_eq!(
+            (message.severity, message.disposition),
+            (Severity::Error, Disposition::DropFile)
+        );
+        assert_eq!(
+            message.scope,
+            Scope::Folder {
+                export_id: ExportId(4),
+                path: ScopePath::new("Common").unwrap(),
+            }
+        );
+        assert_eq!(
+            message.context,
+            [("file".to_owned(), "tiny.png".to_owned())]
+        );
+    }
+
+    #[test]
+    fn a_portrait_with_a_finding_fails_its_task_dropping_the_file() {
+        let file = file(&format!("{PLAYER}/portrait.dds"));
+        let odd = std::fs::read(
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/textures/odd.png"),
+        )
+        .unwrap();
+        // PNG bytes under the `.dds` name: the signature check comes first.
+        let batch = run_with(
+            TaskKind::Portrait {
+                player_id: 79205,
+                file: file.clone(),
+            },
+            &[(&format!("{PLAYER}/portrait.dds"), &odd)],
+        );
+
+        assert!(batch.entries.is_empty(), "{:?}", paths(&batch));
+        let [message] = batch.messages.as_slice() else {
+            panic!("{:?}", batch.messages);
+        };
+        assert_eq!(message.code.code, "texture_type_mismatch");
+        assert_eq!(
+            (message.severity, message.disposition),
+            (Severity::Error, Disposition::DropFile)
+        );
+        assert_eq!(
+            message.scope,
+            Scope::Folder {
+                export_id: ExportId(4),
+                path: file.path,
+            }
+        );
+        assert_eq!(
+            message.context,
+            [("file".to_owned(), "portrait.dds".to_owned())]
         );
     }
 

@@ -11,14 +11,17 @@ use fmdl::{FmdlFile, Model};
 use ftex::PixelFormat;
 
 use crate::common::Sandbox;
-use crate::compile::{cpk_entries, kit_texture, pes_settings, pes21_settings, tracer_player_file};
+use crate::compile::{
+    compiled_kits, cpk_entries, kit_texture, pes_settings, pes21_settings, tracer_kit,
+    tracer_player_file,
+};
 use crate::findings_of;
 
 /// The player's texture home, the per-player common subfolder.
 const PLAYER_TEXTURES: &str = "Asset/model/character/common/714/05 - A/sourceimages/#windx11";
 
 /// The bytes of `tests/fixtures/textures/<name>` (that folder's `README.md`).
-fn texture_fixture(name: &str) -> Vec<u8> {
+pub(crate) fn texture_fixture(name: &str) -> Vec<u8> {
     fs::read(
         Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("tests/fixtures/textures")
@@ -138,8 +141,9 @@ fn a_raster_nrm_texture_is_a_bc3_normal_map_on_pes_21() {
     assert_eq!((info.width, info.height, info.mipmaps), (256, 128, 9));
 }
 
+// TC-TEX-06
 #[test]
-fn png_and_tga_kit_textures_are_emitted_as_ftex_under_the_kit_s_names() {
+fn png_and_tga_kit_textures_are_ftex_under_the_kit_s_names_and_a_webp_portrait_is_a_dds() {
     let sandbox = Sandbox::new("tex_kit_formats");
     sandbox.write(
         "exports/co - Kit/Kits/p1/kit.png",
@@ -148,6 +152,10 @@ fn png_and_tga_kit_textures_are_emitted_as_ftex_under_the_kit_s_names() {
     sandbox.write(
         "exports/co - Kit/Kits/p1/kit_back.tga",
         &texture_fixture("kit_back.tga"),
+    );
+    sandbox.write(
+        "exports/co - Kit/Portraits/player_05.webp",
+        &texture_fixture("portrait.webp"),
     );
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
@@ -170,6 +178,147 @@ fn png_and_tga_kit_textures_are_emitted_as_ftex_under_the_kit_s_names() {
             "{name}"
         );
     }
+    let portrait = &entries["common/render/symbol/player/71405.dds"];
+    assert!(portrait.starts_with(b"DDS "));
+    let layout = ftex::dds::read_layout(portrait).unwrap();
+    assert_eq!(layout.pixel, ftex::dds::DdsPixel::Format(PixelFormat::Bc3));
+    assert_eq!((layout.width, layout.height, layout.mipmaps), (128, 128, 8));
+}
+
+/// One texture finding on a player folder's texture: the file written under `name` with the
+/// fixture `fixture`'s bytes, and the code expected.
+struct FolderDrop {
+    name: &'static str,
+    fixture: &'static str,
+    code: &'static str,
+}
+
+const FOLDER_DROPS: [FolderDrop; 4] = [
+    FolderDrop {
+        name: "skin.dds",
+        fixture: "bc6h.dds",
+        code: "texture_codec_unsupported",
+    },
+    FolderDrop {
+        name: "tiny.png",
+        fixture: "tiny.png",
+        code: "texture_too_small",
+    },
+    FolderDrop {
+        name: "odd.png",
+        fixture: "odd.png",
+        code: "texture_not_pow2",
+    },
+    // PNG bytes under a `.dds` name: renamed, not resaved.
+    FolderDrop {
+        name: "skin.dds",
+        fixture: "portrait.png",
+        code: "texture_type_mismatch",
+    },
+];
+
+// TC-TEX-04
+#[test]
+fn a_texture_finding_drops_the_player_folder_naming_the_file() {
+    for case in FOLDER_DROPS {
+        let sandbox = Sandbox::new(&format!("tex_drop_{}", case.code));
+        write_skin_player(
+            &sandbox,
+            "co - Drop",
+            case.name,
+            &texture_fixture(case.fixture),
+        );
+        // A kit beside the folder, so the CPK is written and the folder's absence observable.
+        sandbox.write("exports/co - Drop/Kits/p1/kit.dds", &tracer_kit());
+
+        let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+        assert_eq!(
+            findings_of(&run.messages(), "co - Drop"),
+            [
+                "Info export_identified [Keep] (team=/co/, id=714)".to_owned(),
+                "Info kit_config_generated [Keep] at Kits/p1 ()".to_owned(),
+                format!(
+                    "Error {} [DropFolder] at Players/05 - A (file={})",
+                    case.code, case.name
+                ),
+            ],
+            "{}",
+            case.code
+        );
+        assert_eq!(run.exit_code(), 1, "{}", case.code);
+        // The kit is in the CPK; nothing of the folder is, neither its face nor its texture.
+        let entries = cpk_entries(&sandbox.root.join("output/4cc_90_test.cpk"));
+        let paths: Vec<&str> = entries.keys().map(String::as_str).collect();
+        assert!(
+            paths.contains(&kit_texture("u0714p1").as_str()),
+            "{paths:?}"
+        );
+        assert!(
+            paths
+                .iter()
+                .all(|path| !path.starts_with("Asset/model/character/face/")
+                    && !path.starts_with(PLAYER_TEXTURES)),
+            "{}: {paths:?}",
+            case.code
+        );
+    }
+}
+
+#[test]
+fn a_kit_texture_finding_drops_the_kit() {
+    let sandbox = Sandbox::new("tex_kit_drop");
+    sandbox.write("exports/co - Kit/Kits/p1/kit.dds", &tracer_kit());
+    sandbox.write(
+        "exports/co - Kit/Kits/p1/kit_back.png",
+        &texture_fixture("tiny.png"),
+    );
+    sandbox.write("exports/co - Kit/Kits/g1/kit.dds", &tracer_kit());
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+    assert_eq!(
+        findings_of(&run.messages(), "co - Kit"),
+        [
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info kit_config_generated [Keep] at Kits/p1 ()",
+            "Info kit_config_generated [Keep] at Kits/g1 ()",
+            "Error texture_too_small [DropFolder] at Kits/p1 (file=kit_back.png)",
+        ]
+    );
+    assert_eq!(run.exit_code(), 1);
+    assert_eq!(compiled_kits(&sandbox), ["u0714g1"]);
+}
+
+#[test]
+fn a_common_texture_finding_leaves_that_file_out_and_the_rest_is_emitted() {
+    let sandbox = Sandbox::new("tex_common_drop");
+    sandbox.copy_tracer_face("exports/co - Common/Players/03 - A");
+    sandbox.write(
+        "exports/co - Common/Common/tiny.png",
+        &texture_fixture("tiny.png"),
+    );
+    sandbox.write(
+        "exports/co - Common/Common/hair.png",
+        &texture_fixture("kit.png"),
+    );
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+    assert_eq!(
+        findings_of(&run.messages(), "co - Common"),
+        [
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Error texture_too_small [DropFile] at Common (file=tiny.png)",
+        ]
+    );
+    assert_eq!(run.exit_code(), 1);
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_90_test.cpk"));
+    let common: Vec<&str> = entries
+        .keys()
+        .filter_map(|path| path.strip_prefix("Asset/model/character/common/714/sourceimages/"))
+        .collect();
+    assert_eq!(common, ["#windx11/hair.ftex"]);
 }
 
 #[test]

@@ -414,10 +414,16 @@ mod tests {
                 20,
                 Some(group),
             ),
+            // The tracer's `shirt.dds` stands in for a portrait: a DDS that passes through.
             task(
                 TaskKind::Portrait {
                     player_id: 79205,
-                    file: folder.files[0].clone(),
+                    file: folder
+                        .files
+                        .iter()
+                        .find(|file| file.path.name() == "shirt.dds")
+                        .unwrap()
+                        .clone(),
                 },
                 7,
                 None,

@@ -3,6 +3,7 @@
 
 use std::fs;
 
+use dds_convert::{BlockCodec, SourceFormat, decode};
 use studio_core::PipelineEvent;
 
 use crate::common::Sandbox;
@@ -10,6 +11,7 @@ use crate::compile::{
     compiled_kits, compiled_players, compiled_portraits, cpk_entries, pass_through_settings,
     pes21_settings, tracer_kit, tracer_portrait,
 };
+use crate::textures::texture_fixture;
 use crate::{CLEAN_PLAYER, findings_of, source_fixture};
 
 // TC-ROS-01
@@ -251,23 +253,104 @@ fn a_slot_with_a_portrait_in_its_folder_and_in_portraits_is_not_compiled_yet() {
     assert!(!sandbox.root.join("output/4cc_90_test.cpk").exists());
 }
 
+/// Asserts `dds` is a BC3 DDS of 128x128 with the full 8-level chain: what a raster portrait
+/// of the fixtures' size is encoded to.
+fn assert_bc3_portrait(dds: &[u8], label: &str) {
+    assert!(dds.starts_with(b"DDS "), "{label}: a DDS");
+    let decoded = decode(dds, SourceFormat::Dds).unwrap();
+    assert_eq!(
+        decoded.blocks.map(|blocks| blocks.codec),
+        Some(BlockCodec::Bc3),
+        "{label}"
+    );
+    assert_eq!(
+        (decoded.width, decoded.height, decoded.mips.len()),
+        (128, 128, 8),
+        "{label}"
+    );
+}
+
+// TC-PRT-01
 #[test]
-fn a_portrait_in_another_format_than_dds_is_not_compiled_yet() {
-    let sandbox = Sandbox::new("portraits_png");
-    sandbox.write(&format!("exports/co - Png/{CLEAN_PLAYER}"), b"");
-    sandbox.write("exports/co - Png/Players/03 - A/portrait.png", b"");
+fn a_dds_portrait_passes_through_and_a_png_one_is_encoded_to_bc3_under_the_version_s_name() {
+    let sandbox = Sandbox::new("portraits_dds_and_png");
+    sandbox.copy_tracer_face("exports/co - Portraits/Players/05 - A");
+    sandbox.write(
+        "exports/co - Portraits/Portraits/player_07.png",
+        &texture_fixture("portrait.png"),
+    );
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
 
     assert_eq!(
-        findings_of(&run.messages(), "co - Png"),
+        findings_of(&run.messages(), "co - Portraits"),
+        ["Info export_identified [Keep] (team=/co/, id=714)"]
+    );
+    assert_eq!(run.exit_code(), 0);
+    assert_eq!(compiled_portraits(&sandbox), ["71405.dds", "71407.dds"]);
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_90_test.cpk"));
+    assert_eq!(entries[&portrait_path("71405.dds")], tracer_portrait());
+    assert_bc3_portrait(&entries[&portrait_path("71407.dds")], "PES 21");
+
+    // PES 18 names the same files with the `player_` prefix.
+    let run = sandbox.run("[common]\npes_version = 18\n", &["compile"]);
+
+    assert_eq!(run.exit_code(), 0);
+    assert_eq!(
+        compiled_portraits(&sandbox),
+        ["player_71405.dds", "player_71407.dds"]
+    );
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_90_test.cpk"));
+    assert_eq!(
+        entries[&portrait_path("player_71405.dds")],
+        tracer_portrait()
+    );
+    assert_bc3_portrait(&entries[&portrait_path("player_71407.dds")], "PES 18");
+}
+
+#[test]
+fn a_portrait_with_a_finding_is_left_out_alone() {
+    let sandbox = Sandbox::new("portraits_odd");
+    sandbox.copy_tracer_face("exports/co - Odd/Players/03 - A");
+    // 300x300: not a power of two on either side.
+    sandbox.write(
+        "exports/co - Odd/Portraits/player_05.png",
+        &texture_fixture("odd.png"),
+    );
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+    assert_eq!(
+        findings_of(&run.messages(), "co - Odd"),
         [
             "Info export_identified [Keep] (team=/co/, id=714)",
-            "Error content_not_yet_compiled [DropExport] (what=Players/03 - A/portrait.png)",
+            "Error texture_not_pow2 [DropFile] at Portraits/player_05.png (file=player_05.png)",
         ]
     );
     assert_eq!(run.exit_code(), 1);
-    assert!(!sandbox.root.join("output/4cc_90_test.cpk").exists());
+    assert_eq!(compiled_players(&sandbox), [71403]);
+    assert_eq!(compiled_portraits(&sandbox), ["71403.dds"]);
+}
+
+// TC-KIT-10
+#[test]
+fn a_kit_mask_on_a_fox_target_is_reported_once_and_not_emitted() {
+    let sandbox = Sandbox::new("kit_mask_fox");
+    sandbox.write("exports/co - Mask/Kits/p1/kit.dds", &tracer_kit());
+    sandbox.write("exports/co - Mask/Kits/p1/kit_mask.dds", &tracer_kit());
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+    assert_eq!(
+        findings_of(&run.messages(), "co - Mask"),
+        [
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info kit_texture_not_used [DropFile] at Kits/p1 (file=kit_mask.dds)",
+            "Info kit_config_generated [Keep] at Kits/p1 ()",
+        ]
+    );
+    assert_eq!(run.exit_code(), 0);
+    assert_eq!(compiled_kits(&sandbox), ["u0714p1"]);
 }
 
 // TC-STR-01

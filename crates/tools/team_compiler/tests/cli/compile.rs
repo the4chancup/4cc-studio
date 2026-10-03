@@ -336,38 +336,35 @@ pub(crate) fn compiled_kits(sandbox: &Sandbox) -> Vec<String> {
 }
 
 /// `exports/<name>`, an export whose roster maps a player folder holding a face model and
-/// `portrait.png`, a portrait in a format no run converts yet.
-fn png_portrait_export(sandbox: &Sandbox, name: &str) {
-    sandbox.write(&format!("exports/{name}/players.txt"), b"03 Png Only\n");
+/// `fpc.on`, a marker no run compiles yet.
+fn fpc_on_export(sandbox: &Sandbox, name: &str) {
+    sandbox.write(&format!("exports/{name}/players.txt"), b"03 Fpc On\n");
     sandbox.write(
-        &format!("exports/{name}/Players/Png Only/face_high.fmdl"),
+        &format!("exports/{name}/Players/Fpc On/face_high.fmdl"),
         b"",
     );
-    sandbox.write(
-        &format!("exports/{name}/Players/Png Only/portrait.png"),
-        b"",
-    );
+    sandbox.write(&format!("exports/{name}/Players/Fpc On/fpc.on"), b"");
 }
 
 // TC-OUT-06
 #[test]
 fn compile_skips_an_export_holding_content_it_cannot_build_yet_and_builds_the_others() {
     let sandbox = Sandbox::new("not_yet_compiled");
-    png_portrait_export(&sandbox, "co - Png");
+    fpc_on_export(&sandbox, "co - Fpc");
     sandbox.copy_tracer("egg Tracer");
     sandbox.write("exports/dbg - Kits/Kits/p1/kit.dds", &tracer_kit());
     sandbox.write("exports/dbg - Kits/players.txt", b"");
     // No roster slot maps this folder, so it would emit nothing.
-    sandbox.write("exports/dbg - Kits/Players/Png Only/portrait.png", b"");
+    sandbox.write("exports/dbg - Kits/Players/Fpc On/fpc.on", b"");
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
 
     let lines = run.messages();
     assert_eq!(
-        findings_of(&lines, "co - Png"),
+        findings_of(&lines, "co - Fpc"),
         [
             "Info export_identified [Keep] (team=/co/, id=714)",
-            "Error content_not_yet_compiled [DropExport] (what=Players/Png Only/portrait.png)",
+            "Error content_not_yet_compiled [DropExport] (what=Players/Fpc On/fpc.on)",
         ]
     );
     assert_eq!(run.exit_code(), 1);
@@ -393,7 +390,7 @@ fn a_compile_whose_every_export_is_skipped_leaves_the_previous_cpk_as_it_was() {
     sandbox.write("output/4cc_90_test.cpk", b"the previous CPK");
     sandbox.write("exports/refs Cup/players.txt", b"01 Keeper\n");
     sandbox.write("exports/refs Cup/Players/Keeper/face_high.fmdl", b"");
-    png_portrait_export(&sandbox, "co - Png");
+    fpc_on_export(&sandbox, "co - Fpc");
     let before = snapshot(&sandbox.root.join("output"));
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);

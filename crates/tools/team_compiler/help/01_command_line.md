@@ -16,17 +16,30 @@ folder (`output/` beside `4cc-studio` unless you changed the `output_folder_path
 previous CPK as it was. In this version `compile` builds exports for PES 2018 to 2021 that hold
 only the models of the players in the roster, kept in each player's own folder: face models,
 boots (a model whose name ends in `boots`, such as `kit_boots.fmdl`) and gloves (`glove_l`,
-`glove_r`, or `handL`, `handR`), with their textures, their portraits as `.dds` files (a
-`portrait.dds` in the player's folder, or `player_NN.dds` in the `Portraits` folder, not both
-for one player), and kits. A texture (a player's, a shared folder's, a Common one or a kit's)
-can be a `.dds`, `.ftex`, `.png`, `.jpg`, `.bmp`, `.webp`, `.tga` or `.tif` file: each is
-converted to what the chosen PES version reads, BC7 for PES 2019 to 2021 and BC3 for PES 2018
-(BC1 when the image has no transparency at all; a `.dds` or `.ftex` already in a format the
-version reads is kept as it is), and an image
-without the smaller copies of itself the game needs (its mip levels) gets them generated. A
-texture whose name ends in `_nrm` (`skin_nrm.png`) is a normal map and is encoded as one. A
-texture that cannot be read is reported as `folder_pack_failed`, naming the file, and its
-folder is left out. The boots and gloves get the ID reserved for the player's roster
+`glove_r`, or `handL`, `handR`), with their textures, their portraits (a `portrait` image in
+the player's folder, or `player_NN` in the `Portraits` folder, not both for one player), and
+kits. A texture (a player's, a shared folder's, a Common one, a kit's or a portrait) can be a
+`.dds`, `.ftex`, `.png`, `.jpg`, `.bmp`, `.webp`, `.tga` or `.tif` file: each is converted to
+what the chosen PES version reads, BC7 for PES 2019 to 2021 and BC3 for PES 2018 (BC1 when the
+image has no transparency at all; a `.dds` or `.ftex` already in a format the version reads is
+kept as it is), and an image without the smaller copies of itself the game needs (its mip
+levels) gets them generated. A portrait is the exception: the game reads it as a `.dds` on
+every version, so a `.dds` portrait is kept exactly as it is and a portrait in any other format
+becomes a BC3 `.dds` of the same size with its mip levels. A texture whose name ends in `_nrm`
+(`skin_nrm.png`) is a normal map and is encoded as one. Four lines name a texture that cannot be
+used, each with the file: `texture_too_small` (a side under 4 pixels), `texture_not_pow2` (a
+portrait whose width or height is not a power of two, or any other texture with mip levels
+whose width or height is not: 256, 512, 1024, ...), `texture_type_mismatch` (a file renamed
+to another format instead of resaved, a PNG called `skin.dds`) and `texture_codec_unsupported`
+(a `.dds` or `.ftex` in a format the compiler does not read, BC6H for one, or a 16-bit or
+interleaved `.tga`: resave it). What is left out depends on where the texture is: a player's
+or shared folder's texture leaves out the whole folder, a kit's texture the whole kit, a
+`Common` texture only that file (the rest of `Common` is still built), a portrait only that
+portrait. A texture that cannot be read for any other reason is reported as
+`folder_pack_failed`, naming the file, and its folder is left out. A kit folder holding a
+`kit_mask` texture compiled for PES 2018 to 2021 gets the line `kit_texture_not_used`: these
+versions have no slot for it, so it is not built, and the rest of the kit is. The boots and
+gloves get the ID reserved for the player's roster
 slot, the same number for both. A shared `Boots` or `Gloves` folder that players point at with
 a link file (an empty `Crocs.boots` in the player's folder names `Boots/Crocs`) is built once,
 with its own textures, under one of the 17 IDs the team keeps for shared folders, given out in
@@ -51,8 +64,9 @@ Common model's textures of those names are read from there, so twenty players sh
 Common model share one copy of its textures. A model of the player's own and a Common model
 must not define a material of the same name over textures kept in different places (the
 player's folder and `Common`): that is a `merge_material_conflict`. When a texture in `Common`
-cannot be converted, the line `folder_pack_failed` names it at `Common`, no Common texture is
-built, and the players linking Common models are still built. Several boots models in one
+cannot be read for a reason other than the four texture lines above, the line
+`folder_pack_failed` names it at `Common`, no Common texture is built, and the players linking
+Common models are still built. Several boots models in one
 folder (`a_boots.fmdl` beside `kit_boots.fmdl`), several gloves models for one hand, or
 several face models under one name (`face_high.fmdl` beside `old_face_high.fmdl`), are merged into one model in the alphabetical order of their file names,
 reported as `fmdl_merged`. Models merged into one must agree with each other: a material they
@@ -90,11 +104,11 @@ no `kit` texture, an empty one included, is built with a magenta and black check
 place and reported as `kit_placeholder`, so a kit nobody drew shows as missing in the game. `compile`
 skips any other export with the error `content_not_yet_compiled`, naming the first thing it
 cannot build yet: a PES 2015 to 2017 target, a referee export, or content other than a player's
-own face, boots and gloves models, their textures, `.dds` portraits, kits, linked shared
+own face, boots and gloves models, their textures, portraits, kits, linked shared
 `Faces`, `Boots` and `Gloves` folders, and a `Common` folder holding only `.fmdl`, `.skl` and
-texture files, its models reached through `.common` links (a portrait in a format other than
-`.dds`, a model in a `gloves` subfolder whose name does not say which hand it is, or a `.common`
-link to a texture or a material file, among others). `check` still checks
+texture files, its models reached through `.common` links (a model in a `gloves` subfolder
+whose name does not say which hand it is, or a `.common` link to a texture or a material file,
+among others). `check` still checks
 those exports. `compile` does not install the CPK into the game yet: it always
 leaves it in the output folder.
 

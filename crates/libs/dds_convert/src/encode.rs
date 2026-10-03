@@ -1,7 +1,8 @@
 //! [`Decoded`] -> finished container bytes: codec selection by target and
 //! role, passthrough of compatible blocks, the DXT5nm channel layout for
 //! normal maps, block encoding via `block_compression`, and the DDS/FTEX
-//! container wrap.
+//! container wrap; plus [`encode_dds`], a DDS in a caller-named codec for
+//! the files every engine reads as a DDS.
 
 use std::borrow::Cow;
 
@@ -31,8 +32,54 @@ pub(crate) fn convert(decoded: &Decoded, target: Target) -> Result<Vec<u8>, Conv
         );
     }
 
-    // Mips to emit: a source that carried its own mip chain keeps its level
-    // count; a raster source gets the full chain generated.
+    let emit = emitted_mips(decoded);
+    let normal_layout = target.role == TextureRole::Normal || is_bc5_source(decoded);
+    let codec = select_codec(target, normal_layout, &emit);
+    let layout = normal_layout.then(|| target.version.engine());
+    let blocks = encode_mips(codec, &emit, layout)?;
+    container(
+        target.version,
+        pixel_format(codec),
+        decoded.width,
+        decoded.height,
+        &blocks,
+    )
+}
+
+/// Emits a DDS in `codec` at the source's own size, whatever engine will read
+/// it, in the color layout: blocks already in `codec` are kept, anything else
+/// is encoded. Only the codecs this crate encodes (`Bc1`, `Bc3`, `Bc7`) are
+/// accepted.
+pub(crate) fn encode_dds(decoded: &Decoded, codec: BlockCodec) -> Result<Vec<u8>, ConvertError> {
+    match codec {
+        BlockCodec::Bc1 | BlockCodec::Bc3 | BlockCodec::Bc7 => {}
+        BlockCodec::Bc2 | BlockCodec::Bc4 | BlockCodec::Bc5 => {
+            return Err(ConvertError::Unsupported("codec not encoded"));
+        }
+    }
+    if let Some(blocks) = &decoded.blocks
+        && blocks.codec == codec
+    {
+        return Ok(dds(
+            pixel_format(codec),
+            decoded.width,
+            decoded.height,
+            &blocks.mips,
+        ));
+    }
+    let emit = emitted_mips(decoded);
+    let blocks = encode_mips(codec, &emit, None)?;
+    Ok(dds(
+        pixel_format(codec),
+        decoded.width,
+        decoded.height,
+        &blocks,
+    ))
+}
+
+/// The mips to emit: a source that carried its own mip chain keeps its level
+/// count; a raster source gets the full chain generated.
+fn emitted_mips(decoded: &Decoded) -> Vec<Mip<'_>> {
     let mut emit: Vec<Mip> = Vec::new();
     if decoded.authored_mips {
         for (level, pixels) in decoded.mips.iter().enumerate() {
@@ -54,29 +101,30 @@ pub(crate) fn convert(decoded: &Decoded, target: Target) -> Result<Vec<u8>, Conv
             &decoded.mips[0],
         ));
     }
+    emit
+}
 
-    let normal_layout = target.role == TextureRole::Normal || is_bc5_source(decoded);
-    let codec = select_codec(target, normal_layout, &emit);
-    let variant = compression_variant(codec, &emit);
-
+/// Encodes every mip of `emit` to blocks in `codec`: in the DXT5nm layout of
+/// `normal_layout`'s engine when one is given, in the color layout otherwise.
+fn encode_mips(
+    codec: BlockCodec,
+    emit: &[Mip],
+    normal_layout: Option<Engine>,
+) -> Result<Vec<Vec<u8>>, ConvertError> {
+    let variant = compression_variant(codec, emit);
     let mut blocks = Vec::with_capacity(emit.len());
-    for mip in &emit {
+    for mip in emit {
         let swizzled;
-        let rgba: &[u8] = if normal_layout {
-            swizzled = normal_swizzle(mip, target.version.engine());
-            &swizzled
-        } else {
-            &mip.pixels
+        let rgba: &[u8] = match normal_layout {
+            Some(engine) => {
+                swizzled = normal_swizzle(mip, engine);
+                &swizzled
+            }
+            None => &mip.pixels,
         };
         blocks.push(encode_mip(variant, mip.width, mip.height, rgba)?);
     }
-    container(
-        target.version,
-        pixel_format(codec),
-        decoded.width,
-        decoded.height,
-        &blocks,
-    )
+    Ok(blocks)
 }
 
 /// Whether the target keeps this block codec without re-encoding: PES 15-18
@@ -247,16 +295,23 @@ fn container(
     height: u32,
     blocks: &[Vec<u8>],
 ) -> Result<Vec<u8>, ConvertError> {
-    let mut dds = ftex::dds::header_bytes(format, width, height, blocks.len() as u32);
-    for mip in blocks {
-        dds.extend_from_slice(mip);
-    }
+    let dds = dds(format, width, height, blocks);
     match version.engine() {
         Engine::PreFox => Ok(dds),
         // why: the conversion plan's "FTEX texture type" bullet writes every Fox
         // output as 0x9, color and normal alike.
         Engine::Fox => Ok(ftex::dds_to_ftex(&dds, ftex::ColorSpace::Normal)?),
     }
+}
+
+/// A DDS of the emitted blocks: a legacy DX9 header for BC1/BC2/BC3, a DX10
+/// header for the rest (`ftex::dds::header_bytes`), one mip after another.
+fn dds(format: ftex::PixelFormat, width: u32, height: u32, blocks: &[Vec<u8>]) -> Vec<u8> {
+    let mut dds = ftex::dds::header_bytes(format, width, height, blocks.len() as u32);
+    for mip in blocks {
+        dds.extend_from_slice(mip);
+    }
+    dds
 }
 
 #[cfg(test)]

@@ -6,7 +6,9 @@
 //! blocks it carried and a flag saying the mip chain is the source's own;
 //! [`convert`] applies the codec rules to a decoded texture and returns the
 //! finished container bytes (a DDS for PES 15-17, an FTEX for PES 18-21);
-//! [`Converter`] is the session cache in front of both.
+//! [`Converter`] is the session cache in front of both. [`encode_dds`] is
+//! the one exception to choosing by version: a file every engine reads as a
+//! DDS in a codec the plan fixes (a player portrait, BC3) names its codec.
 
 mod cache;
 mod dds;
@@ -158,6 +160,19 @@ pub fn decode(bytes: &[u8], format: SourceFormat) -> Result<Decoded, ConvertErro
 pub fn convert(decoded: &Decoded, target: Target) -> Result<Vec<u8>, ConvertError> {
     validate(decoded)?;
     encode::convert(decoded, target)
+}
+
+/// A DDS in `codec` (`Bc1`, `Bc3` or `Bc7`; any other is `Unsupported`) at the source's own
+/// size, whatever the target engine, color layout: the source's mip count kept, a raster
+/// source's chain generated, a block source already in `codec` keeping its blocks.
+///
+/// # Errors
+///
+/// `ConvertError::InvalidDecoded` as [`convert`]; `ConvertError::Unsupported` for a codec
+/// this crate does not encode.
+pub fn encode_dds(decoded: &Decoded, codec: BlockCodec) -> Result<Vec<u8>, ConvertError> {
+    validate(decoded)?;
+    encode::encode_dds(decoded, codec)
 }
 
 /// The `usize` length of a buffer a texture dimension declares. On a
@@ -1246,6 +1261,120 @@ mod tests {
         )
         .unwrap();
         assert_eq!(ftex::dds::read_layout(&dds).unwrap().mipmaps, 1);
+    }
+
+    #[test]
+    fn encode_dds_encodes_a_raster_source_as_a_bc3_dds_with_a_full_chain() {
+        let decoded = decode(PNG, SourceFormat::Png).unwrap();
+        let dds = encode_dds(&decoded, BlockCodec::Bc3).unwrap();
+        let layout = ftex::dds::read_layout(&dds).unwrap();
+        assert_eq!(
+            layout.pixel,
+            ftex::dds::DdsPixel::Format(ftex::PixelFormat::Bc3)
+        );
+        assert_eq!(layout.data_offset, 128, "a legacy DX9 header for BC3");
+        assert_eq!(
+            (layout.width, layout.height, layout.mipmaps),
+            (32, 16, 6),
+            "the source's size, the chain down to 1x1"
+        );
+        let round = decode(&dds, SourceFormat::Dds).unwrap();
+        for (level, (width, height)) in [(32u32, 16u32), (16, 8), (8, 4), (4, 2), (2, 1), (1, 1)]
+            .iter()
+            .enumerate()
+        {
+            assert_eq!(round.mips[level].len(), (*width * *height * 4) as usize);
+        }
+        let generated: Vec<Vec<u8>> = std::iter::once(decoded.mips[0].clone())
+            .chain(
+                mips::generate(32, 16, &decoded.mips[0])
+                    .into_iter()
+                    .map(|mip| mip.pixels.into_owned()),
+            )
+            .collect();
+        assert_not_worse_than_reference(
+            "png -> bc3 dds",
+            &generated,
+            &round.mips,
+            &mips_of(RGBA8_D),
+            &mips_of(BC3_D),
+        );
+        // The same source encoded for a pre-Fox target is BC3 too, so the
+        // one difference from `convert` is that the codec is named: the two
+        // paths agree byte for byte.
+        let converted = convert(
+            &decoded,
+            Target {
+                version: PesVersion::Pes17,
+                role: TextureRole::Color,
+            },
+        )
+        .unwrap();
+        assert_eq!(dds, converted);
+    }
+
+    #[test]
+    fn encode_dds_keeps_blocks_already_in_the_codec_and_reencodes_the_rest() {
+        // BC3 blocks under BC3: kept, behind the legacy header.
+        let dds = encode_dds(&decode(BC3, SourceFormat::Dds).unwrap(), BlockCodec::Bc3).unwrap();
+        let layout = ftex::dds::read_layout(&dds).unwrap();
+        assert_eq!(
+            layout.pixel,
+            ftex::dds::DdsPixel::Format(ftex::PixelFormat::Bc3)
+        );
+        assert_eq!(&dds[layout.data_offset..], &BC3[128..]);
+
+        // BC7 blocks under BC7: kept, behind a DX10 header.
+        let bc7 = decode(BC7, SourceFormat::Dds).unwrap();
+        let dds = encode_dds(&bc7, BlockCodec::Bc7).unwrap();
+        let layout = ftex::dds::read_layout(&dds).unwrap();
+        assert_eq!(
+            layout.pixel,
+            ftex::dds::DdsPixel::Format(ftex::PixelFormat::Bc7)
+        );
+        assert_eq!(layout.data_offset, 148);
+        let source_layout = ftex::dds::read_layout(BC7).unwrap();
+        assert_eq!(
+            &dds[layout.data_offset..],
+            &BC7[source_layout.data_offset..]
+        );
+
+        // BC7 blocks under BC3: re-encoded, the authored mip count kept.
+        let dds = encode_dds(&bc7, BlockCodec::Bc3).unwrap();
+        let layout = ftex::dds::read_layout(&dds).unwrap();
+        assert_eq!(
+            layout.pixel,
+            ftex::dds::DdsPixel::Format(ftex::PixelFormat::Bc3)
+        );
+        assert_eq!(layout.mipmaps, 6);
+        assert_not_worse_than_reference(
+            "bc7 -> bc3 dds",
+            &mips_of(BC7_D),
+            &mips_of(&dds),
+            &mips_of(RGBA8_D),
+            &mips_of(BC3_D),
+        );
+    }
+
+    #[test]
+    fn encode_dds_refuses_the_codecs_this_crate_does_not_encode() {
+        let decoded = decode(BC5, SourceFormat::Dds).unwrap();
+        for codec in [BlockCodec::Bc2, BlockCodec::Bc4, BlockCodec::Bc5] {
+            assert!(
+                matches!(
+                    encode_dds(&decoded, codec),
+                    Err(ConvertError::Unsupported("codec not encoded"))
+                ),
+                "{codec:?}"
+            );
+        }
+        // The same checks as `convert` on a caller-built value.
+        let mut zero = decoded;
+        zero.width = 0;
+        assert!(matches!(
+            encode_dds(&zero, BlockCodec::Bc3),
+            Err(ConvertError::InvalidDecoded("zero dimension"))
+        ));
     }
 
     #[test]

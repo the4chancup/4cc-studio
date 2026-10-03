@@ -31,8 +31,8 @@ use subset::{
 pub(crate) struct PlanReport {
     /// Every task of the run, in canonical order.
     pub(crate) manifest: BuildManifest,
-    /// Planning's findings (`content_not_yet_compiled`, `kit_config_generated`,
-    /// `kit_placeholder`).
+    /// Planning's findings (`content_not_yet_compiled`, `link_combined`, `kit_texture_not_used`,
+    /// `kit_config_generated`, `kit_placeholder`).
     pub(crate) messages: Vec<Message>,
 }
 
@@ -254,16 +254,17 @@ pub(crate) enum TaskKind {
     CommonTextures {
         /// The `Common/` folder's export path, the scope the task's findings name.
         folder: ScopePath,
-        /// Its `.dds` and `.ftex` files.
+        /// Its textures directly in it, in any accepted image format.
         textures: Vec<FileDescriptor>,
     },
-    /// One player's portrait, a DDS emitted as it is under the target version's file name.
-    /// One task per player id: a folder two roster slots map gives two tasks over its one
-    /// `portrait.dds`.
+    /// One player's portrait, emitted as a DDS under the target version's file name: a DDS
+    /// source as it is, any other accepted format encoded to BC3 (`player_folders.md`
+    /// "Portraits"). One task per player id: a folder two roster slots map gives two tasks
+    /// over its one `portrait.*`.
     Portrait {
         /// The player id the portrait is for.
         player_id: u32,
-        /// The portrait file: the player folder's `portrait.dds`, or `Portraits/player_NN.dds`.
+        /// The portrait file: the player folder's `portrait.*`, or `Portraits/player_NN.*`.
         file: FileDescriptor,
     },
     /// One kit, its `all/` inheritance already applied to its textures.
@@ -354,7 +355,7 @@ pub(crate) fn plan_run(
     let mut messages = Vec::new();
     for (export_id, mut resolved) in exports {
         match version.engine() {
-            Engine::Fox => drop_kit_masks(&mut resolved.export.kits),
+            Engine::Fox => drop_kit_masks(export_id, &mut resolved.export.kits, &mut messages),
             Engine::PreFox => {}
         }
         if let Some(item) = first_not_compiled(&resolved, version) {
@@ -586,12 +587,30 @@ fn folder_tasks(
     }
 }
 
-/// Removes every kit's `kit_mask`. A Fox kit has no mask slot, so a Fox target never emits
-/// one; it goes before the subset gate, which would otherwise skip the export for it, and
-/// before the kit's task, which would otherwise read it.
-fn drop_kit_masks(kits: &mut KitsFolder) {
+/// Removes every kit's `kit_mask`, each reported as `kit_texture_not_used` on its kit folder,
+/// naming the file. A Fox kit has no mask slot, so a Fox target never emits one; it goes
+/// before the subset gate, which would otherwise skip the export for it, and before the kit's
+/// task, which would otherwise read it. A kit's effective set holds one file per stem, so one
+/// finding per kit.
+fn drop_kit_masks(export_id: ExportId, kits: &mut KitsFolder, messages: &mut Vec<Message>) {
     for kit in kits.kits.values_mut() {
-        kit.textures.retain(|texture| texture.stem != "kit_mask");
+        let Some(at) = kit
+            .textures
+            .iter()
+            .position(|texture| texture.stem == "kit_mask")
+        else {
+            continue;
+        };
+        let mask = kit.textures.remove(at);
+        messages.push(tool_message(
+            Code::KitTextureNotUsed,
+            Scope::Folder {
+                export_id,
+                path: kit.path.clone(),
+            },
+            Disposition::DropFile,
+            vec![("file", mask.file.path.name().to_owned())],
+        ));
     }
 }
 

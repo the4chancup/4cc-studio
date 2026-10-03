@@ -35,6 +35,9 @@ pub(crate) enum Code {
     /// A kit whose effective textures lack `kit.dds` (an empty folder included): the bundled
     /// checkerboard stands in as its main texture.
     KitPlaceholder,
+    /// A kit's effective textures hold the other engine's map (a `kit_mask` on a Fox target),
+    /// which the target has no slot for; the file is not emitted.
+    KitTextureNotUsed,
     /// Phase 3 only: the export holds content `compile` cannot build yet; it is skipped.
     ContentNotYetCompiled,
     /// More shared boots folders take an id than the team's block has; the export is skipped.
@@ -65,6 +68,19 @@ pub(crate) enum Code {
     /// different bytes, which the one model they build cannot choose between; the folder is
     /// left out.
     MergedTextureConflict,
+    /// A texture with a side under 4 pixels, smaller than one block; the texture is discarded
+    /// with what depends on it (`messages.md` "Textures": the model folder, the kit, the
+    /// portrait; in `Common/`, the file alone).
+    TextureTooSmall,
+    /// A portrait with a side that is not a power of two, or a mipmapped Fox texture with
+    /// one; discarded the same way.
+    TextureNotPow2,
+    /// A texture whose bytes open with another accepted format's signature than its
+    /// extension's (renamed, not resaved); discarded the same way.
+    TextureTypeMismatch,
+    /// A texture in a codec, or with a feature, `dds_convert` cannot convert in-process;
+    /// discarded the same way.
+    TextureCodecUnsupported,
     /// A file a task reads cannot be read from its export; its folder is left out.
     SourceReadFailed,
     /// A task could not build its entries; its folder is left out.
@@ -81,7 +97,7 @@ impl Code {
     /// Every code, for the catalog test: a variant missing here would make its first message
     /// panic in `severity`, so a new variant is added to this list too.
     #[cfg(test)]
-    const ALL: [Code; 25] = [
+    const ALL: [Code; 30] = [
         Code::ExportExtractFailed,
         Code::NoExportsFound,
         Code::ExportDisabled,
@@ -91,6 +107,7 @@ impl Code {
         Code::TeamNameUnknown,
         Code::KitConfigGenerated,
         Code::KitPlaceholder,
+        Code::KitTextureNotUsed,
         Code::ContentNotYetCompiled,
         Code::BootsIdPoolExhausted,
         Code::GlovesIdPoolExhausted,
@@ -102,6 +119,10 @@ impl Code {
         Code::SklNoSlot,
         Code::SharedTextureConflict,
         Code::MergedTextureConflict,
+        Code::TextureTooSmall,
+        Code::TextureNotPow2,
+        Code::TextureTypeMismatch,
+        Code::TextureCodecUnsupported,
         Code::SourceReadFailed,
         Code::FolderPackFailed,
         Code::CpkWriteFailed,
@@ -121,6 +142,7 @@ impl Code {
             Code::TeamNameUnknown => "team_name_unknown",
             Code::KitConfigGenerated => "kit_config_generated",
             Code::KitPlaceholder => "kit_placeholder",
+            Code::KitTextureNotUsed => "kit_texture_not_used",
             Code::ContentNotYetCompiled => "content_not_yet_compiled",
             Code::BootsIdPoolExhausted => "boots_id_pool_exhausted",
             Code::GlovesIdPoolExhausted => "gloves_id_pool_exhausted",
@@ -132,6 +154,10 @@ impl Code {
             Code::SklNoSlot => "skl_no_slot",
             Code::SharedTextureConflict => "shared_texture_conflict",
             Code::MergedTextureConflict => "merged_texture_conflict",
+            Code::TextureTooSmall => "texture_too_small",
+            Code::TextureNotPow2 => "texture_not_pow2",
+            Code::TextureTypeMismatch => "texture_type_mismatch",
+            Code::TextureCodecUnsupported => "texture_codec_unsupported",
             Code::SourceReadFailed => "source_read_failed",
             Code::FolderPackFailed => "folder_pack_failed",
             Code::CpkWriteFailed => "cpk_write_failed",
@@ -166,6 +192,7 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("multiple_ref_exports", CatalogSeverity::Error),
     ("kit_config_generated", CatalogSeverity::Info),
     ("kit_placeholder", CatalogSeverity::Info),
+    ("kit_texture_not_used", CatalogSeverity::Info),
     ("content_not_yet_compiled", CatalogSeverity::Error),
     ("boots_id_pool_exhausted", CatalogSeverity::Error),
     ("gloves_id_pool_exhausted", CatalogSeverity::Error),
@@ -177,6 +204,10 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("skl_no_slot", CatalogSeverity::Warning),
     ("shared_texture_conflict", CatalogSeverity::Error),
     ("merged_texture_conflict", CatalogSeverity::Error),
+    ("texture_too_small", CatalogSeverity::Error),
+    ("texture_not_pow2", CatalogSeverity::Error),
+    ("texture_type_mismatch", CatalogSeverity::Error),
+    ("texture_codec_unsupported", CatalogSeverity::Error),
     ("folder_pack_failed", CatalogSeverity::ErrorOrFatal),
     ("cpk_write_failed", CatalogSeverity::Fatal),
     ("output_commit_failed", CatalogSeverity::Fatal),
