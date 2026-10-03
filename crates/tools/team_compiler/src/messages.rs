@@ -60,6 +60,13 @@ pub(crate) enum Code {
     /// A `.skl` paired with a `face_high`, `hair_high` or `oral` model, which have no skeleton
     /// slot on Fox; the file is ignored.
     SklNoSlot,
+    /// A face's `face_diff.xml` that is not base64 text or a `<dif>` holding it, or a face
+    /// diff (decoded, or a `face_diff.bin`) without the magic `FACE` or shorter than its
+    /// header gives; the face package is left out.
+    FaceDiffInvalid,
+    /// One source of a face holds both `face_diff.bin` and `face_diff.xml`, giving its face
+    /// diff twice; the face package is left out.
+    XmlDifConflict,
     /// Two of a player's sources feeding different packages hold a texture of one stem with
     /// different bytes; the lower package in canonical order (face > boots > gloves) is left
     /// out with the textures only its sources hold.
@@ -97,7 +104,7 @@ impl Code {
     /// Every code, for the catalog test: a variant missing here would make its first message
     /// panic in `severity`, so a new variant is added to this list too.
     #[cfg(test)]
-    const ALL: [Code; 30] = [
+    const ALL: [Code; 32] = [
         Code::ExportExtractFailed,
         Code::NoExportsFound,
         Code::ExportDisabled,
@@ -117,6 +124,8 @@ impl Code {
         Code::MergeMaterialConflict,
         Code::SklMergeConflict,
         Code::SklNoSlot,
+        Code::FaceDiffInvalid,
+        Code::XmlDifConflict,
         Code::SharedTextureConflict,
         Code::MergedTextureConflict,
         Code::TextureTooSmall,
@@ -152,6 +161,8 @@ impl Code {
             Code::MergeMaterialConflict => "merge_material_conflict",
             Code::SklMergeConflict => "skl_merge_conflict",
             Code::SklNoSlot => "skl_no_slot",
+            Code::FaceDiffInvalid => "face_diff_invalid",
+            Code::XmlDifConflict => "xml_dif_conflict",
             Code::SharedTextureConflict => "shared_texture_conflict",
             Code::MergedTextureConflict => "merged_texture_conflict",
             Code::TextureTooSmall => "texture_too_small",
@@ -202,6 +213,8 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("merge_material_conflict", CatalogSeverity::Error),
     ("skl_merge_conflict", CatalogSeverity::Error),
     ("skl_no_slot", CatalogSeverity::Warning),
+    ("face_diff_invalid", CatalogSeverity::Error),
+    ("xml_dif_conflict", CatalogSeverity::Error),
     ("shared_texture_conflict", CatalogSeverity::Error),
     ("merged_texture_conflict", CatalogSeverity::Error),
     ("texture_too_small", CatalogSeverity::Error),

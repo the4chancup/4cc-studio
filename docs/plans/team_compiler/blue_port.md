@@ -77,8 +77,16 @@ rollback is needed:
 - the referee template kit configs name that collar.
 
 Without `ref_marker.dds` the collar model and the texture are not emitted, and the template
-configs keep the collar they had. Open until the referee step: the marker model itself, in
-both formats, which the maintainer supplies.
+configs keep the collar they had.
+
+The marker model is the one the legacy tools ship as a referee prop: a square about 1.5 m
+wide lying on the ground, slightly tilted, under the referee. On Fox it is the 4cc's
+`referee_prop.fmdl` (one mesh, 4 vertices, material `judge_watch`, base texture
+`cup_logo.dds`), on pre-Fox the `referee_prop.model` and `.mtl` of Red's referee template
+(material `judge_incom`). Drawn as a collar it stays on the ground instead of following the
+neck because of **static painting**, the cup community's trick: its vertices are weighted to
+a dummy vertex group, usually named `static`, that is no bone of the body skeleton, so no
+animation moves them. The referee step checks that the bundled models are painted that way.
 
 ### Features that disappear in a compiled GUI app
 

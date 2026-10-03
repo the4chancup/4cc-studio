@@ -3340,3 +3340,16 @@ Why: the compiler compiles teams. The official list's other entries are a lead's
 the maintainer to adjust (worklog "Phase 4 open questions").
 Plan: no plan edit needed (`team_compiler/pipeline.md` "Multi-CPK mode: teams parts" already
 says `teams`).
+
+## 2026-10-03 — team_compiler — the stock collar sets are measured for every version but PES 20
+Decision: `collar_id_invalid`'s per-version sets are each install's own: PES 15 1-101 and
+901-904; PES 16 1-105 and 901-904; PES 17 and 18 1-116 and 901-916; PES 19 1-124 and 901-916;
+PES 21 1-131 and 901-913. PES 20 takes what 19 and 21 share (1-124, 901-913) until an install
+is measured.
+Why: the earlier interim rule gave PES 15, 16, 18, 19 and 20 the intersection of PES 17 and 21
+(1-116, 901-913), which accepts collars PES 15 and 16 do not have (102-116, 905-913) and
+refuses ones PES 18 and 19 do. Counted on the maintainer's installs on the external drive
+(`F:\Games\PES2015` … `PES2021`), `collar_NNN` under `nocloth` in each `dt35` CPK
+(`.tmp/collar_sets/measure.py`, `summary.txt`). The reserved collars hold everywhere they are
+used: 77 is stock in all six; 105 is absent from PES 15, where there is no FPC preset.
+Plan: `team_compiler/messages.md` `collar_id_invalid`.

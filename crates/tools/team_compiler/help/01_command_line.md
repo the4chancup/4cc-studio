@@ -90,7 +90,15 @@ model (`kit_boots.skl` beside `kit_boots.fmdl`, `fcl_hair.skl` beside `fcl_hair.
 with it; boots and hair without one get the standard body skeleton. A skeleton named after a
 `face_high`, `hair_high` or `oral` model has no place in the game's face package: it is left out
 and reported as `skl_no_slot`. A face folder without a `face_diff.bin`, or a hair model without
-a `fcl_hair_sim.fclo` beside it, gets the bundled default file. A player's folder may sort its
+a `fcl_hair_sim.fclo` beside it, gets the bundled default file. A face folder may give its
+`face_diff.bin` as text instead, in a `face_diff.xml`: the file in base64, alone or inside a
+`<dif>` element, the way an older face folder's `face.xml` holds it. It is decoded and packed
+as `face_diff.bin`, and counts as one: the player's own, in either form, is used over a
+linked `Faces` folder's. A face diff that cannot be used is reported as `face_diff_invalid`,
+naming the file and the reason (text that is not base64, a `<dif>` holding elements, or a
+file shorter than its own header says, which the game would read past the end of), and a
+folder holding both `face_diff.bin` and `face_diff.xml` as `xml_dif_conflict`; either leaves
+that folder's face out of the CPK. A player's folder may sort its
 files into the subfolders `face`, `boots`, `gloves` and `common` (the layout of older referee
 exports): every model in `boots` is the boots and every model in `face` is a face part,
 whatever their names (`boots/hair_high.fmdl` is packed as `boots.fmdl`; a model in `face`

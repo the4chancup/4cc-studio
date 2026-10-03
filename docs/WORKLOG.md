@@ -12,8 +12,8 @@ is in `AGENTS.md` ("Working documents").
 **Phase:** 3 (Team compiler skeleton) closed 2026-10-02, its cross-family reviews queued (see
 "Handover"). Phases 1 and 2 done (Phase 2 closed 2026-09-30).
 **Next:** Phase 4 is itemized and its Acceptance section written (step 4.1, 2026-10-03; its
-cross-family review (a) is queued). Next: 4.5d (`face_diff.xml`), then 4.7 (deep validation pass, after the
-lead's `fmdl::check` census); 4.30, 4.6 and 4.5a-c are done (4.6c moved to Phase 8's cancellation). 2.5b (GPU BC7) is step 16.x (decision entries
+cross-family review (a) is queued). Next: 4.7 (deep validation pass; the lead's `fmdl::check` census is done, its one Error
+class stands), then 4.8; 4.30, 4.6 and 4.5 are done (4.6c moved to Phase 8's cancellation). 2.5b (GPU BC7) is step 16.x (decision entries
 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0 after Phase 8; phase order 1–6,
 8, 0.1.0, 7, 9–16 (`core/development_plan.md` "Releases"); first-class target the Fox version
 the cup moves to around April 2027 ("Target versions").
@@ -381,7 +381,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   green (87 of 203); `mutants-diff 304a0b2`: 34, 28 caught, 6 unviable, 0 missed. Texture-name
   case questions in "Issues"
 
-- [ ] 4.5 **Face assembly (Fox)**: unsuffixed models routed to the `fcl_hair` merge (`torso.fmdl` +
+- [x] 4.5 **Face assembly (Fox)**: unsuffixed models routed to the `fcl_hair` merge (`torso.fmdl` +
   `legs.fmdl.common` → `fcl_hair.fmdl`; `fmdl_fcl_hair_fallback` per routed file; same-name
   merges themselves landed at 4.4b, `processing/model.rs`), `.common` model
   links baked in with their textures referenced in place in the team's Common output
@@ -424,7 +424,18 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   exports `common_link_name`. TC-MOD-10/11 cited. Gates green (93 of 203); `mutants-diff
   c7086b5`: 86, 72 caught, 13 unviable, 1 missed (`model.rs` `CommonModel` package guard), given a
   test in one rework round (red shown). For converge: `subset::is_direct_common_file` copies
-  validation's private check
+  validation's private check. (d) done 2026-10-03 (Opus 5.5, first time; two contradictions
+  accepted: the catalog holds no text templates yet, and `base64` is taken without its default
+  SIMD feature; lead first: the plan's `face_diff.xml` paragraph, the fixtures under
+  `tests/fixtures/face_diff/` from two real bins): `processing/face_diff.rs` (`check`,
+  `from_xml`), `PlayerFile::FaceDiffXml` routed wherever `face_diff.bin` is, the xml standing
+  for the bin across sources and both kept within one, `face_diff_invalid` and
+  `xml_dif_conflict` as failures of the Face task (the folder's boots, gloves and textures
+  still commit), a supplied `face_diff.bin` checked too. A face diff passes when it is at
+  least as long as its header gives: Red's exact-length check would refuse 326 of the
+  machine's 2,695 loose bins (decision entry). TC-MOD-15 cited. Gates green (100 of 203);
+  `mutants-diff 8c7f9b7`: 57, 51 caught, 6 unviable, 0 missed. For 4.7: both findings are
+  reported only by `compile` until the deep pass runs the same check at `check`
 
 - [x] 4.6 **Textures, all formats (Fox)**: every accepted image format (`dds_convert::decode`/
   `convert`) for player, shared, Common, kit and portrait textures; BC7 kept and encoded on PES
@@ -519,7 +530,8 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   configs reconciled upward (`kit_config_fpc_adjusted`, GK included),
   `kit_config_version_clamped`; `fpc_on`/`fpc_off` no longer refuse the export (their savefile
   half is Phase 5); `Collars/` gets its allowlist row in `ae` (model files named `collar_<ID>`,
-  any model format; the per-version stock sets are in `messages.md` `collar_id_invalid`; waits on
+  any model format; the per-version stock sets are in `messages.md` `collar_id_invalid`,
+  measured on every install but PES 20's; waits on
   the maintainer: its confirmation, game-facing), `collar_<ID>` parsed with or without zero
   padding, `collar_id_invalid` (not a stock collar of the target version),
   `kit_collar_reserved` for a regular team's kit
@@ -816,10 +828,9 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `4cc_41_teams.cpk` the third, `4cc_42`..`44` are each 6,272 bytes equal to the placeholder
   fixture, `4cc_08_bins.cpk` holds the bins and nothing else
 
-- [ ] 4.27 **Referee marker as reserved collar 77, both engines** (lead first: the collar file
-  built from the marker models named under "Phase 4 open questions", and the maintainer's look
-  at it in game before the rest is briefed; cheapest once 4.9 has landed, with the marker as a
-  test team's `Collars/collar_41.fmdl`, a free stock ID): the marker model bundled as a
+- [ ] 4.27 **Referee marker as reserved collar 77, both engines** (lead first: the two
+  marker models bundled as referee templates with a provenance README, from the sources
+  named under "Phase 4 open questions", each checked to be painted to `static`): the marker model bundled as a
   referee template and emitted in the refs CPK as collar 77, its texture path naming
   `ref_marker.dds` converted into the referees' Common output, the referee template kit configs
   naming collar 77; on a regular team, `collar_id_conflict` for `Collars/collar_77.*` and
@@ -927,51 +938,13 @@ administrator, Upgrade DpFileList dialog): Phase 8; glTF sources: Phase 7; the G
 
 Phase 4 open questions (maintainer):
 
-- The referee marker as a collar, in game (4.27). The sources are known (maintainer,
-  2026-10-03) and the step no longer waits on a file. Fox: the 4cc's `referee_prop.fmdl`
-  (`C:\Data\4cc\Tools_Mine\4cc refs compiler\referee_prop.fmdl`, 2,843 bytes, the file Red
-  packs into `dt00_x64.cpk`'s `common_package.fpk`): one mesh, a 1.5 m square of 4 vertices and
-  2 faces lying on the ground, material `judge_watch`, base texture `cup_logo.dds` under
-  `/Assets/pes16/model/character/common/000/sourceimages/`. Pre-Fox: Red's referee template,
-  `Engines/templates/refscpk_prefox/common/character1/model/character/parts/referee/`
-  (`referee_prop.model`, WESYS-wrapped, with `referee_prop.mtl`, material `judge_incom`,
-  texture `./incom_bsm.dds`). Both are props today, drawn at the referee's feet by the game's
-  prop slot. Not known: whether the same square, emitted as collar 77, stays on the ground
-  when the game draws it as part of the uniform. The lead's first slice of 4.27 builds the
-  collar file and the maintainer looks at it in game before the rest is briefed. (The ID is
-  settled: the survey of 2026-10-03, `.tmp/collar_survey.py`, read the collar and winter
-  collar of all 4,635 `*realUni.bin` files on the maintainer's machine; of the stock IDs
-  1-116 only 41, 72, 77, 82, 87, 92 and 115 are used by none.)
-- The official DpFileList, a draft for the maintainer to adjust (4.25, 4.26). The slot stem is
-  `teams` (maintainer, 2026-10-03: the compiler compiles teams). The draft keeps the names of
-  the newest installed list, PES 17's, the only one with `4cc_90_test`, and replaces its four
-  faces/uniform entries with two slot runs, 45 entries in this order:
-  `4cc_01_db`, `4cc_02_misc`, `4cc_04_fpc`, `4cc_06_gameplay`, `4cc_08_bins`,
-  `4cc_10_seasonal`, `4cc_15_billboard`, `4cc_20_swipe`, `4cc_25_gametips`,
-  `4cc_30_stadiums0`, `4cc_31_stadiums1`, `4cc_32_stadiums2`, `4cc_35_referees`,
-  `4cc_38_balls`, `4cc_40_teams` to `4cc_44_teams` (five slots, in place of `4cc_40_faces`
-  and `4cc_45_uniform`), `4cc_50_teams2` to `4cc_54_teams2` (five, in place of
-  `4cc_50_other_faces` and `4cc_55_other_uniform`: the side-event run of "Multi-CPK mode"),
-  `4cc_60_midcup` to `4cc_79_midcup` (twenty), `4cc_90_test`. To confirm or change: the
-  first fourteen names (PES 21's last list names them `4cc_01_base`, `4cc_03_stockkit`,
-  `4cc_10_interface`, `4cc_12_competition`, `4cc_13_seasonal`, `4cc_30_stadiums`,
-  `4cc_32_stadiums2`, and PES 19's has more); whether the second run is wanted, and its stem;
-  five slots per run.
-- Far-vertex models in real exports (4.7). The lead's census ran `fmdl::check` and
-  `pes_model::check` over the VGL26 corpus (`C:\Data\4cc\Lab\Gud`: 2,938 FMDL, 21 `.model`,
-  23 `.mtl`; tool and outputs in `.tmp/fmdl_census/`, `corpus_census.txt`, `far.txt`). Every
-  file reads, and the only Error class is `fmdl_vertex_far_from_origin`: 89 files in 7 of the
-  53 exports, all `face_high.fmdl` (46) or `hair_high.fmdl` (43), and in every one **all** the
-  vertices are far, 14,660 to 18,580 units out (one at 155,300): whole models parked away from
-  the pitch, in a handful of shapes shared across teams (16 vertices in 43 files; 739 in 29;
-  1,478 in 13), which look like the placeholder face and hair that full-body players ship.
-  Under 4.7's mapping each drops its folder (`vertex_too_far_from_origin`, never
-  pass-through-eligible), so about 46 players of a real cup would lose their models. Needed
-  from the maintainer: are these the files the rule exists for (they cause the matchday lag,
-  and dropping them is wanted, with the injected templates as the fix), or are parked
-  placeholders harmless, in which case the rule needs a different test than distance alone?
-  The other classes are no question: `fmdl_weights_not_normalized` (Info) in 640 files,
-  `fmdl_mesh_empty` (Warning) in one, `model_weights_not_normalized` (Info) in 20.
+- The official DpFileList (4.25, 4.26): the lead's draft is `resources/templates/DpFileList.txt`,
+  one CPK per line with comments, for the maintainer to adjust. It is the newest official
+  list (the PES 2015 install's on the external drive `F:`, byte-identical to PES 2017's, 39
+  entries) with `4cc_40_faces`/`4cc_45_uniform` replaced by `4cc_40_teams` to `4cc_44_teams`
+  and `4cc_50_other_faces`/`4cc_55_other_uniform` by `4cc_50_teams2` to `4cc_54_teams2`, 45
+  entries. To confirm: five slots per run, and whether the second run is wanted. The slot
+  stem is settled, `teams`.
 
 Answered 2026-10-03 (decision entries of that date; each is in the plan): the `colors.txt`
 grammar (one color per line, in both files); the kit icon as a marker file and the marker
@@ -982,6 +955,17 @@ upgrade to the one standard list is the path); one official `DpFileList.bin` for
 Error, with the installed CPKs searched for a partial export's Common textures (4.29), and
 `fmdl_no_texture_ids` is dropped; a format finding drops its folder by severity (4.7). The
 pre-Fox parity reference was never a question: it is the lead's step 4.31. The kit layout
+referee marker (4.27) waits on nothing: its models are the 4cc's `referee_prop.fmdl`
+(`C:\Data\4cc\Tools_Mine\4cc refs compiler\referee_prop.fmdl`, texture `cup_logo.dds`
+beside it) and Red's pre-Fox referee template's `referee_prop.model` with its `.mtl`
+(`Engines/templates/refscpk_prefox/common/character1/model/character/parts/referee/`), and
+the square stays on the ground as a collar by static painting (`blue_port.md` "Referee
+export processing"). The far-vertex rule stands as it is (4.7): the lead's census of the
+VGL26 corpus (2,938 FMDL, 21 `.model`; `.tmp/fmdl_census/corpus_census.txt`, `far.txt`)
+found one Error class, `fmdl_vertex_far_from_origin`, in 89 `face_high`/`hair_high` files of
+7 exports, every vertex of each parked 14,660 units or more from the origin, and those
+parked placeholder faces and hair are the main cause of the matchday lag the rule exists
+for, so 4.7 drops their folders. The kit layout
 table (4.10) takes its numbers from the games' uniform models alone: the pair made with PES
 Master's two kit creators (scripts, renders and `FINDINGS.md` in `.tmp/kit_creator/`) agrees
 with them on the socks and not on the shorts, and the models win (`pipeline.md` "Layout
@@ -1660,3 +1644,11 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   open ("Phase 4 open questions"); `fpc_toggle.md`'s precedence table no longer says a
   default boots/gloves key with no marker preserves the installed ID (it is 0, as
   `settings_toml.md` has said since 4.0).
+- **2026-10-03** — 4.5d: a Fox face folder's `face_diff.xml` is decoded into `face_diff.bin`,
+  and every face diff is checked (`face_diff_invalid`, `xml_dif_conflict`); 4.5 is closed.
+  Maintainer's answers recorded: the far-vertex rule stands (the census's 89 parked placeholder
+  models are what it exists for); the slot stem is `teams`, and the official DpFileList is
+  drafted in `resources/templates/DpFileList.txt`; the referee marker's models are named and
+  it stays on the ground by static painting, so 4.27 waits on nothing. Measured while the
+  external drive was connected: every version's stock collar set but PES 20's (decision
+  entry). New issue: a face diff is engine-specific.

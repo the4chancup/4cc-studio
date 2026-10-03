@@ -313,6 +313,7 @@ fn file_role_messages(
                     ..
                 }
                 | PlayerFile::Packed { .. }
+                | PlayerFile::FaceDiffXml
                 | PlayerFile::Skeleton { .. }
                 | PlayerFile::Texture(..),
             )

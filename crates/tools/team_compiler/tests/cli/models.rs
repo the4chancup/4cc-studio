@@ -546,6 +546,107 @@ fn a_boots_subfolder_s_model_is_the_boots_and_a_common_subfolder_s_texture_is_th
     );
 }
 
+/// The face diff fixture `name`, from `tests/fixtures/face_diff/`.
+fn face_diff_fixture(name: &str) -> Vec<u8> {
+    fs::read(
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests/fixtures/face_diff")
+            .join(name),
+    )
+    .unwrap()
+}
+
+/// Copies the tracer's face into slot 05 of `export`, its `face_diff.bin` replaced by a
+/// `face_diff.xml` holding `xml`.
+fn write_xml_face(sandbox: &Sandbox, export: &str, xml: &[u8]) {
+    let player = format!("{export}/Players/05 - A");
+    sandbox.copy_tracer_face(&player);
+    fs::remove_file(sandbox.root.join(&player).join("face_diff.bin")).unwrap();
+    sandbox.write(&format!("{player}/face_diff.xml"), xml);
+}
+
+/// Compiles the sandbox for PES 21, asserting the export `name` reports its identity and
+/// `finding`, and that slot 05's face package is not in the CPK while its boots are.
+fn assert_face_dropped(sandbox: &Sandbox, name: &str, finding: &str) {
+    let run = sandbox.run(&pes21_settings(sandbox), &["compile"]);
+    assert_eq!(
+        findings_of(&run.messages(), name),
+        ["Info export_identified [Keep] (team=/co/, id=714)", finding]
+    );
+    assert_eq!(run.exit_code(), 1);
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_90_test.cpk"));
+    assert!(
+        !entries.contains_key("Asset/model/character/face/real/71405/#Win/face.fpk"),
+        "{:?}",
+        entries.keys()
+    );
+    assert!(entries.contains_key("Asset/model/character/boots/k0625/#Win/boots.fpk"));
+}
+
+// TC-MOD-15
+#[test]
+fn a_face_diff_xml_is_decoded_into_the_face_and_a_corrupt_one_drops_the_folder() {
+    let sandbox = Sandbox::new("mod_face_diff_xml");
+    write_xml_face(&sandbox, "exports/co - Xml", &face_diff_fixture("dif.xml"));
+
+    let entries = compile_clean(&sandbox, "co - Xml");
+
+    assert_eq!(
+        face_package(&entries).get("face_diff.bin").unwrap(),
+        face_diff_fixture("dif.bin")
+    );
+
+    // One payload character replaced by a character base64 does not use.
+    let mut corrupt = face_diff_fixture("dif.xml");
+    let payload = corrupt
+        .windows(4)
+        .position(|bytes| bytes == b"RkFD")
+        .unwrap();
+    assert!(corrupt[payload + 100].is_ascii_alphanumeric());
+    corrupt[payload + 100] = b'*';
+    let corrupt_sandbox = Sandbox::new("mod_face_diff_xml_corrupt");
+    write_xml_face(&corrupt_sandbox, "exports/co - Corrupt", &corrupt);
+
+    assert_face_dropped(
+        &corrupt_sandbox,
+        "co - Corrupt",
+        "Error face_diff_invalid [DropFolder] at Players/05 - A \
+         (file=Players/05 - A/face_diff.xml, reason=the base64 text holds '*' where base64 cannot)",
+    );
+}
+
+#[test]
+fn a_face_diff_given_twice_or_shorter_than_its_header_drops_the_folder() {
+    // Both forms in one folder: neither is read, the conflict is the finding.
+    let twice = Sandbox::new("mod_face_diff_twice");
+    twice.copy_tracer_face("exports/co - Twice/Players/05 - A");
+    twice.write(
+        "exports/co - Twice/Players/05 - A/face_diff.xml",
+        &face_diff_fixture("dif.xml"),
+    );
+    assert_face_dropped(
+        &twice,
+        "co - Twice",
+        "Error xml_dif_conflict [DropFolder] at Players/05 - A \
+         (file=Players/05 - A/face_diff.xml)",
+    );
+
+    // A `face_diff.bin` one byte shorter than its header gives.
+    let cut = Sandbox::new("mod_face_diff_cut");
+    cut.copy_tracer_face("exports/co - Cut/Players/05 - A");
+    cut.write(
+        "exports/co - Cut/Players/05 - A/face_diff.bin",
+        &face_diff_fixture("dif.bin")[..943],
+    );
+    assert_face_dropped(
+        &cut,
+        "co - Cut",
+        "Error face_diff_invalid [DropFolder] at Players/05 - A \
+         (file=Players/05 - A/face_diff.bin, reason=the face diff is 943 bytes long, but its \
+         header gives 944: the game would read past its end)",
+    );
+}
+
 #[test]
 fn a_subfolder_s_parts_combine_with_loose_root_files_of_their_category() {
     let sandbox = Sandbox::new("mod_subfolder_parts");

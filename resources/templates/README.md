@@ -17,3 +17,12 @@ fixture's `fcl_hair_sim.fclo` is this file; its `face_diff.bin` is the player's 
 
 The `fcl_hair_sim.skl` injected beside a hair model with no skeleton of its own is not here: it
 is PES 21's `body.skl` (`../skeletons/pes21/`), as for `boots.skl`.
+
+## `DpFileList.txt`
+
+The official 4cc DpFileList as a list, one CPK per line in load order, with comments: the
+source that worklog step 4.25 writes the embedded `DpFileList.bin` from (Team compiler plan,
+`pipeline.md` "6. Post-processing", DpFileList upgrade). A draft until the maintainer has
+adjusted it: the newest official list (the PES 2015 and PES 2017 installs', 39 entries) with
+the faces/uniform CPKs replaced by the size-split `teams` run and the `other_` pair by a
+`teams2` run. Not embedded in the binary yet.

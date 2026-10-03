@@ -1,0 +1,67 @@
+# The official 4cc DpFileList, as a list: one CPK per line, in load order (a later CPK's
+# files win over an earlier one's). Lines starting with # are comments.
+#
+# DRAFT for the maintainer to adjust. Worklog step 4.25 writes `DpFileList.bin` from this
+# list (the same file for every PES version) and embeds it as the DpFileList upgrade's
+# template.
+#
+# Base: the newest official list, the one in the maintainer's PES 2015 and PES 2017 installs
+# (39 entries, the two files byte-identical, read 2026-10-03). Two changes, both marked
+# below: the faces/uniform CPKs become the size-split `teams` run, and the `other_` pair
+# becomes a second run for a side event.
+
+4cc_01_db.cpk
+4cc_02_misc.cpk
+4cc_04_fpc.cpk
+4cc_06_gameplay.cpk
+4cc_08_bins.cpk
+4cc_10_seasonal.cpk
+4cc_15_billboard.cpk
+4cc_20_swipe.cpk
+4cc_25_gametips.cpk
+4cc_30_stadiums0.cpk
+4cc_31_stadiums1.cpk
+4cc_32_stadiums2.cpk
+4cc_35_referees.cpk
+4cc_38_balls.cpk
+
+# CHANGED: replaces 4cc_40_faces.cpk and 4cc_45_uniform.cpk. All team content, split by
+# size so no CPK reaches the 4 GiB limit of Git for Windows. Five slots at 3 GB each hold
+# 15 GB, about 2.5 times a 48-team cup. To confirm: five slots.
+4cc_40_teams.cpk
+4cc_41_teams.cpk
+4cc_42_teams.cpk
+4cc_43_teams.cpk
+4cc_44_teams.cpk
+
+# CHANGED: replaces 4cc_50_other_faces.cpk and 4cc_55_other_uniform.cpk. A second run for a
+# side event, filled when `teams_cpk_name` is set to `teams2`. To confirm: whether a second
+# run is wanted at all, its name, and five slots.
+4cc_50_teams2.cpk
+4cc_51_teams2.cpk
+4cc_52_teams2.cpk
+4cc_53_teams2.cpk
+4cc_54_teams2.cpk
+
+4cc_60_midcup.cpk
+4cc_61_midcup.cpk
+4cc_62_midcup.cpk
+4cc_63_midcup.cpk
+4cc_64_midcup.cpk
+4cc_65_midcup.cpk
+4cc_66_midcup.cpk
+4cc_67_midcup.cpk
+4cc_68_midcup.cpk
+4cc_69_midcup.cpk
+4cc_70_midcup.cpk
+4cc_71_midcup.cpk
+4cc_72_midcup.cpk
+4cc_73_midcup.cpk
+4cc_74_midcup.cpk
+4cc_75_midcup.cpk
+4cc_76_midcup.cpk
+4cc_77_midcup.cpk
+4cc_78_midcup.cpk
+4cc_79_midcup.cpk
+
+4cc_90_test.cpk

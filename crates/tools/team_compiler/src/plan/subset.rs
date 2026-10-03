@@ -149,6 +149,11 @@ pub(crate) enum PlayerFile {
         package: ModelPackage,
         name: &'static str,
     },
+    /// A `face_diff.xml`: the face's `face_diff.bin` given as text, the base64 of the binary
+    /// file (`player_folders.md` "`face_diff.xml`"), decoded and packed into the face package
+    /// as `face_diff.bin`. It goes wherever a `face_diff.bin` would, and stands for one: the
+    /// player folder's own, in either form, over a combined face folder's.
+    FaceDiffXml,
     /// A model's skeleton, the `.skl` named after a `fcl_hair` or `boots` part, packed into
     /// `package` under its slot's `name` (`fcl_hair_sim.skl`, `boots.skl`). Every part may
     /// bring one, and the merge decides whose is packed (`player_folders.md` "Merge
@@ -176,6 +181,7 @@ impl PlayerFile {
             | PlayerFile::CommonModel { package, .. }
             | PlayerFile::Packed { package, .. }
             | PlayerFile::Skeleton { package, .. } => Some(*package),
+            PlayerFile::FaceDiffXml => Some(ModelPackage::Face),
             PlayerFile::SlotlessSkeleton | PlayerFile::Texture(..) => None,
         }
     }
@@ -413,13 +419,14 @@ pub(crate) fn player_file(
     let name = file.path.name();
     let stem = file_stem(name);
     let path_stem = path_stem(file);
+    let face_file = |role| {
+        (models.face && matches!(position, Position::Direct | Position::Face)).then_some(role)
+    };
     let face_packed = |name| {
-        (models.face && matches!(position, Position::Direct | Position::Face)).then_some(
-            PlayerFile::Packed {
-                package: ModelPackage::Face,
-                name,
-            },
-        )
+        face_file(PlayerFile::Packed {
+            package: ModelPackage::Face,
+            name,
+        })
     };
     match file.kind {
         FileKind::Model(ModelFormat::Fmdl) => {
@@ -453,6 +460,7 @@ pub(crate) fn player_file(
         }
         FileKind::Bin if name == "face_diff.bin" => face_packed("face_diff.bin"),
         FileKind::Fclo if name == "fcl_hair_sim.fclo" => face_packed("fcl_hair_sim.fclo"),
+        FileKind::Xml if name == "face_diff.xml" => face_file(PlayerFile::FaceDiffXml),
         FileKind::Model(_)
         | FileKind::Skl
         | FileKind::Bin
@@ -852,6 +860,7 @@ mod tests {
             // A glove must say which hand it is.
             "Players/03 - A/gloves/keeper.fmdl",
             "Players/03 - A/boots/face_diff.bin",
+            "Players/03 - A/boots/face_diff.xml",
         ] {
             assert_eq!(gate(&[file]), what(file), "{file}");
         }
@@ -903,6 +912,17 @@ mod tests {
             ]),
             None
         );
+        // The face diff as text, directly in the folder or in `face/`.
+        for face_diff in [
+            "Players/03 - A/face_diff.xml",
+            "Players/03 - A/face/face_diff.xml",
+        ] {
+            assert_eq!(
+                first_hit(&["Players/03 - A/face_high.fmdl", face_diff]),
+                None,
+                "{face_diff}"
+            );
+        }
         assert_eq!(
             first_hit(&[
                 "Players/03 - A/gloves/glove_r.fmdl",
@@ -1154,15 +1174,17 @@ mod tests {
             None
         );
         // A file the shared folder cannot hold is named, and a folder with no model as a whole.
-        assert_eq!(
-            gate(&[
-                combining[0],
-                combining[1],
-                "Boots/Crocs/boots.fmdl",
-                "Boots/Crocs/face_diff.bin",
-            ]),
-            what("Boots/Crocs/face_diff.bin")
-        );
+        for face_diff in ["Boots/Crocs/face_diff.bin", "Boots/Crocs/face_diff.xml"] {
+            assert_eq!(
+                gate(&[
+                    combining[0],
+                    combining[1],
+                    "Boots/Crocs/boots.fmdl",
+                    face_diff,
+                ]),
+                what(face_diff)
+            );
+        }
         assert_eq!(
             gate(&[combining[0], combining[1], "Boots/Crocs/sole.dds"]),
             what("Boots/Crocs")
@@ -1228,14 +1250,13 @@ mod tests {
             assert_eq!(gate(&[link, named]), what(named), "{named}");
         }
         // The other files have a package to go in once a face model is in the folder.
-        assert_eq!(
-            gate(&[
-                link,
-                "Faces/Round/face_diff.bin",
-                "Faces/Round/hair_high.fmdl"
-            ]),
-            None
-        );
+        for face_diff in ["Faces/Round/face_diff.bin", "Faces/Round/face_diff.xml"] {
+            assert_eq!(
+                gate(&[link, face_diff, "Faces/Round/hair_high.fmdl"]),
+                None,
+                "{face_diff}"
+            );
+        }
         // A folder with no model, textures alone, is named as a whole.
         assert_eq!(gate(&[link, "Faces/Round/skin.dds"]), what("Faces/Round"));
     }
@@ -1774,12 +1795,14 @@ mod tests {
             role("fcl_hair_sim.fclo"),
             packed(ModelPackage::Face, "fcl_hair_sim.fclo")
         );
+        assert_eq!(role("face_diff.xml"), Some(PlayerFile::FaceDiffXml));
         for refused in [
             "face_high.model",
             "torso.model",
             "boots.skl",
             "glove_l.skl",
             "face.xml",
+            "face_diff2.xml",
             "hair.png.common",
             "face_diff2.bin",
             "Face_Diff.bin",
@@ -2018,6 +2041,18 @@ mod tests {
             [
                 packed(ModelPackage::Face, "face_diff.bin"),
                 packed(ModelPackage::Face, "fcl_hair_sim.fclo"),
+                model(ModelPackage::Face, "fcl_hair"),
+                None
+            ]
+        );
+        assert_eq!(
+            roles(&[
+                "face/face_diff.xml",
+                "face/torso.fmdl",
+                "boots/face_diff.xml"
+            ]),
+            [
+                Some(PlayerFile::FaceDiffXml),
                 model(ModelPackage::Face, "fcl_hair"),
                 None
             ]
