@@ -1,8 +1,8 @@
 //! Validation of every export source of a run, which `check` reports and `compile` starts
 //! from: each source's route, the structure pass's issues, the deep pass's content findings
 //! over the export it leaves (`team_compiler/pipeline.md` "2. Per-export serial steps"), and
-//! the identity. The lib validates and `deep` reads the contents; this schedules them, export
-//! by export.
+//! the identity. The lib validates and `deep` reads the contents; this schedules them on the
+//! run's worker pool, each export's outcome kept in discovery order.
 
 use std::sync::Arc;
 
@@ -10,8 +10,10 @@ use aesthetics_export::{
     ExportIdentity, FileDescriptor, ModelSuffix, ResolvedAestheticsExport, SharedKind, SourceError,
     ValidationContext, common_link_name, model_suffix, parse_listing,
 };
+use anyhow::Context;
 use pes_version::{Engine, PesVersion};
 use pipeline::MemoryBudget;
+use rayon::prelude::*;
 use studio_core::{Disposition, ExportId, Message, Scope};
 use vtree::ScopePath;
 
@@ -23,7 +25,7 @@ use crate::plan::mapped_players;
 use crate::plan::subset::{
     FolderModels, ModelPackage, PlayerFile, common_skeleton, file_stem, player_file,
 };
-use crate::reader::{self, ExportSource, Route};
+use crate::reader::{self, ExportSource, Route, SourceKind};
 
 /// Validation's outcome for the whole run.
 pub(crate) struct ValidationPass {
@@ -51,16 +53,26 @@ pub(crate) fn run_budget(inputs: &RunInputs) -> Arc<MemoryBudget> {
     )))
 }
 
+/// The run's worker pool, of the `thread_count` the settings give (every logical core but one
+/// when it is 0): validation's parallel work runs on it, then `compile`'s tasks.
+pub(crate) fn run_pool(inputs: &RunInputs) -> anyhow::Result<rayon::ThreadPool> {
+    rayon::ThreadPoolBuilder::new()
+        .num_threads(pipeline::thread_count_detect(inputs.common.thread_count))
+        .build()
+        .context("cannot start the worker threads")
+}
+
 /// Discovers the run's sources, routes them and runs the structure pass, the deep pass and
-/// identity on each one headed for validation; both passes' `.7z` reads are charged to
-/// `budget`. An exports folder holding no export is `no_exports_found`, on the run. Only an
-/// exports folder that cannot be read is an error.
+/// identity on each one headed for validation, on `pool`; both passes' `.7z` reads are
+/// charged to `budget`. An exports folder holding no export is `no_exports_found`, on the run.
+/// Only an exports folder that cannot be read is an error.
 pub(crate) fn validation_pass(
     inputs: &RunInputs,
     budget: &Arc<MemoryBudget>,
+    pool: &rayon::ThreadPool,
 ) -> anyhow::Result<ValidationPass> {
     let sources = reader::discover(&inputs.exports_root, &inputs.exports)?;
-    let routes = reader::route(&sources, budget);
+    let routes = pool.install(|| reader::route(&sources, budget));
 
     let mut run_messages = Vec::new();
     // Every `--export` path yields a source, so no source at all means the root's scan found
@@ -88,15 +100,45 @@ pub(crate) fn validation_pass(
         ));
     }
 
-    let sources = sources
-        .into_iter()
-        .zip(routes)
-        .map(|(source, route)| check_source(inputs, source, route, budget))
-        .collect();
+    let sources = pool.install(|| check_sources(inputs, sources, routes, budget));
     Ok(ValidationPass {
         run_messages,
         sources,
     })
+}
+
+/// Each source through `check_source` with its route, returned in discovery order: the
+/// folder and `.zip` sources in parallel, then the `.7z` sources one after another.
+fn check_sources(
+    inputs: &RunInputs,
+    sources: Vec<ExportSource>,
+    routes: Vec<Route>,
+    budget: &Arc<MemoryBudget>,
+) -> Vec<CheckedSource> {
+    // Not one parallel iterator over every source: a `.7z`'s check waits for its whole-archive
+    // permit, and a worker waiting on its own export's parallel checks takes other work. A
+    // `.7z` check started that way can wait for the permit of a `.7z` export suspended below
+    // it on the same thread, which never resumes. A folder's or a zip's check never waits for
+    // memory, so those run in parallel; the `.7z` ones run in turn, once the others are done.
+    let (in_turn, in_parallel): (Vec<_>, Vec<_>) = sources
+        .into_iter()
+        .zip(routes)
+        .enumerate()
+        .partition(|(_, (source, _))| match source.kind {
+            SourceKind::SevenZ => true,
+            SourceKind::Folder | SourceKind::Zip => false,
+        });
+    let mut checked: Vec<(usize, CheckedSource)> = in_parallel
+        .into_par_iter()
+        .map(|(index, (source, route))| (index, check_source(inputs, source, route, budget)))
+        .collect();
+    checked.extend(
+        in_turn
+            .into_iter()
+            .map(|(index, (source, route))| (index, check_source(inputs, source, route, budget))),
+    );
+    checked.sort_by_key(|(index, _)| *index);
+    checked.into_iter().map(|(_, checked)| checked).collect()
 }
 
 /// One source through its route, the structure pass, the deep pass and identity.

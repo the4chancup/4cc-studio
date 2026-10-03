@@ -15,7 +15,7 @@ use crate::reader::ContentSource;
 /// The findings of the portrait `file`, named `name`, held to the portrait's size rule on any
 /// target: each on the file's own scope, dropping that file alone.
 pub(super) fn portrait_findings(
-    content: &mut ContentSource,
+    content: &ContentSource,
     file: &FileDescriptor,
     name: &str,
 ) -> Vec<ContentFinding> {
@@ -52,7 +52,7 @@ pub(super) fn folder_portrait(
 /// manager means. Byte-identical files are one portrait and no finding. The two files' own
 /// findings do not matter here: a portrait of the wrong size is still compared.
 pub(super) fn portrait_conflict(
-    content: &mut ContentSource,
+    content: &ContentSource,
     folder_portrait: &FileDescriptor,
     portraits_file: &FileDescriptor,
 ) -> Option<ContentFinding> {

@@ -12,7 +12,7 @@ is in `AGENTS.md` ("Working documents").
 **Phase:** 3 (Team compiler skeleton) closed 2026-10-02, its cross-family reviews queued (see
 "Handover"). Phases 1 and 2 done (Phase 2 closed 2026-09-30).
 **Next:** Phase 4 is itemized and its Acceptance section written (step 4.1, 2026-10-03; its
-cross-family review (a) is queued). Next: 4.7 (deep validation pass, in slices; (a) to (d) are done and timed; (e), the pass on the worker pool, is briefed; (f) follows), then 4.8; 4.30, 4.6 and 4.5 are done (4.6c moved to Phase 8's cancellation). 2.5b (GPU BC7) is step 16.x (decision entries
+cross-family review (a) is queued). Next: 4.7 (deep validation pass, in slices; (a) to (e) are done and timed; (f), one `.7z` decompression for both passes, is left), then 4.8; 4.30, 4.6 and 4.5 are done (4.6c moved to Phase 8's cancellation). 2.5b (GPU BC7) is step 16.x (decision entries
 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0 after Phase 8; phase order 1–6,
 8, 0.1.0, 7, 9–16 (`core/development_plan.md` "Releases"); first-class target the Fox version
 the cup moves to around April 2027 ("Target versions").
@@ -614,8 +614,29 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
     `ContentSource::read` on `&self`, an archive behind a lock; the sources routed in
     parallel; folder and `.zip` exports checked in parallel with each other, `.7z` ones in
     turn (decision entry "folder and zip exports are checked in parallel");
-    `check` and `compile` share one pool → verify: the timing table above measured
-    again, every existing test unchanged
+    `check` and `compile` share one pool. Done 2026-10-03 (Opus 5.5, first time; resumed
+    once after an IDE restart; one lead fix, a test comment): `validation::run_pool`,
+    built at the start of both commands; `ContentSource::read(&self)`, the archive and its
+    permit in one `Mutex` held for one read; `par_iter` with an indexed `collect` over
+    the player folders, the shared folders, a folder's files and `Common/`'s files, the
+    portraits, kits and logo in order; `check_sources` (folders and zips in parallel,
+    then the `.7z` ones, merged by discovery index); `reader::route` in parallel. No
+    existing test changed. The brief's premise that one worker thread would expose a
+    lock held across parallel work was wrong (the sidekick showed it does not hang): the
+    guard is the read's shape, owned bytes with the lock released. Gates green (110 of
+    209); `mutants-diff 836e704`: 21, 12 caught, 9 unviable, 0 missed. Measured again
+    (same setup, median of 3, before → after):
+
+    | seconds | `check` folder | `check` `.7z` | `compile` folder | `compile` `.7z` |
+    |---|---|---|---|---|
+    | FNG | 0.55 → 0.32 | 2.59 → 2.45 | 3.08 → 2.87 | 7.19 → 7.01 |
+    | DBG | 0.82 → 0.34 | 2.76 → 2.35 | 1.74 → 1.30 | 5.78 → 5.32 |
+    | both in one run | 1.31 → 0.55 | 5.05 → 4.72 | 4.69 → 3.95 | 12.86 → 12.03 |
+
+    What is left of a folder compile is planning, the coordinator's reads, the tasks and
+    the CPK's writing (FNG: about 2.5 s of 2.87); of a `.7z` compile, mostly its three
+    decompressions → verify: the timing table above measured again, every existing test
+    unchanged
   - (f) a `.7z` decompressed once for the structure pass and the deep pass ("Issues": the
     third decompression; to design after (e): routing reads every source's metadata before
     the first export is checked, so the buffer cannot simply be kept)
@@ -1891,3 +1912,8 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   exports in turn, decision entry); a model-less face always takes the bundled face diff,
   the two other files in the VGL26 exports being outdated FPC-dedicated diffs (decision
   entry; 4.12 settles how the leftover file is reported).
+- **2026-10-03** — 4.7e: the deep pass runs on the worker pool (folders, their files and
+  `Common/` in parallel; folder and `.zip` exports in parallel with each other, `.7z` ones
+  in turn; sources routed in parallel). `check` on a folder export went from 0.55 to
+  0.32 s (FNG) and 0.82 to 0.34 s (DBG), both in one run from 1.31 to 0.55 s; no finding or
+  order changed.

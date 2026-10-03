@@ -8,7 +8,6 @@ use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::Arc;
 
-use anyhow::Context;
 use crossbeam_channel::{Receiver, Sender, unbounded};
 use pipeline::{CpkStem, MemoryBudget, Permit};
 use studio_core::{Disposition, ExportId, Scope, Severity, ToolContext};
@@ -21,7 +20,7 @@ use crate::output::writer::CpkOutput;
 use crate::plan::{BuildTask, plan_run};
 use crate::processing::{CompileContext, TaskBatch, TaskFiles, process_task};
 use crate::reader::{ContentSource, ExportSource, SourceFailure, SourceKind};
-use crate::validation::{run_budget, validation_pass};
+use crate::validation::{run_budget, run_pool, validation_pass};
 
 /// Compiles every export validation keeps into `<output_folder>/<cpk_stem>.cpk`,
 /// reported as events. Returns the worst severity reported: a CPK that cannot be written or
@@ -36,7 +35,8 @@ pub(crate) fn run(
 ) -> anyhow::Result<Option<Severity>> {
     let version = inputs.common.pes_version;
     let budget = run_budget(inputs);
-    let pass = validation_pass(inputs, &budget)?;
+    let pool = run_pool(inputs)?;
+    let pass = validation_pass(inputs, &budget, &pool)?;
     let mut events = RunEvents::new(ctx);
     for message in pass.run_messages {
         events.message(message);
@@ -74,10 +74,6 @@ pub(crate) fn run(
         .map(|(export_id, index)| (index, export_id))
         .collect();
 
-    let pool = rayon::ThreadPoolBuilder::new()
-        .num_threads(pipeline::thread_count_detect(inputs.common.thread_count))
-        .build()
-        .context("cannot start the worker threads")?;
     let run_folder = deploy::staging_folder(output_folder);
     let cpk_name = deploy::cpk_file_name(cpk_stem);
     let output = CpkOutput::new(run_folder.join(&cpk_name));
@@ -197,7 +193,7 @@ fn coordinate<'scope>(
     // sharing it would only wait on each other, and processing needs no source handle.
     let mut tasks = tasks.into_iter().enumerate().peekable();
     for source in sources {
-        let mut content = ContentSource::new(source, budget);
+        let content = ContentSource::new(source, budget);
         if source.kind == SourceKind::SevenZ {
             // A `.7z` holds one permit for its whole decompressed buffer, and a task asking
             // for its own while that is held waits forever when the archive is over the cap.
@@ -206,7 +202,7 @@ fn coordinate<'scope>(
             while let Some((index, task)) =
                 tasks.next_if(|(_, task)| task.export_id == source.export_id)
             {
-                let files = read_files(&task, &mut content);
+                let files = read_files(&task, &content);
                 read.push((index, task, files));
             }
             let permit = content.into_permit().map(Arc::new);
@@ -233,7 +229,7 @@ fn coordinate<'scope>(
                         .expect("a group's first task acquired the shared permit"),
                     None => Arc::new(budget.acquire(task.charge)?),
                 };
-                let files = read_files(&task, &mut content);
+                let files = read_files(&task, &content);
                 spawn(index, task, files, Some(permit));
             }
         }
@@ -309,7 +305,7 @@ fn task_batch(
 
 /// The bytes of every file `task` reads, from `content`; the first file that cannot be read
 /// stops the reading.
-fn read_files(task: &BuildTask, content: &mut ContentSource) -> Result<TaskFiles, SourceFailure> {
+fn read_files(task: &BuildTask, content: &ContentSource) -> Result<TaskFiles, SourceFailure> {
     let mut files = TaskFiles::new();
     for file in task.kind.files() {
         let bytes = content.read(file.source.as_str())?;
@@ -479,7 +475,7 @@ mod tests {
 
         let files = read_files(
             &task,
-            &mut ContentSource::new(&source, &MemoryBudget::new(1 << 30)),
+            &ContentSource::new(&source, &MemoryBudget::new(1 << 30)),
         );
         let batch = task_batch(3, task, files, &CompileContext::new(PesVersion::Pes21, 1));
 

@@ -101,6 +101,96 @@ fn a_far_vertex_in_a_solid_7z_is_found_by_check() {
 }
 
 #[test]
+fn one_worker_thread_finds_what_the_default_finds_in_a_folder_and_in_a_solid_7z() {
+    let sandbox = Sandbox::new("deep_one_worker");
+    let export = "exports/co - Workers";
+    sandbox.write(
+        &format!("{export}/Players/05 - Striker/boots.fmdl"),
+        &deep_fixture("boots_far.fmdl"),
+    );
+    sandbox.write(
+        &format!("{export}/Players/07 - Winger/boots.fmdl"),
+        &tracer_player_file("boots.fmdl"),
+    );
+    sandbox.write(
+        &format!("{export}/Common/glove_l.fmdl"),
+        &tracer_player_file("boots.fmdl"),
+    );
+    sandbox.write(
+        &format!("{export}/Players/07 - Winger/glove_l.fmdl.common"),
+        b"",
+    );
+    let one_worker = format!("{}thread_count = 1\n", pes21_settings(&sandbox));
+
+    let default = sandbox.run(&pes21_settings(&sandbox), &["check"]);
+    let single = sandbox.run(&one_worker, &["check"]);
+
+    assert_eq!(
+        findings_of(&default.messages(), "co - Workers"),
+        [
+            FAR_STRIKER,
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - Striker (file=boots.fmdl, count=1662)",
+            WINGER_WEIGHTS,
+            "Info fmdl_weights_not_normalized [Keep] at Common/glove_l.fmdl (file=glove_l.fmdl, count=1662)",
+            IDENTIFIED
+        ]
+    );
+    assert_eq!(single.messages(), default.messages());
+    assert_eq!(single.exit_code(), 1);
+
+    // A solid `.7z` on one worker: every read goes through the archive's lock on that thread.
+    let sandbox = Sandbox::new("deep_one_worker_7z");
+    sandbox.write("exports/co - Far.7z", &deep_fixture("co - Far.7z"));
+    let run = sandbox.run(&one_worker, &["check"]);
+    assert_eq!(
+        findings_of(&run.messages(), "co - Far.7z"),
+        [
+            FAR_STRIKER,
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - Striker (file=boots.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - Striker (file=glove_l.fmdl, count=2)",
+            IDENTIFIED
+        ]
+    );
+    assert_eq!(run.exit_code(), 1);
+}
+
+#[test]
+fn exports_are_reported_in_discovery_order_with_a_7z_among_folders() {
+    let sandbox = Sandbox::new("deep_discovery_order");
+    // Discovery sorts by name: the `.7z`, team `/dbg/`, falls between the folders.
+    sandbox.write("exports/dbg Two.7z", &deep_fixture("co - Far.7z"));
+    for export in ["co - One", "egg Three", "esg Four"] {
+        sandbox.write(
+            &format!("exports/{export}/Players/07 - Winger/boots.fmdl"),
+            &tracer_player_file("boots.fmdl"),
+        );
+    }
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["check"]);
+
+    let winger = |export: &str| format!("{export}: {WINGER_WEIGHTS}");
+    let identified = |export: &str, team: &str, id: u32| {
+        format!("{export}: Info export_identified [Keep] (team={team}, id={id})")
+    };
+    assert_eq!(
+        run.messages(),
+        [
+            winger("co - One"),
+            identified("co - One", "/co/", 714),
+            format!("dbg Two.7z: {FAR_STRIKER}"),
+            "dbg Two.7z: Info fmdl_weights_not_normalized [Keep] at Players/05 - Striker (file=boots.fmdl, count=1662)".to_owned(),
+            "dbg Two.7z: Info fmdl_weights_not_normalized [Keep] at Players/05 - Striker (file=glove_l.fmdl, count=2)".to_owned(),
+            identified("dbg Two.7z", "/dbg/", 790),
+            winger("egg Three"),
+            identified("egg Three", "/egg/", 792),
+            winger("esg Four"),
+            identified("esg Four", "/esg/", 793),
+        ]
+    );
+    assert_eq!(run.exit_code(), 1);
+}
+
+#[test]
 fn a_far_vertex_in_a_shared_folder_drops_the_player_linking_it() {
     let sandbox = Sandbox::new("deep_far_vertex_shared");
     sandbox.write(

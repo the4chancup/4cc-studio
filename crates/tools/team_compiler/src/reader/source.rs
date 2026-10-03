@@ -6,7 +6,7 @@ use std::collections::BTreeMap;
 use std::fmt::Display;
 use std::fs::{self, File};
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use aesthetics_export::{
     CanonicalListing, ListedEntry, ListedKind, SmallMetadata, is_small_metadata,
@@ -161,10 +161,21 @@ fn read_archive_files(
 /// step 4, "Load"). A folder reads each file from disk. An archive is opened on the first read
 /// and stays open for the export's later reads, so its header is read once per export; a `.7z`
 /// is held under a permit for its whole decompressed size until the export's tasks are done.
+///
+/// One source is shared by reference by the deep pass's workers. A folder's reads are
+/// independent; an archive is one handle, so its reads take turns behind a lock.
 pub(crate) struct ContentSource {
     path: PathBuf,
     kind: SourceKind,
     budget: Arc<MemoryBudget>,
+    /// An archive source's handle and the permit charged for it, one lock for both: the permit
+    /// is acquired on the first read, which opens the archive. Never locked for a folder.
+    opened: Mutex<OpenedArchive>,
+}
+
+/// An archive opened by its first read, with the `.7z` permit charged for it.
+#[derive(Default)]
+struct OpenedArchive {
     // Declared before `permit`, so the decompressed buffer is freed before the bytes it was
     // charged are released.
     archive: Option<Archive<File>>,
@@ -178,20 +189,26 @@ impl ContentSource {
             path: source.path.clone(),
             kind: source.kind,
             budget: Arc::clone(budget),
-            archive: None,
-            permit: None,
+            opened: Mutex::new(OpenedArchive::default()),
         }
     }
 
     /// The bytes of the file at `path`, a path of the source as a `FileDescriptor.source` gives
     /// it. A failure names the file or archive that could not be read.
-    pub(crate) fn read(&mut self, path: &str) -> Result<Vec<u8>, SourceFailure> {
+    ///
+    /// A folder's file is read with no lock. An archive's is read under its lock, held for this
+    /// one read only (a `.zip` inflating one entry, a `.7z` copying out of its buffer), and the
+    /// bytes come back owned with the lock released. So no caller holds the lock while it starts
+    /// parallel work: a worker waiting on such work takes other work, which could lock again on
+    /// the same thread and wait for itself forever.
+    pub(crate) fn read(&self, path: &str) -> Result<Vec<u8>, SourceFailure> {
         if self.kind == SourceKind::Folder {
             let file = self.path.join(path);
             return fs::read(&file).map_err(|error| failure(&file, &error));
         }
         let seven_z = self.kind == SourceKind::SevenZ;
-        let archive = match self.archive.take() {
+        let mut opened = self.opened.lock().unwrap();
+        let archive = match opened.archive.take() {
             Some(archive) => archive,
             None => {
                 let archive = open_archive(&self.path, seven_z)?;
@@ -200,12 +217,13 @@ impl ContentSource {
                         .budget
                         .acquire(decompressed_size(&archive))
                         .map_err(|cancelled| failure(&self.path, &cancelled))?;
-                    self.permit = Some(permit);
+                    opened.permit = Some(permit);
                 }
                 archive
             }
         };
-        self.archive
+        opened
+            .archive
             .insert(archive)
             .read(path)
             .map_err(|error| SourceFailure {
@@ -218,8 +236,12 @@ impl ContentSource {
     /// charged for its whole decompressed size. The archive is dropped first, since the permit
     /// stands for its buffer; the caller keeps the permit for the bytes already read out of it.
     pub(crate) fn into_permit(self) -> Option<Permit> {
-        drop(self.archive);
-        self.permit
+        let opened = self
+            .opened
+            .into_inner()
+            .expect("no thread panicked while reading from the archive");
+        drop(opened.archive);
+        opened.permit
     }
 }
 
@@ -494,10 +516,10 @@ mod tests {
         fs::write(root.join("Kits/notes.txt"), "a note").unwrap();
         let budget = MemoryBudget::new(1 << 20);
 
-        let mut folder = ContentSource::new(&folder_source(root.to_path_buf()), &budget);
+        let folder = ContentSource::new(&folder_source(root.to_path_buf()), &budget);
         assert_eq!(folder.read("Kits/notes.txt").unwrap(), b"a note");
         for name in ["co - Spring.zip", "co - Spring.7z"] {
-            let mut archive = ContentSource::new(&archive_source(name), &budget);
+            let archive = ContentSource::new(&archive_source(name), &budget);
             assert_eq!(archive.read("players.txt").unwrap(), b"01 Keeper\n");
             assert_eq!(
                 archive.read("notes.txt").unwrap(),
@@ -508,10 +530,58 @@ mod tests {
     }
 
     #[test]
+    fn threads_sharing_one_archive_read_the_bytes_a_serial_read_gets() {
+        let budget = MemoryBudget::new(1 << 30);
+        for name in ["egg Tracer.zip", "egg Tracer.7z"] {
+            let source = archive_source(name);
+            let (_, listing) = OpenSource::open(&source).unwrap();
+            let paths: Vec<&str> = listing
+                .entries
+                .iter()
+                .filter(|entry| matches!(entry.kind, ListedKind::File { .. }))
+                .map(|entry| entry.path.as_str())
+                .collect();
+            assert!(paths.len() >= 4, "{name}: {paths:?}");
+            let serial = ContentSource::new(&source, &budget);
+            let expected: Vec<Vec<u8>> = paths
+                .iter()
+                .map(|path| serial.read(path).unwrap())
+                .collect();
+
+            let shared = ContentSource::new(&source, &budget);
+            // Each thread reads every file, starting from its own, so different files are
+            // read at once from the first read on.
+            let read: Vec<Vec<Vec<u8>>> = thread::scope(|scope| {
+                let threads: Vec<_> = (0..paths.len())
+                    .map(|start| {
+                        let (shared, paths) = (&shared, &paths);
+                        scope.spawn(move || {
+                            let mut bytes = vec![Vec::new(); paths.len()];
+                            for offset in 0..paths.len() {
+                                let i = (start + offset) % paths.len();
+                                bytes[i] = shared.read(paths[i]).unwrap();
+                            }
+                            bytes
+                        })
+                    })
+                    .collect();
+                threads
+                    .into_iter()
+                    .map(|thread| thread.join().unwrap())
+                    .collect()
+            });
+
+            for (start, bytes) in read.iter().enumerate() {
+                assert!(*bytes == expected, "{name}: thread {start}");
+            }
+        }
+    }
+
+    #[test]
     fn a_7z_holds_its_charge_until_its_content_source_is_dropped() {
         // The fixture's entries sum to 34 bytes, the whole cap: a second byte must wait.
         let budget = MemoryBudget::new(34);
-        let mut content = ContentSource::new(&archive_source("co - Spring.7z"), &budget);
+        let content = ContentSource::new(&archive_source("co - Spring.7z"), &budget);
         assert!(
             admits(&budget, 34),
             "nothing is charged before the first read"
@@ -541,7 +611,7 @@ mod tests {
     fn a_read_7z_hands_its_permit_on_and_the_charge_lasts_until_that_permit_is_dropped() {
         // The fixture's entries sum to 34 bytes, the whole cap: a second byte must wait.
         let budget = MemoryBudget::new(34);
-        let mut content = ContentSource::new(&archive_source("co - Spring.7z"), &budget);
+        let content = ContentSource::new(&archive_source("co - Spring.7z"), &budget);
         content.read("players.txt").unwrap();
 
         let permit = content.into_permit().expect("a read 7z holds a permit");
@@ -567,7 +637,7 @@ mod tests {
     #[test]
     fn a_read_zip_and_an_unread_7z_hand_on_no_permit() {
         let budget = MemoryBudget::new(1 << 20);
-        let mut zip = ContentSource::new(&archive_source("co - Spring.zip"), &budget);
+        let zip = ContentSource::new(&archive_source("co - Spring.zip"), &budget);
         zip.read("players.txt").unwrap();
         assert!(zip.into_permit().is_none(), "zip");
 
@@ -582,7 +652,7 @@ mod tests {
         let (done_tx, done) = channel();
         let unheld = Arc::clone(&budget);
         thread::spawn(move || {
-            let mut content = ContentSource::new(&archive_source("co - Spring.zip"), &unheld);
+            let content = ContentSource::new(&archive_source("co - Spring.zip"), &unheld);
             done_tx.send(content.read("players.txt").is_ok()).unwrap();
         });
         assert_eq!(done.recv_timeout(GUARD), Ok(true));
@@ -593,14 +663,14 @@ mod tests {
         let budget = MemoryBudget::new(1 << 20);
         let temp = scratch("source_unreadable");
         let root = temp.path();
-        let mut folder = ContentSource::new(&folder_source(root.to_path_buf()), &budget);
+        let folder = ContentSource::new(&folder_source(root.to_path_buf()), &budget);
         let failure = folder.read("Kits/gone.dds").unwrap_err();
         assert_eq!(
             failure.path,
             root.join("Kits/gone.dds").display().to_string()
         );
 
-        let mut archive = ContentSource::new(&archive_source("co - Spring.zip"), &budget);
+        let archive = ContentSource::new(&archive_source("co - Spring.zip"), &budget);
         let failure = archive.read("Kits/gone.dds").unwrap_err();
         assert_eq!(
             failure,
@@ -611,7 +681,7 @@ mod tests {
         );
 
         let source = archive_source("co - Escape.zip");
-        let mut refused = ContentSource::new(&source, &budget);
+        let refused = ContentSource::new(&source, &budget);
         let failure = refused.read("x").unwrap_err();
         assert_eq!(failure.path, source.path.display().to_string());
     }

@@ -25,6 +25,10 @@
 //! folder and shared face folder (`face_diff_invalid`, `xml_dif_conflict`), each kit's
 //! `config.toml` (`kit_config_invalid`) and each player's `settings.toml`
 //! (`settings_toml_invalid`).
+//!
+//! The model folders and `Common/`'s files are checked in parallel on the caller's rayon
+//! pool, each worker reading and holding one file at a time, and the findings are collected
+//! in file order (`content_findings`).
 
 mod documents;
 mod model;
@@ -41,6 +45,7 @@ use aesthetics_export::{
 use dds_convert::SourceFormat;
 use pes_version::PesVersion;
 use pipeline::MemoryBudget;
+use rayon::prelude::*;
 use vtree::ScopePath;
 
 use crate::messages::Code;
@@ -60,92 +65,104 @@ pub(crate) use model::FAR_VERTEX_CODES;
 /// slot's `portrait_conflict`, then each kit's `config.toml` and textures, then the logo's. An
 /// Error on a folder's or a kit's file drops the folder; one on a `Common/` file drops the
 /// file, and the cascade then drops the players linking it; one on a portrait, a
-/// `settings.toml` or a logo file drops that file. Files are read one at a time through one
-/// `ContentSource`, so only one file's bytes are held at once (a slot's two portraits while
-/// they are compared), and a solid `.7z` is decompressed once, under its own permit from
-/// `budget`, released when the pass ends.
+/// `settings.toml` or a logo file drops that file.
+///
+/// The player folders, the shared folders, the files of each folder and `Common/`'s files are
+/// checked in parallel, on the rayon pool the caller runs this in; the rest in order. Every
+/// file is read through one `ContentSource` and each worker holds one file's bytes at a time,
+/// so at most one file per worker thread is held (a slot's two portraits while they are
+/// compared). A solid `.7z` is decompressed once, under its own permit from `budget`, released
+/// when the pass ends.
 pub(crate) fn content_findings(
     export: &ValidatedAestheticsExport,
     source: &ExportSource,
     budget: &Arc<MemoryBudget>,
     version: PesVersion,
 ) -> Vec<ContentFinding> {
-    let mut content = ContentSource::new(source, budget);
+    let content = ContentSource::new(source, budget);
     let size_rule = SizeRule::of(version);
-    let mut findings = Vec::new();
-    for player in &export.players {
-        let folder = &player.path;
-        findings.extend(folder_findings(
-            &mut content,
-            folder,
-            &player.files,
-            size_rule,
-        ));
-        findings.extend(face_diff_findings(
-            &mut content,
-            folder,
-            &player.files,
-            &FolderModels::of_player(player),
-        ));
-        // Not among the folder's files: a portrait and a `settings.toml` are dropped alone,
-        // the folder keeping the rest.
-        if let Some(portrait) = &player.portrait {
-            findings.extend(portrait_findings(
-                &mut content,
-                portrait,
-                &relative(&portrait.path, folder),
+    // Each group below is collected in its items' order (rayon's indexed `collect`), so the
+    // findings come out in file order whatever the workers' scheduling.
+    let players: Vec<Vec<ContentFinding>> = export
+        .players
+        .par_iter()
+        .map(|player| {
+            let folder = &player.path;
+            let mut findings = folder_findings(&content, folder, &player.files, size_rule);
+            findings.extend(face_diff_findings(
+                &content,
+                folder,
+                &player.files,
+                &FolderModels::of_player(player),
             ));
-        }
-        findings.extend(settings_finding(&mut content, player));
-    }
+            // Not among the folder's files: a portrait and a `settings.toml` are dropped
+            // alone, the folder keeping the rest.
+            if let Some(portrait) = &player.portrait {
+                findings.extend(portrait_findings(
+                    &content,
+                    portrait,
+                    &relative(&portrait.path, folder),
+                ));
+            }
+            findings.extend(settings_finding(&content, player));
+            findings
+        })
+        .collect();
     // A shared face folder is part of the face of each player linking it, so its face diff is
     // checked as a player folder's is, against its own models as planning resolves it.
-    for face in &export.faces {
-        findings.extend(folder_findings(
-            &mut content,
-            &face.path,
-            &face.files,
-            size_rule,
-        ));
-        findings.extend(face_diff_findings(
-            &mut content,
-            &face.path,
-            &face.files,
-            &FolderModels::of(&face.path, &face.files),
-        ));
-    }
-    for shared in export.boots.iter().chain(&export.gloves) {
-        findings.extend(folder_findings(
-            &mut content,
-            &shared.path,
-            &shared.files,
-            size_rule,
-        ));
-    }
-    for file in &export.common {
-        let Some(checked) = checked_as(file, size_rule) else {
-            continue;
-        };
-        findings.extend(file_findings(
-            &mut content,
-            file,
-            checked,
-            &IssueScope::File(file.path.clone()),
-            Disposition::DropFile,
-            file.path.name(),
-        ));
-    }
+    let faces: Vec<Vec<ContentFinding>> = export
+        .faces
+        .par_iter()
+        .map(|face| {
+            let mut findings = folder_findings(&content, &face.path, &face.files, size_rule);
+            findings.extend(face_diff_findings(
+                &content,
+                &face.path,
+                &face.files,
+                &FolderModels::of(&face.path, &face.files),
+            ));
+            findings
+        })
+        .collect();
+    let boots_and_gloves: Vec<Vec<ContentFinding>> = export
+        .boots
+        .par_iter()
+        .chain(&export.gloves)
+        .map(|shared| folder_findings(&content, &shared.path, &shared.files, size_rule))
+        .collect();
+    let common: Vec<Vec<ContentFinding>> = export
+        .common
+        .par_iter()
+        .map(|file| {
+            let Some(checked) = checked_as(file, size_rule) else {
+                return Vec::new();
+            };
+            file_findings(
+                &content,
+                file,
+                checked,
+                &IssueScope::File(file.path.clone()),
+                Disposition::DropFile,
+                file.path.name(),
+            )
+        })
+        .collect();
+    let mut findings: Vec<ContentFinding> = [players, faces, boots_and_gloves, common]
+        .into_iter()
+        .flatten()
+        .flatten()
+        .collect();
     for (slot, file) in &export.portraits {
-        findings.extend(portrait_findings(&mut content, file, file.path.name()));
+        findings.extend(portrait_findings(&content, file, file.path.name()));
         if let Some(folder_portrait) = folder_portrait(export, *slot) {
-            findings.extend(portrait_conflict(&mut content, folder_portrait, file));
+            findings.extend(portrait_conflict(&content, folder_portrait, file));
         }
     }
     // An `all/` texture is read once, however many kits inherit it, and its findings are kept
     // by its path; each inheriting kit gets them on its own scope.
     let mut inherited: BTreeMap<&str, Vec<ContentFinding>> = BTreeMap::new();
     for kit in export.kits.kits.values() {
-        findings.extend(kit_config_finding(&mut content, kit));
+        findings.extend(kit_config_finding(&content, kit));
         let scope = IssueScope::Folder(kit.path.clone());
         for texture in &kit.textures {
             let rule = if texture.stem == "kit" {
@@ -158,7 +175,7 @@ pub(crate) fn content_findings(
             };
             match texture.source {
                 KitTextureSource::Own => findings.extend(file_findings(
-                    &mut content,
+                    &content,
                     &texture.file,
                     checked,
                     &scope,
@@ -171,7 +188,7 @@ pub(crate) fn content_findings(
                     let path = texture.file.path.as_str();
                     let found = inherited.entry(path).or_insert_with(|| {
                         file_findings(
-                            &mut content,
+                            &content,
                             &texture.file,
                             checked,
                             &scope,
@@ -196,7 +213,7 @@ pub(crate) fn content_findings(
         let format = texture_format(file.path.name())
             .expect("a logo is classified a texture by an extension `dds_convert` accepts");
         findings.extend(file_findings(
-            &mut content,
+            &content,
             file,
             Checked::Logo(format),
             &IssueScope::File(file.path.clone()),
@@ -253,34 +270,38 @@ fn checked_as(file: &FileDescriptor, size_rule: SizeRule) -> Option<Checked> {
 
 /// The findings of the files among `files`, those of the model folder at `folder`, that the
 /// deep pass reads (`checked_as`, textures held to `size_rule`): each on the folder's scope,
-/// an Error dropping the folder, the file named below the folder.
+/// an Error dropping the folder, the file named below the folder. The files are checked in
+/// parallel.
 fn folder_findings(
-    content: &mut ContentSource,
+    content: &ContentSource,
     folder: &ScopePath,
     files: &[FileDescriptor],
     size_rule: SizeRule,
 ) -> Vec<ContentFinding> {
-    let mut findings = Vec::new();
-    for file in files {
-        let Some(checked) = checked_as(file, size_rule) else {
-            continue;
-        };
-        findings.extend(file_findings(
-            content,
-            file,
-            checked,
-            &IssueScope::Folder(folder.clone()),
-            Disposition::DropFolder,
-            &relative(&file.path, folder),
-        ));
-    }
-    findings
+    // Collected in file order (an indexed `collect`), whatever the scheduling.
+    let per_file: Vec<Vec<ContentFinding>> = files
+        .par_iter()
+        .map(|file| {
+            let Some(checked) = checked_as(file, size_rule) else {
+                return Vec::new();
+            };
+            file_findings(
+                content,
+                file,
+                checked,
+                &IssueScope::Folder(folder.clone()),
+                Disposition::DropFolder,
+                &relative(&file.path, folder),
+            )
+        })
+        .collect();
+    per_file.into_iter().flatten().collect()
 }
 
 /// The bytes of `file`, or, when they cannot be read, its `source_read_failed` on `scope`
 /// with `disposition`, never eligible: there is nothing to keep.
 fn read(
-    content: &mut ContentSource,
+    content: &ContentSource,
     file: &FileDescriptor,
     scope: &IssueScope,
     disposition: Disposition,
@@ -313,7 +334,7 @@ fn relative(path: &ScopePath, folder: &ScopePath) -> String {
 /// `logo_file_invalid`, with `disposition` and never eligible: no logo can be made from it. A
 /// file that cannot be read is `source_read_failed`, with `disposition` and never eligible.
 fn file_findings(
-    content: &mut ContentSource,
+    content: &ContentSource,
     file: &FileDescriptor,
     checked: Checked,
     scope: &IssueScope,
@@ -801,6 +822,69 @@ mod tests {
         let temp = scratch("deep_logo_valid");
         let findings = findings_of(temp.path(), &[("logo.png", texture("portrait.png"))], &[]);
         assert_eq!(findings, []);
+    }
+
+    #[test]
+    fn findings_keep_the_file_order_whatever_the_workers_scheduling() {
+        let temp = scratch("deep_parallel_order");
+        let players = ["03 - A", "05 - B", "07 - C", "09 - D"];
+        let files: Vec<(String, Vec<u8>)> = players
+            .iter()
+            .flat_map(|player| {
+                [
+                    (format!("Players/{player}/skin.png"), texture("tiny.png")),
+                    (format!("Players/{player}/boots.fmdl"), tracer_boots()),
+                    (format!("Players/{player}/hair.png"), texture("tiny.png")),
+                ]
+            })
+            .collect();
+        let files: Vec<(&str, Vec<u8>)> = files
+            .iter()
+            .map(|(path, bytes)| (path.as_str(), bytes.clone()))
+            .collect();
+        let pool = rayon::ThreadPoolBuilder::new()
+            .num_threads(4)
+            .build()
+            .unwrap();
+
+        let runs: Vec<Vec<ContentFinding>> = (0..20)
+            .map(|_| pool.install(|| findings_of(temp.path(), &files, &[])))
+            .collect();
+
+        for (i, run) in runs.iter().enumerate() {
+            assert_eq!(*run, runs[0], "run {i}");
+        }
+        let expected: Vec<ContentFinding> = players
+            .iter()
+            .flat_map(|player| {
+                let scope = folder(&format!("Players/{player}"));
+                [
+                    counted(
+                        "fmdl_weights_not_normalized",
+                        &scope,
+                        "boots.fmdl",
+                        1662,
+                        Disposition::Keep,
+                        false,
+                    ),
+                    texture_finding_on(
+                        "texture_too_small",
+                        &scope,
+                        "hair.png",
+                        Disposition::DropFolder,
+                        true,
+                    ),
+                    texture_finding_on(
+                        "texture_too_small",
+                        &scope,
+                        "skin.png",
+                        Disposition::DropFolder,
+                        true,
+                    ),
+                ]
+            })
+            .collect();
+        assert_eq!(runs[0], expected);
     }
 
     #[test]

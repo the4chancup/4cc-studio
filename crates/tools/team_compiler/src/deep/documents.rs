@@ -56,7 +56,7 @@ fn face_diff_form(role: Option<PlayerFile>) -> Option<FaceDiffForm> {
 /// and checked, a `face_diff.bin` as it is and a `face_diff.xml` decoded, and one the game
 /// cannot read is `face_diff_invalid` with the reason.
 pub(super) fn face_diff_findings(
-    content: &mut ContentSource,
+    content: &ContentSource,
     folder: &ScopePath,
     files: &[FileDescriptor],
     models: &FolderModels,
@@ -119,7 +119,7 @@ pub(super) fn face_diff_findings(
 /// `KitConfig::from_toml` refuses: the kit is dropped, its textures with it, since the config
 /// names them.
 pub(super) fn kit_config_finding(
-    content: &mut ContentSource,
+    content: &ContentSource,
     kit: &KitFolder,
 ) -> Option<ContentFinding> {
     let file = kit.config.as_ref()?;
@@ -137,7 +137,7 @@ pub(super) fn kit_config_finding(
 /// `PlayerSettings::parse` refuses: the file alone is dropped, the folder's models still
 /// compile, and the savefile keeps the player's values.
 pub(super) fn settings_finding(
-    content: &mut ContentSource,
+    content: &ContentSource,
     player: &PlayerFolder,
 ) -> Option<ContentFinding> {
     let file = player.settings.as_ref()?;
@@ -155,7 +155,7 @@ pub(super) fn settings_finding(
 /// not UTF-8 text or `parse` refuses it: the context names the file and the error. A file that
 /// cannot be read is `source_read_failed` instead.
 fn toml_finding<T, E: fmt::Display>(
-    content: &mut ContentSource,
+    content: &ContentSource,
     file: &FileDescriptor,
     code: Code,
     scope: &IssueScope,

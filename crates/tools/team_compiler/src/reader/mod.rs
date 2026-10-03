@@ -12,6 +12,7 @@ use std::sync::Arc;
 use aesthetics_export::{CanonicalListing, ListedKind, SmallMetadata};
 use anyhow::Context;
 use pipeline::MemoryBudget;
+use rayon::prelude::*;
 use studio_core::ExportId;
 use teams_list::TeamName;
 
@@ -175,12 +176,16 @@ fn source(path: PathBuf, kind: SourceKind, export_id: ExportId) -> ExportSource 
     }
 }
 
-/// Each source's route, in the order given, its `.7z` reads charged to `budget`. The
-/// duplicate-refs rule counts only the `/refs/` exports still headed for validation, so a
-/// disabled or unreadable one never conflicts.
+/// Each source's route, in the order given, its `.7z` reads charged to `budget`; the sources
+/// are read in parallel, on the rayon pool the caller runs this in. The duplicate-refs rule
+/// counts only the `/refs/` exports still headed for validation, so a disabled or unreadable
+/// one never conflicts.
 pub(crate) fn route(sources: &[ExportSource], budget: &Arc<MemoryBudget>) -> Vec<Route> {
+    // `route_source` starts no parallel work of its own, so a worker waiting in it for a
+    // `.7z`'s permit never has another source's read, and its permit, suspended below it on
+    // the same thread: waiting there is safe. The indexed `collect` keeps the source order.
     let mut routes: Vec<Route> = sources
-        .iter()
+        .par_iter()
         .map(|source| route_source(source, budget))
         .collect();
     let refs: Vec<usize> = sources
