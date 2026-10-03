@@ -11,13 +11,17 @@ player entirely. Setting it through individual `settings.toml` keys would be err
 version-dependent; instead it gets a folder-level toggle, consistent with the principle that the
 folder view tells the whole story about how the player's models render:
 
-- **`fpc.on`** — an empty marker file in a player folder. When present, the compile-time savefile
-  write applies the version-appropriate **FPC enable preset** from `pes_savefile` (the same preset
-  the save editor's FPC toggle uses — one implementation, so the two tools can never drift).
-- **`fpc.off`** — applies the disable preset (visible defaults) instead, for un-FPC'ing a previously
-  FPC'd player at compile time without a trip to the save editor.
-- **Absent = no FPC preset applied**: existing FPC settings are not reset merely because the marker
-  is missing. Independent authored settings and model-derived ID assignments still apply.
+- **`fpc.on`** — an empty marker file in a player folder. When present, the compile applies the
+  version-appropriate **FPC enable preset** from `pes_savefile` to the player's settings (the same
+  preset the save editor's FPC toggle uses — one implementation, so the two tools can never drift);
+  they reach the game like every other setting (on Fox in his `PlayerAppearance.bin` row, on
+  pre-Fox through the aesthetics patch).
+- **`fpc.off`** — applies the disable preset (visible defaults) instead. Since an absent key takes
+  its default, it differs from no marker only where an authored strip key would otherwise apply.
+- **Absent = no FPC preset applied**: the player's strip keys and boots/gloves IDs are what his
+  `settings.toml` and its defaults say. No earlier FPC state survives a compile without the
+  marker, since a compiled player's appearance is his file and nothing else (see "Player settings
+  in exports"). Model-derived ID assignments still apply.
 - Tolerances, in the same spirit as link files: a stray `.txt` suffix (`fpc.on.txt`) is accepted
   silently, and a bare `fpc` file is accepted as `fpc.on` (presence reads as "on").
 - Both markers in the same folder raise `fpc_conflict` (error; folder discarded).

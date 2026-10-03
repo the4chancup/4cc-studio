@@ -122,7 +122,8 @@ implementation is measured against.
 
 | Feature | Notes |
 |---------|-------|
-| Apply aesthetics patch | The compiler's `aesthetics_patch.toml` → current save; the default route by which teams' aesthetics reach the official save. See "Read-only aesthetics" |
+| Apply aesthetics patch | The compiler's `aesthetics_patch.toml` → current save: on pre-Fox the default route by which teams' aesthetics reach the official save, on Fox the autopilot teams' names and shirt names. See "Read-only aesthetics" |
+| Strip and seed | Fox saves: every player's appearance into a seed CPK of database tables, then every appearance id to -1; plus the restored-id check. See "Stripped save" |
 
 ---
 
@@ -330,9 +331,11 @@ files, so the editor's toggle and the compiler's markers cannot drift apart.
 
 ## Read-only aesthetics
 
-A player's aesthetics are owned by the team's export: `settings.toml` and the models decide them,
-the Team compiler resolves them into an **aesthetics patch** (format in the [Savefile
-plan](pes_savefile/README.md)), and the save editor applies the patch. Hand-editing the same fields here
+A player's aesthetics are owned by the team's export: `settings.toml` and the models decide them.
+On Fox the Team compiler writes them into the database tables of its CPK and the savefile's
+appearance records are stripped (see "Stripped save" below); on pre-Fox it resolves them into an
+**aesthetics patch** (format in the [Savefile plan](pes_savefile/README.md)), and the save editor
+applies the patch. Hand-editing the same fields here
 would create the two-sources problem — the next patch silently overwrites the hand edit, or the
 hand edit silently diverges from the DLC — so the editor **does not edit aesthetics by default**:
 
@@ -357,6 +360,40 @@ hand edit silently diverges from the DLC — so the editor **does not edit aesth
 
 Gameplay data (stats, skills, positions), team data and tactics are unaffected: they were never
 the compiler's, and the savefile builder edits them as before.
+
+---
+
+## Stripped save
+
+On Fox the game takes a player's appearance, boots and gloves from the database tables
+(`PlayerAppearance.bin`, `BootsList.bin`, `GloveList.bin`) when his appearance record's player id
+is -1, and from the record when the id is set (in-game Test 1, PES 2021). The cup's official save
+is therefore **stripped**: every appearance id at -1, so the tables the Team compiler writes decide
+every player's look. It is prepared once per game version and distributed as the blank save
+managers receive at every version change; no compile and no manager writes appearance into it
+afterwards.
+
+- **Strip and seed** is one operation (Database operations, Fox saves only): it writes every
+  player's current appearance (the record's appearance bytes, undecoded bits included, and his
+  boots and gloves IDs) into rows of the three tables, packed as a **seed CPK** the DLC builder
+  installs below the compiler's output, then sets every appearance id to -1. The seed is what a
+  player no export describes looks like afterwards, so stripping changes nobody's look; compiled
+  players' rows replace their seed rows. Appearance holds no tactics, so the seed can come from
+  any save with the cup's appearances, keeping the DLC builder and the savefile builder apart.
+- **Nothing in the editor sets an id back.** Imports (Team TOML, `.4ccs`/`.4cct`, Texport) and
+  name writes, the names patch included, leave the appearance block's id as it is; the aesthetics
+  transplant and the unlocked Appearance tab write the record's fields but not its id, and on a
+  stripped save they say that the game does not read them.
+- **The game's own Edit mode does.** Test 1 found that any change to a stripped player in Edit
+  mode restores his id: a rename brings back his pre-strip look, a look edit freezes the database
+  look shown into the save (with boots 0). Managers therefore rename players in this editor and
+  change looks only through the export (the Player aesthetics editor, then a recompile).
+- **A check reports restored ids**: opening a Fox save lists the players whose appearance id is
+  set while others are stripped, with a one-click **Strip again** (their record is ignored from
+  then on; the tables decide).
+
+Pre-Fox saves are not stripped: the database route is untested there, and the aesthetics patch
+stays their route.
 
 ---
 

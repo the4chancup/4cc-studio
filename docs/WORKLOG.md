@@ -11,13 +11,12 @@ is in `AGENTS.md` ("Working documents").
 
 **Phase:** 3 (Team compiler skeleton) closed 2026-10-02, its cross-family reviews queued (see
 "Handover"). Phases 1 and 2 done (Phase 2 closed 2026-09-30).
-**Next:** nothing queued; the studies 4.0a-4.0d are closed. Test 1
-of step 4.0 is installed for the maintainer's in-game check; per the directive, no Phase 4 work. 2.5b
-(GPU BC7) is step 16.x (decision entries 2026-09-21 and 2026-09-28). Release target
-(2026-09-28): 0.1.0 after Phase 8; phase order 1–6, 8, 0.1.0, 7, 9–16
-(`core/development_plan.md` "Releases").
-**Blocked on:** step 4.0, the maintainer's in-game appearance-fallback test: no agent itemizes
-Phase 4 or writes anything for Phase 4, 5 or 6 before it is done.
+**Next:** step 4.0 is done (2026-10-03) and its plan rewrite written (decision entry "aesthetics
+travel in the database tables"; its cross-family review is queued). Next: Phase 4's itemization. 2.5b (GPU BC7) is step 16.x (decision entries
+2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0 after Phase 8; phase order 1–6,
+8, 0.1.0, 7, 9–16 (`core/development_plan.md` "Releases"); first-class target the Fox version
+the cup moves to around April 2027 ("Target versions").
+**Blocked on:** nothing.
 
 **Handover (2026-10-01).** Until the maintainer says otherwise, the session runs as a single
 Claude agent with no sidekick and no reviewer of another model family. While that holds:
@@ -55,6 +54,10 @@ Claude agent with no sidekick and no reviewer of another model family. While tha
   Phase 3 parts of `studio_core` and `studio`), against the Phase 3 plan sections and the TC
   IDs, the lead's converge record in the 3.y row and its log line; after the loop ends, the
   second whole-crate `just mutants` per crate (`AGENTS.md` "Closing a phase").
+  4.0 (a)-style: the plan rewrite of the decision entries "aesthetics travel in the database
+  tables" and "Fox first; game-behavior changes go through FoxDen" (2026-10-03, its commit), against
+  the step 4.0 row and `.tmp/apptest/results.txt` (the in-game evidence); the surfaces are the
+  plan files those entries list, `settings_toml.md` and `save_editor.md` "Stripped save" first.
 - For the lead, on return: the review process on trial (maintainer, 3.1) runs a full sidekick
   review loop after each GPT round and calls GPT again only once that loop has ended and GPT's
   own loop has not; not yet in `AGENTS.md` (3.6: GPT 4 of 7 accepted, then sidekick S1 3 of 7,
@@ -227,7 +230,7 @@ Steps are itemized only after 4.0 is done; one more is fixed already
   `--mode sideload`; no `sider` left in `crates/tools/team_compiler`. Done: `cli.rs` `Mode::Sideload`,
   `tests/cli/preflight.rs`, `help/01_command_line.md`; gates green, 77 of 77; `mutants-diff
   b8e7393`: no mutants (a rename)
-- [ ] 4.0 **GATE, maintainer only: in-game appearance-fallback test.** No agent itemizes Phase 4,
+- [x] 4.0 **GATE, maintainer only: in-game appearance-fallback test.** No agent itemizes Phase 4,
   writes a Phase 4/5/6 Acceptance section, or starts Phase 4/5/6 work until the maintainer has
   run the test and reported the result. The idea under test: a savefile player whose appearance
   record's player ID is -1 (`0xFFFFFFFF`) takes his appearance from the database table
@@ -243,7 +246,17 @@ Steps are itemized only after 4.0 is done; one more is fixed already
   in its `manifest.txt` and a step-by-step for the maintainer in `GUIDE.txt`. Follow-ups (field meaning in `Player.bin`, whether an in-game edit
   writes the record back, other PES versions: 2017 tables in `E:\PES2017\Data\dt10_win_files\
   common\etc\pesdb`) are planned from Test 1's result → done when: the result is recorded in the
-  log and in a decision entry, and the plan changes it implies are written
+  log and in a decision entry, and the plan changes it implies are written. Done 2026-10-03, seven
+  runs on PES 2021 (the 2023 Winter Cup save and DLC; run records, scripts and every finding in
+  `.tmp/apptest/results.txt`, outside git): with the save's appearance id at -1 the game takes
+  the player's appearance from `PlayerAppearance.bin` (per player: Look A and Look B both showed),
+  his boots from `BootsList.bin`, and with the stock exe his gloves from `GloveList.bin`, without
+  needing a goalkeeper position in `Player.bin`; a kept id wins (the save's look and boots). The
+  4cc gloves patch (patched exe and FoxDen) overwrites the table's gloves with the save record's
+  field, so gloves need a FoxDen change ("Issues"). Any Edit-mode change to a stripped player
+  restores his id: a look edit freezes the shown database look into the save (boots 0), a rename
+  brings back his old save look; untouched players stay at -1. Plan changes: decision entry
+  "aesthetics travel in the database tables"
 
 - [ ] 4.y `dds_convert` cache retention bound (found at 2.20d converge; spec `libs/dds_convert.md`
   "In-memory conversion cache", "Retention is separately bounded and budgeted"): the
@@ -330,9 +343,25 @@ pruned when their phase closes; they stay in git history.
   Model them when the Save editor needs them.
 - open — `pes_savefile` player id versus appearance id (2.20i reviewer): the appearance
   block's player id (+116 on 17-19, +240 on 20/21) is unmodeled, so changing
-  `PlayerEntry.id` leaves it stale. Nothing changes an id today. How the writer sets it is
-  decided with Phase 4, since step 4.0 tests exactly that field (-1 = fall back to
-  `PlayerAppearance.bin`).
+  `PlayerEntry.id` leaves it stale. Nothing changes an id today. Step 4.0 settled what the field
+  does (-1 = the player's appearance comes from the database tables), so the model gains it with
+  the Phase 5 work that strips and preserves it (decision entry "aesthetics travel in the
+  database tables").
+- open — FoxDen's PES 2021 gloves trampoline discards `GloveList.bin` (step 4.0, runs 4-7):
+  `build_botch_21` in `Tools_4cc/FoxDen/scripts/01_patches.lua` (and the patched exe it
+  reproduces) loads the gloves id from `[rsi+0x2C]` for outfield players and goalkeepers,
+  overwriting the value the original code chose in `[rsp+0x70]`, which for a player whose save
+  appearance id is -1 is his `GloveList.bin` row (the stock exe showed it; the patched exe showed
+  bare hands). Request for FoxDen's maintainer: keep the original value when the player has no
+  save appearance record, for outfield players too (p1 routes them through the goalkeeper path),
+  then an in-game retest with a `GloveList.bin` row for an outfield and a goalkeeper player.
+  The Team compiler's gloves output on Fox depends on it.
+- open — `pes_savefile::ops::fpc::is_fpc_player` finds no FPC player in a real cup save (step
+  4.0 survey of the 2023 Winter Cup save): FPC teams there give each player a blank boots and
+  gloves id of his own (`/a/`: 126/126 ... 148/148) rather than 55/11, which its doc comment
+  already calls indistinguishable. The Save editor cannot use it to tell FPC teams apart; a hide
+  strip (long sleeves, tucked, short socks) plus boots no other player wears marked them in the
+  survey (`.tmp/apptest`, `fpc` subcommand).
 - **Texport write is unverified in-game** (2.17h): `Texport::new` synthesizes 18-21 files from
   measured templates and `to_bytes` rewrites read files; both round-trip byte-identical, but no
   generated file has been imported by the game yet (`verification.md` "Texport write": manual,
@@ -815,3 +844,9 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   any `Cargo.lock` addition (decision entry). `just deps-check` green locally.
 - **2026-10-03** — `(maintainer, <date>)` notes removed from the plans and `AGENTS.md`; the four
   with no decision entry got one, and `AGENTS.md` keeps them out (decision entry).
+- **2026-10-03** — Step 4.0 done: seven in-game runs on PES 2021 (the first, on the June save,
+  failed on a corrupted `SYSTEM00000000`; the maintainer moved to the 2023 Winter Cup save and
+  DLC). Database tables are read for players whose save appearance id is -1; gloves need a
+  FoxDen change ("Issues"). "Target versions" added to `development_plan.md` (Fox first,
+  game-behavior changes through FoxDen) and the aesthetics design recorded (decision entries).
+  Next: the plan rewrite those entries imply, then Phase 4's itemization.

@@ -339,8 +339,10 @@ ingame-face parameters (which the legacy formats omit). Goals:
 - Version-gated fields serialize as optional keys; importing into an older
   version applies the cross-version conversion (caps + playstyle maps) with
   warnings.
-- **Absent = untouched on import**, at every level (key, player, team section) — the same rule
-  the aesthetics patch follows. An export writes every field, so a round trip is full-fidelity;
+- **Absent = untouched on import**, at every level (key, player, team section) — the rule the
+  aesthetics patch follows for players and teams. An import never sets a player's appearance id:
+  a stripped save stays stripped (see "Stripped save" in the [Save editor plan](../save_editor.md)).
+  An export writes every field, so a round trip is full-fidelity;
   a file written by hand or by the Team creator carries only what its author decided, and the
   save's values stand in for the rest. A partial file is therefore a patch, not a template with
   holes.
@@ -636,13 +638,20 @@ tighten when it is.
 
 ### Aesthetics patch (new)
 
-The file the Team compiler writes on **every** compile and the save editor applies: the resolved
-savefile writes for every compiled player, so that the people who build the DLC and the people who
+The file the Team compiler writes beside its CPK and the save editor applies: the resolved
+savefile writes for the compiled players, so that the people who build the DLC and the people who
 build the official savefile can be different people. The DLC builder compiles the cup's exports
 without ever seeing the savefile builder's data (the teams' custom tactics, which they send to the
 savefile builder alone), hands over the CPK and the patch, and the savefile builder applies the
-patch to the official save. Without the patch, the only way to get compile-time settings into a
-save was to compile against that save.
+patch to the official save.
+
+**What it holds depends on the engine.** On **Fox** (PES 18–21) a player's appearance, boots and
+gloves travel in the CPK's database tables, not in the savefile (see "Player settings in exports"
+in the [Aesthetics export plan](../aesthetics_export/settings_toml.md)), so the patch holds only
+**names and shirt names** — written for autopilot teams, whose tactical export carries
+placeholder names, and not applied for managed teams, whose managers name their players. It is
+written when the compile resolved at least one name or shirt name. On **pre-Fox** (PES 15–17) it
+holds everything below, on every compile, as the only route for aesthetics.
 
 ```toml
 # aesthetics_patch.toml — written by the Team compiler beside its output CPK
@@ -658,24 +667,32 @@ name = "/a/"                 # for the reader; the id is what is applied
 
 [teams.players.03]           # slot 03 → player 70103
 name = "Snuffy"              # resolved: `name = true` became the string
+shirt_name = "SNUFFY"
+# pre-Fox only from here on:
 boots_id = 3601              # resolved: the assigned custom ID, or the authored stock ID
 gloves_id = 0
 edit_flags = 12
 
 [teams.players.03.appearance]
 skin_color = 2
-# … the PlayerSettings schema, exactly as in settings.toml
+# … the PlayerSettings schema, exactly as in settings.toml, unknown bits included
 ```
 
 Rules:
 
-- **Per player, the file carries the `PlayerSettings` schema plus the compiler-owned
-  `edit_flags`**, with `boots_id`/`gloves_id` over their full stored range: the resolved ID is a
-  committed custom output's assigned ID, or the authored stock ID (0 to 100) when the folder
-  requested no output for that category — the same union Team TOML's player aesthetics section
-  holds; nothing is invented for the patch. Only fields the compile resolved to a write appear;
-  **absent = untouched** at every level (field, player, team), which is what lets a midcup patch
-  covering three teams apply to a save cleanly after a full-cup one.
+- **Per player, a pre-Fox file carries the `PlayerSettings` schema plus `name`, `shirt_name` and
+  the compiler-owned `edit_flags`**, with `boots_id`/`gloves_id` over their full stored range: the
+  resolved ID is a committed custom output's assigned ID, or the authored stock ID (0 to 100) when
+  the folder requested no output for that category — the same union Team TOML's player aesthetics
+  section holds; nothing is invented for the patch. Every appearance field is written, with
+  `settings.toml`'s defaults for keys its file lacks, so a player's appearance is his export's
+  whatever the save held. A Fox file carries `name` and `shirt_name` only. Absent players and
+  teams are untouched, which is what lets a midcup patch covering three teams apply to a save
+  cleanly after a full-cup one; an absent `name` or `shirt_name` is not written.
+- **A names write keeps a stripped player stripped.** Applying a Fox patch changes the name
+  fields alone; the appearance block, and its player id at -1, are left as they are, so the
+  player keeps taking his appearance from the database tables (see "Stripped save" in the
+  [Save editor plan](../save_editor.md)).
 - **Everything is resolved.** `name = true` is the derived string; `fpc.on`/`fpc.off` are the
   preset's concrete field values; the IDs are the assigned ones, already filtered by the compiler's
   "only for content that was actually packed" rule. The patch answers "what will the save contain",

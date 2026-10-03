@@ -243,6 +243,28 @@ which the code reproduces literally. This matters because the patch workflow bel
 `settings.toml` the *only* route by which a team's aesthetics reach the official save: a field the
 file cannot express is a field nobody can set.
 
+**Planned for Phase 5** (step 4.0's result, decision entry "aesthetics travel in the database
+tables"; the description above and below is the Phase 2 code until then):
+
+- `Height` and `Weight` leave the key table (classified `Gameplay`); `shirt_name: Option<String>`
+  joins `name` at the top level, string-only, checked against `shirt_name_from`'s limits.
+- **Absent = default.** Applying a `PlayerSettings` writes every appearance field, a `None` taking
+  the value the template shows; only `name` and `shirt_name` keep `None` = not written. The
+  template's "unset ones as commented lines" stays, now meaning "at its default".
+- **Unknown bits become authorable as raw values.** The ownership classification gains the
+  complement of each version's decoded bits inside the appearance block (`Unknown`), and
+  `AppearanceSettings` gains the `[appearance.unknown.pesNN]` tables (`bit_N` bools, `bits_A_B`
+  base64 runs; format in `settings_toml.md`); `from_player` emits the player's version's table,
+  and applying writes only the target version's (absent bits 0). The completeness test then
+  asserts that every bit of the block is named, unknown, or compiler-owned.
+- **The Fox database row.** A `PlayerSettings` (with its defaults) also produces the
+  `PlayerAppearance.bin` row: the player id, then the appearance block's bytes after its id,
+  edit flags, boots/gloves and base-copy fields (record bytes 252 to 308 on PES 20/21; the PES 18
+  and 19 offsets are measured when those versions are implemented). Boots and gloves go to the
+  `BootsList.bin`/`GloveList.bin` pairs.
+- The appearance block's player id becomes a modeled field, read and preserved; only the Save
+  editor's strip operation writes -1 (worklog issue "player id versus appearance id").
+
 ```rust
 /// `settings_toml.rs`
 pub enum NameSetting { FromFolder, Explicit(String) }

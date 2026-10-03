@@ -2927,3 +2927,46 @@ because the question keeps coming up).
 Why: the notes repeated this file and bloated the documents every agent reads in full.
 Plan: `AGENTS.md` (decision logging); `core/distribution.md`, `core/gui.md`, `core/README.md`,
 `team_compiler/gui.md`, `pes_savefile/codec.md`.
+
+## 2026-10-03 — development plan — Fox first; game-behavior changes go through FoxDen
+Decision (maintainer): the cup moves from PES 17 to a Fox version (not yet chosen) around April
+2027 and plays Fox versions for at least a year after, so Studio's first-class target is that Fox
+version. Changes to the game's own behavior that Studio's output relies on are made in FoxDen
+(which applies the 4cc exe patches at runtime to the stock exe), not in a patched executable.
+FoxDen needs the Fox games' Lua engine, so a pre-Fox equivalent is built only if a pre-Fox
+version becomes the cup's game again; until then a feature that needs one is Fox-only.
+Why: FoxDen was written to take the patches out of the exe so the modding system is more
+flexible; the patched exe stays only because FoxDen has been tested on a couple of invitationals
+so far. Building a pre-Fox runtime now would serve a version the cup leaves in six months.
+Plan: `core/development_plan.md` "Target versions" (new paragraph after "Releases").
+
+## 2026-10-03 — aesthetics — aesthetics travel in the database tables (step 4.0)
+Decision (maintainer, from in-game Test 1 on PES 2021): on Fox a player's appearance, boots and
+gloves travel in the Team compiler's CPK as rows of `PlayerAppearance.bin`, `BootsList.bin` and
+`GloveList.bin`, over a **stripped** official save (every appearance id -1, prepared once per
+version by the Save editor's strip-and-seed, whose seed CPK holds everyone's appearance until an
+export replaces it). The aesthetics patch keeps only `name` and a new string-only `shirt_name`,
+applied by the savefile builder for autopilot teams (and by the compiler to a configured local
+save; a names write never sets an id). `height` and `weight` leave `settings.toml` (height is
+tactical; weight follows for consistency). An absent key takes its default (the template's
+value) on both engines, so a compiled player's appearance is his file alone; the undecoded bits
+of the appearance block become `[appearance.unknown.pesNN]` raw values (bools and base64 runs),
+per version, default 0 until an in-game check says otherwise. Imports and name writes keep ids
+at -1; looks change only through the export, since any Edit-mode change restores a player's id.
+Pre-Fox keeps the full savefile aesthetics patch (second-class support, not third-class: as
+usable as possible for invitationals on pre-Fox versions).
+Why: the test showed the game reads the tables per player whenever the save's appearance id is
+-1, and a kept id wins; the stock exe applies `GloveList.bin` without any `Player.bin` goalkeeper
+position, while the 4cc gloves patch overwrites it (a FoxDen request, worklog "Issues"). Moving
+appearance out of the save makes aesthetics independent of the savefile; keeping a names-only
+patch serves autopilot teams, whose tactical exports carry placeholder names. Building rows from
+the file alone, not over the installed row, keeps a compile reproducible; carrying the undecoded
+bits in the file keeps the about 5% of players who rely on in-game hair, where neutral defaults
+would reset them. One meaning of "absent" on both engines replaces two rules per engine.
+Plan: `aesthetics_export/settings_toml.md` "Player settings in exports"; `aesthetics_export/
+fpc_toggle.md`; `pes_savefile/operations.md` "Aesthetics patch" and Team TOML; `pes_savefile/
+model.md` "Player settings model" (planned for Phase 5); `save_editor.md` "Read-only aesthetics",
+"Stripped save" (new), feature inventory; `team_compiler/pipeline.md` (ID writes, "Bins
+accumulation", "Post-processing", game paths, resolved decision); `team_compiler/README.md`;
+`player_aesthetics_editor.md`; `core/development_plan.md` Phases 4, 5, 6; `core/README.md`;
+`GLOSSARY.md` ("Aesthetics patch", "Stripped save", "Autopilot team").

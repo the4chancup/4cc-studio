@@ -94,6 +94,7 @@ User exports (folders / .zip / .7z)
 │  pes_savefile: Aesthetics patch + savefile   │
 │  ─ Resolve settings.toml + activated IDs     │
 │  ─ Write aesthetics_patch.toml beside the CPK│
+│    (Fox: names only; appearance is in bins/) │
 │  ─ Local save configured: decrypt, apply the │
 │    patch, re-encrypt, save (.bak backup)     │
 └──────────────────────────────────────────────┘
@@ -140,7 +141,7 @@ crates/tools/team_compiler/
 │   │   ├── team_assets.rs#   portraits, logos, collars, Common folder
 │   │   ├── referee.rs    #   referee-specific processing (markers, per-referee common layout)
 │   │   └── materialize.rs#   THE seam: relocation to game paths + Fox FPK packing (skipped in test mode)
-│   ├── bins/             # UniColor / TeamColor / UniformParameter accumulation
+│   ├── bins/             # UniColor / TeamColor / UniformParameter accumulation; on Fox also PlayerAppearance / BootsList / GloveList
 │   │   ├── mod.rs        #   working-bin lookup via the DpFileList walk, mutation commit
 │   │   └── dpfl.rs       #   DpFileList.bin read/write, slot discovery, upgrade (override)
 │   ├── output/           # stages 5–6: the writer and everything after it

@@ -27,6 +27,17 @@ depends on the Blender `pes-models` codec outside this workspace. Phase numbers 
 every pointer names them. Releases stay `0.x` until Phase 16 closes with **1.0.0**; "first
 release" in the plans means 1.0.0, so a "first-release" feature may land after 0.1.0.
 
+**Target versions.** The cup moves from PES 17 (pre-Fox) to a Fox version, not yet chosen, around
+April 2027, and plays Fox versions for at least a year after that; Studio's first-class target is
+therefore that Fox version, and PES 15–17 support covers what the plans already give them. A
+change to the game's own behavior that Studio's output relies on (gloves on outfield players,
+the referee hook, LiveCPK) is made in **FoxDen**
+(`Tools_4cc/FoxDen`), the community's runtime for PES 18–21, rather than in a patched executable:
+FoxDen applies the 4cc exe patches at runtime to the stock exe, so one installed file carries
+them. FoxDen runs on the Fox games' Lua engine and cannot exist on pre-Fox versions; a pre-Fox
+equivalent is built only if a pre-Fox version becomes the cup's game again, so a feature that
+needs one is Fox-only until then.
+
 ### Phase 1: Workspace bootstrap + core skeleton
 
 Done (2026-09-13). The guardrails above apply "from the first commit", so the first commit is the
@@ -318,7 +329,9 @@ nothing about the Rust code.
   referee code in `fmdl_editing`/`export_move`); `materialize.rs` as the single output-mode seam:
   relocation to game paths and Fox FPK packing (`contents_packing`, `export_move`).
 - **`bins/`** — UniColor / TeamColor / UniformParameter accumulation via `uniparam`, DpFileList
-  read/write and slot discovery (`bins_update`).
+  read/write and slot discovery (`bins_update`); on Fox the player appearance tables
+  (`PlayerAppearance.bin`, `BootsList.bin`, `GloveList.bin`): read from the installed CPKs, rows
+  replaced, written whole (the rows' content comes from Phase 5's settings resolution).
 - **`output/`** — Phase 3 already writes one CPK through the canonical-order writer, staging and
   promotion to `output/`, with the output folder's writability preflight (TC-OUT-*, TC-CLI-06);
   Phase 4 adds `OutputSink` (CPK vs loose folder for test/sideload), the `.partial` copy into
@@ -343,16 +356,24 @@ is a deferred verification completed after those phases land.
   asset-dependent mutations; final serialization applies only activated mutations while independent
   accepted `settings.toml` changes may still apply. The allocation scheme is fixed (40-ID per-team
   blocks — see the Team compiler plan), and Phase 4 model-task processing only consumes planned
-  assignments. `fpc.on`/`fpc.off` markers apply `pes_savefile`'s FPC presets here.
+  assignments. `fpc.on`/`fpc.off` markers apply `pes_savefile`'s FPC presets here. The resolved
+  settings become, on Fox, each compiled player's appearance table rows (Phase 4's `bins/`) and an
+  aesthetics patch of names only; on pre-Fox, the full aesthetics patch ("Player settings in
+  exports" in the Aesthetics export plan).
 - `libs/aatf`: the AATF rules engine (one self-contained Rhai rules file; see the Save editor
   plan's "Configurable AATF rules").
 - The Save editor tool crate's non-GUI substance: settings, CLI, and the operations wiring over
-  `pes_savefile` (editing, tactics, AATF checks, comparator, transplant, FPC toggle) that the Phase
-  8 view will render — build order in the [Save editor plan](../save_editor.md).
+  `pes_savefile` (editing, tactics, AATF checks, comparator, transplant, FPC toggle, strip and
+  seed with the restored-id check) that the Phase 8 view will render — build order in the
+  [Save editor plan](../save_editor.md).
 
 **Verification:** Team compiler parity now includes savefile output — compiled savefile compared
 against 4ccEditor edits for the same assignments; AATF rule fixtures (known-violating and clean
-saves); save editor operations exercised through the CLI on fixture saves.
+saves); save editor operations exercised through the CLI on fixture saves. In game, on the Fox
+version the cup has chosen (step 4.0's Test 1 covered PES 2021 only): a stripped and seeded save
+shows every player as before; a compiled team's rows show, gloves included once FoxDen keeps the
+table's value; and a file without `[appearance.unknown]` renders acceptably with the all-zero
+default (otherwise the default becomes the base database row's bits).
 
 ### Phase 6: Export upgrader (`tools/export_upgrader`)
 
@@ -362,7 +383,9 @@ saves); save editor operations exercised through the CLI on fixture saves.
   generation (multi-user folders)
 - Implement kit restructuring (binary kit configs → `config.toml`, `colors.txt`/`icon.txt` from Team
   Note colors)
-- Implement `settings.toml` generation from savefile aesthetics
+- Implement `settings.toml` generation from savefile aesthetics: every key, the save's unknown bits
+  included, and names as explicit strings (a migrated player must look the same once his rows
+  replace his stripped record)
 - CLI: `4cc-studio export-upgrader ./old_export.zip`
 
 **Verification:** Upgrade the full library of existing old-format exports; compile the results;

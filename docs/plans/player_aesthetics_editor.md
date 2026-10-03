@@ -108,9 +108,10 @@ implementation detail; the manifest is the contract).
 (appearance, physique, strip, motion, colours, ingame-face parameters) — plus the
 `fpc.on`/`fpc.off`/absent marker tri-state and the `ingame_face` marker. The form is **generated
 from the `PlayerSettings` schema**, not hand-built per field: `settings.toml` is the only route by
-which a team's aesthetics reach the save (the compiler's aesthetics patch is built from it, and the
-save editor's own fields are read-only — see "Player settings in exports" in the [Aesthetics export
-plan](aesthetics_export/README.md)), so a field the schema gains must appear here without anyone
+which a team's aesthetics reach the game (the compiler builds the Fox appearance tables and the
+pre-Fox aesthetics patch from it, and the save editor's own fields are read-only — see "Player
+settings in exports" in the [Aesthetics export plan](aesthetics_export/README.md)), so a field the
+schema gains must appear here without anyone
 remembering to add a widget. Each key renders from its schema type and range, with the same
 app-injected comment as its tooltip. Writes preserve user comments and formatting (`toml_edit`);
 validation is `aesthetics_export`'s, so the form can never write a file the compiler would reject.
