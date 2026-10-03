@@ -3353,3 +3353,22 @@ refuses ones PES 18 and 19 do. Counted on the maintainer's installs on the exter
 (`.tmp/collar_sets/measure.py`, `summary.txt`). The reserved collars hold everywhere they are
 used: 77 is stock in all six; 105 is absent from PES 15, where there is no FPC preset.
 Plan: `team_compiler/messages.md` `collar_id_invalid`.
+
+## 2026-10-03 — fpc — FPC exists on PES 15 (measured) and very likely on PES 18; correction
+Decision: the entry above ("the stock collar sets are measured…") ends with "105 is absent
+from PES 15, where there is no FPC preset". The first half holds for the stock game only; the
+second half is wrong. `fpc::kit_values` is to return the four FPC values (shirt model 176,
+shorts model 16, collar 105, winter collar 105) for PES 15 too, at step 4.9, and for PES 18
+unless the maintainer says its values differ.
+Why: checked on the maintainer's installs on the external drive. Stock PES 15 has no collar
+105 anywhere (`nocloth/collar_NNN` ends at 101, and so do the `d/modD_shirt_*_collar_NNN`
+models; no Konami data pack is installed there, so one adding collars would not be seen). But
+every install, PES 15 and 18 included, has its own `4cc_04_fpc.cpk` holding the empty
+`collar_105` and `pants_016` models, and 301 of PES 15's 360 installed kit configs carry
+exactly the four FPC values (26 of 50 teams on every kit); the same count gives 285 of 338 on
+PES 16, 344 of 407 on PES 17, 35 of 49 on PES 19 and 474 of 637 on PES 21. PES 18's install
+holds no team kit config; its FPC CPK has the same 15 files as PES 19's. The `None` for PES
+15 and 18 came from the wiki page, which is silent on both. Reserving collar 105 on every
+version, as `collar_id_conflict` does, was right all along. Tool and output:
+`.tmp/fpc_kits/` (`src/main.rs`, `summary.txt`).
+Plan: `libs/fpc.md` "`libs/fpc`" (`kit.rs`).

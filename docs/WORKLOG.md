@@ -526,7 +526,10 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
 - [ ] 4.9 **Kit configs, FPC reconciliation and collars** (the brief settles what a collar in
   the other engine's format does: converted, or refused; `Collars/` admits any model format):
   team kit-FPC status (`fpc_on` in any
-  player folder → On), generated configs with FPC values (`kit_config::fpc::apply_fpc`), supplied
+  player folder → On), `fpc::kit_values` returning the four FPC values for PES 15 too, and
+  for PES 18 unless the maintainer says otherwise (both are `None` today, from a wiki page
+  silent on them; `libs/fpc.md` has the installs' counts; "Phase 4 open questions"),
+  generated configs with FPC values (`kit_config::fpc::apply_fpc`), supplied
   configs reconciled upward (`kit_config_fpc_adjusted`, GK included),
   `kit_config_version_clamped`; `fpc_on`/`fpc_off` no longer refuse the export (their savefile
   half is Phase 5); `Collars/` gets its allowlist row in `ae` (model files named `collar_<ID>`,
@@ -945,6 +948,23 @@ Phase 4 open questions (maintainer):
   and `4cc_50_other_faces`/`4cc_55_other_uniform` by `4cc_50_teams2` to `4cc_54_teams2`, 45
   entries. To confirm: five slots per run, and whether the second run is wanted. The slot
   stem is settled, `teams`.
+- FPC on PES 18 (4.9): the cup's PES 15 install has FPC (301 of its 360 kit configs carry the
+  four FPC values, and its `4cc_04_fpc.cpk` supplies `collar_105`), so `fpc::kit_values`
+  returns them for PES 15 from 4.9 on. PES 18's install has the FPC CPK (the same 15 files as
+  PES 19's) but no team kit config to count. To confirm: that PES 18 uses the same four
+  values. The lead's recommendation, applied at 4.9 unless told otherwise: yes, which makes
+  the values the same on every version and removes the `Option`.
+- Collars beyond the stock set (4.9, 4.27; the maintainer's idea, 2026-10-03): PES 15 loads
+  `collar_105`, which its stock game lacks, so the games probably accept collar IDs they do
+  not ship. If so, the FPC collar and the referees' marker could move to IDs no stock collar
+  uses (still reserved), and a team could replace or add any ID nobody else claims, which
+  would retire `collar_id_invalid`'s stock-set rule. What is known: a kit config stores each
+  collar in one byte (`kit_config` offsets 0x14 and 0x15), so a kit can name 1-255 at most,
+  whatever the file name allows; the only non-stock collar in any install is that PES 15
+  one, an empty 852-byte model, so nothing shows yet that a Fox game (18-21) loads one, or
+  that a visible model at a non-stock ID renders. To settle it: an in-game test per engine,
+  a kit naming an ID above the version's stock set (200, say) with a visible collar model
+  under that name. Until then 4.9 keeps the stock-set rule and the reserved 105 and 77.
 
 Answered 2026-10-03 (decision entries of that date; each is in the plan): the `colors.txt`
 grammar (one color per line, in both files); the kit icon as a marker file and the marker
@@ -1652,3 +1672,8 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   it stays on the ground by static painting, so 4.27 waits on nothing. Measured while the
   external drive was connected: every version's stock collar set but PES 20's (decision
   entry). New issue: a face diff is engine-specific.
+- **2026-10-03** — A claim checked on the installs at the maintainer's request: collar 105 is
+  missing from the stock PES 15 game, but the cup's PES 15 has FPC all the same (its own FPC
+  CPK supplies the collar; 301 of 360 kit configs use the four FPC values). `libs/fpc.md` and a
+  correcting decision entry say so; the code follows at 4.9. Two open questions added: PES 18's
+  FPC values, and whether the games load collars beyond their stock set.
