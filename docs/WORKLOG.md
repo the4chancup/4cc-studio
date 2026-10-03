@@ -474,7 +474,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   the same scope rule and pass-through eligibility; the format crates' `check` findings mapped
   (`fmdl_vertex_far_from_origin`/`model_vertex_far_from_origin` → `vertex_too_far_from_origin`,
   not pass-through-eligible), `portrait_conflict`, `logo_file_invalid` (decode),
-  `kit_config_invalid`, `kit_texture_too_big`, `kit_texture_uncompressed`, `settings_toml_invalid`
+  `kit_config_invalid`, `kit_texture_too_big`, `settings_toml_invalid`
   (parse only, through `pes_savefile`'s `PlayerSettings` TOML reader; the other `settings_*` and
   `fpc_strip_conflict` codes describe resolved values and are Phase 5's); CLI `check` runs both
   passes on every source kind, archives included; a test that every `ISSUE_CODES` entry and every

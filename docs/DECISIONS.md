@@ -3173,3 +3173,13 @@ a cancelled run could promote a CPK missing textures; and the run-result semanti
 question. Built with its trigger, the check gets a test that cancels a real run.
 Plan: `core/development_plan.md` "Phase 4" (`processing/`) and "Phase 8" (cancellation);
 `core/gui.md` "Cancellation".
+
+## 2026-10-03 — team_compiler — `kit_texture_uncompressed` is retired
+Decision: an uncompressed kit texture is no finding; it is encoded like any raster source.
+TC-CHK-04's uncompressed `p2/kit.dds` now compiles to a BC7 FTEX on PES 21 with no finding.
+Why: `libs/dds_convert.md` already encodes every uncompressed source ("PES 15–17 crash on
+uncompressed kit textures"), and TC-TEX-06 compiles a `kit.png`, which is uncompressed too, so
+the finding could only refuse a file the compiler fixes. Keeping it would refuse an RGBA8
+`kit.dds` while accepting the same pixels as a PNG.
+Plan: `team_compiler/messages.md` "Textures" (row removed, preamble sentence);
+`team_compiler/README.md` TC-CHK-04.

@@ -836,9 +836,9 @@ TC-CHK-03  GIVEN slot 05 holding a settings.toml with a key of the wrong type
            THEN settings_toml_invalid is reported, the folder's models compile, and the exit code
                 is 1
 TC-CHK-04  GIVEN p1/kit.dds of 4096x4096 and p2/kit.dds uncompressed (RGBA8)
-           WHEN the export is checked
-           THEN kit_texture_too_big is reported for p1 and kit_texture_uncompressed for p2, each
-                kit dropped
+           WHEN the export is checked, then compiled for PES 21
+           THEN kit_texture_too_big is reported for p1 and the kit dropped; p2 gets no finding
+                and its u0714p2.ftex is BC7
 TC-CHK-05  GIVEN a root logo.png whose bytes are not a decodable image
            WHEN the export is checked
            THEN logo_file_invalid is reported and no logo is emitted when compiled

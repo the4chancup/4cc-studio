@@ -212,7 +212,9 @@ names its textures; elsewhere (`Common/`, portraits) the file is dropped; the lo
 exception — main and `_small` fail as one atomic producer of the game's three sizes. A file is
 `texture_type_mismatch` when its bytes open with the signature of another accepted format than
 its extension's; TGA has no signature, so a `.tga` is a mismatch only when it opens with
-another's)
+another's. An uncompressed texture is no finding, a kit's included: it is encoded like any
+raster source (`libs/dds_convert.md` "Passthrough"), which is what PES 15–17's crash on
+uncompressed kits needed)
 
 | ID | Sev | Condition | Consequence |
 |---|---|---|---|
@@ -220,7 +222,6 @@ another's)
 | `texture_not_pow2` | E | portrait not power-of-2 / Fox mipmapped without pow2 side | discarded |
 | `texture_not_div4` | E | pre-Fox compressed texture not divisible by 4 | discarded |
 | `kit_texture_too_big` | E | main kit texture > 2048² or not pow2 | discarded |
-| `kit_texture_uncompressed` | E | main kit texture in uncompressed format | discarded |
 | `texture_type_mismatch` | E | header doesn't match extension (renamed, not resaved) | discarded |
 | `texture_codec_unsupported` | E | codec not convertible in-process | discarded |
 | `texture_stem_conflict` | E | two image files with the same stem in one lookup namespace, whatever their extensions: a model folder with its reserved subfolders (`hair.dds` beside `common/hair.dds`, or `hair.png`, or a texture link `hair.png.common`, which counts as a file of its linked name), `Common/` (`hair.dds` beside `hair.png`), a kit folder, or `Kits/all/` (`kit.png` beside `kit.dds`; a kit's own file overriding an `all/` file of its stem is not a conflict), or `Portraits/` (`player_03.dds` beside `player_03.png`) | folder discarded (the kit; for `all/`, `all/` itself, so no kit inherits from it); in `Portraits/` and `Common/`, both files (a player linking a dropped Common file follows `link_target_dropped`) |
