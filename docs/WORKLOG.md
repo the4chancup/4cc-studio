@@ -12,7 +12,7 @@ is in `AGENTS.md` ("Working documents").
 **Phase:** 3 (Team compiler skeleton) closed 2026-10-02, its cross-family reviews queued (see
 "Handover"). Phases 1 and 2 done (Phase 2 closed 2026-09-30).
 **Next:** Phase 4 is itemized and its Acceptance section written (step 4.1, 2026-10-03; its
-cross-family review (a) is queued). Next: 4.5 (face assembly on Fox); 4.4 is done. 2.5b (GPU BC7) is step 16.x (decision entries
+cross-family review (a) is queued). Next: 4.5b (reserved subfolders, `face_diff.xml`); 4.5a is done. 2.5b (GPU BC7) is step 16.x (decision entries
 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0 after Phase 8; phase order 1–6,
 8, 0.1.0, 7, 9–16 (`core/development_plan.md` "Releases"); first-class target the Fox version
 the cup moves to around April 2027 ("Target versions").
@@ -388,7 +388,16 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `legs.fmdl.common` and `Common/legs.fmdl` referencing `Common/cloth.dds`: the face package holds
   one `fcl_hair.fmdl` whose mesh count is the sum, `cloth.ftex` sits once under
   `common/714/sourceimages/#windx11/` and is absent from the player's common subfolder, and the
-  console shows `fmdl_fcl_hair_fallback` then `fmdl_merged`
+  console shows `fmdl_fcl_hair_fallback` then `fmdl_merged`. Sliced: (a) templates, fallback,
+  `skl_no_slot`; (b) reserved subfolders, `face_diff.xml`; (c) `.common` model links. (a) done
+  2026-10-03 (Fable, first time; lead first: `resources/templates/` from Red with a provenance
+  README): `templates::{FACE_DIFF, FCL_HAIR_SIM_FCLO, BODY_SKELETON}` injected per Face package,
+  unsuffixed models are `fcl_hair` parts, `PlayerFile::SlotlessSkeleton`,
+  `structure::model_name_messages` (findings on the folder holding the file, a shared face's
+  included); the gate's `missing` checks gone. TC-MOD-12/13 cited. Gates green (89 of 203);
+  `mutants-diff b8e6aac`: 38, 33 caught, 5 unviable, 0 missed. Found: the tracer's
+  `fcl_hair.skl` is PES 21's `body.skl`, so two older processing tests' "custom" skeleton equals
+  the template (fix in 4.5b's brief)
 
 - [ ] 4.6 **Textures, all formats (Fox)**: every accepted image format (`dds_convert::decode`/
   `convert`) for player, shared, Common, kit and portrait textures; BC7 kept and encoded on PES
@@ -616,7 +625,8 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   when Phase 4 compiles everything"); `messages.md` (`content_not_yet_compiled`). IDs: TC-OUT-06
   withdrawal. Crates: tc → verify: `rg content_not_yet_compiled crates/` finds nothing; `rg
   "subset" crates/tools/team_compiler/src` finds nothing; `just acceptance` reports TC-OUT-06
-  withdrawn and no test citing it. The gate's role helpers (`FolderModels`, `player_file`,
+  withdrawn and no test citing it. The paragraph's `missing` context and its injected-file
+  refusals already went at 4.5a (templates injected). The gate's role helpers (`FolderModels`, `player_file`,
   `holds_model`, `package_of`) move to their users, not out with it. Open first (found at 4.4a):
   a plainly linked shared folder holding no model (empty, or textures only) passes validation and
   is refused only by the gate; without it, it would take a shared ID and emit nothing. The plan is
@@ -1427,3 +1437,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   player's face, face parts merge like boots parts, and a texture stem two of a player's sources
   hold is one entry when the bytes agree, else `shared_texture_conflict` (lower package dropped)
   or `merged_texture_conflict` (folder dropped). Remote mutation half peaked at 7.14 GiB of 8G.
+- **2026-10-03** — 4.5a: a Fox face folder no longer needs `face_diff.bin`, `fcl_hair_sim.fclo`
+  or a hair skeleton (Red's templates and PES 21's `body.skl` injected), an unsuffixed model is a
+  `fcl_hair` part (`fmdl_fcl_hair_fallback`), and a skeleton beside a slotless face model is
+  `skl_no_slot`; `check` reports both findings.

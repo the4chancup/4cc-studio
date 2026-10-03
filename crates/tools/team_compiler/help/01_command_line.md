@@ -46,18 +46,24 @@ to the face itself (the player's folder and a shared `Faces` folder), nothing ca
 between them: nothing of that player is built, reported as `merged_texture_conflict`. An export
 using more than 17 shared boots folders, or more than 17 shared gloves folders, is skipped by
 both commands with the error `boots_id_pool_exhausted` or `gloves_id_pool_exhausted`, naming
-the count. A skeleton file named after a model (`kit_boots.skl` beside `kit_boots.fmdl`,
-`fcl_hair.skl` beside `fcl_hair.fmdl`, `boots.skl` beside a shared folder's `boots.fmdl`) is
-packed with it; boots without one get the standard body skeleton. A kit folder with
+the count. A model whose name says nothing about what it is (`torso.fmdl`) is taken for face
+content: it is merged into the face's `fcl_hair.fmdl`, and the line `fmdl_fcl_hair_fallback`
+names it, so boots and gloves models must say so in their names. A skeleton file named after a
+model (`kit_boots.skl` beside `kit_boots.fmdl`, `fcl_hair.skl` beside `fcl_hair.fmdl`,
+`torso.skl` beside `torso.fmdl`, `boots.skl` beside a shared folder's `boots.fmdl`) is packed
+with it; boots and hair without one get the standard body skeleton. A skeleton named after a
+`face_high`, `hair_high` or `oral` model has no place in the game's face package: it is left out
+and reported as `skl_no_slot`. A face folder without a `face_diff.bin`, or a hair model without
+a `fcl_hair_sim.fclo` beside it, gets the bundled default file. A kit folder with
 no `kit` texture, an empty one included, is built with a magenta and black checkerboard in its
 place and reported as `kit_placeholder`, so a kit nobody drew shows as missing in the game. `compile`
 skips any other export with the error `content_not_yet_compiled`, naming the first thing it
 cannot build yet: a PES 2015 to 2017 target, a referee export, or content other than a player's
 own face, boots and gloves models, their textures, `.dds` portraits, kits and linked shared
-`Faces`, `Boots` and `Gloves` folders (a model whose name says nothing about what it is, a
-texture in a format other than `.dds` or `.ftex`, or a hair model with no skeleton file beside
-it, among others). `check` still checks those exports. `compile`
-does not install the CPK into the game yet: it always leaves it in the output folder.
+`Faces`, `Boots` and `Gloves` folders (a texture in a format other than `.dds` or `.ftex`, or a
+model inside a subfolder of the player's folder, among others). `check` still checks those
+exports. `compile` does not install the CPK into the game yet: it always leaves it in the output
+folder.
 
 `check` prints one line per finding: the export it is about, how serious it is, its code, where
 in the export it is, and its details in parentheses. The line `Info export_identified (team=/co/,

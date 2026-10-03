@@ -18,12 +18,27 @@ pub(crate) const PLACEHOLDER_KIT: &[u8] = include_bytes!(concat!(
     "/../../../resources/kits/placeholder_kit.dds"
 ));
 
-/// The `boots.skl` packed beside a boots model that brings no skeleton of its own: PES 2021's
-/// full-body `body.skl`, since exports put full-body models in the boots folder
-/// (`resources/skeletons/README.md`), not the game's four-bone boots skeleton.
-pub(crate) const BOOTS_SKELETON: &[u8] = include_bytes!(concat!(
+/// The skeleton packed under a slot's name (`boots.skl`, `fcl_hair_sim.skl`) beside a boots or
+/// hair model that brings no skeleton of its own: PES 2021's full-body `body.skl`, since
+/// exports put full-body models in both slots (`resources/skeletons/README.md`), not the
+/// game's four-bone boots skeleton.
+pub(crate) const BODY_SKELETON: &[u8] = include_bytes!(concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/../../../resources/skeletons/pes21/body.skl"
+));
+
+/// The `face_diff.bin` packed into a Fox face package whose sources hold none: the face
+/// parameter file the game expects beside every face's models (`resources/templates/README.md`).
+pub(crate) const FACE_DIFF: &[u8] = include_bytes!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../../resources/templates/face_diff.bin"
+));
+
+/// The `fcl_hair_sim.fclo` packed beside a `fcl_hair.fmdl` whose sources hold none: a cloth
+/// simulation with nothing in it (`resources/templates/README.md`).
+pub(crate) const FCL_HAIR_SIM_FCLO: &[u8] = include_bytes!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../../resources/templates/fcl_hair_sim.fclo"
 ));
 
 /// The `UniformParameter.bin` a compile adds its kit configs to when it has no installed one

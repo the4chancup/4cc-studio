@@ -235,7 +235,7 @@ impl TaskKind {
                 folder, package, ..
             } => folder_files(folder, |role| role.package() == Some(*package)),
             TaskKind::Textures { folder, .. } => {
-                folder_files(folder, |role| role.package().is_none())
+                folder_files(folder, |role| matches!(role, PlayerFile::Texture(..)))
             }
             TaskKind::Portrait { file, .. } => vec![file],
             TaskKind::Kit { kit, .. } => kit
@@ -476,7 +476,7 @@ fn folder_tasks(
             },
         ));
     }
-    if folder_files(&folder, |role| role.package().is_none()).is_empty() {
+    if folder_files(&folder, |role| matches!(role, PlayerFile::Texture(..))).is_empty() {
         return;
     }
     tasks.push(task(export_id, team_id, TaskKind::Textures { folder }));
@@ -651,6 +651,7 @@ mod tests {
                 ("Players/A/kit_boots.fmdl", 8),
                 ("Players/A/shirt.dds", 16),
                 ("Players/A/face_high.fmdl", 32),
+                ("Players/A/face_high.skl", 128),
                 ("Players/A/face_diff.bin", 1),
                 ("Players/23 - B/boots.fmdl", 64),
             ],
@@ -661,6 +662,7 @@ mod tests {
         let report = plan_run(vec![(ExportId(0), export)], PesVersion::Pes21);
 
         // Slots 05 and 07 of team 714 own the exclusive ids 625 and 627; slot 23 owns 643.
+        // `face_high.skl` has no slot: no task reads it, so no charge counts it.
         assert_eq!(
             summary(&report),
             [

@@ -78,6 +78,7 @@ pub(super) fn package(
                 }
                 PlayerFile::Model { .. }
                 | PlayerFile::Skeleton { .. }
+                | PlayerFile::SlotlessSkeleton
                 | PlayerFile::Packed { .. } => {}
             }
         }
@@ -135,19 +136,32 @@ pub(super) fn package(
         fpk.insert(format!("{name}.fmdl"), model.write());
     }
     // The game loads the boots and the hair with a skeleton beside them, under the slot's
-    // name (`player_folders.md` "SKL pairing"): the parts' own when they bring one; boots
-    // bringing none get the standard full-body one, while the hair's template is step 4.5's,
-    // so until then the gate refuses a hair without one.
+    // name (`player_folders.md` "SKL pairing"): the parts' own when they bring one, else the
+    // standard full-body one. A face also needs its `face_diff.bin`, and a hair its
+    // `fcl_hair_sim.fclo`: a source's own when one holds it, else the bundled template
+    // ("What the injected files are").
     match package {
         ModelPackage::Boots => {
             fpk.insert(
                 "boots.skl".to_owned(),
-                skeleton.unwrap_or_else(|| templates::BOOTS_SKELETON.to_vec()),
+                skeleton.unwrap_or_else(|| templates::BODY_SKELETON.to_vec()),
             );
         }
         ModelPackage::Face => {
-            if let Some(skeleton) = skeleton {
-                fpk.insert("fcl_hair_sim.skl".to_owned(), skeleton);
+            if fpk.get("face_diff.bin").is_none() {
+                fpk.insert("face_diff.bin".to_owned(), templates::FACE_DIFF.to_vec());
+            }
+            if fpk.get("fcl_hair.fmdl").is_some() {
+                if fpk.get("fcl_hair_sim.fclo").is_none() {
+                    fpk.insert(
+                        "fcl_hair_sim.fclo".to_owned(),
+                        templates::FCL_HAIR_SIM_FCLO.to_vec(),
+                    );
+                }
+                fpk.insert(
+                    "fcl_hair_sim.skl".to_owned(),
+                    skeleton.unwrap_or_else(|| templates::BODY_SKELETON.to_vec()),
+                );
             }
         }
         // The gloves have no skeleton slot, and no `.skl` pairs with a glove.

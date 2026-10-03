@@ -354,6 +354,176 @@ fn a_boots_link_beside_a_local_boots_model_combines_the_shared_folder_into_the_p
     );
 }
 
+/// One of the bundled face templates, `resources/templates/<name>`.
+fn template(name: &str) -> Vec<u8> {
+    fs::read(
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../../resources/templates")
+            .join(name),
+    )
+    .unwrap()
+}
+
+/// The face package of slot 05 in `entries`.
+fn face_package(entries: &BTreeMap<String, Vec<u8>>) -> fpk::FpkFile {
+    fpk::FpkFile::read(&entries["Asset/model/character/face/real/71405/#Win/face.fpk"]).unwrap()
+}
+
+// TC-MOD-12
+#[test]
+fn a_hair_model_alone_gets_the_bundled_face_diff_hair_simulation_and_body_skeleton() {
+    let sandbox = Sandbox::new("mod_face_templates");
+    sandbox.write(
+        "exports/co - Hair/Players/05 - A/fcl_hair.fmdl",
+        &tracer_player_file("fcl_hair.fmdl"),
+    );
+
+    let entries = compile_clean(&sandbox, "co - Hair");
+
+    let package = face_package(&entries);
+    let names: Vec<&str> = package.entries().map(|(name, _)| name).collect();
+    assert_eq!(
+        names,
+        [
+            "face_diff.bin",
+            "fcl_hair.fmdl",
+            "fcl_hair_sim.fclo",
+            "fcl_hair_sim.skl"
+        ]
+    );
+    assert_eq!(
+        package.get("face_diff.bin").unwrap(),
+        template("face_diff.bin")
+    );
+    assert_eq!(
+        package.get("fcl_hair_sim.fclo").unwrap(),
+        template("fcl_hair_sim.fclo")
+    );
+    assert_eq!(package.get("fcl_hair_sim.skl").unwrap(), body_skl("pes21"));
+}
+
+// TC-MOD-13
+#[test]
+fn a_skeleton_paired_with_a_face_model_without_a_slot_is_reported_and_not_packed() {
+    let sandbox = Sandbox::new("mod_skl_no_slot");
+    sandbox.write(
+        "exports/co - Slot/Players/05 - A/face_high.fmdl",
+        &tracer_player_file("fcl_hair.fmdl"),
+    );
+    sandbox.write(
+        "exports/co - Slot/Players/05 - A/face_high.skl",
+        &tracer_player_file("fcl_hair.skl"),
+    );
+    let findings = [
+        "Info export_identified [Keep] (team=/co/, id=714)",
+        "Warning skl_no_slot [Keep] at Players/05 - A (file=face_high.skl)",
+    ];
+
+    let check = sandbox.run(&pes21_settings(&sandbox), &["check"]);
+    assert_eq!(findings_of(&check.messages(), "co - Slot"), findings);
+    assert_eq!(check.exit_code(), 0);
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    assert_eq!(findings_of(&run.messages(), "co - Slot"), findings);
+    assert_eq!(run.exit_code(), 0);
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_90_test.cpk"));
+    let package = face_package(&entries);
+    let names: Vec<&str> = package.entries().map(|(name, _)| name).collect();
+    assert_eq!(names, ["face_diff.bin", "face_high.fmdl"]);
+}
+
+#[test]
+fn an_unsuffixed_model_is_reported_and_merged_into_the_hair_with_its_own_skeleton() {
+    // `torso.fmdl` alone: reported by `check`, packed as `fcl_hair.fmdl`.
+    let alone = Sandbox::new("mod_fallback_alone");
+    alone.write(
+        "exports/co - Torso/Players/05 - A/torso.fmdl",
+        &tracer_player_file("fcl_hair.fmdl"),
+    );
+    let check = alone.run(&pes21_settings(&alone), &["check"]);
+    assert_eq!(
+        findings_of(&check.messages(), "co - Torso"),
+        [
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info fmdl_fcl_hair_fallback [Keep] at Players/05 - A (file=torso.fmdl)",
+        ]
+    );
+    assert_eq!(check.exit_code(), 0);
+    let run = alone.run(&pes21_settings(&alone), &["compile"]);
+    assert_eq!(run.exit_code(), 0);
+    let entries = cpk_entries(&alone.root.join("output/4cc_90_test.cpk"));
+    let package = face_package(&entries);
+    let names: Vec<&str> = package.entries().map(|(name, _)| name).collect();
+    assert_eq!(
+        names,
+        [
+            "face_diff.bin",
+            "fcl_hair.fmdl",
+            "fcl_hair_sim.fclo",
+            "fcl_hair_sim.skl"
+        ]
+    );
+
+    // `torso.fmdl` beside `fcl_hair.fmdl`: one merged hair model.
+    let merged = Sandbox::new("mod_fallback_merged");
+    for name in ["torso.fmdl", "fcl_hair.fmdl"] {
+        merged.write(
+            &format!("exports/co - Merged/Players/05 - A/{name}"),
+            &tracer_player_file("fcl_hair.fmdl"),
+        );
+    }
+    let run = merged.run(&pes21_settings(&merged), &["compile"]);
+    assert_eq!(
+        findings_of(&run.messages(), "co - Merged"),
+        [
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info fmdl_fcl_hair_fallback [Keep] at Players/05 - A (file=torso.fmdl)",
+            "Info fmdl_merged [Keep] at Players/05 - A (model=fcl_hair.fmdl)",
+        ]
+    );
+    assert_eq!(run.exit_code(), 0);
+    let entries = cpk_entries(&merged.root.join("output/4cc_90_test.cpk"));
+    let package = face_package(&entries);
+    let model = FmdlFile::read(package.get("fcl_hair.fmdl").unwrap()).unwrap();
+    let part = FmdlFile::read(&tracer_player_file("fcl_hair.fmdl")).unwrap();
+    assert_eq!(
+        Model::from_file(&model).unwrap().meshes.len(),
+        2 * Model::from_file(&part).unwrap().meshes.len()
+    );
+
+    // `torso.fmdl` with `torso.skl`: that skeleton is the hair's.
+    let paired = Sandbox::new("mod_fallback_skl");
+    paired.write(
+        "exports/co - Paired/Players/05 - A/torso.fmdl",
+        &tracer_player_file("fcl_hair.fmdl"),
+    );
+    let custom = body_skl("pes19");
+    paired.write("exports/co - Paired/Players/05 - A/torso.skl", &custom);
+    let run = paired.run(&pes21_settings(&paired), &["compile"]);
+    assert_eq!(run.exit_code(), 0);
+    let entries = cpk_entries(&paired.root.join("output/4cc_90_test.cpk"));
+    assert_eq!(
+        face_package(&entries).get("fcl_hair_sim.skl").unwrap(),
+        custom
+    );
+}
+
+#[test]
+fn a_pre_fox_target_reports_neither_the_fallback_nor_a_slotless_skeleton() {
+    let sandbox = Sandbox::new("mod_pre_fox_names");
+    for name in ["torso.fmdl", "face_high.fmdl", "face_high.skl"] {
+        sandbox.write(&format!("exports/co - Names/Players/05 - A/{name}"), b"");
+    }
+
+    let run = sandbox.run("[common]\npes_version = 17\n", &["check"]);
+
+    assert_eq!(
+        findings_of(&run.messages(), "co - Names"),
+        ["Info export_identified [Keep] (team=/co/, id=714)"]
+    );
+    assert_eq!(run.exit_code(), 0);
+}
+
 /// Writes a face folder at `folder`: the tracer's hair model as `face_high.fmdl`, its
 /// `face_diff.bin`, and its `shirt.dds` under `texture_name`.
 fn write_face(sandbox: &Sandbox, folder: &str, texture_name: &str) {

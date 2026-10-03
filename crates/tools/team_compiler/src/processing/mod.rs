@@ -393,7 +393,141 @@ mod tests {
                 "fcl_hair_sim.skl"
             ]
         );
+        // The folder's own `face_diff.bin` is packed, not the template. (Its `.fclo` and
+        // `.skl` are byte-identical to the templates, so they prove nothing here.)
+        let own = std::fs::read(tracer().join(format!("{PLAYER}/face_diff.bin"))).unwrap();
+        assert_ne!(own, templates::FACE_DIFF);
+        assert_eq!(package.get("face_diff.bin").unwrap(), own);
         assert_rewritten(&texture_directories(&package, "fcl_hair.fmdl"));
+    }
+
+    /// PES 19's `body.skl`: a real skeleton that differs from the bundled PES 21 template,
+    /// standing in for a custom one.
+    fn other_skeleton() -> Vec<u8> {
+        let bytes = std::fs::read(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../../resources/skeletons/pes19/body.skl"),
+        )
+        .unwrap();
+        assert_ne!(bytes, templates::BODY_SKELETON);
+        bytes
+    }
+
+    /// `kind`'s files read from the tracer folder, with the file at `path` replaced by
+    /// `bytes`, processed for PES 21 in no group.
+    fn run_with(kind: TaskKind, path: &str, bytes: Vec<u8>) -> TaskBatch {
+        let mut files: TaskFiles = kind
+            .files()
+            .into_iter()
+            .map(|file| {
+                let bytes = std::fs::read(tracer().join(file.source.as_str())).unwrap();
+                (file.path.clone(), bytes)
+            })
+            .collect();
+        files.insert(ScopePath::new(path).unwrap(), bytes);
+        process(kind, PesVersion::Pes21, None, files)
+    }
+
+    #[test]
+    fn a_face_package_gets_the_face_files_and_the_skeleton_its_sources_lack() {
+        // The hair alone: all three injected.
+        let batch = run(TaskKind::Models {
+            folder: player(&["fcl_hair.fmdl"]),
+            package: ModelPackage::Face,
+            ids: vec![79205],
+        });
+        assert!(batch.messages.is_empty(), "{:?}", batch.messages);
+        let package = FpkFile::read(&batch.entries[0].1).unwrap();
+        let names: Vec<&str> = package.entries().map(|(name, _)| name).collect();
+        assert_eq!(
+            names,
+            [
+                "face_diff.bin",
+                "fcl_hair.fmdl",
+                "fcl_hair_sim.fclo",
+                "fcl_hair_sim.skl"
+            ]
+        );
+        assert_eq!(package.get("face_diff.bin").unwrap(), templates::FACE_DIFF);
+        assert_eq!(
+            package.get("fcl_hair_sim.fclo").unwrap(),
+            templates::FCL_HAIR_SIM_FCLO
+        );
+        assert_eq!(
+            package.get("fcl_hair_sim.skl").unwrap(),
+            templates::BODY_SKELETON
+        );
+
+        // The hair with its own skeleton: that one is packed.
+        let custom = other_skeleton();
+        let batch = run_with(
+            TaskKind::Models {
+                folder: player(&["fcl_hair.fmdl", "fcl_hair.skl"]),
+                package: ModelPackage::Face,
+                ids: vec![79205],
+            },
+            &format!("{PLAYER}/fcl_hair.skl"),
+            custom.clone(),
+        );
+        let package = FpkFile::read(&batch.entries[0].1).unwrap();
+        assert_eq!(package.get("fcl_hair_sim.skl").unwrap(), custom);
+
+        // A face without a hair part gets only the `face_diff.bin`: no simulation, no
+        // skeleton, and a skeleton named after the face model is never read.
+        let batch = run(TaskKind::Models {
+            folder: player_with(
+                vec![
+                    named(&format!("{PLAYER}/face_high.fmdl"), "fcl_hair.fmdl"),
+                    named(&format!("{PLAYER}/face_high.skl"), "fcl_hair.skl"),
+                ],
+                Vec::new(),
+            ),
+            package: ModelPackage::Face,
+            ids: vec![79205],
+        });
+        assert!(batch.messages.is_empty(), "{:?}", batch.messages);
+        let package = FpkFile::read(&batch.entries[0].1).unwrap();
+        let names: Vec<&str> = package.entries().map(|(name, _)| name).collect();
+        assert_eq!(names, ["face_diff.bin", "face_high.fmdl"]);
+        assert_eq!(package.get("face_diff.bin").unwrap(), templates::FACE_DIFF);
+    }
+
+    #[test]
+    fn an_unsuffixed_model_is_a_hair_part_whose_skeleton_is_the_hair_s() {
+        let custom = other_skeleton();
+        let batch = run_with(
+            TaskKind::Models {
+                folder: player_with(
+                    vec![
+                        named(&format!("{PLAYER}/torso.fmdl"), "fcl_hair.fmdl"),
+                        named(&format!("{PLAYER}/torso.skl"), "fcl_hair.skl"),
+                    ],
+                    Vec::new(),
+                ),
+                package: ModelPackage::Face,
+                ids: vec![79205],
+            },
+            &format!("{PLAYER}/torso.skl"),
+            custom.clone(),
+        );
+
+        assert!(batch.messages.is_empty(), "{:?}", batch.messages);
+        let package = FpkFile::read(&batch.entries[0].1).unwrap();
+        let names: Vec<&str> = package.entries().map(|(name, _)| name).collect();
+        assert_eq!(
+            names,
+            [
+                "face_diff.bin",
+                "fcl_hair.fmdl",
+                "fcl_hair_sim.fclo",
+                "fcl_hair_sim.skl"
+            ]
+        );
+        assert_eq!(package.get("fcl_hair_sim.skl").unwrap(), custom);
+        assert_eq!(
+            packed_model(&package, "fcl_hair.fmdl").meshes.len(),
+            tracer_model("fcl_hair.fmdl").meshes.len()
+        );
     }
 
     #[test]
@@ -415,7 +549,7 @@ mod tests {
         let package = FpkFile::read(&batch.entries[0].1).unwrap();
         let names: Vec<&str> = package.entries().map(|(name, _)| name).collect();
         assert_eq!(names, ["boots.fmdl", "boots.skl"]);
-        assert_eq!(package.get("boots.skl").unwrap(), templates::BOOTS_SKELETON);
+        assert_eq!(package.get("boots.skl").unwrap(), templates::BODY_SKELETON);
         assert_rewritten(&texture_directories(&package, "boots.fmdl"));
     }
 
@@ -741,7 +875,7 @@ mod tests {
         let package = FpkFile::read(&batch.entries[0].1).unwrap();
         let names: Vec<&str> = package.entries().map(|(name, _)| name).collect();
         assert_eq!(names, ["boots.fmdl", "boots.skl"]);
-        assert_eq!(package.get("boots.skl").unwrap(), templates::BOOTS_SKELETON);
+        assert_eq!(package.get("boots.skl").unwrap(), templates::BODY_SKELETON);
         let merged = packed_model(&package, "boots.fmdl");
         let part = tracer_model("boots.fmdl");
         assert_eq!(merged.meshes.len(), 2 * part.meshes.len());

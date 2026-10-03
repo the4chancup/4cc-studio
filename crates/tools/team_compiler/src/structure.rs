@@ -5,16 +5,19 @@
 use std::sync::Arc;
 
 use aesthetics_export::{
-    ExportIdentity, ResolvedAestheticsExport, SharedKind, SourceError, ValidationContext,
-    parse_listing,
+    ExportIdentity, FileDescriptor, ResolvedAestheticsExport, SharedKind, SourceError,
+    ValidationContext, model_suffix, parse_listing,
 };
-use pes_version::PesVersion;
+use pes_version::{Engine, PesVersion};
 use pipeline::MemoryBudget;
-use studio_core::{Disposition, Message, Scope};
+use studio_core::{Disposition, ExportId, Message, Scope};
+use vtree::ScopePath;
 
 use crate::cli::RunInputs;
 use crate::messages::{Code, issue_message, tool_message};
 use crate::plan::ids::{SHARED_COUNT, shared_folders_taking_ids};
+use crate::plan::mapped_players;
+use crate::plan::subset::{FolderModels, ModelPackage, PlayerFile, file_stem, player_file};
 use crate::reader::{self, ExportSource, Route};
 
 /// The structure pass's outcome for the whole run.
@@ -151,6 +154,11 @@ fn check_source(inputs: &RunInputs, source: ExportSource, route: Route) -> Check
         match validated.resolve_identity(&inputs.teams_list) {
             Ok(resolved) => {
                 messages.push(identified_message(export.clone(), &resolved.identity));
+                messages.extend(model_name_messages(
+                    &resolved,
+                    inputs.common.pes_version,
+                    source.export_id,
+                ));
                 let exhausted = pool_messages(&resolved, inputs.common.pes_version, &export);
                 if exhausted.is_empty() {
                     Some(resolved)
@@ -209,6 +217,87 @@ fn pool_messages(
     .collect()
 }
 
+/// `fmdl_fcl_hair_fallback` for each Fox model whose name says nothing about what it is, which
+/// the `fcl_hair` merge takes, and `skl_no_slot` for each `.skl` paired with a `face_high`,
+/// `hair_high` or `oral` model, which has no slot to land in and is ignored
+/// (`player_folders.md` "Model names", "SKL pairing"; `team_compiler/README.md` TC-MOD-13):
+/// over every mapped player folder and every shared face folder, each finding on the folder
+/// holding the file. The roles are `subset::player_file`'s, so a finding never disagrees with
+/// the routing. A pre-Fox target types a model by its name and reads no `.skl`, so it reports
+/// neither.
+fn model_name_messages(
+    resolved: &ResolvedAestheticsExport,
+    version: PesVersion,
+    export_id: ExportId,
+) -> Vec<Message> {
+    match version.engine() {
+        Engine::Fox => {}
+        Engine::PreFox => return Vec::new(),
+    }
+    let export = &resolved.export;
+    let mut messages = Vec::new();
+    for folder in mapped_players(export) {
+        let models = FolderModels::of_player(folder);
+        file_role_messages(
+            &folder.path,
+            &folder.files,
+            &models,
+            export_id,
+            &mut messages,
+        );
+    }
+    // Validation drops a shared folder no mapped player links, so every face folder here is
+    // one some player's face is assembled from.
+    for folder in &export.faces {
+        let models = FolderModels::of(&folder.path, &folder.files);
+        file_role_messages(
+            &folder.path,
+            &folder.files,
+            &models,
+            export_id,
+            &mut messages,
+        );
+    }
+    messages
+}
+
+/// `model_name_messages`'s findings on `files`, the files of the folder at `path` whose models
+/// are `models`, in file order.
+fn file_role_messages(
+    path: &ScopePath,
+    files: &[FileDescriptor],
+    models: &FolderModels,
+    export_id: ExportId,
+    messages: &mut Vec<Message>,
+) {
+    for file in files {
+        let name = file.path.name();
+        let code = match player_file(path, file, models) {
+            Some(PlayerFile::Model {
+                package: ModelPackage::Face,
+                name: "fcl_hair",
+            }) if model_suffix(file_stem(name)).is_none() => Code::FmdlFclHairFallback,
+            Some(PlayerFile::SlotlessSkeleton) => Code::SklNoSlot,
+            Some(
+                PlayerFile::Model { .. }
+                | PlayerFile::Packed { .. }
+                | PlayerFile::Skeleton { .. }
+                | PlayerFile::Texture(..),
+            )
+            | None => continue,
+        };
+        messages.push(tool_message(
+            code,
+            Scope::Folder {
+                export_id,
+                path: path.clone(),
+            },
+            Disposition::Keep,
+            vec![("file", name.to_owned())],
+        ));
+    }
+}
+
 /// `export_identified` naming the team and its id, or the referees.
 fn identified_message(export: Scope, identity: &ExportIdentity) -> Message {
     let context = match identity {
@@ -222,10 +311,10 @@ fn identified_message(export: Scope, identity: &ExportIdentity) -> Message {
 
 #[cfg(test)]
 mod tests {
-    use studio_core::{ExportId, Severity};
+    use studio_core::Severity;
 
     use super::*;
-    use crate::testing::resolved;
+    use crate::testing::{resolved, resolved_with_issues};
 
     /// The export `co - Pool` whose slots 01 to `count` each link their own shared folder of
     /// `kind` (`Boots/S01/` for slot 01), each player folder also holding `local`.
@@ -272,6 +361,80 @@ mod tests {
                 )
             })
             .collect()
+    }
+
+    /// `model_name_messages` over `export` for `version`, each as one line: severity, code,
+    /// disposition, folder and context.
+    fn names(export: &ResolvedAestheticsExport, version: PesVersion) -> Vec<String> {
+        model_name_messages(export, version, ExportId(2))
+            .into_iter()
+            .map(|message| {
+                let Scope::Folder { export_id, path } = &message.scope else {
+                    panic!("{:?}", message.scope);
+                };
+                assert_eq!(*export_id, ExportId(2));
+                let context: Vec<String> = message
+                    .context
+                    .iter()
+                    .map(|(key, value)| format!("{key}={value}"))
+                    .collect();
+                format!(
+                    "{:?} {} [{:?}] at {} ({})",
+                    message.severity,
+                    message.code.code,
+                    message.disposition,
+                    path.as_str(),
+                    context.join(", ")
+                )
+            })
+            .collect()
+    }
+
+    #[test]
+    fn an_unsuffixed_model_and_a_slotless_skeleton_are_reported_on_their_folder_on_fox_only() {
+        let files = [
+            ("Players/03 - A/torso.fmdl", 1),
+            ("Players/03 - A/torso.skl", 1),
+            ("Players/03 - A/face_high.fmdl", 1),
+            ("Players/03 - A/face_high.skl", 1),
+            ("Players/03 - A/x_fcl_hair.fmdl", 1),
+            ("Players/03 - A/x_fcl_hair.skl", 1),
+            ("Players/07 - B/Round.face", 0),
+            ("Players/07 - B/kit_boots.fmdl", 1),
+            ("Players/07 - B/kit_boots.skl", 1),
+            ("Faces/Round/legs.fmdl", 1),
+            ("Faces/Round/oral.fmdl", 1),
+            ("Faces/Round/oral.skl", 1),
+        ];
+        let export = resolved("co - Names", &files, &[], None);
+        // The hair's and the boots' skeletons have their slots; a shared face folder's files
+        // are reported on that folder, once, however many players link it. Within a folder
+        // the findings follow its files, in the folded name order validation keeps them in.
+        assert_eq!(
+            names(&export, PesVersion::Pes21),
+            [
+                "Warning skl_no_slot [Keep] at Players/03 - A (file=face_high.skl)",
+                "Info fmdl_fcl_hair_fallback [Keep] at Players/03 - A (file=torso.fmdl)",
+                "Info fmdl_fcl_hair_fallback [Keep] at Faces/Round (file=legs.fmdl)",
+                "Warning skl_no_slot [Keep] at Faces/Round (file=oral.skl)",
+            ]
+        );
+        assert_eq!(names(&export, PesVersion::Pes17), Vec::<String>::new());
+    }
+
+    #[test]
+    fn a_player_folder_no_slot_maps_is_not_walked() {
+        let (export, issues) = resolved_with_issues(
+            "co - Names",
+            &[
+                ("Players/A/face_high.fmdl", 1),
+                ("Players/Unlisted/torso.fmdl", 1),
+            ],
+            &[],
+            Some(b"03 A\n"),
+        );
+        assert_eq!(issues, ["player_unlisted"]);
+        assert_eq!(names(&export, PesVersion::Pes21), Vec::<String>::new());
     }
 
     #[test]

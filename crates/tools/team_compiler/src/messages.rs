@@ -44,6 +44,9 @@ pub(crate) enum Code {
     /// A player holds a boots or gloves link beside a model of the same package: the shared
     /// folder's models become parts of the player's own package.
     LinkCombined,
+    /// A Fox model whose name has no recognized suffix: it is face content, a part of the
+    /// `fcl_hair.fmdl` merge.
+    FmdlFclHairFallback,
     /// Several models of a package resolve to one allowed name and were merged into one FMDL.
     FmdlMerged,
     /// Two merged parts define a material of one name differently; the package is left out.
@@ -51,6 +54,9 @@ pub(crate) enum Code {
     /// Merged parts disagree on their skeleton (a bone, or their paired `.skl` files); the
     /// package is left out.
     SklMergeConflict,
+    /// A `.skl` paired with a `face_high`, `hair_high` or `oral` model, which have no skeleton
+    /// slot on Fox; the file is ignored.
+    SklNoSlot,
     /// Two of a player's sources feeding different packages hold a texture of one stem with
     /// different bytes; the lower package in canonical order (face > boots > gloves) is left
     /// out with the textures only its sources hold.
@@ -75,7 +81,7 @@ impl Code {
     /// Every code, for the catalog test: a variant missing here would make its first message
     /// panic in `severity`, so a new variant is added to this list too.
     #[cfg(test)]
-    const ALL: [Code; 23] = [
+    const ALL: [Code; 25] = [
         Code::ExportExtractFailed,
         Code::NoExportsFound,
         Code::ExportDisabled,
@@ -89,9 +95,11 @@ impl Code {
         Code::BootsIdPoolExhausted,
         Code::GlovesIdPoolExhausted,
         Code::LinkCombined,
+        Code::FmdlFclHairFallback,
         Code::FmdlMerged,
         Code::MergeMaterialConflict,
         Code::SklMergeConflict,
+        Code::SklNoSlot,
         Code::SharedTextureConflict,
         Code::MergedTextureConflict,
         Code::SourceReadFailed,
@@ -117,9 +125,11 @@ impl Code {
             Code::BootsIdPoolExhausted => "boots_id_pool_exhausted",
             Code::GlovesIdPoolExhausted => "gloves_id_pool_exhausted",
             Code::LinkCombined => "link_combined",
+            Code::FmdlFclHairFallback => "fmdl_fcl_hair_fallback",
             Code::FmdlMerged => "fmdl_merged",
             Code::MergeMaterialConflict => "merge_material_conflict",
             Code::SklMergeConflict => "skl_merge_conflict",
+            Code::SklNoSlot => "skl_no_slot",
             Code::SharedTextureConflict => "shared_texture_conflict",
             Code::MergedTextureConflict => "merged_texture_conflict",
             Code::SourceReadFailed => "source_read_failed",
@@ -160,9 +170,11 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("boots_id_pool_exhausted", CatalogSeverity::Error),
     ("gloves_id_pool_exhausted", CatalogSeverity::Error),
     ("link_combined", CatalogSeverity::Info),
+    ("fmdl_fcl_hair_fallback", CatalogSeverity::Info),
     ("fmdl_merged", CatalogSeverity::Info),
     ("merge_material_conflict", CatalogSeverity::Error),
     ("skl_merge_conflict", CatalogSeverity::Error),
+    ("skl_no_slot", CatalogSeverity::Warning),
     ("shared_texture_conflict", CatalogSeverity::Error),
     ("merged_texture_conflict", CatalogSeverity::Error),
     ("folder_pack_failed", CatalogSeverity::ErrorOrFatal),
