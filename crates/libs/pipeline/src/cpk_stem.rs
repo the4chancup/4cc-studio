@@ -103,7 +103,7 @@ mod tests {
 
     #[test]
     fn valid_stems_pass() {
-        for text in ["4cc_90_test".to_owned(), "x".repeat(28), "a.b".to_owned()] {
+        for text in ["4cc_99_test".to_owned(), "x".repeat(28), "a.b".to_owned()] {
             let stem = CpkStem::new(&text).unwrap();
             assert_eq!(stem.as_str(), text);
             assert_eq!(stem.to_string(), text);

@@ -141,7 +141,7 @@ mod tests {
         assert!(log.is_running());
         finish(&mut log);
         assert_eq!(log.lines(), TRACER_LINES);
-        assert!(root.join("output/4cc_90_test.cpk").is_file());
+        assert!(root.join("output/4cc_99_test.cpk").is_file());
 
         log.start_compile(&ctx);
         finish(&mut log);

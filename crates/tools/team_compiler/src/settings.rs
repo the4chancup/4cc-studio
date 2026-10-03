@@ -27,7 +27,7 @@ pub(crate) struct TeamCompilerSettings {
 impl Default for TeamCompilerSettings {
     fn default() -> Self {
         TeamCompilerSettings {
-            cpk_name: "4cc_90_test".to_owned(),
+            cpk_name: "4cc_99_test".to_owned(),
             output_folder_path: PathBuf::from("output"),
             multicpk_mode: false,
             strict_file_type_check: true,
@@ -57,7 +57,7 @@ mod tests {
     #[test]
     fn defaults_round_trip_through_the_table() {
         let table = default_table();
-        assert_eq!(table["cpk_name"].as_str(), Some("4cc_90_test"));
+        assert_eq!(table["cpk_name"].as_str(), Some("4cc_99_test"));
         assert_eq!(table["strict_file_type_check"].as_bool(), Some(true));
         assert_eq!(from_table(&table).unwrap(), TeamCompilerSettings::default());
     }
@@ -68,7 +68,7 @@ mod tests {
             toml::from_str("pass_through = true\nsetting_from_a_newer_version = 3").unwrap();
         let settings = from_table(&table).unwrap();
         assert!(settings.pass_through);
-        assert_eq!(settings.cpk_name, "4cc_90_test");
+        assert_eq!(settings.cpk_name, "4cc_99_test");
     }
 
     #[test]

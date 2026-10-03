@@ -67,7 +67,7 @@ fn a_far_vertex_drops_its_folder_at_check_and_at_compile_even_with_pass_through(
     );
     assert_eq!(compile.exit_code(), 1);
     // `/co/`'s block starts at 621: slot 07's boots are 627, slot 05's would be 625.
-    let entries = cpk_entries(&sandbox.root.join("output/4cc_90_test.cpk"));
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
     let paths: Vec<&str> = entries.keys().map(String::as_str).collect();
     assert_eq!(
         paths,
@@ -177,7 +177,7 @@ fn a_format_error_drops_its_folder_unless_pass_through_keeps_it() {
         assert_eq!(run.exit_code(), 1, "{command}");
     }
     // `/co/`'s block starts at 621: slot 07's boots are 627, slot 05's 625.
-    let entries = cpk_entries(&sandbox.root.join("output/4cc_90_test.cpk"));
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
     let paths: Vec<&str> = entries.keys().map(String::as_str).collect();
     assert_eq!(paths, boots(627));
 
@@ -195,7 +195,7 @@ fn a_format_error_drops_its_folder_unless_pass_through_keeps_it() {
         );
         assert_eq!(run.exit_code(), 1, "{command}");
     }
-    let entries = cpk_entries(&sandbox.root.join("output/4cc_90_test.cpk"));
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
     let paths: Vec<&str> = entries.keys().map(String::as_str).collect();
     assert_eq!(paths, [boots(625), boots(627)].concat());
 }
@@ -225,7 +225,7 @@ fn a_model_that_does_not_parse_is_model_broken_and_drops_its_folder_even_with_pa
     let compile = sandbox.run(&pass_through_settings(&sandbox), &["compile"]);
     assert_eq!(findings_of(&compile.messages(), "co - Broken"), findings);
     assert_eq!(compile.exit_code(), 1);
-    let entries = cpk_entries(&sandbox.root.join("output/4cc_90_test.cpk"));
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
     let paths: Vec<&str> = entries.keys().map(String::as_str).collect();
     assert_eq!(
         paths,
@@ -261,7 +261,7 @@ fn a_logo_that_does_not_decode_is_logo_file_invalid_and_the_export_is_otherwise_
     let compile = sandbox.run(&pass_through_settings(&sandbox), &["compile"]);
     assert_eq!(findings_of(&compile.messages(), "co - Logo"), findings);
     assert_eq!(compile.exit_code(), 1);
-    let entries = cpk_entries(&sandbox.root.join("output/4cc_90_test.cpk"));
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
     let paths: Vec<&str> = entries.keys().map(String::as_str).collect();
     assert_eq!(
         paths,

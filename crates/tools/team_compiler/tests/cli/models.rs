@@ -64,7 +64,7 @@ fn compile_clean(sandbox: &Sandbox, name: &str, findings: &[&str]) -> BTreeMap<S
     let run = sandbox.run(&pes21_settings(sandbox), &["compile"]);
     assert_eq!(findings_of(&run.messages(), name), findings);
     assert_eq!(run.exit_code(), 0);
-    cpk_entries(&sandbox.root.join("output/4cc_90_test.cpk"))
+    cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"))
 }
 
 // TC-MOD-01
@@ -228,7 +228,7 @@ fn a_texture_that_cannot_convert_drops_the_whole_folder_and_the_folder_beside_it
         findings[7]
     );
     assert_eq!(run.exit_code(), 1);
-    let entries = cpk_entries(&sandbox.root.join("output/4cc_90_test.cpk"));
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
     let paths: Vec<&str> = entries.keys().map(String::as_str).collect();
     assert_eq!(
         paths,
@@ -336,7 +336,7 @@ fn a_boots_link_beside_a_local_boots_model_combines_the_shared_folder_into_the_p
         ]
     );
     assert_eq!(run.exit_code(), 0);
-    let entries = cpk_entries(&sandbox.root.join("output/4cc_90_test.cpk"));
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
     let paths: Vec<&str> = entries.keys().map(String::as_str).collect();
     assert_eq!(
         paths,
@@ -376,7 +376,7 @@ fn a_boots_link_beside_a_local_boots_model_combines_the_shared_folder_into_the_p
         ]
     );
     assert_eq!(run.exit_code(), 0);
-    let entries = cpk_entries(&sandbox.root.join("output/4cc_90_test.cpk"));
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
     let added: Vec<&str> = entries
         .keys()
         .map(String::as_str)
@@ -481,7 +481,7 @@ fn a_skeleton_paired_with_a_face_model_without_a_slot_is_reported_and_not_packed
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
     assert_eq!(findings_of(&run.messages(), "co - Slot"), findings);
     assert_eq!(run.exit_code(), 0);
-    let entries = cpk_entries(&sandbox.root.join("output/4cc_90_test.cpk"));
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
     let package = face_package(&entries);
     let names: Vec<&str> = package.entries().map(|(name, _)| name).collect();
     assert_eq!(names, ["face_diff.bin", "face_high.fmdl"]);
@@ -507,7 +507,7 @@ fn an_unsuffixed_model_is_reported_and_merged_into_the_hair_with_its_own_skeleto
     assert_eq!(check.exit_code(), 0);
     let run = alone.run(&pes21_settings(&alone), &["compile"]);
     assert_eq!(run.exit_code(), 0);
-    let entries = cpk_entries(&alone.root.join("output/4cc_90_test.cpk"));
+    let entries = cpk_entries(&alone.root.join("output/4cc_99_test.cpk"));
     let package = face_package(&entries);
     let names: Vec<&str> = package.entries().map(|(name, _)| name).collect();
     assert_eq!(
@@ -540,7 +540,7 @@ fn an_unsuffixed_model_is_reported_and_merged_into_the_hair_with_its_own_skeleto
         ]
     );
     assert_eq!(run.exit_code(), 0);
-    let entries = cpk_entries(&merged.root.join("output/4cc_90_test.cpk"));
+    let entries = cpk_entries(&merged.root.join("output/4cc_99_test.cpk"));
     let package = face_package(&entries);
     let model = FmdlFile::read(package.get("fcl_hair.fmdl").unwrap()).unwrap();
     let part = FmdlFile::read(&tracer_player_file("fcl_hair.fmdl")).unwrap();
@@ -559,7 +559,7 @@ fn an_unsuffixed_model_is_reported_and_merged_into_the_hair_with_its_own_skeleto
     paired.write("exports/co - Paired/Players/05 - A/torso.skl", &custom);
     let run = paired.run(&pes21_settings(&paired), &["compile"]);
     assert_eq!(run.exit_code(), 0);
-    let entries = cpk_entries(&paired.root.join("output/4cc_90_test.cpk"));
+    let entries = cpk_entries(&paired.root.join("output/4cc_99_test.cpk"));
     assert_eq!(
         face_package(&entries).get("fcl_hair_sim.skl").unwrap(),
         custom
@@ -658,7 +658,7 @@ fn assert_face_dropped(sandbox: &Sandbox, name: &str, finding: &str) {
         );
         assert_eq!(run.exit_code(), 1, "{command}");
     }
-    let entries = cpk_entries(&sandbox.root.join("output/4cc_90_test.cpk"));
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
     // Slot 05's face and portrait are player 71405's; `/co/`'s block starts at 621, so its
     // boots and gloves are k0625 and g0625, slot 07's 627.
     assert!(
@@ -778,7 +778,7 @@ fn a_subfolder_s_parts_combine_with_loose_root_files_of_their_category() {
         ]
     );
     assert_eq!(run.exit_code(), 0);
-    let entries = cpk_entries(&sandbox.root.join("output/4cc_90_test.cpk"));
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
     let paths: Vec<&str> = entries.keys().map(String::as_str).collect();
     assert_eq!(
         paths,
@@ -874,7 +874,7 @@ fn a_face_link_combines_the_shared_face_folder_into_the_player_s_face() {
         ]
     );
     assert_eq!(run.exit_code(), 0);
-    let entries = cpk_entries(&sandbox.root.join("output/4cc_90_test.cpk"));
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
     let paths: Vec<&str> = entries.keys().map(String::as_str).collect();
     assert_eq!(
         paths,
@@ -931,7 +931,7 @@ fn a_texture_the_face_and_a_combined_boots_folder_hold_is_packed_once_or_drops_t
         ]
     );
     assert_eq!(run.exit_code(), 0);
-    let entries = cpk_entries(&same.root.join("output/4cc_90_test.cpk"));
+    let entries = cpk_entries(&same.root.join("output/4cc_99_test.cpk"));
     let paths: Vec<&str> = entries.keys().map(String::as_str).collect();
     assert_eq!(
         paths,
@@ -963,7 +963,7 @@ fn a_texture_the_face_and_a_combined_boots_folder_hold_is_packed_once_or_drops_t
         ]
     );
     assert_eq!(run.exit_code(), 1);
-    let entries = cpk_entries(&differing.root.join("output/4cc_90_test.cpk"));
+    let entries = cpk_entries(&differing.root.join("output/4cc_99_test.cpk"));
     let paths: Vec<&str> = entries.keys().map(String::as_str).collect();
     assert_eq!(
         paths,
@@ -1011,7 +1011,7 @@ fn a_texture_the_player_s_folder_and_a_combined_face_folder_hold_differently_dro
         ]
     );
     assert_eq!(run.exit_code(), 1);
-    let entries = cpk_entries(&sandbox.root.join("output/4cc_90_test.cpk"));
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
     let paths: Vec<&str> = entries.keys().map(String::as_str).collect();
     assert_eq!(
         paths,
@@ -1090,7 +1090,7 @@ fn parts_with_a_skeleton_mismatch_or_a_material_defined_twice_drop_their_folder(
         ]
     );
     assert_eq!(run.exit_code(), 1);
-    let entries = cpk_entries(&sandbox.root.join("output/4cc_90_test.cpk"));
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
     let paths: Vec<&str> = entries.keys().map(String::as_str).collect();
     assert_eq!(
         paths,
@@ -1260,9 +1260,9 @@ fn the_planned_ids_are_the_slot_s_and_two_compiles_write_the_same_bytes() {
     );
 
     let first = compile_clean(&sandbox, "co - Planned", PLANNED_FINDINGS);
-    let first_cpk = fs::read(sandbox.root.join("output/4cc_90_test.cpk")).unwrap();
+    let first_cpk = fs::read(sandbox.root.join("output/4cc_99_test.cpk")).unwrap();
     let second = compile_clean(&sandbox, "co - Planned", PLANNED_FINDINGS);
-    let second_cpk = fs::read(sandbox.root.join("output/4cc_90_test.cpk")).unwrap();
+    let second_cpk = fs::read(sandbox.root.join("output/4cc_99_test.cpk")).unwrap();
 
     let paths: Vec<&str> = first.keys().map(String::as_str).collect();
     assert_eq!(

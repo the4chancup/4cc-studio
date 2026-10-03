@@ -70,7 +70,7 @@ fn one_export_as_a_folder_a_zip_and_a_7z_reports_and_compiles_the_same() {
             .collect();
         assert_eq!(findings_of(&lines, source), expected, "{lines:#?}");
         assert_eq!(run.exit_code(), 1, "{source}");
-        archives.push(cpk_entries(&sandbox.root.join("output/4cc_90_test.cpk")));
+        archives.push(cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk")));
     }
     assert!(
         archives[0] == archives[1],

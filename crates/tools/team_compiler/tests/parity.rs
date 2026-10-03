@@ -232,7 +232,7 @@ fn the_tracer_bullet_matches_the_reference_tree() {
         }
     }
 
-    let ours = archive(&output.join("4cc_90_test.cpk"));
+    let ours = archive(&output.join("4cc_99_test.cpk"));
     let reference = tree(&fixture.join("red"));
 
     let mut failures = Vec::new();

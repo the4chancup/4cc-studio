@@ -889,9 +889,11 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   open by the test: `old_cpk_locked`, `output/4cc_99_test.cpk` holds the run's CPK, the old one
   is byte-identical, exit 1
 
-- [ ] 4.25a **The default `cpk_name` is `4cc_99_test`** (lead; mechanical): `4cc_90_test`
+- [x] 4.25a **The default `cpk_name` is `4cc_99_test`** (lead; mechanical): `4cc_90_test`
   renamed in the code and its tests (81 mentions in 17 files of `crates/`), the plan having
-  it already → verify: no `4cc_90_test` left under `crates/`, `just gates` green
+  it already. Done 2026-10-03, by script; gates green. The tracer fixture's README keeps
+  `4cc_90_tracer`, the name Red's golden run used → verify: no `4cc_90_test` left under
+  `crates/`, `just gates` green
 
 - [ ] 4.25 **DpFileList upgrade and the official-list check** (the entry list is fixed:
   `resources/templates/DpFileList.txt`, 53 entries; before this step, 4.25a renames the
@@ -1846,3 +1848,4 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   dropped) and a player's `settings.toml` that does not (`settings_toml_invalid`, the file
   alone dropped); none is kept by `pass_through`. The deep pass's checks are complete; step
   4.7's timing is left.
+- **2026-10-03** — 4.25a: the default `cpk_name` is `4cc_99_test` in the code and its tests.

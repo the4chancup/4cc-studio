@@ -87,7 +87,7 @@ pub(crate) fn pass_through_settings(sandbox: &Sandbox) -> String {
 #[test]
 fn compile_no_deploy_writes_the_cpk_to_the_output_folder_and_leaves_pes_alone() {
     let sandbox = Sandbox::new("no_deploy");
-    sandbox.write("PES/download/4cc_90_test.cpk", b"the installed CPK");
+    sandbox.write("PES/download/4cc_99_test.cpk", b"the installed CPK");
     sandbox.write("PES/PES2021.exe", b"the game");
     let pes_before = snapshot(&sandbox.root.join("PES"));
 
@@ -97,7 +97,7 @@ fn compile_no_deploy_writes_the_cpk_to_the_output_folder_and_leaves_pes_alone() 
     );
 
     assert_eq!(run.exit_code(), 0);
-    let promoted = sandbox.root.join("output").join("4cc_90_test.cpk");
+    let promoted = sandbox.root.join("output").join("4cc_99_test.cpk");
     let entries = cpk::CpkArchive::open(fs::File::open(&promoted).unwrap())
         .unwrap()
         .entries()
@@ -129,7 +129,7 @@ fn compile_without_no_deploy_promotes_the_cpk_silently() {
         &["compile", "--export", &tracer_export()],
     );
     assert_eq!(run.exit_code(), 0);
-    assert!(sandbox.root.join("output/4cc_90_test.cpk").is_file());
+    assert!(sandbox.root.join("output/4cc_99_test.cpk").is_file());
     assert_eq!(
         run.messages(),
         [
@@ -146,7 +146,7 @@ fn a_compile_that_emits_nothing_writes_no_cpk_and_no_staging_folder() {
     let sandbox = Sandbox::new("emits_nothing");
     sandbox.write("exports/co - Off/NO_USE", b"");
     sandbox.write(&format!("exports/co - Off/{CLEAN_PLAYER}"), &clean_model());
-    sandbox.write("output/4cc_90_test.cpk", b"the previous CPK");
+    sandbox.write("output/4cc_99_test.cpk", b"the previous CPK");
     let before = snapshot(&sandbox.root.join("output"));
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
@@ -182,7 +182,7 @@ fn an_output_folder_that_cannot_be_created_refuses_compile_before_any_export_is_
 #[test]
 fn a_failed_cpk_write_discards_the_staging_and_leaves_the_previous_cpk() {
     let sandbox = Sandbox::new("cpk_write_failed");
-    sandbox.write("output/4cc_90_test.cpk", b"the previous CPK");
+    sandbox.write("output/4cc_99_test.cpk", b"the previous CPK");
     // Two exports of one team with the same player: the CPK refuses the second's face path.
     sandbox.copy_tracer_face("exports/co - A/Players/03 - A");
     sandbox.copy_tracer_face("exports/co - B/Players/03 - A");
@@ -206,7 +206,7 @@ fn a_failed_cpk_write_discards_the_staging_and_leaves_the_previous_cpk() {
         ]
     );
     // The error names the staged CPK, whose folder is this run's: `<pid>-<ms>` is left free.
-    let previous = sandbox.root.join("output").join("4cc_90_test.cpk");
+    let previous = sandbox.root.join("output").join("4cc_99_test.cpk");
     let prefix = format!(
         "Fatal cpk_write_failed [AbortRun] (path={}, error={}",
         previous.display(),
@@ -216,7 +216,7 @@ fn a_failed_cpk_write_discards_the_staging_and_leaves_the_previous_cpk() {
     // packages.
     let face = "Asset/model/character/face/real/71403/#Win/face.fpk";
     let suffix = format!(
-        "{}4cc_90_test.cpk: cannot add {face}: duplicate path in archive: {face})",
+        "{}4cc_99_test.cpk: cannot add {face}: duplicate path in archive: {face})",
         std::path::MAIN_SEPARATOR
     );
     assert!(
@@ -232,7 +232,7 @@ fn a_failed_cpk_write_discards_the_staging_and_leaves_the_previous_cpk() {
 /// `output_commit_failed` naming it is the last finding, the exit code is 3, and `output/`
 /// holds exactly what it held `before`.
 fn assert_commit_failed(sandbox: &Sandbox, run: &Run, before: &BTreeMap<PathBuf, Vec<u8>>) {
-    let previous = sandbox.root.join("output").join("4cc_90_test.cpk");
+    let previous = sandbox.root.join("output").join("4cc_99_test.cpk");
     let lines = run.messages();
     let (last, first) = lines.split_last().unwrap();
     assert_eq!(
@@ -264,13 +264,13 @@ fn a_previous_cpk_held_open_without_delete_sharing_fails_the_commit_and_is_kept(
     const FILE_SHARE_READ: u32 = 1;
 
     let sandbox = Sandbox::new("output_commit_held_open");
-    sandbox.write("output/4cc_90_test.cpk", b"the previous CPK");
+    sandbox.write("output/4cc_99_test.cpk", b"the previous CPK");
     sandbox.copy_tracer("egg Tracer");
     let before = snapshot(&sandbox.root.join("output"));
     let held_open = fs::OpenOptions::new()
         .read(true)
         .share_mode(FILE_SHARE_READ)
-        .open(sandbox.root.join("output").join("4cc_90_test.cpk"))
+        .open(sandbox.root.join("output").join("4cc_99_test.cpk"))
         .unwrap();
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
@@ -282,7 +282,7 @@ fn a_previous_cpk_held_open_without_delete_sharing_fails_the_commit_and_is_kept(
 #[test]
 fn a_previous_cpk_that_is_a_folder_fails_the_commit_and_is_kept() {
     let sandbox = Sandbox::new("output_commit_folder");
-    sandbox.write("output/4cc_90_test.cpk/kept.txt", b"not a CPK");
+    sandbox.write("output/4cc_99_test.cpk/kept.txt", b"not a CPK");
     sandbox.copy_tracer("egg Tracer");
     let before = snapshot(&sandbox.root.join("output"));
 
@@ -318,7 +318,7 @@ pub(crate) fn kit_texture(name: &str) -> String {
 
 /// The player id of every face in the sandbox's compiled CPK, sorted.
 pub(crate) fn compiled_players(sandbox: &Sandbox) -> Vec<u32> {
-    let mut players: Vec<u32> = cpk_paths(&sandbox.root.join("output/4cc_90_test.cpk"))
+    let mut players: Vec<u32> = cpk_paths(&sandbox.root.join("output/4cc_99_test.cpk"))
         .iter()
         .filter_map(|path| {
             path.strip_prefix("Asset/model/character/face/real/")?
@@ -332,7 +332,7 @@ pub(crate) fn compiled_players(sandbox: &Sandbox) -> Vec<u32> {
 
 /// The file name of every portrait in the sandbox's compiled CPK (`71405.dds`), sorted.
 pub(crate) fn compiled_portraits(sandbox: &Sandbox) -> Vec<String> {
-    let mut portraits: Vec<String> = cpk_paths(&sandbox.root.join("output/4cc_90_test.cpk"))
+    let mut portraits: Vec<String> = cpk_paths(&sandbox.root.join("output/4cc_99_test.cpk"))
         .iter()
         .filter_map(|path| path.strip_prefix("common/render/symbol/player/"))
         .map(str::to_owned)
@@ -343,7 +343,7 @@ pub(crate) fn compiled_portraits(sandbox: &Sandbox) -> Vec<String> {
 
 /// The name of every kit texture in the sandbox's compiled CPK (`u0714g1`), sorted.
 pub(crate) fn compiled_kits(sandbox: &Sandbox) -> Vec<String> {
-    let mut kits: Vec<String> = cpk_paths(&sandbox.root.join("output/4cc_90_test.cpk"))
+    let mut kits: Vec<String> = cpk_paths(&sandbox.root.join("output/4cc_99_test.cpk"))
         .iter()
         .filter_map(|path| {
             path.strip_prefix("Asset/model/character/uniform/texture/#windx11/")?
@@ -388,7 +388,7 @@ fn compile_skips_an_export_holding_content_it_cannot_build_yet_and_builds_the_ot
         ]
     );
     assert_eq!(run.exit_code(), 1);
-    let entries = cpk_paths(&sandbox.root.join("output/4cc_90_test.cpk"));
+    let entries = cpk_paths(&sandbox.root.join("output/4cc_99_test.cpk"));
     for texture in ["u0792g1", "u0790p1"] {
         assert!(entries.contains(&kit_texture(texture)), "{entries:#?}");
     }
@@ -407,7 +407,7 @@ fn compile_skips_an_export_holding_content_it_cannot_build_yet_and_builds_the_ot
 #[test]
 fn a_compile_whose_every_export_is_skipped_leaves_the_previous_cpk_as_it_was() {
     let sandbox = Sandbox::new("every_export_skipped");
-    sandbox.write("output/4cc_90_test.cpk", b"the previous CPK");
+    sandbox.write("output/4cc_99_test.cpk", b"the previous CPK");
     sandbox.write("exports/refs Cup/players.txt", b"01 Keeper\n");
     sandbox.write(
         "exports/refs Cup/Players/Keeper/face_high.fmdl",
@@ -428,7 +428,7 @@ fn a_compile_whose_every_export_is_skipped_leaves_the_previous_cpk_as_it_was() {
 #[test]
 fn an_export_whose_only_player_folder_is_dropped_writes_no_cpk() {
     let sandbox = Sandbox::new("only_folder_dropped");
-    sandbox.write("output/4cc_90_test.cpk", b"the previous CPK");
+    sandbox.write("output/4cc_99_test.cpk", b"the previous CPK");
     sandbox.write(
         &format!("exports/co - Links/{CLEAN_PLAYER}"),
         &clean_model(),
@@ -466,7 +466,7 @@ fn an_export_of_an_unknown_team_is_skipped_and_the_one_beside_it_compiled() {
         findings_of(&lines, "zz - Spring"),
         ["Error team_name_unknown [DropExport] (team_name=/zz/)"]
     );
-    let entries = cpk_paths(&sandbox.root.join("output/4cc_90_test.cpk"));
+    let entries = cpk_paths(&sandbox.root.join("output/4cc_99_test.cpk"));
     assert!(entries.contains(&kit_texture("u0792g1")), "{entries:#?}");
     assert_eq!(run.exit_code(), 1);
 }
@@ -486,7 +486,7 @@ fn a_pre_fox_compile_skips_every_export_naming_the_target() {
         "{lines:#?}"
     );
     assert_eq!(run.exit_code(), 1);
-    assert!(!sandbox.root.join("output/4cc_90_test.cpk").exists());
+    assert!(!sandbox.root.join("output/4cc_99_test.cpk").exists());
 }
 
 #[test]
@@ -748,7 +748,7 @@ fn pass_through_keeps_no_finding_whose_drop_it_cannot_keep() {
             case.name
         );
         assert_eq!(run.exit_code(), case.exit_code, "{}", case.name);
-        let cpk = sandbox.root.join("output/4cc_90_test.cpk");
+        let cpk = sandbox.root.join("output/4cc_99_test.cpk");
         match case.compiled {
             Some((players, kits)) => {
                 assert_eq!(compiled_players(&sandbox), players, "{}", case.name);
@@ -782,7 +782,7 @@ fn an_export_skipped_by_its_roster_leaves_the_export_beside_it_as_compiled_alone
     );
     assert_eq!(run.exit_code(), 1);
     assert_eq!(
-        fs::read(beside.root.join("output/4cc_90_test.cpk")).unwrap(),
-        fs::read(alone.root.join("output/4cc_90_test.cpk")).unwrap()
+        fs::read(beside.root.join("output/4cc_99_test.cpk")).unwrap(),
+        fs::read(alone.root.join("output/4cc_99_test.cpk")).unwrap()
     );
 }

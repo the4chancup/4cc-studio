@@ -66,7 +66,7 @@ fn copy_tree(source: &Path, target: &Path) {
 
 /// A fresh `scratch` folder standing in for the executable's: a teams list holding `792 /egg/`
 /// under `data/` and the tracer bullet's export under `exports/egg Tracer`, so a `compile` with
-/// no arguments compiles it to `output/4cc_90_test.cpk`.
+/// no arguments compiles it to `output/4cc_99_test.cpk`.
 pub(crate) fn sandbox(name: &str) -> ScratchFolder {
     let temp = scratch(name);
     let root = temp.path();

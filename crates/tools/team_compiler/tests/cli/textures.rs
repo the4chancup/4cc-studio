@@ -77,7 +77,7 @@ fn compile_entry(sandbox: &Sandbox, name: &str, version: u8, path: &str) -> Vec<
         "PES {version}"
     );
     assert_eq!(run.exit_code(), 0, "PES {version}");
-    let mut entries = cpk_entries(&sandbox.root.join("output/4cc_90_test.cpk"));
+    let mut entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
     entries
         .remove(path)
         .unwrap_or_else(|| panic!("PES {version}: no {path} among {:?}", entries.keys()))
@@ -182,7 +182,7 @@ fn png_and_tga_kit_textures_are_ftex_under_the_kit_s_names_and_a_webp_portrait_i
         ]
     );
     assert_eq!(run.exit_code(), 0);
-    let entries = cpk_entries(&sandbox.root.join("output/4cc_90_test.cpk"));
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
     for (name, width, height, mipmaps) in [("u0714p1", 256, 128, 9), ("u0714p1_back", 128, 64, 8)] {
         let info = ftex::info(&entries[&kit_texture(name)]).unwrap();
         assert_eq!(info.format, PixelFormat::Bc7, "{name}");
@@ -201,7 +201,7 @@ fn png_and_tga_kit_textures_are_ftex_under_the_kit_s_names_and_a_webp_portrait_i
 
 /// The paths of the CPK the sandbox's last `compile` wrote.
 fn compiled_paths(sandbox: &Sandbox) -> Vec<String> {
-    cpk_entries(&sandbox.root.join("output/4cc_90_test.cpk"))
+    cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"))
         .into_keys()
         .collect()
 }
@@ -439,7 +439,7 @@ fn a_kit_texture_too_big_drops_its_kit_and_an_uncompressed_kit_is_bc7() {
     );
     assert_eq!(compile.exit_code(), 1);
     assert_eq!(compiled_kits(&sandbox), ["u0714p2"]);
-    let entries = cpk_entries(&sandbox.root.join("output/4cc_90_test.cpk"));
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
     let info = ftex::info(&entries[&kit_texture("u0714p2")]).unwrap();
     assert_eq!(info.format, PixelFormat::Bc7);
 }
@@ -498,7 +498,7 @@ fn a_common_texture_finding_leaves_that_file_out_and_the_rest_is_emitted() {
         ]
     );
     assert_eq!(run.exit_code(), 1);
-    let entries = cpk_entries(&sandbox.root.join("output/4cc_90_test.cpk"));
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
     let common: Vec<&str> = entries
         .keys()
         .filter_map(|path| path.strip_prefix("Asset/model/character/common/714/sourceimages/"))
@@ -541,7 +541,7 @@ fn a_common_texture_and_a_shared_folder_s_texture_in_png_are_emitted_as_ftex() {
         ]
     );
     assert_eq!(run.exit_code(), 0);
-    let entries = cpk_entries(&sandbox.root.join("output/4cc_90_test.cpk"));
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
     for path in [
         "Asset/model/character/common/714/sourceimages/#windx11/hair.ftex",
         "Asset/model/character/boots/k0644/#windx11/sole.ftex",

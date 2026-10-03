@@ -180,6 +180,6 @@ fn the_tool_is_registered_as_the_team_compiler() {
     assert_eq!(tool.label(), "Team compiler");
     assert_eq!(
         tool.default_settings()["cpk_name"].as_str(),
-        Some("4cc_90_test")
+        Some("4cc_99_test")
     );
 }

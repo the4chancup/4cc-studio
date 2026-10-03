@@ -87,7 +87,7 @@ fn a_missing_default_exports_folder_is_created_and_reported_empty() {
             exports.display()
         )]
     );
-    assert!(!sandbox.root.join("output/4cc_90_test.cpk").exists());
+    assert!(!sandbox.root.join("output/4cc_99_test.cpk").exists());
     assert_eq!(run.exit_code(), 0);
 }
 

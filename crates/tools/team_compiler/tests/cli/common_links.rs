@@ -105,7 +105,7 @@ fn a_common_model_link_bakes_the_model_into_the_face_and_its_texture_stays_in_th
         ]
     );
     assert_eq!(run.exit_code(), 0);
-    let entries = cpk_entries(&sandbox.root.join("output/4cc_90_test.cpk"));
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
     let paths: Vec<&str> = entries.keys().map(String::as_str).collect();
     assert_eq!(
         paths,
@@ -185,7 +185,7 @@ fn a_boots_link_packs_the_common_skeleton_and_two_players_linking_one_model_shar
         ]
     );
     assert_eq!(run.exit_code(), 0);
-    let entries = cpk_entries(&sandbox.root.join("output/4cc_90_test.cpk"));
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
     let paths: Vec<&str> = entries.keys().map(String::as_str).collect();
     assert_eq!(
         paths,
@@ -246,7 +246,7 @@ fn a_boots_link_beside_a_shared_boots_link_combines_the_shared_folder() {
         ]
     );
     assert_eq!(run.exit_code(), 0);
-    let entries = cpk_entries(&sandbox.root.join("output/4cc_90_test.cpk"));
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
     let paths: Vec<&str> = entries.keys().map(String::as_str).collect();
     assert_eq!(
         paths,
@@ -292,7 +292,7 @@ fn a_common_skeleton_of_a_slotless_face_model_is_reported_on_the_link_and_not_pa
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
     assert_eq!(findings_of(&run.messages(), "co - Slot"), findings);
     assert_eq!(run.exit_code(), 0);
-    let entries = cpk_entries(&sandbox.root.join("output/4cc_90_test.cpk"));
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
     assert_eq!(
         package_names(&entries[FACE_05]),
         ["face_diff.bin", "face_high.fmdl"]
@@ -343,7 +343,7 @@ fn a_material_a_local_and_a_common_part_define_over_textures_in_two_places_drops
         ]
     );
     assert_eq!(run.exit_code(), 1);
-    let entries = cpk_entries(&sandbox.root.join("output/4cc_90_test.cpk"));
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
     let paths: Vec<&str> = entries.keys().map(String::as_str).collect();
     assert_eq!(
         paths,
@@ -395,7 +395,7 @@ fn a_common_texture_that_cannot_convert_fails_the_common_task_and_the_linking_pl
         findings[3]
     );
     assert_eq!(run.exit_code(), 1);
-    let entries = cpk_entries(&sandbox.root.join("output/4cc_90_test.cpk"));
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
     let paths: Vec<&str> = entries.keys().map(String::as_str).collect();
     assert_eq!(
         paths,
@@ -481,7 +481,7 @@ fn a_link_to_a_texture_or_a_nested_common_file_is_refused_and_an_unlinked_common
         ]
     );
     assert_eq!(run.exit_code(), 0);
-    let entries = cpk_entries(&unlinked.root.join("output/4cc_90_test.cpk"));
+    let entries = cpk_entries(&unlinked.root.join("output/4cc_99_test.cpk"));
     let paths: Vec<&str> = entries.keys().map(String::as_str).collect();
     assert_eq!(paths, [FACE_05, FACE_05_FPKD]);
 }

@@ -187,7 +187,7 @@ fn a_kit_holding_only_a_back_texture_gets_the_placeholder_main_texture() {
     );
     let config =
         kit_config::KitConfig::template().encode_with_names(pes_version::PesVersion::Pes21, &names);
-    let entries = cpk_entries(&sandbox.root.join("output/4cc_90_test.cpk"));
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
     assert_eq!(
         entries["common/character0/model/character/uniform/team/714/714_DEF_4th_realUni.bin"],
         config
@@ -222,7 +222,7 @@ fn dds_portraits_from_both_sources_are_emitted_as_they_are_under_the_version_s_n
     );
     assert_eq!(run.exit_code(), 0);
     assert_eq!(compiled_portraits(&sandbox), ["71405.dds", "71407.dds"]);
-    let entries = cpk_entries(&sandbox.root.join("output/4cc_90_test.cpk"));
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
     assert_eq!(entries[&portrait_path("71405.dds")], tracer_portrait());
     assert_eq!(entries[&portrait_path("71407.dds")], tracer_kit());
 
@@ -234,7 +234,7 @@ fn dds_portraits_from_both_sources_are_emitted_as_they_are_under_the_version_s_n
         compiled_portraits(&sandbox),
         ["player_71405.dds", "player_71407.dds"]
     );
-    let entries = cpk_entries(&sandbox.root.join("output/4cc_90_test.cpk"));
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
     assert_eq!(
         entries[&portrait_path("player_71405.dds")],
         tracer_portrait()
@@ -252,7 +252,7 @@ fn a_folder_listed_under_two_slots_emits_its_portrait_for_both() {
 
     assert_eq!(run.exit_code(), 0);
     assert_eq!(compiled_portraits(&sandbox), ["71403.dds", "71407.dds"]);
-    let entries = cpk_entries(&sandbox.root.join("output/4cc_90_test.cpk"));
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
     for name in ["71403.dds", "71407.dds"] {
         assert_eq!(entries[&portrait_path(name)], tracer_portrait(), "{name}");
     }
@@ -277,7 +277,7 @@ fn a_slot_s_two_portraits_skip_the_export_when_they_differ_and_are_one_when_iden
         ]
     );
     assert_eq!(run.exit_code(), 1);
-    assert!(!sandbox.root.join("output/4cc_90_test.cpk").exists());
+    assert!(!sandbox.root.join("output/4cc_99_test.cpk").exists());
 
     // The same bytes in both places are one portrait.
     sandbox.write(
@@ -298,7 +298,7 @@ fn a_slot_s_two_portraits_skip_the_export_when_they_differ_and_are_one_when_iden
     );
     assert_eq!(run.exit_code(), 0);
     assert_eq!(compiled_portraits(&sandbox), ["71405.dds"]);
-    let entries = cpk_entries(&sandbox.root.join("output/4cc_90_test.cpk"));
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
     assert_eq!(entries[&portrait_path("71405.dds")], tracer_portrait());
 }
 
@@ -342,7 +342,7 @@ fn a_dds_portrait_passes_through_and_a_png_one_is_encoded_to_bc3_under_the_versi
     );
     assert_eq!(run.exit_code(), 0);
     assert_eq!(compiled_portraits(&sandbox), ["71405.dds", "71407.dds"]);
-    let entries = cpk_entries(&sandbox.root.join("output/4cc_90_test.cpk"));
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
     assert_eq!(entries[&portrait_path("71405.dds")], tracer_portrait());
     assert_bc3_portrait(&entries[&portrait_path("71407.dds")], "PES 21");
 
@@ -354,7 +354,7 @@ fn a_dds_portrait_passes_through_and_a_png_one_is_encoded_to_bc3_under_the_versi
         compiled_portraits(&sandbox),
         ["player_71405.dds", "player_71407.dds"]
     );
-    let entries = cpk_entries(&sandbox.root.join("output/4cc_90_test.cpk"));
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
     assert_eq!(
         entries[&portrait_path("player_71405.dds")],
         tracer_portrait()
@@ -421,7 +421,7 @@ fn pass_through_keeps_a_portrait_whose_side_is_not_a_power_of_two() {
     );
     assert_eq!(run.exit_code(), 1);
     assert_eq!(compiled_portraits(&sandbox), ["71403.dds", "71405.dds"]);
-    let entries = cpk_entries(&sandbox.root.join("output/4cc_90_test.cpk"));
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
     assert_eq!(entries[&portrait_path("71405.dds")], bc1_dds(300, 300));
 }
 
@@ -526,7 +526,7 @@ fn a_disabled_export_is_reported_once_by_check_and_compile_and_not_compiled() {
         );
         assert_eq!(run.exit_code(), 0, "{command}");
     }
-    assert!(!sandbox.root.join("output/4cc_90_test.cpk").exists());
+    assert!(!sandbox.root.join("output/4cc_99_test.cpk").exists());
     assert!(!sandbox.root.join("output/.staging").exists());
 }
 
@@ -728,7 +728,7 @@ fn the_worker_count_changes_neither_the_findings_nor_the_cpk() {
         let run = sandbox.run(&settings, &["compile"]);
 
         assert_eq!(run.exit_code(), 0, "{threads} threads");
-        let cpk = fs::read(sandbox.root.join("output/4cc_90_test.cpk")).unwrap();
+        let cpk = fs::read(sandbox.root.join("output/4cc_99_test.cpk")).unwrap();
         outcomes.push((run.messages(), cpk));
     }
     assert_eq!(outcomes[0].0, outcomes[1].0);

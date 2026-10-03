@@ -207,7 +207,7 @@ mod tests {
         window.frame(release(header), |ui| show(ui, &ctx, &log));
         let (_, nodes) = window.frame(Vec::new(), |ui| show(ui, &ctx, &log));
         assert!(shows_text(&nodes, "pes_version = 21"));
-        assert!(shows_text(&nodes, "cpk_name = \"4cc_90_test\""));
+        assert!(shows_text(&nodes, "cpk_name = \"4cc_99_test\""));
     }
 
     #[test]

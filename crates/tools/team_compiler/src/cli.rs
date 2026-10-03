@@ -508,7 +508,7 @@ mod tests {
     #[test]
     fn compile_refuses_an_invalid_cpk_name_and_multicpk_mode() {
         let mut settings = TeamCompilerSettings::default();
-        assert_eq!(compile_settings(&settings).unwrap().as_str(), "4cc_90_test");
+        assert_eq!(compile_settings(&settings).unwrap().as_str(), "4cc_99_test");
         settings.multicpk_mode = true;
         let error = compile_settings(&settings).unwrap_err();
         assert!(error.to_string().contains("multicpk_mode"), "{error}");
