@@ -317,9 +317,10 @@ Git Bash uses `/c/Windows/System32/OpenSSH/ssh.exe bonfire`: Git's own `ssh` can
 Windows agent that holds the key.
 
 **The VPS's production Fluxer instance comes first.** The remote half runs as the transient
-system service `studio-mutants` (`sudo -n systemd-run`): `MemoryMax=8G` with no swap (6G
+system service `studio-mutants` (`sudo -n systemd-run`): `MemoryMax=9G` with no swap (6G
 until 3.z, when eframe's dependency tree outgrew it; since then each remote cargo process also
-builds with 2 jobs, `REMOTE_BUILD_JOBS`, maintainer's choice of both), so a
+builds with 2 jobs, `REMOTE_BUILD_JOBS`, maintainer's choice of both; 8G until 4.6b, whose run
+peaked at 7.90 GiB; past 9G the next lever is fewer build jobs, not more memory), so a
 runaway mutant is OOM-killed inside the unit and counts as caught; `OOMPolicy=continue`, so that
 kill does not stop cargo-mutants; `CPUWeight=idle`, because `nice` cannot keep a `user.slice`
 process off Fluxer's CPU under cgroup v2. On 2026-09-29 the old uncapped half filled the host's

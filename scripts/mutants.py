@@ -45,10 +45,12 @@ REMOTE_REF = "refs/mutants/remote"
 # the 2.20i remainder run, and Fluxer's production services have priority.
 REMOTE_UNIT = "studio-mutants"
 # The unit's MemoryMax (with MemorySwapMax=0): at the cap the kernel
-# OOM-kills inside this unit only, never in Fluxer's. 8 GiB since 3.z
-# (maintainer): eframe's dependency tree outgrew 6 GiB while building, with
-# about 9.7 GiB available on the 16 GB host beside Fluxer.
-REMOTE_MEMORY_MAX = "8G"
+# OOM-kills inside this unit only, never in Fluxer's. 6 GiB until 3.z, when
+# eframe's dependency tree outgrew it while building; 8 GiB until 4.6b,
+# whose run peaked at 7.90 GiB; 9 GiB since (maintainer): the 16 GB host
+# keeps more than 10 GiB free beside Fluxer and has 1.5 GiB of swap for it.
+# If a run nears this cap too, lower REMOTE_BUILD_JOBS instead of raising it.
+REMOTE_MEMORY_MAX = "9G"
 # Build jobs per remote cargo process (two run at once): fewer than the
 # remote's half-the-CPUs test threads, because a build's memory grows with
 # its parallel rustc processes and the GUI crates' dependencies (naga, wgpu,
