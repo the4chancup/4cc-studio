@@ -354,7 +354,10 @@ on the maintainer's machine (2026-10-03), 326 are 960 bytes long with counts tha
 and they are in cups' CPKs. A folder holding both `face_diff.bin` and `face_diff.xml` gives
 one datum twice and is discarded (`xml_dif_conflict`); a player folder's own file over a
 combined shared face's is the ordinary layering, whichever form each has. No loose
-`face_diff.xml` exists on that machine, so the test fixtures are encoded from the template.
+`face_diff.xml` exists on that machine, so the test fixtures are encoded from real
+`face_diff.bin` files. A diff is passed through for whatever target is compiled, although the
+two engines use it differently to shape the face skeleton: converting one engine's diff into
+the other's is uninvestigated (worklog "Issues").
 
 **Merge constraint** — parts merged into one output FMDL must reference the same skeleton. A part
 with a custom SKL and a part using the default template skeleton reference different skeletons, as

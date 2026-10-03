@@ -1028,6 +1028,16 @@ pruned when their phase closes; they stay in git history.
   now fails the run. The maintainer keeps 8 GiB. (The 37 OOM kills of 2026-10-02 04:00 were the
   3.z run under the old 6 GiB cap, the reason it was raised; none since.)
 
+- open — a face diff is engine-specific (maintainer, 2026-10-03): how the game uses the diff to
+  shape the face skeleton differs between pre-Fox and Fox, so a `face_diff.bin` (or the
+  `face_diff.xml` and `<dif>` text forms of it) authored for one engine misplaces the face on
+  the other, the same problem the kit layout has. Today the compiler passes a diff through
+  for whatever target it compiles and nothing records which engine a diff was made for. To
+  investigate, after Phase 4's kits work: what differs (the format, the bones it moves, or
+  the rest pose it is relative to), whether one engine's diff converts into the other's
+  automatically, and, if it does, how a folder says which engine its diff is for (the kit
+  layout's `pre-fox`/`fox` markers are the model). Until then a diff is the author's
+  responsibility, as with Red.
 - open — u16 face indices cap a reassembled split mesh (found at 2.20f review): `fmdl::Mesh`
   and the IR (`ir.md` "IR struct") store faces as `[u16; 3]`, so `fmdl::ops::split::decode`
   refuses (loud `VertexMismatch`) an add-on file whose components together reference more
