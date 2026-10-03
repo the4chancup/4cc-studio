@@ -12,7 +12,7 @@ is in `AGENTS.md` ("Working documents").
 **Phase:** 3 (Team compiler skeleton) closed 2026-10-02, its cross-family reviews queued (see
 "Handover"). Phases 1 and 2 done (Phase 2 closed 2026-09-30).
 **Next:** Phase 4 is itemized and its Acceptance section written (step 4.1, 2026-10-03; its
-cross-family review (a) is queued). Next: 4.3 (planned IDs, player-exclusive boots/gloves on Fox). 2.5b (GPU BC7) is step 16.x (decision entries
+cross-family review (a) is queued). Next: 4.4 (shared boots/gloves folders and links on Fox). 2.5b (GPU BC7) is step 16.x (decision entries
 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0 after Phase 8; phase order 1–6,
 8, 0.1.0, 7, 9–16 (`core/development_plan.md` "Releases"); first-class target the Fox version
 the cup moves to around April 2027 ("Target versions").
@@ -298,7 +298,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   203); `mutants-diff 69be25b`: 26, 21 caught, 5 unviable, 0 missed. Lead fix: the archive
   fixtures' README (they keep the eight pre-portrait files)
 
-- [ ] 4.3 **Planned IDs and player-exclusive boots/gloves (Fox)**: `plan/ids.rs` `PlannedModelIds`
+- [x] 4.3 **Planned IDs and player-exclusive boots/gloves (Fox)**: `plan/ids.rs` `PlannedModelIds`
   (block start `101 + (team_id - 701) * 40`, exclusive `block_start + NN - 1`, boots and gloves
   namespaces independent; frozen in the manifest, processing never allocates: the Phase 4 entry
   gate); `TaskKind::Boots`/`Gloves` for a folder's `*_boots`, `*_glove_l`/`gloveL`, `*_glove_r`/
@@ -313,7 +313,17 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   a suffix", "SKL pairing"; `development_plan.md` "Phase 4" entry gates. IDs: TC-MOD-01..04,
   TC-PLN-01. Crates: tc (`plan/ids.rs`, `plan/manifest.rs`, `processing/model.rs`) → verify: the
   tracer parity test passes over all 17 `red/` files (IDs normalized, textures matched by
-  content); a `plan/ids.rs` unit test gives `/co/` slot 05 boots 625 and gloves 625, slot 23 643
+  content); a `plan/ids.rs` unit test gives `/co/` slot 05 boots 625 and gloves 625, slot 23 643.
+  Done 2026-10-03 (Fable; two rework rounds, two sidekick contradictions accepted): one
+  `TaskKind::Models` per package plus a folder's `Textures` task, the writer committing a player
+  folder as one group sharing one memory permit (decision entry "a player folder's tasks commit as
+  one group"); `ModelSuffix`/`model_suffix` public in `aesthetics_export`, one matcher for every
+  model; parity passes over the 17 `red/` files. TC-MOD-01/02/03, TC-PLN-01 cited; TC-MOD-04's
+  conflict half waits for 4.5's reserved subfolders. Red runs in the reports (old gate:
+  `content_not_yet_compiled (what=.../boots.fmdl)`; group commit: `nothing of slot 05 is in the
+  CPK`; shared permit: `Arc::ptr_eq` failed with the guard at `true`). Gates green (acceptance
+  81 of 203); `mutants-diff 99b7059`: 80 caught, 15 unviable, 1 timeout (an infinite loop), 1
+  missed (`compile.rs:226` group guard), now killed by the shared-permit test
 
 - [ ] 4.4 **Shared folders and links (Fox)**: shared `Boots/`/`Gloves/` folders take the 17 shared
   IDs (644 upward for `/co/`) in alphabetical folder-name order, `boots_id_pool_exhausted`/
@@ -1354,3 +1364,6 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
 - **2026-10-03** — 4.2: DDS portraits compile on Fox targets, passed through byte for byte
   (`player_` prefix on PES 18); non-DDS and two-source slots stay refused until 4.6/4.7. Fable
   landed it first time under the new brief shape (Devin's 3.3 model, contradictions invited).
+- **2026-10-03** — 4.3: per-team ID blocks and each player's own boots/gloves compile on Fox;
+  the tracer now matches all 17 of Red's files. The textures-last shape the lead briefed was
+  wrong (a failed texture left dangling packages); the sidekick's folder-group commit replaced it.

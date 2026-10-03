@@ -7,6 +7,7 @@ mod model;
 mod texture;
 
 use std::collections::BTreeMap;
+use std::ops::Range;
 use std::sync::Arc;
 
 use aesthetics_export::FileDescriptor;
@@ -39,6 +40,12 @@ pub(crate) struct TaskBatch {
     pub(crate) index: usize,
     /// The CPK entries the task commits; empty when the task failed.
     pub(crate) entries: Vec<Entry>,
+    /// The manifest positions of the player folder's group the task belongs to
+    /// (`TaskGroup::tasks`), its textures batch last: the writer holds the group's packages
+    /// until that batch arrives and decides them all. `None` for a task the writer commits on
+    /// its own. When `shared_texture_conflict` lands (step 4.5), the textures batch is where
+    /// a field naming the losing package's position goes, for the decision to skip it.
+    pub(crate) group: Option<Range<usize>>,
     /// A kit's config as a `UniformParameter.bin` entry, applied only when the batch is
     /// committed.
     pub(crate) uniparam: Option<Entry>,
@@ -59,8 +66,15 @@ pub(crate) fn process_task(
     ctx: &CompileContext,
 ) -> TaskBatch {
     let result = match &task.kind {
-        TaskKind::Face { folder, player_ids } => {
-            model::face(folder, player_ids, task.team_id, &mut files).map(|entries| (entries, None))
+        TaskKind::Models {
+            folder,
+            package,
+            ids,
+        } => model::package(folder, *package, ids, task.team_id, &mut files)
+            .map(|entries| (entries, None)),
+        TaskKind::Textures { folder, .. } => {
+            texture::player_textures(folder, task.team_id, &mut files)
+                .map(|entries| (entries, None))
         }
         // A DDS portrait is what the game reads: its bytes go out as they are.
         TaskKind::Portrait { player_id, file } => Ok((
@@ -76,6 +90,7 @@ pub(crate) fn process_task(
     let mut batch = TaskBatch {
         index,
         entries: Vec::new(),
+        group: task.group.as_ref().map(|group| group.tasks.clone()),
         uniparam: None,
         messages: Vec::new(),
         permit: None,
@@ -117,9 +132,14 @@ mod tests {
     use studio_core::{ExportId, Severity};
 
     use super::*;
+    use crate::plan::TaskGroup;
+    use crate::plan::subset::ModelPackage;
+    use crate::templates;
 
     const PLAYER: &str = "Players/05 - The Chad Stormworks Player";
     const COMMON: &str = "Asset/model/character/common/792/05 - The Chad Stormworks Player/sourceimages/#windx11/shirt.ftex";
+    const COMMON_DIRECTORY: &str =
+        "/Assets/pes16/model/character/common/792/05 - The Chad Stormworks Player/sourceimages/";
 
     /// The tracer fixture's export folder.
     fn tracer() -> PathBuf {
@@ -175,8 +195,14 @@ mod tests {
         run_for(kind, PesVersion::Pes21)
     }
 
-    /// `run` for the target `version`.
+    /// `run` for the target `version`, the task in no group.
     fn run_for(kind: TaskKind, version: PesVersion) -> TaskBatch {
+        run_task(kind, version, None)
+    }
+
+    /// `kind` processed for `version` as task 3 of export 4, in `group`, over its files read
+    /// from the tracer folder.
+    fn run_task(kind: TaskKind, version: PesVersion, group: Option<TaskGroup>) -> TaskBatch {
         let files = kind
             .files()
             .into_iter()
@@ -190,6 +216,7 @@ mod tests {
             team_id: 792,
             kind,
             charge: 0,
+            group,
         };
         process_task(3, task, files, &CompileContext { version })
     }
@@ -202,59 +229,37 @@ mod tests {
             .collect()
     }
 
-    #[test]
-    fn a_folder_mapped_to_two_slots_converts_its_textures_once_and_packs_a_face_per_slot() {
-        let folder = player(&[
+    /// The tracer's player folder, every file the lead's fixture holds.
+    fn whole_player() -> PlayerFolder {
+        player(&[
+            "boots.fmdl",
             "face_diff.bin",
             "fcl_hair.fmdl",
             "fcl_hair.skl",
             "fcl_hair_sim.fclo",
+            "glove_l.fmdl",
+            "glove_r.fmdl",
             "shirt.dds",
-        ]);
+        ])
+    }
 
-        let batch = run(TaskKind::Face {
-            folder,
-            player_ids: vec![79205, 79207],
-        });
-
-        assert_eq!(batch.index, 3);
-        assert!(batch.messages.is_empty() && batch.uniparam.is_none());
-        assert_eq!(
-            paths(&batch),
-            [
-                COMMON,
-                "Asset/model/character/face/real/79205/#Win/face.fpk",
-                "Asset/model/character/face/real/79205/#Win/face.fpkd",
-                "Asset/model/character/face/real/79207/#Win/face.fpk",
-                "Asset/model/character/face/real/79207/#Win/face.fpkd",
-            ]
-        );
-        assert_eq!(batch.entries[1].1, batch.entries[3].1, "one package, twice");
-        let fpkd = FpkFile::read(&batch.entries[2].1).unwrap();
-        assert_eq!((fpkd.kind(), fpkd.len()), (FpkKind::Fpkd, 0));
-
-        let package = FpkFile::read(&batch.entries[1].1).unwrap();
-        let names: Vec<&str> = package.entries().map(|(name, _)| name).collect();
-        assert_eq!(
-            names,
-            [
-                "face_diff.bin",
-                "fcl_hair.fmdl",
-                "fcl_hair_sim.fclo",
-                "fcl_hair_sim.skl"
-            ]
-        );
-        let model = FmdlFile::read(package.get("fcl_hair.fmdl").unwrap()).unwrap();
-        let directories: Vec<(String, String)> = texture_paths(&model)
+    /// The (file name, directory) of every texture path of the package's model `name`.
+    fn texture_directories(package: &FpkFile, name: &str) -> Vec<(String, String)> {
+        let model = FmdlFile::read(package.get(name).unwrap()).unwrap();
+        texture_paths(&model)
             .unwrap()
             .into_iter()
             .map(|path| (path.file_name, path.directory))
-            .collect();
-        assert!(directories.contains(&(
-            "shirt.dds".to_owned(),
-            "/Assets/pes16/model/character/common/792/05 - The Chad Stormworks Player/sourceimages/"
-                .to_owned()
-        )));
+            .collect()
+    }
+
+    /// Asserts the model's own texture points at the player's common folder and the game's
+    /// own at the team's, with no `000` placeholder left.
+    fn assert_rewritten(directories: &[(String, String)]) {
+        assert!(
+            directories.contains(&("shirt.dds".to_owned(), COMMON_DIRECTORY.to_owned())),
+            "{directories:?}"
+        );
         assert!(
             directories.iter().any(|(_, directory)| directory
                 == "/Assets/pes16/model/character/common/792/sourceimages/"),
@@ -265,6 +270,160 @@ mod tests {
                 .iter()
                 .all(|(_, directory)| !directory.contains("/000/")),
             "{directories:?}"
+        );
+    }
+
+    #[test]
+    fn a_face_package_is_packed_once_per_slot_without_the_textures() {
+        let batch = run(TaskKind::Models {
+            folder: whole_player(),
+            package: ModelPackage::Face,
+            ids: vec![79205, 79207],
+        });
+
+        assert_eq!(batch.index, 3);
+        assert!(batch.messages.is_empty() && batch.uniparam.is_none());
+        assert_eq!(batch.group, None);
+        assert_eq!(
+            paths(&batch),
+            [
+                "Asset/model/character/face/real/79205/#Win/face.fpk",
+                "Asset/model/character/face/real/79205/#Win/face.fpkd",
+                "Asset/model/character/face/real/79207/#Win/face.fpk",
+                "Asset/model/character/face/real/79207/#Win/face.fpkd",
+            ]
+        );
+        assert_eq!(batch.entries[0].1, batch.entries[2].1, "one package, twice");
+        let fpkd = FpkFile::read(&batch.entries[1].1).unwrap();
+        assert_eq!((fpkd.kind(), fpkd.len()), (FpkKind::Fpkd, 0));
+
+        let package = FpkFile::read(&batch.entries[0].1).unwrap();
+        let names: Vec<&str> = package.entries().map(|(name, _)| name).collect();
+        assert_eq!(
+            names,
+            [
+                "face_diff.bin",
+                "fcl_hair.fmdl",
+                "fcl_hair_sim.fclo",
+                "fcl_hair_sim.skl"
+            ]
+        );
+        assert_rewritten(&texture_directories(&package, "fcl_hair.fmdl"));
+    }
+
+    #[test]
+    fn a_boots_package_holds_the_model_and_the_standard_skeleton_when_it_brings_none() {
+        let batch = run(TaskKind::Models {
+            folder: whole_player(),
+            package: ModelPackage::Boots,
+            ids: vec![3745],
+        });
+
+        assert!(batch.messages.is_empty(), "{:?}", batch.messages);
+        assert_eq!(
+            paths(&batch),
+            [
+                "Asset/model/character/boots/k3745/#Win/boots.fpk",
+                "Asset/model/character/boots/k3745/#Win/boots.fpkd",
+            ]
+        );
+        let package = FpkFile::read(&batch.entries[0].1).unwrap();
+        let names: Vec<&str> = package.entries().map(|(name, _)| name).collect();
+        assert_eq!(names, ["boots.fmdl", "boots.skl"]);
+        assert_eq!(package.get("boots.skl").unwrap(), templates::BOOTS_SKELETON);
+        assert_rewritten(&texture_directories(&package, "boots.fmdl"));
+    }
+
+    #[test]
+    fn a_skeleton_named_after_the_boots_model_is_packed_in_the_standard_one_s_place() {
+        // The tracer's hair skeleton stands in for a custom boots skeleton: its bytes are a
+        // real `.skl`, read as they are.
+        let mut folder = player(&["fcl_hair.skl"]);
+        let kit_boots = ScopePath::new(&format!("{PLAYER}/kit_boots.fmdl")).unwrap();
+        let kit_boots_skl = ScopePath::new(&format!("{PLAYER}/kit_boots.skl")).unwrap();
+        folder.files = vec![
+            FileDescriptor {
+                kind: aesthetics_export::classify(kit_boots.name()),
+                path: kit_boots,
+                ..file(&format!("{PLAYER}/boots.fmdl"))
+            },
+            FileDescriptor {
+                kind: aesthetics_export::classify(kit_boots_skl.name()),
+                path: kit_boots_skl,
+                ..file(&format!("{PLAYER}/fcl_hair.skl"))
+            },
+        ];
+        let custom = std::fs::read(tracer().join(format!("{PLAYER}/fcl_hair.skl"))).unwrap();
+
+        let batch = run(TaskKind::Models {
+            folder,
+            package: ModelPackage::Boots,
+            ids: vec![3745, 3747],
+        });
+
+        assert!(batch.messages.is_empty(), "{:?}", batch.messages);
+        assert_eq!(
+            paths(&batch),
+            [
+                "Asset/model/character/boots/k3745/#Win/boots.fpk",
+                "Asset/model/character/boots/k3745/#Win/boots.fpkd",
+                "Asset/model/character/boots/k3747/#Win/boots.fpk",
+                "Asset/model/character/boots/k3747/#Win/boots.fpkd",
+            ]
+        );
+        let package = FpkFile::read(&batch.entries[0].1).unwrap();
+        let names: Vec<&str> = package.entries().map(|(name, _)| name).collect();
+        assert_eq!(names, ["boots.fmdl", "boots.skl"]);
+        assert_eq!(package.get("boots.skl").unwrap(), custom);
+    }
+
+    #[test]
+    fn a_gloves_package_holds_both_hands_under_their_allowed_names() {
+        let batch = run(TaskKind::Models {
+            folder: whole_player(),
+            package: ModelPackage::Gloves,
+            ids: vec![3745],
+        });
+
+        assert!(batch.messages.is_empty(), "{:?}", batch.messages);
+        assert_eq!(
+            paths(&batch),
+            [
+                "Asset/model/character/glove/g3745/#Win/glove.fpk",
+                "Asset/model/character/glove/g3745/#Win/glove.fpkd",
+            ]
+        );
+        let package = FpkFile::read(&batch.entries[0].1).unwrap();
+        let names: Vec<&str> = package.entries().map(|(name, _)| name).collect();
+        assert_eq!(names, ["glove_l.fmdl", "glove_r.fmdl"]);
+        let fpkd = FpkFile::read(&batch.entries[1].1).unwrap();
+        assert_eq!((fpkd.kind(), fpkd.len()), (FpkKind::Fpkd, 0));
+    }
+
+    #[test]
+    fn a_folder_s_textures_are_converted_once_into_its_common_folder_for_its_packages() {
+        let batch = run_task(
+            TaskKind::Textures {
+                folder: whole_player(),
+            },
+            PesVersion::Pes21,
+            Some(TaskGroup {
+                tasks: 0..4,
+                charge: 0,
+            }),
+        );
+
+        assert!(batch.messages.is_empty() && batch.uniparam.is_none());
+        assert_eq!(
+            batch.group,
+            Some(0..4),
+            "the batch carries its task's group"
+        );
+        assert_eq!(paths(&batch), [COMMON]);
+        let dds = std::fs::read(tracer().join(format!("{PLAYER}/shirt.dds"))).unwrap();
+        assert_eq!(
+            batch.entries[0].1,
+            ftex::dds_to_ftex(&dds, ftex::ColorSpace::Normal).unwrap()
         );
     }
 
@@ -341,9 +500,10 @@ mod tests {
             ..file(&format!("{PLAYER}/face_diff.bin"))
         });
 
-        let batch = run(TaskKind::Face {
+        let batch = run(TaskKind::Models {
             folder,
-            player_ids: vec![79205],
+            package: ModelPackage::Face,
+            ids: vec![79205],
         });
 
         assert!(batch.entries.is_empty() && batch.uniparam.is_none());

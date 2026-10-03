@@ -18,6 +18,14 @@ pub(crate) const PLACEHOLDER_KIT: &[u8] = include_bytes!(concat!(
     "/../../../resources/kits/placeholder_kit.dds"
 ));
 
+/// The `boots.skl` packed beside a boots model that brings no skeleton of its own: PES 2021's
+/// full-body `body.skl`, since exports put full-body models in the boots folder
+/// (`resources/skeletons/README.md`), not the game's four-bone boots skeleton.
+pub(crate) const BOOTS_SKELETON: &[u8] = include_bytes!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../../resources/skeletons/pes21/body.skl"
+));
+
 /// The `UniformParameter.bin` a compile adds its kit configs to when it has no installed one
 /// to start from: one base for PES 18, one for 19-21. `None` for the pre-Fox versions, which
 /// have no such bin.

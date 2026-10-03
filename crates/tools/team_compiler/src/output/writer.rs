@@ -1,5 +1,6 @@
 //! The canonical-order CPK writer (`team_compiler/pipeline.md` "5. Writer"): task batches go
-//! into the CPK in manifest order whatever order they arrive in, then the bins.
+//! into the CPK in manifest order whatever order they arrive in, a player folder's group
+//! decided as one once its textures batch is in, then the bins.
 
 use std::collections::BTreeMap;
 use std::fs::{self, File};
@@ -27,7 +28,8 @@ pub(crate) struct CpkOutput {
     cpk: Option<CpkWriter<File>>,
     /// The manifest position of the next batch to commit.
     next: usize,
-    /// Batches that arrived before an earlier one, by manifest position.
+    /// Batches that arrived before an earlier one, or a player folder's packages held for its
+    /// textures batch, by manifest position.
     pending: BTreeMap<usize, TaskBatch>,
     /// The committed kits' `UniformParameter.bin` entries.
     uniform_parameters: Vec<(String, Vec<u8>)>,
@@ -47,27 +49,70 @@ impl CpkOutput {
 
     /// Takes `batch` and commits every batch that is now next in manifest order. Committing in
     /// manifest order, not arrival order, is what makes the CPK's layout the same on every run.
-    /// Returns the batches committed, in commit order, as each one's manifest position and
-    /// messages, so the caller reports findings in manifest order too; empty when `batch` waits
-    /// for an earlier one.
+    /// A player folder's group (`TaskBatch::group`) is decided only once every batch of it is
+    /// in: its packages wait, their memory still charged, for the textures batch that decides
+    /// them. Returns the batches decided, in manifest order, as each one's manifest position
+    /// and messages, so the caller reports findings in manifest order too; empty when `batch`
+    /// waits for an earlier one.
     pub(crate) fn submit(
         &mut self,
         batch: TaskBatch,
     ) -> anyhow::Result<Vec<(usize, Vec<Message>)>> {
         self.pending.insert(batch.index, batch);
         let mut committed = Vec::new();
-        while let Some(mut batch) = self.pending.remove(&self.next) {
-            let messages = std::mem::take(&mut batch.messages);
-            if let Err(error) = self.commit(batch) {
+        while let Some(next) = self.pending.get(&self.next) {
+            let group = next.group.clone();
+            let range = group.clone().unwrap_or(self.next..self.next + 1);
+            if !range.clone().all(|index| self.pending.contains_key(&index)) {
+                break;
+            }
+            let mut batches: Vec<TaskBatch> = range
+                .clone()
+                .map(|index| {
+                    self.pending
+                        .remove(&index)
+                        .expect("every position was checked")
+                })
+                .collect();
+            for batch in &mut batches {
+                committed.push((batch.index, std::mem::take(&mut batch.messages)));
+            }
+            let result = match group {
+                Some(_) => self.commit_folder(batches),
+                None => batches.into_iter().try_for_each(|batch| self.commit(batch)),
+            };
+            if let Err(error) = result {
                 // The CPK is lost, so the batches waiting here go now: their permits may be
                 // what the coordinator is waiting for, and it must reach the end of the run.
                 self.pending.clear();
                 return Err(error);
             }
-            committed.push((self.next, messages));
-            self.next += 1;
+            self.next = range.end;
         }
         Ok(committed)
+    }
+
+    /// Decides a player folder's group, `batches` in manifest order with the textures batch
+    /// last. When the textures failed nothing of the folder commits: a package in the CPK
+    /// would point at textures that are not. Otherwise each package that succeeded commits,
+    /// then the textures, when at least one package did. A package the textures batch names
+    /// as the loser of a `shared_texture_conflict` (step 4.5) is skipped here.
+    fn commit_folder(&mut self, mut batches: Vec<TaskBatch>) -> anyhow::Result<()> {
+        let textures = batches
+            .pop()
+            .expect("a player folder's group ends with its textures batch");
+        if textures.entries.is_empty() {
+            return Ok(());
+        }
+        let mut committed = false;
+        for package in batches {
+            committed |= !package.entries.is_empty();
+            self.commit(package)?;
+        }
+        if committed {
+            self.commit(textures)?;
+        }
+        Ok(())
     }
 
     /// Writes the bins and closes the CPK. Returns whether a CPK was written: `false` when no
@@ -135,6 +180,7 @@ impl CpkOutput {
 
 #[cfg(test)]
 mod tests {
+    use std::ops::Range;
     use std::path::Path;
     use std::sync::{Arc, mpsc};
     use std::thread;
@@ -156,10 +202,146 @@ mod tests {
                 .iter()
                 .map(|path| ((*path).to_owned(), path.as_bytes().to_vec()))
                 .collect(),
+            group: None,
             uniparam: uniparam.map(|name| (name.to_owned(), vec![7; 120])),
             messages: vec![note(index)],
             permit: None,
         }
+    }
+
+    /// `batch`, as a member of the player folder group at `group`.
+    fn grouped(index: usize, group: Range<usize>, paths: &[&str]) -> TaskBatch {
+        TaskBatch {
+            group: Some(group),
+            ..batch(index, paths, None)
+        }
+    }
+
+    /// A folder's group at 1..5 (face, boots, gloves, textures) between a face at 0 and a kit
+    /// at 5, each package's entries given or empty for a failed one, the textures' likewise.
+    fn folder_run(packages: [&[&str]; 3], textures: &[&str]) -> Vec<TaskBatch> {
+        let [face, boots, gloves] = packages;
+        vec![
+            batch(0, &["face/real/71403/face.fpk"], None),
+            grouped(1, 1..5, face),
+            grouped(2, 1..5, boots),
+            grouped(3, 1..5, gloves),
+            grouped(4, 1..5, textures),
+            batch(5, &["kit/kit.ftex"], Some("kit")),
+        ]
+    }
+
+    /// Writes `batches`, submitted in the given order, to `name.cpk` and returns its layout
+    /// and the positions `submit` reported, in order.
+    fn write_all(folder: &Path, name: &str, batches: Vec<TaskBatch>) -> (Vec<String>, Vec<usize>) {
+        let path = folder.join(format!("{name}.cpk"));
+        let mut output = CpkOutput::new(path.clone());
+        let mut reported = Vec::new();
+        for batch in batches {
+            for (index, messages) in output.submit(batch).unwrap() {
+                assert_eq!(messages, [note(index)], "task {index}'s own message");
+                reported.push(index);
+            }
+        }
+        assert!(output.finish(PesVersion::Pes21).unwrap());
+        (layout(&path), reported)
+    }
+
+    #[test]
+    fn a_folder_whose_textures_failed_commits_nothing_and_the_rest_of_the_run_goes_on() {
+        let temp = scratch("writer_group_textures_failed");
+        let batches = folder_run(
+            [
+                &["face/face.fpk"],
+                &["boots/boots.fpk"],
+                &["glove/glove.fpk"],
+            ],
+            &[],
+        );
+        let (layout, reported) = write_all(temp.path(), "textures_failed", batches);
+        assert_eq!(
+            layout,
+            [
+                "face/real/71403/face.fpk",
+                "kit/kit.ftex",
+                paths::UNIFORM_PARAMETER
+            ]
+        );
+        assert_eq!(reported, [0, 1, 2, 3, 4, 5]);
+    }
+
+    #[test]
+    fn a_folder_with_one_failed_package_commits_the_others_and_its_textures() {
+        let temp = scratch("writer_group_package_failed");
+        let batches = folder_run(
+            [&["face/face.fpk"], &[], &["glove/glove.fpk"]],
+            &["common/shirt.ftex"],
+        );
+        let (layout, reported) = write_all(temp.path(), "package_failed", batches);
+        assert_eq!(
+            layout,
+            [
+                "face/real/71403/face.fpk",
+                "face/face.fpk",
+                "glove/glove.fpk",
+                "common/shirt.ftex",
+                "kit/kit.ftex",
+                paths::UNIFORM_PARAMETER,
+            ]
+        );
+        assert_eq!(reported, [0, 1, 2, 3, 4, 5]);
+    }
+
+    #[test]
+    fn a_folder_whose_every_package_failed_keeps_its_textures_out() {
+        let temp = scratch("writer_group_packages_failed");
+        let batches = folder_run([&[], &[], &[]], &["common/shirt.ftex"]);
+        let (layout, _) = write_all(temp.path(), "packages_failed", batches);
+        assert_eq!(
+            layout,
+            [
+                "face/real/71403/face.fpk",
+                "kit/kit.ftex",
+                paths::UNIFORM_PARAMETER
+            ]
+        );
+    }
+
+    #[test]
+    fn a_group_arriving_out_of_order_lays_the_cpk_out_as_in_order() {
+        let temp = scratch("writer_group_out_of_order");
+        let folder = temp.path();
+        let run = || {
+            folder_run(
+                [
+                    &["face/face.fpk"],
+                    &["boots/boots.fpk"],
+                    &["glove/glove.fpk"],
+                ],
+                &["common/shirt.ftex"],
+            )
+        };
+        let (in_order, reported) = write_all(folder, "in_order", run());
+        assert_eq!(reported, [0, 1, 2, 3, 4, 5]);
+        // The kit first, then the textures before its packages, the packages in reverse, the
+        // face at 0 last: nothing is decided before the face arrives, then everything is.
+        let mut shuffled = run();
+        shuffled.reverse();
+        let (out_of_order, reported) = write_all(folder, "out_of_order", shuffled);
+        assert_eq!(out_of_order, in_order);
+        assert_eq!(reported, [0, 1, 2, 3, 4, 5]);
+        assert_eq!(
+            in_order,
+            [
+                "face/real/71403/face.fpk",
+                "face/face.fpk",
+                "boots/boots.fpk",
+                "glove/glove.fpk",
+                "common/shirt.ftex",
+                "kit/kit.ftex",
+                paths::UNIFORM_PARAMETER,
+            ]
+        );
     }
 
     fn note(index: usize) -> Message {

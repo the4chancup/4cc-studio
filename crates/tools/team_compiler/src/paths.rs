@@ -4,13 +4,20 @@
 
 use pes_version::PesVersion;
 
+use crate::plan::subset::ModelPackage;
+
 /// The bin holding every team's kit configs, keyed by entry name.
 pub(crate) const UNIFORM_PARAMETER: &str =
     "common/character0/model/character/uniform/team/UniformParameter.bin";
 
-/// The folder of one player's face package (`face.fpk`, `face.fpkd`), by player id.
-pub(crate) fn face_folder(player_id: u32) -> String {
-    format!("Asset/model/character/face/real/{player_id}/#Win")
+/// The folder of one player's `package` (its `.fpk` and `.fpkd`), by `id`: the player id for
+/// the face, the four-digit boots or gloves id for the other two (`k0625`, `g0625`).
+pub(crate) fn package_folder(package: ModelPackage, id: u32) -> String {
+    match package {
+        ModelPackage::Face => format!("Asset/model/character/face/real/{id}/#Win"),
+        ModelPackage::Boots => format!("Asset/model/character/boots/k{id:04}/#Win"),
+        ModelPackage::Gloves => format!("Asset/model/character/glove/g{id:04}/#Win"),
+    }
 }
 
 /// A player folder's own textures, as the FMDL texture-path table names their folder: the
@@ -50,6 +57,22 @@ pub(crate) fn portrait(version: PesVersion, player_id: u32) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_face_goes_by_player_id_and_boots_and_gloves_by_four_digit_model_id() {
+        assert_eq!(
+            package_folder(ModelPackage::Face, 71405),
+            "Asset/model/character/face/real/71405/#Win"
+        );
+        assert_eq!(
+            package_folder(ModelPackage::Boots, 625),
+            "Asset/model/character/boots/k0625/#Win"
+        );
+        assert_eq!(
+            package_folder(ModelPackage::Gloves, 3745),
+            "Asset/model/character/glove/g3745/#Win"
+        );
+    }
 
     #[test]
     fn a_portrait_is_prefixed_up_to_pes_2018_and_bare_from_pes_2019() {

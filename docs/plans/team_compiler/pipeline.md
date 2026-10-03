@@ -305,7 +305,11 @@ then processed as an independent parallel task (Blue: `coordinator._model_folder
    once, after all of the player's face/boots/gloves tasks report: identical destination bytes
    deduplicate, while the same destination with different bytes reports `shared_texture_conflict`
    and drops the losing task, chosen by canonical order (`face` > `boots` > `gloves`), never rayon
-   completion order. Rationale: a single, predictable location for every player's textures — no
+   completion order. The writer commits a player folder's tasks as one group: it holds the
+   folder's face/boots/gloves batches until the folder's textures batch arrives, then commits the
+   packages that succeeded and the textures; if the textures fail (`folder_pack_failed`), none
+   of the folder's packages commit, since each would point at a texture the CPK lacks; if every
+   package failed, the textures stay out. Rationale: a single, predictable location for every player's textures — no
    per-user-count special cases — and textures shared between the player's face/boots/gloves are
    packed once for free. **Shared model folders normally keep their textures with their own ID-based
    shared-model output.** When Fox combination instead merges a shared model into a player-exclusive

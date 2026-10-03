@@ -14,15 +14,22 @@ folder (`output/` beside `4cc-studio` unless you changed the `output_folder_path
 `<cpk_name>.cpk`. The CPK is written in full before it replaces the previous one, so
 `<cpk_name>.cpk` is never half-written. A run that finds nothing to compile writes nothing and leaves the
 previous CPK as it was. In this version `compile` builds exports for PES 2018 to 2021 that hold
-only face models of the players in the roster, with their textures, their portraits as `.dds`
-files (a `portrait.dds` in the player's folder, or `player_NN.dds` in the `Portraits` folder, not
-both for one player), and kits. A kit folder with
+only the models of the players in the roster, kept in each player's own folder: face models,
+boots (a model whose name ends in `boots`, such as `kit_boots.fmdl`) and gloves (`glove_l`,
+`glove_r`, or `handL`, `handR`), with their textures, their portraits as `.dds` files (a
+`portrait.dds` in the player's folder, or `player_NN.dds` in the `Portraits` folder, not both
+for one player), and kits. The boots and gloves get the ID reserved for the player's roster
+slot, the same number for both. A skeleton file named after a model (`kit_boots.skl` beside
+`kit_boots.fmdl`, `fcl_hair.skl` beside `fcl_hair.fmdl`) is packed with it; boots without one get
+the standard body skeleton. A kit folder with
 no `kit` texture, an empty one included, is built with a magenta and black checkerboard in its
 place and reported as `kit_placeholder`, so a kit nobody drew shows as missing in the game. `compile`
 skips any other export with the error `content_not_yet_compiled`, naming the first thing it
-cannot build yet: a PES 2015 to 2017 target, a referee export, or content other than face models,
-their textures, `.dds` portraits and kits. `check` still checks those exports. `compile` does not install the CPK
-into the game yet: it always leaves it in the output folder.
+cannot build yet: a PES 2015 to 2017 target, a referee export, or content other than a player's
+own face, boots and gloves models, their textures, `.dds` portraits and kits (two models that
+would pack under one name, a shared `Faces`, `Boots` or `Gloves` folder, or a model whose name
+says nothing about what it is, among others). `check` still checks those exports. `compile`
+does not install the CPK into the game yet: it always leaves it in the output folder.
 
 `check` prints one line per finding: the export it is about, how serious it is, its code, where
 in the export it is, and its details in parentheses. The line `Info export_identified (team=/co/,

@@ -16,15 +16,20 @@ left out: no model references it. Everything else is byte-identical to the sourc
 ## `studio/egg Tracer/`
 
 `old/` migrated to the Studio layout by hand, for what `compile` handles (Team compiler plan,
-"Acceptance"): the face and the kit since Phase 3, the portrait since step 4.2. The boots and
-gloves join it later in Phase 4, which compiles them.
+"Acceptance"): the face and the kit since Phase 3, the portrait since step 4.2, the boots and
+gloves since step 4.3.
 
 - `Players/05 - The Chad Stormworks Player/`: `fcl_hair.fmdl`, `shirt.dds`, `face_diff.bin`,
   `fcl_hair_sim.fclo` and `portrait.dds` unchanged; `fcl_hair_sim.skl` renamed `fcl_hair.skl`,
   since the Studio format pairs a skeleton with its model by source name ("SKL pairing"). The
   `.fclo` and the `.skl` are byte-identical to Red's templates (the skeleton is PES 21's
   `body.skl`); `face_diff.bin` is the player's own. `face.fpk.xml` is dropped: the compiler writes
-  the FPK.
+  the FPK. `boots.fmdl` (from `Boots/k2180 - .../`), `glove_l.fmdl` and `glove_r.fmdl` (from
+  `Gloves/g2180 - .../`) unchanged, beside the face: the Studio format has no ID-named folders,
+  the compiler assigns slot 05's exclusive ID (3745 for team 792). The boots folder's
+  `boots.skl` is left out, being byte-identical to PES 21's `body.skl`, which the compiler
+  injects for a boots model with no skeleton of its own; its `shirt.dds` is byte-identical to the
+  face's, so the one file serves both. The `.fpk.xml` files are dropped.
 - `Kits/g1/`: `kit.dds` is `u0XXXg1.dds`; `config.toml` is `XXX_DEF_GK1st_realUni.bin` decoded as
   PES 21 by `kit_config` (`KitConfig::decode` then `to_toml`), and re-encoded with the `u0792g1`
   texture name it gives back Red's `792_DEF_GK1st_realUni.bin` byte for byte; `icon.txt` is `11`,

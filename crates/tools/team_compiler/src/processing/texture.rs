@@ -1,8 +1,41 @@
-//! Texture conversion for the Fox engine, which reads FTEX.
+//! Texture conversion for the Fox engine, which reads FTEX, and a player folder's textures as
+//! one unit (`team_compiler/pipeline.md` "3. Per-model-folder parallel steps", step 6).
 
+use std::collections::BTreeMap;
+
+use aesthetics_export::PlayerFolder;
 use anyhow::Context;
 
-use crate::plan::subset::TextureFormat;
+use super::{Entry, TaskFiles, take};
+use crate::paths;
+use crate::plan::subset::{FolderModels, PlayerFile, TextureFormat, player_file};
+
+/// The textures of `folder`, converted from their bytes in `files` into the player's common
+/// subfolder of team `team_id`, by stem: one entry per texture, however many of the folder's
+/// models use it and however many slots map the folder.
+pub(super) fn player_textures(
+    folder: &PlayerFolder,
+    team_id: u16,
+    files: &mut TaskFiles,
+) -> anyhow::Result<Vec<Entry>> {
+    let models = FolderModels::of(folder);
+    let mut textures = BTreeMap::new();
+    for file in &folder.files {
+        if let Some(PlayerFile::Texture(stem, format)) = player_file(&folder.path, file, &models) {
+            textures.insert(stem, to_ftex(format, file.path.name(), take(files, file))?);
+        }
+    }
+    let folder_name = folder.path.name();
+    Ok(textures
+        .into_iter()
+        .map(|(stem, bytes)| {
+            (
+                paths::player_common_texture(team_id, folder_name, &stem),
+                bytes,
+            )
+        })
+        .collect())
+}
 
 /// The texture file `name`, in `format`, as FTEX: an FTEX passes through as it is, a DDS is
 /// converted.

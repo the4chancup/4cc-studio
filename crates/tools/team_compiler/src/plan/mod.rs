@@ -2,10 +2,13 @@
 //! identity-resolved exports become one manifest of tasks, each an atomic unit that commits
 //! whole or not at all.
 
+pub(crate) mod ids;
 pub(crate) mod subset;
 
+use std::ops::Range;
+
 use aesthetics_export::{
-    ExportIdentity, FileDescriptor, KitFolder, KitsFolder, PlayerFolder, PlayerIndex,
+    ExportIdentity, FileDescriptor, KitFolder, KitsFolder, PlayerFolder, PlayerIndex, PlayerSlot,
     ResolvedAestheticsExport, ValidatedRoster,
 };
 use kit_config::KitSlot;
@@ -14,7 +17,8 @@ use studio_core::{Disposition, ExportId, Message, Scope};
 use vtree::ScopePath;
 
 use crate::messages::{Code, tool_message};
-use subset::first_not_compiled;
+use ids::PlannedModelIds;
+use subset::{FolderModels, ModelPackage, PlayerFile, first_not_compiled, player_file};
 
 /// What planning produced: the manifest and the findings planning itself made.
 pub(crate) struct PlanReport {
@@ -25,15 +29,17 @@ pub(crate) struct PlanReport {
     pub(crate) messages: Vec<Message>,
 }
 
-/// The run's tasks in canonical order: by export, then the faces by first roster slot, the
-/// portraits by player id, then the kits by slot. The writer lays the CPK out in this order
-/// whatever order the tasks finish in, so the same exports always give the same bytes.
+/// The run's tasks in canonical order: by export, then each mapped player folder's tasks (its
+/// face, boots and gloves packages, then its textures) by first roster slot, the portraits by
+/// player id, then the kits by slot. The writer lays the CPK out in this order whatever order
+/// the tasks finish in, so the same exports always give the same bytes.
 pub(crate) struct BuildManifest {
     /// The tasks, in canonical order.
     pub(crate) tasks: Vec<BuildTask>,
 }
 
-/// One unit of work: one player folder's face, one player's portrait, or one kit.
+/// One unit of work: one package of a player folder's models, the folder's textures, one
+/// player's portrait, or one kit.
 pub(crate) struct BuildTask {
     /// The export the task's content comes from.
     pub(crate) export_id: ExportId,
@@ -44,18 +50,47 @@ pub(crate) struct BuildTask {
     /// The source bytes the task reads, what its memory permit is charged (`libs/pipeline.md`
     /// "Memory budget").
     pub(crate) charge: usize,
+    /// The player folder's group the task belongs to, when its folder has textures; `None`
+    /// for every other task, which the writer commits on its own.
+    pub(crate) group: Option<TaskGroup>,
+}
+
+/// A player folder's tasks as one unit for the writer: its packages (face, boots, gloves in
+/// canonical order), then its textures task last, contiguous in the manifest. The writer
+/// holds the packages until the textures batch arrives and decides the group, so a folder
+/// whose textures failed leaves no package pointing at textures that are not in the CPK.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct TaskGroup {
+    /// The group's manifest positions, the textures task at `tasks.end - 1`.
+    pub(crate) tasks: Range<usize>,
+    /// The sum of the members' charges: the coordinator acquires it once, as one permit the
+    /// members share, since a textures task waiting for a permit of its own while the writer
+    /// holds its packages' would wait forever.
+    pub(crate) charge: usize,
 }
 
 /// What a task compiles.
 pub(crate) enum TaskKind {
-    /// A mapped player folder's face content. One task per folder, whatever the number of
-    /// roster slots mapping it: its textures are converted once and every slot's face package
-    /// points at them, one `face.fpk` per slot.
-    Face {
+    /// One package of a mapped player folder's models: its face, its boots or its gloves,
+    /// with the files packed beside them. One task per package, whatever the number of
+    /// roster slots mapping the folder: the package is built once and emitted under each
+    /// slot's id.
+    Models {
         /// The player folder.
         folder: PlayerFolder,
-        /// The player id of every roster slot mapping the folder, in slot order.
-        player_ids: Vec<u32>,
+        /// Which of its packages.
+        package: ModelPackage,
+        /// The id the package is emitted under for every roster slot mapping the folder, in
+        /// slot order: the slot's player id for the face, its planned boots/gloves id for
+        /// the other two.
+        ids: Vec<u32>,
+    },
+    /// A mapped player folder's own textures, converted once into the player's common
+    /// folder, which every package of the folder points at. Always the last task of the
+    /// folder's `TaskGroup`.
+    Textures {
+        /// The player folder.
+        folder: PlayerFolder,
     },
     /// One player's portrait, a DDS emitted as it is under the target version's file name.
     /// One task per player id: a folder two roster slots map gives two tasks over its one
@@ -80,17 +115,25 @@ impl TaskKind {
     /// scope its findings name.
     pub(crate) fn folder_path(&self) -> ScopePath {
         match self {
-            TaskKind::Face { folder, .. } => folder.path.clone(),
+            TaskKind::Models { folder, .. } | TaskKind::Textures { folder, .. } => {
+                folder.path.clone()
+            }
             TaskKind::Portrait { file, .. } => file.path.clone(),
             TaskKind::Kit { kit, .. } => kit.path.clone(),
         }
     }
 
-    /// Every file the task reads from its export: a face's folder files; a portrait's one
-    /// file; a kit's config, when it has one, and its effective textures.
+    /// Every file the task reads from its export: a package's models and the files packed
+    /// beside them; a folder's textures; a portrait's one file; a kit's config, when it has
+    /// one, and its effective textures.
     pub(crate) fn files(&self) -> Vec<&FileDescriptor> {
         match self {
-            TaskKind::Face { folder, .. } => folder.files.iter().collect(),
+            TaskKind::Models {
+                folder, package, ..
+            } => folder_files(folder, |role| role.package() == Some(*package)),
+            TaskKind::Textures { folder, .. } => {
+                folder_files(folder, |role| role.package().is_none())
+            }
             TaskKind::Portrait { file, .. } => vec![file],
             TaskKind::Kit { kit, .. } => kit
                 .config
@@ -99,6 +142,19 @@ impl TaskKind {
                 .collect(),
         }
     }
+}
+
+/// The files of `folder` whose role `wanted` accepts, in the folder's order.
+fn folder_files(
+    folder: &PlayerFolder,
+    wanted: impl Fn(&PlayerFile) -> bool,
+) -> Vec<&FileDescriptor> {
+    let models = FolderModels::of(folder);
+    folder
+        .files
+        .iter()
+        .filter(|file| player_file(&folder.path, file, &models).is_some_and(|role| wanted(&role)))
+        .collect()
 }
 
 /// Plans the run over the identity-resolved exports, given in `ExportId` order, for the target
@@ -128,23 +184,61 @@ pub(crate) fn plan_run(
             unreachable!("the subset gate skips every referee export");
         };
         let team_id = id.get();
+        let model_ids = PlannedModelIds::for_team(id);
         let export = resolved.export;
         // A folder's portrait goes out once per slot mapping the folder; the gate has refused
         // any slot with a portrait from both sources, so no player id comes up twice.
         let mut portraits: Vec<(u32, FileDescriptor)> = Vec::new();
-        for (folder, player_ids) in face_folders(export.players, &export.roster, id) {
+        for (folder, slots) in player_folders(export.players, &export.roster) {
             if let Some(portrait) = &folder.portrait {
                 portraits.extend(
-                    player_ids
+                    slots
                         .iter()
-                        .map(|player_id| (*player_id, portrait.clone())),
+                        .map(|slot| (slot.player_id(id), portrait.clone())),
                 );
             }
-            tasks.push(task(
-                export_id,
-                team_id,
-                TaskKind::Face { folder, player_ids },
-            ));
+            let first = tasks.len();
+            for package in ModelPackage::ALL {
+                let holds_model = folder_files(
+                    &folder,
+                    |role| matches!(role, PlayerFile::Model { package: owner, .. } if *owner == package),
+                );
+                if holds_model.is_empty() {
+                    continue;
+                }
+                let ids = slots
+                    .iter()
+                    .map(|slot| match package {
+                        ModelPackage::Face => slot.player_id(id),
+                        ModelPackage::Boots | ModelPackage::Gloves => {
+                            u32::from(model_ids.exclusive(*slot))
+                        }
+                    })
+                    .collect();
+                tasks.push(task(
+                    export_id,
+                    team_id,
+                    TaskKind::Models {
+                        folder: folder.clone(),
+                        package,
+                        ids,
+                    },
+                ));
+            }
+            if !folder_files(&folder, |role| role.package().is_none()).is_empty() {
+                tasks.push(task(export_id, team_id, TaskKind::Textures { folder }));
+                let members = &mut tasks[first..];
+                let charge = members
+                    .iter()
+                    .fold(0usize, |sum, task| sum.saturating_add(task.charge));
+                let group = TaskGroup {
+                    tasks: first..first + members.len(),
+                    charge,
+                };
+                for task in members {
+                    task.group = Some(group.clone());
+                }
+            }
         }
         portraits.extend(
             export
@@ -199,31 +293,29 @@ fn drop_kit_masks(kits: &mut KitsFolder) {
     }
 }
 
-/// Every roster-mapped player folder with the player ids of its slots, ordered by each
-/// folder's first slot. A folder no slot maps is not compiled.
-fn face_folders(
+/// Every roster-mapped player folder with the slots mapping it, in slot order, the folders
+/// ordered by their first slot. A folder no slot maps is not compiled.
+fn player_folders(
     players: Vec<PlayerFolder>,
     roster: &ValidatedRoster,
-    team: teams_list::TeamId,
-) -> Vec<(PlayerFolder, Vec<u32>)> {
+) -> Vec<(PlayerFolder, Vec<PlayerSlot>)> {
     // A referee roster never reaches here: its export plans no task.
     let ValidatedRoster::Team(slots) = roster else {
         return Vec::new();
     };
-    let mut mapped: Vec<(PlayerIndex, Vec<u32>)> = Vec::new();
+    let mut mapped: Vec<(PlayerIndex, Vec<PlayerSlot>)> = Vec::new();
     for (slot, index) in slots {
-        let player_id = slot.player_id(team);
         match mapped.iter_mut().find(|(known, _)| known == index) {
-            Some((_, player_ids)) => player_ids.push(player_id),
-            None => mapped.push((*index, vec![player_id])),
+            Some((_, folder_slots)) => folder_slots.push(*slot),
+            None => mapped.push((*index, vec![*slot])),
         }
     }
     let mut players: Vec<Option<PlayerFolder>> = players.into_iter().map(Some).collect();
     mapped
         .into_iter()
-        .filter_map(|(index, player_ids)| {
+        .filter_map(|(index, folder_slots)| {
             let folder = players.get_mut(index.0)?.take()?;
-            Some((folder, player_ids))
+            Some((folder, folder_slots))
         })
         .collect()
 }
@@ -237,6 +329,7 @@ fn task(export_id: ExportId, team_id: u16, kind: TaskKind) -> BuildTask {
         team_id,
         charge: usize::try_from(size).unwrap_or(usize::MAX),
         kind,
+        group: None,
     }
 }
 
@@ -255,8 +348,13 @@ mod tests {
             .iter()
             .map(|task| {
                 let what = match &task.kind {
-                    TaskKind::Face { folder, player_ids } => {
-                        format!("face {} {player_ids:?}", folder.path.as_str())
+                    TaskKind::Models {
+                        folder,
+                        package,
+                        ids,
+                    } => format!("{package:?} {} {ids:?}", folder.path.as_str()),
+                    TaskKind::Textures { folder } => {
+                        format!("textures {}", folder.path.as_str())
                     }
                     TaskKind::Portrait { player_id, file } => {
                         format!("portrait {player_id} {}", file.path.as_str())
@@ -309,14 +407,86 @@ mod tests {
         assert_eq!(
             summary(&report),
             [
-                "0 790 face Players/Zed [79003] charge 15",
-                "0 790 face Players/Amy [79007, 79009] charge 20",
+                "0 790 Face Players/Zed [79003] charge 10",
+                "0 790 textures Players/Zed charge 5",
+                "0 790 Face Players/Amy [79007, 79009] charge 20",
                 "0 790 kit p1 Kits/p1 charge 0",
                 "0 790 kit p2 Kits/p2 - Away charge 8",
                 "0 790 kit g1 Kits/g1 charge 10",
-                "1 714 face Players/04 - B [71404] charge 1",
+                "1 714 Face Players/04 - B [71404] charge 1",
             ]
         );
+        // Zed's two tasks are one group charged as one; Amy, with no textures, is ungrouped.
+        let groups: Vec<Option<TaskGroup>> = report
+            .manifest
+            .tasks
+            .iter()
+            .map(|task| task.group.clone())
+            .collect();
+        let zed = Some(TaskGroup {
+            tasks: 0..2,
+            charge: 15,
+        });
+        assert_eq!(groups, [zed.clone(), zed, None, None, None, None, None]);
+    }
+
+    #[test]
+    fn a_folder_s_packages_go_face_boots_gloves_then_its_textures_under_the_planned_ids() {
+        let export = resolved(
+            "co - Models",
+            &[
+                ("Players/A/glove_l.fmdl", 4),
+                ("Players/A/kit_boots.skl", 2),
+                ("Players/A/kit_boots.fmdl", 8),
+                ("Players/A/shirt.dds", 16),
+                ("Players/A/face_high.fmdl", 32),
+                ("Players/A/face_diff.bin", 1),
+                ("Players/23 - B/boots.fmdl", 64),
+            ],
+            &[],
+            Some(b"05 A\n07 A\n23 23 - B\n"),
+        );
+
+        let report = plan_run(vec![(ExportId(0), export)], PesVersion::Pes21);
+
+        // Slots 05 and 07 of team 714 own the exclusive ids 625 and 627; slot 23 owns 643.
+        assert_eq!(
+            summary(&report),
+            [
+                "0 714 Face Players/A [71405, 71407] charge 33",
+                "0 714 Boots Players/A [625, 627] charge 10",
+                "0 714 Gloves Players/A [625, 627] charge 4",
+                "0 714 textures Players/A charge 16",
+                "0 714 Boots Players/23 - B [643] charge 64",
+            ]
+        );
+        let group = Some(TaskGroup {
+            tasks: 0..4,
+            charge: 63,
+        });
+        for index in 0..4 {
+            assert_eq!(report.manifest.tasks[index].group, group, "task {index}");
+        }
+        assert_eq!(report.manifest.tasks[4].group, None);
+        let files = |index: usize| -> Vec<&str> {
+            report.manifest.tasks[index]
+                .kind
+                .files()
+                .iter()
+                .map(|file| file.path.name())
+                .collect()
+        };
+        assert_eq!(files(0), ["face_diff.bin", "face_high.fmdl"]);
+        assert_eq!(files(1), ["kit_boots.fmdl", "kit_boots.skl"]);
+        assert_eq!(files(2), ["glove_l.fmdl"]);
+        assert_eq!(files(3), ["shirt.dds"]);
+        for index in 0..4 {
+            assert_eq!(
+                report.manifest.tasks[index].kind.folder_path(),
+                scope_path("Players/A"),
+                "task {index}"
+            );
+        }
     }
 
     #[test]
@@ -340,7 +510,7 @@ mod tests {
         assert_eq!(
             summary(&report),
             [
-                "0 790 face Players/Zed [79003, 79007] charge 10",
+                "0 790 Face Players/Zed [79003, 79007] charge 10",
                 "0 790 portrait 79001 Portraits/player_01.dds charge 5",
                 "0 790 portrait 79003 Players/Zed/portrait.dds charge 4",
                 "0 790 portrait 79005 Portraits/player_05.dds charge 6",
@@ -528,6 +698,7 @@ mod tests {
         );
 
         assert_eq!(summary(&report), ["3 714 kit g1 Kits/g1 charge 1"]);
+        assert_eq!(report.manifest.tasks[0].kind.files().len(), 1);
         let [skipped, generated] = report.messages.as_slice() else {
             panic!("{:?}", report.messages);
         };

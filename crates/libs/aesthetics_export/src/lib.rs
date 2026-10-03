@@ -18,7 +18,8 @@ mod testing;
 mod validate;
 
 pub use conventions::{
-    FileKind, Marker, MetadataFile, ModelFormat, SharedKind, classify, is_small_metadata,
+    FileKind, Marker, MetadataFile, ModelFormat, ModelSuffix, SharedKind, classify,
+    is_small_metadata, model_suffix,
 };
 pub use listing::{CanonicalListing, ListedEntry, ListedKind, SmallMetadata, ValidationContext};
 pub use parse::{

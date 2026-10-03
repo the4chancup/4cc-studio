@@ -25,28 +25,37 @@ enum Row {
     /// An FPK whose entry-name set must match (tier 3); contents are checked
     /// per member in `compare_fpk`.
     Container,
-    /// Not produced in Phase 3 (tier 4): the reason.
+    /// `Container` at a different path: the planned ID replacing the ID the
+    /// old export's folder name carried.
+    RelocatedContainer(&'static str),
+    /// Not produced yet (tier 4): the reason.
     NotProduced(&'static str),
 }
 
+/// The per-player common texture every one of the player's models points at.
+const COMMON_SHIRT: &str = "Asset/model/character/common/792/05 - The Chad Stormworks Player/sourceimages/#windx11/shirt.ftex";
+
 /// One row per reference entry. The produced rows are also the allowlist our
-/// CPK's entries are checked against.
+/// CPK's entries are checked against. Red compiled the boots and gloves under
+/// the ID their folders were named with, `2180`; the Studio format has no
+/// ID-named folders and slot 05 of team 792 owns the planned ID 3745.
 const TABLE: &[(&str, Row)] = &[
     (
         "Asset/model/character/boots/k2180/#Win/boots.fpk",
-        Row::NotProduced("boots are Phase 4 content"),
+        Row::RelocatedContainer("Asset/model/character/boots/k3745/#Win/boots.fpk"),
     ),
     (
         "Asset/model/character/boots/k2180/#Win/boots.fpkd",
-        Row::NotProduced("boots are Phase 4 content"),
+        Row::Relocated("Asset/model/character/boots/k3745/#Win/boots.fpkd"),
     ),
     (
         "Asset/model/character/boots/k2180/#windx11/boots.fpk.xml",
         Row::NotProduced("the Studio format drops the source-side fpk.xml"),
     ),
+    // The same texture the face uses: one entry serves both.
     (
         "Asset/model/character/boots/k2180/#windx11/shirt.ftex",
-        Row::NotProduced("the boots texture rides in the boots output, Phase 4"),
+        Row::Relocated(COMMON_SHIRT),
     ),
     (
         "Asset/model/character/face/real/79205/#Win/face.fpk",
@@ -62,17 +71,15 @@ const TABLE: &[(&str, Row)] = &[
     ),
     (
         "Asset/model/character/face/real/79205/sourceimages/#windx11/shirt.ftex",
-        Row::Relocated(
-            "Asset/model/character/common/792/05 - The Chad Stormworks Player/sourceimages/#windx11/shirt.ftex",
-        ),
+        Row::Relocated(COMMON_SHIRT),
     ),
     (
         "Asset/model/character/glove/g2180/#Win/glove.fpk",
-        Row::NotProduced("gloves are Phase 4 content"),
+        Row::RelocatedContainer("Asset/model/character/glove/g3745/#Win/glove.fpk"),
     ),
     (
         "Asset/model/character/glove/g2180/#Win/glove.fpkd",
-        Row::NotProduced("gloves are Phase 4 content"),
+        Row::Relocated("Asset/model/character/glove/g3745/#Win/glove.fpkd"),
     ),
     (
         "Asset/model/character/glove/g2180/#windx11/glove.fpk.xml",
@@ -248,11 +255,13 @@ fn the_tracer_bullet_matches_the_reference_tree() {
                 None => failures.push(format!("tier3 {path}: missing from our CPK")),
                 Some(our_bytes) => compare_fpk(&mut failures, path, our_bytes, reference_bytes),
             },
+            Row::RelocatedContainer(our_path) => match ours.get(*our_path) {
+                None => failures.push(format!("tier3 {path}: missing from our CPK")),
+                Some(our_bytes) => compare_fpk(&mut failures, path, our_bytes, reference_bytes),
+            },
             Row::NotProduced(reason) => {
                 if ours.contains_key(*path) {
-                    failures.push(format!(
-                        "tier4 {path}: produced in Phase 3 anyway ({reason})"
-                    ));
+                    failures.push(format!("tier4 {path}: produced anyway ({reason})"));
                 }
             }
         }
@@ -260,7 +269,7 @@ fn the_tracer_bullet_matches_the_reference_tree() {
 
     for path in ours.keys() {
         let produced = TABLE.iter().any(|(reference_path, row)| match row {
-            Row::Relocated(our_path) => path == our_path,
+            Row::Relocated(our_path) | Row::RelocatedContainer(our_path) => path == our_path,
             Row::NotProduced(_) => false,
             Row::Exact | Row::Container => path == reference_path,
         });

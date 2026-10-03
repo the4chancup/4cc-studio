@@ -2,9 +2,10 @@
 //! part plus a suffix"). Pre-Fox type names join it with the deep pass.
 
 /// The recognized model-name suffixes: what a model file's stem tail says the
-/// model is.
+/// model is. The structure pass checks shared folders' names against it; the
+/// Team compiler routes a player folder's models by it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub(crate) enum ModelSuffix {
+pub enum ModelSuffix {
     /// `face_high`.
     FaceHigh,
     /// `hair_high`.
@@ -43,7 +44,7 @@ const MODEL_SUFFIXES: [(&str, ModelSuffix); 9] = [
 /// ASCII-case-insensitively and what precedes them is empty or ends with `_`.
 /// `face_high`, `FaceHigh`, `x_hair_high`, `gloveL` match; `myface_high`,
 /// `coral`, `torso` do not.
-pub(crate) fn model_suffix(stem: &str) -> Option<ModelSuffix> {
+pub fn model_suffix(stem: &str) -> Option<ModelSuffix> {
     for (spelling, suffix) in MODEL_SUFFIXES {
         let mut reversed = stem.char_indices().rev().filter(|(_, c)| *c != '_');
         let mut start = stem.len();

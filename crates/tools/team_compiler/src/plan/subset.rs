@@ -1,17 +1,16 @@
-//! What `compile` builds in Phase 3, and the gate that skips any export holding anything else
-//! (`team_compiler/README.md` "Phase 3 scope"): one classification, which planning reads to
-//! skip an export and processing reads for each file's role, so the two never disagree.
-//! Phase 3 only: withdrawn in Phase 4, when `compile` builds everything an export holds.
+//! What `compile` builds so far, and the gate that skips any export holding anything else
+//! (`team_compiler/README.md` "Phase 3 scope", narrowed step by step through Phase 4): one
+//! classification, which planning reads to skip an export and processing reads for each
+//! file's role, so the two never disagree. The gate is withdrawn when `compile` builds
+//! everything an export holds; the classification stays.
 
 use aesthetics_export::{
-    ExportIdentity, FileDescriptor, FileKind, FpcDirective, KitLayout, ModelFormat, PlayerFolder,
-    PlayerIndex, PlayerSlot, ResolvedAestheticsExport, ValidatedAestheticsExport, ValidatedRoster,
+    ExportIdentity, FileDescriptor, FileKind, FpcDirective, KitLayout, ModelFormat, ModelSuffix,
+    PlayerFolder, PlayerIndex, PlayerSlot, ResolvedAestheticsExport, ValidatedAestheticsExport,
+    ValidatedRoster, model_suffix,
 };
 use pes_version::{Engine, PesVersion};
 use vtree::ScopePath;
-
-/// The face model names the Fox engine loads.
-const FACE_STEMS: [&str; 4] = ["face_high", "hair_high", "oral", "fcl_hair"];
 
 /// The kit texture stems, in the order of the kit config's texture-name fields.
 pub(crate) const KIT_TEXTURE_STEMS: [&str; 5] =
@@ -39,55 +38,167 @@ pub(crate) fn texture_format(name: &str) -> Option<TextureFormat> {
     }
 }
 
-/// What one file of a player folder becomes in the face output.
+/// The three Fox packages a player folder's models go to, each a `.fpk` and `.fpkd` pair in
+/// its own game folder: the face by player id, the boots and the gloves by the player's
+/// planned model id.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ModelPackage {
+    /// `face/real/{player id}/#Win/face.fpk`.
+    Face,
+    /// `boots/k{id}/#Win/boots.fpk`.
+    Boots,
+    /// `glove/g{id}/#Win/glove.fpk`.
+    Gloves,
+}
+
+impl ModelPackage {
+    /// The three packages in a folder's canonical order: the face, the boots, the gloves.
+    pub(crate) const ALL: [ModelPackage; 3] = [
+        ModelPackage::Face,
+        ModelPackage::Boots,
+        ModelPackage::Gloves,
+    ];
+
+    /// The package's file stem: `face.fpk`, `boots.fpk`, `glove.fpk`.
+    pub(crate) fn file_stem(self) -> &'static str {
+        match self {
+            ModelPackage::Face => "face",
+            ModelPackage::Boots => "boots",
+            ModelPackage::Gloves => "glove",
+        }
+    }
+}
+
+/// What one file of a player folder becomes in the Fox output.
 #[derive(Debug, PartialEq, Eq)]
-pub(crate) enum FaceFile {
-    /// A face model with this stem, packed as `<stem>.fmdl` with its texture paths rewritten.
-    Model(String),
-    /// A texture with this stem and format, converted into the player's common folder.
+pub(crate) enum PlayerFile {
+    /// A model, packed into `package` as `<name>.fmdl` with its texture paths rewritten:
+    /// `name` is its allowed name, the free prefix stripped (`kit_boots.fmdl` packs as
+    /// `boots.fmdl`).
+    Model {
+        package: ModelPackage,
+        name: &'static str,
+    },
+    /// A file packed into `package` as it is, under `name`: the face's `face_diff.bin` and
+    /// `fcl_hair_sim.fclo`, and a model's skeleton under its slot's name.
+    Packed {
+        package: ModelPackage,
+        name: &'static str,
+    },
+    /// A texture with this stem and format, converted once into the player's common folder.
     Texture(String, TextureFormat),
-    /// A file packed into the face package as it is, under this name.
-    Packed(&'static str),
 }
 
-/// Whether `folder` holds `fcl_hair.fmdl`, the model a `fcl_hair.skl` pairs with: the
-/// `holds_hair_model` that `face_file` takes.
-pub(crate) fn holds_hair_model(folder: &PlayerFolder) -> bool {
-    folder
-        .files
-        .iter()
-        .any(|file| file.path.name() == "fcl_hair.fmdl")
+impl PlayerFile {
+    /// The package the file goes into; `None` for a texture, which goes to the player's
+    /// common folder for every package to point at.
+    pub(crate) fn package(&self) -> Option<ModelPackage> {
+        match self {
+            PlayerFile::Model { package, .. } | PlayerFile::Packed { package, .. } => {
+                Some(*package)
+            }
+            PlayerFile::Texture(..) => None,
+        }
+    }
 }
 
-/// What `file` of the player folder at `folder` becomes in the face output; `None` when it has
-/// no Phase 3 role. `holds_hair_model`: the folder holds `fcl_hair.fmdl`.
-pub(crate) fn face_file(
+/// What a player folder's models say about its other files: which have a package to go in,
+/// and which model a `.skl` pairs with. Computed once per folder and passed to `player_file`.
+#[derive(Debug, Default, PartialEq, Eq)]
+pub(crate) struct FolderModels {
+    /// The folder holds a face model, so its face files have a package to go in.
+    face: bool,
+    /// The stem of its `fcl_hair` model, whose skeleton packs as `fcl_hair_sim.skl`.
+    hair_stem: Option<String>,
+    /// The stem of its boots model, whose skeleton packs as `boots.skl`. `face_high`,
+    /// `hair_high`, `oral` and the gloves have no skeleton slot.
+    boots_stem: Option<String>,
+}
+
+impl FolderModels {
+    /// The models of `folder`, as its direct `.fmdl` files with a recognized suffix.
+    pub(crate) fn of(folder: &PlayerFolder) -> FolderModels {
+        let mut models = FolderModels::default();
+        for file in &folder.files {
+            if file.path.parent().as_ref() != Some(&folder.path)
+                || file.kind != FileKind::Model(ModelFormat::Fmdl)
+            {
+                continue;
+            }
+            let stem = file_stem(file.path.name());
+            match model_suffix(stem) {
+                Some(ModelSuffix::FclHair) => {
+                    models.face = true;
+                    models.hair_stem.get_or_insert_with(|| stem.to_owned());
+                }
+                Some(ModelSuffix::FaceHigh | ModelSuffix::HairHigh | ModelSuffix::Oral) => {
+                    models.face = true;
+                }
+                Some(ModelSuffix::Boots) => {
+                    models.boots_stem.get_or_insert_with(|| stem.to_owned());
+                }
+                Some(
+                    ModelSuffix::GloveL
+                    | ModelSuffix::GloveR
+                    | ModelSuffix::HandL
+                    | ModelSuffix::HandR,
+                )
+                | None => {}
+            }
+        }
+        models
+    }
+}
+
+/// What `file` of the player folder at `folder`, whose models are `models`, becomes in the
+/// Fox output; `None` when it has no role `compile` builds yet.
+pub(crate) fn player_file(
     folder: &ScopePath,
     file: &FileDescriptor,
-    holds_hair_model: bool,
-) -> Option<FaceFile> {
+    models: &FolderModels,
+) -> Option<PlayerFile> {
     if file.path.parent().as_ref() != Some(folder) {
         return None;
     }
     let name = file.path.name();
     let stem = file_stem(name);
+    let face_packed = |name| {
+        models.face.then_some(PlayerFile::Packed {
+            package: ModelPackage::Face,
+            name,
+        })
+    };
     match file.kind {
-        FileKind::Model(ModelFormat::Fmdl) if FACE_STEMS.contains(&stem) => {
-            Some(FaceFile::Model(stem.to_owned()))
+        // A model with no recognized suffix is face content the `fcl_hair` merge takes (step
+        // 4.5), so it has no role yet.
+        FileKind::Model(ModelFormat::Fmdl) => {
+            let (package, name) = match model_suffix(stem)? {
+                ModelSuffix::FaceHigh => (ModelPackage::Face, "face_high"),
+                ModelSuffix::HairHigh => (ModelPackage::Face, "hair_high"),
+                ModelSuffix::Oral => (ModelPackage::Face, "oral"),
+                ModelSuffix::FclHair => (ModelPackage::Face, "fcl_hair"),
+                ModelSuffix::Boots => (ModelPackage::Boots, "boots"),
+                // Hand-skeleton models have nowhere else to go on Fox.
+                ModelSuffix::GloveL | ModelSuffix::HandL => (ModelPackage::Gloves, "glove_l"),
+                ModelSuffix::GloveR | ModelSuffix::HandR => (ModelPackage::Gloves, "glove_r"),
+            };
+            Some(PlayerFile::Model { package, name })
         }
         FileKind::Texture => {
-            texture_format(name).map(|format| FaceFile::Texture(stem.to_owned(), format))
+            texture_format(name).map(|format| PlayerFile::Texture(stem.to_owned(), format))
         }
-        // The game loads the hair simulation's skeleton as `fcl_hair_sim.skl`; the export
-        // names a skeleton after the model it pairs with, and without that model the skeleton
-        // has nothing to drive.
-        FileKind::Skl if stem == "fcl_hair" && holds_hair_model => {
-            Some(FaceFile::Packed("fcl_hair_sim.skl"))
-        }
-        FileKind::Bin if name == "face_diff.bin" => Some(FaceFile::Packed("face_diff.bin")),
-        FileKind::Fclo if name == "fcl_hair_sim.fclo" => {
-            Some(FaceFile::Packed("fcl_hair_sim.fclo"))
-        }
+        // The game loads a skeleton under its slot's name; the export names it after the
+        // model it pairs with, and without that model the skeleton has nothing to drive.
+        FileKind::Skl if models.hair_stem.as_deref() == Some(stem) => Some(PlayerFile::Packed {
+            package: ModelPackage::Face,
+            name: "fcl_hair_sim.skl",
+        }),
+        FileKind::Skl if models.boots_stem.as_deref() == Some(stem) => Some(PlayerFile::Packed {
+            package: ModelPackage::Boots,
+            name: "boots.skl",
+        }),
+        FileKind::Bin if name == "face_diff.bin" => face_packed("face_diff.bin"),
+        FileKind::Fclo if name == "fcl_hair_sim.fclo" => face_packed("fcl_hair_sim.fclo"),
         FileKind::Model(_)
         | FileKind::Skl
         | FileKind::Bin
@@ -110,8 +221,8 @@ pub(crate) fn file_stem(name: &str) -> &str {
 
 /// The first thing in `resolved` that `compile` cannot build yet for `version`, as the context
 /// entry of `content_not_yet_compiled`: `what` (a path, the target or `refs`), or `missing` (a
-/// file a Fox face needs that its folder lacks). `None` when Phase 3 builds all of it. Planning
-/// drops a Fox target's `kit_mask` before asking: the gate would count it.
+/// file a Fox face needs that its folder lacks). `None` when `compile` builds all of it.
+/// Planning drops a Fox target's `kit_mask` before asking: the gate would count it.
 pub(crate) fn first_not_compiled(
     resolved: &ResolvedAestheticsExport,
     version: PesVersion,
@@ -133,7 +244,7 @@ pub(crate) fn first_not_compiled(
     // A folder no roster slot maps is not compiled, so whatever it holds does not count.
     for (index, folder) in export.players.iter().enumerate() {
         if mapped.contains(&PlayerIndex(index))
-            && let Some(item) = face_not_compiled(folder)
+            && let Some(item) = player_not_compiled(folder)
         {
             return Some(item);
         }
@@ -197,17 +308,23 @@ fn folder_holds_portrait(export: &ValidatedAestheticsExport, slot: PlayerSlot) -
         .is_some_and(|folder| folder.portrait.is_some())
 }
 
-/// The first thing in the mapped player `folder` that Phase 3 cannot build into a Fox face.
-fn face_not_compiled(folder: &PlayerFolder) -> Option<(&'static str, String)> {
-    let holds_hair_model = holds_hair_model(folder);
+/// The first thing in the mapped player `folder` that `compile` cannot build into its Fox
+/// packages yet.
+fn player_not_compiled(folder: &PlayerFolder) -> Option<(&'static str, String)> {
+    let models = FolderModels::of(folder);
     let mut roles = Vec::new();
     // Every file the folder holds is checked before any file it lacks: a file with no role
     // may be the missing one, misnamed (`Face_Diff.bin`).
     for file in &folder.files {
-        match face_file(&folder.path, file, holds_hair_model) {
-            Some(role) => roles.push(role),
-            None => return Some(what_entry(file)),
+        let Some(role) = player_file(&folder.path, file, &models) else {
+            return Some(what_entry(file));
+        };
+        // A second file packing under one name (`boots.fmdl` beside `kit_boots.fmdl`) is a
+        // merge, which step 4.5 builds.
+        if roles.contains(&role) {
+            return Some(what_entry(file));
         }
+        roles.push(role);
     }
     let path = folder.path.as_str();
     if let Some(portrait) = &folder.portrait
@@ -222,19 +339,28 @@ fn face_not_compiled(folder: &PlayerFolder) -> Option<(&'static str, String)> {
     if folder.fpc == Some(FpcDirective::On) {
         return Some(("what", format!("{path}/fpc.on")));
     }
-    if !roles.iter().any(|role| matches!(role, FaceFile::Model(_))) {
+    if !roles
+        .iter()
+        .any(|role| matches!(role, PlayerFile::Model { .. }))
+    {
         return Some(("what", path.to_owned()));
     }
     // The files a Fox face needs beside its models, which Phase 4 injects when they are missing.
-    if !roles.contains(&FaceFile::Packed("face_diff.bin")) {
+    let face_packed = |name| PlayerFile::Packed {
+        package: ModelPackage::Face,
+        name,
+    };
+    if models.face && !roles.contains(&face_packed("face_diff.bin")) {
         return Some(("missing", format!("{path}/face_diff.bin")));
     }
-    if holds_hair_model && !roles.contains(&FaceFile::Packed("fcl_hair_sim.fclo")) {
-        return Some(("missing", format!("{path}/fcl_hair_sim.fclo")));
-    }
-    // The export's `fcl_hair.skl` is packed as `fcl_hair_sim.skl`.
-    if holds_hair_model && !roles.contains(&FaceFile::Packed("fcl_hair_sim.skl")) {
-        return Some(("missing", format!("{path}/fcl_hair.skl")));
+    if let Some(hair_stem) = &models.hair_stem {
+        if !roles.contains(&face_packed("fcl_hair_sim.fclo")) {
+            return Some(("missing", format!("{path}/fcl_hair_sim.fclo")));
+        }
+        // The skeleton named after the hair model is packed as `fcl_hair_sim.skl`.
+        if !roles.contains(&face_packed("fcl_hair_sim.skl")) {
+            return Some(("missing", format!("{path}/{hair_stem}.skl")));
+        }
     }
     None
 }
@@ -278,7 +404,7 @@ mod tests {
     }
 
     #[test]
-    fn fox_face_folders_dds_portraits_and_kits_are_compiled() {
+    fn fox_player_folders_dds_portraits_and_kits_are_compiled() {
         assert_eq!(gate(&[]), None);
         assert_eq!(
             gate(&[
@@ -287,6 +413,10 @@ mod tests {
                 "Players/03 - A/fcl_hair.fmdl",
                 "Players/03 - A/fcl_hair.skl",
                 "Players/03 - A/fcl_hair_sim.fclo",
+                "Players/03 - A/kit_boots.fmdl",
+                "Players/03 - A/kit_boots.skl",
+                "Players/03 - A/glove_l.fmdl",
+                "Players/03 - A/keeper_gloveR.fmdl",
                 "Players/03 - A/skin.dds",
                 "Players/03 - A/hair.FTEX",
                 "Players/03 - A/portrait.DDS",
@@ -301,6 +431,33 @@ mod tests {
             ]),
             None
         );
+        // A folder needs a model, not a face: boots alone compile, with or without their
+        // skeleton, and so do gloves.
+        assert_eq!(
+            first_hit(&["Players/03 - A/boots.fmdl", "Players/03 - A/skin.dds"]),
+            None
+        );
+        assert_eq!(first_hit(&["Players/03 - A/handL.fmdl"]), None);
+    }
+
+    #[test]
+    fn two_files_packing_under_one_name_name_the_second() {
+        // The second in the folder's order, which lists its files sorted.
+        for (first, second) in [
+            ("boots.fmdl", "kit_boots.fmdl"),
+            ("glove_l.fmdl", "gloveL.fmdl"),
+            ("glove_r.fmdl", "handR.fmdl"),
+            ("face_high.fmdl", "x_face_high.fmdl"),
+        ] {
+            assert_eq!(
+                first_hit(&[
+                    &format!("Players/03 - A/{first}"),
+                    &format!("Players/03 - A/{second}"),
+                ]),
+                what(&format!("Players/03 - A/{second}")),
+                "{first} + {second}"
+            );
+        }
     }
 
     #[test]
@@ -335,7 +492,7 @@ mod tests {
     #[test]
     fn a_player_file_with_no_role_is_named() {
         for file in [
-            "Players/03 - A/boots.fmdl",
+            "Players/03 - A/torso.fmdl",
             "Players/03 - A/hair.png",
             "Players/03 - A/face/hair_high.fmdl",
         ] {
@@ -344,10 +501,21 @@ mod tests {
     }
 
     #[test]
-    fn a_hair_skeleton_without_its_model_is_named() {
+    fn a_skeleton_without_the_model_of_its_name_is_named() {
         assert_eq!(
             gate(&["Players/03 - A/fcl_hair.skl"]),
             what("Players/03 - A/fcl_hair.skl")
+        );
+        // `boots.skl` beside `kit_boots.fmdl` pairs with nothing: the skeleton is named
+        // after the model's source name.
+        assert_eq!(
+            gate(&["Players/03 - A/kit_boots.fmdl", "Players/03 - A/boots.skl"]),
+            what("Players/03 - A/boots.skl")
+        );
+        // The gloves have no skeleton slot.
+        assert_eq!(
+            gate(&["Players/03 - A/glove_l.fmdl", "Players/03 - A/glove_l.skl"]),
+            what("Players/03 - A/glove_l.skl")
         );
     }
 
@@ -418,14 +586,34 @@ mod tests {
     }
 
     #[test]
-    fn a_folder_without_a_face_model_or_a_file_a_fox_face_needs_is_named() {
+    fn a_folder_without_a_model_or_a_file_a_fox_face_needs_is_named() {
+        // A face file without a face model has no package to go in, so it is named first;
+        // a folder of textures alone is named as a whole.
         assert_eq!(
             first_hit(&["Players/03 - A/face_diff.bin", "Players/03 - A/skin.dds"]),
+            what("Players/03 - A/face_diff.bin")
+        );
+        assert_eq!(
+            first_hit(&["Players/03 - A/skin.dds"]),
             what("Players/03 - A")
         );
         assert_eq!(
             first_hit(&["Players/03 - A/face_high.fmdl"]),
             missing("Players/03 - A/face_diff.bin")
+        );
+        // The boots need no face files.
+        assert_eq!(
+            first_hit(&["Players/03 - A/boots.fmdl", "Players/03 - A/face_diff.bin"]),
+            what("Players/03 - A/face_diff.bin")
+        );
+        // The hair skeleton missing is named by the model's source name.
+        assert_eq!(
+            first_hit(&[
+                "Players/03 - A/x_fcl_hair.fmdl",
+                "Players/03 - A/face_diff.bin",
+                "Players/03 - A/fcl_hair_sim.fclo"
+            ]),
+            missing("Players/03 - A/x_fcl_hair.skl")
         );
         assert_eq!(
             gate(&[
@@ -481,15 +669,15 @@ mod tests {
     #[test]
     fn the_first_hit_follows_players_files_missing_files_shared_folders_kits_then_the_rest() {
         let face_high = "Players/03 - A/face_high.fmdl";
-        let boots = "Players/03 - A/boots.fmdl";
+        let torso = "Players/03 - A/torso.fmdl";
         let link = "Players/03 - A/Crocs.boots";
         let shared = "Boots/Crocs/boots.fmdl";
         let kit = "Kits/g1/kit.png";
         let portrait = "Portraits/player_03.png";
         // A folder's own files come before what it lacks: `face_diff.bin` is missing too.
         assert_eq!(
-            first_hit(&[face_high, boots, link, shared, kit, portrait]),
-            what(boots)
+            first_hit(&[face_high, torso, link, shared, kit, portrait]),
+            what(torso)
         );
         assert_eq!(
             first_hit(&[face_high, link, shared, kit, portrait]),
@@ -521,7 +709,7 @@ mod tests {
             &[
                 ("Players/A/face_high.fmdl", 1),
                 ("Players/A/face_diff.bin", 1),
-                ("Players/Unlisted/boots.fmdl", 1),
+                ("Players/Unlisted/torso.fmdl", 1),
                 ("Kits/all/kit_back.png", 1),
             ],
             &[],
@@ -562,72 +750,175 @@ mod tests {
         );
     }
 
-    /// The role of the file at `relative` in `Players/03 - A`, a folder that holds
-    /// `fcl_hair.fmdl` when `holds_hair_model`.
-    fn role_in(relative: &str, holds_hair_model: bool) -> Option<FaceFile> {
-        let path = ScopePath::new(relative).unwrap();
-        let file = FileDescriptor {
-            size: 0,
-            kind: aesthetics_export::classify(path.name()),
-            source: path.clone(),
-            path,
-        };
-        face_file(
-            &ScopePath::new("Players/03 - A").unwrap(),
-            &file,
-            holds_hair_model,
-        )
+    /// The folder `Players/03 - A` holding the files `names`.
+    fn folder(names: &[&str]) -> PlayerFolder {
+        let files = names
+            .iter()
+            .map(|name| {
+                let path = ScopePath::new(&format!("Players/03 - A/{name}")).unwrap();
+                FileDescriptor {
+                    size: 0,
+                    kind: aesthetics_export::classify(path.name()),
+                    source: path.clone(),
+                    path,
+                }
+            })
+            .collect();
+        PlayerFolder {
+            path: ScopePath::new("Players/03 - A").unwrap(),
+            player_name: "A".to_owned(),
+            files,
+            links: Vec::new(),
+            ingame_face: false,
+            fpc: None,
+            portrait: None,
+            settings: None,
+        }
     }
 
-    /// The role of the file at `relative` in a folder that holds `fcl_hair.fmdl`.
-    fn role(relative: &str) -> Option<FaceFile> {
-        role_in(relative, true)
+    /// The role of each file of `names` in `Players/03 - A`.
+    fn roles(names: &[&str]) -> Vec<Option<PlayerFile>> {
+        let folder = folder(names);
+        let models = FolderModels::of(&folder);
+        folder
+            .files
+            .iter()
+            .map(|file| player_file(&folder.path, file, &models))
+            .collect()
+    }
+
+    /// The role of the file `name` in a folder holding it beside `fcl_hair.fmdl` and
+    /// `kit_boots.fmdl`.
+    fn role(name: &str) -> Option<PlayerFile> {
+        roles(&["fcl_hair.fmdl", "kit_boots.fmdl", name])
+            .pop()
+            .unwrap()
+    }
+
+    fn model(package: ModelPackage, name: &'static str) -> Option<PlayerFile> {
+        Some(PlayerFile::Model { package, name })
+    }
+
+    fn packed(package: ModelPackage, name: &'static str) -> Option<PlayerFile> {
+        Some(PlayerFile::Packed { package, name })
     }
 
     #[test]
-    fn each_face_file_has_its_role_or_none() {
-        for stem in FACE_STEMS {
-            assert_eq!(
-                role(&format!("Players/03 - A/{stem}.fmdl")),
-                Some(FaceFile::Model(stem.to_owned()))
-            );
+    fn each_model_goes_to_its_package_under_its_allowed_name() {
+        for (name, package, allowed) in [
+            ("face_high.fmdl", ModelPackage::Face, "face_high"),
+            ("hair_high.fmdl", ModelPackage::Face, "hair_high"),
+            ("oral.fmdl", ModelPackage::Face, "oral"),
+            ("fcl_hair.fmdl", ModelPackage::Face, "fcl_hair"),
+            ("x_fcl_hair.fmdl", ModelPackage::Face, "fcl_hair"),
+            ("boots.fmdl", ModelPackage::Boots, "boots"),
+            ("kit_boots.fmdl", ModelPackage::Boots, "boots"),
+            ("Kit_BOOTS.fmdl", ModelPackage::Boots, "boots"),
+            ("glove_l.fmdl", ModelPackage::Gloves, "glove_l"),
+            ("gloveL.fmdl", ModelPackage::Gloves, "glove_l"),
+            ("keeper_gloveR.fmdl", ModelPackage::Gloves, "glove_r"),
+            ("glove_r.fmdl", ModelPackage::Gloves, "glove_r"),
+            ("handL.fmdl", ModelPackage::Gloves, "glove_l"),
+            ("handR.fmdl", ModelPackage::Gloves, "glove_r"),
+        ] {
+            assert_eq!(roles(&[name]), [model(package, allowed)], "{name}");
         }
+    }
+
+    #[test]
+    fn each_other_player_file_has_its_role_or_none() {
         assert_eq!(
-            role("Players/03 - A/skin.dds"),
-            Some(FaceFile::Texture("skin".to_owned(), TextureFormat::Dds))
+            role("skin.dds"),
+            Some(PlayerFile::Texture("skin".to_owned(), TextureFormat::Dds))
         );
         assert_eq!(
-            role("Players/03 - A/skin.ftex"),
-            Some(FaceFile::Texture("skin".to_owned(), TextureFormat::Ftex))
+            role("skin.ftex"),
+            Some(PlayerFile::Texture("skin".to_owned(), TextureFormat::Ftex))
         );
         assert_eq!(
-            role("Players/03 - A/fcl_hair.skl"),
-            Some(FaceFile::Packed("fcl_hair_sim.skl"))
-        );
-        assert_eq!(role_in("Players/03 - A/fcl_hair.skl", false), None);
-        assert_eq!(
-            role("Players/03 - A/face_diff.bin"),
-            Some(FaceFile::Packed("face_diff.bin"))
+            role("fcl_hair.skl"),
+            packed(ModelPackage::Face, "fcl_hair_sim.skl")
         );
         assert_eq!(
-            role("Players/03 - A/fcl_hair_sim.fclo"),
-            Some(FaceFile::Packed("fcl_hair_sim.fclo"))
+            role("kit_boots.skl"),
+            packed(ModelPackage::Boots, "boots.skl")
+        );
+        assert_eq!(
+            role("face_diff.bin"),
+            packed(ModelPackage::Face, "face_diff.bin")
+        );
+        assert_eq!(
+            role("fcl_hair_sim.fclo"),
+            packed(ModelPackage::Face, "fcl_hair_sim.fclo")
         );
         for refused in [
-            "Players/03 - A/torso.fmdl",
-            "Players/03 - A/boots.fmdl",
-            "Players/03 - A/face_high.model",
-            "Players/03 - A/boots.skl",
-            "Players/03 - A/face.xml",
-            "Players/03 - A/skin.png",
-            "Players/03 - A/hair.png.common",
-            "Players/03 - A/face_diff2.bin",
-            "Players/03 - A/Face_Diff.bin",
-            "Players/03 - A/fcl_hair.fclo",
-            "Players/03 - A/face/face_high.fmdl",
+            "torso.fmdl",
+            "myboots.fmdl",
+            "face_high.model",
+            "boots.skl",
+            "glove_l.skl",
+            "face.xml",
+            "skin.png",
+            "hair.png.common",
+            "face_diff2.bin",
+            "Face_Diff.bin",
+            "fcl_hair.fclo",
+            "face/face_high.fmdl",
         ] {
             assert_eq!(role(refused), None, "{refused}");
         }
+    }
+
+    #[test]
+    fn a_skeleton_pairs_with_the_model_of_its_name_and_face_files_need_a_face_model() {
+        // The skeleton is named after the model, whatever the model's free prefix.
+        assert_eq!(
+            roles(&["x_fcl_hair.fmdl", "x_fcl_hair.skl", "fcl_hair.skl"]),
+            [
+                model(ModelPackage::Face, "fcl_hair"),
+                packed(ModelPackage::Face, "fcl_hair_sim.skl"),
+                None
+            ]
+        );
+        assert_eq!(
+            roles(&["boots.fmdl", "boots.skl", "kit_boots.skl"]),
+            [
+                model(ModelPackage::Boots, "boots"),
+                packed(ModelPackage::Boots, "boots.skl"),
+                None
+            ]
+        );
+        // Without a face model the face's files have no package to go in.
+        assert_eq!(
+            roles(&["boots.fmdl", "face_diff.bin", "fcl_hair_sim.fclo"]),
+            [model(ModelPackage::Boots, "boots"), None, None]
+        );
+        assert_eq!(
+            roles(&["face_high.fmdl", "face_diff.bin", "fcl_hair_sim.fclo"]),
+            [
+                model(ModelPackage::Face, "face_high"),
+                packed(ModelPackage::Face, "face_diff.bin"),
+                packed(ModelPackage::Face, "fcl_hair_sim.fclo")
+            ]
+        );
+    }
+
+    #[test]
+    fn a_package_is_the_models_and_packed_files_but_not_the_textures() {
+        let texture = PlayerFile::Texture("skin".to_owned(), TextureFormat::Dds);
+        assert_eq!(texture.package(), None);
+        assert_eq!(
+            packed(ModelPackage::Boots, "boots.skl").unwrap().package(),
+            Some(ModelPackage::Boots)
+        );
+        assert_eq!(
+            model(ModelPackage::Gloves, "glove_l").unwrap().package(),
+            Some(ModelPackage::Gloves)
+        );
+        assert_eq!(
+            ModelPackage::ALL.map(ModelPackage::file_stem),
+            ["face", "boots", "glove"]
+        );
     }
 
     #[test]

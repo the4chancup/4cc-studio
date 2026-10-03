@@ -1,87 +1,96 @@
-//! A player folder's Fox face: its models packed into one `face.fpk` per roster slot, its
-//! textures converted once into the player's common folder (`team_compiler/pipeline.md` "3.
-//! Per-model-folder parallel steps", steps 2, 6 and 7).
+//! One package of a player folder's Fox models (`team_compiler/pipeline.md` "3.
+//! Per-model-folder parallel steps", steps 2, 3 and 7): its models renamed to their allowed
+//! names, their texture paths pointed at the player's common folder, packed with the files
+//! that go beside them into one `.fpk` emitted under each roster slot's id.
 
-use std::collections::BTreeMap;
+use std::collections::BTreeSet;
 
 use aesthetics_export::PlayerFolder;
 use fmdl::FmdlFile;
 use fmdl::ops::paths::rewrite_texture_paths;
 use fpk::{FpkFile, FpkKind};
 
-use super::{Entry, TaskFiles, take, texture};
+use super::{Entry, TaskFiles, take};
 use crate::paths;
-use crate::plan::subset::{FaceFile, face_file, file_stem, holds_hair_model};
+use crate::plan::subset::{FolderModels, ModelPackage, PlayerFile, file_stem, player_file};
+use crate::templates;
 
-/// The face content of `folder`, compiled from its files' bytes in `files` for the player ids
-/// `player_ids` of team `team_id`: the textures, then each slot's `face.fpk` and `face.fpkd`.
-pub(super) fn face(
+/// The `package` of `folder`, compiled from its files' bytes in `files` for team `team_id`
+/// and emitted under each of `ids`: the package's `.fpk` and an empty `.fpkd` per id.
+pub(super) fn package(
     folder: &PlayerFolder,
-    player_ids: &[u32],
+    package: ModelPackage,
+    ids: &[u32],
     team_id: u16,
     files: &mut TaskFiles,
 ) -> anyhow::Result<Vec<Entry>> {
-    let holds_hair_model = holds_hair_model(folder);
+    let folder_models = FolderModels::of(folder);
     let mut models = Vec::new();
-    let mut textures = BTreeMap::new();
-    let mut package = FpkFile::new(FpkKind::Fpk);
+    let mut texture_stems = BTreeSet::new();
+    let mut fpk = FpkFile::new(FpkKind::Fpk);
     for file in &folder.files {
-        let role = face_file(&folder.path, file, holds_hair_model)
-            .expect("planning skips every export holding a face file with no Phase 3 role");
-        let bytes = take(files, file);
+        let role = player_file(&folder.path, file, &folder_models)
+            .expect("planning skips every export holding a player file with no role yet");
         match role {
-            FaceFile::Model(stem) => models.push((stem, FmdlFile::read(&bytes)?)),
-            FaceFile::Texture(stem, format) => {
-                textures.insert(stem, texture::to_ftex(format, file.path.name(), bytes)?);
+            PlayerFile::Model {
+                package: owner,
+                name,
+            } if owner == package => {
+                models.push((name, FmdlFile::read(&take(files, file))?));
             }
-            FaceFile::Packed(name) => {
-                package.insert(name.to_owned(), bytes);
+            PlayerFile::Packed {
+                package: owner,
+                name,
+            } if owner == package => {
+                fpk.insert(name.to_owned(), take(files, file));
             }
+            // The textures are the textures task's; this task only points its models at them.
+            PlayerFile::Texture(stem, _) => {
+                texture_stems.insert(stem);
+            }
+            PlayerFile::Model { .. } | PlayerFile::Packed { .. } => {}
         }
     }
+    // The game loads boots with a `boots.skl` beside the model; a boots model with no
+    // skeleton of its own gets the standard full-body one.
+    if package == ModelPackage::Boots && fpk.get("boots.skl").is_none() {
+        fpk.insert("boots.skl".to_owned(), templates::BOOTS_SKELETON.to_vec());
+    }
 
-    // A folder's textures go to one common subfolder keyed by the source folder's name, once
+    // A folder's textures sit in one common subfolder keyed by the source folder's name, once
     // however many slots map the folder: every slot's model points at that one copy.
-    let folder_name = folder.path.name();
-    let common_directory = paths::player_common_directory(team_id, folder_name);
+    let common_directory = paths::player_common_directory(team_id, folder.path.name());
     // A texture the folder does not hold is one of the game's own; its directory names the
     // team as `000`, which becomes the team's id.
     let team_segment = format!("/{team_id}/");
-    for (stem, mut model) in models {
+    for (name, mut model) in models {
         rewrite_texture_paths(&mut model, |path| {
-            if textures.contains_key(file_stem(&path.file_name)) {
+            if texture_stems.contains(file_stem(&path.file_name)) {
                 path.directory.clone_from(&common_directory);
             } else {
                 path.directory = path.directory.replace("/000/", &team_segment);
             }
         })?;
-        package.insert(format!("{stem}.fmdl"), model.write());
+        fpk.insert(format!("{name}.fmdl"), model.write());
     }
 
-    let mut entries: Vec<Entry> = textures
-        .into_iter()
-        .map(|(stem, bytes)| {
-            (
-                paths::player_common_texture(team_id, folder_name, &stem),
-                bytes,
-            )
-        })
-        .collect();
-    let package = package.write();
-    // The game opens a face's `.fpkd` beside its `.fpk`; with the textures in the common
+    let fpk = fpk.write();
+    // The game opens a package's `.fpkd` beside its `.fpk`; with the textures in the common
     // folder there is nothing to put in it, so it is an empty package.
     let empty = FpkFile::new(FpkKind::Fpkd).write();
-    // The game finds a face by player id, so each slot gets its own copy of the package; the
-    // last slot takes the buffer itself rather than one more copy.
-    if let Some((last_id, other_ids)) = player_ids.split_last() {
-        for player_id in other_ids {
-            let folder = paths::face_folder(*player_id);
-            entries.push((format!("{folder}/face.fpk"), package.clone()));
-            entries.push((format!("{folder}/face.fpkd"), empty.clone()));
+    let stem = package.file_stem();
+    let mut entries = Vec::new();
+    // The game finds a package by its id, so each slot gets its own copy; the last slot takes
+    // the buffer itself rather than one more copy.
+    if let Some((last_id, other_ids)) = ids.split_last() {
+        for id in other_ids {
+            let folder = paths::package_folder(package, *id);
+            entries.push((format!("{folder}/{stem}.fpk"), fpk.clone()));
+            entries.push((format!("{folder}/{stem}.fpkd"), empty.clone()));
         }
-        let folder = paths::face_folder(*last_id);
-        entries.push((format!("{folder}/face.fpk"), package));
-        entries.push((format!("{folder}/face.fpkd"), empty));
+        let folder = paths::package_folder(package, *last_id);
+        entries.push((format!("{folder}/{stem}.fpk"), fpk));
+        entries.push((format!("{folder}/{stem}.fpkd"), empty));
     }
     Ok(entries)
 }

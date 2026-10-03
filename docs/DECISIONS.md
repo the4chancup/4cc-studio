@@ -3039,3 +3039,18 @@ Plan: `aesthetics_export/player_folders.md` ("Portraits", "Root files" "Colors")
 "Resolved decisions and open questions"); `team_compiler/messages.md` (`collar_id_invalid`);
 `team_compiler/README.md` (Phase 3 scope, TC-CMN-01); `team_compiler/blue_port.md` ("Referee
 export processing").
+
+## 2026-10-03 — team_compiler — a player folder's tasks commit as one group
+Decision: the writer holds a player folder's face, boots and gloves batches until the folder's
+textures batch (last in the manifest) arrives, then commits the packages that succeeded and the
+textures; failed textures drop the whole folder (`folder_pack_failed`, `DropFolder`), and the
+textures stay out when every package failed. The textures batch is where 4.5's
+`shared_texture_conflict` will name the losing package to skip.
+Why: the plan says the textures commit once after the player's tasks report, but not what a
+texture failure does. Committing the textures last on their own (the first 4.3 shape) left
+packages in the CPK pointing at a texture it lacks, and could not drop a conflict's losing
+package, which is already committed by then; the sidekick found both. The group is charged to
+the memory budget once, at its first task, and its tasks share that permit: a textures task
+waiting for a permit of its own could wait forever for memory the held packages never release
+(the sidekick's contradiction of the lead's rework brief, accepted).
+Plan: `team_compiler/pipeline.md` "3. Per-model-folder parallel steps" step 6.

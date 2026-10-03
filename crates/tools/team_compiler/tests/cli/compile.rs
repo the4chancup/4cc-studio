@@ -45,12 +45,20 @@ pub(crate) fn tracer_kit() -> Vec<u8> {
     fs::read(Path::new(&tracer_export()).join("Kits/g1/kit.dds")).unwrap()
 }
 
-/// The tracer bullet's `portrait.dds`, the one `copy_tracer_face` copies.
-pub(crate) fn tracer_portrait() -> Vec<u8> {
+/// The bytes of the file `name` of the tracer bullet's player folder, the one
+/// `copy_tracer_face` copies.
+pub(crate) fn tracer_player_file(name: &str) -> Vec<u8> {
     fs::read(
-        Path::new(&tracer_export()).join("Players/05 - The Chad Stormworks Player/portrait.dds"),
+        Path::new(&tracer_export())
+            .join("Players/05 - The Chad Stormworks Player")
+            .join(name),
     )
     .unwrap()
+}
+
+/// The tracer bullet's `portrait.dds`.
+pub(crate) fn tracer_portrait() -> Vec<u8> {
+    tracer_player_file("portrait.dds")
 }
 
 /// Settings targeting PES 21 with the PES folder at `<sandbox>/PES`.
@@ -184,9 +192,11 @@ fn a_failed_cpk_write_discards_the_staging_and_leaves_the_previous_cpk() {
         previous.display(),
         sandbox.root.join("output").join(".staging").display()
     );
-    let texture = "Asset/model/character/common/714/03 - A/sourceimages/#windx11/shirt.ftex";
+    // The second export's first entry is its face package: a folder's textures follow its
+    // packages.
+    let face = "Asset/model/character/face/real/71403/#Win/face.fpk";
     let suffix = format!(
-        "{}4cc_90_test.cpk: cannot add {texture}: duplicate path in archive: {texture})",
+        "{}4cc_90_test.cpk: cannot add {face}: duplicate path in archive: {face})",
         std::path::MAIN_SEPARATOR
     );
     assert!(
@@ -320,12 +330,13 @@ pub(crate) fn compiled_kits(sandbox: &Sandbox) -> Vec<String> {
     kits
 }
 
-/// `exports/<name>`, an export whose roster maps a player folder holding only `boots.fmdl`,
-/// which no run reads.
-fn boots_only_export(sandbox: &Sandbox, name: &str) {
-    sandbox.write(&format!("exports/{name}/players.txt"), b"03 Boots Only\n");
+/// `exports/<name>`, an export whose roster maps a player folder holding only `torso.fmdl`, a
+/// model with no recognized suffix, which the `fcl_hair` merge of step 4.5 will take and no
+/// run reads yet.
+fn torso_only_export(sandbox: &Sandbox, name: &str) {
+    sandbox.write(&format!("exports/{name}/players.txt"), b"03 Torso Only\n");
     sandbox.write(
-        &format!("exports/{name}/Players/Boots Only/boots.fmdl"),
+        &format!("exports/{name}/Players/Torso Only/torso.fmdl"),
         b"",
     );
 }
@@ -334,21 +345,21 @@ fn boots_only_export(sandbox: &Sandbox, name: &str) {
 #[test]
 fn compile_skips_an_export_holding_content_it_cannot_build_yet_and_builds_the_others() {
     let sandbox = Sandbox::new("not_yet_compiled");
-    boots_only_export(&sandbox, "co - Boots");
+    torso_only_export(&sandbox, "co - Torso");
     sandbox.copy_tracer("egg Tracer");
     sandbox.write("exports/dbg - Kits/Kits/p1/kit.dds", &tracer_kit());
     sandbox.write("exports/dbg - Kits/players.txt", b"");
     // No roster slot maps this folder, so it would emit nothing.
-    sandbox.write("exports/dbg - Kits/Players/Boots Only/boots.fmdl", b"");
+    sandbox.write("exports/dbg - Kits/Players/Torso Only/torso.fmdl", b"");
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
 
     let lines = run.messages();
     assert_eq!(
-        findings_of(&lines, "co - Boots"),
+        findings_of(&lines, "co - Torso"),
         [
             "Info export_identified [Keep] (team=/co/, id=714)",
-            "Error content_not_yet_compiled [DropExport] (what=Players/Boots Only/boots.fmdl)",
+            "Error content_not_yet_compiled [DropExport] (what=Players/Torso Only/torso.fmdl)",
         ]
     );
     assert_eq!(run.exit_code(), 1);
@@ -374,7 +385,7 @@ fn a_compile_whose_every_export_is_skipped_leaves_the_previous_cpk_as_it_was() {
     sandbox.write("output/4cc_90_test.cpk", b"the previous CPK");
     sandbox.write("exports/refs Cup/players.txt", b"01 Keeper\n");
     sandbox.write("exports/refs Cup/Players/Keeper/face_high.fmdl", b"");
-    boots_only_export(&sandbox, "co - Boots");
+    torso_only_export(&sandbox, "co - Torso");
     let before = snapshot(&sandbox.root.join("output"));
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);

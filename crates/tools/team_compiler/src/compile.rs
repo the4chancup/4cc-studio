@@ -214,10 +214,25 @@ fn coordinate<'scope>(
                 spawn(index, task, files, permit.clone());
             }
         } else {
+            // A player folder's group is charged once, at its first task, and its tasks share
+            // the permit: the writer holds the group's packages until its textures batch, so
+            // a textures task waiting for a permit of its own would wait for memory the held
+            // packages never release.
+            let mut group_permit: Option<Arc<Permit>> = None;
             while let Some((index, task)) =
                 tasks.next_if(|(_, task)| task.export_id == source.export_id)
             {
-                let permit = Arc::new(budget.acquire(task.charge)?);
+                let permit = match &task.group {
+                    Some(group) if index == group.tasks.start => {
+                        let permit = Arc::new(budget.acquire(group.charge)?);
+                        group_permit = Some(permit.clone());
+                        permit
+                    }
+                    Some(_) => group_permit
+                        .clone()
+                        .expect("a group's first task acquired the shared permit"),
+                    None => Arc::new(budget.acquire(task.charge)?),
+                };
                 let files = read_files(&task, &mut content);
                 spawn(index, task, files, Some(permit));
             }
@@ -275,6 +290,7 @@ fn task_batch(
         Err(failure) => TaskBatch {
             index,
             entries: Vec::new(),
+            group: task.group.as_ref().map(|group| group.tasks.clone()),
             uniparam: None,
             messages: vec![tool_message(
                 Code::SourceReadFailed,
@@ -312,48 +328,145 @@ mod tests {
     use vtree::ScopePath;
 
     use super::*;
-    use crate::plan::TaskKind;
+    use crate::plan::subset::ModelPackage;
+    use crate::plan::{TaskGroup, TaskKind};
     use crate::reader::ExportSource;
 
     const PLAYER: &str = "Players/05 - The Chad Stormworks Player";
 
-    #[test]
-    fn a_file_that_cannot_be_read_fails_its_task_naming_it() {
-        let tracer =
-            Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/tracer/studio/egg Tracer");
-        let source = ExportSource {
+    /// The tracer bullet's export folder, as export 4.
+    fn tracer_source() -> ExportSource {
+        ExportSource {
             export_id: ExportId(4),
-            path: tracer.clone(),
+            path: Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("tests/fixtures/tracer/studio/egg Tracer"),
             kind: SourceKind::Folder,
             file_name: "egg Tracer".to_owned(),
             display_name: "egg Tracer".to_owned(),
             team_name: None,
-        };
-        // The tracer's player folder holds no `face_high.fmdl`.
-        let missing = ScopePath::new(&format!("{PLAYER}/face_high.fmdl")).unwrap();
-        let folder = PlayerFolder {
+        }
+    }
+
+    /// The tracer's player folder holding the files `names`, sizes unknown.
+    fn player(names: &[&str]) -> PlayerFolder {
+        PlayerFolder {
             path: ScopePath::new(PLAYER).unwrap(),
             player_name: "The Chad Stormworks Player".to_owned(),
-            files: vec![FileDescriptor {
-                size: 0,
-                kind: aesthetics_export::classify(missing.name()),
-                source: missing.clone(),
-                path: missing,
-            }],
+            files: names
+                .iter()
+                .map(|name| {
+                    let path = ScopePath::new(&format!("{PLAYER}/{name}")).unwrap();
+                    FileDescriptor {
+                        size: 0,
+                        kind: aesthetics_export::classify(path.name()),
+                        source: path.clone(),
+                        path,
+                    }
+                })
+                .collect(),
             links: Vec::new(),
             ingame_face: false,
             fpc: None,
             portrait: None,
             settings: None,
+        }
+    }
+
+    #[test]
+    fn a_group_s_tasks_share_one_permit_of_the_group_s_charge_and_other_tasks_have_their_own() {
+        let source = tracer_source();
+        let folder = player(&[
+            "face_diff.bin",
+            "fcl_hair.fmdl",
+            "fcl_hair.skl",
+            "fcl_hair_sim.fclo",
+            "shirt.dds",
+        ]);
+        let group = TaskGroup {
+            tasks: 0..2,
+            charge: 30,
         };
+        let task = |kind, charge, group| BuildTask {
+            export_id: ExportId(4),
+            team_id: 792,
+            kind,
+            charge,
+            group,
+        };
+        let tasks = vec![
+            task(
+                TaskKind::Models {
+                    folder: folder.clone(),
+                    package: ModelPackage::Face,
+                    ids: vec![79205],
+                },
+                10,
+                Some(group.clone()),
+            ),
+            task(
+                TaskKind::Textures {
+                    folder: folder.clone(),
+                },
+                20,
+                Some(group),
+            ),
+            task(
+                TaskKind::Portrait {
+                    player_id: 79205,
+                    file: folder.files[0].clone(),
+                },
+                7,
+                None,
+            ),
+        ];
+        let budget = MemoryBudget::new(1 << 30);
+        let context = CompileContext {
+            version: PesVersion::Pes21,
+        };
+        let pool = rayon::ThreadPoolBuilder::new()
+            .num_threads(2)
+            .build()
+            .unwrap();
+        let (batches_tx, batches_rx) = unbounded();
+
+        pool.in_place_scope(|scope| {
+            coordinate(&[source], tasks, &budget, &context, &batches_tx, scope)
+        })
+        .unwrap();
+        drop(batches_tx);
+
+        let mut batches: Vec<TaskBatch> = batches_rx.iter().collect();
+        batches.sort_by_key(|batch| batch.index);
+        let permits: Vec<&Arc<Permit>> = batches
+            .iter()
+            .map(|batch| batch.permit.as_ref().expect("every task is charged"))
+            .collect();
+        assert_eq!(permits.len(), 3);
+        assert!(
+            Arc::ptr_eq(permits[0], permits[1]),
+            "the group's two tasks hold the one permit"
+        );
+        assert_eq!(permits[0].size(), 30, "the group's whole charge, once");
+        assert!(!Arc::ptr_eq(permits[0], permits[2]));
+        assert_eq!(permits[2].size(), 7, "the ungrouped task's own charge");
+    }
+
+    #[test]
+    fn a_file_that_cannot_be_read_fails_its_task_naming_it() {
+        let source = tracer_source();
+        let tracer = source.path.clone();
+        // The tracer's player folder holds no `face_high.fmdl`.
+        let folder = player(&["face_high.fmdl"]);
         let task = BuildTask {
             export_id: ExportId(4),
             team_id: 792,
-            kind: TaskKind::Face {
+            kind: TaskKind::Models {
                 folder,
-                player_ids: vec![79205],
+                package: ModelPackage::Face,
+                ids: vec![79205],
             },
             charge: 0,
+            group: None,
         };
 
         let files = read_files(
