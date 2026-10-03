@@ -9,7 +9,7 @@ use std::ops::Range;
 
 use aesthetics_export::{
     ExportIdentity, FileDescriptor, KitFolder, KitsFolder, PlayerFolder, PlayerIndex, PlayerSlot,
-    ResolvedAestheticsExport, ValidatedRoster,
+    ResolvedAestheticsExport, SharedKind, ValidatedAestheticsExport, ValidatedRoster,
 };
 use kit_config::KitSlot;
 use pes_version::{Engine, PesVersion};
@@ -17,8 +17,12 @@ use studio_core::{Disposition, ExportId, Message, Scope};
 use vtree::ScopePath;
 
 use crate::messages::{Code, tool_message};
-use ids::PlannedModelIds;
-use subset::{FolderModels, ModelPackage, PlayerFile, first_not_compiled, player_file};
+use crate::paths::TextureHome;
+use ids::{PlannedModelIds, shared_folders_taking_ids};
+use subset::{
+    FolderModels, ModelPackage, PlayerFile, first_not_compiled, holds_model, package_of,
+    player_file,
+};
 
 /// What planning produced: the manifest and the findings planning itself made.
 pub(crate) struct PlanReport {
@@ -30,9 +34,11 @@ pub(crate) struct PlanReport {
 }
 
 /// The run's tasks in canonical order: by export, then each mapped player folder's tasks (its
-/// face, boots and gloves packages, then its textures) by first roster slot, the portraits by
-/// player id, then the kits by slot. The writer lays the CPK out in this order whatever order
-/// the tasks finish in, so the same exports always give the same bytes.
+/// face, boots and gloves packages, then its textures) by first roster slot, the shared boots
+/// folders taking an id (each its package, then its textures) in id order, then the shared
+/// gloves folders the same way, the portraits by player id, then the kits by slot. The writer
+/// lays the CPK out in this order whatever order the tasks finish in, so the same exports always
+/// give the same bytes.
 pub(crate) struct BuildManifest {
     /// The tasks, in canonical order.
     pub(crate) tasks: Vec<BuildTask>,
@@ -55,10 +61,11 @@ pub(crate) struct BuildTask {
     pub(crate) group: Option<TaskGroup>,
 }
 
-/// A player folder's tasks as one unit for the writer: its packages (face, boots, gloves in
-/// canonical order), then its textures task last, contiguous in the manifest. The writer
-/// holds the packages until the textures batch arrives and decides the group, so a folder
-/// whose textures failed leaves no package pointing at textures that are not in the CPK.
+/// A model folder's tasks as one unit for the writer: its packages (face, boots, gloves in
+/// canonical order; a shared folder has one), then its textures task last, contiguous in the
+/// manifest. The writer holds the packages until the textures batch arrives and decides the
+/// group, so a folder whose textures failed leaves no package pointing at textures that are
+/// not in the CPK.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct TaskGroup {
     /// The group's manifest positions, the textures task at `tasks.end - 1`.
@@ -69,28 +76,40 @@ pub(crate) struct TaskGroup {
     pub(crate) charge: usize,
 }
 
+/// The folder a `Models` or `Textures` task compiles: a mapped player folder, or a shared
+/// boots or gloves folder a mapped player links plainly. Its files take the roles of a player
+/// folder's (`subset::player_file`); where its textures go differs.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ModelFolder {
+    /// The folder's export path (`Players/05 - A`, `Boots/Crocs`): the scope its findings name.
+    pub(crate) path: ScopePath,
+    /// Its files.
+    pub(crate) files: Vec<FileDescriptor>,
+    /// Where its textures go, which its models' texture paths are rewritten to name.
+    pub(crate) textures: TextureHome,
+}
+
 /// What a task compiles.
 pub(crate) enum TaskKind {
-    /// One package of a mapped player folder's models: its face, its boots or its gloves,
-    /// with the files packed beside them. One task per package, whatever the number of
-    /// roster slots mapping the folder: the package is built once and emitted under each
-    /// slot's id.
+    /// One package of a model folder's models: a player folder's face, boots or gloves, or a
+    /// shared folder's one package, with the files packed beside them. One task per package,
+    /// whatever the number of roster slots mapping a player folder: the package is built once
+    /// and emitted under each slot's id.
     Models {
-        /// The player folder.
-        folder: PlayerFolder,
+        /// The model folder.
+        folder: ModelFolder,
         /// Which of its packages.
         package: ModelPackage,
-        /// The id the package is emitted under for every roster slot mapping the folder, in
-        /// slot order: the slot's player id for the face, its planned boots/gloves id for
-        /// the other two.
+        /// The ids the package is emitted under: for a player folder one per roster slot
+        /// mapping it, in slot order (the slot's player id for the face, its planned
+        /// boots/gloves id for the other two); for a shared folder its one shared id.
         ids: Vec<u32>,
     },
-    /// A mapped player folder's own textures, converted once into the player's common
-    /// folder, which every package of the folder points at. Always the last task of the
-    /// folder's `TaskGroup`.
+    /// A model folder's own textures, converted once into the folder's texture home, which
+    /// every package of the folder points at. Always the last task of the folder's `TaskGroup`.
     Textures {
-        /// The player folder.
-        folder: PlayerFolder,
+        /// The model folder.
+        folder: ModelFolder,
     },
     /// One player's portrait, a DDS emitted as it is under the target version's file name.
     /// One task per player id: a folder two roster slots map gives two tasks over its one
@@ -146,14 +165,30 @@ impl TaskKind {
 
 /// The files of `folder` whose role `wanted` accepts, in the folder's order.
 fn folder_files(
-    folder: &PlayerFolder,
+    folder: &ModelFolder,
     wanted: impl Fn(&PlayerFile) -> bool,
 ) -> Vec<&FileDescriptor> {
-    let models = FolderModels::of(folder);
+    let models = FolderModels::of(&folder.path, &folder.files);
     folder
         .files
         .iter()
         .filter(|file| player_file(&folder.path, file, &models).is_some_and(|role| wanted(&role)))
+        .collect()
+}
+
+/// Every player folder a roster slot maps, in the export's folder order. A folder no slot maps
+/// is not compiled.
+pub(crate) fn mapped_players(export: &ValidatedAestheticsExport) -> Vec<&PlayerFolder> {
+    let mapped: Vec<PlayerIndex> = match &export.roster {
+        ValidatedRoster::Team(slots) => slots.values().copied().collect(),
+        ValidatedRoster::Referees(slots) => slots.values().copied().collect(),
+    };
+    export
+        .players
+        .iter()
+        .enumerate()
+        .filter(|(index, _)| mapped.contains(&PlayerIndex(*index)))
+        .map(|(_, folder)| folder)
         .collect()
 }
 
@@ -186,6 +221,28 @@ pub(crate) fn plan_run(
         let team_id = id.get();
         let model_ids = PlannedModelIds::for_team(id);
         let export = resolved.export;
+        // The shared folders taking an id, each with its package and that id, in the id order
+        // of the kind: the boots folders, then the gloves folders.
+        let mut shared: Vec<(ModelFolder, ModelPackage, u32)> = Vec::new();
+        for kind in [SharedKind::Boots, SharedKind::Gloves] {
+            let package = package_of(kind);
+            let folders = shared_folders_taking_ids(&export, version.engine(), kind);
+            for (index, folder) in folders.into_iter().enumerate() {
+                let shared_id =
+                    u32::from(model_ids.shared(index).expect(
+                        "the structure pass drops an export whose shared pool is exhausted",
+                    ));
+                let folder = ModelFolder {
+                    path: folder.path.clone(),
+                    files: folder.files.clone(),
+                    textures: TextureHome::SharedOutput {
+                        package,
+                        id: shared_id,
+                    },
+                };
+                shared.push((folder, package, shared_id));
+            }
+        }
         // A folder's portrait goes out once per slot mapping the folder; the gate has refused
         // any slot with a portrait from both sources, so no player id comes up twice.
         let mut portraits: Vec<(u32, FileDescriptor)> = Vec::new();
@@ -197,15 +254,7 @@ pub(crate) fn plan_run(
                         .map(|slot| (slot.player_id(id), portrait.clone())),
                 );
             }
-            let first = tasks.len();
-            for package in ModelPackage::ALL {
-                let holds_model = folder_files(
-                    &folder,
-                    |role| matches!(role, PlayerFile::Model { package: owner, .. } if *owner == package),
-                );
-                if holds_model.is_empty() {
-                    continue;
-                }
+            let packages = ModelPackage::ALL.map(|package| {
                 let ids = slots
                     .iter()
                     .map(|slot| match package {
@@ -215,30 +264,25 @@ pub(crate) fn plan_run(
                         }
                     })
                     .collect();
-                tasks.push(task(
-                    export_id,
-                    team_id,
-                    TaskKind::Models {
-                        folder: folder.clone(),
-                        package,
-                        ids,
-                    },
-                ));
-            }
-            if !folder_files(&folder, |role| role.package().is_none()).is_empty() {
-                tasks.push(task(export_id, team_id, TaskKind::Textures { folder }));
-                let members = &mut tasks[first..];
-                let charge = members
-                    .iter()
-                    .fold(0usize, |sum, task| sum.saturating_add(task.charge));
-                let group = TaskGroup {
-                    tasks: first..first + members.len(),
-                    charge,
-                };
-                for task in members {
-                    task.group = Some(group.clone());
-                }
-            }
+                (package, ids)
+            });
+            let model_folder = ModelFolder {
+                textures: TextureHome::PlayerCommon {
+                    folder_name: folder.path.name().to_owned(),
+                },
+                path: folder.path,
+                files: folder.files,
+            };
+            folder_tasks(export_id, team_id, model_folder, &packages, &mut tasks);
+        }
+        for (folder, package, shared_id) in shared {
+            folder_tasks(
+                export_id,
+                team_id,
+                folder,
+                &[(package, vec![shared_id])],
+                &mut tasks,
+            );
         }
         portraits.extend(
             export
@@ -281,6 +325,48 @@ pub(crate) fn plan_run(
     PlanReport {
         manifest: BuildManifest { tasks },
         messages,
+    }
+}
+
+/// Pushes `folder`'s tasks onto `tasks`: one `Models` task for each of `packages` the folder
+/// holds a model of, emitted under that package's ids, then, when the folder has textures, its
+/// `Textures` task, the lot as one `TaskGroup`.
+fn folder_tasks(
+    export_id: ExportId,
+    team_id: u16,
+    folder: ModelFolder,
+    packages: &[(ModelPackage, Vec<u32>)],
+    tasks: &mut Vec<BuildTask>,
+) {
+    let first = tasks.len();
+    for (package, ids) in packages {
+        if !holds_model(&folder.path, &folder.files, *package) {
+            continue;
+        }
+        tasks.push(task(
+            export_id,
+            team_id,
+            TaskKind::Models {
+                folder: folder.clone(),
+                package: *package,
+                ids: ids.clone(),
+            },
+        ));
+    }
+    if folder_files(&folder, |role| role.package().is_none()).is_empty() {
+        return;
+    }
+    tasks.push(task(export_id, team_id, TaskKind::Textures { folder }));
+    let members = &mut tasks[first..];
+    let charge = members
+        .iter()
+        .fold(0usize, |sum, task| sum.saturating_add(task.charge));
+    let group = TaskGroup {
+        tasks: first..first + members.len(),
+        charge,
+    };
+    for task in members {
+        task.group = Some(group.clone());
     }
 }
 
@@ -487,6 +573,120 @@ mod tests {
                 "task {index}"
             );
         }
+    }
+
+    #[test]
+    fn shared_folders_follow_the_players_boots_then_gloves_under_the_shared_ids_in_name_order() {
+        let export = resolved(
+            "co - Shared",
+            &[
+                ("Players/03 - A/Zebra.boots", 0),
+                ("Players/03 - A/Grip.gloves", 0),
+                ("Players/07 - B/face_high.fmdl", 32),
+                ("Players/07 - B/face_diff.bin", 1),
+                ("Players/07 - B/apple.boots", 0),
+                ("Players/11 - C/Zebra.boots", 0),
+                ("Boots/Zebra/boots.fmdl", 8),
+                ("Boots/Zebra/boots.skl", 2),
+                ("Boots/Zebra/shirt.dds", 16),
+                ("Boots/apple/kit_boots.fmdl", 4),
+                ("Gloves/Grip/glove_l.fmdl", 64),
+                ("Gloves/Grip/grip.dds", 128),
+            ],
+            &[],
+            None,
+        );
+
+        let report = plan_run(vec![(ExportId(0), export)], PesVersion::Pes21);
+
+        // Slots 03 and 11 wear Zebra and 07 apple, so no player has a boots package; team
+        // 714's shared ids start at 644, in case-folded name order.
+        assert!(report.messages.is_empty(), "{:?}", report.messages);
+        assert_eq!(
+            summary(&report),
+            [
+                "0 714 Face Players/07 - B [71407] charge 33",
+                "0 714 Boots Boots/apple [644] charge 4",
+                "0 714 Boots Boots/Zebra [645] charge 10",
+                "0 714 textures Boots/Zebra charge 16",
+                "0 714 Gloves Gloves/Grip [644] charge 64",
+                "0 714 textures Gloves/Grip charge 128",
+            ]
+        );
+        let groups: Vec<Option<TaskGroup>> = report
+            .manifest
+            .tasks
+            .iter()
+            .map(|task| task.group.clone())
+            .collect();
+        let zebra = Some(TaskGroup {
+            tasks: 2..4,
+            charge: 26,
+        });
+        let grip = Some(TaskGroup {
+            tasks: 4..6,
+            charge: 192,
+        });
+        assert_eq!(
+            groups,
+            [None, None, zebra.clone(), zebra, grip.clone(), grip]
+        );
+        let homes: Vec<&TextureHome> = report
+            .manifest
+            .tasks
+            .iter()
+            .filter_map(|task| match &task.kind {
+                TaskKind::Models { folder, .. } | TaskKind::Textures { folder } => {
+                    Some(&folder.textures)
+                }
+                TaskKind::Portrait { .. } | TaskKind::Kit { .. } => None,
+            })
+            .collect();
+        assert_eq!(
+            homes,
+            [
+                &TextureHome::PlayerCommon {
+                    folder_name: "07 - B".to_owned()
+                },
+                &TextureHome::SharedOutput {
+                    package: ModelPackage::Boots,
+                    id: 644
+                },
+                &TextureHome::SharedOutput {
+                    package: ModelPackage::Boots,
+                    id: 645
+                },
+                &TextureHome::SharedOutput {
+                    package: ModelPackage::Boots,
+                    id: 645
+                },
+                &TextureHome::SharedOutput {
+                    package: ModelPackage::Gloves,
+                    id: 644
+                },
+                &TextureHome::SharedOutput {
+                    package: ModelPackage::Gloves,
+                    id: 644
+                },
+            ]
+        );
+        let files = |index: usize| -> Vec<&str> {
+            report.manifest.tasks[index]
+                .kind
+                .files()
+                .iter()
+                .map(|file| file.path.as_str())
+                .collect()
+        };
+        assert_eq!(
+            files(2),
+            ["Boots/Zebra/boots.fmdl", "Boots/Zebra/boots.skl"]
+        );
+        assert_eq!(files(3), ["Boots/Zebra/shirt.dds"]);
+        assert_eq!(
+            report.manifest.tasks[2].kind.folder_path(),
+            scope_path("Boots/Zebra")
+        );
     }
 
     #[test]

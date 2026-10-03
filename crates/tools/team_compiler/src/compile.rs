@@ -321,15 +321,16 @@ fn read_files(task: &BuildTask, content: &mut ContentSource) -> Result<TaskFiles
 mod tests {
     use std::path::Path;
 
-    use aesthetics_export::{FileDescriptor, PlayerFolder};
+    use aesthetics_export::FileDescriptor;
     use pes_version::PesVersion;
     use pipeline::MemoryBudget;
     use studio_core::ExportId;
     use vtree::ScopePath;
 
     use super::*;
+    use crate::paths::TextureHome;
     use crate::plan::subset::ModelPackage;
-    use crate::plan::{TaskGroup, TaskKind};
+    use crate::plan::{ModelFolder, TaskGroup, TaskKind};
     use crate::reader::ExportSource;
 
     const PLAYER: &str = "Players/05 - The Chad Stormworks Player";
@@ -348,10 +349,9 @@ mod tests {
     }
 
     /// The tracer's player folder holding the files `names`, sizes unknown.
-    fn player(names: &[&str]) -> PlayerFolder {
-        PlayerFolder {
+    fn player(names: &[&str]) -> ModelFolder {
+        ModelFolder {
             path: ScopePath::new(PLAYER).unwrap(),
-            player_name: "The Chad Stormworks Player".to_owned(),
             files: names
                 .iter()
                 .map(|name| {
@@ -364,11 +364,9 @@ mod tests {
                     }
                 })
                 .collect(),
-            links: Vec::new(),
-            ingame_face: false,
-            fpc: None,
-            portrait: None,
-            settings: None,
+            textures: TextureHome::PlayerCommon {
+                folder_name: "05 - The Chad Stormworks Player".to_owned(),
+            },
         }
     }
 

@@ -10,27 +10,67 @@ use crate::plan::subset::ModelPackage;
 pub(crate) const UNIFORM_PARAMETER: &str =
     "common/character0/model/character/uniform/team/UniformParameter.bin";
 
-/// The folder of one player's `package` (its `.fpk` and `.fpkd`), by `id`: the player id for
-/// the face, the four-digit boots or gloves id for the other two (`k0625`, `g0625`).
-pub(crate) fn package_folder(package: ModelPackage, id: u32) -> String {
+/// The game folder of one `package` by `id`, without the `Asset/` or `/Assets/pes16/` head
+/// the CPK paths and the FMDL texture paths put before it: the player id for the face, the
+/// four-digit boots or gloves id for the other two (`k0625`, `g0625`).
+fn model_folder(package: ModelPackage, id: u32) -> String {
     match package {
-        ModelPackage::Face => format!("Asset/model/character/face/real/{id}/#Win"),
-        ModelPackage::Boots => format!("Asset/model/character/boots/k{id:04}/#Win"),
-        ModelPackage::Gloves => format!("Asset/model/character/glove/g{id:04}/#Win"),
+        ModelPackage::Face => format!("model/character/face/real/{id}"),
+        ModelPackage::Boots => format!("model/character/boots/k{id:04}"),
+        ModelPackage::Gloves => format!("model/character/glove/g{id:04}"),
     }
 }
 
-/// A player folder's own textures, as the FMDL texture-path table names their folder: the
-/// per-player common subfolder of the team, keyed by the source folder's name.
-pub(crate) fn player_common_directory(team_id: u16, folder_name: &str) -> String {
-    format!("/Assets/pes16/model/character/common/{team_id}/{folder_name}/sourceimages/")
+/// The folder of one `package` (its `.fpk` and `.fpkd`), by `id`.
+pub(crate) fn package_folder(package: ModelPackage, id: u32) -> String {
+    format!("Asset/{}/#Win", model_folder(package, id))
 }
 
-/// The CPK path of one texture in that per-player common subfolder.
-pub(crate) fn player_common_texture(team_id: u16, folder_name: &str, stem: &str) -> String {
-    format!(
-        "Asset/model/character/common/{team_id}/{folder_name}/sourceimages/#windx11/{stem}.ftex"
-    )
+/// Where a model folder's textures go, which its models' texture paths name and its textures
+/// task writes to (`pipeline.md` "3. Per-model-folder parallel steps", step 6).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum TextureHome {
+    /// A player folder's: the team's per-player common subfolder, keyed by the source
+    /// folder's name, so a folder several slots map emits its textures once.
+    PlayerCommon {
+        /// The source folder's name (`05 - A`).
+        folder_name: String,
+    },
+    /// A shared boots or gloves folder's: the output's own folder, beside its package, so
+    /// the one output every linking player loads carries its own textures. Only the boots
+    /// and the gloves are built this way; a shared face has no output of its own.
+    SharedOutput {
+        /// The output's package, boots or gloves.
+        package: ModelPackage,
+        /// Its shared id from the team's block.
+        id: u32,
+    },
+}
+
+impl TextureHome {
+    /// The directory an FMDL texture-path table names for a texture here, for team `team_id`.
+    pub(crate) fn directory(&self, team_id: u16) -> String {
+        match self {
+            TextureHome::PlayerCommon { folder_name } => format!(
+                "/Assets/pes16/model/character/common/{team_id}/{folder_name}/sourceimages/"
+            ),
+            TextureHome::SharedOutput { package, id } => {
+                format!("/Assets/pes16/{}/", model_folder(*package, *id))
+            }
+        }
+    }
+
+    /// The CPK path of the texture `stem` here, converted to FTEX, for team `team_id`.
+    pub(crate) fn texture(&self, team_id: u16, stem: &str) -> String {
+        match self {
+            TextureHome::PlayerCommon { folder_name } => format!(
+                "Asset/model/character/common/{team_id}/{folder_name}/sourceimages/#windx11/{stem}.ftex"
+            ),
+            TextureHome::SharedOutput { package, id } => {
+                format!("Asset/{}/#windx11/{stem}.ftex", model_folder(*package, *id))
+            }
+        }
+    }
 }
 
 /// The CPK path of one kit texture, by its game name (`u0792g1`, `u0792g1_back`).
@@ -71,6 +111,45 @@ mod tests {
         assert_eq!(
             package_folder(ModelPackage::Gloves, 3745),
             "Asset/model/character/glove/g3745/#Win"
+        );
+    }
+
+    #[test]
+    fn a_player_s_textures_go_to_its_common_subfolder_and_a_shared_output_s_to_its_own() {
+        let player = TextureHome::PlayerCommon {
+            folder_name: "05 - A".to_owned(),
+        };
+        assert_eq!(
+            player.directory(714),
+            "/Assets/pes16/model/character/common/714/05 - A/sourceimages/"
+        );
+        assert_eq!(
+            player.texture(714, "shirt"),
+            "Asset/model/character/common/714/05 - A/sourceimages/#windx11/shirt.ftex"
+        );
+        let boots = TextureHome::SharedOutput {
+            package: ModelPackage::Boots,
+            id: 644,
+        };
+        assert_eq!(
+            boots.directory(714),
+            "/Assets/pes16/model/character/boots/k0644/"
+        );
+        assert_eq!(
+            boots.texture(714, "shirt"),
+            "Asset/model/character/boots/k0644/#windx11/shirt.ftex"
+        );
+        let gloves = TextureHome::SharedOutput {
+            package: ModelPackage::Gloves,
+            id: 644,
+        };
+        assert_eq!(
+            gloves.directory(714),
+            "/Assets/pes16/model/character/glove/g0644/"
+        );
+        assert_eq!(
+            gloves.texture(714, "grip"),
+            "Asset/model/character/glove/g0644/#windx11/grip.ftex"
         );
     }
 

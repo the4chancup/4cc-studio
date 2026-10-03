@@ -6,11 +6,14 @@
 
 use aesthetics_export::{
     ExportIdentity, FileDescriptor, FileKind, FpcDirective, KitLayout, ModelFormat, ModelSuffix,
-    PlayerFolder, PlayerIndex, PlayerSlot, ResolvedAestheticsExport, ValidatedAestheticsExport,
-    ValidatedRoster, model_suffix,
+    PlayerFolder, PlayerSlot, ResolvedAestheticsExport, SharedKind, SharedModelFolder,
+    ValidatedAestheticsExport, ValidatedRoster, model_suffix,
 };
 use pes_version::{Engine, PesVersion};
 use vtree::ScopePath;
+
+use super::ids::shared_folders_taking_ids;
+use super::mapped_players;
 
 /// The kit texture stems, in the order of the kit config's texture-name fields.
 pub(crate) const KIT_TEXTURE_STEMS: [&str; 5] =
@@ -69,6 +72,27 @@ impl ModelPackage {
     }
 }
 
+/// The package a shared folder of `kind` is loaded as: `Boots/` holds boots models, `Gloves/`
+/// gloves models, `Faces/` face parts.
+pub(crate) fn package_of(kind: SharedKind) -> ModelPackage {
+    match kind {
+        SharedKind::Face => ModelPackage::Face,
+        SharedKind::Boots => ModelPackage::Boots,
+        SharedKind::Gloves => ModelPackage::Gloves,
+    }
+}
+
+/// The link file a player folder at `folder` holds for the shared folder `name` of `kind`, as
+/// the export spells it without the tolerated `.txt` tail (`Players/05 - A/Crocs.boots`).
+fn link_path(folder: &ScopePath, kind: SharedKind, name: &str) -> String {
+    let extension = match kind {
+        SharedKind::Face => "face",
+        SharedKind::Boots => "boots",
+        SharedKind::Gloves => "gloves",
+    };
+    format!("{}/{name}.{extension}", folder.as_str())
+}
+
 /// What one file of a player folder becomes in the Fox output.
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) enum PlayerFile {
@@ -116,11 +140,12 @@ pub(crate) struct FolderModels {
 }
 
 impl FolderModels {
-    /// The models of `folder`, as its direct `.fmdl` files with a recognized suffix.
-    pub(crate) fn of(folder: &PlayerFolder) -> FolderModels {
+    /// The models among `files` of the folder at `folder`: its direct `.fmdl` files with a
+    /// recognized suffix.
+    pub(crate) fn of(folder: &ScopePath, files: &[FileDescriptor]) -> FolderModels {
         let mut models = FolderModels::default();
-        for file in &folder.files {
-            if file.path.parent().as_ref() != Some(&folder.path)
+        for file in files {
+            if file.path.parent().as_ref() != Some(folder)
                 || file.kind != FileKind::Model(ModelFormat::Fmdl)
             {
                 continue;
@@ -214,6 +239,22 @@ pub(crate) fn player_file(
     }
 }
 
+/// Whether the folder at `folder` holding `files` has a model that packs into `package`: on
+/// Fox, what gives a player its own package of that kind.
+pub(crate) fn holds_model(
+    folder: &ScopePath,
+    files: &[FileDescriptor],
+    package: ModelPackage,
+) -> bool {
+    let models = FolderModels::of(folder, files);
+    files.iter().any(|file| {
+        matches!(
+            player_file(folder, file, &models),
+            Some(PlayerFile::Model { package: owner, .. }) if owner == package
+        )
+    })
+}
+
 /// A file name's stem: the name up to its last `.`.
 pub(crate) fn file_stem(name: &str) -> &str {
     name.rsplit_once('.').map_or(name, |(stem, _)| stem)
@@ -237,26 +278,22 @@ pub(crate) fn first_not_compiled(
         return Some(("what", "refs".to_owned()));
     }
     let export = &resolved.export;
-    let mapped: Vec<PlayerIndex> = match &export.roster {
-        ValidatedRoster::Team(slots) => slots.values().copied().collect(),
-        ValidatedRoster::Referees(slots) => slots.values().copied().collect(),
-    };
     // A folder no roster slot maps is not compiled, so whatever it holds does not count.
-    for (index, folder) in export.players.iter().enumerate() {
-        if mapped.contains(&PlayerIndex(index))
-            && let Some(item) = player_not_compiled(folder)
-        {
+    for folder in mapped_players(export) {
+        if let Some(item) = player_not_compiled(folder) {
             return Some(item);
         }
     }
-    let mut shared = export
-        .faces
-        .iter()
-        .chain(&export.boots)
-        .chain(&export.gloves)
-        .flat_map(|folder| &folder.files);
-    if let Some(file) = shared.next() {
-        return Some(what_entry(file));
+    // A shared boots or gloves folder compiles on its own when a mapped player links it
+    // plainly; one no such player links has no output and is not counted. A shared face is
+    // named by its link above: validation drops a shared folder no mapped player links, so
+    // every `Faces/` folder here has a linking player.
+    for kind in [SharedKind::Boots, SharedKind::Gloves] {
+        for folder in shared_folders_taking_ids(export, version.engine(), kind) {
+            if let Some(item) = shared_not_compiled(kind, folder) {
+                return Some(item);
+            }
+        }
     }
     for kit in export.kits.kits.values() {
         // The target is Fox here, so a kit drawn for the other layout needs a conversion.
@@ -311,7 +348,7 @@ fn folder_holds_portrait(export: &ValidatedAestheticsExport, slot: PlayerSlot) -
 /// The first thing in the mapped player `folder` that `compile` cannot build into its Fox
 /// packages yet.
 fn player_not_compiled(folder: &PlayerFolder) -> Option<(&'static str, String)> {
-    let models = FolderModels::of(folder);
+    let models = FolderModels::of(&folder.path, &folder.files);
     let mut roles = Vec::new();
     // Every file the folder holds is checked before any file it lacks: a file with no role
     // may be the missing one, misnamed (`Face_Diff.bin`).
@@ -326,6 +363,20 @@ fn player_not_compiled(folder: &PlayerFolder) -> Option<(&'static str, String)> 
         }
         roles.push(role);
     }
+    // A shared face always merges into the player's face, and a boots or gloves link beside a
+    // local model of the same package merges them into the player's exclusive package (step
+    // 4.4b); a boots or gloves link alone loads the shared output as it is.
+    for link in &folder.links {
+        let combines = match link.kind {
+            SharedKind::Face => true,
+            SharedKind::Boots | SharedKind::Gloves => {
+                holds_model(&folder.path, &folder.files, package_of(link.kind))
+            }
+        };
+        if combines {
+            return Some(("what", link_path(&folder.path, link.kind, &link.name)));
+        }
+    }
     let path = folder.path.as_str();
     if let Some(portrait) = &folder.portrait
         && !is_dds(portrait)
@@ -339,9 +390,12 @@ fn player_not_compiled(folder: &PlayerFolder) -> Option<(&'static str, String)> 
     if folder.fpc == Some(FpcDirective::On) {
         return Some(("what", format!("{path}/fpc.on")));
     }
-    if !roles
-        .iter()
-        .any(|role| matches!(role, PlayerFile::Model { .. }))
+    // A folder with no model of its own and no link has nothing to compile; one with only a
+    // link is a player wearing a shared output.
+    if folder.links.is_empty()
+        && !roles
+            .iter()
+            .any(|role| matches!(role, PlayerFile::Model { .. }))
     {
         return Some(("what", path.to_owned()));
     }
@@ -361,6 +415,37 @@ fn player_not_compiled(folder: &PlayerFolder) -> Option<(&'static str, String)> 
         if !roles.contains(&face_packed("fcl_hair_sim.skl")) {
             return Some(("missing", format!("{path}/{hair_stem}.skl")));
         }
+    }
+    None
+}
+
+/// The first thing in the shared `folder` of `kind`, which takes a shared ID, that `compile`
+/// cannot build into its own Fox package yet: the files go by a player folder's roles, but
+/// only the package the folder is loaded as and its textures have a place to go.
+fn shared_not_compiled(
+    kind: SharedKind,
+    folder: &SharedModelFolder,
+) -> Option<(&'static str, String)> {
+    let path = &folder.path;
+    let package = package_of(kind);
+    let models = FolderModels::of(path, &folder.files);
+    let mut roles = Vec::new();
+    for file in &folder.files {
+        let Some(role) = player_file(path, file, &models) else {
+            return Some(what_entry(file));
+        };
+        // A model of another package has no package here; a second file under one name is a
+        // merge (step 4.5).
+        if role.package().is_some_and(|owner| owner != package) || roles.contains(&role) {
+            return Some(what_entry(file));
+        }
+        roles.push(role);
+    }
+    if !roles
+        .iter()
+        .any(|role| matches!(role, PlayerFile::Model { .. }))
+    {
+        return Some(("what", path.as_str().to_owned()));
     }
     None
 }
@@ -438,6 +523,11 @@ mod tests {
             None
         );
         assert_eq!(first_hit(&["Players/03 - A/handL.fmdl"]), None);
+        // So does a folder holding only a link to a shared folder.
+        assert_eq!(
+            first_hit(&["Players/03 - A/Crocs.boots", "Boots/Crocs/boots.fmdl"]),
+            None
+        );
     }
 
     #[test]
@@ -634,14 +724,153 @@ mod tests {
     }
 
     #[test]
-    fn shared_folders_are_named_by_their_files() {
-        for (link, file) in [
-            ("Players/03 - A/Round.face", "Faces/Round/face_high.fmdl"),
-            ("Players/03 - A/Crocs.boots", "Boots/Crocs/boots.fmdl"),
-            ("Players/03 - A/Grip.gloves", "Gloves/Grip/glove_l.fmdl"),
+    fn a_shared_boots_or_gloves_folder_a_player_links_plainly_is_compiled() {
+        // A player holding only the link, and one holding a face beside it.
+        assert_eq!(
+            first_hit(&[
+                "Players/03 - A/Crocs.boots",
+                "Players/03 - A/Grip.gloves",
+                "Boots/Crocs/boots.fmdl",
+                "Boots/Crocs/boots.skl",
+                "Boots/Crocs/shirt.dds",
+                "Gloves/Grip/glove_l.fmdl",
+                "Gloves/Grip/gloveR.fmdl",
+            ]),
+            None
+        );
+        assert_eq!(
+            gate(&["Players/03 - A/Crocs.boots", "Boots/Crocs/kit_boots.fmdl"]),
+            None
+        );
+    }
+
+    #[test]
+    fn a_shared_face_link_and_a_link_beside_a_local_model_of_its_kind_are_named() {
+        assert_eq!(
+            gate(&["Players/03 - A/Round.face", "Faces/Round/face_high.fmdl"]),
+            what("Players/03 - A/Round.face")
+        );
+        // The link is named as the export spells it, without a `.txt` tail.
+        assert_eq!(
+            gate(&[
+                "Players/03 - A/Round.face.txt",
+                "Faces/Round/face_high.fmdl"
+            ]),
+            what("Players/03 - A/Round.face")
+        );
+        for (link, local, shared) in [
+            ("Crocs.boots", "kit_boots.fmdl", "Boots/Crocs/boots.fmdl"),
+            ("Grip.gloves", "handL.fmdl", "Gloves/Grip/glove_l.fmdl"),
         ] {
-            assert_eq!(gate(&[link, file]), what(file), "{file}");
+            assert_eq!(
+                gate(&[
+                    &format!("Players/03 - A/{link}"),
+                    &format!("Players/03 - A/{local}"),
+                    shared,
+                ]),
+                what(&format!("Players/03 - A/{link}")),
+                "{link}"
+            );
         }
+        // A local model of the other kind leaves the link plain.
+        assert_eq!(
+            gate(&[
+                "Players/03 - A/Crocs.boots",
+                "Players/03 - A/glove_l.fmdl",
+                "Boots/Crocs/boots.fmdl",
+            ]),
+            None
+        );
+    }
+
+    /// The export's content folder holding the shared folders of `kind`.
+    fn content_folder(kind: SharedKind) -> &'static str {
+        match kind {
+            SharedKind::Face => "Faces",
+            SharedKind::Boots => "Boots",
+            SharedKind::Gloves => "Gloves",
+        }
+    }
+
+    /// `shared_not_compiled` over the shared `Boots/Crocs` (or `Gloves/Crocs`) holding `names`.
+    fn shared_hit(kind: SharedKind, names: &[&str]) -> Option<(&'static str, String)> {
+        let folder_path = format!("{}/Crocs", content_folder(kind));
+        let files = names
+            .iter()
+            .map(|name| {
+                let path = ScopePath::new(&format!("{folder_path}/{name}")).unwrap();
+                FileDescriptor {
+                    size: 0,
+                    kind: aesthetics_export::classify(path.name()),
+                    source: path.clone(),
+                    path,
+                }
+            })
+            .collect();
+        let folder = SharedModelFolder {
+            path: ScopePath::new(&folder_path).unwrap(),
+            folder_name: "Crocs".to_owned(),
+            files,
+        };
+        shared_not_compiled(kind, &folder)
+    }
+
+    #[test]
+    fn a_shared_folder_takes_only_its_own_kind_s_models_with_their_files() {
+        assert_eq!(
+            shared_hit(
+                SharedKind::Boots,
+                &["boots.fmdl", "boots.skl", "shirt.dds", "sole.ftex"]
+            ),
+            None
+        );
+        assert_eq!(
+            shared_hit(
+                SharedKind::Gloves,
+                &["glove_l.fmdl", "glove_r.fmdl", "grip.dds"]
+            ),
+            None
+        );
+        for (kind, names, named) in [
+            (
+                SharedKind::Boots,
+                &["boots.fmdl", "glove_l.fmdl"][..],
+                "glove_l.fmdl",
+            ),
+            (
+                SharedKind::Gloves,
+                &["boots.fmdl", "glove_l.fmdl"],
+                "boots.fmdl",
+            ),
+            (
+                SharedKind::Boots,
+                &["boots.fmdl", "kit_boots.fmdl"],
+                "kit_boots.fmdl",
+            ),
+            (
+                SharedKind::Boots,
+                &["boots.fmdl", "face_diff.bin"],
+                "face_diff.bin",
+            ),
+            (
+                SharedKind::Boots,
+                &["boots.fmdl", "kit_boots.skl"],
+                "kit_boots.skl",
+            ),
+            (SharedKind::Boots, &["boots.fmdl", "shirt.png"], "shirt.png"),
+        ] {
+            assert_eq!(
+                shared_hit(kind, names),
+                what(&format!("{}/Crocs/{named}", content_folder(kind))),
+                "{names:?}"
+            );
+        }
+        // A folder with no model, textures alone or nothing at all, is named as a whole.
+        assert_eq!(
+            shared_hit(SharedKind::Boots, &["shirt.dds"]),
+            what("Boots/Crocs")
+        );
+        assert_eq!(shared_hit(SharedKind::Gloves, &[]), what("Gloves/Crocs"));
     }
 
     #[test]
@@ -667,24 +896,54 @@ mod tests {
     }
 
     #[test]
-    fn the_first_hit_follows_players_files_missing_files_shared_folders_kits_then_the_rest() {
+    fn the_first_hit_follows_players_files_links_missing_files_shared_folders_kits_then_the_rest() {
         let face_high = "Players/03 - A/face_high.fmdl";
         let torso = "Players/03 - A/torso.fmdl";
+        let face_link = "Players/03 - A/Round.face";
+        let shared_face = "Faces/Round/face_high.fmdl";
         let link = "Players/03 - A/Crocs.boots";
         let shared = "Boots/Crocs/boots.fmdl";
+        let shared_texture = "Boots/Crocs/shirt.png";
         let kit = "Kits/g1/kit.png";
         let portrait = "Portraits/player_03.png";
-        // A folder's own files come before what it lacks: `face_diff.bin` is missing too.
+        // A folder's own files come before its links, and both before what it lacks:
+        // `face_diff.bin` is missing too.
         assert_eq!(
-            first_hit(&[face_high, torso, link, shared, kit, portrait]),
+            first_hit(&[
+                face_high,
+                torso,
+                face_link,
+                shared_face,
+                link,
+                shared,
+                shared_texture,
+                kit,
+                portrait
+            ]),
             what(torso)
         );
         assert_eq!(
-            first_hit(&[face_high, link, shared, kit, portrait]),
+            first_hit(&[
+                face_high,
+                face_link,
+                shared_face,
+                link,
+                shared,
+                shared_texture,
+                kit,
+                portrait
+            ]),
+            what(face_link)
+        );
+        assert_eq!(
+            first_hit(&[face_high, link, shared, shared_texture, kit, portrait]),
             missing("Players/03 - A/face_diff.bin")
         );
-        assert_eq!(gate(&[link, shared, kit, portrait]), what(shared));
-        assert_eq!(gate(&[kit, portrait]), what(kit));
+        assert_eq!(
+            gate(&[link, shared, shared_texture, kit, portrait]),
+            what(shared_texture)
+        );
+        assert_eq!(gate(&[link, shared, kit, portrait]), what(kit));
         assert_eq!(gate(&[portrait]), what(portrait));
     }
 
@@ -779,7 +1038,7 @@ mod tests {
     /// The role of each file of `names` in `Players/03 - A`.
     fn roles(names: &[&str]) -> Vec<Option<PlayerFile>> {
         let folder = folder(names);
-        let models = FolderModels::of(&folder);
+        let models = FolderModels::of(&folder.path, &folder.files);
         folder
             .files
             .iter()

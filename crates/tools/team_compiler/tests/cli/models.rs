@@ -1,10 +1,15 @@
-//! `compile` over a player folder's own boots and gloves models: the packages under the
-//! player's planned ID, the skeleton packed with the boots, and the folder's textures emitted
-//! once for every package.
+//! `compile` over boots and gloves models: a player folder's own under the player's planned
+//! ID, the skeleton packed with the boots, the folder's textures emitted once for every
+//! package; and a shared `Boots/` or `Gloves/` folder players link, compiled once under one of
+//! the team's shared IDs, with `check` refusing an export needing more of them than the team
+//! has.
 
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::Path;
+
+use fmdl::FmdlFile;
+use fmdl::ops::paths::texture_paths;
 
 use crate::common::Sandbox;
 use crate::compile::{cpk_entries, pes21_settings, tracer_player_file};
@@ -196,6 +201,139 @@ fn a_texture_that_cannot_convert_drops_the_whole_folder_and_the_folder_beside_it
         ],
         "nothing of slot 05 is in the CPK"
     );
+}
+
+/// Writes the shared boots folder `Boots/<name>` holding the tracer's boots model and texture,
+/// with `skl` as its `boots.skl` when given, and a link to it in each of the player folders
+/// `slots` (`Players/03 - P03/<name>.boots`), which hold nothing else.
+fn write_shared_boots(
+    sandbox: &Sandbox,
+    export: &str,
+    name: &str,
+    skl: Option<&[u8]>,
+    slots: &[u8],
+) {
+    let folder = format!("exports/{export}/Boots/{name}");
+    sandbox.write(
+        &format!("{folder}/boots.fmdl"),
+        &tracer_player_file("boots.fmdl"),
+    );
+    sandbox.write(
+        &format!("{folder}/shirt.dds"),
+        &tracer_player_file("shirt.dds"),
+    );
+    if let Some(skl) = skl {
+        sandbox.write(&format!("{folder}/boots.skl"), skl);
+    }
+    for slot in slots {
+        sandbox.write(
+            &format!("exports/{export}/Players/{slot:02} - P{slot:02}/{name}.boots"),
+            b"",
+        );
+    }
+}
+
+/// The `boots.skl` of the boots package at `path` in `entries`.
+fn boots_skl(entries: &BTreeMap<String, Vec<u8>>, path: &str) -> Vec<u8> {
+    fpk::FpkFile::read(&entries[path])
+        .unwrap()
+        .get("boots.skl")
+        .unwrap()
+        .to_vec()
+}
+
+// TC-MOD-05
+#[test]
+fn shared_boots_folders_compile_once_each_under_the_shared_ids_in_name_order() {
+    let sandbox = Sandbox::new("mod_shared_boots");
+    // Crocs brings its own skeleton, Mud none, so each package says which folder it came from.
+    let crocs_skl = body_skl("pes19");
+    assert_ne!(crocs_skl, body_skl("pes21"));
+    write_shared_boots(&sandbox, "co - Shared", "Mud", None, &[11]);
+    write_shared_boots(&sandbox, "co - Shared", "Crocs", Some(&crocs_skl), &[3, 7]);
+
+    let entries = compile_clean(&sandbox, "co - Shared");
+
+    let paths: Vec<&str> = entries.keys().map(String::as_str).collect();
+    assert_eq!(
+        paths,
+        [
+            "Asset/model/character/boots/k0644/#Win/boots.fpk",
+            "Asset/model/character/boots/k0644/#Win/boots.fpkd",
+            "Asset/model/character/boots/k0644/#windx11/shirt.ftex",
+            "Asset/model/character/boots/k0645/#Win/boots.fpk",
+            "Asset/model/character/boots/k0645/#Win/boots.fpkd",
+            "Asset/model/character/boots/k0645/#windx11/shirt.ftex",
+        ],
+        "no k0623, k0627 or k0631 for the linking slots"
+    );
+    let crocs = "Asset/model/character/boots/k0644/#Win/boots.fpk";
+    let mud = "Asset/model/character/boots/k0645/#Win/boots.fpk";
+    assert_eq!(boots_skl(&entries, crocs), crocs_skl);
+    assert_eq!(boots_skl(&entries, mud), body_skl("pes21"));
+    // Each model names its own folder's textures: the tracer's boots model lists `shirt.dds`
+    // in two texture slots, both pointed at the output's folder.
+    for (path, directory) in [
+        (crocs, "/Assets/pes16/model/character/boots/k0644/"),
+        (mud, "/Assets/pes16/model/character/boots/k0645/"),
+    ] {
+        let package = fpk::FpkFile::read(&entries[path]).unwrap();
+        let model = FmdlFile::read(package.get("boots.fmdl").unwrap()).unwrap();
+        let shirt: Vec<String> = texture_paths(&model)
+            .unwrap()
+            .into_iter()
+            .filter(|texture| texture.file_name == "shirt.dds")
+            .map(|texture| texture.directory)
+            .collect();
+        assert_eq!(shirt, [directory, directory], "{path}");
+    }
+}
+
+// TC-MOD-06
+#[test]
+fn eighteen_shared_boots_folders_exhaust_the_team_s_ids_and_check_skips_the_export() {
+    let sandbox = Sandbox::new("mod_boots_pool");
+    for slot in 1..=18u8 {
+        write_shared_boots(&sandbox, "co - Pool", &format!("S{slot:02}"), None, &[slot]);
+    }
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["check"]);
+
+    assert_eq!(
+        run.messages(),
+        [
+            "co - Pool: Info export_identified [Keep] (team=/co/, id=714)",
+            "co - Pool: Error boots_id_pool_exhausted [DropExport] (count=18)",
+        ]
+    );
+    assert_eq!(run.exit_code(), 1);
+}
+
+// TC-PLN-02
+#[test]
+fn shared_ids_follow_the_folder_names_so_a_new_folder_shifts_the_ones_after_it() {
+    let sandbox = Sandbox::new("pln_shared_ids");
+    let apple_skl = body_skl("pes19");
+    let mango_skl = body_skl("pes18");
+    assert_ne!(apple_skl, body_skl("pes21"));
+    assert_ne!(mango_skl, body_skl("pes21"));
+    assert_ne!(mango_skl, apple_skl);
+    write_shared_boots(&sandbox, "co - Named", "Zebra", None, &[3]);
+    write_shared_boots(&sandbox, "co - Named", "Apple", Some(&apple_skl), &[7]);
+    let k0644 = "Asset/model/character/boots/k0644/#Win/boots.fpk";
+    let k0645 = "Asset/model/character/boots/k0645/#Win/boots.fpk";
+    let k0646 = "Asset/model/character/boots/k0646/#Win/boots.fpk";
+
+    let first = compile_clean(&sandbox, "co - Named");
+    assert!(!first.contains_key(k0646), "{:?}", first.keys());
+    assert_eq!(boots_skl(&first, k0644), apple_skl, "Apple");
+    assert_eq!(boots_skl(&first, k0645), body_skl("pes21"), "Zebra");
+
+    write_shared_boots(&sandbox, "co - Named", "Mango", Some(&mango_skl), &[11]);
+    let second = compile_clean(&sandbox, "co - Named");
+    assert_eq!(boots_skl(&second, k0644), apple_skl, "Apple");
+    assert_eq!(boots_skl(&second, k0645), mango_skl, "Mango");
+    assert_eq!(boots_skl(&second, k0646), body_skl("pes21"), "Zebra");
 }
 
 // TC-PLN-01

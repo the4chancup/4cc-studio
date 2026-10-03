@@ -12,7 +12,7 @@ is in `AGENTS.md` ("Working documents").
 **Phase:** 3 (Team compiler skeleton) closed 2026-10-02, its cross-family reviews queued (see
 "Handover"). Phases 1 and 2 done (Phase 2 closed 2026-09-30).
 **Next:** Phase 4 is itemized and its Acceptance section written (step 4.1, 2026-10-03; its
-cross-family review (a) is queued). Next: 4.4 (shared boots/gloves folders and links on Fox). 2.5b (GPU BC7) is step 16.x (decision entries
+cross-family review (a) is queued). Next: 4.4b (combining a link with local models, merges, shared face links); 4.4a is done. 2.5b (GPU BC7) is step 16.x (decision entries
 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0 after Phase 8; phase order 1–6,
 8, 0.1.0, 7, 9–16 (`core/development_plan.md` "Releases"); first-class target the Fox version
 the cup moves to around April 2027 ("Target versions").
@@ -337,7 +337,18 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   Crates: tc (`plan/ids.rs`, `processing/model.rs`) → verify: a `/co/` export with `Boots/Crocs/`
   linked plainly by slots 03 and 07 and combined by slot 05 (own `kit_boots.fmdl`): the CPK holds
   `boots/k0644/` once, `boots/k0625/` whose FMDL's mesh count equals Crocs's plus the local
-  model's, and no `k0623`/`k0627`
+  model's, and no `k0623`/`k0627`. Sliced: (a) shared IDs, plain-linked shared output with its
+  textures in its own `k{id}/#windx11/` (measured: Red's boots FMDL paths
+  `/Assets/pes16/model/character/boots/k{id}/`; 306 of 400 VGL26 gloves FMDLs name
+  `…/glove/g{id}/`), pool exhaustion in the structure pass (TC-MOD-05/06, TC-PLN-02);
+  (b) combining, merges and their conflicts, shared face links (TC-MOD-07/08/09).
+  (a) done 2026-10-03 (Fable, first time; contradictions accepted: the `Faces/` file refusal is
+  unreachable, validation dropping every shared folder no mapped player links; lead fix:
+  `SharedModelFolder.path`): `PlannedModelIds::shared`, `ids::shared_folders_taking_ids`
+  (case-folded order), `paths::TextureHome`, `plan::ModelFolder` for player and shared folders
+  alike, `structure::pool_messages`; decision entry "shared boots/gloves outputs". TC-MOD-05/06,
+  TC-PLN-02 cited. Gates green (84 of 203); `mutants-diff 0ce26fd`: 40, 34 caught, 6 unviable,
+  0 missed
 
 - [ ] 4.5 **Face assembly (Fox)**: every model resolving to one allowed name merged (`torso.fmdl` +
   `legs.fmdl.common` → `fcl_hair.fmdl`; `fmdl_fcl_hair_fallback` per routed file), `.common` model
@@ -573,7 +584,9 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   (`processing/referee.rs`, `plan/refs.rs`, `paths.rs`), resources → verify: a refs export
   mapping `Ref A` to 01, 20 and 35 on PES 21 writes `4cc_35_referees.cpk` holding three face
   packages, one `common/999/Ref A/sourceimages/` texture set, and `k9901`, `k9920`, `k9935`
-  boots folders when the folder has boots; the team CPK of the same run holds no `999` path
+  boots folders when the folder has boots; the team CPK of the same run holds no `999` path.
+  Open first (found at 4.4a): the plan gives a shared `Boots/`/`Gloves/` folder in a refs export
+  no ID (refs have no block; the structure pass's pool check skips refs); rule it in the plan
 
 - [ ] 4.20 **Withdraw the Phase 3 subset gate**: `plan/subset.rs` and `content_not_yet_compiled`
   removed (the catalog row reads withdrawn), TC-OUT-06 withdrawn, every content kind and both
@@ -582,7 +595,11 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   when Phase 4 compiles everything"); `messages.md` (`content_not_yet_compiled`). IDs: TC-OUT-06
   withdrawal. Crates: tc → verify: `rg content_not_yet_compiled crates/` finds nothing; `rg
   "subset" crates/tools/team_compiler/src` finds nothing; `just acceptance` reports TC-OUT-06
-  withdrawn and no test citing it
+  withdrawn and no test citing it. The gate's role helpers (`FolderModels`, `player_file`,
+  `holds_model`, `package_of`) move to their users, not out with it. Open first (found at 4.4a):
+  a plainly linked shared folder holding no model (empty, or textures only) passes validation and
+  is refused only by the gate; without it, it would take a shared ID and emit nothing. The plan is
+  silent: decide whether it is a validation finding
 
 - [ ] 4.21 **Bins from the installed CPKs**: `bins/dpfl.rs` `DpFileList.bin` reader (16-byte
   header, 48-byte records, an all-zero tail of any length ignored; measured on the PES 17 and 21
@@ -1367,3 +1384,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
 - **2026-10-03** — 4.3: per-team ID blocks and each player's own boots/gloves compile on Fox;
   the tracer now matches all 17 of Red's files. The textures-last shape the lead briefed was
   wrong (a failed texture left dangling packages); the sidekick's folder-group commit replaced it.
+- **2026-10-03** — 4.4a: shared Boots/Gloves folders linked plainly compile once under the team's
+  shared IDs (644 up for `/co/`), with their textures beside their own package; more than 17 is
+  `boots_id_pool_exhausted`/`gloves_id_pool_exhausted`, reported by `check` too. The remote
+  mutation half peaked at 7.00 GiB of its 8G cap (40 mutants).

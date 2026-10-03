@@ -831,6 +831,7 @@ without it Phase 3 promotes the same way and says nothing more (deployment is Ph
 | Faces | `common/character0/model/character/face/real/{id}.cpk` | `Asset/model/character/face/real/{id}/#Win/` |
 | Boots | `common/character0/model/character/boots/{id}/` | `Asset/model/character/boots/{id}/#Win/` |
 | Gloves | `common/character0/model/character/glove/{id}/` | `Asset/model/character/glove/{id}/#Win/` |
+| Shared boots/gloves output's own textures | the folder itself | `Asset/model/character/boots/k{id}/#windx11/` (FMDL paths `/Assets/pes16/model/character/boots/k{id}/`), `…/glove/g{id}/#windx11/` (`/Assets/pes16/model/character/glove/g{id}/`) |
 | Kit configs | `common/character0/model/character/uniform/team/{team_id}/` | same |
 | Kit textures | `common/character0/model/character/uniform/texture/` | `Asset/model/character/uniform/texture/#windx11/` |
 | Collars | `common/character0/model/character/uniform/nocloth/` | `Asset/model/character/uniform/nocloth/#Win/` |

@@ -1,30 +1,30 @@
-//! One package of a player folder's Fox models (`team_compiler/pipeline.md` "3.
+//! One package of a model folder's Fox models (`team_compiler/pipeline.md` "3.
 //! Per-model-folder parallel steps", steps 2, 3 and 7): its models renamed to their allowed
-//! names, their texture paths pointed at the player's common folder, packed with the files
-//! that go beside them into one `.fpk` emitted under each roster slot's id.
+//! names, their texture paths pointed at the folder's texture home, packed with the files
+//! that go beside them into one `.fpk` emitted under each of the package's ids.
 
 use std::collections::BTreeSet;
 
-use aesthetics_export::PlayerFolder;
 use fmdl::FmdlFile;
 use fmdl::ops::paths::rewrite_texture_paths;
 use fpk::{FpkFile, FpkKind};
 
 use super::{Entry, TaskFiles, take};
 use crate::paths;
+use crate::plan::ModelFolder;
 use crate::plan::subset::{FolderModels, ModelPackage, PlayerFile, file_stem, player_file};
 use crate::templates;
 
 /// The `package` of `folder`, compiled from its files' bytes in `files` for team `team_id`
 /// and emitted under each of `ids`: the package's `.fpk` and an empty `.fpkd` per id.
 pub(super) fn package(
-    folder: &PlayerFolder,
+    folder: &ModelFolder,
     package: ModelPackage,
     ids: &[u32],
     team_id: u16,
     files: &mut TaskFiles,
 ) -> anyhow::Result<Vec<Entry>> {
-    let folder_models = FolderModels::of(folder);
+    let folder_models = FolderModels::of(&folder.path, &folder.files);
     let mut models = Vec::new();
     let mut texture_stems = BTreeSet::new();
     let mut fpk = FpkFile::new(FpkKind::Fpk);
@@ -57,16 +57,16 @@ pub(super) fn package(
         fpk.insert("boots.skl".to_owned(), templates::BOOTS_SKELETON.to_vec());
     }
 
-    // A folder's textures sit in one common subfolder keyed by the source folder's name, once
-    // however many slots map the folder: every slot's model points at that one copy.
-    let common_directory = paths::player_common_directory(team_id, folder.path.name());
+    // A folder's textures sit in its one texture home, once however many ids the package is
+    // emitted under: every copy of the model points at that one location.
+    let texture_directory = folder.textures.directory(team_id);
     // A texture the folder does not hold is one of the game's own; its directory names the
     // team as `000`, which becomes the team's id.
     let team_segment = format!("/{team_id}/");
     for (name, mut model) in models {
         rewrite_texture_paths(&mut model, |path| {
             if texture_stems.contains(file_stem(&path.file_name)) {
-                path.directory.clone_from(&common_directory);
+                path.directory.clone_from(&texture_directory);
             } else {
                 path.directory = path.directory.replace("/000/", &team_segment);
             }

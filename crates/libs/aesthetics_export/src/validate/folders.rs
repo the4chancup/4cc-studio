@@ -72,6 +72,8 @@ pub enum FpcDirective {
 /// name from player folders; IDs are assigned by run planning, not here.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SharedModelFolder {
+    /// The folder's path (`Boots/Crocs`): the scope its issues name.
+    pub path: vtree::ScopePath,
     /// The folder's name (its path's last segment) — the link lookup key.
     pub folder_name: String,
     /// Every file below it.
@@ -232,6 +234,7 @@ pub enum KitTextureSource {
 /// `FolderDraft` → `SharedModelFolder`, unchecked this slice.
 pub(crate) fn shared_model_folder(draft: &FolderDraft) -> SharedModelFolder {
     SharedModelFolder {
+        path: draft.path.clone(),
         folder_name: draft.path.name().to_owned(),
         files: draft.files.clone(),
     }

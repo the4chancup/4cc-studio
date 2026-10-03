@@ -3054,3 +3054,19 @@ the memory budget once, at its first task, and its tasks share that permit: a te
 waiting for a permit of its own could wait forever for memory the held packages never release
 (the sidekick's contradiction of the lead's rework brief, accepted).
 Plan: `team_compiler/pipeline.md` "3. Per-model-folder parallel steps" step 6.
+
+## 2026-10-03 — team_compiler — shared boots/gloves outputs: their texture home and ID order
+Decision: a shared `Boots/`/`Gloves/` folder linked plainly keeps its textures beside its own
+package, at `Asset/model/character/boots/k{id}/#windx11/{stem}.ftex` (gloves
+`…/glove/g{id}/#windx11/`), its FMDL paths naming `/Assets/pes16/model/character/boots/k{id}/`
+(`…/glove/g{id}/`). Shared IDs go in case-insensitive folder-name order (`vtree::fold_name`, ties
+by spelling). The pool check (`boots_id_pool_exhausted`/`gloves_id_pool_exhausted`) runs in the
+structure pass after identity, so `check` reports it too; `SharedModelFolder` gained its `path`.
+Why: the plan said the textures stay "in that model's own texture location" without naming it;
+Red's tracer output puts them at `boots/k{id}/#windx11/` with those FMDL paths, and 306 of 400
+gloves FMDLs in the VGL26 corpus already name `…/glove/g{id}/`. A plain byte order would put
+every capitalized name before every lowercase one, an order no member sees in Explorer. TC-MOD-06
+reports the pool "when the export is checked", and `check` runs only the structure pass. The
+path was guessed from the first file's folder, which a nested file makes wrong.
+Plan: `team_compiler/pipeline.md` "Game paths reference" (new row);
+`aesthetics_export/player_folders.md` "At compile time", item 2.

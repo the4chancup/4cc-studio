@@ -73,7 +73,7 @@ pub(crate) fn process_task(
         } => model::package(folder, *package, ids, task.team_id, &mut files)
             .map(|entries| (entries, None)),
         TaskKind::Textures { folder, .. } => {
-            texture::player_textures(folder, task.team_id, &mut files)
+            texture::folder_textures(folder, task.team_id, &mut files)
                 .map(|entries| (entries, None))
         }
         // A DDS portrait is what the game reads: its bytes go out as they are.
@@ -124,7 +124,7 @@ fn take(files: &mut TaskFiles, file: &FileDescriptor) -> Vec<u8> {
 mod tests {
     use std::path::{Path, PathBuf};
 
-    use aesthetics_export::{KitFolder, KitLayout, KitTexture, KitTextureSource, PlayerFolder};
+    use aesthetics_export::{KitFolder, KitLayout, KitTexture, KitTextureSource};
     use fmdl::FmdlFile;
     use fmdl::ops::paths::texture_paths;
     use fpk::{FpkFile, FpkKind};
@@ -132,8 +132,9 @@ mod tests {
     use studio_core::{ExportId, Severity};
 
     use super::*;
-    use crate::plan::TaskGroup;
+    use crate::paths::TextureHome;
     use crate::plan::subset::ModelPackage;
+    use crate::plan::{ModelFolder, TaskGroup};
     use crate::templates;
 
     const PLAYER: &str = "Players/05 - The Chad Stormworks Player";
@@ -157,19 +158,18 @@ mod tests {
         }
     }
 
-    fn player(names: &[&str]) -> PlayerFolder {
-        PlayerFolder {
+    /// The tracer's player folder holding the files `names`, its textures going to its common
+    /// subfolder.
+    fn player(names: &[&str]) -> ModelFolder {
+        ModelFolder {
             path: ScopePath::new(PLAYER).unwrap(),
-            player_name: "The Chad Stormworks Player".to_owned(),
             files: names
                 .iter()
                 .map(|name| file(&format!("{PLAYER}/{name}")))
                 .collect(),
-            links: Vec::new(),
-            ingame_face: false,
-            fpc: None,
-            portrait: None,
-            settings: None,
+            textures: TextureHome::PlayerCommon {
+                folder_name: "05 - The Chad Stormworks Player".to_owned(),
+            },
         }
     }
 
@@ -230,7 +230,7 @@ mod tests {
     }
 
     /// The tracer's player folder, every file the lead's fixture holds.
-    fn whole_player() -> PlayerFolder {
+    fn whole_player() -> ModelFolder {
         player(&[
             "boots.fmdl",
             "face_diff.bin",
@@ -398,6 +398,65 @@ mod tests {
         assert_eq!(names, ["glove_l.fmdl", "glove_r.fmdl"]);
         let fpkd = FpkFile::read(&batch.entries[1].1).unwrap();
         assert_eq!((fpkd.kind(), fpkd.len()), (FpkKind::Fpkd, 0));
+    }
+
+    #[test]
+    fn a_shared_gloves_folder_s_package_and_textures_go_under_its_shared_id() {
+        // The tracer's boots model stands in for a left glove: a real FMDL naming `shirt.dds`.
+        let folder_path = ScopePath::new("Gloves/Grip").unwrap();
+        let glove = ScopePath::new("Gloves/Grip/glove_l.fmdl").unwrap();
+        let shirt = ScopePath::new("Gloves/Grip/shirt.dds").unwrap();
+        let folder = ModelFolder {
+            path: folder_path,
+            files: vec![
+                FileDescriptor {
+                    kind: aesthetics_export::classify(glove.name()),
+                    path: glove,
+                    ..file(&format!("{PLAYER}/boots.fmdl"))
+                },
+                FileDescriptor {
+                    kind: aesthetics_export::classify(shirt.name()),
+                    path: shirt,
+                    ..file(&format!("{PLAYER}/shirt.dds"))
+                },
+            ],
+            textures: TextureHome::SharedOutput {
+                package: ModelPackage::Gloves,
+                id: 644,
+            },
+        };
+
+        let package = run(TaskKind::Models {
+            folder: folder.clone(),
+            package: ModelPackage::Gloves,
+            ids: vec![644],
+        });
+        let textures = run(TaskKind::Textures { folder });
+
+        assert!(package.messages.is_empty(), "{:?}", package.messages);
+        assert_eq!(
+            paths(&package),
+            [
+                "Asset/model/character/glove/g0644/#Win/glove.fpk",
+                "Asset/model/character/glove/g0644/#Win/glove.fpkd",
+            ]
+        );
+        let fpk = FpkFile::read(&package.entries[0].1).unwrap();
+        let names: Vec<&str> = fpk.entries().map(|(name, _)| name).collect();
+        assert_eq!(names, ["glove_l.fmdl"]);
+        let directories = texture_directories(&fpk, "glove_l.fmdl");
+        assert!(
+            directories.contains(&(
+                "shirt.dds".to_owned(),
+                "/Assets/pes16/model/character/glove/g0644/".to_owned()
+            )),
+            "{directories:?}"
+        );
+        assert!(textures.messages.is_empty(), "{:?}", textures.messages);
+        assert_eq!(
+            paths(&textures),
+            ["Asset/model/character/glove/g0644/#windx11/shirt.ftex"]
+        );
     }
 
     #[test]

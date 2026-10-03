@@ -541,8 +541,10 @@ At compile time, the pipeline:
    701 (`block_start = 101 + (team_id - 701) × 40`; team 701 gets 101–140). The block splits into
    the player-exclusive part (deterministic: `block_start + player_number - 1` for slots 01–23,
    extending the 16→21 converter's `bootsId = base_id + player_number - 1` scheme) and the **17
-   shared-folder IDs** (the remainder, assigned in alphabetical folder-name order — deterministic,
-   so recompiling an unchanged export yields the same IDs). Link files resolve to the assigned IDs.
+   shared-folder IDs** (the remainder, assigned in alphabetical folder-name order, case-insensitive
+   as the export's names are (`apple` before `Mango` before `Zebra`), so the order is the one a
+   member sees in Explorer rather than one where every capital sorts first — deterministic, so
+   recompiling an unchanged export yields the same IDs). Link files resolve to the assigned IDs.
    Boots and gloves are **disjoint game namespaces** (separate `boots/{id}/` and `glove/{id}/`
    folders, `k`/`g` prefixes), so the identical block layout applies independently in each — no
    boots-versus-gloves split of the block is needed. Sizing rationale: at 220 teams (IDs 701–920),
