@@ -3498,3 +3498,21 @@ whole download folder and runs vanilla, a state a user cannot diagnose from the 
 compiler already reads the list and the folder.
 Plan: `team_compiler/pipeline.md` "DpFileList upgrade"; `team_compiler/messages.md`
 `dpfilelist_cpk_missing`; `team_compiler/README.md` TC-DEP-13, TC-DEP-14.
+
+## 2026-10-03 — team_compiler — the deep pass runs on the worker pool, within one export
+Decision: the deep pass checks an export's model folders and `Common/` files in parallel on
+the run's worker pool, the files of one folder in parallel too, and keeps its findings in
+file order. Three choices the plan did not make: (1) exports are still checked one after
+another; (2) the file a worker holds is not charged to the memory budget; (3) routing reads
+the sources (listing and metadata) in parallel.
+Why: measured at 4.7 (worklog), the serial pass is 18% to 47% of a folder compile, and the
+maintainer asked for the pool, as the old compiler had one per model folder, and for more
+parallelism where it costs little code. (1) Under rayon a worker waiting on its nested work
+steals other work; an export's check started that way can block on a `.7z` permit held by
+the export suspended below it on the same thread, which never resumes. Each export already
+uses every core for its own files, so the loss is small. (2) At most one file per worker
+thread is held, a bound that needs no permit; charging each file would add a second permit
+beside a `.7z`'s whole-archive one, the wait compile's coordinator already had to design
+around. (3) Routing's per-source read starts no nested work, so blocking on a permit there
+cannot deadlock.
+Plan: `team_compiler/pipeline.md` "2. Per-export serial steps", "Deep format pass".

@@ -83,9 +83,10 @@ export format.
    and reject the export (`nested_root_ambiguous`), and a loose root file colliding with a flattened
    file at the same virtual path rejects it too (`nested_root_conflict`) — consistent with the
    plan-wide rule that collisions are rejected, never silently resolved.
-2. **Validation, in two passes** — validation is read-only and parallel like compilation: folders
-   within an export are checked with rayon (`par_iter` over player folders, shared folders, and
-   kits) and produce independent per-scope issues/messages, so collection order does not matter.
+2. **Validation, in two passes** — validation is read-only, and its expensive half, the deep
+   pass, runs on the worker pool like compilation ("Deep format pass" below). Every finding is
+   independent and per scope, and the report keeps the export's file order whatever the
+   scheduling.
    - **Structure/roster/path pass (`aesthetics_export`)**: operates only on the eager descriptors and
      small required metadata. It validates virtual-path safety, folder and file naming, root shape,
      roster syntax and identity, link targets, source-format pairing, extension-based allowlists,
@@ -107,6 +108,23 @@ export format.
      checking and this deferred deep pass at compile start before eligibility is decided. The CLI
      `check` has no live check and runs both passes on every source kind, archives included, so a
      model error the next `compile` would report is never missed by the `check` before it.
+
+     The deep pass runs on the run's worker pool, one export after another. Within an export
+     its model folders (player and shared) and `Common/`'s files are checked in parallel, and
+     so are the files of one folder, each worker reading its own file; the few files left
+     (the `Portraits/` files, the kits, the logo) are checked in order. The findings are
+     collected in the export's file order. A folder source's reads are independent; an archive
+     is one handle behind a lock (a `.zip` inflates one entry at a time, a `.7z`'s reads copy
+     out of its one decompressed buffer), so there only the checks run in parallel. The file a
+     worker holds is not charged to the memory budget: at most one per worker thread is held
+     at a time, and a `.7z`'s buffer is charged as before. Exports are not checked in parallel
+     with each other, because a worker waiting for its folder's files takes other work, and
+     an export's check started that way can wait for a `.7z` permit held by the export
+     suspended below it on the same thread, forever. Routing's read of one source (its listing
+     and metadata) starts no work of its own, so the sources are routed in parallel. Measured
+     at 4.7 on two VGL26 exports of 0.6 and 1 GB, the serial pass took 0.5 to 0.8 s of a 1.7 to
+     3.1 s folder compile: most of it model parsing on one, whole-file reads of 8192-pixel
+     textures (for their headers) on the other.
 
    Together the two passes cover these categories, adapted from Red's `export_check.py` to the new
 format:

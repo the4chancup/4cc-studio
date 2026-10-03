@@ -12,7 +12,7 @@ is in `AGENTS.md` ("Working documents").
 **Phase:** 3 (Team compiler skeleton) closed 2026-10-02, its cross-family reviews queued (see
 "Handover"). Phases 1 and 2 done (Phase 2 closed 2026-09-30).
 **Next:** Phase 4 is itemized and its Acceptance section written (step 4.1, 2026-10-03; its
-cross-family review (a) is queued). Next: 4.7 (deep validation pass, in slices; (a) to (d) are done, its timing is left), then 4.8; 4.30, 4.6 and 4.5 are done (4.6c moved to Phase 8's cancellation). 2.5b (GPU BC7) is step 16.x (decision entries
+cross-family review (a) is queued). Next: 4.7 (deep validation pass, in slices; (a) to (d) are done and timed; (e), the pass on the worker pool, is briefed; (f) follows), then 4.8; 4.30, 4.6 and 4.5 are done (4.6c moved to Phase 8's cancellation). 2.5b (GPU BC7) is step 16.x (decision entries
 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0 after Phase 8; phase order 1–6,
 8, 0.1.0, 7, 9–16 (`core/development_plan.md` "Releases"); first-class target the Fox version
 the cup moves to around April 2027 ("Target versions").
@@ -588,9 +588,35 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
     whose only face models are `.model` files gives its face diff no role, so it is
     unchecked until the pre-Fox face steps. Gates green (110 of 209);
     `mutants-diff 3951e7f`: 38, 25 caught, 13 unviable, 0 missed
-  - The timing, left: `check` and `compile` on a large export as a folder and as a solid
-    `.7z`, and the pass run on the worker pool if the timing asks for it ("Issues": the
-    third decompression)
+  - The timing, done 2026-10-03 (lead; release build of `a5312bf`, 16 logical CPUs, warm
+    file cache, median of 3; `.tmp/timing_build.py` lays an old-layout VGL26 export out as
+    `Players/NN - Name/`, `.tmp/timing_run.py` times it). FNG, the corpus's largest: 991 MB,
+    245 files, 880 MB of DDS (nine 8192x8192 textures of 67 to 90 MB), 111 MB of models;
+    its solid `.7z` is 78 MiB. DBG: 604 MB, 214 files, 355 MB of models, 249 MB of DDS; its
+    `.7z` is 111 MiB.
+
+    | seconds | `check` folder | `check` `.7z` | `compile` folder | `compile` `.7z` |
+    |---|---|---|---|---|
+    | FNG | 0.55 | 2.59 | 3.08 | 7.19 |
+    | DBG | 0.82 | 2.76 | 1.74 | 5.78 |
+
+    `check` on a folder is nearly all deep pass, so the serial pass is 18% (FNG) to 47%
+    (DBG) of a folder compile. Reading every file whole takes 0.41 to 0.50 s on FNG and
+    0.19 s on DBG (`.tmp/timing_read.py`): FNG's pass is whole-file reads of textures for
+    their headers, DBG's is model parsing. Each `.7z` decompression costs 1.0 to 1.4 s, and a
+    compile does three, about 4 s of its 5.8 to 7.2 s. Not measured: a cold cache, a run of
+    many exports. Found: every face folder of both exports holds only a `face_diff.bin` and
+    a portrait (an in-game face with a diff), which `compile` refuses today as
+    `content_not_yet_compiled` (4.12's); the timing exports leave those files out
+  - (e) the pass on the worker pool (decision entry "the deep pass runs on the worker pool,
+    within one export"; `pipeline.md` "Deep format pass"): an export's model folders and
+    `Common/` files checked in parallel, a folder's files too, findings in file order;
+    `ContentSource::read` on `&self`, an archive behind a lock; the sources routed in
+    parallel; `check` and `compile` share one pool → verify: the timing table above measured
+    again, every existing test unchanged
+  - (f) a `.7z` decompressed once for the structure pass and the deep pass ("Issues": the
+    third decompression; to design after (e): routing reads every source's metadata before
+    the first export is checked, so the buffer cannot simply be kept)
 
 - [ ] 4.8 **Kit colors, UniColor and TeamColor (the `bins/` module)**: kit `colors.txt` grammar
   (`player_folders.md` "Root files", "Colors": one color per line in both files, the
@@ -1135,10 +1161,11 @@ pruned when their phase closes; they stay in git history.
 - open — the deep pass reads everything `compile` reads again (4.7): each checked file is
   read once by the pass and once by its task, and a solid `.7z` is decompressed three times
   (the metadata, the deep pass, the tasks). For a folder the second read comes from the
-  system's file cache; for a `.7z` it is a whole extra decompression per export. Not
-  measured yet: 4.7d times `check` and `compile` on a large export both ways. If the `.7z`
-  cost shows, the fix is to run the structure pass and the deep pass of one archive on one
-  decompression (the reader's route keeps the buffer until that source's deep pass is done).
+  system's file cache; for a `.7z` it is a whole extra decompression per export. Measured
+  at 4.7 (the step's timing table): each decompression of a 0.6 to 1 GB export costs 1.0 to
+  1.4 s, and the three are about 4 s of a 5.8 to 7.2 s compile. The fix is 4.7f: the
+  structure pass and the deep pass of one archive on one decompression (the reader's route
+  keeps the buffer until that source's deep pass is done).
 - open — a face diff is engine-specific (maintainer, 2026-10-03): how the game uses the diff to
   shape the face skeleton differs between pre-Fox and Fox, so a `face_diff.bin` (or the
   `face_diff.xml` and `<dif>` text forms of it) authored for one engine misplaces the face on
@@ -1849,3 +1876,8 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   alone dropped); none is kept by `pass_through`. The deep pass's checks are complete; step
   4.7's timing is left.
 - **2026-10-03** — 4.25a: the default `cpk_name` is `4cc_99_test` in the code and its tests.
+- **2026-10-03** — 4.7 timed on FNG (991 MB) and DBG (604 MB): `check` 0.55 and 0.82 s as
+  a folder, 2.6 and 2.8 s as a solid `.7z`; `compile` 3.1 and 1.7 s, 7.2 and 5.8 s. The
+  serial deep pass is up to 47% of a folder compile, so it goes on the worker pool within
+  each export (4.7e, decision entry; the maintainer asked for it), and the `.7z`'s three
+  decompressions get a step of their own (4.7f).
