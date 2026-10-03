@@ -88,6 +88,10 @@ pub(crate) enum Code {
     /// A texture in a codec, or with a feature, `dds_convert` cannot convert in-process;
     /// discarded the same way.
     TextureCodecUnsupported,
+    /// A model has a vertex more than 5000 units from the origin, which lags the game for the
+    /// whole matchday; its folder is left out (a `Common/` model: the file), whatever
+    /// `pass_through` says.
+    VertexTooFarFromOrigin,
     /// A file a task reads cannot be read from its export; its folder is left out.
     SourceReadFailed,
     /// A task could not build its entries; its folder is left out.
@@ -104,7 +108,7 @@ impl Code {
     /// Every code, for the catalog test: a variant missing here would make its first message
     /// panic in `severity`, so a new variant is added to this list too.
     #[cfg(test)]
-    const ALL: [Code; 32] = [
+    const ALL: [Code; 33] = [
         Code::ExportExtractFailed,
         Code::NoExportsFound,
         Code::ExportDisabled,
@@ -132,6 +136,7 @@ impl Code {
         Code::TextureNotPow2,
         Code::TextureTypeMismatch,
         Code::TextureCodecUnsupported,
+        Code::VertexTooFarFromOrigin,
         Code::SourceReadFailed,
         Code::FolderPackFailed,
         Code::CpkWriteFailed,
@@ -169,6 +174,7 @@ impl Code {
             Code::TextureNotPow2 => "texture_not_pow2",
             Code::TextureTypeMismatch => "texture_type_mismatch",
             Code::TextureCodecUnsupported => "texture_codec_unsupported",
+            Code::VertexTooFarFromOrigin => "vertex_too_far_from_origin",
             Code::SourceReadFailed => "source_read_failed",
             Code::FolderPackFailed => "folder_pack_failed",
             Code::CpkWriteFailed => "cpk_write_failed",
@@ -221,6 +227,7 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("texture_not_pow2", CatalogSeverity::Error),
     ("texture_type_mismatch", CatalogSeverity::Error),
     ("texture_codec_unsupported", CatalogSeverity::Error),
+    ("vertex_too_far_from_origin", CatalogSeverity::Error),
     ("folder_pack_failed", CatalogSeverity::ErrorOrFatal),
     ("cpk_write_failed", CatalogSeverity::Fatal),
     ("output_commit_failed", CatalogSeverity::Fatal),
@@ -293,7 +300,8 @@ fn severity(code: &str, disposition: Disposition, strict_file_type_check: bool) 
     }
 }
 
-/// The message for one structure-pass issue of the export `export_id`: the issue's scope placed
+/// The message for one validation issue (the structure pass's own, or a content finding the
+/// deep pass gave it) of the export `export_id`: the issue's scope placed
 /// in that export, its effective disposition, and its severity from the catalog.
 pub(crate) fn issue_message(
     issue: &ValidationIssue,

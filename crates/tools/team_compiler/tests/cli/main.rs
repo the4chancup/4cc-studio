@@ -10,6 +10,7 @@ mod check;
 mod common_links;
 mod compile;
 mod compile_exports;
+mod deep;
 mod models;
 mod preflight;
 mod sources;

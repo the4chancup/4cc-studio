@@ -12,7 +12,7 @@ is in `AGENTS.md` ("Working documents").
 **Phase:** 3 (Team compiler skeleton) closed 2026-10-02, its cross-family reviews queued (see
 "Handover"). Phases 1 and 2 done (Phase 2 closed 2026-09-30).
 **Next:** Phase 4 is itemized and its Acceptance section written (step 4.1, 2026-10-03; its
-cross-family review (a) is queued). Next: 4.7 (deep validation pass, in four slices; (a) is briefed), then 4.8; 4.30, 4.6 and 4.5 are done (4.6c moved to Phase 8's cancellation). 2.5b (GPU BC7) is step 16.x (decision entries
+cross-family review (a) is queued). Next: 4.7 (deep validation pass, in four slices; (a) is done, (b) is briefed), then 4.8; 4.30, 4.6 and 4.5 are done (4.6c moved to Phase 8's cancellation). 2.5b (GPU BC7) is step 16.x (decision entries
 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0 after Phase 8; phase order 1–6,
 8, 0.1.0, 7, 9–16 (`core/development_plan.md` "Releases"); first-class target the Fox version
 the cup moves to around April 2027 ("Target versions").
@@ -505,7 +505,16 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
     `deep.rs` reading every `.fmdl` of the player folders, the shared folders and `Common/`
     and reporting `vertex_too_far_from_origin` (`DropFolder`, not pass-through-eligible) for
     `fmdl_vertex_far_from_origin`; TC-CHK-01..02 (lead first: the far-vertex model and the
-    solid `.7z` holding it, `tests/fixtures/deep/`)
+    solid `.7z` holding it, `tests/fixtures/deep/`). Done 2026-10-03 (Opus 5.5, first
+    time): `ContentFinding`, `ValidationReport::with_content_findings` (`validate`'s one
+    body, the findings standing before the cascade; kits, portraits, collars, the logo and
+    a player's `settings.toml`/portrait now read the dropped scopes too); tc `deep.rs`,
+    `structure.rs` renamed `validation.rs` (`validation_pass`), the help topic. Gates green
+    (102 of 203); `mutants-diff d4126df`: 29, 16 caught, 12 unviable, 1 missed
+    (`is_fox_model -> true`: a file that does not parse has no finding yet, so reading
+    every file as a model changes nothing; (b)'s `model_broken` makes it observable and
+    its brief asks for the test). Not covered, for (c)/(d) if they need it: a drop naming
+    `Kits/all`, a kit's `config.toml` or `colors.txt`, or the root `colors.txt`
   - (b) every format finding by its severity: `fmdl::check`, `pes_model`'s three checks, each
     crate's code list exported, a catalog row per code and the test that every `ISSUE_CODES`
     entry and every format finding code has one; a model that does not read;
@@ -1700,3 +1709,8 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   CPK supplies the collar; 301 of 360 kit configs use the four FPC values). `libs/fpc.md` and a
   correcting decision entry say so; the code follows at 4.9. Two open questions added: PES 18's
   FPC values, and whether the games load collars beyond their stock set.
+- **2026-10-03** — 4.7a: the deep pass exists end to end. `check` and `compile` read every
+  `.fmdl` of the sanitized export, a solid `.7z`'s included, and a vertex over 5000 units out
+  drops its folder (`vertex_too_far_from_origin`), with `pass_through` on too; a dropped shared
+  folder or `Common/` model takes the players linking it. The export crate re-derives the
+  sanitized export from the findings, so no drop or cascade code exists twice.

@@ -1,6 +1,8 @@
-//! The structure pass over every export source of a run, which `check` reports and `compile`
-//! starts from: each source's route, its issues and its identity (`team_compiler/README.md`
-//! "Acceptance", Phase 3 scope). The lib validates; this schedules it, export by export.
+//! Validation of every export source of a run, which `check` reports and `compile` starts
+//! from: each source's route, the structure pass's issues, the deep pass's content findings
+//! over the export it leaves (`team_compiler/pipeline.md` "2. Per-export serial steps"), and
+//! the identity. The lib validates and `deep` reads the contents; this schedules them, export
+//! by export.
 
 use std::sync::Arc;
 
@@ -14,6 +16,7 @@ use studio_core::{Disposition, ExportId, Message, Scope};
 use vtree::ScopePath;
 
 use crate::cli::RunInputs;
+use crate::deep;
 use crate::messages::{Code, issue_message, tool_message};
 use crate::plan::ids::{SHARED_COUNT, shared_folders_taking_ids};
 use crate::plan::mapped_players;
@@ -22,8 +25,8 @@ use crate::plan::subset::{
 };
 use crate::reader::{self, ExportSource, Route};
 
-/// The structure pass's outcome for the whole run.
-pub(crate) struct StructurePass {
+/// Validation's outcome for the whole run.
+pub(crate) struct ValidationPass {
     /// Findings about the run rather than one export (the duplicate-refs summary), reported
     /// before any export's.
     pub(crate) run_messages: Vec<Message>,
@@ -31,7 +34,7 @@ pub(crate) struct StructurePass {
     pub(crate) sources: Vec<CheckedSource>,
 }
 
-/// One source after the structure pass.
+/// One source after validation.
 pub(crate) struct CheckedSource {
     /// The source.
     pub(crate) source: ExportSource,
@@ -48,14 +51,14 @@ pub(crate) fn run_budget(inputs: &RunInputs) -> Arc<MemoryBudget> {
     )))
 }
 
-/// Discovers the run's sources, routes them and runs the structure pass and identity on each
-/// one headed for validation; the structure pass's `.7z` reads are charged to `budget`. An
-/// exports folder holding no export is `no_exports_found`, on the run. Only an exports folder
-/// that cannot be read is an error.
-pub(crate) fn structure_pass(
+/// Discovers the run's sources, routes them and runs the structure pass, the deep pass and
+/// identity on each one headed for validation; both passes' `.7z` reads are charged to
+/// `budget`. An exports folder holding no export is `no_exports_found`, on the run. Only an
+/// exports folder that cannot be read is an error.
+pub(crate) fn validation_pass(
     inputs: &RunInputs,
     budget: &Arc<MemoryBudget>,
-) -> anyhow::Result<StructurePass> {
+) -> anyhow::Result<ValidationPass> {
     let sources = reader::discover(&inputs.exports_root, &inputs.exports)?;
     let routes = reader::route(&sources, budget);
 
@@ -88,16 +91,21 @@ pub(crate) fn structure_pass(
     let sources = sources
         .into_iter()
         .zip(routes)
-        .map(|(source, route)| check_source(inputs, source, route))
+        .map(|(source, route)| check_source(inputs, source, route, budget))
         .collect();
-    Ok(StructurePass {
+    Ok(ValidationPass {
         run_messages,
         sources,
     })
 }
 
-/// One source through its route, the structure pass and identity.
-fn check_source(inputs: &RunInputs, source: ExportSource, route: Route) -> CheckedSource {
+/// One source through its route, the structure pass, the deep pass and identity.
+fn check_source(
+    inputs: &RunInputs,
+    source: ExportSource,
+    route: Route,
+    budget: &Arc<MemoryBudget>,
+) -> CheckedSource {
     let export = Scope::Export {
         export_id: source.export_id,
     };
@@ -141,11 +149,20 @@ fn check_source(inputs: &RunInputs, source: ExportSource, route: Route) -> Check
         }
     };
     let strict = inputs.settings.strict_file_type_check;
-    let report = parsed.validate(&ValidationContext {
+    let context = ValidationContext {
         version: inputs.common.pes_version,
         strict_file_type_check: strict,
         pass_through: inputs.settings.pass_through,
-    });
+    };
+    let mut report = parsed.validate(&context);
+    // The deep pass reads only what the structure pass kept; its findings derive the report
+    // again, so they drop, cascade and pass through as the structure pass's own do.
+    if let Some(validated) = &report.validated {
+        let findings = deep::content_findings(validated, &source, budget);
+        if !findings.is_empty() {
+            report = report.with_content_findings(findings, &context);
+        }
+    }
     let mut messages: Vec<Message> = report
         .issues
         .iter()

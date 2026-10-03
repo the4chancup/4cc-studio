@@ -8,11 +8,12 @@ use vtree::ScopePath;
 
 use crate::listing::ValidationContext;
 
-/// One finding of the structure pass, with what it is about and what becomes
-/// of it. `code` is stable and always one of `ISSUE_CODES`.
+/// One finding of validation, with what it is about and what becomes of it:
+/// the structure pass's own, or a consumer's content finding.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ValidationIssue {
-    /// The stable code (always one of `ISSUE_CODES`).
+    /// The stable code: one of `ISSUE_CODES` for the structure pass's own
+    /// findings, the consumer's code for a `ContentFinding`.
     pub code: &'static str,
     /// What the issue is about.
     pub scope: IssueScope,
@@ -22,6 +23,28 @@ pub struct ValidationIssue {
     pub disposition: Disposition,
     /// `pass_through` turned a `DropFile`/`DropFolder` into `Keep`.
     pub passed_through: bool,
+}
+
+/// One finding of the consumer's content checks (the deep pass, which reads
+/// the files of the sanitized export this crate cannot read), with what it
+/// drops: `ValidationReport::with_content_findings` turns it into a
+/// `ValidationIssue` of the same code, scope and context, so it drops,
+/// cascades and passes through like the structure pass's own findings.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ContentFinding {
+    /// The consumer's stable code; not one of `ISSUE_CODES`.
+    pub code: &'static str,
+    /// What the finding is about: the item its disposition acts on (a
+    /// `Folder` scope a player, shared or kit folder; a `File` scope a
+    /// `Common/`, `Portraits/` or `Collars/` file, a logo file, or a player
+    /// folder's `settings.toml` or portrait).
+    pub scope: IssueScope,
+    /// Structured fields, in the message template's order.
+    pub context: Vec<(&'static str, String)>,
+    /// What becomes of the item unless `pass_through` keeps it.
+    pub disposition: Disposition,
+    /// Whether `pass_through` may turn a `DropFile`/`DropFolder` into `Keep`.
+    pub pass_through_eligible: bool,
 }
 
 /// What a `ValidationIssue` is about, within the one export this crate sees.
@@ -98,9 +121,42 @@ pub(crate) fn issue_in(
     issue_context: Vec<(&'static str, String)>,
     disposition: Disposition,
 ) -> ValidationIssue {
-    let mut issue = issue(code, scope, issue_context, disposition);
+    pass_through(
+        context,
+        PASS_THROUGH_ELIGIBLE.contains(&code),
+        issue(code, scope, issue_context, disposition),
+    )
+}
+
+/// A consumer's content finding as an issue: its code is the consumer's, so
+/// `ISSUE_CODES` does not list it, and its own flag says whether
+/// `pass_through` may keep its item.
+pub(crate) fn content_issue(
+    finding: ContentFinding,
+    context: &ValidationContext,
+) -> ValidationIssue {
+    pass_through(
+        context,
+        finding.pass_through_eligible,
+        ValidationIssue {
+            code: finding.code,
+            scope: finding.scope,
+            context: finding.context,
+            disposition: finding.disposition,
+            passed_through: false,
+        },
+    )
+}
+
+/// `issue` under `pass_through`: an `eligible` `DropFile`/`DropFolder`
+/// becomes `Keep`, marked `passed_through`.
+fn pass_through(
+    context: &ValidationContext,
+    eligible: bool,
+    mut issue: ValidationIssue,
+) -> ValidationIssue {
     if context.pass_through
-        && PASS_THROUGH_ELIGIBLE.contains(&code)
+        && eligible
         && matches!(
             issue.disposition,
             Disposition::DropFile | Disposition::DropFolder

@@ -1,7 +1,9 @@
 //! The structure pass's back half: `ParsedAestheticsExport` → a report of
 //! every issue plus the sanitized export when nothing drops it. `validated`
 //! holds exactly the eligible content; `parsed` keeps everything for
-//! rendering and repair.
+//! rendering and repair. The consumer's content findings (the deep pass)
+//! join through `ValidationReport::with_content_findings`, which runs the
+//! same body with them.
 
 mod folders;
 mod issues;
@@ -23,12 +25,13 @@ pub use folders::{
     FpcDirective, KitFolder, KitLayout, KitTexture, KitTextureSource, KitsFolder, PlayerFolder,
     SharedLink, SharedModelFolder,
 };
-pub use issues::{Disposition, ISSUE_CODES, IssueScope, ValidationIssue};
-pub(crate) use issues::{dropped_scopes, issue, issue_in, strict_disposition};
+pub use issues::{ContentFinding, Disposition, ISSUE_CODES, IssueScope, ValidationIssue};
+pub(crate) use issues::{content_issue, dropped_scopes, issue, issue_in, strict_disposition};
 pub use roster::{PlayerIndex, ValidatedRoster};
 
-/// `ParsedAestheticsExport::validate`'s report: the parse retained, the
-/// sanitized export when no issue drops it, and every issue.
+/// `ParsedAestheticsExport::validate`'s report (or
+/// `with_content_findings`'s): the parse retained, the sanitized export when
+/// no issue drops it, and every issue.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ValidationReport {
     /// The parse output, its own issues included: a dropped folder stays
@@ -122,6 +125,17 @@ impl ParsedAestheticsExport {
     /// type drops its item or is only noted (`strict_file_type_check`), and
     /// which model names the target version allows.
     pub fn validate(self, context: &ValidationContext) -> ValidationReport {
+        self.validate_with(context, Vec::new())
+    }
+
+    /// `validate`'s body, with the consumer's content findings as issues of
+    /// its own: after every folder's own findings and `Common/`'s, before the
+    /// cascade, so a dropped target takes its linking players down.
+    fn validate_with(
+        self,
+        context: &ValidationContext,
+        content_findings: Vec<ContentFinding>,
+    ) -> ValidationReport {
         let mut issues = self.issues.clone();
         let draft = &self.draft;
 
@@ -165,7 +179,8 @@ impl ParsedAestheticsExport {
         let slot_map = roster::check(draft, self.raw_roster.as_ref(), &self.issues, &mut issues);
 
         // Own findings, in drop order: player folders, shared folders,
-        // `Common/`, then the cascade (dropped targets, orphaned shares).
+        // `Common/`, the content findings, then the cascade (dropped targets,
+        // orphaned shares).
         for folder in &draft.players {
             folders::check_player(draft, folder, context, &mut issues);
         }
@@ -175,12 +190,17 @@ impl ParsedAestheticsExport {
             }
         }
         folders::check_common(draft, context, &mut issues);
+        issues.extend(
+            content_findings
+                .into_iter()
+                .map(|finding| content_issue(finding, context)),
+        );
         links::cascade(draft, &slot_map, context, &mut issues);
 
         // Kits, portraits, logo and the root files: same order as the draft's
         // content folders end (`Kits/`, then the loose root groups).
-        let kits = kits::check(draft, context, &mut issues);
-        let portraits = root::check_portraits(draft, context, &mut issues);
+        let mut kits = kits::check(draft, context, &mut issues);
+        let mut portraits = root::check_portraits(draft, context, &mut issues);
         // No root-level finding on an undecided root: `nested_root_ambiguous`
         // and `nested_root_conflict` leave it unresolved, as for
         // `export_empty` and `root_file_unexpected`.
@@ -210,6 +230,7 @@ impl ParsedAestheticsExport {
         let (dropped_folders, dropped_files) = dropped_scopes(&issues);
         let is_dropped =
             |index: usize| dropped_folders.contains(&draft.players[index].path.fold_key());
+        let file_kept = |file: &FileDescriptor| !dropped_files.contains(&file.path.fold_key());
         let mapped = slot_map.mapped();
         let mut kept = Vec::new();
         let mut index_of = BTreeMap::new();
@@ -243,9 +264,27 @@ impl ParsedAestheticsExport {
                             && link.link_file == file.path
                     })
                 });
+                // A dropped `settings.toml` or portrait leaves the rest of
+                // the folder standing.
+                player.settings = player.settings.filter(file_kept);
+                player.portrait = player.portrait.filter(file_kept);
                 kept.push(player);
             }
         }
+
+        // The check functions already leave out what the structure pass
+        // drops; a content finding names its item only through `issues`, so
+        // every drop is applied here once more.
+        kits.kits
+            .retain(|_, kit| !dropped_folders.contains(&kit.path.fold_key()));
+        portraits.retain(|_, file| file_kept(file));
+        let logo = logo.filter(|logo| {
+            file_kept(&logo.main.file)
+                && logo
+                    .small
+                    .as_ref()
+                    .is_none_or(|small| file_kept(&small.file))
+        });
 
         let validated = if issues
             .iter()
@@ -282,11 +321,16 @@ impl ParsedAestheticsExport {
                 kits,
                 portraits,
                 logo,
-                collars: draft.collars.clone(),
+                collars: draft
+                    .collars
+                    .iter()
+                    .filter(|file| file_kept(file))
+                    .cloned()
+                    .collect(),
                 common: draft
                     .common
                     .iter()
-                    .filter(|file| !dropped_files.contains(&file.path.fold_key()))
+                    .filter(|file| file_kept(file))
                     .cloned()
                     .collect(),
                 root,
@@ -298,6 +342,23 @@ impl ParsedAestheticsExport {
             validated,
             issues,
         }
+    }
+}
+
+impl ValidationReport {
+    /// The report validation would have made had `findings`, the consumer's
+    /// content checks over this report's `validated` export, been its own
+    /// ("Validation semantics" → "Content findings"): each becomes an issue
+    /// standing after every folder's own findings and before the cascade, an
+    /// eligible `DropFile`/`DropFolder` is kept under `pass_through`, and the
+    /// sanitized export is derived again without what they drop. `context`
+    /// must be the one this report was made with.
+    pub fn with_content_findings(
+        self,
+        findings: Vec<ContentFinding>,
+        context: &ValidationContext,
+    ) -> ValidationReport {
+        self.parsed.validate_with(context, findings)
     }
 }
 

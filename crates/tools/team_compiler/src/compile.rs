@@ -1,8 +1,8 @@
 //! The `compile` command (`team_compiler/pipeline.md` "Run driver shapes (Phase 3)"): the
-//! structure pass `check` runs, run planning, each task's files read in manifest order and the
-//! task processed on the worker pool, the writer thread committing the batches in manifest
-//! order, and the CPK promoted from staging to the output folder, or the staging discarded
-//! when writing or promoting it fails.
+//! validation `check` runs (the structure pass and the deep pass), run planning, each task's
+//! files read in manifest order and the task processed on the worker pool, the writer thread
+//! committing the batches in manifest order, and the CPK promoted from staging to the output
+//! folder, or the staging discarded when writing or promoting it fails.
 
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -21,9 +21,9 @@ use crate::output::writer::CpkOutput;
 use crate::plan::{BuildTask, plan_run};
 use crate::processing::{CompileContext, TaskBatch, TaskFiles, process_task};
 use crate::reader::{ContentSource, ExportSource, SourceFailure, SourceKind};
-use crate::structure::{run_budget, structure_pass};
+use crate::validation::{run_budget, validation_pass};
 
-/// Compiles every export the structure pass keeps into `<output_folder>/<cpk_stem>.cpk`,
+/// Compiles every export validation keeps into `<output_folder>/<cpk_stem>.cpk`,
 /// reported as events. Returns the worst severity reported: a CPK that cannot be written or
 /// put in place is a Fatal finding, after which the previous CPK is all that is left. An
 /// exports folder that cannot be read is an error.
@@ -36,7 +36,7 @@ pub(crate) fn run(
 ) -> anyhow::Result<Option<Severity>> {
     let version = inputs.common.pes_version;
     let budget = run_budget(inputs);
-    let pass = structure_pass(inputs, &budget)?;
+    let pass = validation_pass(inputs, &budget)?;
     let mut events = RunEvents::new(ctx);
     for message in pass.run_messages {
         events.message(message);

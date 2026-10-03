@@ -29,8 +29,8 @@ pub use parse::{
 pub use resolve::{ExportIdentity, IdentityError, ResolvedAestheticsExport};
 pub use slots::{PlayerSlot, RefSlot};
 pub use validate::{
-    Disposition, FpcDirective, ISSUE_CODES, IssueScope, KitFolder, KitLayout, KitTexture,
-    KitTextureSource, KitsFolder, LogoFile, LogoFiles, LogoFit, PlayerFolder, PlayerIndex,
-    RootArtifacts, SharedLink, SharedModelFolder, ValidatedAestheticsExport, ValidatedRoster,
-    ValidationIssue, ValidationReport,
+    ContentFinding, Disposition, FpcDirective, ISSUE_CODES, IssueScope, KitFolder, KitLayout,
+    KitTexture, KitTextureSource, KitsFolder, LogoFile, LogoFiles, LogoFit, PlayerFolder,
+    PlayerIndex, RootArtifacts, SharedLink, SharedModelFolder, ValidatedAestheticsExport,
+    ValidatedRoster, ValidationIssue, ValidationReport,
 };

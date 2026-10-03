@@ -1982,3 +1982,374 @@ fn fmdl_name_invalid_does_not_apply_on_pre_fox() {
     let validated = report.validated.unwrap();
     assert_eq!(validated.boots.len(), 1);
 }
+
+/// A `vertex_too_far_from_origin` content finding on `scope` (the consumer's code, not one of
+/// `ISSUE_CODES`), never pass-through-eligible.
+fn far_vertex(scope: IssueScope, disposition: Disposition) -> ContentFinding {
+    ContentFinding {
+        code: "vertex_too_far_from_origin",
+        scope,
+        context: vec![("file", "boots.fmdl".to_owned()), ("count", "1".to_owned())],
+        disposition,
+        pass_through_eligible: false,
+    }
+}
+
+/// `far_vertex`'s issue, as validation reports it when nothing keeps the item.
+fn far_vertex_issue(scope: IssueScope, disposition: Disposition) -> ValidationIssue {
+    ValidationIssue {
+        code: "vertex_too_far_from_origin",
+        scope,
+        context: vec![("file", "boots.fmdl".to_owned()), ("count", "1".to_owned())],
+        disposition,
+        passed_through: false,
+    }
+}
+
+/// `report`'s export with `findings` added, with the default context.
+fn with_findings(files: &[(&str, u64)], findings: Vec<ContentFinding>) -> ValidationReport {
+    report("egg", files, &[], &[]).with_content_findings(findings, &crate::testing::context())
+}
+
+/// The paths of the validated players.
+fn player_paths(validated: &ValidatedAestheticsExport) -> Vec<&str> {
+    validated
+        .players
+        .iter()
+        .map(|player| player.path.as_str())
+        .collect()
+}
+
+#[test]
+fn no_content_findings_leave_the_report_as_validate_made_it() {
+    // A parse issue (the nested root), structure issues and a cascade: none is doubled.
+    let files = &[
+        ("wrapper/Players/03 - A/boots.fmdl", 10),
+        ("wrapper/Players/03 - A/readme.txt", 1),
+        ("wrapper/Players/05 - B/Crocs.boots", 0),
+        ("wrapper/Boots/Crocs/x.exe", 1),
+        ("wrapper/Common/hair.dds", 9),
+        ("wrapper/Kits/p1/kit.dds", 9),
+    ];
+    let first = report("egg", files, &[], &[]);
+    assert_eq!(
+        issue_codes(&first),
+        vec![
+            ("nested_folders_fixed", Disposition::Keep),
+            ("file_type_disallowed", Disposition::DropFolder),
+            ("file_type_disallowed", Disposition::DropFolder),
+            ("link_target_dropped", Disposition::DropFolder),
+        ]
+    );
+    let again = first
+        .clone()
+        .with_content_findings(Vec::new(), &crate::testing::context());
+    assert_eq!(again, first);
+}
+
+#[test]
+fn a_content_finding_dropping_a_player_folder_takes_it_off_players_and_the_roster() {
+    let report = with_findings(
+        &[
+            ("Players/03 - A/boots.fmdl", 10),
+            ("Players/05 - B/boots.fmdl", 10),
+        ],
+        vec![far_vertex(
+            folder("Players/03 - A"),
+            Disposition::DropFolder,
+        )],
+    );
+    assert_eq!(
+        report.issues,
+        vec![far_vertex_issue(
+            folder("Players/03 - A"),
+            Disposition::DropFolder
+        )]
+    );
+    let validated = report.validated.unwrap();
+    assert_eq!(player_paths(&validated), vec!["Players/05 - B"]);
+    let ValidatedRoster::Team(map) = &validated.roster else {
+        panic!("a team export");
+    };
+    assert_eq!(
+        map.iter()
+            .map(|(slot, index)| (slot.get(), index.0))
+            .collect::<Vec<_>>(),
+        vec![(5, 0)]
+    );
+}
+
+#[test]
+fn a_content_finding_dropping_a_shared_folder_cascades_to_its_linkers_and_orphans() {
+    let report = with_findings(
+        &[
+            ("Boots/Crocs/boots.fmdl", 10),
+            ("Gloves/Grip/glove_l.fmdl", 10),
+            ("Players/03 - A/Crocs.boots", 0),
+            ("Players/03 - A/Grip.gloves", 0),
+            ("Players/05 - B/boots.fmdl", 10),
+        ],
+        vec![far_vertex(folder("Boots/Crocs"), Disposition::DropFolder)],
+    );
+    assert_eq!(
+        report.issues,
+        vec![
+            far_vertex_issue(folder("Boots/Crocs"), Disposition::DropFolder),
+            ValidationIssue {
+                code: "link_target_dropped",
+                scope: folder("Players/03 - A"),
+                context: vec![
+                    ("link", "Crocs.boots".to_owned()),
+                    ("target", "Boots/Crocs".to_owned()),
+                    ("finding", "vertex_too_far_from_origin".to_owned()),
+                ],
+                disposition: Disposition::DropFolder,
+                passed_through: false,
+            },
+            ValidationIssue {
+                code: "shared_folder_orphaned",
+                scope: folder("Gloves/Grip"),
+                context: vec![],
+                disposition: Disposition::DropFolder,
+                passed_through: false,
+            },
+        ]
+    );
+    let validated = report.validated.unwrap();
+    assert_eq!(player_paths(&validated), vec!["Players/05 - B"]);
+    assert!(validated.boots.is_empty());
+    assert!(validated.gloves.is_empty());
+}
+
+#[test]
+fn a_content_finding_dropping_a_common_file_drops_the_player_linking_it() {
+    let report = with_findings(
+        &[
+            ("Common/legs.fmdl", 10),
+            ("Common/hair.dds", 9),
+            ("Players/03 - A/legs.fmdl.common", 0),
+            ("Players/05 - B/boots.fmdl", 10),
+        ],
+        vec![far_vertex(
+            file_scope("Common/legs.fmdl"),
+            Disposition::DropFile,
+        )],
+    );
+    assert_eq!(
+        issue_codes(&report),
+        vec![
+            ("vertex_too_far_from_origin", Disposition::DropFile),
+            ("link_target_dropped", Disposition::DropFolder),
+        ]
+    );
+    assert_eq!(report.issues[1].scope, folder("Players/03 - A"));
+    assert_eq!(
+        report.issues[1].context,
+        vec![
+            ("link", "legs.fmdl.common".to_owned()),
+            ("target", "Common/legs.fmdl".to_owned()),
+            ("finding", "vertex_too_far_from_origin".to_owned()),
+        ]
+    );
+    let validated = report.validated.unwrap();
+    assert_eq!(player_paths(&validated), vec!["Players/05 - B"]);
+    assert_eq!(
+        validated
+            .common
+            .iter()
+            .map(|file| file.path.as_str())
+            .collect::<Vec<_>>(),
+        vec!["Common/hair.dds"]
+    );
+}
+
+#[test]
+fn pass_through_keeps_an_eligible_content_finding_s_folder_and_drops_a_not_eligible_one() {
+    let context = context_with(true, true);
+    let eligible = ContentFinding {
+        pass_through_eligible: true,
+        ..far_vertex(folder("Players/03 - A"), Disposition::DropFolder)
+    };
+    let report = report_with(
+        &context,
+        "egg",
+        &[
+            ("Players/03 - A/boots.fmdl", 10),
+            ("Players/05 - B/boots.fmdl", 10),
+        ],
+        &[],
+        &[],
+    )
+    .with_content_findings(
+        vec![
+            eligible,
+            far_vertex(folder("Players/05 - B"), Disposition::DropFolder),
+        ],
+        &context,
+    );
+    assert_eq!(
+        report.issues,
+        vec![
+            ValidationIssue {
+                passed_through: true,
+                ..far_vertex_issue(folder("Players/03 - A"), Disposition::Keep)
+            },
+            far_vertex_issue(folder("Players/05 - B"), Disposition::DropFolder),
+        ]
+    );
+    assert_eq!(
+        player_paths(&report.validated.unwrap()),
+        vec!["Players/03 - A"]
+    );
+}
+
+#[test]
+fn a_content_finding_dropping_a_kit_folder_takes_the_kit_off() {
+    let report = with_findings(
+        &[("Kits/p1/kit.dds", 9), ("Kits/p2 - Away/kit.dds", 9)],
+        vec![far_vertex(folder("Kits/p1"), Disposition::DropFolder)],
+    );
+    let validated = report.validated.unwrap();
+    assert_eq!(
+        validated
+            .kits
+            .kits
+            .values()
+            .map(|kit| kit.path.as_str())
+            .collect::<Vec<_>>(),
+        vec!["Kits/p2 - Away"]
+    );
+}
+
+#[test]
+fn a_content_finding_dropping_a_portrait_or_collar_file_takes_only_that_file_off() {
+    let report = with_findings(
+        &[
+            ("Players/03 - A/boots.fmdl", 10),
+            ("Portraits/player_03.dds", 9),
+            ("Portraits/player_05.dds", 9),
+            ("Collars/collar_101.dds", 9),
+            ("Collars/collar_102.dds", 9),
+        ],
+        vec![
+            far_vertex(file_scope("Portraits/player_03.dds"), Disposition::DropFile),
+            far_vertex(file_scope("Collars/collar_101.dds"), Disposition::DropFile),
+        ],
+    );
+    let validated = report.validated.unwrap();
+    assert_eq!(
+        validated
+            .portraits
+            .iter()
+            .map(|(slot, file)| (slot.get(), file.path.as_str()))
+            .collect::<Vec<_>>(),
+        vec![(5, "Portraits/player_05.dds")]
+    );
+    assert_eq!(
+        validated
+            .collars
+            .iter()
+            .map(|file| file.path.as_str())
+            .collect::<Vec<_>>(),
+        vec!["Collars/collar_102.dds"]
+    );
+}
+
+#[test]
+fn a_content_finding_dropping_a_player_s_settings_or_portrait_keeps_the_folder_without_it() {
+    let files = &[
+        ("Players/03 - A/boots.fmdl", 10),
+        ("Players/03 - A/portrait.png", 9),
+        ("Players/03 - A/settings.toml", 20),
+    ];
+    let without_settings = with_findings(
+        files,
+        vec![far_vertex(
+            file_scope("Players/03 - A/settings.toml"),
+            Disposition::DropFile,
+        )],
+    );
+    let player = &without_settings.validated.unwrap().players[0];
+    assert_eq!(player.settings, None);
+    assert_eq!(
+        player.portrait.as_ref().map(|file| file.path.as_str()),
+        Some("Players/03 - A/portrait.png")
+    );
+    assert_eq!(
+        player
+            .files
+            .iter()
+            .map(|file| file.path.as_str())
+            .collect::<Vec<_>>(),
+        vec!["Players/03 - A/boots.fmdl"]
+    );
+
+    let without_portrait = with_findings(
+        files,
+        vec![far_vertex(
+            file_scope("Players/03 - A/portrait.png"),
+            Disposition::DropFile,
+        )],
+    );
+    let player = &without_portrait.validated.unwrap().players[0];
+    assert_eq!(player.portrait, None);
+    assert_eq!(
+        player.settings.as_ref().map(|file| file.path.as_str()),
+        Some("Players/03 - A/settings.toml")
+    );
+}
+
+#[test]
+fn a_content_finding_dropping_either_logo_file_drops_the_logo() {
+    let files = &[
+        ("Players/03 - A/boots.fmdl", 10),
+        ("logo.png", 9),
+        ("logo_small.png", 9),
+    ];
+    assert!(
+        report("egg", files, &[], &[])
+            .validated
+            .unwrap()
+            .logo
+            .is_some()
+    );
+    for name in ["logo.png", "logo_small.png"] {
+        let report = with_findings(
+            files,
+            vec![far_vertex(file_scope(name), Disposition::DropFile)],
+        );
+        assert_eq!(report.validated.unwrap().logo, None, "{name}");
+    }
+}
+
+#[test]
+fn a_content_finding_dropping_the_export_leaves_no_sanitized_export() {
+    let report = with_findings(
+        &[("Players/03 - A/boots.fmdl", 10)],
+        vec![far_vertex(IssueScope::Export, Disposition::DropExport)],
+    );
+    assert!(report.validated.is_none());
+}
+
+#[test]
+fn content_findings_stand_after_the_folders_own_findings_and_before_the_cascade() {
+    let report = with_findings(
+        &[
+            ("Boots/Crocs/boots.fmdl", 10),
+            ("Players/03 - A/Crocs.boots", 0),
+            ("Players/07 - C/readme.txt", 1),
+            ("Kits/p1/kit.dds", 9),
+            ("Kits/p1/icon_99", 0),
+        ],
+        vec![far_vertex(folder("Boots/Crocs"), Disposition::DropFolder)],
+    );
+    assert_eq!(
+        issue_codes(&report),
+        vec![
+            ("file_type_disallowed", Disposition::DropFolder),
+            ("vertex_too_far_from_origin", Disposition::DropFolder),
+            ("link_target_dropped", Disposition::DropFolder),
+            ("kit_icon_invalid", Disposition::DropFile),
+        ]
+    );
+}

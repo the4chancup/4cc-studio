@@ -125,6 +125,13 @@ in the export it is, and its details in parentheses. The line `Info export_ident
 id=714)` tells you which team the export was recognized as: its name's first word, looked up in
 the teams list (`team=referees` for a `refs` export).
 
+Both commands also read every `.fmdl` model of the export, an archive's included. A model with a
+vertex more than 5000 units from the origin lags the game for the whole matchday: it is reported
+as `vertex_too_far_from_origin`, naming the file and how many vertices are that far, and its
+folder is left out (a model in `Common`, only that file), even when `pass_through` is on. A
+player linking a shared folder or `Common` model left out this way is left out too, with the line
+`link_target_dropped`.
+
 Both commands read every export in the exports folder from the settings (`exports/` beside
 `4cc-studio` unless you changed it). To use another folder for one run, give its path as
 `exports-root`; the setting is not changed. The `exports/` folder beside `4cc-studio` is created

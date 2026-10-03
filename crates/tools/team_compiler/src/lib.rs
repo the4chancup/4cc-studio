@@ -2,13 +2,15 @@
 //!
 //! `Tool` registers the tool with the shell: its window (`view`, over the run log in
 //! `gui_run`), its settings section, its help chapter and its `team-compiler` command line,
-//! whose preflight refuses an invalid invocation or configuration. `check` runs the structure
-//! pass over every export; `compile` runs the same pass, plans the kept exports' face and kit
-//! tasks, processes them and writes the CPK.
+//! whose preflight refuses an invalid invocation or configuration. `check` runs validation (the
+//! structure pass, then the deep pass over file contents) on every export; `compile` runs the
+//! same validation, plans the kept exports' face and kit tasks, processes them and writes the
+//! CPK.
 
 mod check;
 mod cli;
 mod compile;
+mod deep;
 mod events;
 mod gui_run;
 mod messages;
@@ -18,10 +20,10 @@ mod plan;
 mod processing;
 mod reader;
 mod settings;
-mod structure;
 mod templates;
 #[cfg(test)]
 mod testing;
+mod validation;
 mod view;
 
 use studio_core::{CliError, HelpSection, HelpTopic, StudioTool, ToolContext};
