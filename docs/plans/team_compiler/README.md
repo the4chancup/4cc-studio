@@ -923,7 +923,7 @@ TC-KIT-18  GIVEN p1/ holding kit.dds drawn for the pre-Fox layout and the marker
            WHEN the export is compiled for PES 21
            THEN kit_layout_converted is reported for p1 naming pre-fox to fox, the decoded texture
                 equals the no-marker compile's outside the sock and shorts islands, and the islands
-                match the golden from the fixture pair
+                match the golden computed from the games' uniform models
 TC-KIT-19  GIVEN the same kit compiled for PES 17, and a kit marked fox compiled for PES 17
            WHEN each is compiled
            THEN the first equals the no-marker compile; the second is re-laid with the inverse

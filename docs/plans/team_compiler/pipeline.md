@@ -411,21 +411,20 @@ describes behavior, not a serial scheduling requirement:
   plan yet**: what is measured (from both games' uniform models,
   `scripts/provenance/kit_uv/kit_uv_diff.py`) is the island outlines — socks u 8–440 → 8–372 (left; mirrored on the right), v 640–1152 unchanged;
   shorts outline u 16–644 / 1404–2032, v 1164–1948 in both — and that the mapping *inside* each
-  island is piecewise (two bands per island), not one scale. The exact band edges are settled in
-  the Phase 4 kits step from two sources that must agree: texel correspondence through the models'
-  3D positions (u only; the Fox body's different proportions make v matching unreliable, as a
-  shirt control run showed) and a design drawn for both layouts. No cup kit is one (nobody in the
-  community ported a kit by hand), so the pair comes from PES Master's two kit creators, the
-  PES 2017 one and the PES 2018-2021 one, which draw the same 21 brand templates for each layout
-  from named layers. **Socks: the two sources agree** to within about 10 px. Along the leg (v)
-  nothing moves. Around the leg (u), on the left sock (the right one mirrored): the outer band,
+  island is piecewise (two bands per island), not one scale. **The games' own uniform models (the
+  base data CPKs) are the source of truth** for the table: the band edges come from texel
+  correspondence through the two models' 3D positions (u only; the Fox body's different
+  proportions make v matching unreliable, as a shirt control run showed). No kit drawn by hand
+  for both layouts exists in the community to check them against; the nearest thing is PES
+  Master's two kit creators (the PES 2017 one and the PES 2018-2021 one), which draw the same
+  21 brand templates for each layout from named layers, and it is a cross-check, never a
+  source. On the socks it agrees with the models to within about 10 px: along the leg (v)
+  nothing moves; around the leg (u), on the left sock (the right one mirrored), the outer band,
   pre-Fox u from about 195 to 440, shifts by -60 px at scale 1, and the inner band, u 8 to
-  about 195, is compressed onto 8 to about 137 (scale about 0.69). **Shorts: they disagree.**
-  PES Master draws the shorts identically in both layouts (20 of 21 templates), while the
-  models shift the Fox shorts body by 35 to 60 px along u (-36 at u 100-280, -48 at 300-400,
-  -56 at 460-560). One of the two is wrong for the game, and a third source decides before the
-  shorts rows are written: the same PES Master kit seen in PES 17 and in PES 21 (does the
-  shorts logo sit at the same height?). The table is lead-authored (it is a measurement) and lives with the
+  about 195, is compressed onto 8 to about 137 (scale about 0.69). On the shorts it does not:
+  PES Master draws them identically in both layouts (20 of 21 templates), while the models
+  shift the Fox shorts body along u (-36 px at u 100-280, -48 at 300-400, -56 at 460-560), and
+  the models win. The table is lead-authored (it is a measurement) and lives with the
   kit step (`kits/layout.rs`). Placeholder textures are engine-neutral and are never re-laid out;
   `_chest`, `_back`, `_name` and `_leg` have their own UV spaces and are not touched — whether
   `_leg`'s space also changed is unchecked and belongs to the same Phase 4 step. The TOML config is compiled to the game's 120-byte binary via `libs/kit_config`

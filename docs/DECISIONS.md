@@ -3304,3 +3304,31 @@ two files with two outcomes: the collar model is dropped, the kit is dropped.
 Plan: `team_compiler/messages.md` `collar_id_invalid`, `collar_id_conflict`; `pipeline.md`
 "Collars", "Collar contract"; `blue_port.md` "Referee export processing"; `README.md`
 TC-CMN-02, TC-REF-07; worklog steps 4.9, 4.27.
+
+## 2026-10-03 — team_compiler — the games' uniform models are the kit layout's source of truth
+Decision (user): `KIT_LAYOUT_REMAP` takes its numbers from the two games' own uniform models
+(the base data CPKs) alone. The pair made with PES Master's two kit creators is a cross-check,
+not a source: it agrees on the socks and draws the shorts identically in both layouts, where
+the models shift them, and the models win.
+Why: the models are what the game renders; a third party's templates are its artist's reading
+of them. Added by the lead: the step's golden is therefore computed from the models by a
+provenance script, independent of the Rust table, instead of taken from a hand-drawn pair, so
+no PES Master artwork enters the repository.
+Plan: `team_compiler/pipeline.md` "4. Per-export non-model steps" (Kits, "Layout
+conversion"); `README.md` TC-KIT-18; `testing.md`; worklog step 4.10.
+
+## 2026-10-03 — team_compiler — what a valid face diff is, and `face_diff.xml`'s two forms
+Decision: `face_diff.xml` is the base64 of a `face_diff.bin`, alone or as the text of a `<dif>`
+root (the two forms Red reads). A face diff, decoded or supplied as `face_diff.bin`, must have
+the magic `FACE` and at least the length its header's two counts give; a longer file passes.
+A folder with both `face_diff.bin` and `face_diff.xml` is `xml_dif_conflict`. A WESYS-wrapped
+`face_diff.xml`, which Red unwraps, is not read.
+Why: Red checks the decoded length for equality, and only for the xml; a census of the
+maintainer's machine found 326 of 2,695 loose `face_diff.bin` 16 bytes longer than their
+header gives, all in cups' CPKs, so equality would refuse the text form of files the game
+loads, while a file shorter than its header makes the game read past its end, whatever form it
+came in. Both files in one folder is the "two sources for one datum" the plan already
+discards for `face.xml`; Red lets the `.bin` win silently. No `face_diff.xml` exists on that
+machine, loose, so nothing argues for the wrapper.
+Plan: `aesthetics_export/player_folders.md` "`face_diff.xml`"; `team_compiler/messages.md`
+`face_diff_invalid`, `xml_dif_conflict`.

@@ -340,6 +340,22 @@ consistent choice (its rest pose is what the game's animations drive). Whether t
 differently with a same-version skeleton than with PES21's is untested in-game; the plan keeps PES21
 as the injected file until a compile-and-play comparison on PES18/19 settles it (open point).
 
+**`face_diff.xml`.** A face folder may give its `face_diff.bin` as text instead, the form the
+pre-Fox `face.xml` carries it in: the binary file base64-encoded (standard alphabet, padded;
+line breaks and other whitespace anywhere), either alone in the file or as the text of a `<dif>`
+root element (a file whose first non-blank character is `<` is read as XML; a UTF-8 BOM is
+skipped). On a Fox target the compiler decodes it and packs it as `face_diff.bin`. A `<dif>`
+holding child elements instead of text (Konami's structured form) is not supported. The
+decoded bytes, and a `face_diff.bin` supplied directly, must be a face diff: the magic `FACE`
+and at least the length its header gives, `0xF0 + 0x10 × count(0x48) + 0x20 × count(0x4C)`
+(both counts `u32` little-endian), otherwise `face_diff_invalid` drops the folder, since the
+game would read past the file's end. A longer file passes: of the 2,695 loose `face_diff.bin`
+on the maintainer's machine (2026-10-03), 326 are 960 bytes long with counts that give 944,
+and they are in cups' CPKs. A folder holding both `face_diff.bin` and `face_diff.xml` gives
+one datum twice and is discarded (`xml_dif_conflict`); a player folder's own file over a
+combined shared face's is the ordinary layering, whichever form each has. No loose
+`face_diff.xml` exists on that machine, so the test fixtures are encoded from the template.
+
 **Merge constraint** — parts merged into one output FMDL must reference the same skeleton. A part
 with a custom SKL and a part using the default template skeleton reference different skeletons, as
 do two parts with different custom SKLs. "Same" is decided by **content hash** for two `.skl`

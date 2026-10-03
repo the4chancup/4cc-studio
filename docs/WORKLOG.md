@@ -539,16 +539,16 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   12 and the file sits at `Asset/model/character/uniform/nocloth/#Win/collar_012.fmdl`
 
 - [ ] 4.10 **Kit layout conversion**: `KIT_LAYOUT_REMAP` (lead-authored measurement,
-  `kits/layout.rs`; band edges from texel correspondence plus the PES Master pair),
+  `kits/layout.rs`; band edges from texel correspondence through the two games' uniform
+  models, the source of truth; lead first: the golden, a striped test kit and its re-laid
+  islands computed from the models by a provenance script, independent of the Rust table),
   `kit_layout_converted`, Lanczos3 for bands whose width changes, every texel outside the islands
   copied, `_chest`/`_back`/`_name`/`_leg` untouched, placeholder never re-laid, the inverse table
   for `fox` kits on pre-Fox (exercised fully in 4.16). Plan: `pipeline.md` "4. Per-export
-  non-model steps" (Kits, "Layout conversion"); `player_folders.md` "Kit layout marker". (The
-  socks' rows are measured; the shorts' wait on the in-game check and the golden on the fixture
-  question, both under "Phase 4 open questions".) IDs: TC-KIT-18..20. Crates: tc
+  non-model steps" (Kits, "Layout conversion"); `player_folders.md` "Kit layout marker". IDs: TC-KIT-18..20. Crates: tc
   (`processing/kits/layout.rs`) → verify: a `pre-fox` kit compiled for PES 21 decodes to a
   texture whose every texel outside the sock and shorts islands equals the no-marker compile's
-  and whose islands match the golden from the fixture pair; a synthetic flat-band texture
+  and whose islands match the golden computed from the models; a synthetic flat-band texture
   round-trips pre-Fox → Fox → pre-Fox exactly
 
 - [ ] 4.11 **Team root artifacts and Common**: logo (main decoded, made square per tag, Lanczos3 to
@@ -939,26 +939,6 @@ Phase 4 open questions (maintainer):
   `4cc_55_other_uniform`, and which of the two installs' other names stand (PES 17's list has
   `4cc_01_db`, `4cc_02_misc`, `4cc_30_stadiums0`/`1`/`2`; PES 21's `4cc_01_base`,
   `4cc_03_stockkit`, `4cc_10_interface`, `4cc_12_competition`, `4cc_30_stadiums`).
-- Kit layout, the shorts (4.10; 4.16's inverse-table check uses the same table). The two engines
-  lay a kit texture out differently: the shirt, sleeves and collar strip sit in the same place,
-  but the sock and shorts islands differ between PES 15-17 and PES 18-21, and the compiler
-  converts between them with a table of rectangle moves (`KIT_LAYOUT_REMAP`). The table needs
-  two sources that agree. One is the two games' uniform models (texel matching,
-  `scripts/provenance/kit_uv/`). The other was to be a kit drawn for both layouts; no cup kit
-  is one, so on the maintainer's suggestion it was made with PES Master's two kit creators
-  (2026-10-03; driven with Edge, 21 shared templates rendered per layout, each layer saved on
-  its own and its runs paired; scripts, renders and `FINDINGS.md` in `.tmp/kit_creator/`).
-  **The socks are settled**: both sources give the numbers now in `pipeline.md` "Layout
-  conversion". **The shorts are not**: PES Master draws them identically in both layouts,
-  while the models put the Fox shorts body 35 to 60 px away along u. Needed from the
-  maintainer: an in-game look at one PES Master design made on both creators (for example
-  Adidas Condivo 16, `.tmp/kit_creator/out/<pes2017|current>/Adidas_Condivo_16/kit.png`), in
-  PES 17 and in PES 21: does the shorts logo sit at the same height on the thigh in both? If
-  it does, the shorts need no table rows and the model fit is wrong there; if the PES 21 one
-  sits visibly off, the model fit stands. Also open: whether the pair can be committed as the
-  step's golden fixture, since it carries PES Master's template artwork and brand logos; the
-  alternative is a synthetic texture (flat bands and stripes at the measured edges), which
-  tests the table's arithmetic but not its numbers.
 
 Answered 2026-10-03 (decision entries of that date; each is in the plan): the `colors.txt`
 grammar (one color per line, in both files); the kit icon as a marker file and the marker
@@ -968,7 +948,11 @@ upgrade to the one standard list is the path); one official `DpFileList.bin` for
 (4.25); `face_diff.xml` decoded with the `base64` crate (4.5d); a model's missing texture is an
 Error, with the installed CPKs searched for a partial export's Common textures (4.29), and
 `fmdl_no_texture_ids` is dropped; a format finding drops its folder by severity (4.7). The
-pre-Fox parity reference was never a question: it is the lead's step 4.31.
+pre-Fox parity reference was never a question: it is the lead's step 4.31. The kit layout
+table (4.10) takes its numbers from the games' uniform models alone: the pair made with PES
+Master's two kit creators (scripts, renders and `FINDINGS.md` in `.tmp/kit_creator/`) agrees
+with them on the socks and not on the shorts, and the models win (`pipeline.md` "Layout
+conversion").
 
 ### Phase 5 — Savefile integration
 

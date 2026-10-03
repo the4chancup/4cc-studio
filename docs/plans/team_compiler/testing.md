@@ -107,7 +107,7 @@ test, and sideload modes; savefile success/failure; and cancellation. Key behavi
   config whose `back` field is set; a kit with a real texture and no colors deriving from the
   texture, never reaching the loud pair); kit layout (a `pre-fox` kit compiled for PES 21: every
   texel outside the sock and shorts islands byte-identical to the no-marker compile, the islands
-  matching the golden produced from the hand-adjusted fixture pair, `kit_layout_converted`
+  matching the golden computed from the games' uniform models, `kit_layout_converted`
   reported; the same kit compiled for PES 17 identical to the no-marker compile; a `fox` kit for
   PES 17 taking the inverse table, and pre-Fox→Fox→pre-Fox on a synthetic texture whose bands are
   flat colors round-tripping exactly; `_back`/`_leg`/`_name` untouched either way; both markers

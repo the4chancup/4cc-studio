@@ -247,7 +247,7 @@ uncompressed kits needed)
 | `xml_model_not_found` | E | `path` (or `material`) is a `./` or Common reference whose file is missing from the export | folder discarded |
 | `xml_common_path_invalid` | E | Common reference without 3-char subfolder | folder discarded |
 | `xml_oral_prefix_missing` | E | PES16 target: model file name starting with none of `face_high_`/`hair_high_`/`oral_` | folder discarded |
-| `xml_dif_conflict` | E | the xml carries a `<dif>` and the folder also has `face_diff.xml` (two sources for one datum) | folder discarded |
+| `xml_dif_conflict` | E | two sources for one datum in one folder: the xml carries a `<dif>` and the folder also has `face_diff.xml`, or (Fox) the folder has both `face_diff.bin` and `face_diff.xml` | folder discarded |
 | `xml_element_unknown` | W | a child of `<config>` other than `<model>`/`<dif>` | kept verbatim |
 | `xml_attribute_unknown` | W | a `<model>` attribute other than `level`/`type`/`path`/`material`/`ratio` | kept verbatim |
 | `xml_type_unknown` | W | `type` not in the generated vocabulary (the type table plus `uniform_sub`) | kept verbatim |
@@ -259,7 +259,7 @@ uncompressed kits needed)
 | `xml_face_neck_added` | I | no `face_neck` entry; the dummy entry was appended (Red's rule) | dummy model + mtl emitted |
 | `xml_uniform_pes15` | I | PES15 target: `type="uniform"` rewritten to `uniform_sub` (Red's rule) | rewritten |
 | `xml_ignored_fox` | I | a user `face.xml` in a folder compiled for a Fox target | xml ignored; models compile by the normal route |
-| `face_diff_invalid` | E | `face_diff.xml` structure/base64/binary validation failed | folder discarded |
+| `face_diff_invalid` | E | `face_diff.xml` is not base64 text or a `<dif>` holding it, or its decoded bytes, or a `face_diff.bin`, are not a face diff (`player_folders.md` "`face_diff.xml`"; context: the file, the reason) | folder discarded |
 | `mtl_material_duplicate` | E | material listed twice | folder discarded |
 | `mtl_state_invalid` | E | `ztest` ≠ 1 / `blendmode` ∉ {0,1} / `alphablend` ∉ {0,1} | folder discarded |
 | `mtl_blendmode_nonzero` | W | `blendmode` = 1 (works, not recommended) | none |
