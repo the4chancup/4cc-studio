@@ -729,9 +729,14 @@ describes behavior, not a serial scheduling requirement:
     official list lacks, or the order) and names the upgrade;
   - missing any target of this run (typically the pre-`teams` layout, or a list without
     `4cc_99_test` under the default `cpk_name`) → `dpfilelist_outdated` (E; the run degrades
-    like any deployment failure: the game would not load the CPK).
+    like any deployment failure: the game would not load the CPK);
+  - separately, a listed CPK with no file in `download/`, other than the run's own target →
+    `dpfilelist_cpk_missing` (W), naming the files: when any listed CPK is absent the game
+    rejects the whole download folder and runs vanilla, which is why a DLC ships a
+    placeholder in every unused slot. The run compiles and deploys; the upgrade below writes
+    the placeholders.
 
-  With either finding the GUI shows **Upgrade DpFileList**, which asks before it writes; the
+  With any of these findings the GUI shows **Upgrade DpFileList**, which asks before it writes; the
   CLI prints the equivalent subcommand, `4cc-studio team-compiler upgrade-dpfl`, and never
   upgrades on its own.
   - The upgrade is an **override, not a merge**: the bundled official DPFL replaces the installed
@@ -739,17 +744,30 @@ describes behavior, not a serial scheduling requirement:
     zero support for custom-edited DPFLs — they have caused a long tail of problems — so preserving
     a user's own entries would be preserving exactly the state the upgrade exists to end. The dialog
     is honest about it: it lists every installed entry that the official list does not contain
-    (user additions *and* retired official names such as `4cc_40_faces`, `4cc_45_uniform`) as
-    "will no longer be loaded", and for each whose `.cpk` still sits in `download/` shows the size
-    and offers deletion (renaming a 3.7 GB file as a backup is pointless; the user confirms per file,
-    and nothing is deleted without that confirmation). No retired-names list is needed in the
-    template: retired is simply "installed but not official".
-  - **The upgrade leaves no listed CPK missing.** For every official entry with no file in
-    `download/` it writes the empty placeholder CPK ("Every slot is always written" in
-    "Multi-CPK mode"); it never overwrites a file that is there. Every installed list measured
-    names only files that exist, so nothing shows what the game does with a listed CPK that
-    is missing, and the official list names 53 where an old DLC ships about 40 under partly
-    different names.
+    and that is not renamed (below) as "will no longer be loaded", and for each whose `.cpk`
+    still sits in `download/` shows the size and offers deletion (renaming a 3.7 GB file as a
+    backup is pointless; the user confirms per file, and nothing is deleted without that
+    confirmation).
+  - **An old DLC's CPKs are renamed by stem**, a best effort so a DLC cut for an older list
+    keeps loading under the official one. A name's stem is what follows `{prefix}_{NN}_`.
+    Each installed entry the official list lacks, whose file is in `download/`, is matched to
+    the official entries of its stem: the same stem, else the stem without trailing digits
+    (`stadiums0` is `stadiums`), else one of four fixed aliases, since the teams runs replaced
+    the faces/uniform split (`faces` and `uniform` are `teams`; `other_faces` and
+    `other_uniform` are `teams2`). Within one official stem the old files, in their list
+    order, take the official names in their list order, so load order is kept
+    (`4cc_60_midcup` to `4cc_74_midcup` become 61 to 75; `4cc_40_faces` and `4cc_45_uniform`
+    become `4cc_41_teams` and `4cc_42_teams`; `4cc_38_balls` becomes `4cc_16_balls`). A file
+    already under an official name keeps it and its place in that order. An old file with no
+    official name left for it (a sixteenth midcup, a stem the official list does not have)
+    is not renamed and is listed as "will no longer be loaded"; a rename never overwrites a
+    file. The dialog, and `upgrade-dpfl` without `--yes`, show every rename before anything
+    is done.
+  - **The upgrade leaves no listed CPK missing.** After the renames, for every official entry
+    with no file in `download/` it writes the empty placeholder CPK ("Every slot is always
+    written" in "Multi-CPK mode"); it never overwrites a file that is there. When any listed
+    CPK is absent the game rejects the whole download folder and runs vanilla, and the
+    official list names 53 CPKs where an old DLC ships about 40.
   - The DPFL binary format is small and version-stable enough to own here. Measured on the PES
     2021 and PES 2017 files: a 16-byte header (`u32 0`, `u32 entry_count`, 8 zero bytes), then
     `entry_count` records of 48 bytes each (the CPK file name with `.cpk`, NUL-padded), then an

@@ -891,11 +891,12 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   that one file serves every PES version, and reports if a version needs its own bytes);
   `upgrade-dpfl [--yes]`: the entries the official list lacks printed with the size of each
   matching `download/*.cpk`, nothing written without `--yes`, the installed file replaced byte
-  for byte with `DpFileList.bin.bak` kept, the empty placeholder CPK written for every
-  official entry with no file in `download/` (an existing file is never overwritten), no
-  CPK ever deleted by the command;
+  for byte with `DpFileList.bin.bak` kept, an old DLC's CPKs renamed by stem to the official
+  names (TC-DEP-13), the empty placeholder CPK written for every official entry with no file
+  in `download/` (an existing file is never overwritten), no CPK ever deleted by the command;
+  `dpfilelist_cpk_missing` (W) at every compile for a listed CPK with no file (TC-DEP-14);
   `dpfilelist_outdated` names the subcommand. Plan: `pipeline.md` "6. Post-processing"
-  (DpFileList upgrade); `settings.md` "CLI" (`upgrade-dpfl`). IDs: TC-DEP-08..10, TC-DEP-12. Crates: tc
+  (DpFileList upgrade); `settings.md` "CLI" (`upgrade-dpfl`). IDs: TC-DEP-08..10, TC-DEP-12..14. Crates: tc
   (`bins/dpfl.rs`, `cli.rs`), resources → verify: an installed DPFL lacking `4cc_41_teams` beside
   a 1 KiB `download/4cc_40_faces.cpk`: `upgrade-dpfl` prints `4cc_40_faces` with `1 KiB` and
   exits without writing; `--yes` makes `DpFileList.bin` equal to the embedded list and
@@ -1030,15 +1031,10 @@ Phase 4 open questions (maintainer):
 
 - The official DpFileList in the game (4.25; to test once per engine, pre-Fox and Fox):
   that a list of 53 entries loads its last one. The longest installed list has 45 (PES
-  20's; the others 29 to 39; `.tmp/dpfl_compare.py` reads them), so nothing yet shows the
-  game takes 53. The test: the official list installed with its placeholders, and a visible
-  change (a kit) in `4cc_99_test.cpk`.
-- An old DLC under the official list (4.25): every installed list names 15 to 24 CPKs the
-  official one does not (`4cc_15_billboard`, `4cc_30_stadiums0`, `4cc_35_referees`,
-  `4cc_38_balls`, `4cc_40_faces`, ...), so after an upgrade that content is no longer
-  loaded until a DLC cut for the new names is installed. The upgrade says so and asks.
-  Open: whether it should also offer to rename the files that have one successor
-  (`4cc_38_balls` to `4cc_16_balls`), or leave that to the next DLC.
+  20's; the others 29 to 39; `.tmp/dpfl_compare.py` reads them). The maintainer remembers a
+  test years ago in which the game held up to about 60 entries, and wants it re-tested. The
+  test: the official list installed with its placeholders, and a visible change (a kit) in
+  `4cc_99_test.cpk`.
 - Collars beyond the stock set (4.9, 4.27; the maintainer's idea, 2026-10-03): PES 15 loads
   `collar_105`, which its stock game lacks, so the games probably accept collar IDs they do
   not ship. If so, the FPC collar and the referees' marker could move to IDs no stock collar
@@ -1825,3 +1821,9 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   default `refs_cpk_name` is `4cc_18_referees`. PES 21's `download/` on the external drive
   has no `DpFileList.bin` since the VGL DLC was copied in (the old one is in
   `download_old/`).
+- **2026-10-03** — The maintainer's answers on the DpFileList: the upgrade renames an old
+  DLC's CPKs by stem (best effort; decision entry, TC-DEP-13); a listed CPK with no file
+  makes the game reject the whole download folder and run vanilla, so every compile reports
+  one (`dpfilelist_cpk_missing`, TC-DEP-14) and the placeholders are confirmed; a list
+  lacking the run's CPK stays `dpfilelist_outdated`; the 53-entry list is still to be
+  re-tested in the game (about 60 held, years ago).

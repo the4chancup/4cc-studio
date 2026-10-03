@@ -3477,3 +3477,24 @@ to 20) names only files that are present, the unused slots as placeholders, so t
 behavior with a listed CPK that is missing is unknown, and the multi-CPK writer already
 avoids relying on it. Writing a 6,272-byte file where none exists cannot lose anything.
 Plan: `team_compiler/pipeline.md` "DpFileList upgrade"; `team_compiler/settings.md`.
+
+## 2026-10-03 — team_compiler — DpFileList: old CPKs renamed by stem, a missing CPK reported
+Decision: three points. (1) `upgrade-dpfl` renames an old DLC's CPKs to the official names
+by stem: the same stem, else the stem without trailing digits, else one of four aliases
+(`faces` and `uniform` to `teams`, `other_faces` and `other_uniform` to `teams2`); within one
+official stem the old files take the official names in list order; a file with no name left
+is not renamed and is listed as no longer loaded; a rename never overwrites a file, and
+every rename is shown before the user's yes. This replaces the plan's earlier "no
+retired-names list is needed". (2) Every compile reports `dpfilelist_cpk_missing` (Warning)
+for a listed CPK with no file in `download/`, other than the run's own target. (3) Confirmed
+by the maintainer: a list lacking the run's CPK stays `dpfilelist_outdated` (Error), and the
+upgrade writes placeholders.
+Why: (1) the maintainer asked for a simple stem-based renaming, so a DLC from an old cup
+keeps working under the official list as a best effort. The four aliases and the digit rule
+are the lead's additions: without them the largest CPKs of every old DLC (`4cc_40_faces`,
+`4cc_30_stadiums0`) match no official stem and the renaming would not serve its purpose.
+(2) the maintainer's knowledge of the game: when any listed CPK is absent, PES rejects the
+whole download folder and runs vanilla, a state a user cannot diagnose from the game, and the
+compiler already reads the list and the folder.
+Plan: `team_compiler/pipeline.md` "DpFileList upgrade"; `team_compiler/messages.md`
+`dpfilelist_cpk_missing`; `team_compiler/README.md` TC-DEP-13, TC-DEP-14.

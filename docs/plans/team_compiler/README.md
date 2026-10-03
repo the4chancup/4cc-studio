@@ -1234,6 +1234,17 @@ TC-DEP-12  GIVEN an installed DPFL holding the official list's entries plus 4cc_
            THEN the first reports dpfilelist_not_official naming 4cc_80_mine and upgrade-dpfl,
                 download/4cc_99_test.cpk holds the run's CPK and the exit code is 0; the second
                 reports neither DpFileList finding
+TC-DEP-13  GIVEN an installed DPFL listing 4cc_38_balls, 4cc_40_faces, 4cc_45_uniform,
+           4cc_60_midcup, 4cc_61_midcup and 4cc_86_mine, each a 1 KiB file in download/
+           WHEN upgrade-dpfl --yes runs
+           THEN the files are named 4cc_16_balls, 4cc_41_teams, 4cc_42_teams, 4cc_61_midcup and
+                4cc_62_midcup with their bytes unchanged, 4cc_86_mine.cpk is still present and
+                reported as no longer loaded, and every other official entry is the 6,272-byte
+                placeholder
+TC-DEP-14  GIVEN an installed DPFL listing 4cc_62_midcup with no such file in download/
+           WHEN /co/ is compiled with the default cpk_name
+           THEN dpfilelist_cpk_missing is reported naming 4cc_62_midcup.cpk, the run's CPK is
+                deployed, and the exit code is 0
 ```
 
 ---
