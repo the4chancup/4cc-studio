@@ -12,7 +12,7 @@ is in `AGENTS.md` ("Working documents").
 **Phase:** 3 (Team compiler skeleton) closed 2026-10-02, its cross-family reviews queued (see
 "Handover"). Phases 1 and 2 done (Phase 2 closed 2026-09-30).
 **Next:** Phase 4 is itemized and its Acceptance section written (step 4.1, 2026-10-03; its
-cross-family review (a) is queued). Next: the lead's pre-step plan text, then 4.2. 2.5b (GPU BC7) is step 16.x (decision entries
+cross-family review (a) is queued). Next: 4.3 (planned IDs, player-exclusive boots/gloves on Fox). 2.5b (GPU BC7) is step 16.x (decision entries
 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0 after Phase 8; phase order 1–6,
 8, 0.1.0, 7, 9–16 (`core/development_plan.md` "Releases"); first-class target the Fox version
 the cup moves to around April 2027 ("Target versions").
@@ -280,7 +280,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `just acceptance` 203 scenarios, 77 proven, the 126 new ones unproven, no definition error;
   drafted and written by Fable from the lead's rulings (`.tmp/rulings_4_1.md`)
 
-- [~] 4.2 **Portraits (DDS, Fox targets)**: `TaskKind::Portrait`; a player folder's
+- [x] 4.2 **Portraits (DDS, Fox targets)**: `TaskKind::Portrait`; a player folder's
   `portrait.dds` (every slot it is mapped to) and `Portraits/player_NN.dds` emitted byte for byte
   as `common/render/symbol/player/{id}{NN}.dds` (PES 19-21) or `player_{id}{NN}.dds` (PES 18);
   still refused by the Phase 3 gate: a non-DDS portrait (encoding is 4.6's: BC3 with a full mip
@@ -290,7 +290,13 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   (TC-PRT-01 and 03 complete at 4.6, TC-PRT-02 at 4.7). Crates: tc (`plan/`, `processing/`,
   `paths.rs`) → verify: the tracer parity test's `79205.dds` row is `Exact` and passes; compile
   tests show `71405.dds`/`71407.dds` on PES 21 and `player_71405.dds` on PES 18 byte-identical to
-  their sources, a two-slot mapping emitting both, and the two refusals
+  their sources, a two-slot mapping emitting both, and the two refusals. Done 2026-10-03 (Fable,
+  landed first time, 0 contradictions): parity's `79205.dds` row `Exact` and passing; four compile
+  tests and four unit tests, red runs in the report (old gate `content_not_yet_compiled
+  (what=Players/05 - A/portrait.dds)`; perturbations of `is_dds`, `folder_holds_portrait`, the
+  sort, the version and the parity bytes each failed); gates green (50 runs, acceptance 77 of
+  203); `mutants-diff 69be25b`: 26, 21 caught, 5 unviable, 0 missed. Lead fix: the archive
+  fixtures' README (they keep the eight pre-portrait files)
 
 - [ ] 4.3 **Planned IDs and player-exclusive boots/gloves (Fox)**: `plan/ids.rs` `PlannedModelIds`
   (block start `101 + (team_id - 701) * 40`, exclusive `block_start + NN - 1`, boots and gloves
@@ -1345,3 +1351,6 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   grammar, referee paths, the blank face folder and the DpFileList layout, measured on the PES
   2021/2017 installs and Red. The sidekick's three contradictions answered (trailing icon kept,
   `4cc_90_test` on PES 21 asked, cross-engine collars at 4.9).
+- **2026-10-03** — 4.2: DDS portraits compile on Fox targets, passed through byte for byte
+  (`player_` prefix on PES 18); non-DDS and two-source slots stay refused until 4.6/4.7. Fable
+  landed it first time under the new brief shape (Devin's 3.3 model, contradictions invited).

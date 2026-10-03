@@ -15,15 +15,16 @@ left out: no model references it. Everything else is byte-identical to the sourc
 
 ## `studio/egg Tracer/`
 
-`old/` migrated to the Studio layout by hand, for what Phase 3's `compile` handles (Team compiler
-plan, "Acceptance", Phase 3 scope): the face and the kit. The boots, gloves and portrait join it
-in Phase 4, which compiles them.
+`old/` migrated to the Studio layout by hand, for what `compile` handles (Team compiler plan,
+"Acceptance"): the face and the kit since Phase 3, the portrait since step 4.2. The boots and
+gloves join it later in Phase 4, which compiles them.
 
-- `Players/05 - The Chad Stormworks Player/`: `fcl_hair.fmdl`, `shirt.dds`, `face_diff.bin` and
-  `fcl_hair_sim.fclo` unchanged; `fcl_hair_sim.skl` renamed `fcl_hair.skl`, since the Studio format
-  pairs a skeleton with its model by source name ("SKL pairing"). The `.fclo` and the `.skl` are
-  byte-identical to Red's templates (the skeleton is PES 21's `body.skl`); `face_diff.bin` is the
-  player's own. `face.fpk.xml` is dropped: the compiler writes the FPK.
+- `Players/05 - The Chad Stormworks Player/`: `fcl_hair.fmdl`, `shirt.dds`, `face_diff.bin`,
+  `fcl_hair_sim.fclo` and `portrait.dds` unchanged; `fcl_hair_sim.skl` renamed `fcl_hair.skl`,
+  since the Studio format pairs a skeleton with its model by source name ("SKL pairing"). The
+  `.fclo` and the `.skl` are byte-identical to Red's templates (the skeleton is PES 21's
+  `body.skl`); `face_diff.bin` is the player's own. `face.fpk.xml` is dropped: the compiler writes
+  the FPK.
 - `Kits/g1/`: `kit.dds` is `u0XXXg1.dds`; `config.toml` is `XXX_DEF_GK1st_realUni.bin` decoded as
   PES 21 by `kit_config` (`KitConfig::decode` then `to_toml`), and re-encoded with the `u0792g1`
   texture name it gives back Red's `792_DEF_GK1st_realUni.bin` byte for byte; `icon.txt` is `11`,

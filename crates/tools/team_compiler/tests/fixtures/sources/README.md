@@ -10,8 +10,9 @@ kept in the session scratch (`.tmp/make_source_fixtures.py`, not part of the rep
 | `co - Case.zip` | `players.txt` and `Players.txt` | TC-SRC-07: two names that fold to one |
 | `co - Escape.zip` | `players.txt` and `../x` | TC-SRC-07: a path escaping the root |
 
-Added at step 3.9c, by the lead, from `.tmp/make_tracer_archives.py` (same tools; the eight files of
-`../tracer/studio/egg Tracer/` at the archive root):
+Added at step 3.9c, by the lead, from `.tmp/make_tracer_archives.py` (same tools; the eight files
+`../tracer/studio/egg Tracer/` held then, at the archive root; the `portrait.dds` it gained at
+step 4.2 is not in them, and the tests over these archives assert faces and kits only):
 
 | File | Contents | For |
 |---|---|---|

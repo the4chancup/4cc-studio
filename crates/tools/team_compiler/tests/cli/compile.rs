@@ -22,8 +22,8 @@ impl Sandbox {
         self.copy_folder(Path::new(&tracer_export()), &format!("exports/{name}"));
     }
 
-    /// Copies the tracer bullet's player folder into `<folder>`: a face folder holding only
-    /// what Phase 3 compiles, so it compiles with no finding.
+    /// Copies the tracer bullet's player folder into `<folder>`: a face folder, with its
+    /// `portrait.dds`, holding only what `compile` builds, so it compiles with no finding.
     pub(crate) fn copy_tracer_face(&self, folder: &str) {
         let face = Path::new(&tracer_export()).join("Players/05 - The Chad Stormworks Player");
         self.copy_folder(&face, folder);
@@ -43,6 +43,14 @@ fn tracer_export() -> String {
 /// `config.toml`, its kit reports `kit_config_generated`.
 pub(crate) fn tracer_kit() -> Vec<u8> {
     fs::read(Path::new(&tracer_export()).join("Kits/g1/kit.dds")).unwrap()
+}
+
+/// The tracer bullet's `portrait.dds`, the one `copy_tracer_face` copies.
+pub(crate) fn tracer_portrait() -> Vec<u8> {
+    fs::read(
+        Path::new(&tracer_export()).join("Players/05 - The Chad Stormworks Player/portrait.dds"),
+    )
+    .unwrap()
 }
 
 /// Settings targeting PES 21 with the PES folder at `<sandbox>/PES`.
@@ -285,6 +293,17 @@ pub(crate) fn compiled_players(sandbox: &Sandbox) -> Vec<u32> {
         .collect();
     players.sort_unstable();
     players
+}
+
+/// The file name of every portrait in the sandbox's compiled CPK (`71405.dds`), sorted.
+pub(crate) fn compiled_portraits(sandbox: &Sandbox) -> Vec<String> {
+    let mut portraits: Vec<String> = cpk_paths(&sandbox.root.join("output/4cc_90_test.cpk"))
+        .iter()
+        .filter_map(|path| path.strip_prefix("common/render/symbol/player/"))
+        .map(str::to_owned)
+        .collect();
+    portraits.sort_unstable();
+    portraits
 }
 
 /// The name of every kit texture in the sandbox's compiled CPK (`u0714g1`), sorted.

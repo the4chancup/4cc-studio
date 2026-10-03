@@ -5,7 +5,7 @@
 
 use aesthetics_export::{
     ExportIdentity, FileDescriptor, FileKind, FpcDirective, KitLayout, ModelFormat, PlayerFolder,
-    PlayerIndex, ResolvedAestheticsExport, ValidatedRoster,
+    PlayerIndex, PlayerSlot, ResolvedAestheticsExport, ValidatedAestheticsExport, ValidatedRoster,
 };
 use pes_version::{Engine, PesVersion};
 use vtree::ScopePath;
@@ -160,15 +160,41 @@ pub(crate) fn first_not_compiled(
             return Some(what_entry(&texture.file));
         }
     }
+    for (slot, file) in &export.portraits {
+        // A slot with a portrait from both sources is refused by naming this file: whether
+        // the two agree is the deep pass's `portrait_conflict`, which compares their bytes.
+        if !is_dds(file) || folder_holds_portrait(export, *slot) {
+            return Some(what_entry(file));
+        }
+    }
     // A small logo comes only with a main one, which is named first, so the small one is not
     // walked.
     let mut rest = export
-        .portraits
-        .values()
-        .chain(export.logo.as_ref().map(|logo| &logo.main.file))
+        .logo
+        .as_ref()
+        .map(|logo| &logo.main.file)
+        .into_iter()
         .chain(&export.collars)
         .chain(&export.common);
     rest.next().map(what_entry)
+}
+
+/// Whether `file` is a `.dds`, the one portrait format emitted as it is; every other image
+/// format, `.ftex` included, waits for its conversion.
+fn is_dds(file: &FileDescriptor) -> bool {
+    texture_format(file.path.name()) == Some(TextureFormat::Dds)
+}
+
+/// Whether the player folder `slot` maps in `export`, if one does, holds a `portrait.*`.
+fn folder_holds_portrait(export: &ValidatedAestheticsExport, slot: PlayerSlot) -> bool {
+    // A referee roster never reaches here: the gate names `refs` before any file.
+    let ValidatedRoster::Team(slots) = &export.roster else {
+        return false;
+    };
+    slots
+        .get(&slot)
+        .and_then(|index| export.players.get(index.0))
+        .is_some_and(|folder| folder.portrait.is_some())
 }
 
 /// The first thing in the mapped player `folder` that Phase 3 cannot build into a Fox face.
@@ -184,7 +210,9 @@ fn face_not_compiled(folder: &PlayerFolder) -> Option<(&'static str, String)> {
         }
     }
     let path = folder.path.as_str();
-    if let Some(portrait) = &folder.portrait {
+    if let Some(portrait) = &folder.portrait
+        && !is_dds(portrait)
+    {
         return Some(what_entry(portrait));
     }
     if folder.ingame_face {
@@ -250,7 +278,7 @@ mod tests {
     }
 
     #[test]
-    fn fox_face_folders_and_kits_are_compiled() {
+    fn fox_face_folders_dds_portraits_and_kits_are_compiled() {
         assert_eq!(gate(&[]), None);
         assert_eq!(
             gate(&[
@@ -261,6 +289,8 @@ mod tests {
                 "Players/03 - A/fcl_hair_sim.fclo",
                 "Players/03 - A/skin.dds",
                 "Players/03 - A/hair.FTEX",
+                "Players/03 - A/portrait.DDS",
+                "Portraits/player_07.dds",
                 "Kits/g1/kit.dds",
                 "Kits/g1/config.toml",
                 "Kits/g1/fox",
@@ -322,11 +352,55 @@ mod tests {
     }
 
     #[test]
-    fn a_portrait_ingame_face_or_fpc_on_is_named() {
+    fn a_portrait_in_another_format_than_dds_is_named() {
+        for file in [
+            "Players/03 - A/portrait.png",
+            "Players/03 - A/portrait.ftex",
+            "Portraits/player_03.png",
+            "Portraits/player_07.ftex",
+        ] {
+            assert_eq!(gate(&[file]), what(file), "{file}");
+        }
+    }
+
+    #[test]
+    fn a_slot_with_a_portrait_from_both_sources_is_named_by_its_portraits_file() {
         assert_eq!(
-            gate(&["Players/03 - A/portrait.dds"]),
-            what("Players/03 - A/portrait.dds")
+            gate(&["Players/03 - A/portrait.dds", "Portraits/player_03.dds"]),
+            what("Portraits/player_03.dds")
         );
+        // Another slot's file, mapped to a folder without a portrait or to no folder, is no
+        // conflict.
+        assert_eq!(
+            gate(&[
+                "Players/03 - A/portrait.dds",
+                "Players/07 - B/face_high.fmdl",
+                "Players/07 - B/face_diff.bin",
+                "Portraits/player_07.dds",
+                "Portraits/player_09.dds",
+            ]),
+            None
+        );
+        // The folder's portrait stands for every slot mapping the folder.
+        let export = resolved(
+            "co - Gate",
+            &[
+                ("Players/A/face_high.fmdl", 1),
+                ("Players/A/face_diff.bin", 1),
+                ("Players/A/portrait.dds", 1),
+                ("Portraits/player_07.dds", 1),
+            ],
+            &[],
+            Some(b"03 A\n07 A\n"),
+        );
+        assert_eq!(
+            first_not_compiled(&export, PesVersion::Pes21),
+            what("Portraits/player_07.dds")
+        );
+    }
+
+    #[test]
+    fn ingame_face_or_fpc_on_is_named() {
         assert_eq!(
             gate(&["Players/03 - A/fpc.on"]),
             what("Players/03 - A/fpc.on")
@@ -398,13 +472,8 @@ mod tests {
     }
 
     #[test]
-    fn portraits_logo_collars_and_common_are_named() {
-        for file in [
-            "Portraits/player_03.dds",
-            "logo.dds",
-            "Collars/collar.dds",
-            "Common/skin.dds",
-        ] {
+    fn logo_collars_and_common_are_named() {
+        for file in ["logo.dds", "Collars/collar.dds", "Common/skin.dds"] {
             assert_eq!(gate(&[file]), what(file), "{file}");
         }
     }
@@ -416,7 +485,7 @@ mod tests {
         let link = "Players/03 - A/Crocs.boots";
         let shared = "Boots/Crocs/boots.fmdl";
         let kit = "Kits/g1/kit.png";
-        let portrait = "Portraits/player_03.dds";
+        let portrait = "Portraits/player_03.png";
         // A folder's own files come before what it lacks: `face_diff.bin` is missing too.
         assert_eq!(
             first_hit(&[face_high, boots, link, shared, kit, portrait]),

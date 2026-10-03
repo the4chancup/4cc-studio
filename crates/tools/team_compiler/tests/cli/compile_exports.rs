@@ -7,7 +7,8 @@ use studio_core::PipelineEvent;
 
 use crate::common::Sandbox;
 use crate::compile::{
-    compiled_kits, compiled_players, cpk_entries, pass_through_settings, pes21_settings, tracer_kit,
+    compiled_kits, compiled_players, compiled_portraits, cpk_entries, pass_through_settings,
+    pes21_settings, tracer_kit, tracer_portrait,
 };
 use crate::{CLEAN_PLAYER, findings_of, source_fixture};
 
@@ -171,6 +172,102 @@ fn a_kit_holding_only_a_back_texture_gets_the_placeholder_main_texture() {
         config
     );
     assert_eq!(run.exit_code(), 0);
+}
+
+/// The CPK path of the portrait file `name` (`71405.dds`, `player_71405.dds`).
+fn portrait_path(name: &str) -> String {
+    format!("common/render/symbol/player/{name}")
+}
+
+#[test]
+fn dds_portraits_from_both_sources_are_emitted_as_they_are_under_the_version_s_name() {
+    let sandbox = Sandbox::new("portraits_dds");
+    sandbox.copy_tracer_face("exports/co - Portraits/Players/05 - A");
+    sandbox.write(
+        "exports/co - Portraits/Portraits/player_07.dds",
+        &tracer_kit(),
+    );
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+    assert_eq!(
+        findings_of(&run.messages(), "co - Portraits"),
+        ["Info export_identified [Keep] (team=/co/, id=714)"]
+    );
+    assert_eq!(run.exit_code(), 0);
+    assert_eq!(compiled_portraits(&sandbox), ["71405.dds", "71407.dds"]);
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_90_test.cpk"));
+    assert_eq!(entries[&portrait_path("71405.dds")], tracer_portrait());
+    assert_eq!(entries[&portrait_path("71407.dds")], tracer_kit());
+
+    // PES 18 names the same files with the `player_` prefix.
+    let run = sandbox.run("[common]\npes_version = 18\n", &["compile"]);
+
+    assert_eq!(run.exit_code(), 0);
+    assert_eq!(
+        compiled_portraits(&sandbox),
+        ["player_71405.dds", "player_71407.dds"]
+    );
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_90_test.cpk"));
+    assert_eq!(
+        entries[&portrait_path("player_71405.dds")],
+        tracer_portrait()
+    );
+    assert_eq!(entries[&portrait_path("player_71407.dds")], tracer_kit());
+}
+
+#[test]
+fn a_folder_listed_under_two_slots_emits_its_portrait_for_both() {
+    let sandbox = Sandbox::new("portraits_two_slots");
+    sandbox.write("exports/co - Twice/players.txt", b"03 A\n07 A\n");
+    sandbox.copy_tracer_face("exports/co - Twice/Players/A");
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+    assert_eq!(run.exit_code(), 0);
+    assert_eq!(compiled_portraits(&sandbox), ["71403.dds", "71407.dds"]);
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_90_test.cpk"));
+    for name in ["71403.dds", "71407.dds"] {
+        assert_eq!(entries[&portrait_path(name)], tracer_portrait(), "{name}");
+    }
+}
+
+#[test]
+fn a_slot_with_a_portrait_in_its_folder_and_in_portraits_is_not_compiled_yet() {
+    let sandbox = Sandbox::new("portraits_both_sources");
+    sandbox.copy_tracer_face("exports/co - Both/Players/05 - A");
+    sandbox.write("exports/co - Both/Portraits/player_05.dds", &tracer_kit());
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+    assert_eq!(
+        findings_of(&run.messages(), "co - Both"),
+        [
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Error content_not_yet_compiled [DropExport] (what=Portraits/player_05.dds)",
+        ]
+    );
+    assert_eq!(run.exit_code(), 1);
+    assert!(!sandbox.root.join("output/4cc_90_test.cpk").exists());
+}
+
+#[test]
+fn a_portrait_in_another_format_than_dds_is_not_compiled_yet() {
+    let sandbox = Sandbox::new("portraits_png");
+    sandbox.write(&format!("exports/co - Png/{CLEAN_PLAYER}"), b"");
+    sandbox.write("exports/co - Png/Players/03 - A/portrait.png", b"");
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+    assert_eq!(
+        findings_of(&run.messages(), "co - Png"),
+        [
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Error content_not_yet_compiled [DropExport] (what=Players/03 - A/portrait.png)",
+        ]
+    );
+    assert_eq!(run.exit_code(), 1);
+    assert!(!sandbox.root.join("output/4cc_90_test.cpk").exists());
 }
 
 // TC-STR-01

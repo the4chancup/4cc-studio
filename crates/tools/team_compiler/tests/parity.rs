@@ -98,10 +98,7 @@ const TABLE: &[(&str, Row)] = &[
         "common/etc/TeamColor.bin",
         Row::NotProduced("bins are Phase 4"),
     ),
-    (
-        "common/render/symbol/player/79205.dds",
-        Row::NotProduced("portraits are Phase 4 content"),
-    ),
+    ("common/render/symbol/player/79205.dds", Row::Exact),
 ];
 
 fn tree(root: &Path) -> BTreeMap<String, Vec<u8>> {

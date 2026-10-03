@@ -25,15 +25,15 @@ pub(crate) struct PlanReport {
     pub(crate) messages: Vec<Message>,
 }
 
-/// The run's tasks in canonical order: by export, then the faces by first roster slot, then the
-/// kits by slot. The writer lays the CPK out in this order whatever order the tasks finish in,
-/// so the same exports always give the same bytes.
+/// The run's tasks in canonical order: by export, then the faces by first roster slot, the
+/// portraits by player id, then the kits by slot. The writer lays the CPK out in this order
+/// whatever order the tasks finish in, so the same exports always give the same bytes.
 pub(crate) struct BuildManifest {
     /// The tasks, in canonical order.
     pub(crate) tasks: Vec<BuildTask>,
 }
 
-/// One unit of work: one player folder's face, or one kit.
+/// One unit of work: one player folder's face, one player's portrait, or one kit.
 pub(crate) struct BuildTask {
     /// The export the task's content comes from.
     pub(crate) export_id: ExportId,
@@ -57,6 +57,15 @@ pub(crate) enum TaskKind {
         /// The player id of every roster slot mapping the folder, in slot order.
         player_ids: Vec<u32>,
     },
+    /// One player's portrait, a DDS emitted as it is under the target version's file name.
+    /// One task per player id: a folder two roster slots map gives two tasks over its one
+    /// `portrait.dds`.
+    Portrait {
+        /// The player id the portrait is for.
+        player_id: u32,
+        /// The portrait file: the player folder's `portrait.dds`, or `Portraits/player_NN.dds`.
+        file: FileDescriptor,
+    },
     /// One kit, its `all/` inheritance already applied to its textures.
     Kit {
         /// The game's kit slot.
@@ -67,19 +76,22 @@ pub(crate) enum TaskKind {
 }
 
 impl TaskKind {
-    /// The folder the task compiles, as the export spells it: the scope its findings name.
+    /// The folder the task compiles, as the export spells it (a portrait's is its file): the
+    /// scope its findings name.
     pub(crate) fn folder_path(&self) -> ScopePath {
         match self {
             TaskKind::Face { folder, .. } => folder.path.clone(),
+            TaskKind::Portrait { file, .. } => file.path.clone(),
             TaskKind::Kit { kit, .. } => kit.path.clone(),
         }
     }
 
-    /// Every file the task reads from its export: a face's folder files; a kit's config, when
-    /// it has one, and its effective textures.
+    /// Every file the task reads from its export: a face's folder files; a portrait's one
+    /// file; a kit's config, when it has one, and its effective textures.
     pub(crate) fn files(&self) -> Vec<&FileDescriptor> {
         match self {
             TaskKind::Face { folder, .. } => folder.files.iter().collect(),
+            TaskKind::Portrait { file, .. } => vec![file],
             TaskKind::Kit { kit, .. } => kit
                 .config
                 .iter()
@@ -117,11 +129,35 @@ pub(crate) fn plan_run(
         };
         let team_id = id.get();
         let export = resolved.export;
+        // A folder's portrait goes out once per slot mapping the folder; the gate has refused
+        // any slot with a portrait from both sources, so no player id comes up twice.
+        let mut portraits: Vec<(u32, FileDescriptor)> = Vec::new();
         for (folder, player_ids) in face_folders(export.players, &export.roster, id) {
+            if let Some(portrait) = &folder.portrait {
+                portraits.extend(
+                    player_ids
+                        .iter()
+                        .map(|player_id| (*player_id, portrait.clone())),
+                );
+            }
             tasks.push(task(
                 export_id,
                 team_id,
                 TaskKind::Face { folder, player_ids },
+            ));
+        }
+        portraits.extend(
+            export
+                .portraits
+                .into_iter()
+                .map(|(slot, file)| (slot.player_id(id), file)),
+        );
+        portraits.sort_by_key(|(player_id, _)| *player_id);
+        for (player_id, file) in portraits {
+            tasks.push(task(
+                export_id,
+                team_id,
+                TaskKind::Portrait { player_id, file },
             ));
         }
         for (slot, kit) in export.kits.kits {
@@ -222,6 +258,9 @@ mod tests {
                     TaskKind::Face { folder, player_ids } => {
                         format!("face {} {player_ids:?}", folder.path.as_str())
                     }
+                    TaskKind::Portrait { player_id, file } => {
+                        format!("portrait {player_id} {}", file.path.as_str())
+                    }
                     TaskKind::Kit { slot, kit } => {
                         format!("kit {} {}", slot.as_str(), kit.path.as_str())
                     }
@@ -278,6 +317,48 @@ mod tests {
                 "1 714 face Players/04 - B [71404] charge 1",
             ]
         );
+    }
+
+    #[test]
+    fn portraits_follow_the_faces_by_player_id_one_per_slot_of_their_folder() {
+        let export = resolved(
+            "dbg - Portraits",
+            &[
+                ("Players/Zed/face_high.fmdl", 10),
+                ("Players/Zed/face_diff.bin", 0),
+                ("Players/Zed/portrait.dds", 4),
+                ("Portraits/player_05.dds", 6),
+                ("Portraits/player_01.dds", 5),
+                ("Kits/g1/kit.dds", 7),
+            ],
+            &[],
+            Some(b"07 Zed\n03 Zed\n"),
+        );
+
+        let report = plan_run(vec![(ExportId(0), export)], PesVersion::Pes21);
+
+        assert_eq!(
+            summary(&report),
+            [
+                "0 790 face Players/Zed [79003, 79007] charge 10",
+                "0 790 portrait 79001 Portraits/player_01.dds charge 5",
+                "0 790 portrait 79003 Players/Zed/portrait.dds charge 4",
+                "0 790 portrait 79005 Portraits/player_05.dds charge 6",
+                "0 790 portrait 79007 Players/Zed/portrait.dds charge 4",
+                "0 790 kit g1 Kits/g1 charge 7",
+            ]
+        );
+        let portrait = &report.manifest.tasks[2].kind;
+        assert_eq!(
+            portrait.folder_path(),
+            scope_path("Players/Zed/portrait.dds")
+        );
+        let files: Vec<&str> = portrait
+            .files()
+            .iter()
+            .map(|file| file.path.as_str())
+            .collect();
+        assert_eq!(files, ["Players/Zed/portrait.dds"]);
     }
 
     #[test]

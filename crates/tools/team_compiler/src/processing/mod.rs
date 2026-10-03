@@ -16,6 +16,7 @@ use studio_core::{Disposition, Message, Scope};
 use vtree::ScopePath;
 
 use crate::messages::{Code, tool_message};
+use crate::paths;
 use crate::plan::{BuildTask, TaskKind};
 
 /// The bytes of every file a task reads (`TaskKind::files`), keyed by the file's export path:
@@ -24,7 +25,8 @@ pub(crate) type TaskFiles = BTreeMap<ScopePath, Vec<u8>>;
 
 /// What every task of a run reads besides its own content.
 pub(crate) struct CompileContext {
-    /// The target version, which decides the kit config's encoding.
+    /// The target version, which decides the kit config's encoding and the portraits' file
+    /// names.
     pub(crate) version: PesVersion,
 }
 
@@ -60,6 +62,14 @@ pub(crate) fn process_task(
         TaskKind::Face { folder, player_ids } => {
             model::face(folder, player_ids, task.team_id, &mut files).map(|entries| (entries, None))
         }
+        // A DDS portrait is what the game reads: its bytes go out as they are.
+        TaskKind::Portrait { player_id, file } => Ok((
+            vec![(
+                paths::portrait(ctx.version, *player_id),
+                take(&mut files, file),
+            )],
+            None,
+        )),
         TaskKind::Kit { slot, kit } => kit::kit(*slot, kit, task.team_id, ctx.version, &mut files)
             .map(|(entries, config)| (entries, Some(config))),
     };
@@ -159,8 +169,14 @@ mod tests {
         }
     }
 
-    /// `kind` processed as task 3 of export 4, over its files read from the tracer folder.
+    /// `kind` processed for PES 21 as task 3 of export 4, over its files read from the tracer
+    /// folder.
     fn run(kind: TaskKind) -> TaskBatch {
+        run_for(kind, PesVersion::Pes21)
+    }
+
+    /// `run` for the target `version`.
+    fn run_for(kind: TaskKind, version: PesVersion) -> TaskBatch {
         let files = kind
             .files()
             .into_iter()
@@ -175,14 +191,7 @@ mod tests {
             kind,
             charge: 0,
         };
-        process_task(
-            3,
-            task,
-            files,
-            &CompileContext {
-                version: PesVersion::Pes21,
-            },
-        )
+        process_task(3, task, files, &CompileContext { version })
     }
 
     fn paths(batch: &TaskBatch) -> Vec<&str> {
@@ -257,6 +266,32 @@ mod tests {
                 .all(|(_, directory)| !directory.contains("/000/")),
             "{directories:?}"
         );
+    }
+
+    #[test]
+    fn a_portrait_is_emitted_as_it_is_under_the_version_s_name() {
+        let file = file(&format!("{PLAYER}/portrait.dds"));
+        let source = std::fs::read(tracer().join(file.source.as_str())).unwrap();
+        assert!(source.starts_with(b"DDS "), "the fixture is a DDS");
+        for (version, path) in [
+            (PesVersion::Pes21, "common/render/symbol/player/79205.dds"),
+            (
+                PesVersion::Pes18,
+                "common/render/symbol/player/player_79205.dds",
+            ),
+        ] {
+            let batch = run_for(
+                TaskKind::Portrait {
+                    player_id: 79205,
+                    file: file.clone(),
+                },
+                version,
+            );
+
+            assert!(batch.messages.is_empty() && batch.uniparam.is_none());
+            assert_eq!(paths(&batch), [path], "{version}");
+            assert_eq!(batch.entries[0].1, source, "{version}");
+        }
     }
 
     #[test]
