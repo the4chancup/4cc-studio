@@ -587,7 +587,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `kit_config_version_clamped`; `fpc_on`/`fpc_off` no longer refuse the export (their savefile
   half is Phase 5); `Collars/` gets its allowlist row in `ae` (model files named `collar_<ID>`,
   any model format; the per-version stock sets are in `messages.md` `collar_id_invalid`,
-  measured on every install but PES 20's; waits on
+  measured on every install, PES 20's included since 2026-10-03; waits on
   the maintainer: its confirmation, game-facing), `collar_<ID>` parsed with or without zero
   padding, `collar_id_invalid` (not a stock collar of the target version),
   `kit_collar_reserved` for a regular team's kit
@@ -1746,3 +1746,8 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   acceptance IDs. Lead fix: `crates/studio`'s CLI test wrote an empty model, now a real
   one. Also this session: the plan for the texture checks (4.7c, split in two) with its
   decision entry, and 4.8's two bin bases bundled with their measured layout.
+- **2026-10-03** — PES 2020 is installed (`C:\Data\Games\PES2020`, and on the external
+  drive), with the cup's base DLC. Measured on it: the stock collars are 1-127 and 901-913 (the
+  plan had assumed 1-124, what PES 19 and 21 share); its FPC CPK supplies the empty
+  `collar_105` and `pants_016` like every other version's; it holds no team kit config and no
+  color bins (`4cc_08_bins.cpk` is a placeholder).

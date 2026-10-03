@@ -32,6 +32,8 @@ rules only:
   PES 15 game has no collar 105 (its collars end at 101), so there the collar exists only
   through that CPK. The PES 18 install holds no team kit config to count; its FPC CPK holds
   the same files as PES 19's, and the maintainer confirmed it uses the same four values.
+  The PES 20 install (a base DLC only) holds no team kit config either; its FPC CPK
+  supplies the same empty `collar_105` and `pants_016`.
 - `player.rs` — the three appearance presets above, expressed in the crate's own small vocabulary
   (`Sleeves`, `Tuck`, `Socks`, boots/gloves IDs, skin color), not in `pes_savefile` field terms;
   and `custom_skin_available(version) -> bool`, true for PES 15 to 17 only (the Fox games dropped

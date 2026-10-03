@@ -27,9 +27,13 @@ record starts at `(id - 100) * record size`. Both bases hold 821 records, teams 
   the rest of which is zero), menu icon number, and two colors of three bytes each.
 
 All integers are little-endian. The cup's own files in each install's `4cc_08_bins.cpk` have
-the same layout (`scripts/provenance/fixtures/color_bins_compare.py`): PES 15, 16, 17 and 19
-hold 821 records each, and PES 18's CPK holds neither file. The PES 21 install measured is
-an old cup's, from before the database took its current form: its files hold 803 records
-(teams 100 to 902), and its `TeamColor.bin` has one corrupt record (team 761: twelve color
-bytes written over the header). Neither is a layout the compiler has to support; a current
-PES 21 cup's files are still to be compared.
+the same layout (`scripts/provenance/fixtures/color_bins_compare.py`): PES 15, 16, 17, 19
+and 21 hold 821 records each, and PES 18's and PES 20's CPKs hold neither file. PES 21's are
+the last VGL's (its CPK is dated 2026-06-05). An older PES 21 cup's files, from before the
+database took its current form, held 803 records (teams 100 to 902); that is not a layout the
+compiler supports.
+
+Some installed `TeamColor.bin` records are corrupt: their colors were written from the
+record's first byte, over the ID and the count. The last VGL's file has three (teams 799, 829
+and 831, nine color bytes each), the older PES 21 cup's had one (team 761, twelve bytes). What
+wrote them is not known; Red writes a team's colors after the header.

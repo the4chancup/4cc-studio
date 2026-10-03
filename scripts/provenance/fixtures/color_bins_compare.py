@@ -20,7 +20,7 @@ RED = Path("C:/Data/4cc/4cc aet compiler/4cc-aet-compiler-red/Engines/bins")
 APPTEST = ROOT / ".tmp/apptest/target/release/apptest.exe"
 OUT = ROOT / ".tmp/color_bins"
 INSTALLS = Path("F:/Games")
-VERSIONS = ("2015", "2016", "2017", "2018", "2019", "2021")
+VERSIONS = ("2015", "2016", "2017", "2018", "2019", "2020", "2021")
 # name -> (path inside a CPK, record size, the ID field's format)
 BINS = {
     "TeamColor.bin": ("common/etc/TeamColor.bin", 16, "<H"),
