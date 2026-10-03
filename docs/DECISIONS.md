@@ -3392,3 +3392,11 @@ can do neither. The cost, not yet measured: `compile` reads each checked file tw
 solid `.7z` is decompressed a third time (metadata, deep pass, tasks); worklog "Issues".
 Plan: `team_compiler/pipeline.md` "2. Per-export serial steps" (deep format pass);
 `aesthetics_export/object_model.md` "Validation semantics" (content findings).
+
+## 2026-10-03 — fpc — PES 18 uses the same four FPC values
+Decision (user): `fpc::kit_values` returns shirt model 176, shorts model 16, collar 105 and
+winter collar 105 for PES 18 too. With PES 15 (entry above) the values are then the same on
+every version, so the function loses its `Option` at step 4.9.
+Why: PES 18's install has the FPC CPK, the same 15 files as PES 19's, but no team kit config
+to count, so the values needed the maintainer's word.
+Plan: `libs/fpc.md` "`libs/fpc`" (`kit.rs`).

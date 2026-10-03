@@ -20,7 +20,8 @@ rules only:
   reimplementation for 16/17; the retro 16/17 system is documented as legacy and not supported).
   `kit_values(version)` returns the same four values (shirt model 176, shorts model 16, collar
   105, winter collar 105) for PES 16, 17, 19, 20 and 21 and `None` for PES 15 and 18. The
-  `None` is wrong for PES 15 and very likely for PES 18, and step 4.9 (worklog) corrects it: the
+  `None` is wrong for both, and step 4.9 (worklog) corrects it, after which the values are the
+  same on every version and the function returns them without an `Option`: the
   wiki page it was written from documents the PES 17 values and calls the PES 19+ system "mostly
   identical", and says nothing of PES 15 or 18, but the cup's installs have FPC on all of them.
   Counted on the maintainer's installs (every `*_realUni.bin` in each install's `download`
@@ -29,9 +30,8 @@ rules only:
   which also settles that PES 19+ uses the same four. Each install, PES 15 and 18 included, has
   its own `4cc_04_fpc.cpk` supplying the empty `collar_105` and `pants_016` models; the stock
   PES 15 game has no collar 105 (its collars end at 101), so there the collar exists only
-  through that CPK. The PES 18 install holds no team kit config to count: its values are
-  inferred from its FPC CPK, which holds the same files as PES 19's, until the maintainer
-  confirms them.
+  through that CPK. The PES 18 install holds no team kit config to count; its FPC CPK holds
+  the same files as PES 19's, and the maintainer confirmed it uses the same four values.
 - `player.rs` — the three appearance presets above, expressed in the crate's own small vocabulary
   (`Sleeves`, `Tuck`, `Socks`, boots/gloves IDs, skin color), not in `pes_savefile` field terms;
   and `custom_skin_available(version) -> bool`, true for PES 15 to 17 only (the Fox games dropped

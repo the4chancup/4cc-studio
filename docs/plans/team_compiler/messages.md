@@ -215,6 +215,40 @@ savefile messages are new.
 | `file_type_disallowed` | E/I | extension not in the mode's allowlist (E if `strict_file_type_check`, else I) | folder discarded / kept |
 | `fmdl_texture_not_found` | E/W | Fox: a texture one of the model's meshes uses is supplied by nobody: its stem resolves to no file of the folder, and its path names the team's Common output, where neither the export's `Common/` nor an installed CPK holds it (`pipeline.md` "Resolved decisions", "A texture a model names must exist"; context: the model file, the texture path). W when no install could be read to look, since the texture may be there | folder discarded (`DropFolder`); kept when W |
 
+**Model checks** (the format crates' `check`, run by the deep pass on every native model as it
+is loaded, whatever the target, and from the conversion steps on, on each converted model in its
+target form. A finding keeps the format crate's code and its severity, which "What makes a
+finding an Error" sets; the one renamed is the far vertex, which both formats report as
+`vertex_too_far_from_origin`, above. An Error discards the folder and is
+pass-through-eligible, since the file can still be packed as it is; a Warning or an Info changes
+nothing. Context: the model file, and the number of items that tripped the rule. A finding on a
+`Common/` model acts on that file, and the players linking it follow `link_target_dropped`)
+
+| ID | Sev | Condition | Consequence |
+|---|---|---|---|
+| `model_broken` | E | a model file (`.fmdl` or `.model`) does not parse (context: the file, the reader's error) | folder discarded; not pass-through-eligible (it cannot be processed) |
+| `fmdl_mesh_over_bone_limit`, `fmdl_mesh_over_vertex_limit`, `fmdl_mesh_over_face_limit` | E | Fox: a mesh exceeds a hard FMDL limit; the game cannot load it | folder discarded |
+| `fmdl_face_index_out_of_range` | E | Fox: a face names a vertex that does not exist | folder discarded |
+| `fmdl_mesh_unassigned` | E | Fox: no mesh group lists the mesh, so the written file would not contain it | folder discarded |
+| `fmdl_bone_slot_out_of_range` | W | Fox: a weighted bone index points past the mesh's bone group; the game ignores that weight (Konami's own models do this) | none |
+| `fmdl_mesh_empty` | W | Fox: a mesh with no faces | none |
+| `fmdl_duplicate_bone_name` | W | Fox: two bones of one name; merges and `.skl` matching get ambiguous | none |
+| `fmdl_weights_not_normalized` | I | Fox: a vertex's weights sum to neither 255 nor 0 | none |
+| `fmdl_material_unused` | I | Fox: a material instance no mesh uses | none |
+| `model_mesh_over_bone_limit`, `model_mesh_over_vertex_limit`, `model_mesh_over_face_limit` | E | pre-Fox: a mesh exceeds a hard `.model` limit; the game cannot load it | folder discarded |
+| `model_face_index_out_of_range` | E | pre-Fox: a face of any LOD level names a vertex that does not exist | folder discarded |
+| `model_bone_slot_out_of_range` | W | pre-Fox: a weighted bone index points past the mesh's bone group | none |
+| `model_mesh_empty` | W | pre-Fox: a mesh with no faces | none |
+| `model_duplicate_bone_name` | W | pre-Fox: two bones of one name | none |
+| `model_lod_record_mismatch` | W | pre-Fox: the LOD record's level count disagrees with the meshes' LOD levels | none |
+| `model_weights_not_normalized` | I | pre-Fox: a vertex's weights do not sum to 1 | none |
+| `model_degenerate_face` | I | pre-Fox: a face uses one vertex twice | none |
+| `model_material_unused` | I | pre-Fox: a material name no mesh uses | none |
+
+The `.mtl` checks (`mtl_material_duplicate`, `mtl_state_*`) are in "XML/MTL content checks"
+below; the deep pass runs them on every `.mtl`. `model_material_undefined` needs to know which
+`.mtl` a model is paired with, which the pre-Fox face steps decide, so it is theirs.
+
 **Textures** (file-scoped; in model folders the folder fails, and so does a kit, whose config
 names its textures; elsewhere (`Common/`, portraits) the file is dropped; the logo sources are the
 exception — main and `_small` fail as one atomic producer of the game's three sizes. A file is
@@ -265,6 +299,8 @@ uncompressed kits needed)
 | `mtl_blendmode_nonzero` | W | `blendmode` = 1 (works, not recommended) | none |
 | `mtl_state_missing` | I | state names absent, defaults used | none |
 | `mtl_state_nonrecommended` | I | `alphablend`/`zwrite` combination not recommended | none |
+| `mtl_state_unknown` | I | a state name outside the seven the schema knows (`shadowcaster` in 18 of Konami's files) | kept verbatim |
+| `model_material_undefined` | E | a material name a `.model` uses has no entry in the `.mtl` it is paired with; the mesh would render with the game's fallback | folder discarded |
 
 The three `mtl_state_*` checks other than `mtl_state_missing` also run on a glTF material's
 `[prefox.states]` table when the target is pre-Fox (the format plan's schema mirrors the `.mtl`

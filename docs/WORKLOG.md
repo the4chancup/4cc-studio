@@ -546,9 +546,11 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
 - [ ] 4.9 **Kit configs, FPC reconciliation and collars** (the brief settles what a collar in
   the other engine's format does: converted, or refused; `Collars/` admits any model format):
   team kit-FPC status (`fpc_on` in any
-  player folder → On), `fpc::kit_values` returning the four FPC values for PES 15 too, and
-  for PES 18 unless the maintainer says otherwise (both are `None` today, from a wiki page
-  silent on them; `libs/fpc.md` has the installs' counts; "Phase 4 open questions"),
+  player folder → On), `fpc::kit_values` returning the four FPC values on every version,
+  PES 15 and 18 included, so without its `Option` (both are `None` today, from a wiki page
+  silent on them; PES 15 measured on the install, PES 18 confirmed by the maintainer;
+  `libs/fpc.md` has the counts), with `kit_config`'s `apply_fpc`/`matches_fpc` simplified to
+  match,
   generated configs with FPC values (`kit_config::fpc::apply_fpc`), supplied
   configs reconciled upward (`kit_config_fpc_adjusted`, GK included),
   `kit_config_version_clamped`; `fpc_on`/`fpc_off` no longer refuse the export (their savefile
@@ -968,12 +970,6 @@ Phase 4 open questions (maintainer):
   and `4cc_50_other_faces`/`4cc_55_other_uniform` by `4cc_50_teams2` to `4cc_54_teams2`, 45
   entries. To confirm: five slots per run, and whether the second run is wanted. The slot
   stem is settled, `teams`.
-- FPC on PES 18 (4.9): the cup's PES 15 install has FPC (301 of its 360 kit configs carry the
-  four FPC values, and its `4cc_04_fpc.cpk` supplies `collar_105`), so `fpc::kit_values`
-  returns them for PES 15 from 4.9 on. PES 18's install has the FPC CPK (the same 15 files as
-  PES 19's) but no team kit config to count. To confirm: that PES 18 uses the same four
-  values. The lead's recommendation, applied at 4.9 unless told otherwise: yes, which makes
-  the values the same on every version and removes the `Option`.
 - Collars beyond the stock set (4.9, 4.27; the maintainer's idea, 2026-10-03): PES 15 loads
   `collar_105`, which its stock game lacks, so the games probably accept collar IDs they do
   not ship. If so, the FPC collar and the referees' marker could move to IDs no stock collar
