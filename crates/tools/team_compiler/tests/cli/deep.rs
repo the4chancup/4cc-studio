@@ -7,8 +7,12 @@ use std::path::Path;
 use fmdl::{FmdlFile, Model};
 
 use crate::common::Sandbox;
-use crate::compile::{cpk_entries, pass_through_settings, pes21_settings, tracer_player_file};
+use crate::compile::{
+    compiled_kits, compiled_players, cpk_entries, pass_through_settings, pes21_settings,
+    tracer_kit, tracer_player_file,
+};
 use crate::findings_of;
+use crate::models::face_diff_fixture;
 
 /// The bytes of `tests/fixtures/deep/<name>`.
 fn deep_fixture(name: &str) -> Vec<u8> {
@@ -266,4 +270,137 @@ fn a_logo_that_does_not_decode_is_logo_file_invalid_and_the_export_is_otherwise_
             "Asset/model/character/boots/k0627/#Win/boots.fpkd",
         ]
     );
+}
+
+/// The tracer's face models in the player folder `player`, as both commands report them.
+fn tracer_face_weights(player: &str) -> [String; 3] {
+    [
+        ("boots.fmdl", 1662),
+        ("fcl_hair.fmdl", 1662),
+        ("glove_l.fmdl", 2),
+    ]
+    .map(|(file, count)| {
+        format!(
+            "Info fmdl_weights_not_normalized [Keep] at Players/{player} (file={file}, count={count})"
+        )
+    })
+}
+
+/// `settings_toml_invalid` on slot `player`'s `settings.toml` holding `name = 5`.
+fn settings_invalid(player: &str) -> String {
+    format!(
+        "Error settings_toml_invalid [DropFile] at Players/{player}/settings.toml \
+         (file=settings.toml, error=name: expected true or a string)"
+    )
+}
+
+// TC-CHK-03
+#[test]
+fn a_settings_toml_that_does_not_parse_is_ignored_and_the_folder_s_models_compile() {
+    let sandbox = Sandbox::new("deep_settings_invalid");
+    sandbox.copy_tracer_face("exports/co - Settings/Players/05 - A");
+    // `name` takes `true` or a string.
+    sandbox.write(
+        "exports/co - Settings/Players/05 - A/settings.toml",
+        b"name = 5\n",
+    );
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+    let mut expected = tracer_face_weights("05 - A").to_vec();
+    expected.push(settings_invalid("05 - A"));
+    expected.push(IDENTIFIED.to_owned());
+    assert_eq!(findings_of(&run.messages(), "co - Settings"), expected);
+    assert_eq!(run.exit_code(), 1);
+    assert_eq!(compiled_players(&sandbox), [71405]);
+}
+
+/// `kit_config_invalid` on `Kits/p1`, whose `config.toml` holds `shirt = 144`.
+const KIT_CONFIG_INVALID: &str = "Error kit_config_invalid [DropFolder] at Kits/p1 \
+     (file=config.toml, error=invalid value for shirt: 144)";
+
+/// Writes a kit `p1` whose `config.toml` is the wrong-typed `shirt = 144` and a kit `p2`
+/// with no config into `export`.
+fn write_kits(sandbox: &Sandbox, export: &str) {
+    sandbox.write(&format!("{export}/Kits/p1/kit.dds"), &tracer_kit());
+    sandbox.write(&format!("{export}/Kits/p1/config.toml"), b"shirt = 144\n");
+    sandbox.write(&format!("{export}/Kits/p2/kit.dds"), &tracer_kit());
+}
+
+#[test]
+fn a_kit_config_that_does_not_parse_leaves_its_kit_out_and_the_kit_beside_it_compiles() {
+    let sandbox = Sandbox::new("deep_kit_config_invalid");
+    write_kits(&sandbox, "exports/co - Kits");
+
+    let check = sandbox.run(&pes21_settings(&sandbox), &["check"]);
+    assert_eq!(
+        findings_of(&check.messages(), "co - Kits"),
+        [KIT_CONFIG_INVALID, IDENTIFIED]
+    );
+    assert_eq!(check.exit_code(), 1);
+
+    let compile = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    assert_eq!(
+        findings_of(&compile.messages(), "co - Kits"),
+        [
+            KIT_CONFIG_INVALID,
+            IDENTIFIED,
+            "Info kit_config_generated [Keep] at Kits/p2 ()"
+        ]
+    );
+    assert_eq!(compile.exit_code(), 1);
+    assert_eq!(compiled_kits(&sandbox), ["u0714p2"]);
+}
+
+#[test]
+fn pass_through_keeps_no_face_diff_kit_config_or_settings_toml_that_cannot_be_read() {
+    let sandbox = Sandbox::new("deep_documents_pass_through");
+    let export = "exports/co - Unreadable";
+    // Slot 03: a `face_diff.bin` one byte shorter than its header gives.
+    sandbox.copy_tracer_face(&format!("{export}/Players/03 - A"));
+    sandbox.write(
+        &format!("{export}/Players/03 - A/face_diff.bin"),
+        &face_diff_fixture("dif.bin")[..943],
+    );
+    // Slot 05: a `face_diff.xml` beside the tracer's `face_diff.bin`.
+    sandbox.copy_tracer_face(&format!("{export}/Players/05 - B"));
+    sandbox.write(
+        &format!("{export}/Players/05 - B/face_diff.xml"),
+        &face_diff_fixture("dif.xml"),
+    );
+    // Slot 07: a `settings.toml` whose `name` is a number.
+    sandbox.copy_tracer_face(&format!("{export}/Players/07 - C"));
+    sandbox.write(
+        &format!("{export}/Players/07 - C/settings.toml"),
+        b"name = 5\n",
+    );
+    write_kits(&sandbox, export);
+
+    let run = sandbox.run(&pass_through_settings(&sandbox), &["compile"]);
+
+    let mut expected = tracer_face_weights("03 - A").to_vec();
+    expected.push(
+        "Error face_diff_invalid [DropFolder] at Players/03 - A (file=face_diff.bin, \
+         reason=the face diff is 943 bytes long, but its header gives 944: the game would \
+         read past its end)"
+            .to_owned(),
+    );
+    expected.extend(tracer_face_weights("05 - B"));
+    expected.push(
+        "Error xml_dif_conflict [DropFolder] at Players/05 - B (file=face_diff.xml)".to_owned(),
+    );
+    expected.extend(tracer_face_weights("07 - C"));
+    expected.push(settings_invalid("07 - C"));
+    expected.extend(
+        [
+            KIT_CONFIG_INVALID,
+            IDENTIFIED,
+            "Info kit_config_generated [Keep] at Kits/p2 ()",
+        ]
+        .map(str::to_owned),
+    );
+    assert_eq!(findings_of(&run.messages(), "co - Unreadable"), expected);
+    assert_eq!(run.exit_code(), 1);
+    assert_eq!(compiled_players(&sandbox), [71407]);
+    assert_eq!(compiled_kits(&sandbox), ["u0714p2"]);
 }

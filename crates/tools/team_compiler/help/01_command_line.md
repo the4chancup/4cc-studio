@@ -107,11 +107,13 @@ a `fcl_hair_sim.fclo` beside it, gets the bundled default file. A face folder ma
 `face_diff.bin` as text instead, in a `face_diff.xml`: the file in base64, alone or inside a
 `<dif>` element, the way an older face folder's `face.xml` holds it. It is decoded and packed
 as `face_diff.bin`, and counts as one: the player's own, in either form, is used over a
-linked `Faces` folder's. A face diff that cannot be used is reported as `face_diff_invalid`,
-naming the file and the reason (text that is not base64, a `<dif>` holding elements, or a
-file shorter than its own header says, which the game would read past the end of), and a
-folder holding both `face_diff.bin` and `face_diff.xml` as `xml_dif_conflict`; either leaves
-that folder's face out of the CPK. A player's folder may sort its
+linked `Faces` folder's. Both commands report a face diff that cannot be used as
+`face_diff_invalid`, naming the file and the reason (text that is not base64, a `<dif>`
+holding elements, or a file shorter than its own header says, which the game would read past
+the end of), and a folder holding both `face_diff.bin` and `face_diff.xml` as
+`xml_dif_conflict`, so `check` finds them too. Either leaves the whole folder out of the CPK,
+even with `pass_through` on, and a player linking a `Faces` folder left out this way is left
+out too, with the line `link_target_dropped`. A player's folder may sort its
 files into the subfolders `face`, `boots`, `gloves` and `common` (the layout of older referee
 exports): every model in `boots` is the boots and every model in `face` is a face part,
 whatever their names (`boots/hair_high.fmdl` is packed as `boots.fmdl`; a model in `face`
@@ -122,7 +124,10 @@ file pairs with the model beside it in the same subfolder, textures from any of 
 player's common folder, and parts in a subfolder are merged with the folder's own models and
 with a linked shared folder of the same kind. A kit folder with
 no `kit` texture, an empty one included, is built with a magenta and black checkerboard in its
-place and reported as `kit_placeholder`, so a kit nobody drew shows as missing in the game. `compile`
+place and reported as `kit_placeholder`, so a kit nobody drew shows as missing in the game. A
+kit's `config.toml` that cannot be read (not UTF-8 text, a value of the wrong type or out of
+range) is reported by both commands as `kit_config_invalid`, naming the error, and the kit is
+left out, even with `pass_through` on. `compile`
 skips any other export with the error `content_not_yet_compiled`, naming the first thing it
 cannot build yet: a PES 2015 to 2017 target, a referee export, or content other than a player's
 own face, boots and gloves models, their textures, portraits, kits, linked shared
@@ -149,6 +154,11 @@ reported as `vertex_too_far_from_origin` and its folder is left out even when `p
 on. So is a file that cannot be read as a model or a material file at all, reported as
 `model_broken` or `mtl_broken`. A player linking a shared folder or `Common` model left out this
 way is left out too, with the line `link_target_dropped`.
+
+Both commands also read each player's `settings.toml`. One that cannot be read (not UTF-8
+text, a key it does not know, a value of the wrong type or out of range) is reported as
+`settings_toml_invalid`, naming the error: the file is ignored, even with `pass_through` on,
+and the player's models are still built.
 
 Both commands read every export in the exports folder from the settings (`exports/` beside
 `4cc-studio` unless you changed it). To use another folder for one run, give its path as

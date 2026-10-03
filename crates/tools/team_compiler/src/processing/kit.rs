@@ -14,9 +14,10 @@ use crate::templates::PLACEHOLDER_KIT;
 /// bytes in `files`: its textures and its config as CPK entries, and the config as a
 /// `UniformParameter.bin` entry (name, bytes). A kit without a `kit` texture gets the bundled
 /// placeholder as its main texture, converted like any kit texture. The deep pass has already
-/// dropped a kit whose textures its checks find wrong; a finding conversion reports
-/// (`texture_codec_unsupported`) fails the kit with the finding's code: the config names its
-/// textures, so none goes out alone.
+/// dropped a kit whose `config.toml` does not parse (`kit_config_invalid`) or whose textures
+/// its checks find wrong, so a config that fails to parse here is an ordinary failure; a
+/// finding conversion reports (`texture_codec_unsupported`) fails the kit with the finding's
+/// code: the config names its textures, so none goes out alone.
 pub(super) fn kit(
     slot: KitSlot,
     kit: &KitFolder,

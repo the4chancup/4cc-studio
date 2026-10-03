@@ -3669,6 +3669,7 @@ dependencies = [
  "kit_config",
  "log",
  "pes_model",
+ "pes_savefile",
  "pes_version",
  "pipeline",
  "rayon",

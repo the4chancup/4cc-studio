@@ -612,7 +612,7 @@ fn a_boots_subfolder_s_model_is_the_boots_and_a_common_subfolder_s_texture_is_th
 }
 
 /// The face diff fixture `name`, from `tests/fixtures/face_diff/`.
-fn face_diff_fixture(name: &str) -> Vec<u8> {
+pub(crate) fn face_diff_fixture(name: &str) -> Vec<u8> {
     fs::read(
         Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("tests/fixtures/face_diff")
@@ -630,28 +630,46 @@ fn write_xml_face(sandbox: &Sandbox, export: &str, xml: &[u8]) {
     sandbox.write(&format!("{player}/face_diff.xml"), xml);
 }
 
-/// Compiles the sandbox for PES 21, asserting the export `name` reports its identity and
-/// `finding`, and that slot 05's face package is not in the CPK while its boots are.
+/// Copies the tracer's face into slot 07 of `export`, beside the slot 05 under test, so the
+/// export still writes a CPK when slot 05's folder is dropped.
+fn write_slot_07(sandbox: &Sandbox, export: &str) {
+    sandbox.copy_tracer_face(&format!("{export}/Players/07 - B"));
+}
+
+/// Checks, then compiles, the sandbox for PES 21 (slot 05 under test, slot 07 written by
+/// `write_slot_07`), asserting both commands report `finding` on slot 05 before the export
+/// `name`'s identity, and that slot 05's folder is not in the CPK while slot 07's is.
 fn assert_face_dropped(sandbox: &Sandbox, name: &str, finding: &str) {
-    let run = sandbox.run(&pes21_settings(sandbox), &["compile"]);
-    assert_eq!(
-        findings_of(&run.messages(), name),
-        [
-            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=boots.fmdl, count=1662)",
-            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=fcl_hair.fmdl, count=1662)",
-            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=glove_l.fmdl, count=2)",
-            "Info export_identified [Keep] (team=/co/, id=714)",
-            finding
-        ]
-    );
-    assert_eq!(run.exit_code(), 1);
+    for command in ["check", "compile"] {
+        let run = sandbox.run(&pes21_settings(sandbox), &[command]);
+        assert_eq!(
+            findings_of(&run.messages(), name),
+            [
+                "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=boots.fmdl, count=1662)",
+                "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=fcl_hair.fmdl, count=1662)",
+                "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=glove_l.fmdl, count=2)",
+                finding,
+                "Info fmdl_weights_not_normalized [Keep] at Players/07 - B (file=boots.fmdl, count=1662)",
+                "Info fmdl_weights_not_normalized [Keep] at Players/07 - B (file=fcl_hair.fmdl, count=1662)",
+                "Info fmdl_weights_not_normalized [Keep] at Players/07 - B (file=glove_l.fmdl, count=2)",
+                "Info export_identified [Keep] (team=/co/, id=714)",
+            ],
+            "{command}"
+        );
+        assert_eq!(run.exit_code(), 1, "{command}");
+    }
     let entries = cpk_entries(&sandbox.root.join("output/4cc_90_test.cpk"));
+    // Slot 05's face and portrait are player 71405's; `/co/`'s block starts at 621, so its
+    // boots and gloves are k0625 and g0625, slot 07's 627.
     assert!(
-        !entries.contains_key("Asset/model/character/face/real/71405/#Win/face.fpk"),
+        !entries
+            .keys()
+            .any(|path| path.contains("71405") || path.contains("0625/")),
         "{:?}",
         entries.keys()
     );
-    assert!(entries.contains_key("Asset/model/character/boots/k0625/#Win/boots.fpk"));
+    assert!(entries.contains_key("Asset/model/character/face/real/71407/#Win/face.fpk"));
+    assert!(entries.contains_key("Asset/model/character/boots/k0627/#Win/boots.fpk"));
 }
 
 // TC-MOD-15
@@ -659,17 +677,17 @@ fn assert_face_dropped(sandbox: &Sandbox, name: &str, finding: &str) {
 fn a_face_diff_xml_is_decoded_into_the_face_and_a_corrupt_one_drops_the_folder() {
     let sandbox = Sandbox::new("mod_face_diff_xml");
     write_xml_face(&sandbox, "exports/co - Xml", &face_diff_fixture("dif.xml"));
+    let clean = [
+        "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=boots.fmdl, count=1662)",
+        "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=fcl_hair.fmdl, count=1662)",
+        "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=glove_l.fmdl, count=2)",
+        "Info export_identified [Keep] (team=/co/, id=714)",
+    ];
 
-    let entries = compile_clean(
-        &sandbox,
-        "co - Xml",
-        &[
-            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=boots.fmdl, count=1662)",
-            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=fcl_hair.fmdl, count=1662)",
-            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=glove_l.fmdl, count=2)",
-            "Info export_identified [Keep] (team=/co/, id=714)",
-        ],
-    );
+    let check = sandbox.run(&pes21_settings(&sandbox), &["check"]);
+    assert_eq!(findings_of(&check.messages(), "co - Xml"), clean);
+    assert_eq!(check.exit_code(), 0);
+    let entries = compile_clean(&sandbox, "co - Xml", &clean);
 
     assert_eq!(
         face_package(&entries).get("face_diff.bin").unwrap(),
@@ -686,12 +704,13 @@ fn a_face_diff_xml_is_decoded_into_the_face_and_a_corrupt_one_drops_the_folder()
     corrupt[payload + 100] = b'*';
     let corrupt_sandbox = Sandbox::new("mod_face_diff_xml_corrupt");
     write_xml_face(&corrupt_sandbox, "exports/co - Corrupt", &corrupt);
+    write_slot_07(&corrupt_sandbox, "exports/co - Corrupt");
 
     assert_face_dropped(
         &corrupt_sandbox,
         "co - Corrupt",
         "Error face_diff_invalid [DropFolder] at Players/05 - A \
-         (file=Players/05 - A/face_diff.xml, reason=the base64 text holds '*' where base64 cannot)",
+         (file=face_diff.xml, reason=the base64 text holds '*' where base64 cannot)",
     );
 }
 
@@ -704,11 +723,11 @@ fn a_face_diff_given_twice_or_shorter_than_its_header_drops_the_folder() {
         "exports/co - Twice/Players/05 - A/face_diff.xml",
         &face_diff_fixture("dif.xml"),
     );
+    write_slot_07(&twice, "exports/co - Twice");
     assert_face_dropped(
         &twice,
         "co - Twice",
-        "Error xml_dif_conflict [DropFolder] at Players/05 - A \
-         (file=Players/05 - A/face_diff.xml)",
+        "Error xml_dif_conflict [DropFolder] at Players/05 - A (file=face_diff.xml)",
     );
 
     // A `face_diff.bin` one byte shorter than its header gives.
@@ -718,11 +737,12 @@ fn a_face_diff_given_twice_or_shorter_than_its_header_drops_the_folder() {
         "exports/co - Cut/Players/05 - A/face_diff.bin",
         &face_diff_fixture("dif.bin")[..943],
     );
+    write_slot_07(&cut, "exports/co - Cut");
     assert_face_dropped(
         &cut,
         "co - Cut",
         "Error face_diff_invalid [DropFolder] at Players/05 - A \
-         (file=Players/05 - A/face_diff.bin, reason=the face diff is 943 bytes long, but its \
+         (file=face_diff.bin, reason=the face diff is 943 bytes long, but its \
          header gives 944: the game would read past its end)",
     );
 }

@@ -1,6 +1,7 @@
 //! A face's `face_diff.bin`, the face parameter file the game reads beside a face's models:
 //! decoded from the text a `face_diff.xml` gives it in, and checked to be a face diff the game
-//! can read (`player_folders.md` "`face_diff.xml`").
+//! can read (`player_folders.md` "`face_diff.xml`"). The deep pass checks a folder's face diff
+//! in either form; packing decodes a `face_diff.xml` into the bytes it packs.
 
 use std::fmt;
 
@@ -10,7 +11,7 @@ use base64::{DecodeError, Engine};
 /// Why a face folder's face diff cannot be used, as one sentence a member can act on: the
 /// `reason` of `face_diff_invalid`.
 #[derive(Debug)]
-pub(super) enum FaceDiffError {
+pub(crate) enum FaceDiffError {
     /// A `face_diff.xml` that is not UTF-8 text.
     NotUtf8,
     /// A `face_diff.xml` read as XML (its first non-blank character is `<`) that does not parse.
@@ -42,7 +43,7 @@ const HEADER_LEN: usize = 0x50;
 
 /// Checks that `bytes` are a face diff the game can read: the magic `FACE`, and at least the
 /// length its header gives, `0xF0 + 0x10 × count(0x48) + 0x20 × count(0x4C)`.
-pub(super) fn check(bytes: &[u8]) -> Result<(), FaceDiffError> {
+pub(crate) fn check(bytes: &[u8]) -> Result<(), FaceDiffError> {
     if bytes.len() < HEADER_LEN {
         return Err(FaceDiffError::ShorterThanHeader(bytes.len()));
     }
@@ -77,7 +78,7 @@ fn count_at(bytes: &[u8], offset: usize) -> u64 {
 /// padded, whitespace anywhere), alone in the file or as the text of a `<dif>` root element,
 /// decoded and checked (`check`). A file whose first non-blank character is `<` is read as
 /// XML; a UTF-8 byte order mark is skipped.
-pub(super) fn from_xml(bytes: &[u8]) -> Result<Vec<u8>, FaceDiffError> {
+pub(crate) fn from_xml(bytes: &[u8]) -> Result<Vec<u8>, FaceDiffError> {
     let bytes = bytes.strip_prefix(b"\xEF\xBB\xBF").unwrap_or(bytes);
     let text = std::str::from_utf8(bytes).map_err(|_| FaceDiffError::NotUtf8)?;
     let text = text.trim_start_matches(|c: char| c.is_ascii_whitespace());
@@ -160,10 +161,10 @@ mod tests {
     use super::*;
     use crate::templates;
 
-    const DIF_XML: &[u8] = include_bytes!("../../tests/fixtures/face_diff/dif.xml");
-    const DIF_BIN: &[u8] = include_bytes!("../../tests/fixtures/face_diff/dif.bin");
-    const PLAIN_XML: &[u8] = include_bytes!("../../tests/fixtures/face_diff/plain.xml");
-    const PLAIN_BIN: &[u8] = include_bytes!("../../tests/fixtures/face_diff/plain.bin");
+    const DIF_XML: &[u8] = include_bytes!("../tests/fixtures/face_diff/dif.xml");
+    const DIF_BIN: &[u8] = include_bytes!("../tests/fixtures/face_diff/dif.bin");
+    const PLAIN_XML: &[u8] = include_bytes!("../tests/fixtures/face_diff/plain.xml");
+    const PLAIN_BIN: &[u8] = include_bytes!("../tests/fixtures/face_diff/plain.bin");
 
     /// The reason `result` failed with.
     fn reason<T: fmt::Debug>(result: Result<T, FaceDiffError>) -> String {

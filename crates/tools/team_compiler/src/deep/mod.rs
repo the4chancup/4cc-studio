@@ -20,8 +20,15 @@
 //! `Portraits/` file, differ in bytes is `portrait_conflict`, which skips the export. A logo
 //! source is the one texture decoded in full: one that does not decode is
 //! `logo_file_invalid`.
+//!
+//! Last, it reads the small data files whole (`documents`): the face diff of each player
+//! folder and shared face folder (`face_diff_invalid`, `xml_dif_conflict`), each kit's
+//! `config.toml` (`kit_config_invalid`) and each player's `settings.toml`
+//! (`settings_toml_invalid`).
 
+mod documents;
 mod model;
+mod portrait;
 mod texture;
 
 use std::collections::BTreeMap;
@@ -29,7 +36,7 @@ use std::sync::Arc;
 
 use aesthetics_export::{
     ContentFinding, Disposition, FileDescriptor, FileKind, IssueScope, KitTextureSource,
-    ModelFormat, PlayerSlot, ValidatedAestheticsExport, ValidatedRoster,
+    ModelFormat, ValidatedAestheticsExport,
 };
 use dds_convert::SourceFormat;
 use pes_version::PesVersion;
@@ -37,23 +44,26 @@ use pipeline::MemoryBudget;
 use vtree::ScopePath;
 
 use crate::messages::Code;
-use crate::plan::subset::texture_format;
+use crate::plan::subset::{FolderModels, texture_format};
 use crate::reader::{ContentSource, ExportSource};
+use documents::{face_diff_findings, kit_config_finding, settings_finding};
 use model::{ModelKind, fired, summed};
+use portrait::{folder_portrait, portrait_conflict, portrait_findings};
 use texture::{SizeRule, texture_finding};
 
 pub(crate) use model::FAR_VERTEX_CODES;
 
 /// The content findings of `export`, the sanitized export read from `source` and compiled for
-/// `version`, in file order: each player folder's models, material sets and textures, its
-/// portrait last, then each shared folder's (faces, boots, gloves), then `Common/`'s, then
-/// each `Portraits/` file with its slot's `portrait_conflict`, then each kit's textures, then
-/// the logo's. An Error on a folder's or a kit's file drops the folder; one on a `Common/`
-/// file drops the file, and the cascade then drops the players linking it; one on a portrait
-/// or a logo file drops that file. Files are read one at a time through one `ContentSource`,
-/// so only one file's bytes are held at once (a slot's two portraits while they are
-/// compared), and a solid `.7z` is decompressed once, under its own permit from `budget`,
-/// released when the pass ends.
+/// `version`, in file order: each player folder's models, material sets and textures, then
+/// its face diff, its portrait and its `settings.toml`; then each shared folder's (faces with
+/// their face diff, boots, gloves), then `Common/`'s, then each `Portraits/` file with its
+/// slot's `portrait_conflict`, then each kit's `config.toml` and textures, then the logo's. An
+/// Error on a folder's or a kit's file drops the folder; one on a `Common/` file drops the
+/// file, and the cascade then drops the players linking it; one on a portrait, a
+/// `settings.toml` or a logo file drops that file. Files are read one at a time through one
+/// `ContentSource`, so only one file's bytes are held at once (a slot's two portraits while
+/// they are compared), and a solid `.7z` is decompressed once, under its own permit from
+/// `budget`, released when the pass ends.
 pub(crate) fn content_findings(
     export: &ValidatedAestheticsExport,
     source: &ExportSource,
@@ -62,38 +72,55 @@ pub(crate) fn content_findings(
 ) -> Vec<ContentFinding> {
     let mut content = ContentSource::new(source, budget);
     let size_rule = SizeRule::of(version);
-    let players = export
-        .players
-        .iter()
-        .map(|player| (&player.path, &player.files, player.portrait.as_ref()));
-    let shared = [&export.faces, &export.boots, &export.gloves]
-        .into_iter()
-        .flatten()
-        .map(|folder| (&folder.path, &folder.files, None));
     let mut findings = Vec::new();
-    for (folder, files, portrait) in players.chain(shared) {
-        for file in files {
-            let Some(checked) = checked_as(file, size_rule) else {
-                continue;
-            };
-            findings.extend(file_findings(
-                &mut content,
-                file,
-                checked,
-                &IssueScope::Folder(folder.clone()),
-                Disposition::DropFolder,
-                &relative(&file.path, folder),
-            ));
-        }
-        // Not among the folder's files: a portrait is dropped alone, the folder keeping the
-        // rest.
-        if let Some(portrait) = portrait {
+    for player in &export.players {
+        let folder = &player.path;
+        findings.extend(folder_findings(
+            &mut content,
+            folder,
+            &player.files,
+            size_rule,
+        ));
+        findings.extend(face_diff_findings(
+            &mut content,
+            folder,
+            &player.files,
+            &FolderModels::of_player(player),
+        ));
+        // Not among the folder's files: a portrait and a `settings.toml` are dropped alone,
+        // the folder keeping the rest.
+        if let Some(portrait) = &player.portrait {
             findings.extend(portrait_findings(
                 &mut content,
                 portrait,
                 &relative(&portrait.path, folder),
             ));
         }
+        findings.extend(settings_finding(&mut content, player));
+    }
+    // A shared face folder is part of the face of each player linking it, so its face diff is
+    // checked as a player folder's is, against its own models as planning resolves it.
+    for face in &export.faces {
+        findings.extend(folder_findings(
+            &mut content,
+            &face.path,
+            &face.files,
+            size_rule,
+        ));
+        findings.extend(face_diff_findings(
+            &mut content,
+            &face.path,
+            &face.files,
+            &FolderModels::of(&face.path, &face.files),
+        ));
+    }
+    for shared in export.boots.iter().chain(&export.gloves) {
+        findings.extend(folder_findings(
+            &mut content,
+            &shared.path,
+            &shared.files,
+            size_rule,
+        ));
     }
     for file in &export.common {
         let Some(checked) = checked_as(file, size_rule) else {
@@ -118,6 +145,7 @@ pub(crate) fn content_findings(
     // by its path; each inheriting kit gets them on its own scope.
     let mut inherited: BTreeMap<&str, Vec<ContentFinding>> = BTreeMap::new();
     for kit in export.kits.kits.values() {
+        findings.extend(kit_config_finding(&mut content, kit));
         let scope = IssueScope::Folder(kit.path.clone());
         for texture in &kit.textures {
             let rule = if texture.stem == "kit" {
@@ -183,77 +211,6 @@ pub(crate) fn content_findings(
 /// deep pass also reports for a logo source that does not decode.
 const LOGO_FILE_INVALID: &str = "logo_file_invalid";
 
-/// The findings of the portrait `file`, named `name`, held to the portrait's size rule on any
-/// target: each on the file's own scope, dropping that file alone.
-fn portrait_findings(
-    content: &mut ContentSource,
-    file: &FileDescriptor,
-    name: &str,
-) -> Vec<ContentFinding> {
-    let Some(checked) = checked_as(file, SizeRule::Portrait) else {
-        return Vec::new();
-    };
-    file_findings(
-        content,
-        file,
-        checked,
-        &IssueScope::File(file.path.clone()),
-        Disposition::DropFile,
-        name,
-    )
-}
-
-/// The portrait of the player folder `slot` maps in `export`, when one does and it holds one:
-/// the `Portraits/` file of that slot is its second source. A folder several slots map stands
-/// for each of them. A referee roster's slots are not a team's player slots, so they pair
-/// with no `Portraits/` file.
-fn folder_portrait(
-    export: &ValidatedAestheticsExport,
-    slot: PlayerSlot,
-) -> Option<&FileDescriptor> {
-    let ValidatedRoster::Team(slots) = &export.roster else {
-        return None;
-    };
-    let index = slots.get(&slot)?;
-    export.players.get(index.0)?.portrait.as_ref()
-}
-
-/// `portrait_conflict` when `folder_portrait` and `portraits_file`, one slot's two portraits,
-/// differ in bytes: the export is skipped, since the compiler cannot tell which one the
-/// manager means. Byte-identical files are one portrait and no finding. The two files' own
-/// findings do not matter here: a portrait of the wrong size is still compared.
-fn portrait_conflict(
-    content: &mut ContentSource,
-    folder_portrait: &FileDescriptor,
-    portraits_file: &FileDescriptor,
-) -> Option<ContentFinding> {
-    let folder_bytes = content.read(folder_portrait.source.as_str());
-    let portraits_bytes = content.read(portraits_file.source.as_str());
-    let (folder_bytes, portraits_bytes) = match (folder_bytes, portraits_bytes) {
-        (Ok(folder_bytes), Ok(portraits_bytes)) => (folder_bytes, portraits_bytes),
-        // Each file's own check read it first and reported the failure as
-        // `source_read_failed` on that file, which drops it: nothing is left to compare.
-        (Err(failure), _) | (_, Err(failure)) => {
-            log::debug!(
-                "{}: portraits not compared: {}",
-                failure.path,
-                failure.error
-            );
-            return None;
-        }
-    };
-    (folder_bytes != portraits_bytes).then(|| ContentFinding {
-        code: Code::PortraitConflict.as_str(),
-        scope: IssueScope::Export,
-        context: vec![
-            ("folder_portrait", folder_portrait.path.as_str().to_owned()),
-            ("portraits_file", portraits_file.path.as_str().to_owned()),
-        ],
-        disposition: Disposition::DropExport,
-        pass_through_eligible: false,
-    })
-}
-
 /// What the deep pass reads a file as, and what checks it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Checked {
@@ -294,6 +251,51 @@ fn checked_as(file: &FileDescriptor, size_rule: SizeRule) -> Option<Checked> {
     }
 }
 
+/// The findings of the files among `files`, those of the model folder at `folder`, that the
+/// deep pass reads (`checked_as`, textures held to `size_rule`): each on the folder's scope,
+/// an Error dropping the folder, the file named below the folder.
+fn folder_findings(
+    content: &mut ContentSource,
+    folder: &ScopePath,
+    files: &[FileDescriptor],
+    size_rule: SizeRule,
+) -> Vec<ContentFinding> {
+    let mut findings = Vec::new();
+    for file in files {
+        let Some(checked) = checked_as(file, size_rule) else {
+            continue;
+        };
+        findings.extend(file_findings(
+            content,
+            file,
+            checked,
+            &IssueScope::Folder(folder.clone()),
+            Disposition::DropFolder,
+            &relative(&file.path, folder),
+        ));
+    }
+    findings
+}
+
+/// The bytes of `file`, or, when they cannot be read, its `source_read_failed` on `scope`
+/// with `disposition`, never eligible: there is nothing to keep.
+fn read(
+    content: &mut ContentSource,
+    file: &FileDescriptor,
+    scope: &IssueScope,
+    disposition: Disposition,
+) -> Result<Vec<u8>, ContentFinding> {
+    content
+        .read(file.source.as_str())
+        .map_err(|failure| ContentFinding {
+            code: Code::SourceReadFailed.as_str(),
+            scope: scope.clone(),
+            context: vec![("path", failure.path), ("error", failure.error)],
+            disposition,
+            pass_through_eligible: false,
+        })
+}
+
 /// `path` below `folder`, its subfolder kept (`face/hair.fmdl`).
 fn relative(path: &ScopePath, folder: &ScopePath) -> String {
     path.segments()
@@ -328,16 +330,9 @@ fn file_findings(
         disposition,
         pass_through_eligible,
     };
-    let bytes = match content.read(file.source.as_str()) {
+    let bytes = match read(content, file, scope, disposition) {
         Ok(bytes) => bytes,
-        Err(failure) => {
-            return vec![finding(
-                Code::SourceReadFailed.as_str(),
-                vec![("path", failure.path), ("error", failure.error)],
-                disposition,
-                false,
-            )];
-        }
+        Err(unread) => return vec![unread],
     };
     let kind = match checked {
         Checked::Model(kind) => kind,
@@ -434,7 +429,7 @@ mod tests {
     }
 
     /// The bytes of the tracer player's file `name`.
-    fn tracer_file(name: &str) -> Vec<u8> {
+    pub(super) fn tracer_file(name: &str) -> Vec<u8> {
         fixture(&format!(
             "tracer/studio/egg Tracer/Players/05 - The Chad Stormworks Player/{name}"
         ))
@@ -556,7 +551,7 @@ mod tests {
         }
     }
 
-    fn path(text: &str) -> ScopePath {
+    pub(super) fn path(text: &str) -> ScopePath {
         ScopePath::new(text).unwrap()
     }
 
@@ -782,166 +777,6 @@ mod tests {
                 Disposition::DropFolder,
                 true
             ))
-        );
-    }
-
-    #[test]
-    fn a_portraits_file_whose_side_is_not_a_power_of_two_is_dropped_on_any_target() {
-        let odd = |version| {
-            let temp = scratch(&format!("deep_portrait_odd_{version:?}"));
-            findings_for(
-                version,
-                temp.path(),
-                &[("Portraits/player_05.png", texture("odd.png"))],
-                &[],
-                &[],
-            )
-        };
-        let expected = [texture_finding_on(
-            "texture_not_pow2",
-            &IssueScope::File(path("Portraits/player_05.png")),
-            "player_05.png",
-            Disposition::DropFile,
-            true,
-        )];
-        assert_eq!(odd(PesVersion::Pes21), expected, "PES 21");
-        assert_eq!(odd(PesVersion::Pes17), expected, "PES 17");
-        // A single-level DDS of that size, which passes anywhere else on Fox.
-        let temp = scratch("deep_portrait_odd_dds");
-        let findings = findings_of(
-            temp.path(),
-            &[("Portraits/player_05.dds", bc1_dds(300, 300))],
-            &[],
-        );
-        assert_eq!(
-            findings,
-            [texture_finding_on(
-                "texture_not_pow2",
-                &IssueScope::File(path("Portraits/player_05.dds")),
-                "player_05.dds",
-                Disposition::DropFile,
-                true,
-            )]
-        );
-    }
-
-    #[test]
-    fn a_player_s_portrait_too_small_is_dropped_alone_on_its_file() {
-        let temp = scratch("deep_texture_portrait");
-        let findings = findings_of(
-            temp.path(),
-            &[("Players/03 - A/portrait.png", texture("tiny.png"))],
-            &[],
-        );
-        assert_eq!(
-            findings,
-            [texture_finding_on(
-                "texture_too_small",
-                &IssueScope::File(path("Players/03 - A/portrait.png")),
-                "portrait.png",
-                Disposition::DropFile,
-                true,
-            )]
-        );
-    }
-
-    #[test]
-    fn a_renamed_portrait_is_a_type_mismatch_and_its_size_is_not_read() {
-        let temp = scratch("deep_portrait_renamed");
-        // 300x300 PNG bytes, which would be `texture_not_pow2` were their header read.
-        let findings = findings_of(
-            temp.path(),
-            &[("Portraits/player_05.dds", texture("odd.png"))],
-            &[],
-        );
-        assert_eq!(
-            findings,
-            [texture_finding_on(
-                "texture_type_mismatch",
-                &IssueScope::File(path("Portraits/player_05.dds")),
-                "player_05.dds",
-                Disposition::DropFile,
-                false,
-            )]
-        );
-    }
-
-    /// `portrait_conflict` between slot 05's folder portrait `folder_portrait` and the
-    /// `Portraits/` file `portraits_file`.
-    fn portrait_conflict(folder_portrait: &str, portraits_file: &str) -> ContentFinding {
-        ContentFinding {
-            code: "portrait_conflict",
-            scope: IssueScope::Export,
-            context: vec![
-                ("folder_portrait", folder_portrait.to_owned()),
-                ("portraits_file", portraits_file.to_owned()),
-            ],
-            disposition: Disposition::DropExport,
-            pass_through_eligible: false,
-        }
-    }
-
-    #[test]
-    fn a_slot_s_two_portraits_conflict_only_when_their_bytes_differ() {
-        let temp = scratch("deep_portrait_conflict");
-        let findings = findings_of(
-            temp.path(),
-            &[
-                ("Players/05 - A/portrait.dds", bc1_dds(64, 64)),
-                ("Portraits/player_05.dds", bc1_dds(128, 128)),
-            ],
-            &[],
-        );
-        assert_eq!(
-            findings,
-            [portrait_conflict(
-                "Players/05 - A/portrait.dds",
-                "Portraits/player_05.dds"
-            )]
-        );
-        let temp = scratch("deep_portrait_identical");
-        let findings = findings_of(
-            temp.path(),
-            &[
-                ("Players/05 - A/portrait.dds", bc1_dds(64, 64)),
-                ("Portraits/player_05.dds", bc1_dds(64, 64)),
-            ],
-            &[],
-        );
-        assert_eq!(findings, []);
-        // Another slot's file is no pair.
-        let temp = scratch("deep_portrait_other_slot");
-        let findings = findings_of(
-            temp.path(),
-            &[
-                ("Players/05 - A/portrait.dds", bc1_dds(64, 64)),
-                ("Portraits/player_07.dds", bc1_dds(128, 128)),
-            ],
-            &[],
-        );
-        assert_eq!(findings, []);
-        // A file with a size finding is still compared.
-        let temp = scratch("deep_portrait_conflict_small");
-        let findings = findings_of(
-            temp.path(),
-            &[
-                ("Players/05 - A/portrait.png", texture("tiny.png")),
-                ("Portraits/player_05.png", texture("portrait.png")),
-            ],
-            &[],
-        );
-        assert_eq!(
-            findings,
-            [
-                texture_finding_on(
-                    "texture_too_small",
-                    &IssueScope::File(path("Players/05 - A/portrait.png")),
-                    "portrait.png",
-                    Disposition::DropFile,
-                    true,
-                ),
-                portrait_conflict("Players/05 - A/portrait.png", "Portraits/player_05.png"),
-            ]
         );
     }
 

@@ -2,7 +2,6 @@
 //! steps", "4. Per-export non-model steps"): its source files, already read, converted and
 //! packed into the CPK entries the task commits, whole or not at all.
 
-mod face_diff;
 mod kit;
 mod model;
 mod texture;

@@ -153,8 +153,8 @@ impl ModelFolder {
     /// player's). The face's `face_diff.bin` and `fcl_hair_sim.fclo` come once: a combined
     /// face folder's copy is left out when the player folder holds one, and never read
     /// (`player_folders.md` "A link plus local models combines"). A `face_diff.xml` counts as
-    /// the `face_diff.bin` here, except within one source, which keeps both forms for the
-    /// Models task to report as `xml_dif_conflict`. A `.common` model link
+    /// the `face_diff.bin` here; one source never holds both, the deep pass having dropped
+    /// such a folder (`xml_dif_conflict`). A `.common` model link
     /// stands for the Common files it resolved to (`common_models`): the Common model under
     /// the link's role, in the link's place, and its Common skeleton under the role's slot,
     /// paired with it by their shared `Common/<stem>`; the empty link itself is never read.
@@ -173,23 +173,19 @@ impl ModelFolder {
             let files = &shared.folder.files;
             sources.push((shared.package, path, files, FolderModels::of(path, files)));
         }
-        // The names the face files of the earlier sources pack as.
+        // The names the face files kept so far pack as: a second copy of one file
+        // (`face_diff.bin` beside `face/face_diff.bin`) is left out like an earlier source's.
         let mut packed: Vec<&'static str> = Vec::new();
         let mut roles = Vec::new();
         for (package, path, files, models) in sources {
             let mut source_roles = Vec::new();
-            // This source's face files, as (file name, name it packs as). A second copy of
-            // one file (`face_diff.bin` beside `face/face_diff.bin`) is left out like an
-            // earlier source's, but the two forms of the face diff are both kept: one folder
-            // giving it twice is the Models task's `xml_dif_conflict`.
-            let mut held: Vec<(&'static str, &'static str)> = Vec::new();
             for file in files {
                 let Some(role) = player_file(path, file, &models) else {
                     continue;
                 };
-                let face_file = match role {
-                    PlayerFile::Packed { name, .. } => Some((name, name)),
-                    PlayerFile::FaceDiffXml => Some(("face_diff.xml", "face_diff.bin")),
+                let packs_as = match role {
+                    PlayerFile::Packed { name, .. } => Some(name),
+                    PlayerFile::FaceDiffXml => Some("face_diff.bin"),
                     PlayerFile::CommonModel { package, name } => {
                         let resolved = self
                             .common_models
@@ -210,17 +206,14 @@ impl ModelFolder {
                     | PlayerFile::SlotlessSkeleton
                     | PlayerFile::Texture(..) => None,
                 };
-                if let Some((file_name, packs_as)) = face_file {
-                    if packed.contains(&packs_as)
-                        || held.iter().any(|(held_name, _)| *held_name == file_name)
-                    {
+                if let Some(packs_as) = packs_as {
+                    if packed.contains(&packs_as) {
                         continue;
                     }
-                    held.push((file_name, packs_as));
+                    packed.push(packs_as);
                 }
                 source_roles.push((file, role));
             }
-            packed.extend(held.into_iter().map(|(_, packs_as)| packs_as));
             roles.push((package, path, source_roles));
         }
         roles
@@ -1357,7 +1350,7 @@ mod tests {
     }
 
     #[test]
-    fn a_face_diff_xml_stands_for_the_face_diff_bin_across_sources_and_beside_it_in_one() {
+    fn a_face_diff_xml_stands_for_the_face_diff_bin_and_a_second_copy_is_left_out() {
         // The player's own face diff wins over the shared folder's, whichever form each has,
         // and the shared one is never read.
         assert_eq!(
@@ -1371,23 +1364,6 @@ mod tests {
             face_task_files(&["face_diff.bin"], &["face_diff.xml"]),
             [
                 "Players/05 - A/face_diff.bin",
-                "Faces/Longhair/hair_high.fmdl"
-            ]
-        );
-        // One source holding both forms keeps both, for the face task to report.
-        assert_eq!(
-            face_task_files(&["face_diff.bin", "face_diff.xml"], &["face_diff.bin"]),
-            [
-                "Players/05 - A/face_diff.bin",
-                "Players/05 - A/face_diff.xml",
-                "Faces/Longhair/hair_high.fmdl"
-            ]
-        );
-        assert_eq!(
-            face_task_files(&[], &["face_diff.bin", "face_diff.xml"]),
-            [
-                "Faces/Longhair/face_diff.bin",
-                "Faces/Longhair/face_diff.xml",
                 "Faces/Longhair/hair_high.fmdl"
             ]
         );

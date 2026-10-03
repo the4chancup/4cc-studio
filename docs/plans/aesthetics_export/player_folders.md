@@ -356,7 +356,11 @@ one datum twice and is discarded (`xml_dif_conflict`); a player folder's own fil
 combined shared face's is the ordinary layering, whichever form each has. Both findings are
 the Team compiler's deep pass's: `check` reports them, the folder holding the file is dropped
 before any ID is planned for it, and neither is pass-through-eligible, as there is no usable
-diff to keep. No loose
+diff to keep. The pass checks every file planning gives a face diff's role, a second copy in
+`face/` included although only the first is packed; a file with no role (in `boots/`, or in a
+folder with no face model and no face link) is not read. The roles are the Fox output's, so a
+folder whose only face models are `.model` files has its face diff unchecked until the pre-Fox
+face steps give it a role. No loose
 `face_diff.xml` exists on that machine, so the test fixtures are encoded from real
 `face_diff.bin` files. A diff is passed through for whatever target is compiled, although the
 two engines use it differently to shape the face skeleton: converting one engine's diff into

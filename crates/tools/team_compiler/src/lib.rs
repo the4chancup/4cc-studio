@@ -12,6 +12,7 @@ mod cli;
 mod compile;
 mod deep;
 mod events;
+mod face_diff;
 mod gui_run;
 mod messages;
 mod output;

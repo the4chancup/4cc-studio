@@ -6,7 +6,6 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use aesthetics_export::FileDescriptor;
 use fmdl::ops::merge::{MergeError, merge};
 use fmdl::ops::paths::{TexturePath, rewrite_texture_paths};
 use fmdl::{FmdlFile, Model};
@@ -14,8 +13,8 @@ use fpk::{FpkFile, FpkKind};
 use studio_core::Disposition;
 use vtree::ScopePath;
 
-use super::face_diff::{self, FaceDiffError};
 use super::{Entry, Finding, TaskFailure, TaskFiles, take};
+use crate::face_diff;
 use crate::messages::Code;
 use crate::paths;
 use crate::plan::ModelFolder;
@@ -65,14 +64,6 @@ pub(super) fn package(
     let mut texture_stems = BTreeSet::new();
     let mut fpk = FpkFile::new(FpkKind::Fpk);
     for (_, _, source_files) in folder.roles() {
-        if package == ModelPackage::Face
-            && let Some(xml) = face_diff_given_twice(&source_files)
-        {
-            return Err(TaskFailure {
-                code: Code::XmlDifConflict,
-                context: vec![("file", xml.path.as_str().to_owned())],
-            });
-        }
         // A skeleton pairs with the model of its stem in the same directory: keyed by the
         // path up to the extension, since a player folder's reserved subfolder may hold a
         // model of the same name as one directly in the folder.
@@ -102,16 +93,13 @@ pub(super) fn package(
                     package: owner,
                     name,
                 } if owner == package => {
-                    let bytes = take(files, file);
-                    if name == "face_diff.bin" {
-                        face_diff::check(&bytes)
-                            .map_err(|error| face_diff_invalid(file, &error))?;
-                    }
-                    fpk.insert(name.to_owned(), bytes);
+                    fpk.insert(name.to_owned(), take(files, file));
                 }
+                // The deep pass has dropped a folder whose face diff fails to decode, or that
+                // gives it in both forms, so a failure here is not a member's mistake.
                 PlayerFile::FaceDiffXml if package == ModelPackage::Face => {
                     let bytes = face_diff::from_xml(&take(files, file))
-                        .map_err(|error| face_diff_invalid(file, &error))?;
+                        .map_err(|error| anyhow::anyhow!("{}: {error}", file.path.as_str()))?;
                     fpk.insert("face_diff.bin".to_owned(), bytes);
                 }
                 // The textures are the textures task's; this task only points its models at
@@ -245,39 +233,6 @@ pub(super) fn package(
         entries.push((format!("{folder}/{stem}.fpkd"), empty));
     }
     Ok(entries)
-}
-
-/// The `face_diff.xml` among `source_files`, the files of one source with their roles, when
-/// the source also holds a `face_diff.bin`: one folder giving its face diff twice
-/// (`player_folders.md` "`face_diff.xml`"). Neither file is read: the conflict is the finding.
-fn face_diff_given_twice<'a>(
-    source_files: &[(&'a FileDescriptor, PlayerFile)],
-) -> Option<&'a FileDescriptor> {
-    let holds_bin = source_files.iter().any(|(_, role)| {
-        matches!(
-            role,
-            PlayerFile::Packed {
-                name: "face_diff.bin",
-                ..
-            }
-        )
-    });
-    source_files
-        .iter()
-        .find(|(_, role)| *role == PlayerFile::FaceDiffXml)
-        .filter(|_| holds_bin)
-        .map(|(file, _)| *file)
-}
-
-/// The `face_diff_invalid` failure of `file`, a face diff in either form, for `error`.
-fn face_diff_invalid(file: &FileDescriptor, error: &FaceDiffError) -> TaskFailure {
-    TaskFailure {
-        code: Code::FaceDiffInvalid,
-        context: vec![
-            ("file", file.path.as_str().to_owned()),
-            ("reason", error.to_string()),
-        ],
-    }
 }
 
 /// The skeleton the parts of one output model share, taken out of them: the one `.skl` every

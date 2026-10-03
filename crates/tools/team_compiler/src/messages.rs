@@ -32,6 +32,9 @@ pub(crate) enum Code {
     TeamNameUnknown,
     /// A kit without `config.toml` gets the template config.
     KitConfigGenerated,
+    /// A kit's `config.toml` that is not UTF-8 text or that `kit_config` refuses (a
+    /// value of the wrong type or out of range); the kit is left out.
+    KitConfigInvalid,
     /// A kit whose effective textures lack `kit.dds` (an empty folder included): the bundled
     /// checkerboard stands in as its main texture.
     KitPlaceholder,
@@ -50,6 +53,9 @@ pub(crate) enum Code {
     /// A player holds a boots or gloves link beside a model of the same package: the shared
     /// folder's models become parts of the player's own package.
     LinkCombined,
+    /// A player's `settings.toml` that is not UTF-8 text or does not parse as the settings
+    /// schema; the file is ignored and the folder's models still compile.
+    SettingsTomlInvalid,
     /// A Fox model whose name has no recognized suffix: it is face content, a part of the
     /// `fcl_hair.fmdl` merge.
     FmdlFclHairFallback,
@@ -65,10 +71,10 @@ pub(crate) enum Code {
     SklNoSlot,
     /// A face's `face_diff.xml` that is not base64 text or a `<dif>` holding it, or a face
     /// diff (decoded, or a `face_diff.bin`) without the magic `FACE` or shorter than its
-    /// header gives; the face package is left out.
+    /// header gives; the folder holding it is left out.
     FaceDiffInvalid,
-    /// One source of a face holds both `face_diff.bin` and `face_diff.xml`, giving its face
-    /// diff twice; the face package is left out.
+    /// A folder holds both `face_diff.bin` and `face_diff.xml`, giving its face diff twice;
+    /// the folder is left out.
     XmlDifConflict,
     /// Two of a player's sources feeding different packages hold a texture of one stem with
     /// different bytes; the lower package in canonical order (face > boots > gloves) is left
@@ -120,7 +126,7 @@ impl Code {
     /// Every code, for the catalog test: a variant missing here would make its first message
     /// panic in `severity`, so a new variant is added to this list too.
     #[cfg(test)]
-    const ALL: [Code; 37] = [
+    const ALL: [Code; 39] = [
         Code::ExportExtractFailed,
         Code::NoExportsFound,
         Code::ExportDisabled,
@@ -129,6 +135,7 @@ impl Code {
         Code::MultipleRefExports,
         Code::TeamNameUnknown,
         Code::KitConfigGenerated,
+        Code::KitConfigInvalid,
         Code::KitPlaceholder,
         Code::KitTextureNotUsed,
         Code::ContentNotYetCompiled,
@@ -136,6 +143,7 @@ impl Code {
         Code::GlovesIdPoolExhausted,
         Code::PortraitConflict,
         Code::LinkCombined,
+        Code::SettingsTomlInvalid,
         Code::FmdlFclHairFallback,
         Code::FmdlMerged,
         Code::MergeMaterialConflict,
@@ -171,6 +179,7 @@ impl Code {
             Code::MultipleRefExports => "multiple_ref_exports",
             Code::TeamNameUnknown => "team_name_unknown",
             Code::KitConfigGenerated => "kit_config_generated",
+            Code::KitConfigInvalid => "kit_config_invalid",
             Code::KitPlaceholder => "kit_placeholder",
             Code::KitTextureNotUsed => "kit_texture_not_used",
             Code::ContentNotYetCompiled => "content_not_yet_compiled",
@@ -178,6 +187,7 @@ impl Code {
             Code::GlovesIdPoolExhausted => "gloves_id_pool_exhausted",
             Code::PortraitConflict => "portrait_conflict",
             Code::LinkCombined => "link_combined",
+            Code::SettingsTomlInvalid => "settings_toml_invalid",
             Code::FmdlFclHairFallback => "fmdl_fcl_hair_fallback",
             Code::FmdlMerged => "fmdl_merged",
             Code::MergeMaterialConflict => "merge_material_conflict",
@@ -228,6 +238,7 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("export_balls_skipped", CatalogSeverity::Info),
     ("multiple_ref_exports", CatalogSeverity::Error),
     ("kit_config_generated", CatalogSeverity::Info),
+    ("kit_config_invalid", CatalogSeverity::Error),
     ("kit_placeholder", CatalogSeverity::Info),
     ("kit_texture_not_used", CatalogSeverity::Info),
     ("content_not_yet_compiled", CatalogSeverity::Error),
@@ -235,6 +246,7 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("gloves_id_pool_exhausted", CatalogSeverity::Error),
     ("portrait_conflict", CatalogSeverity::Error),
     ("link_combined", CatalogSeverity::Info),
+    ("settings_toml_invalid", CatalogSeverity::Error),
     ("fmdl_fcl_hair_fallback", CatalogSeverity::Info),
     ("fmdl_merged", CatalogSeverity::Info),
     ("merge_material_conflict", CatalogSeverity::Error),

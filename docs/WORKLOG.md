@@ -12,7 +12,7 @@ is in `AGENTS.md` ("Working documents").
 **Phase:** 3 (Team compiler skeleton) closed 2026-10-02, its cross-family reviews queued (see
 "Handover"). Phases 1 and 2 done (Phase 2 closed 2026-09-30).
 **Next:** Phase 4 is itemized and its Acceptance section written (step 4.1, 2026-10-03; its
-cross-family review (a) is queued). Next: 4.7 (deep validation pass, in slices; (a), (b), (c1) and (c2) are done, (d) is briefed), then 4.8; 4.30, 4.6 and 4.5 are done (4.6c moved to Phase 8's cancellation). 2.5b (GPU BC7) is step 16.x (decision entries
+cross-family review (a) is queued). Next: 4.7 (deep validation pass, in slices; (a) to (d) are done, its timing is left), then 4.8; 4.30, 4.6 and 4.5 are done (4.6c moved to Phase 8's cancellation). 2.5b (GPU BC7) is step 16.x (decision entries
 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0 after Phase 8; phase order 1–6,
 8, 0.1.0, 7, 9–16 (`core/development_plan.md` "Releases"); first-class target the Fox version
 the cup moves to around April 2027 ("Target versions").
@@ -571,12 +571,26 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
     deep pass: a folder two slots map, paired with each slot's file (planning's side is).
     Gates green (109 of 206); `mutants-diff 8f2a216`: 65, 52 caught, 13 unviable, 0 missed
   - (d) `face_diff_invalid` and `xml_dif_conflict` reported by the deep pass, where they drop
-    the folder (`player_folders.md` "`face_diff.xml`"; the tests in `tests/cli/models.rs`
-    change); `kit_config_invalid`, `settings_toml_invalid` (parse only, through `pes_savefile`'s
-    `PlayerSettings` TOML reader; the other `settings_*` and `fpc_strip_conflict` codes
-    describe resolved values and are Phase 5's), TC-CHK-03; then `check` and `compile` timed
-    on a large export as a folder and as a solid `.7z`, and the pass run on the worker pool
-    if the timing asks for it ("Issues": the third decompression)
+    the folder (`player_folders.md` "`face_diff.xml`"); `kit_config_invalid`,
+    `settings_toml_invalid` (parse only, through `pes_savefile`'s `PlayerSettings` TOML
+    reader; the other `settings_*` and `fpc_strip_conflict` codes describe resolved values
+    and are Phase 5's). TC-MOD-15, TC-CHK-03. Done 2026-10-03 (Opus 5.5, first time; three
+    lead fixes): `deep/documents.rs` (the face diff of each player folder and shared face
+    folder, over the files planning's `player_file` gives a face diff's role; a kit's
+    `config.toml` before its textures; a player's `settings.toml` after its portrait, on
+    its own `File` scope); the portrait checks moved to `deep/portrait.rs`, a pure move;
+    `face_diff.rs` now at the crate root; `pes_savefile` is a dependency of tc. Processing
+    lost its conflict check and its `face_diff.bin` check, and a `face_diff.xml` that
+    fails to decode there is an ordinary `folder_pack_failed` (unreachable from the CLI,
+    so untested); planning's `roles` no longer keeps both forms of one source (lead fix,
+    with the duplicated test helper and a doc comment). A face diff finding now names its
+    file below the folder (`face_diff.xml`, not the export path). Not covered: a folder
+    whose only face models are `.model` files gives its face diff no role, so it is
+    unchecked until the pre-Fox face steps. Gates green (110 of 209);
+    `mutants-diff 3951e7f`: 38, 25 caught, 13 unviable, 0 missed
+  - The timing, left: `check` and `compile` on a large export as a folder and as a solid
+    `.7z`, and the pass run on the worker pool if the timing asks for it ("Issues": the
+    third decompression)
 
 - [ ] 4.8 **Kit colors, UniColor and TeamColor (the `bins/` module)**: kit `colors.txt` grammar
   (`player_folders.md` "Root files", "Colors": one color per line in both files, the
@@ -1827,3 +1841,8 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   one (`dpfilelist_cpk_missing`, TC-DEP-14) and the placeholders are confirmed; a list
   lacking the run's CPK stays `dpfilelist_outdated`; the 53-entry list is still to be
   re-tested in the game (about 60 held, years ago).
+- **2026-10-03** — 4.7d: `check` reports a broken face diff, a folder giving its face diff
+  in both forms, a kit's `config.toml` that does not parse (`kit_config_invalid`, the kit
+  dropped) and a player's `settings.toml` that does not (`settings_toml_invalid`, the file
+  alone dropped); none is kept by `pass_through`. The deep pass's checks are complete; step
+  4.7's timing is left.
