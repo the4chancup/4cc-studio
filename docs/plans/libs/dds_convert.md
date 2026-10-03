@@ -138,6 +138,9 @@ The crate is three pure steps and one stateful wrapper. `decode` turns any accep
 straight-alpha RGBA8 mips plus, for DDS/FTEX, the compressed blocks it carried; `convert` applies
 the codec rules above to a decoded texture and returns the finished container bytes (a DDS for
 PES 15–17, an FTEX for PES 18–21); `Converter` is the session cache in front of both.
+`encode_dds` is the one exception to choosing by version: a file every engine reads as a DDS
+in a codec the plan fixes (a player portrait, BC3: "Portraits" in the [player folders
+plan](../aesthetics_export/player_folders.md)) names its codec, and gets a DDS on Fox targets too.
 
 ```rust
 /// The accepted source formats (table above), named by the file extension the
@@ -166,6 +169,10 @@ pub struct Target { pub version: PesVersion, pub role: TextureRole }
 
 pub fn decode(bytes: &[u8], format: SourceFormat) -> Result<Decoded, ConvertError>;
 pub fn convert(decoded: &Decoded, target: Target) -> Result<Vec<u8>, ConvertError>;
+/// A DDS in `codec` (`Bc1`, `Bc3` or `Bc7`; any other is `Unsupported`) at the source's own
+/// size, whatever the target engine, color layout: the source's mip count kept, a raster
+/// source's chain generated, a block source already in `codec` keeping its blocks.
+pub fn encode_dds(decoded: &Decoded, codec: BlockCodec) -> Result<Vec<u8>, ConvertError>;
 
 /// SHA-256 of the source bytes, computed once when the file is materialized and reused.
 pub struct SourceHash(pub [u8; 32]);

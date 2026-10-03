@@ -3130,3 +3130,13 @@ is converted once per folder whichever models and samplers name it; the `_nrm` s
 Studio's own role table's and the game's (`skin_nrm`, `oral_nrm`, `dummy_nrm`). A DDS normal
 map already in BC3 passes through either way, so the rule matters for raster and BC7 sources.
 Plan: `team_compiler/pipeline.md` step 5.
+
+## 2026-10-03 — dds_convert — `encode_dds` writes a DDS in a named codec on any engine
+Decision: `dds_convert` gains `encode_dds(decoded, codec)`, a DDS in BC1, BC3 or BC7 at the
+source's size whatever the target, for the portraits (BC3 with a full mip chain on every
+version).
+Why: `convert` picks the container and codec from the target version, so on a Fox target it
+returns an FTEX, and on PES 15-17 an opaque source would come out BC1; the portrait rule fixes
+both the container and the codec, so the caller names them rather than `convert` growing a
+special case.
+Plan: `libs/dds_convert.md` "`dds_convert` API".
