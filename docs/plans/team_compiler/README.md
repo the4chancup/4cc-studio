@@ -663,11 +663,11 @@ TC-MOD-03  GIVEN a players.txt mapping one folder with boots.fmdl to slots 03 an
            WHEN the export is compiled
            THEN k0623 and k0627 both hold the boots package, and the folder's textures appear once,
                 under the folder's name
-TC-MOD-04  GIVEN slot 05 holding boots.fmdl whose texture skin.dds the face also uses, and another
-           export where the two files named skin.dds differ (face/skin.dds and boots/skin.dds)
+TC-MOD-04  GIVEN slot 05 holding a face model, skin.dds and kit_boots.fmdl, and linking Crocs.boots,
+           whose folder also holds skin.dds: once with the same bytes, once with different ones
            WHEN each is compiled
            THEN the first packs skin once with no finding; the second reports
-                shared_texture_conflict, keeps the face, and the boots task is dropped
+                shared_texture_conflict, keeps the face and the player's skin, and k0625 is absent
 TC-MOD-05  GIVEN Boots/Crocs/boots.fmdl and Boots/Mud/boots.fmdl, Crocs linked by slots 03 and 07,
            Mud by slot 11
            WHEN the export is compiled for PES 21

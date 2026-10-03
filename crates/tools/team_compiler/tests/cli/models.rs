@@ -581,6 +581,7 @@ fn a_face_link_combines_the_shared_face_folder_into_the_player_s_face() {
     );
 }
 
+// TC-MOD-04
 #[test]
 fn a_texture_the_face_and_a_combined_boots_folder_hold_is_packed_once_or_drops_the_boots() {
     let export = "exports/co - Skin";

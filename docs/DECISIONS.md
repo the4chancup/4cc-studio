@@ -3097,3 +3097,13 @@ model parts, so merging does not apply; "local parts layered over the base" says
 own wins.
 Plan: `team_compiler/pipeline.md` step 6; `aesthetics_export/player_folders.md` "A link plus
 local models combines".
+
+## 2026-10-03 — team_compiler — TC-MOD-04 tests a combined shared folder, not two subfolders
+Decision: TC-MOD-04's conflicting case is a player's own `skin.dds` against a combined
+`Boots/Crocs/skin.dds`, not `face/skin.dds` against `boots/skin.dds`.
+Why: a player folder's reserved subfolders share one texture namespace with its root ("stems
+resolve across the player folder including its reserved subfolders", `player_folders.md`), so
+two `skin.dds` there are `texture_stem_conflict` and validation drops the folder before any
+compile; the scenario as written could never reach `shared_texture_conflict`. Two sources of
+one player holding a stem exist only when a shared folder is combined.
+Plan: `team_compiler/README.md` "Acceptance", TC-MOD-04.
