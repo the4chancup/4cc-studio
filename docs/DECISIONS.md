@@ -3332,3 +3332,11 @@ discards for `face.xml`; Red lets the `.bin` win silently. No `face_diff.xml` ex
 machine, loose, so nothing argues for the wrapper.
 Plan: `aesthetics_export/player_folders.md` "`face_diff.xml`"; `team_compiler/messages.md`
 `face_diff_invalid`, `xml_dif_conflict`.
+
+## 2026-10-03 — team_compiler — the size-split slots keep the stem `teams`
+Decision (user): the slot run stays `4cc_40_teams` … as "Multi-CPK mode" planned it, not
+`players`.
+Why: the compiler compiles teams. The official list's other entries are a lead's draft for
+the maintainer to adjust (worklog "Phase 4 open questions").
+Plan: no plan edit needed (`team_compiler/pipeline.md` "Multi-CPK mode: teams parts" already
+says `teams`).

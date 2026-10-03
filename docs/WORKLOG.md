@@ -782,8 +782,8 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   open by the test: `old_cpk_locked`, `output/4cc_90_test.cpk` holds the run's CPK, the old one
   is byte-identical, exit 1
 
-- [ ] 4.25 **DpFileList upgrade** (waits on the maintainer: the official list's entries, under
-  "Phase 4 open questions"): the one official `DpFileList.bin` embedded, the standard layout
+- [ ] 4.25 **DpFileList upgrade** (waits on the maintainer: the adjusted entry list; the lead's
+  draft is under "Phase 4 open questions"): the one official `DpFileList.bin` embedded, the standard layout
   with the midcup CPKs up to 79, `4cc_90_test` and the size-split slot run (lead first: the
   file written from the maintainer's entry list in the layout measured at 4.21, as a
   lead-authored fixture with a provenance README; no installed list has the slot run, PES 17's
@@ -816,8 +816,10 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `4cc_41_teams.cpk` the third, `4cc_42`..`44` are each 6,272 bytes equal to the placeholder
   fixture, `4cc_08_bins.cpk` holds the bins and nothing else
 
-- [ ] 4.27 **Referee marker as reserved collar 77, both engines** (waits on the maintainer: the
-  marker model, as an FMDL and as a `.model` with its `.mtl`): the marker model bundled as a
+- [ ] 4.27 **Referee marker as reserved collar 77, both engines** (lead first: the collar file
+  built from the marker models named under "Phase 4 open questions", and the maintainer's look
+  at it in game before the rest is briefed; cheapest once 4.9 has landed, with the marker as a
+  test team's `Collars/collar_41.fmdl`, a free stock ID): the marker model bundled as a
   referee template and emitted in the refs CPK as collar 77, its texture path naming
   `ref_marker.dds` converted into the referees' Common output, the referee template kit configs
   naming collar 77; on a regular team, `collar_id_conflict` for `Collars/collar_77.*` and
@@ -925,20 +927,51 @@ administrator, Upgrade DpFileList dialog): Phase 8; glTF sources: Phase 7; the G
 
 Phase 4 open questions (maintainer):
 
-- The referee marker model (4.27): the model shown as collar 77, as an FMDL and as a `.model`
-  with its `.mtl`, its texture named so the compiler can point it at the referees' Common
-  output. (The ID is settled: the survey of 2026-10-03, `.tmp/collar_survey.py`, read the collar
-  and winter collar of all 4,635 `*realUni.bin` files on the maintainer's machine; of the stock
-  IDs 1-116 only 41, 72, 77, 82, 87, 92 and 115 are used by none, 69 by one 2016 config of
-  /tv/ and 68 by 2016 configs of /m/ and /pol/ and by Konami teams.)
-- The official DpFileList's entries (4.25, 4.26): the one standard list with the size-split
-  slot run does not exist yet. Needed: its entry names in order, in particular the slot run
-  that replaces `4cc_40_faces`/`4cc_45_uniform` (the plan has five slots, `4cc_40_teams` to
-  `4cc_44_teams`, stem set by `teams_cpk_name`; the maintainer called them "players" CPKs on
-  2026-10-03, so the stem may be `players`), what becomes of `4cc_50_other_faces` and
-  `4cc_55_other_uniform`, and which of the two installs' other names stand (PES 17's list has
-  `4cc_01_db`, `4cc_02_misc`, `4cc_30_stadiums0`/`1`/`2`; PES 21's `4cc_01_base`,
-  `4cc_03_stockkit`, `4cc_10_interface`, `4cc_12_competition`, `4cc_30_stadiums`).
+- The referee marker as a collar, in game (4.27). The sources are known (maintainer,
+  2026-10-03) and the step no longer waits on a file. Fox: the 4cc's `referee_prop.fmdl`
+  (`C:\Data\4cc\Tools_Mine\4cc refs compiler\referee_prop.fmdl`, 2,843 bytes, the file Red
+  packs into `dt00_x64.cpk`'s `common_package.fpk`): one mesh, a 1.5 m square of 4 vertices and
+  2 faces lying on the ground, material `judge_watch`, base texture `cup_logo.dds` under
+  `/Assets/pes16/model/character/common/000/sourceimages/`. Pre-Fox: Red's referee template,
+  `Engines/templates/refscpk_prefox/common/character1/model/character/parts/referee/`
+  (`referee_prop.model`, WESYS-wrapped, with `referee_prop.mtl`, material `judge_incom`,
+  texture `./incom_bsm.dds`). Both are props today, drawn at the referee's feet by the game's
+  prop slot. Not known: whether the same square, emitted as collar 77, stays on the ground
+  when the game draws it as part of the uniform. The lead's first slice of 4.27 builds the
+  collar file and the maintainer looks at it in game before the rest is briefed. (The ID is
+  settled: the survey of 2026-10-03, `.tmp/collar_survey.py`, read the collar and winter
+  collar of all 4,635 `*realUni.bin` files on the maintainer's machine; of the stock IDs
+  1-116 only 41, 72, 77, 82, 87, 92 and 115 are used by none.)
+- The official DpFileList, a draft for the maintainer to adjust (4.25, 4.26). The slot stem is
+  `teams` (maintainer, 2026-10-03: the compiler compiles teams). The draft keeps the names of
+  the newest installed list, PES 17's, the only one with `4cc_90_test`, and replaces its four
+  faces/uniform entries with two slot runs, 45 entries in this order:
+  `4cc_01_db`, `4cc_02_misc`, `4cc_04_fpc`, `4cc_06_gameplay`, `4cc_08_bins`,
+  `4cc_10_seasonal`, `4cc_15_billboard`, `4cc_20_swipe`, `4cc_25_gametips`,
+  `4cc_30_stadiums0`, `4cc_31_stadiums1`, `4cc_32_stadiums2`, `4cc_35_referees`,
+  `4cc_38_balls`, `4cc_40_teams` to `4cc_44_teams` (five slots, in place of `4cc_40_faces`
+  and `4cc_45_uniform`), `4cc_50_teams2` to `4cc_54_teams2` (five, in place of
+  `4cc_50_other_faces` and `4cc_55_other_uniform`: the side-event run of "Multi-CPK mode"),
+  `4cc_60_midcup` to `4cc_79_midcup` (twenty), `4cc_90_test`. To confirm or change: the
+  first fourteen names (PES 21's last list names them `4cc_01_base`, `4cc_03_stockkit`,
+  `4cc_10_interface`, `4cc_12_competition`, `4cc_13_seasonal`, `4cc_30_stadiums`,
+  `4cc_32_stadiums2`, and PES 19's has more); whether the second run is wanted, and its stem;
+  five slots per run.
+- Far-vertex models in real exports (4.7). The lead's census ran `fmdl::check` and
+  `pes_model::check` over the VGL26 corpus (`C:\Data\4cc\Lab\Gud`: 2,938 FMDL, 21 `.model`,
+  23 `.mtl`; tool and outputs in `.tmp/fmdl_census/`, `corpus_census.txt`, `far.txt`). Every
+  file reads, and the only Error class is `fmdl_vertex_far_from_origin`: 89 files in 7 of the
+  53 exports, all `face_high.fmdl` (46) or `hair_high.fmdl` (43), and in every one **all** the
+  vertices are far, 14,660 to 18,580 units out (one at 155,300): whole models parked away from
+  the pitch, in a handful of shapes shared across teams (16 vertices in 43 files; 739 in 29;
+  1,478 in 13), which look like the placeholder face and hair that full-body players ship.
+  Under 4.7's mapping each drops its folder (`vertex_too_far_from_origin`, never
+  pass-through-eligible), so about 46 players of a real cup would lose their models. Needed
+  from the maintainer: are these the files the rule exists for (they cause the matchday lag,
+  and dropping them is wanted, with the injected templates as the fix), or are parked
+  placeholders harmless, in which case the rule needs a different test than distance alone?
+  The other classes are no question: `fmdl_weights_not_normalized` (Info) in 640 files,
+  `fmdl_mesh_empty` (Warning) in one, `model_weights_not_normalized` (Info) in 20.
 
 Answered 2026-10-03 (decision entries of that date; each is in the plan): the `colors.txt`
 grammar (one color per line, in both files); the kit icon as a marker file and the marker
