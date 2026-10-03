@@ -1102,7 +1102,10 @@ Phase 4 open questions (maintainer):
   20's; the others 29 to 39; `.tmp/dpfl_compare.py` reads them). The maintainer remembers a
   test years ago in which the game held up to about 60 entries, and wants it re-tested. The
   test: the official list installed with its placeholders, and a visible change (a kit) in
-  `4cc_99_test.cpk`.
+  `4cc_99_test.cpk`. PES 2015 passed it (maintainer, 2026-10-03): its installed 39 entries
+  plus 14 midcup entries with placeholders, `4cc_90_test` last as entry 53
+  (`.tmp/dpfl_pes15_53.py`). PES 2021 is next, prepared the same way from the 37 entries of
+  `E:\PES2021\download` (`.tmp/dpfl_pes21_53/`, `4cc_99_test` last).
 - Collars beyond the stock set (4.9, 4.27; the maintainer's idea, 2026-10-03): PES 15 loads
   `collar_105`, which its stock game lacks, so the games probably accept collar IDs they do
   not ship. If so, the FPC collar and the referees' marker could move to IDs no stock collar
