@@ -396,8 +396,8 @@ describes behavior, not a serial scheduling requirement:
 
 - **Kits** — per kit (each `KitFolder` of the validated export; `all/` is not one): missing kit
   configs (`config.toml`) are generated from the
-  template, retaining the template's five `[colors]` defaults and applying the FPC kit values when
-  the team's FPC status is on; the kit's two-color `colors.txt` (grammar: "Root files", "Colors" in
+  template, retaining the template's five `[colors]` defaults and its FPC kit values (the
+  template carries them whatever the team's FPC status); the kit's two-color `colors.txt` (grammar: "Root files", "Colors" in
   the [Aesthetics export plan](../aesthetics_export/player_folders.md)) feeds only `UniColor.bin`,
   not the config's distinct five RGB fields. Supplied configs' FPC fields are reconciled with the
   team's status (see "FPC toggle" in the [Aesthetics export
@@ -468,7 +468,12 @@ describes behavior, not a serial scheduling requirement:
   (texture-name fields derived from the effective texture set, version-specific bit packing applied —
   including the PES 15 shirt-pattern clamp; see the [Kit config editor plan](../kit_config_editor.md))
   and emitted under the game's kit-config name for its slot (old `XXX_DEF_1st_realUni.bin` pattern
-  with the team ID applied).
+  with the team ID applied). A supplied config's value that does not fit the target version is
+  reported by the deep pass, so by `check` as by `compile` (`kit_config_version_clamped` on the
+  file, kept, naming the field, the value and the version's maximum: `kit_config`'s
+  `kit_value_out_of_range` and `kit_pattern_unsupported_pes15` findings), and clamped when the
+  binary is emitted. `kit_config`'s other findings are not reported by the compiler yet
+  (worklog "Issues").
 - **Logo** — the game's three PNGs are *produced*, not passed through: the main `logo*` file is
   decoded (`image`, via `dds_convert`'s decoders), made square per its fit tag (`crop` /
   `stretch` / `fit`, default `fit`), resampled with Lanczos3 to 512² and 256², and encoded as

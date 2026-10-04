@@ -552,20 +552,25 @@ mod tests {
     #[test]
     fn fpc_apply_and_match() {
         let mut config = KitConfig::decode(GK, PesVersion::Pes21).unwrap();
-        assert!(!matches_fpc(&config, PesVersion::Pes21));
-        assert!(apply_fpc(&mut config, PesVersion::Pes21));
-        assert!(matches_fpc(&config, PesVersion::Pes21));
-
-        let mut config = KitConfig::template();
-        assert!(!apply_fpc(&mut config, PesVersion::Pes18));
-        assert!(!matches_fpc(&config, PesVersion::Pes18));
+        assert!(!matches_fpc(&config));
+        apply_fpc(&mut config);
+        assert!(matches_fpc(&config));
+        assert_eq!(
+            (
+                config.shirt.model,
+                config.shorts.model,
+                config.shirt.collar,
+                config.shirt.winter_collar
+            ),
+            (176, 16, 105, 105)
+        );
     }
 
     #[test]
     fn matches_fpc_requires_every_field() {
         let mut config = KitConfig::template();
-        assert!(apply_fpc(&mut config, PesVersion::Pes21));
-        assert!(matches_fpc(&config, PesVersion::Pes21));
+        apply_fpc(&mut config);
+        assert!(matches_fpc(&config));
         // Three of four FPC values matching is not a match.
         for perturb in [
             |c: &mut KitConfig| c.shirt.model ^= 0xFF,
@@ -575,7 +580,7 @@ mod tests {
         ] {
             let mut near = config.clone();
             perturb(&mut near);
-            assert!(!matches_fpc(&near, PesVersion::Pes21));
+            assert!(!matches_fpc(&near));
         }
     }
 

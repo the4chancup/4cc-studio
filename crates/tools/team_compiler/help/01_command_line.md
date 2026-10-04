@@ -193,6 +193,20 @@ team's colors written over the start of its entry, so the game no longer finds t
 `compile` repairs them and reports the warning `bin_header_repaired`, naming the file and the
 teams. Those teams' colors may be wrong until their exports are compiled again.
 
+An FPC player's body is hidden only when every kit config of the team, the goalkeeper kit's
+included, carries the FPC values (shirt model 176, shorts model 16, collar 105, winter collar
+105). So when any player folder of an export holds the marker `fpc_on`, `compile` builds every
+kit config the export supplies with these values, and for each `config.toml` that lacked them
+says so with the note `kit_config_fpc_adjusted` (your file is not changed). A kit without a
+`config.toml` gets them anyway. The compiler never removes FPC values from a kit config: an
+export without `fpc_on` has its configs built as they are, FPC values or not, and taking a team
+off FPC is an edit you make in the configs yourself.
+
+A kit config value the chosen PES version cannot hold (a name position `y` over 16 before PES
+2021, or a shirt pattern of 12 or 13 on PES 2015) is lowered to one the version can hold when
+the kit is built. Both commands report it as the warning `kit_config_version_clamped`, naming
+the field, the value and the maximum.
+
 Both commands read every export in the exports folder from the settings (`exports/` beside
 `4cc-studio` unless you changed it). To use another folder for one run, give its path as
 `exports-root`; the setting is not changed. The `exports/` folder beside `4cc-studio` is created

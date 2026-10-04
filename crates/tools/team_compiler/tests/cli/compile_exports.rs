@@ -1,16 +1,19 @@
 //! `compile` over each export's content: the roster, the kits, a nested root, the root
 //! files, the source kinds, and the run across several exports.
 
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::Path;
 
 use dds_convert::{BlockCodec, SourceFormat, decode};
+use kit_config::{KitConfig, KitSlot};
+use pes_version::PesVersion;
 use studio_core::PipelineEvent;
 
 use crate::common::Sandbox;
 use crate::compile::{
     compiled_kits, compiled_players, compiled_portraits, cpk_entries, pass_through_settings,
-    pes21_settings, tracer_kit, tracer_portrait,
+    pes_settings, pes21_settings, tracer_kit, tracer_portrait,
 };
 use crate::textures::{bc1_dds, texture_fixture};
 use crate::{CLEAN_PLAYER, TEAM_COLORS_MISSING, clean_model, findings_of, source_fixture};
@@ -837,6 +840,149 @@ fn a_kit_whose_task_fails_keeps_its_base_entries_and_the_kit_beside_it_commits()
     let changed =
         uniform_parameter_changes(&entries[UNIFORM_PARAMETER], &bundled_uniform_parameter());
     assert_eq!(changed, ["714_DEF_1st_realUni.bin"], "nothing of p2");
+}
+
+/// The CPK path of team 714's kit config for the kit `ordinal` (`1st`, `2nd`).
+fn config_path(ordinal: &str) -> String {
+    format!("common/character0/model/character/uniform/team/714/714_DEF_{ordinal}_realUni.bin")
+}
+
+/// The kit config team 714's kit `ordinal` was emitted as in `entries`, decoded for `version`.
+fn emitted_config(
+    entries: &BTreeMap<String, Vec<u8>>,
+    ordinal: &str,
+    version: PesVersion,
+) -> KitConfig {
+    KitConfig::decode(&entries[&config_path(ordinal)], version).unwrap()
+}
+
+/// A kit config carrying shirt model 144 and the template's values otherwise, the FPC shorts
+/// and collars among them.
+const SHIRT_144: &[u8] = b"[shirt]\nmodel = 144\n";
+
+// TC-KIT-15
+#[test]
+fn an_fpc_on_player_writes_the_fpc_values_into_every_kit_config() {
+    let sandbox = Sandbox::new("kit_fpc_on");
+    let export = "exports/co - Fpc";
+    sandbox.write(
+        &format!("{export}/Players/05 - A/face_high.fmdl"),
+        &clean_model(),
+    );
+    sandbox.write(&format!("{export}/Players/05 - A/fpc_on"), b"");
+    sandbox.write(&format!("{export}/Kits/p1/kit.dds"), &tracer_kit());
+    sandbox.write(&format!("{export}/Kits/p1/config.toml"), SHIRT_144);
+    sandbox.write(&format!("{export}/Kits/p2/kit.dds"), &tracer_kit());
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+    assert_eq!(
+        findings_of(&run.messages(), "co - Fpc"),
+        [
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
+            "Info kit_config_generated [Keep] at Kits/p2 ()",
+            "Info kit_config_fpc_adjusted [Keep] at Kits/p1 ()",
+            "Info kit_colors_derived [Keep] at Kits/p1 ()",
+            "Info kit_colors_derived [Keep] at Kits/p2 ()",
+        ]
+    );
+    assert_eq!(run.exit_code(), 0);
+    assert_eq!(compiled_players(&sandbox), [71405]);
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    for ordinal in ["1st", "2nd"] {
+        let config = emitted_config(&entries, ordinal, PesVersion::Pes21);
+        assert!(kit_config::matches_fpc(&config), "{ordinal}");
+    }
+}
+
+// TC-KIT-16
+#[test]
+fn without_fpc_on_supplied_kit_configs_are_emitted_as_they_are() {
+    let sandbox = Sandbox::new("kit_fpc_unknown");
+    let export = "exports/co - Plain";
+    // `fpc_off` is a statement about its player alone.
+    sandbox.write(&format!("{export}/{CLEAN_PLAYER}"), &clean_model());
+    sandbox.write(&format!("{export}/Players/03 - A/fpc_off"), b"");
+    let fpc: &[u8] =
+        b"[shirt]\nmodel = 176\ncollar = 105\nwinter_collar = 105\n\n[shorts]\nmodel = 16\n";
+    for (slot, config) in [("p1", fpc), ("p2", SHIRT_144)] {
+        sandbox.write(&format!("{export}/Kits/{slot}/kit.dds"), &tracer_kit());
+        sandbox.write(&format!("{export}/Kits/{slot}/config.toml"), config);
+    }
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+    let lines = run.messages();
+    assert!(
+        lines
+            .iter()
+            .all(|line| !line.contains("kit_config_fpc_adjusted")),
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 0);
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    for (slot, ordinal, config) in [(KitSlot::P1, "1st", fpc), (KitSlot::P2, "2nd", SHIRT_144)] {
+        let names = kit_config::texture_names(
+            714,
+            slot,
+            kit_config::TexturePresence {
+                kit: true,
+                ..kit_config::TexturePresence::default()
+            },
+        );
+        let supplied = KitConfig::from_toml(std::str::from_utf8(config).unwrap()).unwrap();
+        assert_eq!(
+            entries[&config_path(ordinal)],
+            supplied.encode_with_names(PesVersion::Pes21, &names),
+            "{ordinal}"
+        );
+    }
+    assert!(kit_config::matches_fpc(&emitted_config(
+        &entries,
+        "1st",
+        PesVersion::Pes21
+    )));
+    assert_eq!(
+        emitted_config(&entries, "2nd", PesVersion::Pes21)
+            .shirt
+            .model,
+        144
+    );
+}
+
+// TC-KIT-17
+#[test]
+fn a_kit_config_value_the_version_cannot_hold_is_reported_and_clamped() {
+    let sandbox = Sandbox::new("kit_config_clamped");
+    let export = "exports/co - Clamp";
+    sandbox.write(&format!("{export}/Kits/p1/kit.dds"), &tracer_kit());
+    sandbox.write(
+        &format!("{export}/Kits/p1/config.toml"),
+        b"[name]\ny = 30\n",
+    );
+    let clamped = "Warning kit_config_version_clamped [Keep] at Kits/p1/config.toml (field=name.y, value=30, max=16)";
+
+    let run = sandbox.run(&pes_settings(&sandbox, 18), &["compile"]);
+
+    let lines = run.messages();
+    assert!(
+        findings_of(&lines, "co - Clamp").contains(&clamped),
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 0);
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    assert_eq!(
+        emitted_config(&entries, "1st", PesVersion::Pes18).name.y,
+        16
+    );
+
+    let check = sandbox.run(&pes_settings(&sandbox, 18), &["check"]);
+    let lines = check.messages();
+    assert!(
+        findings_of(&lines, "co - Clamp").contains(&clamped),
+        "{lines:#?}"
+    );
 }
 
 // TC-SRC-03

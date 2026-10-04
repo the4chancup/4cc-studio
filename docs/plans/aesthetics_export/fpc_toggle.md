@@ -45,8 +45,9 @@ a standalone boots/gloves output, so they follow the last two rows.
 **Team kit-FPC status and kit configs.** FPC also requires settings on **every one of the team's kit
 configs, including the goalkeeper kit** (modern system, per the [wiki's PES17 FPC
 guide](https://implyingrigged.info/wiki/Pro_Evolution_Soccer_2017/Full_Player_Customization): shirt
-model 176, shorts model 16, collar 105, winter collar 105 — stored as per-version constants
-alongside the presets, since the retro pre-2024 system differed). These kit values are a **team-wide
+model 176, shorts model 16, collar 105, winter collar 105 — the same on every supported version,
+stored in `libs/fpc` alongside the presets; the retro pre-2024 system differed and is not
+supported). These kit values are a **team-wide
 prerequisite that enables per-player FPC**, not a per-player switch: with them in place, each
 player's own savefile settings decide whether that player's body is hidden, and non-FPC (head-only)
 players render normally on the same team. The markers are therefore strictly **player-level** —
@@ -56,12 +57,15 @@ teams (some `fpc_on` folders, some `fpc_off` or unmarked) are ordinary, supporte
 
 An export's **team kit-FPC status** is two-state — `EffectiveTeamKitFpc::{On, Unknown}`:
 
-- **On** when at least one player folder carries `fpc_on` — the configs must then carry the FPC
+- **On** when at least one player folder of the validated export carries `fpc_on` (a folder
+  validation dropped compiles no player, so its marker does not count) — the configs must then carry the FPC
   values for that player's hiding to work; **Unknown** otherwise — the absence of `fpc_on` markers
   makes no claim about the team (its FPC players may live only in the savefile, set through the save
   editor), and `fpc_off` markers contribute nothing here because they are per-player statements.
 - **Generated kit configs** (the `kit_config_generated` path, when a kit folder has no
-  `config.toml`) are created with the FPC values when On, and with the plain defaults when Unknown.
+  `config.toml`) are the template, which carries the FPC values whatever the status: it is the
+  cup's own generic kit config, and most of the cup's teams are FPC teams (`libs/fpc.md` has the
+  counts). So a generated config never needs reconciling.
 - **Supplied kit configs are reconciled only upward** (`kit_config_fpc_adjusted`): On → the FPC
   values are written into every config, which also protects against the classic user error of
   copying a kit config from another team. Unknown → supplied configs are left untouched. The

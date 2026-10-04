@@ -51,7 +51,7 @@ use crate::bins::{KIT_COLORS, TEAM_COLORS};
 use crate::messages::Code;
 use crate::plan::subset::{FolderModels, texture_format};
 use crate::reader::ContentSource;
-use documents::{colors_findings, face_diff_findings, kit_config_finding, settings_finding};
+use documents::{colors_findings, face_diff_findings, kit_config_findings, settings_finding};
 use model::{ModelKind, fired, summed};
 use portrait::{folder_portrait, portrait_conflict, portrait_findings};
 use texture::{SizeRule, texture_finding};
@@ -161,7 +161,7 @@ pub(crate) fn content_findings(
     // by its path; each inheriting kit gets them on its own scope.
     let mut inherited: BTreeMap<&str, Vec<ContentFinding>> = BTreeMap::new();
     for kit in export.kits.kits.values() {
-        findings.extend(kit_config_finding(content, kit));
+        findings.extend(kit_config_findings(content, kit, version));
         if let Some(colors) = &kit.colors {
             findings.extend(colors_findings(content, colors, KIT_COLORS));
         }

@@ -5,13 +5,14 @@
 use aesthetics_export::{KitFolder, read_colors_txt};
 use anyhow::Context;
 use dds_convert::{SourceFormat, decode};
-use kit_config::{KitConfig, KitSlot, TexturePresence, texture_names};
+use kit_config::{KitConfig, KitSlot, TexturePresence, apply_fpc, matches_fpc, texture_names};
 use studio_core::Disposition;
 
 use super::{CompileContext, Entry, Finding, TaskFailure, TaskFiles, take, texture};
 use crate::bins::{KIT_COLORS, KitColorEntry, Rgb, kit_number};
 use crate::messages::Code;
 use crate::paths;
+use crate::plan::EffectiveTeamKitFpc;
 use crate::plan::subset::{KIT_TEXTURE_STEMS, texture_format};
 use crate::templates::PLACEHOLDER_KIT;
 
@@ -33,6 +34,10 @@ const MISSING_COLORS: [Rgb; KIT_COLORS] = [[255, 0, 255], [0, 0, 0]];
 /// (`texture_codec_unsupported`) fails the kit with the finding's code: the config names its
 /// textures, so none goes out alone.
 ///
+/// When `fpc`, the team's kit-FPC status, is `On`, a config lacking the FPC values gets them
+/// before it is encoded, noted in `findings` as `kit_config_fpc_adjusted` (the template
+/// already carries them); otherwise the config is encoded as it is.
+///
 /// The entry's colors are the two its `colors.txt` gives (the lines it refuses are the deep
 /// pass's to report); else the two its main texture gives, its own or one inherited from
 /// `all/`, noted in `findings` as `kit_colors_derived`; else, for a placeholder kit or a main
@@ -40,6 +45,7 @@ const MISSING_COLORS: [Rgb; KIT_COLORS] = [[255, 0, 255], [0, 0, 0]];
 pub(super) fn kit(
     slot: KitSlot,
     kit: &KitFolder,
+    fpc: EffectiveTeamKitFpc,
     team_id: u16,
     ctx: &CompileContext,
     files: &mut TaskFiles,
@@ -89,7 +95,7 @@ pub(super) fn kit(
         ));
     }
 
-    let config = match &kit.config {
+    let mut config = match &kit.config {
         Some(file) => {
             let text = String::from_utf8(take(files, file))
                 .with_context(|| format!("{}: not UTF-8", file.path.as_str()))?;
@@ -97,6 +103,15 @@ pub(super) fn kit(
         }
         None => KitConfig::template(),
     };
+    // Only upward: with the status unknown, FPC values a config carries are kept, since no
+    // export state shows the team stopped using FPC.
+    match fpc {
+        EffectiveTeamKitFpc::On if !matches_fpc(&config) => {
+            apply_fpc(&mut config);
+            findings.push((Code::KitConfigFpcAdjusted, Disposition::Keep, Vec::new()));
+        }
+        EffectiveTeamKitFpc::On | EffectiveTeamKitFpc::Unknown => {}
+    }
     let config = config.encode_with_names(ctx.version, &names).to_vec();
     let entry_name = slot.config_name(team_id);
     entries.push((paths::kit_config(team_id, &entry_name), config.clone()));

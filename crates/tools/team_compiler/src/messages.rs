@@ -42,6 +42,12 @@ pub(crate) enum Code {
     /// A kit's `config.toml` that is not UTF-8 text or that `kit_config` refuses (a
     /// value of the wrong type or out of range); the kit is left out.
     KitConfigInvalid,
+    /// A value of a kit's `config.toml` that the target version's kit config cannot hold;
+    /// it is clamped to one the version holds when the config is emitted.
+    KitConfigVersionClamped,
+    /// The team's kit-FPC status is On and a supplied kit config lacks the FPC values; they
+    /// are written into the config emitted for it.
+    KitConfigFpcAdjusted,
     /// A kit whose effective textures lack `kit.dds` (an empty folder included): the bundled
     /// checkerboard stands in as its main texture.
     KitPlaceholder,
@@ -142,7 +148,7 @@ impl Code {
     /// Every code, for the catalog test: a variant missing here would make its first message
     /// panic in `severity`, so a new variant is added to this list too.
     #[cfg(test)]
-    const ALL: [Code; 44] = [
+    const ALL: [Code; 46] = [
         Code::ExportExtractFailed,
         Code::NoExportsFound,
         Code::ExportDisabled,
@@ -154,6 +160,8 @@ impl Code {
         Code::TeamColorsMissing,
         Code::KitConfigGenerated,
         Code::KitConfigInvalid,
+        Code::KitConfigVersionClamped,
+        Code::KitConfigFpcAdjusted,
         Code::KitPlaceholder,
         Code::KitTextureNotUsed,
         Code::KitColorsDerived,
@@ -203,6 +211,8 @@ impl Code {
             Code::TeamColorsMissing => "team_colors_missing",
             Code::KitConfigGenerated => "kit_config_generated",
             Code::KitConfigInvalid => "kit_config_invalid",
+            Code::KitConfigVersionClamped => "kit_config_version_clamped",
+            Code::KitConfigFpcAdjusted => "kit_config_fpc_adjusted",
             Code::KitPlaceholder => "kit_placeholder",
             Code::KitTextureNotUsed => "kit_texture_not_used",
             Code::KitColorsDerived => "kit_colors_derived",
@@ -267,6 +277,8 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("team_colors_missing", CatalogSeverity::Info),
     ("kit_config_generated", CatalogSeverity::Info),
     ("kit_config_invalid", CatalogSeverity::Error),
+    ("kit_config_version_clamped", CatalogSeverity::Warning),
+    ("kit_config_fpc_adjusted", CatalogSeverity::Info),
     ("kit_placeholder", CatalogSeverity::Info),
     ("kit_texture_not_used", CatalogSeverity::Info),
     ("kit_colors_derived", CatalogSeverity::Info),

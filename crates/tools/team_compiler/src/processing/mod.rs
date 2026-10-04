@@ -175,10 +175,16 @@ pub(crate) fn process_task(
                 })
                 .map_err(TaskFailure::from)
         }
-        TaskKind::Kit { slot, kit } => {
-            kit::kit(*slot, kit, task.team_id, ctx, &mut files, &mut findings)
-                .map(|(entries, config, colors)| (entries, Some((config, colors))))
-        }
+        TaskKind::Kit { slot, kit, fpc } => kit::kit(
+            *slot,
+            kit,
+            *fpc,
+            task.team_id,
+            ctx,
+            &mut files,
+            &mut findings,
+        )
+        .map(|(entries, config, colors)| (entries, Some((config, colors)))),
     };
     let mut batch = TaskBatch {
         index,
@@ -268,7 +274,7 @@ mod tests {
 
     use super::*;
     use crate::paths::TextureHome;
-    use crate::plan::{CombinedFolder, CommonModel, ModelFolder};
+    use crate::plan::{CombinedFolder, CommonModel, EffectiveTeamKitFpc, ModelFolder};
     use crate::templates;
 
     const PLAYER: &str = "Players/05 - The Chad Stormworks Player";
@@ -806,6 +812,7 @@ mod tests {
         let batch = run(TaskKind::Kit {
             slot: KitSlot::G1,
             kit: kit(true, Some(KitLayout::Fox)),
+            fpc: EffectiveTeamKitFpc::Unknown,
         });
 
         assert_eq!(
@@ -825,6 +832,7 @@ mod tests {
         let batch = run(TaskKind::Kit {
             slot: KitSlot::G1,
             kit: kit(false, None),
+            fpc: EffectiveTeamKitFpc::Unknown,
         });
 
         let presence = TexturePresence {
@@ -856,11 +864,17 @@ mod tests {
         }]
     }
 
-    /// The kit task of `g1` over `kit`.
+    /// The kit task of `g1` over `kit`, its team's kit-FPC status unknown.
     fn g1(kit: KitFolder) -> TaskKind {
+        g1_with(kit, EffectiveTeamKitFpc::Unknown)
+    }
+
+    /// The kit task of `g1` over `kit`, its team's kit-FPC status `fpc`.
+    fn g1_with(kit: KitFolder, fpc: EffectiveTeamKitFpc) -> TaskKind {
         TaskKind::Kit {
             slot: KitSlot::G1,
             kit,
+            fpc,
         }
     }
 
@@ -936,6 +950,67 @@ mod tests {
                 colors: [[0xc1, 0x12, 0x00], [0x41, 0x41, 0x41]],
             }
         );
+    }
+
+    /// The tracer's `g1` kit folder with its `config.toml` and its two-color `colors.txt`, so
+    /// the only finding its task can make is about its config.
+    fn configured_kit() -> KitFolder {
+        KitFolder {
+            config: Some(file("Kits/g1/config.toml")),
+            ..colored_kit(true, None, own_main_texture())
+        }
+    }
+
+    /// A kit config carrying shirt model 144 and the template's values otherwise.
+    const SHIRT_144: &[u8] = b"[shirt]\nmodel = 144\n";
+
+    /// The four FPC fields of the kit config the batch emitted, decoded from its 120 bytes:
+    /// shirt model, shorts model, collar, winter collar.
+    fn emitted_fpc_fields(batch: &TaskBatch) -> (u8, u8, u8, u8) {
+        let (_, bytes) = batch.uniparam.as_ref().expect("a kit's config");
+        let config = KitConfig::decode(bytes, PesVersion::Pes21).unwrap();
+        (
+            config.shirt.model,
+            config.shorts.model,
+            config.shirt.collar,
+            config.shirt.winter_collar,
+        )
+    }
+
+    #[test]
+    fn with_fpc_on_a_supplied_config_lacking_the_fpc_values_gets_them_and_says_so() {
+        let batch = run_with(
+            g1_with(configured_kit(), EffectiveTeamKitFpc::On),
+            &[("Kits/g1/config.toml", SHIRT_144)],
+        );
+
+        assert_eq!(
+            kit_findings(&batch),
+            [("kit_config_fpc_adjusted", Severity::Info, Disposition::Keep)]
+        );
+        assert_eq!(emitted_fpc_fields(&batch), (176, 16, 105, 105));
+    }
+
+    #[test]
+    fn with_fpc_on_a_config_already_carrying_the_fpc_values_is_not_reported() {
+        // The tracer's own config carries them; the template does too.
+        for kit in [
+            configured_kit(),
+            colored_kit(true, None, own_main_texture()),
+        ] {
+            let batch = run(g1_with(kit, EffectiveTeamKitFpc::On));
+
+            assert_eq!(kit_findings(&batch), []);
+            assert_eq!(emitted_fpc_fields(&batch), (176, 16, 105, 105));
+        }
+    }
+
+    #[test]
+    fn with_the_fpc_status_unknown_a_supplied_config_is_encoded_as_it_is() {
+        let batch = run_with(g1(configured_kit()), &[("Kits/g1/config.toml", SHIRT_144)]);
+
+        assert_eq!(kit_findings(&batch), []);
+        assert_eq!(emitted_fpc_fields(&batch), (144, 16, 105, 105));
     }
 
     #[test]

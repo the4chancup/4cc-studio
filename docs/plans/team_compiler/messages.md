@@ -386,9 +386,9 @@ every miss as a warning.
 | `kit_textures_inherited` | I | a kit lacks stems that `all/` provides; lists them (`p3: back, leg, name from all/`) | textures inherited |
 | `kit_all_file_ignored` | W | `all/` holds something other than kit textures (`config.toml`, `colors.txt`, an `icon_<N>` marker, anything else) | file ignored |
 | `kit_all_unused` | W | `all/` present but no kit folder to inherit from it | — |
-| `kit_config_generated` | I | no `config.toml`; generated from template (with FPC values if team FPC is on) | auto-fixed |
+| `kit_config_generated` | I | no `config.toml`; generated from the template, which carries the FPC values whatever the team's FPC status | auto-fixed |
 | `kit_config_invalid` | E | `config.toml` is not UTF-8 text or fails to parse or validate (ranges, cross-field constraints), found by the deep pass (context: the file, the error) | kit discarded (`DropFolder`, not pass-through-eligible) |
-| `kit_config_version_clamped` | W | a field doesn't fit the target PES version's encoding (e.g. Name Y > 16 before PES 21) | value clamped |
+| `kit_config_version_clamped` | W | a supplied config's field doesn't fit the target PES version's encoding (e.g. Name Y > 16 before PES 21), found by the deep pass (context: the field, the value, the version's maximum) | value clamped when the config is emitted |
 | `kit_config_fpc_adjusted` | I | team kit-FPC status is On but a config lacks the FPC values — supplied configs and unexported slots' base entries alike, GK kit included | auto-fixed (values written; FPC values are never auto-reverted) |
 | `kit_config_fpc_unpatched` | W | team kit-FPC status is On but an unexported kit slot has no base entry or config to patch | slot left alone; the team needs a kit export |
 | `kit_placeholder` | I | the kit's effective textures lack `kit.dds` (an empty folder included); the bundled checkerboard stands in | placeholder kit emitted: checkerboard texture, template config unless supplied, UniColor entry per the colors fallback |

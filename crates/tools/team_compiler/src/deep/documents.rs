@@ -2,9 +2,10 @@
 //! folder's face diff (`player_folders.md` "`face_diff.xml`"), a kit's `config.toml`, a
 //! player's `settings.toml` and a kit's or the root `colors.txt` (`player_folders.md` "Root
 //! files", "Colors") (`team_compiler/messages.md`: `face_diff_invalid`, `xml_dif_conflict`,
-//! `kit_config_invalid`, `settings_toml_invalid`, `color_entry_invalid`). None of their
-//! findings is pass-through-eligible: a file that cannot be read leaves no value to keep, and
-//! a refused `colors.txt` line is a Warning, which drops nothing.
+//! `kit_config_invalid`, `kit_config_version_clamped`, `settings_toml_invalid`,
+//! `color_entry_invalid`). None of their findings is pass-through-eligible: a file that cannot
+//! be read leaves no value to keep, and a clamped config value and a refused `colors.txt` line
+//! are Warnings, which drop nothing.
 
 use std::fmt;
 
@@ -14,6 +15,7 @@ use aesthetics_export::{
 };
 use kit_config::KitConfig;
 use pes_savefile::settings_toml::PlayerSettings;
+use pes_version::PesVersion;
 use vtree::ScopePath;
 
 use super::{read, relative};
@@ -118,22 +120,57 @@ pub(super) fn face_diff_findings(
     findings
 }
 
-/// `kit_config_invalid` when `kit` has a `config.toml` that is not UTF-8 or that
-/// `KitConfig::from_toml` refuses: the kit is dropped, its textures with it, since the config
-/// names them.
-pub(super) fn kit_config_finding(
+/// The findings on `kit`'s `config.toml`, when it has one, for the target `version`.
+/// `kit_config_invalid` when it is not UTF-8 or `KitConfig::from_toml` refuses it: the kit is
+/// dropped, its textures with it, since the config names them. Otherwise one
+/// `kit_config_version_clamped` per value the version's kit config cannot hold, on the file
+/// and kept, naming the field, the value and the version's maximum, in `kit_config::validate`'s
+/// order: the value is clamped when the config is emitted. `validate`'s other findings are not
+/// reported.
+pub(super) fn kit_config_findings(
     content: &ContentSource,
     kit: &KitFolder,
-) -> Option<ContentFinding> {
-    let file = kit.config.as_ref()?;
-    toml_finding(
+    version: PesVersion,
+) -> Vec<ContentFinding> {
+    let Some(file) = kit.config.as_ref() else {
+        return Vec::new();
+    };
+    let config = match parsed_toml(
         content,
         file,
         Code::KitConfigInvalid,
         &IssueScope::Folder(kit.path.clone()),
         Disposition::DropFolder,
         KitConfig::from_toml,
-    )
+    ) {
+        Ok(config) => config,
+        Err(invalid) => return vec![invalid],
+    };
+    kit_config::validate(&config, version)
+        .into_iter()
+        .filter(|finding| {
+            matches!(
+                finding.code,
+                "kit_value_out_of_range" | "kit_pattern_unsupported_pes15"
+            )
+        })
+        .map(|finding| {
+            finding
+                .context
+                .expect("`validate` names the field, value and limit of both range findings")
+        })
+        .map(|out_of_range| ContentFinding {
+            code: Code::KitConfigVersionClamped.as_str(),
+            scope: IssueScope::File(file.path.clone()),
+            context: vec![
+                ("field", out_of_range.field.to_owned()),
+                ("value", out_of_range.value.to_string()),
+                ("max", out_of_range.max.to_string()),
+            ],
+            disposition: Disposition::Keep,
+            pass_through_eligible: false,
+        })
+        .collect()
 }
 
 /// `settings_toml_invalid` when `player` has a `settings.toml` that is not UTF-8 or that
@@ -144,7 +181,7 @@ pub(super) fn settings_finding(
     player: &PlayerFolder,
 ) -> Option<ContentFinding> {
     let file = player.settings.as_ref()?;
-    toml_finding(
+    parsed_toml(
         content,
         file,
         Code::SettingsTomlInvalid,
@@ -152,6 +189,7 @@ pub(super) fn settings_finding(
         Disposition::DropFile,
         PlayerSettings::parse,
     )
+    .err()
 }
 
 /// One `color_entry_invalid` per line the `colors.txt` `file` refuses (`read_colors_txt`, keeping
@@ -187,26 +225,26 @@ pub(super) fn colors_findings(
         .collect()
 }
 
-/// `code` on `scope` with `disposition` when the TOML file `file`, directly in its folder, is
-/// not UTF-8 text or `parse` refuses it: the context names the file and the error. A file that
-/// cannot be read is `source_read_failed` instead.
-fn toml_finding<T, E: fmt::Display>(
+/// The TOML file `file`, directly in its folder, as `parse` reads it; or `code` on `scope`
+/// with `disposition` when it is not UTF-8 text or `parse` refuses it, the context naming the
+/// file and the error. A file that cannot be read is `source_read_failed` instead.
+fn parsed_toml<T, E: fmt::Display>(
     content: &ContentSource,
     file: &FileDescriptor,
     code: Code,
     scope: &IssueScope,
     disposition: Disposition,
     parse: impl FnOnce(&str) -> Result<T, E>,
-) -> Option<ContentFinding> {
-    let bytes = match read(content, file, scope, disposition) {
-        Ok(bytes) => bytes,
-        Err(unread) => return Some(unread),
-    };
+) -> Result<T, ContentFinding> {
+    let bytes = read(content, file, scope, disposition)?;
     let error = match std::str::from_utf8(&bytes) {
-        Ok(text) => parse(text).err()?.to_string(),
+        Ok(text) => match parse(text) {
+            Ok(parsed) => return Ok(parsed),
+            Err(error) => error.to_string(),
+        },
         Err(_) => "the file is not UTF-8 text".to_owned(),
     };
-    Some(ContentFinding {
+    Err(ContentFinding {
         code: code.as_str(),
         scope: scope.clone(),
         context: vec![("file", file.path.name().to_owned()), ("error", error)],
@@ -220,9 +258,12 @@ mod tests {
     use aesthetics_export::{ContentFinding, Disposition, IssueScope};
     use kit_config::KitConfig;
     use pes_savefile::settings_toml::PlayerSettings;
+    use pes_version::PesVersion;
     use vtree::ScopePath;
 
-    use crate::deep::tests::{findings_of, fixture, folder, path, texture, tracer_file};
+    use crate::deep::tests::{
+        findings_for, findings_of, fixture, folder, path, texture, tracer_file,
+    };
     use crate::testing::scratch;
 
     /// A Fox model in which `fmdl`'s check finds nothing (the tracer's right glove), for a
@@ -395,15 +436,71 @@ mod tests {
 
     /// The deep pass's findings on a kit `p1` whose `config.toml` holds `config`.
     fn kit_findings(name: &str, config: &[u8]) -> Vec<ContentFinding> {
+        kit_findings_for(name, PesVersion::Pes21, config)
+    }
+
+    /// `kit_findings` for PES `version`.
+    fn kit_findings_for(name: &str, version: PesVersion, config: &[u8]) -> Vec<ContentFinding> {
         let temp = scratch(name);
-        findings_of(
+        findings_for(
+            version,
             temp.path(),
             &[
                 ("Kits/p1/kit.png", texture("kit.png")),
                 ("Kits/p1/config.toml", config.to_vec()),
             ],
             &[],
+            &[],
         )
+    }
+
+    /// `kit_config_version_clamped` on `Kits/p1/config.toml`, kept, for `field`, `value` and
+    /// `max`.
+    fn clamped(field: &str, value: &str, max: &str) -> ContentFinding {
+        ContentFinding {
+            code: "kit_config_version_clamped",
+            scope: IssueScope::File(path("Kits/p1/config.toml")),
+            context: vec![
+                ("field", field.to_owned()),
+                ("value", value.to_owned()),
+                ("max", max.to_owned()),
+            ],
+            disposition: Disposition::Keep,
+            pass_through_eligible: false,
+        }
+    }
+
+    #[test]
+    fn a_kit_config_value_over_the_version_s_maximum_is_reported_and_kept() {
+        assert_eq!(
+            kit_findings_for("deep_kit_name_y_18", PesVersion::Pes18, b"[name]\ny = 30\n"),
+            [clamped("name.y", "30", "16")]
+        );
+        assert_eq!(
+            kit_findings_for("deep_kit_name_y_21", PesVersion::Pes21, b"[name]\ny = 39\n"),
+            []
+        );
+        // The template's name Y, which a config without one takes, is 30: past PES 15's 16.
+        assert_eq!(
+            kit_findings_for(
+                "deep_kit_pattern_15",
+                PesVersion::Pes15,
+                b"[shirt]\npattern = 12\n\n[name]\ny = 16\n"
+            ),
+            [clamped("shirt.pattern", "12", "11")]
+        );
+        // Two values out of range, in `validate`'s order.
+        assert_eq!(
+            kit_findings_for(
+                "deep_kit_two_clamped_15",
+                PesVersion::Pes15,
+                b"[shirt]\npattern = 12\n\n[name]\ny = 30\n"
+            ),
+            [
+                clamped("name.y", "30", "16"),
+                clamped("shirt.pattern", "12", "11")
+            ]
+        );
     }
 
     #[test]

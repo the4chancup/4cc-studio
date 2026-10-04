@@ -5,9 +5,9 @@
 //! everything an export holds; the classification stays.
 
 use aesthetics_export::{
-    ExportIdentity, FileDescriptor, FileKind, FpcDirective, KitLayout, ModelFormat, ModelSuffix,
-    PlayerFolder, ResolvedAestheticsExport, SharedKind, SharedLink, SharedModelFolder,
-    ValidatedAestheticsExport, classify, common_link_name, model_suffix,
+    ExportIdentity, FileDescriptor, FileKind, KitLayout, ModelFormat, ModelSuffix, PlayerFolder,
+    ResolvedAestheticsExport, SharedKind, SharedLink, SharedModelFolder, ValidatedAestheticsExport,
+    classify, common_link_name, model_suffix,
 };
 use dds_convert::SourceFormat;
 use pes_version::{Engine, PesVersion};
@@ -630,10 +630,6 @@ fn player_not_compiled(
     if folder.ingame_face {
         return Some(("what", format!("{path}/ingame_face")));
     }
-    // `fpc_on` changes every kit config; `fpc_off` only reaches the savefile.
-    if folder.fpc == Some(FpcDirective::On) {
-        return Some(("what", format!("{path}/fpc_on")));
-    }
     // A folder with no model of its own and no link has nothing to compile; one with only a
     // link is a player wearing a shared output.
     if folder.links.is_empty() && !has_model {
@@ -1004,11 +1000,9 @@ mod tests {
     }
 
     #[test]
-    fn ingame_face_or_fpc_on_is_named() {
-        assert_eq!(
-            gate(&["Players/03 - A/fpc_on"]),
-            what("Players/03 - A/fpc_on")
-        );
+    fn ingame_face_is_named_and_fpc_on_is_not() {
+        // `fpc_on` puts the FPC values into the team's kit configs, which `compile` builds.
+        assert_eq!(gate(&["Players/03 - A/fpc_on"]), None);
         // `ingame_face` excludes an explicit face model, so this folder holds only the hair
         // model; the marker is named before the hair files it lacks.
         assert_eq!(

@@ -18,10 +18,10 @@ rules only:
 
 - `kit.rs` — the kit-config FPC values per PES version (the modern system: PES 19+ and the 2024
   reimplementation for 16/17; the retro 16/17 system is documented as legacy and not supported).
-  `kit_values(version)` returns the same four values (shirt model 176, shorts model 16, collar
-  105, winter collar 105) for PES 16, 17, 19, 20 and 21 and `None` for PES 15 and 18. The
-  `None` is wrong for both, and step 4.9 (worklog) corrects it, after which the values are the
-  same on every version and the function returns them without an `Option`: the
+  `kit_values()` returns the four values (shirt model 176, shorts model 16, collar 105, winter
+  collar 105), each a `u8`, the width a kit config stores it in. They are the same on every
+  supported version, so the function takes no version: a parameter nothing reads is how PES 15
+  and 18 once got a wrong `None`. The
   wiki page it was written from documents the PES 17 values and calls the PES 19+ system "mostly
   identical", and says nothing of PES 15 or 18, but the cup's installs have FPC on all of them.
   Counted on the maintainer's installs (every `*_realUni.bin` in each install's `download`
@@ -45,7 +45,7 @@ rules only:
   0 causes winter gloves in winter conditions (warning); skin color Custom on a non-FPC player hides
   the body but not the jersey (warning).
 
-Consumers: `kit_config` (`apply_fpc` / `matches_fpc` use `fpc::kit`; there is no revert, since the
+Consumers: `kit_config` (`apply_fpc(&mut config)` / `matches_fpc(&config)` use `fpc::kit`; there is no revert, since the
 template config already carries the FPC values and the compiler never auto-reverts them), `pes_savefile`
 (`ops/fpc.rs` maps `fpc::player` presets onto `PlayerEntry` and runs the interference check), and
 through them the Team compiler (`fpc_on`/`fpc_off` markers, kit reconciliation, `settings.toml`

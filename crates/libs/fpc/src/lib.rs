@@ -21,24 +21,16 @@ mod tests {
     use super::*;
 
     #[test]
-    fn kit_values_per_version() {
-        let expected = KitFpcValues {
-            shirt_model: 176,
-            shorts_model: 16,
-            collar: 105,
-            winter_collar: 105,
-        };
-        for version in [
-            PesVersion::Pes16,
-            PesVersion::Pes17,
-            PesVersion::Pes19,
-            PesVersion::Pes20,
-            PesVersion::Pes21,
-        ] {
-            assert_eq!(kit_values(version), Some(expected));
-        }
-        assert_eq!(kit_values(PesVersion::Pes15), None);
-        assert_eq!(kit_values(PesVersion::Pes18), None);
+    fn kit_values_match_the_text() {
+        assert_eq!(
+            kit_values(),
+            KitFpcValues {
+                shirt_model: 176,
+                shorts_model: 16,
+                collar: 105,
+                winter_collar: 105,
+            }
+        );
     }
 
     #[test]

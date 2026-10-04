@@ -99,6 +99,14 @@ Claude agent with no sidekick and no reviewer of another model family. While tha
   TC-BIN-01..03, and the decision entries "kit colors merge into a team's UniColor record
   by kit number" and "kit colors derive from the effective main texture; the missing
   pair's bytes".
+  4.9a (b): `fpc` (`kit_values()`), `kit_config` (`apply_fpc`, `matches_fpc`: changed
+  `pub` signatures) and `team_compiler` (`plan::EffectiveTeamKitFpc`, the kit task's
+  reconciliation, `deep/documents.rs` `kit_config_findings`), the 4.9a commit
+  (`feat(team_compiler)`, 2026-10-04), against `fpc_toggle.md` "Team kit-FPC status and kit
+  configs", `libs/fpc.md`, `pipeline.md` "4. Per-export non-model steps" (Kits),
+  `messages.md` (`kit_config_version_clamped`, `kit_config_fpc_adjusted`), TC-KIT-15..17
+  and the decision entry "4.9a: the FPC kit values take no version; the template carries
+  them".
 - For the lead, on return: the review process on trial (maintainer, 3.1) runs a full sidekick
   review loop after each GPT round and calls GPT again only once that loop has ended and GPT's
   own loop has not; not yet in `AGENTS.md` (3.6: GPT 4 of 7 accepted, then sidekick S1 3 of 7,
@@ -794,7 +802,34 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `fpc_on` in slot 05 and a supplied `p1/config.toml` without FPC values: the emitted 120-byte
   config decodes with `kit_config::fpc::matches_fpc` true and `kit_config_fpc_adjusted` is
   reported for p1; with `Collars/collar_12.fmdl` added, every emitted config's collar fields read
-  12 and the file sits at `Asset/model/character/uniform/nocloth/#Win/collar_012.fmdl`
+  12 and the file sits at `Asset/model/character/uniform/nocloth/#Win/collar_012.fmdl`.
+  In slices (decision entry "4.9a: the FPC kit values take no version; the template carries
+  them"):
+  - (a) FPC reconciliation and the clamp warning: `fpc::kit_values()` with no version and
+    `u8` values, `kit_config`'s `apply_fpc`/`matches_fpc` to match; the team's kit-FPC status
+    from the validated export's player folders; a supplied config lacking the FPC values
+    gets them when the status is On (`kit_config_fpc_adjusted`); `fpc_on` no longer refuses
+    the export; `kit_config_version_clamped` from the deep pass. TC-KIT-15..17. Done
+    2026-10-04 (Opus 5.5, first time, no lead code fix): `fpc::kit_values()`;
+    `kit_config::apply_fpc(&mut config)` and `matches_fpc(&config)`;
+    `plan::EffectiveTeamKitFpc::of(&export)`, carried by `TaskKind::Kit { fpc }`; the kit
+    task (`processing/kit.rs`) applies the values to a config lacking them when the
+    status is On and reports `kit_config_fpc_adjusted` (I, kit folder, kept), and never
+    reverts; `plan/subset.rs` no longer names `fpc_on` as content not yet compiled;
+    `deep/documents.rs` `kit_config_findings` runs `kit_config::validate` on a config
+    that parses and reports `kit_value_out_of_range` and `kit_pattern_unsupported_pes15`
+    as `kit_config_version_clamped` (W, on the file, kept; `field`, `value`, `max`), so
+    `check` prints it too (`toml_finding` became `parsed_toml`, returning the parsed
+    value); two help paragraphs. TC-OUT-06's and TC-OUT-02's tests now use an
+    `ingame_face` export as their not-yet-compiled example. Found: the template's
+    `name.y` is 30, over PES 15 to 20's 16 ("Phase 4 open questions"). Not covered: the
+    PES 15 pattern clamp from the CLI (the deep pass's unit test has it; `compile`
+    refuses PES 15); a goalkeeper config adjusted at the CLI (the task's unit tests use
+    `g1`). Gates green (121 of 209); `mutants-diff f31075e`: 34, 24 caught, 10 unviable,
+    0 missed
+  - (b) collars (`Collars/`'s allowlist row, `collar_id_invalid`, `collar_id_conflict`,
+    `kit_collar_reserved`, the configs' collar fields rewritten after FPC, the files passed
+    through). TC-CMN-01..03. Waits on the maintainer's confirmation of the stock collar sets
 
 - [ ] 4.10 **Kit layout conversion**: `KIT_LAYOUT_REMAP` (lead-authored measurement,
   `kits/layout.rs`; band edges from texel correspondence through the two games' uniform
@@ -1198,6 +1233,12 @@ administrator, Upgrade DpFileList dialog): Phase 8; glTF sources: Phase 7; the G
 
 Phase 4 open questions (maintainer):
 
+- The kit config template's name position (4.9a): the template's `name.y` is 30, and PES
+  15 to 20 hold 0 to 16 there (PES 21 holds 0 to 39). So on those targets every supplied
+  config that does not set `y` warns `kit_config_version_clamped` (30 clamped to 16), and
+  a generated config is clamped without a word, since it has no file for the deep pass to
+  report on. To settle: whether the template's default should be per version (and what a
+  PES 15 to 20 default is), or the warning should skip a value the member did not write.
 - Kits a team no longer has (4.8c; decision entry "kit colors merge into a team's
   UniColor record by kit number"): a compile merges its kits into the team's `UniColor.bin`
   record and keeps the record's other kits, so a midcup export holding one kit does not
@@ -1281,6 +1322,14 @@ Steps are itemized when Phase 15 closes; one is fixed already:
 
 Bugs, unexpected behavior, things to revisit. `open` / `resolved (date)`. Resolved issues are
 pruned when their phase closes; they stay in git history.
+
+- open — the compiler reports only two of `kit_config::validate`'s findings (the two a
+  version's encoding clamps, as `kit_config_version_clamped`, step 4.9a). The others have no
+  row in `messages.md`: `kit_collar_zero` (the lib's one Error; `messages.md` says
+  `kit_config_invalid` covers a config that "fails to validate", which the deep pass does
+  not do), `kit_shirt_model_unknown`, the three "requires model 144 or 160" warnings and
+  `kit_unknown_sleeve_value`. Before a kit is dropped for a zero collar, count how many real
+  configs carry one (the old-format exports' `Kit Configs/` and the installs' CPKs).
 
 - open — the headless egui test harness (a frame with AccessKit on, a node by label, a click as
   press and release frames) exists twice, in `studio_core/src/shell/mod.rs` and
@@ -2052,3 +2101,8 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   its main texture (`kit_colors_derived`), a kit with no main texture gets magenta and black
   (`kit_colors_missing`). The tracer's bin equals Red's byte for byte. Open with the
   maintainer: kits a team no longer has keep their entries ("Phase 4 open questions").
+- **2026-10-04** — 4.9a: an export with an `fpc_on` marker compiles. When any player
+  folder carries the marker, every supplied kit config lacking the four FPC values gets
+  them (`kit_config_fpc_adjusted`); without it configs are emitted as supplied. `check` and
+  `compile` warn about a config value the target version clamps
+  (`kit_config_version_clamped`). 4.9b (collars) waits on the maintainer.

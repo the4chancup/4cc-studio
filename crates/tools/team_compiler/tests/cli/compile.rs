@@ -357,36 +357,36 @@ pub(crate) fn compiled_kits(sandbox: &Sandbox) -> Vec<String> {
     kits
 }
 
-/// `exports/<name>`, an export whose roster maps a player folder holding a face model and
-/// `fpc_on`, a marker no run compiles yet.
-fn fpc_on_export(sandbox: &Sandbox, name: &str) {
-    sandbox.write(&format!("exports/{name}/players.txt"), b"03 Fpc On\n");
+/// `exports/<name>`, an export whose roster maps a player folder holding a boots model and
+/// `ingame_face`, a marker no run compiles yet.
+fn ingame_face_export(sandbox: &Sandbox, name: &str) {
+    sandbox.write(&format!("exports/{name}/players.txt"), b"03 Ingame\n");
     sandbox.write(
-        &format!("exports/{name}/Players/Fpc On/face_high.fmdl"),
+        &format!("exports/{name}/Players/Ingame/kit_boots.fmdl"),
         &clean_model(),
     );
-    sandbox.write(&format!("exports/{name}/Players/Fpc On/fpc_on"), b"");
+    sandbox.write(&format!("exports/{name}/Players/Ingame/ingame_face"), b"");
 }
 
 // TC-OUT-06
 #[test]
 fn compile_skips_an_export_holding_content_it_cannot_build_yet_and_builds_the_others() {
     let sandbox = Sandbox::new("not_yet_compiled");
-    fpc_on_export(&sandbox, "co - Fpc");
+    ingame_face_export(&sandbox, "co - Ingame");
     sandbox.copy_tracer("egg Tracer");
     sandbox.write("exports/dbg - Kits/Kits/p1/kit.dds", &tracer_kit());
     sandbox.write("exports/dbg - Kits/players.txt", b"");
     // No roster slot maps this folder, so it would emit nothing.
-    sandbox.write("exports/dbg - Kits/Players/Fpc On/fpc_on", b"");
+    sandbox.write("exports/dbg - Kits/Players/Ingame/ingame_face", b"");
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
 
     let lines = run.messages();
     assert_eq!(
-        findings_of(&lines, "co - Fpc"),
+        findings_of(&lines, "co - Ingame"),
         [
             "Info export_identified [Keep] (team=/co/, id=714)",
-            "Error content_not_yet_compiled [DropExport] (what=Players/Fpc On/fpc_on)",
+            "Error content_not_yet_compiled [DropExport] (what=Players/Ingame/ingame_face)",
         ]
     );
     assert_eq!(run.exit_code(), 1);
@@ -415,7 +415,7 @@ fn a_compile_whose_every_export_is_skipped_leaves_the_previous_cpk_as_it_was() {
         "exports/refs Cup/Players/Keeper/face_high.fmdl",
         &clean_model(),
     );
-    fpc_on_export(&sandbox, "co - Fpc");
+    ingame_face_export(&sandbox, "co - Ingame");
     let before = snapshot(&sandbox.root.join("output"));
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);

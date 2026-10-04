@@ -3621,3 +3621,28 @@ writing the loud pair for a kit that has a real texture would report a gap that 
 The pair takes the placeholder texture's two colors in the order its name gives them
 (`resources/kits/README.md`: the top-left check is magenta).
 Plan: `team_compiler/pipeline.md` "Resolved decisions" (Kit colors fallback).
+
+## 2026-10-04 — fpc, kit_config, team_compiler — 4.9a: the FPC kit values take no version; the template carries them
+Decision: (1) `fpc::kit_values()` takes no version and returns the four values as `u8`;
+`kit_config::apply_fpc(&mut config)` and `matches_fpc(&config)` lose their version too.
+(2) A generated kit config is the template whatever the team's kit-FPC status; the template
+carries the FPC values. (3) The team's kit-FPC status is read from the player folders of the
+validated export. (4) `kit_config_version_clamped` is reported by the deep pass, at `check`
+and at `compile`, on the config file, for `kit_config`'s `kit_value_out_of_range` and
+`kit_pattern_unsupported_pes15` findings; `kit_config`'s other findings stay unreported for
+now. (5) Step 4.9 lands as two slices: (a) FPC reconciliation and the clamp warning, (b)
+collars, which waits on the maintainer's confirmation of the stock collar sets.
+Why: (1) the worklog step asked for the values "on every version, without the `Option`", which
+leaves a version parameter nothing reads; that parameter is how PES 15 and 18 got a wrong
+`None`, and the `u16` fields forced casts at every use. (2) `fpc_toggle.md` said a generated
+config gets "the plain defaults" when the status is Unknown, while `libs/fpc.md` said the
+template already carries the FPC values; the code's template (the cup's generic kit config)
+does carry them, there are no other defaults to fall back to, and most of the cup's teams
+are FPC teams. (3) A folder validation dropped compiles no player. (4) The Kit config editor
+plan calls the finding "a compile/check warning", and the fields the clamp covers are not the
+ones FPC reconciliation changes, so checking the supplied config before reconciliation
+loses nothing. The other findings (`kit_collar_zero`, the model and sleeve ones) have no
+row in `messages.md`; what a kit with a zero collar should do needs a look at real configs
+first. (5) The collar half is game-facing and needs the maintainer.
+Plan: `libs/fpc.md`; `aesthetics_export/fpc_toggle.md` "Team kit-FPC status and kit configs";
+`team_compiler/pipeline.md` "4. Per-export non-model steps" (Kits).

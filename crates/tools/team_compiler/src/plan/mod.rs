@@ -9,8 +9,8 @@ use std::collections::BTreeSet;
 use std::ops::Range;
 
 use aesthetics_export::{
-    ExportIdentity, FileDescriptor, KitFolder, KitsFolder, PlayerFolder, PlayerIndex, PlayerSlot,
-    ResolvedAestheticsExport, SharedKind, SharedModelFolder, ValidatedAestheticsExport,
+    ExportIdentity, FileDescriptor, FpcDirective, KitFolder, KitsFolder, PlayerFolder, PlayerIndex,
+    PlayerSlot, ResolvedAestheticsExport, SharedKind, SharedModelFolder, ValidatedAestheticsExport,
     ValidatedRoster, common_link_name,
 };
 use kit_config::KitSlot;
@@ -283,7 +283,35 @@ pub(crate) enum TaskKind {
         slot: KitSlot,
         /// The kit folder.
         kit: KitFolder,
+        /// Whether its team's kit configs must carry the FPC values.
+        fpc: EffectiveTeamKitFpc,
     },
+}
+
+/// Whether the team's kit configs must carry the FPC values.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum EffectiveTeamKitFpc {
+    /// At least one player folder of the validated export carries `fpc_on`.
+    On,
+    /// No `fpc_on` marker: no claim about the team, supplied configs are left as they are.
+    Unknown,
+}
+
+impl EffectiveTeamKitFpc {
+    /// The status of the team of `export`, the validated export: `On` when one of its player
+    /// folders carries `fpc_on`. A folder validation dropped is not among them, so its marker
+    /// does not count, and `fpc_off` is a statement about its own player alone.
+    fn of(export: &ValidatedAestheticsExport) -> EffectiveTeamKitFpc {
+        if export
+            .players
+            .iter()
+            .any(|folder| folder.fpc == Some(FpcDirective::On))
+        {
+            EffectiveTeamKitFpc::On
+        } else {
+            EffectiveTeamKitFpc::Unknown
+        }
+    }
 }
 
 impl TaskKind {
@@ -400,6 +428,7 @@ pub(crate) fn plan_run(
         }
         let model_ids = PlannedModelIds::for_team(id);
         let mut export = resolved.export;
+        let fpc = EffectiveTeamKitFpc::of(&export);
         // The shared folders taking an id, each with its package and that id, in the id order
         // of the kind: the boots folders, then the gloves folders.
         let mut shared: Vec<(ModelFolder, ModelPackage, u32)> = Vec::new();
@@ -562,7 +591,7 @@ pub(crate) fn plan_run(
                     vec![],
                 ));
             }
-            tasks.push(task(export_id, team_id, TaskKind::Kit { slot, kit }));
+            tasks.push(task(export_id, team_id, TaskKind::Kit { slot, kit, fpc }));
         }
     }
     PlanReport {
@@ -746,7 +775,7 @@ mod tests {
                     TaskKind::Portrait { player_id, file } => {
                         format!("portrait {player_id} {}", file.path.as_str())
                     }
-                    TaskKind::Kit { slot, kit } => {
+                    TaskKind::Kit { slot, kit, .. } => {
                         format!("kit {} {}", slot.as_str(), kit.path.as_str())
                     }
                 };
@@ -1675,6 +1704,64 @@ mod tests {
             .map(|texture| texture.stem.as_str())
             .collect();
         assert_eq!(stems, ["kit"]);
+    }
+
+    /// The team kit-FPC status each kit task of the export `co - Fpc` carries, the export
+    /// holding the kits `p1` and `g1`, `players` (path, size) and the roster `players_txt`, and
+    /// validation reporting exactly the codes `issues` on it.
+    fn kit_fpc(
+        players: &[(&str, u64)],
+        players_txt: Option<&[u8]>,
+        issues: &[&str],
+    ) -> Vec<EffectiveTeamKitFpc> {
+        let files: Vec<(&str, u64)> = [("Kits/p1/kit.dds", 1), ("Kits/g1/kit.dds", 1)]
+            .into_iter()
+            .chain(players.iter().copied())
+            .collect();
+        let (export, codes_found) = resolved_with_issues("co - Fpc", &files, &[], players_txt);
+        assert_eq!(codes_found, issues, "validation's issues");
+        let report = plan_run(
+            vec![(ExportId(0), export, two_team_colors())],
+            PesVersion::Pes21,
+        );
+        assert!(
+            codes(&report)
+                .iter()
+                .all(|code| *code != "content_not_yet_compiled"),
+            "{:?}",
+            report.messages
+        );
+        report
+            .manifest
+            .tasks
+            .iter()
+            .filter_map(|task| match &task.kind {
+                TaskKind::Kit { fpc, .. } => Some(*fpc),
+                TaskKind::Models { .. }
+                | TaskKind::Textures { .. }
+                | TaskKind::CommonTextures { .. }
+                | TaskKind::Portrait { .. } => None,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn one_fpc_on_folder_among_others_makes_every_kit_of_the_team_fpc() {
+        use EffectiveTeamKitFpc::{On, Unknown};
+        let a = ("Players/03 - A/face_high.fmdl", 1);
+        let b = ("Players/05 - B/face_high.fmdl", 1);
+        let c = ("Players/07 - C/face_high.fmdl", 1);
+        let on = ("Players/05 - B/fpc_on", 0);
+        let off = ("Players/07 - C/fpc_off", 0);
+
+        assert_eq!(kit_fpc(&[a, b, on, c, off], None, &[]), [On, On]);
+        assert_eq!(kit_fpc(&[a, b, c, off], None, &[]), [Unknown, Unknown]);
+        assert_eq!(kit_fpc(&[a, b, c], None, &[]), [Unknown, Unknown]);
+        // A folder validation dropped (no roster line maps it) compiles no player.
+        assert_eq!(
+            kit_fpc(&[a, b, on], Some(b"03 03 - A\n"), &["player_unlisted"]),
+            [Unknown, Unknown]
+        );
     }
 
     #[test]
