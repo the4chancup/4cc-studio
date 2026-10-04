@@ -202,7 +202,9 @@ fn a_failed_cpk_write_discards_the_staging_and_leaves_the_previous_cpk() {
             "co - B: Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=boots.fmdl, count=1662)",
             "co - B: Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=fcl_hair.fmdl, count=1662)",
             "co - B: Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=glove_l.fmdl, count=2)",
-            "co - B: Info export_identified [Keep] (team=/co/, id=714)"
+            "co - B: Info export_identified [Keep] (team=/co/, id=714)",
+            "co - A: Info team_colors_missing [Keep] ()",
+            "co - B: Info team_colors_missing [Keep] ()"
         ]
     );
     // The error names the staged CPK, whose folder is this run's: `<pid>-<ms>` is left free.
@@ -528,7 +530,8 @@ fn a_dropped_player_folder_is_left_out_of_the_cpk() {
             "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=boots.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=fcl_hair.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=glove_l.fmdl, count=2)",
-            "Info export_identified [Keep] (team=/co/, id=714)"
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()"
         ]
     );
     assert_eq!(compiled_players(&sandbox), [71403]);
@@ -553,7 +556,8 @@ fn pass_through_compiles_a_folder_with_a_missing_link_and_still_reports_the_erro
             "Info fmdl_weights_not_normalized [Keep] at Players/07 - B (file=boots.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Players/07 - B (file=fcl_hair.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Players/07 - B (file=glove_l.fmdl, count=2)",
-            "Info export_identified [Keep] (team=/co/, id=714)"
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()"
         ]
     );
     assert_eq!(compiled_players(&sandbox), [71403, 71407]);
@@ -611,6 +615,7 @@ const DROP_CASES: [DropCase; 8] = [
             "Info fmdl_weights_not_normalized [Keep] at Players/A (file=fcl_hair.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Players/A (file=glove_l.fmdl, count=2)",
             "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
         ],
         compiled: Some((&[71403], &[])),
         exit_code: 1,
@@ -629,6 +634,7 @@ const DROP_CASES: [DropCase; 8] = [
             "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=glove_l.fmdl, count=2)",
             "Warning shared_folder_orphaned [DropFolder] at Boots/Solo ()",
             "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
         ],
         compiled: Some((&[71403], &[])),
         exit_code: 0,
@@ -647,6 +653,7 @@ const DROP_CASES: [DropCase; 8] = [
             "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=fcl_hair.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=glove_l.fmdl, count=2)",
             "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
         ],
         compiled: Some((&[71403], &[])),
         exit_code: 1,
@@ -665,6 +672,7 @@ const DROP_CASES: [DropCase; 8] = [
             "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=glove_l.fmdl, count=2)",
             "Error kit_layout_conflict [DropFolder] at Kits/p1 ()",
             "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
         ],
         compiled: Some((&[71403], &[])),
         exit_code: 1,
@@ -687,6 +695,7 @@ const DROP_CASES: [DropCase; 8] = [
             "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=fcl_hair.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=glove_l.fmdl, count=2)",
             "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
         ],
         compiled: Some((&[71403], &[])),
         exit_code: 1,
@@ -706,6 +715,7 @@ const DROP_CASES: [DropCase; 8] = [
             "Error kit_slot_duplicate [DropFolder] at Kits/p1 ()",
             "Error kit_slot_duplicate [DropFolder] at Kits/p1 - Lakers ()",
             "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
             "Info kit_config_generated [Keep] at Kits/g1 ()",
         ],
         compiled: Some((&[71403], &["u0714g1"])),
@@ -724,6 +734,7 @@ const DROP_CASES: [DropCase; 8] = [
             "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=glove_l.fmdl, count=2)",
             "Error kit_folder_invalid [DropFolder] at Kits/p10 ()",
             "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
             "Info kit_config_generated [Keep] at Kits/g1 ()",
         ],
         compiled: Some((&[71403], &["u0714g1"])),

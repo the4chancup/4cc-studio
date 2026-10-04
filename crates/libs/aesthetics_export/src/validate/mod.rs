@@ -209,7 +209,7 @@ impl ParsedAestheticsExport {
         } else {
             None
         };
-        let root = if root_decided {
+        let mut root = if root_decided {
             root::check_root(
                 draft,
                 &self.metadata,
@@ -277,6 +277,12 @@ impl ParsedAestheticsExport {
         // every drop is applied here once more.
         kits.kits
             .retain(|_, kit| !dropped_folders.contains(&kit.path.fold_key()));
+        // A dropped `colors.txt` leaves its kit, or the export, without
+        // colors, as a dropped `settings.toml` leaves its player folder.
+        for kit in kits.kits.values_mut() {
+            kit.colors = kit.colors.take().filter(file_kept);
+        }
+        root.team_colors = root.team_colors.filter(file_kept);
         portraits.retain(|_, file| file_kept(file));
         let logo = logo.filter(|logo| {
             file_kept(&logo.main.file)

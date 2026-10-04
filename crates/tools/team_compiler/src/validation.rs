@@ -8,7 +8,8 @@ use std::sync::Arc;
 
 use aesthetics_export::{
     ExportIdentity, FileDescriptor, ModelSuffix, ResolvedAestheticsExport, SharedKind, SourceError,
-    ValidationContext, common_link_name, model_suffix, parse_listing,
+    ValidatedAestheticsExport, ValidationContext, common_link_name, model_suffix, parse_listing,
+    read_colors_txt,
 };
 use anyhow::Context;
 use pes_version::{Engine, PesVersion};
@@ -17,6 +18,7 @@ use rayon::prelude::*;
 use studio_core::{Disposition, ExportId, Message, Scope};
 use vtree::ScopePath;
 
+use crate::bins::{Rgb, TEAM_COLORS};
 use crate::cli::RunInputs;
 use crate::deep;
 use crate::messages::{Code, issue_message, tool_message};
@@ -44,6 +46,10 @@ pub(crate) struct CheckedSource {
     pub(crate) messages: Vec<Message>,
     /// The export with its identity resolved; `None` when a finding dropped it.
     pub(crate) resolved: Option<ResolvedAestheticsExport>,
+    /// The valid colors of the export's root `colors.txt`, at most four (empty when no line
+    /// gives one); `None` when the export has no such file, is a referee export, or a
+    /// finding dropped it before its identity was resolved. Read only beside `resolved`.
+    pub(crate) team_colors: Option<Vec<Rgb>>,
 }
 
 /// The run's memory budget, at the share of the available memory the settings give.
@@ -163,6 +169,7 @@ fn check_source(
             context,
         )],
         resolved: None,
+        team_colors: None,
     };
     let listing = match route {
         Route::Unreadable(failure) => {
@@ -209,6 +216,10 @@ fn check_source(
             report = report.with_content_findings(findings, &context);
         }
     }
+    let team_colors = report
+        .validated
+        .as_ref()
+        .and_then(|validated| team_colors(validated, &content));
     // Nothing past the deep pass reads the source: a `.7z`'s buffer and its permit go now,
     // not after identity.
     drop(content);
@@ -250,6 +261,30 @@ fn check_source(
         source,
         messages,
         resolved,
+        team_colors,
+    }
+}
+
+/// The valid colors of `export`'s root `colors.txt`, read from `content`, or `None` when the
+/// export has none. A referee export has no `TeamColor.bin` record, so its file is not read.
+/// The deep pass has already reported the file's refused lines, and a read that failed there
+/// removed the file from `export`, so nothing is reported here; a read that fails only now is
+/// logged and gives no color: the file exists, so it must not be reported as missing.
+fn team_colors(export: &ValidatedAestheticsExport, content: &ContentSource) -> Option<Vec<Rgb>> {
+    if export.team_name.is_referees() {
+        return None;
+    }
+    let file = export.root.team_colors.as_ref()?;
+    match content.read(file.source.as_str()) {
+        Ok(bytes) => Some(read_colors_txt(&bytes, TEAM_COLORS).colors),
+        Err(failure) => {
+            log::debug!(
+                "{}: the team colors cannot be read again: {}",
+                failure.path,
+                failure.error
+            );
+            Some(Vec::new())
+        }
     }
 }
 
@@ -413,7 +448,7 @@ mod tests {
     use studio_core::Severity;
 
     use super::*;
-    use crate::testing::{resolved, resolved_with_issues};
+    use crate::testing::{resolved, resolved_with_issues, scratch};
 
     /// The export `co - Pool` whose slots 01 to `count` each link their own shared folder of
     /// `kind` (`Boots/S01/` for slot 01), each player folder also holding `local`.
@@ -589,6 +624,91 @@ mod tests {
         );
         assert_eq!(issues, ["player_unlisted"]);
         assert_eq!(names(&export, PesVersion::Pes21), Vec::<String>::new());
+    }
+
+    /// `team_colors` over the folder export `name`, in the scratch folder `scratch_name`,
+    /// holding `files` (path, size) and, when given, a root `colors.txt` of `colors`.
+    fn colors_of(
+        scratch_name: &str,
+        name: &str,
+        files: &[(&str, u64)],
+        players_txt: Option<&[u8]>,
+        colors: Option<&[u8]>,
+    ) -> Option<Vec<Rgb>> {
+        let temp = scratch(scratch_name);
+        let mut files = files.to_vec();
+        if let Some(bytes) = colors {
+            std::fs::write(temp.path().join("colors.txt"), bytes).unwrap();
+            files.push(("colors.txt", bytes.len() as u64));
+        }
+        let export = resolved(name, &files, &[], players_txt);
+        let source = ExportSource {
+            export_id: ExportId(0),
+            path: temp.path().to_path_buf(),
+            kind: SourceKind::Folder,
+            file_name: name.to_owned(),
+            display_name: name.to_owned(),
+            team_name: None,
+        };
+        team_colors(
+            &export.export,
+            &ContentSource::new(&source, &MemoryBudget::new(1 << 30)),
+        )
+    }
+
+    #[test]
+    fn a_team_s_root_colors_txt_gives_its_valid_colors() {
+        let kit = [("Kits/p1/kit.dds", 1)];
+        assert_eq!(
+            colors_of(
+                "team_colors_two",
+                "co - Colors",
+                &kit,
+                None,
+                Some(b"#c11200\n#414141\n")
+            ),
+            Some(vec![[0xc1, 0x12, 0x00], [0x41, 0x41, 0x41]])
+        );
+        // A line that gives no color, which the deep pass reported, and a fifth color past
+        // the record's four.
+        assert_eq!(
+            colors_of(
+                "team_colors_capped",
+                "co - Colors",
+                &kit,
+                None,
+                Some(b"bad\n1 2 3\n4 5 6\n7 8 9\n10 11 12\n13 14 15\n")
+            ),
+            Some(vec![[1, 2, 3], [4, 5, 6], [7, 8, 9], [10, 11, 12]])
+        );
+        assert_eq!(
+            colors_of(
+                "team_colors_invalid",
+                "co - Colors",
+                &kit,
+                None,
+                Some(b"bad\n")
+            ),
+            Some(Vec::new())
+        );
+        assert_eq!(
+            colors_of("team_colors_none", "co - Colors", &kit, None, None),
+            None
+        );
+    }
+
+    #[test]
+    fn a_referee_export_s_colors_txt_is_not_read() {
+        assert_eq!(
+            colors_of(
+                "team_colors_referees",
+                "refs Cup",
+                &[("Players/Keeper/face_high.fmdl", 1)],
+                Some(b"01 Keeper\n"),
+                Some(b"#c11200\n")
+            ),
+            None
+        );
     }
 
     #[test]

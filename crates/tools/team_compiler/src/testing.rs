@@ -15,6 +15,7 @@ use pes_version::PesVersion;
 use studio_core::{AppPaths, Settings, ToolContext};
 use teams_list::TeamsList;
 
+use crate::bins::Rgb;
 use crate::messages::TOOL_ID;
 use crate::settings::default_table;
 
@@ -109,6 +110,12 @@ pub(crate) fn poll_until_done(mut poll: impl FnMut() -> bool) {
         assert!(Instant::now() < deadline, "the run did not end within 60 s");
         std::thread::sleep(Duration::from_millis(10));
     }
+}
+
+/// The colors of a root `colors.txt` giving two, for a planning test about other findings:
+/// an export planned with them reports no `team_colors_missing`.
+pub(crate) fn two_team_colors() -> Option<Vec<Rgb>> {
+    Some(vec![[0xc1, 0x12, 0x00], [0x41, 0x41, 0x41]])
 }
 
 /// The export `name` with these files (path, size), folders and `players.txt`, validated

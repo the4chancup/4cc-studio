@@ -10,6 +10,9 @@ use crate::plan::subset::ModelPackage;
 pub(crate) const UNIFORM_PARAMETER: &str =
     "common/character0/model/character/uniform/team/UniformParameter.bin";
 
+/// The bin holding every team's colors, one record per team; the same path on every version.
+pub(crate) const TEAM_COLOR: &str = "common/etc/TeamColor.bin";
+
 /// The game folder of one `package` by `id`, without the `Asset/` or `/Assets/pes16/` head
 /// the CPK paths and the FMDL texture paths put before it: the player id for the face, the
 /// four-digit boots or gloves id for the other two (`k0625`, `g0625`).

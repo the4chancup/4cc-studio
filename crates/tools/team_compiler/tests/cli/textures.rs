@@ -72,7 +72,8 @@ fn compile_entry(sandbox: &Sandbox, name: &str, version: u8, path: &str) -> Vec<
         findings_of(&run.messages(), name),
         [
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=fcl_hair.fmdl, count=1662)",
-            "Info export_identified [Keep] (team=/co/, id=714)"
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()"
         ],
         "PES {version}"
     );
@@ -178,6 +179,7 @@ fn png_and_tga_kit_textures_are_ftex_under_the_kit_s_names_and_a_webp_portrait_i
         findings_of(&run.messages(), "co - Kit"),
         [
             "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
             "Info kit_config_generated [Keep] at Kits/p1 ()",
         ]
     );
@@ -295,6 +297,7 @@ fn texture_findings_are_checked_and_each_drops_its_folder() {
 
     let compile = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
     let mut compiled = findings.to_vec();
+    compiled.push("Info team_colors_missing [Keep] ()".to_owned());
     compiled.push("Info kit_config_generated [Keep] at Kits/p1 ()".to_owned());
     assert_eq!(findings_of(&compile.messages(), "co - Sizes"), compiled);
     assert_eq!(compile.exit_code(), 1);
@@ -327,6 +330,7 @@ fn pass_through_keeps_an_odd_sized_texture_s_folder_but_not_a_renamed_one() {
             hair_weights("05"),
             "Error texture_type_mismatch [DropFolder] at Players/05 - A (file=skin.dds)".to_owned(),
             "Info export_identified [Keep] (team=/co/, id=714)".to_owned(),
+            "Info team_colors_missing [Keep] ()".to_owned(),
             "Info kit_config_generated [Keep] at Kits/p1 ()".to_owned(),
         ]
     );
@@ -371,6 +375,7 @@ fn a_texture_finding_drops_the_player_folder_naming_the_file() {
         [
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=fcl_hair.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
             "Info kit_config_generated [Keep] at Kits/p1 ()",
             "Error texture_codec_unsupported [DropFolder] at Players/05 - A (file=skin.dds)",
         ]
@@ -405,6 +410,7 @@ fn a_kit_texture_finding_drops_the_kit() {
         [
             "Error texture_too_small [DropFolder] at Kits/p1 (file=kit_back.png)",
             "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
             "Info kit_config_generated [Keep] at Kits/g1 ()",
         ]
     );
@@ -434,6 +440,7 @@ fn a_kit_texture_too_big_drops_its_kit_and_an_uncompressed_kit_is_bc7() {
         [
             too_big,
             identified,
+            "Info team_colors_missing [Keep] ()",
             "Info kit_config_generated [Keep] at Kits/p2 ()"
         ]
     );
@@ -495,6 +502,7 @@ fn a_common_texture_finding_leaves_that_file_out_and_the_rest_is_emitted() {
             "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=glove_l.fmdl, count=2)",
             "Error texture_too_small [DropFile] at Common/tiny.png (file=tiny.png)",
             "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
         ]
     );
     assert_eq!(run.exit_code(), 1);
@@ -537,7 +545,8 @@ fn a_common_texture_and_a_shared_folder_s_texture_in_png_are_emitted_as_ftex() {
             "Info fmdl_weights_not_normalized [Keep] at Boots/Crocs (file=boots.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Common/legs.fmdl (file=legs.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
-            "Info fmdl_fcl_hair_fallback [Keep] at Players/05 - A (file=legs.fmdl.common)"
+            "Info fmdl_fcl_hair_fallback [Keep] at Players/05 - A (file=legs.fmdl.common)",
+            "Info team_colors_missing [Keep] ()"
         ]
     );
     assert_eq!(run.exit_code(), 0);

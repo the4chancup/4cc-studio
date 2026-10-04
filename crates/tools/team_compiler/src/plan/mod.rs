@@ -18,6 +18,7 @@ use pes_version::{Engine, PesVersion};
 use studio_core::{Disposition, ExportId, Message, Scope};
 use vtree::ScopePath;
 
+use crate::bins::Rgb;
 use crate::messages::{Code, tool_message};
 use crate::paths::TextureHome;
 use ids::{PlannedModelIds, shared_folders_taking_ids};
@@ -31,8 +32,8 @@ use subset::{
 pub(crate) struct PlanReport {
     /// Every task of the run, in canonical order.
     pub(crate) manifest: BuildManifest,
-    /// Planning's findings (`content_not_yet_compiled`, `link_combined`, `kit_texture_not_used`,
-    /// `kit_config_generated`, `kit_placeholder`).
+    /// Planning's findings (`content_not_yet_compiled`, `team_colors_missing`, `link_combined`,
+    /// `kit_texture_not_used`, `kit_config_generated`, `kit_placeholder`).
     pub(crate) messages: Vec<Message>,
 }
 
@@ -45,6 +46,10 @@ pub(crate) struct PlanReport {
 pub(crate) struct BuildManifest {
     /// The tasks, in canonical order.
     pub(crate) tasks: Vec<BuildTask>,
+    /// Each planned team's id and the colors its root `colors.txt` gives, at most four, for
+    /// its `TeamColor.bin` record, in export order. A team whose file gives no color, or that
+    /// has no file, is not listed: its record keeps its bytes.
+    pub(crate) team_colors: Vec<(u16, Vec<Rgb>)>,
 }
 
 /// One unit of work: one package of a player folder's models, the folder's textures, one
@@ -349,16 +354,20 @@ pub(crate) fn mapped_players(export: &ValidatedAestheticsExport) -> Vec<&PlayerF
         .collect()
 }
 
-/// Plans the run over the identity-resolved exports, given in `ExportId` order, for the target
+/// Plans the run over the identity-resolved exports, given in `ExportId` order, each with the
+/// valid colors of its root `colors.txt` (`None` when it has no such file), for the target
 /// `version`. An export holding anything Phase 3 cannot compile yet plans no task and reports
-/// `content_not_yet_compiled` naming the first such item.
+/// `content_not_yet_compiled` naming the first such item. Every other export's colors go into
+/// the manifest; one with no root `colors.txt` reports `team_colors_missing`, and its team keeps
+/// the colors it had.
 pub(crate) fn plan_run(
-    exports: Vec<(ExportId, ResolvedAestheticsExport)>,
+    exports: Vec<(ExportId, ResolvedAestheticsExport, Option<Vec<Rgb>>)>,
     version: PesVersion,
 ) -> PlanReport {
     let mut tasks = Vec::new();
+    let mut team_colors = Vec::new();
     let mut messages = Vec::new();
-    for (export_id, mut resolved) in exports {
+    for (export_id, mut resolved, colors) in exports {
         match version.engine() {
             Engine::Fox => drop_kit_masks(export_id, &mut resolved.export.kits, &mut messages),
             Engine::PreFox => {}
@@ -376,6 +385,18 @@ pub(crate) fn plan_run(
             unreachable!("the subset gate skips every referee export");
         };
         let team_id = id.get();
+        match colors {
+            None => messages.push(tool_message(
+                Code::TeamColorsMissing,
+                Scope::Export { export_id },
+                Disposition::Keep,
+                vec![],
+            )),
+            // A file whose every line was refused: the deep pass reported the lines, and
+            // there is nothing to write.
+            Some(colors) if colors.is_empty() => {}
+            Some(colors) => team_colors.push((team_id, colors)),
+        }
         let model_ids = PlannedModelIds::for_team(id);
         let mut export = resolved.export;
         // The shared folders taking an id, each with its package and that id, in the id order
@@ -544,7 +565,7 @@ pub(crate) fn plan_run(
         }
     }
     PlanReport {
-        manifest: BuildManifest { tasks },
+        manifest: BuildManifest { tasks, team_colors },
         messages,
     }
 }
@@ -700,7 +721,7 @@ mod tests {
     use studio_core::Severity;
 
     use super::*;
-    use crate::testing::{resolved, resolved_with_issues};
+    use crate::testing::{resolved, resolved_with_issues, two_team_colors};
 
     /// Each task as one line: export, team, what it compiles, charge.
     fn summary(report: &PlanReport) -> Vec<String> {
@@ -765,7 +786,10 @@ mod tests {
         );
 
         let report = plan_run(
-            vec![(ExportId(0), first), (ExportId(1), second)],
+            vec![
+                (ExportId(0), first, two_team_colors()),
+                (ExportId(1), second, two_team_colors()),
+            ],
             PesVersion::Pes21,
         );
 
@@ -814,7 +838,10 @@ mod tests {
             Some(b"05 A\n07 A\n23 23 - B\n"),
         );
 
-        let report = plan_run(vec![(ExportId(0), export)], PesVersion::Pes21);
+        let report = plan_run(
+            vec![(ExportId(0), export, two_team_colors())],
+            PesVersion::Pes21,
+        );
 
         // Slots 05 and 07 of team 714 own the exclusive ids 625 and 627; slot 23 owns 643.
         // `face_high.skl` has no slot: no task reads it, so no charge counts it.
@@ -880,7 +907,10 @@ mod tests {
             None,
         );
 
-        let report = plan_run(vec![(ExportId(0), export)], PesVersion::Pes21);
+        let report = plan_run(
+            vec![(ExportId(0), export, two_team_colors())],
+            PesVersion::Pes21,
+        );
 
         // Slots 03 and 11 wear Zebra and 07 apple, so no player has a boots package; team
         // 714's shared ids start at 644, in case-folded name order.
@@ -991,7 +1021,10 @@ mod tests {
         ];
         let export = resolved("co - Combined", &files, &[], None);
 
-        let report = plan_run(vec![(ExportId(0), export)], PesVersion::Pes21);
+        let report = plan_run(
+            vec![(ExportId(0), export, two_team_colors())],
+            PesVersion::Pes21,
+        );
 
         // The shared folders are only sources of parts: no shared id, no output of their own.
         assert_eq!(
@@ -1093,7 +1126,10 @@ mod tests {
             None,
         );
 
-        let report = plan_run(vec![(ExportId(0), export)], PesVersion::Pes21);
+        let report = plan_run(
+            vec![(ExportId(0), export, two_team_colors())],
+            PesVersion::Pes21,
+        );
 
         // The boots alone: no face task for a folder whose only model is in `boots/`.
         assert_eq!(
@@ -1155,7 +1191,10 @@ mod tests {
             None,
         );
 
-        let report = plan_run(vec![(ExportId(0), export)], PesVersion::Pes21);
+        let report = plan_run(
+            vec![(ExportId(0), export, two_team_colors())],
+            PesVersion::Pes21,
+        );
 
         // Slot 05's face reads the local part, the two Common models and the hair's skeleton,
         // never the links nor the slotless `face_high.skl`; its boots read Common's model and
@@ -1262,7 +1301,10 @@ mod tests {
             None,
         );
 
-        let report = plan_run(vec![(ExportId(0), export)], PesVersion::Pes21);
+        let report = plan_run(
+            vec![(ExportId(0), export, two_team_colors())],
+            PesVersion::Pes21,
+        );
 
         // The face task exists for the shared model alone, and is charged the player's
         // `face_diff.bin`, not the shared folder's, which is never read.
@@ -1332,7 +1374,10 @@ mod tests {
             .map(|(path, size)| (path.as_str(), *size))
             .collect();
         let export = resolved("co - Faces", &files, &[], None);
-        let report = plan_run(vec![(ExportId(0), export)], PesVersion::Pes21);
+        let report = plan_run(
+            vec![(ExportId(0), export, two_team_colors())],
+            PesVersion::Pes21,
+        );
         assert_eq!(
             report
                 .messages
@@ -1392,7 +1437,10 @@ mod tests {
             None,
         );
 
-        let report = plan_run(vec![(ExportId(0), export)], PesVersion::Pes21);
+        let report = plan_run(
+            vec![(ExportId(0), export, two_team_colors())],
+            PesVersion::Pes21,
+        );
 
         assert_eq!(
             summary(&report),
@@ -1427,7 +1475,10 @@ mod tests {
             Some(b"07 Zed\n03 Zed\n"),
         );
 
-        let report = plan_run(vec![(ExportId(0), export)], PesVersion::Pes21);
+        let report = plan_run(
+            vec![(ExportId(0), export, two_team_colors())],
+            PesVersion::Pes21,
+        );
 
         assert_eq!(
             summary(&report),
@@ -1470,7 +1521,10 @@ mod tests {
             Some(b"07 Zed\n03 Zed\n"),
         );
 
-        let report = plan_run(vec![(ExportId(0), export)], PesVersion::Pes21);
+        let report = plan_run(
+            vec![(ExportId(0), export, two_team_colors())],
+            PesVersion::Pes21,
+        );
 
         assert_eq!(
             summary(&report),
@@ -1492,7 +1546,10 @@ mod tests {
             None,
         );
 
-        let report = plan_run(vec![(ExportId(3), export)], PesVersion::Pes21);
+        let report = plan_run(
+            vec![(ExportId(3), export, two_team_colors())],
+            PesVersion::Pes21,
+        );
 
         let messages: Vec<(&str, &Scope, Disposition)> = report
             .messages
@@ -1562,7 +1619,10 @@ mod tests {
             None,
         );
 
-        let report = plan_run(vec![(ExportId(0), export)], PesVersion::Pes21);
+        let report = plan_run(
+            vec![(ExportId(0), export, two_team_colors())],
+            PesVersion::Pes21,
+        );
 
         assert_eq!(
             message_summary(&report),
@@ -1596,7 +1656,10 @@ mod tests {
         );
         assert_eq!(issues, ["kit_textures_inherited"]);
 
-        let report = plan_run(vec![(ExportId(0), export)], PesVersion::Pes21);
+        let report = plan_run(
+            vec![(ExportId(0), export, two_team_colors())],
+            PesVersion::Pes21,
+        );
 
         assert!(report.messages.is_empty(), "{:?}", report.messages);
         let [task] = report.manifest.tasks.as_slice() else {
@@ -1624,7 +1687,10 @@ mod tests {
             &[],
             None,
         );
-        let report = plan_run(vec![(ExportId(0), export)], PesVersion::Pes21);
+        let report = plan_run(
+            vec![(ExportId(0), export, two_team_colors())],
+            PesVersion::Pes21,
+        );
         assert_eq!(
             report.manifest.tasks[0].kind.folder_path(),
             scope_path("Players/04 - B")
@@ -1645,7 +1711,10 @@ mod tests {
         let kit = resolved("co - Kit", &[("Kits/g1/kit.dds", 1)], &[], None);
 
         let report = plan_run(
-            vec![(ExportId(2), referees), (ExportId(3), kit)],
+            vec![
+                (ExportId(2), referees, None),
+                (ExportId(3), kit, two_team_colors()),
+            ],
             PesVersion::Pes21,
         );
 
@@ -1667,6 +1736,87 @@ mod tests {
         );
         assert_eq!(skipped.context, [("what".to_owned(), "refs".to_owned())]);
         assert_eq!(generated.code.code, "kit_config_generated");
+    }
+
+    /// Each planning message's code, on the export or one of its folders.
+    fn codes(report: &PlanReport) -> Vec<&str> {
+        report
+            .messages
+            .iter()
+            .map(|message| message.code.code.as_ref())
+            .collect()
+    }
+
+    #[test]
+    fn a_team_s_colors_go_into_the_manifest_and_a_team_without_them_reports_it() {
+        let kit = || resolved("co - Kit", &[("Kits/p1/kit.dds", 1)], &[], None);
+        let colors = vec![[0xc1, 0x12, 0x00], [0x41, 0x41, 0x41]];
+
+        let with = plan_run(
+            vec![(ExportId(0), kit(), Some(colors.clone()))],
+            PesVersion::Pes21,
+        );
+        assert_eq!(with.manifest.team_colors, [(714, colors.clone())]);
+        assert_eq!(codes(&with), ["kit_config_generated"]);
+
+        let without = plan_run(vec![(ExportId(4), kit(), None)], PesVersion::Pes21);
+        assert_eq!(without.manifest.team_colors, []);
+        let [missing, generated] = without.messages.as_slice() else {
+            panic!("{:?}", without.messages);
+        };
+        assert_eq!(missing.code.code, "team_colors_missing");
+        assert_eq!(
+            (missing.severity, missing.disposition),
+            (Severity::Info, Disposition::Keep)
+        );
+        assert_eq!(
+            missing.scope,
+            Scope::Export {
+                export_id: ExportId(4)
+            }
+        );
+        assert!(missing.context.is_empty());
+        assert_eq!(generated.code.code, "kit_config_generated");
+
+        // A file whose every line was refused: the deep pass reported the lines.
+        let refused_lines = plan_run(
+            vec![(ExportId(0), kit(), Some(Vec::new()))],
+            PesVersion::Pes21,
+        );
+        assert_eq!(refused_lines.manifest.team_colors, []);
+        assert_eq!(codes(&refused_lines), ["kit_config_generated"]);
+
+        // Two teams' colors, in export order.
+        let dbg = resolved("dbg - Kit", &[("Kits/p1/kit.dds", 1)], &[], None);
+        let both = plan_run(
+            vec![
+                (ExportId(0), dbg, Some(vec![[1, 2, 3]])),
+                (ExportId(1), kit(), Some(colors.clone())),
+            ],
+            PesVersion::Pes21,
+        );
+        assert_eq!(
+            both.manifest.team_colors,
+            [(790, vec![[1, 2, 3]]), (714, colors)]
+        );
+    }
+
+    #[test]
+    fn an_export_the_subset_gate_refuses_lists_no_colors_and_reports_none_missing() {
+        let kit = || resolved("co - Kit", &[("Kits/p1/kit.dds", 1)], &[], None);
+        // PES 17 is a target `compile` does not build yet.
+        let report = plan_run(
+            vec![
+                (ExportId(0), kit(), Some(vec![[1, 2, 3]])),
+                (ExportId(1), kit(), None),
+            ],
+            PesVersion::Pes17,
+        );
+        assert_eq!(report.manifest.team_colors, []);
+        assert_eq!(
+            codes(&report),
+            ["content_not_yet_compiled", "content_not_yet_compiled"]
+        );
     }
 
     fn scope_path(text: &str) -> ScopePath {

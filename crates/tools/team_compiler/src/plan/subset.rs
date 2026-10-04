@@ -685,7 +685,7 @@ mod tests {
 
     use super::*;
     use crate::plan::{TaskKind, plan_run};
-    use crate::testing::{resolved, resolved_with_issues};
+    use crate::testing::{resolved, resolved_with_issues, two_team_colors};
 
     /// A Fox face folder Phase 3 compiles: a face model and `face_diff.bin`.
     const FACE: [&str; 2] = [
@@ -1596,7 +1596,10 @@ mod tests {
             .collect();
         let export = resolved("co - Gate", &files, &[], None);
 
-        let report = plan_run(vec![(ExportId(0), export)], PesVersion::Pes21);
+        let report = plan_run(
+            vec![(ExportId(0), export, two_team_colors())],
+            PesVersion::Pes21,
+        );
 
         // The drop is reported once, on the kit, naming the file.
         let [message] = report.messages.as_slice() else {

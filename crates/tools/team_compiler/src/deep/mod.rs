@@ -47,6 +47,7 @@ use pes_version::PesVersion;
 use rayon::prelude::*;
 use vtree::ScopePath;
 
+use crate::bins::{KIT_COLORS, TEAM_COLORS};
 use crate::messages::Code;
 use crate::plan::subset::{FolderModels, texture_format};
 use crate::reader::ContentSource;
@@ -227,12 +228,6 @@ pub(crate) fn content_findings(
     }
     findings
 }
-
-/// The colors a kit's `colors.txt` gives: the kit's two menu colors.
-const KIT_COLORS: usize = 2;
-
-/// The colors the root `colors.txt` gives: a `TeamColor.bin` record holds four.
-const TEAM_COLORS: usize = 4;
 
 /// The structure pass's code for a root `logo*` file that cannot be the team's logo, which the
 /// deep pass also reports for a logo source that does not decode.

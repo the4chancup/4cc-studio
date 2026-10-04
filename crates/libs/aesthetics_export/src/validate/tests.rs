@@ -2300,6 +2300,57 @@ fn a_content_finding_dropping_a_player_s_settings_or_portrait_keeps_the_folder_w
 }
 
 #[test]
+fn a_content_finding_dropping_a_colors_file_takes_only_that_file_off() {
+    let files = &[
+        ("Players/03 - A/boots.fmdl", 10),
+        ("Kits/p1/kit.dds", 9),
+        ("Kits/p1/colors.txt", 16),
+        ("colors.txt", 16),
+    ];
+    let without_kit_colors = with_findings(
+        files,
+        vec![far_vertex(
+            file_scope("Kits/p1/colors.txt"),
+            Disposition::DropFile,
+        )],
+    )
+    .validated
+    .unwrap();
+    let kit = &without_kit_colors.kits.kits[&kit_config::KitSlot::P1];
+    assert_eq!(kit.colors, None);
+    assert_eq!(
+        kit.textures
+            .iter()
+            .map(|texture| texture.file.path.as_str())
+            .collect::<Vec<_>>(),
+        vec!["Kits/p1/kit.dds"]
+    );
+    assert_eq!(
+        without_kit_colors
+            .root
+            .team_colors
+            .as_ref()
+            .map(|file| file.path.as_str()),
+        Some("colors.txt")
+    );
+
+    let without_team_colors = with_findings(
+        files,
+        vec![far_vertex(file_scope("colors.txt"), Disposition::DropFile)],
+    )
+    .validated
+    .unwrap();
+    assert_eq!(without_team_colors.root.team_colors, None);
+    assert_eq!(
+        without_team_colors.kits.kits[&kit_config::KitSlot::P1]
+            .colors
+            .as_ref()
+            .map(|file| file.path.as_str()),
+        Some("Kits/p1/colors.txt")
+    );
+}
+
+#[test]
 fn a_content_finding_dropping_either_logo_file_drops_the_logo() {
     let files = &[
         ("Players/03 - A/boots.fmdl", 10),

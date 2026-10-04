@@ -34,6 +34,9 @@ pub(crate) enum Code {
     /// valid color past the file's capacity (two for a kit, four for the team); the line is
     /// skipped.
     ColorEntryInvalid,
+    /// A team export without a root `colors.txt`: its team keeps the colors `TeamColor.bin`
+    /// had.
+    TeamColorsMissing,
     /// A kit without `config.toml` gets the template config.
     KitConfigGenerated,
     /// A kit's `config.toml` that is not UTF-8 text or that `kit_config` refuses (a
@@ -118,6 +121,9 @@ pub(crate) enum Code {
     SourceReadFailed,
     /// A task could not build its entries; its folder is left out.
     FolderPackFailed,
+    /// The `TeamColor.bin` the run built on held records whose header was not their
+    /// position's; the headers are rewritten, the records' colors kept.
+    BinHeaderRepaired,
     /// The CPK could not be written; the run's staging is discarded.
     CpkWriteFailed,
     /// The written CPK could not replace the previous one; the run's staging is discarded.
@@ -130,7 +136,7 @@ impl Code {
     /// Every code, for the catalog test: a variant missing here would make its first message
     /// panic in `severity`, so a new variant is added to this list too.
     #[cfg(test)]
-    const ALL: [Code; 40] = [
+    const ALL: [Code; 42] = [
         Code::ExportExtractFailed,
         Code::NoExportsFound,
         Code::ExportDisabled,
@@ -139,6 +145,7 @@ impl Code {
         Code::MultipleRefExports,
         Code::TeamNameUnknown,
         Code::ColorEntryInvalid,
+        Code::TeamColorsMissing,
         Code::KitConfigGenerated,
         Code::KitConfigInvalid,
         Code::KitPlaceholder,
@@ -168,6 +175,7 @@ impl Code {
         Code::MtlBroken,
         Code::SourceReadFailed,
         Code::FolderPackFailed,
+        Code::BinHeaderRepaired,
         Code::CpkWriteFailed,
         Code::OutputCommitFailed,
         Code::DeploySkippedByFlag,
@@ -184,6 +192,7 @@ impl Code {
             Code::MultipleRefExports => "multiple_ref_exports",
             Code::TeamNameUnknown => "team_name_unknown",
             Code::ColorEntryInvalid => "color_entry_invalid",
+            Code::TeamColorsMissing => "team_colors_missing",
             Code::KitConfigGenerated => "kit_config_generated",
             Code::KitConfigInvalid => "kit_config_invalid",
             Code::KitPlaceholder => "kit_placeholder",
@@ -213,6 +222,7 @@ impl Code {
             Code::MtlBroken => "mtl_broken",
             Code::SourceReadFailed => "source_read_failed",
             Code::FolderPackFailed => "folder_pack_failed",
+            Code::BinHeaderRepaired => "bin_header_repaired",
             Code::CpkWriteFailed => "cpk_write_failed",
             Code::OutputCommitFailed => "output_commit_failed",
             Code::DeploySkippedByFlag => "deploy_skipped_by_flag",
@@ -244,6 +254,7 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("export_balls_skipped", CatalogSeverity::Info),
     ("multiple_ref_exports", CatalogSeverity::Error),
     ("color_entry_invalid", CatalogSeverity::Warning),
+    ("team_colors_missing", CatalogSeverity::Info),
     ("kit_config_generated", CatalogSeverity::Info),
     ("kit_config_invalid", CatalogSeverity::Error),
     ("kit_placeholder", CatalogSeverity::Info),
@@ -272,6 +283,7 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("model_broken", CatalogSeverity::Error),
     ("mtl_broken", CatalogSeverity::Error),
     ("folder_pack_failed", CatalogSeverity::ErrorOrFatal),
+    ("bin_header_repaired", CatalogSeverity::Warning),
     ("cpk_write_failed", CatalogSeverity::Fatal),
     ("output_commit_failed", CatalogSeverity::Fatal),
     ("deploy_skipped_by_flag", CatalogSeverity::Info),

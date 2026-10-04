@@ -95,16 +95,13 @@ const TABLE: &[(&str, Row)] = &[
     ),
     (
         "common/character0/model/character/uniform/team/UniColor.bin",
-        Row::NotProduced("bins beyond the kit configs are Phase 4"),
+        Row::NotProduced("kit colors are step 4.8c"),
     ),
     (
         "common/character0/model/character/uniform/team/UniformParameter.bin",
         Row::Exact,
     ),
-    (
-        "common/etc/TeamColor.bin",
-        Row::NotProduced("bins are Phase 4"),
-    ),
+    ("common/etc/TeamColor.bin", Row::Exact),
     ("common/render/symbol/player/79205.dds", Row::Exact),
 ];
 

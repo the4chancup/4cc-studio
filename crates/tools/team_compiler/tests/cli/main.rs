@@ -158,6 +158,10 @@ fn findings_of<'a>(lines: &'a [String], source: &str) -> Vec<&'a str> {
         .collect()
 }
 
+/// The note `compile` adds for a team export with no root `colors.txt`, which `check` does not
+/// print: a test comparing both commands' findings appends it for `compile`.
+const TEAM_COLORS_MISSING: &str = "Info team_colors_missing [Keep] ()";
+
 /// One player folder with a face model: written with `clean_model()`, an export that validates
 /// with no finding.
 const CLEAN_PLAYER: &str = "Players/03 - A/face_high.fmdl";

@@ -174,8 +174,16 @@ Both commands read these files and report each line that does not give exactly o
 colors on one line, the way an old Team Note kit entry writes them, a number over 255, a hex
 color without its `#`), and each color past the second in a kit's file or the fourth in the
 root one, as the warning `color_entry_invalid`, naming the line and the reason. The line is
-skipped and the rest of the file is still read. In this version `compile` does not write these
-colors into the game yet.
+skipped and the rest of the file is still read. `compile` writes the team's colors into the
+game's team color file, which the menus and the scoreboard show; a color the file does not
+give keeps the one the team had. A team export with no root `colors.txt` keeps all the colors
+the team had, and `compile` says so with the note `team_colors_missing`. In this version
+`compile` does not write the kit colors into the game yet.
+
+When the team color file `compile` starts from has damaged entries (a team's colors written
+over the start of its entry, so the game no longer finds that team), `compile` repairs them
+and reports the warning `bin_header_repaired`, naming the file and the teams. Those teams'
+colors may be wrong until their exports are compiled again.
 
 Both commands read every export in the exports folder from the settings (`exports/` beside
 `4cc-studio` unless you changed it). To use another folder for one run, give its path as

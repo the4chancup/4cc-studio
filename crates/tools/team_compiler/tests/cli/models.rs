@@ -16,7 +16,7 @@ use fmdl::{FmdlFile, Model};
 
 use crate::common::Sandbox;
 use crate::compile::{cpk_entries, pes21_settings, tracer_kit, tracer_player_file};
-use crate::{clean_model, findings_of};
+use crate::{TEAM_COLORS_MISSING, clean_model, findings_of};
 
 /// The entry names of the FPK `bytes`.
 pub(crate) fn package_names(bytes: &[u8]) -> Vec<String> {
@@ -85,6 +85,7 @@ fn a_player_s_own_boots_and_gloves_compile_under_its_exclusive_id_with_the_textu
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=glove_l.fmdl, count=2)",
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=kit_boots.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
         ],
     );
 
@@ -99,6 +100,7 @@ fn a_player_s_own_boots_and_gloves_compile_under_its_exclusive_id_with_the_textu
             "Asset/model/character/face/real/71405/#Win/face.fpkd",
             "Asset/model/character/glove/g0625/#Win/glove.fpk",
             "Asset/model/character/glove/g0625/#Win/glove.fpkd",
+            "common/etc/TeamColor.bin",
         ]
     );
     assert_eq!(
@@ -134,6 +136,7 @@ fn boots_skl_is_the_skeleton_named_after_the_boots_model_or_the_bundled_pes_21_b
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=glove_l.fmdl, count=2)",
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=kit_boots.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
         ],
     );
     let package = fpk::FpkFile::read(&entries[boots_fpk]).unwrap();
@@ -149,6 +152,7 @@ fn boots_skl_is_the_skeleton_named_after_the_boots_model_or_the_bundled_pes_21_b
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=glove_l.fmdl, count=2)",
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=kit_boots.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
         ],
     );
     let package = fpk::FpkFile::read(&entries[boots_fpk]).unwrap();
@@ -173,6 +177,7 @@ fn a_folder_mapped_to_two_slots_emits_its_boots_under_both_ids_and_its_textures_
         &[
             "Info fmdl_weights_not_normalized [Keep] at Players/A (file=boots.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
         ],
     );
 
@@ -185,6 +190,7 @@ fn a_folder_mapped_to_two_slots_emits_its_boots_under_both_ids_and_its_textures_
             "Asset/model/character/boots/k0627/#Win/boots.fpk",
             "Asset/model/character/boots/k0627/#Win/boots.fpkd",
             "Asset/model/character/common/714/A/sourceimages/#windx11/shirt.ftex",
+            "common/etc/TeamColor.bin",
         ]
     );
     assert_eq!(
@@ -207,9 +213,9 @@ fn a_texture_that_cannot_convert_drops_the_whole_folder_and_the_folder_beside_it
 
     let lines = run.messages();
     let findings = findings_of(&lines, "co - Broken");
-    assert_eq!(findings.len(), 8, "{findings:?}");
+    assert_eq!(findings.len(), 9, "{findings:?}");
     assert_eq!(
-        findings[..7],
+        findings[..8],
         [
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=boots.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=fcl_hair.fmdl, count=1662)",
@@ -218,14 +224,15 @@ fn a_texture_that_cannot_convert_drops_the_whole_folder_and_the_folder_beside_it
             "Info fmdl_weights_not_normalized [Keep] at Players/07 - B (file=fcl_hair.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Players/07 - B (file=glove_l.fmdl, count=2)",
             "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
         ]
     );
     assert!(
-        findings[7].starts_with(
+        findings[8].starts_with(
             "Error folder_pack_failed [DropFolder] at Players/05 - A (error=shirt.dds: cannot convert"
         ),
         "{}",
-        findings[7]
+        findings[8]
     );
     assert_eq!(run.exit_code(), 1);
     let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
@@ -240,6 +247,7 @@ fn a_texture_that_cannot_convert_drops_the_whole_folder_and_the_folder_beside_it
             "Asset/model/character/face/real/71407/#Win/face.fpkd",
             "Asset/model/character/glove/g0627/#Win/glove.fpk",
             "Asset/model/character/glove/g0627/#Win/glove.fpkd",
+            "common/etc/TeamColor.bin",
         ],
         "nothing of slot 05 is in the CPK"
     );
@@ -331,6 +339,7 @@ fn a_boots_link_beside_a_local_boots_model_combines_the_shared_folder_into_the_p
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=kit_boots.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Boots/Crocs (file=boots.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
             "Info link_combined [Keep] at Players/05 - A (link=Crocs.boots)",
             "Info fmdl_merged [Keep] at Players/05 - A (model=boots.fmdl)"
         ]
@@ -349,6 +358,7 @@ fn a_boots_link_beside_a_local_boots_model_combines_the_shared_folder_into_the_p
             "Asset/model/character/face/real/71405/#Win/face.fpkd",
             "Asset/model/character/glove/g0625/#Win/glove.fpk",
             "Asset/model/character/glove/g0625/#Win/glove.fpkd",
+            "common/etc/TeamColor.bin",
         ],
         "no k0644: the shared folder is only a source of parts"
     );
@@ -371,6 +381,7 @@ fn a_boots_link_beside_a_local_boots_model_combines_the_shared_folder_into_the_p
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=kit_boots.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Boots/Crocs (file=boots.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
             "Info link_combined [Keep] at Players/05 - A (link=Crocs.boots)",
             "Info fmdl_merged [Keep] at Players/05 - A (model=boots.fmdl)"
         ]
@@ -431,6 +442,7 @@ fn a_hair_model_alone_gets_the_bundled_face_diff_hair_simulation_and_body_skelet
         &[
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=fcl_hair.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
         ],
     );
 
@@ -479,7 +491,10 @@ fn a_skeleton_paired_with_a_face_model_without_a_slot_is_reported_and_not_packed
     assert_eq!(check.exit_code(), 0);
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
-    assert_eq!(findings_of(&run.messages(), "co - Slot"), findings);
+    assert_eq!(
+        findings_of(&run.messages(), "co - Slot"),
+        [&findings[..], &["Info team_colors_missing [Keep] ()"]].concat()
+    );
     assert_eq!(run.exit_code(), 0);
     let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
     let package = face_package(&entries);
@@ -536,6 +551,7 @@ fn an_unsuffixed_model_is_reported_and_merged_into_the_hair_with_its_own_skeleto
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=torso.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info fmdl_fcl_hair_fallback [Keep] at Players/05 - A (file=torso.fmdl)",
+            "Info team_colors_missing [Keep] ()",
             "Info fmdl_merged [Keep] at Players/05 - A (model=fcl_hair.fmdl)"
         ]
     );
@@ -588,6 +604,7 @@ fn a_boots_subfolder_s_model_is_the_boots_and_a_common_subfolder_s_texture_is_th
         &[
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=boots/hair_high.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
         ],
     );
 
@@ -598,6 +615,7 @@ fn a_boots_subfolder_s_model_is_the_boots_and_a_common_subfolder_s_texture_is_th
             boots_fpk,
             "Asset/model/character/boots/k0625/#Win/boots.fpkd",
             skin,
+            "common/etc/TeamColor.bin",
         ],
         "no face package for a folder whose only model is in boots/"
     );
@@ -638,22 +656,30 @@ fn write_slot_07(sandbox: &Sandbox, export: &str) {
 
 /// Checks, then compiles, the sandbox for PES 21 (slot 05 under test, slot 07 written by
 /// `write_slot_07`), asserting both commands report `finding` on slot 05 before the export
-/// `name`'s identity, and that slot 05's folder is not in the CPK while slot 07's is.
+/// `name`'s identity (and `compile` its missing team colors after it), and that slot 05's
+/// folder is not in the CPK while slot 07's is.
 fn assert_face_dropped(sandbox: &Sandbox, name: &str, finding: &str) {
     for command in ["check", "compile"] {
         let run = sandbox.run(&pes21_settings(sandbox), &[command]);
+        let validated = [
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=boots.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=fcl_hair.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=glove_l.fmdl, count=2)",
+            finding,
+            "Info fmdl_weights_not_normalized [Keep] at Players/07 - B (file=boots.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/07 - B (file=fcl_hair.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/07 - B (file=glove_l.fmdl, count=2)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+        ];
+        // Planning's note, which only `compile` makes.
+        let planned: &[&str] = if command == "compile" {
+            &[TEAM_COLORS_MISSING]
+        } else {
+            &[]
+        };
         assert_eq!(
             findings_of(&run.messages(), name),
-            [
-                "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=boots.fmdl, count=1662)",
-                "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=fcl_hair.fmdl, count=1662)",
-                "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=glove_l.fmdl, count=2)",
-                finding,
-                "Info fmdl_weights_not_normalized [Keep] at Players/07 - B (file=boots.fmdl, count=1662)",
-                "Info fmdl_weights_not_normalized [Keep] at Players/07 - B (file=fcl_hair.fmdl, count=1662)",
-                "Info fmdl_weights_not_normalized [Keep] at Players/07 - B (file=glove_l.fmdl, count=2)",
-                "Info export_identified [Keep] (team=/co/, id=714)",
-            ],
+            [&validated[..], planned].concat(),
             "{command}"
         );
         assert_eq!(run.exit_code(), 1, "{command}");
@@ -687,7 +713,11 @@ fn a_face_diff_xml_is_decoded_into_the_face_and_a_corrupt_one_drops_the_folder()
     let check = sandbox.run(&pes21_settings(&sandbox), &["check"]);
     assert_eq!(findings_of(&check.messages(), "co - Xml"), clean);
     assert_eq!(check.exit_code(), 0);
-    let entries = compile_clean(&sandbox, "co - Xml", &clean);
+    let entries = compile_clean(
+        &sandbox,
+        "co - Xml",
+        &[&clean[..], &["Info team_colors_missing [Keep] ()"]].concat(),
+    );
 
     assert_eq!(
         face_package(&entries).get("face_diff.bin").unwrap(),
@@ -774,6 +804,7 @@ fn a_subfolder_s_parts_combine_with_loose_root_files_of_their_category() {
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=glove_l.fmdl, count=2)",
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info fmdl_fcl_hair_fallback [Keep] at Players/05 - A (file=torso.fmdl)",
+            "Info team_colors_missing [Keep] ()",
             "Info fmdl_merged [Keep] at Players/05 - A (model=fcl_hair.fmdl)"
         ]
     );
@@ -787,6 +818,7 @@ fn a_subfolder_s_parts_combine_with_loose_root_files_of_their_category() {
             "Asset/model/character/face/real/71405/#Win/face.fpkd",
             glove_fpk,
             "Asset/model/character/glove/g0625/#Win/glove.fpkd",
+            "common/etc/TeamColor.bin",
         ]
     );
     let package = face_package(&entries);
@@ -870,6 +902,7 @@ fn a_face_link_combines_the_shared_face_folder_into_the_player_s_face() {
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=face_high.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Faces/Longhair (file=hair_high.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
             "Info link_combined [Keep] at Players/05 - A (link=Longhair.face)"
         ]
     );
@@ -882,6 +915,7 @@ fn a_face_link_combines_the_shared_face_folder_into_the_player_s_face() {
             "Asset/model/character/common/714/05 - A/sourceimages/#windx11/shirt.ftex",
             "Asset/model/character/face/real/71405/#Win/face.fpk",
             "Asset/model/character/face/real/71405/#Win/face.fpkd",
+            "common/etc/TeamColor.bin",
         ],
         "nothing for Longhair on its own"
     );
@@ -926,6 +960,7 @@ fn a_texture_the_face_and_a_combined_boots_folder_hold_is_packed_once_or_drops_t
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=kit_boots.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Boots/Crocs (file=boots.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
             "Info link_combined [Keep] at Players/05 - A (link=Crocs.boots)",
             "Info fmdl_merged [Keep] at Players/05 - A (model=boots.fmdl)"
         ]
@@ -942,6 +977,7 @@ fn a_texture_the_face_and_a_combined_boots_folder_hold_is_packed_once_or_drops_t
             "Asset/model/character/common/714/05 - A/sourceimages/#windx11/sole.ftex",
             "Asset/model/character/face/real/71405/#Win/face.fpk",
             "Asset/model/character/face/real/71405/#Win/face.fpkd",
+            "common/etc/TeamColor.bin",
         ]
     );
 
@@ -957,6 +993,7 @@ fn a_texture_the_face_and_a_combined_boots_folder_hold_is_packed_once_or_drops_t
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=kit_boots.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Boots/Crocs (file=boots.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
             "Info link_combined [Keep] at Players/05 - A (link=Crocs.boots)",
             "Info fmdl_merged [Keep] at Players/05 - A (model=boots.fmdl)",
             "Error shared_texture_conflict [DropFolder] at Players/05 - A (texture=skin, dropped=boots)"
@@ -971,6 +1008,7 @@ fn a_texture_the_face_and_a_combined_boots_folder_hold_is_packed_once_or_drops_t
             skin,
             "Asset/model/character/face/real/71405/#Win/face.fpk",
             "Asset/model/character/face/real/71405/#Win/face.fpkd",
+            "common/etc/TeamColor.bin",
         ],
         "no k0625 and no sole"
     );
@@ -1006,6 +1044,7 @@ fn a_texture_the_player_s_folder_and_a_combined_face_folder_hold_differently_dro
             "Info fmdl_weights_not_normalized [Keep] at Players/07 - B (file=boots.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Faces/Round (file=hair_high.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
             "Info link_combined [Keep] at Players/05 - A (link=Round.face)",
             "Error merged_texture_conflict [DropFolder] at Players/05 - A (texture=skin)"
         ]
@@ -1018,6 +1057,7 @@ fn a_texture_the_player_s_folder_and_a_combined_face_folder_hold_differently_dro
         [
             "Asset/model/character/boots/k0627/#Win/boots.fpk",
             "Asset/model/character/boots/k0627/#Win/boots.fpkd",
+            "common/etc/TeamColor.bin",
         ],
         "nothing of slot 05"
     );
@@ -1085,6 +1125,7 @@ fn parts_with_a_skeleton_mismatch_or_a_material_defined_twice_drop_their_folder(
             "Info fmdl_weights_not_normalized [Keep] at Players/07 - B (file=x_boots.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Players/09 - C (file=boots.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
             "Error skl_merge_conflict [DropFolder] at Players/05 - A (skeleton=differs)",
             "Error merge_material_conflict [DropFolder] at Players/07 - B (material=shirt)"
         ]
@@ -1097,6 +1138,7 @@ fn parts_with_a_skeleton_mismatch_or_a_material_defined_twice_drop_their_folder(
         [
             "Asset/model/character/boots/k0629/#Win/boots.fpk",
             "Asset/model/character/boots/k0629/#Win/boots.fpkd",
+            "common/etc/TeamColor.bin",
         ],
         "nothing of slot 05 or 07, their textures included"
     );
@@ -1119,6 +1161,7 @@ fn shared_boots_folders_compile_once_each_under_the_shared_ids_in_name_order() {
             "Info fmdl_weights_not_normalized [Keep] at Boots/Crocs (file=boots.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Boots/Mud (file=boots.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
         ],
     );
 
@@ -1132,6 +1175,7 @@ fn shared_boots_folders_compile_once_each_under_the_shared_ids_in_name_order() {
             "Asset/model/character/boots/k0645/#Win/boots.fpk",
             "Asset/model/character/boots/k0645/#Win/boots.fpkd",
             "Asset/model/character/boots/k0645/#windx11/shirt.ftex",
+            "common/etc/TeamColor.bin",
         ],
         "no k0623, k0627 or k0631 for the linking slots"
     );
@@ -1217,6 +1261,7 @@ fn shared_ids_follow_the_folder_names_so_a_new_folder_shifts_the_ones_after_it()
             "Info fmdl_weights_not_normalized [Keep] at Boots/Apple (file=boots.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Boots/Zebra (file=boots.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
         ],
     );
     assert!(!first.contains_key(k0646), "{:?}", first.keys());
@@ -1232,6 +1277,7 @@ fn shared_ids_follow_the_folder_names_so_a_new_folder_shifts_the_ones_after_it()
             "Info fmdl_weights_not_normalized [Keep] at Boots/Mango (file=boots.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Boots/Zebra (file=boots.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
         ],
     );
     assert_eq!(boots_skl(&second, k0644), apple_skl, "Apple");
@@ -1244,6 +1290,7 @@ const PLANNED_FINDINGS: &[&str] = &[
     "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=boots.fmdl, count=1662)",
     "Info fmdl_weights_not_normalized [Keep] at Players/23 - B (file=glove_l.fmdl, count=2)",
     "Info export_identified [Keep] (team=/co/, id=714)",
+    "Info team_colors_missing [Keep] ()",
 ];
 
 // TC-PLN-01
@@ -1272,6 +1319,7 @@ fn the_planned_ids_are_the_slot_s_and_two_compiles_write_the_same_bytes() {
             "Asset/model/character/boots/k0625/#Win/boots.fpkd",
             "Asset/model/character/glove/g0643/#Win/glove.fpk",
             "Asset/model/character/glove/g0643/#Win/glove.fpkd",
+            "common/etc/TeamColor.bin",
         ]
     );
     assert_eq!(

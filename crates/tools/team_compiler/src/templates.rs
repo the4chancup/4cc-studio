@@ -11,6 +11,13 @@ const UNIFORM_PARAMETER_19: &[u8] = include_bytes!(concat!(
     "/../../../resources/bins/UniformParameter19.bin"
 ));
 
+/// The `TeamColor.bin` a compile sets its teams' colors in when it has no installed one to
+/// start from: the same for every version (`resources/bins/README.md`).
+pub(crate) const TEAM_COLOR: &[u8] = include_bytes!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../../resources/bins/TeamColor.bin"
+));
+
 /// The `kit` texture of a placeholder kit: the magenta/black checkerboard, as a DDS
 /// (`resources/kits/README.md`).
 pub(crate) const PLACEHOLDER_KIT: &[u8] = include_bytes!(concat!(

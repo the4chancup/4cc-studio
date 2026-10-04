@@ -12,6 +12,7 @@ use crossbeam_channel::{Receiver, Sender, unbounded};
 use pipeline::{CpkStem, MemoryBudget, Permit};
 use studio_core::{Disposition, ExportId, Scope, Severity, ToolContext};
 
+use crate::bins::WorkingBins;
 use crate::cli::RunInputs;
 use crate::events::RunEvents;
 use crate::messages::{Code, tool_message};
@@ -49,7 +50,7 @@ pub(crate) fn run(
             events.message(message);
         }
         if let Some(resolved) = checked.resolved {
-            exports.push((checked.source.export_id, resolved));
+            exports.push((checked.source.export_id, resolved, checked.team_colors));
         }
         sources.push(checked.source);
     }
@@ -60,6 +61,7 @@ pub(crate) fn run(
     }
 
     let tasks = report.manifest.tasks;
+    let team_colors = report.manifest.team_colors;
     let mut last_task_of: BTreeMap<ExportId, usize> = BTreeMap::new();
     for (index, task) in tasks.iter().enumerate() {
         last_task_of.insert(task.export_id, index);
@@ -81,13 +83,15 @@ pub(crate) fn run(
     let (coordinated, (mut events, written)) = std::thread::scope(|scope| {
         let (batches_tx, batches_rx) = unbounded();
         let last_tasks = &last_tasks;
+        let team_colors = &team_colors;
         let writer = scope.spawn(move || {
             let mut output = output;
             let mut events = events;
             // The writer finishes the CPK too, so its file is closed when the thread ends,
-            // before a failure removes the staging folder.
+            // before a failure removes the staging folder. The bins are built on the bundled
+            // bases until the installed ones are read (`pipeline.md` "Bins accumulation").
             let written = write_batches(batches_rx, &mut output, &mut events, last_tasks)
-                .and_then(|()| output.finish(version));
+                .and_then(|()| output.finish(version, WorkingBins::bundled(), team_colors));
             (events, written)
         });
         let coordinated = pool.in_place_scope(|pool_scope| {
@@ -103,7 +107,12 @@ pub(crate) fn run(
     // A bins failure is a CPK write failure too: `uniparam_compile_failed` arrives with Phase
     // 4's installed-bin lookup; in Phase 3 the only bin is built on the bundled base.
     let written = match written {
-        Ok(written) => written,
+        Ok((written, messages)) => {
+            for message in messages {
+                events.message(message);
+            }
+            written
+        }
         Err(error) => {
             abort_output(
                 &mut events,

@@ -101,6 +101,7 @@ fn a_common_model_link_bakes_the_model_into_the_face_and_its_texture_stays_in_th
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info fmdl_fcl_hair_fallback [Keep] at Players/05 - A (file=legs.fmdl.common)",
             "Info fmdl_fcl_hair_fallback [Keep] at Players/05 - A (file=torso.fmdl)",
+            "Info team_colors_missing [Keep] ()",
             "Info fmdl_merged [Keep] at Players/05 - A (model=fcl_hair.fmdl)"
         ]
     );
@@ -109,7 +110,13 @@ fn a_common_model_link_bakes_the_model_into_the_face_and_its_texture_stays_in_th
     let paths: Vec<&str> = entries.keys().map(String::as_str).collect();
     assert_eq!(
         paths,
-        [shirt, cloth.as_str(), FACE_05, FACE_05_FPKD],
+        [
+            shirt,
+            cloth.as_str(),
+            FACE_05,
+            FACE_05_FPKD,
+            "common/etc/TeamColor.bin"
+        ],
         "cloth once, in the team's Common output and not under the player's subfolder"
     );
     assert_no_common_path(&entries);
@@ -181,7 +188,8 @@ fn a_boots_link_packs_the_common_skeleton_and_two_players_linking_one_model_shar
         findings_of(&run.messages(), "co - Boots"),
         [
             "Info fmdl_weights_not_normalized [Keep] at Common/legs.fmdl (file=legs.fmdl, count=1662)",
-            "Info export_identified [Keep] (team=/co/, id=714)"
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()"
         ]
     );
     assert_eq!(run.exit_code(), 0);
@@ -195,6 +203,7 @@ fn a_boots_link_packs_the_common_skeleton_and_two_players_linking_one_model_shar
             "Asset/model/character/boots/k0627/#Win/boots.fpk",
             "Asset/model/character/boots/k0627/#Win/boots.fpkd",
             shirt.as_str(),
+            "common/etc/TeamColor.bin",
         ],
         "each player's package, the Common texture once"
     );
@@ -241,6 +250,7 @@ fn a_boots_link_beside_a_shared_boots_link_combines_the_shared_folder() {
             "Info fmdl_weights_not_normalized [Keep] at Boots/Crocs (file=boots.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Common/kit_boots.fmdl (file=kit_boots.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
             "Info link_combined [Keep] at Players/05 - A (link=Crocs.boots)",
             "Info fmdl_merged [Keep] at Players/05 - A (model=boots.fmdl)"
         ]
@@ -253,6 +263,7 @@ fn a_boots_link_beside_a_shared_boots_link_combines_the_shared_folder() {
         [
             BOOTS_05,
             "Asset/model/character/boots/k0625/#Win/boots.fpkd",
+            "common/etc/TeamColor.bin",
         ],
         "no k0644: the shared folder is only a source of parts"
     );
@@ -290,7 +301,10 @@ fn a_common_skeleton_of_a_slotless_face_model_is_reported_on_the_link_and_not_pa
     assert_eq!(check.exit_code(), 0);
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
-    assert_eq!(findings_of(&run.messages(), "co - Slot"), findings);
+    assert_eq!(
+        findings_of(&run.messages(), "co - Slot"),
+        [&findings[..], &["Info team_colors_missing [Keep] ()"]].concat()
+    );
     assert_eq!(run.exit_code(), 0);
     let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
     assert_eq!(
@@ -339,6 +353,7 @@ fn a_material_a_local_and_a_common_part_define_over_textures_in_two_places_drops
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info fmdl_fcl_hair_fallback [Keep] at Players/05 - A (file=torso.fmdl)",
             "Info fmdl_fcl_hair_fallback [Keep] at Players/05 - A (file=torso2.fmdl.common)",
+            "Info team_colors_missing [Keep] ()",
             "Error merge_material_conflict [DropFolder] at Players/05 - A (material=shirt)"
         ]
     );
@@ -351,6 +366,7 @@ fn a_material_a_local_and_a_common_part_define_over_textures_in_two_places_drops
             "Asset/model/character/boots/k0627/#Win/boots.fpk",
             "Asset/model/character/boots/k0627/#Win/boots.fpkd",
             &format!("{COMMON_TEXTURES}/shirt.ftex"),
+            "common/etc/TeamColor.bin",
         ],
         "nothing of slot 05, its own shirt included; the Common texture is the team's"
     );
@@ -378,28 +394,29 @@ fn a_common_texture_that_cannot_convert_fails_the_common_task_and_the_linking_pl
 
     let lines = run.messages();
     let findings = findings_of(&lines, "co - Broken");
-    assert_eq!(findings.len(), 4, "{findings:?}");
+    assert_eq!(findings.len(), 5, "{findings:?}");
     assert_eq!(
-        findings[..3],
+        findings[..4],
         [
             "Info fmdl_weights_not_normalized [Keep] at Common/legs.fmdl (file=legs.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info fmdl_fcl_hair_fallback [Keep] at Players/05 - A (file=legs.fmdl.common)",
+            "Info team_colors_missing [Keep] ()",
         ]
     );
     assert!(
-        findings[3].starts_with(
+        findings[4].starts_with(
             "Error folder_pack_failed [DropFolder] at Common (error=broken.dds: cannot convert"
         ),
         "{}",
-        findings[3]
+        findings[4]
     );
     assert_eq!(run.exit_code(), 1);
     let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
     let paths: Vec<&str> = entries.keys().map(String::as_str).collect();
     assert_eq!(
         paths,
-        [FACE_05, FACE_05_FPKD],
+        [FACE_05, FACE_05_FPKD, "common/etc/TeamColor.bin"],
         "no Common texture, `cloth` included; the player's face is in"
     );
 }
@@ -477,11 +494,12 @@ fn a_link_to_a_texture_or_a_nested_common_file_is_refused_and_an_unlinked_common
         [
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=face_high.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Common/spare.fmdl (file=spare.fmdl, count=1662)",
-            "Info export_identified [Keep] (team=/co/, id=714)"
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()"
         ]
     );
     assert_eq!(run.exit_code(), 0);
     let entries = cpk_entries(&unlinked.root.join("output/4cc_99_test.cpk"));
     let paths: Vec<&str> = entries.keys().map(String::as_str).collect();
-    assert_eq!(paths, [FACE_05, FACE_05_FPKD]);
+    assert_eq!(paths, [FACE_05, FACE_05_FPKD, "common/etc/TeamColor.bin"]);
 }

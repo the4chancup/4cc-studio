@@ -7,6 +7,7 @@
 //! same validation, plans the kept exports' face and kit tasks, processes them and writes the
 //! CPK.
 
+mod bins;
 mod check;
 mod cli;
 mod compile;

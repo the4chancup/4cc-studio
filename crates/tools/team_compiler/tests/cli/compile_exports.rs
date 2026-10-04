@@ -2,6 +2,7 @@
 //! files, the source kinds, and the run across several exports.
 
 use std::fs;
+use std::path::Path;
 
 use dds_convert::{BlockCodec, SourceFormat, decode};
 use studio_core::PipelineEvent;
@@ -12,7 +13,7 @@ use crate::compile::{
     pes21_settings, tracer_kit, tracer_portrait,
 };
 use crate::textures::{bc1_dds, texture_fixture};
-use crate::{CLEAN_PLAYER, clean_model, findings_of, source_fixture};
+use crate::{CLEAN_PLAYER, TEAM_COLORS_MISSING, clean_model, findings_of, source_fixture};
 
 // TC-ROS-01
 #[test]
@@ -32,7 +33,8 @@ fn without_players_txt_each_folder_is_the_player_its_number_names() {
             "Info fmdl_weights_not_normalized [Keep] at Players/15 - B (file=boots.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Players/15 - B (file=fcl_hair.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Players/15 - B (file=glove_l.fmdl, count=2)",
-            "Info export_identified [Keep] (team=/co/, id=714)"
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()"
         ]
     );
     assert_eq!(compiled_players(&sandbox), [71403, 71415]);
@@ -56,7 +58,8 @@ fn players_txt_maps_a_folder_by_name_and_leaves_an_unlisted_one_out() {
             "Info fmdl_weights_not_normalized [Keep] at Players/Snuffy (file=boots.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Players/Snuffy (file=fcl_hair.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Players/Snuffy (file=glove_l.fmdl, count=2)",
-            "Info export_identified [Keep] (team=/co/, id=714)"
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()"
         ]
     );
     assert_eq!(compiled_players(&sandbox), [71403]);
@@ -78,7 +81,8 @@ fn a_folder_listed_under_two_slots_is_compiled_for_both() {
             "Info fmdl_weights_not_normalized [Keep] at Players/A (file=boots.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Players/A (file=fcl_hair.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Players/A (file=glove_l.fmdl, count=2)",
-            "Info export_identified [Keep] (team=/co/, id=714)"
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()"
         ]
     );
     assert_eq!(compiled_players(&sandbox), [71403, 71407]);
@@ -109,7 +113,8 @@ fn each_bad_roster_line_is_reported_and_only_the_good_one_compiled() {
             "Info fmdl_weights_not_normalized [Keep] at Players/C (file=boots.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Players/C (file=fcl_hair.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Players/C (file=glove_l.fmdl, count=2)",
-            "Info export_identified [Keep] (team=/co/, id=714)"
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()"
         ]
     );
     assert_eq!(compiled_players(&sandbox), [71407]);
@@ -131,6 +136,7 @@ fn an_empty_players_txt_compiles_the_kits_and_no_player() {
         [
             "Warning player_unlisted [DropFolder] at Players/03 - A ()",
             "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
             "Info kit_config_generated [Keep] at Kits/p1 ()",
         ]
     );
@@ -152,6 +158,7 @@ fn kit_folders_are_compiled_as_the_slot_their_name_starts_with() {
         findings_of(&run.messages(), "co - Kits"),
         [
             "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
             "Info kit_config_generated [Keep] at Kits/p1 - Lakers ()",
             "Info kit_config_generated [Keep] at Kits/g1 ()",
         ]
@@ -171,6 +178,7 @@ fn a_kit_holding_only_a_back_texture_gets_the_placeholder_main_texture() {
         findings_of(&run.messages(), "co - Back"),
         [
             "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
             "Info kit_config_generated [Keep] at Kits/p4 ()",
             "Info kit_placeholder [Keep] at Kits/p4 ()",
         ]
@@ -217,7 +225,8 @@ fn dds_portraits_from_both_sources_are_emitted_as_they_are_under_the_version_s_n
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=boots.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=fcl_hair.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=glove_l.fmdl, count=2)",
-            "Info export_identified [Keep] (team=/co/, id=714)"
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()"
         ]
     );
     assert_eq!(run.exit_code(), 0);
@@ -294,6 +303,7 @@ fn a_slot_s_two_portraits_skip_the_export_when_they_differ_and_are_one_when_iden
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=fcl_hair.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=glove_l.fmdl, count=2)",
             "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
         ]
     );
     assert_eq!(run.exit_code(), 0);
@@ -337,7 +347,8 @@ fn a_dds_portrait_passes_through_and_a_png_one_is_encoded_to_bc3_under_the_versi
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=boots.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=fcl_hair.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=glove_l.fmdl, count=2)",
-            "Info export_identified [Keep] (team=/co/, id=714)"
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()"
         ]
     );
     assert_eq!(run.exit_code(), 0);
@@ -401,7 +412,11 @@ fn a_portrait_whose_side_is_not_a_power_of_two_is_checked_and_left_out_alone() {
 
     assert_eq!(
         findings_of(&run.messages(), "co - Odd"),
-        odd_portrait_findings("DropFile")
+        [
+            &odd_portrait_findings("DropFile")[..],
+            &[TEAM_COLORS_MISSING.to_owned()]
+        ]
+        .concat()
     );
     assert_eq!(run.exit_code(), 1);
     assert_eq!(compiled_players(&sandbox), [71403]);
@@ -417,7 +432,11 @@ fn pass_through_keeps_a_portrait_whose_side_is_not_a_power_of_two() {
 
     assert_eq!(
         findings_of(&run.messages(), "co - Odd"),
-        odd_portrait_findings("Keep")
+        [
+            &odd_portrait_findings("Keep")[..],
+            &[TEAM_COLORS_MISSING.to_owned()]
+        ]
+        .concat()
     );
     assert_eq!(run.exit_code(), 1);
     assert_eq!(compiled_portraits(&sandbox), ["71403.dds", "71405.dds"]);
@@ -439,6 +458,7 @@ fn a_kit_mask_on_a_fox_target_is_reported_once_and_not_emitted() {
         [
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info kit_texture_not_used [DropFile] at Kits/p1 (file=kit_mask.dds)",
+            "Info team_colors_missing [Keep] ()",
             "Info kit_config_generated [Keep] at Kits/p1 ()",
         ]
     );
@@ -465,7 +485,8 @@ fn content_nested_one_folder_down_compiles_as_if_at_the_root() {
             "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=fcl_hair.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=glove_l.fmdl, count=2)",
             "Info notes_found [Keep] at notes.txt ()",
-            "Info export_identified [Keep] (team=/co/, id=714)"
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()"
         ]
     );
     assert_eq!(
@@ -475,7 +496,8 @@ fn content_nested_one_folder_down_compiles_as_if_at_the_root() {
             "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=boots.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=fcl_hair.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=glove_l.fmdl, count=2)",
-            "Info export_identified [Keep] (team=/dbg/, id=790)"
+            "Info export_identified [Keep] (team=/dbg/, id=790)",
+            "Info team_colors_missing [Keep] ()"
         ]
     );
     assert_eq!(compiled_players(&sandbox), [71403, 79003]);
@@ -503,6 +525,64 @@ fn pass_through_drops_notes_that_are_not_utf8_and_compiles_the_export() {
     );
     assert_eq!(compiled_players(&sandbox), [79205]);
     assert_eq!(run.exit_code(), 1);
+}
+
+/// The bundled `TeamColor.bin`, which a run with no installed bin builds on.
+fn bundled_team_color() -> Vec<u8> {
+    fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../resources/bins/TeamColor.bin"))
+        .unwrap()
+}
+
+/// Where the CPK keeps `TeamColor.bin`.
+const TEAM_COLOR: &str = "common/etc/TeamColor.bin";
+
+// TC-ROOT-10
+#[test]
+fn a_root_colors_txt_sets_the_team_s_colors_and_an_export_without_one_reports_it() {
+    let sandbox = Sandbox::new("root_team_colors");
+    sandbox.write("exports/co - Colors/colors.txt", b"#c11200\n#414141\n");
+    sandbox.write("exports/co - Colors/Kits/p1/kit.dds", &tracer_kit());
+    sandbox.write("elsewhere/dbg - Plain/Kits/p1/kit.dds", &tracer_kit());
+    let cpk = sandbox.root.join("output/4cc_99_test.cpk");
+    let base = bundled_team_color();
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+    assert_eq!(
+        run.messages(),
+        [
+            "co - Colors: Info export_identified [Keep] (team=/co/, id=714)",
+            "co - Colors: Info kit_config_generated [Keep] at Kits/p1 ()"
+        ]
+    );
+    assert_eq!(run.exit_code(), 0);
+    // Team 714's record: its ID and count, then its first two colors; the rest is the base's.
+    let record = (714 - 100) * 16;
+    let mut expected = base.clone();
+    expected[record + 4..record + 10].copy_from_slice(&[0xc1, 0x12, 0x00, 0x41, 0x41, 0x41]);
+    assert!(
+        cpk_entries(&cpk).get(TEAM_COLOR) == Some(&expected),
+        "TeamColor.bin is the base with team 714's colors set"
+    );
+
+    let run = sandbox.run(
+        &pes21_settings(&sandbox),
+        &["compile", "--export", &sandbox.arg("elsewhere/dbg - Plain")],
+    );
+
+    assert_eq!(
+        run.messages(),
+        [
+            "dbg - Plain: Info export_identified [Keep] (team=/dbg/, id=790)",
+            "dbg - Plain: Info team_colors_missing [Keep] ()",
+            "dbg - Plain: Info kit_config_generated [Keep] at Kits/p1 ()"
+        ]
+    );
+    assert_eq!(run.exit_code(), 0);
+    assert!(
+        cpk_entries(&cpk).get(TEAM_COLOR) == Some(&base),
+        "TeamColor.bin is the bundled base"
+    );
 }
 
 // TC-SRC-03
@@ -588,18 +668,28 @@ fn export_paths_restrict_check_and_compile_to_the_named_exports() {
     for command in ["check", "compile"] {
         let args: Vec<&str> = std::iter::once(command).chain(named).collect();
         let run = sandbox.run(&pes21_settings(&sandbox), &args);
+        let validated = [
+            "co - A: Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=boots.fmdl, count=1662)",
+            "co - A: Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=fcl_hair.fmdl, count=1662)",
+            "co - A: Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=glove_l.fmdl, count=2)",
+            "co - A: Info export_identified [Keep] (team=/co/, id=714)",
+            "dbg - D: Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=boots.fmdl, count=1662)",
+            "dbg - D: Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=fcl_hair.fmdl, count=1662)",
+            "dbg - D: Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=glove_l.fmdl, count=2)",
+            "dbg - D: Info export_identified [Keep] (team=/dbg/, id=790)",
+        ];
+        // Planning's notes, which only `compile` makes.
+        let planned: &[&str] = if command == "compile" {
+            &[
+                "co - A: Info team_colors_missing [Keep] ()",
+                "dbg - D: Info team_colors_missing [Keep] ()",
+            ]
+        } else {
+            &[]
+        };
         assert_eq!(
             run.messages(),
-            [
-                "co - A: Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=boots.fmdl, count=1662)",
-                "co - A: Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=fcl_hair.fmdl, count=1662)",
-                "co - A: Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=glove_l.fmdl, count=2)",
-                "co - A: Info export_identified [Keep] (team=/co/, id=714)",
-                "dbg - D: Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=boots.fmdl, count=1662)",
-                "dbg - D: Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=fcl_hair.fmdl, count=1662)",
-                "dbg - D: Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=glove_l.fmdl, count=2)",
-                "dbg - D: Info export_identified [Keep] (team=/dbg/, id=790)"
-            ],
+            [&validated[..], planned].concat(),
             "{command}"
         );
         assert_eq!(run.exit_code(), 0, "{command}");
@@ -623,7 +713,8 @@ fn a_zip_export_is_compiled_as_the_team_its_name_starts_with() {
         run.messages(),
         [
             "co - Spring 2026.zip: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=fcl_hair.fmdl, count=1662)",
-            "co - Spring 2026.zip: Info export_identified [Keep] (team=/co/, id=714)"
+            "co - Spring 2026.zip: Info export_identified [Keep] (team=/co/, id=714)",
+            "co - Spring 2026.zip: Info team_colors_missing [Keep] ()"
         ]
     );
     assert_eq!(compiled_players(&sandbox), [71405]);
@@ -644,7 +735,8 @@ fn a_root_notes_txt_that_cannot_be_read_is_dropped_and_the_rest_compiled() {
         [
             "egg Tracer bad notes.zip: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=fcl_hair.fmdl, count=1662)",
             "egg Tracer bad notes.zip: Error source_read_failed [DropFile] at notes.txt (reason=Invalid checksum)",
-            "egg Tracer bad notes.zip: Info export_identified [Keep] (team=/egg/, id=792)"
+            "egg Tracer bad notes.zip: Info export_identified [Keep] (team=/egg/, id=792)",
+            "egg Tracer bad notes.zip: Info team_colors_missing [Keep] ()"
         ]
     );
     assert_eq!(compiled_players(&sandbox), [79205]);
@@ -668,7 +760,8 @@ fn a_7z_over_the_memory_cap_compiles() {
         run.messages(),
         [
             "egg Tracer.7z: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=fcl_hair.fmdl, count=1662)",
-            "egg Tracer.7z: Info export_identified [Keep] (team=/egg/, id=792)"
+            "egg Tracer.7z: Info export_identified [Keep] (team=/egg/, id=792)",
+            "egg Tracer.7z: Info team_colors_missing [Keep] ()"
         ]
     );
     assert_eq!(compiled_players(&sandbox), [79205]);
@@ -704,6 +797,7 @@ fn an_export_is_processed_after_its_last_task_or_after_planning_when_it_has_none
             "message export_identified",
             "started 1",
             "message export_disabled",
+            "message team_colors_missing",
             "message kit_config_generated",
             "message kit_config_generated",
             "processed 1",
@@ -742,8 +836,10 @@ fn the_worker_count_changes_neither_the_findings_nor_the_cpk() {
             "egg Tracer: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=fcl_hair.fmdl, count=1662)",
             "egg Tracer: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=glove_l.fmdl, count=2)",
             "egg Tracer: Info export_identified [Keep] (team=/egg/, id=792)",
+            "co - Kits: Info team_colors_missing [Keep] ()",
             "co - Kits: Info kit_config_generated [Keep] at Kits/p1 ()",
-            "co - Kits: Info kit_config_generated [Keep] at Kits/g1 ()"
+            "co - Kits: Info kit_config_generated [Keep] at Kits/g1 ()",
+            "dbg Seven.7z: Info team_colors_missing [Keep] ()"
         ]
     );
     assert!(outcomes[0].1 == outcomes[1].1, "the CPKs differ");

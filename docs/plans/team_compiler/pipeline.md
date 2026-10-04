@@ -540,7 +540,11 @@ describes behavior, not a serial scheduling requirement:
   format has no slot for, a second goalkeeper kit) the highest-numbered are left out. A kit's
   colors and their findings (`kit_colors_derived`, `kit_colors_missing`) are its task's; a
   `colors.txt` line that does not parse (`color_entry_invalid`) is the deep pass's, for the
-  kit files and the root file alike. Both color bins are written whole on every
+  kit files and the root file alike. The root `colors.txt` is no task's file: its colors are
+  read while the export's source is open for validation (a `.7z` is not decompressed again
+  for them) and applied for every team export planning keeps, which also reports
+  `team_colors_missing` for one without the file; a referee export has no record and its
+  file is not read. Both color bins are written whole on every
   run that writes a CPK, with every record's header set from its position: the team ID (100 plus the record's
   index) and, in `TeamColor.bin`, the color count 4. A sound record is unchanged by this; an
   installed bin's record whose colors were written over its header (`resources/bins/README.md`

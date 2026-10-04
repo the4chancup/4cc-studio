@@ -709,7 +709,23 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
     the deep pass drops leaves the validated export. TC-ROOT-10; the tracer parity row
     `TeamColor.bin` exact. TC-BIN-13's repair is tested at the writer on a working bin
     given to it; its CLI proof needs an installed bin, so the ID's citing test lands with
-    4.21
+    4.21. Done 2026-10-04 (Opus 5.5, first time; two lead fixes: a root file whose second
+    read fails gives no color and is not reported missing, and one test for a mutation
+    survivor): `bins/mod.rs` (`TeamColorBin`: `read`, `repair_headers`, `set_colors`;
+    `WorkingBins::bundled`, the seam 4.21 fills from the installed CPKs; `Rgb`, the two
+    capacities); `validation::team_colors` reads the root file after the deep pass, a
+    referee export's never; `plan_run` takes each export's colors and lists them in
+    `BuildManifest::team_colors` for the exports the gate keeps, reporting
+    `team_colors_missing` (compile only, after the gate's findings);
+    `CpkOutput::finish(version, bins, team_colors)` adds `common/etc/TeamColor.bin` after
+    `UniformParameter.bin` whenever a CPK is written and returns `bin_header_repaired`
+    for `compile::run` to report; `validate_with` filters `KitFolder::colors` and
+    `team_colors` by `file_kept`. The tracer's `TeamColor.bin` equals Red's byte for byte.
+    69 CLI tests and one of `studio` gained the bin's entry or the `team_colors_missing`
+    line, nothing else. Not covered: a `.7z` export with a root `colors.txt` (no fixture);
+    `bin_header_repaired` from the CLI (4.21). Gates green (111 of 209);
+    `mutants-diff b685288`: 37, 27 caught, 9 unviable, 1 missed (`read`'s record-count
+    limit), closed by a test seen failing on the mutant
   - (c) `UniColor.bin`: the kit task's colors (its `colors.txt`, else derived, else the
     magenta/black pair) and icon, merged into the team's record by kit number; TC-KIT-11..14,
     TC-BIN-01..03; the tracer parity row `UniColor.bin` exact
@@ -1983,3 +1999,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   written to a bin yet. Step 4.8 is in three slices, and a kit's colors will merge into its
   team's `UniColor.bin` record by kit number, where Red rewrites the whole record (decision
   entry; open with the maintainer: whether a kit a team no longer has should keep its entry).
+- **2026-10-04** — 4.8b: every CPK `compile` writes carries a whole `TeamColor.bin`, the
+  bundled base with each compiled team's root `colors.txt` colors set; a team export without
+  the file reports `team_colors_missing` and keeps its colors. The tracer's bin equals Red's
+  byte for byte. Kit colors (`UniColor.bin`) are 4.8c.

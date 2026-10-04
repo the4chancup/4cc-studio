@@ -11,8 +11,8 @@ use crate::compile::{
     compiled_kits, compiled_players, cpk_entries, pass_through_settings, pes21_settings,
     tracer_kit, tracer_player_file,
 };
-use crate::findings_of;
 use crate::models::face_diff_fixture;
+use crate::{TEAM_COLORS_MISSING, findings_of};
 
 /// The bytes of `tests/fixtures/deep/<name>`.
 fn deep_fixture(name: &str) -> Vec<u8> {
@@ -62,7 +62,8 @@ fn a_far_vertex_drops_its_folder_at_check_and_at_compile_even_with_pass_through(
             FAR_STRIKER,
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - Striker (file=boots.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Players/07 - Winger (file=boots.fmdl, count=1662)",
-            IDENTIFIED
+            IDENTIFIED,
+            TEAM_COLORS_MISSING
         ]
     );
     assert_eq!(compile.exit_code(), 1);
@@ -74,6 +75,7 @@ fn a_far_vertex_drops_its_folder_at_check_and_at_compile_even_with_pass_through(
         [
             "Asset/model/character/boots/k0627/#Win/boots.fpk",
             "Asset/model/character/boots/k0627/#Win/boots.fpkd",
+            "common/etc/TeamColor.bin",
         ]
     );
 }
@@ -254,14 +256,21 @@ fn a_format_error_drops_its_folder_unless_pass_through_keeps_it() {
 
     for command in ["check", "compile"] {
         let run = sandbox.run(&pes21_settings(&sandbox), &[command]);
+        let validated = [
+            "Error fmdl_mesh_over_face_limit [DropFolder] at Players/05 - Striker (file=boots.fmdl, count=21846)",
+            striker_weights,
+            WINGER_WEIGHTS,
+            IDENTIFIED,
+        ];
+        // Planning's note, which only `compile` makes.
+        let planned: &[&str] = if command == "compile" {
+            &[TEAM_COLORS_MISSING]
+        } else {
+            &[]
+        };
         assert_eq!(
             findings_of(&run.messages(), "co - Faces"),
-            [
-                "Error fmdl_mesh_over_face_limit [DropFolder] at Players/05 - Striker (file=boots.fmdl, count=21846)",
-                striker_weights,
-                WINGER_WEIGHTS,
-                IDENTIFIED
-            ],
+            [&validated[..], planned].concat(),
             "{command}"
         );
         assert_eq!(run.exit_code(), 1, "{command}");
@@ -269,25 +278,32 @@ fn a_format_error_drops_its_folder_unless_pass_through_keeps_it() {
     // `/co/`'s block starts at 621: slot 07's boots are 627, slot 05's 625.
     let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
     let paths: Vec<&str> = entries.keys().map(String::as_str).collect();
-    assert_eq!(paths, boots(627));
+    let team_color = ["common/etc/TeamColor.bin".to_owned()];
+    assert_eq!(paths, [&boots(627)[..], &team_color].concat());
 
     for command in ["check", "compile"] {
         let run = sandbox.run(&pass_through_settings(&sandbox), &[command]);
+        let validated = [
+            "Error fmdl_mesh_over_face_limit [Keep] at Players/05 - Striker (file=boots.fmdl, count=21846)",
+            striker_weights,
+            WINGER_WEIGHTS,
+            IDENTIFIED,
+        ];
+        let planned: &[&str] = if command == "compile" {
+            &[TEAM_COLORS_MISSING]
+        } else {
+            &[]
+        };
         assert_eq!(
             findings_of(&run.messages(), "co - Faces"),
-            [
-                "Error fmdl_mesh_over_face_limit [Keep] at Players/05 - Striker (file=boots.fmdl, count=21846)",
-                striker_weights,
-                WINGER_WEIGHTS,
-                IDENTIFIED
-            ],
+            [&validated[..], planned].concat(),
             "{command}"
         );
         assert_eq!(run.exit_code(), 1, "{command}");
     }
     let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
     let paths: Vec<&str> = entries.keys().map(String::as_str).collect();
-    assert_eq!(paths, [boots(625), boots(627)].concat());
+    assert_eq!(paths, [&boots(625)[..], &boots(627), &team_color].concat());
 }
 
 // TC-CHK-07
@@ -313,7 +329,10 @@ fn a_model_that_does_not_parse_is_model_broken_and_drops_its_folder_even_with_pa
     assert_eq!(check.exit_code(), 1);
 
     let compile = sandbox.run(&pass_through_settings(&sandbox), &["compile"]);
-    assert_eq!(findings_of(&compile.messages(), "co - Broken"), findings);
+    assert_eq!(
+        findings_of(&compile.messages(), "co - Broken"),
+        [&findings[..], &[TEAM_COLORS_MISSING]].concat()
+    );
     assert_eq!(compile.exit_code(), 1);
     let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
     let paths: Vec<&str> = entries.keys().map(String::as_str).collect();
@@ -322,6 +341,7 @@ fn a_model_that_does_not_parse_is_model_broken_and_drops_its_folder_even_with_pa
         [
             "Asset/model/character/boots/k0627/#Win/boots.fpk",
             "Asset/model/character/boots/k0627/#Win/boots.fpkd",
+            "common/etc/TeamColor.bin",
         ]
     );
 }
@@ -349,7 +369,10 @@ fn a_logo_that_does_not_decode_is_logo_file_invalid_and_the_export_is_otherwise_
 
     // Pass-through does not keep it: there is nothing the game's logo sizes can be made from.
     let compile = sandbox.run(&pass_through_settings(&sandbox), &["compile"]);
-    assert_eq!(findings_of(&compile.messages(), "co - Logo"), findings);
+    assert_eq!(
+        findings_of(&compile.messages(), "co - Logo"),
+        [&findings[..], &[TEAM_COLORS_MISSING]].concat()
+    );
     assert_eq!(compile.exit_code(), 1);
     let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
     let paths: Vec<&str> = entries.keys().map(String::as_str).collect();
@@ -358,6 +381,7 @@ fn a_logo_that_does_not_decode_is_logo_file_invalid_and_the_export_is_otherwise_
         [
             "Asset/model/character/boots/k0627/#Win/boots.fpk",
             "Asset/model/character/boots/k0627/#Win/boots.fpkd",
+            "common/etc/TeamColor.bin",
         ]
     );
 }
@@ -400,6 +424,7 @@ fn a_settings_toml_that_does_not_parse_is_ignored_and_the_folder_s_models_compil
     let mut expected = tracer_face_weights("05 - A").to_vec();
     expected.push(settings_invalid("05 - A"));
     expected.push(IDENTIFIED.to_owned());
+    expected.push(TEAM_COLORS_MISSING.to_owned());
     assert_eq!(findings_of(&run.messages(), "co - Settings"), expected);
     assert_eq!(run.exit_code(), 1);
     assert_eq!(compiled_players(&sandbox), [71405]);
@@ -435,6 +460,7 @@ fn a_kit_config_that_does_not_parse_leaves_its_kit_out_and_the_kit_beside_it_com
         [
             KIT_CONFIG_INVALID,
             IDENTIFIED,
+            TEAM_COLORS_MISSING,
             "Info kit_config_generated [Keep] at Kits/p2 ()"
         ]
     );
@@ -509,6 +535,7 @@ fn pass_through_keeps_no_face_diff_kit_config_or_settings_toml_that_cannot_be_re
         [
             KIT_CONFIG_INVALID,
             IDENTIFIED,
+            TEAM_COLORS_MISSING,
             "Info kit_config_generated [Keep] at Kits/p2 ()",
         ]
         .map(str::to_owned),
