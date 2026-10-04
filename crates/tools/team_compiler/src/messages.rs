@@ -60,6 +60,9 @@ pub(crate) enum Code {
     /// A kit with neither two valid colors in its `colors.txt` nor a main texture of its own to
     /// take them from (a placeholder kit): magenta and black are written as its menu colors.
     KitColorsMissing,
+    /// A kit whose layout marker names the other engine than the target's: its main texture's
+    /// sock islands are re-laid out to the target's layout.
+    KitLayoutConverted,
     /// Phase 3 only: the export holds content `compile` cannot build yet; it is skipped.
     ContentNotYetCompiled,
     /// More shared boots folders take an id than the team's block has; the export is skipped.
@@ -148,7 +151,7 @@ impl Code {
     /// Every code, for the catalog test: a variant missing here would make its first message
     /// panic in `severity`, so a new variant is added to this list too.
     #[cfg(test)]
-    const ALL: [Code; 46] = [
+    const ALL: [Code; 47] = [
         Code::ExportExtractFailed,
         Code::NoExportsFound,
         Code::ExportDisabled,
@@ -166,6 +169,7 @@ impl Code {
         Code::KitTextureNotUsed,
         Code::KitColorsDerived,
         Code::KitColorsMissing,
+        Code::KitLayoutConverted,
         Code::ContentNotYetCompiled,
         Code::BootsIdPoolExhausted,
         Code::GlovesIdPoolExhausted,
@@ -217,6 +221,7 @@ impl Code {
             Code::KitTextureNotUsed => "kit_texture_not_used",
             Code::KitColorsDerived => "kit_colors_derived",
             Code::KitColorsMissing => "kit_colors_missing",
+            Code::KitLayoutConverted => "kit_layout_converted",
             Code::ContentNotYetCompiled => "content_not_yet_compiled",
             Code::BootsIdPoolExhausted => "boots_id_pool_exhausted",
             Code::GlovesIdPoolExhausted => "gloves_id_pool_exhausted",
@@ -283,6 +288,7 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("kit_texture_not_used", CatalogSeverity::Info),
     ("kit_colors_derived", CatalogSeverity::Info),
     ("kit_colors_missing", CatalogSeverity::Warning),
+    ("kit_layout_converted", CatalogSeverity::Info),
     ("content_not_yet_compiled", CatalogSeverity::Error),
     ("boots_id_pool_exhausted", CatalogSeverity::Error),
     ("gloves_id_pool_exhausted", CatalogSeverity::Error),

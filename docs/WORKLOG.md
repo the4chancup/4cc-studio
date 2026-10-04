@@ -12,9 +12,9 @@ is in `AGENTS.md` ("Working documents").
 **Phase:** 3 (Team compiler skeleton) closed 2026-10-02, its cross-family reviews queued (see
 "Handover"). Phases 1 and 2 done (Phase 2 closed 2026-09-30).
 **Next:** Phase 4 is itemized and its Acceptance section written (step 4.1, 2026-10-03; its
-cross-family review (a) is queued). Next: 4.9 (kit configs, FPC reconciliation and
-collars; its collar half waits on the maintainer); 4.30 and 4.5 to 4.8 are done (4.6c
-moved to Phase 8's cancellation). 2.5b (GPU BC7) is step 16.x (decision entries
+cross-family review (a) is queued). Next: 4.11 (team root artifacts and Common); 4.30,
+4.5 to 4.8, 4.9a and 4.10 are done (4.6c moved to Phase 8's cancellation), 4.9b (collars)
+waits on the maintainer. 2.5b (GPU BC7) is step 16.x (decision entries
 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0 after Phase 8; phase order 1–6,
 8, 0.1.0, 7, 9–16 (`core/development_plan.md` "Releases"); first-class target the Fox version
 the cup moves to around April 2027 ("Target versions").
@@ -107,6 +107,16 @@ Claude agent with no sidekick and no reviewer of another model family. While tha
   `messages.md` (`kit_config_version_clamped`, `kit_config_fpc_adjusted`), TC-KIT-15..17
   and the decision entry "4.9a: the FPC kit values take no version; the template carries
   them".
+  4.10 (b): `dds_convert` (`resize`, a new `pub`) and `team_compiler`
+  (`processing/kit_layout.rs`, the kit task's re-layout), the two 4.10 commits
+  (`docs(team_compiler)` and `feat(team_compiler)`, 2026-10-04), against `pipeline.md` "4.
+  Per-export non-model steps" (Kits, "Layout conversion"), `player_folders.md` "Kit layout
+  marker", `libs/dds_convert.md` "`dds_convert` API", `messages.md`
+  (`kit_layout_converted`), TC-KIT-18, TC-KIT-20, `tests/fixtures/kit_layout/README.md`,
+  and the decision entries "the kit layout table covers the socks alone, in two bands" and
+  "the suite's one resampler is `dds_convert::resize`". The measurement scripts
+  (`scripts/provenance/kit_uv/`) are part of the surface: the table is only as good as they
+  are.
 - For the lead, on return: the review process on trial (maintainer, 3.1) runs a full sidekick
   review loop after each GPT round and calls GPT again only once that loop has ended and GPT's
   own loop has not; not yet in `AGENTS.md` (3.6: GPT 4 of 7 accepted, then sidekick S1 3 of 7,
@@ -831,7 +841,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
     `kit_collar_reserved`, the configs' collar fields rewritten after FPC, the files passed
     through). TC-CMN-01..03. Waits on the maintainer's confirmation of the stock collar sets
 
-- [ ] 4.10 **Kit layout conversion**: `KIT_LAYOUT_REMAP` (the plan's four sock bands; the
+- [x] 4.10 **Kit layout conversion**: `KIT_LAYOUT_REMAP` (the plan's four sock bands; the
   shorts are not re-laid) in `processing/kit_layout.rs`, `kit_layout_converted`, each band
   resampled along u from its own rectangle (Lanczos3), every mip level the source carries, the
   blocks no destination rectangle touches kept, `_chest`/`_back`/`_name`/`_leg` untouched,
@@ -847,6 +857,18 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
     and the golden (`tests/fixtures/kit_layout/`, written by `kit_layout_fixture.py`).
     Finding: the shorts are laid out alike in both engines; the earlier 36 to 60 px "shift"
     was the Fox body's height (decision entry)
+  - done 2026-10-04: `dds_convert::resize` (`resample.rs`; Lanczos3 through `image`, the
+    suite's one resampler); `processing/kit_layout.rs` (`KIT_LAYOUT_REMAP`, `relaid`); the
+    kit task re-lays a marked kit's main texture and converts it outside the converter's
+    cache, `kit_layout_converted` (from, to); the gate no longer refuses a `pre-fox` kit;
+    help paragraph; `tests/cli/kit_layout.rs`. TC-KIT-18 and TC-KIT-20 proven (stripe
+    centres within 4.5 px of the golden, 6 allowed). Not covered: a marked kit whose main
+    texture is inherited from `all/`, raster and BC3 sources from the CLI, the lower mip
+    levels in TC-KIT-18 (blocks straddling a rectangle's edge are encoded afresh there), a
+    BC7 source keeps no blocks (encoded whole, as an unmarked raster is), and the mask and
+    srm, which are re-laid when their steps emit them (4.16 for the mask). Gates green (123
+    of 209); `mutants-diff 482c92d`: 150, 132 caught, 14 unviable, 4 missed (a block touching
+    a rectangle's edge counted as reached), closed by a test of `reached_blocks`
 
 - [ ] 4.11 **Team root artifacts and Common**: logo (main decoded, made square per tag, Lanczos3 to
   512 and 256, `logo_small*` or main to 128, PNG with alpha, `logo_fit_applied`, `logo_upscaled`,
@@ -930,7 +952,8 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   and extra attribute kept with `xml_type_unknown` and `xml_attribute_unknown`, `level="1"` kept
   with `xml_level_lod`; a `<model>` without `path` drops the folder with `xml_model_path_missing`
 
-- [ ] 4.16 **Pre-Fox kits, bins and DDS compression**: `kit_mask` injected from the mask template
+- [ ] 4.16 **Pre-Fox kits, bins and DDS compression**: a kit marked `fox` has its main texture
+  and its own mask re-laid to the pre-Fox layout (`kit_layout::relaid`, TC-KIT-19), `kit_mask` injected from the mask template
   (lead first: the template as a lead-authored fixture with a provenance README) when absent,
   `kit_srm` dropped with `kit_texture_not_used`, kit configs emitted as loose per-team bins under
   `uniform/team/{team_id}/` (no `UniformParameter.bin` before PES 18), the pre-Fox
@@ -2128,3 +2151,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   nearest-point match (decision entry). Golden: `tests/fixtures/kit_layout/`. Found on the
   way: the stock number atlases are a column of digits pre-Fox and a row in Fox ("Phase 4
   open questions").
+- **2026-10-04** — 4.10: a kit marked `pre-fox` compiles for a Fox game with its socks
+  re-laid to the Fox layout (`kit_layout_converted`); everything else in the texture stays
+  as it was, and a DXT kit keeps the blocks the move does not touch. The other direction
+  is built and tested at the function; its CLI test waits for pre-Fox targets (4.16).

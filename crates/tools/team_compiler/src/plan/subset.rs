@@ -5,7 +5,7 @@
 //! everything an export holds; the classification stays.
 
 use aesthetics_export::{
-    ExportIdentity, FileDescriptor, FileKind, KitLayout, ModelFormat, ModelSuffix, PlayerFolder,
+    ExportIdentity, FileDescriptor, FileKind, ModelFormat, ModelSuffix, PlayerFolder,
     ResolvedAestheticsExport, SharedKind, SharedLink, SharedModelFolder, ValidatedAestheticsExport,
     classify, common_link_name, model_suffix,
 };
@@ -541,10 +541,6 @@ pub(crate) fn first_not_compiled(
         }
     }
     for kit in export.kits.kits.values() {
-        // The target is Fox here, so a kit drawn for the other layout needs a conversion.
-        if kit.layout == Some(KitLayout::PreFox) {
-            return Some(("what", kit.path.as_str().to_owned()));
-        }
         let refused = kit.textures.iter().find(|texture| {
             !KIT_TEXTURE_STEMS.contains(&texture.stem.as_str())
                 || texture_format(texture.file.path.name()).is_none()
@@ -1357,11 +1353,10 @@ mod tests {
     }
 
     #[test]
-    fn a_kit_drawn_for_the_other_engine_is_named() {
-        assert_eq!(
-            gate(&["Kits/g1/kit.dds", "Kits/g1/pre-fox"]),
-            what("Kits/g1")
-        );
+    fn a_kit_drawn_for_either_engine_is_compiled() {
+        for marker in ["Kits/g1/pre-fox", "Kits/g1/fox"] {
+            assert_eq!(gate(&["Kits/g1/kit.dds", marker]), None, "{marker}");
+        }
     }
 
     #[test]

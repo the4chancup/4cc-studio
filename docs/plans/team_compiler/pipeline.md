@@ -445,8 +445,8 @@ describes behavior, not a serial scheduling requirement:
   the texture's own size: on the left sock, pre-Fox u 8–168 ↔ Fox u 8–128 and pre-Fox u 168–448 ↔
   Fox u 128–376, over v 632–1160 in both; the right sock is the mirror image (u → 2048 − u). A
   band is resampled along u only, row by row, from its own source rectangle (Lanczos3, the
-  compiler's one resampler; a sample past the rectangle's edge repeats the edge texel), so rows
-  never mix and a flat band stays flat. The Fox→pre-Fox table is the inverse of the pre-Fox→Fox
+  compiler's one resampler; near the rectangle's edge the filter uses only the texels inside
+  it), so rows never mix and a flat band stays flat. The Fox→pre-Fox table is the inverse of the pre-Fox→Fox
   one, so the two are one const read in either direction. Every texel outside the destination
   rectangles keeps its value (for pre-Fox→Fox that includes the strip the narrower Fox sock
   leaves, u 376–448, which no Fox model reads), and a block-compressed source keeps the very

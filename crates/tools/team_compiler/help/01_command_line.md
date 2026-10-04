@@ -160,6 +160,15 @@ text, a key it does not know, a value of the wrong type or out of range) is repo
 `settings_toml_invalid`, naming the error: the file is ignored, even with `pass_through` on,
 and the player's models are still built.
 
+The socks are laid out differently on a kit's main texture in PES 2015 to 2017 and in PES 2018
+to 2021, so a kit drawn for one shows its sock design shifted around the leg in the other. An
+empty file named `pre-fox` or `fox` in a kit folder says which games the kit's main texture was
+drawn for: `pre-fox` for PES 2015 to 2017, `fox` for PES 2018 to 2021. With no such file the
+compiler takes the kit as drawn for the game it compiles for. When the file names the other
+games, `compile` moves the socks to the layout of the game it compiles for and says so with the
+note `kit_layout_converted`, naming both layouts. The shirt, sleeves and shorts are laid out the
+same in every version and are not touched, and neither are the number and name textures.
+
 A kit folder may hold a `colors.txt` giving the kit's two menu colors, and the export's root a
 `colors.txt` giving the team's colors, up to four. Both files hold one color per line, written
 `#c11200` or as three numbers from 0 to 255 separated by spaces or commas (`211 74 79`,

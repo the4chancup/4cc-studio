@@ -3,6 +3,7 @@
 //! packed into the CPK entries the task commits, whole or not at all.
 
 mod kit;
+mod kit_layout;
 mod model;
 mod texture;
 
@@ -1097,6 +1098,94 @@ mod tests {
             uni_color(&batch).colors,
             [[0xc1, 0x12, 0x00], [0x41, 0x41, 0x41]]
         );
+    }
+
+    /// The tracer's `g1` kit with its two colors and the layout marker `layout`, over the
+    /// effective `textures`, so the only finding its task can make is about its layout.
+    fn marked_kit(layout: Option<KitLayout>, textures: Vec<KitTexture>) -> KitFolder {
+        KitFolder {
+            layout,
+            ..colored_kit(true, Some(11), textures)
+        }
+    }
+
+    /// What the batch emitted as the kit's main texture, `u0792g1`.
+    fn main_texture(batch: &TaskBatch) -> &[u8] {
+        let (path, bytes) = &batch.entries[0];
+        assert_eq!(
+            path,
+            "Asset/model/character/uniform/texture/#windx11/u0792g1.ftex"
+        );
+        bytes
+    }
+
+    #[test]
+    fn a_kit_marked_pre_fox_on_a_fox_target_is_re_laid_and_says_so() {
+        let batch = run(g1(marked_kit(Some(KitLayout::PreFox), own_main_texture())));
+
+        let [message] = batch.messages.as_slice() else {
+            panic!("{:?}", batch.messages);
+        };
+        assert_eq!(message.code.code, "kit_layout_converted");
+        assert_eq!(message.severity, Severity::Info);
+        assert_eq!(message.disposition, Disposition::Keep);
+        assert_eq!(
+            message.scope,
+            Scope::Folder {
+                export_id: ExportId(4),
+                path: ScopePath::new("Kits/g1").unwrap(),
+            }
+        );
+        assert_eq!(
+            message.context,
+            [
+                ("from".to_owned(), "pre-fox".to_owned()),
+                ("to".to_owned(), "fox".to_owned())
+            ]
+        );
+        let source = std::fs::read(tracer().join("Kits/g1/kit.dds")).unwrap();
+        let decoded = dds_convert::decode(&source, dds_convert::SourceFormat::Dds).unwrap();
+        let target = dds_convert::Target {
+            version: PesVersion::Pes21,
+            role: dds_convert::TextureRole::Color,
+        };
+        let relaid = dds_convert::convert(
+            &kit_layout::relaid(&decoded, KitLayout::PreFox).unwrap(),
+            target,
+        )
+        .unwrap();
+        assert_eq!(main_texture(&batch), relaid);
+        assert_ne!(relaid, dds_convert::convert(&decoded, target).unwrap());
+    }
+
+    #[test]
+    fn a_kit_marked_fox_or_unmarked_on_a_fox_target_is_converted_as_it_is() {
+        let unmarked = run(g1(marked_kit(None, own_main_texture())));
+        let fox = run(g1(marked_kit(Some(KitLayout::Fox), own_main_texture())));
+
+        for batch in [&unmarked, &fox] {
+            assert_eq!(kit_findings(batch), []);
+        }
+        let source = std::fs::read(tracer().join("Kits/g1/kit.dds")).unwrap();
+        let as_it_is = dds_convert::convert(
+            &dds_convert::decode(&source, dds_convert::SourceFormat::Dds).unwrap(),
+            dds_convert::Target {
+                version: PesVersion::Pes21,
+                role: dds_convert::TextureRole::Color,
+            },
+        )
+        .unwrap();
+        assert_eq!(main_texture(&unmarked), as_it_is);
+        assert_eq!(fox.entries, unmarked.entries);
+    }
+
+    #[test]
+    fn a_placeholder_kit_marked_pre_fox_is_not_re_laid() {
+        let marked = run(g1(marked_kit(Some(KitLayout::PreFox), Vec::new())));
+        let unmarked = run(g1(marked_kit(None, Vec::new())));
+
+        assert_eq!(kit_findings(&marked), []);
+        assert_eq!(marked.entries, unmarked.entries);
     }
 
     /// The export file at `path`, described as the structure pass would, whose bytes `run`

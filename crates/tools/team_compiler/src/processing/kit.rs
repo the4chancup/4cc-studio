@@ -2,13 +2,15 @@
 //! FTEX under the kit's game names, its config encoded with those names, and its menu colors
 //! and icon as its `UniColor.bin` entry ("Bins accumulation", "Kit colors fallback").
 
-use aesthetics_export::{KitFolder, read_colors_txt};
+use aesthetics_export::{KitFolder, KitLayout, read_colors_txt};
 use anyhow::Context;
-use dds_convert::{SourceFormat, decode};
+use dds_convert::{SourceFormat, Target, TextureRole, decode};
 use kit_config::{KitConfig, KitSlot, TexturePresence, apply_fpc, matches_fpc, texture_names};
+use pes_version::Engine;
 use studio_core::Disposition;
 
-use super::{CompileContext, Entry, Finding, TaskFailure, TaskFiles, take, texture};
+use super::texture::TextureError;
+use super::{CompileContext, Entry, Finding, TaskFailure, TaskFiles, kit_layout, take, texture};
 use crate::bins::{KIT_COLORS, KitColorEntry, Rgb, kit_number};
 use crate::messages::Code;
 use crate::paths;
@@ -33,6 +35,11 @@ const MISSING_COLORS: [Rgb; KIT_COLORS] = [[255, 0, 255], [0, 0, 0]];
 /// parse here is an ordinary failure; a finding conversion reports
 /// (`texture_codec_unsupported`) fails the kit with the finding's code: the config names its
 /// textures, so none goes out alone.
+///
+/// When the kit's layout marker names the other engine than the run's, its main texture, its
+/// own or inherited (never the placeholder), is re-laid out to the run's layout before it is
+/// converted, noted in `findings` as `kit_layout_converted` naming both layouts; its other
+/// textures are converted as they are.
 ///
 /// When `fpc`, the team's kit-FPC status, is `On`, a config lacking the FPC values gets them
 /// before it is encoded, noted in `findings` as `kit_config_fpc_adjusted` (the template
@@ -70,6 +77,9 @@ pub(super) fn kit(
         },
     );
 
+    let drawn_for_other = kit
+        .layout
+        .filter(|layout| layout_engine(*layout) != ctx.version.engine());
     let mut derived = None;
     let mut entries = Vec::new();
     for (stem, field) in KIT_TEXTURE_STEMS.iter().zip(&names) {
@@ -89,10 +99,24 @@ pub(super) fn kit(
         if listed.is_none() && *stem == "kit" && texture.is_some() {
             derived = derived_colors(format, file_name, &bytes);
         }
-        entries.push((
-            paths::kit_texture(name),
-            texture::convert(ctx, format, file_name, &bytes)?,
-        ));
+        // The placeholder is engine-neutral, and only the main texture is mapped through the
+        // sock islands: the number and name textures are glyph atlases.
+        let converted = match drawn_for_other {
+            Some(drawn_for) if *stem == "kit" && texture.is_some() => {
+                let to = engine_layout(ctx.version.engine());
+                findings.push((
+                    Code::KitLayoutConverted,
+                    Disposition::Keep,
+                    vec![
+                        ("from", marker_name(drawn_for).to_owned()),
+                        ("to", marker_name(to).to_owned()),
+                    ],
+                ));
+                relaid_main_texture(ctx, format, file_name, &bytes, drawn_for)?
+            }
+            Some(_) | None => texture::convert(ctx, format, file_name, &bytes)?,
+        };
+        entries.push((paths::kit_texture(name), converted));
     }
 
     let mut config = match &kit.config {
@@ -133,6 +157,51 @@ pub(super) fn kit(
         colors,
     };
     Ok((entries, (entry_name, config), entry))
+}
+
+/// The engine whose kit UV layout `layout` names.
+fn layout_engine(layout: KitLayout) -> Engine {
+    match layout {
+        KitLayout::PreFox => Engine::PreFox,
+        KitLayout::Fox => Engine::Fox,
+    }
+}
+
+/// The layout marker's name for `layout`, as `kit_layout_converted` reports it.
+fn marker_name(layout: KitLayout) -> &'static str {
+    match layout {
+        KitLayout::PreFox => "pre-fox",
+        KitLayout::Fox => "fox",
+    }
+}
+
+/// The kit layout `engine`'s uniform models map.
+fn engine_layout(engine: Engine) -> KitLayout {
+    match engine {
+        Engine::PreFox => KitLayout::PreFox,
+        Engine::Fox => KitLayout::Fox,
+    }
+}
+
+/// The kit's main texture `file_name`, in `format`, holding `bytes`, drawn for the `drawn_for`
+/// layout: decoded, re-laid out for the other one (`kit_layout::relaid`) and converted for the
+/// run's version. Not through the run's converter, whose cache holds a source file's own
+/// conversion, which this is not. A failure is the file's, as `texture::convert`'s are.
+fn relaid_main_texture(
+    ctx: &CompileContext,
+    format: SourceFormat,
+    file_name: &str,
+    bytes: &[u8],
+    drawn_for: KitLayout,
+) -> Result<Vec<u8>, TextureError> {
+    let failure = |error| texture::conversion_failure(file_name, error);
+    let decoded = decode(bytes, format).map_err(failure)?;
+    let relaid = kit_layout::relaid(&decoded, drawn_for).map_err(failure)?;
+    let target = Target {
+        version: ctx.version,
+        role: TextureRole::Color,
+    };
+    dds_convert::convert(&relaid, target).map_err(failure)
 }
 
 /// The two colors a kit's `colors.txt` holding `bytes` gives, or `None` when it gives fewer.

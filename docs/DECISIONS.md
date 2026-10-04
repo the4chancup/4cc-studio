@@ -3681,3 +3681,17 @@ either game read the other's arrangement?), which only an in-game test answers.
 Plan: `team_compiler/pipeline.md` "4. Per-export non-model steps" (Kits, "Layout
 conversion"); `aesthetics_export/player_folders.md` "Kit layout marker"; `team_compiler/README.md`
 TC-KIT-18, TC-KIT-19; `testing.md`; worklog step 4.10 and "Phase 4 open questions".
+
+## 2026-10-04 — dds_convert — the suite's one resampler is `dds_convert::resize`
+Decision: `dds_convert` gains `resize(pixels, width, height, new_width, new_height)`,
+Lanczos3 over straight-alpha RGBA8 through the `image` crate. The kit layout conversion
+(4.10) calls it per sock band, and it converts the re-laid texture with
+`dds_convert::convert` directly, outside the `Converter` cache.
+Why: the plans say "Lanczos3, the compiler's one resampler" (kits, portraits, the logo)
+without saying where it lives. `image` is already `dds_convert`'s dependency for raster
+sources; a function there serves every tool without each one depending on `image`, and a
+hand-written kernel in the Team compiler would be a second resampler by 4.11. The cache is
+keyed by the source file's hash, and a re-laid kit is no longer its source file; such kits
+are the exception, so they are converted uncached instead of teaching the cache a second key.
+Plan: `libs/dds_convert.md` "`dds_convert` API"; `team_compiler/pipeline.md` "4. Per-export
+non-model steps" (Kits, "Layout conversion").

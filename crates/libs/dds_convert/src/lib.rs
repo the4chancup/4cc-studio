@@ -10,18 +10,21 @@
 //! the one exception to choosing by version: a file every engine reads as a
 //! DDS in a codec the plan fixes (a player portrait, BC3) names its codec.
 //! [`probe`] reads a source's size from its header alone, for checks that
-//! must not pay a decode per texture.
+//! must not pay a decode per texture. [`resize`] is the suite's one
+//! resampler (Lanczos3).
 
 mod cache;
 mod dds;
 mod encode;
 mod mips;
 mod raster;
+mod resample;
 
 use pes_version::PesVersion;
 use sha2::{Digest, Sha256};
 
 pub use cache::Converter;
+pub use resample::resize;
 
 /// The accepted source formats, named by the file extension the compiler
 /// resolved the texture stem to. TGA has no magic, so the format is never
@@ -331,7 +334,8 @@ pub enum ConvertError {
     /// A feature of the source or request this crate does not handle.
     #[error("unsupported: {0}")]
     Unsupported(&'static str),
-    /// A caller-built `Decoded` breaks the rules a decoded one follows.
+    /// A caller-built `Decoded` breaks the rules a decoded one follows, or
+    /// the pixels handed to [`resize`] do not match their size.
     #[error("inconsistent decoded texture: {0}")]
     InvalidDecoded(&'static str),
     /// The buffer ends before a structure that extends past it.

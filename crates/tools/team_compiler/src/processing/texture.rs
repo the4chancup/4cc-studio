@@ -46,7 +46,7 @@ impl From<TextureError> for TaskFailure {
 
 /// The failure of converting the file `name`: `texture_codec_unsupported` for what
 /// `dds_convert` refuses to handle, the ordinary failure naming the file for anything else.
-fn conversion_failure(name: &str, error: ConvertError) -> TextureError {
+pub(super) fn conversion_failure(name: &str, error: ConvertError) -> TextureError {
     match error {
         ConvertError::Unsupported(_) => {
             TextureError::Finding(Code::TextureCodecUnsupported, name.to_owned())

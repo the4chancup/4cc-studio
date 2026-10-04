@@ -11,6 +11,7 @@ mod common_links;
 mod compile;
 mod compile_exports;
 mod deep;
+mod kit_layout;
 mod models;
 mod preflight;
 mod sources;
