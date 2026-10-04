@@ -3548,3 +3548,11 @@ each loaded the last CPK of a 53-entry list (the install's own list extended wit
 entries and placeholder CPKs, the test CPK last), where the longest installed list had 45.
 PES 2016 to 2020 were not tested and are taken to behave like the two around them.
 Plan: `team_compiler/pipeline.md` "DpFileList upgrade" (the entry list's paragraph).
+
+## 2026-10-04 — workflow — `perf` is a commit type
+Decision: `perf` joins the commit types, for a change made for speed or memory that changes
+no behavior (4.7e's commit, the deep pass on the worker pool, is the first).
+Why: the maintainer's ruling: it is one of Conventional Commits' usual types, and speed is the
+suite's primary goal, so such commits should be findable (`git log --grep '^perf('`) rather
+than filed under `refactor`.
+Plan: no plan edit needed; `CONTRIBUTING.md` "Commits" lists the types.

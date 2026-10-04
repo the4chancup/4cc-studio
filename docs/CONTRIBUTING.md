@@ -281,7 +281,8 @@ alternative considered. Prefer versions published at least a week ago; no floati
 The first line is `type(scope): summary` (Conventional Commits), scope being the crate or area
 (`fix(vtree): ...`, `feat(studio_core): ...`, `docs(plans): ...`, `chore(workspace): ...`; a
 multi-crate step uses its phase, `feat(phase2): ...`). Types: `feat`, `fix`, `docs`, `test`,
-`refactor`, `chore` (workspace, dependencies, CI). The body says why, not what; the diff says
+`refactor`, `perf` (a change made for speed or memory that changes no behavior), `chore`
+(workspace, dependencies, CI). The body says why, not what; the diff says
 what. This is for maintainers reading history (`git log --grep '^fix('` when bisecting), not for
 members: `CHANGELOG.md` stays hand-written per the core plan's "Changelog and version display" and
 is never generated from commit messages. Write the message to a file and `git commit -F` it;
