@@ -239,7 +239,11 @@ its own `version = "..."` and its own release cadence — shipping on demand whe
 shape: `## [Unreleased]` on top, then one `## [1.4.0] — 2026-10-02` section per release; inside a
 section, bullets grouped by tool (`**Team compiler** — …`, `**Save editor** — …`, `**Studio** —
 …`), because that is how a member reads it even though the version axis is one. It is written in
-the step that changes the behavior, like the help topic (see `gui.md` "Help window"). Nothing else
+the step that changes the behavior, like the help topic (see `gui.md` "Help window"), from the
+first release on: an entry goes under `[Unreleased]` in the commit that changes something a
+member notices against the last release (a fix for a bug a release shipped, a new or changed
+behavior, a speed-up worth telling). A fix for something no release has shipped gets none, so
+the file itself tells the two kinds of fix apart and commit types do not have to. Nothing else
 describes releases; the three places a user meets release notes all read this file:
 
 1. **The help window's "What's new" chapter** — the file embedded at build time, newest first.

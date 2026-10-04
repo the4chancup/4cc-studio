@@ -3556,3 +3556,16 @@ Why: the maintainer's ruling: it is one of Conventional Commits' usual types, an
 suite's primary goal, so such commits should be findable (`git log --grep '^perf('`) rather
 than filed under `refactor`.
 Plan: no plan edit needed; `CONTRIBUTING.md` "Commits" lists the types.
+
+## 2026-10-04 — workflow — one `fix` type; the changelog line tells a released bug's fix apart
+Decision: no second commit type for a fix to a bug a release shipped. From the first release
+on, a commit that changes something a member notices against the last release adds its
+`[Unreleased]` line to `CHANGELOG.md` itself, and a fix for something not yet released adds
+none; the lead's review before a commit checks for the line.
+Why: the maintainer asked whether the two kinds of fix should be two types, since only one
+kind belongs in the next changelog, and ruled against the split. A type would cover fixes
+only, while features, changed behavior and speed-ups need entries too; it is not a usual
+Conventional Commits type; and a wrong type on a pushed commit stays wrong, where a missing
+changelog line is one more commit.
+Plan: `core/distribution.md` "Changelog and version display"; `CONTRIBUTING.md` "Commits";
+`AGENTS.md` "Working documents" (after a step).

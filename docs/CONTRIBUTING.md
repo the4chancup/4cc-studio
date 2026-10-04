@@ -285,7 +285,12 @@ multi-crate step uses its phase, `feat(phase2): ...`). Types: `feat`, `fix`, `do
 (workspace, dependencies, CI). The body says why, not what; the diff says
 what. This is for maintainers reading history (`git log --grep '^fix('` when bisecting), not for
 members: `CHANGELOG.md` stays hand-written per the core plan's "Changelog and version display" and
-is never generated from commit messages. Write the message to a file and `git commit -F` it;
+is never generated from commit messages. From the first release on, a commit that changes
+something a member notices against the last release (a fix for a bug a release shipped, a new or
+changed behavior, a speed-up worth telling) adds its line under `[Unreleased]` in `CHANGELOG.md`
+itself; a fix for something no release has shipped adds none. There is one `fix` type for both:
+`git log --grep '^fix(' -- CHANGELOG.md` lists the fixes a release note owes its readers. Write
+the message to a file and `git commit -F` it;
 PowerShell has no heredocs.
 Do not include agent co-authoring lines.
 

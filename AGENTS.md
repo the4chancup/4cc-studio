@@ -22,7 +22,10 @@ Five documents, five jobs. Do not let content leak between them; two homes means
 **Before a step:** read the worklog's current status, then the plan section the step points at,
 from the document, not from memory. **After a step:** run the gates (`CONTRIBUTING.md`), mark the
 step done with a one-line summary and the files touched, update "Current status", add a log line,
-commit (`git commit -F <file>`; PowerShell has no heredocs).
+commit (`git commit -F <file>`; PowerShell has no heredocs). Once a release exists, the review
+before that commit also asks whether a member would notice the change against the last release,
+and if so checks the diff for its `CHANGELOG.md` `[Unreleased]` line (`CONTRIBUTING.md`
+"Commits").
 
 **Before a tool phase** (any phase whose deliverable is a tool crate, or savefile writing): the
 tool's plan gets an "Acceptance" section: stable-ID, GIVEN/WHEN/THEN scenarios for the
