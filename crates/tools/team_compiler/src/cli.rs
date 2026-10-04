@@ -308,7 +308,9 @@ fn load_teams_list(setting: &Path, data_dir: Option<&Path>) -> Result<TeamsList,
 
 /// `compile` gives the member a teams list to edit: with a data directory and no file at the
 /// `teams_list_path` setting's path, it writes the embedded list there (`check` never writes
-/// it). A write failure aborts the run, naming the path.
+/// it). The write is best-effort (`pipeline.md` "Teams list", detected by attempting it): a
+/// data directory that cannot take it leaves the embedded list to be read with a warning
+/// naming the path, never a failure.
 fn create_teams_list(setting: &Path, data_dir: Option<&Path>) -> Result<(), CliError> {
     let Some(data_dir) = data_dir else {
         return Ok(());
@@ -319,12 +321,13 @@ fn create_teams_list(setting: &Path, data_dir: Option<&Path>) -> Result<(), CliE
         return Ok(());
     }
     // The bytes are written unchanged: the file's CRLF bytes are the upstream list's.
-    fs::write(&path, TeamsList::UPSTREAM).map_err(|error| {
-        CliError::new(
-            ABORTED,
-            anyhow!("{}: cannot write the teams list: {error}", path.display()),
-        )
-    })
+    if let Err(error) = fs::write(&path, TeamsList::UPSTREAM) {
+        log::warn!(
+            "{}: the teams list cannot be written ({error}); the embedded list is used",
+            path.display()
+        );
+    }
+    Ok(())
 }
 
 fn embedded_teams_list() -> TeamsList {
@@ -567,14 +570,49 @@ mod tests {
             own,
             "an existing file is kept"
         );
+    }
 
-        let error =
-            create_teams_list(Path::new("no folder/teams_list.txt"), Some(root)).unwrap_err();
-        assert_eq!(error.exit_code, ABORTED);
-        let text = error.to_string();
+    /// The warning lines `log` has recorded since the recorder was installed.
+    fn warnings() -> Vec<String> {
+        static LINES: std::sync::Mutex<Vec<String>> = std::sync::Mutex::new(Vec::new());
+        struct Recorder;
+        impl log::Log for Recorder {
+            fn enabled(&self, _: &log::Metadata) -> bool {
+                true
+            }
+            fn log(&self, record: &log::Record) {
+                LINES
+                    .lock()
+                    .unwrap()
+                    .push(format!("{} {}", record.level(), record.args()));
+            }
+            fn flush(&self) {}
+        }
+        static RECORDER: Recorder = Recorder;
+        log::set_logger(&RECORDER).unwrap_or_default();
+        log::set_max_level(log::LevelFilter::Warn);
+        LINES.lock().unwrap().clone()
+    }
+
+    #[test]
+    fn an_unwritable_teams_list_path_warns_and_the_embedded_list_stands() {
+        let temp = scratch("cli_teams_list_unwritable");
+        let root = temp.path();
+        // The write is best-effort: it cannot be made, a warning names it, and the run reads
+        // the embedded list exactly as it does with no data directory. The recorder must be
+        // installed before the write, or the warning is gone before anyone hears it.
+        warnings();
+        create_teams_list(Path::new("no folder/teams_list.txt"), Some(root)).unwrap();
+        assert_eq!(
+            load_teams_list(Path::new("no folder/teams_list.txt"), Some(root)).unwrap(),
+            embedded_teams_list(),
+        );
         assert!(
-            text.contains("no folder") && text.contains("cannot write"),
-            "{text}"
+            warnings().iter().any(|line| line.starts_with("WARN")
+                && line.contains("no folder")
+                && line.contains("embedded")),
+            "{:?}",
+            warnings()
         );
     }
 

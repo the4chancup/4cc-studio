@@ -505,6 +505,42 @@ fn a_kit_config_that_does_not_parse_leaves_its_kit_out_and_the_kit_beside_it_com
 }
 
 #[test]
+fn a_toml_syntax_error_is_one_console_line_per_finding() {
+    let sandbox = Sandbox::new("deep_toml_snippet");
+    let export = "exports/co - Toml";
+    sandbox.write(&format!("{export}/Kits/p1/kit.dds"), &tracer_kit());
+    // An unclosed array: the parse error carries its source snippet into the finding's context.
+    sandbox.write(&format!("{export}/Kits/p1/config.toml"), b"shirt = [\n");
+
+    let run = sandbox.run("", &["check"]);
+
+    // The console's line format is `studio_core::EventLines`'s: every physical line of the
+    // output is a finding line, never a bare TOML snippet.
+    let mut lines = studio_core::EventLines::new();
+    let console: Vec<String> = run
+        .events
+        .iter()
+        .filter_map(|envelope| lines.line(&envelope.event))
+        .collect();
+    for line in &console {
+        for physical in line.lines() {
+            assert!(
+                physical.starts_with("- "),
+                "a bare snippet line: {physical:?}\n{console:#?}"
+            );
+        }
+    }
+    let finding = console
+        .iter()
+        .find(|line| line.contains("kit_config_invalid"))
+        .expect("the kit's invalid config is reported");
+    assert!(
+        finding.contains("co - Toml") && finding.contains("Error kit_config_invalid"),
+        "{finding:?}"
+    );
+}
+
+#[test]
 fn a_kit_colors_txt_line_that_gives_no_color_is_a_warning_and_the_export_is_still_identified() {
     let sandbox = Sandbox::new("deep_color_entry_invalid");
     let export = "exports/co - Colors";

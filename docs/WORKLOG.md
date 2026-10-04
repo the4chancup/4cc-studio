@@ -1579,6 +1579,10 @@ pruned when their phase closes; they stay in git history.
   `team_compiler/src/view/mod.rs` (3.y design sweep). The next tool view in Phase 8 would be
   the third copy: extract it then into `studio_core` behind a test-support feature, rather
   than a third copy.
+- open — for Phase 8's settings menu, the first code that saves `settings.toml`: the `[common]`
+  table is read into `CommonSettings`, so a key it does not know (a newer version's) is lost on
+  save, while a tool's table keeps unknown keys (`core/gui.md`). Settle whether `[common]` keeps
+  them too before that save path lands (review S2.1).
 - resolved (2026-10-02) — the VPS mutation half's memory peak reached 7.07 GiB of the 8 GiB cap
   on `team_compiler` (3.y whole-crate run, 2 build jobs); no build was killed, and a killed one
   now fails the run. The maintainer keeps 8 GiB. (The 37 OOM kills of 2026-10-02 04:00 were the
@@ -2420,3 +2424,8 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   accepted; GPT A1 3 of 3 (a finished player group's permit held by the coordinator hung the
   run when the next acquire needed it; the writer released a permit before its bytes;
   `CpkStem`'s rule order untested). Rulings `.tmp/review_rulings_S1.md`.
+- **2026-10-04** — Review queue, S2 `studio_core` + `studio` (3.8 (b), 3.z (b), 3.y (c)):
+  sidekick S2.1 0 of 4 (one recorded under "Issues" for Phase 8); GPT A1 4 of 6 (an unwritable
+  data folder stopped `compile` at the teams list; a TOML error's snippet broke the one-line
+  console format; shared temp folders in settings tests; a `pub` with no consumer). Rulings
+  `.tmp/review_rulings_S2.md`.

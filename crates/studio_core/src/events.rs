@@ -293,7 +293,7 @@ impl EventLines {
             let fields: Vec<String> = message
                 .context
                 .iter()
-                .map(|(key, value)| format!("{key}={value}"))
+                .map(|(key, value)| format!("{key}={}", one_line(value)))
                 .collect();
             format!(" ({})", fields.join(", "))
         };
@@ -303,6 +303,18 @@ impl EventLines {
             message.code.code
         )
     }
+}
+
+/// `value` as one console line: its lines trimmed, the empty ones dropped, the rest joined
+/// with a space — a multi-line error (a TOML parse error's source snippet) stays inside its
+/// finding's line.
+fn one_line(value: &str) -> String {
+    value
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 fn severity_name(severity: Severity) -> &'static str {
@@ -461,6 +473,24 @@ mod tests {
         assert_eq!(
             printer().line(&event).unwrap(),
             "- co - Spring.zip: Error players_txt_line_invalid at players.txt line 1"
+        );
+    }
+
+    #[test]
+    fn a_context_value_with_line_breaks_prints_on_one_line() {
+        let PipelineEvent::Message(mut message) =
+            message(Severity::Error, "kit_config_invalid", Scope::Run)
+        else {
+            unreachable!("the helper builds a Message");
+        };
+        message.context = vec![(
+            "error".to_owned(),
+            "TOML parse error at line 1, column 10\n  |\n1 | shirt = [\n  |          ^\nexpected a value"
+                .to_owned(),
+        )];
+        assert_eq!(
+            printer().line(&PipelineEvent::Message(message)).unwrap(),
+            "- Error kit_config_invalid (error=TOML parse error at line 1, column 10 | 1 | shirt = [ |          ^ expected a value)"
         );
     }
 

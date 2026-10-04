@@ -107,7 +107,7 @@ impl Settings {
     }
 
     /// The file text: `[common]` first, then one table per tool in id order.
-    pub fn to_toml_string(&self) -> Result<String, toml::ser::Error> {
+    fn to_toml_string(&self) -> Result<String, toml::ser::Error> {
         let mut root = Table::new();
         root.insert(COMMON_KEY.to_owned(), Value::try_from(&self.common)?);
         for (id, table) in &self.tools {
@@ -171,16 +171,22 @@ mod tests {
         toml::from_str(text).unwrap()
     }
 
+    /// A temp folder unique to this test process, as `location.rs`'s `sandbox` does: two
+    /// test binaries running at once (the mutation run's workers) must not share fixtures.
+    fn test_dir(name: &str) -> std::path::PathBuf {
+        std::env::temp_dir().join(format!("{name}_{}", std::process::id()))
+    }
+
     #[test]
     fn missing_file_loads_as_defaults() {
-        let dir = std::env::temp_dir().join("studio_core_settings_missing");
+        let dir = test_dir("studio_core_settings_missing");
         let loaded = Settings::load(&dir.join("does_not_exist.toml")).unwrap();
         assert_eq!(loaded, Settings::default());
     }
 
     #[test]
     fn a_settings_path_that_exists_but_is_not_a_file_is_an_error() {
-        let dir = std::env::temp_dir().join("studio_core_settings_dir_path");
+        let dir = test_dir("studio_core_settings_dir_path");
         fs::create_dir_all(&dir).unwrap();
         // Only a missing file yields the defaults; a folder at the path is a read failure.
         assert!(matches!(
@@ -201,7 +207,7 @@ mod tests {
             table("dt00_overwrite_allow = true\nlabel = 'x'"),
         );
 
-        let dir = std::env::temp_dir().join("studio_core_settings_roundtrip");
+        let dir = test_dir("studio_core_settings_roundtrip");
         fs::create_dir_all(&dir).unwrap();
         let path = dir.join("settings.toml");
         settings.save(&path).unwrap();
@@ -217,7 +223,7 @@ mod tests {
 
     #[test]
     fn concurrent_saves_leave_a_complete_file() {
-        let dir = std::env::temp_dir().join("studio_core_settings_concurrent");
+        let dir = test_dir("studio_core_settings_concurrent");
         fs::create_dir_all(&dir).unwrap();
         let path = dir.join("settings.toml");
         std::thread::scope(|scope| {
@@ -237,7 +243,7 @@ mod tests {
 
     #[test]
     fn a_failed_save_leaves_no_tmp_sibling() {
-        let dir = std::env::temp_dir().join("studio_core_settings_save_fail");
+        let dir = test_dir("studio_core_settings_save_fail");
         drop(fs::remove_dir_all(&dir));
         fs::create_dir_all(&dir).unwrap();
         // `path` is a directory: the rename over it fails after the .tmp was written.
