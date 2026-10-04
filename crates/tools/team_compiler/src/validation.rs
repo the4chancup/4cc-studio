@@ -25,7 +25,7 @@ use crate::plan::mapped_players;
 use crate::plan::subset::{
     FolderModels, ModelPackage, PlayerFile, common_skeleton, file_stem, player_file,
 };
-use crate::reader::{self, ExportSource, Route, SourceKind};
+use crate::reader::{self, ContentSource, ExportSource, Route, SourceKind};
 
 /// Validation's outcome for the whole run.
 pub(crate) struct ValidationPass {
@@ -63,16 +63,16 @@ pub(crate) fn run_pool(inputs: &RunInputs) -> anyhow::Result<rayon::ThreadPool> 
 }
 
 /// Discovers the run's sources, routes them and runs the structure pass, the deep pass and
-/// identity on each one headed for validation, on `pool`; both passes' `.7z` reads are
-/// charged to `budget`. An exports folder holding no export is `no_exports_found`, on the run.
-/// Only an exports folder that cannot be read is an error.
+/// identity on each one headed for validation, on `pool`; a `.7z` export is read once for
+/// both passes, charged to `budget`. An exports folder holding no export is
+/// `no_exports_found`, on the run. Only an exports folder that cannot be read is an error.
 pub(crate) fn validation_pass(
     inputs: &RunInputs,
     budget: &Arc<MemoryBudget>,
     pool: &rayon::ThreadPool,
 ) -> anyhow::Result<ValidationPass> {
     let sources = reader::discover(&inputs.exports_root, &inputs.exports)?;
-    let routes = pool.install(|| reader::route(&sources, budget));
+    let routes = pool.install(|| reader::route(&sources));
 
     let mut run_messages = Vec::new();
     // Every `--export` path yields a source, so no source at all means the root's scan found
@@ -141,7 +141,9 @@ fn check_sources(
     checked.into_iter().map(|(_, checked)| checked).collect()
 }
 
-/// One source through its route, the structure pass, the deep pass and identity.
+/// One source through its route, the structure pass, the deep pass and identity. The small
+/// metadata and the deep pass's files are read through one `ContentSource`, so a `.7z` is
+/// decompressed once for both passes, under one permit released when the deep pass ends.
 fn check_source(
     inputs: &RunInputs,
     source: ExportSource,
@@ -162,7 +164,7 @@ fn check_source(
         )],
         resolved: None,
     };
-    let (listing, metadata) = match route {
+    let listing = match route {
         Route::Unreadable(failure) => {
             return skipped(
                 source,
@@ -173,9 +175,11 @@ fn check_source(
         Route::Disabled => return skipped(source, Code::ExportDisabled, vec![]),
         Route::Balls => return skipped(source, Code::ExportBallsSkipped, vec![]),
         Route::ConflictingRefs => return skipped(source, Code::MultipleRefExports, vec![]),
-        Route::Validate { listing, metadata } => (listing, metadata),
+        Route::Validate { listing } => listing,
     };
 
+    let content = ContentSource::new(&source, budget);
+    let metadata = content.read_metadata(&listing);
     let parsed = match parse_listing(listing, metadata) {
         Ok(parsed) => parsed,
         Err(error) => {
@@ -200,12 +204,14 @@ fn check_source(
     // The deep pass reads only what the structure pass kept; its findings derive the report
     // again, so they drop, cascade and pass through as the structure pass's own do.
     if let Some(validated) = &report.validated {
-        let findings =
-            deep::content_findings(validated, &source, budget, inputs.common.pes_version);
+        let findings = deep::content_findings(validated, &content, inputs.common.pes_version);
         if !findings.is_empty() {
             report = report.with_content_findings(findings, &context);
         }
     }
+    // Nothing past the deep pass reads the source: a `.7z`'s buffer and its permit go now,
+    // not after identity.
+    drop(content);
     let mut messages: Vec<Message> = report
         .issues
         .iter()

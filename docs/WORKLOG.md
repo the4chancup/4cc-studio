@@ -12,7 +12,8 @@ is in `AGENTS.md` ("Working documents").
 **Phase:** 3 (Team compiler skeleton) closed 2026-10-02, its cross-family reviews queued (see
 "Handover"). Phases 1 and 2 done (Phase 2 closed 2026-09-30).
 **Next:** Phase 4 is itemized and its Acceptance section written (step 4.1, 2026-10-03; its
-cross-family review (a) is queued). Next: 4.7 (deep validation pass, in slices; (a) to (e) are done and timed; (f), one `.7z` decompression for both passes, is left), then 4.8; 4.30, 4.6 and 4.5 are done (4.6c moved to Phase 8's cancellation). 2.5b (GPU BC7) is step 16.x (decision entries
+cross-family review (a) is queued). Next: 4.8 (kit colors, `UniColor.bin` and
+`TeamColor.bin`); 4.30 and 4.5 to 4.7 are done (4.6c moved to Phase 8's cancellation). 2.5b (GPU BC7) is step 16.x (decision entries
 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0 after Phase 8; phase order 1–6,
 8, 0.1.0, 7, 9–16 (`core/development_plan.md` "Releases"); first-class target the Fox version
 the cup moves to around April 2027 ("Target versions").
@@ -77,11 +78,12 @@ Claude agent with no sidekick and no reviewer of another model family. While tha
   `messages.md` "Textures", `libs/dds_convert.md` "`dds_convert` API", TC-MOD-10/11,
   TC-TEX-01/02/04/06, TC-PRT-01, TC-KIT-10, and the decision entries of 2026-10-03 from "Fox's
   Common textures are one task" on.
-  4.7 (a) and (b), one review when the step's last slice lands: TC-CHK-06 and TC-CHK-07
+  4.7 (a) and (b), the step now done: TC-CHK-06 and TC-CHK-07
   (`team_compiler/README.md` "Deep checks"); `aesthetics_export`'s `ContentFinding` and
-  `ValidationReport::with_content_findings`, `team_compiler/src/deep.rs` and `validation.rs`,
-  `fmdl`'s and `pes_model`'s `check::CODES`, `dds_convert::probe`, from `f937e3d` to the
-  step's last commit, against `pipeline.md` "2. Per-export serial steps" (deep format pass),
+  `ValidationReport::with_content_findings`, `team_compiler/src/deep/`, `validation.rs` and
+  `reader/` (`ContentSource`, `route`), `fmdl`'s and `pes_model`'s `check::CODES`,
+  `dds_convert::probe`, from `f937e3d` to the 4.7f commit (`perf(team_compiler)`, 2026-10-04),
+  against `libs/pipeline.md` "What a solid `.7z` is charged", `pipeline.md` "2. Per-export serial steps" (deep format pass),
   `object_model.md` "Validation semantics" (content findings), `messages.md` "Model checks"
   and "Textures", and the decision entries "the deep pass: the compiler checks, the export
   crate drops" and "texture checks: from the header, in the deep pass".
@@ -491,7 +493,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   11-level mip chain; a 3x3 `skin.png` reports `Error texture_too_small [DropFolder]` and the
   folder is absent from the CPK
 
-- [ ] 4.7 **Deep validation pass**, in four slices. The shape (decision entry "the deep pass:
+- [x] 4.7 **Deep validation pass**, in slices (a) to (f), done 2026-10-04. The shape (decision entry "the deep pass:
   the compiler checks, the export crate drops"): tc reads the files of the sanitized export
   and runs the checks (`deep.rs`, new); `ae` takes what they find
   (`ValidationReport::with_content_findings`) and derives the sanitized export again, so the
@@ -603,8 +605,10 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
     `check` on a folder is nearly all deep pass, so the serial pass is 18% (FNG) to 47%
     (DBG) of a folder compile. Reading every file whole takes 0.41 to 0.50 s on FNG and
     0.19 s on DBG (`.tmp/timing_read.py`): FNG's pass is whole-file reads of textures for
-    their headers, DBG's is model parsing. Each `.7z` decompression costs 1.0 to 1.4 s, and a
-    compile does three, about 4 s of its 5.8 to 7.2 s. Not measured: a cold cache, a run of
+    their headers, DBG's is model parsing. Each `.7z` decompression costs about 2 s, and a
+    compile of these exports does two, about 4 s of its 5.8 to 7.2 s (corrected at (f): first
+    written as three of 1.0 to 1.4 s, the count assumed; the timing exports hold no metadata
+    file, so routing never decompressed them). Not measured: a cold cache, a run of
     many exports. Found: every face folder of both exports holds only a `face_diff.bin` and
     a portrait (an in-game face with a diff), which `compile` refuses today as
     `content_not_yet_compiled` (4.12's); the timing exports leave those files out
@@ -634,12 +638,36 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
     | both in one run | 1.31 → 0.55 | 5.05 → 4.72 | 4.69 → 3.95 | 12.86 → 12.03 |
 
     What is left of a folder compile is planning, the coordinator's reads, the tasks and
-    the CPK's writing (FNG: about 2.5 s of 2.87); of a `.7z` compile, mostly its three
-    decompressions → verify: the timing table above measured again, every existing test
-    unchanged
-  - (f) a `.7z` decompressed once for the structure pass and the deep pass ("Issues": the
-    third decompression; to design after (e): routing reads every source's metadata before
-    the first export is checked, so the buffer cannot simply be kept)
+    the CPK's writing (FNG: about 2.5 s of 2.87); of a `.7z` compile, mostly its
+    decompressions (two for these exports, three for one holding a metadata file: (f))
+    → verify: the timing table above measured again, every existing test unchanged
+  - (f) a `.7z` decompressed once for the structure pass and the deep pass (decision entry
+    "a source's metadata is read by its check, not by routing"; `libs/pipeline.md` "What a
+    solid `.7z` is charged"). Done 2026-10-04 (Opus 5.5, first time, no lead fix): routing
+    only lists (`reader::source::list`; `route` takes no budget, `Route::Validate` holds the
+    listing alone); `ContentSource::read_metadata`, called by `check_source` on the handle
+    the deep pass then reads from (`deep::content_findings` takes the `ContentSource`),
+    dropped when the deep pass ends; `OpenSource` and its archive-only metadata read are
+    gone, one read path for the three source kinds. A disabled, balls or conflicting-refs
+    `.7z` is never decompressed. No existing test's expectation changed; one new test (the
+    metadata read and the later reads share one permit, held until the source is dropped).
+    Gates green (110 of 209); `mutants-diff 3ea4018`: 11, 4 caught, 7 unviable, 0 missed.
+    Measured (release build, same setup, median of 3, the 4.7e binary → this one). The
+    timing exports hold no metadata file, so routing never decompressed them and they
+    measure the same as before (FNG `.7z`: `check` 2.17 → 2.28, `compile` 6.36 → 6.62,
+    within the runs' spread). With a root `notes.txt` added to each
+    (`.tmp/timing_notes.py`):
+
+    | seconds, `.7z` with `notes.txt` | `check` | `compile` |
+    |---|---|---|
+    | FNG | 4.39 → 2.36 | 8.82 → 6.79 |
+    | DBG | 4.23 → 2.31 | 7.19 → 5.21 |
+    | both in one run | 6.95 → 4.77 | 14.02 → 11.76 |
+
+    A decompression costs about 2 s per export (both in one run save 2.2 s, not 4: routing
+    decompressed the two in parallel). The folder runs are unchanged (FNG `check` 0.32 →
+    0.29, `compile` 2.74 → 2.73). Left: the tasks' decompression, about 2 s of a `.7z`
+    compile per export ("Issues")
 
 - [ ] 4.8 **Kit colors, UniColor and TeamColor (the `bins/` module)**: kit `colors.txt` grammar
   (`player_folders.md` "Root files", "Colors": one color per line in both files, the
@@ -1182,13 +1210,15 @@ pruned when their phase closes; they stay in git history.
   3.z run under the old 6 GiB cap, the reason it was raised; none since.)
 
 - open — the deep pass reads everything `compile` reads again (4.7): each checked file is
-  read once by the pass and once by its task, and a solid `.7z` is decompressed three times
-  (the metadata, the deep pass, the tasks). For a folder the second read comes from the
-  system's file cache; for a `.7z` it is a whole extra decompression per export. Measured
-  at 4.7 (the step's timing table): each decompression of a 0.6 to 1 GB export costs 1.0 to
-  1.4 s, and the three are about 4 s of a 5.8 to 7.2 s compile. The fix is 4.7f: the
-  structure pass and the deep pass of one archive on one decompression (the reader's route
-  keeps the buffer until that source's deep pass is done).
+  read once by the pass and once by its task, and a solid `.7z` is decompressed twice (its
+  check, then its tasks; three times before 4.7f for an export holding a metadata file).
+  For a folder the second read comes from the system's file cache; for a `.7z` it is a whole
+  extra decompression per export, about 2 s for a 0.6 to 1 GB export (4.7f's timing): about
+  2 s of a 5.2 to 6.8 s compile. The buffer is not kept from the check to the tasks because
+  planning needs every export validated first, and holding every `.7z` until then is the
+  residency the budget forbids (`libs/pipeline.md` "What a solid `.7z` is charged"). Not
+  designed: keeping the buffers that fit the budget and letting go of the rest. Cup exports
+  are nearly always compiled from folders, so this waits for the maintainer's word.
 - open — a face diff is engine-specific (maintainer, 2026-10-03): how the game uses the diff to
   shape the face skeleton differs between pre-Fox and Fox, so a `face_diff.bin` (or the
   `face_diff.xml` and `<dif>` text forms of it) authored for one engine misplaces the face on
@@ -1917,3 +1947,10 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
 - **2026-10-03** — The 53-entry DpFileList passed the maintainer's in-game test on PES 2015
   and on PES 2021 (one per engine), so the official list's length is taken to hold on every
   version and the open question is closed (decision entry).
+- **2026-10-04** — 4.7f, and step 4.7 done: routing only lists each source, and a source's
+  check reads its metadata through the handle its deep pass reads from, so a `.7z` holding a
+  metadata file is decompressed once for both passes, not twice. `check` on such an export
+  went from 4.39 to 2.36 s (FNG) and 4.23 to 2.31 s (DBG); an export with no metadata file
+  measures the same as before. This corrects 4.7's timing note: a decompression costs about
+  2 s per export, and the timing exports, which hold no metadata file, were decompressed
+  twice per compile, not three times. The tasks' decompression stays ("Issues").

@@ -36,7 +36,6 @@ mod portrait;
 mod texture;
 
 use std::collections::BTreeMap;
-use std::sync::Arc;
 
 use aesthetics_export::{
     ContentFinding, Disposition, FileDescriptor, FileKind, IssueScope, KitTextureSource,
@@ -44,13 +43,12 @@ use aesthetics_export::{
 };
 use dds_convert::SourceFormat;
 use pes_version::PesVersion;
-use pipeline::MemoryBudget;
 use rayon::prelude::*;
 use vtree::ScopePath;
 
 use crate::messages::Code;
 use crate::plan::subset::{FolderModels, texture_format};
-use crate::reader::{ContentSource, ExportSource};
+use crate::reader::ContentSource;
 use documents::{face_diff_findings, kit_config_finding, settings_finding};
 use model::{ModelKind, fired, summed};
 use portrait::{folder_portrait, portrait_conflict, portrait_findings};
@@ -58,7 +56,7 @@ use texture::{SizeRule, texture_finding};
 
 pub(crate) use model::FAR_VERTEX_CODES;
 
-/// The content findings of `export`, the sanitized export read from `source` and compiled for
+/// The content findings of `export`, the sanitized export read from `content` and compiled for
 /// `version`, in file order: each player folder's models, material sets and textures, then
 /// its face diff, its portrait and its `settings.toml`; then each shared folder's (faces with
 /// their face diff, boots, gloves), then `Common/`'s, then each `Portraits/` file with its
@@ -69,17 +67,15 @@ pub(crate) use model::FAR_VERTEX_CODES;
 ///
 /// The player folders, the shared folders, the files of each folder and `Common/`'s files are
 /// checked in parallel, on the rayon pool the caller runs this in; the rest in order. Every
-/// file is read through one `ContentSource` and each worker holds one file's bytes at a time,
-/// so at most one file per worker thread is held (a slot's two portraits while they are
-/// compared). A solid `.7z` is decompressed once, under its own permit from `budget`, released
-/// when the pass ends.
+/// file is read through `content` and each worker holds one file's bytes at a time, so at most
+/// one file per worker thread is held (a slot's two portraits while they are compared). A
+/// solid `.7z` is decompressed once per `content`, on its first read (the caller's metadata
+/// read, when the export has a metadata file), and stays charged until `content` is dropped.
 pub(crate) fn content_findings(
     export: &ValidatedAestheticsExport,
-    source: &ExportSource,
-    budget: &Arc<MemoryBudget>,
+    content: &ContentSource,
     version: PesVersion,
 ) -> Vec<ContentFinding> {
-    let content = ContentSource::new(source, budget);
     let size_rule = SizeRule::of(version);
     // Each group below is collected in its items' order (rayon's indexed `collect`), so the
     // findings come out in file order whatever the workers' scheduling.
@@ -88,9 +84,9 @@ pub(crate) fn content_findings(
         .par_iter()
         .map(|player| {
             let folder = &player.path;
-            let mut findings = folder_findings(&content, folder, &player.files, size_rule);
+            let mut findings = folder_findings(content, folder, &player.files, size_rule);
             findings.extend(face_diff_findings(
-                &content,
+                content,
                 folder,
                 &player.files,
                 &FolderModels::of_player(player),
@@ -99,12 +95,12 @@ pub(crate) fn content_findings(
             // alone, the folder keeping the rest.
             if let Some(portrait) = &player.portrait {
                 findings.extend(portrait_findings(
-                    &content,
+                    content,
                     portrait,
                     &relative(&portrait.path, folder),
                 ));
             }
-            findings.extend(settings_finding(&content, player));
+            findings.extend(settings_finding(content, player));
             findings
         })
         .collect();
@@ -114,9 +110,9 @@ pub(crate) fn content_findings(
         .faces
         .par_iter()
         .map(|face| {
-            let mut findings = folder_findings(&content, &face.path, &face.files, size_rule);
+            let mut findings = folder_findings(content, &face.path, &face.files, size_rule);
             findings.extend(face_diff_findings(
-                &content,
+                content,
                 &face.path,
                 &face.files,
                 &FolderModels::of(&face.path, &face.files),
@@ -128,7 +124,7 @@ pub(crate) fn content_findings(
         .boots
         .par_iter()
         .chain(&export.gloves)
-        .map(|shared| folder_findings(&content, &shared.path, &shared.files, size_rule))
+        .map(|shared| folder_findings(content, &shared.path, &shared.files, size_rule))
         .collect();
     let common: Vec<Vec<ContentFinding>> = export
         .common
@@ -138,7 +134,7 @@ pub(crate) fn content_findings(
                 return Vec::new();
             };
             file_findings(
-                &content,
+                content,
                 file,
                 checked,
                 &IssueScope::File(file.path.clone()),
@@ -153,16 +149,16 @@ pub(crate) fn content_findings(
         .flatten()
         .collect();
     for (slot, file) in &export.portraits {
-        findings.extend(portrait_findings(&content, file, file.path.name()));
+        findings.extend(portrait_findings(content, file, file.path.name()));
         if let Some(folder_portrait) = folder_portrait(export, *slot) {
-            findings.extend(portrait_conflict(&content, folder_portrait, file));
+            findings.extend(portrait_conflict(content, folder_portrait, file));
         }
     }
     // An `all/` texture is read once, however many kits inherit it, and its findings are kept
     // by its path; each inheriting kit gets them on its own scope.
     let mut inherited: BTreeMap<&str, Vec<ContentFinding>> = BTreeMap::new();
     for kit in export.kits.kits.values() {
-        findings.extend(kit_config_finding(&content, kit));
+        findings.extend(kit_config_finding(content, kit));
         let scope = IssueScope::Folder(kit.path.clone());
         for texture in &kit.textures {
             let rule = if texture.stem == "kit" {
@@ -175,7 +171,7 @@ pub(crate) fn content_findings(
             };
             match texture.source {
                 KitTextureSource::Own => findings.extend(file_findings(
-                    &content,
+                    content,
                     &texture.file,
                     checked,
                     &scope,
@@ -188,7 +184,7 @@ pub(crate) fn content_findings(
                     let path = texture.file.path.as_str();
                     let found = inherited.entry(path).or_insert_with(|| {
                         file_findings(
-                            &content,
+                            content,
                             &texture.file,
                             checked,
                             &scope,
@@ -213,7 +209,7 @@ pub(crate) fn content_findings(
         let format = texture_format(file.path.name())
             .expect("a logo is classified a texture by an extension `dds_convert` accepts");
         findings.extend(file_findings(
-            &content,
+            content,
             file,
             Checked::Logo(format),
             &IssueScope::File(file.path.clone()),
@@ -432,11 +428,12 @@ mod tests {
     use aesthetics_export::{Disposition, IssueScope};
     use dds_convert::{BlockCodec, Blocks, Decoded, encode_dds};
     use fmdl::{FmdlFile, Model};
+    use pipeline::MemoryBudget;
     use studio_core::ExportId;
     use vtree::ScopePath;
 
     use super::*;
-    use crate::reader::SourceKind;
+    use crate::reader::{ExportSource, SourceKind};
     use crate::testing::{resolved_with_issues, scratch};
 
     /// The bytes of `tests/fixtures/<relative>`.
@@ -525,12 +522,8 @@ mod tests {
             display_name: "co - Deep".to_owned(),
             team_name: None,
         };
-        content_findings(
-            &resolved.export,
-            &source,
-            &MemoryBudget::new(1 << 30),
-            version,
-        )
+        let content = ContentSource::new(&source, &MemoryBudget::new(1 << 30));
+        content_findings(&resolved.export, &content, version)
     }
 
     /// The bytes of `tests/fixtures/textures/<name>` (that folder's `README.md`).

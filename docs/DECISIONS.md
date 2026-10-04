@@ -3569,3 +3569,20 @@ Conventional Commits type; and a wrong type on a pushed commit stays wrong, wher
 changelog line is one more commit.
 Plan: `core/distribution.md` "Changelog and version display"; `CONTRIBUTING.md` "Commits";
 `AGENTS.md` "Working documents" (after a step).
+
+## 2026-10-04 — team_compiler — a source's metadata is read by its check, not by routing
+Decision: routing only lists each source. The small metadata files are read at the start of
+the source's check, through the `ContentSource` the deep pass then reads from, for every
+source kind. A `.7z` is so decompressed once for the metadata, the structure pass and the
+deep pass, under one permit; its tasks' decompression in `compile` stays.
+Why: routing read the metadata of every source before the first check, so a `.7z` holding a
+metadata file (`players.txt`, `refs.txt`, `notes.txt`) was decompressed there and again by
+its deep pass, about 2 s each on a 0.6 to 1 GB export (4.7f's timing: `check` on such an
+export went from 4.2-4.4 s to 2.3-2.4 s). Routing never uses the metadata: the disabled marker is in the listing, and
+the balls and duplicate-refs rules go by the team name. One read path for all three kinds,
+not a `.7z` special case, because the folder and `.zip` reads are the same calls either way
+and a second path would be code with no gain. The buffer is not kept for the tasks: planning
+needs every export validated first, and holding every `.7z` until then is the residency the
+budget forbids.
+Plan: `libs/pipeline.md` "What a solid `.7z` is charged"; `team_compiler/pipeline.md` "2.
+Per-export serial steps" (deep format pass, its last paragraph).

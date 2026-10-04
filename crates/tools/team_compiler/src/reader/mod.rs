@@ -7,16 +7,14 @@ mod source;
 
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 
-use aesthetics_export::{CanonicalListing, ListedKind, SmallMetadata};
+use aesthetics_export::{CanonicalListing, ListedKind};
 use anyhow::Context;
-use pipeline::MemoryBudget;
 use rayon::prelude::*;
 use studio_core::ExportId;
 use teams_list::TeamName;
 
-use source::OpenSource;
+use source::list;
 pub(crate) use source::{ContentSource, SourceFailure};
 
 /// One export source found by discovery: a folder or an archive.
@@ -60,12 +58,10 @@ pub(crate) enum Route {
     Balls,
     /// One of several non-disabled `/refs/` exports: `multiple_ref_exports`.
     ConflictingRefs,
-    /// To be validated, from this listing and the small metadata files read with it.
+    /// To be validated, from this listing.
     Validate {
         /// Every file and folder in the source.
         listing: CanonicalListing,
-        /// The listing's small metadata files, read from the source.
-        metadata: SmallMetadata,
     },
 }
 
@@ -176,18 +172,13 @@ fn source(path: PathBuf, kind: SourceKind, export_id: ExportId) -> ExportSource 
     }
 }
 
-/// Each source's route, in the order given, its `.7z` reads charged to `budget`; the sources
-/// are read in parallel, on the rayon pool the caller runs this in. The duplicate-refs rule
-/// counts only the `/refs/` exports still headed for validation, so a disabled or unreadable
-/// one never conflicts.
-pub(crate) fn route(sources: &[ExportSource], budget: &Arc<MemoryBudget>) -> Vec<Route> {
-    // `route_source` starts no parallel work of its own, so a worker waiting in it for a
-    // `.7z`'s permit never has another source's read, and its permit, suspended below it on
-    // the same thread: waiting there is safe. The indexed `collect` keeps the source order.
-    let mut routes: Vec<Route> = sources
-        .par_iter()
-        .map(|source| route_source(source, budget))
-        .collect();
+/// Each source's route, in the order given; the sources are listed in parallel, on the rayon
+/// pool the caller runs this in. The duplicate-refs rule counts only the `/refs/` exports still
+/// headed for validation, so a disabled or unreadable one never conflicts.
+pub(crate) fn route(sources: &[ExportSource]) -> Vec<Route> {
+    // A source is only listed here, nothing read that waits for memory. The indexed `collect`
+    // keeps the source order.
+    let mut routes: Vec<Route> = sources.par_iter().map(route_source).collect();
     let refs: Vec<usize> = sources
         .iter()
         .zip(&routes)
@@ -206,13 +197,13 @@ pub(crate) fn route(sources: &[ExportSource], budget: &Arc<MemoryBudget>) -> Vec
     routes
 }
 
-/// One source's route before the duplicate-refs rule. The listing comes first, since a disabled
-/// export is recognized by its root's files; only an export headed for validation has its
-/// metadata read, from the source its listing opened, so a disabled or balls `.7z` is never
-/// decompressed.
-fn route_source(source: &ExportSource, budget: &Arc<MemoryBudget>) -> Route {
-    let (open, listing) = match OpenSource::open(source) {
-        Ok(opened) => opened,
+/// One source's route before the duplicate-refs rule, from its listing alone: a disabled export
+/// is recognized by its root's files, a balls export by its team name. No source is read
+/// beyond its listing, so no `.7z` is decompressed by routing, and a disabled, balls or
+/// conflicting-refs one never is.
+fn route_source(source: &ExportSource) -> Route {
+    let listing = match list(source) {
+        Ok(listing) => listing,
         Err(failure) => return Route::Unreadable(failure),
     };
     if is_disabled(&listing) {
@@ -221,8 +212,7 @@ fn route_source(source: &ExportSource, budget: &Arc<MemoryBudget>) -> Route {
     if source.team_name.as_ref().is_some_and(TeamName::is_balls) {
         return Route::Balls;
     }
-    let metadata = open.read_metadata(&listing, budget);
-    Route::Validate { listing, metadata }
+    Route::Validate { listing }
 }
 
 /// A `NO_USE` or `NO_USE.txt` file directly in the source's own root. Compared folded, as
@@ -424,7 +414,7 @@ mod tests {
         write("refs d.zip");
 
         let sources = discover(root, &[]).unwrap();
-        let routes: Vec<String> = route(&sources, &MemoryBudget::new(1 << 20))
+        let routes: Vec<String> = route(&sources)
             .into_iter()
             .map(|route| match route {
                 Route::Unreadable(failure) => format!("unreadable: {}", failure.error),
@@ -460,7 +450,7 @@ mod tests {
         fs::create_dir_all(root.join("refs b")).unwrap();
         fs::write(root.join("refs b/NO_USE"), "").unwrap();
         let sources = discover(root, &[]).unwrap();
-        let routes = route(&sources, &MemoryBudget::new(1 << 20));
+        let routes = route(&sources);
         assert!(matches!(routes[0], Route::Validate { .. }), "{routes:?}");
         assert_eq!(routes[1], Route::Disabled);
     }

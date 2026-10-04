@@ -123,8 +123,12 @@ export format.
      are checked one after another, once the others are done, because a worker waiting for
      its folder's files takes other work, and a `.7z` export's check started that way can
      wait for a permit held by the export suspended below it on the same thread, forever.
-     Each source's findings are reported in discovery order either way. Routing's read of one source (its listing
-     and metadata) starts no work of its own, so the sources are routed in parallel. Measured
+     Each source's findings are reported in discovery order either way. Routing only lists
+     each source (a folder's tree, an archive's header), so the sources are routed in
+     parallel and no archive is decompressed for an export routing sets aside. A source's
+     small metadata is read by its check, through the handle the deep pass then reads its
+     contents from: a `.7z` is decompressed once for the metadata, the structure pass and the
+     deep pass, under one permit released when the deep pass ends. Measured
      at 4.7 on two VGL26 exports of 0.6 and 1 GB, the serial pass took 0.5 to 0.8 s of a 1.7 to
      3.1 s folder compile: most of it model parsing on one, whole-file reads of 8192-pixel
      textures (for their headers) on the other.

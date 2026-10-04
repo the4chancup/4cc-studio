@@ -90,13 +90,16 @@ Admission rules:
 
 **What a solid `.7z` is charged.** The structure pass needs a solid `.7z` export's small metadata
 (`players.txt`, `refs.txt`, `notes.txt`), and `archives` decompresses the whole archive on its
-first read. The structure pass (`check`, and the reading phase of `compile`) acquires the sum of
-the archive's `entries()` sizes before that read and drops the permit with the `Archive` once the
-metadata bytes are copied out; `compile` opens the archive again for its tasks and charges it
-again until they drain (`team_compiler/pipeline.md` step 3). Keeping every 7z export decompressed
-from the structure pass to its tasks would hold all of them at once while the run is planned,
-which is the residency the budget exists to prevent; the second decompression costs time only
-for 7z exports, and the main workflow uses folders.
+first read. Routing only lists an archive (its header, nothing decompressed). An export's check
+(`check`, and the validation of `compile`) then opens it once for the metadata read, the
+structure pass and the deep pass: it acquires the sum of the archive's `entries()` sizes before
+the first read and drops the permit with the `Archive` when the deep pass ends, so one
+decompression serves both passes (each costs about 2 s on a 0.6 to 1 GB export, measured at
+4.7f). `compile` opens the archive again for its tasks and charges it again until they drain
+(`team_compiler/pipeline.md` step 3). Keeping every 7z export decompressed from its check to its
+tasks would hold all of them at once while the run is planned, which is the residency the budget
+exists to prevent; that second decompression costs time only for 7z exports, and the main
+workflow uses folders.
 
 ## Memory cap
 
