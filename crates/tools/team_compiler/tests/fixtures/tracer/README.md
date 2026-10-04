@@ -33,7 +33,11 @@ gloves since step 4.3.
 - `Kits/g1/`: `kit.dds` is `u0XXXg1.dds`; `config.toml` is `XXX_DEF_GK1st_realUni.bin` decoded as
   PES 21 by `kit_config` (`KitConfig::decode` then `to_toml`), and re-encoded with the `u0792g1`
   texture name it gives back Red's `792_DEF_GK1st_realUni.bin` byte for byte; the empty marker `icon_11`
-  is the kit's icon in the note. No `colors.txt`: its grammar is a Phase 4 question.
+  is the kit's icon in the note; `colors.txt` (step 4.8) holds the note's kit entry
+  `#c11200 - #414141 - 11` as its two colors, one per line.
+- `colors.txt` (step 4.8): the note's two team colors, `#c11200` and `#414141`, one per line.
+  With the kit's file it makes the compiled `TeamColor.bin` and `UniColor.bin` comparable
+  with Red's byte for byte.
 
 ## `red/`
 

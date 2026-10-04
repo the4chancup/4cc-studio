@@ -702,14 +702,18 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
     Open for (b): a `colors.txt` that cannot be read is reported `DropFile` but stays in
     the validated export. Gates green (110 of 209); `mutants-diff a9d9a51`: 37, 34 caught,
     3 unviable, 0 missed
-  - (b) `bins/`: the two color bins as records (headers set from their position,
-    `bin_header_repaired`; a kit's entry merged by kit number; the bundled bases); the kit
-    task's colors (its `colors.txt`, else derived, else the magenta/black pair) and icon; the
-    writer adds both bins to every CPK it writes. TC-KIT-11..14, TC-BIN-01..03. TC-BIN-13's
-    repair is unit-tested on a bin's bytes here; its CLI proof needs an installed bin, so the
-    ID's citing test lands with 4.21
-  - (c) the root `colors.txt` into `TeamColor.bin`, `team_colors_missing`; TC-ROOT-10; the
-    tracer parity test's two bins
+  - (b) `TeamColor.bin`: `bins/` (the bin as records, every header set from its position,
+    `bin_header_repaired`, the bundled base as the run's working bin); the root `colors.txt`
+    read while the export's source is open and applied for each export planning keeps;
+    `team_colors_missing`; the writer adds the bin to every CPK it writes; a `colors.txt`
+    the deep pass drops leaves the validated export. TC-ROOT-10; the tracer parity row
+    `TeamColor.bin` exact. TC-BIN-13's repair is tested at the writer on a working bin
+    given to it; its CLI proof needs an installed bin, so the ID's citing test lands with
+    4.21
+  - (c) `UniColor.bin`: the kit task's colors (its `colors.txt`, else derived, else the
+    magenta/black pair) and icon, merged into the team's record by kit number; TC-KIT-11..14,
+    TC-BIN-01..03; the tracer parity row `UniColor.bin` exact
+  The tracer's Studio fixture holds both `colors.txt` files since 2026-10-04 (lead)
 
 - [ ] 4.9 **Kit configs, FPC reconciliation and collars** (the brief settles what a collar in
   the other engine's format does: converted, or refused; `Collars/` admits any model format):
