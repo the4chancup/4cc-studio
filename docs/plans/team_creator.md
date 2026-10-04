@@ -173,7 +173,7 @@ does **not** generate kit textures: a flat two-color fill was considered and dro
 button does the job better — **Design a kit online** opens PES Master's kit creator
 (`https://www.pesmaster.com/kit-creator/`), a template-and-pattern kit designer whose download
 is a 2048² PNG drawn for PES 2018–2021. Pressing the button sets that kit's **Drawn for** to
-PES 18–21, so a pre-Fox compile re-lays the socks and shorts out automatically. PNG kit
+PES 18–21, so a pre-Fox compile re-lays the socks out automatically. PNG kit
 textures need no conversion: every texture in a Studio export may be any accepted image format,
 kits included.
 

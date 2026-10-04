@@ -16,7 +16,10 @@ traced back to how it was measured, not as maintained tooling.
   behind the `1e-4` merge threshold in `docs/DECISIONS.md` (`libs/format_crates.md` carries
   the numbers).
 - `kit_uv/` — the kit UV island measurement and diff images behind the Fox to
-  pre-Fox layout notes in `docs/plans/team_compiler/pipeline.md` and `docs/DECISIONS.md`.
+  pre-Fox layout notes in `docs/plans/team_compiler/pipeline.md` and `docs/DECISIONS.md`;
+  the sock table's measurement (`kit_uv_sock_angle.py`), the check that the shorts did not
+  move (`kit_uv_pants_height.py`), the number atlases' arrangement (`kit_leg_atlas.py`), and
+  `kit_layout_fixture.py`, which writes `team_compiler`'s `tests/fixtures/kit_layout/`.
 - `calib/` — a standalone Rust crate (own `[workspace]`, so it stays out of the
   root one) that measured kit color calibration for `docs/plans/libs/color_tools.md`.
   Written against the `dds_convert`/`kit_config` API of its day; it currently

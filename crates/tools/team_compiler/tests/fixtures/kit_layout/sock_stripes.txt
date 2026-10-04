@@ -1,0 +1,29 @@
+# Where the games' uniform models put each sock stripe of pre_fox_stripes.png in the Fox
+# layout. Written by scripts/provenance/kit_uv/kit_layout_fixture.py; see README.md.
+# island, the stripe's pre-Fox u range, its colour (r g b), its centre's Fox u; 2048-px units.
+left     8   40   16  24  24    22.3
+left    40   72   16 154 123    43.3
+left    72  104   74  24 222    65.8
+left   104  136   74 219  24    90.2
+left   136  168  132  89 123   115.1
+left   168  200  132 219 222   141.4
+left   200  232  189 154  24   169.0
+left   232  264  247  24 123   197.6
+left   264  296  247 154 222   226.5
+left   296  328   16  89  24   254.5
+left   328  360   16 219 123   284.1
+left   360  392   74  89 222   313.6
+left   392  424  132  24  24   343.0
+right 2008 2040  189  24 222  2024.7
+right 1976 2008  189 219  24  2003.5
+right 1944 1976  247  89 123  1981.3
+right 1912 1944  247 219 222  1957.6
+right 1880 1912   16 154  24  1933.6
+right 1848 1880   74  24 123  1907.6
+right 1816 1848   74 154 222  1880.5
+right 1784 1816  132  89  24  1852.3
+right 1752 1784  132 219 123  1822.9
+right 1720 1752  189  89 222  1793.7
+right 1688 1720  247  24  24  1762.5
+right 1656 1688  247 154 123  1732.5
+right 1624 1656   16  24 222  1703.6

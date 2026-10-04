@@ -106,9 +106,9 @@ test, and sideload modes; savefile success/failure; and cancellation. Key behavi
   `kit_colors_missing`; a `p4/` holding only `kit_back.dds` yielding the same plus `_back` and a
   config whose `back` field is set; a kit with a real texture and no colors deriving from the
   texture, never reaching the loud pair); kit layout (a `pre-fox` kit compiled for PES 21: every
-  texel outside the sock and shorts islands byte-identical to the no-marker compile, the islands
-  matching the golden computed from the games' uniform models, `kit_layout_converted`
-  reported; the same kit compiled for PES 17 identical to the no-marker compile; a `fox` kit for
+  texel outside the sock rectangles equal to the no-marker compile's, each sock stripe's centre
+  within 6 px of the golden computed from the games' uniform models
+  (`tests/fixtures/kit_layout/`), `kit_layout_converted` reported; the same kit compiled for PES 17 identical to the no-marker compile; a `fox` kit for
   PES 17 taking the inverse table, and pre-Fox→Fox→pre-Fox on a synthetic texture whose bands are
   flat colors round-tripping exactly; `_back`/`_leg`/`_name` untouched either way; both markers
   discarding the kit; a marker in `all/` warned and ignored; a placeholder kit with a marker

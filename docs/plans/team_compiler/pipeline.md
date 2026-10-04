@@ -436,35 +436,64 @@ describes behavior, not a serial scheduling requirement:
   checks by construction and is never a source for color derivation. **Layout conversion**: when
   the kit's layout marker names the other engine than the target (`pre-fox` compiled for 18–21,
   `fox` for 15–17 — see "Kit layout marker" in the [Aesthetics export plan](../aesthetics_export/README.md)),
-  the effective `kit` texture and its `kit_mask` / `kit_srm` are decoded, **re-laid out** and
-  re-encoded before the rename/convert step, reported once per kit (`kit_layout_converted`, I).
-  The re-layout is a fixed table of axis-aligned rectangle moves, `KIT_LAYOUT_REMAP`, one entry per
-  band of the four affected islands (left/right sock, left/right shorts): source rectangle in the
-  declared layout → destination rectangle in the target's; a band whose width changes is resampled
-  (Lanczos3, the compiler's one resampler); every texel outside the listed source rectangles is
-  copied unchanged, so the shirt, sleeves and collar strip — identical in both engines — are
-  byte-identical to a no-marker compile. The Fox→pre-Fox table is the inverse of the pre-Fox→Fox
-  one, so the two are one const read in either direction. **The table's numbers are not in this
-  plan yet**: what is measured (from both games' uniform models,
-  `scripts/provenance/kit_uv/kit_uv_diff.py`) is the island outlines — socks u 8–440 → 8–372 (left; mirrored on the right), v 640–1152 unchanged;
-  shorts outline u 16–644 / 1404–2032, v 1164–1948 in both — and that the mapping *inside* each
-  island is piecewise (two bands per island), not one scale. **The games' own uniform models (the
-  base data CPKs) are the source of truth** for the table: the band edges come from texel
-  correspondence through the two models' 3D positions (u only; the Fox body's different
-  proportions make v matching unreliable, as a shirt control run showed). No kit drawn by hand
-  for both layouts exists in the community to check them against; the nearest thing is PES
-  Master's two kit creators (the PES 2017 one and the PES 2018-2021 one), which draw the same
-  21 brand templates for each layout from named layers, and it is a cross-check, never a
-  source. On the socks it agrees with the models to within about 10 px: along the leg (v)
-  nothing moves; around the leg (u), on the left sock (the right one mirrored), the outer band,
-  pre-Fox u from about 195 to 440, shifts by -60 px at scale 1, and the inner band, u 8 to
-  about 195, is compressed onto 8 to about 137 (scale about 0.69). On the shorts it does not:
-  PES Master draws them identically in both layouts (20 of 21 templates), while the models
-  shift the Fox shorts body along u (-36 px at u 100-280, -48 at 300-400, -56 at 460-560), and
-  the models win. The table is lead-authored (it is a measurement) and lives with the
-  kit step (`kits/layout.rs`). Placeholder textures are engine-neutral and are never re-laid out;
-  `_chest`, `_back`, `_name` and `_leg` have their own UV spaces and are not touched — whether
-  `_leg`'s space also changed is unchecked and belongs to the same Phase 4 step. The TOML config is compiled to the game's 120-byte binary via `libs/kit_config`
+  the kit's emitted textures that the uniform models map (the effective `kit`, and its `kit_mask` /
+  `kit_srm` where the target takes one) are decoded, **re-laid out** and re-encoded before the
+  rename/convert step, reported once per kit (`kit_layout_converted`, I). Only the two **sock
+  islands** differ between the layouts: the shirt, sleeves, collar strip and shorts sit at the same
+  texels in both. The re-layout is a fixed table of axis-aligned rectangle moves,
+  `KIT_LAYOUT_REMAP`, two bands per sock island, in the units of a 2048-px texture and scaled to
+  the texture's own size: on the left sock, pre-Fox u 8–168 ↔ Fox u 8–128 and pre-Fox u 168–448 ↔
+  Fox u 128–376, over v 632–1160 in both; the right sock is the mirror image (u → 2048 − u). A
+  band is resampled along u only, row by row, from its own source rectangle (Lanczos3, the
+  compiler's one resampler; a sample past the rectangle's edge repeats the edge texel), so rows
+  never mix and a flat band stays flat. The Fox→pre-Fox table is the inverse of the pre-Fox→Fox
+  one, so the two are one const read in either direction. Every texel outside the destination
+  rectangles keeps its value (for pre-Fox→Fox that includes the strip the narrower Fox sock
+  leaves, u 376–448, which no Fox model reads), and a block-compressed source keeps the very
+  blocks no destination rectangle touches: the rectangles' outer edges are multiples of 8, so on a
+  2048 or 1024 texture they fall on block edges and the rest of the kit is not compressed a
+  second time. The same move is applied to every mip level the source carries, the rectangles
+  scaled to the level and rounded to whole texels (a band rounded to no width is skipped).
+  **The games' own uniform models (the base data CPKs) are the source of truth** for the table,
+  read by `scripts/provenance/kit_uv/`. *Outlines* (`kit_uv_diff.py`): the sock islands span u
+  8–440 pre-Fox and 8–372 in Fox (left; mirrored on the right), v 640–1152 in both; the shorts
+  islands have one outline in both (u 16–644 / 1404–2032, v 1164–1948). *Socks*
+  (`kit_uv_sock_angle.py`): the two engines' sock meshes are different meshes on bodies of
+  different proportions, so texels are paired per row (v does not move: each row sits at the same
+  fraction of the sock's length in both, within 0.03) by two measures that do not depend on the
+  leg's size or place, the angle around the leg's axis and the fraction of the ring's arc length.
+  Both engines put the seam at the same angle (about 112°, within 3°) and turn once between the
+  island's ends. The Fox unwrap is uniform (each 16 px holds about 4.4 % of the ring everywhere)
+  and the pre-Fox one is not (3.0–3.3 % at u under 100, rising to 4.1–4.2 % from u 256 on), which
+  is why one scale does not fit: the map's slope rises smoothly from about 0.7 to about 0.93. Two
+  bands approximate it: the table sits within 6 px rms of the angle pairs and 10 px rms of the arc
+  pairs (one scale: 10 and 15; three sock variants, both islands). That residual is mostly real:
+  the two measures differ from each other by up to about 9 px, and the map shifts by up to about
+  10 px either way with v, which no rectangle table follows. *Shorts*
+  (`kit_uv_pants_height.py`): not re-laid. On the shorts u runs along the body's height, and a
+  nearest-3D-point match (`kit_uv_fit2.py`) showed Fox texels 36–60 px "lower"; that was the Fox
+  body standing 33–44 mm taller at the hip (44–59 px of u), not the layout. In both engines the
+  crotch notch and the waist sit at the same u (280 and 272, 640), each u holds the same fraction
+  of the garment's height (within 0.01) and each v the same angle around the leg (within 6°). The
+  two games only split the shorts between their model files differently (pre-Fox: `pants_*` up to
+  u 460 plus a `_sub` strip; Fox: a `pants_*` hem strip up to u 184 plus a `_sub` body), which a
+  texture does not see. No kit drawn by hand for both layouts exists in the community to check
+  the table against; the nearest thing is PES Master's two kit creators (the PES 2017 one and the
+  PES 2018-2021 one), which draw the same 21 brand templates for each layout from named layers,
+  and it is a cross-check, never a source. It agrees: its shorts are identical in both layouts (20
+  of 21 templates), and on the socks nothing moves along v while its two bands (u 8–195 onto
+  8–137, then a shift of −60 px) sit within 15 px of the table. The table is lead-authored (it is
+  a measurement) and lives with the kit step (`processing/kit_layout.rs`). Its test golden,
+  `tests/fixtures/kit_layout/`, is where the models put each stripe of a striped kit, written by
+  `kit_layout_fixture.py` from the models alone, never from the table; the table's stripe centres
+  sit within 3.8 px of it. Placeholder textures are engine-neutral and are never re-laid out.
+  `_chest`, `_back`, `_leg` and `_name` are glyph atlases the game reads cell by cell, not
+  textures mapped through the uniform models, and are not touched. Their own arrangement does
+  differ between the games' stock files (`kit_leg_atlas.py`: every stock PES 17
+  `_back`, `_chest` and `_leg`, 797 of each, stacks its ten digits in a column, 128×2048 or
+  64×1024, and every stock PES 21 one, 1,357 of each, lays them in a row, 2048×256 or 1024×128;
+  `_name` is a 4:1 strip in both); whether either game reads the other's arrangement is an open
+  question (worklog, "Phase 4 open questions"). The TOML config is compiled to the game's 120-byte binary via `libs/kit_config`
   (texture-name fields derived from the effective texture set, version-specific bit packing applied —
   including the PES 15 shirt-pattern clamp; see the [Kit config editor plan](../kit_config_editor.md))
   and emitted under the game's kit-config name for its slot (old `XXX_DEF_1st_realUni.bin` pattern

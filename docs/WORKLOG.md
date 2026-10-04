@@ -831,18 +831,22 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
     `kit_collar_reserved`, the configs' collar fields rewritten after FPC, the files passed
     through). TC-CMN-01..03. Waits on the maintainer's confirmation of the stock collar sets
 
-- [ ] 4.10 **Kit layout conversion**: `KIT_LAYOUT_REMAP` (lead-authored measurement,
-  `kits/layout.rs`; band edges from texel correspondence through the two games' uniform
-  models, the source of truth; lead first: the golden, a striped test kit and its re-laid
-  islands computed from the models by a provenance script, independent of the Rust table),
-  `kit_layout_converted`, Lanczos3 for bands whose width changes, every texel outside the islands
-  copied, `_chest`/`_back`/`_name`/`_leg` untouched, placeholder never re-laid, the inverse table
-  for `fox` kits on pre-Fox (exercised fully in 4.16). Plan: `pipeline.md` "4. Per-export
-  non-model steps" (Kits, "Layout conversion"); `player_folders.md` "Kit layout marker". IDs: TC-KIT-18..20. Crates: tc
-  (`processing/kits/layout.rs`) → verify: a `pre-fox` kit compiled for PES 21 decodes to a
-  texture whose every texel outside the sock and shorts islands equals the no-marker compile's
-  and whose islands match the golden computed from the models; a synthetic flat-band texture
+- [ ] 4.10 **Kit layout conversion**: `KIT_LAYOUT_REMAP` (the plan's four sock bands; the
+  shorts are not re-laid) in `processing/kit_layout.rs`, `kit_layout_converted`, each band
+  resampled along u from its own rectangle (Lanczos3), every mip level the source carries, the
+  blocks no destination rectangle touches kept, `_chest`/`_back`/`_name`/`_leg` untouched,
+  placeholder never re-laid, the Fox → pre-Fox direction tested at the function (its CLI test,
+  TC-KIT-19, comes with pre-Fox targets at 4.16). Plan: `pipeline.md` "4. Per-export
+  non-model steps" (Kits, "Layout conversion"); `player_folders.md` "Kit layout marker". IDs:
+  TC-KIT-18, TC-KIT-20. Crates: tc → verify: a `pre-fox` kit compiled for PES 21 decodes to a
+  texture whose every texel outside the sock rectangles equals the no-marker compile's and
+  whose sock stripes' centres sit within 6 px of the golden; a synthetic flat-band texture
   round-trips pre-Fox → Fox → pre-Fox exactly
+  - lead first, done 2026-10-04: the measurement (`scripts/provenance/kit_uv/`:
+    `kit_uv_sock_angle.py`, `kit_uv_pants_height.py`, `kit_leg_atlas.py`), the plan's numbers
+    and the golden (`tests/fixtures/kit_layout/`, written by `kit_layout_fixture.py`).
+    Finding: the shorts are laid out alike in both engines; the earlier 36 to 60 px "shift"
+    was the Fox body's height (decision entry)
 
 - [ ] 4.11 **Team root artifacts and Common**: logo (main decoded, made square per tag, Lanczos3 to
   512 and 256, `logo_small*` or main to 128, PNG with alpha, `logo_fit_applied`, `logo_upscaled`,
@@ -1233,6 +1237,17 @@ administrator, Upgrade DpFileList dialog): Phase 8; glTF sources: Phase 7; the G
 
 Phase 4 open questions (maintainer):
 
+- The sock table's look in-game (4.10): `KIT_LAYOUT_REMAP` approximates, in two bands, a map
+  the models give to within about 10 px of 2048 (`pipeline.md` "Layout conversion"). To
+  settle: a pre-Fox kit with a design on its socks (hoops do not show it; a vertical stripe
+  or a logo does), compiled for a Fox game with the `pre-fox` marker and looked at in-game.
+- Number textures across engines (4.10): the games' stock `_back`, `_chest` and `_leg`
+  atlases stack their ten digits in a column on PES 17 (128×2048, 64×1024) and lay them in a
+  row on PES 21 (2048×256, 1024×128), without exception (797 and 1,357 stock kits); `_name`
+  is a 4:1 strip in both. The compiler passes them as they are, as Red does, and the layout
+  marker does not cover them. To settle (in-game): whether a Fox game reads a column atlas
+  and a pre-Fox game a row one. If not, a kit crossing engines needs its atlases re-arranged,
+  and their shape alone (tall or wide) says which arrangement a file has.
 - The kit config template's name position (4.9a): the template's `name.y` is 30, and PES
   15 to 20 hold 0 to 16 there (PES 21 holds 0 to 39). So on those targets every supplied
   config that does not set `y` warns `kit_config_version_clamped` (30 clamped to 16), and
@@ -2106,3 +2121,10 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   them (`kit_config_fpc_adjusted`); without it configs are emitted as supplied. `check` and
   `compile` warn about a config value the target version clamps
   (`kit_config_version_clamped`). 4.9b (collars) waits on the maintainer.
+- **2026-10-04** — 4.10, lead first: the kit layout table is measured and in the plan. Only
+  the socks differ between the layouts; they convert in two bands per sock (pre-Fox u 8–168
+  ↔ Fox 8–128, 168–448 ↔ 128–376). The shorts are laid out alike: the "shift" the plan
+  quoted was the Fox body standing 33 to 44 mm taller, read as a layout change by a
+  nearest-point match (decision entry). Golden: `tests/fixtures/kit_layout/`. Found on the
+  way: the stock number atlases are a column of digits pre-Fox and a row in Fox ("Phase 4
+  open questions").

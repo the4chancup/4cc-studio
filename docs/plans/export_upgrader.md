@@ -65,7 +65,7 @@ to moving, flattening, or removing files describe that draft, not destructive ed
    `all/` folder exists. No kit layout marker (`pre-fox` / `fox`, see "Kit layout marker" in the
    [Aesthetics export plan](aesthetics_export/README.md)) is ever written: old kits have passed through
    several export converters unchanged, so nothing in the files says which engine they were drawn
-   for, and a wrong guess would silently displace a correct kit's socks and shorts. Authors add the
+   for, and a wrong guess would silently displace a correct kit's socks. Authors add the
    marker when they compile across engines.
 6. **Replaces the Team Note txt**: team colors are extracted into the root `colors.txt` and the
    "Other Notes" section into the root `notes.txt` (both optional — only generated when the Note has

@@ -3646,3 +3646,38 @@ row in `messages.md`; what a kit with a zero collar should do needs a look at re
 first. (5) The collar half is game-facing and needs the maintainer.
 Plan: `libs/fpc.md`; `aesthetics_export/fpc_toggle.md` "Team kit-FPC status and kit configs";
 `team_compiler/pipeline.md` "4. Per-export non-model steps" (Kits).
+
+## 2026-10-04 — team_compiler — the kit layout table covers the socks alone, in two bands
+Decision: (1) `KIT_LAYOUT_REMAP` has four entries, two bands per sock island (left sock:
+pre-Fox u 8–168 ↔ Fox 8–128, pre-Fox 168–448 ↔ Fox 128–376, v 632–1160; the right sock
+mirrored), and none for the shorts. (2) Socks are paired across engines by the angle around
+the leg and by the arc fraction of the ring, per row, not by the nearest 3D point. (3) The
+rectangles' outer edges are multiples of 8, each band is resampled along u from its own
+rectangle, every mip level the source carries gets the same move, and a block-compressed
+source keeps the blocks no destination rectangle touches. (4) The step's golden is a text
+file of stripe centres (where the models put each stripe of a striped pre-Fox kit), tested
+with a tolerance, not an image compared exactly. (5) The table lives in
+`processing/kit_layout.rs`. (6) The number and name textures are left alone, although the
+games' stock ones are arranged differently per engine.
+Why: (1) The plan and the 2026-10-03 entry ("the games' uniform models are the kit layout's
+source of truth") held that the models shift the Fox shorts by 36 to 60 px where PES Master
+draws them alike, and ruled that the models win. The models still win, but that reading of
+them was wrong: on the shorts u runs along the body's height, the Fox body stands 33 to 44 mm
+taller at the hip, and a nearest-point match turned that into a shift. The garment's own
+landmarks (crotch notch, waist), its height fractions and its angles agree between engines,
+so the shorts are laid out alike and PES Master was right. (2) The same nearest-point match
+gave the socks an outer band at exactly −60 px; measures that do not depend on the body's
+size show a smooth map instead (slope about 0.7 rising to about 0.93), which two bands
+approximate to 6 to 10 px rms, against 10 to 15 for one scale. A third band would chase a
+difference smaller than the one between the two measures. (3) Edges on block boundaries let
+the rest of a DXT kit through without a second compression; per-band resampling keeps a
+flat band flat; treating every level alike needs no mip generator and keeps authored mips.
+(4) The table is an approximation by a few px of a map that itself varies by about 10 px
+with v, so an exact image golden would only compare the table with a copy of itself; stripe
+centres from the models catch a wrong number, direction or mirror, which is what can go
+wrong. (5) `processing/` has `kit.rs`, not a `kits/` folder; a sibling module avoids moving
+it. (6) Re-arranging a digit atlas is a different operation with its own question (does
+either game read the other's arrangement?), which only an in-game test answers.
+Plan: `team_compiler/pipeline.md` "4. Per-export non-model steps" (Kits, "Layout
+conversion"); `aesthetics_export/player_folders.md` "Kit layout marker"; `team_compiler/README.md`
+TC-KIT-18, TC-KIT-19; `testing.md`; worklog step 4.10 and "Phase 4 open questions".

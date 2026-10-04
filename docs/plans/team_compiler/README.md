@@ -930,8 +930,8 @@ TC-KIT-17  GIVEN p1/config.toml whose name_y exceeds the PES 18 encoding
 TC-KIT-18  GIVEN p1/ holding kit.dds drawn for the pre-Fox layout and the marker pre-fox
            WHEN the export is compiled for PES 21
            THEN kit_layout_converted is reported for p1 naming pre-fox to fox, the decoded texture
-                equals the no-marker compile's outside the sock and shorts islands, and the islands
-                match the golden computed from the games' uniform models
+                equals the no-marker compile's outside the sock rectangles, and each sock stripe's
+                centre lands within 6 px (of 2048) of where the games' uniform models put it
 TC-KIT-19  GIVEN the same kit compiled for PES 17, and a kit marked fox compiled for PES 17
            WHEN each is compiled
            THEN the first equals the no-marker compile; the second is re-laid with the inverse

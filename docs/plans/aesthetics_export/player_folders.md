@@ -414,13 +414,13 @@ texture rule: matched by **stem**, in **any accepted image format** — `kit.png
 `kit.dds` (the compiler converts; the diagrams say `.dds` only by habit). Online kit designers
 hand out PNGs, and a new manager should not need a DDS tool to use one.
 
-**Kit layout marker.** The kit UV layout changed between the two engines: the shirt, sleeves and
-collar strip are identical in PES 15–17 and 18–21, but the **sock islands are 68 px narrower** in
-Fox (u 8–372 instead of 8–440 on the left, mirrored on the right; height unchanged) and the
-**shorts islands keep their outline but are partitioned differently** (pre-Fox: a 444-px shorts
-body at the outer edge plus a 212-px inner-thigh strip; Fox: a 152-px hem strip at the outer edge
-plus a 456-px body). A kit drawn for one engine and compiled for the other therefore shows its
-sock and shorts designs displaced. An optional empty **marker file** in the kit folder, named
+**Kit layout marker.** The kit UV layout changed between the two engines: the shirt, sleeves,
+collar strip and shorts are laid out the same in PES 15–17 and 18–21, but the **sock islands are
+68 px narrower** in Fox (u 8–372 instead of 8–440 on the left, mirrored on the right; height
+unchanged), and not by one scale: the pre-Fox sock gives the part of the leg near one seam more
+texels than the rest, the Fox one spreads them evenly. A kit drawn for one engine and compiled
+for the other therefore shows its sock design displaced around the leg, by up to about 70 px of 2048. An
+optional empty **marker file** in the kit folder, named
 `pre-fox` or `fox` (case-insensitive; the Notepad forms `pre-fox.txt` / `fox.txt` are tolerated,
 as for `ingame_face`), declares which layout the kit's `kit.dds` and its `kit_mask.dds` /
 `kit_srm.dds` are drawn for. When the marker names the other engine than the compile target, the
