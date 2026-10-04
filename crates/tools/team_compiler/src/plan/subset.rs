@@ -174,12 +174,17 @@ pub(crate) enum PlayerFile {
     /// A texture with this stem and source format, converted once into the player's common
     /// folder.
     Texture(String, SourceFormat),
+    /// A `.common` link to a texture (`hair.dds.common` → `Common/hair.dds`): the stem, here
+    /// `hair`, stands for the Common texture, which the export's Common textures task packs
+    /// once in the team's Common output (`model_format.md` "Link files (`.common`)"). The
+    /// folder's models point the stem there; nothing reads the empty link.
+    CommonTexture(String),
 }
 
 impl PlayerFile {
     /// The package the file goes into; `None` for a texture, which goes to the player's
-    /// common folder for every package to point at, and for a skeleton with no slot and a
-    /// left-out kit variant, which go nowhere.
+    /// common folder for every package to point at, for a texture link, whose texture is the
+    /// team's, and for a skeleton with no slot and a left-out kit variant, which go nowhere.
     pub(crate) fn package(&self) -> Option<ModelPackage> {
         match self {
             PlayerFile::Model { package, .. }
@@ -189,7 +194,8 @@ impl PlayerFile {
             PlayerFile::FaceDiffXml => Some(ModelPackage::Face),
             PlayerFile::SlotlessSkeleton
             | PlayerFile::LeftOutKitVariant
-            | PlayerFile::Texture(..) => None,
+            | PlayerFile::Texture(..)
+            | PlayerFile::CommonTexture(_) => None,
         }
     }
 }
@@ -207,10 +213,19 @@ pub(crate) fn skeleton_slot(package: ModelPackage, name: &str) -> Option<&'stati
 }
 
 /// The FMDL a `.common` link named `link_name` stands for (`legs.fmdl.common` → `legs.fmdl`);
-/// `None` for a link to anything else (a texture, a material file), which `compile` does not
-/// build yet.
+/// `None` for a link to anything else.
 fn linked_fmdl(link_name: &str) -> Option<String> {
     common_link_name(link_name).filter(|name| classify(name) == FileKind::Model(ModelFormat::Fmdl))
+}
+
+/// The stem of the texture a `.common` link named `link_name` stands for, as the link spells
+/// it (`hair.dds.common` → `hair`), when the linked name is in an image format `dds_convert`
+/// converts; `None` for a link to anything else (a model, a material file, which `compile`
+/// does not build yet).
+fn linked_texture_stem(link_name: &str) -> Option<String> {
+    let linked = common_link_name(link_name)?;
+    texture_format(&linked)?;
+    Some(file_stem(&linked).to_owned())
 }
 
 /// Whether `path` is a file directly in the export's `Common/` folder: the only place a link
@@ -459,12 +474,16 @@ pub(crate) fn player_file(
                 PlayerFile::Model { package, name }
             }
         }),
-        // The link takes the role the linked model would have in its place; a link to anything
-        // but an FMDL has no role yet.
-        FileKind::CommonLink => linked_fmdl(name).and_then(|linked| {
-            model_role(position, file_stem(&linked))
-                .map(|(package, name)| PlayerFile::CommonModel { package, name })
-        }),
+        // A model link takes the role the linked model would have in its place; a texture link
+        // stands for its stem wherever validation resolves a link, which is not in `common/`
+        // (only textures may sit there, so a link there is never checked against `Common/`).
+        // A link to anything else has no role yet.
+        FileKind::CommonLink => match linked_fmdl(name) {
+            Some(linked) => model_role(position, file_stem(&linked))
+                .map(|(package, name)| PlayerFile::CommonModel { package, name }),
+            None if position == Position::Common => None,
+            None => linked_texture_stem(name).map(PlayerFile::CommonTexture),
+        },
         FileKind::Texture => {
             texture_format(name).map(|format| PlayerFile::Texture(stem.to_owned(), format))
         }
@@ -674,7 +693,10 @@ fn shared_not_compiled(
         // A model of another package has no package here, and a `.common` link (kept by a
         // non-strict file-type check) resolves only from a player folder.
         if role.package().is_some_and(|owner| owner != package)
-            || matches!(role, PlayerFile::CommonModel { .. })
+            || matches!(
+                role,
+                PlayerFile::CommonModel { .. } | PlayerFile::CommonTexture(_)
+            )
         {
             return Some(what_entry(file));
         }
@@ -1439,7 +1461,7 @@ mod tests {
     }
 
     #[test]
-    fn a_common_link_to_an_fmdl_is_a_model_of_the_folder_and_any_other_link_is_named() {
+    fn a_common_link_to_an_fmdl_is_a_model_a_texture_link_is_compiled_and_any_other_is_named() {
         let legs = "Common/legs.fmdl";
         // Alone, the link is the folder's model: no face needed with the link in `boots/`.
         assert_eq!(first_hit(&["Players/03 - A/legs.fmdl.common", legs]), None);
@@ -1484,11 +1506,25 @@ mod tests {
             &folder.files,
             ModelPackage::Face
         ));
-        // A link to a texture or a material file is named; so is a glove link that gives no
-        // side, and a `.skl` beside the link, which pairs with no model of the folder's.
+        // A link to a texture is compiled beside a model, in the folder or a reserved
+        // subfolder; alone it is no model, and the folder is named as a whole.
+        let hair = "Common/hair.dds";
+        for link in ["hair.dds.common", "boots/hair.dds.common"] {
+            assert_eq!(
+                gate(&[&format!("Players/03 - A/{link}"), hair]),
+                None,
+                "{link}"
+            );
+        }
+        assert_eq!(
+            first_hit(&["Players/03 - A/hair.dds.common", hair]),
+            what("Players/03 - A")
+        );
+        // A link to a material file is named; so is a glove link that gives no side, and a
+        // `.skl` beside the link, which pairs with no model of the folder's.
         for (link, target) in [
-            ("hair.dds.common", Some("Common/hair.dds")),
             ("body.mtl.common", Some("Common/body.mtl")),
+            ("materials.toml.common", Some("Common/materials.toml")),
             ("gloves/legs.fmdl.common", None),
             ("legs.skl", None),
         ] {
@@ -1499,10 +1535,13 @@ mod tests {
         }
         // A shared folder's link (kept by a non-strict file-type check) resolves from no
         // player folder: named.
-        assert_eq!(
-            shared_hit(SharedKind::Boots, &["boots.fmdl", "legs.fmdl.common"]),
-            what("Boots/Crocs/legs.fmdl.common")
-        );
+        for link in ["legs.fmdl.common", "hair.dds.common"] {
+            assert_eq!(
+                shared_hit(SharedKind::Boots, &["boots.fmdl", link]),
+                what(&format!("Boots/Crocs/{link}")),
+                "{link}"
+            );
+        }
     }
 
     #[test]
@@ -1758,6 +1797,10 @@ mod tests {
             packed(ModelPackage::Face, "fcl_hair_sim.fclo")
         );
         assert_eq!(role("face_diff.xml"), Some(PlayerFile::FaceDiffXml));
+        assert_eq!(
+            role("hair.png.common"),
+            Some(PlayerFile::CommonTexture("hair".to_owned()))
+        );
         for refused in [
             "face_high.model",
             "torso.model",
@@ -1765,7 +1808,7 @@ mod tests {
             "glove_l.skl",
             "face.xml",
             "face_diff2.xml",
-            "hair.png.common",
+            "body.mtl.common",
             "face_diff2.bin",
             "Face_Diff.bin",
             "fcl_hair.fclo",
@@ -1863,7 +1906,7 @@ mod tests {
             );
         }
         for refused in [
-            "hair.dds.common",
+            "materials.toml.common",
             "body.mtl.common",
             "legs.model.common",
             "gloves/legs.fmdl.common",
@@ -1903,6 +1946,49 @@ mod tests {
             .package(),
             Some(ModelPackage::Gloves)
         );
+    }
+
+    #[test]
+    fn a_common_link_to_a_texture_stands_for_its_stem_and_a_link_to_a_material_file_has_none() {
+        let texture = |stem: &str| Some(PlayerFile::CommonTexture(stem.to_owned()));
+        assert_eq!(
+            roles(&[
+                "hair.dds.common",
+                "skin_nrm.png.common",
+                "body.mtl.common",
+                "materials.toml.common",
+                "legs.fmdl.common",
+            ]),
+            [
+                texture("hair"),
+                texture("skin_nrm"),
+                None,
+                None,
+                Some(PlayerFile::CommonModel {
+                    package: ModelPackage::Face,
+                    name: "fcl_hair"
+                }),
+            ]
+        );
+        // Wherever validation resolves a link: with the tolerated `.txt` tail, and in the
+        // three reserved subfolders that hold models. In `common/` a link is not resolved
+        // (`file_type_disallowed`), so it has no role.
+        for (link, stem) in [
+            ("Hair.DDS.common.txt", "Hair"),
+            ("face/hair.ftex.common", "hair"),
+            ("boots/sole.tga.common", "sole"),
+            ("gloves/grip.dds.common", "grip"),
+        ] {
+            assert_eq!(roles(&[link]), [texture(stem)], "{link}");
+        }
+        for refused in [
+            "common/hair.dds.common",
+            "hair.gif.common",
+            "body.materials.toml.common",
+        ] {
+            assert_eq!(roles(&[refused]), [None], "{refused}");
+        }
+        assert_eq!(PlayerFile::CommonTexture("hair".to_owned()).package(), None);
     }
 
     #[test]

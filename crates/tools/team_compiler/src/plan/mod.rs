@@ -215,7 +215,8 @@ impl ModelFolder {
                     | PlayerFile::Skeleton { .. }
                     | PlayerFile::SlotlessSkeleton
                     | PlayerFile::LeftOutKitVariant
-                    | PlayerFile::Texture(..) => None,
+                    | PlayerFile::Texture(..)
+                    | PlayerFile::CommonTexture(_) => None,
                 };
                 if let Some(packs_as) = packs_as {
                     if packed.contains(&packs_as) {
@@ -1599,6 +1600,56 @@ mod tests {
                 charge: 253,
             })
         );
+    }
+
+    #[test]
+    fn a_texture_link_is_read_by_no_task_of_its_folder_and_its_texture_by_the_common_task() {
+        let export = resolved(
+            "co - Links",
+            &[
+                ("Players/05 - A/face_high.fmdl", 8),
+                ("Players/05 - A/skin.dds", 4),
+                ("Players/05 - A/hair.dds.common", 0),
+                ("Players/07 - B/face_high.fmdl", 16),
+                ("Players/07 - B/hair.dds.common", 0),
+                ("Players/07 - B/boots/sole.png.common", 0),
+                ("Common/hair.dds", 32),
+                ("Common/sole.png", 64),
+            ],
+            &[],
+            None,
+        );
+
+        let report = plan_run(
+            vec![(ExportId(0), export, two_team_colors(), None)],
+            PesVersion::Pes21,
+        );
+
+        // Slot 05's textures task reads its own `skin.dds` alone; slot 07, holding a model
+        // and texture links only, has no textures task.
+        assert!(report.messages.is_empty(), "{:?}", report.messages);
+        assert_eq!(
+            summary(&report),
+            [
+                "0 714 Face Players/05 - A [71405] charge 8",
+                "0 714 textures Players/05 - A charge 4",
+                "0 714 Face Players/07 - B [71407] charge 16",
+                "0 714 common textures Common (2) charge 96",
+            ]
+        );
+        let files = |index: usize| -> Vec<&str> {
+            report.manifest.tasks[index]
+                .kind
+                .files()
+                .iter()
+                .map(|file| file.path.as_str())
+                .collect()
+        };
+        assert_eq!(files(0), ["Players/05 - A/face_high.fmdl"]);
+        assert_eq!(files(1), ["Players/05 - A/skin.dds"]);
+        assert_eq!(files(2), ["Players/07 - B/face_high.fmdl"]);
+        assert_eq!(files(3), ["Common/hair.dds", "Common/sole.png"]);
+        assert_eq!(report.manifest.tasks[2].group, None);
     }
 
     #[test]

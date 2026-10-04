@@ -1,7 +1,7 @@
-//! `compile` over `.common` model links on Fox: the Common model baked into the player's
+//! `compile` over `.common` links on Fox: a model link's Common model baked into the player's
 //! package as a part, its skeleton with it, its textures left in the team's Common output, where
-//! every texture directly in `Common/` goes once for the team; and what the gate still refuses
-//! around them.
+//! every texture directly in `Common/` goes once for the team; a texture link pointing the
+//! player's own models at that output; and what the gate still refuses around them.
 
 use std::collections::BTreeMap;
 
@@ -430,27 +430,148 @@ fn a_common_texture_that_cannot_convert_fails_the_common_task_and_the_linking_pl
     );
 }
 
+/// The tracer's hair model naming `hair.dds` in its `shirt` material and `skin.dds` in every
+/// other material that named `shirt.dds`, through `fmdl`'s model API: one model with a path
+/// to each texture.
+fn model_naming_hair_and_skin() -> Vec<u8> {
+    let file = FmdlFile::read(&tracer_player_file("fcl_hair.fmdl")).unwrap();
+    let mut model = Model::from_file(&file).unwrap();
+    for material in &mut model.materials {
+        let renamed = if material.name == "shirt" {
+            "hair.dds"
+        } else {
+            "skin.dds"
+        };
+        for (_, texture) in &mut material.textures {
+            if texture.file_name == "shirt.dds" {
+                texture.file_name = renamed.to_owned();
+            }
+        }
+    }
+    model.to_file().unwrap().write()
+}
+
+// TC-TEX-09
 #[test]
-fn a_link_to_a_texture_or_a_nested_common_file_is_refused_and_an_unlinked_common_model_is_not() {
-    // A `.common` link to a texture names the export's first thing `compile` cannot build.
-    let texture_link = Sandbox::new("cmn_texture_link");
+fn a_texture_link_points_the_player_s_model_at_the_one_copy_in_the_team_s_common_output() {
+    let sandbox = Sandbox::new("cmn_texture_link");
     let export = "exports/co - Hair";
-    texture_link.write(
-        &format!("{export}/Players/05 - A/face_high.fmdl"),
-        &tracer_player_file("fcl_hair.fmdl"),
+    let player = format!("{export}/Players/05 - A");
+    sandbox.write(
+        &format!("{player}/face_high.fmdl"),
+        &model_naming_hair_and_skin(),
     );
-    texture_link.write(&format!("{export}/Players/05 - A/hair.dds.common"), b"");
-    texture_link.write(
+    sandbox.write(
+        &format!("{player}/skin.dds"),
+        &tracer_player_file("shirt.dds"),
+    );
+    sandbox.write(&format!("{player}/hair.dds.common"), b"");
+    sandbox.write(
         &format!("{export}/Common/hair.dds"),
         &tracer_player_file("shirt.dds"),
     );
-    let run = texture_link.run(&pes21_settings(&texture_link), &["compile"]);
+    let hair = format!("{COMMON_TEXTURES}/hair.ftex");
+    let skin = "Asset/model/character/common/714/05 - A/sourceimages/#windx11/skin.ftex";
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
     assert_eq!(
         findings_of(&run.messages(), "co - Hair"),
         [
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=face_high.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
-            "Error content_not_yet_compiled [DropExport] (what=Players/05 - A/hair.dds.common)"
+            "Info team_colors_missing [Keep] ()"
+        ]
+    );
+    assert_eq!(run.exit_code(), 0);
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let paths: Vec<&str> = entries.keys().map(String::as_str).collect();
+    assert_eq!(
+        paths,
+        [
+            skin,
+            hair.as_str(),
+            FACE_05,
+            FACE_05_FPKD,
+            "common/character0/model/character/uniform/team/UniColor.bin",
+            "common/etc/TeamColor.bin"
+        ],
+        "hair once, in the team's Common output; the player's own folder holds skin alone"
+    );
+    assert_no_common_path(&entries);
+    let package = face_package(&entries);
+    let model = package.get("face_high.fmdl").unwrap();
+    let hair_directories = texture_directories(model, "hair.dds");
+    assert!(!hair_directories.is_empty());
+    assert!(
+        hair_directories
+            .iter()
+            .all(|directory| directory == COMMON_DIRECTORY),
+        "{hair_directories:?}"
+    );
+    let skin_directories = texture_directories(model, "skin.dds");
+    assert!(!skin_directories.is_empty());
+    assert!(
+        skin_directories.iter().all(|directory| directory
+            == "/Assets/pes16/model/character/common/714/05 - A/sourceimages/"),
+        "{skin_directories:?}"
+    );
+}
+
+#[test]
+fn a_texture_link_whose_target_is_not_in_common_drops_its_folder() {
+    let sandbox = Sandbox::new("cmn_texture_link_missing");
+    let export = "exports/co - Hair";
+    sandbox.write(
+        &format!("{export}/Players/05 - A/face_high.fmdl"),
+        &tracer_player_file("fcl_hair.fmdl"),
+    );
+    sandbox.write(&format!("{export}/Players/05 - A/hair.dds.common"), b"");
+    sandbox.write(
+        &format!("{export}/Common/skin.dds"),
+        &tracer_player_file("shirt.dds"),
+    );
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+    assert_eq!(
+        findings_of(&run.messages(), "co - Hair"),
+        [
+            "Error common_link_missing [DropFolder] at Players/05 - A (link=hair.dds.common, path=Common/hair.dds)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()"
+        ]
+    );
+    assert_eq!(run.exit_code(), 1);
+}
+
+#[test]
+fn a_link_to_a_material_file_or_a_nested_common_file_is_refused_and_an_unlinked_common_model_is_not()
+ {
+    // A `.common` link to a material file names the export's first thing `compile` cannot
+    // build.
+    let material_link = Sandbox::new("cmn_material_link");
+    let export = "exports/co - Hair";
+    material_link.write(
+        &format!("{export}/Players/05 - A/face_high.fmdl"),
+        &tracer_player_file("fcl_hair.fmdl"),
+    );
+    material_link.write(&format!("{export}/Players/05 - A/body.mtl.common"), b"");
+    // A real material set, so the deep pass keeps it and the link reaches the gate.
+    let mtl = std::fs::read(
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../libs/pes_model/tests/fixtures/konami_shadow.mtl"),
+    )
+    .unwrap();
+    material_link.write(&format!("{export}/Common/body.mtl"), &mtl);
+    let run = material_link.run(&pes21_settings(&material_link), &["compile"]);
+    assert_eq!(
+        findings_of(&run.messages(), "co - Hair"),
+        [
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=face_high.fmdl, count=1662)",
+            "Info mtl_state_missing [Keep] at Common/body.mtl (file=body.mtl, count=7)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Error content_not_yet_compiled [DropExport] (what=Players/05 - A/body.mtl.common)"
         ]
     );
     assert_eq!(run.exit_code(), 1);

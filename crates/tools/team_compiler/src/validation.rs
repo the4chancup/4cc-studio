@@ -457,7 +457,8 @@ fn file_role_messages(
                 | PlayerFile::FaceDiffXml
                 | PlayerFile::Skeleton { .. }
                 | PlayerFile::LeftOutKitVariant
-                | PlayerFile::Texture(..),
+                | PlayerFile::Texture(..)
+                | PlayerFile::CommonTexture(_),
             )
             | None => continue,
         };

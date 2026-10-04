@@ -91,7 +91,12 @@ were a model of the player's folder, under the name its own name or the subfolde
 in `Common` (`Common/legs.skl`) comes with it. The textures in `Common` (image files directly
 in it) are built once for the whole team, whether a player uses them or not, and a
 Common model's textures of those names are read from there, so twenty players sharing one
-Common model share one copy of its textures. A model of the player's own and a Common model
+Common model share one copy of its textures. A player's own models can use a texture in
+`Common` the same way: an empty file named after it plus `.common` (`hair.dds.common` in the
+player's folder, or in its `face`, `boots` or `gloves` subfolder, for `Common/hair.dds`) makes
+the player's models use the team's one copy of `hair`, instead of a copy of the player's own.
+The player's folder must not also hold a texture of that name (`texture_stem_conflict`). A
+model of the player's own and a Common model
 must not define a material of the same name over textures kept in different places (the
 player's folder and `Common`): that is a `merge_material_conflict`. When a texture in `Common`
 cannot be read for a reason other than the texture lines above, the line
@@ -150,8 +155,8 @@ cannot build yet: a PES 2015 to 2017 target, a referee export, or content other 
 own face, boots and gloves models, their textures, portraits, kits, the logo, linked shared
 `Faces`, `Boots` and `Gloves` folders, and a `Common` folder holding only `.fmdl`, `.skl` and
 texture files, its models reached through `.common` links (a model in a `gloves` subfolder
-whose name does not say which hand it is, or a `.common` link to a texture or a material file,
-among others). `check` still checks
+whose name does not say which hand it is, or a `.common` link to a material file, among
+others). `check` still checks
 those exports. `compile` does not install the CPK into the game yet: it always
 leaves it in the output folder.
 

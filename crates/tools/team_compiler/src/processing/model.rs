@@ -62,7 +62,10 @@ pub(super) fn package(
     findings: &mut Vec<Finding>,
 ) -> Result<Vec<Entry>, TaskFailure> {
     let mut parts: Vec<Part> = Vec::new();
+    // The stems of the folder's own textures, and of the Common textures its `.common` links
+    // stand for.
     let mut texture_stems = BTreeSet::new();
+    let mut linked_stems = BTreeSet::new();
     let mut fpk = FpkFile::new(FpkKind::Fpk);
     for (_, _, source_files) in folder.roles() {
         // A skeleton pairs with the model of its stem in the same directory: keyed by the
@@ -103,10 +106,13 @@ pub(super) fn package(
                         .map_err(|error| anyhow::anyhow!("{}: {error}", file.path.as_str()))?;
                     fpk.insert("face_diff.bin".to_owned(), bytes);
                 }
-                // The textures are the textures task's; this task only points its models at
-                // them.
+                // The textures are the textures task's, and a linked one the Common textures
+                // task's; this task only points its models at them.
                 PlayerFile::Texture(stem, _) => {
                     texture_stems.insert(stem);
+                }
+                PlayerFile::CommonTexture(stem) => {
+                    linked_stems.insert(stem);
                 }
                 PlayerFile::Model { .. }
                 | PlayerFile::CommonModel { .. }
@@ -137,12 +143,20 @@ pub(super) fn package(
     }
 
     // A folder's textures sit in its one texture home, once however many ids the package is
-    // emitted under: every copy of the model points at that one location. A Common part's own
-    // textures stay in the team's Common output, where the export's Common textures task puts
-    // them once for every player linking the model (`pipeline.md` step 6: a texture resolved
-    // in Common is never relocated).
+    // emitted under: every copy of the model points at that one location. A texture resolved
+    // in Common, a Common part's own or one a folder's link stands for, stays in the team's
+    // Common output, where the export's Common textures task puts it once for every player
+    // (`pipeline.md` step 6: a texture resolved in Common is never relocated). A folder part
+    // looks in the folder's textures first. Validation refuses a player folder holding a
+    // texture and a link of one stem (`texture_stem_conflict`), but not a link beside a
+    // combined shared folder's texture of its stem: there the shared folder's texture wins.
     let texture_directory = folder.textures.directory(team_id);
     let common_directory = paths::common_texture_directory(team_id);
+    let folder_places = [
+        (&texture_stems, texture_directory.as_str()),
+        (&linked_stems, common_directory.as_str()),
+    ];
+    let common_places = [(&folder.common_texture_stems, common_directory.as_str())];
     // A texture the part's source does not hold is one of the game's own; its directory names
     // the team as `000`, which becomes the team's id.
     let team_segment = format!("/{team_id}/");
@@ -159,13 +173,13 @@ pub(super) fn package(
         // directories is the merge's `merge_material_conflict`, as intended.
         let mut models = Vec::with_capacity(parts.len());
         for part in &parts {
-            let (stems, directory) = match part.textures {
-                PartTextures::Folder => (&texture_stems, &texture_directory),
-                PartTextures::Common => (&folder.common_texture_stems, &common_directory),
+            let places: &[(&BTreeSet<String>, &str)] = match part.textures {
+                PartTextures::Folder => &folder_places,
+                PartTextures::Common => &common_places,
             };
             let mut model = FmdlFile::read(&part.bytes)?;
             rewrite_texture_paths(&mut model, |path| {
-                point_texture(path, stems, directory, &team_segment);
+                point_texture(path, places, &team_segment);
             })?;
             models.push(model);
         }
@@ -256,23 +270,21 @@ fn merged_skeleton(parts: &mut [Part]) -> Result<Option<Vec<u8>>, TaskFailure> {
     Ok(first)
 }
 
-/// Points `path`, one texture reference of a part, at where its texture is: `directory` when
-/// its stem is one of `stems`, the textures packed there for the part, or a kit reference
-/// (`pants_kitN`) with a variant of its set among them; any other texture is one of the game's
-/// own, whose directory names the team as `000`, replaced by `team_segment`. The file name is
-/// never changed: the game itself respells a reference for the kit picked.
-fn point_texture(
-    path: &mut TexturePath,
-    stems: &BTreeSet<String>,
-    directory: &str,
-    team_segment: &str,
-) {
+/// Points `path`, one texture reference of a part, at where its texture is: the directory of
+/// the first of `places`, each the stems of the textures packed in a directory for the part,
+/// that holds its stem, or a variant of its set when it is a kit reference (`pants_kitN`); any
+/// other texture is one of the game's own, whose directory names the team as `000`, replaced
+/// by `team_segment`. The file name is never changed: the game itself respells a reference for
+/// the kit picked.
+fn point_texture(path: &mut TexturePath, places: &[(&BTreeSet<String>, &str)], team_segment: &str) {
     let stem = file_stem(&path.file_name);
-    if stems.contains(stem) || has_variant_among(stem, stems) {
-        path.directory = directory.to_owned();
-    } else {
-        path.directory = path.directory.replace("/000/", team_segment);
-    }
+    let place = places
+        .iter()
+        .find(|(stems, _)| stems.contains(stem) || has_variant_among(stem, stems));
+    path.directory = match place {
+        Some((_, directory)) => (*directory).to_owned(),
+        None => path.directory.replace("/000/", team_segment),
+    };
 }
 
 /// Whether `stem` is a kit reference (`pants_kitN`, never a file of its own) and `stems` hold a
@@ -324,17 +336,47 @@ mod tests {
     use super::*;
 
     /// The directory `point_texture` gives the path `file_name` in the game's team `000`
-    /// folder, the part's stems being `stems` and its textures going to `/home/`, for team
-    /// 792; asserts the file name is kept.
-    fn pointed(file_name: &str, stems: &[&str]) -> String {
+    /// folder for team 792, the part's own stems being `own`, going to `/home/`, and its
+    /// linked stems `linked`, going to `/common/`; asserts the file name is kept.
+    fn pointed_between(file_name: &str, own: &[&str], linked: &[&str]) -> String {
         let mut path = TexturePath {
             file_name: file_name.to_owned(),
             directory: "/Assets/pes16/model/character/common/000/sourceimages/".to_owned(),
         };
-        let stems = stems.iter().map(|stem| (*stem).to_owned()).collect();
-        point_texture(&mut path, &stems, "/home/", "/792/");
+        let set = |stems: &[&str]| -> BTreeSet<String> {
+            stems.iter().map(|stem| (*stem).to_owned()).collect()
+        };
+        let (own, linked) = (set(own), set(linked));
+        point_texture(
+            &mut path,
+            &[(&own, "/home/"), (&linked, "/common/")],
+            "/792/",
+        );
         assert_eq!(path.file_name, file_name);
         path.directory
+    }
+
+    /// `pointed_between` with the part's own stems `stems` and no linked stem.
+    fn pointed(file_name: &str, stems: &[&str]) -> String {
+        pointed_between(file_name, stems, &[])
+    }
+
+    #[test]
+    fn a_stem_goes_to_the_first_place_holding_it_and_a_linked_one_to_the_common_directory() {
+        let own = ["skin"];
+        let linked = ["hair", "pants_kit2"];
+        let game = "/Assets/pes16/model/character/common/792/sourceimages/";
+        assert_eq!(pointed_between("skin.dds", &own, &linked), "/home/");
+        assert_eq!(pointed_between("hair.dds", &own, &linked), "/common/");
+        // Kit references resolve in each place by the variants that place holds.
+        assert_eq!(pointed_between("pants_kitN.dds", &own, &linked), "/common/");
+        assert_eq!(
+            pointed_between("pants_kitN.dds", &["pants_kit1"], &linked),
+            "/home/"
+        );
+        assert_eq!(pointed_between("other.dds", &own, &linked), game);
+        // A stem held in both places goes to the first.
+        assert_eq!(pointed_between("hair.dds", &["hair"], &linked), "/home/");
     }
 
     #[test]

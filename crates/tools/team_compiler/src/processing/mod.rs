@@ -1855,6 +1855,63 @@ mod tests {
     }
 
     #[test]
+    fn a_texture_link_s_stem_names_the_team_s_common_output_and_a_local_texture_the_folder_s() {
+        // The tracer's hair model naming `hair.dds` in its `shirt` material and `skin.dds` in
+        // the other material that named `shirt.dds`.
+        let mut model = tracer_model("fcl_hair.fmdl");
+        for material in &mut model.materials {
+            let renamed = if material.name == "shirt" {
+                "hair.dds"
+            } else {
+                "skin.dds"
+            };
+            for (_, texture) in &mut material.textures {
+                if texture.file_name == "shirt.dds" {
+                    texture.file_name = renamed.to_owned();
+                }
+            }
+        }
+        let face_high = format!("{PLAYER}/face_high.fmdl");
+        let link = ScopePath::new(&format!("{PLAYER}/hair.dds.common")).unwrap();
+        let folder = player_with(
+            vec![
+                named(&face_high, "fcl_hair.fmdl"),
+                named(&format!("{PLAYER}/skin.dds"), "shirt.dds"),
+                FileDescriptor {
+                    kind: aesthetics_export::classify(link.name()),
+                    source: link.clone(),
+                    path: link,
+                    size: 0,
+                },
+            ],
+            Vec::new(),
+        );
+
+        let batch = run_with(
+            face(folder),
+            &[(&face_high, &model.to_file().unwrap().write())],
+        );
+
+        assert!(batch.messages.is_empty(), "{:?}", batch.messages);
+        let package = FpkFile::read(&batch.entries[0].1).unwrap();
+        let directories = texture_directories(&package, "face_high.fmdl");
+        let team_common = "/Assets/pes16/model/character/common/792/sourceimages/";
+        let directories_of = |file_name: &str| -> Vec<&str> {
+            directories
+                .iter()
+                .filter(|(name, _)| name == file_name)
+                .map(|(_, directory)| directory.as_str())
+                .collect()
+        };
+        assert_eq!(directories_of("hair.dds"), [team_common], "{directories:?}");
+        assert_eq!(
+            directories_of("skin.dds"),
+            [COMMON_DIRECTORY],
+            "{directories:?}"
+        );
+    }
+
+    #[test]
     fn the_common_textures_go_once_into_the_team_s_common_output_or_fail_as_one() {
         let folder = ScopePath::new("Common").unwrap();
         let textures = vec![

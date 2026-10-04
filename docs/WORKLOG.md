@@ -12,10 +12,9 @@ is in `AGENTS.md` ("Working documents").
 **Phase:** 3 (Team compiler skeleton) closed 2026-10-02, its cross-family reviews queued (see
 "Handover"). Phases 1 and 2 done (Phase 2 closed 2026-09-30).
 **Next:** Phase 4 is itemized and its Acceptance section written (step 4.1, 2026-10-03; its
-cross-family review (a) is queued). Next: 4.11d (texture `.common` links, TC-TEX-09; 4.11
-is worked as four slices, and 4.11a, the logo, 4.11b, the notes, and 4.11c, the kit
-variants, are done); 4.30, 4.5 to 4.8, 4.9a and 4.10 are done (4.6c moved to Phase 8's cancellation), 4.9b (collars)
-waits on the maintainer. 2.5b (GPU BC7) is step 16.x (decision entries
+cross-family review (a) is queued). Next: 4.12 (`ingame_face` processing on Fox); 4.30,
+4.5 to 4.8, 4.9a, 4.10 and 4.11 are done (4.6c moved to Phase 8's cancellation), 4.9b
+(collars) waits on the maintainer. 2.5b (GPU BC7) is step 16.x (decision entries
 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0 after Phase 8; phase order 1–6,
 8, 0.1.0, 7, 9–16 (`core/development_plan.md` "Releases"); first-class target the Fox version
 the cup moves to around April 2027 ("Target versions").
@@ -133,6 +132,10 @@ Claude agent with no sidekick and no reviewer of another model family. While tha
   `pipeline.md` "4. Per-export non-model steps" (Kit-dependent assets), `messages.md`
   (`kit_variant_missing`, `kit_variant_model_fox`), TC-CMN-04, TC-CMN-05 and the decision
   entry "kit variant sets are found from the files, and completed by the textures task".
+  4.11d, `team_compiler` (`PlayerFile::CommonTexture`, `point_texture`'s places), its
+  `feat(team_compiler)` commit, against `model_format.md` "Link files (`.common`)",
+  `pipeline.md` "3. Per-model-folder parallel steps" step 6, TC-TEX-09 and the two "Issues"
+  entries the slice opened.
   The acceptance section changed with these slices (TC-TEX-09 and TC-CMN-07 added,
   TC-CMN-05 narrowed to its Fox half): they join the queued (a) review of the section.
 - For the lead, on return: the review process on trial (maintainer, 3.1) runs a full sidekick
@@ -888,7 +891,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
     of 209); `mutants-diff 482c92d`: 150, 132 caught, 14 unviable, 4 missed (a block touching
     a rectangle's edge counted as reached), closed by a test of `reached_blocks`
 
-- [ ] 4.11 **Team root artifacts and Common**: logo (main decoded, made square per tag, Lanczos3 to
+- [x] 4.11 **Team root artifacts and Common**: logo (main decoded, made square per tag, Lanczos3 to
   512 and 256, `logo_small*` or main to 128, PNG with alpha, `logo_fit_applied`, `logo_upscaled`,
   one atomic producer, names `emblem_0{id}_r_ll/_r_l/_r.png` on PES 15-19 and `e_000{id}...` on
   20-21, `_r_ll` 512, `_r_l` 256, `_r` 128); `notes.txt` → `output/teamnotes.txt` (UTF-8/LF,
@@ -952,9 +955,17 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
     Gates green (129 of 211); `mutants-diff 2249bf1`: 61, 48 caught, 13 unviable, 0
     missed. TC-CMN-06 (`dummy_kit*`) is
     4.29's, which builds the checks it is about
-  - [ ] 4.11d texture `.common` links: the scenario written first (no acceptance ID yet),
-    then the player's stem resolving into Common and its path naming the team's Common
-    output; the gate's refusal of the link goes
+  - [x] 4.11d texture `.common` links (TC-TEX-09): done 2026-10-04 (Opus 5.5, first time, no
+    lead code fix). `PlayerFile::CommonTexture(stem)` for a link to a texture, anywhere a
+    link resolves (not in the `common/` subfolder, where validation checks no link);
+    `processing/model.rs` `point_texture` takes the places a part's textures may be, in
+    order: the folder's own stems at its texture home, then the linked stems at the team's
+    Common output, a kit reference resolving in each; the gate names only material links
+    now; help. Two contradictions: the `common/` exclusion (applied by the sidekick,
+    accepted), and the brief's premise that validation refuses every stem held two ways
+    (wrong for a combined shared folder: "Issues"). Not covered from the CLI: per-kit
+    textures linked one by one (at the function). Gates green (130 of 211);
+    `mutants-diff 2b0a388`: 26, 22 caught, 4 unviable, 0 missed
 
 - [ ] 4.12 **`ingame_face` processing (Fox)**: no face package emitted; arbitrary-named models
   rerouted to the player-exclusive boots folder (merged, the paired `.skl` becoming `boots.skl`);
@@ -1096,8 +1107,10 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   player's `gloves/` subfolder whose suffix gives no side is refused only by the gate; a shared
   `Gloves/` folder's is `fmdl_name_invalid` (validation, Fox), the likely finding for both.
   Likewise a `face_diff.bin`/`fcl_hair_sim.fclo` in `boots/` or `gloves/` (validation allows it,
-  no package has a slot for it). Open first (found at 4.5c): a `.common` link to a texture or a
-  material file is refused only by the gate (4.11 and Phase 7 build them); a `Common/legs.skl`
+  no package has a slot for it). Open first (found at 4.5c): a `.common` link to a
+  material file is refused only by the gate (Phase 7 builds them; texture links compile
+  since 4.11d, except in a player's `common/` subfolder or a shared folder, where the gate
+  names them); a `Common/legs.skl`
   beside a glove link's model is accepted and never read, while a local glove's `.skl` is refused
   by the gate, so the two need one rule. The
   gate's role helpers (`FolderModels`, `player_file`,
@@ -1556,6 +1569,20 @@ pruned when their phase closes; they stay in git history.
   CPK (which stays intact). Fixed with cancellation (`gui.md` "Cancellation", Phase 8): the
   window stops the run and the cancelled path calls `deploy::discard`. The same step adds the
   check between a texture task's textures (4.6's slice (c)); a test cancels a real run partway.
+- open — a texture link beside a combined shared folder's texture of the same stem (4.11d):
+  a player holding `hair.dds.common` and a link to a shared face whose folder holds
+  `hair.dds` compiles with no finding; the shared folder's copy wins, the link is ignored,
+  and `hair` is packed twice (the player's home and the team's Common output).
+  `texture_stem_conflict` covers the player folder's own files alone. The plan is silent;
+  the likely rule is a conflict finding, since collisions are rejected and never silently
+  resolved, and it belongs with the stem namespace in `aesthetics_export` or with the
+  textures task's conflicts. Rare: it needs a shared folder combined into a player who
+  also links one of its stems to `Common/`.
+- open — texture stems are matched as spelled when a model's path is pointed at its texture
+  (4.5, seen again at 4.11c and 4.11d), while validation folds case: a model naming
+  `hair.dds` beside `Hair.dds` or `Hair.dds.common` keeps a game path with no finding.
+  4.29's existence check is where it would surface; decide there whether the match folds
+  case.
 
 ---
 
@@ -2243,3 +2270,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   (`kit_variant_missing`); a model's `pants_kitN` path is pointed at where the variants
   go; of per-kit model files only the lowest is compiled (`kit_variant_model_fox`).
   TC-CMN-05 split: its PES 17 half is TC-CMN-07, with 4.14.
+- **2026-10-04** — 4.11d: a texture `.common` link (`hair.dds.common`) compiles: the
+  player's model names the texture in the team's Common output, where it is packed once.
+  Step 4.11 is done. Two open issues recorded: a link beside a combined shared folder's
+  texture of the same stem, and stems matched as spelled.
