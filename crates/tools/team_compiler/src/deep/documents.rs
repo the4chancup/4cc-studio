@@ -1,13 +1,16 @@
 //! The deep pass's checks of a folder's small data files, each read whole and parsed: a face
-//! folder's face diff (`player_folders.md` "`face_diff.xml`"), a kit's `config.toml` and a
-//! player's `settings.toml` (`team_compiler/messages.md`: `face_diff_invalid`,
-//! `xml_dif_conflict`, `kit_config_invalid`, `settings_toml_invalid`). None of their findings
-//! is pass-through-eligible: a file that cannot be read leaves no value to keep.
+//! folder's face diff (`player_folders.md` "`face_diff.xml`"), a kit's `config.toml`, a
+//! player's `settings.toml` and a kit's or the root `colors.txt` (`player_folders.md` "Root
+//! files", "Colors") (`team_compiler/messages.md`: `face_diff_invalid`, `xml_dif_conflict`,
+//! `kit_config_invalid`, `settings_toml_invalid`, `color_entry_invalid`). None of their
+//! findings is pass-through-eligible: a file that cannot be read leaves no value to keep, and
+//! a refused `colors.txt` line is a Warning, which drops nothing.
 
 use std::fmt;
 
 use aesthetics_export::{
-    ContentFinding, Disposition, FileDescriptor, IssueScope, KitFolder, PlayerFolder,
+    ColorLineRefusal, ContentFinding, Disposition, FileDescriptor, IssueScope, KitFolder,
+    PlayerFolder, read_colors_txt,
 };
 use kit_config::KitConfig;
 use pes_savefile::settings_toml::PlayerSettings;
@@ -151,6 +154,39 @@ pub(super) fn settings_finding(
     )
 }
 
+/// One `color_entry_invalid` per line the `colors.txt` `file` refuses (`read_colors_txt`, keeping
+/// `capacity` colors), on the file and kept: the line is skipped, nothing is dropped. The
+/// context gives the line's number and the reason. A file that cannot be read is
+/// `source_read_failed` on the file instead, dropping it.
+pub(super) fn colors_findings(
+    content: &ContentSource,
+    file: &FileDescriptor,
+    capacity: usize,
+) -> Vec<ContentFinding> {
+    let scope = IssueScope::File(file.path.clone());
+    let bytes = match read(content, file, &scope, Disposition::DropFile) {
+        Ok(bytes) => bytes,
+        Err(unread) => return vec![unread],
+    };
+    read_colors_txt(&bytes, capacity)
+        .refused
+        .into_iter()
+        .map(|refused| {
+            let reason = match refused.reason {
+                ColorLineRefusal::NotOneColor => "not one color".to_owned(),
+                ColorLineRefusal::PastCapacity => format!("more than {capacity} colors"),
+            };
+            ContentFinding {
+                code: Code::ColorEntryInvalid.as_str(),
+                scope: scope.clone(),
+                context: vec![("line", refused.line.to_string()), ("reason", reason)],
+                disposition: Disposition::Keep,
+                pass_through_eligible: false,
+            }
+        })
+        .collect()
+}
+
 /// `code` on `scope` with `disposition` when the TOML file `file`, directly in its folder, is
 /// not UTF-8 text or `parse` refuses it: the context names the file and the error. A file that
 /// cannot be read is `source_read_failed` instead.
@@ -186,7 +222,7 @@ mod tests {
     use pes_savefile::settings_toml::PlayerSettings;
     use vtree::ScopePath;
 
-    use crate::deep::tests::{findings_of, fixture, folder, texture, tracer_file};
+    use crate::deep::tests::{findings_of, fixture, folder, path, texture, tracer_file};
     use crate::testing::scratch;
 
     /// A Fox model in which `fmdl`'s check finds nothing (the tracer's right glove), for a
@@ -424,6 +460,113 @@ mod tests {
             []
         );
         assert_eq!(settings_findings("deep_settings_empty", b""), []);
+    }
+
+    /// The tracer's kit texture, which the deep pass finds nothing in.
+    fn tracer_kit() -> Vec<u8> {
+        fixture("tracer/studio/egg Tracer/Kits/g1/kit.dds")
+    }
+
+    /// `color_entry_invalid` on the `colors.txt` at `file`, kept, for `line` and `reason`.
+    fn color_entry_invalid(file: &str, line: &str, reason: &str) -> ContentFinding {
+        ContentFinding {
+            code: "color_entry_invalid",
+            scope: IssueScope::File(path(file)),
+            context: vec![("line", line.to_owned()), ("reason", reason.to_owned())],
+            disposition: Disposition::Keep,
+            pass_through_eligible: false,
+        }
+    }
+
+    /// The deep pass's findings on a kit `p1` holding the tracer's `kit.dds` and `files`
+    /// (path, contents) beside it.
+    fn colors_findings(name: &str, files: &[(&str, &[u8])]) -> Vec<ContentFinding> {
+        let temp = scratch(name);
+        let mut written = vec![("Kits/p1/kit.dds", tracer_kit())];
+        written.extend(files.iter().map(|(path, bytes)| (*path, bytes.to_vec())));
+        findings_of(temp.path(), &written, &[])
+    }
+
+    #[test]
+    fn a_kit_s_colors_txt_line_that_gives_no_color_is_kept_with_its_number_and_reason() {
+        assert_eq!(
+            colors_findings(
+                "deep_kit_colors_clean",
+                &[("Kits/p1/colors.txt", b"#c11200\n")]
+            ),
+            []
+        );
+        assert_eq!(
+            colors_findings(
+                "deep_kit_colors_bad_line",
+                &[("Kits/p1/colors.txt", b"#c11200\nbad\n")]
+            ),
+            [color_entry_invalid(
+                "Kits/p1/colors.txt",
+                "2",
+                "not one color"
+            )]
+        );
+        assert_eq!(
+            colors_findings(
+                "deep_kit_colors_three",
+                &[("Kits/p1/colors.txt", b"#c11200\n#414141\n211 74 79\n")]
+            ),
+            [color_entry_invalid(
+                "Kits/p1/colors.txt",
+                "3",
+                "more than 2 colors"
+            )]
+        );
+    }
+
+    #[test]
+    fn the_root_colors_txt_keeps_four_colors_and_reports_a_fifth() {
+        assert_eq!(
+            colors_findings(
+                "deep_team_colors_four",
+                &[("colors.txt", b"#c11200\n#414141\n211 74 79\n1 2 3\n")]
+            ),
+            []
+        );
+        assert_eq!(
+            colors_findings(
+                "deep_team_colors_five",
+                &[("colors.txt", b"#c11200\n#414141\n211 74 79\n1 2 3\n4 5 6\n")]
+            ),
+            [color_entry_invalid("colors.txt", "5", "more than 4 colors")]
+        );
+    }
+
+    #[test]
+    fn a_kit_s_colors_stand_between_its_config_and_its_textures_and_the_root_s_come_last() {
+        let findings = colors_findings(
+            "deep_colors_order",
+            &[
+                ("colors.txt", b"bad\n"),
+                ("logo.png", b"not an image"),
+                ("Kits/p1/kit_back.png", &texture("tiny.png")),
+                ("Kits/p1/colors.txt", b"bad\n"),
+                ("Kits/p1/config.toml", b"shirt = 144"),
+            ],
+        );
+        let order: Vec<(&str, IssueScope)> = findings
+            .iter()
+            .map(|finding| (finding.code, finding.scope.clone()))
+            .collect();
+        assert_eq!(
+            order,
+            [
+                ("kit_config_invalid", folder("Kits/p1")),
+                (
+                    "color_entry_invalid",
+                    IssueScope::File(path("Kits/p1/colors.txt"))
+                ),
+                ("texture_too_small", folder("Kits/p1")),
+                ("logo_file_invalid", IssueScope::File(path("logo.png"))),
+                ("color_entry_invalid", IssueScope::File(path("colors.txt"))),
+            ]
+        );
     }
 
     #[test]

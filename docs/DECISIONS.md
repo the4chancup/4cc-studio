@@ -3586,3 +3586,25 @@ needs every export validated first, and holding every `.7z` until then is the re
 budget forbids.
 Plan: `libs/pipeline.md` "What a solid `.7z` is charged"; `team_compiler/pipeline.md` "2.
 Per-export serial steps" (deep format pass, its last paragraph).
+
+## 2026-10-04 — team_compiler — kit colors merge into a team's UniColor record by kit number
+Decision: a committed kit's entry replaces the entry of its kit number in the team's
+`UniColor.bin` record or joins the others; the record is then written with its count, its
+entries in ascending kit number, and unused entries after them. A record whose counted
+entries repeat a kit number is the base game's placeholder and is read as holding no kit. A
+merge past ten entries leaves out the highest-numbered. The `colors.txt` reader lives in
+`aesthetics_export` (`colors_txt.rs`), and the deep pass reports `color_entry_invalid`.
+Why: the plan says a kit's entry applies only when its task commits and TC-BIN-05 keeps an
+installed p1 entry when an export holds only p2, but not how one entry joins a record. Red
+rewrites the whole record from the Note, which lists every kit of the team; a Studio export
+holds its colors per kit folder, so a midcup export with one kit would wipe the others.
+Reading the placeholder as empty, not as a white kit 0, is what keeps a first compile's
+record byte-identical to Red's (measured on the tracer: Red's record for team 792 holds the
+goalkeeper kit alone under a count of 1). Not settled, for the maintainer: a kit a team no
+longer has keeps its entry, as its `UniformParameter` entry does; if the record's count is
+what makes the game offer a kit, a full export should rather replace the record. The reader
+is in the export crate, not the compiler, because the Kit config editor reads the same
+files, and tool crates do not depend on each other.
+Plan: `team_compiler/pipeline.md` "4. Per-export non-model steps" (Bins accumulation);
+`aesthetics_export/player_folders.md` "Root files" (Colors); `aesthetics_export/object_model.md`
+(module tree).

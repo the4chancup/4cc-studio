@@ -238,6 +238,7 @@ crates/libs/aesthetics_export/src/
 │   ├── folders.rs      #   FolderDraft → PlayerFolder / SharedModelFolder / KitsFolder, and the root files
 │   └── issues.rs       #   ValidationIssue, ISSUE_CODES (stable code, scope, context) — no message text
 ├── resolve.rs          # ValidatedAestheticsExport + teams_list::TeamsList → ResolvedAestheticsExport (ExportIdentity, TeamId)
+├── colors_txt.rs       # colors.txt reader: the "Colors" grammar, bytes in, colors and refused lines out
 ├── players_txt.rs      # players.txt writer (Refs arranger) with atomic replacement
 └── kit_config_toml.rs  # config.toml ↔ kit_config binary bridge for exports (comment-preserving)
 ```

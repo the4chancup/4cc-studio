@@ -688,8 +688,28 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   verify: a `/co/` export with `p1/colors.txt`, `p2/kit.dds` without colors and an empty `p3/`:
   the CPK's `UniColor.bin` carries at team 714's p1 offset the file's two colors, at p2's the
   pair `extract_kit_colors` returns for the decoded texture, at p3's the magenta/black pair; the
-  tracer parity test compares `TeamColor.bin` byte-identical and `UniColor.bin` with g1's entry
-  excluded (Red does not derive)
+  tracer parity test compares `TeamColor.bin` and `UniColor.bin` byte-identical (the tracer's
+  Studio fixture gains its root and `g1` `colors.txt`, the note's colors; lead first). In
+  slices (decision entry "kit colors merge into a team's UniColor record by kit number"):
+  - (a) the `colors.txt` reader (`aesthetics_export::colors_txt`) and `color_entry_invalid`
+    from the deep pass, for the kit files and the root file, so `check` reports it. Done
+    2026-10-04 (Opus 5.5, first time, no lead fix): `read_colors_txt(bytes, capacity)`
+    giving the valid colors and the refused lines (`NotOneColor`, `PastCapacity`), each
+    line decoded alone; `deep/documents.rs` `colors_findings`, one Warning per refused line
+    on the file, kept, with `line` and `reason`, a kit's after its config and the root
+    file's last; the help paragraph. The reader also settles: separators are spaces and
+    commas only (a tab is refused), a leading `+` is refused, leading zeros are read.
+    Open for (b): a `colors.txt` that cannot be read is reported `DropFile` but stays in
+    the validated export. Gates green (110 of 209); `mutants-diff a9d9a51`: 37, 34 caught,
+    3 unviable, 0 missed
+  - (b) `bins/`: the two color bins as records (headers set from their position,
+    `bin_header_repaired`; a kit's entry merged by kit number; the bundled bases); the kit
+    task's colors (its `colors.txt`, else derived, else the magenta/black pair) and icon; the
+    writer adds both bins to every CPK it writes. TC-KIT-11..14, TC-BIN-01..03. TC-BIN-13's
+    repair is unit-tested on a bin's bytes here; its CLI proof needs an installed bin, so the
+    ID's citing test lands with 4.21
+  - (c) the root `colors.txt` into `TeamColor.bin`, `team_colors_missing`; TC-ROOT-10; the
+    tracer parity test's two bins
 
 - [ ] 4.9 **Kit configs, FPC reconciliation and collars** (the brief settles what a collar in
   the other engine's format does: converted, or refused; `Collars/` admits any model format):
@@ -1954,3 +1974,8 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   measures the same as before. This corrects 4.7's timing note: a decompression costs about
   2 s per export, and the timing exports, which hold no metadata file, were decompressed
   twice per compile, not three times. The tasks' decompression stays ("Issues").
+- **2026-10-04** — 4.8a: `check` and `compile` read each kit's and the root `colors.txt` and
+  warn about every line that does not give one color (`color_entry_invalid`); nothing is
+  written to a bin yet. Step 4.8 is in three slices, and a kit's colors will merge into its
+  team's `UniColor.bin` record by kit number, where Red rewrites the whole record (decision
+  entry; open with the maintainer: whether a kit a team no longer has should keep its entry).

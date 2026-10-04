@@ -188,7 +188,7 @@ pub struct KitFolder {
     pub label: Option<String>,
     /// `config.toml` (absent → generated at compile time).
     pub config: Option<FileDescriptor>,
-    /// `colors.txt` (grammar: Phase 4).
+    /// `colors.txt`, the kit's two menu colors (read by `read_colors_txt`).
     pub colors: Option<FileDescriptor>,
     /// The `icon_<N>` marker's number, 0–23; `None` when absent or
     /// `kit_icon_invalid` (the default 3 applies).

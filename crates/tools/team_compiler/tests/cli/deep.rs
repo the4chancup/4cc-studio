@@ -443,6 +443,30 @@ fn a_kit_config_that_does_not_parse_leaves_its_kit_out_and_the_kit_beside_it_com
 }
 
 #[test]
+fn a_kit_colors_txt_line_that_gives_no_color_is_a_warning_and_the_export_is_still_identified() {
+    let sandbox = Sandbox::new("deep_color_entry_invalid");
+    let export = "exports/co - Colors";
+    sandbox.write(&format!("{export}/Kits/p1/kit.dds"), &tracer_kit());
+    // The old Team Note kit entry, two colors on one line, after one valid color.
+    sandbox.write(
+        &format!("{export}/Kits/p1/colors.txt"),
+        b"211 74 79\n211 74 79 - 162 62 77\n",
+    );
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["check"]);
+
+    assert_eq!(
+        findings_of(&run.messages(), "co - Colors"),
+        [
+            "Warning color_entry_invalid [Keep] at Kits/p1/colors.txt (line=2, reason=not one color)",
+            IDENTIFIED
+        ]
+    );
+    // A Warning alone leaves the run clean.
+    assert_eq!(run.exit_code(), 0);
+}
+
+#[test]
 fn pass_through_keeps_no_face_diff_kit_config_or_settings_toml_that_cannot_be_read() {
     let sandbox = Sandbox::new("deep_documents_pass_through");
     let export = "exports/co - Unreadable";

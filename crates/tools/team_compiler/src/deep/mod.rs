@@ -23,8 +23,9 @@
 //!
 //! Last, it reads the small data files whole (`documents`): the face diff of each player
 //! folder and shared face folder (`face_diff_invalid`, `xml_dif_conflict`), each kit's
-//! `config.toml` (`kit_config_invalid`) and each player's `settings.toml`
-//! (`settings_toml_invalid`).
+//! `config.toml` (`kit_config_invalid`), each player's `settings.toml`
+//! (`settings_toml_invalid`), and each kit's and the root `colors.txt`, one
+//! `color_entry_invalid` per line the file refuses.
 //!
 //! The model folders and `Common/`'s files are checked in parallel on the caller's rayon
 //! pool, each worker reading and holding one file at a time, and the findings are collected
@@ -49,7 +50,7 @@ use vtree::ScopePath;
 use crate::messages::Code;
 use crate::plan::subset::{FolderModels, texture_format};
 use crate::reader::ContentSource;
-use documents::{face_diff_findings, kit_config_finding, settings_finding};
+use documents::{colors_findings, face_diff_findings, kit_config_finding, settings_finding};
 use model::{ModelKind, fired, summed};
 use portrait::{folder_portrait, portrait_conflict, portrait_findings};
 use texture::{SizeRule, texture_finding};
@@ -60,10 +61,11 @@ pub(crate) use model::FAR_VERTEX_CODES;
 /// `version`, in file order: each player folder's models, material sets and textures, then
 /// its face diff, its portrait and its `settings.toml`; then each shared folder's (faces with
 /// their face diff, boots, gloves), then `Common/`'s, then each `Portraits/` file with its
-/// slot's `portrait_conflict`, then each kit's `config.toml` and textures, then the logo's. An
-/// Error on a folder's or a kit's file drops the folder; one on a `Common/` file drops the
-/// file, and the cascade then drops the players linking it; one on a portrait, a
-/// `settings.toml` or a logo file drops that file.
+/// slot's `portrait_conflict`, then each kit's `config.toml`, `colors.txt` and textures, then
+/// the logo's, then the root `colors.txt`'s. An Error on a folder's or a kit's file drops the
+/// folder; one on a `Common/` file drops the file, and the cascade then drops the players
+/// linking it; one on a portrait, a `settings.toml` or a logo file drops that file. A refused
+/// `colors.txt` line is a Warning on the file, which drops nothing.
 ///
 /// The player folders, the shared folders, the files of each folder and `Common/`'s files are
 /// checked in parallel, on the rayon pool the caller runs this in; the rest in order. Every
@@ -159,6 +161,9 @@ pub(crate) fn content_findings(
     let mut inherited: BTreeMap<&str, Vec<ContentFinding>> = BTreeMap::new();
     for kit in export.kits.kits.values() {
         findings.extend(kit_config_finding(content, kit));
+        if let Some(colors) = &kit.colors {
+            findings.extend(colors_findings(content, colors, KIT_COLORS));
+        }
         let scope = IssueScope::Folder(kit.path.clone());
         for texture in &kit.textures {
             let rule = if texture.stem == "kit" {
@@ -217,8 +222,17 @@ pub(crate) fn content_findings(
             file.path.name(),
         ));
     }
+    if let Some(colors) = &export.root.team_colors {
+        findings.extend(colors_findings(content, colors, TEAM_COLORS));
+    }
     findings
 }
+
+/// The colors a kit's `colors.txt` gives: the kit's two menu colors.
+const KIT_COLORS: usize = 2;
+
+/// The colors the root `colors.txt` gives: a `TeamColor.bin` record holds four.
+const TEAM_COLORS: usize = 4;
 
 /// The structure pass's code for a root `logo*` file that cannot be the team's logo, which the
 /// deep pass also reports for a logo source that does not decode.

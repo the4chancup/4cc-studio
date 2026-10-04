@@ -38,8 +38,8 @@ pub struct ContentFinding {
     pub code: &'static str,
     /// What the finding is about: the item its disposition acts on (a
     /// `Folder` scope a player, shared or kit folder; a `File` scope a
-    /// `Common/`, `Portraits/` or `Collars/` file, a logo file, or a player
-    /// folder's `settings.toml` or portrait).
+    /// `Common/`, `Portraits/` or `Collars/` file, a logo file, a player
+    /// folder's `settings.toml` or portrait, or a `colors.txt`).
     pub scope: IssueScope,
     /// Structured fields, in the message template's order.
     pub context: Vec<(&'static str, String)>,

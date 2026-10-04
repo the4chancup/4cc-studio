@@ -30,6 +30,10 @@ pub(crate) enum Code {
     MultipleRefExports,
     /// The export's first word names no teams-list row.
     TeamNameUnknown,
+    /// A line of a kit's or the root `colors.txt` that does not hold exactly one color, or a
+    /// valid color past the file's capacity (two for a kit, four for the team); the line is
+    /// skipped.
+    ColorEntryInvalid,
     /// A kit without `config.toml` gets the template config.
     KitConfigGenerated,
     /// A kit's `config.toml` that is not UTF-8 text or that `kit_config` refuses (a
@@ -126,7 +130,7 @@ impl Code {
     /// Every code, for the catalog test: a variant missing here would make its first message
     /// panic in `severity`, so a new variant is added to this list too.
     #[cfg(test)]
-    const ALL: [Code; 39] = [
+    const ALL: [Code; 40] = [
         Code::ExportExtractFailed,
         Code::NoExportsFound,
         Code::ExportDisabled,
@@ -134,6 +138,7 @@ impl Code {
         Code::ExportBallsSkipped,
         Code::MultipleRefExports,
         Code::TeamNameUnknown,
+        Code::ColorEntryInvalid,
         Code::KitConfigGenerated,
         Code::KitConfigInvalid,
         Code::KitPlaceholder,
@@ -178,6 +183,7 @@ impl Code {
             Code::ExportBallsSkipped => "export_balls_skipped",
             Code::MultipleRefExports => "multiple_ref_exports",
             Code::TeamNameUnknown => "team_name_unknown",
+            Code::ColorEntryInvalid => "color_entry_invalid",
             Code::KitConfigGenerated => "kit_config_generated",
             Code::KitConfigInvalid => "kit_config_invalid",
             Code::KitPlaceholder => "kit_placeholder",
@@ -237,6 +243,7 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("export_identified", CatalogSeverity::Info),
     ("export_balls_skipped", CatalogSeverity::Info),
     ("multiple_ref_exports", CatalogSeverity::Error),
+    ("color_entry_invalid", CatalogSeverity::Warning),
     ("kit_config_generated", CatalogSeverity::Info),
     ("kit_config_invalid", CatalogSeverity::Error),
     ("kit_placeholder", CatalogSeverity::Info),

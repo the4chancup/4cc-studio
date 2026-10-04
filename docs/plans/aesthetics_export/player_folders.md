@@ -523,7 +523,10 @@ A player with a portrait in both locations is an error when the two files differ
   four, the record's capacity (a `TeamColor.bin` record is `u16 team_id`, `u16 4`, then four
   3-byte RGB colors, and Red writes them with no cap, so a fifth would overwrite the next team's
   id). Valid lines past those report `color_entry_invalid` ("more than N colors"). Team color
-  slots the file does not fill keep the working bin's bytes.
+  slots the file does not fill keep the working bin's bytes. The color is what follows the
+  line's last `:`; bytes that are not UTF-8 make their own line invalid, not the file. The
+  reader is `aesthetics_export::colors_txt` (the Kit config editor reads the same files); the
+  Team compiler's deep pass reports its refused lines, so `check` shows them.
 - **Marker names**: a marker is an empty file whose name says something about its folder, and
   every marker with a value is written `<name>_<value>`, like `collar_12` and `player_05`:
   `fpc_on` and `fpc_off` in a player folder, `icon_<N>` (0-23, zero padding optional) in a kit

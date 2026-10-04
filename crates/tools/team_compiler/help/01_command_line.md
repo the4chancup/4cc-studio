@@ -160,6 +160,23 @@ text, a key it does not know, a value of the wrong type or out of range) is repo
 `settings_toml_invalid`, naming the error: the file is ignored, even with `pass_through` on,
 and the player's models are still built.
 
+A kit folder may hold a `colors.txt` giving the kit's two menu colors, and the export's root a
+`colors.txt` giving the team's colors, up to four. Both files hold one color per line, written
+`#c11200` or as three numbers from 0 to 255 separated by spaces or commas (`211 74 79`,
+`211, 74, 79`), optionally after a label ending in a colon (`Shirt: #c11200`). A kit's file:
+
+```text
+211 74 79
+162 62 77
+```
+
+Both commands read these files and report each line that does not give exactly one color (two
+colors on one line, the way an old Team Note kit entry writes them, a number over 255, a hex
+color without its `#`), and each color past the second in a kit's file or the fourth in the
+root one, as the warning `color_entry_invalid`, naming the line and the reason. The line is
+skipped and the rest of the file is still read. In this version `compile` does not write these
+colors into the game yet.
+
 Both commands read every export in the exports folder from the settings (`exports/` beside
 `4cc-studio` unless you changed it). To use another folder for one run, give its path as
 `exports-root`; the setting is not changed. The `exports/` folder beside `4cc-studio` is created

@@ -527,8 +527,21 @@ describes behavior, not a serial scheduling requirement:
   `libs/color_tools` — with the menu icon number from the kit's optional `icon_<N>` marker, default 3) are
   staged for in-memory copies of `TeamColor.bin` and `UniColor.bin` (fixed per-team byte offsets;
   Red: `bins_update.py`; the file's grammar is "Root files", "Colors" in the [Aesthetics export
-  plan](../aesthetics_export/player_folders.md)). Both color bins are written whole on every
-  run, with every record's header set from its position: the team ID (100 plus the record's
+  plan](../aesthetics_export/player_folders.md)). A kit's entry goes into its team's
+  `UniColor.bin` record by kit number (p1 to p9 are 0 to 8, g1 is 0x10): it replaces the
+  entry of that number or joins the others, and the record is written again with its count,
+  its entries in ascending kit number and unused entries after them (`FF` and seven zero
+  bytes, as Red writes them). So a kit the export does not hold keeps its entry, and a team
+  with no committed kit keeps its record's bytes. A record whose counted entries repeat a kit
+  number is the base game's placeholder for a team with no kit colors (ten white entries
+  numbered 0 under a count of 2, 750 of the bundled base's 821 records) and is read as
+  holding no kit, which makes a first compile's record the one Red writes. A record holds
+  ten entries; when the merge gives more (possible only with an installed entry the export
+  format has no slot for, a second goalkeeper kit) the highest-numbered are left out. A kit's
+  colors and their findings (`kit_colors_derived`, `kit_colors_missing`) are its task's; a
+  `colors.txt` line that does not parse (`color_entry_invalid`) is the deep pass's, for the
+  kit files and the root file alike. Both color bins are written whole on every
+  run that writes a CPK, with every record's header set from its position: the team ID (100 plus the record's
   index) and, in `TeamColor.bin`, the color count 4. A sound record is unchanged by this; an
   installed bin's record whose colors were written over its header (`resources/bins/README.md`
   measures them) gets its header back, so the game finds the team again, and keeps its other

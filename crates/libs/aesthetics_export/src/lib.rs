@@ -8,6 +8,7 @@
 //! arranger, Team Creator) read this crate, so its layout is organized by the
 //! progression stage a consumer can stop at.
 
+mod colors_txt;
 mod conventions;
 mod listing;
 mod parse;
@@ -17,6 +18,7 @@ mod slots;
 mod testing;
 mod validate;
 
+pub use colors_txt::{ColorLineRefusal, ColorsTxt, RefusedColorLine, read_colors_txt};
 pub use conventions::{
     FileKind, Marker, MetadataFile, ModelFormat, ModelSuffix, SharedKind, classify,
     common_link_name, is_small_metadata, model_suffix,
