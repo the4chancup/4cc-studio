@@ -3890,3 +3890,49 @@ boots; what matters is that the member sees the folder is broken. (3) The mainta
 knowledge of the games. (4) Per-version files are avoided where one file can serve.
 Plan: `team_compiler/pipeline.md` "5. Writer" step 1 (exact paths), "4. Per-export
 non-model steps" (number atlases); `team_compiler/messages.md` `merge_material_conflict`.
+
+## 2026-10-04 — kit_config — `name.y` is PES 21's value on every version; the template stays
+Decision (maintainer): the kit config template is kept as it is, superseding point (4) of
+the entry above: a member who supplies no config does not care where the name sits. The
+crate takes `name.y` as PES 21's value (0 to 39) and an older game holds half of it,
+instead of clamping 30 to 16. Lead's reading of "halve or double": PES 21's 6-bit field is
+the older 5-bit field plus one lower bit, so the same bytes decode to twice the older
+value and nothing has to be converted: one decode and one encode for every version, bit 3
+of 0x1C carrying the value's low bit on every version (most older configs already have it
+set), and only the maximum differing (33 on PES 15 to 20, which is their 16).
+`kit_config_version_clamped` stays for a value over 33 on those games.
+Why: the census of 4,930 configs on the maintainer's machine showed the template's bytes
+are the community's usual ones (15 read the old way, 30 the PES 21 way); the clamp came
+from reading them as PES 21's and writing that number on an older game. With one reading,
+a config moves between versions with the name in the same place, an old binary converts
+without knowing which game it was made for (the Export upgrader), and Red's bytes come out
+on every version.
+Plan: `kit_config_editor.md` (binary layout rows 0x1C and 0x1D, "Version differences",
+"Version-neutral"); `team_compiler/README.md` TC-KIT-17 (reworded), TC-KIT-24 (new).
+
+## 2026-10-04 — aesthetics_export, team_compiler — a team export's name carries `Full` or `Midcup`
+Decision (maintainer, details settled with the lead): the second word of a team export's
+name, right after the team name, is its coverage tag, `Full` or `Midcup` in any letter
+case; a name with neither is the Error `export_tag_missing` and the export is skipped. A
+`Full` export rebuilds what the compiler holds for its team from the export alone (the
+`UniColor.bin` record and its count, the team's kit configs, its players' boots and gloves
+rows, later the savefile fields); a `Midcup` export replaces only what it holds. Referee
+exports carry no tag and are always full. Two exports of one team in one run stay refused
+(`duplicate_aesthetics_export`), a `Full` and a `Midcup` one included. The Export upgrader
+writes `Midcup` for an old name holding `midcup` or `additions`, `Full` otherwise. The GUI
+shows a **Full** and a **Midcup** button on an untagged export's row, in the place of its
+player cells, which rename the export.
+Why: the record's count is what makes the game offer a kit, so a team that drops a kit
+keeps offering it unless a full export resets the record, while a midcup export holding
+one kit must not wipe the others; nothing in an export's content tells the two apart. The
+tag is explicit and in the name so a mistake is seen before it is compiled; the second
+word is one rule beside "the first word is the team", and cannot match a description by
+accident. Cups compile full exports into the main CPKs and midcup exports (sometimes a
+full one, after an overhaul) into the midcup CPKs, never both for one team in one run.
+Supersedes the open question left by "kit colors merge into a team's UniColor record by
+kit number".
+Plan: `aesthetics_export/object_model.md` "Validation semantics" (Coverage tag, the
+`coverage` fields, `ExportCoverage`); `team_compiler/pipeline.md` "Bins accumulation";
+`team_compiler/messages.md` `export_tag_missing`; `team_compiler/gui.md` (Untagged
+export); `export_upgrader.md` "CLI"; `team_compiler/README.md` TC-ID-05 to 07, TC-BIN-14
+to 17 (new), TC-ID-01, TC-PLN-03, TC-BIN-05 and 06 (reworded); `GLOSSARY.md`.

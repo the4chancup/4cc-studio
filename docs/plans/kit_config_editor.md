@@ -85,9 +85,9 @@ preserved on rewrite.
 | 0x1B | 0–3 | Chest number size | 0–15 |
 | 0x1B | 4–6 | ? | |
 | 0x1B | 7 | Tight shirt | on/off (shirt models 144/160 only) |
-| 0x1C | 0–3 | ? (PES ≤20) | 8 in samples; PES2021 repurposes bit 3 |
-| 0x1C | 4–7 | Name Y, low 4 bits (PES ≤20) | Y = (0x1D[0] << 4) \| 0x1C[4–7], 0–16 |
-| 0x1D | 0 | Name Y, high bit | **PES2021**: Y = (0x1D[0] << 5) \| 0x1C[3–7], 0–39 |
+| 0x1C | 0–2 | ? | |
+| 0x1C | 3–7 | Name Y, low 5 bits | Y = (0x1D[0] << 5) \| 0x1C[3–7]: PES 2021's value, 0–39. PES ≤20 reads Y = (0x1D[0] << 4) \| 0x1C[4–7], 0–16, from the same bytes: half of it, bit 3 not part of its Y |
+| 0x1D | 0 | Name Y, high bit | |
 | 0x1D | 1–5 | Name size | 0–20 |
 | 0x1D | 6–7 | Name shape | 0 = straight, 1/2/3 = light/medium/extreme curve |
 | 0x1E | 0 | Name hidden | 1 = no name on shirt |
@@ -142,8 +142,11 @@ Notes:
   collar and winter collar 105 — see "FPC toggle" in the
   [Aesthetics export plan](aesthetics_export/README.md)) are
   ordinary values of these fields.
-- **Version differences**: PES2021 widens Name Y as noted — the only difference the
-  2021 patch makes. PES 15 reads only bits 5–7 of the pattern byte (a 3-bit index, 0–5
+- **Version differences**: PES2021 widens Name Y by one low bit, as noted — the only
+  difference the 2021 patch makes. `name.y` is PES 2021's value on every version: the bytes are
+  the same, an older game reading half of it (30 is its 15), so a config moves between versions
+  with the name in the same place and nothing is converted. Only the range differs: an older
+  game's Y stops at 16, so a `name.y` over 33 is over its maximum there. PES 15 reads only bits 5–7 of the pattern byte (a 3-bit index, 0–5
   valid) where later versions read bits 4–7; the TOML `pattern` is the 4-bit field every
   version shares, and PES 15 emission maps 4-bit values 12–13 (3-bit 6, which PES 15 has no
   pattern for) to 10–11 (3-bit 5), the byte-level rule the legacy compilers applied to
@@ -240,7 +243,7 @@ name = "00000000000000000000000000000000"
   and the Team compiler ignore that table and always rederive names from actual files.
 - **Version-neutral**: the TOML stores plain values; the version-specific bit
   packing (Name Y, PES15 pattern) is applied when emitting binary. A value that
-  doesn't fit the target version (Name Y 30 for PES ≤20, whose field is 0–16) is a
+  doesn't fit the target version (Name Y 36 for PES ≤20, which holds up to 33) is a
   compile/check warning (`kit_value_out_of_range`, naming the field, the value and the
   version's maximum) and is clamped to that maximum on emission; one table of per-field,
   per-version maxima drives both the finding and the clamp, so they cannot disagree. The
@@ -373,8 +376,8 @@ studio kit-config-editor check <path>         # validate configs in an export / 
   which doubles as a check of the recovered format itself.
 - **TOML roundtrips** including the `[unknown]` preservation path, export-mode derivation of texture
   names, and standalone CLI bit-identical preservation through `[source_texture_names]`.
-- **Version encodings**: Name Y 5-bit/6-bit packing against configs saved by both
-  Kit Manager variants; the PES15 pattern clamp against Red's behavior.
+- **Version encodings**: Name Y against configs saved by both Kit Manager variants (the
+  same bytes decode to the same `name.y`, a PES ≤20 config's Y being half of it); the PES15 pattern clamp against Red's behavior.
 - **Manual**: edits made side-by-side in Kit Manager and this tool on the same file
   produce identical bytes.
 

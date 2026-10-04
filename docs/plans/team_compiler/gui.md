@@ -32,6 +32,11 @@ it, one cell per player at a fixed position by number, plus one cell per kit:
   (the team that lost the ID turning red) is immediately visible. If the write fails because the
   data directory is not writable, the cell reverts and stays red with `teams_list_read_only` in
   its tooltip; there is no elevation path (see `pipeline.md` "Resolved decisions", "Teams list").
+- **Untagged export**: a team export whose name has neither `Full` nor `Midcup`
+  (`export_tag_missing`) is not compiled and has no player to show, so its row holds two
+  buttons, **Full** and **Midcup**, where its player cells would be: no space is reserved for
+  them on other rows. A click renames the export's folder or archive, putting the tag right
+  after the team name, and the row revalidates like after any rename.
 - **Player cells**: one per player, labeled with the player number (`01`–`23`, from the folder name
   or the root `players.txt`). The columns are **fixed positions 01–23**: a player without a folder
   in the export leaves its column completely empty (no cell, no number), so columns always align

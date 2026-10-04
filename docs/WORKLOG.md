@@ -12,8 +12,9 @@ is in `AGENTS.md` ("Working documents").
 **Phase:** 3 (Team compiler skeleton) closed 2026-10-02, its cross-family reviews queued (see
 "Handover"). Phases 1 and 2 done (Phase 2 closed 2026-09-30).
 **Next:** Phase 4 is itemized and its Acceptance section written (step 4.1, 2026-10-03; its
-cross-family review (a) is queued). Next: 4.21 (bins from the installed CPKs; 4.14 waits on
-4.31's pre-Fox export); 4.30,
+cross-family review (a) is queued). Next: 4.33 (`name.y` in PES 21 units), 4.34 (the
+`Full`/`Midcup` tag), then 4.21 (bins from the installed CPKs; 4.14 waits on 4.31's
+pre-Fox export); 4.30,
 4.5 to 4.8, 4.9a and 4.10 to 4.13 are done (4.6c moved to Phase 8's cancellation), 4.9b
 (collars) waits on the maintainer. 2.5b (GPU BC7) is step 16.x (decision entries
 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0 after Phase 8; phase order 1–6,
@@ -148,6 +149,10 @@ Claude agent with no sidekick and no reviewer of another model family. While tha
   TC-MOD-16 to TC-MOD-19 and TC-MOD-32, and the two decision entries of 2026-10-04 on the
   face file with no face model and on TC-MOD-09 (reworded; TC-MOD-32 is new: both join the
   queued (a) review of the section).
+  Coverage tag and `name.y` (a): the scenarios written on 2026-10-04 (TC-ID-05 to 07,
+  TC-KIT-24, TC-BIN-14 to 17 new; TC-ID-01, TC-KIT-17, TC-BIN-05, 06 and 15, TC-PLN-03
+  reworded) with `aesthetics_export/object_model.md` "Coverage tag", `pipeline.md` "Bins
+  accumulation" and the two decision entries of that date join the queued (a) review.
   4.13 (b), one review over the step's slices as they land: 4.13a, `team_compiler`
   (`validation.rs` `refuse_duplicate_teams`), its `feat(team_compiler)` commit of
   2026-10-04, against `pipeline.md` "3. Per-model-folder parallel steps" (the run-level
@@ -1406,6 +1411,39 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   out as a row atlas with the ten colors in digit order, and the reverse for PES 17; an
   atlas already in the target's arrangement is byte-identical to today's output
 
+- [ ] 4.33 **`name.y` is PES 21's value on every version** (decision entry of 2026-10-04):
+  `kit_config` decodes and encodes Name Y the PES 21 way on every version (6 bits from 0x1C
+  bit 3 and 0x1D bit 0; the version branch in `binary.rs` goes), the maximum being 33 on
+  PES 15 to 20 and 39 on PES 21 (`model.rs`'s limits table), so the template's 30 is no
+  longer clamped and `kit_config_version_clamped` fires only over 33. Plan:
+  `kit_config_editor.md` (layout rows 0x1C and 0x1D, "Version differences"). IDs: TC-KIT-17
+  (reworded: 36 clamps to 33), TC-KIT-24. Crates: `kit_config`, tc (tests and help only) →
+  verify: the template encodes to its own bytes for PES 17 and for PES 21; a PES 17 binary
+  with 0x1C bit 3 set decodes and encodes back byte-identical with no `unknown` entry for
+  that bit; `just bindings` if the bindings expose the crate
+
+- [ ] 4.34 **Coverage tag: `Full` or `Midcup` in a team export's name** (decision entry of
+  2026-10-04; before 4.21, whose TC-BIN-05 and 06 are Midcup cases). Plan:
+  `aesthetics_export/object_model.md` "Validation semantics" (Coverage tag, `ExportCoverage`,
+  the two `coverage` fields); `team_compiler/pipeline.md` "Bins accumulation";
+  `messages.md` `export_tag_missing`. Slices:
+  - [ ] 4.34a the tag is read and required: `aesthetics_export` gives the coverage of a name
+    (second word, any letter case; a referee export is Full), the draft and the validated
+    export carry it, a team export with neither word is `export_tag_missing` (E, skipped;
+    `check` and `compile`), and every test export, fixture archive, golden and help example
+    is renamed with its tag (TC-ID-01 and TC-PLN-03 already name tagged exports; their
+    tests still use untagged names until this slice). IDs: TC-ID-05, 06, 07 → verify: the
+    three scenarios; the parity test's CPK is unchanged by the renames.
+  - [ ] 4.34b `Full` resets the team's `UniColor.bin` record (its committed kits, the count
+    theirs, every other entry unused) and `Midcup` keeps today's merge, a new kit raising
+    the count. IDs: TC-BIN-14, 15 → verify: the two scenarios on the bundled base.
+  - The rest lands with the steps that own the data: the team's stale kit configs removed
+    from `UniformParameter.bin` and no FPC patching for a Full export, with 4.21
+    (TC-BIN-16); a Full export's players without boots or gloves losing their installed
+    rows, with 4.22 (TC-BIN-17); the savefile fields, Phase 5; the upgrader's tag
+    (`midcup` or `additions` in the old name), Phase 6; the two buttons on an untagged row,
+    Phase 8.
+
 - [ ] 4.y `dds_convert` cache retention bound (found at 2.20d converge; spec `libs/dds_convert.md`
   "In-memory conversion cache", "Retention is separately bounded and budgeted"): the
   `Converter` holds every distinct conversion until `clear`; the pipeline's memory budget
@@ -1452,38 +1490,6 @@ Phase 4 open questions (maintainer):
   the models give to within about 10 px of 2048 (`pipeline.md` "Layout conversion"). To
   settle: a pre-Fox kit with a design on its socks (hoops do not show it; a vertical stripe
   or a logo does), compiled for a Fox game with the `pre-fox` marker and looked at in-game.
-- The kit config template's name position (4.9a): the template's `name.y` is 30, and PES
-  15 to 20 hold 0 to 16 there (PES 21 holds 0 to 39). So on those targets every supplied
-  config that does not set `y` warns `kit_config_version_clamped` (30 clamped to 16), and
-  a generated config is clamped without a word. The maintainer's rule (decision entry of
-  2026-10-04): one template for every version, taken from the most common FPC-compatible
-  config on his machine whose `name.y` is 0 to 16. The census (`.tmp/kit_census/census.py`,
-  4,930 loose `*realUni.bin`, 2,405 distinct layouts with colors and texture names left
-  out, 1,203 carrying the FPC values) found none: the same bytes read as two values, 15 on
-  PES 20 and earlier (5 bits from 0x1C bit 4) and 30 or 31 on PES 21 (6 bits from bit 3),
-  and the template is decoded as PES 21. Read the old way, the template's 15 is the
-  community's usual place (996 of the 1,203 FPC configs hold 15 or 16; the most common FPC
-  layout, 85 files, holds 15, read as 31 on PES 21). Read the PES 21 way, the only FPC
-  layout among the 60 most common with a value up to 16 is one team's own (11, 16 files).
-  So the template's bytes are already the common ones; what clamps is reading them as PES
-  21's and writing that number on an older game. To settle with the maintainer: whether
-  PES 21's unit is half the older games' (the field gained a low bit, so the same bytes
-  would mean the same place), in which case the crate converts between versions instead
-  of clamping; if not, the template is decoded for the target version (15 on PES 15 to
-  20, 30 on PES 21, one file, Red's bytes on every version).
-- Kits a team no longer has (4.8c; decision entry "kit colors merge into a team's
-  UniColor record by kit number"): a compile merges its kits into the team's `UniColor.bin`
-  record and keeps the record's other kits, so a midcup export holding one kit does not
-  wipe the others. The cost: a team that drops a kit keeps its old entry and the record's
-  count, where Red rewrites the record from the Note. It shows on a from-scratch compile
-  too: the bundled base holds a past cup's kits for teams 701 to 771 (3 to 10 each,
-  `resources/bins/README.md`), so `/co/` compiled with two kits keeps that cup's kits 3 to
-  7 and its goalkeeper entry under a count of 8. Answered 2026-10-04: the record's count
-  is what makes the game offer a kit, so a full export must reset the record and a midcup
-  one must not. The maintainer's proposal, under discussion (no plan text yet): every
-  export's name carries `Full` or `Midcup` beside the team name, an export with neither is
-  skipped with an Error, the Export upgrader adds `Full` to an export without `Midcup`,
-  and the GUI offers the two tags for an untagged export.
 - Collars beyond the stock set (4.9, 4.27; the maintainer's idea, 2026-10-03): PES 15 loads
   `collar_105`, which its stock game lacks, so the games probably accept collar IDs they do
   not ship. If so, the FPC collar and the referees' marker could move to IDs no stock collar
@@ -2404,3 +2410,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   template for every version (the census found the template's bytes already the common
   ones, the clamp coming from how they are read); a full export resets a team's kit
   record and a midcup one does not (`Full`/`Midcup` in the export's name, under discussion).
+- **2026-10-04** — settled with the maintainer: the kit config template stays and `name.y`
+  is PES 21's value on every version (step 4.33); a team export's name carries `Full` or
+  `Midcup` as its second word (step 4.34, plan and eight scenarios written: TC-ID-05 to 07,
+  TC-KIT-24, TC-BIN-14 to 17; four reworded).

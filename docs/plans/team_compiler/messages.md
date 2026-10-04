@@ -141,6 +141,7 @@ savefile messages are new.
 | `nested_folders_fixed` | W | content found nested one level down (exactly one usable root) | auto-fixed |
 | `nested_root_ambiguous` | E | several nested child folders are usable export roots | export skipped (`DropExport`) |
 | `nested_root_conflict` | E | loose root file collides with a flattened nested file at the same virtual path | export skipped (`DropExport`) |
+| `export_tag_missing` | E | a team export's name has neither `Full` nor `Midcup` as its second word (context `name`: the export's name) | export skipped; the hint says to rename it `<team> Full …` or `<team> Midcup …` (GUI: the row offers the two tags as buttons) |
 | `team_name_unknown` | E | canonical `team_name` not in `teams_list.txt` | export skipped (GUI: ID cell becomes editable for inline assignment) |
 | `team_id_out_of_range` | E | resolved ID outside 701–920 | export skipped |
 | `teams_list_read_only` | W | a teams-list write (ID cell, updater merge) failed because the data directory is not writable | write dropped; the in-memory list is unchanged (no elevation — see `pipeline.md` "Resolved decisions", "Teams list") |

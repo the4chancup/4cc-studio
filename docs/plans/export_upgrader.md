@@ -246,7 +246,9 @@ studio export-upgrader upgrade-models <folder> [-o <dir>]
 ```
 
 `upgrade` takes one old export (folder, `.zip` or `.7z`); the output is a sibling folder named
-after the export unless `-o` is given; `--loose` is rejected together with `--savefile`.
+after the export, with its coverage tag put in after the team name (`Midcup` when the old name
+holds `midcup` or `additions` in any letter case, the two ways old midcup exports were named;
+`Full` otherwise; the Aesthetics export plan's "Coverage tag"), unless `-o` is given; `--loose` is rejected together with `--savefile`.
 `upgrade-models` is model-folder mode; its output is one folder per migrated input folder under
 the output directory. Both print step 10's report and exit non-zero when it is not clean. The GUI
 offers the same two modes as two drop targets on the tool view.

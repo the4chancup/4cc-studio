@@ -272,7 +272,8 @@ Phase 3 emits `ExportStarted`, `Message` and `ExportProcessed` only: `FolderStat
 and `Complete` wait for their consumers, the progress grid and the run strip (Phase 8), which
 is also when `Complete`'s placeholder fields are restructured ("Event system" in
 `core/architecture.md`), so a cell's outcome (`DoneWithErrors`, "Cell states" in `gui.md`) is
-not one of these scenarios.
+not one of these scenarios. A team export in a scenario is a `Full` export, its name carrying
+the tag, unless the scenario says `Midcup` (the Aesthetics export plan's "Coverage tag").
 
 **Sources**
 
@@ -435,7 +436,7 @@ TC-ROS-12  GIVEN a refs export whose players.txt maps one folder to slots 01, 20
 **Identity**
 
 ```
-TC-ID-01   GIVEN "co - Spring 2026.zip" and a teams list with the row 714 /co/
+TC-ID-01   GIVEN "co Full Spring 2026.zip" and a teams list with the row 714 /co/
            WHEN it is compiled
            THEN the export is reported as /co/ (714)
 TC-ID-02   GIVEN an export whose first word is not in the teams list, beside a valid export
@@ -448,6 +449,17 @@ TC-ID-03   GIVEN a refs export and a teams list with no /refs/ row
 TC-ID-04   GIVEN an export named "--- .zip"
            WHEN it is checked
            THEN team_name_unknown is reported with an empty name and the export is skipped
+TC-ID-05   GIVEN exports "co Spring 2026" and "a Full Spring 2026"
+           WHEN the root is checked, then compiled
+           THEN both commands report export_tag_missing for the first, naming it; it is skipped,
+                the other is compiled, and the exit code is 1
+TC-ID-06   GIVEN exports "co midcup day 5", "a FULL v2" and "b Spring Full"
+           WHEN the root is checked
+           THEN the first two report no export_tag_missing (letter case does not matter) and
+                the third does (only the second word counts)
+TC-ID-07   GIVEN a refs export named "refs Spring 2026"
+           WHEN it is checked
+           THEN no export_tag_missing is reported
 ```
 
 **Kits and root files**
@@ -936,10 +948,10 @@ TC-KIT-15  GIVEN fpc_on in slot 05's folder, p1/config.toml without the FPC valu
 TC-KIT-16  GIVEN no fpc_on anywhere and p1/config.toml carrying the FPC values
            WHEN the export is compiled
            THEN the config is emitted unchanged and no kit_config_fpc_adjusted is reported
-TC-KIT-17  GIVEN p1/config.toml whose name_y exceeds the PES 18 encoding
+TC-KIT-17  GIVEN p1/config.toml whose name.y is 36
            WHEN the export is compiled for PES 18
-           THEN kit_config_version_clamped is reported and the emitted field holds the clamped
-                value
+           THEN kit_config_version_clamped is reported with the maximum 33 and the emitted
+                config holds 33
 TC-KIT-18  GIVEN p1/ holding kit.dds drawn for the pre-Fox layout and the marker pre-fox
            WHEN the export is compiled for PES 21
            THEN kit_layout_converted is reported for p1 naming pre-fox to fox, the decoded texture
@@ -965,6 +977,10 @@ TC-KIT-23  GIVEN p1/ and g1/ with configs
            WHEN the export is compiled for PES 17
            THEN the CPK holds the two 120-byte configs as loose files under
                 common/character0/model/character/uniform/team/714/ and no UniformParameter.bin
+TC-KIT-24  GIVEN p1/config.toml whose name.y is 30
+           WHEN the export is compiled for PES 18, then for PES 21
+           THEN neither run reports kit_config_version_clamped and the two emitted configs hold
+                the same bytes at 0x1C and 0x1D
 ```
 
 **Root files, Common and collars**
@@ -1041,13 +1057,13 @@ TC-BIN-04  GIVEN a /co/ export with p1 and a root colors.txt
 TC-BIN-05  GIVEN a PES folder whose download/DpFileList.bin lists 4cc_08_bins, 4cc_61_midcup and
            4cc_99_test, 4cc_08_bins.cpk holding a UniColor.bin with team 714's p1 entry set to A and
            4cc_61_midcup.cpk one with it set to B
-           WHEN /co/ with only p2/ is compiled with cpk_name 4cc_99_test, then with cpk_name
+           WHEN a Midcup /co/ export with only p2/ is compiled with cpk_name 4cc_99_test, then with cpk_name
            4cc_61_midcup
            THEN the first run's UniColor.bin carries B at p1 (the highest-priority CPK below the
                 output's) and the second run's carries A (the midcup CPK and everything above it
                 skipped), both with p2 set; bin_source names the supplying CPK for each bin
-TC-BIN-06  GIVEN an installed UniformParameter.bin holding team 714's p1 entry, and an export with
-           fpc_on and only p2/
+TC-BIN-06  GIVEN an installed UniformParameter.bin holding team 714's p1 entry, and a Midcup
+           export with fpc_on and only p2/
            WHEN it is compiled for PES 21
            THEN the emitted UniformParameter.bin's p1 entry carries the FPC values with
                 kit_config_fpc_adjusted reported for slot p1, and p3, which has no entry, reports
@@ -1082,6 +1098,26 @@ TC-BIN-13  GIVEN an installed TeamColor.bin whose record for team 799 starts wit
            THEN the emitted TeamColor.bin's record for team 799 starts with team ID 799 and
                 count 4, every other installed record is unchanged, and bin_header_repaired
                 is reported once, naming TeamColor.bin and team 799
+TC-BIN-14  GIVEN a Full /co/ export with kits p1 and p2, and no PES install configured (the
+           bundled UniColor.bin holds a past cup's kits for team 714 under a larger count)
+           WHEN it is compiled for PES 21
+           THEN team 714's UniColor.bin record counts 2 and holds p1's and p2's entries, every
+                other entry unused
+TC-BIN-15  GIVEN a Midcup /co/ export with kit p1 and a kit number the bundled base's record for
+           team 714 does not hold, and no PES install configured
+           WHEN it is compiled for PES 21
+           THEN team 714's record keeps the base's other entries, p1's is replaced, the new
+                kit's is added, and the count is one more than the base's
+TC-BIN-16  GIVEN an installed UniformParameter.bin holding team 714's p1, p2 and p3 configs and
+           team 702's p1, and a Full /co/ export with p1 only
+           WHEN it is compiled for PES 21
+           THEN the emitted UniformParameter.bin holds team 714's p1 config and neither its p2
+                nor its p3, and team 702's p1 unchanged
+TC-BIN-17  GIVEN an installed BootsList.bin holding (71405, 7) and (71406, 9), and a /co/ export
+           whose slot 05 holds boots.fmdl and whose slot 06 holds no boots
+           WHEN it is compiled for PES 21 as a Full export, then as a Midcup export
+           THEN the Full run's BootsList.bin holds (71405, 625) and no row for 71406, and the
+                Midcup run's holds (71405, 625) and (71406, 9)
 ```
 
 **Planning**
@@ -1094,7 +1130,7 @@ TC-PLN-02  GIVEN Boots/Zebra/ and Boots/Apple/, each linked by a player
            WHEN the export is compiled, then with a third folder Boots/Mango/ added
            THEN Apple is k0644 and Zebra k0645 the first time; the second time Apple k0644, Mango
                 k0645, Zebra k0646
-TC-PLN-03  GIVEN exports "co - A" (a folder) and "co - B.zip", both resolving to 714, beside a
+TC-PLN-03  GIVEN exports "co Full A" (a folder) and "co Full B.zip", both resolving to 714, beside a
            valid /a/ export
            WHEN the root is compiled
            THEN duplicate_aesthetics_export is reported for each of the two, neither is compiled,

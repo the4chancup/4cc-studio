@@ -627,8 +627,18 @@ describes behavior, not a serial scheduling requirement:
   `UniColor.bin` record by kit number (p1 to p9 are 0 to 8, g1 is 0x10): it replaces the
   entry of that number or joins the others, and the record is written again with its count,
   its entries in ascending kit number and unused entries after them (`FF` and seven zero
-  bytes, as Red writes them). So a kit the export does not hold keeps its entry, and a team
-  with no committed kit keeps its record's bytes. A record whose counted entries repeat a kit
+  bytes, as Red writes them). That merge is a `Midcup` export's: a kit it does not hold keeps
+  its entry, and a team with no committed kit keeps its record's bytes. A `Full` export
+  (`aesthetics_export/object_model.md` "Coverage tag") rebuilds what the compiler holds for
+  its team from the export alone, since the record's count is what makes the game offer a
+  kit: the `UniColor.bin` record holds its committed kits and nothing else (the count theirs,
+  every other entry unused), the team's kit configs in `UniformParameter.bin` that the export
+  does not hold are removed, and no absent kit slot is FPC-patched, there being none. A
+  `Full` export with no root `colors.txt` still keeps its `TeamColor.bin` record's bytes
+  (`team_colors_missing`): there is nothing to rebuild it from. What a `Full` export cannot
+  do is remove files: compiled into a CPK above another that holds the team's older content
+  (a midcup CPK over the cup's main one), a player or kit it no longer has still loads from
+  below. A record whose counted entries repeat a kit
   number is the base game's placeholder for a team with no kit colors (ten white entries
   numbered 0 under a count of 2, 750 of the bundled base's 821 records) and is read as
   holding no kit, which makes a first compile's record the one Red writes. A record holds
@@ -656,7 +666,9 @@ describes behavior, not a serial scheduling requirement:
   `PlayerAppearance.bin` row (the appearance bytes built from his resolved `settings.toml`, its
   defaults for absent keys, nothing from the installed row) and his `BootsList.bin` and
   `GloveList.bin` rows (the resolved IDs; a category whose output failed keeps its installed row),
-  and every other player keeps his installed row, so the output carries complete tables (the
+  a player of a `Full` export's team that the export gives no boots or no gloves loses that
+  installed row (it would point at an item the team no longer ships), and every other player
+  keeps his installed row, so the output carries complete tables (the
   game reads the highest-priority copy of each whole; the first installed copy is the seed CPK
   of "Stripped save" in the [Save editor plan](../save_editor.md); the base game's copies are
   wezlib-compressed and the cup's plain, so they are read either way and written plain, which the

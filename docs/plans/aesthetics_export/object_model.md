@@ -70,6 +70,18 @@ eligible, roster-entry scope and disposition; confirmed 2026-09-30).
   `IdentityError` (the Team compiler's `team_name_unknown`). No referee value is ever a `TeamId`;
   999 appears only where a game format writes it. An export stem with no token has no team name:
   it is reported as `team_name_unknown` with an empty name and dropped.
+- **Coverage tag.** A team export's name says what the export covers, as its second word, right
+  after the team name, in any letter case: `Full` (everything the team has: `co Full Spring
+  26`) or `Midcup` (changes to add to what is installed: `co Midcup Day 5`). The compiler needs
+  to know, because the game offers as many kits as the team's record counts and reads a
+  player's boots from his row: only a full export may reset what the team had before, and
+  nothing in an export's content tells the two apart (a full export of a team with two kits
+  looks like a midcup export bringing two kits). It is in the name, not in a marker file, so
+  whoever handles the export sees it without opening it, and a name with neither word is an
+  error that drops the export (the Team compiler's `export_tag_missing`) rather than a guess:
+  a full export taken for a midcup one leaves the kits of a past cup on offer, and the
+  reverse wipes a team's kits. Only the second word counts, so a later `Full` in a
+  description changes nothing. A referee export carries no tag: it is always full.
 - **Who decides a consequence.** This crate decides each structural issue's disposition, because
   it builds the sanitized export from them: a `ValidationIssue` carries its code, scope, context,
   effective disposition, and whether `pass_through` changed it. The consuming tool owns only
@@ -287,6 +299,7 @@ pub struct ValidationReport {
 pub struct ValidatedAestheticsExport {
     pub export_display_name: String,     // complete archive/folder stem; presentation/source identity
     pub team_name: TeamName,               // canonical /xx/ name derived from the first word
+    pub coverage: ExportCoverage,        // from the name's second word; Full for a referee export
     pub players: Vec<PlayerFolder>,      // sanitized main reference point for each eligible player
     pub roster: ValidatedRoster,         // normalized strong slots → player indices
     pub faces: Vec<SharedModelFolder>,   // shared folders, referenced by name from player folders
@@ -464,6 +477,12 @@ pub enum SourceError {
 #[error("team {team_name} is not in the teams list")]
 pub struct IdentityError { pub team_name: TeamName }
 
+/// What a team export covers, from the second word of its name ("Coverage tag").
+pub enum ExportCoverage {
+    Full,    // everything the team has: the compiler rebuilds the team's records from it alone
+    Midcup,  // additions: the compiler replaces only what the export holds
+}
+
 // ---- Draft (parse/). Everything the normalized tree holds, grouped by content folder,
 // nothing dropped; parse_listing first normalizes the root (`team_compiler/pipeline.md`
 // "Per-export serial steps", step 1), reporting nested_folders_fixed, nested_root_ambiguous
@@ -471,6 +490,7 @@ pub struct IdentityError { pub team_name: TeamName }
 pub struct AestheticsExportDraft {
     pub export_display_name: String,
     pub team_name: Option<TeamName>,          // None: the stem has no token (team_name_unknown, empty name)
+    pub coverage: Option<ExportCoverage>,     // None: a team export's second word is neither tag (export_tag_missing)
     pub root_files: Vec<FileDescriptor>,      // files directly at the root
     pub root_folders: Vec<vtree::ScopePath>,  // root folders that are no content folder (`wrapper/`)
     pub stray_files: Vec<FileDescriptor>,     // files directly in Players/, Kits/, Faces/, Boots/, Gloves/
