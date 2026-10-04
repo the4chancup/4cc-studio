@@ -194,6 +194,98 @@ fn a_skeleton_named_like_its_model_but_the_case_pairs_too() {
     assert_eq!(package.get("boots.skl").unwrap(), custom);
 }
 
+#[test]
+fn a_face_diff_bin_by_any_case_packs_as_face_diff_bin() {
+    // `FACE_DIFF.BIN` is `face_diff.bin` as the file system folds it.
+    let sandbox = Sandbox::new("mod_face_diff_case");
+    let export = "exports/co - Case";
+    write_player(
+        &sandbox,
+        &format!("{export}/Players/05 - A"),
+        "kit_boots.fmdl",
+    );
+    std::fs::remove_file(
+        sandbox
+            .root
+            .join(format!("{export}/Players/05 - A/face_diff.bin")),
+    )
+    .unwrap();
+    sandbox.write(
+        &format!("{export}/Players/05 - A/Face_Diff.bin"),
+        &tracer_player_file("face_diff.bin"),
+    );
+
+    let entries = compile_clean(
+        &sandbox,
+        "co - Case",
+        &[
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=fcl_hair.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=glove_l.fmdl, count=2)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=kit_boots.fmdl, count=1662)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
+        ],
+    );
+
+    let package =
+        fpk::FpkFile::read(&entries["Asset/model/character/face/real/71405/#Win/face.fpk"])
+            .unwrap();
+    assert_eq!(
+        package.get("face_diff.bin").unwrap(),
+        tracer_player_file("face_diff.bin")
+    );
+}
+
+#[test]
+fn a_texture_stem_names_its_file_case_folded() {
+    // `Shirt.dds` is the texture the model's `shirt` path names, folded alike.
+    let sandbox = Sandbox::new("mod_stem_case");
+    let export = "exports/co - Case";
+    write_player(
+        &sandbox,
+        &format!("{export}/Players/05 - A"),
+        "kit_boots.fmdl",
+    );
+    std::fs::remove_file(
+        sandbox
+            .root
+            .join(format!("{export}/Players/05 - A/shirt.dds")),
+    )
+    .unwrap();
+    sandbox.write(
+        &format!("{export}/Players/05 - A/Shirt.dds"),
+        &tracer_player_file("shirt.dds"),
+    );
+
+    let entries = compile_clean(
+        &sandbox,
+        "co - Case",
+        &[
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=fcl_hair.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=glove_l.fmdl, count=2)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=kit_boots.fmdl, count=1662)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
+        ],
+    );
+
+    let package =
+        fpk::FpkFile::read(&entries["Asset/model/character/boots/k0625/#Win/boots.fpk"]).unwrap();
+    let directories: Vec<String> =
+        texture_paths(&FmdlFile::read(package.get("boots.fmdl").unwrap()).unwrap())
+            .unwrap()
+            .into_iter()
+            .filter(|path| path.file_name == "shirt.dds")
+            .map(|path| path.directory)
+            .collect();
+    assert!(!directories.is_empty());
+    assert!(
+        directories.iter().all(|directory| directory
+            == "/Assets/pes16/model/character/common/714/05 - A/sourceimages/"),
+        "{directories:?}"
+    );
+}
+
 // TC-MOD-03
 #[test]
 fn a_folder_mapped_to_two_slots_emits_its_boots_under_both_ids_and_its_textures_once() {

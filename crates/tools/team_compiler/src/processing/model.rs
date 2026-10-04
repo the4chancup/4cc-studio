@@ -111,12 +111,13 @@ pub(super) fn package(
                     fpk.insert("face_diff.bin".to_owned(), bytes);
                 }
                 // The textures are the textures task's, and a linked one the Common textures
-                // task's; this task only points its models at them.
+                // task's; this task only points its models at them. Stems fold, as validation
+                // folds the name a texture claims.
                 PlayerFile::Texture(stem, _) => {
-                    texture_stems.insert(stem);
+                    texture_stems.insert(vtree::fold_name(&stem));
                 }
                 PlayerFile::CommonTexture(stem) => {
-                    linked_stems.insert(stem);
+                    linked_stems.insert(vtree::fold_name(&stem));
                 }
                 PlayerFile::Model { .. }
                 | PlayerFile::CommonModel { .. }
@@ -283,9 +284,9 @@ fn merged_skeleton(parts: &mut [Part]) -> Result<Option<Vec<u8>>, TaskFailure> {
 /// the kit picked.
 fn point_texture(path: &mut TexturePath, places: &[(&BTreeSet<String>, &str)], team_segment: &str) {
     let stem = file_stem(&path.file_name);
-    let place = places
-        .iter()
-        .find(|(stems, _)| stems.contains(stem) || has_variant_among(stem, stems));
+    let place = places.iter().find(|(stems, _)| {
+        stems.contains(&vtree::fold_name(stem)) || has_variant_among(stem, stems)
+    });
     path.directory = match place {
         Some((_, directory)) => (*directory).to_owned(),
         None => path.directory.replace("/000/", team_segment),
@@ -299,7 +300,7 @@ fn has_variant_among(stem: &str, stems: &BTreeSet<String>) -> bool {
         return false;
     };
     stems.iter().any(|held| {
-        matches!(kit_token(held), Some((KitToken::Variant(_), held_reference)) if held_reference == reference)
+        matches!(kit_token(held), Some((KitToken::Variant(_), held_reference)) if vtree::fold_name(&held_reference) == vtree::fold_name(&reference))
     })
 }
 

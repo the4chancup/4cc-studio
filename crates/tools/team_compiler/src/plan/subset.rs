@@ -561,9 +561,13 @@ pub(crate) fn player_file(
         {
             Some(PlayerFile::SlotlessSkeleton)
         }
-        FileKind::Bin if name == "face_diff.bin" => face_packed("face_diff.bin"),
-        FileKind::Fclo if name == "fcl_hair_sim.fclo" => face_packed("fcl_hair_sim.fclo"),
-        FileKind::Xml if name == "face_diff.xml" => face_file(PlayerFile::FaceDiffXml),
+        FileKind::Bin if name.eq_ignore_ascii_case("face_diff.bin") => face_packed("face_diff.bin"),
+        FileKind::Fclo if name.eq_ignore_ascii_case("fcl_hair_sim.fclo") => {
+            face_packed("fcl_hair_sim.fclo")
+        }
+        FileKind::Xml if name.eq_ignore_ascii_case("face_diff.xml") => {
+            face_file(PlayerFile::FaceDiffXml)
+        }
         FileKind::Model(_)
         | FileKind::Skl
         | FileKind::Bin
@@ -1832,6 +1836,10 @@ mod tests {
             packed(ModelPackage::Face, "face_diff.bin")
         );
         assert_eq!(
+            role("Face_Diff.bin"),
+            packed(ModelPackage::Face, "face_diff.bin")
+        );
+        assert_eq!(
             role("fcl_hair_sim.fclo"),
             packed(ModelPackage::Face, "fcl_hair_sim.fclo")
         );
@@ -1849,7 +1857,6 @@ mod tests {
             "face_diff2.xml",
             "body.mtl.common",
             "face_diff2.bin",
-            "Face_Diff.bin",
             "fcl_hair.fclo",
             "other/face_high.fmdl",
             "face/deep/face_high.fmdl",

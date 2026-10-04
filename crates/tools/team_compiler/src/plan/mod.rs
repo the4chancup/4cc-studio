@@ -521,7 +521,7 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
             .collect();
         let common_texture_stems: BTreeSet<String> = common_textures
             .iter()
-            .map(|file| file_stem(file.path.name()).to_owned())
+            .map(|file| vtree::fold_name(file_stem(file.path.name())))
             .collect();
         // A folder's portrait goes out once per slot mapping the folder. A player id with a
         // `Portraits/` file too comes up twice; the deep pass has skipped an export whose two
@@ -1636,7 +1636,7 @@ mod tests {
         );
         assert_eq!(
             folder.common_texture_stems,
-            BTreeSet::from(["Cloth".to_owned(), "hair".to_owned()])
+            BTreeSet::from(["cloth".to_owned(), "hair".to_owned()])
         );
         // The Common task is in no group: a player's packages never wait for it.
         let common = &report.manifest.tasks[5];
