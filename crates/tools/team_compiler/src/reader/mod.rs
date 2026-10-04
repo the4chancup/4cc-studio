@@ -145,11 +145,23 @@ fn named_paths(exports: &[PathBuf]) -> anyhow::Result<Vec<(PathBuf, SourceKind)>
         .collect()
 }
 
-/// The folder or archive name at the end of `path`. `--export .` has none of its own; the path
-/// as given stands in for it.
+/// The folder or archive name at the end of `path`. A path ending in `.` or `..`, which
+/// `Path::file_name` cannot name, takes the canonical path's last component: `--export ..`
+/// names the folder it resolves to (`settings.md` "Path resolution": a relative command-line
+/// path resolves against the current directory). Only when the path cannot be canonicalized
+/// (it vanished since the preflight; the read reports that) does the path as given stand in.
 fn file_name(path: &Path) -> String {
     path.file_name().map_or_else(
-        || path.display().to_string(),
+        || {
+            fs::canonicalize(path)
+                .ok()
+                .and_then(|canonical| {
+                    canonical
+                        .file_name()
+                        .map(|name| name.to_string_lossy().into_owned())
+                })
+                .unwrap_or_else(|| path.display().to_string())
+        },
         |name| name.to_string_lossy().into_owned(),
     )
 }
@@ -353,6 +365,26 @@ mod tests {
                 .collect();
             assert_eq!(names, ["CO - A", "co - A", "co - a"]);
         }
+    }
+
+    #[test]
+    fn a_source_path_ending_in_dot_dot_takes_the_canonical_name() {
+        let temp = scratch("reader_dot_dot");
+        let root = temp.path();
+        fs::create_dir_all(root.join("egg Tracer/Players")).unwrap();
+
+        let source = source(
+            root.join("egg Tracer/Players/.."),
+            SourceKind::Folder,
+            ExportId(0),
+        );
+
+        assert_eq!(source.file_name, "egg Tracer");
+        assert_eq!(source.display_name, "egg Tracer");
+        assert_eq!(
+            source.team_name.map(|name| name.as_str().to_owned()),
+            Some("/egg/".to_owned())
+        );
     }
 
     #[test]

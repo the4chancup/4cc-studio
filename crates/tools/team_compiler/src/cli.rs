@@ -321,7 +321,7 @@ fn create_teams_list(setting: &Path, data_dir: Option<&Path>) {
         return;
     }
     // The bytes are written unchanged: the file's CRLF bytes are the upstream list's.
-    if let Err(error) = fs::write(&path, TeamsList::UPSTREAM) {
+    if let Err(error) = crate::paths::replace_file(&path, TeamsList::UPSTREAM.as_bytes()) {
         log::warn!(
             "{}: the teams list cannot be written ({error}); the embedded list is used",
             path.display()
@@ -359,7 +359,8 @@ fn prepare_exports_root(
     }
     if source.exports_root.is_some() {
         return Err(invalid(anyhow!(
-            "the exports folder {} given on the command line does not exist",
+            "the exports folder {} given on the command line does not exist: check the path, \
+             or leave it out to use exports_folder_path",
             root.display()
         )));
     }
@@ -652,7 +653,8 @@ mod tests {
         assert_eq!(
             error.to_string(),
             format!(
-                "the exports folder {} given on the command line does not exist",
+                "the exports folder {} given on the command line does not exist: check the \
+                 path, or leave it out to use exports_folder_path",
                 given.display()
             )
         );

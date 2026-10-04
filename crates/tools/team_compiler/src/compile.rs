@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 use crossbeam_channel::{Receiver, Sender, unbounded};
 use pes_version::PesVersion;
-use pipeline::{CpkStem, MemoryBudget, Permit};
+use pipeline::{Cancelled, CpkStem, MemoryBudget, Permit};
 use studio_core::{Disposition, ExportId, Scope, Severity, ToolContext};
 
 use crate::bins::WorkingBins;
@@ -146,24 +146,25 @@ fn build(
         let (batches_tx, batches_rx) = unbounded();
         let last_tasks = &last_tasks;
         let team_colors = &team_colors;
+        let budget = &budget;
         let writer = scope.spawn(move || {
             let mut output = output;
             let mut events = events;
             // The writer finishes the CPK too, so its file is closed when the thread ends,
             // before a failure removes the staging folder. The bins are built on the bundled
             // bases until the installed ones are read (`pipeline.md` "Bins accumulation").
-            let written = write_batches(batches_rx, &mut output, &mut events, last_tasks)
+            let written = write_batches(batches_rx, &mut output, &mut events, last_tasks, budget)
                 .and_then(|()| output.finish(version, WorkingBins::bundled(), team_colors));
             (events, written)
         });
         let coordinated = pool.in_place_scope(|pool_scope| {
-            coordinate(&sources, tasks, &budget, &context, &batches_tx, pool_scope)
+            coordinate(&sources, tasks, budget, &context, &batches_tx, pool_scope)
         });
         drop(batches_tx);
         let written = writer.join().expect("the writer thread does not panic");
         (coordinated, written)
     });
-    if let Some(change) = coordinated? {
+    if let Some(change) = coordinated {
         // The staged CPK holds only the batches spawned before the change, and its writer may
         // have failed on the ones that never came: the change is reported alone, never also
         // as a write failure, and the staging goes either way.
@@ -287,8 +288,9 @@ struct SourceChange {
 /// the task handed to `pool` with its permit, each finished batch sent to `batches`. Each
 /// export's source is opened once for all its tasks, which the manifest keeps together. After
 /// each read the files read are checked against the source's revision; on a change no further
-/// task is read or spawned, the spawned ones finish, and the change is returned. Fails only
-/// when the run is cancelled while a task waits for its permit.
+/// task is read or spawned, the spawned ones finish, and the change is returned. A cancelled
+/// budget stops the coordinator the same way, with no change to report: the cancellation's
+/// only trigger is the writer's `cpk_write_failed`, which the writer reports itself.
 fn coordinate<'scope>(
     sources: &[(ExportSource, Option<SourceRevision>)],
     tasks: Vec<BuildTask>,
@@ -296,7 +298,7 @@ fn coordinate<'scope>(
     context: &'scope CompileContext,
     batches: &'scope Sender<TaskBatch>,
     pool: &rayon::Scope<'scope>,
-) -> anyhow::Result<Option<SourceChange>> {
+) -> Option<SourceChange> {
     let spawn = move |index: usize,
                       task: BuildTask,
                       files: Result<TaskFiles, SourceFailure>,
@@ -330,7 +332,7 @@ fn coordinate<'scope>(
             if !read.is_empty()
                 && let Some(change) = source_change(source, revision.as_ref(), [])
             {
-                return Ok(Some(change));
+                return Some(change);
             }
             let permit = content.into_permit().map(Arc::new);
             for (index, task, files) in read {
@@ -351,9 +353,14 @@ fn coordinate<'scope>(
                         // are contiguous), so the coordinator's share goes
                         // before the wait: only its batches still hold it.
                         drop(group_permit.take());
-                        let permit = Arc::new(budget.acquire(group.charge)?);
-                        group_permit = Some(permit.clone());
-                        permit
+                        match budget.acquire(group.charge) {
+                            Ok(held) => {
+                                let permit = Arc::new(held);
+                                group_permit = Some(permit.clone());
+                                permit
+                            }
+                            Err(Cancelled) => return None,
+                        }
                     }
                     Some(_) => group_permit
                         .clone()
@@ -362,7 +369,10 @@ fn coordinate<'scope>(
                         // The same drop for an ungrouped task's acquire: the
                         // group before it, when there was one, is done.
                         drop(group_permit.take());
-                        Arc::new(budget.acquire(task.charge)?)
+                        match budget.acquire(task.charge) {
+                            Ok(held) => Arc::new(held),
+                            Err(Cancelled) => return None,
+                        }
                     }
                 };
                 let files = read_files(&task, &content);
@@ -371,13 +381,13 @@ fn coordinate<'scope>(
                 let read = task.kind.files();
                 let read = read.iter().map(|file| file.source.as_str());
                 if let Some(change) = source_change(source, revision.as_ref(), read) {
-                    return Ok(Some(change));
+                    return Some(change);
                 }
                 spawn(index, task, files, Some(permit));
             }
         }
     }
-    Ok(None)
+    None
 }
 
 /// The change `source`'s `revision` sees among `files`, the paths in the source a task read;
@@ -398,17 +408,21 @@ fn source_change<'a>(
 /// The writer thread's work: each batch received is committed in manifest order, then every
 /// committed batch's messages reported, and its export's `ExportProcessed` after the export's
 /// last task (`last_tasks`, by manifest position). Returns the first error writing the CPK,
-/// once every batch has been received.
+/// once every batch has been received. A failed `submit` cancels the budget, so the
+/// coordinator stops reading and the pool stops processing the rest of the run: the failure
+/// this function returns is the finding the run reports.
 fn write_batches(
     batches: Receiver<TaskBatch>,
     output: &mut CpkOutput,
     events: &mut RunEvents,
     last_tasks: &BTreeMap<usize, ExportId>,
+    budget: &Arc<MemoryBudget>,
 ) -> anyhow::Result<()> {
     for batch in &batches {
         let committed = match output.submit(batch) {
             Ok(committed) => committed,
             Err(error) => {
+                budget.cancel();
                 // Keep receiving until the channel closes: a pool task's send must never
                 // find it closed, and the coordinator may be waiting for a permit that only
                 // dropping a later batch frees.
@@ -622,11 +636,9 @@ mod tests {
                     drop(batch);
                 }
             });
-            let change = pool
-                .in_place_scope(|scope| {
-                    coordinate(&sources, tasks, &budget, &context, &batches_tx, scope)
-                })
-                .unwrap();
+            let change = pool.in_place_scope(|scope| {
+                coordinate(&sources, tasks, &budget, &context, &batches_tx, scope)
+            });
             drop(batches_tx);
             done_tx.send(change).unwrap();
         });
@@ -647,11 +659,9 @@ mod tests {
             .unwrap();
         let (batches_tx, batches_rx) = unbounded();
 
-        let change = pool
-            .in_place_scope(|scope| {
-                coordinate(sources, tasks, &budget, &context, &batches_tx, scope)
-            })
-            .unwrap();
+        let change = pool.in_place_scope(|scope| {
+            coordinate(sources, tasks, &budget, &context, &batches_tx, scope)
+        });
         drop(batches_tx);
 
         let mut batches: Vec<TaskBatch> = batches_rx.iter().collect();
@@ -741,6 +751,78 @@ mod tests {
         assert!(
             coordinated_with_cap(tasks, 40).is_some(),
             "the coordinator never returned"
+        );
+    }
+
+    #[test]
+    fn a_cancelled_budget_stops_the_coordinator_before_any_task_is_spawned() {
+        let budget = MemoryBudget::new(1 << 30);
+        budget.cancel();
+        let context = CompileContext::new(PesVersion::Pes21, 1);
+        let pool = rayon::ThreadPoolBuilder::new()
+            .num_threads(2)
+            .build()
+            .unwrap();
+        let (batches_tx, batches_rx) = unbounded::<TaskBatch>();
+        let sources = [listed(tracer_source())];
+
+        let change = pool.in_place_scope(|scope| {
+            coordinate(
+                &sources,
+                grouped_tasks(&[], &[10, 20, 30]),
+                &budget,
+                &context,
+                &batches_tx,
+                scope,
+            )
+        });
+        drop(batches_tx);
+
+        assert_eq!(change, None);
+        assert!(
+            batches_rx.try_iter().next().is_none(),
+            "a task was spawned on a cancelled budget"
+        );
+    }
+
+    #[test]
+    fn a_failed_cpk_write_cancels_the_budget_so_no_task_waits_on_it() {
+        let temp = scratch("write_batches_cancel");
+        let root = temp.path();
+        // A file where the CPK's folder goes: it cannot be created in it.
+        fs::write(root.join("blocker"), "").unwrap();
+        let mut output = CpkOutput::new(root.join("blocker").join("cup.cpk"), BTreeMap::new());
+        let budget = MemoryBudget::new(1 << 30);
+        let (batches_tx, batches_rx) = unbounded();
+        batches_tx
+            .send(TaskBatch {
+                index: 0,
+                entries: vec![("common/etc/TeamColor.bin".to_owned(), b"bin".to_vec())],
+                group: None,
+                skipped: Vec::new(),
+                uniparam: None,
+                uni_color: None,
+                messages: Vec::new(),
+                permit: None,
+            })
+            .unwrap();
+        drop(batches_tx);
+        let mut events = RunEvents::new(&tool_context(root, ""));
+
+        assert!(
+            write_batches(
+                batches_rx,
+                &mut output,
+                &mut events,
+                &BTreeMap::new(),
+                &budget
+            )
+            .is_err(),
+            "the CPK could not be created"
+        );
+        assert!(
+            matches!(budget.acquire(1), Err(Cancelled)),
+            "the budget is cancelled"
         );
     }
 

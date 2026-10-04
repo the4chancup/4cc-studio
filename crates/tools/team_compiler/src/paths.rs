@@ -2,6 +2,10 @@
 //! portraits and the logo, every version: `team_compiler/pipeline.md` "Game paths reference".
 //! The CPK paths have no leading `/`.
 
+use std::fs;
+use std::path::Path;
+
+use anyhow::Context;
 use pes_version::PesVersion;
 
 use crate::plan::subset::ModelPackage;
@@ -130,9 +134,79 @@ pub(crate) fn logo(version: PesVersion, team_id: u16) -> [String; 3] {
     ["_r_ll", "_r_l", "_r"].map(|size| format!("common/render/symbol/flag/{stem}{size}.png"))
 }
 
+/// Puts `bytes` in place at `path` through a temporary file beside it, renamed onto it, so
+/// `path` holds the previous file (or none) or the whole new one. The temporary file's name
+/// carries the process id, so two runs writing into one folder stay apart; a failure of the
+/// write or the rename removes it. Each failure names the file it concerns.
+pub(crate) fn replace_file(path: &Path, bytes: &[u8]) -> anyhow::Result<()> {
+    let name = path.file_name().map_or_else(
+        || "file".to_owned(),
+        |name| name.to_string_lossy().into_owned(),
+    );
+    let temporary = path.with_file_name(format!(".{name}-{}.tmp", std::process::id()));
+    if let Err(error) = fs::write(&temporary, bytes) {
+        if let Err(removal) = fs::remove_file(&temporary) {
+            log::debug!("{}: kept: {removal}", temporary.display());
+        }
+        return Err(error).with_context(|| format!("{}: cannot write it", temporary.display()));
+    }
+    if let Err(error) = fs::rename(&temporary, path) {
+        if let Err(removal) = fs::remove_file(&temporary) {
+            log::debug!("{}: kept: {removal}", temporary.display());
+        }
+        return Err(error).with_context(|| format!("{}: cannot replace it", path.display()));
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::testing::scratch;
+
+    /// The names of the entries in `folder`, sorted.
+    fn names(folder: &Path) -> Vec<String> {
+        let mut names: Vec<String> = fs::read_dir(folder)
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+            .collect();
+        names.sort();
+        names
+    }
+
+    #[test]
+    fn a_file_is_put_in_place_through_a_temporary_that_leaves_no_trace() {
+        let temp = scratch("paths_replace_file");
+        let root = temp.path();
+        let path = root.join("the-file.txt");
+
+        replace_file(&path, b"first").unwrap();
+        assert_eq!(fs::read(&path).unwrap(), b"first");
+        assert_eq!(names(root), ["the-file.txt"], "no temporary left");
+
+        replace_file(&path, b"second").unwrap();
+        assert_eq!(fs::read(&path).unwrap(), b"second");
+        assert_eq!(names(root), ["the-file.txt"], "no temporary left");
+    }
+
+    #[test]
+    fn a_target_that_cannot_be_replaced_is_an_error_naming_it_and_keeps_no_temporary() {
+        let temp = scratch("paths_replace_file_blocked");
+        let root = temp.path();
+        // A folder in the file's place, with a file in it so no platform replaces it.
+        let path = root.join("the-file.txt");
+        fs::create_dir_all(path.join("kept")).unwrap();
+
+        let error = replace_file(&path, b"text").unwrap_err();
+
+        let chain = format!("{error:#}");
+        assert!(
+            chain.starts_with(&format!("{}: ", path.display())),
+            "{chain}"
+        );
+        assert!(path.join("kept").is_dir());
+        assert_eq!(names(root), ["the-file.txt"], "no temporary left");
+    }
 
     #[test]
     fn a_face_goes_by_player_id_and_boots_and_gloves_by_four_digit_model_id() {

@@ -8,6 +8,8 @@ use std::path::Path;
 
 use anyhow::Context;
 
+use crate::paths::replace_file;
+
 /// The collected notes' file name in the output folder.
 pub(crate) const FILE_NAME: &str = "teamnotes.txt";
 
@@ -50,17 +52,7 @@ pub(crate) fn write(path: &Path, text: Option<&str>) -> anyhow::Result<()> {
             }
         };
     };
-    // The process id keeps two runs writing into one output folder at once apart.
-    let temporary = path.with_file_name(format!(".teamnotes-{}.tmp", std::process::id()));
-    fs::write(&temporary, text)
-        .with_context(|| format!("{}: cannot write it", temporary.display()))?;
-    if let Err(error) = fs::rename(&temporary, path) {
-        if let Err(removal) = fs::remove_file(&temporary) {
-            log::debug!("{}: kept: {removal}", temporary.display());
-        }
-        return Err(error).with_context(|| format!("{}: cannot replace it", path.display()));
-    }
-    Ok(())
+    replace_file(path, text.as_bytes())
 }
 
 #[cfg(test)]

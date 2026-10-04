@@ -594,12 +594,13 @@ TC-OUT-05  GIVEN a previous <cpk_name>.cpk that another process holds open witho
            WHEN a run writes its new CPK completely and then replaces the previous one
            THEN output_commit_failed is reported, the exit code is 3, the previous CPK is
                 byte-identical to before, and no partial output is left beside it
-TC-OUT-06  GIVEN an export whose players.txt lists a folder holding only boots.fmdl, beside the
-           tracer bullet's export, and a third export holding a kit, an empty players.txt and a
-           player folder holding only boots.fmdl
+TC-OUT-06  GIVEN an export whose players.txt lists a folder holding a model in gloves/ whose name
+           gives no hand, beside the tracer bullet's export, and a third export holding a kit, an
+           empty players.txt and a player folder holding only such a gloves model
            WHEN the root is compiled, then checked
-           THEN compile reports content_not_yet_compiled naming boots for the first, skips it,
-                compiles the other two, and exits with 1; check reports no content_not_yet_compiled
+           THEN compile reports content_not_yet_compiled naming that gloves model for the first,
+                skips it, compiles the other two, and exits with 1; check reports no
+                content_not_yet_compiled
 ```
 
 **Shell slice**

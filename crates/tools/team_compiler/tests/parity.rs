@@ -184,7 +184,50 @@ fn decoded_model(bytes: &[u8]) -> fmdl::Model {
     model
 }
 
-fn compare_fpk(failures: &mut Vec<String>, name: &str, ours: &[u8], reference: &[u8]) {
+/// Every `shirt.dds` texture reference of the FMDL `bytes` resolves to a file
+/// of `compiled` (`testing.md` "Texture locations": rewritten references
+/// resolve to the relocated files). The reference's directory has the FMDL
+/// form `/Assets/pes16/<folder>/`; the emitted texture sits at the CPK path
+/// `Asset/<folder>/#windx11/<stem>.ftex`.
+fn check_resolved(
+    failures: &mut Vec<String>,
+    name: &str,
+    bytes: &[u8],
+    compiled: &BTreeMap<String, Vec<u8>>,
+) {
+    let file = fmdl::FmdlFile::read(bytes).unwrap();
+    let model = fmdl::Model::from_file(&file).unwrap();
+    for material in &model.materials {
+        for (_, texture) in &material.textures {
+            if texture.file_name != "shirt.dds" {
+                continue;
+            }
+            let stem = Path::new(&texture.file_name)
+                .file_stem()
+                .and_then(|stem| stem.to_str())
+                .unwrap_or(texture.file_name.as_str());
+            let directory = texture
+                .directory
+                .strip_prefix("/Assets/pes16")
+                .unwrap_or(texture.directory.as_str());
+            let resolved = format!("Asset{directory}#windx11/{stem}.ftex");
+            if !compiled.contains_key(&resolved) {
+                failures.push(format!(
+                    "{name}: {}{} resolves to {resolved}, not in our CPK",
+                    texture.directory, texture.file_name
+                ));
+            }
+        }
+    }
+}
+
+fn compare_fpk(
+    failures: &mut Vec<String>,
+    name: &str,
+    ours: &[u8],
+    reference: &[u8],
+    compiled: &BTreeMap<String, Vec<u8>>,
+) {
     let ours = FpkFile::read(ours).unwrap();
     let reference = FpkFile::read(reference).unwrap();
     let our_names: BTreeSet<&str> = ours.entries().map(|(name, _)| name).collect();
@@ -199,6 +242,7 @@ fn compare_fpk(failures: &mut Vec<String>, name: &str, ours: &[u8], reference: &
         match ours.get(entry) {
             None => failures.push(format!("tier3 {member}: missing")),
             Some(our_bytes) if entry.ends_with(".fmdl") => {
+                check_resolved(failures, &member, our_bytes, compiled);
                 if decoded_model(our_bytes) != decoded_model(reference_bytes) {
                     failures.push(format!("tier2 {member}: decoded models differ"));
                 }
@@ -250,11 +294,15 @@ fn the_tracer_bullet_matches_the_reference_tree() {
             ),
             Row::Container => match ours.get(*path) {
                 None => failures.push(format!("tier3 {path}: missing from our CPK")),
-                Some(our_bytes) => compare_fpk(&mut failures, path, our_bytes, reference_bytes),
+                Some(our_bytes) => {
+                    compare_fpk(&mut failures, path, our_bytes, reference_bytes, &ours)
+                }
             },
             Row::RelocatedContainer(our_path) => match ours.get(*our_path) {
                 None => failures.push(format!("tier3 {path}: missing from our CPK")),
-                Some(our_bytes) => compare_fpk(&mut failures, path, our_bytes, reference_bytes),
+                Some(our_bytes) => {
+                    compare_fpk(&mut failures, path, our_bytes, reference_bytes, &ours)
+                }
             },
             Row::NotProduced(reason) => {
                 if ours.contains_key(*path) {
