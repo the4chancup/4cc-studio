@@ -151,13 +151,16 @@ pub(crate) enum Code {
     OutputCommitFailed,
     /// `--no-deploy`: the CPK was promoted to the output folder instead of installed.
     DeploySkippedByFlag,
+    /// `teamnotes.txt` could not be written, or a previous one removed, in the output folder;
+    /// the run's CPK stays in place.
+    TeamnotesWriteFailed,
 }
 
 impl Code {
     /// Every code, for the catalog test: a variant missing here would make its first message
     /// panic in `severity`, so a new variant is added to this list too.
     #[cfg(test)]
-    const ALL: [Code; 49] = [
+    const ALL: [Code; 50] = [
         Code::ExportExtractFailed,
         Code::NoExportsFound,
         Code::ExportDisabled,
@@ -207,6 +210,7 @@ impl Code {
         Code::CpkWriteFailed,
         Code::OutputCommitFailed,
         Code::DeploySkippedByFlag,
+        Code::TeamnotesWriteFailed,
     ];
 
     /// The code as the catalog spells it, the stable id a message carries.
@@ -261,6 +265,7 @@ impl Code {
             Code::CpkWriteFailed => "cpk_write_failed",
             Code::OutputCommitFailed => "output_commit_failed",
             Code::DeploySkippedByFlag => "deploy_skipped_by_flag",
+            Code::TeamnotesWriteFailed => "teamnotes_write_failed",
         }
     }
 }
@@ -329,6 +334,7 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("cpk_write_failed", CatalogSeverity::Fatal),
     ("output_commit_failed", CatalogSeverity::Fatal),
     ("deploy_skipped_by_flag", CatalogSeverity::Info),
+    ("teamnotes_write_failed", CatalogSeverity::Error),
     // The format crates' check codes (`fmdl::check::CODES`, `pes_model::check::CODES`), which
     // the deep pass reports under their own names, at the crate's severity: the far vertex
     // excepted, reported as `vertex_too_far_from_origin`. In the order of the plan's "Model

@@ -1582,7 +1582,7 @@ mod tests {
         let export = resolved("co - Gate", &files, &[], None);
 
         let report = plan_run(
-            vec![(ExportId(0), export, two_team_colors())],
+            vec![(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes21,
         );
 

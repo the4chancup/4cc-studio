@@ -245,8 +245,8 @@ format:
    keeps, the set whose team colors are applied. The note's text is read while the export's
    source is open for validation, as the root `colors.txt` is, so no task reads it. The file
    is one entry per export: a header line `--- /co/ ---` (the export's team name), then the
-   note, its line ends made LF and its leading and trailing blank lines removed, then one
-   empty line between entries; the file ends with one LF. It is written (to a temporary file
+   note, its line ends made LF and its leading blank lines and trailing whitespace removed,
+   then one empty line between entries; the file ends with one LF. It is written (to a temporary file
    beside it, then renamed) once the run's CPK is in place, so a run that writes no CPK leaves
    the previous file as it was. A run that writes its CPK and has no note to collect removes a
    previous `teamnotes.txt`, as Red reset the file at every run: a file left over would show

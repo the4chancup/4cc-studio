@@ -147,6 +147,14 @@ among others). `check` still checks
 those exports. `compile` does not install the CPK into the game yet: it always
 leaves it in the output folder.
 
+An export may hold a `notes.txt` at its root, a note for whoever compiles the cup. `compile`
+gathers the notes of every export it compiles into one file, `teamnotes.txt` in the output
+folder, one section per team headed by its name (`--- /co/ ---`), in the order of the exports;
+the note of a skipped export is left out. A compile with no notes to gather removes an older
+`teamnotes.txt`, so the file never shows notes of exports the last compile did not build, and a
+compile that writes no CPK leaves it as it was. When `teamnotes.txt` cannot be written, the
+error `teamnotes_write_failed` names it, and the CPK is still in place.
+
 `check` prints one line per finding: the export it is about, how serious it is, its code, where
 in the export it is, and its details in parentheses. The line `Info export_identified (team=/co/,
 id=714)` tells you which team the export was recognized as: its name's first word, looked up in

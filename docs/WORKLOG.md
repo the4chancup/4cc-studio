@@ -12,8 +12,8 @@ is in `AGENTS.md` ("Working documents").
 **Phase:** 3 (Team compiler skeleton) closed 2026-10-02, its cross-family reviews queued (see
 "Handover"). Phases 1 and 2 done (Phase 2 closed 2026-09-30).
 **Next:** Phase 4 is itemized and its Acceptance section written (step 4.1, 2026-10-03; its
-cross-family review (a) is queued). Next: 4.11b (the notes; 4.11 is worked as four slices
-and 4.11a, the logo, is done); 4.30, 4.5 to 4.8, 4.9a and 4.10 are done (4.6c moved to Phase 8's cancellation), 4.9b (collars)
+cross-family review (a) is queued). Next: 4.11c (kit variants on Fox; 4.11 is worked as
+four slices, and 4.11a, the logo, and 4.11b, the notes, are done); 4.30, 4.5 to 4.8, 4.9a and 4.10 are done (4.6c moved to Phase 8's cancellation), 4.9b (collars)
 waits on the maintainer. 2.5b (GPU BC7) is step 16.x (decision entries
 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0 after Phase 8; phase order 1–6,
 8, 0.1.0, 7, 9–16 (`core/development_plan.md` "Releases"); first-class target the Fox version
@@ -121,7 +121,12 @@ Claude agent with no sidekick and no reviewer of another model family. While tha
   `TaskKind::Logo`, `paths::logo`), the `feat(team_compiler)` commit of 2026-10-04 for
   4.11a, against `pipeline.md` "4. Per-export non-model steps" (Logo), `player_folders.md`
   "Logo", `messages.md` (`logo_fit_applied`, `logo_upscaled`), TC-ROOT-06 to TC-ROOT-08 and
-  the decision entry "the logo's geometry, its findings and its PNG encoder".
+  the decision entry "the logo's geometry, its findings and its PNG encoder"; 4.11b,
+  `team_compiler` (`output/teamnotes.rs`, the note's path from `validation.rs` through
+  `plan_run` to `compile::run`), its `feat(team_compiler)` commit, against `pipeline.md`
+  "2. Per-export serial steps" (5, Notes collection), `messages.md`
+  (`teamnotes_write_failed`), TC-ROOT-09 and the decision entry "`teamnotes.txt`: its
+  layout, when it is written, and its failure".
 - For the lead, on return: the review process on trial (maintainer, 3.1) runs a full sidekick
   review loop after each GPT round and calls GPT again only once that loop has ended and GPT's
   own loop has not; not yet in `AGENTS.md` (3.6: GPT 4 of 7 accepted, then sidekick S1 3 of 7,
@@ -907,9 +912,19 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
     209); `mutants-diff 0e3739b`: 103, 94 caught, 7 unviable, 2 missed, both equivalent
     (`width > height` against `>=` in `centre_square` and `letterboxed`, which are called
     for a non-square image only)
-  - [ ] 4.11b the notes (TC-ROOT-09): the note's text read during validation, carried by the
-    manifest, `output/teamnotes.txt` written once the CPK is in place,
-    `teamnotes_write_failed`. Brief `.tmp/brief_4_11b.md`
+  - [x] 4.11b the notes (TC-ROOT-09): done 2026-10-04 (Opus 5.5, first time, no lead code
+    fix). `CheckedSource::notes` (the text read while the source is open, BOM removed);
+    `plan_run` takes `ExportToPlan` tuples and fills `BuildManifest::notes` for the exports
+    it keeps; `output/teamnotes.rs` (`render`, `write` through `.teamnotes-<pid>.tmp`);
+    `compile::run` writes or removes the file once the CPK is promoted;
+    `teamnotes_write_failed` (E, on the run); the test sandbox's teams list gains `/a/` and
+    `/b/`; help. One brief premise was wrong (a `/b/` skipped by
+    `players_txt_slot_duplicate` is dropped by validation, so no collection point could
+    show its note; the planning test uses an export the gate skips instead). Known shape:
+    `ExportToPlan` is a four-field tuple alias, kept because 27 test call sites build it
+    inline; a struct is the next step if it grows. Not covered from the CLI: the removal
+    failing, the temporary file failing to be written, a `--no-deploy` run with notes. Gates
+    green (127 of 209); `mutants-diff f0f9002`: 19, 16 caught, 3 unviable, 0 missed
   - [ ] 4.11c kit variants on Fox (TC-CMN-04, the Fox half of TC-CMN-05): texture sets
     completed by the textures tasks (`kit_variant_missing`), a `kitN` path pointed at the
     folder's texture home, a higher model variant left out (`kit_variant_model_fox`).
@@ -2194,3 +2209,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   non-square image is fitted, cropped or stretched by its tag. Step 4.11 is split into four
   slices; the plan text and decisions for the next two (notes, kit variants) are in.
   TC-CMN-06 moved to 4.29.
+- **2026-10-04** — 4.11b: `compile` gathers the compiled exports' `notes.txt` into
+  `output/teamnotes.txt`, one `--- /co/ ---` section per team, once the CPK is in place; a
+  compile with no notes removes an older file. TC-TEX-09 (a texture `.common` link) is
+  written for 4.11d.

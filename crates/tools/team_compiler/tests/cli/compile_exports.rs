@@ -535,6 +535,139 @@ fn pass_through_drops_notes_that_are_not_utf8_and_compiles_the_export() {
     assert_eq!(run.exit_code(), 1);
 }
 
+/// Where `compile` collects the notes, in `sandbox`'s output folder, spelled as a finding
+/// names it.
+fn teamnotes(sandbox: &Sandbox) -> std::path::PathBuf {
+    sandbox.root.join("output").join("teamnotes.txt")
+}
+
+/// The export `exports/<name>`: one player that compiles with no finding, and a root
+/// `notes.txt` of `notes` when given.
+fn export_with_notes(sandbox: &Sandbox, name: &str, notes: Option<&[u8]>) {
+    sandbox.write(&format!("exports/{name}/{CLEAN_PLAYER}"), &clean_model());
+    if let Some(notes) = notes {
+        sandbox.write(&format!("exports/{name}/notes.txt"), notes);
+    }
+}
+
+/// The export `exports/b - Skipped`, with a root `notes.txt`, which validation skips: its
+/// `players.txt` maps slot 03 twice.
+fn skipped_export_with_notes(sandbox: &Sandbox) {
+    sandbox.write("exports/b - Skipped/players.txt", b"03 A\n03 B\n");
+    sandbox.write(
+        "exports/b - Skipped/Players/A/face_high.fmdl",
+        &clean_model(),
+    );
+    sandbox.write(
+        "exports/b - Skipped/Players/B/face_high.fmdl",
+        &clean_model(),
+    );
+    sandbox.write("exports/b - Skipped/notes.txt", b"Not compiled.\n");
+}
+
+// TC-ROOT-09
+#[test]
+fn compile_collects_the_compiled_exports_notes_into_teamnotes_txt_and_removes_a_stale_one() {
+    let sandbox = Sandbox::new("root_teamnotes");
+    export_with_notes(&sandbox, "co - Notes", Some(b"Hello"));
+    export_with_notes(
+        &sandbox,
+        "a - Notes",
+        Some(b"First line\r\nsecond line\r\n"),
+    );
+    skipped_export_with_notes(&sandbox);
+    let cpk = sandbox.root.join("output/4cc_99_test.cpk");
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+    assert_eq!(
+        run.messages(),
+        [
+            "a - Notes: Info notes_found [Keep] at notes.txt ()",
+            "a - Notes: Info export_identified [Keep] (team=/a/, id=702)",
+            "b - Skipped: Error players_txt_slot_duplicate [DropExport] at players.txt line 2 slot Some(3) ()",
+            "b - Skipped: Info notes_found [Keep] at notes.txt ()",
+            "co - Notes: Info notes_found [Keep] at notes.txt ()",
+            "co - Notes: Info export_identified [Keep] (team=/co/, id=714)",
+            "a - Notes: Info team_colors_missing [Keep] ()",
+            "co - Notes: Info team_colors_missing [Keep] ()"
+        ]
+    );
+    assert_eq!(run.exit_code(), 1);
+    assert_eq!(compiled_players(&sandbox), [70203, 71403]);
+    assert_eq!(
+        fs::read_to_string(teamnotes(&sandbox)).unwrap(),
+        "--- /a/ ---\nFirst line\nsecond line\n\n--- /co/ ---\nHello\n"
+    );
+
+    // Compiled again without the notes: the file left over would show notes no export of
+    // this run has. The CPK is removed first, so the run is seen writing its own.
+    fs::remove_file(sandbox.root.join("exports/co - Notes/notes.txt")).unwrap();
+    fs::remove_file(sandbox.root.join("exports/a - Notes/notes.txt")).unwrap();
+    fs::remove_file(&cpk).unwrap();
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+    assert_eq!(run.exit_code(), 1);
+    assert!(cpk.is_file());
+    assert!(!teamnotes(&sandbox).exists());
+
+    let fresh = Sandbox::new("root_teamnotes_none");
+    export_with_notes(&fresh, "co - Plain", None);
+
+    let run = fresh.run(&pes21_settings(&fresh), &["compile"]);
+
+    assert_eq!(run.exit_code(), 0);
+    assert!(fresh.root.join("output/4cc_99_test.cpk").is_file());
+    assert!(!teamnotes(&fresh).exists());
+}
+
+#[test]
+fn a_compile_that_writes_no_cpk_leaves_the_previous_teamnotes_txt() {
+    let sandbox = Sandbox::new("root_teamnotes_no_cpk");
+    skipped_export_with_notes(&sandbox);
+    sandbox.write("output/teamnotes.txt", b"--- /co/ ---\nPrevious.\n");
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+    assert_eq!(run.exit_code(), 1);
+    assert!(!sandbox.root.join("output/4cc_99_test.cpk").exists());
+    assert_eq!(
+        fs::read(teamnotes(&sandbox)).unwrap(),
+        b"--- /co/ ---\nPrevious.\n"
+    );
+}
+
+#[test]
+fn a_teamnotes_txt_that_cannot_be_written_is_reported_and_the_cpk_stays() {
+    let sandbox = Sandbox::new("root_teamnotes_write_failed");
+    export_with_notes(&sandbox, "co - Notes", Some(b"Hello"));
+    // A folder in the file's place, with a file in it so no platform replaces it.
+    sandbox.write("output/teamnotes.txt/kept", b"");
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+    let lines = run.messages();
+    let (last, first) = lines.split_last().unwrap();
+    assert_eq!(
+        first,
+        [
+            "co - Notes: Info notes_found [Keep] at notes.txt ()",
+            "co - Notes: Info export_identified [Keep] (team=/co/, id=714)",
+            "co - Notes: Info team_colors_missing [Keep] ()"
+        ]
+    );
+    // The error ends with the platform's own text, so only its shape is fixed.
+    let prefix = format!(
+        "Error teamnotes_write_failed [Keep] (path={path}, error={path}: ",
+        path = teamnotes(&sandbox).display()
+    );
+    assert!(last.starts_with(&prefix) && last.ends_with(')'), "{last}");
+    assert_eq!(run.exit_code(), 1);
+    assert_eq!(compiled_players(&sandbox), [71403]);
+    assert!(teamnotes(&sandbox).join("kept").is_file());
+}
+
 /// The bundled `TeamColor.bin`, which a run with no installed bin builds on.
 fn bundled_team_color() -> Vec<u8> {
     fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../resources/bins/TeamColor.bin"))

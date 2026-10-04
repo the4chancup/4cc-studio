@@ -50,6 +50,9 @@ pub(crate) struct BuildManifest {
     /// its `TeamColor.bin` record, in export order. A team whose file gives no color, or that
     /// has no file, is not listed: its record keeps its bytes.
     pub(crate) team_colors: Vec<(u16, Vec<Rgb>)>,
+    /// Each planned team's name as messages show it (`/co/`) and the text of its root
+    /// `notes.txt`, in export order, for `teamnotes.txt`. A team without a note is not listed.
+    pub(crate) notes: Vec<(String, String)>,
 }
 
 /// One unit of work: one package of a player folder's models, the folder's textures, one
@@ -396,20 +399,27 @@ pub(crate) fn mapped_players(export: &ValidatedAestheticsExport) -> Vec<&PlayerF
         .collect()
 }
 
-/// Plans the run over the identity-resolved exports, given in `ExportId` order, each with the
-/// valid colors of its root `colors.txt` (`None` when it has no such file), for the target
+/// One identity-resolved export as planning takes it: its id, the export, the valid colors of
+/// its root `colors.txt` (`None` when it has no such file) and the text of its root
+/// `notes.txt` (`None` when it has none).
+pub(crate) type ExportToPlan = (
+    ExportId,
+    ResolvedAestheticsExport,
+    Option<Vec<Rgb>>,
+    Option<String>,
+);
+
+/// Plans the run over the identity-resolved exports, given in `ExportId` order, for the target
 /// `version`. An export holding anything Phase 3 cannot compile yet plans no task and reports
-/// `content_not_yet_compiled` naming the first such item. Every other export's colors go into
-/// the manifest; one with no root `colors.txt` reports `team_colors_missing`, and its team keeps
-/// the colors it had.
-pub(crate) fn plan_run(
-    exports: Vec<(ExportId, ResolvedAestheticsExport, Option<Vec<Rgb>>)>,
-    version: PesVersion,
-) -> PlanReport {
+/// `content_not_yet_compiled` naming the first such item. Every other export's colors and note
+/// go into the manifest; one with no root `colors.txt` reports `team_colors_missing`, and its
+/// team keeps the colors it had.
+pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanReport {
     let mut tasks = Vec::new();
     let mut team_colors = Vec::new();
+    let mut notes = Vec::new();
     let mut messages = Vec::new();
-    for (export_id, mut resolved, colors) in exports {
+    for (export_id, mut resolved, colors, note) in exports {
         match version.engine() {
             Engine::Fox => drop_kit_masks(export_id, &mut resolved.export.kits, &mut messages),
             Engine::PreFox => {}
@@ -423,7 +433,7 @@ pub(crate) fn plan_run(
             ));
             continue;
         }
-        let ExportIdentity::Team { id, .. } = resolved.identity else {
+        let ExportIdentity::Team { id, name } = resolved.identity else {
             unreachable!("the subset gate skips every referee export");
         };
         let team_id = id.get();
@@ -438,6 +448,9 @@ pub(crate) fn plan_run(
             // there is nothing to write.
             Some(colors) if colors.is_empty() => {}
             Some(colors) => team_colors.push((team_id, colors)),
+        }
+        if let Some(note) = note {
+            notes.push((name.as_str().to_owned(), note));
         }
         let model_ids = PlannedModelIds::for_team(id);
         let mut export = resolved.export;
@@ -611,7 +624,11 @@ pub(crate) fn plan_run(
         }
     }
     PlanReport {
-        manifest: BuildManifest { tasks, team_colors },
+        manifest: BuildManifest {
+            tasks,
+            team_colors,
+            notes,
+        },
         messages,
     }
 }
@@ -834,8 +851,8 @@ mod tests {
 
         let report = plan_run(
             vec![
-                (ExportId(0), first, two_team_colors()),
-                (ExportId(1), second, two_team_colors()),
+                (ExportId(0), first, two_team_colors(), None),
+                (ExportId(1), second, two_team_colors(), None),
             ],
             PesVersion::Pes21,
         );
@@ -883,7 +900,7 @@ mod tests {
         );
 
         let report = plan_run(
-            vec![(ExportId(0), export, two_team_colors())],
+            vec![(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes21,
         );
 
@@ -934,7 +951,7 @@ mod tests {
         );
 
         let report = plan_run(
-            vec![(ExportId(0), export, two_team_colors())],
+            vec![(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes21,
         );
 
@@ -1003,7 +1020,7 @@ mod tests {
         );
 
         let report = plan_run(
-            vec![(ExportId(0), export, two_team_colors())],
+            vec![(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes21,
         );
 
@@ -1118,7 +1135,7 @@ mod tests {
         let export = resolved("co - Combined", &files, &[], None);
 
         let report = plan_run(
-            vec![(ExportId(0), export, two_team_colors())],
+            vec![(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes21,
         );
 
@@ -1223,7 +1240,7 @@ mod tests {
         );
 
         let report = plan_run(
-            vec![(ExportId(0), export, two_team_colors())],
+            vec![(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes21,
         );
 
@@ -1288,7 +1305,7 @@ mod tests {
         );
 
         let report = plan_run(
-            vec![(ExportId(0), export, two_team_colors())],
+            vec![(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes21,
         );
 
@@ -1398,7 +1415,7 @@ mod tests {
         );
 
         let report = plan_run(
-            vec![(ExportId(0), export, two_team_colors())],
+            vec![(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes21,
         );
 
@@ -1471,7 +1488,7 @@ mod tests {
             .collect();
         let export = resolved("co - Faces", &files, &[], None);
         let report = plan_run(
-            vec![(ExportId(0), export, two_team_colors())],
+            vec![(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes21,
         );
         assert_eq!(
@@ -1534,7 +1551,7 @@ mod tests {
         );
 
         let report = plan_run(
-            vec![(ExportId(0), export, two_team_colors())],
+            vec![(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes21,
         );
 
@@ -1572,7 +1589,7 @@ mod tests {
         );
 
         let report = plan_run(
-            vec![(ExportId(0), export, two_team_colors())],
+            vec![(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes21,
         );
 
@@ -1618,7 +1635,7 @@ mod tests {
         );
 
         let report = plan_run(
-            vec![(ExportId(0), export, two_team_colors())],
+            vec![(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes21,
         );
 
@@ -1643,7 +1660,7 @@ mod tests {
         );
 
         let report = plan_run(
-            vec![(ExportId(3), export, two_team_colors())],
+            vec![(ExportId(3), export, two_team_colors(), None)],
             PesVersion::Pes21,
         );
 
@@ -1716,7 +1733,7 @@ mod tests {
         );
 
         let report = plan_run(
-            vec![(ExportId(0), export, two_team_colors())],
+            vec![(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes21,
         );
 
@@ -1753,7 +1770,7 @@ mod tests {
         assert_eq!(issues, ["kit_textures_inherited"]);
 
         let report = plan_run(
-            vec![(ExportId(0), export, two_team_colors())],
+            vec![(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes21,
         );
 
@@ -1787,7 +1804,7 @@ mod tests {
         let (export, codes_found) = resolved_with_issues("co - Fpc", &files, &[], players_txt);
         assert_eq!(codes_found, issues, "validation's issues");
         let report = plan_run(
-            vec![(ExportId(0), export, two_team_colors())],
+            vec![(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes21,
         );
         assert!(
@@ -1843,7 +1860,7 @@ mod tests {
             None,
         );
         let report = plan_run(
-            vec![(ExportId(0), export, two_team_colors())],
+            vec![(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes21,
         );
         assert_eq!(
@@ -1867,8 +1884,8 @@ mod tests {
 
         let report = plan_run(
             vec![
-                (ExportId(2), referees, None),
-                (ExportId(3), kit, two_team_colors()),
+                (ExportId(2), referees, None, None),
+                (ExportId(3), kit, two_team_colors(), None),
             ],
             PesVersion::Pes21,
         );
@@ -1908,13 +1925,13 @@ mod tests {
         let colors = vec![[0xc1, 0x12, 0x00], [0x41, 0x41, 0x41]];
 
         let with = plan_run(
-            vec![(ExportId(0), kit(), Some(colors.clone()))],
+            vec![(ExportId(0), kit(), Some(colors.clone()), None)],
             PesVersion::Pes21,
         );
         assert_eq!(with.manifest.team_colors, [(714, colors.clone())]);
         assert_eq!(codes(&with), ["kit_config_generated"]);
 
-        let without = plan_run(vec![(ExportId(4), kit(), None)], PesVersion::Pes21);
+        let without = plan_run(vec![(ExportId(4), kit(), None, None)], PesVersion::Pes21);
         assert_eq!(without.manifest.team_colors, []);
         let [missing, generated] = without.messages.as_slice() else {
             panic!("{:?}", without.messages);
@@ -1935,7 +1952,7 @@ mod tests {
 
         // A file whose every line was refused: the deep pass reported the lines.
         let refused_lines = plan_run(
-            vec![(ExportId(0), kit(), Some(Vec::new()))],
+            vec![(ExportId(0), kit(), Some(Vec::new()), None)],
             PesVersion::Pes21,
         );
         assert_eq!(refused_lines.manifest.team_colors, []);
@@ -1945,8 +1962,8 @@ mod tests {
         let dbg = resolved("dbg - Kit", &[("Kits/p1/kit.dds", 1)], &[], None);
         let both = plan_run(
             vec![
-                (ExportId(0), dbg, Some(vec![[1, 2, 3]])),
-                (ExportId(1), kit(), Some(colors.clone())),
+                (ExportId(0), dbg, Some(vec![[1, 2, 3]]), None),
+                (ExportId(1), kit(), Some(colors.clone()), None),
             ],
             PesVersion::Pes21,
         );
@@ -1957,13 +1974,47 @@ mod tests {
     }
 
     #[test]
+    fn the_notes_of_the_planned_exports_go_into_the_manifest_in_export_order() {
+        let kit = |name| resolved(name, &[("Kits/p1/kit.dds", 1)], &[], None);
+        let referees = resolved(
+            "refs Cup",
+            &[
+                ("Players/Keeper/face_high.fmdl", 1),
+                ("Players/Keeper/face_diff.bin", 0),
+            ],
+            &[],
+            Some(b"01 Keeper\n"),
+        );
+        let note = |text: &str| Some(text.to_owned());
+
+        let report = plan_run(
+            vec![
+                (ExportId(0), kit("dbg - Kit"), None, note("dbg's note")),
+                (ExportId(1), kit("co - Plain"), None, None),
+                // The subset gate skips it: a referee export is not compiled yet.
+                (ExportId(2), referees, None, note("the referees' note")),
+                (ExportId(3), kit("co - Kit"), None, note("co's note")),
+            ],
+            PesVersion::Pes21,
+        );
+
+        assert_eq!(
+            report.manifest.notes,
+            [
+                ("/dbg/".to_owned(), "dbg's note".to_owned()),
+                ("/co/".to_owned(), "co's note".to_owned())
+            ]
+        );
+    }
+
+    #[test]
     fn an_export_the_subset_gate_refuses_lists_no_colors_and_reports_none_missing() {
         let kit = || resolved("co - Kit", &[("Kits/p1/kit.dds", 1)], &[], None);
         // PES 17 is a target `compile` does not build yet.
         let report = plan_run(
             vec![
-                (ExportId(0), kit(), Some(vec![[1, 2, 3]])),
-                (ExportId(1), kit(), None),
+                (ExportId(0), kit(), Some(vec![[1, 2, 3]]), None),
+                (ExportId(1), kit(), None, None),
             ],
             PesVersion::Pes17,
         );

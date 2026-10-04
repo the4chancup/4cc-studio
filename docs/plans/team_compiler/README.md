@@ -823,6 +823,13 @@ TC-TEX-08  GIVEN dds_compression = true, then false, then auto with multicpk_mod
            THEN every .dds entry of the first run is WESYS-wrapped and decompresses to the second
                 run's bytes; the third run equals the second; a source already WESYS-wrapped is
                 emitted as it is in every run; compiled for PES 21 the setting changes nothing
+TC-TEX-09  GIVEN slot 05 holding a face model naming the textures hair and skin, skin.dds,
+           hair.dds.common, and Common/hair.dds
+           WHEN the export is compiled for PES 21
+           THEN the packed model's hair path points at
+                Asset/model/character/common/714/sourceimages/#windx11/, where hair.ftex sits
+                once, its skin path at the player's own texture folder, and no hair.ftex and no
+                link file is in the player's folder
 ```
 
 **Deep checks**

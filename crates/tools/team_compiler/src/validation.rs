@@ -50,6 +50,9 @@ pub(crate) struct CheckedSource {
     /// gives one); `None` when the export has no such file, is a referee export, or a
     /// finding dropped it before its identity was resolved. Read only beside `resolved`.
     pub(crate) team_colors: Option<Vec<Rgb>>,
+    /// The text of the root `notes.txt` validation kept, its BOM removed; `None` when the
+    /// export has no such note or a finding dropped it before its identity was resolved.
+    pub(crate) notes: Option<String>,
 }
 
 /// The run's memory budget, at the share of the available memory the settings give.
@@ -170,6 +173,7 @@ fn check_source(
         )],
         resolved: None,
         team_colors: None,
+        notes: None,
     };
     let listing = match route {
         Route::Unreadable(failure) => {
@@ -220,6 +224,10 @@ fn check_source(
         .validated
         .as_ref()
         .and_then(|validated| team_colors(validated, &content));
+    let notes = report
+        .validated
+        .as_ref()
+        .and_then(|validated| notes(validated, &content));
     // Nothing past the deep pass reads the source: a `.7z`'s buffer and its permit go now,
     // not after identity.
     drop(content);
@@ -262,6 +270,7 @@ fn check_source(
         messages,
         resolved,
         team_colors,
+        notes,
     }
 }
 
@@ -284,6 +293,37 @@ fn team_colors(export: &ValidatedAestheticsExport, content: &ContentSource) -> O
                 failure.error
             );
             Some(Vec::new())
+        }
+    }
+}
+
+/// The text of `export`'s root `notes.txt`, read from `content`, its BOM removed, or `None`
+/// when validation kept no note. Validation has reported the file and dropped one that is not
+/// UTF-8 or holds only whitespace; a read that fails only now is logged and gives no note.
+fn notes(export: &ValidatedAestheticsExport, content: &ContentSource) -> Option<String> {
+    let file = export.root.notes.as_ref()?;
+    let bytes = match content.read(file.source.as_str()) {
+        Ok(bytes) => bytes,
+        Err(failure) => {
+            log::debug!(
+                "{}: the notes cannot be read again: {}",
+                failure.path,
+                failure.error
+            );
+            return None;
+        }
+    };
+    match String::from_utf8(bytes) {
+        Ok(text) => match text.strip_prefix('\u{feff}') {
+            Some(without_bom) => Some(without_bom.to_owned()),
+            None => Some(text),
+        },
+        Err(error) => {
+            log::debug!(
+                "{}: the notes are no longer UTF-8: {error}",
+                file.path.as_str()
+            );
+            None
         }
     }
 }
@@ -709,6 +749,52 @@ mod tests {
             ),
             None
         );
+    }
+
+    /// `notes` over a folder export `co - Notes`, in the scratch folder `scratch_name`, whose
+    /// root `notes.txt` validation kept holding `bytes`, or without one.
+    fn notes_of(scratch_name: &str, bytes: Option<&[u8]>) -> Option<String> {
+        let temp = scratch(scratch_name);
+        let mut export = resolved("co - Notes", &[("Kits/p1/kit.dds", 1)], &[], None);
+        if let Some(bytes) = bytes {
+            std::fs::write(temp.path().join("notes.txt"), bytes).unwrap();
+            let path = ScopePath::new("notes.txt").unwrap();
+            export.export.root.notes = Some(FileDescriptor {
+                size: bytes.len() as u64,
+                kind: aesthetics_export::classify(path.name()),
+                source: path.clone(),
+                path,
+            });
+        }
+        let source = ExportSource {
+            export_id: ExportId(0),
+            path: temp.path().to_path_buf(),
+            kind: SourceKind::Folder,
+            file_name: "co - Notes".to_owned(),
+            display_name: "co - Notes".to_owned(),
+            team_name: None,
+        };
+        notes(
+            &export.export,
+            &ContentSource::new(&source, &MemoryBudget::new(1 << 30)),
+        )
+    }
+
+    #[test]
+    fn a_kept_notes_txt_gives_its_text_without_its_bom_and_no_note_gives_none() {
+        assert_eq!(
+            notes_of(
+                "notes_bom",
+                Some(b"\xEF\xBB\xBFOur GK kit\r\nis invisible.\r\n")
+            )
+            .as_deref(),
+            Some("Our GK kit\r\nis invisible.\r\n")
+        );
+        assert_eq!(
+            notes_of("notes_plain", Some(b"Hello")).as_deref(),
+            Some("Hello")
+        );
+        assert_eq!(notes_of("notes_none", None), None);
     }
 
     #[test]

@@ -16,17 +16,18 @@ use crate::bins::WorkingBins;
 use crate::cli::RunInputs;
 use crate::events::RunEvents;
 use crate::messages::{Code, tool_message};
-use crate::output::deploy;
 use crate::output::writer::CpkOutput;
+use crate::output::{deploy, teamnotes};
 use crate::plan::{BuildTask, plan_run};
 use crate::processing::{CompileContext, TaskBatch, TaskFiles, process_task};
 use crate::reader::{ContentSource, ExportSource, SourceFailure, SourceKind};
 use crate::validation::{run_budget, run_pool, validation_pass};
 
 /// Compiles every export validation keeps into `<output_folder>/<cpk_stem>.cpk`,
-/// reported as events. Returns the worst severity reported: a CPK that cannot be written or
-/// put in place is a Fatal finding, after which the previous CPK is all that is left. An
-/// exports folder that cannot be read is an error.
+/// reported as events, then collects the compiled exports' notes into
+/// `<output_folder>/teamnotes.txt`. Returns the worst severity reported: a CPK that cannot be
+/// written or put in place is a Fatal finding, after which the previous CPK is all that is
+/// left. An exports folder that cannot be read is an error.
 pub(crate) fn run(
     inputs: &RunInputs,
     cpk_stem: &CpkStem,
@@ -50,7 +51,12 @@ pub(crate) fn run(
             events.message(message);
         }
         if let Some(resolved) = checked.resolved {
-            exports.push((checked.source.export_id, resolved, checked.team_colors));
+            exports.push((
+                checked.source.export_id,
+                resolved,
+                checked.team_colors,
+                checked.notes,
+            ));
         }
         sources.push(checked.source);
     }
@@ -62,6 +68,7 @@ pub(crate) fn run(
 
     let tasks = report.manifest.tasks;
     let team_colors = report.manifest.team_colors;
+    let notes = report.manifest.notes;
     let mut last_task_of: BTreeMap<ExportId, usize> = BTreeMap::new();
     for (index, task) in tasks.iter().enumerate() {
         last_task_of.insert(task.export_id, index);
@@ -138,6 +145,7 @@ pub(crate) fn run(
                     vec![("path", promoted.display().to_string())],
                 ));
             }
+            write_teamnotes(&mut events, output_folder, &notes);
         }
         Err(error) => abort_output(
             &mut events,
@@ -149,6 +157,26 @@ pub(crate) fn run(
         ),
     }
     Ok(events.worst())
+}
+
+/// Writes `notes` (team name, note text) as `<output_folder>/teamnotes.txt`, or removes a
+/// previous one when there is no note: a file left over would show the notes of exports this
+/// run did not compile. Called once the CPK is in place, so a run that writes none leaves the
+/// previous file. A failure is `teamnotes_write_failed`, an Error on the run naming the file
+/// and the whole error chain; the CPK stays.
+fn write_teamnotes(events: &mut RunEvents, output_folder: &Path, notes: &[(String, String)]) {
+    let path = output_folder.join(teamnotes::FILE_NAME);
+    if let Err(error) = teamnotes::write(&path, teamnotes::render(notes).as_deref()) {
+        events.message(tool_message(
+            Code::TeamnotesWriteFailed,
+            Scope::Run,
+            Disposition::Keep,
+            vec![
+                ("path", path.display().to_string()),
+                ("error", format!("{error:#}")),
+            ],
+        ));
+    }
 }
 
 /// A failure writing the CPK or putting it in place: the run's staging is discarded, so the
