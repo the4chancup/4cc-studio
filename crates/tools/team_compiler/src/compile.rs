@@ -289,8 +289,8 @@ struct SourceChange {
 /// export's source is opened once for all its tasks, which the manifest keeps together. After
 /// each read the files read are checked against the source's revision; on a change no further
 /// task is read or spawned, the spawned ones finish, and the change is returned. A cancelled
-/// budget stops the coordinator before the next source and at a waiting acquire, with no
-/// change to report: the cancellation's only trigger is the writer's `cpk_write_failed`,
+/// budget stops the coordinator before the next task's read and at a waiting acquire, with
+/// no change to report: the cancellation's only trigger is the writer's `cpk_write_failed`,
 /// which the writer reports itself.
 fn coordinate<'scope>(
     sources: &[(ExportSource, Option<SourceRevision>)],
@@ -316,11 +316,6 @@ fn coordinate<'scope>(
     // sharing it would only wait on each other, and processing needs no source handle.
     let mut tasks = tasks.into_iter().enumerate().peekable();
     for (source, revision) in sources {
-        // A `.7z`'s acquire happens inside its first `read`, which would turn `Cancelled`
-        // into a failed read rather than stopping the run; check before opening anything.
-        if budget.is_cancelled() {
-            return None;
-        }
         let content = ContentSource::new(source, budget);
         if source.kind == SourceKind::SevenZ {
             // A `.7z` holds one permit for its whole decompressed buffer, and a task asking
@@ -330,6 +325,12 @@ fn coordinate<'scope>(
             while let Some((index, task)) =
                 tasks.next_if(|(_, task)| task.export_id == source.export_id)
             {
+                // The cancelled check sits at each task, not each source: a `.7z` acquires
+                // inside its first `read`, so a cancel landing while its permit is held
+                // would otherwise read and spawn the rest of the archive.
+                if budget.is_cancelled() {
+                    return None;
+                }
                 let files = read_files(&task, &content);
                 read.push((index, task, files));
             }
@@ -353,6 +354,11 @@ fn coordinate<'scope>(
             while let Some((index, task)) =
                 tasks.next_if(|(_, task)| task.export_id == source.export_id)
             {
+                // The same check at each task: a group's later tasks share its permit, so
+                // they never reach an `acquire` that would turn a cancel into `None`.
+                if budget.is_cancelled() {
+                    return None;
+                }
                 let permit = match &task.group {
                     Some(group) if index == group.tasks.start => {
                         // The previous group's tasks are all spawned (groups

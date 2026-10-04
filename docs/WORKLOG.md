@@ -2435,3 +2435,11 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   where planning folds; roster findings on an undecided root; a flattened wrapper of empty
   folders kept); sidekick S3.2 2 of 3 (face file names and texture stems matched
   case-exactly). Rulings `.tmp/review_rulings_S3.md`.
+- **2026-10-05** — Review queue, S4 the Team compiler's Phase 3 skeleton (3.8 (b) CLI half,
+  3.9f (a), 3.y (c) team_compiler): sidekick S4.1 1 of 4 (the command-line root's refusal said
+  no action); GPT A1 5 of 5 (a failed CPK write kept the whole cup processing; a teams list
+  written straight onto its path left a truncated file later runs read; `--export ..` named
+  `..`; the parity test normalized relocated references unchecked; TC-OUT-06's text stale);
+  sidekick S4.2 0; GPT A2 1 of 1 (a `.7z` kept running after the cancel); sidekick S4.3 1 of 1
+  (the cancel checked only between sources). From S4.3 the sidekick's role is a `swe-2-high`
+  subagent (AGENTS.md "Environment"). Rulings `.tmp/review_rulings_S4.md`.
