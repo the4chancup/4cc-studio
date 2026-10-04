@@ -1342,3 +1342,60 @@ fn the_planned_ids_are_the_slot_s_and_two_compiles_write_the_same_bytes() {
     assert_eq!(first, second);
     assert!(first_cpk == second_cpk, "the two CPKs differ");
 }
+
+// TC-CMN-05
+#[test]
+fn per_kit_models_on_pes_21_compile_the_lowest_variant_alone_and_say_so() {
+    let sandbox = Sandbox::new("mod_kit_variant_models");
+    let player = "exports/co - Variants/Players/05 - A";
+    // Different models: merged, the two would make a hair of more meshes than `pants_kit1`'s.
+    sandbox.write(
+        &format!("{player}/pants_kit1.fmdl"),
+        &tracer_player_file("fcl_hair.fmdl"),
+    );
+    sandbox.write(
+        &format!("{player}/pants_kit2.fmdl"),
+        &tracer_player_file("boots.fmdl"),
+    );
+    // The deep pass reads every model, the left-out variant included; it is not a part of
+    // the hair, so only `pants_kit1` is the hair's fallback.
+    let checked = [
+        "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=pants_kit1.fmdl, count=1662)",
+        "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=pants_kit2.fmdl, count=1662)",
+        "Info export_identified [Keep] (team=/co/, id=714)",
+        "Info fmdl_fcl_hair_fallback [Keep] at Players/05 - A (file=pants_kit1.fmdl)",
+    ];
+
+    let check = sandbox.run(&pes21_settings(&sandbox), &["check"]);
+    assert_eq!(findings_of(&check.messages(), "co - Variants"), checked);
+    assert_eq!(check.exit_code(), 0);
+
+    let both = compile_clean(
+        &sandbox,
+        "co - Variants",
+        &[
+            &checked[..],
+            &[
+                "Info team_colors_missing [Keep] ()",
+                "Warning kit_variant_model_fox [Keep] at Players/05 - A (model=pants_kitN.fmdl, used=pants_kit1.fmdl)",
+            ],
+        ]
+        .concat(),
+    );
+    fs::remove_file(sandbox.root.join(format!("{player}/pants_kit2.fmdl"))).unwrap();
+    let alone = compile_clean(
+        &sandbox,
+        "co - Variants",
+        &[
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=pants_kit1.fmdl, count=1662)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info fmdl_fcl_hair_fallback [Keep] at Players/05 - A (file=pants_kit1.fmdl)",
+            "Info team_colors_missing [Keep] ()",
+        ],
+    );
+
+    let hair = |entries: &BTreeMap<String, Vec<u8>>| {
+        face_package(entries).get("fcl_hair.fmdl").unwrap().to_vec()
+    };
+    assert!(hair(&both) == hair(&alone), "the packed hair differs");
+}

@@ -153,16 +153,15 @@ pub(crate) fn process_task(
             &mut findings,
         )
         .map(|entries| (entries, None)),
-        TaskKind::Textures { folder, .. } => {
-            texture::folder_textures(folder, task.team_id, ctx, &mut files, &mut findings).map(
-                |(entries, dropped)| {
+        TaskKind::Textures { folder, kits } => {
+            texture::folder_textures(folder, kits, task.team_id, ctx, &mut files, &mut findings)
+                .map(|(entries, dropped)| {
                     skipped = dropped_positions(task.group.as_ref(), &dropped);
                     (entries, None)
-                },
-            )
+                })
         }
-        TaskKind::CommonTextures { textures, .. } => {
-            texture::common_textures(textures, task.team_id, ctx, &mut files, &mut findings)
+        TaskKind::CommonTextures { textures, kits, .. } => {
+            texture::common_textures(textures, kits, task.team_id, ctx, &mut files, &mut findings)
                 .map(|entries| (entries, None))
         }
         TaskKind::Portrait { player_id, file } => {
@@ -722,7 +721,10 @@ mod tests {
             package: ModelPackage::Gloves,
             ids: vec![644],
         });
-        let textures = run(TaskKind::Textures { folder });
+        let textures = run(TaskKind::Textures {
+            folder,
+            kits: Vec::new(),
+        });
 
         assert!(package.messages.is_empty(), "{:?}", package.messages);
         assert_eq!(
@@ -755,6 +757,7 @@ mod tests {
         let batch = run_task(
             TaskKind::Textures {
                 folder: whole_player(),
+                kits: Vec::new(),
             },
             PesVersion::Pes21,
             Some(TaskGroup {
@@ -1601,7 +1604,10 @@ mod tests {
         );
 
         let package = run(boots(folder.clone()));
-        let textures = run(TaskKind::Textures { folder });
+        let textures = run(TaskKind::Textures {
+            folder,
+            kits: Vec::new(),
+        });
 
         assert_eq!(one_message(&package).0, "fmdl_merged");
         let fpk = FpkFile::read(&package.entries[0].1).unwrap();
@@ -1862,6 +1868,7 @@ mod tests {
             TaskKind::CommonTextures {
                 folder: folder.clone(),
                 textures: textures.clone(),
+                kits: Vec::new(),
             },
             &[("Common/hair.ftex", &converted)],
         );
@@ -1881,7 +1888,11 @@ mod tests {
 
         // One texture that cannot convert fails the task, on the Common folder.
         let batch = run_with(
-            TaskKind::CommonTextures { folder, textures },
+            TaskKind::CommonTextures {
+                folder,
+                textures,
+                kits: Vec::new(),
+            },
             &[("Common/Cloth.dds", b"not a DDS")],
         );
         assert!(batch.entries.is_empty(), "{:?}", paths(&batch));
@@ -1918,7 +1929,11 @@ mod tests {
         .unwrap();
 
         let batch = run_with(
-            TaskKind::CommonTextures { folder, textures },
+            TaskKind::CommonTextures {
+                folder,
+                textures,
+                kits: Vec::new(),
+            },
             &[("Common/bc6h.dds", &bc6h)],
         );
 
@@ -2104,7 +2119,10 @@ mod tests {
         let package = FpkFile::read(&batch.entries[0].1).unwrap();
         // The shared folder's texture is the player's now.
         assert_rewritten(&texture_directories(&package, "hair_high.fmdl"));
-        let textures = run(TaskKind::Textures { folder: alone });
+        let textures = run(TaskKind::Textures {
+            folder: alone,
+            kits: Vec::new(),
+        });
         assert_eq!(paths(&textures), [COMMON]);
 
         // Both sources holding `face_diff.bin`: the player's own is packed, the shared one
@@ -2156,7 +2174,10 @@ mod tests {
     /// and gloves tasks.
     fn textures_in_group(folder: ModelFolder) -> TaskBatch {
         run_task(
-            TaskKind::Textures { folder },
+            TaskKind::Textures {
+                folder,
+                kits: Vec::new(),
+            },
             PesVersion::Pes21,
             Some(TaskGroup {
                 tasks: 0..4,
@@ -2277,7 +2298,10 @@ mod tests {
         );
 
         let batch = run_task(
-            TaskKind::Textures { folder },
+            TaskKind::Textures {
+                folder,
+                kits: Vec::new(),
+            },
             PesVersion::Pes21,
             Some(TaskGroup {
                 tasks: 4..7,
@@ -2330,6 +2354,208 @@ mod tests {
                 Disposition::DropFolder,
                 &[("texture".to_owned(), "shirt".to_owned())][..]
             )
+        );
+    }
+
+    /// The CPK path of the tracer player's texture `stem`, in its common subfolder.
+    fn player_texture(stem: &str) -> String {
+        format!(
+            "Asset/model/character/common/792/05 - The Chad Stormworks Player/sourceimages/#windx11/{stem}.ftex"
+        )
+    }
+
+    /// The bytes of the batch's entry at `path`.
+    fn entry<'a>(batch: &'a TaskBatch, path: &str) -> &'a [u8] {
+        &batch
+            .entries
+            .iter()
+            .find(|(entry, _)| entry == path)
+            .unwrap_or_else(|| panic!("no {path} among {:?}", paths(batch)))
+            .1
+    }
+
+    /// Each `kit_variant_missing` of the batch as (texture, kit, copied), asserting the batch
+    /// has no other message and each is a warning that keeps everything.
+    fn variants_missing(batch: &TaskBatch) -> Vec<(String, String, String)> {
+        batch
+            .messages
+            .iter()
+            .map(|message| {
+                assert_eq!(message.code.code, "kit_variant_missing");
+                assert_eq!(
+                    (message.severity, message.disposition),
+                    (Severity::Warning, Disposition::Keep)
+                );
+                let [(texture_key, texture), (kit_key, kit), (copied_key, copied)] =
+                    message.context.as_slice()
+                else {
+                    panic!("{:?}", message.context);
+                };
+                assert_eq!((texture_key.as_str(), kit_key.as_str()), ("texture", "kit"));
+                assert_eq!(copied_key, "copied");
+                (texture.clone(), kit.clone(), copied.clone())
+            })
+            .collect()
+    }
+
+    /// (texture, kit, copied) as `variants_missing` gives it.
+    fn missing(texture: &str, kit: &str, copied: &str) -> (String, String, String) {
+        (texture.to_owned(), kit.to_owned(), copied.to_owned())
+    }
+
+    #[test]
+    fn a_variant_set_gets_its_lowest_variant_under_each_kit_number_it_lacks() {
+        // `pants_kit1` and `pants_kit3` hold different images.
+        let folder = player_with(
+            vec![
+                named(&format!("{PLAYER}/pants_kit1.dds"), "shirt.dds"),
+                other_dds(&format!("{PLAYER}/pants_kit3.dds")),
+            ],
+            Vec::new(),
+        );
+        let textures = |kits: &[u8]| {
+            run(TaskKind::Textures {
+                folder: folder.clone(),
+                kits: kits.to_vec(),
+            })
+        };
+
+        let batch = textures(&[1, 2, 3]);
+        assert_eq!(
+            variants_missing(&batch),
+            [missing("pants_kitN", "2", "pants_kit1")]
+        );
+        assert_eq!(
+            paths(&batch),
+            [
+                player_texture("pants_kit1"),
+                player_texture("pants_kit3"),
+                player_texture("pants_kit2"),
+            ]
+        );
+        let kit1 = entry(&batch, &player_texture("pants_kit1"));
+        assert_eq!(
+            kit1,
+            ftex::dds_to_ftex(&tracer_player_file("shirt.dds"), ftex::ColorSpace::Normal).unwrap()
+        );
+        assert_eq!(entry(&batch, &player_texture("pants_kit2")), kit1);
+        assert_ne!(entry(&batch, &player_texture("pants_kit3")), kit1);
+
+        // No number lacks a variant, or the export defines none: the two alone.
+        for kits in [&[1, 3][..], &[]] {
+            let batch = textures(kits);
+            assert!(batch.messages.is_empty(), "{kits:?}: {:?}", batch.messages);
+            assert_eq!(
+                paths(&batch),
+                [player_texture("pants_kit1"), player_texture("pants_kit3")],
+                "{kits:?}"
+            );
+        }
+
+        // Two numbers lack one: one finding each, in kit order.
+        let batch = textures(&[1, 2, 3, 4]);
+        assert_eq!(
+            variants_missing(&batch),
+            [
+                missing("pants_kitN", "2", "pants_kit1"),
+                missing("pants_kitN", "4", "pants_kit1")
+            ]
+        );
+        assert_eq!(
+            paths(&batch),
+            [
+                player_texture("pants_kit1"),
+                player_texture("pants_kit3"),
+                player_texture("pants_kit2"),
+                player_texture("pants_kit4"),
+            ]
+        );
+        assert_eq!(entry(&batch, &player_texture("pants_kit4")), kit1);
+    }
+
+    #[test]
+    fn each_set_of_a_folder_is_completed_from_its_own_lowest_variant_and_nothing_else_is() {
+        // `pants` has only kit 3, `socks` kits 2 and 3 in different images; `shirt` and
+        // `skit1` hold no token.
+        let folder = player_with(
+            vec![
+                named(&format!("{PLAYER}/pants_kit3.dds"), "shirt.dds"),
+                other_dds(&format!("{PLAYER}/socks_kit2.dds")),
+                named(&format!("{PLAYER}/socks_kit3.dds"), "shirt.dds"),
+                named(&format!("{PLAYER}/shirt.dds"), "shirt.dds"),
+                other_dds(&format!("{PLAYER}/skit1.dds")),
+            ],
+            Vec::new(),
+        );
+
+        let batch = run(TaskKind::Textures {
+            folder,
+            kits: vec![1],
+        });
+
+        assert_eq!(
+            variants_missing(&batch),
+            [
+                missing("pants_kitN", "1", "pants_kit3"),
+                missing("socks_kitN", "1", "socks_kit2")
+            ]
+        );
+        assert_eq!(
+            paths(&batch),
+            [
+                player_texture("pants_kit3"),
+                player_texture("shirt"),
+                player_texture("skit1"),
+                player_texture("socks_kit2"),
+                player_texture("socks_kit3"),
+                player_texture("pants_kit1"),
+                player_texture("socks_kit1"),
+            ]
+        );
+        assert_eq!(
+            entry(&batch, &player_texture("pants_kit1")),
+            entry(&batch, &player_texture("pants_kit3"))
+        );
+        let socks2 = entry(&batch, &player_texture("socks_kit2"));
+        assert_eq!(entry(&batch, &player_texture("socks_kit1")), socks2);
+        assert_ne!(entry(&batch, &player_texture("socks_kit3")), socks2);
+    }
+
+    #[test]
+    fn the_common_textures_complete_their_variant_sets_at_the_team_s_common_output() {
+        let folder = ScopePath::new("Common").unwrap();
+        let textures = vec![
+            named("Common/tape_kit2.dds", "shirt.dds"),
+            other_dds("Common/hair.dds"),
+        ];
+
+        let batch = run(TaskKind::CommonTextures {
+            folder: folder.clone(),
+            textures,
+            kits: vec![1, 2],
+        });
+
+        assert_eq!(
+            variants_missing(&batch),
+            [missing("tape_kitN", "1", "tape_kit2")]
+        );
+        assert_eq!(
+            batch.messages[0].scope,
+            Scope::Folder {
+                export_id: ExportId(4),
+                path: folder,
+            }
+        );
+        let common = |stem: &str| {
+            format!("Asset/model/character/common/792/sourceimages/#windx11/{stem}.ftex")
+        };
+        assert_eq!(
+            paths(&batch),
+            [common("tape_kit2"), common("hair"), common("tape_kit1")]
+        );
+        assert_eq!(
+            entry(&batch, &common("tape_kit1")),
+            entry(&batch, &common("tape_kit2"))
         );
     }
 

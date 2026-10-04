@@ -29,7 +29,15 @@ kept as it is), and an image without the smaller copies of itself the game needs
 levels) gets them generated. A portrait is the exception: the game reads it as a `.dds` on
 every version, so a `.dds` portrait is kept exactly as it is and a portrait in any other format
 becomes a BC3 `.dds` of the same size with its mip levels. A texture whose name ends in `_nrm`
-(`skin_nrm.png`) is a normal map and is encoded as one. Five lines name a texture that cannot be
+(`skin_nrm.png`) is a normal map and is encoded as one. A texture named with `kit1` to `kit9`
+(`pants_kit1.dds`, `pants_kit2.dds`) is the one the game shows when that kit is picked before
+a match, through a model that names `pants_kitN` instead: the game puts the picked kit's number
+in place of the `N`. When the team has a kit number (a `p1` to `p9` folder in `Kits`; the
+goalkeeper's `g1` goes with the number picked) with no texture of its own, the lowest one is
+copied for it, so the game never shows a missing texture, and the warning `kit_variant_missing`
+names the texture, the kit and the copied file. Per-kit models (`pants_kit1.fmdl` beside
+`pants_kit2.fmdl`) are not possible on PES 2018 to 2021: only the lowest one is used, and the
+warning `kit_variant_model_fox` says so. Five lines name a texture that cannot be
 used, each with the file: `texture_too_small` (a side under 4 pixels), `texture_not_pow2` (a
 portrait whose width or height is not a power of two, or any other texture with mip levels
 whose width or height is not: 256, 512, 1024, ...; a `.png` or other image always gets mip

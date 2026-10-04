@@ -48,6 +48,7 @@ fn face_diff_form(role: Option<PlayerFile>) -> Option<FaceDiffForm> {
         | PlayerFile::CommonModel { .. }
         | PlayerFile::Skeleton { .. }
         | PlayerFile::SlotlessSkeleton
+        | PlayerFile::LeftOutKitVariant
         | PlayerFile::Texture(..) => None,
     }
 }

@@ -15,6 +15,7 @@ use vtree::ScopePath;
 
 use super::{Entry, Finding, TaskFailure, TaskFiles, take};
 use crate::face_diff;
+use crate::kit_variants::{KitToken, kit_token};
 use crate::messages::Code;
 use crate::paths;
 use crate::plan::ModelFolder;
@@ -111,6 +112,7 @@ pub(super) fn package(
                 | PlayerFile::CommonModel { .. }
                 | PlayerFile::Skeleton { .. }
                 | PlayerFile::SlotlessSkeleton
+                | PlayerFile::LeftOutKitVariant
                 | PlayerFile::FaceDiffXml
                 | PlayerFile::Packed { .. } => {}
             }
@@ -255,19 +257,33 @@ fn merged_skeleton(parts: &mut [Part]) -> Result<Option<Vec<u8>>, TaskFailure> {
 }
 
 /// Points `path`, one texture reference of a part, at where its texture is: `directory` when
-/// its stem is one of `stems`, the textures packed there for the part; any other texture is one
-/// of the game's own, whose directory names the team as `000`, replaced by `team_segment`.
+/// its stem is one of `stems`, the textures packed there for the part, or a kit reference
+/// (`pants_kitN`) with a variant of its set among them; any other texture is one of the game's
+/// own, whose directory names the team as `000`, replaced by `team_segment`. The file name is
+/// never changed: the game itself respells a reference for the kit picked.
 fn point_texture(
     path: &mut TexturePath,
     stems: &BTreeSet<String>,
     directory: &str,
     team_segment: &str,
 ) {
-    if stems.contains(file_stem(&path.file_name)) {
+    let stem = file_stem(&path.file_name);
+    if stems.contains(stem) || has_variant_among(stem, stems) {
         path.directory = directory.to_owned();
     } else {
         path.directory = path.directory.replace("/000/", team_segment);
     }
+}
+
+/// Whether `stem` is a kit reference (`pants_kitN`, never a file of its own) and `stems` hold a
+/// variant of its set (`pants_kit2`), compared as `stems` are, as spelled.
+fn has_variant_among(stem: &str, stems: &BTreeSet<String>) -> bool {
+    let Some((KitToken::Reference, reference)) = kit_token(stem) else {
+        return false;
+    };
+    stems.iter().any(|held| {
+        matches!(kit_token(held), Some((KitToken::Variant(_), held_reference)) if held_reference == reference)
+    })
 }
 
 /// `parts`, several models resolving to one allowed name with their texture paths rewritten,
@@ -300,5 +316,40 @@ impl From<MergeError> for TaskFailure {
                 TaskFailure::from(anyhow::Error::from(error))
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The directory `point_texture` gives the path `file_name` in the game's team `000`
+    /// folder, the part's stems being `stems` and its textures going to `/home/`, for team
+    /// 792; asserts the file name is kept.
+    fn pointed(file_name: &str, stems: &[&str]) -> String {
+        let mut path = TexturePath {
+            file_name: file_name.to_owned(),
+            directory: "/Assets/pes16/model/character/common/000/sourceimages/".to_owned(),
+        };
+        let stems = stems.iter().map(|stem| (*stem).to_owned()).collect();
+        point_texture(&mut path, &stems, "/home/", "/792/");
+        assert_eq!(path.file_name, file_name);
+        path.directory
+    }
+
+    #[test]
+    fn a_kit_reference_is_the_part_s_own_texture_when_a_variant_of_its_set_is() {
+        let game = "/Assets/pes16/model/character/common/792/sourceimages/";
+        assert_eq!(pointed("pants_kitN.dds", &["pants_kit2"]), "/home/");
+        assert_eq!(pointed("shirt.dds", &["shirt", "pants_kit2"]), "/home/");
+        // With no variant of its own set among the stems, it is any other path: one of the
+        // game's own.
+        assert_eq!(pointed("pants_kitN.dds", &[]), game);
+        assert_eq!(
+            pointed("pants_kitN.dds", &["socks_kit2", "pants", "pants_kitN_x"]),
+            game
+        );
+        // The legacy `dummy_kit` holds no token: only its team folder is replaced.
+        assert_eq!(pointed("dummy_kit.dds", &["pants_kit2"]), game);
     }
 }

@@ -12,8 +12,9 @@ is in `AGENTS.md` ("Working documents").
 **Phase:** 3 (Team compiler skeleton) closed 2026-10-02, its cross-family reviews queued (see
 "Handover"). Phases 1 and 2 done (Phase 2 closed 2026-09-30).
 **Next:** Phase 4 is itemized and its Acceptance section written (step 4.1, 2026-10-03; its
-cross-family review (a) is queued). Next: 4.11c (kit variants on Fox; 4.11 is worked as
-four slices, and 4.11a, the logo, and 4.11b, the notes, are done); 4.30, 4.5 to 4.8, 4.9a and 4.10 are done (4.6c moved to Phase 8's cancellation), 4.9b (collars)
+cross-family review (a) is queued). Next: 4.11d (texture `.common` links, TC-TEX-09; 4.11
+is worked as four slices, and 4.11a, the logo, 4.11b, the notes, and 4.11c, the kit
+variants, are done); 4.30, 4.5 to 4.8, 4.9a and 4.10 are done (4.6c moved to Phase 8's cancellation), 4.9b (collars)
 waits on the maintainer. 2.5b (GPU BC7) is step 16.x (decision entries
 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0 after Phase 8; phase order 1–6,
 8, 0.1.0, 7, 9–16 (`core/development_plan.md` "Releases"); first-class target the Fox version
@@ -126,7 +127,14 @@ Claude agent with no sidekick and no reviewer of another model family. While tha
   `plan_run` to `compile::run`), its `feat(team_compiler)` commit, against `pipeline.md`
   "2. Per-export serial steps" (5, Notes collection), `messages.md`
   (`teamnotes_write_failed`), TC-ROOT-09 and the decision entry "`teamnotes.txt`: its
-  layout, when it is written, and its failure".
+  layout, when it is written, and its failure"; 4.11c, `team_compiler` (`kit_variants.rs`,
+  `complete_kit_variants`, `point_texture`, `PlayerFile::LeftOutKitVariant`), its
+  `feat(team_compiler)` commit, against `model_format.md` "Kit-dependent assets (`kitN`)",
+  `pipeline.md` "4. Per-export non-model steps" (Kit-dependent assets), `messages.md`
+  (`kit_variant_missing`, `kit_variant_model_fox`), TC-CMN-04, TC-CMN-05 and the decision
+  entry "kit variant sets are found from the files, and completed by the textures task".
+  The acceptance section changed with these slices (TC-TEX-09 and TC-CMN-07 added,
+  TC-CMN-05 narrowed to its Fox half): they join the queued (a) review of the section.
 - For the lead, on return: the review process on trial (maintainer, 3.1) runs a full sidekick
   review loop after each GPT round and calls GPT again only once that loop has ended and GPT's
   own loop has not; not yet in `AGENTS.md` (3.6: GPT 4 of 7 accepted, then sidekick S1 3 of 7,
@@ -925,10 +933,24 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
     inline; a struct is the next step if it grows. Not covered from the CLI: the removal
     failing, the temporary file failing to be written, a `--no-deploy` run with notes. Gates
     green (127 of 209); `mutants-diff f0f9002`: 19, 16 caught, 3 unviable, 0 missed
-  - [ ] 4.11c kit variants on Fox (TC-CMN-04, the Fox half of TC-CMN-05): texture sets
-    completed by the textures tasks (`kit_variant_missing`), a `kitN` path pointed at the
-    folder's texture home, a higher model variant left out (`kit_variant_model_fox`).
-    TC-CMN-05's PES 17 half waits for pre-Fox faces (4.14); TC-CMN-06 (`dummy_kit*`) is
+  - [x] 4.11c kit variants on Fox (TC-CMN-04, TC-CMN-05): done 2026-10-04 (Opus 5.5, first
+    time; one lead fix, a test comment). `kit_variants.rs` (`kit_token`, `variant_stem`,
+    `kit_number`, `model_variant_sets`); `TaskKind::Textures` and `CommonTextures` carry the
+    export's kit numbers and `texture.rs` `complete_kit_variants` fills each set's gaps with
+    the lowest variant's bytes (`kit_variant_missing`, W); `point_texture` points a `kitN`
+    path at the part's textures when a variant of its set is among them;
+    `PlayerFile::LeftOutKitVariant` for a higher per-kit model, which no task reads, and
+    planning's `kit_variant_model_fox` (W) once per set and folder; help. TC-CMN-05 was split:
+    it is the PES 21 half, and the PES 17 half is the new TC-CMN-07 (4.14), so no scenario
+    counts as proven by half. Left as they are, each rare: a per-kit `.common` model link is
+    not left out (the links merge like any parts); a skeleton named after a left-out variant
+    has no model to pair with, so the gate names it; `check` does not print
+    `kit_variant_model_fox` (a planning finding, as `link_combined` is); a reference is
+    matched as spelled (`Pants_kitN` beside `pants_kit1.dds` is not). Not covered from the
+    CLI: per-kit models in a reserved subfolder or a shared folder, a Common set completed
+    (at the function), a set across a player's folder and a combined shared folder.
+    Gates green (129 of 211); `mutants-diff 2249bf1`: 61, 48 caught, 13 unviable, 0
+    missed. TC-CMN-06 (`dummy_kit*`) is
     4.29's, which builds the checks it is about
   - [ ] 4.11d texture `.common` links: the scenario written first (no acceptance ID yet),
     then the player's stem resolving into Common and its path naming the team's Common
@@ -983,7 +1005,10 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   Also the pre-Fox half of the kit variants (4.11c did Fox): a model variant set as one
   `face.xml` entry naming `…kitN…` with the variant files beside it, and the texture sets
   completed as on Fox.
-  IDs: TC-MOD-20..25, TC-TEX-07, TC-CMN-05 (the PES 17 half). Crates: tc (`processing/model.rs`, `processing/material.rs`,
+  Open first (found at 4.11c): a model's type is read from its stem's last part, so a
+  per-kit model named `boots_kit1` is typed as face content; typing should probably skip
+  the kit token.
+  IDs: TC-MOD-20..25, TC-TEX-07, TC-CMN-07 (split from TC-CMN-05 at 4.11c). Crates: tc (`processing/model.rs`, `processing/material.rs`,
   `processing/texture.rs`, `paths.rs`) → verify: a `/co/` slot 05 folder with the smallest
   `pes_model` fixture pair as `face.model` + `face.mtl` and `skin.dds`, compiled for PES 17: the
   CPK holds `common/character0/model/character/face/real/71405.cpk` whose `face.xml` lists one
@@ -2213,3 +2238,8 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   `output/teamnotes.txt`, one `--- /co/ ---` section per team, once the CPK is in place; a
   compile with no notes removes an older file. TC-TEX-09 (a texture `.common` link) is
   written for 4.11d.
+- **2026-10-04** — 4.11c: kit variants on Fox. A texture set (`pants_kit1`, `pants_kit3`)
+  gets a copy of its lowest variant for each kit number the team has and the set lacks
+  (`kit_variant_missing`); a model's `pants_kitN` path is pointed at where the variants
+  go; of per-kit model files only the lowest is compiled (`kit_variant_model_fox`).
+  TC-CMN-05 split: its PES 17 half is TC-CMN-07, with 4.14.

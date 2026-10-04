@@ -17,6 +17,7 @@ use dds_convert::{
 use studio_core::Disposition;
 
 use super::{CompileContext, Entry, Finding, TaskFailure, TaskFiles, take};
+use crate::kit_variants::{KitToken, kit_token, variant_stem};
 use crate::messages::Code;
 use crate::paths;
 use crate::plan::ModelFolder;
@@ -78,9 +79,11 @@ struct TextureCopy {
 /// package in canonical order (face > boots > gloves) wins, `shared_texture_conflict` is noted
 /// in `findings` per stem and lower package, and the lower package is dropped: its textures
 /// task's entries leave out every texture only its sources hold, and the dropped packages are
-/// returned for the writer to skip their tasks.
+/// returned for the writer to skip their tasks. The stems kept then have their kit variant sets
+/// completed against `kits` (`complete_kit_variants`).
 pub(super) fn folder_textures(
     folder: &ModelFolder,
+    kits: &[u8],
     team_id: u16,
     ctx: &CompileContext,
     files: &mut TaskFiles,
@@ -109,7 +112,7 @@ pub(super) fn folder_textures(
     for stem_copies in copies.values() {
         resolve_stem(stem_copies, &mut dropped, findings)?;
     }
-    let entries = copies
+    let mut textures: Vec<(String, Vec<u8>)> = copies
         .into_values()
         .filter_map(|stem_copies| {
             // The stem's one copy: the highest package's that is kept, the first of its
@@ -119,10 +122,64 @@ pub(super) fn folder_textures(
                 .filter(|package| !dropped.contains(package))
                 .find(|package| stem_copies.iter().any(|copy| copy.package == *package))?;
             let copy = stem_copies.into_iter().find(|copy| copy.package == kept)?;
-            Some((folder.textures.texture(team_id, &copy.stem), copy.bytes))
+            Some((copy.stem, copy.bytes))
         })
         .collect();
+    complete_kit_variants(&mut textures, kits, findings);
+    let entries = textures
+        .into_iter()
+        .map(|(stem, bytes)| (folder.textures.texture(team_id, &stem), bytes))
+        .collect();
     Ok((entries, dropped))
+}
+
+/// Completes the kit variant sets among `textures`, each a stem as spelled with its converted
+/// bytes, against `kits`, the export's kit numbers (`pipeline.md` "4. Per-export non-model
+/// steps", Kit-dependent assets): the variants of one reference, compared case-folded, are a
+/// set, and for each of `kits` a set has no variant of, in ascending order, the lowest
+/// variant's bytes are added under that number's name and `kit_variant_missing` is noted in
+/// `findings`, so the game never shows a missing texture for a kit the team has. A variant of a
+/// number `kits` does not hold stays as it is.
+fn complete_kit_variants(
+    textures: &mut Vec<(String, Vec<u8>)>,
+    kits: &[u8],
+    findings: &mut Vec<Finding>,
+) {
+    // Every variant as (folded reference, kit number, position in `textures`, reference),
+    // sorted so each set is a run with its lowest variant first.
+    let mut variants: Vec<(String, u8, usize, String)> = textures
+        .iter()
+        .enumerate()
+        .filter_map(|(index, (stem, _))| match kit_token(stem)? {
+            (KitToken::Variant(kit), reference) => {
+                Some((vtree::fold_name(&reference), kit, index, reference))
+            }
+            (KitToken::Reference, _) => None,
+        })
+        .collect();
+    variants.sort_by(|a, b| a.0.cmp(&b.0).then(a.1.cmp(&b.1)));
+    for set in variants.chunk_by(|a, b| a.0 == b.0) {
+        let (_, _, lowest, reference) = &set[0];
+        let copied = textures[*lowest].0.clone();
+        for &kit in kits {
+            if set.iter().any(|(_, held, ..)| *held == kit) {
+                continue;
+            }
+            let stem = variant_stem(&copied, kit).expect("a variant's stem holds its kit token");
+            // Each entry owns its bytes: the gap gets a copy of the lowest variant's.
+            let bytes = textures[*lowest].1.clone();
+            textures.push((stem, bytes));
+            findings.push((
+                Code::KitVariantMissing,
+                Disposition::Keep,
+                vec![
+                    ("texture", reference.clone()),
+                    ("kit", kit.to_string()),
+                    ("copied", copied.clone()),
+                ],
+            ));
+        }
+    }
 }
 
 /// Decides one stem held by `copies`, several sources' in source order: a disagreement within
@@ -175,28 +232,34 @@ fn resolve_stem(
 /// wrong. A texture conversion reports a finding on (`texture_codec_unsupported`) is left out
 /// alone, the finding noted in `findings` with `DropFile`, and the rest emitted; any other
 /// failure fails the task, and with it every Common texture. The players linking a Common
-/// model still commit on their own.
+/// model still commit on their own. The textures emitted have their kit variant sets completed
+/// against `kits` (`complete_kit_variants`).
 pub(super) fn common_textures(
     textures: &[FileDescriptor],
+    kits: &[u8],
     team_id: u16,
     ctx: &CompileContext,
     files: &mut TaskFiles,
     findings: &mut Vec<Finding>,
 ) -> Result<Vec<Entry>, TaskFailure> {
-    let mut entries = Vec::with_capacity(textures.len());
+    let mut converted = Vec::with_capacity(textures.len());
     for file in textures {
         let name = file.path.name();
         let format = texture_format(name)
             .expect("planning lists the `Common/` textures by an extension `dds_convert` accepts");
         match convert(ctx, format, name, &take(files, file)) {
-            Ok(bytes) => entries.push((paths::common_texture(team_id, file_stem(name)), bytes)),
+            Ok(bytes) => converted.push((file_stem(name).to_owned(), bytes)),
             Err(TextureError::Finding(code, file)) => {
                 findings.push((code, Disposition::DropFile, vec![("file", file)]));
             }
             Err(TextureError::Other(error)) => return Err(TaskFailure::from(error)),
         }
     }
-    Ok(entries)
+    complete_kit_variants(&mut converted, kits, findings);
+    Ok(converted
+        .into_iter()
+        .map(|(stem, bytes)| (paths::common_texture(team_id, &stem), bytes))
+        .collect())
 }
 
 /// The texture file `name`, in `format`, converted for the run's version through its

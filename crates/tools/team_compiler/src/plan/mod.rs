@@ -19,6 +19,7 @@ use studio_core::{Disposition, ExportId, Message, Scope};
 use vtree::ScopePath;
 
 use crate::bins::Rgb;
+use crate::kit_variants::{kit_number, model_variant_sets};
 use crate::messages::{Code, tool_message};
 use crate::paths::TextureHome;
 use ids::{PlannedModelIds, shared_folders_taking_ids};
@@ -33,7 +34,8 @@ pub(crate) struct PlanReport {
     /// Every task of the run, in canonical order.
     pub(crate) manifest: BuildManifest,
     /// Planning's findings (`content_not_yet_compiled`, `team_colors_missing`, `link_combined`,
-    /// `kit_texture_not_used`, `kit_config_generated`, `kit_placeholder`).
+    /// `kit_texture_not_used`, `kit_config_generated`, `kit_placeholder`,
+    /// `kit_variant_model_fox`).
     pub(crate) messages: Vec<Message>,
 }
 
@@ -212,6 +214,7 @@ impl ModelFolder {
                     PlayerFile::Model { .. }
                     | PlayerFile::Skeleton { .. }
                     | PlayerFile::SlotlessSkeleton
+                    | PlayerFile::LeftOutKitVariant
                     | PlayerFile::Texture(..) => None,
                 };
                 if let Some(packs_as) = packs_as {
@@ -258,6 +261,8 @@ pub(crate) enum TaskKind {
     Textures {
         /// The model folder.
         folder: ModelFolder,
+        /// The export's kit numbers, against which its texture variant sets are completed.
+        kits: Vec<u8>,
     },
     /// The textures directly in the export's `Common/` folder, converted once into the team's
     /// Common output, whether or not a `.common` link uses them (`pipeline.md` "Resolved
@@ -269,6 +274,8 @@ pub(crate) enum TaskKind {
         folder: ScopePath,
         /// Its textures directly in it, in any accepted image format.
         textures: Vec<FileDescriptor>,
+        /// The export's kit numbers, against which its texture variant sets are completed.
+        kits: Vec<u8>,
     },
     /// One player's portrait, emitted as a DDS under the target version's file name: a DDS
     /// source as it is, any other accepted format encoded to BC3 (`player_folders.md`
@@ -455,6 +462,15 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
         let model_ids = PlannedModelIds::for_team(id);
         let mut export = resolved.export;
         let fpc = EffectiveTeamKitFpc::of(&export);
+        // The kit numbers the export defines, ascending (its kits go by slot), which each
+        // textures task completes its variant sets against.
+        let kits: Vec<u8> = export
+            .kits
+            .kits
+            .keys()
+            .filter_map(|slot| kit_number(*slot))
+            .collect();
+        kit_variant_model_messages(export_id, &export, &mut messages);
         // The shared folders taking an id, each with its package and that id, in the id order
         // of the kind: the boots folders, then the gloves folders.
         let mut shared: Vec<(ModelFolder, ModelPackage, u32)> = Vec::new();
@@ -554,7 +570,14 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
                 files: folder.files,
                 combined,
             };
-            folder_tasks(export_id, team_id, model_folder, &packages, &mut tasks);
+            folder_tasks(
+                export_id,
+                team_id,
+                model_folder,
+                &packages,
+                &kits,
+                &mut tasks,
+            );
         }
         for (folder, package, shared_id) in shared {
             folder_tasks(
@@ -562,6 +585,7 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
                 team_id,
                 folder,
                 &[(package, vec![shared_id])],
+                &kits,
                 &mut tasks,
             );
         }
@@ -576,6 +600,7 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
                 TaskKind::CommonTextures {
                     folder,
                     textures: common_textures,
+                    kits,
                 },
             ));
         }
@@ -635,13 +660,15 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
 
 /// Pushes `folder`'s tasks onto `tasks`: one `Models` task for each of `packages` any of the
 /// folder's sources holds a model of (a face link alone makes the shared face the player's),
-/// emitted under that package's ids, then, when the folder has textures, its `Textures` task,
-/// the lot as one `TaskGroup`.
+/// emitted under that package's ids, then, when the folder has textures, its `Textures` task
+/// completing its variant sets against `kits`, the export's kit numbers, the lot as one
+/// `TaskGroup`.
 fn folder_tasks(
     export_id: ExportId,
     team_id: u16,
     folder: ModelFolder,
     packages: &[(ModelPackage, Vec<u32>)],
+    kits: &[u8],
     tasks: &mut Vec<BuildTask>,
 ) {
     let first = tasks.len();
@@ -665,7 +692,14 @@ fn folder_tasks(
     if folder_files(&folder, |role| matches!(role, PlayerFile::Texture(..))).is_empty() {
         return;
     }
-    tasks.push(task(export_id, team_id, TaskKind::Textures { folder }));
+    tasks.push(task(
+        export_id,
+        team_id,
+        TaskKind::Textures {
+            folder,
+            kits: kits.to_vec(),
+        },
+    ));
     let members = &mut tasks[first..];
     let charge = members
         .iter()
@@ -704,6 +738,40 @@ fn drop_kit_masks(export_id: ExportId, kits: &mut KitsFolder, messages: &mut Vec
             Disposition::DropFile,
             vec![("file", mask.file.path.name().to_owned())],
         ));
+    }
+}
+
+/// `kit_variant_model_fox` for each set of per-kit model files (`pants_kit1.fmdl`,
+/// `pants_kit2.fmdl`) in a folder of `export` that is compiled, on that folder: a mapped player
+/// folder, or a shared folder (validation drops one no mapped player links). Each folder is
+/// walked once, so a shared folder several players combine reports its set once. The subset
+/// gate has refused every pre-Fox target, where per-kit models would work.
+fn kit_variant_model_messages(
+    export_id: ExportId,
+    export: &ValidatedAestheticsExport,
+    messages: &mut Vec<Message>,
+) {
+    let players = mapped_players(export)
+        .into_iter()
+        .map(|folder| (&folder.path, &folder.files));
+    let shared = export
+        .faces
+        .iter()
+        .chain(&export.boots)
+        .chain(&export.gloves)
+        .map(|folder| (&folder.path, &folder.files));
+    for (path, files) in players.chain(shared) {
+        for set in model_variant_sets(files) {
+            messages.push(tool_message(
+                Code::KitVariantModelFox,
+                Scope::Folder {
+                    export_id,
+                    path: path.clone(),
+                },
+                Disposition::Keep,
+                vec![("model", set.reference), ("used", set.used)],
+            ));
+        }
     }
 }
 
@@ -799,10 +867,12 @@ mod tests {
                         package,
                         ids,
                     } => format!("{package:?} {} {ids:?}", folder.path.as_str()),
-                    TaskKind::Textures { folder } => {
+                    TaskKind::Textures { folder, .. } => {
                         format!("textures {}", folder.path.as_str())
                     }
-                    TaskKind::CommonTextures { folder, textures } => {
+                    TaskKind::CommonTextures {
+                        folder, textures, ..
+                    } => {
                         format!("common textures {} ({})", folder.as_str(), textures.len())
                     }
                     TaskKind::Portrait { player_id, file } => {
@@ -998,6 +1068,139 @@ mod tests {
     }
 
     #[test]
+    fn per_kit_models_plan_the_lowest_variant_alone_and_report_the_set_once() {
+        let export = resolved(
+            "co - Variants",
+            &[
+                ("Players/05 - A/pants_kit2.fmdl", 16),
+                ("Players/05 - A/pants_kit1.fmdl", 8),
+                ("Players/05 - A/face_diff.bin", 1),
+            ],
+            &[],
+            None,
+        );
+
+        let report = plan_run(
+            vec![(ExportId(0), export, two_team_colors(), None)],
+            PesVersion::Pes21,
+        );
+
+        let [message] = report.messages.as_slice() else {
+            panic!("{:?}", report.messages);
+        };
+        assert_eq!(message.code.code, "kit_variant_model_fox");
+        assert_eq!(
+            (message.severity, message.disposition),
+            (Severity::Warning, Disposition::Keep)
+        );
+        assert_eq!(
+            message.scope,
+            Scope::Folder {
+                export_id: ExportId(0),
+                path: scope_path("Players/05 - A"),
+            }
+        );
+        assert_eq!(
+            message.context,
+            [
+                ("model".to_owned(), "pants_kitN.fmdl".to_owned()),
+                ("used".to_owned(), "pants_kit1.fmdl".to_owned())
+            ]
+        );
+        // `pants_kit2.fmdl` is read by no task, so no charge counts it.
+        assert_eq!(
+            summary(&report),
+            ["0 714 Face Players/05 - A [71405] charge 9"]
+        );
+        let files: Vec<&str> = report.manifest.tasks[0]
+            .kind
+            .files()
+            .iter()
+            .map(|file| file.path.name())
+            .collect();
+        assert_eq!(files, ["face_diff.bin", "pants_kit1.fmdl"]);
+
+        // A variant alone is an ordinary model, reported by nothing.
+        let alone = resolved(
+            "co - Alone",
+            &[("Players/05 - A/pants_kit2.fmdl", 16)],
+            &[],
+            None,
+        );
+        let report = plan_run(
+            vec![(ExportId(0), alone, two_team_colors(), None)],
+            PesVersion::Pes21,
+        );
+        assert!(report.messages.is_empty(), "{:?}", report.messages);
+        assert_eq!(
+            summary(&report),
+            ["0 714 Face Players/05 - A [71405] charge 16"]
+        );
+    }
+
+    #[test]
+    fn the_textures_tasks_carry_the_export_s_player_kit_numbers() {
+        let with_kits = resolved(
+            "co - Kits",
+            &[
+                ("Players/05 - A/face_high.fmdl", 1),
+                ("Players/05 - A/pants_kit1.dds", 1),
+                ("Common/tape_kit1.dds", 1),
+                ("Kits/g1/kit.dds", 1),
+                ("Kits/p3/kit.dds", 1),
+            ],
+            &["Kits/p1"],
+            None,
+        );
+        let without_kits = resolved(
+            "co - Plain",
+            &[
+                ("Players/05 - A/face_high.fmdl", 1),
+                ("Players/05 - A/pants_kit1.dds", 1),
+            ],
+            &[],
+            None,
+        );
+
+        let report = plan_run(
+            vec![
+                (ExportId(0), with_kits, two_team_colors(), None),
+                (ExportId(1), without_kits, two_team_colors(), None),
+            ],
+            PesVersion::Pes21,
+        );
+
+        // The goalkeeper's `g1` is not a number of its own.
+        let kits: Vec<(String, &[u8])> = report
+            .manifest
+            .tasks
+            .iter()
+            .filter_map(|task| match &task.kind {
+                TaskKind::Textures { folder, kits } => Some((
+                    format!("{} {}", task.export_id.0, folder.path.as_str()),
+                    kits.as_slice(),
+                )),
+                TaskKind::CommonTextures { folder, kits, .. } => Some((
+                    format!("{} {}", task.export_id.0, folder.as_str()),
+                    kits.as_slice(),
+                )),
+                TaskKind::Models { .. }
+                | TaskKind::Portrait { .. }
+                | TaskKind::Kit { .. }
+                | TaskKind::Logo { .. } => None,
+            })
+            .collect();
+        assert_eq!(
+            kits,
+            [
+                ("0 Players/05 - A".to_owned(), &[1, 3][..]),
+                ("0 Common".to_owned(), &[1, 3][..]),
+                ("1 Players/05 - A".to_owned(), &[][..]),
+            ]
+        );
+    }
+
+    #[test]
     fn shared_folders_follow_the_players_boots_then_gloves_under_the_shared_ids_in_name_order() {
         let export = resolved(
             "co - Shared",
@@ -1063,7 +1266,7 @@ mod tests {
             .tasks
             .iter()
             .filter_map(|task| match &task.kind {
-                TaskKind::Models { folder, .. } | TaskKind::Textures { folder } => {
+                TaskKind::Models { folder, .. } | TaskKind::Textures { folder, .. } => {
                     Some(&folder.textures)
                 }
                 TaskKind::CommonTextures { .. }

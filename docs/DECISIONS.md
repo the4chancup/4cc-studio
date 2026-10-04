@@ -3764,3 +3764,16 @@ planning's decision already. (5) A scenario that passes because the code it cons
 does not exist proves nothing.
 Plan: `team_compiler/pipeline.md` "4. Per-export non-model steps" (Kit-dependent assets);
 worklog steps 4.11 and 4.29.
+
+## 2026-10-04 — team_compiler — TC-CMN-05 is split by engine; TC-TEX-09 covers texture links
+Decision: TC-CMN-05 keeps its PES 21 half (per-kit model files reduced to the lowest); its
+PES 17 half becomes TC-CMN-07, with native `.model` sources. TC-TEX-09 is new: a texture
+`.common` link points the player's model at the team's Common output.
+Why: the acceptance scanner counts a scenario proven as soon as one test cites its ID, so a
+scenario spanning two engines read as proven once its Fox half was, with step 4.14 still to
+build the other. The old wording also compiled `.fmdl` sources for PES 17, which needs the
+cross-format conversion of 4.17 and is not what the scenario is about. Texture links were
+described by the plan (`model_format.md` "Link files") with no scenario and no step (found
+at 4.5c).
+Plan: `team_compiler/README.md` "Acceptance" (TC-CMN-05, TC-CMN-07, TC-TEX-09); worklog
+steps 4.11 and 4.14.

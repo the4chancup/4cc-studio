@@ -444,6 +444,7 @@ mod tests {
             task(
                 TaskKind::Textures {
                     folder: folder.clone(),
+                    kits: Vec::new(),
                 },
                 20,
                 Some(group),

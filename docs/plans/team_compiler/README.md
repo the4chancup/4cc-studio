@@ -1005,12 +1005,14 @@ TC-CMN-04  GIVEN slot 05's face model referencing pants_kitN, with pants_kit1.dd
            THEN kit_variant_missing is reported for kit 2, pants_kit2.ftex is a copy of
                 pants_kit1's conversion, and the path table keeps the literal pants_kitN
 TC-CMN-05  GIVEN slot 05 holding pants_kit1.fmdl and pants_kit2.fmdl
-           WHEN the export is compiled for PES 21, then for PES 17
-           THEN on 21 kit_variant_model_fox is reported and only pants_kit1 is compiled; on 17 the
-                face.xml holds one entry naming pants_kitN with both variant files beside it
+           WHEN the export is compiled for PES 21
+           THEN kit_variant_model_fox is reported and only pants_kit1 is compiled
 TC-CMN-06  GIVEN slot 05's face model referencing dummy_kit and dummy_kit_srm, neither present
            WHEN the export is checked
            THEN no texture-existence finding is reported and the paths are emitted verbatim
+TC-CMN-07  GIVEN slot 05 holding pants_kit1.model and pants_kit2.model with their .mtl files
+           WHEN the export is compiled for PES 17
+           THEN the face.xml holds one entry naming pants_kitN, with both variant files beside it
 ```
 
 **Bins**

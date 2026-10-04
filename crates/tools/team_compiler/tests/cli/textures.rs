@@ -9,6 +9,7 @@ use std::fs;
 use std::path::Path;
 
 use dds_convert::{BlockCodec, Blocks, Decoded, SourceFormat, decode, encode_dds};
+use fmdl::ops::paths::texture_paths;
 use fmdl::{FmdlFile, Model};
 use ftex::PixelFormat;
 
@@ -18,6 +19,7 @@ use crate::compile::{
     tracer_kit, tracer_player_file,
 };
 use crate::findings_of;
+use crate::models::face_package;
 
 /// The player's texture home, the per-player common subfolder.
 const PLAYER_TEXTURES: &str = "Asset/model/character/common/714/05 - A/sourceimages/#windx11";
@@ -32,14 +34,15 @@ pub(crate) fn texture_fixture(name: &str) -> Vec<u8> {
     .unwrap()
 }
 
-/// The tracer's hair model naming `skin` instead of `shirt`, through `fmdl`'s model API.
-fn hair_model_naming_skin() -> Vec<u8> {
+/// The tracer's hair model naming the texture `file_name` (`skin.dds`) instead of `shirt.dds`,
+/// through `fmdl`'s model API.
+fn hair_model_naming(file_name: &str) -> Vec<u8> {
     let file = FmdlFile::read(&tracer_player_file("fcl_hair.fmdl")).unwrap();
     let mut model = Model::from_file(&file).unwrap();
     for material in &mut model.materials {
         for (_, texture) in &mut material.textures {
             if texture.file_name == "shirt.dds" {
-                texture.file_name = "skin.dds".to_owned();
+                texture.file_name = file_name.to_owned();
             }
         }
     }
@@ -58,7 +61,7 @@ fn write_skin_player(
     let player = format!("exports/{export}/Players/{slot} - A");
     sandbox.write(
         &format!("{player}/fcl_hair.fmdl"),
-        &hair_model_naming_skin(),
+        &hair_model_naming("skin.dds"),
     );
     sandbox.write(&format!("{player}/{texture_name}"), bytes);
 }
@@ -463,7 +466,7 @@ fn a_common_texture_the_deep_pass_drops_takes_the_player_linking_it() {
     let export = "exports/co - Link";
     sandbox.write(
         &format!("{export}/Players/05 - A/fcl_hair.fmdl"),
-        &hair_model_naming_skin(),
+        &hair_model_naming("skin.dds"),
     );
     sandbox.write(&format!("{export}/Players/05 - A/skin.png.common"), b"");
     sandbox.write(
@@ -572,4 +575,66 @@ fn a_common_texture_and_a_shared_folder_s_texture_in_png_are_emitted_as_ftex() {
             "{path}"
         );
     }
+}
+
+// TC-CMN-04
+#[test]
+fn a_kit_number_without_its_texture_variant_gets_the_lowest_one_and_the_model_names_kit_n() {
+    let sandbox = Sandbox::new("tex_kit_variants");
+    let export = "exports/co - Variants";
+    let player = format!("{export}/Players/05 - A");
+    sandbox.write(
+        &format!("{player}/fcl_hair.fmdl"),
+        &hair_model_naming("pants_kitN.dds"),
+    );
+    // Two different images: the tracer's shirt and its kit.
+    sandbox.write(
+        &format!("{player}/pants_kit1.dds"),
+        &tracer_player_file("shirt.dds"),
+    );
+    sandbox.write(&format!("{player}/pants_kit3.dds"), &tracer_kit());
+    for slot in ["p1", "p2", "p3"] {
+        sandbox.write(&format!("{export}/Kits/{slot}/kit.dds"), &tracer_kit());
+    }
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+    assert_eq!(
+        findings_of(&run.messages(), "co - Variants"),
+        [
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=fcl_hair.fmdl, count=1662)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
+            "Info kit_config_generated [Keep] at Kits/p1 ()",
+            "Info kit_config_generated [Keep] at Kits/p2 ()",
+            "Info kit_config_generated [Keep] at Kits/p3 ()",
+            "Warning kit_variant_missing [Keep] at Players/05 - A (texture=pants_kitN, kit=2, copied=pants_kit1)",
+            "Info kit_colors_derived [Keep] at Kits/p1 ()",
+            "Info kit_colors_derived [Keep] at Kits/p2 ()",
+            "Info kit_colors_derived [Keep] at Kits/p3 ()",
+        ]
+    );
+    assert_eq!(run.exit_code(), 0);
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let variant = |kit: u8| {
+        let path = format!("{PLAYER_TEXTURES}/pants_kit{kit}.ftex");
+        entries
+            .get(&path)
+            .unwrap_or_else(|| panic!("no {path} among {:?}", entries.keys()))
+    };
+    assert_eq!(variant(2), variant(1));
+    assert_ne!(variant(3), variant(1));
+    let model = FmdlFile::read(face_package(&entries).get("fcl_hair.fmdl").unwrap()).unwrap();
+    let paths: Vec<(String, String)> = texture_paths(&model)
+        .unwrap()
+        .into_iter()
+        .map(|path| (path.file_name, path.directory))
+        .collect();
+    assert!(
+        paths.contains(&(
+            "pants_kitN.dds".to_owned(),
+            "/Assets/pes16/model/character/common/714/05 - A/sourceimages/".to_owned()
+        )),
+        "{paths:?}"
+    );
 }

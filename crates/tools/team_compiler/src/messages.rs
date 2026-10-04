@@ -97,6 +97,12 @@ pub(crate) enum Code {
     /// A `.skl` paired with a `face_high`, `hair_high` or `oral` model, which have no skeleton
     /// slot on Fox; the file is ignored.
     SklNoSlot,
+    /// A model folder's texture variant set (`pants_kit1`, `pants_kit3`) has no variant for
+    /// a kit number the export defines: the lowest variant is copied into the gap.
+    KitVariantMissing,
+    /// Per-kit model files (`pants_kit1.fmdl`, `pants_kit2.fmdl`) on a Fox target, which
+    /// cannot switch models with the kit: the lowest variant is used, the others ignored.
+    KitVariantModelFox,
     /// A face's `face_diff.xml` that is not base64 text or a `<dif>` holding it, or a face
     /// diff (decoded, or a `face_diff.bin`) without the magic `FACE` or shorter than its
     /// header gives; the folder holding it is left out.
@@ -160,7 +166,7 @@ impl Code {
     /// Every code, for the catalog test: a variant missing here would make its first message
     /// panic in `severity`, so a new variant is added to this list too.
     #[cfg(test)]
-    const ALL: [Code; 50] = [
+    const ALL: [Code; 52] = [
         Code::ExportExtractFailed,
         Code::NoExportsFound,
         Code::ExportDisabled,
@@ -192,6 +198,8 @@ impl Code {
         Code::MergeMaterialConflict,
         Code::SklMergeConflict,
         Code::SklNoSlot,
+        Code::KitVariantMissing,
+        Code::KitVariantModelFox,
         Code::FaceDiffInvalid,
         Code::XmlDifConflict,
         Code::SharedTextureConflict,
@@ -247,6 +255,8 @@ impl Code {
             Code::MergeMaterialConflict => "merge_material_conflict",
             Code::SklMergeConflict => "skl_merge_conflict",
             Code::SklNoSlot => "skl_no_slot",
+            Code::KitVariantMissing => "kit_variant_missing",
+            Code::KitVariantModelFox => "kit_variant_model_fox",
             Code::FaceDiffInvalid => "face_diff_invalid",
             Code::XmlDifConflict => "xml_dif_conflict",
             Code::SharedTextureConflict => "shared_texture_conflict",
@@ -317,6 +327,8 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("merge_material_conflict", CatalogSeverity::Error),
     ("skl_merge_conflict", CatalogSeverity::Error),
     ("skl_no_slot", CatalogSeverity::Warning),
+    ("kit_variant_missing", CatalogSeverity::Warning),
+    ("kit_variant_model_fox", CatalogSeverity::Warning),
     ("face_diff_invalid", CatalogSeverity::Error),
     ("xml_dif_conflict", CatalogSeverity::Error),
     ("shared_texture_conflict", CatalogSeverity::Error),

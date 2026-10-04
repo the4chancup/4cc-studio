@@ -15,6 +15,7 @@ mod deep;
 mod events;
 mod face_diff;
 mod gui_run;
+mod kit_variants;
 mod messages;
 mod output;
 mod paths;

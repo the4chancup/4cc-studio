@@ -15,6 +15,7 @@ use vtree::ScopePath;
 
 use super::ids::shared_folders_taking_ids;
 use super::mapped_players;
+use crate::kit_variants::model_variant_sets;
 
 /// The kit texture stems, in the order of the kit config's texture-name fields.
 pub(crate) const KIT_TEXTURE_STEMS: [&str; 5] =
@@ -166,6 +167,10 @@ pub(crate) enum PlayerFile {
     /// skeleton slot (`player_folders.md` "SKL pairing"): reported as `skl_no_slot` by the
     /// structure pass, and never read.
     SlotlessSkeleton,
+    /// A per-kit model with a lower variant of its set beside it (`pants_kit2.fmdl` beside
+    /// `pants_kit1.fmdl`): a Fox target cannot switch models with the kit, so planning reports
+    /// `kit_variant_model_fox` and the file is never read (`kit_variants::model_variant_sets`).
+    LeftOutKitVariant,
     /// A texture with this stem and source format, converted once into the player's common
     /// folder.
     Texture(String, SourceFormat),
@@ -173,8 +178,8 @@ pub(crate) enum PlayerFile {
 
 impl PlayerFile {
     /// The package the file goes into; `None` for a texture, which goes to the player's
-    /// common folder for every package to point at, and for a skeleton with no slot, which
-    /// goes nowhere.
+    /// common folder for every package to point at, and for a skeleton with no slot and a
+    /// left-out kit variant, which go nowhere.
     pub(crate) fn package(&self) -> Option<ModelPackage> {
         match self {
             PlayerFile::Model { package, .. }
@@ -182,7 +187,9 @@ impl PlayerFile {
             | PlayerFile::Packed { package, .. }
             | PlayerFile::Skeleton { package, .. } => Some(*package),
             PlayerFile::FaceDiffXml => Some(ModelPackage::Face),
-            PlayerFile::SlotlessSkeleton | PlayerFile::Texture(..) => None,
+            PlayerFile::SlotlessSkeleton
+            | PlayerFile::LeftOutKitVariant
+            | PlayerFile::Texture(..) => None,
         }
     }
 }
@@ -334,19 +341,33 @@ pub(crate) struct FolderModels {
     /// skeleton slot: a skeleton named after one is `skl_no_slot`. The gloves have none
     /// either, and no `.skl` pairs with a glove.
     slotless_stems: Vec<String>,
+    /// The export paths of its per-kit models with a lower variant of their set beside them,
+    /// which are not models of the folder on Fox (`PlayerFile::LeftOutKitVariant`): no
+    /// skeleton pairs with one.
+    left_out_variants: Vec<ScopePath>,
 }
 
 impl FolderModels {
     /// The models among `files` of the folder at `folder`: its `.fmdl` files and its `.common`
     /// links to one, directly in it or in a reserved subfolder, each with its resolved role. A
     /// link counts as a model of its role's package, but pairs no skeleton of the folder's: a
-    /// Common model's skeleton is Common's, resolved at planning (`common_skeleton`).
+    /// Common model's skeleton is Common's, resolved at planning (`common_skeleton`). A per-kit
+    /// model with a lower variant of its set beside it is left out (`model_variant_sets`).
     pub(crate) fn of(folder: &ScopePath, files: &[FileDescriptor]) -> FolderModels {
-        let mut models = FolderModels::default();
+        let mut models = FolderModels {
+            left_out_variants: model_variant_sets(files)
+                .into_iter()
+                .flat_map(|set| set.left_out)
+                .collect(),
+            ..FolderModels::default()
+        };
         for file in files {
             let Some(position) = position(folder, file) else {
                 continue;
             };
+            if models.left_out_variants.contains(&file.path) {
+                continue;
+            }
             let file_name = file.path.name();
             let (model_name, local) = if file.kind == FileKind::Model(ModelFormat::Fmdl) {
                 (file_name.to_owned(), true)
@@ -429,9 +450,15 @@ pub(crate) fn player_file(
         })
     };
     match file.kind {
-        FileKind::Model(ModelFormat::Fmdl) => {
-            model_role(position, stem).map(|(package, name)| PlayerFile::Model { package, name })
-        }
+        // A left-out kit variant is one only where it would be a model: a file planning gives no
+        // role keeps none.
+        FileKind::Model(ModelFormat::Fmdl) => model_role(position, stem).map(|(package, name)| {
+            if models.left_out_variants.contains(&file.path) {
+                PlayerFile::LeftOutKitVariant
+            } else {
+                PlayerFile::Model { package, name }
+            }
+        }),
         // The link takes the role the linked model would have in its place; a link to anything
         // but an FMDL has no role yet.
         FileKind::CommonLink => linked_fmdl(name).and_then(|linked| {
