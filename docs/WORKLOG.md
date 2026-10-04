@@ -12,8 +12,8 @@ is in `AGENTS.md` ("Working documents").
 **Phase:** 3 (Team compiler skeleton) closed 2026-10-02, its cross-family reviews queued (see
 "Handover"). Phases 1 and 2 done (Phase 2 closed 2026-09-30).
 **Next:** Phase 4 is itemized and its Acceptance section written (step 4.1, 2026-10-03; its
-cross-family review (a) is queued). Next: 4.12 (`ingame_face` processing on Fox); 4.30,
-4.5 to 4.8, 4.9a, 4.10 and 4.11 are done (4.6c moved to Phase 8's cancellation), 4.9b
+cross-family review (a) is queued). Next: 4.13 (run planning); 4.30,
+4.5 to 4.8, 4.9a and 4.10 to 4.12 are done (4.6c moved to Phase 8's cancellation), 4.9b
 (collars) waits on the maintainer. 2.5b (GPU BC7) is step 16.x (decision entries
 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0 after Phase 8; phase order 1–6,
 8, 0.1.0, 7, 9–16 (`core/development_plan.md` "Releases"); first-class target the Fox version
@@ -138,6 +138,15 @@ Claude agent with no sidekick and no reviewer of another model family. While tha
   entries the slice opened.
   The acceptance section changed with these slices (TC-TEX-09 and TC-CMN-07 added,
   TC-CMN-05 narrowed to its Fox half): they join the queued (a) review of the section.
+  4.12 (b): `team_compiler` (`plan/subset.rs` `model_role` under the marker,
+  `PlayerFile::UnusedFaceFile`, `FolderModels::of_player_files`; `plan/mod.rs`
+  `ModelFolder::ingame_face`, `folder_tasks`' blank face; `validation.rs`
+  `face_file_not_used`), its `feat(team_compiler)` commit of 2026-10-04, against
+  `player_folders.md` "`ingame_face` marker" and "`ingame_face` with shared links",
+  `pipeline.md` "2. Per-export serial steps" step 4, `messages.md` (`face_file_not_used`),
+  TC-MOD-16 to TC-MOD-19 and TC-MOD-32, and the two decision entries of 2026-10-04 on the
+  face file with no face model and on TC-MOD-09 (reworded; TC-MOD-32 is new: both join the
+  queued (a) review of the section).
 - For the lead, on return: the review process on trial (maintainer, 3.1) runs a full sidekick
   review loop after each GPT round and calls GPT again only once that loop has ended and GPT's
   own loop has not; not yet in `AGENTS.md` (3.6: GPT 4 of 7 accepted, then sidekick S1 3 of 7,
@@ -967,20 +976,33 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
     textures linked one by one (at the function). Gates green (130 of 211);
     `mutants-diff 2b0a388`: 26, 22 caught, 4 unviable, 0 missed
 
-- [ ] 4.12 **`ingame_face` processing (Fox)**: no face package emitted; arbitrary-named models
+- [x] 4.12 **`ingame_face` processing (Fox)**: no face package emitted; arbitrary-named models
   rerouted to the player-exclusive boots folder (merged, the paired `.skl` becoming `boots.skl`);
   gloves parts to the player's gloves folders; a boots/gloves link combined with local parts
   under the marker; an empty `face/` ignored; a player without face models and without the marker
   gets the blank face folder (its contents per engine: `pipeline.md` step 4), always with the
-  bundled face diff; to settle here: how a `face_diff.bin` left in a folder with no face
-  model is reported (today the gate refuses it as `content_not_yet_compiled`; 467 face
-  folders of the VGL26 exports are like that, `.tmp/face_diff_blank_census.py`). Plan:
-  `player_folders.md` "`ingame_face` marker", "`ingame_face` with shared links"; `pipeline.md`
-  "2. Per-export serial steps" step 4. IDs:
-  TC-MOD-16..19. Crates: tc (`processing/model.rs`, `plan/`) → verify: a `/co/` slot 05 folder
-  with `ingame_face`, `torso.fmdl`, `torso.skl` and `glove_l.fmdl`: the CPK has no
-  `face/real/71405/`, has `boots/k0625/#Win/boots.fpk` holding `boots.fmdl` and a `boots.skl`
-  byte-equal to `torso.skl`, and `glove/g0625/#Win/glove.fpk`
+  bundled face diff; a face file left in a folder with no face model is `face_file_not_used`
+  (Info; 467 face folders of the VGL26 exports hold one, `.tmp/face_diff_blank_census.py`).
+  Plan: `player_folders.md` "`ingame_face` marker", "`ingame_face` with shared links";
+  `pipeline.md` "2. Per-export serial steps" step 4. IDs: TC-MOD-16..19, TC-MOD-32 (new).
+  Done 2026-10-04 (sidekick, one brief, landed with two lead fixes to tests): the reroute is
+  one branch of `plan/subset.rs` `model_role`, the marker carried by `FolderModels`
+  (`of_player_files`) and `ModelFolder::ingame_face`, so the gate, `link_combines`, the ids,
+  the findings and the tasks agree; `PlayerFile::UnusedFaceFile`, reported by
+  `validation.rs` (`check` too); `plan/mod.rs` `folder_tasks` plans the face of every
+  unmarked player folder (`blank_face`), and `processing/model.rs` `package` builds the
+  blank one unchanged; the gate no longer names the marker or a model-less folder; help;
+  `tests/cli/face_folders.rs`. The pre-Fox blank folder comes with 4.14. TC-MOD-09 is
+  reworded (decision entry): a failed package is left out alone, the blank face and the
+  textures still packed ("Phase 4 open questions"). Known, not fixed: under the marker a
+  texture of the player's own that differs from a combined `Boots/` folder's is
+  `shared_texture_conflict` (dropped=boots) where both feed the boots, by the rule that a
+  player's own textures stand for its face (the folder's models are left out either way); a
+  marked folder holding only textures emits nothing and reports nothing; a `Faces/` folder
+  with no face model also gets `face_file_not_used` from `check` (`compile` refuses the
+  folder). Not covered from the CLI: those three, and a marked folder whose rerouted models
+  bring different skeletons (`skl_merge_conflict`, seen by the sidekick's probe). Gates
+  green (135 of 212); `mutants-diff 03d4fae`: 50, 43 caught, 7 unviable, 0 missed
 
 - [ ] 4.13 **Run planning**: `duplicate_aesthetics_export`; canonical export order by normalized
   source-relative path plus source kind; every task's output namespace allocated in planning,
@@ -1346,6 +1368,13 @@ administrator, Upgrade DpFileList dialog): Phase 8; glTF sources: Phase 7; the G
 (`development_plan.md` "Phase 4" Verification).
 
 Phase 4 open questions (maintainer):
+
+- A failed package beside a blank face (4.12): a player folder whose boots fail to merge
+  (`skl_merge_conflict`, `merge_material_conflict`) still gets its blank face and its
+  textures in the CPK, by the writer's rule that the packages that succeeded commit, so
+  in-game the player shows no head over the stock body. The alternative is that one failed
+  package drops the whole folder (a stock player instead), which also changes a real face
+  beside failed boots. Kept as it is (decision entry of 2026-10-04 on TC-MOD-09).
 
 - The sock table's look in-game (4.10): `KIT_LAYOUT_REMAP` approximates, in two bands, a map
   the models give to within about 10 px of 2048 (`pipeline.md` "Layout conversion"). To
@@ -2274,3 +2303,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   player's model names the texture in the team's Common output, where it is packed once.
   Step 4.11 is done. Two open issues recorded: a link beside a combined shared folder's
   texture of the same stem, and stems matched as spelled.
+- **2026-10-04** — 4.12: `ingame_face` compiles on Fox (no face folder, the models the face
+  would take become the player's boots), every other player folder gets a face folder, blank
+  without a face model, and a face file with no face model is `face_file_not_used`.
+  TC-MOD-09 reworded: a failed package is left out alone.

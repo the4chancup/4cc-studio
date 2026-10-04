@@ -400,6 +400,7 @@ mod tests {
                     }
                 })
                 .collect(),
+            ingame_face: false,
             combined: Vec::new(),
             common_models: Vec::new(),
             common_texture_stems: BTreeSet::new(),

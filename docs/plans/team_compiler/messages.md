@@ -197,9 +197,10 @@ savefile messages are new.
 | `fmdl_name_invalid` | E | Fox: FMDL in a boots/gloves shared folder not resolving to that category's allowed names | folder discarded |
 | `fmdl_fcl_hair_fallback` | I | Fox: arbitrary-named FMDL treated as a face model, routed into the `fcl_hair.fmdl` merge (Red's single-file fallback, generalized) | none |
 | `fmdl_merged` | I | Fox: multiple models resolve to the same allowed name; meshes merged into one FMDL (alphabetical source order) | none |
-| `merge_material_conflict` | E | merged parts define the same material name differently (Fox merge or pre-Fox `ingame_face` merge) | folder discarded |
-| `skl_merge_conflict` | E | merged parts have incompatible skeletons (Fox compares effective SKL content; pre-Fox IR merge compares bone transforms) | folder discarded (`DropFolder`) |
+| `merge_material_conflict` | E | merged parts define the same material name differently (Fox merge or pre-Fox `ingame_face` merge) | that package (face, boots or gloves) left out (`DropFolder`); the folder's other packages and its textures are still packed |
+| `skl_merge_conflict` | E | merged parts have incompatible skeletons (Fox compares effective SKL content; pre-Fox IR merge compares bone transforms) | that package left out (`DropFolder`), as for `merge_material_conflict` |
 | `skl_no_slot` | W | Fox: custom `.skl` paired with a model resolving to `face_high`/`hair_high`/`oral` (no skeleton slot exists for those) | SKL ignored (no-op file) |
+| `face_file_not_used` | I | Fox: a face file (`face_diff.bin`, `face_diff.xml`, `fcl_hair_sim.fclo`) in a player folder with no face model, under `ingame_face` or not; a blank face folder always takes the bundled face diff (context: the file) | file not read |
 | `ingame_face_explicit_face_model` | E | `ingame_face` combined with explicit face models (`face_high`/`hair_high`/`oral`, in any supported source format) or a shared face link, which require the suppressed face folder | player folder discarded (`DropFolder`) |
 | `shared_texture_conflict` | E | a player's tasks produce the same common-texture destination with different bytes | losing task discarded (`DropFolder`; canonical winner face > boots > gloves); identical bytes deduplicate |
 | `merged_texture_conflict` | E | two merge-copied parts within one output model produce the same texture destination with different bytes (no canonical winner exists inside one model) | folder discarded (`DropFolder`); identical bytes deduplicate |

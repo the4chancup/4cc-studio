@@ -314,6 +314,7 @@ mod tests {
                 .iter()
                 .map(|name| file(&format!("{PLAYER}/{name}")))
                 .collect(),
+            ingame_face: false,
             combined: Vec::new(),
             common_models: Vec::new(),
             common_texture_stems: BTreeSet::new(),
@@ -569,6 +570,36 @@ mod tests {
     }
 
     #[test]
+    fn the_face_of_a_folder_with_no_face_model_is_the_bundled_face_diff_alone() {
+        let folder = player(&["boots.fmdl", "face_diff.bin"]);
+        let own = std::fs::read(tracer().join(format!("{PLAYER}/face_diff.bin"))).unwrap();
+        assert_ne!(own, templates::FACE_DIFF);
+        let kind = TaskKind::Models {
+            folder,
+            package: ModelPackage::Face,
+            ids: vec![79205],
+        };
+        assert!(kind.files().is_empty(), "the face reads nothing");
+
+        let batch = run(kind);
+
+        assert!(batch.messages.is_empty(), "{:?}", batch.messages);
+        assert_eq!(
+            paths(&batch),
+            [
+                "Asset/model/character/face/real/79205/#Win/face.fpk",
+                "Asset/model/character/face/real/79205/#Win/face.fpkd",
+            ]
+        );
+        let package = FpkFile::read(&batch.entries[0].1).unwrap();
+        let names: Vec<&str> = package.entries().map(|(name, _)| name).collect();
+        assert_eq!(names, ["face_diff.bin"]);
+        assert_eq!(package.get("face_diff.bin").unwrap(), templates::FACE_DIFF);
+        let fpkd = FpkFile::read(&batch.entries[1].1).unwrap();
+        assert_eq!((fpkd.kind(), fpkd.len()), (FpkKind::Fpkd, 0));
+    }
+
+    #[test]
     fn an_unsuffixed_model_is_a_hair_part_whose_skeleton_is_the_hair_s() {
         let custom = other_skeleton();
         let batch = run_with(
@@ -707,6 +738,7 @@ mod tests {
                     ..file(&format!("{PLAYER}/shirt.dds"))
                 },
             ],
+            ingame_face: false,
             combined: Vec::new(),
             common_models: Vec::new(),
             common_texture_stems: BTreeSet::new(),

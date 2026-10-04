@@ -97,6 +97,10 @@ pub(crate) enum Code {
     /// A `.skl` paired with a `face_high`, `hair_high` or `oral` model, which have no skeleton
     /// slot on Fox; the file is ignored.
     SklNoSlot,
+    /// A `face_diff.bin`, `face_diff.xml` or `fcl_hair_sim.fclo` in a player folder with no
+    /// face model (with or without `ingame_face`): there is no face for it to shape, so the
+    /// file is not read.
+    FaceFileNotUsed,
     /// A model folder's texture variant set (`pants_kit1`, `pants_kit3`) has no variant for
     /// a kit number the export defines: the lowest variant is copied into the gap.
     KitVariantMissing,
@@ -166,7 +170,7 @@ impl Code {
     /// Every code, for the catalog test: a variant missing here would make its first message
     /// panic in `severity`, so a new variant is added to this list too.
     #[cfg(test)]
-    const ALL: [Code; 52] = [
+    const ALL: [Code; 53] = [
         Code::ExportExtractFailed,
         Code::NoExportsFound,
         Code::ExportDisabled,
@@ -198,6 +202,7 @@ impl Code {
         Code::MergeMaterialConflict,
         Code::SklMergeConflict,
         Code::SklNoSlot,
+        Code::FaceFileNotUsed,
         Code::KitVariantMissing,
         Code::KitVariantModelFox,
         Code::FaceDiffInvalid,
@@ -255,6 +260,7 @@ impl Code {
             Code::MergeMaterialConflict => "merge_material_conflict",
             Code::SklMergeConflict => "skl_merge_conflict",
             Code::SklNoSlot => "skl_no_slot",
+            Code::FaceFileNotUsed => "face_file_not_used",
             Code::KitVariantMissing => "kit_variant_missing",
             Code::KitVariantModelFox => "kit_variant_model_fox",
             Code::FaceDiffInvalid => "face_diff_invalid",
@@ -327,6 +333,7 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("merge_material_conflict", CatalogSeverity::Error),
     ("skl_merge_conflict", CatalogSeverity::Error),
     ("skl_no_slot", CatalogSeverity::Warning),
+    ("face_file_not_used", CatalogSeverity::Info),
     ("kit_variant_missing", CatalogSeverity::Warning),
     ("kit_variant_model_fox", CatalogSeverity::Warning),
     ("face_diff_invalid", CatalogSeverity::Error),

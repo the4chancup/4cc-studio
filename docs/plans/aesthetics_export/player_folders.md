@@ -93,7 +93,8 @@ roster is allowed for a kit-only export; any present player folders are then unl
 recognized before extension allowlist checks, represented as `PlayerFolder.ingame_face`, and never
 reported as disallowed files. Parsing normalizes either spelling to the same boolean; generated or
 upgraded exports write the bare marker. At categorization it removes face-classified parts and
-face-specific ancillary files, and **no face folder is emitted** (on either engine — a face folder
+face-specific ancillary files (each reported as `face_file_not_used`), and **no face folder is
+emitted** (on either engine — a face folder
 containing only boots/gloves would override the ingame face, and an empty one would blank it).
 
 The face-classified parts split into two groups with different fates:

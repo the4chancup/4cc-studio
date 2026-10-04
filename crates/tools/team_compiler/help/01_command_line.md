@@ -144,7 +144,16 @@ whose name is not a face name goes into `fcl_hair.fmdl` and is reported as
 holds textures. The files in these subfolders work like files in the folder itself: a skeleton
 file pairs with the model beside it in the same subfolder, textures from any of them go to the
 player's common folder, and parts in a subfolder are merged with the folder's own models and
-with a linked shared folder of the same kind. A kit folder with
+with a linked shared folder of the same kind. A player folder with no face model still gets a
+face folder, an empty one, so the game shows no head for that player: the usual case for a
+body model that brings its own head. An empty file named `ingame_face` in the player's folder
+keeps the head made in the game's face editor instead: no face folder is built, and a model
+that would have gone into the face (`torso.fmdl`, `fcl_hair.fmdl`, a model in the `face`
+subfolder) becomes part of the player's boots, with its skeleton file, and is not reported as
+`fmdl_fcl_hair_fallback`. A `face_high`, `hair_high` or `oral` model or a `Faces` link beside
+the marker is the error `ingame_face_explicit_face_model`, and the player's folder is left out.
+A `face_diff.bin`, `face_diff.xml` or `fcl_hair_sim.fclo` in a folder with no face model is not
+used, and both commands report it as `face_file_not_used`. A kit folder with
 no `kit` texture, an empty one included, is built with a magenta and black checkerboard in its
 place and reported as `kit_placeholder`, so a kit nobody drew shows as missing in the game. A
 kit's `config.toml` that cannot be read (not UTF-8 text, a value of the wrong type or out of
@@ -152,8 +161,8 @@ range) is reported by both commands as `kit_config_invalid`, naming the error, a
 left out, even with `pass_through` on. `compile`
 skips any other export with the error `content_not_yet_compiled`, naming the first thing it
 cannot build yet: a PES 2015 to 2017 target, a referee export, or content other than a player's
-own face, boots and gloves models, their textures, portraits, kits, the logo, linked shared
-`Faces`, `Boots` and `Gloves` folders, and a `Common` folder holding only `.fmdl`, `.skl` and
+own face, boots and gloves models, their textures, portraits, the `ingame_face` marker, kits,
+the logo, linked shared `Faces`, `Boots` and `Gloves` folders, and a `Common` folder holding only `.fmdl`, `.skl` and
 texture files, its models reached through `.common` links (a model in a `gloves` subfolder
 whose name does not say which hand it is, or a `.common` link to a material file, among
 others). `check` still checks

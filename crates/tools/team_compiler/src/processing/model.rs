@@ -118,6 +118,7 @@ pub(super) fn package(
                 | PlayerFile::CommonModel { .. }
                 | PlayerFile::Skeleton { .. }
                 | PlayerFile::SlotlessSkeleton
+                | PlayerFile::UnusedFaceFile
                 | PlayerFile::LeftOutKitVariant
                 | PlayerFile::FaceDiffXml
                 | PlayerFile::Packed { .. } => {}

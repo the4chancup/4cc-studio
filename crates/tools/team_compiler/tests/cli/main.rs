@@ -11,6 +11,7 @@ mod common_links;
 mod compile;
 mod compile_exports;
 mod deep;
+mod face_folders;
 mod kit_layout;
 mod logo;
 mod models;

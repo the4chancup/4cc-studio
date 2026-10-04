@@ -35,7 +35,7 @@ enum FaceDiffForm {
 
 /// The form of face diff a file of `role` is, or `None` for any other file. The roles are
 /// planning's (`player_file`), so a file planning gives no package (a `face_diff.bin` in
-/// `boots/`, or in a folder with no face) is not read.
+/// `boots/`, or one not used in a folder with no face) is not read.
 fn face_diff_form(role: Option<PlayerFile>) -> Option<FaceDiffForm> {
     match role? {
         PlayerFile::Packed {
@@ -48,6 +48,7 @@ fn face_diff_form(role: Option<PlayerFile>) -> Option<FaceDiffForm> {
         | PlayerFile::CommonModel { .. }
         | PlayerFile::Skeleton { .. }
         | PlayerFile::SlotlessSkeleton
+        | PlayerFile::UnusedFaceFile
         | PlayerFile::LeftOutKitVariant
         | PlayerFile::Texture(..)
         | PlayerFile::CommonTexture(_) => None,

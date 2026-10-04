@@ -3777,3 +3777,40 @@ described by the plan (`model_format.md` "Link files") with no scenario and no s
 at 4.5c).
 Plan: `team_compiler/README.md` "Acceptance" (TC-CMN-05, TC-CMN-07, TC-TEX-09); worklog
 steps 4.11 and 4.14.
+
+## 2026-10-04 — team_compiler — a face file with no face model is `face_file_not_used`; who gets a blank face
+Decision: (1) A `face_diff.bin`, `face_diff.xml` or `fcl_hair_sim.fclo` in a player folder
+with no face model, under `ingame_face` or not, is not read and is reported as
+`face_file_not_used` (Info, on the folder, context `file`), by `check` and `compile`. (2)
+Every roster-mapped player folder without the marker and without a face model gets the blank
+face folder, whatever else it holds (a portrait alone, a boots link alone, an empty `face/`,
+nothing). (3) Under the marker a model that would go into `fcl_hair`, one named `fcl_hair`
+included, becomes a boots part with no finding of its own.
+Why: (1) the maintainer ruled that a blank face always takes the bundled diff and left the
+report to step 4.12. The output is the same with or without the file, so it is not a
+warning; 467 face folders of the VGL26 exports hold one (345 an outdated FPC diff), and a
+member who believes the file does something should be told once. (2) Red emits a face folder
+for every player folder without the marker (`players_process.py` `copy_folder_contents`: "an
+empty face category still gets its face folder emitted"), and the plan's "as a player with
+no face models does" says the same; the step's wording named only the boots and gloves case.
+(3) The plan lists `face_high`, `hair_high` and `oral` as the explicit face names; the marker
+is the member's own instruction, so the reroute needs no report.
+Plan: `team_compiler/pipeline.md` "2. Per-export serial steps" step 4;
+`team_compiler/messages.md` `face_file_not_used`; `aesthetics_export/player_folders.md`
+"`ingame_face` marker"; `team_compiler/README.md` TC-MOD-32.
+
+## 2026-10-04 — team_compiler — a failed package is left out alone, also beside a blank face (TC-MOD-09 reworded)
+Decision: TC-MOD-09 now says the conflicting boots are left out of the CPK while the folder's
+blank face and its textures are still packed; the `merge_material_conflict` and
+`skl_merge_conflict` rows say "that package left out". The writer is unchanged.
+Why: the writer's rule is that a player folder's packages that succeeded commit with its
+textures (`pipeline.md` "3. Per-model-folder parallel steps", step 6), and the help already
+says a merge conflict "leaves that folder's face, boots or gloves out". TC-MOD-09's "each
+folder is dropped" was true only because its folders held nothing but boots; since step 4.12
+every unmarked folder has a face package, blank without a face model, which succeeds. The
+sidekick recommended the opposite, the writer dropping the whole folder when one package
+fails, so a player never shows a blank head over the stock body; that changes the rule for a
+real face beside failed boots too, and is left to the maintainer (worklog "Phase 4 open
+questions").
+Plan: `team_compiler/README.md` TC-MOD-09; `team_compiler/messages.md`
+`merge_material_conflict`, `skl_merge_conflict`.

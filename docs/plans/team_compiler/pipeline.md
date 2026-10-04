@@ -222,7 +222,9 @@ format:
    player-exclusive boots/gloves folders with IDs from the per-team block scheme (see "ingame_face
    marker"). Without `ingame_face`, a player with boots/gloves but no face models still gets a
    (blank) face folder: the absence of the default PES face is the final element of FPC, so the
-   folder must exist (Red's current behavior, kept). On Fox the blank folder is
+   folder must exist (Red's current behavior, kept). That holds for every roster-mapped player
+   folder without the marker and without a face model, whatever else it holds: a portrait
+   alone, textures alone, a boots link alone, an empty `face/`, nothing. On Fox the blank folder is
    `face/real/{id}{NN}/#Win/face.fpk` holding only the template `face_diff.bin`, plus `face.fpkd`
    (the template `generic.fpkd`): no model, no `.skl`, no `.fclo`. On pre-Fox it is
    `face/real/{id}{NN}.cpk` holding a `face.xml` with one
@@ -231,7 +233,12 @@ format:
    `dummy.model`) and `dummy.mtl` (an empty `<materialset>`). The blank folder's diff is always
    the bundled template, whatever `face_diff.bin` the player folder holds: without a face
    model the file has no face to shape, and the two other files found in such folders
-   across the VGL26 exports are outdated FPC-dedicated diffs. Conflicting portraits for the same
+   across the VGL26 exports are outdated FPC-dedicated diffs. A face file left in a player
+   folder with no face model, with or without the marker (`face_diff.bin`, `face_diff.xml`,
+   `fcl_hair_sim.fclo`), is not read and is reported as `face_file_not_used`, by `check` too:
+   an Info, since the output is what it would be without the file, and 467 face folders of the
+   VGL26 exports hold one. Under the marker the reroute itself reports nothing: the marker is
+   the member's own instruction. Conflicting portraits for the same
    number fail the export. Referee identity uses its separate slot-derived face paths and does not
    construct a normal `TeamId`. (Red: `portraits_move.py`, `export_move.py`)
 5. **Notes collection** — a root `notes.txt` is strict UTF-8; an optional UTF-8 BOM is stripped and

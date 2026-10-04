@@ -60,7 +60,11 @@ fn write_player(sandbox: &Sandbox, folder: &str, boots_name: &str) {
 
 /// Compiles the sandbox for PES 21, asserting the export `name` reports exactly `findings`
 /// and the run exits with 0, and returns the CPK's entries by path.
-fn compile_clean(sandbox: &Sandbox, name: &str, findings: &[&str]) -> BTreeMap<String, Vec<u8>> {
+pub(crate) fn compile_clean(
+    sandbox: &Sandbox,
+    name: &str,
+    findings: &[&str],
+) -> BTreeMap<String, Vec<u8>> {
     let run = sandbox.run(&pes21_settings(sandbox), &["compile"]);
     assert_eq!(findings_of(&run.messages(), name), findings);
     assert_eq!(run.exit_code(), 0);
@@ -191,6 +195,10 @@ fn a_folder_mapped_to_two_slots_emits_its_boots_under_both_ids_and_its_textures_
             "Asset/model/character/boots/k0627/#Win/boots.fpk",
             "Asset/model/character/boots/k0627/#Win/boots.fpkd",
             "Asset/model/character/common/714/A/sourceimages/#windx11/shirt.ftex",
+            "Asset/model/character/face/real/71403/#Win/face.fpk",
+            "Asset/model/character/face/real/71403/#Win/face.fpkd",
+            "Asset/model/character/face/real/71407/#Win/face.fpk",
+            "Asset/model/character/face/real/71407/#Win/face.fpkd",
             "common/character0/model/character/uniform/team/UniColor.bin",
             "common/etc/TeamColor.bin",
         ]
@@ -296,14 +304,14 @@ fn boots_skl(entries: &BTreeMap<String, Vec<u8>>, path: &str) -> Vec<u8> {
 }
 
 /// The mesh count of the `boots.fmdl` of the boots package at `path` in `entries`.
-fn boots_mesh_count(entries: &BTreeMap<String, Vec<u8>>, path: &str) -> usize {
+pub(crate) fn boots_mesh_count(entries: &BTreeMap<String, Vec<u8>>, path: &str) -> usize {
     let package = fpk::FpkFile::read(&entries[path]).unwrap();
     let model = FmdlFile::read(package.get("boots.fmdl").unwrap()).unwrap();
     Model::from_file(&model).unwrap().meshes.len()
 }
 
 /// The mesh count of the tracer's boots model.
-fn tracer_boots_mesh_count() -> usize {
+pub(crate) fn tracer_boots_mesh_count() -> usize {
     let model = FmdlFile::read(&tracer_player_file("boots.fmdl")).unwrap();
     Model::from_file(&model).unwrap().meshes.len()
 }
@@ -374,7 +382,7 @@ fn a_boots_link_beside_a_local_boots_model_combines_the_shared_folder_into_the_p
     assert_eq!(boots_skl(&entries, k0625), body_skl("pes21"));
 
     // Slot 07 links Crocs plainly: Crocs compiles on its own too, as it is, textures beside
-    // it, while slot 05's merge is unchanged.
+    // it, while slot 05's merge is unchanged. Slot 07 holds no face model: its face is blank.
     sandbox.write(&format!("{export}/Players/07 - B/Crocs.boots"), b"");
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
     assert_eq!(
@@ -403,6 +411,8 @@ fn a_boots_link_beside_a_local_boots_model_combines_the_shared_folder_into_the_p
             k0644,
             "Asset/model/character/boots/k0644/#Win/boots.fpkd",
             "Asset/model/character/boots/k0644/#windx11/sole.ftex",
+            "Asset/model/character/face/real/71407/#Win/face.fpk",
+            "Asset/model/character/face/real/71407/#Win/face.fpkd",
         ]
     );
     assert_eq!(boots_mesh_count(&entries, k0644), tracer_boots_mesh_count());
@@ -417,7 +427,7 @@ fn a_boots_link_beside_a_local_boots_model_combines_the_shared_folder_into_the_p
 }
 
 /// One of the bundled face templates, `resources/templates/<name>`.
-fn template(name: &str) -> Vec<u8> {
+pub(crate) fn template(name: &str) -> Vec<u8> {
     fs::read(
         Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../../resources/templates")
@@ -619,10 +629,16 @@ fn a_boots_subfolder_s_model_is_the_boots_and_a_common_subfolder_s_texture_is_th
             boots_fpk,
             "Asset/model/character/boots/k0625/#Win/boots.fpkd",
             skin,
+            "Asset/model/character/face/real/71405/#Win/face.fpk",
+            "Asset/model/character/face/real/71405/#Win/face.fpkd",
             "common/character0/model/character/uniform/team/UniColor.bin",
             "common/etc/TeamColor.bin",
         ],
-        "no face package for a folder whose only model is in boots/"
+        "the blank face for a folder whose only model is in boots/"
+    );
+    assert_eq!(
+        package_names(&entries["Asset/model/character/face/real/71405/#Win/face.fpk"]),
+        ["face_diff.bin"]
     );
     assert_eq!(
         package_names(&entries[boots_fpk]),
@@ -1066,16 +1082,18 @@ fn a_texture_the_player_s_folder_and_a_combined_face_folder_hold_differently_dro
         [
             "Asset/model/character/boots/k0627/#Win/boots.fpk",
             "Asset/model/character/boots/k0627/#Win/boots.fpkd",
+            "Asset/model/character/face/real/71407/#Win/face.fpk",
+            "Asset/model/character/face/real/71407/#Win/face.fpkd",
             "common/character0/model/character/uniform/team/UniColor.bin",
             "common/etc/TeamColor.bin",
         ],
-        "nothing of slot 05"
+        "nothing of slot 05; slot 07's face is blank"
     );
 }
 
 // TC-MOD-09
 #[test]
-fn parts_with_a_skeleton_mismatch_or_a_material_defined_twice_drop_their_folder() {
+fn parts_with_a_skeleton_mismatch_or_a_material_defined_twice_leave_their_boots_out() {
     let sandbox = Sandbox::new("mod_merge_conflicts");
     let export = "exports/co - Conflicts";
     // Slot 05: two boots parts, one paired with a skeleton and one without.
@@ -1148,10 +1166,19 @@ fn parts_with_a_skeleton_mismatch_or_a_material_defined_twice_drop_their_folder(
         [
             "Asset/model/character/boots/k0629/#Win/boots.fpk",
             "Asset/model/character/boots/k0629/#Win/boots.fpkd",
+            "Asset/model/character/common/714/05 - A/sourceimages/#windx11/shirt.ftex",
+            "Asset/model/character/common/714/07 - B/sourceimages/#windx11/shirt.ftex",
+            "Asset/model/character/face/real/71405/#Win/face.fpk",
+            "Asset/model/character/face/real/71405/#Win/face.fpkd",
+            "Asset/model/character/face/real/71407/#Win/face.fpk",
+            "Asset/model/character/face/real/71407/#Win/face.fpkd",
+            "Asset/model/character/face/real/71409/#Win/face.fpk",
+            "Asset/model/character/face/real/71409/#Win/face.fpkd",
             "common/character0/model/character/uniform/team/UniColor.bin",
             "common/etc/TeamColor.bin",
         ],
-        "nothing of slot 05 or 07, their textures included"
+        "no k0625 or k0627: the failed boots are left out; each folder's blank face commits \
+         with the folder's textures"
     );
 }
 
@@ -1186,10 +1213,16 @@ fn shared_boots_folders_compile_once_each_under_the_shared_ids_in_name_order() {
             "Asset/model/character/boots/k0645/#Win/boots.fpk",
             "Asset/model/character/boots/k0645/#Win/boots.fpkd",
             "Asset/model/character/boots/k0645/#windx11/shirt.ftex",
+            "Asset/model/character/face/real/71403/#Win/face.fpk",
+            "Asset/model/character/face/real/71403/#Win/face.fpkd",
+            "Asset/model/character/face/real/71407/#Win/face.fpk",
+            "Asset/model/character/face/real/71407/#Win/face.fpkd",
+            "Asset/model/character/face/real/71411/#Win/face.fpk",
+            "Asset/model/character/face/real/71411/#Win/face.fpkd",
             "common/character0/model/character/uniform/team/UniColor.bin",
             "common/etc/TeamColor.bin",
         ],
-        "no k0623, k0627 or k0631 for the linking slots"
+        "no k0623, k0627 or k0631 for the linking slots; each one's face is blank"
     );
     let crocs = "Asset/model/character/boots/k0644/#Win/boots.fpk";
     let mud = "Asset/model/character/boots/k0645/#Win/boots.fpk";
@@ -1329,6 +1362,10 @@ fn the_planned_ids_are_the_slot_s_and_two_compiles_write_the_same_bytes() {
         [
             "Asset/model/character/boots/k0625/#Win/boots.fpk",
             "Asset/model/character/boots/k0625/#Win/boots.fpkd",
+            "Asset/model/character/face/real/71405/#Win/face.fpk",
+            "Asset/model/character/face/real/71405/#Win/face.fpkd",
+            "Asset/model/character/face/real/71423/#Win/face.fpk",
+            "Asset/model/character/face/real/71423/#Win/face.fpkd",
             "Asset/model/character/glove/g0643/#Win/glove.fpk",
             "Asset/model/character/glove/g0643/#Win/glove.fpkd",
             "common/character0/model/character/uniform/team/UniColor.bin",

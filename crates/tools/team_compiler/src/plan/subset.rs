@@ -95,13 +95,12 @@ pub(crate) fn link_name(kind: SharedKind, name: &str) -> String {
 /// player's own package instead of the shared output being loaded as it is. A face link
 /// always does, a shared face having no output of its own; a boots or gloves link does when
 /// the player holds a model of that package (`player_folders.md` "A link plus local models
-/// combines"). Pre-Fox has no exclusive packages, so there every link is plain.
+/// combines"), a model `ingame_face` makes a boots part included. Pre-Fox has no exclusive
+/// packages, so there every link is plain.
 pub(crate) fn link_combines(player: &PlayerFolder, link: &SharedLink) -> bool {
     match link.kind {
         SharedKind::Face => true,
-        SharedKind::Boots | SharedKind::Gloves => {
-            holds_model(&player.path, &player.files, package_of(link.kind))
-        }
+        SharedKind::Boots | SharedKind::Gloves => holds_model(player, package_of(link.kind)),
     }
 }
 
@@ -155,6 +154,13 @@ pub(crate) enum PlayerFile {
     /// as `face_diff.bin`. It goes wherever a `face_diff.bin` would, and stands for one: the
     /// player folder's own, in either form, over a combined face folder's.
     FaceDiffXml,
+    /// A `face_diff.bin`, `face_diff.xml` or `fcl_hair_sim.fclo` in a folder with no face
+    /// model and no face link, `ingame_face` or not: there is no face for it to shape, so it
+    /// is reported as `face_file_not_used` by the structure pass and never read; a player
+    /// folder's blank face takes the bundled face diff (`pipeline.md` "2. Per-export serial
+    /// steps", item 4). In a shared folder the subset gate names it instead
+    /// (`shared_not_compiled`).
+    UnusedFaceFile,
     /// A model's skeleton, the `.skl` named after a `fcl_hair` or `boots` part, packed into
     /// `package` under its slot's `name` (`fcl_hair_sim.skl`, `boots.skl`). Every part may
     /// bring one, and the merge decides whose is packed (`player_folders.md` "Merge
@@ -184,7 +190,8 @@ pub(crate) enum PlayerFile {
 impl PlayerFile {
     /// The package the file goes into; `None` for a texture, which goes to the player's
     /// common folder for every package to point at, for a texture link, whose texture is the
-    /// team's, and for a skeleton with no slot and a left-out kit variant, which go nowhere.
+    /// team's, and for a skeleton with no slot, an unused face file and a left-out kit
+    /// variant, which go nowhere.
     pub(crate) fn package(&self) -> Option<ModelPackage> {
         match self {
             PlayerFile::Model { package, .. }
@@ -192,7 +199,8 @@ impl PlayerFile {
             | PlayerFile::Packed { package, .. }
             | PlayerFile::Skeleton { package, .. } => Some(*package),
             PlayerFile::FaceDiffXml => Some(ModelPackage::Face),
-            PlayerFile::SlotlessSkeleton
+            PlayerFile::UnusedFaceFile
+            | PlayerFile::SlotlessSkeleton
             | PlayerFile::LeftOutKitVariant
             | PlayerFile::Texture(..)
             | PlayerFile::CommonTexture(_) => None,
@@ -316,17 +324,30 @@ fn suffix_role(suffix: Option<ModelSuffix>) -> (ModelPackage, &'static str) {
 /// suffix when directly in the folder; in a reserved subfolder, the subfolder's category,
 /// where a suffix of that category keeps its name and any other model takes the category's
 /// one name. The gloves have no such name (a glove must say which hand it is), so a glove
-/// whose suffix gives no side has no role, and `common/` holds no models.
-fn model_role(position: Position, stem: &str) -> Option<(ModelPackage, &'static str)> {
+/// whose suffix gives no side has no role, and `common/` holds no models. When `ingame_face`
+/// is set (the folder holds the marker), a model that would be a part of the face's
+/// `fcl_hair` is a part of the boots named `boots`.
+fn model_role(
+    position: Position,
+    stem: &str,
+    ingame_face: bool,
+) -> Option<(ModelPackage, &'static str)> {
     let (package, name) = suffix_role(model_suffix(stem));
-    match position {
-        Position::Direct => Some((package, name)),
-        Position::Face if package == ModelPackage::Face => Some((package, name)),
-        Position::Face => Some((ModelPackage::Face, "fcl_hair")),
-        Position::Boots => Some((ModelPackage::Boots, "boots")),
-        Position::Gloves if package == ModelPackage::Gloves => Some((package, name)),
-        Position::Gloves | Position::Common => None,
+    let role = match position {
+        Position::Direct => (package, name),
+        Position::Face if package == ModelPackage::Face => (package, name),
+        Position::Face => (ModelPackage::Face, "fcl_hair"),
+        Position::Boots => (ModelPackage::Boots, "boots"),
+        Position::Gloves if package == ModelPackage::Gloves => (package, name),
+        Position::Gloves | Position::Common => return None,
+    };
+    // The marker means no face package: the hair's parts would be lost, and the boots take
+    // the full body skeleton as the hair does (`player_folders.md` "`ingame_face` marker").
+    // The explicit face names have no such home; validation drops a marked folder holding one.
+    if ingame_face && role == (ModelPackage::Face, "fcl_hair") {
+        return Some((ModelPackage::Boots, "boots"));
     }
+    Some(role)
 }
 
 /// `file`'s export path up to its extension (`Players/05 - A/boots/kit_boots`): what a model
@@ -341,6 +362,9 @@ fn path_stem(file: &FileDescriptor) -> &str {
 /// with one of the same name in another of the folder's directories.
 #[derive(Debug, Default, PartialEq, Eq)]
 pub(crate) struct FolderModels {
+    /// The player folder holds `ingame_face`, so its models take the roles `model_role` gives
+    /// under the marker. A shared folder has none.
+    ingame_face: bool,
     /// The folder's face files have a package to go in: it holds a face model, or links a
     /// shared face (`with_linked_face`).
     face: bool,
@@ -363,13 +387,25 @@ pub(crate) struct FolderModels {
 }
 
 impl FolderModels {
-    /// The models among `files` of the folder at `folder`: its `.fmdl` files and its `.common`
-    /// links to one, directly in it or in a reserved subfolder, each with its resolved role. A
-    /// link counts as a model of its role's package, but pairs no skeleton of the folder's: a
-    /// Common model's skeleton is Common's, resolved at planning (`common_skeleton`). A per-kit
-    /// model with a lower variant of its set beside it is left out (`model_variant_sets`).
+    /// The models among `files` of the folder at `folder`, a folder without `ingame_face`
+    /// (`of_player_files`).
     pub(crate) fn of(folder: &ScopePath, files: &[FileDescriptor]) -> FolderModels {
+        FolderModels::of_player_files(folder, files, false)
+    }
+
+    /// The models among `files` of the folder at `folder`, which holds `ingame_face` when
+    /// `ingame_face` is set: its `.fmdl` files and its `.common` links to one, directly in it
+    /// or in a reserved subfolder, each with its resolved role. A link counts as a model of
+    /// its role's package, but pairs no skeleton of the folder's: a Common model's skeleton
+    /// is Common's, resolved at planning (`common_skeleton`). A per-kit model with a lower
+    /// variant of its set beside it is left out (`model_variant_sets`).
+    pub(crate) fn of_player_files(
+        folder: &ScopePath,
+        files: &[FileDescriptor],
+        ingame_face: bool,
+    ) -> FolderModels {
         let mut models = FolderModels {
+            ingame_face,
             left_out_variants: model_variant_sets(files)
                 .into_iter()
                 .flat_map(|set| set.left_out)
@@ -393,7 +429,8 @@ impl FolderModels {
             } else {
                 continue;
             };
-            let Some((package, name)) = model_role(position, file_stem(&model_name)) else {
+            let Some((package, name)) = model_role(position, file_stem(&model_name), ingame_face)
+            else {
                 continue;
             };
             if !local {
@@ -417,10 +454,11 @@ impl FolderModels {
         models
     }
 
-    /// The models of the player folder `folder`: its own, a linked shared face counting as a
-    /// face model of the folder's (`with_linked_face`).
+    /// The models of the player folder `folder`: its own, under its `ingame_face` marker
+    /// when it holds one, a linked shared face counting as a face model of the folder's
+    /// (`with_linked_face`).
     pub(crate) fn of_player(folder: &PlayerFolder) -> FolderModels {
-        let models = FolderModels::of(&folder.path, &folder.files);
+        let models = FolderModels::of_player_files(&folder.path, &folder.files, folder.ingame_face);
         if folder
             .links
             .iter()
@@ -455,8 +493,16 @@ pub(crate) fn player_file(
     let name = file.path.name();
     let stem = file_stem(name);
     let path_stem = path_stem(file);
+    // A face file sits in the folder or its `face/`; without a face to shape it is not used.
     let face_file = |role| {
-        (models.face && matches!(position, Position::Direct | Position::Face)).then_some(role)
+        if !matches!(position, Position::Direct | Position::Face) {
+            return None;
+        }
+        Some(if models.face {
+            role
+        } else {
+            PlayerFile::UnusedFaceFile
+        })
     };
     let face_packed = |name| {
         face_file(PlayerFile::Packed {
@@ -467,19 +513,21 @@ pub(crate) fn player_file(
     match file.kind {
         // A left-out kit variant is one only where it would be a model: a file planning gives no
         // role keeps none.
-        FileKind::Model(ModelFormat::Fmdl) => model_role(position, stem).map(|(package, name)| {
-            if models.left_out_variants.contains(&file.path) {
-                PlayerFile::LeftOutKitVariant
-            } else {
-                PlayerFile::Model { package, name }
-            }
-        }),
+        FileKind::Model(ModelFormat::Fmdl) => {
+            model_role(position, stem, models.ingame_face).map(|(package, name)| {
+                if models.left_out_variants.contains(&file.path) {
+                    PlayerFile::LeftOutKitVariant
+                } else {
+                    PlayerFile::Model { package, name }
+                }
+            })
+        }
         // A model link takes the role the linked model would have in its place; a texture link
         // stands for its stem wherever validation resolves a link, which is not in `common/`
         // (only textures may sit there, so a link there is never checked against `Common/`).
         // A link to anything else has no role yet.
         FileKind::CommonLink => match linked_fmdl(name) {
-            Some(linked) => model_role(position, file_stem(&linked))
+            Some(linked) => model_role(position, file_stem(&linked), models.ingame_face)
                 .map(|(package, name)| PlayerFile::CommonModel { package, name }),
             None if position == Position::Common => None,
             None => linked_texture_stem(name).map(PlayerFile::CommonTexture),
@@ -531,17 +579,13 @@ pub(crate) fn is_part_of(role: &PlayerFile, package: ModelPackage) -> bool {
     )
 }
 
-/// Whether the folder at `folder` holding `files` has a model that packs into `package`, its
-/// own or one a `.common` link brings in: on Fox, what gives a player its own package of that
-/// kind.
-pub(crate) fn holds_model(
-    folder: &ScopePath,
-    files: &[FileDescriptor],
-    package: ModelPackage,
-) -> bool {
-    let models = FolderModels::of(folder, files);
-    files.iter().any(|file| {
-        player_file(folder, file, &models).is_some_and(|role| is_part_of(&role, package))
+/// Whether the player folder `player` has a model that packs into `package`, its own or one a
+/// `.common` link brings in, under its `ingame_face` marker when it holds one: on Fox, what
+/// gives a player its own package of that kind.
+pub(crate) fn holds_model(player: &PlayerFolder, package: ModelPackage) -> bool {
+    let models = FolderModels::of_player(player);
+    player.files.iter().any(|file| {
+        player_file(&player.path, file, &models).is_some_and(|role| is_part_of(&role, package))
     })
 }
 
@@ -631,23 +675,20 @@ fn common_file_compiled(file: &FileDescriptor) -> bool {
 }
 
 /// The first thing in the mapped player `folder` of `export` that `compile` cannot build into
-/// its Fox packages yet.
+/// its Fox packages yet. A folder holding no model compiles too: without `ingame_face` to its
+/// blank face, with the marker to nothing but what its links load.
 fn player_not_compiled(
     export: &ValidatedAestheticsExport,
     folder: &PlayerFolder,
 ) -> Option<(&'static str, String)> {
     let models = FolderModels::of_player(folder);
-    let mut has_model = false;
-    for file in &folder.files {
-        let Some(role) = player_file(&folder.path, file, &models) else {
-            return Some(what_entry(file));
-        };
-        has_model |= matches!(
-            role,
-            PlayerFile::Model { .. } | PlayerFile::CommonModel { .. }
-        );
+    if let Some(file) = folder
+        .files
+        .iter()
+        .find(|file| player_file(&folder.path, file, &models).is_none())
+    {
+        return Some(what_entry(file));
     }
-    let path = folder.path.as_str();
     // A boots or gloves link alone loads the shared output as it is; one beside a local model
     // of its package combines, as every face link does: the shared folder's files become the
     // player's own, with the roles a shared folder's files have.
@@ -661,14 +702,6 @@ fn player_not_compiled(
         if let Some(item) = shared_not_compiled(link.kind, shared) {
             return Some(item);
         }
-    }
-    if folder.ingame_face {
-        return Some(("what", format!("{path}/ingame_face")));
-    }
-    // A folder with no model of its own and no link has nothing to compile; one with only a
-    // link is a player wearing a shared output.
-    if folder.links.is_empty() && !has_model {
-        return Some(("what", path.to_owned()));
     }
     None
 }
@@ -690,12 +723,15 @@ fn shared_not_compiled(
         let Some(role) = player_file(path, file, &models) else {
             return Some(what_entry(file));
         };
-        // A model of another package has no package here, and a `.common` link (kept by a
-        // non-strict file-type check) resolves only from a player folder.
+        // A model of another package has no package here, a `.common` link (kept by a
+        // non-strict file-type check) resolves only from a player folder, and a face file
+        // with no face model has no place in a shared folder.
         if role.package().is_some_and(|owner| owner != package)
             || matches!(
                 role,
-                PlayerFile::CommonModel { .. } | PlayerFile::CommonTexture(_)
+                PlayerFile::CommonModel { .. }
+                    | PlayerFile::CommonTexture(_)
+                    | PlayerFile::UnusedFaceFile
             )
         {
             return Some(what_entry(file));
@@ -957,21 +993,9 @@ mod tests {
             None
         );
         let folder = folder(&["boots/x.fmdl", "gloves/glove_l.fmdl"]);
-        assert!(holds_model(
-            &folder.path,
-            &folder.files,
-            ModelPackage::Boots
-        ));
-        assert!(holds_model(
-            &folder.path,
-            &folder.files,
-            ModelPackage::Gloves
-        ));
-        assert!(!holds_model(
-            &folder.path,
-            &folder.files,
-            ModelPackage::Face
-        ));
+        assert!(holds_model(&folder, ModelPackage::Boots));
+        assert!(holds_model(&folder, ModelPackage::Gloves));
+        assert!(!holds_model(&folder, ModelPackage::Face));
     }
 
     #[test]
@@ -1038,40 +1062,43 @@ mod tests {
     }
 
     #[test]
-    fn ingame_face_is_named_and_fpc_on_is_not() {
+    fn ingame_face_and_fpc_on_are_compiled() {
         // `fpc_on` puts the FPC values into the team's kit configs, which `compile` builds.
         assert_eq!(gate(&["Players/03 - A/fpc_on"]), None);
-        // `ingame_face` excludes an explicit face model, so this folder holds only the hair
-        // model; the marker is named before the hair files it lacks.
+        // `ingame_face` alone, beside a model the face would take, and beside a face file.
+        assert_eq!(first_hit(&["Players/03 - A/ingame_face"]), None);
+        assert_eq!(
+            first_hit(&["Players/03 - A/ingame_face", "Players/03 - A/torso.fmdl"]),
+            None
+        );
         assert_eq!(
             first_hit(&[
                 "Players/03 - A/fcl_hair.fmdl",
                 "Players/03 - A/face_diff.bin",
                 "Players/03 - A/ingame_face",
             ]),
-            what("Players/03 - A/ingame_face")
+            None
         );
     }
 
     #[test]
-    fn a_folder_without_a_model_or_a_face_file_without_a_face_model_is_named() {
-        // A face file without a face model has no package to go in, so it is named first;
-        // a folder of textures alone is named as a whole.
-        assert_eq!(
-            first_hit(&["Players/03 - A/face_diff.bin", "Players/03 - A/skin.dds"]),
-            what("Players/03 - A/face_diff.bin")
-        );
-        assert_eq!(
-            first_hit(&["Players/03 - A/skin.dds"]),
-            what("Players/03 - A")
-        );
+    fn a_folder_without_a_model_and_a_face_file_without_a_face_model_are_compiled() {
+        // The folder gets its blank face, whatever else it holds, and a face file without a
+        // face model is not used.
+        for files in [
+            &["Players/03 - A/portrait.dds"][..],
+            &["Players/03 - A/skin.dds"],
+            &["Players/03 - A/face_diff.bin", "Players/03 - A/skin.dds"],
+            &["Players/03 - A/boots.fmdl", "Players/03 - A/face_diff.bin"],
+            &[
+                "Players/03 - A/face_diff.xml",
+                "Players/03 - A/fcl_hair_sim.fclo",
+            ],
+        ] {
+            assert_eq!(first_hit(files), None, "{files:?}");
+        }
         // A face model alone: the files it lacks are injected.
         assert_eq!(first_hit(&["Players/03 - A/face_high.fmdl"]), None);
-        // The boots need no face files.
-        assert_eq!(
-            first_hit(&["Players/03 - A/boots.fmdl", "Players/03 - A/face_diff.bin"]),
-            what("Players/03 - A/face_diff.bin")
-        );
         // Without `fcl_hair.fmdl` the simulation still packs.
         assert_eq!(gate(&["Players/03 - A/fcl_hair_sim.fclo"]), None);
     }
@@ -1496,18 +1523,10 @@ mod tests {
             None
         );
         let folder = folder(&["kit_boots.fmdl.common"]);
-        assert!(holds_model(
-            &folder.path,
-            &folder.files,
-            ModelPackage::Boots
-        ));
-        assert!(!holds_model(
-            &folder.path,
-            &folder.files,
-            ModelPackage::Face
-        ));
+        assert!(holds_model(&folder, ModelPackage::Boots));
+        assert!(!holds_model(&folder, ModelPackage::Face));
         // A link to a texture is compiled beside a model, in the folder or a reserved
-        // subfolder; alone it is no model, and the folder is named as a whole.
+        // subfolder, and alone, as a folder of textures is.
         let hair = "Common/hair.dds";
         for link in ["hair.dds.common", "boots/hair.dds.common"] {
             assert_eq!(
@@ -1516,10 +1535,7 @@ mod tests {
                 "{link}"
             );
         }
-        assert_eq!(
-            first_hit(&["Players/03 - A/hair.dds.common", hair]),
-            what("Players/03 - A")
-        );
+        assert_eq!(first_hit(&["Players/03 - A/hair.dds.common", hair]), None);
         // A link to a material file is named; so is a glove link that gives no side, and a
         // `.skl` beside the link, which pairs with no model of the folder's.
         for (link, target) in [
@@ -1714,6 +1730,20 @@ mod tests {
     fn roles(names: &[&str]) -> Vec<Option<PlayerFile>> {
         let folder = folder(names);
         let models = FolderModels::of(&folder.path, &folder.files);
+        folder
+            .files
+            .iter()
+            .map(|file| player_file(&folder.path, file, &models))
+            .collect()
+    }
+
+    /// The role of each file of `names` in `Players/03 - A` holding `ingame_face` too.
+    fn marked_roles(names: &[&str]) -> Vec<Option<PlayerFile>> {
+        let folder = PlayerFolder {
+            ingame_face: true,
+            ..folder(names)
+        };
+        let models = FolderModels::of_player(&folder);
         folder
             .files
             .iter()
@@ -1935,7 +1965,7 @@ mod tests {
                     package: ModelPackage::Boots,
                     name: "boots"
                 }),
-                None
+                Some(PlayerFile::UnusedFaceFile)
             ]
         );
         assert_eq!(
@@ -2107,7 +2137,10 @@ mod tests {
         );
         assert_eq!(
             roles(&["face_diff.bin", "boots/boots.fmdl"]),
-            [None, model(ModelPackage::Boots, "boots")]
+            [
+                Some(PlayerFile::UnusedFaceFile),
+                model(ModelPackage::Boots, "boots")
+            ]
         );
     }
 
@@ -2188,12 +2221,15 @@ mod tests {
                 Some(PlayerFile::SlotlessSkeleton)
             ]
         );
-        // Without a face model the face's files have no package to go in, unless a shared
-        // face is linked: then the shared face is the player's. An unsuffixed model is a
-        // face model.
+        // Without a face model the face's files are not used, unless a shared face is
+        // linked: then the shared face is the player's. An unsuffixed model is a face model.
         assert_eq!(
             roles(&["boots.fmdl", "face_diff.bin", "fcl_hair_sim.fclo"]),
-            [model(ModelPackage::Boots, "boots"), None, None]
+            [
+                model(ModelPackage::Boots, "boots"),
+                Some(PlayerFile::UnusedFaceFile),
+                Some(PlayerFile::UnusedFaceFile)
+            ]
         );
         assert_eq!(
             roles(&["torso.fmdl", "face_diff.bin"]),
@@ -2225,6 +2261,72 @@ mod tests {
                 packed(ModelPackage::Face, "fcl_hair_sim.fclo")
             ]
         );
+    }
+
+    #[test]
+    fn under_ingame_face_a_model_the_hair_would_take_is_the_boots_with_its_skeleton() {
+        let boots = || model(ModelPackage::Boots, "boots");
+        assert_eq!(
+            marked_roles(&[
+                "torso.fmdl",
+                "torso.skl",
+                "fcl_hair.fmdl",
+                "face/hat.fmdl",
+                "legs.fmdl.common",
+                "glove_l.fmdl",
+                "face_diff.bin",
+                "face_diff.xml",
+                "fcl_hair_sim.fclo",
+            ]),
+            [
+                boots(),
+                skeleton(ModelPackage::Boots, "boots.skl"),
+                boots(),
+                boots(),
+                Some(PlayerFile::CommonModel {
+                    package: ModelPackage::Boots,
+                    name: "boots"
+                }),
+                model(ModelPackage::Gloves, "glove_l"),
+                Some(PlayerFile::UnusedFaceFile),
+                Some(PlayerFile::UnusedFaceFile),
+                Some(PlayerFile::UnusedFaceFile),
+            ]
+        );
+    }
+
+    #[test]
+    fn a_face_file_is_not_used_without_a_face_model_and_packed_with_one() {
+        let unused = || Some(PlayerFile::UnusedFaceFile);
+        assert_eq!(
+            roles(&[
+                "boots.fmdl",
+                "face_diff.bin",
+                "face/face_diff.xml",
+                "fcl_hair_sim.fclo"
+            ]),
+            [
+                model(ModelPackage::Boots, "boots"),
+                unused(),
+                unused(),
+                unused()
+            ]
+        );
+        assert_eq!(
+            roles(&[
+                "face_high.fmdl",
+                "face_diff.bin",
+                "face/face_diff.xml",
+                "fcl_hair_sim.fclo"
+            ]),
+            [
+                model(ModelPackage::Face, "face_high"),
+                packed(ModelPackage::Face, "face_diff.bin"),
+                Some(PlayerFile::FaceDiffXml),
+                packed(ModelPackage::Face, "fcl_hair_sim.fclo")
+            ]
+        );
+        assert_eq!(PlayerFile::UnusedFaceFile.package(), None);
     }
 
     #[test]

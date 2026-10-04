@@ -204,10 +204,14 @@ fn a_boots_link_packs_the_common_skeleton_and_two_players_linking_one_model_shar
             "Asset/model/character/boots/k0627/#Win/boots.fpk",
             "Asset/model/character/boots/k0627/#Win/boots.fpkd",
             shirt.as_str(),
+            FACE_05,
+            FACE_05_FPKD,
+            "Asset/model/character/face/real/71407/#Win/face.fpk",
+            "Asset/model/character/face/real/71407/#Win/face.fpkd",
             "common/character0/model/character/uniform/team/UniColor.bin",
             "common/etc/TeamColor.bin",
         ],
-        "each player's package, the Common texture once"
+        "each player's package and blank face, the Common texture once"
     );
     assert_no_common_path(&entries);
     for path in [BOOTS_05, "Asset/model/character/boots/k0627/#Win/boots.fpk"] {
@@ -265,6 +269,8 @@ fn a_boots_link_beside_a_shared_boots_link_combines_the_shared_folder() {
         [
             BOOTS_05,
             "Asset/model/character/boots/k0625/#Win/boots.fpkd",
+            FACE_05,
+            FACE_05_FPKD,
             "common/character0/model/character/uniform/team/UniColor.bin",
             "common/etc/TeamColor.bin",
         ],
@@ -369,6 +375,8 @@ fn a_material_a_local_and_a_common_part_define_over_textures_in_two_places_drops
             "Asset/model/character/boots/k0627/#Win/boots.fpk",
             "Asset/model/character/boots/k0627/#Win/boots.fpkd",
             &format!("{COMMON_TEXTURES}/shirt.ftex"),
+            "Asset/model/character/face/real/71407/#Win/face.fpk",
+            "Asset/model/character/face/real/71407/#Win/face.fpkd",
             "common/character0/model/character/uniform/team/UniColor.bin",
             "common/etc/TeamColor.bin",
         ],

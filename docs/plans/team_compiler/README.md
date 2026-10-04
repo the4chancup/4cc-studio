@@ -689,7 +689,8 @@ TC-MOD-09  GIVEN two parts merged into one boots.fmdl, one paired with a custom 
            with none; and another folder whose two parts define material "skin" differently
            WHEN each export is compiled
            THEN the first reports skl_merge_conflict and the second merge_material_conflict, and
-                each folder is dropped
+                each folder's boots are left out of the CPK, its blank face and its textures
+                still packed
 TC-MOD-10  GIVEN slot 05 holding torso.fmdl, legs.fmdl.common and Common/legs.fmdl
            WHEN the export is compiled for PES 21
            THEN fmdl_fcl_hair_fallback is reported for torso.fmdl, fmdl_merged for the folder, the
@@ -786,6 +787,11 @@ TC-MOD-31  GIVEN slot 05 holding body.fmdl whose vertices carry skh_*_l and skh_
            WHEN the export is compiled for PES 21
            THEN g0625 holds glove_l.fmdl and glove_r.fmdl, the face's merged FMDL holds the rest,
                 and the three together hold exactly the source's vertex count
+TC-MOD-32  GIVEN slot 05 holding boots.fmdl and a face_diff.bin that is not the bundled one,
+           without ingame_face; and slot 07 holding ingame_face, boots.fmdl and face_diff.bin
+           WHEN the export is compiled for PES 21
+           THEN face_file_not_used names face_diff.bin on each folder, 71405's face package
+                holds the bundled face_diff.bin alone, and no face package is emitted for 71407
 ```
 
 **Textures**

@@ -102,6 +102,10 @@ pub(crate) struct ModelFolder {
     pub(crate) path: ScopePath,
     /// Its own files.
     pub(crate) files: Vec<FileDescriptor>,
+    /// The player folder holds `ingame_face`: it gets no face package, and a model of its own
+    /// that would be a part of the face's `fcl_hair` is a part of its boots
+    /// (`player_folders.md` "`ingame_face` marker"). Never set for a shared folder.
+    pub(crate) ingame_face: bool,
     /// The shared folders a player folder combines, in link order. Empty for a shared folder,
     /// and for a player linking plainly or not at all.
     pub(crate) combined: Vec<CombinedFolder>,
@@ -169,7 +173,7 @@ impl ModelFolder {
     /// the link's role, in the link's place, and its Common skeleton under the role's slot,
     /// paired with it by their shared `Common/<stem>`; the empty link itself is never read.
     pub(crate) fn roles(&self) -> Vec<SourceRoles<'_>> {
-        let mut own = FolderModels::of(&self.path, &self.files);
+        let mut own = FolderModels::of_player_files(&self.path, &self.files, self.ingame_face);
         if self
             .combined
             .iter()
@@ -214,6 +218,7 @@ impl ModelFolder {
                     PlayerFile::Model { .. }
                     | PlayerFile::Skeleton { .. }
                     | PlayerFile::SlotlessSkeleton
+                    | PlayerFile::UnusedFaceFile
                     | PlayerFile::LeftOutKitVariant
                     | PlayerFile::Texture(..)
                     | PlayerFile::CommonTexture(_) => None,
@@ -486,6 +491,7 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
                 let folder = ModelFolder {
                     path: folder.path.clone(),
                     files: folder.files.clone(),
+                    ingame_face: false,
                     combined: Vec::new(),
                     common_models: Vec::new(),
                     common_texture_stems: BTreeSet::new(),
@@ -569,13 +575,19 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
                 common_texture_stems: common_texture_stems.clone(),
                 path: folder.path,
                 files: folder.files,
+                ingame_face: folder.ingame_face,
                 combined,
             };
+            // Without a face folder the game shows the head made in its face editor, which
+            // `ingame_face` asks for; every other player gets one, blank when it holds no
+            // face model (the last part of FPC: the body brings its own head, or none).
+            let blank_face = !model_folder.ingame_face;
             folder_tasks(
                 export_id,
                 team_id,
                 model_folder,
                 &packages,
+                blank_face,
                 &kits,
                 &mut tasks,
             );
@@ -586,6 +598,7 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
                 team_id,
                 folder,
                 &[(package, vec![shared_id])],
+                false,
                 &kits,
                 &mut tasks,
             );
@@ -661,14 +674,15 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
 
 /// Pushes `folder`'s tasks onto `tasks`: one `Models` task for each of `packages` any of the
 /// folder's sources holds a model of (a face link alone makes the shared face the player's),
-/// emitted under that package's ids, then, when the folder has textures, its `Textures` task
-/// completing its variant sets against `kits`, the export's kit numbers, the lot as one
-/// `TaskGroup`.
+/// and for the face whatever the folder holds when `blank_face` is set, emitted under that
+/// package's ids, then, when the folder has textures, its `Textures` task completing its
+/// variant sets against `kits`, the export's kit numbers, the lot as one `TaskGroup`.
 fn folder_tasks(
     export_id: ExportId,
     team_id: u16,
     folder: ModelFolder,
     packages: &[(ModelPackage, Vec<u32>)],
+    blank_face: bool,
     kits: &[u8],
     tasks: &mut Vec<BuildTask>,
 ) {
@@ -676,7 +690,8 @@ fn folder_tasks(
     let mut held = Vec::new();
     for (package, ids) in packages {
         let models = folder_files(&folder, |role| is_part_of(role, *package));
-        if models.is_empty() {
+        let blank = blank_face && *package == ModelPackage::Face;
+        if models.is_empty() && !blank {
             continue;
         }
         held.push(*package);
@@ -1027,7 +1042,8 @@ mod tests {
         );
 
         // Slots 05 and 07 of team 714 own the exclusive ids 625 and 627; slot 23 owns 643.
-        // `face_high.skl` has no slot: no task reads it, so no charge counts it.
+        // `face_high.skl` has no slot: no task reads it, so no charge counts it. Slot 23
+        // holds no face model: its face is the blank one, reading nothing.
         assert_eq!(
             summary(&report),
             [
@@ -1035,6 +1051,7 @@ mod tests {
                 "0 714 Boots Players/A [625, 627] charge 10",
                 "0 714 Gloves Players/A [625, 627] charge 4",
                 "0 714 textures Players/A charge 16",
+                "0 714 Face Players/23 - B [71423] charge 0",
                 "0 714 Boots Players/23 - B [643] charge 64",
             ]
         );
@@ -1047,6 +1064,7 @@ mod tests {
             assert_eq!(report.manifest.tasks[index].group, group, "task {index}");
         }
         assert_eq!(report.manifest.tasks[4].group, None);
+        assert_eq!(report.manifest.tasks[5].group, None);
         let files = |index: usize| -> Vec<&str> {
             report.manifest.tasks[index]
                 .kind
@@ -1229,12 +1247,15 @@ mod tests {
         );
 
         // Slots 03 and 11 wear Zebra and 07 apple, so no player has a boots package; team
-        // 714's shared ids start at 644, in case-folded name order.
+        // 714's shared ids start at 644, in case-folded name order. 03 and 11 hold no face
+        // model: theirs are blank.
         assert!(report.messages.is_empty(), "{:?}", report.messages);
         assert_eq!(
             summary(&report),
             [
+                "0 714 Face Players/03 - A [71403] charge 0",
                 "0 714 Face Players/07 - B [71407] charge 33",
+                "0 714 Face Players/11 - C [71411] charge 0",
                 "0 714 Boots Boots/apple [644] charge 4",
                 "0 714 Boots Boots/Zebra [645] charge 10",
                 "0 714 textures Boots/Zebra charge 16",
@@ -1249,18 +1270,27 @@ mod tests {
             .map(|task| task.group.clone())
             .collect();
         let zebra = Some(TaskGroup {
-            tasks: 2..4,
+            tasks: 4..6,
             packages: vec![ModelPackage::Boots],
             charge: 26,
         });
         let grip = Some(TaskGroup {
-            tasks: 4..6,
+            tasks: 6..8,
             packages: vec![ModelPackage::Gloves],
             charge: 192,
         });
         assert_eq!(
             groups,
-            [None, None, zebra.clone(), zebra, grip.clone(), grip]
+            [
+                None,
+                None,
+                None,
+                None,
+                zebra.clone(),
+                zebra,
+                grip.clone(),
+                grip
+            ]
         );
         let homes: Vec<&TextureHome> = report
             .manifest
@@ -1280,7 +1310,13 @@ mod tests {
             homes,
             [
                 &TextureHome::PlayerCommon {
+                    folder_name: "03 - A".to_owned()
+                },
+                &TextureHome::PlayerCommon {
                     folder_name: "07 - B".to_owned()
+                },
+                &TextureHome::PlayerCommon {
+                    folder_name: "11 - C".to_owned()
                 },
                 &TextureHome::SharedOutput {
                     package: ModelPackage::Boots,
@@ -1312,13 +1348,14 @@ mod tests {
                 .map(|file| file.path.as_str())
                 .collect()
         };
+        assert!(files(0).is_empty());
         assert_eq!(
-            files(2),
+            files(4),
             ["Boots/Zebra/boots.fmdl", "Boots/Zebra/boots.skl"]
         );
-        assert_eq!(files(3), ["Boots/Zebra/shirt.dds"]);
+        assert_eq!(files(5), ["Boots/Zebra/shirt.dds"]);
         assert_eq!(
-            report.manifest.tasks[2].kind.folder_path(),
+            report.manifest.tasks[4].kind.folder_path(),
             scope_path("Boots/Zebra")
         );
     }
@@ -1344,9 +1381,11 @@ mod tests {
         );
 
         // The shared folders are only sources of parts: no shared id, no output of their own.
+        // The player holds no face model: its face is blank.
         assert_eq!(
             summary(&report),
             [
+                "0 714 Face Players/05 - A [71405] charge 0",
                 "0 714 Boots Players/05 - A [625] charge 27",
                 "0 714 Gloves Players/05 - A [625] charge 68",
                 "0 714 textures Players/05 - A charge 32",
@@ -1383,8 +1422,9 @@ mod tests {
         };
         // The player's own files first, then each combined folder's, each skeleton pairing
         // with the model of its stem in its own folder.
+        assert!(files(0).is_empty());
         assert_eq!(
-            files(0),
+            files(1),
             [
                 "Players/05 - A/kit_boots.fmdl",
                 "Players/05 - A/kit_boots.skl",
@@ -1393,11 +1433,11 @@ mod tests {
             ]
         );
         assert_eq!(
-            files(1),
+            files(2),
             ["Players/05 - A/glove_l.fmdl", "Gloves/Grip/glove_r.fmdl"]
         );
-        assert_eq!(files(2), ["Boots/Crocs/sole.dds"]);
-        let TaskKind::Models { folder, .. } = &report.manifest.tasks[0].kind else {
+        assert_eq!(files(3), ["Boots/Crocs/sole.dds"]);
+        let TaskKind::Models { folder, .. } = &report.manifest.tasks[1].kind else {
             panic!("a package task");
         };
         let combined: Vec<(ModelPackage, &str)> = folder
@@ -1419,11 +1459,11 @@ mod tests {
             }
         );
         let group = Some(TaskGroup {
-            tasks: 0..3,
-            packages: vec![ModelPackage::Boots, ModelPackage::Gloves],
+            tasks: 0..4,
+            packages: ModelPackage::ALL.to_vec(),
             charge: 127,
         });
-        for index in 0..3 {
+        for index in 0..4 {
             assert_eq!(report.manifest.tasks[index].group, group, "task {index}");
         }
     }
@@ -1448,10 +1488,11 @@ mod tests {
             PesVersion::Pes21,
         );
 
-        // The boots alone: no face task for a folder whose only model is in `boots/`.
+        // The boots alone: the face of a folder whose only model is in `boots/` is blank.
         assert_eq!(
             summary(&report),
             [
+                "0 714 Face Players/05 - A [71405] charge 0",
                 "0 714 Boots Players/05 - A [625] charge 14",
                 "0 714 textures Players/05 - A charge 16",
             ]
@@ -1468,15 +1509,16 @@ mod tests {
                 .map(|file| file.path.as_str())
                 .collect()
         };
+        assert!(files(0).is_empty());
         assert_eq!(
-            files(0),
+            files(1),
             [
                 "Players/05 - A/boots/boots.fmdl",
                 "Players/05 - A/boots/boots.skl",
                 "Boots/Crocs/boots.fmdl",
             ]
         );
-        assert_eq!(files(1), ["Players/05 - A/common/skin.dds"]);
+        assert_eq!(files(2), ["Players/05 - A/common/skin.dds"]);
     }
 
     #[test]
@@ -1812,7 +1854,9 @@ mod tests {
         assert_eq!(
             summary(&report),
             [
+                "0 714 Face Players/05 - A [71405] charge 0",
                 "0 714 Boots Players/05 - A [625] charge 24",
+                "0 714 Face Players/07 - B [71407] charge 0",
                 "0 714 Boots Boots/Crocs [644] charge 16",
             ]
         );
@@ -1820,10 +1864,93 @@ mod tests {
             message_summary(&report),
             [("link_combined", "Players/05 - A", Disposition::Keep)]
         );
-        let TaskKind::Models { folder, .. } = &report.manifest.tasks[1].kind else {
+        let TaskKind::Models { folder, .. } = &report.manifest.tasks[3].kind else {
             panic!("a package task");
         };
         assert!(folder.combined.is_empty(), "the shared folder's own task");
+    }
+
+    #[test]
+    fn a_marked_folder_plans_no_face_and_every_other_folder_a_face_blank_without_a_face_model() {
+        let export = resolved(
+            "co - Faces",
+            &[
+                ("Players/05 - A/ingame_face", 0),
+                ("Players/05 - A/torso.fmdl", 8),
+                ("Players/05 - A/glove_l.fmdl", 4),
+                ("Players/07 - B/boots.fmdl", 16),
+            ],
+            &["Players/09 - C/face"],
+            None,
+        );
+
+        let report = plan_run(
+            vec![(ExportId(0), export, two_team_colors(), None)],
+            PesVersion::Pes21,
+        );
+
+        assert!(report.messages.is_empty(), "{:?}", report.messages);
+        assert_eq!(
+            summary(&report),
+            [
+                "0 714 Boots Players/05 - A [625] charge 8",
+                "0 714 Gloves Players/05 - A [625] charge 4",
+                "0 714 Face Players/07 - B [71407] charge 0",
+                "0 714 Boots Players/07 - B [627] charge 16",
+                "0 714 Face Players/09 - C [71409] charge 0",
+            ]
+        );
+        let files = |index: usize| -> Vec<&str> {
+            report.manifest.tasks[index]
+                .kind
+                .files()
+                .iter()
+                .map(|file| file.path.as_str())
+                .collect()
+        };
+        assert_eq!(files(0), ["Players/05 - A/torso.fmdl"]);
+        assert!(files(2).is_empty());
+        assert!(files(4).is_empty());
+    }
+
+    #[test]
+    fn under_ingame_face_a_boots_link_beside_a_model_the_face_would_take_combines() {
+        let plan = |files: &[(&str, u64)]| {
+            let export = resolved("co - Marked", files, &[], None);
+            plan_run(
+                vec![(ExportId(0), export, two_team_colors(), None)],
+                PesVersion::Pes21,
+            )
+        };
+        let shared = ("Boots/Crocs/boots.fmdl", 16);
+
+        // The rerouted model is a boots part, so the link combines and Crocs takes no id.
+        let report = plan(&[
+            ("Players/05 - A/ingame_face", 0),
+            ("Players/05 - A/torso.fmdl", 8),
+            ("Players/05 - A/Crocs.boots", 0),
+            shared,
+        ]);
+        assert_eq!(
+            summary(&report),
+            ["0 714 Boots Players/05 - A [625] charge 24"]
+        );
+        assert_eq!(
+            message_summary(&report),
+            [("link_combined", "Players/05 - A", Disposition::Keep)]
+        );
+
+        // The link alone loads Crocs as it is, under its shared id; the player has no task.
+        let report = plan(&[
+            ("Players/05 - A/ingame_face", 0),
+            ("Players/05 - A/Crocs.boots", 0),
+            shared,
+        ]);
+        assert_eq!(
+            summary(&report),
+            ["0 714 Boots Boots/Crocs [644] charge 16"]
+        );
+        assert!(report.messages.is_empty(), "{:?}", report.messages);
     }
 
     #[test]

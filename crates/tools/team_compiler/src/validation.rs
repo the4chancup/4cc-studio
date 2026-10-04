@@ -364,13 +364,16 @@ fn pool_messages(
 /// for it: one whose name says nothing about what it is, or one a `face/` subfolder makes
 /// face content, and `skl_no_slot` for each `.skl` paired with a `face_high`, `hair_high` or
 /// `oral` model, which has no slot to land in and is ignored (`player_folders.md` "Model
-/// names", "Reserved subfolders", "SKL pairing"; `team_compiler/README.md` TC-MOD-13):
-/// over every mapped player folder and every shared face folder, each finding on the folder
-/// holding the file. A `.common` model link is reported like the model it brings in, naming
-/// the link: the fallback by the linked name's suffix, `skl_no_slot` when `Common/` holds the
-/// `.skl` of a slotless model's stem. The roles are `subset::player_file`'s, so a finding never
-/// disagrees with the routing. A pre-Fox target types a model by its name and reads no `.skl`,
-/// so it reports neither.
+/// names", "Reserved subfolders", "SKL pairing"; `team_compiler/README.md` TC-MOD-13), and
+/// `face_file_not_used` for each face file of a folder with no face model, which is not read
+/// (`pipeline.md` "2. Per-export serial steps", item 4; TC-MOD-32): over every mapped player
+/// folder and every shared face folder, each finding on the folder holding the file. A
+/// `.common` model link is reported like the model it brings in, naming the link: the
+/// fallback by the linked name's suffix, `skl_no_slot` when `Common/` holds the `.skl` of a
+/// slotless model's stem. The roles are `subset::player_file`'s, so a finding never disagrees
+/// with the routing: under `ingame_face` a model the hair would take is the boots', and no
+/// fallback. A pre-Fox target types a model by its name and reads no `.skl`, so it reports
+/// none of them.
 fn model_name_messages(
     resolved: &ResolvedAestheticsExport,
     version: PesVersion,
@@ -430,6 +433,7 @@ fn file_role_messages(
                 Code::FmdlFclHairFallback
             }
             Some(PlayerFile::SlotlessSkeleton) => Code::SklNoSlot,
+            Some(PlayerFile::UnusedFaceFile) => Code::FaceFileNotUsed,
             Some(PlayerFile::CommonModel {
                 package: ModelPackage::Face,
                 name: allowed,
@@ -648,6 +652,47 @@ mod tests {
             [
                 "Warning skl_no_slot [Keep] at Players/03 - A (file=face_high.fmdl.common)",
                 "Info fmdl_fcl_hair_fallback [Keep] at Players/03 - A (file=legs.fmdl.common)",
+            ]
+        );
+        assert_eq!(names(&export, PesVersion::Pes17), Vec::<String>::new());
+    }
+
+    #[test]
+    fn under_ingame_face_a_model_the_hair_would_take_is_no_fallback() {
+        let files = [
+            ("Players/03 - A/ingame_face", 0),
+            ("Players/03 - A/torso.fmdl", 1),
+            ("Players/03 - A/face/hat.fmdl", 1),
+            ("Players/03 - A/legs.fmdl.common", 0),
+            ("Common/legs.fmdl", 1),
+        ];
+        let export = resolved("co - Names", &files, &[], None);
+        assert_eq!(names(&export, PesVersion::Pes21), Vec::<String>::new());
+    }
+
+    #[test]
+    fn each_face_file_of_a_folder_with_no_face_model_is_not_used_in_file_order() {
+        let files = [
+            ("Players/03 - A/ingame_face", 0),
+            ("Players/03 - A/boots.fmdl", 1),
+            ("Players/03 - A/fcl_hair_sim.fclo", 1),
+            ("Players/03 - A/face_diff.bin", 1),
+            ("Players/05 - B/kit_boots.fmdl", 1),
+            ("Players/05 - B/face_diff.xml", 1),
+            ("Players/05 - B/fcl_hair_sim.fclo", 1),
+            ("Players/07 - C/face_high.fmdl", 1),
+            ("Players/07 - C/face_diff.bin", 1),
+            ("Players/07 - C/fcl_hair_sim.fclo", 1),
+        ];
+        let export = resolved("co - Names", &files, &[], None);
+        // A marked folder and an unmarked one with no face model; a face model uses them.
+        assert_eq!(
+            names(&export, PesVersion::Pes21),
+            [
+                "Info face_file_not_used [Keep] at Players/03 - A (file=face_diff.bin)",
+                "Info face_file_not_used [Keep] at Players/03 - A (file=fcl_hair_sim.fclo)",
+                "Info face_file_not_used [Keep] at Players/05 - B (file=face_diff.xml)",
+                "Info face_file_not_used [Keep] at Players/05 - B (file=fcl_hair_sim.fclo)",
             ]
         );
         assert_eq!(names(&export, PesVersion::Pes17), Vec::<String>::new());
