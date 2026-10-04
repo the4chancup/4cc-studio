@@ -1963,6 +1963,89 @@ fn an_undecided_root_reports_no_logo_finding() {
 }
 
 #[test]
+fn an_empty_doubled_players_layer_is_dropped_with_its_layer() {
+    // `Players/Players/` alone under `Players/` is the doubled layer's own shell:
+    // gone with the layer, not a folder named `Players` claiming a slot.
+    let report = report("egg", &[], &["Players", "Players/Players"], &[]);
+    assert_eq!(
+        issue_codes(&report),
+        vec![
+            ("nested_folders_fixed", Disposition::Keep),
+            ("export_empty", Disposition::DropExport),
+        ]
+    );
+    assert!(report.validated.is_none());
+    assert!(
+        report
+            .parsed
+            .draft
+            .players
+            .iter()
+            .all(|folder| folder.path.name() != "Players"),
+        "{:?}",
+        report
+            .parsed
+            .draft
+            .players
+            .iter()
+            .map(|folder| folder.path.as_str())
+            .collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn an_empty_doubled_kits_layer_is_dropped_with_its_layer() {
+    let report = report("egg", &[], &["Kits", "Kits/Kits"], &[]);
+    assert_eq!(
+        issue_codes(&report),
+        vec![
+            ("nested_folders_fixed", Disposition::Keep),
+            ("export_empty", Disposition::DropExport),
+        ]
+    );
+    assert!(report.validated.is_none());
+    assert!(
+        report
+            .parsed
+            .draft
+            .kits
+            .iter()
+            .all(|folder| folder.path.name() != "Kits")
+    );
+}
+
+#[test]
+fn an_empty_doubled_folder_beside_siblings_is_an_invalid_folder() {
+    // `Players/` holding `Players/` *and* a real player: `Players/Players/` is not
+    // the doubled layer (it is not the only entry) — it is a folder named
+    // `Players`, an invalid player name, like a `Kits/Kits/` beside `p1`.
+    let players = report(
+        "egg",
+        &[("Players/03 - A/face_high.fmdl", 10)],
+        &["Players/Players"],
+        &[],
+    );
+    assert_eq!(
+        issue_codes(&players),
+        vec![("player_folder_number_invalid", Disposition::DropFolder)]
+    );
+    assert_eq!(
+        players.validated.unwrap().players[0].path.as_str(),
+        "Players/03 - A"
+    );
+
+    let kits = report("egg", &[("Kits/p1/kit.dds", 9)], &["Kits/Kits"], &[]);
+    assert_eq!(
+        issue_codes(&kits),
+        vec![("kit_folder_invalid", Disposition::DropFolder)]
+    );
+    assert_eq!(
+        kits.validated.unwrap().kits.kits.keys().collect::<Vec<_>>(),
+        vec![&kit_config::KitSlot::P1]
+    );
+}
+
+#[test]
 fn fmdl_name_invalid_does_not_apply_on_pre_fox() {
     let report = report_with(
         &ValidationContext {

@@ -428,6 +428,10 @@ fn remove_layer(tree: &mut CanonicalTree, folder: &ScopePath, inner: &ScopePath)
     }
     let mut empty_folders = BTreeMap::new();
     for (key, path) in std::mem::take(&mut tree.empty_folders) {
+        // The doubled layer's own entry: it was the layer, so it is gone with it.
+        if key == inner.fold_key() {
+            continue;
+        }
         let new_path = if key.starts_with(&prefix) {
             drop_segment(&path, depth)
         } else {
