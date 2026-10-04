@@ -12,6 +12,7 @@ mod compile;
 mod compile_exports;
 mod deep;
 mod kit_layout;
+mod logo;
 mod models;
 mod preflight;
 mod sources;

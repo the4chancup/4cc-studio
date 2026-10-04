@@ -551,20 +551,13 @@ pub(crate) fn first_not_compiled(
     }
     // A slot with a portrait from both sources is not refused: the deep pass has skipped an
     // export whose two files differ (`portrait_conflict`), so identical ones are one portrait.
-    // A small logo comes only with a main one, which is named first, so the small one is not
-    // walked.
-    let mut rest = export
-        .logo
-        .as_ref()
-        .map(|logo| &logo.main.file)
-        .into_iter()
-        .chain(&export.collars)
-        .chain(
-            export
-                .common
-                .iter()
-                .filter(|file| !common_file_compiled(file)),
-        );
+    // The logo is compiled by the export's logo task, so it is not walked.
+    let mut rest = export.collars.iter().chain(
+        export
+            .common
+            .iter()
+            .filter(|file| !common_file_compiled(file)),
+    );
     rest.next().map(what_entry)
 }
 
@@ -1366,10 +1359,10 @@ mod tests {
     }
 
     #[test]
-    fn logo_and_collars_are_named_and_common_holds_models_skeletons_and_textures() {
-        for file in ["logo.dds", "Collars/collar.dds"] {
-            assert_eq!(gate(&[file]), what(file), "{file}");
-        }
+    fn the_logo_is_compiled_collars_are_named_and_common_holds_models_skeletons_and_textures() {
+        assert_eq!(gate(&["logo.dds", "logo_small_crop.png"]), None);
+        let collar = "Collars/collar.dds";
+        assert_eq!(gate(&[collar]), what(collar));
         // Common's FMDLs and skeletons are reached through links, and one no link names
         // builds nothing; its textures are the export's Common textures task's.
         assert_eq!(
@@ -1489,7 +1482,7 @@ mod tests {
     fn the_first_hit_follows_players_files_links_shared_folders_kits_then_the_rest() {
         let face_high = "Players/03 - A/face_high.fmdl";
         // In each place, something the gate names there: a skeleton pairing with no model,
-        // a kit texture the config has no field for, a logo (not emitted yet).
+        // a kit texture the config has no field for, a collar (not emitted yet).
         let loose_skl = "Players/03 - A/torso.skl";
         let face_link = "Players/03 - A/Round.face";
         let shared_face = "Faces/Round/face_high.fmdl";
@@ -1499,7 +1492,7 @@ mod tests {
         let shared_skl = "Boots/Crocs/kit_boots.skl";
         let kit = "Kits/g1/kit.dds";
         let kit_extra = "Kits/g1/kit_srm.dds";
-        let logo = "logo.dds";
+        let collar = "Collars/collar.dds";
         // A folder's own files come before its links' folders.
         assert_eq!(
             first_hit(&[
@@ -1513,7 +1506,7 @@ mod tests {
                 shared_skl,
                 kit,
                 kit_extra,
-                logo
+                collar
             ]),
             what(loose_skl)
         );
@@ -1528,16 +1521,19 @@ mod tests {
                 shared_skl,
                 kit,
                 kit_extra,
-                logo
+                collar
             ]),
             what(shared_face_skl)
         );
         assert_eq!(
-            first_hit(&[face_high, link, shared, shared_skl, kit, kit_extra, logo]),
+            first_hit(&[face_high, link, shared, shared_skl, kit, kit_extra, collar]),
             what(shared_skl)
         );
-        assert_eq!(gate(&[link, shared, kit, kit_extra, logo]), what(kit_extra));
-        assert_eq!(gate(&[logo]), what(logo));
+        assert_eq!(
+            gate(&[link, shared, kit, kit_extra, collar]),
+            what(kit_extra)
+        );
+        assert_eq!(gate(&[collar]), what(collar));
     }
 
     #[test]

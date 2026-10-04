@@ -351,8 +351,8 @@ fn a_model_that_does_not_parse_is_model_broken_and_drops_its_folder_even_with_pa
     );
 }
 
-// `compile` emits no logo yet, so until it does "no logo is emitted" holds for any export; the
-// exact entry list below is what keeps proving it afterwards.
+// `compile` emits a logo it can decode (`logo.rs`), so the CPK holding no `flag/` entry below
+// proves the undecodable one was dropped.
 // TC-CHK-05
 #[test]
 fn a_logo_that_does_not_decode_is_logo_file_invalid_and_the_export_is_otherwise_kept() {
@@ -381,6 +381,12 @@ fn a_logo_that_does_not_decode_is_logo_file_invalid_and_the_export_is_otherwise_
     assert_eq!(compile.exit_code(), 1);
     let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
     let paths: Vec<&str> = entries.keys().map(String::as_str).collect();
+    assert!(
+        paths
+            .iter()
+            .all(|path| !path.starts_with("common/render/symbol/flag/")),
+        "no logo is emitted: {paths:?}"
+    );
     assert_eq!(
         paths,
         [

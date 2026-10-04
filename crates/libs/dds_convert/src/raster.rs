@@ -1,13 +1,18 @@
-//! Raster sources -> [`Decoded`]: the `image` crate decodes the accepted
-//! formats to straight-alpha RGBA8, one mip, no blocks. A TIFF or TGA
-//! declaring premultiplied alpha (TIFF ExtraSamples = 1, TGA extension
-//! attributes type 4) is un-multiplied after the decode; a 16-bit TGA,
-//! whose attribute bit `image` drops, is refused.
+//! Raster files through the `image` crate. Sources -> [`Decoded`]: the
+//! accepted formats decoded to straight-alpha RGBA8, one mip, no blocks. A
+//! TIFF or TGA declaring premultiplied alpha (TIFF ExtraSamples = 1, TGA
+//! extension attributes type 4) is un-multiplied after the decode; a 16-bit
+//! TGA, whose attribute bit `image` drops, is refused. The one raster this
+//! crate writes is a PNG ([`encode_png`]).
 
 use std::io::Cursor;
 
+use image::codecs::png::PngEncoder;
 use image::codecs::tga::TgaDecoder;
-use image::{ColorType, DynamicImage, ExtendedColorType, ImageDecoder, ImageFormat, ImageReader};
+use image::{
+    ColorType, DynamicImage, ExtendedColorType, ImageDecoder, ImageEncoder, ImageFormat,
+    ImageReader,
+};
 use tiff::decoder::Decoder;
 use tiff::tags::Tag;
 
@@ -136,6 +141,28 @@ pub(crate) fn decode_raster(bytes: &[u8], format: SourceFormat) -> Result<Decode
         blocks: None,
         authored_mips: false,
     })
+}
+
+/// `pixels` (straight-alpha RGBA8, `width` x `height`, row-major) as a PNG
+/// file, 8-bit RGBA: what the game reads a team's logo as.
+///
+/// # Errors
+///
+/// `ConvertError::InvalidDecoded` for a zero size or a `pixels` whose length
+/// is not `width * height * 4`; `ConvertError::Image` for an error of the PNG
+/// encoder, which writing to memory after those checks does not meet.
+pub fn encode_png(pixels: &[u8], width: u32, height: u32) -> Result<Vec<u8>, ConvertError> {
+    if width == 0 || height == 0 {
+        return Err(ConvertError::InvalidDecoded("zero dimension"));
+    }
+    // Checked here: the encoder panics on a buffer of the wrong length.
+    let expected = u64::from(width) * u64::from(height) * 4;
+    if pixels.len() as u64 != expected {
+        return Err(ConvertError::InvalidDecoded("pixel buffer size"));
+    }
+    let mut png = Vec::new();
+    PngEncoder::new(&mut png).write_image(pixels, width, height, ExtendedColorType::Rgba8)?;
+    Ok(png)
 }
 
 /// Restores straight alpha in a premultiplied image: at the source's own

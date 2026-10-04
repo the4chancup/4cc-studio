@@ -5,6 +5,7 @@
 mod kit;
 mod kit_layout;
 mod model;
+mod team_assets;
 mod texture;
 
 use std::collections::BTreeMap;
@@ -67,15 +68,16 @@ fn cache_policy(compiled_exports: usize) -> CachePolicy {
 pub(crate) type Entry = (String, Vec<u8>);
 
 /// A finding a task that succeeded makes on its folder: the code, what was done about it
-/// (`Keep` for `fmdl_merged`; `DropFolder` for a `shared_texture_conflict`, whose losing
-/// package the writer leaves out; `DropFile` for a Common texture left out on a texture
-/// finding) and its context.
+/// (`Keep` for `fmdl_merged` and the logo's notes; `DropFolder` for a
+/// `shared_texture_conflict`, whose losing package the writer leaves out; `DropFile` for a
+/// Common texture left out on a texture finding) and its context.
 pub(crate) type Finding = (Code, Disposition, Vec<(&'static str, String)>);
 
-/// Why a task failed: the finding reported on its folder (its file, for a portrait). A merge
-/// conflict between parts has its own code (`merge_material_conflict`, `skl_merge_conflict`),
-/// and so has conversion's texture finding (`texture_codec_unsupported`); any other error is
-/// `folder_pack_failed` carrying the error chain.
+/// Why a task failed: the finding reported on its folder (its file, for a portrait; its main
+/// file, for the logo). A merge conflict between parts has its own code
+/// (`merge_material_conflict`, `skl_merge_conflict`), and so has conversion's texture finding
+/// (`texture_codec_unsupported`); any other error is `folder_pack_failed` carrying the error
+/// chain.
 pub(crate) struct TaskFailure {
     /// The finding's code.
     pub(crate) code: Code,
@@ -186,6 +188,10 @@ pub(crate) fn process_task(
             &mut findings,
         )
         .map(|(entries, config, colors)| (entries, Some((config, colors)))),
+        TaskKind::Logo { logo } => {
+            team_assets::logo(logo, task.team_id, ctx.version, &mut files, &mut findings)
+                .map(|entries| (entries, None))
+        }
     };
     let mut batch = TaskBatch {
         index,
@@ -217,10 +223,11 @@ pub(crate) fn process_task(
         }
         // A failed task reports its failure alone: a note about a merge whose output is not
         // in the CPK would describe nothing the member can find. What was dropped is the
-        // task's unit: a portrait task is its one file, every other task a folder.
+        // task's unit: a portrait task is its one file, the logo task its files, every other
+        // task a folder.
         Err(failure) => {
             let disposition = match task.kind {
-                TaskKind::Portrait { .. } => Disposition::DropFile,
+                TaskKind::Portrait { .. } | TaskKind::Logo { .. } => Disposition::DropFile,
                 TaskKind::Models { .. }
                 | TaskKind::Textures { .. }
                 | TaskKind::CommonTextures { .. }
@@ -806,6 +813,105 @@ mod tests {
             assert_eq!(paths(&batch), [path], "{version}");
             assert_eq!(batch.entries[0].1, source, "{version}");
         }
+    }
+
+    /// The logo task over the root files `main` and `small` (name, bytes), untagged, with their
+    /// bytes.
+    fn logo_task(main: (&str, Vec<u8>), small: Option<(&str, Vec<u8>)>) -> (TaskKind, TaskFiles) {
+        let mut files = TaskFiles::new();
+        let mut logo_file = |(name, bytes): (&str, Vec<u8>)| {
+            let path = ScopePath::new(name).unwrap();
+            files.insert(path.clone(), bytes);
+            aesthetics_export::LogoFile {
+                file: FileDescriptor {
+                    size: 0,
+                    kind: aesthetics_export::classify(path.name()),
+                    source: path.clone(),
+                    path,
+                },
+                fit: None,
+            }
+        };
+        let logo = aesthetics_export::LogoFiles {
+            main: logo_file(main),
+            small: small.map(logo_file),
+        };
+        (TaskKind::Logo { logo }, files)
+    }
+
+    #[test]
+    fn a_logo_task_notes_on_its_main_file_and_a_failed_one_drops_its_files_alone() {
+        let main = || {
+            let pixels = vec![255; 300 * 200 * 4];
+            (
+                "logo.png",
+                dds_convert::encode_png(&pixels, 300, 200).unwrap(),
+            )
+        };
+        let (kind, files) = logo_task(main(), None);
+        let batch = process(kind, PesVersion::Pes19, None, files);
+
+        assert_eq!(
+            paths(&batch),
+            [
+                "common/render/symbol/flag/emblem_0792_r_ll.png",
+                "common/render/symbol/flag/emblem_0792_r_l.png",
+                "common/render/symbol/flag/emblem_0792_r.png",
+            ]
+        );
+        let on_main = Scope::Folder {
+            export_id: ExportId(4),
+            path: ScopePath::new("logo.png").unwrap(),
+        };
+        let findings: Vec<(&str, Severity, Disposition, &Scope)> = batch
+            .messages
+            .iter()
+            .map(|message| {
+                (
+                    message.code.code.as_ref(),
+                    message.severity,
+                    message.disposition,
+                    &message.scope,
+                )
+            })
+            .collect();
+        assert_eq!(
+            findings,
+            [
+                (
+                    "logo_fit_applied",
+                    Severity::Info,
+                    Disposition::Keep,
+                    &on_main
+                ),
+                (
+                    "logo_upscaled",
+                    Severity::Warning,
+                    Disposition::Keep,
+                    &on_main
+                ),
+            ]
+        );
+
+        // A small file that does not decode fails the task: no logo at all, reported on the
+        // main file, without the notes about it.
+        let (kind, files) = logo_task(main(), Some(("logo_small.png", b"not an image".to_vec())));
+        let batch = process(kind, PesVersion::Pes21, None, files);
+
+        assert!(batch.entries.is_empty(), "{:?}", paths(&batch));
+        let [message] = batch.messages.as_slice() else {
+            panic!("{:?}", batch.messages);
+        };
+        assert_eq!(message.code.code, "folder_pack_failed");
+        assert_eq!(message.disposition, Disposition::DropFile);
+        assert_eq!(message.scope, on_main);
+        assert!(
+            message.context[0]
+                .1
+                .starts_with("logo_small.png: cannot convert"),
+            "{:?}",
+            message.context
+        );
     }
 
     #[test]

@@ -63,6 +63,12 @@ pub(crate) enum Code {
     /// A kit whose layout marker names the other engine than the target's: its main texture's
     /// sock islands are re-laid out to the target's layout.
     KitLayoutConverted,
+    /// A non-square logo source was made square; names the file and the mode applied (`fit`
+    /// for an untagged file, or its tag).
+    LogoFitApplied,
+    /// A logo source whose side the mode maps onto the target is under its largest target
+    /// (512 pixels for the main file, 128 for the small one): it is emitted upscaled.
+    LogoUpscaled,
     /// Phase 3 only: the export holds content `compile` cannot build yet; it is skipped.
     ContentNotYetCompiled,
     /// More shared boots folders take an id than the team's block has; the export is skipped.
@@ -151,7 +157,7 @@ impl Code {
     /// Every code, for the catalog test: a variant missing here would make its first message
     /// panic in `severity`, so a new variant is added to this list too.
     #[cfg(test)]
-    const ALL: [Code; 47] = [
+    const ALL: [Code; 49] = [
         Code::ExportExtractFailed,
         Code::NoExportsFound,
         Code::ExportDisabled,
@@ -170,6 +176,8 @@ impl Code {
         Code::KitColorsDerived,
         Code::KitColorsMissing,
         Code::KitLayoutConverted,
+        Code::LogoFitApplied,
+        Code::LogoUpscaled,
         Code::ContentNotYetCompiled,
         Code::BootsIdPoolExhausted,
         Code::GlovesIdPoolExhausted,
@@ -222,6 +230,8 @@ impl Code {
             Code::KitColorsDerived => "kit_colors_derived",
             Code::KitColorsMissing => "kit_colors_missing",
             Code::KitLayoutConverted => "kit_layout_converted",
+            Code::LogoFitApplied => "logo_fit_applied",
+            Code::LogoUpscaled => "logo_upscaled",
             Code::ContentNotYetCompiled => "content_not_yet_compiled",
             Code::BootsIdPoolExhausted => "boots_id_pool_exhausted",
             Code::GlovesIdPoolExhausted => "gloves_id_pool_exhausted",
@@ -289,6 +299,8 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("kit_colors_derived", CatalogSeverity::Info),
     ("kit_colors_missing", CatalogSeverity::Warning),
     ("kit_layout_converted", CatalogSeverity::Info),
+    ("logo_fit_applied", CatalogSeverity::Info),
+    ("logo_upscaled", CatalogSeverity::Warning),
     ("content_not_yet_compiled", CatalogSeverity::Error),
     ("boots_id_pool_exhausted", CatalogSeverity::Error),
     ("gloves_id_pool_exhausted", CatalogSeverity::Error),

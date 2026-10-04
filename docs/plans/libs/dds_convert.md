@@ -145,6 +145,8 @@ plan](../aesthetics_export/player_folders.md)) names its codec, and gets a DDS o
 decodes rasters with, so no tool crate depends on `image` for it): the Team compiler resamples a
 sock band of a kit with it ("Layout conversion" in the [pipeline
 plan](../team_compiler/pipeline.md)), and portraits and the logo are sized with it.
+`encode_png` is the one raster this crate writes: the game reads a team's logo as three PNGs
+("Logo" in the pipeline plan), and it lives here for `resize`'s reason.
 
 ```rust
 /// The accepted source formats (table above), named by the file extension the
@@ -182,6 +184,9 @@ pub fn encode_dds(decoded: &Decoded, codec: BlockCodec) -> Result<Vec<u8>, Conve
 /// past it are left out and the rest rescaled, so a flat image stays flat. A zero size or a
 /// `pixels` of the wrong length is `InvalidDecoded`.
 pub fn resize(pixels: &[u8], width: u32, height: u32, new_width: u32, new_height: u32) -> Result<Vec<u8>, ConvertError>;
+/// `pixels` (straight-alpha RGBA8, `width` x `height`, row-major) as a PNG file, 8-bit RGBA.
+/// A zero size or a `pixels` of the wrong length is `InvalidDecoded`.
+pub fn encode_png(pixels: &[u8], width: u32, height: u32) -> Result<Vec<u8>, ConvertError>;
 
 /// What a source's header says of its texture, read without decoding a pixel.
 pub struct Probe { pub width: u32, pub height: u32, pub mipmaps: u32 }

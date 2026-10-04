@@ -1,6 +1,6 @@
 //! Where compiled content goes inside the CPK, for the Fox versions (PES 18-21) and, for the
-//! portraits, every version: `team_compiler/pipeline.md` "Game paths reference". The CPK paths
-//! have no leading `/`.
+//! portraits and the logo, every version: `team_compiler/pipeline.md` "Game paths reference".
+//! The CPK paths have no leading `/`.
 
 use pes_version::PesVersion;
 
@@ -115,6 +115,21 @@ pub(crate) fn portrait(version: PesVersion, player_id: u32) -> String {
     format!("common/render/symbol/player/{prefix}{player_id}.dds")
 }
 
+/// The CPK paths of team `team_id`'s three logo PNGs, the 512-pixel one first, then the 256 and
+/// the 128 (`_r_ll`, `_r_l`, `_r`): the same folder on every version, the files named
+/// `emblem_0{team id}` up to PES 2019 and `e_000{team id}` from PES 2020.
+pub(crate) fn logo(version: PesVersion, team_id: u16) -> [String; 3] {
+    let stem = match version {
+        PesVersion::Pes15
+        | PesVersion::Pes16
+        | PesVersion::Pes17
+        | PesVersion::Pes18
+        | PesVersion::Pes19 => format!("emblem_0{team_id}"),
+        PesVersion::Pes20 | PesVersion::Pes21 => format!("e_000{team_id}"),
+    };
+    ["_r_ll", "_r_l", "_r"].map(|size| format!("common/render/symbol/flag/{stem}{size}.png"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -207,5 +222,38 @@ mod tests {
                 "{version}"
             );
         }
+    }
+
+    #[test]
+    fn a_logo_is_named_emblem_up_to_pes_2019_and_e_from_pes_2020_largest_first() {
+        assert_eq!(
+            logo(PesVersion::Pes19, 714),
+            [
+                "common/render/symbol/flag/emblem_0714_r_ll.png",
+                "common/render/symbol/flag/emblem_0714_r_l.png",
+                "common/render/symbol/flag/emblem_0714_r.png",
+            ]
+        );
+        assert_eq!(
+            logo(PesVersion::Pes20, 714),
+            [
+                "common/render/symbol/flag/e_000714_r_ll.png",
+                "common/render/symbol/flag/e_000714_r_l.png",
+                "common/render/symbol/flag/e_000714_r.png",
+            ]
+        );
+        for version in [
+            PesVersion::Pes15,
+            PesVersion::Pes16,
+            PesVersion::Pes17,
+            PesVersion::Pes18,
+        ] {
+            assert_eq!(
+                logo(version, 714),
+                logo(PesVersion::Pes19, 714),
+                "{version}"
+            );
+        }
+        assert_eq!(logo(PesVersion::Pes21, 714), logo(PesVersion::Pes20, 714));
     }
 }

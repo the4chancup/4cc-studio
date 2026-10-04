@@ -45,9 +45,18 @@ texture leaves out the whole folder, a kit's texture the whole kit (a texture in
 out every kit using it), a `Common` texture only that file (the rest of `Common` is still built,
 and a player linking that file is left out with the line `link_target_dropped`), a portrait only
 that portrait. With `pass_through` on, a texture with one of the three size lines, a portrait
-included, is kept and converted as it is; a renamed one is still left out. A `logo` image at
+included, is kept and converted as it is; a renamed one is still left out. The team's logo
+is one image at the export's root named `logo` (`logo.png`), in any of the image formats
+above and of any size: `compile` makes the game's three logo sizes (512, 256 and 128 pixels
+square) from it. An image named `logo_small` beside it is used for the smallest size instead,
+when you want a different picture there. An image that is not square is fitted inside a
+transparent square, unless its name ends in `_crop` (`logo_crop.png`: the middle square is
+kept and the sides are cut off) or `_stretch` (the whole image is stretched to a square); the
+note `logo_fit_applied` says which was done. The warning `logo_upscaled` names an image
+smaller than the size it is made into, which is then enlarged and less sharp. A `logo` image at
 the export's root that is not a readable image is the line `logo_file_invalid`, from both
-commands, and the logo is left out even with `pass_through` on. A texture that
+commands, and the logo is left out even with `pass_through` on (a bad `logo_small` image
+leaves out all three sizes). A texture that
 cannot be read for any other reason is reported as
 `folder_pack_failed`, naming the file, and its folder is left out. A kit folder holding a
 `kit_mask` texture compiled for PES 2018 to 2021 gets the line `kit_texture_not_used`: these
@@ -130,7 +139,7 @@ range) is reported by both commands as `kit_config_invalid`, naming the error, a
 left out, even with `pass_through` on. `compile`
 skips any other export with the error `content_not_yet_compiled`, naming the first thing it
 cannot build yet: a PES 2015 to 2017 target, a referee export, or content other than a player's
-own face, boots and gloves models, their textures, portraits, kits, linked shared
+own face, boots and gloves models, their textures, portraits, kits, the logo, linked shared
 `Faces`, `Boots` and `Gloves` folders, and a `Common` folder holding only `.fmdl`, `.skl` and
 texture files, its models reached through `.common` links (a model in a `gloves` subfolder
 whose name does not say which hand it is, or a `.common` link to a texture or a material file,

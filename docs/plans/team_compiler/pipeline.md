@@ -241,7 +241,17 @@ format:
    header, replacing Red's "Other Notes" extraction from the Team Note txt. `teamnotes.txt` is
    rendered only after final export outcomes are known: it is a deterministic UTF-8/LF run artifact,
    atomically replaced, ordered by canonical export order, and contains only accepted exports with
-   non-empty valid notes. (Blue: `note_txt_append`)
+   non-empty valid notes. (Blue: `note_txt_append`) An *accepted* export is one run planning
+   keeps, the set whose team colors are applied. The note's text is read while the export's
+   source is open for validation, as the root `colors.txt` is, so no task reads it. The file
+   is one entry per export: a header line `--- /co/ ---` (the export's team name), then the
+   note, its line ends made LF and its leading and trailing blank lines removed, then one
+   empty line between entries; the file ends with one LF. It is written (to a temporary file
+   beside it, then renamed) once the run's CPK is in place, so a run that writes no CPK leaves
+   the previous file as it was. A run that writes its CPK and has no note to collect removes a
+   previous `teamnotes.txt`, as Red reset the file at every run: a file left over would show
+   the notes of exports this run did not compile. A failure to write or remove it is
+   `teamnotes_write_failed` (E, on the run), after which the CPK stays in place.
 6. **Player folder categorization** — each player folder is categorized into optional
    face/boots/gloves inputs for run planning; any category may be absent (for team players and
    referees alike — the unified player folder format has no separate face-folder concept, so a
@@ -515,7 +525,23 @@ describes behavior, not a serial scheduling requirement:
   measured on team 701's files in PES 21's `4cc_45_uniform.cpk`. A source smaller than its
   largest target is upscaled and reported (`logo_upscaled`); a non-square source made square is
   reported with the mode applied (`logo_fit_applied`). The three files are one atomic producer:
-  if any input fails to decode, no logo is emitted for the team.
+  if any input fails to decode, no logo is emitted for the team. The geometry, for a source of
+  w × h and a target of N²: `stretch` resamples the whole image to N × N; `crop` cuts the long
+  side to the short one around its centre (the cut starts at half the difference, rounded
+  down) and resamples that square to N × N; `fit` resamples the image with its proportions
+  kept, the long side to N and the short one to N × short / long (rounded half up, at least
+  1), and places it centred (the offset rounded down) on a fully transparent N² canvas. `fit`
+  resamples before it pads, not after: Lanczos over a padded image would blend the logo's
+  edge with the border's transparent black and leave a dark fringe. A square source is
+  resampled as it is and reports no `logo_fit_applied`, whatever its tag; a source already at
+  N² is not filtered at all. Each target is resampled from the source, never from a larger
+  target. A source is *upscaled* when either of its sides is stretched to reach the file's
+  largest target (512 for the main file, 128 for the small one): the long side under it for
+  `fit`, the short side under it for `crop` and `stretch`. Both findings are per source file
+  (context `file`, with `mode` or the source's `size` and the `target`), reported on the
+  logo's task, which is the export's one logo task (`processing/team_assets.rs`) and is
+  scoped on the main file: a failure drops the logo alone. The PNGs are 8-bit RGBA, written
+  by `dds_convert::encode_png`. A DDS or FTEX source gives its top mip level.
 - **Collars** — the model files are passed through unmodified. These are custom collar models that
   replace one of PES's many stock collar models (the game's `nocloth` set); the compiler derives the
   replaced model's ID and sets it as the collar in all of the team's kit configs, which puts the
@@ -547,7 +573,22 @@ describes behavior, not a serial scheduling requirement:
   export's kit numbers (`kit_variant_missing`, lowest variant copied) and per-kit *model* sets
   collapse to one `face.xml` entry on pre-Fox or to the lowest variant on Fox
   (`kit_variant_model_fox`). Rules and rationale: "Kit-dependent assets" in the [Unified model
-  format plan](../model_format.md). The legacy
+  format plan](../model_format.md). How the compiler finds a set: a *variant* is a file whose
+  stem holds the token `kit1` to `kit9` (delimited by `_`, `-`, `.` or the stem's ends,
+  spelled exactly so), and the files of one folder whose stems differ only in that token's
+  digit are one set, whose *reference* is the stem with `kitN` in the token's place. A
+  texture set is completed by the task that converts the folder's textures (a model folder's,
+  or `Common/`'s): for each kit number the export defines (its `Kits/` folders `p1` to `p9`;
+  `g1` is not a number of its own) that the set lacks, the lowest variant's converted bytes
+  are emitted under the missing variant's name and `kit_variant_missing` is reported on the
+  folder, once per set and number. The set is found from the files, not from the models'
+  references: a set exists only to be referenced, and reading every model's path table in
+  the textures task for the rare set nobody references would cost a second read of each
+  model. An export with no kit folder defines no number, so nothing is completed. A model's
+  texture path naming a reference (`pants_kitN`) is pointed at the folder's texture home
+  when the folder holds any variant of that set, the file name kept as it is. On Fox a model
+  file that is a variant with a lower variant of its set in the same folder is not compiled,
+  and planning reports `kit_variant_model_fox` on the folder, once per set. The legacy
   `dummy_kit*` stems keep working as **reserved, game-substituted names**: the texture-existence
   checks (`mtl_texture_not_found`, `material_texture_not_found`, FMDL path checks) skip them and the
   path is emitted verbatim. Red's `dummy_kit_replace.py` — copying the team's kit 1 textures over

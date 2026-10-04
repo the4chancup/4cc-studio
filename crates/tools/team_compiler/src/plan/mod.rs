@@ -9,9 +9,9 @@ use std::collections::BTreeSet;
 use std::ops::Range;
 
 use aesthetics_export::{
-    ExportIdentity, FileDescriptor, FpcDirective, KitFolder, KitsFolder, PlayerFolder, PlayerIndex,
-    PlayerSlot, ResolvedAestheticsExport, SharedKind, SharedModelFolder, ValidatedAestheticsExport,
-    ValidatedRoster, common_link_name,
+    ExportIdentity, FileDescriptor, FpcDirective, KitFolder, KitsFolder, LogoFiles, PlayerFolder,
+    PlayerIndex, PlayerSlot, ResolvedAestheticsExport, SharedKind, SharedModelFolder,
+    ValidatedAestheticsExport, ValidatedRoster, common_link_name,
 };
 use kit_config::KitSlot;
 use pes_version::{Engine, PesVersion};
@@ -41,8 +41,8 @@ pub(crate) struct PlanReport {
 /// face, boots and gloves packages, then its textures) by first roster slot, the shared boots
 /// folders taking an id (each its package, then its textures) in id order, then the shared
 /// gloves folders the same way, the export's Common textures as one task, the portraits by
-/// player id, then the kits by slot. The writer lays the CPK out in this order whatever order
-/// the tasks finish in, so the same exports always give the same bytes.
+/// player id, the kits by slot, then the logo. The writer lays the CPK out in this order
+/// whatever order the tasks finish in, so the same exports always give the same bytes.
 pub(crate) struct BuildManifest {
     /// The tasks, in canonical order.
     pub(crate) tasks: Vec<BuildTask>,
@@ -53,7 +53,7 @@ pub(crate) struct BuildManifest {
 }
 
 /// One unit of work: one package of a player folder's models, the folder's textures, one
-/// player's portrait, or one kit.
+/// player's portrait, one kit, or the team's logo.
 pub(crate) struct BuildTask {
     /// The export the task's content comes from.
     pub(crate) export_id: ExportId,
@@ -286,6 +286,13 @@ pub(crate) enum TaskKind {
         /// Whether its team's kit configs must carry the FPC values.
         fpc: EffectiveTeamKitFpc,
     },
+    /// The team's logo: the game's three PNGs made from the export's root `logo*` file, the
+    /// smallest from its `logo_small*` file when there is one (`pipeline.md` "4. Per-export
+    /// non-model steps", Logo). One task per export that has a logo, all three or none.
+    Logo {
+        /// The main file and the small one, each with its fit tag.
+        logo: LogoFiles,
+    },
 }
 
 /// Whether the team's kit configs must carry the FPC values.
@@ -315,8 +322,8 @@ impl EffectiveTeamKitFpc {
 }
 
 impl TaskKind {
-    /// The folder the task compiles, as the export spells it (a portrait's is its file): the
-    /// scope its findings name.
+    /// The folder the task compiles, as the export spells it (a portrait's is its file, the
+    /// logo's its main file): the scope its findings name.
     pub(crate) fn folder_path(&self) -> ScopePath {
         match self {
             TaskKind::Models { folder, .. } | TaskKind::Textures { folder, .. } => {
@@ -325,13 +332,15 @@ impl TaskKind {
             TaskKind::CommonTextures { folder, .. } => folder.clone(),
             TaskKind::Portrait { file, .. } => file.path.clone(),
             TaskKind::Kit { kit, .. } => kit.path.clone(),
+            TaskKind::Logo { logo } => logo.main.file.path.clone(),
         }
     }
 
     /// Every file the task reads from its export: a package's models (a `.common` link's
     /// Common model and skeleton, never the link) and the files packed beside them; a folder's
     /// textures; the Common textures; a portrait's one file; a kit's config and `colors.txt`,
-    /// when it has them, and its effective textures.
+    /// when it has them, and its effective textures; the logo's main file and its small one,
+    /// when it has one.
     pub(crate) fn files(&self) -> Vec<&FileDescriptor> {
         match self {
             TaskKind::Models {
@@ -347,6 +356,10 @@ impl TaskKind {
                 .iter()
                 .chain(&kit.colors)
                 .chain(kit.textures.iter().map(|texture| &texture.file))
+                .collect(),
+            TaskKind::Logo { logo } => std::iter::once(&logo.main)
+                .chain(&logo.small)
+                .map(|file| &file.file)
                 .collect(),
         }
     }
@@ -593,6 +606,9 @@ pub(crate) fn plan_run(
             }
             tasks.push(task(export_id, team_id, TaskKind::Kit { slot, kit, fpc }));
         }
+        if let Some(logo) = export.logo {
+            tasks.push(task(export_id, team_id, TaskKind::Logo { logo }));
+        }
     }
     PlanReport {
         manifest: BuildManifest { tasks, team_colors },
@@ -778,6 +794,7 @@ mod tests {
                     TaskKind::Kit { slot, kit, .. } => {
                         format!("kit {} {}", slot.as_str(), kit.path.as_str())
                     }
+                    TaskKind::Logo { logo } => format!("logo {}", logo.main.file.path.as_str()),
                 };
                 format!(
                     "{} {} {what} charge {}",
@@ -848,6 +865,54 @@ mod tests {
             charge: 15,
         });
         assert_eq!(groups, [zed.clone(), zed, None, None, None, None, None]);
+    }
+
+    #[test]
+    fn an_export_s_logo_is_one_task_after_its_kits_reading_both_files() {
+        let export = resolved(
+            "co - Logo",
+            &[
+                ("logo_small_crop.dds", 9),
+                ("Players/04 - B/face_high.fmdl", 1),
+                ("Players/04 - B/face_diff.bin", 0),
+                ("Kits/p1/kit.dds", 8),
+                ("logo.png", 40),
+            ],
+            &[],
+            None,
+        );
+
+        let report = plan_run(
+            vec![(ExportId(0), export, two_team_colors())],
+            PesVersion::Pes21,
+        );
+
+        assert!(
+            report
+                .messages
+                .iter()
+                .all(|message| message.code.code != "content_not_yet_compiled"),
+            "{:?}",
+            report.messages
+        );
+        assert_eq!(
+            summary(&report),
+            [
+                "0 714 Face Players/04 - B [71404] charge 1",
+                "0 714 kit p1 Kits/p1 charge 8",
+                "0 714 logo logo.png charge 49",
+            ]
+        );
+        let logo = &report.manifest.tasks[2];
+        assert_eq!(logo.group, None);
+        assert_eq!(logo.kind.folder_path(), scope_path("logo.png"));
+        let files: Vec<&str> = logo
+            .kind
+            .files()
+            .iter()
+            .map(|file| file.path.as_str())
+            .collect();
+        assert_eq!(files, ["logo.png", "logo_small_crop.dds"]);
     }
 
     #[test]
@@ -986,7 +1051,8 @@ mod tests {
                 }
                 TaskKind::CommonTextures { .. }
                 | TaskKind::Portrait { .. }
-                | TaskKind::Kit { .. } => None,
+                | TaskKind::Kit { .. }
+                | TaskKind::Logo { .. } => None,
             })
             .collect();
         assert_eq!(
@@ -1740,7 +1806,8 @@ mod tests {
                 TaskKind::Models { .. }
                 | TaskKind::Textures { .. }
                 | TaskKind::CommonTextures { .. }
-                | TaskKind::Portrait { .. } => None,
+                | TaskKind::Portrait { .. }
+                | TaskKind::Logo { .. } => None,
             })
             .collect()
     }

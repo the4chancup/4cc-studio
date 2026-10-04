@@ -11,7 +11,8 @@
 //! DDS in a codec the plan fixes (a player portrait, BC3) names its codec.
 //! [`probe`] reads a source's size from its header alone, for checks that
 //! must not pay a decode per texture. [`resize`] is the suite's one
-//! resampler (Lanczos3).
+//! resampler (Lanczos3). [`encode_png`] is the one raster the crate writes:
+//! the game reads a team's logo as PNGs.
 
 mod cache;
 mod dds;
@@ -24,6 +25,7 @@ use pes_version::PesVersion;
 use sha2::{Digest, Sha256};
 
 pub use cache::Converter;
+pub use raster::encode_png;
 pub use resample::resize;
 
 /// The accepted source formats, named by the file extension the compiler
@@ -328,14 +330,16 @@ pub enum ConvertError {
     /// A WESYS-wrapped DDS could not be unwrapped.
     #[error("wesys unwrap failed: {0}")]
     Wesys(#[from] wezlib::Error),
-    /// A raster source could not be decoded.
+    /// A raster source could not be decoded, or [`encode_png`]'s encoder
+    /// failed.
     #[error("image decode failed: {0}")]
     Image(#[from] image::ImageError),
     /// A feature of the source or request this crate does not handle.
     #[error("unsupported: {0}")]
     Unsupported(&'static str),
     /// A caller-built `Decoded` breaks the rules a decoded one follows, or
-    /// the pixels handed to [`resize`] do not match their size.
+    /// the pixels handed to [`resize`] or [`encode_png`] do not match their
+    /// size.
     #[error("inconsistent decoded texture: {0}")]
     InvalidDecoded(&'static str),
     /// The buffer ends before a structure that extends past it.
@@ -1324,6 +1328,37 @@ mod tests {
         )
         .unwrap();
         assert_eq!(ftex::dds::read_layout(&dds).unwrap().mipmaps, 1);
+    }
+
+    #[test]
+    fn encode_png_writes_every_channel_of_every_texel_as_it_is() {
+        // 7 x 5, every byte different (35 texels, 140 bytes), alpha included.
+        let (width, height) = (7u32, 5u32);
+        let pixels: Vec<u8> = (0..width * height * 4).map(|byte| byte as u8).collect();
+
+        let png = encode_png(&pixels, width, height).unwrap();
+
+        assert!(png.starts_with(b"\x89PNG\r\n\x1a\n"), "a PNG signature");
+        let round = decode(&png, SourceFormat::Png).unwrap();
+        assert_eq!((round.width, round.height), (width, height));
+        assert_eq!(round.mips, [pixels]);
+    }
+
+    #[test]
+    fn encode_png_refuses_a_zero_size_or_a_buffer_of_the_wrong_length() {
+        let pixels = vec![9u8; 4 * 4 * 4];
+        for (width, height) in [(0, 4), (4, 0)] {
+            assert!(matches!(
+                encode_png(&pixels, width, height),
+                Err(ConvertError::InvalidDecoded("zero dimension"))
+            ));
+        }
+        for (width, height) in [(4, 3), (4, 5)] {
+            assert!(matches!(
+                encode_png(&pixels, width, height),
+                Err(ConvertError::InvalidDecoded("pixel buffer size"))
+            ));
+        }
     }
 
     #[test]

@@ -148,7 +148,7 @@ savefile messages are new.
 | `color_entry_invalid` | W | a `colors.txt` line that does not parse as exactly one color (two colors on one line, the old Team Note kit entry, included), or a valid line past the file's color count (two for a kit, four for the team). Grammar: "Root files" (Colors) in `aesthetics_export/player_folders.md` | the line skipped |
 | `root_file_unexpected` | W | unknown file or folder at the export root (a folder other than the content folders — a stale `wrapper/` beside a usable root included), or a file directly inside `Players`, `Kits`, `Faces`, `Boots` or `Gloves`, which hold only folders (`Players/players.txt`) | file or folder ignored |
 | `portrait_conflict` | E | a slot with a portrait in its player folder and one in `Portraits/` whose bytes differ (the deep pass compares the two files; byte-identical files are one portrait and no finding) | export skipped: the compiler cannot tell which one the manager means |
-| `notes_found` | I | non-empty valid root `notes.txt` present | collected into teamnotes.txt (from Phase 4; in Phase 3 validated only) |
+| `notes_found` | I | non-empty valid root `notes.txt` present | collected into teamnotes.txt by `compile` |
 | `notes_encoding_invalid` | E | root `notes.txt` is not valid UTF-8 after optional BOM handling | note dropped; export otherwise continues (`DropFile`, not pass-through-eligible) |
 
 **Player folders and shared model folders**
@@ -186,8 +186,8 @@ savefile messages are new.
 | `gltf_bone_unknown` | E | a glTF skin joint has neither `PES_bone` metadata nor a name in the template skeleton | folder discarded |
 | `bone_folded_for_version` | I | a used bone the target PES version's skeleton lacks had its weights transferred to the fold table's (or nearest) bone — see "Skeleton retargeting" in the Model conversion plan | none |
 | `skeleton_retargeted` | I | the model's bind pose was re-bound from its source version's skeleton to the target's (bones moved more than tolerance) | none |
-| `kit_variant_missing` | W | a `kitN` reference has no variant for a kit number the export defines | lowest existing variant copied into the gap |
-| `kit_variant_model_fox` | W | per-kit model variants (`*_kit1`, `*_kit2`, …) on a Fox target, which has no model-path indirection | lowest variant used, others ignored |
+| `kit_variant_missing` | W | a folder's texture variant set (`pants_kit1`, `pants_kit3`) has no variant for a kit number the export defines; on the folder, once per set and number (context: `texture`, the set's reference as `pants_kitN`; `kit`, the number; `copied`, the lowest variant's stem) | lowest existing variant copied into the gap |
+| `kit_variant_model_fox` | W | per-kit model variants (`*_kit1`, `*_kit2`, …) on a Fox target, which has no model-path indirection; on the folder, once per set (context: `model`, the set's reference as `pants_kitN.fmdl`; `used`, the lowest variant's file name) | lowest variant used, others ignored |
 | `common_link_missing` | E | a `.common` link — model, material file or texture — names a file missing from the Common folder (context: the link file, whose name shows its kind, and the Common path looked for) | folder discarded |
 | `settings_toml_name_shared` | W | `name` given in a folder mapped to multiple players | name applied to all of them |
 | `fpc_conflict` | E | both `fpc_on` and `fpc_off` present in a player folder | folder discarded |
@@ -408,8 +408,8 @@ every miss as a warning.
 | `logo_file_invalid` | E | a root `logo*` file has an unknown tag in its stem, a disallowed format, or fails to decode in the deep pass | no logo emitted for the team (both files dropped as one unit — the game needs all three sizes) |
 | `logo_role_duplicate` | E | two files claim the same role (two `logo*`, or two `logo_small*`) | no logo emitted for the team |
 | `logo_small_without_main` | E | `logo_small*` present with no main `logo*` | no logo emitted (the small image is not a source for the large sizes) |
-| `logo_fit_applied` | I | a non-square source was made square; names the mode (`fit` by default, or the file's tag) | — |
-| `logo_upscaled` | W | a source is smaller than its largest target (512² for main, 128² for small) | emitted upscaled |
+| `logo_fit_applied` | I | a non-square source was made square; names the file and the mode (`fit` by default, or the file's tag) (context: `file`, `mode`) | — |
+| `logo_upscaled` | W | a source is smaller than its largest target (512² for main, 128² for small): its long side for `fit`, its short side for `crop` and `stretch` (context: `file`, `size` as `300x300`, `target`) | emitted upscaled |
 | `collar_id_invalid` | E | collar filename doesn't parse as `collar_<ID>` (zero padding optional), the ID is not a stock collar of the target version (each version's set counted in its install's base data CPK, `dt35`'s `nocloth` collars: PES 15: 1-101 and 901-904; PES 16: 1-105 and 901-904; PES 17 and 18: 1-116 and 901-916; PES 19: 1-124 and 901-916; PES 20: 1-127 and 901-913; PES 21: 1-131 and 901-913) | collar file discarded |
 | `collar_id_conflict` | E | the stock collar ID is already claimed: by another export earlier in this run (canonical export order), or by the suite itself, which reserves 105 (FPC) and 77 (the referees' marker, `blue_port.md` "Referee export processing") (context: the claimant, an export's name or `FPC` / `referees`) | the collar is discarded and its team's configs are not rewritten |
 | `common_file_disallowed` | E/I | as `file_type_disallowed`, Common scope | files discarded / kept |
@@ -433,6 +433,7 @@ injection into the system `dt00_x64.cpk`, and with it `ref_marker_needs_consent`
 | `duplicate_path` | W/E | manifest preflight finds colliding output paths | folder collision: losing folder blocked (`DropFolder`, E); whole-export collision: losing export blocked (`DropExport`, E); override: the `overrides/` file wins (`Keep`, W) |
 | `cpk_write_failed` | F | incremental CPK writing fails | run aborted and partial CPK discarded (`AbortRun`) |
 | `output_commit_failed` | F | a completed CPK/tree cannot be atomically committed to its final output path | run aborted; prior published outputs remain untouched (`AbortRun`) |
+| `teamnotes_write_failed` | E | `teamnotes.txt` cannot be written, or a previous one cannot be removed, in the output folder (context: `path`, `error`) | the run's CPK stays in place; the notes file is left as it was |
 | `uniparam_compile_failed` | F | UniformParameter compilation failed (output would crash PES) | run aborted |
 | `pes_folder_not_found` | E | `pes_folder_path` invalid at deployment time (includes the no-PES-install machine) | deployment skipped; staged CPKs promoted to `output/`; savefile step skipped |
 | `pes_version_mismatch` | W | `pes_folder_path` exists but holds no `PES20{pes_version}.exe` — a different-version exe suggests a wrong `pes_version` setting (Red's suppressible console notice becomes a plain per-run warning, dropping `state/ver_mismatch_warned.txt`; the GUI also surfaces this live via the version selector's red/yellow state — see the core plan's Sidebar) | none; deployment proceeds |

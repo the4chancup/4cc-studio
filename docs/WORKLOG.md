@@ -12,8 +12,8 @@ is in `AGENTS.md` ("Working documents").
 **Phase:** 3 (Team compiler skeleton) closed 2026-10-02, its cross-family reviews queued (see
 "Handover"). Phases 1 and 2 done (Phase 2 closed 2026-09-30).
 **Next:** Phase 4 is itemized and its Acceptance section written (step 4.1, 2026-10-03; its
-cross-family review (a) is queued). Next: 4.11 (team root artifacts and Common); 4.30,
-4.5 to 4.8, 4.9a and 4.10 are done (4.6c moved to Phase 8's cancellation), 4.9b (collars)
+cross-family review (a) is queued). Next: 4.11b (the notes; 4.11 is worked as four slices
+and 4.11a, the logo, is done); 4.30, 4.5 to 4.8, 4.9a and 4.10 are done (4.6c moved to Phase 8's cancellation), 4.9b (collars)
 waits on the maintainer. 2.5b (GPU BC7) is step 16.x (decision entries
 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0 after Phase 8; phase order 1–6,
 8, 0.1.0, 7, 9–16 (`core/development_plan.md` "Releases"); first-class target the Fox version
@@ -116,7 +116,12 @@ Claude agent with no sidekick and no reviewer of another model family. While tha
   and the decision entries "the kit layout table covers the socks alone, in two bands" and
   "the suite's one resampler is `dds_convert::resize`". The measurement scripts
   (`scripts/provenance/kit_uv/`) are part of the surface: the table is only as good as they
-  are.
+  are. 4.11 (b), one review over the step's slices as they land: 4.11a, `dds_convert`
+  (`encode_png`, a new `pub`) and `team_compiler` (`processing/team_assets.rs`,
+  `TaskKind::Logo`, `paths::logo`), the `feat(team_compiler)` commit of 2026-10-04 for
+  4.11a, against `pipeline.md` "4. Per-export non-model steps" (Logo), `player_folders.md`
+  "Logo", `messages.md` (`logo_fit_applied`, `logo_upscaled`), TC-ROOT-06 to TC-ROOT-08 and
+  the decision entry "the logo's geometry, its findings and its PNG encoder".
 - For the lead, on return: the review process on trial (maintainer, 3.1) runs a full sidekick
   review loop after each GPT round and calls GPT again only once that loop has ended and GPT's
   own loop has not; not yet in `AGENTS.md` (3.6: GPT 4 of 7 accepted, then sidekick S1 3 of 7,
@@ -887,7 +892,32 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   (`processing/team_assets.rs`) → verify: a 1000x600 `logo.png` yields three square PNGs decoding
   to 512, 256 and 128 pixels with transparent side borders and `logo_fit_applied` (`fit`);
   `logo_small_crop.png` beside it changes only the 128 one; the notes of two accepted exports
-  appear in `output/teamnotes.txt` in canonical order and a skipped export's do not
+  appear in `output/teamnotes.txt` in canonical order and a skipped export's do not.
+  Worked as four slices, each its own commit (decision entries of 2026-10-04: the logo's
+  geometry; `teamnotes.txt`; kit variant sets):
+  - [x] 4.11a the logo (TC-ROOT-06..08): done 2026-10-04 (Opus 5.5, first time, no lead
+    fix). `dds_convert::encode_png` (`raster.rs`); `TaskKind::Logo`, one task per export
+    after its kits, scoped on the main file, `DropFile` when it fails;
+    `processing/team_assets.rs` (`logo`, `squared`, `centre_square`, `letterboxed`);
+    `paths::logo`; `logo_fit_applied` (I) and `logo_upscaled` (W); the gate no longer names
+    a logo; help. Red runs and five perturbations in the sidekick's report (padding before
+    resampling shows as `[5, 0, 0, 5]` where `[0, 0, 0, 0]` is expected at (0, 100) of 512).
+    Not covered from the CLI: sources other than PNG (a DDS at the function), the `emblem_0`
+    names (PES 18 and 19; at the function), a tall `stretch` source. Gates green (126 of
+    209); `mutants-diff 0e3739b`: 103, 94 caught, 7 unviable, 2 missed, both equivalent
+    (`width > height` against `>=` in `centre_square` and `letterboxed`, which are called
+    for a non-square image only)
+  - [ ] 4.11b the notes (TC-ROOT-09): the note's text read during validation, carried by the
+    manifest, `output/teamnotes.txt` written once the CPK is in place,
+    `teamnotes_write_failed`. Brief `.tmp/brief_4_11b.md`
+  - [ ] 4.11c kit variants on Fox (TC-CMN-04, the Fox half of TC-CMN-05): texture sets
+    completed by the textures tasks (`kit_variant_missing`), a `kitN` path pointed at the
+    folder's texture home, a higher model variant left out (`kit_variant_model_fox`).
+    TC-CMN-05's PES 17 half waits for pre-Fox faces (4.14); TC-CMN-06 (`dummy_kit*`) is
+    4.29's, which builds the checks it is about
+  - [ ] 4.11d texture `.common` links: the scenario written first (no acceptance ID yet),
+    then the player's stem resolving into Common and its path naming the team's Common
+    output; the gate's refusal of the link goes
 
 - [ ] 4.12 **`ingame_face` processing (Fox)**: no face package emitted; arbitrary-named models
   rerouted to the player-exclusive boots folder (merged, the paired `.skl` becoming `boots.skl`);
@@ -935,7 +965,10 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   paths reference"; `player_folders.md` "A link plus local models combines" (pre-Fox), "Model
   names". (The pre-Fox parity reference for 4.14-4.17 is step 4.31's, the lead's; until it
   exists the step's checks are the ones below.)
-  IDs: TC-MOD-20..25, TC-TEX-07. Crates: tc (`processing/model.rs`, `processing/material.rs`,
+  Also the pre-Fox half of the kit variants (4.11c did Fox): a model variant set as one
+  `face.xml` entry naming `…kitN…` with the variant files beside it, and the texture sets
+  completed as on Fox.
+  IDs: TC-MOD-20..25, TC-TEX-07, TC-CMN-05 (the PES 17 half). Crates: tc (`processing/model.rs`, `processing/material.rs`,
   `processing/texture.rs`, `paths.rs`) → verify: a `/co/` slot 05 folder with the smallest
   `pes_model` fixture pair as `face.model` + `face.mtl` and `skin.dds`, compiled for PES 17: the
   CPK holds `common/character0/model/character/face/real/71405.cpk` whose `face.xml` lists one
@@ -1188,7 +1221,8 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   satisfied by an installed CPK the same way; paths naming anything else kept and not looked
   up. The pre-Fox half (`mtl_texture_not_found`) lands with 4.15 under the same rule. Plan:
   `pipeline.md` "Resolved decisions" ("A texture a model names must exist"); `messages.md`
-  (`fmdl_texture_not_found`, `mtl_texture_not_found`). IDs: TC-TEX-05. Crates: tc (`check.rs`,
+  (`fmdl_texture_not_found`, `mtl_texture_not_found`). IDs: TC-TEX-05, TC-CMN-06 (the
+  `dummy_kit*` stems the checks skip; moved here from 4.11). Crates: tc (`check.rs`,
   `processing/model.rs`, `bins/`) → verify: TC-TEX-05's three runs (the CPK holding the
   texture, lacking it, no PES folder): no finding, Error with the folder out of the CPK, Warning
   with the folder in it
@@ -2155,3 +2189,8 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   re-laid to the Fox layout (`kit_layout_converted`); everything else in the texture stays
   as it was, and a DXT kit keeps the blocks the move does not touch. The other direction
   is built and tested at the function; its CLI test waits for pre-Fox targets (4.16).
+- **2026-10-04** — 4.11a: `compile` makes the game's three logo PNGs (512, 256, 128) from
+  the export's `logo*` image, the smallest from `logo_small*` when there is one; a
+  non-square image is fitted, cropped or stretched by its tag. Step 4.11 is split into four
+  slices; the plan text and decisions for the next two (notes, kit variants) are in.
+  TC-CMN-06 moved to 4.29.

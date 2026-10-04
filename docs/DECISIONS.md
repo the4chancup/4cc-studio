@@ -3695,3 +3695,72 @@ keyed by the source file's hash, and a re-laid kit is no longer its source file;
 are the exception, so they are converted uncached instead of teaching the cache a second key.
 Plan: `libs/dds_convert.md` "`dds_convert` API"; `team_compiler/pipeline.md` "4. Per-export
 non-model steps" (Kits, "Layout conversion").
+
+## 2026-10-04 — team_compiler — the logo's geometry, its findings and its PNG encoder
+Decision: (1) `fit` resamples the image with its proportions kept (long side to N, short side
+to N × short / long rounded half up, at least 1) and then centres it on a transparent N²
+canvas; `crop` cuts the long side around its centre, then resamples; `stretch` resamples
+straight to N × N. Each of the three sizes is resampled from the source. (2) A square source
+reports no `logo_fit_applied` whatever its tag. (3) `logo_upscaled` is reported per source
+file when a side is stretched to reach the file's largest target: the long side under it for
+`fit`, the short side for `crop` and `stretch`. (4) The PNGs are written by a new
+`dds_convert::encode_png`. (5) The logo is one task per export, scoped on the main file, in
+`processing/team_assets.rs`. (6) Step 4.11 is worked as four slices: the logo, the notes, the
+kit variants, the texture `.common` links.
+Why: (1) The plan said "made square per its fit tag, resampled", which read literally pads
+first; Lanczos over a padded straight-alpha image blends the logo's edge with transparent
+black and leaves a dark fringe, where resampling first keeps the edge as drawn. Resampling
+each size from the source avoids filtering twice. (2) Nothing is made square. (3) The plan
+said "smaller than its largest target" without saying which side of a non-square source
+counts; the side that decides the scale factor is the one each mode maps onto N. (4) As for
+`resize`: `image` is already `dds_convert`'s dependency, and a tool crate depending on it
+for one encoder would be the second place the suite touches rasters. (5) The three files
+are one atomic producer, which a task is; the worklog step already names the module. (6)
+The four parts share no code and each is a reviewable diff of its own; one brief would pass
+the 500-line limit.
+Plan: `team_compiler/pipeline.md` "4. Per-export non-model steps" (Logo);
+`team_compiler/messages.md` (`logo_fit_applied`, `logo_upscaled`); `libs/dds_convert.md`
+"`dds_convert` API".
+
+## 2026-10-04 — team_compiler — `teamnotes.txt`: its layout, when it is written, and its failure
+Decision: (1) One entry per export run planning keeps: a header line `--- /co/ ---`, the note
+(LF line ends, leading and trailing blank lines removed), one empty line between entries.
+(2) It is written once the run's CPK is in place; a run that writes no CPK leaves the
+previous file. (3) A run that writes its CPK and collects no note removes a previous
+`teamnotes.txt`. (4) A failure to write or remove it is a new code, `teamnotes_write_failed`
+(Error, on the run); the CPK stays. (5) The note's text is read during validation, while
+the source is open, as the root `colors.txt` is.
+Why: (1) The plan said "under a team header" without a layout; Red's (`. `, `- `, `--
+{team}'s note file:`) is console decoration, and a header that names the team as every
+message does is enough. (2) "Rendered only after final export outcomes are known", and a
+notes file describing a CPK that was never put in place would mislead. (3) TC-ROOT-09 says a
+run with no notes writes no file; leaving an older file would show notes of exports this
+run did not compile, and Red removed the file at the start of every run. It is the
+compiler's own artifact, in its own output folder. (4) No code covered it:
+`output_commit_failed` is Fatal and says the CPK is not in place, which would be false. (5)
+A `.7z` is not decompressed again for a few lines of text.
+Plan: `team_compiler/pipeline.md` "2. Per-export serial steps" (5, Notes collection);
+`team_compiler/messages.md` (`teamnotes_write_failed`, `notes_found`).
+
+## 2026-10-04 — team_compiler — kit variant sets are found from the files, and completed by the textures task
+Decision: (1) A variant is a file whose stem holds the token `kit1` to `kit9`, spelled
+exactly so; the files of one folder differing only in that digit are one set. (2) The task
+converting a folder's textures completes each texture set against the export's kit numbers
+(`p1` to `p9` of `Kits/`), copying the lowest variant's converted bytes and reporting
+`kit_variant_missing` once per set and number, whether or not a model references the set.
+(3) A model's path naming `…kitN…` is pointed at the folder's texture home when any variant
+of the set is in the folder. (4) On Fox a model file that is a higher variant of a set in
+its folder is left out at planning, which reports `kit_variant_model_fox`. (5) TC-CMN-06
+(`dummy_kit*` skipped by the texture-existence checks) moves to step 4.29, which builds
+those checks; until then no check exists for it to skip.
+Why: (2) `model_format.md` words the rule by reference ("a `kitN` reference whose variant
+is missing"), but the textures task does not read models, and a set nobody references is a
+member's leftover at worst: one copied texture and a warning that points at it. Reading
+every model's path table a second time to spare that case is not worth it. (1) The modded
+exes match the spelling as written, so a differently cased token would not be found in
+game either. (3) Without it the path keeps the directory the model was exported with, and
+the game looks for the variants in the wrong place. (4) Which model files are parts is
+planning's decision already. (5) A scenario that passes because the code it constrains
+does not exist proves nothing.
+Plan: `team_compiler/pipeline.md` "4. Per-export non-model steps" (Kit-dependent assets);
+worklog steps 4.11 and 4.29.
