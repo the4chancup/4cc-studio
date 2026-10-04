@@ -347,6 +347,10 @@ fn coordinate<'scope>(
             {
                 let permit = match &task.group {
                     Some(group) if index == group.tasks.start => {
+                        // The previous group's tasks are all spawned (groups
+                        // are contiguous), so the coordinator's share goes
+                        // before the wait: only its batches still hold it.
+                        drop(group_permit.take());
                         let permit = Arc::new(budget.acquire(group.charge)?);
                         group_permit = Some(permit.clone());
                         permit
@@ -354,7 +358,12 @@ fn coordinate<'scope>(
                     Some(_) => group_permit
                         .clone()
                         .expect("a group's first task acquired the shared permit"),
-                    None => Arc::new(budget.acquire(task.charge)?),
+                    None => {
+                        // The same drop for an ungrouped task's acquire: the
+                        // group before it, when there was one, is done.
+                        drop(group_permit.take());
+                        Arc::new(budget.acquire(task.charge)?)
+                    }
                 };
                 let files = read_files(&task, &content);
                 // After the read, not before it: a file saved over while it was being read is
@@ -469,6 +478,7 @@ mod tests {
     use std::collections::BTreeSet;
     use std::fs::{self, File};
     use std::path::Path;
+    use std::thread;
     use std::time::Duration;
 
     use aesthetics_export::FileDescriptor;
@@ -593,6 +603,36 @@ mod tests {
         ]
     }
 
+    /// `coordinate` over the tracer's source and `tasks` on a spawned thread with a budget of
+    /// `cap` bytes, the batches dropped as they arrive (the writer's role, so permits free
+    /// mid-run): the change it returned, or `None` when it did not come back within the guard.
+    fn coordinated_with_cap(tasks: Vec<BuildTask>, cap: usize) -> Option<Option<SourceChange>> {
+        let (done_tx, done) = std::sync::mpsc::channel();
+        thread::spawn(move || {
+            let budget = MemoryBudget::new(cap);
+            let sources = [listed(tracer_source())];
+            let context = CompileContext::new(PesVersion::Pes21, 1);
+            let pool = rayon::ThreadPoolBuilder::new()
+                .num_threads(2)
+                .build()
+                .unwrap();
+            let (batches_tx, batches_rx) = unbounded();
+            thread::spawn(move || {
+                for batch in &batches_rx {
+                    drop(batch);
+                }
+            });
+            let change = pool
+                .in_place_scope(|scope| {
+                    coordinate(&sources, tasks, &budget, &context, &batches_tx, scope)
+                })
+                .unwrap();
+            drop(batches_tx);
+            done_tx.send(change).unwrap();
+        });
+        done.recv_timeout(Duration::from_secs(30)).ok()
+    }
+
     /// The coordinator over `sources` and `tasks` on a pool of two threads: what it returned,
     /// and every batch it sent, in manifest order.
     fn coordinated(
@@ -636,6 +676,72 @@ mod tests {
         assert_eq!(permits[0].size(), 30, "the group's whole charge, once");
         assert!(!Arc::ptr_eq(permits[0], permits[2]));
         assert_eq!(permits[2].size(), 7, "the ungrouped task's own charge");
+    }
+
+    /// The tracer's tasks reworked: `groups` as (tasks range, charge) pairs, `ungrouped`
+    /// charges as single tasks after them, every task's files the tracer's five.
+    fn grouped_tasks(groups: &[(usize, usize, usize)], ungrouped: &[usize]) -> Vec<BuildTask> {
+        let folder = player(&[
+            "face_diff.bin",
+            "fcl_hair.fmdl",
+            "fcl_hair.skl",
+            "fcl_hair_sim.fclo",
+            "shirt.dds",
+        ]);
+        let kind = || TaskKind::Models {
+            folder: folder.clone(),
+            package: ModelPackage::Face,
+            ids: vec![79205],
+        };
+        let task = |group| BuildTask {
+            export_id: ExportId(4),
+            team_id: 792,
+            kind: kind(),
+            charge: 0,
+            group,
+        };
+        let mut tasks = Vec::new();
+        for (start, end, charge) in groups {
+            let group = TaskGroup {
+                tasks: *start..*end,
+                packages: vec![ModelPackage::Face],
+                charge: *charge,
+            };
+            for _ in *start..*end {
+                tasks.push(task(Some(group.clone())));
+            }
+        }
+        for charge in ungrouped {
+            tasks.push(BuildTask {
+                charge: *charge,
+                ..task(None)
+            });
+        }
+        tasks
+    }
+
+    #[test]
+    fn an_oversized_group_lets_the_next_acquire_once_its_batches_are_free() {
+        // A group over the cap admits alone; the ungrouped task after it
+        // acquires once the group's batches are gone — the coordinator's own
+        // share must not hold the group charged.
+        let tasks = grouped_tasks(&[(0, 2, 50)], &[5]);
+        assert!(
+            coordinated_with_cap(tasks, 30).is_some(),
+            "the coordinator never returned"
+        );
+    }
+
+    #[test]
+    fn two_groups_over_the_cap_together_do_not_hang_the_coordinator() {
+        // Each group fits alone; together they exceed the cap, so the second
+        // acquires only after the first's batches are dropped — again only if
+        // the coordinator released its own share first.
+        let tasks = grouped_tasks(&[(0, 2, 30), (2, 4, 30)], &[]);
+        assert!(
+            coordinated_with_cap(tasks, 40).is_some(),
+            "the coordinator never returned"
+        );
     }
 
     #[test]

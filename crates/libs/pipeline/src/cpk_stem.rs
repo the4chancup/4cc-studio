@@ -153,4 +153,19 @@ mod tests {
             assert_eq!(CpkStem::new(stem), Err(expected), "{stem:?}");
         }
     }
+
+    #[test]
+    fn the_first_failing_rule_in_enum_order_reports() {
+        // Each stem breaks two rules; the earlier one is the finding.
+        let long = format!("{} b", "x".repeat(28));
+        let cases: [(&str, CpkStemError); 4] = [
+            (long.as_str(), CpkStemError::TooLong { len: 30 }),
+            ("a b.", CpkStemError::InvalidCharacter { character: ' ' }),
+            ("con.", CpkStemError::TrailingDot),
+            ("con.cpk", CpkStemError::CpkSuffix),
+        ];
+        for (stem, expected) in cases {
+            assert_eq!(CpkStem::new(stem), Err(expected), "{stem:?}");
+        }
+    }
 }

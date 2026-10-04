@@ -205,7 +205,10 @@ impl CpkOutput {
         }
         self.uniform_parameters.extend(batch.uniparam.take());
         self.kit_colors.extend(batch.uni_color.take());
-        // The task's bytes are in the CPK now, so the memory they were charged is free.
+        // The task's bytes are in the CPK and their copies gone, so the memory they were
+        // charged is free. The release is explicit: a grouped batch can stay in `submit`'s
+        // vector after its own commit, so waiting on its destruction would hold it longer.
+        drop(entries);
         batch.permit = None;
         Ok(())
     }

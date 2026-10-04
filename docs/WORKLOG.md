@@ -2416,3 +2416,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   is PES 21's value on every version (step 4.33); a team export's name carries `Full` or
   `Midcup` as its second word (step 4.34, plan and eight scenarios written: TC-ID-05 to 07,
   TC-KIT-24, TC-BIN-14 to 17; four reworded).
+- **2026-10-04** — Review queue, S1 `pipeline` (3.7 (b), 3.y (c)): sidekick S1.1 1 of 5
+  accepted; GPT A1 3 of 3 (a finished player group's permit held by the coordinator hung the
+  run when the next acquire needed it; the writer released a permit before its bytes;
+  `CpkStem`'s rule order untested). Rulings `.tmp/review_rulings_S1.md`.
