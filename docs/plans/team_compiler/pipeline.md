@@ -515,12 +515,16 @@ describes behavior, not a serial scheduling requirement:
   `kit_layout_fixture.py` from the models alone, never from the table; the table's stripe centres
   sit within 3.8 px of it. Placeholder textures are engine-neutral and are never re-laid out.
   `_chest`, `_back`, `_leg` and `_name` are glyph atlases the game reads cell by cell, not
-  textures mapped through the uniform models, and are not touched. Their own arrangement does
-  differ between the games' stock files (`kit_leg_atlas.py`: every stock PES 17
+  textures mapped through the uniform models, so the uniform table does not apply to them. Their
+  own arrangement differs between the games' stock files (`kit_leg_atlas.py`: every stock PES 17
   `_back`, `_chest` and `_leg`, 797 of each, stacks its ten digits in a column, 128×2048 or
   64×1024, and every stock PES 21 one, 1,357 of each, lays them in a row, 2048×256 or 1024×128;
-  `_name` is a 4:1 strip in both); whether either game reads the other's arrangement is an open
-  question (worklog, "Phase 4 open questions"). The TOML config is compiled to the game's 120-byte binary via `libs/kit_config`
+  `_name` is a 4:1 strip in both), and neither engine reads the other's. So a `_back`, `_chest`
+  or `_leg` atlas in the other engine's arrangement is re-arranged into the target's when the
+  kit is compiled: its shape alone (tall or wide) says which arrangement a file has, so no
+  marker is involved, and `_name` is left as it is. The digit cells of the two arrangements are
+  measured before this is built (worklog step 4.32); until then the atlases pass as they are.
+  The TOML config is compiled to the game's 120-byte binary via `libs/kit_config`
   (texture-name fields derived from the effective texture set, version-specific bit packing applied —
   including the PES 15 shirt-pattern clamp; see the [Kit config editor plan](../kit_config_editor.md))
   and emitted under the game's kit-config name for its slot (old `XXX_DEF_1st_realUni.bin` pattern
@@ -683,7 +687,9 @@ describes behavior, not a serial scheduling requirement:
    won, and reported as `duplicate_path` (Warning, on the run, naming the path); the task's
    other entries and its contributions to the bins are kept. An override that cannot be read
    fails the CPK (`cpk_write_failed`): a file the operator put there on purpose is not
-   silently skipped.
+   silently skipped. Paths compare exactly, case included, as the CPK's own duplicate check
+   compares them: an override is made by copying a file out of a CPK, under the name it had
+   there, so folding case would be handling for a spelling nobody produces.
 2. **Incremental CPK writing** — the writer accepts completed task batches as they arrive, but
    final payload layout follows canonical manifest order, not arrival order. Per-task atomicity
    discards every staged entry from a failed task. Ordered draining and memory admission must be

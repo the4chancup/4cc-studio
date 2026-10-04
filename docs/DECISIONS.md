@@ -3873,3 +3873,20 @@ reads. (4) An unreadable file is not a changed one, and dropping its folder is w
 member can act on.
 Plan: `team_compiler/pipeline.md` "Resolved decisions", Source snapshot;
 `team_compiler/messages.md` `source_changed_during_run`.
+
+## 2026-10-04 — team_compiler — the maintainer's answers to four Phase 4 open questions
+Decision (maintainer): (1) An override's path is compared exactly; no case folding. (2) A
+failed package is left out alone, also beside a blank face (the entry on TC-MOD-09 stands),
+on the condition that the error is reported visibly enough for the member to know the
+folder is not usable as a whole: it is an Error on the player's folder, and the help now
+says the player shows with that part missing. (3) Neither engine reads the other's number
+atlas arrangement: a `_back`, `_chest` or `_leg` atlas in the other engine's arrangement is
+re-arranged for the target (worklog step 4.32). (4) The kit config template stays one file
+for every version: its values are taken from the most common FPC-compatible kit config on
+the maintainer's machine whose `name.y` is 0 to 16, so no target clamps it.
+Why: (1) overrides are rare, and an override is a file taken out of a CPK under the name
+it had there. (2) Dropping the whole folder would also drop a real face beside failed
+boots; what matters is that the member sees the folder is broken. (3) The maintainer's
+knowledge of the games. (4) Per-version files are avoided where one file can serve.
+Plan: `team_compiler/pipeline.md` "5. Writer" step 1 (exact paths), "4. Per-export
+non-model steps" (number atlases); `team_compiler/messages.md` `merge_material_conflict`.

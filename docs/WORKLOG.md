@@ -1058,8 +1058,8 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
     and promotes a CPK holding the overrides and the bins. Known, not fixed: a bin an
     override replaces is still built, so `bin_header_repaired` is still reported for it and
     a failed kit config insert still fails the run (neither reachable on the bundled bins;
-    to settle with 4.21's installed bins); paths compare exactly ("Phase 4 open
-    questions"). Not covered from the CLI: an `overrides/` tree that cannot be listed or a
+    to settle with 4.21's installed bins). Paths compare exactly, by the maintainer's
+    ruling (decision entry of 2026-10-04: no case folding). Not covered from the CLI: an `overrides/` tree that cannot be listed or a
     name that is not UTF-8 (exit 3), an unreadable override (unit-tested at the writer), an
     override at `UniformParameter.bin` or `UniColor.bin`. Gates green (139 of 212);
     `mutants-diff 62d8e66`: 28, 16 caught, 12 unviable, 0 missed
@@ -1392,6 +1392,20 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   otherwise. Without it every pre-Fox byte of 4.14-4.17 is unchecked until Phase 6 → verify:
   the README's command reproduces `red/` byte for byte from `old/`
 
+- [ ] 4.32 **Number atlases re-arranged across engines** (lead first: the measurement):
+  neither engine reads the other's `_back`, `_chest` and `_leg` arrangement (ten digits in
+  a column on PES 15 to 17, 128×2048 or 64×1024; in a row on PES 18 to 21, 2048×256 or
+  1024×128), so an atlas in the other engine's arrangement is re-arranged for the target,
+  told by its shape alone, `_name` untouched. The cells are not whole pixels (2048 over
+  ten), and a column cell and a row cell differ in proportion, so the lead first measures
+  where each game takes each digit from (the stock atlases and how the number meshes map
+  them) and records it as a table with a provenance script, as `KIT_LAYOUT_REMAP` was;
+  then the re-arrangement is briefed. Plan: `pipeline.md` "4. Per-export non-model steps"
+  (the glyph atlases). Crates: tc (`processing/kit.rs`, `processing/kit_layout.rs`) →
+  verify: a column atlas whose ten cells are ten flat colors, compiled for PES 21, comes
+  out as a row atlas with the ten colors in digit order, and the reverse for PES 17; an
+  atlas already in the target's arrangement is byte-identical to today's output
+
 - [ ] 4.y `dds_convert` cache retention bound (found at 2.20d converge; spec `libs/dds_convert.md`
   "In-memory conversion cache", "Retention is separately bounded and budgeted"): the
   `Converter` holds every distinct conversion until `clear`; the pipeline's memory budget
@@ -1434,37 +1448,29 @@ administrator, Upgrade DpFileList dialog): Phase 8; glTF sources: Phase 7; the G
 
 Phase 4 open questions (maintainer):
 
-- An override whose path differs from an entry's only in case (4.13b): the writer compares
-  paths exactly, as the `cpk` crate's duplicate check does, so `overrides/common/etc/
-  teamcolor.bin` does not replace the compiler's `common/etc/TeamColor.bin`: both go into
-  the CPK and nothing is reported. Which of two such entries the game reads, and whether it
-  finds an override spelled in another case at all, is not known. To settle: a CPK holding
-  both spellings, loaded in-game. If the game folds case, the override check folds it too.
-
-- A failed package beside a blank face (4.12): a player folder whose boots fail to merge
-  (`skl_merge_conflict`, `merge_material_conflict`) still gets its blank face and its
-  textures in the CPK, by the writer's rule that the packages that succeeded commit, so
-  in-game the player shows no head over the stock body. The alternative is that one failed
-  package drops the whole folder (a stock player instead), which also changes a real face
-  beside failed boots. Kept as it is (decision entry of 2026-10-04 on TC-MOD-09).
-
 - The sock table's look in-game (4.10): `KIT_LAYOUT_REMAP` approximates, in two bands, a map
   the models give to within about 10 px of 2048 (`pipeline.md` "Layout conversion"). To
   settle: a pre-Fox kit with a design on its socks (hoops do not show it; a vertical stripe
   or a logo does), compiled for a Fox game with the `pre-fox` marker and looked at in-game.
-- Number textures across engines (4.10): the games' stock `_back`, `_chest` and `_leg`
-  atlases stack their ten digits in a column on PES 17 (128×2048, 64×1024) and lay them in a
-  row on PES 21 (2048×256, 1024×128), without exception (797 and 1,357 stock kits); `_name`
-  is a 4:1 strip in both. The compiler passes them as they are, as Red does, and the layout
-  marker does not cover them. To settle (in-game): whether a Fox game reads a column atlas
-  and a pre-Fox game a row one. If not, a kit crossing engines needs its atlases re-arranged,
-  and their shape alone (tall or wide) says which arrangement a file has.
 - The kit config template's name position (4.9a): the template's `name.y` is 30, and PES
   15 to 20 hold 0 to 16 there (PES 21 holds 0 to 39). So on those targets every supplied
   config that does not set `y` warns `kit_config_version_clamped` (30 clamped to 16), and
-  a generated config is clamped without a word, since it has no file for the deep pass to
-  report on. To settle: whether the template's default should be per version (and what a
-  PES 15 to 20 default is), or the warning should skip a value the member did not write.
+  a generated config is clamped without a word. The maintainer's rule (decision entry of
+  2026-10-04): one template for every version, taken from the most common FPC-compatible
+  config on his machine whose `name.y` is 0 to 16. The census (`.tmp/kit_census/census.py`,
+  4,930 loose `*realUni.bin`, 2,405 distinct layouts with colors and texture names left
+  out, 1,203 carrying the FPC values) found none: the same bytes read as two values, 15 on
+  PES 20 and earlier (5 bits from 0x1C bit 4) and 30 or 31 on PES 21 (6 bits from bit 3),
+  and the template is decoded as PES 21. Read the old way, the template's 15 is the
+  community's usual place (996 of the 1,203 FPC configs hold 15 or 16; the most common FPC
+  layout, 85 files, holds 15, read as 31 on PES 21). Read the PES 21 way, the only FPC
+  layout among the 60 most common with a value up to 16 is one team's own (11, 16 files).
+  So the template's bytes are already the common ones; what clamps is reading them as PES
+  21's and writing that number on an older game. To settle with the maintainer: whether
+  PES 21's unit is half the older games' (the field gained a low bit, so the same bytes
+  would mean the same place), in which case the crate converts between versions instead
+  of clamping; if not, the template is decoded for the target version (15 on PES 15 to
+  20, 30 on PES 21, one file, Red's bytes on every version).
 - Kits a team no longer has (4.8c; decision entry "kit colors merge into a team's
   UniColor record by kit number"): a compile merges its kits into the team's `UniColor.bin`
   record and keeps the record's other kits, so a midcup export holding one kit does not
@@ -1472,9 +1478,12 @@ Phase 4 open questions (maintainer):
   count, where Red rewrites the record from the Note. It shows on a from-scratch compile
   too: the bundled base holds a past cup's kits for teams 701 to 771 (3 to 10 each,
   `resources/bins/README.md`), so `/co/` compiled with two kits keeps that cup's kits 3 to
-  7 and its goalkeeper entry under a count of 8. To settle: whether the record's count is
-  what makes the game offer a kit (an in-game test), and if so what tells a full export
-  from a midcup one, since only a full export may replace the record.
+  7 and its goalkeeper entry under a count of 8. Answered 2026-10-04: the record's count
+  is what makes the game offer a kit, so a full export must reset the record and a midcup
+  one must not. The maintainer's proposal, under discussion (no plan text yet): every
+  export's name carries `Full` or `Midcup` beside the team name, an export with neither is
+  skipped with an Error, the Export upgrader adds `Full` to an export without `Midcup`,
+  and the GUI offers the two tags for an untagged export.
 - Collars beyond the stock set (4.9, 4.27; the maintainer's idea, 2026-10-03): PES 15 loads
   `collar_105`, which its stock game lacks, so the games probably accept collar IDs they do
   not ship. If so, the FPC collar and the referees' marker could move to IDs no stock collar
@@ -2389,3 +2398,9 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
 - **2026-10-04** — 4.13c: an export file that changes while `compile` runs (saved over,
   removed, the archive replaced) aborts the run with `source_changed_during_run`; the
   previous CPK stays. Step 4.13 is done.
+- **2026-10-04** — the maintainer answered five Phase 4 open questions: override paths compare
+  exactly; a failed package is left out alone as long as the Error is visible (help sentence
+  added); number atlases are re-arranged across engines (new step 4.32); one kit config
+  template for every version (the census found the template's bytes already the common
+  ones, the clamp coming from how they are read); a full export resets a team's kit
+  record and a midcup one does not (`Full`/`Midcup` in the export's name, under discussion).

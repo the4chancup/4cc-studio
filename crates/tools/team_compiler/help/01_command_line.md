@@ -111,7 +111,10 @@ several face models under one name (`face_high.fmdl` beside `old_face_high.fmdl`
 reported as `fmdl_merged`. Models merged into one must agree with each other: a material they
 define differently is reported as `merge_material_conflict`, and skeletons that differ (one
 model with a skeleton file and one without, two different files, or a bone placed differently)
-as `skl_merge_conflict`; either leaves that folder's face, boots or gloves out of the CPK. A
+as `skl_merge_conflict`; either leaves that folder's face, boots or gloves out of the CPK. The
+rest of the folder is still built, so the player shows in the game with that part missing (a
+player with boots only and no face model of his own shows no head): treat the folder as broken
+until the error is fixed. A
 texture under one name in two of the places a player's models come from (the player's own
 folder, a shared folder it combines) is packed once when the two files are the same. When they
 differ, the face's copy wins over the boots' and the boots' over the gloves': the losing part
