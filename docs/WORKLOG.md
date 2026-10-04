@@ -550,7 +550,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
     `texture::convert` checks nothing itself any more (a portrait's checks stay in
     processing until (c2)); an unreadable texture is `source_read_failed` like a model.
     Under `pass_through` a 3x3 texture converts and is packed. Gates green (106 of 206);
-    `mutants-diff 8e94394`: 123, 73 caught, 1 timeout (an infinite loop), 42 unviable, 7
+    `mutants-diff a5b5d91`: 123, 73 caught, 1 timeout (an infinite loop), 42 unviable, 7
     missed, all the size rules asked about square textures only; after the rework's table
     test: 123, 80 caught, 1 timeout, 42 unviable, 0 missed. `deep.rs` is 1,258 lines with its tests: (c2) splits it into `deep/`
   - (c2) portraits from their headers (the file dropped; a power-of-two side always),
@@ -569,7 +569,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
     decodes every source, so a broken one fails its task, and checks nothing else. Only
     team rosters pair a folder's portrait with a `Portraits/` file. Not tested in the
     deep pass: a folder two slots map, paired with each slot's file (planning's side is).
-    Gates green (109 of 206); `mutants-diff 8f2a216`: 65, 52 caught, 13 unviable, 0 missed
+    Gates green (109 of 206); `mutants-diff 98aeb17`: 65, 52 caught, 13 unviable, 0 missed
   - (d) `face_diff_invalid` and `xml_dif_conflict` reported by the deep pass, where they drop
     the folder (`player_folders.md` "`face_diff.xml`"); `kit_config_invalid`,
     `settings_toml_invalid` (parse only, through `pes_savefile`'s `PlayerSettings` TOML
@@ -587,8 +587,8 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
     file below the folder (`face_diff.xml`, not the export path). Not covered: a folder
     whose only face models are `.model` files gives its face diff no role, so it is
     unchecked until the pre-Fox face steps. Gates green (110 of 209);
-    `mutants-diff 3951e7f`: 38, 25 caught, 13 unviable, 0 missed
-  - The timing, done 2026-10-03 (lead; release build of `a5312bf`, 16 logical CPUs, warm
+    `mutants-diff f1b297e`: 38, 25 caught, 13 unviable, 0 missed
+  - The timing, done 2026-10-03 (lead; release build of `65a8300`, 16 logical CPUs, warm
     file cache, median of 3; `.tmp/timing_build.py` lays an old-layout VGL26 export out as
     `Players/NN - Name/`, `.tmp/timing_run.py` times it). FNG, the corpus's largest: 991 MB,
     245 files, 880 MB of DDS (nine 8192x8192 textures of 67 to 90 MB), 111 MB of models;
@@ -624,7 +624,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
     existing test changed. The brief's premise that one worker thread would expose a
     lock held across parallel work was wrong (the sidekick showed it does not hang): the
     guard is the read's shape, owned bytes with the lock released. Gates green (110 of
-    209); `mutants-diff 836e704`: 21, 12 caught, 9 unviable, 0 missed. Measured again
+    209); `mutants-diff d3c48a1`: 21, 12 caught, 9 unviable, 0 missed. Measured again
     (same setup, median of 3, before → after):
 
     | seconds | `check` folder | `check` `.7z` | `compile` folder | `compile` `.7z` |
@@ -1878,7 +1878,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   the installed list with it: `dpfilelist_not_official` (W) when it differs and still lists
   the run's targets, the upgrade offered and never forced. The plan and the steps use the new
   names; the code's default `cpk_name` follows at 4.25a. The list file's edit went into commit
-  `3951e7f` with slice 4.7c2 (the lead's `git add -A`), not into a commit of its own.
+  `f1b297e` with slice 4.7c2 (the lead's `git add -A`), not into a commit of its own.
 - **2026-10-03** — The installs' DpFileLists compared with the official one
   (`.tmp/dpfl_compare.py`): 29 to 45 entries each, every listed CPK present in `download/`,
   15 to 24 names per install that the official list retires. So the upgrade also writes a
