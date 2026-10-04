@@ -272,7 +272,7 @@ mod tests {
         let fast = waiter(&budget, 10);
         assert_eq!(fast.acquired(), Ok(()));
         drop(held);
-        // 60 + 100 still does not fit: `big` waits for `fast` to release.
+        // 10 + 100 still does not fit: `big` waits for `fast` to release.
         big.blocked();
         fast.release();
         assert_eq!(big.acquired(), Ok(()));

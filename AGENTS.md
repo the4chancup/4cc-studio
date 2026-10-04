@@ -283,6 +283,10 @@ allowed only after `git add -A` has given every file a blob to restore from. Nev
 (`git add -A` fails outright) and which only `Remove-Item -LiteralPath "\\?\<full path>"` can
 delete; use `/dev/null` in bash, `$null` in PowerShell.
 
+The Devin IDE compacts the sidekick's context by itself when it reaches 500K tokens, so a
+full sidekick context needs no action from the lead; a brief still stands alone (file under
+`.tmp/`, read in full), because a compaction may fall between two handoffs.
+
 **Whole-crate mutation runs are split with the maintainer's VPS.** On the maintainer's PC the
 user environment variable `STUDIO_MUTANTS_REMOTE=bonfire` (an alias in `~/.ssh/config`) makes
 `just mutants <crate>` run half the mutants there (`scripts/mutants.py`: the working tree is

@@ -167,11 +167,13 @@ Claude agent with no sidekick and no reviewer of another model family. While tha
   commit of 2026-10-04, against `pipeline.md` "Resolved decisions" (Source snapshot),
   `messages.md` (`source_changed_during_run`), TC-PLN-06 and the decision entry "a
   source's revision is the listing's, checked after each task's read".
-- For the lead, on return: the review process on trial (maintainer, 3.1) runs a full sidekick
-  review loop after each GPT round and calls GPT again only once that loop has ended and GPT's
-  own loop has not; not yet in `AGENTS.md` (3.6: GPT 4 of 7 accepted, then sidekick S1 3 of 7,
-  so both loops ended after one round each). The sidekick's context was near its limit at the
-  handover, so its next brief must stand alone. Prior rulings: `.tmp/review_rulings_3_6.md`.
+- For the lead, on return: the review process on trial (3.1) opens with a full sidekick review
+  loop, then runs GPT's loop with a full sidekick loop after each GPT round, calling GPT again
+  only once that sidekick loop has ended and GPT's own loop has not; not yet in `AGENTS.md`
+  (3.6: GPT 4 of 7 accepted, then sidekick S1 3 of 7, so both loops ended after one round
+  each). Prior rulings: `.tmp/review_rulings_3_6.md`. From 2026-10-04 the Devin lead runs the
+  whole queue below on the code as it now is (a diff a later step superseded is not reviewed
+  on its own), in queue order; its progress is `.tmp/review_queue.md`.
 - Decisions the maintainer must make (new dependencies, `unsafe` outside the listed sites, game-
   or format-facing behavior the plan does not settle) are still asked, not decided.
 
