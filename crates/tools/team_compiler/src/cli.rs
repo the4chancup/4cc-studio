@@ -125,7 +125,7 @@ pub(crate) fn run(matches: &clap::ArgMatches, ctx: &ToolContext) -> Result<u8, C
             // to write it.
             deploy::prepare_output_folder(&output_folder)
                 .map_err(|error| CliError::new(ABORTED, error))?;
-            create_teams_list(&settings.teams_list_path, ctx.paths().data_dir.as_deref())?;
+            create_teams_list(&settings.teams_list_path, ctx.paths().data_dir.as_deref());
             let inputs = resolve_inputs(
                 exports_root,
                 args.source.exports,
@@ -311,14 +311,14 @@ fn load_teams_list(setting: &Path, data_dir: Option<&Path>) -> Result<TeamsList,
 /// it). The write is best-effort (`pipeline.md` "Teams list", detected by attempting it): a
 /// data directory that cannot take it leaves the embedded list to be read with a warning
 /// naming the path, never a failure.
-fn create_teams_list(setting: &Path, data_dir: Option<&Path>) -> Result<(), CliError> {
+fn create_teams_list(setting: &Path, data_dir: Option<&Path>) {
     let Some(data_dir) = data_dir else {
-        return Ok(());
+        return;
     };
     // An absolute setting replaces the data directory in the join, as `load_teams_list` reads it.
     let path = data_dir.join(setting);
     if path.exists() {
-        return Ok(());
+        return;
     }
     // The bytes are written unchanged: the file's CRLF bytes are the upstream list's.
     if let Err(error) = fs::write(&path, TeamsList::UPSTREAM) {
@@ -327,7 +327,6 @@ fn create_teams_list(setting: &Path, data_dir: Option<&Path>) -> Result<(), CliE
             path.display()
         );
     }
-    Ok(())
 }
 
 fn embedded_teams_list() -> TeamsList {
@@ -556,15 +555,15 @@ mod tests {
         let temp = scratch("cli_create_teams_list");
         let root = temp.path();
         let file = root.join("teams_list.txt");
-        create_teams_list(&file, None).unwrap();
+        create_teams_list(&file, None);
         assert!(!file.exists(), "no data directory, nothing written");
 
-        create_teams_list(Path::new("teams_list.txt"), Some(root)).unwrap();
+        create_teams_list(Path::new("teams_list.txt"), Some(root));
         assert_eq!(fs::read(&file).unwrap(), TeamsList::UPSTREAM.as_bytes());
 
         let own = "ID\tName\n792\t/egg/\n";
         fs::write(&file, own).unwrap();
-        create_teams_list(Path::new("teams_list.txt"), Some(root)).unwrap();
+        create_teams_list(Path::new("teams_list.txt"), Some(root));
         assert_eq!(
             fs::read_to_string(&file).unwrap(),
             own,
@@ -602,7 +601,7 @@ mod tests {
         // the embedded list exactly as it does with no data directory. The recorder must be
         // installed before the write, or the warning is gone before anyone hears it.
         warnings();
-        create_teams_list(Path::new("no folder/teams_list.txt"), Some(root)).unwrap();
+        create_teams_list(Path::new("no folder/teams_list.txt"), Some(root));
         assert_eq!(
             load_teams_list(Path::new("no folder/teams_list.txt"), Some(root)).unwrap(),
             embedded_teams_list(),
