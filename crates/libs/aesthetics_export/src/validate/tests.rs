@@ -2046,6 +2046,90 @@ fn an_empty_doubled_folder_beside_siblings_is_an_invalid_folder() {
 }
 
 #[test]
+fn an_undecided_root_reports_no_roster_finding() {
+    // A referee export whose two usable children both hold their own roster and
+    // players: the ambiguity leaves the root undecided, so no `players.txt`
+    // finding stands beside it.
+    let ambiguous = report(
+        "refs Cup",
+        &[
+            ("a/refs.txt", 10),
+            ("a/Players/Keeper/face_high.fmdl", 10),
+            ("b/refs.txt", 10),
+            ("b/Players/Other/face_high.fmdl", 10),
+        ],
+        &[],
+        &[],
+    );
+    assert_eq!(
+        issue_codes(&ambiguous),
+        vec![("nested_root_ambiguous", Disposition::DropExport)]
+    );
+
+    // A loose `players.txt` colliding with the flattened one is a conflict; the
+    // loose file's lines name no folder that exists, but no roster finding is
+    // reported beside the conflict.
+    let conflicted = report(
+        "egg",
+        &[
+            ("players.txt", 6),
+            ("wrapper/players.txt", 6),
+            ("wrapper/Players/03 - A/face_high.fmdl", 10),
+        ],
+        &[],
+        &[("players.txt", Ok(b"03 A"))],
+    );
+    assert_eq!(
+        issue_codes(&conflicted),
+        vec![("nested_root_conflict", Disposition::DropExport)]
+    );
+
+    // A `players.txt` at the undecided root that is not UTF-8: its own finding is
+    // a roster finding, reported nowhere either.
+    let invalid = report(
+        "refs Cup",
+        &[
+            ("players.txt", 4),
+            ("a/refs.txt", 10),
+            ("a/Players/Keeper/face_high.fmdl", 10),
+            ("b/refs.txt", 10),
+            ("b/Players/Other/face_high.fmdl", 10),
+        ],
+        &[],
+        &[("players.txt", Ok(&[0xff, 0xfe][..]))],
+    );
+    assert_eq!(
+        issue_codes(&invalid),
+        vec![("nested_root_ambiguous", Disposition::DropExport)]
+    );
+}
+
+#[test]
+fn a_flattened_wrapper_of_empty_folders_leaves_no_root_folder() {
+    let report = report(
+        "egg",
+        &[],
+        &["wrapper", "wrapper/Kits", "wrapper/Kits/p1"],
+        &[],
+    );
+    assert_eq!(
+        issue_codes(&report),
+        vec![("nested_folders_fixed", Disposition::Keep)]
+    );
+    assert!(report.parsed.draft.root_folders.is_empty());
+    assert_eq!(
+        report
+            .validated
+            .unwrap()
+            .kits
+            .kits
+            .keys()
+            .collect::<Vec<_>>(),
+        vec![&kit_config::KitSlot::P1]
+    );
+}
+
+#[test]
 fn fmdl_name_invalid_does_not_apply_on_pre_fox() {
     let report = report_with(
         &ValidationContext {

@@ -437,7 +437,9 @@ impl FolderModels {
                 models.face |= package == ModelPackage::Face;
                 continue;
             }
-            let stem = path_stem(file).to_owned();
+            // The stems fold, the way the file system folds the pair: `boots.fmdl`
+            // beside `Boots.skl` is one model and its skeleton.
+            let stem = vtree::fold_name(path_stem(file));
             match (package, name) {
                 (ModelPackage::Face, "fcl_hair") => {
                     models.face = true;
@@ -493,6 +495,7 @@ pub(crate) fn player_file(
     let name = file.path.name();
     let stem = file_stem(name);
     let path_stem = path_stem(file);
+    let path_fold = vtree::fold_name(path_stem);
     // A face file sits in the folder or its `face/`; without a face to shape it is not used.
     let face_file = |role| {
         if !matches!(position, Position::Direct | Position::Face) {
@@ -537,19 +540,25 @@ pub(crate) fn player_file(
         }
         // The game loads a skeleton under its slot's name; the export names it after the
         // model it pairs with, and without that model the skeleton has nothing to drive.
-        FileKind::Skl if models.hair_stems.iter().any(|hair| hair == path_stem) => {
+        // The stems fold, as `hair_stems`/`boots_stems`/`slotless_stems` build them.
+        FileKind::Skl if models.hair_stems.iter().any(|hair| hair == &path_fold) => {
             Some(PlayerFile::Skeleton {
                 package: ModelPackage::Face,
                 name: "fcl_hair_sim.skl",
             })
         }
-        FileKind::Skl if models.boots_stems.iter().any(|boots| boots == path_stem) => {
+        FileKind::Skl if models.boots_stems.iter().any(|boots| boots == &path_fold) => {
             Some(PlayerFile::Skeleton {
                 package: ModelPackage::Boots,
                 name: "boots.skl",
             })
         }
-        FileKind::Skl if models.slotless_stems.iter().any(|model| model == path_stem) => {
+        FileKind::Skl
+            if models
+                .slotless_stems
+                .iter()
+                .any(|model| model == &path_fold) =>
+        {
             Some(PlayerFile::SlotlessSkeleton)
         }
         FileKind::Bin if name == "face_diff.bin" => face_packed("face_diff.bin"),

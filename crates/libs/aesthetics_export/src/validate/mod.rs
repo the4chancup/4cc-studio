@@ -175,8 +175,13 @@ impl ParsedAestheticsExport {
             ));
         }
 
-        // The roster: authoritative lines, or the folder names' numbers.
-        let slot_map = roster::check(draft, self.raw_roster.as_ref(), &self.issues, &mut issues);
+        // The roster: authoritative lines, or the folder names' numbers. An undecided
+        // root reports no root-level finding, the roster's included.
+        let slot_map = if root_decided {
+            roster::check(draft, self.raw_roster.as_ref(), &self.issues, &mut issues)
+        } else {
+            roster::empty_map(draft.kind() == ExportKind::Referees)
+        };
 
         // Own findings, in drop order: player folders, shared folders,
         // `Common/`, the content findings, then the cascade (dropped targets,

@@ -252,7 +252,9 @@ fn without_roster(draft: &AestheticsExportDraft, issues: &mut Vec<ValidationIssu
     SlotMap::Team(assignments)
 }
 
-fn empty_map(referees: bool) -> SlotMap {
+/// The empty assignment map of the export kind's slot type (an undecided root's roster is
+/// not read).
+pub(crate) fn empty_map(referees: bool) -> SlotMap {
     if referees {
         SlotMap::Referees(BTreeMap::new())
     } else {

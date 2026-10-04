@@ -231,6 +231,55 @@ fn a_boots_link_packs_the_common_skeleton_and_two_players_linking_one_model_shar
 }
 
 #[test]
+fn two_link_spellings_of_one_common_model_compile_it_once() {
+    // `boots.fmdl.common` and the tolerated `boots.fmdl.common.txt` are one link to
+    // one model: the boots task reads the model once, not twice.
+    let sandbox = Sandbox::new("cmn_link_twice");
+    let export = "exports/co - Links";
+    sandbox.write(&format!("{export}/Players/05 - A/boots.fmdl.common"), b"");
+    sandbox.write(
+        &format!("{export}/Players/05 - A/boots.fmdl.common.txt"),
+        b"",
+    );
+    sandbox.write(
+        &format!("{export}/Common/boots.fmdl"),
+        &tracer_player_file("boots.fmdl"),
+    );
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+    assert_eq!(run.exit_code(), 0);
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let package = fpk::FpkFile::read(&entries[BOOTS_05]).unwrap();
+    assert_eq!(
+        package.entries().map(|(name, _)| name).collect::<Vec<_>>(),
+        ["boots.fmdl", "boots.skl"]
+    );
+}
+
+#[test]
+fn a_common_skeleton_pairs_with_its_model_case_folded() {
+    // `Common/Boots.skl` names `boots.fmdl`'s skeleton as the file system folds it.
+    let sandbox = Sandbox::new("cmn_skl_case");
+    let export = "exports/co - Case";
+    sandbox.write(&format!("{export}/Players/05 - A/boots.fmdl.common"), b"");
+    sandbox.write(
+        &format!("{export}/Common/boots.fmdl"),
+        &tracer_player_file("boots.fmdl"),
+    );
+    let custom = body_skl("pes19");
+    assert_ne!(custom, body_skl("pes21"));
+    sandbox.write(&format!("{export}/Common/Boots.skl"), &custom);
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+    assert_eq!(run.exit_code(), 0);
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let package = fpk::FpkFile::read(&entries[BOOTS_05]).unwrap();
+    assert_eq!(package.get("boots.skl").unwrap(), custom);
+}
+
+#[test]
 fn a_boots_link_beside_a_shared_boots_link_combines_the_shared_folder() {
     let sandbox = Sandbox::new("cmn_link_combined");
     let export = "exports/co - Combined";

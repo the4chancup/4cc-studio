@@ -245,8 +245,16 @@ pub fn parse_listing(
     // Step 3: the draft.
     let draft = build_draft(&listing.display_name, team_name, &tree);
 
-    // Step 4: the roster.
-    let raw_roster = roster::read_roster(&draft, &tree, &metadata, &mut issues);
+    // Step 4: the roster. An undecided root reports no root-level finding, the roster
+    // file's included: it is a root file the ambiguity has not assigned to the export.
+    let raw_roster = if issues
+        .iter()
+        .any(|issue| matches!(issue.code, "nested_root_ambiguous" | "nested_root_conflict"))
+    {
+        None
+    } else {
+        roster::read_roster(&draft, &tree, &metadata, &mut issues)
+    };
 
     Ok(ParsedAestheticsExport {
         draft,
@@ -385,6 +393,10 @@ fn try_flatten_child(tree: &mut CanonicalTree, child: &ScopePath) -> Result<(), 
     if conflicts.is_empty() {
         let mut empty_folders = BTreeMap::new();
         for (key, path) in std::mem::take(&mut tree.empty_folders) {
+            // The flattened wrapper's own entry: it was the root, so it is gone with it.
+            if key == child.fold_key() {
+                continue;
+            }
             let new_path = if key.starts_with(&prefix) {
                 strip_first_segment(&path)
             } else {

@@ -164,6 +164,36 @@ fn boots_skl_is_the_skeleton_named_after_the_boots_model_or_the_bundled_pes_21_b
     assert_eq!(package.get("boots.skl").unwrap(), body_skl("pes21"));
 }
 
+#[test]
+fn a_skeleton_named_like_its_model_but_the_case_pairs_too() {
+    // `Kit_Boots.skl` names `kit_boots.fmdl`'s skeleton as the file system folds it.
+    let sandbox = Sandbox::new("mod_boots_skl_case");
+    write_player(
+        &sandbox,
+        "exports/co - Case/Players/05 - A",
+        "kit_boots.fmdl",
+    );
+    let custom = body_skl("pes19");
+    assert_ne!(custom, body_skl("pes21"));
+    sandbox.write("exports/co - Case/Players/05 - A/Kit_Boots.skl", &custom);
+
+    let entries = compile_clean(
+        &sandbox,
+        "co - Case",
+        &[
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=fcl_hair.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=glove_l.fmdl, count=2)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=kit_boots.fmdl, count=1662)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
+        ],
+    );
+
+    let package =
+        fpk::FpkFile::read(&entries["Asset/model/character/boots/k0625/#Win/boots.fpk"]).unwrap();
+    assert_eq!(package.get("boots.skl").unwrap(), custom);
+}
+
 // TC-MOD-03
 #[test]
 fn a_folder_mapped_to_two_slots_emits_its_boots_under_both_ids_and_its_textures_once() {

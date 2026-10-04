@@ -194,6 +194,10 @@ impl ModelFolder {
         let mut roles = Vec::new();
         for (package, path, files, models) in sources {
             let mut source_roles = Vec::new();
+            // The resolved Common models already pushed for this source: two link
+            // spellings of one Common file (`x.fmdl.common` and `x.fmdl.common.txt`)
+            // are one part, not two reads of one model.
+            let mut common_pushed = BTreeSet::new();
             for file in files {
                 let Some(role) = player_file(path, file, &models) else {
                     continue;
@@ -207,12 +211,15 @@ impl ModelFolder {
                             .iter()
                             .find(|common| common.link == file.path)
                             .expect("planning resolves every `.common` model link of a folder");
-                        source_roles.push((&resolved.model, role));
-                        if let Some(skeleton) = &resolved.skeleton {
-                            let name = skeleton_slot(package, name).expect(
-                                "planning pairs a skeleton only with a part that has a slot",
-                            );
-                            source_roles.push((skeleton, PlayerFile::Skeleton { package, name }));
+                        if common_pushed.insert(resolved.model.path.fold_key()) {
+                            source_roles.push((&resolved.model, role));
+                            if let Some(skeleton) = &resolved.skeleton {
+                                let name = skeleton_slot(package, name).expect(
+                                    "planning pairs a skeleton only with a part that has a slot",
+                                );
+                                source_roles
+                                    .push((skeleton, PlayerFile::Skeleton { package, name }));
+                            }
                         }
                         continue;
                     }
