@@ -158,12 +158,18 @@ pub(crate) enum Code {
     /// The `TeamColor.bin` or `UniColor.bin` the run built on held records whose header was
     /// not their position's; the headers are rewritten, the records' colors kept.
     BinHeaderRepaired,
+    /// A task's entry or a bin at the path of a file of the `overrides/` folder: the override
+    /// wins and the entry is left out.
+    DuplicatePath,
     /// The CPK could not be written; the run's staging is discarded.
     CpkWriteFailed,
     /// The written CPK could not replace the previous one; the run's staging is discarded.
     OutputCommitFailed,
     /// `--no-deploy`: the CPK was promoted to the output folder instead of installed.
     DeploySkippedByFlag,
+    /// The data directory's `overrides/` folder holds files, each put into the CPK at its path
+    /// below the folder.
+    OverridesActive,
     /// `teamnotes.txt` could not be written, or a previous one removed, in the output folder;
     /// the run's CPK stays in place.
     TeamnotesWriteFailed,
@@ -173,7 +179,7 @@ impl Code {
     /// Every code, for the catalog test: a variant missing here would make its first message
     /// panic in `severity`, so a new variant is added to this list too.
     #[cfg(test)]
-    const ALL: [Code; 54] = [
+    const ALL: [Code; 56] = [
         Code::ExportExtractFailed,
         Code::NoExportsFound,
         Code::ExportDisabled,
@@ -224,9 +230,11 @@ impl Code {
         Code::SourceReadFailed,
         Code::FolderPackFailed,
         Code::BinHeaderRepaired,
+        Code::DuplicatePath,
         Code::CpkWriteFailed,
         Code::OutputCommitFailed,
         Code::DeploySkippedByFlag,
+        Code::OverridesActive,
         Code::TeamnotesWriteFailed,
     ];
 
@@ -283,9 +291,11 @@ impl Code {
             Code::SourceReadFailed => "source_read_failed",
             Code::FolderPackFailed => "folder_pack_failed",
             Code::BinHeaderRepaired => "bin_header_repaired",
+            Code::DuplicatePath => "duplicate_path",
             Code::CpkWriteFailed => "cpk_write_failed",
             Code::OutputCommitFailed => "output_commit_failed",
             Code::DeploySkippedByFlag => "deploy_skipped_by_flag",
+            Code::OverridesActive => "overrides_active",
             Code::TeamnotesWriteFailed => "teamnotes_write_failed",
         }
     }
@@ -356,9 +366,12 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("mtl_broken", CatalogSeverity::Error),
     ("folder_pack_failed", CatalogSeverity::ErrorOrFatal),
     ("bin_header_repaired", CatalogSeverity::Warning),
+    // The catalog's `W/E`: only the override form, a Warning, has a trigger today.
+    ("duplicate_path", CatalogSeverity::Warning),
     ("cpk_write_failed", CatalogSeverity::Fatal),
     ("output_commit_failed", CatalogSeverity::Fatal),
     ("deploy_skipped_by_flag", CatalogSeverity::Info),
+    ("overrides_active", CatalogSeverity::Info),
     ("teamnotes_write_failed", CatalogSeverity::Error),
     // The format crates' check codes (`fmdl::check::CODES`, `pes_model::check::CODES`), which
     // the deep pass reports under their own names, at the crate's severity: the far vertex

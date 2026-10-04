@@ -3851,3 +3851,25 @@ duplicate invariant (`cpk_write_failed`) stays as the backstop.
 Plan: `team_compiler/pipeline.md` "5. Writer" step 1 and "3. Per-model-folder parallel
 steps" (the run-level paragraph); `team_compiler/messages.md` `duplicate_path`,
 `overrides_active`.
+
+## 2026-10-04 — team_compiler — a source's revision is the listing's, checked after each task's read
+Decision: (1) The revision is taken by the reader's listing (a folder: each file's size and
+modified time; an archive: the archive file's), not by a second pass at planning. (2)
+`compile` checks it after each task's read, not before: the files that task read, or the
+archive file. A file that is gone or differs aborts the run with
+`source_changed_during_run` (Fatal, on the export, context `path`), the staging output
+discarded. (3) Only what a task reads is checked; a file added after the listing is not a
+change. `check` verifies nothing. (4) A file that is still there, unchanged, and cannot be
+read stays `source_read_failed` on its folder.
+Why: (1) the plan said "pinned at planning", and also that the revision is "what the reader
+already lists"; the listing already asks the file system for each file's metadata, so
+taking the modified time there costs nothing and covers the time validation takes, which a
+pin at planning would leave open. (2) The plan said both "around each folder
+materialization" and "before each task's read". A check before the read misses a file
+saved over during the read; a check after it catches that and everything earlier, for the
+same one lookup per file. (3) The plan's revision was the whole set of paths; checking the
+whole tree before every task would cost a walk of the export per task, for files no task
+reads. (4) An unreadable file is not a changed one, and dropping its folder is what the
+member can act on.
+Plan: `team_compiler/pipeline.md` "Resolved decisions", Source snapshot;
+`team_compiler/messages.md` `source_changed_during_run`.

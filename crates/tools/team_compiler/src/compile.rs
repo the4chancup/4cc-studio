@@ -18,16 +18,17 @@ use crate::events::RunEvents;
 use crate::messages::{Code, tool_message};
 use crate::output::writer::CpkOutput;
 use crate::output::{deploy, teamnotes};
-use crate::plan::{BuildTask, plan_run};
+use crate::plan::{BuildTask, overrides, plan_run};
 use crate::processing::{CompileContext, TaskBatch, TaskFiles, process_task};
 use crate::reader::{ContentSource, ExportSource, SourceFailure, SourceKind};
 use crate::validation::{run_budget, run_pool, validation_pass};
 
-/// Compiles every export validation keeps into `<output_folder>/<cpk_stem>.cpk`,
-/// reported as events, then collects the compiled exports' notes into
-/// `<output_folder>/teamnotes.txt`. Returns the worst severity reported: a CPK that cannot be
-/// written or put in place is a Fatal finding, after which the previous CPK is all that is
-/// left. An exports folder that cannot be read is an error.
+/// Compiles every export validation keeps into `<output_folder>/<cpk_stem>.cpk`, after the
+/// files of the data directory's `overrides/` folder, reported as events, then collects the
+/// compiled exports' notes into `<output_folder>/teamnotes.txt`. Returns the worst severity
+/// reported: a CPK that cannot be written or put in place is a Fatal finding, after which the
+/// previous CPK is all that is left. An exports folder or an `overrides/` folder that cannot
+/// be read is an error.
 pub(crate) fn run(
     inputs: &RunInputs,
     cpk_stem: &CpkStem,
@@ -36,6 +37,8 @@ pub(crate) fn run(
     ctx: &ToolContext,
 ) -> anyhow::Result<Option<Severity>> {
     let version = inputs.common.pes_version;
+    // Listed before any export is read, so a tree that cannot be listed stops the run first.
+    let (overrides, overrides_active) = overrides::list(ctx.paths().data_dir.as_deref())?;
     let budget = run_budget(inputs);
     let pool = run_pool(inputs)?;
     let pass = validation_pass(inputs, &budget, &pool)?;
@@ -62,7 +65,7 @@ pub(crate) fn run(
     }
 
     let report = plan_run(exports, version);
-    for message in report.messages {
+    for message in report.messages.into_iter().chain(overrides_active) {
         events.message(message);
     }
 
@@ -85,7 +88,7 @@ pub(crate) fn run(
 
     let run_folder = deploy::staging_folder(output_folder);
     let cpk_name = deploy::cpk_file_name(cpk_stem);
-    let output = CpkOutput::new(run_folder.join(&cpk_name));
+    let output = CpkOutput::new(run_folder.join(&cpk_name), overrides);
     let context = CompileContext::new(version, last_tasks.len());
     let (coordinated, (mut events, written)) = std::thread::scope(|scope| {
         let (batches_tx, batches_rx) = unbounded();

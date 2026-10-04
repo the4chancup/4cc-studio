@@ -1,6 +1,6 @@
-//! The canonical-order CPK writer (`team_compiler/pipeline.md` "5. Writer"): task batches go
-//! into the CPK in manifest order whatever order they arrive in, a player folder's group
-//! decided as one once its textures batch is in, then the bins.
+//! The canonical-order CPK writer (`team_compiler/pipeline.md` "5. Writer"): the `overrides/`
+//! files first, then task batches in manifest order whatever order they arrive in, a player
+//! folder's group decided as one once its textures batch is in, then the bins.
 
 use std::collections::BTreeMap;
 use std::fs::{self, File};
@@ -22,12 +22,16 @@ use crate::templates;
 /// same exports writes the same bytes.
 const TOOL_VERSION: &str = concat!("4cc Studio ", env!("CARGO_PKG_VERSION"));
 
-/// One CPK being written. The file is created with the first committed entry, so a run that
-/// commits nothing leaves no file and no folder behind.
+/// One CPK being written. The file is created with the first committed entry, or at the end
+/// when only the overrides go into it, so a run that commits nothing and has no override leaves
+/// no file and no folder behind.
 pub(crate) struct CpkOutput {
     /// Where the CPK is written.
     path: PathBuf,
     cpk: Option<CpkWriter<File>>,
+    /// The `overrides/` files, by CPK path: the first entries of the CPK, and the paths no task
+    /// or bin may take.
+    overrides: BTreeMap<String, PathBuf>,
     /// The manifest position of the next batch to commit.
     next: usize,
     /// Batches that arrived before an earlier one, or a player folder's packages held for its
@@ -40,11 +44,13 @@ pub(crate) struct CpkOutput {
 }
 
 impl CpkOutput {
-    /// A CPK to be written at `path`; nothing is created yet.
-    pub(crate) fn new(path: PathBuf) -> CpkOutput {
+    /// A CPK to be written at `path`, starting with `overrides` (CPK path, file on disk), each
+    /// file read when it is added; nothing is created yet.
+    pub(crate) fn new(path: PathBuf, overrides: BTreeMap<String, PathBuf>) -> CpkOutput {
         CpkOutput {
             path,
             cpk: None,
+            overrides,
             next: 0,
             pending: BTreeMap::new(),
             uniform_parameters: Vec::new(),
@@ -57,8 +63,9 @@ impl CpkOutput {
     /// A player folder's group (`TaskBatch::group`) is decided only once every batch of it is
     /// in: its packages wait, their memory still charged, for the textures batch that decides
     /// them. Returns the batches decided, in manifest order, as each one's manifest position
-    /// and messages, so the caller reports findings in manifest order too; empty when `batch`
-    /// waits for an earlier one.
+    /// and messages (a `duplicate_path` for each entry an override replaced among them), so
+    /// the caller reports findings in manifest order too; empty when `batch` waits for an
+    /// earlier one.
     pub(crate) fn submit(
         &mut self,
         batch: TaskBatch,
@@ -79,18 +86,18 @@ impl CpkOutput {
                         .expect("every position was checked")
                 })
                 .collect();
-            for batch in &mut batches {
-                committed.push((batch.index, std::mem::take(&mut batch.messages)));
-            }
             let result = match group {
-                Some(_) => self.commit_folder(batches),
-                None => batches.into_iter().try_for_each(|batch| self.commit(batch)),
+                Some(_) => self.commit_folder(&mut batches),
+                None => batches.iter_mut().try_for_each(|batch| self.commit(batch)),
             };
             if let Err(error) = result {
                 // The CPK is lost, so the batches waiting here go now: their permits may be
                 // what the coordinator is waiting for, and it must reach the end of the run.
                 self.pending.clear();
                 return Err(error);
+            }
+            for batch in batches {
+                committed.push((batch.index, batch.messages));
             }
             self.next = range.end;
         }
@@ -103,15 +110,15 @@ impl CpkOutput {
     /// then the textures, when at least one package did. A package the textures batch names
     /// as the loser of a `shared_texture_conflict` (`TaskBatch::skipped`) is left out the same
     /// way: the textures only its sources hold are not in the CPK.
-    fn commit_folder(&mut self, mut batches: Vec<TaskBatch>) -> anyhow::Result<()> {
-        let textures = batches
-            .pop()
+    fn commit_folder(&mut self, batches: &mut [TaskBatch]) -> anyhow::Result<()> {
+        let (textures, packages) = batches
+            .split_last_mut()
             .expect("a player folder's group ends with its textures batch");
         if textures.entries.is_empty() {
             return Ok(());
         }
         let mut committed = false;
-        for package in batches {
+        for package in packages {
             if textures.skipped.contains(&package.index) {
                 continue;
             }
@@ -129,9 +136,10 @@ impl CpkOutput {
     /// each of `team_colors` (team id, colors) set in its team's record, then `UniColor.bin`,
     /// built on `bins`' the same way with each committed kit's entry merged into its team's
     /// record in commit order. Returns whether a CPK was written, `false` when no batch
-    /// committed anything (then no file exists and no bin is built), and the findings to
-    /// report: one `bin_header_repaired` per working bin that had a header wrong, naming the
-    /// teams.
+    /// committed anything and there is no override (then no file exists and no bin is
+    /// built), and the findings to report: one `bin_header_repaired` per working bin that had
+    /// a header wrong, naming the teams, and a `duplicate_path` for each bin an override
+    /// replaced.
     pub(crate) fn finish(
         mut self,
         version: PesVersion,
@@ -143,6 +151,7 @@ impl CpkOutput {
             "the writer never received task {} of the manifest",
             self.next
         );
+        let mut messages = Vec::new();
         // The bins hold what every committed kit contributed, so they are built only once
         // every batch is in, and go last.
         if !self.uniform_parameters.is_empty() {
@@ -153,25 +162,28 @@ impl CpkOutput {
             for (name, config) in std::mem::take(&mut self.uniform_parameters) {
                 bin.insert(name, config)?;
             }
-            self.add(paths::UNIFORM_PARAMETER, &bin.write())?;
+            self.add(paths::UNIFORM_PARAMETER, &bin.write(), &mut messages)?;
         }
-        // A run that committed nothing writes no file, so it adds no bin either.
+        // A run that committed nothing writes no file, so it adds no bin either, unless the
+        // overrides go into the CPK: they are written whatever the exports bring.
         if self.cpk.is_none() {
-            return Ok((false, Vec::new()));
+            if self.overrides.is_empty() {
+                return Ok((false, Vec::new()));
+            }
+            self.cpk = Some(self.create()?);
         }
-        let mut messages = Vec::new();
         let mut bin = TeamColorBin::read(bins.team_color)?;
         messages.extend(header_repaired("TeamColor.bin", &bin.repair_headers()));
         for (team_id, colors) in team_colors {
             bin.set_colors(*team_id, colors)?;
         }
-        self.add(paths::TEAM_COLOR, &bin.into_bytes())?;
+        self.add(paths::TEAM_COLOR, &bin.into_bytes(), &mut messages)?;
         let mut bin = UniColorBin::read(bins.uni_color)?;
         messages.extend(header_repaired("UniColor.bin", &bin.repair_headers()));
         for (team_id, entry) in std::mem::take(&mut self.kit_colors) {
             bin.set_kit(team_id, &entry)?;
         }
-        self.add(paths::UNI_COLOR, &bin.into_bytes())?;
+        self.add(paths::UNI_COLOR, &bin.into_bytes(), &mut messages)?;
         let cpk = self
             .cpk
             .expect("the CPK was created before the bins were added");
@@ -181,22 +193,37 @@ impl CpkOutput {
     }
 
     /// A failed task contributes nothing: no entry, and no kit config or kit colors to the
-    /// bins.
-    fn commit(&mut self, batch: TaskBatch) -> anyhow::Result<()> {
+    /// bins. A task with an entry an override replaced still contributes the rest, its kit
+    /// config and kit colors included, and the `duplicate_path` joins its messages.
+    fn commit(&mut self, batch: &mut TaskBatch) -> anyhow::Result<()> {
         if batch.entries.is_empty() {
             return Ok(());
         }
-        for (path, bytes) in &batch.entries {
-            self.add(path, bytes)?;
+        let entries = std::mem::take(&mut batch.entries);
+        for (path, bytes) in &entries {
+            self.add(path, bytes, &mut batch.messages)?;
         }
-        self.uniform_parameters.extend(batch.uniparam);
-        self.kit_colors.extend(batch.uni_color);
+        self.uniform_parameters.extend(batch.uniparam.take());
+        self.kit_colors.extend(batch.uni_color.take());
         // The task's bytes are in the CPK now, so the memory they were charged is free.
-        drop(batch.permit);
+        batch.permit = None;
         Ok(())
     }
 
-    fn add(&mut self, path: &str, bytes: &[u8]) -> anyhow::Result<()> {
+    /// Adds `bytes` at `path`, creating the CPK first when this is its first entry. At an
+    /// override's path nothing is added, the override having won, and a `duplicate_path`
+    /// naming the path goes to `messages`. Paths compare exactly, as the CPK's own duplicate
+    /// check does.
+    fn add(&mut self, path: &str, bytes: &[u8], messages: &mut Vec<Message>) -> anyhow::Result<()> {
+        if self.overrides.contains_key(path) {
+            messages.push(tool_message(
+                Code::DuplicatePath,
+                Scope::Run,
+                Disposition::Keep,
+                vec![("path", path.to_owned())],
+            ));
+            return Ok(());
+        }
         let cpk = match self.cpk.take() {
             Some(cpk) => cpk,
             None => self.create()?,
@@ -207,13 +234,24 @@ impl CpkOutput {
             .with_context(|| format!("{}: cannot add {path}", self.path.display()))
     }
 
+    /// Creates the CPK file and adds the overrides, in path order, so they are its first
+    /// entries. Each override is read as it is added: a handful of files, never charged to the
+    /// memory budget. One that cannot be read fails the CPK, naming it: a file the operator put
+    /// there on purpose is not skipped.
     fn create(&self) -> anyhow::Result<CpkWriter<File>> {
         let cannot_create = || format!("{}: cannot create the CPK", self.path.display());
         if let Some(folder) = self.path.parent() {
             fs::create_dir_all(folder).with_context(cannot_create)?;
         }
         let file = File::create(&self.path).with_context(cannot_create)?;
-        CpkWriter::new(file, TOOL_VERSION).with_context(cannot_create)
+        let mut cpk = CpkWriter::new(file, TOOL_VERSION).with_context(cannot_create)?;
+        for (path, file) in &self.overrides {
+            let bytes = fs::read(file)
+                .with_context(|| format!("{}: cannot read the override", file.display()))?;
+            cpk.add(path, &bytes, None)
+                .with_context(|| format!("{}: cannot add {path}", self.path.display()))?;
+        }
+        Ok(cpk)
     }
 }
 
@@ -299,7 +337,7 @@ mod tests {
     /// and the positions `submit` reported, in order.
     fn write_all(folder: &Path, name: &str, batches: Vec<TaskBatch>) -> (Vec<String>, Vec<usize>) {
         let path = folder.join(format!("{name}.cpk"));
-        let mut output = CpkOutput::new(path.clone());
+        let mut output = CpkOutput::new(path.clone(), BTreeMap::new());
         let mut reported = Vec::new();
         for batch in batches {
             for (index, messages) in output.submit(batch).unwrap() {
@@ -495,12 +533,189 @@ mod tests {
         entries.into_iter().map(|entry| entry.path).collect()
     }
 
+    /// The bytes of the CPK at `cpk`'s entry `path`.
+    fn entry(cpk: &Path, path: &str) -> Vec<u8> {
+        let mut archive = CpkArchive::open(File::open(cpk).unwrap()).unwrap();
+        let entry = archive
+            .entries()
+            .iter()
+            .find(|entry| entry.path == path)
+            .unwrap_or_else(|| panic!("no {path} in the CPK"))
+            .clone();
+        archive.read(&entry).unwrap()
+    }
+
+    /// What the override file for the CPK path `path` holds: other bytes than a batch's entry
+    /// at that path (`batch` writes the path itself).
+    fn override_bytes(path: &str) -> Vec<u8> {
+        format!("override of {path}").into_bytes()
+    }
+
+    /// Overrides at the CPK paths `paths`, each a file in `folder` holding
+    /// `override_bytes(path)`.
+    fn overrides(folder: &Path, paths: &[&str]) -> BTreeMap<String, PathBuf> {
+        let folder = folder.join("overrides");
+        fs::create_dir_all(&folder).unwrap();
+        paths
+            .iter()
+            .enumerate()
+            .map(|(index, path)| {
+                let file = folder.join(format!("{index}.bin"));
+                fs::write(&file, override_bytes(path)).unwrap();
+                ((*path).to_owned(), file)
+            })
+            .collect()
+    }
+
+    /// The `duplicate_path` finding naming `path`.
+    fn duplicate(path: &str) -> Message {
+        tool_message(
+            Code::DuplicatePath,
+            Scope::Run,
+            Disposition::Keep,
+            vec![("path", path.to_owned())],
+        )
+    }
+
+    #[test]
+    fn the_overrides_go_first_and_replace_a_task_s_entry_at_their_path() {
+        let temp = scratch("writer_overrides");
+        let folder = temp.path();
+        let path = folder.join("cup.cpk");
+        let mut output = CpkOutput::new(
+            path.clone(),
+            overrides(folder, &["z/over.bin", "a/over.bin"]),
+        );
+
+        let committed = output
+            .submit(batch(0, &["a/over.bin", "b/own.bin"], None))
+            .unwrap();
+
+        assert_eq!(committed, [(0, vec![note(0), duplicate("a/over.bin")])]);
+        let message = &committed[0].1[1];
+        assert_eq!(message.code.code, "duplicate_path");
+        assert_eq!(
+            (message.severity, message.disposition, &message.scope),
+            (
+                studio_core::Severity::Warning,
+                Disposition::Keep,
+                &Scope::Run
+            )
+        );
+        assert!(finish_plain(output, PesVersion::Pes21).unwrap());
+        assert_eq!(
+            layout(&path),
+            [
+                "a/over.bin",
+                "z/over.bin",
+                "b/own.bin",
+                paths::TEAM_COLOR,
+                paths::UNI_COLOR,
+            ]
+        );
+        assert_eq!(entry(&path, "a/over.bin"), override_bytes("a/over.bin"));
+        assert_eq!(entry(&path, "b/own.bin"), b"b/own.bin");
+    }
+
+    #[test]
+    fn an_override_at_a_bin_s_path_replaces_the_bin_and_finish_reports_it() {
+        let temp = scratch("writer_override_bin");
+        let folder = temp.path();
+        let path = folder.join("cup.cpk");
+        let mut output = CpkOutput::new(path.clone(), overrides(folder, &[paths::TEAM_COLOR]));
+        output.submit(batch(0, &["a/b.bin"], None)).unwrap();
+
+        let (written, messages) = output
+            .finish(
+                PesVersion::Pes21,
+                WorkingBins::bundled(),
+                &team_714_colors(),
+            )
+            .unwrap();
+
+        assert!(written);
+        assert_eq!(messages, [duplicate(paths::TEAM_COLOR)]);
+        assert_eq!(
+            layout(&path),
+            [paths::TEAM_COLOR, "a/b.bin", paths::UNI_COLOR]
+        );
+        assert_eq!(
+            entry(&path, paths::TEAM_COLOR),
+            override_bytes(paths::TEAM_COLOR)
+        );
+    }
+
+    #[test]
+    fn a_kit_whose_entry_is_overridden_still_gives_its_kit_config_and_colors_to_the_bins() {
+        let temp = scratch("writer_override_kit");
+        let folder = temp.path();
+        let path = folder.join("cup.cpk");
+        let mut output = CpkOutput::new(path.clone(), overrides(folder, &["kit/kit.ftex"]));
+
+        let committed = output.submit(kit_batch(0, &["kit/kit.ftex"])).unwrap();
+
+        assert_eq!(committed, [(0, vec![note(0), duplicate("kit/kit.ftex")])]);
+        assert!(finish_plain(output, PesVersion::Pes21).unwrap());
+        assert_eq!(entry(&path, "kit/kit.ftex"), override_bytes("kit/kit.ftex"));
+        let bin = UniformParameter::read(&entry(&path, paths::UNIFORM_PARAMETER)).unwrap();
+        assert_eq!(bin.get("kit"), Some(&[7; 120][..]));
+        let kit_colors = entry(&path, paths::UNI_COLOR);
+        let start = kit_record(792);
+        assert_eq!(
+            kit_colors[start + 5..start + 13],
+            [0x10, 0x0b, 0xc1, 0x12, 0x00, 0x41, 0x41, 0x41],
+            "the kit's entry is merged into team 792's record"
+        );
+    }
+
+    #[test]
+    fn overrides_and_no_committed_batch_still_write_the_cpk_with_the_bins() {
+        let temp = scratch("writer_overrides_alone");
+        let folder = temp.path();
+        let path = folder.join("run/cup.cpk");
+        let mut output = CpkOutput::new(path.clone(), overrides(folder, &["a/over.bin"]));
+        // A failed task commits nothing.
+        output.submit(batch(0, &[], Some("kit"))).unwrap();
+
+        assert!(finish_plain(output, PesVersion::Pes21).unwrap());
+
+        assert_eq!(
+            layout(&path),
+            ["a/over.bin", paths::TEAM_COLOR, paths::UNI_COLOR]
+        );
+        assert_eq!(entry(&path, "a/over.bin"), override_bytes("a/over.bin"));
+        assert!(
+            entry(&path, paths::UNI_COLOR) == WorkingBins::bundled().uni_color,
+            "no kit committed"
+        );
+    }
+
+    #[test]
+    fn an_override_that_cannot_be_read_fails_the_cpk_naming_the_file() {
+        let temp = scratch("writer_override_gone");
+        let folder = temp.path();
+        let gone = overrides(folder, &["a/over.bin"]);
+        let file = gone["a/over.bin"].clone();
+        fs::remove_file(&file).unwrap();
+        let expected = format!("{}: cannot read the override", file.display());
+
+        // At the first entry a task commits.
+        let mut output = CpkOutput::new(folder.join("first.cpk"), gone.clone());
+        let error = output.submit(batch(0, &["b/own.bin"], None)).unwrap_err();
+        assert_eq!(error.to_string(), expected);
+
+        // At the end, when no task committed anything.
+        let output = CpkOutput::new(folder.join("last.cpk"), gone);
+        let error = finish_plain(output, PesVersion::Pes21).unwrap_err();
+        assert_eq!(error.to_string(), expected);
+    }
+
     #[test]
     fn batches_are_laid_out_in_manifest_order_and_the_bins_last() {
         let temp = scratch("writer_order");
         let folder = temp.path();
         let path = folder.join("run/cup.cpk");
-        let mut output = CpkOutput::new(path.clone());
+        let mut output = CpkOutput::new(path.clone(), BTreeMap::new());
 
         output.submit(batch(2, &["a/first.bin"], None)).unwrap();
         output
@@ -546,7 +761,7 @@ mod tests {
         let mut written = Vec::new();
         for (name, reversed) in [("forward", false), ("reversed", true)] {
             let path = folder.join(format!("{name}.cpk"));
-            let mut output = CpkOutput::new(path.clone());
+            let mut output = CpkOutput::new(path.clone(), BTreeMap::new());
             let mut batches = three_batches();
             if reversed {
                 batches.reverse();
@@ -564,7 +779,7 @@ mod tests {
     fn submit_returns_each_committed_batch_and_its_messages_in_manifest_order() {
         let temp = scratch("writer_committed");
         let folder = temp.path();
-        let mut output = CpkOutput::new(folder.join("cup.cpk"));
+        let mut output = CpkOutput::new(folder.join("cup.cpk"), BTreeMap::new());
         let [first, second, third] = three_batches();
 
         assert_eq!(output.submit(third).unwrap(), [], "task 2 waits for 0");
@@ -579,7 +794,7 @@ mod tests {
     fn a_failed_commit_releases_the_permits_of_the_batches_waiting_behind_it() {
         let temp = scratch("writer_failed_commit");
         let folder = temp.path();
-        let mut output = CpkOutput::new(folder.join("cup.cpk"));
+        let mut output = CpkOutput::new(folder.join("cup.cpk"), BTreeMap::new());
         let budget = MemoryBudget::new(1);
         let mut waiting = batch(1, &["a/waiting.bin"], None);
         waiting.permit = Some(Arc::new(budget.acquire(1).unwrap()));
@@ -608,7 +823,7 @@ mod tests {
         let temp = scratch("writer_failed");
         let folder = temp.path();
         let path = folder.join("run/cup.cpk");
-        let mut output = CpkOutput::new(path.clone());
+        let mut output = CpkOutput::new(path.clone(), BTreeMap::new());
 
         output.submit(batch(0, &[], Some("kit"))).unwrap();
 
@@ -619,7 +834,7 @@ mod tests {
     #[test]
     fn a_batch_that_never_arrives_is_an_error() {
         let temp = scratch("writer_gap");
-        let mut output = CpkOutput::new(temp.path().join("cup.cpk"));
+        let mut output = CpkOutput::new(temp.path().join("cup.cpk"), BTreeMap::new());
         output.submit(batch(1, &["a/b.bin"], None)).unwrap();
         let error = finish_plain(output, PesVersion::Pes21).unwrap_err();
         assert_eq!(
@@ -631,7 +846,7 @@ mod tests {
     #[test]
     fn a_kit_config_for_a_version_without_the_bin_is_an_error() {
         let temp = scratch("writer_pre_fox");
-        let mut output = CpkOutput::new(temp.path().join("cup.cpk"));
+        let mut output = CpkOutput::new(temp.path().join("cup.cpk"), BTreeMap::new());
         output.submit(batch(0, &["a/b.bin"], Some("kit"))).unwrap();
         let error = finish_plain(output, PesVersion::Pes17).unwrap_err();
         assert_eq!(error.to_string(), "PES 2017 has no UniformParameter.bin");
@@ -652,7 +867,7 @@ mod tests {
     fn team_color_run(name: &str, bins: WorkingBins) -> (Vec<u8>, Vec<Message>) {
         let temp = scratch(name);
         let path = temp.path().join("cup.cpk");
-        let mut output = CpkOutput::new(path.clone());
+        let mut output = CpkOutput::new(path.clone(), BTreeMap::new());
         output.submit(batch(0, &["a/b.bin"], None)).unwrap();
         let (written, messages) = output
             .finish(PesVersion::Pes21, bins, &team_714_colors())
@@ -728,7 +943,7 @@ mod tests {
         ] {
             let temp = scratch(name);
             let folder = temp.path().join("run");
-            let mut output = CpkOutput::new(folder.join("cup.cpk"));
+            let mut output = CpkOutput::new(folder.join("cup.cpk"), BTreeMap::new());
             output.submit(batch(0, &[], None)).unwrap();
             let mut broken = WorkingBins::bundled();
             broken.team_color[..4].copy_from_slice(&[1, 2, 3, 4]);
@@ -772,7 +987,7 @@ mod tests {
     ) -> (Vec<u8>, Vec<Message>) {
         let temp = scratch(name);
         let path = temp.path().join("cup.cpk");
-        let mut output = CpkOutput::new(path.clone());
+        let mut output = CpkOutput::new(path.clone(), BTreeMap::new());
         for batch in batches {
             output.submit(batch).unwrap();
         }

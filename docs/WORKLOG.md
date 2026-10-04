@@ -12,7 +12,7 @@ is in `AGENTS.md` ("Working documents").
 **Phase:** 3 (Team compiler skeleton) closed 2026-10-02, its cross-family reviews queued (see
 "Handover"). Phases 1 and 2 done (Phase 2 closed 2026-09-30).
 **Next:** Phase 4 is itemized and its Acceptance section written (step 4.1, 2026-10-03; its
-cross-family review (a) is queued). Next: 4.13b (the `overrides/` tree; 4.13a is done); 4.30,
+cross-family review (a) is queued). Next: 4.13c (source pinning; 4.13a and 4.13b are done); 4.30,
 4.5 to 4.8, 4.9a and 4.10 to 4.12 are done (4.6c moved to Phase 8's cancellation), 4.9b
 (collars) waits on the maintainer. 2.5b (GPU BC7) is step 16.x (decision entries
 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0 after Phase 8; phase order 1–6,
@@ -151,7 +151,12 @@ Claude agent with no sidekick and no reviewer of another model family. While tha
   (`validation.rs` `refuse_duplicate_teams`), its `feat(team_compiler)` commit of
   2026-10-04, against `pipeline.md` "3. Per-model-folder parallel steps" (the run-level
   paragraph), `messages.md` (`duplicate_aesthetics_export`), TC-PLN-03, 05 and 07 and the
-  decision entry "`duplicate_aesthetics_export` is the validation pass's".
+  decision entry "`duplicate_aesthetics_export` is the validation pass's"; 4.13b,
+  `team_compiler` (`plan/overrides.rs`, `output/writer.rs`, `compile.rs`), its
+  `feat(team_compiler)` commit of 2026-10-04, against `pipeline.md` "5. Writer" step 1,
+  `settings.md` "Path resolution" (`overrides/`), `messages.md` (`duplicate_path`,
+  `overrides_active`), TC-PLN-04 and the decision entry "the `overrides/` tree is the
+  writer's; no path preflight over the tasks".
 - For the lead, on return: the review process on trial (maintainer, 3.1) runs a full sidekick
   review loop after each GPT round and calls GPT again only once that loop has ended and GPT's
   own loop has not; not yet in `AGENTS.md` (3.6: GPT 4 of 7 accepted, then sidekick S1 3 of 7,
@@ -1037,7 +1042,22 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
     for two tasks emitting one CPK path and found none (paths are keyed by team, player,
     boots or gloves id, kit name or folder name, and the in-export cases are refused or
     merged before tasks). Gates green (138 of 212); `mutants-diff d053ac9`: 7, 6 caught, 1 unviable, 0 missed
-  - [ ] 4.13b the `overrides/` tree and `duplicate_path` (TC-PLN-04).
+  - [x] 4.13b the `overrides/` tree and `duplicate_path` (TC-PLN-04), done 2026-10-04
+    (sidekick, landed first time; one lead fix, a help line rewrapped): `plan/overrides.rs`
+    `list` (every file below `<data dir>/overrides/` by CPK path, and the `overrides_active`
+    note), listed by `compile` before any export is read; `output/writer.rs` `CpkOutput`
+    adds them when it creates the CPK, in path order, each read as it is added, and creates
+    the CPK at `finish` when nothing else was committed; `add` leaves out an entry or a bin
+    at an override's path and reports `duplicate_path` (Warning, on the run) among that
+    task's messages or `finish`'s. A run with overrides and no export compiled now writes
+    and promotes a CPK holding the overrides and the bins. Known, not fixed: a bin an
+    override replaces is still built, so `bin_header_repaired` is still reported for it and
+    a failed kit config insert still fails the run (neither reachable on the bundled bins;
+    to settle with 4.21's installed bins); paths compare exactly ("Phase 4 open
+    questions"). Not covered from the CLI: an `overrides/` tree that cannot be listed or a
+    name that is not UTF-8 (exit 3), an unreadable override (unit-tested at the writer), an
+    override at `UniformParameter.bin` or `UniColor.bin`. Gates green (139 of 212);
+    `mutants-diff 62d8e66`: 28, 16 caught, 12 unviable, 0 missed
   - [ ] 4.13c source pinning, `source_changed_during_run` (TC-PLN-06).
 
 - [ ] 4.14 **Pre-Fox faces (PES 15-17, native `.model` + `.mtl`)**: `face.xml` generated from the
@@ -1392,6 +1412,13 @@ administrator, Upgrade DpFileList dialog): Phase 8; glTF sources: Phase 7; the G
 (`development_plan.md` "Phase 4" Verification).
 
 Phase 4 open questions (maintainer):
+
+- An override whose path differs from an entry's only in case (4.13b): the writer compares
+  paths exactly, as the `cpk` crate's duplicate check does, so `overrides/common/etc/
+  teamcolor.bin` does not replace the compiler's `common/etc/TeamColor.bin`: both go into
+  the CPK and nothing is reported. Which of two such entries the game reads, and whether it
+  finds an override spelled in another case at all, is not known. To settle: a CPK holding
+  both spellings, loaded in-game. If the game folds case, the override check folds it too.
 
 - A failed package beside a blank face (4.12): a player folder whose boots fail to merge
   (`skl_merge_conflict`, `merge_material_conflict`) still gets its blank face and its
@@ -2335,3 +2362,6 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   `duplicate_aesthetics_export`, by `check` and `compile`, and the other teams compile;
   the CPK is proven independent of the worker count and of skipped exports. 4.13 goes on
   as 4.13b (`overrides/`) and 4.13c (source pinning).
+- **2026-10-04** — 4.13b: the files of the data directory's `overrides/` folder go into the
+  CPK first and win over an export's entry or a bin at their path (`overrides_active`,
+  `duplicate_path`); they are written even when no export compiles.

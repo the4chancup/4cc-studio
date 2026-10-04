@@ -128,7 +128,7 @@ savefile messages are new.
 | `export_disabled` | I | root `NO_USE` / `NO_USE.txt` marker disables this source | export skipped; omitted from the grid and from duplicate-ref detection |
 | `export_identified` | I | the export's identity resolved (context: `team` and `id`, or `team` = `referees`) | none; how the CLI reports which team an export is |
 | `source_read_failed` | E/F | a pinned source entry cannot be read | optional root file: `DropFile`; folder/task producer: `DropFolder`; required export metadata or unusable source: `DropExport`; output/global source invariant: `AbortRun` |
-| `source_changed_during_run` | F | this export's pinned revision changes during planning/materialization | run aborted and partial output discarded (`AbortRun`) |
+| `source_changed_during_run` | F | a file a task read is gone, or its size or modified time is no longer what the export's listing gave (an archive: the archive file's); on the export, context `path` | run aborted, the staging output discarded, nothing deployed (`AbortRun`) |
 | `template_override_unreadable` | E/F | a template override file exists but cannot be read (embedded defaults cannot be missing) | folder-local injected template: `DropFolder`; referee-export template: `DropExport`; global CPK/bin template: `AbortRun` |
 | `template_override_active` | I | a `templates/` override file is shadowing an embedded template/fallback-bin resource | override used; reported per file per run |
 | `export_balls_skipped` | I | export name's first word is `balls` (balls exports belong to the Balls compiler) | export skipped (`DropExport`) |

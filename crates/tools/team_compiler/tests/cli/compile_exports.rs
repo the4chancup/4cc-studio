@@ -13,7 +13,7 @@ use studio_core::PipelineEvent;
 use crate::common::Sandbox;
 use crate::compile::{
     compiled_kits, compiled_players, compiled_portraits, cpk_entries, pass_through_settings,
-    pes_settings, pes21_settings, tracer_kit, tracer_portrait,
+    pes_settings, pes21_settings, tracer_kit, tracer_player_file, tracer_portrait,
 };
 use crate::textures::{bc1_dds, texture_fixture};
 use crate::{CLEAN_PLAYER, TEAM_COLORS_MISSING, clean_model, findings_of, source_fixture};
@@ -1501,4 +1501,90 @@ fn a_team_beside_two_skipped_exports_compiles_to_the_cpk_it_compiles_to_alone() 
         (None, alone_cpk.len()),
         "the first differing offset, and the two sizes"
     );
+}
+
+/// Slot 05's boots, the player's own, as `/co/` compiles them.
+const BOOTS_05: &str = "Asset/model/character/boots/k0625/#Win/boots.fpk";
+
+/// What `write_overrides` puts at `BOOTS_05`.
+const BOOTS_OVERRIDE: &[u8] = b"the operator's boots";
+
+/// What `write_overrides` puts at `TEAM_COLOR`.
+const TEAM_COLOR_OVERRIDE: &[u8] = b"the operator's TeamColor.bin";
+
+/// Writes the sandbox's `data/overrides/` folder: a `TeamColor.bin` and slot 05's boots for
+/// `/co/`, and returns the folder as `overrides_active` names it.
+fn write_overrides(sandbox: &Sandbox) -> String {
+    sandbox.write(&format!("data/overrides/{TEAM_COLOR}"), TEAM_COLOR_OVERRIDE);
+    sandbox.write(&format!("data/overrides/{BOOTS_05}"), BOOTS_OVERRIDE);
+    sandbox.display("data/overrides")
+}
+
+// TC-PLN-04
+#[test]
+fn the_overrides_replace_the_export_s_boots_and_the_team_color_bin_and_are_reported() {
+    let sandbox = Sandbox::new("pln_overrides");
+    let folder = write_overrides(&sandbox);
+    sandbox.write(
+        "exports/co - Boots/Players/05 - A/boots.fmdl",
+        &tracer_player_file("boots.fmdl"),
+    );
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+    assert_eq!(
+        run.messages(),
+        [
+            "co - Boots: Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=boots.fmdl, count=1662)".to_owned(),
+            "co - Boots: Info export_identified [Keep] (team=/co/, id=714)".to_owned(),
+            "co - Boots: Info team_colors_missing [Keep] ()".to_owned(),
+            format!("Info overrides_active [Keep] (folder={folder}, files=2)"),
+            format!("Warning duplicate_path [Keep] (path={BOOTS_05})"),
+            format!("Warning duplicate_path [Keep] (path={TEAM_COLOR})"),
+        ]
+    );
+    assert_eq!(run.exit_code(), 0, "a Warning does not fail the run");
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    assert_eq!(entries[BOOTS_05], BOOTS_OVERRIDE);
+    assert_eq!(entries[TEAM_COLOR], TEAM_COLOR_OVERRIDE);
+    // The boots task was not dropped: its other entry is in the CPK.
+    assert!(
+        entries.contains_key("Asset/model/character/boots/k0625/#Win/boots.fpkd"),
+        "{:#?}",
+        entries.keys()
+    );
+}
+
+#[test]
+fn the_overrides_are_written_with_the_bins_when_no_export_compiles() {
+    let sandbox = Sandbox::new("pln_overrides_no_export");
+    let folder = write_overrides(&sandbox);
+    fs::create_dir_all(sandbox.root.join("exports")).unwrap();
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+    assert_eq!(
+        run.messages(),
+        [
+            format!(
+                "Warning no_exports_found [Keep] (folder={})",
+                sandbox.display("exports")
+            ),
+            format!("Info overrides_active [Keep] (folder={folder}, files=2)"),
+            format!("Warning duplicate_path [Keep] (path={TEAM_COLOR})"),
+        ]
+    );
+    assert_eq!(run.exit_code(), 0);
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let paths: Vec<&str> = entries.keys().map(String::as_str).collect();
+    assert_eq!(
+        paths,
+        [
+            BOOTS_05,
+            "common/character0/model/character/uniform/team/UniColor.bin",
+            TEAM_COLOR,
+        ]
+    );
+    assert_eq!(entries[BOOTS_05], BOOTS_OVERRIDE);
+    assert_eq!(entries[TEAM_COLOR], TEAM_COLOR_OVERRIDE);
 }

@@ -3,6 +3,7 @@
 //! whole or not at all.
 
 pub(crate) mod ids;
+pub(crate) mod overrides;
 pub(crate) mod subset;
 
 use std::collections::BTreeSet;

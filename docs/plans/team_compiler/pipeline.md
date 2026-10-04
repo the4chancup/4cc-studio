@@ -1228,13 +1228,20 @@ Resolved decisions:
   (see the [library crates plan](../libs/README.md)): traversal/absolute paths rejected, separators
   normalized, case/Unicode collisions detected before extraction or packing; `aesthetics_export` uses the
   shared type.
-- **Source snapshot** (Phase 4): export revisions are pinned at planning and verified around each
-  folder materialization; a change aborts the run via `source_changed_during_run`, and archive
-  handles stay bound to the opened archive revision. An export's revision is, for a folder, the
-  set of (path, size, modified time) of the reader's listing, and for an archive its size and
-  modified time; it is pinned at planning and rechecked before each task's read. That is what the
-  reader already lists, and the GUI watcher (Phase 8) keys its stale-result envelopes on the same
-  value.
+- **Source snapshot** (Phase 4): a source's revision is taken when the reader lists it: for a
+  folder, each listed file's size and modified time; for an archive, the archive file's size and
+  modified time. `compile` checks it after each task's read: a folder's task checks the files it
+  read, an archive's task the archive file (a `.7z`, read once for all its tasks, is checked once,
+  after that read). A file that is gone, or whose size or modified time is no longer the
+  listing's, aborts the run with `source_changed_during_run`: the staging output is discarded and
+  nothing is deployed, so the previous CPK stays as it was. The check comes after the read, not
+  before it, so a file saved over while it was being read is caught too. Only what a task reads
+  is checked: a file added to a folder after its listing is in no task, so it changes nothing
+  the run writes. `check` reads each source right after listing it and checks nothing. The check
+  is against a member saving over a file while the cup is compiled, not against a hostile one: a
+  replacement of the same size that keeps the modified time (or lands inside the file system's
+  time granularity) goes unseen. The GUI watcher (Phase 8) keys its stale-result envelopes on
+  the same value.
 - **Merge-copy collisions within one child** use the dedicated `merged_texture_conflict`: when two
   parts merged into the same output FMDL (Fox baking of local, shared, and `.common`-linked models
   into one allowed name) copy the same texture destination with different bytes, no canonical winner

@@ -12,8 +12,9 @@ The Team compiler also runs without its window, from a terminal opened in the fo
 them, reports the same findings, and builds the CPK named by the `cpk_name` setting in the output
 folder (`output/` beside `4cc-studio` unless you changed the `output_folder_path` setting), as
 `<cpk_name>.cpk`. The CPK is written in full before it replaces the previous one, so
-`<cpk_name>.cpk` is never half-written. A run that finds nothing to compile writes nothing and leaves the
-previous CPK as it was. In this version `compile` builds exports for PES 2018 to 2021 that hold
+`<cpk_name>.cpk` is never half-written. A run that finds nothing to compile, and has no file in
+the `overrides` folder (below), writes nothing and leaves the previous CPK as it was. In this
+version `compile` builds exports for PES 2018 to 2021 that hold
 only the models of the players in the roster, kept in each player's own folder: face models,
 boots (a model whose name ends in `boots`, such as `kit_boots.fmdl`) and gloves (`glove_l`,
 `glove_r`, or `handL`, `handR`), with their textures, their portraits (a `portrait` image in
@@ -176,6 +177,17 @@ the note of a skipped export is left out. A compile with no notes to gather remo
 `teamnotes.txt`, so the file never shows notes of exports the last compile did not build, and a
 compile that writes no CPK leaves it as it was. When `teamnotes.txt` cannot be written, the
 error `teamnotes_write_failed` names it, and the CPK is still in place.
+
+A folder named `overrides` beside the settings file (the data folder) holds files that
+`compile` puts into the CPK as they are, each at its path below that folder:
+`overrides/common/etc/TeamColor.bin` becomes `common/etc/TeamColor.bin` in the CPK. Use it for
+a file no export provides, or a fixed version of one an export gets wrong. `compile` reports the
+note `overrides_active`, naming the folder and how many files it holds, and writes the CPK even
+when no export is compiled. A file in `overrides` wins over the same file from an export or
+from the compiler (the team color file, for one): the warning `duplicate_path` names each file
+replaced that way, and the rest of that export is still built. A file in `overrides` that
+cannot be read stops the CPK from being written, with the line `cpk_write_failed` naming it,
+and the previous CPK stays as it was. `check` does not read the folder.
 
 `check` prints one line per finding: the export it is about, how serious it is, its code, where
 in the export it is, and its details in parentheses. The line `Info export_identified (team=/co/,
