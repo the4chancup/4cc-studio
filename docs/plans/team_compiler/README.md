@@ -260,9 +260,9 @@ folder missing a file Phase 4 would inject (`face_diff.bin`; with an `fcl_hair.f
 no compiled face lacks what Red's would hold. An empty kit folder, or one whose effective
 textures lack `kit`, compiles as the placeholder kit (the checkerboard and the template config;
 its UniColor entry waits for Phase 4's bins), which TC-SRC-01 needs. Two exports resolving to
-one team, which `duplicate_aesthetics_export` reports from Phase 4's run planning, meet the
-writer's duplicate-path invariant meanwhile: `cpk_write_failed` aborts the run naming the path,
-and no CPK is written. `check` runs the
+one team are each skipped with `duplicate_aesthetics_export` (step 4.13a; until then they met
+the writer's duplicate-path invariant, which stays as the backstop: `cpk_write_failed` aborts
+the run naming the path, and no CPK is written). `check` runs the
 structure pass on every export, including content `compile` refuses (deep format checks are
 Phase 4's). The code is withdrawn when Phase 4 compiles everything.
 Findings are observed

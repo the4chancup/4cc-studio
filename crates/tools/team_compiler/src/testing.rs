@@ -119,8 +119,8 @@ pub(crate) fn two_team_colors() -> Option<Vec<Rgb>> {
 }
 
 /// The export `name` with these files (path, size), folders and `players.txt`, validated
-/// for PES 21 and resolved against a teams list holding `714 /co/` and `790 /dbg/`; the export
-/// must validate with no issue.
+/// for PES 21 and resolved against a teams list holding `702 /a/`, `714 /co/` and `790 /dbg/`;
+/// the export must validate with no issue.
 pub(crate) fn resolved(
     name: &str,
     files: &[(&str, u64)],
@@ -169,7 +169,7 @@ pub(crate) fn resolved_with_issues(
             pass_through: false,
         });
     let issues = report.issues.iter().map(|issue| issue.code).collect();
-    let teams = TeamsList::parse("ID\tName\n714\t/co/\n790\t/dbg/\n").unwrap();
+    let teams = TeamsList::parse("ID\tName\n702\t/a/\n714\t/co/\n790\t/dbg/\n").unwrap();
     let resolved = report.validated.unwrap().resolve_identity(&teams).unwrap();
     (resolved, issues)
 }

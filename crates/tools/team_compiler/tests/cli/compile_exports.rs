@@ -1384,3 +1384,121 @@ fn the_worker_count_changes_neither_the_findings_nor_the_cpk() {
     );
     assert!(outcomes[0].1 == outcomes[1].1, "the CPKs differ");
 }
+
+// TC-PLN-05
+#[test]
+fn two_teams_with_players_and_kits_compile_to_the_same_cpk_on_one_worker_and_on_eight() {
+    let mut cpks = Vec::new();
+    for threads in [1, 8] {
+        let sandbox = Sandbox::new(&format!("pln_worker_count_{threads}"));
+        for export in ["a - Home", "co - Away"] {
+            sandbox.copy_tracer_face(&format!("exports/{export}/Players/03 - A"));
+            sandbox.copy_tracer_face(&format!("exports/{export}/Players/07 - B"));
+            sandbox.write(&format!("exports/{export}/Kits/p1/kit.dds"), &tracer_kit());
+        }
+        let settings = format!("{}thread_count = {threads}\n", pes21_settings(&sandbox));
+
+        let run = sandbox.run(&settings, &["compile"]);
+
+        assert_eq!(
+            run.exit_code(),
+            0,
+            "{threads} threads: {:#?}",
+            run.messages()
+        );
+        assert_eq!(compiled_players(&sandbox), [70203, 70207, 71403, 71407]);
+        assert_eq!(compiled_kits(&sandbox), ["u0702p1", "u0714p1"]);
+        cpks.push(fs::read(sandbox.root.join("output/4cc_99_test.cpk")).unwrap());
+    }
+    let first_difference = cpks[0]
+        .iter()
+        .zip(&cpks[1])
+        .position(|(one, eight)| one != eight);
+    assert_eq!(
+        (first_difference, cpks[0].len()),
+        (None, cpks[1].len()),
+        "the first differing offset, and the two sizes"
+    );
+}
+
+/// Writes `exports/a - Home`, a valid `/a/` export: one player and one kit.
+fn write_a_home(sandbox: &Sandbox) {
+    sandbox.write(&format!("exports/a - Home/{CLEAN_PLAYER}"), &clean_model());
+    sandbox.write("exports/a - Home/Kits/p1/kit.dds", &tracer_kit());
+}
+
+/// Writes `a - Home` beside two exports of `/co/`: the folder `co - A`, holding a goalkeeper
+/// kit, and `co - B.zip`, the tracer's player and goalkeeper kit. Both compiled, the two kits
+/// would write one CPK path twice.
+fn write_two_exports_of_one_team(sandbox: &Sandbox) {
+    write_a_home(sandbox);
+    sandbox.write("exports/co - A/Kits/g1/kit.dds", &tracer_kit());
+    sandbox.write("exports/co - B.zip", &source_fixture("egg Tracer.zip"));
+}
+
+/// The finding each of the two `/co/` exports of `write_two_exports_of_one_team` gets.
+const CO_DUPLICATE: &str =
+    "Error duplicate_aesthetics_export [DropExport] (id=714, exports=co - A, co - B.zip)";
+
+// TC-PLN-03
+#[test]
+fn two_exports_of_one_team_are_both_skipped_naming_each_other_and_the_other_team_compiles() {
+    let sandbox = Sandbox::new("pln_duplicate_team");
+    write_two_exports_of_one_team(&sandbox);
+    let validated = [
+        "a - Home: Info export_identified [Keep] (team=/a/, id=702)".to_owned(),
+        "co - A: Info export_identified [Keep] (team=/co/, id=714)".to_owned(),
+        format!("co - A: {CO_DUPLICATE}"),
+        "co - B.zip: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=fcl_hair.fmdl, count=1662)".to_owned(),
+        "co - B.zip: Info export_identified [Keep] (team=/co/, id=714)".to_owned(),
+        format!("co - B.zip: {CO_DUPLICATE}"),
+    ];
+
+    let check = sandbox.run(&pes21_settings(&sandbox), &["check"]);
+
+    assert_eq!(check.messages(), validated);
+    assert_eq!(check.exit_code(), 1);
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+    let lines = run.messages();
+    assert_eq!(run.exit_code(), 1, "{lines:#?}");
+    // Planning's notes are `a - Home`'s alone: nothing of `/co/` is planned.
+    let planned = [
+        "a - Home: Info team_colors_missing [Keep] ()".to_owned(),
+        "a - Home: Info kit_config_generated [Keep] at Kits/p1 ()".to_owned(),
+        "a - Home: Info kit_colors_derived [Keep] at Kits/p1 ()".to_owned(),
+    ];
+    assert_eq!(lines, [&validated[..], &planned[..]].concat());
+    assert_eq!(compiled_players(&sandbox), [70203]);
+    assert_eq!(compiled_kits(&sandbox), ["u0702p1"]);
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let of_714: Vec<&String> = entries.keys().filter(|path| path.contains("714")).collect();
+    assert_eq!(of_714, Vec::<&String>::new());
+}
+
+// TC-PLN-07
+#[test]
+fn a_team_beside_two_skipped_exports_compiles_to_the_cpk_it_compiles_to_alone() {
+    let beside = Sandbox::new("pln_skipped_beside");
+    write_two_exports_of_one_team(&beside);
+    let alone = Sandbox::new("pln_skipped_alone");
+    write_a_home(&alone);
+
+    let beside_run = beside.run(&pes21_settings(&beside), &["compile"]);
+    let alone_run = alone.run(&pes21_settings(&alone), &["compile"]);
+
+    assert_eq!(beside_run.exit_code(), 1, "the duplicate's errors");
+    assert_eq!(alone_run.exit_code(), 0, "{:#?}", alone_run.messages());
+    let beside_cpk = fs::read(beside.root.join("output/4cc_99_test.cpk")).unwrap();
+    let alone_cpk = fs::read(alone.root.join("output/4cc_99_test.cpk")).unwrap();
+    let first_difference = beside_cpk
+        .iter()
+        .zip(&alone_cpk)
+        .position(|(beside, alone)| beside != alone);
+    assert_eq!(
+        (first_difference, beside_cpk.len()),
+        (None, alone_cpk.len()),
+        "the first differing offset, and the two sizes"
+    );
+}

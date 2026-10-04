@@ -30,6 +30,18 @@ const SPRING_FINDINGS: [&str; 3] = [
     "Info export_identified [Keep] (team=/co/, id=714)",
 ];
 
+/// `SPRING_FINDINGS` of a `co - Spring` source checked beside other exports of `/co/`, then
+/// the finding that skips each of them, naming `exports`.
+fn spring_findings_beside(exports: &str) -> Vec<String> {
+    SPRING_FINDINGS
+        .iter()
+        .map(|line| (*line).to_owned())
+        .chain([format!(
+            "Error duplicate_aesthetics_export [DropExport] (id=714, exports={exports})"
+        )])
+        .collect()
+}
+
 // TC-SRC-01
 #[test]
 fn one_export_as_a_folder_a_zip_and_a_7z_reports_and_compiles_the_same() {
@@ -41,11 +53,12 @@ fn one_export_as_a_folder_a_zip_and_a_7z_reports_and_compiles_the_same() {
     let run = sandbox.run("", &["check"]);
 
     let lines = run.messages();
+    // Three exports of one team: each is skipped, naming the three.
+    let expected = spring_findings_beside("co - Spring, co - Spring.7z, co - Spring.zip");
     for source in ["co - Spring", "co - Spring.zip", "co - Spring.7z"] {
-        assert_eq!(findings_of(&lines, source), SPRING_FINDINGS, "{lines:#?}");
+        assert_eq!(findings_of(&lines, source), expected, "{lines:#?}");
     }
-    // Three exports of one team draw no finding about each other.
-    assert_eq!(lines.len(), 3 * SPRING_FINDINGS.len(), "{lines:#?}");
+    assert_eq!(lines.len(), 3 * expected.len(), "{lines:#?}");
     assert_eq!(run.exit_code(), 1);
 
     // Each source compiled alone: the empty kit folder p2 is the placeholder kit.
@@ -149,9 +162,10 @@ fn a_folder_and_an_archive_sharing_a_stem_are_two_exports() {
     let run = sandbox.run("", &["check"]);
 
     let lines = run.messages();
-    assert_eq!(findings_of(&lines, "co - Spring"), SPRING_FINDINGS);
-    assert_eq!(findings_of(&lines, "co - Spring.zip"), SPRING_FINDINGS);
-    assert_eq!(lines.len(), 2 * SPRING_FINDINGS.len(), "{lines:#?}");
+    let expected = spring_findings_beside("co - Spring, co - Spring.zip");
+    assert_eq!(findings_of(&lines, "co - Spring"), expected);
+    assert_eq!(findings_of(&lines, "co - Spring.zip"), expected);
+    assert_eq!(lines.len(), 2 * expected.len(), "{lines:#?}");
 }
 
 #[test]
@@ -227,13 +241,19 @@ fn export_paths_may_name_an_archive_outside_the_root() {
     );
 
     let lines = run.messages();
+    let duplicate =
+        "Error duplicate_aesthetics_export [DropExport] (id=714, exports=co - A, co - Spring.zip)";
     assert_eq!(
         findings_of(&lines, "co - A"),
-        ["Info export_identified [Keep] (team=/co/, id=714)"]
+        [
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            duplicate
+        ]
     );
-    assert_eq!(findings_of(&lines, "co - Spring.zip"), SPRING_FINDINGS);
+    let spring = spring_findings_beside("co - A, co - Spring.zip");
+    assert_eq!(findings_of(&lines, "co - Spring.zip"), spring);
     // co - C, in the root but not named, is not reported.
-    assert_eq!(lines.len(), 1 + SPRING_FINDINGS.len(), "{lines:#?}");
+    assert_eq!(lines.len(), 2 + spring.len(), "{lines:#?}");
 }
 
 #[test]
@@ -251,15 +271,20 @@ fn check_leaves_every_archive_and_nested_export_as_it_was() {
     let run = sandbox.run("", &["check"]);
 
     let lines = run.messages();
+    let exports_of_714 = "co - Nested, co - Spring.7z, co - Spring.zip";
     assert_eq!(
         findings_of(&lines, "co - Nested"),
         [
-            "Warning nested_folders_fixed [Keep] (folder=wrapper)",
-            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Warning nested_folders_fixed [Keep] (folder=wrapper)".to_owned(),
+            "Info export_identified [Keep] (team=/co/, id=714)".to_owned(),
+            format!(
+                "Error duplicate_aesthetics_export [DropExport] (id=714, exports={exports_of_714})"
+            ),
         ]
     );
-    assert_eq!(findings_of(&lines, "co - Spring.7z"), SPRING_FINDINGS);
-    assert_eq!(findings_of(&lines, "co - Spring.zip"), SPRING_FINDINGS);
+    let spring = spring_findings_beside(exports_of_714);
+    assert_eq!(findings_of(&lines, "co - Spring.7z"), spring);
+    assert_eq!(findings_of(&lines, "co - Spring.zip"), spring);
     assert_eq!(snapshot(&exports), before);
 }
 

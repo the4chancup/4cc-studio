@@ -284,11 +284,21 @@ collisions, `overrides/` precedence, canonical export order, and staged non-mode
 immutable **build manifest**. Its tasks cover model folders and the non-model work (kits, logo,
 Common, collars, portraits, referee marker) alike; each task is an atomic unit — it commits whole or
 not at all. Canonical export order uses normalized source-relative path plus source kind as its
-stable key, never the potentially duplicated `export_display_name`. The manifest allocates every
+stable key, never the potentially duplicated `export_display_name`: it is discovery's order, by
+the source's file name (extension included, so a folder and an archive of one stem stay apart),
+case-folded and then as spelled. `duplicate_aesthetics_export` is found before planning, by the
+validation pass once every export's identity is resolved, so `check` reports it as `compile`
+does; planning never sees the conflicting exports. The manifest allocates every
 task an output namespace that cannot conflict with another task's. A cross-export collision drops
 the losing task or export rather than an arbitrary entry that could leave its model/XML/package
 incomplete; an override stays path-granular and intentionally supersedes the export
-entry. Folder-internal names that depend on deep parsing — glTF material-role image names, model
+entry. No preflight over the tasks' paths is built: no two tasks can claim one path today
+(every path is keyed by the team's ID, a player ID, a boots or gloves ID of the team's block,
+a kit name or a player folder's name; two exports of one team are refused; the collisions
+inside one export are refused or merged before its tasks are planned; collars have
+`collar_id_conflict`), so the folder and export forms of `duplicate_path` have no trigger,
+and the writer's duplicate invariant is the backstop. A step that adds an output two tasks
+can claim adds the check with it. Folder-internal names that depend on deep parsing — glTF material-role image names, model
 fallback/merge products — are resolved deterministically inside that task and checked for collisions
 within its allocated namespace. All identity, allocation, roster, portrait-conflict, and run-global
 collision checks finish before tasks are dispatched. Deep task failures may be at most `DropFolder`
@@ -663,7 +673,17 @@ describes behavior, not a serial scheduling requirement:
 1. **Override priority** — manifest preflight gives the `overrides/` tree (Red's `sideload/`)
    precedence over export entries at the same output path, and the writer emits accepted
    overrides before export content in canonical order. Overrides target the normal team CPK(s);
-   there is no refs-specific overrides tree unless one is introduced later.
+   there is no refs-specific overrides tree unless one is introduced later. Every file below
+   `overrides/` in the data directory is one CPK entry at its path relative to that folder
+   (`overrides/common/etc/TeamColor.bin` is the entry `common/etc/TeamColor.bin`). `compile`
+   lists the tree once, before its tasks start, and a tree holding a file is reported as
+   `overrides_active` (the folder, the file count). The writer adds the override entries
+   first, in path order, so they create the CPK even when no export commits anything. An
+   entry a task or the bins then bring at an override's path is left out, the override having
+   won, and reported as `duplicate_path` (Warning, on the run, naming the path); the task's
+   other entries and its contributions to the bins are kept. An override that cannot be read
+   fails the CPK (`cpk_write_failed`): a file the operator put there on purpose is not
+   silently skipped.
 2. **Incremental CPK writing** — the writer accepts completed task batches as they arrive, but
    final payload layout follows canonical manifest order, not arrival order. Per-task atomicity
    discards every staged entry from a failed task. Ordered draining and memory admission must be

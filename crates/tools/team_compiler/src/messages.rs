@@ -28,6 +28,9 @@ pub(crate) enum Code {
     ExportBallsSkipped,
     /// More than one non-disabled refs export in the run.
     MultipleRefExports,
+    /// Two or more exports resolve to one team: every one of them is skipped, since the
+    /// compiler cannot tell which one is meant.
+    DuplicateAestheticsExport,
     /// The export's first word names no teams-list row.
     TeamNameUnknown,
     /// A line of a kit's or the root `colors.txt` that does not hold exactly one color, or a
@@ -170,13 +173,14 @@ impl Code {
     /// Every code, for the catalog test: a variant missing here would make its first message
     /// panic in `severity`, so a new variant is added to this list too.
     #[cfg(test)]
-    const ALL: [Code; 53] = [
+    const ALL: [Code; 54] = [
         Code::ExportExtractFailed,
         Code::NoExportsFound,
         Code::ExportDisabled,
         Code::ExportIdentified,
         Code::ExportBallsSkipped,
         Code::MultipleRefExports,
+        Code::DuplicateAestheticsExport,
         Code::TeamNameUnknown,
         Code::ColorEntryInvalid,
         Code::TeamColorsMissing,
@@ -235,6 +239,7 @@ impl Code {
             Code::ExportIdentified => "export_identified",
             Code::ExportBallsSkipped => "export_balls_skipped",
             Code::MultipleRefExports => "multiple_ref_exports",
+            Code::DuplicateAestheticsExport => "duplicate_aesthetics_export",
             Code::TeamNameUnknown => "team_name_unknown",
             Code::ColorEntryInvalid => "color_entry_invalid",
             Code::TeamColorsMissing => "team_colors_missing",
@@ -309,6 +314,7 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("export_identified", CatalogSeverity::Info),
     ("export_balls_skipped", CatalogSeverity::Info),
     ("multiple_ref_exports", CatalogSeverity::Error),
+    ("duplicate_aesthetics_export", CatalogSeverity::Error),
     ("color_entry_invalid", CatalogSeverity::Warning),
     ("team_colors_missing", CatalogSeverity::Info),
     ("kit_config_generated", CatalogSeverity::Info),

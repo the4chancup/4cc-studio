@@ -1,9 +1,11 @@
 //! Validation of every export source of a run, which `check` reports and `compile` starts
 //! from: each source's route, the structure pass's issues, the deep pass's content findings
-//! over the export it leaves (`team_compiler/pipeline.md` "2. Per-export serial steps"), and
-//! the identity. The lib validates and `deep` reads the contents; this schedules them on the
-//! run's worker pool, each export's outcome kept in discovery order.
+//! over the export it leaves (`team_compiler/pipeline.md` "2. Per-export serial steps"), the
+//! identity, and the refusal of two exports of one team. The lib validates and `deep` reads
+//! the contents; this schedules them on the run's worker pool, each export's outcome kept in
+//! discovery order.
 
+use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use aesthetics_export::{
@@ -16,6 +18,7 @@ use pes_version::{Engine, PesVersion};
 use pipeline::MemoryBudget;
 use rayon::prelude::*;
 use studio_core::{Disposition, ExportId, Message, Scope};
+use teams_list::TeamId;
 use vtree::ScopePath;
 
 use crate::bins::{Rgb, TEAM_COLORS};
@@ -42,7 +45,8 @@ pub(crate) struct ValidationPass {
 pub(crate) struct CheckedSource {
     /// The source.
     pub(crate) source: ExportSource,
-    /// Its findings: its route's when it was set aside, else its issues and its identity.
+    /// Its findings: its route's when it was set aside, else its issues and its identity, then
+    /// `duplicate_aesthetics_export` when another export resolved to its team.
     pub(crate) messages: Vec<Message>,
     /// The export with its identity resolved; `None` when a finding dropped it.
     pub(crate) resolved: Option<ResolvedAestheticsExport>,
@@ -73,7 +77,8 @@ pub(crate) fn run_pool(inputs: &RunInputs) -> anyhow::Result<rayon::ThreadPool> 
 
 /// Discovers the run's sources, routes them and runs the structure pass, the deep pass and
 /// identity on each one headed for validation, on `pool`; a `.7z` export is read once for
-/// both passes, charged to `budget`. An exports folder holding no export is
+/// both passes, charged to `budget`. Then the exports of a team several resolve to are
+/// refused (`refuse_duplicate_teams`). An exports folder holding no export is
 /// `no_exports_found`, on the run. Only an exports folder that cannot be read is an error.
 pub(crate) fn validation_pass(
     inputs: &RunInputs,
@@ -109,11 +114,52 @@ pub(crate) fn validation_pass(
         ));
     }
 
-    let sources = pool.install(|| check_sources(inputs, sources, routes, budget));
+    let mut sources = pool.install(|| check_sources(inputs, sources, routes, budget));
+    refuse_duplicate_teams(&mut sources);
     Ok(ValidationPass {
         run_messages,
         sources,
     })
+}
+
+/// `duplicate_aesthetics_export` on each export of a team that two or more of `sources`
+/// resolve to, naming the team's ID and every one of those exports in export order, and none
+/// of them compiled (`pipeline.md` "3. Per-model-folder parallel steps"). Only an export whose
+/// identity resolved to a team counts: one a finding dropped before has no team to conflict
+/// over, and a referee export has `multiple_ref_exports`.
+fn refuse_duplicate_teams(sources: &mut [CheckedSource]) {
+    let mut by_team: BTreeMap<TeamId, Vec<usize>> = BTreeMap::new();
+    for (index, checked) in sources.iter().enumerate() {
+        if let Some(ResolvedAestheticsExport {
+            identity: ExportIdentity::Team { id, .. },
+            ..
+        }) = &checked.resolved
+        {
+            by_team.entry(*id).or_default().push(index);
+        }
+    }
+    for (id, indices) in by_team {
+        if indices.len() < 2 {
+            continue;
+        }
+        let exports: Vec<&str> = indices
+            .iter()
+            .map(|&index| sources[index].source.file_name.as_str())
+            .collect();
+        let exports = exports.join(", ");
+        for index in indices {
+            let checked = &mut sources[index];
+            checked.messages.push(tool_message(
+                Code::DuplicateAestheticsExport,
+                Scope::Export {
+                    export_id: checked.source.export_id,
+                },
+                Disposition::DropExport,
+                vec![("id", id.to_string()), ("exports", exports.clone())],
+            ));
+            checked.resolved = None;
+        }
+    }
 }
 
 /// Each source through `check_source` with its route, returned in discovery order: the
@@ -842,6 +888,147 @@ mod tests {
             Some("Hello")
         );
         assert_eq!(notes_of("notes_none", None), None);
+    }
+
+    /// The folder source `file_name`, numbered `export_id`: the duplicate rule reads only the
+    /// id and the file name.
+    fn source(export_id: u64, file_name: &str) -> ExportSource {
+        ExportSource {
+            export_id: ExportId(export_id),
+            path: file_name.into(),
+            kind: SourceKind::Folder,
+            file_name: file_name.to_owned(),
+            display_name: file_name.to_owned(),
+            team_name: aesthetics_export::team_name(file_name),
+        }
+    }
+
+    /// `file_name`, numbered `export_id`, as validation leaves a clean export: identified as
+    /// its name's team, holding one kit.
+    fn identified(export_id: u64, file_name: &str) -> CheckedSource {
+        let resolved = resolved(file_name, &[("Kits/p1/kit.dds", 1)], &[], None);
+        let export = Scope::Export {
+            export_id: ExportId(export_id),
+        };
+        CheckedSource {
+            source: source(export_id, file_name),
+            messages: vec![identified_message(export, &resolved.identity)],
+            resolved: Some(resolved),
+            team_colors: None,
+            notes: None,
+        }
+    }
+
+    /// `file_name`, numbered `export_id`, as validation leaves an export its `NO_USE` marker
+    /// disables: no identity.
+    fn disabled(export_id: u64, file_name: &str) -> CheckedSource {
+        let export = Scope::Export {
+            export_id: ExportId(export_id),
+        };
+        CheckedSource {
+            source: source(export_id, file_name),
+            messages: vec![tool_message(
+                Code::ExportDisabled,
+                export,
+                Disposition::DropExport,
+                vec![],
+            )],
+            resolved: None,
+            team_colors: None,
+            notes: None,
+        }
+    }
+
+    /// Each of `sources` after the duplicate rule, as its file name, whether it is still
+    /// resolved, and its messages, each as one line: severity, code, disposition and context.
+    fn after_duplicate_rule(mut sources: Vec<CheckedSource>) -> Vec<(String, bool, Vec<String>)> {
+        refuse_duplicate_teams(&mut sources);
+        sources
+            .into_iter()
+            .map(|checked| {
+                let export = Scope::Export {
+                    export_id: checked.source.export_id,
+                };
+                let lines = checked
+                    .messages
+                    .iter()
+                    .map(|message| {
+                        assert_eq!(message.scope, export);
+                        let context: Vec<String> = message
+                            .context
+                            .iter()
+                            .map(|(key, value)| format!("{key}={value}"))
+                            .collect();
+                        format!(
+                            "{:?} {} [{:?}] ({})",
+                            message.severity,
+                            message.code.code,
+                            message.disposition,
+                            context.join(", ")
+                        )
+                    })
+                    .collect();
+                (checked.source.file_name, checked.resolved.is_some(), lines)
+            })
+            .collect()
+    }
+
+    /// One `after_duplicate_rule` entry.
+    fn outcome(file_name: &str, resolved: bool, lines: &[&str]) -> (String, bool, Vec<String>) {
+        (
+            file_name.to_owned(),
+            resolved,
+            lines.iter().map(|line| (*line).to_owned()).collect(),
+        )
+    }
+
+    const IDENTIFIED_702: &str = "Info export_identified [Keep] (team=/a/, id=702)";
+    const IDENTIFIED_714: &str = "Info export_identified [Keep] (team=/co/, id=714)";
+
+    #[test]
+    fn two_exports_of_one_team_are_both_refused_and_the_other_team_s_kept() {
+        let duplicate =
+            "Error duplicate_aesthetics_export [DropExport] (id=714, exports=co - A, co - B.zip)";
+        assert_eq!(
+            after_duplicate_rule(vec![
+                identified(0, "a - Home"),
+                identified(1, "co - A"),
+                identified(2, "co - B.zip"),
+            ]),
+            [
+                outcome("a - Home", true, &[IDENTIFIED_702]),
+                outcome("co - A", false, &[IDENTIFIED_714, duplicate]),
+                outcome("co - B.zip", false, &[IDENTIFIED_714, duplicate]),
+            ]
+        );
+    }
+
+    #[test]
+    fn a_disabled_export_beside_one_of_its_team_is_no_duplicate() {
+        assert_eq!(
+            after_duplicate_rule(vec![identified(0, "co - A"), disabled(1, "co - B")]),
+            [
+                outcome("co - A", true, &[IDENTIFIED_714]),
+                outcome("co - B", false, &["Info export_disabled [DropExport] ()"]),
+            ]
+        );
+    }
+
+    #[test]
+    fn each_of_three_exports_of_one_team_names_all_three() {
+        let duplicate = "Error duplicate_aesthetics_export [DropExport] (id=714, exports=co - A, co - B.zip, co - C.7z)";
+        assert_eq!(
+            after_duplicate_rule(vec![
+                identified(0, "co - A"),
+                identified(1, "co - B.zip"),
+                identified(2, "co - C.7z"),
+            ]),
+            [
+                outcome("co - A", false, &[IDENTIFIED_714, duplicate]),
+                outcome("co - B.zip", false, &[IDENTIFIED_714, duplicate]),
+                outcome("co - C.7z", false, &[IDENTIFIED_714, duplicate]),
+            ]
+        );
     }
 
     #[test]

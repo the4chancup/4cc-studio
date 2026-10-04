@@ -183,9 +183,9 @@ fn an_output_folder_that_cannot_be_created_refuses_compile_before_any_export_is_
 fn a_failed_cpk_write_discards_the_staging_and_leaves_the_previous_cpk() {
     let sandbox = Sandbox::new("cpk_write_failed");
     sandbox.write("output/4cc_99_test.cpk", b"the previous CPK");
-    // Two exports of one team with the same player: the CPK refuses the second's face path.
-    sandbox.copy_tracer_face("exports/co - A/Players/03 - A");
-    sandbox.copy_tracer_face("exports/co - B/Players/03 - A");
+    // A file where the run's staging folder goes: the CPK cannot be created in it.
+    sandbox.write("output/.staging", b"in the way");
+    sandbox.write(&format!("exports/co - A/{CLEAN_PLAYER}"), &clean_model());
     let before = snapshot(&sandbox.root.join("output"));
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
@@ -195,39 +195,29 @@ fn a_failed_cpk_write_discards_the_staging_and_leaves_the_previous_cpk() {
     assert_eq!(
         first,
         [
-            "co - A: Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=boots.fmdl, count=1662)",
-            "co - A: Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=fcl_hair.fmdl, count=1662)",
-            "co - A: Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=glove_l.fmdl, count=2)",
             "co - A: Info export_identified [Keep] (team=/co/, id=714)",
-            "co - B: Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=boots.fmdl, count=1662)",
-            "co - B: Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=fcl_hair.fmdl, count=1662)",
-            "co - B: Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=glove_l.fmdl, count=2)",
-            "co - B: Info export_identified [Keep] (team=/co/, id=714)",
-            "co - A: Info team_colors_missing [Keep] ()",
-            "co - B: Info team_colors_missing [Keep] ()"
+            "co - A: Info team_colors_missing [Keep] ()"
         ]
     );
-    // The error names the staged CPK, whose folder is this run's: `<pid>-<ms>` is left free.
+    // The error names the staged CPK, whose folder is this run's: `<pid>-<ms>` is left free,
+    // and so is the platform's own text at the end.
     let previous = sandbox.root.join("output").join("4cc_99_test.cpk");
     let prefix = format!(
         "Fatal cpk_write_failed [AbortRun] (path={}, error={}",
         previous.display(),
         sandbox.root.join("output").join(".staging").display()
     );
-    // The second export's first entry is its face package: a folder's textures follow its
-    // packages.
-    let face = "Asset/model/character/face/real/71403/#Win/face.fpk";
-    let suffix = format!(
-        "{}4cc_99_test.cpk: cannot add {face}: duplicate path in archive: {face})",
+    let cannot_create = format!(
+        "{}4cc_99_test.cpk: cannot create the CPK: ",
         std::path::MAIN_SEPARATOR
     );
     assert!(
-        last.starts_with(&prefix) && last.ends_with(&suffix),
+        last.starts_with(&prefix) && last.contains(&cannot_create) && last.ends_with(')'),
         "{last}"
     );
     assert_eq!(run.exit_code(), 3);
+    // The previous CPK and the file in the way are all `output/` holds: no partial CPK.
     assert_eq!(snapshot(&sandbox.root.join("output")), before);
-    assert!(!sandbox.root.join("output/.staging").exists());
 }
 
 /// Asserts `run` compiled the tracer's export and then failed to replace the previous CPK:

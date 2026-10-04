@@ -267,6 +267,12 @@ An export can be a folder, a `.zip` or a `.7z`, read where it is: nothing is ext
 that cannot be read (damaged, password-protected, or holding two files whose names differ only in
 case) is reported as `export_extract_failed` and left out of the run.
 
+When two exports in the exports folder are for the same team (an old `co - Spring` folder left
+beside a new `co - Summer.zip`), both commands skip each of them with the error
+`duplicate_aesthetics_export`, naming the team's ID and the exports, and the other teams are
+still built. Remove the one that should not be used, or disable it with an empty file named
+`NO_USE` at its root.
+
 `--export <path>` limits the run to one export: a folder, a `.zip` or a `.7z`, which does not
 have to be inside the exports folder. Repeat it to name several exports. A path that does not
 exist, or a file that is not a `.zip` or `.7z`, stops the command before anything runs.

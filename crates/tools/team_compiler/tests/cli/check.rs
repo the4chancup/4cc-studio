@@ -332,12 +332,17 @@ fn export_paths_restrict_the_run_to_the_named_sources() {
             &sandbox.arg("exports/co - B"),
         ],
     );
+    // The two named exports of one team conflict; `co - A` and `co - C`, not named, do not.
+    let duplicate =
+        "Error duplicate_aesthetics_export [DropExport] (id=714, exports=co - B, co - D)";
     assert_eq!(
         run.messages(),
         [
-            "co - B: Info export_identified [Keep] (team=/co/, id=714)",
-            "co - D: Info export_identified [Keep] (team=/co/, id=714)",
+            "co - B: Info export_identified [Keep] (team=/co/, id=714)".to_owned(),
+            format!("co - B: {duplicate}"),
+            "co - D: Info export_identified [Keep] (team=/co/, id=714)".to_owned(),
+            format!("co - D: {duplicate}"),
         ]
     );
-    assert_eq!(run.exit_code(), 0);
+    assert_eq!(run.exit_code(), 1);
 }

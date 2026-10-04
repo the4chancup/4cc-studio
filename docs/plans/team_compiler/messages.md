@@ -133,7 +133,7 @@ savefile messages are new.
 | `template_override_active` | I | a `templates/` override file is shadowing an embedded template/fallback-bin resource | override used; reported per file per run |
 | `export_balls_skipped` | I | export name's first word is `balls` (balls exports belong to the Balls compiler) | export skipped (`DropExport`) |
 | `multiple_ref_exports` | E | more than one non-disabled `refs`-prefixed export found at discovery | every conflicting export skipped (`DropExport` per row, plus a Run-scoped summary) |
-| `duplicate_aesthetics_export` | E | multiple exports resolve to the same team ID | all conflicting exports skipped (`DropExport`) |
+| `duplicate_aesthetics_export` | E | multiple exports resolve to the same team ID; found once every export's identity is resolved, so `check` reports it too. An export validation dropped does not count, whether before its identity resolved or after (an exhausted ID pool): it is not compiled anyway (context: `id`, the team ID; `exports`, the conflicting sources' file names in export order) | all conflicting exports skipped (`DropExport`, on each) |
 | `boots_id_pool_exhausted` | E | planned player-exclusive/shared boots outputs exceed the team's permanent ID block | export skipped (`DropExport`) |
 | `gloves_id_pool_exhausted` | E | planned player-exclusive/shared gloves outputs exceed the team's permanent ID block | export skipped (`DropExport`) |
 | `export_empty` | E | no usable content found at root | export skipped |
@@ -431,7 +431,7 @@ injection into the system `dt00_x64.cpk`, and with it `ref_marker_needs_consent`
 
 | ID | Sev | Condition | Consequence |
 |---|---|---|---|
-| `duplicate_path` | W/E | manifest preflight finds colliding output paths | folder collision: losing folder blocked (`DropFolder`, E); whole-export collision: losing export blocked (`DropExport`, E); override: the `overrides/` file wins (`Keep`, W) |
+| `duplicate_path` | W/E | a task's entry, or a bin, at the path of an `overrides/` file (Run scope; context: the path). The folder and export forms (two tasks claiming one path) have no trigger today and are not built (`pipeline.md` "3. Per-model-folder parallel steps") | override: the `overrides/` file wins, the entry is left out (`Keep`, W); folder collision: losing folder blocked (`DropFolder`, E); whole-export collision: losing export blocked (`DropExport`, E) |
 | `cpk_write_failed` | F | incremental CPK writing fails | run aborted and partial CPK discarded (`AbortRun`) |
 | `output_commit_failed` | F | a completed CPK/tree cannot be atomically committed to its final output path | run aborted; prior published outputs remain untouched (`AbortRun`) |
 | `teamnotes_write_failed` | E | `teamnotes.txt` cannot be written, or a previous one cannot be removed, in the output folder (context: `path`, `error`) | the run's CPK stays in place; the notes file is left as it was |
@@ -449,7 +449,7 @@ injection into the system `dt00_x64.cpk`, and with it `ref_marker_needs_consent`
 | `old_cpk_locked` | E | old CPK cannot be replaced (PES running) | deployment skipped; staged CPKs promoted to `output/`; savefile step skipped; GUI offers Retry (deployment only) and Open output folder |
 | `deploy_target_unwritable` | E | destination folder denies writes (typically elevation needed under `Program Files`) | deployment skipped; staged CPKs promoted to `output/`; savefile step skipped; GUI offers Relaunch as administrator. Normally pre-empted by the live writability preflight (see `pipeline.md` "Post-processing") |
 | `deploy_skipped_by_flag` | I | `--no-deploy` given (CLI) | staged CPKs promoted to `output/`; savefile step skipped; run is clean |
-| `overrides_active` | I | `overrides/` folder present and injected | none |
+| `overrides_active` | I | the data directory's `overrides/` folder holds at least one file, each injected into the CPK at its relative path (`compile` only, Run scope; context: the folder, the file count) | none |
 | `bin_source` | I | which installed CPK supplied a working bin in the DpFileList walk, or `bundled` when the embedded base was used (context: the bin, the CPK or `bundled`) | none |
 | `bin_header_repaired` | W | a working `TeamColor.bin` or `UniColor.bin` held records whose header was not their position's: the team ID, or in `TeamColor.bin` the color count. One finding per bin (context: the bin, the teams). It marks a corrupt installed bin, whatever wrote it, so the cause can be looked for | the headers are rewritten; each record's other bytes are kept, so those teams' colors may be wrong until their exports are compiled again |
 | `savefile_autodetected` | I | `savefile_path = auto` resolved a savefile under Documents\KONAMI (names the path; noted especially when several account folders existed and the newest was chosen) | none |

@@ -3814,3 +3814,40 @@ real face beside failed boots too, and is left to the maintainer (worklog "Phase
 questions").
 Plan: `team_compiler/README.md` TC-MOD-09; `team_compiler/messages.md`
 `merge_material_conflict`, `skl_merge_conflict`.
+
+## 2026-10-04 — team_compiler — `duplicate_aesthetics_export` is the validation pass's, and 4.13 lands in three slices
+Decision: exports resolving to one team ID are found by the validation pass, after every
+export's identity is resolved, not by run planning: each conflicting export gets the Error
+(context `id` and `exports`, the conflicting sources' file names) and is not planned. An
+export validation dropped earlier does not count. The canonical export order is discovery's
+existing order (the source's file name, case-folded, then as spelled). Step 4.13 is worked as
+4.13a (this, with TC-PLN-03, 05 and 07), 4.13b (the `overrides/` tree and `duplicate_path`)
+and 4.13c (source pinning).
+Why: the plan put the check in run planning, which only `compile` runs, so `check` would
+pass a root that `compile` then refuses; identity is resolved in the validation pass both
+commands share, and nothing about the check needs a manifest. The file name already carries
+the source kind as its extension, which is the plan's "path plus source kind" key.
+Plan: `team_compiler/pipeline.md` "3. Per-model-folder parallel steps" (the run-level
+paragraph); `team_compiler/messages.md` `duplicate_aesthetics_export`.
+
+## 2026-10-04 — team_compiler — the `overrides/` tree is the writer's; no path preflight over the tasks
+Decision: (1) Every file below the data directory's `overrides/` is a CPK entry at its
+relative path; the writer adds them first, in path order, and they create the CPK even when
+no export commits. An entry a task or the bins bring at an override's path is left out and
+reported as `duplicate_path` (Warning, on the run, context `path`); the rest of the task is
+kept. `overrides_active` (Info, on the run) names the folder and the file count, from
+`compile` only. An override that cannot be read fails the CPK (`cpk_write_failed`). (2) The
+folder and export forms of `duplicate_path`, and the planning preflight that would allocate
+every task an output namespace, are not built.
+Why: (1) the plan gave the precedence rule and left the mechanics open. The writer already
+sees every path once, so the override check is one lookup there, with no need to predict a
+task's paths at planning (a package's file names are known only to its task). (2) No two
+tasks can claim one path today: paths are keyed by the team's ID, a player ID, an ID of the
+team's block, a kit name or a player folder's name; two exports of one team are refused
+since 4.13a; in-export collisions are refused or merged before planning; collars have their
+own finding. The sidekick's reading at 4.13a found no counterexample. A preflight for a
+collision that cannot happen would be code with no test that can fail; the writer's
+duplicate invariant (`cpk_write_failed`) stays as the backstop.
+Plan: `team_compiler/pipeline.md` "5. Writer" step 1 and "3. Per-model-folder parallel
+steps" (the run-level paragraph); `team_compiler/messages.md` `duplicate_path`,
+`overrides_active`.

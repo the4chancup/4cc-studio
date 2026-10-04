@@ -12,7 +12,7 @@ is in `AGENTS.md` ("Working documents").
 **Phase:** 3 (Team compiler skeleton) closed 2026-10-02, its cross-family reviews queued (see
 "Handover"). Phases 1 and 2 done (Phase 2 closed 2026-09-30).
 **Next:** Phase 4 is itemized and its Acceptance section written (step 4.1, 2026-10-03; its
-cross-family review (a) is queued). Next: 4.13 (run planning); 4.30,
+cross-family review (a) is queued). Next: 4.13b (the `overrides/` tree; 4.13a is done); 4.30,
 4.5 to 4.8, 4.9a and 4.10 to 4.12 are done (4.6c moved to Phase 8's cancellation), 4.9b
 (collars) waits on the maintainer. 2.5b (GPU BC7) is step 16.x (decision entries
 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0 after Phase 8; phase order 1–6,
@@ -147,6 +147,11 @@ Claude agent with no sidekick and no reviewer of another model family. While tha
   TC-MOD-16 to TC-MOD-19 and TC-MOD-32, and the two decision entries of 2026-10-04 on the
   face file with no face model and on TC-MOD-09 (reworded; TC-MOD-32 is new: both join the
   queued (a) review of the section).
+  4.13 (b), one review over the step's slices as they land: 4.13a, `team_compiler`
+  (`validation.rs` `refuse_duplicate_teams`), its `feat(team_compiler)` commit of
+  2026-10-04, against `pipeline.md` "3. Per-model-folder parallel steps" (the run-level
+  paragraph), `messages.md` (`duplicate_aesthetics_export`), TC-PLN-03, 05 and 07 and the
+  decision entry "`duplicate_aesthetics_export` is the validation pass's".
 - For the lead, on return: the review process on trial (maintainer, 3.1) runs a full sidekick
   review loop after each GPT round and calls GPT again only once that loop has ended and GPT's
   own loop has not; not yet in `AGENTS.md` (3.6: GPT 4 of 7 accepted, then sidekick S1 3 of 7,
@@ -1017,7 +1022,23 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `co - A/` and `co - B.zip` in one root both report `duplicate_aesthetics_export` and no CPK is
   written; with `overrides/common/etc/TeamColor.bin` in the data directory the CPK's entry has
   the override's bytes and the console shows `overrides_active` then `Warning duplicate_path
-  [Keep]`
+  [Keep]`. Worked as three slices (decision entry of 2026-10-04):
+  - [x] 4.13a duplicate exports and the export order (TC-PLN-03, 05, 07), done 2026-10-04
+    (sidekick, landed first time): `validation.rs` `refuse_duplicate_teams`, after every
+    source is checked, so `check` reports it too: each export of a team several resolve to
+    gets `duplicate_aesthetics_export` (context `id`, `exports`) and is not planned; the
+    export order is discovery's, unchanged. Two exports of one team with disjoint content
+    used to compile into one CPK with no finding, and colliding ones aborted the run at the
+    writer. TC-OUT-03's test now blocks the staging folder with a file to get its failed
+    CPK write (it used two exports of one team); no CLI test reaches the writer's duplicate
+    invariant any more (its unit test stays). Not covered: an export dropped by an exhausted
+    ID pool beside another of its team (no duplicate finding, by the rule that only a
+    resolved export counts); a folder beside a `.7z` through `compile`. The sidekick looked
+    for two tasks emitting one CPK path and found none (paths are keyed by team, player,
+    boots or gloves id, kit name or folder name, and the in-export cases are refused or
+    merged before tasks). Gates green (138 of 212); `mutants-diff d053ac9`: 7, 6 caught, 1 unviable, 0 missed
+  - [ ] 4.13b the `overrides/` tree and `duplicate_path` (TC-PLN-04).
+  - [ ] 4.13c source pinning, `source_changed_during_run` (TC-PLN-06).
 
 - [ ] 4.14 **Pre-Fox faces (PES 15-17, native `.model` + `.mtl`)**: `face.xml` generated from the
   suffix table (`face_neck` for `face_high`, `parts`, `gloveL`/`gloveR`, `handL`/`handR`,
@@ -1038,6 +1059,9 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   Also the pre-Fox half of the kit variants (4.11c did Fox): a model variant set as one
   `face.xml` entry naming `…kitN…` with the variant files beside it, and the texture sets
   completed as on Fox.
+  Also the pre-Fox blank face folder and the pre-Fox half of `ingame_face` (4.12 did Fox):
+  `pipeline.md` "2. Per-export serial steps" step 4 gives the blank folder's contents, and
+  `face_file_not_used` is Fox-only until then.
   Open first (found at 4.11c): a model's type is read from its stem's last part, so a
   per-kit model named `boots_kit1` is typed as face content; typing should probably skip
   the kit token.
@@ -2307,3 +2331,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   would take become the player's boots), every other player folder gets a face folder, blank
   without a face model, and a face file with no face model is `face_file_not_used`.
   TC-MOD-09 reworded: a failed package is left out alone.
+- **2026-10-04** — 4.13a: two exports of one team are each skipped with
+  `duplicate_aesthetics_export`, by `check` and `compile`, and the other teams compile;
+  the CPK is proven independent of the worker count and of skipped exports. 4.13 goes on
+  as 4.13b (`overrides/`) and 4.13c (source pinning).
