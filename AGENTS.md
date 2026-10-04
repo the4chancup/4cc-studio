@@ -368,12 +368,19 @@ when you do not know what model you are**; `fable-medium` (Claude) only when you
 GPT. The reviewer reviews; it is never asked to edit. Cost is not the constraint on any of these;
 time is, hence the batching rule above.
 
-Two harness limits, both measured. **`run_subagent` profiles have `read`, `grep` and
-`find_file_by_name` only**: no `skill` tool, no shell. A reviewer brief that says "invoke the
-`karpathy-guidelines` skill" sends it globbing the repo for a file that is not there; give it the
-file to read instead, `%APPDATA%\devin\skills\karpathy-guidelines\SKILL.md` (outside the repo,
-and its `read` tool reaches it). The `sidekick` tool has the `skill` tool, so its briefs keep the
-invoke wording. **Compaction does not fire while a sidekick handoff or a background subagent is in
+Two harness limits, both measured. **`run_subagent` profiles have no `skill` tool**, and the
+reviewer profiles (whose files list `allowed-tools`) have `read`, `grep` and `find_file_by_name`
+only. A brief that says "invoke the `karpathy-guidelines` skill" sends a subagent globbing the
+repo for a file that is not there; give it the file to read instead,
+`%APPDATA%\devin\skills\karpathy-guidelines\SKILL.md` (outside the repo, and its `read` tool
+reaches it). The `sidekick` tool has the `skill` tool, so its briefs keep the invoke wording.
+**The sidekick's role can be played by a `swe-2-high` subagent** (same model, profile file with
+no `allowed-tools`, so it has the shell, `edit` and `write`; measured 2026-10-05): run it in the
+foreground (a background subagent has unapproved tools denied), resume the same one per task
+(`resume: <agent_id>` keeps its memory, as the sidekick's handoffs do), read its size with the
+`context-usage` script before each resume (its line names the profile and its first task), and
+start a fresh one once it is at 350K or more, before an autocompaction can land mid-task. The
+`sidekick` tool's single sidekick cannot be reset. **Compaction does not fire while a sidekick handoff or a background subagent is in
 flight**, so a run started "to save time" ahead of the `[[/compact]]` sentinel costs the
 compaction instead (2.20b's mutation runs were started that way and the sentinel was ignored).
 Compact first, then start the run in the resumed turn.

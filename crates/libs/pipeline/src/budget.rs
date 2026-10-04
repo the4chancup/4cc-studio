@@ -96,6 +96,12 @@ impl MemoryBudget {
         self.notify.notify_all();
     }
 
+    /// Whether `cancel` was called: a caller about to start work that acquires inside a
+    /// callee (an archive read) checks it first.
+    pub fn is_cancelled(&self) -> bool {
+        self.lock().cancelled
+    }
+
     /// Nothing panics while holding the lock, so a poisoned mutex is a bug in
     /// this module.
     fn lock(&self) -> MutexGuard<'_, BudgetState> {
@@ -369,5 +375,13 @@ mod tests {
         drop(held);
         assert_eq!(budget.in_flight(), 0);
         assert_eq!(budget.acquire(10).map(|_| ()), Err(Cancelled));
+    }
+
+    #[test]
+    fn is_cancelled_is_false_until_cancel_is_called() {
+        let budget = MemoryBudget::new(100);
+        assert!(!budget.is_cancelled());
+        budget.cancel();
+        assert!(budget.is_cancelled());
     }
 }

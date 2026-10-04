@@ -289,8 +289,9 @@ struct SourceChange {
 /// export's source is opened once for all its tasks, which the manifest keeps together. After
 /// each read the files read are checked against the source's revision; on a change no further
 /// task is read or spawned, the spawned ones finish, and the change is returned. A cancelled
-/// budget stops the coordinator the same way, with no change to report: the cancellation's
-/// only trigger is the writer's `cpk_write_failed`, which the writer reports itself.
+/// budget stops the coordinator before the next source and at a waiting acquire, with no
+/// change to report: the cancellation's only trigger is the writer's `cpk_write_failed`,
+/// which the writer reports itself.
 fn coordinate<'scope>(
     sources: &[(ExportSource, Option<SourceRevision>)],
     tasks: Vec<BuildTask>,
@@ -315,6 +316,11 @@ fn coordinate<'scope>(
     // sharing it would only wait on each other, and processing needs no source handle.
     let mut tasks = tasks.into_iter().enumerate().peekable();
     for (source, revision) in sources {
+        // A `.7z`'s acquire happens inside its first `read`, which would turn `Cancelled`
+        // into a failed read rather than stopping the run; check before opening anything.
+        if budget.is_cancelled() {
+            return None;
+        }
         let content = ContentSource::new(source, budget);
         if source.kind == SourceKind::SevenZ {
             // A `.7z` holds one permit for its whole decompressed buffer, and a task asking
@@ -765,6 +771,47 @@ mod tests {
             .unwrap();
         let (batches_tx, batches_rx) = unbounded::<TaskBatch>();
         let sources = [listed(tracer_source())];
+
+        let change = pool.in_place_scope(|scope| {
+            coordinate(
+                &sources,
+                grouped_tasks(&[], &[10, 20, 30]),
+                &budget,
+                &context,
+                &batches_tx,
+                scope,
+            )
+        });
+        drop(batches_tx);
+
+        assert_eq!(change, None);
+        assert!(
+            batches_rx.try_iter().next().is_none(),
+            "a task was spawned on a cancelled budget"
+        );
+    }
+
+    #[test]
+    fn a_cancelled_budget_stops_the_coordinator_before_a_7z_source() {
+        // A `.7z` source never calls `acquire` itself: its first `read` does, inside
+        // `ContentSource`, which reports a cancelled one as a failed read rather than
+        // stopping the run. The cancelled check must come before the source is opened.
+        let budget = MemoryBudget::new(1 << 30);
+        budget.cancel();
+        let context = CompileContext::new(PesVersion::Pes21, 1);
+        let pool = rayon::ThreadPoolBuilder::new()
+            .num_threads(2)
+            .build()
+            .unwrap();
+        let (batches_tx, batches_rx) = unbounded::<TaskBatch>();
+        let source = ExportSource {
+            path: Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("tests/fixtures/sources/egg Tracer.7z"),
+            kind: SourceKind::SevenZ,
+            file_name: "egg Tracer.7z".to_owned(),
+            ..tracer_source()
+        };
+        let sources = [listed(source)];
 
         let change = pool.in_place_scope(|scope| {
             coordinate(

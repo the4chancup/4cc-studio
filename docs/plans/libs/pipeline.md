@@ -56,6 +56,9 @@ impl MemoryBudget {
     pub fn acquire(self: &Arc<Self>, size: usize) -> Result<Permit, Cancelled>;
     /// Wakes every waiter; every later `acquire` returns `Cancelled`.
     pub fn cancel(&self);
+    /// Whether `cancel` was called: a caller about to start work that acquires inside a
+    /// callee (an archive read) checks it first.
+    pub fn is_cancelled(&self) -> bool;
 }
 
 impl Permit {
