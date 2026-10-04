@@ -2429,3 +2429,9 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   data folder stopped `compile` at the teams list; a TOML error's snippet broke the one-line
   console format; shared temp folders in settings tests; a `pub` with no consumer). Rulings
   `.tmp/review_rulings_S2.md`.
+- **2026-10-04** — Review queue, S3 `aesthetics_export` (3.y (c), with its Phase 4 parts):
+  sidekick S3.1 1 of 9 (an empty doubled layer folder kept as a phantom folder); GPT A1 4 of
+  4 (two spellings of one Common model link panicked a compile; skeletons paired case-exactly
+  where planning folds; roster findings on an undecided root; a flattened wrapper of empty
+  folders kept); sidekick S3.2 2 of 3 (face file names and texture stems matched
+  case-exactly). Rulings `.tmp/review_rulings_S3.md`.
