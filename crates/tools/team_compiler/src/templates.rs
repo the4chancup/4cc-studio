@@ -18,6 +18,13 @@ pub(crate) const TEAM_COLOR: &[u8] = include_bytes!(concat!(
     "/../../../resources/bins/TeamColor.bin"
 ));
 
+/// The `UniColor.bin` a compile sets its kits' menu colors in when it has no installed one to
+/// start from: the same for every version (`resources/bins/README.md`).
+pub(crate) const UNI_COLOR: &[u8] = include_bytes!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../../resources/bins/UniColor.bin"
+));
+
 /// The `kit` texture of a placeholder kit: the magenta/black checkerboard, as a DDS
 /// (`resources/kits/README.md`).
 pub(crate) const PLACEHOLDER_KIT: &[u8] = include_bytes!(concat!(

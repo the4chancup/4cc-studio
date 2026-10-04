@@ -1,10 +1,14 @@
 //! The game's color bins as the compiler edits them (`team_compiler/pipeline.md` "Bins
 //! accumulation"). Each holds one fixed-size record per team, in team ID order starting at team
-//! 100, so team `id`'s record starts at `(id - 100) * record size`. A `TeamColor.bin` record is
-//! 16 bytes: the `u16` team ID, the `u16` color count (4 in every record), then four colors of
-//! three bytes each (R, G, B), the integers little-endian (`resources/bins/README.md`).
+//! 100, so team `id`'s record starts at `(id - 100) * record size`, and each record opens with a
+//! four-byte header naming its team. A `TeamColor.bin` record is 16 bytes: the `u16` team ID,
+//! the `u16` color count (4 in every record), then four colors of three bytes each (R, G, B). A
+//! `UniColor.bin` record is 85 bytes: the `u32` team ID, the `u8` kit count, then ten 8-byte
+//! kit entries (kit number, menu icon number, two colors). The integers are little-endian
+//! (`resources/bins/README.md`).
 
 use anyhow::{Context, ensure};
+use kit_config::KitSlot;
 
 use crate::templates;
 
@@ -20,71 +24,123 @@ pub(crate) const TEAM_COLORS: usize = 4;
 /// The team of each bin's first record.
 const FIRST_TEAM: u16 = 100;
 
-/// A `TeamColor.bin` record's header size: the team ID and the color count.
-const TEAM_COLOR_HEADER: usize = 4;
+/// A record's header size in both bins: the team ID, and in `TeamColor.bin` the color count.
+const HEADER: usize = 4;
 
 /// A `TeamColor.bin` record's size, 16 bytes: its header, then `TEAM_COLORS` colors.
-const TEAM_COLOR_RECORD: usize = TEAM_COLOR_HEADER + TEAM_COLORS * 3;
+const TEAM_COLOR_RECORD: usize = HEADER + TEAM_COLORS * 3;
 
 /// The color count every `TeamColor.bin` record's header gives.
 const TEAM_COLOR_COUNT: u16 = 4;
 
-/// A `TeamColor.bin` being edited.
-pub(crate) struct TeamColorBin {
+/// The kit entries a `UniColor.bin` record holds.
+const KIT_ENTRIES: usize = 10;
+
+/// A `UniColor.bin` kit entry's size, 8 bytes: the kit number, the icon number, then
+/// `KIT_COLORS` colors.
+const KIT_ENTRY: usize = 2 + KIT_COLORS * 3;
+
+/// A `UniColor.bin` record's size, 85 bytes: its header, the kit count, then `KIT_ENTRIES`
+/// entries.
+const UNI_COLOR_RECORD: usize = HEADER + 1 + KIT_ENTRIES * KIT_ENTRY;
+
+/// The entry a `UniColor.bin` record fills its unused places with: kit number `FF`, the rest
+/// zero.
+const UNUSED_KIT: [u8; KIT_ENTRY] = [0xff, 0, 0, 0, 0, 0, 0, 0];
+
+/// The records of one color bin, which both bins' editing goes through: the length check, the
+/// record of a team and the header loop are the same for both, only the record size and the
+/// header's bytes differ.
+struct Records {
+    /// The bin's file name, as its errors name it.
+    name: &'static str,
+    /// One record's size.
+    size: usize,
     /// The file's bytes, a whole number of records.
     bytes: Vec<u8>,
 }
 
-impl TeamColorBin {
-    /// `bytes` as a bin; a length that is not a whole number of 16-byte records is an error,
-    /// and so is a bin with more records than a `u16` has team IDs from 100.
-    pub(crate) fn read(bytes: Vec<u8>) -> anyhow::Result<TeamColorBin> {
+impl Records {
+    /// `bytes` as the bin `name` of `size`-byte records; a length that is not a whole number of
+    /// records is an error, and so is a bin with more records than a `u16` has team IDs from
+    /// 100.
+    fn read(name: &'static str, size: usize, bytes: Vec<u8>) -> anyhow::Result<Records> {
         ensure!(
-            bytes.len().is_multiple_of(TEAM_COLOR_RECORD),
-            "TeamColor.bin is {} bytes, not a whole number of {TEAM_COLOR_RECORD}-byte records",
+            bytes.len().is_multiple_of(size),
+            "{name} is {} bytes, not a whole number of {size}-byte records",
             bytes.len()
         );
-        let records = bytes.len() / TEAM_COLOR_RECORD;
+        let records = bytes.len() / size;
         ensure!(
             records <= usize::from(u16::MAX - FIRST_TEAM) + 1,
-            "TeamColor.bin holds {records} records, more than there are team IDs"
+            "{name} holds {records} records, more than there are team IDs"
         );
-        Ok(TeamColorBin { bytes })
+        Ok(Records { name, size, bytes })
     }
 
-    /// Sets every record's header from its position (team ID `100 + index`, color count 4)
-    /// and returns the IDs of the teams whose header was not that already, ascending.
-    pub(crate) fn repair_headers(&mut self) -> Vec<u16> {
+    /// Sets every record's header to `header` of its team (`100 + index`) and returns the IDs
+    /// of the teams whose header was not that already, ascending.
+    fn repair_headers(&mut self, header: impl Fn(u16) -> [u8; HEADER]) -> Vec<u16> {
         let mut repaired = Vec::new();
         // `read` leaves no bytes past the last whole record.
-        let (records, _) = self.bytes.as_chunks_mut::<TEAM_COLOR_RECORD>();
-        for (index, record) in records.iter_mut().enumerate() {
+        for (index, record) in self.bytes.chunks_exact_mut(self.size).enumerate() {
             let team_id = u16::try_from(index)
                 .ok()
                 .and_then(|index| FIRST_TEAM.checked_add(index))
                 .expect("`read` refuses a bin with more records than team IDs");
-            let mut header = [0; TEAM_COLOR_HEADER];
-            header[..2].copy_from_slice(&team_id.to_le_bytes());
-            header[2..].copy_from_slice(&TEAM_COLOR_COUNT.to_le_bytes());
-            if record[..TEAM_COLOR_HEADER] != header {
-                record[..TEAM_COLOR_HEADER].copy_from_slice(&header);
+            let header = header(team_id);
+            if record[..HEADER] != header {
+                record[..HEADER].copy_from_slice(&header);
                 repaired.push(team_id);
             }
         }
         repaired
     }
 
+    /// Team `team_id`'s record; a team with no record is an error.
+    fn record_mut(&mut self, team_id: u16) -> anyhow::Result<&mut [u8]> {
+        let start = team_id
+            .checked_sub(FIRST_TEAM)
+            .map(|index| usize::from(index) * self.size);
+        let size = self.size;
+        let name = self.name;
+        start
+            .and_then(|start| self.bytes.get_mut(start..start + size))
+            .with_context(|| format!("{name} has no record for team {team_id}"))
+    }
+}
+
+/// A `TeamColor.bin` being edited.
+pub(crate) struct TeamColorBin {
+    records: Records,
+}
+
+impl TeamColorBin {
+    /// `bytes` as a bin; a length that is not a whole number of 16-byte records is an error,
+    /// and so is a bin with more records than a `u16` has team IDs from 100.
+    pub(crate) fn read(bytes: Vec<u8>) -> anyhow::Result<TeamColorBin> {
+        Ok(TeamColorBin {
+            records: Records::read("TeamColor.bin", TEAM_COLOR_RECORD, bytes)?,
+        })
+    }
+
+    /// Sets every record's header from its position (team ID `100 + index`, color count 4)
+    /// and returns the IDs of the teams whose header was not that already, ascending.
+    pub(crate) fn repair_headers(&mut self) -> Vec<u16> {
+        self.records.repair_headers(|team_id| {
+            let mut header = [0; HEADER];
+            header[..2].copy_from_slice(&team_id.to_le_bytes());
+            header[2..].copy_from_slice(&TEAM_COLOR_COUNT.to_le_bytes());
+            header
+        })
+    }
+
     /// Writes `colors` over the first colors of `team_id`'s record; the colors it does not
     /// reach keep their bytes, and colors past the fourth have no slot and are not written. A
     /// team with no record is an error.
     pub(crate) fn set_colors(&mut self, team_id: u16, colors: &[Rgb]) -> anyhow::Result<()> {
-        let start = team_id
-            .checked_sub(FIRST_TEAM)
-            .map(|index| usize::from(index) * TEAM_COLOR_RECORD);
-        let record = start
-            .and_then(|start| self.bytes.get_mut(start..start + TEAM_COLOR_RECORD))
-            .with_context(|| format!("TeamColor.bin has no record for team {team_id}"))?;
-        let (slots, _) = record[TEAM_COLOR_HEADER..].as_chunks_mut::<3>();
+        let record = self.records.record_mut(team_id)?;
+        let (slots, _) = record[HEADER..].as_chunks_mut::<3>();
         for (slot, color) in slots.iter_mut().zip(colors) {
             *slot = *color;
         }
@@ -93,7 +149,117 @@ impl TeamColorBin {
 
     /// The bin's bytes.
     pub(crate) fn into_bytes(self) -> Vec<u8> {
-        self.bytes
+        self.records.bytes
+    }
+}
+
+/// One kit's entry in its team's `UniColor.bin` record.
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) struct KitColorEntry {
+    /// The kit's number: 0 to 8 for `p1` to `p9`, 0x10 for `g1` (`kit_number`).
+    pub(crate) kit: u8,
+    /// The menu icon's number.
+    pub(crate) icon: u8,
+    /// The kit's two menu colors.
+    pub(crate) colors: [Rgb; KIT_COLORS],
+}
+
+impl KitColorEntry {
+    /// The entry as the record holds it: kit number, icon number, then the colors.
+    fn bytes(&self) -> [u8; KIT_ENTRY] {
+        let [first, second] = self.colors;
+        let mut bytes = [0; KIT_ENTRY];
+        bytes[0] = self.kit;
+        bytes[1] = self.icon;
+        bytes[2..5].copy_from_slice(&first);
+        bytes[5..].copy_from_slice(&second);
+        bytes
+    }
+}
+
+/// The number `UniColor.bin` gives the kit in `slot`: player kits count from 0, the goalkeeper
+/// kit is 0x10.
+pub(crate) fn kit_number(slot: KitSlot) -> u8 {
+    match slot {
+        KitSlot::P1 => 0,
+        KitSlot::P2 => 1,
+        KitSlot::P3 => 2,
+        KitSlot::P4 => 3,
+        KitSlot::P5 => 4,
+        KitSlot::P6 => 5,
+        KitSlot::P7 => 6,
+        KitSlot::P8 => 7,
+        KitSlot::P9 => 8,
+        KitSlot::G1 => 0x10,
+    }
+}
+
+/// A `UniColor.bin` being edited.
+pub(crate) struct UniColorBin {
+    records: Records,
+}
+
+impl UniColorBin {
+    /// `bytes` as a bin; a length that is not a whole number of 85-byte records is an error,
+    /// and so is a bin with more records than a `u16` has team IDs from 100.
+    pub(crate) fn read(bytes: Vec<u8>) -> anyhow::Result<UniColorBin> {
+        Ok(UniColorBin {
+            records: Records::read("UniColor.bin", UNI_COLOR_RECORD, bytes)?,
+        })
+    }
+
+    /// Sets every record's team ID from its position (`100 + index`) and returns the IDs of
+    /// the teams whose ID was not that already, ascending. The kit count is not part of the
+    /// header: it varies by record.
+    pub(crate) fn repair_headers(&mut self) -> Vec<u16> {
+        self.records
+            .repair_headers(|team_id| u32::from(team_id).to_le_bytes())
+    }
+
+    /// Merges `entry` into `team_id`'s record: the record's counted entries are its kits,
+    /// keyed by kit number, and `entry` replaces the one of its number or joins them. The
+    /// record is written again with its count, its kits in ascending kit number, then unused
+    /// entries; past ten kits the highest-numbered are left out. A record whose counted
+    /// entries repeat a kit number holds no kit (the base game's placeholder, ten white
+    /// entries numbered 0). A team with no record is an error.
+    pub(crate) fn set_kit(&mut self, team_id: u16, entry: &KitColorEntry) -> anyhow::Result<()> {
+        let record = self.records.record_mut(team_id)?;
+        let (count, entries) = record[HEADER..]
+            .split_first_mut()
+            .expect("a record holds its kit count after its header");
+        // The rest of the record is exactly `KIT_ENTRIES` entries.
+        let (entries, _) = entries.as_chunks_mut::<KIT_ENTRY>();
+        let counted = usize::from(*count).min(KIT_ENTRIES);
+        let mut kits = held_kits(&entries[..counted]);
+        kits.retain(|kit| kit[0] != entry.kit);
+        kits.push(entry.bytes());
+        kits.sort_by_key(|kit| kit[0]);
+        kits.truncate(KIT_ENTRIES);
+        *count = u8::try_from(kits.len()).expect("a record holds at most ten kits");
+        let written = kits.into_iter().chain(std::iter::repeat(UNUSED_KIT));
+        for (slot, kit) in entries.iter_mut().zip(written) {
+            *slot = kit;
+        }
+        Ok(())
+    }
+
+    /// The bin's bytes.
+    pub(crate) fn into_bytes(self) -> Vec<u8> {
+        self.records.bytes
+    }
+}
+
+/// The kits a record's `counted` entries hold: the entries themselves, or none when two of them
+/// share a kit number, which is the base game's placeholder for a team with no kit colors.
+fn held_kits(counted: &[[u8; KIT_ENTRY]]) -> Vec<[u8; KIT_ENTRY]> {
+    let repeats = counted
+        .iter()
+        .enumerate()
+        .any(|(index, kit)| counted[..index].iter().any(|earlier| earlier[0] == kit[0]));
+    if repeats {
+        Vec::new()
+    } else {
+        counted.to_vec()
     }
 }
 
@@ -101,6 +267,8 @@ impl TeamColorBin {
 pub(crate) struct WorkingBins {
     /// `TeamColor.bin`.
     pub(crate) team_color: Vec<u8>,
+    /// `UniColor.bin`.
+    pub(crate) uni_color: Vec<u8>,
 }
 
 impl WorkingBins {
@@ -108,6 +276,7 @@ impl WorkingBins {
     pub(crate) fn bundled() -> WorkingBins {
         WorkingBins {
             team_color: templates::TEAM_COLOR.to_vec(),
+            uni_color: templates::UNI_COLOR.to_vec(),
         }
     }
 }
@@ -220,5 +389,225 @@ mod tests {
         assert_eq!(bins.team_color.len(), 821 * TEAM_COLOR_RECORD);
         let mut bin = TeamColorBin::read(bins.team_color).unwrap();
         assert_eq!(bin.repair_headers(), Vec::<u16>::new());
+    }
+
+    /// The bundled `UniColor.bin`'s record of team `team_id`, 85 bytes.
+    fn base_record(team_id: usize) -> Vec<u8> {
+        let start = (team_id - 100) * UNI_COLOR_RECORD;
+        templates::UNI_COLOR[start..start + UNI_COLOR_RECORD].to_vec()
+    }
+
+    /// A record of team `team_id` (as its four ID bytes) with the kit count `count` and the
+    /// `entries`, padded to ten with unused entries.
+    fn uni_record(team_id: u16, count: u8, entries: &[[u8; KIT_ENTRY]]) -> Vec<u8> {
+        let mut record = u32::from(team_id).to_le_bytes().to_vec();
+        record.push(count);
+        for index in 0..KIT_ENTRIES {
+            record.extend(entries.get(index).unwrap_or(&UNUSED_KIT));
+        }
+        record
+    }
+
+    /// The bin holding the one record `record`, of team 100.
+    fn one_record_bin(record: Vec<u8>) -> UniColorBin {
+        UniColorBin::read(record).unwrap()
+    }
+
+    /// The entry of kit `kit`, its icon and both colors filled with `kit`, so each entry is
+    /// told apart by its bytes.
+    fn kit(kit: u8) -> [u8; KIT_ENTRY] {
+        [kit, 3, kit, kit, kit, kit, kit, kit]
+    }
+
+    /// The tracer's goalkeeper kit: icon 11, `#c11200` and `#414141`.
+    fn tracer_g1() -> KitColorEntry {
+        KitColorEntry {
+            kit: 0x10,
+            icon: 11,
+            colors: [[0xc1, 0x12, 0x00], [0x41, 0x41, 0x41]],
+        }
+    }
+
+    /// Team 714's record in the bundled base, a past cup's eight kits, as its entries.
+    fn team_714_entries() -> Vec<[u8; KIT_ENTRY]> {
+        vec![
+            [0x00, 0x03, 0xaa, 0x00, 0x00, 0xc6, 0x93, 0x16],
+            [0x01, 0x03, 0x08, 0x2d, 0xa2, 0xec, 0x00, 0x00],
+            [0x02, 0x03, 0x13, 0x2d, 0x3f, 0x8c, 0x09, 0x08],
+            [0x03, 0x03, 0x12, 0x09, 0x0a, 0xf4, 0x3c, 0x6e],
+            [0x04, 0x03, 0x8c, 0x8a, 0x60, 0x4a, 0x34, 0x23],
+            [0x05, 0x03, 0x00, 0x00, 0x00, 0xe6, 0xb4, 0x00],
+            [0x06, 0x03, 0xe6, 0xc3, 0x00, 0x00, 0x00, 0x23],
+            [0x10, 0x03, 0x99, 0x00, 0x00, 0x00, 0x00, 0x00],
+        ]
+    }
+
+    /// The bundled base, read, with team `team_id`'s record after `set_kit` of each of
+    /// `entries` in turn.
+    fn base_record_after(team_id: u16, entries: &[KitColorEntry]) -> Vec<u8> {
+        let mut bin = UniColorBin::read(templates::UNI_COLOR.to_vec()).unwrap();
+        for entry in entries {
+            bin.set_kit(team_id, entry).unwrap();
+        }
+        let start = usize::from(team_id - 100) * UNI_COLOR_RECORD;
+        bin.into_bytes()[start..start + UNI_COLOR_RECORD].to_vec()
+    }
+
+    #[test]
+    fn a_uni_color_bin_is_a_whole_number_of_85_byte_records() {
+        let error = UniColorBin::read(vec![0; 86]).err().expect("86 bytes");
+        assert_eq!(
+            error.to_string(),
+            "UniColor.bin is 86 bytes, not a whole number of 85-byte records"
+        );
+        assert!(UniColorBin::read(vec![0; 170]).is_ok());
+    }
+
+    #[test]
+    fn a_uni_color_record_whose_id_bytes_are_wrong_gets_them_back_and_keeps_the_rest() {
+        let sound = [
+            uni_record(100, 2, &[kit(0), kit(1)]),
+            uni_record(101, 8, &[kit(5)]),
+        ]
+        .concat();
+        let mut bin = UniColorBin::read(sound.clone()).unwrap();
+        assert_eq!(
+            bin.repair_headers(),
+            Vec::<u16>::new(),
+            "a count of 2 or 8 is no header"
+        );
+        assert_eq!(bin.into_bytes(), sound);
+
+        let mut broken = sound.clone();
+        broken[85..89].copy_from_slice(&[0xc1, 0x12, 0x00, 0x41]);
+        let mut bin = UniColorBin::read(broken.clone()).unwrap();
+        assert_eq!(bin.repair_headers(), [101]);
+        let repaired = bin.into_bytes();
+        assert_eq!(repaired[85..89], [0x65, 0x00, 0x00, 0x00]);
+        assert_eq!(repaired[89..], broken[89..], "the other 81 bytes are kept");
+        assert_eq!(repaired[..85], sound[..85], "the sound record is unchanged");
+    }
+
+    #[test]
+    fn a_kit_set_on_a_placeholder_record_is_its_only_kit_and_a_second_joins_it_in_order() {
+        let mut expected = base_record(790);
+        assert_eq!(
+            expected[..13],
+            [
+                0x16, 0x03, 0x00, 0x00, 0x02, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
+            ],
+            "the base's placeholder"
+        );
+        let g1 = [0x10, 0x0b, 0xc1, 0x12, 0x00, 0x41, 0x41, 0x41];
+        expected = uni_record(790, 1, &[g1]);
+        assert_eq!(base_record_after(790, &[tracer_g1()]), expected);
+
+        let p1 = KitColorEntry {
+            kit: 0,
+            icon: 3,
+            colors: [[1, 2, 3], [4, 5, 6]],
+        };
+        assert_eq!(
+            base_record_after(790, &[tracer_g1(), p1]),
+            uni_record(790, 2, &[[0, 3, 1, 2, 3, 4, 5, 6], g1])
+        );
+    }
+
+    #[test]
+    fn a_kit_replaces_the_entry_of_its_number_or_joins_the_others_in_order() {
+        let entries = team_714_entries();
+        assert_eq!(
+            base_record(714),
+            uni_record(714, 8, &entries),
+            "the base's record"
+        );
+
+        let p2 = KitColorEntry {
+            kit: 1,
+            icon: 7,
+            colors: [[0x11; 3], [0x22; 3]],
+        };
+        let mut replaced = entries.clone();
+        replaced[1] = [0x01, 0x07, 0x11, 0x11, 0x11, 0x22, 0x22, 0x22];
+        assert_eq!(base_record_after(714, &[p2]), uni_record(714, 8, &replaced));
+
+        let p9 = KitColorEntry {
+            kit: 8,
+            icon: 3,
+            colors: [[0x33; 3], [0x44; 3]],
+        };
+        let mut joined = entries.clone();
+        joined.insert(7, [0x08, 0x03, 0x33, 0x33, 0x33, 0x44, 0x44, 0x44]);
+        assert_eq!(base_record_after(714, &[p9]), uni_record(714, 9, &joined));
+    }
+
+    #[test]
+    fn past_ten_kits_the_highest_numbered_are_left_out() {
+        let held: Vec<[u8; KIT_ENTRY]> = (0..8).chain([0x10, 0x11]).map(kit).collect();
+        let mut bin = one_record_bin(uni_record(100, 10, &held));
+        let p9 = KitColorEntry {
+            kit: 8,
+            icon: 3,
+            colors: [[8; 3], [8; 3]],
+        };
+        bin.set_kit(100, &p9).unwrap();
+        let expected: Vec<[u8; KIT_ENTRY]> = (0..9).chain([0x10]).map(kit).collect();
+        assert_eq!(bin.into_bytes(), uni_record(100, 10, &expected));
+    }
+
+    #[test]
+    fn a_count_over_ten_is_read_as_the_record_s_ten_entries() {
+        let held: Vec<[u8; KIT_ENTRY]> = (0..10).map(kit).collect();
+        let mut bin = one_record_bin(uni_record(100, 0xff, &held));
+        let replaced = KitColorEntry {
+            kit: 9,
+            icon: 1,
+            colors: [[0xab; 3], [0xcd; 3]],
+        };
+        bin.set_kit(100, &replaced).unwrap();
+        let mut expected = held;
+        expected[9] = [9, 1, 0xab, 0xab, 0xab, 0xcd, 0xcd, 0xcd];
+        assert_eq!(bin.into_bytes(), uni_record(100, 10, &expected));
+    }
+
+    #[test]
+    fn a_kit_for_a_team_with_no_uni_color_record_is_an_error() {
+        let mut bin = UniColorBin::read(templates::UNI_COLOR.to_vec()).unwrap();
+        for team_id in [99, 921] {
+            let error = bin.set_kit(team_id, &tracer_g1()).unwrap_err();
+            assert_eq!(
+                error.to_string(),
+                format!("UniColor.bin has no record for team {team_id}")
+            );
+        }
+        assert_eq!(bin.into_bytes(), templates::UNI_COLOR);
+    }
+
+    #[test]
+    fn the_bundled_uni_color_base_holds_teams_100_to_920_with_sound_headers() {
+        let bins = WorkingBins::bundled();
+        assert_eq!(bins.uni_color.len(), 821 * UNI_COLOR_RECORD);
+        let mut bin = UniColorBin::read(bins.uni_color).unwrap();
+        assert_eq!(bin.repair_headers(), Vec::<u16>::new());
+    }
+
+    #[test]
+    fn each_kit_slot_has_its_uni_color_number() {
+        let numbers: Vec<u8> = [
+            KitSlot::P1,
+            KitSlot::P2,
+            KitSlot::P3,
+            KitSlot::P4,
+            KitSlot::P5,
+            KitSlot::P6,
+            KitSlot::P7,
+            KitSlot::P8,
+            KitSlot::P9,
+            KitSlot::G1,
+        ]
+        .into_iter()
+        .map(kit_number)
+        .collect();
+        assert_eq!(numbers, [0, 1, 2, 3, 4, 5, 6, 7, 8, 0x10]);
     }
 }

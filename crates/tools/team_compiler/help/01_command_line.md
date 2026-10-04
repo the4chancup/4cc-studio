@@ -177,13 +177,21 @@ root one, as the warning `color_entry_invalid`, naming the line and the reason. 
 skipped and the rest of the file is still read. `compile` writes the team's colors into the
 game's team color file, which the menus and the scoreboard show; a color the file does not
 give keeps the one the team had. A team export with no root `colors.txt` keeps all the colors
-the team had, and `compile` says so with the note `team_colors_missing`. In this version
-`compile` does not write the kit colors into the game yet.
+the team had, and `compile` says so with the note `team_colors_missing`.
 
-When the team color file `compile` starts from has damaged entries (a team's colors written
-over the start of its entry, so the game no longer finds that team), `compile` repairs them
-and reports the warning `bin_header_repaired`, naming the file and the teams. Those teams'
-colors may be wrong until their exports are compiled again.
+`compile` also writes each kit's two colors and its icon into the game's kit color file, which
+the kit selection menu and the scoreboard show. The icon is the number of the kit's `icon_<N>`
+marker, or icon 3 when the kit has none. A kit whose `colors.txt` is missing or gives fewer
+than two colors has its colors taken from its main texture, and `compile` says so with the
+note `kit_colors_derived`. A kit with no main texture to take them from (an empty kit folder,
+or one holding only other textures) gets magenta and black, so the gap shows in the game's
+menus, with the warning `kit_colors_missing`. A kit the export does not hold keeps the colors
+and icon it had.
+
+When the team color file or the kit color file `compile` starts from has damaged entries (a
+team's colors written over the start of its entry, so the game no longer finds that team),
+`compile` repairs them and reports the warning `bin_header_repaired`, naming the file and the
+teams. Those teams' colors may be wrong until their exports are compiled again.
 
 Both commands read every export in the exports folder from the settings (`exports/` beside
 `4cc-studio` unless you changed it). To use another folder for one run, give its path as

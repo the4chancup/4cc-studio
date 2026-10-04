@@ -12,7 +12,7 @@ use pes_version::PesVersion;
 use studio_core::{Disposition, Message, Scope};
 use uniparam::UniformParameter;
 
-use crate::bins::{Rgb, TeamColorBin, WorkingBins};
+use crate::bins::{KitColorEntry, Rgb, TeamColorBin, UniColorBin, WorkingBins};
 use crate::messages::{Code, tool_message};
 use crate::paths;
 use crate::processing::TaskBatch;
@@ -35,6 +35,8 @@ pub(crate) struct CpkOutput {
     pending: BTreeMap<usize, TaskBatch>,
     /// The committed kits' `UniformParameter.bin` entries.
     uniform_parameters: Vec<(String, Vec<u8>)>,
+    /// The committed kits' `UniColor.bin` entries, each with its team ID, in commit order.
+    kit_colors: Vec<(u16, KitColorEntry)>,
 }
 
 impl CpkOutput {
@@ -46,6 +48,7 @@ impl CpkOutput {
             next: 0,
             pending: BTreeMap::new(),
             uniform_parameters: Vec::new(),
+            kit_colors: Vec::new(),
         }
     }
 
@@ -123,10 +126,12 @@ impl CpkOutput {
 
     /// Writes the bins and closes the CPK: `UniformParameter.bin` when a kit committed, then
     /// `TeamColor.bin`, built on `bins`' with every record's header set from its position and
-    /// each of `team_colors` (team id, colors) set in its team's record. Returns whether a CPK
-    /// was written, `false` when no batch committed anything (then no file exists and no bin
-    /// is built), and the findings to report: `bin_header_repaired` naming the teams whose
-    /// header the working bin had wrong.
+    /// each of `team_colors` (team id, colors) set in its team's record, then `UniColor.bin`,
+    /// built on `bins`' the same way with each committed kit's entry merged into its team's
+    /// record in commit order. Returns whether a CPK was written, `false` when no batch
+    /// committed anything (then no file exists and no bin is built), and the findings to
+    /// report: one `bin_header_repaired` per working bin that had a header wrong, naming the
+    /// teams.
     pub(crate) fn finish(
         mut self,
         version: PesVersion,
@@ -156,23 +161,17 @@ impl CpkOutput {
         }
         let mut messages = Vec::new();
         let mut bin = TeamColorBin::read(bins.team_color)?;
-        let repaired = bin.repair_headers();
-        if !repaired.is_empty() {
-            let teams: Vec<String> = repaired.iter().map(u16::to_string).collect();
-            messages.push(tool_message(
-                Code::BinHeaderRepaired,
-                Scope::Run,
-                Disposition::Keep,
-                vec![
-                    ("bin", "TeamColor.bin".to_owned()),
-                    ("teams", teams.join(", ")),
-                ],
-            ));
-        }
+        messages.extend(header_repaired("TeamColor.bin", &bin.repair_headers()));
         for (team_id, colors) in team_colors {
             bin.set_colors(*team_id, colors)?;
         }
         self.add(paths::TEAM_COLOR, &bin.into_bytes())?;
+        let mut bin = UniColorBin::read(bins.uni_color)?;
+        messages.extend(header_repaired("UniColor.bin", &bin.repair_headers()));
+        for (team_id, entry) in std::mem::take(&mut self.kit_colors) {
+            bin.set_kit(team_id, &entry)?;
+        }
+        self.add(paths::UNI_COLOR, &bin.into_bytes())?;
         let cpk = self
             .cpk
             .expect("the CPK was created before the bins were added");
@@ -181,7 +180,8 @@ impl CpkOutput {
         Ok((true, messages))
     }
 
-    /// A failed task contributes nothing: no entry, and no kit config to the bins.
+    /// A failed task contributes nothing: no entry, and no kit config or kit colors to the
+    /// bins.
     fn commit(&mut self, batch: TaskBatch) -> anyhow::Result<()> {
         if batch.entries.is_empty() {
             return Ok(());
@@ -190,6 +190,7 @@ impl CpkOutput {
             self.add(path, bytes)?;
         }
         self.uniform_parameters.extend(batch.uniparam);
+        self.kit_colors.extend(batch.uni_color);
         // The task's bytes are in the CPK now, so the memory they were charged is free.
         drop(batch.permit);
         Ok(())
@@ -214,6 +215,21 @@ impl CpkOutput {
         let file = File::create(&self.path).with_context(cannot_create)?;
         CpkWriter::new(file, TOOL_VERSION).with_context(cannot_create)
     }
+}
+
+/// The `bin_header_repaired` finding for the working bin `bin` whose headers were wrong for
+/// the `repaired` teams; none when every header was sound.
+fn header_repaired(bin: &str, repaired: &[u16]) -> Option<Message> {
+    if repaired.is_empty() {
+        return None;
+    }
+    let teams: Vec<String> = repaired.iter().map(u16::to_string).collect();
+    Some(tool_message(
+        Code::BinHeaderRepaired,
+        Scope::Run,
+        Disposition::Keep,
+        vec![("bin", bin.to_owned()), ("teams", teams.join(", "))],
+    ))
 }
 
 #[cfg(test)]
@@ -251,6 +267,7 @@ mod tests {
             group: None,
             skipped: Vec::new(),
             uniparam: uniparam.map(|name| (name.to_owned(), vec![7; 120])),
+            uni_color: None,
             messages: vec![note(index)],
             permit: None,
         }
@@ -313,6 +330,7 @@ mod tests {
                 "kit/kit.ftex",
                 paths::UNIFORM_PARAMETER,
                 paths::TEAM_COLOR,
+                paths::UNI_COLOR,
             ]
         );
         assert_eq!(reported, [0, 1, 2, 3, 4, 5]);
@@ -336,6 +354,7 @@ mod tests {
                 "kit/kit.ftex",
                 paths::UNIFORM_PARAMETER,
                 paths::TEAM_COLOR,
+                paths::UNI_COLOR,
             ]
         );
         assert_eq!(reported, [0, 1, 2, 3, 4, 5]);
@@ -353,6 +372,7 @@ mod tests {
                 "kit/kit.ftex",
                 paths::UNIFORM_PARAMETER,
                 paths::TEAM_COLOR,
+                paths::UNI_COLOR,
             ]
         );
     }
@@ -381,6 +401,7 @@ mod tests {
                 "kit/kit.ftex",
                 paths::UNIFORM_PARAMETER,
                 paths::TEAM_COLOR,
+                paths::UNI_COLOR,
             ]
         );
         assert_eq!(reported, [0, 1, 2, 3, 4, 5]);
@@ -404,6 +425,7 @@ mod tests {
                 "kit/kit.ftex",
                 paths::UNIFORM_PARAMETER,
                 paths::TEAM_COLOR,
+                paths::UNI_COLOR,
             ]
         );
     }
@@ -442,6 +464,7 @@ mod tests {
                 "kit/kit.ftex",
                 paths::UNIFORM_PARAMETER,
                 paths::TEAM_COLOR,
+                paths::UNI_COLOR,
             ]
         );
     }
@@ -498,6 +521,7 @@ mod tests {
                 "a/first.bin",
                 paths::UNIFORM_PARAMETER,
                 paths::TEAM_COLOR,
+                paths::UNI_COLOR,
             ]
         );
         let mut archive = CpkArchive::open(File::open(&path).unwrap()).unwrap();
@@ -664,6 +688,7 @@ mod tests {
             "writer_team_color_repaired",
             WorkingBins {
                 team_color: broken.clone(),
+                ..WorkingBins::bundled()
             },
         );
         assert_eq!(bin[record..record + 4], [0x1f, 0x03, 0x04, 0x00]);
@@ -713,5 +738,141 @@ mod tests {
             assert_eq!(finished, (false, Vec::new()), "{name}");
             assert!(!folder.exists(), "{name}: no file and no folder");
         }
+    }
+
+    /// The start of team `team_id`'s `UniColor.bin` record.
+    fn kit_record(team_id: usize) -> usize {
+        (team_id - 100) * 85
+    }
+
+    /// The tracer's goalkeeper kit's entry: icon 11, `#c11200` and `#414141`.
+    fn tracer_g1() -> KitColorEntry {
+        KitColorEntry {
+            kit: 0x10,
+            icon: 11,
+            colors: [[0xc1, 0x12, 0x00], [0x41, 0x41, 0x41]],
+        }
+    }
+
+    /// The kit batch at `index` of team 792's goalkeeper kit, its entries `paths` (empty for a
+    /// failed task).
+    fn kit_batch(index: usize, paths: &[&str]) -> TaskBatch {
+        TaskBatch {
+            uni_color: Some((792, tracer_g1())),
+            ..batch(index, paths, Some("kit"))
+        }
+    }
+
+    /// `batches` submitted in order and finished for PES 21 on `bins` with no team colors: the
+    /// CPK's `UniColor.bin` and the findings `finish` returned.
+    fn uni_color_run(
+        name: &str,
+        batches: Vec<TaskBatch>,
+        bins: WorkingBins,
+    ) -> (Vec<u8>, Vec<Message>) {
+        let temp = scratch(name);
+        let path = temp.path().join("cup.cpk");
+        let mut output = CpkOutput::new(path.clone());
+        for batch in batches {
+            output.submit(batch).unwrap();
+        }
+        let (written, messages) = output.finish(PesVersion::Pes21, bins, &[]).unwrap();
+        assert!(written);
+        let mut archive = CpkArchive::open(File::open(&path).unwrap()).unwrap();
+        let entry = archive
+            .entries()
+            .iter()
+            .find(|entry| entry.path == paths::UNI_COLOR)
+            .unwrap()
+            .clone();
+        (archive.read(&entry).unwrap(), messages)
+    }
+
+    #[test]
+    fn uni_color_bin_is_the_working_bin_with_each_committed_kit_s_entry_merged() {
+        let (bin, messages) = uni_color_run(
+            "writer_uni_color",
+            vec![kit_batch(0, &["kit/kit.ftex"])],
+            WorkingBins::bundled(),
+        );
+
+        assert_eq!(messages, []);
+        // Team 792's placeholder record now holds the one kit, then nine unused entries.
+        let mut record = vec![0x18, 0x03, 0x00, 0x00, 0x01];
+        record.extend([0x10, 0x0b, 0xc1, 0x12, 0x00, 0x41, 0x41, 0x41]);
+        for _ in 0..9 {
+            record.extend([0xff, 0, 0, 0, 0, 0, 0, 0]);
+        }
+        let mut expected = WorkingBins::bundled().uni_color;
+        let start = kit_record(792);
+        expected[start..start + 85].copy_from_slice(&record);
+        assert!(bin == expected, "only team 792's record differs");
+    }
+
+    #[test]
+    fn a_failed_kit_task_leaves_uni_color_bin_as_the_working_bin() {
+        let (bin, messages) = uni_color_run(
+            "writer_uni_color_failed",
+            vec![kit_batch(0, &[]), batch(1, &["a/b.bin"], None)],
+            WorkingBins::bundled(),
+        );
+
+        assert_eq!(messages, []);
+        assert!(
+            bin == WorkingBins::bundled().uni_color,
+            "the failed kit's entry is not applied"
+        );
+    }
+
+    #[test]
+    fn each_working_color_bin_s_broken_header_is_reported_teamcolor_first() {
+        let mut bins = WorkingBins::bundled();
+        let team = team_record(799);
+        bins.team_color[team..team + 4].copy_from_slice(&[0xc1, 0x12, 0x00, 0x41]);
+        let kits = kit_record(799);
+        bins.uni_color[kits..kits + 4].copy_from_slice(&[0xc1, 0x12, 0x00, 0x41]);
+
+        let (bin, messages) = uni_color_run(
+            "writer_uni_color_repaired",
+            vec![batch(0, &["a/b.bin"], None)],
+            bins,
+        );
+
+        assert_eq!(bin[kits..kits + 4], [0x1f, 0x03, 0x00, 0x00]);
+        let contexts: Vec<(&str, &[(String, String)])> = messages
+            .iter()
+            .map(|message| (message.code.code.as_ref(), message.context.as_slice()))
+            .collect();
+        assert_eq!(
+            contexts,
+            [
+                (
+                    "bin_header_repaired",
+                    &[
+                        ("bin".to_owned(), "TeamColor.bin".to_owned()),
+                        ("teams".to_owned(), "799".to_owned())
+                    ][..]
+                ),
+                (
+                    "bin_header_repaired",
+                    &[
+                        ("bin".to_owned(), "UniColor.bin".to_owned()),
+                        ("teams".to_owned(), "799".to_owned())
+                    ][..]
+                ),
+            ]
+        );
+        assert_eq!(
+            (
+                messages[1].severity,
+                messages[1].disposition,
+                &messages[1].scope
+            ),
+            (
+                studio_core::Severity::Warning,
+                Disposition::Keep,
+                &Scope::Run
+            )
+        );
     }
 }

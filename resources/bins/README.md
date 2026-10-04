@@ -26,6 +26,13 @@ record starts at `(id - 100) * record size`. Both bases hold 821 records, teams 
   kit number (player kits count from 0, goalkeeper kits from 0x10; 0xFF marks an unused entry,
   the rest of which is zero), menu icon number, and two colors of three bytes each.
 
+The `UniColor.bin` base holds two kinds of record. Teams 701 to 771 (71 records) carry a past
+cup's kits: a count of 3 to 10, entries in ascending kit number, unused entries after them.
+The other 750 are the base game's placeholder for a team with no kit colors: a count of 2 over
+ten identical entries, kit number 0, icon 0, both colors white (`00 00 FF FF FF FF FF FF`). The
+Team compiler reads a placeholder as holding no kit (Team compiler plan, `pipeline.md` "Bins
+accumulation"). Measured on 2026-10-04.
+
 All integers are little-endian. The cup's own files in each install's `4cc_08_bins.cpk` have
 the same layout (`scripts/provenance/fixtures/color_bins_compare.py`): PES 15, 16, 17, 19
 and 21 hold 821 records each, and PES 18's and PES 20's CPKs hold neither file. PES 21's are

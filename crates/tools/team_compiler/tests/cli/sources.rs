@@ -8,6 +8,7 @@ use pes_version::PesVersion;
 
 use crate::common::Sandbox;
 use crate::compile::{compiled_players, cpk_entries, kit_texture, pes21_settings};
+use crate::compile_exports::{UNI_COLOR, bundled_uni_color, uni_record, with_uni_record};
 use crate::{CLEAN_PLAYER, clean_model, findings_of, snapshot, source_fixture};
 
 /// The folder `exports/co - Spring/`, the same export as the `co - Spring` fixtures: git keeps no
@@ -67,6 +68,7 @@ fn one_export_as_a_folder_a_zip_and_a_7z_reports_and_compiles_the_same() {
                 "Info team_colors_missing [Keep] ()",
                 "Info kit_config_generated [Keep] at Kits/p2 ()",
                 "Info kit_placeholder [Keep] at Kits/p2 ()",
+                "Warning kit_colors_missing [Keep] at Kits/p2 ()",
             ])
             .collect();
         assert_eq!(findings_of(&lines, source), expected, "{lines:#?}");
@@ -101,6 +103,7 @@ fn one_export_as_a_folder_a_zip_and_a_7z_reports_and_compiles_the_same() {
         [
             kit_texture("u0714p2"),
             "common/character0/model/character/uniform/team/714/714_DEF_2nd_realUni.bin".to_owned(),
+            "common/character0/model/character/uniform/team/UniColor.bin".to_owned(),
             "common/character0/model/character/uniform/team/UniformParameter.bin".to_owned(),
             "common/etc/TeamColor.bin".to_owned(),
         ]
@@ -113,6 +116,26 @@ fn one_export_as_a_folder_a_zip_and_a_7z_reports_and_compiles_the_same() {
     assert_eq!(
         archives[0]["common/character0/model/character/uniform/team/714/714_DEF_2nd_realUni.bin"],
         config
+    );
+}
+
+// TC-BIN-02
+#[test]
+fn the_empty_kit_folder_of_tc_src_01_s_export_gets_magenta_black_and_icon_3() {
+    let sandbox = Sandbox::new("same_export_kit_colors");
+    spring_folder(&sandbox);
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+    assert_eq!(run.exit_code(), 1, "the roster line naming no folder");
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    // p2 is kit 1, the second of team 714's eight kits in the base: replaced in place.
+    let base = bundled_uni_color();
+    let mut record = uni_record(&base, 714).to_vec();
+    record[13..21].copy_from_slice(&[0x01, 0x03, 0xff, 0x00, 0xff, 0x00, 0x00, 0x00]);
+    assert!(
+        entries[UNI_COLOR] == with_uni_record(&base, 714, &record),
+        "UniColor.bin is the base with p2's entry magenta, black and icon 3"
     );
 }
 

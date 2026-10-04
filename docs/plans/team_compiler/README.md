@@ -910,7 +910,7 @@ TC-KIT-12  GIVEN p1/colors.txt holding one valid entry and one unparsable line
 TC-KIT-13  GIVEN a p1/icon_7 marker, and p2 without an icon marker
            WHEN the export is compiled
            THEN p1's UniColor entry carries icon 7 and p2's icon 3
-TC-KIT-14  GIVEN a kit whose task fails (its config.toml is not UTF-8)
+TC-KIT-14  GIVEN a kit whose task fails (its kit.dds holds bytes no decoder reads)
            WHEN the export is compiled
            THEN that kit has no UniColor entry change and no UniformParameter entry; the other kits'
                 entries are written

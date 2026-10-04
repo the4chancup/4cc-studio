@@ -1,30 +1,54 @@
 //! One kit (`team_compiler/pipeline.md` "4. Per-export non-model steps", Kits): its textures as
-//! FTEX under the kit's game names, and its config encoded with those names.
+//! FTEX under the kit's game names, its config encoded with those names, and its menu colors
+//! and icon as its `UniColor.bin` entry ("Bins accumulation", "Kit colors fallback").
 
-use aesthetics_export::KitFolder;
+use aesthetics_export::{KitFolder, read_colors_txt};
 use anyhow::Context;
+use dds_convert::{SourceFormat, decode};
 use kit_config::{KitConfig, KitSlot, TexturePresence, texture_names};
+use studio_core::Disposition;
 
-use super::{CompileContext, Entry, TaskFailure, TaskFiles, take, texture};
+use super::{CompileContext, Entry, Finding, TaskFailure, TaskFiles, take, texture};
+use crate::bins::{KIT_COLORS, KitColorEntry, Rgb, kit_number};
+use crate::messages::Code;
 use crate::paths;
 use crate::plan::subset::{KIT_TEXTURE_STEMS, texture_format};
 use crate::templates::PLACEHOLDER_KIT;
 
+/// The menu icon of a kit without an `icon_<N>` marker.
+const DEFAULT_ICON: u8 = 3;
+
+/// The menu colors of a kit with none to give: magenta, then black. A pair nobody would pick,
+/// so the gap shows in the game's menus instead of looking chosen; it matches the placeholder
+/// texture's checkerboard.
+const MISSING_COLORS: [Rgb; KIT_COLORS] = [[255, 0, 255], [0, 0, 0]];
+
 /// The kit `kit` in `slot` of team `team_id`, compiled for the run's version from its files'
-/// bytes in `files`: its textures and its config as CPK entries, and the config as a
-/// `UniformParameter.bin` entry (name, bytes). A kit without a `kit` texture gets the bundled
-/// placeholder as its main texture, converted like any kit texture. The deep pass has already
-/// dropped a kit whose `config.toml` does not parse (`kit_config_invalid`) or whose textures
-/// its checks find wrong, so a config that fails to parse here is an ordinary failure; a
-/// finding conversion reports (`texture_codec_unsupported`) fails the kit with the finding's
-/// code: the config names its textures, so none goes out alone.
+/// bytes in `files`: its textures and its config as CPK entries, the config as a
+/// `UniformParameter.bin` entry (name, bytes), and its `UniColor.bin` entry. A kit without a
+/// `kit` texture gets the bundled placeholder as its main texture, converted like any kit
+/// texture. The deep pass has already dropped a kit whose `config.toml` does not parse
+/// (`kit_config_invalid`) or whose textures its checks find wrong, so a config that fails to
+/// parse here is an ordinary failure; a finding conversion reports
+/// (`texture_codec_unsupported`) fails the kit with the finding's code: the config names its
+/// textures, so none goes out alone.
+///
+/// The entry's colors are the two its `colors.txt` gives (the lines it refuses are the deep
+/// pass's to report); else the two its main texture gives, its own or one inherited from
+/// `all/`, noted in `findings` as `kit_colors_derived`; else, for a placeholder kit or a main
+/// texture that gives none, magenta and black, noted as `kit_colors_missing`.
 pub(super) fn kit(
     slot: KitSlot,
     kit: &KitFolder,
     team_id: u16,
     ctx: &CompileContext,
     files: &mut TaskFiles,
-) -> Result<(Vec<Entry>, Entry), TaskFailure> {
+    findings: &mut Vec<Finding>,
+) -> Result<(Vec<Entry>, Entry, KitColorEntry), TaskFailure> {
+    let listed = kit
+        .colors
+        .as_ref()
+        .and_then(|file| listed_colors(&take(files, file)));
     let has = |stem: &str| kit.textures.iter().any(|texture| texture.stem == stem);
     let names = texture_names(
         team_id,
@@ -40,6 +64,7 @@ pub(super) fn kit(
         },
     );
 
+    let mut derived = None;
     let mut entries = Vec::new();
     for (stem, field) in KIT_TEXTURE_STEMS.iter().zip(&names) {
         let texture = kit.textures.iter().find(|texture| texture.stem == *stem);
@@ -53,6 +78,11 @@ pub(super) fn kit(
             .trim_end_matches('\0');
         let format = texture_format(file_name)
             .expect("a kit texture is classified by an extension `dds_convert` accepts");
+        // Only the kit's own main texture gives colors, never the placeholder: its
+        // checkerboard is no color anybody chose.
+        if listed.is_none() && *stem == "kit" && texture.is_some() {
+            derived = derived_colors(format, file_name, &bytes);
+        }
         entries.push((
             paths::kit_texture(name),
             texture::convert(ctx, format, file_name, &bytes)?,
@@ -70,5 +100,53 @@ pub(super) fn kit(
     let config = config.encode_with_names(ctx.version, &names).to_vec();
     let entry_name = slot.config_name(team_id);
     entries.push((paths::kit_config(team_id, &entry_name), config.clone()));
-    Ok((entries, (entry_name, config)))
+
+    let colors = match (listed, derived) {
+        (Some(colors), _) => colors,
+        (None, Some(colors)) => {
+            findings.push((Code::KitColorsDerived, Disposition::Keep, Vec::new()));
+            colors
+        }
+        (None, None) => {
+            findings.push((Code::KitColorsMissing, Disposition::Keep, Vec::new()));
+            MISSING_COLORS
+        }
+    };
+    let entry = KitColorEntry {
+        kit: kit_number(slot),
+        icon: kit.icon.unwrap_or(DEFAULT_ICON),
+        colors,
+    };
+    Ok((entries, (entry_name, config), entry))
+}
+
+/// The two colors a kit's `colors.txt` holding `bytes` gives, or `None` when it gives fewer.
+fn listed_colors(bytes: &[u8]) -> Option<[Rgb; KIT_COLORS]> {
+    match read_colors_txt(bytes, KIT_COLORS).colors.as_slice() {
+        [first, second] => Some([*first, *second]),
+        _ => None,
+    }
+}
+
+/// The two menu colors the main texture `file_name`, in `format`, holding `bytes`, gives: its
+/// top level's dominant colors (`libs/color_tools.md` "Dominant kit-color extraction"). `None`
+/// when it does not decode or its shirt region has no opaque pixel. The texture is decoded
+/// here and again by its conversion: `dds_convert` has no decode that both could share
+/// through the conversion cache, and only a kit without two listed colors pays the second.
+fn derived_colors(
+    format: SourceFormat,
+    file_name: &str,
+    bytes: &[u8],
+) -> Option<[Rgb; KIT_COLORS]> {
+    let decoded = match decode(bytes, format) {
+        Ok(decoded) => decoded,
+        // Its conversion fails on the same error and reports it, failing the kit.
+        Err(error) => {
+            log::debug!("{file_name}: no kit colors from a texture that does not decode: {error}");
+            return None;
+        }
+    };
+    let top = decoded.mips.first()?;
+    color_tools::kit::extract_kit_colors(top, decoded.width, decoded.height)
+        .map(|colors| [colors.color1, colors.color2])
 }

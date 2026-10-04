@@ -3608,3 +3608,16 @@ files, and tool crates do not depend on each other.
 Plan: `team_compiler/pipeline.md` "4. Per-export non-model steps" (Bins accumulation);
 `aesthetics_export/player_folders.md` "Root files" (Colors); `aesthetics_export/object_model.md`
 (module tree).
+
+## 2026-10-04 — team_compiler — kit colors derive from the effective main texture; the missing pair's bytes
+Decision: when a kit's `colors.txt` gives fewer than two valid colors, the colors are derived
+from the `kit` texture of the kit's effective set, so a main texture inherited from `all/`
+is used like the kit's own. The "no colors chosen" pair is magenta (255, 0, 255) as the first
+color and black (0, 0, 0) as the second.
+Why: the plan said "the kit's own main texture, never the placeholder checkerboard" and named
+the pair without its bytes or order. "Own" there is opposed to the placeholder: an inherited
+`all/kit.dds` is the texture the kit wears in the game, so its colors are the kit's, and
+writing the loud pair for a kit that has a real texture would report a gap that is not one.
+The pair takes the placeholder texture's two colors in the order its name gives them
+(`resources/kits/README.md`: the top-left check is magenta).
+Plan: `team_compiler/pipeline.md` "Resolved decisions" (Kit colors fallback).

@@ -17,6 +17,7 @@ use pipeline::Permit;
 use studio_core::{Disposition, Message, Scope};
 use vtree::ScopePath;
 
+use crate::bins::KitColorEntry;
 use crate::messages::{Code, tool_message};
 use crate::paths;
 use crate::plan::subset::{ModelPackage, texture_format};
@@ -114,6 +115,9 @@ pub(crate) struct TaskBatch {
     /// A kit's config as a `UniformParameter.bin` entry, applied only when the batch is
     /// committed.
     pub(crate) uniparam: Option<Entry>,
+    /// A kit's `UniColor.bin` entry with its team ID, applied only when the batch is
+    /// committed.
+    pub(crate) uni_color: Option<(u16, KitColorEntry)>,
     /// The task's findings.
     pub(crate) messages: Vec<Message>,
     /// The memory the task was charged, released once the writer has its entries. A `.7z`
@@ -171,8 +175,10 @@ pub(crate) fn process_task(
                 })
                 .map_err(TaskFailure::from)
         }
-        TaskKind::Kit { slot, kit } => kit::kit(*slot, kit, task.team_id, ctx, &mut files)
-            .map(|(entries, config)| (entries, Some(config))),
+        TaskKind::Kit { slot, kit } => {
+            kit::kit(*slot, kit, task.team_id, ctx, &mut files, &mut findings)
+                .map(|(entries, config, colors)| (entries, Some((config, colors))))
+        }
     };
     let mut batch = TaskBatch {
         index,
@@ -180,6 +186,7 @@ pub(crate) fn process_task(
         group: task.group.as_ref().map(|group| group.tasks.clone()),
         skipped,
         uniparam: None,
+        uni_color: None,
         messages: Vec::new(),
         permit: None,
     };
@@ -188,9 +195,12 @@ pub(crate) fn process_task(
         path: task.kind.folder_path(),
     };
     match result {
-        Ok((entries, uniparam)) => {
+        Ok((entries, kit_bins)) => {
             batch.entries = entries;
-            batch.uniparam = uniparam;
+            if let Some((config, colors)) = kit_bins {
+                batch.uniparam = Some(config);
+                batch.uni_color = Some((task.team_id, colors));
+            }
             batch.messages = findings
                 .into_iter()
                 .map(|(code, disposition, context)| {
@@ -824,6 +834,194 @@ mod tests {
         let names = texture_names(792, KitSlot::G1, presence);
         let template = KitConfig::template().encode_with_names(PesVersion::Pes21, &names);
         assert_eq!(batch.uniparam.unwrap().1, template);
+    }
+
+    /// The tracer's `g1` kit folder with its `colors.txt` when `colors`, the icon marker
+    /// `icon`, and the effective `textures`; no config.
+    fn colored_kit(colors: bool, icon: Option<u8>, textures: Vec<KitTexture>) -> KitFolder {
+        KitFolder {
+            colors: colors.then(|| file("Kits/g1/colors.txt")),
+            icon,
+            textures,
+            ..kit(false, None)
+        }
+    }
+
+    /// The kit's own main texture, the tracer's `kit.dds` unless `run_with` replaces it.
+    fn own_main_texture() -> Vec<KitTexture> {
+        vec![KitTexture {
+            stem: "kit".to_owned(),
+            file: file("Kits/g1/kit.dds"),
+            source: KitTextureSource::Own,
+        }]
+    }
+
+    /// The kit task of `g1` over `kit`.
+    fn g1(kit: KitFolder) -> TaskKind {
+        TaskKind::Kit {
+            slot: KitSlot::G1,
+            kit,
+        }
+    }
+
+    /// The (code, severity, disposition) of each of the batch's messages, asserting each is on
+    /// the kit folder with no context.
+    fn kit_findings(batch: &TaskBatch) -> Vec<(&str, Severity, Disposition)> {
+        batch
+            .messages
+            .iter()
+            .map(|message| {
+                assert_eq!(
+                    message.scope,
+                    Scope::Folder {
+                        export_id: ExportId(4),
+                        path: ScopePath::new("Kits/g1").unwrap(),
+                    }
+                );
+                assert!(message.context.is_empty(), "{:?}", message.context);
+                (
+                    message.code.code.as_ref(),
+                    message.severity,
+                    message.disposition,
+                )
+            })
+            .collect()
+    }
+
+    /// The batch's `UniColor.bin` entry, asserting it is team 792's.
+    fn uni_color(batch: &TaskBatch) -> &KitColorEntry {
+        let (team_id, entry) = batch.uni_color.as_ref().expect("a kit's entry");
+        assert_eq!(*team_id, 792);
+        entry
+    }
+
+    /// A 64x64 BC1 DDS, one level, every pixel the opaque 5:6:5 color `color`.
+    fn solid_bc1_dds(color: u16) -> Vec<u8> {
+        let [low, high] = color.to_le_bytes();
+        // Both endpoints the one color and every index 0: each pixel is the first endpoint.
+        let block = [low, high, low, high, 0, 0, 0, 0];
+        let decoded = dds_convert::Decoded {
+            width: 64,
+            height: 64,
+            mips: vec![vec![0; 64 * 64 * 4]],
+            blocks: Some(dds_convert::Blocks {
+                codec: dds_convert::BlockCodec::Bc1,
+                mips: vec![block.repeat(16 * 16)],
+            }),
+            authored_mips: true,
+        };
+        dds_convert::encode_dds(&decoded, dds_convert::BlockCodec::Bc1).unwrap()
+    }
+
+    /// What `extract_kit_colors` gives for the tracer's `kit.dds`, decoded.
+    fn tracer_kit_colors() -> [[u8; 3]; 2] {
+        let bytes = std::fs::read(tracer().join("Kits/g1/kit.dds")).unwrap();
+        let decoded = dds_convert::decode(&bytes, dds_convert::SourceFormat::Dds).unwrap();
+        let colors =
+            color_tools::kit::extract_kit_colors(&decoded.mips[0], decoded.width, decoded.height)
+                .expect("the tracer's kit texture gives colors");
+        [colors.color1, colors.color2]
+    }
+
+    #[test]
+    fn a_kit_s_two_colors_and_icon_marker_make_its_uni_color_entry_with_no_finding() {
+        let batch = run(g1(colored_kit(true, Some(7), own_main_texture())));
+
+        assert_eq!(kit_findings(&batch), []);
+        assert_eq!(
+            uni_color(&batch),
+            &KitColorEntry {
+                kit: 0x10,
+                icon: 7,
+                colors: [[0xc1, 0x12, 0x00], [0x41, 0x41, 0x41]],
+            }
+        );
+    }
+
+    #[test]
+    fn a_kit_without_an_icon_marker_gets_icon_3() {
+        let batch = run(g1(colored_kit(true, None, own_main_texture())));
+
+        assert_eq!(uni_color(&batch).icon, 3);
+    }
+
+    #[test]
+    fn a_kit_without_colors_txt_takes_its_colors_from_its_main_texture() {
+        // 5:6:5 red 24, green 20, blue 10: 197, 81, 82 once scaled to eight bits (24 * 255 / 31,
+        // 20 * 255 / 63, 10 * 255 / 31, rounded).
+        let solid = solid_bc1_dds(0xc28a);
+        let batch = run_with(
+            g1(colored_kit(false, Some(11), own_main_texture())),
+            &[("Kits/g1/kit.dds", &solid)],
+        );
+
+        assert_eq!(
+            kit_findings(&batch),
+            [("kit_colors_derived", Severity::Info, Disposition::Keep)]
+        );
+        assert_eq!(uni_color(&batch).colors, [[0xc5, 0x51, 0x52]; 2]);
+    }
+
+    #[test]
+    fn a_kit_whose_colors_txt_gives_one_valid_color_takes_both_from_its_main_texture() {
+        let batch = run_with(
+            g1(colored_kit(true, Some(11), own_main_texture())),
+            &[("Kits/g1/colors.txt", b"#c11200\nnot a color\n")],
+        );
+
+        assert_eq!(
+            kit_findings(&batch),
+            [("kit_colors_derived", Severity::Info, Disposition::Keep)]
+        );
+        assert_eq!(uni_color(&batch).colors, tracer_kit_colors());
+    }
+
+    #[test]
+    fn a_main_texture_inherited_from_all_gives_the_colors() {
+        let inherited = vec![KitTexture {
+            stem: "kit".to_owned(),
+            file: FileDescriptor {
+                path: ScopePath::new("Kits/all/kit.dds").unwrap(),
+                ..file("Kits/g1/kit.dds")
+            },
+            source: KitTextureSource::Shared,
+        }];
+        let batch = run(g1(colored_kit(false, Some(11), inherited)));
+
+        assert_eq!(
+            kit_findings(&batch),
+            [("kit_colors_derived", Severity::Info, Disposition::Keep)]
+        );
+        assert_eq!(uni_color(&batch).colors, tracer_kit_colors());
+    }
+
+    #[test]
+    fn a_placeholder_kit_without_colors_gets_magenta_and_black() {
+        let batch = run(g1(colored_kit(false, None, Vec::new())));
+
+        assert_eq!(
+            kit_findings(&batch),
+            [("kit_colors_missing", Severity::Warning, Disposition::Keep)]
+        );
+        assert_eq!(
+            uni_color(&batch),
+            &KitColorEntry {
+                kit: 0x10,
+                icon: 3,
+                colors: [[255, 0, 255], [0, 0, 0]],
+            }
+        );
+    }
+
+    #[test]
+    fn a_placeholder_kit_with_two_colors_in_colors_txt_takes_them_and_reports_nothing() {
+        let batch = run(g1(colored_kit(true, Some(11), Vec::new())));
+
+        assert_eq!(kit_findings(&batch), []);
+        assert_eq!(
+            uni_color(&batch).colors,
+            [[0xc1, 0x12, 0x00], [0x41, 0x41, 0x41]]
+        );
     }
 
     /// The export file at `path`, described as the structure pass would, whose bytes `run`

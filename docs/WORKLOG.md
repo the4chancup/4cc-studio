@@ -12,8 +12,9 @@ is in `AGENTS.md` ("Working documents").
 **Phase:** 3 (Team compiler skeleton) closed 2026-10-02, its cross-family reviews queued (see
 "Handover"). Phases 1 and 2 done (Phase 2 closed 2026-09-30).
 **Next:** Phase 4 is itemized and its Acceptance section written (step 4.1, 2026-10-03; its
-cross-family review (a) is queued). Next: 4.8 (kit colors, `UniColor.bin` and
-`TeamColor.bin`); 4.30 and 4.5 to 4.7 are done (4.6c moved to Phase 8's cancellation). 2.5b (GPU BC7) is step 16.x (decision entries
+cross-family review (a) is queued). Next: 4.9 (kit configs, FPC reconciliation and
+collars; its collar half waits on the maintainer); 4.30 and 4.5 to 4.8 are done (4.6c
+moved to Phase 8's cancellation). 2.5b (GPU BC7) is step 16.x (decision entries
 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0 after Phase 8; phase order 1–6,
 8, 0.1.0, 7, 9–16 (`core/development_plan.md` "Releases"); first-class target the Fox version
 the cup moves to around April 2027 ("Target versions").
@@ -87,6 +88,17 @@ Claude agent with no sidekick and no reviewer of another model family. While tha
   `object_model.md` "Validation semantics" (content findings), `messages.md` "Model checks"
   and "Textures", and the decision entries "the deep pass: the compiler checks, the export
   crate drops" and "texture checks: from the header, in the deep pass".
+  4.8 (b): `aesthetics_export`'s `colors_txt` (`read_colors_txt`, `ColorsTxt`,
+  `RefusedColorLine`, `ColorLineRefusal`; new `pub` items) and `validate_with`'s two
+  filtered fields, `team_compiler`'s `bins/`, `deep/documents.rs` (`colors_findings`),
+  `validation::team_colors`, the kit task's colors and the writer's two bins, from
+  `7d3d94a` to the 4.8c commit (`feat(team_compiler)`, 2026-10-04), against `pipeline.md`
+  "4. Per-export non-model steps" (Bins accumulation) and "Resolved decisions" (Kit colors
+  fallback), `player_folders.md` "Root files" (Colors), `libs/color_tools.md` "Dominant
+  kit-color extraction", `resources/bins/README.md`, TC-KIT-11..14, TC-ROOT-10,
+  TC-BIN-01..03, and the decision entries "kit colors merge into a team's UniColor record
+  by kit number" and "kit colors derive from the effective main texture; the missing
+  pair's bytes".
 - For the lead, on return: the review process on trial (maintainer, 3.1) runs a full sidekick
   review loop after each GPT round and calls GPT again only once that loop has ended and GPT's
   own loop has not; not yet in `AGENTS.md` (3.6: GPT 4 of 7 accepted, then sidekick S1 3 of 7,
@@ -669,7 +681,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
     0.29, `compile` 2.74 → 2.73). Left: the tasks' decompression, about 2 s of a `.7z`
     compile per export ("Issues")
 
-- [ ] 4.8 **Kit colors, UniColor and TeamColor (the `bins/` module)**: kit `colors.txt` grammar
+- [x] 4.8 **Kit colors, UniColor and TeamColor (the `bins/` module)**: kit `colors.txt` grammar
   (`player_folders.md` "Root files", "Colors": one color per line in both files, the
   maintainer's ruling of 2026-10-03), `color_entry_invalid`, derivation via
   `color_tools::kit::extract_kit_colors` on the decoded main texture (`kit_colors_derived`), the
@@ -728,7 +740,28 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
     limit), closed by a test seen failing on the mutant
   - (c) `UniColor.bin`: the kit task's colors (its `colors.txt`, else derived, else the
     magenta/black pair) and icon, merged into the team's record by kit number; TC-KIT-11..14,
-    TC-BIN-01..03; the tracer parity row `UniColor.bin` exact
+    TC-BIN-01..03; the tracer parity row `UniColor.bin` exact. Done 2026-10-04 (Opus 5.5,
+    first time; two lead fixes, a help sentence and a test local's name): `bins/mod.rs`
+    (`Records`, the plumbing both bins share: length check, a team's record, the header
+    loop; `UniColorBin`: `read`, `repair_headers`, `set_kit`; `KitColorEntry`,
+    `kit_number`; `WorkingBins::uni_color`); the kit task reads `colors.txt` and builds
+    the entry (`processing/kit.rs`: `listed_colors`, `derived_colors`, `MISSING_COLORS`
+    magenta then black, `DEFAULT_ICON` 3), reporting `kit_colors_derived` (I) or
+    `kit_colors_missing` (W) on the kit folder; `TaskBatch::uni_color` travels beside
+    `uniparam` and the writer applies it only for a batch that commits;
+    `CpkOutput::finish` adds the bin after `TeamColor.bin` on every CPK and returns a
+    second `bin_header_repaired` for it. Colors derive from the `kit` texture of the
+    kit's effective set, one inherited from `all/` included (decision entry). The
+    tracer's `UniColor.bin` equals Red's byte for byte. TC-KIT-14's GIVEN changed (a
+    `kit.dds` no decoder reads: the deep pass refuses a non-UTF-8 `config.toml` before
+    any task runs). 42 existing tests gained the bin's entry or a `kit_colors_*` line,
+    nothing else. The derivation decodes the main texture once more than its conversion
+    does (`dds_convert` shares no decode): measured on three real 2048 kits (release
+    build, median of 5), a compile takes 0.167 s without `colors.txt` files against
+    0.140 s with them (DXT1), 0.259 against 0.216 s (DXT5). Not covered: a main texture
+    whose shirt region is fully transparent (magenta and black, by reading); the colors
+    a raster (`.png`) main texture gives. Gates green (118 of 209); `mutants-diff
+    ccbd7c4`: 77, 59 caught, 18 unviable, 0 missed
   The tracer's Studio fixture holds both `colors.txt` files since 2026-10-04 (lead)
 
 - [ ] 4.9 **Kit configs, FPC reconciliation and collars** (the brief settles what a collar in
@@ -1165,6 +1198,16 @@ administrator, Upgrade DpFileList dialog): Phase 8; glTF sources: Phase 7; the G
 
 Phase 4 open questions (maintainer):
 
+- Kits a team no longer has (4.8c; decision entry "kit colors merge into a team's
+  UniColor record by kit number"): a compile merges its kits into the team's `UniColor.bin`
+  record and keeps the record's other kits, so a midcup export holding one kit does not
+  wipe the others. The cost: a team that drops a kit keeps its old entry and the record's
+  count, where Red rewrites the record from the Note. It shows on a from-scratch compile
+  too: the bundled base holds a past cup's kits for teams 701 to 771 (3 to 10 each,
+  `resources/bins/README.md`), so `/co/` compiled with two kits keeps that cup's kits 3 to
+  7 and its goalkeeper entry under a count of 8. To settle: whether the record's count is
+  what makes the game offer a kit (an in-game test), and if so what tells a full export
+  from a midcup one, since only a full export may replace the record.
 - Collars beyond the stock set (4.9, 4.27; the maintainer's idea, 2026-10-03): PES 15 loads
   `collar_105`, which its stock game lacks, so the games probably accept collar IDs they do
   not ship. If so, the FPC collar and the referees' marker could move to IDs no stock collar
@@ -2003,3 +2046,9 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   bundled base with each compiled team's root `colors.txt` colors set; a team export without
   the file reports `team_colors_missing` and keeps its colors. The tracer's bin equals Red's
   byte for byte. Kit colors (`UniColor.bin`) are 4.8c.
+- **2026-10-04** — 4.8c, and step 4.8 done: every CPK `compile` writes carries a whole
+  `UniColor.bin`, the bundled base with each committed kit's two menu colors and icon merged
+  into its team's record. A kit without two valid colors in its `colors.txt` gets them from
+  its main texture (`kit_colors_derived`), a kit with no main texture gets magenta and black
+  (`kit_colors_missing`). The tracer's bin equals Red's byte for byte. Open with the
+  maintainer: kits a team no longer has keep their entries ("Phase 4 open questions").

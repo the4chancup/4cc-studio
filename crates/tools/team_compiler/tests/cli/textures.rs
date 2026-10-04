@@ -181,6 +181,7 @@ fn png_and_tga_kit_textures_are_ftex_under_the_kit_s_names_and_a_webp_portrait_i
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info team_colors_missing [Keep] ()",
             "Info kit_config_generated [Keep] at Kits/p1 ()",
+            "Info kit_colors_derived [Keep] at Kits/p1 ()",
         ]
     );
     assert_eq!(run.exit_code(), 0);
@@ -299,6 +300,7 @@ fn texture_findings_are_checked_and_each_drops_its_folder() {
     let mut compiled = findings.to_vec();
     compiled.push("Info team_colors_missing [Keep] ()".to_owned());
     compiled.push("Info kit_config_generated [Keep] at Kits/p1 ()".to_owned());
+    compiled.push("Info kit_colors_derived [Keep] at Kits/p1 ()".to_owned());
     assert_eq!(findings_of(&compile.messages(), "co - Sizes"), compiled);
     assert_eq!(compile.exit_code(), 1);
     // The kit is in the CPK; nothing of the three folders is, neither a face nor a texture.
@@ -332,6 +334,7 @@ fn pass_through_keeps_an_odd_sized_texture_s_folder_but_not_a_renamed_one() {
             "Info export_identified [Keep] (team=/co/, id=714)".to_owned(),
             "Info team_colors_missing [Keep] ()".to_owned(),
             "Info kit_config_generated [Keep] at Kits/p1 ()".to_owned(),
+            "Info kit_colors_derived [Keep] at Kits/p1 ()".to_owned(),
         ]
     );
     assert_eq!(run.exit_code(), 1);
@@ -378,6 +381,7 @@ fn a_texture_finding_drops_the_player_folder_naming_the_file() {
             "Info team_colors_missing [Keep] ()",
             "Info kit_config_generated [Keep] at Kits/p1 ()",
             "Error texture_codec_unsupported [DropFolder] at Players/05 - A (file=skin.dds)",
+            "Info kit_colors_derived [Keep] at Kits/p1 ()",
         ]
     );
     assert_eq!(run.exit_code(), 1);
@@ -412,6 +416,7 @@ fn a_kit_texture_finding_drops_the_kit() {
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info team_colors_missing [Keep] ()",
             "Info kit_config_generated [Keep] at Kits/g1 ()",
+            "Info kit_colors_derived [Keep] at Kits/g1 ()",
         ]
     );
     assert_eq!(run.exit_code(), 1);
@@ -441,7 +446,8 @@ fn a_kit_texture_too_big_drops_its_kit_and_an_uncompressed_kit_is_bc7() {
             too_big,
             identified,
             "Info team_colors_missing [Keep] ()",
-            "Info kit_config_generated [Keep] at Kits/p2 ()"
+            "Info kit_config_generated [Keep] at Kits/p2 ()",
+            "Info kit_colors_derived [Keep] at Kits/p2 ()"
         ]
     );
     assert_eq!(compile.exit_code(), 1);

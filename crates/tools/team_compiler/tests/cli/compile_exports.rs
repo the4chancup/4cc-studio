@@ -138,6 +138,7 @@ fn an_empty_players_txt_compiles_the_kits_and_no_player() {
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info team_colors_missing [Keep] ()",
             "Info kit_config_generated [Keep] at Kits/p1 ()",
+            "Info kit_colors_derived [Keep] at Kits/p1 ()",
         ]
     );
     assert!(compiled_players(&sandbox).is_empty());
@@ -161,6 +162,8 @@ fn kit_folders_are_compiled_as_the_slot_their_name_starts_with() {
             "Info team_colors_missing [Keep] ()",
             "Info kit_config_generated [Keep] at Kits/p1 - Lakers ()",
             "Info kit_config_generated [Keep] at Kits/g1 ()",
+            "Info kit_colors_derived [Keep] at Kits/p1 - Lakers ()",
+            "Info kit_colors_derived [Keep] at Kits/g1 ()",
         ]
     );
     assert_eq!(compiled_kits(&sandbox), ["u0714g1", "u0714p1"]);
@@ -181,6 +184,7 @@ fn a_kit_holding_only_a_back_texture_gets_the_placeholder_main_texture() {
             "Info team_colors_missing [Keep] ()",
             "Info kit_config_generated [Keep] at Kits/p4 ()",
             "Info kit_placeholder [Keep] at Kits/p4 ()",
+            "Warning kit_colors_missing [Keep] at Kits/p4 ()",
         ]
     );
     assert_eq!(compiled_kits(&sandbox), ["u0714p4", "u0714p4_back"]);
@@ -460,6 +464,7 @@ fn a_kit_mask_on_a_fox_target_is_reported_once_and_not_emitted() {
             "Info kit_texture_not_used [DropFile] at Kits/p1 (file=kit_mask.dds)",
             "Info team_colors_missing [Keep] ()",
             "Info kit_config_generated [Keep] at Kits/p1 ()",
+            "Info kit_colors_derived [Keep] at Kits/p1 ()",
         ]
     );
     assert_eq!(run.exit_code(), 0);
@@ -552,7 +557,8 @@ fn a_root_colors_txt_sets_the_team_s_colors_and_an_export_without_one_reports_it
         run.messages(),
         [
             "co - Colors: Info export_identified [Keep] (team=/co/, id=714)",
-            "co - Colors: Info kit_config_generated [Keep] at Kits/p1 ()"
+            "co - Colors: Info kit_config_generated [Keep] at Kits/p1 ()",
+            "co - Colors: Info kit_colors_derived [Keep] at Kits/p1 ()"
         ]
     );
     assert_eq!(run.exit_code(), 0);
@@ -575,7 +581,8 @@ fn a_root_colors_txt_sets_the_team_s_colors_and_an_export_without_one_reports_it
         [
             "dbg - Plain: Info export_identified [Keep] (team=/dbg/, id=790)",
             "dbg - Plain: Info team_colors_missing [Keep] ()",
-            "dbg - Plain: Info kit_config_generated [Keep] at Kits/p1 ()"
+            "dbg - Plain: Info kit_config_generated [Keep] at Kits/p1 ()",
+            "dbg - Plain: Info kit_colors_derived [Keep] at Kits/p1 ()"
         ]
     );
     assert_eq!(run.exit_code(), 0);
@@ -583,6 +590,253 @@ fn a_root_colors_txt_sets_the_team_s_colors_and_an_export_without_one_reports_it
         cpk_entries(&cpk).get(TEAM_COLOR) == Some(&base),
         "TeamColor.bin is the bundled base"
     );
+}
+
+/// The bundled `UniColor.bin`, which a run with no installed bin builds on.
+pub(crate) fn bundled_uni_color() -> Vec<u8> {
+    fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../resources/bins/UniColor.bin"))
+        .unwrap()
+}
+
+/// Where the CPK keeps `UniColor.bin`.
+pub(crate) const UNI_COLOR: &str = "common/character0/model/character/uniform/team/UniColor.bin";
+
+/// Team `team_id`'s 85-byte record in the `UniColor.bin` `bin`: the `u32` team ID, the kit
+/// count, then ten 8-byte entries (kit number, icon, two colors).
+pub(crate) fn uni_record(bin: &[u8], team_id: usize) -> &[u8] {
+    let start = (team_id - 100) * 85;
+    &bin[start..start + 85]
+}
+
+/// `bin` with team `team_id`'s `UniColor.bin` record replaced by `record`.
+pub(crate) fn with_uni_record(bin: &[u8], team_id: usize, record: &[u8]) -> Vec<u8> {
+    let start = (team_id - 100) * 85;
+    let mut replaced = bin.to_vec();
+    replaced[start..start + 85].copy_from_slice(record);
+    replaced
+}
+
+/// The two menu colors `extract_kit_colors` gives for the tracer's `kit.dds`, decoded, as the
+/// six bytes a `UniColor.bin` entry holds them in.
+fn tracer_kit_colors() -> [u8; 6] {
+    let decoded = decode(&tracer_kit(), SourceFormat::Dds).unwrap();
+    let colors =
+        color_tools::kit::extract_kit_colors(&decoded.mips[0], decoded.width, decoded.height)
+            .expect("the tracer's kit texture gives colors");
+    let [r1, g1, b1] = colors.color1;
+    let [r2, g2, b2] = colors.color2;
+    [r1, g1, b1, r2, g2, b2]
+}
+
+/// The bundled `UniformParameter.bin` base PES 19 to 21 build on.
+fn bundled_uniform_parameter() -> Vec<u8> {
+    fs::read(
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../../resources/bins/UniformParameter19.bin"),
+    )
+    .unwrap()
+}
+
+/// Where the CPK keeps `UniformParameter.bin`.
+const UNIFORM_PARAMETER: &str =
+    "common/character0/model/character/uniform/team/UniformParameter.bin";
+
+/// The names of the entries in which the `UniformParameter.bin` `ours` differs from `base`: an
+/// entry added, removed or with other bytes.
+fn uniform_parameter_changes(ours: &[u8], base: &[u8]) -> Vec<String> {
+    let ours = uniparam::UniformParameter::read(ours).unwrap();
+    let base = uniparam::UniformParameter::read(base).unwrap();
+    let mut names: Vec<String> = ours
+        .entries()
+        .filter(|(name, bytes)| base.get(name) != Some(*bytes))
+        .map(|(name, _)| name.to_owned())
+        .collect();
+    names.extend(
+        base.entries()
+            .filter(|(name, _)| ours.get(name).is_none())
+            .map(|(name, _)| name.to_owned()),
+    );
+    names
+}
+
+// TC-KIT-11
+// TC-BIN-01
+#[test]
+fn each_kit_s_menu_colors_come_from_its_colors_txt_its_texture_or_the_missing_pair() {
+    let sandbox = Sandbox::new("kit_colors");
+    let export = "exports/co - Colors";
+    sandbox.write(&format!("{export}/colors.txt"), b"#c11200\n#414141\n");
+    sandbox.write(&format!("{export}/Kits/p1/kit.dds"), &tracer_kit());
+    sandbox.write(
+        &format!("{export}/Kits/p1/colors.txt"),
+        b"#0a1b2c\n#d4e5f6\n",
+    );
+    sandbox.write(&format!("{export}/Kits/p2/kit.dds"), &tracer_kit());
+    fs::create_dir_all(sandbox.root.join(format!("{export}/Kits/p3"))).unwrap();
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+    assert_eq!(
+        findings_of(&run.messages(), "co - Colors"),
+        [
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info kit_config_generated [Keep] at Kits/p1 ()",
+            "Info kit_config_generated [Keep] at Kits/p2 ()",
+            "Info kit_config_generated [Keep] at Kits/p3 ()",
+            "Info kit_placeholder [Keep] at Kits/p3 ()",
+            "Info kit_colors_derived [Keep] at Kits/p2 ()",
+            "Warning kit_colors_missing [Keep] at Kits/p3 ()",
+        ]
+    );
+    assert_eq!(run.exit_code(), 0);
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+
+    // Team 714's record: kits 0 to 2 (p1 to p3) replaced, the base's kits 3 to 6 and 0x10
+    // kept, still eight kits; every other record is the base's.
+    let base = bundled_uni_color();
+    let mut record = uni_record(&base, 714).to_vec();
+    assert_eq!(record[4], 8, "the base's record holds eight kits");
+    record[5..13].copy_from_slice(&[0x00, 0x03, 0x0a, 0x1b, 0x2c, 0xd4, 0xe5, 0xf6]);
+    record[13..15].copy_from_slice(&[0x01, 0x03]);
+    record[15..21].copy_from_slice(&tracer_kit_colors());
+    record[21..29].copy_from_slice(&[0x02, 0x03, 0xff, 0x00, 0xff, 0x00, 0x00, 0x00]);
+    assert!(
+        entries[UNI_COLOR] == with_uni_record(&base, 714, &record),
+        "UniColor.bin is the base with team 714's p1 to p3 entries set"
+    );
+
+    // The other two bins differ from their bases in team 714's entries alone.
+    let mut team_color = bundled_team_color();
+    let team = (714 - 100) * 16;
+    team_color[team + 4..team + 10].copy_from_slice(&[0xc1, 0x12, 0x00, 0x41, 0x41, 0x41]);
+    assert!(
+        entries[TEAM_COLOR] == team_color,
+        "TeamColor.bin is the base with team 714's colors set"
+    );
+    let changed =
+        uniform_parameter_changes(&entries[UNIFORM_PARAMETER], &bundled_uniform_parameter());
+    assert_eq!(
+        changed,
+        [
+            "714_DEF_1st_realUni.bin",
+            "714_DEF_2nd_realUni.bin",
+            "714_DEF_3rd_realUni.bin"
+        ]
+    );
+}
+
+// TC-KIT-12
+#[test]
+fn a_kit_colors_txt_with_one_valid_color_reports_its_bad_line_and_derives_both_colors() {
+    let sandbox = Sandbox::new("kit_colors_one_valid");
+    let export = "exports/co - Colors";
+    sandbox.write(&format!("{export}/Kits/p1/kit.dds"), &tracer_kit());
+    sandbox.write(
+        &format!("{export}/Kits/p1/colors.txt"),
+        b"#0a1b2c\nnot a color\n",
+    );
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+    assert_eq!(
+        findings_of(&run.messages(), "co - Colors"),
+        [
+            "Warning color_entry_invalid [Keep] at Kits/p1/colors.txt (line=2, reason=not one color)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
+            "Info kit_config_generated [Keep] at Kits/p1 ()",
+            "Info kit_colors_derived [Keep] at Kits/p1 ()",
+        ]
+    );
+    assert_eq!(run.exit_code(), 0);
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let record = uni_record(&entries[UNI_COLOR], 714);
+    assert_eq!(record[5..7], [0x00, 0x03]);
+    assert_eq!(record[7..13], tracer_kit_colors());
+}
+
+// TC-KIT-13
+#[test]
+fn a_kit_s_icon_marker_gives_its_menu_icon_and_a_kit_without_one_gets_icon_3() {
+    // Team 790's base record is a placeholder whose entries carry icon 0, so icon 3 is
+    // written, not kept.
+    let sandbox = Sandbox::new("kit_icons");
+    let export = "exports/dbg - Icons";
+    sandbox.write(&format!("{export}/Kits/p1/kit.dds"), &tracer_kit());
+    sandbox.write(&format!("{export}/Kits/p1/icon_7"), b"");
+    sandbox.write(&format!("{export}/Kits/p2/kit.dds"), &tracer_kit());
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+    assert_eq!(run.exit_code(), 0);
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let base = bundled_uni_color();
+    assert_eq!(
+        uni_record(&base, 790)[5..7],
+        [0x00, 0x00],
+        "the base's icon 0"
+    );
+    let record = uni_record(&entries[UNI_COLOR], 790);
+    assert_eq!(record[4], 2, "two kits");
+    assert_eq!(record[5..7], [0x00, 0x07], "p1: icon 7");
+    assert_eq!(record[13..15], [0x01, 0x03], "p2: icon 3");
+}
+
+// TC-KIT-14
+// TC-BIN-03
+#[test]
+fn a_kit_whose_task_fails_keeps_its_base_entries_and_the_kit_beside_it_commits() {
+    let sandbox = Sandbox::new("kit_colors_failed_task");
+    let export = "exports/co - Fails";
+    sandbox.write(&format!("{export}/Kits/p1/kit.dds"), &tracer_kit());
+    sandbox.write(
+        &format!("{export}/Kits/p1/colors.txt"),
+        b"#0a1b2c\n#d4e5f6\n",
+    );
+    // Bytes no decoder reads, which the deep pass does not refuse: the kit's task fails.
+    sandbox.write(&format!("{export}/Kits/p2/kit.dds"), b"not a texture");
+    sandbox.write(
+        &format!("{export}/Kits/p2/colors.txt"),
+        b"#111111\n#222222\n",
+    );
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+    let lines = run.messages();
+    let findings = findings_of(&lines, "co - Fails");
+    assert_eq!(
+        findings[..4],
+        [
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
+            "Info kit_config_generated [Keep] at Kits/p1 ()",
+            "Info kit_config_generated [Keep] at Kits/p2 ()",
+        ]
+    );
+    let [failed] = &findings[4..] else {
+        panic!("{findings:#?}");
+    };
+    assert!(
+        failed.starts_with(
+            "Error folder_pack_failed [DropFolder] at Kits/p2 (error=kit.dds: cannot convert"
+        ),
+        "{failed}"
+    );
+    assert_eq!(run.exit_code(), 1);
+    assert_eq!(compiled_kits(&sandbox), ["u0714p1"]);
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+
+    // p1's entry is written, p2's is the base's.
+    let base = bundled_uni_color();
+    let mut record = uni_record(&base, 714).to_vec();
+    record[5..13].copy_from_slice(&[0x00, 0x03, 0x0a, 0x1b, 0x2c, 0xd4, 0xe5, 0xf6]);
+    assert!(
+        entries[UNI_COLOR] == with_uni_record(&base, 714, &record),
+        "UniColor.bin is the base with team 714's p1 entry set"
+    );
+    let changed =
+        uniform_parameter_changes(&entries[UNIFORM_PARAMETER], &bundled_uniform_parameter());
+    assert_eq!(changed, ["714_DEF_1st_realUni.bin"], "nothing of p2");
 }
 
 // TC-SRC-03
@@ -714,7 +968,8 @@ fn a_zip_export_is_compiled_as_the_team_its_name_starts_with() {
         [
             "co - Spring 2026.zip: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=fcl_hair.fmdl, count=1662)",
             "co - Spring 2026.zip: Info export_identified [Keep] (team=/co/, id=714)",
-            "co - Spring 2026.zip: Info team_colors_missing [Keep] ()"
+            "co - Spring 2026.zip: Info team_colors_missing [Keep] ()",
+            "co - Spring 2026.zip: Info kit_colors_derived [Keep] at Kits/g1 ()"
         ]
     );
     assert_eq!(compiled_players(&sandbox), [71405]);
@@ -736,7 +991,8 @@ fn a_root_notes_txt_that_cannot_be_read_is_dropped_and_the_rest_compiled() {
             "egg Tracer bad notes.zip: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=fcl_hair.fmdl, count=1662)",
             "egg Tracer bad notes.zip: Error source_read_failed [DropFile] at notes.txt (reason=Invalid checksum)",
             "egg Tracer bad notes.zip: Info export_identified [Keep] (team=/egg/, id=792)",
-            "egg Tracer bad notes.zip: Info team_colors_missing [Keep] ()"
+            "egg Tracer bad notes.zip: Info team_colors_missing [Keep] ()",
+            "egg Tracer bad notes.zip: Info kit_colors_derived [Keep] at Kits/g1 ()"
         ]
     );
     assert_eq!(compiled_players(&sandbox), [79205]);
@@ -761,7 +1017,8 @@ fn a_7z_over_the_memory_cap_compiles() {
         [
             "egg Tracer.7z: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=fcl_hair.fmdl, count=1662)",
             "egg Tracer.7z: Info export_identified [Keep] (team=/egg/, id=792)",
-            "egg Tracer.7z: Info team_colors_missing [Keep] ()"
+            "egg Tracer.7z: Info team_colors_missing [Keep] ()",
+            "egg Tracer.7z: Info kit_colors_derived [Keep] at Kits/g1 ()"
         ]
     );
     assert_eq!(compiled_players(&sandbox), [79205]);
@@ -801,6 +1058,7 @@ fn an_export_is_processed_after_its_last_task_or_after_planning_when_it_has_none
             "message kit_config_generated",
             "message kit_config_generated",
             "processed 1",
+            "message kit_colors_derived",
             "message folder_pack_failed",
             "processed 0",
         ]
@@ -839,7 +1097,10 @@ fn the_worker_count_changes_neither_the_findings_nor_the_cpk() {
             "co - Kits: Info team_colors_missing [Keep] ()",
             "co - Kits: Info kit_config_generated [Keep] at Kits/p1 ()",
             "co - Kits: Info kit_config_generated [Keep] at Kits/g1 ()",
-            "dbg Seven.7z: Info team_colors_missing [Keep] ()"
+            "dbg Seven.7z: Info team_colors_missing [Keep] ()",
+            "co - Kits: Info kit_colors_derived [Keep] at Kits/p1 ()",
+            "co - Kits: Info kit_colors_derived [Keep] at Kits/g1 ()",
+            "dbg Seven.7z: Info kit_colors_derived [Keep] at Kits/g1 ()"
         ]
     );
     assert!(outcomes[0].1 == outcomes[1].1, "the CPKs differ");

@@ -95,7 +95,7 @@ const TABLE: &[(&str, Row)] = &[
     ),
     (
         "common/character0/model/character/uniform/team/UniColor.bin",
-        Row::NotProduced("kit colors are step 4.8c"),
+        Row::Exact,
     ),
     (
         "common/character0/model/character/uniform/team/UniformParameter.bin",

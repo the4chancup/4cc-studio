@@ -75,6 +75,7 @@ fn a_far_vertex_drops_its_folder_at_check_and_at_compile_even_with_pass_through(
         [
             "Asset/model/character/boots/k0627/#Win/boots.fpk",
             "Asset/model/character/boots/k0627/#Win/boots.fpkd",
+            "common/character0/model/character/uniform/team/UniColor.bin",
             "common/etc/TeamColor.bin",
         ]
     );
@@ -278,8 +279,11 @@ fn a_format_error_drops_its_folder_unless_pass_through_keeps_it() {
     // `/co/`'s block starts at 621: slot 07's boots are 627, slot 05's 625.
     let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
     let paths: Vec<&str> = entries.keys().map(String::as_str).collect();
-    let team_color = ["common/etc/TeamColor.bin".to_owned()];
-    assert_eq!(paths, [&boots(627)[..], &team_color].concat());
+    let color_bins = [
+        "common/character0/model/character/uniform/team/UniColor.bin".to_owned(),
+        "common/etc/TeamColor.bin".to_owned(),
+    ];
+    assert_eq!(paths, [&boots(627)[..], &color_bins].concat());
 
     for command in ["check", "compile"] {
         let run = sandbox.run(&pass_through_settings(&sandbox), &[command]);
@@ -303,7 +307,7 @@ fn a_format_error_drops_its_folder_unless_pass_through_keeps_it() {
     }
     let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
     let paths: Vec<&str> = entries.keys().map(String::as_str).collect();
-    assert_eq!(paths, [&boots(625)[..], &boots(627), &team_color].concat());
+    assert_eq!(paths, [&boots(625)[..], &boots(627), &color_bins].concat());
 }
 
 // TC-CHK-07
@@ -341,6 +345,7 @@ fn a_model_that_does_not_parse_is_model_broken_and_drops_its_folder_even_with_pa
         [
             "Asset/model/character/boots/k0627/#Win/boots.fpk",
             "Asset/model/character/boots/k0627/#Win/boots.fpkd",
+            "common/character0/model/character/uniform/team/UniColor.bin",
             "common/etc/TeamColor.bin",
         ]
     );
@@ -381,6 +386,7 @@ fn a_logo_that_does_not_decode_is_logo_file_invalid_and_the_export_is_otherwise_
         [
             "Asset/model/character/boots/k0627/#Win/boots.fpk",
             "Asset/model/character/boots/k0627/#Win/boots.fpkd",
+            "common/character0/model/character/uniform/team/UniColor.bin",
             "common/etc/TeamColor.bin",
         ]
     );
@@ -461,7 +467,8 @@ fn a_kit_config_that_does_not_parse_leaves_its_kit_out_and_the_kit_beside_it_com
             KIT_CONFIG_INVALID,
             IDENTIFIED,
             TEAM_COLORS_MISSING,
-            "Info kit_config_generated [Keep] at Kits/p2 ()"
+            "Info kit_config_generated [Keep] at Kits/p2 ()",
+            "Info kit_colors_derived [Keep] at Kits/p2 ()"
         ]
     );
     assert_eq!(compile.exit_code(), 1);
@@ -537,6 +544,7 @@ fn pass_through_keeps_no_face_diff_kit_config_or_settings_toml_that_cannot_be_re
             IDENTIFIED,
             TEAM_COLORS_MISSING,
             "Info kit_config_generated [Keep] at Kits/p2 ()",
+            "Info kit_colors_derived [Keep] at Kits/p2 ()",
         ]
         .map(str::to_owned),
     );

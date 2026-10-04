@@ -1013,7 +1013,9 @@ Resolved decisions:
   two valid colors, derivation from the kit's own main texture (`kit_colors_derived`) — never from
   the placeholder checkerboard; when that is impossible too (no decodable own texture, or a
   placeholder kit), the fixed **magenta/black "no colors chosen" pair is written**
-  (`kit_colors_missing`, W). Loud on purpose: the menu dots and scoreboard strip then show a pair
+  (`kit_colors_missing`, W): magenta (255, 0, 255) as the first color, black (0, 0, 0) as the
+  second. The kit's own main texture is the `kit` texture of its effective set, so one
+  inherited from `all/` counts: it is what the kit wears in the game. Loud on purpose: the menu dots and scoreboard strip then show a pair
   nobody would pick, so the omission is seen in the first menu instead of being papered over. The
   alternatives were both quiet failures — skipping the entry leaves whatever a previous cup's bin
   held, and a stand-in such as the team's root colors looks right while being unchosen. The

@@ -115,6 +115,7 @@ fn a_common_model_link_bakes_the_model_into_the_face_and_its_texture_stays_in_th
             cloth.as_str(),
             FACE_05,
             FACE_05_FPKD,
+            "common/character0/model/character/uniform/team/UniColor.bin",
             "common/etc/TeamColor.bin"
         ],
         "cloth once, in the team's Common output and not under the player's subfolder"
@@ -203,6 +204,7 @@ fn a_boots_link_packs_the_common_skeleton_and_two_players_linking_one_model_shar
             "Asset/model/character/boots/k0627/#Win/boots.fpk",
             "Asset/model/character/boots/k0627/#Win/boots.fpkd",
             shirt.as_str(),
+            "common/character0/model/character/uniform/team/UniColor.bin",
             "common/etc/TeamColor.bin",
         ],
         "each player's package, the Common texture once"
@@ -263,6 +265,7 @@ fn a_boots_link_beside_a_shared_boots_link_combines_the_shared_folder() {
         [
             BOOTS_05,
             "Asset/model/character/boots/k0625/#Win/boots.fpkd",
+            "common/character0/model/character/uniform/team/UniColor.bin",
             "common/etc/TeamColor.bin",
         ],
         "no k0644: the shared folder is only a source of parts"
@@ -366,6 +369,7 @@ fn a_material_a_local_and_a_common_part_define_over_textures_in_two_places_drops
             "Asset/model/character/boots/k0627/#Win/boots.fpk",
             "Asset/model/character/boots/k0627/#Win/boots.fpkd",
             &format!("{COMMON_TEXTURES}/shirt.ftex"),
+            "common/character0/model/character/uniform/team/UniColor.bin",
             "common/etc/TeamColor.bin",
         ],
         "nothing of slot 05, its own shirt included; the Common texture is the team's"
@@ -416,7 +420,12 @@ fn a_common_texture_that_cannot_convert_fails_the_common_task_and_the_linking_pl
     let paths: Vec<&str> = entries.keys().map(String::as_str).collect();
     assert_eq!(
         paths,
-        [FACE_05, FACE_05_FPKD, "common/etc/TeamColor.bin"],
+        [
+            FACE_05,
+            FACE_05_FPKD,
+            "common/character0/model/character/uniform/team/UniColor.bin",
+            "common/etc/TeamColor.bin"
+        ],
         "no Common texture, `cloth` included; the player's face is in"
     );
 }
@@ -501,5 +510,13 @@ fn a_link_to_a_texture_or_a_nested_common_file_is_refused_and_an_unlinked_common
     assert_eq!(run.exit_code(), 0);
     let entries = cpk_entries(&unlinked.root.join("output/4cc_99_test.cpk"));
     let paths: Vec<&str> = entries.keys().map(String::as_str).collect();
-    assert_eq!(paths, [FACE_05, FACE_05_FPKD, "common/etc/TeamColor.bin"]);
+    assert_eq!(
+        paths,
+        [
+            FACE_05,
+            FACE_05_FPKD,
+            "common/character0/model/character/uniform/team/UniColor.bin",
+            "common/etc/TeamColor.bin"
+        ]
+    );
 }

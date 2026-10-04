@@ -302,8 +302,8 @@ impl TaskKind {
 
     /// Every file the task reads from its export: a package's models (a `.common` link's
     /// Common model and skeleton, never the link) and the files packed beside them; a folder's
-    /// textures; the Common textures; a portrait's one file; a kit's config, when it has one,
-    /// and its effective textures.
+    /// textures; the Common textures; a portrait's one file; a kit's config and `colors.txt`,
+    /// when it has them, and its effective textures.
     pub(crate) fn files(&self) -> Vec<&FileDescriptor> {
         match self {
             TaskKind::Models {
@@ -317,6 +317,7 @@ impl TaskKind {
             TaskKind::Kit { kit, .. } => kit
                 .config
                 .iter()
+                .chain(&kit.colors)
                 .chain(kit.textures.iter().map(|texture| &texture.file))
                 .collect(),
         }

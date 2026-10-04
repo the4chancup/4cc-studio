@@ -128,7 +128,8 @@ fn compile_with_a_positional_root_compiles_it_and_leaves_the_settings_file_alone
         String::from_utf8_lossy(&output.stdout),
         "- co - Kit: Info export_identified (team=/co/, id=714)\n\
          - co - Kit: Info team_colors_missing\n\
-         - co - Kit: Info kit_config_generated at Kits/p1\n"
+         - co - Kit: Info kit_config_generated at Kits/p1\n\
+         - co - Kit: Info kit_colors_derived at Kits/p1\n"
     );
     assert!(sandbox.root.join("output/4cc_99_test.cpk").is_file());
     assert_eq!(

@@ -298,6 +298,7 @@ fn task_batch(
             group: task.group.as_ref().map(|group| group.tasks.clone()),
             skipped: Vec::new(),
             uniparam: None,
+            uni_color: None,
             messages: vec![tool_message(
                 Code::SourceReadFailed,
                 Scope::Folder {

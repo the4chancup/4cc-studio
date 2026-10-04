@@ -100,6 +100,7 @@ fn a_player_s_own_boots_and_gloves_compile_under_its_exclusive_id_with_the_textu
             "Asset/model/character/face/real/71405/#Win/face.fpkd",
             "Asset/model/character/glove/g0625/#Win/glove.fpk",
             "Asset/model/character/glove/g0625/#Win/glove.fpkd",
+            "common/character0/model/character/uniform/team/UniColor.bin",
             "common/etc/TeamColor.bin",
         ]
     );
@@ -190,6 +191,7 @@ fn a_folder_mapped_to_two_slots_emits_its_boots_under_both_ids_and_its_textures_
             "Asset/model/character/boots/k0627/#Win/boots.fpk",
             "Asset/model/character/boots/k0627/#Win/boots.fpkd",
             "Asset/model/character/common/714/A/sourceimages/#windx11/shirt.ftex",
+            "common/character0/model/character/uniform/team/UniColor.bin",
             "common/etc/TeamColor.bin",
         ]
     );
@@ -247,6 +249,7 @@ fn a_texture_that_cannot_convert_drops_the_whole_folder_and_the_folder_beside_it
             "Asset/model/character/face/real/71407/#Win/face.fpkd",
             "Asset/model/character/glove/g0627/#Win/glove.fpk",
             "Asset/model/character/glove/g0627/#Win/glove.fpkd",
+            "common/character0/model/character/uniform/team/UniColor.bin",
             "common/etc/TeamColor.bin",
         ],
         "nothing of slot 05 is in the CPK"
@@ -358,6 +361,7 @@ fn a_boots_link_beside_a_local_boots_model_combines_the_shared_folder_into_the_p
             "Asset/model/character/face/real/71405/#Win/face.fpkd",
             "Asset/model/character/glove/g0625/#Win/glove.fpk",
             "Asset/model/character/glove/g0625/#Win/glove.fpkd",
+            "common/character0/model/character/uniform/team/UniColor.bin",
             "common/etc/TeamColor.bin",
         ],
         "no k0644: the shared folder is only a source of parts"
@@ -615,6 +619,7 @@ fn a_boots_subfolder_s_model_is_the_boots_and_a_common_subfolder_s_texture_is_th
             boots_fpk,
             "Asset/model/character/boots/k0625/#Win/boots.fpkd",
             skin,
+            "common/character0/model/character/uniform/team/UniColor.bin",
             "common/etc/TeamColor.bin",
         ],
         "no face package for a folder whose only model is in boots/"
@@ -818,6 +823,7 @@ fn a_subfolder_s_parts_combine_with_loose_root_files_of_their_category() {
             "Asset/model/character/face/real/71405/#Win/face.fpkd",
             glove_fpk,
             "Asset/model/character/glove/g0625/#Win/glove.fpkd",
+            "common/character0/model/character/uniform/team/UniColor.bin",
             "common/etc/TeamColor.bin",
         ]
     );
@@ -915,6 +921,7 @@ fn a_face_link_combines_the_shared_face_folder_into_the_player_s_face() {
             "Asset/model/character/common/714/05 - A/sourceimages/#windx11/shirt.ftex",
             "Asset/model/character/face/real/71405/#Win/face.fpk",
             "Asset/model/character/face/real/71405/#Win/face.fpkd",
+            "common/character0/model/character/uniform/team/UniColor.bin",
             "common/etc/TeamColor.bin",
         ],
         "nothing for Longhair on its own"
@@ -977,6 +984,7 @@ fn a_texture_the_face_and_a_combined_boots_folder_hold_is_packed_once_or_drops_t
             "Asset/model/character/common/714/05 - A/sourceimages/#windx11/sole.ftex",
             "Asset/model/character/face/real/71405/#Win/face.fpk",
             "Asset/model/character/face/real/71405/#Win/face.fpkd",
+            "common/character0/model/character/uniform/team/UniColor.bin",
             "common/etc/TeamColor.bin",
         ]
     );
@@ -1008,6 +1016,7 @@ fn a_texture_the_face_and_a_combined_boots_folder_hold_is_packed_once_or_drops_t
             skin,
             "Asset/model/character/face/real/71405/#Win/face.fpk",
             "Asset/model/character/face/real/71405/#Win/face.fpkd",
+            "common/character0/model/character/uniform/team/UniColor.bin",
             "common/etc/TeamColor.bin",
         ],
         "no k0625 and no sole"
@@ -1057,6 +1066,7 @@ fn a_texture_the_player_s_folder_and_a_combined_face_folder_hold_differently_dro
         [
             "Asset/model/character/boots/k0627/#Win/boots.fpk",
             "Asset/model/character/boots/k0627/#Win/boots.fpkd",
+            "common/character0/model/character/uniform/team/UniColor.bin",
             "common/etc/TeamColor.bin",
         ],
         "nothing of slot 05"
@@ -1138,6 +1148,7 @@ fn parts_with_a_skeleton_mismatch_or_a_material_defined_twice_drop_their_folder(
         [
             "Asset/model/character/boots/k0629/#Win/boots.fpk",
             "Asset/model/character/boots/k0629/#Win/boots.fpkd",
+            "common/character0/model/character/uniform/team/UniColor.bin",
             "common/etc/TeamColor.bin",
         ],
         "nothing of slot 05 or 07, their textures included"
@@ -1175,6 +1186,7 @@ fn shared_boots_folders_compile_once_each_under_the_shared_ids_in_name_order() {
             "Asset/model/character/boots/k0645/#Win/boots.fpk",
             "Asset/model/character/boots/k0645/#Win/boots.fpkd",
             "Asset/model/character/boots/k0645/#windx11/shirt.ftex",
+            "common/character0/model/character/uniform/team/UniColor.bin",
             "common/etc/TeamColor.bin",
         ],
         "no k0623, k0627 or k0631 for the linking slots"
@@ -1319,6 +1331,7 @@ fn the_planned_ids_are_the_slot_s_and_two_compiles_write_the_same_bytes() {
             "Asset/model/character/boots/k0625/#Win/boots.fpkd",
             "Asset/model/character/glove/g0643/#Win/glove.fpk",
             "Asset/model/character/glove/g0643/#Win/glove.fpkd",
+            "common/character0/model/character/uniform/team/UniColor.bin",
             "common/etc/TeamColor.bin",
         ]
     );

@@ -48,6 +48,12 @@ pub(crate) enum Code {
     /// A kit's effective textures hold the other engine's map (a `kit_mask` on a Fox target),
     /// which the target has no slot for; the file is not emitted.
     KitTextureNotUsed,
+    /// A kit whose `colors.txt` is missing or gives fewer than two valid colors: its menu
+    /// colors are taken from its main texture.
+    KitColorsDerived,
+    /// A kit with neither two valid colors in its `colors.txt` nor a main texture of its own to
+    /// take them from (a placeholder kit): magenta and black are written as its menu colors.
+    KitColorsMissing,
     /// Phase 3 only: the export holds content `compile` cannot build yet; it is skipped.
     ContentNotYetCompiled,
     /// More shared boots folders take an id than the team's block has; the export is skipped.
@@ -121,8 +127,8 @@ pub(crate) enum Code {
     SourceReadFailed,
     /// A task could not build its entries; its folder is left out.
     FolderPackFailed,
-    /// The `TeamColor.bin` the run built on held records whose header was not their
-    /// position's; the headers are rewritten, the records' colors kept.
+    /// The `TeamColor.bin` or `UniColor.bin` the run built on held records whose header was
+    /// not their position's; the headers are rewritten, the records' colors kept.
     BinHeaderRepaired,
     /// The CPK could not be written; the run's staging is discarded.
     CpkWriteFailed,
@@ -136,7 +142,7 @@ impl Code {
     /// Every code, for the catalog test: a variant missing here would make its first message
     /// panic in `severity`, so a new variant is added to this list too.
     #[cfg(test)]
-    const ALL: [Code; 42] = [
+    const ALL: [Code; 44] = [
         Code::ExportExtractFailed,
         Code::NoExportsFound,
         Code::ExportDisabled,
@@ -150,6 +156,8 @@ impl Code {
         Code::KitConfigInvalid,
         Code::KitPlaceholder,
         Code::KitTextureNotUsed,
+        Code::KitColorsDerived,
+        Code::KitColorsMissing,
         Code::ContentNotYetCompiled,
         Code::BootsIdPoolExhausted,
         Code::GlovesIdPoolExhausted,
@@ -197,6 +205,8 @@ impl Code {
             Code::KitConfigInvalid => "kit_config_invalid",
             Code::KitPlaceholder => "kit_placeholder",
             Code::KitTextureNotUsed => "kit_texture_not_used",
+            Code::KitColorsDerived => "kit_colors_derived",
+            Code::KitColorsMissing => "kit_colors_missing",
             Code::ContentNotYetCompiled => "content_not_yet_compiled",
             Code::BootsIdPoolExhausted => "boots_id_pool_exhausted",
             Code::GlovesIdPoolExhausted => "gloves_id_pool_exhausted",
@@ -259,6 +269,8 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("kit_config_invalid", CatalogSeverity::Error),
     ("kit_placeholder", CatalogSeverity::Info),
     ("kit_texture_not_used", CatalogSeverity::Info),
+    ("kit_colors_derived", CatalogSeverity::Info),
+    ("kit_colors_missing", CatalogSeverity::Warning),
     ("content_not_yet_compiled", CatalogSeverity::Error),
     ("boots_id_pool_exhausted", CatalogSeverity::Error),
     ("gloves_id_pool_exhausted", CatalogSeverity::Error),
