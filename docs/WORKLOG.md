@@ -65,12 +65,12 @@ Claude agent with no sidekick and no reviewer of another model family. While tha
   and TC-PRT/MOD/TEX/CHK/XML/KIT-10../ROOT-06../CMN/BIN/PLN/REF/OUT-07../DEP) and the decision
   entry "Phase 4 itemization rulings", against `development_plan.md` "Phase 4" and the
   `pipeline.md` walkthrough, from the 4.1 commit.
-  4.3-4.4 (b): `team_compiler` from `69be25b` to `a86ade1` plus `aesthetics_export`'s
+  4.3-4.4 (b): `team_compiler` from `a949664` to `ed5e6a3` plus `aesthetics_export`'s
   `SharedModelFolder.path` (two crates, new `pub(crate)` shapes: `ModelFolder`, `TaskGroup`,
   `TextureHome`, `TaskFailure`), against `pipeline.md` steps 3, 6 and 7, `player_folders.md` "ID
   allocation", "Shared models" to "Merge constraint", TC-MOD-01..09, TC-PLN-01/02, and the
   decision entries of 2026-10-03 from "a player folder's tasks commit as one group" on.
-  4.5c-4.6b (b): `team_compiler` from `c7086b5` to the 4.6b commit plus `aesthetics_export`'s
+  4.5c-4.6b (b): `team_compiler` from `624825f` to the 4.6b commit plus `aesthetics_export`'s
   `common_link_name` and `dds_convert`'s `encode_dds` (three crates, new `pub` items), against
   `player_folders.md` "Common model links and model merging", "Portraits", `model_format.md`
   "Link files", `pipeline.md` steps 5-6 and its "Common textures are one task" bullet,
@@ -80,7 +80,7 @@ Claude agent with no sidekick and no reviewer of another model family. While tha
   4.7 (a) and (b), one review when the step's last slice lands: TC-CHK-06 and TC-CHK-07
   (`team_compiler/README.md` "Deep checks"); `aesthetics_export`'s `ContentFinding` and
   `ValidationReport::with_content_findings`, `team_compiler/src/deep.rs` and `validation.rs`,
-  `fmdl`'s and `pes_model`'s `check::CODES`, `dds_convert::probe`, from `d4126df` to the
+  `fmdl`'s and `pes_model`'s `check::CODES`, `dds_convert::probe`, from `f937e3d` to the
   step's last commit, against `pipeline.md` "2. Per-export serial steps" (deep format pass),
   `object_model.md` "Validation semantics" (content findings), `messages.md` "Model checks"
   and "Textures", and the decision entries "the deep pass: the compiler checks, the export
@@ -184,16 +184,16 @@ done step with a one-line summary and the files or crates touched. One `[~]` per
 ### Phase 1 — Workspace bootstrap + core skeleton
 
 Done 2026-09-13 (spec now describes what exists: `docs/plans/core/development_plan.md` "Phase 1"). Step detail
-in git history up to commit `794ce61`. CI proof: green run on `a4be936`, deliberately red run on
-`38c3e68` (both `gates` jobs failed at `just gates`, `deps-check` unaffected), reverted in
-`794ce61`.
+in git history up to commit `2f158a9`. CI proof: green run on `5e6ffc6`, deliberately red run on
+`eccf0f3` (both `gates` jobs failed at `just gates`, `deps-check` unaffected), reverted in
+`2f158a9`.
 
 ### Phase 2 — Library crates
 
 Done 2026-09-30 (spec now describes what exists: `docs/plans/core/development_plan.md`
 "Phase 2", `libs/README.md`, `model_conversion/README.md`, `pes_savefile/README.md`). Step
 detail (2.1-2.21: each crate's build, review rounds A-C, the 2.20a-k converge with its
-mutation runs, censuses and reviewer rulings) in git history up to commit `8561f0a`. Carried
+mutation runs, censuses and reviewer rulings) in git history up to commit `7de61f7`. Carried
 forward: 2.5b GPU BC7 is step 16.x, the `dds_convert` cache bound is step 4.y, and the
 phase's open questions are under "Issues".
 
@@ -318,7 +318,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   tests and four unit tests, red runs in the report (old gate `content_not_yet_compiled
   (what=Players/05 - A/portrait.dds)`; perturbations of `is_dds`, `folder_holds_portrait`, the
   sort, the version and the parity bytes each failed); gates green (50 runs, acceptance 77 of
-  203); `mutants-diff 69be25b`: 26, 21 caught, 5 unviable, 0 missed. Lead fix: the archive
+  203); `mutants-diff a949664`: 26, 21 caught, 5 unviable, 0 missed. Lead fix: the archive
   fixtures' README (they keep the eight pre-portrait files)
 
 - [x] 4.3 **Planned IDs and player-exclusive boots/gloves (Fox)**: `plan/ids.rs` `PlannedModelIds`
@@ -345,7 +345,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   conflict half waits for 4.5's reserved subfolders. Red runs in the reports (old gate:
   `content_not_yet_compiled (what=.../boots.fmdl)`; group commit: `nothing of slot 05 is in the
   CPK`; shared permit: `Arc::ptr_eq` failed with the guard at `true`). Gates green (acceptance
-  81 of 203); `mutants-diff 99b7059`: 80 caught, 15 unviable, 1 timeout (an infinite loop), 1
+  81 of 203); `mutants-diff cd2e979`: 80 caught, 15 unviable, 1 timeout (an infinite loop), 1
   missed (`compile.rs:226` group guard), now killed by the shared-permit test
 
 - [x] 4.4 **Shared folders and links (Fox)**: shared `Boots/`/`Gloves/` folders take the 17 shared
@@ -370,14 +370,14 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `SharedModelFolder.path`): `PlannedModelIds::shared`, `ids::shared_folders_taking_ids`
   (case-folded order), `paths::TextureHome`, `plan::ModelFolder` for player and shared folders
   alike, `structure::pool_messages`; decision entry "shared boots/gloves outputs". TC-MOD-05/06,
-  TC-PLN-02 cited. Gates green (84 of 203); `mutants-diff 0ce26fd`: 40, 34 caught, 6 unviable,
+  TC-PLN-02 cited. Gates green (84 of 203); `mutants-diff ccd9173`: 40, 34 caught, 6 unviable,
   0 missed. (b) split into b1 (boots/gloves) and b2 (faces, texture byte conflicts). (b1) done
   2026-10-03 (Fable, first time; contradictions accepted: a stem two *combined* folders hold
   collides too, refused for any two of the player's sources; a plainly linked shared folder's
   parts merge as well. Lead fix: stems compared case-folded): `ModelFolder.combined`/`sources()`,
   `subset::link_combines` shared by gate, IDs and planning, `processing::TaskFailure` carrying
   `merge_material_conflict`/`skl_merge_conflict`, `FolderModels.boots_stems`. TC-MOD-07/09 cited.
-  Gates green (86 of 203); `mutants-diff 033eb1c`: 43, 36 caught, 7 unviable, 0 missed. Not
+  Gates green (86 of 203); `mutants-diff b744ff3`: 43, 36 caught, 7 unviable, 0 missed. Not
   verified: the game loading a merged FMDL (`Model::to_file` re-lays it out). (b2) done
   2026-10-03 (Fable, first time, no contradiction; decision entry "texture conflicts by source
   package"): face links combine, face parts merge (`fcl_hair_sim.skl` by the boots rule),
@@ -385,7 +385,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `processing/texture.rs` resolving a stem per source package (`shared_texture_conflict` drops the
   lower package via `TaskBatch.skipped`, `merged_texture_conflict` fails the textures task).
   TC-MOD-08 cited; TC-MOD-04's halves tested uncited (its GIVEN needs 4.5's subfolders). Gates
-  green (87 of 203); `mutants-diff 304a0b2`: 34, 28 caught, 6 unviable, 0 missed. Texture-name
+  green (87 of 203); `mutants-diff 6bd79c9`: 34, 28 caught, 6 unviable, 0 missed. Texture-name
   case questions in "Issues"
 
 - [x] 4.5 **Face assembly (Fox)**: unsuffixed models routed to the `fcl_hair` merge (`torso.fmdl` +
@@ -414,13 +414,13 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   unsuffixed models are `fcl_hair` parts, `PlayerFile::SlotlessSkeleton`,
   `structure::model_name_messages` (findings on the folder holding the file, a shared face's
   included); the gate's `missing` checks gone. TC-MOD-12/13 cited. Gates green (89 of 203);
-  `mutants-diff b8e6aac`: 38, 33 caught, 5 unviable, 0 missed. Found: the tracer's
+  `mutants-diff 5eeb04c`: 38, 33 caught, 5 unviable, 0 missed. Found: the tracer's
   `fcl_hair.skl` is PES 21's `body.skl`, so two older processing tests' "custom" skeleton equals
   the template (fix in 4.5b's brief). (b) done 2026-10-03 (Fable, first time; no contradiction
   of substance): `subset::position`/`model_role` force a reserved subfolder's category, skeletons
   pair by path stem (same directory), the two weak skeleton tests now use PES 19's `body.skl`.
   TC-MOD-14 cited, TC-MOD-04 re-scoped and cited (decision entry). Gates green (91 of 203);
-  `mutants-diff ffd4734`: 40, 34 caught, 6 unviable, 0 missed. For converge: the four reserved
+  `mutants-diff 428ef6c`: 40, 34 caught, 6 unviable, 0 missed. For converge: the four reserved
   names are matched in both `aesthetics_export` (`validate::folders::position`, `pub(crate)`) and
   `team_compiler` (`subset::position`); one exported matcher would remove the copy. (c) done
   2026-10-03 (Fable; one contradiction accepted: with paths rewritten per part, TC-MOD-09's two
@@ -429,7 +429,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `.skl` travelling with a slotted link, texture paths rewritten per part before the merge, the
   Common textures task (`TaskKind::CommonTextures`, decision entry); lead first: `aesthetics_export`
   exports `common_link_name`. TC-MOD-10/11 cited. Gates green (93 of 203); `mutants-diff
-  c7086b5`: 86, 72 caught, 13 unviable, 1 missed (`model.rs` `CommonModel` package guard), given a
+  624825f`: 86, 72 caught, 13 unviable, 1 missed (`model.rs` `CommonModel` package guard), given a
   test in one rework round (red shown). For converge: `subset::is_direct_common_file` copies
   validation's private check. (d) done 2026-10-03 (Opus 5.5, first time; two contradictions
   accepted: the catalog holds no text templates yet, and `base64` is taken without its default
@@ -441,7 +441,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   still commit), a supplied `face_diff.bin` checked too. A face diff passes when it is at
   least as long as its header gives: Red's exact-length check would refuse 326 of the
   machine's 2,695 loose bins (decision entry). TC-MOD-15 cited. Gates green (100 of 203);
-  `mutants-diff 8c7f9b7`: 57, 51 caught, 6 unviable, 0 missed. For 4.7: both findings are
+  `mutants-diff a75e3a9`: 57, 51 caught, 6 unviable, 0 missed. For 4.7: both findings are
   reported only by `compile` until the deep pass runs the same check at `check`
 
 - [x] 4.6 **Textures, all formats (Fox)**: every accepted image format (`dds_convert::decode`/
@@ -469,7 +469,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   model-folder, Common and kit texture through the run's `Converter` (`CompileContext::new`,
   `cache_policy`), the gate open to every accepted format but portraits; the BC7 encoder builds
   optimized in dev (decision entry: TC-TEX-01 took 56 s unoptimized, 9 s now). TC-TEX-01/02
-  cited. Gates green (95 of 203); `mutants-diff 3b9cc36`: 23, 15 caught, 8 unviable, 0 missed.
+  cited. Gates green (95 of 203); `mutants-diff bd3bb97`: 23, 15 caught, 8 unviable, 0 missed.
   For converge: `Converter::convert` returns `Arc<[u8]>` even under `Bypass` and `Entry` owns a
   `Vec`, so each texture is copied once (`Use`) or twice (`Bypass`); an `.ftex` source is now
   rebuilt rather than passed through. (b) done 2026-10-03 (Fable; contradictions accepted: a
@@ -478,7 +478,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   first: the catalog's drop scopes and signature rule, decision entry, and the fixtures):
   `dds_convert::encode_dds` (sharing `convert`'s steps), `texture::TextureError`, the four
   findings, Common's `DropFile`, portraits in any format. TC-TEX-04/06, TC-PRT-01, TC-KIT-10
-  cited. Gates green (99 of 203); `mutants-diff 8ae37d9`: 75, 68 caught, 7 unviable, 1 missed
+  cited. Gates green (99 of 203); `mutants-diff 0d26507`: 75, 68 caught, 7 unviable, 1 missed
   (`needs_pow2`'s `mipmaps > 1`), given a test with the `single_level.dds` fixture in one rework
   round (red shown); the remote half peaked at 7.90 GiB of 8G (maintainer asked). Found:
   `texture_codec_unsupported` also covers `dds_convert`'s other `Unsupported` refusals (a 16-bit
@@ -518,7 +518,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
     body, the findings standing before the cascade; kits, portraits, collars, the logo and
     a player's `settings.toml`/portrait now read the dropped scopes too); tc `deep.rs`,
     `structure.rs` renamed `validation.rs` (`validation_pass`), the help topic. Gates green
-    (102 of 203); `mutants-diff d4126df`: 29, 16 caught, 12 unviable, 1 missed
+    (102 of 203); `mutants-diff f937e3d`: 29, 16 caught, 12 unviable, 1 missed
     (`is_fox_model -> true`: a file that does not parse has no finding yet, so reading
     every file as a model changes nothing; (b)'s `model_broken` makes it observable and
     its brief asks for the test). Not covered, for (c)/(d) if they need it: a drop naming
@@ -532,7 +532,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
     it; a rule about a mesh, material or bone itself now counts 1, not 0. TC-CHK-06..07
     (new). The tracer's models carry `fmdl_weights_not_normalized` (Info), so most CLI
     tests gained those lines; placeholder models in tests are now a real clean one. Gates
-    green (104 of 205); `mutants-diff 68db02d`: 96, 83 caught, 13 unviable, 0 missed. `check_bundle`
+    green (104 of 205); `mutants-diff eb5fb67`: 96, 83 caught, 13 unviable, 0 missed. `check_bundle`
     (`model_material_undefined`) is the pre-Fox face steps'
   - (c1) textures of model folders, `Common/` and kits from their headers
     (`dds_convert::probe`, no decode): `texture_type_mismatch`, `texture_too_small`,
@@ -550,7 +550,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
     `texture::convert` checks nothing itself any more (a portrait's checks stay in
     processing until (c2)); an unreadable texture is `source_read_failed` like a model.
     Under `pass_through` a 3x3 texture converts and is packed. Gates green (106 of 206);
-    `mutants-diff a5b5d91`: 123, 73 caught, 1 timeout (an infinite loop), 42 unviable, 7
+    `mutants-diff e6e9f21`: 123, 73 caught, 1 timeout (an infinite loop), 42 unviable, 7
     missed, all the size rules asked about square textures only; after the rework's table
     test: 123, 80 caught, 1 timeout, 42 unviable, 0 missed. `deep.rs` is 1,258 lines with its tests: (c2) splits it into `deep/`
   - (c2) portraits from their headers (the file dropped; a power-of-two side always),
@@ -569,7 +569,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
     decodes every source, so a broken one fails its task, and checks nothing else. Only
     team rosters pair a folder's portrait with a `Portraits/` file. Not tested in the
     deep pass: a folder two slots map, paired with each slot's file (planning's side is).
-    Gates green (109 of 206); `mutants-diff 98aeb17`: 65, 52 caught, 13 unviable, 0 missed
+    Gates green (109 of 206); `mutants-diff 8eb7931`: 65, 52 caught, 13 unviable, 0 missed
   - (d) `face_diff_invalid` and `xml_dif_conflict` reported by the deep pass, where they drop
     the folder (`player_folders.md` "`face_diff.xml`"); `kit_config_invalid`,
     `settings_toml_invalid` (parse only, through `pes_savefile`'s `PlayerSettings` TOML
@@ -587,8 +587,8 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
     file below the folder (`face_diff.xml`, not the export path). Not covered: a folder
     whose only face models are `.model` files gives its face diff no role, so it is
     unchecked until the pre-Fox face steps. Gates green (110 of 209);
-    `mutants-diff f1b297e`: 38, 25 caught, 13 unviable, 0 missed
-  - The timing, done 2026-10-03 (lead; release build of `65a8300`, 16 logical CPUs, warm
+    `mutants-diff 90e5bfb`: 38, 25 caught, 13 unviable, 0 missed
+  - The timing, done 2026-10-03 (lead; release build of `78fc7c2`, 16 logical CPUs, warm
     file cache, median of 3; `.tmp/timing_build.py` lays an old-layout VGL26 export out as
     `Players/NN - Name/`, `.tmp/timing_run.py` times it). FNG, the corpus's largest: 991 MB,
     245 files, 880 MB of DDS (nine 8192x8192 textures of 67 to 90 MB), 111 MB of models;
@@ -624,7 +624,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
     existing test changed. The brief's premise that one worker thread would expose a
     lock held across parallel work was wrong (the sidekick showed it does not hang): the
     guard is the read's shape, owned bytes with the lock released. Gates green (110 of
-    209); `mutants-diff d3c48a1`: 21, 12 caught, 9 unviable, 0 missed. Measured again
+    209); `mutants-diff 828242e`: 21, 12 caught, 9 unviable, 0 missed. Measured again
     (same setup, median of 3, before → after):
 
     | seconds | `check` folder | `check` `.7z` | `compile` folder | `compile` `.7z` |
@@ -1041,7 +1041,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   lead). TC-STR-12 and TC-KIT-08 reworded. Files: ae `conventions/file_types.rs`,
   `conventions/mod.rs`, `listing.rs`, `validate/{kits,folders,mod,tests}.rs`; ps
   `settings_toml/{keys,tests}.rs`; tc `plan/subset.rs`, `reader/source.rs`,
-  `tests/cli/compile.rs`. Gates green (99 of 203); `mutants-diff 878e3a8`: 41, 35 caught, 6
+  `tests/cli/compile.rs`. Gates green (99 of 203); `mutants-diff a89f0b6`: 41, 35 caught, 6
   unviable, 0 missed. `rg "fpc\.on|fpc\.off|icon\.txt" crates` leaves only the tests that
   assert the old names are refused. Left for Phase 5: `keys.rs`' boots/gloves comments still
   say "no marker: untouched", where `settings_toml.md` has said "otherwise 0" since step 4.0
@@ -1391,12 +1391,12 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   per line, range comment on the same line) and option A for the ingame-face run (opaque bytes
   with typed accessors, "every decoded field"); ranges verified against the reference editor's
   lists and the converters' caps. 2.17e split into three slices; e-1 briefed next.
-- **2026-09-19** - 2.17e done in four commits (`58c37af`, `51dea0e`, `eef7e6d`, `8b2d864` plus
+- **2026-09-19** - 2.17e done in four commits (`912237c`, `a43d1ad`, `97102ea`, `4084541` plus
   the review rework): the ingame-face run, `PlayerSettings` with the key table and the TOML
   half, `ops::fpc`; checkpoint (b) review closed. Next: 2.17f `convert.rs` (the 46/50-byte run
   padding rule is its first decision).
-- **2026-09-20** - 2.17f done in three commits (`b9d5535` plan, `da6e60b` playstyle lists +
-  caps, `17d011c` `convert.rs` plus the review rework): canonical `PlayStyle` with the reference
+- **2026-09-20** - 2.17f done in three commits (`f3ad268` plan, `1001ba9` playstyle lists +
+  caps, `bd2ec4c` `convert.rs` plus the review rework): canonical `PlayStyle` with the reference
   editor's twelve arrays as golden data, `face_type_cap`, `convert_player` as a rewrite into a
   target-version template (prefix copy of the ingame-face run, `min(len)` bytes). Checkpoint (b)
   closed, one plan sharpening (what is and is not a `ConvertNote`). Next: 2.17g
@@ -1406,8 +1406,8 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   roster-slot pairing over the gameplay fields); the run's tail bytes measured zero on every
   16+ fixture player, so the transplant copies the block whole (decision entry). Plan section
   written with the API blocks, two golden tests written, 2.17g split into two slices.
-- **2026-09-20** - 2.17g done (`806adcd` plan + goldens, `74136aa` transplant/fingerprint,
-  `7a7ab4a` compare, plus the review rework): the transplant copies the appearance block whole
+- **2026-09-20** - 2.17g done (`03459eb` plan + goldens, `6226a6e` transplant/fingerprint,
+  `74285bd` compare, plus the review rework): the transplant copies the appearance block whole
   (tail bytes measured zero), the comparator walks the schema's stored fields and tags rows by
   scope, `FaceRun` fires only for undecoded bits. Checkpoint (b) closed. Next: 2.17h
   `interchange/{team_toml,legacy,texport}`.
@@ -1436,7 +1436,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   15-17 texport that wrote a reordered squad and reopened short; a third found three (2.17h-7),
   all the same class (a value `apply` accepted and the codec refused at write), and stopped the
   loop. Next: 2.19, then 2.20 with the bounded loop per crate.
-- **2026-09-21** - 2.19 done: gates, deps-check and bindings green locally at `43b4ccb` and in CI
+- **2026-09-21** - 2.19 done: gates, deps-check and bindings green locally at `36848c9` and in CI
   on both platforms (658 tests over 40 crate binaries). User decisions: 2.5b GPU BC7 deferred to
   Phase 4 (decision entry); 2.20 runs per crate with the bounded reviewer loop, the tiny leaves
   batched into one reviewer round, `pes_savefile::interchange`'s reviewer half counted as done by
@@ -1509,7 +1509,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
 - **2026-09-28** - Maintainer rulings: the CP1252 save stays refused (4ccEditor cannot load it),
   the 21845-face limit stays. Text fields hold their full length (decision entry). Test 1's
   step-by-step guide is `.tmp/apptest/out/GUIDE.txt`. Next: the 2.20i text fix.
-- **2026-09-28** - 2.20i text fix landed (`40a07be`); census clean. Whole-crate run done
+- **2026-09-28** - 2.20i text fix landed (`cd3a1d1`); census clean. Whole-crate run done
   (24 survivors, `.tmp/mutants_2_20i_whole/missed.txt`), the crate's last (maintainer). Lead
   audit in `.tmp/audit_2_20i.md` (F1-F7). Next: slice A = survivors + F1-F4, F6, F7; slice B =
   F5's pure moves; each checked with `mutants-diff`; then the reviewer.
@@ -1521,7 +1521,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   screen, cause unknown (the maintainer doubts the shirt name). `shirt_name_from` keeps its
   free byte. Next: 2.20i slice A (`.tmp/brief_2_20i_a.md`).
 - **2026-09-29** - 2.20i slice A done (survivor tests, F1-F4, F6, F7; `mutants-diff`: 0
-  missed). Correction: the `40a07be` whole-crate run measured 1130 of 1611 mutants, not all
+  missed). Correction: the `cd3a1d1` whole-crate run measured 1130 of 1611 mutants, not all
   of them (its VPS half died partway); the maintainer approved one run of the 486 unmeasured.
 - **2026-09-29** - 2.20i remainder run: 502 mutants, 4 missed (3 equivalent as written,
   rewritten; 1 test added), `mutants-diff`: 0 missed. Next: slice B.
@@ -1571,24 +1571,24 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   redundant roster guard, 2 are the dropped-player filter b1 cannot reach and b2's tests cover). Next: b2.
 - **2026-10-01** - 3.6 slice b2 landed: allowlist, links, markers, reserved subfolders, stems,
   Fox `fmdl_name_invalid`, the cascade and pass-through. Review rework: one link resolver, shared
-  helpers for drops/strictness/mapped slots. `mutants-diff 0d7d489` (b1+b2): 221, 18 missed, all
+  helpers for drops/strictness/mapped slots. `mutants-diff 8b17f4c` (b1+b2): 221, 18 missed, all
   given tests; rerun 198 caught, 23 unviable, 0 missed. Next: b3.
 - **2026-10-01** - 3.6 slice b3 landed: kit grammar, duplicates, `all/` inheritance, kit
   allowlist/names/markers/icon, portraits, logo grammar and roles, root allowlist and notes
   (`kit_config` dependency). Review rework: one stem-conflict helper (b2's two copies included),
   shared icon/marker/name checks, an invalid kit head gets no other finding (decision entry).
-  `mutants-diff 54e44f0`: 114, 15 missed (14 given tests, 1 equivalent removed by restructuring);
+  `mutants-diff 3f838a4`: 114, 15 missed (14 given tests, 1 equivalent removed by restructuring);
   rerun 111, 97 caught, 14 unviable, 0 missed. Next: the reviewer on all of (b).
 - **2026-10-01** - 3.6 cross-family review, GPT round 1: 7 concerns, 4 accepted (fold panics on
   real names → `vtree::fold_name`; flattening panic → insertion-built tree, no root findings on an
   undecided root; texture `.common` links and `Common/` join the stem check; TC-STR-09 uncited
   until 3.8), 3 rejected; the GPT loop ends (rulings `.tmp/review_rulings_3_6.md`; plan + decision
-  entry). `mutants-diff 26775b0`: 31, 2 missed, both given tests; rerun 26 caught, 5 unviable, 0 missed. Next: the sidekick
+  entry). `mutants-diff c936e0e`: 31, 2 missed, both given tests; rerun 26 caught, 5 unviable, 0 missed. Next: the sidekick
   review loop.
 - **2026-10-01** - 3.6 sidekick review S1: 7 concerns, 3 accepted (a kept disallowed `.common`
   file stays in the player's files; no logo findings on an undecided root; allowlist wording for
   `all/` and `Portraits/`), 4 rejected; the loop ends, and with it the 3.6 review.
-  `mutants-diff 9030603`: 5, 4 caught, 1 unviable. 3.6 done. Next: 3.7, plan section first.
+  `mutants-diff 78a3190`: 5, 4 caught, 1 unviable. 3.6 done. Next: 3.7, plan section first.
 - **2026-10-01** - 3.7 started: `libs/pipeline.md` written (permit, cancellation, oversized
   priority, the solid-7z charge, thread count, `CpkStem`; decision entry), then the crate's
   budget, thread count and `CpkStem` (11 tests, each group red against a stub; the oversized-
@@ -1598,7 +1598,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   cross-family review (queued, see "Handover").
 - **2026-10-01** - 3.7 implemented: `pipeline::memory_cap` (Windows `GlobalMemoryStatusEx`,
   Linux `/proc/meminfo` through a `mem_available` parse tested on every platform). `mutants-diff
-  ab28300`: 12 missed, 7 given tests (exact-cap request is ordinary, OS read and cap above a
+  af9da18`: 12 missed, 7 given tests (exact-cap request is ordinary, OS read and cap above a
   floor, the 4 GiB fallback, the parse); the 5 left are the Linux and other-platform
   `available_memory` arms, compiled out on Windows (the Linux arm is checked by
   `the_os_reports_available_memory` on Linux CI; the other arm is a constant `None`). 17 tests.
@@ -1625,7 +1625,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   detour (maintainer), then 3.8d.
 - **2026-10-01** - Detour: neither 3.7 diff run had finished (the second reported 11 of 67
   mutants before the disk filled), so its numbers above had no complete run behind them.
-  Re-run over `ab28300..3b6741e` (`pipeline` unchanged since): 67, 51 caught, 5 unviable, 6
+  Re-run over `af9da18..5618240` (`pipeline` unchanged since): 67, 51 caught, 5 unviable, 6
   timeouts (mutated `MemoryBudget::acquire` wait conditions that block forever), 5 missed, the
   compiled-out Linux and other-platform `available_memory` arms the entry names; run on the
   VPS (Linux, 4c7c424), the Linux arm's 3 are caught, leaving only the other-platform 2,
@@ -1878,7 +1878,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   the installed list with it: `dpfilelist_not_official` (W) when it differs and still lists
   the run's targets, the upgrade offered and never forced. The plan and the steps use the new
   names; the code's default `cpk_name` follows at 4.25a. The list file's edit went into commit
-  `f1b297e` with slice 4.7c2 (the lead's `git add -A`), not into a commit of its own.
+  `90e5bfb` with slice 4.7c2 (the lead's `git add -A`), not into a commit of its own.
 - **2026-10-03** — The installs' DpFileLists compared with the official one
   (`.tmp/dpfl_compare.py`): 29 to 45 entries each, every listed CPK present in `download/`,
   15 to 24 names per install that the official list retires. So the upgrade also writes a

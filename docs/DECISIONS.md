@@ -2372,16 +2372,16 @@ cannot show missing faces in game, so the in-game check cannot overturn the tool
 Plan: `libs/format_crates.md` "`pes_model::model`" ("One list of invariants").
 
 ## 2026-09-28 - pes_savefile - no second whole-crate mutation run
-Decision (maintainer): the whole-crate run at `40a07be` is the last one over `pes_savefile`; its
-converge closes on `just mutants-diff 40a07be` over the rework instead of the second whole-crate
+Decision (maintainer): the whole-crate run at `cd3a1d1` is the last one over `pes_savefile`; its
+converge closes on `just mutants-diff cd3a1d1` over the rework instead of the second whole-crate
 run `AGENTS.md` "Closing a phase" asks for.
-Why: the crate is about 27k lines, and the run at `40a07be`, split with the VPS, was still going
+Why: the crate is about 27k lines, and the run at `cd3a1d1`, split with the VPS, was still going
 after more than two hours (the first attempt was stopped at 87 minutes, half done). The diff run measures
 every line the rework touches, which is where a closing run's new survivors would come from.
 Plan: no plan edit needed (process, not spec); worklog step 2.20i records it.
 
-## 2026-09-29 - pes_savefile - the 40a07be run's unmeasured mutants run once
-Decision (maintainer): the mutants the `40a07be` whole-crate run never measured (486 at the
+## 2026-09-29 - pes_savefile - the cd3a1d1 run's unmeasured mutants run once
+Decision (maintainer): the mutants the `cd3a1d1` whole-crate run never measured (486 at the
 slice A tree) run once, split with the VPS, and their survivors are triaged before 2.20i
 closes. It is not a second whole-crate run; the 2026-09-28 entry stands otherwise.
 Why: that run measured 1130 of 1611 mutants: its VPS half died at 324 of 805 when ssh
