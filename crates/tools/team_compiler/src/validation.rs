@@ -30,7 +30,7 @@ use crate::plan::mapped_players;
 use crate::plan::subset::{
     FolderModels, ModelPackage, PlayerFile, common_skeleton, file_stem, player_file,
 };
-use crate::reader::{self, ContentSource, ExportSource, Route, SourceKind};
+use crate::reader::{self, ContentSource, ExportSource, Route, SourceKind, SourceRevision};
 
 /// Validation's outcome for the whole run.
 pub(crate) struct ValidationPass {
@@ -57,6 +57,10 @@ pub(crate) struct CheckedSource {
     /// The text of the root `notes.txt` validation kept, its BOM removed; `None` when the
     /// export has no such note or a finding dropped it before its identity was resolved.
     pub(crate) notes: Option<String>,
+    /// What the source looked like when it was listed, which `compile` checks its tasks'
+    /// reads against; `None` when routing or the listing's parse set the source aside.
+    /// `check` carries it and does nothing with it.
+    pub(crate) revision: Option<SourceRevision>,
 }
 
 /// The run's memory budget, at the share of the available memory the settings give.
@@ -220,8 +224,9 @@ fn check_source(
         resolved: None,
         team_colors: None,
         notes: None,
+        revision: None,
     };
-    let listing = match route {
+    let (listing, revision) = match route {
         Route::Unreadable(failure) => {
             return skipped(
                 source,
@@ -232,7 +237,7 @@ fn check_source(
         Route::Disabled => return skipped(source, Code::ExportDisabled, vec![]),
         Route::Balls => return skipped(source, Code::ExportBallsSkipped, vec![]),
         Route::ConflictingRefs => return skipped(source, Code::MultipleRefExports, vec![]),
-        Route::Validate { listing } => listing,
+        Route::Validate { listing, revision } => (listing, revision),
     };
 
     let content = ContentSource::new(&source, budget);
@@ -317,6 +322,7 @@ fn check_source(
         resolved,
         team_colors,
         notes,
+        revision: Some(revision),
     }
 }
 
@@ -916,6 +922,7 @@ mod tests {
             resolved: Some(resolved),
             team_colors: None,
             notes: None,
+            revision: None,
         }
     }
 
@@ -936,6 +943,7 @@ mod tests {
             resolved: None,
             team_colors: None,
             notes: None,
+            revision: None,
         }
     }
 

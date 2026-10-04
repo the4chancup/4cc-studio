@@ -12,8 +12,9 @@ is in `AGENTS.md` ("Working documents").
 **Phase:** 3 (Team compiler skeleton) closed 2026-10-02, its cross-family reviews queued (see
 "Handover"). Phases 1 and 2 done (Phase 2 closed 2026-09-30).
 **Next:** Phase 4 is itemized and its Acceptance section written (step 4.1, 2026-10-03; its
-cross-family review (a) is queued). Next: 4.13c (source pinning; 4.13a and 4.13b are done); 4.30,
-4.5 to 4.8, 4.9a and 4.10 to 4.12 are done (4.6c moved to Phase 8's cancellation), 4.9b
+cross-family review (a) is queued). Next: 4.21 (bins from the installed CPKs; 4.14 waits on
+4.31's pre-Fox export); 4.30,
+4.5 to 4.8, 4.9a and 4.10 to 4.13 are done (4.6c moved to Phase 8's cancellation), 4.9b
 (collars) waits on the maintainer. 2.5b (GPU BC7) is step 16.x (decision entries
 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0 after Phase 8; phase order 1–6,
 8, 0.1.0, 7, 9–16 (`core/development_plan.md` "Releases"); first-class target the Fox version
@@ -156,7 +157,11 @@ Claude agent with no sidekick and no reviewer of another model family. While tha
   `feat(team_compiler)` commit of 2026-10-04, against `pipeline.md` "5. Writer" step 1,
   `settings.md` "Path resolution" (`overrides/`), `messages.md` (`duplicate_path`,
   `overrides_active`), TC-PLN-04 and the decision entry "the `overrides/` tree is the
-  writer's; no path preflight over the tasks".
+  writer's; no path preflight over the tasks"; 4.13c, `team_compiler` (`reader/source.rs`
+  `SourceRevision`, `compile.rs` `plan`, `build`, `coordinate`), its `feat(team_compiler)`
+  commit of 2026-10-04, against `pipeline.md` "Resolved decisions" (Source snapshot),
+  `messages.md` (`source_changed_during_run`), TC-PLN-06 and the decision entry "a
+  source's revision is the listing's, checked after each task's read".
 - For the lead, on return: the review process on trial (maintainer, 3.1) runs a full sidekick
   review loop after each GPT round and calls GPT again only once that loop has ended and GPT's
   own loop has not; not yet in `AGENTS.md` (3.6: GPT 4 of 7 accepted, then sidekick S1 3 of 7,
@@ -1014,7 +1019,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   bring different skeletons (`skl_merge_conflict`, seen by the sidekick's probe). Gates
   green (135 of 212); `mutants-diff 03d4fae`: 50, 43 caught, 7 unviable, 0 missed
 
-- [ ] 4.13 **Run planning**: `duplicate_aesthetics_export`; canonical export order by normalized
+- [x] 4.13 **Run planning**: `duplicate_aesthetics_export`; canonical export order by normalized
   source-relative path plus source kind; every task's output namespace allocated in planning,
   `duplicate_path` (folder E, export E, override W); the `overrides/` tree of the data directory
   injected first (`overrides_active`); the writer's duplicate invariant kept; export revision
@@ -1058,7 +1063,23 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
     name that is not UTF-8 (exit 3), an unreadable override (unit-tested at the writer), an
     override at `UniformParameter.bin` or `UniColor.bin`. Gates green (139 of 212);
     `mutants-diff 62d8e66`: 28, 16 caught, 12 unviable, 0 missed
-  - [ ] 4.13c source pinning, `source_changed_during_run` (TC-PLN-06).
+  - [x] 4.13c source pinning, `source_changed_during_run` (TC-PLN-06), done 2026-10-04
+    (sidekick, landed first time, no lead fix): `reader/source.rs` `list` also returns the
+    source's `SourceRevision` (a folder: each file's size and modified time, from the
+    metadata the walk already asks for; an archive: the archive file's), carried by
+    `Route::Validate` and `CheckedSource`; `compile.rs` `coordinate` asks
+    `SourceRevision::changed` after each task's read (a `.7z` once, after its one read) and
+    stops at the first change; `run` is `plan` then `build`, and `build` discards the
+    staging and reports the Fatal on the export, naming the file. A file gone before its
+    read is a change, not a `source_read_failed`. TC-PLN-06's test replaces `boots.fmdl`
+    (nothing staged yet) and, in a second pass, a kit texture (a staged CPK exists and must
+    go): with the boots alone the staging assertion could not fail. Not decided: an aborted
+    run sends no `ExportProcessed` for the exports it did not finish (as after
+    `cpk_write_failed`; the console prints nothing for it, Phase 8's grid may want it);
+    events still carry no export revision (Phase 8). Not covered from the CLI: a `.7z` or
+    `.zip` changed during a whole compile (covered at `coordinate`), a change in a second
+    export after the first one's batches were committed. Gates green (140 of 212);
+    `mutants-diff 527423c`: 26, 15 caught, 11 unviable, 0 missed
 
 - [ ] 4.14 **Pre-Fox faces (PES 15-17, native `.model` + `.mtl`)**: `face.xml` generated from the
   suffix table (`face_neck` for `face_high`, `parts`, `gloveL`/`gloveR`, `handL`/`handR`,
@@ -2365,3 +2386,6 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
 - **2026-10-04** — 4.13b: the files of the data directory's `overrides/` folder go into the
   CPK first and win over an export's entry or a bin at their path (`overrides_active`,
   `duplicate_path`); they are written even when no export compiles.
+- **2026-10-04** — 4.13c: an export file that changes while `compile` runs (saved over,
+  removed, the archive replaced) aborts the run with `source_changed_during_run`; the
+  previous CPK stays. Step 4.13 is done.

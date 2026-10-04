@@ -15,7 +15,7 @@ use studio_core::ExportId;
 use teams_list::TeamName;
 
 use source::list;
-pub(crate) use source::{ContentSource, SourceFailure};
+pub(crate) use source::{ContentSource, SourceFailure, SourceRevision};
 
 /// One export source found by discovery: a folder or an archive.
 #[derive(Debug)]
@@ -62,6 +62,9 @@ pub(crate) enum Route {
     Validate {
         /// Every file and folder in the source.
         listing: CanonicalListing,
+        /// What the source looked like when it was listed, which `compile` checks its reads
+        /// against.
+        revision: SourceRevision,
     },
 }
 
@@ -202,8 +205,8 @@ pub(crate) fn route(sources: &[ExportSource]) -> Vec<Route> {
 /// beyond its listing, so no `.7z` is decompressed by routing, and a disabled, balls or
 /// conflicting-refs one never is.
 fn route_source(source: &ExportSource) -> Route {
-    let listing = match list(source) {
-        Ok(listing) => listing,
+    let (listing, revision) = match list(source) {
+        Ok(listed) => listed,
         Err(failure) => return Route::Unreadable(failure),
     };
     if is_disabled(&listing) {
@@ -212,7 +215,7 @@ fn route_source(source: &ExportSource) -> Route {
     if source.team_name.as_ref().is_some_and(TeamName::is_balls) {
         return Route::Balls;
     }
-    Route::Validate { listing }
+    Route::Validate { listing, revision }
 }
 
 /// A `NO_USE` or `NO_USE.txt` file directly in the source's own root. Compared folded, as

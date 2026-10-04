@@ -13,7 +13,10 @@ them, reports the same findings, and builds the CPK named by the `cpk_name` sett
 folder (`output/` beside `4cc-studio` unless you changed the `output_folder_path` setting), as
 `<cpk_name>.cpk`. The CPK is written in full before it replaces the previous one, so
 `<cpk_name>.cpk` is never half-written. A run that finds nothing to compile, and has no file in
-the `overrides` folder (below), writes nothing and leaves the previous CPK as it was. In this
+the `overrides` folder (below), writes nothing and leaves the previous CPK as it was. If a file
+of an export changes while `compile` runs (someone saves over it, or replaces the archive), the
+run stops with the line `source_changed_during_run` naming the file, writes nothing, leaves the
+previous CPK in place, and ends with exit code 3: run it again. In this
 version `compile` builds exports for PES 2018 to 2021 that hold
 only the models of the players in the roster, kept in each player's own folder: face models,
 boots (a model whose name ends in `boots`, such as `kit_boots.fmdl`) and gloves (`glove_l`,

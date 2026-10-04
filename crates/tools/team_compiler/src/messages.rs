@@ -173,13 +173,17 @@ pub(crate) enum Code {
     /// `teamnotes.txt` could not be written, or a previous one removed, in the output folder;
     /// the run's CPK stays in place.
     TeamnotesWriteFailed,
+    /// A file a task read is gone, or its size or modified time is no longer what the
+    /// export's listing gave (an archive: the archive file's); the run is aborted, its staging
+    /// discarded.
+    SourceChangedDuringRun,
 }
 
 impl Code {
     /// Every code, for the catalog test: a variant missing here would make its first message
     /// panic in `severity`, so a new variant is added to this list too.
     #[cfg(test)]
-    const ALL: [Code; 56] = [
+    const ALL: [Code; 57] = [
         Code::ExportExtractFailed,
         Code::NoExportsFound,
         Code::ExportDisabled,
@@ -236,6 +240,7 @@ impl Code {
         Code::DeploySkippedByFlag,
         Code::OverridesActive,
         Code::TeamnotesWriteFailed,
+        Code::SourceChangedDuringRun,
     ];
 
     /// The code as the catalog spells it, the stable id a message carries.
@@ -297,6 +302,7 @@ impl Code {
             Code::DeploySkippedByFlag => "deploy_skipped_by_flag",
             Code::OverridesActive => "overrides_active",
             Code::TeamnotesWriteFailed => "teamnotes_write_failed",
+            Code::SourceChangedDuringRun => "source_changed_during_run",
         }
     }
 }
@@ -373,6 +379,7 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("deploy_skipped_by_flag", CatalogSeverity::Info),
     ("overrides_active", CatalogSeverity::Info),
     ("teamnotes_write_failed", CatalogSeverity::Error),
+    ("source_changed_during_run", CatalogSeverity::Fatal),
     // The format crates' check codes (`fmdl::check::CODES`, `pes_model::check::CODES`), which
     // the deep pass reports under their own names, at the crate's severity: the far vertex
     // excepted, reported as `vertex_too_far_from_origin`. In the order of the plan's "Model

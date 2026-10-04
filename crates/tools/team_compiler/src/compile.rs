@@ -2,13 +2,15 @@
 //! validation `check` runs (the structure pass and the deep pass), run planning, each task's
 //! files read in manifest order and the task processed on the worker pool, the writer thread
 //! committing the batches in manifest order, and the CPK promoted from staging to the output
-//! folder, or the staging discarded when writing or promoting it fails.
+//! folder, or the staging discarded when writing or promoting it fails, or when an export's
+//! file changes while it is read (`pipeline.md` "Resolved decisions", "Source snapshot").
 
 use std::collections::BTreeMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use crossbeam_channel::{Receiver, Sender, unbounded};
+use pes_version::PesVersion;
 use pipeline::{CpkStem, MemoryBudget, Permit};
 use studio_core::{Disposition, ExportId, Scope, Severity, ToolContext};
 
@@ -18,17 +20,17 @@ use crate::events::RunEvents;
 use crate::messages::{Code, tool_message};
 use crate::output::writer::CpkOutput;
 use crate::output::{deploy, teamnotes};
-use crate::plan::{BuildTask, overrides, plan_run};
+use crate::plan::{BuildManifest, BuildTask, overrides, plan_run};
 use crate::processing::{CompileContext, TaskBatch, TaskFiles, process_task};
-use crate::reader::{ContentSource, ExportSource, SourceFailure, SourceKind};
+use crate::reader::{ContentSource, ExportSource, SourceFailure, SourceKind, SourceRevision};
 use crate::validation::{run_budget, run_pool, validation_pass};
 
 /// Compiles every export validation keeps into `<output_folder>/<cpk_stem>.cpk`, after the
 /// files of the data directory's `overrides/` folder, reported as events, then collects the
 /// compiled exports' notes into `<output_folder>/teamnotes.txt`. Returns the worst severity
-/// reported: a CPK that cannot be written or put in place is a Fatal finding, after which the
-/// previous CPK is all that is left. An exports folder or an `overrides/` folder that cannot
-/// be read is an error.
+/// reported: a CPK that cannot be written or put in place, or an export file that changes
+/// while the run reads it, is a Fatal finding, after which the previous CPK is all that is
+/// left. An exports folder or an `overrides/` folder that cannot be read is an error.
 pub(crate) fn run(
     inputs: &RunInputs,
     cpk_stem: &CpkStem,
@@ -36,6 +38,28 @@ pub(crate) fn run(
     no_deploy: bool,
     ctx: &ToolContext,
 ) -> anyhow::Result<Option<Severity>> {
+    let planned = plan(inputs, ctx)?;
+    build(planned, cpk_stem, output_folder, no_deploy)
+}
+
+/// A run validated and planned, which `build` compiles: its own function so a test can change
+/// an export's files between planning and building.
+struct PlannedRun {
+    version: PesVersion,
+    /// The events so far: validation's and planning's findings.
+    events: RunEvents,
+    budget: Arc<MemoryBudget>,
+    pool: rayon::ThreadPool,
+    /// The `overrides/` folder's files, by CPK path.
+    overrides: BTreeMap<String, PathBuf>,
+    /// Every source in export order, with its revision when it was validated.
+    sources: Vec<(ExportSource, Option<SourceRevision>)>,
+    manifest: BuildManifest,
+}
+
+/// `compile`'s first half: the `overrides/` folder listed, the validation pass, each export's
+/// findings reported, and the run planned.
+fn plan(inputs: &RunInputs, ctx: &ToolContext) -> anyhow::Result<PlannedRun> {
     let version = inputs.common.pes_version;
     // Listed before any export is read, so a tree that cannot be listed stops the run first.
     let (overrides, overrides_active) = overrides::list(ctx.paths().data_dir.as_deref())?;
@@ -61,22 +85,50 @@ pub(crate) fn run(
                 checked.notes,
             ));
         }
-        sources.push(checked.source);
+        sources.push((checked.source, checked.revision));
     }
 
     let report = plan_run(exports, version);
     for message in report.messages.into_iter().chain(overrides_active) {
         events.message(message);
     }
+    Ok(PlannedRun {
+        version,
+        events,
+        budget,
+        pool,
+        overrides,
+        sources,
+        manifest: report.manifest,
+    })
+}
 
-    let tasks = report.manifest.tasks;
-    let team_colors = report.manifest.team_colors;
-    let notes = report.manifest.notes;
+/// `compile`'s second half: the planned tasks read, processed and written into the staged CPK,
+/// which is then promoted, and `teamnotes.txt` written. A source that changed while its tasks
+/// were read aborts the run with `source_changed_during_run`, the staging discarded.
+fn build(
+    planned: PlannedRun,
+    cpk_stem: &CpkStem,
+    output_folder: &Path,
+    no_deploy: bool,
+) -> anyhow::Result<Option<Severity>> {
+    let PlannedRun {
+        version,
+        events,
+        budget,
+        pool,
+        overrides,
+        sources,
+        manifest,
+    } = planned;
+    let tasks = manifest.tasks;
+    let team_colors = manifest.team_colors;
+    let notes = manifest.notes;
     let mut last_task_of: BTreeMap<ExportId, usize> = BTreeMap::new();
     for (index, task) in tasks.iter().enumerate() {
         last_task_of.insert(task.export_id, index);
     }
-    for source in &sources {
+    for (source, _) in &sources {
         if !last_task_of.contains_key(&source.export_id) {
             events.processed(source.export_id);
         }
@@ -111,7 +163,24 @@ pub(crate) fn run(
         let written = writer.join().expect("the writer thread does not panic");
         (coordinated, written)
     });
-    coordinated?;
+    if let Some(change) = coordinated? {
+        // The staged CPK holds only the batches spawned before the change, and its writer may
+        // have failed on the ones that never came: the change is reported alone, never also
+        // as a write failure, and the staging goes either way.
+        if let Err(error) = written {
+            log::debug!("the aborted run's staged CPK: {error:#}");
+        }
+        deploy::discard(&run_folder, output_folder);
+        events.message(tool_message(
+            Code::SourceChangedDuringRun,
+            Scope::Export {
+                export_id: change.export_id,
+            },
+            Disposition::AbortRun,
+            vec![("path", change.path)],
+        ));
+        return Ok(events.worst());
+    }
 
     let cpk_path = output_folder.join(&cpk_name);
     // A bins failure is a CPK write failure too: `uniparam_compile_failed` arrives with Phase
@@ -205,18 +274,29 @@ fn abort_output(
     ));
 }
 
+/// A file of an export that changed while the run read it: `source_changed_during_run`.
+#[derive(Debug, PartialEq, Eq)]
+struct SourceChange {
+    /// The export whose file changed.
+    export_id: ExportId,
+    /// The file, or the archive, as the system displays its path.
+    path: String,
+}
+
 /// The coordinator: every task's files read from its export's source, in manifest order, and
 /// the task handed to `pool` with its permit, each finished batch sent to `batches`. Each
-/// export's source is opened once for all its tasks, which the manifest keeps together. Fails
-/// only when the run is cancelled while a task waits for its permit.
+/// export's source is opened once for all its tasks, which the manifest keeps together. After
+/// each read the files read are checked against the source's revision; on a change no further
+/// task is read or spawned, the spawned ones finish, and the change is returned. Fails only
+/// when the run is cancelled while a task waits for its permit.
 fn coordinate<'scope>(
-    sources: &[ExportSource],
+    sources: &[(ExportSource, Option<SourceRevision>)],
     tasks: Vec<BuildTask>,
     budget: &Arc<MemoryBudget>,
     context: &'scope CompileContext,
     batches: &'scope Sender<TaskBatch>,
     pool: &rayon::Scope<'scope>,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<Option<SourceChange>> {
     let spawn = move |index: usize,
                       task: BuildTask,
                       files: Result<TaskFiles, SourceFailure>,
@@ -232,7 +312,7 @@ fn coordinate<'scope>(
     // The coordinator reads, not the task: an archive is one sequential stream, so tasks
     // sharing it would only wait on each other, and processing needs no source handle.
     let mut tasks = tasks.into_iter().enumerate().peekable();
-    for source in sources {
+    for (source, revision) in sources {
         let content = ContentSource::new(source, budget);
         if source.kind == SourceKind::SevenZ {
             // A `.7z` holds one permit for its whole decompressed buffer, and a task asking
@@ -244,6 +324,13 @@ fn coordinate<'scope>(
             {
                 let files = read_files(&task, &content);
                 read.push((index, task, files));
+            }
+            // Once, after the one read that decompressed the archive for every task; the
+            // archive's stamp is checked whatever the files.
+            if !read.is_empty()
+                && let Some(change) = source_change(source, revision.as_ref(), [])
+            {
+                return Ok(Some(change));
             }
             let permit = content.into_permit().map(Arc::new);
             for (index, task, files) in read {
@@ -270,11 +357,33 @@ fn coordinate<'scope>(
                     None => Arc::new(budget.acquire(task.charge)?),
                 };
                 let files = read_files(&task, &content);
+                // After the read, not before it: a file saved over while it was being read is
+                // caught too. A file gone before the read is a change, not a failed read.
+                let read = task.kind.files();
+                let read = read.iter().map(|file| file.source.as_str());
+                if let Some(change) = source_change(source, revision.as_ref(), read) {
+                    return Ok(Some(change));
+                }
                 spawn(index, task, files, Some(permit));
             }
         }
     }
-    Ok(())
+    Ok(None)
+}
+
+/// The change `source`'s `revision` sees among `files`, the paths in the source a task read;
+/// an archive's own stamp is checked whatever they are.
+fn source_change<'a>(
+    source: &ExportSource,
+    revision: Option<&SourceRevision>,
+    files: impl IntoIterator<Item = &'a str>,
+) -> Option<SourceChange> {
+    let revision = revision.expect("a source with a task was validated, so it was listed");
+    let path = revision.changed(source, files)?;
+    Some(SourceChange {
+        export_id: source.export_id,
+        path,
+    })
 }
 
 /// The writer thread's work: each batch received is committed in manifest order, then every
@@ -358,19 +467,24 @@ fn read_files(task: &BuildTask, content: &ContentSource) -> Result<TaskFiles, So
 #[cfg(test)]
 mod tests {
     use std::collections::BTreeSet;
+    use std::fs::{self, File};
     use std::path::Path;
+    use std::time::Duration;
 
     use aesthetics_export::FileDescriptor;
     use pes_version::PesVersion;
     use pipeline::MemoryBudget;
-    use studio_core::ExportId;
+    use studio_core::{ExportId, Message, PipelineEvent};
+    use teams_list::TeamsList;
     use vtree::ScopePath;
 
     use super::*;
     use crate::paths::TextureHome;
     use crate::plan::subset::ModelPackage;
     use crate::plan::{ModelFolder, TaskGroup, TaskKind};
-    use crate::reader::ExportSource;
+    use crate::reader::{ExportSource, Route};
+    use crate::settings::TeamCompilerSettings;
+    use crate::testing::{sandbox, scratch, tool_context};
 
     const PLAYER: &str = "Players/05 - The Chad Stormworks Player";
 
@@ -413,9 +527,18 @@ mod tests {
         }
     }
 
-    #[test]
-    fn a_group_s_tasks_share_one_permit_of_the_group_s_charge_and_other_tasks_have_their_own() {
-        let source = tracer_source();
+    /// `source` with the revision its listing gives now, as validation hands it on.
+    fn listed(source: ExportSource) -> (ExportSource, Option<SourceRevision>) {
+        let route = crate::reader::route(std::slice::from_ref(&source)).remove(0);
+        let Route::Validate { revision, .. } = route else {
+            panic!("{route:?}");
+        };
+        (source, Some(revision))
+    }
+
+    /// Three tasks of the tracer's player 05, as export 4: its face package and its textures
+    /// (`shirt.dds`) as one group of charge 30, then a portrait (`shirt.dds` again) of charge 7.
+    fn tracer_tasks() -> Vec<BuildTask> {
         let folder = player(&[
             "face_diff.bin",
             "fcl_hair.fmdl",
@@ -435,7 +558,7 @@ mod tests {
             charge,
             group,
         };
-        let tasks = vec![
+        vec![
             task(
                 TaskKind::Models {
                     folder: folder.clone(),
@@ -467,7 +590,15 @@ mod tests {
                 7,
                 None,
             ),
-        ];
+        ]
+    }
+
+    /// The coordinator over `sources` and `tasks` on a pool of two threads: what it returned,
+    /// and every batch it sent, in manifest order.
+    fn coordinated(
+        sources: &[(ExportSource, Option<SourceRevision>)],
+        tasks: Vec<BuildTask>,
+    ) -> (Option<SourceChange>, Vec<TaskBatch>) {
         let budget = MemoryBudget::new(1 << 30);
         let context = CompileContext::new(PesVersion::Pes21, 1);
         let pool = rayon::ThreadPoolBuilder::new()
@@ -476,14 +607,23 @@ mod tests {
             .unwrap();
         let (batches_tx, batches_rx) = unbounded();
 
-        pool.in_place_scope(|scope| {
-            coordinate(&[source], tasks, &budget, &context, &batches_tx, scope)
-        })
-        .unwrap();
+        let change = pool
+            .in_place_scope(|scope| {
+                coordinate(sources, tasks, &budget, &context, &batches_tx, scope)
+            })
+            .unwrap();
         drop(batches_tx);
 
         let mut batches: Vec<TaskBatch> = batches_rx.iter().collect();
         batches.sort_by_key(|batch| batch.index);
+        (change, batches)
+    }
+
+    #[test]
+    fn a_group_s_tasks_share_one_permit_of_the_group_s_charge_and_other_tasks_have_their_own() {
+        let (change, batches) = coordinated(&[listed(tracer_source())], tracer_tasks());
+
+        assert_eq!(change, None);
         let permits: Vec<&Arc<Permit>> = batches
             .iter()
             .map(|batch| batch.permit.as_ref().expect("every task is charged"))
@@ -545,5 +685,154 @@ mod tests {
             ("path".to_owned(), path.display().to_string())
         );
         assert_eq!(message.context[1].0, "error");
+    }
+
+    /// How far a test moves a modified time: far past any file system's time granularity.
+    const MOVED: Duration = Duration::from_secs(10);
+
+    fn move_modified_time(path: &Path) {
+        let listed = fs::metadata(path).unwrap().modified().unwrap();
+        File::options()
+            .write(true)
+            .open(path)
+            .unwrap()
+            .set_modified(listed + MOVED)
+            .unwrap();
+    }
+
+    #[test]
+    fn a_file_rewritten_after_the_listing_stops_the_coordinator_at_the_task_that_reads_it() {
+        let temp = sandbox("coordinate_folder_changed");
+        let source = ExportSource {
+            path: temp.path().join("exports").join("egg Tracer"),
+            ..tracer_source()
+        };
+        let shirt = source.path.join(format!("{PLAYER}/shirt.dds"));
+        let sources = [listed(source)];
+        // Read by the second task, the group's textures, and by the third, the portrait.
+        fs::write(&shirt, b"saved over").unwrap();
+
+        let (change, batches) = coordinated(&sources, tracer_tasks());
+
+        let indices: Vec<usize> = batches.iter().map(|batch| batch.index).collect();
+        assert_eq!(indices, [0], "only the first task's batch is sent");
+        assert_eq!(
+            change,
+            Some(SourceChange {
+                export_id: ExportId(4),
+                path: shirt.display().to_string(),
+            })
+        );
+    }
+
+    #[test]
+    fn an_archive_whose_modified_time_moved_after_the_listing_sends_no_batch() {
+        for name in ["egg Tracer.zip", "egg Tracer.7z"] {
+            let temp = scratch("coordinate_archive_changed");
+            let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("tests/fixtures/sources")
+                .join(name);
+            let kind = if name.ends_with(".7z") {
+                SourceKind::SevenZ
+            } else {
+                SourceKind::Zip
+            };
+            let source = ExportSource {
+                path: temp.path().join(name),
+                kind,
+                file_name: name.to_owned(),
+                ..tracer_source()
+            };
+            fs::copy(&fixture, &source.path).unwrap();
+            let archive = source.path.display().to_string();
+            let sources = [listed(source)];
+            move_modified_time(&sources[0].0.path);
+
+            let (change, batches) = coordinated(&sources, tracer_tasks());
+
+            assert!(batches.is_empty(), "{name}: {} batches", batches.len());
+            assert_eq!(
+                change,
+                Some(SourceChange {
+                    export_id: ExportId(4),
+                    path: archive,
+                }),
+                "{name}"
+            );
+        }
+    }
+
+    /// The run inputs `compile` resolves for a `sandbox` with no arguments, over `ctx`'s
+    /// settings.
+    fn sandbox_inputs(root: &Path, ctx: &ToolContext) -> RunInputs {
+        RunInputs {
+            settings: TeamCompilerSettings::default(),
+            common: ctx.common(),
+            teams_list: TeamsList::parse("ID\tName\n792\t/egg/\n").unwrap(),
+            exports_root: root.join("exports"),
+            exports: Vec::new(),
+        }
+    }
+
+    // TC-PLN-06
+    #[test]
+    fn a_file_replaced_after_planning_aborts_the_run_and_keeps_the_previous_cpk() {
+        // The boots are read before any batch is committed, so nothing is staged yet; the kit
+        // is read after the player's group and the portrait are, so a staged CPK exists and
+        // must be discarded.
+        for (scratch_name, replaced) in [
+            ("compile_boots_changed", format!("{PLAYER}/boots.fmdl")),
+            ("compile_kit_changed", "Kits/g1/kit.dds".to_owned()),
+        ] {
+            let temp = sandbox(scratch_name);
+            let root = temp.path();
+            let output = root.join("output");
+            deploy::prepare_output_folder(&output).unwrap();
+            let stem = CpkStem::new("4cc_99_test").unwrap();
+            let cpk = output.join("4cc_99_test.cpk");
+            let ctx = tool_context(root, "");
+            let inputs = sandbox_inputs(root, &ctx);
+            run(&inputs, &stem, &output, false, &ctx).unwrap();
+            let previous = fs::read(&cpk).unwrap();
+
+            let (events_tx, events) = unbounded();
+            let ctx = ctx.with_events(events_tx);
+            let planned = plan(&inputs, &ctx).unwrap();
+            let file = root.join("exports").join("egg Tracer").join(&replaced);
+            fs::write(&file, b"saved over from Blender").unwrap();
+            let worst = build(planned, &stem, &output, false).unwrap();
+
+            // Fatal is exit code 3: `cli.rs`'s `the_worst_severity_decides_the_exit_code`.
+            assert_eq!(worst, Some(Severity::Fatal), "{replaced}");
+            let fatal: Vec<Message> = events
+                .try_iter()
+                .filter_map(|envelope| {
+                    let PipelineEvent::Message(message) = envelope.event else {
+                        return None;
+                    };
+                    (message.severity == Severity::Fatal).then_some(message)
+                })
+                .collect();
+            let [message] = fatal.as_slice() else {
+                panic!("{replaced}: {fatal:?}");
+            };
+            assert_eq!(message.code.code, "source_changed_during_run");
+            assert_eq!(message.disposition, Disposition::AbortRun);
+            assert_eq!(
+                message.scope,
+                Scope::Export {
+                    export_id: ExportId(0)
+                }
+            );
+            assert_eq!(
+                message.context,
+                [("path".to_owned(), file.display().to_string())]
+            );
+            assert!(
+                fs::read(&cpk).unwrap() == previous,
+                "{replaced}: the previous CPK is kept"
+            );
+            assert!(!output.join(".staging").exists(), "{replaced}");
+        }
     }
 }

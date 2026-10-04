@@ -1,12 +1,14 @@
 //! One export source read (`team_compiler/pipeline.md` "1. Reader", step 4), from a folder, a
-//! `.zip` or a `.7z`: its listing, which routing takes, and its file contents, which its check
-//! (the small metadata files the structure pass needs, then the deep pass's files) and its
-//! tasks read.
+//! `.zip` or a `.7z`: its listing, which routing takes, with its revision, which `compile`
+//! checks its reads against, and its file contents, which its check (the small metadata files
+//! the structure pass needs, then the deep pass's files) and its tasks read.
 
+use std::collections::BTreeMap;
 use std::fmt::Display;
 use std::fs::{self, File};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
+use std::time::SystemTime;
 
 use aesthetics_export::{
     CanonicalListing, ListedEntry, ListedKind, SmallMetadata, is_small_metadata,
@@ -26,16 +28,87 @@ pub(crate) struct SourceFailure {
     pub(crate) error: String,
 }
 
+/// What a source looked like when it was listed (`team_compiler/pipeline.md` "Resolved
+/// decisions", "Source snapshot"): `compile` compares the files a task read with it after the
+/// read, and a difference aborts the run. A replacement of the same size that keeps the
+/// modified time goes unseen: the check is against a member saving over a file mid-run.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum SourceRevision {
+    /// A folder: each listed file's stamp, by its path in the source.
+    Folder(BTreeMap<String, FileStamp>),
+    /// An archive: the archive file's stamp.
+    Archive(FileStamp),
+}
+
+/// A file's size and modified time.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct FileStamp {
+    size: u64,
+    modified: SystemTime,
+}
+
+impl FileStamp {
+    /// The stamp of the file `metadata` describes; a modified time the system cannot give is a
+    /// failure naming `path`.
+    fn of(path: &Path, metadata: &fs::Metadata) -> Result<FileStamp, SourceFailure> {
+        Ok(FileStamp {
+            size: metadata.len(),
+            modified: metadata.modified().map_err(|error| failure(path, &error))?,
+        })
+    }
+
+    /// The stamp of the file at `path` now; `None` when it cannot be asked (gone).
+    fn now(path: &Path) -> Option<FileStamp> {
+        let metadata = fs::metadata(path).ok()?;
+        FileStamp::of(path, &metadata).ok()
+    }
+}
+
+impl SourceRevision {
+    /// The first of `files` (paths in the source) that is gone or whose stamp is no longer
+    /// the listing's, as the path displayed on this system; for an archive, the archive
+    /// itself, whatever `files` holds. `None` when nothing changed.
+    pub(crate) fn changed<'a>(
+        &self,
+        source: &ExportSource,
+        files: impl IntoIterator<Item = &'a str>,
+    ) -> Option<String> {
+        match self {
+            SourceRevision::Archive(stamp) => (FileStamp::now(&source.path) != Some(*stamp))
+                .then(|| source.path.display().to_string()),
+            SourceRevision::Folder(stamps) => files.into_iter().find_map(|path| {
+                let file = source.path.join(path);
+                // A path the listing never held has no stamp to match: a change too.
+                let unchanged = stamps
+                    .get(path)
+                    .is_some_and(|stamp| FileStamp::now(&file) == Some(*stamp));
+                (!unchanged).then(|| file.display().to_string())
+            }),
+        }
+    }
+}
+
 /// Lists every file (with its size) and every folder in `source`, paths relative to its root
-/// joined with `/` (an archive's as `archives` normalized them). An archive is opened for its
-/// entry list only, nothing decompressed, and closed again. An archive that cannot be opened
-/// (damaged, encrypted, an entry named outside the root, two entries naming one path) is a
-/// failure naming the archive.
-pub(super) fn list(source: &ExportSource) -> Result<CanonicalListing, SourceFailure> {
+/// joined with `/` (an archive's as `archives` normalized them), with the source's revision,
+/// taken from the same metadata. An archive is opened for its entry list only, nothing
+/// decompressed, and closed again. An archive that cannot be opened (damaged, encrypted, an
+/// entry named outside the root, two entries naming one path) is a failure naming the archive.
+pub(super) fn list(
+    source: &ExportSource,
+) -> Result<(CanonicalListing, SourceRevision), SourceFailure> {
     let mut entries = Vec::new();
-    match source.kind {
-        SourceKind::Folder => walk(&source.path, "", &mut entries)?,
+    let revision = match source.kind {
+        SourceKind::Folder => {
+            let mut stamps = BTreeMap::new();
+            walk(&source.path, "", &mut entries, &mut stamps)?;
+            SourceRevision::Folder(stamps)
+        }
         SourceKind::Zip | SourceKind::SevenZ => {
+            // Stamped before the archive is opened, so a replacement during the listing
+            // leaves a stamp the later check no longer matches.
+            let metadata =
+                fs::metadata(&source.path).map_err(|error| failure(&source.path, &error))?;
+            let stamp = FileStamp::of(&source.path, &metadata)?;
             let archive = open_archive(&source.path, source.kind == SourceKind::SevenZ)?;
             for entry in archive.entries() {
                 entries.push(ListedEntry {
@@ -51,12 +124,14 @@ pub(super) fn list(source: &ExportSource) -> Result<CanonicalListing, SourceFail
                     kind: ListedKind::Folder,
                 });
             }
+            SourceRevision::Archive(stamp)
         }
-    }
-    Ok(CanonicalListing {
+    };
+    let listing = CanonicalListing {
         display_name: source.display_name.clone(),
         entries,
-    })
+    };
+    Ok((listing, revision))
 }
 
 /// The file contents of one export (`team_compiler/pipeline.md` "1. Reader", step 4, "Load"),
@@ -189,8 +264,14 @@ fn decompressed_size(archive: &Archive<File>) -> usize {
     usize::try_from(total).unwrap_or(usize::MAX)
 }
 
-/// Lists `folder` (at `prefix` within the source) and everything below it into `entries`.
-fn walk(folder: &Path, prefix: &str, entries: &mut Vec<ListedEntry>) -> Result<(), SourceFailure> {
+/// Lists `folder` (at `prefix` within the source) and everything below it into `entries`, and
+/// each file's stamp into `stamps`, by the same path.
+fn walk(
+    folder: &Path,
+    prefix: &str,
+    entries: &mut Vec<ListedEntry>,
+    stamps: &mut BTreeMap<String, FileStamp>,
+) -> Result<(), SourceFailure> {
     for entry in fs::read_dir(folder).map_err(|error| failure(folder, &error))? {
         let entry = entry.map_err(|error| failure(folder, &error))?;
         let path = entry.path();
@@ -214,8 +295,9 @@ fn walk(folder: &Path, prefix: &str, entries: &mut Vec<ListedEntry>) -> Result<(
                 path: relative.clone(),
                 kind: ListedKind::Folder,
             });
-            walk(&path, &relative, entries)?;
+            walk(&path, &relative, entries, stamps)?;
         } else {
+            stamps.insert(relative.clone(), FileStamp::of(&path, &metadata)?);
             entries.push(ListedEntry {
                 path: relative,
                 kind: ListedKind::File {
@@ -243,7 +325,7 @@ mod tests {
     use studio_core::ExportId;
 
     use super::*;
-    use crate::testing::scratch;
+    use crate::testing::{ScratchFolder, scratch};
 
     /// Long enough that a scheduling hiccup never outlives it; short enough that a permit that
     /// never comes fails the test rather than hanging it.
@@ -311,7 +393,7 @@ mod tests {
         let budget = Arc::clone(budget);
         thread::spawn(move || {
             let source = archive_source(name);
-            let listing = list(&source).unwrap();
+            let (listing, _) = list(&source).unwrap();
             let content = ContentSource::new(&source, &budget);
             let metadata = content.read_metadata(&listing);
             drop(content);
@@ -337,7 +419,7 @@ mod tests {
         fs::write(root.join("Players/03 - A/face_high.fmdl"), "12345").unwrap();
         fs::write(root.join("players.txt"), "03 A").unwrap();
 
-        let listing = list(&folder_source(root.to_path_buf())).unwrap();
+        let (listing, _) = list(&folder_source(root.to_path_buf())).unwrap();
 
         assert_eq!(listing.display_name, "co - Spring");
         assert_eq!(
@@ -370,7 +452,7 @@ mod tests {
     #[test]
     fn an_archive_lists_its_files_and_its_directory_entries() {
         for name in ["co - Spring.zip", "co - Spring.7z"] {
-            let listing = list(&archive_source(name)).unwrap();
+            let (listing, _) = list(&archive_source(name)).unwrap();
             assert_eq!(listing.display_name, "co - Spring");
             assert_eq!(
                 sorted_entries(&listing),
@@ -432,7 +514,7 @@ mod tests {
         let unheld = Arc::clone(&budget);
         thread::spawn(move || {
             let source = archive_source("co - Spring.7z");
-            let mut listing = list(&source).unwrap();
+            let (mut listing, _) = list(&source).unwrap();
             listing
                 .entries
                 .retain(|entry| matches!(entry.kind, ListedKind::Folder));
@@ -472,7 +554,7 @@ mod tests {
         let budget = MemoryBudget::new(1 << 30);
         for name in ["egg Tracer.zip", "egg Tracer.7z"] {
             let source = archive_source(name);
-            let listing = list(&source).unwrap();
+            let (listing, _) = list(&source).unwrap();
             let paths: Vec<&str> = listing
                 .entries
                 .iter()
@@ -552,7 +634,7 @@ mod tests {
         // for one would never return.
         let budget = MemoryBudget::new(34);
         let source = archive_source("co - Spring.7z");
-        let listing = list(&source).unwrap();
+        let (listing, _) = list(&source).unwrap();
         let content = ContentSource::new(&source, &budget);
 
         let (content, metadata) = within_guard(move || {
@@ -692,7 +774,7 @@ mod tests {
         let budget = MemoryBudget::new(1 << 20);
         budget.cancel();
         let source = archive_source("co - Spring.7z");
-        let listing = list(&source).unwrap();
+        let (listing, _) = list(&source).unwrap();
 
         let metadata = ContentSource::new(&source, &budget).read_metadata(&listing);
 
@@ -741,5 +823,124 @@ mod tests {
         assert_eq!(metadata.files["wrapper/players.txt"], Ok(b"03 B".to_vec()));
         // Listed but missing on disk: the read fails with the system's reason.
         assert!(metadata.files["notes.txt"].is_err());
+    }
+
+    /// How far a test moves a modified time: far past any file system's time granularity.
+    const MOVED: Duration = Duration::from_secs(10);
+
+    const FACE: &str = "Players/03 - A/face_high.fmdl";
+    const ROSTER: &str = "players.txt";
+
+    /// A scratch folder export holding `FACE` and `ROSTER`, listed: the source and its revision.
+    fn listed_folder(name: &str) -> (ScratchFolder, ExportSource, SourceRevision) {
+        let temp = scratch(name);
+        let root = temp.path();
+        fs::create_dir_all(root.join("Players/03 - A")).unwrap();
+        fs::write(root.join(FACE), "12345").unwrap();
+        fs::write(root.join(ROSTER), "03 A").unwrap();
+        let source = folder_source(root.to_path_buf());
+        let (_, revision) = list(&source).unwrap();
+        (temp, source, revision)
+    }
+
+    fn modified(path: &Path) -> SystemTime {
+        fs::metadata(path).unwrap().modified().unwrap()
+    }
+
+    fn set_modified(path: &Path, time: SystemTime) {
+        File::options()
+            .write(true)
+            .open(path)
+            .unwrap()
+            .set_modified(time)
+            .unwrap();
+    }
+
+    /// `path` in `source` as `changed` names it.
+    fn displayed(source: &ExportSource, path: &str) -> Option<String> {
+        Some(source.path.join(path).display().to_string())
+    }
+
+    #[test]
+    fn a_folder_nothing_touched_since_its_listing_has_not_changed() {
+        let (_temp, source, revision) = listed_folder("revision_untouched");
+        assert!(matches!(&revision, SourceRevision::Folder(stamps) if stamps.len() == 2));
+        assert_eq!(revision.changed(&source, [FACE, ROSTER]), None);
+    }
+
+    #[test]
+    fn a_file_one_byte_longer_with_its_old_modified_time_has_changed() {
+        let (_temp, source, revision) = listed_folder("revision_size");
+        let face = source.path.join(FACE);
+        let listed = modified(&face);
+        fs::write(&face, "123456").unwrap();
+        set_modified(&face, listed);
+        assert_eq!(
+            revision.changed(&source, [ROSTER, FACE]),
+            displayed(&source, FACE)
+        );
+    }
+
+    #[test]
+    fn a_file_of_the_same_size_with_its_modified_time_moved_has_changed() {
+        let (_temp, source, revision) = listed_folder("revision_time");
+        let face = source.path.join(FACE);
+        let listed = modified(&face);
+        fs::write(&face, "54321").unwrap();
+        set_modified(&face, listed + MOVED);
+        assert_eq!(revision.changed(&source, [FACE]), displayed(&source, FACE));
+    }
+
+    #[test]
+    fn a_removed_file_has_changed_and_a_file_added_after_the_listing_changes_nothing() {
+        let (_temp, source, revision) = listed_folder("revision_removed");
+        fs::write(source.path.join("Players/03 - A/boots.fmdl"), "new").unwrap();
+        assert_eq!(revision.changed(&source, [FACE, ROSTER]), None);
+        fs::remove_file(source.path.join(ROSTER)).unwrap();
+        assert_eq!(
+            revision.changed(&source, [FACE, ROSTER]),
+            displayed(&source, ROSTER)
+        );
+    }
+
+    #[test]
+    fn a_path_the_listing_never_held_has_changed() {
+        let (_temp, source, revision) = listed_folder("revision_unlisted");
+        let added = "Players/03 - A/boots.fmdl";
+        fs::write(source.path.join(added), "new").unwrap();
+        assert_eq!(
+            revision.changed(&source, [added]),
+            displayed(&source, added)
+        );
+    }
+
+    #[test]
+    fn a_changed_file_that_is_not_among_the_files_read_changes_nothing() {
+        let (_temp, source, revision) = listed_folder("revision_not_read");
+        let face = source.path.join(FACE);
+        let listed = modified(&face);
+        fs::write(&face, "54321").unwrap();
+        set_modified(&face, listed + MOVED);
+        assert_eq!(revision.changed(&source, [ROSTER]), None);
+    }
+
+    #[test]
+    fn an_archive_whose_modified_time_moved_has_changed_whatever_the_files_read() {
+        let temp = scratch("revision_archive");
+        let fixture = archive_source("co - Spring.zip");
+        let source = ExportSource {
+            path: temp.path().join("co - Spring.zip"),
+            ..archive_source("co - Spring.zip")
+        };
+        fs::copy(&fixture.path, &source.path).unwrap();
+        let (_, revision) = list(&source).unwrap();
+        assert!(matches!(revision, SourceRevision::Archive(_)));
+        assert_eq!(revision.changed(&source, [ROSTER]), None);
+
+        set_modified(&source.path, modified(&source.path) + MOVED);
+
+        let archive = Some(source.path.display().to_string());
+        assert_eq!(revision.changed(&source, [ROSTER]), archive);
+        assert_eq!(revision.changed(&source, []), archive);
     }
 }
