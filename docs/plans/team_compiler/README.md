@@ -794,10 +794,12 @@ TC-MOD-23  GIVEN slot 05 holding body_uniform.model, and another export whose sl
            THEN the first's entry type is uniform_sub with xml_uniform_pes15 on 15, uniform on 16
                 and 17, and on 16 its emitted model name carries the oral_ prefix; on 16 the
                 second reports xml_oral_prefix_missing
-TC-MOD-24  GIVEN slot 05 holding legs.model.common and Common/legs.model with Common/legs.mtl
-           WHEN it is compiled for PES 17
+TC-MOD-24  GIVEN slot 05 holding legs.model.common and Common/legs.model with Common/legs.mtl;
+           then slot 05 also holding a legs.mtl of its own naming another texture
+           WHEN it is compiled for PES 17 each time
            THEN face.xml points the entry at the Common path with 714 substituted, Common/ output
-                holds legs.model and legs.mtl once, and the face CPK does not hold them
+                holds legs.model and legs.mtl once, and the face CPK does not hold them; in the
+                second run the entry's material is slot 05's own legs.mtl, in the face CPK
 TC-MOD-25  GIVEN slot 05 holding face_edithair.xml, and another export holding hat.model in
            Boots/Mud/ (a shared boots folder), linked by slot 07
            WHEN each export is checked for PES 17
@@ -1230,7 +1232,8 @@ TC-BIN-05  GIVEN a PES folder whose download/DpFileList.bin lists 4cc_08_bins, 4
            THEN the first run's UniColor.bin carries B at p1 (the highest-priority CPK below the
                 output's) and the second run's carries A (the midcup CPK and everything above it
                 skipped), both with p2 set; bin_source names the supplying CPK for each bin
-TC-BIN-06  GIVEN an installed UniformParameter.bin holding team 714's p1 entry, and a Midcup
+TC-BIN-06  GIVEN an installed UniformParameter.bin holding team 714's p1 entry without the FPC
+           values (shirt model 144), and a Midcup
            export with fpc_on and only p2/
            WHEN it is compiled for PES 21
            THEN the emitted UniformParameter.bin's p1 entry carries the FPC values with
@@ -1289,7 +1292,8 @@ TC-BIN-17  GIVEN an installed BootsList.bin holding (71405, 7) and (71406, 9), a
            WHEN it is compiled for PES 21 as a Full export, then as a Midcup export
            THEN the Full run's BootsList.bin holds (71405, 625) and no row for 71406, and the
                 Midcup run's holds (71405, 625) and (71406, 9)
-TC-BIN-18  GIVEN an installed CPK holding team 714's loose p1 kit config, and a Midcup /co/
+TC-BIN-18  GIVEN an installed CPK holding team 714's loose p1 kit config without the FPC values
+           (shirt model 144), and a Midcup /co/
            export with fpc_on and only p2/
            WHEN it is compiled for PES 17
            THEN the CPK holds p1's config re-emitted with the FPC values, with
@@ -1374,8 +1378,7 @@ TC-REF-08  GIVEN a refs export with no ref_marker.dds
 TC-REF-09  GIVEN TC-REF-01's refs export
            WHEN the root is compiled for PES 17
            THEN the referee CPK holds common/character0/model/character/face/real/referee001.cpk,
-                referee020.cpk and referee035.cpk, boots folders k9901, k9920 and k9935 under
-                common/character0/model/character/boots/, and one skin.dds under
+                referee020.cpk and referee035.cpk, and one skin.dds under
                 common/character1/model/character/uniform/common/999/Ref A/
 ```
 

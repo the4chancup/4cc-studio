@@ -90,6 +90,18 @@ fn compile_entry(sandbox: &Sandbox, name: &str, version: u8, path: &str) -> Vec<
         .unwrap_or_else(|| panic!("PES {version}: no {path} among {:?}", entries.keys()))
 }
 
+/// The emitted FTEX `bytes` converted back to a DDS and decoded: asserts the codec, the
+/// 1024x1024 size and the full 11-level chain on the *payload*, which `ftex::info`'s
+/// header-only read cannot see (TC-TEX-01, TC-TEX-10).
+fn assert_decodes_as(bytes: &[u8], codec: BlockCodec, label: &str) {
+    let decoded = decode(&ftex::ftex_to_dds(bytes).unwrap(), SourceFormat::Dds).unwrap();
+    let blocks = decoded.blocks.as_ref().unwrap();
+    assert_eq!(blocks.codec, codec, "{label}");
+    assert_eq!((decoded.width, decoded.height), (1024, 1024), "{label}");
+    assert_eq!(decoded.mips.len(), 11, "{label}: 1024x1024 down to 1x1");
+    assert_eq!(blocks.mips.len(), 11, "{label}: a block buffer per level");
+}
+
 // TC-TEX-01
 #[test]
 fn a_png_skin_is_bc7_with_a_full_mip_chain_on_pes_21_and_bc3_on_pes_18() {
@@ -103,11 +115,16 @@ fn a_png_skin_is_bc7_with_a_full_mip_chain_on_pes_21_and_bc3_on_pes_18() {
     );
     let skin = format!("{PLAYER_TEXTURES}/skin.ftex");
 
-    for (version, format) in [(21, PixelFormat::Bc7), (18, PixelFormat::Bc3)] {
-        let info = ftex::info(&compile_entry(&sandbox, "co - Skin", version, &skin)).unwrap();
+    for (version, format, codec) in [
+        (21, PixelFormat::Bc7, BlockCodec::Bc7),
+        (18, PixelFormat::Bc3, BlockCodec::Bc3),
+    ] {
+        let emitted = compile_entry(&sandbox, "co - Skin", version, &skin);
+        let info = ftex::info(&emitted).unwrap();
         assert_eq!(info.format, format, "PES {version}");
         assert_eq!(info.mipmaps, 11, "PES {version}: 1024x1024 down to 1x1");
         assert_eq!((info.width, info.height), (1024, 1024), "PES {version}");
+        assert_decodes_as(&emitted, codec, &format!("PES {version}"));
     }
 }
 
@@ -209,9 +226,11 @@ fn an_opaque_skin_is_bc1_and_its_normal_map_bc3_with_x_in_alpha_y_in_green_on_pe
     assert_eq!(run.exit_code(), 0);
     let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
 
-    let skin = ftex::info(&entries[&format!("{PLAYER_TEXTURES}/skin.ftex")]).unwrap();
-    assert_eq!(skin.format, PixelFormat::Bc1);
-    assert_eq!((skin.width, skin.height, skin.mipmaps), (1024, 1024, 11));
+    let skin = &entries[&format!("{PLAYER_TEXTURES}/skin.ftex")];
+    let info = ftex::info(skin).unwrap();
+    assert_eq!(info.format, PixelFormat::Bc1);
+    assert_eq!((info.width, info.height, info.mipmaps), (1024, 1024, 11));
+    assert_decodes_as(skin, BlockCodec::Bc1, "skin.ftex");
 
     let nrm = &entries[&format!("{PLAYER_TEXTURES}/skin_nrm.ftex")];
     assert_eq!(ftex::info(nrm).unwrap().format, PixelFormat::Bc3);

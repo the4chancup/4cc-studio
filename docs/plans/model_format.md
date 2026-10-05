@@ -191,9 +191,9 @@ Rules:
 
 - The pre-Fox `uniform` model type in `face.xml`, which makes the game ignore the material's diffuse
   path and use the active kit texture plus the kit config's pattern normal map. It is a native game
-  feature and stays available on pre-Fox targets through the existing filename-prefix typing (a model
-  named `uniform*` gets the type); it has no Fox counterpart and is not part of the cross-engine
-  format.
+  feature and stays available on pre-Fox targets through the model-name suffix (a model whose
+  stem ends in `uniform` gets the type; the suffix table in the Aesthetics export plan's "Model
+  names"); it has no Fox counterpart and is not part of the cross-engine format.
 - `dummy_kit` (and `dummy_kit_back/_chest/_leg/_name/_nrm/_srm`), a reserved texture name the modded
   exes replace at load time with the active kit texture of that role. It is legacy — a second
   vocabulary for what `kitN` expresses with the export's own files — and gets **second-class
@@ -406,15 +406,10 @@ Rules:
   its folder under the linked name. This is what makes a Common material file reusable across
   players: it names the textures it ships with, and a player who wants a different texture overrides
   the stem in a local file, which then resolves locally.
-- **Where a texture resolves decides where it is packed.** A texture whose resolved file is in the
-  player folder is the player's own: the compiler relocates it to that player's common subfolder in
-  the output. A texture whose resolved file is in `Common/` — through a texture link, a stem set in
-  a Common material file, or a Common-linked model's own textures — is **referenced in place**: it
-  is packed once, in the team's Common output, and every material that resolves to it points there
-  (Red's `common/XXX/` path handling on both engines, with the team ID substituted at compile
-  time). That is the point of putting a texture in Common: one 2048² hair texture for twenty
-  players is one file in the CPK, not twenty. Compiler side: "Texture relocation to common" in the
-  [Team compiler plan](team_compiler/README.md).
+- **Where a texture resolves decides where it is packed**: resolved in the player folder, the
+  player's own; resolved in `Common/`, the team's, packed once (one 2048² hair texture for twenty
+  players is one file). The rule and its paths: "Texture relocation to common" in the [Team
+  compiler pipeline](team_compiler/pipeline.md).
 - Link files are folder-level references, not model content: the linked file is read from Common,
   never copied into the output, and the link file itself is not emitted. For pre-Fox `.mtl.common`
   the generated XML points the model at the Common MTL path (Red's behavior).

@@ -1191,6 +1191,15 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   mapping `Ref A` to 01, 20 and 35 on PES 21 writes `4cc_35_referees.cpk` holding three face
   packages, one `common/999/Ref A/sourceimages/` texture set, and `k9901`, `k9920`, `k9935`
   boots folders when the folder has boots; the team CPK of the same run holds no `999` path.
+  Open first (review S6.A3 item 1): a referee's local boots on pre-Fox. The categorization
+  rule puts a pre-Fox player's local boots in his `face.xml` (`player_folders.md`, "A link
+  plus local models combines"; `ingame_face` the one exception), Red writes a referee's
+  `boots/` subfolder to a `k99NN` folder on both engines (`referee_tools.py`
+  `ref_folder_process`), and the paths table has a pre-Fox `k99NN` row. Decide whether a
+  pre-Fox referee is an exception (and why: no savefile slot, the game loading `k99NN` by
+  the referee's ID), or the row serves only a shared folder; then give TC-REF-09 its boots
+  clause (removed until then). An in-game check of a referee `face.xml` boots entry may
+  settle it.
   Open first (found at 4.4a): the plan gives a shared `Boots/`/`Gloves/` folder in a refs export
   no ID (refs have no block; the structure pass's pool check skips refs); rule it in the plan
 
