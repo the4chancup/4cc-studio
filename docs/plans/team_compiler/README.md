@@ -225,7 +225,11 @@ This documents the dependency without changing the phase order in the core plan.
 Format and rules: `CONTRIBUTING.md` "Testing". IDs are never reused; later phases append.
 In every phase's scenarios, a team export is a `Full` export, its name carrying the tag,
 unless the scenario says `Midcup` (the Aesthetics export plan's "Coverage tag"), and a
-scenario that names no PES version runs for PES 21.
+scenario that names no PES version runs for PES 21. A GIVEN names the files that decide its
+outcome; a folder or export it names also holds the least ordinary content its THEN needs
+to be reachable (a face model in a player folder whose face compiles, a model in a shared
+folder, a `kit.dds` in a kit whose texture is used, a kit in an export whose bin entries
+are observed), as the cited test sets up.
 
 **Phase 3 scope.** Discovery and export sources, `aesthetics_export`'s structure pass with its
 dispositions ("Validation semantics" in the Aesthetics export plan), export identity, the settings
@@ -684,10 +688,12 @@ TC-MOD-03  GIVEN a players.txt mapping one folder with boots.fmdl and a texture 
            THEN k0623 and k0627 both hold the boots package, and the folder's textures appear once,
                 under the folder's name
 TC-MOD-04  GIVEN slot 05 holding a face model, skin.dds and kit_boots.fmdl, and linking Crocs.boots,
-           whose folder also holds skin.dds: once with the same bytes, once with different ones
+           whose folder holds boots.fmdl, sole.dds and skin.dds: once with the same bytes, once
+           with different ones
            WHEN each is compiled
            THEN the first packs skin once with no texture finding; the second reports
-                shared_texture_conflict, keeps the face and the player's skin, and k0625 is absent
+                shared_texture_conflict, keeps the face and the player's skin, and k0625 is
+                absent, sole.ftex with it
 TC-MOD-05  GIVEN Boots/Crocs/ and Boots/Mud/ each holding boots.fmdl and a texture, Crocs linked by
            slots 03 and 07, Mud by slot 11
            WHEN the export is compiled for PES 21
@@ -918,8 +924,9 @@ TC-TEX-08  GIVEN a /co/ export whose slot 05 holds a face model naming skin and 
            WHEN the export is compiled for PES 17 each time, then for PES 21 with true and
            with false
            THEN every .dds entry of the first run but hair.dds is WESYS-wrapped and decompresses
-                to the second run's bytes; the third run equals the second and the fourth the
-                first; hair.dds is emitted as it is in every PES 17 run; the two PES 21 runs'
+                to the second run's bytes; the third run's .dds entries equal the second's and
+                the fourth's are wrapped as the first's; hair.dds is emitted as it is in every
+                PES 17 run; the two PES 21 runs'
                 CPKs are byte-identical
 TC-TEX-09  GIVEN slot 05 holding a face model naming the textures hair and skin, skin.dds,
            hair.dds.common, and Common/hair.dds
