@@ -657,7 +657,8 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
 TC-PRT-01  GIVEN a /co/ export whose slot 05 folder holds portrait.dds, and Portraits/player_07.png
            WHEN it is compiled for PES 21, then for PES 18
            THEN the CPK holds common/render/symbol/player/71405.dds and 71407.dds, then
-                player_71405.dds and player_71407.dds, each a DDS
+                player_71405.dds and player_71407.dds, each a DDS, the portrait.dds ones
+                byte-identical to their source
 TC-PRT-02  GIVEN slot 05's folder holding portrait.dds and Portraits/player_05.dds with different
            contents, and another export where the two files are byte-identical
            WHEN each is compiled
@@ -723,7 +724,8 @@ TC-MOD-09  GIVEN a folder holding a texture and two parts merged into one boots.
                 still packed
 TC-MOD-10  GIVEN slot 05 holding torso.fmdl, legs.fmdl.common and Common/legs.fmdl
            WHEN the export is compiled for PES 21
-           THEN fmdl_fcl_hair_fallback is reported for torso.fmdl, fmdl_merged for the folder, the
+           THEN fmdl_fcl_hair_fallback is reported for torso.fmdl and the linked legs.fmdl,
+                fmdl_merged for the folder, the
                 face package holds one fcl_hair.fmdl whose mesh count is the sum, and no
                 legs.fmdl.common or Common model path is in the CPK
 TC-MOD-11  GIVEN Common/legs.fmdl referencing cloth.dds, which sits in Common/
@@ -1092,9 +1094,9 @@ TC-KIT-21  GIVEN p1/ holding kit.dds without kit_mask.dds
                 finding about the mask
 TC-KIT-22  GIVEN p1/ holding kit.dds, kit_mask.dds and kit_srm.dds
            WHEN the export is compiled for PES 17, then PES 21
-           THEN on 17 the mask is emitted as given and the srm is not, on 21 the srm is emitted as
-                given and the mask is not, each time with kit_texture_not_used naming the map left
-                out
+           THEN on 17 the mask is emitted, not re-laid, and the srm is not; on 21 the srm is
+                emitted, not re-laid, and the mask is not, each time with kit_texture_not_used
+                naming the map left out
 TC-KIT-23  GIVEN p1/ and g1/ with configs
            WHEN the export is compiled for PES 17
            THEN the CPK holds the two 120-byte configs as loose files under
@@ -1350,7 +1352,8 @@ TC-REF-04  GIVEN a refs export with ref_marker.dds
            THEN the referee CPK holds the marker model as collar_077.model with its .mtl, the
                 marker texture in the referees' Common output, and referee kit configs whose
                 collar is 77
-TC-REF-05  GIVEN a refs export compiled with --mode test
+TC-REF-05  GIVEN a refs export whose players.txt maps Ref A to slots 01 and 20, compiled with
+           --mode test
            WHEN it runs
            THEN output/test_output/<refs source key>/Players/Ref A/ holds the processed files once,
                 not per slot

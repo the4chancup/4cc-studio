@@ -74,7 +74,10 @@ rollback is needed:
   other referee templates;
 - the model's texture path names the marker texture in the referees' Common output, which is
   `ref_marker.dds` converted like any Common texture;
-- the referee template kit configs name that collar.
+- the referee template kit configs name that collar. They are loose files under
+  `common/character0/model/character/uniform/team/referee/` in the refs CPK on both engines,
+  as the templates ship them (`referee_DEF_1.bin` and the rest), never entries of the
+  bins CPK's `UniformParameter.bin`.
 
 Without `ref_marker.dds` the collar model and the texture are not emitted, and the template
 configs keep the collar they had.
