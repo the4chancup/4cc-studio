@@ -341,8 +341,9 @@ applies the patch. Hand-editing the same fields here
 would create the two-sources problem — the next patch silently overwrites the hand edit, or the
 hand edit silently diverges from the DLC — so the editor **does not edit aesthetics by default**:
 
-- The Appearance tab renders its values disabled, with one line of explanation and a link to the
-  apply action ("Owned by the team's export — edit its `settings.toml`, recompile, apply the patch").
+- The Appearance tab renders its values disabled, with one line of explanation ("Owned by the
+  team's export — edit its `settings.toml` and recompile", plus on pre-Fox "then apply the
+  patch" and a link to the apply action).
 - The same lock covers every other aesthetics write path: the team operations that write
   appearance fields (set boots/gloves IDs for everyone, set/remove FPC for the team, clear visual
   flags, the FPC toggle), the aesthetics transplant, and the aesthetics section of Team TOML and
@@ -354,8 +355,9 @@ hand edit silently diverges from the DLC — so the editor **does not edit aesth
   reported and skipped; the rest applies. Patches apply cleanly in sequence — a midcup patch
   carries only the teams it recompiled and only the fields their compile resolved.
 - **Unlock: "Edit aesthetics anyway"**, a switch on the Appearance tab, off at every start of the
-  tool. Turning it on re-enables all the paths above for the session, with the note that a later
-  patch overwrites whatever is edited by hand. It exists for the cases the rule does not cover — a
+  tool. Turning it on re-enables all the paths above for the session, with the note that on
+  pre-Fox a later patch overwrites whatever is edited by hand, and on a stripped Fox save the game
+  does not read it. It exists for the cases the rule does not cover — a
   team with no export, a cup-night fix when recompiling is not an option — and it is a session
   switch rather than a setting so that the default cannot quietly become "unlocked" on the
   savefile builder's machine.

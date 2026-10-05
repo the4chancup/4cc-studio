@@ -658,7 +658,8 @@ in the [Aesthetics export plan](../aesthetics_export/settings_toml.md)), so the 
 **names and shirt names**. It is applied whole, with no team picker: an autopilot team's export
 sets `name` and `shirt_name` for its players (its tactical export carries placeholder names),
 while a managed team's export leaves them out, so its players keep the names their manager set.
-It is written when the compile resolved at least one name or shirt name. On **pre-Fox**
+Like the pre-Fox one it is written on every compile, so the patch beside a CPK is always that
+CPK's (one with no names writes nothing). On **pre-Fox**
 (PES 15–17) it
 holds everything below, on every compile, as the only route for aesthetics.
 

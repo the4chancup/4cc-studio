@@ -968,14 +968,15 @@ describes behavior, not a serial scheduling requirement:
 - **Aesthetics patch** — written beside the output CPK as `aesthetics_patch.toml`: the resolved
   savefile writes for the compiled players (format and rules in "Aesthetics patch" in the
   [Savefile plan](../pes_savefile/operations.md)). On **Fox** it holds names and shirt names only
-  (the rest is in the CPK's player appearance tables, "Bins accumulation") and is written when the
-  compile resolved at least one; the savefile builder applies it whole, a managed team's export
+  (the rest is in the CPK's player appearance tables, "Bins accumulation") and, as on pre-Fox, is
+  written on every compile, so an earlier run's patch never sits beside a newer CPK; the
+  savefile builder applies it whole, a managed team's export
   leaving `name` and `shirt_name` out so its players keep their manager's names while an
   autopilot team's export sets them. On
   **pre-Fox** it is written on every compile and holds everything: settings.toml settings with
-  `name = true` and FPC markers resolved to concrete values, authored stock boots/gloves IDs for
-  categories with no folder content, and the auto-assigned boots/gloves IDs
-  **only for content that was actually packed**: if a boots/gloves task failed, the affected players
+  `name = true` and FPC markers resolved to concrete values, the authored stock boots/gloves IDs
+  (else the marker's default) for categories requesting no standalone output, and the
+  auto-assigned boots/gloves IDs **only for content that was actually packed**: if a boots/gloves task failed, the affected players
   keep their existing savefile IDs rather than pointing at absent CPK content, while their
   independent valid settings still apply. The patch travels with the CPK: it describes the CPK it
   sits beside, whether or not this machine deployed it. This is what separates the **DLC builder**
@@ -1233,11 +1234,12 @@ Resolved decisions:
   collar value (see "Collars").
 - **Missing savefile stays a warning**: deterministic ID allocation keeps a later savefile-inclusive
   recompile of the same exports consistent, so the CPK step may proceed.
-- **Pre-Fox local boots/gloves never touch the savefile**: models embedded as typed face-XML entries
-  are ordinary face-XML models with no ID concept, so a local-only category leaves the existing
-  savefile boots/gloves ID untouched. Only shared pre-Fox boots/gloves folders (ID-named outputs)
-  get savefile ID writes; a player combining local parts with a shared link gets the shared ID
-  written while the local parts ride in the face XML. **Exception — `ingame_face`**: with no face
+- **Pre-Fox local boots/gloves get no ID of their own**: models embedded as typed face-XML entries
+  are ordinary face-XML models with no ID concept and request no standalone output, so a
+  local-only category's ID is the authored stock ID or the FPC marker's default (steps 2 and 3
+  of "Player settings in exports" in the [Aesthetics export plan](../aesthetics_export/settings_toml.md)).
+  Only shared pre-Fox boots/gloves folders (ID-named outputs) get compiler-assigned IDs; a player
+  combining local parts with a shared link gets the shared ID written while the local parts ride in the face XML. **Exception — `ingame_face`**: with no face
   folder emitted, gloves and boots parts are relocated to player-specific folders with IDs from the
   per-team block scheme, and those IDs are written to the savefile on pre-Fox too; a shared link
   combined with local parts of the same category is merged into that player-exclusive folder (the

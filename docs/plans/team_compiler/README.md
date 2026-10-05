@@ -74,7 +74,8 @@ User exports (folders / .zip / .7z)
 │  │  ─ Texture conversion and relocation      │
 │  │  ─ contents_packing (CPK/FPK)             │
 │  └ ─ Emit packed entries to writer           │
-│  ─ bins_update (team colors, uniparam)       │
+│  ─ bins_update (team colors, uniparam; Fox:  │
+│    player rows from resolved settings.toml)  │
 │  ┐ Referee processing (spec: Red)            │
 │  └ ─ Slot-mapped packing (players.txt)       │
 └──────────────────┬───────────────────────────┘
@@ -93,7 +94,7 @@ User exports (folders / .zip / .7z)
                    ▼
 ┌──────────────────────────────────────────────┐
 │  pes_savefile: Aesthetics patch + savefile   │
-│  ─ Resolve settings.toml + activated IDs     │
+│  ─ Resolve the patch from committed outputs  │
 │  ─ Write aesthetics_patch.toml beside the CPK│
 │    (Fox: names only; appearance is in bins/) │
 │  ─ Local save configured: decrypt, apply the │

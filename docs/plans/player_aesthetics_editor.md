@@ -125,7 +125,8 @@ type: the eleven decoded feature types, and from Phase 5 the version's undecoded
 mean nothing without seeing the face. The expected
 workflow for that group is the game's own face editor, then generating the folder's `settings.toml`
 from the save (the save editor's generation action, or the Export upgrader) and committing the
-result; the form shows the numbers so a diff is readable and a single value can be nudged. A face
+result, then, on a stripped Fox save, **Strip again** (the edit restored the player's id; see
+"Stripped save" in the [Save editor plan](save_editor.md)); the form shows the numbers so a diff is readable and a single value can be nudged. A face
 editor with a live preview — a rendered head from the parameters, the game's editor outside the
 game — would be a genuine tool of its own and is noted as a **future step**, not a requirement on
 this panel: it needs the head-morph data the game applies those parameters to, which nothing in the
@@ -160,8 +161,8 @@ location per launch:
   "studio": { "exe": "C:/.../4cc-studio.exe", "pes_version": 19 },
   "settings_toml": "C:/.../15 - Snuffy/settings.toml",
   "settings_schema": [
-    { "group": "appearance", "key": "skin_color", "type": "int", "min": 1, "max": 7,
-      "doc": "Skin colour, 1–7 (the game's swatch order)" },
+    { "group": "appearance", "key": "skin_color", "type": "int", "min": 0, "max": 6,
+      "doc": "Skin colour, 0 white to 6 black (the game's swatch order)" },
     "…one entry per PlayerSettings key of this PES version…"
   ],
   "sets": [

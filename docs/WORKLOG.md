@@ -1608,6 +1608,38 @@ pruned when their phase closes; they stay in git history.
   whole, decision 2026-10-05) writes the generated names over any rename its manager makes
   later. Intended (the author deletes the keys), a note at generation, or generation leaves
   names out for managed teams (review S5.7 item 8)?
+- open, needs the maintainer — the seed rows and multi-CPK mode: strip-and-seed puts its rows
+  into `4cc_08_bins.cpk` (decision 2026-10-05), but in multi-CPK mode that CPK is the
+  compiler's own bins output (`settings.md` `bins_cpk_name`), and the bins walk starts below
+  the output CPK (`pipeline.md` "Bins accumulation"). So the DLC builder's next multi-CPK
+  compile reads the three player tables from below the seed and replaces `4cc_08_bins.cpk`
+  without the seed rows of every player no export compiles. Options: the walk reads the three
+  player tables from the output CPK too (compiled players' rows are rebuilt every run, so the
+  walk stays idempotent for them), or the seed goes into a CPK of its own listed below
+  `4cc_08_bins` (review S5.A1 item 1).
+- open, needs the maintainer — motions on Fox: `settings.toml`'s `[appearance.motion]`
+  (hunching, arm movement, kick motions, celebrations, dribbling) are player-record fields
+  outside the appearance block (PES 20/21 bits 96 to 332), so neither the `PlayerAppearance.bin`
+  row (the block's bytes) nor the Fox patch (names only) carries them: on Fox a compiled
+  export's motions reach nobody. Does the Fox patch carry the motion keys too (whether the game
+  reads them from a stripped record is untested), or do motions become the manager's, edited
+  in the save editor like gameplay (review S5.A1 item 2)?
+- open — the unknown bits across versions: `settings_toml.md` names them by record bit
+  position per version and never converts them, but the ingame-face run's layout is the same
+  on every version (`model.md` "The ingame-face run"), Team TOML prefix-copies it between
+  versions today, and a PES 16 export may be compiled for PES 21, so per-version tables drop
+  hair and sliders a conversion could keep. Settle before Phase 5 removes the hex: tables
+  named by position in the run rather than the record, or converted by the run's offset
+  (review S5.A1 item 8).
+- open — the base-copy ID on pre-Fox: `model.md` makes it compiler-owned ("derived from what
+  was written"), but no plan says what the compiler derives, and the aesthetics patch, the
+  only savefile write path, has no key for it (Team TOML has `base_copy_id`). Settle with
+  Phase 5's patch: the rule and its key (review S5.A1 item 10).
+- open — the three Fox player tables with no installed copy: a compile with no PES folder or
+  DpFileList builds the bins on bundled bases, but there are bases only for `TeamColor`,
+  `UniColor` and `UniformParameter` (`pipeline.md` "Templates and fallback bins"). For
+  `PlayerAppearance`, `BootsList` and `GloveList`: a bundled base, the compiled rows alone, or
+  no table? Settle before 4.22 (review S5.A1 item 12).
 - resolved (2026-10-02) — the VPS mutation half's memory peak reached 7.07 GiB of the 8 GiB cap
   on `team_compiler` (3.y whole-crate run, 2 build jobs); no build was killed, and a killed one
   now fails the run. The maintainer keeps 8 GiB. (The 37 OOM kills of 2026-10-02 04:00 were the

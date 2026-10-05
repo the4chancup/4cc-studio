@@ -92,8 +92,8 @@ name inside `[appearance]` would collide with.
 # name for players.txt-mapped folders); "text" = write as is; absent = not written.
 name = "Snuffy"
 shirt_name = "SNUFFY"           # "text" = write as is; absent = not written
-boots_id = ""                   # "" = default (fpc_on: hidden, otherwise 0); 0 to 100, a stock boots model; ignored when the folder has boots models or a boots link
-gloves_id = ""                  # "" = default (fpc_on: hidden, otherwise 0); 0 to 100, a stock gloves model (0 = normal hands); ignored when the folder has gloves models or a gloves link
+boots_id = ""                   # "" = default (fpc_on: hidden, otherwise 0); 0 to 100, a stock boots model; ignored when the folder's boots models or a boots link get an ID (pre-Fox face-XML boots do not)
+gloves_id = ""                  # "" = default (fpc_on: hidden, otherwise 0); 0 to 100, a stock gloves model (0 = normal hands); ignored when the folder's gloves models or a gloves link get an ID (pre-Fox face-XML gloves do not)
 
 [appearance]
 skin_color = 1                  # 0 white, 1 light, 2 fair, 3 medium, 4 olive, 5 brown, 6 black, 7 custom (invisible body, PES 15 to 17 only)
@@ -159,8 +159,7 @@ lower_lip_type = 0              # 0 to 2 (PES 20 and 21: 0 to 4)
 # player's look survives; one table per game version, named by bit position. Leave them
 # as generated.
 [appearance.unknown.pes21]
-bit_2002 = false
-bits_2096_2143 = "AAAAAAAA"
+bits_2100_2279 = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
 ```
 
 Where the ranges come from, so a wrong one can be traced: the boots/gloves range is the stock
@@ -184,7 +183,7 @@ The unknown bits follow four rules:
   (the numbering of `pes_savefile`'s schema tables); `bits_A_B` is the run of adjacent undecoded
   bits from `A` to `B` inclusive, packed from bit `A` upward into bytes, little-endian like the
   record, then base64. Which bits are undecoded is `pes_savefile`'s completeness test's
-  complement, per version; the positions in the template above are illustrative.
+  complement, per version; the template above shows one of PES 21's runs.
 - **One table per version.** `[appearance.unknown.pes21]` applies only to a PES 21 compile; a
   compile for another version leaves those bits at their defaults and reports the table it
   could not use (`settings_unknown_other_version`, I). Bits mean nothing across versions, so they

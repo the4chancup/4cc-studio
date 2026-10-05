@@ -257,9 +257,12 @@ tables"; the description above and below is the Phase 2 code until then):
   complement of each version's decoded bits inside the appearance block (`Unknown`), and
   `AppearanceSettings` gains the `[appearance.unknown.pesNN]` tables (`bit_N` bools, `bits_A_B`
   base64 runs; format in `settings_toml.md`); `from_player` emits the player's version's table,
-  and applying writes only the target version's (absent bits 0). The completeness test then
+  and applying writes only the target version's (absent bits 0); both gain a `PesVersion`
+  parameter, since `PlayerEntry` is version-independent and a PES 20 entry looks like a 21 one. The completeness test then
   asserts that every bit of the block is named, unknown, or compiler-owned. Team TOML's
-  `ingame_face` hex goes once those tables carry the same bits: one carrier per bit.
+  `ingame_face` hex goes once those tables carry the same bits, across versions too (the hex
+  is prefix-copied between versions, the tables are never converted; worklog "Issues"): one
+  carrier per bit.
 - **The Fox database row.** A `PlayerSettings` (with its defaults) also produces the
   `PlayerAppearance.bin` row: the player id, then the record's 56 appearance bytes (everything
   after its id, edit flags, boots/gloves and base-copy fields; record bytes 252 to 308 on
@@ -355,10 +358,8 @@ The crate also applies the **version-aware FPC enable/disable presets**, which
 settings, with small per-version differences like the pre-18 custom skin; see
 the [Save editor plan](../save_editor.md)). Both the save editor's FPC toggle and
 the Team compiler's `fpc_on`/`fpc_off` marker files use the same preset values. The compiler
-composes the boots/gloves ID fields with asset outcomes: a successful requested standalone output
-uses its assigned ID, a failed requested output preserves the installed ID (Fox: the installed
-table row; pre-Fox: the save ID), and no requested
-standalone output allows the authored stock ID, else the preset ID. Other preset fields still apply normally; the full
-precedence rule lives in the [Aesthetics export plan](../aesthetics_export/settings_toml.md)'s "Player settings in exports" section.
+composes the boots/gloves ID fields with asset outcomes by the precedence rule in the
+[Aesthetics export plan](../aesthetics_export/settings_toml.md)'s "Player settings in exports";
+the other preset fields apply as they are.
 
 ---

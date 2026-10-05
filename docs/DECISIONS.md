@@ -3963,3 +3963,14 @@ Why: after step 4.0 that id decides whether the game reads the record or the tab
 template's leftover id would be neither the player's nor -1, a state no in-game run covered;
 keeping "only strip writes -1" leaves one writer of the stripped state (review S5.6).
 Plan: `pes_savefile/operations.md` "Player section population".
+
+## 2026-10-05 — team_compiler — the aesthetics patch is written on every compile
+Decision (lead, reversible): on Fox too, the Team compiler writes `aesthetics_patch.toml`
+beside its CPK on every compile, not only when it resolved a name; a patch with no names
+writes nothing when applied.
+Why: skipping the file left the previous run's patch beside the new CPK, so a team that
+removed its names would still be renamed by whoever applied the file found there; writing
+it always keeps "the patch describes the CPK beside it" true with no deletion step, and is
+the pre-Fox rule already (review S5.A1 item 9).
+Plan: `pes_savefile/operations.md` "Aesthetics patch", `team_compiler/pipeline.md`
+"Post-processing".
