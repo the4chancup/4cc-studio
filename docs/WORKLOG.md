@@ -1138,8 +1138,8 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   and its own mask re-laid to the pre-Fox layout (`kit_layout::relaid`, TC-KIT-19), `kit_mask` injected from the mask template
   (lead first: the template as a lead-authored fixture with a provenance README) when absent,
   `kit_srm` dropped with `kit_texture_not_used`, kit configs emitted as loose per-team bins under
-  `uniform/team/{team_id}/` (no `UniformParameter.bin` before PES 18), the pre-Fox
-  `UniColor`/`TeamColor` layouts, `fox` kits re-laid with the inverse table (4.10);
+  `uniform/team/{team_id}/` (no `UniformParameter.bin` before PES 18), `UniColor`/`TeamColor`
+  in the one layout every version shares (`resources/bins/README.md`), `fox` kits re-laid with the inverse table (4.10);
   `dds_compression` (`auto` follows `multicpk_mode`, `true`, `false`) wrapping every emitted DDS
   with `wezlib::compress` on PES 15-17 only, already-wrapped sources passed through, the level
   chosen by measuring levels 1, 3 and 6 on the tracer's DDS set and recorded in a decision entry.
@@ -1442,8 +1442,8 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
     (second word, any letter case; a referee export is Full), the draft and the validated
     export carry it, a team export with neither word is `export_tag_missing` (E, skipped;
     `check` and `compile`), and every test export, fixture archive, golden and help example
-    is renamed with its tag (TC-ID-01 and TC-PLN-03 already name tagged exports; their
-    tests still use untagged names until this slice). IDs: TC-ID-05, 06, 07 → verify: the
+    is renamed with its tag (TC-ID-01, TC-PLN-03 and TC-KIT-14, a `Midcup` export, already
+    name tagged exports; their tests still use untagged names until this slice). IDs: TC-ID-05, 06, 07 → verify: the
     three scenarios; the parity test's CPK is unchanged by the renames.
   - [ ] 4.34b `Full` resets the team's `UniColor.bin` record (its committed kits, the count
     theirs, a failed kit's kept entry among them, every other entry unused) and `Midcup`

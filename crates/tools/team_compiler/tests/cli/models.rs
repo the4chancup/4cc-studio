@@ -888,6 +888,7 @@ fn a_face_diff_xml_is_decoded_into_the_face_and_a_corrupt_one_drops_the_folder()
     );
 }
 
+// TC-MOD-42
 #[test]
 fn a_face_diff_given_twice_or_shorter_than_its_header_drops_the_folder() {
     // Both forms in one folder: neither is read, the conflict is the finding.

@@ -275,7 +275,8 @@ and `Complete` wait for their consumers, the progress grid and the run strip (Ph
 is also when `Complete`'s placeholder fields are restructured ("Event system" in
 `core/architecture.md`), so a cell's outcome (`DoneWithErrors`, "Cell states" in `gui.md`) is
 not one of these scenarios. A team export in a scenario is a `Full` export, its name carrying
-the tag, unless the scenario says `Midcup` (the Aesthetics export plan's "Coverage tag").
+the tag, unless the scenario says `Midcup` (the Aesthetics export plan's "Coverage tag"), and
+a WHEN that names no PES version runs for PES 21.
 
 **Sources**
 
@@ -769,11 +770,12 @@ TC-MOD-21  GIVEN slot 05 holding face_high.model, kit_boots.model, hat_parts.mod
            THEN face.xml lists six entries, in any order: one face_neck, three parts (visor's
                 with ratio="2"), one gloveL and one cape, in the face CPK alone: no boots/ or
                 glove/ folder is written for the player
-TC-MOD-22  GIVEN slot 05 holding face_high.model, face_high.mtl and Crocs.boots, Boots/Crocs/ holding
-           boots.model and boots.mtl
+TC-MOD-22  GIVEN slot 05 holding face_high.model, face_high.mtl, kit_boots.model, kit_boots.mtl and
+           Crocs.boots, Boots/Crocs/ holding boots.model and boots.mtl
            WHEN it is compiled for PES 17
-           THEN common/character0/model/character/boots/0644/ holds Crocs's files as loose entries
-                and slot 05's face.xml does not list them
+           THEN common/character0/model/character/boots/0644/ holds Crocs's files as loose entries,
+                slot 05's face.xml lists kit_boots's emitted model as a parts entry and none of
+                Crocs's, and no link_combined is reported
 TC-MOD-23  GIVEN slot 05 holding body_uniform.model, and another export whose slot 05 also holds
            its own face.xml naming ./body_uniform.model
            WHEN each is compiled for PES 15, then PES 16, then PES 17
@@ -867,6 +869,10 @@ TC-MOD-41  GIVEN slot 05 holding ingame_face, shirt.model and socks.model with .
            WHEN each export is compiled for PES 17
            THEN the first reports merge_material_conflict and the second skl_merge_conflict,
                 and neither CPK holds common/character0/model/character/boots/0625/
+TC-MOD-42  GIVEN slot 05 holding a face model, face_diff.bin and face_diff.xml
+           WHEN the export is checked, then compiled
+           THEN xml_dif_conflict is reported naming face_diff.xml both times, and slot 05's
+                folder is left out of the CPK
 ```
 
 **Textures**
@@ -1033,11 +1039,11 @@ TC-KIT-12  GIVEN p1/colors.txt holding one valid entry and one unparsable line
 TC-KIT-13  GIVEN a p1/icon_7 marker, and p2 without an icon marker
            WHEN the export is compiled
            THEN p1's UniColor entry carries icon 7 and p2's icon 3
-TC-KIT-14  GIVEN a Midcup export with a kit whose task fails (its kit.dds holds bytes no decoder
-           reads)
+TC-KIT-14  GIVEN a Midcup /co/ export with kits p1 and p2, p2's task failing (its kit.dds holds
+           bytes no decoder reads)
            WHEN the export is compiled
-           THEN that kit has no UniColor or UniformParameter entry change; the other kits'
-                entries are written
+           THEN p2 has no UniColor or UniformParameter entry change, and p1's entries are
+                written
 TC-KIT-15  GIVEN fpc_on in slot 05's folder, p1/config.toml without the FPC values and p2/ without
            a config
            WHEN the export is compiled for PES 21
@@ -1196,7 +1202,7 @@ TC-BIN-03  withdrawn: TC-KIT-14 proves the same behavior on the same input
 TC-BIN-04  GIVEN a /co/ export with p1, a root colors.txt, and Boots/Crocs/ (boots.model and
            boots.mtl) linked by slot 05
            WHEN it is compiled for PES 17
-           THEN UniColor.bin and TeamColor.bin follow the pre-Fox layouts, and no
+           THEN UniColor.bin and TeamColor.bin are written with team 714's entries set, and no
                 UniformParameter.bin, PlayerAppearance.bin, BootsList.bin or GloveList.bin is
                 written
 TC-BIN-05  GIVEN a PES folder whose download/DpFileList.bin lists 4cc_08_bins, 4cc_61_midcup and
