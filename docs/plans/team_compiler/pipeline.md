@@ -663,12 +663,13 @@ describes behavior, not a serial scheduling requirement:
   installed cup content (see "FPC toggle" in the [Aesthetics export plan](../aesthetics_export/fpc_toggle.md)). A kit's UniColor/UniformParameter entry is applied only
   if that kit's task actually commits — a failed kit never mutates the global bins. On Fox the
   **player appearance tables** accumulate the same way: every compiled player gets his
-  `PlayerAppearance.bin` row (the appearance bytes built from his resolved `settings.toml`, its
-  defaults for absent keys, nothing from the installed row) and his `BootsList.bin` and
+  `PlayerAppearance.bin` row (Phase 5; Phase 4 passes the bin through unchanged) (the appearance
+  bytes built from his resolved `settings.toml`, its defaults for absent keys, nothing from the
+  installed row) and his `BootsList.bin` and
   `GloveList.bin` rows (the resolved IDs; a category whose output failed keeps its installed row),
-  a player of a `Full` export's team that the export gives no boots or no gloves loses that
-  installed row (it would point at an item the team no longer ships; until Phase 5 writes the
-  default-ID rows he then has none, TC-BIN-17), and every other player
+  a compiled player of a `Full` export's team that the export gives no boots or no gloves loses
+  that installed row (a `Full` export rebuilds its team's rows from the export alone; until
+  Phase 5 writes the default-ID rows he then has none, TC-BIN-17), and every other player
   keeps his installed rows, so the output carries complete tables (the
   game reads the highest-priority copy of each whole; the seed rows ride in `4cc_08_bins.cpk`
   ("Stripped save" in the [Save editor plan](../save_editor.md)); the base game's copies are

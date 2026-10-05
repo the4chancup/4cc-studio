@@ -1236,7 +1236,8 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   by the same walk (the seed rows ride in `4cc_08_bins.cpk`), the (player id, item id) pair of
   every compiled player whose
   boots/gloves output committed replaced with the planned ID, a failed output keeping its row,
-  every other row kept, written whole, plain, sorted by id; `PlayerAppearance.bin` read and
+  a compiled player the `Full` export gives no boots or gloves losing his installed row, every
+  other row kept, written whole, plain, sorted by id; `PlayerAppearance.bin` read and
   written whole with no row changed (the rows are Phase 5's, with the stock and default-ID
   boots/gloves rows). **External:** the in-game effect of a gloves row waits on FoxDen's gloves
   patch (worklog "Issues"); the table content does not. Plan: `pipeline.md` "Bins accumulation"
@@ -1443,7 +1444,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
     the count. IDs: TC-BIN-14, 15 → verify: the two scenarios on the bundled base.
   - The rest lands with the steps that own the data: the team's stale kit configs removed
     from `UniformParameter.bin` and no FPC patching for a Full export, with 4.21
-    (TC-BIN-16); a Full export's players without boots or gloves losing their installed
+    (TC-BIN-16); a Full export's compiled players without boots or gloves losing their installed
     rows, with 4.22 (TC-BIN-17); the savefile fields, Phase 5; the upgrader's tag
     (`midcup` or `additions` in the old name), Phase 6; the two buttons on an untagged row,
     Phase 8.
@@ -1593,6 +1594,11 @@ pruned when their phase closes; they stay in git history.
   team player the `Full` export does not compile at all (no folder), whose installed row may be
   a seed row with a stock ID or name the team's own block: kept, dropped, or written 0? Settle
   before 4.22 (review S5.1 item 9, S5.2 items 1 and 7).
+- open, needs the maintainer — `messages.md` (around line 333, "the PES16 exe will be patched
+  to allow loading models from Common") and `player_folders.md` (around line 222, "on PES16 via
+  the patched exe") rely on a PES 16 exe patch. Does it exist already (then "will be" is stale
+  tense), or is it a planned exe change, which the "Fox first" decision defers for pre-Fox
+  until a pre-Fox version is the cup's game again (review S5.4 item 4)?
 - resolved (2026-10-02) — the VPS mutation half's memory peak reached 7.07 GiB of the 8 GiB cap
   on `team_compiler` (3.y whole-crate run, 2 build jobs); no build was killed, and a killed one
   now fails the run. The maintainer keeps 8 GiB. (The 37 OOM kills of 2026-10-02 04:00 were the
