@@ -1241,7 +1241,8 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   boots/gloves rows). **External:** the in-game effect of a gloves row waits on FoxDen's gloves
   patch (worklog "Issues"); the table content does not. Plan: `pipeline.md` "Bins accumulation"
   (player appearance tables), "Game paths reference" (the three rows); `settings_toml.md` "Player
-  settings in exports" (Fox); `development_plan.md` "Phase 4" `bins/`. IDs: TC-BIN-10..12.
+  settings in exports" (Fox); `development_plan.md` "Phase 4" `bins/`. IDs: TC-BIN-10..12,
+  TC-BIN-17.
   Crates: tc (`bins/mod.rs`, `paths.rs`) → verify: PES 21 compile of `/co/` with slot 05's
   `boots.fmdl` over an installed `BootsList.bin` of ten pairs: the CPK's table holds eleven pairs
   sorted by id with (71405, 625) among them and the ten unchanged; `GloveList.bin` is

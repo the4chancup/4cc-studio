@@ -243,7 +243,7 @@ a `UniformParameter.bin` built on the bundled base, which the CPK carries only w
 (installed-bin lookup is Phase 4's). The test is over what would be emitted: content validation
 drops or leaves unmapped, an unused `all/`, a link whose missing target `pass_through` keeps, a
 `kit_mask` on a Fox target (Fox has no mask slot), a player's `settings.toml` and `fpc_off`
-(savefile only), and the root and kit metadata files and the kit icon marker do not count
+(settings-side only), and the root and kit metadata files and the kit icon marker do not count
 (`notes.txt` and `icon_<N>` are validated and emit nothing yet; `colors.txt` waits for step 4.8, which implements its grammar
 ("Root files", "Colors" in `player_folders.md`); `README.txt` is ignored). Everything else the
 validated export holds counts: a file a lenient setting keeps despite its finding, a portrait, an

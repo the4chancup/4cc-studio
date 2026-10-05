@@ -328,7 +328,7 @@ impl PlayerSettings {
 /// Writes one preset's appearance (sleeves, tuck, socks, boots/gloves IDs, skin), all or
 /// nothing: every check (custom skin available, the face run present) runs before the first
 /// write. The caller substitutes a custom model's own boots/gloves IDs, or an authored stock
-/// ID, into `appearance` first (the compiler's precedence table). `SkinColor::Custom` writes skin 7 on versions that have a
+/// ID, into `appearance` first (the precedence rules of "Player settings in exports"). `SkinColor::Custom` writes skin 7 on versions that have a
 /// custom skin (`fpc::custom_skin_available`) and is `FpcError::CustomSkinUnavailable` elsewhere;
 /// `SkinColor::Preset` resets a skin of 7 to 1 (light) and leaves any other skin alone.
 pub fn apply(player: &mut PlayerEntry, appearance: &fpc::Appearance, version: PesVersion)
@@ -354,8 +354,9 @@ settings, with small per-version differences like the pre-18 custom skin; see
 the [Save editor plan](../save_editor.md)). Both the save editor's FPC toggle and
 the Team compiler's `fpc_on`/`fpc_off` marker files use the same preset values. The compiler
 composes the boots/gloves ID fields with asset outcomes: a successful requested standalone output
-uses its assigned ID, a failed requested output preserves the existing save ID, and no requested
+uses its assigned ID, a failed requested output preserves the installed ID (Fox: the installed
+table row; pre-Fox: the save ID), and no requested
 standalone output allows the authored stock ID, else the preset ID. Other preset fields still apply normally; the full
-precedence rule lives in the [Aesthetics export plan](../aesthetics_export/fpc_toggle.md)'s "FPC toggle" section.
+precedence rule lives in the [Aesthetics export plan](../aesthetics_export/settings_toml.md)'s "Player settings in exports" section.
 
 ---

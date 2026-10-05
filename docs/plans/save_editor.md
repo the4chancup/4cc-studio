@@ -335,7 +335,8 @@ files, so the editor's toggle and the compiler's markers cannot drift apart.
 A player's aesthetics are owned by the team's export: `settings.toml` and the models decide them.
 On Fox the Team compiler writes them into the database tables of its CPK and the savefile's
 appearance records are stripped (see "Stripped save" below); on pre-Fox it resolves them into an
-**aesthetics patch** (format in the [Savefile plan](pes_savefile/README.md)), and the save editor
+**aesthetics patch** (format in "Aesthetics patch" of the
+[Savefile plan](pes_savefile/operations.md)), and the save editor
 applies the patch. Hand-editing the same fields here
 would create the two-sources problem — the next patch silently overwrites the hand edit, or the
 hand edit silently diverges from the DLC — so the editor **does not edit aesthetics by default**:
@@ -457,9 +458,9 @@ the editor exposes them as:
   shared authorable `PlayerSettings` subset; boots/gloves IDs are emitted only when they name a
   stock model (1 to 100), since custom IDs are compiler-assigned from models/links, not export
   settings.
-  Full Team TOML remains a full-fidelity save interchange. Name handling follows the
-  Export upgrader's rule: `name = true` only when the folder's name part
-  equals the savefile name, the explicit string otherwise — in particular a
+  Full Team TOML remains a full-fidelity save interchange. Name handling: the editor
+  generates without a folder, so it writes the save's strings (`name = true` is the
+  Export upgrader's rule) — in particular a
   name carrying colour codes is always emitted as the explicit string, so the
   next compile preserves the codes.
 

@@ -13,8 +13,8 @@ compile carries them to the game. **How depends on the engine:**
   by player; a record whose id is set wins over the tables (in-game Test 1, PES 2021: decision
   entry "aesthetics travel in the database tables"). The official save is therefore stripped once
   (every appearance id set to -1, see "Stripped save" in the [Save editor plan](../save_editor.md))
-  and the compiler writes each compiled player's three rows from this file; nothing aesthetic is
-  written to the savefile. Gloves need FoxDen's gloves patch to keep the table's value (worklog
+  and the compiler writes each compiled player's three rows from this file; nothing of a
+  player's appearance is written to the savefile. Gloves need FoxDen's gloves patch to keep the table's value (worklog
   "Issues"); until it does, a Fox gloves row has no effect in the 4cc setup.
 - **Pre-Fox (PES 15–17): in the savefile**, through the aesthetics patch the compiler writes and
   the save editor applies, as before. The database route is untested there.
@@ -73,7 +73,7 @@ model, which is why gloves ID 0 is a set of normal hands rather than "no gloves"
 Default is what nearly every player wants: an FPC player (a face model carrying the full body,
 no boots/gloves folders) needs the blank IDs, which the marker supplies without a key. Pre-Fox
 local models embedded in face XML request no standalone output, so they fall through to steps 2
-and 3. This is the precedence table of "FPC toggle". The template writes both keys uncommented
+and 3. The template writes both keys uncommented
 as `""`, the only keys shown with a value that sets nothing: every other key has a neutral value
 to display, while any boots/gloves ID is a real model, and TOML has no bare `key =`. They sit at
 the file's top level, next to `name`, rather than in

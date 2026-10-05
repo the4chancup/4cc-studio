@@ -235,7 +235,7 @@ Retargeting is also what makes the **PES19→PES21** compile correct — today R
 `dsk_pos_*` bones dangling in a PES21 FMDL; whether the game ignores or misrenders them is untested,
 and folding makes it moot. A manual per-folder override for fold targets is deliberately not
 specified: the table plus nearest-bone fallback should cover real exports, and `settings.toml` is
-kept to savefile settings; revisit if a case turns up.
+kept to appearance settings; revisit if a case turns up.
 
 **Cost.** Re-binding is linear-blend skinning evaluated once, offline. Per surviving bone one delta
 matrix `Dᵢ = B_target,ᵢ · B_source,ᵢ⁻¹` is precomputed (≤ 175 small matrix products); per vertex the
