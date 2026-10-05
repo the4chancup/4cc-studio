@@ -355,7 +355,7 @@ Full-fidelity Team TOML additionally preserves the save's boots/gloves IDs over 
 range as player-record data; generating an aesthetic export copies them into `settings.toml` only
 through `from_player`'s stock-band rule.
 
-The crate also applies the **version-aware FPC enable/disable presets**, which
+The crate also applies the **FPC enable/disable presets**, which
 `libs/fpc` owns (Full Player Customization invisibility — nonexistent boots/gloves IDs plus strip
 settings; their fields are listed in the [libs/fpc plan](../libs/fpc.md)). Both the save editor's FPC toggle and
 the Team compiler's `fpc_on`/`fpc_off` marker files use the same preset values. The compiler

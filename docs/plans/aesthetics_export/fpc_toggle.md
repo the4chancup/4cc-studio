@@ -14,7 +14,7 @@ version-dependent; instead it gets a folder-level toggle, consistent with the pr
 folder view tells the whole story about how the player's models render:
 
 - **`fpc_on`** — an empty marker file in a player folder. When present, the compile applies the
-  version-appropriate **FPC enable preset** from `libs/fpc` to the player's settings (the same
+  **FPC enable preset** from `libs/fpc` to the player's settings (the same
   preset the save editor's FPC toggle uses — one implementation, so the two tools can never drift);
   they reach the game like every other setting (on Fox in his table rows, on pre-Fox
   through the aesthetics patch).

@@ -1659,6 +1659,12 @@ pruned when their phase closes; they stay in git history.
   in sideload mode (no CPK, yet the savefile step applies "the patch just written"), and
   `patch_written` names one path. Settle with Phase 5's patch: one file per run, and where
   (review S5.10 item 5).
+- open — the Export upgrader's `fpc_on` detection (`export_upgrader.md` step 8, "settings
+  match the enable preset"): the cup's FPC players mostly ride their bodies in per-player
+  boots IDs, so their boots field holds that ID, not 55, and Test 1's save had every /a/
+  player FPC while `is_fpc_player` found none (`.tmp/apptest/results.txt`, run 2). Matching
+  the strip fields alone would also mark a dressed player with long sleeves, tucked shirt and
+  short socks. Settle the fields compared before Phase 6 (review S5.11 item 2).
 - resolved (2026-10-02) — the VPS mutation half's memory peak reached 7.07 GiB of the 8 GiB cap
   on `team_compiler` (3.y whole-crate run, 2 build jobs); no build was killed, and a killed one
   now fails the run. The maintainer keeps 8 GiB. (The 37 OOM kills of 2026-10-02 04:00 were the

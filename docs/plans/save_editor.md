@@ -317,7 +317,7 @@ remaining default geometry. Together they make the default player model
 invisible, leaving only the FBM visible.
 
 The editor's side of this, ported from `fpc.cpp`: a per-player toggle and a
-team-wide on/off that apply `libs/fpc`'s version-aware FPC enable/disable
+team-wide on/off that apply `libs/fpc`'s FPC enable/disable
 presets (their fields are listed in the [libs/fpc plan](libs/fpc.md)); the strip settings
 that break or bend hiding (inners, undershorts, taping, the gloves checkbox) are reported by
 its interference rules on the Appearance tab, not cleared. The ID constants become a suite-common setting consumed by
@@ -389,6 +389,11 @@ afterwards.
   name writes, the aesthetics patch included, leave the appearance block's id as it is; the aesthetics
   transplant and the unlocked Appearance tab write the record's fields but not its id, and on a
   stripped save they say that the game does not read them.
+- **A record at -1 is not the player's look.** Every view that reads a record's appearance (the
+  Appearance tab, the FPC classifier and its interference findings, the comparator, a
+  transplant's donor) marks a player at -1 as stripped beside what it shows; generation skips
+  him ("Player settings in exports" in the
+  [Aesthetics export plan](aesthetics_export/settings_toml.md)).
 - **The game's own Edit mode does.** Test 1 found that any change to a stripped player in Edit
   mode restores his id: a rename brings back his pre-strip look, a look edit freezes the database
   look shown into the save (with boots 0). Managers therefore rename players in this editor and
@@ -415,8 +420,8 @@ One panel merging 4ccEditor's `comparator.cpp` with Midcupping's
 - **Aesthetics scope** (from Midcupping): boots/gloves/face IDs, taping, glasses,
   sleeves, inners, socks, undershorts, shirttail, winter gloves, skin color, and
   the normalized ingame-face fingerprint (catches "the face was edited" without
-  decoding every facial parameter). It compares the records: for a player at -1 on a
-  stripped Fox save the game reads neither, so the row says so ("Stripped save").
+  decoding every facial parameter). It compares the records, so a player at -1 is
+  marked ("Stripped save").
 - Filter toggles: All / Gameplay / Aesthetics; a team filter; export the diff as
   text.
 - Clicking a diff row jumps to that player in the editor.
