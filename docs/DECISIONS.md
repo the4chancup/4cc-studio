@@ -3954,3 +3954,12 @@ silently left out; `4cc_08_bins` is already listed and already the bins' home.
 Plan: `aesthetics_export/settings_toml.md` (name rules), `pes_savefile/operations.md`
 "Aesthetics patch", `save_editor.md` "Stripped save", `team_compiler/pipeline.md` "Bins
 accumulation".
+
+## 2026-10-05 — pes_savefile — populated records carry their own appearance id
+Decision (lead, reversible): from Phase 5, `populate_players` also sets each new record's
+appearance-block player id to the player's own id, as real saves hold it; -1 is written only by
+the Save editor's strip-and-seed.
+Why: after step 4.0 that id decides whether the game reads the record or the tables, and a
+template's leftover id would be neither the player's nor -1, a state no in-game run covered;
+keeping "only strip writes -1" leaves one writer of the stripped state (review S5.6).
+Plan: `pes_savefile/operations.md` "Player section population".

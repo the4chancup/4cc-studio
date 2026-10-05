@@ -121,7 +121,8 @@ This is the quick-edit path that doesn't need Blender running — for example fl
 a player without launching anything.
 
 The **ingame-face parameters** are the one group the form exposes but does not expect anyone to
-type: some forty feature types and colours that mean nothing without seeing the face. The expected
+type: the eleven decoded feature types, and from Phase 5 the version's undecoded bits, that
+mean nothing without seeing the face. The expected
 workflow for that group is the game's own face editor, then generating the folder's `settings.toml`
 from the save (the save editor's generation action, or the Export upgrader) and committing the
 result; the form shows the numbers so a diff is readable and a single value can be nudged. A face

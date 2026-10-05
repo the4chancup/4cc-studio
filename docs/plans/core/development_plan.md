@@ -339,7 +339,7 @@ nothing about the Rust code.
   the installed CPKs by the same walk and written whole: `BootsList.bin` and `GloveList.bin` get
   a row for every compiled player whose custom boots or gloves output committed (the planned ID),
   a failed output keeping the installed row, a compiled player the `Full` export gives no boots
-  or gloves losing his installed row, every other row kept; `PlayerAppearance.bin` passes
+  or no gloves losing that installed row, every other row kept; `PlayerAppearance.bin` passes
   through with no row changed. Phase 5 adds the stock and default-ID rows and the appearance rows
   from `settings.toml`: this split is the only one in which Phase 4's CPK is game-correct for what
   it compiled without reading `settings.toml`.

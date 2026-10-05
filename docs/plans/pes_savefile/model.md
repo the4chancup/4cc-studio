@@ -297,7 +297,9 @@ impl PlayerSettings {
     /// An explicit name containing a NUL is `WrongType` (reading a save field stops at the
     /// first NUL, so it would silently truncate on reload).
     pub fn parse(text: &str) -> Result<Self, SettingsError>;
-    /// Every key `Some` from the player; `name` is `Explicit(raw name)`, colour codes included.
+    /// Every key `Some` from the player; `name` is `Explicit(raw name)`, colour codes included
+    /// (the Export upgrader then writes `FromFolder` when that name equals the folder's name
+    /// part; the function sees no folder).
     /// `boots_id`/`gloves_id` are the exception: `Some` only for a stored ID from 1 to 100 (0 is
     /// the game's default, an ID above 100 is custom content a folder owns), so they are never
     /// `OutOfRange`. Any other stored value the key table cannot express (a 2-bit sleeves field

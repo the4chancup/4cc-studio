@@ -435,7 +435,7 @@ number = 1                      # shirt number, the roster's
 nationality = 231
 age = 25
 # Phase 5: ingame_face leaves (its bits move to [appearance.unknown.pesNN]), and height and
-# weight are player-level keys; until then they sit inside
+# weight are player-level keys; until then height and weight sit inside
 # [players.NN.appearance.physique]
 height = 180                    # cm, the record's own field
 weight = 75                     # kg
@@ -885,7 +885,9 @@ pub fn populate_players(
 Rules: `base` is the version's **base player**, the `PlayerEntry` the scripts' EDIT-layout
 templates decode to (`Player_Edit_Base_NN.bin` + `PlayerAppearance_Base_16.bin` assembled as
 `player_edit.py` does; committed as a fixture with its provenance), and the operation patches
-only `id` and `base_copy_id` (the record's own id copy, `base_copy_id == id` meaning "unset");
+only `id` and `base_copy_id` (the record's own id copy, `base_copy_id == id` meaning "unset"),
+and from Phase 5 the appearance block's player id, set to `id` as real saves hold it (a
+stripped save gets its -1 from the Save editor's strip-and-seed, never from here);
 `per_team` is capped at the version's roster width; the payload's player section grows to
 `teams × per_team` records through `EditFile` — the one place player records are added, since
 `to_bytes` otherwise keeps the file's own record count and order; on 15–18 the operation is

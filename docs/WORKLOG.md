@@ -1236,7 +1236,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   by the same walk (the seed rows ride in `4cc_08_bins.cpk`), the (player id, item id) pair of
   every compiled player whose
   boots/gloves output committed replaced with the planned ID, a failed output keeping its row,
-  a compiled player the `Full` export gives no boots or gloves losing his installed row, every
+  a compiled player the `Full` export gives no boots or no gloves losing that installed row, every
   other row kept, written whole, plain, sorted by id; `PlayerAppearance.bin` read and
   written whole with no row changed (the rows are Phase 5's, with the stock and default-ID
   boots/gloves rows). **External:** the in-game effect of a gloves row waits on FoxDen's gloves
@@ -1444,7 +1444,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
     the count. IDs: TC-BIN-14, 15 → verify: the two scenarios on the bundled base.
   - The rest lands with the steps that own the data: the team's stale kit configs removed
     from `UniformParameter.bin` and no FPC patching for a Full export, with 4.21
-    (TC-BIN-16); a Full export's compiled players without boots or gloves losing their installed
+    (TC-BIN-16); a Full export's compiled players without boots or without gloves losing that installed
     rows, with 4.22 (TC-BIN-17); the savefile fields, Phase 5; the upgrader's tag
     (`midcup` or `additions` in the old name), Phase 6; the two buttons on an untagged row,
     Phase 8.

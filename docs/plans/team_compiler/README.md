@@ -627,7 +627,7 @@ structure pass and the deep pass on every source kind. The run plans IDs and col
 the installed CPKs and writes `UniColor.bin`, `TeamColor.bin`, `UniformParameter.bin` and, on Fox,
 `BootsList.bin` and `GloveList.bin` rows for the compiled players whose custom boots or gloves
 committed, a failed output keeping the installed row, a compiled player of a `Full`
-export whose folder holds no boots or gloves losing his installed row, every other row kept,
+export whose folder holds no boots or no gloves losing that installed row, every other row kept,
 `PlayerAppearance.bin` passing through unchanged until Phase 5
 builds its rows from `settings.toml`. `content_not_yet_compiled` is withdrawn (step 4.20). What
 `compile` still refuses: a model folder whose selected representation is glTF, dropped with
