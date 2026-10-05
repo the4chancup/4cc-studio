@@ -43,7 +43,7 @@ model 176, shorts model 16, collar 105, winter collar 105 — the same on every 
 stored in `libs/fpc` alongside the presets; the retro pre-2024 system differed and is not
 supported). These kit values are a **team-wide
 prerequisite that enables per-player FPC**, not a per-player switch: with them in place, each
-player's own savefile settings decide whether that player's body is hidden, and non-FPC (head-only)
+player's own appearance settings decide whether that player's body is hidden, and non-FPC (head-only)
 players render normally on the same team. The markers are therefore strictly **player-level** —
 `fpc_off` says "this player needs its body", not "this team's kits must not be FPC" — and mixed
 teams (some `fpc_on` folders, some `fpc_off` or unmarked) are ordinary, supported usage;

@@ -1232,8 +1232,9 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   higher-priority CPK's and p2's set; with `cpk_name = 4cc_61_midcup` the p1 bytes come from
   `4cc_08_bins.cpk`
 
-- [ ] 4.22 **Fox player tables**: `BootsList.bin` and `GloveList.bin` read from the installed (or
-  seed) CPK by the same walk, the (player id, item id) pair of every compiled player whose
+- [ ] 4.22 **Fox player tables**: `BootsList.bin` and `GloveList.bin` read from the installed CPKs
+  by the same walk (the seed rows ride in `4cc_08_bins.cpk`), the (player id, item id) pair of
+  every compiled player whose
   boots/gloves output committed replaced with the planned ID, a failed output keeping its row,
   every other row kept, written whole, plain, sorted by id; `PlayerAppearance.bin` read and
   written whole with no row changed (the rows are Phase 5's, with the stock and default-ID
@@ -1583,13 +1584,14 @@ pruned when their phase closes; they stay in git history.
   table is read into `CommonSettings`, so a key it does not know (a newer version's) is lost on
   save, while a tool's table keeps unknown keys (`core/gui.md`). Settle whether `[common]` keeps
   them too before that save path lands (review S2.1).
-- open, needs the maintainer — a `Full` export rebuilds its team's boots/gloves rows
-  (`pipeline.md` "Bins accumulation", decision "a team export's name carries `Full` or
-  `Midcup`"), but a team player the export does not compile (no folder) has no resolved row:
-  the plan now drops only his rows that name the team's own ID block and keeps a stock-ID row
-  (his seed row included). Untested in game: what a player with no `BootsList`/`GloveList` row
-  wears on a stripped save. Settle (keep / drop / write 0) before 4.34b's bins work (review
-  S5.1 item 9).
+- open, needs the maintainer — the boots/gloves rows a `Full` export leaves (`pipeline.md`
+  "Bins accumulation", TC-BIN-17, decision "a team export's name carries `Full` or `Midcup`").
+  Phase 4 (4.22) drops the installed row of a compiled player the export gives no boots or
+  gloves, so he has no row until Phase 5 writes the default-ID rows; what a player with no
+  `BootsList`/`GloveList` row wears on a stripped save is untested in game. Also unsettled: a
+  team player the `Full` export does not compile at all (no folder), whose installed row may be
+  a seed row with a stock ID or name the team's own block: kept, dropped, or written 0? Settle
+  before 4.22 (review S5.1 item 9, S5.2 items 1 and 7).
 - resolved (2026-10-02) — the VPS mutation half's memory peak reached 7.07 GiB of the 8 GiB cap
   on `team_compiler` (3.y whole-crate run, 2 build jobs); no build was killed, and a killed one
   now fails the run. The maintainer keeps 8 GiB. (The 37 OOM kills of 2026-10-02 04:00 were the

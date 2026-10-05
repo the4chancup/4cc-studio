@@ -24,7 +24,8 @@ single-file plan.
 tightly integrated main tools:
 
 1. **The Team compiler** (successor to the AET Compiler) — compiles aesthetics exports into CPK archives,
-   with compile-time model format conversion and compile-time savefile writing
+   with compile-time model format conversion and compile-time aesthetics (on Fox the output CPK's
+   database tables, on pre-Fox savefile writing)
 2. **The save editor** (successor to 4ccEditor, absorbing the Midcupping scripts) — edits PES save
    files (`EDIT00000000`): player stats, appearance, teams, tactics, AATF rule enforcement, save
    diffing, aesthetics transplant

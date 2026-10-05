@@ -124,7 +124,7 @@ implementation is measured against.
 
 | Feature | Notes |
 |---------|-------|
-| Apply aesthetics patch | The compiler's `aesthetics_patch.toml` → current save: on pre-Fox the default route by which teams' aesthetics reach the official save, on Fox the autopilot teams' names and shirt names. See "Read-only aesthetics" |
+| Apply aesthetics patch | The compiler's `aesthetics_patch.toml` → current save: on pre-Fox the default route by which teams' aesthetics reach the official save, on Fox the resolved `name`/`shirt_name` entries (autopilot exports set them; managed exports leave them out). See "Read-only aesthetics" |
 
 ---
 
@@ -310,7 +310,7 @@ FPC is the 4cc system for fielding **FBMs (Full Body Models)** — custom models
 that don't just replace the head and neck but the player's entire body. It works
 in two halves: the cup DLC replaces some default kit model pieces with blank
 models, selected via kit config values (shirt/shorts/collar model fields — the
-[Team compiler](team_compiler/README.md) handles that side), and the player's savefile
+[Team compiler](team_compiler/README.md) handles that side), and the player's appearance
 settings hide the rest — boots ID 55 and gloves ID 11 (conventional
 **nonexistent IDs**, so nothing renders) plus strip settings that suppress the
 remaining default geometry. Together they make the default player model
@@ -384,7 +384,7 @@ afterwards.
   players' rows replace their seed rows. Appearance holds no tactics, so the seed can come from
   any save with the cup's appearances, keeping the DLC builder and the savefile builder apart.
 - **Nothing in the editor sets an id back.** Imports (Team TOML, `.4ccs`/`.4cct`, Texport) and
-  name writes, the patch's included, leave the appearance block's id as it is; the aesthetics
+  name writes, the aesthetics patch included, leave the appearance block's id as it is; the aesthetics
   transplant and the unlocked Appearance tab write the record's fields but not its id, and on a
   stripped save they say that the game does not read them.
 - **The game's own Edit mode does.** Test 1 found that any change to a stripped player in Edit
@@ -452,7 +452,8 @@ the editor exposes them as:
 - **Aesthetics patch apply** — see "Read-only aesthetics"; the patch is written by the Team
   compiler, never by the editor.
 - **`settings.toml` generation** — per player folder, for migrating a team to the
-  [Team compiler](team_compiler/README.md)'s compile-time savefile writing. Uses the
+  [Team compiler](team_compiler/README.md)'s compile-time aesthetics (on Fox the CPK's database
+  tables, on pre-Fox savefile writing). Uses the
   shared authorable `PlayerSettings` subset; boots/gloves IDs are emitted only when they name a
   stock model (1 to 100), since custom IDs are compiler-assigned from models/links, not export
   settings.

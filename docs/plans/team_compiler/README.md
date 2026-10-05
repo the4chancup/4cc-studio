@@ -3,8 +3,9 @@
 The Team compiler (`crates/tools/team_compiler`) is the flagship tool of the suite:
 the successor to the AET Compiler (Red/Blue). It compiles aesthetics exports into CPK
 archives, with compile-time model format conversion (see the
-[Model conversion plan](../model_conversion/README.md)) and compile-time savefile writing
-(see the [Savefile plan](../pes_savefile/README.md)). Platform context (crate structure, tool
+[Model conversion plan](../model_conversion/README.md)) and compile-time aesthetics (on Fox the
+output CPK's database tables, on pre-Fox savefile writing;
+see the [Savefile plan](../pes_savefile/README.md)). Platform context (crate structure, tool
 plugin trait, GUI shell, parallelism) is in the [core plan](../core/README.md).
 
 ### Relationship to the older compilers

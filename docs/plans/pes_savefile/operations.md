@@ -434,6 +434,8 @@ shirt_name = "SCORE"
 number = 1                      # shirt number, the roster's
 nationality = 231
 age = 25
+# Phase 5: height and weight are player-level keys; until then they sit inside
+# [players.NN.appearance.physique]
 height = 180                    # cm, the record's own field
 weight = 75                     # kg
 boots_id = 3601
@@ -569,7 +571,8 @@ pub struct InstructionsSection { pub attack: [InstructionEntry; 2], pub defence:
 pub struct InstructionEntry { pub instruction: Instruction, pub player: u8 }
 /// One `[players.NN]`.
 pub struct PlayerSection { pub name: Option<String>, pub shirt_name: Option<String>, pub number: Option<u16>,
-    pub nationality: Option<u16>, pub age: Option<u8>, pub height: Option<u8>, pub weight: Option<u8>,
+    pub nationality: Option<u16>, pub age: Option<u8>,
+    pub height: Option<u8>, pub weight: Option<u8>,  // Phase 5; until then inside [players.NN.appearance.physique]
     pub boots_id: Option<u32>, pub gloves_id: Option<u32>,
     pub base_copy_id: Option<u32>, pub ingame_face: Option<Vec<u8>>, pub stats: StatsSection,
     pub positions: PositionsSection, pub skills: SkillsSection, pub edit_flags: EditFlagsSection,
@@ -706,7 +709,7 @@ Rules:
   file holds (`PlayerSettings`, IDs and edit flags on pre-Fox; names on Fox), through the same
   code the compiler's own
   savefile stage uses — because that stage *is* "apply the patch just produced to the local save"
-  (see "Savefile update" in the [Team compiler plan](../team_compiler/README.md)). One path, so a patch applied
+  (see "Savefile update" in the [Team compiler plan](../team_compiler/pipeline.md)). One path, so a patch applied
   a week later by someone else yields the same bytes the DLC builder's machine wrote.
 - `pes_version` must equal the save's; there is no cross-version application — the compile targeted
   a version and its IDs and presets are that version's. `allocation_scheme_version` must equal the

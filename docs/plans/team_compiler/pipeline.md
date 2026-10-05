@@ -666,9 +666,9 @@ describes behavior, not a serial scheduling requirement:
   `PlayerAppearance.bin` row (the appearance bytes built from his resolved `settings.toml`, its
   defaults for absent keys, nothing from the installed row) and his `BootsList.bin` and
   `GloveList.bin` rows (the resolved IDs; a category whose output failed keeps its installed row),
-  a player of a `Full` export's team whom the export does not compile loses his installed
-  boots/gloves rows that name an ID of the team's own block (they would point at items the team
-  no longer ships), and every other player
+  a player of a `Full` export's team that the export gives no boots or no gloves loses that
+  installed row (it would point at an item the team no longer ships; until Phase 5 writes the
+  default-ID rows he then has none, TC-BIN-17), and every other player
   keeps his installed rows, so the output carries complete tables (the
   game reads the highest-priority copy of each whole; the first installed copy is the seed rows
   in `4cc_08_bins.cpk` ("Stripped save" in the [Save editor plan](../save_editor.md)); the base game's copies are
@@ -1154,7 +1154,7 @@ Resolved decisions:
   name-keyed per-referee common layout on both engines, the shape of "Texture relocation to
   common" with 999 as the team ID.
 - **FPC markers are player-level presets** (`fpc_on` = hide, `fpc_off` = un-hide, for that player's
-  savefile settings only); non-FPC players are valid on FPC teams, so mixed-marker teams are
+  appearance settings only); non-FPC players are valid on FPC teams, so mixed-marker teams are
   ordinary supported usage. Team **kit**-FPC status is two-state (`On`/`Unknown`): any `fpc_on`
   writes the FPC kit values into every config; otherwise supplied configs are left untouched — the
   compiler never auto-reverts FPC values. Kit slots absent from the export are FPC-patched from the
