@@ -947,7 +947,8 @@ TC-TEX-10  GIVEN slot 05's face model naming skin and skin_nrm, skin.png (1024x1
 TC-TEX-11  GIVEN slot 06 holding a face model naming hair and hair.dds.common, no Common/hair.*,
            and TC-TEX-05's PES folder
            WHEN the export is compiled for PES 21 with cpk_name 4cc_62_midcup and
-           4cc_61_midcup.cpk holding the texture at the team's Common path, then without it
+           4cc_61_midcup.cpk holding the texture at the team's Common path, then with only
+           4cc_63_midcup.cpk holding it
            THEN the first reports no texture or link finding and the model's hair path names
                 /Assets/pes16/model/character/common/714/sourceimages/; the second reports
                 common_link_missing and drops the folder
@@ -1354,8 +1355,8 @@ TC-REF-03  GIVEN a refs export with Faces/Base/ linked by Ref A and Ref B
 TC-REF-04  GIVEN a refs export with ref_marker.dds
            WHEN it is compiled for PES 17
            THEN the referee CPK holds the marker model as collar_077.model with its .mtl, the
-                marker texture in the referees' Common output, and referee kit configs whose
-                collar is 77
+                marker texture in the referees' Common output, and loose referee kit configs
+                under common/character0/model/character/uniform/team/referee/ whose collar is 77
 TC-REF-05  GIVEN a refs export whose players.txt maps Ref A to slots 01 and 20, compiled with
            --mode test
            WHEN it runs
@@ -1364,7 +1365,8 @@ TC-REF-05  GIVEN a refs export whose players.txt maps Ref A to slots 01 and 20, 
 TC-REF-06  GIVEN a refs export with ref_marker.dds, and a PES folder with dt00_x64.cpk
            WHEN it is compiled for PES 21
            THEN the referee CPK holds the marker model as collar_077.fmdl, the marker's FTEX
-                under common/999/sourceimages/, and referee kit configs whose collar is 77;
+                under common/999/sourceimages/, and TC-REF-04's loose referee kit configs whose
+                collar is 77;
                 dt00_x64.cpk is byte-identical and the exit code is 0
 TC-REF-07  GIVEN a /co/ export holding Collars/collar_77.fmdl, p1/config.toml with collar 77 and
            p2/config.toml with winter collar 77
@@ -1492,7 +1494,8 @@ TC-DEP-13  GIVEN an installed DPFL listing 4cc_38_balls, 4cc_40_faces, 4cc_45_un
                 old 4cc_60's bytes) and 4cc_62_midcup (the old 4cc_61's), each byte for byte,
                 4cc_86_mine.cpk is still present and reported as no longer loaded, and every
                 other official entry is the 6,272-byte placeholder
-TC-DEP-14  GIVEN an installed DPFL listing 4cc_62_midcup with no such file in download/
+TC-DEP-14  GIVEN an installed DPFL holding the official list's entries, and download/ holding
+           every listed CPK but 4cc_62_midcup.cpk
            WHEN /co/ is compiled with the default cpk_name
            THEN dpfilelist_cpk_missing is reported naming 4cc_62_midcup.cpk, the run's CPK is
                 deployed, and the exit code is 0

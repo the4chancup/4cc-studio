@@ -2576,3 +2576,16 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   for every reader of a stripped record, the presets' fields listed only in `libs/fpc.md`);
   GPT A3 4 of 4 (all worklog issues); sidekick S5.14 0 of 2. Thirteen open "Issues" came out
   of it, five for the maintainer. Rulings `.tmp/review_rulings_S5.md`.
+- **2026-10-05** — Review queue, S6 the Team compiler's Phase 4 Acceptance section (docs, plus
+  test citations and two test fixes): sidekick loop S6.1 to S6.3 (30, 7, 4 accepted); GPT A1
+  22 of 24 (unreachable scenarios withdrawn or rewritten, four new); sidekick S6.4, S6.5 (5,
+  1); GPT A2 16 of 16 (pre-Fox scenarios: shared gloves `glove.xml`, Common MTL links, referee
+  faces; TC-TEX-12 proven); sidekick S6.6 to S6.12 (14, 10, 9, 6, 8, 11, 4: WHENs and GIVENs
+  name what their THEN observes, pre-Fox collars and merges, TC-MOD-42 and TC-ROOT-13 proven,
+  referee kit configs pinned as loose files); GPT A3 6 of 8 (TC-TEX-01/10's tests decode the
+  payload, not the header); sidekick S6.13 2; GPT A4 4 of 4 (the earlier-only texture lookup);
+  sidekick S6.14 3 of 3. Three conventions now head "Acceptance" ("Format and rules"): `Full`
+  unless `Midcup`, PES 21 unless a version is named, and a GIVEN's implied least content.
+  Five plan questions went to "open first" on their steps (4.9a(b) collar format, 4.14 MTL
+  cascade, 4.19 pre-Fox referee boots) or "Issues" (DpFileList outside a deploying compile).
+  Acceptance 246 scenarios (2 withdrawn), 148 proven. Rulings `.tmp/review_rulings_S6.md`.
