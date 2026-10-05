@@ -8,10 +8,13 @@
 use std::fs;
 use std::path::Path;
 
-use dds_convert::{BlockCodec, Blocks, Decoded, SourceFormat, decode, encode_dds};
+use dds_convert::{
+    BlockCodec, Blocks, Decoded, SourceFormat, Target, TextureRole, decode, encode_dds, encode_png,
+};
 use fmdl::ops::paths::texture_paths;
 use fmdl::{FmdlFile, Model};
 use ftex::PixelFormat;
+use pes_version::PesVersion;
 
 use crate::common::Sandbox;
 use crate::compile::{
@@ -157,6 +160,80 @@ fn a_raster_nrm_texture_is_a_bc3_normal_map_on_pes_21() {
     let info = ftex::info(&emitted).unwrap();
     assert_eq!(info.format, PixelFormat::Bc3);
     assert_eq!((info.width, info.height, info.mipmaps), (256, 128, 9));
+}
+
+/// The tracer's hair model naming `skin.dds` and `skin_nrm.dds`: its `shirt.dds` and
+/// `dummy_nrm.dds` renamed.
+fn hair_model_naming_skin_and_nrm() -> Vec<u8> {
+    let file = FmdlFile::read(&tracer_player_file("fcl_hair.fmdl")).unwrap();
+    let mut model = Model::from_file(&file).unwrap();
+    for material in &mut model.materials {
+        for (_, texture) in &mut material.textures {
+            if texture.file_name == "shirt.dds" {
+                texture.file_name = "skin.dds".to_owned();
+            } else if texture.file_name == "dummy_nrm.dds" {
+                texture.file_name = "skin_nrm.dds".to_owned();
+            }
+        }
+    }
+    model.to_file().unwrap().write()
+}
+
+// TC-TEX-10
+#[test]
+fn an_opaque_skin_is_bc1_and_its_normal_map_bc3_with_x_in_alpha_y_in_green_on_pes_18() {
+    let sandbox = Sandbox::new("tex_pes18_codecs");
+    let export = "exports/co - Codecs";
+    let player = format!("{export}/Players/05 - A");
+    sandbox.write(
+        &format!("{player}/fcl_hair.fmdl"),
+        &hair_model_naming_skin_and_nrm(),
+    );
+    // 1024x1024, fully opaque: a color texture PES 18 encodes as BC1.
+    let skin_png = encode_png(&[40, 100, 160, 255].repeat(1024 * 1024), 1024, 1024).unwrap();
+    // A flat normal map, every source pixel (X, Y) = (10, 200).
+    let nrm_png = encode_png(&[10, 200, 90, 255].repeat(16 * 16), 16, 16).unwrap();
+    sandbox.write(&format!("{player}/skin.png"), &skin_png);
+    sandbox.write(&format!("{player}/skin_nrm.png"), &nrm_png);
+
+    let run = sandbox.run(&pes_settings(&sandbox, 18), &["compile"]);
+
+    assert_eq!(
+        findings_of(&run.messages(), "co - Codecs"),
+        [
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=fcl_hair.fmdl, count=1662)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()"
+        ]
+    );
+    assert_eq!(run.exit_code(), 0);
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+
+    let skin = ftex::info(&entries[&format!("{PLAYER_TEXTURES}/skin.ftex")]).unwrap();
+    assert_eq!(skin.format, PixelFormat::Bc1);
+    assert_eq!((skin.width, skin.height, skin.mipmaps), (1024, 1024, 11));
+
+    let nrm = &entries[&format!("{PLAYER_TEXTURES}/skin_nrm.ftex")];
+    assert_eq!(ftex::info(nrm).unwrap().format, PixelFormat::Bc3);
+    // The bytes the normal-map conversion of the source gives.
+    let decoded_source = decode(&nrm_png, SourceFormat::Png).unwrap();
+    let expected = dds_convert::convert(
+        &decoded_source,
+        Target {
+            version: PesVersion::Pes18,
+            role: TextureRole::Normal,
+        },
+    )
+    .unwrap();
+    assert_eq!(*nrm, expected);
+    // The Fox DXT5nm layout: X (the source's red) in alpha, Y (its green) in green, with
+    // red 255 and blue 0; the flat block decodes each channel as written.
+    let decoded = decode(&ftex::ftex_to_dds(nrm).unwrap(), SourceFormat::Dds).unwrap();
+    assert_eq!((decoded.width, decoded.height), (16, 16));
+    for pixel in decoded.mips[0].as_chunks::<4>().0 {
+        assert_eq!((pixel[0], pixel[2], pixel[3]), (255, 0, 10));
+        assert!(pixel[1].abs_diff(200) <= 2, "green: {}", pixel[1]);
+    }
 }
 
 // TC-TEX-06

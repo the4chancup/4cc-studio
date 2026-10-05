@@ -810,11 +810,11 @@ TC-MOD-32  GIVEN slot 05 holding boots.fmdl and a face_diff.bin that is not the 
            WHEN the export is compiled for PES 21
            THEN face_file_not_used names face_diff.bin on each folder, 71405's face package
                 holds the bundled face_diff.bin alone, and no face package is emitted for 71407
-TC-MOD-33  GIVEN slot 05 holding kit_boots.fmdl and skin.dds and no face model, and linking
-           Crocs.boots, whose folder holds boots.fmdl and a skin.dds of other bytes
+TC-MOD-33  GIVEN slot 05 holding face_high.fmdl and skin.dds, and linking Faces/Longhair, whose
+           folder holds hair_high.fmdl and a skin.dds of other bytes
            WHEN the export is compiled for PES 21
-           THEN merged_texture_conflict is reported and slot 05's folder is dropped: no k0625
-                and nothing at slot 05's texture folder
+           THEN merged_texture_conflict is reported and slot 05's folder is dropped: no 71405
+                face package and nothing at slot 05's texture folder
 TC-MOD-34  GIVEN slot 05 holding boots.model and boots.mtl naming skin, and skin.dds
            WHEN the export is compiled for PES 21
            THEN k0625 holds a boots.fmdl the fmdl reader accepts with the source's mesh count,

@@ -638,6 +638,7 @@ fn a_compile_that_writes_no_cpk_leaves_the_previous_teamnotes_txt() {
     );
 }
 
+// TC-ROOT-11
 #[test]
 fn a_teamnotes_txt_that_cannot_be_written_is_reported_and_the_cpk_stays() {
     let sandbox = Sandbox::new("root_teamnotes_write_failed");
@@ -859,6 +860,36 @@ fn each_kit_s_menu_colors_come_from_its_colors_txt_its_texture_or_the_missing_pa
             "714_DEF_3rd_realUni.bin"
         ]
     );
+}
+
+// TC-KIT-25
+#[test]
+fn a_kit_without_a_texture_derives_its_colors_from_the_inherited_all_kit_dds() {
+    let sandbox = Sandbox::new("kit_colors_inherited");
+    let export = "exports/co - Shared";
+    sandbox.write(&format!("{export}/Kits/all/kit.dds"), &tracer_kit());
+    // A config, so the kit is no placeholder; no colors.txt and no kit.dds of its own.
+    sandbox.write(&format!("{export}/Kits/p2/config.toml"), SHIRT_144);
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+    assert_eq!(
+        findings_of(&run.messages(), "co - Shared"),
+        [
+            "Info kit_textures_inherited [Keep] at Kits/p2 (stems=kit)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
+            "Info kit_colors_derived [Keep] at Kits/p2 ()",
+        ]
+    );
+    assert_eq!(run.exit_code(), 0);
+    assert_eq!(compiled_kits(&sandbox), ["u0714p2"]);
+    // p2's entry: kit number 1, icon 3, the pair the extraction gives for all/kit.dds.
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let record = uni_record(&entries[UNI_COLOR], 714);
+    let mut entry = vec![0x01, 0x03];
+    entry.extend_from_slice(&tracer_kit_colors());
+    assert_eq!(record[13..21], entry);
 }
 
 // TC-KIT-12

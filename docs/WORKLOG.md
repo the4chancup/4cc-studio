@@ -1263,7 +1263,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   loads) decide the in-game effect only; the written tree is what the scenarios test. Plan:
   `pipeline.md` "5. Writer" step 5 and the output-modes paragraphs, "Resolved decisions"
   (Output-mode artifact routing); `settings.md` "CLI", "Path resolution"; decision entry
-  "sideloading through FoxDen (4.0e)". IDs: TC-OUT-07..11. Crates: tc (`output/sink.rs`,
+  "sideloading through FoxDen (4.0e)". IDs: TC-OUT-07..11, TC-OUT-17. Crates: tc (`output/sink.rs`,
   `processing/materialize.rs`, `cli.rs`) → verify: `--mode test` on the tracer writes
   `output/test_output/egg Tracer/Players/05 - The Chad Stormworks Player/fcl_hair.fmdl` with its
   texture path rewritten and no `.fpk` anywhere under `test_output/`; `--mode sideload` with a
