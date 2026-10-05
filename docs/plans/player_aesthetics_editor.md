@@ -125,8 +125,10 @@ type: the eleven decoded feature types, and from Phase 5 the version's undecoded
 mean nothing without seeing the face. The expected
 workflow for that group is the game's own face editor, then generating the folder's `settings.toml`
 from the save (the save editor's generation action, or the Export upgrader) and committing the
-result, then, on a stripped Fox save, **Strip again** (the edit restored the player's id; see
-"Stripped save" in the [Save editor plan](save_editor.md)); the form shows the numbers so a diff is readable and a single value can be nudged. A face
+result; on a stripped Fox save, then recompiling and **Strip again** (the edit restored the
+player's id, and the tables hold the new look only once recompiled; see "Stripped save" in the
+[Save editor plan](save_editor.md)). The form shows the numbers so a diff is readable and a
+single value can be nudged. A face
 editor with a live preview — a rendered head from the parameters, the game's editor outside the
 game — would be a genuine tool of its own and is noted as a **future step**, not a requirement on
 this panel: it needs the head-morph data the game applies those parameters to, which nothing in the

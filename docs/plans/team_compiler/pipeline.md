@@ -969,11 +969,12 @@ describes behavior, not a serial scheduling requirement:
   savefile writes for the compiled players (format and rules in "Aesthetics patch" in the
   [Savefile plan](../pes_savefile/operations.md)). On **Fox** it holds names and shirt names only
   (the rest is in the CPK's player appearance tables, "Bins accumulation") and, as on pre-Fox, is
-  written on every compile, so an earlier run's patch never sits beside a newer CPK; the
+  written beside every CPK the run publishes (none when it publishes none, the previous pair
+  staying as it was), so an earlier run's patch never sits beside a newer CPK; the
   savefile builder applies it whole, a managed team's export
   leaving `name` and `shirt_name` out so its players keep their manager's names while an
   autopilot team's export sets them. On
-  **pre-Fox** it is written on every compile and holds everything: settings.toml settings with
+  **pre-Fox** it holds everything: settings.toml settings with
   `name = true` and FPC markers resolved to concrete values, the authored stock boots/gloves IDs
   (else the marker's default) for categories requesting no standalone output, and the
   auto-assigned boots/gloves IDs **only for content that was actually packed**: if a boots/gloves task failed, the affected players

@@ -216,7 +216,8 @@ Name-writing rules, in full — **not writing is the default**; writing is opt-i
    name is applied to all of them, with a warning (`settings_toml_name_shared`).
 
 `shirt_name` is a string or absent: absent writes nothing, a string is written as is (checked
-against the version's shirt-name length and character set, `shirt_name_from`'s limits). There is
+against the version's shirt-name field and character set; it may fill the field, as real saves'
+do, the byte `shirt_name_from` keeps free being for text it invents). There is
 no `true`: a shirt name rarely repeats the player name, and a derived default would be one more
 thing to read. A shared folder applies it to every mapped player, like `name`.
 
@@ -255,5 +256,8 @@ migrates into a folder or link (the old per-team blocks start at 101 too) and th
 leaves out. It writes `name` per the Export upgrader's rule (`true` when the folder's name part
 equals the save's name, the explicit string otherwise; the save editor, generating without a
 folder, writes the string), `shirt_name` as the save's string, and no `height` or `weight`.
+On a stripped Fox save a record whose appearance id is -1 is not the player's look (the tables
+are, see "Stripped save" in the [Save editor plan](../save_editor.md)), so generation skips
+that player with a note; the face-editor route restores his id before generating.
 
 ---

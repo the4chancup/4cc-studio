@@ -249,7 +249,7 @@ tables"; the description above and below is the Phase 2 code until then):
 - `Height` and `Weight` leave the key table (classified `Gameplay`); Team TOML carries them as
   player-level keys of `[players.NN]` instead of inside its appearance table.
   `shirt_name: Option<String>` joins `name` at the top level, string-only, checked against
-  `shirt_name_from`'s limits.
+  the version's shirt-name field (its full length, `codec.md` "Text fields hold `len` bytes").
 - **Absent = default.** Applying a `PlayerSettings` writes every appearance field, a `None` taking
   the value the template shows; only `name` and `shirt_name` keep `None` = not written. The
   template's "unset ones as commented lines" stays, now meaning "at its default".

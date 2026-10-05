@@ -3974,3 +3974,12 @@ it always keeps "the patch describes the CPK beside it" true with no deletion st
 the pre-Fox rule already (review S5.A1 item 9).
 Plan: `pes_savefile/operations.md` "Aesthetics patch", `team_compiler/pipeline.md`
 "Post-processing".
+
+## 2026-10-05 — team_compiler — "every compile" means every CPK a compile publishes
+Decision (lead, reversible), narrowing the entry above: the patch is written beside every
+CPK a compile publishes; a run that publishes none (every export skipped, the only player
+rejected, a failed write) leaves the previous CPK and its patch alone.
+Why: those runs keep the previous CPK by design (TC-OUT-02 to 04), and a new patch beside
+it would break the pairing the entry above exists for (review S5.A2 item 3).
+Plan: `pes_savefile/operations.md` "Aesthetics patch", `team_compiler/pipeline.md`
+"Post-processing".

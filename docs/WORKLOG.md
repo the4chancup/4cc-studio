@@ -1640,6 +1640,14 @@ pruned when their phase closes; they stay in git history.
   `UniColor` and `UniformParameter` (`pipeline.md` "Templates and fallback bins"). For
   `PlayerAppearance`, `BootsList` and `GloveList`: a bundled base, the compiled rows alone, or
   no table? Settle before 4.22 (review S5.A1 item 12).
+- open — shared IDs and retained rows: a team's shared boots/gloves IDs are assigned in
+  alphabetical folder order from the export being compiled (`player_folders.md` "Assigns IDs
+  automatically"), while a player the export does not compile keeps his installed row
+  (`pipeline.md` "Bins accumulation"). A `Midcup` export holding shared folder B but not A
+  gives B the ID A had in the full CPK, so A's wearers, their rows untouched, now wear B.
+  The same holds for pre-Fox save IDs. Settle before 4.22: a midcup keeps the full export's
+  assignment (from where?), or must carry every shared folder its team uses (review S5.A2
+  item 1).
 - resolved (2026-10-02) — the VPS mutation half's memory peak reached 7.07 GiB of the 8 GiB cap
   on `team_compiler` (3.y whole-crate run, 2 build jobs); no build was killed, and a killed one
   now fails the run. The maintainer keeps 8 GiB. (The 37 OOM kills of 2026-10-02 04:00 were the

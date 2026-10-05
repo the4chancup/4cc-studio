@@ -19,7 +19,8 @@ folder view tells the whole story about how the player's models render:
   they reach the game like every other setting (on Fox in his table rows, on pre-Fox
   through the aesthetics patch).
 - **`fpc_off`** — applies the disable preset (visible defaults) instead. Since an absent key takes
-  its default, it differs from no marker only where an authored strip key would otherwise apply.
+  its default, it differs from no marker only where an authored strip key, or an authored custom
+  skin (7, PES 15 to 17, which the preset resets to 1), would otherwise apply.
 - **Absent = no FPC preset applied**: the player's strip keys and boots/gloves IDs are what his
   `settings.toml` and its defaults say. No earlier FPC state survives a compile without the
   marker, since a compiled player's appearance is his file and nothing else (see "Player settings

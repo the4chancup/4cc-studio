@@ -239,7 +239,7 @@ Starter set:
 
 | Starter | Input | Notes |
 |---|---|---|
-| In-game head | none | portrait + `ingame_face` marker, nothing else — the game's face editor supplies the head |
+| In-game head | none | portrait + `ingame_face` marker, nothing else — the game's face editor supplies the head (the ingame-face workflow in the Player aesthetics editor plan) |
 | Cardhead (mirrored) | image | one plane weighted to `sk_head`, two-sided material |
 | Cardhead (two-sided) | image | the same, with the back face duplicated so text reads correctly from both sides |
 | Boxhead | image | a cube, the image on every face |
