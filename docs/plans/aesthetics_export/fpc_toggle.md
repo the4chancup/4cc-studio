@@ -5,9 +5,10 @@ Part of the [Aesthetics export plan](README.md). Section headings are unchanged 
 ## FPC toggle (`fpc_on` / `fpc_off` marker files)
 
 FPC (Full Player Customization — see the [Save editor plan](../save_editor.md)) makes the default
-player model invisible via a specific mix of savefile settings (blank-model boots/gloves IDs plus
-strip settings, varying slightly per PES version), so that an FBM (Full Body Model) replaces the
-player entirely. Setting it through individual `settings.toml` keys would be error-prone and
+player model invisible via a specific mix of appearance settings (blank-model boots/gloves IDs
+plus strip settings, varying slightly per PES version; Fox: fields of the compiled
+`PlayerAppearance.bin` row, pre-Fox: savefile fields), so that an FBM (Full Body Model) replaces
+the player entirely. Setting it through individual `settings.toml` keys would be error-prone and
 version-dependent; instead it gets a folder-level toggle, consistent with the principle that the
 folder view tells the whole story about how the player's models render:
 
@@ -30,17 +31,10 @@ folder view tells the whole story about how the player's models render:
 - In a `players.txt` multi-mapped folder, the preset applies to all mapped players (like the rest of
   the folder's settings).
 
-**Boots/gloves ID precedence**, independently per category, for both `fpc_on` and `fpc_off`:
-
-| Standalone asset outcome | Savefile ID |
-|---|---|
-| Requested local/shared output committed | Compiler-assigned ID wins over the preset's hide/default ID |
-| Requested output failed or was dropped | Existing savefile ID is preserved; failure is not treated as absence |
-| No standalone output requested, `settings.toml` sets the category's stock `boots_id`/`gloves_id` to a number | The authored stock ID wins over the preset's hide/default ID |
-| No standalone output requested, the key at its default (`""` or absent) | Apply the marker's preset ID (`fpc_on`: boots 55, gloves 11; `fpc_off`: 0 and 0); with no marker the key's own default applies, also 0 and 0 |
-
-Other preset fields still apply normally. Pre-Fox local models embedded in face XML do not request
-a standalone boots/gloves output, so they follow the last two rows.
+How a folder's models, an authored stock `boots_id`/`gloves_id` and the marker's preset IDs
+resolve, independently per category and for both markers, is the numbered resolution of "Player
+settings in exports" in [settings.toml](settings_toml.md). Other preset fields still apply
+normally.
 
 **Team kit-FPC status and kit configs.** FPC also requires settings on **every one of the team's kit
 configs, including the goalkeeper kit** (modern system, per the [wiki's PES17 FPC
@@ -60,8 +54,10 @@ An export's **team kit-FPC status** is two-state — `EffectiveTeamKitFpc::{On, 
 - **On** when at least one player folder of the validated export carries `fpc_on` (a folder
   validation dropped compiles no player, so its marker does not count) — the configs must then carry the FPC
   values for that player's hiding to work; **Unknown** otherwise — the absence of `fpc_on` markers
-  makes no claim about the team (its FPC players may live only in the savefile, set through the save
-  editor), and `fpc_off` markers contribute nothing here because they are per-player statements.
+  makes no claim about the team (on pre-Fox its FPC players may live only in the savefile, set
+  through the save editor; on Fox a stripped record's appearance bytes are not read, so there is
+  no savefile-side FPC state), and `fpc_off` markers contribute nothing here because they are
+  per-player statements.
 - **Generated kit configs** (the `kit_config_generated` path, when a kit folder has no
   `config.toml`) are the template, which carries the FPC values whatever the status: it is the
   cup's own generic kit config, and most of the cup's teams are FPC teams (`libs/fpc.md` has the

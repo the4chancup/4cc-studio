@@ -393,8 +393,9 @@ default (otherwise the default becomes the base database row's bits).
 - Implement kit restructuring (binary kit configs → `config.toml`, `colors.txt` and the `icon_<N>`
   marker from Team Note colors)
 - Implement `settings.toml` generation from savefile aesthetics: every key, the save's unknown bits
-  included, and names as explicit strings (a migrated player must look the same once his rows
-  replace his stripped record)
+  included, `name = true` when the folder's name part equals the save's name and the explicit
+  string otherwise, `shirt_name` the save's string (a migrated player must look the same once his
+  rows replace his stripped record)
 - CLI: `4cc-studio export-upgrader ./old_export.zip`
 
 **Verification:** Upgrade the full library of existing old-format exports; compile the results;
@@ -583,7 +584,7 @@ contract between them.
 
 - Plain-folder player browser/launcher + manifest writing + Blender launch; archives require
   explicit extraction before launch, editing, or conversion
-- settings.toml editing panel (comment-preserving via `toml_edit`) + `fpc.*`/`ingame_face` marker
+- settings.toml editing panel (comment-preserving via `toml_edit`) + `fpc_on`/`fpc_off`/`ingame_face` marker
   toggles; missing settings stay unset until the user edits them
 - In-place glTF conversion (superset merge, app-data backup + restore); `launch`/`convert` CLI
 - Base-model extraction from installed CPKs + bundled glTF stand-ins

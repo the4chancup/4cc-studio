@@ -137,18 +137,21 @@ test, and sideload modes; savefile success/failure; and cancellation. Key behavi
   `source_read_failed` and `template_override_unreadable` outcomes; pass-through refusing
   conversion/packing/logo/texture-conflict findings and
   unsafe-path/ambiguous-roster/required-metadata findings.
-- **Deployment and environment**: savefile IDs preserved for players whose boots/gloves task failed
-  while independent settings still apply; with either FPC marker, successful standalone assets
+- **Deployment and environment**: the installed ID kept for players whose boots/gloves task failed
+  (Fox: the player's installed table row; pre-Fox: his savefile ID) while independent settings
+  still apply; with either FPC marker, successful standalone assets
   overriding preset IDs, failed/dropped requested assets preserving existing IDs, and absent
   standalone assets using preset IDs (including pre-Fox face-XML-local parts); source modification after planning producing
   `source_changed_during_run` (no final output published, no installed CPK or savefile changed);
   separate refs CPK installation; multi-CPK deployment failure; no FPC
-  markers with an already-FPC savefile (configs untouched); a mixed `fpc_on`/`fpc_off` team applying
+  markers on an already-FPC team (pre-Fox: an already-FPC savefile; Fox: already-FPC installed
+  rows), configs untouched; a mixed `fpc_on`/`fpc_off` team applying
   per-player presets while every kit config gains the FPC values; an FPC team's unexported kit slots
   patched from the installed cup entries (Fox and pre-Fox), including the no-existing-entry
   `kit_config_fpc_unpatched` warning; logs/overrides/output path resolution in portable and
-  user-config modes; invalid-UTF-8 and empty `notes.txt`; invalid `settings.toml` preserving models
-  and savefile values; atomic `players.txt` replacement never exposing a half-written roster to the
+  user-config modes; invalid-UTF-8 and empty `notes.txt`; invalid `settings.toml` leaving the
+  player compiled with default settings while models continue; atomic `players.txt` replacement
+  never exposing a half-written roster to the
   watcher.
 - **Infrastructure**: oversized memory requests, MemoryBudget wake-up stress with multiple oversized
   waiters, and automatic worker counts on one- and two-core hosts; solid-7z reads not copying the

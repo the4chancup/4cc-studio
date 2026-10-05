@@ -3936,3 +3936,21 @@ Plan: `aesthetics_export/object_model.md` "Validation semantics" (Coverage tag, 
 `team_compiler/messages.md` `export_tag_missing`; `team_compiler/gui.md` (Untagged
 export); `export_upgrader.md` "CLI"; `team_compiler/README.md` TC-ID-05 to 07, TC-BIN-14
 to 17 (new), TC-ID-01, TC-PLN-03, TC-BIN-05 and 06 (reworded); `GLOSSARY.md`.
+
+## 2026-10-05 — aesthetics — the names patch is opt-in by export; the seed rows live in `4cc_08_bins`
+Decision (maintainer, from the S5 review of step 4.0's plan rewrite): on Fox the aesthetics
+patch is applied whole, with no team picker: a managed team's players keep their manager's
+names because its export leaves `name` and `shirt_name` out of `settings.toml`, while an
+autopilot team's export sets them; so the patch never names a managed team's players. The
+Save editor's strip-and-seed puts its seed rows of `PlayerAppearance.bin`, `BootsList.bin` and
+`GloveList.bin` into `4cc_08_bins.cpk`, the official DpFileList entry that holds the cup's
+team-related bins (`TeamColor.bin`, `UniColor.bin`, `UniformParameter.bin`), not into a CPK
+of its own.
+Why: the plans said "applied for autopilot teams, not for managed teams" with no mechanism,
+and one compile writes one patch for every team; name writing is already opt-in per
+`settings.toml`, so no new mechanism is needed. The seed's place was unnamed, and the bins
+walk reads only the CPKs the installed DpFileList lists, so an unnamed seed CPK could be
+silently left out; `4cc_08_bins` is already listed and already the bins' home.
+Plan: `aesthetics_export/settings_toml.md` (name rules), `pes_savefile/operations.md`
+"Aesthetics patch", `save_editor.md` "Stripped save", `team_compiler/pipeline.md` "Bins
+accumulation".

@@ -1583,6 +1583,13 @@ pruned when their phase closes; they stay in git history.
   table is read into `CommonSettings`, so a key it does not know (a newer version's) is lost on
   save, while a tool's table keeps unknown keys (`core/gui.md`). Settle whether `[common]` keeps
   them too before that save path lands (review S2.1).
+- open, needs the maintainer — a `Full` export rebuilds its team's boots/gloves rows
+  (`pipeline.md` "Bins accumulation", decision "a team export's name carries `Full` or
+  `Midcup`"), but a team player the export does not compile (no folder) has no resolved row:
+  the plan now drops only his rows that name the team's own ID block and keeps a stock-ID row
+  (his seed row included). Untested in game: what a player with no `BootsList`/`GloveList` row
+  wears on a stripped save. Settle (keep / drop / write 0) before 4.34b's bins work (review
+  S5.1 item 9).
 - resolved (2026-10-02) — the VPS mutation half's memory peak reached 7.07 GiB of the 8 GiB cap
   on `team_compiler` (3.y whole-crate run, 2 build jobs); no build was killed, and a killed one
   now fails the run. The maintainer keeps 8 GiB. (The 37 OOM kills of 2026-10-02 04:00 were the

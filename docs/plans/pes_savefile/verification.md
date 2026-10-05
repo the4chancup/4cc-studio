@@ -30,7 +30,9 @@ Part of the [Savefile plan](README.md). Section headings are unchanged from the 
 - **Settings completeness**: for every version, each appearance field in the schema table is
   marked `settings` or `compiler_owned`, and the `settings` set equals `PlayerSettings`' fields;
   the generated template contains every `PlayerSettings` key (a commented line for each unset
-  one; `boots_id`/`gloves_id` as `""`, which parses back to unset).
+  one; `boots_id`/`gloves_id` as `""`, which parses back to unset). Phase 5 adds the `unknown`
+  class and takes the assertion to bit level, every bit of the block named, unknown, or
+  compiler-owned ("Player settings model" in `model.md`, "Planned for Phase 5").
 - **Patch equivalence**: compiling a fixture export against a save, and compiling it without a save
   then applying the produced patch to a copy of that save, yield byte-identical savefiles; applying
   a second patch covering a subset of teams changes only those teams' players and only the fields

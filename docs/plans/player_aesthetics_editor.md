@@ -36,7 +36,7 @@ case of poking at one player:
 2. **View** its models in Blender — pre-assembled, categorized, with the
    generic PES body/kit shown or hidden according to the folder's FPC and strip
    settings, and per-mesh show/hide via Blender's native Outliner.
-3. **Edit** the folder's `settings.toml` (and `fpc.*` markers) — quick edits in
+3. **Edit** the folder's `settings.toml` (and `fpc_on`/`fpc_off` markers) — quick edits in
    the Studio panel, or in a Blender sidebar panel with the FPC/strip changes
    reflected immediately in the viewport.
 4. **Convert** the folder's models to glTF, in place — the migration path
@@ -94,7 +94,7 @@ uses) and each export's player folders; referee exports appear like any other
 folders are listed too and can be launched bare (models only — no settings, no
 base-model context). Selecting a player folder shows its summary: models per
 category and source format set, link targets and whether they resolve, portrait
-presence, `fpc.*` marker, settings.toml presence. (Once `libs/model_viewport`
+presence, `fpc_on`/`fpc_off` marker, settings.toml presence. (Once `libs/model_viewport`
 exists — created with the Team compiler's future 3D-preview feature, not for
 this tool — the summary also gains the quick approximate preview described in
 "Why Blender, not a custom viewport".) The **Launch** button writes
@@ -241,7 +241,7 @@ The loader module does four things:
 3. **Sidebar panel** (N-panel): the same `settings.toml` form as the Studio
    panel — generated from the same schema, which the manifest carries so the two
    panels cannot disagree on the field set (`tomlkit` for comment-preserving
-   writes, shipped with the addon) — plus the `fpc.*` marker tri-state. FPC and strip edits update the base-model
+   writes, shipped with the addon) — plus the `fpc_on`/`fpc_off` marker tri-state. FPC and strip edits update the base-model
    collection visibility immediately — the "see the setting on the model" loop
    the Studio panel can't offer.
 4. Everything else is stock Blender: per-mesh hide via the Outliner, and — as

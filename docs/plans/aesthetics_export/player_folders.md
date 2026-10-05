@@ -33,7 +33,7 @@ Players/
 │   │                          that name from Common/ — see the Unified model format plan)
 │   ├── ingame_face           (optional empty marker: remove custom face parts, keep other categories)
 │   ├── fpc_on                (optional empty marker: apply the FPC preset at compile time; see `fpc_toggle.md` "FPC toggle")
-│   ├── settings.toml         (savefile settings; see below)
+│   ├── settings.toml         (the player's settings: on Fox they compile into the CPK's database tables, on pre-Fox into the savefile; see below)
 │   ├── face/  boots/  gloves/  common/
 │   │                         (optional reserved subfolders: their files are that category's parts
 │   │                          wholesale, common/ holds textures; see "Reserved subfolders")
@@ -596,17 +596,21 @@ At compile time, the pipeline:
    the 40-ID blocks end at 8900, leaving 8901–9899 unallocated and keeping clear of the `99XX` band
    that referee `k99XX`/`g99XX` IDs occupy (the hard ceiling would be 44 per team, ending at 9780;
    45 would cross into the referee band and overflow into 5 digits). The block size is fixed for the
-   lifetime of a scheme version — IDs are baked into distributed savefiles — so builds record
-   `allocation_scheme_version = 1` in their metadata. The ABI is future-upgradeable: a later exe
-   patch might allow 5-digit IDs, letting each player's boots/gloves ID equal their player ID; any
-   such change is a new scheme version, and since a scheme change is always shipped with a
-   from-scratch savefile remake, bumping the version is a sanctioned path rather than a
-   compatibility break
+   lifetime of a scheme version — IDs are baked into distributed outputs — so builds record
+   `allocation_scheme_version = 1` in their metadata. The ABI is future-upgradeable: a later FoxDen
+   change might allow 5-digit IDs, letting each player's boots/gloves ID equal their player ID; any
+   such change is a new scheme version. On Fox the IDs live in the CPK's `BootsList`/`GloveList`
+   rows, so a scheme change needs no savefile remake; on pre-Fox they are baked into distributed
+   savefiles, so a scheme change ships with a from-scratch savefile remake. Either way bumping the
+   version is a sanctioned path rather than a compatibility break
 3. **Splits and packs** everything into the correct game structures (face folder with player ID,
    boots/gloves folders with assigned IDs), rewriting FMDL/MTL/XML texture paths to match
-4. **Plans conditional savefile mutations** for assigned IDs and independent accepted settings.
-   Producer commits activate mutations that reference compiled assets; after all outcomes are known,
-   `pes_savefile` serializes only activated asset mutations plus eligible independent settings. This
+4. **Plans the settings side** for assigned IDs and independent accepted settings — conditional
+   savefile mutations on pre-Fox, the compiled player's `PlayerAppearance.bin` and boots/gloves
+   rows in the output CPK on Fox. Producer commits activate mutations that reference compiled
+   assets; after all outcomes are known, only activated asset mutations plus eligible
+   independent settings are serialized (`pes_savefile`'s savefile write on pre-Fox, the resolved
+   rows in the CPK's tables on Fox). This
    makes the player wear successfully emitted boots/gloves without pointing at failed content — the
    coordination currently done manually with 4ccEditor.
 

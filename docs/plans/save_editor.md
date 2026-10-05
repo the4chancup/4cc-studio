@@ -8,7 +8,8 @@ aesthetics), transplants aesthetics between saves, handles team import/export
 FPC invisibility. It can also **generate `settings.toml` files from an existing
 savefile** (via `pes_savefile`'s `PlayerSettings` model), giving teams a migration path
 from the manual-editing workflow to the [Team compiler](team_compiler/README.md)'s
-compile-time savefile writing. The savefile codec, the data model, and all
+compile-time aesthetics (on Fox the CPK's database tables, on pre-Fox savefile writing). The
+savefile codec, the data model, and all
 interchange formats live in the `pes_savefile` lib crate — see the
 [Savefile plan](pes_savefile/README.md). Platform context is in the [core plan](core/README.md).
 
@@ -110,6 +111,7 @@ implementation is measured against.
 | Output rosters to TSV | Kept |
 | — | **Export teams list** (new): the open save's team names and IDs for 701–920 (in-game names are the `/xx/` names) merged into `data/teams_list.txt` through the same reconciliation the updater uses — added / kept / overridden shown for review, savefile wins conflicts, unresolved conflicts leave the file unchanged, never a blind overwrite (see the [Team compiler plan](team_compiler/pipeline.md), "Resolved decisions", "Teams list"). Lives here because this tool owns the open savefile; the compiler only consumes the list |
 | Fix database (clear all visual flags, reset kit slots, PES17 kit-ID repair) | Kept as a maintenance action behind a confirmation dialog |
+| — | **Strip and seed** (new, Fox saves): every player's current appearance into `4cc_08_bins.cpk`'s `PlayerAppearance.bin`/`BootsList.bin`/`GloveList.bin` rows, then every appearance id to -1; plus the restored-id check. See "Stripped save" |
 
 ### New (from Midcupping)
 
@@ -123,7 +125,6 @@ implementation is measured against.
 | Feature | Notes |
 |---------|-------|
 | Apply aesthetics patch | The compiler's `aesthetics_patch.toml` → current save: on pre-Fox the default route by which teams' aesthetics reach the official save, on Fox the autopilot teams' names and shirt names. See "Read-only aesthetics" |
-| Strip and seed | Fox saves: every player's appearance into a seed CPK of database tables, then every appearance id to -1; plus the restored-id check. See "Stripped save" |
 
 ---
 
@@ -375,13 +376,15 @@ afterwards.
 
 - **Strip and seed** is one operation (Database operations, Fox saves only): it writes every
   player's current appearance (the record's appearance bytes, undecoded bits included, and his
-  boots and gloves IDs) into rows of the three tables, packed as a **seed CPK** the DLC builder
-  installs below the compiler's output, then sets every appearance id to -1. The seed is what a
+  boots and gloves IDs) into rows of the three tables inside `4cc_08_bins.cpk`, the official
+  DpFileList entry that holds the cup's team-related bins (`TeamColor.bin`, `UniColor.bin`,
+  `UniformParameter.bin`), which the DLC builder installs below the compiler's output, then
+  sets every appearance id to -1. The seed is what a
   player no export describes looks like afterwards, so stripping changes nobody's look; compiled
   players' rows replace their seed rows. Appearance holds no tactics, so the seed can come from
   any save with the cup's appearances, keeping the DLC builder and the savefile builder apart.
 - **Nothing in the editor sets an id back.** Imports (Team TOML, `.4ccs`/`.4cct`, Texport) and
-  name writes, the names patch included, leave the appearance block's id as it is; the aesthetics
+  name writes, the patch's included, leave the appearance block's id as it is; the aesthetics
   transplant and the unlocked Appearance tab write the record's fields but not its id, and on a
   stripped save they say that the game does not read them.
 - **The game's own Edit mode does.** Test 1 found that any change to a stripped player in Edit

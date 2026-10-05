@@ -434,6 +434,8 @@ shirt_name = "SCORE"
 number = 1                      # shirt number, the roster's
 nationality = 231
 age = 25
+height = 180                    # cm, the record's own field
+weight = 75                     # kg
 boots_id = 3601
 gloves_id = 0
 base_copy_id = 84101            # equal to the player's own id in the file = unset; becomes the target's own id
@@ -567,7 +569,8 @@ pub struct InstructionsSection { pub attack: [InstructionEntry; 2], pub defence:
 pub struct InstructionEntry { pub instruction: Instruction, pub player: u8 }
 /// One `[players.NN]`.
 pub struct PlayerSection { pub name: Option<String>, pub shirt_name: Option<String>, pub number: Option<u16>,
-    pub nationality: Option<u16>, pub age: Option<u8>, pub boots_id: Option<u32>, pub gloves_id: Option<u32>,
+    pub nationality: Option<u16>, pub age: Option<u8>, pub height: Option<u8>, pub weight: Option<u8>,
+    pub boots_id: Option<u32>, pub gloves_id: Option<u32>,
     pub base_copy_id: Option<u32>, pub ingame_face: Option<Vec<u8>>, pub stats: StatsSection,
     pub positions: PositionsSection, pub skills: SkillsSection, pub edit_flags: EditFlagsSection,
     pub appearance: AppearanceSettings }
@@ -648,9 +651,11 @@ patch to the official save.
 **What it holds depends on the engine.** On **Fox** (PES 18–21) a player's appearance, boots and
 gloves travel in the CPK's database tables, not in the savefile (see "Player settings in exports"
 in the [Aesthetics export plan](../aesthetics_export/settings_toml.md)), so the patch holds only
-**names and shirt names** — written for autopilot teams, whose tactical export carries
-placeholder names, and not applied for managed teams, whose managers name their players. It is
-written when the compile resolved at least one name or shirt name. On **pre-Fox** (PES 15–17) it
+**names and shirt names**. It is applied whole, with no team picker: an autopilot team's export
+sets `name` and `shirt_name` for its players (its tactical export carries placeholder names),
+while a managed team's export leaves them out, so its players keep the names their manager set.
+It is written when the compile resolved at least one name or shirt name. On **pre-Fox**
+(PES 15–17) it
 holds everything below, on every compile, as the only route for aesthetics.
 
 ```toml
@@ -697,8 +702,9 @@ Rules:
   preset's concrete field values; the IDs are the assigned ones, already filtered by the compiler's
   "only for content that was actually packed" rule. The patch answers "what will the save contain",
   never "what did the export say" — the export is not needed to apply it.
-- **Applying is `pes_savefile`'s operation** (`apply_patch`): for each player, apply the
-  `PlayerSettings` and set the IDs and edit flags, through the same code the compiler's own
+- **Applying is `pes_savefile`'s operation** (`apply_patch`): for each player, apply what the
+  file holds (`PlayerSettings`, IDs and edit flags on pre-Fox; names on Fox), through the same
+  code the compiler's own
   savefile stage uses — because that stage *is* "apply the patch just produced to the local save"
   (see "Savefile update" in the [Team compiler plan](../team_compiler/README.md)). One path, so a patch applied
   a week later by someone else yields the same bytes the DLC builder's machine wrote.

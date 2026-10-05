@@ -171,7 +171,7 @@ savefile messages are new.
 | `shared_link_duplicate` | E | player folder has more than one shared link for any category (face, boots, or gloves) | folder discarded (`DropFolder`) |
 | `link_combined` | I | link file plus local models for the same category; the shared models become parts of the player's own set (Fox: mesh-merged, own ID) | none |
 | `shared_folder_orphaned` | W | shared folder referenced by no player | folder skipped |
-| `settings_toml_invalid` | E | optional `settings.toml` is not UTF-8 text or fails to parse, found by the deep pass (context: the file, the error) | file ignored and existing savefile values preserved (`DropFile`, not pass-through-eligible); models continue |
+| `settings_toml_invalid` | E | optional `settings.toml` is not UTF-8 text or fails to parse, found by the deep pass (context: the file, the error) | file ignored; the player compiles with default settings (`DropFile`, not pass-through-eligible); models continue |
 | `materials_toml_invalid` | E | a `materials.toml` or `*.materials.toml` file fails to parse | folder discarded |
 | `material_file_missing` | E | a glTF file has no matched material file (no name-matched `*.materials.toml`, no catch-all `materials.toml`, no `.common` link to either) | folder discarded |
 | `material_undefined` | E | a material name referenced by a glTF file has no definition in any matched material toml | folder discarded |
@@ -455,7 +455,7 @@ injection into the system `dt00_x64.cpk`, and with it `ref_marker_needs_consent`
 | `bin_header_repaired` | W | a working `TeamColor.bin` or `UniColor.bin` held records whose header was not their position's: the team ID, or in `TeamColor.bin` the color count. One finding per bin (context: the bin, the teams). It marks a corrupt installed bin, whatever wrote it, so the cause can be looked for | the headers are rewritten; each record's other bytes are kept, so those teams' colors may be wrong until their exports are compiled again |
 | `savefile_autodetected` | I | `savefile_path = auto` resolved a savefile under Documents\KONAMI (names the path; noted especially when several account folders existed and the newest was chosen) | none |
 | `patch_written` | I | the aesthetics patch was written beside the output CPK (names the path and the teams it covers) | none |
-| `savefile_missing` | W | aesthetics present but no savefile configured/found; the patch is the run's only savefile output | savefile step skipped; the message names the patch and the save editor's apply action |
+| `savefile_missing` | W | the patch holds entries (Fox: resolved names; pre-Fox: aesthetics) but no savefile is configured/found; the patch is the run's only savefile output | savefile step skipped; the message names the patch and the save editor's apply action |
 | `savefile_skipped_pes_running` | W | savefile changes pending but PES is running (any output mode; the motivating case is sideload-mode iteration) | savefile step skipped; applied by the next compile with PES closed |
 | `savefile_write_failed` | E | savefile could not be updated | deployment transaction fails and rolls back; compile artifacts remain available |
 

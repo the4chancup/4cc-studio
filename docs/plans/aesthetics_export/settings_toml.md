@@ -39,8 +39,8 @@ base64, until they are measured and given names (see "Player settings model" in 
 [Savefile plan](../pes_savefile/model.md), which also holds the completeness test). Completeness
 matters here because this file is the **only** route by which a team's aesthetics reach the
 game: the save editor's own appearance fields are read-only by default (see "Read-only
-aesthetics" in the [Save editor plan](../save_editor.md)), and on Fox a stripped player's record
-is not read at all. The **template** — what
+aesthetics" in the [Save editor plan](../save_editor.md)), and on Fox a stripped player's
+appearance bytes are not read at all. The **template** — what
 the Export upgrader and the save editor generate, and what a new player folder starts from —
 therefore lists every key, one per line, each followed on the same line by the comment that gives
 its range: set ones with their value, unset ones as commented lines (the boots/gloves IDs as
@@ -188,7 +188,8 @@ The unknown bits follow four rules:
 - **One table per version.** `[appearance.unknown.pes21]` applies only to a PES 21 compile; a
   compile for another version leaves those bits at their defaults and reports the table it
   could not use (`settings_unknown_other_version`, I). Bits mean nothing across versions, so they
-  are never converted.
+  are never converted. A template for a new player folder, which has no player's bits to carry,
+  holds no `[appearance.unknown]` table; its absent bits are 0.
 - **Default 0.** An absent bit or run is 0. Whether an all-zero default renders well is unchecked:
   the first in-game check of a compile from a file without the table settles it, and if zeros
   misbehave the default becomes the base database template row's bits instead.
@@ -221,10 +222,11 @@ no `true`: a shirt name rarely repeats the player name, and a derived default wo
 thing to read. A shared folder applies it to every mapped player, like `name`.
 
 On Fox the names are the only part of this file that reaches the savefile, and only through the
-**names patch**: an autopilot team (an aesthetics export by a caretaker, a tactical export by the
+**aesthetics patch**: an autopilot team (an aesthetics export by a caretaker, a tactical export by the
 council, often written before the destination team was known, with names like "Gold striker")
-needs its names written over the tactical export's, and the patch makes that automatic; a managed
-team's manager names the players in the save editor, so its patch is simply not applied.
+needs its names written over the tactical export's, and the patch makes that automatic. The patch
+is applied whole, with no team picker: a managed team's export leaves `name` and `shirt_name` out,
+so its players keep the names their manager set in the save editor.
 
 Compile-time flow: resolve boots/gloves IDs from the models and link files present (a broken link is
 caught as `link_target_missing` — a check impossible in the current split-tool workflow), falling
@@ -251,7 +253,8 @@ so a generated file reproduces the player as he is, whatever the defaults; it em
 `boots_id`/`gloves_id` only for a stored ID from 1 to 100: 0 (the default boots, normal hands)
 stays unset, which is its default, and an ID above 100 is custom content, which the upgrader
 migrates into a folder or link (the old per-team blocks start at 101 too) and the save editor
-leaves out. It writes `name` and `shirt_name` as the save holds them (explicit strings) and no
-`height` or `weight`.
+leaves out. It writes `name` per the Export upgrader's rule (`true` when the folder's name part
+equals the save's name, the explicit string otherwise; the save editor, generating without a
+folder, writes the string), `shirt_name` as the save's string, and no `height` or `weight`.
 
 ---

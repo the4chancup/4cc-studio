@@ -666,11 +666,12 @@ describes behavior, not a serial scheduling requirement:
   `PlayerAppearance.bin` row (the appearance bytes built from his resolved `settings.toml`, its
   defaults for absent keys, nothing from the installed row) and his `BootsList.bin` and
   `GloveList.bin` rows (the resolved IDs; a category whose output failed keeps its installed row),
-  a player of a `Full` export's team that the export gives no boots or no gloves loses that
-  installed row (it would point at an item the team no longer ships), and every other player
-  keeps his installed row, so the output carries complete tables (the
-  game reads the highest-priority copy of each whole; the first installed copy is the seed CPK
-  of "Stripped save" in the [Save editor plan](../save_editor.md); the base game's copies are
+  a player of a `Full` export's team whom the export does not compile loses his installed
+  boots/gloves rows that name an ID of the team's own block (they would point at items the team
+  no longer ships), and every other player
+  keeps his installed rows, so the output carries complete tables (the
+  game reads the highest-priority copy of each whole; the first installed copy is the seed rows
+  in `4cc_08_bins.cpk` ("Stripped save" in the [Save editor plan](../save_editor.md)); the base game's copies are
   wezlib-compressed and the cup's plain, so they are read either way and written plain, which the
   game accepts, as Test 1's CPKs showed). Final bins are
   built after all task outcomes are known. The working bins are fetched from the user's installed
@@ -966,7 +967,9 @@ describes behavior, not a serial scheduling requirement:
   savefile writes for the compiled players (format and rules in "Aesthetics patch" in the
   [Savefile plan](../pes_savefile/operations.md)). On **Fox** it holds names and shirt names only
   (the rest is in the CPK's player appearance tables, "Bins accumulation") and is written when the
-  compile resolved at least one; the savefile builder applies it for autopilot teams. On
+  compile resolved at least one; the savefile builder applies it whole, a managed team's export
+  leaving `name` and `shirt_name` out so its players keep their manager's names while an
+  autopilot team's export sets them. On
   **pre-Fox** it is written on every compile and holds everything: settings.toml settings with
   `name = true` and FPC markers resolved to concrete values, authored stock boots/gloves IDs for
   categories with no folder content, and the auto-assigned boots/gloves IDs
@@ -996,8 +999,10 @@ describes behavior, not a serial scheduling requirement:
   adds nothing there. The check uses the same running-PES detection as the core plan's
   version-selector poll; the CLI performs it once, at the savefile stage. The savefile is likewise
   **skipped whenever the CPKs were not deployed** — a degraded run promoted to `output/`, or
-  `--no-deploy` — because a savefile pointing at boots/gloves IDs whose content is not installed is
-  exactly the incoherence the "only for content actually written" rule exists to prevent.
+  `--no-deploy`. The incoherence it prevents is pre-Fox's, where a savefile can point at
+  boots/gloves IDs whose content is not installed — exactly what the "only for content actually
+  written" rule exists to prevent; on Fox a compiled player's IDs live in the CPK's own table
+  rows, but the same skip keeps one rule for both engines.
 - **Run PES** — optional launch of `PES20{version}.exe`, only after the complete deployment
   transaction succeeds. Built in Phase 8 together with sideload mode's Launch PES button, as one
   launcher: both start the same exe the same way, and the GUI phase is where its only manual
@@ -1121,9 +1126,9 @@ Resolved decisions:
   exports resolving to the same team ID are rejected with `duplicate_aesthetics_export`.
 - **ID allocation**: 40-ID per-team blocks (23 player-exclusive + 17 shared), applied independently
   in the disjoint boots and gloves namespaces; `allocation_scheme_version = 1` recorded in build
-  metadata. Permanent per scheme version but upgradeable: a future scheme (e.g. 5-digit IDs matching
-  player IDs after an exe patch) bumps the version and ships with a from-scratch savefile remake
-  (see "Assigns IDs automatically").
+  metadata. Permanent per scheme version but upgradeable: the sizing, the upgrade mechanism and a
+  scheme change's cost on each engine live in "Assigns IDs automatically" of the
+  [Aesthetics export plan](../aesthetics_export/player_folders.md).
 - **Root normalization**: exactly one usable nested root is flattened; multiple usable roots
   (`nested_root_ambiguous`) and loose-root/nested collisions (`nested_root_conflict`) reject the
   export — an intentional deviation from Red's first-match rule.
@@ -1155,7 +1160,7 @@ Resolved decisions:
   compiler never auto-reverts FPC values. Kit slots absent from the export are FPC-patched from the
   installed cup content (`kit_config_fpc_adjusted`), so a midcup export can add an FPC player
   without resending untouched kits (see "FPC toggle" in the [Aesthetics export plan](../aesthetics_export/fpc_toggle.md)).
-- **The aesthetics patch is the compiler's only savefile write path** (user): a compile writes
+- **The aesthetics patch is the compiler's only savefile write path**: a compile writes
   `aesthetics_patch.toml` beside the CPK (on Fox only names, the rest travelling in the CPK's
   player appearance tables); a configured local savefile is updated by applying that
   patch, never by a separate write. Reason: the DLC builder and the savefile builder are different

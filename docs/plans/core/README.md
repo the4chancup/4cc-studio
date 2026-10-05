@@ -31,7 +31,8 @@ tightly integrated main tools:
 
 The tight integration between the two is a primary design driver: aesthetic settings that currently
 live only in the savefile (boots IDs, gloves IDs, physique, strip style, etc.) move into the
-aesthetic exports as text files (TOML) and are **written to the savefile at compile time**. This
+aesthetic exports as text files (TOML) and reach the game at compile time (Fox: rows of the output
+CPK's database tables; pre-Fox: **written to the savefile**). This
 eliminates the manual coordination between the save editor and the compiler, and enables automatic
 boots/gloves ID assignment.
 
@@ -308,11 +309,11 @@ pattern and the schema-driven save codec collapsing 4ccEditor's six per-version 
 | Midcupping tools | Absorbed into the save editor | Aesthetics transplant + aesthetics diff as panels; operations live in `pes_savefile` |
 | Team interchange | New full-fidelity Team TOML; `.4ccs`/`.4cct` read-only; Texport read+write | Text format editable without the Studio; player settings tables shared with settings.toml; Texport is PES's own format so both directions matter |
 | Player folders | The primary export unit | Face+boots+gloves in one folder; primary motivation for the project |
-| Boots/gloves IDs | Automatic deterministic assignment for custom models; stock models (IDs 0–100) named in `settings.toml` | Player-exclusive: from (team_id, player_number); shared: per-team pool; a player wearing a game model has no folder, so `boots_id`/`gloves_id` name it; written to savefile at compile time |
+| Boots/gloves IDs | Automatic deterministic assignment for custom models; stock models (IDs 0–100) named in `settings.toml` | Player-exclusive: from (team_id, player_number); shared: per-team pool; a player wearing a game model has no folder, so `boots_id`/`gloves_id` name it; Fox: rows of the output CPK's `BootsList`/`GloveList`; pre-Fox: written to the savefile at compile time |
 | Player settings | TOML in exports (`settings.toml`), merged at compile time; all fields optional; schema covers every savefile aesthetic field (tested) | Replaces manual savefile editing; editor can generate TOML from saves; name writing is opt-in (`name = true`/string — absent leaves the savefile name untouched), so shared folders act as generic model folders |
 | Aesthetics patch | `aesthetics_patch.toml` written beside the CPK (on Fox only names, appearance travelling in the CPK's database tables over a stripped save); the compiler's only savefile write path (the local save is updated by applying it); applied to other saves by the save editor, whose own aesthetics fields are read-only by default (session unlock) | Separates the DLC builder from the savefile builder — the official save holds the teams' custom tactics, which the DLC builder must not receive; one write path means no drift between the two machines |
 | Auto-generated toml comments | App-injected (predefined per-field documentation), preserved by `toml_edit` | Users never write comments from scratch; the comments are the simplified documentation, present in every auto-generated `settings.toml`/`config.toml`/`materials.toml` |
-| FPC toggle | Empty `fpc_on`/`fpc_off` marker files in the player folder | Folder-level like link files; apply `pes_savefile`'s version-aware enable/disable presets (same as the editor's toggle); absent = savefile untouched |
+| FPC toggle | Empty `fpc_on`/`fpc_off` marker files in the player folder | Folder-level like link files; apply `pes_savefile`'s version-aware enable/disable presets (same as the editor's toggle); absent = no preset applied, the keys taking their defaults |
 | AATF rules | One self-contained Rhai file: parameter map at the top, check functions below | Editable without recompiling; one file is one ruleset, so an invitational's variant is a copy with the top edited and cannot skew against its logic; TOML+CEL and a two-file split rejected (Save editor plan) |
 | Music tools | Two tool crates (`music_player`, `music_export_editor`) + `music_export`/`audio_engine` libs | Rigdio/RigDJ successors; descriptive crate names, old names kept in the user-facing labels ("Music player (Rigdio)") and old icons in the collapsed rail |
 | .4ccm format | Canonical, unchanged, read + write | Interop with legacy Rigdio during transition; no new format, no migration for managers |
