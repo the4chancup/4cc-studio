@@ -1604,7 +1604,8 @@ pruned when their phase closes; they stay in git history.
   Fox the decision routes such a change through FoxDen (review S5.7 item 2).
 - open, needs the maintainer — generated `settings.toml` files opt in to names: the Save
   editor's and the Export upgrader's generation write `name` and `shirt_name` for every player
-  they generate, so a
+  they generate, and the Team creator writes `name = true` in every player folder it
+  creates (`team_creator.md`, review S5.A3 item 2), so a
   managed team that migrates through them holds an export whose aesthetics patch (applied
   whole, decision 2026-10-05) writes the generated names over any rename its manager makes
   later. Intended (the author deletes the keys), a note at generation, or generation leaves
@@ -1657,14 +1658,25 @@ pruned when their phase closes; they stay in git history.
 - open — where the aesthetics patch goes: "beside every CPK a compile publishes" names no
   place in multi-CPK mode (teams parts, the bins CPK, the refs CPK, placeholder parts) or
   in sideload mode (no CPK, yet the savefile step applies "the patch just written"), and
-  `patch_written` names one path. Settle with Phase 5's patch: one file per run, and where
-  (review S5.10 item 5).
+  `patch_written` names one path. The fixed name breaks the pairing in single-CPK mode too:
+  two `--no-deploy` runs with different `cpk_name`s keep both CPKs in `output/` but only the
+  second patch (review S5.A3 item 1). And the patch is written after the CPK is promoted,
+  outside the deployment transaction, which names only the CPKs and the savefile
+  (`pipeline.md` "Run-result semantics"), with no finding for a failed patch write, which
+  leaves a new CPK beside the old patch (S5.A3 item 4). Settle with Phase 5's patch: one file per run or per CPK, its name, its place,
+  and publication with the CPK (review S5.10 item 5).
 - open — the Export upgrader's `fpc_on` detection (`export_upgrader.md` step 8, "settings
   match the enable preset"): the cup's FPC players mostly ride their bodies in per-player
   boots IDs, so their boots field holds that ID, not 55, and Test 1's save had every /a/
   player FPC while `is_fpc_player` found none (`.tmp/apptest/results.txt`, run 2). Matching
   the strip fields alone would also mark a dressed player with long sleeves, tucked shirt and
   short socks. Settle the fields compared before Phase 6 (review S5.11 item 2).
+- open — strip-and-seed and a base-copied face: the `PlayerAppearance.bin` row carries no
+  base-copy id (`model.md`, "The Fox database row"), which holds a face-transplant
+  relationship (`operations.md` "Save-to-save operations"), so a stripped player whose
+  record copied another player's face may change face, against "stripping changes nobody's
+  look". Untested (Test 1 did not cover it). Measure before strip-and-seed is built; then
+  carry the relationship or report the affected players (review S5.A3 item 3).
 - resolved (2026-10-02) — the VPS mutation half's memory peak reached 7.07 GiB of the 8 GiB cap
   on `team_compiler` (3.y whole-crate run, 2 build jobs); no build was killed, and a killed one
   now fails the run. The maintainer keeps 8 GiB. (The 37 OOM kills of 2026-10-02 04:00 were the

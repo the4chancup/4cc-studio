@@ -135,8 +135,9 @@ this panel: it needs the head-morph data the game applies those parameters to, w
 suite decodes yet.
 
 **Unset values stay unset.** Missing FPC/strip settings are not inferred from a savefile and are
-not filled in merely by opening the folder. The preview may use a visible base body and default
-strip variants, clearly as preview defaults rather than the player's known in-game state. Wait
+not filled in merely by opening the folder. The preview shows a key the file leaves out at its
+default, which is what the compile writes (the template's value; no FPC marker shows the
+visible base body). Wait
 for explicit user edits: turning FPC on writes the canonical `fpc_on` marker, turning it off writes
 `fpc_off`, and strip edits persist only the edited keys. Both panels follow this rule; there is no
 second FPC boolean in `settings.toml`.
@@ -203,8 +204,8 @@ location per launch:
   link, resolved `.common` link) for collection naming. Unresolvable links are
   listed in a `problems` array and shown in both UIs, not silently dropped.
 - **Base models** point into the extraction cache (or the bundled stand-ins). Initial visibility
-  follows explicit FPC/strip settings where present and preview defaults otherwise. Unset FPC is
-  distinct from explicit Off; preview defaults are neither inferred save values nor automatic edits.
+  follows explicit FPC/strip settings where present and the keys' defaults otherwise. Unset FPC
+  is distinct from explicit Off in the file; the defaults shown are not written to it.
 - `manifest_version` gates compatibility: the plugin refuses newer majors with
   a clear message instead of misloading.
 - **`player.export_path` and `studio.exe`** exist for the plugin's **"Export model and compile for
@@ -241,7 +242,7 @@ The loader module does four things:
 2. **Import the base models** into a `PES base body` collection, strip variants
    as sub-collections, with visibility from the manifest. `fpc_on` hides the base body;
    otherwise it is visible, using the manifest's strip variants. Missing settings remain
-   visibly unset in the form; the resulting preview is not a claim about unknown savefile state.
+   visibly unset in the form, the preview showing their defaults, which the compile writes.
 3. **Sidebar panel** (N-panel): the same `settings.toml` form as the Studio
    panel — generated from the same schema, which the manifest carries so the two
    panels cannot disagree on the field set (`tomlkit` for comment-preserving
