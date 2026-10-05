@@ -318,11 +318,9 @@ invisible, leaving only the FBM visible.
 
 The editor's side of this, ported from `fpc.cpp`: a per-player toggle and a
 team-wide on/off that apply `libs/fpc`'s version-aware FPC enable/disable
-presets — the nonexistent
-boots/gloves IDs, tucked shirt, long sleeves, short socks, custom skin (pre-18),
-and cleared taping/inners/undershorts/gloves — and restore the visible defaults
-when disabled (IDs 0, untucked, short sleeves, standard socks, light skin
-pre-18). The ID constants become a suite-common setting consumed by
+presets (their fields are listed in the [libs/fpc plan](libs/fpc.md)); the strip settings
+that break or bend hiding (inners, undershorts, taping, the gloves checkbox) are reported by
+its interference rules on the Appearance tab, not cleared. The ID constants become a suite-common setting consumed by
 the presets rather than being hardcoded (any nonexistent ID works;
 55/11 are the 4cc convention). The same presets serve the
 [Team compiler's](team_compiler/README.md) per-player-folder `fpc_on`/`fpc_off` marker
@@ -381,8 +379,9 @@ afterwards.
   player's current appearance (the record's appearance bytes, undecoded bits included, and his
   boots and gloves IDs) into rows of the three tables inside `4cc_08_bins.cpk`, the official
   DpFileList entry that holds the cup's team-related bins (`TeamColor.bin`, `UniColor.bin`,
-  `UniformParameter.bin`), which the DLC builder installs at lower priority than the compiler's output, then
-  sets every appearance id to -1. The seed is what a
+  `UniformParameter.bin`), which the DLC builder installs at lower priority than the
+  compiler's output, then sets every appearance id to -1. A player already at -1 is left out,
+  his record not being his look: his rows stand. The seed is what a
   player no export describes looks like afterwards, so stripping changes nobody's look; compiled
   players' rows replace their seed rows. Appearance holds no tactics, so the seed can come from
   any save with the cup's appearances, keeping the DLC builder and the savefile builder apart.
@@ -416,7 +415,8 @@ One panel merging 4ccEditor's `comparator.cpp` with Midcupping's
 - **Aesthetics scope** (from Midcupping): boots/gloves/face IDs, taping, glasses,
   sleeves, inners, socks, undershorts, shirttail, winter gloves, skin color, and
   the normalized ingame-face fingerprint (catches "the face was edited" without
-  decoding every facial parameter).
+  decoding every facial parameter). It compares the records: for a player at -1 on a
+  stripped Fox save the game reads neither, so the row says so ("Stripped save").
 - Filter toggles: All / Gameplay / Aesthetics; a team filter; export the diff as
   text.
 - Clicking a diff row jumps to that player in the editor.

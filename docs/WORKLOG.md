@@ -1603,7 +1603,8 @@ pruned when their phase closes; they stay in git history.
   `kitN`) and `testing.md` "Kit-dependent path magic" describe exe modding on both engines; on
   Fox the decision routes such a change through FoxDen (review S5.7 item 2).
 - open, needs the maintainer — generated `settings.toml` files opt in to names: the Save
-  editor's and the Export upgrader's generation always write `name` and `shirt_name`, so a
+  editor's and the Export upgrader's generation write `name` and `shirt_name` for every player
+  they generate, so a
   managed team that migrates through them holds an export whose aesthetics patch (applied
   whole, decision 2026-10-05) writes the generated names over any rename its manager makes
   later. Intended (the author deletes the keys), a note at generation, or generation leaves
@@ -1648,6 +1649,16 @@ pruned when their phase closes; they stay in git history.
   The same holds for pre-Fox save IDs. Settle before 4.22: a midcup keeps the full export's
   assignment (from where?), or must carry every shared folder its team uses (review S5.A2
   item 1).
+- open — generation from a stripped save: `settings_toml.md` has generation skip a player
+  at -1, so an old-format export migrated against the cup's stripped Fox save gets no
+  `settings.toml` for him and his next compile writes all-default rows over the look the
+  tables hold. Reading his installed table rows (the bins walk) instead would keep it.
+  Settle with Phase 5's generation (review S5.10 item 3).
+- open — where the aesthetics patch goes: "beside every CPK a compile publishes" names no
+  place in multi-CPK mode (teams parts, the bins CPK, the refs CPK, placeholder parts) or
+  in sideload mode (no CPK, yet the savefile step applies "the patch just written"), and
+  `patch_written` names one path. Settle with Phase 5's patch: one file per run, and where
+  (review S5.10 item 5).
 - resolved (2026-10-02) — the VPS mutation half's memory peak reached 7.07 GiB of the 8 GiB cap
   on `team_compiler` (3.y whole-crate run, 2 build jobs); no build was killed, and a killed one
   now fails the run. The maintainer keeps 8 GiB. (The 37 OOM kills of 2026-10-02 04:00 were the

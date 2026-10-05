@@ -19,7 +19,7 @@ to moving, flattening, or removing files describe that draft, not destructive ed
 2. **Reads the team's savefile data** (via `pes_savefile`) to map old boots/gloves IDs to players —
    the old format encodes "which player wears boots k0915" only in the savefile, so the savefile is
    the input for a faithful migration; without one, loose mode (step 11) infers the wearers from the
-   IDs instead, as it does for a stripped player of a Fox save, whose record IDs are not his.
+   IDs instead, as it does for a stripped player of a Fox save, whose record holds his pre-strip IDs.
 3. **Builds player folders**: each player's face folder contents move into `Players/NN - Name/` (NN
    from the face folder's `XXXxx` suffix). Name comes, in order of preference, from the **face
    folder's own name part** (`XXX15 - Snuffy` → `Snuffy`; the author's curated name, and what the

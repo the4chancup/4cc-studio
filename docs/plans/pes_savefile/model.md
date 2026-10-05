@@ -270,6 +270,8 @@ tables"; the description above and below is the Phase 2 code until then):
   gloves go to the `BootsList.bin`/`GloveList.bin` pairs.
 - The appearance block's player id becomes a modeled field, read and preserved; only the Save
   editor's strip operation writes -1 (worklog issue "player id versus appearance id").
+  Generation's callers skip a record at -1 (`settings_toml.md`, the end of "Player settings in
+  exports"); `from_player` itself reads whatever record it is given.
 
 ```rust
 /// `settings_toml.rs`
@@ -355,8 +357,7 @@ through `from_player`'s stock-band rule.
 
 The crate also applies the **version-aware FPC enable/disable presets**, which
 `libs/fpc` owns (Full Player Customization invisibility — nonexistent boots/gloves IDs plus strip
-settings, with small per-version differences like the pre-18 custom skin; see
-the [Save editor plan](../save_editor.md)). Both the save editor's FPC toggle and
+settings; their fields are listed in the [libs/fpc plan](../libs/fpc.md)). Both the save editor's FPC toggle and
 the Team compiler's `fpc_on`/`fpc_off` marker files use the same preset values. The compiler
 composes the boots/gloves ID fields with asset outcomes by the precedence rule in the
 [Aesthetics export plan](../aesthetics_export/settings_toml.md)'s "Player settings in exports";

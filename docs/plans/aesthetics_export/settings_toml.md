@@ -217,7 +217,7 @@ Name-writing rules, in full — **not writing is the default**; writing is opt-i
 
 `shirt_name` is a string or absent: absent writes nothing, a string is written as is (checked
 against the version's shirt-name field and character set; it may fill the field, as real saves'
-do, the byte `shirt_name_from` keeps free being for text it invents). There is
+shirt names do: only `shirt_name_from` keeps a byte free, for text it invents). There is
 no `true`: a shirt name rarely repeats the player name, and a derived default would be one more
 thing to read. A shared folder applies it to every mapped player, like `name`.
 

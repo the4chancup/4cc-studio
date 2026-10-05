@@ -1165,7 +1165,7 @@ Resolved decisions:
   installed cup content (`kit_config_fpc_adjusted`), so a midcup export can add an FPC player
   without resending untouched kits (see "FPC toggle" in the [Aesthetics export plan](../aesthetics_export/fpc_toggle.md)).
 - **The aesthetics patch is the compiler's only savefile write path**: a compile writes
-  `aesthetics_patch.toml` beside the CPK (on Fox only names, the rest travelling in the CPK's
+  `aesthetics_patch.toml` beside each CPK it publishes (on Fox only names, the rest travelling in the CPK's
   player appearance tables); a configured local savefile is updated by applying that
   patch, never by a separate write. Reason: the DLC builder and the savefile builder are different
   roles — the official save carries the teams' custom tactics, which the DLC builder must not have —
