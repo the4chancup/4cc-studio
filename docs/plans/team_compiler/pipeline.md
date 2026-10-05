@@ -932,7 +932,8 @@ describes behavior, not a serial scheduling requirement:
     become `4cc_41_teams` and `4cc_42_teams`; `4cc_38_balls` becomes `4cc_16_balls`). The old
     files of a stem are all its installed files once one of them needs a name, those already
     under an official name included (in the example, `4cc_61_midcup` becomes 62), and the
-    renames run last first, so none lands on a file not yet moved. An old file with no
+    renames run last first, so none lands on a file not yet moved; a file whose new name is
+    held by a file outside its stem's renames is not renamed. An old file with no
     official name left for it (a sixteenth midcup, a stem the official list does not have)
     is not renamed and is listed as "will no longer be loaded"; a rename never overwrites a
     file. The dialog, and `upgrade-dpfl` without `--yes`, show every rename before anything

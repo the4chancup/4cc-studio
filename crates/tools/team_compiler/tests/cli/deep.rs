@@ -489,6 +489,7 @@ fn write_kits(sandbox: &Sandbox, export: &str) {
     sandbox.write(&format!("{export}/Kits/p2/kit.dds"), &tracer_kit());
 }
 
+// TC-KIT-27
 #[test]
 fn a_kit_config_that_does_not_parse_leaves_its_kit_out_and_the_kit_beside_it_compiles() {
     let sandbox = Sandbox::new("deep_kit_config_invalid");

@@ -734,7 +734,8 @@ TC-MOD-15  GIVEN slot 05 holding face_diff.xml, and another holding a face_diff.
            WHEN each export is compiled for PES 21
            THEN the first's face package holds a face_diff.bin decoded from the xml; the second
                 reports face_diff_invalid and the folder is dropped
-TC-MOD-16  GIVEN slot 05 holding ingame_face, torso.fmdl, torso.skl and glove_l.fmdl
+TC-MOD-16  GIVEN slot 05 holding ingame_face, torso.fmdl posed for PES 21, torso.skl and
+           glove_l.fmdl
            WHEN the export is compiled for PES 21
            THEN the CPK holds no face/real/71405/ path, k0625's package holds boots.fmdl and a
                 boots.skl byte-identical to torso.skl, and g0625's holds glove_l.fmdl
@@ -780,7 +781,7 @@ TC-MOD-25  GIVEN slot 05 holding face_edithair.xml, and another folder holding h
            WHEN each export is checked for PES 17
            THEN edithair_unsupported drops the first, model_name_invalid drops Mud and its
                 linking player (link_target_dropped)
-TC-MOD-26  GIVEN slot 05 holding boots.fmdl and boots.model
+TC-MOD-26  GIVEN slot 05 holding boots.fmdl posed for PES 21 and boots.model posed for PES 17
            WHEN it is compiled for PES 21, then for PES 17
            THEN the FMDL is used on 21 and the .model on 17, with no conversion finding either way
 TC-MOD-27  GIVEN the tracer export (a Fox face: fcl_hair.fmdl)
@@ -887,7 +888,8 @@ TC-TEX-11  GIVEN slot 06 holding a face model naming hair and hair.dds.common, n
            WHEN the export is compiled for PES 21 with 4cc_61_midcup.cpk holding the texture at
            the team's Common path, then without it
            THEN the first reports no texture or link finding and the model's hair path names
-                that Common path; the second reports common_link_missing and drops the folder
+                /Assets/pes16/model/character/common/714/sourceimages/; the second reports
+                common_link_missing and drops the folder
 ```
 
 **Deep checks**
@@ -919,6 +921,11 @@ TC-CHK-07  GIVEN slot 05's boots.fmdl holding bytes that are not a model
            WHEN the export is checked, then compiled with pass_through on
            THEN model_broken is reported naming the file and the reader's error, and the folder
                 is left out of the CPK
+TC-CHK-08  GIVEN slot 05's face_high.model holding a mesh over a hard .model limit (more
+           vertices than the format can index)
+           WHEN the export is checked, then compiled, for PES 17
+           THEN model_mesh_over_vertex_limit is reported both times naming the file, and the
+                folder is left out of the CPK
 ```
 
 **Pre-Fox XML and MTL checks**
@@ -1033,6 +1040,11 @@ TC-KIT-25  GIVEN Kits/all/kit.dds, and p2/ holding a config and neither kit.dds 
            WHEN the export is compiled for PES 21
            THEN p2's UniColor entry holds the pair the dominant-color extraction gives for
                 all/kit.dds, with kit_colors_derived reported for p2
+TC-KIT-27  GIVEN p1/ holding kit.dds and a config.toml whose shirt is 144, out of range, and p2/
+           holding kit.dds
+           WHEN the export is checked, then compiled
+           THEN kit_config_invalid is reported for p1 both times naming config.toml, p1 is left
+                out and u0714p2 is compiled
 TC-KIT-26  GIVEN p1/ holding kit.dds and a kit_back.dds column atlas (128x2048, ten flat-colored
            digit cells), and p2/ holding kit.dds and a kit_back.dds row atlas (2048x256)
            WHEN the export is compiled for PES 21, then for PES 17
@@ -1134,7 +1146,7 @@ TC-BIN-06  GIVEN an installed UniformParameter.bin holding team 714's p1 entry, 
                 kit_config_fpc_unpatched
 TC-BIN-07  GIVEN a templates/UniColor.bin in the data directory, then also a
            templates/TeamColor.bin that cannot be read
-           WHEN a from-scratch compile runs each time
+           WHEN a from-scratch compile of a /co/ export runs each time
            THEN the first reports template_override_active naming UniColor.bin and its CPK's
                 UniColor.bin is the template with team 714's entries set; the second reports
                 template_override_unreadable naming TeamColor.bin and aborts with exit 3
@@ -1145,8 +1157,9 @@ TC-BIN-09  GIVEN a PES folder with no DpFileList.bin
            WHEN a compile runs
            THEN the bins are built on the bundled bases, dpfilelist_missing is reported, and the
                 CPK is promoted to output/
-TC-BIN-10  GIVEN an installed BootsList.bin of ten pairs and a GloveList.bin, none of them for a
-           team 714 player, and a /co/ export whose slot 05 holds boots.fmdl
+TC-BIN-10  GIVEN an installed BootsList.bin of ten pairs, a GloveList.bin and a
+           PlayerAppearance.bin, none of them for a team 714 player, and a /co/ export whose
+           slot 05 holds boots.fmdl
            WHEN it is compiled for PES 21
            THEN the CPK's BootsList.bin holds eleven pairs sorted by player id with (71405, 625)
                 among them and the ten unchanged; GloveList.bin and PlayerAppearance.bin are
@@ -1345,7 +1358,7 @@ TC-DEP-09  GIVEN the same install with a 1 KiB download/4cc_40_faces.cpk
                 byte-identical, no file is renamed, and the exit code is 0
 TC-DEP-10  GIVEN the same
            WHEN upgrade-dpfl --yes runs
-           THEN DpFileList.bin equals the bundled PES 21 list, DpFileList.bin.bak equals the old
+           THEN DpFileList.bin equals the bundled official list, DpFileList.bin.bak equals the old
                 file, and 4cc_40_faces.cpk is now 4cc_41_teams.cpk with its bytes unchanged
 TC-DEP-11  GIVEN multicpk_mode on and a refs export beside two teams
            WHEN the root is compiled with an old 4cc_42_teams.cpk locked
