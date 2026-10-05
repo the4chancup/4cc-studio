@@ -6,7 +6,7 @@ Part of the [Aesthetics export plan](README.md). Section headings are unchanged 
 
 FPC (Full Player Customization — see the [Save editor plan](../save_editor.md)) makes the default
 player model invisible via a specific mix of appearance settings (blank-model boots/gloves IDs
-plus strip settings, varying slightly per PES version; Fox: fields of the compiled
+plus strip settings; Fox: fields of the compiled
 `PlayerAppearance.bin` row, the IDs in the `BootsList`/`GloveList` rows; pre-Fox: savefile
 fields), so that an FBM (Full Body Model) replaces
 the player entirely. Setting it through individual `settings.toml` keys would be error-prone and

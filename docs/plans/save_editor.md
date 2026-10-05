@@ -111,7 +111,7 @@ implementation is measured against.
 | Output rosters to TSV | Kept |
 | — | **Export teams list** (new): the open save's team names and IDs for 701–920 (in-game names are the `/xx/` names) merged into `data/teams_list.txt` through the same reconciliation the updater uses — added / kept / overridden shown for review, savefile wins conflicts, unresolved conflicts leave the file unchanged, never a blind overwrite (see the [Team compiler plan](team_compiler/pipeline.md), "Resolved decisions", "Teams list"). Lives here because this tool owns the open savefile; the compiler only consumes the list |
 | Fix database (clear all visual flags, reset kit slots, PES17 kit-ID repair) | Kept as a maintenance action behind a confirmation dialog |
-| — | **Strip and seed** (new, Fox saves): every player's current appearance into `4cc_08_bins.cpk`'s `PlayerAppearance.bin`/`BootsList.bin`/`GloveList.bin` rows, then every appearance id to -1; plus the restored-id check. See "Stripped save" |
+| — | **Strip and seed** (new, Fox saves): every not-yet-stripped player's appearance into `4cc_08_bins.cpk`'s `PlayerAppearance.bin`/`BootsList.bin`/`GloveList.bin` rows, then every appearance id to -1; plus the restored-id check. See "Stripped save" |
 
 ### New (from Midcupping)
 
@@ -389,9 +389,10 @@ afterwards.
   name writes, the aesthetics patch included, leave the appearance block's id as it is; the aesthetics
   transplant and the unlocked Appearance tab write the record's fields but not its id, and on a
   stripped save they say that the game does not read them.
-- **A record at -1 is not the player's look.** Every view that reads a record's appearance (the
-  Appearance tab, the FPC classifier and its interference findings, the comparator, a
-  transplant's donor) marks a player at -1 as stripped beside what it shows; generation skips
+- **A record at -1 is not the player's look.** Everything that reads a record's appearance, in
+  the GUI or the CLI (the Appearance tab, the FPC classifier and its interference findings,
+  the comparator and `diff`, a transplant's donor, a Team TOML export), marks a player at -1
+  as stripped beside what it shows or writes; generation skips
   him ("Player settings in exports" in the
   [Aesthetics export plan](aesthetics_export/settings_toml.md)).
 - **The game's own Edit mode does.** Test 1 found that any change to a stripped player in Edit
@@ -414,6 +415,9 @@ One panel merging 4ccEditor's `comparator.cpp` with Midcupping's
 
 - Load a second save (same version); the panel lists per-team, per-player
   differences.
+- The two scopes are `PlayerDiff::scope()`'s (`DiffScope`, "Save-to-save operations" in the
+  [Savefile plan](pes_savefile/operations.md)); the lists below are the two references' rows,
+  each a subset of ours.
 - **Gameplay scope** (from 4ccEditor): names, IDs, basics (age/height/weight),
   every ability stat, playstyle, positions and ratings, COM styles, all skills —
   with old → new values.

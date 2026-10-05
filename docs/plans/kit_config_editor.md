@@ -271,7 +271,7 @@ The format knowledge as a lib crate:
   offset) rather than dropping it on the next write.
 - The template defaults (from the bundled `XXX_DEF_xxx_realUni.bin` template) and
   `apply_fpc` / `matches_fpc`, used by the Team compiler's reconciliation
-  (`kit_config_fpc_adjusted`) and by this tool's FPC indicator. The per-version FPC values
+  (`kit_config_fpc_adjusted`) and by this tool's FPC indicator. The FPC values
   themselves come from the leaf crate `libs/fpc` (see [libs](libs/README.md)), which also holds the
   player-side presets `pes_savefile` applies — one description of the system for every tool.
 - `KitSlot`, the game's ten kit slots (`p1`–`p9`, `g1`): `KitSlot::parse` reads a slot name
