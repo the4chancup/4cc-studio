@@ -1165,6 +1165,7 @@ fn a_texture_the_face_and_a_combined_boots_folder_hold_is_packed_once_or_drops_t
     );
 }
 
+// TC-MOD-33
 #[test]
 fn a_texture_the_player_s_folder_and_a_combined_face_folder_hold_differently_drops_the_player() {
     let sandbox = Sandbox::new("mod_face_texture_conflict");
