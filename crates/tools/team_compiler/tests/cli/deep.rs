@@ -463,6 +463,18 @@ fn a_settings_toml_that_does_not_parse_is_ignored_and_the_folder_s_models_compil
     assert_eq!(findings_of(&run.messages(), "co - Settings"), expected);
     assert_eq!(run.exit_code(), 1);
     assert_eq!(compiled_players(&sandbox), [71405]);
+    // Every model package the folder holds commits: the face, the boots and the gloves.
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    for path in [
+        "Asset/model/character/boots/k0625/#Win/boots.fpk",
+        "Asset/model/character/boots/k0625/#Win/boots.fpkd",
+        "Asset/model/character/face/real/71405/#Win/face.fpk",
+        "Asset/model/character/face/real/71405/#Win/face.fpkd",
+        "Asset/model/character/glove/g0625/#Win/glove.fpk",
+        "Asset/model/character/glove/g0625/#Win/glove.fpkd",
+    ] {
+        assert!(entries.contains_key(path), "{path}");
+    }
 }
 
 /// `kit_config_invalid` on `Kits/p1`, whose `config.toml` holds `shirt = 144`.

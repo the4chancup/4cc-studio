@@ -16,6 +16,7 @@ use fmdl::{FmdlFile, Model};
 
 use crate::common::Sandbox;
 use crate::compile::{cpk_entries, pes21_settings, tracer_kit, tracer_player_file};
+use crate::face_folders::assert_blank_face;
 use crate::{TEAM_COLORS_MISSING, clean_model, findings_of};
 
 /// The entry names of the FPK `bytes`.
@@ -1303,6 +1304,14 @@ fn parts_with_a_skeleton_mismatch_or_a_material_defined_twice_leave_their_boots_
         "no k0625 or k0627: the failed boots are left out; each folder's blank face commits \
          with the folder's textures"
     );
+    // Each surviving face is the blank one: neither folder held a face model, slot 09
+    // included.
+    for player in [71405, 71407, 71409] {
+        assert_blank_face(
+            &entries,
+            &format!("Asset/model/character/face/real/{player}/#Win/face.fpk"),
+        );
+    }
 }
 
 // TC-MOD-05

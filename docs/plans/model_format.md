@@ -396,8 +396,9 @@ Rules:
   reports it. Common is the base, local is the override — the same relationship as a Common-linked
   model's own tomls versus the player folder's (below).
 - A link whose target does not exist in Common — model, material file or texture — is
-  `common_link_missing` (E, folder discarded); the finding's context names the link kind and the
-  Common path it looked for.
+  `common_link_missing` (E, folder discarded), except a texture link an installed CPK satisfies
+  (`team_compiler/pipeline.md` "Resolved decisions"); the finding's context names the link kind
+  and the Common path it looked for.
 - **Texture stems resolve in the folder of the material file that set them.** A stem written in
   `Common/body.materials.toml` resolves against Common's images; a stem written in the player
   folder's `body.materials.toml` resolves against the player folder. Auto-detected roles (see

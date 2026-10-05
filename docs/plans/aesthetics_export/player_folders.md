@@ -308,7 +308,7 @@ folder, where nothing can be a face, unsuffixed names are `fmdl_name_invalid` er
 **Common folders, shared (Faces/Boots/Gloves) folders, and player folders** alike. When a model is
 pulled in — via a `.common` link, a shared link, or used locally — its skeleton travels with it into
 the destination output: on Fox targets as the destination's `.skl` (pass-through bytes for `.fmdl`
-inputs; generated from the IR for glTF and `.model` inputs that carry bones outside the target's
+inputs the retargeting leaves unchanged; generated from the IR for glTF and `.model` inputs that carry bones outside the target's
 skeleton tables), on pre-Fox targets inside the written `.model`'s bone table, for every source
 format. This covers the rare case where a model has a custom pose that depends on a custom skeleton;
 the common case needs no SKL and the compiler's template skeletons suffice. Independently of custom

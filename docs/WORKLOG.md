@@ -1113,7 +1113,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   Open first (found at 4.11c): a model's type is read from its stem's last part, so a
   per-kit model named `boots_kit1` is typed as face content; typing should probably skip
   the kit token.
-  IDs: TC-MOD-20..25, TC-TEX-07, TC-CMN-07 (split from TC-CMN-05 at 4.11c). Crates: tc (`processing/model.rs`, `processing/material.rs`,
+  IDs: TC-MOD-20..25, TC-MOD-35, TC-TEX-07, TC-CMN-07 (split from TC-CMN-05 at 4.11c). Crates: tc (`processing/model.rs`, `processing/material.rs`,
   `processing/texture.rs`, `paths.rs`) → verify: a `/co/` slot 05 folder with the smallest
   `pes_model` fixture pair as `face_high.model` + `face_high.mtl` and `skin.dds`, compiled for PES 17: the
   CPK holds `common/character0/model/character/face/real/71405.cpk` whose `face.xml` lists one
@@ -1124,7 +1124,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   catalog, the Error/Warning/Info line of "User-supplied `face.xml`", `xml_ignored_fox`,
   `mtl_texture_not_found` deep (mesh-used materials) against `mtl_texture_unused_missing`, the
   states checks also on a converted model's `[prefox.states]`. Plan: `messages.md` "XML/MTL
-  content checks", "User-supplied `face.xml`". IDs: TC-XML-01..07. Crates: tc
+  content checks", "User-supplied `face.xml`". IDs: TC-XML-01..08. Crates: tc
   (`processing/material.rs`) → verify: the hand-written xml of `testing.md` ("user `face.xml`")
   compiled for PES 17 is emitted with 714 substituted into its Common path, its unknown `type`
   and extra attribute kept with `xml_type_unknown` and `xml_attribute_unknown`, `level="1"` kept
@@ -1154,11 +1154,11 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   selected glTF representation refused with `model_gltf_unsupported` (folder dropped, not
   pass-through-eligible); `bone_folded_for_version`, `skeleton_retargeted`, an SKL generated from
   the IR for a converted model with bones outside the target's tables,
-  `vertex_too_far_from_origin` on the converted form, the `metal` family's environment-cubemap
+  `vertex_too_far_from_origin` on the source model, the `metal` family's environment-cubemap
   sampler and template on pre-Fox (lead first: the cubemap as a lead-authored fixture with a
   provenance README). Plan: `pipeline.md` step 3 "Format conversion", "Resolved decisions" (Model
   source selection); `development_plan.md` "Phase 4" `processing/` (glTF refusal);
-  `model_conversion/README.md`. IDs: TC-MOD-26..30, TC-MOD-34. Crates: tc (`processing/model.rs`) → verify:
+  `model_conversion/README.md`. IDs: TC-MOD-26..30, TC-MOD-34, TC-MOD-36. Crates: tc (`processing/model.rs`) → verify:
   the tracer's `fcl_hair.fmdl` compiled for PES 17 yields a `.model` + `.mtl` pair in the face
   CPK that `pes_model` reads back with the FMDL's mesh count; `boots.fmdl` beside `boots.model`
   on PES 21 compiles the FMDL with no conversion finding; `boots.glb` alone on PES 21 reports
@@ -1411,7 +1411,8 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   where each game takes each digit from (the stock atlases and how the number meshes map
   them) and records it as a table with a provenance script, as `KIT_LAYOUT_REMAP` was;
   then the re-arrangement is briefed. Plan: `pipeline.md` "4. Per-export non-model steps"
-  (the glyph atlases). Crates: tc (`processing/kit.rs`, `processing/kit_layout.rs`) →
+  (the glyph atlases). IDs: TC-KIT-26. Crates: tc (`processing/kit.rs`,
+  `processing/kit_layout.rs`) →
   verify: a column atlas whose ten cells are ten flat colors, compiled for PES 21, comes
   out as a row atlas with the ten colors in digit order, and the reverse for PES 17; an
   atlas already in the target's arrangement is byte-identical to today's output

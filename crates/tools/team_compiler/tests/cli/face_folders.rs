@@ -24,7 +24,7 @@ fn paths(entries: &BTreeMap<String, Vec<u8>>) -> Vec<&str> {
 
 /// Asserts the face package at `path` in `entries` is the blank one: the bundled
 /// `face_diff.bin` alone, with its `.fpkd` beside it.
-fn assert_blank_face(entries: &BTreeMap<String, Vec<u8>>, path: &str) {
+pub(crate) fn assert_blank_face(entries: &BTreeMap<String, Vec<u8>>, path: &str) {
     assert_eq!(package_names(&entries[path]), ["face_diff.bin"], "{path}");
     let package = fpk::FpkFile::read(&entries[path]).unwrap();
     assert_eq!(

@@ -951,7 +951,6 @@ fn a_kit_s_icon_marker_gives_its_menu_icon_and_a_kit_without_one_gets_icon_3() {
 }
 
 // TC-KIT-14
-// TC-BIN-03
 #[test]
 fn a_kit_whose_task_fails_keeps_its_base_entries_and_the_kit_beside_it_commits() {
     let sandbox = Sandbox::new("kit_colors_failed_task");
