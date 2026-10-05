@@ -53,8 +53,10 @@ preview — it only gains a labeled approximate in-app preview if the Team compi
 that takes a name and a list of players to a legal Team TOML plus a compilable aesthetics export
 built from embedded starter heads — it owns no format and keeps no state, writing only files the
 other tools already read, and shares its tactics and card widgets with the Save editor through
-`libs/team_widgets`. Additional tools (CPK toolkit/decompiler; other utilities) will build on the
-same lib crates and be specified later.
+`libs/team_widgets`; and the **Ruleset editor** builds AATF rulesets through forms, as data that
+a generic interpreter in the rules file evaluates, so an invitational's organizer can make rules
+that need not resemble the official ones. Additional tools (CPK toolkit/decompiler; other
+utilities) will build on the same lib crates and be specified later.
 
 Model format conversion (pre-Fox ↔ Fox) is **not** offered as a standalone tool — it is integrated
 into the Team compiler, which converts models to the target PES version's format at compile time.
@@ -240,7 +242,7 @@ Trade-offs accepted:
 | `directories` | User config dir resolution (data-location choice) | Production-ready |
 | `toml` | Export text formats (`settings.toml`, `config.toml`, `materials.toml`), app settings | Production-ready |
 | `toml_edit` | Comment/formatting-preserving edits to all auto-generated tomls (`settings.toml`, `materials.toml`, `config.toml`); comments are app-injected (predefined per-field documentation) and preserved across edits | Production-ready (the `toml` crate's own foundation) |
-| `rhai` | AATF rules file (parameters and check logic; sandboxed, see the Save editor plan's AATF section) | Production-ready |
+| `rhai` | AATF rules file (the ruleset data and its interpreter; sandboxed, see the AATF rules plan) | Production-ready (1.26.0, 2026-08; the language server `rhaiscript/lsp` is abandoned, which nothing here depends on) |
 | `image` | Raster source decoding (PNG, JPEG, BMP, WebP, TGA, TIFF) for texture conversion — all formats interchangeable as sources for any model format | Production-ready (pure-Rust default formats, rayon-enabled) |
 | `tiff` | TIFF tag access `image` does not reach (the premultiplied-alpha metadata for `dds_convert`) | 0.11.3 in use |
 | `block_compression` | CPU BC1/BC3/BC7 encoding and BC1–BC7 decoding (one crate for both directions); first-release desktop GPU BC7 | 0.10.0 in use (features `bc15`, `bc7`; `wgpu` feature only for the GPU step); decode verified exact against texconv; GPU cold-start cost, throughput and fallback still to be verified |
@@ -315,7 +317,7 @@ pattern and the schema-driven save codec collapsing 4ccEditor's six per-version 
 | Aesthetics patch | `aesthetics_patch.toml` written beside the CPK (on Fox only names, appearance travelling in the CPK's database tables over a stripped save); the compiler's only savefile write path (the local save is updated by applying it); applied to other saves by the save editor, whose own aesthetics fields are read-only by default (session unlock) | Separates the DLC builder from the savefile builder — the official save holds the teams' custom tactics, which the DLC builder must not receive; one write path means no drift between the two machines |
 | Auto-generated toml comments | App-injected (predefined per-field documentation), preserved by `toml_edit` | Users never write comments from scratch; the comments are the simplified documentation, present in every auto-generated `settings.toml`/`config.toml`/`materials.toml` |
 | FPC toggle | Empty `fpc_on`/`fpc_off` marker files in the player folder | Folder-level like link files; apply `libs/fpc`'s enable/disable presets (same as the editor's toggle); absent = no preset applied, the keys taking their defaults |
-| AATF rules | One self-contained Rhai file: parameter map at the top, check functions below | Editable without recompiling; one file is one ruleset, so an invitational's variant is a copy with the top edited and cannot skew against its logic; TOML+CEL and a two-file split rejected (Save editor plan) |
+| AATF rules | One self-contained Rhai file: the ruleset as data (`RULESET`), a generic interpreter carried in the file, optional hand-written custom checks; built without code in the Ruleset editor | Anyone can make an invitational's ruleset, and it need not resemble the official one; the interpreter in the file keeps a ruleset's meaning fixed across Studio builds; TOML+CEL, a two-file split, hand-written logic per ruleset and a Rust-interpreted TOML rejected ([AATF rules plan](../aatf_rules.md)) |
 | Music tools | Two tool crates (`music_player`, `music_export_editor`) + `music_export`/`audio_engine` libs | Rigdio/RigDJ successors; descriptive crate names, old names kept in the user-facing labels ("Music player (Rigdio)") and old icons in the collapsed rail |
 | .4ccm format | Canonical, unchanged, read + write | Interop with legacy Rigdio during transition; no new format, no migration for managers |
 | Audio backend | Pure Rust: `kira` + `symphonia` (+ Rust Opus decoder) + `ebur128` | Drops libmpv-2.dll and ffmpeg.exe; single binary; in-process loudness; WASM-compatible |

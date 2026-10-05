@@ -4071,3 +4071,33 @@ route on Fox; a stale patch must not sit beside a newer CPK.
 Plan: `team_compiler/pipeline.md` "Collars", "Bins accumulation", "Post-processing";
 `aesthetics_export/object_model.md` (allowlist); `player_folders.md` "Marker names";
 `settings_toml.md`; `pes_savefile/operations.md` "Aesthetics patch"; TC-CMN-08..10.
+
+## 2026-10-06 — aatf — rulesets as data with a generic interpreter in the file; the Ruleset editor
+Decision (user):
+- A ruleset is data: the `RULESET` map (tiers, heights, card economy, conditional specials,
+  suggestions) evaluated by a generic interpreter written in Rhai and copied into every rules
+  file, plus an optional hand-written `custom_checks(team)` hook the interpreter calls and the
+  editor preserves. This replaces the 2026-09-19 shape (a `CFG` parameter map above hand-written
+  check functions); the one-self-contained-file property, Rhai and the three host functions stay.
+- The official ruleset is expressed in the same schema and run by the same interpreter.
+- A new tool, the **Ruleset editor** (`ruleset_editor`), lets organizers with no programming
+  experience build a ruleset through forms; its rulesets need not depend on the official one. It
+  is a separate tool, Phase 20 (post-release); seeing a team's results live while editing is not
+  needed. The schema and interpreter land in Phase 5 with `libs/aatf`.
+- Visual programming (blocks or a node graph) is deferred until the egui libraries mature; a
+  graph could later sit beside `RULESET` without a format change.
+- VGL's suggestions are adopted as a third severity, derived from each allowance a ruleset lists
+  in `suggestions`, behind a "Show suggestions" toggle.
+Lead's reading: the format moves out of `save_editor.md` into its own plan, since three tools
+consume it; VGL26 (4ccEditor-VGL `vgl26`) becomes the schema's second embedded ruleset and
+fixture; the upstream errata the old section listed were fixed upstream in `f5e7b3e`, so they are
+gone from the plan.
+Why: `aatf.cpp`'s history shows every special since 2019 is a condition and an effect, and
+VGL26 shows a complete invitational ruleset of a different shape, so a schema covering both lets
+non-programmers make rulesets; the interpreter in the file keeps a ruleset's meaning fixed when
+the official logic changes between Studio builds.
+Plan: new `aatf_rules.md` and `ruleset_editor.md`; `save_editor.md` "Configurable AATF rules"
+cut to a pointer plus the checker UI, verification pointer; `team_creator.md` "Heights";
+`core/README.md` overview, `rhai` row, decisions row; `core/architecture.md` crate tree;
+`core/development_plan.md` Phase 5 bullet, Phase 18 cheap tier, new Phase 20;
+`model_format.md` "Comments are app-injected"; `plans/README.md`; `GLOSSARY.md`.

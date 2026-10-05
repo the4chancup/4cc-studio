@@ -46,6 +46,7 @@ The suite follows a **platform + plugins** model with strict modularity rules:
 │   │   │                             #   in-place glTF conversion, base-model extraction
 │   │   ├── team_creator/             # New-team wizard: roster file → legal Team TOML + export with
 │   │   │                             #   embedded starter heads; owns no format, hands off
+│   │   ├── ruleset_editor/           # AATF ruleset forms → rules file (libs/aatf's format)
 │   │   └── ...                       # Future tools (CPK tools, ...)
 │   └── libs/
 │       ├── pes_savefile/             # EDIT file codec: crypto, schema tables, player/team/
@@ -87,7 +88,8 @@ The suite follows a **platform + plugins** model with strict modularity rules:
 │       │                             #   and player_aesthetics_editor (labeled approximate preview)
 │       ├── python_bindings/          # PyO3 bindings exposing fmdl + pes_model crates to Blender's
 │       │                             #   Python; built separately via maturin, not in default build
-│       ├── aatf/                     # (Phase 5) AATF rules engine (one Rhai rules file: parameters + checks)
+│       ├── aatf/                     # (Phase 5) AATF rules: ruleset schema, the generic Rhai
+│       │                             #   interpreter, host API (Save editor, Team creator, Ruleset editor)
 │       ├── music_export/             # (Phase 10) .4ccm music export format: parse/write + condition model
 │       ├── audio_engine/             # (Phase 10) Audio playback (kira/symphonia) + loudness analysis (ebur128)
 │       ├── match_feed/               # (Phase 11) Live match event feed (match tracker → music player)

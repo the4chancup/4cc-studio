@@ -225,7 +225,7 @@ steps, which every phase has: **converge** (the lead's own audit first, then the
 reviewer's, both against the phase's plan sections and acceptance IDs; each gap becomes a new
 step above it, and the phase waits for them) and **rewrite**
 (the phase's plan sections rewritten in the present tense, in place). Then collapse its step list
-below to this one row, keeping its `manual: checked` lines; the step-level detail stays in git history. Tool phases (3–6, 8–15, 17, 19) also
+below to this one row, keeping its `manual: checked` lines; the step-level detail stays in git history. Tool phases (3–6, 8–15, 17, 19, 20) also
 open with an **acceptance** step: the tool plan's "Acceptance" section for that phase, written
 before any code (GUI scenarios that no automated test can prove are marked `manual` and proven by
 a recorded check at converge — `CONTRIBUTING.md` "Testing"). Procedure: `AGENTS.md` "Working
@@ -253,6 +253,7 @@ documents".
 | 17 | Team creator (post-release) | `team_creator` | todo |
 | 18 | Studio Web (post-release) | — | todo |
 | 19 | DB generator (scheduled by need, after 2 and 8) | `db_generator`, `pesdb`, `pes_savefile` `ops/populate.rs` | todo |
+| 20 | Ruleset editor (post-release) | `ruleset_editor`, `aatf` writer | todo |
 
 ---
 
@@ -2630,3 +2631,10 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   opts names in, the Fox patch carries motions, and a compile with nothing to patch backs the
   old patch up as `.bak`. Found: pre-Fox player tables, and referee collars named
   `referee_collar_<ID>` (both in "Issues").
+- **2026-10-06** — AATF redesigned with the maintainer (decision entry): a ruleset is data
+  (`RULESET`) run by a generic Rhai interpreter carried in each rules file, plus an optional
+  `custom_checks` hook; the official ruleset uses the same schema; VGL26 (4ccEditor-VGL) is the
+  second embedded ruleset and fixture; VGL's suggestions become a third severity. New plans
+  `aatf_rules.md` (the format, moved out of `save_editor.md`) and `ruleset_editor.md` (new tool,
+  Phase 20). Checked on the way: Rhai is maintained (1.26.0, 2026-08; only its LSP is abandoned);
+  upstream fixed the three AATF errata the old section listed (`f5e7b3e`). No code.

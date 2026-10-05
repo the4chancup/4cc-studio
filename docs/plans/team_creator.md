@@ -127,11 +127,13 @@ The step that makes the team legal. On entering it, everything not yet set is fi
   and a blocking violation until the counts match the rules file. **Suggest medals** assigns them in one click: gold to the
   most attacking starters (CF, SS, AMF, then wide forwards, then CMF), silver to the next in the
   same order, never a GK.
-- **Heights** — the **Red** system by default (no giants; simpler quotas), switchable to Green.
-  Bracket quotas are filled in position order — GKs and defenders take the tallest bracket first,
-  forwards and attacking midfielders the shortest — each player at their bracket's midpoint, GKs at
-  the system's GK rule, gold players below the giant threshold. Weight defaults to the midpoint of
-  the rules' allowed window for the height. Age is not set (the save's value stays).
+- **Heights** — from the active ruleset's height systems: under the official one the **Red**
+  system by default (no giants; simpler quotas), switchable to Green. Bracket quotas are filled in
+  position order — GKs and defenders take the tallest bracket first, forwards and attacking
+  midfielders the shortest — each player at their bracket's midpoint, GKs at the system's GK rule,
+  gold players below the giant threshold. A ruleset without brackets (VGL26) fixes heights through
+  its tiers' conditions, and each player takes their tier's height. Weight defaults to the midpoint
+  of the rules' allowed window for the height. Age is not set (the save's value stays).
 - **Stats** — per tier through `aatf::apply_tier` (the function behind the Save editor's Make
   Gold/Silver/Regular buttons): rates, form, injury resistance, weak foot, height bonuses.
 - **Captain** — the first gold unless set. **Set-piece takers** by the wiki's rule of thumb: PK

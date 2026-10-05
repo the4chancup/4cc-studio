@@ -9,12 +9,13 @@ fixtures or reference outputs); the tools follow, each bringing the consumer-sha
 first to need. Each phase's detailed specification lives in the corresponding plan document: phase
 2 in [libs](../libs/README.md)/[model conversion](../model_conversion/README.md)/[savefile](../pes_savefile/README.md), phases
 3–4 in [team compiler](../team_compiler/README.md), phase 5 in [savefile](../pes_savefile/README.md)/[save
-editor](../save_editor.md), phase 6 in [export upgrader](../export_upgrader.md), phase 7 in [model
+editor](../save_editor.md)/[AATF rules](../aatf_rules.md), phase 6 in [export upgrader](../export_upgrader.md), phase 7 in [model
 conversion](../model_conversion/README.md), phase 9 in [stadium compiler](../stadium_compiler.md), phase 10 in
 [music player](../music_player.md)/[music export editor](../music_export_editor.md), phase 11 in [match
 tracker](../match_tracker/README.md), phase 12 in [kit config editor](../kit_config_editor.md), phase 13 in [refs
 arranger](../refs_arranger.md), phase 14 in [balls compiler](../balls_compiler.md), and phase 15 in
-[player aesthetics editor](../player_aesthetics_editor.md).
+[player aesthetics editor](../player_aesthetics_editor.md); the post-release phases 17–20 name their
+plans in their sections.
 
 **Releases.** The suite first ships as **0.1.0 at the end of Phase 8** ("Release 0.1.0" below):
 the Team compiler with compile-time aesthetics (on Fox the output CPK's database tables, on
@@ -371,8 +372,9 @@ is a deferred verification completed after those phases land.
   settings become, on Fox, each compiled player's appearance table rows (Phase 4's `bins/`) and an
   aesthetics patch of names only; on pre-Fox, the full aesthetics patch ("Player settings in
   exports" in the Aesthetics export plan).
-- `libs/aatf`: the AATF rules engine (one self-contained Rhai rules file; see the Save editor
-  plan's "Configurable AATF rules").
+- `libs/aatf`: the ruleset schema and its load-time validation, the generic Rhai interpreter, the
+  host and `apply_tier`, logic identity, and the Autumn 26 and VGL26 rulesets as data with their
+  fixtures ([AATF rules plan](../aatf_rules.md), "Development phase and verification").
 - The Save editor tool crate's non-GUI substance: settings, CLI, and the operations wiring over
   `pes_savefile` (editing, tactics, AATF checks, comparator, transplant, FPC toggle, strip and
   seed with the restored-id check) that the Phase 8 view will render — build order in the
@@ -654,7 +656,8 @@ Not a desktop release gate. Ships once the desktop pipeline has settled, in two 
 the eligibility tiers in `gui.md` "Browser deployment":
 
 1. **Cheap tier**: the eframe `wasm32` build of the shell plus the file-picking tools (Save editor,
-   Kit config editor, Music export editor, Export upgrader checks). Needs the async file-access
+   Kit config editor, Music export editor, Export upgrader checks; the Ruleset editor once Phase 20
+   has delivered it). Needs the async file-access
    adapter (`rfd` file picking + a File System Access API adapter for folders), browser-storage
    settings persistence, and hiding of the desktop-only tools. This step alone is the "open a
    bookmark and edit your team" demo.
@@ -690,5 +693,20 @@ the Python scripts work. Plan: [DB generator](../db_generator.md).
 trees committed as fixtures); `pesdb` round trips on real Konami tables; populating the PES 20
 fixture's stripped player section reproduces it byte for byte; in-game start with a generated
 database and EDIT (manual, per version).
+
+### Phase 20: Ruleset editor (`tools/ruleset_editor`, post-release)
+
+Not a first-release gate: its users are invitational organizers, who use 4ccEditor forks until
+then. Depends on `libs/aatf` with the schema and the interpreter (Phase 5) and the shell (Phase 8).
+Plan: [Ruleset editor](../ruleset_editor.md).
+
+- `libs/aatf`'s writer (`Ruleset` → `RULESET` block, deterministic) and the schema-migration hook
+- The tool: start page and templates, the section forms (tiers, heights, cards, universal rules,
+  specials with the condition and effects editors, suggestions), opening and saving with logic
+  identity, the rules summary; `validate`, `update-logic` and `summary` CLI; the help chapter
+
+**Verification:** as in the Ruleset editor plan's "Development phase": writer round trips on both
+embedded rulesets, VGL26 rebuilt from Blank through the forms (manual), logic update and refusal,
+no invalid ruleset ever written.
 
 ---
