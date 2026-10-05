@@ -674,7 +674,7 @@ TC-MOD-01  GIVEN a /co/ export whose slot 05 folder holds kit_boots.fmdl, glove_
                 under common/714/05 - <name>/sourceimages/
 TC-MOD-02  GIVEN slot 05 holding kit_boots.fmdl and kit_boots.skl, and another export whose slot 05
            holds kit_boots.fmdl alone
-           WHEN the export is compiled for PES 21, the version the model is posed for
+           WHEN each is compiled for PES 21, the version the model is posed for
            THEN boots.skl in the boots package is byte-identical to kit_boots.skl; without the
                 .skl it is byte-identical to the bundled PES 21 body.skl
 TC-MOD-03  GIVEN a players.txt mapping one folder with boots.fmdl to slots 03 and 07
@@ -694,11 +694,12 @@ TC-MOD-05  GIVEN Boots/Crocs/boots.fmdl and Boots/Mud/boots.fmdl, Crocs linked b
 TC-MOD-06  GIVEN eighteen shared boots folders each linked by a player
            WHEN the export is checked
            THEN boots_id_pool_exhausted is reported and the export is skipped
-TC-MOD-07  GIVEN Boots/Crocs/ linked by slot 05, which also holds kit_boots.fmdl
-           WHEN the export is compiled for PES 21
+TC-MOD-07  GIVEN Boots/Crocs/ linked by slot 05, which also holds kit_boots.fmdl; then slot 07
+           also linking Crocs.boots plainly
+           WHEN the export is compiled for PES 21 each time
            THEN link_combined and fmdl_merged are reported for slot 05, k0625 holds one boots.fmdl
-                whose mesh count is Crocs's plus the local model's, and Crocs's own output exists
-                only if another player links it plainly
+                whose mesh count is Crocs's plus the local model's, and k0644 is absent from the
+                first run and holds Crocs alone in the second
 TC-MOD-08  GIVEN Faces/Longhair/ holding hair_high.fmdl, linked by slot 05, which holds face_high.fmdl
            WHEN the export is compiled for PES 21
            THEN slot 05's face package holds face_high.fmdl and hair_high.fmdl, and no output
@@ -724,7 +725,7 @@ TC-MOD-12  GIVEN slot 05 holding fcl_hair.fmdl only (no face_diff.bin, no fcl_ha
            THEN the face package holds fcl_hair.fmdl, face_diff.bin, fcl_hair_sim.fclo and
                 fcl_hair_sim.skl, the last three byte-identical to the bundled templates
 TC-MOD-13  GIVEN slot 05 holding face_high.fmdl and face_high.skl
-           WHEN the export is checked, then compiled
+           WHEN the export is checked, then compiled, for PES 21
            THEN skl_no_slot is reported and the folder is kept, the .skl not emitted
 TC-MOD-14  GIVEN slot 05 holding boots/hair_high.fmdl and common/skin.dds
            WHEN the export is compiled for PES 21
@@ -783,8 +784,8 @@ TC-MOD-24  GIVEN slot 05 holding legs.model.common and Common/legs.model with Co
            WHEN it is compiled for PES 17
            THEN face.xml points the entry at the Common path with 714 substituted, Common/ output
                 holds legs.model and legs.mtl once, and the face CPK does not hold them
-TC-MOD-25  GIVEN slot 05 holding face_edithair.xml, and another folder holding hat.model in
-           Boots/Mud/ (a shared boots folder)
+TC-MOD-25  GIVEN slot 05 holding face_edithair.xml, and another export holding hat.model in
+           Boots/Mud/ (a shared boots folder), linked by slot 07
            WHEN each export is checked for PES 17
            THEN edithair_unsupported drops the first, model_name_invalid drops Mud and its
                 linking player (link_target_dropped)
@@ -849,17 +850,23 @@ TC-MOD-38  GIVEN Gloves/Keeper/ holding glove_l.model and glove_r.model with the
            WHEN the export is compiled for PES 17
            THEN the shared gloves output of ID 644 holds a glove.xml listing the two emitted
                 models typed gloveL and gloveR
-TC-MOD-39  GIVEN slot 07 holding an empty face/ and nothing else
+TC-MOD-39  GIVEN slot 07 holding an empty face/ and a face_diff.bin that is not the bundled one
            WHEN the export is compiled for PES 17
-           THEN face/real/71407.cpk holds a face.xml with one face_neck entry naming
-                ./oral_dummy_win32.model and ./dummy.mtl and a <dif> from the bundled
-                face_diff.bin, oral_dummy_win32.model byte-identical to the template dummy.model,
-                and dummy.mtl
+           THEN face_file_not_used names face_diff.bin, and face/real/71407.cpk holds a face.xml
+                with one face_neck entry naming ./oral_dummy_win32.model and ./dummy.mtl and a
+                <dif> from the bundled face_diff.bin, oral_dummy_win32.model byte-identical to the
+                template dummy.model, and a dummy.mtl holding an empty <materialset>
 TC-MOD-40  GIVEN Faces/Longhair/ holding hair_high.model and hair_high.mtl, linked by slot 05,
            which holds face_high.model and face_high.mtl
            WHEN the export is compiled for PES 17
            THEN 71405.cpk holds both models, its face.xml lists both, and no output exists for
                 Longhair on its own
+TC-MOD-41  GIVEN slot 05 holding ingame_face, shirt.model and socks.model with .mtl files defining
+           material "skin" differently; and another export whose slot 05 holds ingame_face,
+           shirt.model and socks.model naming one bone with different transforms
+           WHEN each export is compiled for PES 17
+           THEN the first reports merge_material_conflict and the second skl_merge_conflict,
+                and neither CPK holds common/character0/model/character/boots/0625/
 ```
 
 **Textures**
@@ -894,11 +901,12 @@ TC-TEX-07  GIVEN slot 05 holding skin.png of 1002x1002 pixels
            WHEN the export is compiled for PES 17
            THEN texture_not_div4 is reported and the folder is dropped
 TC-TEX-08  GIVEN dds_compression = true, then false, then auto with multicpk_mode off, then on
-           WHEN a /co/ export is compiled for PES 17 each time, then for PES 21
+           WHEN a /co/ export is compiled for PES 17 each time, then for PES 21 with true and
+           with false
            THEN every .dds entry of the first run is WESYS-wrapped and decompresses to the second
                 run's bytes; the third run equals the second and the fourth wraps as the first; a
                 source already WESYS-wrapped is
-                emitted as it is in every run; compiled for PES 21 the setting changes nothing
+                emitted as it is in every run; the two PES 21 runs' CPKs are byte-identical
 TC-TEX-09  GIVEN slot 05 holding a face model naming the textures hair and skin, skin.dds,
            hair.dds.common, and Common/hair.dds
            WHEN the export is compiled for PES 21
@@ -1025,7 +1033,8 @@ TC-KIT-12  GIVEN p1/colors.txt holding one valid entry and one unparsable line
 TC-KIT-13  GIVEN a p1/icon_7 marker, and p2 without an icon marker
            WHEN the export is compiled
            THEN p1's UniColor entry carries icon 7 and p2's icon 3
-TC-KIT-14  GIVEN a kit whose task fails (its kit.dds holds bytes no decoder reads)
+TC-KIT-14  GIVEN a Midcup export with a kit whose task fails (its kit.dds holds bytes no decoder
+           reads)
            WHEN the export is compiled
            THEN that kit has no UniColor or UniformParameter entry change; the other kits'
                 entries are written
@@ -1165,6 +1174,12 @@ TC-CMN-06  GIVEN slot 05's face model referencing dummy_kit and dummy_kit_srm, n
 TC-CMN-07  GIVEN slot 05 holding pants_kit1.model and pants_kit2.model with their .mtl files
            WHEN the export is compiled for PES 17
            THEN the face.xml holds one entry naming pants_kitN, with both variant files beside it
+TC-CMN-08  GIVEN Collars/collar_12.model with its .mtl, and another export holding
+           Collars/collar_117.model with its .mtl
+           WHEN each is compiled for PES 17
+           THEN the first CPK holds collar_012.model and its .mtl under
+                common/character0/model/character/uniform/nocloth/; the second reports
+                collar_id_invalid (117 is not a PES 17 collar) and its file is dropped
 ```
 
 **Bins**
@@ -1178,10 +1193,12 @@ TC-BIN-02  GIVEN TC-SRC-01's export (empty kit p2/)
            WHEN it is compiled
            THEN UniColor.bin carries p2's entry with the magenta/black pair and icon 3
 TC-BIN-03  withdrawn: TC-KIT-14 proves the same behavior on the same input
-TC-BIN-04  GIVEN a /co/ export with p1 and a root colors.txt
+TC-BIN-04  GIVEN a /co/ export with p1, a root colors.txt, and Boots/Crocs/ (boots.model and
+           boots.mtl) linked by slot 05
            WHEN it is compiled for PES 17
-           THEN UniColor.bin and TeamColor.bin follow the pre-Fox layouts and no
-                UniformParameter.bin is written
+           THEN UniColor.bin and TeamColor.bin follow the pre-Fox layouts, and no
+                UniformParameter.bin, PlayerAppearance.bin, BootsList.bin or GloveList.bin is
+                written
 TC-BIN-05  GIVEN a PES folder whose download/DpFileList.bin lists 4cc_08_bins, 4cc_61_midcup and
            4cc_99_test, 4cc_08_bins.cpk holding a UniColor.bin with team 714's p1 entry set to A and
            4cc_61_midcup.cpk one with it set to B
@@ -1228,11 +1245,12 @@ TC-BIN-13  GIVEN an installed TeamColor.bin whose record for team 799 starts wit
            THEN the emitted TeamColor.bin's record for team 799 starts with team ID 799 and
                 count 4, every other installed record is unchanged, and bin_header_repaired
                 is reported once, naming TeamColor.bin and team 799
-TC-BIN-14  GIVEN a Full /co/ export with kits p1 and p2, and no PES install configured (the
-           bundled UniColor.bin holds a past cup's kits for team 714 under a larger count)
+TC-BIN-14  GIVEN a Full /co/ export with kits p1, p2 and p3, p3's task failing (its kit.dds holds
+           bytes no decoder reads), and no PES install configured (the bundled UniColor.bin
+           holds a past cup's kits for team 714 under a larger count)
            WHEN it is compiled for PES 21
-           THEN team 714's UniColor.bin record counts 2 and holds p1's and p2's entries, every
-                other entry unused
+           THEN team 714's UniColor.bin record counts 3 and holds p1's and p2's new entries and
+                p3's base entry, every other entry unused
 TC-BIN-15  GIVEN a Midcup /co/ export with kit p1 and a kit number the bundled base's record for
            team 714 does not hold, and no PES install configured
            WHEN it is compiled for PES 21
@@ -1251,8 +1269,9 @@ TC-BIN-17  GIVEN an installed BootsList.bin holding (71405, 7) and (71406, 9), a
 TC-BIN-18  GIVEN an installed CPK holding team 714's loose p1 kit config, and a Midcup /co/
            export with fpc_on and only p2/
            WHEN it is compiled for PES 17
-           THEN the CPK holds p1's config re-emitted with the FPC values, and
-                kit_config_fpc_adjusted is reported for slot p1
+           THEN the CPK holds p1's config re-emitted with the FPC values, with
+                kit_config_fpc_adjusted reported for slot p1, and p3, which has no installed
+                config, reports kit_config_fpc_unpatched
 ```
 
 **Planning**

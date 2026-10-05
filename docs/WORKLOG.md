@@ -891,7 +891,11 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
     0 missed
   - (b) collars (`Collars/`'s allowlist row, `collar_id_invalid`, `collar_id_conflict`,
     `kit_collar_reserved`, the configs' collar fields rewritten after FPC, the files passed
-    through). TC-CMN-01..03. Waits on the maintainer's confirmation of the stock collar sets
+    through). TC-CMN-01..03, TC-CMN-08. Waits on the maintainer's confirmation of the stock
+    collar sets. Open first (review S6.7): a collar file in the other engine's format
+    (`collar_12.fmdl` compiled for PES 17): `Collars/` files are passed through unparsed, so
+    either convert them like player models or drop them with a finding; settle in the plan
+    before building
 
 - [x] 4.10 **Kit layout conversion**: `KIT_LAYOUT_REMAP` (the plan's four sock bands; the
   shorts are not re-laid) in `processing/kit_layout.rs`, `kit_layout_converted`, each band
@@ -1113,7 +1117,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   Open first (found at 4.11c): a model's type is read from its stem's last part, so a
   per-kit model named `boots_kit1` is typed as face content; typing should probably skip
   the kit token.
-  IDs: TC-MOD-20..25, TC-MOD-35, TC-MOD-37..40, TC-CHK-08, TC-TEX-07, TC-CMN-07 (split from TC-CMN-05 at 4.11c). Crates: tc (`processing/model.rs`, `processing/material.rs`,
+  IDs: TC-MOD-20..25, TC-MOD-35, TC-MOD-37..41, TC-CHK-08, TC-TEX-07, TC-CMN-07 (split from TC-CMN-05 at 4.11c). Crates: tc (`processing/model.rs`, `processing/material.rs`,
   `processing/texture.rs`, `paths.rs`) → verify: a `/co/` slot 05 folder with the smallest
   `pes_model` fixture pair as `face_high.model` + `face_high.mtl` and `skin.dds`, compiled for PES 17: the
   CPK holds `common/character0/model/character/face/real/71405.cpk` whose `face.xml` lists one
@@ -1442,8 +1446,9 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
     tests still use untagged names until this slice). IDs: TC-ID-05, 06, 07 → verify: the
     three scenarios; the parity test's CPK is unchanged by the renames.
   - [ ] 4.34b `Full` resets the team's `UniColor.bin` record (its committed kits, the count
-    theirs, every other entry unused) and `Midcup` keeps today's merge, a new kit raising
-    the count. IDs: TC-BIN-14, 15 → verify: the two scenarios on the bundled base.
+    theirs, a failed kit's kept entry among them, every other entry unused) and `Midcup`
+    keeps today's merge, a new kit raising the count. IDs: TC-BIN-14, 15 → verify: the two
+    scenarios on the bundled base.
   - The rest lands with the steps that own the data: the team's stale kit configs removed
     from `UniformParameter.bin` and no FPC patching for a Full export, with 4.21
     (TC-BIN-16); a Full export's compiled players without boots or without gloves losing the

@@ -620,8 +620,8 @@ describes behavior, not a serial scheduling requirement:
   its entry, and a team with no committed kit keeps its record's bytes. A `Full` export
   (`aesthetics_export/object_model.md` "Coverage tag") rebuilds what the compiler holds for
   its team from the export alone, since the record's count is what makes the game offer a
-  kit: the `UniColor.bin` record holds its committed kits and nothing else (the count theirs,
-  every other entry unused), a kit whose task failed keeping the entry it had, counted, as everywhere, the team's kit configs in `UniformParameter.bin` that the export
+  kit: the `UniColor.bin` record holds its committed kits plus the entry each kit whose task
+  failed had, as everywhere, and nothing else (the count theirs, every other entry unused), the team's kit configs in `UniformParameter.bin` that the export
   does not hold are removed, and no absent kit slot is FPC-patched, there being none. A
   `Full` export with no root `colors.txt` still keeps its `TeamColor.bin` record's bytes
   (`team_colors_missing`): there is nothing to rebuild it from. What a `Full` export cannot
