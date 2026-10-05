@@ -317,7 +317,7 @@ remaining default geometry. Together they make the default player model
 invisible, leaving only the FBM visible.
 
 The editor's side of this, ported from `fpc.cpp`: a per-player toggle and a
-team-wide on/off that apply `pes_savefile`'s version-aware FPC enable/disable
+team-wide on/off that apply `libs/fpc`'s version-aware FPC enable/disable
 presets — the nonexistent
 boots/gloves IDs, tucked shirt, long sleeves, short socks, custom skin (pre-18),
 and cleared taping/inners/undershorts/gloves — and restore the visible defaults

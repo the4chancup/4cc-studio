@@ -139,7 +139,7 @@ to moving, flattening, or removing files describe that draft, not destructive ed
    folder was named from the face folder rather than the savefile, and whenever the savefile name
    can't be expressed in a folder name (filesystem-invalid characters, **including name colour
    codes**, which the explicit string preserves byte-for-byte so a compile never strips them). Players whose savefile settings match
-   `pes_savefile`'s FPC enable preset get an `fpc_on` marker file instead of the raw strip settings,
+   `libs/fpc`'s FPC enable preset get an `fpc_on` marker file instead of the raw strip settings,
    and their boots/gloves keys stay at the default `""`, since the marker supplies the hide IDs.
 9. **Migrates referee exports**: the old referee layout (`refs.txt` + per-referee
    face/boots/gloves/common subfolders — the prototype of the player-folder format) compiles as it is

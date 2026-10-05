@@ -691,8 +691,10 @@ Rules:
 
 - **Per player, a pre-Fox file carries the `PlayerSettings` schema plus `name`, `shirt_name` and
   the compiler-owned `edit_flags`**, with `boots_id`/`gloves_id` over their full stored range: the
-  resolved ID is a committed custom output's assigned ID, or the authored stock ID (0 to 100) when
-  the folder requested no output for that category — the same union Team TOML's player aesthetics
+  resolved ID is the one the order in the [Aesthetics export plan](../aesthetics_export/settings_toml.md)'s
+  "Player settings in exports" reaches (a committed custom output's assigned ID, else the authored
+  stock ID 0 to 100, else the FPC marker's default), and a category whose requested output failed
+  carries no key, so the save keeps its current ID — the same union Team TOML's player aesthetics
   section holds; nothing is invented for the patch. Every appearance field is written, with
   `settings.toml`'s defaults for keys its file lacks, so a player's appearance is his export's
   whatever the save held. A Fox file carries `name` and `shirt_name` only. Absent players and

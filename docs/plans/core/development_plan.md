@@ -367,7 +367,7 @@ is a deferred verification completed after those phases land.
   asset-dependent mutations; final serialization applies only activated mutations while independent
   accepted `settings.toml` changes may still apply. The allocation scheme is fixed (40-ID per-team
   blocks — see the Team compiler plan), and Phase 4 model-task processing only consumes planned
-  assignments. `fpc_on`/`fpc_off` markers apply `pes_savefile`'s FPC presets here. The resolved
+  assignments. `fpc_on`/`fpc_off` markers apply `libs/fpc`'s FPC presets here. The resolved
   settings become, on Fox, each compiled player's appearance table rows (Phase 4's `bins/`) and an
   aesthetics patch of names only; on pre-Fox, the full aesthetics patch ("Player settings in
   exports" in the Aesthetics export plan).

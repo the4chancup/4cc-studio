@@ -1444,8 +1444,8 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
     the count. IDs: TC-BIN-14, 15 → verify: the two scenarios on the bundled base.
   - The rest lands with the steps that own the data: the team's stale kit configs removed
     from `UniformParameter.bin` and no FPC patching for a Full export, with 4.21
-    (TC-BIN-16); a Full export's compiled players without boots or without gloves losing that installed
-    rows, with 4.22 (TC-BIN-17); the savefile fields, Phase 5; the upgrader's tag
+    (TC-BIN-16); a Full export's compiled players without boots or without gloves losing the
+    matching installed row, with 4.22 (TC-BIN-17); the savefile fields, Phase 5; the upgrader's tag
     (`midcup` or `additions` in the old name), Phase 6; the two buttons on an untagged row,
     Phase 8.
 
