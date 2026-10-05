@@ -73,7 +73,7 @@ eligible, roster-entry scope and disposition; confirmed 2026-09-30).
 - **Coverage tag.** A team export's name says what the export covers, as its second word, right
   after the team name, in any letter case: `Full` (everything the team has: `co Full Spring
   26`) or `Midcup` (changes to add to what is installed: `co Midcup Day 5`). The compiler needs
-  to know, because the game offers as many kits as the team's record counts and reads a
+  to know, because the game offers as many kits as the team's record counts and (Fox) reads a
   player's boots from his row: only a full export may reset what the team had before, and
   nothing in an export's content tells the two apart (a full export of a team with two kits
   looks like a midcup export bringing two kits). It is in the name, not in a marker file, so

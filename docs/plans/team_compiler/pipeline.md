@@ -666,7 +666,8 @@ describes behavior, not a serial scheduling requirement:
   `PlayerAppearance.bin` row (the appearance bytes built from his resolved `settings.toml`, its
   defaults for absent keys, nothing from the installed row; Phase 5, Phase 4 passing the bin
   through unchanged) and his `BootsList.bin` and
-  `GloveList.bin` rows (the resolved IDs; a category whose output failed keeps its installed row),
+  `GloveList.bin` rows (the resolved IDs, Phase 5; Phase 4 writes a row only for a committed
+  output; a category whose output failed keeps its installed row),
   a compiled player of a `Full` export's team whose folder holds no boots or no gloves loses
   that installed row (a failed output still keeps it; a `Full` export rebuilds its team's rows from the export alone; until
   Phase 5 writes the default-ID rows he then has none, TC-BIN-17), and every other player

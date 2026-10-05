@@ -379,7 +379,7 @@ afterwards.
   player's current appearance (the record's appearance bytes, undecoded bits included, and his
   boots and gloves IDs) into rows of the three tables inside `4cc_08_bins.cpk`, the official
   DpFileList entry that holds the cup's team-related bins (`TeamColor.bin`, `UniColor.bin`,
-  `UniformParameter.bin`), which the DLC builder installs below the compiler's output, then
+  `UniformParameter.bin`), which the DLC builder installs at lower priority than the compiler's output, then
   sets every appearance id to -1. The seed is what a
   player no export describes looks like afterwards, so stripping changes nobody's look; compiled
   players' rows replace their seed rows. Appearance holds no tactics, so the seed can come from

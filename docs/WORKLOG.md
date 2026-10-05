@@ -1598,7 +1598,16 @@ pruned when their phase closes; they stay in git history.
   to allow loading models from Common") and `player_folders.md` (around line 222, "on PES16 via
   the patched exe") rely on a PES 16 exe patch. Does it exist already (then "will be" is stale
   tense), or is it a planned exe change, which the "Fox first" decision defers for pre-Fox
-  until a pre-Fox version is the cup's game again (review S5.4 item 4)?
+  until a pre-Fox version is the cup's game again (review S5.4 item 4)? The same question for
+  `kitN`: `model_format.md` "Kit-dependent assets" (the exes "are being modded to look for"
+  `kitN`) and `testing.md` "Kit-dependent path magic" describe exe modding on both engines; on
+  Fox the decision routes such a change through FoxDen (review S5.7 item 2).
+- open, needs the maintainer — generated `settings.toml` files opt in to names: the Save
+  editor's and the Export upgrader's generation always write `name` and `shirt_name`, so a
+  managed team that migrates through them holds an export whose aesthetics patch (applied
+  whole, decision 2026-10-05) writes the generated names over any rename its manager makes
+  later. Intended (the author deletes the keys), a note at generation, or generation leaves
+  names out for managed teams (review S5.7 item 8)?
 - resolved (2026-10-02) — the VPS mutation half's memory peak reached 7.07 GiB of the 8 GiB cap
   on `team_compiler` (3.y whole-crate run, 2 build jobs); no build was killed, and a killed one
   now fails the run. The maintainer keeps 8 GiB. (The 37 OOM kills of 2026-10-02 04:00 were the

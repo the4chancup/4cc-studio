@@ -714,7 +714,8 @@ Rules:
   a week later by someone else yields the same bytes the DLC builder's machine wrote.
 - `pes_version` must equal the save's; there is no cross-version application — the compile targeted
   a version and its IDs and presets are that version's. `allocation_scheme_version` must equal the
-  suite's; a patch from an older scheme is refused with the pointer to the from-scratch remake rule.
+  suite's; a patch from an older scheme is refused with the pointer to the from-scratch remake rule
+  (pre-Fox's consequence; the check is the same on both engines, a Fox patch carrying no IDs).
   A team ID absent from the save skips that team with an error and applies the rest; referees are
   team 999 like anywhere else.
 - Applying is the only aesthetics write path the save editor leaves open by default (see "Read-only
