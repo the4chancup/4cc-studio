@@ -1658,7 +1658,14 @@ pruned when their phase closes; they stay in git history.
   reservation against teams (`kit_collar_reserved`, the conflict) guards nothing. Also: a
   collar is drawn with the kit texture, so the marker texture becomes every referee kit's
   main texture (maintainer, 2026-10-05; referee models are full-body and ignore it), and the
-  bundled marker models need collar materials. Settle before 4.27.
+  bundled marker models need collar materials. Settle before 4.27. Test 5
+  (`.tmp/apptest/out_test5/GUIDE.txt`, 2026-10-05) gives every referee config collar 77 and
+  ships different models as `referee_collar_077` and `collar_077`, on PES 17 and PES 21. Found
+  building it: on the installed PES 21 the referee configs are entries of `4cc_08_bins.cpk`'s
+  `UniformParameter.bin` (`referee_ACL_1..4.bin`, `referee_DEF_1..5.bin`), and the refs CPK
+  holds none, against `blue_port.md`'s "never entries of the bins CPK's
+  `UniformParameter.bin`" (Red's Fox template ships them loose); PES 17's are loose files in
+  `4cc_35_referees.cpk`, as planned.
 - open, needs the maintainer — FoxDen per-kit models (maintainer, 2026-10-05): a tag-less
   `modelname` fills every kit number up to the team's kit count that has no
   `modelname_kit<N>`, once any variant exists. The local FoxDen (`02_kitswappers.lua`) swaps
