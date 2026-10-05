@@ -222,7 +222,7 @@ Requirements:
   ```
   TC-KIT-03  GIVEN a kit folder without colors.txt
              WHEN the export is compiled
-             THEN kit colors are extracted from kit.dds AND finding kit_colors_extracted is emitted
+             THEN kit colors are derived from kit.dds AND finding kit_colors_derived is emitted
   ```
 
   `TC` is the tool's short code (`TC` team compiler, `SE` save editor, `EU` export upgrader, `SC`

@@ -3983,3 +3983,12 @@ Why: those runs keep the previous CPK by design (TC-OUT-02 to 04), and a new pat
 it would break the pairing the entry above exists for (review S5.A2 item 3).
 Plan: `pes_savefile/operations.md` "Aesthetics patch", `team_compiler/pipeline.md`
 "Post-processing".
+
+## 2026-10-05 — team_compiler — a custom collar is set as the collar and the winter collar
+Decision (lead, reversible): a `Collars/collar_<ID>` model sets both the collar and the winter
+collar of every kit config of the team to its ID.
+Why: the plan said "the collar", and the point of the folder is the custom model on every
+player at once; a winter kit left on its stock collar would show the old model in winter
+matches, and `kit_collar_reserved` already checks both fields after the rewrite (review
+S6.1b item 10).
+Plan: `team_compiler/pipeline.md` "Collars"; TC-CMN-01.

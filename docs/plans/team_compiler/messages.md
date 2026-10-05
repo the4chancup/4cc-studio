@@ -189,7 +189,7 @@ savefile messages are new.
 | `skeleton_retargeted` | I | the model's bind pose was re-bound from its source version's skeleton to the target's (bones moved more than tolerance) | none |
 | `kit_variant_missing` | W | a folder's texture variant set (`pants_kit1`, `pants_kit3`) has no variant for a kit number the export defines; on the folder, once per set and number (context: `texture`, the set's reference as `pants_kitN`; `kit`, the number; `copied`, the lowest variant's stem) | lowest existing variant copied into the gap |
 | `kit_variant_model_fox` | W | per-kit model variants (`*_kit1`, `*_kit2`, …) on a Fox target, which has no model-path indirection; on the folder, once per set (context: `model`, the set's reference as `pants_kitN.fmdl`; `used`, the lowest variant's file name) | lowest variant used, others ignored |
-| `common_link_missing` | E | a `.common` link — model, material file or texture — names a file missing from the Common folder (context: the link file, whose name shows its kind, and the Common path looked for) | folder discarded |
+| `common_link_missing` | E | a `.common` link — model, material file or texture — names a file missing from the Common folder (context: the link file, whose name shows its kind, and the Common path looked for); a texture link is satisfied by an installed CPK holding the texture at the team's Common path (`pipeline.md` "Resolved decisions", "A texture a model names must exist") | folder discarded |
 | `settings_toml_name_shared` | W | `name` given in a folder mapped to multiple players | name applied to all of them |
 | `fpc_conflict` | E | both `fpc_on` and `fpc_off` present in a player folder | folder discarded |
 | `fpc_strip_conflict` | W | `settings.toml` strip keys conflict with the folder's FPC marker | FPC preset wins; keys ignored |
@@ -390,7 +390,7 @@ every miss as a warning.
 | `kit_all_unused` | W | `all/` present but no kit folder to inherit from it | — |
 | `kit_config_generated` | I | no `config.toml`; generated from the template, which carries the FPC values whatever the team's FPC status | auto-fixed |
 | `kit_config_invalid` | E | `config.toml` is not UTF-8 text or fails to parse or validate (ranges, cross-field constraints), found by the deep pass (context: the file, the error) | kit discarded (`DropFolder`, not pass-through-eligible) |
-| `kit_config_version_clamped` | W | a supplied config's field doesn't fit the target PES version's encoding (e.g. Name Y > 16 before PES 21), found by the deep pass (context: the field, the value, the version's maximum) | value clamped when the config is emitted |
+| `kit_config_version_clamped` | W | a supplied config's field doesn't fit the target PES version's encoding (e.g. a Name Y over 33 before PES 21), found by the deep pass (context: the field, the value, the version's maximum) | value clamped when the config is emitted |
 | `kit_config_fpc_adjusted` | I | team kit-FPC status is On but a config lacks the FPC values — supplied configs and unexported slots' base entries alike, GK kit included | auto-fixed (values written; FPC values are never auto-reverted) |
 | `kit_config_fpc_unpatched` | W | team kit-FPC status is On but an unexported kit slot has no base entry or config to patch | slot left alone; the team needs a kit export |
 | `kit_placeholder` | I | the kit's effective textures lack `kit.dds` (an empty folder included); the bundled checkerboard stands in | placeholder kit emitted: checkerboard texture, template config unless supplied, UniColor entry per the colors fallback |

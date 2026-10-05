@@ -374,7 +374,7 @@ files (identical bytes under different filenames are one skeleton) and by **bone
 comparison with tolerance** whenever a part's skeleton comes from the IR (glTF skins, `.model` bone
 tables). The pre-Fox native merge compares `.model` bone matrices within a measured `1e-4` per
 component (Libraries plan, "`pes_model::ops::merge`"). A skeleton mismatch between merge
-parts is a hard error (`skl_merge_conflict`) that drops the folder.
+parts is a hard error (`skl_merge_conflict`) that leaves that package out (`messages.md`).
 
 **Kits** live in a `Kits/` folder with one subfolder per kit (this per-kit granularity also drives
 the GUI's per-kit grid cells). A kit folder is named by its **slot**, optionally followed by a

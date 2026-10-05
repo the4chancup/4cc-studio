@@ -565,7 +565,7 @@ describes behavior, not a serial scheduling requirement:
   by `dds_convert::encode_png`. A DDS or FTEX source gives its top mip level.
 - **Collars** — the model files are passed through unmodified. These are custom collar models that
   replace one of PES's many stock collar models (the game's `nocloth` set); the compiler derives the
-  replaced model's ID and sets it as the collar in all of the team's kit configs, which puts the
+  replaced model's ID and sets it as the collar and the winter collar in all of the team's kit configs, which puts the
   custom model on every player at once — a quick alternative to per-player models. This automatic ID
   extraction and kit-config rewriting is an **intentional deviation from Red**, which passes collar
   files through without changing the configs. The replaced ID comes from the filename, which must be
@@ -964,7 +964,9 @@ describes behavior, not a serial scheduling requirement:
   lib). The button stays enabled — the user may close PES during the compile — except for the
   elevation case, where compiling first would waste the run (relaunching loses it), so the click
   prompts for elevation up front. The deployment stage re-checks regardless; the preflight makes
-  its failures rare, not impossible.
+  its failures rare, not impossible. `compile` runs the `download/` probe once before it reads
+  any export, so a run that cannot deploy says so first (`deploy_target_unwritable`) and still
+  compiles to `output/` (TC-DEP-04).
 - **Aesthetics patch** — written beside the output CPK as `aesthetics_patch.toml`: the resolved
   savefile writes for the compiled players (format and rules in "Aesthetics patch" in the
   [Savefile plan](../pes_savefile/operations.md)). On **Fox** it holds names and shirt names only
@@ -1354,8 +1356,8 @@ phase that owns them):
   published/installed outputs must remain untouched on failure or cancellation, as required by the
   runtime catalog. The mechanism is fixed in "Post-processing" (run-scoped `output/.staging/`,
   `.partial` copy + atomic rename in `download/`, promotion to `output/` on deployment failure);
-  what remains is the backup/rollback protocol across multiple CPKs and the savefile, and
-  cleanup of stale `.staging/` folders left by a crash.
+  what remains is the backup/rollback protocol across multiple CPKs and the savefile (a dead
+  run's `.staging/` folder is removed when the next compile starts, TC-DEP-07).
 - **Complete memory accounting.** Source sizes do not cover decoded textures, converted models,
   merged meshes, or packed entries; evaluate an RAII budget permit that grows and shrinks with
   actual allocations. Solid 7z archives charge their full decompressed buffer until all dependent

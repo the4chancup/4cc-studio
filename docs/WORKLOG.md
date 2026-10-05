@@ -1158,7 +1158,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   sampler and template on pre-Fox (lead first: the cubemap as a lead-authored fixture with a
   provenance README). Plan: `pipeline.md` step 3 "Format conversion", "Resolved decisions" (Model
   source selection); `development_plan.md` "Phase 4" `processing/` (glTF refusal);
-  `model_conversion/README.md`. IDs: TC-MOD-26..30. Crates: tc (`processing/model.rs`) → verify:
+  `model_conversion/README.md`. IDs: TC-MOD-26..30, TC-MOD-34. Crates: tc (`processing/model.rs`) → verify:
   the tracer's `fcl_hair.fmdl` compiled for PES 17 yields a `.model` + `.mtl` pair in the face
   CPK that `pes_model` reads back with the FMDL's mesh count; `boots.fmdl` beside `boots.model`
   on PES 21 compiles the FMDL with no conversion finding; `boots.glb` alone on PES 21 reports
@@ -1343,7 +1343,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   (the kit half lands with 4.9 if that step comes first); nothing written outside the refs CPK
   (no `dt00_x64.cpk` write, no setting). Plan: `blue_port.md` "Referee export processing";
   `messages.md` "Referees", `collar_id_conflict`; `pipeline.md` "Collars". IDs: TC-REF-04,
-  TC-REF-06..07. Crates: tc (`processing/referee.rs`, `processing/team_assets.rs`,
+  TC-REF-06..08. Crates: tc (`processing/referee.rs`, `processing/team_assets.rs`,
   `processing/kit.rs`), resources → verify: a refs export with `ref_marker.dds` compiled for
   PES 21 beside a sandbox `dt00_x64.cpk`: the refs CPK holds `nocloth/#Win/collar_077.fmdl`
   whose texture path resolves to the marker's FTEX under `common/999/sourceimages/`, each
@@ -1371,7 +1371,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   satisfied by an installed CPK the same way; paths naming anything else kept and not looked
   up. The pre-Fox half (`mtl_texture_not_found`) lands with 4.15 under the same rule. Plan:
   `pipeline.md` "Resolved decisions" ("A texture a model names must exist"); `messages.md`
-  (`fmdl_texture_not_found`, `mtl_texture_not_found`). IDs: TC-TEX-05, TC-CMN-06 (the
+  (`fmdl_texture_not_found`, `mtl_texture_not_found`). IDs: TC-TEX-05, TC-TEX-11, TC-CMN-06 (the
   `dummy_kit*` stems the checks skip; moved here from 4.11). Crates: tc (`check.rs`,
   `processing/model.rs`, `bins/`) → verify: TC-TEX-05's three runs (the CPK holding the
   texture, lacking it, no PES folder): no finding, Error with the folder out of the CPK, Warning
@@ -1677,6 +1677,10 @@ pruned when their phase closes; they stay in git history.
   record copied another player's face may change face, against "stripping changes nobody's
   look". Untested (Test 1 did not cover it). Measure before strip-and-seed is built; then
   carry the relationship or report the affected players (review S5.A3 item 3).
+- open — an unwritable `livecpk\`: sideload mode writes it "with the same access path as
+  deployment to `download/`, elevation included" (`pipeline.md` "Output modes"), but no
+  plan says what a sideload run does when it cannot (a tree has no `output/` to degrade
+  to). Settle with the sideload step (review S6.1b item 21).
 - resolved (2026-10-02) — the VPS mutation half's memory peak reached 7.07 GiB of the 8 GiB cap
   on `team_compiler` (3.y whole-crate run, 2 build jobs); no build was killed, and a killed one
   now fails the run. The maintainer keeps 8 GiB. (The 37 OOM kills of 2026-10-02 04:00 were the
