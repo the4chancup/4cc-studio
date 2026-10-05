@@ -157,7 +157,7 @@ loaded `EditFile` whose player section is empty (or shorter than the teams × pl
 implies), write one placeholder `PlayerEntry` per (team, slot) in id order and set the count.
 The placeholder is the version's **base player** (`PlayerEntry` decoded from the scripts'
 `Player_Edit_Base_NN.bin` + `PlayerAppearance_Base_16.bin` assembly, committed as a fixture),
-with `id` and `base_copy_id` patched. `EditFile` gains the one thing its API refuses today —
+with `id`, `base_copy_id` and, from Phase 5, the appearance-block id patched. `EditFile` gains the one thing its API refuses today —
 adding player records — behind this operation only; the record order and count rules of
 `to_bytes` otherwise stand.
 

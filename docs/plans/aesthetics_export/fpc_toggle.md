@@ -9,8 +9,8 @@ player model invisible via a specific mix of appearance settings (blank-model bo
 plus strip settings; Fox: fields of the compiled
 `PlayerAppearance.bin` row, the IDs in the `BootsList`/`GloveList` rows; pre-Fox: savefile
 fields), so that an FBM (Full Body Model) replaces
-the player entirely. Setting it through individual `settings.toml` keys would be error-prone and
-version-dependent; instead it gets a folder-level toggle, consistent with the principle that the
+the player entirely. Setting it through individual `settings.toml` keys would be error-prone;
+instead it gets a folder-level toggle, consistent with the principle that the
 folder view tells the whole story about how the player's models render:
 
 - **`fpc_on`** — an empty marker file in a player folder. When present, the compile applies the
