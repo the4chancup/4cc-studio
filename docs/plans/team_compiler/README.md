@@ -1040,16 +1040,16 @@ TC-KIT-25  GIVEN Kits/all/kit.dds, and p2/ holding a config and neither kit.dds 
            WHEN the export is compiled for PES 21
            THEN p2's UniColor entry holds the pair the dominant-color extraction gives for
                 all/kit.dds, with kit_colors_derived reported for p2
-TC-KIT-27  GIVEN p1/ holding kit.dds and a config.toml whose shirt is 144, out of range, and p2/
-           holding kit.dds
-           WHEN the export is checked, then compiled
-           THEN kit_config_invalid is reported for p1 both times naming config.toml, p1 is left
-                out and u0714p2 is compiled
 TC-KIT-26  GIVEN p1/ holding kit.dds and a kit_back.dds column atlas (128x2048, ten flat-colored
            digit cells), and p2/ holding kit.dds and a kit_back.dds row atlas (2048x256)
            WHEN the export is compiled for PES 21, then for PES 17
            THEN on 21 p1's back atlas is a row of the ten colors in digit order and p2's is as
                 given; on 17 p1's is as given and p2's is a column in digit order
+TC-KIT-27  GIVEN p1/ holding kit.dds and a config.toml holding shirt = 144 where a [shirt] table
+           belongs, and p2/ holding kit.dds
+           WHEN the export is checked, then compiled
+           THEN kit_config_invalid is reported for p1 both times naming config.toml, p1 is left
+                out and u0714p2 is compiled
 ```
 
 **Root files, Common and collars**
