@@ -659,7 +659,7 @@ in the [Aesthetics export plan](../aesthetics_export/settings_toml.md)), so the 
 sets `name` and `shirt_name` for its players (its tactical export carries placeholder names),
 while a managed team's export leaves them out, so its players keep the names their manager set.
 Like the pre-Fox one it is written on every compile, so the patch beside a CPK is always that
-CPK's (one with no names writes nothing). On **pre-Fox**
+CPK's (one with no names writes nothing when applied). On **pre-Fox**
 (PES 15–17) it
 holds everything below, on every compile, as the only route for aesthetics.
 
@@ -679,7 +679,7 @@ name = "/a/"                 # for the reader; the id is what is applied
 name = "Snuffy"              # resolved: `name = true` became the string
 shirt_name = "SNUFFY"
 # pre-Fox only from here on:
-boots_id = 3601              # resolved: the assigned custom ID, or the authored stock ID
+boots_id = 3601              # resolved: the assigned custom ID, the authored stock ID or the marker's default
 gloves_id = 0
 edit_flags = 12
 
@@ -706,7 +706,7 @@ Rules:
   player keeps taking his appearance from the database tables (see "Stripped save" in the
   [Save editor plan](../save_editor.md)).
 - **Everything is resolved.** `name = true` is the derived string; `fpc_on`/`fpc_off` are the
-  preset's concrete field values; the IDs are the assigned ones, already filtered by the compiler's
+  preset's concrete field values; the IDs are the resolved ones, already filtered by the compiler's
   "only for content that was actually packed" rule. The patch answers "what will the save contain",
   never "what did the export say" — the export is not needed to apply it.
 - **Applying is `pes_savefile`'s operation** (`apply_patch`): for each player, apply what the

@@ -1241,7 +1241,7 @@ Resolved decisions:
   Only shared pre-Fox boots/gloves folders (ID-named outputs) get compiler-assigned IDs; a player
   combining local parts with a shared link gets the shared ID written while the local parts ride in the face XML. **Exception — `ingame_face`**: with no face
   folder emitted, gloves and boots parts are relocated to player-specific folders with IDs from the
-  per-team block scheme, and those IDs are written to the savefile on pre-Fox too; a shared link
+  per-team block scheme, and those IDs are written to the savefile on pre-Fox; a shared link
   combined with local parts of the same category is merged into that player-exclusive folder (the
   one pre-Fox `link_combined` case), so the player never has two candidate IDs for one savefile slot
   (see "ingame_face marker" in the [Aesthetics export plan](../aesthetics_export/README.md)).
