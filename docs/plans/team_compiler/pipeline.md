@@ -552,8 +552,11 @@ describes behavior, not a serial scheduling requirement:
   logo's task, which is the export's one logo task (`processing/team_assets.rs`) and is
   scoped on the main file: a failure drops the logo alone. The PNGs are 8-bit RGBA, written
   by `dds_convert::encode_png`. A DDS or FTEX source gives its top mip level.
-- **Collars** — the model files are passed through unmodified. These are custom collar models that
-  replace one of PES's many stock collar models (the game's `nocloth` set); the compiler derives the
+- **Collars** — a collar model is converted to the target engine's format like any other model
+  when it is in the other engine's (`collar_12.fmdl` compiled for PES 17 becomes `collar_012.model`
+  plus its `.mtl`, and the reverse), its textures converted as a player model's are. These are
+  custom collar models that replace one of PES's many stock collar models (the game's `nocloth`
+  set); the compiler derives the
   replaced model's ID and sets it as the collar and the winter collar in all of the team's kit configs, which puts the
   custom model on every player at once — a quick alternative to per-player models. This automatic ID
   extraction and kit-config rewriting is an **intentional deviation from Red**, which passes collar
@@ -1094,8 +1097,8 @@ without it Phase 3 promotes the same way and says nothing more (deployment is Ph
 | Collars | `common/character0/model/character/uniform/nocloth/` | `Asset/model/character/uniform/nocloth/#Win/` |
 | Common | `common/character1/model/character/uniform/common/{team_id}/` | `Asset/model/character/common/{team_id}/` |
 | Referee faces (NN = slot 01-35) | `common/character0/model/character/face/real/referee0NN.cpk` | `Asset/model/character/face/real/referee0NN/#Win/` (`face.fpk` and `face.fpkd`; textures under `referee0NN/sourceimages/#windx11/`) |
-| Referee boots | `common/character0/model/character/boots/k99NN/` | `Asset/model/character/boots/k99NN/#Win/` (`boots.fpk` and `boots.fpkd`) |
-| Referee gloves | `common/character0/model/character/glove/g99NN/` | `Asset/model/character/glove/g99NN/#Win/` (`glove.fpk` and `glove.fpkd`) |
+| Referee boots | `common/character0/model/character/boots/k99NN/` (only `ingame_face`'s relocated parts: a referee's local boots ride in his `face.xml`, `blue_port.md` "Referee export processing") | `Asset/model/character/boots/k99NN/#Win/` (`boots.fpk` and `boots.fpkd`) |
+| Referee gloves | `common/character0/model/character/glove/g99NN/` (as the boots row) | `Asset/model/character/glove/g99NN/#Win/` (`glove.fpk` and `glove.fpkd`) |
 | Referee kit configs (loose, `blue_port.md` "Referee export processing") | `common/character0/model/character/uniform/team/referee/` | same |
 | Referee common (per referee folder) | `common/character1/model/character/uniform/common/999/{folder}/` (MTL/XML paths `model/character/uniform/common/999/{folder}/`) | `Asset/model/character/common/999/{folder}/sourceimages/#windx11/` (FMDL paths `/Assets/pes16/model/character/common/999/{folder}/sourceimages/`) |
 | Portraits | `common/render/symbol/player/` | same |

@@ -1206,6 +1206,10 @@ TC-CMN-08  GIVEN Collars/collar_12.model with its .mtl, and another export holdi
            THEN the first CPK holds collar_012.model and its .mtl under
                 common/character0/model/character/uniform/nocloth/; the second reports
                 collar_id_invalid (117 is not a PES 17 collar) and its file is dropped
+TC-CMN-09  GIVEN Collars/collar_12.fmdl
+           WHEN the export is compiled for PES 17
+           THEN the CPK holds collar_012.model and its .mtl under
+                common/character0/model/character/uniform/nocloth/ and no .fmdl
 ```
 
 **Bins**
@@ -1380,8 +1384,9 @@ TC-REF-08  GIVEN a refs export with no ref_marker.dds
 TC-REF-09  GIVEN TC-REF-01's refs export
            WHEN the root is compiled for PES 17
            THEN the referee CPK holds common/character0/model/character/face/real/referee001.cpk,
-                referee020.cpk and referee035.cpk, and one skin.dds under
-                common/character1/model/character/uniform/common/999/Ref A/
+                referee020.cpk and referee035.cpk, each face.xml holding Ref A's boots model as a
+                boots entry, no common/character0/model/character/boots/ path, and one skin.dds
+                under common/character1/model/character/uniform/common/999/Ref A/
 ```
 
 **Output modes, deployment, multi-CPK**
@@ -1437,6 +1442,10 @@ TC-OUT-17  GIVEN overrides/common/etc/TeamColor.bin and the tracer export
            WHEN compile --mode test runs
            THEN test_output/_bins/common/etc/TeamColor.bin is the compiled one, not the
                 override's bytes, and overrides_active is not reported
+TC-OUT-18  GIVEN a PES folder with no DpFileList.bin and the tracer export
+           WHEN compile --mode test runs, then compile --mode sideload
+           THEN each reports dpfilelist_missing as a Warning and bin_source naming bundled for
+                each bin, and exits with code 0
 TC-DEP-01  GIVEN a PES folder with PES2021.exe, download/DpFileList.bin listing 4cc_99_test and an
            old download/4cc_99_test.cpk
            WHEN the tracer is compiled for PES 21

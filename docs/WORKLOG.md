@@ -834,8 +834,8 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
     ccbd7c4`: 77, 59 caught, 18 unviable, 0 missed
   The tracer's Studio fixture holds both `colors.txt` files since 2026-10-04 (lead)
 
-- [ ] 4.9 **Kit configs, FPC reconciliation and collars** (the brief settles what a collar in
-  the other engine's format does: converted, or refused; `Collars/` admits any model format):
+- [ ] 4.9 **Kit configs, FPC reconciliation and collars** (a collar in the other engine's
+  format is converted, decision 2026-10-05; `Collars/` admits any model format):
   team kit-FPC status (`fpc_on` in any
   player folder → On), `fpc::kit_values` returning the four FPC values on every version,
   PES 15 and 18 included, so without its `Option` (both are `None` today, from a wiki page
@@ -855,8 +855,8 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   processing", TC-REF-07),
   `collar_id_conflict` in canonical export order, the claimed-ID list starting with the
   reserved 105 (FPC) and 77 (the referees' marker), every kit config's collar fields rewritten
-  after FPC, collar files passed through to `uniform/nocloth/#Win/` under the game's three-digit
-  name. Plan: `fpc_toggle.md` "Team
+  after FPC, collar models converted to the target's format at its `nocloth` path under the
+  game's three-digit name. Plan: `fpc_toggle.md` "Team
   kit-FPC status and kit configs"; `pipeline.md` "4. Per-export non-model steps" (Kits, Collars),
   "Resolved decisions" (Collar contract); `object_model.md` "File-type allowlist". IDs:
   TC-KIT-15..17, TC-CMN-01..03. Crates: ae (`conventions/file_types.rs`, `validate/folders.rs`),
@@ -890,12 +890,11 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
     `g1`). Gates green (121 of 209); `mutants-diff f31075e`: 34, 24 caught, 10 unviable,
     0 missed
   - (b) collars (`Collars/`'s allowlist row, `collar_id_invalid`, `collar_id_conflict`,
-    `kit_collar_reserved`, the configs' collar fields rewritten after FPC, the files passed
-    through). TC-CMN-01..03, TC-CMN-08. Waits on the maintainer's confirmation of the stock
-    collar sets. Open first (review S6.7): a collar file in the other engine's format
-    (`collar_12.fmdl` compiled for PES 17): `Collars/` files are passed through unparsed, so
-    either convert them like player models or drop them with a finding; settle in the plan
-    before building
+    `kit_collar_reserved`, the configs' collar fields rewritten after FPC, the models converted
+    to the target's format, decision 2026-10-05). TC-CMN-01..03, TC-CMN-08, TC-CMN-09. Waits on
+    the maintainer's confirmation of the stock collar sets. Open first: where a collar's own
+    textures land and what its texture paths name (`pipeline.md` "Collars" gives only the
+    model's `nocloth` path)
 
 - [x] 4.10 **Kit layout conversion**: `KIT_LAYOUT_REMAP` (the plan's four sock bands; the
   shorts are not re-laid) in `processing/kit_layout.rs`, `kit_layout_converted`, each band
@@ -1195,15 +1194,8 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   mapping `Ref A` to 01, 20 and 35 on PES 21 writes `4cc_18_referees.cpk` holding three face
   packages, one `common/999/Ref A/sourceimages/` texture set, and `k9901`, `k9920`, `k9935`
   boots folders when the folder has boots; the team CPK of the same run holds no `999` path.
-  Open first (review S6.A3 item 1): a referee's local boots on pre-Fox. The categorization
-  rule puts a pre-Fox player's local boots in his `face.xml` (`player_folders.md`, "A link
-  plus local models combines"; `ingame_face` the one exception), Red writes a referee's
-  `boots/` subfolder to a `k99NN` folder on both engines (`referee_tools.py`
-  `ref_folder_process`), and the paths table has a pre-Fox `k99NN` row. Decide whether a
-  pre-Fox referee is an exception (and why: no savefile slot, the game loading `k99NN` by
-  the referee's ID), or the row serves only a shared folder; then give TC-REF-09 its boots
-  clause (removed until then). An in-game check of a referee `face.xml` boots entry may
-  settle it.
+  A pre-Fox referee's local boots and gloves are `face.xml` entries, as a player's
+  (decision 2026-10-05, `blue_port.md` "Referee export processing"; TC-REF-09).
   Open first (found at 4.4a): the plan gives a shared `Boots/`/`Gloves/` folder in a refs export
   no ID (refs have no block; the structure pass's pool check skips refs); rule it in the plan
 
@@ -1610,10 +1602,11 @@ pruned when their phase closes; they stay in git history.
   "Bins accumulation", TC-BIN-17, decision "a team export's name carries `Full` or `Midcup`").
   Phase 4 (4.22) drops the installed row of a compiled player the export gives no boots or
   gloves, so he has no row until Phase 5 writes the default-ID rows; what a player with no
-  `BootsList`/`GloveList` row wears on a stripped save is untested in game. Also unsettled: a
-  team player the `Full` export does not compile at all (no folder), whose installed row may be
-  a seed row with a stock ID or name the team's own block: kept, dropped, or written 0? Settle
-  before 4.22 (review S5.1 item 9, S5.2 items 1 and 7).
+  `BootsList`/`GloveList` row wears on a stripped save is untested in game: Test 2
+  (`.tmp/apptest/out_test2/GUIDE.txt`), prepared 2026-10-05, waits on the maintainer's run.
+  Settle before 4.22 (review S5.1 item 9, S5.2 items 1 and 7). A team player the `Full`
+  export does not compile at all keeps his rows as they are (decision 2026-10-05; the plan
+  already says so).
 - open, needs the maintainer — `messages.md` (around line 333, "the PES16 exe will be patched
   to allow loading models from Common") and `player_folders.md` (around line 222, "on PES16 via
   the patched exe") rely on a PES 16 exe patch. Does it exist already (then "will be" is stale
@@ -1701,12 +1694,9 @@ pruned when their phase closes; they stay in git history.
   deployment to `download/`, elevation included" (`pipeline.md` "Output modes"), but no
   plan says what a sideload run does when it cannot (a tree has no `output/` to degrade
   to). Settle with the sideload step (review S6.1b item 21).
-- open — the DpFileList outside a compile that deploys: sideload and test mode still build
-  the bins on the installed ones (the DpFileList walk), but `dpfilelist_missing` is an Error
-  whose consequence is deployment's (skipped, CPKs promoted), which neither mode has. Settle
-  whether a sideload or test run with no `DpFileList.bin` reports it (and exits 1) or builds
-  on the bundled bases with `bin_source` alone, with the sideload step (review S6.10b item 2;
-  TC-OUT-09 declares a DpFileList meanwhile).
+- resolved (2026-10-05, maintainer) — the DpFileList outside a compile that deploys: sideload
+  and test mode report `dpfilelist_missing` as a Warning and build on the bundled bases
+  (`messages.md`, TC-OUT-18).
 - resolved (2026-10-02) — the VPS mutation half's memory peak reached 7.07 GiB of the 8 GiB cap
   on `team_compiler` (3.y whole-crate run, 2 build jobs); no build was killed, and a killed one
   now fails the run. The maintainer keeps 8 GiB. (The 37 OOM kills of 2026-10-02 04:00 were the
@@ -2589,3 +2579,9 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   Five plan questions went to "open first" on their steps (4.9a(b) collar format, 4.14 MTL
   cascade, 4.19 pre-Fox referee boots) or "Issues" (DpFileList outside a deploying compile).
   Acceptance 246 scenarios (2 withdrawn), 148 proven. Rulings `.tmp/review_rulings_S6.md`.
+- **2026-10-05** — the maintainer answered four questions (decision entry): a collar in the
+  other engine's format is converted (TC-CMN-09); sideload and test mode report
+  `dpfilelist_missing` as a Warning (TC-OUT-18); a `Full` export keeps the rows of team
+  players it does not compile; a referee folder is a player folder, so pre-Fox local boots
+  ride in its `face.xml` (TC-REF-09). Test 2, a stripped player with no `BootsList`/
+  `GloveList` row, is ready for the maintainer (`.tmp/apptest/out_test2/GUIDE.txt`).

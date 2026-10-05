@@ -35,7 +35,12 @@ numbering" in the export format section): up to 35 slot entries, each naming a p
 the same folder free to appear under any number of slots. The general multi-mapped player rule
 performs shared preparation once per distinct source folder and slot instantiation once per listed
 referee slot, rendering that slot's `refereeXXX`/`k99XX`/`g99XX` IDs and paths. Referee player
-folders therefore carry no numbers in their names — the mapping lives in `players.txt`.
+folders therefore carry no numbers in their names — the mapping lives in `players.txt`. In every
+other respect a referee folder is a player folder, its `face.xml` included: on pre-Fox its local
+boots and gloves are typed entries of that `face.xml` ("A link plus local models combines" in the
+[Aesthetics export plan](../aesthetics_export/player_folders.md)), so no `k99XX`/`g99XX` folder is
+written for them, and the game, modded to load `k99XX`/`g99XX` for slot XX, shows none there;
+Fox writes them as the slot's `k99XX`/`g99XX` folders.
 
 **Preparing the slot mapping is a separate tool's job.** The slots are not drawn uniformly — each
 PES version has measured slot appearance rates (flat per-slot chances on 17–21, a pattern table on

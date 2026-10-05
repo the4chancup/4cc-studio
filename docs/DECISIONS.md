@@ -4013,3 +4013,24 @@ Why: the plan's example (`4cc_60_midcup` to `4cc_74_midcup` become 61 to 75) shi
 that already carry official names, while its next sentence kept such a file in place, which
 would leave `4cc_60` with no name and drop a DLC's first matchday (review S6.3b item 3).
 Plan: `team_compiler/pipeline.md` "DpFileList upgrade"; TC-DEP-13.
+
+## 2026-10-05 — team_compiler — collars, the DpFileList outside deployment, rows, referee folders
+Decision (maintainer), four answers:
+- A collar is a model like any other: one in the other engine's format is converted to the
+  target's (`collar_12.fmdl` compiled for PES 17 becomes `collar_012.model` plus its `.mtl`),
+  its textures converted as a player model's are.
+- In sideload and test mode a missing `DpFileList.bin` is a Warning, `dpfilelist_missing`,
+  and the bins are built on the bundled bases; it stays an Error in a compile that deploys.
+- A team player a `Full` export does not compile at all keeps his `BootsList`/`GloveList`
+  rows as they are.
+- A referee folder is a player folder except for its names (`refereeXXX` for `xxxXX`), its
+  `face.xml` included: on pre-Fox its local boots and gloves are typed `face.xml` entries and
+  no `k99XX`/`g99XX` folder is written; the game is modded to load `k99XX`/`g99XX` for slot
+  XX and shows nothing there when the folder is absent.
+Why: collars are handled the same way on both engines; a run that deploys nothing still
+tells the user that no bin from the download folder was used; with `settings.toml` every
+player needs a face folder, so a team player the export leaves out is an edge case; the
+referee rule needs no exception (review S6.7, S6.10b item 2, S5.2 item 7, S6.A3 item 1).
+Plan: `team_compiler/pipeline.md` "Collars", "Game paths reference" (referee rows);
+`team_compiler/messages.md` `dpfilelist_missing`; `team_compiler/blue_port.md` "Referee export
+processing"; TC-CMN-09, TC-OUT-18, TC-REF-09.
