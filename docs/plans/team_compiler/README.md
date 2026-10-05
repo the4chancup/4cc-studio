@@ -656,7 +656,7 @@ TC-PRT-02  GIVEN slot 05's folder holding portrait.dds and Portraits/player_05.d
            contents, and another export where the two files are byte-identical
            WHEN each is compiled
            THEN the first reports portrait_conflict and is skipped; the second compiles with one
-                71405.dds and no finding
+                71405.dds and no portrait finding
 TC-PRT-03  GIVEN Portraits/player_05.dds whose side is 300 pixels
            WHEN the export is checked
            THEN texture_not_pow2 is reported and only that file is dropped
@@ -791,8 +791,8 @@ TC-MOD-28  GIVEN slot 05 holding boots.glb and skin.png, and another folder hold
            beside boots.fmdl
            WHEN each export is compiled for PES 21
            THEN the first reports model_gltf_unsupported naming boots.glb and the folder is
-                dropped; the second compiles the FMDL with no finding; check reports nothing for
-                either
+                dropped; the second compiles the FMDL with no model_gltf_unsupported; check
+                reports it for neither
 TC-MOD-29  GIVEN slot 05 holding a .model whose conversion to FMDL fails (an unsupported shader
            the IR cannot carry)
            WHEN the export is compiled for PES 21
@@ -893,8 +893,8 @@ TC-CHK-03  GIVEN slot 05 holding a settings.toml with a key of the wrong type
                 is 1
 TC-CHK-04  GIVEN p1/kit.dds of 4096x4096 and p2/kit.dds uncompressed (RGBA8)
            WHEN the export is checked, then compiled for PES 21
-           THEN kit_texture_too_big is reported for p1 and the kit dropped; p2 gets no finding
-                and its u0714p2.ftex is BC7
+           THEN kit_texture_too_big is reported for p1 and the kit dropped; p2 gets no texture
+                finding and its u0714p2.ftex is BC7
 TC-CHK-05  GIVEN a root logo.png whose bytes are not a decodable image
            WHEN the export is checked
            THEN logo_file_invalid is reported and no logo is emitted when compiled
@@ -911,9 +911,10 @@ TC-CHK-07  GIVEN slot 05's boots.fmdl holding bytes that are not a model
 **Pre-Fox XML and MTL checks**
 
 ```
-TC-XML-01  GIVEN slot 05 holding face_high.model, hat_parts.model and its own face.xml listing
-           both, one with type "cape", a <model> attribute "glow" and level="1", and a third
-           entry naming Common/legs.model, which Common/ holds
+TC-XML-01  GIVEN slot 05 holding face_high.model, hat_parts.model and its own face.xml with three
+           entries: face_high.model typed face_neck; hat_parts.model typed "cape", with a
+           <model> attribute "glow" and level="1"; and
+           model/character/uniform/common/XXX/legs.model typed parts, which Common/ holds
            WHEN the export is compiled for PES 17
            THEN the emitted xml keeps cape, glow and level="1" verbatim, with xml_type_unknown,
                 xml_attribute_unknown (Warnings) and xml_level_lod (Info), and the Common path has
@@ -1047,6 +1048,10 @@ TC-ROOT-11 GIVEN /co/ with notes.txt, and output/teamnotes.txt a folder
            WHEN the root is compiled
            THEN teamnotes_write_failed is reported, the run's CPK is in place and the folder is
                 left as it was
+TC-ROOT-12 GIVEN output/teamnotes.txt from an earlier run, and a root whose only export
+           players_txt_slot_duplicate skips, with a notes.txt
+           WHEN the root is compiled
+           THEN no CPK is written and teamnotes.txt is left byte for byte as it was
 TC-CMN-01  GIVEN Collars/collar_12.fmdl and p1/config.toml
            WHEN the export is compiled for PES 21
            THEN Asset/model/character/uniform/nocloth/#Win/collar_012.fmdl is in the CPK and every
@@ -1282,7 +1287,7 @@ TC-OUT-16  GIVEN teams_cpk_name teams2 and a DPFL reserving 4cc_51_teams2 and 4c
 TC-OUT-17  GIVEN overrides/common/etc/TeamColor.bin and the tracer export
            WHEN compile --mode test runs
            THEN test_output/_bins/common/etc/TeamColor.bin is the compiled one, not the
-                override's bytes
+                override's bytes, and overrides_active is not reported
 TC-DEP-01  GIVEN a PES folder with PES2021.exe, download/DpFileList.bin listing 4cc_99_test and an
            old download/4cc_99_test.cpk
            WHEN the tracer is compiled for PES 21

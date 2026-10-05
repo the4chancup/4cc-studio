@@ -356,12 +356,14 @@ checks it carefully, and the severity line is drawn by evidence, not by taste:
   almost always a mistake and occasionally the point.
 - **Info** — the compiler's own rewrites, which it performs on a user xml exactly as it would on a
   generated one and reports so the user knows the emitted file differs from the source: the
-  `face_neck` dummy appended when no entry has that type; `uniform` → `uniform_sub` on PES15; the
-  team ID substituted into Common paths and `kitN` tokens passed through; and the `<dif>` block
-  inserted from `face_diff.xml` when the xml has none. On a Fox target the xml is ignored with an
-  info line and the folder's models compile by the normal route (Fox has no `face.xml`). Also info,
-  though not a rewrite: a `level` other than 0 — it is the model's LoD level, and higher levels are
-  merely uncommon, not unverified (a value that has already made the move from warning to known).
+  `face_neck` dummy appended when no entry has that type; `uniform` → `uniform_sub` on PES15.
+  What a user writes for the compiler to fill in is filled in without a finding, as in a
+  generated xml: the team ID in place of a Common path's 3-character subfolder, and the `<dif>`
+  block from `face_diff.xml` when the xml has none; `kitN` tokens pass through. On a Fox target
+  the xml is ignored with an info line and the folder's models compile by the normal route (Fox
+  has no `face.xml`). Also info, though not a rewrite: a `level` other than 0 — it is the model's
+  LoD level, and higher levels are merely uncommon, not unverified (a value that has already made
+  the move from warning to known).
 
 Rules that follow from "the xml is the authority in its folder": filename typing is off — the
 suffix table is for generating an xml, and this folder has one; `.common` model links are not needed
@@ -394,11 +396,11 @@ every miss as a warning.
 | `kit_config_fpc_adjusted` | I | team kit-FPC status is On but a config lacks the FPC values — supplied configs and unexported slots' base entries alike, GK kit included | auto-fixed (values written; FPC values are never auto-reverted) |
 | `kit_config_fpc_unpatched` | W | team kit-FPC status is On but an unexported kit slot has no base entry or config to patch | slot left alone; the team needs a kit export |
 | `kit_placeholder` | I | the kit's effective textures lack `kit.dds` (an empty folder included); the bundled checkerboard stands in | placeholder kit emitted: checkerboard texture, template config unless supplied, UniColor entry per the colors fallback |
-| `kit_colors_derived` | I | kit `colors.txt` missing, or present but yielding fewer than two valid colors; menu colors extracted from the kit's own main texture | auto-fixed |
-| `kit_colors_missing` | W | no usable `colors.txt` and no own main texture to derive from (placeholder kits without a `colors.txt` always) | the magenta/black "no colors chosen" pair is written, so the gap shows in the game menus |
+| `kit_colors_derived` | I | kit `colors.txt` missing, or present but yielding fewer than two valid colors; menu colors extracted from the kit's main texture, the `kit` texture of its effective set (an inherited `all/kit.dds` counts) | auto-fixed |
+| `kit_colors_missing` | W | no usable `colors.txt` and no main texture in the kit's effective set to derive from (placeholder kits without a `colors.txt` always) | the magenta/black "no colors chosen" pair is written, so the gap shows in the game menus |
 | `kit_icon_invalid` | W | a kit's `icon_<N>` marker is numbered above 23, or the kit holds two or more (each is reported) | default icon (3) used |
 | `kit_texture_name_invalid` | E | texture doesn't carry the `kit` prefix (`kit.dds`, `kit_mask.dds`, …) | file discarded |
-| `kit_texture_not_used` | I | the kit's effective set has a `kit_mask` on a Fox target or a `kit_srm` on a pre-Fox target — the other engine's map | file not emitted (never converted into the other map) |
+| `kit_texture_not_used` | I | the kit's effective set has a `kit_mask` on a Fox target or a `kit_srm` on a pre-Fox target — the other engine's map (context: the file) | file not emitted (never converted into the other map) |
 | `kit_layout_conflict` | E | both `pre-fox` and `fox` markers in one kit folder | kit discarded |
 | `kit_layout_converted` | I | the kit's layout marker names the other engine than the target; names the direction (`p1: pre-fox → fox`) | `kit` and its mask/srm re-laid out per `KIT_LAYOUT_REMAP`; other textures untouched |
 
@@ -450,7 +452,7 @@ injection into the system `dt00_x64.cpk`, and with it `ref_marker_needs_consent`
 | `old_cpk_locked` | E | old CPK cannot be replaced (PES running) | deployment skipped; staged CPKs promoted to `output/`; savefile step skipped; GUI offers Retry (deployment only) and Open output folder |
 | `deploy_target_unwritable` | E | destination folder denies writes (typically elevation needed under `Program Files`) | deployment skipped; staged CPKs promoted to `output/`; savefile step skipped; GUI offers Relaunch as administrator. Normally pre-empted by the live writability preflight (see `pipeline.md` "Post-processing") |
 | `deploy_skipped_by_flag` | I | `--no-deploy` given (CLI) | staged CPKs promoted to `output/`; savefile step skipped; run is clean |
-| `overrides_active` | I | the data directory's `overrides/` folder holds at least one file, each injected into the CPK at its relative path (`compile` only, Run scope; context: the folder, the file count) | none |
+| `overrides_active` | I | the data directory's `overrides/` folder holds at least one file, each injected into the CPK at its relative path (`compile` in normal and sideload mode, the modes that apply overrides; Run scope; context: the folder, the file count) | none |
 | `bin_source` | I | which installed CPK supplied a working bin in the DpFileList walk, or `bundled` when the embedded base was used (context: the bin, the CPK or `bundled`) | none |
 | `bin_header_repaired` | W | a working `TeamColor.bin` or `UniColor.bin` held records whose header was not their position's: the team ID, or in `TeamColor.bin` the color count. One finding per bin (context: the bin, the teams). It marks a corrupt installed bin, whatever wrote it, so the cause can be looked for | the headers are rewritten; each record's other bytes are kept, so those teams' colors may be wrong until their exports are compiled again |
 | `savefile_autodetected` | I | `savefile_path = auto` resolved a savefile under Documents\KONAMI (names the path; noted especially when several account folders existed and the newest was chosen) | none |

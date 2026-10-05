@@ -964,9 +964,9 @@ describes behavior, not a serial scheduling requirement:
   lib). The button stays enabled — the user may close PES during the compile — except for the
   elevation case, where compiling first would waste the run (relaunching loses it), so the click
   prompts for elevation up front. The deployment stage re-checks regardless; the preflight makes
-  its failures rare, not impossible. `compile` runs the `download/` probe once before it reads
-  any export, so a run that cannot deploy says so first (`deploy_target_unwritable`) and still
-  compiles to `output/` (TC-DEP-04).
+  its failures rare, not impossible. A `compile` that deploys runs the `download/` probe once
+  before it reads any export, so a run that cannot deploy says so first
+  (`deploy_target_unwritable`) and still compiles to `output/` (TC-DEP-04).
 - **Aesthetics patch** — written beside the output CPK as `aesthetics_patch.toml`: the resolved
   savefile writes for the compiled players (format and rules in "Aesthetics patch" in the
   [Savefile plan](../pes_savefile/operations.md)). On **Fox** it holds names and shirt names only

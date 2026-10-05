@@ -622,6 +622,7 @@ fn compile_collects_the_compiled_exports_notes_into_teamnotes_txt_and_removes_a_
     assert!(!teamnotes(&fresh).exists());
 }
 
+// TC-ROOT-12
 #[test]
 fn a_compile_that_writes_no_cpk_leaves_the_previous_teamnotes_txt() {
     let sandbox = Sandbox::new("root_teamnotes_no_cpk");

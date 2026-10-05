@@ -1115,7 +1115,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   the kit token.
   IDs: TC-MOD-20..25, TC-TEX-07, TC-CMN-07 (split from TC-CMN-05 at 4.11c). Crates: tc (`processing/model.rs`, `processing/material.rs`,
   `processing/texture.rs`, `paths.rs`) → verify: a `/co/` slot 05 folder with the smallest
-  `pes_model` fixture pair as `face.model` + `face.mtl` and `skin.dds`, compiled for PES 17: the
+  `pes_model` fixture pair as `face_high.model` + `face_high.mtl` and `skin.dds`, compiled for PES 17: the
   CPK holds `common/character0/model/character/face/real/71405.cpk` whose `face.xml` lists one
   `face_neck` entry, whose MTL names `skin.dds` under `.../common/714/05 - .../`, and no `Asset/`
   entry

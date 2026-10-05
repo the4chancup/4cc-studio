@@ -3992,3 +3992,13 @@ player at once; a winter kit left on its stock collar would show the old model i
 matches, and `kit_collar_reserved` already checks both fields after the rewrite (review
 S6.1b item 10).
 Plan: `team_compiler/pipeline.md` "Collars"; TC-CMN-01.
+
+## 2026-10-05 — team_compiler — a user face.xml's fill-ins get no finding
+Decision (lead, reversible): in a user-supplied `face.xml`, the team ID put in place of a
+Common path's 3-character subfolder and the `<dif>` block inserted from `face_diff.xml` are
+applied without a finding, as in a generated xml; the reported Info rewrites are the
+`face_neck` dummy and `uniform_sub`.
+Why: the catalog prose promised findings for both while no code existed for either; the user
+wrote the placeholder and the `face_diff.xml` for the compiler to fill in, so a line saying it
+did tells them nothing, whereas the other two change what they wrote (review S6.2a minor 3).
+Plan: `team_compiler/messages.md` "User-supplied `face.xml`".
