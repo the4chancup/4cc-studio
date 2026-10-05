@@ -223,6 +223,9 @@ This documents the dependency without changing the phase order in the core plan.
 ## Acceptance
 
 Format and rules: `CONTRIBUTING.md` "Testing". IDs are never reused; later phases append.
+In every phase's scenarios, a team export is a `Full` export, its name carrying the tag,
+unless the scenario says `Midcup` (the Aesthetics export plan's "Coverage tag"), and a
+scenario that names no PES version runs for PES 21.
 
 **Phase 3 scope.** Discovery and export sources, `aesthetics_export`'s structure pass with its
 dispositions ("Validation semantics" in the Aesthetics export plan), export identity, the settings
@@ -274,9 +277,7 @@ Phase 3 emits `ExportStarted`, `Message` and `ExportProcessed` only: `FolderStat
 and `Complete` wait for their consumers, the progress grid and the run strip (Phase 8), which
 is also when `Complete`'s placeholder fields are restructured ("Event system" in
 `core/architecture.md`), so a cell's outcome (`DoneWithErrors`, "Cell states" in `gui.md`) is
-not one of these scenarios. A team export in a scenario is a `Full` export, its name carrying
-the tag, unless the scenario says `Midcup` (the Aesthetics export plan's "Coverage tag"), and
-a WHEN that names no PES version runs for PES 21.
+not one of these scenarios.
 
 **Sources**
 
@@ -678,7 +679,7 @@ TC-MOD-02  GIVEN slot 05 holding kit_boots.fmdl and kit_boots.skl, and another e
            WHEN each is compiled for PES 21, the version the model is posed for
            THEN boots.skl in the boots package is byte-identical to kit_boots.skl; without the
                 .skl it is byte-identical to the bundled PES 21 body.skl
-TC-MOD-03  GIVEN a players.txt mapping one folder with boots.fmdl to slots 03 and 07
+TC-MOD-03  GIVEN a players.txt mapping one folder with boots.fmdl and a texture to slots 03 and 07
            WHEN the export is compiled
            THEN k0623 and k0627 both hold the boots package, and the folder's textures appear once,
                 under the folder's name
@@ -705,8 +706,9 @@ TC-MOD-08  GIVEN Faces/Longhair/ holding hair_high.fmdl, linked by slot 05, whic
            WHEN the export is compiled for PES 21
            THEN slot 05's face package holds face_high.fmdl and hair_high.fmdl, and no output
                 exists for Longhair on its own
-TC-MOD-09  GIVEN two parts merged into one boots.fmdl, one paired with a custom .skl and the other
-           with none; and another folder whose two parts define material "skin" differently
+TC-MOD-09  GIVEN a folder holding a texture and two parts merged into one boots.fmdl, one paired
+           with a custom .skl and the other with none; and another folder holding a texture and
+           two parts that define material "skin" differently
            WHEN each export is compiled
            THEN the first reports skl_merge_conflict and the second merge_material_conflict, and
                 each folder's boots are left out of the CPK, its blank face and its textures
@@ -869,10 +871,12 @@ TC-MOD-41  GIVEN slot 05 holding ingame_face, shirt.model and socks.model with .
            WHEN each export is compiled for PES 17
            THEN the first reports merge_material_conflict and the second skl_merge_conflict,
                 and neither CPK holds common/character0/model/character/boots/0625/
-TC-MOD-42  GIVEN slot 05 holding a face model, face_diff.bin and face_diff.xml
-           WHEN the export is checked, then compiled
-           THEN xml_dif_conflict is reported naming face_diff.xml both times, and slot 05's
-                folder is left out of the CPK
+TC-MOD-42  GIVEN slot 05 holding a face model, face_diff.bin and face_diff.xml; and another export
+           whose slot 05 holds a face model and a face_diff.bin shorter than its header gives
+           WHEN each export is checked, then compiled
+           THEN the first reports xml_dif_conflict naming face_diff.xml and the second
+                face_diff_invalid naming face_diff.bin, both times, and each slot 05 folder is
+                left out of its CPK
 ```
 
 **Textures**
@@ -906,13 +910,15 @@ TC-TEX-06  GIVEN p1/kit.png, p1/kit_back.tga and Portraits/player_05.webp
 TC-TEX-07  GIVEN slot 05 holding skin.png of 1002x1002 pixels
            WHEN the export is compiled for PES 17
            THEN texture_not_div4 is reported and the folder is dropped
-TC-TEX-08  GIVEN dds_compression = true, then false, then auto with multicpk_mode off, then on
-           WHEN a /co/ export is compiled for PES 17 each time, then for PES 21 with true and
+TC-TEX-08  GIVEN a /co/ export whose slot 05 holds a face model naming skin and hair, skin.dds,
+           and hair.dds already WESYS-wrapped; and dds_compression = true, then false, then
+           auto with multicpk_mode off, then on
+           WHEN the export is compiled for PES 17 each time, then for PES 21 with true and
            with false
            THEN every .dds entry of the first run is WESYS-wrapped and decompresses to the second
                 run's bytes; the third run equals the second and the fourth wraps as the first; a
                 source already WESYS-wrapped is
-                emitted as it is in every run; the two PES 21 runs' CPKs are byte-identical
+                emitted as it is in every PES 17 run; the two PES 21 runs' CPKs are byte-identical
 TC-TEX-09  GIVEN slot 05 holding a face model naming the textures hair and skin, skin.dds,
            hair.dds.common, and Common/hair.dds
            WHEN the export is compiled for PES 21
@@ -1373,11 +1379,13 @@ TC-OUT-07  GIVEN the tracer export
                 folder is untouched
 TC-OUT-08  withdrawn: two sources of one team are duplicate_aesthetics_export before any output
            (TC-PLN-03), so their test_output folders cannot collide
-TC-OUT-09  GIVEN a PES folder with livecpk/old.txt and the tracer export
+TC-OUT-09  GIVEN a PES folder with livecpk/old.txt, overrides/common/etc/TeamColor.bin in the
+           data directory, and the tracer export
            WHEN compile --mode sideload runs for PES 21
            THEN livecpk/ holds exactly the files a normal-mode CPK of the export holds, at the
-                same relative paths with the same bytes, old.txt is gone, download/ is untouched,
-                and the exit code is 0
+                same relative paths with the same bytes (livecpk/common/etc/TeamColor.bin the
+                override's), overrides_active is reported, old.txt is gone, download/ is
+                untouched, and the exit code is 0
 TC-OUT-10  GIVEN pes_version 15, then 16, then 17
            WHEN compile --mode sideload runs
            THEN 15 and 16 are refused as an invalid configuration naming the version with exit
