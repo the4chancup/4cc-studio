@@ -1114,6 +1114,10 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   Also the pre-Fox blank face folder and the pre-Fox half of `ingame_face` (4.12 did Fox):
   `pipeline.md` "2. Per-export serial steps" step 4 gives the blank folder's contents, and
   `face_file_not_used` is Fox-only until then.
+  Open first (review S6.13a item 1): `model_format.md`'s `.model.common` MTL cascade ends
+  "then the link folder's default/any MTL, then the main folder", Red's wording; "the main
+  folder" is defined nowhere. Restate the fallback arms in the plan's own terms from Red's
+  code before building them (TC-MOD-24 pins the override and the Common arm).
   Open first (found at 4.11c): a model's type is read from its stem's last part, so a
   per-kit model named `boots_kit1` is typed as face content; typing should probably skip
   the kit token.
@@ -1188,7 +1192,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   processing"; `pipeline.md` step 6 (the referee layout), "5. Writer" step 5 (refs CPK);
   `player_folders.md` "Multi-mapped processing". IDs: TC-REF-01..05, TC-REF-09. Crates: tc
   (`processing/referee.rs`, `plan/refs.rs`, `paths.rs`), resources → verify: a refs export
-  mapping `Ref A` to 01, 20 and 35 on PES 21 writes `4cc_35_referees.cpk` holding three face
+  mapping `Ref A` to 01, 20 and 35 on PES 21 writes `4cc_18_referees.cpk` holding three face
   packages, one `common/999/Ref A/sourceimages/` texture set, and `k9901`, `k9920`, `k9935`
   boots folders when the folder has boots; the team CPK of the same run holds no `999` path.
   Open first (review S6.A3 item 1): a referee's local boots on pre-Fox. The categorization

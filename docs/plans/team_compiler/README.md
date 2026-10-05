@@ -1234,7 +1234,7 @@ TC-BIN-05  GIVEN a PES folder whose download/DpFileList.bin lists 4cc_08_bins, 4
                 skipped), both with p2 set; bin_source names the supplying CPK for each bin
 TC-BIN-06  GIVEN an installed UniformParameter.bin holding team 714's p1 entry without the FPC
            values (shirt model 144), and a Midcup
-           export with fpc_on and only p2/
+           /co/ export with fpc_on and only p2/
            WHEN it is compiled for PES 21
            THEN the emitted UniformParameter.bin's p1 entry carries the FPC values with
                 kit_config_fpc_adjusted reported for slot p1, and p3, which has no entry, reports

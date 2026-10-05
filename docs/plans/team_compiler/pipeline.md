@@ -1096,6 +1096,7 @@ without it Phase 3 promotes the same way and says nothing more (deployment is Ph
 | Referee faces (NN = slot 01-35) | `common/character0/model/character/face/real/referee0NN.cpk` | `Asset/model/character/face/real/referee0NN/#Win/` (`face.fpk` and `face.fpkd`; textures under `referee0NN/sourceimages/#windx11/`) |
 | Referee boots | `common/character0/model/character/boots/k99NN/` | `Asset/model/character/boots/k99NN/#Win/` (`boots.fpk` and `boots.fpkd`) |
 | Referee gloves | `common/character0/model/character/glove/g99NN/` | `Asset/model/character/glove/g99NN/#Win/` (`glove.fpk` and `glove.fpkd`) |
+| Referee kit configs (loose, `blue_port.md` "Referee export processing") | `common/character0/model/character/uniform/team/referee/` | same |
 | Referee common (per referee folder) | `common/character1/model/character/uniform/common/999/{folder}/` (MTL/XML paths `model/character/uniform/common/999/{folder}/`) | `Asset/model/character/common/999/{folder}/sourceimages/#windx11/` (FMDL paths `/Assets/pes16/model/character/common/999/{folder}/sourceimages/`) |
 | Portraits | `common/render/symbol/player/` | same |
 | Logos | `common/render/symbol/flag/` | same |
