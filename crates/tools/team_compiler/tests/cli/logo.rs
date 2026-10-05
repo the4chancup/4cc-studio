@@ -127,8 +127,8 @@ fn logos_tagged_crop_and_stretch_fill_the_square_and_a_small_one_is_upscaled() {
         _ => GREEN,
     });
     sandbox.write("exports/co - Crop/logo_crop.png", &three_bands);
-    let halves = png(1000, 600, |x, _| if x < 500 { RED } else { BLUE });
-    sandbox.write("exports/dbg - Stretch/logo_stretch.png", &halves);
+    // The same image stretched: the bands its centre crop removes are what it keeps.
+    sandbox.write("exports/dbg - Stretch/logo_stretch.png", &three_bands);
     sandbox.write("exports/egg - Small/logo.png", &png(300, 300, |_, _| GREEN));
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
@@ -165,15 +165,17 @@ fn logos_tagged_crop_and_stretch_fill_the_square_and_a_small_one_is_upscaled() {
     for (side, pixels) in team_logo(&logos, 714) {
         assert_texels(pixels, *side, |_, _| RED);
     }
-    // The stretch fills the square: no texel is transparent, red on the left, blue on the right.
+    // The stretch fills the square with the bands a crop would remove: no texel is
+    // transparent, blue on the left, red in the middle, green on the right.
     for (side, pixels) in team_logo(&logos, 790) {
         for y in 0..*side {
             for x in 0..*side {
                 assert_eq!(texel(pixels, *side, x, y)[3], 255, "({x}, {y}) of {side}");
             }
         }
-        assert_eq!(texel(pixels, *side, 0, 0), RED, "{side}");
-        assert_eq!(texel(pixels, *side, side - 1, side - 1), BLUE, "{side}");
+        assert_eq!(texel(pixels, *side, 0, 0), BLUE, "{side}");
+        assert_eq!(texel(pixels, *side, *side / 2, *side / 2), RED, "{side}");
+        assert_eq!(texel(pixels, *side, side - 1, side - 1), GREEN, "{side}");
     }
     for (side, pixels) in team_logo(&logos, 792) {
         assert_texels(pixels, *side, |_, _| GREEN);

@@ -869,8 +869,7 @@ fn a_kit_without_a_texture_derives_its_colors_from_the_inherited_all_kit_dds() {
     let sandbox = Sandbox::new("kit_colors_inherited");
     let export = "exports/co - Shared";
     sandbox.write(&format!("{export}/Kits/all/kit.dds"), &tracer_kit());
-    // A config, so the kit is no placeholder; no colors.txt and no kit.dds of its own.
-    sandbox.write(&format!("{export}/Kits/p2/config.toml"), SHIRT_144);
+    fs::create_dir_all(sandbox.root.join(format!("{export}/Kits/p2"))).unwrap();
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
 
@@ -880,6 +879,7 @@ fn a_kit_without_a_texture_derives_its_colors_from_the_inherited_all_kit_dds() {
             "Info kit_textures_inherited [Keep] at Kits/p2 (stems=kit)",
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info team_colors_missing [Keep] ()",
+            "Info kit_config_generated [Keep] at Kits/p2 ()",
             "Info kit_colors_derived [Keep] at Kits/p2 ()",
         ]
     );

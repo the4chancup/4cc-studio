@@ -18,8 +18,8 @@ use pes_version::PesVersion;
 
 use crate::common::Sandbox;
 use crate::compile::{
-    compiled_kits, cpk_entries, kit_texture, pass_through_settings, pes_settings, pes21_settings,
-    tracer_kit, tracer_player_file,
+    compiled_kits, compiled_players, cpk_entries, kit_texture, pass_through_settings, pes_settings,
+    pes21_settings, tracer_kit, tracer_player_file,
 };
 use crate::findings_of;
 use crate::models::face_package;
@@ -563,6 +563,72 @@ fn a_common_texture_the_deep_pass_drops_takes_the_player_linking_it() {
         ]
     );
     assert_eq!(run.exit_code(), 1);
+}
+
+// TC-TEX-12
+#[test]
+fn a_common_texture_whose_task_fails_lets_the_players_linking_it_commit() {
+    let sandbox = Sandbox::new("tex_common_task_failed");
+    // The deep pass drops the 3x3 hair.png: the player linking it follows.
+    let dropped = "exports/co - Dropped";
+    sandbox.write(
+        &format!("{dropped}/Players/05 - A/fcl_hair.fmdl"),
+        &hair_model_naming("hair.dds"),
+    );
+    sandbox.write(&format!("{dropped}/Players/05 - A/hair.png.common"), b"");
+    sandbox.write(
+        &format!("{dropped}/Common/hair.png"),
+        &texture_fixture("tiny.png"),
+    );
+    // Bytes no decoder reads give no deep-pass finding: the conversion fails the export's
+    // Common task instead, which commits on its own.
+    let failed = "exports/dbg - Failed";
+    sandbox.write(
+        &format!("{failed}/Players/05 - A/fcl_hair.fmdl"),
+        &hair_model_naming("hair.dds"),
+    );
+    sandbox.write(&format!("{failed}/Players/05 - A/hair.dds.common"), b"");
+    sandbox.write(&format!("{failed}/Common/hair.dds"), b"not a texture");
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+    let messages = run.messages();
+    assert_eq!(
+        findings_of(&messages, "co - Dropped"),
+        [
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=fcl_hair.fmdl, count=1662)",
+            "Error texture_too_small [DropFile] at Common/hair.png (file=hair.png)",
+            "Error link_target_dropped [DropFolder] at Players/05 - A (link=hair.png.common, target=Common/hair.png, finding=texture_too_small)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
+        ]
+    );
+    let failed_findings = findings_of(&messages, "dbg - Failed");
+    assert_eq!(
+        failed_findings[..3],
+        [
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=fcl_hair.fmdl, count=1662)",
+            "Info export_identified [Keep] (team=/dbg/, id=790)",
+            "Info team_colors_missing [Keep] ()",
+        ]
+    );
+    let [failure] = &failed_findings[3..] else {
+        panic!("{failed_findings:#?}");
+    };
+    assert!(
+        failure.starts_with(
+            "Error folder_pack_failed [DropFolder] at Common (error=hair.dds: cannot convert"
+        ),
+        "{failure}"
+    );
+    assert_eq!(run.exit_code(), 1);
+    // Slot 05 of /co/ is left out; slot 05 of /dbg/ commits anyway.
+    assert_eq!(compiled_players(&sandbox), [79005]);
+    let paths = compiled_paths(&sandbox);
+    assert!(
+        paths.iter().all(|path| !path.contains("face/real/71405")),
+        "{paths:?}"
+    );
 }
 
 #[test]

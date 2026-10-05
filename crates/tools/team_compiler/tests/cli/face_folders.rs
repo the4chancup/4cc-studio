@@ -133,7 +133,8 @@ fn under_ingame_face_a_boots_link_beside_a_boots_model_combines_and_a_plain_one_
             "Asset/model/character/face/real/71407/#Win/face.fpkd",
             "common/character0/model/character/uniform/team/UniColor.bin",
             "common/etc/TeamColor.bin",
-        ]
+        ],
+        "no face/real/71405/ path"
     );
     assert_eq!(
         boots_mesh_count(&entries, BOOTS_05),

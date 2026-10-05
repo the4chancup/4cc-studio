@@ -741,8 +741,9 @@ TC-MOD-16  GIVEN slot 05 holding ingame_face, torso.fmdl posed for PES 21, torso
                 boots.skl byte-identical to torso.skl, and g0625's holds glove_l.fmdl
 TC-MOD-17  GIVEN slot 05 holding ingame_face, kit_boots.fmdl and Crocs.boots
            WHEN the export is compiled for PES 21
-           THEN link_combined is reported, k0625 holds the merged boots, and Crocs keeps its own
-                shared output only for players linking it plainly
+           THEN link_combined is reported, k0625 holds the merged boots, no face/real/71405/ path
+                is in the CPK, and Crocs keeps its own shared output only for players linking it
+                plainly
 TC-MOD-18  GIVEN slot 05 holding ingame_face and an empty face/ subfolder, with boots.fmdl
            WHEN the export is compiled
            THEN no finding is reported for face/, no face package is emitted, and k0625 holds the
@@ -757,11 +758,12 @@ TC-MOD-20  GIVEN a /co/ slot 05 folder holding face_high.model, face_high.mtl an
            THEN the CPK holds common/character0/model/character/face/real/71405.cpk, whose face.xml
                 lists one face_neck entry naming the emitted model, whose .mtl names skin.dds under
                 model/character/uniform/common/714/05 - <name>/, and no Asset/ path exists
-TC-MOD-21  GIVEN slot 05 holding face_high.model, kit_boots.model, hat_parts.model and
-           arm_gloveL.model
+TC-MOD-21  GIVEN slot 05 holding face_high.model, kit_boots.model, hat_parts.model,
+           arm_gloveL.model, cape_model_type_cape.model and visor_ratio_2_parts.model
            WHEN it is compiled for PES 17
-           THEN face.xml lists four entries typed face_neck, parts, parts and gloveL, in the face
-                CPK alone: no boots/ or glove/ folder is written for the player
+           THEN face.xml lists six entries typed face_neck, parts, parts, gloveL, cape and parts,
+                the last with ratio="2", in the face CPK alone: no boots/ or glove/ folder is
+                written for the player
 TC-MOD-22  GIVEN slot 05 holding face_high.model, face_high.mtl and Crocs.boots, Boots/Crocs/ holding
            boots.model and boots.mtl
            WHEN it is compiled for PES 17
@@ -832,6 +834,16 @@ TC-MOD-36  GIVEN slot 05 holding boots.fmdl whose material uses fox3ddf_ggx and 
            THEN the emitted .mtl gives that material the Basic_CNSR shader and an EnvironmentMap
                 sampler naming a texture the CPK holds, byte-identical to the template
                 environment map
+TC-MOD-37  GIVEN slot 05 holding face_high.model, face_high.mtl.common, and Common/ holding
+           face_high.mtl naming skin and skin.dds
+           WHEN the export is compiled for PES 17
+           THEN the face.xml entry's material names the Common path with 714 substituted, and
+                the Common output holds face_high.mtl and skin.dds once, the face CPK neither
+TC-MOD-38  GIVEN Gloves/Keeper/ holding glove_l.model and glove_r.model with their .mtl files,
+           linked by slot 05
+           WHEN the export is compiled for PES 17
+           THEN the shared gloves output of ID 644 holds a glove.xml listing the two emitted
+                models typed gloveL and gloveR
 ```
 
 **Textures**
@@ -890,6 +902,13 @@ TC-TEX-11  GIVEN slot 06 holding a face model naming hair and hair.dds.common, n
            THEN the first reports no texture or link finding and the model's hair path names
                 /Assets/pes16/model/character/common/714/sourceimages/; the second reports
                 common_link_missing and drops the folder
+TC-TEX-12  GIVEN slot 05's face model naming hair, with hair.png.common, and Common/hair.png of
+           3x3 pixels; and another export whose slot 05 links hair.dds.common to a
+           Common/hair.dds holding bytes no decoder reads
+           WHEN each export is compiled for PES 21
+           THEN the first reports texture_too_small and link_target_dropped and slot 05 is left
+                out; the second reports the Common texture's failure and slot 05's face
+                package is in the CPK
 ```
 
 **Deep checks**
@@ -941,8 +960,8 @@ TC-XML-01  GIVEN slot 05 holding face_high.model, hat_parts.model and its own fa
                 714 substituted
 TC-XML-02  GIVEN the same folder with the face.xml removed
            WHEN it is compiled for PES 17
-           THEN the generated face.xml lists face_high.model as face_neck and hat_parts.model as
-                parts
+           THEN the generated face.xml lists face_high.model's emitted model as face_neck and
+                hat_parts.model's as parts
 TC-XML-03  GIVEN a face.xml with a <model> lacking path, and another whose ./hat.model names an
            absent file
            WHEN each export is checked for PES 17
@@ -991,7 +1010,7 @@ TC-KIT-13  GIVEN a p1/icon_7 marker, and p2 without an icon marker
            THEN p1's UniColor entry carries icon 7 and p2's icon 3
 TC-KIT-14  GIVEN a kit whose task fails (its kit.dds holds bytes no decoder reads)
            WHEN the export is compiled
-           THEN that kit has no UniColor entry change and no UniformParameter entry; the other kits'
+           THEN that kit has no UniColor or UniformParameter entry change; the other kits'
                 entries are written
 TC-KIT-15  GIVEN fpc_on in slot 05's folder, p1/config.toml without the FPC values and p2/ without
            a config
@@ -1006,7 +1025,8 @@ TC-KIT-17  GIVEN p1/config.toml whose name.y is 36
            WHEN the export is checked, then compiled, for PES 18
            THEN kit_config_version_clamped is reported both times with the maximum 33, and the
                 emitted config holds 33
-TC-KIT-18  GIVEN p1/ holding kit.dds drawn for the pre-Fox layout and the marker pre-fox
+TC-KIT-18  GIVEN p1/ holding a 1024x1024 BC1 kit.dds drawn for the pre-Fox layout and the marker
+           pre-fox
            WHEN the export is compiled for PES 21
            THEN kit_layout_converted is reported for p1 naming pre-fox to fox, the decoded top mip
                 equals the no-marker compile's outside the sock rectangles, and each sock stripe's
@@ -1036,7 +1056,7 @@ TC-KIT-24  GIVEN p1/config.toml whose name.y is 30
            WHEN the export is compiled for PES 18, then for PES 21
            THEN neither run reports kit_config_version_clamped and the two emitted configs hold
                 the same bytes at 0x1C and 0x1D, which decode to Name Y 30
-TC-KIT-25  GIVEN Kits/all/kit.dds, and p2/ holding a config and neither kit.dds nor colors.txt
+TC-KIT-25  GIVEN Kits/all/kit.dds and an empty p2/
            WHEN the export is compiled for PES 21
            THEN p2's UniColor entry holds the pair the dominant-color extraction gives for
                 all/kit.dds, with kit_colors_derived reported for p2
@@ -1050,6 +1070,11 @@ TC-KIT-27  GIVEN p1/ holding kit.dds and a config.toml holding shirt = 144 where
            WHEN the export is checked, then compiled
            THEN kit_config_invalid is reported for p1 both times naming config.toml, p1 is left
                 out and u0714p2 is compiled
+TC-KIT-28  GIVEN p1/ holding kit.dds, a kit_srm.dds whose sock islands differ from the rest, and
+           the marker pre-fox
+           WHEN the export is compiled for PES 21
+           THEN the srm's decoded top mip equals the no-marker compile's outside the sock
+                rectangles and differs inside them
 ```
 
 **Root files, Common and collars**
@@ -1108,8 +1133,9 @@ TC-CMN-05  GIVEN slot 05 holding pants_kit1.fmdl and pants_kit2.fmdl
            WHEN the export is compiled for PES 21
            THEN kit_variant_model_fox is reported and only pants_kit1 is compiled
 TC-CMN-06  GIVEN slot 05's face model referencing dummy_kit and dummy_kit_srm, neither present
-           WHEN the export is checked
-           THEN no texture-existence finding is reported and the paths are emitted verbatim
+           WHEN the export is checked, then compiled for PES 21
+           THEN no texture-existence finding is reported either time, and the packed model's
+                paths name dummy_kit and dummy_kit_srm verbatim
 TC-CMN-07  GIVEN slot 05 holding pants_kit1.model and pants_kit2.model with their .mtl files
            WHEN the export is compiled for PES 17
            THEN the face.xml holds one entry naming pants_kitN, with both variant files beside it
@@ -1196,6 +1222,11 @@ TC-BIN-17  GIVEN an installed BootsList.bin holding (71405, 7) and (71406, 9), a
            WHEN it is compiled for PES 21 as a Full export, then as a Midcup export
            THEN the Full run's BootsList.bin holds (71405, 625) and no row for 71406, and the
                 Midcup run's holds (71405, 625) and (71406, 9)
+TC-BIN-18  GIVEN an installed CPK holding team 714's loose p1 kit config, and a Midcup export
+           with fpc_on and only p2/
+           WHEN it is compiled for PES 17
+           THEN the CPK holds p1's config re-emitted with the FPC values, and
+                kit_config_fpc_adjusted is reported for slot p1
 ```
 
 **Planning**
@@ -1271,6 +1302,11 @@ TC-REF-08  GIVEN a refs export with no ref_marker.dds
            WHEN it is compiled for PES 21
            THEN the referee CPK holds no collar_077.fmdl and no marker texture, and its kit
                 configs keep the template's collar
+TC-REF-09  GIVEN TC-REF-01's refs export
+           WHEN the root is compiled for PES 17
+           THEN the referee CPK holds common/character0/model/character/face/real/referee001.cpk,
+                referee020.cpk and referee035.cpk, and one skin.dds under
+                common/character1/model/character/uniform/common/999/Ref A/
 ```
 
 **Output modes, deployment, multi-CPK**
@@ -1348,7 +1384,8 @@ TC-DEP-06  GIVEN a PES folder holding PES2019.exe while pes_version is 21
 TC-DEP-07  GIVEN output/.staging/<a dead run's folder> left from a killed process
            WHEN compile starts
            THEN that folder is removed and the run's own staging is created and removed as usual
-TC-DEP-08  GIVEN an installed DPFL without 4cc_41_teams and multicpk_mode on
+TC-DEP-08  GIVEN an installed DPFL with no 4cc_NN_teams entry (the pre-teams layout) and
+           multicpk_mode on
            WHEN the root is compiled
            THEN dpfilelist_outdated is reported naming upgrade-dpfl, every CPK is promoted to
                 output/, and the exit code is 1

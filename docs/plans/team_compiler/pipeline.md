@@ -207,20 +207,9 @@ format:
    renamed (`player_{id}{NN}.dds` for PES ≤18, `{id}{NN}.dds` for 19+; in Red
    `portraits_move.py` stages face-folder portraits under the `player_` name and `export_move.py`'s
    Portraits pass applies the version-specific final name) and staged with the portraits; an
-   `ingame_face` marker removes face-classified `ModelPart`s and face-specific ancillary files, and
-   **no face folder is emitted at all** — on either engine, the presence of any face folder (even
-   one containing only boots/gloves models) overrides the ingame-customized face, and an empty face
-   folder makes the face blank. Explicitly-named face models (`face_high`, `hair_high`, `oral`)
-   combined with `ingame_face` drop the whole player folder (`ingame_face_explicit_face_model`);
-   arbitrarily-named models (which would route to `fcl_hair`) reroute to the boots folder as `boots`
-   (renamed or merged), carrying their paired SKL. The remaining non-face parts are
-   relocated out of the face folder: gloves parts go to **player-specific gloves folders**
-   (`glove_l`, `glove_r`), and the rerouted arbitrary-named models plus any explicit boots models
-   are **merged into one boots model** (on Fox via `fmdl`'s mesh merging; on pre-Fox via
-   `pes_model`'s native merge over the `.model` + `.mtl` pair) and moved
-   to a **player-specific boots folder** — the one case where pre-Fox produces
-   player-exclusive boots/gloves folders with IDs from the per-team block scheme (see "ingame_face
-   marker"). Without `ingame_face`, a player with boots/gloves but no face models still gets a
+   `ingame_face` marker emits **no face folder at all**, its boots and gloves parts going to
+   player-specific folders on both engines (the categorization, rerouting and merge rules are
+   "`ingame_face` marker" in the [Aesthetics export plan](../aesthetics_export/player_folders.md)). Without `ingame_face`, a player with boots/gloves but no face models still gets a
    (blank) face folder: the absence of the default PES face is the final element of FPC, so the
    folder must exist (Red's current behavior, kept). That holds for every roster-mapped player
    folder without the marker and without a face model, whatever else it holds: a portrait
