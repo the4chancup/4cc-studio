@@ -136,9 +136,8 @@ suite decodes yet.
 
 **Unset values stay unset.** Missing FPC/strip settings are not inferred from a savefile and are
 not filled in merely by opening the folder. The preview shows a key the file leaves out at its
-default, which is what the compile writes (the template's value; no FPC marker shows the
-visible base body). Wait
-for explicit user edits: turning FPC on writes the canonical `fpc_on` marker, turning it off writes
+default, which is what the compile writes (the template's value; with no FPC marker, the
+base body is visible). Wait for explicit user edits: turning FPC on writes the canonical `fpc_on` marker, turning it off writes
 `fpc_off`, and strip edits persist only the edited keys. Both panels follow this rule; there is no
 second FPC boolean in `settings.toml`.
 

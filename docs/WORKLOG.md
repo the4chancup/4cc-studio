@@ -1663,8 +1663,8 @@ pruned when their phase closes; they stay in git history.
   second patch (review S5.A3 item 1). And the patch is written after the CPK is promoted,
   outside the deployment transaction, which names only the CPKs and the savefile
   (`pipeline.md` "Run-result semantics"), with no finding for a failed patch write, which
-  leaves a new CPK beside the old patch (S5.A3 item 4). Settle with Phase 5's patch: one file per run or per CPK, its name, its place,
-  and publication with the CPK (review S5.10 item 5).
+  leaves a new CPK beside the old patch (S5.A3 item 4). Settle with Phase 5's patch: one file
+  per run or per CPK, its name, its place, and publication with the CPK (review S5.10 item 5).
 - open — the Export upgrader's `fpc_on` detection (`export_upgrader.md` step 8, "settings
   match the enable preset"): the cup's FPC players mostly ride their bodies in per-player
   boots IDs, so their boots field holds that ID, not 55, and Test 1's save had every /a/
@@ -2537,3 +2537,12 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   sidekick S4.2 0; GPT A2 1 of 1 (a `.7z` kept running after the cancel); sidekick S4.3 1 of 1
   (the cancel checked only between sources). From S4.3 the sidekick's role is a `swe-2-high`
   subagent (AGENTS.md "Environment"). Rulings `.tmp/review_rulings_S4.md`.
+- **2026-10-05** — Review queue, S5 the step 4.0 plan rewrite (docs only): sidekick loop S5.1
+  to S5.8 (21, 9, 9, 5, 7, 5, 8, 3 accepted); GPT A1 14 of 14 (the Fox rows' stage in the
+  diagram, pre-Fox face-XML IDs through the settings order, the patch written per published
+  CPK, the unknown-bits example on decoded bits, model.md's copy of the precedence rule);
+  sidekick S5.9 4; GPT A2 6 of 6 (generation from a stripped record, the full-length shirt
+  name, the face-editor recipe's recompile); sidekick S5.10 to S5.13 (10, 5, 6, 2: one rule
+  for every reader of a stripped record, the presets' fields listed only in `libs/fpc.md`);
+  GPT A3 4 of 4 (all worklog issues); sidekick S5.14 0 of 2. Thirteen open "Issues" came out
+  of it, five for the maintainer. Rulings `.tmp/review_rulings_S5.md`.
