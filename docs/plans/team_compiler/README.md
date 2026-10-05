@@ -910,10 +910,10 @@ TC-TEX-04  GIVEN a .dds in a codec dds_convert cannot decode
            THEN texture_codec_unsupported is reported naming the file and the folder is dropped
 TC-TEX-05  GIVEN slot 05's face_high.fmdl naming hair in the team's Common output, an export with
            no Common/hair.*, and a PES folder whose DpFileList lists 4cc_61_midcup.cpk before
-           the CPK compiled (cpk_name 4cc_62_midcup)
+           the CPK compiled (cpk_name 4cc_62_midcup) and 4cc_63_midcup.cpk after it
            WHEN the export is compiled for PES 21 with 4cc_61_midcup.cpk holding
-           Asset/model/character/common/714/sourceimages/#windx11/hair.ftex, then without it, then
-           with no PES folder
+           Asset/model/character/common/714/sourceimages/#windx11/hair.ftex, then with only
+           4cc_63_midcup.cpk holding it, then with no PES folder
            THEN the first compiles with no texture finding; the second reports fmdl_texture_not_found as
                 an Error and drops the folder; the third reports it as a Warning and keeps it
 TC-TEX-06  GIVEN p1/kit.png, p1/kit_back.tga and Portraits/player_05.webp
@@ -946,8 +946,8 @@ TC-TEX-10  GIVEN slot 05's face model naming skin and skin_nrm, skin.png (1024x1
                 green
 TC-TEX-11  GIVEN slot 06 holding a face model naming hair and hair.dds.common, no Common/hair.*,
            and TC-TEX-05's PES folder
-           WHEN the export is compiled for PES 21 with 4cc_61_midcup.cpk holding the texture at
-           the team's Common path, then without it
+           WHEN the export is compiled for PES 21 with cpk_name 4cc_62_midcup and
+           4cc_61_midcup.cpk holding the texture at the team's Common path, then without it
            THEN the first reports no texture or link finding and the model's hair path names
                 /Assets/pes16/model/character/common/714/sourceimages/; the second reports
                 common_link_missing and drops the folder
@@ -1417,10 +1417,10 @@ TC-OUT-12  GIVEN multicpk_mode on, exports /a/, /b/ and /co/, cpk_part_max_size 
            THEN 4cc_41_teams.cpk holds /a/ and /b/ whole, 4cc_42_teams.cpk holds /co/,
                 4cc_43_teams.cpk to 4cc_45_teams.cpk are each the 6,272-byte placeholder, and
                 4cc_08_bins.cpk holds the bins only
-TC-OUT-13  GIVEN the same with cpk_part_max_size below one team's size
+TC-OUT-13  GIVEN TC-OUT-12's setup with cpk_part_max_size below one team's size
            WHEN the root is compiled
            THEN cpk_team_exceeds_cap is reported, the run aborts with exit 3 and no part is written
-TC-OUT-14  GIVEN the same with a DPFL reserving one teams slot
+TC-OUT-14  GIVEN TC-OUT-12's setup with a DPFL reserving one teams slot
            WHEN the root is compiled
            THEN cpk_slots_exhausted names the shortfall, the run aborts with exit 3 and no part is
                 written

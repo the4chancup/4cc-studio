@@ -1232,17 +1232,11 @@ Resolved decisions:
   collar value (see "Collars").
 - **Missing savefile stays a warning**: deterministic ID allocation keeps a later savefile-inclusive
   recompile of the same exports consistent, so the CPK step may proceed.
-- **Pre-Fox local boots/gloves get no ID of their own**: models embedded as typed face-XML entries
-  are ordinary face-XML models with no ID concept and request no standalone output, so a
-  local-only category's ID is the authored stock ID or the FPC marker's default (steps 2 and 3
-  of "Player settings in exports" in the [Aesthetics export plan](../aesthetics_export/settings_toml.md)).
-  Only shared pre-Fox boots/gloves folders (ID-named outputs) get compiler-assigned IDs; a player
-  combining local parts with a shared link gets the shared ID written while the local parts ride in the face XML. **Exception — `ingame_face`**: with no face
-  folder emitted, gloves and boots parts are relocated to player-specific folders with IDs from the
-  per-team block scheme, and those IDs are written to the savefile on pre-Fox; a shared link
-  combined with local parts of the same category is merged into that player-exclusive folder (the
-  one pre-Fox `link_combined` case), so the player never has two candidate IDs for one savefile slot
-  (see "ingame_face marker" in the [Aesthetics export plan](../aesthetics_export/README.md)).
+- **Pre-Fox local boots/gloves get no ID of their own**: they ride as typed face-XML entries, so
+  only shared folders get compiler-assigned IDs, `ingame_face` the exception. The routing is
+  "A link plus local models combines" and "`ingame_face` marker" in the [Aesthetics export
+  plan](../aesthetics_export/player_folders.md); the ID a local-only category gets is steps 2
+  and 3 of "Player settings in exports" ([`settings_toml.md`](../aesthetics_export/settings_toml.md)).
 - **Check-cache identity**: recursive manifest fingerprint combined with teams-list and
   validation-settings revisions; the watcher only triggers re-fingerprinting (see "Live
   validation").
