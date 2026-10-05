@@ -90,6 +90,8 @@ name inside `[appearance]` would collide with.
 
 # true = derive from the folder name ("15 - Snuffy" gives "Snuffy"; the whole folder
 # name for players.txt-mapped folders); "text" = write as is; absent = not written.
+# name and shirt_name are used only when the export's root holds the `autopilot` marker (a
+# team without a manager); otherwise they are ignored and the manager's names stand.
 name = "Snuffy"
 shirt_name = "SNUFFY"           # "text" = write as is; absent = not written
 boots_id = ""                   # "" = default (fpc_on: hidden, otherwise 0); 0 to 100, a stock boots model; ignored when the folder's boots models or a boots link get an ID (pre-Fox face-XML boots do not)
@@ -130,7 +132,7 @@ spectacles_color = 0            # 0 white, 1 black, 2 red, 3 blue, 4 yellow, 5 g
 gloves = false                  # true, false (outfield player gloves)
 gloves_color = 0                # 0 to 7
 
-[appearance.motion]
+[appearance.motion]             # on Fox written by the aesthetics patch: the tables do not hold motions
 hunching_dribbling = 1          # 1 to 3 (PES 20 and 21: 1 to 5)
 hunching_running = 1            # 1 to 3 (PES 20 and 21: 1 to 5)
 arm_movement_dribbling = 1      # 1 to 8 (PES 20 and 21: 1 to 10)
@@ -224,9 +226,11 @@ thing to read. A shared folder applies it to every mapped player, like `name`.
 On Fox the names are the only part of this file that reaches the savefile, and only through the
 **aesthetics patch**: an autopilot team (an aesthetics export by a caretaker, a tactical export by the
 council, often written before the destination team was known, with names like "Gold striker")
-needs its names written over the tactical export's, and the patch makes that automatic. The patch
-is applied whole, with no team picker: a managed team's export leaves `name` and `shirt_name` out,
-so its players keep the names their manager set in the save editor.
+needs its names written over the tactical export's, and the patch makes that automatic for an
+export carrying the `autopilot` marker at its root. The patch is applied whole, with no team
+picker: without the marker an export's `name` and `shirt_name` are not used, so a managed team's
+players keep the names their manager set in the save editor, and a generated file's names do no
+harm.
 
 Compile-time flow: resolve boots/gloves IDs from the models and link files present (a broken link is
 caught as `link_target_missing` — a check impossible in the current split-tool workflow), falling
@@ -236,8 +240,8 @@ resolve the settings and the IDs of content that was actually written, then per 
 - **Fox:** each compiled player's `PlayerAppearance.bin`, `BootsList.bin` and `GloveList.bin` rows
   are built from the resolved settings and written into the output CPK with every other player's
   installed row (see "Bins accumulation" in the [Team compiler plan](../team_compiler/pipeline.md));
-  the resolved names go into the **aesthetics patch** beside the CPK, which then holds names and
-  shirt names only.
+  the resolved motions, and an autopilot export's names, go into the **aesthetics patch** beside
+  the CPK: motions are player-record fields outside the appearance block a table row holds.
 - **Pre-Fox:** everything resolved goes into the aesthetics patch.
 
 If a local savefile is configured, the compiler applies that patch to it through `pes_savefile`

@@ -533,7 +533,9 @@ A player with a portrait in both locations is an error when the two files differ
   `fpc_on` and `fpc_off` in a player folder, `icon_<N>` (0-23, zero padding optional) in a kit
   folder for its menu icon. A dot would make the value a file extension, which file browsers
   hide, sort by and warn about on rename. The valueless markers
-  keep their names: `ingame_face`, and the kit layout's `pre-fox` and `fox`. Every marker
+  keep their names: `ingame_face`, the kit layout's `pre-fox` and `fox`, and `autopilot` at a
+  team export's root (a team without a manager: the aesthetics patch writes its players'
+  names, "Player settings in exports" in [`settings_toml.md`](settings_toml.md)). Every marker
   tolerates a `.txt` after its name, what Notepad's save dialog adds. A kit with two icon
   markers, or one whose number is not 0-23, reports `kit_icon_invalid` and uses the default
   icon.

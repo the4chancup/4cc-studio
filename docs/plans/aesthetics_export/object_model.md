@@ -159,10 +159,10 @@ eligible, roster-entry scope and disposition; confirmed 2026-09-30).
   | directly in a shared folder | model content | `file_type_disallowed` |
   | directly in a kit folder | textures, `config.toml`, `colors.txt`, the `pre-fox`, `fox` and `icon_<N>` markers | `file_type_disallowed` |
   | directly in `Common/` | model content | `common_file_disallowed` |
-  | directly in `Collars/` | model files named `collar_<ID>` (any model format), textures, `.mtl` and material tomls | `file_type_disallowed` |
+  | directly in `Collars/` | model files named `collar_<ID>` (any model format; the game draws a collar with the kit texture, so it has no textures or materials of its own, `team_compiler/pipeline.md` "Collars") | `file_type_disallowed` |
   | anywhere in `Kits/all/` | textures directly in it | `kit_all_file_ignored` |
   | anywhere in `Portraits/` | textures named `player_NN` directly in it | `portrait_name_invalid` |
-  | at the root | `players.txt`, `notes.txt`, `colors.txt`, `README.txt`, `logo*` textures; a referee export also `refs.txt`, `ref_lists.txt`, `ref_marker.dds` | `root_file_unexpected` |
+  | at the root | `players.txt`, `notes.txt`, `colors.txt`, `README.txt`, `logo*` textures, a team export's `autopilot` marker; a referee export also `refs.txt`, `ref_lists.txt`, `ref_marker.dds` | `root_file_unexpected` |
 
   A file below a subfolder the table does not name takes the code of the folder holding that
   subfolder (`Players/03 - A/extra/x.dds` is `file_type_disallowed`). The list is the same for

@@ -654,14 +654,18 @@ patch to the official save.
 
 **What it holds depends on the engine.** On **Fox** (PES 18–21) a player's appearance, boots and
 gloves travel in the CPK's database tables, not in the savefile (see "Player settings in exports"
-in the [Aesthetics export plan](../aesthetics_export/settings_toml.md)), so the patch holds only
-**names and shirt names**. It is applied whole, with no team picker: an autopilot team's export
-sets `name` and `shirt_name` for its players (its tactical export carries placeholder names),
-while a managed team's export leaves them out, so its players keep the names their manager set.
-Like the pre-Fox one it is written beside every CPK a compile publishes, so the patch beside a
-CPK is always that CPK's (one with no names writes nothing when applied); a run that publishes
-no CPK leaves the previous CPK and its patch alone. On **pre-Fox** (PES 15–17) it holds
-everything below, as the only route for aesthetics.
+in the [Aesthetics export plan](../aesthetics_export/settings_toml.md)), so the patch holds what
+the tables cannot carry: every compiled player's **motions** (`[appearance.motion]`, player-record
+fields outside the appearance block a table row holds) and the **names and shirt names** of an
+**autopilot** export's players, one with the `autopilot` marker at its root (its tactical export
+carries placeholder names). It is applied whole, with no team picker: a managed team's export has
+no marker, so its `name` and `shirt_name` are not used and its players keep the names their
+manager set. Like the pre-Fox one it is written beside every CPK a compile publishes, so the
+patch beside a CPK is always that CPK's; a compile with nothing to put in it (no compiled player,
+no autopilot export) writes none and moves an earlier patch beside the CPK to
+`aesthetics_patch.toml.bak`, one backup replaced each time, and a run that publishes no CPK
+leaves the previous CPK and its patch alone. On **pre-Fox** (PES 15–17) it holds everything
+below, as the only route for aesthetics, names likewise only from an autopilot export.
 
 ```toml
 # aesthetics_patch.toml — written by the Team compiler beside its output CPK
@@ -678,7 +682,7 @@ name = "/a/"                 # for the reader; the id is what is applied
 [teams.players.03]           # slot 03 → player 70103
 name = "Snuffy"              # resolved: `name = true` became the string
 shirt_name = "SNUFFY"
-# pre-Fox only from here on:
+# pre-Fox only from here on, except [teams.players.03.appearance.motion], which a Fox patch holds
 boots_id = 3601              # resolved: the assigned custom ID, the authored stock ID or the marker's default
 gloves_id = 0
 edit_flags = 12
@@ -698,10 +702,12 @@ Rules:
   carries no key, so the save keeps its current ID — the same union Team TOML's player aesthetics
   section holds; nothing is invented for the patch. Every appearance field is written, with
   `settings.toml`'s defaults for keys its file lacks, so a player's appearance is his export's
-  whatever the save held. A Fox file carries `name` and `shirt_name` only. Absent players and
+  whatever the save held. A Fox file carries every compiled player's motion keys, with the
+  defaults for keys his file lacks, and an autopilot export's `name` and `shirt_name`. On both
+  engines `name` and `shirt_name` come only from an autopilot export. Absent players and
   teams are untouched, which is what lets a midcup patch covering three teams apply to a save
   cleanly after a full-cup one; an absent `name` or `shirt_name` is not written.
-- **A names write keeps a stripped player stripped.** Applying a Fox patch changes the name
+- **A Fox patch keeps a stripped player stripped.** Applying it changes the motion and name
   fields alone; the appearance block, and its player id at -1, are left as they are, so the
   player keeps taking his appearance from the database tables (see "Stripped save" in the
   [Save editor plan](../save_editor.md)).
@@ -710,7 +716,7 @@ Rules:
   "only for content that was actually packed" rule. The patch answers "what will the save contain",
   never "what did the export say" — the export is not needed to apply it.
 - **Applying is `pes_savefile`'s operation** (`apply_patch`): for each player, apply what the
-  file holds (`PlayerSettings`, IDs and edit flags on pre-Fox; names on Fox), through the same
+  file holds (`PlayerSettings`, IDs and edit flags on pre-Fox; motions and names on Fox), through the same
   code the compiler's own
   savefile stage uses — because that stage *is* "apply the patch just produced to the local save"
   (see "Savefile update" in the [Team compiler plan](../team_compiler/pipeline.md)). One path, so a patch applied

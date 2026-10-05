@@ -16,7 +16,7 @@ cross-family review (a) is queued). Next: 4.33 (`name.y` in PES 21 units), 4.34 
 `Full`/`Midcup` tag), then 4.21 (bins from the installed CPKs; 4.14 waits on 4.31's
 pre-Fox export); 4.30,
 4.5 to 4.8, 4.9a and 4.10 to 4.13 are done (4.6c moved to Phase 8's cancellation), 4.9b
-(collars) opens with where a collar's textures land. 2.5b (GPU BC7) is step 16.x (decision entries
+(collars) opens with the Fox stock collars' material. 2.5b (GPU BC7) is step 16.x (decision entries
 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0 after Phase 8; phase order 1–6,
 8, 0.1.0, 7, 9–16 (`core/development_plan.md` "Releases"); first-class target the Fox version
 the cup moves to around April 2027 ("Target versions").
@@ -890,10 +890,10 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
     0 missed
   - (b) collars (`Collars/`'s allowlist row, `collar_id_invalid`, `collar_id_conflict`,
     `kit_collar_reserved`, the configs' collar fields rewritten after FPC, the models converted
-    to the target's format, decision 2026-10-05). TC-CMN-01..03, TC-CMN-08, TC-CMN-09. Open
-    first: where a collar's own
-    textures land and what its texture paths name (`pipeline.md` "Collars" gives only the
-    model's `nocloth` path)
+    to the target's format, decision 2026-10-05; models only, drawn with the kit texture).
+    TC-CMN-01..03, TC-CMN-08..10. Lead first: the Fox stock collars' material, which a collar
+    converted from pre-Fox takes (pre-Fox's are `uni_collar` and `uni_shirts`, `pipeline.md`
+    "Collars")
 
 - [x] 4.10 **Kit layout conversion**: `KIT_LAYOUT_REMAP` (the plan's four sock bands; the
   shorts are not re-laid) in `processing/kit_layout.rs`, `kit_layout_converted`, each band
@@ -1613,30 +1613,50 @@ pruned when their phase closes; they stay in git history.
   PES 16, and the plan treats it as existing; `kitN` works on Fox through FoxDen and comes to
   pre-Fox when the cup returns to it (`messages.md`, `model_format.md` "Kit-dependent
   assets").
-- open, needs the maintainer — generated `settings.toml` files opt in to names: the Save
-  editor's and the Export upgrader's generation write `name` and `shirt_name` for every player
-  they generate, and the Team creator writes `name = true` in every player folder it
-  creates (`team_creator.md`, review S5.A3 item 2), so a
-  managed team that migrates through them holds an export whose aesthetics patch (applied
-  whole, decision 2026-10-05) writes the generated names over any rename its manager makes
-  later. Intended (the author deletes the keys), a note at generation, or generation leaves
-  names out for managed teams (review S5.7 item 8)?
+- resolved (2026-10-05, maintainer) — generated `settings.toml` files and names: names are
+  used only from an export with the `autopilot` root marker, so generated names do no harm
+  (`settings_toml.md`, `operations.md` "Aesthetics patch").
 - open, needs the maintainer — the seed rows and multi-CPK mode: strip-and-seed puts its rows
   into `4cc_08_bins.cpk` (decision 2026-10-05), but in multi-CPK mode that CPK is the
   compiler's own bins output (`settings.md` `bins_cpk_name`), and the bins walk starts below
   the output CPK (`pipeline.md` "Bins accumulation"). So the DLC builder's next multi-CPK
   compile reads the three player tables from below the seed and replaces `4cc_08_bins.cpk`
-  without the seed rows of every player no export compiles. Options: the walk reads the three
-  player tables from the output CPK too (compiled players' rows are rebuilt every run, so the
-  walk stays idempotent for them), or the seed goes into a CPK of its own listed below
-  `4cc_08_bins` (review S5.A1 item 1).
+  without the seed rows of every player no export compiles. Resolved (2026-10-05,
+  maintainer): in multi-CPK mode the player tables' walk starts at the bins CPK itself
+  (`pipeline.md` "Bins accumulation").
 - open, needs the maintainer — motions on Fox: `settings.toml`'s `[appearance.motion]`
   (hunching, arm movement, kick motions, celebrations, dribbling) are player-record fields
   outside the appearance block (PES 20/21 bits 96 to 332), so neither the `PlayerAppearance.bin`
   row (the block's bytes) nor the Fox patch (names only) carries them: on Fox a compiled
-  export's motions reach nobody. Does the Fox patch carry the motion keys too (whether the game
-  reads them from a stripped record is untested), or do motions become the manager's, edited
-  in the save editor like gameplay (review S5.A1 item 2)?
+  export's motions reach nobody. Resolved (2026-10-05, maintainer): the Fox patch carries
+  every compiled player's motions (`operations.md` "Aesthetics patch"). Untested: that the game
+  uses a stripped record's motions (expected: they are outside the appearance block).
+- open, needs the maintainer — pre-Fox has the player tables too (found 2026-10-05):
+  `BootsList.bin` and `GloveList.bin` in the base data of PES 15, 16 and 17 (`dt33`, and PES
+  17's `dt00_win`), and in the cup's own `4cc_02_misc.cpk` on PES 15 and 17, with a row for
+  every cup player id 70101-89223, all 1; `PlayerAppearance.bin` (13,242 rows of 60 bytes, as
+  on Fox) and `RefereeAppearance.bin` (35 rows) in PES 17's `dt00_win`; no `PlayerAppearance.bin`
+  on PES 15 or 16 (`.tmp/apptest/prefox_bins/`). Unknown: whether a pre-Fox game reads them
+  for a save player (a Test 1 on PES 17 would tell), and what the cup's all-1 rows are for. If
+  it does, pre-Fox could carry boots, gloves and (PES 17) appearance in the CPK as Fox does.
+- open, needs the maintainer — referee collars are `referee_collar_<ID>`: the pre-Fox base
+  `uniform_config.xml` loads a referee's collar from `nocloth/referee_collar.model` (type
+  `referee_shirt`), Red's pre-Fox referee template ships `referee_collar_026.model`, the cup's
+  `4cc_04_fpc.cpk` ships `referee_collar_105.model` beside `collar_105.model`, and PES 21's
+  `dt35_g4` holds `referee_collar_*.fmdl`. If referees load `referee_collar_<ID>`, the marker
+  (4.27) is `referee_collar_077`, teams and referees do not share collar IDs, and the 77
+  reservation against teams (`kit_collar_reserved`, the conflict) guards nothing. Also: a
+  collar is drawn with the kit texture, so the marker texture becomes every referee kit's
+  main texture (maintainer, 2026-10-05; referee models are full-body and ignore it), and the
+  bundled marker models need collar materials. Settle before 4.27.
+- open, needs the maintainer — FoxDen per-kit models (maintainer, 2026-10-05): a tag-less
+  `modelname` fills every kit number up to the team's kit count that has no
+  `modelname_kit<N>`, once any variant exists. The local FoxDen (`02_kitswappers.lua`) swaps
+  whole folders instead (`<id>p<kit>\#Win\`, kit 1 never swapping, legacy `u0TTTp0` and
+  25-id blocks). Needed before the plan changes: the file names FoxDen looks for (per model
+  inside the face package, or per-kit folders), how that meets Fox merging (one merged FMDL
+  per kit?), and whether the rule covers textures and pre-Fox. Then `kit_variant_model_fox`
+  and `model_format.md` "Kit-dependent assets" change.
 - open — the unknown bits across versions: `settings_toml.md` names them by record bit
   position per version and never converts them, but the ingame-face run's layout is the same
   on every version (`model.md` "The ingame-face run"), Team TOML prefix-copies it between
@@ -2588,3 +2608,8 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   counted), so 4.9b waits only on where a collar's textures land; a refs export may hold
   shared boots and gloves, each linking referee's `k99XX`/`g99XX` (TC-REF-10). Test 3
   (`.tmp/apptest/out_test3/`) checks the converted socks and collar 200 in game.
+- **2026-10-05** — third set (decision entry): collars are models only, drawn with the kit
+  texture (TC-CMN-08..10); multi-CPK keeps the seed rows; the `autopilot` root marker alone
+  opts names in, the Fox patch carries motions, and a compile with nothing to patch backs the
+  old patch up as `.bak`. Found: pre-Fox player tables, and referee collars named
+  `referee_collar_<ID>` (both in "Issues").

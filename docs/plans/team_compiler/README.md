@@ -1200,16 +1200,19 @@ TC-CMN-06  GIVEN slot 05's face model referencing dummy_kit and dummy_kit_srm, n
 TC-CMN-07  GIVEN slot 05 holding pants_kit1.model and pants_kit2.model with their .mtl files
            WHEN the export is compiled for PES 17
            THEN the face.xml holds one entry naming pants_kitN, with both variant files beside it
-TC-CMN-08  GIVEN Collars/collar_12.model with its .mtl, and another export holding
-           Collars/collar_117.model with its .mtl
+TC-CMN-08  GIVEN Collars/collar_12.model, and another export holding Collars/collar_117.model
            WHEN each is compiled for PES 17
-           THEN the first CPK holds collar_012.model and its .mtl under
+           THEN the first CPK holds collar_012.model under
                 common/character0/model/character/uniform/nocloth/; the second reports
                 collar_id_invalid (117 is not a PES 17 collar) and its file is dropped
 TC-CMN-09  GIVEN Collars/collar_12.fmdl
            WHEN the export is compiled for PES 17
-           THEN the CPK holds collar_012.model and its .mtl under
-                common/character0/model/character/uniform/nocloth/ and no .fmdl
+           THEN the CPK holds collar_012.model under
+                common/character0/model/character/uniform/nocloth/ and no .fmdl or .mtl
+TC-CMN-10  GIVEN Collars/collar_12.fmdl and Collars/collar_12.dds
+           WHEN the export is checked
+           THEN file_type_disallowed is reported for collar_12.dds, which is dropped, and
+                collar_12.fmdl is kept
 ```
 
 **Bins**

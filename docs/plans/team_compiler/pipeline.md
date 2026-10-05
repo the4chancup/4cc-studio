@@ -553,8 +553,12 @@ describes behavior, not a serial scheduling requirement:
   scoped on the main file: a failure drops the logo alone. The PNGs are 8-bit RGBA, written
   by `dds_convert::encode_png`. A DDS or FTEX source gives its top mip level.
 - **Collars** — a collar model is converted to the target engine's format like any other model
-  when it is in the other engine's (`collar_12.fmdl` compiled for PES 17 becomes `collar_012.model`
-  plus its `.mtl`, and the reverse), its textures converted as a player model's are. These are
+  when it is in the other engine's (`collar_12.fmdl` compiled for PES 17 becomes `collar_012.model`,
+  and the reverse). The game draws every collar with the team's kit texture (pre-Fox: the base
+  data's `uniform_config.xml` gives `nocloth` collars the `collar` model type and the shared
+  `uniform.mtl`; Fox: the exe assigns the type), so a collar has no textures or `.mtl` of its
+  own, and a converted collar's materials are named as the stock collars' are (pre-Fox
+  `uni_collar` and `uni_shirts`, materials of that `uniform.mtl`). These are
   custom collar models that replace one of PES's many stock collar models (the game's `nocloth`
   set); the compiler derives the
   replaced model's ID and sets it as the collar and the winter collar in all of the team's kit configs, which puts the
@@ -563,7 +567,7 @@ describes behavior, not a serial scheduling requirement:
   files through without changing the configs. The replaced ID comes from the filename, which must be
   `collar_<ID>`, the ID with or without zero padding (`collar_12` and `collar_012` name the same
   collar); the file is emitted under the game's three-digit name, `collar_012.fmdl` on Fox and
-  `collar_012.model` plus its `.mtl` pre-Fox, at the target's `nocloth` path ("Game paths
+  `collar_012.model` pre-Fox, at the target's `nocloth` path ("Game paths
   reference"). A name that doesn't parse, or an ID that is not a stock collar of the target version
   (the per-version sets, counted in the installed games' base data CPKs, are in `messages.md`,
   `collar_id_invalid`), reports `collar_id_invalid`. Two teams replacing the same stock collar ID
@@ -674,7 +678,11 @@ describes behavior, not a serial scheduling requirement:
   loading priority (Red approximates the same precedence by sorting the DPFL's CPK names in reverse
   alphabetical order) — and, as in Red, the walk starts just below the compiler's own output CPK,
   skipping it and anything with higher priority: this keeps each compilation idempotent even after
-  newer midcup CPKs are added further down the list. Each bin is taken from the first CPK the walk
+  newer midcup CPKs are added further down the list. One exception: in multi-CPK mode the walk
+  for the three player tables starts at the bins CPK itself (`bins_cpk_name`), so a compile
+  replacing `4cc_08_bins.cpk` keeps the seed rows it holds; a multi-CPK compile rebuilds every
+  compiled player's rows from his export, so only the rows of players no export compiles come
+  through from the previous output. Each bin is taken from the first CPK the walk
   finds it in, with the supplying CPK reported; the bundled bases only serve from-scratch compiles.
   The same walk locates pre-Fox kit-config bins for FPC patching. Bins updating is unconditional
   (Red's `bins_updating` setting is dropped — see "Resolved decisions").
@@ -966,14 +974,15 @@ describes behavior, not a serial scheduling requirement:
   (`deploy_target_unwritable`) and still compiles to `output/` (TC-DEP-04).
 - **Aesthetics patch** — written beside the output CPK as `aesthetics_patch.toml`: the resolved
   savefile writes for the compiled players (format and rules in "Aesthetics patch" in the
-  [Savefile plan](../pes_savefile/operations.md)). On **Fox** it holds names and shirt names only
-  (the rest is in the CPK's player appearance tables, "Bins accumulation") and, as on pre-Fox, is
-  written beside every CPK the run publishes (none when it publishes none, the previous pair
-  staying as it was), so an earlier run's patch never sits beside a newer CPK; the
-  savefile builder applies it whole, a managed team's export
-  leaving `name` and `shirt_name` out so its players keep their manager's names while an
-  autopilot team's export sets them. On
-  **pre-Fox** it holds everything: settings.toml settings with
+  [Savefile plan](../pes_savefile/operations.md)). On **Fox** it holds the compiled players'
+  motions and an autopilot export's names (the rest is in the CPK's player appearance tables,
+  "Bins accumulation") and, as on pre-Fox, is written beside every CPK the run publishes (none
+  when it publishes none, the previous pair staying as it was), except that a run with nothing
+  to put in it writes none and moves an earlier patch beside the CPK to
+  `aesthetics_patch.toml.bak`; so an earlier run's patch never sits beside a newer CPK. The
+  savefile builder applies it whole; names come only from an export carrying the `autopilot`
+  marker, so a managed team's players keep their manager's names. On
+  **pre-Fox** it holds everything (names only from an autopilot export): settings.toml settings with
   `name = true` and FPC markers resolved to concrete values, the authored stock boots/gloves IDs
   (else the marker's default) for categories requesting no standalone output, and the
   auto-assigned boots/gloves IDs **only for content that was actually packed**: if a boots/gloves task failed, the affected players
@@ -1106,9 +1115,9 @@ without it Phase 3 promotes the same way and says nothing more (deployment is Ph
 | TeamColor.bin | `common/etc/TeamColor.bin` | same |
 | UniColor.bin | `common/character0/model/character/uniform/team/UniColor.bin` | same |
 | UniformParameter | — | `common/character0/model/character/uniform/team/UniformParameter.bin` |
-| PlayerAppearance.bin | — | `common/character0/model/character/appearance/PlayerAppearance.bin` (60-byte rows: player id, then the record's 56 appearance bytes) |
-| BootsList.bin | — | `common/character0/model/character/boots/BootsList.bin` ((player id, boots ID) u32 pairs, sorted by id) |
-| GloveList.bin | — | `common/character0/model/character/glove/GloveList.bin` ((player id, gloves ID) u32 pairs, sorted by id) |
+| PlayerAppearance.bin | — (PES 17's base data has one, not written; worklog "Issues") | `common/character0/model/character/appearance/PlayerAppearance.bin` (60-byte rows: player id, then the record's 56 appearance bytes) |
+| BootsList.bin | — (PES 15-17's base data has one, not written) | `common/character0/model/character/boots/BootsList.bin` ((player id, boots ID) u32 pairs, sorted by id) |
+| GloveList.bin | — (as BootsList.bin) | `common/character0/model/character/glove/GloveList.bin` ((player id, gloves ID) u32 pairs, sorted by id) |
 
 ### Resolved decisions and open questions
 
@@ -1165,7 +1174,7 @@ Resolved decisions:
   installed cup content (`kit_config_fpc_adjusted`), so a midcup export can add an FPC player
   without resending untouched kits (see "FPC toggle" in the [Aesthetics export plan](../aesthetics_export/fpc_toggle.md)).
 - **The aesthetics patch is the compiler's only savefile write path**: a compile writes
-  `aesthetics_patch.toml` beside each CPK it publishes (on Fox only names, the rest travelling in the CPK's
+  `aesthetics_patch.toml` beside each CPK it publishes (on Fox only motions and autopilot names, the rest travelling in the CPK's
   player appearance tables); a configured local savefile is updated by applying that
   patch, never by a separate write. Reason: the DLC builder and the savefile builder are different
   roles — the official save carries the teams' custom tactics, which the DLC builder must not have —

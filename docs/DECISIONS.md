@@ -4048,3 +4048,26 @@ Why: the cup's next game decides which exe changes are made; a referee has no te
 his slot's own ID is the only one a link can take.
 Plan: `team_compiler/messages.md` (the PES16 Common note); `model_format.md` "Kit-dependent
 assets"; `team_compiler/blue_port.md` "Referee export processing"; TC-REF-10.
+
+## 2026-10-05 — team_compiler — collars use the kit texture; autopilot marker; motions; seed rows
+Decision (maintainer):
+- A collar is drawn with the team's kit texture on both engines (pre-Fox: the base
+  `uniform_config.xml` gives `nocloth` collars the `collar` type and the shared `uniform.mtl`;
+  Fox: the exe assigns the type), so `Collars/` holds model files only and a pre-Fox collar
+  ships no `.mtl`. This replaces the first entry of this date's "textures converted" clause.
+- An export opts its players' names into the aesthetics patch with an `autopilot` marker at
+  its root; without it `name` and `shirt_name` are not used, on both engines.
+- The Fox patch carries every compiled player's motions, which no database table holds.
+- A compile with nothing to patch writes no patch and moves an earlier one beside the CPK to
+  `aesthetics_patch.toml.bak`, one backup replaced each time.
+- In multi-CPK mode the player tables' walk starts at the bins CPK itself, so the seed rows
+  survive the next full-cup compile.
+Lead's reading: motion keys a file lacks are written with their defaults, as pre-Fox writes
+every appearance field, so a Fox patch is skipped only for a compile with no player and no
+autopilot export.
+Why: the game ignores a collar's own materials; a marker shows at a glance which teams have no
+manager and makes generated names harmless; motions are aesthetics, and the patch is their only
+route on Fox; a stale patch must not sit beside a newer CPK.
+Plan: `team_compiler/pipeline.md` "Collars", "Bins accumulation", "Post-processing";
+`aesthetics_export/object_model.md` (allowlist); `player_folders.md` "Marker names";
+`settings_toml.md`; `pes_savefile/operations.md` "Aesthetics patch"; TC-CMN-08..10.
