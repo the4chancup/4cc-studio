@@ -15,8 +15,8 @@ folder view tells the whole story about how the player's models render:
 - **`fpc_on`** — an empty marker file in a player folder. When present, the compile applies the
   version-appropriate **FPC enable preset** from `pes_savefile` to the player's settings (the same
   preset the save editor's FPC toggle uses — one implementation, so the two tools can never drift);
-  they reach the game like every other setting (on Fox in his `PlayerAppearance.bin` row, on
-  pre-Fox through the aesthetics patch).
+  they reach the game like every other setting (on Fox in his table rows, on pre-Fox
+  through the aesthetics patch).
 - **`fpc_off`** — applies the disable preset (visible defaults) instead. Since an absent key takes
   its default, it differs from no marker only where an authored strip key would otherwise apply.
 - **Absent = no FPC preset applied**: the player's strip keys and boots/gloves IDs are what his

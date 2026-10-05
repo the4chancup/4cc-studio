@@ -13,7 +13,7 @@ repo (`blender_project/pes_models_plan.md`); this plan owns only the manifest
 contract and the Studio side.
 
 The export format and `settings.toml` schema are owned by the
-[Team compiler plan](team_compiler/README.md); the IR/glTF machinery by the
+[Aesthetics export plan](aesthetics_export/README.md); the IR/glTF machinery by the
 [Model conversion plan](model_conversion/README.md); FPC by the
 [Save editor plan](save_editor.md); platform context in the [core plan](core/README.md).
 

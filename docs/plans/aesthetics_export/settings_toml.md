@@ -14,7 +14,7 @@ compile carries them to the game. **How depends on the engine:**
   entry "aesthetics travel in the database tables"). The official save is therefore stripped once
   (every appearance id set to -1, see "Stripped save" in the [Save editor plan](../save_editor.md))
   and the compiler writes each compiled player's three rows from this file; nothing of a
-  player's appearance is written to the savefile. Gloves need FoxDen's gloves patch to keep the table's value (worklog
+  player's appearance is written to the savefile. Gloves need a FoxDen change to keep the table's value (worklog
   "Issues"); until it does, a Fox gloves row has no effect in the 4cc setup.
 - **Pre-Fox (PES 15–17): in the savefile**, through the aesthetics patch the compiler writes and
   the save editor applies, as before. The database route is untested there.

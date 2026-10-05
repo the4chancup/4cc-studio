@@ -382,7 +382,7 @@ is a deferred verification completed after those phases land.
 against 4ccEditor edits for the same assignments; AATF rule fixtures (known-violating and clean
 saves); save editor operations exercised through the CLI on fixture saves. In game, on the Fox
 version the cup has chosen (step 4.0's Test 1 covered PES 2021 only): a stripped and seeded save
-shows every player as before; a compiled team's rows show, gloves included once FoxDen keeps the
+shows every player as before; a compiled team's rows show, gloves included once a FoxDen change keeps the
 table's value; and a file without `[appearance.unknown]` renders acceptably with the all-zero
 default (otherwise the default becomes the base database row's bits).
 
