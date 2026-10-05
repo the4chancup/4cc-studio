@@ -621,7 +621,7 @@ describes behavior, not a serial scheduling requirement:
   (`aesthetics_export/object_model.md` "Coverage tag") rebuilds what the compiler holds for
   its team from the export alone, since the record's count is what makes the game offer a
   kit: the `UniColor.bin` record holds its committed kits and nothing else (the count theirs,
-  every other entry unused), a kit whose task failed keeping the entry it had, as everywhere, the team's kit configs in `UniformParameter.bin` that the export
+  every other entry unused), a kit whose task failed keeping the entry it had, counted, as everywhere, the team's kit configs in `UniformParameter.bin` that the export
   does not hold are removed, and no absent kit slot is FPC-patched, there being none. A
   `Full` export with no root `colors.txt` still keeps its `TeamColor.bin` record's bytes
   (`team_colors_missing`): there is nothing to rebuild it from. What a `Full` export cannot

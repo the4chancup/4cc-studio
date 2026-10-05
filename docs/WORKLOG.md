@@ -1113,7 +1113,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   Open first (found at 4.11c): a model's type is read from its stem's last part, so a
   per-kit model named `boots_kit1` is typed as face content; typing should probably skip
   the kit token.
-  IDs: TC-MOD-20..25, TC-MOD-35, TC-MOD-37..38, TC-CHK-08, TC-TEX-07, TC-CMN-07 (split from TC-CMN-05 at 4.11c). Crates: tc (`processing/model.rs`, `processing/material.rs`,
+  IDs: TC-MOD-20..25, TC-MOD-35, TC-MOD-37..40, TC-CHK-08, TC-TEX-07, TC-CMN-07 (split from TC-CMN-05 at 4.11c). Crates: tc (`processing/model.rs`, `processing/material.rs`,
   `processing/texture.rs`, `paths.rs`) → verify: a `/co/` slot 05 folder with the smallest
   `pes_model` fixture pair as `face_high.model` + `face_high.mtl` and `skin.dds`, compiled for PES 17: the
   CPK holds `common/character0/model/character/face/real/71405.cpk` whose `face.xml` lists one
@@ -1140,7 +1140,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   with `wezlib::compress` on PES 15-17 only, already-wrapped sources passed through, the level
   chosen by measuring levels 1, 3 and 6 on the tracer's DDS set and recorded in a decision entry.
   Plan: `pipeline.md` "4. Per-export non-model steps" (Kits: mask and srm); `settings.md`
-  (`dds_compression`, "DDS compression cost"). IDs: TC-KIT-21..23, TC-KIT-28, TC-TEX-08,
+  (`dds_compression`, "DDS compression cost"). IDs: TC-KIT-21..23, TC-KIT-28..29, TC-TEX-08,
   TC-BIN-04, TC-BIN-18. Crates:
   tc (`processing/kit.rs`, `processing/texture.rs`, `bins/`, `settings.rs`) → verify: PES 17
   compile of `/co/` p1 without a mask emits `u0714p1_mask.dds` byte-identical to the template;

@@ -7,7 +7,7 @@ use std::collections::BTreeMap;
 use dds_convert::{SourceFormat, decode, encode_png};
 
 use crate::common::Sandbox;
-use crate::compile::{cpk_entries, pes21_settings};
+use crate::compile::{cpk_entries, pes_settings, pes21_settings};
 use crate::{TEAM_COLORS_MISSING, findings_of};
 
 const RED: [u8; 4] = [255, 0, 0, 255];
@@ -224,4 +224,32 @@ fn a_small_logo_gives_the_128_pixel_one_and_an_undecodable_one_drops_the_whole_l
         })
         .collect();
     assert_eq!(colors, [(512, RED), (256, RED), (128, BLUE)]);
+}
+
+// TC-ROOT-13
+#[test]
+fn a_logo_compiled_for_pes_19_gets_the_emblem_names() {
+    let sandbox = Sandbox::new("logo_pes19");
+    sandbox.write("exports/co - Logo/logo.png", &png(600, 600, |_, _| RED));
+
+    let run = sandbox.run(&pes_settings(&sandbox, 19), &["compile"]);
+
+    assert_eq!(run.exit_code(), 0);
+    let logos = compiled_logos(&sandbox);
+    // In the CPK's own order: `_r.png` sorts before `_r_l.png`.
+    let paths: Vec<&str> = logos.keys().map(String::as_str).collect();
+    assert_eq!(
+        paths,
+        [
+            "common/render/symbol/flag/emblem_0714_r.png",
+            "common/render/symbol/flag/emblem_0714_r_l.png",
+            "common/render/symbol/flag/emblem_0714_r_ll.png",
+        ]
+    );
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    assert!(
+        entries.keys().all(|path| !path.contains("e_000714_")),
+        "{:?}",
+        entries.keys().collect::<Vec<_>>()
+    );
 }
