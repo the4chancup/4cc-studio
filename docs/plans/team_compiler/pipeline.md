@@ -695,7 +695,8 @@ describes behavior, not a serial scheduling requirement:
    there is no refs-specific overrides tree unless one is introduced later. Every file below
    `overrides/` in the data directory is one CPK entry at its path relative to that folder
    (`overrides/common/etc/TeamColor.bin` is the entry `common/etc/TeamColor.bin`). `compile`
-   lists the tree once, before its tasks start, and a tree holding a file is reported as
+   lists the tree once, before its tasks start, and in the modes that apply overrides (normal
+   and sideload; "Output-mode artifact routing") a tree holding a file is reported as
    `overrides_active` (the folder, the file count). The writer adds the override entries
    first, in path order, so they create the CPK even when no export commits anything. An
    entry a task or the bins then bring at an override's path is left out, the override having
@@ -928,8 +929,10 @@ describes behavior, not a serial scheduling requirement:
     `other_uniform` are `teams2`). Within one official stem the old files, in their list
     order, take the official names in their list order, so load order is kept
     (`4cc_60_midcup` to `4cc_74_midcup` become 61 to 75; `4cc_40_faces` and `4cc_45_uniform`
-    become `4cc_41_teams` and `4cc_42_teams`; `4cc_38_balls` becomes `4cc_16_balls`). A file
-    already under an official name keeps it and its place in that order. An old file with no
+    become `4cc_41_teams` and `4cc_42_teams`; `4cc_38_balls` becomes `4cc_16_balls`). The old
+    files of a stem are all its installed files once one of them needs a name, those already
+    under an official name included (in the example, `4cc_61_midcup` becomes 62), and the
+    renames run last first, so none lands on a file not yet moved. An old file with no
     official name left for it (a sixteenth midcup, a stem the official list does not have)
     is not renamed and is listed as "will no longer be loaded"; a rename never overwrites a
     file. The dialog, and `upgrade-dpfl` without `--yes`, show every rename before anything

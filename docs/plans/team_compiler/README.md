@@ -912,7 +912,7 @@ TC-CHK-07  GIVEN slot 05's boots.fmdl holding bytes that are not a model
 
 ```
 TC-XML-01  GIVEN slot 05 holding face_high.model, hat_parts.model and its own face.xml with three
-           entries: face_high.model typed face_neck; hat_parts.model typed "cape", with a
+           entries: ./face_high.model typed face_neck; ./hat_parts.model typed "cape", with a
            <model> attribute "glow" and level="1"; and
            model/character/uniform/common/XXX/legs.model typed parts, which Common/ holds
            WHEN the export is compiled for PES 17
@@ -997,8 +997,8 @@ TC-KIT-20  GIVEN an empty p3/ marked pre-fox, and all/ holding a file named fox
                 kit_all_file_ignored is reported for all/fox
 TC-KIT-21  GIVEN p1/ holding kit.dds without kit_mask.dds
            WHEN the export is compiled for PES 17
-           THEN u0714p1_mask.dds is emitted byte-identical to the bundled mask template with no
-                finding
+           THEN u0714p1_mask.dds is emitted byte-identical to the bundled mask template, with no
+                finding about the mask
 TC-KIT-22  GIVEN p1/ holding kit.dds, kit_mask.dds and kit_srm.dds
            WHEN the export is compiled for PES 17, then PES 21
            THEN on 17 the mask is emitted as given and the srm is not, on 21 the srm is emitted as
@@ -1057,7 +1057,7 @@ TC-CMN-01  GIVEN Collars/collar_12.fmdl and p1/config.toml
            THEN Asset/model/character/uniform/nocloth/#Win/collar_012.fmdl is in the CPK and every
                 emitted kit config's collar and winter collar read 12
 TC-CMN-02  GIVEN Collars/collar_105.fmdl, Collars/neck.fmdl and Collars/collar_9999.fmdl
-           WHEN the export is checked
+           WHEN the export is checked for PES 21
            THEN collar_id_invalid is reported for neck.fmdl and collar_9999.fmdl,
                 collar_id_conflict for collar_105.fmdl (reserved for FPC), and each file is dropped
 TC-CMN-03  GIVEN exports /a/ and /co/ each holding Collars/collar_12.fmdl
@@ -1337,12 +1337,13 @@ TC-DEP-12  GIVEN an installed DPFL holding the official list's entries plus 4cc_
                 download/4cc_99_test.cpk holds the run's CPK and the exit code is 0; the second
                 reports neither dpfilelist_not_official nor dpfilelist_outdated
 TC-DEP-13  GIVEN an installed DPFL listing 4cc_38_balls, 4cc_40_faces, 4cc_45_uniform,
-           4cc_60_midcup, 4cc_61_midcup and 4cc_86_mine, each a 1 KiB file in download/
+           4cc_60_midcup, 4cc_61_midcup and 4cc_86_mine, each a 1 KiB file of its own bytes in
+           download/
            WHEN upgrade-dpfl --yes runs
-           THEN the files are named 4cc_16_balls, 4cc_41_teams, 4cc_42_teams, 4cc_61_midcup and
-                4cc_62_midcup with their bytes unchanged, 4cc_86_mine.cpk is still present and
-                reported as no longer loaded, and every other official entry is the 6,272-byte
-                placeholder
+           THEN the files are named 4cc_16_balls, 4cc_41_teams, 4cc_42_teams, 4cc_61_midcup (the
+                old 4cc_60's bytes) and 4cc_62_midcup (the old 4cc_61's), each byte for byte,
+                4cc_86_mine.cpk is still present and reported as no longer loaded, and every
+                other official entry is the 6,272-byte placeholder
 TC-DEP-14  GIVEN an installed DPFL listing 4cc_62_midcup with no such file in download/
            WHEN /co/ is compiled with the default cpk_name
            THEN dpfilelist_cpk_missing is reported naming 4cc_62_midcup.cpk, the run's CPK is

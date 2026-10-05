@@ -3997,8 +3997,19 @@ Plan: `team_compiler/pipeline.md` "Collars"; TC-CMN-01.
 Decision (lead, reversible): in a user-supplied `face.xml`, the team ID put in place of a
 Common path's 3-character subfolder and the `<dif>` block inserted from `face_diff.xml` are
 applied without a finding, as in a generated xml; the reported Info rewrites are the
-`face_neck` dummy and `uniform_sub`.
+`face_neck` dummy and `uniform_sub`. This narrows the 2026-09-12 entry's list of reported
+rewrites.
 Why: the catalog prose promised findings for both while no code existed for either; the user
 wrote the placeholder and the `face_diff.xml` for the compiler to fill in, so a line saying it
 did tells them nothing, whereas the other two change what they wrote (review S6.2a minor 3).
 Plan: `team_compiler/messages.md` "User-supplied `face.xml`".
+
+## 2026-10-05 — team_compiler — a stem's renames include its files already under official names
+Decision (lead, reversible): when `upgrade-dpfl` renames an old DLC's CPKs by stem, the old
+files of a stem are all its installed files once one of them needs a name, those already
+under an official name included, dealt the official names in list order; the renames run
+last first so none lands on a file not yet moved.
+Why: the plan's example (`4cc_60_midcup` to `4cc_74_midcup` become 61 to 75) shifts files
+that already carry official names, while its next sentence kept such a file in place, which
+would leave `4cc_60` with no name and drop a DLC's first matchday (review S6.3b item 3).
+Plan: `team_compiler/pipeline.md` "DpFileList upgrade"; TC-DEP-13.
