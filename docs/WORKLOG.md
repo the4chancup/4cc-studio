@@ -1688,6 +1688,12 @@ pruned when their phase closes; they stay in git history.
   deployment to `download/`, elevation included" (`pipeline.md` "Output modes"), but no
   plan says what a sideload run does when it cannot (a tree has no `output/` to degrade
   to). Settle with the sideload step (review S6.1b item 21).
+- open — the DpFileList outside a compile that deploys: sideload and test mode still build
+  the bins on the installed ones (the DpFileList walk), but `dpfilelist_missing` is an Error
+  whose consequence is deployment's (skipped, CPKs promoted), which neither mode has. Settle
+  whether a sideload or test run with no `DpFileList.bin` reports it (and exits 1) or builds
+  on the bundled bases with `bin_source` alone, with the sideload step (review S6.10b item 2;
+  TC-OUT-09 declares a DpFileList meanwhile).
 - resolved (2026-10-02) — the VPS mutation half's memory peak reached 7.07 GiB of the 8 GiB cap
   on `team_compiler` (3.y whole-crate run, 2 build jobs); no build was killed, and a killed one
   now fails the run. The maintainer keeps 8 GiB. (The 37 OOM kills of 2026-10-02 04:00 were the

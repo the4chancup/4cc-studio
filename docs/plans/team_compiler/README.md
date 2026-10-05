@@ -688,20 +688,22 @@ TC-MOD-04  GIVEN slot 05 holding a face model, skin.dds and kit_boots.fmdl, and 
            WHEN each is compiled
            THEN the first packs skin once with no texture finding; the second reports
                 shared_texture_conflict, keeps the face and the player's skin, and k0625 is absent
-TC-MOD-05  GIVEN Boots/Crocs/boots.fmdl and Boots/Mud/boots.fmdl, Crocs linked by slots 03 and 07,
-           Mud by slot 11
+TC-MOD-05  GIVEN Boots/Crocs/ and Boots/Mud/ each holding boots.fmdl and a texture, Crocs linked by
+           slots 03 and 07, Mud by slot 11
            WHEN the export is compiled for PES 21
-           THEN k0644 holds Crocs and k0645 Mud (alphabetical), each once, and no k06NN folder
-                exists for slots 03, 07 or 11
+           THEN k0644 holds Crocs and k0645 Mud (alphabetical), each once with its texture under
+                its own k064N/#windx11/ and its model's path naming it there, and no k06NN
+                folder exists for slots 03, 07 or 11
 TC-MOD-06  GIVEN eighteen shared boots folders each linked by a player
            WHEN the export is checked
            THEN boots_id_pool_exhausted is reported and the export is skipped
-TC-MOD-07  GIVEN Boots/Crocs/ linked by slot 05, which also holds kit_boots.fmdl; then slot 07
-           also linking Crocs.boots plainly
+TC-MOD-07  GIVEN Boots/Crocs/ holding boots.fmdl and sole.dds, linked by slot 05, which also holds
+           kit_boots.fmdl; then slot 07 also linking Crocs.boots plainly
            WHEN the export is compiled for PES 21 each time
            THEN link_combined and fmdl_merged are reported for slot 05, k0625 holds one boots.fmdl
-                whose mesh count is Crocs's plus the local model's, and k0644 is absent from the
-                first run and holds Crocs alone in the second
+                whose mesh count is Crocs's plus the local model's, sole.ftex sits under slot
+                05's texture folder, and k0644 is absent from the first run and holds Crocs alone
+                in the second, with its own copy of sole.ftex
 TC-MOD-08  GIVEN Faces/Longhair/ holding hair_high.fmdl, linked by slot 05, which holds face_high.fmdl
            WHEN the export is compiled for PES 21
            THEN slot 05's face package holds face_high.fmdl and hair_high.fmdl, and no output
@@ -734,8 +736,8 @@ TC-MOD-14  GIVEN slot 05 holding boots/hair_high.fmdl and common/skin.dds
            WHEN the export is compiled for PES 21
            THEN hair_high.fmdl is a boots part (k0625 holds it as boots.fmdl) and skin.ftex sits in
                 the player's common subfolder
-TC-MOD-15  GIVEN slot 05 holding face_diff.xml, and another holding a face_diff.xml whose base64
-           payload is corrupt
+TC-MOD-15  GIVEN slot 05 holding a face model and face_diff.xml, and another holding a face model
+           and a face_diff.xml whose base64 payload is corrupt
            WHEN each export is compiled for PES 21
            THEN the first's face package holds a face_diff.bin decoded from the xml; the second
                 reports face_diff_invalid and the folder is dropped
@@ -915,10 +917,10 @@ TC-TEX-08  GIVEN a /co/ export whose slot 05 holds a face model naming skin and 
            auto with multicpk_mode off, then on
            WHEN the export is compiled for PES 17 each time, then for PES 21 with true and
            with false
-           THEN every .dds entry of the first run is WESYS-wrapped and decompresses to the second
-                run's bytes; the third run equals the second and the fourth wraps as the first; a
-                source already WESYS-wrapped is
-                emitted as it is in every PES 17 run; the two PES 21 runs' CPKs are byte-identical
+           THEN every .dds entry of the first run but hair.dds is WESYS-wrapped and decompresses
+                to the second run's bytes; the third run equals the second and the fourth the
+                first; hair.dds is emitted as it is in every PES 17 run; the two PES 21 runs'
+                CPKs are byte-identical
 TC-TEX-09  GIVEN slot 05 holding a face model naming the textures hair and skin, skin.dds,
            hair.dds.common, and Common/hair.dds
            WHEN the export is compiled for PES 21
@@ -1037,8 +1039,8 @@ TC-KIT-11  GIVEN p1/colors.txt holding two valid entries, p2/ holding kit.dds an
            WHEN the export is compiled for PES 21
            THEN UniColor.bin carries p1's two colors at team 714's p1 entry, p2's entry holds the
                 pair the dominant-color extraction gives for kit.dds with kit_colors_derived reported, and p3's
-                the magenta/black pair with kit_colors_missing
-TC-KIT-12  GIVEN p1/colors.txt holding one valid entry and one unparsable line
+                the magenta/black pair with kit_placeholder and kit_colors_missing
+TC-KIT-12  GIVEN p1/kit.dds and p1/colors.txt holding one valid entry and one unparsable line
            WHEN the export is compiled
            THEN color_entry_invalid is reported for the line, and the kit's colors are derived from
                 its texture (kit_colors_derived)
@@ -1167,7 +1169,7 @@ TC-CMN-02  GIVEN Collars/collar_105.fmdl, Collars/neck.fmdl and Collars/collar_9
            WHEN the export is checked for PES 21
            THEN collar_id_invalid is reported for neck.fmdl and collar_9999.fmdl,
                 collar_id_conflict for collar_105.fmdl (reserved for FPC), and each file is dropped
-TC-CMN-03  GIVEN exports /a/ and /co/ each holding Collars/collar_12.fmdl
+TC-CMN-03  GIVEN exports /a/ and /co/ each holding Collars/collar_12.fmdl, /co/ also p1/config.toml
            WHEN the root is compiled
            THEN /a/ keeps its collar (canonical order) and /co/ reports collar_id_conflict, its
                 collar dropped and its configs not rewritten
@@ -1379,13 +1381,15 @@ TC-OUT-07  GIVEN the tracer export
                 folder is untouched
 TC-OUT-08  withdrawn: two sources of one team are duplicate_aesthetics_export before any output
            (TC-PLN-03), so their test_output folders cannot collide
-TC-OUT-09  GIVEN a PES folder with livecpk/old.txt, overrides/common/etc/TeamColor.bin in the
-           data directory, and the tracer export
+TC-OUT-09  GIVEN a PES folder with download/DpFileList.bin and livecpk/old.txt,
+           overrides/common/etc/TeamColor.bin in the data directory, the tracer export and a
+           refs export
            WHEN compile --mode sideload runs for PES 21
-           THEN livecpk/ holds exactly the files a normal-mode CPK of the export holds, at the
-                same relative paths with the same bytes (livecpk/common/etc/TeamColor.bin the
-                override's), overrides_active is reported, old.txt is gone, download/ is
-                untouched, and the exit code is 0
+           THEN livecpk/ holds exactly the files the normal-mode CPKs (the team's and the refs')
+                hold, at the same relative paths with the same bytes
+                (livecpk/common/etc/TeamColor.bin the override's, with overrides_active and
+                duplicate_path reported), old.txt is gone, download/ is untouched, and the exit
+                code is 0
 TC-OUT-10  GIVEN pes_version 15, then 16, then 17
            WHEN compile --mode sideload runs
            THEN 15 and 16 are refused as an invalid configuration naming the version with exit

@@ -712,9 +712,10 @@ describes behavior, not a serial scheduling requirement:
    sideload (unpacked PES-folder structure in the game folder's `livecpk\`). Test-mode directory names derive from
    the canonical source key, not from potentially duplicated display names. Multi-CPK mode (the cup
    DLC mode) routes team content into **size-split `teams` parts** plus the bins CPK — see
-   "Multi-CPK mode: teams parts" below. Referee content always routes to its own CPK named by
+   "Multi-CPK mode: teams parts" below. In normal mode referee content routes to its own CPK named by
    `refs_cpk_name`, separate from those team targets; `refs_cpk_name` affects only normal CPK mode
-   (test/sideload retain their existing per-export layouts). Every emitted CPK name (team, teams part,
+   (test mode writes referee content per export, sideload at its game paths in `livecpk\`:
+   "Output-mode artifact routing"). Every emitted CPK name (team, teams part,
    refs) is a validated `CpkStem` (shared `pipeline` type): filename stem only, 1–28 characters from
    ASCII alphanumeric, `_`, `-`, and `.`; no separators, control characters, trailing dot, Windows
    reserved-device names, or user-supplied `.cpk` suffix; uniqueness is checked case-insensitively.
