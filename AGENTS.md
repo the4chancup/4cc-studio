@@ -380,7 +380,11 @@ no `allowed-tools`, so it has the shell, `edit` and `write`; measured 2026-10-05
 foreground (a background subagent has unapproved tools denied), resume the same one per task
 (`resume: <agent_id>` keeps its memory, as the sidekick's handoffs do), read its size with the
 `context-usage` script before each resume (its line names the profile and its first task), and
-start a fresh one once it is at 350K or more, before an autocompaction can land mid-task. The
+start a fresh one once it is at 200K or more. A subagent's ceiling is lower than the sidekick's:
+two S5.14 review runs (2026-10-05) ended with an empty final message and no report at about
+260K, where the completed rounds before them had also stopped (254K to 260K). A review brief
+over a wide surface therefore names the diffs, the context to read around them and targeted
+greps instead of whole files, and asks for the report file to be written early. The
 `sidekick` tool's single sidekick cannot be reset. **Compaction does not fire while a sidekick handoff or a background subagent is in
 flight**, so a run started "to save time" ahead of the `[[/compact]]` sentinel costs the
 compaction instead (2.20b's mutation runs were started that way and the sentinel was ignored).
