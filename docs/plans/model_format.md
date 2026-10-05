@@ -134,7 +134,8 @@ pre-Fox alike) implement this with a **path magic**: a texture path — or, in a
 model path — containing a reference token is rewritten at load time to the variant spelling for the
 selected kit slot, and the game loads whichever variant file that names. The token may sit anywhere
 in the path, including a folder name. The unified format keeps this mechanism and gives it a
-readable spelling, which the exes are being modded to look for **in place of** the historical one:
+readable spelling, looked for **in place of** the historical one: on Fox by FoxDen today, on
+pre-Fox by an exe change made when the cup next plays a pre-Fox version:
 
 | Spelling (export and game files alike) | Meaning |
 |---|---|

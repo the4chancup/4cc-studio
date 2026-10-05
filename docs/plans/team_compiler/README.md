@@ -1387,6 +1387,11 @@ TC-REF-09  GIVEN TC-REF-01's refs export
                 referee020.cpk and referee035.cpk, each face.xml holding Ref A's boots model as a
                 boots entry, no common/character0/model/character/boots/ path, and one skin.dds
                 under common/character1/model/character/uniform/common/999/Ref A/
+TC-REF-10  GIVEN a refs export whose players.txt maps Ref A to slots 01 and 20, Ref A holding
+           only a link to the shared folder Boots/Studs, which holds boots.fmdl
+           WHEN the root is compiled for PES 21
+           THEN the referee CPK holds boots folders k9901 and k9920, each with the shared
+                boots model, and no other boots folder
 ```
 
 **Output modes, deployment, multi-CPK**

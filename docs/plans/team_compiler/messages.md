@@ -330,8 +330,9 @@ The three `mtl_state_*` checks other than `mtl_state_missing` also run on a glTF
 states one-to-one; a glTF material with states absent just gets its family's state set, so
 `mtl_state_missing` does not apply).
 
-Red's "no models from Common on PES16" check is intentionally **not** ported: the PES16 exe will be
-patched to allow loading models from Common, so the compiler must not reject such references.
+Red's "no models from Common on PES16" check is intentionally **not** ported: the plan treats the
+PES16 exe as patched to load models from Common (the patch is made when the cup next plays PES
+16), so the compiler must not reject such references.
 
 **User-supplied `face.xml`.** A pre-Fox model folder may ship its own `face.xml` instead of having
 the compiler generate one. This is **second-class, accepted on purpose**: the generated xml covers

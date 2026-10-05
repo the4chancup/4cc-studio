@@ -16,7 +16,7 @@ cross-family review (a) is queued). Next: 4.33 (`name.y` in PES 21 units), 4.34 
 `Full`/`Midcup` tag), then 4.21 (bins from the installed CPKs; 4.14 waits on 4.31's
 pre-Fox export); 4.30,
 4.5 to 4.8, 4.9a and 4.10 to 4.13 are done (4.6c moved to Phase 8's cancellation), 4.9b
-(collars) waits on the maintainer. 2.5b (GPU BC7) is step 16.x (decision entries
+(collars) opens with where a collar's textures land. 2.5b (GPU BC7) is step 16.x (decision entries
 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0 after Phase 8; phase order 1–6,
 8, 0.1.0, 7, 9–16 (`core/development_plan.md` "Releases"); first-class target the Fox version
 the cup moves to around April 2027 ("Target versions").
@@ -847,9 +847,8 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `kit_config_version_clamped`; `fpc_on`/`fpc_off` no longer refuse the export (their savefile
   half is Phase 5); `Collars/` gets its allowlist row in `ae` (model files named `collar_<ID>`,
   any model format; the per-version stock sets are in `messages.md` `collar_id_invalid`,
-  measured on every install, PES 20's included since 2026-10-03; waits on
-  the maintainer: its confirmation, game-facing), `collar_<ID>` parsed with or without zero
-  padding, `collar_id_invalid` (not a stock collar of the target version),
+  measured on every install, PES 20's included since 2026-10-03), `collar_<ID>` parsed with or
+  without zero padding, `collar_id_invalid` (not a stock collar of the target version),
   `kit_collar_reserved` for a regular team's kit
   whose effective collar or winter collar is 77 (kit dropped; `blue_port.md` "Referee export
   processing", TC-REF-07),
@@ -891,8 +890,8 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
     0 missed
   - (b) collars (`Collars/`'s allowlist row, `collar_id_invalid`, `collar_id_conflict`,
     `kit_collar_reserved`, the configs' collar fields rewritten after FPC, the models converted
-    to the target's format, decision 2026-10-05). TC-CMN-01..03, TC-CMN-08, TC-CMN-09. Waits on
-    the maintainer's confirmation of the stock collar sets. Open first: where a collar's own
+    to the target's format, decision 2026-10-05). TC-CMN-01..03, TC-CMN-08, TC-CMN-09. Open
+    first: where a collar's own
     textures land and what its texture paths name (`pipeline.md` "Collars" gives only the
     model's `nocloth` path)
 
@@ -1196,8 +1195,8 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   boots folders when the folder has boots; the team CPK of the same run holds no `999` path.
   A pre-Fox referee's local boots and gloves are `face.xml` entries, as a player's
   (decision 2026-10-05, `blue_port.md` "Referee export processing"; TC-REF-09).
-  Open first (found at 4.4a): the plan gives a shared `Boots/`/`Gloves/` folder in a refs export
-  no ID (refs have no block; the structure pass's pool check skips refs); rule it in the plan
+  A shared `Boots/`/`Gloves/` folder in a refs export is written as each linking referee's
+  `k99XX`/`g99XX` (decision 2026-10-05, `blue_port.md`; TC-REF-10).
 
 - [ ] 4.20 **Withdraw the Phase 3 subset gate**: `plan/subset.rs` and `content_not_yet_compiled`
   removed (the catalog row reads withdrawn), TC-OUT-06 withdrawn, every content kind and both
@@ -1504,7 +1503,8 @@ administrator, Upgrade DpFileList dialog): Phase 8; glTF sources: Phase 7; the G
 Phase 4 open questions (maintainer):
 
 - The sock table's look in-game (4.10): `KIT_LAYOUT_REMAP` approximates, in two bands, a map
-  the models give to within about 10 px of 2048 (`pipeline.md` "Layout conversion"). To
+  the models give to within about 10 px of 2048 (`pipeline.md` "Layout conversion"). Test 3
+  (`.tmp/apptest/out_test3/GUIDE.txt`, 2026-10-05) is ready for it. To
   settle: a pre-Fox kit with a design on its socks (hoops do not show it; a vertical stripe
   or a logo does), compiled for a Fox game with the `pre-fox` marker and looked at in-game.
 - Collars beyond the stock set (4.9, 4.27; the maintainer's idea, 2026-10-03): PES 15 loads
@@ -1518,6 +1518,8 @@ Phase 4 open questions (maintainer):
   that a visible model at a non-stock ID renders. To settle it: an in-game test per engine,
   a kit naming an ID above the version's stock set (200, say) with a visible collar model
   under that name. Until then 4.9 keeps the stock-set rule and the reserved 105 and 77.
+  Test 3 (`.tmp/apptest/out_test3/GUIDE.txt`, 2026-10-05) is ready for it: collar 200 on
+  PES 21 and PES 17, a copy of each game's collar_107.
 
 Answered 2026-10-03 (decision entries of that date; each is in the plan): the official
 DpFileList's entries (`resources/templates/DpFileList.txt`, the maintainer's own edit of the
@@ -1607,14 +1609,10 @@ pruned when their phase closes; they stay in git history.
   Settle before 4.22 (review S5.1 item 9, S5.2 items 1 and 7). A team player the `Full`
   export does not compile at all keeps his rows as they are (decision 2026-10-05; the plan
   already says so).
-- open, needs the maintainer — `messages.md` (around line 333, "the PES16 exe will be patched
-  to allow loading models from Common") and `player_folders.md` (around line 222, "on PES16 via
-  the patched exe") rely on a PES 16 exe patch. Does it exist already (then "will be" is stale
-  tense), or is it a planned exe change, which the "Fox first" decision defers for pre-Fox
-  until a pre-Fox version is the cup's game again (review S5.4 item 4)? The same question for
-  `kitN`: `model_format.md` "Kit-dependent assets" (the exes "are being modded to look for"
-  `kitN`) and `testing.md` "Kit-dependent path magic" describe exe modding on both engines; on
-  Fox the decision routes such a change through FoxDen (review S5.7 item 2).
+- resolved (2026-10-05, maintainer) — the PES 16 Common patch is made when the cup next plays
+  PES 16, and the plan treats it as existing; `kitN` works on Fox through FoxDen and comes to
+  pre-Fox when the cup returns to it (`messages.md`, `model_format.md` "Kit-dependent
+  assets").
 - open, needs the maintainer — generated `settings.toml` files opt in to names: the Save
   editor's and the Export upgrader's generation write `name` and `shirt_name` for every player
   they generate, and the Team creator writes `name = true` in every player folder it
@@ -2585,3 +2583,8 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   players it does not compile; a referee folder is a player folder, so pre-Fox local boots
   ride in its `face.xml` (TC-REF-09). Test 2, a stripped player with no `BootsList`/
   `GloveList` row, is ready for the maintainer (`.tmp/apptest/out_test2/GUIDE.txt`).
+- **2026-10-05** — more answers (decision entry): the PES 16 Common patch is treated as
+  existing; `kitN` is FoxDen's on Fox; the stock collar sets need no confirmation (they were
+  counted), so 4.9b waits only on where a collar's textures land; a refs export may hold
+  shared boots and gloves, each linking referee's `k99XX`/`g99XX` (TC-REF-10). Test 3
+  (`.tmp/apptest/out_test3/`) checks the converted socks and collar 200 in game.

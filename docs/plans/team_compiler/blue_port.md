@@ -40,7 +40,11 @@ other respect a referee folder is a player folder, its `face.xml` included: on p
 boots and gloves are typed entries of that `face.xml` ("A link plus local models combines" in the
 [Aesthetics export plan](../aesthetics_export/player_folders.md)), so no `k99XX`/`g99XX` folder is
 written for them, and the game, modded to load `k99XX`/`g99XX` for slot XX, shows none there;
-Fox writes them as the slot's `k99XX`/`g99XX` folders.
+Fox writes them as the slot's `k99XX`/`g99XX` folders. A refs export may hold shared `Boots/` and
+`Gloves/` folders like a team's, but a referee has no team block to give one an ID of its own: a
+referee's link resolves to his slot's `k99XX`/`g99XX`, the shared folder written as that folder
+for every slot that links it (on Fox the referee's local parts merged in, as for a player's own
+folder).
 
 **Preparing the slot mapping is a separate tool's job.** The slots are not drawn uniformly — each
 PES version has measured slot appearance rates (flat per-slot chances on 17–21, a pattern table on

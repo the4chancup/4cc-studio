@@ -4034,3 +4034,17 @@ referee rule needs no exception (review S6.7, S6.10b item 2, S5.2 item 7, S6.A3 
 Plan: `team_compiler/pipeline.md` "Collars", "Game paths reference" (referee rows);
 `team_compiler/messages.md` `dpfilelist_missing`; `team_compiler/blue_port.md` "Referee export
 processing"; TC-CMN-09, TC-OUT-18, TC-REF-09.
+
+## 2026-10-05 — team_compiler — the PES 16 Common patch, kitN, refs' shared boots and gloves
+Decision (maintainer):
+- The PES 16 exe patch that loads models from Common does not exist yet; it is made when the
+  cup next plays PES 16, and the plan treats it as existing.
+- `kitN` works on Fox through FoxDen; pre-Fox gets it when the cup returns to a pre-Fox
+  version.
+- A refs export may hold shared `Boots/` and `Gloves/` folders; a referee's link resolves to
+  his slot's `k99XX`/`g99XX`, the shared folder written as that folder for each linking slot.
+- The per-version stock collar sets need no confirmation: they were counted on every install.
+Why: the cup's next game decides which exe changes are made; a referee has no team block, so
+his slot's own ID is the only one a link can take.
+Plan: `team_compiler/messages.md` (the PES16 Common note); `model_format.md` "Kit-dependent
+assets"; `team_compiler/blue_port.md` "Referee export processing"; TC-REF-10.
