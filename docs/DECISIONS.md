@@ -4186,3 +4186,16 @@ Why: one checkbox covers the rule as organizers state it; a general condition wo
 specials, one per position, for the same rule.
 Plan: `aatf_rules.md` "Background", the schema, "VGL27", violations, "The host", crate layout,
 phase and verification; `ruleset_editor.md` "Randomize"; `core/development_plan.md` Phase 5.
+
+## 2026-10-07 — aatf — Autumn 25 and Spring 26 as test rulesets; official parity per ruleset
+Decision (user): 2026's earlier official rulesets, Autumn 25 (4ccEditor `7e01541`) and Spring 26
+(`c92d535`), become data-only test rulesets, each checked against `aatf.cpp` at its own commit on
+the cup saves played under it. A ruleset usually serves two cups (maintainer): Autumn 25 served
+Autumn 25 and Winter 26, Spring 26 served Spring and Summer 26.
+Lead's reading: both fit the schema unchanged; they are the Autumn 26 file without bronze and
+without its three new specials, with other numbers. The saves were matched to rulesets by file
+date, not opened.
+Why: Autumn 26 parity on saves built for older rules finds nearly every team illegal; under each
+team's own ruleset most are legal, which tests the zero-finding path on real teams.
+Plan: `aatf_rules.md` "Background", "Autumn 25 and Spring 26", crate layout, phase and
+verification; `core/development_plan.md` Phase 5.

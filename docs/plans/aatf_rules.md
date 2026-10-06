@@ -28,6 +28,10 @@ change is a recompile. Its git history (46 commits, 2019–2026) shows what chan
 - **Engine changes**, rarely: B ratings checked, playing-style ranges per version, which stats a
   version has.
 
+A ruleset usually serves two cups. 2026's earlier official rulesets, Autumn 25 (Autumn 25 and
+Winter 26) and Spring 26 (Spring and Summer 26), are Autumn 26's structure with two medal tiers
+and none of its new specials ("Autumn 25 and Spring 26").
+
 Invitationals already run their own rulesets on forks of the editor. VGL26 (4ccEditor-VGL, branch
 `vgl26`, `stats.h` + `aatf_single_vgl`) is a complete one of a different shape: five tiers
 including a "buffed" one, per-stat targets per tier, one exact height per tier and no height
@@ -55,8 +59,8 @@ no buffed tier and no per-stat targets, tiers recognized by rating alone, height
 ruleset has: a starting-eleven player must be fielded at his registered position in at least one
 formation the game can field.
 
-The schema below is the union of what the four rulesets and the specials history need, and the
-four rulesets are its fixtures ("Verification").
+The schema below is the union of what these rulesets and the specials history need, and the
+rulesets are its fixtures ("Verification").
 
 ---
 
@@ -461,10 +465,25 @@ warnings for gold (above 194, and at 194) separately; here they are one. A playe
 no tier's target is placed by expected rating rather than by `aatf.cpp`'s thresholds, so an illegal
 player can be reported against a different tier; both report the player.
 
+## Autumn 25 and Spring 26
+
+Two test rulesets (not templates), there so the official parity runs each 2026 cup save under the
+ruleset its teams were built for. Transcribed from `aatf.cpp` at 4ccEditor's `7e01541` (Autumn 25;
+its Version B, `aae4835` and `bb3e54a`, changed no rule) and `c92d535` (Spring 26). Both are the
+Autumn 26 file with:
+
+- no bronze tier; gold `count` 2; silver `rate` 88 and `cards` 4; gold `cards` 5;
+- medals' `weak_foot` usage 2, accuracy 4;
+- Green quotas giga 0, giant 5, tall 6, mid 6, manlet 6;
+- the "Red manlet bonus" for regular and goalkeeper only (+5);
+- no "Green silver giants", "Red CBs up to 189" or medals' A-or-COM choice.
+
+They differ from each other in two values: Autumn 25 has 2 silvers and goalkeepers at 77, Spring
+26 has 3 silvers and goalkeepers at 74.
+
 ## VGL26
 
-The second embedded ruleset: a starting template in the Ruleset editor and the schema's second
-fixture, transcribed from 4ccEditor-VGL's `vgl26` branch (tip `ad378d2`; `stats.h`, and
+The second embedded ruleset: a starting template in the Ruleset editor and a fixture, transcribed from 4ccEditor-VGL's `vgl26` branch (tip `ad378d2`; `stats.h`, and
 `aatf_single_vgl` in `aatf.cpp`). What it exercises that the official file does not:
 
 | Feature | VGL26 |
@@ -478,9 +497,8 @@ fixture, transcribed from 4ccEditor-VGL's `vgl26` branch (tip `ad378d2`; `stats.
 
 ## VGL27
 
-The fourth fixture (a test ruleset, not a template), transcribed from 4ccEditor-VGL's `vgl27`
-branch (tip `45ce31d`, tag `VGL27.A`; the ruleset is commit `4447996`). What it exercises that the
-other three do not:
+A test ruleset (not a template), transcribed from 4ccEditor-VGL's `vgl27` branch (tip `45ce31d`,
+tag `VGL27.A`; the ruleset is commit `4447996`). What it exercises that the others do not:
 
 | Feature | VGL27 |
 |---|---|
@@ -647,6 +665,8 @@ crates/libs/aatf/
 ├── logic/logic.rhai    # the interpreter, current version
 ├── rulesets/           # data blocks only; a shipped file is data + logic.rhai
 │   ├── autumn26.rhai
+│   ├── autumn25.rhai
+│   ├── spring26.rhai
 │   ├── vgl26.rhai
 │   ├── vgl27.rhai
 │   └── vtl11.rhai
@@ -686,16 +706,21 @@ and a rule the schema cannot express needs either the custom-checks hook or a sc
 ## Development phase and verification
 
 Phase 5 (with the Save editor's logic): `Ruleset` and the load-time rules, the interpreter, the
-host and its accessors, `apply_tier`, logic identity, the Autumn 26, VGL26, VTL11 and VGL27 data
-blocks, the
+host and its accessors, `apply_tier`, logic identity, the Autumn 26, Autumn 25, Spring 26, VGL26,
+VTL11 and VGL27 data blocks, the
 sample team and the fixtures. The writer (`writer.rs`) and schema migrations arrive with the
 Ruleset editor in Phase 20.
 
 Verification:
 
-- **Parity, official.** The Autumn 26 file flags the same players with the same violation kinds
-  as `aatf.cpp` on a corpus of real cup saves; each difference is one of the deliberate ones
-  above or a fix.
+- **Parity, official.** Each official file flags the same players with the same violation kinds
+  as `aatf.cpp` at its own commit, on the cup saves played under it; each difference is one of the
+  deliberate ones above or a fix. In `C:\Data\4cc\Saves` on the maintainer's machine (matched to
+  rulesets by date): Autumn 25 on `2025 Autumn Babby Cup V2 Save.zip` and `2026 Winter Cup V2
+  Save.rar`, Spring 26 on `2026 Spring Babby Cup Save V3.rar` and `2026 4chan Summer Cup Save
+  V3.rar`; Autumn 26 on the same saves (findings compared, legality aside) until its own cup
+  saves exist. Most teams there were legal under their own ruleset, so this is also the check that
+  a real legal team reports nothing.
 - **Parity, VGL26.** The same against `aatf_single_vgl` on the VGL26 cup save
   (`C:\Data\4cc\Saves\EDIT00000000_VGL26` on the maintainer's machine, 2026-10-06), every team.
 - **Parity, VTL11.** Transcribed into a ruleset from the VTLEditor fork (its positional rule
@@ -714,5 +739,5 @@ Verification:
   `suggestions`.
 - Validation: one failing file per load-time rule, each reporting its key path or line.
 - `apply_tier` then `check_team`: no violation of the applied tier's targets, for every tier of
-  the four rulesets.
+  every ruleset above.
 - A script that loops forever stops at the operation limit with a finding, not a hang.
