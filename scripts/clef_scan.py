@@ -320,13 +320,13 @@ def ruling_key(path: str, lines: list[str], line: int) -> str:
 
 
 def load_rulings() -> dict[str, dict[str, str]]:
-    """Key -> {verdict, date, line, reason}, from the rulings table's rows."""
+    """Key -> {verdict, date, line, p, reason}, from the rulings table's rows."""
     rulings = {}
     for row in RULINGS.read_text(encoding="utf-8").splitlines():
         cells = [c.strip().replace("\\|", "|")
                  for c in re.split(r"(?<!\\)\|", row.strip())[1:-1]]
-        if len(cells) == 5 and re.fullmatch(r"[0-9a-f]{16}", cells[0]):
-            rulings[cells[0]] = dict(zip(("verdict", "date", "line", "reason"), cells[1:]))
+        if len(cells) == 6 and re.fullmatch(r"[0-9a-f]{16}", cells[0]):
+            rulings[cells[0]] = dict(zip(("verdict", "date", "line", "p", "reason"), cells[1:]))
     return rulings
 
 
@@ -419,7 +419,7 @@ def report_section(job: dict, flags: list[tuple], rulings: dict) -> tuple[list[s
                 out.append(f"  - ruled {r['verdict']} on {r['date']}: {r['reason']}")
             elif key:
                 out.append(f"  - row: `| {key} | accepted/rejected | YYYY-MM-DD | "
-                           f"{path}:{rows[0][0]} | reason |`")
+                           f"{path}:{rows[0][0]} | {p:.2f} | reason |`")
         if not entries:
             out.append("None.")
         out.append("")

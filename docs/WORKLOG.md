@@ -14,7 +14,7 @@ is in `AGENTS.md` ("Working documents").
 **Next:** Phase 4 is itemized and its Acceptance section written (step 4.1, 2026-10-03; its
 cross-family review (a) is queued). Next: 4.33 (`name.y` in PES 21 units), 4.34 (the
 `Full`/`Midcup` tag), then 4.21 (bins from the installed CPKs; 4.14 waits on 4.31's
-pre-Fox export); 4.30,
+pre-Fox export); 4.c-pass (the Clef full pass) when the maintainer starts it; 4.30,
 4.5 to 4.8, 4.9a and 4.10 to 4.13 are done (4.6c moved to Phase 8's cancellation), 4.9b
 (collars) waits on nothing. 2.5b (GPU BC7) is step 16.x (decision entries
 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0 after Phase 8; phase order 1–6,
@@ -1470,11 +1470,28 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   blocking a task. (Placed after 4.28: eviction is the budget's policy, which 4.28 gives the
   budget the accounting for.)
 
+- [ ] 4.c-pass **Clef full pass** (decision entries of 2026-10-06; `CONTRIBUTING.md` "Clef
+  scan"): `just clef all` over the current code (about 1,540 windows, 27K neurons: it spans two
+  days on the two free accounts, the rest queued), every merged flag ruled into
+  `scripts/clef_rulings.md`, the accepted ones fixed through a rework brief or a new step →
+  verify: a rerun's report shows no new flag; each fix landed with a red-first test
+
+- [ ] 4.c-threshold **Clef threshold re-check** (after 4.c-pass, once
+  `scripts/clef_rulings.md` holds 200 rulings or at this phase's converge, whichever comes
+  first): the 2026-10-06 threshold table (`THRESHOLD` 0.7, chosen from 21 injected defects and
+  203 reviewed windows) redone on real data. False alarms per threshold from the rulings' P and
+  verdicts; missed defects from every defect found since by other means (reviewer, census,
+  mutation run, in-game test) in code the scan had seen, its window's score read from
+  `clef.out/cache.json`; and a sample of the full pass's windows scored 0.5 to 0.7, ruled, for
+  what a lower threshold would add → verify: a decision entry keeping or moving `THRESHOLD`,
+  with the table
+
 - [ ] 4.y-conv **Converge** (`AGENTS.md` "Closing a phase" (1)): the lead's audit of
   `team_compiler`, `aesthetics_export`, `pipeline` and the Phase 4 edits of the lib crates
   against `development_plan.md` "Phase 4", the `pipeline.md` walkthrough, `messages.md`,
   `settings.md` and every TC ID; `just acceptance strict`; the design-health pass (design-tell
-  sweep, `just mutants` per crate with every survivor triaged, `pub` census); the census over
+  sweep, `just mutants` per crate with every survivor triaged, `just clef` per crate with every
+  flag ruled, `pub` census); the census over
   every export on the maintainer's machine (Everything index) run through `check` and `compile
   --mode test`, tallied by outcome; then the cross-family reviewer loop, one surface per crate
   (queued per the handover if no reviewer is available); each gap a new step above this one →
