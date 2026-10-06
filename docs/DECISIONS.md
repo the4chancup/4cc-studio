@@ -4101,3 +4101,16 @@ cut to a pointer plus the checker UI, verification pointer; `team_creator.md` "H
 `core/README.md` overview, `rhai` row, decisions row; `core/architecture.md` crate tree;
 `core/development_plan.md` Phase 5 bullet, Phase 18 cheap tier, new Phase 20;
 `model_format.md` "Comments are app-injected"; `plans/README.md`; `GLOSSARY.md`.
+
+## 2026-10-06 — ruleset_editor — Randomize; the VGL26 test save
+Decision (user): the Ruleset editor gets a Randomize button that generates a whole new ruleset,
+with three presets: Sensible, Weird, Crazy. VGL26 parity is tested on the maintainer's
+`EDIT00000000_VGL26` save.
+Lead's reading: a random ruleset always admits a legal team. The generator draws witness teams
+first, reads the tier counts and quotas off them, and verifies the witnesses with `check_team`,
+redrawing what fails. Results are seeded and reproducible across releases through the tool's own
+SplitMix64. A result opens as a new unsaved document. The presets' bounds are a table in the plan.
+Why: a ruleset no team can satisfy is worse than none; a seed that changed meaning between
+releases could not be shared.
+Plan: `ruleset_editor.md` "Randomize", start page, CLI `random`, crate layout, verification;
+`aatf_rules.md` VGL26 parity; `core/development_plan.md` Phase 20.

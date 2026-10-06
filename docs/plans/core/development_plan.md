@@ -703,10 +703,12 @@ Plan: [Ruleset editor](../ruleset_editor.md).
 - `libs/aatf`'s writer (`Ruleset` → `RULESET` block, deterministic) and the schema-migration hook
 - The tool: start page and templates, the section forms (tiers, heights, cards, universal rules,
   specials with the condition and effects editors, suggestions), opening and saving with logic
-  identity, the rules summary; `validate`, `update-logic` and `summary` CLI; the help chapter
+  identity, the rules summary, Randomize (Sensible / Weird / Crazy, seeded, every result with a
+  legal witness team); `validate`, `update-logic`, `summary` and `random` CLI; the help chapter
 
 **Verification:** as in the Ruleset editor plan's "Development phase": writer round trips on both
 embedded rulesets, VGL26 rebuilt from Blank through the forms (manual), logic update and refusal,
-no invalid ruleset ever written.
+no invalid ruleset ever written, every random ruleset's witnesses legal over 1,000 seeds per
+preset.
 
 ---

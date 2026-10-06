@@ -2638,3 +2638,6 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   `aatf_rules.md` (the format, moved out of `save_editor.md`) and `ruleset_editor.md` (new tool,
   Phase 20). Checked on the way: Rhai is maintained (1.26.0, 2026-08; only its LSP is abandoned);
   upstream fixed the three AATF errata the old section listed (`f5e7b3e`). No code.
+- **2026-10-06** — Ruleset editor: Randomize added to the plan (Sensible / Weird / Crazy, seeded,
+  every result backed by a legal witness team; decision entry). VGL26 parity now has its save:
+  `C:\Data\4cc\Saves\EDIT00000000_VGL26`. No code.

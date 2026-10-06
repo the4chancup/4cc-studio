@@ -598,8 +598,8 @@ Verification:
 - **Parity, official.** The Autumn 26 file flags the same players with the same violation kinds
   as `aatf.cpp` on a corpus of real cup saves; each difference is one of the deliberate ones
   above or a fix.
-- **Parity, VGL26.** The same against `aatf_single_vgl` on VGL teams (where the corpus comes
-  from is an open question for Phase 5).
+- **Parity, VGL26.** The same against `aatf_single_vgl` on the VGL26 cup save
+  (`C:\Data\4cc\Saves\EDIT00000000_VGL26` on the maintainer's machine, 2026-10-06), every team.
 - Per ruleset, known-legal teams report nothing; each known-violating fixture reports exactly its
   violation. Every special of the official file is exercised by at least one fixture.
 - Suggestions: a fixture per allowance kind, and none for an allowance not listed in
