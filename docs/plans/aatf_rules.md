@@ -49,8 +49,14 @@ custom check, not schema); the game's skill card limit raised to 11 on PES 21; a
 only, team tactics settings (no man marking set up, auto substitution, offside trap and preset
 change off).
 
-The schema below is the union of what the three rulesets and the specials history need, and the
-three rulesets are its fixtures ("Verification").
+VGL27 (4ccEditor-VGL, branch `vgl27`, tag `VGL27.A`) reshapes VGL26 toward the official layout:
+no buffed tier and no per-stat targets, tiers recognized by rating alone, height brackets back
+(one exact height each, one set of quotas), the official manlet bonus, and a rule no other
+ruleset has: a starting-eleven player must be fielded at his registered position in at least one
+formation the game can field.
+
+The schema below is the union of what the four rulesets and the specials history need, and the
+four rulesets are its fixtures ("Verification").
 
 ---
 
@@ -192,6 +198,9 @@ pub struct HeightSystem {
 
 pub struct Universal {
     pub registered_position_a: bool,
+    /// A starting-eleven player is fielded at his registered position in at least one formation
+    /// the game can field (counted as for `Condition::fielded_only_at`).
+    pub registered_position_fielded: bool,
     pub no_b_ratings: bool,
     /// B ratings count toward the A-position allowance, like extra A positions.
     pub b_uses_a_allowance: bool,
@@ -467,6 +476,28 @@ fixture, transcribed from 4ccEditor-VGL's `vgl26` branch (tip `ad378d2`; `stats.
 | Cards | `tricks` (VGL's set, Heading and Malicia included) free up to 12; free COM 2 or 1; `a_positions` 2 (goalkeeper 1); the captain's Captaincy free and one extra card (`cards: 1` for `captain: true`) |
 | Suggestions | `cards`, `com`, `a_positions`, `weak_foot`, `injury_resistance`, `free_cards` |
 
+## VGL27
+
+The fourth fixture (a test ruleset, not a template), transcribed from 4ccEditor-VGL's `vgl27`
+branch (tip `45ce31d`, tag `VGL27.A`; the ruleset is commit `4447996`). What it exercises that the
+other three do not:
+
+| Feature | VGL27 |
+|---|---|
+| Tiers | gold 1, silver 2, bronze 2 (rates 99, 94, 89), goalkeeper (77) `counts_as` regular (77, the rest); no per-stat targets |
+| Tier recognition | rating alone; the medal tiers' `when` excludes GK, so a registered GK is a goalkeeper whatever his rating |
+| Heights | five brackets of one exact height each (175, 180, 185, 190, 210) under one system with no `any_player` (quotas 6, 7, 10, 0, 0); a goalkeeper at 189 counts as 185 (`height_allowance: 4`); the official "Manlets" special |
+| Cards | VGL26's shape with smaller numbers: paid 6, 5, 5, 4, goalkeeper 4; free COM 1, 1, 1, 0, 0 |
+| Universal | `registered_position_fielded` |
+| Rating stats, suggestions | as VGL26 |
+
+Where the data reads differently from `aatf_single_vgl`, on purpose: a rating between two tiers'
+targets (96) is placed by expected rating, as in the official file, where `aatf_single_vgl`
+reports no tier; a height in no bracket is a `Height` violation for that player, where
+`aatf_single_vgl` only misses a quota. Its quota messages print the 185 cm count for every
+bracket (an upstream defect, reported), so parity compares which quotas fail, not the printed
+counts.
+
 ---
 
 ## The interpreter
@@ -492,6 +523,7 @@ pub struct Violation {
 
 pub enum ViolationKind {
     RegisteredNotA,
+    RegisteredNotFielded,
     BRating,
     GkSecondA,
     Age { age: u8, min: u8, max: u8 },
@@ -549,7 +581,8 @@ engine.register_type::<PlayerEntry>()
       .register_fn("playable_at", |p: &mut PlayerEntry, pos: &str| p.playable_at(pos));
 engine.register_type::<TeamContext>()          // players, captain, version, tactics presets
       .register_get("players", |t: &mut TeamContext| t.players.clone())
-      .register_fn("fielded_only_at", |t: &mut TeamContext, p: PlayerEntry, pos: &str| t.fielded_only_at(&p, pos));
+      .register_fn("fielded_only_at", |t: &mut TeamContext, p: PlayerEntry, pos: &str| t.fielded_only_at(&p, pos))
+      .register_fn("fielded_at", |t: &mut TeamContext, p: PlayerEntry, pos: &str| t.fielded_at(&p, pos));
 
 engine.set_max_operations(MAX_OPERATIONS);
 engine.set_max_call_levels(32);
@@ -558,9 +591,10 @@ engine.set_max_call_levels(32);
 `MAX_OPERATIONS` is set from the measured cost of the official ruleset on a full team, with a
 tenfold margin. Closed sets cross the boundary as the labels the file uses (`"GK"`, `"A"`,
 `"malicia"`); the Rust side keeps its enums and converts at the registration functions, nowhere
-else. Tactics questions (`fielded_only_at`, the team settings) are answered in Rust from
-`pes_savefile`'s model, so the starting-eleven lookup and the formation count, both wrong
-upstream until `f5e7b3e`, live in one tested place. The registered accessors are the script API,
+else. Tactics questions (`fielded_only_at`; `fielded_at`, fielded there in at least one formation,
+a player outside the starting eleven counting as registered there; the team settings) are
+answered in Rust from `pes_savefile`'s model, so the starting-eleven lookup and the formation
+count, both wrong upstream until `f5e7b3e`, live in one tested place. The registered accessors are the script API,
 listed in `libs/aatf`'s crate doc; adding one is a plan edit to this section, never a silent
 addition.
 
@@ -614,6 +648,7 @@ crates/libs/aatf/
 ├── rulesets/           # data blocks only; a shipped file is data + logic.rhai
 │   ├── autumn26.rhai
 │   ├── vgl26.rhai
+│   ├── vgl27.rhai
 │   └── vtl11.rhai
 └── tests/fixtures/     # the sample team; known-legal and known-violating teams per ruleset
 ```
@@ -651,7 +686,8 @@ and a rule the schema cannot express needs either the custom-checks hook or a sc
 ## Development phase and verification
 
 Phase 5 (with the Save editor's logic): `Ruleset` and the load-time rules, the interpreter, the
-host and its accessors, `apply_tier`, logic identity, the Autumn 26 and VGL26 data blocks, the
+host and its accessors, `apply_tier`, logic identity, the Autumn 26, VGL26, VTL11 and VGL27 data
+blocks, the
 sample team and the fixtures. The writer (`writer.rs`) and schema migrations arrive with the
 Ruleset editor in Phase 20.
 
@@ -667,11 +703,16 @@ Verification:
   cup save (`C:\Data\4cc\Saves\EDIT00000000_VTL11`, 2026-10-06), every team. The PES 16 team
   settings get fixture teams of their own: by its size (11 MB) the save is a PES 21 one, where
   VTLEditor skips them.
+- **Parity, VGL27.** The same against `vgl27`'s `aatf_single_vgl` on the VGL26 cup save's teams:
+  built for VGL26, most fail, and what is compared is the findings, not legality. A VGL27 cup
+  save replaces it when one exists.
 - Per ruleset, known-legal teams report nothing; each known-violating fixture reports exactly its
-  violation. Every special of the official file is exercised by at least one fixture.
+  violation. Every special of the official file is exercised by at least one fixture. VGL27's
+  include a starting-eleven player fielded at his registered position in no formation, and a
+  legal one fielded there in a single formation of one preset.
 - Suggestions: a fixture per allowance kind, and none for an allowance not listed in
   `suggestions`.
 - Validation: one failing file per load-time rule, each reporting its key path or line.
 - `apply_tier` then `check_team`: no violation of the applied tier's targets, for every tier of
-  the three rulesets.
+  the four rulesets.
 - A script that loops forever stops at the operation limit with a finding, not a hang.

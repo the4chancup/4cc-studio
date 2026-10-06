@@ -2662,6 +2662,10 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   maintainer (decision entry): small general additions, `team_settings` for PES 16 tactics
   checks, the 188 cm positional rule as a custom check; VTL11 is a third test ruleset with parity
   on `C:\Data\4cc\Saves\EDIT00000000_VTL11`. No code.
+- **2026-10-07** — 4ccEditor-VGL `vgl27` (`45ce31d`, tag `VGL27.A`) reviewed: `8f86bd3` is
+  upstream's Tactics tab and Texport import merged in (covered by step 5.0); `4447996` is the
+  VGL27 ruleset, a fourth AATF fixture, adding `registered_position_fielded` (decision entry).
+  Its upstream defects were written up for the maintainer to report. No code.
 - **2026-10-06** — the Clef scan joins the review (maintainer; decision entry):
   `scripts/clef_scan.py`, `just clef-diff [base]` and `just clef <crate>`, rulings in
   `scripts/clef_rulings.md`, a queue for days the free tier's neurons run out. Checked offline

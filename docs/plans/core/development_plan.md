@@ -373,8 +373,8 @@ is a deferred verification completed after those phases land.
   aesthetics patch of names only; on pre-Fox, the full aesthetics patch ("Player settings in
   exports" in the Aesthetics export plan).
 - `libs/aatf`: the ruleset schema and its load-time validation, the generic Rhai interpreter, the
-  host and `apply_tier`, logic identity, and the Autumn 26 and VGL26 rulesets as data with their
-  fixtures ([AATF rules plan](../aatf_rules.md), "Development phase and verification").
+  host and `apply_tier`, logic identity, and the Autumn 26, VGL26, VTL11 and VGL27 rulesets as data
+  with their fixtures ([AATF rules plan](../aatf_rules.md), "Development phase and verification").
 - The Save editor tool crate's non-GUI substance: settings, CLI, and the operations wiring over
   `pes_savefile` (editing, tactics, AATF checks, comparator, transplant, FPC toggle, strip and
   seed with the restored-id check) that the Phase 8 view will render — build order in the

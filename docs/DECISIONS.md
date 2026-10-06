@@ -4172,3 +4172,17 @@ production code at a file's first `#[cfg(test)]` skipped 5,007 production lines 
 line `mod tests;` declarations, single test-only items); it now ends at the inline test
 module, the last item of all 133 files that have one.
 Plan: `CONTRIBUTING.md` "Clef scan".
+
+## 2026-10-07 — aatf — VGL27 checked against the schema; `registered_position_fielded`
+Decision (user): VGL27's rule that a starting-eleven player is fielded at his registered position
+in at least one formation is a universal switch (`registered_position_fielded`), not a general
+"fielded at" condition. VGL27 (4ccEditor-VGL `vgl27`, `45ce31d`) becomes the schema's fourth
+fixture; VGL26 stays the template.
+Lead's reading: the rest of VGL27 needs no schema change (exact-height brackets under one
+system, the official manlet special, medal tiers excluding GK). Its parity runs on the VGL26
+save's teams until a VGL27 save exists, comparing findings, not legality. The host gains a
+`fielded_at` accessor and the findings a `RegisteredNotFielded` kind.
+Why: one checkbox covers the rule as organizers state it; a general condition would take thirteen
+specials, one per position, for the same rule.
+Plan: `aatf_rules.md` "Background", the schema, "VGL27", violations, "The host", crate layout,
+phase and verification; `ruleset_editor.md` "Randomize"; `core/development_plan.md` Phase 5.
