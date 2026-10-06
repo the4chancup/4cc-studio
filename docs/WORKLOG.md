@@ -174,6 +174,21 @@ Claude agent with no sidekick and no reviewer of another model family. While tha
   each). Prior rulings: `.tmp/review_rulings_3_6.md`. From 2026-10-04 the Devin lead runs the
   whole queue below on the code as it now is (a diff a later step superseded is not reviewed
   on its own), in queue order; its progress is `.tmp/review_queue.md`.
+- Paused again on 2026-10-06 (maintainer). Status:
+  - **Reviews done:** S1-S6 (`pipeline`, `studio_core` + `studio` Phase 3,
+    `aesthetics_export`, the `team_compiler` Phase 3 skeleton, the 4.0 plan rewrite, the
+    Phase 4 Acceptance section).
+  - **Still queued:** S7-S16, from 4.3-4.4 to the Phase 3 close mutants. Each is mapped to
+    its queue item in `.tmp/review_queue.md`.
+  - **Code that lands meanwhile** joins the queue as usual. The S7+ reviews run on the code as
+    it is then.
+  - **Before 4.22 and 4.27:** read the 2026-10-06 test results in "Issues". The boots drop is
+    safe on Fox, and on Fox the referee marker stays `collar_077`. Still open: whether Fox
+    referee configs go in as `UniformParameter.bin` entries, and the PES 17 collar.
+  - **4.9's stock-set rule stays** until Test 3 is run (postponed).
+  - **In-game tests:** the scratch tool and scripts are in `.tmp/apptest/` (see
+    `.tmp/review_queue.md` "RESUME HERE"). Each test has its own GUIDE and install/revert
+    script; nothing is shared with the workspace build.
 - Decisions the maintainer must make (new dependencies, `unsafe` outside the listed sites, game-
   or format-facing behavior the plan does not settle) are still asked, not decided.
 
@@ -1537,7 +1552,10 @@ Phase 4 open questions (maintainer):
   a kit naming an ID above the version's stock set (200, say) with a visible collar model
   under that name. Until then 4.9 keeps the stock-set rule and the reserved 105 and 77.
   Test 3 (`.tmp/apptest/out_test3/GUIDE.txt`, 2026-10-05) is ready for it: collar 200 on
-  PES 21 and PES 17, a copy of each game's collar_107.
+  PES 21 and PES 17, a copy of each game's collar_107. Edit mode shows only kit 1 (and the
+  GK kit), so Test 3b (`out_test3b/`, 2026-10-06) puts kit 2 (sock stripes B, collar 107)
+  on kit 1 as a second load; collar 201 is on the GK kit in both games. The maintainer
+  postponed Tests 3 and 3b (2026-10-06); this applies to the sock item above too.
 
 Answered 2026-10-03 (decision entries of that date; each is in the plan): the official
 DpFileList's entries (`resources/templates/DpFileList.txt`, the maintainer's own edit of the
@@ -1618,15 +1636,24 @@ pruned when their phase closes; they stay in git history.
   table is read into `CommonSettings`, so a key it does not know (a newer version's) is lost on
   save, while a tool's table keeps unknown keys (`core/gui.md`). Settle whether `[common]` keeps
   them too before that save path lands (review S2.1).
-- open, needs the maintainer — the boots/gloves rows a `Full` export leaves (`pipeline.md`
+- open (gloves only) — the boots/gloves rows a `Full` export leaves (`pipeline.md`
   "Bins accumulation", TC-BIN-17, decision "a team export's name carries `Full` or `Midcup`").
   Phase 4 (4.22) drops the installed row of a compiled player the export gives no boots or
-  gloves, so he has no row until Phase 5 writes the default-ID rows; what a player with no
-  `BootsList`/`GloveList` row wears on a stripped save is untested in game: Test 2
-  (`.tmp/apptest/out_test2/GUIDE.txt`), prepared 2026-10-05, waits on the maintainer's run.
-  Settle before 4.22 (review S5.1 item 9, S5.2 items 1 and 7). A team player the `Full`
+  gloves, so he has no row until Phase 5 writes the default-ID rows. A team player the `Full`
   export does not compile at all keeps his rows as they are (decision 2026-10-05; the plan
-  already says so).
+  already says so). Test 2 (PES 21, `.tmp/apptest/out_test2/`, run 2026-10-06), same results
+  on the 4cc exe and the stock exe:
+  - **Boots:** a stripped player with no `BootsList` row wears the boots-0 model (plain black
+    boots), not his save's boots field (1076). So a dropped row and a row naming 0 look the
+    same, and 4.22's drop is safe for boots.
+  - **Rows are read:** stripped players with a row wore k0629 (/gd/ boots).
+  - **Kept appearance id:** the control (his own boots 1076, plus a k0629 row) wore his own
+    boots, so a kept appearance id beats the row on PES 21.
+  - **Gloves:** the 4cc exe shows bare hands on both goalkeepers (its gloves patch). On the
+    stock exe a `GloveList` row is read (g0003, yellow). The no-row goalkeeper wore white
+    gloves, which are both his save's field (g0001) and possibly the default: one with
+    non-1 save gloves would tell the two apart. Settle before 4.22 only if the gloves default
+    matters.
 - resolved (2026-10-05, maintainer) — the PES 16 Common patch is made when the cup next plays
   PES 16, and the plan treats it as existing; `kitN` works on Fox through FoxDen and comes to
   pre-Fox when the cup returns to it (`messages.md`, `model_format.md` "Kit-dependent
@@ -1666,8 +1693,22 @@ pruned when their phase closes; they stay in git history.
   ships a `PlayerAppearance.bin` with a row per save player. Test 4
   (`.tmp/apptest/out_test4/GUIDE.txt`, 2026-10-05) repeats Test 1 on PES 17: /b/ stripped
   (appearance id at record byte 116, body 128 to 184; the same 72-byte block as PES 21's at
-  240), the three tables as loose files in Sider's livecpk root.
-- open, needs the maintainer — referee collars are `referee_collar_<ID>`: the pre-Fox base
+  240), the three tables as loose files in Sider's livecpk root. Results (run 2026-10-06):
+  - **Appearance:** PES 17 reads `PlayerAppearance.bin` for a -1 record, per player (look A,
+    and look B on no. 3).
+  - **Boots:** it reads `BootsList.bin`. Every /b/ player wore k0563 (brown boots), the
+    control DESU included. That's unlike PES 21's control, but DESU's save boots are 0, so
+    either the row beats a kept id on PES 17, or a save boots field of 0 defers to the row.
+    The placeholder all-1 rows fit either reading only if k0001 looks like the default boots.
+  - **Gloves:** the goalkeeper's g0556 row showed bare hands. That's inconclusive: the 4cc
+    exe's gloves patch, as on PES 21, or the table is not read.
+  - **Control's look:** inconclusive. DESU has a custom head and the same skin colour as look
+    A.
+
+  So pre-Fox (PES 17 at least) could carry appearance and boots in the CPK as Fox does. What
+  is still needed: the boots reading above, and gloves on a stock exe.
+- open, needs the maintainer — referee collars, `referee_collar_<ID>` or `collar_<ID>`
+  (Fox answered below: `collar_<ID>`; pre-Fox open): the pre-Fox base
   `uniform_config.xml` loads a referee's collar from `nocloth/referee_collar.model` (type
   `referee_shirt`), Red's pre-Fox referee template ships `referee_collar_026.model`, the cup's
   `4cc_04_fpc.cpk` ships `referee_collar_105.model` beside `collar_105.model`, and PES 21's
@@ -1683,7 +1724,23 @@ pruned when their phase closes; they stay in git history.
   `UniformParameter.bin` (`referee_ACL_1..4.bin`, `referee_DEF_1..5.bin`), and the refs CPK
   holds none, against `blue_port.md`'s "never entries of the bins CPK's
   `UniformParameter.bin`" (Red's Fox template ships them loose); PES 17's are loose files in
-  `4cc_35_referees.cpk`, as planned.
+  `4cc_35_referees.cpk`, as planned. Results (run 2026-10-06):
+  - **PES 21:** the referee wore `collar_077` (the hair). Fox referees load `collar_<ID>`,
+    so on Fox the plan stands: the marker is `collar_077`, and the 77 reservation against
+    teams guards a real clash.
+  - **PES 21 configs:** the collar change made in the `UniformParameter.bin` entries took
+    effect, so the game reads referee configs from those entries. Loose referee configs on
+    Fox are untested. Settle with the maintainer before 4.27 whether `blue_port.md`'s "loose
+    files, never entries" becomes "entries" on Fox.
+  - **PES 17:** neither model showed (with Sider). That's inconclusive. Candidate causes:
+    - the loose referee configs were not read from the livecpk root;
+    - the two models fail to draw as collars. They are Grigori's face and hair, skinned to
+      head bones, with `uni_collar` as a material name, which the stock referee collar
+      (`referee_collar_026.model`) does not use: its only material is `uni_shirts`.
+
+    To ask the maintainer: did the referee's usual collar (26) vanish? If so, the configs
+    were read and both models failed to draw. A rerun would rename every material to
+    `uni_shirts`, or use stock collar models that are known to draw.
 - open, needs the maintainer — FoxDen per-kit models (maintainer, 2026-10-05): a tag-less
   `modelname` fills every kit number up to the team's kit count that has no
   `modelname_kit<N>`, once any variant exists. The local FoxDen (`02_kitswappers.lua`) swaps
@@ -2686,3 +2743,10 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   decision entry); the report merges overlapping flagged windows; production code now ends at
   the inline test module, not the first `#[cfg(test)]` (5,007 lines were skipped). The
   scan reads several tokens in order with a per-day fallback (`cf96357`).
+- **2026-10-06** — in-game Tests 2, 4 and 5 run by the maintainer, results in "Issues":
+  - **Test 2:** a stripped Fox player with no `BootsList` row wears boots 0, so 4.22's drop is
+    safe for boots; the gloves default is still open.
+  - **Test 4:** PES 17 reads `PlayerAppearance.bin` and `BootsList.bin` for -1 records.
+  - **Test 5:** PES 21 referees load `collar_<ID>`, and its referee configs are read from
+    `UniformParameter.bin`; PES 17 inconclusive.
+  - **Test 3:** postponed; Test 3b added for kit 2 (edit mode shows only kit 1). No code.
