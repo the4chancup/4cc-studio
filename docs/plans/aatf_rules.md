@@ -9,7 +9,8 @@ official ruleset and every invitational's are the same kind of file, differing o
 Consumers: the [Save editor](save_editor.md) (the AATF check, the Make Gold/Silver/… quick
 actions, the card pickers' remaining-count badges in `libs/team_widgets`), the [Team
 creator](team_creator.md) (legal defaults, the check before writing) and the [Ruleset
-editor](ruleset_editor.md) (which writes the data). Platform context is in the [core plan](core/README.md).
+editor](ruleset_editor.md) (which writes the data). Platform context is in the [core
+plan](core/README.md).
 
 ---
 
@@ -36,8 +37,20 @@ extra card for the captain. It also reports *suggestions*: allowances a player d
 maximum, a captain without the free Captaincy card), shown only on request and never counted as
 errors. 4ccEditor has the same idea behind its `eCheck` warnings, hardcoded off.
 
-The schema below is the union of what both rulesets and the specials history need, and both
-rulesets are its acceptance fixtures ("Verification").
+VTL11 (the VTLEditor fork, `VTL7/stats.h` + `aatf.cpp` at `ab5f0e2`) adds further shapes: tiers
+told apart by height and then by one stat (gold and silver share 195 cm and differ in swerve);
+stat bonuses by playing style for golds; exact weak foot; banned and required cards; free cards
+for some tiers, a free COM style (Long Ranger) and a cap of five COM styles; a minimum of three
+paid skill cards, each extra A position counting as one; B ratings allowed only for 188 cm players
+at CB, which also count toward the A-position allowance, and an A at CB forbidden for them; medals'
+names required to carry a gold or silver colour code and other players' forbidden to; at most two
+registered positions among the 188 cm players, no 180 cm player sharing one (by user decision a
+custom check, not schema); the game's skill card limit raised to 11 on PES 21; and, on PES 16
+only, team tactics settings (no man marking set up, auto substitution, offside trap and preset
+change off).
+
+The schema below is the union of what the three rulesets and the specials history need, and the
+three rulesets are its fixtures ("Verification").
 
 ---
 
@@ -78,10 +91,12 @@ limits, so a broken file cannot hang the tool.
 ## The ruleset schema
 
 `RULESET` deserializes into `Ruleset` (`rhai::serde::from_dynamic`; an unknown key is an error).
-Tier, bracket, system and card-group ids are the ruleset's own strings. `Stat`, `Skill` and
-`Position` are closed sets, spelled as `pes_savefile` spells them: stats are `PlayerStats`'
-ability field names (`attacking_prowess` … `aggression`), skills and positions the Team TOML labels
-(`interchange/team_toml/labels.rs`: `malicia`, `captaincy`, `GK`, `CB`, …).
+Tier, bracket, system and card-group ids are the ruleset's own strings. `Stat`, `Card`,
+`Position` and `PlayStyle` are closed sets, spelled as `pes_savefile` spells them: stats are
+`PlayerStats`' ability field names (`attacking_prowess` … `aggression`); a card is a skill or a
+COM playing style, and cards, positions and playing styles are the Team TOML labels
+(`interchange/team_toml/labels.rs`: `malicia`, `captaincy`, `long_ranger`, `GK`, `CB`,
+`fox_in_the_box`, …).
 
 ```rust
 pub struct Ruleset {
@@ -92,13 +107,14 @@ pub struct Ruleset {
     /// Highest first: recognition takes the first tier that fits, and the quick-action
     /// buttons follow this order.
     pub tiers: Vec<Tier>,
-    /// Named skill sets a tier can make free (`Tier::free`); `com` is reserved for the
+    /// Named card sets a tier can make free (`Tier::free`); `com` is reserved for the
     /// seven COM playing styles.
-    pub card_groups: BTreeMap<GroupId, Vec<Skill>>,
+    pub card_groups: BTreeMap<GroupId, Vec<Card>>,
     pub heights: Heights,
     pub universal: Universal,
     /// Applied in order: numeric effects add up, replacing effects take the last value.
     pub specials: Vec<Special>,
+    pub team_settings: Vec<TeamSettings>,
     /// Allowances whose unused part is reported as a suggestion: `cards`, `a_positions`,
     /// `weak_foot`, `injury_resistance`, `height`, `free_cards`, or a group id (`com` included).
     pub suggestions: Vec<String>,
@@ -107,8 +123,9 @@ pub struct Ruleset {
 pub struct StatRules {
     /// The stats whose maximum is a player's rating, compared with each tier's expected rating.
     pub rating: Vec<Stat>,
-    /// Stats that may sit below their target; every other ability stat must equal it.
-    pub at_most: Vec<Stat>,
+    /// Targets a player may sit below: ability stats, `form`, `injury_resistance`,
+    /// `weak_foot_usage`, `weak_foot_accuracy`. Every other target must be met exactly.
+    pub at_most: Vec<String>,
 }
 
 pub struct Tier {
@@ -125,12 +142,12 @@ pub struct Tier {
     pub rate: u8,
     pub stats: BTreeMap<Stat, u8>,
     pub form: u8,
-    /// At most.
     pub injury_resistance: u8,
-    /// At most.
     pub weak_foot: WeakFoot,
     /// Cards a player pays for: skills and COM styles that no free allowance covers.
     pub cards: u8,
+    /// At least this many paid skill cards, each extra A position counting as one.
+    pub min_cards: u8,
     /// Free cards per group.
     pub free: BTreeMap<GroupId, u8>,
     /// A positions included, the registered one counted; each extra A costs a card.
@@ -176,6 +193,8 @@ pub struct HeightSystem {
 pub struct Universal {
     pub registered_position_a: bool,
     pub no_b_ratings: bool,
+    /// B ratings count toward the A-position allowance, like extra A positions.
+    pub b_uses_a_allowance: bool,
     /// A GK rating is never an outfield player's second A.
     pub gk_not_second_a: bool,
     /// Inclusive.
@@ -183,6 +202,10 @@ pub struct Universal {
     pub weight: Option<WeightRule>,
     pub captain_required: bool,
     pub min_goalkeepers: u8,
+    /// Skill cards a player may hold, free ones included (the game's limit: 10; VTL11 uses 11
+    /// on PES 21).
+    pub max_skill_cards: u8,
+    pub max_com_styles: Option<u8>,
 }
 
 /// Weight within `max(floor, height - below)..=height - above` (Autumn 26: 30, 129, 81).
@@ -203,6 +226,15 @@ pub struct Condition {
     pub height_min: Option<u8>,
     pub height_max: Option<u8>,
     pub captain: Option<bool>,
+    pub playing_styles: Vec<PlayStyle>,
+    /// Holds any of these cards.
+    pub holds: Vec<Card>,
+    /// Rated A (or B) at any of these positions.
+    pub rated_a_at: Vec<Position>,
+    pub rated_b_at: Vec<Position>,
+    /// The name starts with one of these colour codes (the eight characters after `\x11c`,
+    /// `cc9900ff`; see `pes_savefile`'s "Name colour codes").
+    pub name_colors: Vec<String>,
     /// Fielded at this position in every formation the game can field: all three presets,
     /// the three formations of a fluid preset, the kick-off formation of the others. A player
     /// outside the starting eleven: registered there.
@@ -228,9 +260,9 @@ pub struct Effects {
     pub stat_target: BTreeMap<Stat, PerTier<u8>>,
     pub cards: Option<PerTier<i8>>,
     pub free: BTreeMap<GroupId, PerTier<i8>>,
-    /// These skills cost nothing.
-    pub free_cards: Vec<Skill>,
-    pub require_cards: Vec<Skill>,
+    /// These cards cost nothing.
+    pub free_cards: Vec<Card>,
+    pub require_cards: Vec<Card>,
     pub a_positions: Option<PerTier<i8>>,
     pub max_a_positions: Option<u8>,
     /// Replaces the tier's limits.
@@ -242,6 +274,20 @@ pub struct Effects {
     /// The first option the player uses, or none: an option is used when, without it, the
     /// player exceeds a limit the option raises.
     pub choice: Vec<Effects>,
+}
+
+/// Team tactics settings required on the listed versions (every version when empty); each
+/// present field must have this value.
+pub struct TeamSettings {
+    pub label: String,
+    pub versions: Vec<PesVersion>,
+    /// Man marking set up on any preset (PES 16's per-preset assignments).
+    pub man_marking: Option<bool>,
+    /// Any setting but off.
+    pub auto_substitution: Option<bool>,
+    pub auto_offside_trap: Option<bool>,
+    pub auto_preset_change: Option<bool>,
+    pub auto_attack_defence_levels: Option<bool>,
 }
 
 pub enum PerTier<T> {
@@ -261,6 +307,10 @@ pub enum Severity {
 }
 ```
 
+A field left out of the file takes its empty value (0, `false`, an empty list or map, `None`),
+except `schema`, `name`, `squad_size`, `max_skill_cards`, and each tier's, bracket's and system's
+`id`, `label` and (tiers) `rate`, which are required.
+
 Rules the types cannot carry, checked on load ("Loading and validation"): ids unique within their
 kind, and every id a condition, effect, quota, `counts_as` or `suggestions` entry names exists; a
 tier with `counts_as` has no `count`; tier counts fit `squad_size`; a special with
@@ -278,7 +328,7 @@ The order is fixed, so every condition sees settled inputs:
    tier's `when` holds, the player gets `NoTier` and no further per-player check.
 3. **Checks** (player), against the recognized tier's targets and limits.
 4. **Team checks**: tier counts (`counts_as` folded in), the system's bracket quotas, captain,
-   goalkeepers, then `custom_checks`.
+   goalkeepers, team settings for the save's version, then `custom_checks`.
 
 Recognition by expected rating is what lets a special move a tier's threshold: a Green silver
 giant's target is 89, so a rating of 89 reads as silver, not bronze.
@@ -286,11 +336,13 @@ giant's target is 89, so a rating of 89 reads as silver, not bronze.
 ### The card economy
 
 A player's **paid cards** are their skills plus COM styles, less the free ones held: per group,
-up to that group's free count; every held skill in `free_cards`. The **limit** is the tier's
+up to that group's free count; every held card in `free_cards`. The **limit** is the tier's
 `cards` plus every `cards` effect, less one per A position beyond the allowance (`a_positions`
-plus effects). Paid cards over the limit is a violation; so is a required card not held, more A
-positions than `max_a_positions`, and more than ten skill cards (the game's limit, COM styles not
-counted; built in, as are the version's valid registered-position and playing-style ranges).
+plus effects; B ratings counted with the A positions under `b_uses_a_allowance`). Paid cards over
+the limit is a violation; so are paid skill cards plus extra A positions under `min_cards`, a
+required card not held, more A positions than `max_a_positions`, more skill cards than
+`max_skill_cards` and more COM styles than `max_com_styles`. The version's valid
+registered-position and playing-style ranges are built in.
 
 ---
 
@@ -312,7 +364,8 @@ const RULESET = #{
                  "swerve", "catching", "clearing", "reflexes", "coverage", "body_control",
                  "physical_contact", "kicking_power", "explosive_power", "ball_control",
                  "ball_winning", "jump", "place_kicking", "stamina", "speed", "aggression"],
-        at_most: ["attacking_prowess", "defensive_prowess"],
+        at_most: ["attacking_prowess", "defensive_prowess",
+                  "injury_resistance", "weak_foot_usage", "weak_foot_accuracy"],
     },
 
     tiers: [
@@ -354,7 +407,7 @@ const RULESET = #{
     universal: #{
         registered_position_a: true, no_b_ratings: true, gk_not_second_a: true,
         age: [15, 50], weight: #{ floor: 30, below: 129, above: 81 },
-        captain_required: true, min_goalkeepers: 1,
+        captain_required: true, min_goalkeepers: 1, max_skill_cards: 10,
     },
 
     specials: [
@@ -452,7 +505,9 @@ pub enum ViolationKind {
     WeakFootUsage { value: u8, max: u8 },
     WeakFootAccuracy { value: u8, max: u8 },
     Cards { paid: u8, limit: u8 },
-    SkillCardCap { count: u8 },
+    MinCards { paid: u8, min: u8 },
+    SkillCardCap { count: u8, max: u8 },
+    ComStyleCap { count: u8, max: u8 },
     RequiredCard { card: Skill },
     APositions { count: u8, max: u8 },
     Height { height: u8 },
@@ -460,6 +515,7 @@ pub enum ViolationKind {
     BracketQuota { system: SystemId, bracket: BracketId, count: u8, quota: u8 },
     Captain,
     Goalkeepers { count: u8, min: u8 },
+    TeamSetting { label: String, setting: String },
     Special { label: String, text: String },
     Custom { text: String },
     /// A suggestion: an allowance listed in `suggestions` the player does not use up.
@@ -473,9 +529,10 @@ catalog; only `Special` and `Custom` carry text, the ruleset author's.
 **Suggestions** need no authoring. Every allowance named in `suggestions` that a player does not
 use up yields an `Unused` suggestion: paid cards under the limit, a group's free cards not all
 held, a free card not held, fewer A positions than allowed, weak foot or injury resistance below
-the maximum, a height below an `up_to` bracket's maximum. Stats in `at_most` are a manager's
-choice, not an allowance, and are never suggested. Every surface that shows results (the Save
-editor's AATF panel, the Team creator's) has a "Show suggestions" toggle, off by default, and lists
+the maximum, a height below an `up_to` bracket's maximum. An ability stat below its target is a
+manager's choice, not an allowance, and is never suggested. Every surface that shows results
+(the Save editor's AATF panel, the Team creator's) has a "Show suggestions" toggle, off by
+default, and lists
 them apart from errors and warnings, uncounted.
 
 ## The host
@@ -501,12 +558,16 @@ engine.set_max_call_levels(32);
 `MAX_OPERATIONS` is set from the measured cost of the official ruleset on a full team, with a
 tenfold margin. Closed sets cross the boundary as the labels the file uses (`"GK"`, `"A"`,
 `"malicia"`); the Rust side keeps its enums and converts at the registration functions, nowhere
-else.
-Tactics questions (`fielded_only_at`) are answered in Rust from `pes_savefile`'s model, so the
-starting-eleven lookup and the formation count, both wrong upstream until `f5e7b3e`, live in one
-tested place. The registered
-accessors are the script API, listed in `libs/aatf`'s crate doc; adding one is a plan edit to
-this section, never a silent addition.
+else. Tactics questions (`fielded_only_at`, the team settings) are answered in Rust from
+`pes_savefile`'s model, so the starting-eleven lookup and the formation count, both wrong
+upstream until `f5e7b3e`, live in one tested place. The registered accessors are the script API,
+listed in `libs/aatf`'s crate doc; adding one is a plan edit to this section, never a silent
+addition.
+
+Before implementing `man_marking`, extend `pes_savefile`'s PES 16 team model with the
+per-preset man-marking assignments (eleven bytes per preset, `0xFF` for none; VTLEditor's
+`pes16.cpp` reads them, 4ccEditor does not); the auto flags are modeled already
+(`TeamAutoFlags`).
 
 `apply_tier(player, tier, rules)` is the lib's one *writing* operation: it calls `tier_values`
 and writes the result into the player (stats; form; injury resistance and weak foot at their
@@ -552,7 +613,8 @@ crates/libs/aatf/
 ├── logic/logic.rhai    # the interpreter, current version
 ├── rulesets/           # data blocks only; a shipped file is data + logic.rhai
 │   ├── autumn26.rhai
-│   └── vgl26.rhai
+│   ├── vgl26.rhai
+│   └── vtl11.rhai
 └── tests/fixtures/     # the sample team; known-legal and known-violating teams per ruleset
 ```
 
@@ -600,11 +662,16 @@ Verification:
   above or a fix.
 - **Parity, VGL26.** The same against `aatf_single_vgl` on the VGL26 cup save
   (`C:\Data\4cc\Saves\EDIT00000000_VGL26` on the maintainer's machine, 2026-10-06), every team.
+- **Parity, VTL11.** Transcribed into a ruleset from the VTLEditor fork (its positional rule
+  for 188 cm players as a custom check); the same against VTLEditor's `aatf_single` on the VTL11
+  cup save (`C:\Data\4cc\Saves\EDIT00000000_VTL11`, 2026-10-06), every team. The PES 16 team
+  settings get fixture teams of their own: by its size (11 MB) the save is a PES 21 one, where
+  VTLEditor skips them.
 - Per ruleset, known-legal teams report nothing; each known-violating fixture reports exactly its
   violation. Every special of the official file is exercised by at least one fixture.
 - Suggestions: a fixture per allowance kind, and none for an allowance not listed in
   `suggestions`.
 - Validation: one failing file per load-time rule, each reporting its key path or line.
 - `apply_tier` then `check_team`: no violation of the applied tier's targets, for every tier of
-  both rulesets.
+  the three rulesets.
 - A script that loops forever stops at the operation limit with a finding, not a hang.

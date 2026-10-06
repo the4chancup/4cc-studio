@@ -38,21 +38,24 @@ mark in the rail.
   one line on what each list does).
 - **Tiers**: a table, one row per tier, highest first, reordered by dragging, since the order is
   the recognition order and the quick-action buttons' order. Columns: label, count (a number or
-  "the rest"), counts as, rate, form, injury resistance, weak foot, paid cards, free cards per
-  group, A positions. Per row, an expander holds the per-stat targets (all ability stats, empty
-  meaning "the rate") and the tier's conditions (the condition editor below).
+  "the rest"), counts as, rate, form, injury resistance, weak foot, paid cards, minimum cards,
+  free cards per group, A positions. Per row, an expander holds the per-stat targets (all
+  ability stats, empty meaning "the rate") and the tier's conditions (the condition editor
+  below).
 - **Heights**: a "use height brackets" switch. On: the brackets in ascending order, each "up to
   N cm" or "exactly N, M cm"; the height systems in order, each "when any player is …" (the
   condition editor, limited to height and position) with a quota per bracket, the last one
   "otherwise". Off: heights are left to tier conditions and specials, as in VGL26.
-- **Cards**: the card groups, each a name and a checkbox grid of the 41 skills (labels as the
-  Save editor shows them); COM styles are the built-in `com` group.
-- **Universal rules**: checkboxes and number fields for `universal`.
+- **Cards**: the card groups, each a name and a checkbox grid of the 41 skills and 7 COM styles
+  (labels as the Save editor shows them); all COM styles are also the built-in `com` group.
+- **Universal rules**: checkboxes and number fields for `universal`, and below them the team
+  settings: one row per entry, its PES versions and the value each tactics setting must have.
 - **Specials**: a list of cards, reordered by dragging (order matters for replacing effects), each
   with a label, a **When** row and a **Then** row:
-  - *When* is the condition editor: tiers, registered positions, height systems and brackets as
-    multi-select chips; a height range; captain yes / no / either; "fielded only at"; and an
-    "except when" sub-condition (`not`).
+  - *When* is the condition editor: tiers, registered positions, playing styles, height systems
+    and brackets as multi-select chips; a height range; captain yes / no / either; "holds any of"
+    (cards); "rated A at" and "rated B at" (positions); "name colour" (swatches of the codes);
+    "fielded only at"; and an "except when" sub-condition (`not`).
   - *Then* is a list of effects, added from a menu that names them in words ("Add to every stat",
     "Set one stat's target", "Extra paid cards", "Free cards", "Required card", "Extra A
     positions", "At most N A positions", "Weak-foot limits", "Height allowance", "Forbid"). A
@@ -187,8 +190,8 @@ Phase 20 in the core plan's Development Plan, after the first release: it needs 
 the schema and the interpreter (Phase 5) and the shell (Phase 8), and its users are the organizers
 of invitationals, who use 4ccEditor forks until then. Deliverables: `libs/aatf`'s writer and the
 migration hook, the tool's sections, opening and saving with logic identity, the summary,
-Randomize, the CLI, the help chapter. The tool is file-picking only, so it joins Studio Web's first tier (Phase 18)
-once both exist.
+Randomize, the CLI, the help chapter. The tool is file-picking only, so it joins Studio Web's
+first tier (Phase 18) once both exist.
 
 Verification: the writer round-trips both embedded rulesets (read, write, read gives an equal
 `Ruleset`; writing twice gives identical bytes); VGL26's data rebuilt from Blank through the forms

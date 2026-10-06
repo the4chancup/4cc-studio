@@ -2641,3 +2641,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
 - **2026-10-06** — Ruleset editor: Randomize added to the plan (Sensible / Weird / Crazy, seeded,
   every result backed by a legal witness team; decision entry). VGL26 parity now has its save:
   `C:\Data\4cc\Saves\EDIT00000000_VGL26`. No code.
+- **2026-10-06** — VTL11 (VTLEditor `ab5f0e2`) checked against the AATF schema with the
+  maintainer (decision entry): small general additions, `team_settings` for PES 16 tactics
+  checks, the 188 cm positional rule as a custom check; VTL11 is a third test ruleset with parity
+  on `C:\Data\4cc\Saves\EDIT00000000_VTL11`. No code.

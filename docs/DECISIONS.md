@@ -4114,3 +4114,21 @@ Why: a ruleset no team can satisfy is worse than none; a seed that changed meani
 releases could not be shared.
 Plan: `ruleset_editor.md` "Randomize", start page, CLI `random`, crate layout, verification;
 `aatf_rules.md` VGL26 parity; `core/development_plan.md` Phase 20.
+
+## 2026-10-06 — aatf — VTL11 checked against the schema; team settings; the VTL11 test save
+Decision (user): VTL11's rule that the 188 cm players use at most two registered positions, with
+no 180 cm player sharing one, is a custom check in VTL11's file, not schema. Team tactics settings
+(man marking, auto substitution, offside trap, preset change) per PES version join the schema as
+`team_settings`. VTL11 parity runs on the maintainer's `EDIT00000000_VTL11` save.
+Lead's reading: the rest of VTL11 needed small, general additions rather than VTL-specific
+constructs: conditions on playing style, held cards, A and B ratings by position and name
+colour; COM styles as cards (Long Ranger free); `at_most` widened to form, injury resistance and
+weak foot (VTL wants weak foot exact); `min_cards` per tier; `b_uses_a_allowance`;
+`max_skill_cards` (VTL uses 11 on PES 21) and `max_com_styles` as universal fields. A missing
+field takes its empty value, `max_skill_cards` being required. `pes_savefile` must model PES 16's
+per-preset man-marking assignments before `man_marking` is implemented.
+Why: VTL11 is the second-largest invitational's live ruleset; each addition is a general rule a
+form can express, and the one rule that is not stays in the escape hatch.
+Plan: `aatf_rules.md` "Background", the schema, the card economy, "How a player is read", the
+official file, violations, suggestions, "The host", crate layout, verification;
+`ruleset_editor.md` sections.
