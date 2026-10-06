@@ -41,6 +41,10 @@ extra card for the captain. It also reports *suggestions*: allowances a player d
 maximum, a captain without the free Captaincy card), shown only on request and never counted as
 errors. 4ccEditor has the same idea behind its `eCheck` warnings, hardcoded off.
 
+The two VGL rulesets before it (VGL24, VGL25) add one shape: an *optional* manlet bonus. A manlet
+may carry the base rating or the base plus the bonus (a regular 77 or 82), and a suggestion names
+the bonus not taken.
+
 VTL11 (the VTLEditor fork, `VTL7/stats.h` + `aatf.cpp` at `ab5f0e2`) adds further shapes: tiers
 told apart by height and then by one stat (gold and silver share 195 cm and differ in swerve);
 stat bonuses by playing style for golds; exact weak foot; banned and required cards; free cards
@@ -126,7 +130,8 @@ pub struct Ruleset {
     pub specials: Vec<Special>,
     pub team_settings: Vec<TeamSettings>,
     /// Allowances whose unused part is reported as a suggestion: `cards`, `a_positions`,
-    /// `weak_foot`, `injury_resistance`, `height`, `free_cards`, or a group id (`com` included).
+    /// `weak_foot`, `injury_resistance`, `height`, `free_cards`, `choices`, or a group id
+    /// (`com` included).
     pub suggestions: Vec<String>,
 }
 
@@ -285,7 +290,9 @@ pub struct Effects {
     /// A violation with this text.
     pub forbid: Option<String>,
     /// The first option the player uses, or none: an option is used when, without it, the
-    /// player exceeds a limit the option raises.
+    /// player exceeds a limit the option raises; a `stat_bonus` raises the stat targets, so it is
+    /// used when, without it, the player's rating is above the expected rating. A one-option
+    /// choice is an optional effect (VGL25's manlet bonus).
     pub choice: Vec<Effects>,
 }
 
@@ -481,6 +488,29 @@ Autumn 26 file with:
 They differ from each other in two values: Autumn 25 has 2 silvers and goalkeepers at 77, Spring
 26 has 3 silvers and goalkeepers at 74.
 
+## VGL25
+
+A test ruleset (not a template), transcribed from 4ccEditor-VGL's `vgl25` branch (`2c2d26a`;
+`aatf_single_vgl` and its `_vgl` settings in `aatf.cpp`). VGL24 (`vgl24`, released at `d4d7b15`)
+is the same checker with no manlet bonus, giants at 194 with a quota of 0, and no free Acrobatic
+Finishing; it adds nothing to test and has no file. What VGL25 exercises that the others do not:
+
+| Feature | VGL25 |
+|---|---|
+| Tiers | gold 2 (99), silver 3 (88), regular (77, the rest); goalkeepers are regulars, with no tier of their own |
+| Optional manlet bonus | `when: #{ brackets: ["manlet"] }`, `choice: [#{ stat_bonus: #{ all: #{ regular: 5, silver: 2, gold: 2 } } }]`; with `choices` in `suggestions` |
+| Heights | manlet up to 175, then exactly 180, 185, 190, 210 under one system (quotas 6, 6, 5, 6, 0); a goalkeeper at 189 counts as 185; goalkeepers at 181–188 forbidden, medals and goalkeepers at 190 forbidden |
+| Manlets | the official "Manlets" special (+1 card, +1 A position, weak foot 4/4) |
+| Cards | `tricks` (Malicia included) all free; free COM 1, 1, 0; paid 5, 4, 3; `a_positions` 2; Captaincy for the captain and Acrobatic Finishing free; the captain one extra card |
+| Universal | no captain or goalkeeper requirement; `max_skill_cards` 41, the most skills any version has, so no cap |
+| Injury resistance | exact: 2 for medals, 1 for non-medals (not in `at_most`) |
+| Suggestions | `cards`, `com`, `a_positions`, `weak_foot`, `height`, `free_cards`, `choices` |
+
+Where the data reads differently from `aatf_single_vgl`, on purpose: it lets a gold carry injury
+resistance below 2, where the VGL rules set it to 2 for medals (maintainer, from the VGL wiki); it
+repeats the bonus suggestion at team level for manlets under 175, here it is reported once; and it
+checks no registered-position or playing-style range, which `libs/aatf` builds in.
+
 ## VGL26
 
 The second embedded ruleset: a starting template in the Ruleset editor and a fixture, transcribed from 4ccEditor-VGL's `vgl26` branch (tip `ad378d2`; `stats.h`, and
@@ -570,6 +600,8 @@ pub enum ViolationKind {
     Custom { text: String },
     /// A suggestion: an allowance listed in `suggestions` the player does not use up.
     Unused { allowance: String, used: u8, allowed: u8 },
+    /// A suggestion under `choices`: a special's choice the player takes no option of.
+    UnusedChoice { special: String },
 }
 ```
 
@@ -579,11 +611,11 @@ catalog; only `Special` and `Custom` carry text, the ruleset author's.
 **Suggestions** need no authoring. Every allowance named in `suggestions` that a player does not
 use up yields an `Unused` suggestion: paid cards under the limit, a group's free cards not all
 held, a free card not held, fewer A positions than allowed, weak foot or injury resistance below
-the maximum, a height below an `up_to` bracket's maximum. An ability stat below its target is a
-manager's choice, not an allowance, and is never suggested. Every surface that shows results
-(the Save editor's AATF panel, the Team creator's) has a "Show suggestions" toggle, off by
-default, and lists
-them apart from errors and warnings, uncounted.
+the maximum, a height below an `up_to` bracket's maximum. Under `choices`, a choice the player
+takes no option of yields an `UnusedChoice` (a manlet at 77 who may carry 82). An ability stat
+below its target is otherwise a manager's choice, not an allowance, and is never suggested. Every
+surface that shows results (the Save editor's AATF panel, the Team creator's) has a "Show
+suggestions" toggle, off by default, and lists them apart from errors and warnings, uncounted.
 
 ## The host
 
@@ -667,6 +699,7 @@ crates/libs/aatf/
 │   ├── autumn26.rhai
 │   ├── autumn25.rhai
 │   ├── spring26.rhai
+│   ├── vgl25.rhai
 │   ├── vgl26.rhai
 │   ├── vgl27.rhai
 │   └── vtl11.rhai
@@ -706,8 +739,8 @@ and a rule the schema cannot express needs either the custom-checks hook or a sc
 ## Development phase and verification
 
 Phase 5 (with the Save editor's logic): `Ruleset` and the load-time rules, the interpreter, the
-host and its accessors, `apply_tier`, logic identity, the Autumn 26, Autumn 25, Spring 26, VGL26,
-VTL11 and VGL27 data blocks, the
+host and its accessors, `apply_tier`, logic identity, the Autumn 26, Autumn 25, Spring 26, VGL25,
+VGL26, VGL27 and VTL11 data blocks, the
 sample team and the fixtures. The writer (`writer.rs`) and schema migrations arrive with the
 Ruleset editor in Phase 20.
 
@@ -734,7 +767,9 @@ Verification:
 - Per ruleset, known-legal teams report nothing; each known-violating fixture reports exactly its
   violation. Every special of the official file is exercised by at least one fixture. VGL27's
   include a starting-eleven player fielded at his registered position in no formation, and a
-  legal one fielded there in a single formation of one preset.
+  legal one fielded there in a single formation of one preset. VGL25 has no cup save, so its
+  fixtures are hand-built: manlets at each legal rating (77 and 82), one between them, and one at
+  77 with `choices` suggested; a medal at 190; a gold at injury resistance 1.
 - Suggestions: a fixture per allowance kind, and none for an allowance not listed in
   `suggestions`.
 - Validation: one failing file per load-time rule, each reporting its key path or line.

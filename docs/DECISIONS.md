@@ -4199,3 +4199,20 @@ Why: Autumn 26 parity on saves built for older rules finds nearly every team ill
 team's own ruleset most are legal, which tests the zero-finding path on real teams.
 Plan: `aatf_rules.md` "Background", "Autumn 25 and Spring 26", crate layout, phase and
 verification; `core/development_plan.md` Phase 5.
+
+## 2026-10-07 — aatf — VGL24 and VGL25 checked; optional effects as one-option choices; `choices` suggestions
+Decision (user): VGL25's optional manlet bonus (a manlet may carry the base rating or the base
+plus the bonus) is a one-option `choice`, not a new `optional` field: a `stat_bonus` option is
+used when, without it, the player's rating is above the expected rating. A choice the player
+takes no option of is a suggestion under a new `choices` key (`UnusedChoice`). VGL25
+(4ccEditor-VGL `vgl25`, `2c2d26a`) becomes a test ruleset with hand-built fixtures; VGL24
+(`d4d7b15`) adds nothing to test. VGL25's injury resistance is exact, 2 for medals and 1 for
+non-medals, as the VGL rules state, though `aatf_single_vgl` lets a gold sit below 2.
+Lead's reading: the rest of VGL24 and VGL25 fits the schema (mixed `up_to`/`exactly` brackets,
+forbids, free cards, captain and goalkeeper requirements off); the missing skill-card cap is
+`max_skill_cards` 41.
+Why: reusing `choice` keeps one mechanism for conditional effects, and an untaken option is an
+unused allowance like the other suggestions.
+Plan: `aatf_rules.md` "Background", the schema (`suggestions`, `choice`), "VGL25", violations,
+suggestions, crate layout, phase and verification; `ruleset_editor.md` sections;
+`core/development_plan.md` Phase 5.

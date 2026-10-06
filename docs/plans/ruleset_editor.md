@@ -61,10 +61,11 @@ mark in the rail.
     positions", "At most N A positions", "Weak-foot limits", "Height allowance", "Forbid"). A
     numeric effect has a "same for every tier / per tier" switch; per tier shows one field per tier.
     *One of* adds a choice: ordered options, each a list of effects, with the rule spelled out
-    under it ("the first option the player needs is given").
+    under it ("the first option the player needs is given"); a choice of one option reads *May
+    get* ("players matching this may take it").
   - A severity selector appears when the effects include Forbid or Required card.
 - **Suggestions**: a checkbox per allowance (paid cards, A positions, weak foot, injury
-  resistance, height, free cards, and one per card group, COM included).
+  resistance, height, free cards, choices not taken, and one per card group, COM included).
 - **Custom checks**: present only when the file has them; the code, read-only, with a line saying
   it runs after the ruleset and is kept as is.
 - **Summary**: the ruleset as readable rules text ("Gold: 1 per team, every stat 99, form 8, …";

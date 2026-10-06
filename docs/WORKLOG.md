@@ -2669,6 +2669,9 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
 - **2026-10-07** — 2026's official rulesets checked against the schema: Autumn 25 (`7e01541`)
   and Spring 26 (`c92d535`) fit unchanged and join as test rulesets, official parity now running
   each cup save under its own ruleset (decision entry). No code.
+- **2026-10-07** — VGL24 (`d4d7b15`) and VGL25 (`2c2d26a`) checked: the optional manlet bonus
+  becomes a one-option `choice` with a `choices` suggestion; VGL25 joins as a test ruleset
+  (decision entry). No code.
 - **2026-10-06** — the Clef scan joins the review (maintainer; decision entry):
   `scripts/clef_scan.py`, `just clef-diff [base]` and `just clef <crate>`, rulings in
   `scripts/clef_rulings.md`, a queue for days the free tier's neurons run out. Checked offline
