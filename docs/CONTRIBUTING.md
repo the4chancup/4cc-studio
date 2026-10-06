@@ -284,12 +284,14 @@ Requirements:
   not the sidekick. Each flag is ruled like a reviewer concern: accepted (the fix goes into the
   rework brief) or rejected with a one-line reason, and its row (the report prints it) goes into
   `scripts/clef_rulings.md`, so a ruled flag is not raised again while its code is unchanged,
-  and the rulings are the data the threshold is re-checked against. The free tier allows
-  10,000 neurons a UTC day (about 450K tokens, some thirty step diffs). A scan that reaches the
-  limit is queued with the code as it is then and the run exits 0 saying `QUEUED`: the work
-  goes on without Clef, and the first scan after the UTC date changes runs the queue first, its
-  flags ruled like any others. The token comes from `CLOUDFLARE_API_TOKEN`, or from the file
-  `STUDIO_CLEF_TOKEN_FILE` names, outside the repository.
+  and the rulings are the data the threshold is re-checked against. The token comes from
+  `CLOUDFLARE_API_TOKEN`, or from the file `STUDIO_CLEF_TOKEN_FILE` names, outside the
+  repository, one token per line, used in order. The free tier allows each account 10,000
+  neurons a UTC day (about 450K tokens, some thirty step diffs); a token that reaches it is
+  skipped for the rest of the day and the next one takes over. When every token is spent, the
+  scan is queued with the code as it is then and the run exits 0 saying `QUEUED`: the work goes
+  on without Clef, and the first scan after the UTC date changes runs the queue first, its flags
+  ruled like any others.
 
 ## Dependencies
 

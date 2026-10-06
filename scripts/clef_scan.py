@@ -24,15 +24,18 @@ code is unchanged, and an accepted one that is still flagged shows its fix has n
 Answers are cached in `clef.out/cache.json` by request content, so a rerun pays only for what
 is new. The report is `clef.out/report.md`.
 
-Daily limit: the free tier allows 10,000 neurons a UTC day. A scan that hits it is queued in
-`clef.out/queue.json` with the code it covers as it is now, and the run exits 0 saying so:
-work goes on without Clef. Every scan started later that same UTC day is queued without trying.
-The first run after the date changes scans the queue first, oldest first, then its own; its
-report has one section per scan, each judging the code as it was when queued.
+Tokens: `CLOUDFLARE_API_TOKEN`, else the file named by `STUDIO_CLEF_TOKEN_FILE` (read from the
+user's registry environment too on Windows, like `STUDIO_MUTANTS_REMOTE`), one API token with
+Workers AI permission per line, used in order. Each token's account comes from the token
+(`CLOUDFLARE_ACCOUNT_ID` overrides it when there is a single token).
 
-Token: `CLOUDFLARE_API_TOKEN`, else the file named by `STUDIO_CLEF_TOKEN_FILE` (read from the
-user's registry environment too on Windows, like `STUDIO_MUTANTS_REMOTE`); an API token with
-Workers AI permission. The account comes from `CLOUDFLARE_ACCOUNT_ID`, else from the token.
+Daily limit: the free tier allows 10,000 neurons a UTC day per account. A token that reaches
+it is marked spent for the day in `clef.out/queue.json` (by a hash, not the token) and the next
+token takes over; later runs that day skip it without a request. When every token is spent,
+the scan is queued in the same file with the code it covers as it is now, and the run exits 0
+saying so: work goes on without Clef. Every scan started later that same UTC day is queued
+without trying. The first run after the date changes scans the queue first, oldest first, then
+its own; its report has one section per scan, each judging the code as it was when queued.
 """
 
 import hashlib
@@ -41,6 +44,7 @@ import os
 import re
 import subprocess
 import sys
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -83,29 +87,54 @@ def env(name: str) -> str | None:
     return value or None
 
 
+def tokens() -> list[str]:
+    """`CLOUDFLARE_API_TOKEN`, else the token file's non-empty lines, in order of use."""
+    if token := env("CLOUDFLARE_API_TOKEN"):
+        return [token]
+    if path := env("STUDIO_CLEF_TOKEN_FILE"):
+        lines = Path(path).read_text(encoding="utf-8").splitlines()
+        found = [line.strip() for line in lines if line.strip() and not line.startswith("#")]
+        if found:
+            return found
+    raise ScanError("no token: set CLOUDFLARE_API_TOKEN or STUDIO_CLEF_TOKEN_FILE")
+
+
+def token_id(token: str) -> str:
+    """A token's name in clef.out/queue.json: a hash, never the token itself."""
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()[:12]
+
+
 class Clef:
-    """Workers AI client; the token never reaches the output."""
+    """Workers AI client over one or more tokens (accounts), used in order: a token whose
+    account reaches the daily limit is marked spent for the UTC day in `exhausted` (saved with
+    the queue, so later runs that day skip it without a request) and the next one takes over.
+    QuotaExhausted is raised only when every token is spent. Tokens never reach the output."""
 
-    def __init__(self) -> None:
-        token = env("CLOUDFLARE_API_TOKEN")
-        if token is None and (path := env("STUDIO_CLEF_TOKEN_FILE")):
-            token = Path(path).read_text(encoding="utf-8").strip()
-        if not token:
-            raise ScanError("no token: set CLOUDFLARE_API_TOKEN or STUDIO_CLEF_TOKEN_FILE")
-        self.token = token
-        self.account = env("CLOUDFLARE_ACCOUNT_ID") or self.lookup_account()
+    def __init__(self, exhausted: dict[str, str]) -> None:
+        self.slots = [{"label": f"token {n}", "token": t, "account": None}
+                      for n, t in enumerate(tokens(), 1)]
+        self.exhausted = exhausted
+        self.lock = threading.Lock()
 
-    def request(self, url: str, body: dict | None) -> dict:
+    def current(self) -> dict | None:
+        today = utc_today()
+        return next((s for s in self.slots if self.exhausted.get(token_id(s["token"])) != today),
+                    None)
+
+    def request(self, slot: dict, url: str, body: dict | None) -> dict:
+        token = slot["token"]
         data = None if body is None else json.dumps(body).encode("utf-8")
         for attempt in range(5):
             req = urllib.request.Request(url, data=data, method="GET" if body is None else "POST",
-                                         headers={"Authorization": f"Bearer {self.token}",
+                                         headers={"Authorization": f"Bearer {token}",
                                                   "Content-Type": "application/json"})
             try:
                 with urllib.request.urlopen(req, timeout=120) as r:
                     return json.loads(r.read().decode("utf-8"))
             except urllib.error.HTTPError as e:
-                detail = e.read().decode("utf-8", "replace")[:500].replace(self.token, "<token>")
+                detail = e.read().decode("utf-8", "replace")[:500]
+                for each in self.slots:
+                    detail = detail.replace(each["token"], "<token>")
                 # The free tier's daily neuron allowance (seen as code 4006, "daily free
                 # allocation") is a 429 too, but retrying cannot help.
                 if "daily free allocation" in detail:
@@ -121,20 +150,41 @@ class Clef:
                 raise ScanError(f"network: {e.reason}") from None
         raise AssertionError("unreachable")
 
-    def lookup_account(self) -> str:
-        accounts = self.request("https://api.cloudflare.com/client/v4/accounts", None)["result"]
+    def lookup_account(self, slot: dict) -> str:
+        # `CLOUDFLARE_ACCOUNT_ID` names one account, so it only serves a single token.
+        if len(self.slots) == 1 and (account := env("CLOUDFLARE_ACCOUNT_ID")):
+            return account
+        accounts = self.request(slot, "https://api.cloudflare.com/client/v4/accounts",
+                                None)["result"]
         if len(accounts) != 1:
-            raise ScanError(f"the token sees {len(accounts)} accounts: set CLOUDFLARE_ACCOUNT_ID")
+            raise ScanError(f"{slot['label']} sees {len(accounts)} accounts, not one")
         return accounts[0]["id"]
 
     def ask(self, state: str, questions: dict) -> dict:
         """{question id: P(true)} for noul questions."""
-        url = f"https://api.cloudflare.com/client/v4/accounts/{self.account}/ai/run/{MODEL}"
-        resp = self.request(url, {"state": state, "questions": questions})
-        if not resp.get("success", True):
-            raise ScanError(json.dumps(resp.get("errors")))
-        answers = resp["result"]["answers"]
-        return {q: float(a["noul"]) for q, a in answers.items()}
+        while True:
+            with self.lock:
+                slot = self.current()
+                if slot is None:
+                    raise QuotaExhausted("every token's daily limit is spent")
+                if slot["account"] is None:
+                    slot["account"] = self.lookup_account(slot)
+            url = (f"https://api.cloudflare.com/client/v4/accounts/{slot['account']}"
+                   f"/ai/run/{MODEL}")
+            try:
+                resp = self.request(slot, url, {"state": state, "questions": questions})
+            except QuotaExhausted:
+                with self.lock:
+                    key = token_id(slot["token"])
+                    if self.exhausted.get(key) != utc_today():
+                        self.exhausted[key] = utc_today()
+                        print(f"{slot['label']}: daily neuron limit reached; next token",
+                              flush=True)
+                continue
+            if not resp.get("success", True):
+                raise ScanError(json.dumps(resp.get("errors")))
+            answers = resp["result"]["answers"]
+            return {q: float(a["noul"]) for q, a in answers.items()}
 
 
 class Cache:
@@ -284,10 +334,15 @@ def write_atomic(path: Path, text: str) -> None:
 
 
 def load_queue() -> dict:
+    """{quota_date: the UTC day every token was spent, or None; jobs: queued scans;
+    exhausted: token id -> the UTC day it was spent, today's entries only}."""
     path = OUT / "queue.json"
+    queue = {"quota_date": None, "jobs": [], "exhausted": {}}
     if path.exists():
-        return json.loads(path.read_text(encoding="utf-8"))
-    return {"quota_date": None, "jobs": []}
+        queue.update(json.loads(path.read_text(encoding="utf-8")))
+    today = utc_today()
+    queue["exhausted"] = {k: d for k, d in queue["exhausted"].items() if d == today}
+    return queue
 
 
 def save_queue(queue: dict) -> None:
@@ -370,13 +425,15 @@ def main(argv: list[str]) -> int:
               "scans wait for the next run after the date changes. Work continues without Clef.")
         return 0
 
-    cache, rulings, clef = Cache(), load_rulings(), None
+    cache, rulings, clef, made = Cache(), load_rulings(), None, threading.Lock()
 
     def ask(state: str, questions: dict) -> dict:
         nonlocal clef
         key = Cache.key(state, questions)
         if key not in cache.data:
-            clef = clef or Clef()
+            with made:
+                # Made on the first uncached question only: a fully cached run needs no token.
+                clef = clef or Clef(queue["exhausted"])
             cache.data[key] = clef.ask(state, questions)
         return cache.data[key]
 
@@ -388,20 +445,18 @@ def main(argv: list[str]) -> int:
             sections += lines
             new_total += new
         done = len(jobs)
+        queue["quota_date"], queue["jobs"] = None, []
     except QuotaExhausted:
         for each in jobs[done:]:
             each["queued"] = each["queued"] or today
-        queue = {"quota_date": today, "jobs": jobs[done:]}
-        save_queue(queue)
+        queue["quota_date"], queue["jobs"] = today, jobs[done:]
     except ScanError as e:
         # Not the quota: the queued scans stay queued, the current one is rerun by hand.
-        queue = {"quota_date": queue["quota_date"], "jobs": [j for j in jobs[done:-1]]}
-        save_queue(queue)
+        queue["jobs"] = jobs[done:-1]
         failure = e
     finally:
         cache.save()
-    if done == len(jobs):
-        save_queue({"quota_date": None, "jobs": []})
+        save_queue(queue)
 
     header = ["# Clef scan", "",
               "Each flag is ruled like a reviewer concern (CONTRIBUTING.md \"Clef scan\"); its "
