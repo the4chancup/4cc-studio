@@ -4157,3 +4157,18 @@ sidekick, because a sidekick handed raw flags fixes the false ones too.
 Plan: `CONTRIBUTING.md` "Testing and verification" (recipes; "Clef scan"); `AGENTS.md` lead
 review and converge's design-health pass. The evaluation is outside the repository
 (`SystemOne/jev-eval/round3/RESULTS.md` on the maintainer's machine).
+
+## 2026-10-06 — review process — the Clef scan's windows stay positional
+Decision (lead, measured at the maintainer's request): the scan keeps 60-line windows placed by
+position (centred on a change, or tiled 60/40), not windows cut to the enclosing function
+with its doc comment and `impl` header.
+Why: on the 21 injected-defect pairs, function-sized windows caught 15 at P >= 0.7 against 19,
+flagged 3 unmodified windows against 1 (AUC 0.87 against 0.98): a short function alone hides
+the neighbouring code a bug is judged against (an overflow guard, a buffer-size rule) and
+makes correct code look suspicious. On five reviewed commits the positional windows flagged
+10 of 203, every one on the `pes_savefile` codec code `cd3a1d1` later fixed, so the report
+now merges overlapping flagged windows into one flag. The same run found that ending
+production code at a file's first `#[cfg(test)]` skipped 5,007 production lines (out-of-
+line `mod tests;` declarations, single test-only items); it now ends at the inline test
+module, the last item of all 133 files that have one.
+Plan: `CONTRIBUTING.md` "Clef scan".

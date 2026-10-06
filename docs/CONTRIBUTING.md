@@ -276,8 +276,13 @@ Requirements:
   window at P >= 0.7 and lists its three likeliest lines (`clef.out/report.md`, gitignored);
   `just clef <crate>` (or `all`) does the same over a crate's whole production code. Measured
   on 2026-10-06 (`DECISIONS.md`): 19 of 21 one-edit defects injected into real windows caught,
-  1 of 21 unmodified windows and 2 of 64 reviewed hunks flagged; it does not see a defect whose
-  evidence is in another file or in the plan, and test code is not scanned. It runs at the
+  1 of 21 unmodified windows and 2 of 64 reviewed hunks flagged; with the scan's own windows,
+  five reviewed commits gave 10 flagged windows of 203, all on the code a later fix changed
+  (the report merges overlapping flagged windows, here into three flags). It does not see a
+  defect whose evidence is in another file or in the plan, and test code (a `tests/` folder,
+  `tests.rs`, the inline `#[cfg(test)] mod … {}`) is not scanned. The windows are positional,
+  not cut to whole functions: function-sized windows lost context and did worse (15 of 21
+  caught, AUC 0.87 against 0.98). It runs at the
   mutation runs' two points, never as a gate (it needs the network and a token): `just
   clef-diff` over every diff the lead reviews, a sidekick's step and each rework round's fix
   alike, and `just clef <crate>` over each of a phase's crates at converge. The lead runs it,

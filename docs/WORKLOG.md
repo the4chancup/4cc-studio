@@ -2651,3 +2651,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   with a fake client (windowing, an injected bug flagged and located, cache, rulings, the queue
   across a date change); the live check waits for the quota reset. Next for it: one
   `just clef all` pass over the current code, its flags ruled.
+- **2026-10-06** — Clef scan: windows measured positional vs function-sized (positional kept,
+  decision entry); the report merges overlapping flagged windows; production code now ends at
+  the inline test module, not the first `#[cfg(test)]` (5,007 lines were skipped). The
+  scan reads several tokens in order with a per-day fallback (`cf96357`).

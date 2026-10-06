@@ -209,11 +209,19 @@ def git(*args: str) -> str:
                           encoding="utf-8", errors="replace").stdout
 
 
+TEST_MODULE = re.compile(r"\s*(pub(\([^)]*\))?\s+)?mod\s+\w+\s*\{")
+
+
 def production_end(path: str, lines: list[str]) -> int:
-    """How many leading lines of the file are production code (0 for a test file)."""
+    """How many leading lines of the file are production code (0 for a test file): up to the
+    inline test module, a `#[cfg(test)]` directly over `mod <name> {`. Not the first
+    `#[cfg(test)]`: that also marks out-of-line modules (`mod tests;`) and single items at
+    the top or middle of a file (20 files, 5,007 production lines, on 2026-10-06). The
+    inline test module is the last item of every file that has one (133 files checked)."""
     if "/tests/" in path or path.endswith("tests.rs"):
         return 0
-    return next((i for i, s in enumerate(lines) if s.strip() == "#[cfg(test)]"), len(lines))
+    return next((i for i, s in enumerate(lines[:-1]) if s.strip() == "#[cfg(test)]"
+                 and TEST_MODULE.match(lines[i + 1])), len(lines))
 
 
 def windows_over(start: int, end: int, limit: int) -> list[tuple[int, int]]:
@@ -367,17 +375,39 @@ def scan(job: dict, ask) -> list[tuple]:
     return flags
 
 
+def merge_overlapping(flags: list[tuple]) -> list[tuple]:
+    """One flag per run of overlapping flagged windows in a file: overlapping windows usually
+    flag one issue (the 2026-10-06 measurement: 10 flagged windows, three issues), and a flag
+    each would mean ruling it several times. The merged flag keeps the highest P and the three
+    likeliest distinct lines across its windows."""
+    merged = []
+    for path, lo, hi, p, rows in sorted(flags, key=lambda f: (f[0], f[1])):
+        if merged and merged[-1][0] == path and lo <= merged[-1][2]:
+            last = merged[-1]
+            lines = dict(last[4])
+            for line, q in rows:
+                lines[line] = max(q, lines.get(line, 0.0))
+            top = sorted(lines.items(), key=lambda lq: -lq[1])[:3]
+            merged[-1] = (path, last[1], max(hi, last[2]), max(p, last[3]), top)
+        else:
+            merged.append((path, lo, hi, p, rows))
+    return merged
+
+
 def report_section(job: dict, flags: list[tuple], rulings: dict) -> tuple[list[str], int]:
     """The job's report lines and its count of new flags."""
     when = f", queued on {job['queued']} (the code as it was then)" if job["queued"] else ""
+    flagged_windows = len(flags)
+    flags = merge_overlapping(flags)
     new, ruled = [], []
     for path, lo, hi, p, rows in flags:
         lines = job["files"][path]
         key = ruling_key(path, lines, rows[0][0]) if rows else ""
         (ruled if key in rulings else new).append((path, lo, hi, p, rows, key, lines))
     out = [f"## {job['what']}{when}", "",
-           f"{len(job['windows'])} windows of production code, {len(flags)} flagged at "
-           f"P >= {THRESHOLD}: {len(new)} new, {len(ruled)} ruled earlier.", ""]
+           f"{len(job['windows'])} windows of production code, {flagged_windows} flagged at "
+           f"P >= {THRESHOLD}, {len(flags)} flags once overlaps are merged: {len(new)} new, "
+           f"{len(ruled)} ruled earlier.", ""]
     for title, entries in (("New flags", new), ("Ruled earlier", ruled)):
         out += [f"### {title}", ""]
         for path, lo, hi, p, rows, key, lines in sorted(entries, key=lambda e: -e[3]):
