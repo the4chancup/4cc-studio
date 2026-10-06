@@ -59,9 +59,15 @@ change off).
 
 VGL27 (4ccEditor-VGL, branch `vgl27`, tag `VGL27.A`) reshapes VGL26 toward the official layout:
 no buffed tier and no per-stat targets, tiers recognized by rating alone, height brackets back
-(one exact height each, one set of quotas), the official manlet bonus, and a rule no other
-ruleset has: a starting-eleven player must be fielded at his registered position in at least one
-formation the game can field.
+(one exact height each, one set of quotas) and the official manlet bonus.
+
+The VGL26 and VGL27 rules pages (the VGL wiki's "Chapter III: Squad") state rules their checkers
+do not test, or test loosely: every position a player is fielded at in the first preset must be
+one of his A positions (VGL27's checker only asks that the registered position appear somewhere);
+no man marking; every support setting off except preset switching, which must be on; injury
+resistance exactly 2 for medals and 1 for non-medals (the checkers allow less); and, in VGL26, no
+formation of three defenders, four midfielders and three forwards (3-4-3 and its variants), fluid
+formations included. A VGL ruleset here follows its rules page where the two disagree.
 
 The schema below is the union of what these rulesets and the specials history need, and the
 rulesets are its fixtures ("Verification").
@@ -207,9 +213,10 @@ pub struct HeightSystem {
 
 pub struct Universal {
     pub registered_position_a: bool,
-    /// A starting-eleven player is fielded at his registered position in at least one formation
-    /// the game can field (counted as for `Condition::fielded_only_at`).
-    pub registered_position_fielded: bool,
+    /// Presets (1 to 3) in which a starting-eleven player may be fielded only at positions he is
+    /// rated A at, in every formation the game can field from them (counted as for
+    /// `Condition::fielded_only_at`). Empty: no such rule.
+    pub fielded_at_a: Vec<u8>,
     pub no_b_ratings: bool,
     /// B ratings count toward the A-position allowance, like extra A positions.
     pub b_uses_a_allowance: bool,
@@ -301,13 +308,18 @@ pub struct Effects {
 pub struct TeamSettings {
     pub label: String,
     pub versions: Vec<PesVersion>,
-    /// Man marking set up on any preset (PES 16's per-preset assignments).
+    /// Man marking set up on any preset (PES 16: the per-preset assignments; PES 17+: a
+    /// defending advanced instruction of the man-marking kind).
     pub man_marking: Option<bool>,
     /// Any setting but off.
     pub auto_substitution: Option<bool>,
     pub auto_offside_trap: Option<bool>,
     pub auto_preset_change: Option<bool>,
     pub auto_attack_defence_levels: Option<bool>,
+    /// Banned formation shapes, as defender, midfielder and forward counts (`[3, 4, 3]`), in
+    /// every formation the game can field from any preset. Defenders are CB, LB and RB;
+    /// midfielders DMF, CMF, LMF, RMF and AMF; forwards LWF, RWF, SS and CF.
+    pub forbidden_shapes: Vec<[u8; 3]>,
 }
 
 pub enum PerTier<T> {
@@ -334,7 +346,8 @@ except `schema`, `name`, `squad_size`, `max_skill_cards`, and each tier's, brack
 Rules the types cannot carry, checked on load ("Loading and validation"): ids unique within their
 kind, and every id a condition, effect, quota, `counts_as` or `suggestions` entry names exists; a
 tier with `counts_as` has no `count`; tier counts fit `squad_size`; a special with
-`height_allowance` names no bracket, since brackets are computed from the allowance.
+`height_allowance` names no bracket, since brackets are computed from the allowance; `fielded_at_a`
+names presets 1 to 3; a forbidden shape's counts add up to 10.
 
 ### How a player is read
 
@@ -513,7 +526,8 @@ checks no registered-position or playing-style range, which `libs/aatf` builds i
 
 ## VGL26
 
-The second embedded ruleset: a starting template in the Ruleset editor and a fixture, transcribed from 4ccEditor-VGL's `vgl26` branch (tip `ad378d2`; `stats.h`, and
+The second embedded ruleset: a starting template in the Ruleset editor and a fixture, transcribed
+from the VGL26 rules page and 4ccEditor-VGL's `vgl26` branch (tip `ad378d2`; `stats.h`, and
 `aatf_single_vgl` in `aatf.cpp`). What it exercises that the official file does not:
 
 | Feature | VGL26 |
@@ -522,29 +536,42 @@ The second embedded ruleset: a starting template in the Ruleset editor and a fix
 | Per-stat targets | each tier's `rate` (99, 95, 91, 85, 80; 72 for goalkeepers) plus `stats` overrides (silver: finishing, heading and attacking prowess 99, defensive prowess 60, …) |
 | Tier recognition | each tier's `when` fixes one height (gold and silver 195, bronze 190, buffed and goalkeeper 185, regular 180); no brackets, no systems |
 | Rating stats | the official set less finishing, heading and aggression |
-| Cards | `tricks` (VGL's set, Heading and Malicia included) free up to 12; free COM 2 or 1; `a_positions` 2 (goalkeeper 1); the captain's Captaincy free and one extra card (`cards: 1` for `captain: true`) |
-| Suggestions | `cards`, `com`, `a_positions`, `weak_foot`, `injury_resistance`, `free_cards` |
+| Cards | `tricks` (the rules page's twelve, Malicia included) free; Heading free for everyone (`free_cards`); paid 9, 8, 8, 7, 6, goalkeeper 5; free COM 2 for medals, 1 for the rest; `a_positions` 2 (goalkeeper 1); the captain's Captaincy free and one extra card (`cards: 1` for `captain: true`) |
+| Injury resistance | exact: 2 for medals, 1 for the rest |
+| Universal | `fielded_at_a: [1]`; `max_skill_cards` 41, so no cap |
+| Team settings | no man marking; auto substitution and offside trap off, preset change on; `forbidden_shapes: [[3, 4, 3]]` |
+| Suggestions | `cards`, `com`, `a_positions`, `weak_foot`, `free_cards` |
+
+Where the data reads differently from `aatf_single_vgl`, on purpose (the rules page is stricter):
+injury resistance is exact, where the checker allows less; and the first-preset A-position rule,
+the team settings and the formation ban are checked, where the checker tests none of them. The
+rules page's "support settings" are read as substitution, offside trap and preset change: its
+next rule allows auto attack/defence levels at fixed values, so that setting is left free.
 
 ## VGL27
 
-A test ruleset (not a template), transcribed from 4ccEditor-VGL's `vgl27` branch (tip `45ce31d`,
-tag `VGL27.A`; the ruleset is commit `4447996`). What it exercises that the others do not:
+A test ruleset (not a template), transcribed from the VGL27 rules page and 4ccEditor-VGL's `vgl27`
+branch (tip `45ce31d`, tag `VGL27.A`; the ruleset is commit `4447996`). What it exercises that the
+others do not:
 
 | Feature | VGL27 |
 |---|---|
 | Tiers | gold 1, silver 2, bronze 2 (rates 99, 94, 89), goalkeeper (77) `counts_as` regular (77, the rest); no per-stat targets |
 | Tier recognition | rating alone; the medal tiers' `when` excludes GK, so a registered GK is a goalkeeper whatever his rating |
 | Heights | five brackets of one exact height each (175, 180, 185, 190, 210) under one system with no `any_player` (quotas 6, 7, 10, 0, 0); a goalkeeper at 189 counts as 185 (`height_allowance: 4`); the official "Manlets" special |
-| Cards | VGL26's shape with smaller numbers: paid 6, 5, 5, 4, goalkeeper 4; free COM 1, 1, 1, 0, 0 |
-| Universal | `registered_position_fielded` |
+| Cards | VGL26's shape with smaller numbers and no free Heading: paid 6, 5, 5, 4, goalkeeper 4; free COM 1, 1, 1, 0, 0 |
+| Injury resistance, universal, team settings | as VGL26, without the formation ban |
 | Rating stats, suggestions | as VGL26 |
 
-Where the data reads differently from `aatf_single_vgl`, on purpose: a rating between two tiers'
-targets (96) is placed by expected rating, as in the official file, where `aatf_single_vgl`
-reports no tier; a height in no bracket is a `Height` violation for that player, where
-`aatf_single_vgl` only misses a quota. Its quota messages print the 185 cm count for every
-bracket (an upstream defect, reported), so parity compares which quotas fail, not the printed
-counts.
+Where the data reads differently from `aatf_single_vgl`, on purpose: the rules page is followed
+where it is stricter (exact injury resistance; Heading, which the checker counts as a free trick,
+is a paid card; the team settings are checked); the checker's positional test (the registered
+position appears in some formation of any preset) gives way to the page's first-preset A-position
+rule. A rating between two tiers' targets (96) is placed by expected rating, as in the official
+file, where `aatf_single_vgl` reports no tier; a height in no bracket is a `Height` violation for
+that player, where `aatf_single_vgl` only misses a quota. Its quota messages print the 185 cm
+count for every bracket (an upstream defect, reported), so parity compares which quotas fail, not
+the printed counts.
 
 ---
 
@@ -571,7 +598,7 @@ pub struct Violation {
 
 pub enum ViolationKind {
     RegisteredNotA,
-    RegisteredNotFielded,
+    FieldedNotA { preset: u8, position: Position },
     BRating,
     GkSecondA,
     Age { age: u8, min: u8, max: u8 },
@@ -596,6 +623,7 @@ pub enum ViolationKind {
     Captain,
     Goalkeepers { count: u8, min: u8 },
     TeamSetting { label: String, setting: String },
+    FormationShape { preset: u8, formation: u8, shape: [u8; 3] },
     Special { label: String, text: String },
     Custom { text: String },
     /// A suggestion: an allowance listed in `suggestions` the player does not use up.
@@ -632,7 +660,7 @@ engine.register_type::<PlayerEntry>()
 engine.register_type::<TeamContext>()          // players, captain, version, tactics presets
       .register_get("players", |t: &mut TeamContext| t.players.clone())
       .register_fn("fielded_only_at", |t: &mut TeamContext, p: PlayerEntry, pos: &str| t.fielded_only_at(&p, pos))
-      .register_fn("fielded_at", |t: &mut TeamContext, p: PlayerEntry, pos: &str| t.fielded_at(&p, pos));
+      .register_fn("fielded_positions", |t: &mut TeamContext, p: PlayerEntry, preset: i64| t.fielded_positions(&p, preset));
 
 engine.set_max_operations(MAX_OPERATIONS);
 engine.set_max_call_levels(32);
@@ -641,17 +669,18 @@ engine.set_max_call_levels(32);
 `MAX_OPERATIONS` is set from the measured cost of the official ruleset on a full team, with a
 tenfold margin. Closed sets cross the boundary as the labels the file uses (`"GK"`, `"A"`,
 `"malicia"`); the Rust side keeps its enums and converts at the registration functions, nowhere
-else. Tactics questions (`fielded_only_at`; `fielded_at`, fielded there in at least one formation,
-a player outside the starting eleven counting as registered there; the team settings) are
-answered in Rust from `pes_savefile`'s model, so the starting-eleven lookup and the formation
-count, both wrong upstream until `f5e7b3e`, live in one tested place. The registered accessors are the script API,
-listed in `libs/aatf`'s crate doc; adding one is a plan edit to this section, never a silent
-addition.
+else. Tactics questions (`fielded_only_at`; `fielded_positions`, the positions a starting-eleven
+player is fielded at in one preset's formations, none for a player outside it; the team settings
+and formation shapes) are answered in Rust from `pes_savefile`'s model, so the starting-eleven
+lookup and the formation count, both wrong upstream until `f5e7b3e`, live in one tested place.
+The registered accessors are the script API, listed in `libs/aatf`'s crate doc; adding one is a
+plan edit to this section, never a silent addition.
 
 Before implementing `man_marking`, extend `pes_savefile`'s PES 16 team model with the
 per-preset man-marking assignments (eleven bytes per preset, `0xFF` for none; VTLEditor's
-`pes16.cpp` reads them, 4ccEditor does not); the auto flags are modeled already
-(`TeamAutoFlags`).
+`pes16.cpp` reads them, 4ccEditor does not), and establish which defending advanced instruction
+id is man marking on each of PES 17–21 (the instructions are modeled, `AdvancedInstruction`, their
+ids version-specific); the auto flags are modeled already (`TeamAutoFlags`).
 
 `apply_tier(player, tier, rules)` is the lib's one *writing* operation: it calls `tier_values`
 and writes the result into the player (stats; form; injury resistance and weak foot at their
@@ -755,7 +784,8 @@ Verification:
   saves exist. Most teams there were legal under their own ruleset, so this is also the check that
   a real legal team reports nothing.
 - **Parity, VGL26.** The same against `aatf_single_vgl` on the VGL26 cup save
-  (`C:\Data\4cc\Saves\EDIT00000000_VGL26` on the maintainer's machine, 2026-10-06), every team.
+  (`C:\Data\4cc\Saves\EDIT00000000_VGL26` on the maintainer's machine, 2026-10-06), every team;
+  each difference is one recorded under "VGL26" (the rules page's stricter rules) or a fix.
 - **Parity, VTL11.** Transcribed into a ruleset from the VTLEditor fork (its positional rule
   for 188 cm players as a custom check); the same against VTLEditor's `aatf_single` on the VTL11
   cup save (`C:\Data\4cc\Saves\EDIT00000000_VTL11`, 2026-10-06), every team. The PES 16 team
@@ -765,9 +795,11 @@ Verification:
   built for VGL26, most fail, and what is compared is the findings, not legality. A VGL27 cup
   save replaces it when one exists.
 - Per ruleset, known-legal teams report nothing; each known-violating fixture reports exactly its
-  violation. Every special of the official file is exercised by at least one fixture. VGL27's
-  include a starting-eleven player fielded at his registered position in no formation, and a
-  legal one fielded there in a single formation of one preset. VGL25 has no cup save, so its
+  violation. Every special of the official file is exercised by at least one fixture. VGL26's
+  and VGL27's include a starting-eleven player fielded in preset 1 at a position he is not rated
+  A at, one whose only such position is in preset 2 (legal), and a fluid preset 1 whose
+  out-of-possession formation alone breaks the rule; VGL26's add a 3-4-3 shape in one formation
+  of a fluid preset 3, and a 3-5-2 (legal). VGL25 has no cup save, so its
   fixtures are hand-built: manlets at each legal rating (77 and 82), one between them, and one at
   77 with `choices` suggested; a medal at 190; a gold at injury resistance 1.
 - Suggestions: a fixture per allowance kind, and none for an allowance not listed in

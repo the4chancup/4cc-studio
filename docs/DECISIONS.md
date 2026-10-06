@@ -4216,3 +4216,21 @@ unused allowance like the other suggestions.
 Plan: `aatf_rules.md` "Background", the schema (`suggestions`, `choice`), "VGL25", violations,
 suggestions, crate layout, phase and verification; `ruleset_editor.md` sections;
 `core/development_plan.md` Phase 5.
+
+## 2026-10-07 — aatf — VGL rulesets follow their rules pages; `fielded_at_a`; `forbidden_shapes`
+Decision (user): the VGL26 and VGL27 rulesets follow the VGL wiki's rules pages (Chapter III,
+supplied by the maintainer) where these are stricter than the checkers, each difference recorded
+for parity. VGL27's positional rule is the page's ("the positions of each player on a team's first
+preset … match one of the player's A positions"): universal `fielded_at_a` (presets), replacing
+the `registered_position_fielded` switch of this day's earlier entry, which copied the checker's
+looser test. VGL26's ban on 3-4-3-shaped formations is schema: `team_settings.forbidden_shapes`.
+Lead's reading: from the pages, both rulesets also get exact injury resistance, no man marking,
+support settings off but preset switching on (auto attack/defence levels left free, since the
+next rule allows auto-mentalities at fixed values), and no skill-card cap; VGL27 loses the free
+Heading its checker grants, VGL26 keeps it as a free card. `man_marking` covers PES 17+'s
+man-marking instruction, whose ids are established before implementation. VGL27's differences
+are added to the upstream bug report.
+Why: the pages are the rules the organizers enforce; a checker's leniency is a defect, not a rule.
+Plan: `aatf_rules.md` "Background", the schema (`Universal`, `TeamSettings`, load-time rules),
+"VGL26", "VGL27", violations, "The host", verification; `ruleset_editor.md` sections and
+"Randomize".

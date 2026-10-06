@@ -2672,6 +2672,10 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
 - **2026-10-07** — VGL24 (`d4d7b15`) and VGL25 (`2c2d26a`) checked: the optional manlet bonus
   becomes a one-option `choice` with a `choices` suggestion; VGL25 joins as a test ruleset
   (decision entry). No code.
+- **2026-10-07** — VGL26 and VGL27 checked against their rules pages: both follow the pages
+  (`fielded_at_a` replaces `registered_position_fielded`; `forbidden_shapes` for VGL26's 3-4-3
+  ban; exact injury resistance; tactics settings), VGL27's differences added to the bug report
+  (decision entry). No code.
 - **2026-10-06** — the Clef scan joins the review (maintainer; decision entry):
   `scripts/clef_scan.py`, `just clef-diff [base]` and `just clef <crate>`, rulings in
   `scripts/clef_rulings.md`, a queue for days the free tier's neurons run out. Checked offline

@@ -49,7 +49,8 @@ mark in the rail.
 - **Cards**: the card groups, each a name and a checkbox grid of the 41 skills and 7 COM styles
   (labels as the Save editor shows them); all COM styles are also the built-in `com` group.
 - **Universal rules**: checkboxes and number fields for `universal`, and below them the team
-  settings: one row per entry, its PES versions and the value each tactics setting must have.
+  settings: one row per entry, its PES versions, the value each tactics setting must have and
+  the formation shapes it bans (defenders-midfielders-forwards, `3-4-3`).
 - **Specials**: a list of cards, reordered by dragging (order matters for replacing effects), each
   with a label, a **When** row and a **Then** row:
   - *When* is the condition editor: tiers, registered positions, playing styles, height systems
@@ -99,8 +100,8 @@ each, then one set of heights per height system, chosen so that system is the on
 tier counts and each system's bracket quotas are then *read off* the witnesses rather than
 drawn. The specials come next. Each witness is then completed through the ruleset itself:
 `apply_tier` for stats, form and limits, the required cards and nothing else, A only in the
-registered position, no tactics (so `fielded_only_at` and `registered_position_fielded` read the
-registered position). Finally
+registered position, no tactics (so `fielded_only_at` reads the registered position and
+`fielded_at_a` and `forbidden_shapes` find nothing to check). Finally
 `check_team` runs on it. A witness with an error redraws the specials; after a bounded number of
 attempts the whole ruleset is redrawn, continuing the same random sequence, so a seed still names
 exactly one result. A ruleset that no team could satisfy is never offered.
