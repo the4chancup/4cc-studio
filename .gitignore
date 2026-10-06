@@ -8,6 +8,9 @@
 /mutants.out/
 /mutants.out.old/
 
+# Clef scan report and answer cache (`just clef`, `just clef-diff`)
+/clef.out/
+
 # OS noise
 Thumbs.db
 .DS_Store

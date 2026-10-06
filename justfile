@@ -44,6 +44,14 @@ mutants-collect:
 mutants-diff base="HEAD":
     {{python}} scripts/mutants_diff.py {{base}}
 
+# Clef bug scan of the production lines changed since `base`; report in clef.out/report.md
+clef-diff base="HEAD":
+    {{python}} scripts/clef_scan.py diff {{base}}
+
+# Clef bug scan of a crate's whole production code (`all` for every crate)
+clef crate:
+    {{python}} scripts/clef_scan.py crate {{crate}}
+
 # The python_bindings wheel: maturin build, then the smoke test with the wheel on sys.path
 # (`just bindings <interpreter>` runs the smoke test under that Python, e.g. Blender's)
 bindings interpreter=python:

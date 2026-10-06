@@ -166,7 +166,7 @@ included, because `just gates` does not run it: 3.z's `eframe` brought two `BSL-
 only CI saw), `just acceptance strict` (the scanner's converge mode, under "Requirements"), `just parity`,
 `just bindings` (the `maturin` build of `python_bindings`), `just release <version>`, `just
 mutants <crate>`, `just mutants-collect` and `just mutants-diff [base]` (the mutation runs,
-below). `just --list` shows
+below), `just clef-diff [base]` and `just clef <crate>` (the Clef scan, below). `just --list` shows
 them with a one-line description each.
 
 On Windows every binary `cargo test`, `run` or `bench` launches goes through
@@ -269,6 +269,27 @@ Requirements:
   the equivalence named, so that file is the list of what the runs no longer measure), or
   unreachable code (a design finding). A survivor with no bucket is a review finding, not a
   number to accept. Results land in `mutants.out/` (gitignored).
+- **Clef scan.** The sweeps find what a pattern can see and the mutation runs what a missing
+  test lets through; a logic slip in code its own tests agree with needs a reader. `just
+  clef-diff [base]` asks Cloudflare's Clef decision model (27B, hosted on Workers AI) whether
+  each 60-line window around the production lines changed since `base` contains a bug, flags a
+  window at P >= 0.7 and lists its three likeliest lines (`clef.out/report.md`, gitignored);
+  `just clef <crate>` (or `all`) does the same over a crate's whole production code. Measured
+  on 2026-10-06 (`DECISIONS.md`): 19 of 21 one-edit defects injected into real windows caught,
+  1 of 21 unmodified windows and 2 of 64 reviewed hunks flagged; it does not see a defect whose
+  evidence is in another file or in the plan, and test code is not scanned. It runs at the
+  mutation runs' two points, never as a gate (it needs the network and a token): `just
+  clef-diff` over every diff the lead reviews, a sidekick's step and each rework round's fix
+  alike, and `just clef <crate>` over each of a phase's crates at converge. The lead runs it,
+  not the sidekick. Each flag is ruled like a reviewer concern: accepted (the fix goes into the
+  rework brief) or rejected with a one-line reason, and its row (the report prints it) goes into
+  `scripts/clef_rulings.md`, so a ruled flag is not raised again while its code is unchanged,
+  and the rulings are the data the threshold is re-checked against. The free tier allows
+  10,000 neurons a UTC day (about 450K tokens, some thirty step diffs). A scan that reaches the
+  limit is queued with the code as it is then and the run exits 0 saying `QUEUED`: the work
+  goes on without Clef, and the first scan after the UTC date changes runs the queue first, its
+  flags ruled like any others. The token comes from `CLOUDFLARE_API_TOKEN`, or from the file
+  `STUDIO_CLEF_TOKEN_FILE` names, outside the repository.
 
 ## Dependencies
 

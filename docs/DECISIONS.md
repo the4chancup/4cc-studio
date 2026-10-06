@@ -4132,3 +4132,28 @@ form can express, and the one rule that is not stays in the escape hatch.
 Plan: `aatf_rules.md` "Background", the schema, the card economy, "How a player is read", the
 official file, violations, suggestions, "The host", crate layout, verification;
 `ruleset_editor.md` sections.
+
+## 2026-10-06 — review process — the Clef scan joins the lead's review
+Decision (maintainer): every diff the lead reviews, a sidekick's step and each rework round's
+fix, gets a Clef scan (`just clef-diff`), and each phase's crates get a whole-crate scan at
+converge (`just clef <crate>`). The lead runs it and rules each flag like a reviewer concern;
+rulings are kept in `scripts/clef_rulings.md`. When the free tier's daily neuron limit is hit,
+the work continues without Clef and the scans are queued for the first run after the UTC date
+changes.
+Lead's reading: the model is Clef (27B) on Workers AI, one question per 60-line window ("does
+this code contain a bug"), flagged at P >= 0.7, then one question per line to point at it.
+Measured on 4cc-studio code: 19 of 21 injected one-edit defects caught, 1 of 21 unmodified
+windows and 2 of 64 reviewed hunks flagged, and its top flags among those hunks were the
+`pes_savefile` text-codec code a later fix (`cd3a1d1`) changed. Not Clef-flash (4 of 21 caught
+on the same question), not Jev (its answers to an open question flag half the clean windows;
+it locates a known bug as well as Clef but adds a second provider for a tenth of a cent), not
+several questions in one request (Clef's joint head answers the bug question worse in a
+battery: 11 of 21). Production code only: the question was not measured on test code. Ruled
+flags are keyed by the flagged line's file and neighbours so a dismissal is not raised again.
+Why: the sweeps and mutation runs see patterns and missing tests; a logic slip that the code's
+own tests agree with had no check before the cross-family reviewer, which is queued. The scan
+costs about a third of a cent per step. Flags go through the lead, not straight to the
+sidekick, because a sidekick handed raw flags fixes the false ones too.
+Plan: `CONTRIBUTING.md` "Testing and verification" (recipes; "Clef scan"); `AGENTS.md` lead
+review and converge's design-health pass. The evaluation is outside the repository
+(`SystemOne/jev-eval/round3/RESULTS.md` on the maintainer's machine).

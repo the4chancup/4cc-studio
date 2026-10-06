@@ -2645,3 +2645,9 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   maintainer (decision entry): small general additions, `team_settings` for PES 16 tactics
   checks, the 188 cm positional rule as a custom check; VTL11 is a third test ruleset with parity
   on `C:\Data\4cc\Saves\EDIT00000000_VTL11`. No code.
+- **2026-10-06** — the Clef scan joins the review (maintainer; decision entry):
+  `scripts/clef_scan.py`, `just clef-diff [base]` and `just clef <crate>`, rulings in
+  `scripts/clef_rulings.md`, a queue for days the free tier's neurons run out. Checked offline
+  with a fake client (windowing, an injected bug flagged and located, cache, rulings, the queue
+  across a date change); the live check waits for the quota reset. Next for it: one
+  `just clef all` pass over the current code, its flags ruled.
