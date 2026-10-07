@@ -7,29 +7,30 @@ pub(crate) mod item_rows;
 pub(crate) mod overrides;
 pub(crate) mod subset;
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::ops::Range;
 
 use aesthetics_export::{
     ExportCoverage, ExportIdentity, FileDescriptor, FpcDirective, KitFolder, KitsFolder, LogoFiles,
-    PlayerFolder, PlayerIndex, PlayerSlot, ResolvedAestheticsExport, SharedKind, SharedModelFolder,
+    PlayerFolder, PlayerIndex, ResolvedAestheticsExport, SharedKind, SharedModelFolder,
     ValidatedAestheticsExport, ValidatedRoster, common_link_name,
 };
 use kit_config::KitSlot;
 use pes_version::{Engine, PesVersion};
 use studio_core::{Disposition, ExportId, Message, Scope};
+use teams_list::TeamId;
 use vtree::ScopePath;
 
 use crate::bins::Rgb;
 use crate::kit_variants::{kit_number, model_variant_sets};
 use crate::messages::{Code, tool_message};
-use crate::paths::TextureHome;
+use crate::paths::{PackageKey, REFEREE_TEAM_ID, TextureHome};
 use ids::{PlannedModelIds, shared_folders_taking_ids};
 use item_rows::{ItemRow, RowPlayer, export_rows};
 use subset::{
     FolderModels, ModelPackage, PlayerFile, common_file, common_skeleton, file_stem,
-    first_not_compiled, is_part_of, link_combines, link_name, linked_folder, package_of,
-    player_file, skeleton_slot, texture_format,
+    first_not_compiled, is_part_of, link_combines, link_feeds_own_package, link_name,
+    linked_folder, package_of, player_file, skeleton_slot, texture_format,
 };
 
 /// What planning produced: the manifest and the findings planning itself made.
@@ -61,8 +62,9 @@ pub(crate) struct BuildManifest {
     /// Every planned team export's compiled players' `BootsList.bin` and `GloveList.bin` rows,
     /// in export order ("Bins accumulation").
     pub(crate) item_rows: Vec<ItemRow>,
-    /// Each planned team's name as messages show it (`/co/`) and the text of its root
-    /// `notes.txt`, in export order, for `teamnotes.txt`. A team without a note is not listed.
+    /// Each planned export's team name as messages show it (`/co/`, `/refs/` for the
+    /// referees) and the text of its root `notes.txt`, in export order, for `teamnotes.txt`.
+    /// An export without a note is not listed.
     pub(crate) notes: Vec<(String, String)>,
 }
 
@@ -85,7 +87,8 @@ pub(crate) struct TeamKits {
 pub(crate) struct BuildTask {
     /// The export the task's content comes from.
     pub(crate) export_id: ExportId,
-    /// The export's team id, which game paths and file names carry.
+    /// The export's team id, which game paths and file names carry: 999 for a refs export
+    /// (`REFEREE_TEAM_ID`).
     pub(crate) team_id: u16,
     /// What the task compiles.
     pub(crate) kind: TaskKind,
@@ -283,16 +286,17 @@ pub(crate) enum TaskKind {
     /// One package of a model folder's models: a player folder's face, boots or gloves, or a
     /// shared folder's one package, with the files packed beside them. One task per package,
     /// whatever the number of roster slots mapping a player folder: the package is built once
-    /// and emitted under each slot's id.
+    /// and emitted under each slot's key.
     Models {
         /// The model folder.
         folder: ModelFolder,
         /// Which of its packages.
         package: ModelPackage,
-        /// The ids the package is emitted under: for a player folder one per roster slot
+        /// The keys the package is emitted under: for a player folder one per roster slot
         /// mapping it, in slot order (the slot's player id for the face, its planned
-        /// boots/gloves id for the other two); for a shared folder its one shared id.
-        ids: Vec<u32>,
+        /// boots/gloves id for the other two; a referee slot's own key for all three); for a
+        /// shared folder its one shared id.
+        ids: Vec<PackageKey>,
     },
     /// A model folder's own textures, converted once into the folder's texture home, which
     /// every package of the folder points at. Always the last task of the folder's `TaskGroup`.
@@ -456,9 +460,12 @@ pub(crate) type ExportToPlan = (
 
 /// Plans the run over the identity-resolved exports, given in `ExportId` order, for the target
 /// `version`. An export holding anything Phase 3 cannot compile yet plans no task and reports
-/// `content_not_yet_compiled` naming the first such item. Every other export's colors and note
-/// go into the manifest; one with no root `colors.txt` reports `team_colors_missing`, and its
-/// team keeps the colors it had.
+/// `content_not_yet_compiled` naming the first such item. Every other export's note goes into
+/// the manifest, and a team export's colors; one with no root `colors.txt` reports
+/// `team_colors_missing`, and its team keeps the colors it had. A refs export plans its
+/// referee folders, shared folders and Common textures under team id 999 (`REFEREE_TEAM_ID`),
+/// each folder's packages keyed by its referee slots, and nothing else: it has no colors
+/// record, kits, rows, portraits or logo.
 pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanReport {
     let mut tasks = Vec::new();
     let mut team_colors = Vec::new();
@@ -480,27 +487,33 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
             ));
             continue;
         }
-        let ExportIdentity::Team { id, name } = resolved.identity else {
-            unreachable!("the subset gate skips every referee export");
+        // The referees have no team record (no colors, kits or rows) and no player ids; the
+        // gate has named their kits, logo and portraits, so only their folders compile.
+        let team = match resolved.identity {
+            ExportIdentity::Team { id, .. } => Some(id),
+            ExportIdentity::Referees => None,
         };
-        let team_id = id.get();
-        match colors {
-            None => messages.push(tool_message(
-                Code::TeamColorsMissing,
-                Scope::Export { export_id },
-                Disposition::Keep,
-                vec![],
-            )),
-            // A file whose every line was refused: the deep pass reported the lines, and
-            // there is nothing to write.
-            Some(colors) if colors.is_empty() => {}
-            Some(colors) => team_colors.push((team_id, colors)),
+        let team_id = team.map_or(REFEREE_TEAM_ID, TeamId::get);
+        if team.is_some() {
+            match colors {
+                None => messages.push(tool_message(
+                    Code::TeamColorsMissing,
+                    Scope::Export { export_id },
+                    Disposition::Keep,
+                    vec![],
+                )),
+                // A file whose every line was refused: the deep pass reported the lines, and
+                // there is nothing to write.
+                Some(colors) if colors.is_empty() => {}
+                Some(colors) => team_colors.push((team_id, colors)),
+            }
         }
-        if let Some(note) = note {
-            notes.push((name.as_str().to_owned(), note));
-        }
-        let model_ids = PlannedModelIds::for_team(id);
         let mut export = resolved.export;
+        // The export's team name (`/co/`, `/refs/`) heads its note.
+        if let Some(note) = note {
+            notes.push((export.team_name.as_str().to_owned(), note));
+        }
+        let model_ids = team.map(PlannedModelIds::for_team);
         let fpc = EffectiveTeamKitFpc::of(&export);
         // The kit numbers the export defines, ascending (its kits go by slot), which each
         // textures task completes its variant sets against.
@@ -530,10 +543,10 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
             let package = package_of(kind);
             let folders = shared_folders_taking_ids(&export, version.engine(), kind);
             for (index, folder) in folders.into_iter().enumerate() {
-                let shared_id =
-                    u32::from(model_ids.shared(index).expect(
-                        "the structure pass drops an export whose shared pool is exhausted",
-                    ));
+                let shared_id = u32::from(model_ids.and_then(|ids| ids.shared(index)).expect(
+                    "a referee's links take no shared id, and the structure pass drops a \
+                         team export whose shared pool is exhausted",
+                ));
                 let folder = ModelFolder {
                     path: folder.path.clone(),
                     files: folder.files.clone(),
@@ -560,10 +573,16 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
         // building their boots and gloves.
         let first_task = tasks.len();
         let mut row_players = Vec::new();
-        for (folder, slots) in player_folders(players, &export.roster) {
+        let mapped = mapped_folders(players, &export.roster, team);
+        for MappedFolder {
+            folder,
+            packages,
+            player_ids,
+        } in mapped
+        {
             row_players.push(RowPlayer {
                 path: folder.path.clone(),
-                player_ids: slots.iter().map(|slot| slot.player_id(id)).collect(),
+                player_ids: player_ids.clone(),
                 linked: folder
                     .links
                     .iter()
@@ -573,48 +592,38 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
             });
             if let Some(portrait) = &folder.portrait {
                 portraits.extend(
-                    slots
+                    player_ids
                         .iter()
-                        .map(|slot| (slot.player_id(id), portrait.clone())),
+                        .map(|player_id| (*player_id, portrait.clone())),
                 );
             }
-            // A link beside a local model of its package combines: the shared folder's files
-            // become a second source of the player's folder, and the folder is reported once,
-            // however many slots map it.
+            // A link feeding the player's own package (`link_feeds_own_package`) makes the
+            // shared folder's files a second source of the player's folder. One beside a
+            // local model of its package combines and is reported, once however many slots
+            // map the folder; a referee's plain link is his package as it is, which tells the
+            // member nothing new.
             let mut combined = Vec::new();
-            for link in folder
-                .links
-                .iter()
-                .filter(|link| link_combines(&folder, link))
-            {
+            for link in folder.links.iter().filter(|link| {
+                link_feeds_own_package(&export.roster, version.engine(), &folder, link)
+            }) {
                 let shared = linked_folder(&export, link)
                     .expect("validation drops a player folder whose link names no shared folder");
-                messages.push(tool_message(
-                    Code::LinkCombined,
-                    Scope::Folder {
-                        export_id,
-                        path: folder.path.clone(),
-                    },
-                    Disposition::Keep,
-                    vec![("link", link_name(link.kind, &link.name))],
-                ));
+                if link_combines(&folder, link) {
+                    messages.push(tool_message(
+                        Code::LinkCombined,
+                        Scope::Folder {
+                            export_id,
+                            path: folder.path.clone(),
+                        },
+                        Disposition::Keep,
+                        vec![("link", link_name(link.kind, &link.name))],
+                    ));
+                }
                 combined.push(CombinedFolder {
                     package: package_of(link.kind),
                     folder: shared.clone(),
                 });
             }
-            let packages = ModelPackage::ALL.map(|package| {
-                let ids = slots
-                    .iter()
-                    .map(|slot| match package {
-                        ModelPackage::Face => slot.player_id(id),
-                        ModelPackage::Boots | ModelPackage::Gloves => {
-                            u32::from(model_ids.exclusive(*slot))
-                        }
-                    })
-                    .collect();
-                (package, ids)
-            });
             let model_folder = ModelFolder {
                 textures: TextureHome::PlayerCommon {
                     folder_name: folder.path.name().to_owned(),
@@ -645,19 +654,22 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
                 export_id,
                 team_id,
                 folder,
-                &[(package, vec![shared_id])],
+                &[(package, vec![PackageKey::Id(shared_id)])],
                 false,
                 &kits,
                 &mut tasks,
             );
         }
-        // After the shared folders' tasks, which a player linking one takes his row from.
-        item_rows.extend(export_rows(
-            &tasks,
-            first_task,
-            &row_players,
-            export.coverage,
-        ));
+        // After the shared folders' tasks, which a player linking one takes his row from. A
+        // referee has none: the game's referee hook loads slot NN's `k99NN`/`g99NN` by number.
+        if team.is_some() {
+            item_rows.extend(export_rows(
+                &tasks,
+                first_task,
+                &row_players,
+                export.coverage,
+            ));
+        }
         if let Some(first) = common_textures.first() {
             let folder = first
                 .path
@@ -673,6 +685,11 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
                 },
             ));
         }
+        // The rest is a team's: the gate has named any portrait, kit or logo of a refs export,
+        // and the referees have no `UniColor.bin` record for a kits entry to edit.
+        let Some(id) = team else {
+            continue;
+        };
         portraits.extend(
             export
                 .portraits
@@ -742,13 +759,13 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
 /// Pushes `folder`'s tasks onto `tasks`: one `Models` task for each of `packages` any of the
 /// folder's sources holds a model of (a face link alone makes the shared face the player's),
 /// and for the face whatever the folder holds when `blank_face` is set, emitted under that
-/// package's ids, then, when the folder has textures, its `Textures` task completing its
+/// package's keys, then, when the folder has textures, its `Textures` task completing its
 /// variant sets against `kits`, the export's kit numbers, the lot as one `TaskGroup`.
 fn folder_tasks(
     export_id: ExportId,
     team_id: u16,
     folder: ModelFolder,
-    packages: &[(ModelPackage, Vec<u32>)],
+    packages: &[(ModelPackage, Vec<PackageKey>)],
     blank_face: bool,
     kits: &[u8],
     tasks: &mut Vec<BuildTask>,
@@ -858,17 +875,76 @@ fn kit_variant_model_messages(
     }
 }
 
-/// Every roster-mapped player folder with the slots mapping it, in slot order, the folders
-/// ordered by their first slot. A folder no slot maps is not compiled.
-fn player_folders(
+/// A roster-mapped player folder as planning builds it: the keys each of its packages is
+/// emitted under, one per slot mapping it in slot order, and those slots' player ids, which
+/// its portrait and its rows go by (none for a referee, who has no player id).
+struct MappedFolder {
+    /// The player folder.
+    folder: PlayerFolder,
+    /// The face, boots and gloves packages, each with its keys.
+    packages: [(ModelPackage, Vec<PackageKey>); 3],
+    /// The player id of each slot mapping the folder, in slot order.
+    player_ids: Vec<u32>,
+}
+
+/// The roster-mapped folders of `players`, by `player_folders`, as `MappedFolder`s: of a team
+/// export, `team` given, a slot's face keyed by its player id and its boots and gloves by
+/// its exclusive id of the team's block; of a refs export, every package of referee slot NN
+/// keyed by the slot (`referee0NN`, `k99NN`, `g99NN`).
+fn mapped_folders(
     players: Vec<PlayerFolder>,
     roster: &ValidatedRoster,
-) -> Vec<(PlayerFolder, Vec<PlayerSlot>)> {
-    // A referee roster never reaches here: its export plans no task.
-    let ValidatedRoster::Team(slots) = roster else {
-        return Vec::new();
-    };
-    let mut mapped: Vec<(PlayerIndex, Vec<PlayerSlot>)> = Vec::new();
+    team: Option<TeamId>,
+) -> Vec<MappedFolder> {
+    match (roster, team) {
+        (ValidatedRoster::Team(slots), Some(id)) => {
+            let model_ids = PlannedModelIds::for_team(id);
+            player_folders(players, slots)
+                .into_iter()
+                .map(|(folder, slots)| MappedFolder {
+                    packages: ModelPackage::ALL.map(|package| {
+                        let keys = slots
+                            .iter()
+                            .map(|slot| match package {
+                                ModelPackage::Face => PackageKey::Id(slot.player_id(id)),
+                                ModelPackage::Boots | ModelPackage::Gloves => {
+                                    PackageKey::Id(u32::from(model_ids.exclusive(*slot)))
+                                }
+                            })
+                            .collect();
+                        (package, keys)
+                    }),
+                    player_ids: slots.iter().map(|slot| slot.player_id(id)).collect(),
+                    folder,
+                })
+                .collect()
+        }
+        (ValidatedRoster::Referees(slots), None) => player_folders(players, slots)
+            .into_iter()
+            .map(|(folder, slots)| MappedFolder {
+                packages: ModelPackage::ALL.map(|package| {
+                    (
+                        package,
+                        slots.iter().copied().map(PackageKey::Referee).collect(),
+                    )
+                }),
+                player_ids: Vec::new(),
+                folder,
+            })
+            .collect(),
+        (ValidatedRoster::Team(_), None) | (ValidatedRoster::Referees(_), Some(_)) => {
+            unreachable!("validation and identity both read a refs export from its `/refs/` name")
+        }
+    }
+}
+
+/// Every player folder `slots` maps, with the slots mapping it, in slot order, the folders
+/// ordered by their first slot. A folder no slot maps is not compiled.
+fn player_folders<Slot: Copy>(
+    players: Vec<PlayerFolder>,
+    slots: &BTreeMap<Slot, PlayerIndex>,
+) -> Vec<(PlayerFolder, Vec<Slot>)> {
+    let mut mapped: Vec<(PlayerIndex, Vec<Slot>)> = Vec::new();
     for (slot, index) in slots {
         match mapped.iter_mut().find(|(known, _)| known == index) {
             Some((_, folder_slots)) => folder_slots.push(*slot),
@@ -937,6 +1013,18 @@ mod tests {
     use super::*;
     use crate::testing::{resolved, resolved_with_issues, two_team_colors};
 
+    /// `keys` as a list (`[71405, 71407]`, `[referee 1, referee 20]`).
+    fn keys_text(keys: &[PackageKey]) -> String {
+        let keys: Vec<String> = keys
+            .iter()
+            .map(|key| match key {
+                PackageKey::Id(id) => id.to_string(),
+                PackageKey::Referee(slot) => format!("referee {}", slot.get()),
+            })
+            .collect();
+        format!("[{}]", keys.join(", "))
+    }
+
     /// Each task as one line: export, team, what it compiles, charge.
     fn summary(report: &PlanReport) -> Vec<String> {
         report
@@ -949,7 +1037,7 @@ mod tests {
                         folder,
                         package,
                         ids,
-                    } => format!("{package:?} {} {ids:?}", folder.path.as_str()),
+                    } => format!("{package:?} {} {}", folder.path.as_str(), keys_text(ids)),
                     TaskKind::Textures { folder, .. } => {
                         format!("textures {}", folder.path.as_str())
                     }
@@ -2319,11 +2407,13 @@ mod tests {
 
     #[test]
     fn an_export_the_subset_gate_refuses_plans_no_task_and_reports_why() {
+        // A referee has no kit slot, so a refs export's kit is named.
         let referees = resolved(
             "refs Cup",
             &[
                 ("Players/Keeper/face_high.fmdl", 1),
                 ("Players/Keeper/face_diff.bin", 0),
+                ("Kits/p1/kit.dds", 1),
             ],
             &[],
             Some(b"01 Keeper\n"),
@@ -2354,7 +2444,7 @@ mod tests {
                 export_id: ExportId(2)
             }
         );
-        assert_eq!(skipped.context, [("what".to_owned(), "refs".to_owned())]);
+        assert_eq!(skipped.context, [("what".to_owned(), "Kits/p1".to_owned())]);
         assert_eq!(generated.code.code, "kit_config_generated");
     }
 
@@ -2439,7 +2529,6 @@ mod tests {
             vec![
                 (ExportId(0), kit("dbg Midcup Kit"), None, note("dbg's note")),
                 (ExportId(1), kit("co Midcup Plain"), None, None),
-                // The subset gate skips it: a referee export is not compiled yet.
                 (ExportId(2), referees, None, note("the referees' note")),
                 (ExportId(3), kit("co Midcup Kit"), None, note("co's note")),
             ],
@@ -2450,9 +2539,107 @@ mod tests {
             report.manifest.notes,
             [
                 ("/dbg/".to_owned(), "dbg's note".to_owned()),
+                ("/refs/".to_owned(), "the referees' note".to_owned()),
                 ("/co/".to_owned(), "co's note".to_owned())
             ]
         );
+    }
+
+    fn referee(slot: u8) -> PackageKey {
+        PackageKey::Referee(aesthetics_export::RefSlot::new(slot).unwrap())
+    }
+
+    /// The keys of `report`'s `Models` tasks, in manifest order.
+    fn model_keys(report: &PlanReport) -> Vec<Vec<PackageKey>> {
+        report
+            .manifest
+            .tasks
+            .iter()
+            .filter_map(|task| match &task.kind {
+                TaskKind::Models { ids, .. } => Some(ids.clone()),
+                TaskKind::Textures { .. }
+                | TaskKind::CommonTextures { .. }
+                | TaskKind::Portrait { .. }
+                | TaskKind::Kit { .. }
+                | TaskKind::Logo { .. } => None,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn a_referee_folder_is_prepared_once_and_emitted_under_each_of_his_slots() {
+        let referees = resolved(
+            "refs Cup",
+            &[
+                ("Players/Ref A/face_high.fmdl", 10),
+                ("Players/Ref A/boots.fmdl", 20),
+                ("Players/Ref A/skin.dds", 5),
+            ],
+            &[],
+            Some(b"20 Ref A\n01 Ref A\n35 Ref A\n"),
+        );
+
+        let report = plan_run(vec![(ExportId(0), referees, None, None)], PesVersion::Pes21);
+
+        assert_eq!(
+            summary(&report),
+            [
+                "0 999 Face Players/Ref A [referee 1, referee 20, referee 35] charge 10",
+                "0 999 Boots Players/Ref A [referee 1, referee 20, referee 35] charge 20",
+                "0 999 textures Players/Ref A charge 5",
+            ]
+        );
+        let slots = vec![referee(1), referee(20), referee(35)];
+        assert_eq!(model_keys(&report), [slots.clone(), slots]);
+        let TaskKind::Textures { folder, .. } = &report.manifest.tasks[2].kind else {
+            panic!("the third task is the folder's textures");
+        };
+        assert_eq!(
+            folder.textures,
+            TextureHome::PlayerCommon {
+                folder_name: "Ref A".to_owned()
+            }
+        );
+        assert!(report.messages.is_empty(), "{:?}", report.messages);
+        assert!(report.manifest.team_colors.is_empty());
+        assert!(report.manifest.team_kits.is_empty());
+        assert!(report.manifest.item_rows.is_empty());
+    }
+
+    #[test]
+    fn a_referee_s_plain_link_is_a_part_of_his_slots_own_package() {
+        let referees = resolved(
+            "refs Cup",
+            &[
+                ("Players/Ref A/Studs.boots", 0),
+                ("Boots/Studs/boots.fmdl", 20),
+            ],
+            &[],
+            Some(b"01 Ref A\n20 Ref A\n"),
+        );
+
+        let report = plan_run(vec![(ExportId(0), referees, None, None)], PesVersion::Pes21);
+
+        assert_eq!(
+            summary(&report),
+            [
+                "0 999 Face Players/Ref A [referee 1, referee 20] charge 0",
+                "0 999 Boots Players/Ref A [referee 1, referee 20] charge 20",
+            ],
+            "no task of Boots/Studs's own"
+        );
+        let TaskKind::Models { folder, .. } = &report.manifest.tasks[1].kind else {
+            panic!("the second task is the boots");
+        };
+        assert_eq!(
+            folder
+                .combined
+                .iter()
+                .map(|combined| (combined.package, combined.folder.path.as_str()))
+                .collect::<Vec<_>>(),
+            [(ModelPackage::Boots, "Boots/Studs")]
+        );
+        assert!(report.messages.is_empty(), "{:?}", report.messages);
     }
 
     #[test]

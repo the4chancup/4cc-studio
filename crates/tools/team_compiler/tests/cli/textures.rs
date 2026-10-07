@@ -818,7 +818,7 @@ const COMMON_000: &str = "/Assets/pes16/model/character/common/000/sourceimages/
 /// The tracer's model `model` (`fcl_hair.fmdl`) with each texture `(file name, new file name)`
 /// of `renames` renamed and pointed at `COMMON_000`, through `fmdl`'s texture-path rewriting;
 /// asserts a mesh uses every renamed texture, so the compiler looks for it.
-fn tracer_model_renaming(model: &str, renames: &[(&str, &str)]) -> Vec<u8> {
+pub(crate) fn tracer_model_renaming(model: &str, renames: &[(&str, &str)]) -> Vec<u8> {
     let mut file = FmdlFile::read(&tracer_player_file(model)).unwrap();
     rewrite_texture_paths(&mut file, |path| {
         if let Some((_, renamed)) = renames.iter().find(|(old, _)| path.file_name == *old) {

@@ -5,10 +5,16 @@
 use std::fs;
 use std::path::Path;
 
+use aesthetics_export::RefSlot;
 use anyhow::Context;
 use pes_version::PesVersion;
 
 use crate::plan::subset::ModelPackage;
+
+/// The team id the referees' content carries in game paths and FMDL texture paths
+/// (`common/999/Ref A/`, `pipeline.md` "3. Per-model-folder parallel steps", step 6). It is
+/// not a `TeamId`: no teams-list row has it, and nothing is written to a team record under it.
+pub(crate) const REFEREE_TEAM_ID: u16 = 999;
 
 /// The bin holding every team's kit configs, keyed by entry name.
 pub(crate) const UNIFORM_PARAMETER: &str =
@@ -33,20 +39,40 @@ pub(crate) const GLOVE_LIST: &str = "common/character0/model/character/glove/Glo
 pub(crate) const PLAYER_APPEARANCE: &str =
     "common/character0/model/character/appearance/PlayerAppearance.bin";
 
-/// The game folder of one `package` by `id`, without the `Asset/` or `/Assets/pes16/` head
+/// What a model package's game folder is named by.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum PackageKey {
+    /// A team player's package: his player id for the face, his boots or gloves id for
+    /// the other two (`face/real/71405`, `k0625`, `g0625`).
+    Id(u32),
+    /// Referee slot NN's package: `face/real/referee0NN`, `k99NN`, `g99NN`.
+    Referee(RefSlot),
+}
+
+/// The game folder of one `package` by `key`, without the `Asset/` or `/Assets/pes16/` head
 /// the CPK paths and the FMDL texture paths put before it: the player id for the face, the
-/// four-digit boots or gloves id for the other two (`k0625`, `g0625`).
-fn model_folder(package: ModelPackage, id: u32) -> String {
-    match package {
-        ModelPackage::Face => format!("model/character/face/real/{id}"),
-        ModelPackage::Boots => format!("model/character/boots/k{id:04}"),
-        ModelPackage::Gloves => format!("model/character/glove/g{id:04}"),
+/// four-digit boots or gloves id for the other two (`k0625`, `g0625`); for referee slot NN
+/// `referee0NN`, `k99NN` and `g99NN` ("Game paths reference").
+fn model_folder(package: ModelPackage, key: PackageKey) -> String {
+    match (package, key) {
+        (ModelPackage::Face, PackageKey::Id(id)) => format!("model/character/face/real/{id}"),
+        (ModelPackage::Boots, PackageKey::Id(id)) => format!("model/character/boots/k{id:04}"),
+        (ModelPackage::Gloves, PackageKey::Id(id)) => format!("model/character/glove/g{id:04}"),
+        (ModelPackage::Face, PackageKey::Referee(slot)) => {
+            format!("model/character/face/real/referee{:03}", slot.get())
+        }
+        (ModelPackage::Boots, PackageKey::Referee(slot)) => {
+            format!("model/character/boots/k99{:02}", slot.get())
+        }
+        (ModelPackage::Gloves, PackageKey::Referee(slot)) => {
+            format!("model/character/glove/g99{:02}", slot.get())
+        }
     }
 }
 
-/// The folder of one `package` (its `.fpk` and `.fpkd`), by `id`.
-pub(crate) fn package_folder(package: ModelPackage, id: u32) -> String {
-    format!("Asset/{}/#Win", model_folder(package, id))
+/// The folder of one `package` (its `.fpk` and `.fpkd`), by `key`.
+pub(crate) fn package_folder(package: ModelPackage, key: PackageKey) -> String {
+    format!("Asset/{}/#Win", model_folder(package, key))
 }
 
 /// Where a model folder's textures go, which its models' texture paths name and its textures
@@ -78,7 +104,10 @@ impl TextureHome {
                 "/Assets/pes16/model/character/common/{team_id}/{folder_name}/sourceimages/"
             ),
             TextureHome::SharedOutput { package, id } => {
-                format!("/Assets/pes16/{}/", model_folder(*package, *id))
+                format!(
+                    "/Assets/pes16/{}/",
+                    model_folder(*package, PackageKey::Id(*id))
+                )
             }
         }
     }
@@ -89,9 +118,10 @@ impl TextureHome {
             TextureHome::PlayerCommon { folder_name } => format!(
                 "Asset/model/character/common/{team_id}/{folder_name}/sourceimages/#windx11/{stem}.ftex"
             ),
-            TextureHome::SharedOutput { package, id } => {
-                format!("Asset/{}/#windx11/{stem}.ftex", model_folder(*package, *id))
-            }
+            TextureHome::SharedOutput { package, id } => format!(
+                "Asset/{}/#windx11/{stem}.ftex",
+                model_folder(*package, PackageKey::Id(*id))
+            ),
         }
     }
 }
@@ -223,16 +253,45 @@ mod tests {
     #[test]
     fn a_face_goes_by_player_id_and_boots_and_gloves_by_four_digit_model_id() {
         assert_eq!(
-            package_folder(ModelPackage::Face, 71405),
+            package_folder(ModelPackage::Face, PackageKey::Id(71405)),
             "Asset/model/character/face/real/71405/#Win"
         );
         assert_eq!(
-            package_folder(ModelPackage::Boots, 625),
+            package_folder(ModelPackage::Boots, PackageKey::Id(625)),
             "Asset/model/character/boots/k0625/#Win"
         );
         assert_eq!(
-            package_folder(ModelPackage::Gloves, 3745),
+            package_folder(ModelPackage::Gloves, PackageKey::Id(3745)),
             "Asset/model/character/glove/g3745/#Win"
+        );
+    }
+
+    #[test]
+    fn a_referee_s_packages_go_by_his_slot() {
+        let referee = |slot| PackageKey::Referee(RefSlot::new(slot).unwrap());
+        assert_eq!(
+            package_folder(ModelPackage::Face, referee(1)),
+            "Asset/model/character/face/real/referee001/#Win"
+        );
+        assert_eq!(
+            package_folder(ModelPackage::Boots, referee(1)),
+            "Asset/model/character/boots/k9901/#Win"
+        );
+        assert_eq!(
+            package_folder(ModelPackage::Gloves, referee(1)),
+            "Asset/model/character/glove/g9901/#Win"
+        );
+        assert_eq!(
+            package_folder(ModelPackage::Face, referee(35)),
+            "Asset/model/character/face/real/referee035/#Win"
+        );
+        assert_eq!(
+            package_folder(ModelPackage::Boots, referee(35)),
+            "Asset/model/character/boots/k9935/#Win"
+        );
+        assert_eq!(
+            package_folder(ModelPackage::Gloves, referee(20)),
+            "Asset/model/character/glove/g9920/#Win"
         );
     }
 

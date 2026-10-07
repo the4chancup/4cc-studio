@@ -19,6 +19,7 @@ mod logo;
 mod models;
 mod multicpk;
 mod preflight;
+mod referees;
 mod sideload;
 mod sources;
 mod test_mode;

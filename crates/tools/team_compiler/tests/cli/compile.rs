@@ -393,6 +393,8 @@ fn a_compile_whose_every_export_is_skipped_leaves_the_previous_cpk_as_it_was() {
         "exports/refs Cup/Players/Keeper/face_high.fmdl",
         &clean_model(),
     );
+    // A referee has no kit slot: the kit keeps the refs export from compiling.
+    sandbox.write("exports/refs Cup/Kits/p1/kit.dds", &tracer_kit());
     not_yet_compiled_export(&sandbox, "co Midcup Keeper");
     let before = snapshot(&sandbox.root.join("output"));
 

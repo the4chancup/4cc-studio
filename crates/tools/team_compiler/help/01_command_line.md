@@ -168,13 +168,20 @@ kit's `config.toml` that cannot be read (not UTF-8 text, a value of the wrong ty
 range) is reported by both commands as `kit_config_invalid`, naming the error, and the kit is
 left out, even with `pass_through` on. `compile`
 skips any other export with the error `content_not_yet_compiled`, naming the first thing it
-cannot build yet: a PES 2015 to 2017 target, a referee export, or content other than a player's
+cannot build yet: a PES 2015 to 2017 target, a referee export's kit, logo or portrait (a
+referee has no kit slot, team logo or player id), or content other than a player's
 own face, boots and gloves models, their textures, portraits, the `ingame_face` marker, kits,
 the logo, linked shared `Faces`, `Boots` and `Gloves` folders, and a `Common` folder holding only `.fmdl`, `.skl` and
 texture files, its models reached through `.common` links (a model in a `gloves` subfolder
 whose name does not say which hand it is, or a `.common` link to a material file, among
 others). `check` still checks
 those exports.
+
+A `refs` export compiles on PES 2018 to 2021 like a team's player folders: each referee folder
+its `players.txt` lists is built once and written for every slot it is listed under, slot NN
+as the face `referee0NN` with the boots `k99NN` and the gloves `g99NN`, and the folder's
+textures go once into `common/999/<folder name>/`. A referee's link to a `Boots` or `Gloves`
+folder makes that folder the boots or gloves of each of his slots, merged with any of his own.
 
 `compile` installs the CPK into the game: it copies it into the `download` folder of the game
 folder (the `pes_folder_path` setting) and then puts it in the place of the old one, so the game
@@ -185,7 +192,8 @@ output folder instead, and ends with exit code 1.
 
 An export may hold a `notes.txt` at its root, a note for whoever compiles the cup. `compile`
 gathers the notes of every export it compiles into one file, `teamnotes.txt` in the output
-folder, one section per team headed by its name (`--- /co/ ---`), in the order of the exports;
+folder, one section per team headed by its name (`--- /co/ ---`, `--- /refs/ ---` for the
+referees), in the order of the exports;
 the note of a skipped export is left out. A compile with no notes to gather removes an older
 `teamnotes.txt`, so the file never shows notes of exports the last compile did not build, and a
 compile that writes no CPK leaves it as it was. When `teamnotes.txt` cannot be written, the

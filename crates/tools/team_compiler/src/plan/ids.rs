@@ -6,12 +6,13 @@
 
 use aesthetics_export::{
     PlayerFolder, PlayerSlot, SharedKind, SharedModelFolder, ValidatedAestheticsExport,
+    ValidatedRoster,
 };
 use pes_version::Engine;
 use teams_list::TeamId;
 
 use super::mapped_players;
-use super::subset::link_combines;
+use super::subset::link_feeds_own_package;
 
 /// The first ID of the first team's block: IDs 0 to 100 are the stock band.
 const FIRST_BLOCK: u16 = 101;
@@ -64,8 +65,9 @@ impl PlannedModelIds {
 /// The shared folders of `kind` in `export` that take a shared ID when compiled for `engine`,
 /// in ID order: the folders at least one roster-mapped player folder links plainly, by name
 /// (case folded, ties by the plain spelling). A shared face never takes one (on Fox it merges
-/// into the player's face; pre-Fox it is copied per player), and neither does a folder only
-/// unmapped folders link, since they are not compiled.
+/// into the player's face; pre-Fox it is copied per player), neither does a folder only
+/// unmapped folders link, since they are not compiled, and neither does a refs export's,
+/// whose every link feeds the referee's own slot package (`link_feeds_own_package`).
 pub(crate) fn shared_folders_taking_ids(
     export: &ValidatedAestheticsExport,
     engine: Engine,
@@ -83,7 +85,7 @@ pub(crate) fn shared_folders_taking_ids(
             let name_key = vtree::fold_name(&folder.folder_name);
             mapped
                 .iter()
-                .any(|player| links_plainly(player, engine, kind, &name_key))
+                .any(|player| links_plainly(&export.roster, player, engine, kind, &name_key))
         })
         .collect();
     taking.sort_by_cached_key(|folder| {
@@ -95,18 +97,20 @@ pub(crate) fn shared_folders_taking_ids(
     taking
 }
 
-/// Whether `player` links the shared folder of `kind` whose folded name is `name_key` so that
-/// the shared output is loaded as it is. On Fox a link that combines (`link_combines`) makes
-/// the shared folder only a source of parts for the player's own package; pre-Fox has no
-/// exclusive packages, so every link is plain.
-fn links_plainly(player: &PlayerFolder, engine: Engine, kind: SharedKind, name_key: &str) -> bool {
+/// Whether `player`, of an export whose roster is `roster`, links the shared folder of `kind`
+/// whose folded name is `name_key` so that the shared output is loaded as it is: a link that
+/// does not feed the player's own package (`link_feeds_own_package`).
+fn links_plainly(
+    roster: &ValidatedRoster,
+    player: &PlayerFolder,
+    engine: Engine,
+    kind: SharedKind,
+    name_key: &str,
+) -> bool {
     player.links.iter().any(|link| {
         link.kind == kind
             && vtree::fold_name(&link.name) == name_key
-            && match engine {
-                Engine::PreFox => true,
-                Engine::Fox => !link_combines(player, link),
-            }
+            && !link_feeds_own_package(roster, engine, player, link)
     })
 }
 
@@ -215,6 +219,26 @@ mod tests {
             taking(&files, None, Engine::PreFox, SharedKind::Boots),
             ["Crocs", "Mud"]
         );
+    }
+
+    #[test]
+    fn a_referee_s_plain_link_takes_no_shared_id() {
+        let export = resolved(
+            "refs Cup",
+            &[
+                ("Players/Ref A/Studs.boots", 0),
+                ("Boots/Studs/boots.fmdl", 1),
+            ],
+            &[],
+            Some(b"01 Ref A\n"),
+        )
+        .export;
+        for engine in [Engine::Fox, Engine::PreFox] {
+            assert!(
+                shared_folders_taking_ids(&export, engine, SharedKind::Boots).is_empty(),
+                "{engine:?}"
+            );
+        }
     }
 
     #[test]

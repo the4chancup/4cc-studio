@@ -9,7 +9,7 @@ use fpk::{FpkFile, FpkKind};
 use studio_core::ExportId;
 
 use super::Entry;
-use crate::paths;
+use crate::paths::{self, PackageKey};
 use crate::plan::subset::ModelPackage;
 use crate::plan::{BuildTask, TaskKind};
 
@@ -28,10 +28,10 @@ pub(crate) enum TaskOutput {
     Entries(Vec<Entry>),
     /// A model package's files, built once and emitted under each of `ids`.
     Package {
-        /// Which package: its file stem and the game folder its ids name.
+        /// Which package: its file stem and the game folder its keys name.
         package: ModelPackage,
-        /// The ids the package is emitted under, in slot order.
-        ids: Vec<u32>,
+        /// The keys the package is emitted under, in slot order.
+        ids: Vec<PackageKey>,
         /// Its files.
         files: PackageFiles,
     },
@@ -108,7 +108,7 @@ fn test_entry_folder(source: &str, kind: &TaskKind) -> String {
 }
 
 /// `files` packed as `package`'s `.fpk`, with an empty `.fpkd`, under each of `ids`.
-fn packed(package: ModelPackage, ids: &[u32], files: PackageFiles) -> Vec<Entry> {
+fn packed(package: ModelPackage, ids: &[PackageKey], files: PackageFiles) -> Vec<Entry> {
     let mut fpk = FpkFile::new(FpkKind::Fpk);
     for (name, bytes) in files {
         fpk.insert(name, bytes);
@@ -243,7 +243,7 @@ mod tests {
     fn package(package: ModelPackage, ids: &[u32], files: PackageFiles) -> TaskOutput {
         TaskOutput::Package {
             package,
-            ids: ids.to_vec(),
+            ids: ids.iter().copied().map(PackageKey::Id).collect(),
             files,
         }
     }
@@ -271,7 +271,7 @@ mod tests {
         let kind = TaskKind::Models {
             folder: player(),
             package: ModelPackage::Face,
-            ids: vec![79205],
+            ids: vec![PackageKey::Id(79205)],
         };
         let output = package(ModelPackage::Face, &[79205], face_files());
 
@@ -291,7 +291,7 @@ mod tests {
         let kind = TaskKind::Models {
             folder: player(),
             package: ModelPackage::Face,
-            ids: vec![79205],
+            ids: vec![PackageKey::Id(79205)],
         };
         let output = package(ModelPackage::Face, &[79205], face_files());
 
@@ -314,7 +314,7 @@ mod tests {
         let two_ids = task(TaskKind::Models {
             folder: player(),
             package: ModelPackage::Face,
-            ids: vec![79205, 79206],
+            ids: vec![PackageKey::Id(79205), PackageKey::Id(79206)],
         });
         let output = || package(ModelPackage::Face, &[79205, 79206], face_files());
 
@@ -357,7 +357,7 @@ mod tests {
         let boots = task(TaskKind::Models {
             folder: shared,
             package: ModelPackage::Boots,
-            ids: vec![644],
+            ids: vec![PackageKey::Id(644)],
         });
         let files = BTreeMap::from([
             ("boots.fmdl".to_owned(), b"boots".to_vec()),

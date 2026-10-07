@@ -906,7 +906,7 @@ mod tests {
     use vtree::ScopePath;
 
     use super::*;
-    use crate::paths::TextureHome;
+    use crate::paths::{PackageKey, TextureHome};
     use crate::plan::subset::ModelPackage;
     use crate::plan::{ModelFolder, TaskGroup, TaskKind};
     use crate::reader::{ExportSource, Route};
@@ -990,7 +990,7 @@ mod tests {
                 TaskKind::Models {
                     folder: folder.clone(),
                     package: ModelPackage::Face,
-                    ids: vec![79205],
+                    ids: vec![PackageKey::Id(79205)],
                 },
                 10,
                 Some(group.clone()),
@@ -1116,7 +1116,7 @@ mod tests {
         let kind = || TaskKind::Models {
             folder: folder.clone(),
             package: ModelPackage::Face,
-            ids: vec![79205],
+            ids: vec![PackageKey::Id(79205)],
         };
         let task = |group| BuildTask {
             export_id: ExportId(4),
@@ -1311,7 +1311,7 @@ mod tests {
             kind: TaskKind::Models {
                 folder,
                 package: ModelPackage::Face,
-                ids: vec![79205],
+                ids: vec![PackageKey::Id(79205)],
             },
             charge: 0,
             group: None,

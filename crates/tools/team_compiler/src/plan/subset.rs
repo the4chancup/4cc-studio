@@ -7,7 +7,7 @@
 use aesthetics_export::{
     ExportIdentity, FileDescriptor, FileKind, ModelFormat, ModelSuffix, PlayerFolder,
     ResolvedAestheticsExport, SharedKind, SharedLink, SharedModelFolder, ValidatedAestheticsExport,
-    classify, common_link_name, model_suffix,
+    ValidatedRoster, classify, common_link_name, model_suffix,
 };
 use dds_convert::SourceFormat;
 use pes_version::{Engine, PesVersion};
@@ -31,7 +31,7 @@ pub(crate) fn texture_format(name: &str) -> Option<SourceFormat> {
 
 /// The three Fox packages a player folder's models go to, each a `.fpk` and `.fpkd` pair in
 /// its own game folder: the face by player id, the boots and the gloves by the player's
-/// planned model id.
+/// planned model id, all three of a referee's by his slot (`paths::PackageKey`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ModelPackage {
     /// `face/real/{player id}/#Win/face.fpk`.
@@ -101,6 +101,28 @@ pub(crate) fn link_combines(player: &PlayerFolder, link: &SharedLink) -> bool {
     match link.kind {
         SharedKind::Face => true,
         SharedKind::Boots | SharedKind::Gloves => holds_model(player, package_of(link.kind)),
+    }
+}
+
+/// Whether the shared folder `player`'s `link` names is built, for `engine`, into the
+/// player's own package of its kind instead of compiled on its own under a shared id;
+/// `roster` is the roster of the player's export. A referee's every link is: he has no team
+/// block to give the shared folder an id of its own, so it is written as his slot's
+/// `k99NN`/`g99NN` (`blue_port.md` "Referee export processing"). A team player's link is
+/// when it combines on Fox (`link_combines`); pre-Fox has no exclusive packages, so there a
+/// team player's every link is plain.
+pub(crate) fn link_feeds_own_package(
+    roster: &ValidatedRoster,
+    engine: Engine,
+    player: &PlayerFolder,
+    link: &SharedLink,
+) -> bool {
+    match roster {
+        ValidatedRoster::Referees(_) => true,
+        ValidatedRoster::Team(_) => match engine {
+            Engine::Fox => link_combines(player, link),
+            Engine::PreFox => false,
+        },
     }
 }
 
@@ -608,9 +630,10 @@ pub(crate) fn file_stem(name: &str) -> &str {
 }
 
 /// The first thing in `resolved` that `compile` cannot build yet for `version`, as the context
-/// entry of `content_not_yet_compiled`: `what`, a path, the target or `refs`. `None` when
-/// `compile` builds all of it. Planning drops a Fox target's `kit_mask` before asking: the
-/// gate would count it.
+/// entry of `content_not_yet_compiled`: `what`, a path or the target. `None` when `compile`
+/// builds all of it. A refs export compiles its mapped folders like a team's, but is named by
+/// its first kit, its logo or its first portrait (`referee_not_compiled`). Planning drops a
+/// Fox target's `kit_mask` before asking: the gate would count it.
 pub(crate) fn first_not_compiled(
     resolved: &ResolvedAestheticsExport,
     version: PesVersion,
@@ -621,18 +644,24 @@ pub(crate) fn first_not_compiled(
         Engine::Fox => {}
         Engine::PreFox => return Some(("what", version.to_string())),
     }
-    if resolved.identity == ExportIdentity::Referees {
-        return Some(("what", "refs".to_owned()));
-    }
     let export = &resolved.export;
+    match resolved.identity {
+        ExportIdentity::Team { .. } => {}
+        ExportIdentity::Referees => {
+            if let Some(item) = referee_not_compiled(export) {
+                return Some(item);
+            }
+        }
+    }
     // A folder no roster slot maps is not compiled, so whatever it holds does not count.
     for folder in mapped_players(export) {
         if let Some(item) = player_not_compiled(export, folder) {
             return Some(item);
         }
     }
-    // A shared boots or gloves folder compiles on its own when a mapped player links it
-    // plainly; one no such player links has no output and is not counted. A shared face has
+    // A shared boots or gloves folder compiles on its own when a mapped team player links it
+    // plainly; one no such player links has no output and is not counted (a referee's link
+    // is walked above, as a source of his own package). A shared face has
     // no output of its own and is walked above, as a source of each player linking it:
     // validation drops a shared folder no mapped player links, so every `Faces/` folder has
     // a linking player.
@@ -662,6 +691,25 @@ pub(crate) fn first_not_compiled(
             .filter(|file| !common_file_compiled(file)),
     );
     rest.next().map(what_entry)
+}
+
+/// The first of the refs `export`'s kits by slot (its folder), then its logo (the main file),
+/// then its first portrait (a mapped folder's `portrait.*` in folder order, then a
+/// `Portraits/` file). A referee has no kit slot, team logo or player id, so none of them has
+/// a place to go: the referees' kits are the template tree's (`blue_port.md` "Referee export
+/// processing").
+fn referee_not_compiled(export: &ValidatedAestheticsExport) -> Option<(&'static str, String)> {
+    if let Some(kit) = export.kits.kits.values().next() {
+        return Some(("what", kit.path.as_str().to_owned()));
+    }
+    if let Some(logo) = &export.logo {
+        return Some(what_entry(&logo.main.file));
+    }
+    let mut portraits = mapped_players(export)
+        .into_iter()
+        .filter_map(|folder| folder.portrait.as_ref())
+        .chain(export.portraits.values());
+    portraits.next().map(what_entry)
 }
 
 /// Whether `compile` builds the `Common/` file, or accepts it: directly in the folder, an
@@ -702,13 +750,14 @@ fn player_not_compiled(
     {
         return Some(what_entry(file));
     }
-    // A boots or gloves link alone loads the shared output as it is; one beside a local model
-    // of its package combines, as every face link does: the shared folder's files become the
-    // player's own, with the roles a shared folder's files have.
+    // A team player's boots or gloves link alone loads the shared output as it is; one beside
+    // a local model of its package combines, as every face link and every referee's link
+    // does: the shared folder's files become the player's own, with the roles a shared
+    // folder's files have.
     for link in folder
         .links
         .iter()
-        .filter(|link| link_combines(folder, link))
+        .filter(|link| link_feeds_own_package(&export.roster, Engine::Fox, folder, link))
     {
         let shared = linked_folder(export, link)
             .expect("validation drops a player folder whose link names no shared folder");
@@ -907,18 +956,76 @@ mod tests {
         }
     }
 
+    /// The gate's first hit in the export `refs Cup` mapping `Ref A` to slot 01, holding a Fox
+    /// face folder and `files`, for `version`.
+    fn referee_hit(files: &[&str], version: PesVersion) -> Option<(&'static str, String)> {
+        let files: Vec<(&str, u64)> = [
+            "Players/Ref A/face_high.fmdl",
+            "Players/Ref A/face_diff.bin",
+        ]
+        .iter()
+        .chain(files)
+        .map(|path| (*path, 1))
+        .collect();
+        first_not_compiled(
+            &resolved("refs Cup", &files, &[], Some(b"01 Ref A\n")),
+            version,
+        )
+    }
+
     #[test]
-    fn a_referee_export_is_named_refs() {
-        let export = resolved(
-            "refs Cup",
-            &[
-                ("Players/Keeper/face_high.fmdl", 1),
-                ("Players/Keeper/face_diff.bin", 1),
-            ],
-            &[],
-            Some(b"01 Keeper\n"),
+    fn a_referee_export_s_folders_compile_on_fox_and_the_target_is_named_pre_fox() {
+        assert_eq!(referee_hit(&[], PesVersion::Pes21), None);
+        assert_eq!(referee_hit(&[], PesVersion::Pes17), what("PES 2017"));
+    }
+
+    #[test]
+    fn a_referee_export_s_kits_then_logo_then_portraits_are_named() {
+        assert_eq!(
+            referee_hit(&["Kits/p2/kit.dds", "Kits/p1/kit.dds"], PesVersion::Pes21),
+            what("Kits/p1")
         );
-        assert_eq!(first_not_compiled(&export, PesVersion::Pes21), what("refs"));
+        assert_eq!(
+            referee_hit(&["logo.png", "Kits/g1/kit.dds"], PesVersion::Pes21),
+            what("Kits/g1")
+        );
+        assert_eq!(
+            referee_hit(
+                &["logo.png", "Players/Ref A/portrait.dds"],
+                PesVersion::Pes21
+            ),
+            what("logo.png")
+        );
+        assert_eq!(
+            referee_hit(
+                &["Portraits/player_01.dds", "Players/Ref A/portrait.dds"],
+                PesVersion::Pes21
+            ),
+            what("Players/Ref A/portrait.dds")
+        );
+        assert_eq!(
+            referee_hit(&["Portraits/player_01.dds"], PesVersion::Pes21),
+            what("Portraits/player_01.dds")
+        );
+    }
+
+    #[test]
+    fn a_referee_s_plain_link_is_walked_as_a_part_of_his_own_packages() {
+        assert_eq!(
+            referee_hit(
+                &["Players/Ref A/Studs.boots", "Boots/Studs/boots.fmdl"],
+                PesVersion::Pes21
+            ),
+            None
+        );
+        // A referee's shared boots take no id of their own, so only his link reaches them.
+        assert_eq!(
+            referee_hit(
+                &["Players/Ref A/Studs.boots", "Boots/Studs/shirt.dds"],
+                PesVersion::Pes21
+            ),
+            what("Boots/Studs")
+        );
     }
 
     #[test]

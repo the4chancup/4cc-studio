@@ -14,7 +14,7 @@ is in `AGENTS.md` ("Working documents").
 **Next:** Phase 4 is itemized and its Acceptance section written (step 4.1, 2026-10-03; its
 cross-family review (a) is queued). Next:
 the next open Phase 4 step (see the list); 4.21 to 4.24 and 4.29
-and 4.25 are done; 4.26 is done; 4.14 waits on 4.31's pre-Fox export; 4.33, 4.34, 4.c-pass and
+and 4.25 are done; 4.26 is done; 4.19-lead and 4.19a are done, 4.19b (the refs CPK) next; 4.14 waits on 4.31's pre-Fox export; 4.33, 4.34, 4.c-pass and
 4.c-fix1 are done; 4.30,
 4.5 to 4.8, 4.9a and 4.10 to 4.13 are done (4.6c moved to Phase 8's cancellation), 4.9b
 (collars) waits on nothing. 2.5b (GPU BC7) is step 16.x (decision entries
@@ -272,6 +272,13 @@ Claude agent with no sidekick and no reviewer of another model family. While tha
   `dpfilelist_outdated`, `cpk_name_unlisted`, `old_cpk_locked`, TC-DEP-08, TC-DEP-11 and the
   decision entries "several CPKs: one preflight finding each ..." and "a teams stem that is
   the bins CPK's own is refused".
+  4.19a (b), `team_compiler` (`paths.rs` `PackageKey`, `REFEREE_TEAM_ID`; `plan/subset.rs`
+  `referee_not_compiled`, `link_feeds_own_package`; `plan/ids.rs`; `plan/mod.rs` `plan_run`'s
+  refs branch, `mapped_folders`, `player_folders`; `plan/item_rows.rs` `row_id`), its commit
+  of 2026-10-07, against `blue_port.md` "Referee export processing", `pipeline.md` step 6
+  (texture relocation), "Game paths reference" referee rows, the README gate paragraph's
+  "Step 4.19 lifts" sentences, TC-REF-03, 05, 10 and the decision entry "a refs export's
+  kits, logo and portraits are named by the gate ...".
 - For the lead, on return: the review process on trial (3.1) opens with a full sidekick review
   loop, then runs GPT's loop with a full sidekick loop after each GPT round, calling GPT again
   only once that sidekick loop has ended and GPT's own loop has not; not yet in `AGENTS.md`
@@ -1318,9 +1325,12 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   4.19-lead done 2026-10-07: `resources/templates/referees_fox/` (Red's `refscpk_fox`, 31
   files, provenance in `resources/templates/README.md`); plan rulings (decision entry "the
   refs CPK among the run's CPKs, and the referee tree's names").
-  4.19a: referee planning and processing on Fox, output still in the run's one CPK (the subset
-  gate's Fox refs line lifted; a package key for `referee0NN`; team 999 for the common
-  folder; links to the slot's IDs; no portraits, kits, rows or colors); TC-REF-03, 05, 10.
+  4.19a done 2026-10-07: referee planning and processing on Fox, output still in the run's
+  one CPK (in multi-CPK mode, the teams parts): `paths.rs` `PackageKey { Id, Referee }`,
+  `REFEREE_TEAM_ID`; `subset.rs` `referee_not_compiled` (a refs export's kit, logo or
+  portrait named), `link_feeds_own_package` (a referee's every link builds his slot's own
+  package; shared by the gate, `ids.rs` and planning); `plan/mod.rs` `mapped_folders`,
+  generic `player_folders`; help chapter; `tests/cli/referees.rs`. TC-REF-03, 05, 10.
   4.19b: the refs CPK (`refs_cpk_name`; `CpkLayout`'s CPKs gain it after the others when a
   refs export is in the run; a second sink chosen by the export's identity; stem uniqueness;
   preflight, deploy and promote through `cpks()`; the walk passes over it); TC-REF-01, 02,
@@ -1936,6 +1946,13 @@ Steps are itemized when Phase 15 closes; one is fixed already:
 
 Bugs, unexpected behavior, things to revisit. `open` / `resolved (date)`. Resolved issues are
 pruned when their phase closes; they stay in git history.
+
+- open (found at 4.19a's review) — a refs export's `.common` texture link is never satisfied
+  by a texture already installed under `common/999/sourceimages/`: `validation.rs`
+  `installed_common_textures` finds the team's id through the teams list, which has no
+  `/refs/` row, so the set is always empty for referees. Since 4.19b's walk passes over the
+  installed refs CPK, the only such texture would be one the game itself ships under 999;
+  settle at 4.19b whether the lookup should use `REFEREE_TEAM_ID` or stay empty by rule.
 
 - open (found at 4.26c's review) — when an all-or-none install's undo cannot move an old
   CPK back from `.cpk.old` (`deploy.rs` `undo`), the failure is only logged: `download/`
@@ -3160,3 +3177,8 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   - **4.26c:** a multi-CPK compile deploys: every CPK of the run judged by the preflight,
     then installed all or none (old CPKs moved aside first, put back on any failure, every
     CPK then promoted to `output/`). Step 4.26 is done; 4.19 (referees) next.
+  - **4.19a:** a referee export compiles on PES 18 to 21: each referee folder built once and
+    written for every slot `players.txt` gives it (`referee0NN`, `k99NN`, `g99NN`), its
+    textures once under `common/999/<folder>/`, a link to `Boots`/`Gloves` made each slot's
+    own; a referee export's kit, logo or portrait is still skipped by name. It lands in the
+    run's one CPK until 4.19b writes the refs CPK.

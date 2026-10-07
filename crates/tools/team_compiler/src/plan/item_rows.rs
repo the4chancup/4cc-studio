@@ -9,6 +9,7 @@ use vtree::ScopePath;
 use super::subset::ModelPackage;
 use super::{BuildTask, TaskKind};
 use crate::bins::player_tables::ItemTable;
+use crate::paths::PackageKey;
 
 /// One compiled player's row of `BootsList.bin` or `GloveList.bin`, as planning decides it
 /// ("Bins accumulation").
@@ -61,14 +62,14 @@ pub(super) fn export_rows(
         for table in ItemTable::ALL {
             let package = package(table);
             let own = models_task(tasks, first, &player.path, package)
-                .map(|(task, ids)| (task, ids.to_vec()));
+                .map(|(task, keys)| (task, keys.iter().map(|key| row_id(*key)).collect()));
             let linked = || {
                 player.linked.iter().find_map(|path| {
-                    let (task, ids) = models_task(tasks, first, path, package)?;
-                    let id = *ids
+                    let (task, keys) = models_task(tasks, first, path, package)?;
+                    let key = *keys
                         .first()
                         .expect("a shared folder's package is emitted under its one shared id");
-                    Some((task, vec![id; player.player_ids.len()]))
+                    Some((task, vec![row_id(key); player.player_ids.len()]))
                 })
             };
             match own.or_else(linked) {
@@ -95,6 +96,14 @@ pub(super) fn export_rows(
     rows
 }
 
+/// The boots or gloves id a team player's package is emitted under, which his row points at.
+fn row_id(key: PackageKey) -> u32 {
+    match key {
+        PackageKey::Id(id) => id,
+        PackageKey::Referee(_) => unreachable!("only a team export's players have rows"),
+    }
+}
+
 /// The package whose IDs `table` lists.
 fn package(table: ItemTable) -> ModelPackage {
     match table {
@@ -103,7 +112,7 @@ fn package(table: ItemTable) -> ModelPackage {
     }
 }
 
-/// The manifest position and ids of the `Models` task of `tasks`, from position `first` on,
+/// The manifest position and keys of the `Models` task of `tasks`, from position `first` on,
 /// that builds `package` of the folder at `path`; `None` when no task does (the folder holds
 /// no model of it).
 fn models_task<'a>(
@@ -111,7 +120,7 @@ fn models_task<'a>(
     first: usize,
     path: &ScopePath,
     package: ModelPackage,
-) -> Option<(usize, &'a [u32])> {
+) -> Option<(usize, &'a [PackageKey])> {
     tasks
         .iter()
         .enumerate()
@@ -173,7 +182,11 @@ mod tests {
             .iter()
             .enumerate()
             .filter_map(|(index, task)| match &task.kind {
-                TaskKind::Models { package, ids, .. } => Some((index, *package, ids.clone())),
+                TaskKind::Models { package, ids, .. } => Some((
+                    index,
+                    *package,
+                    ids.iter().map(|key| row_id(*key)).collect(),
+                )),
                 TaskKind::Textures { .. }
                 | TaskKind::CommonTextures { .. }
                 | TaskKind::Portrait { .. }

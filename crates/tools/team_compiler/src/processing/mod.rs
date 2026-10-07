@@ -310,7 +310,7 @@ mod tests {
     use studio_core::{ExportId, Severity};
 
     use super::*;
-    use crate::paths::TextureHome;
+    use crate::paths::{PackageKey, TextureHome};
     use crate::plan::{CombinedFolder, CommonModel, EffectiveTeamKitFpc, ModelFolder};
 
     const PLAYER: &str = "Players/05 - The Chad Stormworks Player";
@@ -479,7 +479,7 @@ mod tests {
         let batch = run(TaskKind::Models {
             folder: whole_player(),
             package: ModelPackage::Face,
-            ids: vec![79205, 79207],
+            ids: vec![PackageKey::Id(79205), PackageKey::Id(79207)],
         });
 
         assert_eq!(batch.index, 3);
@@ -552,7 +552,7 @@ mod tests {
         let batch = run(TaskKind::Models {
             folder: player(&["fcl_hair.fmdl"]),
             package: ModelPackage::Face,
-            ids: vec![79205],
+            ids: vec![PackageKey::Id(79205)],
         });
         assert!(batch.messages.is_empty(), "{:?}", batch.messages);
         let package = FpkFile::read(&batch.entries[0].1).unwrap();
@@ -585,7 +585,7 @@ mod tests {
             TaskKind::Models {
                 folder: player(&["fcl_hair.fmdl", "fcl_hair.skl"]),
                 package: ModelPackage::Face,
-                ids: vec![79205],
+                ids: vec![PackageKey::Id(79205)],
             },
             &[(&format!("{PLAYER}/fcl_hair.skl"), &custom)],
         );
@@ -603,7 +603,7 @@ mod tests {
                 Vec::new(),
             ),
             package: ModelPackage::Face,
-            ids: vec![79205],
+            ids: vec![PackageKey::Id(79205)],
         });
         assert!(batch.messages.is_empty(), "{:?}", batch.messages);
         let package = FpkFile::read(&batch.entries[0].1).unwrap();
@@ -623,7 +623,7 @@ mod tests {
         let kind = TaskKind::Models {
             folder,
             package: ModelPackage::Face,
-            ids: vec![79205],
+            ids: vec![PackageKey::Id(79205)],
         };
         assert!(kind.files().is_empty(), "the face reads nothing");
 
@@ -661,7 +661,7 @@ mod tests {
                     Vec::new(),
                 ),
                 package: ModelPackage::Face,
-                ids: vec![79205],
+                ids: vec![PackageKey::Id(79205)],
             },
             &[(&format!("{PLAYER}/torso.skl"), &custom)],
         );
@@ -690,7 +690,7 @@ mod tests {
         let batch = run(TaskKind::Models {
             folder: whole_player(),
             package: ModelPackage::Boots,
-            ids: vec![3745],
+            ids: vec![PackageKey::Id(3745)],
         });
 
         assert!(batch.messages.is_empty(), "{:?}", batch.messages);
@@ -726,7 +726,7 @@ mod tests {
             TaskKind::Models {
                 folder,
                 package: ModelPackage::Boots,
-                ids: vec![3745, 3747],
+                ids: vec![PackageKey::Id(3745), PackageKey::Id(3747)],
             },
             &[(&format!("{PLAYER}/kit_boots.skl"), &custom)],
         );
@@ -752,7 +752,7 @@ mod tests {
         let batch = run(TaskKind::Models {
             folder: whole_player(),
             package: ModelPackage::Gloves,
-            ids: vec![3745],
+            ids: vec![PackageKey::Id(3745)],
         });
 
         assert!(batch.messages.is_empty(), "{:?}", batch.messages);
@@ -803,7 +803,7 @@ mod tests {
         let package = run(TaskKind::Models {
             folder: folder.clone(),
             package: ModelPackage::Gloves,
-            ids: vec![644],
+            ids: vec![PackageKey::Id(644)],
         });
         let textures = run(TaskKind::Textures {
             folder,
@@ -1427,7 +1427,7 @@ mod tests {
         TaskKind::Models {
             folder,
             package: ModelPackage::Boots,
-            ids: vec![3745],
+            ids: vec![PackageKey::Id(3745)],
         }
     }
 
@@ -1730,7 +1730,7 @@ mod tests {
         let batch = run(TaskKind::Models {
             folder,
             package: ModelPackage::Gloves,
-            ids: vec![3745],
+            ids: vec![PackageKey::Id(3745)],
         });
 
         assert!(batch.messages.is_empty(), "{:?}", batch.messages);
@@ -2160,7 +2160,7 @@ mod tests {
         TaskKind::Models {
             folder,
             package: ModelPackage::Face,
-            ids: vec![79205],
+            ids: vec![PackageKey::Id(79205)],
         }
     }
 
@@ -2725,7 +2725,7 @@ mod tests {
         let batch = run(TaskKind::Models {
             folder,
             package: ModelPackage::Face,
-            ids: vec![79205],
+            ids: vec![PackageKey::Id(79205)],
         });
 
         assert!(batch.entries.is_empty() && batch.uniparam.is_none());
