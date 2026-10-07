@@ -896,6 +896,14 @@ TC-MOD-42  GIVEN slot 05 holding a face model, face_diff.bin and face_diff.xml; 
            THEN the first reports xml_dif_conflict naming face_diff.xml and the second
                 face_diff_invalid naming face_diff.bin, both times, and each slot 05 folder is
                 left out of its CPK
+TC-MOD-43  GIVEN slot 05 holding body.model, whose vertices carry skh_*_l and skh_*_r weights,
+           with body.mtl defining its material
+           WHEN the export is compiled for PES 17
+           THEN 71405.cpk holds oral_body_win32.model, oral_body_glove_l_win32.model and
+                oral_body_glove_r_win32.model, its face.xml listing them typed parts, gloveL
+                and gloveR, each naming ./body.mtl, every face of the source is in exactly one
+                of the three, model_hand_split names body.model, and no glove/g0625/ folder
+                exists
 ```
 
 **Textures**

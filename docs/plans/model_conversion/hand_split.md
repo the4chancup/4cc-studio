@@ -90,7 +90,10 @@ hands of `<stem>.model` become `<stem>_glove_l.model` and `<stem>_glove_r.model`
 types them `gloveL` and `gloveR` and keeps them clear of an authored `glove_l.model`, each its
 own `face.xml` entry. All three name the `.mtl` the source model uses: each keeps a subset of
 its materials under their names, so that `.mtl` defines every one, and no new material file is
-written. The detection reads the `.model`'s own bone weights, as the FMDL check does.
+written. The detection reads the `.model`'s own bone weights, as the FMDL check does. A
+hand-weighted model a `.model.common` link brings in is not split on pre-Fox: the face lists
+the Common output's file by reference and packs nothing of it, so splitting it would mean
+copying it into the face, which no export has needed (worklog "Issues").
 
 A split model goes through the IR and back (FMDL → IR → split → FMDL; on pre-Fox `.model` → IR →
 split → `.model`). Measured at 4.18 on that
