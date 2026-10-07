@@ -284,9 +284,12 @@ unchanged textures reuse its converted bytes; eviction may require conversion ag
   the shared memory budget even after a task finishes; evict reusable cache entries under pressure
   so they cannot prevent working tasks from acquiring memory. Bypassing the cache for a large run
   does not by itself release entries retained by earlier small runs.
-  The policy belongs to the Team compiler pipeline's memory budget (Phase 4), which does not
-  exist before it: until then `Converter` retains every distinct conversion until `clear`, and
-  exposes `retained_bytes` and `clear` as the hooks the budget uses.
+  The policy belongs to the Team compiler pipeline's memory budget and is built with the
+  first caller that keeps a `Converter` across runs, the GUI's compile (Phase 8). A CLI run
+  is one process: it makes its `Converter` per run and drops it with the run, so what the
+  cache holds is at most two exports' conversions, which no session accumulates. Until then
+  `Converter` retains every distinct conversion until `clear`, and exposes `retained_bytes`
+  and `clear` as the hooks the budget uses.
 
 **What it covers and doesn't:** repeated one/two-team compiles benefit when their working set
 fits the cache. A fresh full-cup compile bypasses it and must pay for every required conversion.

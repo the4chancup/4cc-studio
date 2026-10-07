@@ -1897,7 +1897,10 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
     (`midcup` or `additions` in the old name), Phase 6; the two buttons on an untagged row,
     Phase 8.
 
-- [ ] 4.y `dds_convert` cache retention bound (found at 2.20d converge; spec `libs/dds_convert.md`
+- [x] 4.y `dds_convert` cache retention bound, moved to Phase 8 on 2026-10-07 (decision entry
+  "the conversion cache's retention bound is built with the GUI's compile"): only a caller
+  that keeps a `Converter` across runs accumulates conversions, and the CLI makes one per
+  run. The step as written (found at 2.20d converge; spec `libs/dds_convert.md`
   "In-memory conversion cache", "Retention is separately bounded and budgeted"): the
   `Converter` holds every distinct conversion until `clear`; the pipeline's memory budget
   charges `retained_bytes` and evicts under pressure, and repeated edits do not keep every
@@ -1966,7 +1969,9 @@ patch and every `savefile_*`/`patch_written` code (Phase 5, `output/savefile.rs`
 (Phase 8); `FolderStatus`, `Progress` and `Complete` events, live validation (`check/`,
 `watcher.rs`) and every GUI action on a degraded run (Retry, Open output folder, Relaunch as
 administrator, Upgrade DpFileList dialog): Phase 8; glTF sources: Phase 7; the GPU BC7 backend:
-16.x; the parity run over upgraded reference exports: after Phases 5 and 6
+16.x; the conversion cache's retention bound and its charge (4.y): Phase 8, with the first
+caller that keeps a `Converter` across runs; the parity run over upgraded reference
+exports: after Phases 5 and 6
 (`development_plan.md` "Phase 4" Verification).
 
 Phase 4 open questions (maintainer):

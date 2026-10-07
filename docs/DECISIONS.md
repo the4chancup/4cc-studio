@@ -4671,3 +4671,17 @@ which cannot stall, and still bounds the run: the overshoot is the workers' work
 number of teams. Charging the cache without eviction would hold bytes no completion releases.
 Plan: `libs/pipeline.md` "Memory budget"; `team_compiler/pipeline.md` "Admission" (Charges while
 a task runs), "Resolved decisions and open questions" (Complete memory accounting).
+
+## 2026-10-07 — dds_convert, team_compiler — the conversion cache's retention bound is built with the GUI's compile
+Decision: the cache's retention bound, its eviction under memory pressure and the charge of its
+retained bytes to the run's budget (worklog step 4.y) are built in Phase 8, with the GUI's
+compile, the first caller that keeps a `Converter` across runs; Phase 4 leaves the cache as it
+is, made per run by the compiler and dropped with it.
+Why: the bound exists so a session of repeated edits does not keep every superseded
+conversion, and no such session exists before the GUI: a CLI run is one process, and its cache
+holds at most two exports' conversions (the engagement limit), bounded whatever the number of
+teams. An eviction policy built now would be shaped without the caller whose access pattern it
+serves (which runs share a converter, when a run starts, what a run may evict), and charging a
+per-run cache without eviction would hold bytes no task's completion releases.
+Plan: `libs/dds_convert.md` "In-memory conversion cache", the bullet "Retention is separately
+bounded and budgeted".
