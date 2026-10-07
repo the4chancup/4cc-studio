@@ -177,7 +177,12 @@ textures of either sit beside the models.
 Each model uses the first `.mtl` found in its own folder, then in the player's folder: one
 whose name starts or ends the model's name, then `materials.mtl`, then any. For PES 2015 to
 2017, a model with no `.mtl` to use is the error `model_material_undefined`, and the player's
-folder is left out. A
+folder is left out. For PES 2015 to 2017 the models, `.mtl` files and textures in `Common` are
+written once into the team's Common folder in the game, which loads them from there: a
+`.common` link to a model (`legs.model.common`) lists the Common model in the player's
+`face.xml`, using a `.mtl` named like it beside the link, else the one found in `Common`, else
+one found as above; a link to a `.mtl` (`body.mtl.common`) counts as that `.mtl` sitting beside
+the link, and a link to a texture points the player's `.mtl` files at the Common texture. A
 kit folder with
 no `kit` texture, an empty one included, is built with a magenta and black checkerboard in its
 place and reported as `kit_placeholder`, so a kit nobody drew shows as missing in the game. A
@@ -186,8 +191,9 @@ range) is reported by both commands as `kit_config_invalid`, naming the error, a
 left out, even with `pass_through` on. `compile`
 skips any other export with the error `content_not_yet_compiled`, naming the first thing it
 cannot build yet. For PES 2015 to 2017 it builds a player folder's own `.model` files with
-their `.mtl` files, textures and face diff, the linked shared `Faces`, `Boots` and `Gloves`
-folders, and the portraits and the logo; `.common` links, `Common`, kits, collars,
+their `.mtl` files, textures and face diff, its `.common` links to a `.model`, a `.mtl` or a
+texture, the linked shared `Faces`, `Boots` and `Gloves` folders, a `Common` folder holding
+only `.model`, `.mtl` and texture files, and the portraits and the logo; kits, collars,
 `ingame_face`, `.fmdl` files, a `Boots` folder holding several models and referee exports are
 named. For
 PES 2018 to 2021 it names a referee export's kit, logo, portrait or collar

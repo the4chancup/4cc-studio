@@ -1,6 +1,9 @@
 //! `compile` for PES 2017: a player folder's own `.model` files, with their `.mtl` files and
 //! textures, built into the player's face CPK nested in the output CPK, with the generated
-//! `face.xml` typing every model, and the blank face of a player folder with no model.
+//! `face.xml` typing every model, and the blank face of a player folder with no model; the
+//! linked shared folders; and the export's `Common/` folder, its files written once into the
+//! team's Common output and named from the `face.xml` and the `.mtl` files through `.common`
+//! links.
 
 use std::collections::BTreeMap;
 use std::fs;
@@ -641,4 +644,287 @@ fn a_model_with_no_mtl_beside_an_fmdl_of_its_name_is_not_undefined_on_fox() {
         "{lines:#?}"
     );
     assert_eq!(check.exit_code(), 0, "{lines:#?}");
+}
+
+/// The outer CPK folder of team 714's Common output.
+const COMMON_714: &str = "common/character1/model/character/uniform/common/714/";
+
+/// The entries directly in team 714's Common output, by their names in it: the players'
+/// common subfolders below it left out.
+fn common_output(entries: &BTreeMap<String, Vec<u8>>) -> BTreeMap<&str, &Vec<u8>> {
+    entries_under(entries, COMMON_714)
+        .into_iter()
+        .filter(|(name, _)| !name.contains('/'))
+        .collect()
+}
+
+/// The entries under slot 05's common subfolder of team 714's Common output.
+fn slot_05_common(entries: &BTreeMap<String, Vec<u8>>) -> Vec<&str> {
+    entries_under(entries, &format!("{COMMON_714}05 - A/"))
+        .into_keys()
+        .collect()
+}
+
+/// Writes the export `export`: slot 05 holding `legs.model.common` and no model of its own,
+/// and `Common/` holding `legs.model` (the card model), `legs.mtl` naming `./cloth.dds` and
+/// `cloth.dds`.
+fn write_common_legs(sandbox: &Sandbox, export: &str) {
+    sandbox.write(
+        &format!("exports/{export}/Players/05 - A/legs.model.common"),
+        b"",
+    );
+    let common = format!("exports/{export}/Common");
+    sandbox.write(&format!("{common}/legs.model"), &card_model());
+    sandbox.write(&format!("{common}/legs.mtl"), &materials_naming("cloth"));
+    sandbox.write(&format!("{common}/cloth.dds"), &small_dds());
+}
+
+/// The findings of a `write_common_legs` export: slot 05's face has no `face_neck` model.
+const COMMON_LEGS_FINDINGS: [&str; 3] = [
+    "Info export_identified [Keep] (team=/co/, id=714)",
+    "Info team_colors_missing [Keep] ()",
+    "Info xml_face_neck_added [Keep] at Players/05 - A ()",
+];
+
+/// The `face.xml` of a `write_common_legs` export's slot 05: the Common `legs` model with its
+/// Common `.mtl`, then the dummy.
+fn common_legs_face_xml() -> Vec<u8> {
+    expected_face_xml(
+        &[
+            (
+                "parts",
+                "model/character/uniform/common/714/oral_legs_*.model",
+                "model/character/uniform/common/714/legs.mtl",
+                None,
+            ),
+            ("face_neck", "./oral_dummy_*.model", "./dummy.mtl", None),
+        ],
+        &template("face_diff.bin"),
+    )
+}
+
+// TC-MOD-24
+#[test]
+fn a_common_model_link_names_the_common_output_which_holds_the_model_and_its_mtl() {
+    let sandbox = Sandbox::new("prefox_common_legs");
+    let export = "co Midcup Legs";
+    write_common_legs(&sandbox, export);
+
+    let entries = compile_pes17(&sandbox, export, &COMMON_LEGS_FINDINGS);
+
+    let face = nested_entries(&entries[&face_cpk(5)]);
+    let folder = face_folder(5);
+    let names: Vec<&str> = face
+        .keys()
+        .map(|path| path.strip_prefix(folder.as_str()).unwrap())
+        .collect();
+    assert_eq!(names, ["dummy.mtl", "face.xml", "oral_dummy_win32.model"]);
+    assert_eq!(face[&format!("{folder}face.xml")], common_legs_face_xml());
+    let common = common_output(&entries);
+    let names: Vec<&str> = common.keys().copied().collect();
+    assert_eq!(names, ["cloth.dds", "legs.mtl", "oral_legs_win32.model"]);
+    assert_eq!(*common["oral_legs_win32.model"], card_model());
+    assert_eq!(
+        sampler_paths(common["legs.mtl"]),
+        ["model/character/uniform/common/714/cloth.dds"]
+    );
+    assert_eq!(slot_05_common(&entries), Vec::<&str>::new());
+}
+
+// TC-MOD-24
+#[test]
+fn a_common_model_link_takes_a_local_mtl_of_its_name_over_the_common_one() {
+    let sandbox = Sandbox::new("prefox_common_legs_local");
+    let export = "co Midcup Legs";
+    write_common_legs(&sandbox, export);
+    let player = format!("exports/{export}/Players/05 - A");
+    sandbox.write(&format!("{player}/legs.mtl"), &materials_naming("skin"));
+    sandbox.write(&format!("{player}/skin.dds"), &small_dds());
+
+    let entries = compile_pes17(&sandbox, export, &COMMON_LEGS_FINDINGS);
+
+    let face = nested_entries(&entries[&face_cpk(5)]);
+    let folder = face_folder(5);
+    assert_eq!(
+        face[&format!("{folder}face.xml")],
+        expected_face_xml(
+            &[
+                (
+                    "parts",
+                    "model/character/uniform/common/714/oral_legs_*.model",
+                    "./legs.mtl",
+                    None
+                ),
+                ("face_neck", "./oral_dummy_*.model", "./dummy.mtl", None),
+            ],
+            &template("face_diff.bin")
+        )
+    );
+    assert_eq!(
+        sampler_paths(&face[&format!("{folder}legs.mtl")]),
+        ["model/character/uniform/common/714/05 - A/skin.dds"]
+    );
+    let common = common_output(&entries);
+    let names: Vec<&str> = common.keys().copied().collect();
+    assert_eq!(names, ["cloth.dds", "legs.mtl", "oral_legs_win32.model"]);
+    assert_eq!(slot_05_common(&entries), ["skin.dds"]);
+}
+
+// TC-MOD-37
+#[test]
+fn a_material_link_names_the_common_mtl_which_the_common_output_holds_once() {
+    let sandbox = Sandbox::new("prefox_common_mtl");
+    let export = "co Midcup Skin";
+    let player = format!("exports/{export}/Players/05 - A");
+    sandbox.write(&format!("{player}/face_high.model"), &card_model());
+    sandbox.write(&format!("{player}/face_high.mtl.common"), b"");
+    let common = format!("exports/{export}/Common");
+    sandbox.write(&format!("{common}/face_high.mtl"), &card_materials());
+    sandbox.write(&format!("{common}/skin.dds"), &small_dds());
+
+    let entries = compile_pes17(&sandbox, export, &CLEAN);
+
+    let face = nested_entries(&entries[&face_cpk(5)]);
+    let folder = face_folder(5);
+    let names: Vec<&str> = face
+        .keys()
+        .map(|path| path.strip_prefix(folder.as_str()).unwrap())
+        .collect();
+    assert_eq!(names, ["face.xml", "oral_face_high_win32.model"]);
+    assert_eq!(
+        face[&format!("{folder}face.xml")],
+        expected_face_xml(
+            &[(
+                "face_neck",
+                "./oral_face_high_*.model",
+                "model/character/uniform/common/714/face_high.mtl",
+                None
+            )],
+            &template("face_diff.bin")
+        )
+    );
+    let common = common_output(&entries);
+    let names: Vec<&str> = common.keys().copied().collect();
+    assert_eq!(names, ["face_high.mtl", "skin.dds"]);
+    assert_eq!(
+        sampler_paths(common["face_high.mtl"]),
+        ["model/character/uniform/common/714/skin.dds"]
+    );
+    assert_eq!(slot_05_common(&entries), Vec::<&str>::new());
+}
+
+#[test]
+fn a_texture_link_points_the_player_s_mtl_at_the_common_texture() {
+    let sandbox = Sandbox::new("prefox_common_texture");
+    let export = "co Midcup Hair";
+    let player = format!("exports/{export}/Players/05 - A");
+    sandbox.write(&format!("{player}/face_high.model"), &card_model());
+    sandbox.write(
+        &format!("{player}/face_high.mtl"),
+        &materials_naming("hair"),
+    );
+    sandbox.write(&format!("{player}/hair.dds.common"), b"");
+    sandbox.write(&format!("exports/{export}/Common/hair.dds"), &small_dds());
+
+    let entries = compile_pes17(&sandbox, export, &CLEAN);
+
+    let face = nested_entries(&entries[&face_cpk(5)]);
+    assert_eq!(
+        sampler_paths(&face[&format!("{}face_high.mtl", face_folder(5))]),
+        ["model/character/uniform/common/714/hair.dds"]
+    );
+    let common = common_output(&entries);
+    let names: Vec<&str> = common.keys().copied().collect();
+    assert_eq!(names, ["hair.dds"]);
+    assert_eq!(slot_05_common(&entries), Vec::<&str>::new());
+}
+
+#[test]
+fn two_spellings_of_one_model_link_give_one_entry() {
+    let sandbox = Sandbox::new("prefox_common_legs_twice");
+    let export = "co Midcup Legs";
+    write_common_legs(&sandbox, export);
+    sandbox.write(
+        &format!("exports/{export}/Players/05 - A/legs.model.common.txt"),
+        b"",
+    );
+
+    let entries = compile_pes17(&sandbox, export, &COMMON_LEGS_FINDINGS);
+
+    let face = nested_entries(&entries[&face_cpk(5)]);
+    let xml = &face[&format!("{}face.xml", face_folder(5))];
+    assert_eq!(
+        String::from_utf8_lossy(xml),
+        String::from_utf8_lossy(&common_legs_face_xml())
+    );
+}
+
+#[test]
+fn a_model_link_whose_only_mtl_is_a_broken_common_one_drops_its_folder() {
+    let sandbox = Sandbox::new("prefox_common_mtl_broken");
+    let export = "co Midcup Legs";
+    sandbox.write(
+        &format!("exports/{export}/Players/05 - A/legs.model.common"),
+        b"",
+    );
+    let common = format!("exports/{export}/Common");
+    sandbox.write(&format!("{common}/legs.model"), &card_model());
+    sandbox.write(&format!("{common}/legs.mtl"), b"not a material set");
+    let error = pes_model::format::mtl::MaterialSet::read(b"not a material set")
+        .unwrap_err()
+        .to_string();
+    let broken =
+        format!("Error mtl_broken [DropFile] at Common/legs.mtl (file=legs.mtl, error={error})");
+    let undefined =
+        "Error model_material_undefined [DropFolder] at Players/05 - A (file=legs.model.common)";
+
+    let check = sandbox.run(&pes17(&sandbox), &["check"]);
+    let lines = check.messages();
+    assert_eq!(
+        findings_of(&lines, export),
+        [
+            undefined,
+            broken.as_str(),
+            "Info export_identified [Keep] (team=/co/, id=714)"
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(check.exit_code(), 1);
+
+    let compile = sandbox.run(&pes17(&sandbox), &["compile", "--no-deploy"]);
+    let lines = compile.messages();
+    assert_eq!(
+        findings_of(&lines, export),
+        [
+            undefined,
+            broken.as_str(),
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(compile.exit_code(), 1);
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    assert!(!entries.contains_key(&face_cpk(5)), "{:?}", entries.keys());
+}
+
+#[test]
+fn a_common_file_pre_fox_does_not_build_skips_the_export() {
+    let sandbox = Sandbox::new("prefox_common_fmdl");
+    let export = "co Midcup Card";
+    write_slot_05_face(&sandbox, export);
+    sandbox.write(&format!("exports/{export}/Common/x.fmdl"), &clean_model());
+
+    let run = sandbox.run(&pes17(&sandbox), &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, export),
+        [
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Error content_not_yet_compiled [DropExport] (what=Common/x.fmdl)",
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 1, "{lines:#?}");
 }

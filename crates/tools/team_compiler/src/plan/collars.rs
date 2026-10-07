@@ -98,6 +98,7 @@ mod tests {
                 TaskKind::Models { .. }
                 | TaskKind::Textures { .. }
                 | TaskKind::CommonTextures { .. }
+                | TaskKind::CommonModels { .. }
                 | TaskKind::Portrait { .. }
                 | TaskKind::Kit { .. }
                 | TaskKind::Logo { .. }
@@ -119,6 +120,7 @@ mod tests {
                 TaskKind::Models { .. }
                 | TaskKind::Textures { .. }
                 | TaskKind::CommonTextures { .. }
+                | TaskKind::CommonModels { .. }
                 | TaskKind::Portrait { .. }
                 | TaskKind::Logo { .. }
                 | TaskKind::RefereeMarker { .. }
@@ -224,6 +226,7 @@ mod tests {
                 TaskKind::Models { .. }
                 | TaskKind::Textures { .. }
                 | TaskKind::CommonTextures { .. }
+                | TaskKind::CommonModels { .. }
                 | TaskKind::Portrait { .. }
                 | TaskKind::RefereeMarker { .. } => "other",
             })

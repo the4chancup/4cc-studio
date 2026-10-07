@@ -130,12 +130,13 @@ pub(super) fn summed(fired: Vec<Fired>) -> Vec<Fired> {
 
 #[cfg(test)]
 mod tests {
-    use aesthetics_export::{ContentFinding, Disposition};
+    use aesthetics_export::{ContentFinding, Disposition, IssueScope};
+    use pes_version::PesVersion;
 
     use super::*;
     use crate::deep::tests::{
-        counted, edited, far_boots, findings_of, folder, glove_over_the_face_limit,
-        pre_fox_fixture, tracer_boots,
+        counted, edited, far_boots, findings_for, findings_of, folder, glove_over_the_face_limit,
+        path, pre_fox_fixture, tracer_boots,
     };
     use crate::testing::scratch;
 
@@ -276,6 +277,90 @@ mod tests {
                     Disposition::Keep,
                     false
                 ),
+            ]
+        );
+    }
+
+    #[test]
+    fn a_pre_fox_model_s_mtl_may_be_reached_through_a_link_and_a_model_link_s_in_common() {
+        let temp = scratch("deep_pre_fox_links");
+        let card = || pre_fox_fixture("konami_card.model");
+        let materials = || pre_fox_fixture("cardhead_materials.mtl");
+        let findings = findings_for(
+            PesVersion::Pes17,
+            temp.path(),
+            &[
+                // A model whose one `.mtl` is a link, its target present.
+                ("Players/03 - A/hat.model", card()),
+                ("Players/03 - A/hat.mtl.common", Vec::new()),
+                ("Common/hat.mtl", materials()),
+                // A model link whose `.mtl` is the Common one of its name.
+                ("Players/05 - B/legs.model.common", Vec::new()),
+                ("Common/legs.model", card()),
+                ("Common/legs.mtl", materials()),
+            ],
+            &[],
+            &[],
+        );
+        assert_eq!(findings, []);
+        // A model link with no `.mtl` anywhere, `Common/` holding none.
+        let temp = scratch("deep_pre_fox_link_undefined");
+        let findings = findings_for(
+            PesVersion::Pes17,
+            temp.path(),
+            &[
+                ("Players/05 - B/legs.model.common", Vec::new()),
+                ("Common/legs.model", card()),
+            ],
+            &[],
+            &[],
+        );
+        assert_eq!(
+            findings,
+            [ContentFinding {
+                code: "model_material_undefined",
+                scope: folder("Players/05 - B"),
+                context: vec![("file", "legs.model.common".to_owned())],
+                disposition: Disposition::DropFolder,
+                pass_through_eligible: false,
+            }]
+        );
+    }
+
+    #[test]
+    fn a_model_link_s_search_sees_only_the_common_files_the_common_pass_kept() {
+        let temp = scratch("deep_pre_fox_link_broken_mtl");
+        let findings = findings_for(
+            PesVersion::Pes17,
+            temp.path(),
+            &[
+                ("Players/05 - B/legs.model.common", Vec::new()),
+                ("Common/legs.model", pre_fox_fixture("konami_card.model")),
+                ("Common/legs.mtl", b"not a material set".to_vec()),
+            ],
+            &[],
+            &[],
+        );
+        let error = MaterialSet::read(b"not a material set")
+            .unwrap_err()
+            .to_string();
+        assert_eq!(
+            findings,
+            [
+                ContentFinding {
+                    code: "model_material_undefined",
+                    scope: folder("Players/05 - B"),
+                    context: vec![("file", "legs.model.common".to_owned())],
+                    disposition: Disposition::DropFolder,
+                    pass_through_eligible: false,
+                },
+                ContentFinding {
+                    code: "mtl_broken",
+                    scope: IssueScope::File(path("Common/legs.mtl")),
+                    context: vec![("file", "legs.mtl".to_owned()), ("error", error)],
+                    disposition: Disposition::DropFile,
+                    pass_through_eligible: false,
+                },
             ]
         );
     }

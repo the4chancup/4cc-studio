@@ -11,9 +11,10 @@
 //! severity the format crate gives it. An Error drops what holds the file and may pass through;
 //! a Warning or an Info only informs. The far vertex, which both formats check, is reported as
 //! `vertex_too_far_from_origin` and never passes through. A file that does not parse is
-//! `model_broken` or `mtl_broken`. A `.model` for which no `.mtl` is found (`mtl_search`) has
-//! every material undefined, `model_material_undefined`, for PES 2015 to 2017: the folder is
-//! dropped, `pass_through` or not. glTF models are not read (Phase 7).
+//! `model_broken` or `mtl_broken`. A `.model`, or a `.common` link to one, for which no `.mtl`
+//! is found (`mtl_search`) has every material undefined, `model_material_undefined`, for PES
+//! 2015 to 2017: the folder is dropped, `pass_through` or not. glTF models are not read
+//! (Phase 7).
 //!
 //! It also checks every texture of those folders, of `Common/`, of the kits and every portrait
 //! from its header alone (`team_compiler/messages.md` "Textures"): a file renamed from another
@@ -58,7 +59,7 @@ use vtree::ScopePath;
 use crate::bins::{KIT_COLORS, TEAM_COLORS};
 use crate::messages::Code;
 use crate::mtl_search::mtl_for;
-use crate::plan::subset::{FolderModels, texture_format};
+use crate::plan::subset::{FolderModels, PlayerFile, player_file, texture_format};
 use crate::reader::ContentSource;
 use collar::collar_findings;
 use documents::{colors_findings, face_diff_findings, kit_config_findings, settings_finding};
@@ -107,7 +108,8 @@ impl ContentPass {
 /// folder's or a kit's file drops the folder; one on a `Common/` file drops the file, and the
 /// cascade then drops the players linking it; one on a collar, a portrait, a `settings.toml` or
 /// a logo file drops that file. A refused
-/// `colors.txt` line is a Warning on the file, which drops nothing.
+/// `colors.txt` line is a Warning on the file, which drops nothing. `Common/`'s files are
+/// checked before the folders, whose models' `.mtl` search sees only the ones kept.
 ///
 /// The player folders, the shared folders, the files of each folder and `Common/`'s files are
 /// checked in parallel, on the rayon pool the caller runs this in; the rest in order. Every
@@ -124,12 +126,55 @@ pub(crate) fn content_findings(
     let engine = version.engine();
     // Each group below is collected in its items' order (rayon's indexed `collect`), so the
     // findings come out in file order whatever the workers' scheduling.
+    let common: Vec<ContentPass> = export
+        .common
+        .par_iter()
+        .map(|file| {
+            let Some(checked) = checked_as(file, size_rule) else {
+                return ContentPass::default();
+            };
+            file_outcome(
+                content,
+                file,
+                checked,
+                &IssueScope::File(file.path.clone()),
+                Disposition::DropFile,
+                file.path.name(),
+            )
+        })
+        .collect();
+    // A model's `.mtl` search looks only among the `Common/` files this pass keeps: planning
+    // sees the export after the drops, so the face task searches the same files, and a model
+    // whose only `.mtl` is a dropped Common one is `model_material_undefined` here rather than
+    // a material the face task cannot find. A file under `pass_through` that an eligible
+    // Error would keep is left out too: the pass does not know the setting, and leaving it
+    // out can only report a folder `compile` could have built, never let one through that
+    // it cannot.
+    let kept_common: Vec<FileDescriptor> = export
+        .common
+        .iter()
+        .zip(&common)
+        .filter(|(_, pass)| {
+            !pass
+                .findings
+                .iter()
+                .any(|finding| matches!(finding.disposition, Disposition::DropFile))
+        })
+        .map(|(file, _)| file.clone())
+        .collect();
     let players: Vec<ContentPass> = export
         .players
         .par_iter()
         .map(|player| {
             let folder = &player.path;
-            let mut pass = folder_findings(content, folder, &player.files, size_rule, engine);
+            let mut pass = folder_findings(
+                content,
+                folder,
+                &player.files,
+                &kept_common,
+                size_rule,
+                engine,
+            );
             let findings = &mut pass.findings;
             findings.extend(face_diff_findings(
                 content,
@@ -156,7 +201,14 @@ pub(crate) fn content_findings(
         .faces
         .par_iter()
         .map(|face| {
-            let mut pass = folder_findings(content, &face.path, &face.files, size_rule, engine);
+            let mut pass = folder_findings(
+                content,
+                &face.path,
+                &face.files,
+                &kept_common,
+                size_rule,
+                engine,
+            );
             pass.findings.extend(face_diff_findings(
                 content,
                 &face.path,
@@ -170,22 +222,14 @@ pub(crate) fn content_findings(
         .boots
         .par_iter()
         .chain(&export.gloves)
-        .map(|shared| folder_findings(content, &shared.path, &shared.files, size_rule, engine))
-        .collect();
-    let common: Vec<ContentPass> = export
-        .common
-        .par_iter()
-        .map(|file| {
-            let Some(checked) = checked_as(file, size_rule) else {
-                return ContentPass::default();
-            };
-            file_outcome(
+        .map(|shared| {
+            folder_findings(
                 content,
-                file,
-                checked,
-                &IssueScope::File(file.path.clone()),
-                Disposition::DropFile,
-                file.path.name(),
+                &shared.path,
+                &shared.files,
+                &kept_common,
+                size_rule,
+                engine,
             )
         })
         .collect();
@@ -328,41 +372,53 @@ fn checked_as(file: &FileDescriptor, size_rule: SizeRule) -> Option<Checked> {
 
 /// The findings of the files among `files`, those of the model folder at `folder`, that the
 /// deep pass reads (`checked_as`, textures held to `size_rule`): each on the folder's scope,
-/// an Error dropping the folder, the file named below the folder, a `.model` with no `.mtl`
-/// (`mtl_search::mtl_for`) `model_material_undefined` when the target's `engine` is pre-Fox;
-/// with the FMDLs among them that carry hand weights. The files are checked in parallel.
+/// an Error dropping the folder, the file named below the folder; when the target's `engine`
+/// is pre-Fox, `model_material_undefined` for a `.model`, or a typed `.common` link to one,
+/// whose search (`mtl_search::mtl_for`, `common` being the export's `Common/` files) finds no
+/// `.mtl`; with the FMDLs among them that carry hand weights. The files are checked in
+/// parallel.
 fn folder_findings(
     content: &ContentSource,
     folder: &ScopePath,
     files: &[FileDescriptor],
+    common: &[FileDescriptor],
     size_rule: SizeRule,
     engine: Engine,
 ) -> ContentPass {
+    let models = FolderModels::of(folder, files, engine);
     // Collected in file order (an indexed `collect`), whatever the scheduling.
     let per_file: Vec<ContentPass> = files
         .par_iter()
         .map(|file| {
-            let Some(checked) = checked_as(file, size_rule) else {
-                return ContentPass::default();
-            };
             let scope = IssueScope::Folder(folder.clone());
             let name = relative(&file.path, folder);
-            let mut pass = file_outcome(
-                content,
-                file,
-                checked,
-                &scope,
-                Disposition::DropFolder,
-                &name,
-            );
+            let mut pass = match checked_as(file, size_rule) {
+                Some(checked) => file_outcome(
+                    content,
+                    file,
+                    checked,
+                    &scope,
+                    Disposition::DropFolder,
+                    &name,
+                ),
+                None => ContentPass::default(),
+            };
+            // On Fox a `.model` is not read yet: a `boots.model` beside `boots.fmdl` is never
+            // the selected source, so dropping the folder for it would lose a working FMDL
+            // (4.17 adds Fox where it is the source).
+            let searched = match engine {
+                Engine::Fox => false,
+                Engine::PreFox => {
+                    file.kind == FileKind::Model(ModelFormat::PesModel)
+                        || matches!(
+                            player_file(folder, file, &models),
+                            Some(PlayerFile::PreFoxCommonModel { .. })
+                        )
+                }
+            };
             // Not pass-through-eligible: the face's `face.xml` must name a material set for
-            // the model, and there is none to name. On Fox a `.model` is not read yet: a
-            // `boots.model` beside `boots.fmdl` is never the selected source, so dropping the
-            // folder for it would lose a working FMDL (4.17 adds Fox where it is the source).
-            if engine == Engine::PreFox
-                && file.kind == FileKind::Model(ModelFormat::PesModel)
-                && mtl_for(&file.path, folder, files).is_none()
-            {
+            // the model, and there is none to name.
+            if searched && mtl_for(&file.path, folder, files, common).is_none() {
                 pass.findings.push(ContentFinding {
                     code: MODEL_MATERIAL_UNDEFINED,
                     scope,

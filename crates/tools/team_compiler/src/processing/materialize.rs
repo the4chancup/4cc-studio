@@ -119,6 +119,7 @@ fn test_entry_folder(source: &str, kind: &TaskKind) -> String {
         TaskKind::Models { .. }
         | TaskKind::Textures { .. }
         | TaskKind::CommonTextures { .. }
+        | TaskKind::CommonModels { .. }
         | TaskKind::Kit { .. } => Some(kind.folder_path()),
     };
     match folder {
@@ -256,6 +257,7 @@ mod tests {
             combined: Vec::new(),
             common_models: Vec::new(),
             common_texture_stems: BTreeSet::new(),
+            common_files: Vec::new(),
             hand_split: BTreeSet::new(),
             textures,
             engine: Engine::Fox,

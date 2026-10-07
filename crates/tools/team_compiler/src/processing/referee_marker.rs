@@ -6,6 +6,7 @@
 use aesthetics_export::FileDescriptor;
 use fmdl::ops::paths::rewrite_texture_paths;
 use fmdl::{FmdlError, FmdlFile};
+use pes_version::Engine;
 
 use super::{CompileContext, Entry, TaskFailure, TaskFiles, texture};
 use crate::paths::{self, REFEREE_MARKER_COLLAR, REFEREE_TEAM_ID};
@@ -29,7 +30,10 @@ pub(super) fn referee_marker(
     let texture = texture::common_texture(marker, ctx, files)?;
     let model = marker_model(ctx.templates.referee_marker())?;
     Ok(vec![
-        (paths::common_texture(REFEREE_TEAM_ID, MARKER_STEM), texture),
+        (
+            paths::common_texture(Engine::Fox, REFEREE_TEAM_ID, MARKER_STEM),
+            texture,
+        ),
         (paths::collar(REFEREE_MARKER_COLLAR), model),
     ])
 }
@@ -41,7 +45,7 @@ fn marker_model(bytes: &[u8]) -> Result<Vec<u8>, FmdlError> {
     let mut file = FmdlFile::read(bytes)?;
     rewrite_texture_paths(&mut file, |path| {
         if path.file_name == BUNDLED_TEXTURE {
-            path.directory = paths::common_texture_directory(REFEREE_TEAM_ID);
+            path.directory = paths::common_texture_directory(Engine::Fox, REFEREE_TEAM_ID);
             path.file_name = format!("{MARKER_STEM}.dds");
         }
     })?;

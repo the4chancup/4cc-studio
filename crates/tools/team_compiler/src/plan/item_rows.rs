@@ -189,6 +189,7 @@ mod tests {
                 )),
                 TaskKind::Textures { .. }
                 | TaskKind::CommonTextures { .. }
+                | TaskKind::CommonModels { .. }
                 | TaskKind::Portrait { .. }
                 | TaskKind::Kit { .. }
                 | TaskKind::Logo { .. }

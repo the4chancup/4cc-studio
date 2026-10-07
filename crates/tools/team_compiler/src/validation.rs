@@ -350,8 +350,8 @@ fn check_source(
 /// team, which its texture `.common` links may name (`pipeline.md` "Resolved decisions", "A
 /// texture a model names must exist"). The team's ID is read from the teams list here, before
 /// validation resolves the identity; an export with none (a referee export, a team the list
-/// does not hold, a name with no team token) has an empty set, as has a pre-Fox target, whose
-/// Common texture path is not built yet.
+/// does not hold, a name with no team token) has an empty set, as has a pre-Fox target, where
+/// an installed Common texture does not satisfy a link yet.
 fn installed_common_textures(
     inputs: &RunInputs,
     installed: &InstalledPaths,
@@ -559,7 +559,9 @@ fn file_role_messages(
                 | PlayerFile::Texture(..)
                 | PlayerFile::CommonTexture(_)
                 | PlayerFile::PreFoxModel { .. }
-                | PlayerFile::Material,
+                | PlayerFile::PreFoxCommonModel { .. }
+                | PlayerFile::Material
+                | PlayerFile::CommonMaterial,
             )
             | None => continue,
         };

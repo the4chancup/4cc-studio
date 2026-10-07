@@ -1033,6 +1033,7 @@ mod tests {
             combined: Vec::new(),
             common_models: Vec::new(),
             common_texture_stems: BTreeSet::new(),
+            common_files: Vec::new(),
             hand_split: BTreeSet::new(),
             textures: TextureHome::PlayerCommon {
                 folder_name: "05 - The Chad Stormworks Player".to_owned(),

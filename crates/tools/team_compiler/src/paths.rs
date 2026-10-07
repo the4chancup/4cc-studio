@@ -1,6 +1,6 @@
 //! Where compiled content goes inside the CPK, for the Fox versions (PES 18-21) and, for the
-//! faces, the shared boots and gloves, a model folder's textures, the portraits and the logo,
-//! the pre-Fox ones (PES 15-17) too:
+//! faces, the shared boots and gloves, a model folder's textures, the team's Common output, the
+//! portraits and the logo, the pre-Fox ones (PES 15-17) too:
 //! `team_compiler/pipeline.md` "Game paths reference". The CPK paths have no leading `/`.
 
 use std::fs;
@@ -162,18 +162,38 @@ impl TextureHome {
     }
 }
 
-/// The directory an FMDL texture-path table names for a texture of the team's Common output
-/// (the Common row of "Game paths reference"), for team `team_id`: where a texture that
-/// resolves into the export's `Common/` folder stays, packed once for every player pointing at
-/// it (`pipeline.md` "3. Per-model-folder parallel steps", step 6).
-pub(crate) fn common_texture_directory(team_id: u16) -> String {
-    format!("/Assets/pes16/model/character/common/{team_id}/sourceimages/")
+/// The directory a model's texture paths name for a texture of the team's Common output (the
+/// Common row of "Game paths reference"), on a target of `engine`, for team `team_id`: an FMDL
+/// texture-path table's on Fox, a `.mtl` sampler's on pre-Fox, where it is also the directory
+/// a `face.xml` names a Common model or `.mtl` by. Where a texture that resolves into the
+/// export's `Common/` folder stays, packed once for every player pointing at it (`pipeline.md`
+/// "3. Per-model-folder parallel steps", step 6).
+pub(crate) fn common_texture_directory(engine: Engine, team_id: u16) -> String {
+    match engine {
+        Engine::Fox => format!("/Assets/pes16/model/character/common/{team_id}/sourceimages/"),
+        Engine::PreFox => format!("model/character/uniform/common/{team_id}/"),
+    }
 }
 
-/// The CPK path of the texture `stem` of the team's Common output, converted to FTEX, for team
-/// `team_id`.
-pub(crate) fn common_texture(team_id: u16, stem: &str) -> String {
-    format!("Asset/model/character/common/{team_id}/sourceimages/#windx11/{stem}.ftex")
+/// The CPK path of the texture `stem` of the team's Common output, converted for a target of
+/// `engine` (an FTEX on Fox, a DDS on pre-Fox), for team `team_id`.
+pub(crate) fn common_texture(engine: Engine, team_id: u16, stem: &str) -> String {
+    match engine {
+        Engine::Fox => {
+            format!("Asset/model/character/common/{team_id}/sourceimages/#windx11/{stem}.ftex")
+        }
+        Engine::PreFox => pre_fox_common_file(team_id, &format!("{stem}.dds")),
+    }
+}
+
+/// The CPK path of the file `name` in team `team_id`'s pre-Fox Common output: where a `Common/`
+/// model goes under its packed name and a `Common/` `.mtl` under its own (`pipeline.md` "3.
+/// Per-model-folder parallel steps", step 4).
+pub(crate) fn pre_fox_common_file(team_id: u16, name: &str) -> String {
+    format!(
+        "common/character1/{}{name}",
+        common_texture_directory(Engine::PreFox, team_id)
+    )
 }
 
 /// The CPK path of stock collar `id`'s model on Fox, which a model at that path replaces: the
@@ -440,12 +460,32 @@ mod tests {
     #[test]
     fn the_team_s_common_textures_sit_one_level_above_the_players_subfolders() {
         assert_eq!(
-            common_texture_directory(714),
+            common_texture_directory(Engine::Fox, 714),
             "/Assets/pes16/model/character/common/714/sourceimages/"
         );
         assert_eq!(
-            common_texture(714, "cloth"),
+            common_texture(Engine::Fox, 714, "cloth"),
             "Asset/model/character/common/714/sourceimages/#windx11/cloth.ftex"
+        );
+    }
+
+    #[test]
+    fn the_team_s_pre_fox_common_output_holds_its_textures_models_and_mtl_files_under_character1() {
+        assert_eq!(
+            common_texture_directory(Engine::PreFox, 714),
+            "model/character/uniform/common/714/"
+        );
+        assert_eq!(
+            common_texture(Engine::PreFox, 714, "Cloth"),
+            "common/character1/model/character/uniform/common/714/Cloth.dds"
+        );
+        assert_eq!(
+            pre_fox_common_file(714, "oral_legs_win32.model"),
+            "common/character1/model/character/uniform/common/714/oral_legs_win32.model"
+        );
+        assert_eq!(
+            pre_fox_common_file(714, "Legs.mtl"),
+            "common/character1/model/character/uniform/common/714/Legs.mtl"
         );
     }
 

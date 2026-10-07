@@ -16,7 +16,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::Context;
 use cpk::CpkArchive;
-use pes_version::PesVersion;
+use pes_version::{Engine, PesVersion};
 use pipeline::CpkStem;
 use studio_core::{Disposition, Message, Scope};
 use uniparam::UniformParameter;
@@ -57,10 +57,10 @@ impl InstalledPaths {
         }
     }
 
-    /// The stems, folded, of the textures these CPKs hold in team `team_id`'s Common output
+    /// The stems, folded, of the textures these CPKs hold in team `team_id`'s Fox Common output
     /// (`paths::common_texture`), which a texture `.common` link may name instead of a file in
     /// the export's `Common/` (`pipeline.md` "Resolved decisions", "A texture a model names must
-    /// exist"); empty when the lookup cannot be made.
+    /// exist"); empty when the lookup cannot be made. Validation asks on a Fox target only.
     pub(crate) fn common_texture_stems(&self, team_id: u16) -> BTreeSet<String> {
         let paths = match self {
             InstalledPaths::Unknown => return BTreeSet::new(),
@@ -68,7 +68,7 @@ impl InstalledPaths {
         };
         // The path of the empty stem, cut at the stem, gives the folded head and tail every
         // Common texture path of the team has.
-        let empty = vtree::fold_name(&paths::common_texture(team_id, ""));
+        let empty = vtree::fold_name(&paths::common_texture(Engine::Fox, team_id, ""));
         let suffix = ".ftex";
         let prefix = empty
             .strip_suffix(suffix)
@@ -558,7 +558,7 @@ mod tests {
                 "4cc_63_midcup.cpk",
             ],
         );
-        let hair = paths::common_texture(714, "Hair");
+        let hair = paths::common_texture(Engine::Fox, 714, "Hair");
         install_cpk(pes, "4cc_08_bins.cpk", &[(&hair, b"farther")]);
         // The nearer CPK holds every bin the walk looks for: the walk still opens the farther.
         let pair = [0x39, 0x12, 0x01, 0x00, 0x0b, 0x00, 0x00, 0x00];
@@ -571,7 +571,7 @@ mod tests {
             (paths::PLAYER_APPEARANCE, &[7; 60]),
         ];
         install_cpk(pes, "4cc_61_midcup.cpk", &bins_61);
-        let after = paths::common_texture(714, "after");
+        let after = paths::common_texture(Engine::Fox, 714, "after");
         install_cpk(pes, "4cc_63_midcup.cpk", &[(&after, b"after")]);
 
         let (_, installed, messages) = working_bins(
@@ -603,7 +603,7 @@ mod tests {
         expected.insert(vtree::fold_name(&hair));
         assert_eq!(installed, InstalledPaths::Known(expected));
         assert_eq!(
-            installed.holds(&paths::common_texture(714, "hair")),
+            installed.holds(&paths::common_texture(Engine::Fox, 714, "hair")),
             Some(true),
             "Hair.ftex installed, hair.ftex asked"
         );
@@ -630,7 +630,7 @@ mod tests {
             .unwrap()
             .1
         };
-        let hair = paths::common_texture(714, "hair");
+        let hair = paths::common_texture(Engine::Fox, 714, "hair");
 
         let installed = walk(&pes.join("PES"));
         assert_eq!(installed, InstalledPaths::Unknown, "no PES folder");
@@ -655,8 +655,8 @@ mod tests {
     fn the_common_texture_stems_are_the_team_s_own_common_output_s_folded() {
         let installed = InstalledPaths::Known(
             [
-                paths::common_texture(714, "Hair"),
-                paths::common_texture(702, "skin"),
+                paths::common_texture(Engine::Fox, 714, "Hair"),
+                paths::common_texture(Engine::Fox, 702, "skin"),
                 // The team's Common folder, outside `sourceimages/#windx11/`.
                 "Asset/model/character/common/714/sourceimages/cloth.ftex".to_owned(),
                 // A player's own common subfolder.
@@ -696,9 +696,9 @@ mod tests {
         );
         // One byte short of a whole 85-byte record: `compile`'s walk stops on it.
         install_cpk(pes, "4cc_08_bins.cpk", &[(paths::UNI_COLOR, &[0; 84])]);
-        let hair = paths::common_texture(714, "hair");
+        let hair = paths::common_texture(Engine::Fox, 714, "hair");
         install_cpk(pes, "4cc_61_midcup.cpk", &[(&hair, b"hair")]);
-        let after = paths::common_texture(714, "after");
+        let after = paths::common_texture(Engine::Fox, 714, "after");
         install_cpk(pes, "4cc_63_midcup.cpk", &[(&after, b"after")]);
 
         assert_eq!(
@@ -718,9 +718,9 @@ mod tests {
             pes,
             &["4cc_08_bins.cpk", "4cc_18_referees.cpk", "4cc_99_test.cpk"],
         );
-        let hair = paths::common_texture(714, "hair");
+        let hair = paths::common_texture(Engine::Fox, 714, "hair");
         install_cpk(pes, "4cc_08_bins.cpk", &[(&hair, b"hair")]);
-        let skin = paths::common_texture(999, "skin");
+        let skin = paths::common_texture(Engine::Fox, 999, "skin");
         install_cpk(
             pes,
             "4cc_18_referees.cpk",

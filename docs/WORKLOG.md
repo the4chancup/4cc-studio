@@ -18,7 +18,7 @@ and 4.25 are done; 4.26 is done; 4.19 (Fox referees) is done, 4.19d (pre-Fox) wa
 referee marker) is done, 4.27's rest (the pre-Fox marker) waits on 4.19d; 4.9 is done
 (collars on Fox; their pre-Fox and cross-format halves are in 4.16 and 4.17); 4.28
 (memory accounting), 4.32 (number atlases) and 4.18 (hand auto-split, Fox) are done, and
-4.y moved to Phase 8; 4.14 is under way (slices a, b and c1 done, c2 next), with its own checks until 4.31's pre-Fox parity
+4.y moved to Phase 8; 4.14 is under way (slices a, b, c1 and c2 done, d next), with its own checks until 4.31's pre-Fox parity
 reference exists (4.31 waits on a small pre-Fox export from the maintainer); 4.33, 4.34, 4.c-pass and
 4.c-fix1 are done; 4.30,
 4.5 to 4.8 and 4.10 to 4.13 are done (4.6c moved to Phase 8's cancellation). 2.5b (GPU BC7) is step 16.x (decision entries
@@ -1375,6 +1375,19 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   item rows on pre-Fox. TC-MOD-22, 38, 40. Gates green (215 of 254); `mutants-diff 0557132`:
   52, 49 caught, 3 unviable, 0 missed (remote peak 8.99 GiB, no build killed). Clef: one
   flag, rejected.
+  (c2) done 2026-10-07 (Opus 5.5, one rework round of two findings, both from its own report;
+  two contradictions accepted: the link roles' `package()` is `None`, and an unresolved
+  shared-folder `.mtl.common` is no candidate): roles `PreFoxCommonModel`, `CommonMaterial`
+  and `CommonTexture` on pre-Fox; `mtl_for` to the plan's full search (`.mtl.common` links,
+  a model link's Common-first order); the deep pass searches only the `Common/` files its
+  Common pass kept (a broken Common `.mtl` behind a link was a face-task panic); planning's
+  `ModelFolder.common_files` and `TaskKind::CommonModels` (`processing/prefox_common.rs`);
+  `paths::common_texture`/`common_texture_directory` per engine, `pre_fox_common_file`; the
+  face's entries name Common models and `.mtl` files by their Common paths, one entry per
+  linked model; `rewritten_materials` over several places. TC-MOD-24, 37. Gates green (217
+  of 254); `mutants-diff f4f3a56`: 101, 86 caught, 15 unviable, 0 missed (the local half
+  rerun alone after a PC crash killed it; the remote half's 50 collected). Clef: one flag,
+  rejected.
   IDs: TC-MOD-20..25, TC-MOD-35, TC-MOD-37..41, TC-CHK-08, TC-TEX-07, TC-CMN-07 (split from TC-CMN-05 at 4.11c). Crates: tc (`processing/model.rs`, `processing/material.rs`,
   `processing/texture.rs`, `paths.rs`) → verify: a `/co/` slot 05 folder with the smallest
   `pes_model` fixture pair as `face_high.model` + `face_high.mtl` and `skin.dds`, compiled for PES 17: the
@@ -2175,6 +2188,19 @@ pruned when their phase closes; they stay in git history.
   name replaces it (the plan's copy with local files on top). On pre-Fox no merged model
   makes the texture ambiguous, so the player's could win too; the plan's step 6 rule is
   engine-wide today. Safe as it is (an Error, nothing wrong written).
+- open (found at 4.14c2's review) — pre-Fox Common: a texture link whose target only an
+  installed CPK holds is still `common_link_missing` on PES 15-17
+  (`installed_common_textures` is empty there; the Fox walk's stems are `.ftex` paths). A
+  later step can read the installed CPKs' `common/character1/.../common/{team}/` `.dds`
+  stems the same way.
+- open (found at 4.14c2's review) — pre-Fox Common: with `pass_through` on, a `Common/` `.mtl`
+  kept despite an eligible Error is left out of the deep pass's `.mtl` search (which cannot
+  see the setting), so a model whose only `.mtl` it is gets `model_material_undefined` where
+  `compile` could have built it. Conservative (drops, never panics); rare.
+- open (found at 4.14c2's review) — pre-Fox: two `.model.common` links to one Common model in
+  one folder (`legs.model.common` and `boots/legs.model.common`) give one `face.xml` entry,
+  the first in file order, though their positions could type them differently. Fox merges
+  them as one part too. No real export is known to do it.
 - open (found at 4.14c1's review) — pre-Fox: a file a task does not use is still read and
   charged (a shared face's model or `.mtl` the player's file replaces, a shared boots
   folder's `.mtl` its model does not use): `TaskKind::files` lists every role. Harmless.
@@ -3490,3 +3516,9 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
     written once under its shared ID as loose files, the boots as `boots.model` and
     `boots.mtl`, the gloves under their own names with a generated `glove.xml`. `Common/`,
     kits, collars, `ingame_face` and referee exports are still refused there.
+  - **4.14c2:** on PES 2015 to 2017 the export's `Common/` folder compiles: its models,
+    `.mtl` files and textures are written once into the team's Common folder, a
+    `.model.common` link puts that model in the player's `face.xml` by its Common path, a
+    `.mtl.common` link or a Common `.mtl` found for a linked model is named there too, and a
+    texture link points the player's `.mtl` at the Common texture. Kits, collars,
+    `ingame_face` and referee exports are still refused there.

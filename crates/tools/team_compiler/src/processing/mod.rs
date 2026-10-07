@@ -6,6 +6,7 @@ mod kit;
 mod kit_layout;
 mod materialize;
 mod model;
+mod prefox_common;
 mod prefox_face;
 mod prefox_shared;
 mod referee_marker;
@@ -224,6 +225,12 @@ pub(crate) fn process_task(
             texture::common_textures(textures, kits, task.team_id, ctx, &mut files, &mut findings)
                 .map(|entries| (TaskOutput::Entries(entries), None))
         }
+        TaskKind::CommonModels {
+            files: common,
+            texture_stems,
+            ..
+        } => prefox_common::common_models(common, texture_stems, task.team_id, &mut files)
+            .map(|entries| (TaskOutput::Entries(entries), None)),
         TaskKind::Portrait { player_id, file } => {
             let name = file.path.name();
             let format = texture_format(name)
@@ -307,6 +314,7 @@ pub(crate) fn process_task(
                 TaskKind::Models { .. }
                 | TaskKind::Textures { .. }
                 | TaskKind::CommonTextures { .. }
+                | TaskKind::CommonModels { .. }
                 | TaskKind::Kit { .. } => Disposition::DropFolder,
             };
             batch.messages.push(tool_message(
@@ -397,6 +405,7 @@ mod tests {
             combined: Vec::new(),
             common_models: Vec::new(),
             common_texture_stems: BTreeSet::new(),
+            common_files: Vec::new(),
             hand_split: BTreeSet::new(),
             textures: TextureHome::PlayerCommon {
                 folder_name: "05 - The Chad Stormworks Player".to_owned(),
@@ -1137,6 +1146,7 @@ mod tests {
             combined: Vec::new(),
             common_models: Vec::new(),
             common_texture_stems: BTreeSet::new(),
+            common_files: Vec::new(),
             hand_split: BTreeSet::new(),
             textures: TextureHome::SharedOutput {
                 package: ModelPackage::Gloves,

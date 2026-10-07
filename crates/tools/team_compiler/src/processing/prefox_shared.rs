@@ -53,8 +53,8 @@ pub(super) fn package(
                 PlayerFile::Texture(stem, _) => {
                     textures.insert(vtree::fold_name(&stem), stem);
                 }
-                // The subset gate names any other file of a shared boots or gloves folder
-                // (`pre_fox_shared_not_compiled`).
+                // The subset gate names any other file of a shared boots or gloves folder, a
+                // `.common` link included (`pre_fox_shared_not_compiled`).
                 PlayerFile::Model { .. }
                 | PlayerFile::CommonModel { .. }
                 | PlayerFile::Packed { .. }
@@ -63,13 +63,18 @@ pub(super) fn package(
                 | PlayerFile::Skeleton { .. }
                 | PlayerFile::SlotlessSkeleton
                 | PlayerFile::LeftOutKitVariant
-                | PlayerFile::CommonTexture(_) => {}
+                | PlayerFile::CommonTexture(_)
+                | PlayerFile::PreFoxCommonModel { .. }
+                | PlayerFile::CommonMaterial => {}
             }
         }
     }
     // By export path, case-folded, then as spelled, so a recompile lists them alike.
     models.sort_by_cached_key(|(file, _)| (file.path.fold_key(), file.path.as_str().to_owned()));
     let home = folder.textures.directory(Engine::PreFox, team_id);
+    // A shared folder holds no texture link, so its own textures are its `.mtl` files' one
+    // place.
+    let places = [(&textures, home.as_str())];
     let mut contents = PackageFiles::new();
     match package {
         ModelPackage::Boots => {
@@ -79,21 +84,33 @@ pub(super) fn package(
                      (`pre_fox_shared_not_compiled`)"
                 );
             };
-            let material = mtl_for(&model.path, &folder.path, &folder.files).expect(MTL_FOUND);
+            let material = mtl_for(
+                &model.path,
+                &folder.path,
+                &folder.files,
+                &folder.common_files,
+            )
+            .expect(MTL_FOUND);
             insert(
                 &mut contents,
                 package,
                 "boots.model".to_owned(),
                 take(files, model),
             )?;
-            let bytes = rewritten_materials(material, &take(files, material), &textures, &home)?;
+            let bytes = rewritten_materials(material, &take(files, material), &places)?;
             insert(&mut contents, package, "boots.mtl".to_owned(), bytes)?;
         }
         ModelPackage::Gloves => {
             let mut entries = Vec::new();
             for (model, xml_type) in models {
                 let name = model.path.name();
-                let material = mtl_for(&model.path, &folder.path, &folder.files).expect(MTL_FOUND);
+                let material = mtl_for(
+                    &model.path,
+                    &folder.path,
+                    &folder.files,
+                    &folder.common_files,
+                )
+                .expect(MTL_FOUND);
                 let packed = name.to_ascii_lowercase();
                 entries.push(XmlEntry {
                     xml_type,
@@ -104,7 +121,7 @@ pub(super) fn package(
                 insert(&mut contents, package, packed, take(files, model))?;
             }
             for file in materials {
-                let bytes = rewritten_materials(file, &take(files, file), &textures, &home)?;
+                let bytes = rewritten_materials(file, &take(files, file), &places)?;
                 let name = file.path.name().to_ascii_lowercase();
                 insert(&mut contents, package, name, bytes)?;
             }

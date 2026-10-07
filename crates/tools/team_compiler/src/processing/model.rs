@@ -13,6 +13,7 @@ use fmdl::{FmdlFile, Model};
 use model_convert::formats::fmdl::{fmdl_to_ir, ir_to_fmdl};
 use model_convert::ir::CanonicalModel;
 use model_convert::ops::hand_split::split_by_skeleton_group;
+use pes_version::Engine;
 use studio_core::Disposition;
 use vtree::ScopePath;
 
@@ -148,7 +149,10 @@ pub(super) fn package(
                 | PlayerFile::FaceDiffXml
                 | PlayerFile::Packed { .. } => {}
                 // Pre-Fox roles: a Fox target gives no file one.
-                PlayerFile::PreFoxModel { .. } | PlayerFile::Material => {}
+                PlayerFile::PreFoxModel { .. }
+                | PlayerFile::PreFoxCommonModel { .. }
+                | PlayerFile::Material
+                | PlayerFile::CommonMaterial => {}
             }
         }
         for part in &mut source_parts {
@@ -183,7 +187,7 @@ pub(super) fn package(
     // texture and a link of one stem (`texture_stem_conflict`), but not a link beside a
     // combined shared folder's texture of its stem: there the shared folder's texture wins.
     let texture_directory = folder.textures.directory(ctx.version.engine(), team_id);
-    let common_directory = paths::common_texture_directory(team_id);
+    let common_directory = paths::common_texture_directory(Engine::Fox, team_id);
     let folder_places = [
         (&texture_stems, texture_directory.as_str()),
         (&linked_stems, common_directory.as_str()),
@@ -217,8 +221,10 @@ pub(super) fn package(
                 point_texture(path, places, &team_segment);
             })?;
             for path in used_texture_paths(&model)? {
-                let installed_holds =
-                    |stem: &str| ctx.installed.holds(&paths::common_texture(team_id, stem));
+                let installed_holds = |stem: &str| {
+                    ctx.installed
+                        .holds(&paths::common_texture(Engine::Fox, team_id, stem))
+                };
                 let context = || {
                     vec![
                         ("model", part.path.name().to_owned()),

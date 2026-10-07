@@ -111,14 +111,15 @@ pub(crate) fn packed_model_name(stem: &str) -> String {
     format!("{prefix}{lower}{suffix}.model")
 }
 
-/// The `path` attribute naming the model packed as `packed_name`: in the face CPK's own folder,
-/// `win32` written as `*` (`./oral_face_high_*.model`), as the game's own `face.xml` files name
-/// their models.
-pub(crate) fn xml_path(packed_name: &str) -> String {
+/// The `path` attribute naming the model packed as `packed_name` in `directory`, `/`-terminated
+/// (`./`, the face CPK's own folder, or the team's Common output for a Common model), `win32`
+/// written as `*` (`./oral_face_high_*.model`), as the game's own `face.xml` files name their
+/// models.
+pub(crate) fn xml_path(directory: &str, packed_name: &str) -> String {
     let base = packed_name
         .strip_suffix("_win32.model")
         .expect("a packed model's name ends with `_win32.model` (`packed_model_name`)");
-    format!("./{base}_*.model")
+    format!("{directory}{base}_*.model")
 }
 
 /// The `ratio` the model with file stem `stem` sets: the token after `ratio_`, at the stem's
@@ -225,10 +226,20 @@ mod tests {
     #[test]
     fn a_packed_model_s_xml_path_writes_its_platform_as_a_star() {
         assert_eq!(
-            xml_path("oral_face_high_win32.model"),
+            xml_path("./", "oral_face_high_win32.model"),
             "./oral_face_high_*.model"
         );
-        assert_eq!(xml_path("oral_dummy_win32.model"), "./oral_dummy_*.model");
+        assert_eq!(
+            xml_path("./", "oral_dummy_win32.model"),
+            "./oral_dummy_*.model"
+        );
+        assert_eq!(
+            xml_path(
+                "model/character/uniform/common/714/",
+                "oral_legs_win32.model"
+            ),
+            "model/character/uniform/common/714/oral_legs_*.model"
+        );
     }
 
     #[test]

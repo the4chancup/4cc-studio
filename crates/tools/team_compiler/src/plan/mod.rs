@@ -12,9 +12,9 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::ops::Range;
 
 use aesthetics_export::{
-    ExportCoverage, ExportIdentity, FileDescriptor, FpcDirective, KitFolder, KitsFolder, LogoFiles,
-    PlayerFolder, PlayerIndex, ResolvedAestheticsExport, SharedKind, SharedModelFolder,
-    ValidatedAestheticsExport, ValidatedRoster, common_link_name,
+    ExportCoverage, ExportIdentity, FileDescriptor, FileKind, FpcDirective, KitFolder, KitsFolder,
+    LogoFiles, ModelFormat, PlayerFolder, PlayerIndex, ResolvedAestheticsExport, SharedKind,
+    SharedModelFolder, ValidatedAestheticsExport, ValidatedRoster, common_link_name,
 };
 use kit_config::KitSlot;
 use pes_version::{Engine, PesVersion};
@@ -150,6 +150,13 @@ pub(crate) struct ModelFolder {
     /// names in that output is supplied when its stem is among them ("Resolved decisions", "A
     /// texture a model names must exist").
     pub(crate) common_texture_stems: BTreeSet<String>,
+    /// The `.mtl` and texture files directly in the export's `Common/` folder, on a pre-Fox
+    /// target for a player folder; empty on Fox, whose Common parts are resolved at planning
+    /// (`common_models`), and for a shared folder, which holds no link. The face task's `.mtl`
+    /// search looks in Common for a `.model.common` link and resolves a `.mtl.common` link
+    /// there (`mtl_search::mtl_for`), and a texture link names its Common texture by the stem
+    /// that file spells (`pipeline.md` "3. Per-model-folder parallel steps", steps 4 and 6).
+    pub(crate) common_files: Vec<FileDescriptor>,
     /// The export paths of the player folder's **hand-split parts**: its face parts (its own
     /// models, a combined `Faces/` folder's, a Common model a `.common` link brings in) whose
     /// vertices the deep pass found carrying hand weights, on a Fox target. The face task
@@ -273,7 +280,9 @@ impl ModelFolder {
                     | PlayerFile::Texture(..)
                     | PlayerFile::CommonTexture(_)
                     | PlayerFile::PreFoxModel { .. }
-                    | PlayerFile::Material => None,
+                    | PlayerFile::PreFoxCommonModel { .. }
+                    | PlayerFile::Material
+                    | PlayerFile::CommonMaterial => None,
                 };
                 if let Some(packs_as) = packs_as {
                     if packed.contains(&packs_as) {
@@ -335,6 +344,20 @@ pub(crate) enum TaskKind {
         textures: Vec<FileDescriptor>,
         /// The export's kit numbers, against which its texture variant sets are completed.
         kits: Vec<u8>,
+    },
+    /// Pre-Fox: the `.model` and `.mtl` files directly in the export's `Common/` folder,
+    /// written once into the team's Common output, whether or not a `.common` link names them
+    /// (`pipeline.md` "3. Per-model-folder parallel steps", step 4): the game loads a linked
+    /// Common model or `.mtl` from there. One task per export holding such a file, in no group,
+    /// as `CommonTextures`.
+    CommonModels {
+        /// The `Common/` folder's export path, the scope the task's findings name.
+        folder: ScopePath,
+        /// Its `.model` and `.mtl` files directly in it.
+        files: Vec<FileDescriptor>,
+        /// The stems of its textures directly in it, folded, each as the folder spells it: a
+        /// `.mtl` path naming one is pointed at that texture in the team's Common output.
+        texture_stems: BTreeMap<String, String>,
     },
     /// One player's portrait, emitted as a DDS under the target version's file name: a DDS
     /// source as it is, any other accepted format encoded to BC3 (`player_folders.md`
@@ -429,7 +452,9 @@ impl TaskKind {
             TaskKind::Models { folder, .. } | TaskKind::Textures { folder, .. } => {
                 folder.path.clone()
             }
-            TaskKind::CommonTextures { folder, .. } => folder.clone(),
+            TaskKind::CommonTextures { folder, .. } | TaskKind::CommonModels { folder, .. } => {
+                folder.clone()
+            }
             TaskKind::Portrait { file, .. } => file.path.clone(),
             TaskKind::Kit { kit, .. } => kit.path.clone(),
             TaskKind::Logo { logo } => logo.main.file.path.clone(),
@@ -441,7 +466,8 @@ impl TaskKind {
     /// Every file the task reads from its export: a package's models (a `.common` link's
     /// Common model and skeleton, never the link) and the files packed beside them, the
     /// gloves' also the folder's hand-split face parts, whose hands they take; a folder's
-    /// textures; the Common textures; a portrait's one file; a kit's config and `colors.txt`,
+    /// textures; the Common textures; the Common models and `.mtl` files (pre-Fox); a
+    /// portrait's one file; a kit's config and `colors.txt`,
     /// when it has them, and its effective textures; the logo's main file and its small one,
     /// when it has one; the referees' marker texture; the collar file.
     pub(crate) fn files(&self) -> Vec<&FileDescriptor> {
@@ -460,6 +486,7 @@ impl TaskKind {
                 folder_files(folder, |_, role| matches!(role, PlayerFile::Texture(..)))
             }
             TaskKind::CommonTextures { textures, .. } => textures.iter().collect(),
+            TaskKind::CommonModels { files, .. } => files.iter().collect(),
             TaskKind::Portrait { file, .. } => vec![file],
             TaskKind::Kit { kit, .. } => kit
                 .config
@@ -641,6 +668,33 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
             .iter()
             .map(|file| vtree::fold_name(file_stem(file.path.name())))
             .collect();
+        // Pre-Fox loads Common at run time: its `.model` and `.mtl` files are one more task of
+        // the export's, and a player's face names them and its textures, which its task finds
+        // among the `.mtl` and texture files. The gate has named any other `Common/` file.
+        let (common_model_files, player_common_files): (Vec<FileDescriptor>, Vec<FileDescriptor>) =
+            match version.engine() {
+                Engine::Fox => (Vec::new(), Vec::new()),
+                Engine::PreFox => (
+                    export
+                        .common
+                        .iter()
+                        .filter(|file| {
+                            matches!(
+                                file.kind,
+                                FileKind::Model(ModelFormat::PesModel) | FileKind::Mtl
+                            )
+                        })
+                        .cloned()
+                        .collect(),
+                    export
+                        .common
+                        .iter()
+                        .filter(|file| file.kind == FileKind::Mtl)
+                        .chain(&common_textures)
+                        .cloned()
+                        .collect(),
+                ),
+            };
         // The shared folders taking an id, each with its package and that id, in the id order
         // of the kind: the boots folders, then the gloves folders.
         let mut shared: Vec<(ModelFolder, ModelPackage, u32)> = Vec::new();
@@ -660,6 +714,7 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
                     combined: Vec::new(),
                     common_models: Vec::new(),
                     common_texture_stems: common_texture_stems.clone(),
+                    common_files: Vec::new(),
                     hand_split: BTreeSet::new(),
                     textures: TextureHome::SharedOutput {
                         package,
@@ -737,6 +792,7 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
                 },
                 common_models: common_models(&folder, &export.common, version.engine()),
                 common_texture_stems: common_texture_stems.clone(),
+                common_files: player_common_files.clone(),
                 hand_split: BTreeSet::new(),
                 path: folder.path,
                 files: folder.files,
@@ -788,6 +844,15 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
                 export.coverage,
             ));
         }
+        // The stems the Common `.mtl` files' paths are pointed at, each as `Common/` spells it:
+        // the name its converted DDS has in the team's Common output.
+        let texture_stems: BTreeMap<String, String> = common_textures
+            .iter()
+            .map(|file| {
+                let stem = file_stem(file.path.name());
+                (vtree::fold_name(stem), stem.to_owned())
+            })
+            .collect();
         if let Some(first) = common_textures.first() {
             let folder = first
                 .path
@@ -800,6 +865,21 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
                     folder,
                     textures: common_textures,
                     kits,
+                },
+            ));
+        }
+        if let Some(first) = common_model_files.first() {
+            let folder = first
+                .path
+                .parent()
+                .expect("a Common model or `.mtl` sits in the export's Common/ folder");
+            tasks.push(task(
+                export_id,
+                team_id,
+                TaskKind::CommonModels {
+                    folder,
+                    files: common_model_files,
+                    texture_stems,
                 },
             ));
         }
@@ -1111,9 +1191,9 @@ fn player_folders<Slot: Copy>(
 /// The player folder's `.common` model links resolved against `common`, the export's `Common/`
 /// files, exactly as validation resolved them (a file directly in `Common/`, matched by
 /// case-folded name): each with its Common model and, when the link's role has a skeleton
-/// slot, the Common `.skl` of the model's stem, for a target of `engine` (none on pre-Fox, where
-/// a link has no role yet). Validation drops a folder whose link names no Common file, so
-/// every link here resolves.
+/// slot, the Common `.skl` of the model's stem, for a target of `engine` (none on pre-Fox,
+/// where a model link stays a link the face's `face.xml` names, `PlayerFile::PreFoxCommonModel`).
+/// Validation drops a folder whose link names no Common file, so every link here resolves.
 fn common_models(
     folder: &PlayerFolder,
     common: &[FileDescriptor],
@@ -1197,6 +1277,9 @@ mod tests {
                         folder, textures, ..
                     } => {
                         format!("common textures {} ({})", folder.as_str(), textures.len())
+                    }
+                    TaskKind::CommonModels { folder, files, .. } => {
+                        format!("common models {} ({})", folder.as_str(), files.len())
                     }
                     TaskKind::Portrait { player_id, file } => {
                         format!("portrait {player_id} {}", file.path.as_str())
@@ -1517,6 +1600,7 @@ mod tests {
                     kits.as_slice(),
                 )),
                 TaskKind::Models { .. }
+                | TaskKind::CommonModels { .. }
                 | TaskKind::Portrait { .. }
                 | TaskKind::Kit { .. }
                 | TaskKind::Logo { .. }
@@ -1616,6 +1700,7 @@ mod tests {
                     Some(&folder.textures)
                 }
                 TaskKind::CommonTextures { .. }
+                | TaskKind::CommonModels { .. }
                 | TaskKind::Portrait { .. }
                 | TaskKind::Kit { .. }
                 | TaskKind::Logo { .. }
@@ -2521,6 +2606,7 @@ mod tests {
                 TaskKind::Models { .. }
                 | TaskKind::Textures { .. }
                 | TaskKind::CommonTextures { .. }
+                | TaskKind::CommonModels { .. }
                 | TaskKind::Portrait { .. }
                 | TaskKind::Logo { .. }
                 | TaskKind::RefereeMarker { .. }
@@ -2726,6 +2812,7 @@ mod tests {
                 TaskKind::Models { ids, .. } => Some(ids.clone()),
                 TaskKind::Textures { .. }
                 | TaskKind::CommonTextures { .. }
+                | TaskKind::CommonModels { .. }
                 | TaskKind::Portrait { .. }
                 | TaskKind::Kit { .. }
                 | TaskKind::Logo { .. }

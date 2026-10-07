@@ -235,7 +235,8 @@ fn resolve_stem(
 }
 
 /// The export's Common `textures`, converted from their bytes in `files` into the team's Common
-/// output for team `team_id`, each under its stem as spelled: one entry per texture, whether or
+/// output for team `team_id` on the run's engine (`paths::common_texture`: FTEX on Fox, DDS on
+/// pre-Fox), each under its stem as spelled: one entry per texture, whether or
 /// not a `.common` link uses it. The deep pass has already dropped a texture its checks find
 /// wrong. A texture conversion reports a finding on (`texture_codec_unsupported`) is left out
 /// alone, the finding noted in `findings` with `DropFile`, and the rest emitted; any other
@@ -262,9 +263,10 @@ pub(super) fn common_textures(
         }
     }
     complete_kit_variants(&mut converted, kits, findings);
+    let engine = ctx.version.engine();
     Ok(converted
         .into_iter()
-        .map(|(stem, bytes)| (paths::common_texture(team_id, &stem), bytes))
+        .map(|(stem, bytes)| (paths::common_texture(engine, team_id, &stem), bytes))
         .collect())
 }
 
