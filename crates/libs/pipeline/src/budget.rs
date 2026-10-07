@@ -1,8 +1,9 @@
-//! The run's memory budget: tasks acquire their whole charge before loading,
-//! the writer releases it by dropping the batch's `Permit`. An oversized
-//! request waits for an empty budget rather than for capacity it can never
-//! get, and while one waits, ordinary requests wait behind it — otherwise
-//! `in_flight` never reaches zero.
+//! The run's memory budget: a task acquires its source bytes before loading,
+//! charges what it allocates while running without waiting, and the writer
+//! releases the batch's permits by dropping them. An oversized request waits
+//! for an empty budget rather than for capacity it can never get, and while
+//! one waits, ordinary requests wait behind it — otherwise `in_flight` never
+//! reaches zero.
 
 use std::sync::{Arc, Condvar, Mutex, MutexGuard};
 
@@ -16,6 +17,8 @@ pub struct MemoryBudget {
 
 struct BudgetState {
     in_flight: usize,
+    /// The most `in_flight` has been since the budget was made.
+    peak: usize,
     /// Oversized requests waiting for the pipeline to drain.
     oversized_waiting: usize,
     cancelled: bool,
@@ -40,6 +43,7 @@ impl MemoryBudget {
             cap,
             state: Mutex::new(BudgetState {
                 in_flight: 0,
+                peak: 0,
                 oversized_waiting: 0,
                 cancelled: false,
             }),
@@ -83,11 +87,26 @@ impl MemoryBudget {
         if state.cancelled {
             return Err(Cancelled);
         }
-        state.in_flight += size;
+        state.take(size);
         Ok(Permit {
             budget: Arc::clone(self),
             size,
         })
+    }
+
+    /// Takes `size` bytes at once, without waiting: for memory a running task
+    /// allocates (a decoded image, a parsed model, its packed entries). A task
+    /// that holds a permit and waits for more can wait for bytes only its own
+    /// completion releases, and every worker can be in that state at once, so
+    /// a charge never waits, whatever the cap, an oversized waiter or a
+    /// cancellation. `in_flight` may then pass the cap by what the running
+    /// tasks hold, and every later `acquire` waits for it to drain.
+    pub fn charge(self: &Arc<Self>, size: usize) -> Permit {
+        self.lock().take(size);
+        Permit {
+            budget: Arc::clone(self),
+            size,
+        }
     }
 
     /// Wakes every waiter; every later `acquire` returns `Cancelled`.
@@ -100,6 +119,12 @@ impl MemoryBudget {
     /// callee (an archive read) checks it first.
     pub fn is_cancelled(&self) -> bool {
         self.lock().cancelled
+    }
+
+    /// The most bytes held at once since the budget was made, through
+    /// `acquire` and `charge` alike: what the tests measure.
+    pub fn peak(&self) -> usize {
+        self.lock().peak
     }
 
     /// Nothing panics while holding the lock, so a poisoned mutex is a bug in
@@ -118,6 +143,18 @@ impl MemoryBudget {
     #[cfg(test)]
     fn oversized_waiting(&self) -> usize {
         self.lock().oversized_waiting
+    }
+}
+
+impl BudgetState {
+    /// Adds `size` to `in_flight` and raises `peak`: the one place both
+    /// `acquire` and `charge` take bytes, so the two cannot drift.
+    fn take(&mut self, size: usize) {
+        self.in_flight = self
+            .in_flight
+            .checked_add(size)
+            .expect("bytes held at once fit in a usize: an overflow is a miscounted charge");
+        self.peak = self.peak.max(self.in_flight);
     }
 }
 
@@ -213,6 +250,17 @@ mod tests {
                 .recv_timeout(GUARD)
                 .expect("a released waiter must report within GUARD");
         }
+    }
+
+    /// `budget.charge(size)` on another thread, which must return within `GUARD`: a charge
+    /// that waited would hang the test instead of failing it.
+    fn charged(budget: &Arc<MemoryBudget>, size: usize) -> Permit {
+        let (charged_tx, charged) = channel();
+        let budget = Arc::clone(budget);
+        thread::spawn(move || charged_tx.send(budget.charge(size)).unwrap());
+        charged
+            .recv_timeout(GUARD)
+            .expect("a charge must return at once, whatever the budget holds")
     }
 
     #[test]
@@ -375,6 +423,61 @@ mod tests {
         drop(held);
         assert_eq!(budget.in_flight(), 0);
         assert_eq!(budget.acquire(10).map(|_| ()), Err(Cancelled));
+    }
+
+    #[test]
+    fn a_charge_on_a_full_budget_returns_at_once_and_passes_the_cap() {
+        let budget = MemoryBudget::new(100);
+        let held = budget.acquire(100).unwrap();
+        let charged = charged(&budget, 30);
+        assert_eq!(charged.size(), 30);
+        assert_eq!(budget.in_flight(), 130);
+        drop(charged);
+        assert_eq!(budget.in_flight(), 100);
+        drop(held);
+        assert_eq!(budget.in_flight(), 0);
+    }
+
+    #[test]
+    fn a_charge_on_a_cancelled_budget_returns_at_once_and_holds_until_dropped() {
+        let budget = MemoryBudget::new(100);
+        budget.cancel();
+        let charged = charged(&budget, 40);
+        assert_eq!(budget.in_flight(), 40);
+        drop(charged);
+        assert_eq!(budget.in_flight(), 0);
+    }
+
+    #[test]
+    fn an_ordinary_waiter_waits_while_charges_hold_the_budget_over_the_cap() {
+        let budget = MemoryBudget::new(100);
+        let first = charged(&budget, 80);
+        let second = charged(&budget, 60);
+        let waiter = waiter(&budget, 50);
+        waiter.blocked();
+        drop(first);
+        // 60 + 50 is still over the cap.
+        waiter.blocked();
+        drop(second);
+        assert_eq!(waiter.acquired(), Ok(()));
+        waiter.release();
+        assert_eq!(budget.in_flight(), 0);
+    }
+
+    #[test]
+    fn peak_is_the_most_held_through_acquire_and_charge() {
+        let budget = MemoryBudget::new(20);
+        assert_eq!(budget.peak(), 0);
+        let acquired = budget.acquire(10).unwrap();
+        assert_eq!(budget.peak(), 10);
+        let charged = charged(&budget, 30);
+        assert_eq!(budget.peak(), 40);
+        drop(acquired);
+        drop(charged);
+        let later = budget.acquire(5).unwrap();
+        assert_eq!(budget.peak(), 40);
+        drop(later);
+        assert_eq!(budget.peak(), 40);
     }
 
     #[test]

@@ -2,11 +2,14 @@
 //! FTEX under the kit's game names, its config encoded with those names, and its menu colors
 //! and icon as its `UniColor.bin` entry ("Bins accumulation", "Kit colors fallback").
 
+use std::sync::Arc;
+
 use aesthetics_export::{KitFolder, KitLayout, read_colors_txt};
 use anyhow::Context;
 use dds_convert::{SourceFormat, Target, TextureRole, decode};
 use kit_config::{KitConfig, KitSlot, TexturePresence, apply_fpc, matches_fpc, texture_names};
 use pes_version::Engine;
+use pipeline::MemoryBudget;
 use studio_core::Disposition;
 
 use super::texture::TextureError;
@@ -103,7 +106,7 @@ pub(super) fn kit(
         // Only the kit's own main texture gives colors, never the placeholder: its
         // checkerboard is no color anybody chose.
         if listed.is_none() && *stem == "kit" && texture.is_some() {
-            derived = derived_colors(format, file_name, &bytes);
+            derived = derived_colors(&ctx.budget, format, file_name, &bytes);
         }
         // The placeholder is engine-neutral, and only the main texture is mapped through the
         // sock islands: the number and name textures are glyph atlases.
@@ -219,7 +222,8 @@ fn engine_layout(engine: Engine) -> KitLayout {
 /// The kit's main texture `file_name`, in `format`, holding `bytes`, drawn for the `drawn_for`
 /// layout: decoded, re-laid out for the other one (`kit_layout::relaid`) and converted for the
 /// run's version. Not through the run's converter, whose cache holds a source file's own
-/// conversion, which this is not. A failure is the file's, as `texture::convert`'s are.
+/// conversion, which this is not. A failure is the file's, as `texture::convert`'s are. The
+/// decode and its re-laid copy are charged to the run's budget until the conversion is done.
 fn relaid_main_texture(
     ctx: &CompileContext,
     format: SourceFormat,
@@ -228,8 +232,17 @@ fn relaid_main_texture(
     drawn_for: KitLayout,
 ) -> Result<Vec<u8>, TextureError> {
     let failure = |error| texture::conversion_failure(file_name, error);
+    let _decode_charge = texture::decode_charge(&ctx.budget, bytes, format).map_err(failure)?;
     let decoded = decode(bytes, format).map_err(failure)?;
-    let relaid = kit_layout::relaid(&decoded, drawn_for).map_err(failure)?;
+    // The re-laid copy has the decode's size: its pixels, and its blocks when it keeps them.
+    let pixels = decoded.mips.iter().map(Vec::len);
+    let blocks = decoded
+        .blocks
+        .iter()
+        .flat_map(|blocks| &blocks.mips)
+        .map(Vec::len);
+    let _copy_charge = ctx.budget.charge(pixels.chain(blocks).sum());
+    let relaid = kit_layout::relaid(&ctx.budget, &decoded, drawn_for).map_err(failure)?;
     let target = Target {
         version: ctx.version,
         role: TextureRole::Color,
@@ -250,11 +263,23 @@ fn listed_colors(bytes: &[u8]) -> Option<[Rgb; KIT_COLORS]> {
 /// when it does not decode or its shirt region has no opaque pixel. The texture is decoded
 /// here and again by its conversion: `dds_convert` has no decode that both could share
 /// through the conversion cache, and only a kit without two listed colors pays the second.
+/// This decode is charged to `budget` until it is freed, on return, before the conversion's.
 fn derived_colors(
+    budget: &Arc<MemoryBudget>,
     format: SourceFormat,
     file_name: &str,
     bytes: &[u8],
 ) -> Option<[Rgb; KIT_COLORS]> {
+    let _decode_charge = match texture::decode_charge(budget, bytes, format) {
+        Ok(charge) => charge,
+        // Its conversion fails on the same error and reports it, failing the kit.
+        Err(error) => {
+            log::debug!(
+                "{file_name}: no kit colors from a texture whose header does not read: {error}"
+            );
+            return None;
+        }
+    };
     let decoded = match decode(bytes, format) {
         Ok(decoded) => decoded,
         // Its conversion fails on the same error and reports it, failing the kit.

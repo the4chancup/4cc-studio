@@ -493,12 +493,13 @@ impl CpkOutput {
         self.kit_colors.extend(batch.uni_color.take());
         self.committed.insert(batch.index);
         // The task's bytes are in the CPK, or held for its team, and the batch holds none, so
-        // its permit goes now. The release is explicit: a grouped batch can stay in `submit`'s
-        // vector after its own commit, so waiting on its destruction would hold it longer. A
-        // held team's bytes are thus outside the budget: its next task cannot start until its
-        // charge fits, so a team whose charges exceed the budget would otherwise wait forever
-        // on its own held batches.
+        // its permit and its output's charge go now. The release is explicit: a grouped batch
+        // can stay in `submit`'s vector after its own commit, so waiting on its destruction
+        // would hold them longer. A held team's bytes are thus outside the budget: its next
+        // task cannot start until its charge fits, so a team whose charges exceed the budget
+        // would otherwise wait forever on its own held batches.
         batch.permit = None;
+        batch.output = None;
         Ok(())
     }
 
@@ -640,6 +641,7 @@ mod tests {
             uni_color: None,
             messages: vec![note(index)],
             permit: None,
+            output: None,
         }
     }
 
@@ -2248,16 +2250,66 @@ mod tests {
         let mut held = batch(0, &["kit/u0714p1.ftex"], None);
         held.permit = Some(Arc::new(budget.acquire(1).unwrap()));
 
-        // Committed, and held: the team's last task, 1, is still to come.
-        assert_eq!(output.submit(held).unwrap(), [(0, vec![note(0)])]);
+        // Committed, and held: the team's last task, 1, is still to come. `commit` itself,
+        // as below: `submit` drops the batch before it returns, releasing the permit anyway.
+        output.commit(&mut held).unwrap();
 
+        assert!(drained(budget), "the held batch's permit was released");
+        drop(held);
+        drop(output);
+    }
+
+    /// Whether `budget`, of cap 1, admits a request of 1 byte within the guard: whether
+    /// everything charged to it was released.
+    fn drained(budget: Arc<MemoryBudget>) -> bool {
         let (admitted_tx, admitted) = mpsc::channel();
         thread::spawn(move || admitted_tx.send(budget.acquire(1).is_ok()).unwrap());
-        assert_eq!(
-            admitted.recv_timeout(Duration::from_secs(5)),
-            Ok(true),
-            "the held batch's permit was released"
+        admitted.recv_timeout(Duration::from_secs(5)) == Ok(true)
+    }
+
+    // `commit` itself, not `submit`: `submit` drops every batch it decided before it returns,
+    // which would release the charge whether or not `commit` does. The batch is still alive
+    // when the budget is checked.
+    #[test]
+    fn with_parts_a_held_batch_releases_its_output_charge_when_it_is_held() {
+        let temp = scratch("writer_parts_output");
+        let folder = temp.path();
+        let mut output = parts_output(folder, &[(1, "co Full Spring")], 1 << 20, BTreeMap::new());
+        let budget = MemoryBudget::new(1);
+        let mut held = batch(0, &["kit/u0714p1.ftex"], None);
+        held.output = Some(budget.charge(1));
+
+        // Committed, and held: the team's last task, 1, is still to come.
+        output.commit(&mut held).unwrap();
+
+        assert!(
+            drained(budget),
+            "the held batch's output charge was released"
         );
+        drop(held);
+        drop(output);
+    }
+
+    #[test]
+    fn a_written_batch_releases_its_output_charge() {
+        let temp = scratch("writer_output");
+        let mut output = CpkOutput::new(
+            OutputSink::cpk(temp.path().join("cup.cpk")),
+            BTreeMap::new(),
+            "",
+            None,
+        );
+        let budget = MemoryBudget::new(1);
+        let mut written = batch(0, &["a/written.bin"], None);
+        written.output = Some(budget.charge(1));
+
+        output.commit(&mut written).unwrap();
+
+        assert!(
+            drained(budget),
+            "the written batch's output charge was released"
+        );
+        drop(written);
         drop(output);
     }
 

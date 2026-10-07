@@ -16,7 +16,8 @@ cross-family review (a) is queued). Next:
 the next open Phase 4 step (see the list); 4.21 to 4.24 and 4.29
 and 4.25 are done; 4.26 is done; 4.19 (Fox referees) is done, 4.19d (pre-Fox) waits on 4.14 and 4.20; 4.27a (the Fox
 referee marker) is done, 4.27's rest (the pre-Fox marker) waits on 4.19d; 4.9 is done
-(collars on Fox; their pre-Fox and cross-format halves are in 4.16 and 4.17); 4.14 waits on 4.31's pre-Fox export; 4.33, 4.34, 4.c-pass and
+(collars on Fox; their pre-Fox and cross-format halves are in 4.16 and 4.17); 4.28
+(memory accounting) is done and 4.y moved to Phase 8; 4.14 waits on 4.31's pre-Fox export; 4.33, 4.34, 4.c-pass and
 4.c-fix1 are done; 4.30,
 4.5 to 4.8 and 4.10 to 4.13 are done (4.6c moved to Phase 8's cancellation). 2.5b (GPU BC7) is step 16.x (decision entries
 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0 after Phase 8; phase order 1–6,
@@ -311,6 +312,12 @@ Claude agent with no sidekick and no reviewer of another model family. While tha
   "Collars", "Collar contract", "Bins accumulation", `fpc_toggle.md` "Kit slots absent
   from the export", TC-CMN-01, TC-CMN-03 and the decision entries "collars: the 9xx IDs,
   ..." and "a refs export's collar file is named by the gate".
+  4.28 (b), `pipeline` (`MemoryBudget::charge`, `peak`) and `team_compiler`
+  (`CompileContext.budget`, `texture::decode_charge` and its call sites,
+  `TaskBatch.output`, `writer.rs` `commit`), its commit of 2026-10-07, against
+  `libs/pipeline.md` "Memory budget", `pipeline.md` "Admission" (Charges while a task
+  runs), `core/parallelism.md` "Memory budget" and the decision entry "memory
+  accounting: a running task charges without waiting".
 - For the lead, on return: the review process on trial (3.1) opens with a full sidekick review
   loop, then runs GPT's loop with a full sidekick loop after each GPT round, calling GPT again
   only once that sidekick loop has ended and GPT's own loop has not; not yet in `AGENTS.md`
@@ -1754,7 +1761,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   from `UniformParameter.bin` entries, and the bundled base and the installed bins carry them
   with collar 105, so whether the loose configs this step writes reach the game is untested.
 
-- [ ] 4.28 **Complete memory accounting**: a running task charges the budget for what it
+- [x] 4.28 **Complete memory accounting**: a running task charges the budget for what it
   allocates (decoded textures, parsed and merged models, its packed entries), without waiting;
   a multi-CPK run's held team stays outside the budget (`pipeline.md` "Writer") and the
   conversion cache is charged with its eviction (4.y). Plan: `pipeline.md` "Admission" (the
@@ -1764,7 +1771,19 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   measurement is the proof). Crates: pipeline (`MemoryBudget::charge`, `peak`), tc → verify:
   a textures task on a texture of known dimensions, run alone, peaks at its source charge
   plus the RGBA size of every level plus the file's size; a batch's output permit equals its
-  entries' bytes; a compile with a cap below one decoded texture completes
+  entries' bytes; a compile with a cap below one decoded texture completes. Done
+  2026-10-07 (Opus 5.5, first time; one lead test fix): `pipeline` `MemoryBudget::charge`
+  and `peak` (`BudgetState::take`, shared with `acquire`); `CompileContext.budget`, the
+  coordinator's (its separate `budget` parameter removed); `texture::decode_charge` (every
+  level's RGBA from `probe`, plus the source's size) at `texture::convert` (a cache hit
+  charged all the same), `portrait`, the kit's `relaid_main_texture` (and its re-laid
+  copy), `derived_colors`, `kit_layout::with_kept_blocks`, the logo's decodes (held in
+  `LogoSource`); `model::package` charges its FMDL parts' size; `TaskBatch.output`
+  (`output_len`: entries and the kit config) charged in the spawn closure, released in
+  `commit` with the permit. Lead fix: the existing held-permit test went through `submit`,
+  which drops every batch it decides, so it passed with the release removed; it now calls
+  `commit` (red shown). Not measured by a test: the charges in `portrait`,
+  `derived_colors`, `relaid_main_texture`, `with_kept_blocks` and the logo.
 
 - [x] 4.29 **A texture a model names must exist** (after 4.21, whose walk of the installed CPKs
   it reuses): `fmdl_texture_not_found` on Fox for a mesh's texture supplied by nobody: stem not
@@ -3324,3 +3343,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
     team wears it, after FPC, kits a midcup does not resend included; the later of two
     exports claiming one collar, or an export's second collar, is `collar_id_conflict`.
     Step 4.9 is done.
+  - **4.28:** a running task's decoded textures, parsed models and finished entries are
+    charged to the run's memory budget, without waiting, so later tasks wait for them to
+    be freed. No member-visible change. 4.y (bounding the conversion cache) moved to
+    Phase 8, where the GUI first keeps a cache across runs.

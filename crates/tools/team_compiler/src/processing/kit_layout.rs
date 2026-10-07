@@ -4,11 +4,15 @@
 //! sock, each band resampled along u alone; every other texel stays as it was.
 
 use std::ops::Range;
+use std::sync::Arc;
 
 use aesthetics_export::KitLayout;
 use dds_convert::{
     BlockCodec, Blocks, ConvertError, Decoded, SourceFormat, decode, encode_dds, resize,
 };
+use pipeline::MemoryBudget;
+
+use super::texture::decode_charge;
 
 /// The width, in texels, of the texture the table is measured on: a texture of any other size
 /// has the table scaled to it.
@@ -98,12 +102,18 @@ fn level_moves(drawn_for: KitLayout, width: u32, height: u32) -> Vec<Move> {
 /// every other texel keeps its value. A BC1 or BC3 source keeps its blocks wherever no
 /// destination rectangle reaches and has the others encoded afresh, so its conversion passes
 /// the kit's blocks through as before; any other source comes back as pixels alone, encoded
-/// whole by its conversion. Size, mip count and `authored_mips` are the source's.
+/// whole by its conversion. Size, mip count and `authored_mips` are the source's. The copy
+/// returned is the caller's to charge; the re-decode a BC1 or BC3 source's blocks need is
+/// charged to `budget` here, while it lives.
 ///
 /// # Errors
 ///
 /// What `dds_convert` returns for a `decoded` it refuses; never for one `decode` produced.
-pub(super) fn relaid(decoded: &Decoded, drawn_for: KitLayout) -> Result<Decoded, ConvertError> {
+pub(super) fn relaid(
+    budget: &Arc<MemoryBudget>,
+    decoded: &Decoded,
+    drawn_for: KitLayout,
+) -> Result<Decoded, ConvertError> {
     let mut mips = Vec::with_capacity(decoded.mips.len());
     let mut moves = Vec::with_capacity(decoded.mips.len());
     for (level, pixels) in decoded.mips.iter().enumerate() {
@@ -123,7 +133,7 @@ pub(super) fn relaid(decoded: &Decoded, drawn_for: KitLayout) -> Result<Decoded,
         return Ok(relaid);
     };
     match blocks.codec {
-        BlockCodec::Bc1 | BlockCodec::Bc3 => with_kept_blocks(relaid, blocks, &moves),
+        BlockCodec::Bc1 | BlockCodec::Bc3 => with_kept_blocks(budget, relaid, blocks, &moves),
         // Every engine reads BC1 and BC3, so their kept blocks reach the game; BC7 blocks
         // reach only PES 19-21 and the rest have no encoder here.
         BlockCodec::Bc2 | BlockCodec::Bc4 | BlockCodec::Bc5 | BlockCodec::Bc7 => Ok(relaid),
@@ -180,13 +190,17 @@ fn texel_offset(width: u32, x: u32, y: u32) -> usize {
 
 /// `relaid` given blocks in `source`'s codec: per level, every 4x4 block a destination
 /// rectangle of `moves` reaches encoded afresh from the re-laid pixels, every other block
-/// `source`'s own, and the pixels made what those blocks decode to.
+/// `source`'s own, and the pixels made what those blocks decode to. The fresh decode is
+/// charged to `budget` until it is freed, on return.
 fn with_kept_blocks(
+    budget: &Arc<MemoryBudget>,
     mut relaid: Decoded,
     source: &Blocks,
     moves: &[Vec<Move>],
 ) -> Result<Decoded, ConvertError> {
-    let fresh = decode(&encode_dds(&relaid, source.codec)?, SourceFormat::Dds)?;
+    let encoded = encode_dds(&relaid, source.codec)?;
+    let _fresh_charge = decode_charge(budget, &encoded, SourceFormat::Dds)?;
+    let fresh = decode(&encoded, SourceFormat::Dds)?;
     let fresh_blocks = fresh
         .blocks
         .expect("a BC1 or BC3 DDS decodes with its blocks");
@@ -239,6 +253,11 @@ fn reached_blocks(moves: &[Move], width: u32, height: u32) -> Vec<(u32, u32)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A budget no test fills: these tests check pixels, not charges.
+    fn unlimited() -> Arc<MemoryBudget> {
+        MemoryBudget::new(usize::MAX)
+    }
 
     /// The rows of both islands on a 256-texel texture: the table divided by 8.
     const ROWS_256: Range<u32> = 79..145;
@@ -324,7 +343,7 @@ mod tests {
     fn flat_bands_go_to_fox_flat_and_come_back_exactly() {
         let pre_fox = banded(&PRE_FOX_256);
 
-        let fox = relaid(&pre_fox, KitLayout::PreFox).unwrap();
+        let fox = relaid(&unlimited(), &pre_fox, KitLayout::PreFox).unwrap();
         for (band, columns) in FOX_256.iter().enumerate() {
             for y in ROWS_256 {
                 for x in columns.clone() {
@@ -336,14 +355,14 @@ mod tests {
                 }
             }
         }
-        assert_eq!(relaid(&fox, KitLayout::Fox).unwrap(), pre_fox);
+        assert_eq!(relaid(&unlimited(), &fox, KitLayout::Fox).unwrap(), pre_fox);
     }
 
     #[test]
     fn no_texel_outside_the_destination_rectangles_moves() {
         let source = texture(256, 256, distinct);
         for drawn_for in [KitLayout::PreFox, KitLayout::Fox] {
-            let relaid = relaid(&source, drawn_for).unwrap();
+            let relaid = relaid(&unlimited(), &source, drawn_for).unwrap();
             let mut moved = 0;
             for y in 0..256 {
                 for x in 0..256 {
@@ -391,8 +410,8 @@ mod tests {
         for drawn_for in [KitLayout::PreFox, KitLayout::Fox] {
             let source = banded(sources(drawn_for));
             assert_eq!(
-                relaid(&mirrored(&source), drawn_for).unwrap(),
-                mirrored(&relaid(&source, drawn_for).unwrap()),
+                relaid(&unlimited(), &mirrored(&source), drawn_for).unwrap(),
+                mirrored(&relaid(&unlimited(), &source, drawn_for).unwrap()),
                 "{drawn_for:?}"
             );
         }
@@ -408,16 +427,18 @@ mod tests {
             ..top.clone()
         };
 
-        let relaid_source = relaid(&source, KitLayout::PreFox).unwrap();
+        let relaid_source = relaid(&unlimited(), &source, KitLayout::PreFox).unwrap();
 
         assert_eq!(relaid_source.mips.len(), 2);
         assert_eq!(
             relaid_source.mips[0],
-            relaid(&top, KitLayout::PreFox).unwrap().mips[0]
+            relaid(&unlimited(), &top, KitLayout::PreFox).unwrap().mips[0]
         );
         assert_eq!(
             relaid_source.mips[1],
-            relaid(&lower, KitLayout::PreFox).unwrap().mips[0]
+            relaid(&unlimited(), &lower, KitLayout::PreFox)
+                .unwrap()
+                .mips[0]
         );
         assert_ne!(relaid_source.mips[1], source.mips[1]);
     }
@@ -440,7 +461,7 @@ mod tests {
             ..texture(8, 8, distinct_8)
         };
 
-        let relaid = relaid(&source, KitLayout::Fox).unwrap();
+        let relaid = relaid(&unlimited(), &source, KitLayout::Fox).unwrap();
 
         let expected = pixels(8, 8, |x, y| {
             if x == 6 && (2..5).contains(&y) {
@@ -480,7 +501,7 @@ mod tests {
         let source = scattered_bc1();
         let source_blocks = source.blocks.as_ref().unwrap();
 
-        let relaid = relaid(&source, KitLayout::PreFox).unwrap();
+        let relaid = relaid(&unlimited(), &source, KitLayout::PreFox).unwrap();
 
         let blocks = relaid.blocks.as_ref().expect("BC1 blocks kept");
         assert_eq!(blocks.codec, BlockCodec::Bc1);
@@ -533,12 +554,22 @@ mod tests {
     #[test]
     fn a_raster_or_bc7_source_comes_back_without_blocks() {
         let raster = texture(256, 256, distinct);
-        assert_eq!(relaid(&raster, KitLayout::PreFox).unwrap().blocks, None);
+        assert_eq!(
+            relaid(&unlimited(), &raster, KitLayout::PreFox)
+                .unwrap()
+                .blocks,
+            None
+        );
         let bc7 = decode(
             &encode_dds(&raster, BlockCodec::Bc7).unwrap(),
             SourceFormat::Dds,
         )
         .unwrap();
-        assert_eq!(relaid(&bc7, KitLayout::PreFox).unwrap().blocks, None);
+        assert_eq!(
+            relaid(&unlimited(), &bc7, KitLayout::PreFox)
+                .unwrap()
+                .blocks,
+            None
+        );
     }
 }

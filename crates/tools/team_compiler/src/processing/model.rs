@@ -146,6 +146,10 @@ pub(super) fn package(
             part.path.as_str().to_owned(),
         )
     });
+    // The parsed parts, their merges and their written models, charged at the parts' source
+    // size, an estimate of each form, until the package's files are built.
+    let parts_size = parts.iter().map(|part| part.bytes.len()).sum();
+    let _parts_charge = ctx.budget.charge(parts_size);
     let mut by_name: BTreeMap<&'static str, Vec<Part>> = BTreeMap::new();
     for part in parts {
         by_name.entry(part.name).or_default().push(part);

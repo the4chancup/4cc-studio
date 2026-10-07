@@ -17,7 +17,7 @@ use std::sync::Arc;
 use aesthetics_export::FileDescriptor;
 use dds_convert::{CachePolicy, Converter};
 use pes_version::PesVersion;
-use pipeline::Permit;
+use pipeline::{MemoryBudget, Permit};
 use studio_core::{Disposition, Message, Scope};
 use vtree::ScopePath;
 
@@ -54,18 +54,22 @@ pub(crate) struct CompileContext {
     pub(crate) installed: InstalledPaths,
     /// Where every task's entries go: the run's output mode, consumed by `materialize` alone.
     pub(crate) target: EntryTarget,
+    /// The run's memory budget, the one the coordinator acquires each task's source bytes
+    /// from: a running task charges what it allocates to it (`MemoryBudget::charge`).
+    pub(crate) budget: Arc<MemoryBudget>,
 }
 
 impl CompileContext {
     /// The context of a run for `version` compiling `compiled_exports` exports (those with at
     /// least one planned task) with `templates` and the `installed` CPKs' entry paths, its
-    /// entries going to `target`, with a fresh converter.
+    /// entries going to `target`, its tasks charging `budget`, with a fresh converter.
     pub(crate) fn new(
         version: PesVersion,
         compiled_exports: usize,
         templates: Templates,
         installed: InstalledPaths,
         target: EntryTarget,
+        budget: Arc<MemoryBudget>,
     ) -> CompileContext {
         CompileContext {
             version,
@@ -74,6 +78,7 @@ impl CompileContext {
             templates,
             installed,
             target,
+            budget,
         }
     }
 }
@@ -152,6 +157,18 @@ pub(crate) struct TaskBatch {
     /// The memory the task was charged, released once the writer has its entries. A `.7z`
     /// export's tasks share one, its whole decompressed size, released with the last of them.
     pub(crate) permit: Option<Arc<Permit>>,
+    /// Its entries' bytes (`output_len`), charged when the task returns, released with
+    /// `permit`.
+    pub(crate) output: Option<Permit>,
+}
+
+impl TaskBatch {
+    /// The bytes of every buffer the batch carries to the writer: its entries' and its kit
+    /// config's. The paths and the kit colors are a few bytes each and not counted.
+    pub(crate) fn output_len(&self) -> usize {
+        let entries = self.entries.iter().chain(&self.uniparam);
+        entries.map(|(_, bytes)| bytes.len()).sum()
+    }
 }
 
 /// Runs `task`, the manifest's task number `index`, over `files`, the bytes of every file it
@@ -201,7 +218,7 @@ pub(crate) fn process_task(
             let name = file.path.name();
             let format = texture_format(name)
                 .expect("planning lists a portrait by an extension `dds_convert` accepts");
-            texture::portrait(format, name, take(&mut files, file))
+            texture::portrait(&ctx.budget, format, name, take(&mut files, file))
                 .map(|bytes| {
                     let entry = (paths::portrait(ctx.version, *player_id), bytes);
                     (TaskOutput::Entries(vec![entry]), None)
@@ -218,10 +235,15 @@ pub(crate) fn process_task(
             &mut findings,
         )
         .map(|(entries, config, colors)| (TaskOutput::Entries(entries), Some((config, colors)))),
-        TaskKind::Logo { logo } => {
-            team_assets::logo(logo, task.team_id, ctx.version, &mut files, &mut findings)
-                .map(|entries| (TaskOutput::Entries(entries), None))
-        }
+        TaskKind::Logo { logo } => team_assets::logo(
+            logo,
+            task.team_id,
+            ctx.version,
+            &ctx.budget,
+            &mut files,
+            &mut findings,
+        )
+        .map(|entries| (TaskOutput::Entries(entries), None)),
         TaskKind::RefereeMarker { marker } => {
             referee_marker::referee_marker(marker, ctx, &mut files)
                 .map(|entries| (TaskOutput::Entries(entries), None))
@@ -242,6 +264,7 @@ pub(crate) fn process_task(
         uni_color: None,
         messages: Vec::new(),
         permit: None,
+        output: None,
     };
     let scope = Scope::Folder {
         export_id: task.export_id,
@@ -434,6 +457,7 @@ mod tests {
                 Templates::embedded(),
                 InstalledPaths::Unknown,
                 EntryTarget::GamePaths,
+                MemoryBudget::new(usize::MAX),
             ),
         )
     }
@@ -488,6 +512,53 @@ mod tests {
                 .all(|(_, directory)| !directory.contains("/000/")),
             "{directories:?}"
         );
+    }
+
+    #[test]
+    fn a_model_task_charges_its_parts_source_size_while_it_builds_its_package() {
+        // The gloves package of the tracer's player: its two parts, `glove_l.fmdl` and
+        // `glove_r.fmdl`, are the only models it parses. The task's source permit and its
+        // batch's output charge are the coordinator's, so here the parts are the whole peak.
+        let kind = TaskKind::Models {
+            folder: whole_player(),
+            package: ModelPackage::Gloves,
+            ids: vec![PackageKey::Id(79205)],
+        };
+        let files: TaskFiles = kind
+            .files()
+            .into_iter()
+            .map(|file| {
+                let bytes = std::fs::read(tracer().join(file.source.as_str())).unwrap();
+                (file.path.clone(), bytes)
+            })
+            .collect();
+        let part_len = |name: &str| {
+            let path = tracer().join(format!("{PLAYER}/{name}"));
+            usize::try_from(std::fs::metadata(path).unwrap().len()).unwrap()
+        };
+        let parts = part_len("glove_l.fmdl") + part_len("glove_r.fmdl");
+        let budget = MemoryBudget::new(usize::MAX);
+        let task = BuildTask {
+            export_id: ExportId(4),
+            team_id: 792,
+            kind,
+            charge: 0,
+            group: None,
+        };
+        let context = CompileContext::new(
+            PesVersion::Pes21,
+            1,
+            Templates::embedded(),
+            InstalledPaths::Unknown,
+            EntryTarget::GamePaths,
+            Arc::clone(&budget),
+        );
+
+        let batch = process_task(3, task, files, &context);
+
+        assert!(batch.messages.is_empty(), "{:?}", batch.messages);
+        assert_eq!(parts, 2 * 8161, "the tracer's two gloves");
+        assert_eq!(budget.peak(), parts);
     }
 
     #[test]
@@ -893,6 +964,7 @@ mod tests {
                 Templates::embedded(),
                 InstalledPaths::Unknown,
                 EntryTarget::GamePaths,
+                MemoryBudget::new(usize::MAX),
             )
             .cache,
             CachePolicy::Bypass
@@ -1060,6 +1132,7 @@ mod tests {
                 Templates::embedded(),
                 InstalledPaths::Unknown,
                 EntryTarget::GamePaths,
+                MemoryBudget::new(usize::MAX),
             ),
             dds_convert::SourceFormat::Dds,
             "ref_marker.dds",
@@ -1576,7 +1649,8 @@ mod tests {
             role: dds_convert::TextureRole::Color,
         };
         let relaid = dds_convert::convert(
-            &kit_layout::relaid(&decoded, KitLayout::PreFox).unwrap(),
+            &kit_layout::relaid(&MemoryBudget::new(usize::MAX), &decoded, KitLayout::PreFox)
+                .unwrap(),
             target,
         )
         .unwrap();

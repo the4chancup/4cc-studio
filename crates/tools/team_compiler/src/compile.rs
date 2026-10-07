@@ -430,6 +430,7 @@ fn build(
         templates,
         installed,
         entry_target,
+        Arc::clone(&budget),
     );
     let (coordinated, (mut events, written)) = std::thread::scope(|scope| {
         let (batches_tx, batches_rx) = unbounded();
@@ -451,7 +452,7 @@ fn build(
             (events, written)
         });
         let coordinated = pool.in_place_scope(|pool_scope| {
-            coordinate(&sources, tasks, budget, &context, &batches_tx, pool_scope)
+            coordinate(&sources, tasks, &context, &batches_tx, pool_scope)
         });
         drop(batches_tx);
         let written = writer.join().expect("the writer thread does not panic");
@@ -747,7 +748,8 @@ struct SourceChange {
 }
 
 /// The coordinator: every task's files read from its export's source, in manifest order, and
-/// the task handed to `pool` with its permit, each finished batch sent to `batches`. Each
+/// the task handed to `pool` with its permit, acquired from the run's budget (`context`'s),
+/// each finished batch sent to `batches` with its entries' bytes charged to that budget. Each
 /// export's source is opened once for all its tasks, which the manifest keeps together. After
 /// each read the files read are checked against the source's revision; on a change no further
 /// task is read or spawned, the spawned ones finish, and the change is returned. A cancelled
@@ -757,11 +759,11 @@ struct SourceChange {
 fn coordinate<'scope>(
     sources: &[(ExportSource, Option<SourceRevision>)],
     tasks: Vec<BuildTask>,
-    budget: &Arc<MemoryBudget>,
     context: &'scope CompileContext,
     batches: &'scope Sender<TaskBatch>,
     pool: &rayon::Scope<'scope>,
 ) -> Option<SourceChange> {
+    let budget = &context.budget;
     let spawn = move |index: usize,
                       task: BuildTask,
                       files: Result<TaskFiles, SourceFailure>,
@@ -769,6 +771,9 @@ fn coordinate<'scope>(
         pool.spawn(move |_| {
             let mut batch = task_batch(index, task, files, context);
             batch.permit = permit;
+            // Charged, never acquired: a task waiting here would hold its source permit
+            // while it waits (`MemoryBudget::charge`).
+            batch.output = Some(context.budget.charge(batch.output_len()));
             batches
                 .send(batch)
                 .expect("the writer receives until every sender is gone");
@@ -946,6 +951,7 @@ fn task_batch(
                 vec![("path", failure.path), ("error", failure.error)],
             )],
             permit: None,
+            output: None,
         },
     }
 }
@@ -969,7 +975,8 @@ mod tests {
     use std::thread;
     use std::time::Duration;
 
-    use aesthetics_export::FileDescriptor;
+    use aesthetics_export::{FileDescriptor, KitFolder, KitTexture, KitTextureSource};
+    use kit_config::KitSlot;
     use pes_version::PesVersion;
     use pipeline::MemoryBudget;
     use studio_core::{ExportId, Message, PipelineEvent};
@@ -979,7 +986,7 @@ mod tests {
     use super::*;
     use crate::paths::{PackageKey, TextureHome};
     use crate::plan::subset::ModelPackage;
-    use crate::plan::{ModelFolder, TaskGroup, TaskKind};
+    use crate::plan::{EffectiveTeamKitFpc, ModelFolder, TaskGroup, TaskKind, TeamKitEdits};
     use crate::reader::{ExportSource, Route};
     use crate::settings::TeamCompilerSettings;
     use crate::testing::{sandbox, scratch, tool_context};
@@ -1091,21 +1098,32 @@ mod tests {
         ]
     }
 
+    /// The context of a PES 21 run of one export over the bundled templates, its tasks charging
+    /// `budget`.
+    fn context_with(budget: &Arc<MemoryBudget>) -> CompileContext {
+        CompileContext::new(
+            PesVersion::Pes21,
+            1,
+            Templates::embedded(),
+            InstalledPaths::Unknown,
+            EntryTarget::GamePaths,
+            Arc::clone(budget),
+        )
+    }
+
     /// `coordinate` over the tracer's source and `tasks` on a spawned thread with a budget of
     /// `cap` bytes, the batches dropped as they arrive (the writer's role, so permits free
-    /// mid-run): the change it returned, or `None` when it did not come back within the guard.
-    fn coordinated_with_cap(tasks: Vec<BuildTask>, cap: usize) -> Option<Option<SourceChange>> {
+    /// mid-run): the change it returned and the budget's peak, or `None` when it did not come
+    /// back within the guard.
+    fn coordinated_with_cap(
+        tasks: Vec<BuildTask>,
+        cap: usize,
+    ) -> Option<(Option<SourceChange>, usize)> {
         let (done_tx, done) = std::sync::mpsc::channel();
         thread::spawn(move || {
             let budget = MemoryBudget::new(cap);
             let sources = [listed(tracer_source())];
-            let context = CompileContext::new(
-                PesVersion::Pes21,
-                1,
-                Templates::embedded(),
-                InstalledPaths::Unknown,
-                EntryTarget::GamePaths,
-            );
+            let context = context_with(&budget);
             let pool = rayon::ThreadPoolBuilder::new()
                 .num_threads(2)
                 .build()
@@ -1116,43 +1134,43 @@ mod tests {
                     drop(batch);
                 }
             });
-            let change = pool.in_place_scope(|scope| {
-                coordinate(&sources, tasks, &budget, &context, &batches_tx, scope)
-            });
+            let change = pool
+                .in_place_scope(|scope| coordinate(&sources, tasks, &context, &batches_tx, scope));
             drop(batches_tx);
-            done_tx.send(change).unwrap();
+            done_tx.send((change, budget.peak())).unwrap();
         });
         done.recv_timeout(Duration::from_secs(30)).ok()
     }
 
-    /// The coordinator over `sources` and `tasks` on a pool of two threads: what it returned,
-    /// and every batch it sent, in manifest order.
-    fn coordinated(
+    /// The coordinator over `sources` and `tasks` on a pool of two threads, charging `budget`:
+    /// what it returned, and every batch it sent, in manifest order.
+    fn coordinated_on(
+        budget: &Arc<MemoryBudget>,
         sources: &[(ExportSource, Option<SourceRevision>)],
         tasks: Vec<BuildTask>,
     ) -> (Option<SourceChange>, Vec<TaskBatch>) {
-        let budget = MemoryBudget::new(1 << 30);
-        let context = CompileContext::new(
-            PesVersion::Pes21,
-            1,
-            Templates::embedded(),
-            InstalledPaths::Unknown,
-            EntryTarget::GamePaths,
-        );
+        let context = context_with(budget);
         let pool = rayon::ThreadPoolBuilder::new()
             .num_threads(2)
             .build()
             .unwrap();
         let (batches_tx, batches_rx) = unbounded();
 
-        let change = pool.in_place_scope(|scope| {
-            coordinate(sources, tasks, &budget, &context, &batches_tx, scope)
-        });
+        let change =
+            pool.in_place_scope(|scope| coordinate(sources, tasks, &context, &batches_tx, scope));
         drop(batches_tx);
 
         let mut batches: Vec<TaskBatch> = batches_rx.iter().collect();
         batches.sort_by_key(|batch| batch.index);
         (change, batches)
+    }
+
+    /// `coordinated_on` a budget no test fills.
+    fn coordinated(
+        sources: &[(ExportSource, Option<SourceRevision>)],
+        tasks: Vec<BuildTask>,
+    ) -> (Option<SourceChange>, Vec<TaskBatch>) {
+        coordinated_on(&MemoryBudget::new(1 << 30), sources, tasks)
     }
 
     #[test]
@@ -1240,17 +1258,110 @@ mod tests {
         );
     }
 
+    /// The tracer's file at `relative`, size unknown.
+    fn tracer_file(relative: &str) -> FileDescriptor {
+        let path = ScopePath::new(relative).unwrap();
+        FileDescriptor {
+            size: 0,
+            kind: aesthetics_export::classify(path.name()),
+            source: path.clone(),
+            path,
+        }
+    }
+
+    /// The task of the tracer's `g1` kit, its config and its 16x16 `kit.dds`, as export 4's,
+    /// charged `charge`.
+    fn tracer_kit_task(charge: usize) -> BuildTask {
+        BuildTask {
+            export_id: ExportId(4),
+            team_id: 792,
+            kind: TaskKind::Kit {
+                slot: KitSlot::G1,
+                kit: KitFolder {
+                    path: ScopePath::new("Kits/g1").unwrap(),
+                    label: None,
+                    config: Some(tracer_file("Kits/g1/config.toml")),
+                    colors: None,
+                    icon: Some(11),
+                    layout: None,
+                    textures: vec![KitTexture {
+                        stem: "kit".to_owned(),
+                        file: tracer_file("Kits/g1/kit.dds"),
+                        source: KitTextureSource::Own,
+                    }],
+                },
+                edits: TeamKitEdits {
+                    fpc: EffectiveTeamKitFpc::Unknown,
+                    collar: None,
+                },
+            },
+            charge,
+            group: None,
+        }
+    }
+
+    #[test]
+    fn a_running_task_charges_its_decode_on_top_of_its_source_permit() {
+        // The tracer's `shirt.dds`: 128x128 BC3 with its eight levels, the only texture of a
+        // textures task of source charge 7. Its FTEX, about the size of the DDS, is charged
+        // after the decode is gone, so the decode is the peak.
+        let task = BuildTask {
+            export_id: ExportId(4),
+            team_id: 792,
+            kind: TaskKind::Textures {
+                folder: player(&["shirt.dds"]),
+                kits: Vec::new(),
+            },
+            charge: 7,
+            group: None,
+        };
+        let budget = MemoryBudget::new(1 << 30);
+
+        let (change, batches) = coordinated_on(&budget, &[listed(tracer_source())], vec![task]);
+
+        assert_eq!(change, None);
+        assert_eq!(batches.len(), 1);
+        assert!(batches[0].messages.is_empty(), "{:?}", batches[0].messages);
+        let pixels = 128 * 128 + 64 * 64 + 32 * 32 + 16 * 16 + 8 * 8 + 4 * 4 + 2 * 2 + 1;
+        let file_len = 22_000;
+        assert_eq!(budget.peak(), 7 + 4 * pixels + file_len);
+    }
+
+    #[test]
+    fn a_batch_carries_its_entries_and_kit_config_s_bytes_as_its_output_charge() {
+        let (change, batches) = coordinated(&[listed(tracer_source())], vec![tracer_kit_task(5)]);
+
+        assert_eq!(change, None);
+        let batch = &batches[0];
+        let (_, config) = batch.uniparam.as_ref().expect("the kit's config");
+        let entries: usize = batch.entries.iter().map(|(_, bytes)| bytes.len()).sum();
+        assert_eq!(batch.entries.len(), 2, "the kit's texture and its config");
+        assert_eq!(
+            batch.output.as_ref().map(Permit::size),
+            Some(entries + config.len())
+        );
+    }
+
+    #[test]
+    fn a_run_whose_decodes_pass_the_cap_charges_them_and_still_completes() {
+        // A cap of 1 KiB is under every decode of the run: the kit's 16x16 texture alone is
+        // 4 * 341 bytes decoded, the face folder's `shirt.dds` 4 * 21845. A charge that waited
+        // for room would wait on its own task's permit.
+        let mut tasks = tracer_tasks();
+        tasks.push(tracer_kit_task(5));
+
+        let (change, peak) =
+            coordinated_with_cap(tasks, 1024).expect("the coordinator never returned");
+
+        assert_eq!(change, None);
+        assert!(peak > 1024, "{peak}");
+    }
+
     #[test]
     fn a_cancelled_budget_stops_the_coordinator_before_any_task_is_spawned() {
         let budget = MemoryBudget::new(1 << 30);
         budget.cancel();
-        let context = CompileContext::new(
-            PesVersion::Pes21,
-            1,
-            Templates::embedded(),
-            InstalledPaths::Unknown,
-            EntryTarget::GamePaths,
-        );
+        let context = context_with(&budget);
         let pool = rayon::ThreadPoolBuilder::new()
             .num_threads(2)
             .build()
@@ -1262,7 +1373,6 @@ mod tests {
             coordinate(
                 &sources,
                 grouped_tasks(&[], &[10, 20, 30]),
-                &budget,
                 &context,
                 &batches_tx,
                 scope,
@@ -1284,13 +1394,7 @@ mod tests {
         // stopping the run. The cancelled check must come before the source is opened.
         let budget = MemoryBudget::new(1 << 30);
         budget.cancel();
-        let context = CompileContext::new(
-            PesVersion::Pes21,
-            1,
-            Templates::embedded(),
-            InstalledPaths::Unknown,
-            EntryTarget::GamePaths,
-        );
+        let context = context_with(&budget);
         let pool = rayon::ThreadPoolBuilder::new()
             .num_threads(2)
             .build()
@@ -1309,7 +1413,6 @@ mod tests {
             coordinate(
                 &sources,
                 grouped_tasks(&[], &[10, 20, 30]),
-                &budget,
                 &context,
                 &batches_tx,
                 scope,
@@ -1348,6 +1451,7 @@ mod tests {
                 uni_color: None,
                 messages: Vec::new(),
                 permit: None,
+                output: None,
             })
             .unwrap();
         drop(batches_tx);
@@ -1392,18 +1496,7 @@ mod tests {
             &task,
             &ContentSource::new(&source, &MemoryBudget::new(1 << 30)),
         );
-        let batch = task_batch(
-            3,
-            task,
-            files,
-            &CompileContext::new(
-                PesVersion::Pes21,
-                1,
-                Templates::embedded(),
-                InstalledPaths::Unknown,
-                EntryTarget::GamePaths,
-            ),
-        );
+        let batch = task_batch(3, task, files, &context_with(&MemoryBudget::new(1 << 30)));
 
         assert_eq!(batch.index, 3);
         assert!(batch.entries.is_empty() && batch.uniparam.is_none());

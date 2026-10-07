@@ -4,9 +4,12 @@
 //! A non-square image is made square by its file's mode: `fit` (the default), `crop` or
 //! `stretch`.
 
+use std::sync::Arc;
+
 use aesthetics_export::{LogoFile, LogoFiles, LogoFit};
 use dds_convert::{ConvertError, decode, encode_png, resize};
 use pes_version::PesVersion;
+use pipeline::{MemoryBudget, Permit};
 use studio_core::Disposition;
 
 use super::{Entry, Finding, TaskFailure, TaskFiles, take, texture};
@@ -27,6 +30,8 @@ struct LogoSource<'a> {
     height: u32,
     /// Straight-alpha RGBA8, `width` x `height`, row-major.
     pixels: Vec<u8>,
+    /// The decode's charge to the run's budget, released with the pixels.
+    _charge: Permit,
 }
 
 /// The team `team_id`'s three logo PNGs for `version`, all or none, from `logo`'s files, whose
@@ -36,18 +41,21 @@ struct LogoSource<'a> {
 /// non-square source, naming its mode, and `logo_upscaled` for a source whose side the mode
 /// maps onto the target is under the largest target it feeds. A file that does not decode, or
 /// a size the resampler or the encoder refuses, fails the task as a texture's conversion does.
+/// Each file's decode is charged to `budget` while it lives; the three squares, under 2 MiB
+/// together at 512, 256 and 128 pixels, are not.
 pub(super) fn logo(
     logo: &LogoFiles,
     team_id: u16,
     version: PesVersion,
+    budget: &Arc<MemoryBudget>,
     files: &mut TaskFiles,
     findings: &mut Vec<Finding>,
 ) -> Result<Vec<Entry>, TaskFailure> {
-    let main = decoded(&logo.main, files)?;
+    let main = decoded(&logo.main, budget, files)?;
     let small = logo
         .small
         .as_ref()
-        .map(|file| decoded(file, files))
+        .map(|file| decoded(file, budget, files))
         .transpose()?;
     report(&main, MAIN_LARGEST, findings);
     if let Some(small) = &small {
@@ -70,13 +78,20 @@ pub(super) fn logo(
 }
 
 /// The logo `file`, its bytes taken out of `files`, decoded in the format its extension names:
-/// a DDS or FTEX source gives its top level.
-fn decoded<'a>(file: &'a LogoFile, files: &mut TaskFiles) -> Result<LogoSource<'a>, TaskFailure> {
+/// a DDS or FTEX source gives its top level. The decode is charged to `budget`, every level
+/// the source carries, until the logo source is dropped.
+fn decoded<'a>(
+    file: &'a LogoFile,
+    budget: &Arc<MemoryBudget>,
+    files: &mut TaskFiles,
+) -> Result<LogoSource<'a>, TaskFailure> {
     let path = file.file.path.as_str();
     let format = texture_format(file.file.path.name())
         .expect("validation keeps a logo only in a format `dds_convert` accepts");
-    let decoded = decode(&take(files, &file.file), format)
-        .map_err(|error| texture::conversion_failure(path, error))?;
+    let bytes = take(files, &file.file);
+    let failure = |error| texture::conversion_failure(path, error);
+    let charge = texture::decode_charge(budget, &bytes, format).map_err(failure)?;
+    let decoded = decode(&bytes, format).map_err(failure)?;
     let pixels = decoded
         .mips
         .into_iter()
@@ -88,6 +103,7 @@ fn decoded<'a>(file: &'a LogoFile, files: &mut TaskFiles) -> Result<LogoSource<'
         width: decoded.width,
         height: decoded.height,
         pixels,
+        _charge: charge,
     })
 }
 
@@ -280,6 +296,7 @@ mod tests {
             &logo_files,
             714,
             PesVersion::Pes21,
+            &pipeline::MemoryBudget::new(usize::MAX),
             &mut files,
             &mut findings,
         ) {

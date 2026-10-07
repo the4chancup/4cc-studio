@@ -9,11 +9,14 @@
 //! it drops is the task's business.
 
 use std::collections::BTreeMap;
+use std::sync::Arc;
 
 use aesthetics_export::FileDescriptor;
 use dds_convert::{
-    BlockCodec, ConvertError, SourceFormat, Target, TextureRole, decode, encode_dds, source_hash,
+    BlockCodec, ConvertError, SourceFormat, Target, TextureRole, decode, encode_dds, probe,
+    source_hash,
 };
+use pipeline::{MemoryBudget, Permit};
 use studio_core::Disposition;
 
 use super::{CompileContext, Entry, Finding, TaskFailure, TaskFiles, take};
@@ -291,27 +294,61 @@ pub(super) fn convert(
         version: ctx.version,
         role: texture_role(file_stem(name)),
     };
+    // The decode happens inside the converter, so it is charged before the call and released
+    // once the call has freed it. A cache hit decodes nothing, and is charged all the same.
+    let charge = decode_charge(&ctx.budget, bytes, format)
+        .map_err(|error| conversion_failure(name, error))?;
     let converted = ctx
         .converter
         .convert(source_hash(bytes), bytes, format, target, ctx.cache)
         .map_err(|error| conversion_failure(name, error))?;
+    drop(charge);
     // The converter hands out the cache's own buffer, which it may hand out again for the same
     // source; the CPK entry owns its bytes, so the one copy of the texture is here.
     Ok(converted.to_vec())
+}
+
+/// The charge to `budget` of decoding `bytes`, a texture in `format`: the RGBA size of every
+/// level the converted texture carries (`dds_convert::probe`, a raster source's generated
+/// chain included), plus the source's own size, for the copy of its blocks or the unwrapped
+/// DDS the decode makes. Read from the header alone, so it is taken before the decode; the
+/// caller holds the permit as long as the decoded image, bound to a name (`_decode_charge`
+/// lives to the end of its scope; `let _ =` would release it at once). A header the probe
+/// cannot read is the error the decode would have met.
+pub(super) fn decode_charge(
+    budget: &Arc<MemoryBudget>,
+    bytes: &[u8],
+    format: SourceFormat,
+) -> Result<Permit, ConvertError> {
+    let size = probe(bytes, format)?;
+    let width = u64::from(size.width);
+    let height = u64::from(size.height);
+    let pixels: u64 = (0..size.mipmaps)
+        .map(|level| (width >> level).max(1) * (height >> level).max(1))
+        .sum();
+    let bytes_len = u64::try_from(bytes.len()).unwrap_or(u64::MAX);
+    let charge = pixels.saturating_mul(4).saturating_add(bytes_len);
+    // A charge past `usize` (a 32-bit host only) is over any memory cap, and so is the
+    // saturated value.
+    Ok(budget.charge(usize::try_from(charge).unwrap_or(usize::MAX)))
 }
 
 /// The portrait file `name`, in `format`, holding `bytes`, as the DDS every engine reads
 /// (`player_folders.md` "Portraits"): a DDS source as it is, any other accepted format
 /// encoded to BC3 at its own size with the full mip chain. Its signature and size are the deep
 /// pass's checks; a portrait that reaches this point passed them or is kept by
-/// `pass_through`, so it is packed whatever its size.
+/// `pass_through`, so it is packed whatever its size. The decode is charged to `budget` while
+/// it lives.
 pub(super) fn portrait(
+    budget: &Arc<MemoryBudget>,
     format: SourceFormat,
     name: &str,
     bytes: Vec<u8>,
 ) -> Result<Vec<u8>, TextureError> {
     // Decoded even when the DDS goes out as it is: the deep pass reads only the header, and
     // this decode is what fails the task of a portrait whose header or data is broken.
+    let _decode_charge =
+        decode_charge(budget, &bytes, format).map_err(|error| conversion_failure(name, error))?;
     let decoded = decode(&bytes, format).map_err(|error| conversion_failure(name, error))?;
     match format {
         SourceFormat::Dds => Ok(bytes),
@@ -356,7 +393,13 @@ mod tests {
             templates: crate::templates::Templates::embedded(),
             installed: crate::bins::installed::InstalledPaths::Unknown,
             target: crate::processing::EntryTarget::GamePaths,
+            budget: MemoryBudget::new(usize::MAX),
         }
+    }
+
+    /// A budget no test fills, for the tests that check bytes, not charges.
+    fn unlimited() -> Arc<MemoryBudget> {
+        MemoryBudget::new(usize::MAX)
     }
 
     fn tracer_kit() -> Vec<u8> {
@@ -466,14 +509,20 @@ mod tests {
         )
         .unwrap();
         assert_eq!(
-            portrait(SourceFormat::Dds, "portrait.dds", tracer.clone()).unwrap(),
+            portrait(
+                &unlimited(),
+                SourceFormat::Dds,
+                "portrait.dds",
+                tracer.clone()
+            )
+            .unwrap(),
             tracer
         );
         for (name, format) in [
             ("portrait.png", SourceFormat::Png),
             ("portrait.webp", SourceFormat::WebP),
         ] {
-            let dds = portrait(format, name, texture_fixture(name)).unwrap();
+            let dds = portrait(&unlimited(), format, name, texture_fixture(name)).unwrap();
             let decoded = decode(&dds, SourceFormat::Dds).unwrap();
             assert_eq!(
                 decoded.blocks.as_ref().map(|blocks| blocks.codec),
@@ -489,24 +538,67 @@ mod tests {
         // A portrait's signature and size are the deep pass's checks: one `pass_through`
         // keeps is packed whatever its size, a 300x300 PNG as a 300x300 BC3 DDS.
         let odd = texture_fixture("odd.png");
-        let dds = portrait(SourceFormat::Png, "player_05.png", odd.clone()).unwrap();
+        let dds = portrait(
+            &unlimited(),
+            SourceFormat::Png,
+            "player_05.png",
+            odd.clone(),
+        )
+        .unwrap();
         let decoded = decode(&dds, SourceFormat::Dds).unwrap();
         assert_eq!((decoded.width, decoded.height), (300, 300));
         // Every source is still decoded, a DDS included: a BC6H DDS is the codec finding, and
         // PNG bytes under a `.dds` name fail the task.
         assert_eq!(
             finding(portrait(
+                &unlimited(),
                 SourceFormat::Dds,
                 "portrait.dds",
                 texture_fixture("bc6h.dds")
             )),
             (Code::TextureCodecUnsupported, "portrait.dds".to_owned())
         );
-        let Err(TextureError::Other(error)) = portrait(SourceFormat::Dds, "portrait.dds", odd)
+        let Err(TextureError::Other(error)) =
+            portrait(&unlimited(), SourceFormat::Dds, "portrait.dds", odd)
         else {
             panic!("PNG bytes under a `.dds` name are not a DDS");
         };
         assert_eq!(format!("{error}"), "portrait.dds: cannot convert");
+    }
+
+    #[test]
+    fn a_decode_is_charged_every_level_s_rgba_size_and_its_source_s() {
+        let budget = MemoryBudget::new(usize::MAX);
+        // A 300x300 PNG holds one level; its conversion generates the chain down to 1x1:
+        // 300, 150, 75, 37, 18, 9, 4, 2 and 1 pixels across.
+        let png = texture_fixture("odd.png");
+        let levels =
+            300 * 300 + 150 * 150 + 75 * 75 + 37 * 37 + 18 * 18 + 9 * 9 + 4 * 4 + 2 * 2 + 1;
+        let charge = decode_charge(&budget, &png, SourceFormat::Png).unwrap();
+        assert_eq!(charge.size(), 4 * levels + png.len());
+        drop(charge);
+        // The tracer's kit: a 16x16 BC1 DDS with its five levels.
+        let kit = tracer_kit();
+        let charge = decode_charge(&budget, &kit, SourceFormat::Dds).unwrap();
+        assert_eq!(
+            charge.size(),
+            4 * (16 * 16 + 8 * 8 + 4 * 4 + 2 * 2 + 1) + kit.len()
+        );
+        drop(charge);
+        // The tracer's portrait: a 64x128 BC3 DDS with eight levels, the narrow side held at
+        // one pixel once it gets there.
+        let portrait = std::fs::read(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("tests/fixtures/tracer/studio/egg Midcup Tracer/Players/05 - The Chad Stormworks Player/portrait.dds"),
+        )
+        .unwrap();
+        let charge = decode_charge(&budget, &portrait, SourceFormat::Dds).unwrap();
+        // The last two levels are 1x2 and 1x1.
+        let levels = 64 * 128 + 32 * 64 + 16 * 32 + 8 * 16 + 4 * 8 + 2 * 4 + 2 + 1;
+        assert_eq!(charge.size(), 4 * levels + portrait.len());
+        drop(charge);
+        // A header the probe cannot read is the decode's error.
+        assert!(decode_charge(&budget, b"not a DDS", SourceFormat::Dds).is_err());
     }
 
     #[test]
