@@ -1504,7 +1504,10 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `dpfilelist_cpk_missing` (W) at every compile for a listed CPK with no file (TC-DEP-14);
   `dpfilelist_outdated` names the subcommand, and takes from 4.24's `cpk_name_unlisted` (judged
   on the installed list alone) the names the bundled list holds. Plan: `pipeline.md` "6. Post-processing"
-  (DpFileList upgrade); `settings.md` "CLI" (`upgrade-dpfl`). IDs: TC-DEP-08..10, TC-DEP-12..14. Crates: tc
+  (DpFileList upgrade); `settings.md` "CLI" (`upgrade-dpfl`). IDs: TC-DEP-09, 10, 12..14
+  (TC-DEP-08 needs multi-CPK mode: 4.26; here `dpfilelist_outdated` is tested on a single-CPK
+  run). Lead first, done: `resources/templates/DpFileList.bin` and `placeholder.cpk` (decision
+  entry "the placeholder CPK is the shipped file, embedded"). Crates: tc
   (`bins/dpfl.rs`, `cli.rs`), resources → verify: an installed DPFL lacking `4cc_41_teams` beside
   a 1 KiB `download/4cc_40_faces.cpk`: `upgrade-dpfl` prints `4cc_40_faces` with `1 KiB` and
   exits without writing; `--yes` makes `DpFileList.bin` equal to the embedded list and
@@ -1513,15 +1516,15 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
 - [ ] 4.26 **Multi-CPK mode**: `multicpk_mode` honored (the Phase 3 refusal removed); slots from
   the DPFL entries matching `{prefix}_{NN}_{teams_cpk_name}` exactly, ordered by number; whole
   teams placed first-fit by exact size under `cpk_part_max_size`; every unfilled slot written as
-  the empty placeholder CPK, byte-identical to the shipped one (the lead commits
-  `E:/PES2021/download/4cc_68_midcup.cpk`, 6,272 bytes, as the placeholder fixture);
+  the empty placeholder CPK, the shipped one embedded (`resources/templates/placeholder.cpk`,
+  4.25);
   `cpk_slots_exhausted`, `cpk_team_exceeds_cap`, `cpk_size_over_limit` (single-CPK); the bins CPK
   (`bins_cpk_name`), the
   refs CPK beside them; `dds_compression = auto` follows the mode; deployment per generated CPK.
   Plan: `pipeline.md` "5. Writer" step 6 ("Multi-CPK mode: teams parts"); `settings.md`
   (`multicpk_mode`, `teams_cpk_name`, `cpk_part_max_size`, `bins_cpk_name`). IDs: TC-OUT-12..16,
-  TC-DEP-11. Crates: tc (`output/writer.rs`, `output/deploy.rs`, `settings.rs`), cpk (placeholder
-  writer, if not already byte-identical) → verify: `/co/`, `/a/` and `/b/` exports with
+  TC-DEP-08 (moved from 4.25: it needs this mode), TC-DEP-11. Crates: tc (`output/writer.rs`,
+  `output/deploy.rs`, `settings.rs`) → verify: `/co/`, `/a/` and `/b/` exports with
   `cpk_part_max_size` set just above the first two teams' compiled size and a DPFL reserving
   `4cc_41_teams`..`4cc_45_teams`: `4cc_41_teams.cpk` holds the first two teams whole,
   `4cc_42_teams.cpk` the third, `4cc_43`..`45` are each 6,272 bytes equal to the placeholder

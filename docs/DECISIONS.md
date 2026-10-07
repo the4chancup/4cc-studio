@@ -4433,3 +4433,18 @@ official list arrives with 4.25; a name it holds is then `dpfilelist_outdated`, 
 consequence, so the interim reading degrades the same runs.
 Plan: `team_compiler/pipeline.md` "6. Post-processing" (Staging, Deploy CPKs, Destination
 writability preflight); `team_compiler/messages.md` (the five rows' contexts); TC-DEP-01.
+
+## 2026-10-07 — team_compiler — the placeholder CPK is the shipped file, embedded
+Decision: the empty placeholder CPK that `upgrade-dpfl` (and later multi-CPK mode) writes in an
+unused slot is the official DLC's own 6,272-byte file, embedded from
+`resources/templates/placeholder.cpk`, not written by the `cpk` crate. The official
+`DpFileList.bin` is generated from `DpFileList.txt` in the layout of the maintainer's 53-entry
+in-game test (header word 0, the PES 2021 list's 1204-byte zero tail) by
+`scripts/provenance/fixtures/dpfl_template.py`.
+Why: the shipped placeholder is CRI Packed File Maker 1.36's output (24 header columns, an
+ETOC), not our writer's layout; making the writer reproduce it byte for byte would be a parity
+project for one 6 KB file, while a copy is identical by construction. The list's tail is the
+one the game was seen to load; the upgrade copies the file byte for byte, so its layout is
+chosen once, here.
+Plan: `team_compiler/pipeline.md` "Multi-CPK mode" ("Every slot is always written");
+`resources/templates/README.md`.

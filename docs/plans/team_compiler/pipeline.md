@@ -820,8 +820,9 @@ describes behavior, not a serial scheduling requirement:
      `midcup`/`test`/`stadiums` slots (`4cc_68_midcup.cpk` is one). This satisfies the DPFL without
      relying on PES tolerating listed-but-missing files, and it makes superseded content trivial: a
      recompile that needs fewer parts overwrites the stale higher slots with placeholders. The
-     placeholder's bytes are emitted by the `cpk` crate and verified byte-identical to the shipped one
-     in tests. Running out of slots (content exceeds `slots × cap`) is fatal: `cpk_slots_exhausted`
+     placeholder is the shipped file itself, embedded (`resources/templates/placeholder.cpk`),
+     not written by the `cpk` crate: our writer's layout is not CRI Packed File Maker's, and a
+     copy is identical by construction where a re-creation would need a parity test of its own. Running out of slots (content exceeds `slots × cap`) is fatal: `cpk_slots_exhausted`
      names the shortfall so the DPFL author can add slots.
    - **`cpk_part_max_size`** defaults to 3 GB — comfortably under Git for Windows' 4 GiB object
      ceiling, and configurable. It applies to teams parts only; a single-CPK run that
