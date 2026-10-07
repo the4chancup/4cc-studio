@@ -20,6 +20,10 @@ traced back to how it was measured, not as maintained tooling.
   the sock table's measurement (`kit_uv_sock_angle.py`), the check that the shorts did not
   move (`kit_uv_pants_height.py`), the number atlases' arrangement (`kit_leg_atlas.py`), and
   `kit_layout_fixture.py`, which writes `team_compiler`'s `tests/fixtures/kit_layout/`.
+- `tracer_prefox/` — cut the pre-Fox tracer export from a cup export on the writing machine
+  (`make_old.py`), staged Red to compile it (`setup_red.py`) and migrated it to the Studio
+  layout (`make_studio.py`): `team_compiler`'s `tests/fixtures/tracer_prefox/`, whose README
+  gives the steps.
 - `calib/` — a standalone Rust crate (own `[workspace]`, so it stays out of the
   root one) that measured kit color calibration for `docs/plans/libs/color_tools.md`.
   Written against the `dds_convert`/`kit_config` API of its day; it currently

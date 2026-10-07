@@ -27,7 +27,8 @@ extraction when the manifest is stale or the local tree is missing, and verifies
 tree against the committed manifest before using it. This keeps the repo small while making the
 test reproducible without a pre-shared binary blob. A reference tree small enough to commit is
 committed as the tree itself instead: the tracer bullet's (`tests/fixtures/tracer/red/`, under
-1 MB) runs its parity case anywhere, CI included, without Red.
+1 MB) and the pre-Fox tracer's (`tests/fixtures/tracer_prefox/red/`, PES 2017, about 660 KB) run
+their parity cases anywhere, CI included, without Red.
 
 Intentional differences must be accounted for:
 

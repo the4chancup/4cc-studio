@@ -1,0 +1,15 @@
+Team: /jp/
+ID: 731
+
+Team Colours:
+- 1st: 058 080 177
+- 2nd: 255 255 255
+
+Kit Colours:
+
+- 1st GK: #FFFFFF - #000000
+
+Player IDs:
+- XXX20 = Fumos
+
+Other Notes:

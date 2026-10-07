@@ -19,7 +19,7 @@ referee marker) is done, 4.27's rest (the pre-Fox marker) waits on 4.19d; 4.9 is
 (collars on Fox; their pre-Fox and cross-format halves are in 4.16 and 4.17); 4.28
 (memory accounting), 4.32 (number atlases) and 4.18 (hand auto-split, Fox) are done, and
 4.y moved to Phase 8; 4.14 is under way (slices a to d done, e next), with its own checks until 4.31's pre-Fox parity
-reference lands (4.31 under way, lead: the export is cut from the maintainer's library); 4.33, 4.34, 4.c-pass and
+reference exists (4.31 done: `tests/parity_prefox.rs`); 4.33, 4.34, 4.c-pass and
 4.c-fix1 are done; 4.30,
 4.5 to 4.8 and 4.10 to 4.13 are done (4.6c moved to Phase 8's cancellation). 2.5b (GPU BC7) is step 16.x (decision entries
 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0 after Phase 8; phase order 1–6,
@@ -1938,7 +1938,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   assert the old names are refused. Left for Phase 5: `keys.rs`' boots/gloves comments still
   say "no marker: untouched", where `settings_toml.md` has said "otherwise 0" since step 4.0
 
-- [ ] 4.31 **Pre-Fox parity reference** (lead, before 4.14): a small pre-Fox export cut from one
+- [x] 4.31 **Pre-Fox parity reference** (lead, before 4.14): a small pre-Fox export cut from one
   in the maintainer's library (one player with face, boots and gloves, one kit, as the Fox
   tracer was cut), its Studio-layout twin migrated by hand, and Red's CPK for the old one
   compiled for PES 17 with the tracer's settings (`tests/fixtures/tracer/README.md` "`red/`":
@@ -1946,6 +1946,19 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `tests/fixtures/tracer_prefox/` with a provenance README if under 1 MB, as a hash manifest
   otherwise. Without it every pre-Fox byte of 4.14-4.17 is unchecked until Phase 6 → verify:
   the README's command reproduces `red/` byte for byte from `old/`
+  Done 2026-10-07 (lead, from the maintainer's library as they suggested):
+  `tests/fixtures/tracer_prefox/` (/jp/'s Summer 18 export, player Fumos with face, boots and
+  gloves in his `face.xml`, kit g1; large textures block-reduced; README), scripts in
+  `scripts/provenance/tracer_prefox/`, `tests/parity_prefox.rs` (outer rows, a row per entry of
+  the nested face CPK, the `face.xml` table), the sandbox teams list's `/jp/` 731. The twin
+  holds no kit until 4.16 (a pre-Fox kit refuses the export), so the kit's rows are "not
+  produced" and `UniColor.bin` is deferred. Found: models byte-identical; Red keeps a team
+  player's textures in his face CPK (relocated by us as on Fox, same pixels); our DDS header
+  is canonical and WESYS unwrapped; `face.mtl`'s missing texture stays `./`; Red keeps
+  absent number-texture names in the kit config (compare at 4.16). `red/` is what the README's
+  command produced from `old/` in one run; a second run showing it reproduces byte for byte
+  was not made. Checks shown to fail: a model's name, the encoded codec, a `TeamColor.bin`
+  byte.
 
 - [x] 4.32 **Number atlases re-arranged across engines** (lead first: the measurement, done
   2026-10-07: `scripts/provenance/kit_uv/number_atlas/`, the plan's slot rule and decision
@@ -3554,3 +3567,6 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
     (`texture_not_div4`, even with `pass_through`), and a model naming a material its `.mtl`
     lacks (`model_material_undefined`, which `pass_through` may keep); on PES 2015 a
     `uniform` model is written `uniform_sub` (`xml_uniform_pes15`).
+  - **4.31:** a pre-Fox parity test compiles a real PES 2017 player (face, boots, gloves)
+    and compares the CPK with what the legacy compiler built from the same export. Nothing
+    a member would see changes.
