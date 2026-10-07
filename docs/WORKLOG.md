@@ -1302,24 +1302,34 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `glove_r.fmdl`, and the face's merged FMDL plus the two gloves hold exactly the source's vertex
   count
 
-- [ ] 4.19 **Referees**: a `/refs/` export compiled into `refs_cpk_name`'s CPK; slots 01-35 mapped
-  by `players.txt`, a folder mapped to several slots prepared once and instantiated per slot; IDs
-  `k99XX`/`g99XX` and the referee face paths (the referee rows of "Game paths reference"); the
-  per-referee common subfolder keyed by folder name under team 999; the refscpk template content
-  (lead first: as lead-authored fixtures with a provenance README); pre-Fox `ref_marker.dds` template
-  injection; the team CPK untouched by referee content. Plan: `blue_port.md` "Referee export
-  processing"; `pipeline.md` step 6 (the referee layout), "5. Writer" step 5 (refs CPK);
-  `player_folders.md` "Multi-mapped processing". IDs: TC-REF-01..05, TC-REF-09. Crates: tc
-  (`processing/referee.rs`, `plan/refs.rs`, `paths.rs`), resources → verify: a refs export
-  mapping `Ref A` to 01, 20 and 35 on PES 21 writes `4cc_18_referees.cpk` holding three face
-  packages, one `common/999/Ref A/sourceimages/` texture set, and `k9901`, `k9920`, `k9935`
-  boots folders when the folder has boots; the team CPK of the same run holds no `999` path.
-  A pre-Fox referee's local boots and gloves are `face.xml` entries, as a player's
-  (decision 2026-10-05, `blue_port.md` "Referee export processing"; TC-REF-09).
-  A shared `Boots/`/`Gloves/` folder in a refs export is written as each linking referee's
-  `k99XX`/`g99XX` (decision 2026-10-05, `blue_port.md`; TC-REF-10).
-  TC-OUT-09's referee half lands here: its sideload test (`tests/cli/sideload.rs`) gains the
-  refs export, and `livecpk/` must equal the team CPK's and the refs CPK's entries together.
+- [ ] 4.19 **Referees (Fox)**: a `/refs/` export compiled into `refs_cpk_name`'s CPK; slots
+  01-35 mapped by `players.txt`, a folder mapped to several slots prepared once and
+  instantiated per slot (`referee0NN` face, `k99NN`/`g99NN`; links to a shared `Boots/` or
+  `Gloves/` resolve to each linking slot's own); the referees' textures under team 999's common
+  folder keyed by the folder name; the Fox referee template tree in the refs CPK; the team CPK
+  untouched by referee content. Plan: `blue_port.md` "Referee export processing";
+  `pipeline.md` step 6 (the referee layout), texture relocation, "5. Writer" step 5 (the refs
+  CPK, its place among the run's CPKs, not the walk's boundary), "Game paths reference"
+  referee rows, "Resolved decisions" (embedded templates, the referee trees' override names);
+  `player_folders.md` "Multi-mapped processing". IDs: TC-REF-01, 02, 03, 05, 10; TC-OUT-09's
+  referee half (`tests/cli/sideload.rs` gains the refs export, `livecpk/` equal to the team
+  CPK's and the refs CPK's entries together); TC-DEP-11's refs export. Recon:
+  `.tmp/recon_4_19.md`. Slices:
+  4.19-lead done 2026-10-07: `resources/templates/referees_fox/` (Red's `refscpk_fox`, 31
+  files, provenance in `resources/templates/README.md`); plan rulings (decision entry "the
+  refs CPK among the run's CPKs, and the referee tree's names").
+  4.19a: referee planning and processing on Fox, output still in the run's one CPK (the subset
+  gate's Fox refs line lifted; a package key for `referee0NN`; team 999 for the common
+  folder; links to the slot's IDs; no portraits, kits, rows or colors); TC-REF-03, 05, 10.
+  4.19b: the refs CPK (`refs_cpk_name`; `CpkLayout`'s CPKs gain it after the others when a
+  refs export is in the run; a second sink chosen by the export's identity; stem uniqueness;
+  preflight, deploy and promote through `cpks()`; the walk passes over it); TC-REF-01, 02,
+  TC-DEP-11's refs half.
+  4.19c: the template tree written into the refs CPK (and `livecpk/`, test output), its
+  overrides; TC-OUT-09's referee half.
+  Moved out: the referee marker (collar 77, `ref_marker.dds`; TC-REF-04, 06, 07, 08) is step
+  4.27's; pre-Fox referees (`referee0NN.cpk`, face.xml boots and gloves, `refscpk_prefox`;
+  TC-REF-09) wait on 4.14 and the pre-Fox gate (4.20), as step 4.19d.
 
 - [ ] 4.20 **Withdraw the Phase 3 subset gate**: `plan/subset.rs` and `content_not_yet_compiled`
   removed (the catalog row reads withdrawn), TC-OUT-06 withdrawn, every content kind and both

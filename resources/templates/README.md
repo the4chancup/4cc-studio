@@ -38,3 +38,29 @@ official-list check of every compile (step 4.25).
 |---|---|
 | `DpFileList.bin` | `DpFileList.txt`'s 53 entries in the layout the maintainer's in-game test loaded on PES 2015 and PES 2021: header word 0, the count, 8 zero bytes, 48-byte NUL-padded records, the PES 2021 list's 1204-byte zero tail; 3,764 bytes, one file for every PES version |
 | `placeholder.cpk` | the empty CPK the official DLC ships in every unused slot, written by `upgrade-dpfl` for an official entry with no file: one 11-byte file `placeholder`, made by CRI Packed File Maker 1.36; a copy of the `cpk` crate's fixture `cpkmc136_placeholder.cpk`, byte-identical to `4cc_68_midcup.cpk` of the maintainer's PES 2021 install; 6,272 bytes |
+
+## `referees_fox/`
+
+The Fox referee template tree: every file of it goes into the referee CPK of a Fox compile that
+compiles a refs export, at the path it has below this folder (Team compiler plan, `pipeline.md`
+"5. Writer" step 5 and "Resolved decisions", embedded templates; `blue_port.md` "Referee
+export processing"). An override replaces one file: `templates/referees_fox/<the same path>`
+in the data directory.
+
+Source: Red's `Engines/templates/refscpk_fox/`, Red at commit `e12aa01`; the tree came in with
+`99cfb2c` ("Add Fox and Prefox referee cpk templates") and `01db46e` ("Add additional referee
+kit configs to fox template"). All 31 files are byte-identical to Blue's
+`lib/templates/refscpk_fox/`. Copied by `.tmp/copy_refscpk_fox.py` on 2026-10-07 (not kept:
+a one-off copy, nothing to regenerate).
+
+| Path below `referees_fox/` | Files | Bytes each | SHA-256 (first 16) |
+|---|---|---|---|
+| `Asset/model/character/uniform/texture/#windx11/referee_{1..5}.ftex` | 5, identical | 362,056 | `11f5a3f08f7fc63e` |
+| `Asset/model/character/uniform/texture/#windx11/referee_{1..5}_srm.ftex` | 5, identical | 304 | `bc52cdb5e464505d` |
+| `common/character0/model/character/appearance/RefereeAppearance.bin` | 1 | 2,100 | `086c971f7ce1a428` |
+| `common/character0/model/character/uniform/team/referee/referee_{ACL,CL,DEF,LB,SDA}_{N}.bin` | 20: ACL 1-5, CL 1-4, DEF 1-5, LB 1-3, SDA 1-3 | 120 | `_1` `48362367d75832f3`, `_2` `41c0e0b5388a7429`, `_3` `3408b58ed1b09327`, `_4` `96534d93448f2bb4`, `_5` `dc0eaf1ec1fd4444` |
+
+The kit configs are five distinct files, each repeated under every competition's name with
+the same number (`referee_ACL_1.bin` is `referee_CL_1.bin`), as Red ships them. The five
+kit textures are one texture, five times. The kit configs are loose files of the referee
+CPK, never entries of the bins CPK's `UniformParameter.bin` (`blue_port.md`).

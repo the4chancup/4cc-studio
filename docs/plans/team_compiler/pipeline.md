@@ -765,7 +765,14 @@ describes behavior, not a serial scheduling requirement:
    "Multi-CPK mode: teams parts" below. In normal mode referee content routes to its own CPK named by
    `refs_cpk_name`, separate from those team targets; `refs_cpk_name` affects only normal CPK mode
    (test mode writes referee content per export, sideload at its game paths in `livecpk\`:
-   "Output-mode artifact routing"). Every emitted CPK name (team, teams part,
+   "Output-mode artifact routing"). The refs CPK is one of the run's CPKs when the run holds
+   a refs export (known from the export's name, before any file is read), in single and
+   multi-CPK mode alike, after the others; the preflight judges it with them, and it is
+   written, with the referee template tree, only when the refs export commits something, as
+   the single CPK is written only when something commits. It is not the walk's boundary: it
+   holds no working bin, and taking it as the earliest CPK would put every CPK listed between
+   it and the team CPK (stadiums, parts, midcups) out of the walk, so the walk passes over
+   the installed CPK of its name instead. Every emitted CPK name (team, teams part,
    refs) is a validated `CpkStem` (shared `pipeline` type): filename stem only, 1–28 characters from
    ASCII alphanumeric, `_`, `-`, and `.`; no separators, control characters, trailing dot, Windows
    reserved-device names, or user-supplied `.cpk` suffix; uniqueness is checked case-insensitively.
@@ -806,7 +813,8 @@ describes behavior, not a serial scheduling requirement:
    - **Only a normal compile splits.** `multicpk_mode` changes where a normal compile's CPKs go;
      test and sideload mode write their loose files as they do without it.
    - **The run's first CPK is its boundary.** The working-bin walk and the installed texture
-     lookup start below the earliest CPK the run writes in the list's order, which is the bins
+     lookup start below the earliest CPK the run writes in the list's order (the refs CPK
+     aside: step 5), which is the bins
      CPK in the official list (the player tables at the bins CPK itself, above), since every
      part the run writes replaces the one installed under its name.
    - **The overrides go into the bins CPK.** An entry at an override's path is left out
@@ -1322,7 +1330,11 @@ Resolved decisions:
   `template_override_unreadable`. An override is named as the resource's own file is, the
   folder flat: `templates/UniColor.bin`, `templates/UniformParameter19.bin`,
   `templates/face_diff.bin`, `templates/body.skl`; a file there that names no resource is not
-  read. A compile reads the overrides once, before any export is read and before the
+  read. The referee template trees are the exception, since the Fox and pre-Fox trees share
+  file names: each is a folder named for its engine whose files sit at their game paths
+  (`resources/templates/referees_fox/common/character0/.../referee_ACL_1.bin`), and an
+  override is named the same way below `templates/` (`templates/referees_fox/common/...`),
+  replacing that one file of the tree. A compile reads the overrides once, before any export is read and before the
   working-bin walk (whose bundled bases they replace), and one that cannot be read stops the
   run there, whatever the resource: we abort, not drop each folder that would use it,
   because the file was put there on purpose (an unreadable `overrides/` file fails the CPK

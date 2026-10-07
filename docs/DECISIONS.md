@@ -4546,3 +4546,23 @@ teams slot, and the bins writer and the first part would write the same staged f
 an error. Refusing the setting is one comparison; any other answer would need a rule the plan
 does not have (which of the two the file is).
 Plan: `team_compiler/settings.md` (the `teams_cpk_name` row).
+
+## 2026-10-07 — team_compiler — the refs CPK among the run's CPKs, and the referee tree's names
+Decision (lead, reversible): (1) the refs CPK is one of the run's CPKs when the run holds a
+refs export (known from its name before any file is read), after the others, in single and
+multi-CPK mode; the preflight judges it with them; it is written, with the referee template
+tree, only when the refs export commits something. (2) It is not the walk's boundary: the walk
+passes over the installed CPK of its name. (3) The referee template trees are embedded as
+`resources/templates/referees_fox/` (and later `referees_prefox/`) with each file at its game
+path, and an override is `templates/referees_fox/<game path>`, replacing that file; the flat
+override names of the other resources cannot hold two trees whose file names coincide.
+(4) Step 4.19 covers Fox referees; pre-Fox referees (TC-REF-09) wait on step 4.14 and the
+pre-Fox gate, and the marker stays with step 4.27.
+Why: (1) a run without a refs export must not be refused because an old list lacks
+`4cc_18_referees`, and a refs export dropped by validation must not replace the installed
+referees with an empty CPK. (2) `4cc_18_referees` loads before the stadiums, parts and midcups,
+so as the boundary it would take them all out of the bins walk. (3) one rule for both trees, and
+the provenance is a folder copy. (4) pre-Fox compiling is still gated and its face paths need
+4.14's pre-Fox export.
+Plan: `team_compiler/pipeline.md` "5. Writer" step 5, "Multi-CPK mode" (the boundary bullet),
+"Resolved decisions" (embedded templates); `resources/templates/README.md`.
