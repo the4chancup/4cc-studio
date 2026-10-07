@@ -420,9 +420,29 @@ loads a model whose real folder is Common, so its material files resolve there f
 `materials.toml` and name-matched `*.materials.toml` (matched against the model's stem inside
 Common) form the base layers, and the player folder's matched material files layer on top as
 overrides. No material link is needed for this case — the link is for the reverse situation, a
-*local* model using *shared* material definitions. Pre-Fox `.model.common` links follow Red's MTL
-cascade for the same effect: the link folder is checked for a name-matching MTL as an override,
-then Common, then the link folder's default/any MTL, then the main folder.
+*local* model using *shared* material definitions. Pre-Fox `.model.common` links get the same
+effect from the `.mtl` search below, which looks in Common before the link's own folder.
+
+**Pre-Fox: the `.mtl` a `.model` uses.** Each `.model` uses exactly one `.mtl`, the first this
+search finds, and the generated `face.xml` names it. The search looks in a list of folders in
+turn, and in each folder for three kinds of `.mtl` in turn: a **name-matched** one (its stem, case
+folded, starts or ends the model's stem: `body.mtl` for `body_high.model`), then
+`materials.mtl`, then **any** `.mtl`; when a folder holds several of one kind, the first in
+case-folded name order wins (the order Explorer shows). A `.mtl.common` link counts as a `.mtl` of
+its target's name in the folder holding the link. The folders, where the *model folder* is the
+player or shared folder and the *file's folder* is the one directly holding the model or link
+(the model folder or one of its reserved subfolders, `face/`, `boots/`, `gloves/`, `common/`):
+
+- a `.model`: the file's folder, then the model folder;
+- a `.model.common` link: the link's folder for a name-matched `.mtl` only (a local override of
+  the shared model's materials), then `Common/` (where the model really is), then the link's
+  folder, then the model folder, each for all three kinds.
+
+A model the search finds no `.mtl` for has every material undefined, which is
+`model_material_undefined` (E). This is Red's `find_mtl_file` (`xml_editing.py`), with two
+differences that change nothing for a real export: Red's second kind accepts any stem that
+`materials` starts or ends with (`mat.mtl`), and it takes the folder listing's order; and when it
+finds nothing it names a `materials.mtl` no folder holds, which the game would fail to load.
 
 ### Comments are app-injected
 

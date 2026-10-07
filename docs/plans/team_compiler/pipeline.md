@@ -646,7 +646,11 @@ describes behavior, not a serial scheduling requirement:
   the textures task for the rare set nobody references would cost a second read of each
   model. An export with no kit folder defines no number, so nothing is completed. A model's
   texture path naming a reference (`pants_kitN`) is pointed at the folder's texture home
-  when the folder holds any variant of that set, the file name kept as it is. On Fox a model
+  when the folder holds any variant of that set, the file name kept as it is. A model's
+  category and allowed name are read from its stem with the kit token and one delimiter next
+  to it removed (`boots_kit1` and `kit1_boots` are boots, `face_high-kitN` a `face_high`), on
+  both engines: read from the whole stem, `boots_kit1` names no suffix and would be face
+  content, its meshes merged into the face's `fcl_hair` instead of the boots. On Fox a model
   file that is a variant with a lower variant of its set in the same folder is not compiled,
   and planning reports `kit_variant_model_fox` on the folder, once per set. The legacy
   `dummy_kit*` stems keep working as **reserved, game-substituted names**: the texture-existence

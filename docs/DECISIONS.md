@@ -4729,3 +4729,28 @@ Plan: `model_conversion/hand_split.md` "Pipeline integration"; `aesthetics_expor
 "At compile time, the pipeline" step 0; `team_compiler/pipeline.md` "2. Per-export serial steps"
 step 6 and "3. Per-model-folder parallel steps" step 3; `team_compiler/messages.md`
 `model_hand_split`; TC-MOD-31.
+
+## 2026-10-07 — team_compiler — the `.mtl` a pre-Fox `.model` uses, restated from Red's code
+Decision: a `.model` uses the first `.mtl` a search finds: folder by folder, a name-matched `.mtl`
+(stem starts or ends the model's), then `materials.mtl`, then any `.mtl`, the first in case-folded
+name order within a kind; a `.mtl.common` link counts as its target's name. Folders: the file's
+folder, then the model folder; for a `.model.common` link, the link's folder (name-matched only),
+then `Common/`, then the link's folder, then the model folder. No `.mtl` found is
+`model_material_undefined`.
+Why: the plan's wording ("then the main folder") came from Red's and defined neither folder. Red's
+`find_mtl_file` takes a `main_folder_path` (the face folder) and a `model_folder_path` (the folder
+holding the model or link), so the Studio terms are the model folder and the file's folder. Red's
+default kind accepts any stem `materials` starts or ends with (`mat.mtl` counts) and takes the
+listing's order: an exact `materials.mtl` and a case-folded order give the same answer on every
+real export and one a member can predict. Red names a missing `materials.mtl` when it finds
+nothing, which the game cannot load; the existing Error says so instead.
+Plan: `model_format.md` "Material files", the paragraph "Pre-Fox: the `.mtl` a `.model` uses".
+
+## 2026-10-07 — team_compiler — a model's type is read without its kit token
+Decision: a model's category and allowed name are read from its stem with the kit token
+(`kit1`-`kit9`, `kitN`) and one delimiter next to it removed, on both engines.
+Why: read from the whole stem, a per-kit `boots_kit1` names no suffix and is face content: on Fox
+its meshes are merged into the face's `fcl_hair` and the boots package lacks them, and on pre-Fox
+`face.xml` would type it as a face part. Stripping the token is the reading the kit-variant rule
+already uses to find a set's reference.
+Plan: `team_compiler/pipeline.md` "4. Per-export non-model steps", "Kit-dependent assets".

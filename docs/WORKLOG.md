@@ -18,7 +18,8 @@ and 4.25 are done; 4.26 is done; 4.19 (Fox referees) is done, 4.19d (pre-Fox) wa
 referee marker) is done, 4.27's rest (the pre-Fox marker) waits on 4.19d; 4.9 is done
 (collars on Fox; their pre-Fox and cross-format halves are in 4.16 and 4.17); 4.28
 (memory accounting), 4.32 (number atlases) and 4.18 (hand auto-split, Fox) are done, and
-4.y moved to Phase 8; 4.14 waits on 4.31's pre-Fox export; 4.33, 4.34, 4.c-pass and
+4.y moved to Phase 8; 4.14 is next, with its own checks until 4.31's pre-Fox parity
+reference exists (4.31 waits on a small pre-Fox export from the maintainer); 4.33, 4.34, 4.c-pass and
 4.c-fix1 are done; 4.30,
 4.5 to 4.8 and 4.10 to 4.13 are done (4.6c moved to Phase 8's cancellation). 2.5b (GPU BC7) is step 16.x (decision entries
 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0 after Phase 8; phase order 1–6,
@@ -1323,13 +1324,11 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   Also the pre-Fox blank face folder and the pre-Fox half of `ingame_face` (4.12 did Fox):
   `pipeline.md` "2. Per-export serial steps" step 4 gives the blank folder's contents, and
   `face_file_not_used` is Fox-only until then.
-  Open first (review S6.13a item 1): `model_format.md`'s `.model.common` MTL cascade ends
-  "then the link folder's default/any MTL, then the main folder", Red's wording; "the main
-  folder" is defined nowhere. Restate the fallback arms in the plan's own terms from Red's
-  code before building them (TC-MOD-24 pins the override and the Common arm).
-  Open first (found at 4.11c): a model's type is read from its stem's last part, so a
-  per-kit model named `boots_kit1` is typed as face content; typing should probably skip
-  the kit token.
+  Settled 2026-10-07 (the two former "Open first" items): which `.mtl` a `.model` uses,
+  restated from Red's `find_mtl_file` (`model_format.md` "Pre-Fox: the `.mtl` a `.model`
+  uses"; TC-MOD-24 pins the override and the Common arm); a model's type read from its stem
+  without its kit token (`pipeline.md` "Kit-dependent assets"), which changes Fox too
+  (`boots_kit1.fmdl` is boots, not face content): its first slice.
   IDs: TC-MOD-20..25, TC-MOD-35, TC-MOD-37..41, TC-CHK-08, TC-TEX-07, TC-CMN-07 (split from TC-CMN-05 at 4.11c). Crates: tc (`processing/model.rs`, `processing/material.rs`,
   `processing/texture.rs`, `paths.rs`) → verify: a `/co/` slot 05 folder with the smallest
   `pes_model` fixture pair as `face_high.model` + `face_high.mtl` and `skin.dds`, compiled for PES 17: the
