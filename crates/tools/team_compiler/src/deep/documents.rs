@@ -476,19 +476,18 @@ mod tests {
     #[test]
     fn a_kit_config_value_over_the_version_s_maximum_is_reported_and_kept() {
         assert_eq!(
-            kit_findings_for("deep_kit_name_y_18", PesVersion::Pes18, b"[name]\ny = 30\n"),
-            [clamped("name.y", "30", "16")]
+            kit_findings_for("deep_kit_name_y_18", PesVersion::Pes18, b"[name]\ny = 36\n"),
+            [clamped("name.y", "36", "33")]
         );
         assert_eq!(
             kit_findings_for("deep_kit_name_y_21", PesVersion::Pes21, b"[name]\ny = 39\n"),
             []
         );
-        // The template's name Y, which a config without one takes, is 30: past PES 15's 16.
         assert_eq!(
             kit_findings_for(
                 "deep_kit_pattern_15",
                 PesVersion::Pes15,
-                b"[shirt]\npattern = 12\n\n[name]\ny = 16\n"
+                b"[shirt]\npattern = 12\n"
             ),
             [clamped("shirt.pattern", "12", "11")]
         );
@@ -497,10 +496,10 @@ mod tests {
             kit_findings_for(
                 "deep_kit_two_clamped_15",
                 PesVersion::Pes15,
-                b"[shirt]\npattern = 12\n\n[name]\ny = 30\n"
+                b"[shirt]\npattern = 12\n\n[name]\ny = 36\n"
             ),
             [
-                clamped("name.y", "30", "16"),
+                clamped("name.y", "36", "33"),
                 clamped("shirt.pattern", "12", "11")
             ]
         );

@@ -12,9 +12,9 @@ is in `AGENTS.md` ("Working documents").
 **Phase:** 3 (Team compiler skeleton) closed 2026-10-02, its cross-family reviews queued (see
 "Handover"). Phases 1 and 2 done (Phase 2 closed 2026-09-30).
 **Next:** Phase 4 is itemized and its Acceptance section written (step 4.1, 2026-10-03; its
-cross-family review (a) is queued). Next: 4.33 (`name.y` in PES 21 units), 4.34 (the
-`Full`/`Midcup` tag), then 4.21 (bins from the installed CPKs; 4.14 waits on 4.31's
-pre-Fox export); 4.c-pass (the Clef full pass) when the maintainer starts it; 4.30,
+cross-family review (a) is queued). Next: 4.34 (the `Full`/`Midcup` tag), then 4.21
+(bins from the installed CPKs; 4.14 waits on 4.31's pre-Fox export); 4.c-fix1 (the Clef
+full pass's one finding, in `pes_savefile`'s `convert`); 4.33 and 4.c-pass are done; 4.30,
 4.5 to 4.8, 4.9a and 4.10 to 4.13 are done (4.6c moved to Phase 8's cancellation), 4.9b
 (collars) waits on nothing. 2.5b (GPU BC7) is step 16.x (decision entries
 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0 after Phase 8; phase order 1–6,
@@ -167,6 +167,10 @@ Claude agent with no sidekick and no reviewer of another model family. While tha
   commit of 2026-10-04, against `pipeline.md` "Resolved decisions" (Source snapshot),
   `messages.md` (`source_changed_during_run`), TC-PLN-06 and the decision entry "a
   source's revision is the listing's, checked after each task's read".
+  4.33 (b), `kit_config` (`binary.rs` Name Y, `model.rs` `field_limits`, `UNKNOWN_MASKS`)
+  and `team_compiler`'s tests, its commit of 2026-10-07, against `kit_config_editor.md`
+  (layout rows 0x1C and 0x1D, "Version differences"), TC-KIT-17 and 24 and the decision
+  entry "`name.y` is PES 21's value on every version; the template stays".
 - For the lead, on return: the review process on trial (3.1) opens with a full sidekick review
   loop, then runs GPT's loop with a full sidekick loop after each GPT round, calling GPT again
   only once that sidekick loop has ended and GPT's own loop has not; not yet in `AGENTS.md`
@@ -1442,16 +1446,21 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   out as a row atlas with the ten colors in digit order, and the reverse for PES 17; an
   atlas already in the target's arrangement is byte-identical to today's output
 
-- [ ] 4.33 **`name.y` is PES 21's value on every version** (decision entry of 2026-10-04):
-  `kit_config` decodes and encodes Name Y the PES 21 way on every version (6 bits from 0x1C
-  bit 3 and 0x1D bit 0; the version branch in `binary.rs` goes), the maximum being 33 on
-  PES 15 to 20 and 39 on PES 21 (`model.rs`'s limits table), so the template's 30 is no
-  longer clamped and `kit_config_version_clamped` fires only over 33. Plan:
-  `kit_config_editor.md` (layout rows 0x1C and 0x1D, "Version differences"). IDs: TC-KIT-17
-  (reworded: 36 clamps to 33), TC-KIT-24. Crates: `kit_config`, tc (tests and help only) →
-  verify: the template encodes to its own bytes for PES 17 and for PES 21; a PES 17 binary
-  with 0x1C bit 3 set decodes and encodes back byte-identical with no `unknown` entry for
-  that bit; `just bindings` if the bindings expose the crate
+- [x] 4.33 **`name.y` is PES 21's value on every version**, done 2026-10-07 (sidekick,
+  landed first time, no lead fix): `kit_config` `binary.rs` decodes and encodes Name Y with
+  one 6-bit formula (0x1D bit 0, 0x1C bits 3-7) and the 0x1C remainder mask 0x07 on every
+  version; `field_limits` caps it at 33 below PES 21 (39 on 21); `UNKNOWN_MASKS` 0x1C is
+  0x07, so a TOML `[unknown]` `"0x1C"` of 8 to 15 is refused like any known bit; the TOML
+  comment reads `0-39 (PES 15-20: 0-33)`. The private `binary::decode` no longer reads its
+  version (`_version`); `KitConfig::decode` keeps the parameter, symmetric with `encode`,
+  its doc saying the bytes decode alike. Tests: the template round-trips on PES 17 and 21
+  (not 15: its pattern remap rewrites the template's pattern 13 as 11, existing behavior);
+  a PES 17 config with 0x1C = `FA` reads Name Y 31, remainder 2, and round-trips; packing
+  is identical on 15, 17, 20, 21; TC-KIT-17 (36 → 33 on PES 18), TC-KIT-24 (30 gives
+  `F2 0E` on PES 18 and 21, no finding); `deep/documents.rs` and the help paragraph follow.
+  `python_bindings` does not use the crate. Gates green (149 of 250); `mutants-diff
+  53abc6f`: 24 mutants, 22 caught, 2 unviable, 0 missed; `clef-diff 53abc6f`: one flag, the
+  window of the `legacy.rs` comment fix, rejected
 
 - [ ] 4.34 **Coverage tag: `Full` or `Midcup` in a team export's name** (decision entry of
   2026-10-04; before 4.21, whose TC-BIN-05 and 06 are Midcup cases). Plan:
@@ -1485,11 +1494,26 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   blocking a task. (Placed after 4.28: eviction is the budget's policy, which 4.28 gives the
   budget the accounting for.)
 
-- [ ] 4.c-pass **Clef full pass** (decision entries of 2026-10-06; `CONTRIBUTING.md` "Clef
-  scan"): `just clef all` over the current code (about 1,540 windows, 27K neurons: it spans two
-  days on the two free accounts, the rest queued), every merged flag ruled into
-  `scripts/clef_rulings.md`, the accepted ones fixed through a rework brief or a new step →
-  verify: a rerun's report shows no new flag; each fix landed with a red-first test
+- [x] 4.c-pass **Clef full pass**, done 2026-10-07 at `53abc6f` (with 4.33's tree): 1,554
+  windows, 68 flagged at 0.7, 54 merged flags, each ruled in `scripts/clef_rulings.md` from a
+  read-only investigation per flag (evidence: the line's doc comment, the test pinning it,
+  the plan): 53 rejected, 1 accepted (4.c-fix1). Three flags were test code in a file of its
+  own (`#[cfg(test)] mod test_support;`, two `*_golden.rs`): `clef_scan.py`
+  `test_only_file` now leaves such modules out (20 files, 57 windows), so a rerun reads
+  1,497 windows, 51 flags, 0 new. Side findings fixed as comments: `legacy.rs`'s physique
+  run is fourteen `i32`s, not thirteen. Not acted on: `ir/mod.rs:63` and `ir.md:53` say a
+  root bone's `local_position` equals its global one while `ir.md:265` and the FMDL export
+  test pin `[0,0,0,1]` (the two may describe import and export; unchecked).
+
+- [ ] 4.c-fix1 **`convert` keeps the target's base-copy flag when the source version has
+  none** (Clef flag `pes_savefile/src/convert.rs`, ruled 2026-10-07): `edit_flags.base_copy`
+  is a plain `bool` while only the PES 15-18 schemas hold `BaseCopy`, so a PES 19-21 player
+  converted into a PES 15-18 template writes `false` over the template's flag, where
+  `pes_savefile/operations.md` "What the Rust module is" fills what the source lacks from
+  the target. Fix the way the model's other version-gated fields are (an `Option`, `carry`),
+  with its codec, `team_toml` and consumers → verify: a PES 19 source into a PES 18 template
+  whose flag is set keeps it set (red first); a PES 18 source into a PES 18 template copies
+  its own flag both ways
 
 - [ ] 4.c-threshold **Clef threshold re-check** (after 4.c-pass, once
   `scripts/clef_rulings.md` holds 200 rulings or at this phase's converge, whichever comes

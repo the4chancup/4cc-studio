@@ -29,8 +29,9 @@ pub fn template() -> KitConfig {
 }
 
 /// Decodes a kit config; WESYS-wrapped input is unwrapped first, the result
-/// must be exactly 120 bytes.
-pub fn decode(bytes: &[u8], version: PesVersion) -> Result<KitConfig, KitConfigError> {
+/// must be exactly 120 bytes. Every version's bytes decode alike (Name Y
+/// included, see below), so the version is not consulted.
+pub fn decode(bytes: &[u8], _version: PesVersion) -> Result<KitConfig, KitConfigError> {
     let bytes = wezlib::decompress_if_wrapped(bytes)?;
     let bytes: &[u8] = bytes.as_ref();
     if bytes.len() != 120 {
@@ -94,17 +95,12 @@ pub fn decode(bytes: &[u8], version: PesVersion) -> Result<KitConfig, KitConfigE
     let tight = bytes[0x1B] & 0x80 != 0;
     keep_unknown(0x1B, bytes[0x1B], 0x70);
 
-    // Name Y spans 0x1C/0x1D and differs by version: 5 bits on PES <= 20,
-    // 6 bits on PES 21 (which claims 0x1C bit 3 as data).
-    let (name_y, unknown_1c_mask) = if version >= PesVersion::Pes21 {
-        (
-            ((bytes[0x1D] & 0x1) << 5) | ((bytes[0x1C] >> 3) & 0x1F),
-            0x07u8,
-        )
-    } else {
-        (((bytes[0x1D] & 0x1) << 4) | (bytes[0x1C] >> 4), 0x0Fu8)
-    };
-    keep_unknown(0x1C, bytes[0x1C], unknown_1c_mask);
+    // Name Y is PES 21's 6-bit field, 0x1D[0] << 5 | 0x1C[3-7], on every
+    // version: PES <= 20 reads the same bits without the lowest one (0x1C
+    // bit 3), so the same bytes put the name at the same height there. No
+    // version branch, so a config moves between versions unconverted.
+    let name_y = ((bytes[0x1D] & 0x1) << 5) | ((bytes[0x1C] >> 3) & 0x1F);
+    keep_unknown(0x1C, bytes[0x1C], 0x07);
     let name = NameText {
         show: bytes[0x1E] & 0x1 == 0,
         shape: match bytes[0x1D] >> 6 {
@@ -274,21 +270,16 @@ pub fn encode_with_names(
         | (if config.shirt.tight { 0x80 } else { 0 });
     apply_unknown(&mut bytes, 0x1B, 0x70);
 
-    // The game bounds Name Y at 0-16 on PES <= 20 and 0-39 on PES 21
-    // (`limit("name.y")`), inside a 5-bit / 6-bit field.
+    // Name Y is written as PES 21's 6-bit field on every version (see
+    // `decode`); only its maximum depends on the version: 39 on PES 21, 33 on
+    // PES <= 20, whose 5-bit reading of the same bits stops at 16
+    // (`limit("name.y")`).
     let name_y = config.name.y.min(limit("name.y"));
     let name_size = config.name.size.min(limit("name.size"));
-    if version >= PesVersion::Pes21 {
-        bytes[0x1C] = (name_y & 0x1F) << 3;
-        bytes[0x1D] =
-            ((name_y >> 5) & 0x1) | (name_size << 1) | (name_shape_bits(config.name.shape) << 6);
-        apply_unknown(&mut bytes, 0x1C, 0x07);
-    } else {
-        bytes[0x1C] = (name_y & 0xF) << 4;
-        bytes[0x1D] =
-            ((name_y >> 4) & 0x1) | (name_size << 1) | (name_shape_bits(config.name.shape) << 6);
-        apply_unknown(&mut bytes, 0x1C, 0x0F);
-    }
+    bytes[0x1C] = (name_y & 0x1F) << 3;
+    bytes[0x1D] =
+        ((name_y >> 5) & 0x1) | (name_size << 1) | (name_shape_bits(config.name.shape) << 6);
+    apply_unknown(&mut bytes, 0x1C, 0x07);
 
     let left_short_y = config.badges.left_short.y.min(limit("badge.left_short.y"));
     bytes[0x1E] = (if config.name.show { 0 } else { 1 })

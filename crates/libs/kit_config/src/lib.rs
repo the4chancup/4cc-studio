@@ -31,7 +31,8 @@ impl KitConfig {
     }
 
     /// Decodes a kit config; WESYS-wrapped input is unwrapped first and the
-    /// result must be exactly 120 bytes.
+    /// result must be exactly 120 bytes. Every version's bytes decode alike:
+    /// `name.y` is PES 21's number whatever `version` is.
     pub fn decode(bytes: &[u8], version: PesVersion) -> Result<KitConfig, KitConfigError> {
         binary::decode(bytes, version)
     }
@@ -222,6 +223,25 @@ mod tests {
         assert_eq!(template.shirt.collar, 105);
         assert_eq!(template.shirt.winter_collar, 105);
         assert_eq!(template.encode(PesVersion::Pes21), TEMPLATE);
+        // Not PES 15: its pattern remap rewrites the template's pattern 13
+        // (0x24 = DF) as 11 (BF).
+        for version in [PesVersion::Pes17, PesVersion::Pes21] {
+            let decoded = KitConfig::decode(TEMPLATE, version).unwrap();
+            assert_eq!(decoded.encode(version), TEMPLATE, "{version:?}");
+        }
+    }
+
+    /// 0x1C bit 3 is Name Y's lowest bit on every version, so a PES 17 config with it set
+    /// decodes it into `name.y`, not into the 0x1C remainder, and still round-trips.
+    #[test]
+    fn a_pes17_config_with_0x1c_bit_3_set_reads_it_as_name_y() {
+        let mut bytes = [0u8; 120];
+        bytes.copy_from_slice(TEMPLATE);
+        bytes[0x1C] = 0xFA; // 11111 010: Name Y low bits 31, remainder 0x02
+        let config = KitConfig::decode(&bytes, PesVersion::Pes17).unwrap();
+        assert_eq!(config.name.y, 31);
+        assert_eq!(config.unknown.get(&0x1C), Some(&0x02));
+        assert_eq!(config.encode(PesVersion::Pes17), bytes);
     }
 
     /// The referee fixture decoded by hand from the plan's offset table
@@ -256,7 +276,7 @@ mod tests {
             name: NameText {
                 show: true,                 // 0x1E bit 0 of 1C
                 shape: NameShape::Straight, // 0x1D bits 6-7 of 0E
-                y: 0,                       // PES 21: 0x1D bit 0 << 5 | 0x1C bits 3-7, both 0
+                y: 0,                       // 0x1D bit 0 << 5 | 0x1C bits 3-7, both 0
                 size: 7,                    // 0x1D bits 1-5 of 0E = 00111
             },
             numbers: Numbers {
@@ -434,8 +454,15 @@ mod tests {
 
         config = KitConfig::template();
         config.name.y = 30;
-        // PES <= 20's Name Y field holds 0-16: one finding naming the field,
-        // and the emitted bytes decode to the clamped 16.
+        // `name.y` is PES 21's number on every version; PES <= 20 holds up
+        // to 33 of it. 30 gives no finding there and comes back as is.
+        assert!(validate(&config, PesVersion::Pes20).is_empty());
+        let decoded =
+            KitConfig::decode(&config.encode(PesVersion::Pes20), PesVersion::Pes20).unwrap();
+        assert_eq!(decoded.name.y, 30);
+        // Over 33: one finding naming the field, and the emitted bytes decode
+        // to the clamped 33.
+        config.name.y = 36;
         assert_eq!(
             validate(&config, PesVersion::Pes20),
             [Finding {
@@ -443,19 +470,35 @@ mod tests {
                 severity: Severity::Warning,
                 context: Some(OutOfRange {
                     field: "name.y",
-                    value: 30,
-                    max: 16,
+                    value: 36,
+                    max: 33,
                 }),
             }]
         );
         let decoded =
             KitConfig::decode(&config.encode(PesVersion::Pes20), PesVersion::Pes20).unwrap();
-        assert_eq!(decoded.name.y, 16);
-        // PES 21's field holds 0-39: no finding, 30 emitted as is.
+        assert_eq!(decoded.name.y, 33);
+        // PES 21's field holds 0-39: no finding, 30 and 39 emitted as is.
+        config.name.y = 30;
         assert!(validate(&config, PesVersion::Pes21).is_empty());
         let decoded =
             KitConfig::decode(&config.encode(PesVersion::Pes21), PesVersion::Pes21).unwrap();
         assert_eq!(decoded.name.y, 30);
+        config.name.y = 39;
+        assert!(validate(&config, PesVersion::Pes21).is_empty());
+        config.name.y = 40;
+        assert_eq!(
+            validate(&config, PesVersion::Pes21),
+            [Finding {
+                code: "kit_value_out_of_range",
+                severity: Severity::Warning,
+                context: Some(OutOfRange {
+                    field: "name.y",
+                    value: 40,
+                    max: 39,
+                }),
+            }]
+        );
 
         // Every packed field goes through the same table.
         let mut config = KitConfig::template();
@@ -477,10 +520,8 @@ mod tests {
     fn pes15_pattern_remaps_and_warns() {
         let mut config = KitConfig::template();
         // The template preserves the byte's undecoded low nibble; drop it so
-        // the emitted byte shows the pattern field alone. Its name.y = 30 is
-        // out of range on PES 15, which is not what this test checks.
+        // the emitted byte shows the pattern field alone.
         config.unknown.remove(&0x24);
-        config.name.y = 10;
         let pattern_byte = |config: &KitConfig, version: PesVersion| config.encode(version)[0x24];
 
         config.shirt.pattern = 6;
@@ -585,7 +626,7 @@ mod tests {
     }
 
     #[test]
-    fn name_y_size_and_shape_pack_into_1c_1d_per_version() {
+    fn name_y_size_and_shape_pack_into_1c_1d_on_every_version() {
         let mut config = KitConfig::template();
         config.name.size = 10;
         config.name.shape = NameShape::MediumCurve;
@@ -593,24 +634,24 @@ mod tests {
         // remainder at 0x1C (0x1D is fully decoded, none preserved).
         config.unknown.remove(&0x1C);
 
-        // PES <= 20: 0x1C[4-7] = y & 0xF, 0x1D[0] = y >> 4,
-        // 0x1D[1-5] = size, 0x1D[6-7] = shape.
-        config.name.y = 5;
-        let bytes = config.encode(PesVersion::Pes20);
-        assert_eq!(bytes[0x1C], 0x50); // 5 << 4
-        assert_eq!(bytes[0x1D], 0x94); // 0 | (10 << 1) | (2 << 6)
-        // y's fourth bit carries into 0x1D bit 0.
-        config.name.y = 16;
-        let bytes = config.encode(PesVersion::Pes20);
-        assert_eq!(bytes[0x1C], 0x00); // (16 & 0xF) << 4
-        assert_eq!(bytes[0x1D], 0x95); // 1 | (10 << 1) | (2 << 6)
-
-        // PES 21 gives y a sixth bit: 0x1C[3-7] = y & 0x1F,
-        // 0x1D[0] = y >> 5.
-        config.name.y = 33;
-        let bytes = config.encode(PesVersion::Pes21);
-        assert_eq!(bytes[0x1C], 0x08); // (33 & 0x1F) << 3
-        assert_eq!(bytes[0x1D], 0x95); // 1 | (10 << 1) | (2 << 6)
+        // 0x1C[3-7] = y & 0x1F, 0x1D[0] = y >> 5, 0x1D[1-5] = size,
+        // 0x1D[6-7] = shape, the same bytes on every version.
+        for version in [
+            PesVersion::Pes15,
+            PesVersion::Pes17,
+            PesVersion::Pes20,
+            PesVersion::Pes21,
+        ] {
+            config.name.y = 5;
+            let bytes = config.encode(version);
+            assert_eq!(bytes[0x1C], 0x28, "{version:?}"); // 5 << 3
+            assert_eq!(bytes[0x1D], 0x94, "{version:?}"); // 0 | (10 << 1) | (2 << 6)
+            // y's sixth bit carries into 0x1D bit 0.
+            config.name.y = 33;
+            let bytes = config.encode(version);
+            assert_eq!(bytes[0x1C], 0x08, "{version:?}"); // (33 & 0x1F) << 3
+            assert_eq!(bytes[0x1D], 0x95, "{version:?}"); // 1 | (10 << 1) | (2 << 6)
+        }
     }
 
     #[test]
@@ -839,6 +880,15 @@ mod tests {
             err,
             KitConfigError::InvalidValue { key: "unknown", .. }
         ));
+        // 0x1C bit 3 is Name Y's on every version, not a remainder bit; the
+        // bits below it are.
+        let err = KitConfig::from_toml("[unknown]\n\"0x1C\" = 8\n").unwrap_err();
+        assert!(matches!(
+            err,
+            KitConfigError::InvalidValue { key: "unknown", .. }
+        ));
+        let config = KitConfig::from_toml("[unknown]\n\"0x1C\" = 2\n").unwrap();
+        assert_eq!(config.unknown.get(&0x1C), Some(&0x02));
         // Two spellings of one offset are rejected.
         let err = KitConfig::from_toml("[unknown]\n\"0x1C\" = 1\n\"0x1c\" = 2\n").unwrap_err();
         assert!(matches!(

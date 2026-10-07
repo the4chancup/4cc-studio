@@ -191,7 +191,7 @@ socks = "#079144"
 [name]
 show = true
 shape = "straight"          # straight / light-curve / medium-curve / extreme-curve
-y = 8                       # 0-16 (PES2021: 0-39)
+y = 8                       # 0-39 (PES 15-20: 0-33)
 size = 14                   # 0-20
 
 [number.back]

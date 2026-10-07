@@ -103,7 +103,8 @@ pub struct NameText {
     pub show: bool,
     /// The name's arc shape.
     pub shape: NameShape,
-    /// Vertical position (0-16; 0-39 on PES 21).
+    /// Vertical position in PES 21's units on every version, 0-39; PES 15-20
+    /// hold 0-33 (their own 0-16, half of this number).
     pub y: u8,
     /// Size, 0-20.
     pub size: u8,
@@ -214,9 +215,7 @@ pub struct FieldLimit {
 }
 
 /// The offsets that carry undecoded bits and their remainder masks, as the
-/// codec's `keep_unknown`/`apply_unknown` calls define them. `0x1C` takes
-/// the union of its per-version masks (0x0F covers both), since the TOML
-/// form is version-neutral.
+/// codec's `keep_unknown`/`apply_unknown` calls define them.
 pub(crate) const UNKNOWN_MASKS: [(u8, u8); 17] = [
     (0x00, 0xFC),
     (0x13, 0xFF),
@@ -225,7 +224,7 @@ pub(crate) const UNKNOWN_MASKS: [(u8, u8); 17] = [
     (0x18, 0x20),
     (0x19, 0xCC),
     (0x1B, 0x70),
-    (0x1C, 0x0F),
+    (0x1C, 0x07),
     (0x1E, 0x02),
     (0x1F, 0x08),
     (0x20, 0x20),
@@ -238,12 +237,13 @@ pub(crate) const UNKNOWN_MASKS: [(u8, u8); 17] = [
 ];
 
 /// Every clamped field's limit for `version`: the field's bit width, except
-/// `name.y`, which the game bounds at 0-16 on PES <= 20 and 0-39 on PES 21
-/// (kit_config_editor plan, "Version differences"). This is the one table
-/// `validate`'s `kit_value_out_of_range` finding and `encode`'s clamp both
-/// read, so they cannot disagree.
+/// `name.y`, PES 21's units on every version, which the game bounds at 0-39
+/// on PES 21 and at 0-33 on PES <= 20 (their own 0-16; kit_config_editor
+/// plan, "Version differences"). This is the one table `validate`'s
+/// `kit_value_out_of_range` finding and `encode`'s clamp both read, so they
+/// cannot disagree.
 pub fn field_limits(version: PesVersion) -> [FieldLimit; 21] {
-    let name_y_max = if version >= PesVersion::Pes21 { 39 } else { 16 };
+    let name_y_max = if version >= PesVersion::Pes21 { 39 } else { 33 };
     [
         FieldLimit {
             field: "shirt.pattern",

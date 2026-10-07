@@ -513,7 +513,7 @@ pub fn to_toml(config: &KitConfig) -> String {
         shape_repr(c.name.shape)
     ));
     line(&format!(
-        "y = {}                       # 0-16 (PES2021: 0-39)",
+        "y = {}                       # 0-39 (PES 15-20: 0-33)",
         c.name.y
     ));
     line(&format!("size = {}                   # 0-20", c.name.size));

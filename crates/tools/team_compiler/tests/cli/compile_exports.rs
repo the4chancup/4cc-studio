@@ -1011,13 +1011,18 @@ fn config_path(ordinal: &str) -> String {
     format!("common/character0/model/character/uniform/team/714/714_DEF_{ordinal}_realUni.bin")
 }
 
+/// The 120 bytes team 714's kit config for the kit `ordinal` was emitted as in `entries`.
+fn emitted_config_bytes<'a>(entries: &'a BTreeMap<String, Vec<u8>>, ordinal: &str) -> &'a [u8] {
+    &entries[&config_path(ordinal)]
+}
+
 /// The kit config team 714's kit `ordinal` was emitted as in `entries`, decoded for `version`.
 fn emitted_config(
     entries: &BTreeMap<String, Vec<u8>>,
     ordinal: &str,
     version: PesVersion,
 ) -> KitConfig {
-    KitConfig::decode(&entries[&config_path(ordinal)], version).unwrap()
+    KitConfig::decode(emitted_config_bytes(entries, ordinal), version).unwrap()
 }
 
 /// A kit config carrying shirt model 144 and the template's values otherwise, the FPC shorts
@@ -1123,9 +1128,9 @@ fn a_kit_config_value_the_version_cannot_hold_is_reported_and_clamped() {
     sandbox.write(&format!("{export}/Kits/p1/kit.dds"), &tracer_kit());
     sandbox.write(
         &format!("{export}/Kits/p1/config.toml"),
-        b"[name]\ny = 30\n",
+        b"[name]\ny = 36\n",
     );
-    let clamped = "Warning kit_config_version_clamped [Keep] at Kits/p1/config.toml (field=name.y, value=30, max=16)";
+    let clamped = "Warning kit_config_version_clamped [Keep] at Kits/p1/config.toml (field=name.y, value=36, max=33)";
 
     let run = sandbox.run(&pes_settings(&sandbox, 18), &["compile"]);
 
@@ -1138,7 +1143,7 @@ fn a_kit_config_value_the_version_cannot_hold_is_reported_and_clamped() {
     let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
     assert_eq!(
         emitted_config(&entries, "1st", PesVersion::Pes18).name.y,
-        16
+        33
     );
 
     let check = sandbox.run(&pes_settings(&sandbox, 18), &["check"]);
@@ -1147,6 +1152,42 @@ fn a_kit_config_value_the_version_cannot_hold_is_reported_and_clamped() {
         findings_of(&lines, "co - Clamp").contains(&clamped),
         "{lines:#?}"
     );
+}
+
+// TC-KIT-24
+#[test]
+fn a_name_y_compiles_to_the_same_bytes_on_pes_18_and_pes_21() {
+    let sandbox = Sandbox::new("kit_config_name_y");
+    let export = "exports/co - Name";
+    sandbox.write(&format!("{export}/Kits/p1/kit.dds"), &tracer_kit());
+    sandbox.write(
+        &format!("{export}/Kits/p1/config.toml"),
+        b"[name]\ny = 30\n",
+    );
+
+    let mut emitted = Vec::new();
+    for (number, version) in [(18, PesVersion::Pes18), (21, PesVersion::Pes21)] {
+        let run = sandbox.run(&pes_settings(&sandbox, number), &["compile"]);
+        let lines = run.messages();
+        assert!(
+            !lines
+                .iter()
+                .any(|line| line.contains("kit_config_version_clamped")),
+            "{version:?}: {lines:#?}"
+        );
+        assert_eq!(run.exit_code(), 0, "{version:?}");
+        let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+        assert_eq!(
+            emitted_config(&entries, "1st", version).name.y,
+            30,
+            "{version:?}"
+        );
+        emitted.push(emitted_config_bytes(&entries, "1st").to_vec());
+    }
+
+    assert_eq!(emitted[0][0x1C..0x1E], emitted[1][0x1C..0x1E]);
+    // 30 is the template's own Name Y, so these are the template's bytes.
+    assert_eq!(emitted[1][0x1C..0x1E], [0xF2, 0x0E]);
 }
 
 // TC-SRC-03

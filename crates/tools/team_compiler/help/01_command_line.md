@@ -268,10 +268,11 @@ says so with the note `kit_config_fpc_adjusted` (your file is not changed). A ki
 export without `fpc_on` has its configs built as they are, FPC values or not, and taking a team
 off FPC is an edit you make in the configs yourself.
 
-A kit config value the chosen PES version cannot hold (a name position `y` over 16 before PES
-2021, or a shirt pattern of 12 or 13 on PES 2015) is lowered to one the version can hold when
-the kit is built. Both commands report it as the warning `kit_config_version_clamped`, naming
-the field, the value and the maximum.
+A kit config value the chosen PES version cannot hold (a name position `y` over 33 before PES
+2021 or over 39 on PES 2021, or a shirt pattern of 12 or 13 on PES 2015) is lowered to one the
+version can hold when the kit is built. Both commands report it as the warning
+`kit_config_version_clamped`, naming the field, the value and the maximum. The same `y` puts the
+name at the same height on every version, so a config needs no change to move between them.
 
 Both commands read every export in the exports folder from the settings (`exports/` beside
 `4cc-studio` unless you changed it). To use another folder for one run, give its path as
