@@ -83,7 +83,17 @@ model on the maintainer's machine carries stray hand weights, and a full-body mo
 thousands (the `fcl_hair.fmdl` of Red's sample face folder `00007 - BLANK`: 1,684 per hand of
 9,563 vertices).
 
-A split model goes through the IR and back (FMDL → IR → split → FMDL). Measured at 4.18 on that
+On pre-Fox the split happens in the face task alone, since the face's `face.xml` lists gloves
+beside the face (there is no gloves task without `ingame_face`, and under the marker no model is
+face content, as on Fox, so none is split). The body keeps the model's name and entry; the
+hands of `<stem>.model` become `<stem>_glove_l.model` and `<stem>_glove_r.model`, whose suffix
+types them `gloveL` and `gloveR` and keeps them clear of an authored `glove_l.model`, each its
+own `face.xml` entry. All three name the `.mtl` the source model uses: each keeps a subset of
+its materials under their names, so that `.mtl` defines every one, and no new material file is
+written. The detection reads the `.model`'s own bone weights, as the FMDL check does.
+
+A split model goes through the IR and back (FMDL → IR → split → FMDL; on pre-Fox `.model` → IR →
+split → `.model`). Measured at 4.18 on that
 `fcl_hair.fmdl`, the round trip keeps the bones, the materials and every face, and changes two
 things nothing in the game reads differently: the meshes of a split-mesh group are re-chunked
 (the faces regrouped by bone-group size), and Konami's per-bone matrix block is written empty,

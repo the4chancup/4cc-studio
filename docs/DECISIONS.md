@@ -4897,3 +4897,15 @@ Why: the remote half's builds of `team_compiler` reached the 9 GiB cap with `REM
 already at 1 (4.14d lost two builds there), the cap cannot grow, and a killed build hides an
 untested mutant until it is rerun by hand, so the split no longer saves time on this crate.
 Plan: `AGENTS.md` "Environment" (the VPS cap paragraph).
+
+## 2026-10-08 — team_compiler — Pre-Fox hand split: `<stem>_glove_l`/`_glove_r` entries in the face
+Decision: on pre-Fox a hand-weighted face model is split in the face task: the body keeps its
+name and `face.xml` entry, and the hands become `<stem>_glove_l.model` and
+`<stem>_glove_r.model`, two more entries typed `gloveL`/`gloveR`, all three naming the source
+model's `.mtl`. Under `ingame_face` nothing is split, as on Fox, where only face content is.
+Why: the plan was silent on pre-Fox names. A `face.xml` lists gloves beside the face, so no
+gloves task is needed; the stem prefix keeps the split parts from clashing with an authored
+`glove_l.model`, and the suffix types them by the existing table. Each split part keeps a
+subset of the source's materials under their names, so the source `.mtl` already defines them
+and writing new material files would only add names to keep apart.
+Plan: `model_conversion/hand_split.md` "Pipeline integration".
