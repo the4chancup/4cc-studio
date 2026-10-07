@@ -4271,3 +4271,23 @@ order because every other list measured holds zeros there and PES 19's number ag
 Plan: `team_compiler/pipeline.md` "Bins accumulation", "DpFileList upgrade" (the measured
 layout); `team_compiler/messages.md` `installed_bin_unreadable`; `team_compiler/README.md`
 TC-BIN-21 (new).
+
+## 2026-10-07 — team_compiler — `templates/` overrides: flat names, read first, unreadable aborts
+Decision: a `templates/` override is named as the embedded resource's own file is, in a flat
+folder (`UniColor.bin`, `UniformParameter18.bin`, `UniformParameter19.bin`, `face_diff.bin`,
+`fcl_hair_sim.fclo`, `body.skl`, `placeholder_kit.dds`); a file naming no resource is not read.
+A compile reads the overrides once, before any export is read and before the working-bin walk.
+An override that cannot be read is `template_override_unreadable`, now Fatal for every
+resource: the run stops there. The plan had three dispositions (`DropFolder` for a template a
+folder injects, `DropExport` for a referee template, `AbortRun` for a bin). A bin the walk
+supplies keeps `bin_source` naming its CPK; an overridden bundled base still reports `bundled`,
+beside `template_override_active`.
+Why: TC-BIN-07 names the flat form, and flat names are unique among the resources embedded
+today (one `body.skl`, PES 21's; a per-version skeleton embedded later needs a name of its own
+in the folder). An override
+is put there on purpose, as an `overrides/` file is, and an unreadable one of those fails the
+CPK; dropping each folder that would inject a locked `face_diff.bin` would ship a CPK with no
+faces, which a member notices later than a run that stops and names the file. One rule also
+needs no per-task plumbing of a failed resource.
+Plan: `team_compiler/pipeline.md` "Resolved decisions" ("Templates and fallback bins");
+`team_compiler/messages.md` `template_override_unreadable`, `template_override_active`.

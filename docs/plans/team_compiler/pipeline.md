@@ -1228,7 +1228,15 @@ Resolved decisions:
   folder in the data directory shadows embedded resources per file, so cup maintainers can hot-swap
   fallback bins or referee template content between releases; each active override is reported
   (`template_override_active`), and an override file that exists but cannot be read reports
-  `template_override_unreadable`.
+  `template_override_unreadable`. An override is named as the resource's own file is, the
+  folder flat: `templates/UniColor.bin`, `templates/UniformParameter19.bin`,
+  `templates/face_diff.bin`, `templates/body.skl`; a file there that names no resource is not
+  read. A compile reads the overrides once, before any export is read and before the
+  working-bin walk (whose bundled bases they replace), and one that cannot be read stops the
+  run there, whatever the resource: we abort, not drop each folder that would use it,
+  because the file was put there on purpose (an unreadable `overrides/` file fails the CPK
+  for the same reason), and a locked `face_diff.bin` dropping every face folder would ship
+  a CPK without its faces.
 - **Teams list: embedded upstream, one working copy in the data directory.** The current cup's
   `teams_list.txt` ships *inside* the binary like the templates (upstream), and the only copy on
   disk is `data/teams_list.txt` (working), created from the embedded one on first run and edited
