@@ -1544,7 +1544,13 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   4.25);
   `cpk_slots_exhausted`, `cpk_team_exceeds_cap`, `cpk_size_over_limit` (single-CPK); the bins CPK
   (`bins_cpk_name`), the
-  refs CPK beside them; `dds_compression = auto` follows the mode; deployment per generated CPK.
+  refs CPK beside them (with 4.19); deployment per generated CPK, all or none
+  (`dds_compression = auto` moved to the pre-Fox steps: decision entry "multi-CPK mode: the
+  official list's slots, permits given back, all-or-nothing install"). Slices: 4.26a the `cpk`
+  crate tells a writer's size were entries added (the cap is checked TOC included); 4.26b the
+  parts, placeholders, bins CPK and the three size findings, with `--no-deploy` (TC-OUT-12..16;
+  a deploying multi-CPK run still refused); 4.26c deploying them all or none and each judged
+  by the preflight (TC-DEP-08, TC-DEP-11 without its refs export, which joins at 4.19).
   Plan: `pipeline.md` "5. Writer" step 6 ("Multi-CPK mode: teams parts"); `settings.md`
   (`multicpk_mode`, `teams_cpk_name`, `cpk_part_max_size`, `bins_cpk_name`). IDs: TC-OUT-12..16,
   TC-DEP-08 (moved from 4.25: it needs this mode), TC-DEP-11. Crates: tc (`output/writer.rs`,

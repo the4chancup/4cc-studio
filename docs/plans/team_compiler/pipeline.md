@@ -785,7 +785,8 @@ describes behavior, not a serial scheduling requirement:
    - **The slots come from the DpFileList, midcup style.** The official DPFL reserves a run of
      numbered names with the same stem — `4cc_41_teams`, `4cc_42_teams`, … — exactly like the
      `4cc_61_midcup` … `4cc_75_midcup` run (and `4cc_20_stadiums` … `4cc_35_stadiums`). The compiler takes as
-     its part slots every DPFL entry matching `{prefix}_{NN}_{teams_cpk_stem}` (the `teams_cpk_name`
+     its part slots every entry of the **official** DPFL (the embedded one, or its `templates/`
+     override) matching `{prefix}_{NN}_{teams_cpk_stem}` (the `teams_cpk_name`
      setting names the stem, default `teams`), ordered by number. The stem match is **exact** — the
      text after `_NN_` must equal the stem, so `teams` never claims `teams2` slots — which is what
      makes a **second slot run usable for a side event**: with `teams_cpk_name = teams2` and the
@@ -796,7 +797,21 @@ describes behavior, not a serial scheduling requirement:
      the compiler can never emit a part the users' game will not load. How many slots and which
      numbers is the DPFL author's call; the official list reserves **five slots** per run (41 to
      45, and 51 to 55 for `teams2`), which at the default cap gives 15 GB — roughly 2.5× a
-     48-team cup.
+     48-team cup. The slots are the official list's, not the installed one's, because the
+     cup maintainers build the DLC with `--no-deploy` on machines whose install, if any, is not
+     the DLC's, and the DLC is what users receive with the official list; a run that deploys
+     then needs the installed list to name every CPK it writes (the parts, the placeholders,
+     the bins CPK), each judged as the single CPK is ("Destination writability preflight"), so
+     an older list is `dpfilelist_outdated`.
+   - **Only a normal compile splits.** `multicpk_mode` changes where a normal compile's CPKs go;
+     test and sideload mode write their loose files as they do without it.
+   - **The run's first CPK is its boundary.** The working-bin walk and the installed texture
+     lookup start below the earliest CPK the run writes in the list's order, which is the bins
+     CPK in the official list (the player tables at the bins CPK itself, above), since every
+     part the run writes replaces the one installed under its name.
+   - **The overrides go into the bins CPK.** An entry at an override's path is left out
+     whichever CPK it would have gone to, so an override replaces a team's file as it does in a
+     single CPK.
    - **Filling is deterministic first-fit by canonical team order, one team per decision, made by
      the writer on exact sizes.** Teams are never split across parts: the writer holds a team's task
      batches until the team is complete, then places the whole team — into the current part if it
@@ -804,8 +819,11 @@ describes behavior, not a serial scheduling requirement:
      and places it there. This costs nothing measurable: the writer already lays out entries in
      canonical order, so a team's batches were waiting for their earlier siblings anyway; holding
      them until the team's *last* batch lands adds a few seconds of retention for one team's compiled
-     output (on the order of 100–250 MB, charged to the memory budget like any pending batch) while
-     the workers keep processing the next teams. Writing is disk-bound and writes the same bytes
+     output (on the order of 100–250 MB) while the workers keep processing the next teams. A held
+     batch gives its memory permit back when it is held, not when it is written: the team's
+     next task cannot start until its charge fits, so a team whose charges exceed the budget
+     would otherwise wait forever on its own held batches. The held team's output is thus the
+     one thing outside the budget. Writing is disk-bound and writes the same bytes
      either way. No planning-time estimate, no sidecar state, and no hard-limit check is needed
      because the decision is made on bytes actually produced. A single team larger than the cap is
      impossible in practice at 3 GB and is a fatal `cpk_team_exceeds_cap` rather than a silent split.
@@ -913,7 +931,13 @@ describes behavior, not a serial scheduling requirement:
   elevation); either removes the `.partial` and degrades the run (below). After the deployment
   transaction commits, the staging folder is deleted — like Red, nothing is left in `output/`.
   Nothing else is written in `download/`: Red wrote no record of what it installed, and nothing
-  would read one.
+  would read one. A run that writes several CPKs (multi-CPK mode) installs all or none: every
+  CPK is copied to its `.partial` first, then each old CPK is moved aside to
+  `{name}.cpk.old`, which is the step a locked CPK fails (`old_cpk_locked`: the ones already
+  moved go back, the `.partial`s are removed, and every CPK of the run is promoted to
+  `output/`), then each `.partial` is renamed into place and the `.old` files are removed.
+  One rename per CPK cannot be undone once the next fails, so the old CPKs are moved first,
+  when moving them back is still possible.
 - **Degraded run: promotion to `output/`** — if deployment cannot happen (`pes_folder_not_found`,
   `old_cpk_locked`, `deploy_target_unwritable`, `dpfilelist_missing`, ...), the staged CPKs are
   **promoted** to `output/{name}.cpk` (same volume, atomic rename, replacing any previous one)

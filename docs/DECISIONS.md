@@ -4486,3 +4486,28 @@ the work. The last list a user had is the one a backup is for. Treating every he
 alike, rather than only those outside the stem, gives one rule that never overwrites a file.
 Plan: `team_compiler/pipeline.md` "DpFileList upgrade"; `team_compiler/settings.md` "CLI";
 `team_compiler/messages.md` (the six rows).
+
+## 2026-10-07 — team_compiler — multi-CPK mode: the official list's slots, permits given back, all-or-nothing install
+Decision (lead, reversible): (1) the teams part slots are the official list's entries (the
+embedded `DpFileList.bin` or its `templates/` override), not the installed list's; a deploying
+run needs the installed list to name every CPK it writes, each judged as the single CPK is
+(`dpfilelist_outdated`, `cpk_name_unlisted`). (2) A batch held until its team is complete gives
+its memory permit back when held. (3) `multicpk_mode` affects a normal compile only. (4) The
+working-bin walk and the texture lookup start below the run's earliest CPK in list order (the
+bins CPK). (5) The overrides go into the bins CPK; an entry at an override's path is left out
+whichever CPK it would go to. (6) Several CPKs install all or none: copy all to `.partial`,
+move each old CPK aside to `.cpk.old` (a locked one fails here and everything is undone and
+promoted), rename the `.partial`s in, remove the `.old`s. (7) `dds_compression` leaves step
+4.26 for the pre-Fox steps: it is pre-Fox only and nothing there compresses yet. (8) Contexts
+of `cpk_slots_exhausted`, `cpk_team_exceeds_cap`, `cpk_size_over_limit` fixed in the catalog.
+Why: (1) the DLC is built with `--no-deploy` on machines whose install is not the DLC's, so
+the installed list cannot define its capacity, while the official list is what users receive.
+(2) the plan's "charged like any pending batch" deadlocks once a team's charges exceed the
+budget: its next task waits for bytes its own held batches keep. (3) loose files have no
+parts. (4) every part the run writes replaces the installed one of its name, so none of them
+may feed the run. (5) the bins CPK loads before the parts, so an override placed there would
+lose to a part's entry unless the entry is left out. (6) TC-DEP-11 asks that none replaces an
+installed one when one is locked; renaming each `.partial` over its old CPK cannot be undone
+once a later rename fails. (7) keeps the step to what it can test.
+Plan: `team_compiler/pipeline.md` "5. Writer" step 6 (Multi-CPK mode), "6. Post-processing"
+(Deploy CPKs); `team_compiler/messages.md` (the three rows).
