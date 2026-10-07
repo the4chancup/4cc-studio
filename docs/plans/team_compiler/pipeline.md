@@ -714,7 +714,9 @@ describes behavior, not a serial scheduling requirement:
   does not find gets no `bin_source`, there being no bundled base to name. A table is parsed as
   it is taken: whole 8-byte pairs for `BootsList.bin` and `GloveList.bin`, whole 60-byte rows
   for `PlayerAppearance.bin`. A listed CPK with no file in `download/` is
-  passed over. The walk runs before any export is read, and a list, a CPK or a bin in it that
+  passed over. The walk opens every CPK listed before the run's, also once each bin is found:
+  the texture lookup ("Resolved decisions", "A texture a model names must exist") needs every
+  table of contents, and each is read once per run. The walk runs before any export is read, and a list, a CPK or a bin in it that
   cannot be read stops the run there (`installed_bin_unreadable`, Fatal), so the previous CPK
   is kept: we abort, not fall back to the next CPK or the bundled base, because the run's CPK
   sits above the ones it walks, and a bin built on an older copy would hide the cup's later
@@ -1382,7 +1384,26 @@ Resolved decisions:
   is and not looked up: the game's data CPKs are not read. When the lookup cannot be made (no
   PES folder, no `DpFileList.bin`, or a list that does not name the CPK being compiled, so
   nothing is known to come before it), case 3 cannot be decided, and the finding is a Warning
-  that keeps the folder and says the textures could not be looked for. Red never checked a Fox model's textures at all, and only warned for a
+  that keeps the folder and says the textures could not be looked for. What the rule
+  compares: a path names the team's Common output when its directory, once its `000` became
+  the team's ID, is the team's Common texture directory
+  (`/Assets/pes16/model/character/common/<team>/sourceimages/`); an installed CPK holds it when
+  its table of contents lists the path the Common textures task writes for that stem
+  (`Asset/model/character/common/<team>/sourceimages/#windx11/<stem>.ftex` on Fox). Both
+  compare folded, as stems fold everywhere else. A texture is used when the material instance
+  of one of the model's meshes names it; an entry of the texture table no mesh uses is not
+  looked up, since the game never loads it. A stem starting with `dummy_` is never looked up,
+  wherever its path points: the game substitutes it. The check is made where the model is
+  compiled, in its package's task, so `check`, which compiles no model, does not report
+  `fmdl_texture_not_found`. The Error leaves that package out as any failed package is left
+  out (the folder's other packages and its textures still compile), naming the first missing
+  texture in the package's part order, since a failed task reports one finding; the Warning
+  is reported once per missing texture, since the folder compiles and the member sees nothing
+  else. The texture link resolves to the installed texture: the model's path names the team's
+  Common output, and nothing is packed for it. `check` reads the same tables of contents for
+  the link, reporting nothing about the walk itself, so `check` and `compile` agree on it. When
+  the lookup cannot be made, the link's `common_link_missing` stays an Error: the link is the
+  member's statement that the file is in `Common/`, and its row has no Warning. Red never checked a Fox model's textures at all, and only warned for a
   pre-Fox one; its warning for an FMDL with no team ID in its texture paths
   (`fmdl_no_texture_ids`) has no equivalent, since nothing is found by ID here.
 - **Conversion cache engages only for ≤2 teams**: the in-memory texture conversion cache is

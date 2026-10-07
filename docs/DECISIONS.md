@@ -4330,3 +4330,26 @@ name nothing.
 Plan: `team_compiler/pipeline.md` "Bins accumulation" (the paragraph on the walk's edges);
 `team_compiler/messages.md` `player_table_missing` (new); `team_compiler/README.md` TC-BIN-22
 (new).
+
+## 2026-10-07 — team_compiler — what "a texture a model names must exist" compares, and where it runs
+Decision: a path names the team's Common output when its directory, with `000` made the team's
+ID, is the team's Common texture directory; an installed CPK holds it when its table of
+contents lists the path the Common textures task writes for the stem. Both compare folded. Only
+textures a mesh's material instance names are looked up; a `dummy_` stem never is. The check
+runs in the model package's task, so `check` does not report `fmdl_texture_not_found`; its
+Error leaves that package out and names the first missing texture, and its Warning is reported
+once per missing texture. The working-bin walk now opens every CPK listed before the run's, not
+stopping once each bin is found. A texture link satisfied by an installed CPK resolves to that
+texture, and `check` reads the same tables of contents for it; when the lookup cannot be made,
+`common_link_missing` stays an Error. The step lands as 4.29a (the model check) and 4.29b (the
+link).
+Why: stems fold everywhere else, and the CPKs this run compiles are written with the stem as
+spelled in `Common/`, so an exact match would fail a model spelling it differently while the
+same model passes against the export's own `Common/`. A texture no mesh uses is never loaded,
+so it cannot make the player look wrong. Checking in the task, not at planning, avoids reading
+each model a second time on the main thread, and the task is where the paths are pointed. A
+failed package being left out alone is the rule of 2026-10-04, and a failed task reports one
+finding. The walk needs every table of contents for the lookup, so it cannot stop early.
+Plan: `team_compiler/pipeline.md` "Bins accumulation" (the walk opens every listed CPK),
+"Resolved decisions" ("A texture a model names must exist"); `team_compiler/messages.md`
+`fmdl_texture_not_found`.

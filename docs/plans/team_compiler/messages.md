@@ -215,7 +215,7 @@ savefile messages are new.
 | `mtl_broken` | E | MTL fails to parse (with line/column) | folder discarded |
 | `edithair_unsupported` | E | `face_edithair.xml` / `hair.xml` present | folder discarded |
 | `file_type_disallowed` | E/I | extension not in the mode's allowlist (E if `strict_file_type_check`, else I) | folder discarded / kept |
-| `fmdl_texture_not_found` | E/W | Fox: a texture one of the model's meshes uses is supplied by nobody: its stem resolves to no file of the folder, and its path names the team's Common output, where neither the export's `Common/` nor an installed CPK holds it (`pipeline.md` "Resolved decisions", "A texture a model names must exist"; context: the model file, the texture path). W when no install could be read to look, since the texture may be there | folder discarded (`DropFolder`); kept when W |
+| `fmdl_texture_not_found` | E/W | Fox: a texture one of the model's meshes uses is supplied by nobody: its stem resolves to no file of the folder, and its path names the team's Common output, where neither the export's `Common/` nor an installed CPK holds it (`pipeline.md` "Resolved decisions", "A texture a model names must exist"; context: `model`, the model file, and `texture`, the texture path the model now names). W when no install could be read to look, since the texture may be there. Reported by `compile`, where the model is compiled | that package left out (`DropFolder`), as for `merge_material_conflict`, naming the first missing texture; kept when W, one per missing texture |
 
 **Model checks** (the format crates' `check`, run by the deep pass on every native model as it
 is loaded, whatever the target, and from the conversion steps on, on each converted model in its

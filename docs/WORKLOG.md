@@ -2079,7 +2079,7 @@ pruned when their phase closes; they stay in git history.
   resolved, and it belongs with the stem namespace in `aesthetics_export` or with the
   textures task's conflicts. Rare: it needs a shared folder combined into a player who
   also links one of its stems to `Common/`.
-- open — texture stems are matched as spelled when a model's path is pointed at its texture
+- resolved (2026-10-07: stems fold since `6c2e060`, S3.2, and 4.29's lookup folds too) — texture stems are matched as spelled when a model's path is pointed at its texture
   (4.5, seen again at 4.11c and 4.11d), while validation folds case: a model naming
   `hair.dds` beside `Hair.dds` or `Hair.dds.common` keeps a game path with no finding.
   4.29's existence check is where it would surface; decide there whether the match folds
