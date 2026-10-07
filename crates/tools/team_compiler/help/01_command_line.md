@@ -270,6 +270,14 @@ team's colors written over the start of its entry, so the game no longer finds t
 `compile` repairs them and reports the warning `bin_header_repaired`, naming the file and the
 teams. Those teams' colors may be wrong until their exports are compiled again.
 
+`compile` starts the team color, kit color and kit config files from the ones the game loads:
+those of the CPKs your `DpFileList.bin` lists before the CPK being compiled, the nearest first.
+It says which CPK each file came from (`bin_source`). A file none of those CPKs holds starts
+from the copy built into the compiler, and so does every file when the PES folder has no
+`DpFileList.bin` (`dpfilelist_missing`) or the list does not name the CPK being compiled. A
+listed CPK, or a file in it, that cannot be read stops the compile before any export is read
+(`installed_bin_unreadable`), so the CPK you had is kept.
+
 An FPC player's body is hidden only when every kit config of the team, the goalkeeper kit's
 included, carries the FPC values (shirt model 176, shorts model 16, collar 105, winter collar
 105). So when any player folder of an export holds the marker `fpc_on`, `compile` builds every

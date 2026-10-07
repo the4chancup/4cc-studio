@@ -792,7 +792,7 @@ describes behavior, not a serial scheduling requirement:
      single-CPK mode with `cpk_name` set to that day's slot), so parts are never rewritten and
      cascading cannot occur.
    - **Every slot is always written.** Slots the run does not fill receive the **empty placeholder
-     CPK** — the same 6,272-byte zero-entry CPK the official DLC already ships for unused
+     CPK** — the same 6,272-byte CPK, holding only an 11-byte file `placeholder`, that the official DLC already ships for unused
      `midcup`/`test`/`stadiums` slots (`4cc_68_midcup.cpk` is one). This satisfies the DPFL without
      relying on PES tolerating listed-but-missing files, and it makes superseded content trivial: a
      recompile that needs fewer parts overwrites the stale higher slots with placeholders. The

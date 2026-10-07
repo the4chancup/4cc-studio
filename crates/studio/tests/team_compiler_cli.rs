@@ -138,9 +138,13 @@ fn compile_with_a_positional_root_compiles_it_and_leaves_the_settings_file_alone
     let output = sandbox.run(&["team-compiler", "compile", "elsewhere"]);
 
     assert_eq!(output.status.code(), Some(0), "stderr: {}", stderr(&output));
+    // The default PES folder does not exist, so every working bin is the bundled one.
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
-        "- co Midcup Kit: Info export_identified (team=/co/, id=714)\n\
+        "- Info bin_source (bin=TeamColor.bin, cpk=bundled)\n\
+         - Info bin_source (bin=UniColor.bin, cpk=bundled)\n\
+         - Info bin_source (bin=UniformParameter.bin, cpk=bundled)\n\
+         - co Midcup Kit: Info export_identified (team=/co/, id=714)\n\
          - co Midcup Kit: Info team_colors_missing\n\
          - co Midcup Kit: Info kit_config_generated at Kits/p1\n\
          - co Midcup Kit: Info kit_colors_derived at Kits/p1\n"

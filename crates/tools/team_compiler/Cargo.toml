@@ -35,6 +35,7 @@ teams_list.workspace = true
 toml.workspace = true
 uniparam.workspace = true
 vtree.workspace = true
+wezlib.workspace = true
 
 [lints]
 workspace = true

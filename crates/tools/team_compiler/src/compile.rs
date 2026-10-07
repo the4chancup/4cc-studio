@@ -14,7 +14,7 @@ use pes_version::PesVersion;
 use pipeline::{Cancelled, CpkStem, MemoryBudget, Permit};
 use studio_core::{Disposition, ExportId, Scope, Severity, ToolContext};
 
-use crate::bins::WorkingBins;
+use crate::bins::{WorkingBins, installed};
 use crate::cli::RunInputs;
 use crate::events::RunEvents;
 use crate::messages::{Code, tool_message};
@@ -27,10 +27,12 @@ use crate::validation::{run_budget, run_pool, validation_pass};
 
 /// Compiles every export validation keeps into `<output_folder>/<cpk_stem>.cpk`, after the
 /// files of the data directory's `overrides/` folder, reported as events, then collects the
-/// compiled exports' notes into `<output_folder>/teamnotes.txt`. Returns the worst severity
-/// reported: a CPK that cannot be written or put in place, or an export file that changes
-/// while the run reads it, is a Fatal finding, after which the previous CPK is all that is
-/// left. An exports folder or an `overrides/` folder that cannot be read is an error.
+/// compiled exports' notes into `<output_folder>/teamnotes.txt`. Its bins are built on those
+/// of the installed CPKs listed before its own (`bins::installed`). Returns the worst severity
+/// reported: an installed bin that cannot be read, a CPK that cannot be written or put in
+/// place, or an export file that changes while the run reads it, is a Fatal finding, after
+/// which the previous CPK is all that is left. An exports folder or an `overrides/` folder
+/// that cannot be read is an error.
 pub(crate) fn run(
     inputs: &RunInputs,
     cpk_stem: &CpkStem,
@@ -38,8 +40,46 @@ pub(crate) fn run(
     no_deploy: bool,
     ctx: &ToolContext,
 ) -> anyhow::Result<Option<Severity>> {
-    let planned = plan(inputs, ctx)?;
-    build(planned, cpk_stem, output_folder, no_deploy)
+    let mut events = RunEvents::new(ctx);
+    let Some(bins) = working_bins(inputs, cpk_stem, !no_deploy, &mut events) else {
+        return Ok(events.worst());
+    };
+    let planned = plan(inputs, events, ctx)?;
+    build(planned, bins, cpk_stem, output_folder, no_deploy)
+}
+
+/// The bins the run builds on, from the installed CPKs of the PES folder, their findings
+/// reported first. A file of the walk that cannot be read is `installed_bin_unreadable`, Fatal,
+/// and `None`: the run stops before any export is read, the previous CPK kept, rather than
+/// build on an older copy that its CPK, loaded above it, would put back for every team.
+fn working_bins(
+    inputs: &RunInputs,
+    cpk_stem: &CpkStem,
+    deploys: bool,
+    events: &mut RunEvents,
+) -> Option<WorkingBins> {
+    let pes_folder = inputs.common.pes_folder();
+    let version = inputs.common.pes_version;
+    match installed::working_bins(&pes_folder, cpk_stem, version, deploys) {
+        Ok((bins, messages)) => {
+            for message in messages {
+                events.message(message);
+            }
+            Some(bins)
+        }
+        Err(unreadable) => {
+            events.message(tool_message(
+                Code::InstalledBinUnreadable,
+                Scope::Run,
+                Disposition::AbortRun,
+                vec![
+                    ("path", unreadable.path.display().to_string()),
+                    ("error", format!("{:#}", unreadable.error)),
+                ],
+            ));
+            None
+        }
+    }
 }
 
 /// A run validated and planned, which `build` compiles: its own function so a test can change
@@ -58,15 +98,18 @@ struct PlannedRun {
 }
 
 /// `compile`'s first half: the `overrides/` folder listed, the validation pass, each export's
-/// findings reported, and the run planned.
-fn plan(inputs: &RunInputs, ctx: &ToolContext) -> anyhow::Result<PlannedRun> {
+/// findings reported through `events`, and the run planned.
+fn plan(
+    inputs: &RunInputs,
+    mut events: RunEvents,
+    ctx: &ToolContext,
+) -> anyhow::Result<PlannedRun> {
     let version = inputs.common.pes_version;
     // Listed before any export is read, so a tree that cannot be listed stops the run first.
     let (overrides, overrides_active) = overrides::list(ctx.paths().data_dir.as_deref())?;
     let budget = run_budget(inputs);
     let pool = run_pool(inputs)?;
     let pass = validation_pass(inputs, &budget, &pool)?;
-    let mut events = RunEvents::new(ctx);
     for message in pass.run_messages {
         events.message(message);
     }
@@ -104,10 +147,12 @@ fn plan(inputs: &RunInputs, ctx: &ToolContext) -> anyhow::Result<PlannedRun> {
 }
 
 /// `compile`'s second half: the planned tasks read, processed and written into the staged CPK,
-/// which is then promoted, and `teamnotes.txt` written. A source that changed while its tasks
-/// were read aborts the run with `source_changed_during_run`, the staging discarded.
+/// its bins built on `bins`, which is then promoted, and `teamnotes.txt` written. A source that
+/// changed while its tasks were read aborts the run with `source_changed_during_run`, the
+/// staging discarded.
 fn build(
     planned: PlannedRun,
+    bins: WorkingBins,
     cpk_stem: &CpkStem,
     output_folder: &Path,
     no_deploy: bool,
@@ -153,12 +198,9 @@ fn build(
             let mut output = output;
             let mut events = events;
             // The writer finishes the CPK too, so its file is closed when the thread ends,
-            // before a failure removes the staging folder. The bins are built on the bundled
-            // bases until the installed ones are read (`pipeline.md` "Bins accumulation").
+            // before a failure removes the staging folder.
             let written = write_batches(batches_rx, &mut output, &mut events, last_tasks, budget)
-                .and_then(|()| {
-                    output.finish(version, WorkingBins::bundled(), team_colors, full_team_kits)
-                });
+                .and_then(|()| output.finish(version, bins, team_colors, full_team_kits));
             (events, written)
         });
         let coordinated = pool.in_place_scope(|pool_scope| {
@@ -188,8 +230,8 @@ fn build(
     }
 
     let cpk_path = output_folder.join(&cpk_name);
-    // A bins failure is a CPK write failure too: `uniparam_compile_failed` arrives with Phase
-    // 4's installed-bin lookup; in Phase 3 the only bin is built on the bundled base.
+    // A bins failure is a CPK write failure too, an installed `UniformParameter.bin` that does
+    // not parse included: `uniparam_compile_failed` is not reported yet.
     let written = match written {
         Ok((written, messages)) => {
             for message in messages {
@@ -1042,13 +1084,14 @@ mod tests {
 
             let (events_tx, events) = unbounded();
             let ctx = ctx.with_events(events_tx);
-            let planned = plan(&inputs, &ctx).unwrap();
+            let planned = plan(&inputs, RunEvents::new(&ctx), &ctx).unwrap();
             let file = root
                 .join("exports")
                 .join("egg Midcup Tracer")
                 .join(&replaced);
             fs::write(&file, b"saved over from Blender").unwrap();
-            let worst = build(planned, &stem, &output, false).unwrap();
+            let bins = WorkingBins::bundled(PesVersion::Pes21);
+            let worst = build(planned, bins, &stem, &output, false).unwrap();
 
             // Fatal is exit code 3: `cli.rs`'s `the_worst_severity_decides_the_exit_code`.
             assert_eq!(worst, Some(Severity::Fatal), "{replaced}");

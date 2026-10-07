@@ -7,8 +7,12 @@
 //! kit entries (kit number, menu icon number, two colors). The integers are little-endian
 //! (`resources/bins/README.md`).
 
+mod dpfl;
+pub(crate) mod installed;
+
 use anyhow::{Context, ensure};
 use kit_config::KitSlot;
+use pes_version::PesVersion;
 
 use crate::templates;
 
@@ -293,14 +297,19 @@ pub(crate) struct WorkingBins {
     pub(crate) team_color: Vec<u8>,
     /// `UniColor.bin`.
     pub(crate) uni_color: Vec<u8>,
+    /// `UniformParameter.bin`: `Some` on the Fox versions, `None` on PES 15-17, which have no
+    /// such bin.
+    pub(crate) uniform_parameter: Option<Vec<u8>>,
 }
 
 impl WorkingBins {
-    /// The bundled bases (`resources/bins/`), for a run with no installed bin to build on.
-    pub(crate) fn bundled() -> WorkingBins {
+    /// The bundled bases for `version` (`resources/bins/`), for a run with no installed bin to
+    /// build on.
+    pub(crate) fn bundled(version: PesVersion) -> WorkingBins {
         WorkingBins {
             team_color: templates::TEAM_COLOR.to_vec(),
             uni_color: templates::UNI_COLOR.to_vec(),
+            uniform_parameter: templates::uniform_parameter_base(version).map(<[u8]>::to_vec),
         }
     }
 }
@@ -409,7 +418,7 @@ mod tests {
 
     #[test]
     fn the_bundled_base_holds_teams_100_to_920_with_sound_headers() {
-        let bins = WorkingBins::bundled();
+        let bins = WorkingBins::bundled(PesVersion::Pes21);
         assert_eq!(bins.team_color.len(), 821 * TEAM_COLOR_RECORD);
         let mut bin = TeamColorBin::read(bins.team_color).unwrap();
         assert_eq!(bin.repair_headers(), Vec::<u16>::new());
@@ -646,7 +655,7 @@ mod tests {
 
     #[test]
     fn the_bundled_uni_color_base_holds_teams_100_to_920_with_sound_headers() {
-        let bins = WorkingBins::bundled();
+        let bins = WorkingBins::bundled(PesVersion::Pes21);
         assert_eq!(bins.uni_color.len(), 821 * UNI_COLOR_RECORD);
         let mut bin = UniColorBin::read(bins.uni_color).unwrap();
         assert_eq!(bin.repair_headers(), Vec::<u16>::new());

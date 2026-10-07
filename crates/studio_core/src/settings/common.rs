@@ -62,6 +62,15 @@ impl Default for CommonSettings {
     }
 }
 
+impl CommonSettings {
+    /// The PES installation folder: `pes_folder_path` with every `**` replaced by the two-digit
+    /// number of `pes_version` (`21` for PES 2021).
+    pub fn pes_folder(&self) -> PathBuf {
+        let version = self.pes_version.number().to_string();
+        PathBuf::from(self.pes_folder_path.replace("**", &version))
+    }
+}
+
 /// GUI color theme.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -70,4 +79,42 @@ pub enum Theme {
     Dark,
     /// Light background.
     Light,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn settings(version: PesVersion, path: &str) -> CommonSettings {
+        CommonSettings {
+            pes_version: version,
+            pes_folder_path: path.to_owned(),
+            ..CommonSettings::default()
+        }
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn the_default_pes_folder_names_the_default_version() {
+        assert_eq!(
+            CommonSettings::default().pes_folder(),
+            PathBuf::from(r"C:\Program Files (x86)\Pro Evolution Soccer 2019")
+        );
+    }
+
+    #[test]
+    fn the_placeholder_is_replaced_by_the_two_digit_version() {
+        assert_eq!(
+            settings(PesVersion::Pes21, "/games/Pro Evolution Soccer 20**").pes_folder(),
+            PathBuf::from("/games/Pro Evolution Soccer 2021")
+        );
+    }
+
+    #[test]
+    fn a_path_with_no_placeholder_is_unchanged() {
+        assert_eq!(
+            settings(PesVersion::Pes21, "/games/PES").pes_folder(),
+            PathBuf::from("/games/PES")
+        );
+    }
 }

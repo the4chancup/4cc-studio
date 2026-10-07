@@ -16,7 +16,10 @@ use crate::compile::{
     pes_settings, pes21_settings, tracer_kit, tracer_player_file, tracer_portrait,
 };
 use crate::textures::{bc1_dds, texture_fixture};
-use crate::{CLEAN_PLAYER, TEAM_COLORS_MISSING, clean_model, findings_of, source_fixture};
+use crate::{
+    BUNDLED_BINS, CLEAN_PLAYER, TEAM_COLORS_MISSING, bundled_bins_then, clean_model, findings_of,
+    source_fixture,
+};
 
 // TC-ROS-01
 #[test]
@@ -588,7 +591,7 @@ fn compile_collects_the_compiled_exports_notes_into_teamnotes_txt_and_removes_a_
 
     assert_eq!(
         run.messages(),
-        [
+        bundled_bins_then([
             "a Midcup Notes: Info notes_found [Keep] at notes.txt ()",
             "a Midcup Notes: Info export_identified [Keep] (team=/a/, id=702)",
             "b Midcup Skipped: Error players_txt_slot_duplicate [DropExport] at players.txt line 2 slot Some(3) ()",
@@ -597,7 +600,7 @@ fn compile_collects_the_compiled_exports_notes_into_teamnotes_txt_and_removes_a_
             "co Midcup Notes: Info export_identified [Keep] (team=/co/, id=714)",
             "a Midcup Notes: Info team_colors_missing [Keep] ()",
             "co Midcup Notes: Info team_colors_missing [Keep] ()"
-        ]
+        ])
     );
     assert_eq!(run.exit_code(), 1);
     assert_eq!(compiled_players(&sandbox), [70203, 71403]);
@@ -659,11 +662,11 @@ fn a_teamnotes_txt_that_cannot_be_written_is_reported_and_the_cpk_stays() {
     let (last, first) = lines.split_last().unwrap();
     assert_eq!(
         first,
-        [
+        bundled_bins_then([
             "co Midcup Notes: Info notes_found [Keep] at notes.txt ()",
             "co Midcup Notes: Info export_identified [Keep] (team=/co/, id=714)",
             "co Midcup Notes: Info team_colors_missing [Keep] ()"
-        ]
+        ])
     );
     // The error ends with the platform's own text, so only its shape is fixed.
     let prefix = format!(
@@ -677,13 +680,13 @@ fn a_teamnotes_txt_that_cannot_be_written_is_reported_and_the_cpk_stays() {
 }
 
 /// The bundled `TeamColor.bin`, which a run with no installed bin builds on.
-fn bundled_team_color() -> Vec<u8> {
+pub(crate) fn bundled_team_color() -> Vec<u8> {
     fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../resources/bins/TeamColor.bin"))
         .unwrap()
 }
 
 /// Where the CPK keeps `TeamColor.bin`.
-const TEAM_COLOR: &str = "common/etc/TeamColor.bin";
+pub(crate) const TEAM_COLOR: &str = "common/etc/TeamColor.bin";
 
 // TC-ROOT-10
 #[test]
@@ -699,11 +702,11 @@ fn a_root_colors_txt_sets_the_team_s_colors_and_an_export_without_one_reports_it
 
     assert_eq!(
         run.messages(),
-        [
+        bundled_bins_then([
             "co Midcup Colors: Info export_identified [Keep] (team=/co/, id=714)",
             "co Midcup Colors: Info kit_config_generated [Keep] at Kits/p1 ()",
             "co Midcup Colors: Info kit_colors_derived [Keep] at Kits/p1 ()"
-        ]
+        ])
     );
     assert_eq!(run.exit_code(), 0);
     // Team 714's record: its ID and count, then its first two colors; the rest is the base's.
@@ -726,12 +729,12 @@ fn a_root_colors_txt_sets_the_team_s_colors_and_an_export_without_one_reports_it
 
     assert_eq!(
         run.messages(),
-        [
+        bundled_bins_then([
             "dbg Midcup Plain: Info export_identified [Keep] (team=/dbg/, id=790)",
             "dbg Midcup Plain: Info team_colors_missing [Keep] ()",
             "dbg Midcup Plain: Info kit_config_generated [Keep] at Kits/p1 ()",
             "dbg Midcup Plain: Info kit_colors_derived [Keep] at Kits/p1 ()"
-        ]
+        ])
     );
     assert_eq!(run.exit_code(), 0);
     assert!(
@@ -1424,16 +1427,14 @@ fn a_disabled_export_is_reported_once_by_check_and_compile_and_not_compiled() {
     sandbox.write("exports/dbg Midcup Two/no_use.txt", b"");
     sandbox.copy_tracer_face("exports/dbg Midcup Two/Players/03 - A");
 
-    for command in ["check", "compile"] {
+    // `compile` reports its working bins first; `check` builds none.
+    for (command, bins) in [("check", &[][..]), ("compile", &BUNDLED_BINS[..])] {
         let run = sandbox.run(&pes21_settings(&sandbox), &[command]);
-        assert_eq!(
-            run.messages(),
-            [
-                "co Midcup One: Info export_disabled [DropExport] ()",
-                "dbg Midcup Two: Info export_disabled [DropExport] ()",
-            ],
-            "{command}"
-        );
+        let findings = [
+            "co Midcup One: Info export_disabled [DropExport] ()",
+            "dbg Midcup Two: Info export_disabled [DropExport] ()",
+        ];
+        assert_eq!(run.messages(), [bins, &findings[..]].concat(), "{command}");
         assert_eq!(run.exit_code(), 0, "{command}");
     }
     assert!(!sandbox.root.join("output/4cc_99_test.cpk").exists());
@@ -1508,18 +1509,21 @@ fn export_paths_restrict_check_and_compile_to_the_named_exports() {
             "dbg Midcup D: Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=glove_l.fmdl, count=2)",
             "dbg Midcup D: Info export_identified [Keep] (team=/dbg/, id=790)",
         ];
-        // Planning's notes, which only `compile` makes.
-        let planned: &[&str] = if command == "compile" {
-            &[
-                "co Midcup A: Info team_colors_missing [Keep] ()",
-                "dbg Midcup D: Info team_colors_missing [Keep] ()",
-            ]
+        // The working bins and planning's notes, which only `compile` makes.
+        let (bins, planned): (&[&str], &[&str]) = if command == "compile" {
+            (
+                &BUNDLED_BINS,
+                &[
+                    "co Midcup A: Info team_colors_missing [Keep] ()",
+                    "dbg Midcup D: Info team_colors_missing [Keep] ()",
+                ],
+            )
         } else {
-            &[]
+            (&[], &[])
         };
         assert_eq!(
             run.messages(),
-            [&validated[..], planned].concat(),
+            [bins, &validated[..], planned].concat(),
             "{command}"
         );
         assert_eq!(run.exit_code(), 0, "{command}");
@@ -1541,7 +1545,7 @@ fn a_zip_export_is_compiled_as_the_team_its_name_starts_with() {
 
     assert_eq!(
         run.messages(),
-        [
+        bundled_bins_then([
             "co Full Spring 2026.zip: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=fcl_hair.fmdl, count=1662)",
             "co Full Spring 2026.zip: Info export_identified [Keep] (team=/co/, id=714)",
             "co Full Spring 2026.zip: Info team_colors_missing [Keep] ()",
@@ -1550,7 +1554,7 @@ fn a_zip_export_is_compiled_as_the_team_its_name_starts_with() {
             "co Full Spring 2026.zip: Info kit_placeholder [Keep] at Kits/p1 ()",
             "co Full Spring 2026.zip: Warning kit_colors_missing [Keep] at Kits/p1 ()",
             "co Full Spring 2026.zip: Info kit_colors_derived [Keep] at Kits/g1 ()"
-        ]
+        ])
     );
     assert_eq!(compiled_players(&sandbox), [71405]);
     assert_eq!(compiled_kits(&sandbox), ["u0714g1", "u0714p1"]);
@@ -1567,13 +1571,13 @@ fn a_root_notes_txt_that_cannot_be_read_is_dropped_and_the_rest_compiled() {
 
     assert_eq!(
         run.messages(),
-        [
+        bundled_bins_then([
             "egg Midcup Tracer bad notes.zip: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=fcl_hair.fmdl, count=1662)",
             "egg Midcup Tracer bad notes.zip: Error source_read_failed [DropFile] at notes.txt (reason=Invalid checksum)",
             "egg Midcup Tracer bad notes.zip: Info export_identified [Keep] (team=/egg/, id=792)",
             "egg Midcup Tracer bad notes.zip: Info team_colors_missing [Keep] ()",
             "egg Midcup Tracer bad notes.zip: Info kit_colors_derived [Keep] at Kits/g1 ()"
-        ]
+        ])
     );
     assert_eq!(compiled_players(&sandbox), [79205]);
     assert_eq!(run.exit_code(), 1);
@@ -1594,12 +1598,12 @@ fn a_7z_over_the_memory_cap_compiles() {
 
     assert_eq!(
         run.messages(),
-        [
+        bundled_bins_then([
             "egg Midcup Tracer.7z: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=fcl_hair.fmdl, count=1662)",
             "egg Midcup Tracer.7z: Info export_identified [Keep] (team=/egg/, id=792)",
             "egg Midcup Tracer.7z: Info team_colors_missing [Keep] ()",
             "egg Midcup Tracer.7z: Info kit_colors_derived [Keep] at Kits/g1 ()"
-        ]
+        ])
     );
     assert_eq!(compiled_players(&sandbox), [79205]);
     assert_eq!(compiled_kits(&sandbox), ["u0792g1"]);
@@ -1633,6 +1637,9 @@ fn an_export_is_processed_after_its_last_task_or_after_planning_when_it_has_none
     assert_eq!(
         events,
         [
+            "message bin_source",
+            "message bin_source",
+            "message bin_source",
             "started 0",
             "message export_identified",
             "started 1",
@@ -1672,7 +1679,7 @@ fn the_worker_count_changes_neither_the_findings_nor_the_cpk() {
     assert_eq!(outcomes[0].0, outcomes[1].0);
     assert_eq!(
         outcomes[0].0,
-        [
+        bundled_bins_then([
             "co Midcup Kits: Info export_identified [Keep] (team=/co/, id=714)",
             "dbg Midcup Seven.7z: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=fcl_hair.fmdl, count=1662)",
             "dbg Midcup Seven.7z: Info export_identified [Keep] (team=/dbg/, id=790)",
@@ -1687,7 +1694,7 @@ fn the_worker_count_changes_neither_the_findings_nor_the_cpk() {
             "co Midcup Kits: Info kit_colors_derived [Keep] at Kits/p1 ()",
             "co Midcup Kits: Info kit_colors_derived [Keep] at Kits/g1 ()",
             "dbg Midcup Seven.7z: Info kit_colors_derived [Keep] at Kits/g1 ()"
-        ]
+        ])
     );
     assert!(outcomes[0].1 == outcomes[1].1, "the CPKs differ");
 }
@@ -1782,7 +1789,10 @@ fn two_exports_of_one_team_are_both_skipped_naming_each_other_and_the_other_team
         "a Midcup Home: Info kit_config_generated [Keep] at Kits/p1 ()".to_owned(),
         "a Midcup Home: Info kit_colors_derived [Keep] at Kits/p1 ()".to_owned(),
     ];
-    assert_eq!(lines, [&validated[..], &planned[..]].concat());
+    assert_eq!(
+        lines,
+        bundled_bins_then([&validated[..], &planned[..]].concat())
+    );
     assert_eq!(compiled_players(&sandbox), [70203]);
     assert_eq!(compiled_kits(&sandbox), ["u0702p1"]);
     let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
@@ -1847,14 +1857,14 @@ fn the_overrides_replace_the_export_s_boots_and_the_team_color_bin_and_are_repor
 
     assert_eq!(
         run.messages(),
-        [
+        bundled_bins_then([
             "co Midcup Boots: Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=boots.fmdl, count=1662)".to_owned(),
             "co Midcup Boots: Info export_identified [Keep] (team=/co/, id=714)".to_owned(),
             "co Midcup Boots: Info team_colors_missing [Keep] ()".to_owned(),
             format!("Info overrides_active [Keep] (folder={folder}, files=2)"),
             format!("Warning duplicate_path [Keep] (path={BOOTS_05})"),
             format!("Warning duplicate_path [Keep] (path={TEAM_COLOR})"),
-        ]
+        ])
     );
     assert_eq!(run.exit_code(), 0, "a Warning does not fail the run");
     let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
@@ -1878,14 +1888,14 @@ fn the_overrides_are_written_with_the_bins_when_no_export_compiles() {
 
     assert_eq!(
         run.messages(),
-        [
+        bundled_bins_then([
             format!(
                 "Warning no_exports_found [Keep] (folder={})",
                 sandbox.display("exports")
             ),
             format!("Info overrides_active [Keep] (folder={folder}, files=2)"),
             format!("Warning duplicate_path [Keep] (path={TEAM_COLOR})"),
-        ]
+        ])
     );
     assert_eq!(run.exit_code(), 0);
     let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));

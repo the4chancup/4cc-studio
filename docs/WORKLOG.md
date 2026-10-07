@@ -13,7 +13,8 @@ is in `AGENTS.md` ("Working documents").
 "Handover"). Phases 1 and 2 done (Phase 2 closed 2026-09-30).
 **Next:** Phase 4 is itemized and its Acceptance section written (step 4.1, 2026-10-03; its
 cross-family review (a) is queued). Next:
-4.21 (bins from the installed CPKs; 4.14 waits on 4.31's pre-Fox export); 4.33, 4.34, 4.c-pass and
+4.21b (the `templates/` override; 4.21a, the installed bins, is done; 4.14 waits on 4.31's
+pre-Fox export); 4.33, 4.34, 4.c-pass and
 4.c-fix1 are done; 4.30,
 4.5 to 4.8, 4.9a and 4.10 to 4.13 are done (4.6c moved to Phase 8's cancellation), 4.9b
 (collars) waits on nothing. 2.5b (GPU BC7) is step 16.x (decision entries
@@ -183,6 +184,13 @@ Claude agent with no sidekick and no reviewer of another model family. While tha
   its commit of 2026-10-07, against `pipeline.md` "Bins accumulation", `object_model.md`
   `KitsFolder`, TC-BIN-14, 15, 19, 20 and the decision entry "a `Full` export gets an empty
   `p1/` and `g1/` where it has none".
+  4.21a (b), `team_compiler` (`bins/dpfl.rs`, `bins/installed.rs`, `WorkingBins`,
+  `compile.rs` `working_bins`, `messages.rs` `ErrorOrWarning` and `deploy_message`) and
+  `studio_core` (`CommonSettings::pes_folder`, new `pub`), its commit of 2026-10-07, against
+  `pipeline.md` "Bins accumulation" and the "DpFileList upgrade" sub-bullet on the format,
+  `messages.md` (`dpfilelist_missing`, `installed_bin_unreadable`, `bin_source`),
+  `settings.md` `pes_folder_path`, TC-BIN-05, 08, 09, 13, 21 and the decision entry "the
+  working-bin walk's edges, and the measured DpFileList layout".
 - For the lead, on return: the review process on trial (3.1) opens with a full sidekick review
   loop, then runs GPT's loop with a full sidekick loop after each GPT round, calling GPT again
   only once that sidekick loop has ended and GPT's own loop has not; not yet in `AGENTS.md`
@@ -1276,6 +1284,23 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   which it differs: compiling `/co/` with only `p2/` leaves p1's bytes equal to the
   higher-priority CPK's and p2's set; with `cpk_name = 4cc_61_midcup` the p1 bytes come from
   `4cc_08_bins.cpk`
+  - [x] 4.21a The reader, the walk and its findings, done 2026-10-07 (sidekick, one rework
+    round). `bins/dpfl.rs` `entries` (the measured layout; fixtures `tests/fixtures/dpfl/`,
+    the lead's, and the repository's PES 17 `examples/DpFileList.bin`); `bins/installed.rs`
+    `working_bins` (the CPKs listed below the run's own, nearest first, each bin from the
+    first that holds it, unwrapped; stops once every bin is found; a listed CPK with no file
+    passed over); `WorkingBins::uniform_parameter`, so `UniformParameter.bin` too builds on
+    the installed one; `compile` runs the walk before any export is read, its failure
+    `installed_bin_unreadable` (F); `dpfilelist_missing` (E/W, the new
+    `CatalogSeverity::ErrorOrWarning`, a Warning with `--no-deploy`), `bin_source` per bin.
+    Rework: `studio_core` `CommonSettings::pes_folder` expands `pes_folder_path`'s `**` (the
+    walk saw no folder with the default setting). Help paragraph. Every compile's output now
+    opens with three (pre-Fox: two) `bin_source` lines; 20-odd tests gained them. TC-BIN-05,
+    08, 09, 13, 21. Not yet: `pes_folder_not_found`, `cpk_name_unlisted` (4.24);
+    `dpfilelist_cpk_missing` (4.25). Gates green (161 of 253); `clef-diff 43ed77c`: 32
+    windows, no flag; `mutants-diff 43ed77c`: 52 mutants, 40 caught, 12 unviable, 0 missed
+    (the first run missed 2, an open error other than `NotFound` taken as "no file"; two
+    tests added in a second rework, the CPK one a directory on Windows and a self-link on Unix)
 
 - [ ] 4.22 **Fox player tables**: `BootsList.bin` and `GloveList.bin` read from the installed CPKs
   by the same walk (the seed rows ride in `4cc_08_bins.cpk`), the (player id, item id) pair of
@@ -1676,6 +1701,13 @@ Steps are itemized when Phase 15 closes; one is fixed already:
 
 Bugs, unexpected behavior, things to revisit. `open` / `resolved (date)`. Resolved issues are
 pruned when their phase closes; they stay in git history.
+
+- open (found at 4.21a) — an installed bin the walk reads but that does not parse (a
+  `UniColor.bin` whose length is not whole records, a corrupt `UniformParameter.bin`) fails
+  only in `CpkOutput::finish`, after the exports are processed, as `cpk_write_failed`, not
+  as `installed_bin_unreadable` before any export is read; `uniparam_compile_failed` is not
+  wired either. The plan is silent on whether parsing is part of "cannot be read". Settle
+  with 4.21c, which reads the installed `UniformParameter.bin`'s entries anyway.
 
 - open (found at 4.34b's review, unverified by a run) — `aesthetics_export`
   `validate/kits.rs`: a kit's textures, its own and those inherited from `all/`, are never
@@ -2827,3 +2859,6 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   - **Maintainer's rulings:** every team needs one player kit and one goalkeeper kit, so a
     `Full` export without them compiles an empty `p1/` or `g1/` (TC-BIN-19, 20; TC-BIN-14
     given a `g1`).
+  - **4.21a:** the working bins come from the installed CPKs (the `DpFileList.bin` layout
+    measured on four versions' lists); `pes_folder_path`'s `**` is now expanded; the placeholder
+    CPK's one `placeholder` file corrected in the plan and glossary.

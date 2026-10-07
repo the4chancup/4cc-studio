@@ -1,0 +1,441 @@
+//! The working bins taken from the installed CPKs (`team_compiler/pipeline.md` "Bins
+//! accumulation"): the bins the game would load from the CPKs `download/DpFileList.bin` lists
+//! before the run's own, so a compiled CPK, which the game loads above them, keeps the cup's
+//! colors and kits for every team the run does not compile. Each bin comes from the nearest of
+//! those CPKs that holds it, and from its bundled base when none does or the walk cannot be
+//! made (no PES folder, no list, a list not naming the run's CPK).
+
+use std::fs::{self, File};
+use std::io::{self, BufReader};
+use std::path::{Path, PathBuf};
+
+use anyhow::Context;
+use cpk::CpkArchive;
+use pes_version::PesVersion;
+use pipeline::CpkStem;
+use studio_core::{Disposition, Message, Scope};
+
+use super::{WorkingBins, dpfl};
+use crate::messages::{Code, deploy_message, tool_message};
+use crate::output::deploy;
+use crate::paths;
+use crate::templates;
+
+/// A file of the walk that cannot be read: `installed_bin_unreadable`'s context.
+#[derive(Debug)]
+pub(crate) struct Unreadable {
+    /// The file: the installed `DpFileList.bin`, or the listed CPK.
+    pub(crate) path: PathBuf,
+    /// What failed, the CPK's bin named when it was one of them.
+    pub(crate) error: anyhow::Error,
+}
+
+/// A working bin the walk looks for.
+#[derive(Debug, Clone, Copy)]
+enum Bin {
+    TeamColor,
+    UniColor,
+    UniformParameter,
+}
+
+impl Bin {
+    /// The bin's path in a CPK.
+    fn path(self) -> &'static str {
+        match self {
+            Bin::TeamColor => paths::TEAM_COLOR,
+            Bin::UniColor => paths::UNI_COLOR,
+            Bin::UniformParameter => paths::UNIFORM_PARAMETER,
+        }
+    }
+
+    /// The bin's file name, as `bin_source` names it.
+    fn name(self) -> &'static str {
+        match self {
+            Bin::TeamColor => "TeamColor.bin",
+            Bin::UniColor => "UniColor.bin",
+            Bin::UniformParameter => "UniformParameter.bin",
+        }
+    }
+}
+
+/// One bin the walk looks for, and what it found.
+struct Wanted {
+    bin: Bin,
+    /// The bin's bytes, unwrapped, and the listed file name of the CPK they came from, once a
+    /// CPK supplied them.
+    found: Option<(Vec<u8>, String)>,
+}
+
+/// The bins a run compiling `cpk_stem` for `version` builds on, taken from the installed
+/// CPKs of the PES folder `pes_folder` (`pipeline.md` "Bins accumulation"), and the findings:
+/// a `bin_source` per bin, and `dpfilelist_missing` when the folder has no list (an Error when
+/// the run `deploys`, a Warning when not). A list, a CPK or a bin that cannot be read is the
+/// error: the run stops rather than build on an older copy.
+pub(crate) fn working_bins(
+    pes_folder: &Path,
+    cpk_stem: &CpkStem,
+    version: PesVersion,
+    deploys: bool,
+) -> Result<(WorkingBins, Vec<Message>), Unreadable> {
+    let mut looked_for = vec![Bin::TeamColor, Bin::UniColor];
+    // Only the Fox versions have the bin, and so a bundled base for it.
+    if templates::uniform_parameter_base(version).is_some() {
+        looked_for.push(Bin::UniformParameter);
+    }
+    let mut wanted: Vec<Wanted> = looked_for
+        .into_iter()
+        .map(|bin| Wanted { bin, found: None })
+        .collect();
+    let mut messages = Vec::new();
+    if let Some(list) = walk(pes_folder, cpk_stem, &mut wanted)? {
+        messages.push(deploy_message(
+            Code::DpfilelistMissing,
+            Scope::Run,
+            Disposition::Keep,
+            vec![("path", list.display().to_string())],
+            deploys,
+        ));
+    }
+    let mut bins = WorkingBins::bundled(version);
+    for Wanted { bin, found } in wanted {
+        let cpk = found
+            .as_ref()
+            .map_or("bundled", |(_, cpk)| cpk.as_str())
+            .to_owned();
+        messages.push(tool_message(
+            Code::BinSource,
+            Scope::Run,
+            Disposition::Keep,
+            vec![("bin", bin.name().to_owned()), ("cpk", cpk)],
+        ));
+        let Some((bytes, _)) = found else {
+            continue;
+        };
+        match bin {
+            Bin::TeamColor => bins.team_color = bytes,
+            Bin::UniColor => bins.uni_color = bytes,
+            Bin::UniformParameter => bins.uniform_parameter = Some(bytes),
+        }
+    }
+    Ok((bins, messages))
+}
+
+/// Walks the CPKs `pes_folder`'s `download/DpFileList.bin` lists before `cpk_stem`'s, nearest
+/// first, until each of `wanted` is found, each taken from the first CPK holding it. Returns the
+/// list's path when the folder has none. Nothing is walked when `pes_folder` is not a folder or
+/// the list does not name the run's CPK: nothing is known to come before it.
+fn walk(
+    pes_folder: &Path,
+    cpk_stem: &CpkStem,
+    wanted: &mut [Wanted],
+) -> Result<Option<PathBuf>, Unreadable> {
+    if !pes_folder.is_dir() {
+        return Ok(None);
+    }
+    let download = pes_folder.join("download");
+    let list_path = download.join("DpFileList.bin");
+    let Some(list) = read_list(&list_path)? else {
+        return Ok(Some(list_path));
+    };
+    let own = deploy::cpk_file_name(cpk_stem);
+    let Some(position) = list.iter().position(|name| *name == own) else {
+        return Ok(None);
+    };
+    for name in list[..position].iter().rev() {
+        if wanted.iter().all(|bin| bin.found.is_some()) {
+            break;
+        }
+        take_from(&download.join(name), name, wanted)?;
+    }
+    Ok(None)
+}
+
+/// The CPK names the list at `path` gives, in load order; `None` when there is no file.
+fn read_list(path: &Path) -> Result<Option<Vec<String>>, Unreadable> {
+    let unreadable = |error: anyhow::Error| Unreadable {
+        path: path.to_owned(),
+        error,
+    };
+    let bytes = match fs::read(path) {
+        Ok(bytes) => bytes,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => return Err(unreadable(error.into())),
+    };
+    dpfl::entries(&bytes).map(Some).map_err(unreadable)
+}
+
+/// Takes from the CPK at `path`, listed as `name`, each of `wanted` not found yet that it
+/// holds, unwrapped when the bin is WESYS-compressed. A listed CPK with no file is passed over.
+fn take_from(path: &Path, name: &str, wanted: &mut [Wanted]) -> Result<(), Unreadable> {
+    let unreadable = |error: anyhow::Error| Unreadable {
+        path: path.to_owned(),
+        error,
+    };
+    let file = match File::open(path) {
+        Ok(file) => file,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(()),
+        Err(error) => return Err(unreadable(error.into())),
+    };
+    let mut cpk = CpkArchive::open(BufReader::new(file))
+        .context("not a CPK the reader accepts")
+        .map_err(unreadable)?;
+    for wanted in wanted.iter_mut().filter(|wanted| wanted.found.is_none()) {
+        let path_in_cpk = wanted.bin.path();
+        let Some(entry) = cpk.entries().iter().find(|entry| entry.path == path_in_cpk) else {
+            continue;
+        };
+        let entry = entry.clone();
+        let bytes = cpk
+            .read(&entry)
+            .with_context(|| format!("cannot read {path_in_cpk}"))
+            .map_err(unreadable)?;
+        let bytes = wezlib::decompress_if_wrapped(&bytes)
+            .with_context(|| format!("cannot unwrap {path_in_cpk}"))
+            .map_err(unreadable)?
+            .into_owned();
+        wanted.found = Some((bytes, name.to_owned()));
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use cpk::CpkWriter;
+    use studio_core::Severity;
+
+    use super::*;
+    use crate::testing::scratch;
+
+    /// The stem of the run's CPK in every test: `4cc_99_test`.
+    fn stem() -> CpkStem {
+        CpkStem::new("4cc_99_test").unwrap()
+    }
+
+    /// A `DpFileList.bin` listing `names`, in the measured layout.
+    fn list(names: &[&str]) -> Vec<u8> {
+        let count = u32::try_from(names.len()).unwrap();
+        let mut bytes = vec![0; 4];
+        bytes.extend(count.to_le_bytes());
+        bytes.extend([0; 8]);
+        for name in names {
+            let mut record = [0; 48];
+            record[..name.len()].copy_from_slice(name.as_bytes());
+            bytes.extend(record);
+        }
+        bytes
+    }
+
+    /// Writes `download/DpFileList.bin` listing `names` in the PES folder `pes`.
+    fn install_list(pes: &Path, names: &[&str]) {
+        fs::create_dir_all(pes.join("download")).unwrap();
+        fs::write(pes.join("download/DpFileList.bin"), list(names)).unwrap();
+    }
+
+    /// Writes the CPK `download/<name>` holding `entries` (CPK path, bytes) in the PES folder
+    /// `pes`.
+    fn install_cpk(pes: &Path, name: &str, entries: &[(&str, &[u8])]) {
+        let file = File::create(pes.join("download").join(name)).unwrap();
+        let mut cpk = CpkWriter::new(file, "test").unwrap();
+        for (path, bytes) in entries {
+            cpk.add(path, bytes, None).unwrap();
+        }
+        cpk.finish().unwrap();
+    }
+
+    /// The `bin_source` finding naming `bin` and `cpk`.
+    fn source(bin: &str, cpk: &str) -> Message {
+        tool_message(
+            Code::BinSource,
+            Scope::Run,
+            Disposition::Keep,
+            vec![("bin", bin.to_owned()), ("cpk", cpk.to_owned())],
+        )
+    }
+
+    /// The three `bin_source` findings of a PES 21 run built on the bundled bases.
+    fn all_bundled() -> [Message; 3] {
+        [
+            source("TeamColor.bin", "bundled"),
+            source("UniColor.bin", "bundled"),
+            source("UniformParameter.bin", "bundled"),
+        ]
+    }
+
+    /// Asserts that `bins` are the bundled bases of `version`.
+    fn assert_bundled(bins: &WorkingBins, version: PesVersion) {
+        let bundled = WorkingBins::bundled(version);
+        assert!(
+            bins.team_color == bundled.team_color,
+            "TeamColor.bin bundled"
+        );
+        assert!(bins.uni_color == bundled.uni_color, "UniColor.bin bundled");
+        assert!(
+            bins.uniform_parameter == bundled.uniform_parameter,
+            "UniformParameter.bin bundled"
+        );
+    }
+
+    #[test]
+    fn with_no_pes_folder_every_bin_is_bundled() {
+        let temp = scratch("installed_no_pes");
+        let pes = temp.path().join("PES");
+
+        let (bins, messages) = working_bins(&pes, &stem(), PesVersion::Pes21, true).unwrap();
+        assert_bundled(&bins, PesVersion::Pes21);
+        assert_eq!(messages, all_bundled());
+
+        let (bins, messages) = working_bins(&pes, &stem(), PesVersion::Pes17, true).unwrap();
+        assert_bundled(&bins, PesVersion::Pes17);
+        assert_eq!(bins.uniform_parameter, None);
+        assert_eq!(messages, all_bundled()[..2]);
+    }
+
+    #[test]
+    fn a_missing_list_is_an_error_when_the_run_deploys_and_a_warning_when_not() {
+        let temp = scratch("installed_no_list");
+        let pes = temp.path();
+        let list = pes.join("download").join("DpFileList.bin");
+        for (deploys, severity) in [(true, Severity::Error), (false, Severity::Warning)] {
+            let (bins, messages) = working_bins(pes, &stem(), PesVersion::Pes21, deploys).unwrap();
+            assert_bundled(&bins, PesVersion::Pes21);
+            let missing = deploy_message(
+                Code::DpfilelistMissing,
+                Scope::Run,
+                Disposition::Keep,
+                vec![("path", list.display().to_string())],
+                deploys,
+            );
+            assert_eq!(missing.severity, severity);
+            let mut expected = vec![missing];
+            expected.extend(all_bundled());
+            assert_eq!(messages, expected, "deploys: {deploys}");
+        }
+    }
+
+    #[test]
+    fn a_list_not_naming_the_run_s_cpk_gives_the_bundled_bins() {
+        let temp = scratch("installed_unlisted");
+        let pes = temp.path();
+        install_list(pes, &["4cc_08_bins.cpk", "4cc_61_midcup.cpk"]);
+        install_cpk(pes, "4cc_61_midcup.cpk", &[(paths::UNI_COLOR, b"midcup")]);
+
+        let (bins, messages) = working_bins(pes, &stem(), PesVersion::Pes21, true).unwrap();
+        assert_bundled(&bins, PesVersion::Pes21);
+        assert_eq!(messages, all_bundled());
+    }
+
+    #[test]
+    fn the_run_s_cpk_listed_first_gives_the_bundled_bins() {
+        let temp = scratch("installed_first");
+        let pes = temp.path();
+        install_list(pes, &["4cc_99_test.cpk", "4cc_61_midcup.cpk"]);
+        install_cpk(pes, "4cc_61_midcup.cpk", &[(paths::UNI_COLOR, b"midcup")]);
+        install_cpk(pes, "4cc_99_test.cpk", &[(paths::UNI_COLOR, b"own")]);
+
+        let (bins, messages) = working_bins(pes, &stem(), PesVersion::Pes21, true).unwrap();
+        assert_bundled(&bins, PesVersion::Pes21);
+        assert_eq!(messages, all_bundled());
+    }
+
+    #[test]
+    fn a_listed_cpk_with_no_file_is_passed_over_and_the_next_one_s_bin_taken() {
+        let temp = scratch("installed_passed_over");
+        let pes = temp.path();
+        install_list(
+            pes,
+            &[
+                "4cc_08_bins.cpk",
+                "4cc_40_teams.cpk",
+                "4cc_61_midcup.cpk",
+                "4cc_99_test.cpk",
+            ],
+        );
+        install_cpk(
+            pes,
+            "4cc_08_bins.cpk",
+            &[
+                (paths::TEAM_COLOR, b"team colors of 08"),
+                (paths::UNI_COLOR, b"kit colors of 08"),
+            ],
+        );
+        install_cpk(
+            pes,
+            "4cc_40_teams.cpk",
+            &[(paths::UNI_COLOR, b"kit colors of 40")],
+        );
+
+        let (bins, messages) = working_bins(pes, &stem(), PesVersion::Pes21, true).unwrap();
+        assert_eq!(bins.team_color, b"team colors of 08");
+        assert_eq!(bins.uni_color, b"kit colors of 40");
+        assert_eq!(
+            bins.uniform_parameter,
+            WorkingBins::bundled(PesVersion::Pes21).uniform_parameter
+        );
+        assert_eq!(
+            messages,
+            [
+                source("TeamColor.bin", "4cc_08_bins.cpk"),
+                source("UniColor.bin", "4cc_40_teams.cpk"),
+                source("UniformParameter.bin", "bundled"),
+            ]
+        );
+    }
+
+    #[test]
+    fn an_installed_uniform_parameter_bin_is_taken_on_pes_21_and_not_looked_for_on_pes_17() {
+        let temp = scratch("installed_uniform_parameter");
+        let pes = temp.path();
+        install_list(pes, &["4cc_08_bins.cpk", "4cc_99_test.cpk"]);
+        install_cpk(
+            pes,
+            "4cc_08_bins.cpk",
+            &[(paths::UNIFORM_PARAMETER, b"kit configs of 08")],
+        );
+
+        let (bins, messages) = working_bins(pes, &stem(), PesVersion::Pes21, true).unwrap();
+        assert_eq!(
+            bins.uniform_parameter.as_deref(),
+            Some(&b"kit configs of 08"[..])
+        );
+        assert_eq!(
+            messages[2],
+            source("UniformParameter.bin", "4cc_08_bins.cpk")
+        );
+
+        let (bins, messages) = working_bins(pes, &stem(), PesVersion::Pes17, true).unwrap();
+        assert_eq!(bins.uniform_parameter, None);
+        assert_eq!(messages, all_bundled()[..2]);
+    }
+
+    #[test]
+    fn a_list_that_exists_but_cannot_be_read_is_the_error() {
+        let temp = scratch("installed_list_unreadable");
+        let pes = temp.path();
+        let list = pes.join("download").join("DpFileList.bin");
+        fs::create_dir_all(&list).unwrap();
+
+        let Err(unreadable) = working_bins(pes, &stem(), PesVersion::Pes21, true) else {
+            panic!("a list that cannot be read must be the error, not a missing list");
+        };
+        assert_eq!(unreadable.path, list);
+    }
+
+    #[test]
+    fn a_listed_cpk_that_exists_but_cannot_be_opened_is_the_error() {
+        let temp = scratch("installed_cpk_unopenable");
+        let pes = temp.path();
+        install_list(pes, &["4cc_61_midcup.cpk", "4cc_99_test.cpk"]);
+        let cpk = pes.join("download").join("4cc_61_midcup.cpk");
+        // Opening a directory fails with `PermissionDenied` on Windows.
+        #[cfg(windows)]
+        fs::create_dir(&cpk).unwrap();
+        // Opening a directory succeeds on Unix, opening a link to itself fails (too many links).
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(&cpk, &cpk).unwrap();
+
+        let Err(unreadable) = working_bins(pes, &stem(), PesVersion::Pes21, true) else {
+            panic!("a CPK that cannot be opened must be the error, not a CPK with no file");
+        };
+        assert_eq!(unreadable.path, cpk);
+    }
+}

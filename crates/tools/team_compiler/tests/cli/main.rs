@@ -6,6 +6,7 @@
 #[path = "../common/mod.rs"]
 mod common;
 
+mod bins;
 mod check;
 mod common_links;
 mod compile;
@@ -158,6 +159,24 @@ fn findings_of<'a>(lines: &'a [String], source: &str) -> Vec<&'a str> {
     lines
         .iter()
         .filter_map(|line| line.strip_prefix(prefix.as_str()))
+        .collect()
+}
+
+/// The findings a PES 21 `compile` reports first when its PES folder does not exist: each
+/// working bin taken from its bundled base.
+const BUNDLED_BINS: [&str; 3] = [
+    "Info bin_source [Keep] (bin=TeamColor.bin, cpk=bundled)",
+    "Info bin_source [Keep] (bin=UniColor.bin, cpk=bundled)",
+    "Info bin_source [Keep] (bin=UniformParameter.bin, cpk=bundled)",
+];
+
+/// `BUNDLED_BINS`, then `findings`: every line of a PES 21 `compile` with no PES folder whose
+/// exports report `findings`.
+fn bundled_bins_then(findings: impl IntoIterator<Item = impl Into<String>>) -> Vec<String> {
+    BUNDLED_BINS
+        .iter()
+        .map(|line| (*line).to_owned())
+        .chain(findings.into_iter().map(Into::into))
         .collect()
 }
 

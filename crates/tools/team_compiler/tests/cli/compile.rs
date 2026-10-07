@@ -5,7 +5,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::common::{Run, Sandbox};
-use crate::{CLEAN_PLAYER, clean_model, findings_of, snapshot};
+use crate::{CLEAN_PLAYER, bundled_bins_then, clean_model, findings_of, snapshot};
 
 impl Sandbox {
     /// Copies every file under `source` into `<folder>`, leaving `source` untouched.
@@ -103,9 +103,11 @@ fn compile_no_deploy_writes_the_cpk_to_the_output_folder_and_leaves_pes_alone() 
         .entries()
         .len();
     assert!(entries > 0, "the CPK holds the tracer's content");
-    assert_eq!(
-        run.messages(),
-        [
+    let mut expected = vec![format!(
+        "Warning dpfilelist_missing [Keep] (path={})",
+        sandbox.display("PES/download/DpFileList.bin")
+    )];
+    expected.extend(bundled_bins_then([
             "egg Midcup Tracer: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=boots.fmdl, count=1662)".to_owned(),
             "egg Midcup Tracer: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=fcl_hair.fmdl, count=1662)".to_owned(),
             "egg Midcup Tracer: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=glove_l.fmdl, count=2)".to_owned(),
@@ -114,8 +116,8 @@ fn compile_no_deploy_writes_the_cpk_to_the_output_folder_and_leaves_pes_alone() 
                 "Info deploy_skipped_by_flag [Keep] (path={})",
                 promoted.display()
             )
-        ]
-    );
+        ]));
+    assert_eq!(run.messages(), expected);
     assert_eq!(snapshot(&sandbox.root.join("PES")), pes_before);
     // The staging folder went with the rename: a finished run leaves only the CPK.
     assert!(!sandbox.root.join("output/.staging").exists());
@@ -132,12 +134,12 @@ fn compile_without_no_deploy_promotes_the_cpk_silently() {
     assert!(sandbox.root.join("output/4cc_99_test.cpk").is_file());
     assert_eq!(
         run.messages(),
-        [
+        bundled_bins_then([
             "egg Midcup Tracer: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=boots.fmdl, count=1662)",
             "egg Midcup Tracer: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=fcl_hair.fmdl, count=1662)",
             "egg Midcup Tracer: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=glove_l.fmdl, count=2)",
             "egg Midcup Tracer: Info export_identified [Keep] (team=/egg/, id=792)"
-        ]
+        ])
     );
 }
 
@@ -157,7 +159,7 @@ fn a_compile_that_emits_nothing_writes_no_cpk_and_no_staging_folder() {
     assert_eq!(run.exit_code(), 0);
     assert_eq!(
         run.messages(),
-        ["co Midcup Off: Info export_disabled [DropExport] ()"]
+        bundled_bins_then(["co Midcup Off: Info export_disabled [DropExport] ()"])
     );
     assert_eq!(snapshot(&sandbox.root.join("output")), before);
     assert!(!sandbox.root.join("output/.staging").exists());
@@ -200,10 +202,10 @@ fn a_failed_cpk_write_discards_the_staging_and_leaves_the_previous_cpk() {
     let (last, first) = lines.split_last().unwrap();
     assert_eq!(
         first,
-        [
+        bundled_bins_then([
             "co Midcup A: Info export_identified [Keep] (team=/co/, id=714)",
             "co Midcup A: Info team_colors_missing [Keep] ()"
-        ]
+        ])
     );
     // The error names the staged CPK, whose folder is this run's: `<pid>-<ms>` is left free,
     // and so is the platform's own text at the end.
@@ -235,12 +237,12 @@ fn assert_commit_failed(sandbox: &Sandbox, run: &Run, before: &BTreeMap<PathBuf,
     let (last, first) = lines.split_last().unwrap();
     assert_eq!(
         first,
-        [
+        bundled_bins_then([
             "egg Midcup Tracer: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=boots.fmdl, count=1662)",
             "egg Midcup Tracer: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=fcl_hair.fmdl, count=1662)",
             "egg Midcup Tracer: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=glove_l.fmdl, count=2)",
             "egg Midcup Tracer: Info export_identified [Keep] (team=/egg/, id=792)"
-        ]
+        ])
     );
     // The error ends with the platform's own text, so only its shape is fixed.
     let prefix = format!(

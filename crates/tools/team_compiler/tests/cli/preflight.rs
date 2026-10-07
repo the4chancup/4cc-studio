@@ -1,7 +1,7 @@
 //! The preflight: the invocations and settings refused before any export is read.
 
 use crate::common::Sandbox;
-use crate::{CLEAN_PLAYER, clean_model, snapshot};
+use crate::{CLEAN_PLAYER, bundled_bins_then, clean_model, snapshot};
 
 // TC-CLI-03
 #[test]
@@ -80,12 +80,13 @@ fn a_missing_default_exports_folder_is_created_and_reported_empty() {
     let run = sandbox.run("", &["compile"]);
 
     assert!(exports.is_dir(), "the folder was created");
+    // The default settings' PES folder does not exist, and their PES 19 has the three bins.
     assert_eq!(
         run.messages(),
-        [format!(
+        bundled_bins_then([format!(
             "Warning no_exports_found [Keep] (folder={})",
             exports.display()
-        )]
+        )])
     );
     assert!(!sandbox.root.join("output/4cc_99_test.cpk").exists());
     assert_eq!(run.exit_code(), 0);

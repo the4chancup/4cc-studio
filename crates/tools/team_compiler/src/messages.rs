@@ -155,6 +155,14 @@ pub(crate) enum Code {
     SourceReadFailed,
     /// A task could not build its entries; its folder is left out.
     FolderPackFailed,
+    /// The PES folder has no `download/DpFileList.bin`, so every bin is built on its bundled
+    /// base: an Error when the run deploys, a Warning when it deploys nothing.
+    DpfilelistMissing,
+    /// The installed `DpFileList.bin`, a CPK it lists or a bin in that CPK cannot be read; the
+    /// run stops before any export is read, the previous CPK kept.
+    InstalledBinUnreadable,
+    /// The installed CPK a working bin was taken from, or `bundled` for the bundled base.
+    BinSource,
     /// The `TeamColor.bin` or `UniColor.bin` the run built on held records whose header was
     /// not their position's; the headers are rewritten, the records' colors kept.
     BinHeaderRepaired,
@@ -183,7 +191,7 @@ impl Code {
     /// Every code, for the catalog test: a variant missing here would make its first message
     /// panic in `severity`, so a new variant is added to this list too.
     #[cfg(test)]
-    const ALL: [Code; 57] = [
+    const ALL: [Code; 60] = [
         Code::ExportExtractFailed,
         Code::NoExportsFound,
         Code::ExportDisabled,
@@ -233,6 +241,9 @@ impl Code {
         Code::MtlBroken,
         Code::SourceReadFailed,
         Code::FolderPackFailed,
+        Code::DpfilelistMissing,
+        Code::InstalledBinUnreadable,
+        Code::BinSource,
         Code::BinHeaderRepaired,
         Code::DuplicatePath,
         Code::CpkWriteFailed,
@@ -295,6 +306,9 @@ impl Code {
             Code::MtlBroken => "mtl_broken",
             Code::SourceReadFailed => "source_read_failed",
             Code::FolderPackFailed => "folder_pack_failed",
+            Code::DpfilelistMissing => "dpfilelist_missing",
+            Code::InstalledBinUnreadable => "installed_bin_unreadable",
+            Code::BinSource => "bin_source",
             Code::BinHeaderRepaired => "bin_header_repaired",
             Code::DuplicatePath => "duplicate_path",
             Code::CpkWriteFailed => "cpk_write_failed",
@@ -307,7 +321,7 @@ impl Code {
     }
 }
 
-/// A code's severity as the catalog's "Sev" column gives it; two codes depend on the run.
+/// A code's severity as the catalog's "Sev" column gives it; some codes depend on the run.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum CatalogSeverity {
     Info,
@@ -316,6 +330,8 @@ enum CatalogSeverity {
     Fatal,
     /// `E/I`: an Error when `strict_file_type_check` is on, else an Info.
     ErrorOrInfo,
+    /// `E/W`: an Error when the run deploys, a Warning when it deploys nothing.
+    ErrorOrWarning,
     /// `E/F`: Fatal when the disposition aborts the run, else an Error.
     ErrorOrFatal,
 }
@@ -371,6 +387,9 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("model_broken", CatalogSeverity::Error),
     ("mtl_broken", CatalogSeverity::Error),
     ("folder_pack_failed", CatalogSeverity::ErrorOrFatal),
+    ("dpfilelist_missing", CatalogSeverity::ErrorOrWarning),
+    ("installed_bin_unreadable", CatalogSeverity::Fatal),
+    ("bin_source", CatalogSeverity::Info),
     ("bin_header_repaired", CatalogSeverity::Warning),
     // The catalog's `W/E`: only the override form, a Warning, has a trigger today.
     ("duplicate_path", CatalogSeverity::Warning),
@@ -458,8 +477,10 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("notes_encoding_invalid", CatalogSeverity::Error),
 ];
 
-/// The severity `code` is shown at, given what was done about it and the strict setting.
-fn severity(code: &str, disposition: Disposition, strict_file_type_check: bool) -> Severity {
+/// The severity `code` is shown at, given what was done about it and `raised`, the run setting
+/// that picks the higher severity of a row giving two: `strict_file_type_check` for `E/I`, a
+/// run that deploys for `E/W`.
+fn severity(code: &str, disposition: Disposition, raised: bool) -> Severity {
     let catalog = CATALOG
         .iter()
         .find(|(known, _)| *known == code)
@@ -474,8 +495,10 @@ fn severity(code: &str, disposition: Disposition, strict_file_type_check: bool) 
         CatalogSeverity::Fatal => Severity::Fatal,
         // Keyed by the setting, not the disposition: `pass_through` keeps a disallowed file
         // (`Keep`) but its finding stays an Error.
-        CatalogSeverity::ErrorOrInfo if strict_file_type_check => Severity::Error,
+        CatalogSeverity::ErrorOrInfo if raised => Severity::Error,
         CatalogSeverity::ErrorOrInfo => Severity::Info,
+        CatalogSeverity::ErrorOrWarning if raised => Severity::Error,
+        CatalogSeverity::ErrorOrWarning => Severity::Warning,
         CatalogSeverity::ErrorOrFatal if disposition == Disposition::AbortRun => Severity::Fatal,
         CatalogSeverity::ErrorOrFatal => Severity::Error,
     }
@@ -541,19 +564,38 @@ pub(crate) fn tool_message(
     message(code.as_str(), scope, disposition, context, false)
 }
 
+/// A message for one of the tool's own codes whose severity depends on whether the run
+/// `deploys` (the catalog's `E/W`): an Error when it does, a Warning when it deploys nothing.
+pub(crate) fn deploy_message(
+    code: Code,
+    scope: Scope,
+    disposition: Disposition,
+    context: Vec<(&'static str, String)>,
+    deploys: bool,
+) -> Message {
+    let context = context
+        .into_iter()
+        .map(|(key, value)| (key.to_owned(), value))
+        .collect();
+    message(code.as_str(), scope, disposition, context, deploys)
+}
+
+/// The message for `code`, its severity from the catalog given `disposition` and `raised`, the
+/// run setting that picks the higher severity of a row giving two: `strict_file_type_check` for
+/// `E/I`, a run that deploys for `E/W`.
 fn message(
     code: &'static str,
     scope: Scope,
     disposition: Disposition,
     context: Vec<(String, String)>,
-    strict_file_type_check: bool,
+    raised: bool,
 ) -> Message {
     Message {
         code: MessageCode {
             tool_id: TOOL_ID,
             code: Cow::Borrowed(code),
         },
-        severity: severity(code, disposition, strict_file_type_check),
+        severity: severity(code, disposition, raised),
         disposition,
         scope,
         context,
@@ -699,6 +741,26 @@ mod tests {
             vec![],
         );
         assert_eq!(message.severity, Severity::Fatal);
+    }
+
+    #[test]
+    fn a_missing_dpfilelist_is_an_error_only_when_the_run_deploys() {
+        let message = |deploys| {
+            deploy_message(
+                Code::DpfilelistMissing,
+                Scope::Run,
+                Disposition::Keep,
+                vec![("path", "download/DpFileList.bin".to_owned())],
+                deploys,
+            )
+        };
+        assert_eq!(message(true).severity, Severity::Error);
+        assert_eq!(message(false).severity, Severity::Warning);
+        assert_eq!(message(false).code.code, "dpfilelist_missing");
+        assert_eq!(
+            message(false).context,
+            [("path".to_owned(), "download/DpFileList.bin".to_owned())]
+        );
     }
 
     #[test]

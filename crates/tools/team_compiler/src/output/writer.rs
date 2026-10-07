@@ -16,7 +16,6 @@ use crate::bins::{KitColorEntry, Rgb, TeamColorBin, UniColorBin, WorkingBins};
 use crate::messages::{Code, tool_message};
 use crate::paths;
 use crate::processing::TaskBatch;
-use crate::templates;
 
 /// The CPK header's tool-version string. One string per release, so a release compiling the
 /// same exports writes the same bytes.
@@ -131,17 +130,17 @@ impl CpkOutput {
         Ok(())
     }
 
-    /// Writes the bins and closes the CPK: `UniformParameter.bin` when a kit committed, then
-    /// `TeamColor.bin`, built on `bins`' with every record's header set from its position and
-    /// each of `team_colors` (team id, colors) set in its team's record, then `UniColor.bin`,
-    /// built on `bins`' the same way, each of `full_team_kits` (team id, kit numbers: a `Full`
-    /// export's kit tasks) keeping only those kits in its team's record, then each committed
-    /// kit's entry merged into its team's record in commit order. Returns whether a CPK was
-    /// written, `false` when no batch
-    /// committed anything and there is no override (then no file exists and no bin is
-    /// built), and the findings to report: one `bin_header_repaired` per working bin that had
-    /// a header wrong, naming the teams, and a `duplicate_path` for each bin an override
-    /// replaced.
+    /// Writes the bins and closes the CPK: `UniformParameter.bin` when a kit committed, built on
+    /// `bins`' with each committed kit config added (an error when `bins` has none, as on PES
+    /// 15-17), then `TeamColor.bin`, built on `bins`' with every record's header set from its
+    /// position and each of `team_colors` (team id, colors) set in its team's record, then
+    /// `UniColor.bin`, built on `bins`' the same way, each of `full_team_kits` (team id, kit
+    /// numbers: a `Full` export's kit tasks) keeping only those kits in its team's record, then
+    /// each committed kit's entry merged into its team's record in commit order. Returns whether a
+    /// CPK was written, `false` when no batch committed anything and there is no override (then no
+    /// file exists and no bin is built), and the findings to report: one `bin_header_repaired` per
+    /// working bin that had a header wrong, naming the teams, and a `duplicate_path` for each bin
+    /// an override replaced.
     pub(crate) fn finish(
         mut self,
         version: PesVersion,
@@ -158,10 +157,11 @@ impl CpkOutput {
         // The bins hold what every committed kit contributed, so they are built only once
         // every batch is in, and go last.
         if !self.uniform_parameters.is_empty() {
-            let base = templates::uniform_parameter_base(version)
+            let base = bins
+                .uniform_parameter
                 .with_context(|| format!("{version} has no UniformParameter.bin"))?;
-            let mut bin = UniformParameter::read(base)
-                .context("cannot read the bundled UniformParameter base")?;
+            let mut bin = UniformParameter::read(&base)
+                .context("cannot read the working UniformParameter.bin")?;
             for (name, config) in std::mem::take(&mut self.uniform_parameters) {
                 bin.insert(name, config)?;
             }
@@ -295,12 +295,14 @@ mod tests {
 
     use super::*;
     use crate::messages::{Code, tool_message};
+    use crate::templates;
     use crate::testing::scratch;
 
     /// `output` finished for PES `version` on the bundled bins with no team colors, the bins
     /// asserted to report nothing: whether a CPK was written.
     fn finish_plain(output: CpkOutput, version: PesVersion) -> anyhow::Result<bool> {
-        let (written, messages) = output.finish(version, WorkingBins::bundled(), &[], &[])?;
+        let (written, messages) =
+            output.finish(version, WorkingBins::bundled(version), &[], &[])?;
         assert_eq!(messages, []);
         Ok(written)
     }
@@ -639,7 +641,7 @@ mod tests {
         let (written, messages) = output
             .finish(
                 PesVersion::Pes21,
-                WorkingBins::bundled(),
+                WorkingBins::bundled(PesVersion::Pes21),
                 &team_714_colors(),
                 &[],
             )
@@ -697,7 +699,7 @@ mod tests {
         );
         assert_eq!(entry(&path, "a/over.bin"), override_bytes("a/over.bin"));
         assert!(
-            entry(&path, paths::UNI_COLOR) == WorkingBins::bundled().uni_color,
+            entry(&path, paths::UNI_COLOR) == WorkingBins::bundled(PesVersion::Pes21).uni_color,
             "no kit committed"
         );
     }
@@ -764,6 +766,31 @@ mod tests {
             UniformParameter::read(templates::uniform_parameter_base(PesVersion::Pes21).unwrap())
                 .unwrap();
         assert_eq!(bin.len(), base.len() + 1, "the base's entries are kept");
+    }
+
+    #[test]
+    fn uniform_parameter_bin_is_built_on_the_working_one() {
+        let temp = scratch("writer_working_uniform_parameter");
+        let path = temp.path().join("cup.cpk");
+        let mut output = CpkOutput::new(path.clone(), BTreeMap::new());
+        output.submit(batch(0, &["a/b.bin"], Some("kit"))).unwrap();
+        // PES 18's base stands in for an installed bin: it is not the one a PES 21 run bundles.
+        let working = templates::uniform_parameter_base(PesVersion::Pes18).unwrap();
+        let bins = WorkingBins {
+            uniform_parameter: Some(working.to_vec()),
+            ..WorkingBins::bundled(PesVersion::Pes21)
+        };
+
+        let (written, _) = output.finish(PesVersion::Pes21, bins, &[], &[]).unwrap();
+
+        assert!(written);
+        let bin = UniformParameter::read(&entry(&path, paths::UNIFORM_PARAMETER)).unwrap();
+        let mut expected = UniformParameter::read(working).unwrap();
+        expected.insert("kit".to_owned(), vec![7; 120]).unwrap();
+        assert!(
+            bin.write() == expected.write(),
+            "the working bin with the kit's config added"
+        );
     }
 
     #[test]
@@ -897,8 +924,11 @@ mod tests {
 
     #[test]
     fn team_color_bin_is_the_working_bin_with_each_team_s_colors_set() {
-        let base = WorkingBins::bundled().team_color;
-        let (bin, messages) = team_color_run("writer_team_colors", WorkingBins::bundled());
+        let base = WorkingBins::bundled(PesVersion::Pes21).team_color;
+        let (bin, messages) = team_color_run(
+            "writer_team_colors",
+            WorkingBins::bundled(PesVersion::Pes21),
+        );
         let mut expected = base;
         let record = team_record(714);
         expected[record + 4..record + 10].copy_from_slice(&[0xc1, 0x12, 0x00, 0x41, 0x41, 0x41]);
@@ -908,14 +938,14 @@ mod tests {
 
     #[test]
     fn a_working_bin_s_broken_header_is_repaired_and_reported() {
-        let mut broken = WorkingBins::bundled().team_color;
+        let mut broken = WorkingBins::bundled(PesVersion::Pes21).team_color;
         let record = team_record(799);
         broken[record..record + 4].copy_from_slice(&[0xc1, 0x12, 0x00, 0x41]);
         let (bin, messages) = team_color_run(
             "writer_team_color_repaired",
             WorkingBins {
                 team_color: broken.clone(),
-                ..WorkingBins::bundled()
+                ..WorkingBins::bundled(PesVersion::Pes21)
             },
         );
         assert_eq!(bin[record..record + 4], [0x1f, 0x03, 0x04, 0x00]);
@@ -957,7 +987,7 @@ mod tests {
             let folder = temp.path().join("run");
             let mut output = CpkOutput::new(folder.join("cup.cpk"), BTreeMap::new());
             output.submit(batch(0, &[], None)).unwrap();
-            let mut broken = WorkingBins::bundled();
+            let mut broken = WorkingBins::bundled(PesVersion::Pes21);
             broken.team_color[..4].copy_from_slice(&[1, 2, 3, 4]);
             let finished = output
                 .finish(PesVersion::Pes21, broken, &team_colors, &[])
@@ -1020,7 +1050,7 @@ mod tests {
         let (bin, messages) = uni_color_run(
             "writer_uni_color",
             vec![kit_batch(0, &["kit/kit.ftex"])],
-            WorkingBins::bundled(),
+            WorkingBins::bundled(PesVersion::Pes21),
         );
 
         assert_eq!(messages, []);
@@ -1030,7 +1060,7 @@ mod tests {
         for _ in 0..9 {
             record.extend([0xff, 0, 0, 0, 0, 0, 0, 0]);
         }
-        let mut expected = WorkingBins::bundled().uni_color;
+        let mut expected = WorkingBins::bundled(PesVersion::Pes21).uni_color;
         let start = kit_record(792);
         expected[start..start + 85].copy_from_slice(&record);
         assert!(bin == expected, "only team 792's record differs");
@@ -1041,19 +1071,19 @@ mod tests {
         let (bin, messages) = uni_color_run(
             "writer_uni_color_failed",
             vec![kit_batch(0, &[]), batch(1, &["a/b.bin"], None)],
-            WorkingBins::bundled(),
+            WorkingBins::bundled(PesVersion::Pes21),
         );
 
         assert_eq!(messages, []);
         assert!(
-            bin == WorkingBins::bundled().uni_color,
+            bin == WorkingBins::bundled(PesVersion::Pes21).uni_color,
             "the failed kit's entry is not applied"
         );
     }
 
     #[test]
     fn each_working_color_bin_s_broken_header_is_reported_teamcolor_first() {
-        let mut bins = WorkingBins::bundled();
+        let mut bins = WorkingBins::bundled(PesVersion::Pes21);
         let team = team_record(799);
         bins.team_color[team..team + 4].copy_from_slice(&[0xc1, 0x12, 0x00, 0x41]);
         let kits = kit_record(799);

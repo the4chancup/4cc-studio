@@ -112,8 +112,11 @@ mod tests {
     use crate::Tool;
     use crate::testing::{poll_until_done, sandbox, tool_context};
 
-    /// The lines of a clean compile of the sandbox's tracer export.
-    const TRACER_LINES: [&str; 5] = [
+    /// The lines of a clean compile of the sandbox's tracer export, its PES folder absent.
+    const TRACER_LINES: [&str; 8] = [
+        "- Info bin_source (bin=TeamColor.bin, cpk=bundled)",
+        "- Info bin_source (bin=UniColor.bin, cpk=bundled)",
+        "- Info bin_source (bin=UniformParameter.bin, cpk=bundled)",
         "- egg Midcup Tracer: Info fmdl_weights_not_normalized at Players/05 - The Chad Stormworks Player (file=boots.fmdl, count=1662)",
         "- egg Midcup Tracer: Info fmdl_weights_not_normalized at Players/05 - The Chad Stormworks Player (file=fcl_hair.fmdl, count=1662)",
         "- egg Midcup Tracer: Info fmdl_weights_not_normalized at Players/05 - The Chad Stormworks Player (file=glove_l.fmdl, count=2)",
