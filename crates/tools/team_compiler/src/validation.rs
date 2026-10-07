@@ -559,6 +559,7 @@ fn file_role_messages(
                 | PlayerFile::Texture(..)
                 | PlayerFile::CommonTexture(_)
                 | PlayerFile::PreFoxModel { .. }
+                | PlayerFile::PreFoxPart { .. }
                 | PlayerFile::PreFoxCommonModel { .. }
                 | PlayerFile::Material
                 | PlayerFile::CommonMaterial,

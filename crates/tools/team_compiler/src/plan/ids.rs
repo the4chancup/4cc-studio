@@ -200,7 +200,7 @@ mod tests {
     }
 
     #[test]
-    fn a_folder_linked_by_a_combining_player_takes_an_id_only_pre_fox() {
+    fn a_folder_linked_by_a_combining_player_takes_no_id() {
         // Slot 03 holds boots of its own, so on Fox its link combines; slot 07's gloves do
         // not touch its boots link.
         let files = [
@@ -215,9 +215,29 @@ mod tests {
             taking(&files, None, Engine::Fox, SharedKind::Boots),
             ["Mud"]
         );
+    }
+
+    #[test]
+    fn pre_fox_a_boots_link_combines_and_takes_no_id_only_under_ingame_face() {
+        // Without the marker slot 03's boots model is a part of his face, and his link loads
+        // the shared output by its id.
+        let files = [
+            "Players/03 - A/Crocs.boots",
+            "Players/03 - A/kit_boots.model",
+            "Players/07 - B/Mud.boots",
+            "Players/07 - B/glove_l.model",
+            "Boots/Crocs/boots.model",
+            "Boots/Mud/boots.model",
+        ];
         assert_eq!(
             taking(&files, None, Engine::PreFox, SharedKind::Boots),
             ["Crocs", "Mud"]
+        );
+        // Under it his boots model is a part of his own boots, which Crocs's model joins.
+        let marked = [files.as_slice(), &["Players/03 - A/ingame_face"]].concat();
+        assert_eq!(
+            taking(&marked, None, Engine::PreFox, SharedKind::Boots),
+            ["Mud"]
         );
     }
 

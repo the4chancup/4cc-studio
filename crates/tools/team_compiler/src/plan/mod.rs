@@ -280,6 +280,7 @@ impl ModelFolder {
                     | PlayerFile::Texture(..)
                     | PlayerFile::CommonTexture(_)
                     | PlayerFile::PreFoxModel { .. }
+                    | PlayerFile::PreFoxPart { .. }
                     | PlayerFile::PreFoxCommonModel { .. }
                     | PlayerFile::Material
                     | PlayerFile::CommonMaterial => None,
@@ -298,10 +299,17 @@ impl ModelFolder {
     }
 
     /// The package the folder's own files feed, which its own textures count for when a stem
-    /// conflicts: a player folder's stand for its face, a shared folder's for its one package.
+    /// conflicts and its pre-Fox `.mtl` files go into: a player folder's stand for its face,
+    /// a shared folder's for its one package. A pre-Fox player holding `ingame_face` has no
+    /// face: his models are parts of his boots (`PlayerFile::PreFoxPart`, gloves being a later
+    /// step's), so his `.mtl` files and textures are the boots'.
     fn own_package(&self) -> ModelPackage {
         match &self.textures {
-            TextureHome::PlayerCommon { .. } => ModelPackage::Face,
+            TextureHome::PlayerCommon { .. } => match self.engine {
+                Engine::Fox => ModelPackage::Face,
+                Engine::PreFox if self.ingame_face => ModelPackage::Boots,
+                Engine::PreFox => ModelPackage::Face,
+            },
             TextureHome::SharedOutput { package, .. } => *package,
         }
     }
@@ -478,7 +486,8 @@ impl TaskKind {
                 role.package() == Some(*package)
                     || (*package == ModelPackage::Gloves && folder.hand_split.contains(&file.path))
                     // A pre-Fox model and `.mtl` go into the package their folder's own
-                    // files feed: a shared boots or gloves folder's into its own output.
+                    // files feed: a shared boots or gloves folder's into its own output, an
+                    // `ingame_face` player's (and a boots folder he combines) into his boots.
                     || (matches!(role, PlayerFile::PreFoxModel { .. } | PlayerFile::Material)
                         && *package == folder.own_package())
             }),
@@ -770,7 +779,7 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
             }) {
                 let shared = linked_folder(&export, link)
                     .expect("validation drops a player folder whose link names no shared folder");
-                if link_combines(&folder, link) {
+                if link_combines(&folder, link, version.engine()) {
                     messages.push(tool_message(
                         Code::LinkCombined,
                         Scope::Folder {
@@ -993,7 +1002,8 @@ fn folder_tasks(
     let mut held = Vec::new();
     for (package, ids) in packages {
         // A pre-Fox model is a part of the package its folder's own files feed, whatever its
-        // `face.xml` type: a player's face, a shared folder's boots or gloves.
+        // `face.xml` type: a player's face, a shared folder's boots or gloves, the boots of an
+        // `ingame_face` player combining a boots folder. His own parts say their package.
         let models = folder_files(&folder, |_, role| {
             is_part_of(role, *package)
                 || (matches!(role, PlayerFile::PreFoxModel { .. })

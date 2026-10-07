@@ -202,9 +202,14 @@ pub(crate) fn process_task(
             (Engine::PreFox, ModelPackage::Face) => {
                 prefox_face::face(folder, task.team_id, ctx, &mut files, &mut findings)
             }
-            (Engine::PreFox, ModelPackage::Boots | ModelPackage::Gloves) => {
-                prefox_shared::package(folder, *package, task.team_id, &mut files)
-            }
+            (Engine::PreFox, ModelPackage::Boots | ModelPackage::Gloves) => prefox_shared::package(
+                folder,
+                *package,
+                task.team_id,
+                ctx,
+                &mut files,
+                &mut findings,
+            ),
         }
         .map(|files| {
             let output = TaskOutput::Package {

@@ -171,8 +171,15 @@ subfolder) becomes part of the player's boots, with its skeleton file, and is no
 the marker is the error `ingame_face_explicit_face_model`, and the player's folder is left out.
 A `face_diff.bin`, `face_diff.xml` or `fcl_hair_sim.fclo` in a folder with no face model is not
 used, and both commands report it as `face_file_not_used`. For PES 2015 to 2017 every `.model`
-of a player folder, boots and gloves included, goes into the player's face, listed in a
-`face.xml` that `compile` writes with each model's type read from its name; a face with
+of a player folder without `ingame_face`, boots and gloves included, goes into the player's
+face, listed in a `face.xml` that `compile` writes with each model's type read from its name.
+With `ingame_face`, every `.model` but a glove (`shirt.model` and `torso.model` included)
+becomes part of the player's own boots, written as one `boots.model` with one `boots.mtl` in
+his own boots folder; several are merged into one, reported as `model_merged`, and a linked
+`Boots` folder beside them is merged in too, reported as `link_combined`. Parts that define
+one material differently (`merge_material_conflict`), one bone differently
+(`skl_merge_conflict`) or carry different header flags (`model_merge_flags_conflict`) leave
+the player's boots out, the error telling which. A face with
 models but none of type `face_neck` (a `face_high` model is one) gets an invisible stand-in,
 reported as `xml_face_neck_added`. For PES 2015 a model typed `uniform` (`body_uniform.model`)
 is listed as `uniform_sub` instead, reported as `xml_uniform_pes15`. A player or shared folder
@@ -180,8 +187,9 @@ holding a `face_edithair.xml` or a `hair.xml`, anywhere in it, is the error
 `edithair_unsupported` for PES 2015 to 2017, and the folder is left out; both commands report
 it. A linked `Faces` folder is copied into the face of each
 player linking it, reported as `link_combined`, the player's own model or `.mtl` replacing the
-linked folder's file of the same name. A linked `Boots` folder holds one `.model`, written once
-as `boots.model` with the `.mtl` it uses as `boots.mtl`, and a linked `Gloves` folder's models
+linked folder's file of the same name. A linked `Boots` folder's `.model` is written once as
+`boots.model` with the `.mtl` it uses as `boots.mtl`, several merged into one and reported as
+`model_merged`, and a linked `Gloves` folder's models
 and `.mtl` files are written once under their own names in lower case, the models listed in a
 `glove.xml` that `compile` writes; the
 textures of either sit beside the models.
@@ -209,8 +217,8 @@ cannot build yet. For PES 2015 to 2017 it builds a player folder's own `.model` 
 their `.mtl` files, textures and face diff, its `.common` links to a `.model`, a `.mtl` or a
 texture, the linked shared `Faces`, `Boots` and `Gloves` folders, a `Common` folder holding
 only `.model`, `.mtl` and texture files, and the portraits and the logo; kits, collars,
-`ingame_face`, `.fmdl` files, a `Boots` folder holding several models and referee exports are
-named. For
+`.fmdl` files, a glove model or a `.common` link to a model or a `.mtl` beside `ingame_face`,
+and referee exports are named. For
 PES 2018 to 2021 it names a referee export's kit, logo, portrait or collar
 (a referee has no kit slot, team logo or player id, and no kit of his own to put a collar on),
 or content other than a player's

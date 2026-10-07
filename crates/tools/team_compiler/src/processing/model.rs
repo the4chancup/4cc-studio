@@ -150,6 +150,7 @@ pub(super) fn package(
                 | PlayerFile::Packed { .. } => {}
                 // Pre-Fox roles: a Fox target gives no file one.
                 PlayerFile::PreFoxModel { .. }
+                | PlayerFile::PreFoxPart { .. }
                 | PlayerFile::PreFoxCommonModel { .. }
                 | PlayerFile::Material
                 | PlayerFile::CommonMaterial => {}

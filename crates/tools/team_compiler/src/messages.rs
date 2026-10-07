@@ -106,6 +106,11 @@ pub(crate) enum Code {
     FmdlFclHairFallback,
     /// Several models of a package resolve to one allowed name and were merged into one FMDL.
     FmdlMerged,
+    /// Pre-Fox: several boots models were merged into one `boots.model` and its `.mtl`.
+    ModelMerged,
+    /// Pre-Fox: merged parts' `.model` headers carry different `flags`, a field of unknown
+    /// meaning, so the merge has no rule to combine them; the package is left out.
+    ModelMergeFlagsConflict,
     /// A face model's vertices carry hand-skeleton (`skh_`) weights: its hands were cut off at
     /// the wrist into the player's gloves (the hand auto-split).
     ModelHandSplit,
@@ -287,7 +292,7 @@ impl Code {
     /// Every code, for the catalog test: a variant missing here would make its first message
     /// panic in `severity`, so a new variant is added to this list too.
     #[cfg(test)]
-    const ALL: [Code; 90] = [
+    const ALL: [Code; 92] = [
         Code::ExportExtractFailed,
         Code::NoExportsFound,
         Code::ExportDisabled,
@@ -321,6 +326,8 @@ impl Code {
         Code::SettingsTomlInvalid,
         Code::FmdlFclHairFallback,
         Code::FmdlMerged,
+        Code::ModelMerged,
+        Code::ModelMergeFlagsConflict,
         Code::ModelHandSplit,
         Code::MergeMaterialConflict,
         Code::SklMergeConflict,
@@ -416,6 +423,8 @@ impl Code {
             Code::SettingsTomlInvalid => "settings_toml_invalid",
             Code::FmdlFclHairFallback => "fmdl_fcl_hair_fallback",
             Code::FmdlMerged => "fmdl_merged",
+            Code::ModelMerged => "model_merged",
+            Code::ModelMergeFlagsConflict => "model_merge_flags_conflict",
             Code::ModelHandSplit => "model_hand_split",
             Code::MergeMaterialConflict => "merge_material_conflict",
             Code::SklMergeConflict => "skl_merge_conflict",
@@ -531,6 +540,8 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("settings_toml_invalid", CatalogSeverity::Error),
     ("fmdl_fcl_hair_fallback", CatalogSeverity::Info),
     ("fmdl_merged", CatalogSeverity::Info),
+    ("model_merged", CatalogSeverity::Info),
+    ("model_merge_flags_conflict", CatalogSeverity::Error),
     ("model_hand_split", CatalogSeverity::Info),
     ("merge_material_conflict", CatalogSeverity::Error),
     ("skl_merge_conflict", CatalogSeverity::Error),

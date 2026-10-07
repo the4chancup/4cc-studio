@@ -29,7 +29,7 @@ fn face_folder(slot: u8) -> String {
 }
 
 /// The bytes of `pes_model`'s fixture `name`: real pre-Fox models and material sets.
-fn pre_fox_fixture(name: &str) -> Vec<u8> {
+pub(crate) fn pre_fox_fixture(name: &str) -> Vec<u8> {
     fs::read(
         Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../libs/pes_model/tests/fixtures")
@@ -59,7 +59,7 @@ fn materials_naming(stem: &str) -> Vec<u8> {
 }
 
 /// The texture paths of the `.mtl` `bytes`, each its directory then its file name.
-fn sampler_paths(bytes: &[u8]) -> Vec<String> {
+pub(crate) fn sampler_paths(bytes: &[u8]) -> Vec<String> {
     let materials = pes_model::format::mtl::MaterialSet::read(bytes).unwrap();
     pes_model::ops::paths::texture_paths(&materials)
         .into_iter()
@@ -68,7 +68,7 @@ fn sampler_paths(bytes: &[u8]) -> Vec<String> {
 }
 
 /// The entries of `entries` under the folder `folder`, by their names in it.
-fn entries_under<'a>(
+pub(crate) fn entries_under<'a>(
     entries: &'a BTreeMap<String, Vec<u8>>,
     folder: &str,
 ) -> BTreeMap<&'a str, &'a Vec<u8>> {
@@ -79,10 +79,10 @@ fn entries_under<'a>(
 }
 
 /// The outer CPK folder of team 714's first shared boots output.
-const BOOTS_K0644: &str = "common/character0/model/character/boots/k0644/";
+pub(crate) const BOOTS_K0644: &str = "common/character0/model/character/boots/k0644/";
 
 /// Writes slot 05 of the export `export` holding `face_high.model`, its `.mtl` and `skin.dds`.
-fn write_slot_05_face(sandbox: &Sandbox, export: &str) {
+pub(crate) fn write_slot_05_face(sandbox: &Sandbox, export: &str) {
     let player = format!("exports/{export}/Players/05 - A");
     sandbox.write(&format!("{player}/face_high.model"), &card_model());
     sandbox.write(&format!("{player}/face_high.mtl"), &card_materials());
@@ -90,7 +90,7 @@ fn write_slot_05_face(sandbox: &Sandbox, export: &str) {
 }
 
 /// The findings of an export compiled with nothing to report.
-const CLEAN: [&str; 2] = [
+pub(crate) const CLEAN: [&str; 2] = [
     "Info export_identified [Keep] (team=/co/, id=714)",
     "Info team_colors_missing [Keep] ()",
 ];
@@ -106,13 +106,17 @@ pub(crate) fn small_dds() -> Vec<u8> {
 }
 
 /// The PES 17 settings of `sandbox`, whose game folder does not exist.
-fn pes17(sandbox: &Sandbox) -> String {
+pub(crate) fn pes17(sandbox: &Sandbox) -> String {
     pes_settings(sandbox, 17)
 }
 
 /// Runs `compile --no-deploy` for PES 17, asserts the export `name`'s findings are `findings`
 /// and the run succeeded, and returns the output CPK's entries.
-fn compile_pes17(sandbox: &Sandbox, name: &str, findings: &[&str]) -> BTreeMap<String, Vec<u8>> {
+pub(crate) fn compile_pes17(
+    sandbox: &Sandbox,
+    name: &str,
+    findings: &[&str],
+) -> BTreeMap<String, Vec<u8>> {
     compile_for(sandbox, 17, name, findings)
 }
 

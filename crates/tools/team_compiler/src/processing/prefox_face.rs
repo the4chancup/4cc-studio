@@ -173,21 +173,14 @@ pub(super) fn face(
                     textures.insert(vtree::fold_name(&stem), stem);
                 }
                 PlayerFile::CommonTexture(stem) => {
-                    let linked_name = common_link_name(file.path.name())
-                        .expect("a CommonTexture role implies a `.common` link name");
-                    // On pre-Fox no installed texture satisfies a link (validation's
-                    // `installed_common_textures` is empty there).
-                    let target = common_file(&folder.common_files, &linked_name).expect(
-                        "validation drops a player folder whose texture link names no Common \
-                         file",
-                    );
-                    let target_stem = file_stem(target.path.name()).to_owned();
-                    linked.insert(vtree::fold_name(&stem), target_stem);
+                    linked.insert(vtree::fold_name(&stem), linked_texture_stem(folder, file));
                 }
                 // The search resolves a material link where it finds it (`mtl_for`).
                 PlayerFile::CommonMaterial => {}
-                // The Fox roles; and a face file with no face model, which is not read.
+                // The Fox roles; a face file with no face model, which is not read; and an
+                // `ingame_face` player's part, which has no face.
                 PlayerFile::Model { .. }
+                | PlayerFile::PreFoxPart { .. }
                 | PlayerFile::CommonModel { .. }
                 | PlayerFile::Skeleton { .. }
                 | PlayerFile::SlotlessSkeleton
@@ -306,19 +299,47 @@ pub(super) fn face(
     Ok(contents)
 }
 
-/// `bytes`, the `.mtl` `file`, with every texture path whose file stem (case-folded) is one of
-/// a place's textures pointed at that place's directory as that texture's DDS, `<stem>.dds`:
-/// `places` are (textures, directory) pairs, each texture by its folded stem with its stem as
-/// spelled where it is packed, and the first place holding a stem wins. Any other path is left
-/// as it is. A material set that does not read is an error naming the file.
+/// The stem of the `Common/` texture the `.common` texture link `file` of the player `folder`
+/// names, as `Common/` spells it: the name its DDS has in the team's Common output.
+pub(super) fn linked_texture_stem(folder: &ModelFolder, file: &FileDescriptor) -> String {
+    let linked_name = common_link_name(file.path.name())
+        .expect("a CommonTexture role implies a `.common` link name");
+    // On pre-Fox no installed texture satisfies a link (validation's
+    // `installed_common_textures` is empty there).
+    let target = common_file(&folder.common_files, &linked_name)
+        .expect("validation drops a player folder whose texture link names no Common file");
+    file_stem(target.path.name()).to_owned()
+}
+
+/// `bytes`, the `.mtl` `file`, with its texture paths pointed as `point_materials` points
+/// them. A material set that does not read is an error naming the file.
 pub(super) fn rewritten_materials(
     file: &FileDescriptor,
     bytes: &[u8],
     places: &[(&BTreeMap<String, String>, &str)],
 ) -> Result<Vec<u8>, TaskFailure> {
+    Ok(read_materials(file, bytes, places)?.write())
+}
+
+/// `bytes`, the `.mtl` `file`, read, its texture paths pointed as `point_materials` points
+/// them. A material set that does not read is an error naming the file.
+pub(super) fn read_materials(
+    file: &FileDescriptor,
+    bytes: &[u8],
+    places: &[(&BTreeMap<String, String>, &str)],
+) -> Result<MaterialSet, TaskFailure> {
     let mut set = MaterialSet::read(bytes)
         .map_err(|error| anyhow::anyhow!("{}: {error}", file.path.as_str()))?;
-    rewrite_texture_paths(&mut set, |path| {
+    point_materials(&mut set, places);
+    Ok(set)
+}
+
+/// Points every texture path of `set` whose file stem (case-folded) is one of a place's
+/// textures at that place's directory as that texture's DDS, `<stem>.dds`: `places` are
+/// (textures, directory) pairs, each texture by its folded stem with its stem as spelled where
+/// it is packed, and the first place holding a stem wins. Any other path is left as it is.
+fn point_materials(set: &mut MaterialSet, places: &[(&BTreeMap<String, String>, &str)]) {
+    rewrite_texture_paths(set, |path| {
         let key = vtree::fold_name(file_stem(&path.file_name));
         let found = places
             .iter()
@@ -328,7 +349,6 @@ pub(super) fn rewritten_materials(
             path.file_name = format!("{stem}.dds");
         }
     });
-    Ok(set.write())
 }
 
 /// Adds `bytes` to `contents`, the files of `package`, as `name`; a name already there is an
