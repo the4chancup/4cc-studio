@@ -4888,3 +4888,12 @@ combine a `handL` part with a `gloveL` one, whose `face.xml` types differ. Boots
 because the game loads one `boots.model`.
 Plan: `aesthetics_export/player_folders.md` "`ingame_face` with shared links" and "Merging is
 Fox-only".
+
+## 2026-10-07 — scripts — `team_compiler`'s mutants run on the PC only
+Decision: `scripts/mutants.py` keeps a `LOCAL_ONLY_CRATES` set, `team_compiler` its one member;
+`just mutants <crate>` for one of them, and `just mutants-diff` over a diff holding any of their
+mutants, run every mutant locally instead of splitting with the VPS (maintainer's call).
+Why: the remote half's builds of `team_compiler` reached the 9 GiB cap with `REMOTE_BUILD_JOBS`
+already at 1 (4.14d lost two builds there), the cap cannot grow, and a killed build hides an
+untested mutant until it is rerun by hand, so the split no longer saves time on this crate.
+Plan: `AGENTS.md` "Environment" (the VPS cap paragraph).

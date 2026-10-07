@@ -347,7 +347,10 @@ OOM killer, which could as well have picked Postgres, took the test. The run pri
 (`remote memory peak`). The cap is final: the host has no more memory to give (4.7b's run
 peaked at 8.43 GiB), so a peak near the cap changes nothing by itself. When a build is killed
 at the cap, the run fails and lists the untested mutants (`report_killed`), and the fix is
-then a lower `REMOTE_BUILD_JOBS`, never a higher cap. A running half is stopped with `sudo systemctl stop
+then a lower `REMOTE_BUILD_JOBS`, never a higher cap; past one job, the crate joins
+`LOCAL_ONLY_CRATES` in `scripts/mutants.py`, whose mutants never go to the VPS (a whole-crate run
+and any diff holding one of them run locally whole): `team_compiler` since 4.14d, whose run lost
+two builds at the cap with one job. A running half is stopped with `sudo systemctl stop
 studio-mutants` on the host.
 
 **The remote half runs detached** from any ssh session (`~/studio-mutants/run/`: `job.sh`,

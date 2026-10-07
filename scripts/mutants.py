@@ -4,7 +4,8 @@ With `STUDIO_MUTANTS_REMOTE` set to an ssh host (e.g. `bonfire`) the run is shar
 round-robin: this machine runs `--shard 0/2`, the host runs `--shard 1/2`, and the
 remote half's results merge into `mutants.out/remote/`. Unset (in the process
 and, on Windows, in the user's registry environment) or empty, the plain local
-command runs.
+command runs; it also runs for a crate in `LOCAL_ONLY_CRATES`, whose builds
+outgrow the remote's memory cap.
 
 The remote half runs as a transient systemd service on the host (`sudo -n
 systemd-run --unit=studio-mutants`), detached from the ssh session by
@@ -57,6 +58,12 @@ REMOTE_MEMORY_MAX = "9G"
 # wayland) are the largest the workspace builds (maintainer, 3.z). 2 until
 # 4.14b, whose rerun peaked at the 9 GiB cap with three builds killed.
 REMOTE_BUILD_JOBS = 1
+# Crates whose mutants never go to the remote: their builds outgrow the cap
+# even at one build job (team_compiler: 4.14d's run lost two builds at 9 GiB
+# with REMOTE_BUILD_JOBS 1, and there is no lower setting), so a split would
+# only trade a local rerun of its killed mutants for the halving (maintainer,
+# 2026-10-07). A `mutants-diff` holding any of their mutants runs locally whole.
+LOCAL_ONLY_CRATES = frozenset({"team_compiler"})
 # The detached remote half's files: `job.sh`, `pid` (the service's MainPID),
 # `log`, `exit` ("<code> <seconds>", written when cargo-mutants returns),
 # `memory_peak` (the unit cgroup's peak memory) and `collected` (written by
@@ -709,8 +716,12 @@ def main(argv: list[str]) -> int:
             return 1
         return collect(host)
     crate = argv[1]
-    if host is None:
-        print("STUDIO_MUTANTS_REMOTE is not set: running every mutant on this machine", flush=True)
+    if host is None or crate in LOCAL_ONLY_CRATES:
+        reason = (
+            "STUDIO_MUTANTS_REMOTE is not set" if host is None
+            else f"{crate} is local-only (LOCAL_ONLY_CRATES)"
+        )
+        print(f"{reason}: running every mutant on this machine", flush=True)
         code = local_mutants(["-p", crate]).returncode
         update_cost_cache()
         return report_killed(code)

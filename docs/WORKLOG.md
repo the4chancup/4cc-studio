@@ -2245,11 +2245,10 @@ pruned when their phase closes; they stay in git history.
 - open (found at 4.14b's review) — pre-Fox faces: every `.mtl` of a player folder is packed
   into the face, one no model uses included (a blank face too), as Red packs the whole
   folder. Harmless to the game; revisit if a census shows stray `.mtl` files are common.
-- open (found at 4.14d's mutation run) — the remote half reaches its 9 GiB cap with
-  `REMOTE_BUILD_JOBS` already at 1 (4.14c1 peaked at 8.99 GiB; 4.14d's killed two builds,
-  rerun locally). The script has no lower setting; each killed build is listed and
-  rerun by hand. Needs the maintainer if it grows: options are running `team_compiler`'s
-  mutants locally only, or a leaner remote build profile (less debug info).
+- resolved (2026-10-07) — the remote half reached its 9 GiB cap with `REMOTE_BUILD_JOBS`
+  already at 1 (4.14c1 peaked at 8.99 GiB; 4.14d's killed two builds, rerun locally). The
+  maintainer chose to run `team_compiler`'s mutants on the PC only: `LOCAL_ONLY_CRATES` in
+  `scripts/mutants.py`, honored by `just mutants` and `just mutants-diff`.
 - resolved (2026-10-07, 4.14d) — `model_material_undefined` covered only "no `.mtl` found";
   the deep pass now also reports a material name missing from the paired `.mtl`.
 - open (found at 4.18's review) — hand auto-split: a split glove beside an authored glove

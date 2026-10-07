@@ -9,7 +9,8 @@ A run whose mutants would cost more than a few minutes locally splits with
 `STUDIO_MUTANTS_REMOTE` like `just mutants` does (see `mutants.py`): the
 estimate is the baseline plus the per-crate per-mutant costs this machine has
 measured (`mutants.estimate_seconds`), so a pes_savefile diff splits while a
-one-line `fpc` fix stays local.
+one-line `fpc` fix stays local. A diff holding a mutant of a crate in
+`mutants.LOCAL_ONLY_CRATES` never splits.
 """
 
 import json
@@ -65,8 +66,11 @@ def main(argv: list[str]) -> int:
         f"estimated {estimated:.0f} s on this machine"
     )
     host = mutants.remote_host()
-    if host is not None and estimated >= mutants.SPLIT_THRESHOLD_SECONDS:
+    local_only = sorted(mutants.LOCAL_ONLY_CRATES.intersection(counts))
+    if host is not None and estimated >= mutants.SPLIT_THRESHOLD_SECONDS and not local_only:
         return mutants.split(["--in-diff", diff_path], host)
+    if host is not None and local_only:
+        print(f"mutants_diff: {', '.join(local_only)} is local-only (LOCAL_ONLY_CRATES)")
     print("mutants_diff: running here", flush=True)
     print(f"mutants_diff: cargo mutants --in-diff {diff_path}", flush=True)
     code = mutants.local_mutants(["--in-diff", diff_path]).returncode
