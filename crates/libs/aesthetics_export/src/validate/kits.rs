@@ -1,6 +1,7 @@
 //! The kit folders: the `<slot>[ - <label>]` grammar (`all/` aside), the
 //! allowlist, texture names, layout markers and the icon marker — the own
-//! findings — then the surviving `KitsFolder` with `all/` inheritance.
+//! findings — then the surviving `KitsFolder` with `all/` inheritance, a
+//! `Full` team export's missing kinds of kit added as empty folders.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -9,14 +10,14 @@ use kit_config::KitSlot;
 use vtree::ScopePath;
 
 use super::folders::{directly_in, fold, relative, stem, stem_conflicts};
-use crate::FileKind;
 use crate::conventions::{Marker, MetadataFile, icon_number, split_folder_name};
 use crate::listing::ValidationContext;
-use crate::parse::{AestheticsExportDraft, FileDescriptor, FolderDraft};
+use crate::parse::{AestheticsExportDraft, ExportKind, FileDescriptor, FolderDraft};
 use crate::validate::{
     Disposition, IssueScope, KitFolder, KitLayout, KitTexture, KitTextureSource, KitsFolder,
     ValidationIssue, dropped_scopes, issue_in, strict_disposition,
 };
+use crate::{ExportCoverage, FileKind};
 
 /// What a kit folder's head means: `all/`, or one of the ten kit slots.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -49,7 +50,8 @@ fn is_kit_texture_name(stem: &str) -> bool {
 
 /// The kit folders' findings and the sanitized `KitsFolder`: name grammar
 /// and duplicates, each folder's own findings, `all/`'s, then building with
-/// `all/` inheritance.
+/// `all/` inheritance, a `Full` team export's missing kinds of kit built as
+/// empty folders would be (`missing_kinds`).
 pub(crate) fn check(
     draft: &AestheticsExportDraft,
     context: &ValidationContext,
@@ -120,13 +122,20 @@ pub(crate) fn check(
         .iter()
         .copied()
         .find(|index| claims[*index] == Some(KitKind::All));
-    let kit_indices: Vec<usize> = surviving
+    // The surviving kit folders, then the empty ones a `Full` team export is
+    // given: `all/` is unused only when there is neither.
+    let mut kit_folders: Vec<(KitSlot, &FolderDraft)> = surviving
         .iter()
-        .copied()
-        .filter(|index| matches!(claims[*index], Some(KitKind::Slot(_))))
+        .filter_map(|index| match claims[*index] {
+            Some(KitKind::Slot(slot)) => Some((slot, &draft.kits[*index])),
+            Some(KitKind::All) | None => None,
+        })
         .collect();
+    let surviving_slots: Vec<KitSlot> = kit_folders.iter().map(|(slot, _)| *slot).collect();
+    let empty_folders = missing_kinds(draft, &surviving_slots);
+    kit_folders.extend(empty_folders.iter().map(|(slot, folder)| (*slot, folder)));
     if let Some(index) = all_index
-        && kit_indices.is_empty()
+        && kit_folders.is_empty()
     {
         issues.push(issue_in(
             context,
@@ -143,71 +152,112 @@ pub(crate) fn check(
         None => Vec::new(),
     };
 
-    // Each surviving kit: own surviving textures, then the `all/` stems it
-    // lacks, sorted by stem; an inherited stem is reported.
-    let mut kits = BTreeMap::new();
-    for index in kit_indices {
-        let folder = &draft.kits[index];
-        let Some(KitKind::Slot(slot)) = claims[index] else {
-            continue;
+    let kits = kit_folders
+        .into_iter()
+        .map(|(slot, folder)| (slot, kit_folder(folder, &shared, context, issues)))
+        .collect();
+    KitsFolder { kits, shared }
+}
+
+/// The empty kit folders a `Full` team export is compiled with where it has
+/// no surviving kit of a kind, given its `surviving` kit slots: `Kits/p1`
+/// when no player kit survived, `Kits/g1` when `g1` did not. Every team
+/// needs one player kit and one goalkeeper kit (`team_compiler/pipeline.md`
+/// "Bins accumulation"). A `Midcup` export adds to the kits installed and a
+/// referee export has no team kits, so neither gets one.
+fn missing_kinds(
+    draft: &AestheticsExportDraft,
+    surviving: &[KitSlot],
+) -> Vec<(KitSlot, FolderDraft)> {
+    let full_team = match (draft.kind(), draft.coverage) {
+        (ExportKind::Team, Some(ExportCoverage::Full)) => true,
+        (ExportKind::Team, Some(ExportCoverage::Midcup) | None)
+        | (ExportKind::Referees, Some(ExportCoverage::Full | ExportCoverage::Midcup) | None) => {
+            false
+        }
+    };
+    if !full_team {
+        return Vec::new();
+    }
+    let has_player_kit = surviving.iter().any(|slot| *slot != KitSlot::G1);
+    let has_goalkeeper_kit = surviving.contains(&KitSlot::G1);
+    [
+        (KitSlot::P1, "Kits/p1", has_player_kit),
+        (KitSlot::G1, "Kits/g1", has_goalkeeper_kit),
+    ]
+    .into_iter()
+    .filter(|(_, _, present)| !present)
+    .map(|(slot, path, _)| {
+        let folder = FolderDraft {
+            path: ScopePath::new(path).expect("`Kits/p1` and `Kits/g1` are valid scope paths"),
+            files: Vec::new(),
         };
-        let own: BTreeSet<String> = kit_textures(folder)
-            .map(|file| fold(stem(file.path.name())))
-            .collect();
-        let mut textures: Vec<KitTexture> = kit_textures(folder)
-            .map(|file| KitTexture {
+        (slot, folder)
+    })
+    .collect()
+}
+
+/// The sanitized kit of the surviving kit folder `folder`: its own surviving
+/// textures, then the `all/` stems it lacks from `shared`, sorted by stem; an
+/// inherited stem is reported.
+fn kit_folder(
+    folder: &FolderDraft,
+    shared: &[FileDescriptor],
+    context: &ValidationContext,
+    issues: &mut Vec<ValidationIssue>,
+) -> KitFolder {
+    let own: BTreeSet<String> = kit_textures(folder)
+        .map(|file| fold(stem(file.path.name())))
+        .collect();
+    let mut textures: Vec<KitTexture> = kit_textures(folder)
+        .map(|file| KitTexture {
+            stem: stem(file.path.name()).to_lowercase(),
+            file: file.clone(),
+            source: KitTextureSource::Own,
+        })
+        .collect();
+    let mut inherited = Vec::new();
+    for file in shared {
+        let key = fold(stem(file.path.name()));
+        if !own.contains(&key) {
+            inherited.push(stem(file.path.name()).to_lowercase());
+            textures.push(KitTexture {
                 stem: stem(file.path.name()).to_lowercase(),
                 file: file.clone(),
-                source: KitTextureSource::Own,
-            })
-            .collect();
-        let mut inherited = Vec::new();
-        for file in &shared {
-            let key = fold(stem(file.path.name()));
-            if !own.contains(&key) {
-                inherited.push(stem(file.path.name()).to_lowercase());
-                textures.push(KitTexture {
-                    stem: stem(file.path.name()).to_lowercase(),
-                    file: file.clone(),
-                    source: KitTextureSource::Shared,
-                });
-            }
+                source: KitTextureSource::Shared,
+            });
         }
-        textures.sort_by(|a, b| a.stem.cmp(&b.stem));
-        if !inherited.is_empty() {
-            inherited.sort();
-            let stems = inherited
-                .iter()
-                .map(|stem| {
-                    stem.strip_prefix("kit_")
-                        .unwrap_or(stem.as_str())
-                        .to_owned()
-                })
-                .collect::<Vec<_>>()
-                .join(", ");
-            issues.push(issue_in(
-                context,
-                "kit_textures_inherited",
-                IssueScope::Folder(folder.path.clone()),
-                vec![("stems", stems)],
-                Disposition::Keep,
-            ));
-        }
-        let (_, label) = split_folder_name(folder.path.name());
-        kits.insert(
-            slot,
-            KitFolder {
-                path: folder.path.clone(),
-                label: label.map(str::to_owned),
-                config: direct_metadata(folder, MetadataFile::ConfigToml),
-                colors: direct_metadata(folder, MetadataFile::ColorsTxt),
-                icon: kit_icon(folder),
-                layout: layout_of(folder),
-                textures,
-            },
-        );
     }
-    KitsFolder { kits, shared }
+    textures.sort_by(|a, b| a.stem.cmp(&b.stem));
+    if !inherited.is_empty() {
+        inherited.sort();
+        let stems = inherited
+            .iter()
+            .map(|stem| {
+                stem.strip_prefix("kit_")
+                    .unwrap_or(stem.as_str())
+                    .to_owned()
+            })
+            .collect::<Vec<_>>()
+            .join(", ");
+        issues.push(issue_in(
+            context,
+            "kit_textures_inherited",
+            IssueScope::Folder(folder.path.clone()),
+            vec![("stems", stems)],
+            Disposition::Keep,
+        ));
+    }
+    let (_, label) = split_folder_name(folder.path.name());
+    KitFolder {
+        path: folder.path.clone(),
+        label: label.map(str::to_owned),
+        config: direct_metadata(folder, MetadataFile::ConfigToml),
+        colors: direct_metadata(folder, MetadataFile::ColorsTxt),
+        icon: kit_icon(folder),
+        layout: layout_of(folder),
+        textures,
+    }
 }
 
 /// `folder`'s direct files of the given metadata kind.

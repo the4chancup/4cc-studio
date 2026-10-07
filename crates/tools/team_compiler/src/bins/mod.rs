@@ -223,6 +223,31 @@ impl UniColorBin {
     /// entries repeat a kit number holds no kit (the base game's placeholder, ten white
     /// entries numbered 0). A team with no record is an error.
     pub(crate) fn set_kit(&mut self, team_id: u16, entry: &KitColorEntry) -> anyhow::Result<()> {
+        self.edit_kits(team_id, |kits| {
+            kits.retain(|kit| kit[0] != entry.kit);
+            kits.push(entry.bytes());
+        })
+    }
+
+    /// Keeps, in `team_id`'s record, only the kits whose number is one of `numbers`: a `Full`
+    /// export's team holds its export's kits and nothing a past cup left. The record is
+    /// written again as `set_kit` writes it; a placeholder record holds no kit, so it keeps
+    /// none. A team with no record is an error.
+    pub(crate) fn keep_kits(&mut self, team_id: u16, numbers: &[u8]) -> anyhow::Result<()> {
+        self.edit_kits(team_id, |kits| {
+            kits.retain(|kit| numbers.contains(&kit[0]));
+        })
+    }
+
+    /// Applies `edit` to the kits `team_id`'s record holds (`held_kits` of its counted
+    /// entries), then writes the record again: its count, its kits in ascending kit number, then
+    /// unused entries; past ten kits the highest-numbered are left out. A team with no record
+    /// is an error.
+    fn edit_kits(
+        &mut self,
+        team_id: u16,
+        edit: impl FnOnce(&mut Vec<[u8; KIT_ENTRY]>),
+    ) -> anyhow::Result<()> {
         let record = self.records.record_mut(team_id)?;
         let (count, entries) = record[HEADER..]
             .split_first_mut()
@@ -231,8 +256,7 @@ impl UniColorBin {
         let (entries, _) = entries.as_chunks_mut::<KIT_ENTRY>();
         let counted = usize::from(*count).min(KIT_ENTRIES);
         let mut kits = held_kits(&entries[..counted]);
-        kits.retain(|kit| kit[0] != entry.kit);
-        kits.push(entry.bytes());
+        edit(&mut kits);
         kits.sort_by_key(|kit| kit[0]);
         kits.truncate(KIT_ENTRIES);
         *count = u8::try_from(kits.len()).expect("a record holds at most ten kits");
@@ -568,6 +592,43 @@ mod tests {
         let mut expected = held;
         expected[9] = [9, 1, 0xab, 0xab, 0xab, 0xcd, 0xcd, 0xcd];
         assert_eq!(bin.into_bytes(), uni_record(100, 10, &expected));
+    }
+
+    #[test]
+    fn keeping_kits_leaves_only_those_numbers_in_ascending_order() {
+        let held = [kit(0), kit(1), kit(2), kit(0x10)];
+        let mut bin = one_record_bin(uni_record(100, 4, &held));
+        bin.keep_kits(100, &[0x10, 1]).unwrap();
+        assert_eq!(
+            bin.into_bytes(),
+            uni_record(100, 2, &[kit(1), kit(0x10)]),
+            "count 2, kit 1 then 0x10, eight unused entries"
+        );
+    }
+
+    #[test]
+    fn keeping_kits_of_a_placeholder_record_leaves_none() {
+        assert_eq!(
+            base_record(100)[..13],
+            [
+                0x64, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
+            ],
+            "the base's placeholder"
+        );
+        let mut bin = UniColorBin::read(templates::UNI_COLOR.to_vec()).unwrap();
+        bin.keep_kits(100, &[0, 0x10]).unwrap();
+        assert_eq!(
+            bin.into_bytes()[..UNI_COLOR_RECORD],
+            uni_record(100, 0, &[]),
+            "count 0 and ten unused entries"
+        );
+    }
+
+    #[test]
+    fn keeping_kits_of_a_team_with_no_uni_color_record_is_an_error() {
+        let mut bin = one_record_bin(uni_record(100, 1, &[kit(0)]));
+        let error = bin.keep_kits(101, &[0]).unwrap_err();
+        assert_eq!(error.to_string(), "UniColor.bin has no record for team 101");
     }
 
     #[test]

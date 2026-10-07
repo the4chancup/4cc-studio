@@ -202,10 +202,14 @@ the teams list (`team=referees` for a `refs` export).
 
 The second word of an export's name says what the export covers: `Full` or `Midcup`, in any
 letter case (`co Full Spring 2026`, `co midcup day 5`). A full export is the team's whole set,
-everything it has for the cup; a midcup export brings additions to what is already installed.
-Only the second word counts, so a `Full` later in the name changes nothing. A team export whose
-second word is neither is skipped with the error `export_tag_missing`, naming the export: rename
-it `<team> Full …` or `<team> Midcup …`. A referee export needs no tag.
+everything it has for the cup; a midcup export brings additions to what is already installed. So
+a full export replaces the team's kits in the game's kit list: a kit of a past cup that the
+export does not hold is no longer offered. Every team needs a player kit and a goalkeeper kit,
+so a full export with no player kit, or no goalkeeper kit, gets an empty one (`p1` or `g1`),
+which compiles as the placeholder kit (`kit_placeholder`). A midcup export adds its kits to
+those installed. Only the second word counts, so a `Full` later in the name changes nothing. A
+team export whose second word is neither is skipped with the error `export_tag_missing`, naming
+the export: rename it `<team> Full …` or `<team> Midcup …`. A referee export needs no tag.
 
 Both commands also read every `.fmdl` and `.model` model and every `.mtl` material file of the
 export, an archive's included, and report what is wrong or suspicious in each, one line per file

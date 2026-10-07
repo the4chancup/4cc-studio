@@ -1016,6 +1016,221 @@ fn a_kit_whose_task_fails_keeps_its_base_entries_and_the_kit_beside_it_commits()
     assert_eq!(changed, ["714_DEF_1st_realUni.bin"], "nothing of p2");
 }
 
+/// The `UniColor.bin` entry of kit `kit` with icon 3 and the six color bytes `colors`.
+fn kit_entry(kit: u8, colors: [u8; 6]) -> [u8; 8] {
+    let mut entry = [kit, 0x03, 0, 0, 0, 0, 0, 0];
+    entry[2..].copy_from_slice(&colors);
+    entry
+}
+
+/// A placeholder kit's colors: magenta, then black.
+const PLACEHOLDER_COLORS: [u8; 6] = [0xff, 0x00, 0xff, 0x00, 0x00, 0x00];
+
+/// Team `team_id`'s 85-byte `UniColor.bin` record holding `entries` under the kit count
+/// `count`, the rest of its ten entries unused.
+fn record_of(team_id: u32, count: u8, entries: &[[u8; 8]]) -> Vec<u8> {
+    let mut record = team_id.to_le_bytes().to_vec();
+    record.push(count);
+    for index in 0..10 {
+        match entries.get(index) {
+            Some(entry) => record.extend(entry),
+            None => record.extend([0xff, 0, 0, 0, 0, 0, 0, 0]),
+        }
+    }
+    record
+}
+
+/// The entry `index` of team `team_id`'s record in the `UniColor.bin` `bin`.
+fn base_entry(bin: &[u8], team_id: usize, index: usize) -> [u8; 8] {
+    uni_record(bin, team_id)[5 + index * 8..13 + index * 8]
+        .try_into()
+        .unwrap()
+}
+
+// TC-BIN-14
+#[test]
+fn a_full_export_rebuilds_its_team_s_record_from_its_kits_and_a_failed_kit_s_base_entry() {
+    let sandbox = Sandbox::new("bin_full_rebuild");
+    let export = "exports/co Full Kits";
+    for slot in ["p1", "p2", "g1"] {
+        sandbox.write(&format!("{export}/Kits/{slot}/kit.dds"), &tracer_kit());
+    }
+    // Bytes no decoder reads, which the deep pass does not refuse: the kit's task fails.
+    sandbox.write(&format!("{export}/Kits/p3/kit.dds"), b"not a texture");
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+    let lines = run.messages();
+    assert!(
+        findings_of(&lines, "co Full Kits")
+            .iter()
+            .any(|line| line.starts_with("Error folder_pack_failed [DropFolder] at Kits/p3")),
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 1);
+    assert_eq!(compiled_kits(&sandbox), ["u0714g1", "u0714p1", "u0714p2"]);
+    let base = bundled_uni_color();
+    let kit_2 = base_entry(&base, 714, 2);
+    assert_eq!(kit_2, [0x02, 0x03, 0x13, 0x2d, 0x3f, 0x8c, 0x09, 0x08]);
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let colors = tracer_kit_colors();
+    assert_eq!(
+        uni_record(&entries[UNI_COLOR], 714),
+        record_of(
+            714,
+            4,
+            &[
+                kit_entry(0x00, colors),
+                kit_entry(0x01, colors),
+                kit_2,
+                kit_entry(0x10, colors),
+            ]
+        ),
+        "p1, p2 and g1 new, p3 the base's, the base's kits 3 to 6 gone"
+    );
+}
+
+// TC-BIN-15
+#[test]
+fn a_midcup_export_merges_its_kits_into_its_team_s_record() {
+    let sandbox = Sandbox::new("bin_midcup_merge");
+    let export = "exports/co Midcup Kits";
+    for slot in ["p1", "p8"] {
+        sandbox.write(&format!("{export}/Kits/{slot}/kit.dds"), &tracer_kit());
+    }
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+    assert_eq!(run.exit_code(), 0, "{:#?}", run.messages());
+    let base = bundled_uni_color();
+    assert_eq!(uni_record(&base, 714)[4], 8, "the base's eight kits");
+    let colors = tracer_kit_colors();
+    let mut expected = vec![kit_entry(0x00, colors)];
+    expected.extend((1..7).map(|index| base_entry(&base, 714, index)));
+    expected.push(kit_entry(0x07, colors));
+    expected.push(base_entry(&base, 714, 7));
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    assert_eq!(
+        uni_record(&entries[UNI_COLOR], 714),
+        record_of(714, 9, &expected),
+        "p1 replaced, kits 1 to 6 and 0x10 the base's, p8 added"
+    );
+}
+
+// TC-BIN-19
+#[test]
+fn a_full_export_without_kits_compiles_an_empty_p1_and_g1() {
+    let sandbox = Sandbox::new("bin_full_no_kits");
+    sandbox.write(
+        &format!("exports/co Full Players/{CLEAN_PLAYER}"),
+        &clean_model(),
+    );
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+    assert_eq!(
+        findings_of(&run.messages(), "co Full Players"),
+        [
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
+            "Info kit_config_generated [Keep] at Kits/p1 ()",
+            "Info kit_placeholder [Keep] at Kits/p1 ()",
+            "Info kit_config_generated [Keep] at Kits/g1 ()",
+            "Info kit_placeholder [Keep] at Kits/g1 ()",
+            "Warning kit_colors_missing [Keep] at Kits/p1 ()",
+            "Warning kit_colors_missing [Keep] at Kits/g1 ()",
+        ]
+    );
+    assert_eq!(run.exit_code(), 0);
+    assert_eq!(compiled_players(&sandbox), [71403]);
+    assert_eq!(compiled_kits(&sandbox), ["u0714g1", "u0714p1"]);
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    for ordinal in ["1st", "GK1st"] {
+        assert!(
+            entries.contains_key(&config_path(ordinal)),
+            "{ordinal}: {:#?}",
+            entries.keys()
+        );
+    }
+    assert_eq!(
+        uni_record(&entries[UNI_COLOR], 714),
+        record_of(
+            714,
+            2,
+            &[
+                kit_entry(0x00, PLACEHOLDER_COLORS),
+                kit_entry(0x10, PLACEHOLDER_COLORS),
+            ]
+        )
+    );
+}
+
+// TC-BIN-20
+#[test]
+fn a_full_export_lacking_g1_gets_an_empty_one_and_a_midcup_export_none() {
+    let sandbox = Sandbox::new("bin_full_and_midcup");
+    for slot in ["p1", "p2"] {
+        sandbox.write(
+            &format!("exports/co Full Two/Kits/{slot}/kit.dds"),
+            &tracer_kit(),
+        );
+    }
+    sandbox.write("exports/a Midcup One/Kits/p1/kit.dds", &tracer_kit());
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+    let lines = run.messages();
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    let placeholders: Vec<&String> = lines
+        .iter()
+        .filter(|line| line.contains("kit_placeholder"))
+        .collect();
+    assert_eq!(
+        placeholders,
+        ["co Full Two: Info kit_placeholder [Keep] at Kits/g1 ()"]
+    );
+    let base = bundled_uni_color();
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let colors = tracer_kit_colors();
+    assert_eq!(
+        uni_record(&entries[UNI_COLOR], 714),
+        record_of(
+            714,
+            3,
+            &[
+                kit_entry(0x00, colors),
+                kit_entry(0x01, colors),
+                kit_entry(0x10, PLACEHOLDER_COLORS),
+            ]
+        ),
+        "/co/: p1 and p2 new, g1 the placeholder"
+    );
+    // Team 702's base record holds nine kits, 0 to 7 and 0x10: p1's is replaced.
+    let mut expected: Vec<[u8; 8]> = (0..9).map(|index| base_entry(&base, 702, index)).collect();
+    assert_eq!(
+        expected,
+        [
+            [0x00, 0x03, 0xff, 0x00, 0x99, 0x00, 0x00, 0x59],
+            [0x01, 0x03, 0xfc, 0xa8, 0xc8, 0xff, 0xff, 0xff],
+            [0x02, 0x03, 0xfc, 0xc6, 0x86, 0xe1, 0xe5, 0xdb],
+            [0x03, 0x03, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff],
+            [0x04, 0x03, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00],
+            [0x05, 0x03, 0x29, 0x7f, 0xc8, 0xff, 0xff, 0xff],
+            [0x06, 0x03, 0xff, 0x00, 0x99, 0x00, 0x00, 0x59],
+            [0x07, 0x03, 0xf9, 0x47, 0x4a, 0xff, 0xff, 0xff],
+            [0x10, 0x03, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff],
+        ],
+        "the base's record for team 702"
+    );
+    assert_eq!(uni_record(&base, 702)[4], 9);
+    expected[0] = kit_entry(0x00, colors);
+    assert_eq!(
+        uni_record(&entries[UNI_COLOR], 702),
+        record_of(702, 9, &expected),
+        "/a/: p1 replaced, the rest the base's"
+    );
+}
+
 /// The CPK path of team 714's kit config for the kit `ordinal` (`1st`, `2nd`).
 fn config_path(ordinal: &str) -> String {
     format!("common/character0/model/character/uniform/team/714/714_DEF_{ordinal}_realUni.bin")
@@ -1330,11 +1545,15 @@ fn a_zip_export_is_compiled_as_the_team_its_name_starts_with() {
             "co Full Spring 2026.zip: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=fcl_hair.fmdl, count=1662)",
             "co Full Spring 2026.zip: Info export_identified [Keep] (team=/co/, id=714)",
             "co Full Spring 2026.zip: Info team_colors_missing [Keep] ()",
+            // A full export with no player kit compiles an empty `p1/`.
+            "co Full Spring 2026.zip: Info kit_config_generated [Keep] at Kits/p1 ()",
+            "co Full Spring 2026.zip: Info kit_placeholder [Keep] at Kits/p1 ()",
+            "co Full Spring 2026.zip: Warning kit_colors_missing [Keep] at Kits/p1 ()",
             "co Full Spring 2026.zip: Info kit_colors_derived [Keep] at Kits/g1 ()"
         ]
     );
     assert_eq!(compiled_players(&sandbox), [71405]);
-    assert_eq!(compiled_kits(&sandbox), ["u0714g1"]);
+    assert_eq!(compiled_kits(&sandbox), ["u0714g1", "u0714p1"]);
     assert_eq!(run.exit_code(), 0);
 }
 

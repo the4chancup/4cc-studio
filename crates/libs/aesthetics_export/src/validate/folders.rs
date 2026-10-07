@@ -170,7 +170,9 @@ pub(crate) fn player_folder(draft: &FolderDraft, roster_file: bool) -> PlayerFol
 /// `all/`'s surviving textures as found.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct KitsFolder {
-    /// One per kit folder; `all/` is not a kit.
+    /// One per kit folder; `all/` is not a kit. A `Full` team export with no surviving player
+    /// kit gets an empty `Kits/p1`, one with no surviving `g1` an empty `Kits/g1` (every team
+    /// needs one of each: `team_compiler/pipeline.md` "Bins accumulation").
     pub kits: BTreeMap<kit_config::KitSlot, KitFolder>,
     /// `all/` textures as found (each also appears, as `Shared`, in every kit
     /// lacking that stem).

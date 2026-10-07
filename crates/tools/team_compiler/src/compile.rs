@@ -123,6 +123,7 @@ fn build(
     } = planned;
     let tasks = manifest.tasks;
     let team_colors = manifest.team_colors;
+    let full_team_kits = manifest.full_team_kits;
     let notes = manifest.notes;
     let mut last_task_of: BTreeMap<ExportId, usize> = BTreeMap::new();
     for (index, task) in tasks.iter().enumerate() {
@@ -146,6 +147,7 @@ fn build(
         let (batches_tx, batches_rx) = unbounded();
         let last_tasks = &last_tasks;
         let team_colors = &team_colors;
+        let full_team_kits = &full_team_kits;
         let budget = &budget;
         let writer = scope.spawn(move || {
             let mut output = output;
@@ -154,7 +156,9 @@ fn build(
             // before a failure removes the staging folder. The bins are built on the bundled
             // bases until the installed ones are read (`pipeline.md` "Bins accumulation").
             let written = write_batches(batches_rx, &mut output, &mut events, last_tasks, budget)
-                .and_then(|()| output.finish(version, WorkingBins::bundled(), team_colors));
+                .and_then(|()| {
+                    output.finish(version, WorkingBins::bundled(), team_colors, full_team_kits)
+                });
             (events, written)
         });
         let coordinated = pool.in_place_scope(|pool_scope| {

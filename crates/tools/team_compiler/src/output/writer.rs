@@ -134,8 +134,10 @@ impl CpkOutput {
     /// Writes the bins and closes the CPK: `UniformParameter.bin` when a kit committed, then
     /// `TeamColor.bin`, built on `bins`' with every record's header set from its position and
     /// each of `team_colors` (team id, colors) set in its team's record, then `UniColor.bin`,
-    /// built on `bins`' the same way with each committed kit's entry merged into its team's
-    /// record in commit order. Returns whether a CPK was written, `false` when no batch
+    /// built on `bins`' the same way, each of `full_team_kits` (team id, kit numbers: a `Full`
+    /// export's kit tasks) keeping only those kits in its team's record, then each committed
+    /// kit's entry merged into its team's record in commit order. Returns whether a CPK was
+    /// written, `false` when no batch
     /// committed anything and there is no override (then no file exists and no bin is
     /// built), and the findings to report: one `bin_header_repaired` per working bin that had
     /// a header wrong, naming the teams, and a `duplicate_path` for each bin an override
@@ -145,6 +147,7 @@ impl CpkOutput {
         version: PesVersion,
         bins: WorkingBins,
         team_colors: &[(u16, Vec<Rgb>)],
+        full_team_kits: &[(u16, Vec<u8>)],
     ) -> anyhow::Result<(bool, Vec<Message>)> {
         ensure!(
             self.pending.is_empty(),
@@ -180,6 +183,11 @@ impl CpkOutput {
         self.add(paths::TEAM_COLOR, &bin.into_bytes(), &mut messages)?;
         let mut bin = UniColorBin::read(bins.uni_color)?;
         messages.extend(header_repaired("UniColor.bin", &bin.repair_headers()));
+        // Before the merge: a failed kit's number is among a `Full` team's, so its entry stays
+        // as it was, and every committed entry then replaces or joins what is kept.
+        for (team_id, numbers) in full_team_kits {
+            bin.keep_kits(*team_id, numbers)?;
+        }
         for (team_id, entry) in std::mem::take(&mut self.kit_colors) {
             bin.set_kit(team_id, &entry)?;
         }
@@ -292,7 +300,7 @@ mod tests {
     /// `output` finished for PES `version` on the bundled bins with no team colors, the bins
     /// asserted to report nothing: whether a CPK was written.
     fn finish_plain(output: CpkOutput, version: PesVersion) -> anyhow::Result<bool> {
-        let (written, messages) = output.finish(version, WorkingBins::bundled(), &[])?;
+        let (written, messages) = output.finish(version, WorkingBins::bundled(), &[], &[])?;
         assert_eq!(messages, []);
         Ok(written)
     }
@@ -633,6 +641,7 @@ mod tests {
                 PesVersion::Pes21,
                 WorkingBins::bundled(),
                 &team_714_colors(),
+                &[],
             )
             .unwrap();
 
@@ -873,7 +882,7 @@ mod tests {
         let mut output = CpkOutput::new(path.clone(), BTreeMap::new());
         output.submit(batch(0, &["a/b.bin"], None)).unwrap();
         let (written, messages) = output
-            .finish(PesVersion::Pes21, bins, &team_714_colors())
+            .finish(PesVersion::Pes21, bins, &team_714_colors(), &[])
             .unwrap();
         assert!(written);
         let mut archive = CpkArchive::open(File::open(&path).unwrap()).unwrap();
@@ -951,7 +960,7 @@ mod tests {
             let mut broken = WorkingBins::bundled();
             broken.team_color[..4].copy_from_slice(&[1, 2, 3, 4]);
             let finished = output
-                .finish(PesVersion::Pes21, broken, &team_colors)
+                .finish(PesVersion::Pes21, broken, &team_colors, &[])
                 .unwrap();
             assert_eq!(finished, (false, Vec::new()), "{name}");
             assert!(!folder.exists(), "{name}: no file and no folder");
@@ -994,7 +1003,7 @@ mod tests {
         for batch in batches {
             output.submit(batch).unwrap();
         }
-        let (written, messages) = output.finish(PesVersion::Pes21, bins, &[]).unwrap();
+        let (written, messages) = output.finish(PesVersion::Pes21, bins, &[], &[]).unwrap();
         assert!(written);
         let mut archive = CpkArchive::open(File::open(&path).unwrap()).unwrap();
         let entry = archive

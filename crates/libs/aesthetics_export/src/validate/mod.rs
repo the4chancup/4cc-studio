@@ -292,9 +292,10 @@ impl ParsedAestheticsExport {
 
         // The check functions already leave out what the structure pass
         // drops; a content finding names its item only through `issues`, so
-        // every drop is applied here once more.
-        kits.kits
-            .retain(|_, kit| !dropped_folders.contains(&kit.path.fold_key()));
+        // every drop is applied here once more. Not to the kits: the content
+        // findings come before `kits::check`, which leaves out every dropped
+        // kit folder itself, and the empty `Kits/p1` a `Full` export gets in
+        // place of a dropped `p1/` has that folder's path.
         // A dropped `colors.txt` leaves its kit, or the export, without
         // colors, as a dropped `settings.toml` leaves its player folder.
         for kit in kits.kits.values_mut() {

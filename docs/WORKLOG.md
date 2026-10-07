@@ -12,9 +12,9 @@ is in `AGENTS.md` ("Working documents").
 **Phase:** 3 (Team compiler skeleton) closed 2026-10-02, its cross-family reviews queued (see
 "Handover"). Phases 1 and 2 done (Phase 2 closed 2026-09-30).
 **Next:** Phase 4 is itemized and its Acceptance section written (step 4.1, 2026-10-03; its
-cross-family review (a) is queued). Next: 4.34b (`Full` resets the team's kit record), then
-4.21 (bins from the installed CPKs; 4.14 waits on 4.31's pre-Fox export); 4.c-fix1 (the Clef
-full pass's one finding, in `pes_savefile`'s `convert`); 4.33, 4.34a and 4.c-pass are done; 4.30,
+cross-family review (a) is queued). Next: 4.c-fix1 (the Clef full pass's one finding), then
+4.21 (bins from the installed CPKs; 4.14 waits on 4.31's pre-Fox export); 4.33, 4.34 and
+4.c-pass are done; 4.30,
 4.5 to 4.8, 4.9a and 4.10 to 4.13 are done (4.6c moved to Phase 8's cancellation), 4.9b
 (collars) waits on nothing. 2.5b (GPU BC7) is step 16.x (decision entries
 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0 after Phase 8; phase order 1–6,
@@ -177,6 +177,12 @@ Claude agent with no sidekick and no reviewer of another model family. While tha
   `aesthetics_export/object_model.md` "Coverage tag" and the plan's `ExportCoverage` and
   `coverage` blocks, `messages.md` (`export_tag_missing`), TC-ID-05 to 07; the test renames
   are mechanical (`Midcup` by default) and need no review.
+  4.34b (b), `aesthetics_export` (`validate/kits.rs` `missing_kinds`, `kit_folder`; the
+  removed second kit drop in `validate/mod.rs`) and `team_compiler` (`bins/mod.rs`
+  `keep_kits`, `edit_kits`; `plan/mod.rs` `full_team_kits`; `output/writer.rs` `finish`),
+  its commit of 2026-10-07, against `pipeline.md` "Bins accumulation", `object_model.md`
+  `KitsFolder`, TC-BIN-14, 15, 19, 20 and the decision entry "a `Full` export gets an empty
+  `p1/` and `g1/` where it has none".
 - For the lead, on return: the review process on trial (3.1) opens with a full sidekick review
   loop, then runs GPT's loop with a full sidekick loop after each GPT round, calling GPT again
   only once that sidekick loop has ended and GPT's own loop has not; not yet in `AGENTS.md`
@@ -1468,7 +1474,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   53abc6f`: 24 mutants, 22 caught, 2 unviable, 0 missed; `clef-diff 53abc6f`: one flag, the
   window of the `legacy.rs` comment fix, rejected
 
-- [ ] 4.34 **Coverage tag: `Full` or `Midcup` in a team export's name** (decision entry of
+- [x] 4.34 **Coverage tag: `Full` or `Midcup` in a team export's name** (4.34a and b done; the rest with the steps listed last) (decision entry of
   2026-10-04; before 4.21, whose TC-BIN-05 and 06 are Midcup cases). Plan:
   `aesthetics_export/object_model.md` "Validation semantics" (Coverage tag, `ExportCoverage`,
   the two `coverage` fields); `team_compiler/pipeline.md` "Bins accumulation";
@@ -1487,12 +1493,21 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
     `egg Midcup Tracer`, ...; `tracer/old/` keeps its old-layout name), the provenance
     script with them; the parity CPK unchanged. Gates green (152 of 252); `mutants-diff
     d1b9b5a`: 19 mutants, 15 caught, 4 unviable, 0 missed; `clef-diff`: 11 windows, no flag
-  - [ ] 4.34b `Full` resets the team's `UniColor.bin` record (its committed kits, the count
-    theirs, a failed kit's kept entry among them, every other entry unused) and `Midcup`
-    keeps today's merge, a new kit raising the count; a `Full` export with no player kit
-    compiles an empty `p1/`, one with no `g1/` an empty `g1/` (decision entry of
-    2026-10-07). IDs: TC-BIN-14, 15, 19, 20 → verify: the four scenarios on the bundled
-    base (team 714's record: kits 0 to 6 and 0x10, count 8).
+  - [x] 4.34b `Full` rebuilds its team's kits, done 2026-10-07 (sidekick, landed first time;
+    lead fix: the help paragraph rewrapped): `aesthetics_export` `validate/kits.rs`
+    `missing_kinds` adds an empty `Kits/p1` (no surviving player kit) or `Kits/g1` to a
+    `Full` team export, built by the same `kit_folder` as a real empty folder (the loop body
+    moved out unchanged), so `all/` reaches it; the second kit drop in `validate_with` went
+    (sidekick's contradiction, accepted: every folder drop precedes `kits::check`, and it
+    would have dropped the empty `p1` standing for a dropped `p1/`). `team_compiler`:
+    `UniColorBin::keep_kits` (sharing `edit_kits` with `set_kit`), the manifest's
+    `full_team_kits` (team, kit numbers of its kit tasks, failed or not) reaching
+    `CpkOutput::finish`, which keeps only those kits before the committed entries merge. Help
+    paragraph. TC-BIN-14 (count 4, kit 2's base entry kept), 15 (`Midcup`, count 9), 19 (no
+    `Kits/`: p1 and g1 placeholders, count 2), 20; TC-ID-01's export gains a placeholder
+    `p1` (expected). A `Full` export holding only `all/` no longer reports
+    `kit_all_unused`. Not yet: the `UniformParameter.bin` half (4.21, TC-BIN-16). Gates green
+    (156 of 252); `mutants-diff 5683a02`: 23 mutants, 13 caught, 10 unviable, 0 missed; `clef-diff`: 27 windows, no flag
   - The rest lands with the steps that own the data: the team's stale kit configs removed
     from `UniformParameter.bin` and no FPC patching for a Full export, with 4.21
     (TC-BIN-16); a Full export's compiled players without boots or without gloves losing the
@@ -1657,6 +1672,15 @@ Steps are itemized when Phase 15 closes; one is fixed already:
 
 Bugs, unexpected behavior, things to revisit. `open` / `resolved (date)`. Resolved issues are
 pruned when their phase closes; they stay in git history.
+
+- open (found at 4.34b's review, unverified by a run) — `aesthetics_export`
+  `validate/kits.rs`: a kit's textures, its own and those inherited from `all/`, are never
+  filtered against the dropped files (`validate_with` filters a kit's `colors.txt` only),
+  so a kit texture a content finding drops as a file would still reach the kit, and a
+  kit inheriting it would compile from it. Whether it is reachable depends on how the deep
+  pass drops a kit texture that does not decode (the file, or its kit folder); settle that
+  with a test (a `Kits/all/kit.dds` holding bytes no decoder reads, a `p2/` inheriting it)
+  before fixing.
 
 - open — the compiler reports only two of `kit_config::validate`'s findings (the two a
   version's encoding clamps, as `kit_config_version_clamped`, step 4.9a). The others have no

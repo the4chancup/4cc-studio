@@ -1225,6 +1225,129 @@ fn both_layout_markers_drop_the_kit() {
     assert!(report.validated.unwrap().kits.kits.is_empty());
 }
 
+/// The kit an empty folder at `path` gives: nothing of its own, nothing inherited.
+fn empty_kit(path: &str) -> KitFolder {
+    KitFolder {
+        path: ScopePath::new(path).unwrap(),
+        label: None,
+        config: None,
+        colors: None,
+        icon: None,
+        layout: None,
+        textures: Vec::new(),
+    }
+}
+
+#[test]
+fn a_full_export_without_kits_gets_an_empty_p1_and_g1() {
+    let report = report(
+        "co Full Spring",
+        &[("Players/03 - A/face_high.fmdl", 10)],
+        &[],
+        &[],
+    );
+    assert_eq!(issue_codes(&report), vec![]);
+    let kits = report.validated.unwrap().kits.kits;
+    assert_eq!(
+        kits,
+        BTreeMap::from([
+            (kit_config::KitSlot::P1, empty_kit("Kits/p1")),
+            (kit_config::KitSlot::G1, empty_kit("Kits/g1")),
+        ])
+    );
+}
+
+#[test]
+fn a_full_export_s_empty_kits_inherit_all_s_textures() {
+    let report = report(
+        "co Full Spring",
+        &[
+            ("Players/03 - A/face_high.fmdl", 10),
+            ("Kits/all/kit.dds", 9),
+        ],
+        &[],
+        &[],
+    );
+    assert_eq!(
+        issue_codes(&report),
+        vec![
+            ("kit_textures_inherited", Disposition::Keep),
+            ("kit_textures_inherited", Disposition::Keep),
+        ],
+        "and no kit_all_unused: the empty kits use all/"
+    );
+    assert_eq!(report.issues[0].scope, folder("Kits/p1"));
+    assert_eq!(report.issues[1].scope, folder("Kits/g1"));
+    let kits = report.validated.unwrap().kits;
+    for slot in [kit_config::KitSlot::P1, kit_config::KitSlot::G1] {
+        let kit = &kits.kits[&slot];
+        assert_eq!(kit.textures.len(), 1, "{slot:?}");
+        assert_eq!(kit.textures[0].stem, "kit");
+        assert_eq!(kit.textures[0].file, kits.shared[0]);
+        assert_eq!(kit.textures[0].source, KitTextureSource::Shared);
+    }
+}
+
+#[test]
+fn a_full_export_with_a_player_kit_and_g1_gets_no_empty_kit() {
+    let report = report(
+        "co Full Spring",
+        &[("Kits/p2/kit.dds", 9), ("Kits/g1/kit.dds", 9)],
+        &[],
+        &[],
+    );
+    assert_eq!(issue_codes(&report), vec![]);
+    let kits = report.validated.unwrap().kits.kits;
+    assert_eq!(
+        kits.keys().copied().collect::<Vec<_>>(),
+        [kit_config::KitSlot::P2, kit_config::KitSlot::G1]
+    );
+    assert_eq!(kits[&kit_config::KitSlot::P2].textures.len(), 1);
+}
+
+#[test]
+fn a_full_export_whose_only_player_kit_is_dropped_gets_an_empty_p1() {
+    let report = report(
+        "co Full Spring",
+        &[
+            ("Kits/p1/kit.dds", 9),
+            ("Kits/p1/pre-fox", 0),
+            ("Kits/p1/fox", 0),
+            ("Kits/g1/kit.dds", 9),
+        ],
+        &[],
+        &[],
+    );
+    assert_eq!(
+        issue_codes(&report),
+        vec![("kit_layout_conflict", Disposition::DropFolder)]
+    );
+    let kits = report.validated.unwrap().kits.kits;
+    assert_eq!(kits[&kit_config::KitSlot::P1], empty_kit("Kits/p1"));
+    assert_eq!(kits.len(), 2);
+}
+
+#[test]
+fn a_midcup_or_referee_export_gets_no_empty_kit() {
+    let midcup = report(
+        "co Midcup Day 5",
+        &[("Players/03 - A/face_high.fmdl", 10)],
+        &[],
+        &[],
+    );
+    assert_eq!(issue_codes(&midcup), vec![]);
+    assert!(midcup.validated.unwrap().kits.kits.is_empty());
+
+    let referees = report(
+        "refs Spring 2026",
+        &[("players.txt", 10)],
+        &["Players/Keeper"],
+        &[("players.txt", Ok(b"01 Keeper"))],
+    );
+    assert_eq!(issue_codes(&referees), vec![]);
+    assert!(referees.validated.unwrap().kits.kits.is_empty());
+}
+
 // TC-KIT-07
 #[test]
 fn a_texture_without_the_kit_prefix_drops_only_itself() {

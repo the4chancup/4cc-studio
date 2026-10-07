@@ -10,8 +10,8 @@ use std::collections::BTreeSet;
 use std::ops::Range;
 
 use aesthetics_export::{
-    ExportIdentity, FileDescriptor, FpcDirective, KitFolder, KitsFolder, LogoFiles, PlayerFolder,
-    PlayerIndex, PlayerSlot, ResolvedAestheticsExport, SharedKind, SharedModelFolder,
+    ExportCoverage, ExportIdentity, FileDescriptor, FpcDirective, KitFolder, KitsFolder, LogoFiles,
+    PlayerFolder, PlayerIndex, PlayerSlot, ResolvedAestheticsExport, SharedKind, SharedModelFolder,
     ValidatedAestheticsExport, ValidatedRoster, common_link_name,
 };
 use kit_config::KitSlot;
@@ -19,7 +19,7 @@ use pes_version::{Engine, PesVersion};
 use studio_core::{Disposition, ExportId, Message, Scope};
 use vtree::ScopePath;
 
-use crate::bins::Rgb;
+use crate::bins::{self, Rgb};
 use crate::kit_variants::{kit_number, model_variant_sets};
 use crate::messages::{Code, tool_message};
 use crate::paths::TextureHome;
@@ -53,6 +53,12 @@ pub(crate) struct BuildManifest {
     /// its `TeamColor.bin` record, in export order. A team whose file gives no color, or that
     /// has no file, is not listed: its record keeps its bytes.
     pub(crate) team_colors: Vec<(u16, Vec<Rgb>)>,
+    /// Each planned `Full` export's team id and the `UniColor.bin` kit numbers of its kit
+    /// tasks, failed or not, in export order: the team's record keeps only those kits before
+    /// the committed kits' entries go in, so it ends with the export's kits, a failed one's
+    /// entry as it was, and nothing a past cup left ("Bins accumulation"). A `Midcup` export's
+    /// team is not listed: its kits are merged into what its record holds.
+    pub(crate) full_team_kits: Vec<(u16, Vec<u8>)>,
     /// Each planned team's name as messages show it (`/co/`) and the text of its root
     /// `notes.txt`, in export order, for `teamnotes.txt`. A team without a note is not listed.
     pub(crate) notes: Vec<(String, String)>,
@@ -438,6 +444,7 @@ pub(crate) type ExportToPlan = (
 pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanReport {
     let mut tasks = Vec::new();
     let mut team_colors = Vec::new();
+    let mut full_team_kits = Vec::new();
     let mut notes = Vec::new();
     let mut messages = Vec::new();
     for (export_id, mut resolved, colors, note) in exports {
@@ -643,7 +650,9 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
                 TaskKind::Portrait { player_id, file },
             ));
         }
+        let mut kit_numbers = Vec::new();
         for (slot, kit) in export.kits.kits {
+            kit_numbers.push(bins::kit_number(slot));
             let folder = || Scope::Folder {
                 export_id,
                 path: kit.path.clone(),
@@ -666,6 +675,10 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
             }
             tasks.push(task(export_id, team_id, TaskKind::Kit { slot, kit, fpc }));
         }
+        match export.coverage {
+            ExportCoverage::Full => full_team_kits.push((team_id, kit_numbers)),
+            ExportCoverage::Midcup => {}
+        }
         if let Some(logo) = export.logo {
             tasks.push(task(export_id, team_id, TaskKind::Logo { logo }));
         }
@@ -674,6 +687,7 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
         manifest: BuildManifest {
             tasks,
             team_colors,
+            full_team_kits,
             notes,
         },
         messages,
