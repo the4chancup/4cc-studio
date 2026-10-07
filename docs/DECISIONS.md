@@ -4537,3 +4537,12 @@ plan's move-aside order leaves this step only a name nothing should hold, but if
 run must still leave `download/` as it found it, which is what "all or none" promises.
 Plan: `team_compiler/pipeline.md` "6. Post-processing" (Deploy CPKs); `team_compiler/messages.md`
 (`dpfilelist_outdated`, `cpk_name_unlisted`, `old_cpk_locked`).
+
+## 2026-10-07 — team_compiler — a teams stem that is the bins CPK's own is refused
+Decision (lead, reversible): `compile` in multi-CPK mode refuses, with exit code 2, a
+`teams_cpk_name` equal to the stem of `bins_cpk_name` (`bins` with `4cc_08_bins`).
+Why: the slots are every official entry of the teams stem, so the bins CPK would also be a
+teams slot, and the bins writer and the first part would write the same staged file without
+an error. Refusing the setting is one comparison; any other answer would need a rule the plan
+does not have (which of the two the file is).
+Plan: `team_compiler/settings.md` (the `teams_cpk_name` row).

@@ -69,7 +69,7 @@ fn install_official_list(sandbox: &Sandbox) {
 
 /// Writes the sandbox's PES 21 install: `PES/PES2021.exe` and an upgraded `download/` folder
 /// (`install_official_list`).
-fn install_pes(sandbox: &Sandbox) {
+pub(crate) fn install_pes(sandbox: &Sandbox) {
     sandbox.write("PES/PES2021.exe", b"the game");
     install_official_list(sandbox);
 }

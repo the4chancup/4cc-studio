@@ -1,17 +1,20 @@
 //! Multi-CPK mode (`team_compiler/pipeline.md` "5. Writer", step 6 "Multi-CPK mode: teams
 //! parts"): whole teams filled first-fit into the official list's `teams` slots under
 //! `cpk_part_max_size`, the placeholder in every slot left over, the overrides and the bins in
-//! the bins CPK; and the single CPK's warning past the same cap.
+//! the bins CPK; every CPK installed into `download/` or none (`pipeline.md` "6.
+//! Post-processing", "Deploy CPKs"); and the single CPK's warning past the same cap.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
+use std::path::Path;
 
 use crate::bins::dpfl_bytes;
 use crate::common::{Run, Sandbox};
 use crate::compile::{cpk_entries, kit_texture, pes21_settings, tracer_export};
 use crate::compile_exports::{TEAM_COLOR, UNI_COLOR, UNIFORM_PARAMETER};
-use crate::deploy::templates_folder;
+use crate::deploy::{install_pes, templates_folder};
 use crate::snapshot;
+use crate::upgrade::pes17_list;
 
 /// The tracer's copies, one per team: /a/ 702, /b/ 707 and /co/ 714, in canonical order.
 const EXPORTS: [&str; 3] = ["a Midcup Tracer", "b Midcup Tracer", "co Midcup Tracer"];
@@ -249,17 +252,211 @@ fn a_second_slot_run_is_filled_by_its_own_stem_and_the_first_is_left_alone() {
 }
 
 #[test]
-fn multi_cpk_mode_needs_no_deploy_and_a_valid_bins_cpk_name() {
+fn multi_cpk_mode_needs_a_valid_bins_cpk_name() {
     let sandbox = sandbox_with("multicpk_refused", &EXPORTS[..1]);
-
-    let run = sandbox.run(&multicpk_settings(&sandbox, ""), &["compile"]);
-    run.assert_refused(2, &["multicpk_mode", "--no-deploy"]);
 
     let settings = multicpk_settings(&sandbox, "bins_cpk_name = \"con\"\n");
     let run = compile(&sandbox, &settings);
     run.assert_refused(2, &["bins_cpk_name = \"con\""]);
 
     assert!(!sandbox.root.join("output").exists(), "nothing is written");
+}
+
+/// Every CPK a multi-CPK run writes at the default settings, in promotion order: the bins CPK,
+/// then the teams slots.
+fn run_cpks() -> Vec<String> {
+    std::iter::once("4cc_08_bins.cpk")
+        .chain(TEAMS_SLOTS)
+        .map(str::to_owned)
+        .collect()
+}
+
+/// A sandbox holding /a/ and /co/, `name`, whose game folder is `install`ed.
+fn deploying_sandbox(name: &str, install: impl Fn(&Sandbox)) -> Sandbox {
+    let sandbox = sandbox_with(name, &[EXPORTS[0], EXPORTS[2]]);
+    install(&sandbox);
+    sandbox
+}
+
+/// A deploying `compile` in `sandbox` with `multicpk_mode` on.
+fn compile_deploying(sandbox: &Sandbox) -> Run {
+    sandbox.run(&multicpk_settings(sandbox, ""), &["compile"])
+}
+
+/// The names of the files and folders in the sandbox's `download/` that a deployment makes
+/// and must not leave: `.partial` and `.old`.
+fn leftovers(sandbox: &Sandbox) -> Vec<String> {
+    fs::read_dir(sandbox.root.join("PES/download"))
+        .unwrap()
+        .map(|entry| entry.unwrap().file_name().into_string().unwrap())
+        .filter(|name| name.ends_with(".partial") || name.ends_with(".old"))
+        .collect()
+}
+
+/// Asserts the bins CPK at `bins` holds the three bins, and the teams part at `part` the kits
+/// of /a/ and /co/.
+fn assert_run_s_cpks(bins: &Path, part: &Path) {
+    let mut expected_bins = vec![
+        TEAM_COLOR.to_owned(),
+        UNI_COLOR.to_owned(),
+        UNIFORM_PARAMETER.to_owned(),
+    ];
+    expected_bins.sort();
+    assert_eq!(
+        cpk_entries(bins).into_keys().collect::<Vec<_>>(),
+        expected_bins
+    );
+    let part = cpk_entries(part);
+    for team in ["u0702g1", "u0714g1"] {
+        assert!(part.contains_key(&kit_texture(team)), "{team}");
+    }
+}
+
+/// Asserts every CPK of the run is in the sandbox's output folder, and nothing else but
+/// `teamnotes.txt` when the run wrote one.
+fn assert_every_cpk_promoted(sandbox: &Sandbox) {
+    let mut files = output_files(sandbox);
+    files.remove("teamnotes.txt");
+    assert_eq!(files, run_cpks().into_iter().collect::<BTreeSet<_>>());
+    let output = sandbox.root.join("output");
+    assert_run_s_cpks(
+        &output.join("4cc_08_bins.cpk"),
+        &output.join("4cc_41_teams.cpk"),
+    );
+}
+
+#[test]
+fn a_deploying_multi_cpk_compile_installs_every_cpk_and_leaves_nothing_in_the_output_folder() {
+    let sandbox = deploying_sandbox("multicpk_deploys", install_pes);
+
+    let run = compile_deploying(&sandbox);
+
+    assert_eq!(run.exit_code(), 0, "{:#?}", run.messages());
+    let download = sandbox.root.join("PES/download");
+    assert_run_s_cpks(
+        &download.join("4cc_08_bins.cpk"),
+        &download.join("4cc_41_teams.cpk"),
+    );
+    for slot in &TEAMS_SLOTS[1..] {
+        assert!(
+            fs::read(download.join(slot)).unwrap() == placeholder(),
+            "{slot} is the placeholder"
+        );
+    }
+    assert_eq!(leftovers(&sandbox), Vec::<String>::new());
+    let cpks_in_output: Vec<String> = output_files(&sandbox)
+        .into_iter()
+        .filter(|name| name.ends_with(".cpk"))
+        .collect();
+    assert_eq!(cpks_in_output, Vec::<String>::new());
+    assert!(!sandbox.root.join("output/.staging").exists());
+}
+
+// TC-DEP-08
+#[test]
+fn a_list_without_the_teams_slots_is_one_dpfilelist_outdated_and_every_cpk_is_promoted() {
+    let sandbox = deploying_sandbox("multicpk_outdated", |sandbox| {
+        sandbox.write("PES/PES2021.exe", b"the game");
+        sandbox.write("PES/download/DpFileList.bin", &pes17_list());
+    });
+    let download = snapshot(&sandbox.root.join("PES/download"));
+
+    let run = compile_deploying(&sandbox);
+
+    // The PES 2017 list has the bins CPK, and none of the teams slots.
+    let expected = format!(
+        "Error dpfilelist_outdated [Keep] (cpk={}, path={}, output={}, command=4cc-studio \
+         team-compiler upgrade-dpfl)",
+        TEAMS_SLOTS.join(", "),
+        sandbox.display("PES/download/DpFileList.bin"),
+        sandbox.display("output")
+    );
+    let lines = run.messages();
+    assert_eq!(lines[0], expected, "{lines:#?}");
+    assert!(
+        lines[1..].iter().all(|line| !line.starts_with("Error ")),
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 1);
+    assert_every_cpk_promoted(&sandbox);
+    assert_eq!(snapshot(&sandbox.root.join("PES/download")), download);
+}
+
+// Without the scenario's refs export: its refs CPK joins the run's CPKs at step 4.19.
+#[cfg(windows)]
+// TC-DEP-11
+#[test]
+fn a_locked_teams_part_is_old_cpk_locked_and_no_cpk_of_the_run_is_installed() {
+    // Windows only: Linux renames over a file another process holds open.
+    use std::os::windows::fs::OpenOptionsExt;
+    /// `FILE_SHARE_READ` alone, as PES holds its CPKs: read, not deleted or replaced.
+    const FILE_SHARE_READ: u32 = 1;
+
+    let sandbox = deploying_sandbox("multicpk_locked", install_pes);
+    let download = snapshot(&sandbox.root.join("PES/download"));
+    let locked = sandbox.root.join("PES/download/4cc_42_teams.cpk");
+    let held_open = fs::OpenOptions::new()
+        .read(true)
+        .share_mode(FILE_SHARE_READ)
+        .open(&locked)
+        .unwrap();
+
+    let run = compile_deploying(&sandbox);
+
+    drop(held_open);
+    let lines = run.messages();
+    // The error ends with the platform's own text, so only its shape is fixed.
+    let prefix = format!(
+        "Error old_cpk_locked [Keep] (path={}, error=",
+        sandbox.display("PES/download/4cc_42_teams.cpk")
+    );
+    let suffix = format!(", output={})", sandbox.display("output"));
+    let locked_lines: Vec<&String> = lines
+        .iter()
+        .filter(|line| line.contains("old_cpk_locked"))
+        .collect();
+    assert_eq!(locked_lines.len(), 1, "{lines:#?}");
+    assert!(
+        locked_lines[0].starts_with(&prefix) && locked_lines[0].ends_with(&suffix),
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 1);
+    assert_every_cpk_promoted(&sandbox);
+    assert_eq!(snapshot(&sandbox.root.join("PES/download")), download);
+    assert_eq!(leftovers(&sandbox), Vec::<String>::new());
+}
+
+#[test]
+fn a_failing_copy_of_one_cpk_is_deploy_target_unwritable_and_installs_none() {
+    let sandbox = deploying_sandbox("multicpk_copy_failed", install_pes);
+    // A folder where the copy of the fourth CPK would go: the copy alone fails, the probe made
+    // before any export is read passes, since `4cc_43_teams.cpk` itself is writable.
+    let blocking = sandbox.root.join("PES/download/4cc_43_teams.cpk.partial");
+    fs::create_dir_all(&blocking).unwrap();
+    let download = snapshot(&sandbox.root.join("PES/download"));
+
+    let run = compile_deploying(&sandbox);
+
+    let lines = run.messages();
+    let prefix = format!(
+        "Error deploy_target_unwritable [Keep] (path={}, error=",
+        sandbox.display("PES/download")
+    );
+    let suffix = format!(", output={})", sandbox.display("output"));
+    let unwritable: Vec<&String> = lines
+        .iter()
+        .filter(|line| line.contains("deploy_target_unwritable"))
+        .collect();
+    assert_eq!(unwritable.len(), 1, "{lines:#?}");
+    assert!(
+        unwritable[0].starts_with(&prefix) && unwritable[0].ends_with(&suffix),
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 1);
+    assert_every_cpk_promoted(&sandbox);
+    assert_eq!(snapshot(&sandbox.root.join("PES/download")), download);
+    assert_eq!(leftovers(&sandbox), ["4cc_43_teams.cpk.partial"]);
+    assert!(blocking.is_dir(), "the folder that was there stays");
 }
 
 #[test]

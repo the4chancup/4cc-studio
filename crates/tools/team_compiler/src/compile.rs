@@ -14,7 +14,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use anyhow::{Context, bail};
+use anyhow::Context;
 use crossbeam_channel::{Receiver, Sender, unbounded};
 use pes_version::PesVersion;
 use pipeline::{Cancelled, CpkStem, MemoryBudget, Permit};
@@ -42,9 +42,9 @@ use crate::validation::{run_budget, run_pool, validation_pass};
 /// command line before the run starts.
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) enum OutputMode {
-    /// One CPK, installed into the PES folder's `download/`, or promoted to the output folder
-    /// when the run cannot install it (its finding says why) or `no_deploy` is set (the run
-    /// says it installed nothing).
+    /// The CPKs of the run's `CpkLayout`, installed into the PES folder's `download/`, or
+    /// promoted to the output folder when the run cannot install them (its finding says why)
+    /// or `no_deploy` is set (the run says it installed nothing).
     Normal { no_deploy: bool },
     /// What the compiler made of each export, as loose files that replace the output folder's
     /// `test_output/`: one folder per export, the model packages unpacked, the bins under
@@ -102,6 +102,29 @@ impl CpkLayout {
             CpkLayout::Parts { bins, .. } => bins,
         }
     }
+
+    /// The CPKs the run writes, in the order they are installed and promoted: the one CPK, or
+    /// the bins CPK, then the `official` list's teams slots by number (`parts::slots`).
+    pub(crate) fn cpks(&self, official: &[String]) -> Vec<CpkStem> {
+        match self {
+            CpkLayout::Single { name, .. } => vec![name.clone()],
+            CpkLayout::Parts {
+                bins, teams_stem, ..
+            } => std::iter::once(bins.clone())
+                .chain(parts::slots(official, teams_stem))
+                .collect(),
+        }
+    }
+
+    /// Where a run that does not install its CPKs leaves them, which its findings name: the
+    /// one CPK's path in `output_folder`, or the folder itself, which takes every CPK of a
+    /// multi-CPK run.
+    fn promoted(&self, output_folder: &Path) -> PathBuf {
+        match self {
+            CpkLayout::Single { name, .. } => output_folder.join(deploy::cpk_file_name(name)),
+            CpkLayout::Parts { .. } => output_folder.to_owned(),
+        }
+    }
 }
 
 /// Compiles every export validation keeps into the CPKs of `layout` (`<name>.cpk`, or the
@@ -117,8 +140,7 @@ impl CpkLayout {
 /// that cannot be written or put in place, a team the parts cannot take, or an export file
 /// that changes while the run reads it, is a Fatal finding, after which the previous output is
 /// all that is left. An exports folder or an `overrides/` folder that cannot be read is an
-/// error. Only a `Single` layout deploys: the command line refuses `Parts` with a mode that
-/// deploys.
+/// error. A run of several CPKs installs all of them or none.
 pub(crate) fn run(
     inputs: &RunInputs,
     layout: &CpkLayout,
@@ -132,13 +154,13 @@ pub(crate) fn run(
     };
     let cpk_stem = layout.boundary();
     let download = if mode.deploys() {
-        let promoted = output_folder.join(deploy::cpk_file_name(cpk_stem));
+        let official = templates.official_list();
         let (download, messages) = deploy::preflight(
             &inputs.common.pes_folder(),
             inputs.common.pes_version,
-            cpk_stem,
-            &promoted,
-            &templates.official_list(),
+            &layout.cpks(&official),
+            &layout.promoted(output_folder),
+            &official,
         );
         for message in messages {
             events.message(message);
@@ -326,10 +348,7 @@ fn build(
     // output there is what a failed run leaves (in multi-CPK mode, the CPKs of the output
     // folder).
     let target = match mode {
-        OutputMode::Normal { .. } => match layout {
-            CpkLayout::Single { name, .. } => output_folder.join(deploy::cpk_file_name(name)),
-            CpkLayout::Parts { .. } => output_folder.to_owned(),
-        },
+        OutputMode::Normal { .. } => layout.promoted(output_folder),
         OutputMode::Test => output_folder.join(deploy::TEST_OUTPUT),
         OutputMode::Sideload { pes_folder } => pes_folder.join(deploy::LIVECPK),
     };
@@ -452,6 +471,7 @@ fn build(
         output_folder,
         &staged,
         download.as_deref(),
+        &target,
         &mut events,
     );
     match promoted {
@@ -462,9 +482,9 @@ fn build(
 }
 
 /// Where `build` writes in the run's staging folder `run_folder` for `mode` and `layout`: the
-/// sink; the CPKs staged there, in the order they are promoted (the bins CPK, then the parts
-/// by slot number), none for a loose tree; and multi-CPK mode's teams parts, the slots those
-/// of the official list in `templates`, each team ending at a manifest position of `ends`.
+/// sink; the CPKs staged there, in the order they are promoted (`CpkLayout::cpks`), none for a
+/// loose tree; and multi-CPK mode's teams parts, the slots those of the official list in
+/// `templates`, each team ending at a manifest position of `ends`.
 fn staged_output(
     mode: &OutputMode,
     layout: &CpkLayout,
@@ -473,30 +493,33 @@ fn staged_output(
     ends: BTreeMap<usize, String>,
 ) -> (OutputSink, Vec<CpkStem>, Option<TeamsParts>) {
     match mode {
-        OutputMode::Normal { .. } => match layout {
-            CpkLayout::Single { name, .. } => {
-                let sink = OutputSink::cpk(run_folder.join(deploy::cpk_file_name(name)));
-                (sink, vec![name.clone()], None)
-            }
-            CpkLayout::Parts {
-                bins,
-                teams_stem,
-                cap,
-            } => {
-                let slots = parts::slots(&templates.official_list(), teams_stem);
-                let staged = std::iter::once(bins).chain(&slots).cloned().collect();
-                let parts = TeamsParts::new(
-                    run_folder.to_owned(),
-                    slots,
+        OutputMode::Normal { .. } => {
+            let official = templates.official_list();
+            let staged = layout.cpks(&official);
+            match layout {
+                CpkLayout::Single { name, .. } => {
+                    let sink = OutputSink::cpk(run_folder.join(deploy::cpk_file_name(name)));
+                    (sink, staged, None)
+                }
+                CpkLayout::Parts {
+                    bins,
                     teams_stem,
-                    *cap,
-                    templates.placeholder_cpk().to_vec(),
-                    ends,
-                );
-                let sink = OutputSink::cpk(run_folder.join(deploy::cpk_file_name(bins)));
-                (sink, staged, Some(parts))
+                    cap,
+                } => {
+                    let slots = parts::slots(&official, teams_stem);
+                    let parts = TeamsParts::new(
+                        run_folder.to_owned(),
+                        slots,
+                        teams_stem,
+                        *cap,
+                        templates.placeholder_cpk().to_vec(),
+                        ends,
+                    );
+                    let sink = OutputSink::cpk(run_folder.join(deploy::cpk_file_name(bins)));
+                    (sink, staged, Some(parts))
+                }
             }
-        },
+        }
         OutputMode::Test => (
             OutputSink::loose(run_folder.join(deploy::TEST_OUTPUT)),
             Vec::new(),
@@ -535,43 +558,38 @@ fn size_over_limit(run_folder: &Path, name: &CpkStem, cap: u64) -> anyhow::Resul
 }
 
 /// Puts the output staged in `staging` in place for `mode`: in normal mode the CPKs `staged`,
-/// in that order. The one CPK of a run that deploys is installed into `download` when there is
-/// one, else, or when installing fails (`old_cpk_locked`, `deploy_target_unwritable`, Errors
-/// naming the CPK's path in the output folder), it goes into the output folder; under
-/// `--no-deploy` each CPK goes there, `deploy_skipped_by_flag` naming each. In test and
-/// sideload mode the loose tree becomes the output folder's `test_output/` or the PES folder's
-/// `livecpk/`. Only a failure to put the output in the output folder or the loose tree in
-/// place is the error.
+/// in that order. A run that deploys installs all of them into `download` when there is one,
+/// else, or when installing fails (one `old_cpk_locked` or `deploy_target_unwritable`, an
+/// Error naming `promoted`, the CPK's path in the output folder or the folder itself), every
+/// one goes into the output folder; under `--no-deploy` each CPK goes there,
+/// `deploy_skipped_by_flag` naming each. In test and sideload mode the loose tree becomes the
+/// output folder's `test_output/` or the PES folder's `livecpk/`. Only a failure to put the
+/// output in the output folder or the loose tree in place is the error.
 fn promote(
     mode: &OutputMode,
     staging: &Staging,
     output_folder: &Path,
     staged: &[CpkStem],
     download: Option<&Path>,
+    promoted: &Path,
     events: &mut RunEvents,
 ) -> anyhow::Result<()> {
     match mode {
         OutputMode::Normal { no_deploy } => {
             if let Some(download) = download {
-                // Only a single CPK reaches here: the command line refuses multi-CPK mode
-                // with a run that deploys.
-                let [cpk_stem] = staged else {
-                    bail!("a run deploys one CPK, not {}", staged.len());
-                };
-                let Err(failure) = deploy::deploy(staging, download, cpk_stem) else {
+                let Err(failure) = deploy::deploy(staging, download, staged) else {
                     return Ok(());
                 };
-                let output = output_folder.join(deploy::cpk_file_name(cpk_stem));
-                events.message(deploy_failed(failure, download, cpk_stem, &output));
+                events.message(deploy_failed(failure, download, promoted));
             }
             for cpk_stem in staged {
-                let promoted = deploy::promote(staging, output_folder, cpk_stem)?;
+                let path = deploy::promote(staging, output_folder, cpk_stem)?;
                 if *no_deploy {
                     events.message(tool_message(
                         Code::DeploySkippedByFlag,
                         Scope::Run,
                         Disposition::Keep,
-                        vec![("path", promoted.display().to_string())],
+                        vec![("path", path.display().to_string())],
                     ));
                 }
             }
@@ -588,20 +606,16 @@ fn promote(
     }
 }
 
-/// The Error for a CPK that could not be installed into `download`, by the step that failed:
-/// the copy is `deploy_target_unwritable` naming the folder, the rename `old_cpk_locked` naming
-/// the old CPK; each names the OS error and `output`, where the CPK goes instead.
-fn deploy_failed(
-    failure: DeployFailure,
-    download: &Path,
-    cpk_stem: &CpkStem,
-    output: &Path,
-) -> Message {
+/// The Error for CPKs that could not be installed into `download`, by the step that failed:
+/// a copy is `deploy_target_unwritable` naming the folder, a rename `old_cpk_locked` naming
+/// the old CPK whose rename failed; each names the OS error and `output`, where the CPKs go
+/// instead.
+fn deploy_failed(failure: DeployFailure, download: &Path, output: &Path) -> Message {
     let (code, path, error) = match failure {
         DeployFailure::Copy(error) => (Code::DeployTargetUnwritable, download.to_owned(), error),
-        DeployFailure::Rename(error) => (
+        DeployFailure::Rename { cpk, error } => (
             Code::OldCpkLocked,
-            download.join(deploy::cpk_file_name(cpk_stem)),
+            download.join(deploy::cpk_file_name(&cpk)),
             error,
         ),
     };

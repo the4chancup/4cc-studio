@@ -3,7 +3,7 @@
 //! with whole teams, first-fit under `cpk_part_max_size`, and the placeholder CPK written in
 //! every slot the run does not fill.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 use std::fs::{self, File};
 use std::ops::Range;
@@ -101,6 +101,10 @@ pub(crate) struct TeamsParts {
     opened: usize,
     /// The current team's entries (CPK path, bytes), held until the team is placed.
     held: Vec<(String, Vec<u8>)>,
+    /// Every CPK path placed in any part. Each part's writer refuses a path it already holds,
+    /// but the game merges every CPK into one file system, so a path in two parts is the same
+    /// invariant broken (`pipeline.md` "5. Writer", step 3 "Duplicate invariant check").
+    placed: BTreeSet<String>,
 }
 
 impl TeamsParts {
@@ -125,6 +129,7 @@ impl TeamsParts {
             part: None,
             opened: 0,
             held: Vec::new(),
+            placed: BTreeSet::new(),
         }
     }
 
@@ -153,7 +158,7 @@ impl TeamsParts {
     /// A team with no entry opens no slot. A team over the cap in an empty part is an
     /// `Unplaced` `cpk_team_exceeds_cap`, one needing a slot when none is left an `Unplaced`
     /// `cpk_slots_exhausted`; a part that cannot be created, added to or finished is the error
-    /// naming its file.
+    /// naming its file, and a path already placed in a part the error naming the path.
     fn place(&mut self, export: &str) -> anyhow::Result<()> {
         if self.held.is_empty() {
             return Ok(());
@@ -169,6 +174,10 @@ impl TeamsParts {
             None => self.open_for(export)?,
         };
         for (path, bytes) in self.held.drain(..) {
+            ensure!(
+                self.placed.insert(path.clone()),
+                "{path}: placed twice in the teams parts"
+            );
             part.add(&path, &bytes)?;
         }
         self.part = Some(part);
@@ -506,6 +515,31 @@ mod tests {
         assert_eq!(
             Unplaced(message).to_string(),
             "a team was not placed: cpk_slots_exhausted"
+        );
+    }
+
+    #[test]
+    fn a_path_placed_in_an_earlier_part_is_an_error_naming_it() {
+        let temp = scratch("parts_path_twice");
+        let folder = temp.path();
+        let co = team(714);
+        // One team per part.
+        let mut parts = three_slots(folder, cpk_len(folder, &co));
+        let shared = co[0].clone();
+        place_team(&mut parts, 0, co).unwrap();
+        // /a/ the size of /co/, so it goes into the second part.
+        let mut a = team(702);
+        a[0] = shared.clone();
+
+        let error = place_team(&mut parts, 1, a).unwrap_err();
+
+        assert!(
+            folder.join("run/4cc_42_teams.cpk").is_file(),
+            "a second part"
+        );
+        assert_eq!(
+            error.to_string(),
+            format!("{}: placed twice in the teams parts", shared.0)
         );
     }
 

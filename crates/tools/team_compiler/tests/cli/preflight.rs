@@ -2,7 +2,7 @@
 
 use crate::common::Sandbox;
 use crate::compile::pes_settings;
-use crate::{CLEAN_PLAYER, bundled_bins_then, clean_model, snapshot};
+use crate::{bundled_bins_then, snapshot};
 
 // TC-CLI-03
 #[test]
@@ -133,15 +133,4 @@ fn modes_and_commands_this_version_lacks_are_refused() {
         &["compile", "--mode", "sideload"],
     );
     run.assert_refused(2, &["--mode sideload", "PES 2016"]);
-
-    // Multi-CPK mode installs nothing yet (more in `multicpk.rs`).
-    let multicpk = "[team-compiler]\nmulticpk_mode = true\n";
-    let run = sandbox.run(multicpk, &["compile"]);
-    run.assert_refused(2, &["multicpk_mode", "--no-deploy"]);
-    // `check` ignores multicpk_mode.
-    sandbox.write(
-        &format!("exports/co Midcup Spring/{CLEAN_PLAYER}"),
-        &clean_model(),
-    );
-    assert_eq!(sandbox.run(multicpk, &["check"]).exit_code(), 0);
 }

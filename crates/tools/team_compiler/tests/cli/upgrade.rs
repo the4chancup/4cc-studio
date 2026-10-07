@@ -13,7 +13,7 @@ use crate::snapshot;
 
 /// The PES 2017 install's `DpFileList.bin` (`examples/DpFileList.bin`): 39 entries, the
 /// faces/uniform layout from before the `teams` runs.
-fn pes17_list() -> Vec<u8> {
+pub(crate) fn pes17_list() -> Vec<u8> {
     fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../examples/DpFileList.bin"))
         .unwrap()
 }

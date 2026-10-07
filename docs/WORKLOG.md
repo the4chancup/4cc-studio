@@ -14,7 +14,7 @@ is in `AGENTS.md` ("Working documents").
 **Next:** Phase 4 is itemized and its Acceptance section written (step 4.1, 2026-10-03; its
 cross-family review (a) is queued). Next:
 the next open Phase 4 step (see the list); 4.21 to 4.24 and 4.29
-and 4.25 are done; 4.26a and 4.26b are done, 4.26c next; 4.14 waits on 4.31's pre-Fox export; 4.33, 4.34, 4.c-pass and
+and 4.25 are done; 4.26 is done; 4.14 waits on 4.31's pre-Fox export; 4.33, 4.34, 4.c-pass and
 4.c-fix1 are done; 4.30,
 4.5 to 4.8, 4.9a and 4.10 to 4.13 are done (4.6c moved to Phase 8's cancellation), 4.9b
 (collars) waits on nothing. 2.5b (GPU BC7) is step 16.x (decision entries
@@ -264,6 +264,14 @@ Claude agent with no sidekick and no reviewer of another model family. While tha
   mode), `settings.md` (the four multi-CPK rows), `messages.md` the three size rows and
   `deploy_skipped_by_flag`, TC-OUT-12..16 and the decision entries "multi-CPK mode: the
   official list's slots ..." and "`cpk_part_max_size` is a byte count ...".
+  4.26c (b), `team_compiler` (`output/deploy.rs` `preflight` over several CPKs,
+  `deploy`, `install_all`, `undo`, `DeployFailure::Rename { cpk, error }`; `compile.rs`
+  `CpkLayout::cpks`, `promote`; `output/parts.rs` the across-parts duplicate check;
+  `cli.rs` the bins-stem refusal), its commit of 2026-10-07, against `pipeline.md` "6.
+  Post-processing" (Deploy CPKs, the all-or-none paragraph), `messages.md`
+  `dpfilelist_outdated`, `cpk_name_unlisted`, `old_cpk_locked`, TC-DEP-08, TC-DEP-11 and the
+  decision entries "several CPKs: one preflight finding each ..." and "a teams stem that is
+  the bins CPK's own is refused".
 - For the lead, on return: the review process on trial (3.1) opens with a full sidekick review
   loop, then runs GPT's loop with a full sidekick loop after each GPT round, calling GPT again
   only once that sidekick loop has ended and GPT's own loop has not; not yet in `AGENTS.md`
@@ -1549,7 +1557,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   list that cannot be read; Clef 28 windows, 1 flag rejected). The list replaced last is
   tested on Windows only (a held-open CPK): Linux renames over an open file.
 
-- [ ] 4.26 **Multi-CPK mode**: `multicpk_mode` honored (the Phase 3 refusal removed); slots from
+- [x] 4.26 **Multi-CPK mode**: `multicpk_mode` honored (the Phase 3 refusal removed); slots from
   the DPFL entries matching `{prefix}_{NN}_{teams_cpk_name}` exactly, ordered by number; whole
   teams placed first-fit by exact size under `cpk_part_max_size`; every unfilled slot written as
   the empty placeholder CPK, the shipped one embedded (`resources/templates/placeholder.cpk`,
@@ -1581,6 +1589,17 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   survivor (`Unplaced`'s `Display`), its test added by the lead; Clef 63 windows, no flag.
   Left for 4.26c: no check that a path arrives once across parts (each part's writer
   refuses a duplicate within it).
+  4.26c done 2026-10-07 (Opus 5.5): a deploying multi-CPK compile; `deploy::preflight`
+  judges every CPK of the run (`CpkLayout::cpks`, the order defined once): one
+  `dpfilelist_outdated` and one `cpk_name_unlisted` joining their names, `cpks_missing`
+  leaving out every CPK of the run, the probe per CPK; `deploy::deploy` copies every
+  `.partial`, then one CPK renames over its old one as before and several go through
+  `install_all` (old CPKs moved aside to `.cpk.old`, `.partial`s renamed in, `.old`s
+  removed; `undo` on a failed rename), `DeployFailure::Rename` naming its CPK; a failure
+  promotes every CPK; `TeamsParts` refuses a path placed twice across parts. Lead fix:
+  `compile_settings` refuses a `teams_cpk_name` that is the bins CPK's own stem (decision
+  entry). TC-DEP-08, TC-DEP-11 (without refs) proven. Gates green (lib 492, cli 239);
+  mutants-diff 41: 29 caught, 12 unviable, no survivor; Clef 46 windows, no flag.
   Plan: `pipeline.md` "5. Writer" step 6 ("Multi-CPK mode: teams parts"); `settings.md`
   (`multicpk_mode`, `teams_cpk_name`, `cpk_part_max_size`, `bins_cpk_name`). IDs: TC-OUT-12..16,
   TC-DEP-08 (moved from 4.25: it needs this mode), TC-DEP-11. Crates: tc (`output/writer.rs`,
@@ -1907,6 +1926,13 @@ Steps are itemized when Phase 15 closes; one is fixed already:
 
 Bugs, unexpected behavior, things to revisit. `open` / `resolved (date)`. Resolved issues are
 pruned when their phase closes; they stay in git history.
+
+- open (found at 4.26c's review) — when an all-or-none install's undo cannot move an old
+  CPK back from `.cpk.old` (`deploy.rs` `undo`), the failure is only logged: `download/`
+  then lacks a CPK its list names, so the game loads none of the folder, and the member
+  sees only the `old_cpk_locked` or `deploy_target_unwritable` that started the undo. The
+  move back renames a file the run itself just moved, so nothing real is known to fail it;
+  the plan names no finding for it. Revisit if a member meets it.
 
 - open (found at 4.26b's review) — a multi-CPK run promotes its CPKs to `output/` one
   rename at a time, so a rename failing part-way leaves `output/` with some new CPKs and
@@ -3121,3 +3147,6 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
     the slots left, overrides and bins in `4cc_08_bins`; `cpk_team_exceeds_cap`,
     `cpk_slots_exhausted` (Fatal) and `cpk_size_over_limit` (single CPK, Warning). A
     deploying multi-CPK run is still refused; 4.26c installs them all or none.
+  - **4.26c:** a multi-CPK compile deploys: every CPK of the run judged by the preflight,
+    then installed all or none (old CPKs moved aside first, put back on any failure, every
+    CPK then promoted to `output/`). Step 4.26 is done; 4.19 (referees) next.

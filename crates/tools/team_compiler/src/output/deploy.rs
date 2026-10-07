@@ -2,8 +2,8 @@
 //! or a test or sideload run's loose tree, is written in a staging folder of its own run and only
 //! then moved to its final path, so a failed run never leaves a half-written output where the
 //! game or the user could pick it up. A run that deploys checks, before any export is read, that
-//! it can install into the PES folder's `download/`, and installs its CPK there by a copy and a
-//! rename.
+//! it can install into the PES folder's `download/`, and installs its CPKs there by a copy and
+//! renames, all of them or none.
 
 use std::collections::BTreeSet;
 use std::fs::{self, File, TryLockError};
@@ -222,18 +222,21 @@ fn probe_folder(folder: &Path) -> io::Result<()> {
 /// Post-processing", "Destination writability preflight"), in order: the PES folder
 /// `pes_folder` is a folder (`pes_folder_not_found`), it holds `version`'s exe
 /// (`pes_version_mismatch`, a Warning: the checks go on), its `download/DpFileList.bin` exists
-/// and lists the run's CPK (`dpfilelist_outdated` when the `official` list names it, else
-/// `cpk_name_unlisted`), the list is the official one (`dpfilelist_not_official`, a Warning),
-/// every CPK it lists but the run's has its file in `download/` (`dpfilelist_cpk_missing`, a
-/// Warning), and the CPK can be written in `download/` (`deploy_target_unwritable`). The first
-/// Error ends them. A missing or unreadable list adds no finding: the working-bin walk, which
-/// reads it next, reports it (`dpfilelist_missing`, `installed_bin_unreadable`). Returns the
-/// `download/` folder to install into, or `None` when a check failed and the CPK goes to
-/// `promoted`, its path in the output folder, which each Error names; and the findings.
+/// and lists every CPK of the run, `cpks` (those it lacks that the `official` list names are
+/// one `dpfilelist_outdated`, the others one `cpk_name_unlisted`, each joining their names in
+/// `cpks`' order), the list is the official one (`dpfilelist_not_official`, a Warning), every
+/// CPK it lists but the run's has its file in `download/` (`dpfilelist_cpk_missing`, a
+/// Warning), and each CPK can be written in `download/` (`deploy_target_unwritable`, the first
+/// that cannot). The first Error ends them (both list Errors when the list lacks both kinds). A
+/// missing or unreadable list adds no finding: the working-bin walk, which reads it next,
+/// reports it (`dpfilelist_missing`, `installed_bin_unreadable`). Returns the `download/`
+/// folder to install into, or `None` when a check failed and the CPKs go to `promoted` (the
+/// one CPK's path in the output folder, or the folder), which each Error names; and the
+/// findings.
 pub(crate) fn preflight(
     pes_folder: &Path,
     version: PesVersion,
-    cpk_stem: &CpkStem,
+    cpks: &[CpkStem],
     promoted: &Path,
     official: &[String],
 ) -> (Option<PathBuf>, Vec<Message>) {
@@ -271,41 +274,53 @@ pub(crate) fn preflight(
             return (None, messages);
         }
     };
-    let name = cpk_file_name(cpk_stem);
-    if !list.contains(&name) {
-        let path = ("path", list_path.display().to_string());
-        let message = if official.contains(&name) {
-            tool_message(
+    let names: Vec<String> = cpks.iter().map(cpk_file_name).collect();
+    let (outdated, unlisted): (Vec<&str>, Vec<&str>) = names
+        .iter()
+        .map(String::as_str)
+        .filter(|name| !list.iter().any(|entry| entry == name))
+        .partition(|name| official.iter().any(|entry| entry == name));
+    if !outdated.is_empty() || !unlisted.is_empty() {
+        let path = || ("path", list_path.display().to_string());
+        if !outdated.is_empty() {
+            messages.push(tool_message(
                 Code::DpfilelistOutdated,
                 Scope::Run,
                 Disposition::Keep,
-                vec![("cpk", name), path, output(), upgrade_command()],
-            )
-        } else {
-            tool_message(
+                vec![
+                    ("cpk", outdated.join(", ")),
+                    path(),
+                    output(),
+                    upgrade_command(),
+                ],
+            ));
+        }
+        if !unlisted.is_empty() {
+            messages.push(tool_message(
                 Code::CpkNameUnlisted,
                 Scope::Run,
                 Disposition::Keep,
-                vec![("cpk", name), path, output()],
-            )
-        };
-        messages.push(message);
+                vec![("cpk", unlisted.join(", ")), path(), output()],
+            ));
+        }
         return (None, messages);
     }
     messages.extend(not_official(&list_path, &list, official));
-    messages.extend(cpks_missing(&download, &list, &name));
-    if let Err((path, error)) = probe_download(&download, &name) {
-        messages.push(tool_message(
-            Code::DeployTargetUnwritable,
-            Scope::Run,
-            Disposition::Keep,
-            vec![
-                ("path", path.display().to_string()),
-                ("error", error.to_string()),
-                output(),
-            ],
-        ));
-        return (None, messages);
+    messages.extend(cpks_missing(&download, &list, &names));
+    for name in &names {
+        if let Err((path, error)) = probe_download(&download, name) {
+            messages.push(tool_message(
+                Code::DeployTargetUnwritable,
+                Scope::Run,
+                Disposition::Keep,
+                vec![
+                    ("path", path.display().to_string()),
+                    ("error", error.to_string()),
+                    output(),
+                ],
+            ));
+            return (None, messages);
+        }
     }
     (Some(download), messages)
 }
@@ -358,10 +373,10 @@ fn not_official(list_path: &Path, installed: &[String], official: &[String]) -> 
 /// `dpfilelist_cpk_missing` when a CPK the `installed` list names, other than the run's own
 /// `own` (which the run writes), has no file in `download`, naming those CPKs in list order:
 /// the game then loads none of the folder's CPKs.
-fn cpks_missing(download: &Path, installed: &[String], own: &str) -> Option<Message> {
+fn cpks_missing(download: &Path, installed: &[String], own: &[String]) -> Option<Message> {
     let missing: Vec<&str> = installed
         .iter()
-        .filter(|entry| *entry != own && !download.join(entry).is_file())
+        .filter(|entry| !own.contains(entry) && !download.join(entry).is_file())
         .map(String::as_str)
         .collect();
     if missing.is_empty() {
@@ -399,47 +414,126 @@ fn probe_download(download: &Path, name: &str) -> Result<(), (PathBuf, io::Error
     }
 }
 
-/// Why installing the CPK into `download/` failed, named by the step that failed and not by
-/// the OS error (`pipeline.md` "Deploy CPKs"): Windows reports a file held open without delete
-/// sharing as access denied, the error of a folder that needs elevation, while only the rename
-/// needs the old CPK free.
+/// Why installing the run's CPKs into `download/` failed, named by the step that failed and
+/// not by the OS error (`pipeline.md` "Deploy CPKs"): Windows reports a file held open without
+/// delete sharing as access denied, the error of a folder that needs elevation, while only
+/// the renames need the old CPKs free.
 #[derive(Debug)]
 pub(crate) enum DeployFailure {
-    /// The copy to `{name}.cpk.partial` failed: the folder denies writes
+    /// A copy to `{name}.cpk.partial` failed: the folder denies writes
     /// (`deploy_target_unwritable`).
     Copy(io::Error),
-    /// The rename of the `.partial` over the old CPK failed: the old CPK is in use, by PES
-    /// most likely (`old_cpk_locked`).
-    Rename(io::Error),
+    /// A rename failed, of `cpk`'s `.partial` over its old CPK, or (when the run writes
+    /// several CPKs) of its old CPK aside to `.cpk.old` or of its `.partial` into place: the
+    /// old CPK is in use, by PES most likely (`old_cpk_locked`).
+    Rename { cpk: CpkStem, error: io::Error },
 }
 
-/// Installs the CPK staged in `staging` as `<download>/<cpk_stem>.cpk`: copied to
-/// `<cpk_stem>.cpk.partial` (a copy: the output folder is usually on another volume than the
-/// game), then renamed over the old CPK, which on one volume is atomic, so the game finds the
-/// old CPK or the whole new one. A failure removes the `.partial` (a failure to remove it is
-/// logged) and leaves the old CPK as it was; the staged CPK stays, for the output folder.
+/// Installs the CPKs `cpks` staged in `staging` into `download`, each as `<name>.cpk`, all of
+/// them or none: each is copied to `<name>.cpk.partial` first (a copy: the output folder is
+/// usually on another volume than the game). One CPK is then renamed over its old one, which
+/// on one volume is atomic, so the game finds the old CPK or the whole new one. Several go
+/// through `install_all`. A failure removes the `.partial`s (a failure to remove one is
+/// logged) and leaves the old CPKs as they were; the staged CPKs stay, for the output folder.
 pub(crate) fn deploy(
     staging: &Staging,
     download: &Path,
-    cpk_stem: &CpkStem,
+    cpks: &[CpkStem],
 ) -> Result<(), DeployFailure> {
-    let name = cpk_file_name(cpk_stem);
-    let partial = download.join(format!("{name}.partial"));
-    if let Err(error) = fs::copy(staging.folder.join(&name), &partial) {
-        remove_partial(&partial);
-        return Err(DeployFailure::Copy(error));
+    let names: Vec<String> = cpks.iter().map(cpk_file_name).collect();
+    let partials: Vec<PathBuf> = names
+        .iter()
+        .map(|name| download.join(format!("{name}.partial")))
+        .collect();
+    for (index, name) in names.iter().enumerate() {
+        if let Err(error) = fs::copy(staging.folder.join(name), &partials[index]) {
+            // The failed copy's own `.partial` too: it may hold the copy's first bytes.
+            remove_all(&partials[..=index]);
+            return Err(DeployFailure::Copy(error));
+        }
     }
-    if let Err(error) = fs::rename(&partial, download.join(&name)) {
-        remove_partial(&partial);
-        return Err(DeployFailure::Rename(error));
+    let [cpk] = cpks else {
+        return install_all(download, cpks, &names, &partials);
+    };
+    if let Err(error) = fs::rename(&partials[0], download.join(&names[0])) {
+        remove_all(&partials);
+        return Err(DeployFailure::Rename {
+            cpk: cpk.clone(),
+            error,
+        });
     }
     Ok(())
 }
 
-/// Removes a failed deployment's `.partial`; a failure is logged.
-fn remove_partial(partial: &Path) {
-    if let Err(error) = fs::remove_file(partial) {
-        log::debug!("{}: kept: {error}", partial.display());
+/// Renames the copied `partials` of the CPKs `cpks` (file `names`) into place in `download`,
+/// all of them or none (`pipeline.md` "Deploy CPKs"): each old CPK there is moved aside to
+/// `<name>.cpk.old`, then each `.partial` renamed to its name, then the `.old` files removed
+/// (a failure to remove one is logged: the run is installed). A rename that fails undoes the
+/// ones made (`undo`) and is the `Rename` failure naming its CPK.
+fn install_all(
+    download: &Path,
+    cpks: &[CpkStem],
+    names: &[String],
+    partials: &[PathBuf],
+) -> Result<(), DeployFailure> {
+    let installed: Vec<PathBuf> = names.iter().map(|name| download.join(name)).collect();
+    let asides: Vec<PathBuf> = names
+        .iter()
+        .map(|name| download.join(format!("{name}.old")))
+        .collect();
+    // The old CPKs move aside before any new one goes in: renaming each `.partial` over its
+    // old CPK could not be undone once a later rename failed, the old CPKs being gone, while
+    // a CPK moved aside can still be moved back.
+    let mut moved: Vec<(&Path, &Path)> = Vec::new();
+    for (index, cpk) in cpks.iter().enumerate() {
+        match fs::rename(&installed[index], &asides[index]) {
+            Ok(()) => moved.push((&asides[index], &installed[index])),
+            Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+            Err(error) => {
+                undo(&[], &moved, partials);
+                let cpk = cpk.clone();
+                return Err(DeployFailure::Rename { cpk, error });
+            }
+        }
+    }
+    for (index, cpk) in cpks.iter().enumerate() {
+        if let Err(error) = fs::rename(&partials[index], &installed[index]) {
+            undo(&installed[..index], &moved, &partials[index..]);
+            let cpk = cpk.clone();
+            return Err(DeployFailure::Rename { cpk, error });
+        }
+    }
+    for (aside, _) in moved {
+        remove_logged(aside);
+    }
+    Ok(())
+}
+
+/// Puts `download/` back as `install_all` found it, after a rename failed: the new CPKs
+/// `placed` removed, then each old CPK `moved` aside (its `.old` path, its own) moved back,
+/// then the `partials` left removed. A failure is logged, not returned: the failure reported
+/// is the rename that started the undo.
+fn undo(placed: &[PathBuf], moved: &[(&Path, &Path)], partials: &[PathBuf]) {
+    remove_all(placed);
+    for (aside, installed) in moved {
+        if let Err(error) = fs::rename(aside, installed) {
+            log::debug!("{}: not moved back: {error}", aside.display());
+        }
+    }
+    remove_all(partials);
+}
+
+/// Removes each of `files`, logging a failure.
+fn remove_all(files: &[PathBuf]) {
+    for file in files {
+        remove_logged(file);
+    }
+}
+
+/// Removes a file a deployment made and no longer needs; a failure is logged.
+fn remove_logged(file: &Path) {
+    if let Err(error) = fs::remove_file(file) {
+        log::debug!("{}: kept: {error}", file.display());
     }
 }
 
@@ -497,6 +591,8 @@ fn copy_tree(source: &Path, target: &Path) -> io::Result<()> {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeMap;
+
     use studio_core::Severity;
 
     use super::*;
@@ -522,17 +618,24 @@ mod tests {
         pes
     }
 
+    /// `preflight` for a PES 2021 run compiling `cpks` into the PES folder `pes`, against
+    /// `OFFICIAL`, promoted to `<pes>/promoted` when it cannot deploy.
+    fn preflight_of(pes: &Path, cpks: &[&str]) -> (Option<PathBuf>, Vec<Message>) {
+        let official = OFFICIAL.map(str::to_owned);
+        let cpks: Vec<CpkStem> = cpks.iter().map(|cpk| CpkStem::new(cpk).unwrap()).collect();
+        preflight(
+            pes,
+            PesVersion::Pes21,
+            &cpks,
+            &pes.join("promoted"),
+            &official,
+        )
+    }
+
     /// `preflight` for a PES 2021 run compiling `4cc_61_midcup.cpk` into the PES folder `pes`,
     /// against `OFFICIAL`; it deploys, the findings are only Warnings.
     fn preflight_61(pes: &Path) -> Vec<Message> {
-        let official = OFFICIAL.map(str::to_owned);
-        let (download, messages) = preflight(
-            pes,
-            PesVersion::Pes21,
-            &CpkStem::new("4cc_61_midcup").unwrap(),
-            &pes.join("promoted.cpk"),
-            &official,
-        );
+        let (download, messages) = preflight_of(pes, &["4cc_61_midcup"]);
         assert_eq!(download, Some(pes.join(DOWNLOAD)), "{messages:#?}");
         messages
     }
@@ -675,6 +778,87 @@ mod tests {
         let pes = pes_with_list(temp.path(), &OFFICIAL, &OFFICIAL[1..]);
 
         assert_eq!(preflight_61(&pes), []);
+    }
+
+    /// `dpfilelist_outdated` (`official`) or `cpk_name_unlisted` naming `cpks` for the list of
+    /// the PES folder `pes`, as `preflight_of` reports it.
+    fn list_error(pes: &Path, official: bool, cpks: &str) -> Message {
+        let mut context = vec![
+            ("cpk", cpks.to_owned()),
+            (
+                "path",
+                pes.join(DOWNLOAD).join(DPFILELIST).display().to_string(),
+            ),
+            ("output", pes.join("promoted").display().to_string()),
+        ];
+        let code = if official {
+            context.push(upgrade_command());
+            Code::DpfilelistOutdated
+        } else {
+            Code::CpkNameUnlisted
+        };
+        tool_message(code, Scope::Run, Disposition::Keep, context)
+    }
+
+    #[test]
+    fn the_official_cpks_a_list_lacks_are_one_dpfilelist_outdated_in_the_run_s_order() {
+        let temp = scratch("preflight_outdated_joined");
+        let pes = pes_with_list(temp.path(), &["4cc_61_midcup.cpk"], &[]);
+
+        let (download, messages) =
+            preflight_of(&pes, &["4cc_63_midcup", "4cc_61_midcup", "4cc_62_midcup"]);
+
+        assert_eq!(download, None);
+        assert_eq!(
+            messages,
+            [list_error(
+                &pes,
+                true,
+                "4cc_63_midcup.cpk, 4cc_62_midcup.cpk"
+            )]
+        );
+    }
+
+    #[test]
+    fn an_official_cpk_and_an_unknown_one_the_list_lacks_are_one_finding_each() {
+        let temp = scratch("preflight_outdated_and_unlisted");
+        let pes = pes_with_list(temp.path(), &["4cc_61_midcup.cpk"], &[]);
+
+        let (download, messages) =
+            preflight_of(&pes, &["4cc_80_mine", "4cc_62_midcup", "4cc_81_mine"]);
+
+        assert_eq!(download, None);
+        assert_eq!(
+            messages,
+            [
+                list_error(&pes, true, "4cc_62_midcup.cpk"),
+                list_error(&pes, false, "4cc_80_mine.cpk, 4cc_81_mine.cpk"),
+            ]
+        );
+    }
+
+    #[test]
+    fn no_cpk_of_the_run_is_named_missing_from_download() {
+        let temp = scratch("preflight_cpks_missing_several");
+        // No CPK in `download/`: the run writes 61 and 62, 63 is missing.
+        let pes = pes_with_list(temp.path(), &OFFICIAL, &[]);
+
+        let (download, messages) = preflight_of(&pes, &["4cc_61_midcup", "4cc_62_midcup"]);
+
+        assert_eq!(download, Some(pes.join(DOWNLOAD)), "{messages:#?}");
+        assert_eq!(
+            messages,
+            [tool_message(
+                Code::DpfilelistCpkMissing,
+                Scope::Run,
+                Disposition::Keep,
+                vec![
+                    ("path", pes.join(DOWNLOAD).display().to_string()),
+                    ("files", "4cc_63_midcup.cpk".to_owned()),
+                    upgrade_command(),
+                ],
+            )]
+        );
     }
 
     /// A staging under `output` whose folder holds the CPK `cup.cpk` with `bytes`.
@@ -882,7 +1066,7 @@ mod tests {
         fs::write(download.join("cup.cpk"), "old").unwrap();
         let staging = staged_cpk(&output, b"new");
 
-        deploy(&staging, &download, &CpkStem::new("cup").unwrap()).unwrap();
+        deploy(&staging, &download, &[CpkStem::new("cup").unwrap()]).unwrap();
 
         assert_eq!(fs::read(download.join("cup.cpk")).unwrap(), b"new");
         assert_eq!(fs::read_dir(&download).unwrap().count(), 1, "no .partial");
@@ -901,7 +1085,7 @@ mod tests {
         let download = temp.path().join("download");
         let staging = staged_cpk(&output, b"new");
 
-        let failure = deploy(&staging, &download, &CpkStem::new("cup").unwrap()).unwrap_err();
+        let failure = deploy(&staging, &download, &[CpkStem::new("cup").unwrap()]).unwrap_err();
 
         assert!(matches!(failure, DeployFailure::Copy(_)), "{failure:?}");
         assert!(!download.exists(), "nothing is written: {failure:?}");
@@ -918,15 +1102,159 @@ mod tests {
         fs::write(download.join("cup.cpk/kept.txt"), "kept").unwrap();
         let staging = staged_cpk(&output, b"new");
 
-        let failure = deploy(&staging, &download, &CpkStem::new("cup").unwrap()).unwrap_err();
+        let failure = deploy(&staging, &download, &[CpkStem::new("cup").unwrap()]).unwrap_err();
 
-        assert!(matches!(failure, DeployFailure::Rename(_)), "{failure:?}");
+        assert!(
+            matches!(&failure, DeployFailure::Rename { cpk, .. } if cpk.as_str() == "cup"),
+            "{failure:?}"
+        );
         assert!(!download.join("cup.cpk.partial").exists());
         assert_eq!(fs::read_dir(&download).unwrap().count(), 1);
         assert_eq!(
             fs::read(download.join("cup.cpk/kept.txt")).unwrap(),
             b"kept"
         );
+    }
+
+    /// A staging under `output` whose folder holds the CPK `<name>.cpk` of each of `names`,
+    /// its bytes `new <name>`.
+    fn staged_cpks(output: &Path, names: &[&str]) -> Staging {
+        let staging = Staging::create(output).unwrap();
+        fs::create_dir_all(staging.folder()).unwrap();
+        for name in names {
+            fs::write(
+                staging.folder().join(format!("{name}.cpk")),
+                format!("new {name}"),
+            )
+            .unwrap();
+        }
+        staging
+    }
+
+    /// The CPK stems `names`.
+    fn stems(names: &[&str]) -> Vec<CpkStem> {
+        names
+            .iter()
+            .map(|name| CpkStem::new(name).unwrap())
+            .collect()
+    }
+
+    /// Every file and folder in `folder`, by name, with a file's bytes (a folder's are empty).
+    fn contents(folder: &Path) -> BTreeMap<String, Vec<u8>> {
+        fs::read_dir(folder)
+            .unwrap()
+            .map(|entry| {
+                let entry = entry.unwrap();
+                let bytes = if entry.file_type().unwrap().is_dir() {
+                    Vec::new()
+                } else {
+                    fs::read(entry.path()).unwrap()
+                };
+                (entry.file_name().into_string().unwrap(), bytes)
+            })
+            .collect()
+    }
+
+    /// `contents` with each file's bytes as text.
+    fn texts(folder: &Path) -> BTreeMap<String, String> {
+        contents(folder)
+            .into_iter()
+            .map(|(name, bytes)| (name, String::from_utf8(bytes).unwrap()))
+            .collect()
+    }
+
+    #[test]
+    fn deploying_several_cpks_installs_each_and_leaves_no_partial_or_old() {
+        let temp = scratch("deploy_several");
+        let output = temp.path().join("output");
+        let download = temp.path().join("download");
+        fs::create_dir_all(&download).unwrap();
+        fs::write(download.join("bins.cpk"), "old bins").unwrap();
+        fs::write(download.join("other.cpk"), "not the run's").unwrap();
+        let staging = staged_cpks(&output, &["bins", "part"]);
+
+        deploy(&staging, &download, &stems(&["bins", "part"])).unwrap();
+
+        assert_eq!(
+            texts(&download),
+            BTreeMap::from([
+                ("bins.cpk".to_owned(), "new bins".to_owned()),
+                ("other.cpk".to_owned(), "not the run's".to_owned()),
+                ("part.cpk".to_owned(), "new part".to_owned()),
+            ])
+        );
+    }
+
+    #[test]
+    fn an_old_cpk_that_cannot_be_moved_aside_moves_back_those_moved_and_installs_none() {
+        let temp = scratch("deploy_several_aside_failed");
+        let output = temp.path().join("output");
+        let download = temp.path().join("download");
+        fs::create_dir_all(&download).unwrap();
+        for name in ["bins", "part", "last"] {
+            fs::write(download.join(format!("{name}.cpk")), format!("old {name}")).unwrap();
+        }
+        // A non-empty folder where `part.cpk` would be moved aside: nothing can be renamed
+        // over it, as nothing can over a CPK PES holds.
+        fs::create_dir_all(download.join("part.cpk.old")).unwrap();
+        fs::write(download.join("part.cpk.old/kept.txt"), "kept").unwrap();
+        let before = contents(&download);
+        let staging = staged_cpks(&output, &["bins", "part", "last"]);
+
+        let failure = deploy(&staging, &download, &stems(&["bins", "part", "last"])).unwrap_err();
+
+        assert!(
+            matches!(&failure, DeployFailure::Rename { cpk, .. } if cpk.as_str() == "part"),
+            "{failure:?}"
+        );
+        assert_eq!(contents(&download), before);
+        assert_eq!(
+            fs::read(download.join("part.cpk.old/kept.txt")).unwrap(),
+            b"kept"
+        );
+    }
+
+    // The rename into place fails only when something takes a name step 2 freed, which no
+    // file-system state can do between two steps of one run. A run naming one CPK twice
+    // reaches it with real files: the second copy replaces the first `.partial`, the second
+    // move aside finds no old CPK, and the second rename into place finds no `.partial`.
+    #[test]
+    fn a_partial_that_cannot_be_renamed_into_place_undoes_the_install_whole() {
+        let temp = scratch("deploy_several_into_place_failed");
+        let output = temp.path().join("output");
+        let download = temp.path().join("download");
+        fs::create_dir_all(&download).unwrap();
+        fs::write(download.join("twice.cpk"), "old twice").unwrap();
+        let before = contents(&download);
+        let staging = staged_cpks(&output, &["fresh", "twice"]);
+
+        // `fresh` has no old CPK: only removing it puts the folder back.
+        let failure =
+            deploy(&staging, &download, &stems(&["fresh", "twice", "twice"])).unwrap_err();
+
+        assert!(
+            matches!(&failure, DeployFailure::Rename { cpk, error }
+                if cpk.as_str() == "twice" && error.kind() == io::ErrorKind::NotFound),
+            "{failure:?}"
+        );
+        assert_eq!(contents(&download), before);
+    }
+
+    #[test]
+    fn a_failing_copy_of_one_of_several_cpks_removes_the_partials_made() {
+        let temp = scratch("deploy_several_copy_failed");
+        let output = temp.path().join("output");
+        let download = temp.path().join("download");
+        fs::create_dir_all(&download).unwrap();
+        fs::write(download.join("bins.cpk"), "old bins").unwrap();
+        let before = contents(&download);
+        // `part` is not staged: its copy fails after `bins.cpk.partial` is made.
+        let staging = staged_cpks(&output, &["bins", "last"]);
+
+        let failure = deploy(&staging, &download, &stems(&["bins", "part", "last"])).unwrap_err();
+
+        assert!(matches!(failure, DeployFailure::Copy(_)), "{failure:?}");
+        assert_eq!(contents(&download), before);
     }
 
     #[test]

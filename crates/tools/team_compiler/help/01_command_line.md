@@ -460,10 +460,14 @@ between two CPKs. Every one of these CPKs the teams do not need is written as th
 placeholder CPK, so a CPK left from an earlier, bigger compile does not stay behind. The files
 the compiler builds for every team (team colors, kit colors, kit configs, the boots and gloves
 lists) and the files of the `overrides` folder go into the CPK named by the `bins_cpk_name`
-setting (`4cc_08_bins.cpk`). In this version multi-CPK mode needs `--no-deploy`: without it `compile`
-refuses to run (exit code 2), and with it every CPK is left in the output folder, with one
-`deploy_skipped_by_flag` line each, the bins CPK first. `--mode test` and `--mode sideload`
-write their loose files as they do without it.
+setting (`4cc_08_bins.cpk`). Every one of these CPKs is installed into the game's `download`
+folder, or none is: the game's `DpFileList.bin` must have all of them (a list without the
+`teams` CPKs is one `dpfilelist_outdated` line naming them), and when one cannot be installed
+(PES holds it open, or the folder cannot be written), the old CPKs stay as they were and every
+CPK of the compile is left in the output folder (`output=...` names the folder). With
+`--no-deploy` every CPK is left in the output folder, with one `deploy_skipped_by_flag` line
+each, the bins CPK first. `--mode test` and `--mode sideload` write their loose files as they
+do without it.
 
 These lines stop a multi-CPK compile with exit code 3. No CPK is written, and the ones in the
 output folder stay as they were:

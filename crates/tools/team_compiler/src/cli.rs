@@ -294,10 +294,9 @@ fn check_memory_cap(percent: f32) -> Result<(), CliError> {
 /// The CPKs a compile in `mode` writes, from the settings only `compile` reads: one CPK named
 /// `cpk_name`, or in multi-CPK mode the bins CPK and the teams parts (`pipeline.md` "Multi-CPK
 /// mode: teams parts"), which only a normal compile writes, so test and sideload mode ignore
-/// `multicpk_mode`. Refused: a name that is not a valid CPK name, naming its setting, and
-/// multi-CPK mode in a run that deploys, which this version cannot install yet. The teams
-/// stem is not checked: a stem no slot has gives no slot, and the first team then reports
-/// `cpk_slots_exhausted`.
+/// `multicpk_mode`. Refused: a name that is not a valid CPK name, naming its setting, and a
+/// teams stem that is the bins CPK's own. The teams stem is not checked otherwise: a stem no
+/// slot has gives no slot, and the first team then reports `cpk_slots_exhausted`.
 fn compile_settings(
     settings: &TeamCompilerSettings,
     mode: &OutputMode,
@@ -308,14 +307,26 @@ fn compile_settings(
         return Ok(CpkLayout::Single { name, cap });
     }
     match mode {
-        OutputMode::Normal { no_deploy: true } => Ok(CpkLayout::Parts {
-            bins: cpk_stem("bins_cpk_name", &settings.bins_cpk_name)?,
-            teams_stem: settings.teams_cpk_name.clone(),
-            cap,
-        }),
-        OutputMode::Normal { no_deploy: false } => Err(invalid(anyhow!(
-            "multicpk_mode = true needs --no-deploy in this version"
-        ))),
+        OutputMode::Normal { .. } => {
+            let bins = cpk_stem("bins_cpk_name", &settings.bins_cpk_name)?;
+            // A slot is every official entry of the teams stem, so a teams stem that is the
+            // bins CPK's own would make the bins CPK a part too: two writers on one file.
+            let bins_file = deploy::cpk_file_name(&bins);
+            let bins_stem = upgrade::number_and_stem(&bins_file).map(|(_, stem)| stem);
+            if bins_stem == Some(settings.teams_cpk_name.as_str()) {
+                return Err(invalid(anyhow!(
+                    "teams_cpk_name = \"{}\" names the slots of the bins CPK, {}: the teams \
+                     parts need a stem of their own",
+                    settings.teams_cpk_name,
+                    bins.as_str()
+                )));
+            }
+            Ok(CpkLayout::Parts {
+                bins,
+                teams_stem: settings.teams_cpk_name.clone(),
+                cap,
+            })
+        }
         OutputMode::Test | OutputMode::Sideload { .. } => Ok(CpkLayout::Single { name, cap }),
     }
 }
@@ -633,7 +644,7 @@ mod tests {
     }
 
     #[test]
-    fn compile_writes_one_cpk_or_with_multicpk_mode_and_no_deploy_the_parts() {
+    fn compile_writes_one_cpk_or_with_multicpk_mode_the_parts() {
         let no_deploy = OutputMode::Normal { no_deploy: true };
         let deploys = OutputMode::Normal { no_deploy: false };
         let single = CpkLayout::Single {
@@ -650,14 +661,19 @@ mod tests {
         }
 
         settings.multicpk_mode = true;
-        assert_eq!(
-            compile_settings(&settings, &no_deploy).unwrap(),
-            CpkLayout::Parts {
-                bins: CpkStem::new("4cc_08_bins").unwrap(),
-                teams_stem: "teams".to_owned(),
-                cap: 3 << 30,
-            }
-        );
+        let parts = CpkLayout::Parts {
+            bins: CpkStem::new("4cc_08_bins").unwrap(),
+            teams_stem: "teams".to_owned(),
+            cap: 3 << 30,
+        };
+        // Deploying or not.
+        for mode in [&deploys, &no_deploy] {
+            assert_eq!(
+                compile_settings(&settings, mode).unwrap(),
+                parts,
+                "{mode:?}"
+            );
+        }
         // Only a normal compile splits.
         let sideload = OutputMode::Sideload {
             pes_folder: PathBuf::from("PES"),
@@ -669,12 +685,6 @@ mod tests {
                 "{mode:?}"
             );
         }
-        let error = compile_settings(&settings, &deploys).unwrap_err();
-        assert_eq!(error.exit_code, INVALID);
-        assert_eq!(
-            error.to_string(),
-            "multicpk_mode = true needs --no-deploy in this version"
-        );
     }
 
     #[test]
@@ -705,6 +715,15 @@ mod tests {
         settings.bins_cpk_name = "4cc_08_bins".to_owned();
         settings.teams_cpk_name = "no such/stem".to_owned();
         assert!(compile_settings(&settings, &no_deploy).is_ok());
+        // Except the bins CPK's own stem, which would make it a teams part too.
+        settings.teams_cpk_name = "bins".to_owned();
+        let error = compile_settings(&settings, &no_deploy).unwrap_err();
+        assert_eq!(error.exit_code, INVALID);
+        assert_eq!(
+            error.to_string(),
+            "teams_cpk_name = \"bins\" names the slots of the bins CPK, 4cc_08_bins: the teams \
+             parts need a stem of their own"
+        );
     }
 
     #[test]
