@@ -4781,3 +4781,12 @@ rest of the stem, so TC-MOD-21's `visor_ratio_2_parts` would get `ratio="2_parts
 game cannot read as a ratio. A blank face's dummy is the compiler's own placeholder on every
 model-less player; an Info on each would be noise the member cannot act on.
 Plan: `team_compiler/pipeline.md` "3. Per-model-folder parallel steps" step 4.
+
+## 2026-10-07 — team_compiler — pre-Fox boots and gloves folders are `k0625`/`g0625`
+Decision: a pre-Fox boots output is `common/character0/model/character/boots/k{id:04}/` and a gloves
+output `…/glove/g{id:04}/`, as on Fox; TC-MOD-22, TC-MOD-35 and TC-MOD-41 now name `k0644`/`k0625`.
+Why: the "Game paths reference" wrote `boots/{id}/` and the scenarios read it as a bare `0644`, but
+the installed PES 2015 DLC (`4cc_40_faces.cpk`) holds `boots/k0444/boots.model` and
+`glove/g0708/glove.xml`, and Red keeps the `k`/`g` folder name on both engines; a bare number is a
+folder the game never looks in.
+Plan: `team_compiler/pipeline.md` "Game paths reference"; `team_compiler/README.md` TC-MOD-22, 35, 41.

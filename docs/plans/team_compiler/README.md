@@ -792,7 +792,7 @@ TC-MOD-21  GIVEN slot 05 holding face_high.model, kit_boots.model, hat_parts.mod
 TC-MOD-22  GIVEN slot 05 holding face_high.model, face_high.mtl, kit_boots.model, kit_boots.mtl and
            Crocs.boots, Boots/Crocs/ holding boots.model and boots.mtl
            WHEN it is compiled for PES 17
-           THEN common/character0/model/character/boots/0644/ holds Crocs's files as loose entries,
+           THEN common/character0/model/character/boots/k0644/ holds Crocs's files as loose entries,
                 slot 05's face.xml lists kit_boots's emitted model as a parts entry and none of
                 Crocs's, and no link_combined is reported
 TC-MOD-23  GIVEN slot 05 holding body_uniform.model, and another export whose slot 05 also holds
@@ -856,8 +856,8 @@ TC-MOD-35  GIVEN slot 05 holding ingame_face, kit_boots.model, kit_boots.mtl and
            Boots/Crocs/ holding boots.model and boots.mtl, linked by no other player
            WHEN the export is compiled for PES 17
            THEN link_combined is reported, no 71405 face CPK is written,
-                common/character0/model/character/boots/0625/ holds one boots model whose mesh
-                count is Crocs's plus the local model's, and no boots/0644/ folder exists
+                common/character0/model/character/boots/k0625/ holds one boots model whose mesh
+                count is Crocs's plus the local model's, and no boots/k0644/ folder exists
 TC-MOD-36  GIVEN slot 05 holding boots.fmdl whose material uses fox3ddf_ggx and names no
            environment texture
            WHEN the export is compiled for PES 17
@@ -890,7 +890,7 @@ TC-MOD-41  GIVEN slot 05 holding ingame_face, shirt.model and socks.model with .
            shirt.model and socks.model naming one bone with different transforms
            WHEN each export is compiled for PES 17
            THEN the first reports merge_material_conflict and the second skl_merge_conflict,
-                and neither CPK holds common/character0/model/character/boots/0625/
+                and neither CPK holds common/character0/model/character/boots/k0625/
 TC-MOD-42  GIVEN slot 05 holding a face model, face_diff.bin and face_diff.xml; and another export
            whose slot 05 holds a face model and a face_diff.bin shorter than its header gives
            WHEN each export is checked, then compiled
