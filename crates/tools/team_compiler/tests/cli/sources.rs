@@ -78,6 +78,7 @@ fn one_export_as_a_folder_a_zip_and_a_7z_reports_and_compiles_the_same() {
             &settings,
             &[
                 "compile",
+                "--no-deploy",
                 "--export",
                 &sandbox.arg(&format!("exports/{source}")),
             ],
@@ -147,7 +148,7 @@ fn the_empty_kit_folder_of_tc_src_01_s_export_gets_magenta_black_and_icon_3() {
     let sandbox = Sandbox::new("same_export_kit_colors");
     spring_folder(&sandbox);
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     assert_eq!(run.exit_code(), 1, "the roster line naming no folder");
     let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
@@ -322,7 +323,12 @@ fn check_and_compile_leave_every_source_as_it_was() {
     let settings = pes21_settings(&sandbox);
     assert_eq!(sandbox.run(&settings, &["check"]).exit_code(), 0);
     assert_eq!(snapshot(&exports), before, "check");
-    assert_eq!(sandbox.run(&settings, &["compile"]).exit_code(), 0);
+    assert_eq!(
+        sandbox
+            .run(&settings, &["compile", "--no-deploy"])
+            .exit_code(),
+        0
+    );
     assert_eq!(snapshot(&exports), before, "compile");
     assert_eq!(compiled_players(&sandbox), [71405, 79005, 79205, 79303]);
 }

@@ -24,7 +24,7 @@ fn an_invalid_cpk_name_refuses_compile_before_any_export_is_read() {
         // This exports root does not exist: reaching it would refuse naming it instead.
         let run = sandbox.run(
             &format!("[team-compiler]\ncpk_name = \"{name}\"\n"),
-            &["compile", &sandbox.arg("no such exports")],
+            &["compile", "--no-deploy", &sandbox.arg("no such exports")],
         );
 
         run.assert_refused(2, &[&format!("cpk_name = \"{name}\"")]);
@@ -78,7 +78,7 @@ fn a_missing_default_exports_folder_is_created_and_reported_empty() {
     let exports = sandbox.root.join("exports");
     assert!(!exports.exists());
 
-    let run = sandbox.run("", &["compile"]);
+    let run = sandbox.run("", &["compile", "--no-deploy"]);
 
     assert!(exports.is_dir(), "the folder was created");
     // The default settings' PES folder does not exist, and their PES 19 has the three bins.
@@ -137,7 +137,7 @@ fn modes_and_commands_this_version_lacks_are_refused() {
     run.assert_refused(2, &["upgrade-dpfl", "not available yet"]);
 
     let multicpk = "[team-compiler]\nmulticpk_mode = true\n";
-    let run = sandbox.run(multicpk, &["compile"]);
+    let run = sandbox.run(multicpk, &["compile", "--no-deploy"]);
     run.assert_refused(2, &["multicpk_mode", "not available yet"]);
     // `check` ignores multicpk_mode.
     sandbox.write(

@@ -110,9 +110,10 @@ mod tests {
 
     use super::*;
     use crate::Tool;
-    use crate::testing::{poll_until_done, sandbox, tool_context};
+    use crate::testing::{install_pes, poll_until_done, sandbox, tool_context};
 
-    /// The lines of a clean compile of the sandbox's tracer export, its PES folder absent.
+    /// The lines of a clean compile of the sandbox's tracer export, installed into its PES
+    /// folder (`install_pes`).
     const TRACER_LINES: [&str; 10] = [
         "- Info bin_source (bin=TeamColor.bin, cpk=bundled)",
         "- Info bin_source (bin=UniColor.bin, cpk=bundled)",
@@ -138,6 +139,7 @@ mod tests {
     fn a_compile_logs_the_consoles_lines_then_its_exit_code_and_a_rerun_replaces_them() {
         let temp = sandbox("gui_run_compile");
         let root = temp.path();
+        install_pes(root);
         let ctx = tool_context(root, "");
         let mut log = RunLog::default();
         assert!(!log.is_running());
@@ -146,7 +148,7 @@ mod tests {
         assert!(log.is_running());
         finish(&mut log);
         assert_eq!(log.lines(), TRACER_LINES);
-        assert!(root.join("output/4cc_99_test.cpk").is_file());
+        assert!(root.join("PES/download/4cc_99_test.cpk").is_file());
 
         log.start_compile(&ctx);
         finish(&mut log);
@@ -173,6 +175,7 @@ mod tests {
     fn the_tool_ticks_its_run_to_the_end() {
         let temp = sandbox("gui_run_tool_tick");
         let root = temp.path();
+        install_pes(root);
         let ctx = tool_context(root, "");
         let mut tool = Tool::new();
         tool.run_log.start_compile(&ctx);

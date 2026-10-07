@@ -24,7 +24,7 @@ use crate::compile::{
     pes21_settings, tracer_kit, tracer_player_file,
 };
 use crate::models::face_package;
-use crate::{CLEAN_PLAYER, clean_model, findings_of};
+use crate::{CLEAN_PLAYER, clean_model, command_args, findings_of};
 
 /// The player's texture home, the per-player common subfolder.
 const PLAYER_TEXTURES: &str = "Asset/model/character/common/714/05 - A/sourceimages/#windx11";
@@ -75,7 +75,7 @@ fn write_skin_player(
 /// `write_skin_player`, reports only the hair model's unnormalized weights and its identity,
 /// and returns the entry at `path`.
 fn compile_entry(sandbox: &Sandbox, name: &str, version: u8, path: &str) -> Vec<u8> {
-    let run = sandbox.run(&pes_settings(sandbox, version), &["compile"]);
+    let run = sandbox.run(&pes_settings(sandbox, version), &["compile", "--no-deploy"]);
     assert_eq!(
         findings_of(&run.messages(), name),
         [
@@ -215,7 +215,7 @@ fn an_opaque_skin_is_bc1_and_its_normal_map_bc3_with_x_in_alpha_y_in_green_on_pe
     sandbox.write(&format!("{player}/skin.png"), &skin_png);
     sandbox.write(&format!("{player}/skin_nrm.png"), &nrm_png);
 
-    let run = sandbox.run(&pes_settings(&sandbox, 18), &["compile"]);
+    let run = sandbox.run(&pes_settings(&sandbox, 18), &["compile", "--no-deploy"]);
 
     assert_eq!(
         findings_of(&run.messages(), "co Midcup Codecs"),
@@ -274,7 +274,7 @@ fn png_and_tga_kit_textures_are_ftex_under_the_kit_s_names_and_a_webp_portrait_i
         &texture_fixture("portrait.webp"),
     );
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     assert_eq!(
         findings_of(&run.messages(), "co Midcup Kit"),
@@ -397,7 +397,7 @@ fn texture_findings_are_checked_and_each_drops_its_folder() {
     assert_eq!(findings_of(&check.messages(), "co Midcup Sizes"), findings);
     assert_eq!(check.exit_code(), 1);
 
-    let compile = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let compile = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
     let mut compiled = findings.to_vec();
     compiled.push("Info team_colors_missing [Keep] ()".to_owned());
     compiled.push("Info kit_config_generated [Keep] at Kits/p1 ()".to_owned());
@@ -424,7 +424,10 @@ fn pass_through_keeps_an_odd_sized_texture_s_folder_but_not_a_renamed_one() {
     let sandbox = Sandbox::new("tex_pass_through");
     write_texture_findings_export(&sandbox);
 
-    let run = sandbox.run(&pass_through_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(
+        &pass_through_settings(&sandbox),
+        &["compile", "--no-deploy"],
+    );
 
     assert_eq!(
         findings_of(&run.messages(), "co Midcup Sizes"),
@@ -475,7 +478,7 @@ fn a_texture_finding_drops_the_player_folder_naming_the_file() {
     // A kit beside the folder, so the CPK is written and the folder's absence observable.
     sandbox.write("exports/co Midcup Drop/Kits/p1/kit.dds", &tracer_kit());
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     assert_eq!(
         findings_of(&run.messages(), "co Midcup Drop"),
@@ -511,7 +514,7 @@ fn a_kit_texture_finding_drops_the_kit() {
     );
     sandbox.write("exports/co Midcup Kit/Kits/g1/kit.dds", &tracer_kit());
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     assert_eq!(
         findings_of(&run.messages(), "co Midcup Kit"),
@@ -546,7 +549,7 @@ fn a_kit_texture_too_big_drops_its_kit_and_an_uncompressed_kit_is_bc7() {
     );
     assert_eq!(check.exit_code(), 1);
 
-    let compile = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let compile = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
     assert_eq!(
         findings_of(&compile.messages(), "co Midcup Kit"),
         [
@@ -617,7 +620,7 @@ fn a_common_texture_whose_task_fails_lets_the_players_linking_it_commit() {
     sandbox.write(&format!("{failed}/Players/05 - A/hair.dds.common"), b"");
     sandbox.write(&format!("{failed}/Common/hair.dds"), b"not a texture");
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     let messages = run.messages();
     assert_eq!(
@@ -671,7 +674,7 @@ fn a_common_texture_finding_leaves_that_file_out_and_the_rest_is_emitted() {
         &texture_fixture("kit.png"),
     );
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     assert_eq!(
         findings_of(&run.messages(), "co Midcup Common"),
@@ -716,7 +719,7 @@ fn a_common_texture_and_a_shared_folder_s_texture_in_png_are_emitted_as_ftex() {
         &texture_fixture("kit.png"),
     );
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     assert_eq!(
         findings_of(&run.messages(), "co Midcup Png"),
@@ -767,7 +770,7 @@ fn a_kit_number_without_its_texture_variant_gets_the_lowest_one_and_the_model_na
         sandbox.write(&format!("{export}/Kits/{slot}/kit.dds"), &tracer_kit());
     }
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     assert_eq!(
         findings_of(&run.messages(), "co Midcup Variants"),
@@ -903,7 +906,7 @@ fn a_common_texture_only_an_earlier_installed_cpk_holds_is_found_and_a_later_one
     write_common_hair_player(&sandbox);
     install_hair_in(&sandbox, "4cc_61_midcup.cpk");
 
-    let run = sandbox.run(&midcup_62_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&midcup_62_settings(&sandbox), &["compile", "--no-deploy"]);
 
     let messages = run.messages();
     assert_eq!(
@@ -934,7 +937,7 @@ fn a_common_texture_only_a_later_installed_cpk_holds_leaves_the_face_out() {
     write_common_hair_player(&sandbox);
     install_hair_in(&sandbox, "4cc_63_midcup.cpk");
 
-    let run = sandbox.run(&midcup_62_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&midcup_62_settings(&sandbox), &["compile", "--no-deploy"]);
 
     assert_eq!(
         findings_of(&run.messages(), "co Midcup Hair"),
@@ -955,7 +958,7 @@ fn a_common_texture_with_no_pes_folder_to_look_in_is_a_warning_and_the_face_is_k
     let sandbox = Sandbox::new("tex_installed_unknown");
     write_common_hair_player(&sandbox);
 
-    let run = sandbox.run(&midcup_62_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&midcup_62_settings(&sandbox), &["compile", "--no-deploy"]);
 
     assert_eq!(
         findings_of(&run.messages(), "co Midcup Hair"),
@@ -1007,7 +1010,7 @@ fn a_texture_link_an_earlier_installed_cpk_satisfies_points_the_model_there_and_
     for (command, findings) in hair_link_findings(
         "Info fmdl_weights_not_normalized [Keep] at Players/06 - A (file=face_high.fmdl, count=1662)",
     ) {
-        let run = sandbox.run(&settings, &[command]);
+        let run = sandbox.run(&settings, &command_args(command));
         let messages = run.messages();
         assert_eq!(
             findings_of(&messages, "co Midcup Hair"),
@@ -1052,7 +1055,7 @@ fn a_texture_link_only_a_later_installed_cpk_satisfies_is_common_link_missing() 
     for (command, findings) in hair_link_findings(
         "Error common_link_missing [DropFolder] at Players/06 - A (link=hair.dds.common, path=Common/hair.dds)",
     ) {
-        let run = sandbox.run(&settings, &[command]);
+        let run = sandbox.run(&settings, &command_args(command));
         assert_eq!(
             findings_of(&run.messages(), "co Midcup Hair"),
             findings,
@@ -1096,7 +1099,7 @@ fn a_texture_entry_no_mesh_uses_is_not_looked_for() {
         &file.write(),
     );
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     let messages = run.messages();
     assert!(
@@ -1129,7 +1132,7 @@ fn a_shared_folder_s_model_naming_a_texture_in_common_finds_it_there() {
         &tracer_player_file("shirt.dds"),
     );
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     let messages = run.messages();
     assert!(
@@ -1163,7 +1166,7 @@ fn dummy_kit_textures_are_never_looked_for_and_keep_their_names() {
     );
 
     for command in ["check", "compile"] {
-        let run = sandbox.run(&pes21_settings(&sandbox), &[command]);
+        let run = sandbox.run(&pes21_settings(&sandbox), &command_args(command));
         let messages = run.messages();
         assert!(
             messages

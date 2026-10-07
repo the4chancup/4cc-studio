@@ -3664,6 +3664,7 @@ dependencies = [
  "crossbeam-channel",
  "dds_convert",
  "egui",
+ "elevation",
  "fmdl",
  "fpk",
  "ftex",

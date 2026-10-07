@@ -13,7 +13,7 @@ is in `AGENTS.md` ("Working documents").
 "Handover"). Phases 1 and 2 done (Phase 2 closed 2026-09-30).
 **Next:** Phase 4 is itemized and its Acceptance section written (step 4.1, 2026-10-03; its
 cross-family review (a) is queued). Next:
-the next open Phase 4 step (see the list); 4.21, 4.22, 4.23 and 4.29
+the next open Phase 4 step (see the list); 4.21 to 4.24 and 4.29
 are done; 4.14 waits on 4.31's pre-Fox export; 4.33, 4.34, 4.c-pass and
 4.c-fix1 are done; 4.30,
 4.5 to 4.8, 4.9a and 4.10 to 4.13 are done (4.6c moved to Phase 8's cancellation), 4.9b
@@ -233,6 +233,12 @@ Claude agent with no sidekick and no reviewer of another model family. While tha
   its commit of 2026-10-07, against `pipeline.md` "5. Writer" step 5 (the materialize
   paragraph), TC-OUT-07, 11, 17 and the decision entries "where a test-mode entry goes" and
   "the parity test reads the CPK, not a loose tree".
+  4.24 (b), `team_compiler` (`output/deploy.rs` `preflight`, `deploy`, `Staging` and `sweep`,
+  `compile.rs` `promote` and `deploy_failed`, `messages.rs` five codes, the tests' harness
+  pointing at a sandbox PES folder), its commit of 2026-10-07, against `pipeline.md` "6.
+  Post-processing" (Staging, Deploy CPKs, Degraded run, Destination writability preflight),
+  `messages.md` "Output stage and savefile", TC-DEP-01 to 07 and the decision entry
+  "deployment: no marker file, failures named by step, a lock per staging folder".
 - For the lead, on return: the review process on trial (3.1) opens with a full sidekick review
   loop, then runs GPT's loop with a full sidekick loop after each GPT round, calling GPT again
   only once that sidekick loop has ended and GPT's own loop has not; not yet in `AGENTS.md`
@@ -1443,7 +1449,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
     Gates green (177 of 254); Clef 58 windows, no flag; `mutants-diff 93ba74c`: 32, 24 caught,
     8 unviable, 0 missed. The parity test keeps reading the CPK (decision entry)
 
-- [ ] 4.24 **Deployment**: each staged CPK copied to `download/{name}.cpk.partial` and renamed over
+- [x] 4.24 **Deployment**: each staged CPK copied to `download/{name}.cpk.partial` and renamed over
   the old one, the staging folder removed; the preflight before any export is
   read (`download/` probe; `pes_version_mismatch` W); degradation to `output/` with
   `pes_folder_not_found`, `dpfilelist_missing`, `cpk_name_unlisted` (against the installed list
@@ -1458,9 +1464,21 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   "CLI" (exit codes). IDs: TC-DEP-01..07. Crates: tc (`output/deploy.rs`, `cli.rs`) → verify: a
   sandbox PES folder with `PES2021.exe`, a DPFL listing `4cc_99_test` and an old
   `download/4cc_99_test.cpk`: `compile` leaves `download/4cc_99_test.cpk` equal to the staged
-  bytes, no `.partial`, the marker beside it, nothing in `output/`, exit 0; with the old CPK held
-  open by the test: `old_cpk_locked`, `output/4cc_99_test.cpk` holds the run's CPK, the old one
-  is byte-identical, exit 1
+  bytes, no `.partial`, nothing else in `download/`, nothing in `output/`, exit 0; with the old
+  CPK held open by the test: `old_cpk_locked`, `output/4cc_99_test.cpk` holds the run's CPK, the
+  old one is byte-identical, exit 1. Done 2026-10-07 (Opus 5.5, first time; lead fixes: the
+  sweep after the run's own lock, a Linux-only test failure, two survivors' tests).
+  `deploy::preflight` (before `working_bins`), `deploy::deploy` (`DeployFailure::{Copy,
+  Rename}`), `Staging` (lock file, `Drop` removing the folder, the lock and an emptied
+  `.staging/`; `sweep`), `probe_folder` shared with `prepare_output_folder`; the five codes;
+  152 test call sites given `--no-deploy` by script; the GUI's Compile deploys too (its tests
+  install a sandbox PES). Gates green (184 of 254); Clef 44 windows, no flag;
+  `mutants-diff 6d51094`: first run's Linux baseline failed (a `face/` substring check met the
+  sandbox path in the new `deploy_skipped_by_flag` line; fixed), rerun 41, 28 caught, 9
+  unviable, 4 missed on the Linux half, all the `download/` probe's (TC-DEP-04 is Windows-only):
+  three killed by a portable test of a missing `download/`, verified by hand; the
+  access-denied guard is caught only on Windows (root ignores permissions), so a Linux half
+  may report it again
 
 - [x] 4.25a **The default `cpk_name` is `4cc_99_test`** (lead; mechanical): `4cc_90_test`
   renamed in the code and its tests (81 mentions in 17 files of `crates/`), the plan having
@@ -1484,7 +1502,8 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   names (TC-DEP-13), the empty placeholder CPK written for every official entry with no file
   in `download/` (an existing file is never overwritten), no CPK ever deleted by the command;
   `dpfilelist_cpk_missing` (W) at every compile for a listed CPK with no file (TC-DEP-14);
-  `dpfilelist_outdated` names the subcommand. Plan: `pipeline.md` "6. Post-processing"
+  `dpfilelist_outdated` names the subcommand, and takes from 4.24's `cpk_name_unlisted` (judged
+  on the installed list alone) the names the bundled list holds. Plan: `pipeline.md` "6. Post-processing"
   (DpFileList upgrade); `settings.md` "CLI" (`upgrade-dpfl`). IDs: TC-DEP-08..10, TC-DEP-12..14. Crates: tc
   (`bins/dpfl.rs`, `cli.rs`), resources → verify: an installed DPFL lacking `4cc_41_teams` beside
   a 1 KiB `download/4cc_40_faces.cpk`: `upgrade-dpfl` prints `4cc_40_faces` with `1 KiB` and
@@ -3015,3 +3034,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   - **4.23b:** `compile --mode test` writes each export's processed files, models unpacked,
     under `output/test_output/<source>/<folder>/`, the bins under `_bins/`, overrides not
     applied; `test_output/` replaced once written whole. Step 4.23 is done.
+  - **4.24:** `compile` installs the CPK into the game's `download/` (a `.partial` copy renamed
+    over the old one); when it cannot (no PES folder, the name unlisted, `download/` unwritable,
+    the old CPK in use) it says why and leaves the CPK in `output/`, exit 1. A killed run's
+    staging is swept by the next run. Every test now runs against a sandbox PES folder.

@@ -17,7 +17,7 @@ use fmdl::{FmdlFile, Model};
 use crate::common::Sandbox;
 use crate::compile::{cpk_entries, pes21_settings, tracer_kit, tracer_player_file};
 use crate::face_folders::assert_blank_face;
-use crate::{TEAM_COLORS_MISSING, clean_model, findings_of};
+use crate::{TEAM_COLORS_MISSING, clean_model, command_args, findings_of};
 
 /// The entry names of the FPK `bytes`.
 pub(crate) fn package_names(bytes: &[u8]) -> Vec<String> {
@@ -66,7 +66,7 @@ pub(crate) fn compile_clean(
     name: &str,
     findings: &[&str],
 ) -> BTreeMap<String, Vec<u8>> {
-    let run = sandbox.run(&pes21_settings(sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(sandbox), &["compile", "--no-deploy"]);
     assert_eq!(findings_of(&run.messages(), name), findings);
     assert_eq!(run.exit_code(), 0);
     cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"))
@@ -360,7 +360,7 @@ fn a_texture_that_cannot_convert_drops_the_whole_folder_and_the_folder_beside_it
         "boots.fmdl",
     );
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     let lines = run.messages();
     let findings = findings_of(&lines, "co Midcup Broken");
@@ -481,7 +481,7 @@ fn a_boots_link_beside_a_local_boots_model_combines_the_shared_folder_into_the_p
     let k0644 = "Asset/model/character/boots/k0644/#Win/boots.fpk";
     let sole = "Asset/model/character/common/714/05 - A/sourceimages/#windx11/sole.ftex";
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     assert_eq!(
         findings_of(&run.messages(), "co Midcup Combined"),
@@ -525,7 +525,7 @@ fn a_boots_link_beside_a_local_boots_model_combines_the_shared_folder_into_the_p
     // Slot 07 links Crocs plainly: Crocs compiles on its own too, as it is, textures beside
     // it, while slot 05's merge is unchanged. Slot 07 holds no face model: its face is blank.
     sandbox.write(&format!("{export}/Players/07 - B/Crocs.boots"), b"");
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
     assert_eq!(
         findings_of(&run.messages(), "co Midcup Combined"),
         [
@@ -678,7 +678,7 @@ fn a_skeleton_paired_with_a_face_model_without_a_slot_is_reported_and_not_packed
     assert_eq!(findings_of(&check.messages(), "co Midcup Slot"), findings);
     assert_eq!(check.exit_code(), 0);
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
     assert_eq!(
         findings_of(&run.messages(), "co Midcup Slot"),
         [&findings[..], &["Info team_colors_missing [Keep] ()"]].concat()
@@ -708,7 +708,7 @@ fn an_unsuffixed_model_is_reported_and_merged_into_the_hair_with_its_own_skeleto
         ]
     );
     assert_eq!(check.exit_code(), 0);
-    let run = alone.run(&pes21_settings(&alone), &["compile"]);
+    let run = alone.run(&pes21_settings(&alone), &["compile", "--no-deploy"]);
     assert_eq!(run.exit_code(), 0);
     let entries = cpk_entries(&alone.root.join("output/4cc_99_test.cpk"));
     let package = face_package(&entries);
@@ -731,7 +731,7 @@ fn an_unsuffixed_model_is_reported_and_merged_into_the_hair_with_its_own_skeleto
             &tracer_player_file("fcl_hair.fmdl"),
         );
     }
-    let run = merged.run(&pes21_settings(&merged), &["compile"]);
+    let run = merged.run(&pes21_settings(&merged), &["compile", "--no-deploy"]);
     assert_eq!(
         findings_of(&run.messages(), "co Midcup Merged"),
         [
@@ -761,7 +761,7 @@ fn an_unsuffixed_model_is_reported_and_merged_into_the_hair_with_its_own_skeleto
     );
     let custom = body_skl("pes19");
     paired.write("exports/co Midcup Paired/Players/05 - A/torso.skl", &custom);
-    let run = paired.run(&pes21_settings(&paired), &["compile"]);
+    let run = paired.run(&pes21_settings(&paired), &["compile", "--no-deploy"]);
     assert_eq!(run.exit_code(), 0);
     let entries = cpk_entries(&paired.root.join("output/4cc_99_test.cpk"));
     assert_eq!(
@@ -855,7 +855,7 @@ fn write_slot_07(sandbox: &Sandbox, export: &str) {
 /// folder is not in the CPK while slot 07's is.
 fn assert_face_dropped(sandbox: &Sandbox, name: &str, finding: &str) {
     for command in ["check", "compile"] {
-        let run = sandbox.run(&pes21_settings(sandbox), &[command]);
+        let run = sandbox.run(&pes21_settings(sandbox), &command_args(command));
         let validated = [
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=boots.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=fcl_hair.fmdl, count=1662)",
@@ -994,7 +994,7 @@ fn a_subfolder_s_parts_combine_with_loose_root_files_of_their_category() {
     }
     let glove_fpk = "Asset/model/character/glove/g0625/#Win/glove.fpk";
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     assert_eq!(
         findings_of(&run.messages(), "co Midcup Parts"),
@@ -1095,7 +1095,7 @@ fn a_face_link_combines_the_shared_face_folder_into_the_player_s_face() {
         &tracer_player_file("boots.fmdl"),
     );
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     assert_eq!(
         findings_of(&run.messages(), "co Midcup Faces"),
@@ -1154,7 +1154,7 @@ fn a_texture_the_face_and_a_combined_boots_folder_hold_is_packed_once_or_drops_t
     // The same bytes under one stem in both sources: packed once, no finding.
     let same = Sandbox::new("mod_skin_same");
     write(&same, &tracer_player_file("shirt.dds"));
-    let run = same.run(&pes21_settings(&same), &["compile"]);
+    let run = same.run(&pes21_settings(&same), &["compile", "--no-deploy"]);
     assert_eq!(
         findings_of(&run.messages(), "co Midcup Skin"),
         [
@@ -1188,7 +1188,7 @@ fn a_texture_the_face_and_a_combined_boots_folder_hold_is_packed_once_or_drops_t
     // brought, and the player's own `skin` is the one packed.
     let differing = Sandbox::new("mod_skin_differing");
     write(&differing, &tracer_kit());
-    let run = differing.run(&pes21_settings(&differing), &["compile"]);
+    let run = differing.run(&pes21_settings(&differing), &["compile", "--no-deploy"]);
     assert_eq!(
         findings_of(&run.messages(), "co Midcup Skin"),
         [
@@ -1240,7 +1240,7 @@ fn a_texture_the_player_s_folder_and_a_combined_face_folder_hold_differently_dro
         &tracer_player_file("boots.fmdl"),
     );
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     assert_eq!(
         findings_of(&run.messages(), "co Midcup Conflict"),
@@ -1322,7 +1322,7 @@ fn parts_with_a_skeleton_mismatch_or_a_material_defined_twice_leave_their_boots_
         &tracer_player_file("boots.fmdl"),
     );
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     assert_eq!(
         findings_of(&run.messages(), "co Midcup Conflicts"),

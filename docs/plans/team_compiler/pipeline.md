@@ -898,8 +898,8 @@ describes behavior, not a serial scheduling requirement:
   CPK is ever written directly at its final path, so a failed or cancelled run leaves nothing
   half-written where PES or the user could pick it up. A run holds an exclusive lock on
   `.staging/{run_id}.lock`, taken before its folder is made and released after the folder is
-  removed; at start, a run removes every other `.staging/` folder whose lock it can take or
-  that has none, a killed run's, and leaves the folders of runs still alive. A lock, not the
+  removed; once it holds its own, a run removes every other `.staging/` folder whose lock it
+  can take or that has none, a killed run's, and leaves the folders of runs still alive. A lock, not the
   folder's age or its process id, because the OS releases it when the process dies, however
   it dies, and std can take it on every platform.
 - **Deploy CPKs** — deployment is **always attempted**; there is no `move_cpks` switch (see "Why no

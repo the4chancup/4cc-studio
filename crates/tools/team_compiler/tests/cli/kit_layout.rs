@@ -138,8 +138,8 @@ fn a_kit_marked_pre_fox_compiled_for_pes_21_has_its_socks_where_the_fox_models_r
     let unmarked = Sandbox::new("kit_layout_pre_fox_unmarked");
     write_stripes_export(&unmarked, None);
 
-    let marked_run = marked.run(&pes21_settings(&marked), &["compile"]);
-    let unmarked_run = unmarked.run(&pes21_settings(&unmarked), &["compile"]);
+    let marked_run = marked.run(&pes21_settings(&marked), &["compile", "--no-deploy"]);
+    let unmarked_run = unmarked.run(&pes21_settings(&unmarked), &["compile", "--no-deploy"]);
 
     let mut converted = STRIPES_FINDINGS.to_vec();
     converted.insert(
@@ -212,8 +212,8 @@ fn a_placeholder_kit_marked_pre_fox_compiles_as_without_the_marker() {
     let unmarked = Sandbox::new("kit_layout_placeholder_unmarked");
     write(&unmarked, false);
 
-    let marked_run = marked.run(&pes21_settings(&marked), &["compile"]);
-    let unmarked_run = unmarked.run(&pes21_settings(&unmarked), &["compile"]);
+    let marked_run = marked.run(&pes21_settings(&marked), &["compile", "--no-deploy"]);
+    let unmarked_run = unmarked.run(&pes21_settings(&unmarked), &["compile", "--no-deploy"]);
 
     // No kit_layout_converted: the placeholder is never re-laid.
     let findings = [
@@ -244,8 +244,8 @@ fn a_kit_marked_fox_compiled_for_pes_21_is_as_without_the_marker() {
     let unmarked = Sandbox::new("kit_layout_fox_unmarked");
     write_stripes_export(&unmarked, None);
 
-    let marked_run = marked.run(&pes21_settings(&marked), &["compile"]);
-    let unmarked_run = unmarked.run(&pes21_settings(&unmarked), &["compile"]);
+    let marked_run = marked.run(&pes21_settings(&marked), &["compile", "--no-deploy"]);
+    let unmarked_run = unmarked.run(&pes21_settings(&unmarked), &["compile", "--no-deploy"]);
 
     for run in [&marked_run, &unmarked_run] {
         assert_eq!(

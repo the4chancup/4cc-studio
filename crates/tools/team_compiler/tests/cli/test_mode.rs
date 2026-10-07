@@ -62,7 +62,10 @@ fn compile_test_mode(sandbox: &Sandbox, export: &str) -> Run {
 /// run, and its CPK's entries.
 fn compile_normal(sandbox: &Sandbox, export: &str) -> (Run, BTreeMap<String, Vec<u8>>) {
     install_names(sandbox, &["4cc_99_test.cpk"]);
-    let run = sandbox.run(&pes21_settings(sandbox), &["compile", "--export", export]);
+    let run = sandbox.run(
+        &pes21_settings(sandbox),
+        &["compile", "--no-deploy", "--export", export],
+    );
     let cpk = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
     (run, cpk)
 }

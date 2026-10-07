@@ -57,7 +57,7 @@ mod tests {
 
     use super::*;
     use crate::Tool;
-    use crate::testing::{poll_until_done, sandbox, tool_context};
+    use crate::testing::{install_pes, poll_until_done, sandbox, tool_context};
 
     /// A headless window: one egui context with AccessKit on and animations off (so a
     /// collapsing header is fully open on the frame after its click), run a frame at a time.
@@ -214,6 +214,7 @@ mod tests {
     fn a_compile_click_through_the_tool_starts_a_run() {
         let temp = sandbox("view_compile_click");
         let root = temp.path();
+        install_pes(root);
         let ctx = tool_context(root, "");
         let mut tool = Tool::new();
         let mut window = Headless::new();

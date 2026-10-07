@@ -12,6 +12,7 @@ mod common_links;
 mod compile;
 mod compile_exports;
 mod deep;
+mod deploy;
 mod face_folders;
 mod kit_layout;
 mod logo;
@@ -128,6 +129,15 @@ impl Run {
     }
 }
 
+/// The first arguments of a run of `command`, `check` or `compile`: `compile` with
+/// `--no-deploy`, so it installs nothing and is a clean run, as `check` is.
+fn command_args(command: &str) -> Vec<&str> {
+    match command {
+        "compile" => vec!["compile", "--no-deploy"],
+        _ => vec![command],
+    }
+}
+
 /// The bytes of `tests/fixtures/sources/<name>`, to be written under another name.
 fn source_fixture(name: &str) -> Vec<u8> {
     let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -164,8 +174,8 @@ fn findings_of<'a>(lines: &'a [String], source: &str) -> Vec<&'a str> {
         .collect()
 }
 
-/// The findings a PES 21 `compile` reports first when its PES folder does not exist: each
-/// working bin taken from its bundled base.
+/// The findings a PES 21 `compile --no-deploy` reports first when its PES folder does not
+/// exist: each working bin taken from its bundled base.
 const BUNDLED_BINS: [&str; 3] = [
     "Info bin_source [Keep] (bin=TeamColor.bin, cpk=bundled)",
     "Info bin_source [Keep] (bin=UniColor.bin, cpk=bundled)",
@@ -180,6 +190,27 @@ fn bundled_bins_then(findings: impl IntoIterator<Item = impl Into<String>>) -> V
         .map(|line| (*line).to_owned())
         .chain(findings.into_iter().map(Into::into))
         .collect()
+}
+
+/// The note a `compile --no-deploy` in `sandbox` that writes a CPK ends with, naming the CPK it
+/// leaves in the output folder.
+fn deploy_skipped(sandbox: &Sandbox) -> String {
+    format!(
+        "Info deploy_skipped_by_flag [Keep] (path={})",
+        sandbox.display("output/4cc_99_test.cpk")
+    )
+}
+
+/// `bundled_bins_then(findings)`, then `deploy_skipped(sandbox)`: every line of a PES 21
+/// `compile --no-deploy` in `sandbox` with no PES folder that writes a CPK, whose exports report
+/// `findings`.
+fn no_deploy_lines(
+    sandbox: &Sandbox,
+    findings: impl IntoIterator<Item = impl Into<String>>,
+) -> Vec<String> {
+    let mut lines = bundled_bins_then(findings);
+    lines.push(deploy_skipped(sandbox));
+    lines
 }
 
 /// The note `compile` adds for a team export with no root `colors.txt`, which `check` does not

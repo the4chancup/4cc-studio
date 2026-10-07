@@ -17,8 +17,8 @@ use crate::compile::{
 };
 use crate::textures::{bc1_dds, texture_fixture};
 use crate::{
-    BUNDLED_BINS, CLEAN_PLAYER, TEAM_COLORS_MISSING, bundled_bins_then, clean_model, findings_of,
-    source_fixture,
+    BUNDLED_BINS, CLEAN_PLAYER, TEAM_COLORS_MISSING, bundled_bins_then, clean_model, command_args,
+    deploy_skipped, findings_of, no_deploy_lines, source_fixture,
 };
 
 // TC-ROS-01
@@ -28,7 +28,7 @@ fn without_players_txt_each_folder_is_the_player_its_number_names() {
     sandbox.copy_tracer_face("exports/co Midcup Numbers/Players/03 - A");
     sandbox.copy_tracer_face("exports/co Midcup Numbers/Players/15 - B");
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     assert_eq!(
         findings_of(&run.messages(), "co Midcup Numbers"),
@@ -55,7 +55,7 @@ fn players_txt_maps_a_folder_by_name_and_leaves_an_unlisted_one_out() {
     sandbox.copy_tracer_face("exports/co Midcup Roster/Players/Snuffy");
     sandbox.copy_tracer_face("exports/co Midcup Roster/Players/15 - B");
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     assert_eq!(
         findings_of(&run.messages(), "co Midcup Roster"),
@@ -79,7 +79,7 @@ fn a_folder_listed_under_two_slots_is_compiled_for_both() {
     sandbox.write("exports/co Midcup Twice/players.txt", b"03 A\n07 A\n");
     sandbox.copy_tracer_face("exports/co Midcup Twice/Players/A");
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     assert_eq!(
         findings_of(&run.messages(), "co Midcup Twice"),
@@ -107,7 +107,7 @@ fn each_bad_roster_line_is_reported_and_only_the_good_one_compiled() {
         sandbox.copy_tracer_face(&format!("exports/co Midcup Lines/Players/{folder}"));
     }
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     assert_eq!(
         findings_of(&run.messages(), "co Midcup Lines"),
@@ -135,7 +135,7 @@ fn an_empty_players_txt_compiles_the_kits_and_no_player() {
     sandbox.copy_tracer_face("exports/co Midcup Empty/Players/03 - A");
     sandbox.write("exports/co Midcup Empty/Kits/p1/kit.dds", &tracer_kit());
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     assert_eq!(
         findings_of(&run.messages(), "co Midcup Empty"),
@@ -162,7 +162,7 @@ fn kit_folders_are_compiled_as_the_slot_their_name_starts_with() {
     );
     sandbox.write("exports/co Midcup Kits/Kits/g1/kit.dds", &tracer_kit());
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     assert_eq!(
         findings_of(&run.messages(), "co Midcup Kits"),
@@ -184,7 +184,7 @@ fn a_kit_holding_only_a_back_texture_gets_the_placeholder_main_texture() {
     let sandbox = Sandbox::new("kit_back_only");
     sandbox.write("exports/co Midcup Back/Kits/p4/kit_back.dds", &tracer_kit());
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     assert_eq!(
         findings_of(&run.messages(), "co Midcup Back"),
@@ -230,7 +230,7 @@ fn dds_portraits_from_both_sources_are_emitted_as_they_are_under_the_version_s_n
         &tracer_kit(),
     );
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     assert_eq!(
         findings_of(&run.messages(), "co Midcup Portraits"),
@@ -249,7 +249,7 @@ fn dds_portraits_from_both_sources_are_emitted_as_they_are_under_the_version_s_n
     assert_eq!(entries[&portrait_path("71407.dds")], tracer_kit());
 
     // PES 18 names the same files with the `player_` prefix.
-    let run = sandbox.run("[common]\npes_version = 18\n", &["compile"]);
+    let run = sandbox.run("[common]\npes_version = 18\n", &["compile", "--no-deploy"]);
 
     assert_eq!(run.exit_code(), 0);
     assert_eq!(
@@ -270,7 +270,7 @@ fn a_folder_listed_under_two_slots_emits_its_portrait_for_both() {
     sandbox.write("exports/co Midcup Twice/players.txt", b"03 A\n07 A\n");
     sandbox.copy_tracer_face("exports/co Midcup Twice/Players/A");
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     assert_eq!(run.exit_code(), 0);
     assert_eq!(compiled_portraits(&sandbox), ["71403.dds", "71407.dds"]);
@@ -290,7 +290,7 @@ fn a_slot_s_two_portraits_skip_the_export_when_they_differ_and_are_one_when_iden
         &tracer_kit(),
     );
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     assert_eq!(
         findings_of(&run.messages(), "co Midcup Both"),
@@ -310,7 +310,7 @@ fn a_slot_s_two_portraits_skip_the_export_when_they_differ_and_are_one_when_iden
         &tracer_portrait(),
     );
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     assert_eq!(
         findings_of(&run.messages(), "co Midcup Both"),
@@ -355,7 +355,7 @@ fn a_dds_portrait_passes_through_and_a_png_one_is_encoded_to_bc3_under_the_versi
         &texture_fixture("portrait.png"),
     );
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     assert_eq!(
         findings_of(&run.messages(), "co Midcup Portraits"),
@@ -374,7 +374,7 @@ fn a_dds_portrait_passes_through_and_a_png_one_is_encoded_to_bc3_under_the_versi
     assert_bc3_portrait(&entries[&portrait_path("71407.dds")], "PES 21");
 
     // PES 18 names the same files with the `player_` prefix.
-    let run = sandbox.run("[common]\npes_version = 18\n", &["compile"]);
+    let run = sandbox.run("[common]\npes_version = 18\n", &["compile", "--no-deploy"]);
 
     assert_eq!(run.exit_code(), 0);
     assert_eq!(
@@ -424,7 +424,7 @@ fn a_portrait_whose_side_is_not_a_power_of_two_is_checked_and_left_out_alone() {
     );
     assert_eq!(check.exit_code(), 1);
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     assert_eq!(
         findings_of(&run.messages(), "co Midcup Odd"),
@@ -444,7 +444,10 @@ fn pass_through_keeps_a_portrait_whose_side_is_not_a_power_of_two() {
     let sandbox = Sandbox::new("portraits_odd_pass_through");
     write_odd_portrait_export(&sandbox);
 
-    let run = sandbox.run(&pass_through_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(
+        &pass_through_settings(&sandbox),
+        &["compile", "--no-deploy"],
+    );
 
     assert_eq!(
         findings_of(&run.messages(), "co Midcup Odd"),
@@ -467,7 +470,7 @@ fn a_kit_mask_on_a_fox_target_is_reported_once_and_not_emitted() {
     sandbox.write("exports/co Midcup Mask/Kits/p1/kit.dds", &tracer_kit());
     sandbox.write("exports/co Midcup Mask/Kits/p1/kit_mask.dds", &tracer_kit());
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     assert_eq!(
         findings_of(&run.messages(), "co Midcup Mask"),
@@ -491,7 +494,7 @@ fn content_nested_one_folder_down_compiles_as_if_at_the_root() {
     sandbox.copy_tracer_face("exports/co Midcup Wrapped/wrapper/Players/03 - A");
     sandbox.copy_tracer_face("exports/dbg Midcup Doubled/Players/Players/03 - A");
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     let lines = run.messages();
     assert_eq!(
@@ -528,7 +531,10 @@ fn pass_through_drops_notes_that_are_not_utf8_and_compiles_the_export() {
     sandbox.copy_tracer("egg Midcup Tracer");
     sandbox.write("exports/egg Midcup Tracer/notes.txt", b"caf\xe9\n");
 
-    let run = sandbox.run(&pass_through_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(
+        &pass_through_settings(&sandbox),
+        &["compile", "--no-deploy"],
+    );
 
     assert_eq!(
         findings_of(&run.messages(), "egg Midcup Tracer"),
@@ -587,20 +593,23 @@ fn compile_collects_the_compiled_exports_notes_into_teamnotes_txt_and_removes_a_
     skipped_export_with_notes(&sandbox);
     let cpk = sandbox.root.join("output/4cc_99_test.cpk");
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     assert_eq!(
         run.messages(),
-        bundled_bins_then([
-            "a Midcup Notes: Info notes_found [Keep] at notes.txt ()",
-            "a Midcup Notes: Info export_identified [Keep] (team=/a/, id=702)",
-            "b Midcup Skipped: Error players_txt_slot_duplicate [DropExport] at players.txt line 2 slot Some(3) ()",
-            "b Midcup Skipped: Info notes_found [Keep] at notes.txt ()",
-            "co Midcup Notes: Info notes_found [Keep] at notes.txt ()",
-            "co Midcup Notes: Info export_identified [Keep] (team=/co/, id=714)",
-            "a Midcup Notes: Info team_colors_missing [Keep] ()",
-            "co Midcup Notes: Info team_colors_missing [Keep] ()"
-        ])
+        no_deploy_lines(
+            &sandbox,
+            [
+                "a Midcup Notes: Info notes_found [Keep] at notes.txt ()",
+                "a Midcup Notes: Info export_identified [Keep] (team=/a/, id=702)",
+                "b Midcup Skipped: Error players_txt_slot_duplicate [DropExport] at players.txt line 2 slot Some(3) ()",
+                "b Midcup Skipped: Info notes_found [Keep] at notes.txt ()",
+                "co Midcup Notes: Info notes_found [Keep] at notes.txt ()",
+                "co Midcup Notes: Info export_identified [Keep] (team=/co/, id=714)",
+                "a Midcup Notes: Info team_colors_missing [Keep] ()",
+                "co Midcup Notes: Info team_colors_missing [Keep] ()"
+            ]
+        )
     );
     assert_eq!(run.exit_code(), 1);
     assert_eq!(compiled_players(&sandbox), [70203, 71403]);
@@ -615,7 +624,7 @@ fn compile_collects_the_compiled_exports_notes_into_teamnotes_txt_and_removes_a_
     fs::remove_file(sandbox.root.join("exports/a Midcup Notes/notes.txt")).unwrap();
     fs::remove_file(&cpk).unwrap();
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     assert_eq!(run.exit_code(), 1);
     assert!(cpk.is_file());
@@ -624,7 +633,7 @@ fn compile_collects_the_compiled_exports_notes_into_teamnotes_txt_and_removes_a_
     let fresh = Sandbox::new("root_teamnotes_none");
     export_with_notes(&fresh, "co Midcup Plain", None);
 
-    let run = fresh.run(&pes21_settings(&fresh), &["compile"]);
+    let run = fresh.run(&pes21_settings(&fresh), &["compile", "--no-deploy"]);
 
     assert_eq!(run.exit_code(), 0);
     assert!(fresh.root.join("output/4cc_99_test.cpk").is_file());
@@ -638,7 +647,7 @@ fn a_compile_that_writes_no_cpk_leaves_the_previous_teamnotes_txt() {
     skipped_export_with_notes(&sandbox);
     sandbox.write("output/teamnotes.txt", b"--- /co/ ---\nPrevious.\n");
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     assert_eq!(run.exit_code(), 1);
     assert!(!sandbox.root.join("output/4cc_99_test.cpk").exists());
@@ -656,17 +665,20 @@ fn a_teamnotes_txt_that_cannot_be_written_is_reported_and_the_cpk_stays() {
     // A folder in the file's place, with a file in it so no platform replaces it.
     sandbox.write("output/teamnotes.txt/kept", b"");
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     let lines = run.messages();
     let (last, first) = lines.split_last().unwrap();
     assert_eq!(
         first,
-        bundled_bins_then([
-            "co Midcup Notes: Info notes_found [Keep] at notes.txt ()",
-            "co Midcup Notes: Info export_identified [Keep] (team=/co/, id=714)",
-            "co Midcup Notes: Info team_colors_missing [Keep] ()"
-        ])
+        no_deploy_lines(
+            &sandbox,
+            [
+                "co Midcup Notes: Info notes_found [Keep] at notes.txt ()",
+                "co Midcup Notes: Info export_identified [Keep] (team=/co/, id=714)",
+                "co Midcup Notes: Info team_colors_missing [Keep] ()"
+            ]
+        )
     );
     // The error ends with the platform's own text, so only its shape is fixed.
     let prefix = format!(
@@ -698,15 +710,18 @@ fn a_root_colors_txt_sets_the_team_s_colors_and_an_export_without_one_reports_it
     let cpk = sandbox.root.join("output/4cc_99_test.cpk");
     let base = bundled_team_color();
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     assert_eq!(
         run.messages(),
-        bundled_bins_then([
-            "co Midcup Colors: Info export_identified [Keep] (team=/co/, id=714)",
-            "co Midcup Colors: Info kit_config_generated [Keep] at Kits/p1 ()",
-            "co Midcup Colors: Info kit_colors_derived [Keep] at Kits/p1 ()"
-        ])
+        no_deploy_lines(
+            &sandbox,
+            [
+                "co Midcup Colors: Info export_identified [Keep] (team=/co/, id=714)",
+                "co Midcup Colors: Info kit_config_generated [Keep] at Kits/p1 ()",
+                "co Midcup Colors: Info kit_colors_derived [Keep] at Kits/p1 ()"
+            ]
+        )
     );
     assert_eq!(run.exit_code(), 0);
     // Team 714's record: its ID and count, then its first two colors; the rest is the base's.
@@ -722,6 +737,7 @@ fn a_root_colors_txt_sets_the_team_s_colors_and_an_export_without_one_reports_it
         &pes21_settings(&sandbox),
         &[
             "compile",
+            "--no-deploy",
             "--export",
             &sandbox.arg("elsewhere/dbg Midcup Plain"),
         ],
@@ -729,12 +745,15 @@ fn a_root_colors_txt_sets_the_team_s_colors_and_an_export_without_one_reports_it
 
     assert_eq!(
         run.messages(),
-        bundled_bins_then([
-            "dbg Midcup Plain: Info export_identified [Keep] (team=/dbg/, id=790)",
-            "dbg Midcup Plain: Info team_colors_missing [Keep] ()",
-            "dbg Midcup Plain: Info kit_config_generated [Keep] at Kits/p1 ()",
-            "dbg Midcup Plain: Info kit_colors_derived [Keep] at Kits/p1 ()"
-        ])
+        no_deploy_lines(
+            &sandbox,
+            [
+                "dbg Midcup Plain: Info export_identified [Keep] (team=/dbg/, id=790)",
+                "dbg Midcup Plain: Info team_colors_missing [Keep] ()",
+                "dbg Midcup Plain: Info kit_config_generated [Keep] at Kits/p1 ()",
+                "dbg Midcup Plain: Info kit_colors_derived [Keep] at Kits/p1 ()"
+            ]
+        )
     );
     assert_eq!(run.exit_code(), 0);
     assert!(
@@ -825,7 +844,7 @@ fn each_kit_s_menu_colors_come_from_its_colors_txt_its_texture_or_the_missing_pa
     sandbox.write(&format!("{export}/Kits/p2/kit.dds"), &tracer_kit());
     fs::create_dir_all(sandbox.root.join(format!("{export}/Kits/p3"))).unwrap();
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     assert_eq!(
         findings_of(&run.messages(), "co Midcup Colors"),
@@ -884,7 +903,7 @@ fn a_kit_without_a_texture_derives_its_colors_from_the_inherited_all_kit_dds() {
     sandbox.write(&format!("{export}/Kits/all/kit.dds"), &tracer_kit());
     fs::create_dir_all(sandbox.root.join(format!("{export}/Kits/p2"))).unwrap();
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     assert_eq!(
         findings_of(&run.messages(), "co Midcup Shared"),
@@ -917,7 +936,7 @@ fn a_kit_colors_txt_with_one_valid_color_reports_its_bad_line_and_derives_both_c
         b"#0a1b2c\nnot a color\n",
     );
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     assert_eq!(
         findings_of(&run.messages(), "co Midcup Colors"),
@@ -947,7 +966,7 @@ fn a_kit_s_icon_marker_gives_its_menu_icon_and_a_kit_without_one_gets_icon_3() {
     sandbox.write(&format!("{export}/Kits/p1/icon_7"), b"");
     sandbox.write(&format!("{export}/Kits/p2/kit.dds"), &tracer_kit());
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     assert_eq!(run.exit_code(), 0);
     let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
@@ -980,7 +999,7 @@ fn a_kit_whose_task_fails_keeps_its_base_entries_and_the_kit_beside_it_commits()
         b"#111111\n#222222\n",
     );
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     let lines = run.messages();
     let findings = findings_of(&lines, "co Midcup Fails");
@@ -1061,7 +1080,7 @@ fn a_full_export_rebuilds_its_team_s_record_from_its_kits_and_a_failed_kit_s_bas
     // Bytes no decoder reads, which the deep pass does not refuse: the kit's task fails.
     sandbox.write(&format!("{export}/Kits/p3/kit.dds"), b"not a texture");
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     let lines = run.messages();
     assert!(
@@ -1102,7 +1121,7 @@ fn a_midcup_export_merges_its_kits_into_its_team_s_record() {
         sandbox.write(&format!("{export}/Kits/{slot}/kit.dds"), &tracer_kit());
     }
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     assert_eq!(run.exit_code(), 0, "{:#?}", run.messages());
     let base = bundled_uni_color();
@@ -1129,7 +1148,7 @@ fn a_full_export_without_kits_compiles_an_empty_p1_and_g1() {
         &clean_model(),
     );
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     assert_eq!(
         findings_of(&run.messages(), "co Full Players"),
@@ -1180,7 +1199,7 @@ fn a_full_export_lacking_g1_gets_an_empty_one_and_a_midcup_export_none() {
     }
     sandbox.write("exports/a Midcup One/Kits/p1/kit.dds", &tracer_kit());
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     let lines = run.messages();
     assert_eq!(run.exit_code(), 0, "{lines:#?}");
@@ -1271,7 +1290,7 @@ fn an_fpc_on_player_writes_the_fpc_values_into_every_kit_config() {
     sandbox.write(&format!("{export}/Kits/p1/config.toml"), SHIRT_144);
     sandbox.write(&format!("{export}/Kits/p2/kit.dds"), &tracer_kit());
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     assert_eq!(
         findings_of(&run.messages(), "co Midcup Fpc"),
@@ -1308,7 +1327,7 @@ fn without_fpc_on_supplied_kit_configs_are_emitted_as_they_are() {
         sandbox.write(&format!("{export}/Kits/{slot}/config.toml"), config);
     }
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     let lines = run.messages();
     assert!(
@@ -1360,7 +1379,7 @@ fn a_kit_config_value_the_version_cannot_hold_is_reported_and_clamped() {
     );
     let clamped = "Warning kit_config_version_clamped [Keep] at Kits/p1/config.toml (field=name.y, value=36, max=33)";
 
-    let run = sandbox.run(&pes_settings(&sandbox, 18), &["compile"]);
+    let run = sandbox.run(&pes_settings(&sandbox, 18), &["compile", "--no-deploy"]);
 
     let lines = run.messages();
     assert!(
@@ -1395,7 +1414,7 @@ fn a_name_y_compiles_to_the_same_bytes_on_pes_18_and_pes_21() {
 
     let mut emitted = Vec::new();
     for (number, version) in [(18, PesVersion::Pes18), (21, PesVersion::Pes21)] {
-        let run = sandbox.run(&pes_settings(&sandbox, number), &["compile"]);
+        let run = sandbox.run(&pes_settings(&sandbox, number), &["compile", "--no-deploy"]);
         let lines = run.messages();
         assert!(
             !lines
@@ -1429,7 +1448,7 @@ fn a_disabled_export_is_reported_once_by_check_and_compile_and_not_compiled() {
 
     // `compile` reports its working bins first; `check` builds none.
     for (command, bins) in [("check", &[][..]), ("compile", &BUNDLED_BINS[..])] {
-        let run = sandbox.run(&pes21_settings(&sandbox), &[command]);
+        let run = sandbox.run(&pes21_settings(&sandbox), &command_args(command));
         let findings = [
             "co Midcup One: Info export_disabled [DropExport] ()",
             "dbg Midcup Two: Info export_disabled [DropExport] ()",
@@ -1449,7 +1468,7 @@ fn a_balls_export_is_skipped_by_check_and_compile() {
     sandbox.copy_tracer("egg Midcup Tracer");
 
     for command in ["check", "compile"] {
-        let run = sandbox.run(&pes21_settings(&sandbox), &[command]);
+        let run = sandbox.run(&pes21_settings(&sandbox), &command_args(command));
         assert_eq!(
             findings_of(&run.messages(), "balls Spring"),
             ["Info export_balls_skipped [DropExport] ()"],
@@ -1468,7 +1487,7 @@ fn a_corrupt_zip_is_skipped_and_the_export_beside_it_compiled() {
     sandbox.copy_tracer("egg Midcup Tracer");
 
     for command in ["check", "compile"] {
-        let run = sandbox.run(&pes21_settings(&sandbox), &[command]);
+        let run = sandbox.run(&pes21_settings(&sandbox), &command_args(command));
         assert_eq!(
             findings_of(&run.messages(), "co Midcup Broken.zip"),
             [format!(
@@ -1497,7 +1516,7 @@ fn export_paths_restrict_check_and_compile_to_the_named_exports() {
     ];
 
     for command in ["check", "compile"] {
-        let args: Vec<&str> = std::iter::once(command).chain(named).collect();
+        let args: Vec<&str> = command_args(command).into_iter().chain(named).collect();
         let run = sandbox.run(&pes21_settings(&sandbox), &args);
         let validated = [
             "co Midcup A: Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=boots.fmdl, count=1662)",
@@ -1523,11 +1542,15 @@ fn export_paths_restrict_check_and_compile_to_the_named_exports() {
         } else {
             (&[], &[])
         };
-        assert_eq!(
-            run.messages(),
-            [bins, &validated[..], planned].concat(),
-            "{command}"
-        );
+        let mut expected: Vec<String> = [bins, &validated[..], planned]
+            .concat()
+            .iter()
+            .map(|line| (*line).to_owned())
+            .collect();
+        if command == "compile" {
+            expected.push(deploy_skipped(&sandbox));
+        }
+        assert_eq!(run.messages(), expected, "{command}");
         assert_eq!(run.exit_code(), 0, "{command}");
     }
     assert_eq!(compiled_players(&sandbox), [71403, 79003]);
@@ -1543,20 +1566,23 @@ fn a_zip_export_is_compiled_as_the_team_its_name_starts_with() {
         &source_fixture("egg Midcup Tracer.zip"),
     );
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     assert_eq!(
         run.messages(),
-        bundled_bins_then([
-            "co Full Spring 2026.zip: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=fcl_hair.fmdl, count=1662)",
-            "co Full Spring 2026.zip: Info export_identified [Keep] (team=/co/, id=714)",
-            "co Full Spring 2026.zip: Info team_colors_missing [Keep] ()",
-            // A full export with no player kit compiles an empty `p1/`.
-            "co Full Spring 2026.zip: Info kit_config_generated [Keep] at Kits/p1 ()",
-            "co Full Spring 2026.zip: Info kit_placeholder [Keep] at Kits/p1 ()",
-            "co Full Spring 2026.zip: Warning kit_colors_missing [Keep] at Kits/p1 ()",
-            "co Full Spring 2026.zip: Info kit_colors_derived [Keep] at Kits/g1 ()"
-        ])
+        no_deploy_lines(
+            &sandbox,
+            [
+                "co Full Spring 2026.zip: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=fcl_hair.fmdl, count=1662)",
+                "co Full Spring 2026.zip: Info export_identified [Keep] (team=/co/, id=714)",
+                "co Full Spring 2026.zip: Info team_colors_missing [Keep] ()",
+                // A full export with no player kit compiles an empty `p1/`.
+                "co Full Spring 2026.zip: Info kit_config_generated [Keep] at Kits/p1 ()",
+                "co Full Spring 2026.zip: Info kit_placeholder [Keep] at Kits/p1 ()",
+                "co Full Spring 2026.zip: Warning kit_colors_missing [Keep] at Kits/p1 ()",
+                "co Full Spring 2026.zip: Info kit_colors_derived [Keep] at Kits/g1 ()"
+            ]
+        )
     );
     assert_eq!(compiled_players(&sandbox), [71405]);
     assert_eq!(compiled_kits(&sandbox), ["u0714g1", "u0714p1"]);
@@ -1569,17 +1595,20 @@ fn a_root_notes_txt_that_cannot_be_read_is_dropped_and_the_rest_compiled() {
     let sandbox = Sandbox::new("root_notes_unreadable");
     sandbox.copy_fixture("egg Midcup Tracer bad notes.zip", "exports");
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     assert_eq!(
         run.messages(),
-        bundled_bins_then([
-            "egg Midcup Tracer bad notes.zip: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=fcl_hair.fmdl, count=1662)",
-            "egg Midcup Tracer bad notes.zip: Error source_read_failed [DropFile] at notes.txt (reason=Invalid checksum)",
-            "egg Midcup Tracer bad notes.zip: Info export_identified [Keep] (team=/egg/, id=792)",
-            "egg Midcup Tracer bad notes.zip: Info team_colors_missing [Keep] ()",
-            "egg Midcup Tracer bad notes.zip: Info kit_colors_derived [Keep] at Kits/g1 ()"
-        ])
+        no_deploy_lines(
+            &sandbox,
+            [
+                "egg Midcup Tracer bad notes.zip: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=fcl_hair.fmdl, count=1662)",
+                "egg Midcup Tracer bad notes.zip: Error source_read_failed [DropFile] at notes.txt (reason=Invalid checksum)",
+                "egg Midcup Tracer bad notes.zip: Info export_identified [Keep] (team=/egg/, id=792)",
+                "egg Midcup Tracer bad notes.zip: Info team_colors_missing [Keep] ()",
+                "egg Midcup Tracer bad notes.zip: Info kit_colors_derived [Keep] at Kits/g1 ()"
+            ]
+        )
     );
     assert_eq!(compiled_players(&sandbox), [79205]);
     assert_eq!(run.exit_code(), 1);
@@ -1596,16 +1625,19 @@ fn a_7z_over_the_memory_cap_compiles() {
         pes21_settings(&sandbox)
     );
 
-    let run = sandbox.run(&settings, &["compile"]);
+    let run = sandbox.run(&settings, &["compile", "--no-deploy"]);
 
     assert_eq!(
         run.messages(),
-        bundled_bins_then([
-            "egg Midcup Tracer.7z: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=fcl_hair.fmdl, count=1662)",
-            "egg Midcup Tracer.7z: Info export_identified [Keep] (team=/egg/, id=792)",
-            "egg Midcup Tracer.7z: Info team_colors_missing [Keep] ()",
-            "egg Midcup Tracer.7z: Info kit_colors_derived [Keep] at Kits/g1 ()"
-        ])
+        no_deploy_lines(
+            &sandbox,
+            [
+                "egg Midcup Tracer.7z: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=fcl_hair.fmdl, count=1662)",
+                "egg Midcup Tracer.7z: Info export_identified [Keep] (team=/egg/, id=792)",
+                "egg Midcup Tracer.7z: Info team_colors_missing [Keep] ()",
+                "egg Midcup Tracer.7z: Info kit_colors_derived [Keep] at Kits/g1 ()"
+            ]
+        )
     );
     assert_eq!(compiled_players(&sandbox), [79205]);
     assert_eq!(compiled_kits(&sandbox), ["u0792g1"]);
@@ -1624,7 +1656,7 @@ fn an_export_is_processed_after_its_last_task_or_after_planning_when_it_has_none
         &clean_model(),
     );
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     let events: Vec<String> = run
         .events
@@ -1653,6 +1685,7 @@ fn an_export_is_processed_after_its_last_task_or_after_planning_when_it_has_none
             "message kit_colors_derived",
             "message folder_pack_failed",
             "processed 0",
+            "message deploy_skipped_by_flag",
         ]
     );
     assert_eq!(run.exit_code(), 1);
@@ -1672,11 +1705,14 @@ fn the_worker_count_changes_neither_the_findings_nor_the_cpk() {
         sandbox.write("exports/co Midcup Kits/Kits/g1/kit.dds", &tracer_kit());
         let settings = format!("{}thread_count = {threads}\n", pes21_settings(&sandbox));
 
-        let run = sandbox.run(&settings, &["compile"]);
+        let run = sandbox.run(&settings, &["compile", "--no-deploy"]);
 
         assert_eq!(run.exit_code(), 0, "{threads} threads");
         let cpk = fs::read(sandbox.root.join("output/4cc_99_test.cpk")).unwrap();
-        outcomes.push((run.messages(), cpk));
+        // The note names this sandbox's CPK, so it is checked here and the rest compared.
+        let mut messages = run.messages();
+        assert_eq!(messages.pop(), Some(deploy_skipped(&sandbox)), "{threads}");
+        outcomes.push((messages, cpk));
     }
     assert_eq!(outcomes[0].0, outcomes[1].0);
     assert_eq!(
@@ -1716,7 +1752,7 @@ fn two_teams_with_players_and_kits_compile_to_the_same_cpk_on_one_worker_and_on_
         }
         let settings = format!("{}thread_count = {threads}\n", pes21_settings(&sandbox));
 
-        let run = sandbox.run(&settings, &["compile"]);
+        let run = sandbox.run(&settings, &["compile", "--no-deploy"]);
 
         assert_eq!(
             run.exit_code(),
@@ -1783,7 +1819,7 @@ fn two_exports_of_one_team_are_both_skipped_naming_each_other_and_the_other_team
     assert_eq!(check.messages(), validated);
     assert_eq!(check.exit_code(), 1);
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     let lines = run.messages();
     assert_eq!(run.exit_code(), 1, "{lines:#?}");
@@ -1795,7 +1831,7 @@ fn two_exports_of_one_team_are_both_skipped_naming_each_other_and_the_other_team
     ];
     assert_eq!(
         lines,
-        bundled_bins_then([&validated[..], &planned[..]].concat())
+        no_deploy_lines(&sandbox, [&validated[..], &planned[..]].concat())
     );
     assert_eq!(compiled_players(&sandbox), [70203]);
     assert_eq!(compiled_kits(&sandbox), ["u0702p1"]);
@@ -1812,8 +1848,8 @@ fn a_team_beside_two_skipped_exports_compiles_to_the_cpk_it_compiles_to_alone() 
     let alone = Sandbox::new("pln_skipped_alone");
     write_a_home(&alone);
 
-    let beside_run = beside.run(&pes21_settings(&beside), &["compile"]);
-    let alone_run = alone.run(&pes21_settings(&alone), &["compile"]);
+    let beside_run = beside.run(&pes21_settings(&beside), &["compile", "--no-deploy"]);
+    let alone_run = alone.run(&pes21_settings(&alone), &["compile", "--no-deploy"]);
 
     assert_eq!(beside_run.exit_code(), 1, "the duplicate's errors");
     assert_eq!(alone_run.exit_code(), 0, "{:#?}", alone_run.messages());
@@ -1857,11 +1893,11 @@ fn the_overrides_replace_the_export_s_boots_and_the_team_color_bin_and_are_repor
         &tracer_player_file("boots.fmdl"),
     );
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     assert_eq!(
         run.messages(),
-        bundled_bins_then([
+        no_deploy_lines(&sandbox, [
             "co Midcup Boots: Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=boots.fmdl, count=1662)".to_owned(),
             "co Midcup Boots: Info export_identified [Keep] (team=/co/, id=714)".to_owned(),
             "co Midcup Boots: Info team_colors_missing [Keep] ()".to_owned(),
@@ -1889,18 +1925,21 @@ fn the_overrides_are_written_with_the_bins_when_no_export_compiles() {
     let folder = write_overrides(&sandbox);
     fs::create_dir_all(sandbox.root.join("exports")).unwrap();
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     assert_eq!(
         run.messages(),
-        bundled_bins_then([
-            format!(
-                "Warning no_exports_found [Keep] (folder={})",
-                sandbox.display("exports")
-            ),
-            format!("Info overrides_active [Keep] (folder={folder}, files=2)"),
-            format!("Warning duplicate_path [Keep] (path={TEAM_COLOR})"),
-        ])
+        no_deploy_lines(
+            &sandbox,
+            [
+                format!(
+                    "Warning no_exports_found [Keep] (folder={})",
+                    sandbox.display("exports")
+                ),
+                format!("Info overrides_active [Keep] (folder={folder}, files=2)"),
+                format!("Warning duplicate_path [Keep] (path={TEAM_COLOR})"),
+            ]
+        )
     );
     assert_eq!(run.exit_code(), 0);
     let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));

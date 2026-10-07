@@ -12,7 +12,7 @@ use crate::compile::{
     tracer_kit, tracer_player_file,
 };
 use crate::models::face_diff_fixture;
-use crate::{TEAM_COLORS_MISSING, findings_of};
+use crate::{TEAM_COLORS_MISSING, command_args, findings_of};
 
 /// The bytes of `tests/fixtures/deep/<name>`.
 fn deep_fixture(name: &str) -> Vec<u8> {
@@ -55,7 +55,10 @@ fn a_far_vertex_drops_its_folder_at_check_and_at_compile_even_with_pass_through(
     );
     assert_eq!(check.exit_code(), 1);
 
-    let compile = sandbox.run(&pass_through_settings(&sandbox), &["compile"]);
+    let compile = sandbox.run(
+        &pass_through_settings(&sandbox),
+        &["compile", "--no-deploy"],
+    );
     assert_eq!(
         findings_of(&compile.messages(), "co Midcup Far"),
         [
@@ -277,7 +280,7 @@ fn a_format_error_drops_its_folder_unless_pass_through_keeps_it() {
     };
 
     for command in ["check", "compile"] {
-        let run = sandbox.run(&pes21_settings(&sandbox), &[command]);
+        let run = sandbox.run(&pes21_settings(&sandbox), &command_args(command));
         let validated = [
             "Error fmdl_mesh_over_face_limit [DropFolder] at Players/05 - Striker (file=boots.fmdl, count=21846)",
             striker_weights,
@@ -307,7 +310,7 @@ fn a_format_error_drops_its_folder_unless_pass_through_keeps_it() {
     assert_eq!(paths, [&boots(627)[..], &face(71407), &color_bins].concat());
 
     for command in ["check", "compile"] {
-        let run = sandbox.run(&pass_through_settings(&sandbox), &[command]);
+        let run = sandbox.run(&pass_through_settings(&sandbox), &command_args(command));
         let validated = [
             "Error fmdl_mesh_over_face_limit [Keep] at Players/05 - Striker (file=boots.fmdl, count=21846)",
             striker_weights,
@@ -363,7 +366,10 @@ fn a_model_that_does_not_parse_is_model_broken_and_drops_its_folder_even_with_pa
     assert_eq!(findings_of(&check.messages(), "co Midcup Broken"), findings);
     assert_eq!(check.exit_code(), 1);
 
-    let compile = sandbox.run(&pass_through_settings(&sandbox), &["compile"]);
+    let compile = sandbox.run(
+        &pass_through_settings(&sandbox),
+        &["compile", "--no-deploy"],
+    );
     assert_eq!(
         findings_of(&compile.messages(), "co Midcup Broken"),
         [&findings[..], &[TEAM_COLORS_MISSING]].concat()
@@ -406,7 +412,10 @@ fn a_logo_that_does_not_decode_is_logo_file_invalid_and_the_export_is_otherwise_
     assert_eq!(check.exit_code(), 1);
 
     // Pass-through does not keep it: there is nothing the game's logo sizes can be made from.
-    let compile = sandbox.run(&pass_through_settings(&sandbox), &["compile"]);
+    let compile = sandbox.run(
+        &pass_through_settings(&sandbox),
+        &["compile", "--no-deploy"],
+    );
     assert_eq!(
         findings_of(&compile.messages(), "co Midcup Logo"),
         [&findings[..], &[TEAM_COLORS_MISSING]].concat()
@@ -466,7 +475,7 @@ fn a_settings_toml_that_does_not_parse_is_ignored_and_the_folder_s_models_compil
         b"name = 5\n",
     );
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     let mut expected = tracer_face_weights("05 - A").to_vec();
     expected.push(settings_invalid("05 - A"));
@@ -514,7 +523,7 @@ fn a_kit_config_that_does_not_parse_leaves_its_kit_out_and_the_kit_beside_it_com
     );
     assert_eq!(check.exit_code(), 1);
 
-    let compile = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let compile = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
     assert_eq!(
         findings_of(&compile.messages(), "co Midcup Kits"),
         [
@@ -613,7 +622,10 @@ fn pass_through_keeps_no_face_diff_kit_config_or_settings_toml_that_cannot_be_re
     );
     write_kits(&sandbox, export);
 
-    let run = sandbox.run(&pass_through_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(
+        &pass_through_settings(&sandbox),
+        &["compile", "--no-deploy"],
+    );
 
     let mut expected = tracer_face_weights("03 - A").to_vec();
     expected.push(

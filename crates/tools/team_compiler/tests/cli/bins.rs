@@ -16,7 +16,7 @@ use crate::compile_exports::{
     bundled_uniform_parameter, config_path, record_of, uni_record, with_uni_record,
 };
 use crate::models::body_skl;
-use crate::{BUNDLED_BINS, clean_model};
+use crate::{BUNDLED_BINS, clean_model, deploy_skipped};
 
 /// Team `/co/`, whose `UniColor.bin` record the tests set.
 const CO: usize = 714;
@@ -130,7 +130,7 @@ fn each_bin_comes_from_the_nearest_cpk_listed_below_the_run_s_own() {
     install_two_cpks(&sandbox);
     p2_export(&sandbox);
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     let mut expected = vec![
         source("TeamColor.bin", "4cc_08_bins.cpk"),
@@ -138,6 +138,7 @@ fn each_bin_comes_from_the_nearest_cpk_listed_below_the_run_s_own() {
         source("UniformParameter.bin", "bundled"),
     ];
     expected.extend(P2_FINDINGS.map(str::to_owned));
+    expected.push(deploy_skipped(&sandbox));
     assert_eq!(run.messages(), expected);
     assert_eq!(run.exit_code(), 0);
     let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
@@ -152,7 +153,7 @@ fn each_bin_comes_from_the_nearest_cpk_listed_below_the_run_s_own() {
         "{}[team-compiler]\ncpk_name = \"4cc_61_midcup\"\n",
         pes21_settings(&sandbox)
     );
-    let run = sandbox.run(&settings, &["compile"]);
+    let run = sandbox.run(&settings, &["compile", "--no-deploy"]);
 
     let mut expected = vec![
         source("TeamColor.bin", "4cc_08_bins.cpk"),
@@ -160,6 +161,10 @@ fn each_bin_comes_from_the_nearest_cpk_listed_below_the_run_s_own() {
         source("UniformParameter.bin", "bundled"),
     ];
     expected.extend(P2_FINDINGS.map(str::to_owned));
+    expected.push(format!(
+        "Info deploy_skipped_by_flag [Keep] (path={})",
+        sandbox.display("output/4cc_61_midcup.cpk")
+    ));
     assert_eq!(run.messages(), expected);
     assert_eq!(run.exit_code(), 0);
     let entries = cpk_entries(&sandbox.root.join("output/4cc_61_midcup.cpk"));
@@ -185,7 +190,7 @@ fn the_walk_reads_the_pes_folder_with_its_version_placeholder_expanded() {
         sandbox.root.join("PES20**").display()
     );
 
-    let run = sandbox.run(&settings, &["compile"]);
+    let run = sandbox.run(&settings, &["compile", "--no-deploy"]);
 
     assert_eq!(run.exit_code(), 0, "{:#?}", run.messages());
     assert_eq!(
@@ -207,7 +212,7 @@ fn a_wesys_wrapped_installed_bin_is_read_unwrapped_and_written_plain() {
     install_cpk(&sandbox, "4cc_08_bins.cpk", &[(UNI_COLOR, &wrapped)]);
     p2_export(&sandbox);
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     assert_eq!(run.exit_code(), 0, "{:#?}", run.messages());
     assert_eq!(
@@ -229,12 +234,14 @@ fn a_wesys_wrapped_installed_bin_is_read_unwrapped_and_written_plain() {
 fn with_no_dpfilelist_the_bins_are_bundled_and_the_list_s_absence_reported() {
     let alone = Sandbox::new("bins_no_pes");
     p2_export(&alone);
-    let run = alone.run(&pes21_settings(&alone), &["compile"]);
+    let run = alone.run(&pes21_settings(&alone), &["compile", "--no-deploy"]);
     assert_eq!(run.exit_code(), 0, "{:#?}", run.messages());
     let bundled = cpk_entries(&alone.root.join("output/4cc_99_test.cpk"));
 
     let sandbox = Sandbox::new("bins_no_list");
     fs::create_dir_all(sandbox.root.join("PES/download")).unwrap();
+    // The run's exe, so the deploying run's only finding about the install is the list's.
+    sandbox.write("PES/PES2021.exe", b"the game");
     p2_export(&sandbox);
     let list = sandbox.display("PES/download/DpFileList.bin");
     let bundled_sources = [
@@ -279,7 +286,7 @@ fn an_installed_team_color_record_whose_header_holds_colors_gets_its_header_back
     install_cpk(&sandbox, "4cc_08_bins.cpk", &[(TEAM_COLOR, &installed)]);
     p2_export(&sandbox);
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     assert_eq!(run.exit_code(), 0, "{:#?}", run.messages());
     let lines = run.messages();
@@ -311,7 +318,7 @@ fn an_installed_cpk_that_cannot_be_read_stops_the_run_before_any_export_is_read(
     sandbox.write("PES/download/4cc_61_midcup.cpk", b"not a cpk");
     p2_export(&sandbox);
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     let lines = run.messages();
     let [line] = lines.as_slice() else {
@@ -334,7 +341,7 @@ fn an_installed_bin_that_does_not_parse_stops_the_run_before_any_export_is_read(
     install_cpk(&sandbox, "4cc_61_midcup.cpk", &[(UNI_COLOR, &[0; 84])]);
     p2_export(&sandbox);
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     assert_eq!(
         run.messages(),
@@ -429,7 +436,7 @@ fn a_midcup_fpc_on_export_patches_the_installed_configs_of_the_kits_it_does_not_
     );
     sandbox.write("exports/co Midcup Kits/Players/05 - A/fpc_on", b"");
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     let mut expected = vec![
         source("TeamColor.bin", "4cc_08_bins.cpk"),
@@ -442,6 +449,7 @@ fn a_midcup_fpc_on_export_patches_the_installed_configs_of_the_kits_it_does_not_
         "co Midcup Kits: Info kit_config_fpc_adjusted [Keep] (slot=p1)".to_owned(),
         "co Midcup Kits: Warning kit_config_fpc_unpatched [Keep] (slot=p3)".to_owned(),
     ]);
+    expected.push(deploy_skipped(&sandbox));
     assert_eq!(run.messages(), expected);
     assert_eq!(run.exit_code(), 0);
     let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
@@ -484,7 +492,7 @@ fn a_full_export_removes_its_team_s_installed_configs_of_kits_it_does_not_hold()
     );
     sandbox.write("exports/co Full Kits/Kits/p1/kit.dds", &tracer_kit());
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     assert_eq!(run.exit_code(), 0, "{:#?}", run.messages());
     let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
@@ -520,7 +528,7 @@ fn a_templates_file_replaces_the_bundled_base_and_one_that_cannot_be_read_stops_
     sandbox.write("data/templates/UniColor.bin", &template);
     p2_export(&sandbox);
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     let mut expected = vec![format!(
         "Info template_override_active [Keep] (path={})",
@@ -528,6 +536,7 @@ fn a_templates_file_replaces_the_bundled_base_and_one_that_cannot_be_read_stops_
     )];
     expected.extend(BUNDLED_BINS.map(str::to_owned));
     expected.extend(P2_FINDINGS.map(str::to_owned));
+    expected.push(deploy_skipped(&sandbox));
     assert_eq!(run.messages(), expected);
     assert_eq!(run.exit_code(), 0);
     let cpk = sandbox.root.join("output/4cc_99_test.cpk");
@@ -542,7 +551,7 @@ fn a_templates_file_replaces_the_bundled_base_and_one_that_cannot_be_read_stops_
     fs::remove_file(&cpk).unwrap();
     fs::create_dir_all(sandbox.root.join("data/templates/TeamColor.bin")).unwrap();
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     let lines = run.messages();
     let [line] = lines.as_slice() else {
@@ -660,7 +669,7 @@ fn a_compiled_player_s_boots_row_joins_the_installed_list_and_the_other_tables_p
         &tracer_player_file("boots.fmdl"),
     );
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     assert_eq!(run.exit_code(), 0, "{:#?}", run.messages());
     let lines = run.messages();
@@ -718,7 +727,7 @@ fn a_player_whose_boots_task_fails_keeps_his_installed_boots_row() {
         &tracer_player_file("shirt.dds"),
     );
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     let lines = run.messages();
     assert!(
@@ -752,7 +761,7 @@ fn a_player_s_own_gloves_and_a_linked_shared_folder_s_set_their_gloves_rows() {
     }
     sandbox.write(&format!("{export}/Players/07 - B/Keeper.gloves"), b"");
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     assert_eq!(run.exit_code(), 0, "{:#?}", run.messages());
     let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
@@ -789,7 +798,7 @@ fn a_full_export_removes_the_boots_row_of_a_player_with_no_boots_and_a_midcup_ke
             &clean_model(),
         );
 
-        let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+        let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
         assert_eq!(run.exit_code(), 0, "{coverage}: {:#?}", run.messages());
         let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
@@ -806,7 +815,7 @@ fn with_no_installed_list_the_boots_row_is_left_out_and_reported() {
         &tracer_player_file("boots.fmdl"),
     );
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     assert_eq!(run.exit_code(), 0, "{:#?}", run.messages());
     let lines = run.messages();

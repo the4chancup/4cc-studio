@@ -126,28 +126,6 @@ fn compile_no_deploy_writes_the_cpk_to_the_output_folder_and_leaves_pes_alone() 
 }
 
 #[test]
-fn compile_without_no_deploy_promotes_the_cpk_silently() {
-    let sandbox = Sandbox::new("promoted");
-    let run = sandbox.run(
-        &pes21_settings(&sandbox),
-        &["compile", "--export", &tracer_export()],
-    );
-    assert_eq!(run.exit_code(), 0);
-    assert!(sandbox.root.join("output/4cc_99_test.cpk").is_file());
-    assert_eq!(
-        run.messages(),
-        bundled_bins_then([
-            "egg Midcup Tracer: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=boots.fmdl, count=1662)",
-            "egg Midcup Tracer: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=fcl_hair.fmdl, count=1662)",
-            "egg Midcup Tracer: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=glove_l.fmdl, count=2)",
-            "egg Midcup Tracer: Info export_identified [Keep] (team=/egg/, id=792)",
-            "Warning player_table_missing [Keep] (table=BootsList.bin, rows=1)",
-            "Warning player_table_missing [Keep] (table=GloveList.bin, rows=1)"
-        ])
-    );
-}
-
-#[test]
 fn a_compile_that_emits_nothing_writes_no_cpk_and_no_staging_folder() {
     let sandbox = Sandbox::new("emits_nothing");
     sandbox.write("exports/co Midcup Off/NO_USE", b"");
@@ -182,7 +160,7 @@ fn an_output_folder_that_cannot_be_created_refuses_compile_before_any_export_is_
         pes21_settings(&sandbox)
     );
 
-    let run = sandbox.run(&settings, &["compile"]);
+    let run = sandbox.run(&settings, &["compile", "--no-deploy"]);
 
     run.assert_refused(3, &[&output]);
 }
@@ -192,7 +170,7 @@ fn an_output_folder_that_cannot_be_created_refuses_compile_before_any_export_is_
 fn a_failed_cpk_write_discards_the_staging_and_leaves_the_previous_cpk() {
     let sandbox = Sandbox::new("cpk_write_failed");
     sandbox.write("output/4cc_99_test.cpk", b"the previous CPK");
-    // A file where the run's staging folder goes: the CPK cannot be created in it.
+    // A file where the runs' staging folder goes: the run's staging cannot be created in it.
     sandbox.write("output/.staging", b"in the way");
     sandbox.write(
         &format!("exports/co Midcup A/{CLEAN_PLAYER}"),
@@ -200,7 +178,7 @@ fn a_failed_cpk_write_discards_the_staging_and_leaves_the_previous_cpk() {
     );
     let before = snapshot(&sandbox.root.join("output"));
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     let lines = run.messages();
     let (last, first) = lines.split_last().unwrap();
@@ -211,22 +189,14 @@ fn a_failed_cpk_write_discards_the_staging_and_leaves_the_previous_cpk() {
             "co Midcup A: Info team_colors_missing [Keep] ()"
         ])
     );
-    // The error names the staged CPK, whose folder is this run's: `<pid>-<ms>` is left free,
-    // and so is the platform's own text at the end.
+    // The error names the staging folder; the platform's own text at the end is left free.
     let previous = sandbox.root.join("output").join("4cc_99_test.cpk");
     let prefix = format!(
-        "Fatal cpk_write_failed [AbortRun] (path={}, error={}",
+        "Fatal cpk_write_failed [AbortRun] (path={}, error={}: cannot create the staging folder: ",
         previous.display(),
         sandbox.root.join("output").join(".staging").display()
     );
-    let cannot_create = format!(
-        "{}4cc_99_test.cpk: cannot create the CPK: ",
-        std::path::MAIN_SEPARATOR
-    );
-    assert!(
-        last.starts_with(&prefix) && last.contains(&cannot_create) && last.ends_with(')'),
-        "{last}"
-    );
+    assert!(last.starts_with(&prefix) && last.ends_with(')'), "{last}");
     assert_eq!(run.exit_code(), 3);
     // The previous CPK and the file in the way are all `output/` holds: no partial CPK.
     assert_eq!(snapshot(&sandbox.root.join("output")), before);
@@ -279,7 +249,7 @@ fn a_previous_cpk_held_open_without_delete_sharing_fails_the_commit_and_is_kept(
         .open(sandbox.root.join("output").join("4cc_99_test.cpk"))
         .unwrap();
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     drop(held_open);
     assert_commit_failed(&sandbox, &run, &before);
@@ -292,7 +262,7 @@ fn a_previous_cpk_that_is_a_folder_fails_the_commit_and_is_kept() {
     sandbox.copy_tracer("egg Midcup Tracer");
     let before = snapshot(&sandbox.root.join("output"));
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     assert_commit_failed(&sandbox, &run, &before);
 }
@@ -387,7 +357,7 @@ fn compile_skips_an_export_holding_content_it_cannot_build_yet_and_builds_the_ot
         &clean_model(),
     );
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     let lines = run.messages();
     assert_eq!(
@@ -426,7 +396,7 @@ fn a_compile_whose_every_export_is_skipped_leaves_the_previous_cpk_as_it_was() {
     not_yet_compiled_export(&sandbox, "co Midcup Keeper");
     let before = snapshot(&sandbox.root.join("output"));
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     // Each skipped export reports an Error, so the run exits with 1.
     assert_eq!(run.exit_code(), 1);
@@ -446,7 +416,7 @@ fn an_export_whose_only_player_folder_is_dropped_writes_no_cpk() {
     sandbox.write("exports/co Midcup Links/Players/03 - A/Crocs.boots", b"");
     let before = snapshot(&sandbox.root.join("output"));
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     let lines = run.messages();
     assert!(
@@ -469,7 +439,7 @@ fn an_export_of_an_unknown_team_is_skipped_and_the_one_beside_it_compiled() {
     );
     sandbox.copy_tracer("egg Midcup Tracer");
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     let lines = run.messages();
     assert_eq!(
@@ -501,7 +471,7 @@ fn an_export_without_its_coverage_tag_is_skipped_and_the_one_beside_it_compiled(
     );
     assert_eq!(check.exit_code(), 1);
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     let lines = run.messages();
     assert_eq!(findings_of(&lines, "co Spring 2026"), tag_missing);
@@ -554,7 +524,7 @@ fn a_pre_fox_compile_skips_every_export_naming_the_target() {
     let sandbox = Sandbox::new("pre_fox_compile");
     sandbox.copy_tracer("egg Midcup Tracer");
 
-    let run = sandbox.run("[common]\npes_version = 17\n", &["compile"]);
+    let run = sandbox.run("[common]\npes_version = 17\n", &["compile", "--no-deploy"]);
 
     let lines = run.messages();
     assert!(
@@ -578,7 +548,7 @@ fn compile_creates_a_missing_teams_list_and_check_does_not() {
     assert_eq!(sandbox.run("", &["check"]).exit_code(), 0);
     assert!(!list.exists(), "check writes nothing");
 
-    assert_eq!(sandbox.run("", &["compile"]).exit_code(), 0);
+    assert_eq!(sandbox.run("", &["compile", "--no-deploy"]).exit_code(), 0);
     assert_eq!(
         fs::read(&list).unwrap(),
         teams_list::TeamsList::UPSTREAM.as_bytes()
@@ -598,7 +568,7 @@ fn a_dropped_player_folder_is_left_out_of_the_cpk() {
     let sandbox = Sandbox::new("dsp_link_dropped");
     links_export(&sandbox);
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     assert_eq!(
         findings_of(&run.messages(), "co Midcup Links"),
@@ -621,7 +591,10 @@ fn pass_through_compiles_a_folder_with_a_missing_link_and_still_reports_the_erro
     let sandbox = Sandbox::new("dsp_link_kept");
     links_export(&sandbox);
 
-    let run = sandbox.run(&pass_through_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(
+        &pass_through_settings(&sandbox),
+        &["compile", "--no-deploy"],
+    );
 
     assert_eq!(
         findings_of(&run.messages(), "co Midcup Links"),
@@ -828,7 +801,10 @@ fn pass_through_keeps_no_finding_whose_drop_it_cannot_keep() {
         let sandbox = Sandbox::new(&format!("dsp_{}", case.name));
         (case.setup)(&sandbox);
 
-        let run = sandbox.run(&pass_through_settings(&sandbox), &["compile"]);
+        let run = sandbox.run(
+            &pass_through_settings(&sandbox),
+            &["compile", "--no-deploy"],
+        );
 
         let lines = run.messages();
         assert_eq!(
@@ -860,9 +836,11 @@ fn an_export_skipped_by_its_roster_leaves_the_export_beside_it_as_compiled_alone
     let alone = Sandbox::new("dsp_tracer_alone");
     alone.copy_tracer("egg Midcup Tracer");
 
-    let run = beside.run(&pes21_settings(&beside), &["compile"]);
+    let run = beside.run(&pes21_settings(&beside), &["compile", "--no-deploy"]);
     assert_eq!(
-        alone.run(&pes21_settings(&alone), &["compile"]).exit_code(),
+        alone
+            .run(&pes21_settings(&alone), &["compile", "--no-deploy"])
+            .exit_code(),
         0
     );
 

@@ -158,7 +158,7 @@ fn under_ingame_face_an_empty_face_subfolder_is_ignored() {
     // Slot 07 of TC-MOD-19's export, an empty `face/` alone, shows such a folder is seen.
     fs::create_dir_all(sandbox.root.join(format!("{player}/face"))).unwrap();
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     let lines = run.messages();
     assert_eq!(
@@ -169,8 +169,11 @@ fn under_ingame_face_an_empty_face_subfolder_is_ignored() {
             TEAM_COLORS_MISSING,
         ]
     );
+    // The last line names the CPK's path, which holds the sandbox's own name.
+    let (last, findings) = lines.split_last().unwrap();
+    assert!(last.starts_with("Info deploy_skipped_by_flag"), "{last}");
     assert!(
-        lines.iter().all(|line| !line.contains("face/")),
+        findings.iter().all(|line| !line.contains("face/")),
         "{lines:#?}"
     );
     assert_eq!(run.exit_code(), 0);

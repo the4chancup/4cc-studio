@@ -8,7 +8,7 @@ use crate::bins::install_names;
 use crate::common::Sandbox;
 use crate::compile::{cpk_entries, pes_settings, pes21_settings, tracer_export};
 use crate::compile_exports::TEAM_COLOR;
-use crate::snapshot;
+use crate::{deploy_skipped, snapshot};
 
 /// What the sandboxes' `overrides/` folder puts at `TEAM_COLOR`.
 const TEAM_COLOR_OVERRIDE: &[u8] = b"the operator's TeamColor.bin";
@@ -65,7 +65,7 @@ fn sideload_writes_what_the_cpk_holds_as_loose_files_replacing_livecpk() {
     install_names(&normal, &["4cc_99_test.cpk"]);
     let normal_run = normal.run(
         &pes21_settings(&normal),
-        &["compile", "--export", &tracer_export()],
+        &["compile", "--no-deploy", "--export", &tracer_export()],
     );
     assert_eq!(normal_run.exit_code(), 0);
     let expected = cpk_entries(&normal.root.join("output/4cc_99_test.cpk"));
@@ -92,8 +92,11 @@ fn sideload_writes_what_the_cpk_holds_as_loose_files_replacing_livecpk() {
     // The same findings as the normal run's, `overrides_active` and `duplicate_path` among them.
     let normal_root = normal.root.display().to_string();
     let root = sandbox.root.display().to_string();
-    let normal_lines: Vec<String> = normal_run
-        .messages()
+    // The twin says last that it installed nothing (`--no-deploy`); a sideload run has no such
+    // note.
+    let mut normal_messages = normal_run.messages();
+    assert_eq!(normal_messages.pop(), Some(deploy_skipped(&normal)));
+    let normal_lines: Vec<String> = normal_messages
         .iter()
         .map(|line| line.replace(&normal_root, &root))
         .collect();

@@ -293,7 +293,7 @@ fn walk(
 }
 
 /// The CPK names the list at `path` gives, in load order; `None` when there is no file.
-fn read_list(path: &Path) -> Result<Option<Vec<String>>, Unreadable> {
+pub(crate) fn read_list(path: &Path) -> Result<Option<Vec<String>>, Unreadable> {
     let unreadable = |error: anyhow::Error| Unreadable {
         path: path.to_owned(),
         error,
@@ -360,31 +360,17 @@ mod tests {
     use studio_core::Severity;
 
     use super::*;
-    use crate::testing::scratch;
+    use crate::testing::{dpfilelist, scratch};
 
     /// The stem of the run's CPK in every test: `4cc_99_test`.
     fn stem() -> CpkStem {
         CpkStem::new("4cc_99_test").unwrap()
     }
 
-    /// A `DpFileList.bin` listing `names`, in the measured layout.
-    fn list(names: &[&str]) -> Vec<u8> {
-        let count = u32::try_from(names.len()).unwrap();
-        let mut bytes = vec![0; 4];
-        bytes.extend(count.to_le_bytes());
-        bytes.extend([0; 8]);
-        for name in names {
-            let mut record = [0; 48];
-            record[..name.len()].copy_from_slice(name.as_bytes());
-            bytes.extend(record);
-        }
-        bytes
-    }
-
     /// Writes `download/DpFileList.bin` listing `names` in the PES folder `pes`.
     fn install_list(pes: &Path, names: &[&str]) {
         fs::create_dir_all(pes.join("download")).unwrap();
-        fs::write(pes.join("download/DpFileList.bin"), list(names)).unwrap();
+        fs::write(pes.join("download/DpFileList.bin"), dpfilelist(names)).unwrap();
     }
 
     /// Writes the CPK `download/<name>` holding `entries` (CPK path, bytes) in the PES folder

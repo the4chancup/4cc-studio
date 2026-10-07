@@ -79,6 +79,33 @@ pub(crate) fn sandbox(name: &str) -> ScratchFolder {
     temp
 }
 
+/// A `DpFileList.bin` listing `names`, in the measured layout.
+pub(crate) fn dpfilelist(names: &[&str]) -> Vec<u8> {
+    let count = u32::try_from(names.len()).unwrap();
+    let mut bytes = vec![0; 4];
+    bytes.extend(count.to_le_bytes());
+    bytes.extend([0; 8]);
+    for name in names {
+        let mut record = [0; 48];
+        record[..name.len()].copy_from_slice(name.as_bytes());
+        bytes.extend(record);
+    }
+    bytes
+}
+
+/// Makes `root/PES`, `tool_context`'s PES folder, a PES 2021 install a compile can deploy into:
+/// `PES2021.exe` and a `download/DpFileList.bin` listing only `4cc_99_test.cpk`, so the bins
+/// are still the bundled ones.
+pub(crate) fn install_pes(root: &Path) {
+    fs::create_dir_all(root.join("PES/download")).unwrap();
+    fs::write(root.join("PES/PES2021.exe"), "the game").unwrap();
+    fs::write(
+        root.join("PES/download/DpFileList.bin"),
+        dpfilelist(&["4cc_99_test.cpk"]),
+    )
+    .unwrap();
+}
+
 /// A context whose executable folder is `root` (data directory `root/data`), over PES 21
 /// settings with the PES folder at `root/PES` plus `extra` settings lines, the tool's defaults
 /// merged in. Its shell channels have no consumer.

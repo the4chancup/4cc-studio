@@ -173,8 +173,14 @@ the logo, linked shared `Faces`, `Boots` and `Gloves` folders, and a `Common` fo
 texture files, its models reached through `.common` links (a model in a `gloves` subfolder
 whose name does not say which hand it is, or a `.common` link to a material file, among
 others). `check` still checks
-those exports. `compile` does not install the CPK into the game yet: it always
-leaves it in the output folder.
+those exports.
+
+`compile` installs the CPK into the game: it copies it into the `download` folder of the game
+folder (the `pes_folder_path` setting) and then puts it in the place of the old one, so the game
+finds either the old CPK or the whole new one, and nothing is left in the output folder. Before it
+reads any export, it checks that it can: when it cannot, or when the old CPK cannot be replaced
+at the end, it says why with an error (listed below, after `--no-deploy`), leaves the CPK in the
+output folder instead, and ends with exit code 1.
 
 An export may hold a `notes.txt` at its root, a note for whoever compiles the cup. `compile`
 gathers the notes of every export it compiles into one file, `teamnotes.txt` in the output
@@ -359,6 +365,23 @@ exist, or a file that is not a `.zip` or `.7z`, stops the command before anythin
 says where it is with the line `Info deploy_skipped_by_flag (path=...)`. It cannot be combined
 with `--mode test` or `--mode sideload`.
 
+Without `--no-deploy`, these lines say why the CPK could not be installed, and name the path in
+the output folder where it was left instead (`output=...`):
+
+- `pes_folder_not_found`: the game folder does not exist. Set `pes_folder_path` to the folder PES
+  is installed in.
+- `pes_version_mismatch`, a warning: the game folder holds no `PES20NN.exe` of the version you
+  compile for. Check `pes_version` and `pes_folder_path`. The CPK is still installed.
+- `cpk_name_unlisted`: the game's `DpFileList.bin` does not list the CPK, so the game would not
+  load it. Add the CPK's name to `DpFileList.bin`, or set `cpk_name` to a name it lists.
+- `deploy_target_unwritable`: the `download` folder cannot be written, usually because the game
+  is installed under `Program Files`. Run Studio as administrator and compile again.
+- `old_cpk_locked`: the old CPK could not be replaced because PES is running. Close PES and
+  compile again.
+
+A game folder with no `DpFileList.bin` in its `download` folder is the error
+`dpfilelist_missing`, and the CPK is left in the output folder the same way.
+
 `--mode sideload` is for trying a change in a running game. Instead of a CPK, `compile` writes
 what the CPK would hold as loose files in the `livecpk` folder of the game folder (the
 `pes_folder_path` setting), replacing everything that was there, for FoxDen (PES 2018 to 2021)
@@ -387,6 +410,6 @@ When a command ends, its exit code tells a script how it went:
 | Code | Meaning |
 |---|---|
 | 0 | Finished cleanly. Warnings and notes may have been reported. |
-| 1 | Finished, but some export had an error: something was left out, or kept because `pass_through` is on. |
+| 1 | Finished, but with an error: something of an export was left out, or kept because `pass_through` is on, or the CPK could not be installed into the game and was left in the output folder. |
 | 2 | The command line or a setting is wrong, for example a `cpk_name` that is not a valid file name. Nothing ran. |
 | 3 | The run stopped early, for example because the teams list cannot be read or the output folder cannot be written. |

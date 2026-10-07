@@ -83,7 +83,7 @@ fn a_wide_logo_compiled_for_pes_21_gives_three_letterboxed_squares() {
         &png(1000, 600, |_, _| RED),
     );
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     assert_eq!(
         findings_of(&run.messages(), "co Midcup Logo"),
@@ -137,7 +137,7 @@ fn logos_tagged_crop_and_stretch_fill_the_square_and_a_small_one_is_upscaled() {
         &png(300, 300, |_, _| GREEN),
     );
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     let messages = run.messages();
     assert_eq!(
@@ -206,7 +206,7 @@ fn a_small_logo_gives_the_128_pixel_one_and_an_undecodable_one_drops_the_whole_l
     );
     sandbox.write("exports/dbg Midcup Broken/logo_small.png", b"not an image");
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     let messages = run.messages();
     assert_eq!(
@@ -247,7 +247,7 @@ fn a_logo_compiled_for_pes_19_gets_the_emblem_names() {
         &png(600, 600, |_, _| RED),
     );
 
-    let run = sandbox.run(&pes_settings(&sandbox, 19), &["compile"]);
+    let run = sandbox.run(&pes_settings(&sandbox, 19), &["compile", "--no-deploy"]);
 
     assert_eq!(run.exit_code(), 0);
     let logos = compiled_logos(&sandbox);

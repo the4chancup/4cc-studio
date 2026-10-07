@@ -195,6 +195,21 @@ pub(crate) enum Code {
     OutputCommitFailed,
     /// `--no-deploy`: the CPK was promoted to the output folder instead of installed.
     DeploySkippedByFlag,
+    /// A run that deploys, whose `pes_folder_path` is not a folder (no PES installed, or the
+    /// setting is wrong): the CPK goes to the output folder.
+    PesFolderNotFound,
+    /// The PES folder holds no exe of the target version: `pes_version` or `pes_folder_path`
+    /// may name the wrong game. The run still deploys.
+    PesVersionMismatch,
+    /// The installed `DpFileList.bin` does not list the run's CPK, so the game would not load
+    /// it: the CPK goes to the output folder.
+    CpkNameUnlisted,
+    /// The old CPK in `download/` could not be replaced (PES is running): the CPK goes to the
+    /// output folder.
+    OldCpkLocked,
+    /// `download/` denies writes (it needs administrator rights): the CPK goes to the output
+    /// folder.
+    DeployTargetUnwritable,
     /// The data directory's `overrides/` folder holds files, each put into the CPK at its path
     /// below the folder.
     OverridesActive,
@@ -211,7 +226,7 @@ impl Code {
     /// Every code, for the catalog test: a variant missing here would make its first message
     /// panic in `severity`, so a new variant is added to this list too.
     #[cfg(test)]
-    const ALL: [Code; 65] = [
+    const ALL: [Code; 70] = [
         Code::ExportExtractFailed,
         Code::NoExportsFound,
         Code::ExportDisabled,
@@ -274,6 +289,11 @@ impl Code {
         Code::CpkWriteFailed,
         Code::OutputCommitFailed,
         Code::DeploySkippedByFlag,
+        Code::PesFolderNotFound,
+        Code::PesVersionMismatch,
+        Code::CpkNameUnlisted,
+        Code::OldCpkLocked,
+        Code::DeployTargetUnwritable,
         Code::OverridesActive,
         Code::TeamnotesWriteFailed,
         Code::SourceChangedDuringRun,
@@ -344,6 +364,11 @@ impl Code {
             Code::CpkWriteFailed => "cpk_write_failed",
             Code::OutputCommitFailed => "output_commit_failed",
             Code::DeploySkippedByFlag => "deploy_skipped_by_flag",
+            Code::PesFolderNotFound => "pes_folder_not_found",
+            Code::PesVersionMismatch => "pes_version_mismatch",
+            Code::CpkNameUnlisted => "cpk_name_unlisted",
+            Code::OldCpkLocked => "old_cpk_locked",
+            Code::DeployTargetUnwritable => "deploy_target_unwritable",
             Code::OverridesActive => "overrides_active",
             Code::TeamnotesWriteFailed => "teamnotes_write_failed",
             Code::SourceChangedDuringRun => "source_changed_during_run",
@@ -434,6 +459,11 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("cpk_write_failed", CatalogSeverity::Fatal),
     ("output_commit_failed", CatalogSeverity::Fatal),
     ("deploy_skipped_by_flag", CatalogSeverity::Info),
+    ("pes_folder_not_found", CatalogSeverity::Error),
+    ("pes_version_mismatch", CatalogSeverity::Warning),
+    ("cpk_name_unlisted", CatalogSeverity::Error),
+    ("old_cpk_locked", CatalogSeverity::Error),
+    ("deploy_target_unwritable", CatalogSeverity::Error),
     ("overrides_active", CatalogSeverity::Info),
     ("teamnotes_write_failed", CatalogSeverity::Error),
     ("source_changed_during_run", CatalogSeverity::Fatal),

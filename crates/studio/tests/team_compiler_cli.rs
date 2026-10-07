@@ -49,6 +49,12 @@ impl Sandbox {
         fs::create_dir_all(path.parent().unwrap()).unwrap();
         fs::write(path, contents).unwrap();
     }
+
+    /// The settings line naming the sandbox's `PES/` as the game folder: the default is the
+    /// real install's path, which no test may reach.
+    fn pes_folder_line(&self) -> String {
+        format!("pes_folder_path = '{}'\n", self.root.join("PES").display())
+    }
 }
 
 fn stderr(output: &Output) -> String {
@@ -120,8 +126,9 @@ fn check_prints_one_line_per_finding_and_exits_with_the_worst() {
 // TC-CLI-04
 #[test]
 fn compile_with_a_positional_root_compiles_it_and_leaves_the_settings_file_alone() {
-    let settings = "[common]\npes_version = 21\n";
-    let sandbox = Sandbox::new("positional_root", settings);
+    let sandbox = Sandbox::new("positional_root", "");
+    let settings = format!("[common]\npes_version = 21\n{}", sandbox.pes_folder_line());
+    sandbox.write("data/settings.toml", &settings);
     sandbox.write("data/teams_list.txt", "ID\tName\n714\t/co/\n790\t/dbg/\n");
     let kit = Path::new(env!("CARGO_MANIFEST_DIR")).join(
         "../tools/team_compiler/tests/fixtures/tracer/studio/egg Midcup Tracer/Kits/g1/kit.dds",
@@ -135,21 +142,26 @@ fn compile_with_a_positional_root_compiles_it_and_leaves_the_settings_file_alone
         fs::copy(&kit, folder.join("kit.dds")).unwrap();
     }
 
-    let output = sandbox.run(&["team-compiler", "compile", "elsewhere"]);
+    let output = sandbox.run(&["team-compiler", "compile", "elsewhere", "--no-deploy"]);
 
     assert_eq!(output.status.code(), Some(0), "stderr: {}", stderr(&output));
-    // The default PES folder does not exist, so every working bin is the bundled one.
+    // The sandbox's PES folder does not exist, so every working bin is the bundled one.
+    let cpk = sandbox.root.join("output").join("4cc_99_test.cpk");
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
-        "- Info bin_source (bin=TeamColor.bin, cpk=bundled)\n\
-         - Info bin_source (bin=UniColor.bin, cpk=bundled)\n\
-         - Info bin_source (bin=UniformParameter.bin, cpk=bundled)\n\
-         - co Midcup Kit: Info export_identified (team=/co/, id=714)\n\
-         - co Midcup Kit: Info team_colors_missing\n\
-         - co Midcup Kit: Info kit_config_generated at Kits/p1\n\
-         - co Midcup Kit: Info kit_colors_derived at Kits/p1\n"
+        format!(
+            "- Info bin_source (bin=TeamColor.bin, cpk=bundled)\n\
+             - Info bin_source (bin=UniColor.bin, cpk=bundled)\n\
+             - Info bin_source (bin=UniformParameter.bin, cpk=bundled)\n\
+             - co Midcup Kit: Info export_identified (team=/co/, id=714)\n\
+             - co Midcup Kit: Info team_colors_missing\n\
+             - co Midcup Kit: Info kit_config_generated at Kits/p1\n\
+             - co Midcup Kit: Info kit_colors_derived at Kits/p1\n\
+             - Info deploy_skipped_by_flag (path={})\n",
+            cpk.display()
+        )
     );
-    assert!(sandbox.root.join("output/4cc_99_test.cpk").is_file());
+    assert!(cpk.is_file());
     assert_eq!(
         fs::read(sandbox.root.join("data/settings.toml")).unwrap(),
         settings.as_bytes()
@@ -165,10 +177,15 @@ fn a_settings_file_that_is_not_toml_stops_the_binary_naming_it() {
 
 #[test]
 fn the_settings_beside_the_executable_are_read_whatever_the_working_folder() {
-    let sandbox = Sandbox::new("working_folder", "[team-compiler]\ncpk_name = 'con'\n");
+    let sandbox = Sandbox::new("working_folder", "");
+    let settings = format!(
+        "[common]\n{}[team-compiler]\ncpk_name = 'con'\n",
+        sandbox.pes_folder_line()
+    );
+    sandbox.write("data/settings.toml", &settings);
     let elsewhere = sandbox.root.join("elsewhere");
     fs::create_dir_all(&elsewhere).unwrap();
-    let output = sandbox.run_from(&elsewhere, &["team-compiler", "compile"]);
+    let output = sandbox.run_from(&elsewhere, &["team-compiler", "compile", "--no-deploy"]);
     assert_refused(&output, 2, &["cpk_name"]);
 }
 

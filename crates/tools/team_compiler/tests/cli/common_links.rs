@@ -91,7 +91,7 @@ fn a_common_model_link_bakes_the_model_into_the_face_and_its_texture_stays_in_th
     let cloth = format!("{COMMON_TEXTURES}/cloth.ftex");
     let shirt = "Asset/model/character/common/714/05 - A/sourceimages/#windx11/shirt.ftex";
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     assert_eq!(
         findings_of(&run.messages(), "co Midcup Link"),
@@ -183,7 +183,7 @@ fn a_boots_link_packs_the_common_skeleton_and_two_players_linking_one_model_shar
     );
     let shirt = format!("{COMMON_TEXTURES}/shirt.ftex");
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     assert_eq!(
         findings_of(&run.messages(), "co Midcup Boots"),
@@ -246,7 +246,7 @@ fn two_link_spellings_of_one_common_model_compile_it_once() {
         &tracer_player_file("boots.fmdl"),
     );
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     assert_eq!(run.exit_code(), 0);
     let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
@@ -271,7 +271,7 @@ fn a_common_skeleton_pairs_with_its_model_case_folded() {
     assert_ne!(custom, body_skl("pes21"));
     sandbox.write(&format!("{export}/Common/Boots.skl"), &custom);
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     assert_eq!(run.exit_code(), 0);
     let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
@@ -297,7 +297,7 @@ fn a_boots_link_beside_a_shared_boots_link_combines_the_shared_folder() {
         &tracer_player_file("boots.fmdl"),
     );
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     assert_eq!(
         findings_of(&run.messages(), "co Midcup Combined"),
@@ -358,7 +358,7 @@ fn a_common_skeleton_of_a_slotless_face_model_is_reported_on_the_link_and_not_pa
     assert_eq!(findings_of(&check.messages(), "co Midcup Slot"), findings);
     assert_eq!(check.exit_code(), 0);
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
     assert_eq!(
         findings_of(&run.messages(), "co Midcup Slot"),
         [&findings[..], &["Info team_colors_missing [Keep] ()"]].concat()
@@ -400,7 +400,7 @@ fn a_material_a_local_and_a_common_part_define_over_textures_in_two_places_drops
         &tracer_player_file("boots.fmdl"),
     );
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     assert_eq!(
         findings_of(&run.messages(), "co Midcup Conflict"),
@@ -451,7 +451,7 @@ fn a_common_texture_that_cannot_convert_fails_the_common_task_and_the_linking_pl
         &tracer_player_file("shirt.dds"),
     );
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     let lines = run.messages();
     let findings = findings_of(&lines, "co Midcup Broken");
@@ -530,7 +530,7 @@ fn a_texture_link_points_the_player_s_model_at_the_one_copy_in_the_team_s_common
     let hair = format!("{COMMON_TEXTURES}/hair.ftex");
     let skin = "Asset/model/character/common/714/05 - A/sourceimages/#windx11/skin.ftex";
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     assert_eq!(
         findings_of(&run.messages(), "co Midcup Hair"),
@@ -589,7 +589,7 @@ fn a_texture_link_whose_target_is_not_in_common_drops_its_folder() {
         &tracer_player_file("shirt.dds"),
     );
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     assert_eq!(
         findings_of(&run.messages(), "co Midcup Hair"),
@@ -621,7 +621,7 @@ fn a_link_to_a_material_file_or_a_nested_common_file_is_refused_and_an_unlinked_
     )
     .unwrap();
     material_link.write(&format!("{export}/Common/body.mtl"), &mtl);
-    let run = material_link.run(&pes21_settings(&material_link), &["compile"]);
+    let run = material_link.run(&pes21_settings(&material_link), &["compile", "--no-deploy"]);
     assert_eq!(
         findings_of(&run.messages(), "co Midcup Hair"),
         [
@@ -648,7 +648,7 @@ fn a_link_to_a_material_file_or_a_nested_common_file_is_refused_and_an_unlinked_
         "{}[team-compiler]\nstrict_file_type_check = false\n",
         pes21_settings(&nested)
     );
-    let run = nested.run(&settings, &["compile"]);
+    let run = nested.run(&settings, &["compile", "--no-deploy"]);
     assert_eq!(
         findings_of(&run.messages(), "co Midcup Nested"),
         [
@@ -675,7 +675,7 @@ fn a_link_to_a_material_file_or_a_nested_common_file_is_refused_and_an_unlinked_
         &format!("{export}/Common/spare.skl"),
         &tracer_player_file("fcl_hair.skl"),
     );
-    let run = unlinked.run(&pes21_settings(&unlinked), &["compile"]);
+    let run = unlinked.run(&pes21_settings(&unlinked), &["compile", "--no-deploy"]);
     assert_eq!(
         findings_of(&run.messages(), "co Midcup Spare"),
         [
