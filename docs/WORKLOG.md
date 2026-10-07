@@ -252,6 +252,10 @@ Claude agent with no sidekick and no reviewer of another model family. While tha
   "CLI" (`upgrade-dpfl`), `messages.md` the six `upgrade-dpfl` rows, TC-DEP-09, 10, 13 and the
   decision entries "a stem's renames include its files already under official names" and
   "what `upgrade-dpfl` reports, and the cases the plan left open".
+  4.26a (b), `cpk` (`write.rs` `CpkWriter::len_with`, the shared `tables` layout), its commit
+  of 2026-10-07, against `pipeline.md` "Multi-CPK mode: teams parts" (the first-fit bullet:
+  the cap checked TOC included) and the decision entry "multi-CPK mode: the official list's
+  slots, permits given back, all-or-nothing install".
 - For the lead, on return: the review process on trial (3.1) opens with a full sidekick review
   loop, then runs GPT's loop with a full sidekick loop after each GPT round, calling GPT again
   only once that sidekick loop has ended and GPT's own loop has not; not yet in `AGENTS.md`
@@ -1551,6 +1555,11 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   parts, placeholders, bins CPK and the three size findings, with `--no-deploy` (TC-OUT-12..16;
   a deploying multi-CPK run still refused); 4.26c deploying them all or none and each judged
   by the preflight (TC-DEP-08, TC-DEP-11 without its refs export, which joins at 4.19).
+  4.26a done 2026-10-07 (Opus 5.5, first time): `CpkWriter::len_with`, the finished length
+  with more entries added, from the TOC/ETOC layout `finish` shares (`tables`); the added
+  entries carry no modification time, as the Team compiler's, since an entry without one
+  drops the ETOC (the sidekick's contradiction, accepted); mutants-diff 32: 30 caught, 2
+  unviable; Clef 1 flag rejected.
   Plan: `pipeline.md` "5. Writer" step 6 ("Multi-CPK mode: teams parts"); `settings.md`
   (`multicpk_mode`, `teams_cpk_name`, `cpk_part_max_size`, `bins_cpk_name`). IDs: TC-OUT-12..16,
   TC-DEP-08 (moved from 4.25: it needs this mode), TC-DEP-11. Crates: tc (`output/writer.rs`,
@@ -3078,3 +3087,5 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   - **4.25c:** `upgrade-dpfl [--yes]` lists, then makes, the renames of an old DLC's CPKs by
     stem, the placeholders of empty official slots and the official list (old one as `.bak`),
     the list last; it never deletes or overwrites a CPK. Step 4.25 is done.
+  - **4.26a:** the `cpk` writer tells the length its file would have with more entries
+    (`len_with`), laid out by the code `finish` writes with. 4.26b next.

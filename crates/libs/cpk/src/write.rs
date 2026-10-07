@@ -68,82 +68,62 @@ impl<W: Write + Seek> CpkWriter<W> {
             modified,
         });
         self.writer.write_all(content)?;
-        let padding = (ALIGNMENT - len % ALIGNMENT) % ALIGNMENT;
+        let padding = padding(len);
         self.writer.write_all(&vec![0u8; padding as usize])?;
         self.position += len + padding;
         Ok(())
     }
 
+    /// The length in bytes of the file [`finish`](Self::finish) would write if
+    /// an entry were first added for each `(path, content length)` of `more`, in
+    /// that order, without a modification time (as the Team compiler adds its
+    /// entries). `more` empty gives the length of the file finished now. The
+    /// Team compiler asks this before it puts a whole team into a teams part, to
+    /// keep the part under its size cap, table of contents included.
+    ///
+    /// The answer is exact: the tables are laid out by the same code `finish`
+    /// writes them with. It depends on more than the lengths: on the distinct
+    /// folder and file names (the TOC stores each once) and on whether every
+    /// entry carries a modification time (only then is the `ETOC` written, so
+    /// an entry without one drops it). The paths are taken to be ones
+    /// [`add`](Self::add) accepts. Nothing is written and the writer is
+    /// unchanged.
+    pub fn len_with<'a>(&self, more: impl IntoIterator<Item = (&'a str, u64)>) -> u64 {
+        let mut position = self.position;
+        let mut added = Vec::new();
+        for (path, len) in more {
+            added.push(PendingEntry {
+                path: path.to_owned(),
+                // Truncated as `add` truncates a content length.
+                size: len as u32,
+                offset: position,
+                modified: None,
+            });
+            position += len + padding(len);
+        }
+        let entries = self.files.iter().chain(&added).collect();
+        tables(entries, position).end()
+    }
+
     /// Writes the `TOC ` table, the `ETOC` when every entry has a timestamp,
     /// then the `CPK ` header table at offset 0, and returns the writer.
     pub fn finish(mut self) -> Result<W, CpkError> {
-        let mut sorted: Vec<&PendingEntry> = self.files.iter().collect();
-        sorted.sort_by_key(|f| f.path.to_uppercase());
-
-        let mut toc = table(
-            "CpkTocInfo",
-            &[
-                ("DirName", UtfKind::String),
-                ("FileName", UtfKind::String),
-                ("FileSize", UtfKind::U32),
-                ("ExtractSize", UtfKind::U32),
-                ("FileOffset", UtfKind::U64),
-                ("ID", UtfKind::U32),
-                ("UserString", UtfKind::String),
-            ],
-        );
-        let mut etoc = table(
-            "CpkEtocInfo",
-            &[
-                ("UpdateDateTime", UtfKind::U64),
-                ("LocalDir", UtfKind::String),
-            ],
-        );
-
-        let mut total_size = 0u64;
-        for entry in &sorted {
-            let (dir, file) = split_path(&entry.path);
-            toc.rows.push(vec![
-                UtfValue::String(dir.clone()),
-                UtfValue::String(file),
-                UtfValue::U32(entry.size),
-                UtfValue::U32(entry.size),
-                UtfValue::U64(entry.offset - ALIGNMENT),
-                UtfValue::U32(toc.rows.len() as u32),
-                UtfValue::String(String::new()),
-            ]);
-            if let Some(modified) = entry.modified {
-                etoc.rows.push(vec![
-                    UtfValue::U64(modified.to_packed()),
-                    UtfValue::String(dir),
-                ]);
-            }
-            total_size += u64::from(entry.size);
+        let tables = tables(self.files.iter().collect(), self.position);
+        self.writer.write_all(&tables.toc)?;
+        if let Some((offset, bytes)) = &tables.etoc {
+            let toc_end = tables.toc_offset + tables.toc.len() as u64;
+            self.writer
+                .write_all(&vec![0u8; (offset - toc_end) as usize])?;
+            self.writer.write_all(bytes)?;
         }
 
-        let toc_offset = self.position;
-        let toc_bytes = toc.write(b"TOC ");
-        let toc_size = toc_bytes.len() as u64;
-        self.writer.write_all(&toc_bytes)?;
-        self.position += toc_size;
-
-        let (etoc_offset, etoc_size) = if etoc.rows.len() == toc.rows.len() {
-            let padding = (ALIGNMENT - toc_size % ALIGNMENT) % ALIGNMENT;
-            self.writer.write_all(&vec![0u8; padding as usize])?;
-            self.position += padding;
-            // The trailing all-empty row the layout ends with.
-            etoc.rows
-                .push(vec![UtfValue::U64(0), UtfValue::String(String::new())]);
-            let offset = self.position;
-            let bytes = etoc.write(b"ETOC");
-            let size = bytes.len() as u64;
-            self.writer.write_all(&bytes)?;
-            (Some(offset), Some(size))
-        } else {
-            (None, None)
-        };
-
-        let header = self.header_table(toc_offset, toc_size, etoc_offset, etoc_size, total_size);
+        let header = self.header_table(
+            tables.toc_offset,
+            tables.toc.len() as u64,
+            tables.etoc.as_ref().map(|(offset, _)| *offset),
+            tables.etoc.as_ref().map(|(_, bytes)| bytes.len() as u64),
+            tables.content_size,
+        );
         let header_bytes = header.write(b"CPK ");
         if header_bytes.len() as u64 > ALIGNMENT {
             return Err(CpkError::HeaderTooLarge);
@@ -241,6 +221,103 @@ impl<W: Write + Seek> CpkWriter<W> {
         add("CrcMode", UtfKind::U32, UtfValue::U32(0));
         add("CrcTable", UtfKind::Bytes, UtfValue::Bytes(Vec::new()));
         header
+    }
+}
+
+/// The zero bytes that follow `len` bytes to reach the next 0x800 boundary.
+fn padding(len: u64) -> u64 {
+    (ALIGNMENT - len % ALIGNMENT) % ALIGNMENT
+}
+
+/// The tables written after the file contents, serialized, and where each
+/// starts in the file.
+struct Tables {
+    /// Where the `TOC ` starts: the end of the padded contents.
+    toc_offset: u64,
+    /// The `TOC ` table's bytes.
+    toc: Vec<u8>,
+    /// The `ETOC`'s offset and bytes, present only when every entry carries a
+    /// modification time. It starts at the 0x800 boundary after the `TOC `.
+    etoc: Option<(u64, Vec<u8>)>,
+    /// The sum of the entries' sizes, without padding.
+    content_size: u64,
+}
+
+impl Tables {
+    /// The file's length: the end of its last table.
+    fn end(&self) -> u64 {
+        match &self.etoc {
+            Some((offset, bytes)) => offset + bytes.len() as u64,
+            None => self.toc_offset + self.toc.len() as u64,
+        }
+    }
+}
+
+/// Lays out the `TOC ` and the `ETOC` of `entries`, the `TOC ` at
+/// `toc_offset`. `finish` writes these bytes and `len_with` measures them, so
+/// the predicted length cannot drift from the written one.
+fn tables(mut entries: Vec<&PendingEntry>, toc_offset: u64) -> Tables {
+    entries.sort_by_key(|f| f.path.to_uppercase());
+
+    let mut toc = table(
+        "CpkTocInfo",
+        &[
+            ("DirName", UtfKind::String),
+            ("FileName", UtfKind::String),
+            ("FileSize", UtfKind::U32),
+            ("ExtractSize", UtfKind::U32),
+            ("FileOffset", UtfKind::U64),
+            ("ID", UtfKind::U32),
+            ("UserString", UtfKind::String),
+        ],
+    );
+    let mut etoc = table(
+        "CpkEtocInfo",
+        &[
+            ("UpdateDateTime", UtfKind::U64),
+            ("LocalDir", UtfKind::String),
+        ],
+    );
+
+    let mut content_size = 0u64;
+    for entry in &entries {
+        let (dir, file) = split_path(&entry.path);
+        toc.rows.push(vec![
+            UtfValue::String(dir.clone()),
+            UtfValue::String(file),
+            UtfValue::U32(entry.size),
+            UtfValue::U32(entry.size),
+            UtfValue::U64(entry.offset - ALIGNMENT),
+            UtfValue::U32(toc.rows.len() as u32),
+            UtfValue::String(String::new()),
+        ]);
+        if let Some(modified) = entry.modified {
+            etoc.rows.push(vec![
+                UtfValue::U64(modified.to_packed()),
+                UtfValue::String(dir),
+            ]);
+        }
+        content_size += u64::from(entry.size);
+    }
+
+    let toc_bytes = toc.write(b"TOC ");
+    let etoc = if etoc.rows.len() == toc.rows.len() {
+        let toc_size = toc_bytes.len() as u64;
+        // The trailing all-empty row the layout ends with.
+        etoc.rows
+            .push(vec![UtfValue::U64(0), UtfValue::String(String::new())]);
+        Some((
+            toc_offset + toc_size + padding(toc_size),
+            etoc.write(b"ETOC"),
+        ))
+    } else {
+        None
+    };
+    Tables {
+        toc_offset,
+        toc: toc_bytes,
+        etoc,
+        content_size,
     }
 }
 

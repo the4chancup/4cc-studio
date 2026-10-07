@@ -665,4 +665,142 @@ mod tests {
         );
         assert_eq!(archive.entries()[0].modified, None);
     }
+
+    /// Twenty entries of team 714 (/co/) as the Team compiler writes them, with
+    /// content lengths from 0 to 5000: short and long paths, one of 48
+    /// characters (the boots package), several sharing a folder, and folders
+    /// nested five deep and more.
+    const TEAM_714: [(&str, usize); 20] = [
+        ("common/etc/TeamColor.bin", 0),
+        ("Asset/model/character/boots/k0714/#Win/boots.fpk", 5000),
+        ("Asset/model/character/boots/k0714/#Win/boots.fpkd", 2048),
+        ("Asset/model/character/face/real/71401/#Win/face.fpk", 2049),
+        ("Asset/model/character/face/real/71401/#Win/face.fpkd", 320),
+        ("Asset/model/character/face/real/71405/#Win/face.fpk", 1448),
+        ("Asset/model/character/face/real/71405/#Win/face.fpkd", 29),
+        (
+            "Asset/model/character/uniform/texture/#windx11/u0714p1.ftex",
+            4096,
+        ),
+        (
+            "Asset/model/character/uniform/texture/#windx11/u0714p2.ftex",
+            2047,
+        ),
+        (
+            "Asset/model/character/uniform/texture/#windx11/u0714g1.ftex",
+            4999,
+        ),
+        (
+            "Asset/model/character/common/714/sourceimages/#windx11/hair_bsm.ftex",
+            1,
+        ),
+        (
+            "Asset/model/character/common/714/05 - A/sourceimages/#windx11/face_bsm.ftex",
+            3000,
+        ),
+        ("common/render/symbol/player/71401.dds", 777),
+        ("common/render/symbol/player/71405.dds", 4095),
+        ("common/render/symbol/flag/e_000714_r_ll.png", 2500),
+        ("common/render/symbol/flag/e_000714_r_l.png", 1024),
+        ("common/render/symbol/flag/e_000714_r.png", 63),
+        (
+            "common/character0/model/character/uniform/team/714/714_DEF_GK1st_realUni.bin",
+            100,
+        ),
+        (
+            "common/character0/model/character/uniform/team/UniformParameter.bin",
+            12,
+        ),
+        (
+            "common/character0/model/character/face/real/71401/face.model",
+            17,
+        ),
+    ];
+
+    /// A writer holding `first`, each entry `modified` and filled with its
+    /// length's worth of bytes.
+    fn writer_with(
+        first: &[(&str, usize)],
+        modified: Option<CpkTimestamp>,
+    ) -> CpkWriter<Cursor<Vec<u8>>> {
+        let mut writer = CpkWriter::new(Cursor::new(Vec::new()), "studio-test").unwrap();
+        for (path, len) in first {
+            writer.add(path, &vec![0x5A; *len], modified).unwrap();
+        }
+        writer
+    }
+
+    /// `len_with(rest)` on a writer holding `first`, against the length of the
+    /// file written by adding `rest` (without timestamps) and finishing.
+    fn assert_len_with_is_finished_len(
+        first: &[(&str, usize)],
+        rest: &[(&str, usize)],
+        modified: Option<CpkTimestamp>,
+    ) {
+        let mut writer = writer_with(first, modified);
+        let predicted = writer.len_with(rest.iter().map(|(path, len)| (*path, *len as u64)));
+        for (path, len) in rest {
+            writer.add(path, &vec![0x5A; *len], None).unwrap();
+        }
+        let written = writer.finish().unwrap().into_inner().len() as u64;
+        assert_eq!(
+            predicted,
+            written,
+            "{} entries then {} more",
+            first.len(),
+            rest.len()
+        );
+    }
+
+    #[test]
+    fn len_with_is_the_finished_length_of_single_entries() {
+        let path = "Asset/model/character/uniform/texture/#windx11/u0714p1.ftex";
+        assert_len_with_is_finished_len(&[], &[], None);
+        for len in [0, 0x800, 0x801] {
+            assert_len_with_is_finished_len(&[], &[(path, len)], None);
+            assert_len_with_is_finished_len(&[(path, len)], &[], None);
+        }
+    }
+
+    #[test]
+    fn len_with_is_the_finished_length_of_a_team_split_anywhere() {
+        let (first, second) = TEAM_714.split_at(10);
+        assert_len_with_is_finished_len(first, second, None);
+        assert_len_with_is_finished_len(&[], &TEAM_714, None);
+        assert_len_with_is_finished_len(&TEAM_714, &[], None);
+    }
+
+    #[test]
+    fn len_with_counts_the_etoc_only_while_every_entry_has_a_timestamp() {
+        let stamp = CpkTimestamp {
+            year: 2026,
+            month: 10,
+            day: 7,
+            hour: 12,
+            minute: 0,
+            second: 0,
+        };
+        // All timestamped: the ETOC is written and counted.
+        assert_len_with_is_finished_len(&TEAM_714, &[], Some(stamp));
+        // The added entries carry none, so neither file has an ETOC.
+        let (first, second) = TEAM_714.split_at(10);
+        assert_len_with_is_finished_len(first, second, Some(stamp));
+    }
+
+    #[test]
+    fn len_with_leaves_the_writer_unchanged() {
+        let (first, second) = TEAM_714.split_at(10);
+        let more = || second.iter().map(|(path, len)| (*path, *len as u64));
+        let finished = |mut writer: CpkWriter<Cursor<Vec<u8>>>| {
+            for (path, len) in second {
+                writer.add(path, &vec![0x5A; *len], None).unwrap();
+            }
+            writer.finish().unwrap().into_inner()
+        };
+
+        let asked = writer_with(first, None);
+        let once = asked.len_with(more());
+        assert_eq!(asked.len_with(more()), once);
+        assert_eq!(finished(asked), finished(writer_with(first, None)));
+    }
 }
