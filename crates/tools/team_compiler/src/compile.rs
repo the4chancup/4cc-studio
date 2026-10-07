@@ -32,7 +32,7 @@ use crate::output::sink::OutputSink;
 use crate::output::teamnotes;
 use crate::output::writer::{CpkOutput, Referees};
 use crate::paths::REFEREE_TEAM_ID;
-use crate::plan::{BuildManifest, BuildTask, overrides, plan_run};
+use crate::plan::{BuildManifest, BuildTask, ExportToPlan, overrides, plan_run};
 use crate::processing::{
     CompileContext, EntryTarget, TEST_BINS_PREFIX, TaskBatch, TaskFiles, process_task,
 };
@@ -293,12 +293,13 @@ fn plan(
             events.message(message);
         }
         if let Some(resolved) = checked.resolved {
-            exports.push((
-                checked.source.export_id,
-                resolved,
-                checked.team_colors,
-                checked.notes,
-            ));
+            exports.push(ExportToPlan {
+                export_id: checked.source.export_id,
+                export: resolved,
+                team_colors: checked.team_colors,
+                notes: checked.notes,
+                hand_weighted: checked.hand_weighted,
+            });
         }
         sources.push((checked.source, checked.revision));
     }
@@ -1026,6 +1027,7 @@ mod tests {
             combined: Vec::new(),
             common_models: Vec::new(),
             common_texture_stems: BTreeSet::new(),
+            hand_split: BTreeSet::new(),
             textures: TextureHome::PlayerCommon {
                 folder_name: "05 - The Chad Stormworks Player".to_owned(),
             },

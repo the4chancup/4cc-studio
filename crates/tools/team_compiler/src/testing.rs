@@ -12,11 +12,12 @@ use aesthetics_export::{
 };
 use crossbeam_channel::unbounded;
 use pes_version::PesVersion;
-use studio_core::{AppPaths, Settings, ToolContext};
+use studio_core::{AppPaths, ExportId, Settings, ToolContext};
 use teams_list::TeamsList;
 
 use crate::bins::Rgb;
 use crate::messages::TOOL_ID;
+use crate::plan::ExportToPlan;
 use crate::settings::default_table;
 use crate::templates::Templates;
 
@@ -154,6 +155,23 @@ pub(crate) fn poll_until_done(mut poll: impl FnMut() -> bool) {
 /// an export planned with them reports no `team_colors_missing`.
 pub(crate) fn two_team_colors() -> Option<Vec<Rgb>> {
     Some(vec![[0xc1, 0x12, 0x00], [0x41, 0x41, 0x41]])
+}
+
+/// `export`, numbered `export_id`, as planning takes it with the root `colors.txt` colors
+/// `team_colors` and the note `notes`, the deep pass having found no FMDL with hand weights.
+pub(crate) fn to_plan(
+    export_id: ExportId,
+    export: ResolvedAestheticsExport,
+    team_colors: Option<Vec<Rgb>>,
+    notes: Option<String>,
+) -> ExportToPlan {
+    ExportToPlan {
+        export_id,
+        export,
+        team_colors,
+        notes,
+        hand_weighted: BTreeSet::new(),
+    }
 }
 
 /// The export `name` with these files (path, size), folders and `players.txt`, validated

@@ -1,8 +1,9 @@
 //! The deep pass's model checks (`team_compiler/messages.md` "Model checks"): which rules
 //! the format crates' checks fire on a native model (`.fmdl`, `.model`) or a `.mtl`, one
-//! entry per code.
+//! entry per code, and whether an FMDL carries hand weights.
 
 use fmdl::{FmdlFile, Model};
+use model_convert::ops::hand_split::fox_has_hand_weights;
 use pes_model::format::PreFoxModel;
 use pes_model::format::mtl::MaterialSet;
 
@@ -63,37 +64,55 @@ impl Fired {
     }
 }
 
-/// The rules the format crate's check fires on `bytes`, read as `kind`, or the reader's error
-/// text when they do not parse.
-pub(super) fn fired(kind: ModelKind, bytes: &[u8]) -> Result<Vec<Fired>, String> {
-    let fired = match kind {
+/// What the deep pass learns from one parsed model or material set.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct ModelRead {
+    /// The rules the format crate's check fired on it.
+    pub(super) fired: Vec<Fired>,
+    /// An FMDL whose vertices carry a positive weight on a hand-skeleton bone (`skh_*_l`,
+    /// `skh_*_r`): planning gives a player folder holding it as a face part a gloves task, and
+    /// the face and gloves tasks split it (`pipeline.md` "2. Per-export serial steps", step 6).
+    /// Always `false` for a pre-Fox model or a material set.
+    pub(super) hand_weighted: bool,
+}
+
+/// What `bytes`, read as `kind`, tells the deep pass (`ModelRead`), or the reader's error text
+/// when they do not parse. The model is parsed once for both questions.
+pub(super) fn fired(kind: ModelKind, bytes: &[u8]) -> Result<ModelRead, String> {
+    let (fired, hand_weighted) = match kind {
         ModelKind::Fmdl => {
             let model = FmdlFile::read(bytes)
                 .and_then(|file| Model::from_file(&file))
                 .map_err(|error| error.to_string())?;
-            fmdl::check::check(&model)
+            let fired = fmdl::check::check(&model)
                 .into_iter()
                 .map(Fired::fox)
-                .collect()
+                .collect();
+            (fired, fox_has_hand_weights(&model))
         }
         ModelKind::PreFoxModel => {
             let model = PreFoxModel::read(bytes)
                 .and_then(|file| pes_model::model::Model::from_file(&file))
                 .map_err(|error| error.to_string())?;
-            pes_model::check::check(&model)
+            let fired = pes_model::check::check(&model)
                 .into_iter()
                 .map(Fired::pre_fox)
-                .collect()
+                .collect();
+            (fired, false)
         }
         ModelKind::Mtl => {
             let set = MaterialSet::read(bytes).map_err(|error| error.to_string())?;
-            pes_model::check::check_materials(&set)
+            let fired = pes_model::check::check_materials(&set)
                 .into_iter()
                 .map(Fired::pre_fox)
-                .collect()
+                .collect();
+            (fired, false)
         }
     };
-    Ok(fired)
+    Ok(ModelRead {
+        fired,
+        hand_weighted,
+    })
 }
 
 /// `fired` with one entry per code, in the order each code first fired, its counts summed:

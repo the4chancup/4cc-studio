@@ -148,7 +148,7 @@ mod tests {
 
     use super::*;
     use crate::plan::plan_run;
-    use crate::testing::{resolved, two_team_colors};
+    use crate::testing::{resolved, to_plan, two_team_colors};
 
     /// A `Models` task as the tests compare it: its manifest position, package and ids.
     type PlannedModels = (usize, ModelPackage, Vec<u32>);
@@ -173,7 +173,7 @@ mod tests {
             None,
         );
         let report = plan_run(
-            vec![(ExportId(0), export, two_team_colors(), None)],
+            vec![to_plan(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes21,
         );
         let models = report
@@ -275,7 +275,7 @@ mod tests {
             Some(b"03 A\n08 A\n09 B\n11 B\n"),
         );
         let report = plan_run(
-            vec![(ExportId(0), export, two_team_colors(), None)],
+            vec![to_plan(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes21,
         );
         // A's face (0) and boots (1) under slots 03 and 08; B's face (2); Keeper's gloves (3).

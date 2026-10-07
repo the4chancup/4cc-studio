@@ -66,7 +66,7 @@ mod tests {
 
     use super::*;
     use crate::plan::{PlanReport, TaskKind, plan_run};
-    use crate::testing::{resolved, two_team_colors};
+    use crate::testing::{resolved, to_plan, two_team_colors};
 
     /// The run planned for PES 21 over the exports `exports` (name, files), in that order, each
     /// with two team colors, every file one byte.
@@ -76,7 +76,7 @@ mod tests {
             .zip(0..)
             .map(|((name, files), index)| {
                 let files: Vec<(&str, u64)> = files.iter().map(|path| (*path, 1)).collect();
-                (
+                to_plan(
                     ExportId(index),
                     resolved(name, &files, &[], None),
                     two_team_colors(),
@@ -245,7 +245,7 @@ mod tests {
         });
 
         let report = plan_run(
-            vec![(ExportId(0), export, two_team_colors(), None)],
+            vec![to_plan(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes21,
         );
 

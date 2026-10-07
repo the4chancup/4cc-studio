@@ -68,6 +68,30 @@ pub(crate) fn has_hand_weights(ir: &CanonicalModel) -> bool {
     })
 }
 
+/// Whether the FMDL `model` carries a positive weight on a hand-skeleton bone (`skh_*_l` or
+/// `skh_*_r`), the hand auto-split's detection rule: read from the model's own bone weights
+/// and bone names, with no IR import, and only a weighted slot counts, so a hand bone that
+/// a bone group lists without any vertex weighing on it does not.
+pub fn fox_has_hand_weights(model: &::fmdl::Model) -> bool {
+    model.meshes.iter().any(|mesh| {
+        let (Some(indices), Some(weights)) =
+            (&mesh.vertices.bone_indices, &mesh.vertices.bone_weights)
+        else {
+            return false;
+        };
+        indices.iter().zip(weights).any(|(row, ws)| {
+            row.iter().enumerate().any(|(slot, &entry)| {
+                ws[slot] > 0
+                    && mesh
+                        .bone_group
+                        .get(usize::from(entry))
+                        .and_then(|&bone| model.bones.get(bone))
+                        .is_some_and(|bone| hand_of(&bone.name).is_some())
+            })
+        })
+    })
+}
+
 /// The topological identity key: position bits, the bone index row, the weight bits —
 /// the same fields `fmdl::ops::vertex_enc`'s `topological_key` groups on. UVs are
 /// deliberately absent: a UV seam is two entries, one topological vertex.
@@ -614,6 +638,42 @@ mod tests {
         assert_eq!(split.body, ir);
         assert_eq!(split.glove_l, None);
         assert_eq!(split.glove_r, None);
+    }
+
+    #[test]
+    fn the_fmdl_check_follows_weights_not_names() {
+        // The wrist mesh written as an FMDL: its column x = 4 weighs fully on skh_index_l.
+        let ir = model(
+            vec![bone("sk_forearm_l"), bone("sk_hand_l"), bone("skh_index_l")],
+            wrist_mesh(),
+        );
+        let mut fmdl = crate::formats::fmdl::ir_to_fmdl(&ir).unwrap().model;
+        assert!(fox_has_hand_weights(&fmdl));
+
+        // Every slot naming the hand bone weighted 0: the bone stays in the group.
+        let hand = fmdl
+            .bones
+            .iter()
+            .position(|bone| bone.name == "skh_index_l")
+            .unwrap();
+        let mut listed = false;
+        for mesh in &mut fmdl.meshes {
+            let Some(entry) = mesh.bone_group.iter().position(|&bone| bone == hand) else {
+                continue;
+            };
+            listed = true;
+            let indices = mesh.vertices.bone_indices.as_ref().unwrap();
+            let weights = mesh.vertices.bone_weights.as_mut().unwrap();
+            for (row, ws) in indices.iter().zip(weights.iter_mut()) {
+                for (slot, &index) in row.iter().enumerate() {
+                    if usize::from(index) == entry {
+                        ws[slot] = 0;
+                    }
+                }
+            }
+        }
+        assert!(listed, "a bone group still lists skh_index_l");
+        assert!(!fox_has_hand_weights(&fmdl));
     }
 
     #[test]

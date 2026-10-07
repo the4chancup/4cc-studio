@@ -3671,6 +3671,7 @@ dependencies = [
  "ftex",
  "kit_config",
  "log",
+ "model_convert",
  "pes_model",
  "pes_savefile",
  "pes_version",

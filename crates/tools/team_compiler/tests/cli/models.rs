@@ -14,6 +14,7 @@ use std::path::Path;
 use fmdl::ops::paths::texture_paths;
 use fmdl::{FmdlFile, Model};
 
+use crate::bins::{BOOTS_LIST, GLOVE_LIST, install_tables, item_list, pairs_of};
 use crate::common::Sandbox;
 use crate::compile::{cpk_entries, pes21_settings, tracer_kit, tracer_player_file};
 use crate::face_folders::assert_blank_face;
@@ -1644,4 +1645,76 @@ fn per_kit_models_on_pes_21_compile_the_lowest_variant_alone_and_say_so() {
         face_package(entries).get("fcl_hair.fmdl").unwrap().to_vec()
     };
     assert!(hair(&both) == hair(&alone), "the packed hair differs");
+}
+
+/// The number of faces of the model `name` in the package at `path` in `entries`, read back
+/// with `fmdl`.
+fn face_count(entries: &BTreeMap<String, Vec<u8>>, path: &str, name: &str) -> usize {
+    let package = fpk::FpkFile::read(&entries[path]).unwrap();
+    let model = Model::from_file(&FmdlFile::read(package.get(name).unwrap()).unwrap()).unwrap();
+    model.meshes.iter().map(|mesh| mesh.faces.len()).sum()
+}
+
+// TC-MOD-31
+#[test]
+fn a_face_model_weighted_to_the_hand_bones_gives_its_hands_to_the_player_s_gloves() {
+    let sandbox = Sandbox::new("mod_hand_split");
+    install_tables(
+        &sandbox,
+        &[(BOOTS_LIST, &item_list(&[])), (GLOVE_LIST, &item_list(&[]))],
+    );
+    // A full-body model with both hands on (`tests/fixtures/hand_split/README.md`): 40
+    // faces, of which each hand's split takes 8 and the body keeps 24. Slot 05 holds it as
+    // a face model, slot 06 the same bytes as boots, which are never split.
+    let body =
+        fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/hand_split/body.fmdl"))
+            .unwrap();
+    let export = "exports/co Midcup Hands";
+    sandbox.write(&format!("{export}/Players/05 - A/body.fmdl"), &body);
+    sandbox.write(&format!("{export}/Players/06 - B/boots.fmdl"), &body);
+
+    let entries = compile_clean(
+        &sandbox,
+        "co Midcup Hands",
+        &[
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info fmdl_fcl_hair_fallback [Keep] at Players/05 - A (file=body.fmdl)",
+            "Info team_colors_missing [Keep] ()",
+            "Info model_hand_split [Keep] at Players/05 - A (model=body.fmdl, gloves=glove_l, glove_r)",
+        ],
+    );
+
+    let gloves = "Asset/model/character/glove/g0625/#Win/glove.fpk";
+    assert_eq!(
+        package_names(&entries[gloves]),
+        ["glove_l.fmdl", "glove_r.fmdl"]
+    );
+    let face = "Asset/model/character/face/real/71405/#Win/face.fpk";
+    let split = [
+        face_count(&entries, gloves, "glove_l.fmdl"),
+        face_count(&entries, gloves, "glove_r.fmdl"),
+        face_count(&entries, face, "fcl_hair.fmdl"),
+    ];
+    assert_eq!(split, [8, 8, 24]);
+    assert_eq!(
+        split.iter().sum::<usize>(),
+        40,
+        "every face of the source, once"
+    );
+    assert_eq!(pairs_of(&entries, GLOVE_LIST), [(71405, 625)]);
+
+    // Slot 06's boots keep the whole model, and give no gloves.
+    let boots = "Asset/model/character/boots/k0626/#Win/boots.fpk";
+    assert_eq!(face_count(&entries, boots, "boots.fmdl"), 40);
+    assert!(
+        !entries
+            .keys()
+            .any(|path| path.starts_with("Asset/model/character/glove/g0626/")),
+        "no gloves for slot 06"
+    );
+    assert_eq!(
+        pairs_of(&entries, BOOTS_LIST),
+        [(71406, 626)],
+        "slot 06's boots"
+    );
 }

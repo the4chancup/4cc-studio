@@ -9,6 +9,9 @@ use std::collections::{BTreeMap, BTreeSet};
 use fmdl::ops::merge::{MergeError, merge};
 use fmdl::ops::paths::{TexturePath, rewrite_texture_paths, used_texture_paths};
 use fmdl::{FmdlFile, Model};
+use model_convert::formats::fmdl::{fmdl_to_ir, ir_to_fmdl};
+use model_convert::ir::CanonicalModel;
+use model_convert::ops::hand_split::split_by_skeleton_group;
 use studio_core::Disposition;
 use vtree::ScopePath;
 
@@ -51,7 +54,8 @@ enum PartTextures {
 
 /// The files of `folder`'s `package`, compiled from its files' bytes in `files` for team
 /// `team_id`, by their names in the package, a file the game needs beside the models that no
-/// source holds taken from the run's templates. A
+/// source holds taken from the run's templates. A hand-split face part gives the face its body
+/// and the gloves its hands (`parts_of`), before any texture path is rewritten. A
 /// merge of several parts into one model is noted in `findings` as `fmdl_merged`. A texture a
 /// part's mesh uses that nothing supplies (`texture_supply`) fails the task with
 /// `fmdl_texture_not_found` at the first one, or, when the installed CPKs cannot be looked in,
@@ -78,6 +82,13 @@ pub(super) fn package(
         let mut skeletons: BTreeMap<String, Vec<u8>> = BTreeMap::new();
         let mut source_parts: Vec<Part> = Vec::new();
         for (file, role) in source_files {
+            // A hand-split face part (`ModelFolder::hand_split`) is read by the face task, which
+            // keeps its body, and by the gloves task, which keeps its hands.
+            let hand_split = folder.hand_split.contains(&file.path)
+                && match package {
+                    ModelPackage::Face | ModelPackage::Gloves => true,
+                    ModelPackage::Boots => false,
+                };
             let mut part = |name, textures| Part {
                 name,
                 path: file.path.clone(),
@@ -89,11 +100,17 @@ pub(super) fn package(
                 PlayerFile::Model {
                     package: owner,
                     name,
-                } if owner == package => source_parts.push(part(name, PartTextures::Folder)),
+                } if owner == package || hand_split => {
+                    let part = part(name, PartTextures::Folder);
+                    source_parts.extend(parts_of(part, hand_split, package, ctx, findings)?);
+                }
                 PlayerFile::CommonModel {
                     package: owner,
                     name,
-                } if owner == package => source_parts.push(part(name, PartTextures::Common)),
+                } if owner == package || hand_split => {
+                    let part = part(name, PartTextures::Common);
+                    source_parts.extend(parts_of(part, hand_split, package, ctx, findings)?);
+                }
                 PlayerFile::Skeleton { package: owner, .. } if owner == package => {
                     skeletons.insert(
                         vtree::fold_name(file_stem(file.path.as_str())),
@@ -295,6 +312,116 @@ fn merged_skeleton(parts: &mut [Part]) -> Result<Option<Vec<u8>>, TaskFailure> {
         });
     }
     Ok(first)
+}
+
+/// The parts `part`, a model of the folder's, gives `package`: the part itself, or, when it
+/// is a hand-split face part (`hand_split`), what the hand auto-split leaves the package
+/// (`model_conversion/hand_split.md`). The face keeps the body, under the part's name and
+/// path, so it pairs the part's skeleton, and is told so by `model_hand_split` naming the
+/// part's file and the gloves made; a body left with no face (a model that was all hand) is
+/// no part at all. The gloves get a `glove_l` and a `glove_r` part, for each hand the model
+/// has, with the part's path and textures and no skeleton, merged with any authored glove of
+/// that name like any other part. A model the split cannot read or write fails the task with
+/// `model_conversion_failed`.
+fn parts_of(
+    part: Part,
+    hand_split: bool,
+    package: ModelPackage,
+    ctx: &CompileContext,
+    findings: &mut Vec<Finding>,
+) -> Result<Vec<Part>, TaskFailure> {
+    if !hand_split {
+        return Ok(vec![part]);
+    }
+    let split = {
+        // The split's model, its IR and its written parts, charged at the source's size, an
+        // estimate of each form, while they are built.
+        let _split_charge = ctx.budget.charge(part.bytes.len());
+        split_fmdl(&part.bytes).map_err(|error| TaskFailure {
+            code: Code::ModelConversionFailed,
+            context: vec![
+                ("model", part.path.name().to_owned()),
+                ("error", format!("{error:#}")),
+            ],
+        })?
+    };
+    let gloves = [("glove_l", split.glove_l), ("glove_r", split.glove_r)];
+    match package {
+        ModelPackage::Face => {
+            let made: Vec<&str> = gloves
+                .iter()
+                .filter(|(_, bytes)| bytes.is_some())
+                .map(|(name, _)| *name)
+                .collect();
+            findings.push((
+                Code::ModelHandSplit,
+                Disposition::Keep,
+                vec![
+                    ("model", part.path.name().to_owned()),
+                    ("gloves", made.join(", ")),
+                ],
+            ));
+            Ok(split
+                .body
+                .map(|bytes| Part { bytes, ..part })
+                .into_iter()
+                .collect())
+        }
+        ModelPackage::Gloves => Ok(gloves
+            .into_iter()
+            .filter_map(|(name, bytes)| {
+                Some(Part {
+                    name,
+                    path: part.path.clone(),
+                    bytes: bytes?,
+                    skeleton: None,
+                    textures: part.textures,
+                })
+            })
+            .collect()),
+        ModelPackage::Boots => {
+            unreachable!("only the face and gloves tasks read a hand-split part (`package`)")
+        }
+    }
+}
+
+/// An FMDL after the hand auto-split, each part written back as an FMDL.
+struct SplitFmdl {
+    /// The model without its hands; `None` when no face is left.
+    body: Option<Vec<u8>>,
+    /// The left hand, when the model weighs vertices on an `skh_*_l` bone.
+    glove_l: Option<Vec<u8>>,
+    /// The right hand, when the model weighs vertices on an `skh_*_r` bone.
+    glove_r: Option<Vec<u8>>,
+}
+
+/// The FMDL `bytes` split at the wrists (`model_convert`'s `split_by_skeleton_group`), through
+/// `model_convert`'s IR and back.
+fn split_fmdl(bytes: &[u8]) -> anyhow::Result<SplitFmdl> {
+    let model = Model::from_file(&FmdlFile::read(bytes)?)?;
+    // Imported without the paired `.skl`: the round trip then keeps the FMDL's own bone table,
+    // which is what the split keeps (measured, `hand_split.md` "Pipeline integration"). The
+    // import's and the export's findings, `model_convert`'s loss codes, are left unreported
+    // on purpose: cross-format conversion, a later step, maps those codes for every converted
+    // model, and on the measured model the round trip reported only the dropped bone-matrix
+    // block, which no community FMDL carries.
+    let ir = fmdl_to_ir(&model, None)?.model;
+    let split = split_by_skeleton_group(&ir);
+    // The export's own `.skl`, for bones the game's template lacks, is not packed: the body
+    // keeps the part's paired skeleton, and a glove has no skeleton slot.
+    let write = |part: &CanonicalModel| -> anyhow::Result<Vec<u8>> {
+        Ok(ir_to_fmdl(part)?.model.to_file()?.write())
+    };
+    let body = if split.body.meshes.is_empty() {
+        None
+    } else {
+        Some(write(&split.body)?)
+    };
+    Ok(SplitFmdl {
+        body,
+        glove_l: split.glove_l.as_ref().map(write).transpose()?,
+        glove_r: split.glove_r.as_ref().map(write).transpose()?,
+    })
 }
 
 /// Points `path`, one texture reference of a part, at where its texture is: the directory of

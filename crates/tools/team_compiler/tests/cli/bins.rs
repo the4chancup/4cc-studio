@@ -624,17 +624,17 @@ fn a_templates_file_replaces_the_bundled_base_and_one_that_cannot_be_read_stops_
 }
 
 /// The boots list's path in a CPK.
-const BOOTS_LIST: &str = "common/character0/model/character/boots/BootsList.bin";
+pub(crate) const BOOTS_LIST: &str = "common/character0/model/character/boots/BootsList.bin";
 
 /// The gloves list's path in a CPK.
-const GLOVE_LIST: &str = "common/character0/model/character/glove/GloveList.bin";
+pub(crate) const GLOVE_LIST: &str = "common/character0/model/character/glove/GloveList.bin";
 
 /// The player appearance table's path in a CPK.
 const PLAYER_APPEARANCE: &str = "common/character0/model/character/appearance/PlayerAppearance.bin";
 
 /// A `BootsList.bin` or `GloveList.bin` holding `pairs` (player id, item id) as they are
 /// given: two little-endian `u32` each.
-fn item_list(pairs: &[(u32, u32)]) -> Vec<u8> {
+pub(crate) fn item_list(pairs: &[(u32, u32)]) -> Vec<u8> {
     pairs
         .iter()
         .flat_map(|(player_id, item_id)| {
@@ -677,7 +677,7 @@ fn player_appearance() -> Vec<u8> {
 
 /// Installs `4cc_08_bins.cpk`, listed below the run's CPK, holding the bundled color and kit
 /// config bins and `tables` (CPK path, bytes).
-fn install_tables(sandbox: &Sandbox, tables: &[(&str, &[u8])]) {
+pub(crate) fn install_tables(sandbox: &Sandbox, tables: &[(&str, &[u8])]) {
     install_list(sandbox);
     let team_color = bundled_team_color();
     let uni_color = bundled_uni_color();
@@ -693,7 +693,7 @@ fn install_tables(sandbox: &Sandbox, tables: &[(&str, &[u8])]) {
 
 /// The CPK's `BootsList.bin` or `GloveList.bin` at `path` as its (player id, item id) pairs, in
 /// file order.
-fn pairs_of(entries: &BTreeMap<String, Vec<u8>>, path: &str) -> Vec<(u32, u32)> {
+pub(crate) fn pairs_of(entries: &BTreeMap<String, Vec<u8>>, path: &str) -> Vec<(u32, u32)> {
     let (pairs, rest) = entries[path].as_chunks::<8>();
     assert!(rest.is_empty(), "{path} is whole pairs");
     pairs

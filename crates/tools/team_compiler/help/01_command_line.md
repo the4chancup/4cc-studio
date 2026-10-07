@@ -75,9 +75,11 @@ cannot be read for any other reason is reported as
 `kit_mask` texture compiled for PES 2018 to 2021 gets the line `kit_texture_not_used`: these
 versions have no slot for it, so it is not built, and the rest of the kit is. The boots and
 gloves get the ID reserved for the player's roster
-slot, the same number for both. A shared `Boots` or `Gloves` folder that players point at with
-a link file (an empty `Crocs.boots` in the player's folder names `Boots/Crocs`) is built once,
-with its own textures, under one of the 17 IDs the team keeps for shared folders, given out in
+slot, the same number for both. A face model whose vertices are weighted to the hand bones
+(`skh_`) has its hands cut off at the wrist into the player's gloves at compile time, which the
+note `model_hand_split` names; a model named as boots or gloves is never cut. A shared `Boots`
+or `Gloves` folder that players point at with a link file (an empty `Crocs.boots` in the
+player's folder names `Boots/Crocs`) is built once, with its own textures, under one of the 17 IDs the team keeps for shared folders, given out in
 the folders' name order (`Apple` before `Zebra`), and a player linking it gets no boots or gloves
 of their own. A player folder holding both a link file and a boots (or gloves) model of its own
 combines the two: the shared folder's models are merged into the player's own boots (or gloves)

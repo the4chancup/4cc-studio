@@ -147,6 +147,14 @@ pub(crate) struct ModelFolder {
     /// names in that output is supplied when its stem is among them ("Resolved decisions", "A
     /// texture a model names must exist").
     pub(crate) common_texture_stems: BTreeSet<String>,
+    /// The export paths of the player folder's **hand-split parts**: its face parts (its own
+    /// models, a combined `Faces/` folder's, a Common model a `.common` link brings in) whose
+    /// vertices the deep pass found carrying hand weights, on a Fox target. The face task
+    /// packs each one's body, and the folder's gloves task, planned even with no glove-named
+    /// file, reads each one and makes its hands `glove_l`/`glove_r` parts
+    /// (`pipeline.md` "3. Per-model-folder parallel steps", step 3). Empty for a shared folder,
+    /// whose models are never split.
+    pub(crate) hand_split: BTreeSet<ScopePath>,
     /// Where its textures go, which its models' texture paths are rewritten to name.
     pub(crate) textures: TextureHome,
 }
@@ -424,7 +432,8 @@ impl TaskKind {
     }
 
     /// Every file the task reads from its export: a package's models (a `.common` link's
-    /// Common model and skeleton, never the link) and the files packed beside them; a folder's
+    /// Common model and skeleton, never the link) and the files packed beside them, the
+    /// gloves' also the folder's hand-split face parts, whose hands they take; a folder's
     /// textures; the Common textures; a portrait's one file; a kit's config and `colors.txt`,
     /// when it has them, and its effective textures; the logo's main file and its small one,
     /// when it has one; the referees' marker texture; the collar file.
@@ -432,9 +441,12 @@ impl TaskKind {
         match self {
             TaskKind::Models {
                 folder, package, ..
-            } => folder_files(folder, |role| role.package() == Some(*package)),
+            } => folder_files(folder, |file, role| {
+                role.package() == Some(*package)
+                    || (*package == ModelPackage::Gloves && folder.hand_split.contains(&file.path))
+            }),
             TaskKind::Textures { folder, .. } => {
-                folder_files(folder, |role| matches!(role, PlayerFile::Texture(..)))
+                folder_files(folder, |_, role| matches!(role, PlayerFile::Texture(..)))
             }
             TaskKind::CommonTextures { textures, .. } => textures.iter().collect(),
             TaskKind::Portrait { file, .. } => vec![file],
@@ -454,18 +466,45 @@ impl TaskKind {
     }
 }
 
-/// The files of `folder` whose role `wanted` accepts: its own in their order, then each
-/// combined folder's.
+/// The files of `folder` that `wanted` accepts, given each with its role: its own in their
+/// order, then each combined folder's.
 fn folder_files(
     folder: &ModelFolder,
-    wanted: impl Fn(&PlayerFile) -> bool,
+    wanted: impl Fn(&FileDescriptor, &PlayerFile) -> bool,
 ) -> Vec<&FileDescriptor> {
     folder
         .roles()
         .into_iter()
         .flat_map(|(_, _, files)| files)
-        .filter(|(_, role)| wanted(role))
+        .filter(|(file, role)| wanted(file, role))
         .map(|(file, _)| file)
+        .collect()
+}
+
+/// The export paths of `folder`'s hand-split parts on a target of `engine`
+/// (`ModelFolder::hand_split`): its face parts, its own, a combined folder's or a Common
+/// model's, whose path is among `hand_weighted`, the FMDLs the deep pass found carrying hand
+/// weights. A boots or gloves part is never one, whatever its weights: an authored glove is
+/// all hand, and a boots model is on the body skeleton already (`model_conversion/
+/// hand_split.md` "Pipeline integration").
+fn hand_split_parts(
+    folder: &ModelFolder,
+    hand_weighted: &BTreeSet<ScopePath>,
+    engine: Engine,
+) -> BTreeSet<ScopePath> {
+    match engine {
+        Engine::Fox => {}
+        // A pre-Fox target splits with its face compilation, which is not built yet.
+        Engine::PreFox => return BTreeSet::new(),
+    }
+    folder
+        .roles()
+        .into_iter()
+        .flat_map(|(_, _, files)| files)
+        .filter(|(file, role)| {
+            is_part_of(role, ModelPackage::Face) && hand_weighted.contains(&file.path)
+        })
+        .map(|(file, _)| file.path.clone())
         .collect()
 }
 
@@ -485,15 +524,21 @@ pub(crate) fn mapped_players(export: &ValidatedAestheticsExport) -> Vec<&PlayerF
         .collect()
 }
 
-/// One identity-resolved export as planning takes it: its id, the export, the valid colors of
-/// its root `colors.txt` (`None` when it has no such file) and the text of its root
-/// `notes.txt` (`None` when it has none).
-pub(crate) type ExportToPlan = (
-    ExportId,
-    ResolvedAestheticsExport,
-    Option<Vec<Rgb>>,
-    Option<String>,
-);
+/// One identity-resolved export as planning takes it, with what validation read beside it.
+pub(crate) struct ExportToPlan {
+    /// The export's id.
+    pub(crate) export_id: ExportId,
+    /// The export, its identity resolved.
+    pub(crate) export: ResolvedAestheticsExport,
+    /// The valid colors of its root `colors.txt`; `None` when it has no such file.
+    pub(crate) team_colors: Option<Vec<Rgb>>,
+    /// The text of its root `notes.txt`; `None` when it has none.
+    pub(crate) notes: Option<String>,
+    /// The export paths of its FMDLs whose vertices carry hand weights, as the deep pass found
+    /// them (`deep::ContentPass::hand_weighted`): a player's face part among them is hand
+    /// auto-split on a Fox target (`ModelFolder::hand_split`).
+    pub(crate) hand_weighted: BTreeSet<ScopePath>,
+}
 
 /// Plans the run over the identity-resolved exports, given in `ExportId` order, for the target
 /// `version`. An export holding anything Phase 3 cannot compile yet plans no task and reports
@@ -515,7 +560,14 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
     // Each claimed collar's ID and its claimant's name. Planning is serial and takes the
     // exports in canonical order, so the earlier export keeps a collar two exports claim.
     let mut claimed_collars: BTreeMap<u8, String> = BTreeMap::new();
-    for (export_id, mut resolved, colors, note) in exports {
+    for ExportToPlan {
+        export_id,
+        export: mut resolved,
+        team_colors: colors,
+        notes: note,
+        hand_weighted,
+    } in exports
+    {
         match version.engine() {
             Engine::Fox => drop_kit_masks(export_id, &mut resolved.export.kits, &mut messages),
             Engine::PreFox => {}
@@ -596,6 +648,7 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
                     combined: Vec::new(),
                     common_models: Vec::new(),
                     common_texture_stems: common_texture_stems.clone(),
+                    hand_split: BTreeSet::new(),
                     textures: TextureHome::SharedOutput {
                         package,
                         id: shared_id,
@@ -666,17 +719,20 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
                     folder: shared.clone(),
                 });
             }
-            let model_folder = ModelFolder {
+            let mut model_folder = ModelFolder {
                 textures: TextureHome::PlayerCommon {
                     folder_name: folder.path.name().to_owned(),
                 },
                 common_models: common_models(&folder, &export.common),
                 common_texture_stems: common_texture_stems.clone(),
+                hand_split: BTreeSet::new(),
                 path: folder.path,
                 files: folder.files,
                 ingame_face: folder.ingame_face,
                 combined,
             };
+            model_folder.hand_split =
+                hand_split_parts(&model_folder, &hand_weighted, version.engine());
             // Without a face folder the game shows the head made in its face editor, which
             // `ingame_face` asks for; every other player gets one, blank when it holds no
             // face model (the last part of FPC: the body brings its own head, or none).
@@ -820,7 +876,8 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
 
 /// Pushes `folder`'s tasks onto `tasks`: one `Models` task for each of `packages` any of the
 /// folder's sources holds a model of (a face link alone makes the shared face the player's),
-/// and for the face whatever the folder holds when `blank_face` is set, emitted under that
+/// for the face whatever the folder holds when `blank_face` is set, and for the gloves when
+/// the folder has a hand-split part (`ModelFolder::hand_split`), emitted under that
 /// package's keys, then, when the folder has textures, its `Textures` task completing its
 /// variant sets against `kits`, the export's kit numbers, the lot as one `TaskGroup`.
 fn folder_tasks(
@@ -835,9 +892,11 @@ fn folder_tasks(
     let first = tasks.len();
     let mut held = Vec::new();
     for (package, ids) in packages {
-        let models = folder_files(&folder, |role| is_part_of(role, *package));
+        let models = folder_files(&folder, |_, role| is_part_of(role, *package));
         let blank = blank_face && *package == ModelPackage::Face;
-        if models.is_empty() && !blank {
+        // A hand-split face part gives the folder gloves, whatever its files are named.
+        let hands = *package == ModelPackage::Gloves && !folder.hand_split.is_empty();
+        if models.is_empty() && !blank && !hands {
             continue;
         }
         held.push(*package);
@@ -851,7 +910,7 @@ fn folder_tasks(
             },
         ));
     }
-    if folder_files(&folder, |role| matches!(role, PlayerFile::Texture(..))).is_empty() {
+    if folder_files(&folder, |_, role| matches!(role, PlayerFile::Texture(..))).is_empty() {
         return;
     }
     tasks.push(task(
@@ -1073,7 +1132,7 @@ mod tests {
     use studio_core::Severity;
 
     use super::*;
-    use crate::testing::{resolved, resolved_with_issues, two_team_colors};
+    use crate::testing::{resolved, resolved_with_issues, to_plan, two_team_colors};
 
     /// `keys` as a list (`[71405, 71407]`, `[referee 1, referee 20]`).
     fn keys_text(keys: &[PackageKey]) -> String {
@@ -1160,8 +1219,8 @@ mod tests {
 
         let report = plan_run(
             vec![
-                (ExportId(0), first, two_team_colors(), None),
-                (ExportId(1), second, two_team_colors(), None),
+                to_plan(ExportId(0), first, two_team_colors(), None),
+                to_plan(ExportId(1), second, two_team_colors(), None),
             ],
             PesVersion::Pes21,
         );
@@ -1209,7 +1268,7 @@ mod tests {
         );
 
         let report = plan_run(
-            vec![(ExportId(0), export, two_team_colors(), None)],
+            vec![to_plan(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes21,
         );
 
@@ -1260,7 +1319,7 @@ mod tests {
         );
 
         let report = plan_run(
-            vec![(ExportId(0), export, two_team_colors(), None)],
+            vec![to_plan(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes21,
         );
 
@@ -1323,7 +1382,7 @@ mod tests {
         );
 
         let report = plan_run(
-            vec![(ExportId(0), export, two_team_colors(), None)],
+            vec![to_plan(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes21,
         );
 
@@ -1370,7 +1429,7 @@ mod tests {
             None,
         );
         let report = plan_run(
-            vec![(ExportId(0), alone, two_team_colors(), None)],
+            vec![to_plan(ExportId(0), alone, two_team_colors(), None)],
             PesVersion::Pes21,
         );
         assert!(report.messages.is_empty(), "{:?}", report.messages);
@@ -1406,8 +1465,8 @@ mod tests {
 
         let report = plan_run(
             vec![
-                (ExportId(0), with_kits, two_team_colors(), None),
-                (ExportId(1), without_kits, two_team_colors(), None),
+                to_plan(ExportId(0), with_kits, two_team_colors(), None),
+                to_plan(ExportId(1), without_kits, two_team_colors(), None),
             ],
             PesVersion::Pes21,
         );
@@ -1467,7 +1526,7 @@ mod tests {
         );
 
         let report = plan_run(
-            vec![(ExportId(0), export, two_team_colors(), None)],
+            vec![to_plan(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes21,
         );
 
@@ -1603,7 +1662,7 @@ mod tests {
         let export = resolved("co Midcup Combined", &files, &[], None);
 
         let report = plan_run(
-            vec![(ExportId(0), export, two_team_colors(), None)],
+            vec![to_plan(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes21,
         );
 
@@ -1711,7 +1770,7 @@ mod tests {
         );
 
         let report = plan_run(
-            vec![(ExportId(0), export, two_team_colors(), None)],
+            vec![to_plan(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes21,
         );
 
@@ -1778,7 +1837,7 @@ mod tests {
         );
 
         let report = plan_run(
-            vec![(ExportId(0), export, two_team_colors(), None)],
+            vec![to_plan(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes21,
         );
 
@@ -1890,7 +1949,7 @@ mod tests {
         );
 
         let report = plan_run(
-            vec![(ExportId(0), export, two_team_colors(), None)],
+            vec![to_plan(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes21,
         );
 
@@ -1938,7 +1997,7 @@ mod tests {
         );
 
         let report = plan_run(
-            vec![(ExportId(0), export, two_team_colors(), None)],
+            vec![to_plan(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes21,
         );
 
@@ -2011,7 +2070,7 @@ mod tests {
             .collect();
         let export = resolved("co Midcup Faces", &files, &[], None);
         let report = plan_run(
-            vec![(ExportId(0), export, two_team_colors(), None)],
+            vec![to_plan(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes21,
         );
         assert_eq!(
@@ -2074,7 +2133,7 @@ mod tests {
         );
 
         let report = plan_run(
-            vec![(ExportId(0), export, two_team_colors(), None)],
+            vec![to_plan(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes21,
         );
 
@@ -2112,7 +2171,7 @@ mod tests {
         );
 
         let report = plan_run(
-            vec![(ExportId(0), export, two_team_colors(), None)],
+            vec![to_plan(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes21,
         );
 
@@ -2145,7 +2204,7 @@ mod tests {
         let plan = |files: &[(&str, u64)]| {
             let export = resolved("co Midcup Marked", files, &[], None);
             plan_run(
-                vec![(ExportId(0), export, two_team_colors(), None)],
+                vec![to_plan(ExportId(0), export, two_team_colors(), None)],
                 PesVersion::Pes21,
             )
         };
@@ -2197,7 +2256,7 @@ mod tests {
         );
 
         let report = plan_run(
-            vec![(ExportId(0), export, two_team_colors(), None)],
+            vec![to_plan(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes21,
         );
 
@@ -2243,7 +2302,7 @@ mod tests {
         );
 
         let report = plan_run(
-            vec![(ExportId(0), export, two_team_colors(), None)],
+            vec![to_plan(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes21,
         );
 
@@ -2268,7 +2327,7 @@ mod tests {
         );
 
         let report = plan_run(
-            vec![(ExportId(3), export, two_team_colors(), None)],
+            vec![to_plan(ExportId(3), export, two_team_colors(), None)],
             PesVersion::Pes21,
         );
 
@@ -2341,7 +2400,7 @@ mod tests {
         );
 
         let report = plan_run(
-            vec![(ExportId(0), export, two_team_colors(), None)],
+            vec![to_plan(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes21,
         );
 
@@ -2378,7 +2437,7 @@ mod tests {
         assert_eq!(issues, ["kit_textures_inherited"]);
 
         let report = plan_run(
-            vec![(ExportId(0), export, two_team_colors(), None)],
+            vec![to_plan(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes21,
         );
 
@@ -2412,7 +2471,7 @@ mod tests {
         let (export, codes_found) = resolved_with_issues("co Midcup Fpc", &files, &[], players_txt);
         assert_eq!(codes_found, issues, "validation's issues");
         let report = plan_run(
-            vec![(ExportId(0), export, two_team_colors(), None)],
+            vec![to_plan(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes21,
         );
         assert!(
@@ -2470,7 +2529,7 @@ mod tests {
             None,
         );
         let report = plan_run(
-            vec![(ExportId(0), export, two_team_colors(), None)],
+            vec![to_plan(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes21,
         );
         assert_eq!(
@@ -2496,8 +2555,8 @@ mod tests {
 
         let report = plan_run(
             vec![
-                (ExportId(2), referees, None, None),
-                (ExportId(3), kit, two_team_colors(), None),
+                to_plan(ExportId(2), referees, None, None),
+                to_plan(ExportId(3), kit, two_team_colors(), None),
             ],
             PesVersion::Pes21,
         );
@@ -2537,13 +2596,16 @@ mod tests {
         let colors = vec![[0xc1, 0x12, 0x00], [0x41, 0x41, 0x41]];
 
         let with = plan_run(
-            vec![(ExportId(0), kit(), Some(colors.clone()), None)],
+            vec![to_plan(ExportId(0), kit(), Some(colors.clone()), None)],
             PesVersion::Pes21,
         );
         assert_eq!(with.manifest.team_colors, [(714, colors.clone())]);
         assert_eq!(codes(&with), ["kit_config_generated"]);
 
-        let without = plan_run(vec![(ExportId(4), kit(), None, None)], PesVersion::Pes21);
+        let without = plan_run(
+            vec![to_plan(ExportId(4), kit(), None, None)],
+            PesVersion::Pes21,
+        );
         assert_eq!(without.manifest.team_colors, []);
         let [missing, generated] = without.messages.as_slice() else {
             panic!("{:?}", without.messages);
@@ -2564,7 +2626,7 @@ mod tests {
 
         // A file whose every line was refused: the deep pass reported the lines.
         let refused_lines = plan_run(
-            vec![(ExportId(0), kit(), Some(Vec::new()), None)],
+            vec![to_plan(ExportId(0), kit(), Some(Vec::new()), None)],
             PesVersion::Pes21,
         );
         assert_eq!(refused_lines.manifest.team_colors, []);
@@ -2574,8 +2636,8 @@ mod tests {
         let dbg = resolved("dbg Midcup Kit", &[("Kits/p1/kit.dds", 1)], &[], None);
         let both = plan_run(
             vec![
-                (ExportId(0), dbg, Some(vec![[1, 2, 3]]), None),
-                (ExportId(1), kit(), Some(colors.clone()), None),
+                to_plan(ExportId(0), dbg, Some(vec![[1, 2, 3]]), None),
+                to_plan(ExportId(1), kit(), Some(colors.clone()), None),
             ],
             PesVersion::Pes21,
         );
@@ -2601,10 +2663,10 @@ mod tests {
 
         let report = plan_run(
             vec![
-                (ExportId(0), kit("dbg Midcup Kit"), None, note("dbg's note")),
-                (ExportId(1), kit("co Midcup Plain"), None, None),
-                (ExportId(2), referees, None, note("the referees' note")),
-                (ExportId(3), kit("co Midcup Kit"), None, note("co's note")),
+                to_plan(ExportId(0), kit("dbg Midcup Kit"), None, note("dbg's note")),
+                to_plan(ExportId(1), kit("co Midcup Plain"), None, None),
+                to_plan(ExportId(2), referees, None, note("the referees' note")),
+                to_plan(ExportId(3), kit("co Midcup Kit"), None, note("co's note")),
             ],
             PesVersion::Pes21,
         );
@@ -2655,7 +2717,10 @@ mod tests {
             Some(b"20 Ref A\n01 Ref A\n35 Ref A\n"),
         );
 
-        let report = plan_run(vec![(ExportId(0), referees, None, None)], PesVersion::Pes21);
+        let report = plan_run(
+            vec![to_plan(ExportId(0), referees, None, None)],
+            PesVersion::Pes21,
+        );
 
         assert_eq!(
             summary(&report),
@@ -2694,7 +2759,10 @@ mod tests {
             Some(b"01 Ref A\n20 Ref A\n"),
         );
 
-        let report = plan_run(vec![(ExportId(0), referees, None, None)], PesVersion::Pes21);
+        let report = plan_run(
+            vec![to_plan(ExportId(0), referees, None, None)],
+            PesVersion::Pes21,
+        );
 
         assert_eq!(
             summary(&report),
@@ -2724,8 +2792,8 @@ mod tests {
         // PES 17 is a target `compile` does not build yet.
         let report = plan_run(
             vec![
-                (ExportId(0), kit(), Some(vec![[1, 2, 3]]), None),
-                (ExportId(1), kit(), None, None),
+                to_plan(ExportId(0), kit(), Some(vec![[1, 2, 3]]), None),
+                to_plan(ExportId(1), kit(), None, None),
             ],
             PesVersion::Pes17,
         );
@@ -2738,5 +2806,104 @@ mod tests {
 
     fn scope_path(text: &str) -> ScopePath {
         ScopePath::new(text).unwrap()
+    }
+
+    /// The `/co/` export `co Midcup Hands` planned for `version`: slot 05 holds `body.fmdl`, a
+    /// face part by its name, and slot 06 `boots.fmdl`, both of which the deep pass found
+    /// weighted to hand bones.
+    fn hand_weighted_plan(version: PesVersion) -> PlanReport {
+        let export = resolved(
+            "co Midcup Hands",
+            &[
+                ("Players/05 - A/body.fmdl", 3),
+                ("Players/06 - B/boots.fmdl", 5),
+            ],
+            &[],
+            None,
+        );
+        let mut planned = to_plan(ExportId(0), export, two_team_colors(), None);
+        planned.hand_weighted = [
+            scope_path("Players/05 - A/body.fmdl"),
+            scope_path("Players/06 - B/boots.fmdl"),
+        ]
+        .into();
+        plan_run(vec![planned], version)
+    }
+
+    /// The paths of the files `task` reads.
+    fn task_files(task: &BuildTask) -> Vec<&str> {
+        task.kind
+            .files()
+            .into_iter()
+            .map(|file| file.path.as_str())
+            .collect()
+    }
+
+    /// The model folder of the `Models` task `task`.
+    fn models_folder(task: &BuildTask) -> &ModelFolder {
+        let TaskKind::Models { folder, .. } = &task.kind else {
+            panic!("a Models task");
+        };
+        folder
+    }
+
+    #[test]
+    fn a_hand_weighted_face_part_gives_its_fox_folder_a_gloves_task_reading_it() {
+        let report = hand_weighted_plan(PesVersion::Pes21);
+
+        // Slot 05's gloves are planned under its exclusive ID, 625 (block 621 + 5 - 1), with
+        // no glove-named file; slot 06's boots are not split, so it has no gloves.
+        assert_eq!(
+            summary(&report),
+            [
+                "0 714 Face Players/05 - A [71405] charge 3",
+                "0 714 Gloves Players/05 - A [625] charge 3",
+                "0 714 Face Players/06 - B [71406] charge 0",
+                "0 714 Boots Players/06 - B [626] charge 5",
+            ]
+        );
+        let tasks = &report.manifest.tasks;
+        // Both the face and the gloves read the model; the face reads what it did before.
+        assert_eq!(task_files(&tasks[0]), ["Players/05 - A/body.fmdl"]);
+        assert_eq!(task_files(&tasks[1]), ["Players/05 - A/body.fmdl"]);
+        let body: BTreeSet<ScopePath> = [scope_path("Players/05 - A/body.fmdl")].into();
+        assert_eq!(models_folder(&tasks[1]).hand_split, body);
+        assert_eq!(models_folder(&tasks[3]).hand_split, BTreeSet::new());
+        // The player's `GloveList.bin` row follows the gloves task, as an authored glove's.
+        let gloves: Vec<&ItemRow> = report
+            .manifest
+            .item_rows
+            .iter()
+            .filter(|row| row.table == crate::bins::player_tables::ItemTable::Gloves)
+            .collect();
+        assert_eq!(
+            gloves,
+            [&ItemRow {
+                table: crate::bins::player_tables::ItemTable::Gloves,
+                player_id: 71405,
+                change: item_rows::RowChange::Set { id: 625, task: 1 },
+            }]
+        );
+    }
+
+    #[test]
+    fn a_pre_fox_target_takes_no_hand_split_part() {
+        // `compile` does not build a pre-Fox target yet, so the export plans nothing...
+        let report = hand_weighted_plan(PesVersion::Pes17);
+        assert_eq!(summary(&report), Vec::<String>::new());
+        assert_eq!(codes(&report), ["content_not_yet_compiled"]);
+        // ...and the same folder planning gives a Fox target's split part has none for a
+        // pre-Fox one: its face compilation is where it will split.
+        let fox = hand_weighted_plan(PesVersion::Pes21);
+        let folder = models_folder(&fox.manifest.tasks[0]);
+        let weighted: BTreeSet<ScopePath> = [scope_path("Players/05 - A/body.fmdl")].into();
+        assert_eq!(
+            hand_split_parts(folder, &weighted, Engine::Fox),
+            weighted.clone()
+        );
+        assert_eq!(
+            hand_split_parts(folder, &weighted, Engine::PreFox),
+            BTreeSet::new()
+        );
     }
 }

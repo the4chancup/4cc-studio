@@ -25,6 +25,7 @@ fpk.workspace = true
 ftex.workspace = true
 kit_config.workspace = true
 log.workspace = true
+model_convert.workspace = true
 pes_model.workspace = true
 pes_savefile.workspace = true
 pes_version.workspace = true

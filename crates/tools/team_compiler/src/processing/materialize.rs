@@ -193,6 +193,7 @@ mod tests {
             combined: Vec::new(),
             common_models: Vec::new(),
             common_texture_stems: BTreeSet::new(),
+            hand_split: BTreeSet::new(),
             textures,
         }
     }

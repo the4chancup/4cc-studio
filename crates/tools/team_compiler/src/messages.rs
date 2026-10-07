@@ -106,6 +106,9 @@ pub(crate) enum Code {
     FmdlFclHairFallback,
     /// Several models of a package resolve to one allowed name and were merged into one FMDL.
     FmdlMerged,
+    /// A face model's vertices carry hand-skeleton (`skh_`) weights: its hands were cut off at
+    /// the wrist into the player's gloves (the hand auto-split).
+    ModelHandSplit,
     /// Two merged parts define a material of one name differently; the package is left out.
     MergeMaterialConflict,
     /// Merged parts disagree on their skeleton (a bone, or their paired `.skl` files); the
@@ -155,6 +158,9 @@ pub(crate) enum Code {
     /// A texture in a codec, or with a feature, `dds_convert` cannot convert in-process;
     /// discarded the same way.
     TextureCodecUnsupported,
+    /// A model the compiler must convert (today: a face model to hand auto-split) cannot be
+    /// read, converted or written back; its package is left out.
+    ModelConversionFailed,
     /// A model has a vertex more than 5000 units from the origin, which lags the game for the
     /// whole matchday; its folder is left out (a `Common/` model: the file), whatever
     /// `pass_through` says.
@@ -271,7 +277,7 @@ impl Code {
     /// Every code, for the catalog test: a variant missing here would make its first message
     /// panic in `severity`, so a new variant is added to this list too.
     #[cfg(test)]
-    const ALL: [Code; 85] = [
+    const ALL: [Code; 87] = [
         Code::ExportExtractFailed,
         Code::NoExportsFound,
         Code::ExportDisabled,
@@ -305,6 +311,7 @@ impl Code {
         Code::SettingsTomlInvalid,
         Code::FmdlFclHairFallback,
         Code::FmdlMerged,
+        Code::ModelHandSplit,
         Code::MergeMaterialConflict,
         Code::SklMergeConflict,
         Code::SklNoSlot,
@@ -320,6 +327,7 @@ impl Code {
         Code::KitTextureTooBig,
         Code::TextureTypeMismatch,
         Code::TextureCodecUnsupported,
+        Code::ModelConversionFailed,
         Code::VertexTooFarFromOrigin,
         Code::ModelBroken,
         Code::MtlBroken,
@@ -395,6 +403,7 @@ impl Code {
             Code::SettingsTomlInvalid => "settings_toml_invalid",
             Code::FmdlFclHairFallback => "fmdl_fcl_hair_fallback",
             Code::FmdlMerged => "fmdl_merged",
+            Code::ModelHandSplit => "model_hand_split",
             Code::MergeMaterialConflict => "merge_material_conflict",
             Code::SklMergeConflict => "skl_merge_conflict",
             Code::SklNoSlot => "skl_no_slot",
@@ -410,6 +419,7 @@ impl Code {
             Code::KitTextureTooBig => "kit_texture_too_big",
             Code::TextureTypeMismatch => "texture_type_mismatch",
             Code::TextureCodecUnsupported => "texture_codec_unsupported",
+            Code::ModelConversionFailed => "model_conversion_failed",
             Code::VertexTooFarFromOrigin => "vertex_too_far_from_origin",
             Code::ModelBroken => "model_broken",
             Code::MtlBroken => "mtl_broken",
@@ -505,6 +515,7 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("settings_toml_invalid", CatalogSeverity::Error),
     ("fmdl_fcl_hair_fallback", CatalogSeverity::Info),
     ("fmdl_merged", CatalogSeverity::Info),
+    ("model_hand_split", CatalogSeverity::Info),
     ("merge_material_conflict", CatalogSeverity::Error),
     ("skl_merge_conflict", CatalogSeverity::Error),
     ("skl_no_slot", CatalogSeverity::Warning),
@@ -520,6 +531,7 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("kit_texture_too_big", CatalogSeverity::Error),
     ("texture_type_mismatch", CatalogSeverity::Error),
     ("texture_codec_unsupported", CatalogSeverity::Error),
+    ("model_conversion_failed", CatalogSeverity::Error),
     ("vertex_too_far_from_origin", CatalogSeverity::Error),
     ("model_broken", CatalogSeverity::Error),
     ("mtl_broken", CatalogSeverity::Error),

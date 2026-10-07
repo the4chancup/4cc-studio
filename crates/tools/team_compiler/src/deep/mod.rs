@@ -33,7 +33,8 @@
 //!
 //! The model folders and `Common/`'s files are checked in parallel on the caller's rayon
 //! pool, each worker reading and holding one file at a time, and the findings are collected
-//! in file order (`content_findings`).
+//! in file order (`content_findings`). Each FMDL it parses is also asked, on the same parse,
+//! whether its vertices carry hand weights, which planning needs for the hand auto-split.
 
 pub(crate) mod collar;
 mod documents;
@@ -41,7 +42,7 @@ mod model;
 mod portrait;
 mod texture;
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use aesthetics_export::{
     ContentFinding, Disposition, FileDescriptor, FileKind, IssueScope, KitTextureSource,
@@ -64,8 +65,38 @@ use texture::{SizeRule, texture_finding};
 
 pub(crate) use model::FAR_VERTEX_CODES;
 
+/// What the deep pass found in one export (`content_findings`).
+#[derive(Debug, Default, PartialEq, Eq)]
+pub(crate) struct ContentPass {
+    /// The content findings, in file order.
+    pub(crate) findings: Vec<ContentFinding>,
+    /// The export paths of the FMDLs it parsed (a player folder's, a shared folder's or a
+    /// `Common/` one) whose vertices carry a positive weight on a hand-skeleton bone, whatever
+    /// their role and the target: planning decides which of them the hand auto-split takes
+    /// (`pipeline.md` "2. Per-export serial steps", step 6). A file that does not parse is
+    /// not among them.
+    pub(crate) hand_weighted: BTreeSet<ScopePath>,
+}
+
+impl ContentPass {
+    /// The pass of a file that gives `findings` and no weighted FMDL.
+    fn findings_only(findings: Vec<ContentFinding>) -> ContentPass {
+        ContentPass {
+            findings,
+            hand_weighted: BTreeSet::new(),
+        }
+    }
+
+    /// `other`'s findings after this pass's, and its weighted FMDLs with this pass's.
+    fn append(&mut self, other: ContentPass) {
+        self.findings.extend(other.findings);
+        self.hand_weighted.extend(other.hand_weighted);
+    }
+}
+
 /// The content findings of `export`, the sanitized export read from `content` and compiled for
-/// `version`, in file order: each player folder's models, material sets and textures, then
+/// `version`, with the FMDLs among its files that carry hand weights (`ContentPass`). The
+/// findings come in file order: each player folder's models, material sets and textures, then
 /// its face diff, its portrait and its `settings.toml`; then each shared folder's (faces with
 /// their face diff, boots, gloves), then `Common/`'s, then each `Collars/` file's, then each
 /// `Portraits/` file with its slot's `portrait_conflict`, then each kit's `config.toml`,
@@ -85,16 +116,17 @@ pub(crate) fn content_findings(
     export: &ValidatedAestheticsExport,
     content: &ContentSource,
     version: PesVersion,
-) -> Vec<ContentFinding> {
+) -> ContentPass {
     let size_rule = SizeRule::of(version);
     // Each group below is collected in its items' order (rayon's indexed `collect`), so the
     // findings come out in file order whatever the workers' scheduling.
-    let players: Vec<Vec<ContentFinding>> = export
+    let players: Vec<ContentPass> = export
         .players
         .par_iter()
         .map(|player| {
             let folder = &player.path;
-            let mut findings = folder_findings(content, folder, &player.files, size_rule);
+            let mut pass = folder_findings(content, folder, &player.files, size_rule);
+            let findings = &mut pass.findings;
             findings.extend(face_diff_findings(
                 content,
                 folder,
@@ -111,39 +143,39 @@ pub(crate) fn content_findings(
                 ));
             }
             findings.extend(settings_finding(content, player));
-            findings
+            pass
         })
         .collect();
     // A shared face folder is part of the face of each player linking it, so its face diff is
     // checked as a player folder's is, against its own models as planning resolves it.
-    let faces: Vec<Vec<ContentFinding>> = export
+    let faces: Vec<ContentPass> = export
         .faces
         .par_iter()
         .map(|face| {
-            let mut findings = folder_findings(content, &face.path, &face.files, size_rule);
-            findings.extend(face_diff_findings(
+            let mut pass = folder_findings(content, &face.path, &face.files, size_rule);
+            pass.findings.extend(face_diff_findings(
                 content,
                 &face.path,
                 &face.files,
                 &FolderModels::of(&face.path, &face.files),
             ));
-            findings
+            pass
         })
         .collect();
-    let boots_and_gloves: Vec<Vec<ContentFinding>> = export
+    let boots_and_gloves: Vec<ContentPass> = export
         .boots
         .par_iter()
         .chain(&export.gloves)
         .map(|shared| folder_findings(content, &shared.path, &shared.files, size_rule))
         .collect();
-    let common: Vec<Vec<ContentFinding>> = export
+    let common: Vec<ContentPass> = export
         .common
         .par_iter()
         .map(|file| {
             let Some(checked) = checked_as(file, size_rule) else {
-                return Vec::new();
+                return ContentPass::default();
             };
-            file_findings(
+            file_outcome(
                 content,
                 file,
                 checked,
@@ -153,11 +185,13 @@ pub(crate) fn content_findings(
             )
         })
         .collect();
-    let mut findings: Vec<ContentFinding> = [players, faces, boots_and_gloves, common]
-        .into_iter()
-        .flatten()
-        .flatten()
-        .collect();
+    let mut pass = ContentPass::default();
+    for group in [players, faces, boots_and_gloves, common] {
+        for found in group {
+            pass.append(found);
+        }
+    }
+    let findings = &mut pass.findings;
     for file in &export.collars {
         findings.extend(collar_findings(content, file, version));
     }
@@ -236,7 +270,7 @@ pub(crate) fn content_findings(
     if let Some(colors) = &export.root.team_colors {
         findings.extend(colors_findings(content, colors, TEAM_COLORS));
     }
-    findings
+    pass
 }
 
 /// The structure pass's code for a root `logo*` file that cannot be the team's logo, which the
@@ -285,22 +319,22 @@ fn checked_as(file: &FileDescriptor, size_rule: SizeRule) -> Option<Checked> {
 
 /// The findings of the files among `files`, those of the model folder at `folder`, that the
 /// deep pass reads (`checked_as`, textures held to `size_rule`): each on the folder's scope,
-/// an Error dropping the folder, the file named below the folder. The files are checked in
-/// parallel.
+/// an Error dropping the folder, the file named below the folder; with the FMDLs among them
+/// that carry hand weights. The files are checked in parallel.
 fn folder_findings(
     content: &ContentSource,
     folder: &ScopePath,
     files: &[FileDescriptor],
     size_rule: SizeRule,
-) -> Vec<ContentFinding> {
+) -> ContentPass {
     // Collected in file order (an indexed `collect`), whatever the scheduling.
-    let per_file: Vec<Vec<ContentFinding>> = files
+    let per_file: Vec<ContentPass> = files
         .par_iter()
         .map(|file| {
             let Some(checked) = checked_as(file, size_rule) else {
-                return Vec::new();
+                return ContentPass::default();
             };
-            file_findings(
+            file_outcome(
                 content,
                 file,
                 checked,
@@ -310,7 +344,11 @@ fn folder_findings(
             )
         })
         .collect();
-    per_file.into_iter().flatten().collect()
+    let mut pass = ContentPass::default();
+    for found in per_file {
+        pass.append(found);
+    }
+    pass
 }
 
 /// The bytes of `file`, or, when they cannot be read, its `source_read_failed` on `scope`
@@ -356,6 +394,19 @@ fn file_findings(
     disposition: Disposition,
     name: &str,
 ) -> Vec<ContentFinding> {
+    file_outcome(content, file, checked, scope, disposition, name).findings
+}
+
+/// `file_findings`, with `file` among the pass's weighted FMDLs when it is an FMDL that parses
+/// and carries hand weights (`ContentPass::hand_weighted`).
+fn file_outcome(
+    content: &ContentSource,
+    file: &FileDescriptor,
+    checked: Checked,
+    scope: &IssueScope,
+    disposition: Disposition,
+    name: &str,
+) -> ContentPass {
     let finding = |code: &'static str,
                    context: Vec<(&'static str, String)>,
                    disposition: Disposition,
@@ -368,12 +419,12 @@ fn file_findings(
     };
     let bytes = match read(content, file, scope, disposition) {
         Ok(bytes) => bytes,
-        Err(unread) => return vec![unread],
+        Err(unread) => return ContentPass::findings_only(vec![unread]),
     };
     let kind = match checked {
         Checked::Model(kind) => kind,
         Checked::Texture(format, rule) => {
-            return texture_finding(format, rule, &bytes)
+            let found = texture_finding(format, rule, &bytes)
                 .map(|code| {
                     // A renamed file cannot be converted as the format its name declares; a
                     // texture of an odd size converts, and what the game makes of it is the
@@ -388,9 +439,10 @@ fn file_findings(
                 })
                 .into_iter()
                 .collect();
+            return ContentPass::findings_only(found);
         }
         Checked::Logo(format) => {
-            return dds_convert::decode(&bytes, format)
+            let found = dds_convert::decode(&bytes, format)
                 .err()
                 .map(|error| {
                     finding(
@@ -402,24 +454,25 @@ fn file_findings(
                 })
                 .into_iter()
                 .collect();
+            return ContentPass::findings_only(found);
         }
     };
-    let fired = match fired(kind, &bytes) {
-        Ok(fired) => fired,
+    let read = match fired(kind, &bytes) {
+        Ok(read) => read,
         Err(error) => {
             let broken = match kind {
                 ModelKind::Fmdl | ModelKind::PreFoxModel => Code::ModelBroken,
                 ModelKind::Mtl => Code::MtlBroken,
             };
-            return vec![finding(
+            return ContentPass::findings_only(vec![finding(
                 broken.as_str(),
                 vec![("file", name.to_owned()), ("error", error)],
                 disposition,
                 false,
-            )];
+            )]);
         }
     };
-    summed(fired)
+    let findings = summed(read.fired)
         .into_iter()
         .map(|rule| {
             let far = FAR_VERTEX_CODES.contains(&rule.code);
@@ -436,7 +489,15 @@ fn file_findings(
                 finding(code, context, Disposition::Keep, false)
             }
         })
-        .collect()
+        .collect();
+    let mut hand_weighted = BTreeSet::new();
+    if read.hand_weighted {
+        hand_weighted.insert(file.path.clone());
+    }
+    ContentPass {
+        findings,
+        hand_weighted,
+    }
 }
 
 #[cfg(test)]
@@ -532,6 +593,17 @@ mod tests {
         unwritten: &[&str],
         structure_codes: &[&str],
     ) -> Vec<ContentFinding> {
+        pass_for(version, root, files, unwritten, structure_codes).findings
+    }
+
+    /// `findings_for`'s whole pass, the weighted FMDLs with the findings.
+    fn pass_for(
+        version: PesVersion,
+        root: &Path,
+        files: &[(&str, Vec<u8>)],
+        unwritten: &[&str],
+        structure_codes: &[&str],
+    ) -> ContentPass {
         for (path, bytes) in files {
             let path = root.join(path);
             fs::create_dir_all(path.parent().unwrap()).unwrap();
@@ -699,6 +771,31 @@ mod tests {
                 ),
             ]
         );
+    }
+
+    #[test]
+    fn the_fmdls_weighted_to_hand_bones_are_recorded_by_their_export_path() {
+        let temp = scratch("deep_hand_weighted");
+        let body = fixture("hand_split/body.fmdl");
+        let pass = pass_for(
+            PesVersion::Pes21,
+            temp.path(),
+            &[
+                ("Players/05 - A/body.fmdl", body.clone()),
+                ("Players/05 - A/boots.fmdl", tracer_boots()),
+                ("Players/06 - B/torso.fmdl.common", Vec::new()),
+                ("Common/torso.fmdl", body),
+                ("Players/07 - C/body.fmdl", b"not a model".to_vec()),
+            ],
+            &[],
+            &[],
+        );
+        let recorded: Vec<&str> = pass.hand_weighted.iter().map(ScopePath::as_str).collect();
+        assert_eq!(recorded, ["Common/torso.fmdl", "Players/05 - A/body.fmdl"]);
+        // The model's own findings are unchanged: its check finds nothing, the boots their
+        // usual weights, and the broken file is `model_broken`.
+        let codes: Vec<&str> = pass.findings.iter().map(|finding| finding.code).collect();
+        assert_eq!(codes, ["fmdl_weights_not_normalized", "model_broken"]);
     }
 
     #[test]

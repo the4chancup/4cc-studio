@@ -386,6 +386,7 @@ mod tests {
             combined: Vec::new(),
             common_models: Vec::new(),
             common_texture_stems: BTreeSet::new(),
+            hand_split: BTreeSet::new(),
             textures: TextureHome::PlayerCommon {
                 folder_name: "05 - The Chad Stormworks Player".to_owned(),
             },
@@ -857,6 +858,245 @@ mod tests {
         assert_eq!((fpkd.kind(), fpkd.len()), (FpkKind::Fpkd, 0));
     }
 
+    /// The hand-split fixture's full-body model (`tests/fixtures/hand_split/README.md`): 40
+    /// faces, of which each hand's split takes 8 and the body keeps 24.
+    fn hand_split_body() -> Vec<u8> {
+        std::fs::read(
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/hand_split/body.fmdl"),
+        )
+        .unwrap()
+    }
+
+    /// The tracer's player folder holding `body.fmdl`, a hand-split face part, beside the
+    /// tracer files `others`.
+    fn hand_split_player(others: &[&str]) -> ModelFolder {
+        let body = format!("{PLAYER}/body.fmdl");
+        let mut files = vec![named(&body, "fcl_hair.fmdl")];
+        files.extend(others.iter().map(|name| file(&format!("{PLAYER}/{name}"))));
+        ModelFolder {
+            hand_split: [ScopePath::new(&body).unwrap()].into(),
+            ..player_with(files, Vec::new())
+        }
+    }
+
+    /// `package` of `folder` processed for PES 21 under id `id`, `body.fmdl` holding `body`
+    /// and every other file the tracer's.
+    fn run_hand_split(
+        folder: ModelFolder,
+        package: ModelPackage,
+        id: u32,
+        body: &[u8],
+    ) -> TaskBatch {
+        let body_path = format!("{PLAYER}/body.fmdl");
+        run_with(
+            TaskKind::Models {
+                folder,
+                package,
+                ids: vec![PackageKey::Id(id)],
+            },
+            &[(&body_path, body)],
+        )
+    }
+
+    /// The number of faces of the package's model `name`, read back with `fmdl`.
+    fn face_count(package: &FpkFile, name: &str) -> usize {
+        packed_model(package, name)
+            .meshes
+            .iter()
+            .map(|mesh| mesh.faces.len())
+            .sum()
+    }
+
+    #[test]
+    fn a_hand_split_face_part_packs_its_body_in_the_face_and_says_so() {
+        let batch = run_hand_split(
+            hand_split_player(&[]),
+            ModelPackage::Face,
+            71405,
+            &hand_split_body(),
+        );
+
+        assert_eq!(
+            one_message(&batch),
+            (
+                "model_hand_split",
+                Severity::Info,
+                Disposition::Keep,
+                &[
+                    ("model".to_owned(), "body.fmdl".to_owned()),
+                    ("gloves".to_owned(), "glove_l, glove_r".to_owned())
+                ][..]
+            )
+        );
+        let package = FpkFile::read(&batch.entries[0].1).unwrap();
+        let names: Vec<&str> = package.entries().map(|(name, _)| name).collect();
+        assert_eq!(
+            names,
+            [
+                "face_diff.bin",
+                "fcl_hair.fmdl",
+                "fcl_hair_sim.fclo",
+                "fcl_hair_sim.skl"
+            ]
+        );
+        assert_eq!(face_count(&package, "fcl_hair.fmdl"), 24);
+    }
+
+    #[test]
+    fn a_hand_split_face_part_gives_the_gloves_package_both_hands() {
+        let batch = run_hand_split(
+            hand_split_player(&[]),
+            ModelPackage::Gloves,
+            625,
+            &hand_split_body(),
+        );
+
+        assert!(batch.messages.is_empty(), "{:?}", batch.messages);
+        assert_eq!(
+            paths(&batch),
+            [
+                "Asset/model/character/glove/g0625/#Win/glove.fpk",
+                "Asset/model/character/glove/g0625/#Win/glove.fpkd",
+            ]
+        );
+        let package = FpkFile::read(&batch.entries[0].1).unwrap();
+        let names: Vec<&str> = package.entries().map(|(name, _)| name).collect();
+        assert_eq!(names, ["glove_l.fmdl", "glove_r.fmdl"]);
+        assert_eq!(face_count(&package, "glove_l.fmdl"), 8);
+        assert_eq!(face_count(&package, "glove_r.fmdl"), 8);
+    }
+
+    #[test]
+    fn a_split_hand_merges_with_an_authored_glove_of_its_name() {
+        // The authored left glove is the hand the split cuts from the fixture, 8 faces on the
+        // same bones: the tracer's own glove, bound differently, could not merge (below).
+        let alone = run_hand_split(
+            hand_split_player(&[]),
+            ModelPackage::Gloves,
+            625,
+            &hand_split_body(),
+        );
+        let authored = FpkFile::read(&alone.entries[0].1)
+            .unwrap()
+            .get("glove_l.fmdl")
+            .unwrap()
+            .to_vec();
+        let glove_l = format!("{PLAYER}/glove_l.fmdl");
+        let folder = hand_split_player(&["glove_l.fmdl"]);
+        let kind = TaskKind::Models {
+            folder,
+            package: ModelPackage::Gloves,
+            ids: vec![PackageKey::Id(625)],
+        };
+        let body_path = format!("{PLAYER}/body.fmdl");
+
+        let batch = run_with(
+            kind,
+            &[(&body_path, &hand_split_body()), (&glove_l, &authored)],
+        );
+
+        assert_eq!(
+            one_message(&batch),
+            (
+                "fmdl_merged",
+                Severity::Info,
+                Disposition::Keep,
+                &[("model".to_owned(), "glove_l.fmdl".to_owned())][..]
+            )
+        );
+        let package = FpkFile::read(&batch.entries[0].1).unwrap();
+        assert_eq!(face_count(&package, "glove_l.fmdl"), 8 + 8);
+        assert_eq!(face_count(&package, "glove_r.fmdl"), 8);
+
+        // The tracer's left glove parents `sk_hand_l` to its forearm, which the split hand,
+        // pruned of its forearm, does not: parts on two skeletons, as for any merge.
+        let batch = run_hand_split(
+            hand_split_player(&["glove_l.fmdl"]),
+            ModelPackage::Gloves,
+            625,
+            &hand_split_body(),
+        );
+        assert_eq!(
+            one_message(&batch),
+            (
+                "skl_merge_conflict",
+                Severity::Error,
+                Disposition::DropFolder,
+                &[("bone".to_owned(), "sk_hand_l".to_owned())][..]
+            )
+        );
+    }
+
+    #[test]
+    fn a_face_part_that_is_all_hand_leaves_no_body_in_the_face() {
+        // The fixture with every vertex weighed fully on its left index finger: the whole
+        // model is the left hand.
+        let all_hand = {
+            let bytes = hand_split_body();
+            let mut model = Model::from_file(&FmdlFile::read(&bytes).unwrap()).unwrap();
+            let finger = model
+                .bones
+                .iter()
+                .position(|bone| bone.name == "skh_index_mcp_l")
+                .unwrap();
+            for mesh in &mut model.meshes {
+                let entry = mesh.bone_group.iter().position(|&bone| bone == finger);
+                let entry = u8::try_from(entry.unwrap()).unwrap();
+                let count = mesh.vertices.positions.len();
+                mesh.vertices.bone_indices = Some(vec![[entry, 0, 0, 0]; count]);
+                mesh.vertices.bone_weights = Some(vec![[255, 0, 0, 0]; count]);
+            }
+            model.to_file().unwrap().write()
+        };
+
+        let batch = run_hand_split(hand_split_player(&[]), ModelPackage::Face, 71405, &all_hand);
+
+        assert_eq!(
+            one_message(&batch).3,
+            [
+                ("model".to_owned(), "body.fmdl".to_owned()),
+                ("gloves".to_owned(), "glove_l".to_owned())
+            ]
+        );
+        // No face model is left: the face holds its face diff alone, the template's here.
+        let package = FpkFile::read(&batch.entries[0].1).unwrap();
+        let names: Vec<&str> = package.entries().map(|(name, _)| name).collect();
+        assert_eq!(names, ["face_diff.bin"]);
+
+        let batch = run_hand_split(hand_split_player(&[]), ModelPackage::Gloves, 625, &all_hand);
+        let package = FpkFile::read(&batch.entries[0].1).unwrap();
+        let names: Vec<&str> = package.entries().map(|(name, _)| name).collect();
+        assert_eq!(names, ["glove_l.fmdl"]);
+        assert_eq!(face_count(&package, "glove_l.fmdl"), 40);
+    }
+
+    #[test]
+    fn a_hand_split_part_that_cannot_be_read_fails_the_task_with_model_conversion_failed() {
+        for package in [ModelPackage::Face, ModelPackage::Gloves] {
+            let batch = run_hand_split(hand_split_player(&[]), package, 625, b"not a model");
+
+            assert!(batch.entries.is_empty(), "{package:?}");
+            let (code, severity, disposition, context) = one_message(&batch);
+            assert_eq!(
+                (code, severity, disposition),
+                (
+                    "model_conversion_failed",
+                    Severity::Error,
+                    Disposition::DropFolder
+                ),
+                "{package:?}"
+            );
+            let error = FmdlFile::read(b"not a model").unwrap_err().to_string();
+            assert_eq!(
+                context,
+                [
+                    ("model".to_owned(), "body.fmdl".to_owned()),
+                    ("error".to_owned(), error)
+                ]
+            );
+        }
+    }
+
     #[test]
     fn a_shared_gloves_folder_s_package_and_textures_go_under_its_shared_id() {
         // The tracer's boots model stands in for a left glove: a real FMDL naming `shirt.dds`.
@@ -881,6 +1121,7 @@ mod tests {
             combined: Vec::new(),
             common_models: Vec::new(),
             common_texture_stems: BTreeSet::new(),
+            hand_split: BTreeSet::new(),
             textures: TextureHome::SharedOutput {
                 package: ModelPackage::Gloves,
                 id: 644,

@@ -17,7 +17,8 @@ the next open Phase 4 step (see the list); 4.21 to 4.24 and 4.29
 and 4.25 are done; 4.26 is done; 4.19 (Fox referees) is done, 4.19d (pre-Fox) waits on 4.14 and 4.20; 4.27a (the Fox
 referee marker) is done, 4.27's rest (the pre-Fox marker) waits on 4.19d; 4.9 is done
 (collars on Fox; their pre-Fox and cross-format halves are in 4.16 and 4.17); 4.28
-(memory accounting) and 4.32 (number atlases) are done, and 4.y moved to Phase 8; 4.14 waits on 4.31's pre-Fox export; 4.33, 4.34, 4.c-pass and
+(memory accounting), 4.32 (number atlases) and 4.18 (hand auto-split, Fox) are done, and
+4.y moved to Phase 8; 4.14 waits on 4.31's pre-Fox export; 4.33, 4.34, 4.c-pass and
 4.c-fix1 are done; 4.30,
 4.5 to 4.8 and 4.10 to 4.13 are done (4.6c moved to Phase 8's cancellation). 2.5b (GPU BC7) is step 16.x (decision entries
 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0 after Phase 8; phase order 1–6,
@@ -318,6 +319,13 @@ Claude agent with no sidekick and no reviewer of another model family. While tha
   `libs/pipeline.md` "Memory budget", `pipeline.md` "Admission" (Charges while a task
   runs), `core/parallelism.md` "Memory budget" and the decision entry "memory
   accounting: a running task charges without waiting".
+  4.18 (b), `model_convert` (`ops::hand_split::fox_has_hand_weights`) and `team_compiler`
+  (`deep/` `ContentPass`, `validation.rs`, `plan/mod.rs` `hand_split_parts`,
+  `folder_tasks`, `TaskKind::files`, `processing/model.rs` `parts_of`, `split_fmdl`), its
+  commit of 2026-10-07, against `model_conversion/hand_split.md`, `pipeline.md` "2.
+  Per-export serial steps" step 6 and "3. Per-model-folder parallel steps" step 3,
+  `messages.md` `model_hand_split`, TC-MOD-31 and the decision entry "hand auto-split:
+  face models only, ...".
 - For the lead, on return: the review process on trial (3.1) opens with a full sidekick review
   loop, then runs GPT's loop with a full sidekick loop after each GPT round, calling GPT again
   only once that sidekick loop has ended and GPT's own loop has not; not yet in `AGENTS.md`
@@ -1380,7 +1388,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   engine's format converted (an FMDL collar for pre-Fox gets the stock collars' material
   names `uni_collar`/`uni_shirts`; a `.model` collar for Fox), TC-CMN-09
 
-- [ ] 4.18 **Hand auto-split (Fox)**: `model_convert::ops::hand_split::split_by_skeleton_group`
+- [x] 4.18 **Hand auto-split (Fox)**: `model_convert::ops::hand_split::split_by_skeleton_group`
   on every face-content FMDL with positive `skh_*_l`/`skh_*_r` weights (never on a boots- or
   gloves-named model or a shared `Boots/`/`Gloves/` folder's), detected by the deep pass, the
   folder given a gloves task, both tasks splitting, `model_hand_split` (I). Plan:
@@ -1393,7 +1401,17 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `glove/g0625/#Win/glove.fpk` with `glove_l.fmdl` and `glove_r.fmdl` (8 faces each), the face's
   `fcl_hair.fmdl` holds the other 24 of the source's 40 faces, `GloveList.bin` gives player
   71405 glove 625, and `model_hand_split` names `body.fmdl`; the same file as `boots.fmdl` is
-  compiled unsplit. Pre-Fox targets split with 4.14, a `.model` source compiled for Fox with 4.17
+  compiled unsplit. Pre-Fox targets split with 4.14, a `.model` source compiled for Fox with 4.17.
+  Done 2026-10-07 (Opus 5.5, first time, no lead fix): `model_convert`
+  `ops::hand_split::fox_has_hand_weights` (moved from `convert.rs`, now public); `deep/`
+  `ContentPass` (`hand_weighted` beside the findings, one parse per FMDL), `ModelRead`;
+  `CheckedSource.hand_weighted`; `ExportToPlan` a struct; `plan/mod.rs`
+  `ModelFolder.hand_split`, `hand_split_parts` (Fox only), the gloves task and its files;
+  `processing/model.rs` `parts_of`, `split_fmdl`; codes `model_hand_split`,
+  `model_conversion_failed`; help sentence. Test helper `clean_model()` (a glove written as
+  a face model) renames its `skh_` bones so it is not split. A face body left with no face
+  is left out (the package then holds `face_diff.bin` alone). Three open issues (Issues,
+  hand auto-split). Unseen in game.
 
 - [x] 4.19 **Referees (Fox)**: a `/refs/` export compiled into `refs_cpk_name`'s CPK; slots
   01-35 mapped by `players.txt`, a folder mapped to several slots prepared once and
@@ -2095,6 +2113,22 @@ Steps are itemized when Phase 15 closes; one is fixed already:
 
 Bugs, unexpected behavior, things to revisit. `open` / `resolved (date)`. Resolved issues are
 pruned when their phase closes; they stay in git history.
+
+- open (found at 4.18's review) — hand auto-split: a split glove beside an authored glove
+  of the same hand may not merge. The split prunes the bones no vertex of a glove uses, so
+  a split `sk_hand_l` can lose its parent `sk_forearm_l` where an authored glove keeps it,
+  and `fmdl`'s merge reports `skl_merge_conflict`, leaving the gloves out (seen with the
+  tracer's glove beside the lead's fixture, whose bones are all roots; unmeasured on a real
+  full-body model). A player holding both is unlikely; revisit if one appears (the fix
+  would be the split keeping a used bone's ancestors, a `model_convert` change).
+- open (found at 4.18's review) — hand auto-split: a player folder with a plain `Gloves/`
+  link and a hand-split face part keeps the link plain (links combine by file names), so
+  the shared folder still compiles under its shared ID while the player's `GloveList.bin`
+  row goes to the split gloves, its own task. An authored glove beside a link combines
+  instead. The plan is silent; no real export is known to do it.
+- open (found at 4.18's review) — hand auto-split: a face model whose hand-weighted
+  vertices sit in no face gives `model_hand_split` an empty `gloves` value and an empty
+  gloves package. No real file is known to reach it.
 
 - resolved (2026-10-07, by rule: decision entry "the refs CPK beside the team side") (found at
   4.19a's review) — a refs export's `.common` texture link is never satisfied
@@ -3368,3 +3402,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
     PES 2015 to 2017, a row for 2018 to 2021) are re-arranged for the game compiled for,
     each digit moved into the places Konami's own textures keep it, measured on the stock
     textures of both games. The name texture is left as it is.
+  - **4.18:** on PES 2018 to 2021, a face model whose vertices are weighted to the hand
+    bones has its hands cut off at the wrist into the player's gloves, with their own
+    gloves ID and row, and the note `model_hand_split`; a model named as boots or gloves
+    is never cut.

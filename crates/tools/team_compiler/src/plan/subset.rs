@@ -858,7 +858,7 @@ mod tests {
 
     use super::*;
     use crate::plan::{TaskKind, plan_run};
-    use crate::testing::{resolved, resolved_with_issues, two_team_colors};
+    use crate::testing::{resolved, resolved_with_issues, to_plan, two_team_colors};
 
     /// A Fox face folder Phase 3 compiles: a face model and `face_diff.bin`.
     const FACE: [&str; 2] = [
@@ -1865,7 +1865,7 @@ mod tests {
         let export = resolved("co Midcup Gate", &files, &[], None);
 
         let report = plan_run(
-            vec![(ExportId(0), export, two_team_colors(), None)],
+            vec![to_plan(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes21,
         );
 

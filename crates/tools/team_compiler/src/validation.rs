@@ -58,6 +58,10 @@ pub(crate) struct CheckedSource {
     /// The text of the root `notes.txt` validation kept, its BOM removed; `None` when the
     /// export has no such note or a finding dropped it before its identity was resolved.
     pub(crate) notes: Option<String>,
+    /// The export paths of the FMDLs the deep pass found carrying hand weights
+    /// (`deep::ContentPass::hand_weighted`), which planning reads for the hand auto-split;
+    /// empty when the deep pass did not run. Read only beside `resolved`.
+    pub(crate) hand_weighted: BTreeSet<ScopePath>,
     /// What the source looked like when it was listed, which `compile` checks its tasks'
     /// reads against; `None` when routing or the listing's parse set the source aside.
     /// `check` carries it and does nothing with it.
@@ -235,6 +239,7 @@ fn check_source(
         resolved: None,
         team_colors: None,
         notes: None,
+        hand_weighted: BTreeSet::new(),
         revision: None,
     };
     let (listing, revision) = match route {
@@ -277,10 +282,12 @@ fn check_source(
     let mut report = parsed.validate(&context);
     // The deep pass reads only what the structure pass kept; its findings derive the report
     // again, so they drop, cascade and pass through as the structure pass's own do.
+    let mut hand_weighted = BTreeSet::new();
     if let Some(validated) = &report.validated {
-        let findings = deep::content_findings(validated, &content, inputs.common.pes_version);
-        if !findings.is_empty() {
-            report = report.with_content_findings(findings, &context);
+        let pass = deep::content_findings(validated, &content, inputs.common.pes_version);
+        hand_weighted = pass.hand_weighted;
+        if !pass.findings.is_empty() {
+            report = report.with_content_findings(pass.findings, &context);
         }
     }
     let team_colors = report
@@ -334,6 +341,7 @@ fn check_source(
         resolved,
         team_colors,
         notes,
+        hand_weighted,
         revision: Some(revision),
     }
 }
@@ -960,6 +968,7 @@ mod tests {
             resolved: Some(resolved),
             team_colors: None,
             notes: None,
+            hand_weighted: BTreeSet::new(),
             revision: None,
         }
     }
@@ -981,6 +990,7 @@ mod tests {
             resolved: None,
             team_colors: None,
             notes: None,
+            hand_weighted: BTreeSet::new(),
             revision: None,
         }
     }
