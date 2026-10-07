@@ -343,8 +343,9 @@ Claude agent with no sidekick and no reviewer of another model family. While tha
   - **Code that lands meanwhile** joins the queue as usual. The S7+ reviews run on the code as
     it is then.
   - **Before 4.22 and 4.27:** read the 2026-10-06 test results in "Issues". The boots drop is
-    safe on Fox, and on Fox the referee marker stays `collar_077`. Still open: whether Fox
-    referee configs go in as `UniformParameter.bin` entries, and the PES 17 collar.
+    safe on Fox, and on Fox the referee marker stays `collar_077`. Fox referee configs go in
+    as loose files and `UniformParameter.bin` entries both (4.27b). Still open: the PES 17
+    collar.
   - **4.9's stock-set rule stays** until Test 3 is run (postponed).
   - **In-game tests:** the scratch tool and scripts are in `.tmp/apptest/` (see
     `.tmp/review_queue.md` "RESUME HERE"). Each test has its own GUIDE and install/revert
@@ -1841,9 +1842,17 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
     `collar_077.fmdl` leaves the configs at 105.
   Moved out: TC-REF-07's `collar_id_conflict` half (landed with 4.9b1, which reserves 77
   beside 105); the pre-Fox marker (TC-REF-04) needs pre-Fox referees (4.19d).
-  Open with the maintainer (worklog "Issues", referee collars): PES 21 reads referee configs
-  from `UniformParameter.bin` entries, and the bundled base and the installed bins carry them
-  with collar 105, so whether the loose configs this step writes reach the game is untested.
+  Settled 2026-10-07 (maintainer): the game needs the loose referee configs but reads their
+  values from the `UniformParameter.bin` entries, as for team kits; so 4.27b.
+  - [ ] 4.27b **Fox referee configs as `UniformParameter.bin` entries too**: on Fox, each
+    referee kit config the refs CPK holds loose (the templates' or `templates/referees_fox/`'s,
+    with collar 77 when the marker is emitted) also replaces the entry of its name in the
+    bins CPK's `UniformParameter.bin`. Plan: `blue_port.md` "Referee export processing" (the
+    paragraph on the template kit configs); `pipeline.md` "Bins accumulation". Crates: tc
+    (`writer.rs` `finish_referees`, the bins writer) → verify: a refs export with
+    `ref_marker.dds` compiled for PES 21: the bins CPK's `UniformParameter.bin` entries
+    `referee_ACL_1..4` and `referee_DEF_1..5` decode with collar 77 and equal the loose
+    files byte for byte; without `ref_marker.dds` they equal the templates' configs.
 
 - [x] 4.28 **Complete memory accounting**: a running task charges the budget for what it
   allocates (decoded textures, parsed and merged models, its packed entries), without waiting;
@@ -2385,9 +2394,10 @@ pruned when their phase closes; they stay in git history.
     so on Fox the plan stands: the marker is `collar_077`, and the 77 reservation against
     teams guards a real clash.
   - **PES 21 configs:** the collar change made in the `UniformParameter.bin` entries took
-    effect, so the game reads referee configs from those entries. Loose referee configs on
-    Fox are untested. Settle with the maintainer before 4.27 whether `blue_port.md`'s "loose
-    files, never entries" becomes "entries" on Fox. 4.27a went ahead on the plan as written
+    effect, so the game reads referee configs from those entries. Settled 2026-10-07
+    (maintainer, from earlier tests): the game needs the loose configs and reads the values
+    from the entries, for referees and team kits alike; `blue_port.md` now writes both on
+    Fox, step 4.27b. 4.27a went ahead on the plan as written
     (2026-10-07, autonomous mode): the marker's model, texture and reservation hold either way,
     and only where the collar-77 configs go would change. Found then: the compiler's bundled
     `UniformParameter18.bin` and `19.bin` hold `referee_ACL_*`, `referee_DEF_*` (and on 18

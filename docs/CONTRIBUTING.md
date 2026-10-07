@@ -283,10 +283,11 @@ Requirements:
   `tests.rs`, a module declared under `#[cfg(test)]` in a file of its own, the inline
   `#[cfg(test)] mod … {}`) is not scanned. The windows are positional,
   not cut to whole functions: function-sized windows lost context and did worse (15 of 21
-  caught, AUC 0.87 against 0.98). It runs at the
-  mutation runs' two points, never as a gate (it needs the network and a token): `just
-  clef-diff` over every diff the lead reviews, a sidekick's step and each rework round's fix
-  alike, and `just clef <crate>` over each of a phase's crates at converge. The lead runs it,
+  caught, AUC 0.87 against 0.98). It runs only at a phase's close, never as a gate (it
+  needs the network and a token): `just clef <crate>` over each of the phase's crates at
+  converge. A step's review does not run it: over 32 reviewed code commits after the first
+  whole-crate pass, `just clef-diff` flagged seven windows, all false, while that pass found
+  the one real bug; `clef-diff` stays for a diff the lead wants read. The lead runs it,
   not the sidekick. Each flag is ruled like a reviewer concern: accepted (the fix goes into the
   rework brief) or rejected with a one-line reason, and its row (the report prints it) goes into
   `scripts/clef_rulings.md`, so a ruled flag is not raised again while its code is unchanged,

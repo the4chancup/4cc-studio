@@ -123,14 +123,16 @@ third check and the only one that is a measurement rather than a reading: each s
 assertion the sweeps cannot see because it was never written (the `kit_config` probe found
 twenty such gaps in a crate that had passed both sweeps, converge and the cross-family
 reviewer), and every survivor is triaged per `CONTRIBUTING.md` "Mutation runs" before the
-diff lands, the missing tests going into the rework brief. The **Clef scan** (`just clef-diff
-<last reviewed commit>`, `CONTRIBUTING.md` "Clef scan") is the fourth: a decision model's read
-of every changed 60-line window for a bug, aimed at the logic slips that match no sweep pattern
-and break no test the sidekick wrote. It runs on every diff the lead reviews, each rework
-round's included, before any cross-family reviewer sees the code; the lead runs it and rules
-each flag like a reviewer concern (accepted into the rework brief, or rejected with one line
-in `scripts/clef_rulings.md`), and a flag never reaches the sidekick unruled, because a
-sidekick handed raw flags "fixes" the false ones. Each sweep item is a
+diff lands, the missing tests going into the rework brief. The **Clef scan** (`just clef
+<crate>`, `CONTRIBUTING.md` "Clef scan") is not part of a step's review: a decision model's
+read of each 60-line window for a bug, aimed at the logic slips that match no sweep pattern
+and break no test the sidekick wrote, it runs over each of a phase's crates at the phase's
+close (the design-health pass, above). Per-diff scans were dropped after 4.14c2: over 32
+reviewed code commits they flagged seven windows, all false, while the first whole-crate pass
+found the one real bug. The lead runs it and rules each flag like a reviewer concern
+(accepted into the rework brief, or rejected with one line in `scripts/clef_rulings.md`), and
+a flag never reaches the sidekick unruled, because a sidekick handed raw flags "fixes" the
+false ones. Each sweep item is a
 `CONTRIBUTING.md` rule; the sweeps exist because a rule nobody greps for is a rule the review
 applies only when it happens to notice. When a review finds slop
 neither list names, the fix is a new entry here or in `CONTRIBUTING.md`, not a longer review:

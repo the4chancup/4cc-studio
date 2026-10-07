@@ -4849,3 +4849,15 @@ on Fox. One naming rule under two codes keeps each engine's catalog in its own f
 Plan: `team_compiler/README.md` TC-MOD-23, TC-XML-09; `team_compiler/messages.md` "Model checks",
 "Textures", the `edithair_unsupported`, `model_name_invalid`, `texture_not_div4` and
 `model_material_undefined` rows; `aesthetics_export/player_folders.md` "Model names".
+
+## 2026-10-07 — team_compiler — Fox referee configs are written as `UniformParameter.bin` entries too
+Decision: on Fox each referee kit config the refs CPK holds loose also replaces the entry of its
+name in the bins CPK's `UniformParameter.bin` (step 4.27b). The Clef scan runs only at a phase's
+close, over each crate, not on each step's diff.
+Why: the maintainer's in-game tests show the game needs the loose configs but reads the values
+from the entries, for referees as for team kits; the plan's "never entries" left the referees on
+the carried-forward entries' collar 105, so the collar-77 marker could not show. Per-diff Clef
+scans flagged seven windows over 32 reviewed code commits, all false, while the first
+whole-crate pass found the one real bug (maintainer's call, 2026-10-07).
+Plan: `team_compiler/blue_port.md` "Referee export processing"; `AGENTS.md` "Lead and sidekick";
+`CONTRIBUTING.md` "Clef scan".
