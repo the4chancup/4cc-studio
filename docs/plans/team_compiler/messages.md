@@ -211,10 +211,10 @@ savefile messages are new.
 | `model_conversion_failed` | E | selected model cannot be converted to the target format | folder discarded (`DropFolder`) |
 | `vertex_too_far_from_origin` | E | a model has a vertex more than 5000 units from the origin (the format crate's `fmdl_vertex_far_from_origin` / `model_vertex_far_from_origin`, run on every model the compiler processes: native sources as loaded, converted and glTF sources in their target-format form, before any merge; context: model file, offending vertex count). Text: "Vertex too far away, it will cause persistent lag for the whole matchday" | folder discarded (`DropFolder`); not pass-through-eligible |
 | `folder_pack_failed` | E/F | a task cannot build its packed batch | folder/task: `DropFolder`; output-writer/global: `AbortRun` |
-| `model_name_invalid` | E | pre-Fox: `.model` not in the allowed names for its category | folder discarded |
+| `model_name_invalid` | E | pre-Fox: a model directly in a shared boots or gloves folder without its category's suffix, the pre-Fox twin of `fmdl_name_invalid` | folder discarded |
 | `xml_broken` | E | XML fails to parse (with line/column) | folder discarded |
 | `mtl_broken` | E | MTL fails to parse (with line/column) | folder discarded |
-| `edithair_unsupported` | E | `face_edithair.xml` / `hair.xml` present | folder discarded |
+| `edithair_unsupported` | E | pre-Fox: `face_edithair.xml` / `hair.xml` present (anywhere in a player or shared folder; reported by the structure pass, so `check` reports it) | folder discarded |
 | `file_type_disallowed` | E/I | extension not in the mode's allowlist (E if `strict_file_type_check`, else I) | folder discarded / kept |
 | `fmdl_texture_not_found` | E/W | Fox: a texture one of the model's meshes uses is supplied by nobody: its stem resolves to no file of the folder, and its path names the team's Common output, where neither the export's `Common/` nor an installed CPK holds it (`pipeline.md` "Resolved decisions", "A texture a model names must exist"; context: `model`, the model file, and `texture`, the texture path the model now names). W when no install could be read to look, since the texture may be there. Reported by `compile`, where the model is compiled | that package left out (`DropFolder`), as for `merge_material_conflict`, naming the first missing texture; kept when W, one per missing texture |
 
@@ -252,8 +252,10 @@ rule about one of them (two empty meshes count 2). A finding on a
 | `model_material_unused` | I | pre-Fox: a material name no mesh uses | none |
 
 The `.mtl` checks (`mtl_material_duplicate`, `mtl_state_*`) are in "XML/MTL content checks"
-below; the deep pass runs them on every `.mtl`. `model_material_undefined` needs to know which
-`.mtl` a model is paired with, which the pre-Fox face steps decide, so it is theirs.
+below; the deep pass runs them on every `.mtl`. It also reports `model_material_undefined` for
+each pre-Fox `.model` (or `.common` link to one) of a model folder, pairing it with the `.mtl`
+the face step's search finds (`model_format.md` "Pre-Fox: the `.mtl` a `.model` uses"), so
+`check` reports it too.
 
 **Textures** (file-scoped; in model folders the folder fails, and so does a kit, whose config
 names its textures; elsewhere (`Common/`, portraits) the file is dropped; the logo sources are the
@@ -264,13 +266,16 @@ another's. An uncompressed texture is no finding, a kit's included: it is encode
 raster source (`libs/dds_convert.md` "Passthrough"), which is what PES 15–17's crash on
 uncompressed kits needed)
 
-The deep pass reports `texture_type_mismatch`, `texture_too_small`, `texture_not_pow2` and
-`kit_texture_too_big` from each texture's header (`probe` in `libs/dds_convert.md`), without
-decoding it, so `check` reports them and the folder is dropped before any ID is planned for
-it. A mismatched file gets that one finding: its header is another format's, so its size is
-not read. `texture_type_mismatch` is not pass-through-eligible, because the file cannot be
-converted as the format its name declares; the three size findings are eligible: the texture
-converts, and what the game makes of it is the member's risk. A texture whose header cannot
+The deep pass reports `texture_type_mismatch`, `texture_too_small`, `texture_not_pow2`,
+`texture_not_div4` and `kit_texture_too_big` from each texture's header (`probe` in
+`libs/dds_convert.md`), without decoding it, so `check` reports them and the folder is dropped
+before any ID is planned for it. A mismatched file gets that one finding: its header is another
+format's, so its size is not read. `texture_type_mismatch` is not pass-through-eligible, because
+the file cannot be converted as the format its name declares; nor is `texture_not_div4`, because
+every pre-Fox texture is written block-compressed (BC1 or BC3), and the pre-Fox games' Direct3D 9
+renderer cannot create a block-compressed texture whose sides are not multiples of 4. The other
+three size findings are eligible: the texture converts, and what the game makes of it is the
+member's risk. A texture whose header cannot
 be read gets no finding here; converting it fails its task (`folder_pack_failed`), as does
 one whose pixel data is cut short, which no header shows. `texture_codec_unsupported` is
 conversion's own finding, reported when the file is compiled, not by `check`.
@@ -286,7 +291,7 @@ pass-through-eligible, and the logo goes as one unit.
 |---|---|---|---|
 | `texture_too_small` | E | a side under 4 pixels, one block | discarded |
 | `texture_not_pow2` | E | a side that is not a power of two, on a portrait (any target), or on a Fox target on a texture that carries a mip chain: a raster source always (its chain is generated), a DDS or FTEX source with more than one level (a single-level one passes at any size). Not reported on a kit's main texture, where `kit_texture_too_big` covers it | discarded |
-| `texture_not_div4` | E | pre-Fox compressed texture not divisible by 4 | discarded |
+| `texture_not_div4` | E | pre-Fox: a side that is not a multiple of 4 (every pre-Fox texture is written block-compressed); not pass-through-eligible | discarded |
 | `kit_texture_too_big` | E | a kit's main texture (`kit`, its own or the one inherited from `all/`) wider or taller than 2048 pixels, or with a side that is not a power of two; any target | discarded |
 | `texture_type_mismatch` | E | header doesn't match extension (renamed, not resaved) | discarded |
 | `texture_codec_unsupported` | E | codec not convertible in-process | discarded |
@@ -324,7 +329,7 @@ pass-through-eligible, and the logo goes as one unit.
 | `mtl_state_missing` | I | state names absent, defaults used | none |
 | `mtl_state_nonrecommended` | I | `alphablend`/`zwrite` combination not recommended | none |
 | `mtl_state_unknown` | I | a state name outside the seven the schema knows (`shadowcaster` in 18 of Konami's files) | kept verbatim |
-| `model_material_undefined` | E | a material name a `.model` uses has no entry in the `.mtl` it is paired with; the mesh would render with the game's fallback | folder discarded |
+| `model_material_undefined` | E | a material name a `.model` uses has no entry in the `.mtl` it is paired with; the mesh would render with the game's fallback (context: the model, the `.mtl`, the undefined names in the model's order). Also a `.model` the search pairs with no `.mtl` (context: the model) | folder discarded; pass-through-eligible only when a `.mtl` was found (the file packs as it is), never when none was (the `face.xml` must name one) |
 
 The three `mtl_state_*` checks other than `mtl_state_missing` also run on a glTF material's
 `[prefox.states]` table when the target is pre-Fox (the format plan's schema mirrors the `.mtl`

@@ -299,7 +299,8 @@ with no recognized suffix is a face part on both engines, which is what makes th
 work with no naming ceremony: `torso.fmdl` + `legs.fmdl.common` → one `fcl_hair.fmdl` on Fox, two
 `parts` entries pre-Fox. Boots and gloves models must therefore *say so* by suffix — in a player
 folder because an unsuffixed model would be taken for face content, and in a shared boots/gloves
-folder, where nothing can be a face, unsuffixed names are `fmdl_name_invalid` errors.
+folder, where nothing can be a face, unsuffixed names are `fmdl_name_invalid` errors
+(`model_name_invalid` on a pre-Fox target, the same rule under the `.model` catalog's code).
 
 **SKL pairing** — a model may carry a custom skeleton. Each source format keeps it differently: an
 `.fmdl` in a companion `.skl` file named after the model's source basename (`commander.skl` for

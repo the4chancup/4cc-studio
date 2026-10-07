@@ -4828,3 +4828,24 @@ need planning to collect every link of every player for a saving no cup needs: a
 in Common to be linked.
 Plan: `team_compiler/pipeline.md` "3. Per-model-folder parallel steps" step 4;
 `team_compiler/README.md` TC-MOD-24.
+
+## 2026-10-07 — team_compiler — pre-Fox name and limit checks: who reports what (4.14d)
+Decision: `xml_oral_prefix_missing` is a user `face.xml` check and moves to 4.15 with the second
+half of TC-MOD-23, now TC-XML-09; TC-MOD-23 keeps the generated model's `uniform_sub`.
+`model_material_undefined` for a material the paired `.mtl` lacks is reported by the deep pass
+(so `check` reports it), with TC-XML-08 moving to 4.14d; it is pass-through-eligible when a
+`.mtl` was found, not when none was. `texture_not_div4` covers every pre-Fox texture and is not
+pass-through-eligible. `edithair_unsupported` is pre-Fox only, from the structure pass.
+`model_name_invalid` is `fmdl_name_invalid`'s rule on a pre-Fox target.
+Why: the generator always writes `oral_`, so the prefix rule can only fail on a hand-written
+`face.xml`, which stays refused until 4.15; citing TC-MOD-23 for half its scenario would pass the
+acceptance scanner on a claim no test proves. A check reported only by `compile` leaves `check`
+silent on a folder `compile` drops, which is what the deep pass exists to prevent; a model whose
+`.mtl` lacks a name still packs (the game renders its fallback), while one with no `.mtl` cannot
+be named in `face.xml`. Every pre-Fox texture is written BC1 or BC3, and Direct3D 9 refuses a
+block-compressed texture with a side that is not a multiple of 4, so keeping one under
+`pass_through` would write a texture the game cannot create. A `face_edithair.xml` means nothing
+on Fox. One naming rule under two codes keeps each engine's catalog in its own format's terms.
+Plan: `team_compiler/README.md` TC-MOD-23, TC-XML-09; `team_compiler/messages.md` "Model checks",
+"Textures", the `edithair_unsupported`, `model_name_invalid`, `texture_not_div4` and
+`model_material_undefined` rows; `aesthetics_export/player_folders.md` "Model names".

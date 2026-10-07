@@ -1341,9 +1341,10 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   on pre-Fox (TC-MOD-22, 38, 40); (c2) Common: `.model.common`/`.mtl.common` and texture
   links, the pre-Fox Common output (TC-MOD-24, 37); (d) the name and limit
   checks: `model_name_invalid`, `edithair_unsupported`, `uniform_sub` with
-  `xml_uniform_pes15`, `xml_oral_prefix_missing`, `texture_not_div4`, the vertex limit,
-  a material a `.model` names missing from its `.mtl` (`check_bundle`)
-  (TC-MOD-23, 25, TC-CHK-08, TC-TEX-07); (e) `ingame_face` through `pes_model::ops::merge`,
+  `xml_uniform_pes15`, `texture_not_div4`, the vertex limit, a material a `.model` names
+  missing from its `.mtl` (`check_bundle`'s rule, in the deep pass)
+  (TC-MOD-23, 25, TC-CHK-08, TC-TEX-07, TC-XML-08; `xml_oral_prefix_missing` is a user
+  `face.xml` check, 4.15's, with TC-XML-09); (e) `ingame_face` through `pes_model::ops::merge`,
   the kit variant sets, the hand split of a hand-weighted `.model`, a shared boots folder
   holding several boots models merged into its `boots.model` (TC-MOD-35, 41, TC-CMN-07). A user-supplied `face.xml` stays refused as not compiled yet until 4.15.
   Templates for (b): `resources/templates/dummy.model` and `dummy.mtl` (README there).
@@ -1388,7 +1389,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   of 254); `mutants-diff f4f3a56`: 101, 86 caught, 15 unviable, 0 missed (the local half
   rerun alone after a PC crash killed it; the remote half's 50 collected). Clef: one flag,
   rejected.
-  IDs: TC-MOD-20..25, TC-MOD-35, TC-MOD-37..41, TC-CHK-08, TC-TEX-07, TC-CMN-07 (split from TC-CMN-05 at 4.11c). Crates: tc (`processing/model.rs`, `processing/material.rs`,
+  IDs: TC-MOD-20..25, TC-MOD-35, TC-MOD-37..41, TC-CHK-08, TC-TEX-07, TC-XML-08, TC-CMN-07 (split from TC-CMN-05 at 4.11c). Crates: tc (`processing/model.rs`, `processing/material.rs`,
   `processing/texture.rs`, `paths.rs`) → verify: a `/co/` slot 05 folder with the smallest
   `pes_model` fixture pair as `face_high.model` + `face_high.mtl` and `skin.dds`, compiled for PES 17: the
   CPK holds `common/character0/model/character/face/real/71405.cpk` whose `face.xml` lists one
@@ -1399,7 +1400,8 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   catalog, the Error/Warning/Info line of "User-supplied `face.xml`", `xml_ignored_fox`,
   `mtl_texture_not_found` deep (mesh-used materials) against `mtl_texture_unused_missing`, the
   states checks also on a converted model's `[prefox.states]`. Plan: `messages.md` "XML/MTL
-  content checks", "User-supplied `face.xml`". IDs: TC-XML-01..08. Crates: tc
+  content checks", "User-supplied `face.xml`". IDs: TC-XML-01..07, TC-XML-09 (TC-XML-08 is
+  4.14d's). Crates: tc
   (`processing/material.rs`) → verify: the hand-written xml of `testing.md` ("user `face.xml`")
   compiled for PES 17 is emitted with 714 substituted into its Common path, its unknown `type`
   and extra attribute kept with `xml_type_unknown` and `xml_attribute_unknown`, `level="1"` kept

@@ -795,12 +795,10 @@ TC-MOD-22  GIVEN slot 05 holding face_high.model, face_high.mtl, kit_boots.model
            THEN common/character0/model/character/boots/k0644/ holds Crocs's files as loose entries,
                 slot 05's face.xml lists kit_boots's emitted model as a parts entry and none of
                 Crocs's, and no link_combined is reported
-TC-MOD-23  GIVEN slot 05 holding body_uniform.model, and another export whose slot 05 also holds
-           its own face.xml naming ./body_uniform.model
-           WHEN each is compiled for PES 15, then PES 16, then PES 17
-           THEN the first's entry type is uniform_sub with xml_uniform_pes15 on 15, uniform on 16
-                and 17, and on 16 its emitted model name carries the oral_ prefix; on 16 the
-                second reports xml_oral_prefix_missing
+TC-MOD-23  GIVEN slot 05 holding body_uniform.model
+           WHEN it is compiled for PES 15, then PES 16, then PES 17
+           THEN its entry type is uniform_sub with xml_uniform_pes15 on 15, uniform on 16 and 17,
+                and on 16 its emitted model name carries the oral_ prefix
 TC-MOD-24  GIVEN slot 05 holding legs.model.common and Common/legs.model with Common/legs.mtl;
            then slot 05 also holding a legs.mtl of its own naming another texture
            WHEN it is compiled for PES 17 each time
@@ -1046,6 +1044,10 @@ TC-XML-08  GIVEN slot 05 holding face_high.model binding material "skin" and a f
            defining no material of that name
            WHEN the export is compiled for PES 17
            THEN model_material_undefined is reported naming skin and the folder is dropped
+TC-XML-09  GIVEN slot 05 holding body_uniform.model and its own face.xml naming
+           ./body_uniform.model
+           WHEN the export is compiled for PES 16
+           THEN xml_oral_prefix_missing is reported and the folder is dropped
 ```
 
 **Kits**
