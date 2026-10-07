@@ -188,7 +188,7 @@ const BOOT_ID: usize = 272;
 const GLOVE_ID: usize = 276;
 /// player_export.copy_id
 const COPY_ID: usize = 280;
-/// player_export.neck_len … player_export.head_dep — thirteen i32s
+/// player_export.neck_len … player_export.head_dep — fourteen i32s
 const PHYSIQUE: usize = 284;
 /// player_export.wrist_col_l
 const WRIST_COL_L: usize = 340;
@@ -324,7 +324,7 @@ const APPEARANCE_BOOL: &[(usize, SettingKey)] = &[
     (GLOVES, SettingKey::Gloves),
 ];
 
-/// The thirteen `i32` physique fields, in struct order from `PHYSIQUE`.
+/// The fourteen `i32` physique fields, in struct order from `PHYSIQUE`.
 const PHYSIQUE_KEYS: &[SettingKey] = &[
     SettingKey::NeckLength,
     SettingKey::NeckSize,

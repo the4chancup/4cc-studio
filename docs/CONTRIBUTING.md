@@ -280,7 +280,8 @@ Requirements:
   five reviewed commits gave 10 flagged windows of 203, all on the code a later fix changed
   (the report merges overlapping flagged windows, here into three flags). It does not see a
   defect whose evidence is in another file or in the plan, and test code (a `tests/` folder,
-  `tests.rs`, the inline `#[cfg(test)] mod … {}`) is not scanned. The windows are positional,
+  `tests.rs`, a module declared under `#[cfg(test)]` in a file of its own, the inline
+  `#[cfg(test)] mod … {}`) is not scanned. The windows are positional,
   not cut to whole functions: function-sized windows lost context and did worse (15 of 21
   caught, AUC 0.87 against 0.98). It runs at the
   mutation runs' two points, never as a gate (it needs the network and a token): `just

@@ -12,9 +12,10 @@ defects caught, 2 of 64 reviewed hunks flagged), so change them only with a new 
   the working tree, untracked files included (`mutants.working_tree()`).
 - `crate <name>` (or `all`) tiles the crate's production code: 60-line windows, 20 overlapping.
 
-Production code only: files under a `tests/` folder, `tests.rs` files and everything below a
-file's first `#[cfg(test)]` are left out (the question was not measured on test code, where
-the project allows unwraps and clones).
+Production code only: files under a `tests/` folder, `tests.rs` files, modules declared under
+`#[cfg(test)]` in a file of their own (`test_support.rs`) and a file's inline test module are
+left out (the question was not measured on test code, where the project allows unwraps and
+clones).
 
 Rulings: `scripts/clef_rulings.md` (tracked) holds the lead's verdict on each flag, keyed by
 the flagged file and the five lines around its likeliest line. A flag whose key is ruled is
@@ -49,7 +50,7 @@ import time
 import urllib.error
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 import mutants
 
@@ -212,13 +213,39 @@ def git(*args: str) -> str:
 TEST_MODULE = re.compile(r"\s*(pub(\([^)]*\))?\s+)?mod\s+\w+\s*\{")
 
 
+def test_only_file(path: str) -> bool:
+    """Whether the file is a module its parent declares under `#[cfg(test)]` (`mod name;` on
+    the next line), or lies below one: test code with a file of its own (`test_support.rs`,
+    a golden test module), which `production_end`'s inline rule cannot see. The parent is
+    looked up the two ways Rust allows (`a/mod.rs` or `a.rs`); a file whose parent is not
+    found counts as production."""
+    p = PurePosixPath(path)
+    if p.parent.name == "src" and p.name in ("lib.rs", "main.rs"):
+        return False
+    name, folder = (p.parent.name, p.parent.parent) if p.name == "mod.rs" else (p.stem, p.parent)
+    if folder.name == "src":
+        parents = [folder / "lib.rs", folder / "main.rs"]
+    else:
+        parents = [folder / "mod.rs", folder.with_suffix(".rs")]
+    declaration = re.compile(rf"\s*(pub(\([^)]*\))?\s+)?mod\s+{name}\s*;")
+    for parent in parents:
+        if not (ROOT / parent).is_file():
+            continue
+        lines = (ROOT / parent).read_text(encoding="utf-8", errors="replace").splitlines()
+        for i, line in enumerate(lines):
+            if declaration.match(line):
+                return (i > 0 and lines[i - 1].strip() == "#[cfg(test)]") or test_only_file(
+                    str(parent))
+    return False
+
+
 def production_end(path: str, lines: list[str]) -> int:
     """How many leading lines of the file are production code (0 for a test file): up to the
     inline test module, a `#[cfg(test)]` directly over `mod <name> {`. Not the first
     `#[cfg(test)]`: that also marks out-of-line modules (`mod tests;`) and single items at
     the top or middle of a file (20 files, 5,007 production lines, on 2026-10-06). The
     inline test module is the last item of every file that has one (133 files checked)."""
-    if "/tests/" in path or path.endswith("tests.rs"):
+    if "/tests/" in path or path.endswith("tests.rs") or test_only_file(path):
         return 0
     return next((i for i, s in enumerate(lines[:-1]) if s.strip() == "#[cfg(test)]"
                  and TEST_MODULE.match(lines[i + 1])), len(lines))
