@@ -194,7 +194,9 @@ pre-Fox is far more permissive:
   that player's **face folder**. The `face.xml` has a per-entry model *type* property, so boots and
   gloves models load into their own skeletons from the face folder — meaning per-player boots/gloves
   folders are never needed, and nothing is ever merged. A shared face folder is copied per player
-  and receives the local files on top; a boots/gloves link keeps loading its shared folder by ID
+  and receives the local files on top (a local file replaces the shared folder's file that
+  packs under the same name, model or `.mtl`, as a copy would; `link_combined` reports the
+  link, as on Fox); a boots/gloves link keeps loading its shared folder by ID
   while the player's local parts load from the face folder alongside it.
 - **Fox**: there is no model type property, so per-player boots and gloves folders *are* required.
   Local boots/gloves models form a **new player-exclusive folder** with its own ID from the team's

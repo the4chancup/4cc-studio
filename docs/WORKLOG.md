@@ -1335,15 +1335,17 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   (type table, `oral_`/`_win32` and the `*` path, `ratio`, `model_type_<x>`, the dummy and
   `xml_face_neck_added`, `<dif>`), `.mtl` texture paths and DDS textures in the player's
   common subfolder, the nested face CPK, local boots/gloves riding in the face XML, the
-  pre-Fox blank face folder (TC-MOD-20, 21, 39); (c) links: `.model.common`/`.mtl.common`
-  and the pre-Fox Common output, a combined shared face folder, shared boots/gloves folders
-  as loose files with `glove.xml` (TC-MOD-22, 24, 37, 38, 40); (d) the name and limit
+  pre-Fox blank face folder (TC-MOD-20, 21, 39); (c1) shared folders: a face link combined
+  into the face, local files on top, shared boots/gloves folders as loose files
+  (`boots.model`/`boots.mtl`, gloves under their own names with `glove.xml`), no item rows
+  on pre-Fox (TC-MOD-22, 38, 40); (c2) Common: `.model.common`/`.mtl.common` and texture
+  links, the pre-Fox Common output (TC-MOD-24, 37); (d) the name and limit
   checks: `model_name_invalid`, `edithair_unsupported`, `uniform_sub` with
   `xml_uniform_pes15`, `xml_oral_prefix_missing`, `texture_not_div4`, the vertex limit,
   a material a `.model` names missing from its `.mtl` (`check_bundle`)
   (TC-MOD-23, 25, TC-CHK-08, TC-TEX-07); (e) `ingame_face` through `pes_model::ops::merge`,
-  the kit variant sets, the hand split of a hand-weighted `.model` (TC-MOD-35, 41,
-  TC-CMN-07). A user-supplied `face.xml` stays refused as not compiled yet until 4.15.
+  the kit variant sets, the hand split of a hand-weighted `.model`, a shared boots folder
+  holding several boots models merged into its `boots.model` (TC-MOD-35, 41, TC-CMN-07). A user-supplied `face.xml` stays refused as not compiled yet until 4.15.
   Templates for (b): `resources/templates/dummy.model` and `dummy.mtl` (README there).
   (a) done 2026-10-07 (Opus 5.5, first time, no lead fix): the token grammar moved to
   `aesthetics_export::conventions::kit_token` (`KitToken`, `kit_token`, `variant_stem`,

@@ -437,7 +437,15 @@ then processed as an independent parallel task (Blue: `coordinator._model_folder
 7. **Packing** — pre-Fox faces are packed into a per-model nested CPK, whose entries repeat
    the outer path (`common/character0/model/character/face/real/{id}/face.xml` and so on, as
    in Red's output and the installed PES 2015 DLC); pre-Fox boots/gloves emit
-   loose files; Fox mode packs allowed types (`.bin`, `.fmdl`, `.skl`, `.fclo`) into an FPK plus a
+   loose files in the shape of the installed DLC's: a shared boots folder's model as
+   `boots.model` and the `.mtl` it uses as `boots.mtl` (the game loads them by those names
+   and every DLC boots folder has exactly them; a folder holding several boots models merges
+   them with `pes_model::ops::merge`, as `ingame_face` does), a shared gloves folder's models
+   and `.mtl` files under their own names lowercased, as a face's are but without the `oral_`
+   and `_win32` affixes, listed in a generated `glove.xml` (the shape of the generated
+   `face.xml` with no `<dif>`, each entry's `path` `./<name>.model` as Red and the DLC write
+   it, its type from the model-name table); either folder's textures as DDS beside its models,
+   the `.mtl` paths naming them `./<stem>.dds`. Fox mode packs allowed types (`.bin`, `.fmdl`, `.skl`, `.fclo`) into an FPK plus a
    template `.fpkd` (player-owned and merge-copied textures having been relocated to the per-player
    common subfolder; plain shared-output textures remain in that model's own texture location).
    Packed entries are emitted to the writer queue. (Blue: `contents_packing.py`)

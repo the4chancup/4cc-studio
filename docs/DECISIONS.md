@@ -4790,3 +4790,24 @@ the installed PES 2015 DLC (`4cc_40_faces.cpk`) holds `boots/k0444/boots.model` 
 `glove/g0708/glove.xml`, and Red keeps the `k`/`g` folder name on both engines; a bare number is a
 folder the game never looks in.
 Plan: `team_compiler/pipeline.md` "Game paths reference"; `team_compiler/README.md` TC-MOD-22, 35, 41.
+
+## 2026-10-07 — team_compiler — pre-Fox shared boots and gloves output, and a combined shared face
+Decision: a pre-Fox shared boots folder's model is written as `boots.model` and the `.mtl` it uses
+as `boots.mtl`; several boots models in one shared folder merge with `pes_model::ops::merge`
+(slice 4.14e; refused as not compiled yet until then). A shared gloves folder's models and `.mtl`
+files keep their own names lowercased, with no `oral_`/`_win32` affixes, and a generated `glove.xml`
+in the generated `face.xml`'s shape without `<dif>` lists them, `path="./<name>.model"`, typed by
+the model-name table. Textures sit beside the models as DDS, the `.mtl` paths naming them
+`./<stem>.dds`. A face link combines on pre-Fox (`link_combined`, as on Fox): the shared folder's
+files go into the player's face CPK and a local file replaces the shared file packing under the
+same name. A pre-Fox target plans no BootsList/GloveList rows.
+Why: every boots folder of the installed PES 2015 DLC (`4cc_40_faces.cpk`, 13 checked) holds
+exactly `boots.model` and `boots.mtl`, the names the game loads, so `kit_boots.model` written under
+its own name would never load; its `.mtl` files name textures `./medic_bsm.dds`. Its glove folders
+hold `glove.xml` naming `./glove_l.model` with no affixes (Red's `glove_element` writes the same),
+and one lists `./historically.model` typed `shirt`, so names and types are free there, unlike
+boots. Copying a shared face with local files on top is the plan's pre-Fox rule; a duplicate name
+failing the task instead would make the copy order matter. Pre-Fox has no player tables: the
+"Game paths reference" writes none, and planning rows there would report `player_table_missing`.
+Plan: `team_compiler/pipeline.md` "3. Per-model-folder parallel steps" step 7;
+`aesthetics_export/player_folders.md` "A link plus local models combines".
