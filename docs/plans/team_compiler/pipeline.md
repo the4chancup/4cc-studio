@@ -1329,7 +1329,8 @@ Resolved decisions:
   builds on `UniformParameter18.bin`, 19–21 on `UniformParameter19.bin`), and the current official
   `DpFileList.bin` (for slot discovery and the DpFileList upgrade — see "Multi-CPK mode: teams
   parts" and "Post-processing") — ~6 MB total) ship inside the binary
-  (`include_dir!`), version-locked to the compiler logic that consumes them; Red's
+  (`include_bytes!`, one per file, the referee trees' files listed by game path; no
+  directory-embedding crate), version-locked to the compiler logic that consumes them; Red's
   `file_critical_check` class of missing/mismatched-template errors disappears. A `templates/`
   folder in the data directory shadows embedded resources per file, so cup maintainers can hot-swap
   fallback bins or referee template content between releases; each active override is reported
@@ -1497,10 +1498,12 @@ Resolved decisions:
   bypassed for compiles of 3+ teams; see the [library crates plan](../libs/README.md) for rationale.
 - **Output-mode artifact routing**: `teamnotes.txt` is written under `output_folder_path` in every
   mode. In sideload mode the bins, the `overrides/` files and referee content land at their game
-  paths inside `livecpk/`, since that tree is what the CPK would contain. In test mode the bins go
+  paths inside `livecpk/`, since that tree is what the CPK would contain, the referee template
+  tree with them when the refs export commits something. In test mode the bins go
   under `test_output/_bins/` at their game-relative paths, referee content is written per export
   like a team's, and overrides are not applied: test mode shows what the compiler did to an
-  export, and an override is not the export's. Normal single-CPK, multi-CPK and refs routing is
+  export, and an override is not the export's; for the same reason it writes no referee
+  template tree, which is no export's either. Normal single-CPK, multi-CPK and refs routing is
   the writer's (step 5 above).
 
 Open questions — **implementation/spec work** (no user preference involved; resolved during the

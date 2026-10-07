@@ -4597,3 +4597,15 @@ anything; a run without a refs export keeps it, and it holds nothing a team need
 writers on one file, the same reason as the teams stem refusal.
 Plan: `team_compiler/pipeline.md` "5. Writer" step 5; `team_compiler/settings.md`
 `refs_cpk_name`.
+
+## 2026-10-07 — team_compiler — the referee template tree: embedded per file, written last, not in test mode
+Decision: the Fox referee tree (`resources/templates/referees_fox/`, 31 files) is embedded with
+one `include_bytes!` per file, listed by game path, not with a directory-embedding crate. It is
+written into the refs CPK after the refs export's entries, only when that export commits
+something; in sideload mode it lands in `livecpk/` the same way; test mode writes none. A tree
+entry at an `overrides/` path is left out like any other entry.
+Why: `include_dir!` would be a new dependency for one folder, and a listed tree also fails the
+build when a file goes missing. Test mode shows what the compiler did to the exports, and the tree
+is no export's, as the overrides are not applied there either.
+Plan: `team_compiler/pipeline.md` "Resolved decisions" (templates embedded), "Output-mode artifact
+routing".
