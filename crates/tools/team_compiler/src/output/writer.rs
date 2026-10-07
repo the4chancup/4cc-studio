@@ -2,8 +2,8 @@
 //! files first, then task batches in manifest order whatever order they arrive in, a player
 //! folder's group decided as one once its textures batch is in, then the bins. In multi-CPK
 //! mode the batches' entries go to the teams parts instead, a team at a time (`parts`). In a
-//! normal run holding a refs export, that export's entries go to the refs CPK instead
-//! (`RefsCpk`).
+//! normal run holding a refs export, that export's entries go to the refs CPK instead, followed
+//! by the referee template tree (`Referees`).
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
@@ -25,6 +25,7 @@ use crate::paths;
 use crate::plan::TeamKits;
 use crate::plan::item_rows::ItemRow;
 use crate::processing::TaskBatch;
+use crate::templates::Templates;
 
 /// One CPK's entries being written into `sink`, a CPK file or a folder of loose files. The
 /// overrides go in with the first committed entry, or at the end when only they go in, so a
@@ -55,9 +56,10 @@ pub(crate) struct CpkOutput {
     /// Multi-CPK mode's teams parts, which take the batches' entries, the sink then being the
     /// bins CPK; `None` when every entry goes into the sink.
     parts: Option<TeamsParts>,
-    /// The refs CPK, which takes the refs export's entries; `None` when every entry goes to
-    /// the team side (the sink, or the parts).
-    refs: Option<RefsCpk>,
+    /// The refs export's tasks, whose entries go to the refs CPK when there is one and are
+    /// followed by the referee template tree; `None` when the run writes no tree (test mode,
+    /// or a run without a refs export).
+    referees: Option<Referees>,
 }
 
 /// Which of a run's outputs `CpkOutput::finish` wrote: each is written only when something
@@ -71,40 +73,55 @@ pub(crate) struct Written {
     pub(crate) refs: bool,
 }
 
-/// The refs CPK being written (`pipeline.md` "5. Writer", step 5): the refs export's entries,
-/// which go into no CPK of the team side.
-pub(crate) struct RefsCpk {
+/// The refs export's tasks being written (`pipeline.md` "5. Writer", step 5): into the refs
+/// CPK, which no entry of the team side goes into, in a normal run; with the team side's
+/// entries in sideload mode. Whether an entry of them went in decides whether the referee
+/// template tree is written after them.
+pub(crate) struct Referees {
     /// The manifest positions of the refs export's tasks: one export's, so one range.
     tasks: Range<usize>,
-    /// The CPK, created with its first entry.
-    sink: OutputSink,
-    /// Whether an entry went in: a refs export that commits nothing writes no refs CPK, so the
-    /// installed referees stay.
-    written: bool,
+    /// The refs CPK, created with its first entry; `None` when the refs export's entries go
+    /// into the team side's sink with the others (sideload mode).
+    cpk: Option<OutputSink>,
+    /// Whether an entry of the tasks went in: a refs export that commits nothing writes no
+    /// refs CPK and no tree, so the installed referees stay.
+    committed: bool,
 }
 
-impl RefsCpk {
-    /// The refs CPK at `path`, taking the entries of the manifest positions `tasks`. Nothing is
-    /// written yet.
-    pub(crate) fn new(path: PathBuf, tasks: Range<usize>) -> RefsCpk {
-        RefsCpk {
+impl Referees {
+    /// The tasks at the manifest positions `tasks`, their entries going into the refs CPK at
+    /// `path`. Nothing is written yet.
+    pub(crate) fn cpk(path: PathBuf, tasks: Range<usize>) -> Referees {
+        Referees {
             tasks,
-            sink: OutputSink::cpk(path),
-            written: false,
+            cpk: Some(OutputSink::cpk(path)),
+            committed: false,
         }
     }
 
-    /// Writes `bytes` as the entry `path`.
-    fn add(&mut self, path: &str, bytes: &[u8]) -> anyhow::Result<()> {
-        self.sink.add(path, bytes)?;
-        self.written = true;
-        Ok(())
+    /// The tasks at the manifest positions `tasks`, their entries going into the team side's
+    /// sink with the others.
+    pub(crate) fn in_sink(tasks: Range<usize>) -> Referees {
+        Referees {
+            tasks,
+            cpk: None,
+            committed: false,
+        }
     }
 
-    /// Closes the CPK, when one was created; whether it was.
-    fn finish(self) -> anyhow::Result<bool> {
-        self.sink.finish()?;
-        Ok(self.written)
+    /// Takes the entry `path` of the task at manifest position `index` when that task is the
+    /// refs export's: noted as committed, and written as `bytes` into the refs CPK when there
+    /// is one. Whether the refs CPK took it; an entry it did not take goes to the team side.
+    fn add(&mut self, index: usize, path: &str, bytes: &[u8]) -> anyhow::Result<bool> {
+        if !self.tasks.contains(&index) {
+            return Ok(false);
+        }
+        self.committed = true;
+        let Some(cpk) = &mut self.cpk else {
+            return Ok(false);
+        };
+        cpk.add(path, bytes)?;
+        Ok(true)
     }
 }
 
@@ -130,15 +147,15 @@ impl CpkOutput {
             committed: BTreeSet::new(),
             bins_prefix: bins_prefix.to_owned(),
             parts,
-            refs: None,
+            referees: None,
         }
     }
 
-    /// The same output, with the entries of `refs`' tasks going into the refs CPK instead of
-    /// the team side.
-    pub(crate) fn with_refs(self, refs: RefsCpk) -> CpkOutput {
+    /// The same output, with the entries of `referees`' tasks going where it says, and the
+    /// referee template tree after them when one went in.
+    pub(crate) fn with_referees(self, referees: Referees) -> CpkOutput {
         CpkOutput {
-            refs: Some(refs),
+            referees: Some(referees),
             ..self
         }
     }
@@ -224,8 +241,9 @@ impl CpkOutput {
         Ok(())
     }
 
-    /// Closes the refs CPK, when there is one and an entry went in, then finishes the team side
-    /// (`finish_team`). Returns which were written, and the team side's findings.
+    /// Adds the referee template tree of `templates` and closes the refs CPK
+    /// (`finish_referees`), then finishes the team side (`finish_team`). Returns which were
+    /// written, and the findings: the tree's, then the team side's.
     pub(crate) fn finish(
         mut self,
         version: PesVersion,
@@ -233,19 +251,58 @@ impl CpkOutput {
         team_colors: &[(u16, Vec<Rgb>)],
         team_kits: &[TeamKits],
         item_rows: &[ItemRow],
+        templates: &Templates,
     ) -> anyhow::Result<(Written, Vec<Message>)> {
         ensure!(
             self.pending.is_empty(),
             "the writer never received task {} of the manifest",
             self.next
         );
-        let refs = match self.refs.take() {
-            Some(refs) => refs.finish()?,
+        let mut messages = Vec::new();
+        let refs = match self.referees.take() {
+            Some(referees) => self.finish_referees(referees, templates, &mut messages)?,
             None => false,
         };
-        let (team, messages) =
+        let (team, team_messages) =
             self.finish_team(version, bins, team_colors, team_kits, item_rows)?;
+        messages.extend(team_messages);
         Ok((Written { team, refs }, messages))
+    }
+
+    /// When an entry of the refs export went in, adds the referee template tree of `templates`
+    /// after it, each file at its game path unless an override holds that path (`overridden`,
+    /// its `duplicate_path` going to `messages`): into the refs CPK, or without one into the
+    /// team side's sink, which it then starts. Closes the refs CPK, and returns whether it was
+    /// written.
+    fn finish_referees(
+        &mut self,
+        referees: Referees,
+        templates: &Templates,
+        messages: &mut Vec<Message>,
+    ) -> anyhow::Result<bool> {
+        let Referees {
+            mut cpk, committed, ..
+        } = referees;
+        if committed {
+            // Fox's tree: only a Fox target plans referee tasks yet; the pre-Fox tree
+            // (`referees_prefox`) is to be chosen here by engine.
+            for (path, bytes) in templates.referees_fox() {
+                let Some(cpk) = &mut cpk else {
+                    self.add(path, bytes, messages)?;
+                    continue;
+                };
+                if !self.overridden(path, messages) {
+                    cpk.add(path, bytes)?;
+                }
+            }
+        }
+        match cpk {
+            Some(cpk) => {
+                cpk.finish()?;
+                Ok(committed)
+            }
+            None => Ok(false),
+        }
     }
 
     /// Writes the bins and closes the CPK, when a team's batch committed something or there is
@@ -374,7 +431,8 @@ impl CpkOutput {
     /// no player table row. A task with an entry an override replaced still contributes the
     /// rest, its kit config, kit colors and rows included, and the `duplicate_path` joins its
     /// messages. With parts, the entries are held for the task's team instead of written. A
-    /// task of the refs export writes into the refs CPK, and does not start the team side.
+    /// task of the refs export writes into the refs CPK when there is one, and then does not
+    /// start the team side.
     fn commit(&mut self, batch: &mut TaskBatch) -> anyhow::Result<()> {
         if batch.entries.is_empty() {
             return Ok(());
@@ -383,12 +441,11 @@ impl CpkOutput {
             if self.overridden(&path, &mut batch.messages) {
                 continue;
             }
-            if let Some(refs) = self
-                .refs
-                .as_mut()
-                .filter(|refs| refs.tasks.contains(&batch.index))
-            {
-                refs.add(&path, &bytes)?;
+            let in_refs_cpk = match &mut self.referees {
+                Some(referees) => referees.add(batch.index, &path, &bytes)?,
+                None => false,
+            };
+            if in_refs_cpk {
                 continue;
             }
             self.start()?;
@@ -528,6 +585,7 @@ mod tests {
             &[],
             &[],
             &[],
+            &Templates::embedded(),
         )?;
         assert_eq!(messages, []);
         Ok(written.team)
@@ -878,6 +936,7 @@ mod tests {
                 &team_714_colors(),
                 &[],
                 &[],
+                &Templates::embedded(),
             )
             .unwrap();
 
@@ -956,13 +1015,39 @@ mod tests {
         refs_tasks: Range<usize>,
     ) -> CpkOutput {
         CpkOutput::new(OutputSink::cpk(folder.join("cup.cpk")), overrides, "", None)
-            .with_refs(RefsCpk::new(folder.join("refs.cpk"), refs_tasks))
+            .with_referees(Referees::cpk(folder.join("refs.cpk"), refs_tasks))
     }
+
+    /// `entries`, then every game path of the embedded Fox referee template tree but those of
+    /// `left_out`: a refs CPK's layout.
+    fn then_tree(entries: &[&str], left_out: &[&str]) -> Vec<String> {
+        let tree = Templates::embedded()
+            .referees_fox()
+            .map(|(path, _)| path)
+            .filter(|path| !left_out.contains(path))
+            .collect::<Vec<_>>();
+        entries
+            .iter()
+            .chain(&tree)
+            .map(|path| (*path).to_owned())
+            .collect()
+    }
+
+    /// The game path of the Fox referee template tree's `RefereeAppearance.bin`.
+    const REFEREE_APPEARANCE: &str =
+        "common/character0/model/character/appearance/RefereeAppearance.bin";
 
     /// `output` finished for PES 21 on the bundled bins with no team colors.
     fn finish_pes21(output: CpkOutput) -> (Written, Vec<Message>) {
         output
-            .finish(PesVersion::Pes21, bundled(), &[], &[], &[])
+            .finish(
+                PesVersion::Pes21,
+                bundled(),
+                &[],
+                &[],
+                &[],
+                &Templates::embedded(),
+            )
             .unwrap()
     }
 
@@ -999,10 +1084,12 @@ mod tests {
                 paths::UNI_COLOR
             ]
         );
-        assert_eq!(
-            layout(&folder.join("refs.cpk")),
-            ["refs/a.bin", "refs/b.bin"]
-        );
+        // The tree follows the refs export's entries, with its embedded bytes.
+        let refs = folder.join("refs.cpk");
+        assert_eq!(layout(&refs), then_tree(&["refs/a.bin", "refs/b.bin"], &[]));
+        for (path, bytes) in Templates::embedded().referees_fox() {
+            assert!(entry(&refs, path) == bytes, "{path}");
+        }
     }
 
     #[test]
@@ -1025,7 +1112,112 @@ mod tests {
         );
         assert_eq!(messages, []);
         assert!(!folder.join("cup.cpk").exists(), "no team CPK");
-        assert_eq!(layout(&folder.join("refs.cpk")), ["refs/a.bin"]);
+        assert_eq!(
+            layout(&folder.join("refs.cpk")),
+            then_tree(&["refs/a.bin"], &[])
+        );
+    }
+
+    #[test]
+    fn a_refs_export_that_commits_nothing_writes_neither_the_refs_cpk_nor_the_tree() {
+        let temp = scratch("writer_refs_nothing");
+        let folder = temp.path();
+        let mut output = with_refs_cpk(folder, BTreeMap::new(), 0..1);
+        // The refs export's one task failed.
+        output.submit(batch(0, &[], None)).unwrap();
+        output.submit(batch(1, &["team/a.bin"], None)).unwrap();
+
+        let (written, messages) = finish_pes21(output);
+
+        assert_eq!(
+            written,
+            Written {
+                team: true,
+                refs: false
+            }
+        );
+        assert_eq!(messages, []);
+        assert!(!folder.join("refs.cpk").exists(), "no refs CPK");
+        assert_eq!(
+            layout(&folder.join("cup.cpk")),
+            ["team/a.bin", paths::TEAM_COLOR, paths::UNI_COLOR],
+            "no tree on the team side"
+        );
+    }
+
+    #[test]
+    fn an_override_at_a_tree_path_leaves_that_entry_out_of_the_refs_cpk_with_duplicate_path() {
+        let temp = scratch("writer_refs_tree_override");
+        let folder = temp.path();
+        let overrides = overrides(folder, &[REFEREE_APPEARANCE]);
+        let mut output = with_refs_cpk(folder, overrides, 0..1);
+        output.submit(batch(0, &["refs/a.bin"], None)).unwrap();
+
+        let (written, messages) = finish_pes21(output);
+
+        assert_eq!(
+            written,
+            Written {
+                team: true,
+                refs: true
+            }
+        );
+        assert_eq!(messages, [duplicate(REFEREE_APPEARANCE)]);
+        assert_eq!(
+            layout(&folder.join("refs.cpk")),
+            then_tree(&["refs/a.bin"], &[REFEREE_APPEARANCE])
+        );
+        // The override goes into the team side, as every override does.
+        let team = folder.join("cup.cpk");
+        assert_eq!(
+            layout(&team),
+            [REFEREE_APPEARANCE, paths::TEAM_COLOR, paths::UNI_COLOR]
+        );
+        assert_eq!(
+            entry(&team, REFEREE_APPEARANCE),
+            override_bytes(REFEREE_APPEARANCE)
+        );
+    }
+
+    #[test]
+    fn referees_without_a_refs_cpk_bring_the_tree_into_the_sink_when_one_of_theirs_committed() {
+        let temp = scratch("writer_refs_in_sink");
+        let folder = temp.path();
+        let in_sink = |name: &str| {
+            CpkOutput::new(
+                OutputSink::cpk(folder.join(name)),
+                BTreeMap::new(),
+                "",
+                None,
+            )
+            .with_referees(Referees::in_sink(0..1))
+        };
+
+        let mut output = in_sink("committed.cpk");
+        output.submit(batch(0, &["refs/a.bin"], None)).unwrap();
+        let (written, messages) = finish_pes21(output);
+        assert_eq!(
+            written,
+            Written {
+                team: true,
+                refs: false
+            }
+        );
+        assert_eq!(messages, []);
+        let mut expected = then_tree(&["refs/a.bin"], &[]);
+        expected.extend([paths::TEAM_COLOR.to_owned(), paths::UNI_COLOR.to_owned()]);
+        assert_eq!(layout(&folder.join("committed.cpk")), expected);
+
+        // The refs export's task failed: no tree, though a team's entry went in.
+        let mut output = in_sink("failed.cpk");
+        output.submit(batch(0, &[], None)).unwrap();
+        output.submit(batch(1, &["team/a.bin"], None)).unwrap();
+        let (written, _) = finish_pes21(output);
+        assert!(written.team);
+        assert_eq!(
+            layout(&folder.join("failed.cpk")),
+            ["team/a.bin", paths::TEAM_COLOR, paths::UNI_COLOR]
+        );
     }
 
     #[test]
@@ -1048,7 +1240,10 @@ mod tests {
                 refs: true
             }
         );
-        assert_eq!(layout(&folder.join("refs.cpk")), ["refs/own.bin"]);
+        assert_eq!(
+            layout(&folder.join("refs.cpk")),
+            then_tree(&["refs/own.bin"], &[])
+        );
         let team = folder.join("cup.cpk");
         assert_eq!(
             layout(&team),
@@ -1147,7 +1342,14 @@ mod tests {
         };
 
         let (written, _) = output
-            .finish(PesVersion::Pes21, bins, &[], &[], &[])
+            .finish(
+                PesVersion::Pes21,
+                bins,
+                &[],
+                &[],
+                &[],
+                &Templates::embedded(),
+            )
             .unwrap();
 
         assert!(written.team);
@@ -1297,7 +1499,14 @@ mod tests {
         let mut output = CpkOutput::new(OutputSink::cpk(path.clone()), BTreeMap::new(), "", None);
         output.submit(batch(0, &["a/b.bin"], None)).unwrap();
         let (written, messages) = output
-            .finish(PesVersion::Pes21, bins, &team_714_colors(), &[], &[])
+            .finish(
+                PesVersion::Pes21,
+                bins,
+                &team_714_colors(),
+                &[],
+                &[],
+                &Templates::embedded(),
+            )
             .unwrap();
         assert!(written.team);
         let mut archive = CpkArchive::open(File::open(&path).unwrap()).unwrap();
@@ -1384,7 +1593,14 @@ mod tests {
                 ..bundled()
             };
             let finished = output
-                .finish(PesVersion::Pes21, broken, &team_colors, &[], &[])
+                .finish(
+                    PesVersion::Pes21,
+                    broken,
+                    &team_colors,
+                    &[],
+                    &[],
+                    &Templates::embedded(),
+                )
                 .unwrap();
             let nothing = Written {
                 team: false,
@@ -1432,7 +1648,14 @@ mod tests {
             output.submit(batch).unwrap();
         }
         let (written, messages) = output
-            .finish(PesVersion::Pes21, bins, &[], &[], &[])
+            .finish(
+                PesVersion::Pes21,
+                bins,
+                &[],
+                &[],
+                &[],
+                &Templates::embedded(),
+            )
             .unwrap();
         assert!(written.team);
         let mut archive = CpkArchive::open(File::open(&path).unwrap()).unwrap();
@@ -1586,7 +1809,14 @@ mod tests {
             ..bundled()
         };
         let (written, messages) = output
-            .finish(PesVersion::Pes21, bins, &[], &[team], &[])
+            .finish(
+                PesVersion::Pes21,
+                bins,
+                &[],
+                &[team],
+                &[],
+                &Templates::embedded(),
+            )
             .unwrap();
         if !written.team {
             return (Vec::new(), None, messages);
@@ -1688,7 +1918,14 @@ mod tests {
         ];
 
         let (written, messages) = output
-            .finish(PesVersion::Pes21, bins, &[], &[], &rows)
+            .finish(
+                PesVersion::Pes21,
+                bins,
+                &[],
+                &[],
+                &rows,
+                &Templates::embedded(),
+            )
             .unwrap();
 
         assert!(written.team);

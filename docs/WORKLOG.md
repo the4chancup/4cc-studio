@@ -14,7 +14,7 @@ is in `AGENTS.md` ("Working documents").
 **Next:** Phase 4 is itemized and its Acceptance section written (step 4.1, 2026-10-03; its
 cross-family review (a) is queued). Next:
 the next open Phase 4 step (see the list); 4.21 to 4.24 and 4.29
-and 4.25 are done; 4.26 is done; 4.19-lead, 4.19a and 4.19b are done, 4.19c (the referee template tree) next; 4.14 waits on 4.31's pre-Fox export; 4.33, 4.34, 4.c-pass and
+and 4.25 are done; 4.26 is done; 4.19 (Fox referees) is done, 4.19d (pre-Fox) waits on 4.14 and 4.20; 4.14 waits on 4.31's pre-Fox export; 4.33, 4.34, 4.c-pass and
 4.c-fix1 are done; 4.30,
 4.5 to 4.8, 4.9a and 4.10 to 4.13 are done (4.6c moved to Phase 8's cancellation), 4.9b
 (collars) waits on nothing. 2.5b (GPU BC7) is step 16.x (decision entries
@@ -286,6 +286,12 @@ Claude agent with no sidekick and no reviewer of another model family. While tha
   `validation_pass`; `reader/mod.rs` `ExportSource::is_referees`), its commit of 2026-10-07,
   against `pipeline.md` "5. Writer" step 5, `settings.md` `refs_cpk_name`, TC-REF-01, 02,
   TC-DEP-11 and the decision entry "the refs CPK beside the team side ...".
+  4.19c (b), `team_compiler` (`templates.rs` `referee_tree!`, `REFEREES_FOX`, `tree_files`,
+  `referees_fox`; `output/writer.rs` `Referees`, `finish_referees`; `compile.rs` `build`'s
+  referee routing per mode), its commit of 2026-10-07, against `pipeline.md` "Resolved
+  decisions" (templates embedded, the referee trees' override names), "Output-mode
+  artifact routing", TC-OUT-09 and the decision entry "the referee template tree: embedded
+  per file ...".
 - For the lead, on return: the review process on trial (3.1) opens with a full sidekick review
   loop, then runs GPT's loop with a full sidekick loop after each GPT round, calling GPT again
   only once that sidekick loop has ended and GPT's own loop has not; not yet in `AGENTS.md`
@@ -1316,7 +1322,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `glove_r.fmdl`, and the face's merged FMDL plus the two gloves hold exactly the source's vertex
   count
 
-- [ ] 4.19 **Referees (Fox)**: a `/refs/` export compiled into `refs_cpk_name`'s CPK; slots
+- [x] 4.19 **Referees (Fox)**: a `/refs/` export compiled into `refs_cpk_name`'s CPK; slots
   01-35 mapped by `players.txt`, a folder mapped to several slots prepared once and
   instantiated per slot (`referee0NN` face, `k99NN`/`g99NN`; links to a shared `Boots/` or
   `Gloves/` resolve to each linking slot's own); the referees' textures under team 999's common
@@ -1345,11 +1351,20 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `Written`, `overridden` (the `admit` split); `bins/installed.rs` the walk passes over the
   refs CPK (`check`'s too); `validation_pass` takes the discovered sources. TC-REF-01, 02,
   TC-DEP-11.
-  4.19c: the template tree written into the refs CPK (and `livecpk/`, test output), its
-  overrides; TC-OUT-09's referee half.
+  4.19c done 2026-10-07: the Fox referee template tree: `templates.rs` `REFEREES_FOX` (31
+  files, one `include_bytes!` each through `referee_tree!`), overrides from
+  `templates/referees_fox/<game path>` (`tree_files`), `Templates::referees_fox`;
+  `writer.rs` `Referees` (refs CPK or the sink, sideload) and `finish_referees`: the tree
+  after the refs export's entries when it commits; no tree in test mode. TC-OUT-09's
+  referee half.
   Moved out: the referee marker (collar 77, `ref_marker.dds`; TC-REF-04, 06, 07, 08) is step
-  4.27's; pre-Fox referees (`referee0NN.cpk`, face.xml boots and gloves, `refscpk_prefox`;
-  TC-REF-09) wait on 4.14 and the pre-Fox gate (4.20), as step 4.19d.
+  4.27's; pre-Fox referees are step 4.19d below.
+
+- [ ] 4.19d **Referees (pre-Fox)**: `referee0NN.cpk` faces, local boots and gloves as
+  `face.xml` entries, `refscpk_prefox` (Red `Engines/templates/refscpk_prefox/`, copied
+  lead-first into `resources/templates/referees_prefox/` as 4.19-lead did for Fox), the
+  tree chosen by engine in `writer.rs` `finish_referees`. TC-REF-09. Waits on 4.14 (pre-Fox
+  export) and 4.20 (the gate withdrawn for pre-Fox).
 
 - [ ] 4.20 **Withdraw the Phase 3 subset gate**: `plan/subset.rs` and `content_not_yet_compiled`
   removed (the catalog row reads withdrawn), TC-OUT-06 withdrawn, every content kind and both
@@ -3197,3 +3212,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
     installed or promoted with the team CPKs, all or none; a compile whose only output is
     the referees writes that CPK alone and leaves the team CPK installed as it was. A
     `refs_cpk_name` naming a team-side CPK is refused.
+  - **4.19c:** the referees' CPK also holds the referee kits and `RefereeAppearance.bin` the
+    game needs (Red's `refscpk_fox` tree, embedded); a file at `templates/referees_fox/<game
+    path>` in the data directory replaces that file. Sideload writes them too. Step 4.19
+    (Fox referees) is done.

@@ -190,6 +190,65 @@ const RESOURCES: [&Resource; 10] = [
     &PLACEHOLDER_CPK,
 ];
 
+/// The folder of `templates/` whose files, each at its game path below it, replace the files
+/// of the Fox referee template tree.
+const REFEREES_FOX_FOLDER: &str = "referees_fox";
+
+/// The `(game path, bytes)` entries of a referee template tree, each file embedded from
+/// `resources/templates/referees_fox/<game path>`. A macro because `include_bytes!` takes only
+/// a literal path; the files are listed rather than the folder embedded, so a file that goes
+/// missing fails the build.
+macro_rules! referee_tree {
+    ($($path:literal),* $(,)?) => {
+        [$((
+            $path,
+            include_bytes!(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/../../../resources/templates/referees_fox/",
+                $path
+            )) as &[u8],
+        )),*]
+    };
+}
+
+/// The Fox referee template tree, in path order: the referee kits' textures and kit configs
+/// and `RefereeAppearance.bin`, which the game needs beside the referees' own files in the
+/// refs CPK (`resources/templates/README.md`). Identical files stay separate entries: each is
+/// a file of the tree, at its own game path.
+static REFEREES_FOX: [(&str, &[u8]); 31] = referee_tree![
+    "Asset/model/character/uniform/texture/#windx11/referee_1.ftex",
+    "Asset/model/character/uniform/texture/#windx11/referee_1_srm.ftex",
+    "Asset/model/character/uniform/texture/#windx11/referee_2.ftex",
+    "Asset/model/character/uniform/texture/#windx11/referee_2_srm.ftex",
+    "Asset/model/character/uniform/texture/#windx11/referee_3.ftex",
+    "Asset/model/character/uniform/texture/#windx11/referee_3_srm.ftex",
+    "Asset/model/character/uniform/texture/#windx11/referee_4.ftex",
+    "Asset/model/character/uniform/texture/#windx11/referee_4_srm.ftex",
+    "Asset/model/character/uniform/texture/#windx11/referee_5.ftex",
+    "Asset/model/character/uniform/texture/#windx11/referee_5_srm.ftex",
+    "common/character0/model/character/appearance/RefereeAppearance.bin",
+    "common/character0/model/character/uniform/team/referee/referee_ACL_1.bin",
+    "common/character0/model/character/uniform/team/referee/referee_ACL_2.bin",
+    "common/character0/model/character/uniform/team/referee/referee_ACL_3.bin",
+    "common/character0/model/character/uniform/team/referee/referee_ACL_4.bin",
+    "common/character0/model/character/uniform/team/referee/referee_ACL_5.bin",
+    "common/character0/model/character/uniform/team/referee/referee_CL_1.bin",
+    "common/character0/model/character/uniform/team/referee/referee_CL_2.bin",
+    "common/character0/model/character/uniform/team/referee/referee_CL_3.bin",
+    "common/character0/model/character/uniform/team/referee/referee_CL_4.bin",
+    "common/character0/model/character/uniform/team/referee/referee_DEF_1.bin",
+    "common/character0/model/character/uniform/team/referee/referee_DEF_2.bin",
+    "common/character0/model/character/uniform/team/referee/referee_DEF_3.bin",
+    "common/character0/model/character/uniform/team/referee/referee_DEF_4.bin",
+    "common/character0/model/character/uniform/team/referee/referee_DEF_5.bin",
+    "common/character0/model/character/uniform/team/referee/referee_LB_1.bin",
+    "common/character0/model/character/uniform/team/referee/referee_LB_2.bin",
+    "common/character0/model/character/uniform/team/referee/referee_LB_3.bin",
+    "common/character0/model/character/uniform/team/referee/referee_SDA_1.bin",
+    "common/character0/model/character/uniform/team/referee/referee_SDA_2.bin",
+    "common/character0/model/character/uniform/team/referee/referee_SDA_3.bin",
+];
+
 /// An override in `templates/` that cannot be read, or one of the bins or the list that does
 /// not parse:
 /// `template_override_unreadable`'s context.
@@ -207,6 +266,8 @@ pub(crate) struct Unreadable {
 pub(crate) struct Templates {
     /// The replacements read from `templates/`, by resource file name.
     overrides: BTreeMap<&'static str, Vec<u8>>,
+    /// The replacements read from `templates/referees_fox/`, by game path.
+    referee_overrides: BTreeMap<&'static str, Vec<u8>>,
 }
 
 impl Templates {
@@ -214,17 +275,19 @@ impl Templates {
     pub(crate) fn embedded() -> Templates {
         Templates {
             overrides: BTreeMap::new(),
+            referee_overrides: BTreeMap::new(),
         }
     }
 
     /// The resources with the overrides of `<data_dir>/templates/`, and one
-    /// `template_override_active` per override read, in `RESOURCES` order. Nothing is read
-    /// without a data directory or without the folder, and a file there naming no resource,
-    /// exactly as it is spelled, is not read. An override that cannot be read, an override of
-    /// one of the bins or of `DpFileList.bin` that does not parse as it (whatever the run's
-    /// version), or a folder that cannot be listed, is the error. The other overrides' bytes
-    /// are not checked: one that does not decode fails where the embedded resource would be
-    /// used.
+    /// `template_override_active` per override read, in `RESOURCES` order, then those of the
+    /// Fox referee tree, each a file of `templates/referees_fox/` at one of the tree's game
+    /// paths, in the tree's order. Nothing is read without a data directory or without the
+    /// folder, and a file there naming no resource or no game path, exactly as it is spelled,
+    /// is not read. An override that cannot be read, an override of one of the bins or of
+    /// `DpFileList.bin` that does not parse as it (whatever the run's version), or a folder
+    /// that cannot be listed, is the error. The other overrides' bytes are not checked: one
+    /// that does not decode fails where the embedded resource would be used.
     pub(crate) fn read(data_dir: Option<&Path>) -> Result<(Templates, Vec<Message>), Unreadable> {
         let mut templates = Templates::embedded();
         let mut messages = Vec::new();
@@ -248,13 +311,22 @@ impl Templates {
                 Ok(bytes) => bytes,
                 Err(error) => return Err(Unreadable { path, error }),
             };
-            messages.push(tool_message(
-                Code::TemplateOverrideActive,
-                Scope::Run,
-                Disposition::Keep,
-                vec![("path", path.display().to_string())],
-            ));
+            messages.push(override_active(&path));
             templates.overrides.insert(resource.name, bytes);
+        }
+        if names.contains(OsStr::new(REFEREES_FOX_FOLDER)) {
+            let files = tree_files(&folder.join(REFEREES_FOX_FOLDER), &REFEREES_FOX)?;
+            for (game_path, _) in &REFEREES_FOX {
+                let Some(path) = files.get(game_path) else {
+                    continue;
+                };
+                let bytes = fs::read(path).map_err(|error| Unreadable {
+                    path: path.clone(),
+                    error: error.into(),
+                })?;
+                messages.push(override_active(path));
+                templates.referee_overrides.insert(game_path, bytes);
+            }
         }
         Ok((templates, messages))
     }
@@ -329,6 +401,18 @@ impl Templates {
     pub(crate) fn placeholder_cpk(&self) -> &[u8] {
         self.bytes(&PLACEHOLDER_CPK)
     }
+
+    /// The Fox referee template tree's files, in path order, each as its game path and its
+    /// bytes: its override when one was read, else the embedded ones.
+    pub(crate) fn referees_fox(&self) -> impl Iterator<Item = (&'static str, &[u8])> {
+        REFEREES_FOX.iter().map(|(path, embedded)| {
+            let bytes = self
+                .referee_overrides
+                .get(path)
+                .map_or(*embedded, Vec::as_slice);
+            (*path, bytes)
+        })
+    }
 }
 
 /// A command's resources (`Templates::read`), read before anything else, their findings
@@ -372,6 +456,50 @@ fn file_names(folder: &Path) -> Result<BTreeSet<OsString>, Unreadable> {
         names.insert(entry.map_err(unreadable)?.file_name());
     }
     Ok(names)
+}
+
+/// The files below `folder` whose path there is a game path of `tree`, by that path: the path
+/// is the listing's names joined with `/`, so, as in `file_names`, a path spelled in another
+/// letter case is not the tree's. An entry at a game path is taken whatever it is, so a folder
+/// there fails when it is read, as a folder at a resource's name does. A folder that cannot be
+/// listed is the error.
+fn tree_files(
+    folder: &Path,
+    tree: &[(&'static str, &[u8])],
+) -> Result<BTreeMap<&'static str, PathBuf>, Unreadable> {
+    let mut files = BTreeMap::new();
+    let mut folders = vec![(folder.to_owned(), String::new())];
+    while let Some((current, prefix)) = folders.pop() {
+        let unreadable = |error: std::io::Error| Unreadable {
+            path: current.clone(),
+            error: error.into(),
+        };
+        for entry in fs::read_dir(&current).map_err(unreadable)? {
+            let entry = entry.map_err(unreadable)?;
+            let name = entry.file_name();
+            // A name that is not Unicode is in no game path.
+            let Some(name) = name.to_str() else {
+                continue;
+            };
+            let relative = format!("{prefix}{name}");
+            if let Some((game_path, _)) = tree.iter().find(|(path, _)| *path == relative) {
+                files.insert(*game_path, entry.path());
+            } else if entry.file_type().map_err(unreadable)?.is_dir() {
+                folders.push((entry.path(), format!("{relative}/")));
+            }
+        }
+    }
+    Ok(files)
+}
+
+/// The `template_override_active` finding for the override file `path`.
+fn override_active(path: &Path) -> Message {
+    tool_message(
+        Code::TemplateOverrideActive,
+        Scope::Run,
+        Disposition::Keep,
+        vec![("path", path.display().to_string())],
+    )
 }
 
 #[cfg(test)]
@@ -587,6 +715,133 @@ mod tests {
             unreadable.error.to_string(),
             "the list is 15 bytes, shorter than its 16-byte header"
         );
+    }
+
+    /// Every file below `folder`, by its path there spelled with `/`, with its bytes.
+    fn files_below(folder: &Path) -> BTreeMap<String, Vec<u8>> {
+        let mut files = BTreeMap::new();
+        let mut folders = vec![folder.to_owned()];
+        while let Some(current) = folders.pop() {
+            for entry in fs::read_dir(&current).unwrap() {
+                let path = entry.unwrap().path();
+                if path.is_dir() {
+                    folders.push(path);
+                    continue;
+                }
+                let relative: Vec<&str> = path
+                    .strip_prefix(folder)
+                    .unwrap()
+                    .components()
+                    .map(|part| part.as_os_str().to_str().unwrap())
+                    .collect();
+                files.insert(relative.join("/"), fs::read(&path).unwrap());
+            }
+        }
+        files
+    }
+
+    /// The Fox referee tree of `templates`, by game path, in the accessor's order.
+    fn referee_tree(templates: &Templates) -> Vec<(&'static str, &[u8])> {
+        templates.referees_fox().collect()
+    }
+
+    #[test]
+    fn the_embedded_referee_tree_is_the_resource_folder_s_files_in_path_order() {
+        let folder =
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../resources/templates/referees_fox");
+        let files = files_below(&folder);
+        assert_eq!(files.len(), 31);
+
+        let templates = Templates::embedded();
+        let embedded = referee_tree(&templates);
+
+        let paths: Vec<&str> = embedded.iter().map(|(path, _)| *path).collect();
+        let expected: Vec<&str> = files.keys().map(String::as_str).collect();
+        assert_eq!(paths, expected, "the folder's files, in path order");
+        for (path, bytes) in embedded {
+            assert!(bytes == files[path].as_slice(), "{path}");
+        }
+    }
+
+    /// The game path of one of the Fox referee tree's kit configs.
+    const REFEREE_CL_1: &str =
+        "common/character0/model/character/uniform/team/referee/referee_CL_1.bin";
+
+    #[test]
+    fn a_file_at_a_referee_tree_path_replaces_that_entry_alone_and_is_reported_after_the_others() {
+        let temp = scratch("templates_referee_override");
+        let folder = temp.path().join("templates");
+        // Joined part by part, so the path is spelled as the folder's listing gives it.
+        let file = REFEREE_CL_1
+            .split('/')
+            .fold(folder.join("referees_fox"), |path, part| path.join(part));
+        fs::create_dir_all(file.parent().unwrap()).unwrap();
+        fs::write(&file, b"kit config override").unwrap();
+        fs::write(folder.join("face_diff.bin"), b"face diff override").unwrap();
+
+        let (templates, messages) = Templates::read(Some(temp.path())).unwrap();
+
+        let tree = referee_tree(&templates);
+        assert_eq!(tree.len(), REFEREES_FOX.len());
+        // Compared one by one with `assert!`: a failing `assert_eq!` would print megabytes.
+        for ((path, bytes), (embedded_path, embedded_bytes)) in tree.into_iter().zip(REFEREES_FOX) {
+            assert_eq!(path, embedded_path);
+            let expected = match path {
+                REFEREE_CL_1 => &b"kit config override"[..],
+                _ => embedded_bytes,
+            };
+            assert!(bytes == expected, "{path}");
+        }
+        let active = |path: &Path| {
+            tool_message(
+                Code::TemplateOverrideActive,
+                Scope::Run,
+                Disposition::Keep,
+                vec![("path", path.display().to_string())],
+            )
+        };
+        assert_eq!(
+            messages,
+            [active(&folder.join("face_diff.bin")), active(&file)],
+            "the tree's after the other resources'"
+        );
+    }
+
+    #[test]
+    fn a_file_naming_no_referee_tree_path_as_it_is_spelled_is_not_read() {
+        let temp = scratch("templates_referee_other_names");
+        let tree = temp.path().join("templates/referees_fox");
+        let referee = "common/character0/model/character/uniform/team/referee";
+        for path in [
+            format!("{referee}/referee_XYZ_1.bin"),
+            // The tree's file in another letter case, which a Windows file system would open
+            // as it.
+            format!("{referee}/referee_cl_1.bin"),
+            "notes.txt".to_owned(),
+        ] {
+            let file = tree.join(path);
+            fs::create_dir_all(file.parent().unwrap()).unwrap();
+            fs::write(file, b"not the tree's").unwrap();
+        }
+
+        let (templates, messages) = Templates::read(Some(temp.path())).unwrap();
+
+        assert!(referee_tree(&templates) == referee_tree(&Templates::embedded()));
+        assert_eq!(messages, []);
+    }
+
+    #[test]
+    fn a_referee_tree_folder_that_cannot_be_listed_is_the_error_naming_it() {
+        let temp = scratch("templates_referee_unlisted");
+        let folder = temp.path().join("templates");
+        fs::create_dir(&folder).unwrap();
+        // A file where the folder goes: listing it fails on every system.
+        fs::write(folder.join("referees_fox"), b"not a folder").unwrap();
+
+        let Err(unreadable) = Templates::read(Some(temp.path())) else {
+            panic!("a tree folder that cannot be listed must be the error");
+        };
+        assert_eq!(unreadable.path, folder.join("referees_fox"));
     }
 
     #[test]

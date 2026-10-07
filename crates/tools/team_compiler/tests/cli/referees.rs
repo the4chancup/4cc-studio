@@ -15,14 +15,14 @@ use crate::compile::{
     compiled_players, cpk_entries, kit_texture, pes21_settings, tracer_kit, tracer_player_file,
 };
 use crate::compile_exports::TEAM_COLOR;
-use crate::deploy::install_pes;
+use crate::deploy::{install_pes, templates_folder};
 use crate::models::package_names;
 use crate::sideload::slashed;
 use crate::textures::tracer_model_renaming;
 use crate::{clean_model, findings_of, snapshot};
 
 /// The refs export's folder in the sandbox.
-const REFS: &str = "exports/refs Cup";
+pub(crate) const REFS: &str = "exports/refs Cup";
 
 /// Where `Ref A`'s textures go: team 999's common subfolder of his folder's name.
 const REF_A_TEXTURES: &str = "Asset/model/character/common/999/Ref A/sourceimages/#windx11";
@@ -54,7 +54,7 @@ pub(crate) fn write_ref_a(sandbox: &Sandbox, slots: &[&str]) {
 }
 
 /// The refs CPK's file name at the default `refs_cpk_name`.
-const REFS_CPK: &str = "4cc_18_referees.cpk";
+pub(crate) const REFS_CPK: &str = "4cc_18_referees.cpk";
 
 /// `compile --no-deploy` in `sandbox` for PES 21: the run and its refs CPK's entries.
 fn compile(sandbox: &Sandbox) -> (Run, BTreeMap<String, Vec<u8>>) {
@@ -69,6 +69,28 @@ fn skipped(sandbox: &Sandbox, name: &str) -> String {
         "Info deploy_skipped_by_flag [Keep] (path={})",
         sandbox.display(&format!("output/{name}"))
     )
+}
+
+/// The game path of the referee template tree's `RefereeAppearance.bin`.
+const REFEREE_APPEARANCE: &str =
+    "common/character0/model/character/appearance/RefereeAppearance.bin";
+
+/// The Fox referee template tree as the repository holds it, `resources/templates/
+/// referees_fox/`: every file by its path below that folder, spelled with `/`, with its bytes.
+pub(crate) fn referee_tree() -> BTreeMap<String, Vec<u8>> {
+    snapshot(&templates_folder().join("referees_fox"))
+        .into_iter()
+        .map(|(path, bytes)| (slashed(&path), bytes))
+        .collect()
+}
+
+/// Asserts that `entries` hold every file of `tree` (the referee template tree's 31), with its
+/// bytes.
+fn assert_tree_in(entries: &BTreeMap<String, Vec<u8>>, tree: &BTreeMap<String, Vec<u8>>) {
+    assert_eq!(tree.len(), 31, "the tree's files");
+    for (path, bytes) in tree {
+        assert!(entries.get(path) == Some(bytes), "{path}");
+    }
 }
 
 /// The names of the `.cpk` files directly in `folder`, sorted.
@@ -130,6 +152,59 @@ fn a_referee_folder_is_emitted_under_each_of_his_slots_with_his_textures_once() 
     );
     // No note is collected without one.
     assert!(!sandbox.root.join("output/teamnotes.txt").exists());
+    // The referee kits and appearance the game needs come with them.
+    assert_tree_in(&entries, &referee_tree());
+}
+
+#[test]
+fn a_refs_export_whose_only_folder_validation_drops_writes_no_refs_cpk_and_no_tree() {
+    let sandbox = Sandbox::new("ref_folder_dropped");
+    write_ref_a(&sandbox, &["01"]);
+    sandbox.write(&format!("{REFS}/Players/Ref A/readme.txt"), b"notes");
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert!(
+        lines.contains(
+            &"refs Cup: Error file_type_disallowed [DropFolder] at Players/Ref A (file=readme.txt)"
+                .to_owned()
+        ),
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 1);
+    // Nothing of the refs export went in, so neither the refs CPK nor its tree is written,
+    // and the installed referees would stay.
+    assert!(!sandbox.root.join("output").join(REFS_CPK).exists());
+    assert_eq!(
+        cpk_files(&sandbox.root.join("output")),
+        Vec::<String>::new()
+    );
+}
+
+#[test]
+fn a_data_directory_file_at_a_tree_path_replaces_that_file_of_the_refs_cpk() {
+    let sandbox = Sandbox::new("ref_tree_override");
+    write_ref_a(&sandbox, &["01"]);
+    let appearance = b"the cup's RefereeAppearance.bin";
+    let override_path = format!("data/templates/referees_fox/{REFEREE_APPEARANCE}");
+    sandbox.write(&override_path, appearance);
+
+    let (run, entries) = compile(&sandbox);
+
+    assert_eq!(run.exit_code(), 0, "{:#?}", run.messages());
+    assert_eq!(
+        run.messages().first(),
+        Some(&format!(
+            "Info template_override_active [Keep] (path={})",
+            sandbox.display(&override_path)
+        ))
+    );
+    assert_eq!(entries[REFEREE_APPEARANCE], appearance);
+    // The rest of the tree is the built-in one.
+    let mut tree = referee_tree();
+    tree.insert(REFEREE_APPEARANCE.to_owned(), appearance.to_vec());
+    assert_tree_in(&entries, &tree);
 }
 
 // TC-REF-03
@@ -185,8 +260,17 @@ fn test_mode_writes_a_referee_folder_s_processed_files_once() {
             "refs Cup/Players/Ref A/skin.ftex",
         ]
     );
+    let tree = referee_tree();
     for path in snapshot(&sandbox.root.join("output/test_output")).keys() {
-        assert!(!slashed(path).contains("referee020"), "{path:?}");
+        let path = slashed(path);
+        assert!(!path.contains("referee020"), "{path}");
+        // The template tree is no export's, so test mode writes none of it, anywhere.
+        assert!(
+            !tree
+                .keys()
+                .any(|tree_path| path.ends_with(tree_path.as_str())),
+            "{path}"
+        );
     }
 }
 

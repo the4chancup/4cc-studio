@@ -183,7 +183,10 @@ as the face `referee0NN` with the boots `k99NN` and the gloves `g99NN`, and the 
 textures go once into `common/999/<folder name>/`. A referee's link to a `Boots` or `Gloves`
 folder makes that folder the boots or gloves of each of his slots, merged with any of his own.
 The referees go into a CPK of their own, named by the `refs_cpk_name` setting
-(`4cc_18_referees.cpk`), never into the teams' CPKs, with `multicpk_mode` on or off. It is
+(`4cc_18_referees.cpk`), never into the teams' CPKs, with `multicpk_mode` on or off. Beside
+the referees it also holds the referee kits and the referee appearance file the game needs,
+the same in every compile; a file of these can be replaced from the data folder's
+`templates/referees_fox` folder (see `templates` below). It is
 installed into the game together with the teams' CPKs, all of them or none, or left in the
 output folder with them, after them. It is written only when the `refs` export builds
 something: a compile in which only the `refs` export builds something, with no file in the
@@ -192,7 +195,8 @@ compile replaces it, the installed referees CPK is not one of the CPKs the team 
 colors and other files every team shares are taken from. A `refs_cpk_name` that names the team CPK (`cpk_name`), or with `multicpk_mode` on the
 `bins_cpk_name` CPK or one of the numbered `teams_cpk_name` CPKs, letter case aside, stops the
 command with exit code 2. `--mode test` and `--mode sideload` write the referees' files with
-the others' and have no referees CPK.
+the others' and have no referees CPK; `--mode sideload` writes the referee kits and appearance
+file with them, and `--mode test` does not, since they come from no export.
 
 `compile` installs the CPK into the game: it copies it into the `download` folder of the game
 folder (the `pes_folder_path` setting) and then puts it in the place of the old one, so the game
@@ -337,8 +341,12 @@ a placeholder kit), `body.skl` (the skeleton a boots or hair model gets when its
 none), `face_diff.bin` and `fcl_hair_sim.fclo` (the face file and the hair simulation file a
 face gets when its folder has none), `DpFileList.bin` (the cup's official list, which a
 compile compares the game's with and `upgrade-dpfl` installs), and `placeholder.cpk` (the empty
-CPK `upgrade-dpfl` writes for a CPK of the list that is not in the `download` folder). Any other
-file in the folder is ignored. `compile` and `upgrade-dpfl` name each file they used with the
+CPK `upgrade-dpfl` writes for a CPK of the list that is not in the `download` folder). Its
+folder `referees_fox` holds files that replace those of the referee kits and appearance a PES
+2018 to 2021 referees CPK holds: a file there at the path it has in the CPK, spelled exactly,
+replaces that one file (for example
+`templates/referees_fox/common/character0/model/character/appearance/RefereeAppearance.bin`).
+Any other file in the folder is ignored. `compile` and `upgrade-dpfl` name each file they used with the
 note `template_override_active`. A file they cannot read, or one of the four kit and color files
 or `DpFileList.bin` that is not a valid file of its kind, stops the command before it does
 anything else (`template_override_unreadable`), so the CPK you had is kept.

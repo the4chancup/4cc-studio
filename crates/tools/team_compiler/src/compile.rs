@@ -30,7 +30,7 @@ use crate::output::deploy::{self, DeployFailure, Staging};
 use crate::output::parts::{self, TeamsParts, Unplaced};
 use crate::output::sink::OutputSink;
 use crate::output::teamnotes;
-use crate::output::writer::{CpkOutput, RefsCpk};
+use crate::output::writer::{CpkOutput, Referees};
 use crate::paths::REFEREE_TEAM_ID;
 use crate::plan::{BuildManifest, BuildTask, overrides, plan_run};
 use crate::processing::{
@@ -323,7 +323,8 @@ fn plan(
 /// `compile`'s second half: the planned tasks read and processed with the run's `templates`
 /// and the installed CPKs' entry paths, and written into the staged CPKs of `layout` and the
 /// refs CPK `refs`, the refs export's tasks into the latter (or loose tree, in test and
-/// sideload `mode`), the bins built on `bins`; those written are then promoted, and
+/// sideload `mode`), followed by the referee template tree when one of them committed (not in
+/// test `mode`), the bins built on `bins`; those written are then promoted, and
 /// `teamnotes.txt` written. A source that changed while its tasks were read aborts the run
 /// with `source_changed_during_run`, and a team the parts cannot take with its finding, the
 /// staging discarded.
@@ -411,9 +412,17 @@ fn build(
         ),
     };
     let mut output = CpkOutput::new(sink, overrides, bins_prefix, parts);
-    if let Some(refs) = refs {
-        let path = staging.folder().join(deploy::cpk_file_name(refs));
-        output = output.with_refs(RefsCpk::new(path, referee_tasks));
+    // Test mode writes no referee template tree: it is no export's, as the overrides are not.
+    let referees = match (mode, refs) {
+        (OutputMode::Normal { .. }, Some(refs)) => {
+            let path = staging.folder().join(deploy::cpk_file_name(refs));
+            Some(Referees::cpk(path, referee_tasks))
+        }
+        (OutputMode::Sideload { .. }, _) => Some(Referees::in_sink(referee_tasks)),
+        (OutputMode::Normal { .. }, None) | (OutputMode::Test, _) => None,
+    };
+    if let Some(referees) = referees {
+        output = output.with_referees(referees);
     }
     let context = CompileContext::new(
         version,
@@ -429,13 +438,16 @@ fn build(
         let team_kits = &team_kits;
         let item_rows = &item_rows;
         let budget = &budget;
+        let templates = &context.templates;
         let writer = scope.spawn(move || {
             let mut output = output;
             let mut events = events;
             // The writer finishes the CPK too, so its file is closed when the thread ends,
             // before a failure removes the staging folder.
             let written = write_batches(batches_rx, &mut output, &mut events, last_tasks, budget)
-                .and_then(|()| output.finish(version, bins, team_colors, team_kits, item_rows));
+                .and_then(|()| {
+                    output.finish(version, bins, team_colors, team_kits, item_rows, templates)
+                });
             (events, written)
         });
         let coordinated = pool.in_place_scope(|pool_scope| {

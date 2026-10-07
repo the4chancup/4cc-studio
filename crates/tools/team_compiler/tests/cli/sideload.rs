@@ -8,6 +8,7 @@ use crate::bins::install_names;
 use crate::common::Sandbox;
 use crate::compile::{cpk_entries, pes_settings, pes21_settings, tracer_export};
 use crate::compile_exports::TEAM_COLOR;
+use crate::referees::{REFS, REFS_CPK, write_ref_a};
 use crate::{deploy_skipped, snapshot};
 
 /// What the sandboxes' `overrides/` folder puts at `TEAM_COLOR`.
@@ -60,25 +61,52 @@ fn sideload(sandbox: &Sandbox, settings: &str) -> crate::common::Run {
 // TC-OUT-09
 #[test]
 fn sideload_writes_what_the_cpk_holds_as_loose_files_replacing_livecpk() {
-    // The scenario's referee export lands with 4.19, which compiles referee exports.
     let normal = with_livecpk("sideload_normal_twin");
     install_names(&normal, &["4cc_99_test.cpk"]);
+    write_ref_a(&normal, &["01"]);
     let normal_run = normal.run(
         &pes21_settings(&normal),
-        &["compile", "--no-deploy", "--export", &tracer_export()],
+        &[
+            "compile",
+            "--no-deploy",
+            "--export",
+            &tracer_export(),
+            "--export",
+            &normal.arg(REFS),
+        ],
     );
-    assert_eq!(normal_run.exit_code(), 0);
-    let expected = cpk_entries(&normal.root.join("output/4cc_99_test.cpk"));
+    assert_eq!(normal_run.exit_code(), 0, "{:#?}", normal_run.messages());
+    let mut expected = cpk_entries(&normal.root.join("output/4cc_99_test.cpk"));
+    let refs = cpk_entries(&normal.root.join(format!("output/{REFS_CPK}")));
+    let team_count = expected.len();
+    expected.extend(refs.clone());
+    assert_eq!(
+        expected.len(),
+        team_count + refs.len(),
+        "no path in both CPKs"
+    );
 
     let sandbox = with_livecpk("sideload_tracer");
     install_names(&sandbox, &["4cc_99_test.cpk"]);
+    write_ref_a(&sandbox, &["01"]);
     let download = snapshot(&sandbox.root.join("PES/download"));
 
-    let run = sideload(&sandbox, &pes21_settings(&sandbox));
+    let run = sandbox.run(
+        &pes21_settings(&sandbox),
+        &[
+            "compile",
+            "--mode",
+            "sideload",
+            "--export",
+            &tracer_export(),
+            "--export",
+            &sandbox.arg(REFS),
+        ],
+    );
 
     assert_eq!(run.exit_code(), 0);
     let written = livecpk(&sandbox);
-    // `old.txt` is not among the CPK's entries, so it is gone.
+    // `old.txt` is not among the CPKs' entries, so it is gone.
     assert_eq!(
         written.keys().collect::<Vec<_>>(),
         expected.keys().collect::<Vec<_>>()
@@ -92,9 +120,14 @@ fn sideload_writes_what_the_cpk_holds_as_loose_files_replacing_livecpk() {
     // The same findings as the normal run's, `overrides_active` and `duplicate_path` among them.
     let normal_root = normal.root.display().to_string();
     let root = sandbox.root.display().to_string();
-    // The twin says last that it installed nothing (`--no-deploy`); a sideload run has no such
-    // note.
+    // The twin says last that it installed neither CPK (`--no-deploy`), the team CPK first; a
+    // sideload run has no such note.
     let mut normal_messages = normal_run.messages();
+    let refs_skipped = format!(
+        "Info deploy_skipped_by_flag [Keep] (path={})",
+        normal.display(&format!("output/{REFS_CPK}"))
+    );
+    assert_eq!(normal_messages.pop(), Some(refs_skipped));
     assert_eq!(normal_messages.pop(), Some(deploy_skipped(&normal)));
     let normal_lines: Vec<String> = normal_messages
         .iter()
@@ -110,6 +143,7 @@ fn sideload_writes_what_the_cpk_holds_as_loose_files_replacing_livecpk() {
     }
     assert_eq!(snapshot(&sandbox.root.join("PES/download")), download);
     assert!(!sandbox.root.join("output/4cc_99_test.cpk").exists());
+    assert!(!sandbox.root.join(format!("output/{REFS_CPK}")).exists());
     assert!(!sandbox.root.join("output/.staging").exists());
 }
 
