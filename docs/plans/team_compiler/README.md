@@ -1279,12 +1279,12 @@ TC-BIN-13  GIVEN an installed TeamColor.bin whose record for team 799 starts wit
            THEN the emitted TeamColor.bin's record for team 799 starts with team ID 799 and
                 count 4, every other installed record is unchanged, and bin_header_repaired
                 is reported once, naming TeamColor.bin and team 799
-TC-BIN-14  GIVEN a Full /co/ export with kits p1, p2 and p3, p3's task failing (its kit.dds holds
-           bytes no decoder reads), and no PES install configured (the bundled UniColor.bin
-           holds a past cup's kits for team 714 under a larger count)
+TC-BIN-14  GIVEN a Full /co/ export with kits p1, p2, p3 and g1, p3's task failing (its kit.dds
+           holds bytes no decoder reads), and no PES install configured (the bundled
+           UniColor.bin's record for team 714 holds a past cup's eight kits: 0 to 6 and 0x10)
            WHEN it is compiled for PES 21
-           THEN team 714's UniColor.bin record counts 3 and holds p1's and p2's new entries and
-                p3's base entry, every other entry unused
+           THEN team 714's UniColor.bin record has a kit count of 4 and holds p1's, p2's and
+                g1's new entries and p3's base entry, every other entry unused
 TC-BIN-15  GIVEN a Midcup /co/ export with kit p1 and a kit number the bundled base's record for
            team 714 does not hold, and no PES install configured
            WHEN it is compiled for PES 21
@@ -1307,6 +1307,17 @@ TC-BIN-18  GIVEN an installed CPK holding team 714's loose p1 kit config without
            THEN the CPK holds p1's config re-emitted with the FPC values, with
                 kit_config_fpc_adjusted reported for slot p1, and p3, which has no installed
                 config, reports kit_config_fpc_unpatched
+TC-BIN-19  GIVEN a Full /co/ export with players and no Kits/ folder, and no PES install
+           configured
+           WHEN it is compiled for PES 21
+           THEN it compiles as with empty p1/ and g1/: kit_placeholder is reported for both,
+                the CPK holds their placeholder kits and template configs, and team 714's
+                UniColor.bin record has a kit count of 2, holding p1's and g1's entries
+TC-BIN-20  GIVEN a Full /co/ export with kits p1 and p2 and no g1/, and a Midcup /a/ export with
+           p1 only
+           WHEN they are compiled for PES 21
+           THEN /co/ gets g1 as an empty g1/ (kit_placeholder for g1; its UniColor.bin record
+                has a kit count of 3) and /a/ gets no placeholder kit
 ```
 
 **Planning**

@@ -630,7 +630,11 @@ describes behavior, not a serial scheduling requirement:
   (`aesthetics_export/object_model.md` "Coverage tag") rebuilds what the compiler holds for
   its team from the export alone, since the record's count is what makes the game offer a
   kit: the `UniColor.bin` record holds its committed kits plus the entry each kit whose task
-  failed had, as everywhere, and nothing else (the count theirs, every other entry unused), the team's kit configs in `UniformParameter.bin` that the export
+  failed had, as everywhere, and nothing else (the count theirs, every other entry unused);
+  every team needs one player kit and one goalkeeper kit, so a `Full` export holding no
+  player kit folder is compiled as if it held an empty `p1/`, and one holding no `g1/` as
+  if it held an empty `g1/`, each a placeholder kit (a `Midcup` export adds to kits
+  installed and gets neither); the team's kit configs in `UniformParameter.bin` that the export
   does not hold are removed, and no absent kit slot is FPC-patched, there being none. A
   `Full` export with no root `colors.txt` still keeps its `TeamColor.bin` record's bytes
   (`team_colors_missing`): there is nothing to rebuild it from. What a `Full` export cannot

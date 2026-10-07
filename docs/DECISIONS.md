@@ -4234,3 +4234,19 @@ Why: the pages are the rules the organizers enforce; a checker's leniency is a d
 Plan: `aatf_rules.md` "Background", the schema (`Universal`, `TeamSettings`, load-time rules),
 "VGL26", "VGL27", violations, "The host", verification; `ruleset_editor.md` sections and
 "Randomize".
+
+## 2026-10-07 — team_compiler — a `Full` export gets an empty `p1/` and `g1/` where it has none
+Decision (maintainer): every team needs one player kit and one goalkeeper kit. A `Full` export
+holding no player kit folder is compiled as if it held an empty `p1/`, and one holding no
+`g1/` as if it held an empty `g1/`: each a placeholder kit (`kit_placeholder`;
+`kit_colors_missing` without a `colors.txt`). A `Midcup` export gets neither: it adds to kits
+already installed. The plan's rule, read literally, would rebuild a `Full` team's
+`UniColor.bin` record from its kits alone, a count of 0 for an export with none.
+Why: no real file holds a record counting 0, or a team without both kinds of kit, so their
+effect in game is unknown, while keeping the old record would leave a past cup's kits on
+offer, which a `Full` export exists to prevent. The placeholder kit is the compiler's existing
+answer to a kit with nothing in it, and it shows in game as unfinished, so the gap is noticed.
+Lead's reading: "one kit of each type" applies to any `Full` export lacking a type, not only
+to one with no `Kits/` folder.
+Plan: `team_compiler/pipeline.md` "Bins accumulation"; `team_compiler/README.md` TC-BIN-19
+and TC-BIN-20 (new).
