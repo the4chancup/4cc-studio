@@ -10,6 +10,7 @@
 mod dpfl;
 pub(crate) mod installed;
 pub(crate) mod kit_configs;
+pub(crate) mod player_tables;
 
 use std::ops::Range;
 
@@ -19,6 +20,7 @@ use pes_version::PesVersion;
 use uniparam::UniformParameter;
 
 use crate::templates::Templates;
+use player_tables::ItemList;
 
 /// One color as the bins hold it: red, green, blue.
 pub(crate) type Rgb = [u8; 3];
@@ -358,6 +360,14 @@ pub(crate) struct WorkingBins {
     /// `UniformParameter.bin`: `Some` on the Fox versions, `None` on PES 15-17, which have no
     /// such bin.
     pub(crate) uniform_parameter: Option<UniformParameter>,
+    /// `BootsList.bin`: `Some` when an installed CPK holds it (Fox only); it has no bundled
+    /// base, so `None` otherwise, and it is then not written.
+    pub(crate) boots_list: Option<ItemList>,
+    /// `GloveList.bin`, as `boots_list`.
+    pub(crate) glove_list: Option<ItemList>,
+    /// `PlayerAppearance.bin`'s bytes, whole 60-byte rows, as `boots_list`: it passes through
+    /// unchanged.
+    pub(crate) player_appearance: Option<Vec<u8>>,
 }
 
 impl WorkingBins {
@@ -373,6 +383,9 @@ impl WorkingBins {
             uniform_parameter: templates
                 .uniform_parameter_base(version)
                 .map(|bytes| UniformParameter::read(bytes).expect(parses)),
+            boots_list: None,
+            glove_list: None,
+            player_appearance: None,
         }
     }
 }

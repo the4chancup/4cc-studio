@@ -1,6 +1,7 @@
 //! `compile`'s working bins taken from the installed CPKs: the walk of the PES folder's
 //! `download/DpFileList.bin` (`team_compiler/pipeline.md` "Bins accumulation").
 
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::Path;
 
@@ -9,11 +10,12 @@ use pes_version::PesVersion;
 use uniparam::UniformParameter;
 
 use crate::common::Sandbox;
-use crate::compile::{cpk_entries, pes21_settings, tracer_kit};
+use crate::compile::{cpk_entries, pes21_settings, tracer_kit, tracer_player_file};
 use crate::compile_exports::{
-    TEAM_COLOR, UNI_COLOR, UNIFORM_PARAMETER, bundled_team_color, bundled_uni_color, config_path,
-    record_of, uni_record, with_uni_record,
+    TEAM_COLOR, UNI_COLOR, UNIFORM_PARAMETER, bundled_team_color, bundled_uni_color,
+    bundled_uniform_parameter, config_path, record_of, uni_record, with_uni_record,
 };
+use crate::models::body_skl;
 use crate::{BUNDLED_BINS, clean_model};
 
 /// Team `/co/`, whose `UniColor.bin` record the tests set.
@@ -369,10 +371,7 @@ fn installed_configs(configs: &[(u16, KitSlot)]) -> Vec<u8> {
 }
 
 /// The emitted `UniformParameter.bin`'s entries whose name starts with `prefix`, by name.
-fn configs_of(
-    entries: &std::collections::BTreeMap<String, Vec<u8>>,
-    prefix: &str,
-) -> Vec<(String, Vec<u8>)> {
+fn configs_of(entries: &BTreeMap<String, Vec<u8>>, prefix: &str) -> Vec<(String, Vec<u8>)> {
     UniformParameter::read(&entries[UNIFORM_PARAMETER])
         .unwrap()
         .entries()
@@ -541,4 +540,272 @@ fn a_templates_file_replaces_the_bundled_base_and_one_that_cannot_be_read_stops_
     assert!(line.starts_with(&prefix), "{line}");
     assert_eq!(run.exit_code(), 3);
     assert!(!cpk.exists());
+}
+
+/// The boots list's path in a CPK.
+const BOOTS_LIST: &str = "common/character0/model/character/boots/BootsList.bin";
+
+/// The gloves list's path in a CPK.
+const GLOVE_LIST: &str = "common/character0/model/character/glove/GloveList.bin";
+
+/// The player appearance table's path in a CPK.
+const PLAYER_APPEARANCE: &str = "common/character0/model/character/appearance/PlayerAppearance.bin";
+
+/// A `BootsList.bin` or `GloveList.bin` holding `pairs` (player id, item id) as they are
+/// given: two little-endian `u32` each.
+fn item_list(pairs: &[(u32, u32)]) -> Vec<u8> {
+    pairs
+        .iter()
+        .flat_map(|(player_id, item_id)| {
+            player_id
+                .to_le_bytes()
+                .into_iter()
+                .chain(item_id.to_le_bytes())
+        })
+        .collect()
+}
+
+/// Ten installed boots rows, sorted by player id, for players of `/a/` (702) and `/b/` (707):
+/// none for a team 714 player.
+const INSTALLED_BOOTS: [(u32, u32); 10] = [
+    (70201, 11),
+    (70202, 12),
+    (70203, 13),
+    (70204, 14),
+    (70205, 15),
+    (70701, 21),
+    (70702, 22),
+    (70703, 23),
+    (70704, 24),
+    (70705, 25),
+];
+
+/// Installed gloves rows for players of `/a/` and `/b/`.
+const INSTALLED_GLOVES: [(u32, u32); 2] = [(70201, 31), (70701, 32)];
+
+/// A `PlayerAppearance.bin` of two 60-byte rows, players 70201 and 70701, each row's 56
+/// appearance bytes told apart by their value.
+fn player_appearance() -> Vec<u8> {
+    let mut bytes = Vec::new();
+    for (player_id, fill) in [(70201u32, 0x0a), (70701, 0x0b)] {
+        bytes.extend(player_id.to_le_bytes());
+        bytes.extend([fill; 56]);
+    }
+    bytes
+}
+
+/// Installs `4cc_08_bins.cpk`, listed below the run's CPK, holding the bundled color and kit
+/// config bins and `tables` (CPK path, bytes).
+fn install_tables(sandbox: &Sandbox, tables: &[(&str, &[u8])]) {
+    install_list(sandbox);
+    let team_color = bundled_team_color();
+    let uni_color = bundled_uni_color();
+    let uniform_parameter = bundled_uniform_parameter();
+    let mut entries: Vec<(&str, &[u8])> = vec![
+        (TEAM_COLOR, &team_color),
+        (UNI_COLOR, &uni_color),
+        (UNIFORM_PARAMETER, &uniform_parameter),
+    ];
+    entries.extend_from_slice(tables);
+    install_cpk(sandbox, "4cc_08_bins.cpk", &entries);
+}
+
+/// The CPK's `BootsList.bin` or `GloveList.bin` at `path` as its (player id, item id) pairs, in
+/// file order.
+fn pairs_of(entries: &BTreeMap<String, Vec<u8>>, path: &str) -> Vec<(u32, u32)> {
+    let (pairs, rest) = entries[path].as_chunks::<8>();
+    assert!(rest.is_empty(), "{path} is whole pairs");
+    pairs
+        .iter()
+        .map(|&[p0, p1, p2, p3, i0, i1, i2, i3]| {
+            (
+                u32::from_le_bytes([p0, p1, p2, p3]),
+                u32::from_le_bytes([i0, i1, i2, i3]),
+            )
+        })
+        .collect()
+}
+
+// TC-BIN-10
+#[test]
+fn a_compiled_player_s_boots_row_joins_the_installed_list_and_the_other_tables_pass_through() {
+    let sandbox = Sandbox::new("bins_player_tables");
+    let gloves = item_list(&INSTALLED_GLOVES);
+    let appearance = player_appearance();
+    install_tables(
+        &sandbox,
+        &[
+            (BOOTS_LIST, &item_list(&INSTALLED_BOOTS)),
+            (GLOVE_LIST, &gloves),
+            (PLAYER_APPEARANCE, &appearance),
+        ],
+    );
+    sandbox.write(
+        "exports/co Midcup Boots/Players/05 - A/boots.fmdl",
+        &tracer_player_file("boots.fmdl"),
+    );
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+    assert_eq!(run.exit_code(), 0, "{:#?}", run.messages());
+    let lines = run.messages();
+    assert_eq!(
+        lines[..6],
+        [
+            source("TeamColor.bin", "4cc_08_bins.cpk"),
+            source("UniColor.bin", "4cc_08_bins.cpk"),
+            source("UniformParameter.bin", "4cc_08_bins.cpk"),
+            source("BootsList.bin", "4cc_08_bins.cpk"),
+            source("GloveList.bin", "4cc_08_bins.cpk"),
+            source("PlayerAppearance.bin", "4cc_08_bins.cpk"),
+        ]
+    );
+    assert!(
+        !lines
+            .iter()
+            .any(|line| line.contains("player_table_missing")),
+        "{lines:#?}"
+    );
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    assert!(entries.contains_key("Asset/model/character/boots/k0625/#Win/boots.fpk"));
+    let mut expected = INSTALLED_BOOTS.to_vec();
+    expected.push((71405, 625));
+    assert_eq!(
+        pairs_of(&entries, BOOTS_LIST),
+        expected,
+        "eleven pairs sorted by player id"
+    );
+    assert!(entries[GLOVE_LIST] == gloves, "GloveList.bin unchanged");
+    assert!(
+        entries[PLAYER_APPEARANCE] == appearance,
+        "PlayerAppearance.bin unchanged"
+    );
+}
+
+// TC-BIN-11
+#[test]
+fn a_player_whose_boots_task_fails_keeps_his_installed_boots_row() {
+    let sandbox = Sandbox::new("bins_boots_failed");
+    let installed = item_list(&[(70201, 11), (71405, 7)]);
+    install_tables(&sandbox, &[(BOOTS_LIST, &installed)]);
+    let folder = "exports/co Midcup Boots/Players/05 - A";
+    // Two boots parts, one paired with a skeleton and one without: `skl_merge_conflict`
+    // fails the boots task, and the folder's blank face still commits.
+    for name in ["boots.fmdl", "kit_boots.fmdl"] {
+        sandbox.write(
+            &format!("{folder}/{name}"),
+            &tracer_player_file("boots.fmdl"),
+        );
+    }
+    sandbox.write(&format!("{folder}/boots.skl"), &body_skl("pes21"));
+    sandbox.write(
+        &format!("{folder}/shirt.dds"),
+        &tracer_player_file("shirt.dds"),
+    );
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+    let lines = run.messages();
+    assert!(
+        lines.iter().any(|line| line
+            == "co Midcup Boots: Error skl_merge_conflict [DropFolder] at Players/05 - A (skeleton=differs)"),
+        "{lines:#?}"
+    );
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    assert!(!entries.contains_key("Asset/model/character/boots/k0625/#Win/boots.fpk"));
+    assert!(
+        entries[BOOTS_LIST] == installed,
+        "BootsList.bin keeps (71405, 7)"
+    );
+}
+
+// TC-BIN-12
+#[test]
+fn a_player_s_own_gloves_and_a_linked_shared_folder_s_set_their_gloves_rows() {
+    let sandbox = Sandbox::new("bins_gloves_rows");
+    install_tables(&sandbox, &[(GLOVE_LIST, &item_list(&INSTALLED_GLOVES))]);
+    let export = "exports/co Midcup Gloves";
+    for name in ["glove_l.fmdl", "glove_r.fmdl"] {
+        sandbox.write(
+            &format!("{export}/Players/05 - A/{name}"),
+            &tracer_player_file(name),
+        );
+        sandbox.write(
+            &format!("{export}/Gloves/Keeper/{name}"),
+            &tracer_player_file(name),
+        );
+    }
+    sandbox.write(&format!("{export}/Players/07 - B/Keeper.gloves"), b"");
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+    assert_eq!(run.exit_code(), 0, "{:#?}", run.messages());
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    assert!(entries.contains_key("Asset/model/character/glove/g0625/#Win/glove.fpk"));
+    assert!(entries.contains_key("Asset/model/character/glove/g0644/#Win/glove.fpk"));
+    assert_eq!(
+        pairs_of(&entries, GLOVE_LIST),
+        [(70201, 31), (70701, 32), (71405, 625), (71407, 644)]
+    );
+}
+
+// TC-BIN-17
+#[test]
+fn a_full_export_removes_the_boots_row_of_a_player_with_no_boots_and_a_midcup_keeps_it() {
+    for (coverage, expected) in [
+        ("Full", vec![(70201, 11), (71405, 625)]),
+        ("Midcup", vec![(70201, 11), (71405, 625), (71406, 9)]),
+    ] {
+        let sandbox = Sandbox::new(&format!("bins_boots_rows_{coverage}"));
+        install_tables(
+            &sandbox,
+            &[(
+                BOOTS_LIST,
+                &item_list(&[(70201, 11), (71405, 7), (71406, 9)]),
+            )],
+        );
+        let export = format!("exports/co {coverage} Boots");
+        sandbox.write(
+            &format!("{export}/Players/05 - A/boots.fmdl"),
+            &tracer_player_file("boots.fmdl"),
+        );
+        sandbox.write(
+            &format!("{export}/Players/06 - B/face_high.fmdl"),
+            &clean_model(),
+        );
+
+        let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+        assert_eq!(run.exit_code(), 0, "{coverage}: {:#?}", run.messages());
+        let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+        assert_eq!(pairs_of(&entries, BOOTS_LIST), expected, "{coverage}");
+    }
+}
+
+// TC-BIN-22
+#[test]
+fn with_no_installed_list_the_boots_row_is_left_out_and_reported() {
+    let sandbox = Sandbox::new("bins_no_tables");
+    sandbox.write(
+        "exports/co Midcup Boots/Players/05 - A/boots.fmdl",
+        &tracer_player_file("boots.fmdl"),
+    );
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+    assert_eq!(run.exit_code(), 0, "{:#?}", run.messages());
+    let lines = run.messages();
+    let missing: Vec<&String> = lines
+        .iter()
+        .filter(|line| line.contains("player_table_missing"))
+        .collect();
+    assert_eq!(
+        missing,
+        ["Warning player_table_missing [Keep] (table=BootsList.bin, rows=1)"]
+    );
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    assert!(entries.contains_key("Asset/model/character/boots/k0625/#Win/boots.fpk"));
+    for table in [BOOTS_LIST, GLOVE_LIST, PLAYER_APPEARANCE] {
+        assert!(!entries.contains_key(table), "no {table}");
+    }
 }

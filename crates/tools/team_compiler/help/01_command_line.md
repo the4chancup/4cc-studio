@@ -207,10 +207,12 @@ a full export replaces the team's kits in the game's kit list: a kit of a past c
 export does not hold is no longer offered, and the team's installed kit configs of kits the
 export does not hold are removed. Every team needs a player kit and a goalkeeper kit,
 so a full export with no player kit, or no goalkeeper kit, gets an empty one (`p1` or `g1`),
-which compiles as the placeholder kit (`kit_placeholder`). A midcup export adds its kits to
-those installed. Only the second word counts, so a `Full` later in the name changes nothing. A
-team export whose second word is neither is skipped with the error `export_tag_missing`, naming
-the export: rename it `<team> Full …` or `<team> Midcup …`. A referee export needs no tag.
+which compiles as the placeholder kit (`kit_placeholder`). A full export also clears the
+boots or gloves of each of its compiled players whose folder has none. A midcup export adds its
+kits to those installed. Only the second word counts, so a `Full` later in the name changes
+nothing. A team export whose second word is neither is skipped with the error
+`export_tag_missing`, naming the export: rename it `<team> Full …` or `<team> Midcup …`. A
+referee export needs no tag.
 
 Both commands also read every `.fmdl` and `.model` model and every `.mtl` material file of the
 export, an archive's included, and report what is wrong or suspicious in each, one line per file
@@ -278,6 +280,13 @@ from the copy built into the compiler, and so does every file when the PES folde
 `DpFileList.bin` (`dpfilelist_missing`) or the list does not name the CPK being compiled. A
 listed CPK, or a file in it, that cannot be read, or is not a valid file of its kind, stops the
 compile before any export is read (`installed_bin_unreadable`), so the CPK you had is kept.
+
+On PES 2018 to 2021 the boots list, the gloves list and the player appearance table also come
+from those CPKs, and `compile` points each compiled player whose boots or gloves it built at
+them. The compiler has no copy of these files: a list none of those CPKs has is not
+written, so those players' new boots or gloves do not show in the game, and `compile` says so
+with the warning `player_table_missing`, naming the list and how many players were left out. A
+list of only this compile's players would take every other player's boots or gloves away.
 
 A folder named `templates` in the data folder holds files that replace the compiler's built-in
 copies of the same name, so a cup can swap one without a new version of the compiler. The names,

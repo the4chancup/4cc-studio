@@ -236,6 +236,8 @@ mod tests {
                 "- egg Midcup Tracer: Info fmdl_weights_not_normalized at Players/05 - The Chad Stormworks Player (file=fcl_hair.fmdl, count=1662)",
                 "- egg Midcup Tracer: Info fmdl_weights_not_normalized at Players/05 - The Chad Stormworks Player (file=glove_l.fmdl, count=2)",
                 "- egg Midcup Tracer: Info export_identified (team=/egg/, id=792)",
+                "- Warning player_table_missing (table=BootsList.bin, rows=1)",
+                "- Warning player_table_missing (table=GloveList.bin, rows=1)",
                 "Run finished: exit code 0",
             ]
         );

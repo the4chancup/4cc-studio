@@ -3,6 +3,7 @@
 //! whole or not at all.
 
 pub(crate) mod ids;
+pub(crate) mod item_rows;
 pub(crate) mod overrides;
 pub(crate) mod subset;
 
@@ -24,6 +25,7 @@ use crate::kit_variants::{kit_number, model_variant_sets};
 use crate::messages::{Code, tool_message};
 use crate::paths::TextureHome;
 use ids::{PlannedModelIds, shared_folders_taking_ids};
+use item_rows::{ItemRow, RowPlayer, export_rows};
 use subset::{
     FolderModels, ModelPackage, PlayerFile, common_file, common_skeleton, file_stem,
     first_not_compiled, is_part_of, link_combines, link_name, linked_folder, package_of,
@@ -56,6 +58,9 @@ pub(crate) struct BuildManifest {
     /// Each planned team export's kits, in export order, for its team's `UniColor.bin` record
     /// and `UniformParameter.bin` configs ("Bins accumulation").
     pub(crate) team_kits: Vec<TeamKits>,
+    /// Every planned team export's compiled players' `BootsList.bin` and `GloveList.bin` rows,
+    /// in export order ("Bins accumulation").
+    pub(crate) item_rows: Vec<ItemRow>,
     /// Each planned team's name as messages show it (`/co/`) and the text of its root
     /// `notes.txt`, in export order, for `teamnotes.txt`. A team without a note is not listed.
     pub(crate) notes: Vec<(String, String)>,
@@ -456,6 +461,7 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
     let mut tasks = Vec::new();
     let mut team_colors = Vec::new();
     let mut team_kits = Vec::new();
+    let mut item_rows = Vec::new();
     let mut notes = Vec::new();
     let mut messages = Vec::new();
     for (export_id, mut resolved, colors, note) in exports {
@@ -548,7 +554,21 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
         // The player folders are taken out so the rest of the export (its shared folders)
         // stays readable while each folder's links are resolved against it.
         let players = std::mem::take(&mut export.players);
+        // The export's first task, from which its compiled players' rows look for the tasks
+        // building their boots and gloves.
+        let first_task = tasks.len();
+        let mut row_players = Vec::new();
         for (folder, slots) in player_folders(players, &export.roster) {
+            row_players.push(RowPlayer {
+                path: folder.path.clone(),
+                player_ids: slots.iter().map(|slot| slot.player_id(id)).collect(),
+                linked: folder
+                    .links
+                    .iter()
+                    .filter_map(|link| linked_folder(&export, link))
+                    .map(|shared| shared.path.clone())
+                    .collect(),
+            });
             if let Some(portrait) = &folder.portrait {
                 portraits.extend(
                     slots
@@ -629,6 +649,13 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
                 &mut tasks,
             );
         }
+        // After the shared folders' tasks, which a player linking one takes his row from.
+        item_rows.extend(export_rows(
+            &tasks,
+            first_task,
+            &row_players,
+            export.coverage,
+        ));
         if let Some(first) = common_textures.first() {
             let folder = first
                 .path
@@ -703,6 +730,7 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
             tasks,
             team_colors,
             team_kits,
+            item_rows,
             notes,
         },
         messages,

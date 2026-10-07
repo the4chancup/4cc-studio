@@ -13,8 +13,8 @@ is in `AGENTS.md` ("Working documents").
 "Handover"). Phases 1 and 2 done (Phase 2 closed 2026-09-30).
 **Next:** Phase 4 is itemized and its Acceptance section written (step 4.1, 2026-10-03; its
 cross-family review (a) is queued). Next:
-4.22 (Fox player tables; read the 2026-10-06 in-game test results in "Issues" first); 4.21
-is done; 4.14 waits on 4.31's pre-Fox export; 4.33, 4.34, 4.c-pass and
+the next open Phase 4 step (see the list); 4.21 and 4.22
+are done; 4.14 waits on 4.31's pre-Fox export; 4.33, 4.34, 4.c-pass and
 4.c-fix1 are done; 4.30,
 4.5 to 4.8, 4.9a and 4.10 to 4.13 are done (4.6c moved to Phase 8's cancellation), 4.9b
 (collars) waits on nothing. 2.5b (GPU BC7) is step 16.x (decision entries
@@ -203,6 +203,11 @@ Claude agent with no sidekick and no reviewer of another model family. While tha
   (`kit_config_fpc_adjusted`, `kit_config_fpc_unpatched`, `installed_bin_unreadable`,
   `template_override_unreadable`), TC-BIN-06, 16 and the decision entry "FPC patching takes
   the slots from `UniColor.bin`; bins parse as they are read".
+  4.22 (b), `team_compiler` (`bins/player_tables.rs`, `plan/item_rows.rs`, the walk's three
+  tables, `output/writer.rs` `add_player_tables`, the parity test's warnings), its commit of
+  2026-10-07, against `pipeline.md` "Bins accumulation" (player appearance tables, the walk's
+  edges), "Game paths reference", `messages.md` `player_table_missing`, TC-BIN-10, 11, 12, 17,
+  22 and the decision entry "a player table no installed CPK holds is not written".
 - For the lead, on return: the review process on trial (3.1) opens with a full sidekick review
   loop, then runs GPT's loop with a full sidekick loop after each GPT round, calling GPT again
   only once that sidekick loop has ended and GPT's own loop has not; not yet in `AGENTS.md`
@@ -1341,7 +1346,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
     caught, 21 unviable, 0 missed (the first run missed 1: a `Full` removal with no committed
     config)
 
-- [ ] 4.22 **Fox player tables**: `BootsList.bin` and `GloveList.bin` read from the installed CPKs
+- [x] 4.22 **Fox player tables**: `BootsList.bin` and `GloveList.bin` read from the installed CPKs
   by the same walk (the seed rows ride in `4cc_08_bins.cpk`), the (player id, item id) pair of
   every compiled player whose
   boots/gloves output committed replaced with the planned ID, a failed output keeping its row,
@@ -1352,12 +1357,24 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   patch (worklog "Issues"); the table content does not. Plan: `pipeline.md` "Bins accumulation"
   (player appearance tables), "Game paths reference" (the three rows); `settings_toml.md` "Player
   settings in exports" (Fox); `development_plan.md` "Phase 4" `bins/`. IDs: TC-BIN-10..12,
-  TC-BIN-17.
+  TC-BIN-17, TC-BIN-22.
   Crates: tc (`bins/mod.rs`, `paths.rs`) → verify: PES 21 compile of `/co/` with slot 05's
   `boots.fmdl` over an installed `BootsList.bin` of ten pairs: the CPK's table holds eleven pairs
   sorted by id with (71405, 625) among them and the ten unchanged; `GloveList.bin` is
   byte-identical to the installed one; `PlayerAppearance.bin` is byte-identical to the installed
-  one
+  one. Done 2026-10-07 (sidekick, landed first time; lead fix: the parity test, the lead's,
+  now expects exactly the tracer's two `player_table_missing` warnings, the sidekick's
+  contradiction, accepted). `bins/player_tables.rs` (`ItemTable`, `ItemList`: little-endian
+  u32 pairs, measured on the game's and the cup's tables; `read_player_appearance`, a 60-byte
+  row check); the walk's three Fox-only tables, no `bin_source` for one not found;
+  `plan/item_rows.rs` (`ItemRow`, `RowChange`, `export_rows`: each compiled player's row from
+  the `Models` task building his boots or gloves, his own folder's or a linked shared one's;
+  `Remove` for a `Full` export's player with none); the writer records committed batches and
+  `add_player_tables` writes each found table whole after `UniColor.bin`; a table not found
+  is not written, `player_table_missing` (W, new) counting the committed rows left out. Help
+  paragraphs. Eight existing tests gained the warning (Fox, boots or gloves, no install).
+  Gates green (169 of 254); `clef-diff 53c750e`: 44 windows, no flag; `mutants-diff
+  53c750e`: 56 mutants, 43 caught, 13 unviable, 0 missed
 
 - [ ] 4.23 **Output sink and modes**: `output/sink.rs` `OutputSink` (CPK, loose folder) fed by
   output-relative paths; `processing/materialize.rs` the one seam (relocation and FPK packing,
@@ -2907,3 +2924,6 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
     configs of the kits the game offers that it does not hold; a full export removes its
     team's other configs; a working bin that does not parse stops the run before any export
     is read. Step 4.21 is done.
+  - **4.22:** the Fox boots and gloves lists and the player appearance table come from the
+    installed CPKs and carry the compiled players' rows; a list no installed CPK holds is not
+    written (`player_table_missing`, decision entry).

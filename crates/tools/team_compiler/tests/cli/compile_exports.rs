@@ -1516,6 +1516,8 @@ fn export_paths_restrict_check_and_compile_to_the_named_exports() {
                 &[
                     "co Midcup A: Info team_colors_missing [Keep] ()",
                     "dbg Midcup D: Info team_colors_missing [Keep] ()",
+                    "Warning player_table_missing [Keep] (table=BootsList.bin, rows=2)",
+                    "Warning player_table_missing [Keep] (table=GloveList.bin, rows=2)",
                 ],
             )
         } else {
@@ -1693,7 +1695,9 @@ fn the_worker_count_changes_neither_the_findings_nor_the_cpk() {
             "dbg Midcup Seven.7z: Info team_colors_missing [Keep] ()",
             "co Midcup Kits: Info kit_colors_derived [Keep] at Kits/p1 ()",
             "co Midcup Kits: Info kit_colors_derived [Keep] at Kits/g1 ()",
-            "dbg Midcup Seven.7z: Info kit_colors_derived [Keep] at Kits/g1 ()"
+            "dbg Midcup Seven.7z: Info kit_colors_derived [Keep] at Kits/g1 ()",
+            "Warning player_table_missing [Keep] (table=BootsList.bin, rows=1)",
+            "Warning player_table_missing [Keep] (table=GloveList.bin, rows=1)"
         ])
     );
     assert!(outcomes[0].1 == outcomes[1].1, "the CPKs differ");
@@ -1864,6 +1868,7 @@ fn the_overrides_replace_the_export_s_boots_and_the_team_color_bin_and_are_repor
             format!("Info overrides_active [Keep] (folder={folder}, files=2)"),
             format!("Warning duplicate_path [Keep] (path={BOOTS_05})"),
             format!("Warning duplicate_path [Keep] (path={TEAM_COLOR})"),
+            "Warning player_table_missing [Keep] (table=BootsList.bin, rows=1)".to_owned(),
         ])
     );
     assert_eq!(run.exit_code(), 0, "a Warning does not fail the run");

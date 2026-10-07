@@ -2,7 +2,7 @@
 //! files first, then task batches in manifest order whatever order they arrive in, a player
 //! folder's group decided as one once its textures batch is in, then the bins.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs::{self, File};
 use std::path::PathBuf;
 
@@ -13,10 +13,12 @@ use pes_version::PesVersion;
 use studio_core::{Disposition, Message, Scope};
 
 use crate::bins::kit_configs::kit_configs;
+use crate::bins::player_tables::{ItemList, ItemTable, table_missing};
 use crate::bins::{KitColorEntry, Rgb, WorkingBins, kit_number};
 use crate::messages::{Code, tool_message};
 use crate::paths;
 use crate::plan::TeamKits;
+use crate::plan::item_rows::ItemRow;
 use crate::processing::TaskBatch;
 
 /// The CPK header's tool-version string. One string per release, so a release compiling the
@@ -42,6 +44,9 @@ pub(crate) struct CpkOutput {
     uniform_parameters: Vec<(String, Vec<u8>)>,
     /// The committed kits' `UniColor.bin` entries, each with its team ID, in commit order.
     kit_colors: Vec<(u16, KitColorEntry)>,
+    /// The manifest positions of the batches committed: a player's boots or gloves row is set
+    /// only when the task building them is among them.
+    committed: BTreeSet<usize>,
 }
 
 impl CpkOutput {
@@ -56,6 +61,7 @@ impl CpkOutput {
             pending: BTreeMap::new(),
             uniform_parameters: Vec::new(),
             kit_colors: Vec::new(),
+            committed: BTreeSet::new(),
         }
     }
 
@@ -140,9 +146,11 @@ impl CpkOutput {
     /// record's header set from its position and each of `team_colors` (team id, colors) set in
     /// its team's record; then `UniColor.bin`, built on `bins`' the same way, each `Full`
     /// export's team of `team_kits` keeping only its kit tasks' kits in its record, then each
-    /// committed kit's entry merged into its team's record in commit order. Returns whether a
+    /// committed kit's entry merged into its team's record in commit order; then the Fox player
+    /// tables `bins` holds, with `item_rows` applied (`add_player_tables`). Returns whether a
     /// CPK was written and the findings to report: `kit_configs`' FPC findings, one
-    /// `bin_header_repaired` per working bin that had a header wrong, naming the teams, and a
+    /// `bin_header_repaired` per working bin that had a header wrong, naming the teams, a
+    /// `player_table_missing` per list not found that committed rows were left out of, and a
     /// `duplicate_path` for each bin an override replaced.
     pub(crate) fn finish(
         mut self,
@@ -150,6 +158,7 @@ impl CpkOutput {
         bins: WorkingBins,
         team_colors: &[(u16, Vec<Rgb>)],
         team_kits: &[TeamKits],
+        item_rows: &[ItemRow],
     ) -> anyhow::Result<(bool, Vec<Message>)> {
         ensure!(
             self.pending.is_empty(),
@@ -168,6 +177,9 @@ impl CpkOutput {
             team_color,
             uni_color,
             uniform_parameter,
+            boots_list,
+            glove_list,
+            player_appearance,
         } = bins;
         let mut messages = Vec::new();
         // The bins hold what every committed kit contributed, so they are built only once
@@ -213,6 +225,11 @@ impl CpkOutput {
             bin.set_kit(team_id, &entry)?;
         }
         self.add(paths::UNI_COLOR, &bin.into_bytes(), &mut messages)?;
+        let lists = [
+            (ItemTable::Boots, boots_list),
+            (ItemTable::Gloves, glove_list),
+        ];
+        self.add_player_tables(lists, player_appearance, item_rows, &mut messages)?;
         let cpk = self
             .cpk
             .expect("the CPK was created before the bins were added");
@@ -221,9 +238,38 @@ impl CpkOutput {
         Ok((true, messages))
     }
 
-    /// A failed task contributes nothing: no entry, and no kit config or kit colors to the
-    /// bins. A task with an entry an override replaced still contributes the rest, its kit
-    /// config and kit colors included, and the `duplicate_path` joins its messages.
+    /// Adds the Fox player tables: each of `lists` (`BootsList.bin` then `GloveList.bin`) the
+    /// walk found, with `item_rows`' rows of it applied against the committed batches
+    /// (`ItemList::apply`), written whole, changed or not, then `player_appearance`, when found,
+    /// unchanged. A list the walk did not find is not written, a list of this run's rows alone
+    /// taking every other player's away, and `player_table_missing` goes to `messages` when
+    /// committed rows of it are left out.
+    fn add_player_tables(
+        &mut self,
+        lists: [(ItemTable, Option<ItemList>); 2],
+        player_appearance: Option<Vec<u8>>,
+        item_rows: &[ItemRow],
+        messages: &mut Vec<Message>,
+    ) -> anyhow::Result<()> {
+        for (table, list) in lists {
+            match list {
+                Some(mut list) => {
+                    list.apply(table, item_rows, &self.committed);
+                    self.add(table.path(), &list.into_bytes(), messages)?;
+                }
+                None => messages.extend(table_missing(table, item_rows, &self.committed)),
+            }
+        }
+        if let Some(bytes) = player_appearance {
+            self.add(paths::PLAYER_APPEARANCE, &bytes, messages)?;
+        }
+        Ok(())
+    }
+
+    /// A failed task contributes nothing: no entry, no kit config or kit colors to the bins, and
+    /// no player table row. A task with an entry an override replaced still contributes the
+    /// rest, its kit config, kit colors and rows included, and the `duplicate_path` joins its
+    /// messages.
     fn commit(&mut self, batch: &mut TaskBatch) -> anyhow::Result<()> {
         if batch.entries.is_empty() {
             return Ok(());
@@ -234,6 +280,7 @@ impl CpkOutput {
         }
         self.uniform_parameters.extend(batch.uniparam.take());
         self.kit_colors.extend(batch.uni_color.take());
+        self.committed.insert(batch.index);
         // The task's bytes are in the CPK and their copies gone, so the memory they were
         // charged is free. The release is explicit: a grouped batch can stay in `submit`'s
         // vector after its own commit, so waiting on its destruction would hold it longer.
@@ -320,6 +367,7 @@ mod tests {
     use crate::bins::{TeamColorBin, UniColorBin};
     use crate::messages::{Code, tool_message};
     use crate::plan::EffectiveTeamKitFpc;
+    use crate::plan::item_rows::RowChange;
     use crate::templates::Templates;
     use crate::testing::scratch;
 
@@ -344,6 +392,7 @@ mod tests {
         let (written, messages) = output.finish(
             version,
             WorkingBins::bundled(version, &Templates::embedded()),
+            &[],
             &[],
             &[],
         )?;
@@ -688,6 +737,7 @@ mod tests {
                 WorkingBins::bundled(PesVersion::Pes21, &Templates::embedded()),
                 &team_714_colors(),
                 &[],
+                &[],
             )
             .unwrap();
 
@@ -829,7 +879,9 @@ mod tests {
             ..bundled()
         };
 
-        let (written, _) = output.finish(PesVersion::Pes21, bins, &[], &[]).unwrap();
+        let (written, _) = output
+            .finish(PesVersion::Pes21, bins, &[], &[], &[])
+            .unwrap();
 
         assert!(written);
         let bin = UniformParameter::read(&entry(&path, paths::UNIFORM_PARAMETER)).unwrap();
@@ -957,7 +1009,7 @@ mod tests {
         let mut output = CpkOutput::new(path.clone(), BTreeMap::new());
         output.submit(batch(0, &["a/b.bin"], None)).unwrap();
         let (written, messages) = output
-            .finish(PesVersion::Pes21, bins, &team_714_colors(), &[])
+            .finish(PesVersion::Pes21, bins, &team_714_colors(), &[], &[])
             .unwrap();
         assert!(written);
         let mut archive = CpkArchive::open(File::open(&path).unwrap()).unwrap();
@@ -1039,7 +1091,7 @@ mod tests {
                 ..bundled()
             };
             let finished = output
-                .finish(PesVersion::Pes21, broken, &team_colors, &[])
+                .finish(PesVersion::Pes21, broken, &team_colors, &[], &[])
                 .unwrap();
             assert_eq!(finished, (false, Vec::new()), "{name}");
             assert!(!folder.exists(), "{name}: no file and no folder");
@@ -1082,7 +1134,9 @@ mod tests {
         for batch in batches {
             output.submit(batch).unwrap();
         }
-        let (written, messages) = output.finish(PesVersion::Pes21, bins, &[], &[]).unwrap();
+        let (written, messages) = output
+            .finish(PesVersion::Pes21, bins, &[], &[], &[])
+            .unwrap();
         assert!(written);
         let mut archive = CpkArchive::open(File::open(&path).unwrap()).unwrap();
         let entry = archive
@@ -1235,7 +1289,7 @@ mod tests {
             ..bundled()
         };
         let (written, messages) = output
-            .finish(PesVersion::Pes21, bins, &[], &[team])
+            .finish(PesVersion::Pes21, bins, &[], &[team], &[])
             .unwrap();
         if !written {
             return (Vec::new(), None, messages);
@@ -1293,5 +1347,81 @@ mod tests {
         let (layout, bin, messages) =
             finish_with("writer_fpc_no_cpk", false, EffectiveTeamKitFpc::On);
         assert_eq!((layout, bin, messages), (Vec::new(), None, Vec::new()));
+    }
+
+    #[test]
+    fn the_player_tables_found_follow_uni_color_bin_with_the_committed_rows_set() {
+        let temp = scratch("writer_player_tables");
+        let path = temp.path().join("cup.cpk");
+        let mut output = CpkOutput::new(path.clone(), BTreeMap::new());
+        // Slot 05's boots commit; slot 07's boots task failed.
+        output.submit(batch(0, &["boots/k0625.fpk"], None)).unwrap();
+        output.submit(batch(1, &[], None)).unwrap();
+        let installed = |pairs: &[(u32, u32)]| -> Vec<u8> {
+            pairs
+                .iter()
+                .flat_map(|(player_id, id)| [player_id.to_le_bytes(), id.to_le_bytes()])
+                .flatten()
+                .collect()
+        };
+        let appearance = vec![0x5a; 120];
+        let bins = WorkingBins {
+            boots_list: Some(
+                ItemList::read(ItemTable::Boots, &installed(&[(71407, 7), (70201, 11)])).unwrap(),
+            ),
+            player_appearance: Some(appearance.clone()),
+            ..bundled()
+        };
+        let rows = [
+            ItemRow {
+                table: ItemTable::Boots,
+                player_id: 71405,
+                change: RowChange::Set { id: 625, task: 0 },
+            },
+            ItemRow {
+                table: ItemTable::Boots,
+                player_id: 71407,
+                change: RowChange::Set { id: 627, task: 1 },
+            },
+            ItemRow {
+                table: ItemTable::Gloves,
+                player_id: 71405,
+                change: RowChange::Set { id: 625, task: 0 },
+            },
+        ];
+
+        let (written, messages) = output
+            .finish(PesVersion::Pes21, bins, &[], &[], &rows)
+            .unwrap();
+
+        assert!(written);
+        assert_eq!(
+            messages,
+            [tool_message(
+                Code::PlayerTableMissing,
+                Scope::Run,
+                Disposition::Keep,
+                vec![
+                    ("table", "GloveList.bin".to_owned()),
+                    ("rows", "1".to_owned())
+                ],
+            )],
+            "no GloveList.bin installed"
+        );
+        assert_eq!(
+            layout(&path),
+            [
+                "boots/k0625.fpk",
+                paths::TEAM_COLOR,
+                paths::UNI_COLOR,
+                paths::BOOTS_LIST,
+                paths::PLAYER_APPEARANCE,
+            ]
+        );
+        assert_eq!(
+            entry(&path, paths::BOOTS_LIST),
+            installed(&[(70201, 11), (71405, 625), (71407, 7)])
+        );
+        assert_eq!(entry(&path, paths::PLAYER_APPEARANCE), appearance);
     }
 }

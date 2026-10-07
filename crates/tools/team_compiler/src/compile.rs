@@ -206,6 +206,7 @@ fn build(
     let tasks = manifest.tasks;
     let team_colors = manifest.team_colors;
     let team_kits = manifest.team_kits;
+    let item_rows = manifest.item_rows;
     let notes = manifest.notes;
     let mut last_task_of: BTreeMap<ExportId, usize> = BTreeMap::new();
     for (index, task) in tasks.iter().enumerate() {
@@ -230,6 +231,7 @@ fn build(
         let last_tasks = &last_tasks;
         let team_colors = &team_colors;
         let team_kits = &team_kits;
+        let item_rows = &item_rows;
         let budget = &budget;
         let writer = scope.spawn(move || {
             let mut output = output;
@@ -237,7 +239,7 @@ fn build(
             // The writer finishes the CPK too, so its file is closed when the thread ends,
             // before a failure removes the staging folder.
             let written = write_batches(batches_rx, &mut output, &mut events, last_tasks, budget)
-                .and_then(|()| output.finish(version, bins, team_colors, team_kits));
+                .and_then(|()| output.finish(version, bins, team_colors, team_kits, item_rows));
             (events, written)
         });
         let coordinated = pool.in_place_scope(|pool_scope| {

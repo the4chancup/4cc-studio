@@ -3,7 +3,8 @@
 //! before the run's own, so a compiled CPK, which the game loads above them, keeps the cup's
 //! colors and kits for every team the run does not compile. Each bin comes from the nearest of
 //! those CPKs that holds it, and from its bundled base when none does or the walk cannot be
-//! made (no PES folder, no list, a list not naming the run's CPK).
+//! made (no PES folder, no list, a list not naming the run's CPK); a Fox player table, which
+//! has no bundled base, is then absent.
 
 use std::fs::{self, File};
 use std::io::{self, BufReader};
@@ -16,6 +17,7 @@ use pipeline::CpkStem;
 use studio_core::{Disposition, Message, Scope};
 use uniparam::UniformParameter;
 
+use super::player_tables::{ItemList, ItemTable, read_player_appearance};
 use super::{TeamColorBin, UniColorBin, WorkingBins, dpfl};
 use crate::messages::{Code, deploy_message, tool_message};
 use crate::output::deploy;
@@ -37,6 +39,9 @@ enum Bin {
     TeamColor,
     UniColor,
     UniformParameter,
+    BootsList,
+    GloveList,
+    PlayerAppearance,
 }
 
 impl Bin {
@@ -46,6 +51,9 @@ impl Bin {
             Bin::TeamColor => paths::TEAM_COLOR,
             Bin::UniColor => paths::UNI_COLOR,
             Bin::UniformParameter => paths::UNIFORM_PARAMETER,
+            Bin::BootsList => ItemTable::Boots.path(),
+            Bin::GloveList => ItemTable::Gloves.path(),
+            Bin::PlayerAppearance => paths::PLAYER_APPEARANCE,
         }
     }
 
@@ -55,6 +63,18 @@ impl Bin {
             Bin::TeamColor => "TeamColor.bin",
             Bin::UniColor => "UniColor.bin",
             Bin::UniformParameter => "UniformParameter.bin",
+            Bin::BootsList => ItemTable::Boots.name(),
+            Bin::GloveList => ItemTable::Gloves.name(),
+            Bin::PlayerAppearance => "PlayerAppearance.bin",
+        }
+    }
+
+    /// Whether the run has a bundled base for the bin when no installed CPK holds it. The
+    /// player tables have none: the seed rows are the cup's own.
+    fn has_base(self) -> bool {
+        match self {
+            Bin::TeamColor | Bin::UniColor | Bin::UniformParameter => true,
+            Bin::BootsList | Bin::GloveList | Bin::PlayerAppearance => false,
         }
     }
 
@@ -64,6 +84,11 @@ impl Bin {
             Bin::TeamColor => bins.team_color = TeamColorBin::read(bytes)?,
             Bin::UniColor => bins.uni_color = UniColorBin::read(bytes)?,
             Bin::UniformParameter => bins.uniform_parameter = Some(UniformParameter::read(&bytes)?),
+            Bin::BootsList => bins.boots_list = Some(ItemList::read(ItemTable::Boots, &bytes)?),
+            Bin::GloveList => bins.glove_list = Some(ItemList::read(ItemTable::Gloves, &bytes)?),
+            Bin::PlayerAppearance => {
+                bins.player_appearance = Some(read_player_appearance(bytes)?);
+            }
         }
         Ok(())
     }
@@ -78,9 +103,10 @@ struct Wanted {
 
 /// The bins a run compiling `cpk_stem` for `version` builds on, taken from the installed
 /// CPKs of the PES folder `pes_folder` (`pipeline.md` "Bins accumulation"), a bin none of them
-/// holds from its bundled base in the run's `templates`, and the findings: a `bin_source` per
-/// bin, and `dpfilelist_missing` when the folder has no list (an Error when the run `deploys`,
-/// a Warning when not). A list, a CPK or a bin that cannot be read is the error: the run stops
+/// holds from its bundled base in the run's `templates` (a Fox player table, having none, is
+/// then absent), and the findings: a `bin_source` per bin found or bundled, and
+/// `dpfilelist_missing` when the folder has no list (an Error when the run `deploys`, a
+/// Warning when not). A list, a CPK or a bin that cannot be read is the error: the run stops
 /// rather than build on an older copy.
 pub(crate) fn working_bins(
     pes_folder: &Path,
@@ -90,9 +116,15 @@ pub(crate) fn working_bins(
     templates: &Templates,
 ) -> Result<(WorkingBins, Vec<Message>), Unreadable> {
     let mut looked_for = vec![Bin::TeamColor, Bin::UniColor];
-    // Only the Fox versions have the bin, and so a bundled base for it.
+    // Only the Fox versions have the bin, and so a bundled base for it; and only they have
+    // the player tables.
     if templates.uniform_parameter_base(version).is_some() {
-        looked_for.push(Bin::UniformParameter);
+        looked_for.extend([
+            Bin::UniformParameter,
+            Bin::BootsList,
+            Bin::GloveList,
+            Bin::PlayerAppearance,
+        ]);
     }
     let mut wanted: Vec<Wanted> = looked_for
         .into_iter()
@@ -110,7 +142,12 @@ pub(crate) fn working_bins(
         ));
     }
     for Wanted { bin, found } in wanted {
-        let cpk = found.unwrap_or_else(|| "bundled".to_owned());
+        let cpk = match found {
+            Some(cpk) => cpk,
+            None if bin.has_base() => "bundled".to_owned(),
+            // No base to name: the table is not written.
+            None => continue,
+        };
         messages.push(tool_message(
             Code::BinSource,
             Scope::Run,
@@ -541,6 +578,97 @@ mod tests {
                 paths::UNI_COLOR
             )
         );
+    }
+
+    #[test]
+    fn the_player_tables_are_taken_on_pes_21_and_not_looked_for_on_pes_17() {
+        let temp = scratch("installed_player_tables");
+        let pes = temp.path();
+        install_list(pes, &["4cc_08_bins.cpk", "4cc_99_test.cpk"]);
+        // Player 70201 with boots 11; one 60-byte appearance row.
+        let boots = [0x39, 0x12, 0x01, 0x00, 0x0b, 0x00, 0x00, 0x00];
+        install_cpk(
+            pes,
+            "4cc_08_bins.cpk",
+            &[
+                (paths::BOOTS_LIST, &boots),
+                (paths::PLAYER_APPEARANCE, &[7; 60]),
+            ],
+        );
+
+        let (bins, messages) = working_bins(
+            pes,
+            &stem(),
+            PesVersion::Pes21,
+            true,
+            &Templates::embedded(),
+        )
+        .unwrap();
+        assert_eq!(
+            bins.boots_list.map(ItemList::into_bytes),
+            Some(boots.to_vec())
+        );
+        assert_eq!(bins.glove_list, None, "no CPK holds it");
+        assert_eq!(bins.player_appearance, Some(vec![7; 60]));
+        let mut expected = all_bundled().to_vec();
+        expected.extend([
+            source("BootsList.bin", "4cc_08_bins.cpk"),
+            source("PlayerAppearance.bin", "4cc_08_bins.cpk"),
+        ]);
+        assert_eq!(messages, expected, "no bin_source for GloveList.bin");
+
+        let (bins, messages) = working_bins(
+            pes,
+            &stem(),
+            PesVersion::Pes17,
+            true,
+            &Templates::embedded(),
+        )
+        .unwrap();
+        assert_eq!(bins.boots_list, None);
+        assert_eq!(bins.player_appearance, None);
+        assert_eq!(messages, all_bundled()[..2]);
+    }
+
+    #[test]
+    fn an_installed_player_table_that_does_not_parse_is_the_error_naming_its_cpk() {
+        for (name, path, bytes, error) in [
+            (
+                "installed_glove_list_unparsable",
+                paths::GLOVE_LIST,
+                vec![0; 12],
+                "GloveList.bin is 12 bytes, not a whole number of 8-byte pairs",
+            ),
+            (
+                "installed_player_appearance_unparsable",
+                paths::PLAYER_APPEARANCE,
+                vec![0; 61],
+                "PlayerAppearance.bin is 61 bytes, not a whole number of 60-byte rows",
+            ),
+        ] {
+            let temp = scratch(name);
+            let pes = temp.path();
+            install_list(pes, &["4cc_08_bins.cpk", "4cc_99_test.cpk"]);
+            install_cpk(pes, "4cc_08_bins.cpk", &[(path, &bytes)]);
+
+            let Err(unreadable) = working_bins(
+                pes,
+                &stem(),
+                PesVersion::Pes21,
+                true,
+                &Templates::embedded(),
+            ) else {
+                panic!("a table that does not parse must be the error");
+            };
+            assert_eq!(
+                unreadable.path,
+                pes.join("download").join("4cc_08_bins.cpk")
+            );
+            assert_eq!(
+                format!("{:#}", unreadable.error),
+                format!("cannot parse {path}: {error}")
+            );
+        }
     }
 
     #[test]

@@ -264,14 +264,34 @@ fn the_tracer_bullet_matches_the_reference_tree() {
     let exports_root = fixture.join("studio");
     let run = sandbox.run(&settings, &["compile", exports_root.to_str().unwrap()]);
     assert_eq!(run.exit_code(), 0);
+    // Notes only, but for the two player tables: with no PES install there is no table to
+    // build on, so the tracer's boots and gloves rows are left out (`pipeline.md` "Bins
+    // accumulation"), as Red, which wrote no table, never had them.
+    let mut warnings = Vec::new();
     for envelope in &run.events {
-        if let PipelineEvent::Message(message) = &envelope.event {
-            assert!(
-                message.severity < Severity::Warning,
-                "the tracer compiles with notes only: {message:?}"
-            );
+        if let PipelineEvent::Message(message) = &envelope.event
+            && message.severity >= Severity::Warning
+        {
+            warnings.push((message.code.code.to_string(), message.context.clone()));
         }
     }
+    let table_missing = |table: &str| {
+        (
+            "player_table_missing".to_owned(),
+            vec![
+                ("table".to_owned(), table.to_owned()),
+                ("rows".to_owned(), "1".to_owned()),
+            ],
+        )
+    };
+    assert_eq!(
+        warnings,
+        [
+            table_missing("BootsList.bin"),
+            table_missing("GloveList.bin")
+        ],
+        "the tracer compiles with notes only, but for the two player tables"
+    );
 
     let ours = archive(&output.join("4cc_99_test.cpk"));
     let reference = tree(&fixture.join("red"));

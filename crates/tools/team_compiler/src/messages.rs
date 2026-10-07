@@ -168,6 +168,10 @@ pub(crate) enum Code {
     InstalledBinUnreadable,
     /// The installed CPK a working bin was taken from, or `bundled` for the bundled base.
     BinSource,
+    /// The run has `BootsList.bin` or `GloveList.bin` rows (Fox) and no installed CPK holds
+    /// the table, which has no bundled base: the table is not written and the rows are left
+    /// out.
+    PlayerTableMissing,
     /// A file of the data directory's `templates/` folder cannot be read; the run stops before
     /// any export is read, the previous CPK kept.
     TemplateOverrideUnreadable,
@@ -202,7 +206,7 @@ impl Code {
     /// Every code, for the catalog test: a variant missing here would make its first message
     /// panic in `severity`, so a new variant is added to this list too.
     #[cfg(test)]
-    const ALL: [Code; 63] = [
+    const ALL: [Code; 64] = [
         Code::ExportExtractFailed,
         Code::NoExportsFound,
         Code::ExportDisabled,
@@ -256,6 +260,7 @@ impl Code {
         Code::DpfilelistMissing,
         Code::InstalledBinUnreadable,
         Code::BinSource,
+        Code::PlayerTableMissing,
         Code::TemplateOverrideUnreadable,
         Code::TemplateOverrideActive,
         Code::BinHeaderRepaired,
@@ -324,6 +329,7 @@ impl Code {
             Code::DpfilelistMissing => "dpfilelist_missing",
             Code::InstalledBinUnreadable => "installed_bin_unreadable",
             Code::BinSource => "bin_source",
+            Code::PlayerTableMissing => "player_table_missing",
             Code::TemplateOverrideUnreadable => "template_override_unreadable",
             Code::TemplateOverrideActive => "template_override_active",
             Code::BinHeaderRepaired => "bin_header_repaired",
@@ -408,6 +414,7 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("dpfilelist_missing", CatalogSeverity::ErrorOrWarning),
     ("installed_bin_unreadable", CatalogSeverity::Fatal),
     ("bin_source", CatalogSeverity::Info),
+    ("player_table_missing", CatalogSeverity::Warning),
     ("template_override_unreadable", CatalogSeverity::Fatal),
     ("template_override_active", CatalogSeverity::Info),
     ("bin_header_repaired", CatalogSeverity::Warning),
