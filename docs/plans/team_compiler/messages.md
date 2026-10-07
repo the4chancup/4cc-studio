@@ -314,7 +314,7 @@ pass-through-eligible, and the logo goes as one unit.
 | `xml_path_unchecked` | W | `path`/`material` in a form the compiler cannot resolve (`model/character/face/common/…` or any other game path): not verified to exist | kept verbatim |
 | `xml_face_neck_multiple` | W | more than one `face_neck` entry | kept verbatim |
 | `xml_model_unlisted` | W | a model file in the folder that the xml does not reference | file not emitted |
-| `xml_face_neck_added` | I | no `face_neck` entry; the dummy entry was appended (Red's rule) | dummy model + mtl emitted |
+| `xml_face_neck_added` | I | no `face_neck` entry among a face's models; the dummy entry was appended (Red's rule); not on a blank face | dummy model + mtl emitted |
 | `xml_uniform_pes15` | I | PES15 target: `type="uniform"` rewritten to `uniform_sub` (Red's rule) | rewritten |
 | `xml_ignored_fox` | I | a user `face.xml` in a folder compiled for a Fox target | xml ignored; models compile by the normal route |
 | `face_diff_invalid` | E | `face_diff.xml` is not base64 text or a `<dif>` holding it, or its decoded bytes, or a `face_diff.bin`, are not a face diff (`player_folders.md` "`face_diff.xml`"; context: the file, the reason) | folder discarded |

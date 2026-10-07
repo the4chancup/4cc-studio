@@ -348,7 +348,15 @@ then processed as an independent parallel task (Blue: `coordinator._model_folder
    shape Red writes: `<?xml version='1.0' encoding='UTF-8'?>`, a `<config>` root, one
    `<model level="0" type="…" path="…" material="…" />` per entry (`ratio="…"` last when set)
    indented by three spaces, then the `<dif>` element with the diff's base64 on one line
-   between two line ends, CRLF line ends throughout. (Red's
+   between two line ends, CRLF line ends throughout. The entries follow the models' export
+   paths, case-folded, and the dummy, when added, comes last. The packed name is the stem
+   lowercased as Red does, with `oral_` and `_win32` each added only when the stem lacks it
+   (an old export's `oral_hat_win32.model` keeps its name), and the type is read from the
+   stem without them. `_ratio_<n>` is the token after `ratio_` up to the next `_` or the
+   stem's end (`visor_ratio_2_parts` gives `ratio="2"`, where Red took the whole rest,
+   `2_parts`). The `.mtl` is packed under its own name, its texture paths rewritten (step 6).
+   `xml_face_neck_added` is reported for a face holding a model; a blank face's dummy
+   (step 4 of "2. Per-export serial steps") is the compiler's own and reports nothing. (Red's
    3-digit glove ID padding, `g567` → `g0567`, has no equivalent: the Studio format has no ID-named
    folders — IDs are auto-assigned. The Export upgrader normalizes old IDs when parsing them.)
 5. **Texture conversion** — all image formats are interchangeable as texture sources (see the

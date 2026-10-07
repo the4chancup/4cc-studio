@@ -4768,3 +4768,16 @@ cup has loaded. The nested layout was unwritten; Red packs the face folder under
 installed DLC's `70202.cpk` holds its entries there.
 Plan: `team_compiler/pipeline.md` "2. Per-export serial steps" step 4, "3. Per-model-folder
 parallel steps" steps 4 and 7; TC-MOD-39.
+
+## 2026-10-07 — team_compiler — generated `face.xml` entries: order, packed names, ratio, the dummy's finding
+Decision: entries follow the models' export paths case-folded, the dummy last; a model packs as
+its stem lowercased with `oral_` and `_win32` each added only when missing, its type read without
+them; `ratio` is the `ratio_<n>` token up to the next `_`; `xml_face_neck_added` is not reported
+on a blank face.
+Why: the plan named the affixes but not their order, case or doubling. Red lowercases and skips
+affixes already there, and old exports carry `oral_x_win32.model` names, so doubling them would
+type `oral` content wrongly; path order makes recompiles identical. Red's `ratio` took the whole
+rest of the stem, so TC-MOD-21's `visor_ratio_2_parts` would get `ratio="2_parts"`, a value the
+game cannot read as a ratio. A blank face's dummy is the compiler's own placeholder on every
+model-less player; an Info on each would be noise the member cannot act on.
+Plan: `team_compiler/pipeline.md` "3. Per-model-folder parallel steps" step 4.
