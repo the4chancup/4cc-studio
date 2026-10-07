@@ -4876,3 +4876,15 @@ engine's catalog in its own format's terms, as `model_name_invalid` does. Slicin
 diff to one review.
 Plan: `team_compiler/messages.md` the `model_merged`, `model_merge_flags_conflict` and
 `skl_merge_conflict` rows.
+
+## 2026-10-07 — team_compiler — Pre-Fox `ingame_face` gloves combine without a merge
+Decision: on pre-Fox an `ingame_face` player's gloves go to one player-exclusive gloves folder
+written as a shared gloves folder is (each model under its own name, one `glove.xml` entry
+each); a combined gloves link's models join as more entries, a local model replacing a linked
+one of the same output name. The plan's earlier text merged them per side like the boots.
+Why: `glove.xml` lists any number of entries, so the game loads every part unmerged; a merge
+would add material and skeleton conflicts for the member to fix for no gain, and could not
+combine a `handL` part with a `gloveL` one, whose `face.xml` types differ. Boots still merge,
+because the game loads one `boots.model`.
+Plan: `aesthetics_export/player_folders.md` "`ingame_face` with shared links" and "Merging is
+Fox-only".

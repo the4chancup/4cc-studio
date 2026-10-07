@@ -126,8 +126,13 @@ to a player-exclusive folder would leave the player with two candidate IDs (the 
 the exclusive one) for a single savefile slot. Pre-Fox therefore behaves like Fox's `link_combined`
 here: the linked shared model is one more input of the player-exclusive merge (`pes_model`'s
 native merge, like the multiple-boots case above), the exclusive ID wins and is written to
-the savefile, and the shared folder is left untouched for players who link it plainly. Gloves follow
-the same rule per side (`glove_l` with `glove_l`, `glove_r` with `glove_r`). A **face** link under
+the savefile, and the shared folder is left untouched for players who link it plainly. Gloves
+combine without a merge on pre-Fox: the exclusive gloves folder is written as a shared gloves
+folder is (each model under its own name with its `glove.xml` entry), the linked folder's models
+joining the player's as more entries and a local model whose output name a linked one shares
+replacing it. `glove.xml` lists any number of entries, so the game loads every part as it is,
+while a merge would add conflicts to fix for nothing and could not combine a `handL` part with a
+`gloveL` one, whose types differ. A **face** link under
 `ingame_face` is contradictory (the marker suppresses the face folder the link would fill) and drops
 the player folder with `ingame_face_explicit_face_model`, exactly like explicitly-named local face
 models.
@@ -256,7 +261,8 @@ absorbs any number of entries of any type, and `.common` links stay runtime refe
 folders; multiple boots models are merged into one (Fox: `fmdl` mesh merging; pre-Fox:
 `pes_model::ops::merge`, the native counterpart with the same rules over the `.model` + `.mtl`
 pair — see "`pes_model::ops::merge`" in the Libraries plan — the one pre-Fox merge case), and
-gloves go to `glove_l`/`glove_r` folders (see "ingame_face marker").
+gloves go to `glove_l`/`glove_r` folders on Fox and to one player-exclusive gloves folder,
+unmerged, on pre-Fox (see "ingame_face marker").
 
 **Model names: a free part plus a suffix.** A model file name is `<anything>_<suffix>` (or just
 `<suffix>`), and the **suffix is always at the end** — one rule for every source format and both
