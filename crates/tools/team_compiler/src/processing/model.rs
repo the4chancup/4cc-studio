@@ -6,6 +6,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use aesthetics_export::{KitToken, kit_token};
 use fmdl::ops::merge::{MergeError, merge};
 use fmdl::ops::paths::{TexturePath, rewrite_texture_paths, used_texture_paths};
 use fmdl::{FmdlFile, Model};
@@ -18,7 +19,6 @@ use vtree::ScopePath;
 use super::materialize::PackageFiles;
 use super::{CompileContext, Finding, TaskFailure, TaskFiles, take};
 use crate::face_diff;
-use crate::kit_variants::{KitToken, kit_token};
 use crate::messages::Code;
 use crate::paths;
 use crate::plan::ModelFolder;

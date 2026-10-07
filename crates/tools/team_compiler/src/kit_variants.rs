@@ -1,61 +1,15 @@
-//! Kit-dependent assets (`model_format.md` "Kit-dependent assets (`kitN`)"): the token a file
-//! stem carries to say which kit number it belongs to, `kit1` to `kit9`, or that it stands for
-//! whichever kit is picked in the game, `kitN`; and the per-kit model files a Fox target cannot
-//! use (`team_compiler/pipeline.md` "4. Per-export non-model steps", Kit-dependent assets).
+//! Kit-dependent assets (`model_format.md` "Kit-dependent assets (`kitN`)"): the kit number of
+//! a kit slot, and the per-kit model files a Fox target cannot use (`team_compiler/pipeline.md`
+//! "4. Per-export non-model steps", Kit-dependent assets). The token a file stem carries,
+//! `kit1` to `kit9` or `kitN`, is the export format's (`aesthetics_export::kit_token`).
 
 use std::collections::BTreeMap;
 
-use aesthetics_export::{FileDescriptor, FileKind, ModelFormat};
+use aesthetics_export::{FileDescriptor, FileKind, KitToken, ModelFormat, kit_token};
 use kit_config::KitSlot;
 use vtree::ScopePath;
 
 use crate::plan::subset::file_stem;
-
-/// A stem's kit token: the reference `kitN`, or the variant for one kit number.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum KitToken {
-    /// `kitN`: the variant of the kit number picked in the game.
-    Reference,
-    /// `kit1` to `kit9`: the variant shown when that kit number is picked.
-    Variant(u8),
-}
-
-/// The first kit token of `stem` and the stem's reference spelling (the token as `kitN`),
-/// or `None` when it holds none.
-pub(crate) fn kit_token(stem: &str) -> Option<(KitToken, String)> {
-    let (at, token) = find_token(stem)?;
-    Some((token, with_token_char(stem, at, 'N')))
-}
-
-/// `stem`, which holds a kit token, with its first token spelled for `kit` (`pants_kit1` and
-/// 3 give `pants_kit3`); `None` when `stem` holds no token.
-pub(crate) fn variant_stem(stem: &str, kit: u8) -> Option<String> {
-    let (at, _) = find_token(stem)?;
-    Some(with_token_char(stem, at, char::from(b'0' + kit)))
-}
-
-/// The byte offset in `stem` of its first token's last character (the `N` or the digit), with
-/// the token. A token is `kit` followed by `N` or `1` to `9`, spelled exactly so, with `_`, `-`,
-/// `.` or the stem's end on each side: `skitN` and `kitNx` hold none.
-fn find_token(stem: &str) -> Option<(usize, KitToken)> {
-    let bytes = stem.as_bytes();
-    let delimits = |byte: Option<&u8>| byte.is_none_or(|byte| matches!(byte, b'_' | b'-' | b'.'));
-    stem.match_indices("kit").find_map(|(start, _)| {
-        let at = start + "kit".len();
-        let token = match bytes.get(at) {
-            Some(b'N') => KitToken::Reference,
-            Some(digit @ b'1'..=b'9') => KitToken::Variant(digit - b'0'),
-            _ => return None,
-        };
-        let before = start.checked_sub(1).and_then(|index| bytes.get(index));
-        (delimits(before) && delimits(bytes.get(at + 1))).then_some((at, token))
-    })
-}
-
-/// `stem` with the ASCII character at byte offset `at` replaced by `replacement`.
-fn with_token_char(stem: &str, at: usize, replacement: char) -> String {
-    format!("{}{replacement}{}", &stem[..at], &stem[at + 1..])
-}
 
 /// The kit number of a player kit `slot` (`p1` is 1); `None` for the goalkeeper's `g1`, which
 /// is not a number of its own: the number picked in the game selects the outfield and the
@@ -139,48 +93,6 @@ pub(crate) fn model_variant_sets(files: &[FileDescriptor]) -> Vec<ModelVariantSe
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn a_token_is_kit_n_or_kit_1_to_9_between_delimiters_or_the_stem_s_ends() {
-        let cases = [
-            ("pants_kitN", KitToken::Reference, "pants_kitN"),
-            ("pants_kit3", KitToken::Variant(3), "pants_kitN"),
-            ("kit2_pants", KitToken::Variant(2), "kitN_pants"),
-            ("kit1", KitToken::Variant(1), "kitN"),
-            ("a-kit4.b", KitToken::Variant(4), "a-kitN.b"),
-            ("pants_kit9", KitToken::Variant(9), "pants_kitN"),
-        ];
-        for (stem, token, reference) in cases {
-            assert_eq!(
-                kit_token(stem),
-                Some((token, reference.to_owned())),
-                "{stem}"
-            );
-        }
-        for stem in [
-            "skitN",
-            "pants_kit0",
-            "pants_kit10",
-            "pants_kit",
-            "pants_KIT1",
-            "pants_kitn",
-            "kitNx",
-            "kit",
-        ] {
-            assert_eq!(kit_token(stem), None, "{stem}");
-        }
-    }
-
-    #[test]
-    fn a_variant_stem_respells_the_first_token_alone() {
-        assert_eq!(variant_stem("pants_kit1", 3), Some("pants_kit3".to_owned()));
-        assert_eq!(
-            variant_stem("kit3_a-kit1", 9),
-            Some("kit9_a-kit1".to_owned())
-        );
-        assert_eq!(variant_stem("skit1_kit2", 4), Some("skit1_kit4".to_owned()));
-        assert_eq!(variant_stem("pants", 1), None);
-    }
 
     #[test]
     fn only_the_player_kit_slots_are_kit_numbers() {

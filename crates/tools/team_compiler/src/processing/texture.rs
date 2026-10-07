@@ -11,7 +11,7 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use aesthetics_export::FileDescriptor;
+use aesthetics_export::{FileDescriptor, KitToken, kit_token, variant_stem};
 use dds_convert::{
     BlockCodec, ConvertError, SourceFormat, Target, TextureRole, decode, encode_dds, probe,
     source_hash,
@@ -20,7 +20,6 @@ use pipeline::{MemoryBudget, Permit};
 use studio_core::Disposition;
 
 use super::{CompileContext, Entry, Finding, TaskFailure, TaskFiles, take};
-use crate::kit_variants::{KitToken, kit_token, variant_stem};
 use crate::messages::Code;
 use crate::paths;
 use crate::plan::ModelFolder;

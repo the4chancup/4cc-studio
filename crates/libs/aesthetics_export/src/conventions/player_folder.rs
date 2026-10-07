@@ -1,6 +1,8 @@
 //! The model-name suffix table the structure pass needs ("Model names: a free
 //! part plus a suffix"). Pre-Fox type names join it with the deep pass.
 
+use super::kit_token::without_kit_token;
+
 /// The recognized model-name suffixes: what a model file's stem tail says the
 /// model is. The structure pass checks shared folders' names against it; the
 /// Team compiler routes a player folder's models by it.
@@ -43,8 +45,12 @@ const MODEL_SUFFIXES: [(&str, ModelSuffix); 9] = [
 /// its last `s.len()` non-underscore characters equal `s`
 /// ASCII-case-insensitively and what precedes them is empty or ends with `_`.
 /// `face_high`, `FaceHigh`, `x_hair_high`, `gloveL` match; `myface_high`,
-/// `coral`, `torso` do not.
+/// `coral`, `torso` do not. The stem is read without its kit token and one
+/// delimiter next to it (`without_kit_token`), so a per-kit `boots_kit1` or
+/// `kit1_boots` is boots on both engines.
 pub fn model_suffix(stem: &str) -> Option<ModelSuffix> {
+    let stem = without_kit_token(stem);
+    let stem = stem.as_ref();
     for (spelling, suffix) in MODEL_SUFFIXES {
         let mut reversed = stem.char_indices().rev().filter(|(_, c)| *c != '_');
         let mut start = stem.len();
@@ -94,7 +100,7 @@ mod tests {
 
     #[test]
     fn model_suffix_reads_the_stem_tail() {
-        let cases: [(&str, Option<ModelSuffix>); 20] = [
+        let cases: [(&str, Option<ModelSuffix>); 26] = [
             ("face_high", Some(ModelSuffix::FaceHigh)),
             ("FaceHigh", Some(ModelSuffix::FaceHigh)),
             ("x_hair_high", Some(ModelSuffix::HairHigh)),
@@ -115,6 +121,12 @@ mod tests {
             ("_oral", Some(ModelSuffix::Oral)),
             ("hair-high", None),
             ("x_-boots", None),
+            ("boots_kit1", Some(ModelSuffix::Boots)),
+            ("kit1_boots", Some(ModelSuffix::Boots)),
+            ("face_high-kitN", Some(ModelSuffix::FaceHigh)),
+            ("glove_l_kit2", Some(ModelSuffix::GloveL)),
+            ("pants_kit1", None),
+            ("boots_kit1_x", None),
         ];
         for (stem, expected) in cases {
             assert_eq!(model_suffix(stem), expected, "{stem:?}");

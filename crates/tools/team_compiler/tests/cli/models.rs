@@ -1647,6 +1647,73 @@ fn per_kit_models_on_pes_21_compile_the_lowest_variant_alone_and_say_so() {
     assert!(hair(&both) == hair(&alone), "the packed hair differs");
 }
 
+#[test]
+fn per_kit_boots_on_pes_21_are_boots_read_without_their_kit_token() {
+    let sandbox = Sandbox::new("mod_kit_variant_boots");
+    let player = "exports/co Midcup Variant Boots/Players/05 - A";
+    sandbox.write(&format!("{player}/boots_kit1.fmdl"), &clean_model());
+    sandbox.write(&format!("{player}/boots_kit2.fmdl"), &clean_model());
+
+    let entries = compile_clean(
+        &sandbox,
+        "co Midcup Variant Boots",
+        &[
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
+            "Warning kit_variant_model_fox [Keep] at Players/05 - A (model=boots_kitN.fmdl, used=boots_kit1.fmdl)",
+        ],
+    );
+
+    let boots = "Asset/model/character/boots/k0625/#Win/boots.fpk";
+    assert!(entries.contains_key(boots), "no boots package");
+    assert!(
+        face_package(&entries).get("fcl_hair.fmdl").is_none(),
+        "a variant was merged into the face's hair"
+    );
+}
+
+#[test]
+fn per_kit_boots_in_a_shared_boots_folder_are_named_as_boots() {
+    let sandbox = Sandbox::new("mod_kit_variant_shared_boots");
+    let export = "exports/co Midcup Variant Crocs";
+    sandbox.write(&format!("{export}/Players/05 - A/Crocs.boots"), b"");
+    sandbox.write(
+        &format!("{export}/Boots/Crocs/boots_kit1.fmdl"),
+        &clean_model(),
+    );
+    sandbox.write(
+        &format!("{export}/Boots/Crocs/boots_kit2.fmdl"),
+        &clean_model(),
+    );
+
+    let check = sandbox.run(&pes21_settings(&sandbox), &["check"]);
+    assert_eq!(
+        findings_of(&check.messages(), "co Midcup Variant Crocs"),
+        ["Info export_identified [Keep] (team=/co/, id=714)"]
+    );
+    assert_eq!(check.exit_code(), 0);
+
+    // Compiled, the shared folder's set collapses to its lowest variant, as a player's does.
+    let entries = compile_clean(
+        &sandbox,
+        "co Midcup Variant Crocs",
+        &[
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
+            "Warning kit_variant_model_fox [Keep] at Boots/Crocs (model=boots_kitN.fmdl, used=boots_kit1.fmdl)",
+        ],
+    );
+    let variant_meshes = Model::from_file(&FmdlFile::read(&clean_model()).unwrap())
+        .unwrap()
+        .meshes
+        .len();
+    assert_eq!(
+        boots_mesh_count(&entries, "Asset/model/character/boots/k0644/#Win/boots.fpk"),
+        variant_meshes,
+        "kit 1's meshes alone"
+    );
+}
+
 /// The number of faces of the model `name` in the package at `path` in `entries`, read back
 /// with `fmdl`.
 fn face_count(entries: &BTreeMap<String, Vec<u8>>, path: &str, name: &str) -> usize {

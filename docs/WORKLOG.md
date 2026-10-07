@@ -1344,6 +1344,12 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   the kit variant sets, the hand split of a hand-weighted `.model` (TC-MOD-35, 41,
   TC-CMN-07). A user-supplied `face.xml` stays refused as not compiled yet until 4.15.
   Templates for (b): `resources/templates/dummy.model` and `dummy.mtl` (README there).
+  (a) done 2026-10-07 (Opus 5.5, first time, no lead fix): the token grammar moved to
+  `aesthetics_export::conventions::kit_token` (`KitToken`, `kit_token`, `variant_stem`,
+  `without_kit_token`), `model_suffix` reads the stem without the token; a shared
+  `Boots/` folder's `boots_kit1`/`boots_kit2` now pass `check` and compile kit 1's alone
+  (`kit_variant_model_fox`). Gates green (209 of 254); `mutants-diff 7b13269`: 44, 39 caught,
+  5 unviable, 0 missed; Clef: two flags, both rejected.
   IDs: TC-MOD-20..25, TC-MOD-35, TC-MOD-37..41, TC-CHK-08, TC-TEX-07, TC-CMN-07 (split from TC-CMN-05 at 4.11c). Crates: tc (`processing/model.rs`, `processing/material.rs`,
   `processing/texture.rs`, `paths.rs`) → verify: a `/co/` slot 05 folder with the smallest
   `pes_model` fixture pair as `face_high.model` + `face_high.mtl` and `skin.dds`, compiled for PES 17: the
@@ -3420,3 +3426,6 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
     bones has its hands cut off at the wrist into the player's gloves, with their own
     gloves ID and row, and the note `model_hand_split`; a model named as boots or gloves
     is never cut.
+  - **4.14a:** a per-kit model's name is read without its kit token, on every game:
+    `boots_kit1.fmdl` is boots, not a part of the face's hair, and a shared `Boots/`
+    folder may hold per-kit boots, of which kit 1's is compiled on PES 2018 to 2021.
