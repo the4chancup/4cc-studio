@@ -341,7 +341,17 @@ then processed as an independent parallel task (Blue: `coordinator._model_folder
    its category's type attribute (boots and gloves models included — the typed XML is why pre-Fox
    needs no per-player boots/gloves folders), or a user-supplied one checked and re-serialized
    (see "User-supplied `face.xml`" under the XML/MTL checks); `glove.xml` for shared gloves folders;
-   `.common` links resolve to Common paths in the generated XML (Red's common-link behavior). A
+   `.common` links resolve to Common paths in the generated XML (Red's common-link behavior).
+   On a pre-Fox target the team's Common output (the Common row of the Game paths table) holds
+   the `.model`, `.mtl` and texture files directly in `Common/`, as Red copies the folder: each
+   model under its packed name (below), each `.mtl` under its own name with every texture path
+   naming a Common texture's stem pointed at `model/character/uniform/common/{team_id}/<stem>.dds`,
+   each texture as DDS. A `.model.common` entry's `path` is
+   `model/character/uniform/common/{team_id}/oral_<stem>_*.model`, and an entry whose `.mtl` the
+   search finds in Common, directly or through a `.mtl.common` link, names it as
+   `model/character/uniform/common/{team_id}/<name>`; the player's face CPK holds neither. A
+   texture link (`hair.png.common`) points a player's `.mtl` path at the Common texture the
+   same way. A
    model is packed as `oral_<stem>_win32.model` and its entry's `path` names it with `*` in
    the place of `win32` (`./oral_<stem>_*.model`), as the game's own XMLs and Red's do; the
    `material` names the `.mtl` as it is packed (`./face_high.mtl`). The generated file is the

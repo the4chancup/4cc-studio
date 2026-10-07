@@ -804,8 +804,9 @@ TC-MOD-23  GIVEN slot 05 holding body_uniform.model, and another export whose sl
 TC-MOD-24  GIVEN slot 05 holding legs.model.common and Common/legs.model with Common/legs.mtl;
            then slot 05 also holding a legs.mtl of its own naming another texture
            WHEN it is compiled for PES 17 each time
-           THEN face.xml points the entry at the Common path with 714 substituted, Common/ output
-                holds legs.model and legs.mtl once, and the face CPK does not hold them; in the
+           THEN face.xml points the entry at the Common path with 714 substituted, the Common
+                output holds oral_legs_win32.model and legs.mtl once, and the face CPK does
+                not hold them; in the
                 second run the entry's material is slot 05's own legs.mtl, in the face CPK
 TC-MOD-25  GIVEN slot 05 holding face_edithair.xml, and another export holding hat.model in
            Boots/Mud/ (a shared boots folder), linked by slot 07

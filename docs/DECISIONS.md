@@ -4811,3 +4811,20 @@ failing the task instead would make the copy order matter. Pre-Fox has no player
 "Game paths reference" writes none, and planning rows there would report `player_table_missing`.
 Plan: `team_compiler/pipeline.md` "3. Per-model-folder parallel steps" step 7;
 `aesthetics_export/player_folders.md` "A link plus local models combines".
+
+## 2026-10-07 — team_compiler — the pre-Fox Common output holds `Common/`'s models, `.mtl` files and textures
+Decision: on a pre-Fox target the team's Common output holds every `.model`, `.mtl` and texture
+directly in `Common/`: models under their packed `oral_<stem>_win32.model` names, `.mtl` files
+under their own names with paths to Common textures made `model/character/uniform/common/{team}/
+<stem>.dds`, textures as DDS. A `.model.common` entry names
+`model/character/uniform/common/{team}/oral_<stem>_*.model`; a `.mtl` found in Common is named at
+the same directory. TC-MOD-24 now expects `oral_legs_win32.model` in the Common output, not
+`legs.model`.
+Why: Red copies the Common folder whole on pre-Fox, renaming its models with `model_names_fix`
+and making its `.mtl` paths absolute (`export_move.py`, `fix_mtl_paths`), and its generated XML
+names a Common model as `model/character/uniform/common/XXX/oral_<stem>_*.model`; packing the model
+as `legs.model` would leave that path naming nothing. Packing only the linked files instead would
+need planning to collect every link of every player for a saving no cup needs: a Common model is
+in Common to be linked.
+Plan: `team_compiler/pipeline.md` "3. Per-model-folder parallel steps" step 4;
+`team_compiler/README.md` TC-MOD-24.
