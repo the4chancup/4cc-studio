@@ -201,6 +201,15 @@ pub(crate) enum Code {
     /// The PES folder holds no exe of the target version: `pes_version` or `pes_folder_path`
     /// may name the wrong game. The run still deploys.
     PesVersionMismatch,
+    /// The installed `DpFileList.bin` lists the run's CPK but is not the official list: entries
+    /// missing, entries the official list lacks, or another order. The run still deploys.
+    DpfilelistNotOfficial,
+    /// The installed `DpFileList.bin` names CPKs, other than the run's own, with no file in
+    /// `download/`: the game then loads none of them. The run still deploys.
+    DpfilelistCpkMissing,
+    /// The installed `DpFileList.bin` does not list the run's CPK, which the official list
+    /// names: an older list, so the game would not load it. The CPK goes to the output folder.
+    DpfilelistOutdated,
     /// The installed `DpFileList.bin` does not list the run's CPK, so the game would not load
     /// it: the CPK goes to the output folder.
     CpkNameUnlisted,
@@ -226,7 +235,7 @@ impl Code {
     /// Every code, for the catalog test: a variant missing here would make its first message
     /// panic in `severity`, so a new variant is added to this list too.
     #[cfg(test)]
-    const ALL: [Code; 70] = [
+    const ALL: [Code; 73] = [
         Code::ExportExtractFailed,
         Code::NoExportsFound,
         Code::ExportDisabled,
@@ -291,6 +300,9 @@ impl Code {
         Code::DeploySkippedByFlag,
         Code::PesFolderNotFound,
         Code::PesVersionMismatch,
+        Code::DpfilelistNotOfficial,
+        Code::DpfilelistCpkMissing,
+        Code::DpfilelistOutdated,
         Code::CpkNameUnlisted,
         Code::OldCpkLocked,
         Code::DeployTargetUnwritable,
@@ -366,6 +378,9 @@ impl Code {
             Code::DeploySkippedByFlag => "deploy_skipped_by_flag",
             Code::PesFolderNotFound => "pes_folder_not_found",
             Code::PesVersionMismatch => "pes_version_mismatch",
+            Code::DpfilelistNotOfficial => "dpfilelist_not_official",
+            Code::DpfilelistCpkMissing => "dpfilelist_cpk_missing",
+            Code::DpfilelistOutdated => "dpfilelist_outdated",
             Code::CpkNameUnlisted => "cpk_name_unlisted",
             Code::OldCpkLocked => "old_cpk_locked",
             Code::DeployTargetUnwritable => "deploy_target_unwritable",
@@ -461,6 +476,9 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("deploy_skipped_by_flag", CatalogSeverity::Info),
     ("pes_folder_not_found", CatalogSeverity::Error),
     ("pes_version_mismatch", CatalogSeverity::Warning),
+    ("dpfilelist_not_official", CatalogSeverity::Warning),
+    ("dpfilelist_cpk_missing", CatalogSeverity::Warning),
+    ("dpfilelist_outdated", CatalogSeverity::Error),
     ("cpk_name_unlisted", CatalogSeverity::Error),
     ("old_cpk_locked", CatalogSeverity::Error),
     ("deploy_target_unwritable", CatalogSeverity::Error),

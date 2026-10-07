@@ -14,7 +14,7 @@ is in `AGENTS.md` ("Working documents").
 **Next:** Phase 4 is itemized and its Acceptance section written (step 4.1, 2026-10-03; its
 cross-family review (a) is queued). Next:
 the next open Phase 4 step (see the list); 4.21 to 4.24 and 4.29
-are done; 4.14 waits on 4.31's pre-Fox export; 4.33, 4.34, 4.c-pass and
+are done, 4.25b too (4.25c next); 4.14 waits on 4.31's pre-Fox export; 4.33, 4.34, 4.c-pass and
 4.c-fix1 are done; 4.30,
 4.5 to 4.8, 4.9a and 4.10 to 4.13 are done (4.6c moved to Phase 8's cancellation), 4.9b
 (collars) waits on nothing. 2.5b (GPU BC7) is step 16.x (decision entries
@@ -239,6 +239,12 @@ Claude agent with no sidekick and no reviewer of another model family. While tha
   Post-processing" (Staging, Deploy CPKs, Degraded run, Destination writability preflight),
   `messages.md` "Output stage and savefile", TC-DEP-01 to 07 and the decision entry
   "deployment: no marker file, failures named by step, a lock per staging folder".
+  4.25b (b), `team_compiler` (`templates.rs` `DPFILELIST` and `official_list`,
+  `output/deploy.rs` `preflight`'s comparison, `not_official`, `cpks_missing`, `messages.rs`
+  three codes, the tests' installs upgraded), its commit of 2026-10-07, against `pipeline.md`
+  "6. Post-processing" (DpFileList upgrade, Destination writability preflight), `messages.md`
+  the three `dpfilelist_*` rows, TC-DEP-05, 12, 14 and the decision entry "the official-list
+  check: only a compile that deploys, and its findings' context".
 - For the lead, on return: the review process on trial (3.1) opens with a full sidekick review
   loop, then runs GPT's loop with a full sidekick loop after each GPT round, calling GPT again
   only once that sidekick loop has ended and GPT's own loop has not; not yet in `AGENTS.md`
@@ -1515,7 +1521,9 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   1 KiB `download/4cc_40_faces.cpk`: `upgrade-dpfl` prints `4cc_40_faces` as renamed to
   `4cc_41_teams` and exits without writing; `--yes` makes `DpFileList.bin` equal to the
   embedded list and `DpFileList.bin.bak` equal to the old file, `4cc_41_teams.cpk` holding
-  the old file's bytes
+  the old file's bytes. 4.25b done 2026-10-07 (Opus 5.5, first time; TC-DEP-12, 14 proven;
+  mutants-diff 32: 27 caught, 5 unviable, 0 missed; Clef 24 windows, no flag; lead fix: a
+  doc comment rewrapped). 4.25c next (`.tmp/brief_4_25c.md`).
 
 - [ ] 4.26 **Multi-CPK mode**: `multicpk_mode` honored (the Phase 3 refusal removed); slots from
   the DPFL entries matching `{prefix}_{NN}_{teams_cpk_name}` exactly, ordered by number; whole
@@ -3045,3 +3053,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
     over the old one); when it cannot (no PES folder, the name unlisted, `download/` unwritable,
     the old CPK in use) it says why and leaves the CPK in `output/`, exit 1. A killed run's
     staging is swept by the next run. Every test now runs against a sandbox PES folder.
+  - **4.25b:** the official `DpFileList.bin` is a `templates/` resource; a deploying compile
+    compares the installed list with it: `dpfilelist_outdated` (E) for an older list lacking
+    the run's CPK, `dpfilelist_not_official` and `dpfilelist_cpk_missing` (W), each naming
+    `upgrade-dpfl`. Test installs are now upgraded ones (official list, placeholders).

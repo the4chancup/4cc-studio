@@ -314,11 +314,13 @@ files a compile starts from when no installed CPK has them), `UniformParameter18
 `UniformParameter19.bin` (the kit config file a compile starts from when no installed CPK has
 it, for PES 2018 and for PES 2019 to 2021), `placeholder_kit.dds` (the checkerboard texture of
 a placeholder kit), `body.skl` (the skeleton a boots or hair model gets when its folder has
-none), and `face_diff.bin` and `fcl_hair_sim.fclo` (the face file and the hair simulation file
-a face gets when its folder has none). Any other file in the folder is ignored. `compile` names
-each file it used with the note `template_override_active`. A file it cannot read, or one of the
-four kit and color files that is not a valid file of its kind, stops the compile before any
-export is read (`template_override_unreadable`), so the CPK you had is kept.
+none), `face_diff.bin` and `fcl_hair_sim.fclo` (the face file and the hair simulation file a
+face gets when its folder has none), and `DpFileList.bin` (the cup's official list, which a
+compile compares the game's with). Any other file in the folder is ignored. `compile` names
+each file it used with the note `template_override_active`. A file it cannot read, or one of
+the four kit and color files or `DpFileList.bin` that is not a valid file of its kind, stops
+the compile before any export is read (`template_override_unreadable`), so the CPK you had is
+kept.
 
 An FPC player's body is hidden only when every kit config of the team, the goalkeeper kit's
 included, carries the FPC values (shirt model 176, shorts model 16, collar 105, winter collar
@@ -372,12 +374,22 @@ the output folder where it was left instead (`output=...`):
   is installed in.
 - `pes_version_mismatch`, a warning: the game folder holds no `PES20NN.exe` of the version you
   compile for. Check `pes_version` and `pes_folder_path`. The CPK is still installed.
-- `cpk_name_unlisted`: the game's `DpFileList.bin` does not list the CPK, so the game would not
-  load it. Add the CPK's name to `DpFileList.bin`, or set `cpk_name` to a name it lists.
+- `dpfilelist_outdated`: the game's `DpFileList.bin` is an older list that does not have the
+  CPK, so the game would not load it. `4cc-studio team-compiler upgrade-dpfl` installs the
+  cup's official list, which has it.
+- `cpk_name_unlisted`: neither the game's `DpFileList.bin` nor the cup's official list has the
+  CPK's name, so the game would not load it. Set `cpk_name` to a name the list has.
 - `deploy_target_unwritable`: the `download` folder cannot be written, usually because the game
   is installed under `Program Files`. Run Studio as administrator and compile again.
 - `old_cpk_locked`: the old CPK could not be replaced because PES is running. Close PES and
   compile again.
+
+Two warnings about the game's `DpFileList.bin` do not stop the install. `dpfilelist_not_official`
+says the list is not the cup's official one: the line names the entries it is missing, the
+entries the official list does not have, or says that the order differs.
+`dpfilelist_cpk_missing` names CPKs the list has that are not in the `download` folder: the game
+then loads none of the CPKs there. Both lines name `4cc-studio team-compiler upgrade-dpfl`,
+which installs the official list.
 
 A game folder with no `DpFileList.bin` in its `download` folder is the error
 `dpfilelist_missing`, and the CPK is left in the output folder the same way.

@@ -18,6 +18,7 @@ use teams_list::TeamsList;
 use crate::bins::Rgb;
 use crate::messages::TOOL_ID;
 use crate::settings::default_table;
+use crate::templates::Templates;
 
 /// A test's temporary folder, removed when the guard drops (a test that panics included).
 pub(crate) struct ScratchFolder {
@@ -93,17 +94,27 @@ pub(crate) fn dpfilelist(names: &[&str]) -> Vec<u8> {
     bytes
 }
 
-/// Makes `root/PES`, `tool_context`'s PES folder, a PES 2021 install a compile can deploy into:
-/// `PES2021.exe` and a `download/DpFileList.bin` listing only `4cc_99_test.cpk`, so the bins
-/// are still the bundled ones.
+/// Makes `root/PES`, `tool_context`'s PES folder, a PES 2021 install a compile can deploy into,
+/// as `upgrade-dpfl` leaves it: `PES2021.exe`, a `download/DpFileList.bin` listing the official
+/// list's entries, and the placeholder CPK for each of them but the run's `4cc_99_test.cpk`. A
+/// compile then reports nothing about the list, and its bins are still the bundled ones, since
+/// the placeholders hold none.
 pub(crate) fn install_pes(root: &Path) {
-    fs::create_dir_all(root.join("PES/download")).unwrap();
+    let download = root.join("PES/download");
+    fs::create_dir_all(&download).unwrap();
     fs::write(root.join("PES/PES2021.exe"), "the game").unwrap();
-    fs::write(
-        root.join("PES/download/DpFileList.bin"),
-        dpfilelist(&["4cc_99_test.cpk"]),
+    let official = Templates::embedded().official_list();
+    let names: Vec<&str> = official.iter().map(String::as_str).collect();
+    fs::write(download.join("DpFileList.bin"), dpfilelist(&names)).unwrap();
+    let placeholder = fs::read(
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../resources/templates/placeholder.cpk"),
     )
     .unwrap();
+    for name in names {
+        if name != "4cc_99_test.cpk" {
+            fs::write(download.join(name), &placeholder).unwrap();
+        }
+    }
 }
 
 /// A context whose executable folder is `root` (data directory `root/data`), over PES 21

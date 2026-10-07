@@ -104,6 +104,7 @@ pub(crate) fn run(
             inputs.common.pes_version,
             cpk_stem,
             &promoted,
+            &templates.official_list(),
         );
         for message in messages {
             events.message(message);

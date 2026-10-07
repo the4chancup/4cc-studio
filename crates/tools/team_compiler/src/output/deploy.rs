@@ -35,6 +35,12 @@ const DOWNLOAD: &str = "download";
 /// The list of the CPKs the game loads, in `download/`.
 const DPFILELIST: &str = "DpFileList.bin";
 
+/// The subcommand that installs the official list, named under the context key `command` in
+/// each finding it fixes (`dpfilelist_outdated`, `dpfilelist_not_official`,
+/// `dpfilelist_cpk_missing`): the CLI renders a finding as its code and context alone, so the
+/// key is how its line names the fix (the GUI offers a button instead).
+const UPGRADE_COMMAND: &str = "4cc-studio team-compiler upgrade-dpfl";
+
 /// This run's id, `<pid>-<unix ms>`: the process id keeps two runs at once apart, the time two
 /// runs of a recycled process id.
 fn run_id() -> String {
@@ -215,17 +221,20 @@ fn probe_folder(folder: &Path) -> io::Result<()> {
 /// Post-processing", "Destination writability preflight"), in order: the PES folder
 /// `pes_folder` is a folder (`pes_folder_not_found`), it holds `version`'s exe
 /// (`pes_version_mismatch`, a Warning: the checks go on), its `download/DpFileList.bin` exists
-/// and lists the run's CPK (`cpk_name_unlisted`), and the CPK can be written in `download/`
-/// (`deploy_target_unwritable`). The first Error ends them. A missing or unreadable list adds no
-/// finding: the working-bin walk, which reads it next, reports it (`dpfilelist_missing`,
-/// `installed_bin_unreadable`). Returns the `download/` folder to install into, or `None` when
-/// a check failed and the CPK goes to `promoted`, its path in the output folder, which each
-/// Error names; and the findings.
+/// and lists the run's CPK (`dpfilelist_outdated` when the `official` list names it, else
+/// `cpk_name_unlisted`), the list is the official one (`dpfilelist_not_official`, a Warning),
+/// every CPK it lists but the run's has its file in `download/` (`dpfilelist_cpk_missing`, a
+/// Warning), and the CPK can be written in `download/` (`deploy_target_unwritable`). The first
+/// Error ends them. A missing or unreadable list adds no finding: the working-bin walk, which
+/// reads it next, reports it (`dpfilelist_missing`, `installed_bin_unreadable`). Returns the
+/// `download/` folder to install into, or `None` when a check failed and the CPK goes to
+/// `promoted`, its path in the output folder, which each Error names; and the findings.
 pub(crate) fn preflight(
     pes_folder: &Path,
     version: PesVersion,
     cpk_stem: &CpkStem,
     promoted: &Path,
+    official: &[String],
 ) -> (Option<PathBuf>, Vec<Message>) {
     let output = || ("output", promoted.display().to_string());
     let mut messages = Vec::new();
@@ -263,18 +272,27 @@ pub(crate) fn preflight(
     };
     let name = cpk_file_name(cpk_stem);
     if !list.contains(&name) {
-        messages.push(tool_message(
-            Code::CpkNameUnlisted,
-            Scope::Run,
-            Disposition::Keep,
-            vec![
-                ("cpk", name),
-                ("path", list_path.display().to_string()),
-                output(),
-            ],
-        ));
+        let path = ("path", list_path.display().to_string());
+        let message = if official.contains(&name) {
+            tool_message(
+                Code::DpfilelistOutdated,
+                Scope::Run,
+                Disposition::Keep,
+                vec![("cpk", name), path, output(), upgrade_command()],
+            )
+        } else {
+            tool_message(
+                Code::CpkNameUnlisted,
+                Scope::Run,
+                Disposition::Keep,
+                vec![("cpk", name), path, output()],
+            )
+        };
+        messages.push(message);
         return (None, messages);
     }
+    messages.extend(not_official(&list_path, &list, official));
+    messages.extend(cpks_missing(&download, &list, &name));
     if let Err((path, error)) = probe_download(&download, &name) {
         messages.push(tool_message(
             Code::DeployTargetUnwritable,
@@ -289,6 +307,75 @@ pub(crate) fn preflight(
         return (None, messages);
     }
     (Some(download), messages)
+}
+
+/// The `command` context entry of a finding about the installed list.
+fn upgrade_command() -> (&'static str, String) {
+    ("command", UPGRADE_COMMAND.to_owned())
+}
+
+/// `dpfilelist_not_official` when the `installed` list, read from `list_path`, is not the
+/// `official` one entry for entry; its context says how they differ: `missing`, the official
+/// entries it lacks, in the official order; `unofficial`, its entries the official list lacks,
+/// in its order; `order` = `differs`, when the entries both lists hold, each taken in its own
+/// list's order, are not the same sequence. Each of the three only when it applies.
+fn not_official(list_path: &Path, installed: &[String], official: &[String]) -> Option<Message> {
+    if installed == official {
+        return None;
+    }
+    let missing: Vec<&str> = official
+        .iter()
+        .filter(|entry| !installed.contains(entry))
+        .map(String::as_str)
+        .collect();
+    let unofficial: Vec<&str> = installed
+        .iter()
+        .filter(|entry| !official.contains(entry))
+        .map(String::as_str)
+        .collect();
+    let shared_in_installed = installed.iter().filter(|entry| official.contains(entry));
+    let shared_in_official = official.iter().filter(|entry| installed.contains(entry));
+    let mut context = vec![("path", list_path.display().to_string())];
+    if !missing.is_empty() {
+        context.push(("missing", missing.join(", ")));
+    }
+    if !unofficial.is_empty() {
+        context.push(("unofficial", unofficial.join(", ")));
+    }
+    if !shared_in_installed.eq(shared_in_official) {
+        context.push(("order", "differs".to_owned()));
+    }
+    context.push(upgrade_command());
+    Some(tool_message(
+        Code::DpfilelistNotOfficial,
+        Scope::Run,
+        Disposition::Keep,
+        context,
+    ))
+}
+
+/// `dpfilelist_cpk_missing` when a CPK the `installed` list names, other than the run's own
+/// `own` (which the run writes), has no file in `download`, naming those CPKs in list order:
+/// the game then loads none of the folder's CPKs.
+fn cpks_missing(download: &Path, installed: &[String], own: &str) -> Option<Message> {
+    let missing: Vec<&str> = installed
+        .iter()
+        .filter(|entry| *entry != own && !download.join(entry).is_file())
+        .map(String::as_str)
+        .collect();
+    if missing.is_empty() {
+        return None;
+    }
+    Some(tool_message(
+        Code::DpfilelistCpkMissing,
+        Scope::Run,
+        Disposition::Keep,
+        vec![
+            ("path", download.display().to_string()),
+            ("files", missing.join(", ")),
+            upgrade_command(),
+        ],
+    ))
 }
 
 /// Whether the CPK `name` can be written in `download`: the old CPK opened for writing, not
@@ -409,8 +496,185 @@ fn copy_tree(source: &Path, target: &Path) -> io::Result<()> {
 
 #[cfg(test)]
 mod tests {
+    use studio_core::Severity;
+
     use super::*;
-    use crate::testing::scratch;
+    use crate::testing::{dpfilelist, scratch};
+
+    /// The official list the comparison tests use: three midcups.
+    const OFFICIAL: [&str; 3] = [
+        "4cc_61_midcup.cpk",
+        "4cc_62_midcup.cpk",
+        "4cc_63_midcup.cpk",
+    ];
+
+    /// Makes `root/PES` a PES 2021 folder whose `download/` holds a `DpFileList.bin` listing
+    /// `installed` and a file for each of `files`; returns the PES folder.
+    fn pes_with_list(root: &Path, installed: &[&str], files: &[&str]) -> PathBuf {
+        let pes = root.join("PES");
+        fs::create_dir_all(pes.join(DOWNLOAD)).unwrap();
+        fs::write(pes.join("PES2021.exe"), "the game").unwrap();
+        fs::write(pes.join(DOWNLOAD).join(DPFILELIST), dpfilelist(installed)).unwrap();
+        for file in files {
+            fs::write(pes.join(DOWNLOAD).join(file), "a CPK").unwrap();
+        }
+        pes
+    }
+
+    /// `preflight` for a PES 2021 run compiling `4cc_61_midcup.cpk` into the PES folder `pes`,
+    /// against `OFFICIAL`; it deploys, the findings are only Warnings.
+    fn preflight_61(pes: &Path) -> Vec<Message> {
+        let official = OFFICIAL.map(str::to_owned);
+        let (download, messages) = preflight(
+            pes,
+            PesVersion::Pes21,
+            &CpkStem::new("4cc_61_midcup").unwrap(),
+            &pes.join("promoted.cpk"),
+            &official,
+        );
+        assert_eq!(download, Some(pes.join(DOWNLOAD)), "{messages:#?}");
+        messages
+    }
+
+    /// The `dpfilelist_not_official` for `pes`'s list with `differences`, the context keys
+    /// between `path` and `command`.
+    fn not_official_finding(pes: &Path, differences: &[(&'static str, &str)]) -> Message {
+        let mut context = vec![(
+            "path",
+            pes.join(DOWNLOAD).join(DPFILELIST).display().to_string(),
+        )];
+        context.extend(
+            differences
+                .iter()
+                .map(|(key, value)| (*key, (*value).to_owned())),
+        );
+        context.push(("command", UPGRADE_COMMAND.to_owned()));
+        tool_message(
+            Code::DpfilelistNotOfficial,
+            Scope::Run,
+            Disposition::Keep,
+            context,
+        )
+    }
+
+    #[test]
+    fn the_official_entries_in_another_order_are_not_official_by_their_order_alone() {
+        let temp = scratch("preflight_order");
+        let installed = [
+            "4cc_61_midcup.cpk",
+            "4cc_63_midcup.cpk",
+            "4cc_62_midcup.cpk",
+        ];
+        let pes = pes_with_list(temp.path(), &installed, &installed[1..]);
+
+        let messages = preflight_61(&pes);
+
+        assert_eq!(
+            messages,
+            [not_official_finding(&pes, &[("order", "differs")])]
+        );
+        assert_eq!(messages[0].code.code, "dpfilelist_not_official");
+        assert_eq!(messages[0].severity, Severity::Warning);
+    }
+
+    #[test]
+    fn a_list_lacking_an_official_entry_names_it_as_missing_alone() {
+        let temp = scratch("preflight_missing");
+        let installed = ["4cc_61_midcup.cpk", "4cc_62_midcup.cpk"];
+        let pes = pes_with_list(temp.path(), &installed, &installed[1..]);
+
+        let messages = preflight_61(&pes);
+
+        assert_eq!(
+            messages,
+            [not_official_finding(
+                &pes,
+                &[("missing", "4cc_63_midcup.cpk")]
+            )]
+        );
+    }
+
+    #[test]
+    fn an_entry_the_official_list_lacks_is_unofficial_and_the_shared_entries_order_is_judged_alone()
+    {
+        let temp = scratch("preflight_unofficial");
+        let installed = [
+            "4cc_62_midcup.cpk",
+            "4cc_61_midcup.cpk",
+            "4cc_63_midcup.cpk",
+            "4cc_80_mine.cpk",
+        ];
+        let pes = pes_with_list(
+            temp.path(),
+            &installed,
+            &["4cc_62_midcup.cpk", "4cc_63_midcup.cpk", "4cc_80_mine.cpk"],
+        );
+
+        let messages = preflight_61(&pes);
+
+        assert_eq!(
+            messages,
+            [not_official_finding(
+                &pes,
+                &[("unofficial", "4cc_80_mine.cpk"), ("order", "differs")]
+            )]
+        );
+    }
+
+    #[test]
+    fn an_entry_appended_to_the_official_list_keeps_the_shared_order() {
+        let temp = scratch("preflight_appended");
+        let installed = [
+            "4cc_61_midcup.cpk",
+            "4cc_62_midcup.cpk",
+            "4cc_63_midcup.cpk",
+            "4cc_80_mine.cpk",
+        ];
+        let pes = pes_with_list(temp.path(), &installed, &installed[1..]);
+
+        let messages = preflight_61(&pes);
+
+        assert_eq!(
+            messages,
+            [not_official_finding(
+                &pes,
+                &[("unofficial", "4cc_80_mine.cpk")]
+            )]
+        );
+    }
+
+    #[test]
+    fn the_listed_cpks_missing_from_download_are_named_but_not_the_run_s_own() {
+        let temp = scratch("preflight_cpk_missing");
+        // The run's own `4cc_61_midcup.cpk` is absent too; `4cc_62_midcup.cpk` is there.
+        let pes = pes_with_list(temp.path(), &OFFICIAL, &["4cc_62_midcup.cpk"]);
+
+        let messages = preflight_61(&pes);
+
+        assert_eq!(
+            messages,
+            [tool_message(
+                Code::DpfilelistCpkMissing,
+                Scope::Run,
+                Disposition::Keep,
+                vec![
+                    ("path", pes.join(DOWNLOAD).display().to_string()),
+                    ("files", "4cc_63_midcup.cpk".to_owned()),
+                    ("command", UPGRADE_COMMAND.to_owned()),
+                ],
+            )]
+        );
+        assert_eq!(messages[0].code.code, "dpfilelist_cpk_missing");
+        assert_eq!(messages[0].severity, Severity::Warning);
+    }
+
+    #[test]
+    fn the_official_list_with_every_other_cpk_present_is_no_finding() {
+        let temp = scratch("preflight_official");
+        let pes = pes_with_list(temp.path(), &OFFICIAL, &OFFICIAL[1..]);
+
+        assert_eq!(preflight_61(&pes), []);
+    }
 
     /// A staging under `output` whose folder holds the CPK `cup.cpk` with `bytes`.
     fn staged_cpk(output: &Path, bytes: &[u8]) -> Staging {

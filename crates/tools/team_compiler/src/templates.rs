@@ -12,7 +12,7 @@ use pes_version::PesVersion;
 use studio_core::{Disposition, Message, Scope};
 use uniparam::UniformParameter;
 
-use crate::bins::{TeamColorBin, UniColorBin};
+use crate::bins::{TeamColorBin, UniColorBin, dpfl};
 use crate::messages::{Code, tool_message};
 
 /// The folder's name in the data directory.
@@ -27,8 +27,9 @@ struct Resource {
 }
 
 /// What a resource's replacement in `templates/` is parsed as when it is read: the three bins
-/// are, so one that does not parse stops the run before any export is read; the other resources
-/// are packed or converted as they are, and fail where the embedded one would be used.
+/// and the official `DpFileList.bin` are, so one that does not parse stops the run before any
+/// export is read; the other resources are packed or converted as they are, and fail where the
+/// embedded one would be used.
 #[derive(Clone, Copy)]
 enum Format {
     /// Not parsed.
@@ -39,6 +40,8 @@ enum Format {
     UniColor,
     /// A `UniformParameter.bin`.
     UniformParameter,
+    /// A `DpFileList.bin`.
+    DpFileList,
 }
 
 impl Format {
@@ -51,6 +54,10 @@ impl Format {
             Format::UniColor => Ok(UniColorBin::read(bytes)?.into_bytes()),
             Format::UniformParameter => {
                 UniformParameter::read(&bytes)?;
+                Ok(bytes)
+            }
+            Format::DpFileList => {
+                dpfl::entries(&bytes)?;
                 Ok(bytes)
             }
         }
@@ -145,8 +152,19 @@ const FCL_HAIR_SIM_FCLO: Resource = Resource {
     format: Format::Unparsed,
 };
 
+/// The cup's official `DpFileList.bin`, which a compile that deploys compares the installed
+/// list with: one list for every PES version (`resources/templates/README.md`).
+const DPFILELIST: Resource = Resource {
+    name: "DpFileList.bin",
+    embedded: include_bytes!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../../resources/templates/DpFileList.bin"
+    )),
+    format: Format::DpFileList,
+};
+
 /// Every resource a `templates/` file can replace, in the order the replacements are reported.
-const RESOURCES: [&Resource; 8] = [
+const RESOURCES: [&Resource; 9] = [
     &TEAM_COLOR,
     &UNI_COLOR,
     &UNIFORM_PARAMETER_18,
@@ -155,9 +173,11 @@ const RESOURCES: [&Resource; 8] = [
     &BODY_SKELETON,
     &FACE_DIFF,
     &FCL_HAIR_SIM_FCLO,
+    &DPFILELIST,
 ];
 
-/// An override in `templates/` that cannot be read, or one of the bins that does not parse:
+/// An override in `templates/` that cannot be read, or one of the bins or the list that does
+/// not parse:
 /// `template_override_unreadable`'s context.
 #[derive(Debug)]
 pub(crate) struct Unreadable {
@@ -187,9 +207,10 @@ impl Templates {
     /// `template_override_active` per override read, in `RESOURCES` order. Nothing is read
     /// without a data directory or without the folder, and a file there naming no resource,
     /// exactly as it is spelled, is not read. An override that cannot be read, an override of
-    /// one of the bins that does not parse as it (whatever the run's version), or a folder that
-    /// cannot be listed, is the error. The other overrides' bytes are not checked: one that does
-    /// not decode fails where the embedded resource would be used.
+    /// one of the bins or of `DpFileList.bin` that does not parse as it (whatever the run's
+    /// version), or a folder that cannot be listed, is the error. The other overrides' bytes
+    /// are not checked: one that does not decode fails where the embedded resource would be
+    /// used.
     pub(crate) fn read(data_dir: Option<&Path>) -> Result<(Templates, Vec<Message>), Unreadable> {
         let mut templates = Templates::embedded();
         let mut messages = Vec::new();
@@ -275,6 +296,15 @@ impl Templates {
     pub(crate) fn fcl_hair_sim(&self) -> &[u8] {
         self.bytes(&FCL_HAIR_SIM_FCLO)
     }
+
+    /// The CPK file names of the official `DpFileList.bin`, in load order: the list a compile
+    /// that deploys compares the installed one with.
+    pub(crate) fn official_list(&self) -> Vec<String> {
+        dpfl::entries(self.bytes(&DPFILELIST)).expect(
+            "the official list reads: an override is read as a list when it is read (`read`), \
+             and the embedded one is checked by a test",
+        )
+    }
 }
 
 /// The names of the entries of `folder`, as they are spelled: a Windows file system would open
@@ -297,7 +327,7 @@ mod tests {
     use studio_core::Severity;
 
     use super::*;
-    use crate::testing::scratch;
+    use crate::testing::{dpfilelist, scratch};
 
     #[test]
     fn pes_18_has_its_own_base_and_19_to_21_share_one() {
@@ -324,8 +354,9 @@ mod tests {
         assert_eq!(names.len(), RESOURCES.len());
     }
 
-    /// Each resource's bytes in `templates`, through the accessors, in `RESOURCES` order.
-    fn every_resource(templates: &Templates) -> [&[u8]; 8] {
+    /// Each resource's bytes in `templates`, through the accessors, in `RESOURCES` order; the
+    /// list's directly, since its accessor gives its entries.
+    fn every_resource(templates: &Templates) -> [&[u8]; 9] {
         [
             templates.team_color(),
             templates.uni_color(),
@@ -335,6 +366,7 @@ mod tests {
             templates.body_skeleton(),
             templates.face_diff(),
             templates.fcl_hair_sim(),
+            templates.bytes(&DPFILELIST),
         ]
     }
 
@@ -372,7 +404,7 @@ mod tests {
 
         let (templates, messages) = Templates::read(Some(temp.path())).unwrap();
 
-        let mut expected: [&[u8]; 8] = RESOURCES.map(|resource| resource.embedded);
+        let mut expected: [&[u8]; 9] = RESOURCES.map(|resource| resource.embedded);
         expected[1] = &kit_colors;
         expected[6] = b"face diff override";
         assert!(every_resource(&templates) == expected);
@@ -456,5 +488,58 @@ mod tests {
             };
             assert_eq!(unreadable.path, folder.join(name));
         }
+    }
+
+    #[test]
+    fn the_embedded_official_list_is_the_text_list_s_53_entries_in_order() {
+        let text = fs::read_to_string(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../../resources/templates/DpFileList.txt"),
+        )
+        .unwrap();
+        let expected: Vec<&str> = text
+            .lines()
+            .map(str::trim)
+            .filter(|line| !line.is_empty() && !line.starts_with('#'))
+            .collect();
+
+        let official = Templates::embedded().official_list();
+
+        assert_eq!(official.len(), 53);
+        assert_eq!(official[0], "4cc_01_db.cpk");
+        assert_eq!(official[52], "4cc_99_test.cpk");
+        assert_eq!(official, expected);
+    }
+
+    #[test]
+    fn a_list_override_that_does_not_read_as_a_list_is_the_error_naming_it() {
+        let temp = scratch("templates_list_unreadable");
+        let folder = temp.path().join("templates");
+        fs::create_dir(&folder).unwrap();
+        fs::write(folder.join("DpFileList.bin"), [0; 15]).unwrap();
+
+        let Err(unreadable) = Templates::read(Some(temp.path())) else {
+            panic!("a list override that does not read as a list must be the error");
+        };
+        assert_eq!(unreadable.path, folder.join("DpFileList.bin"));
+        assert_eq!(
+            unreadable.error.to_string(),
+            "the list is 15 bytes, shorter than its 16-byte header"
+        );
+    }
+
+    #[test]
+    fn a_list_override_replaces_the_official_list() {
+        let temp = scratch("templates_list_override");
+        let folder = temp.path().join("templates");
+        fs::create_dir(&folder).unwrap();
+        let names = ["4cc_08_bins.cpk", "4cc_61_midcup.cpk", "4cc_99_test.cpk"];
+        fs::write(folder.join("DpFileList.bin"), dpfilelist(&names)).unwrap();
+
+        let (templates, messages) = Templates::read(Some(temp.path())).unwrap();
+
+        assert_eq!(templates.official_list(), names);
+        assert_eq!(messages.len(), 1);
+        assert_eq!(messages[0].code.code, "template_override_active");
     }
 }

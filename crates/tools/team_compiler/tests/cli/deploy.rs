@@ -21,11 +21,57 @@ const TRACER_FINDINGS: [&str; 6] = [
     "Warning player_table_missing [Keep] (table=GloveList.bin, rows=1)",
 ];
 
-/// Writes the sandbox's PES 21 install: `PES/PES2021.exe` and a `DpFileList.bin` listing only
-/// the run's CPK, so the bins are the bundled ones and nothing is listed before it.
+/// The line every finding about the installed list ends with, naming the subcommand that
+/// installs the official one.
+const UPGRADE: &str = "command=4cc-studio team-compiler upgrade-dpfl";
+
+/// The repository's `resources/templates/` folder, which holds the official list.
+fn templates_folder() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../resources/templates")
+}
+
+/// The official `DpFileList.bin`'s entries, in load order: the lines of
+/// `resources/templates/DpFileList.txt`, which the list is written from, without its comments
+/// and blank lines.
+fn official_names() -> Vec<String> {
+    fs::read_to_string(templates_folder().join("DpFileList.txt"))
+        .unwrap()
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty() && !line.starts_with('#'))
+        .map(str::to_owned)
+        .collect()
+}
+
+/// Writes `PES/download/DpFileList.bin` listing `names`, in that order.
+fn install_list(sandbox: &Sandbox, names: &[String]) {
+    let names: Vec<&str> = names.iter().map(String::as_str).collect();
+    install_names(sandbox, &names);
+}
+
+/// Writes the sandbox's `download/` folder as `upgrade-dpfl` leaves it: the official
+/// `DpFileList.bin` and, for every CPK it lists but the run's `4cc_99_test.cpk`, the
+/// placeholder CPK. A compile then reports nothing about the list, and its bins are still the
+/// bundled ones, since the placeholders hold none.
+fn install_official_list(sandbox: &Sandbox) {
+    let templates = templates_folder();
+    sandbox.write(
+        "PES/download/DpFileList.bin",
+        &fs::read(templates.join("DpFileList.bin")).unwrap(),
+    );
+    let placeholder = fs::read(templates.join("placeholder.cpk")).unwrap();
+    for name in official_names() {
+        if name != "4cc_99_test.cpk" {
+            sandbox.write(&format!("PES/download/{name}"), &placeholder);
+        }
+    }
+}
+
+/// Writes the sandbox's PES 21 install: `PES/PES2021.exe` and an upgraded `download/` folder
+/// (`install_official_list`).
 fn install_pes(sandbox: &Sandbox) {
     sandbox.write("PES/PES2021.exe", b"the game");
-    install_names(sandbox, &["4cc_99_test.cpk"]);
+    install_official_list(sandbox);
 }
 
 /// A deploying `compile` of the tracer in `sandbox`.
@@ -53,14 +99,23 @@ fn promoted(sandbox: &Sandbox) -> String {
     sandbox.display("output/4cc_99_test.cpk")
 }
 
-/// The names of the files in the folder `relative`, sorted.
-fn file_names(sandbox: &Sandbox, relative: &str) -> Vec<String> {
-    let mut names: Vec<String> = fs::read_dir(sandbox.root.join(relative))
+/// The names of the files in the folder `relative` that end with `.partial`: what a failed
+/// deployment would leave.
+fn partial_files(sandbox: &Sandbox, relative: &str) -> Vec<String> {
+    fs::read_dir(sandbox.root.join(relative))
         .unwrap()
         .map(|entry| entry.unwrap().file_name().into_string().unwrap())
-        .collect();
-    names.sort();
-    names
+        .filter(|name| name.ends_with(".partial"))
+        .collect()
+}
+
+/// Asserts the CPK installed in `sandbox`'s `download/` is the `twin` CPK, byte for byte.
+fn assert_installed(sandbox: &Sandbox, twin: &Path) {
+    let installed = fs::read(sandbox.root.join("PES/download/4cc_99_test.cpk")).unwrap();
+    assert!(
+        installed == fs::read(twin).unwrap(),
+        "download/ holds the run's CPK"
+    );
 }
 
 /// Asserts the run's CPK is in the output folder: the bytes of the `twin` CPK.
@@ -89,8 +144,8 @@ fn compile_installs_the_cpk_over_the_old_one_and_leaves_nothing_in_the_output_fo
     // Byte for byte too: the writer's output depends on the entries alone.
     assert!(fs::read(&installed).unwrap() == fs::read(&twin).unwrap());
     assert_eq!(
-        file_names(&sandbox, "PES/download"),
-        ["4cc_99_test.cpk", "DpFileList.bin"]
+        partial_files(&sandbox, "PES/download"),
+        Vec::<String>::new()
     );
     assert_eq!(
         snapshot(&sandbox.root.join("output")),
@@ -141,8 +196,8 @@ fn an_old_cpk_held_open_is_old_cpk_locked_and_the_cpk_is_promoted() {
         b"the old CPK"
     );
     assert_eq!(
-        file_names(&sandbox, "PES/download"),
-        ["4cc_99_test.cpk", "DpFileList.bin"],
+        partial_files(&sandbox, "PES/download"),
+        Vec::<String>::new(),
         "no .partial is left"
     );
 }
@@ -210,21 +265,32 @@ fn a_download_folder_that_denies_writes_is_reported_before_any_export_is_read() 
 fn a_list_not_naming_the_cpk_is_cpk_name_unlisted_and_the_cpk_is_promoted() {
     let twin = twin_cpk("deploy_unlisted_twin");
     let sandbox = Sandbox::new("deploy_unlisted");
-    sandbox.write("PES/PES2021.exe", b"the game");
-    install_names(&sandbox, &["4cc_80_mine.cpk"]);
+    install_pes(&sandbox);
     let download = snapshot(&sandbox.root.join("PES/download"));
 
-    let run = compile_tracer(&sandbox);
+    // A name neither the installed list nor the official one holds.
+    let run = sandbox.run(
+        &format!(
+            "{}[team-compiler]\ncpk_name = \"4cc_80_mine\"\n",
+            pes21_settings(&sandbox)
+        ),
+        &["compile", "--export", &tracer_export()],
+    );
 
     let mut expected = vec![format!(
-        "Error cpk_name_unlisted [Keep] (cpk=4cc_99_test.cpk, path={}, output={})",
+        "Error cpk_name_unlisted [Keep] (cpk=4cc_80_mine.cpk, path={}, output={})",
         sandbox.display("PES/download/DpFileList.bin"),
-        promoted(&sandbox)
+        sandbox.display("output/4cc_80_mine.cpk")
     )];
     expected.extend(bundled_bins_then(TRACER_FINDINGS));
     assert_eq!(run.messages(), expected);
     assert_eq!(run.exit_code(), 1);
-    assert_promoted(&sandbox, &twin);
+    // The CPK's bytes do not depend on its name.
+    let promoted = fs::read(sandbox.root.join("output/4cc_80_mine.cpk")).unwrap();
+    assert!(
+        promoted == fs::read(&twin).unwrap(),
+        "the output folder holds the run's CPK"
+    );
     assert_eq!(snapshot(&sandbox.root.join("PES/download")), download);
 }
 
@@ -232,7 +298,7 @@ fn a_list_not_naming_the_cpk_is_cpk_name_unlisted_and_the_cpk_is_promoted() {
 #[test]
 fn another_version_s_exe_is_a_warning_and_the_cpk_is_installed() {
     let sandbox = Sandbox::new("deploy_version_mismatch");
-    install_names(&sandbox, &["4cc_99_test.cpk"]);
+    install_official_list(&sandbox);
     sandbox.write("PES/PES2019.exe", b"another game");
 
     let run = compile_tracer(&sandbox);
@@ -261,4 +327,101 @@ fn a_dead_run_s_staging_folder_is_removed_when_compile_starts() {
     assert_eq!(run.exit_code(), 0, "{:#?}", run.messages());
     assert!(!sandbox.root.join("output/.staging").exists());
     assert!(sandbox.root.join("PES/download/4cc_99_test.cpk").is_file());
+}
+
+// TC-DEP-12
+#[test]
+fn a_list_naming_a_cpk_the_official_one_lacks_is_dpfilelist_not_official_and_the_cpk_is_installed()
+{
+    let twin = twin_cpk("deploy_not_official_twin");
+    let sandbox = Sandbox::new("deploy_not_official");
+    install_pes(&sandbox);
+    let mut names = official_names();
+    names.push("4cc_80_mine.cpk".to_owned());
+    install_list(&sandbox, &names);
+    sandbox.write("PES/download/4cc_80_mine.cpk", b"mine");
+
+    let run = compile_tracer(&sandbox);
+
+    // No `dpfilelist_cpk_missing`: every listed CPK but the run's own has its file.
+    let mut expected = vec![format!(
+        "Warning dpfilelist_not_official [Keep] (path={}, unofficial=4cc_80_mine.cpk, {UPGRADE})",
+        sandbox.display("PES/download/DpFileList.bin")
+    )];
+    expected.extend(bundled_bins_then(TRACER_FINDINGS));
+    assert_eq!(run.messages(), expected);
+    assert_eq!(run.exit_code(), 0);
+    assert_installed(&sandbox, &twin);
+}
+
+// TC-DEP-12
+#[test]
+fn the_official_list_with_every_listed_cpk_is_no_list_finding_and_the_cpk_is_installed() {
+    let twin = twin_cpk("deploy_official_twin");
+    let sandbox = Sandbox::new("deploy_official");
+    install_pes(&sandbox);
+
+    let run = compile_tracer(&sandbox);
+
+    let lines = run.messages();
+    for code in [
+        "dpfilelist_not_official",
+        "dpfilelist_outdated",
+        "dpfilelist_cpk_missing",
+    ] {
+        assert!(
+            lines.iter().all(|line| !line.contains(code)),
+            "{code}: {lines:#?}"
+        );
+    }
+    assert_eq!(run.exit_code(), 0);
+    assert_installed(&sandbox, &twin);
+}
+
+// TC-DEP-14
+#[test]
+fn a_listed_cpk_missing_from_download_is_dpfilelist_cpk_missing_and_the_cpk_is_installed() {
+    let twin = twin_cpk("deploy_cpk_missing_twin");
+    let sandbox = Sandbox::new("deploy_cpk_missing");
+    install_pes(&sandbox);
+    fs::remove_file(sandbox.root.join("PES/download/4cc_62_midcup.cpk")).unwrap();
+
+    let run = compile_tracer(&sandbox);
+
+    // Not `4cc_99_test.cpk`, absent too before the run: the run writes it.
+    let mut expected = vec![format!(
+        "Warning dpfilelist_cpk_missing [Keep] (path={}, files=4cc_62_midcup.cpk, {UPGRADE})",
+        sandbox.display("PES/download")
+    )];
+    expected.extend(bundled_bins_then(TRACER_FINDINGS));
+    assert_eq!(run.messages(), expected);
+    assert_eq!(run.exit_code(), 0);
+    assert_installed(&sandbox, &twin);
+}
+
+#[test]
+fn a_list_lacking_the_cpk_the_official_one_names_is_dpfilelist_outdated_and_the_cpk_is_promoted() {
+    let twin = twin_cpk("deploy_outdated_twin");
+    let sandbox = Sandbox::new("deploy_outdated");
+    install_pes(&sandbox);
+    let names: Vec<String> = official_names()
+        .into_iter()
+        .filter(|name| name != "4cc_99_test.cpk")
+        .collect();
+    assert_eq!(names.len(), 52);
+    install_list(&sandbox, &names);
+
+    let run = compile_tracer(&sandbox);
+
+    // No `dpfilelist_not_official`: the Error ends the checks.
+    let mut expected = vec![format!(
+        "Error dpfilelist_outdated [Keep] (cpk=4cc_99_test.cpk, path={}, output={}, {UPGRADE})",
+        sandbox.display("PES/download/DpFileList.bin"),
+        promoted(&sandbox)
+    )];
+    expected.extend(bundled_bins_then(TRACER_FINDINGS));
+    assert_eq!(run.messages(), expected);
+    assert_eq!(run.exit_code(), 1);
+    assert_promoted(&sandbox, &twin);
+    assert!(!sandbox.root.join("PES/download/4cc_99_test.cpk").exists());
 }
