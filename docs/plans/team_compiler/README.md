@@ -1240,8 +1240,9 @@ TC-BIN-05  GIVEN a PES folder whose download/DpFileList.bin lists 4cc_08_bins, 4
            THEN the first run's UniColor.bin carries B at p1 (the highest-priority CPK below the
                 output's) and the second run's carries A (the midcup CPK and everything above it
                 skipped), both with p2 set; bin_source names the supplying CPK for each bin
-TC-BIN-06  GIVEN an installed UniformParameter.bin holding team 714's p1 entry without the FPC
-           values (shirt model 144), and a Midcup
+TC-BIN-06  GIVEN an installed UniColor.bin whose team 714 record holds kits p1, p2 and p3, an
+           installed UniformParameter.bin holding team 714's p1 entry without the FPC
+           values (shirt model 144) and no p3 entry, and a Midcup
            /co/ export with fpc_on and only p2/
            WHEN it is compiled for PES 21
            THEN the emitted UniformParameter.bin's p1 entry carries the FPC values with

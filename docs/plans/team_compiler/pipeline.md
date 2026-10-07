@@ -634,8 +634,9 @@ describes behavior, not a serial scheduling requirement:
   every team needs one player kit and one goalkeeper kit, so a `Full` export holding no
   player kit folder is compiled as if it held an empty `p1/`, and one holding no `g1/` as
   if it held an empty `g1/`, each a placeholder kit (a `Midcup` export adds to kits
-  installed and gets neither); the team's kit configs in `UniformParameter.bin` that the export
-  does not hold are removed, and no absent kit slot is FPC-patched, there being none. A
+  installed and gets neither); the team's kit configs in `UniformParameter.bin` (the entries
+  named for its team ID, `714_…`) that the export's kits do not name are removed, a failed
+  kit's entry kept as it was, and no absent kit slot is FPC-patched, there being none. A
   `Full` export with no root `colors.txt` still keeps its `TeamColor.bin` record's bytes
   (`team_colors_missing`): there is nothing to rebuild it from. What a `Full` export cannot
   do is remove files: compiled into a CPK above another that holds the team's older content
@@ -662,7 +663,17 @@ describes behavior, not a serial scheduling requirement:
   `UniformParameter.bin` compilation (Fox only; Red's `UniformParameter{18,19}.bin` are only its
   bundled per-version fallback bases); when
   the team's kit-FPC status is On, kit slots absent from the export are FPC-patched from the
-  installed cup content (see "FPC toggle" in the [Aesthetics export plan](../aesthetics_export/fpc_toggle.md)). A kit's UniColor/UniformParameter entry is applied only
+  installed cup content (see "FPC toggle" in the [Aesthetics export plan](../aesthetics_export/fpc_toggle.md)).
+  The slots patched are the kits the team's working `UniColor.bin` record holds, the ones the
+  game offers, that the export has no kit folder for (a placeholder record holds none, and a
+  kit number no slot names, a second goalkeeper kit, is left alone): we take the record, not
+  every slot from p1 to g1, because a team's base entries cover all ten slots and a warning per
+  slot the team never had would bury the one it needs. A kit whose task failed is not absent,
+  so its entry is not patched either. Each such slot's `UniformParameter.bin` entry is decoded,
+  given the FPC values when it lacks them (`kit_config_fpc_adjusted`), and encoded again; a
+  slot with no entry, or one that does not decode as a kit config, is left alone
+  (`kit_config_fpc_unpatched`). Both name the slot and are the team export's. The bin is written
+  whenever the run changes it: a committed kit config, a patched slot, a removed config. A kit's UniColor/UniformParameter entry is applied only
   if that kit's task actually commits — a failed kit never mutates the global bins. On Fox the
   **player appearance tables** accumulate the same way: every compiled player gets his
   `PlayerAppearance.bin` row (the appearance bytes built from his resolved `settings.toml`, its
@@ -698,7 +709,9 @@ describes behavior, not a serial scheduling requirement:
   cannot be read stops the run there (`installed_bin_unreadable`, Fatal), so the previous CPK
   is kept: we abort, not fall back to the next CPK or the bundled base, because the run's CPK
   sits above the ones it walks, and a bin built on an older copy would hide the cup's later
-  kits and colors for every team the run does not compile.
+  kits and colors for every team the run does not compile. A bin is parsed as it is taken, so
+  one that does not parse as its format (a `UniColor.bin` that is not whole records) cannot be
+  read either: found there, not when the CPK is finished after every export was processed.
   The same walk locates pre-Fox kit-config bins for FPC patching. Bins updating is unconditional
   (Red's `bins_updating` setting is dropped — see "Resolved decisions").
 
@@ -1236,7 +1249,9 @@ Resolved decisions:
   run there, whatever the resource: we abort, not drop each folder that would use it,
   because the file was put there on purpose (an unreadable `overrides/` file fails the CPK
   for the same reason), and a locked `face_diff.bin` dropping every face folder would ship
-  a CPK without its faces.
+  a CPK without its faces. An override of one of the three bins is parsed as it is read, as
+  the walk's bins are, so one that does not parse cannot be read either; the other resources
+  are packed or converted as they are, so theirs fail where the embedded one would be used.
 - **Teams list: embedded upstream, one working copy in the data directory.** The current cup's
   `teams_list.txt` ships *inside* the binary like the templates (upstream), and the only copy on
   disk is `data/teams_list.txt` (working), created from the embedded one on first run and edited

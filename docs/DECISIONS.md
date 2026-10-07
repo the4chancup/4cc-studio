@@ -4291,3 +4291,26 @@ faces, which a member notices later than a run that stops and names the file. On
 needs no per-task plumbing of a failed resource.
 Plan: `team_compiler/pipeline.md` "Resolved decisions" ("Templates and fallback bins");
 `team_compiler/messages.md` `template_override_unreadable`, `template_override_active`.
+
+## 2026-10-07 — team_compiler — FPC patching takes the slots from `UniColor.bin`; bins parse as they are read
+Decision: with a team's kit-FPC status On, the absent kit slots patched in `UniformParameter.bin`
+are the kits the team's working `UniColor.bin` record holds that the export has no kit folder
+for; a placeholder record holds none, a kit number no slot names is left alone, and a kit whose
+task failed is not absent. A slot whose entry is missing or does not decode as a kit config
+reports `kit_config_fpc_unpatched`; both FPC findings are the team export's, naming the slot.
+A `Full` export's team configs are the entries named for its team ID; those its kits (failed or
+not) do not name are removed. `UniformParameter.bin` is written whenever the run changes it. The
+three bins are parsed as they are read, an installed one by the walk (`installed_bin_unreadable`),
+a `templates/` one with the overrides (`template_override_unreadable`).
+Why: the bundled base holds all ten configs for every team, so "every slot" would warn about
+slots a team never had, and the configs alone could never show a missing one (TC-BIN-06's
+`p3` needs a list from elsewhere); the record is what makes the game offer a kit. A
+non-decoding entry is no config to patch, and the warning says the team needs a kit export,
+which is the remedy. Parsing at read time moves a corrupt bin's failure from the end of the run
+(`cpk_write_failed`, after every export was processed) to before any export is read, with the
+file named; it settles the issue logged at 4.21a. Pre-Fox loose configs stay with 4.14 (TC-BIN-18).
+Plan: `team_compiler/pipeline.md` "Bins accumulation" (the slots, the `Full` removal, the
+parse at read time), "Resolved decisions" ("Templates and fallback bins");
+`team_compiler/messages.md` `kit_config_fpc_adjusted`, `kit_config_fpc_unpatched`,
+`installed_bin_unreadable`, `template_override_unreadable`; `team_compiler/README.md` TC-BIN-06
+(its `UniColor.bin` record); `aesthetics_export/fpc_toggle.md` "Kit slots absent from the export".
