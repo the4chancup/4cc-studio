@@ -936,6 +936,11 @@ describes behavior, not a serial scheduling requirement:
   `{name}.cpk.old`, which is the step a locked CPK fails (`old_cpk_locked`: the ones already
   moved go back, the `.partial`s are removed, and every CPK of the run is promoted to
   `output/`), then each `.partial` is renamed into place and the `.old` files are removed.
+  A `.partial` that cannot be renamed into place (nothing should hold a name just freed)
+  undoes the same way, the new CPKs already in place removed before their `.old` files
+  go back, and is `old_cpk_locked` naming that CPK. Preflight findings about several CPKs
+  are one finding each, naming them together: a list lacking every teams slot is one
+  `dpfilelist_outdated`, not five.
   One rename per CPK cannot be undone once the next fails, so the old CPKs are moved first,
   when moving them back is still possible.
 - **Degraded run: promotion to `output/`** — if deployment cannot happen (`pes_folder_not_found`,

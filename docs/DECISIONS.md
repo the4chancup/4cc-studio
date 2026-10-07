@@ -4523,3 +4523,17 @@ the plan's "3 GB" was either, both under Git for Windows' 4 GiB ceiling, and 3 G
 deployment, which 4.26c brings to every generated CPK, reports per CPK too.
 Plan: `team_compiler/settings.md` (the settings table); `team_compiler/messages.md`
 (`deploy_skipped_by_flag`); `team_compiler/pipeline.md` "Multi-CPK mode: teams parts".
+
+## 2026-10-07 — team_compiler — several CPKs: one preflight finding each, and a failed rename into place undone
+Decision (lead, reversible): (1) when a deploying run writes several CPKs, `dpfilelist_outdated`
+and `cpk_name_unlisted` are one finding each, `cpk` naming every CPK concerned, joined by `, `
+in the run's order (the bins CPK, then the parts); `output` is then the output folder. (2) In
+the all-or-none install, a `.partial` that cannot be renamed into place undoes everything, the
+new CPKs already in place removed before their `.old` files go back, and is `old_cpk_locked`
+naming that CPK.
+Why: (1) an old list lacks the five teams slots together, and five findings saying one thing
+bury the rest of the run's lines; `dpfilelist_not_official` already joins its names. (2) the
+plan's move-aside order leaves this step only a name nothing should hold, but if it fails the
+run must still leave `download/` as it found it, which is what "all or none" promises.
+Plan: `team_compiler/pipeline.md` "6. Post-processing" (Deploy CPKs); `team_compiler/messages.md`
+(`dpfilelist_outdated`, `cpk_name_unlisted`, `old_cpk_locked`).
