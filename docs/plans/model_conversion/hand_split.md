@@ -69,11 +69,25 @@ native weight check needs no IR import or re-export; the original model is retai
 
 ### Pipeline integration
 
-The auto-split runs **before categorization** (see "Player folder categorization" in the [Team
-compiler plan](../team_compiler/README.md)). The split parts appear as virtual model files in the player
-folder's model list; categorization handles them normally — the body becomes face content, the
-gloves become `glove_l`/`glove_r`. The rest of the pipeline (merge, ID assignment, packing) is
-transparent to whether the gloves were auto-split or authored as separate files.
+The auto-split applies to the models categorization makes **face content** (see "Player folder
+categorization" in the [Team compiler plan](../team_compiler/README.md)): the body stays face
+content, and the gloves join the player's `glove_l`/`glove_r` parts as if they were authored as
+separate files. The rest of the pipeline (merge, ID assignment, packing) is transparent to
+whether the gloves were auto-split or authored. A model named as boots or gloves, and every model
+of a shared `Boots/` or `Gloves/` folder, is never split, whatever its weights: an authored glove
+is all hand vertices, so splitting it would carve its forearm off as face content, and a boots
+model is on the body skeleton already (the one boots model with hand weights found on the
+maintainer's machine, FNG's `Boots/k2214 - Park`, carries 9 stray vertices per hand, which a
+split would cut into two tiny gloves). There is no weight or vertex-count threshold: no face
+model on the maintainer's machine carries stray hand weights, and a full-body model's are
+thousands (the `fcl_hair.fmdl` of Red's sample face folder `00007 - BLANK`: 1,684 per hand of
+9,563 vertices).
+
+A split model goes through the IR and back (FMDL → IR → split → FMDL). Measured at 4.18 on that
+`fcl_hair.fmdl`, the round trip keeps the bones, the materials and every face, and changes two
+things nothing in the game reads differently: the meshes of a split-mesh group are re-chunked
+(the faces regrouped by bone-group size), and Konami's per-bone matrix block is written empty,
+as every community FMDL has it.
 
 ### Where it lives
 

@@ -265,6 +265,20 @@ format:
    a CPK-now/savefile-later split remains consistent. The deploy-together rule is distribution
    guidance, not a compile blocker.
 
+   A face-content FMDL with positive `skh_*_l`/`skh_*_r` weights is **hand auto-split** ("Hand
+   auto-split" in the [Model conversion plan](../model_conversion/hand_split.md)), which makes
+   the folder a gloves input even when no file is named as a glove. Categorization works from
+   file names, before anything is compiled, and a gloves ID, a `GloveList.bin` row and a gloves
+   task exist only for a folder planning sees with gloves, so the weights are read before
+   planning: the deep pass, which already parses every model, records the FMDLs it finds
+   weighted, and planning gives each player folder holding such a face part (its own model or a
+   Common model a `.common` link brings in) a gloves task, the weighted model among that task's
+   files. The face task and the gloves task each split the model, the face task keeping the body
+   and the gloves task the hands: the split is deterministic, so the two agree, and a model
+   needing it is rare enough (one full-body model on the maintainer's machine) that splitting it
+   twice costs less than a task that hands its output to another. Pre-Fox targets get the split
+   with their face compilation, and a `.model` source compiled for Fox with its conversion.
+
 ### 3. Per-model-folder parallel steps (rayon)
 
 After validation and export-identity resolution, a serial **run-level** planning phase resolves
@@ -314,7 +328,15 @@ then processed as an independent parallel task (Blue: `coordinator._model_folder
    export plan](../aesthetics_export/README.md)); missing template files injected (`face_diff.bin`, `fcl_hair_sim.fclo` when
    `fcl_hair.fmdl` exists, and the default `boots.skl`/`fcl_hair_sim.skl` skeletons from template
    `body.skl` when no part brings a custom SKL for that slot — see "SKL pairing" there); `face_diff.xml`
-   converted to `face_diff.bin`.
+   converted to `face_diff.bin`. A hand-weighted face part (step 6 of "Per-export serial
+   steps") is split before its texture paths are rewritten: in the face task it is replaced by
+   the body, in the gloves task its `glove_l` and `glove_r` become parts of those names, merged
+   with any authored ones like any other part, their textures where the source part's are. The
+   face task reports `model_hand_split` (I) on it. The model is imported without its skeleton:
+   the round trip keeps the FMDL's own bone table, which is what the split keeps, and the body
+   still pairs the source's `.skl`, if any. What the IR round trip reports (`model_convert`'s
+   loss findings) is not shown until cross-format conversion maps those codes for every converted
+   model: on the measured model it reported only the dropped bone-matrix block.
 4. **Pre-Fox fixups** — `face.xml` created, with every model of the player folder listed under
    its category's type attribute (boots and gloves models included — the typed XML is why pre-Fox
    needs no per-player boots/gloves folders), or a user-supplied one checked and re-serialized

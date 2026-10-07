@@ -4704,3 +4704,28 @@ edges under filtering. Where each engine samples a digit is decided in code and 
 so the rule copies Konami's layout rather than a measured window: an atlas laid out like the
 stock ones is safe whatever that window is.
 Plan: `team_compiler/pipeline.md` "4. Per-export non-model steps", the glyph atlas sentences.
+
+## 2026-10-07 — team_compiler — hand auto-split: face models only, detected by the deep pass, split in both tasks
+Decision: the hand auto-split applies to the FMDLs categorization makes face content (a folder's
+own or a Common model a `.common` link brings in); a model named as boots or gloves, and every
+model of a shared `Boots/` or `Gloves/` folder, is never split, and there is no weight threshold.
+The deep pass records which FMDLs carry positive `skh_*_l`/`skh_*_r` weights; planning gives a
+player folder holding such a face part a gloves task, with the model among its files; the face
+task and the gloves task each split it (FMDL → IR without its skeleton → split → FMDL), keeping
+the body and the hands respectively. The face task reports a new Info, `model_hand_split`. The
+round trip's `model_convert` findings are not shown until cross-format conversion maps them.
+Why: read literally, "every model with hand weights" splits an authored glove (all hand
+vertices) into a glove and a forearm the body would receive as face content, and FNG's
+`Boots/k2214 - Park` (9 stray vertices per hand) into boots and two tiny gloves; the plan's own
+scope note says boots need no split. No face model on the maintainer's machine carries stray
+hand weights, so a threshold would distinguish nothing. Detection must precede planning because a
+gloves ID, the `GloveList.bin` row and the gloves task are planned from file names; the deep
+pass already parses every model. Splitting in both tasks keeps tasks independent (the writer
+commits each whole) at the cost of a second split of a model that is rare (one full-body model
+found). Importing without the `.skl` keeps the FMDL's own bones, measured equal through the
+round trip on Red's `00007 - BLANK` `fcl_hair.fmdl`. The Info tells a member why gloves appear
+that no file named, as `fmdl_merged` does for a merge.
+Plan: `model_conversion/hand_split.md` "Pipeline integration"; `aesthetics_export/player_folders.md`
+"At compile time, the pipeline" step 0; `team_compiler/pipeline.md` "2. Per-export serial steps"
+step 6 and "3. Per-model-folder parallel steps" step 3; `team_compiler/messages.md`
+`model_hand_split`; TC-MOD-31.

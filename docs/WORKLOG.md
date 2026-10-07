@@ -1380,15 +1380,20 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   engine's format converted (an FMDL collar for pre-Fox gets the stock collars' material
   names `uni_collar`/`uni_shirts`; a `.model` collar for Fox), TC-CMN-09
 
-- [ ] 4.18 **Hand auto-split**: `model_convert::ops::hand_split::split_by_skeleton_group` on every
-  model with `skh_*_l`/`skh_*_r` weights before categorization, the split parts as virtual
-  `glove_l`/`glove_r` parts, models without such weights untouched. Plan: `player_folders.md` "At
-  compile time, the pipeline" step 0; `development_plan.md` "Phase 4" `processing/`;
-  `model_conversion/README.md` (`ops/hand_split.rs`). IDs: TC-MOD-31. Crates: tc
-  (`processing/model.rs`) → verify: a `/co/` slot 05 folder holding `model_convert`'s hand-split
-  fixture as `body.fmdl`: the CPK holds `glove/g0625/#Win/glove.fpk` with `glove_l.fmdl` and
-  `glove_r.fmdl`, and the face's merged FMDL plus the two gloves hold exactly the source's vertex
-  count
+- [ ] 4.18 **Hand auto-split (Fox)**: `model_convert::ops::hand_split::split_by_skeleton_group`
+  on every face-content FMDL with positive `skh_*_l`/`skh_*_r` weights (never on a boots- or
+  gloves-named model or a shared `Boots/`/`Gloves/` folder's), detected by the deep pass, the
+  folder given a gloves task, both tasks splitting, `model_hand_split` (I). Plan:
+  `model_conversion/hand_split.md` "Pipeline integration"; `team_compiler/pipeline.md` "2.
+  Per-export serial steps" step 6 (last paragraph) and "3. Per-model-folder parallel steps" step
+  3; `player_folders.md` "At compile time, the pipeline" step 0. IDs: TC-MOD-31. Crates:
+  `model_convert` (native detection made public), tc (`deep/`, `validation.rs`, `plan/`,
+  `processing/model.rs`, `messages.rs`) → verify: a `/co/` slot 05 folder holding the lead's
+  fixture `tests/fixtures/hand_split/body.fmdl` (README): the CPK holds
+  `glove/g0625/#Win/glove.fpk` with `glove_l.fmdl` and `glove_r.fmdl` (8 faces each), the face's
+  `fcl_hair.fmdl` holds the other 24 of the source's 40 faces, `GloveList.bin` gives player
+  71405 glove 625, and `model_hand_split` names `body.fmdl`; the same file as `boots.fmdl` is
+  compiled unsplit. Pre-Fox targets split with 4.14, a `.model` source compiled for Fox with 4.17
 
 - [x] 4.19 **Referees (Fox)**: a `/refs/` export compiled into `refs_cpk_name`'s CPK; slots
   01-35 mapped by `players.txt`, a folder mapped to several slots prepared once and

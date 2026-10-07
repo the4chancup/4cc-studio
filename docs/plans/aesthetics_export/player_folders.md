@@ -571,7 +571,9 @@ At compile time, the pipeline:
    it into `glove_l`/`glove_r`, leaving the body. This is equivalent to Blender's select → `Ctrl +`
    → `P` workflow, not an invocation of Blender (see "Hand auto-split" in the
    [Model conversion plan](../model_conversion/README.md)). Models without such weights pass through unchanged.
-   The split parts appear as virtual model files before categorization.
+   Only models step 1 makes face content are split: the body stays face content and the split
+   parts join the player's gloves, while a model named as boots or gloves, or in a shared
+   `Boots/`/`Gloves/` folder, is never split.
 1. **Categorizes** each model file as face/boots/gloves — by filename convention or by
    face.xml-style metadata (the same categorization problem the 16→21 converter already solves via
    `parseFaceXml` and filename matching). Anything the conventions don't claim is **face content by

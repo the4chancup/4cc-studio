@@ -835,8 +835,9 @@ TC-MOD-30  GIVEN slot 05 holding a .model with a vertex 6000 units from the orig
            THEN vertex_too_far_from_origin is reported naming the .model and the folder dropped
 TC-MOD-31  GIVEN slot 05 holding body.fmdl whose vertices carry skh_*_l and skh_*_r weights
            WHEN the export is compiled for PES 21
-           THEN g0625 holds glove_l.fmdl and glove_r.fmdl, the face's merged FMDL holds the rest,
-                and every face of the source is in exactly one of the three
+           THEN g0625 holds glove_l.fmdl and glove_r.fmdl, the face's fcl_hair.fmdl holds the
+                rest, every face of the source is in exactly one of the three, and
+                model_hand_split names body.fmdl
 TC-MOD-32  GIVEN slot 05 holding boots.fmdl and a face_diff.bin that is not the bundled one,
            without ingame_face; and slot 07 holding ingame_face, boots.fmdl and face_diff.bin
            WHEN the export is compiled for PES 21
