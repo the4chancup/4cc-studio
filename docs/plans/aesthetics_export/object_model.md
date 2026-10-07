@@ -336,7 +336,10 @@ pub struct SharedModelFolder {
 }
 
 pub struct KitsFolder {
-    pub kits: BTreeMap<KitSlot, KitFolder>,  // one per kit folder; `all/` is not a kit
+    pub kits: BTreeMap<KitSlot, KitFolder>,  // one per kit folder; `all/` is not a kit; a Full team export
+                                             // with no surviving player kit gets an empty `Kits/p1`, one with
+                                             // no surviving `g1` an empty `Kits/g1` (every team needs one of
+                                             // each: `team_compiler/pipeline.md` "Bins accumulation")
     pub shared: Vec<FileDescriptor>,         // `all/` textures as found (each also appears, as Shared, in every kit lacking that stem)
 }
 
