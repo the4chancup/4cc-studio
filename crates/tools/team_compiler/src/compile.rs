@@ -4,13 +4,14 @@
 //! run planning, each task's files read in manifest order and the task processed on the worker
 //! pool, the writer thread committing the batches in manifest order, and the CPK installed into
 //! the game's `download/` or promoted from staging to the output folder (in multi-CPK mode,
-//! the bins CPK and the teams parts; in test and sideload mode, the loose tree promoted to its
-//! place), or the staging discarded when writing or promoting it fails, when a team does not
-//! fit the teams parts, or when an export's file changes while it is read (`pipeline.md`
-//! "Resolved decisions", "Source snapshot").
+//! the bins CPK and the teams parts; with a refs export, the refs CPK too; in test and sideload
+//! mode, the loose tree promoted to its place), or the staging discarded when writing or
+//! promoting it fails, when a team does not fit the teams parts, or when an export's file
+//! changes while it is read (`pipeline.md` "Resolved decisions", "Source snapshot").
 
 use std::collections::BTreeMap;
 use std::fs;
+use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -29,12 +30,13 @@ use crate::output::deploy::{self, DeployFailure, Staging};
 use crate::output::parts::{self, TeamsParts, Unplaced};
 use crate::output::sink::OutputSink;
 use crate::output::teamnotes;
-use crate::output::writer::CpkOutput;
+use crate::output::writer::{CpkOutput, RefsCpk};
+use crate::paths::REFEREE_TEAM_ID;
 use crate::plan::{BuildManifest, BuildTask, overrides, plan_run};
 use crate::processing::{
     CompileContext, EntryTarget, TEST_BINS_PREFIX, TaskBatch, TaskFiles, process_task,
 };
-use crate::reader::{ContentSource, ExportSource, SourceFailure, SourceKind, SourceRevision};
+use crate::reader::{self, ContentSource, ExportSource, SourceFailure, SourceKind, SourceRevision};
 use crate::templates::{self, Templates};
 use crate::validation::{run_budget, run_pool, validation_pass};
 
@@ -104,46 +106,56 @@ impl CpkLayout {
     }
 
     /// The CPKs the run writes, in the order they are installed and promoted: the one CPK, or
-    /// the bins CPK, then the `official` list's teams slots by number (`parts::slots`).
-    pub(crate) fn cpks(&self, official: &[String]) -> Vec<CpkStem> {
-        match self {
+    /// the bins CPK, then the `official` list's teams slots by number (`parts::slots`); then
+    /// the refs CPK `refs`, when the run holds a refs export (`pipeline.md` "5. Writer", step
+    /// 5).
+    pub(crate) fn cpks(&self, official: &[String], refs: Option<&CpkStem>) -> Vec<CpkStem> {
+        let mut cpks = match self {
             CpkLayout::Single { name, .. } => vec![name.clone()],
             CpkLayout::Parts {
                 bins, teams_stem, ..
             } => std::iter::once(bins.clone())
                 .chain(parts::slots(official, teams_stem))
                 .collect(),
-        }
+        };
+        cpks.extend(refs.cloned());
+        cpks
     }
 
     /// Where a run that does not install its CPKs leaves them, which its findings name: the
     /// one CPK's path in `output_folder`, or the folder itself, which takes every CPK of a
-    /// multi-CPK run.
-    fn promoted(&self, output_folder: &Path) -> PathBuf {
-        match self {
-            CpkLayout::Single { name, .. } => output_folder.join(deploy::cpk_file_name(name)),
-            CpkLayout::Parts { .. } => output_folder.to_owned(),
+    /// multi-CPK run, or of a run with a refs CPK `refs`.
+    fn promoted(&self, output_folder: &Path, refs: Option<&CpkStem>) -> PathBuf {
+        match (self, refs) {
+            (CpkLayout::Single { name, .. }, None) => {
+                output_folder.join(deploy::cpk_file_name(name))
+            }
+            (CpkLayout::Single { .. }, Some(_)) | (CpkLayout::Parts { .. }, _) => {
+                output_folder.to_owned()
+            }
         }
     }
 }
 
 /// Compiles every export validation keeps into the CPKs of `layout` (`<name>.cpk`, or the
-/// bins CPK and the teams parts), installed into the PES folder's `download/` when `mode`
+/// bins CPK and the teams parts), and a refs export into the refs CPK `refs_name` when there
+/// is one (a normal `mode`'s alone), installed into the PES folder's `download/` when `mode`
 /// deploys and the checks made before any export is read pass, else into `<output_folder>`
 /// (in sideload `mode`, into the PES folder's `livecpk/` as loose files; in test `mode`, into
 /// `<output_folder>/test_output/`), after the files of the data directory's `overrides/`
 /// folder unless in test mode, reported as events, then collects the compiled exports' notes
 /// into `<output_folder>/teamnotes.txt`. Its resources are the embedded ones or the data
 /// directory's `templates/` files replacing them (`templates`), and its bins are built on those
-/// of the installed CPKs listed before its first (`bins::installed`). Returns the worst
-/// severity reported: a `templates/` file or an installed bin that cannot be read, an output
-/// that cannot be written or put in place, a team the parts cannot take, or an export file
-/// that changes while the run reads it, is a Fatal finding, after which the previous output is
-/// all that is left. An exports folder or an `overrides/` folder that cannot be read is an
-/// error. A run of several CPKs installs all of them or none.
+/// of the installed CPKs listed before its first but the refs CPK (`bins::installed`). Returns
+/// the worst severity reported: a `templates/` file or an installed bin that cannot be read, an
+/// output that cannot be written or put in place, a team the parts cannot take, or an export
+/// file that changes while the run reads it, is a Fatal finding, after which the previous
+/// output is all that is left. An exports folder or an `overrides/` folder that cannot be read
+/// is an error. A run of several CPKs installs all of them or none.
 pub(crate) fn run(
     inputs: &RunInputs,
     layout: &CpkLayout,
+    refs_name: Option<&CpkStem>,
     output_folder: &Path,
     mode: &OutputMode,
     ctx: &ToolContext,
@@ -152,14 +164,18 @@ pub(crate) fn run(
     let Some(templates) = templates::read_reported(ctx, &mut events) else {
         return Ok(events.worst());
     };
+    // Listed before the preflight: whether the run holds a refs export, and so writes the refs
+    // CPK, is known from the exports' names before any file is read.
+    let sources = reader::discover(&inputs.exports_root, &inputs.exports)?;
+    let refs = refs_name.filter(|_| sources.iter().any(ExportSource::is_referees));
     let cpk_stem = layout.boundary();
     let download = if mode.deploys() {
         let official = templates.official_list();
         let (download, messages) = deploy::preflight(
             &inputs.common.pes_folder(),
             inputs.common.pes_version,
-            &layout.cpks(&official),
-            &layout.promoted(output_folder),
+            &layout.cpks(&official, refs),
+            &layout.promoted(output_folder, refs),
             &official,
         );
         for message in messages {
@@ -169,39 +185,38 @@ pub(crate) fn run(
     } else {
         None
     };
-    let Some((bins, installed)) =
-        working_bins(inputs, cpk_stem, mode.deploys(), &templates, &mut events)
-    else {
+    let Some((bins, installed)) = working_bins(
+        inputs,
+        cpk_stem,
+        refs,
+        mode.deploys(),
+        &templates,
+        &mut events,
+    ) else {
         return Ok(events.worst());
     };
-    let planned = plan(inputs, &installed, mode, download, events, ctx)?;
-    build(
-        planned,
-        bins,
-        installed,
-        templates,
-        layout,
-        output_folder,
-        mode,
-    )
+    let planned = plan(inputs, sources, installed, mode, download, events, ctx)?;
+    build(planned, bins, templates, layout, refs, output_folder, mode)
 }
 
-/// The bins the run builds on, from the installed CPKs of the PES folder or the bundled bases
-/// in `templates`, and the entry paths of the installed CPKs walked, for the texture lookup,
-/// their findings reported first. A file of the walk that cannot be read is
+/// The bins the run builds on, from the installed CPKs of the PES folder listed before
+/// `cpk_stem` but the refs CPK `refs` the run replaces, or the bundled bases in `templates`,
+/// and the entry paths of the installed CPKs walked, for the texture lookup, their findings
+/// reported first. A file of the walk that cannot be read is
 /// `installed_bin_unreadable`, Fatal, and `None`: the run stops before any export is read, the
 /// previous CPK kept, rather than build on an older copy that its CPK, loaded above it, would
 /// put back for every team.
 fn working_bins(
     inputs: &RunInputs,
     cpk_stem: &CpkStem,
+    refs: Option<&CpkStem>,
     deploys: bool,
     templates: &Templates,
     events: &mut RunEvents,
 ) -> Option<(WorkingBins, InstalledPaths)> {
     let pes_folder = inputs.common.pes_folder();
     let version = inputs.common.pes_version;
-    match installed::working_bins(&pes_folder, cpk_stem, version, deploys, templates) {
+    match installed::working_bins(&pes_folder, cpk_stem, refs, version, deploys, templates) {
         Ok((bins, installed, messages)) => {
             for message in messages {
                 events.message(message);
@@ -238,16 +253,20 @@ struct PlannedRun {
     overrides: BTreeMap<String, PathBuf>,
     /// Every source in export order, with its revision when it was validated.
     sources: Vec<(ExportSource, Option<SourceRevision>)>,
+    /// The entry paths of the installed CPKs walked, which validation looked in and the
+    /// tasks look in.
+    installed: InstalledPaths,
     manifest: BuildManifest,
 }
 
 /// `compile`'s first half: the `overrides/` folder listed when `mode` applies it, the
-/// validation pass, in which a texture link may name a texture one of the `installed` CPKs
-/// holds, each export's findings reported through `events`, and the run planned, to be
-/// installed into `download` when there is one.
+/// validation pass over the discovered `sources`, in which a texture link may name a texture
+/// one of the `installed` CPKs holds, each export's findings reported through `events`, and
+/// the run planned, to be installed into `download` when there is one.
 fn plan(
     inputs: &RunInputs,
-    installed: &InstalledPaths,
+    sources: Vec<ExportSource>,
+    installed: InstalledPaths,
     mode: &OutputMode,
     download: Option<PathBuf>,
     mut events: RunEvents,
@@ -262,7 +281,7 @@ fn plan(
     };
     let budget = run_budget(inputs);
     let pool = run_pool(inputs)?;
-    let pass = validation_pass(inputs, installed, &budget, &pool)?;
+    let pass = validation_pass(inputs, sources, &installed, &budget, &pool)?;
     for message in pass.run_messages {
         events.message(message);
     }
@@ -296,22 +315,24 @@ fn plan(
         pool,
         overrides,
         sources,
+        installed,
         manifest: report.manifest,
     })
 }
 
 /// `compile`'s second half: the planned tasks read and processed with the run's `templates`
-/// and the `installed` CPKs' entry paths, and written into the staged CPKs of `layout` (or
-/// loose tree, in test and sideload `mode`), the bins built on `bins`, which are then
-/// promoted, and `teamnotes.txt` written. A source that changed while its tasks were read
-/// aborts the run with `source_changed_during_run`, and a team the parts cannot take with its
-/// finding, the staging discarded.
+/// and the installed CPKs' entry paths, and written into the staged CPKs of `layout` and the
+/// refs CPK `refs`, the refs export's tasks into the latter (or loose tree, in test and
+/// sideload `mode`), the bins built on `bins`; those written are then promoted, and
+/// `teamnotes.txt` written. A source that changed while its tasks were read aborts the run
+/// with `source_changed_during_run`, and a team the parts cannot take with its finding, the
+/// staging discarded.
 fn build(
     planned: PlannedRun,
     bins: WorkingBins,
-    installed: InstalledPaths,
     templates: Templates,
     layout: &CpkLayout,
+    refs: Option<&CpkStem>,
     output_folder: &Path,
     mode: &OutputMode,
 ) -> anyhow::Result<Option<Severity>> {
@@ -323,6 +344,7 @@ fn build(
         pool,
         overrides,
         sources,
+        installed,
         manifest,
     } = planned;
     let tasks = manifest.tasks;
@@ -348,7 +370,7 @@ fn build(
     // output there is what a failed run leaves (in multi-CPK mode, the CPKs of the output
     // folder).
     let target = match mode {
-        OutputMode::Normal { .. } => layout.promoted(output_folder),
+        OutputMode::Normal { .. } => layout.promoted(output_folder, refs),
         OutputMode::Test => output_folder.join(deploy::TEST_OUTPUT),
         OutputMode::Sideload { pes_folder } => pes_folder.join(deploy::LIVECPK),
     };
@@ -365,8 +387,11 @@ fn build(
         .iter()
         .map(|(source, _)| (source.export_id, source.file_name.clone()))
         .collect();
+    let referee_tasks = referee_tasks(&tasks);
+    // The refs export is no team to place in the parts: its entries go to the refs CPK.
     let ends = last_tasks
         .iter()
+        .filter(|(index, _)| !referee_tasks.contains(index))
         .map(|(index, export_id)| {
             let name = source_names
                 .get(export_id)
@@ -374,7 +399,8 @@ fn build(
             (*index, name.clone())
         })
         .collect();
-    let (sink, staged, parts) = staged_output(mode, layout, staging.folder(), &templates, ends);
+    let (sink, staged, parts) =
+        staged_output(mode, layout, refs, staging.folder(), &templates, ends);
     let (entry_target, bins_prefix) = match mode {
         OutputMode::Normal { .. } | OutputMode::Sideload { .. } => (EntryTarget::GamePaths, ""),
         OutputMode::Test => (
@@ -384,7 +410,11 @@ fn build(
             TEST_BINS_PREFIX,
         ),
     };
-    let output = CpkOutput::new(sink, overrides, bins_prefix, parts);
+    let mut output = CpkOutput::new(sink, overrides, bins_prefix, parts);
+    if let Some(refs) = refs {
+        let path = staging.folder().join(deploy::cpk_file_name(refs));
+        output = output.with_refs(RefsCpk::new(path, referee_tasks));
+    }
     let context = CompileContext::new(
         version,
         last_tasks.len(),
@@ -452,10 +482,12 @@ fn build(
             return Ok(events.worst());
         }
     };
-    if !written {
+    if !written.team && !written.refs {
         return Ok(events.worst());
     }
-    if let (OutputMode::Normal { .. }, CpkLayout::Single { name, cap }) = (mode, layout) {
+    if written.team
+        && let (OutputMode::Normal { .. }, CpkLayout::Single { name, cap }) = (mode, layout)
+    {
         match size_over_limit(staging.folder(), name, *cap) {
             Ok(Some(message)) => events.message(message),
             Ok(None) => {}
@@ -465,6 +497,16 @@ fn build(
             }
         }
     }
+    // Only what was written is put in place: a side nothing went into leaves the installed or
+    // promoted CPKs of its names as they were. The refs CPK is named apart from the team
+    // side's, which `compile_settings` refuses it to share.
+    let staged: Vec<CpkStem> = staged
+        .into_iter()
+        .filter(|cpk| match refs {
+            Some(refs) if refs == cpk => written.refs,
+            Some(_) | None => written.team,
+        })
+        .collect();
     let promoted = promote(
         mode,
         &staging,
@@ -482,12 +524,14 @@ fn build(
 }
 
 /// Where `build` writes in the run's staging folder `run_folder` for `mode` and `layout`: the
-/// sink; the CPKs staged there, in the order they are promoted (`CpkLayout::cpks`), none for a
-/// loose tree; and multi-CPK mode's teams parts, the slots those of the official list in
-/// `templates`, each team ending at a manifest position of `ends`.
+/// sink; the CPKs staged there, the refs CPK `refs` among them, in the order they are promoted
+/// (`CpkLayout::cpks`), none for a loose tree; and multi-CPK mode's teams parts, the slots
+/// those of the official list in `templates`, each team ending at a manifest position of
+/// `ends`.
 fn staged_output(
     mode: &OutputMode,
     layout: &CpkLayout,
+    refs: Option<&CpkStem>,
     run_folder: &Path,
     templates: &Templates,
     ends: BTreeMap<usize, String>,
@@ -495,7 +539,7 @@ fn staged_output(
     match mode {
         OutputMode::Normal { .. } => {
             let official = templates.official_list();
-            let staged = layout.cpks(&official);
+            let staged = layout.cpks(&official, refs);
             match layout {
                 CpkLayout::Single { name, .. } => {
                     let sink = OutputSink::cpk(run_folder.join(deploy::cpk_file_name(name)));
@@ -531,6 +575,21 @@ fn staged_output(
             None,
         ),
     }
+}
+
+/// The manifest positions of the refs export's tasks, those of team `REFEREE_TEAM_ID`: the
+/// manifest keeps an export's tasks together, and a run compiles one refs export at most
+/// (`multiple_ref_exports`), so they are one range; empty when there are none.
+fn referee_tasks(tasks: &[BuildTask]) -> Range<usize> {
+    let is_referee = |task: &BuildTask| task.team_id == REFEREE_TEAM_ID;
+    let Some(start) = tasks.iter().position(is_referee) else {
+        return 0..0;
+    };
+    let count = tasks[start..]
+        .iter()
+        .take_while(|task| is_referee(task))
+        .count();
+    start..start + count
 }
 
 /// `cpk_size_over_limit` when the CPK `name` staged in `run_folder` is longer than `cap`
@@ -1468,14 +1527,16 @@ mod tests {
             let ctx = tool_context(root, "");
             let inputs = sandbox_inputs(root, &ctx);
             let normal = OutputMode::Normal { no_deploy: false };
-            run(&inputs, &layout, &output, &normal, &ctx).unwrap();
+            run(&inputs, &layout, None, &output, &normal, &ctx).unwrap();
             let previous = fs::read(&cpk).unwrap();
 
             let (events_tx, events) = unbounded();
             let ctx = ctx.with_events(events_tx);
+            let sources = reader::discover(&inputs.exports_root, &[]).unwrap();
             let planned = plan(
                 &inputs,
-                &InstalledPaths::Unknown,
+                sources,
+                InstalledPaths::Unknown,
                 &normal,
                 None,
                 RunEvents::new(&ctx),
@@ -1491,9 +1552,9 @@ mod tests {
             let worst = build(
                 planned,
                 bins,
-                InstalledPaths::Unknown,
                 Templates::embedded(),
                 &layout,
+                None,
                 &output,
                 &normal,
             )
@@ -1564,5 +1625,49 @@ mod tests {
             error.to_string(),
             format!("{}: cannot read the CPK's size", path.display())
         );
+    }
+
+    #[test]
+    fn the_refs_cpk_is_the_run_s_last_cpk_in_either_layout_and_sends_its_cpks_to_the_folder() {
+        let stem = |name: &str| CpkStem::new(name).unwrap();
+        let refs = stem("4cc_18_referees");
+        let official = [
+            "4cc_08_bins.cpk".to_owned(),
+            "4cc_18_referees.cpk".to_owned(),
+            "4cc_42_teams.cpk".to_owned(),
+            "4cc_41_teams.cpk".to_owned(),
+        ];
+        let single = CpkLayout::Single {
+            name: stem("4cc_99_test"),
+            cap: 3 << 30,
+        };
+        let parts = CpkLayout::Parts {
+            bins: stem("4cc_08_bins"),
+            teams_stem: "teams".to_owned(),
+            cap: 3 << 30,
+        };
+
+        assert_eq!(single.cpks(&official, None), [stem("4cc_99_test")]);
+        assert_eq!(
+            single.cpks(&official, Some(&refs)),
+            [stem("4cc_99_test"), refs.clone()]
+        );
+        assert_eq!(
+            parts.cpks(&official, Some(&refs)),
+            [
+                stem("4cc_08_bins"),
+                stem("4cc_41_teams"),
+                stem("4cc_42_teams"),
+                refs.clone()
+            ]
+        );
+
+        let output = Path::new("output");
+        assert_eq!(
+            single.promoted(output, None),
+            output.join("4cc_99_test.cpk")
+        );
+        assert_eq!(single.promoted(output, Some(&refs)), output);
+        assert_eq!(parts.promoted(output, Some(&refs)), output);
     }
 }

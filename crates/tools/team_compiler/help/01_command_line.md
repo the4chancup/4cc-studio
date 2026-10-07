@@ -182,6 +182,17 @@ its `players.txt` lists is built once and written for every slot it is listed un
 as the face `referee0NN` with the boots `k99NN` and the gloves `g99NN`, and the folder's
 textures go once into `common/999/<folder name>/`. A referee's link to a `Boots` or `Gloves`
 folder makes that folder the boots or gloves of each of his slots, merged with any of his own.
+The referees go into a CPK of their own, named by the `refs_cpk_name` setting
+(`4cc_18_referees.cpk`), never into the teams' CPKs, with `multicpk_mode` on or off. It is
+installed into the game together with the teams' CPKs, all of them or none, or left in the
+output folder with them, after them. It is written only when the `refs` export builds
+something: a compile in which only the `refs` export builds something, with no file in the
+`overrides` folder, writes it alone, and the installed team CPK stays as it was. Since the
+compile replaces it, the installed referees CPK is not one of the CPKs the team colors, kit
+colors and other files every team shares are taken from. A `refs_cpk_name` that names the team CPK (`cpk_name`), or with `multicpk_mode` on the
+`bins_cpk_name` CPK or one of the numbered `teams_cpk_name` CPKs, letter case aside, stops the
+command with exit code 2. `--mode test` and `--mode sideload` write the referees' files with
+the others' and have no referees CPK.
 
 `compile` installs the CPK into the game: it copies it into the `download` folder of the game
 folder (the `pes_folder_path` setting) and then puts it in the place of the old one, so the game

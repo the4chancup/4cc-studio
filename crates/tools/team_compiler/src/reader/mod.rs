@@ -36,6 +36,14 @@ pub(crate) struct ExportSource {
     pub(crate) team_name: Option<TeamName>,
 }
 
+impl ExportSource {
+    /// Whether the source's team name is the referees' (`refs`): a refs export, known before
+    /// any of its files is read.
+    pub(crate) fn is_referees(&self) -> bool {
+        self.team_name.as_ref().is_some_and(TeamName::is_referees)
+    }
+}
+
 /// What an export source is, which decides how it is read.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum SourceKind {
@@ -199,8 +207,7 @@ pub(crate) fn route(sources: &[ExportSource]) -> Vec<Route> {
         .zip(&routes)
         .enumerate()
         .filter(|(_, (source, route))| {
-            matches!(route, Route::Validate { .. })
-                && source.team_name.as_ref().is_some_and(TeamName::is_referees)
+            matches!(route, Route::Validate { .. }) && source.is_referees()
         })
         .map(|(index, _)| index)
         .collect();

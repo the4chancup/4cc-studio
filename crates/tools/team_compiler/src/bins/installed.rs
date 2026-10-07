@@ -4,9 +4,10 @@
 //! colors and kits for every team the run does not compile. Each bin comes from the nearest of
 //! those CPKs that holds it, and from its bundled base when none does or the walk cannot be
 //! made (no PES folder, no list, a list not naming the run's CPK); a Fox player table, which
-//! has no bundled base, is then absent. The same walk keeps every entry path of those CPKs, for
-//! the texture lookup (`pipeline.md` "Resolved decisions", "A texture a model names must
-//! exist"), which `check` makes too, reading no bin.
+//! has no bundled base, is then absent. The walk passes over the installed refs CPK when the
+//! run writes one, since the run replaces it (`pipeline.md` "5. Writer", step 5). The same
+//! walk keeps every entry path of those CPKs, for the texture lookup (`pipeline.md` "Resolved
+//! decisions", "A texture a model names must exist"), which `check` makes too, reading no bin.
 
 use std::collections::{BTreeSet, HashSet};
 use std::fs::{self, File};
@@ -160,15 +161,17 @@ struct Wanted {
 }
 
 /// The bins a run compiling `cpk_stem` for `version` builds on, taken from the installed
-/// CPKs of the PES folder `pes_folder` (`pipeline.md` "Bins accumulation"), a bin none of them
-/// holds from its bundled base in the run's `templates` (a Fox player table, having none, is
-/// then absent), the entry paths of the CPKs walked, and the findings: a `bin_source` per bin
-/// found or bundled, and `dpfilelist_missing` when the folder has no list (an Error when the
-/// run `deploys`, a Warning when not). A list, a CPK or a bin that cannot be read is the error:
-/// the run stops rather than build on an older copy.
+/// CPKs of the PES folder `pes_folder` (`pipeline.md` "Bins accumulation"), passing over the
+/// refs CPK `refs` when the run writes one, a bin none of them holds from its bundled base in
+/// the run's `templates` (a Fox player table, having none, is then absent), the entry paths of
+/// the CPKs walked, and the findings: a `bin_source` per bin found or bundled, and
+/// `dpfilelist_missing` when the folder has no list (an Error when the run `deploys`, a
+/// Warning when not). A list, a CPK or a bin that cannot be read is the error: the run stops
+/// rather than build on an older copy.
 pub(crate) fn working_bins(
     pes_folder: &Path,
     cpk_stem: &CpkStem,
+    refs: Option<&CpkStem>,
     version: PesVersion,
     deploys: bool,
     templates: &Templates,
@@ -190,7 +193,7 @@ pub(crate) fn working_bins(
         .collect();
     let mut messages = Vec::new();
     let mut bins = WorkingBins::bundled(version, templates);
-    let walked = walk(pes_folder, cpk_stem, |cpk, name| {
+    let walked = walk(pes_folder, cpk_stem, refs, |cpk, name| {
         take_bins(cpk, name, &mut wanted, &mut bins)
     })?;
     let installed = match walked {
@@ -224,20 +227,28 @@ pub(crate) fn working_bins(
     Ok((bins, installed, messages))
 }
 
-/// The entry paths of the installed CPKs listed before `cpk_name`'s, for `check`'s texture
-/// links: the walk `compile` makes, reading each CPK's table of contents and no bin, so `check`
-/// and `compile` agree on a link. `check` reports nothing about the walk: a `cpk_name` that is
-/// no valid CPK name, a missing list, or a list or CPK that cannot be read gives `Unknown`, and
-/// `compile` reports them.
-pub(crate) fn installed_paths(pes_folder: &Path, cpk_name: &str) -> InstalledPaths {
-    let cpk_stem = match CpkStem::new(cpk_name) {
-        Ok(cpk_stem) => cpk_stem,
+/// The entry paths of the installed CPKs listed before `cpk_name`'s but the refs CPK
+/// `refs_name`, when given, for `check`'s texture links: the walk `compile` makes, reading each
+/// CPK's table of contents and no bin, so `check` and `compile` agree on a link. `check`
+/// reports nothing about the walk: a name that is no valid CPK name, a missing list, or a list
+/// or CPK that cannot be read gives `Unknown`, and `compile` reports them.
+pub(crate) fn installed_paths(
+    pes_folder: &Path,
+    cpk_name: &str,
+    refs_name: Option<&str>,
+) -> InstalledPaths {
+    let named = CpkStem::new(cpk_name).and_then(|cpk_stem| {
+        let refs = refs_name.map(CpkStem::new).transpose()?;
+        Ok((cpk_stem, refs))
+    });
+    let (cpk_stem, refs) = match named {
+        Ok(named) => named,
         Err(error) => {
-            log::debug!("no installed CPK looked in: cpk_name {cpk_name:?}: {error}");
+            log::debug!("no installed CPK looked in: {cpk_name:?}, {refs_name:?}: {error}");
             return InstalledPaths::Unknown;
         }
     };
-    match walk(pes_folder, &cpk_stem, |_, _| Ok(())) {
+    match walk(pes_folder, &cpk_stem, refs.as_ref(), |_, _| Ok(())) {
         Ok(Walk::Walked(paths)) => InstalledPaths::Known(paths),
         Ok(Walk::NotMade | Walk::NoList(_)) => InstalledPaths::Unknown,
         Err(unreadable) => {
@@ -257,11 +268,12 @@ type InstalledCpk = CpkArchive<BufReader<File>>;
 /// Walks every CPK `pes_folder`'s `download/DpFileList.bin` lists before `cpk_stem`'s, nearest
 /// first, keeping every entry path of each, folded, and calling `take` on each with its listed
 /// name: the texture lookup needs every path, so the walk does not stop once the bins are
-/// found. A listed CPK with no file is passed over; one that cannot be opened, or that `take`
-/// fails on, is the error, naming that CPK.
+/// found. A listed CPK with no file is passed over, and so is the refs CPK `refs` when given;
+/// one that cannot be opened, or that `take` fails on, is the error, naming that CPK.
 fn walk(
     pes_folder: &Path,
     cpk_stem: &CpkStem,
+    refs: Option<&CpkStem>,
     mut take: impl FnMut(&mut InstalledCpk, &str) -> anyhow::Result<()>,
 ) -> Result<Walk, Unreadable> {
     if !pes_folder.is_dir() {
@@ -276,8 +288,14 @@ fn walk(
     let Some(position) = list.iter().position(|name| *name == own) else {
         return Ok(Walk::NotMade);
     };
+    let refs = refs.map(deploy::cpk_file_name);
     let mut paths = HashSet::new();
     for name in list[..position].iter().rev() {
+        // The run replaces the installed refs CPK, so nothing in it is built on or looked up:
+        // a refs export's texture link is not satisfied by the referees it replaces.
+        if refs.as_ref() == Some(name) {
+            continue;
+        }
         let path = download.join(name);
         let Some(mut cpk) = open_cpk(&path)? else {
             continue;
@@ -454,6 +472,7 @@ mod tests {
         let (bins, _, messages) = working_bins(
             &pes,
             &stem(),
+            None,
             PesVersion::Pes21,
             true,
             &Templates::embedded(),
@@ -465,6 +484,7 @@ mod tests {
         let (bins, _, messages) = working_bins(
             &pes,
             &stem(),
+            None,
             PesVersion::Pes17,
             true,
             &Templates::embedded(),
@@ -484,6 +504,7 @@ mod tests {
             let (bins, _, messages) = working_bins(
                 pes,
                 &stem(),
+                None,
                 PesVersion::Pes21,
                 deploys,
                 &Templates::embedded(),
@@ -514,6 +535,7 @@ mod tests {
         let (bins, _, messages) = working_bins(
             pes,
             &stem(),
+            None,
             PesVersion::Pes21,
             true,
             &Templates::embedded(),
@@ -555,6 +577,7 @@ mod tests {
         let (_, installed, messages) = working_bins(
             pes,
             &stem(),
+            None,
             PesVersion::Pes21,
             true,
             &Templates::embedded(),
@@ -599,6 +622,7 @@ mod tests {
             working_bins(
                 pes,
                 &stem(),
+                None,
                 PesVersion::Pes21,
                 false,
                 &Templates::embedded(),
@@ -678,7 +702,7 @@ mod tests {
         install_cpk(pes, "4cc_63_midcup.cpk", &[(&after, b"after")]);
 
         assert_eq!(
-            installed_paths(pes, "4cc_99_test"),
+            installed_paths(pes, "4cc_99_test", None),
             InstalledPaths::Known(HashSet::from([
                 vtree::fold_name(paths::UNI_COLOR),
                 vtree::fold_name(&hair),
@@ -687,27 +711,75 @@ mod tests {
     }
 
     #[test]
+    fn the_walk_passes_over_the_refs_cpk_only_when_one_is_named() {
+        let temp = scratch("installed_walk_refs");
+        let pes = temp.path();
+        install_list(
+            pes,
+            &["4cc_08_bins.cpk", "4cc_18_referees.cpk", "4cc_99_test.cpk"],
+        );
+        let hair = paths::common_texture(714, "hair");
+        install_cpk(pes, "4cc_08_bins.cpk", &[(&hair, b"hair")]);
+        let skin = paths::common_texture(999, "skin");
+        install_cpk(
+            pes,
+            "4cc_18_referees.cpk",
+            &[(&skin, b"skin"), (paths::TEAM_COLOR, &team_color_bin(1))],
+        );
+
+        assert_eq!(
+            installed_paths(pes, "4cc_99_test", Some("4cc_18_referees")),
+            InstalledPaths::Known(HashSet::from([vtree::fold_name(&hair)]))
+        );
+        assert_eq!(
+            installed_paths(pes, "4cc_99_test", None),
+            InstalledPaths::Known(HashSet::from([
+                vtree::fold_name(&hair),
+                vtree::fold_name(&skin),
+                vtree::fold_name(paths::TEAM_COLOR),
+            ]))
+        );
+        assert_eq!(
+            installed_paths(pes, "4cc_99_test", Some("con")),
+            InstalledPaths::Unknown,
+            "no valid CPK name"
+        );
+        // `compile`'s walk takes no bin from it either.
+        let refs = CpkStem::new("4cc_18_referees").unwrap();
+        let (_, _, messages) = working_bins(
+            pes,
+            &stem(),
+            Some(&refs),
+            PesVersion::Pes21,
+            true,
+            &Templates::embedded(),
+        )
+        .unwrap();
+        assert_eq!(messages, all_bundled());
+    }
+
+    #[test]
     fn the_check_walk_is_unknown_wherever_compile_s_would_report_or_stop() {
         let temp = scratch("installed_check_walk_unknown");
         let pes = temp.path();
         assert_eq!(
-            installed_paths(&pes.join("PES"), "4cc_99_test"),
+            installed_paths(&pes.join("PES"), "4cc_99_test", None),
             InstalledPaths::Unknown,
             "no PES folder"
         );
         assert_eq!(
-            installed_paths(pes, "4cc_99_test"),
+            installed_paths(pes, "4cc_99_test", None),
             InstalledPaths::Unknown,
             "no list"
         );
         install_list(pes, &["4cc_61_midcup.cpk", "4cc_99_test.cpk"]);
         assert_eq!(
-            installed_paths(pes, "4cc_99_test"),
+            installed_paths(pes, "4cc_99_test", None),
             InstalledPaths::Known(HashSet::new()),
             "a listed CPK with no file is passed over"
         );
         assert_eq!(
-            installed_paths(pes, "con"),
+            installed_paths(pes, "con", None),
             InstalledPaths::Unknown,
             "no valid CPK name"
         );
@@ -719,7 +791,7 @@ mod tests {
         #[cfg(unix)]
         std::os::unix::fs::symlink(&cpk, &cpk).unwrap();
         assert_eq!(
-            installed_paths(pes, "4cc_99_test"),
+            installed_paths(pes, "4cc_99_test", None),
             InstalledPaths::Unknown,
             "a CPK that cannot be opened"
         );
@@ -736,6 +808,7 @@ mod tests {
         let (bins, _, messages) = working_bins(
             pes,
             &stem(),
+            None,
             PesVersion::Pes21,
             true,
             &Templates::embedded(),
@@ -775,6 +848,7 @@ mod tests {
         let (bins, _, messages) = working_bins(
             pes,
             &stem(),
+            None,
             PesVersion::Pes21,
             true,
             &Templates::embedded(),
@@ -816,6 +890,7 @@ mod tests {
         let (bins, _, messages) = working_bins(
             pes,
             &stem(),
+            None,
             PesVersion::Pes21,
             true,
             &Templates::embedded(),
@@ -833,6 +908,7 @@ mod tests {
         let (bins, _, messages) = working_bins(
             pes,
             &stem(),
+            None,
             PesVersion::Pes17,
             true,
             &Templates::embedded(),
@@ -853,6 +929,7 @@ mod tests {
         let Err(unreadable) = working_bins(
             pes,
             &stem(),
+            None,
             PesVersion::Pes21,
             true,
             &Templates::embedded(),
@@ -891,6 +968,7 @@ mod tests {
         let (bins, _, messages) = working_bins(
             pes,
             &stem(),
+            None,
             PesVersion::Pes21,
             true,
             &Templates::embedded(),
@@ -912,6 +990,7 @@ mod tests {
         let (bins, _, messages) = working_bins(
             pes,
             &stem(),
+            None,
             PesVersion::Pes17,
             true,
             &Templates::embedded(),
@@ -946,6 +1025,7 @@ mod tests {
             let Err(unreadable) = working_bins(
                 pes,
                 &stem(),
+                None,
                 PesVersion::Pes21,
                 true,
                 &Templates::embedded(),
@@ -973,6 +1053,7 @@ mod tests {
         let Err(unreadable) = working_bins(
             pes,
             &stem(),
+            None,
             PesVersion::Pes21,
             true,
             &Templates::embedded(),
@@ -998,6 +1079,7 @@ mod tests {
         let Err(unreadable) = working_bins(
             pes,
             &stem(),
+            None,
             PesVersion::Pes21,
             true,
             &Templates::embedded(),

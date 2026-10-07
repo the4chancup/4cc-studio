@@ -25,6 +25,9 @@ pub(crate) struct TeamCompilerSettings {
     pub(crate) cpk_part_max_size: u64,
     /// The CPK, without `.cpk`, that holds the bins and the overrides in multi-CPK mode.
     pub(crate) bins_cpk_name: String,
+    /// The CPK, without `.cpk`, that holds the referees of a normal compile whose exports
+    /// include a refs export, in single and multi-CPK mode alike.
+    pub(crate) refs_cpk_name: String,
     /// Disallowed file types are errors when on, info notes when off.
     pub(crate) strict_file_type_check: bool,
     /// Keep folders with errors instead of discarding them.
@@ -44,6 +47,7 @@ impl Default for TeamCompilerSettings {
             // the cup DLC's repository has.
             cpk_part_max_size: 3_221_225_472,
             bins_cpk_name: "4cc_08_bins".to_owned(),
+            refs_cpk_name: "4cc_18_referees".to_owned(),
             strict_file_type_check: true,
             pass_through: false,
             teams_list_path: PathBuf::from("teams_list.txt"),
@@ -92,6 +96,7 @@ mod tests {
         assert_eq!(table["teams_cpk_name"].as_str(), Some("teams"));
         assert_eq!(table["cpk_part_max_size"].as_integer(), Some(3_221_225_472));
         assert_eq!(table["bins_cpk_name"].as_str(), Some("4cc_08_bins"));
+        assert_eq!(table["refs_cpk_name"].as_str(), Some("4cc_18_referees"));
         assert_eq!(from_table(&table).unwrap(), TeamCompilerSettings::default());
     }
 

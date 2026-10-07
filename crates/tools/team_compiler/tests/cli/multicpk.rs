@@ -19,6 +19,9 @@ use crate::upgrade::pes17_list;
 /// The tracer's copies, one per team: /a/ 702, /b/ 707 and /co/ 714, in canonical order.
 const EXPORTS: [&str; 3] = ["a Midcup Tracer", "b Midcup Tracer", "co Midcup Tracer"];
 
+/// The refs CPK's file name at the default `refs_cpk_name`.
+const REFS_CPK: &str = "4cc_18_referees.cpk";
+
 /// The teams slots of the official list.
 const TEAMS_SLOTS: [&str; 5] = [
     "4cc_41_teams.cpk",
@@ -312,17 +315,28 @@ fn assert_run_s_cpks(bins: &Path, part: &Path) {
     }
 }
 
-/// Asserts every CPK of the run is in the sandbox's output folder, and nothing else but
-/// `teamnotes.txt` when the run wrote one.
-fn assert_every_cpk_promoted(sandbox: &Sandbox) {
+/// Asserts every CPK of the run is in the sandbox's output folder, the refs CPK holding the
+/// referee of slot 01 last among them when the run held a refs export (`refs`), and nothing
+/// else but `teamnotes.txt` when the run wrote one.
+fn assert_every_cpk_promoted(sandbox: &Sandbox, refs: bool) {
     let mut files = output_files(sandbox);
     files.remove("teamnotes.txt");
-    assert_eq!(files, run_cpks().into_iter().collect::<BTreeSet<_>>());
+    let mut expected: BTreeSet<String> = run_cpks().into_iter().collect();
+    if refs {
+        expected.insert(REFS_CPK.to_owned());
+    }
+    assert_eq!(files, expected);
     let output = sandbox.root.join("output");
     assert_run_s_cpks(
         &output.join("4cc_08_bins.cpk"),
         &output.join("4cc_41_teams.cpk"),
     );
+    if refs {
+        let referee = "Asset/model/character/face/real/referee001/#Win/face.fpk";
+        assert!(cpk_entries(&output.join(REFS_CPK)).contains_key(referee));
+        let part = cpk_entries(&output.join("4cc_41_teams.cpk"));
+        assert!(!part.contains_key(referee), "the referees are no team");
+    }
 }
 
 #[test]
@@ -378,11 +392,10 @@ fn a_list_without_the_teams_slots_is_one_dpfilelist_outdated_and_every_cpk_is_pr
         "{lines:#?}"
     );
     assert_eq!(run.exit_code(), 1);
-    assert_every_cpk_promoted(&sandbox);
+    assert_every_cpk_promoted(&sandbox, false);
     assert_eq!(snapshot(&sandbox.root.join("PES/download")), download);
 }
 
-// Without the scenario's refs export: its refs CPK joins the run's CPKs at step 4.19.
 #[cfg(windows)]
 // TC-DEP-11
 #[test]
@@ -393,6 +406,7 @@ fn a_locked_teams_part_is_old_cpk_locked_and_no_cpk_of_the_run_is_installed() {
     const FILE_SHARE_READ: u32 = 1;
 
     let sandbox = deploying_sandbox("multicpk_locked", install_pes);
+    crate::referees::write_ref_a(&sandbox, &["01"]);
     let download = snapshot(&sandbox.root.join("PES/download"));
     let locked = sandbox.root.join("PES/download/4cc_42_teams.cpk");
     let held_open = fs::OpenOptions::new()
@@ -421,7 +435,7 @@ fn a_locked_teams_part_is_old_cpk_locked_and_no_cpk_of_the_run_is_installed() {
         "{lines:#?}"
     );
     assert_eq!(run.exit_code(), 1);
-    assert_every_cpk_promoted(&sandbox);
+    assert_every_cpk_promoted(&sandbox, true);
     assert_eq!(snapshot(&sandbox.root.join("PES/download")), download);
     assert_eq!(leftovers(&sandbox), Vec::<String>::new());
 }
@@ -453,7 +467,7 @@ fn a_failing_copy_of_one_cpk_is_deploy_target_unwritable_and_installs_none() {
         "{lines:#?}"
     );
     assert_eq!(run.exit_code(), 1);
-    assert_every_cpk_promoted(&sandbox);
+    assert_every_cpk_promoted(&sandbox, false);
     assert_eq!(snapshot(&sandbox.root.join("PES/download")), download);
     assert_eq!(leftovers(&sandbox), ["4cc_43_teams.cpk.partial"]);
     assert!(blocking.is_dir(), "the folder that was there stays");

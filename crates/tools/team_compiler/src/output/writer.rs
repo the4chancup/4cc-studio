@@ -1,10 +1,13 @@
 //! The canonical-order CPK writer (`team_compiler/pipeline.md` "5. Writer"): the `overrides/`
 //! files first, then task batches in manifest order whatever order they arrive in, a player
 //! folder's group decided as one once its textures batch is in, then the bins. In multi-CPK
-//! mode the batches' entries go to the teams parts instead, a team at a time (`parts`).
+//! mode the batches' entries go to the teams parts instead, a team at a time (`parts`). In a
+//! normal run holding a refs export, that export's entries go to the refs CPK instead
+//! (`RefsCpk`).
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
+use std::ops::Range;
 use std::path::PathBuf;
 
 use aesthetics_export::ExportCoverage;
@@ -52,6 +55,57 @@ pub(crate) struct CpkOutput {
     /// Multi-CPK mode's teams parts, which take the batches' entries, the sink then being the
     /// bins CPK; `None` when every entry goes into the sink.
     parts: Option<TeamsParts>,
+    /// The refs CPK, which takes the refs export's entries; `None` when every entry goes to
+    /// the team side (the sink, or the parts).
+    refs: Option<RefsCpk>,
+}
+
+/// Which of a run's outputs `CpkOutput::finish` wrote: each is written only when something
+/// went into it.
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) struct Written {
+    /// The team side: the sink (the single CPK, the bins CPK or the loose tree), with the teams
+    /// parts and their placeholders when there are parts.
+    pub(crate) team: bool,
+    /// The refs CPK.
+    pub(crate) refs: bool,
+}
+
+/// The refs CPK being written (`pipeline.md` "5. Writer", step 5): the refs export's entries,
+/// which go into no CPK of the team side.
+pub(crate) struct RefsCpk {
+    /// The manifest positions of the refs export's tasks: one export's, so one range.
+    tasks: Range<usize>,
+    /// The CPK, created with its first entry.
+    sink: OutputSink,
+    /// Whether an entry went in: a refs export that commits nothing writes no refs CPK, so the
+    /// installed referees stay.
+    written: bool,
+}
+
+impl RefsCpk {
+    /// The refs CPK at `path`, taking the entries of the manifest positions `tasks`. Nothing is
+    /// written yet.
+    pub(crate) fn new(path: PathBuf, tasks: Range<usize>) -> RefsCpk {
+        RefsCpk {
+            tasks,
+            sink: OutputSink::cpk(path),
+            written: false,
+        }
+    }
+
+    /// Writes `bytes` as the entry `path`.
+    fn add(&mut self, path: &str, bytes: &[u8]) -> anyhow::Result<()> {
+        self.sink.add(path, bytes)?;
+        self.written = true;
+        Ok(())
+    }
+
+    /// Closes the CPK, when one was created; whether it was.
+    fn finish(self) -> anyhow::Result<bool> {
+        self.sink.finish()?;
+        Ok(self.written)
+    }
 }
 
 impl CpkOutput {
@@ -76,6 +130,16 @@ impl CpkOutput {
             committed: BTreeSet::new(),
             bins_prefix: bins_prefix.to_owned(),
             parts,
+            refs: None,
+        }
+    }
+
+    /// The same output, with the entries of `refs`' tasks going into the refs CPK instead of
+    /// the team side.
+    pub(crate) fn with_refs(self, refs: RefsCpk) -> CpkOutput {
+        CpkOutput {
+            refs: Some(refs),
+            ..self
         }
     }
 
@@ -160,8 +224,32 @@ impl CpkOutput {
         Ok(())
     }
 
-    /// Writes the bins and closes the CPK, when a batch committed something or there is an
-    /// override (else no file exists, no bin is built and nothing is reported):
+    /// Closes the refs CPK, when there is one and an entry went in, then finishes the team side
+    /// (`finish_team`). Returns which were written, and the team side's findings.
+    pub(crate) fn finish(
+        mut self,
+        version: PesVersion,
+        bins: WorkingBins,
+        team_colors: &[(u16, Vec<Rgb>)],
+        team_kits: &[TeamKits],
+        item_rows: &[ItemRow],
+    ) -> anyhow::Result<(Written, Vec<Message>)> {
+        ensure!(
+            self.pending.is_empty(),
+            "the writer never received task {} of the manifest",
+            self.next
+        );
+        let refs = match self.refs.take() {
+            Some(refs) => refs.finish()?,
+            None => false,
+        };
+        let (team, messages) =
+            self.finish_team(version, bins, team_colors, team_kits, item_rows)?;
+        Ok((Written { team, refs }, messages))
+    }
+
+    /// Writes the bins and closes the CPK, when a team's batch committed something or there is
+    /// an override (else no file exists, no bin is built and nothing is reported):
     /// `UniformParameter.bin`, built on `bins`' by `kit_configs` from `team_kits` and the
     /// committed kit configs, when that changed it (a committed kit config on a version without
     /// the bin, PES 15-17, is an error); then `TeamColor.bin`, built on `bins`' with every
@@ -176,7 +264,7 @@ impl CpkOutput {
     /// `bin_header_repaired` per working bin that had a header wrong, naming the teams, a
     /// `player_table_missing` per list not found that committed rows were left out of, and a
     /// `duplicate_path` for each bin an override replaced.
-    pub(crate) fn finish(
+    fn finish_team(
         mut self,
         version: PesVersion,
         bins: WorkingBins,
@@ -184,19 +272,12 @@ impl CpkOutput {
         team_kits: &[TeamKits],
         item_rows: &[ItemRow],
     ) -> anyhow::Result<(bool, Vec<Message>)> {
-        ensure!(
-            self.pending.is_empty(),
-            "the writer never received task {} of the manifest",
-            self.next
-        );
-        // A run that committed nothing writes no file, so it adds no bin either, unless the
-        // overrides go into the CPK: they are written whatever the exports bring.
-        if !self.started {
-            if self.overrides.is_empty() {
-                return Ok((false, Vec::new()));
-            }
-            self.start()?;
+        // A run in which no team committed anything writes no file, so it adds no bin either,
+        // unless the overrides go into the CPK: they are written whatever the exports bring.
+        if !self.started && self.overrides.is_empty() {
+            return Ok((false, Vec::new()));
         }
+        self.start()?;
         let WorkingBins {
             team_color,
             uni_color,
@@ -292,15 +373,25 @@ impl CpkOutput {
     /// A failed task contributes nothing: no entry, no kit config or kit colors to the bins, and
     /// no player table row. A task with an entry an override replaced still contributes the
     /// rest, its kit config, kit colors and rows included, and the `duplicate_path` joins its
-    /// messages. With parts, the entries are held for the task's team instead of written.
+    /// messages. With parts, the entries are held for the task's team instead of written. A
+    /// task of the refs export writes into the refs CPK, and does not start the team side.
     fn commit(&mut self, batch: &mut TaskBatch) -> anyhow::Result<()> {
         if batch.entries.is_empty() {
             return Ok(());
         }
         for (path, bytes) in std::mem::take(&mut batch.entries) {
-            if !self.admit(&path, &mut batch.messages)? {
+            if self.overridden(&path, &mut batch.messages) {
                 continue;
             }
+            if let Some(refs) = self
+                .refs
+                .as_mut()
+                .filter(|refs| refs.tasks.contains(&batch.index))
+            {
+                refs.add(&path, &bytes)?;
+                continue;
+            }
+            self.start()?;
             match &mut self.parts {
                 Some(parts) => parts.hold(path, bytes),
                 None => self.sink.add(&path, &bytes)?,
@@ -319,32 +410,30 @@ impl CpkOutput {
         Ok(())
     }
 
-    /// Adds `bytes` at `path` to the sink when `admit` lets it in.
+    /// Adds `bytes` at `path` to the sink, after the overrides when this is its first entry,
+    /// unless an override holds `path` (`overridden`).
     fn add(&mut self, path: &str, bytes: &[u8], messages: &mut Vec<Message>) -> anyhow::Result<()> {
-        if self.admit(path, messages)? {
-            self.sink.add(path, bytes)?;
+        if self.overridden(path, messages) {
+            return Ok(());
         }
-        Ok(())
+        self.start()?;
+        self.sink.add(path, bytes)
     }
 
-    /// Whether an entry at `path` goes into the output, the overrides added to the sink first
-    /// when this is the first entry. At an override's path it does not, the override having
-    /// won, and a `duplicate_path` naming the path goes to `messages`. Paths compare exactly,
-    /// as the CPK's own duplicate check does.
-    fn admit(&mut self, path: &str, messages: &mut Vec<Message>) -> anyhow::Result<bool> {
-        if self.overrides.contains_key(path) {
-            messages.push(tool_message(
-                Code::DuplicatePath,
-                Scope::Run,
-                Disposition::Keep,
-                vec![("path", path.to_owned())],
-            ));
-            return Ok(false);
+    /// Whether an override holds `path`, so that an entry there does not go into the output,
+    /// the override having won: a `duplicate_path` naming the path then goes to `messages`.
+    /// Paths compare exactly, as the CPK's own duplicate check does.
+    fn overridden(&self, path: &str, messages: &mut Vec<Message>) -> bool {
+        if !self.overrides.contains_key(path) {
+            return false;
         }
-        if !self.started {
-            self.start()?;
-        }
-        Ok(true)
+        messages.push(tool_message(
+            Code::DuplicatePath,
+            Scope::Run,
+            Disposition::Keep,
+            vec![("path", path.to_owned())],
+        ));
+        true
     }
 
     /// Adds the bin `bytes` at its game path `path`, after the bins prefix, as `add` adds an
@@ -359,11 +448,14 @@ impl CpkOutput {
         self.add(&path, bytes, messages)
     }
 
-    /// Adds the overrides, in path order, so they are the sink's first entries. Each override
-    /// is read as it is added: a handful of files, never charged to the memory budget. One that
-    /// cannot be read fails the output, naming it: a file the operator put there on purpose is
-    /// not skipped.
+    /// Adds the overrides, in path order, so they are the sink's first entries; nothing once
+    /// they are in. Each override is read as it is added: a handful of files, never charged to
+    /// the memory budget. One that cannot be read fails the output, naming it: a file the
+    /// operator put there on purpose is not skipped.
     fn start(&mut self) -> anyhow::Result<()> {
+        if self.started {
+            return Ok(());
+        }
         for (path, file) in &self.overrides {
             let bytes = fs::read(file)
                 .with_context(|| format!("{}: cannot read the override", file.display()))?;
@@ -438,7 +530,7 @@ mod tests {
             &[],
         )?;
         assert_eq!(messages, []);
-        Ok(written)
+        Ok(written.team)
     }
 
     /// A batch whose one message names its index.
@@ -789,7 +881,7 @@ mod tests {
             )
             .unwrap();
 
-        assert!(written);
+        assert!(written.team);
         assert_eq!(messages, [duplicate(paths::TEAM_COLOR)]);
         assert_eq!(
             layout(&path),
@@ -853,6 +945,118 @@ mod tests {
         assert!(
             entry(&path, paths::UNI_COLOR) == bundled_uni_color(),
             "no kit committed"
+        );
+    }
+
+    /// An output into `<folder>/cup.cpk` after `overrides`, the batches of `refs_tasks` going
+    /// into `<folder>/refs.cpk`.
+    fn with_refs_cpk(
+        folder: &Path,
+        overrides: BTreeMap<String, PathBuf>,
+        refs_tasks: Range<usize>,
+    ) -> CpkOutput {
+        CpkOutput::new(OutputSink::cpk(folder.join("cup.cpk")), overrides, "", None)
+            .with_refs(RefsCpk::new(folder.join("refs.cpk"), refs_tasks))
+    }
+
+    /// `output` finished for PES 21 on the bundled bins with no team colors.
+    fn finish_pes21(output: CpkOutput) -> (Written, Vec<Message>) {
+        output
+            .finish(PesVersion::Pes21, bundled(), &[], &[], &[])
+            .unwrap()
+    }
+
+    #[test]
+    fn the_refs_export_s_batches_go_into_the_refs_cpk_and_a_team_s_into_the_team_cpk() {
+        let temp = scratch("writer_refs_split");
+        let folder = temp.path();
+        let mut output = with_refs_cpk(folder, BTreeMap::new(), 1..3);
+        for batch in [
+            batch(0, &["team/a.bin"], None),
+            batch(1, &["refs/a.bin"], None),
+            batch(2, &["refs/b.bin"], None),
+            batch(3, &["team/b.bin"], None),
+        ] {
+            output.submit(batch).unwrap();
+        }
+
+        let (written, messages) = finish_pes21(output);
+
+        assert_eq!(
+            written,
+            Written {
+                team: true,
+                refs: true
+            }
+        );
+        assert_eq!(messages, []);
+        assert_eq!(
+            layout(&folder.join("cup.cpk")),
+            [
+                "team/a.bin",
+                "team/b.bin",
+                paths::TEAM_COLOR,
+                paths::UNI_COLOR
+            ]
+        );
+        assert_eq!(
+            layout(&folder.join("refs.cpk")),
+            ["refs/a.bin", "refs/b.bin"]
+        );
+    }
+
+    #[test]
+    fn a_run_whose_only_commit_is_the_refs_export_s_writes_the_refs_cpk_alone_with_no_bin() {
+        let temp = scratch("writer_refs_alone");
+        let folder = temp.path();
+        let mut output = with_refs_cpk(folder, BTreeMap::new(), 0..1);
+        output.submit(batch(0, &["refs/a.bin"], None)).unwrap();
+        // A team's failed task commits nothing.
+        output.submit(batch(1, &[], Some("kit"))).unwrap();
+
+        let (written, messages) = finish_pes21(output);
+
+        assert_eq!(
+            written,
+            Written {
+                team: false,
+                refs: true
+            }
+        );
+        assert_eq!(messages, []);
+        assert!(!folder.join("cup.cpk").exists(), "no team CPK");
+        assert_eq!(layout(&folder.join("refs.cpk")), ["refs/a.bin"]);
+    }
+
+    #[test]
+    fn an_override_at_a_refs_entry_s_path_leaves_it_out_and_goes_into_the_team_cpk() {
+        let temp = scratch("writer_refs_override");
+        let folder = temp.path();
+        let overrides = overrides(folder, &["refs/over.bin"]);
+        let mut output = with_refs_cpk(folder, overrides, 0..1);
+
+        let committed = output
+            .submit(batch(0, &["refs/over.bin", "refs/own.bin"], None))
+            .unwrap();
+
+        assert_eq!(committed, [(0, vec![note(0), duplicate("refs/over.bin")])]);
+        let (written, _) = finish_pes21(output);
+        assert_eq!(
+            written,
+            Written {
+                team: true,
+                refs: true
+            }
+        );
+        assert_eq!(layout(&folder.join("refs.cpk")), ["refs/own.bin"]);
+        let team = folder.join("cup.cpk");
+        assert_eq!(
+            layout(&team),
+            ["refs/over.bin", paths::TEAM_COLOR, paths::UNI_COLOR]
+        );
+        assert_eq!(
+            entry(&team, "refs/over.bin"),
+            override_bytes("refs/over.bin")
         );
     }
 
@@ -946,7 +1150,7 @@ mod tests {
             .finish(PesVersion::Pes21, bins, &[], &[], &[])
             .unwrap();
 
-        assert!(written);
+        assert!(written.team);
         let bin = UniformParameter::read(&entry(&path, paths::UNIFORM_PARAMETER)).unwrap();
         let mut expected = UniformParameter::read(working).unwrap();
         expected.insert("kit".to_owned(), vec![7; 120]).unwrap();
@@ -1095,7 +1299,7 @@ mod tests {
         let (written, messages) = output
             .finish(PesVersion::Pes21, bins, &team_714_colors(), &[], &[])
             .unwrap();
-        assert!(written);
+        assert!(written.team);
         let mut archive = CpkArchive::open(File::open(&path).unwrap()).unwrap();
         let entry = archive
             .entries()
@@ -1182,7 +1386,11 @@ mod tests {
             let finished = output
                 .finish(PesVersion::Pes21, broken, &team_colors, &[], &[])
                 .unwrap();
-            assert_eq!(finished, (false, Vec::new()), "{name}");
+            let nothing = Written {
+                team: false,
+                refs: false,
+            };
+            assert_eq!(finished, (nothing, Vec::new()), "{name}");
             assert!(!folder.exists(), "{name}: no file and no folder");
         }
     }
@@ -1226,7 +1434,7 @@ mod tests {
         let (written, messages) = output
             .finish(PesVersion::Pes21, bins, &[], &[], &[])
             .unwrap();
-        assert!(written);
+        assert!(written.team);
         let mut archive = CpkArchive::open(File::open(&path).unwrap()).unwrap();
         let entry = archive
             .entries()
@@ -1380,7 +1588,7 @@ mod tests {
         let (written, messages) = output
             .finish(PesVersion::Pes21, bins, &[], &[team], &[])
             .unwrap();
-        if !written {
+        if !written.team {
             return (Vec::new(), None, messages);
         }
         let layout = layout(&path);
@@ -1483,7 +1691,7 @@ mod tests {
             .finish(PesVersion::Pes21, bins, &[], &[], &rows)
             .unwrap();
 
-        assert!(written);
+        assert!(written.team);
         assert_eq!(
             messages,
             [tool_message(

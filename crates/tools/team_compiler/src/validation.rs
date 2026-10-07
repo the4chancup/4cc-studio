@@ -80,19 +80,19 @@ pub(crate) fn run_pool(inputs: &RunInputs) -> anyhow::Result<rayon::ThreadPool> 
         .context("cannot start the worker threads")
 }
 
-/// Discovers the run's sources, routes them and runs the structure pass, the deep pass and
-/// identity on each one headed for validation, on `pool`; a `.7z` export is read once for
-/// both passes, charged to `budget`. A texture `.common` link may name a texture of the team's
-/// Common output that one of the `installed` CPKs holds. Then the exports of a team several
-/// resolve to are refused (`refuse_duplicate_teams`). An exports folder holding no export is
-/// `no_exports_found`, on the run. Only an exports folder that cannot be read is an error.
+/// Routes the run's `sources` (`reader::discover`'s) and runs the structure pass, the deep
+/// pass and identity on each one headed for validation, on `pool`; a `.7z` export is read once
+/// for both passes, charged to `budget`. A texture `.common` link may name a texture of the
+/// team's Common output that one of the `installed` CPKs holds. Then the exports of a team
+/// several resolve to are refused (`refuse_duplicate_teams`). No source at all is
+/// `no_exports_found`, on the run.
 pub(crate) fn validation_pass(
     inputs: &RunInputs,
+    sources: Vec<ExportSource>,
     installed: &InstalledPaths,
     budget: &Arc<MemoryBudget>,
     pool: &rayon::ThreadPool,
 ) -> anyhow::Result<ValidationPass> {
-    let sources = reader::discover(&inputs.exports_root, &inputs.exports)?;
     let routes = pool.install(|| reader::route(&sources));
 
     let mut run_messages = Vec::new();

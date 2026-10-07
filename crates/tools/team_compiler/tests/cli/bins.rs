@@ -180,6 +180,58 @@ fn each_bin_comes_from_the_nearest_cpk_listed_below_the_run_s_own() {
 }
 
 #[test]
+fn the_installed_refs_cpk_is_passed_over_when_the_run_holds_a_refs_export() {
+    let sandbox = Sandbox::new("bins_walk_refs");
+    install_names(
+        &sandbox,
+        &["4cc_08_bins.cpk", "4cc_18_referees.cpk", "4cc_99_test.cpk"],
+    );
+    install_cpk(
+        &sandbox,
+        "4cc_08_bins.cpk",
+        &[(TEAM_COLOR, &bundled_team_color())],
+    );
+    // The bundled bin with team 702's (/a/'s) first two colors changed, which no other copy has.
+    let mut refs_team_color = bundled_team_color();
+    let record = (702 - 100) * 16;
+    refs_team_color[record + 4..record + 10].copy_from_slice(&[0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc]);
+    install_cpk(
+        &sandbox,
+        "4cc_18_referees.cpk",
+        &[(TEAM_COLOR, &refs_team_color)],
+    );
+    p2_export(&sandbox);
+    let bins_sources = |team_color_cpk: &str| {
+        vec![
+            source("TeamColor.bin", team_color_cpk),
+            source("UniColor.bin", "bundled"),
+            source("UniformParameter.bin", "bundled"),
+        ]
+    };
+    let team_cpk = sandbox.root.join("output/4cc_99_test.cpk");
+
+    // Without a refs export the installed refs CPK is one more CPK listed below the run's.
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    assert_eq!(run.exit_code(), 0, "{:#?}", run.messages());
+    assert_eq!(run.messages()[..3], bins_sources("4cc_18_referees.cpk"));
+    assert!(cpk_entries(&team_cpk)[TEAM_COLOR] == refs_team_color);
+
+    sandbox.write("exports/refs Cup/players.txt", b"01 Keeper\n");
+    sandbox.write(
+        "exports/refs Cup/Players/Keeper/face_high.fmdl",
+        &clean_model(),
+    );
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    // The run replaces it, so the walk goes on to the bins CPK below it.
+    assert_eq!(run.exit_code(), 0, "{:#?}", run.messages());
+    assert_eq!(run.messages()[..3], bins_sources("4cc_08_bins.cpk"));
+    assert!(cpk_entries(&team_cpk)[TEAM_COLOR] == bundled_team_color());
+}
+
+#[test]
 fn the_walk_reads_the_pes_folder_with_its_version_placeholder_expanded() {
     let sandbox = Sandbox::new("bins_placeholder");
     install_list(&sandbox);

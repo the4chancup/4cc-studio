@@ -118,7 +118,7 @@ pub(crate) fn run(matches: &clap::ArgMatches, ctx: &ToolContext) -> Result<u8, C
             let mode = output_mode(args.mode, args.no_deploy, &common)?;
             check_export_paths(&args.source.exports)?;
             let settings = read_settings(&ctx.tool_settings(TOOL_ID), &common)?;
-            let layout = compile_settings(&settings, &mode)?;
+            let (layout, refs) = compile_settings(&settings, &mode)?;
             let exports_root = prepare_exports_root(&args.source, &common, ctx.paths())?;
             // `settings.md` "Path resolution": a relative output folder sits beside the
             // executable; an absolute one replaces the base.
@@ -135,7 +135,14 @@ pub(crate) fn run(matches: &clap::ArgMatches, ctx: &ToolContext) -> Result<u8, C
                 common,
                 ctx.paths(),
             )?;
-            verdict(compile::run(&inputs, &layout, &output_folder, &mode, ctx))
+            verdict(compile::run(
+                &inputs,
+                &layout,
+                refs.as_ref(),
+                &output_folder,
+                &mode,
+                ctx,
+            ))
         }
         TeamCompilerCommand::UpgradeDpfl { yes } => {
             let download = download_folder(&ctx.common())?;
@@ -293,41 +300,84 @@ fn check_memory_cap(percent: f32) -> Result<(), CliError> {
 
 /// The CPKs a compile in `mode` writes, from the settings only `compile` reads: one CPK named
 /// `cpk_name`, or in multi-CPK mode the bins CPK and the teams parts (`pipeline.md` "Multi-CPK
-/// mode: teams parts"), which only a normal compile writes, so test and sideload mode ignore
-/// `multicpk_mode`. Refused: a name that is not a valid CPK name, naming its setting, and a
-/// teams stem that is the bins CPK's own. The teams stem is not checked otherwise: a stem no
-/// slot has gives no slot, and the first team then reports `cpk_slots_exhausted`.
+/// mode: teams parts"); beside them, the name of the refs CPK, `refs_cpk_name`, which a run
+/// holding a refs export writes too (`pipeline.md` "5. Writer", step 5). Only a normal compile
+/// writes either, so test and sideload mode ignore `multicpk_mode` and have no refs CPK name.
+/// Refused: a name that is not a valid CPK name, naming its setting; a teams stem that is the
+/// bins CPK's own; and a refs CPK name that is a CPK of the team side (`shared_with_team_side`).
+/// The teams stem is not checked otherwise: a stem no slot has gives no slot, and the first team
+/// then reports `cpk_slots_exhausted`.
 fn compile_settings(
     settings: &TeamCompilerSettings,
     mode: &OutputMode,
-) -> Result<CpkLayout, CliError> {
+) -> Result<(CpkLayout, Option<CpkStem>), CliError> {
     let name = cpk_stem("cpk_name", &settings.cpk_name)?;
     let cap = settings.cpk_part_max_size;
-    if !settings.multicpk_mode {
-        return Ok(CpkLayout::Single { name, cap });
-    }
     match mode {
-        OutputMode::Normal { .. } => {
-            let bins = cpk_stem("bins_cpk_name", &settings.bins_cpk_name)?;
-            // A slot is every official entry of the teams stem, so a teams stem that is the
-            // bins CPK's own would make the bins CPK a part too: two writers on one file.
-            let bins_file = deploy::cpk_file_name(&bins);
-            let bins_stem = upgrade::number_and_stem(&bins_file).map(|(_, stem)| stem);
-            if bins_stem == Some(settings.teams_cpk_name.as_str()) {
-                return Err(invalid(anyhow!(
-                    "teams_cpk_name = \"{}\" names the slots of the bins CPK, {}: the teams \
-                     parts need a stem of their own",
-                    settings.teams_cpk_name,
-                    bins.as_str()
-                )));
-            }
-            Ok(CpkLayout::Parts {
-                bins,
-                teams_stem: settings.teams_cpk_name.clone(),
-                cap,
-            })
+        OutputMode::Normal { .. } => {}
+        OutputMode::Test | OutputMode::Sideload { .. } => {
+            return Ok((CpkLayout::Single { name, cap }, None));
         }
-        OutputMode::Test | OutputMode::Sideload { .. } => Ok(CpkLayout::Single { name, cap }),
+    }
+    let layout = if settings.multicpk_mode {
+        parts_layout(settings, cap)?
+    } else {
+        CpkLayout::Single { name, cap }
+    };
+    let refs = cpk_stem("refs_cpk_name", &settings.refs_cpk_name)?;
+    if let Some(shared) = shared_with_team_side(&refs, &layout) {
+        return Err(invalid(anyhow!(
+            "refs_cpk_name = \"{}\" names {shared}: the referees need a CPK of their own",
+            refs.as_str()
+        )));
+    }
+    Ok((layout, Some(refs)))
+}
+
+/// Multi-CPK mode's CPKs: the bins CPK `bins_cpk_name`, refused when it is not a valid CPK
+/// name or when the teams stem is its own, and the teams slots, `cap` bytes each.
+fn parts_layout(settings: &TeamCompilerSettings, cap: u64) -> Result<CpkLayout, CliError> {
+    let bins = cpk_stem("bins_cpk_name", &settings.bins_cpk_name)?;
+    // A slot is every official entry of the teams stem, so a teams stem that is the bins
+    // CPK's own would make the bins CPK a part too: two writers on one file.
+    let bins_file = deploy::cpk_file_name(&bins);
+    let bins_stem = upgrade::number_and_stem(&bins_file).map(|(_, stem)| stem);
+    if bins_stem == Some(settings.teams_cpk_name.as_str()) {
+        return Err(invalid(anyhow!(
+            "teams_cpk_name = \"{}\" names the slots of the bins CPK, {}: the teams parts need \
+             a stem of their own",
+            settings.teams_cpk_name,
+            bins.as_str()
+        )));
+    }
+    Ok(CpkLayout::Parts {
+        bins,
+        teams_stem: settings.teams_cpk_name.clone(),
+        cap,
+    })
+}
+
+/// What of `layout`'s team side the refs CPK name `refs` also names, as its refusal says it:
+/// the single CPK `cpk_name`, the bins CPK, or a teams slot (any name of the teams stem, which
+/// the official list may reserve); `None` when it names none of them. Letter case aside, since
+/// Windows folds it: either way two writers would share one file.
+fn shared_with_team_side(refs: &CpkStem, layout: &CpkLayout) -> Option<String> {
+    let same = |other: &CpkStem| refs.as_str().eq_ignore_ascii_case(other.as_str());
+    match layout {
+        CpkLayout::Single { name, .. } => {
+            same(name).then(|| format!("the CPK of cpk_name = \"{}\"", name.as_str()))
+        }
+        CpkLayout::Parts {
+            bins, teams_stem, ..
+        } => {
+            if same(bins) {
+                return Some(format!("the CPK of bins_cpk_name = \"{}\"", bins.as_str()));
+            }
+            let refs_file = deploy::cpk_file_name(refs);
+            let (_, stem) = upgrade::number_and_stem(&refs_file)?;
+            stem.eq_ignore_ascii_case(teams_stem)
+                .then(|| format!("a slot of teams_cpk_name = \"{teams_stem}\""))
+        }
     }
 }
 
@@ -651,13 +701,12 @@ mod tests {
             name: CpkStem::new("4cc_99_test").unwrap(),
             cap: 3 << 30,
         };
+        let refs = CpkStem::new("4cc_18_referees").unwrap();
         let mut settings = TeamCompilerSettings::default();
-        for mode in [&deploys, &no_deploy, &OutputMode::Test] {
-            assert_eq!(
-                compile_settings(&settings, mode).unwrap(),
-                single,
-                "{mode:?}"
-            );
+        for mode in [&deploys, &no_deploy] {
+            let (layout, refs_name) = compile_settings(&settings, mode).unwrap();
+            assert_eq!(layout, single, "{mode:?}");
+            assert_eq!(refs_name.as_ref(), Some(&refs), "{mode:?}");
         }
 
         settings.multicpk_mode = true;
@@ -668,23 +717,71 @@ mod tests {
         };
         // Deploying or not.
         for mode in [&deploys, &no_deploy] {
-            assert_eq!(
-                compile_settings(&settings, mode).unwrap(),
-                parts,
-                "{mode:?}"
-            );
+            let (layout, refs_name) = compile_settings(&settings, mode).unwrap();
+            assert_eq!(layout, parts, "{mode:?}");
+            assert_eq!(refs_name.as_ref(), Some(&refs), "{mode:?}");
         }
-        // Only a normal compile splits.
+        // Only a normal compile splits or writes a refs CPK.
         let sideload = OutputMode::Sideload {
             pes_folder: PathBuf::from("PES"),
         };
-        for mode in [&OutputMode::Test, &sideload] {
-            assert_eq!(
-                compile_settings(&settings, mode).unwrap(),
-                single,
-                "{mode:?}"
-            );
+        for multicpk_mode in [false, true] {
+            settings.multicpk_mode = multicpk_mode;
+            for mode in [&OutputMode::Test, &sideload] {
+                let (layout, refs_name) = compile_settings(&settings, mode).unwrap();
+                assert_eq!(layout, single, "{mode:?}");
+                assert_eq!(refs_name, None, "{mode:?}");
+            }
         }
+    }
+
+    #[test]
+    fn compile_refuses_a_refs_cpk_name_that_is_a_cpk_of_the_team_side_naming_both_settings() {
+        let no_deploy = OutputMode::Normal { no_deploy: true };
+        let refused = |settings: &TeamCompilerSettings| {
+            let error = compile_settings(settings, &no_deploy).unwrap_err();
+            assert_eq!(error.exit_code, INVALID);
+            error.to_string()
+        };
+        let mut settings = TeamCompilerSettings {
+            refs_cpk_name: "con".to_owned(),
+            ..TeamCompilerSettings::default()
+        };
+        assert!(
+            refused(&settings).starts_with("refs_cpk_name = \"con\" is not a valid CPK name"),
+            "{settings:?}"
+        );
+
+        settings.refs_cpk_name = "4cc_99_TEST".to_owned();
+        assert_eq!(
+            refused(&settings),
+            "refs_cpk_name = \"4cc_99_TEST\" names the CPK of cpk_name = \"4cc_99_test\": the \
+             referees need a CPK of their own"
+        );
+        // Not written in test mode, and not a CPK of a multi-CPK run.
+        assert!(compile_settings(&settings, &OutputMode::Test).is_ok());
+        settings.multicpk_mode = true;
+        assert!(compile_settings(&settings, &no_deploy).is_ok());
+
+        settings.refs_cpk_name = "4cc_08_Bins".to_owned();
+        assert_eq!(
+            refused(&settings),
+            "refs_cpk_name = \"4cc_08_Bins\" names the CPK of bins_cpk_name = \"4cc_08_bins\": \
+             the referees need a CPK of their own"
+        );
+        settings.refs_cpk_name = "4cc_46_TEAMS".to_owned();
+        assert_eq!(
+            refused(&settings),
+            "refs_cpk_name = \"4cc_46_TEAMS\" names a slot of teams_cpk_name = \"teams\": the \
+             referees need a CPK of their own"
+        );
+        // A stem that only starts like the teams stem names no slot of it.
+        settings.refs_cpk_name = "4cc_46_teams2".to_owned();
+        assert!(compile_settings(&settings, &no_deploy).is_ok());
+        // Nor does the bins CPK's name in single-CPK mode.
+        settings.multicpk_mode = false;
+        settings.refs_cpk_name = "4cc_08_bins".to_owned();
+        assert!(compile_settings(&settings, &no_deploy).is_ok());
     }
 
     #[test]

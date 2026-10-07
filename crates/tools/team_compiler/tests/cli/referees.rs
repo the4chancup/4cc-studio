@@ -1,16 +1,21 @@
 //! `compile` over a refs export on Fox (`team_compiler/blue_port.md` "Referee export
 //! processing"): each referee folder prepared once and emitted under every slot `players.txt`
 //! maps it to, as `face/real/referee0NN`, `k99NN` and `g99NN`, its textures once in team 999's
-//! common subfolder of its name, and a link of his made a part of his slots' own packages.
+//! common subfolder of its name, and a link of his made a part of his slots' own packages; in a
+//! normal compile all of it goes into the refs CPK, `refs_cpk_name`, beside the team side
+//! (`team_compiler/pipeline.md` "5. Writer", step 5).
 
 use std::collections::BTreeMap;
+use std::fs;
+use std::path::Path;
 
 use crate::common::{Run, Sandbox};
 use crate::common_links::texture_directories;
 use crate::compile::{
-    compiled_players, cpk_entries, pes21_settings, tracer_kit, tracer_player_file,
+    compiled_players, cpk_entries, kit_texture, pes21_settings, tracer_kit, tracer_player_file,
 };
-use crate::compile_exports::{TEAM_COLOR, bundled_team_color};
+use crate::compile_exports::TEAM_COLOR;
+use crate::deploy::install_pes;
 use crate::models::package_names;
 use crate::sideload::slashed;
 use crate::textures::tracer_model_renaming;
@@ -30,7 +35,7 @@ fn referee_package(kind: &str, slot: &str, stem: &str) -> String {
 
 /// Writes `Ref A` mapped to each of `slots`: a face model and a boots model, each naming
 /// `skin.dds`, and `skin.dds` (TC-REF-01's referee).
-fn write_ref_a(sandbox: &Sandbox, slots: &[&str]) {
+pub(crate) fn write_ref_a(sandbox: &Sandbox, slots: &[&str]) {
     let roster: String = slots.iter().map(|slot| format!("{slot} Ref A\n")).collect();
     sandbox.write(&format!("{REFS}/players.txt"), roster.as_bytes());
     let folder = format!("{REFS}/Players/Ref A");
@@ -48,13 +53,36 @@ fn write_ref_a(sandbox: &Sandbox, slots: &[&str]) {
     );
 }
 
-/// `compile --no-deploy` in `sandbox` for PES 21: the run and its CPK's entries.
+/// The refs CPK's file name at the default `refs_cpk_name`.
+const REFS_CPK: &str = "4cc_18_referees.cpk";
+
+/// `compile --no-deploy` in `sandbox` for PES 21: the run and its refs CPK's entries.
 fn compile(sandbox: &Sandbox) -> (Run, BTreeMap<String, Vec<u8>>) {
     let run = sandbox.run(&pes21_settings(sandbox), &["compile", "--no-deploy"]);
-    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let entries = cpk_entries(&sandbox.root.join("output").join(REFS_CPK));
     (run, entries)
 }
 
+/// The line `deploy_skipped_by_flag` reports for `output/<name>`.
+fn skipped(sandbox: &Sandbox, name: &str) -> String {
+    format!(
+        "Info deploy_skipped_by_flag [Keep] (path={})",
+        sandbox.display(&format!("output/{name}"))
+    )
+}
+
+/// The names of the `.cpk` files directly in `folder`, sorted.
+fn cpk_files(folder: &Path) -> Vec<String> {
+    let mut names: Vec<String> = fs::read_dir(folder)
+        .unwrap()
+        .map(|entry| entry.unwrap().file_name().into_string().unwrap())
+        .filter(|name| name.ends_with(".cpk"))
+        .collect();
+    names.sort();
+    names
+}
+
+// TC-REF-01
 #[test]
 fn a_referee_folder_is_emitted_under_each_of_his_slots_with_his_textures_once() {
     let sandbox = Sandbox::new("ref_slots");
@@ -62,8 +90,9 @@ fn a_referee_folder_is_emitted_under_each_of_his_slots_with_his_textures_once() 
 
     let (run, entries) = compile(&sandbox);
 
+    let lines = run.messages();
     assert_eq!(
-        findings_of(&run.messages(), "refs Cup"),
+        findings_of(&lines, "refs Cup"),
         [
             "Info fmdl_weights_not_normalized [Keep] at Players/Ref A (file=boots.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Players/Ref A (file=face_high.fmdl, count=1662)",
@@ -71,7 +100,11 @@ fn a_referee_folder_is_emitted_under_each_of_his_slots_with_his_textures_once() 
         ],
         "no team_colors_missing: a referee has no team record"
     );
+    assert_eq!(lines.last(), Some(&skipped(&sandbox, REFS_CPK)));
     assert_eq!(run.exit_code(), 0);
+    // The refs export alone commits: no team CPK, and no bin, since the referees change none.
+    assert_eq!(cpk_files(&sandbox.root.join("output")), [REFS_CPK]);
+    assert!(!entries.contains_key(TEAM_COLOR));
     for slot in ["01", "20", "35"] {
         for (kind, stem) in [("face/real/referee0", "face"), ("boots/k99", "boots")] {
             let package = referee_package(kind, slot, stem);
@@ -95,8 +128,7 @@ fn a_referee_folder_is_emitted_under_each_of_his_slots_with_his_textures_once() 
                 == "/Assets/pes16/model/character/common/999/Ref A/sourceimages/"),
         "{directories:?}"
     );
-    // No team record changes for the referees, and no note is collected without one.
-    assert_eq!(entries[TEAM_COLOR], bundled_team_color());
+    // No note is collected without one.
     assert!(!sandbox.root.join("output/teamnotes.txt").exists());
 }
 
@@ -205,7 +237,7 @@ fn a_refs_export_s_kit_is_named_and_the_export_beside_it_compiled() {
     sandbox.write(&format!("{REFS}/Kits/p1/kit.dds"), &tracer_kit());
     sandbox.copy_tracer("egg Midcup Tracer");
 
-    let (run, _) = compile(&sandbox);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     let lines = run.messages();
     assert!(
@@ -216,4 +248,74 @@ fn a_refs_export_s_kit_is_named_and_the_export_beside_it_compiled() {
     );
     assert_eq!(run.exit_code(), 1);
     assert_eq!(compiled_players(&sandbox), [79205]);
+    // The refs export committed nothing, so no refs CPK replaces the installed referees.
+    assert_eq!(cpk_files(&sandbox.root.join("output")), ["4cc_99_test.cpk"]);
+}
+
+/// Writes TC-REF-01's referee in slot 01 beside the tracer as /co/ (714).
+fn refs_beside_co(sandbox: &Sandbox) {
+    write_ref_a(sandbox, &["01"]);
+    sandbox.copy_tracer("co Midcup Tracer");
+}
+
+/// Asserts the team CPK at `team` holds /co/'s kit and no referee path, and the refs CPK at
+/// `refs` Ref A's face and none of /co/'s paths.
+fn assert_split(team: &Path, refs: &Path) {
+    let team = cpk_entries(team);
+    assert!(team.contains_key(&kit_texture("u0714g1")), "/co/'s kit");
+    for path in team.keys() {
+        assert!(
+            !path.contains("/999/") && !path.contains("referee0") && !path.contains("k99"),
+            "{path}"
+        );
+    }
+    let refs = cpk_entries(refs);
+    assert!(refs.contains_key(&referee_package("face/real/referee0", "01", "face")));
+    for path in refs.keys() {
+        assert!(!path.contains("714"), "{path}");
+    }
+}
+
+// TC-REF-02
+#[test]
+fn a_refs_export_beside_a_team_goes_into_its_own_cpk_promoted_after_the_team_s() {
+    let sandbox = Sandbox::new("ref_beside_team");
+    refs_beside_co(&sandbox);
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    assert_eq!(run.exit_code(), 0, "{:#?}", run.messages());
+    let output = sandbox.root.join("output");
+    assert_split(&output.join("4cc_99_test.cpk"), &output.join(REFS_CPK));
+    let lines = run.messages();
+    let skips: Vec<&String> = lines
+        .iter()
+        .filter(|line| line.contains("deploy_skipped_by_flag"))
+        .collect();
+    assert_eq!(
+        skips,
+        [
+            &skipped(&sandbox, "4cc_99_test.cpk"),
+            &skipped(&sandbox, REFS_CPK)
+        ],
+        "one each, the team CPK first"
+    );
+}
+
+// TC-REF-02
+#[test]
+fn a_deploying_compile_installs_the_refs_cpk_with_the_team_s() {
+    let sandbox = Sandbox::new("ref_beside_team_deploys");
+    install_pes(&sandbox);
+    refs_beside_co(&sandbox);
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+    assert_eq!(run.exit_code(), 0, "{:#?}", run.messages());
+    let download = sandbox.root.join("PES/download");
+    assert_split(&download.join("4cc_99_test.cpk"), &download.join(REFS_CPK));
+    assert_eq!(
+        cpk_files(&sandbox.root.join("output")),
+        Vec::<String>::new()
+    );
 }

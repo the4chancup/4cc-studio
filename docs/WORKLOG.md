@@ -14,7 +14,7 @@ is in `AGENTS.md` ("Working documents").
 **Next:** Phase 4 is itemized and its Acceptance section written (step 4.1, 2026-10-03; its
 cross-family review (a) is queued). Next:
 the next open Phase 4 step (see the list); 4.21 to 4.24 and 4.29
-and 4.25 are done; 4.26 is done; 4.19-lead and 4.19a are done, 4.19b (the refs CPK) next; 4.14 waits on 4.31's pre-Fox export; 4.33, 4.34, 4.c-pass and
+and 4.25 are done; 4.26 is done; 4.19-lead, 4.19a and 4.19b are done, 4.19c (the referee template tree) next; 4.14 waits on 4.31's pre-Fox export; 4.33, 4.34, 4.c-pass and
 4.c-fix1 are done; 4.30,
 4.5 to 4.8, 4.9a and 4.10 to 4.13 are done (4.6c moved to Phase 8's cancellation), 4.9b
 (collars) waits on nothing. 2.5b (GPU BC7) is step 16.x (decision entries
@@ -279,6 +279,13 @@ Claude agent with no sidekick and no reviewer of another model family. While tha
   (texture relocation), "Game paths reference" referee rows, the README gate paragraph's
   "Step 4.19 lifts" sentences, TC-REF-03, 05, 10 and the decision entry "a refs export's
   kits, logo and portraits are named by the gate ...".
+  4.19b (b), `team_compiler` (`output/writer.rs` `RefsCpk`, `Written`, `with_refs`,
+  `overridden`; `compile.rs` `run`'s discovery, `CpkLayout::cpks`/`promoted` with `refs`,
+  `referee_tasks`, the written filter; `cli.rs` `compile_settings`, `parts_layout`,
+  `shared_with_team_side`; `bins/installed.rs` `walk`, `installed_paths`; `validation.rs`
+  `validation_pass`; `reader/mod.rs` `ExportSource::is_referees`), its commit of 2026-10-07,
+  against `pipeline.md` "5. Writer" step 5, `settings.md` `refs_cpk_name`, TC-REF-01, 02,
+  TC-DEP-11 and the decision entry "the refs CPK beside the team side ...".
 - For the lead, on return: the review process on trial (3.1) opens with a full sidekick review
   loop, then runs GPT's loop with a full sidekick loop after each GPT round, calling GPT again
   only once that sidekick loop has ended and GPT's own loop has not; not yet in `AGENTS.md`
@@ -1331,10 +1338,13 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   portrait named), `link_feeds_own_package` (a referee's every link builds his slot's own
   package; shared by the gate, `ids.rs` and planning); `plan/mod.rs` `mapped_folders`,
   generic `player_folders`; help chapter; `tests/cli/referees.rs`. TC-REF-03, 05, 10.
-  4.19b: the refs CPK (`refs_cpk_name`; `CpkLayout`'s CPKs gain it after the others when a
-  refs export is in the run; a second sink chosen by the export's identity; stem uniqueness;
-  preflight, deploy and promote through `cpks()`; the walk passes over it); TC-REF-01, 02,
-  TC-DEP-11's refs half.
+  4.19b done 2026-10-07: the refs CPK: `settings.rs` `refs_cpk_name`; `cli.rs`
+  `compile_settings` returns it beside the layout (normal mode), `shared_with_team_side`
+  refusals; `compile.rs` sources discovered before the preflight, `cpks`/`promoted` take
+  `refs`, `referee_tasks`, only the written CPKs promoted or installed; `writer.rs` `RefsCpk`,
+  `Written`, `overridden` (the `admit` split); `bins/installed.rs` the walk passes over the
+  refs CPK (`check`'s too); `validation_pass` takes the discovered sources. TC-REF-01, 02,
+  TC-DEP-11.
   4.19c: the template tree written into the refs CPK (and `livecpk/`, test output), its
   overrides; TC-OUT-09's referee half.
   Moved out: the referee marker (collar 77, `ref_marker.dds`; TC-REF-04, 06, 07, 08) is step
@@ -3183,3 +3193,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
     textures once under `common/999/<folder>/`, a link to `Boots`/`Gloves` made each slot's
     own; a referee export's kit, logo or portrait is still skipped by name. It lands in the
     run's one CPK until 4.19b writes the refs CPK.
+  - **4.19b:** the referees go into their own CPK, `refs_cpk_name` (`4cc_18_referees`),
+    installed or promoted with the team CPKs, all or none; a compile whose only output is
+    the referees writes that CPK alone and leaves the team CPK installed as it was. A
+    `refs_cpk_name` naming a team-side CPK is refused.
