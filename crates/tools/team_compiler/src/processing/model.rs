@@ -20,7 +20,7 @@ use crate::messages::Code;
 use crate::paths;
 use crate::plan::ModelFolder;
 use crate::plan::subset::{ModelPackage, PlayerFile, file_stem};
-use crate::templates;
+use crate::templates::Templates;
 
 /// One model of the package: a part of the output model its allowed name names, from the
 /// folder's own files, a combined shared folder's, or the export's `Common/` folder through a
@@ -51,13 +51,15 @@ enum PartTextures {
 }
 
 /// The `package` of `folder`, compiled from its files' bytes in `files` for team `team_id`
-/// and emitted under each of `ids`: the package's `.fpk` and an empty `.fpkd` per id. A
-/// merge of several parts into one model is noted in `findings` as `fmdl_merged`.
+/// and emitted under each of `ids`: the package's `.fpk` and an empty `.fpkd` per id, a file
+/// the game needs beside the models that no source holds taken from `templates`. A merge of
+/// several parts into one model is noted in `findings` as `fmdl_merged`.
 pub(super) fn package(
     folder: &ModelFolder,
     package: ModelPackage,
     ids: &[u32],
     team_id: u16,
+    templates: &Templates,
     files: &mut TaskFiles,
     findings: &mut Vec<Finding>,
 ) -> Result<Vec<Entry>, TaskFailure> {
@@ -206,29 +208,29 @@ pub(super) fn package(
     // The game loads the boots and the hair with a skeleton beside them, under the slot's
     // name (`player_folders.md` "SKL pairing"): the parts' own when they bring one, else the
     // standard full-body one. A face also needs its `face_diff.bin`, and a hair its
-    // `fcl_hair_sim.fclo`: a source's own when one holds it, else the bundled template
+    // `fcl_hair_sim.fclo`: a source's own when one holds it, else the run's template
     // ("What the injected files are").
     match package {
         ModelPackage::Boots => {
             fpk.insert(
                 "boots.skl".to_owned(),
-                skeleton.unwrap_or_else(|| templates::BODY_SKELETON.to_vec()),
+                skeleton.unwrap_or_else(|| templates.body_skeleton().to_vec()),
             );
         }
         ModelPackage::Face => {
             if fpk.get("face_diff.bin").is_none() {
-                fpk.insert("face_diff.bin".to_owned(), templates::FACE_DIFF.to_vec());
+                fpk.insert("face_diff.bin".to_owned(), templates.face_diff().to_vec());
             }
             if fpk.get("fcl_hair.fmdl").is_some() {
                 if fpk.get("fcl_hair_sim.fclo").is_none() {
                     fpk.insert(
                         "fcl_hair_sim.fclo".to_owned(),
-                        templates::FCL_HAIR_SIM_FCLO.to_vec(),
+                        templates.fcl_hair_sim().to_vec(),
                     );
                 }
                 fpk.insert(
                     "fcl_hair_sim.skl".to_owned(),
-                    skeleton.unwrap_or_else(|| templates::BODY_SKELETON.to_vec()),
+                    skeleton.unwrap_or_else(|| templates.body_skeleton().to_vec()),
                 );
             }
         }

@@ -13,8 +13,8 @@ is in `AGENTS.md` ("Working documents").
 "Handover"). Phases 1 and 2 done (Phase 2 closed 2026-09-30).
 **Next:** Phase 4 is itemized and its Acceptance section written (step 4.1, 2026-10-03; its
 cross-family review (a) is queued). Next:
-4.21b (the `templates/` override; 4.21a, the installed bins, is done; 4.14 waits on 4.31's
-pre-Fox export); 4.33, 4.34, 4.c-pass and
+4.21c (FPC patching of absent kit slots and a `Full` team's stale kit configs; 4.21a and
+4.21b are done; 4.14 waits on 4.31's pre-Fox export); 4.33, 4.34, 4.c-pass and
 4.c-fix1 are done; 4.30,
 4.5 to 4.8, 4.9a and 4.10 to 4.13 are done (4.6c moved to Phase 8's cancellation), 4.9b
 (collars) waits on nothing. 2.5b (GPU BC7) is step 16.x (decision entries
@@ -191,6 +191,11 @@ Claude agent with no sidekick and no reviewer of another model family. While tha
   `messages.md` (`dpfilelist_missing`, `installed_bin_unreadable`, `bin_source`),
   `settings.md` `pes_folder_path`, TC-BIN-05, 08, 09, 13, 21 and the decision entry "the
   working-bin walk's edges, and the measured DpFileList layout".
+  4.21b (b), `team_compiler` (`templates.rs` `Templates`, `Resource`, `RESOURCES`; its reach
+  into `compile.rs`, `bins/`, `processing/`), its commit of 2026-10-07, against `pipeline.md`
+  "Resolved decisions" ("Templates and fallback bins"), `messages.md`
+  (`template_override_unreadable`, `template_override_active`), TC-BIN-07 and the decision
+  entry "`templates/` overrides: flat names, read first, unreadable aborts".
 - For the lead, on return: the review process on trial (3.1) opens with a full sidekick review
   loop, then runs GPT's loop with a full sidekick loop after each GPT round, calling GPT again
   only once that sidekick loop has ended and GPT's own loop has not; not yet in `AGENTS.md`
@@ -1301,6 +1306,17 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
     windows, no flag; `mutants-diff 43ed77c`: 52 mutants, 40 caught, 12 unviable, 0 missed
     (the first run missed 2, an open error other than `NotFound` taken as "no file"; two
     tests added in a second rework, the CPK one a directory on Windows and a self-link on Unix)
+  - [x] 4.21b The `templates/` override folder, done 2026-10-07 (sidekick, landed first time).
+    `templates.rs` `Templates` (a table of the eight embedded resources by file name, the
+    overrides read once by listing the folder so names compare exactly on Windows too;
+    `template_override_active` per file, `template_override_unreadable` Fatal before the
+    walk); every production use goes through the run's `Templates` (`WorkingBins::bundled`,
+    `CompileContext`, `model::package`, the placeholder kit). An override that does not parse
+    fails where the embedded one would (a color bin: `cpk_write_failed` at the end; the
+    placeholder kit: its kit's task; `body.skl`, `face_diff.bin`, `fcl_hair_sim.fclo` are packed
+    unparsed). Help paragraph. TC-BIN-07, and a face package taking `templates/face_diff.bin`.
+    Gates green (162 of 253); `clef-diff 68f00cd`: 46 windows, no flag; `mutants-diff
+    68f00cd`: 54 mutants, 41 caught, 13 unviable, 0 missed
 
 - [ ] 4.22 **Fox player tables**: `BootsList.bin` and `GloveList.bin` read from the installed CPKs
   by the same walk (the seed rows ride in `4cc_08_bins.cpk`), the (player id, item id) pair of
@@ -2862,3 +2878,5 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   - **4.21a:** the working bins come from the installed CPKs (the `DpFileList.bin` layout
     measured on four versions' lists); `pes_folder_path`'s `**` is now expanded; the placeholder
     CPK's one `placeholder` file corrected in the plan and glossary.
+  - **4.21b:** the `templates/` override folder; an unreadable override now aborts the run
+    whatever the resource (decision entry).

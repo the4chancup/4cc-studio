@@ -159,7 +159,7 @@ impl fmt::Display for FaceDiffError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::templates;
+    use crate::templates::Templates;
 
     const DIF_XML: &[u8] = include_bytes!("../tests/fixtures/face_diff/dif.xml");
     const DIF_BIN: &[u8] = include_bytes!("../tests/fixtures/face_diff/dif.bin");
@@ -191,7 +191,7 @@ mod tests {
         check(DIF_BIN).unwrap();
         // 960 bytes with a header that gives 944: a class of files cups ship.
         check(PLAIN_BIN).unwrap();
-        check(templates::FACE_DIFF).unwrap();
+        check(Templates::embedded().face_diff()).unwrap();
     }
 
     #[test]

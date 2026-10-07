@@ -339,6 +339,7 @@ mod tests {
             version,
             converter: Converter::new(),
             cache: CachePolicy::Bypass,
+            templates: crate::templates::Templates::embedded(),
         }
     }
 

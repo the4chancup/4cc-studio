@@ -19,7 +19,7 @@ use super::{WorkingBins, dpfl};
 use crate::messages::{Code, deploy_message, tool_message};
 use crate::output::deploy;
 use crate::paths;
-use crate::templates;
+use crate::templates::Templates;
 
 /// A file of the walk that cannot be read: `installed_bin_unreadable`'s context.
 #[derive(Debug)]
@@ -67,19 +67,21 @@ struct Wanted {
 }
 
 /// The bins a run compiling `cpk_stem` for `version` builds on, taken from the installed
-/// CPKs of the PES folder `pes_folder` (`pipeline.md` "Bins accumulation"), and the findings:
-/// a `bin_source` per bin, and `dpfilelist_missing` when the folder has no list (an Error when
-/// the run `deploys`, a Warning when not). A list, a CPK or a bin that cannot be read is the
-/// error: the run stops rather than build on an older copy.
+/// CPKs of the PES folder `pes_folder` (`pipeline.md` "Bins accumulation"), a bin none of them
+/// holds from its bundled base in the run's `templates`, and the findings: a `bin_source` per
+/// bin, and `dpfilelist_missing` when the folder has no list (an Error when the run `deploys`,
+/// a Warning when not). A list, a CPK or a bin that cannot be read is the error: the run stops
+/// rather than build on an older copy.
 pub(crate) fn working_bins(
     pes_folder: &Path,
     cpk_stem: &CpkStem,
     version: PesVersion,
     deploys: bool,
+    templates: &Templates,
 ) -> Result<(WorkingBins, Vec<Message>), Unreadable> {
     let mut looked_for = vec![Bin::TeamColor, Bin::UniColor];
     // Only the Fox versions have the bin, and so a bundled base for it.
-    if templates::uniform_parameter_base(version).is_some() {
+    if templates.uniform_parameter_base(version).is_some() {
         looked_for.push(Bin::UniformParameter);
     }
     let mut wanted: Vec<Wanted> = looked_for
@@ -96,7 +98,7 @@ pub(crate) fn working_bins(
             deploys,
         ));
     }
-    let mut bins = WorkingBins::bundled(version);
+    let mut bins = WorkingBins::bundled(version, templates);
     for Wanted { bin, found } in wanted {
         let cpk = found
             .as_ref()
@@ -263,7 +265,7 @@ mod tests {
 
     /// Asserts that `bins` are the bundled bases of `version`.
     fn assert_bundled(bins: &WorkingBins, version: PesVersion) {
-        let bundled = WorkingBins::bundled(version);
+        let bundled = WorkingBins::bundled(version, &Templates::embedded());
         assert!(
             bins.team_color == bundled.team_color,
             "TeamColor.bin bundled"
@@ -280,11 +282,25 @@ mod tests {
         let temp = scratch("installed_no_pes");
         let pes = temp.path().join("PES");
 
-        let (bins, messages) = working_bins(&pes, &stem(), PesVersion::Pes21, true).unwrap();
+        let (bins, messages) = working_bins(
+            &pes,
+            &stem(),
+            PesVersion::Pes21,
+            true,
+            &Templates::embedded(),
+        )
+        .unwrap();
         assert_bundled(&bins, PesVersion::Pes21);
         assert_eq!(messages, all_bundled());
 
-        let (bins, messages) = working_bins(&pes, &stem(), PesVersion::Pes17, true).unwrap();
+        let (bins, messages) = working_bins(
+            &pes,
+            &stem(),
+            PesVersion::Pes17,
+            true,
+            &Templates::embedded(),
+        )
+        .unwrap();
         assert_bundled(&bins, PesVersion::Pes17);
         assert_eq!(bins.uniform_parameter, None);
         assert_eq!(messages, all_bundled()[..2]);
@@ -296,7 +312,14 @@ mod tests {
         let pes = temp.path();
         let list = pes.join("download").join("DpFileList.bin");
         for (deploys, severity) in [(true, Severity::Error), (false, Severity::Warning)] {
-            let (bins, messages) = working_bins(pes, &stem(), PesVersion::Pes21, deploys).unwrap();
+            let (bins, messages) = working_bins(
+                pes,
+                &stem(),
+                PesVersion::Pes21,
+                deploys,
+                &Templates::embedded(),
+            )
+            .unwrap();
             assert_bundled(&bins, PesVersion::Pes21);
             let missing = deploy_message(
                 Code::DpfilelistMissing,
@@ -319,7 +342,14 @@ mod tests {
         install_list(pes, &["4cc_08_bins.cpk", "4cc_61_midcup.cpk"]);
         install_cpk(pes, "4cc_61_midcup.cpk", &[(paths::UNI_COLOR, b"midcup")]);
 
-        let (bins, messages) = working_bins(pes, &stem(), PesVersion::Pes21, true).unwrap();
+        let (bins, messages) = working_bins(
+            pes,
+            &stem(),
+            PesVersion::Pes21,
+            true,
+            &Templates::embedded(),
+        )
+        .unwrap();
         assert_bundled(&bins, PesVersion::Pes21);
         assert_eq!(messages, all_bundled());
     }
@@ -332,7 +362,14 @@ mod tests {
         install_cpk(pes, "4cc_61_midcup.cpk", &[(paths::UNI_COLOR, b"midcup")]);
         install_cpk(pes, "4cc_99_test.cpk", &[(paths::UNI_COLOR, b"own")]);
 
-        let (bins, messages) = working_bins(pes, &stem(), PesVersion::Pes21, true).unwrap();
+        let (bins, messages) = working_bins(
+            pes,
+            &stem(),
+            PesVersion::Pes21,
+            true,
+            &Templates::embedded(),
+        )
+        .unwrap();
         assert_bundled(&bins, PesVersion::Pes21);
         assert_eq!(messages, all_bundled());
     }
@@ -364,12 +401,19 @@ mod tests {
             &[(paths::UNI_COLOR, b"kit colors of 40")],
         );
 
-        let (bins, messages) = working_bins(pes, &stem(), PesVersion::Pes21, true).unwrap();
+        let (bins, messages) = working_bins(
+            pes,
+            &stem(),
+            PesVersion::Pes21,
+            true,
+            &Templates::embedded(),
+        )
+        .unwrap();
         assert_eq!(bins.team_color, b"team colors of 08");
         assert_eq!(bins.uni_color, b"kit colors of 40");
         assert_eq!(
             bins.uniform_parameter,
-            WorkingBins::bundled(PesVersion::Pes21).uniform_parameter
+            WorkingBins::bundled(PesVersion::Pes21, &Templates::embedded()).uniform_parameter
         );
         assert_eq!(
             messages,
@@ -392,7 +436,14 @@ mod tests {
             &[(paths::UNIFORM_PARAMETER, b"kit configs of 08")],
         );
 
-        let (bins, messages) = working_bins(pes, &stem(), PesVersion::Pes21, true).unwrap();
+        let (bins, messages) = working_bins(
+            pes,
+            &stem(),
+            PesVersion::Pes21,
+            true,
+            &Templates::embedded(),
+        )
+        .unwrap();
         assert_eq!(
             bins.uniform_parameter.as_deref(),
             Some(&b"kit configs of 08"[..])
@@ -402,7 +453,14 @@ mod tests {
             source("UniformParameter.bin", "4cc_08_bins.cpk")
         );
 
-        let (bins, messages) = working_bins(pes, &stem(), PesVersion::Pes17, true).unwrap();
+        let (bins, messages) = working_bins(
+            pes,
+            &stem(),
+            PesVersion::Pes17,
+            true,
+            &Templates::embedded(),
+        )
+        .unwrap();
         assert_eq!(bins.uniform_parameter, None);
         assert_eq!(messages, all_bundled()[..2]);
     }
@@ -414,7 +472,13 @@ mod tests {
         let list = pes.join("download").join("DpFileList.bin");
         fs::create_dir_all(&list).unwrap();
 
-        let Err(unreadable) = working_bins(pes, &stem(), PesVersion::Pes21, true) else {
+        let Err(unreadable) = working_bins(
+            pes,
+            &stem(),
+            PesVersion::Pes21,
+            true,
+            &Templates::embedded(),
+        ) else {
             panic!("a list that cannot be read must be the error, not a missing list");
         };
         assert_eq!(unreadable.path, list);
@@ -433,7 +497,13 @@ mod tests {
         #[cfg(unix)]
         std::os::unix::fs::symlink(&cpk, &cpk).unwrap();
 
-        let Err(unreadable) = working_bins(pes, &stem(), PesVersion::Pes21, true) else {
+        let Err(unreadable) = working_bins(
+            pes,
+            &stem(),
+            PesVersion::Pes21,
+            true,
+            &Templates::embedded(),
+        ) else {
             panic!("a CPK that cannot be opened must be the error, not a CPK with no file");
         };
         assert_eq!(unreadable.path, cpk);

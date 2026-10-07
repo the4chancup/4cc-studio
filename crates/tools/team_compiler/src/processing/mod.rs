@@ -24,6 +24,7 @@ use crate::messages::{Code, tool_message};
 use crate::paths;
 use crate::plan::subset::{ModelPackage, texture_format};
 use crate::plan::{BuildTask, TaskGroup, TaskKind};
+use crate::templates::Templates;
 
 /// The bytes of every file a task reads (`TaskKind::files`), keyed by the file's export path:
 /// read from the export's source by the coordinator before the task is processed.
@@ -39,16 +40,24 @@ pub(crate) struct CompileContext {
     pub(crate) converter: Converter,
     /// Whether the converter keeps what it converts, from the run's export count.
     pub(crate) cache: CachePolicy,
+    /// The run's resources: the placeholder kit texture, and the files a model package gets
+    /// when its sources hold none.
+    pub(crate) templates: Templates,
 }
 
 impl CompileContext {
     /// The context of a run for `version` compiling `compiled_exports` exports (those with at
-    /// least one planned task), with a fresh converter.
-    pub(crate) fn new(version: PesVersion, compiled_exports: usize) -> CompileContext {
+    /// least one planned task) with `templates`, with a fresh converter.
+    pub(crate) fn new(
+        version: PesVersion,
+        compiled_exports: usize,
+        templates: Templates,
+    ) -> CompileContext {
         CompileContext {
             version,
             converter: Converter::new(),
             cache: cache_policy(compiled_exports),
+            templates,
         }
     }
 }
@@ -149,6 +158,7 @@ pub(crate) fn process_task(
             *package,
             ids,
             task.team_id,
+            &ctx.templates,
             &mut files,
             &mut findings,
         )
@@ -282,7 +292,6 @@ mod tests {
     use super::*;
     use crate::paths::TextureHome;
     use crate::plan::{CombinedFolder, CommonModel, EffectiveTeamKitFpc, ModelFolder};
-    use crate::templates;
 
     const PLAYER: &str = "Players/05 - The Chad Stormworks Player";
     const COMMON: &str = "Asset/model/character/common/792/05 - The Chad Stormworks Player/sourceimages/#windx11/shirt.ftex";
@@ -379,7 +388,12 @@ mod tests {
             charge: 0,
             group,
         };
-        process_task(3, task, files, &CompileContext::new(version, 1))
+        process_task(
+            3,
+            task,
+            files,
+            &CompileContext::new(version, 1, Templates::embedded()),
+        )
     }
 
     fn paths(batch: &TaskBatch) -> Vec<&str> {
@@ -472,7 +486,7 @@ mod tests {
         // The folder's own `face_diff.bin` is packed, not the template. (Its `.fclo` and
         // `.skl` are byte-identical to the templates, so they prove nothing here.)
         let own = std::fs::read(tracer().join(format!("{PLAYER}/face_diff.bin"))).unwrap();
-        assert_ne!(own, templates::FACE_DIFF);
+        assert_ne!(own, Templates::embedded().face_diff());
         assert_eq!(package.get("face_diff.bin").unwrap(), own);
         assert_rewritten(&texture_directories(&package, "fcl_hair.fmdl"));
     }
@@ -485,7 +499,7 @@ mod tests {
                 .join("../../../resources/skeletons/pes19/body.skl"),
         )
         .unwrap();
-        assert_ne!(bytes, templates::BODY_SKELETON);
+        assert_ne!(bytes, Templates::embedded().body_skeleton());
         bytes
     }
 
@@ -526,14 +540,17 @@ mod tests {
                 "fcl_hair_sim.skl"
             ]
         );
-        assert_eq!(package.get("face_diff.bin").unwrap(), templates::FACE_DIFF);
+        assert_eq!(
+            package.get("face_diff.bin").unwrap(),
+            Templates::embedded().face_diff()
+        );
         assert_eq!(
             package.get("fcl_hair_sim.fclo").unwrap(),
-            templates::FCL_HAIR_SIM_FCLO
+            Templates::embedded().fcl_hair_sim()
         );
         assert_eq!(
             package.get("fcl_hair_sim.skl").unwrap(),
-            templates::BODY_SKELETON
+            Templates::embedded().body_skeleton()
         );
 
         // The hair with its own skeleton: that one is packed.
@@ -566,14 +583,17 @@ mod tests {
         let package = FpkFile::read(&batch.entries[0].1).unwrap();
         let names: Vec<&str> = package.entries().map(|(name, _)| name).collect();
         assert_eq!(names, ["face_diff.bin", "face_high.fmdl"]);
-        assert_eq!(package.get("face_diff.bin").unwrap(), templates::FACE_DIFF);
+        assert_eq!(
+            package.get("face_diff.bin").unwrap(),
+            Templates::embedded().face_diff()
+        );
     }
 
     #[test]
     fn the_face_of_a_folder_with_no_face_model_is_the_bundled_face_diff_alone() {
         let folder = player(&["boots.fmdl", "face_diff.bin"]);
         let own = std::fs::read(tracer().join(format!("{PLAYER}/face_diff.bin"))).unwrap();
-        assert_ne!(own, templates::FACE_DIFF);
+        assert_ne!(own, Templates::embedded().face_diff());
         let kind = TaskKind::Models {
             folder,
             package: ModelPackage::Face,
@@ -594,7 +614,10 @@ mod tests {
         let package = FpkFile::read(&batch.entries[0].1).unwrap();
         let names: Vec<&str> = package.entries().map(|(name, _)| name).collect();
         assert_eq!(names, ["face_diff.bin"]);
-        assert_eq!(package.get("face_diff.bin").unwrap(), templates::FACE_DIFF);
+        assert_eq!(
+            package.get("face_diff.bin").unwrap(),
+            Templates::embedded().face_diff()
+        );
         let fpkd = FpkFile::read(&batch.entries[1].1).unwrap();
         assert_eq!((fpkd.kind(), fpkd.len()), (FpkKind::Fpkd, 0));
     }
@@ -655,7 +678,10 @@ mod tests {
         let package = FpkFile::read(&batch.entries[0].1).unwrap();
         let names: Vec<&str> = package.entries().map(|(name, _)| name).collect();
         assert_eq!(names, ["boots.fmdl", "boots.skl"]);
-        assert_eq!(package.get("boots.skl").unwrap(), templates::BODY_SKELETON);
+        assert_eq!(
+            package.get("boots.skl").unwrap(),
+            Templates::embedded().body_skeleton()
+        );
         assert_rewritten(&texture_directories(&package, "boots.fmdl"));
     }
 
@@ -819,7 +845,7 @@ mod tests {
         assert_eq!(cache_policy(2), CachePolicy::Use);
         assert_eq!(cache_policy(3), CachePolicy::Bypass);
         assert_eq!(
-            CompileContext::new(PesVersion::Pes21, 48).cache,
+            CompileContext::new(PesVersion::Pes21, 48, Templates::embedded()).cache,
             CachePolicy::Bypass
         );
     }
@@ -1436,7 +1462,10 @@ mod tests {
         let package = FpkFile::read(&batch.entries[0].1).unwrap();
         let names: Vec<&str> = package.entries().map(|(name, _)| name).collect();
         assert_eq!(names, ["boots.fmdl", "boots.skl"]);
-        assert_eq!(package.get("boots.skl").unwrap(), templates::BODY_SKELETON);
+        assert_eq!(
+            package.get("boots.skl").unwrap(),
+            Templates::embedded().body_skeleton()
+        );
         let merged = packed_model(&package, "boots.fmdl");
         let part = tracer_model("boots.fmdl");
         assert_eq!(merged.meshes.len(), 2 * part.meshes.len());

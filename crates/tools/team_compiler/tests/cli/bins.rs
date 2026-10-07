@@ -4,6 +4,7 @@
 use std::fs;
 use std::path::Path;
 
+use crate::BUNDLED_BINS;
 use crate::common::Sandbox;
 use crate::compile::{cpk_entries, pes21_settings, tracer_kit};
 use crate::compile_exports::{
@@ -301,4 +302,54 @@ fn an_installed_cpk_that_cannot_be_read_stops_the_run_before_any_export_is_read(
     assert!(line.starts_with(&prefix), "{line}");
     assert_eq!(run.exit_code(), 3);
     assert!(!sandbox.root.join("output/4cc_99_test.cpk").exists());
+}
+
+// TC-BIN-07
+#[test]
+fn a_templates_file_replaces_the_bundled_base_and_one_that_cannot_be_read_stops_the_run() {
+    let sandbox = Sandbox::new("bins_templates");
+    // The bundled base with one color byte of team 701's first kit entry changed, so a CPK
+    // built on the template is told from one built on the base.
+    let base = bundled_uni_color();
+    let mut record = uni_record(&base, 701).to_vec();
+    record[7] = record[7].wrapping_add(1);
+    let template = with_uni_record(&base, 701, &record);
+    sandbox.write("data/templates/UniColor.bin", &template);
+    p2_export(&sandbox);
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+    let mut expected = vec![format!(
+        "Info template_override_active [Keep] (path={})",
+        sandbox.display("data/templates/UniColor.bin")
+    )];
+    expected.extend(BUNDLED_BINS.map(str::to_owned));
+    expected.extend(P2_FINDINGS.map(str::to_owned));
+    assert_eq!(run.messages(), expected);
+    assert_eq!(run.exit_code(), 0);
+    let cpk = sandbox.root.join("output/4cc_99_test.cpk");
+    let emitted = &cpk_entries(&cpk)[UNI_COLOR];
+    assert!(
+        *emitted == with_p2(&template),
+        "UniColor.bin is the template with p2's entry set"
+    );
+    assert_eq!(uni_record(emitted, 701), record, "team 701's changed byte");
+
+    // A folder where a template's file goes cannot be read as one.
+    fs::remove_file(&cpk).unwrap();
+    fs::create_dir_all(sandbox.root.join("data/templates/TeamColor.bin")).unwrap();
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+    let lines = run.messages();
+    let [line] = lines.as_slice() else {
+        panic!("one finding, on no export: {lines:#?}");
+    };
+    let prefix = format!(
+        "Fatal template_override_unreadable [AbortRun] (path={}, error=",
+        sandbox.display("data/templates/TeamColor.bin")
+    );
+    assert!(line.starts_with(&prefix), "{line}");
+    assert_eq!(run.exit_code(), 3);
+    assert!(!cpk.exists());
 }

@@ -278,6 +278,18 @@ from the copy built into the compiler, and so does every file when the PES folde
 listed CPK, or a file in it, that cannot be read stops the compile before any export is read
 (`installed_bin_unreadable`), so the CPK you had is kept.
 
+A folder named `templates` in the data folder holds files that replace the compiler's built-in
+copies of the same name, so a cup can swap one without a new version of the compiler. The names,
+spelled exactly as here, are `TeamColor.bin` and `UniColor.bin` (the team color and kit color
+files a compile starts from when no installed CPK has them), `UniformParameter18.bin` and
+`UniformParameter19.bin` (the kit config file a compile starts from when no installed CPK has
+it, for PES 2018 and for PES 2019 to 2021), `placeholder_kit.dds` (the checkerboard texture of
+a placeholder kit), `body.skl` (the skeleton a boots or hair model gets when its folder has
+none), and `face_diff.bin` and `fcl_hair_sim.fclo` (the face file and the hair simulation file
+a face gets when its folder has none). Any other file in the folder is ignored. `compile` names
+each file it used with the note `template_override_active`. A file it cannot read stops the
+compile before any export is read (`template_override_unreadable`), so the CPK you had is kept.
+
 An FPC player's body is hidden only when every kit config of the team, the goalkeeper kit's
 included, carries the FPC values (shirt model 176, shorts model 16, collar 105, winter collar
 105). So when any player folder of an export holds the marker `fpc_on`, `compile` builds every

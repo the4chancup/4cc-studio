@@ -23,16 +23,19 @@ use crate::output::{deploy, teamnotes};
 use crate::plan::{BuildManifest, BuildTask, overrides, plan_run};
 use crate::processing::{CompileContext, TaskBatch, TaskFiles, process_task};
 use crate::reader::{ContentSource, ExportSource, SourceFailure, SourceKind, SourceRevision};
+use crate::templates::Templates;
 use crate::validation::{run_budget, run_pool, validation_pass};
 
 /// Compiles every export validation keeps into `<output_folder>/<cpk_stem>.cpk`, after the
 /// files of the data directory's `overrides/` folder, reported as events, then collects the
-/// compiled exports' notes into `<output_folder>/teamnotes.txt`. Its bins are built on those
-/// of the installed CPKs listed before its own (`bins::installed`). Returns the worst severity
-/// reported: an installed bin that cannot be read, a CPK that cannot be written or put in
-/// place, or an export file that changes while the run reads it, is a Fatal finding, after
-/// which the previous CPK is all that is left. An exports folder or an `overrides/` folder
-/// that cannot be read is an error.
+/// compiled exports' notes into `<output_folder>/teamnotes.txt`. Its resources are the
+/// embedded ones or the data directory's `templates/` files replacing them (`templates`), and
+/// its bins are built on those of the installed CPKs listed before its own
+/// (`bins::installed`). Returns the worst severity reported: a `templates/` file or an
+/// installed bin that cannot be read, a CPK that cannot be written or put in place, or an
+/// export file that changes while the run reads it, is a Fatal finding, after which the
+/// previous CPK is all that is left. An exports folder or an `overrides/` folder that cannot
+/// be read is an error.
 pub(crate) fn run(
     inputs: &RunInputs,
     cpk_stem: &CpkStem,
@@ -41,26 +44,59 @@ pub(crate) fn run(
     ctx: &ToolContext,
 ) -> anyhow::Result<Option<Severity>> {
     let mut events = RunEvents::new(ctx);
-    let Some(bins) = working_bins(inputs, cpk_stem, !no_deploy, &mut events) else {
+    let Some(templates) = templates(ctx, &mut events) else {
+        return Ok(events.worst());
+    };
+    let Some(bins) = working_bins(inputs, cpk_stem, !no_deploy, &templates, &mut events) else {
         return Ok(events.worst());
     };
     let planned = plan(inputs, events, ctx)?;
-    build(planned, bins, cpk_stem, output_folder, no_deploy)
+    build(planned, bins, templates, cpk_stem, output_folder, no_deploy)
 }
 
-/// The bins the run builds on, from the installed CPKs of the PES folder, their findings
-/// reported first. A file of the walk that cannot be read is `installed_bin_unreadable`, Fatal,
-/// and `None`: the run stops before any export is read, the previous CPK kept, rather than
-/// build on an older copy that its CPK, loaded above it, would put back for every team.
+/// The run's resources, read before anything else, their findings reported first. A
+/// `templates/` file that cannot be read is `template_override_unreadable`, Fatal, and `None`:
+/// the run stops before any export is read, the previous CPK kept, whatever the resource,
+/// because the file was put there on purpose (`pipeline.md` "Resolved decisions",
+/// "Templates and fallback bins").
+fn templates(ctx: &ToolContext, events: &mut RunEvents) -> Option<Templates> {
+    match Templates::read(ctx.paths().data_dir.as_deref()) {
+        Ok((templates, messages)) => {
+            for message in messages {
+                events.message(message);
+            }
+            Some(templates)
+        }
+        Err(unreadable) => {
+            events.message(tool_message(
+                Code::TemplateOverrideUnreadable,
+                Scope::Run,
+                Disposition::AbortRun,
+                vec![
+                    ("path", unreadable.path.display().to_string()),
+                    ("error", unreadable.error.to_string()),
+                ],
+            ));
+            None
+        }
+    }
+}
+
+/// The bins the run builds on, from the installed CPKs of the PES folder or the bundled bases
+/// in `templates`, their findings reported first. A file of the walk that cannot be read is
+/// `installed_bin_unreadable`, Fatal, and `None`: the run stops before any export is read, the
+/// previous CPK kept, rather than build on an older copy that its CPK, loaded above it, would
+/// put back for every team.
 fn working_bins(
     inputs: &RunInputs,
     cpk_stem: &CpkStem,
     deploys: bool,
+    templates: &Templates,
     events: &mut RunEvents,
 ) -> Option<WorkingBins> {
     let pes_folder = inputs.common.pes_folder();
     let version = inputs.common.pes_version;
-    match installed::working_bins(&pes_folder, cpk_stem, version, deploys) {
+    match installed::working_bins(&pes_folder, cpk_stem, version, deploys, templates) {
         Ok((bins, messages)) => {
             for message in messages {
                 events.message(message);
@@ -146,13 +182,14 @@ fn plan(
     })
 }
 
-/// `compile`'s second half: the planned tasks read, processed and written into the staged CPK,
-/// its bins built on `bins`, which is then promoted, and `teamnotes.txt` written. A source that
-/// changed while its tasks were read aborts the run with `source_changed_during_run`, the
-/// staging discarded.
+/// `compile`'s second half: the planned tasks read and processed with the run's `templates`,
+/// and written into the staged CPK, its bins built on `bins`, which is then promoted, and
+/// `teamnotes.txt` written. A source that changed while its tasks were read aborts the run with
+/// `source_changed_during_run`, the staging discarded.
 fn build(
     planned: PlannedRun,
     bins: WorkingBins,
+    templates: Templates,
     cpk_stem: &CpkStem,
     output_folder: &Path,
     no_deploy: bool,
@@ -187,7 +224,7 @@ fn build(
     let run_folder = deploy::staging_folder(output_folder);
     let cpk_name = deploy::cpk_file_name(cpk_stem);
     let output = CpkOutput::new(run_folder.join(&cpk_name), overrides);
-    let context = CompileContext::new(version, last_tasks.len());
+    let context = CompileContext::new(version, last_tasks.len(), templates);
     let (coordinated, (mut events, written)) = std::thread::scope(|scope| {
         let (batches_tx, batches_rx) = unbounded();
         let last_tasks = &last_tasks;
@@ -683,7 +720,7 @@ mod tests {
         thread::spawn(move || {
             let budget = MemoryBudget::new(cap);
             let sources = [listed(tracer_source())];
-            let context = CompileContext::new(PesVersion::Pes21, 1);
+            let context = CompileContext::new(PesVersion::Pes21, 1, Templates::embedded());
             let pool = rayon::ThreadPoolBuilder::new()
                 .num_threads(2)
                 .build()
@@ -710,7 +747,7 @@ mod tests {
         tasks: Vec<BuildTask>,
     ) -> (Option<SourceChange>, Vec<TaskBatch>) {
         let budget = MemoryBudget::new(1 << 30);
-        let context = CompileContext::new(PesVersion::Pes21, 1);
+        let context = CompileContext::new(PesVersion::Pes21, 1, Templates::embedded());
         let pool = rayon::ThreadPoolBuilder::new()
             .num_threads(2)
             .build()
@@ -816,7 +853,7 @@ mod tests {
     fn a_cancelled_budget_stops_the_coordinator_before_any_task_is_spawned() {
         let budget = MemoryBudget::new(1 << 30);
         budget.cancel();
-        let context = CompileContext::new(PesVersion::Pes21, 1);
+        let context = CompileContext::new(PesVersion::Pes21, 1, Templates::embedded());
         let pool = rayon::ThreadPoolBuilder::new()
             .num_threads(2)
             .build()
@@ -850,7 +887,7 @@ mod tests {
         // stopping the run. The cancelled check must come before the source is opened.
         let budget = MemoryBudget::new(1 << 30);
         budget.cancel();
-        let context = CompileContext::new(PesVersion::Pes21, 1);
+        let context = CompileContext::new(PesVersion::Pes21, 1, Templates::embedded());
         let pool = rayon::ThreadPoolBuilder::new()
             .num_threads(2)
             .build()
@@ -947,7 +984,12 @@ mod tests {
             &task,
             &ContentSource::new(&source, &MemoryBudget::new(1 << 30)),
         );
-        let batch = task_batch(3, task, files, &CompileContext::new(PesVersion::Pes21, 1));
+        let batch = task_batch(
+            3,
+            task,
+            files,
+            &CompileContext::new(PesVersion::Pes21, 1, Templates::embedded()),
+        );
 
         assert_eq!(batch.index, 3);
         assert!(batch.entries.is_empty() && batch.uniparam.is_none());
@@ -1090,8 +1132,8 @@ mod tests {
                 .join("egg Midcup Tracer")
                 .join(&replaced);
             fs::write(&file, b"saved over from Blender").unwrap();
-            let bins = WorkingBins::bundled(PesVersion::Pes21);
-            let worst = build(planned, bins, &stem, &output, false).unwrap();
+            let bins = WorkingBins::bundled(PesVersion::Pes21, &Templates::embedded());
+            let worst = build(planned, bins, Templates::embedded(), &stem, &output, false).unwrap();
 
             // Fatal is exit code 3: `cli.rs`'s `the_worst_severity_decides_the_exit_code`.
             assert_eq!(worst, Some(Severity::Fatal), "{replaced}");

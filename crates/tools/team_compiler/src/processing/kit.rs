@@ -16,7 +16,6 @@ use crate::messages::Code;
 use crate::paths;
 use crate::plan::EffectiveTeamKitFpc;
 use crate::plan::subset::{KIT_TEXTURE_STEMS, texture_format};
-use crate::templates::PLACEHOLDER_KIT;
 
 /// The menu icon of a kit without an `icon_<N>` marker.
 const DEFAULT_ICON: u8 = 3;
@@ -86,7 +85,10 @@ pub(super) fn kit(
         let texture = kit.textures.iter().find(|texture| texture.stem == *stem);
         let (file_name, bytes) = match texture {
             Some(texture) => (texture.file.path.name(), take(files, &texture.file)),
-            None if *stem == "kit" => ("placeholder_kit.dds", PLACEHOLDER_KIT.to_vec()),
+            None if *stem == "kit" => (
+                "placeholder_kit.dds",
+                ctx.templates.placeholder_kit().to_vec(),
+            ),
             None => continue,
         };
         let name = std::str::from_utf8(field)

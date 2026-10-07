@@ -295,14 +295,18 @@ mod tests {
 
     use super::*;
     use crate::messages::{Code, tool_message};
-    use crate::templates;
+    use crate::templates::Templates;
     use crate::testing::scratch;
 
     /// `output` finished for PES `version` on the bundled bins with no team colors, the bins
     /// asserted to report nothing: whether a CPK was written.
     fn finish_plain(output: CpkOutput, version: PesVersion) -> anyhow::Result<bool> {
-        let (written, messages) =
-            output.finish(version, WorkingBins::bundled(version), &[], &[])?;
+        let (written, messages) = output.finish(
+            version,
+            WorkingBins::bundled(version, &Templates::embedded()),
+            &[],
+            &[],
+        )?;
         assert_eq!(messages, []);
         Ok(written)
     }
@@ -641,7 +645,7 @@ mod tests {
         let (written, messages) = output
             .finish(
                 PesVersion::Pes21,
-                WorkingBins::bundled(PesVersion::Pes21),
+                WorkingBins::bundled(PesVersion::Pes21, &Templates::embedded()),
                 &team_714_colors(),
                 &[],
             )
@@ -699,7 +703,8 @@ mod tests {
         );
         assert_eq!(entry(&path, "a/over.bin"), override_bytes("a/over.bin"));
         assert!(
-            entry(&path, paths::UNI_COLOR) == WorkingBins::bundled(PesVersion::Pes21).uni_color,
+            entry(&path, paths::UNI_COLOR)
+                == WorkingBins::bundled(PesVersion::Pes21, &Templates::embedded()).uni_color,
             "no kit committed"
         );
     }
@@ -762,9 +767,12 @@ mod tests {
             .clone();
         let bin = UniformParameter::read(&archive.read(&entry).unwrap()).unwrap();
         assert_eq!(bin.get("kit"), Some(&[7; 120][..]));
-        let base =
-            UniformParameter::read(templates::uniform_parameter_base(PesVersion::Pes21).unwrap())
-                .unwrap();
+        let base = UniformParameter::read(
+            Templates::embedded()
+                .uniform_parameter_base(PesVersion::Pes21)
+                .unwrap(),
+        )
+        .unwrap();
         assert_eq!(bin.len(), base.len() + 1, "the base's entries are kept");
     }
 
@@ -775,10 +783,11 @@ mod tests {
         let mut output = CpkOutput::new(path.clone(), BTreeMap::new());
         output.submit(batch(0, &["a/b.bin"], Some("kit"))).unwrap();
         // PES 18's base stands in for an installed bin: it is not the one a PES 21 run bundles.
-        let working = templates::uniform_parameter_base(PesVersion::Pes18).unwrap();
+        let templates = Templates::embedded();
+        let working = templates.uniform_parameter_base(PesVersion::Pes18).unwrap();
         let bins = WorkingBins {
             uniform_parameter: Some(working.to_vec()),
-            ..WorkingBins::bundled(PesVersion::Pes21)
+            ..WorkingBins::bundled(PesVersion::Pes21, &Templates::embedded())
         };
 
         let (written, _) = output.finish(PesVersion::Pes21, bins, &[], &[]).unwrap();
@@ -924,10 +933,10 @@ mod tests {
 
     #[test]
     fn team_color_bin_is_the_working_bin_with_each_team_s_colors_set() {
-        let base = WorkingBins::bundled(PesVersion::Pes21).team_color;
+        let base = WorkingBins::bundled(PesVersion::Pes21, &Templates::embedded()).team_color;
         let (bin, messages) = team_color_run(
             "writer_team_colors",
-            WorkingBins::bundled(PesVersion::Pes21),
+            WorkingBins::bundled(PesVersion::Pes21, &Templates::embedded()),
         );
         let mut expected = base;
         let record = team_record(714);
@@ -938,14 +947,14 @@ mod tests {
 
     #[test]
     fn a_working_bin_s_broken_header_is_repaired_and_reported() {
-        let mut broken = WorkingBins::bundled(PesVersion::Pes21).team_color;
+        let mut broken = WorkingBins::bundled(PesVersion::Pes21, &Templates::embedded()).team_color;
         let record = team_record(799);
         broken[record..record + 4].copy_from_slice(&[0xc1, 0x12, 0x00, 0x41]);
         let (bin, messages) = team_color_run(
             "writer_team_color_repaired",
             WorkingBins {
                 team_color: broken.clone(),
-                ..WorkingBins::bundled(PesVersion::Pes21)
+                ..WorkingBins::bundled(PesVersion::Pes21, &Templates::embedded())
             },
         );
         assert_eq!(bin[record..record + 4], [0x1f, 0x03, 0x04, 0x00]);
@@ -987,7 +996,7 @@ mod tests {
             let folder = temp.path().join("run");
             let mut output = CpkOutput::new(folder.join("cup.cpk"), BTreeMap::new());
             output.submit(batch(0, &[], None)).unwrap();
-            let mut broken = WorkingBins::bundled(PesVersion::Pes21);
+            let mut broken = WorkingBins::bundled(PesVersion::Pes21, &Templates::embedded());
             broken.team_color[..4].copy_from_slice(&[1, 2, 3, 4]);
             let finished = output
                 .finish(PesVersion::Pes21, broken, &team_colors, &[])
@@ -1050,7 +1059,7 @@ mod tests {
         let (bin, messages) = uni_color_run(
             "writer_uni_color",
             vec![kit_batch(0, &["kit/kit.ftex"])],
-            WorkingBins::bundled(PesVersion::Pes21),
+            WorkingBins::bundled(PesVersion::Pes21, &Templates::embedded()),
         );
 
         assert_eq!(messages, []);
@@ -1060,7 +1069,8 @@ mod tests {
         for _ in 0..9 {
             record.extend([0xff, 0, 0, 0, 0, 0, 0, 0]);
         }
-        let mut expected = WorkingBins::bundled(PesVersion::Pes21).uni_color;
+        let mut expected =
+            WorkingBins::bundled(PesVersion::Pes21, &Templates::embedded()).uni_color;
         let start = kit_record(792);
         expected[start..start + 85].copy_from_slice(&record);
         assert!(bin == expected, "only team 792's record differs");
@@ -1071,19 +1081,19 @@ mod tests {
         let (bin, messages) = uni_color_run(
             "writer_uni_color_failed",
             vec![kit_batch(0, &[]), batch(1, &["a/b.bin"], None)],
-            WorkingBins::bundled(PesVersion::Pes21),
+            WorkingBins::bundled(PesVersion::Pes21, &Templates::embedded()),
         );
 
         assert_eq!(messages, []);
         assert!(
-            bin == WorkingBins::bundled(PesVersion::Pes21).uni_color,
+            bin == WorkingBins::bundled(PesVersion::Pes21, &Templates::embedded()).uni_color,
             "the failed kit's entry is not applied"
         );
     }
 
     #[test]
     fn each_working_color_bin_s_broken_header_is_reported_teamcolor_first() {
-        let mut bins = WorkingBins::bundled(PesVersion::Pes21);
+        let mut bins = WorkingBins::bundled(PesVersion::Pes21, &Templates::embedded());
         let team = team_record(799);
         bins.team_color[team..team + 4].copy_from_slice(&[0xc1, 0x12, 0x00, 0x41]);
         let kits = kit_record(799);

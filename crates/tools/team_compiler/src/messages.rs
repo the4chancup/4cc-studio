@@ -163,6 +163,12 @@ pub(crate) enum Code {
     InstalledBinUnreadable,
     /// The installed CPK a working bin was taken from, or `bundled` for the bundled base.
     BinSource,
+    /// A file of the data directory's `templates/` folder cannot be read; the run stops before
+    /// any export is read, the previous CPK kept.
+    TemplateOverrideUnreadable,
+    /// A file of the data directory's `templates/` folder replaces the embedded resource of
+    /// its name for the run.
+    TemplateOverrideActive,
     /// The `TeamColor.bin` or `UniColor.bin` the run built on held records whose header was
     /// not their position's; the headers are rewritten, the records' colors kept.
     BinHeaderRepaired,
@@ -191,7 +197,7 @@ impl Code {
     /// Every code, for the catalog test: a variant missing here would make its first message
     /// panic in `severity`, so a new variant is added to this list too.
     #[cfg(test)]
-    const ALL: [Code; 60] = [
+    const ALL: [Code; 62] = [
         Code::ExportExtractFailed,
         Code::NoExportsFound,
         Code::ExportDisabled,
@@ -244,6 +250,8 @@ impl Code {
         Code::DpfilelistMissing,
         Code::InstalledBinUnreadable,
         Code::BinSource,
+        Code::TemplateOverrideUnreadable,
+        Code::TemplateOverrideActive,
         Code::BinHeaderRepaired,
         Code::DuplicatePath,
         Code::CpkWriteFailed,
@@ -309,6 +317,8 @@ impl Code {
             Code::DpfilelistMissing => "dpfilelist_missing",
             Code::InstalledBinUnreadable => "installed_bin_unreadable",
             Code::BinSource => "bin_source",
+            Code::TemplateOverrideUnreadable => "template_override_unreadable",
+            Code::TemplateOverrideActive => "template_override_active",
             Code::BinHeaderRepaired => "bin_header_repaired",
             Code::DuplicatePath => "duplicate_path",
             Code::CpkWriteFailed => "cpk_write_failed",
@@ -390,6 +400,8 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("dpfilelist_missing", CatalogSeverity::ErrorOrWarning),
     ("installed_bin_unreadable", CatalogSeverity::Fatal),
     ("bin_source", CatalogSeverity::Info),
+    ("template_override_unreadable", CatalogSeverity::Fatal),
+    ("template_override_active", CatalogSeverity::Info),
     ("bin_header_repaired", CatalogSeverity::Warning),
     // The catalog's `W/E`: only the override form, a Warning, has a trigger today.
     ("duplicate_path", CatalogSeverity::Warning),

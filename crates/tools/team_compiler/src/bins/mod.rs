@@ -14,7 +14,7 @@ use anyhow::{Context, ensure};
 use kit_config::KitSlot;
 use pes_version::PesVersion;
 
-use crate::templates;
+use crate::templates::Templates;
 
 /// One color as the bins hold it: red, green, blue.
 pub(crate) type Rgb = [u8; 3];
@@ -303,13 +303,15 @@ pub(crate) struct WorkingBins {
 }
 
 impl WorkingBins {
-    /// The bundled bases for `version` (`resources/bins/`), for a run with no installed bin to
-    /// build on.
-    pub(crate) fn bundled(version: PesVersion) -> WorkingBins {
+    /// The bundled bases for `version` (`resources/bins/`, or the run's `templates/` files
+    /// replacing them), for a run with no installed bin to build on.
+    pub(crate) fn bundled(version: PesVersion, templates: &Templates) -> WorkingBins {
         WorkingBins {
-            team_color: templates::TEAM_COLOR.to_vec(),
-            uni_color: templates::UNI_COLOR.to_vec(),
-            uniform_parameter: templates::uniform_parameter_base(version).map(<[u8]>::to_vec),
+            team_color: templates.team_color().to_vec(),
+            uni_color: templates.uni_color().to_vec(),
+            uniform_parameter: templates
+                .uniform_parameter_base(version)
+                .map(<[u8]>::to_vec),
         }
     }
 }
@@ -418,7 +420,7 @@ mod tests {
 
     #[test]
     fn the_bundled_base_holds_teams_100_to_920_with_sound_headers() {
-        let bins = WorkingBins::bundled(PesVersion::Pes21);
+        let bins = WorkingBins::bundled(PesVersion::Pes21, &Templates::embedded());
         assert_eq!(bins.team_color.len(), 821 * TEAM_COLOR_RECORD);
         let mut bin = TeamColorBin::read(bins.team_color).unwrap();
         assert_eq!(bin.repair_headers(), Vec::<u16>::new());
@@ -427,7 +429,7 @@ mod tests {
     /// The bundled `UniColor.bin`'s record of team `team_id`, 85 bytes.
     fn base_record(team_id: usize) -> Vec<u8> {
         let start = (team_id - 100) * UNI_COLOR_RECORD;
-        templates::UNI_COLOR[start..start + UNI_COLOR_RECORD].to_vec()
+        Templates::embedded().uni_color()[start..start + UNI_COLOR_RECORD].to_vec()
     }
 
     /// A record of team `team_id` (as its four ID bytes) with the kit count `count` and the
@@ -478,7 +480,7 @@ mod tests {
     /// The bundled base, read, with team `team_id`'s record after `set_kit` of each of
     /// `entries` in turn.
     fn base_record_after(team_id: u16, entries: &[KitColorEntry]) -> Vec<u8> {
-        let mut bin = UniColorBin::read(templates::UNI_COLOR.to_vec()).unwrap();
+        let mut bin = UniColorBin::read(Templates::embedded().uni_color().to_vec()).unwrap();
         for entry in entries {
             bin.set_kit(team_id, entry).unwrap();
         }
@@ -624,7 +626,7 @@ mod tests {
             ],
             "the base's placeholder"
         );
-        let mut bin = UniColorBin::read(templates::UNI_COLOR.to_vec()).unwrap();
+        let mut bin = UniColorBin::read(Templates::embedded().uni_color().to_vec()).unwrap();
         bin.keep_kits(100, &[0, 0x10]).unwrap();
         assert_eq!(
             bin.into_bytes()[..UNI_COLOR_RECORD],
@@ -642,7 +644,7 @@ mod tests {
 
     #[test]
     fn a_kit_for_a_team_with_no_uni_color_record_is_an_error() {
-        let mut bin = UniColorBin::read(templates::UNI_COLOR.to_vec()).unwrap();
+        let mut bin = UniColorBin::read(Templates::embedded().uni_color().to_vec()).unwrap();
         for team_id in [99, 921] {
             let error = bin.set_kit(team_id, &tracer_g1()).unwrap_err();
             assert_eq!(
@@ -650,12 +652,12 @@ mod tests {
                 format!("UniColor.bin has no record for team {team_id}")
             );
         }
-        assert_eq!(bin.into_bytes(), templates::UNI_COLOR);
+        assert_eq!(bin.into_bytes(), Templates::embedded().uni_color());
     }
 
     #[test]
     fn the_bundled_uni_color_base_holds_teams_100_to_920_with_sound_headers() {
-        let bins = WorkingBins::bundled(PesVersion::Pes21);
+        let bins = WorkingBins::bundled(PesVersion::Pes21, &Templates::embedded());
         assert_eq!(bins.uni_color.len(), 821 * UNI_COLOR_RECORD);
         let mut bin = UniColorBin::read(bins.uni_color).unwrap();
         assert_eq!(bin.repair_headers(), Vec::<u16>::new());

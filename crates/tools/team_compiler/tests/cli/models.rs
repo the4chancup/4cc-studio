@@ -623,6 +623,39 @@ fn a_hair_model_alone_gets_the_bundled_face_diff_hair_simulation_and_body_skelet
     assert_eq!(package.get("fcl_hair_sim.skl").unwrap(), body_skl("pes21"));
 }
 
+#[test]
+fn a_templates_face_diff_replaces_the_bundled_one_in_a_face_whose_folder_holds_none() {
+    let sandbox = Sandbox::new("mod_face_template_override");
+    // The tracer's own face diff, a real one other than the bundled template.
+    let template_face_diff = tracer_player_file("face_diff.bin");
+    assert_ne!(template_face_diff, template("face_diff.bin"));
+    sandbox.write("data/templates/face_diff.bin", &template_face_diff);
+    sandbox.write(
+        "exports/co Midcup Hair/Players/05 - A/fcl_hair.fmdl",
+        &tracer_player_file("fcl_hair.fmdl"),
+    );
+
+    let entries = compile_clean(
+        &sandbox,
+        "co Midcup Hair",
+        &[
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=fcl_hair.fmdl, count=1662)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
+        ],
+    );
+
+    let package = face_package(&entries);
+    assert!(
+        package.get("face_diff.bin").unwrap() == template_face_diff,
+        "the face diff is the templates folder's"
+    );
+    assert!(
+        package.get("fcl_hair_sim.fclo").unwrap() == template("fcl_hair_sim.fclo"),
+        "a resource with no file in the folder is the bundled one"
+    );
+}
+
 // TC-MOD-13
 #[test]
 fn a_skeleton_paired_with_a_face_model_without_a_slot_is_reported_and_not_packed() {
