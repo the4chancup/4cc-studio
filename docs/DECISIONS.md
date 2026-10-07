@@ -4651,3 +4651,23 @@ Why: a collar replaces a stock collar and is put on the replacing team's kits; t
 kits are the template tree's, which wear collar 77 or their own, so a refs collar has no kit to
 go on, and a silent drop would hide a file the member meant to ship.
 Plan: `team_compiler/README.md`, the gate paragraph ("Step 4.19 lifts ...").
+
+## 2026-10-07 — team_compiler, pipeline — memory accounting: a running task charges without waiting
+Decision: a task still acquires its source bytes before loading, the coordinator's one blocking
+request. What it allocates while running (each decoded image at its RGBA size, read from the
+header before the decode; a model's parsed and merged parts at their source size, an estimate;
+its batch's entries at their length) goes through a new `MemoryBudget::charge`, which takes the
+bytes at once and never waits, so `in_flight` may pass the cap by the running tasks' workspace
+and later acquires wait for it to drain; `MemoryBudget::peak` is the measurement. The held team
+of a multi-CPK run stays outside the budget, as the plan already said, and the conversion cache
+is charged together with its eviction (step 4.y).
+Why: a permit that grows by waiting, which the plan's open question proposed to evaluate, can
+deadlock: a task holding bytes and waiting for more waits on itself once the others drain, or on
+another grower, and every worker can be in that state at once ("Admission must remain
+progress-safe"). Charging everything up front at planning would need every texture's header
+carried from the deep pass, and would charge a task's decodes as if they were simultaneous
+although they run one after another. A charge that never waits keeps the one-acquirer protocol,
+which cannot stall, and still bounds the run: the overshoot is the workers' workspace, not the
+number of teams. Charging the cache without eviction would hold bytes no completion releases.
+Plan: `libs/pipeline.md` "Memory budget"; `team_compiler/pipeline.md` "Admission" (Charges while
+a task runs), "Resolved decisions and open questions" (Complete memory accounting).

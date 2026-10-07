@@ -35,6 +35,8 @@ pub struct MemoryBudget {
 
 struct BudgetState {
     in_flight: usize,
+    /// The most `in_flight` has been since the budget was made.
+    peak: usize,
     /// Oversized requests waiting for the pipeline to drain.
     oversized_waiting: usize,
     cancelled: bool,
@@ -54,11 +56,15 @@ pub struct Cancelled;
 impl MemoryBudget {
     pub fn new(cap: usize) -> Arc<MemoryBudget>;
     pub fn acquire(self: &Arc<Self>, size: usize) -> Result<Permit, Cancelled>;
+    /// Takes `size` bytes at once, without waiting: for memory a running task allocates.
+    pub fn charge(self: &Arc<Self>, size: usize) -> Permit;
     /// Wakes every waiter; every later `acquire` returns `Cancelled`.
     pub fn cancel(&self);
     /// Whether `cancel` was called: a caller about to start work that acquires inside a
     /// callee (an archive read) checks it first.
     pub fn is_cancelled(&self) -> bool;
+    /// The most bytes held at once since the budget was made: what the tests measure.
+    pub fn peak(&self) -> usize;
 }
 
 impl Permit {
@@ -76,6 +82,14 @@ Admission rules:
   `in_flight == 0`, then takes the budget alone (`in_flight = size`) and leaves the waiting count.
   It never waits for ordinary capacity, which can never satisfy it. Two oversized requests run one
   after the other, each once the pipeline is empty again.
+- **Charge** (`charge`: memory a running task allocates, a decoded texture or a packed
+  entry): adds `size` at once, whatever `in_flight`, the cap or cancellation, and updates
+  `peak` as `acquire` does. A task that holds a permit and waits for more can wait for bytes
+  only its own completion releases, and every worker can be in that state at once
+  (`core/parallelism.md`, "Admission must remain progress-safe"), so a charge never waits.
+  `in_flight` may then pass the cap by what the running tasks hold, at most the worker count
+  times one task's workspace, and every later `acquire` waits until it drains: the run's
+  memory stays bounded whatever the number of teams.
 - **Release** is the `Permit`'s `Drop`: it subtracts its size and wakes every waiter
   (`notify_all`: an ordinary waiter and an oversized waiter wait for different conditions on one
   `Condvar`). A permit travels with its task's `TaskBatch` to the writer, which drops it once the
@@ -86,10 +100,10 @@ Admission rules:
 - The condition and the values it guards share one `Mutex`: updating a counter outside it could
   notify between a waiter's check and its wait and lose the wake-up. A poisoned mutex is a bug in
   this module (nothing panics while holding it), so `lock()` failures `expect`.
-- A task acquires once, for its whole charge, before loading. Phase 3's tasks (a player's face
-  content, a kit) know their source sizes up front; the growing permit that charges decoded
-  textures and converted models as they are allocated is the open "Complete memory accounting"
-  item in `team_compiler/pipeline.md`, decided with Phase 4's processing.
+- A task acquires once, before loading, for its source bytes, the one size known up front.
+  What it allocates while running (decoded textures, parsed and merged models, its packed
+  entries) it charges as it allocates, each charge released when that memory is freed or,
+  for the packed entries, with its batch (`team_compiler/pipeline.md` "Admission").
 
 **What a solid `.7z` is charged.** The structure pass needs a solid `.7z` export's small metadata
 (`players.txt`, `refs.txt`, `notes.txt`), and `archives` decompresses the whole archive on its
@@ -189,7 +203,10 @@ The `team_compiler/testing.md` "Infrastructure" cases for these three:
   request waits for `in_flight == 0`, then runs alone, while a later ordinary request waits for it;
   two oversized waiters both complete, one at a time (stress: several threads, many rounds, a
   timeout guard so a lost wake-up fails the test rather than hanging it); `cancel` wakes a blocked
-  ordinary and a blocked oversized waiter with `Cancelled`, and a held permit still releases.
+  ordinary and a blocked oversized waiter with `Cancelled`, and a held permit still releases;
+  a charge on a full budget, and on a cancelled one, returns at once and holds its bytes until
+  dropped; an ordinary request waits while charges keep `in_flight` above the cap and wakes
+  when they drop; `peak` is the highest `in_flight` reached through either path.
 - **Memory cap:** `cap_of` gives 80% of 10 GiB as 8 GiB, 100% as the whole, a tiny percent as
   its share (no floor), and saturates rather than overflowing on a huge `available`;
   `available_memory()` returns `Some` on Windows and Linux (the CI and maintainer platforms), so

@@ -1193,6 +1193,8 @@ pub(crate) struct TaskBatch {
     pub(crate) messages: Vec<Message>,
     pub(crate) permit: Option<Arc<pipeline::Permit>>, // released when the writer has the
                                              // entries; shared by a `.7z` export's tasks
+    pub(crate) output: Option<pipeline::Permit>, // its entries' bytes, charged when the
+                                             // task returns, released with `permit`
 }
 ```
 
@@ -1215,6 +1217,22 @@ archive is one sequential stream, so pool threads sharing it would only wait on 
 and the pool's work (conversion, packing) needs no source handle. A file that cannot be read
 fails its task with `source_read_failed` (`DropFolder`, naming the file) before the pool sees
 it; a failure to convert or pack is `folder_pack_failed`.
+
+**Charges while a task runs.** The permit a task acquires covers its source bytes, the one
+size the coordinator knows before reading. What the task allocates while it runs is charged
+to the run's budget as it allocates, through `MemoryBudget::charge`, which never waits (a
+task waiting for bytes while it holds some can wait on itself, `libs/pipeline.md`): each
+decoded image, a decode or a copy of one, at its RGBA size over every level the source
+carries (from `dds_convert::probe`, before the decode, plus the source's own size for the
+copy of its blocks), held until the image is freed; a model task's parsed and merged parts
+at their source size, an estimate, until its package is built; and the batch's entries at
+their byte length, charged when the task returns and released with its permit. The source
+permit stays held until the writer has the batch, as before, although the source bytes are
+freed when the task returns: counting them twice for that while errs on the safe side. Two
+retentions stay outside the budget: a multi-CPK run's held team ("Writer", given back when
+held) and the conversion cache, which is charged together with its eviction
+(`libs/dds_convert.md`), since charging it without eviction would hold bytes no task's
+completion releases and stall the run once the cache passes the cap.
 
 **Output.** The CPK is written to `output/.staging/<pid>-<unix ms>/<cpk_name>.cpk` and renamed
 to `output/<cpk_name>.cpk` (the run id is per process, so two CLI runs never share a staging
@@ -1528,10 +1546,12 @@ phase that owns them):
   `.partial` copy + atomic rename in `download/`, promotion to `output/` on deployment failure);
   what remains is the backup/rollback protocol across multiple CPKs and the savefile (a dead
   run's `.staging/` folder is removed when the next compile starts, TC-DEP-07).
-- **Complete memory accounting.** Source sizes do not cover decoded textures, converted models,
-  merged meshes, or packed entries; evaluate an RAII budget permit that grows and shrinks with
-  actual allocations. Solid 7z archives charge their full decompressed buffer until all dependent
-  tasks drain.
+- **Complete memory accounting.** Resolved: a task acquires its source bytes before loading
+  and charges what it allocates while running without waiting ("Admission", the paragraph
+  "Charges while a task runs"; `libs/pipeline.md` "Memory budget"), not through a permit
+  that grows by waiting, which can wait on its own bytes. Solid 7z archives charge their
+  full decompressed buffer until all dependent tasks drain; the conversion cache is charged
+  with its eviction.
 - **`teams_list.txt` contract.** Resolved in `teams_list` (Phase 2): tab-separated (not
   whitespace — Blue's `split()` turned `Backup 1` into `Backup`); a header line is required and its
   fields are preserved on write; `ID` and `Name` are located by header position and further

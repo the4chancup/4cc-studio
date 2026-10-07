@@ -1754,16 +1754,17 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   from `UniformParameter.bin` entries, and the bundled base and the installed bins carry them
   with collar 105, so whether the loose configs this step writes reach the game is untested.
 
-- [ ] 4.28 **Complete memory accounting**: the permit grows with decoded textures, converted
-  models, merged meshes and packed entries (the open question "Complete memory accounting"); a
-  team's held batches in multi-CPK mode charged; shared and cache-owned bytes charged while
-  retained. Plan: `pipeline.md` "Resolved decisions and open questions" (Complete memory
-  accounting); `libs/pipeline.md` "Memory budget" (last bullet). IDs: none (not user-observable;
-  the measurement is the proof). Crates: pipeline (`Permit::grow`, or the shape the step
-  settles), tc → verify: a recording `MemoryBudget` wrapped around the tracer compile reports a
-  peak equal to the sum of the decoded and packed sizes the tasks allocated, not the source
-  sizes; with a cap below one decoded texture the task waits for an empty pipeline and completes
-  (the oversized rule)
+- [ ] 4.28 **Complete memory accounting**: a running task charges the budget for what it
+  allocates (decoded textures, parsed and merged models, its packed entries), without waiting;
+  a multi-CPK run's held team stays outside the budget (`pipeline.md` "Writer") and the
+  conversion cache is charged with its eviction (4.y). Plan: `pipeline.md` "Admission" (the
+  paragraph "Charges while a task runs"), "Resolved decisions and open questions" (Complete
+  memory accounting); `libs/pipeline.md` "Memory budget"; decision entry "memory
+  accounting: a running task charges without waiting". IDs: none (not user-observable; the
+  measurement is the proof). Crates: pipeline (`MemoryBudget::charge`, `peak`), tc → verify:
+  a textures task on a texture of known dimensions, run alone, peaks at its source charge
+  plus the RGBA size of every level plus the file's size; a batch's output permit equals its
+  entries' bytes; a compile with a cap below one decoded texture completes
 
 - [x] 4.29 **A texture a model names must exist** (after 4.21, whose walk of the installed CPKs
   it reuses): `fmdl_texture_not_found` on Fox for a mesh's texture supplied by nobody: stem not
