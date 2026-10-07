@@ -1671,6 +1671,19 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   referee kit config decodes with collar 77, and `dt00_x64.cpk` is byte-identical; a `/co/`
   export with `p1/config.toml` naming collar 77 reports `kit_collar_reserved` and p1 is absent
   from the CPK
+  4.27-lead done 2026-10-07: `resources/templates/referee_marker.fmdl` (the refs compiler's
+  `referee_prop.fmdl`, every vertex weighted to `static` only, read with the `fmdl` crate) and
+  its README section; plan: the marker's texture pointed at `common/999/sourceimages/
+  ref_marker.dds`, a failed marker counts as absent, replaced configs get collar 77 too
+  (decision entry). Slices:
+  - [ ] 4.27a the Fox half: the marker task (texture and collar model), the referee configs
+    rewritten in `finish_referees`, `kit_collar_reserved`. TC-REF-06, TC-REF-08, TC-REF-07's
+    kit half.
+  Moved out: TC-REF-07's `collar_id_conflict` half needs collar files compiled (4.9, which
+  reserves 77 beside 105); the pre-Fox marker (TC-REF-04) needs pre-Fox referees (4.19d).
+  Open with the maintainer (worklog "Issues", referee collars): PES 21 reads referee configs
+  from `UniformParameter.bin` entries, and the bundled base and the installed bins carry them
+  with collar 105, so whether the loose configs this step writes reach the game is untested.
 
 - [ ] 4.28 **Complete memory accounting**: the permit grows with decoded textures, converted
   models, merged meshes and packed entries (the open question "Complete memory accounting"); a
@@ -2131,7 +2144,14 @@ pruned when their phase closes; they stay in git history.
   - **PES 21 configs:** the collar change made in the `UniformParameter.bin` entries took
     effect, so the game reads referee configs from those entries. Loose referee configs on
     Fox are untested. Settle with the maintainer before 4.27 whether `blue_port.md`'s "loose
-    files, never entries" becomes "entries" on Fox.
+    files, never entries" becomes "entries" on Fox. 4.27a went ahead on the plan as written
+    (2026-10-07, autonomous mode): the marker's model, texture and reservation hold either way,
+    and only where the collar-77 configs go would change. Found then: the compiler's bundled
+    `UniformParameter18.bin` and `19.bin` hold `referee_ACL_*`, `referee_DEF_*` (and on 18
+    `referee_CL_*`) entries with collar 105, carried forward like the installed bin's, so a
+    Fox game that prefers entries keeps showing collar 105 under the marker. The test to settle
+    it: a refs CPK holding the collar-77 loose configs and `collar_077.fmdl`, with the bins
+    CPK's referee entries left at 105; the marker shows, or not.
   - **PES 17:** neither model showed (with Sider). That's inconclusive. Candidate causes:
     - the loose referee configs were not read from the livecpk root;
     - the two models fail to draw as collars. They are Grigori's face and hair, skinned to

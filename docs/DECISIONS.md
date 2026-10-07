@@ -4609,3 +4609,21 @@ build when a file goes missing. Test mode shows what the compiler did to the exp
 is no export's, as the overrides are not applied there either.
 Plan: `team_compiler/pipeline.md` "Resolved decisions" (templates embedded), "Output-mode artifact
 routing".
+
+## 2026-10-07 — team_compiler — the Fox referee marker: which model, its texture, a failed marker, replaced configs
+Decision: (1) the Fox marker is the 4cc refs compiler's `referee_prop.fmdl` (SHA-256
+`0f438d5d…`), bundled as `resources/templates/referee_marker.fmdl` unchanged; at compile time its
+base texture, `common/000/sourceimages/cup_logo.dds`, is pointed at
+`common/999/sourceimages/ref_marker.dds`, and its two dummy maps are kept. (2) A marker that its
+texture checks drop or whose conversion fails counts as absent: no collar model, configs
+unchanged, the texture code reported. (3) A referee kit config replaced from the data
+directory's `templates/referees_fox/` gets collar 77 too, and only the collar and winter collar
+bytes of a config change.
+Why: (1) all three copies on the maintainer's machine share the geometry and the static
+painting (each vertex weighted to `static` only, checked with the `fmdl` crate); keeping the
+file as shipped makes its provenance a hash, and the one path the compiler changes is the one
+the plan names. (2) a collar naming a texture the CPK lacks would draw untextured under every
+referee. (3) the marker is the export's choice, and a cup maintainer who does not want it
+leaves `ref_marker.dds` out.
+Plan: `team_compiler/blue_port.md` "Referee export processing"; `resources/templates/README.md`
+`referee_marker.fmdl`.

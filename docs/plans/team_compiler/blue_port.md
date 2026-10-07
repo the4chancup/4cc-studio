@@ -82,14 +82,20 @@ rollback is needed:
   paths reference" in `pipeline.md`), in the target's format, bundled with the compiler like the
   other referee templates;
 - the model's texture path names the marker texture in the referees' Common output, which is
-  `ref_marker.dds` converted like any Common texture;
-- the referee template kit configs name that collar. They are loose files under
+  `ref_marker.dds` converted like any Common texture (the bundled Fox model's base texture,
+  `common/000/sourceimages/cup_logo.dds`, is pointed at `common/999/sourceimages/ref_marker.dds`;
+  its normal and specular maps stay the game's dummies);
+- the referee template kit configs name that collar, as collar and winter collar, a
+  replacement from the data directory's `templates/referees_fox/` included (nothing else in
+  them changes). They are loose files under
   `common/character0/model/character/uniform/team/referee/` in the refs CPK on both engines,
   as the templates ship them (`referee_DEF_1.bin` and the rest), never entries of the
   bins CPK's `UniformParameter.bin`.
 
 Without `ref_marker.dds` the collar model and the texture are not emitted, and the template
-configs keep the collar they had.
+configs keep the collar they had. A marker that its texture checks drop or whose conversion
+fails counts as absent, reported by its texture code: the collar and the texture stand or fall
+together, so the referees never wear a collar that names a texture the CPK lacks.
 
 The marker model is the one the legacy tools ship as a referee prop: a square about 1.5 m
 wide lying on the ground, slightly tilted, under the referee. On Fox it is the 4cc's

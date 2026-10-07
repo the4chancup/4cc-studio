@@ -64,3 +64,22 @@ The kit configs are five distinct files, each repeated under every competition's
 the same number (`referee_ACL_1.bin` is `referee_CL_1.bin`), as Red ships them. The five
 kit textures are one texture, five times. The kit configs are loose files of the referee
 CPK, never entries of the bins CPK's `UniformParameter.bin` (`blue_port.md`).
+
+## `referee_marker.fmdl`
+
+The Fox referee marker: the model a Fox compile writes into the referee CPK as collar 77 when
+the refs export holds `ref_marker.dds` (Team compiler plan, `blue_port.md` "Referee export
+processing"). A square 1.5 m wide on the ground: one mesh, 4 vertices, material
+`judge_watch` (shader `fox3ddf_blin`), each vertex weighted 255 to the bone `static` and to
+nothing else, so no animation moves it (static painting). Its textures are
+`Base_Tex_SRGB` `/Assets/pes16/model/character/common/000/sourceimages/cup_logo.dds`, which
+the compiler points at the converted `ref_marker.dds` in the referees' Common output, and the
+game's `dummy_nrm.tga` and `dummy_srm.tga` under `/Assets/pes16/model/character/common/sourceimages/`.
+
+Source: the 4cc refs compiler's `referee_prop.fmdl` (the maintainer's copy, dated 2023-06-02),
+2,843 bytes, SHA-256 `0f438d5d906f2062`; byte-identical to its
+`dt00_x64_files/.../common_package_fpk/.../common/referee_prop - Copy (2).fmdl`. The two other
+`referee_prop.fmdl` versions there have the same geometry and weights and differ only in the
+base texture's directory (`common/999/sourceimages/`, `common/sourceimages/`). Read with the
+`fmdl` crate on 2026-10-07 to check the weights; copied by `.tmp/copy_referee_marker.py`
+(not kept: a one-off copy).
