@@ -9,6 +9,9 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::Path;
 
+use kit_config::KitConfig;
+use pes_version::PesVersion;
+
 use crate::common::{Run, Sandbox};
 use crate::common_links::texture_directories;
 use crate::compile::{
@@ -18,7 +21,7 @@ use crate::compile_exports::TEAM_COLOR;
 use crate::deploy::{install_pes, templates_folder};
 use crate::models::package_names;
 use crate::sideload::slashed;
-use crate::textures::tracer_model_renaming;
+use crate::textures::{texture_fixture, tracer_model_renaming};
 use crate::{clean_model, findings_of, snapshot};
 
 /// The refs export's folder in the sandbox.
@@ -90,6 +93,35 @@ fn assert_tree_in(entries: &BTreeMap<String, Vec<u8>>, tree: &BTreeMap<String, V
     assert_eq!(tree.len(), 31, "the tree's files");
     for (path, bytes) in tree {
         assert!(entries.get(path) == Some(bytes), "{path}");
+    }
+}
+
+/// The game path of the referees' marker model: stock collar 77's `nocloth` model.
+const MARKER_COLLAR: &str = "Asset/model/character/uniform/nocloth/#Win/collar_077.fmdl";
+
+/// The game path of the converted marker texture, in the referees' Common output.
+const MARKER_TEXTURE: &str =
+    "Asset/model/character/common/999/sourceimages/#windx11/ref_marker.ftex";
+
+/// The folder of the referee kit configs, in the template tree and in the refs CPK.
+const REFEREE_CONFIGS: &str = "common/character0/model/character/uniform/team/referee/";
+
+/// The referee kit configs of the template tree as the repository holds it, by game path.
+fn template_configs() -> BTreeMap<String, Vec<u8>> {
+    let configs: BTreeMap<String, Vec<u8>> = referee_tree()
+        .into_iter()
+        .filter(|(path, _)| path.starts_with(REFEREE_CONFIGS))
+        .collect();
+    assert_eq!(configs.len(), 20, "the tree's kit configs");
+    configs
+}
+
+/// Writes `Ref A` in slot 01 (`write_ref_a`) and, when given, `marker` as the refs export's
+/// `ref_marker.dds`.
+fn write_refs_with_marker(sandbox: &Sandbox, marker: Option<&[u8]>) {
+    write_ref_a(sandbox, &["01"]);
+    if let Some(marker) = marker {
+        sandbox.write(&format!("{REFS}/ref_marker.dds"), marker);
     }
 }
 
@@ -205,6 +237,92 @@ fn a_data_directory_file_at_a_tree_path_replaces_that_file_of_the_refs_cpk() {
     let mut tree = referee_tree();
     tree.insert(REFEREE_APPEARANCE.to_owned(), appearance.to_vec());
     assert_tree_in(&entries, &tree);
+}
+
+// TC-REF-06
+#[test]
+fn a_ref_marker_goes_into_the_refs_cpk_as_collar_77_which_every_referee_kit_wears() {
+    let sandbox = Sandbox::new("ref_marker");
+    install_pes(&sandbox);
+    // A data CPK of the game's: the marker is shown without writing anything outside the
+    // refs CPK.
+    let data_cpk = fs::read(templates_folder().join("placeholder.cpk")).unwrap();
+    sandbox.write("PES/Data/dt00_x64.cpk", &data_cpk);
+    write_refs_with_marker(&sandbox, Some(&tracer_player_file("shirt.dds")));
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+    assert_eq!(run.exit_code(), 0, "{:#?}", run.messages());
+    let entries = cpk_entries(&sandbox.root.join("PES/download").join(REFS_CPK));
+    assert!(entries.contains_key(MARKER_TEXTURE), "the marker texture");
+    let collar = &entries[MARKER_COLLAR];
+    assert_eq!(
+        texture_directories(collar, "ref_marker.dds"),
+        ["/Assets/pes16/model/character/common/999/sourceimages/"]
+    );
+    assert_eq!(
+        texture_directories(collar, "cup_logo.dds"),
+        Vec::<String>::new()
+    );
+    for (path, template) in template_configs() {
+        let config = KitConfig::decode(&entries[&path], PesVersion::Pes21).unwrap();
+        assert_eq!(
+            (config.shirt.collar, config.shirt.winter_collar),
+            (77, 77),
+            "{path}"
+        );
+        assert_ne!(entries[&path], template, "{path}");
+    }
+    assert!(
+        fs::read(sandbox.root.join("PES/Data/dt00_x64.cpk")).unwrap() == data_cpk,
+        "dt00_x64.cpk untouched"
+    );
+}
+
+// TC-REF-08
+#[test]
+fn without_a_ref_marker_the_refs_cpk_holds_no_collar_and_the_template_kit_configs() {
+    let sandbox = Sandbox::new("ref_no_marker");
+    write_refs_with_marker(&sandbox, None);
+
+    let (run, entries) = compile(&sandbox);
+
+    assert_eq!(run.exit_code(), 0, "{:#?}", run.messages());
+    assert!(!entries.contains_key(MARKER_COLLAR), "no collar");
+    for path in entries.keys() {
+        assert!(!path.contains("ref_marker"), "{path}");
+    }
+    for (path, template) in template_configs() {
+        assert!(entries[&path] == template, "{path}");
+    }
+}
+
+#[test]
+fn a_ref_marker_that_fails_conversion_is_reported_and_left_out_with_its_collar() {
+    let sandbox = Sandbox::new("ref_marker_failed");
+    // A codec the converter cannot decode: the deep pass does not look at the marker, so its
+    // conversion is what fails.
+    write_refs_with_marker(&sandbox, Some(&texture_fixture("bc6h.dds")));
+
+    let (run, entries) = compile(&sandbox);
+
+    let lines = run.messages();
+    assert!(
+        lines.contains(
+            &"refs Cup: Error texture_codec_unsupported [DropFile] at ref_marker.dds \
+              (file=ref_marker.dds)"
+                .to_owned()
+        ),
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 1);
+    // Ref A still commits, so the refs CPK and its tree are written, without the marker.
+    assert!(entries.contains_key(&referee_package("face/real/referee0", "01", "face")));
+    assert!(!entries.contains_key(MARKER_COLLAR), "no collar");
+    assert!(!entries.contains_key(MARKER_TEXTURE), "no marker texture");
+    for (path, template) in template_configs() {
+        assert!(entries[&path] == template, "{path}");
+    }
 }
 
 // TC-REF-03

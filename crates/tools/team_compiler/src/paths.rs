@@ -16,6 +16,17 @@ use crate::plan::subset::ModelPackage;
 /// not a `TeamId`: no teams-list row has it, and nothing is written to a team record under it.
 pub(crate) const REFEREE_TEAM_ID: u16 = 999;
 
+/// The stock collar the referees' marker takes (`blue_port.md` "Referee export processing"):
+/// the marker model is written as this collar and the referee kit configs name it. A stock
+/// collar of every target version that no kit config on the maintainer's machine uses, so no
+/// team's players wear the marker by accident; a team kit naming it is `kit_collar_reserved`.
+pub(crate) const REFEREE_MARKER_COLLAR: u8 = 77;
+
+/// The folder of the referee kit configs in the refs CPK, loose files as the referee template
+/// tree ships them (`referee_DEF_1.bin` and the rest).
+pub(crate) const REFEREE_KIT_CONFIGS: &str =
+    "common/character0/model/character/uniform/team/referee/";
+
 /// The bin holding every team's kit configs, keyed by entry name.
 pub(crate) const UNIFORM_PARAMETER: &str =
     "common/character0/model/character/uniform/team/UniformParameter.bin";
@@ -138,6 +149,13 @@ pub(crate) fn common_texture_directory(team_id: u16) -> String {
 /// `team_id`.
 pub(crate) fn common_texture(team_id: u16, stem: &str) -> String {
     format!("Asset/model/character/common/{team_id}/sourceimages/#windx11/{stem}.ftex")
+}
+
+/// The CPK path of stock collar `id`'s model on Fox, which a model at that path replaces: the
+/// Collars row of "Game paths reference", the id zero-padded to three digits
+/// (`collar_105.fmdl`). The pre-Fox collar path is not built yet.
+pub(crate) fn collar(id: u8) -> String {
+    format!("Asset/model/character/uniform/nocloth/#Win/collar_{id:03}.fmdl")
 }
 
 /// The CPK path of one kit texture, by its game name (`u0792g1`, `u0792g1_back`).
@@ -343,6 +361,22 @@ mod tests {
         assert_eq!(
             common_texture(714, "cloth"),
             "Asset/model/character/common/714/sourceimages/#windx11/cloth.ftex"
+        );
+    }
+
+    #[test]
+    fn a_collar_goes_by_its_three_digit_id_among_the_nocloth_models() {
+        assert_eq!(
+            collar(105),
+            "Asset/model/character/uniform/nocloth/#Win/collar_105.fmdl"
+        );
+        assert_eq!(
+            collar(REFEREE_MARKER_COLLAR),
+            "Asset/model/character/uniform/nocloth/#Win/collar_077.fmdl"
+        );
+        assert_eq!(
+            collar(1),
+            "Asset/model/character/uniform/nocloth/#Win/collar_001.fmdl"
         );
     }
 

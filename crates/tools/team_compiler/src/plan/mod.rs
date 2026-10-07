@@ -345,6 +345,15 @@ pub(crate) enum TaskKind {
         /// The main file and the small one, each with its fit tag.
         logo: LogoFiles,
     },
+    /// The referees' marker (`blue_port.md` "Referee export processing"): the refs export's
+    /// `ref_marker.dds` converted into the referees' Common output, and the bundled marker
+    /// model written as their reserved collar, its texture pointed at it. Both or neither: a
+    /// collar naming a texture the CPK lacks would draw untextured under every referee. One
+    /// task per refs export holding the file.
+    RefereeMarker {
+        /// The export's root `ref_marker.dds`.
+        marker: FileDescriptor,
+    },
 }
 
 /// Whether the team's kit configs must carry the FPC values.
@@ -385,6 +394,7 @@ impl TaskKind {
             TaskKind::Portrait { file, .. } => file.path.clone(),
             TaskKind::Kit { kit, .. } => kit.path.clone(),
             TaskKind::Logo { logo } => logo.main.file.path.clone(),
+            TaskKind::RefereeMarker { marker } => marker.path.clone(),
         }
     }
 
@@ -392,7 +402,7 @@ impl TaskKind {
     /// Common model and skeleton, never the link) and the files packed beside them; a folder's
     /// textures; the Common textures; a portrait's one file; a kit's config and `colors.txt`,
     /// when it has them, and its effective textures; the logo's main file and its small one,
-    /// when it has one.
+    /// when it has one; the referees' marker texture.
     pub(crate) fn files(&self) -> Vec<&FileDescriptor> {
         match self {
             TaskKind::Models {
@@ -413,6 +423,7 @@ impl TaskKind {
                 .chain(&logo.small)
                 .map(|file| &file.file)
                 .collect(),
+            TaskKind::RefereeMarker { marker } => vec![marker],
         }
     }
 }
@@ -463,9 +474,9 @@ pub(crate) type ExportToPlan = (
 /// `content_not_yet_compiled` naming the first such item. Every other export's note goes into
 /// the manifest, and a team export's colors; one with no root `colors.txt` reports
 /// `team_colors_missing`, and its team keeps the colors it had. A refs export plans its
-/// referee folders, shared folders and Common textures under team id 999 (`REFEREE_TEAM_ID`),
-/// each folder's packages keyed by its referee slots, and nothing else: it has no colors
-/// record, kits, rows, portraits or logo.
+/// referee folders, shared folders, Common textures and marker under team id 999
+/// (`REFEREE_TEAM_ID`), each folder's packages keyed by its referee slots, and nothing else:
+/// it has no colors record, kits, rows, portraits or logo.
 pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanReport {
     let mut tasks = Vec::new();
     let mut team_colors = Vec::new();
@@ -684,6 +695,11 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
                     kits,
                 },
             ));
+        }
+        // Validation keeps a `ref_marker.dds` on a refs export alone. Its task lies in the
+        // export's range, so its entries go where the referees' do.
+        if let Some(marker) = export.root.referee_marker.take() {
+            tasks.push(task(export_id, team_id, TaskKind::RefereeMarker { marker }));
         }
         // The rest is a team's: the gate has named any portrait, kit or logo of a refs export,
         // and the referees have no `UniColor.bin` record for a kits entry to edit.
@@ -1053,6 +1069,9 @@ mod tests {
                         format!("kit {} {}", slot.as_str(), kit.path.as_str())
                     }
                     TaskKind::Logo { logo } => format!("logo {}", logo.main.file.path.as_str()),
+                    TaskKind::RefereeMarker { marker } => {
+                        format!("referee marker {}", marker.path.as_str())
+                    }
                 };
                 format!(
                     "{} {} {what} charge {}",
@@ -1361,7 +1380,8 @@ mod tests {
                 TaskKind::Models { .. }
                 | TaskKind::Portrait { .. }
                 | TaskKind::Kit { .. }
-                | TaskKind::Logo { .. } => None,
+                | TaskKind::Logo { .. }
+                | TaskKind::RefereeMarker { .. } => None,
             })
             .collect();
         assert_eq!(
@@ -1458,7 +1478,8 @@ mod tests {
                 TaskKind::CommonTextures { .. }
                 | TaskKind::Portrait { .. }
                 | TaskKind::Kit { .. }
-                | TaskKind::Logo { .. } => None,
+                | TaskKind::Logo { .. }
+                | TaskKind::RefereeMarker { .. } => None,
             })
             .collect();
         assert_eq!(
@@ -2360,7 +2381,8 @@ mod tests {
                 | TaskKind::Textures { .. }
                 | TaskKind::CommonTextures { .. }
                 | TaskKind::Portrait { .. }
-                | TaskKind::Logo { .. } => None,
+                | TaskKind::Logo { .. }
+                | TaskKind::RefereeMarker { .. } => None,
             })
             .collect()
     }
@@ -2561,7 +2583,8 @@ mod tests {
                 | TaskKind::CommonTextures { .. }
                 | TaskKind::Portrait { .. }
                 | TaskKind::Kit { .. }
-                | TaskKind::Logo { .. } => None,
+                | TaskKind::Logo { .. }
+                | TaskKind::RefereeMarker { .. } => None,
             })
             .collect()
     }

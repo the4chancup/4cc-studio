@@ -71,6 +71,9 @@ pub(crate) enum Code {
     /// A kit whose layout marker names the other engine than the target's: its main texture's
     /// sock islands are re-laid out to the target's layout.
     KitLayoutConverted,
+    /// A team kit whose collar or winter collar, after FPC reconciliation, is the referees'
+    /// reserved collar 77: its players would wear the referee marker, so the kit is left out.
+    KitCollarReserved,
     /// A non-square logo source was made square; names the file and the mode applied (`fit`
     /// for an untagged file, or its tag).
     LogoFitApplied,
@@ -262,7 +265,7 @@ impl Code {
     /// Every code, for the catalog test: a variant missing here would make its first message
     /// panic in `severity`, so a new variant is added to this list too.
     #[cfg(test)]
-    const ALL: [Code; 82] = [
+    const ALL: [Code; 83] = [
         Code::ExportExtractFailed,
         Code::NoExportsFound,
         Code::ExportDisabled,
@@ -283,6 +286,7 @@ impl Code {
         Code::KitColorsDerived,
         Code::KitColorsMissing,
         Code::KitLayoutConverted,
+        Code::KitCollarReserved,
         Code::LogoFitApplied,
         Code::LogoUpscaled,
         Code::ContentNotYetCompiled,
@@ -370,6 +374,7 @@ impl Code {
             Code::KitColorsDerived => "kit_colors_derived",
             Code::KitColorsMissing => "kit_colors_missing",
             Code::KitLayoutConverted => "kit_layout_converted",
+            Code::KitCollarReserved => "kit_collar_reserved",
             Code::LogoFitApplied => "logo_fit_applied",
             Code::LogoUpscaled => "logo_upscaled",
             Code::ContentNotYetCompiled => "content_not_yet_compiled",
@@ -477,6 +482,7 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("kit_colors_derived", CatalogSeverity::Info),
     ("kit_colors_missing", CatalogSeverity::Warning),
     ("kit_layout_converted", CatalogSeverity::Info),
+    ("kit_collar_reserved", CatalogSeverity::Error),
     ("logo_fit_applied", CatalogSeverity::Info),
     ("logo_upscaled", CatalogSeverity::Warning),
     ("content_not_yet_compiled", CatalogSeverity::Error),

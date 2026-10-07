@@ -186,7 +186,13 @@ The referees go into a CPK of their own, named by the `refs_cpk_name` setting
 (`4cc_18_referees.cpk`), never into the teams' CPKs, with `multicpk_mode` on or off. Beside
 the referees it also holds the referee kits and the referee appearance file the game needs,
 the same in every compile; a file of these can be replaced from the data folder's
-`templates/referees_fox` folder (see `templates` below). It is
+`templates/referees_fox` folder (see `templates` below). A `ref_marker.dds` at the root of
+the `refs` export, the cup's logo for instance, is shown on the ground under every referee: it
+goes into the referees CPK with a flat square model written as collar 77, and the referee kits
+are set to wear that collar. A team's kit whose collar or winter collar is 77 would wear the
+marker too, so it is left out with the error `kit_collar_reserved`, naming the field. A
+`ref_marker.dds` that cannot be converted is reported with its texture error and left out, and
+the referee kits keep their own collar. The referees CPK is
 installed into the game together with the teams' CPKs, all of them or none, or left in the
 output folder with them, after them. It is written only when the `refs` export builds
 something: a compile in which only the `refs` export builds something, with no file in the

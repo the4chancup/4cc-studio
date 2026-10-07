@@ -245,9 +245,7 @@ pub(super) fn common_textures(
     let mut converted = Vec::with_capacity(textures.len());
     for file in textures {
         let name = file.path.name();
-        let format = texture_format(name)
-            .expect("planning lists the `Common/` textures by an extension `dds_convert` accepts");
-        match convert(ctx, format, name, &take(files, file)) {
+        match common_texture(file, ctx, files) {
             Ok(bytes) => converted.push((file_stem(name).to_owned(), bytes)),
             Err(TextureError::Finding(code, file)) => {
                 findings.push((code, Disposition::DropFile, vec![("file", file)]));
@@ -260,6 +258,22 @@ pub(super) fn common_textures(
         .into_iter()
         .map(|(stem, bytes)| (paths::common_texture(team_id, &stem), bytes))
         .collect())
+}
+
+/// One texture of a team's Common output, `file`, converted from its bytes in `files` as any
+/// texture is (`convert`), in the format its extension names: a `Common/` texture, or the
+/// referees' marker.
+pub(super) fn common_texture(
+    file: &FileDescriptor,
+    ctx: &CompileContext,
+    files: &mut TaskFiles,
+) -> Result<Vec<u8>, TextureError> {
+    let name = file.path.name();
+    let format = texture_format(name).expect(
+        "planning lists a Common texture, the marker included, by an extension `dds_convert` \
+         accepts",
+    );
+    convert(ctx, format, name, &take(files, file))
 }
 
 /// The texture file `name`, in `format`, converted for the run's version through its

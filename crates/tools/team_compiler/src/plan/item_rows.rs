@@ -191,7 +191,8 @@ mod tests {
                 | TaskKind::CommonTextures { .. }
                 | TaskKind::Portrait { .. }
                 | TaskKind::Kit { .. }
-                | TaskKind::Logo { .. } => None,
+                | TaskKind::Logo { .. }
+                | TaskKind::RefereeMarker { .. } => None,
             })
             .collect();
         (report.manifest.item_rows, models)

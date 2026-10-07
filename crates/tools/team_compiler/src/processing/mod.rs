@@ -6,6 +6,7 @@ mod kit;
 mod kit_layout;
 mod materialize;
 mod model;
+mod referee_marker;
 mod team_assets;
 mod texture;
 
@@ -99,9 +100,9 @@ pub(crate) type Finding = (Code, Disposition, Vec<(&'static str, String)>);
 
 /// Why a task failed: the finding reported on its folder (its file, for a portrait; its main
 /// file, for the logo). A merge conflict between parts has its own code
-/// (`merge_material_conflict`, `skl_merge_conflict`), and so has conversion's texture finding
-/// (`texture_codec_unsupported`); any other error is `folder_pack_failed` carrying the error
-/// chain.
+/// (`merge_material_conflict`, `skl_merge_conflict`), and so have conversion's texture finding
+/// (`texture_codec_unsupported`) and a kit wearing the referees' collar
+/// (`kit_collar_reserved`); any other error is `folder_pack_failed` carrying the error chain.
 pub(crate) struct TaskFailure {
     /// The finding's code.
     pub(crate) code: Code,
@@ -221,6 +222,10 @@ pub(crate) fn process_task(
             team_assets::logo(logo, task.team_id, ctx.version, &mut files, &mut findings)
                 .map(|entries| (TaskOutput::Entries(entries), None))
         }
+        TaskKind::RefereeMarker { marker } => {
+            referee_marker::referee_marker(marker, ctx, &mut files)
+                .map(|entries| (TaskOutput::Entries(entries), None))
+        }
     };
     let mut batch = TaskBatch {
         index,
@@ -252,11 +257,13 @@ pub(crate) fn process_task(
         }
         // A failed task reports its failure alone: a note about a merge whose output is not
         // in the CPK would describe nothing the member can find. What was dropped is the
-        // task's unit: a portrait task is its one file, the logo task its files, every other
-        // task a folder.
+        // task's unit: a portrait task is its one file, the logo task its files, the marker
+        // task its texture, every other task a folder.
         Err(failure) => {
             let disposition = match task.kind {
-                TaskKind::Portrait { .. } | TaskKind::Logo { .. } => Disposition::DropFile,
+                TaskKind::Portrait { .. }
+                | TaskKind::Logo { .. }
+                | TaskKind::RefereeMarker { .. } => Disposition::DropFile,
                 TaskKind::Models { .. }
                 | TaskKind::Textures { .. }
                 | TaskKind::CommonTextures { .. }
@@ -1008,6 +1015,87 @@ mod tests {
         );
     }
 
+    /// The marker task over a root `ref_marker.dds` holding `bytes`, with its bytes.
+    fn marker_task(bytes: Vec<u8>) -> (TaskKind, TaskFiles) {
+        let path = ScopePath::new("ref_marker.dds").unwrap();
+        let marker = FileDescriptor {
+            size: 0,
+            kind: aesthetics_export::classify(path.name()),
+            source: path.clone(),
+            path: path.clone(),
+        };
+        (
+            TaskKind::RefereeMarker { marker },
+            TaskFiles::from([(path, bytes)]),
+        )
+    }
+
+    #[test]
+    fn the_marker_task_writes_the_marker_texture_and_the_collar_naming_it_or_neither() {
+        let dds = std::fs::read(tracer().join(format!("{PLAYER}/shirt.dds"))).unwrap();
+        let (kind, files) = marker_task(dds.clone());
+        let batch = process(kind, PesVersion::Pes21, None, files);
+
+        assert!(batch.messages.is_empty(), "{:?}", batch.messages);
+        assert_eq!(
+            paths(&batch),
+            [
+                "Asset/model/character/common/999/sourceimages/#windx11/ref_marker.ftex",
+                "Asset/model/character/uniform/nocloth/#Win/collar_077.fmdl",
+            ]
+        );
+        let converted = texture::convert(
+            &CompileContext::new(
+                PesVersion::Pes21,
+                1,
+                Templates::embedded(),
+                InstalledPaths::Unknown,
+                EntryTarget::GamePaths,
+            ),
+            dds_convert::SourceFormat::Dds,
+            "ref_marker.dds",
+            &dds,
+        )
+        .unwrap();
+        assert!(batch.entries[0].1 == converted, "converted as a texture");
+        let collar = FmdlFile::read(&batch.entries[1].1).unwrap();
+        let base = texture_paths(&collar).unwrap().remove(0);
+        assert_eq!(
+            (base.directory.as_str(), base.file_name.as_str()),
+            (
+                "/Assets/pes16/model/character/common/999/sourceimages/",
+                "ref_marker.dds"
+            )
+        );
+
+        // A codec the converter refuses: the texture's code on the file, and neither entry.
+        let bc6h = std::fs::read(
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/textures/bc6h.dds"),
+        )
+        .unwrap();
+        let (kind, files) = marker_task(bc6h);
+        let batch = process(kind, PesVersion::Pes21, None, files);
+
+        assert!(batch.entries.is_empty(), "{:?}", paths(&batch));
+        let [message] = batch.messages.as_slice() else {
+            panic!("{:?}", batch.messages);
+        };
+        assert_eq!(message.code.code, "texture_codec_unsupported");
+        assert_eq!(message.severity, Severity::Error);
+        assert_eq!(message.disposition, Disposition::DropFile);
+        assert_eq!(
+            message.scope,
+            Scope::Folder {
+                export_id: ExportId(4),
+                path: ScopePath::new("ref_marker.dds").unwrap(),
+            }
+        );
+        assert_eq!(
+            message.context,
+            [("file".to_owned(), "ref_marker.dds".to_owned())]
+        );
+    }
+
     #[test]
     fn a_kit_commits_its_texture_and_its_config_as_entry_and_bin_entry() {
         let batch = run(TaskKind::Kit {
@@ -1212,6 +1300,76 @@ mod tests {
 
         assert_eq!(kit_findings(&batch), []);
         assert_eq!(emitted_fpc_fields(&batch), (144, 16, 105, 105));
+    }
+
+    #[test]
+    fn a_kit_whose_collar_or_winter_collar_is_the_referees_is_left_out_naming_the_field() {
+        let configs: [(&[u8], &str); 3] = [
+            (b"[shirt]\ncollar = 77\n", "collar"),
+            (b"[shirt]\nwinter_collar = 77\n", "winter_collar"),
+            (b"[shirt]\ncollar = 77\nwinter_collar = 77\n", "collar"),
+        ];
+        for (config, field) in configs {
+            let batch = run_with(g1(configured_kit()), &[("Kits/g1/config.toml", config)]);
+
+            assert!(
+                batch.entries.is_empty() && batch.uniparam.is_none() && batch.uni_color.is_none(),
+                "{field}: nothing of the kit commits"
+            );
+            let [message] = batch.messages.as_slice() else {
+                panic!("{field}: {:?}", batch.messages);
+            };
+            assert_eq!(
+                (
+                    message.code.code.as_ref(),
+                    message.severity,
+                    message.disposition
+                ),
+                (
+                    "kit_collar_reserved",
+                    Severity::Error,
+                    Disposition::DropFolder
+                ),
+                "{field}"
+            );
+            assert_eq!(
+                message.scope,
+                Scope::Folder {
+                    export_id: ExportId(4),
+                    path: ScopePath::new("Kits/g1").unwrap(),
+                }
+            );
+            assert_eq!(message.context, [("field".to_owned(), field.to_owned())]);
+        }
+    }
+
+    #[test]
+    fn with_fpc_on_a_config_naming_collar_77_compiles_with_the_fpc_collar() {
+        let batch = run_with(
+            g1_with(configured_kit(), EffectiveTeamKitFpc::On),
+            &[("Kits/g1/config.toml", b"[shirt]\ncollar = 77\n")],
+        );
+
+        assert_eq!(
+            kit_findings(&batch),
+            [("kit_config_fpc_adjusted", Severity::Info, Disposition::Keep)]
+        );
+        assert_eq!(emitted_fpc_fields(&batch), (176, 16, 105, 105));
+    }
+
+    #[test]
+    fn a_kit_whose_collar_is_76_compiles_as_it_is() {
+        let batch = run_with(
+            g1(configured_kit()),
+            &[(
+                "Kits/g1/config.toml",
+                b"[shirt]\ncollar = 76\nwinter_collar = 76\n",
+            )],
+        );
+
+        assert_eq!(kit_findings(&batch), []);
+        let (_, _, collar, winter_collar) = emitted_fpc_fields(&batch);
+        assert_eq!((collar, winter_collar), (76, 76));
     }
 
     #[test]

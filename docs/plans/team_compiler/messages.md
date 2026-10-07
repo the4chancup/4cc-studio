@@ -429,7 +429,7 @@ injection into the system `dt00_x64.cpk`, and with it `ref_marker_needs_consent`
 
 | ID | Sev | Condition | Consequence |
 |---|---|---|---|
-| `kit_collar_reserved` | E | a regular team's kit whose effective collar or winter collar, after FPC reconciliation and custom-collar rewriting, is 77, the referees' reserved collar (context: the kit, the field) | kit discarded: its players would wear the referee marker |
+| `kit_collar_reserved` | E | a regular team's kit whose effective collar or winter collar, after FPC reconciliation and custom-collar rewriting, is 77, the referees' reserved collar (context: the field, `collar` or `winter_collar`; the kit folder is the message's scope) | kit discarded: its players would wear the referee marker |
 
 **Output stage and savefile** (Run scope)
 

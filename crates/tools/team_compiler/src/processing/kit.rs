@@ -13,7 +13,7 @@ use super::texture::TextureError;
 use super::{CompileContext, Entry, Finding, TaskFailure, TaskFiles, kit_layout, take, texture};
 use crate::bins::{KIT_COLORS, KitColorEntry, Rgb, kit_number};
 use crate::messages::Code;
-use crate::paths;
+use crate::paths::{self, REFEREE_MARKER_COLLAR};
 use crate::plan::EffectiveTeamKitFpc;
 use crate::plan::subset::{KIT_TEXTURE_STEMS, texture_format};
 
@@ -42,7 +42,9 @@ const MISSING_COLORS: [Rgb; KIT_COLORS] = [[255, 0, 255], [0, 0, 0]];
 ///
 /// When `fpc`, the team's kit-FPC status, is `On`, a config lacking the FPC values gets them
 /// before it is encoded, noted in `findings` as `kit_config_fpc_adjusted` (the template
-/// already carries them); otherwise the config is encoded as it is.
+/// already carries them); otherwise the config is encoded as it is. A config whose collar or
+/// winter collar is then the referees' marker collar fails the kit with
+/// `kit_collar_reserved`, naming the field.
 ///
 /// The entry's colors are the two its `colors.txt` gives (the lines it refuses are the deep
 /// pass's to report); else the two its main texture gives, its own or one inherited from
@@ -138,6 +140,15 @@ pub(super) fn kit(
         }
         EffectiveTeamKitFpc::On | EffectiveTeamKitFpc::Unknown => {}
     }
+    // On the collars the kit ends up with: FPC sets collar 105, so a config naming 77 under
+    // FPC On no longer wears the marker. Custom-collar rewriting, not built yet, is to run
+    // before this check too (`pipeline.md` "Collar contract").
+    if let Some(field) = reserved_collar_field(&config) {
+        return Err(TaskFailure {
+            code: Code::KitCollarReserved,
+            context: vec![("field", field.to_owned())],
+        });
+    }
     let config = config.encode_with_names(ctx.version, &names).to_vec();
     let entry_name = slot.config_name(team_id);
     entries.push((paths::kit_config(team_id, &entry_name), config.clone()));
@@ -159,6 +170,18 @@ pub(super) fn kit(
         colors,
     };
     Ok((entries, (entry_name, config), entry))
+}
+
+/// The field of `config` naming the referees' marker collar, `collar` before `winter_collar`;
+/// `None` when neither does. Every player wearing that collar would wear the marker.
+fn reserved_collar_field(config: &KitConfig) -> Option<&'static str> {
+    if config.shirt.collar == REFEREE_MARKER_COLLAR {
+        Some("collar")
+    } else if config.shirt.winter_collar == REFEREE_MARKER_COLLAR {
+        Some("winter_collar")
+    } else {
+        None
+    }
 }
 
 /// The engine whose kit UV layout `layout` names.

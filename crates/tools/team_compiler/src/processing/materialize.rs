@@ -91,11 +91,13 @@ pub(crate) fn materialize(
 }
 
 /// The folder, `/`-terminated, a test-mode entry of a task of `kind` goes in under `source`:
-/// the export folder the task works on, or for a portrait and the logo, whose task names a
-/// file, that file's folder (none for a logo at the export's root).
+/// the export folder the task works on, or for a portrait, the logo and the referees' marker,
+/// whose task names a file, that file's folder (none for a file at the export's root).
 fn test_entry_folder(source: &str, kind: &TaskKind) -> String {
     let folder = match kind {
-        TaskKind::Portrait { .. } | TaskKind::Logo { .. } => kind.folder_path().parent(),
+        TaskKind::Portrait { .. } | TaskKind::Logo { .. } | TaskKind::RefereeMarker { .. } => {
+            kind.folder_path().parent()
+        }
         TaskKind::Models { .. }
         | TaskKind::Textures { .. }
         | TaskKind::CommonTextures { .. }

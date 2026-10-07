@@ -5,6 +5,7 @@
 //! normal run holding a refs export, that export's entries go to the refs CPK instead, followed
 //! by the referee template tree (`Referees`).
 
+use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::ops::Range;
@@ -12,6 +13,7 @@ use std::path::PathBuf;
 
 use aesthetics_export::ExportCoverage;
 use anyhow::{Context, ensure};
+use kit_config::KitConfig;
 use pes_version::PesVersion;
 use studio_core::{Disposition, Message, Scope};
 
@@ -21,7 +23,7 @@ use crate::bins::{KitColorEntry, Rgb, WorkingBins, kit_number};
 use crate::messages::{Code, tool_message};
 use crate::output::parts::TeamsParts;
 use crate::output::sink::OutputSink;
-use crate::paths;
+use crate::paths::{self, REFEREE_MARKER_COLLAR};
 use crate::plan::TeamKits;
 use crate::plan::item_rows::ItemRow;
 use crate::processing::TaskBatch;
@@ -86,6 +88,9 @@ pub(crate) struct Referees {
     /// Whether an entry of the tasks went in: a refs export that commits nothing writes no
     /// refs CPK and no tree, so the installed referees stay.
     committed: bool,
+    /// Whether the referees' marker went in: the referee kit configs of the tree are then
+    /// written wearing its collar.
+    marker: bool,
 }
 
 impl Referees {
@@ -96,6 +101,7 @@ impl Referees {
             tasks,
             cpk: Some(OutputSink::cpk(path)),
             committed: false,
+            marker: false,
         }
     }
 
@@ -106,23 +112,41 @@ impl Referees {
             tasks,
             cpk: None,
             committed: false,
+            marker: false,
         }
     }
 
     /// Takes the entry `path` of the task at manifest position `index` when that task is the
-    /// refs export's: noted as committed, and written as `bytes` into the refs CPK when there
-    /// is one. Whether the refs CPK took it; an entry it did not take goes to the team side.
+    /// refs export's: noted as committed (and as the marker, at the marker collar's path), and
+    /// written as `bytes` into the refs CPK when there is one. Whether the refs CPK took it; an
+    /// entry it did not take goes to the team side.
     fn add(&mut self, index: usize, path: &str, bytes: &[u8]) -> anyhow::Result<bool> {
         if !self.tasks.contains(&index) {
             return Ok(false);
         }
         self.committed = true;
+        // The path alone tells: only the marker task writes the collar, with its texture in the
+        // same batch, and a batch commits whole or not at all.
+        if path == paths::collar(REFEREE_MARKER_COLLAR) {
+            self.marker = true;
+        }
         let Some(cpk) = &mut self.cpk else {
             return Ok(false);
         };
         cpk.add(path, bytes)?;
         Ok(true)
     }
+}
+
+/// The referee kit config at game path `path`, holding `bytes`, wearing the referees' marker:
+/// its collar and winter collar set to the marker's collar and nothing else changed, encoded
+/// for `version`. A config that does not decode is the error, naming its path.
+fn wearing_marker(path: &str, bytes: &[u8], version: PesVersion) -> anyhow::Result<Vec<u8>> {
+    let mut config =
+        KitConfig::decode(bytes, version).with_context(|| format!("{path}: not a kit config"))?;
+    config.shirt.collar = REFEREE_MARKER_COLLAR;
+    config.shirt.winter_collar = REFEREE_MARKER_COLLAR;
+    Ok(config.encode(version).to_vec())
 }
 
 impl CpkOutput {
@@ -260,7 +284,7 @@ impl CpkOutput {
         );
         let mut messages = Vec::new();
         let refs = match self.referees.take() {
-            Some(referees) => self.finish_referees(referees, templates, &mut messages)?,
+            Some(referees) => self.finish_referees(referees, version, templates, &mut messages)?,
             None => false,
         };
         let (team, team_messages) =
@@ -272,27 +296,38 @@ impl CpkOutput {
     /// When an entry of the refs export went in, adds the referee template tree of `templates`
     /// after it, each file at its game path unless an override holds that path (`overridden`,
     /// its `duplicate_path` going to `messages`): into the refs CPK, or without one into the
-    /// team side's sink, which it then starts. Closes the refs CPK, and returns whether it was
-    /// written.
+    /// team side's sink, which it then starts. When the referees' marker went in, each referee
+    /// kit config of the tree is written wearing its collar, encoded for `version`
+    /// (`wearing_marker`); a config that does not decode is the error. Closes the refs CPK, and
+    /// returns whether it was written.
     fn finish_referees(
         &mut self,
         referees: Referees,
+        version: PesVersion,
         templates: &Templates,
         messages: &mut Vec<Message>,
     ) -> anyhow::Result<bool> {
         let Referees {
-            mut cpk, committed, ..
+            mut cpk,
+            committed,
+            marker,
+            ..
         } = referees;
         if committed {
             // Fox's tree: only a Fox target plans referee tasks yet; the pre-Fox tree
             // (`referees_prefox`) is to be chosen here by engine.
             for (path, bytes) in templates.referees_fox() {
+                let bytes = if marker && path.starts_with(paths::REFEREE_KIT_CONFIGS) {
+                    Cow::Owned(wearing_marker(path, bytes, version)?)
+                } else {
+                    Cow::Borrowed(bytes)
+                };
                 let Some(cpk) = &mut cpk else {
-                    self.add(path, bytes, messages)?;
+                    self.add(path, &bytes, messages)?;
                     continue;
                 };
                 if !self.overridden(path, messages) {
-                    cpk.add(path, bytes)?;
+                    cpk.add(path, &bytes)?;
                 }
             }
         }
@@ -1176,6 +1211,139 @@ mod tests {
         assert_eq!(
             entry(&team, REFEREE_APPEARANCE),
             override_bytes(REFEREE_APPEARANCE)
+        );
+    }
+
+    /// The refs CPK written into `folder` for `version` with `templates` when the refs export's
+    /// one batch commits `entries`: each game path of the template tree with its bytes there.
+    fn refs_tree(
+        folder: &Path,
+        version: PesVersion,
+        templates: &Templates,
+        entries: &[&str],
+    ) -> Vec<(&'static str, Vec<u8>)> {
+        let mut output = with_refs_cpk(folder, BTreeMap::new(), 0..1);
+        output.submit(batch(0, entries, None)).unwrap();
+        output
+            .finish(
+                version,
+                WorkingBins::bundled(version, templates),
+                &[],
+                &[],
+                &[],
+                templates,
+            )
+            .unwrap();
+        let refs = folder.join("refs.cpk");
+        templates
+            .referees_fox()
+            .map(|(path, _)| (path, entry(&refs, path)))
+            .collect()
+    }
+
+    /// The offsets at which `written` differs from `template`, both 120-byte kit configs.
+    fn differing_offsets(written: &[u8], template: &[u8]) -> Vec<usize> {
+        assert_eq!((written.len(), template.len()), (120, 120));
+        (0..120)
+            .filter(|at| written[*at] != template[*at])
+            .collect()
+    }
+
+    #[test]
+    fn with_the_marker_every_referee_kit_config_wears_its_collar_and_nothing_else_changes() {
+        let temp = scratch("writer_refs_marker");
+        let marker = paths::collar(REFEREE_MARKER_COLLAR);
+        let templates = Templates::embedded();
+        for version in [
+            PesVersion::Pes18,
+            PesVersion::Pes19,
+            PesVersion::Pes20,
+            PesVersion::Pes21,
+        ] {
+            let folder = temp.path().join(version.to_string());
+            fs::create_dir_all(&folder).unwrap();
+            let written = refs_tree(&folder, version, &templates, &[&marker]);
+
+            let mut configs = 0;
+            for ((path, written), (_, template)) in written.iter().zip(templates.referees_fox()) {
+                if !path.starts_with(paths::REFEREE_KIT_CONFIGS) {
+                    assert!(written == template, "{version} {path}");
+                    continue;
+                }
+                configs += 1;
+                assert_eq!(template[0x14..0x16], [105, 105], "{path}");
+                assert_eq!(
+                    differing_offsets(written, template),
+                    [0x14, 0x15],
+                    "{version} {path}"
+                );
+                assert_eq!(written[0x14..0x16], [77, 77], "{version} {path}");
+            }
+            assert_eq!(configs, 20, "{version}");
+        }
+    }
+
+    #[test]
+    fn without_the_marker_every_referee_kit_config_is_the_template_s() {
+        let temp = scratch("writer_refs_no_marker");
+        let templates = Templates::embedded();
+        let written = refs_tree(temp.path(), PesVersion::Pes21, &templates, &["refs/a.bin"]);
+
+        for ((path, written), (_, template)) in written.iter().zip(templates.referees_fox()) {
+            assert!(written == template, "{path}");
+        }
+    }
+
+    #[test]
+    fn a_replaced_referee_kit_config_keeps_its_own_bytes_and_wears_the_marker_s_collar() {
+        let temp = scratch("writer_refs_marker_replaced");
+        let def_1 = "common/character0/model/character/uniform/team/referee/referee_DEF_1.bin";
+        let embedded = Templates::embedded()
+            .referees_fox()
+            .find(|(path, _)| *path == def_1)
+            .map(|(_, bytes)| bytes.to_vec())
+            .unwrap();
+        // A valid config other than the template: one byte of its colors changed.
+        let mut replacement = embedded.clone();
+        replacement[0x10] ^= 0x01;
+        let data = temp.path().join("data");
+        let file = data.join("templates/referees_fox").join(def_1);
+        fs::create_dir_all(file.parent().unwrap()).unwrap();
+        fs::write(&file, &replacement).unwrap();
+        let (templates, _) = Templates::read(Some(&data)).unwrap();
+        let marker = paths::collar(REFEREE_MARKER_COLLAR);
+        let output = temp.path().join("output");
+        fs::create_dir_all(&output).unwrap();
+
+        let written = refs_tree(&output, PesVersion::Pes21, &templates, &[&marker]);
+
+        let (_, written) = written.iter().find(|(path, _)| *path == def_1).unwrap();
+        assert_eq!(differing_offsets(written, &replacement), [0x14, 0x15]);
+        assert_eq!(written[0x14..0x16], [77, 77]);
+        assert_ne!(written[0x10], embedded[0x10], "the replacement's own byte");
+    }
+
+    #[test]
+    fn a_referee_kit_config_that_does_not_decode_is_the_error_naming_it_with_the_marker() {
+        let temp = scratch("writer_refs_marker_broken");
+        let def_1 = "common/character0/model/character/uniform/team/referee/referee_DEF_1.bin";
+        let data = temp.path().join("data");
+        let file = data.join("templates/referees_fox").join(def_1);
+        fs::create_dir_all(file.parent().unwrap()).unwrap();
+        fs::write(&file, b"not a kit config").unwrap();
+        let (templates, _) = Templates::read(Some(&data)).unwrap();
+        let mut output = with_refs_cpk(temp.path(), BTreeMap::new(), 0..1);
+        output
+            .submit(batch(0, &[&paths::collar(REFEREE_MARKER_COLLAR)], None))
+            .unwrap();
+
+        let error = output
+            .finish(PesVersion::Pes21, bundled(), &[], &[], &[], &templates)
+            .expect_err("an undecodable config with the marker");
+
+        assert!(
+            format!("{error:#}").starts_with(&format!("{def_1}: not a kit config")),
+            "{error:#}"
         );
     }
 

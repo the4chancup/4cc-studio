@@ -14,7 +14,8 @@ is in `AGENTS.md` ("Working documents").
 **Next:** Phase 4 is itemized and its Acceptance section written (step 4.1, 2026-10-03; its
 cross-family review (a) is queued). Next:
 the next open Phase 4 step (see the list); 4.21 to 4.24 and 4.29
-and 4.25 are done; 4.26 is done; 4.19 (Fox referees) is done, 4.19d (pre-Fox) waits on 4.14 and 4.20; 4.14 waits on 4.31's pre-Fox export; 4.33, 4.34, 4.c-pass and
+and 4.25 are done; 4.26 is done; 4.19 (Fox referees) is done, 4.19d (pre-Fox) waits on 4.14 and 4.20; 4.27a (the Fox
+referee marker) is done, 4.27's rest waits on 4.9 and 4.19d; 4.14 waits on 4.31's pre-Fox export; 4.33, 4.34, 4.c-pass and
 4.c-fix1 are done; 4.30,
 4.5 to 4.8, 4.9a and 4.10 to 4.13 are done (4.6c moved to Phase 8's cancellation), 4.9b
 (collars) waits on nothing. 2.5b (GPU BC7) is step 16.x (decision entries
@@ -292,6 +293,13 @@ Claude agent with no sidekick and no reviewer of another model family. While tha
   decisions" (templates embedded, the referee trees' override names), "Output-mode
   artifact routing", TC-OUT-09 and the decision entry "the referee template tree: embedded
   per file ...".
+  4.27a (b), `team_compiler` (`processing/referee_marker.rs`, `processing/kit.rs`
+  `reserved_collar_field`, `output/writer.rs` `Referees.marker` and `wearing_marker`,
+  `paths.rs` `collar`, `templates.rs` `REFEREE_MARKER`, `plan/mod.rs`
+  `TaskKind::RefereeMarker`) and `resources/templates/referee_marker.fmdl`, its commits of
+  2026-10-07, against `blue_port.md` "Referee export processing", `messages.md`
+  `kit_collar_reserved`, TC-REF-06, 07, 08 and the decision entry "the Fox referee marker
+  ...".
 - For the lead, on return: the review process on trial (3.1) opens with a full sidekick review
   loop, then runs GPT's loop with a full sidekick loop after each GPT round, calling GPT again
   only once that sidekick loop has ended and GPT's own loop has not; not yet in `AGENTS.md`
@@ -1676,9 +1684,18 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   its README section; plan: the marker's texture pointed at `common/999/sourceimages/
   ref_marker.dds`, a failed marker counts as absent, replaced configs get collar 77 too
   (decision entry). Slices:
-  - [ ] 4.27a the Fox half: the marker task (texture and collar model), the referee configs
-    rewritten in `finish_referees`, `kit_collar_reserved`. TC-REF-06, TC-REF-08, TC-REF-07's
-    kit half.
+  - [x] 4.27a the Fox half: done 2026-10-07. `TaskKind::RefereeMarker`
+    (`processing/referee_marker.rs`: the marker through `texture::common_texture`, shared
+    with `common_textures`, and the bundled model repointed with `rewrite_texture_paths`,
+    both or a failure); `paths::REFEREE_MARKER_COLLAR`, `collar(id)` (Fox),
+    `REFEREE_KIT_CONFIGS`; `writer.rs` `Referees.marker` (noted at the collar's path) and
+    `wearing_marker` in `finish_referees`; `kit.rs` `reserved_collar_field` after FPC
+    (`kit_collar_reserved`, context `field`, the kit being the scope). TC-REF-06, TC-REF-08,
+    TC-REF-07's kit half (the acceptance report counts TC-REF-07 proven; its
+    `collar_id_conflict` half is 4.9's). Left as found, none reached by a real export: the
+    deep pass does not check `ref_marker.dds` (only its conversion fails it); a
+    `Common/ref_marker.dds` beside it gives both tasks one path; an `overrides/` file at
+    `collar_077.fmdl` leaves the configs at 105.
   Moved out: TC-REF-07's `collar_id_conflict` half needs collar files compiled (4.9, which
   reserves 77 beside 105); the pre-Fox marker (TC-REF-04) needs pre-Fox referees (4.19d).
   Open with the maintainer (worklog "Issues", referee collars): PES 21 reads referee configs
@@ -3236,3 +3253,8 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
     game needs (Red's `refscpk_fox` tree, embedded); a file at `templates/referees_fox/<game
     path>` in the data directory replaces that file. Sideload writes them too. Step 4.19
     (Fox referees) is done.
+  - **4.27a:** a `ref_marker.dds` at a refs export's root goes into the referees' CPK on
+    Fox with a flat square model written as collar 77, and the referee kits are set to
+    wear collar 77; a team kit whose collar or winter collar is 77 is left out with
+    `kit_collar_reserved`. Whether PES 21 reads the loose referee kits that carry the
+    collar is still to be tested in game (Issues, referee collars).

@@ -176,6 +176,16 @@ const PLACEHOLDER_CPK: Resource = Resource {
     format: Format::Unparsed,
 };
 
+/// The Fox referee marker (`resources/templates/README.md`): the flat square under every
+/// referee, written into the refs CPK as the referees' collar when the refs export holds
+/// `ref_marker.dds`. Its base texture names `common/000/sourceimages/cup_logo.dds` until the
+/// compile points it at the converted marker. Not a `Resource`: no `templates/` file replaces
+/// it.
+const REFEREE_MARKER: &[u8] = include_bytes!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../../resources/templates/referee_marker.fmdl"
+));
+
 /// Every resource a `templates/` file can replace, in the order the replacements are reported.
 const RESOURCES: [&Resource; 10] = [
     &TEAM_COLOR,
@@ -400,6 +410,11 @@ impl Templates {
     /// The empty CPK `upgrade-dpfl` writes for an official entry with no file.
     pub(crate) fn placeholder_cpk(&self) -> &[u8] {
         self.bytes(&PLACEHOLDER_CPK)
+    }
+
+    /// The Fox referee marker model, as bundled: always the embedded one.
+    pub(crate) fn referee_marker(&self) -> &[u8] {
+        REFEREE_MARKER
     }
 
     /// The Fox referee template tree's files, in path order, each as its game path and its
