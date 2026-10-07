@@ -221,12 +221,17 @@ pub(crate) enum PlayerFile {
     /// player's own `package`, the one Fox gives it under the marker (`model_role`), since the
     /// marker means no face and so no `face.xml` to list it. The boots take every model but a
     /// glove, a model the face would take included, and are written as one `boots.model`, its
-    /// parts merged (`player_folders.md` "`ingame_face` marker"); the folder's `.mtl` files and
-    /// textures go with them (`ModelFolder::own_package`). A part of the gloves is a later
-    /// step's, and the subset gate names it.
+    /// parts merged; the gloves are written unmerged, each model under its own name and listed
+    /// in the gloves' `glove.xml` (`player_folders.md` "`ingame_face` marker"). The folder's
+    /// `.mtl` files go into each of the two, which packs the ones its parts use
+    /// (`TaskKind::files`).
     PreFoxPart {
         /// The package the model is a part of.
         package: ModelPackage,
+        /// The type a `glove.xml` lists the model under, as it types a shared gloves folder's
+        /// (`pre_fox_model_type`). The boots list no model, so a part of theirs leaves it
+        /// unread.
+        xml_type: String,
     },
     /// Pre-Fox: a `.mtl`, packed into the player's face CPK under its own name with its
     /// texture paths pointed at the player's common folder. The `face.xml` names it for each
@@ -262,7 +267,7 @@ impl PlayerFile {
             | PlayerFile::CommonModel { package, .. }
             | PlayerFile::Packed { package, .. }
             | PlayerFile::Skeleton { package, .. }
-            | PlayerFile::PreFoxPart { package } => Some(*package),
+            | PlayerFile::PreFoxPart { package, .. } => Some(*package),
             PlayerFile::FaceDiffXml | PlayerFile::PreFoxModel { .. } | PlayerFile::Material => {
                 Some(ModelPackage::Face)
             }
@@ -727,7 +732,8 @@ fn pre_fox_file(
             }
             // No face, so no `face.xml` to type it: it goes where Fox puts it under the
             // marker. The two agree on which models have a role.
-            model_role(position, stem, true).map(|(package, _)| PlayerFile::PreFoxPart { package })
+            model_role(position, stem, true)
+                .map(|(package, _)| PlayerFile::PreFoxPart { package, xml_type })
         }
         FileKind::Mtl if position != Position::Common => Some(PlayerFile::Material),
         FileKind::CommonLink => pre_fox_link(position, file.path.name()),
@@ -835,7 +841,7 @@ pub(crate) fn is_part_of(role: &PlayerFile, package: ModelPackage) -> bool {
         role,
         PlayerFile::Model { package: owner, .. }
             | PlayerFile::CommonModel { package: owner, .. }
-            | PlayerFile::PreFoxPart { package: owner }
+            | PlayerFile::PreFoxPart { package: owner, .. }
             if *owner == package
     )
 }
@@ -970,11 +976,11 @@ pub(crate) fn first_not_compiled(
 /// `face.xml`, a per-kit model, among others) or, under `ingame_face`, with a role not built
 /// there yet (`compiled_under_ingame_face`), then the first item `pre_fox_shared_not_compiled`
 /// names in each shared folder a link of his feeds his own package from
-/// (`link_feeds_own_package`: the `Faces/` folder his face link names, the `Boots/` folder a
-/// link combines under the marker); then each shared boots folder taking an id, then each
-/// such gloves folder (`pre_fox_shared_not_compiled`); then the first kit (its folder), then
-/// the first `Collars/` file, then the first `Common/` file the pre-Fox Common output does not
-/// hold (`common_file_compiled`). Each is a later step's content.
+/// (`link_feeds_own_package`: the `Faces/` folder his face link names, the `Boots/` or
+/// `Gloves/` folder a link combines under the marker); then each shared boots folder taking an
+/// id, then each such gloves folder (`pre_fox_shared_not_compiled`); then the first kit (its
+/// folder), then the first `Collars/` file, then the first `Common/` file the pre-Fox Common
+/// output does not hold (`common_file_compiled`). Each is a later step's content.
 fn pre_fox_not_compiled(
     resolved: &ResolvedAestheticsExport,
     version: PesVersion,
@@ -1026,20 +1032,23 @@ fn pre_fox_not_compiled(
 }
 
 /// Whether a pre-Fox player file of `role`, in a folder holding `ingame_face`, is compiled: a
-/// part of his boots is (`PlayerFile::PreFoxPart`), merged into his own `boots.model`, and so
-/// is every role that does not name a model. A part of his gloves is a later step's, and so
-/// is a `.common` link to a model or a `.mtl`: with no `face.xml` to name the Common output's
-/// file, the link's model would be one more part of the merge, read from `Common/`, and its
-/// `.mtl`'s materials those of the merged `boots.mtl`, neither of which is built.
+/// part of his boots or gloves is (`PlayerFile::PreFoxPart`), merged into his own
+/// `boots.model` or listed in his own `glove.xml`, and so is every role that does not name a
+/// model. A `.common` link to a model or a `.mtl` is a later step's: with no `face.xml` to
+/// name the Common output's file, the link's model would be one more part of his boots or
+/// gloves, read from `Common/`, and its `.mtl`'s materials those of his `boots.mtl` or a
+/// `.mtl` of his gloves, none of which is built.
 fn compiled_under_ingame_face(role: &PlayerFile) -> bool {
     match role {
         PlayerFile::PreFoxPart {
-            package: ModelPackage::Boots,
+            package: ModelPackage::Boots | ModelPackage::Gloves,
+            ..
         } => true,
         // Validation drops a marked folder holding an explicit face model, so a part of the
         // face is not met; it would have no package to go in.
         PlayerFile::PreFoxPart {
-            package: ModelPackage::Face | ModelPackage::Gloves,
+            package: ModelPackage::Face,
+            ..
         }
         | PlayerFile::PreFoxCommonModel { .. }
         | PlayerFile::CommonMaterial => false,
@@ -1474,12 +1483,14 @@ mod tests {
     }
 
     #[test]
-    fn under_ingame_face_a_pre_fox_target_compiles_boots_parts_and_names_gloves() {
+    fn under_ingame_face_a_pre_fox_target_compiles_boots_and_gloves_parts_and_names_links() {
         let pre_fox = |files: &[&str]| pre_fox_hit(files, PesVersion::Pes17);
         let marker = "Players/05 - B/ingame_face";
         let boots = "Players/05 - B/kit_boots.model";
-        // Boots parts, a model the face would take included, with their `.mtl`, a texture, a
-        // texture link and a face diff the folder does not use.
+        let glove = "Players/05 - B/x_gloveL.model";
+        // Boots parts, a model the face would take included, gloves parts, in the folder and
+        // in `gloves/`, with their `.mtl`, a texture, a texture link and a face diff the folder
+        // does not use.
         assert_eq!(
             pre_fox(&[
                 marker,
@@ -1488,6 +1499,8 @@ mod tests {
                 "Players/05 - B/torso.model",
                 "Players/05 - B/face/hat.model",
                 "Players/05 - B/boots/x.model",
+                glove,
+                "Players/05 - B/gloves/keeper_handR.model",
                 "Players/05 - B/skin.dds",
                 "Players/05 - B/hair.dds.common",
                 "Common/hair.dds",
@@ -1495,11 +1508,9 @@ mod tests {
             ]),
             None
         );
-        // A glove, in the folder or in `gloves/`, is a later step's; so is a link to a Common
-        // model or `.mtl`, which no `face.xml` names under the marker.
+        // A link to a Common model or `.mtl`, which no `face.xml` names under the marker, is a
+        // later step's.
         for file in [
-            "Players/05 - B/x_gloveL.model",
-            "Players/05 - B/gloves/keeper_handR.model",
             "Players/05 - B/legs.model.common",
             "Players/05 - B/body.mtl.common",
         ] {
@@ -1530,6 +1541,16 @@ mod tests {
         ];
         assert_eq!(pre_fox(&crocs), None);
         assert_eq!(pre_fox(&[crocs.as_slice(), &[diff]].concat()), what(diff));
+        // A gloves link beside a gloves part likewise, as a source of his gloves.
+        let diff = "Gloves/Keeper/face_diff.bin";
+        let keeper = [
+            marker,
+            glove,
+            "Players/05 - B/Keeper.gloves",
+            "Gloves/Keeper/glove_l.model",
+        ];
+        assert_eq!(pre_fox(&keeper), None);
+        assert_eq!(pre_fox(&[keeper.as_slice(), &[diff]].concat()), what(diff));
     }
 
     #[test]
@@ -2765,8 +2786,15 @@ mod tests {
             "shirt.mtl",
             "face_diff.bin",
             "x_gloveL.model",
+            "gloves/keeper_handR.model",
         ];
-        let part = |package| Some(PlayerFile::PreFoxPart { package });
+        // Each typed as without the marker: a glove's type is what its `glove.xml` lists.
+        let part = |package, xml_type: &str| {
+            Some(PlayerFile::PreFoxPart {
+                package,
+                xml_type: xml_type.to_owned(),
+            })
+        };
         let folder = PlayerFolder {
             ingame_face: true,
             ..folder(&names)
@@ -2780,16 +2808,17 @@ mod tests {
         assert_eq!(
             marked,
             [
-                part(ModelPackage::Boots),
-                part(ModelPackage::Boots),
-                part(ModelPackage::Boots),
+                part(ModelPackage::Boots, "shirt"),
+                part(ModelPackage::Boots, "parts"),
+                part(ModelPackage::Boots, "parts"),
                 Some(PlayerFile::Material),
                 Some(PlayerFile::UnusedFaceFile),
-                part(ModelPackage::Gloves),
+                part(ModelPackage::Gloves, "gloveL"),
+                part(ModelPackage::Gloves, "handR"),
             ]
         );
         assert_eq!(
-            part(ModelPackage::Boots).unwrap().package(),
+            part(ModelPackage::Boots, "parts").unwrap().package(),
             Some(ModelPackage::Boots)
         );
         // Without the marker the same files are the face's.
@@ -2802,6 +2831,7 @@ mod tests {
                 Some(PlayerFile::Material),
                 packed(ModelPackage::Face, "face_diff.bin"),
                 pre_fox_model("gloveL"),
+                pre_fox_model("handR"),
             ]
         );
     }

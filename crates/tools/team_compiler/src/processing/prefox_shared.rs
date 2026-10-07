@@ -1,17 +1,17 @@
 //! A pre-Fox boots or gloves output (`team_compiler/pipeline.md` "3. Per-model-folder parallel
 //! steps", step 7): loose files in the shape of the game's own boots and glove folders, written
 //! under an id. A `Boots/` or `Gloves/` folder a player links plainly is written once under its
-//! shared id; an `ingame_face` player's own boots, his boots parts and the models of a boots
-//! folder his link combines, under his exclusive id (`player_folders.md` "`ingame_face`
-//! marker"). Boots are one model as `boots.model` and the `.mtl` it uses as `boots.mtl`, the
-//! names the game loads, several models merged into one (`pes_model::ops::merge`); a gloves
-//! folder's models and `.mtl` files keep their own names lowercased, listed in a generated
-//! `glove.xml`. A shared folder's textures sit beside them (`TextureHome::SharedOutput`), the
-//! `.mtl` paths naming them `./<stem>.dds`; a player's are in his common folder
-//! (`TextureHome::PlayerCommon`), named as his face's `.mtl` files name them. `materialize`
-//! writes the files into the output's folder.
+//! shared id; an `ingame_face` player's own boots and gloves, his parts of each and the models
+//! of a folder of their kind his link combines, under his exclusive id (`player_folders.md`
+//! "`ingame_face` marker"). Boots are one model as `boots.model` and the `.mtl` it uses as
+//! `boots.mtl`, the names the game loads, several models merged into one
+//! (`pes_model::ops::merge`); gloves are each model and the `.mtl` files they use under their
+//! own names lowercased, listed in a generated `glove.xml`, unmerged. A shared folder's
+//! textures sit beside them (`TextureHome::SharedOutput`), the `.mtl` paths naming them
+//! `./<stem>.dds`; a player's are in his common folder (`TextureHome::PlayerCommon`), named as
+//! his face's `.mtl` files name them. `materialize` writes the files into the output's folder.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::iter;
 use std::sync::Arc;
 
@@ -40,14 +40,13 @@ const MTL_FOUND: &str = "the deep pass drops a folder holding a `.model` no `.mt
                          (`model_material_undefined`)";
 
 /// One `.model` of the output, with the source folder it was found in: its `.mtl` is searched
-/// for there (`mtl_for`), a combined boots folder's never in the player's folder.
+/// for there (`mtl_for`), a combined folder's never in the player's folder.
 struct SourceModel<'a> {
     /// The model file.
     file: &'a FileDescriptor,
-    /// The type a `glove.xml` lists it under: a shared folder's model's
-    /// (`PlayerFile::PreFoxModel`); `None` for a part of a player's own
-    /// (`PlayerFile::PreFoxPart`), which no XML lists.
-    xml_type: Option<String>,
+    /// The type a `glove.xml` lists it under, its role's (`PlayerFile::PreFoxModel`,
+    /// `PlayerFile::PreFoxPart`); the boots list no model.
+    xml_type: String,
     /// Its source folder's export path.
     source_path: &'a ScopePath,
     /// Its source folder's files.
@@ -67,17 +66,19 @@ struct BootsPart<'a> {
 }
 
 /// The files of `folder`'s pre-Fox `package`, boots or gloves, compiled from its files' bytes in
-/// `files` for team `team_id`, by their names in the output's folder. Boots: the models of the
-/// package, a shared folder's or an `ingame_face` player's parts with a combined boots folder's,
-/// as `boots.model` and the `.mtl` each uses (`mtl_for`) as `boots.mtl` (`boots_files`), the
-/// merge of several noted in `findings` as `model_merged`; the folder's other `.mtl` files are
-/// not packed. Gloves (a shared folder's): each model under its file name lowercased, each
-/// `.mtl` likewise, and a `glove.xml` listing the models in the order of their export paths,
-/// case-folded, each typed by its role and naming the `.mtl` its search finds. Every `.mtl`
-/// packed has each texture path naming one of the folder's textures by its stem pointed at the
-/// folder's texture home, and one naming a stem a texture link of the folder stands for at that
-/// texture in the team's Common output, as the face's are (`rewritten_materials`). Two files
-/// packing under one name fail the task. A merge is charged to `ctx`'s memory budget.
+/// `files` for team `team_id`, by their names in the output's folder. The models of the
+/// package are a shared folder's, or an `ingame_face` player's parts with a combined folder's
+/// of the package's kind. Boots: the models as `boots.model` and the `.mtl` each uses
+/// (`mtl_for`) as `boots.mtl` (`boots_files`), the merge of several noted in `findings` as
+/// `model_merged`. Gloves: each model under its file name lowercased, the `.mtl` each uses
+/// likewise, once however many use it, and a `glove.xml` listing the models in the order of
+/// their export paths, case-folded, each typed by its role and naming its `.mtl`; a player's
+/// model or `.mtl` replaces a combined folder's packing under its name (`without_replaced`).
+/// A `.mtl` no model uses is not packed. Every `.mtl` packed has each texture path naming one
+/// of the folder's textures by its stem pointed at the folder's texture home, and one naming a
+/// stem a texture link of the folder stands for at that texture in the team's Common output,
+/// as the face's are (`rewritten_materials`). Two files packing under one name otherwise fail
+/// the task. A merge is charged to `ctx`'s memory budget.
 pub(super) fn package(
     folder: &ModelFolder,
     package: ModelPackage,
@@ -87,7 +88,6 @@ pub(super) fn package(
     findings: &mut Vec<Finding>,
 ) -> Result<PackageFiles, TaskFailure> {
     let mut models = Vec::new();
-    let mut materials = Vec::new();
     // The folder's texture stems, folded, each with its stem as the folder spells it: the
     // name its converted DDS has in the texture home (`folder_textures`).
     let mut textures: BTreeMap<String, String> = BTreeMap::new();
@@ -116,18 +116,20 @@ pub(super) fn package(
                 // A shared folder's model is a part of the package the folder feeds, a
                 // combined one's of the player's.
                 PlayerFile::PreFoxModel { xml_type } if source_package == package => {
-                    models.push(source_model(Some(xml_type)));
+                    models.push(source_model(xml_type));
                 }
-                PlayerFile::PreFoxPart { package: owner } if owner == package => {
-                    models.push(source_model(None));
-                }
-                PlayerFile::Material => materials.push(file),
+                PlayerFile::PreFoxPart {
+                    package: owner,
+                    xml_type,
+                } if owner == package => models.push(source_model(xml_type)),
                 PlayerFile::Texture(stem, _) => {
                     textures.insert(vtree::fold_name(&stem), stem);
                 }
                 PlayerFile::CommonTexture(stem) => {
                     linked.insert(vtree::fold_name(&stem), linked_texture_stem(folder, file));
                 }
+                // A `.mtl` is packed when a model uses it (`mtl_for`), below.
+                PlayerFile::Material => {}
                 // A model of another package, and the roles planning gives none of the
                 // package's files: the subset gate names a shared boots or gloves folder's
                 // other files (`pre_fox_shared_not_compiled`), and a link to a Common model or
@@ -208,6 +210,13 @@ pub(super) fn package(
             insert(&mut contents, package, "boots.mtl".to_owned(), materials)?;
         }
         ModelPackage::Gloves => {
+            let own = |source_path: &ScopePath| source_path == &folder.path;
+            let mut models = without_replaced(models, |model| {
+                (
+                    model.file.path.name().to_ascii_lowercase(),
+                    own(model.source_path),
+                )
+            });
             // By export path, case-folded, then as spelled, so a recompile lists them alike.
             models.sort_by_cached_key(|model| {
                 (
@@ -216,6 +225,9 @@ pub(super) fn package(
                 )
             });
             let mut entries = Vec::new();
+            // The `.mtl` files the models use, each once, with whether the player's own folder
+            // holds it: a model's search finds one in its own source folder.
+            let mut used: Vec<(&FileDescriptor, bool)> = Vec::new();
             for model in models {
                 let name = model.file.path.name();
                 let material = mtl_for(
@@ -225,19 +237,22 @@ pub(super) fn package(
                     &folder.common_files,
                 )
                 .expect(MTL_FOUND);
+                if !used.iter().any(|(file, _)| file.path == material.path) {
+                    used.push((material, own(model.source_path)));
+                }
                 let packed = name.to_ascii_lowercase();
                 entries.push(XmlEntry {
-                    xml_type: model.xml_type.expect(
-                        "a gloves output's models are a shared folder's, each typed: the subset \
-                         gate names a part of an `ingame_face` player's gloves",
-                    ),
+                    xml_type: model.xml_type,
                     path: format!("./{packed}"),
                     material: format!("./{}", material.path.name().to_ascii_lowercase()),
                     ratio: ratio(file_stem(name)).map(str::to_owned),
                 });
                 insert(&mut contents, package, packed, take(files, model.file))?;
             }
-            for file in materials {
+            let used = without_replaced(used, |(file, own)| {
+                (file.path.name().to_ascii_lowercase(), *own)
+            });
+            for (file, _) in used {
                 let bytes = rewritten_materials(file, &take(files, file), &places)?;
                 let name = file.path.name().to_ascii_lowercase();
                 insert(&mut contents, package, name, bytes)?;
@@ -255,6 +270,26 @@ pub(super) fn package(
         ),
     }
     Ok(contents)
+}
+
+/// `items`, gloves files of a player or a shared folder, less each of a folder the player
+/// combines that packs under a name one of his own packs under: his file replaces it, as a
+/// copy of his over the linked folder's would (`player_folders.md` "`ingame_face` with shared
+/// links"). `packed` gives an item's packed name and whether the player's own folder holds it;
+/// a shared folder's items are all its own, so none is left out.
+fn without_replaced<T>(items: Vec<T>, packed: impl Fn(&T) -> (String, bool)) -> Vec<T> {
+    let own_names: BTreeSet<String> = items
+        .iter()
+        .map(&packed)
+        .filter_map(|(name, own)| own.then_some(name))
+        .collect();
+    items
+        .into_iter()
+        .filter(|item| {
+            let (name, own) = packed(item);
+            own || !own_names.contains(&name)
+        })
+        .collect()
 }
 
 /// The `boots.model` and `boots.mtl` bytes of `parts`, given in merge order: one part's model
@@ -415,6 +450,33 @@ mod tests {
             .map(|material| material.name)
             .collect();
         assert_eq!(names, ["card", "studs"]);
+    }
+
+    #[test]
+    fn a_player_s_own_gloves_file_replaces_a_combined_folder_s_of_its_packed_name() {
+        // Each a packed name and whether the player's own folder holds it.
+        let items = vec![
+            ("glove_l.mtl", true),
+            ("x_glover.mtl", true),
+            ("glove_l.mtl", false),
+            ("glove_r.mtl", false),
+        ];
+        let kept = without_replaced(items, |(name, own)| ((*name).to_owned(), *own));
+        assert_eq!(
+            kept,
+            [
+                ("glove_l.mtl", true),
+                ("x_glover.mtl", true),
+                ("glove_r.mtl", false)
+            ]
+        );
+        // A shared folder's are all its own: two of one name are both kept, for `insert` to
+        // refuse.
+        let shared = vec![("glove_l.mtl", true), ("glove_l.mtl", true)];
+        assert_eq!(
+            without_replaced(shared.clone(), |(name, own)| ((*name).to_owned(), *own)),
+            shared
+        );
     }
 
     /// The code and context of `failure`.

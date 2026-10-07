@@ -299,10 +299,11 @@ impl ModelFolder {
     }
 
     /// The package the folder's own files feed, which its own textures count for when a stem
-    /// conflicts and its pre-Fox `.mtl` files go into: a player folder's stand for its face,
-    /// a shared folder's for its one package. A pre-Fox player holding `ingame_face` has no
-    /// face: his models are parts of his boots (`PlayerFile::PreFoxPart`, gloves being a later
-    /// step's), so his `.mtl` files and textures are the boots'.
+    /// conflicts and its pre-Fox models (`PlayerFile::PreFoxModel`) go into: a player folder's
+    /// stand for its face, a shared folder's for its one package. A pre-Fox player holding
+    /// `ingame_face` has no face, so his textures count for his boots. His models are parts of
+    /// his boots or gloves, each saying which (`PlayerFile::PreFoxPart`), and his `.mtl` files
+    /// are read by both (`TaskKind::files`): this answer is not where they go.
     fn own_package(&self) -> ModelPackage {
         match &self.textures {
             TextureHome::PlayerCommon { .. } => match self.engine {
@@ -482,18 +483,24 @@ impl TaskKind {
         match self {
             TaskKind::Models {
                 folder, package, ..
-            } => folder_files(folder, |file, role| {
+            } => folder_files(folder, |source, source_path, file, role| {
                 role.package() == Some(*package)
                     || (*package == ModelPackage::Gloves && folder.hand_split.contains(&file.path))
-                    // A pre-Fox model and `.mtl` go into the package their folder's own
-                    // files feed: a shared boots or gloves folder's into its own output, an
-                    // `ingame_face` player's (and a boots folder he combines) into his boots.
-                    || (matches!(role, PlayerFile::PreFoxModel { .. } | PlayerFile::Material)
-                        && *package == folder.own_package())
+                    // A pre-Fox model goes into the package its source feeds: a shared boots
+                    // or gloves folder's into its own output, a folder an `ingame_face` player
+                    // combines into his package of its kind.
+                    || (matches!(role, PlayerFile::PreFoxModel { .. }) && *package == source)
+                    // A pre-Fox `.mtl` goes where its source's models go, each package packing
+                    // the ones its models use (`mtl_for`): a combined folder's into the
+                    // player's package of its kind, the folder's own into each of its
+                    // packages, an `ingame_face` player's models being parts of his boots and
+                    // of his gloves (`PlayerFile::PreFoxPart`).
+                    || (matches!(role, PlayerFile::Material)
+                        && (*package == source || source_path == &folder.path))
             }),
-            TaskKind::Textures { folder, .. } => {
-                folder_files(folder, |_, role| matches!(role, PlayerFile::Texture(..)))
-            }
+            TaskKind::Textures { folder, .. } => folder_files(folder, |_, _, _, role| {
+                matches!(role, PlayerFile::Texture(..))
+            }),
             TaskKind::CommonTextures { textures, .. } => textures.iter().collect(),
             TaskKind::CommonModels { files, .. } => files.iter().collect(),
             TaskKind::Portrait { file, .. } => vec![file],
@@ -513,19 +520,22 @@ impl TaskKind {
     }
 }
 
-/// The files of `folder` that `wanted` accepts, given each with its role: its own in their
-/// order, then each combined folder's.
+/// The files of `folder` that `wanted` accepts, given each with its source (`ModelFolder::roles`:
+/// the package it feeds and its export path) and its role: its own in their order, then each
+/// combined folder's.
 fn folder_files(
     folder: &ModelFolder,
-    wanted: impl Fn(&FileDescriptor, &PlayerFile) -> bool,
+    wanted: impl Fn(ModelPackage, &ScopePath, &FileDescriptor, &PlayerFile) -> bool,
 ) -> Vec<&FileDescriptor> {
-    folder
-        .roles()
-        .into_iter()
-        .flat_map(|(_, _, files)| files)
-        .filter(|(file, role)| wanted(file, role))
-        .map(|(file, _)| file)
-        .collect()
+    let mut wanted_files = Vec::new();
+    for (source, source_path, files) in folder.roles() {
+        for (file, role) in files {
+            if wanted(source, source_path, file, &role) {
+                wanted_files.push(file);
+            }
+        }
+    }
+    wanted_files
 }
 
 /// The export paths of `folder`'s hand-split parts on a target of `engine`
@@ -1001,13 +1011,13 @@ fn folder_tasks(
     let first = tasks.len();
     let mut held = Vec::new();
     for (package, ids) in packages {
-        // A pre-Fox model is a part of the package its folder's own files feed, whatever its
-        // `face.xml` type: a player's face, a shared folder's boots or gloves, the boots of an
-        // `ingame_face` player combining a boots folder. His own parts say their package.
-        let models = folder_files(&folder, |_, role| {
+        // A pre-Fox model is a part of the package its source feeds, whatever its `face.xml`
+        // type: a player's face, a shared folder's boots or gloves, the boots or gloves of an
+        // `ingame_face` player combining a folder of their kind. His own parts say their
+        // package.
+        let models = folder_files(&folder, |source, _, _, role| {
             is_part_of(role, *package)
-                || (matches!(role, PlayerFile::PreFoxModel { .. })
-                    && *package == folder.own_package())
+                || (matches!(role, PlayerFile::PreFoxModel { .. }) && *package == source)
         });
         let blank = blank_face && *package == ModelPackage::Face;
         // A hand-split face part gives the folder gloves, whatever its files are named.
@@ -1026,7 +1036,11 @@ fn folder_tasks(
             },
         ));
     }
-    if folder_files(&folder, |_, role| matches!(role, PlayerFile::Texture(..))).is_empty() {
+    if folder_files(&folder, |_, _, _, role| {
+        matches!(role, PlayerFile::Texture(..))
+    })
+    .is_empty()
+    {
         return;
     }
     tasks.push(task(
@@ -2972,6 +2986,73 @@ mod tests {
         );
         // PES 15-17 have no player tables to point a player at his boots.
         assert_eq!(report.manifest.item_rows, []);
+    }
+
+    #[test]
+    fn a_pre_fox_marked_player_s_mtl_files_are_read_by_his_boots_and_his_gloves() {
+        let export = resolved(
+            "co Midcup Marked",
+            &[
+                ("Players/05 - A/ingame_face", 0),
+                ("Players/05 - A/kit_boots.model", 4),
+                ("Players/05 - A/x_gloveL.model", 2),
+                ("Players/05 - A/materials.mtl", 1),
+                ("Players/05 - A/Keeper.gloves", 0),
+                ("Players/07 - B/ingame_face", 0),
+                ("Players/07 - B/x_gloveR.model", 2),
+                ("Players/07 - B/x_gloveR.mtl", 1),
+                ("Players/07 - B/Crocs.boots", 0),
+                ("Players/07 - B/Keeper.gloves", 0),
+                ("Gloves/Keeper/glove_r.model", 8),
+                ("Gloves/Keeper/glove_r.mtl", 1),
+                ("Boots/Crocs/boots.model", 16),
+                ("Boots/Crocs/boots.mtl", 1),
+            ],
+            &[],
+            None,
+        );
+
+        let report = plan_run(
+            vec![to_plan(ExportId(0), export, two_team_colors(), None)],
+            PesVersion::Pes17,
+        );
+
+        // Each marked player's boots and gloves under his exclusive id, a package for each
+        // kind he holds a part of: slot 07 has no boots part, so his Crocs link loads the
+        // shared output, and Keeper, which both combine, takes no id.
+        assert_eq!(
+            summary(&report),
+            [
+                "0 714 Boots Players/05 - A [625] charge 5",
+                "0 714 Gloves Players/05 - A [625] charge 12",
+                "0 714 Gloves Players/07 - B [627] charge 12",
+                "0 714 Boots Boots/Crocs [644] charge 17",
+            ]
+        );
+        assert_eq!(
+            message_summary(&report),
+            [
+                ("link_combined", "Players/05 - A", Disposition::Keep),
+                ("link_combined", "Players/07 - B", Disposition::Keep),
+            ]
+        );
+        // His `.mtl` is a file of both; Keeper's goes with Keeper's model, into the gloves.
+        assert_eq!(
+            task_files(&report.manifest.tasks[0]),
+            [
+                "Players/05 - A/kit_boots.model",
+                "Players/05 - A/materials.mtl"
+            ]
+        );
+        assert_eq!(
+            task_files(&report.manifest.tasks[1]),
+            [
+                "Players/05 - A/materials.mtl",
+                "Players/05 - A/x_gloveL.model",
+                "Gloves/Keeper/glove_r.model",
+                "Gloves/Keeper/glove_r.mtl",
+            ]
+        );
     }
 
     #[test]

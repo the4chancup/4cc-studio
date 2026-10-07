@@ -451,7 +451,9 @@ then processed as an independent parallel task (Blue: `coordinator._model_folder
    `boots.model` and the `.mtl` it uses as `boots.mtl` (the game loads them by those names
    and every DLC boots folder has exactly them; a folder holding several boots models merges
    them with `pes_model::ops::merge`, as `ingame_face` does), a shared gloves folder's models
-   and `.mtl` files under their own names lowercased, as a face's are but without the `oral_`
+   and the `.mtl` files they use (a `.mtl` no model uses is not packed, the same rule as an
+   `ingame_face` player's own gloves folder, which a `.mtl` of his boots must not reach)
+   under their own names lowercased, as a face's are but without the `oral_`
    and `_win32` affixes, listed in a generated `glove.xml` (the shape of the generated
    `face.xml` with no `<dif>`, each entry's `path` `./<name>.model` as Red and the DLC write
    it, its type from the model-name table); either folder's textures as DDS beside its models,

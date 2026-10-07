@@ -4909,3 +4909,25 @@ gloves task is needed; the stem prefix keeps the split parts from clashing with 
 subset of the source's materials under their names, so the source `.mtl` already defines them
 and writing new material files would only add names to keep apart.
 Plan: `model_conversion/hand_split.md` "Pipeline integration".
+
+## 2026-10-08 — team_compiler — A pre-Fox gloves output packs only the `.mtl` files its models use
+Decision: a pre-Fox gloves output, a shared `Gloves/` folder's or an `ingame_face` player's
+own, packs the `.mtl` files its models use (`mtl_for`), each once, a player's own replacing a
+combined folder's of the same name; until 4.14e2 a shared gloves folder packed every `.mtl` it
+held. Planning routes each pre-Fox model and `.mtl` by the source it comes from, a marked
+player's own `.mtl` files being files of both his boots and his gloves tasks.
+Why: a marked player's `.mtl` files sit in one folder for both his boots and his gloves, so
+packing all of them would put his boots' material set in his gloves folder; one rule for both
+gloves outputs keeps one code path, and an unused `.mtl` is nothing the game loads.
+Plan: `team_compiler/pipeline.md` step 7 "Packing".
+
+## 2026-10-08 — team_compiler — Pre-Fox hand split skips a Common-linked model; TC-MOD-43
+Decision: on pre-Fox a hand-weighted model a `.model.common` link brings in is not split: the
+face lists the Common output's file by reference and packs nothing of it. The split covers the
+models the face packs (the folder's own and a combined shared face's). The pre-Fox split's
+scenario is TC-MOD-43; `model_hand_split` is reported on both engines.
+Why: splitting a linked model would mean copying it into the face, so the link would stop being
+a reference, for a case no export on the maintainer's machine has (one hand-weighted face model
+exists there, a Fox one). Logged as an open worklog issue rather than built.
+Plan: `model_conversion/hand_split.md` "Pipeline integration"; `team_compiler/README.md`
+TC-MOD-43; `team_compiler/messages.md` the `model_hand_split` row.

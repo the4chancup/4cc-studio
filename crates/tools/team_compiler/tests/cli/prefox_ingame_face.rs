@@ -1,6 +1,8 @@
-//! `compile` for PES 2017 of the two cases that merge `.model` files: a player folder holding
-//! `ingame_face`, whose models other than gloves become his own boots, merged with a boots
-//! folder his link combines, and a shared `Boots/` folder holding several boots models.
+//! `compile` for PES 2017 of a player folder holding `ingame_face`, whose models other than
+//! gloves become his own boots, merged with a boots folder his link combines, and whose gloves
+//! become his own gloves folder, unmerged, with a gloves folder his link combines; and of the
+//! shared folders written in the same shapes: a `Boots/` folder holding several boots models,
+//! a `Gloves/` folder holding a `.mtl` no model uses.
 
 use pes_model::format::PreFoxModel;
 use pes_model::model::Model;
@@ -15,6 +17,16 @@ use crate::prefox_faces::{
 
 /// The folder slot 05's own boots are written to in team 714's export: his exclusive id.
 const BOOTS_K0625: &str = "common/character0/model/character/boots/k0625/";
+
+/// The folder slot 05's own gloves are written to in team 714's export: his exclusive id.
+const GLOVES_G0625: &str = "common/character0/model/character/glove/g0625/";
+
+/// The folder of every pre-Fox gloves output of the CPK, shared and exclusive.
+const GLOVES: &str = "common/character0/model/character/glove/";
+
+/// Slot 05's common folder in team 714's Common output, where his textures are and his `.mtl`
+/// files name them.
+const SLOT_05_HOME: &str = "model/character/uniform/common/714/05 - A/";
 
 /// The card-head template's face model, a clean pre-Fox model with one material, `card`.
 fn card() -> Model {
@@ -216,5 +228,205 @@ fn a_shared_boots_folder_holding_two_boots_models_is_written_as_one_merged_boots
     assert_eq!(
         sampler_paths(boots["boots.mtl"]),
         ["./left.dds", "./right.dds"]
+    );
+}
+
+/// Writes slot 05 of the export `export` holding `ingame_face` and `kit_boots.model`, then
+/// each of `gloves`, a glove model's stem with the stem of the texture its `.mtl` names: the
+/// model, a `.mtl` of its stem and the texture.
+fn write_marked_slot_05(sandbox: &Sandbox, export: &str, gloves: &[(&str, &str)]) {
+    let player = format!("exports/{export}/Players/05 - A");
+    sandbox.write(&format!("{player}/ingame_face"), b"");
+    let parts = [("kit_boots", "boots")]
+        .into_iter()
+        .chain(gloves.iter().copied());
+    for (stem, texture) in parts {
+        sandbox.write(&format!("{player}/{stem}.model"), &card_model());
+        sandbox.write(&format!("{player}/{stem}.mtl"), &materials("card", texture));
+        sandbox.write(&format!("{player}/{texture}.dds"), &small_dds());
+    }
+}
+
+/// The `glove.xml` listing `entries` in their order, each a type, a model name and a `.mtl`
+/// name.
+fn glove_xml(entries: &[(&str, &str, &str)]) -> String {
+    let mut text = String::from("<?xml version='1.0' encoding='UTF-8'?>\r\n<config>\r\n");
+    for (xml_type, model, material) in entries {
+        text.push_str(&format!(
+            "   <model level=\"0\" type=\"{xml_type}\" path=\"./{model}\" material=\"./{material}\" />\r\n"
+        ));
+    }
+    text + "</config>"
+}
+
+#[test]
+fn under_ingame_face_gloves_parts_are_written_unmerged_to_the_player_s_own_gloves_folder() {
+    let sandbox = Sandbox::new("prefox_ingame_gloves");
+    let export = "co Midcup Gloves";
+    write_marked_slot_05(
+        &sandbox,
+        export,
+        &[("x_gloveL", "left"), ("x_gloveR", "right")],
+    );
+
+    let entries = compile_pes17(&sandbox, export, &CLEAN);
+
+    assert!(!entries.contains_key(&face_cpk(5)), "{:?}", entries.keys());
+    // The boots alone: one part, written as it is, its `.mtl` the boots' one.
+    let boots = entries_under(&entries, BOOTS_K0625);
+    let names: Vec<&str> = boots.keys().copied().collect();
+    assert_eq!(names, ["boots.model", "boots.mtl"]);
+    assert_eq!(*boots["boots.model"], card_model());
+    assert_eq!(
+        sampler_paths(boots["boots.mtl"]),
+        [format!("{SLOT_05_HOME}boots.dds")]
+    );
+    // His gloves, under his exclusive id: each model under its name lowercased with the `.mtl`
+    // it uses, `kit_boots.mtl` not among them.
+    let gloves = entries_under(&entries, GLOVES);
+    let names: Vec<&str> = gloves.keys().copied().collect();
+    assert_eq!(
+        names,
+        [
+            "g0625/glove.xml",
+            "g0625/x_glovel.model",
+            "g0625/x_glovel.mtl",
+            "g0625/x_glover.model",
+            "g0625/x_glover.mtl",
+        ]
+    );
+    let gloves = entries_under(&entries, GLOVES_G0625);
+    assert_eq!(*gloves["x_glovel.model"], card_model());
+    assert_eq!(
+        String::from_utf8(gloves["glove.xml"].clone()).unwrap(),
+        glove_xml(&[
+            ("gloveL", "x_glovel.model", "x_glovel.mtl"),
+            ("gloveR", "x_glover.model", "x_glover.mtl"),
+        ])
+    );
+    for (name, texture) in [("x_glovel.mtl", "left"), ("x_glover.mtl", "right")] {
+        assert_eq!(
+            sampler_paths(gloves[name]),
+            [format!("{SLOT_05_HOME}{texture}.dds")]
+        );
+    }
+    for texture in ["boots", "left", "right"] {
+        let path = format!("common/character1/{SLOT_05_HOME}{texture}.dds");
+        assert!(entries.contains_key(&path), "{path}");
+    }
+}
+
+#[test]
+fn under_ingame_face_a_gloves_link_beside_a_gloves_part_combines_the_player_s_model_first() {
+    let sandbox = Sandbox::new("prefox_ingame_gloves_link");
+    let export = "co Midcup Keeper";
+    write_marked_slot_05(
+        &sandbox,
+        export,
+        &[("glove_l", "left"), ("x_gloveR", "right")],
+    );
+    let player = format!("exports/{export}/Players/05 - A");
+    sandbox.write(&format!("{player}/Keeper.gloves"), b"");
+    // Keeper's `glove_l` packs under the name slot 05's own does; its `glove_r` under one of
+    // its own.
+    let keeper = format!("exports/{export}/Gloves/Keeper");
+    let keeper_model = card_naming("keeper");
+    for hand in ["glove_l", "glove_r"] {
+        sandbox.write(&format!("{keeper}/{hand}.model"), &keeper_model);
+        sandbox.write(
+            &format!("{keeper}/{hand}.mtl"),
+            &materials("keeper", "keeper"),
+        );
+    }
+    sandbox.write(&format!("{keeper}/keeper.dds"), &small_dds());
+
+    let entries = compile_pes17(
+        &sandbox,
+        export,
+        &[
+            CLEAN[0],
+            CLEAN[1],
+            "Info link_combined [Keep] at Players/05 - A (link=Keeper.gloves)",
+        ],
+    );
+
+    // Keeper, linked by no other player, takes no id: its models are his gloves'.
+    let gloves = entries_under(&entries, GLOVES);
+    let names: Vec<&str> = gloves.keys().copied().collect();
+    assert_eq!(
+        names,
+        [
+            "g0625/glove.xml",
+            "g0625/glove_l.model",
+            "g0625/glove_l.mtl",
+            "g0625/glove_r.model",
+            "g0625/glove_r.mtl",
+            "g0625/x_glover.model",
+            "g0625/x_glover.mtl",
+        ]
+    );
+    let gloves = entries_under(&entries, GLOVES_G0625);
+    // His own `glove_l.model` and `.mtl`, not Keeper's.
+    assert_eq!(*gloves["glove_l.model"], card_model());
+    assert_eq!(
+        sampler_paths(gloves["glove_l.mtl"]),
+        [format!("{SLOT_05_HOME}left.dds")]
+    );
+    assert_eq!(*gloves["glove_r.model"], keeper_model);
+    assert_eq!(
+        sampler_paths(gloves["glove_r.mtl"]),
+        [format!("{SLOT_05_HOME}keeper.dds")]
+    );
+    // By export path, case-folded: Keeper's `glove_r` first.
+    assert_eq!(
+        String::from_utf8(gloves["glove.xml"].clone()).unwrap(),
+        glove_xml(&[
+            ("gloveR", "glove_r.model", "glove_r.mtl"),
+            ("gloveL", "glove_l.model", "glove_l.mtl"),
+            ("gloveR", "x_glover.model", "x_glover.mtl"),
+        ])
+    );
+    // His boots hold his boots part alone, no glove merged in.
+    let boots = entries_under(&entries, BOOTS_K0625);
+    let names: Vec<&str> = boots.keys().copied().collect();
+    assert_eq!(names, ["boots.model", "boots.mtl"]);
+    assert_eq!(*boots["boots.model"], card_model());
+    assert_eq!(
+        sampler_paths(boots["boots.mtl"]),
+        [format!("{SLOT_05_HOME}boots.dds")]
+    );
+}
+
+#[test]
+fn a_shared_gloves_folder_s_mtl_no_model_uses_is_not_written() {
+    let sandbox = Sandbox::new("prefox_shared_gloves_unused_mtl");
+    let export = "co Midcup Spare";
+    write_slot_05_face(&sandbox, export);
+    sandbox.write(
+        &format!("exports/{export}/Players/05 - A/Keeper.gloves"),
+        b"",
+    );
+    let keeper = format!("exports/{export}/Gloves/Keeper");
+    sandbox.write(&format!("{keeper}/glove_l.model"), &card_model());
+    sandbox.write(&format!("{keeper}/glove_l.mtl"), &materials("card", "left"));
+    // A second material set, which the search does not pick for `glove_l.model`.
+    sandbox.write(
+        &format!("{keeper}/materials.mtl"),
+        &materials("card", "left"),
+    );
+    sandbox.write(&format!("{keeper}/left.dds"), &small_dds());
+
+    let entries = compile_pes17(&sandbox, export, &CLEAN);
+
+    let gloves = entries_under(&entries, GLOVES);
+    let names: Vec<&str> = gloves.keys().copied().collect();
+    assert_eq!(
+        names,
+        [
+            "g0644/glove.xml",
+            "g0644/glove_l.model",
+            "g0644/glove_l.mtl",
+            "g0644/left.dds",
+        ]
     );
 }

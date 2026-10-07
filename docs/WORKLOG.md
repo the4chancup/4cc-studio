@@ -18,7 +18,7 @@ and 4.25 are done; 4.26 is done; 4.19 (Fox referees) is done, 4.19d (pre-Fox) wa
 referee marker) is done, 4.27's rest (the pre-Fox marker) waits on 4.19d; 4.9 is done
 (collars on Fox; their pre-Fox and cross-format halves are in 4.16 and 4.17); 4.28
 (memory accounting), 4.32 (number atlases) and 4.18 (hand auto-split, Fox) are done, and
-4.y moved to Phase 8; 4.14 is under way (slices a to d and e1 done, e2 next of e2 to e5), with its own checks until 4.31's pre-Fox parity
+4.y moved to Phase 8; 4.14 is under way (slices a to d, e1 and e2 done, e3 next of e3 to e5), with its own checks until 4.31's pre-Fox parity
 reference exists (4.31 done: `tests/parity_prefox.rs`); 4.33, 4.34, 4.c-pass and
 4.c-fix1 are done; 4.30,
 4.5 to 4.8 and 4.10 to 4.13 are done (4.6c moved to Phase 8's cancellation). 2.5b (GPU BC7) is step 16.x (decision entries
@@ -145,6 +145,12 @@ Claude agent with no sidekick and no reviewer of another model family. While tha
   entries the slice opened.
   The acceptance section changed with these slices (TC-TEX-09 and TC-CMN-07 added,
   TC-CMN-05 narrowed to its Fox half): they join the queued (a) review of the section.
+  TC-MOD-43 (the pre-Fox hand split, written 2026-10-08 for 4.14e3) joins it too.
+  4.14e3 (b): `model_convert` (a `pub` `.model` hand-weight detector beside
+  `fox_has_hand_weights`) and `team_compiler` (the deep pass recording it, the face task's
+  split), its `feat(team_compiler)` commit, against `model_conversion/hand_split.md`
+  "Pipeline integration", `messages.md` `model_hand_split`, TC-MOD-43 and the decision
+  entries of 2026-10-08 on the pre-Fox split.
   4.12 (b): `team_compiler` (`plan/subset.rs` `model_role` under the marker,
   `PlayerFile::UnusedFaceFile`, `FolderModels::of_player_files`; `plan/mod.rs`
   `ModelFolder::ingame_face`, `folder_tasks`' blank face; `validation.rs`
@@ -1355,7 +1361,12 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   textures between his boots and gloves; the boots task's two package guards in
   `prefox_shared::package`, e1's mutation survivors, get their test here: a marked player with
   boots parts and a gloves link his gloves combine); (e3) the hand split of a hand-weighted
-  `.model`; (e4) the kit variant sets (TC-CMN-07); (e5) a `.model.common`/`.mtl.common` link
+  `.model` in the face task (`model_conversion/hand_split.md` "Pipeline integration": the
+  body keeps its entry, the hands become `<stem>_glove_l`/`_glove_r` entries; the deep pass
+  records `.model` hand weights through a `pub` `.model` detector in `model_convert` beside
+  `fox_has_hand_weights`, a two-crate change: GPT review (b) queued; lead first: the
+  `.model` twin of `tests/fixtures/hand_split/body.fmdl`; TC-MOD-43); (e4) the kit variant
+  sets (TC-CMN-07); (e5) a `.model.common`/`.mtl.common` link
   beside `ingame_face` (named by the gate since e1: its model would be one more part of the
   boots merge, or a `glove.xml` entry naming its Common path). A user-supplied `face.xml` stays refused as not compiled yet until 4.15.
   Templates for (b): `resources/templates/dummy.model` and `dummy.mtl` (README there).
@@ -1425,6 +1436,19 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   caught, 11 unviable, 2 missed (the two package guards of `prefox_shared::package`, no input
   reaching them until gloves parts do: their test is e2's). The first run died with the PC
   (a BSOD); rerun whole.
+  (e2) done 2026-10-08 (Opus 5.5, first time; one contradiction accepted, applied by the
+  sidekick: planning routes each pre-Fox model and `.mtl` by its source, not by
+  `own_package`, since a combined gloves folder's models went to the boots task; lead: a plan
+  edit and decision for the gloves `.mtl` rule it changed): `PreFoxPart { package, xml_type }`,
+  `compiled_under_ingame_face` accepting gloves; `folder_files` giving each file's source,
+  `TaskKind::files`/`folder_tasks` routing by it (a marked player's `.mtl` files are files of
+  both his tasks); `prefox_shared::package` writing a player's exclusive gloves as a shared
+  folder's, `without_replaced` (his file over a combined folder's of the packed name), only
+  the `.mtl` files the models use; `help/`. Tests in `tests/cli/prefox_ingame_face.rs`.
+  Gates green (224 of 255); `mutants-diff 2addd6f` (local): 41, 36 caught, 5 unviable, 0
+  missed, e1's two guards among the caught. Two open issues logged (texture stem conflicts
+  under the marker, a replaced `.mtl` behind a kept linked model). The first run died with
+  the PC (the third BSOD); rerun whole.
   IDs: TC-MOD-20..25, TC-MOD-35, TC-MOD-37..41, TC-CHK-08, TC-TEX-07, TC-XML-08, TC-CMN-07 (split from TC-CMN-05 at 4.11c). Crates: tc (`processing/model.rs`, `processing/material.rs`,
   `processing/texture.rs`, `paths.rs`) → verify: a `/co/` slot 05 folder with the smallest
   `pes_model` fixture pair as `face_high.model` + `face_high.mtl` and `skin.dds`, compiled for PES 17: the
@@ -2271,7 +2295,28 @@ pruned when their phase closes; they stay in git history.
   face he does not have when a stem conflicts. A stem his folder and a boots folder his link
   combines both hold may then be `shared_texture_conflict` dropping the boots, where the plan's
   `merged_texture_conflict` (or identical bytes deduplicated) looks right. Needs a test before
-  any fix.
+  any fix. Pre-Fox has the same shape since 4.14e2: a marked player's own textures count for
+  his boots, so a combined `Gloves/` folder's texture of one of his stems with other bytes may
+  drop his whole gloves package although his own parts use his own texture.
+- open (2026-10-08) — the PC blue-screened three times during a local mutation run (4.14c2's
+  half, 4.14e1's and 4.14e2's; MEMORY_MANAGEMENT at the first), never otherwise: the two
+  cargo-mutants jobs each build a copy of the tree, the heaviest load the machine gets now that
+  `team_compiler` runs locally whole. The maintainer memtested the RAM (clean), turned XMP off
+  after the second, and after the third set the paging file to 32 GB, the size it had before
+  the crashes began. A killed run leaves its two `%TEMP%\cargo-mutants-4cc-studio-*.tmp`
+  copies (3.6 GB each; `.tmp/rm_mutant_copies.py` removes them, clearing the read-only flag
+  a test leaves on one file). If a run crashes again at 32 GB, the next lever is one job
+  (`--jobs 1` in `scripts/mutants.py`'s local config).
+- open (2026-10-08, 4.14e3's plan) — pre-Fox: a hand-weighted model behind a `.model.common`
+  link is listed whole by its Common path, not split (`hand_split.md` "Pipeline
+  integration"): the game then loads a body with hands on the body skeleton. Splitting it
+  means packing a copy into the face. Build it when an export has one.
+- open (found at 4.14e2's review) — pre-Fox combined folders: when a player's `.mtl` replaces
+  a linked folder's of the same name and a linked model he does not replace used it, that
+  model is listed with his `.mtl`, which the deep pass never compared with its materials
+  (it checked the linked `.mtl`): a material his lacks is undefined in game with no finding.
+  The combined face behaves the same way. Rare (two `.mtl` files of one name, the linked
+  model kept); a fix checks the material names against the `.mtl` that is packed.
 - resolved (2026-10-07) — the remote half reached its 9 GiB cap with `REMOTE_BUILD_JOBS`
   already at 1 (4.14c1 peaked at 8.99 GiB; 4.14d's killed two builds, rerun locally). The
   maintainer chose to run `team_compiler`'s mutants on the PC only: `LOCAL_ONLY_CRATES` in
@@ -3606,3 +3651,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
     the boots out with `merge_material_conflict`, `skl_merge_conflict` or
     `model_merge_flags_conflict`), and a shared `Boots/` folder holding several boots models
     is merged into its `boots.model`. Gloves beside the marker are still refused there.
+  - **4.14e2:** on PES 2015 to 2017 an `ingame_face` player's gloves compile into his own
+    gloves folder, unmerged, each model with its `.mtl` and a `glove.xml`, a gloves folder his
+    link combines adding its models (his own file replacing one of the same name); a shared
+    gloves folder no longer writes a `.mtl` none of its models uses.
