@@ -956,8 +956,9 @@ describes behavior, not a serial scheduling requirement:
   a list of this length whole: PES 2015 and PES 2021, one per engine, each loaded the last
   CPK of a 53-entry list in an in-game test (the longest installed list has 45), and the
   versions between them are taken to do the same. On every compile
-  with a PES folder, at deployment preflight, the installed DPFL's entries are compared with
-  the bundled one's, in order:
+  that deploys, at its preflight, the installed DPFL's entries are compared with the bundled
+  one's, in order (`--no-deploy`, sideload and test mode install no CPK, so they compare
+  nothing):
   - the same entries in the same order → nothing to do;
   - any difference, while every target of this run is listed → `dpfilelist_not_official` (W):
     the run compiles and deploys as usual, because a list edited on purpose, or an old DLC's,
@@ -1042,8 +1043,10 @@ describes behavior, not a serial scheduling requirement:
   (`deploy_target_unwritable`) and still compiles to `output/` (TC-DEP-04). Before the probe it
   checks, in order, that the PES folder exists (`pes_folder_not_found`), that it holds
   `PES20{pes_version}.exe` (`pes_version_mismatch`, a Warning), that `download/DpFileList.bin`
-  exists (the working-bin walk reports `dpfilelist_missing`) and that it lists the run's CPK
-  (`cpk_name_unlisted`); the first Error ends the checks and the run compiles to `output/`. The
+  exists (the working-bin walk reports `dpfilelist_missing`), that it lists the run's CPK
+  (`dpfilelist_outdated` when the official list names it, else `cpk_name_unlisted`), and then
+  how it differs from the official list (`dpfilelist_not_official`, `dpfilelist_cpk_missing`,
+  both Warnings); the first Error ends the checks and the run compiles to `output/`. The
   probe does not report an old CPK in use: PES may be closed before the run ends, and the
   deployment stage meets the lock if it is not. The CLI's message for each of these Errors
   names the path the CPK is promoted to instead.
@@ -1291,8 +1294,9 @@ Resolved decisions:
   run there, whatever the resource: we abort, not drop each folder that would use it,
   because the file was put there on purpose (an unreadable `overrides/` file fails the CPK
   for the same reason), and a locked `face_diff.bin` dropping every face folder would ship
-  a CPK without its faces. An override of one of the three bins is parsed as it is read, as
-  the walk's bins are, so one that does not parse cannot be read either; the other resources
+  a CPK without its faces. An override of one of the three bins, or of `DpFileList.bin`, is
+  parsed as it is read, as the walk's bins are, so one that does not parse cannot be read
+  either; the other resources
   are packed or converted as they are, so theirs fail where the embedded one would be used.
 - **Teams list: embedded upstream, one working copy in the data directory.** The current cup's
   `teams_list.txt` ships *inside* the binary like the templates (upstream), and the only copy on

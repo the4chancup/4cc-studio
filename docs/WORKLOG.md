@@ -1507,11 +1507,15 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   (DpFileList upgrade); `settings.md` "CLI" (`upgrade-dpfl`). IDs: TC-DEP-09, 10, 12..14
   (TC-DEP-08 needs multi-CPK mode: 4.26; here `dpfilelist_outdated` is tested on a single-CPK
   run). Lead first, done: `resources/templates/DpFileList.bin` and `placeholder.cpk` (decision
-  entry "the placeholder CPK is the shipped file, embedded"). Crates: tc
-  (`bins/dpfl.rs`, `cli.rs`), resources → verify: an installed DPFL lacking `4cc_41_teams` beside
-  a 1 KiB `download/4cc_40_faces.cpk`: `upgrade-dpfl` prints `4cc_40_faces` with `1 KiB` and
-  exits without writing; `--yes` makes `DpFileList.bin` equal to the embedded list and
-  `DpFileList.bin.bak` equal to the old file, `4cc_40_faces.cpk` still present
+  entry "the placeholder CPK is the shipped file, embedded"). Slices: 4.25b the official list
+  as a `templates/` resource and the preflight's comparison (TC-DEP-12, 14, `dpfilelist_outdated`;
+  decision entry "the official-list check: only a compile that deploys, and its findings'
+  context"), 4.25c `upgrade-dpfl` (TC-DEP-09, 10, 13). Crates: tc (`templates.rs`,
+  `output/deploy.rs`, `cli.rs`) → verify: an installed DPFL lacking `4cc_41_teams` beside a
+  1 KiB `download/4cc_40_faces.cpk`: `upgrade-dpfl` prints `4cc_40_faces` as renamed to
+  `4cc_41_teams` and exits without writing; `--yes` makes `DpFileList.bin` equal to the
+  embedded list and `DpFileList.bin.bak` equal to the old file, `4cc_41_teams.cpk` holding
+  the old file's bytes
 
 - [ ] 4.26 **Multi-CPK mode**: `multicpk_mode` honored (the Phase 3 refusal removed); slots from
   the DPFL entries matching `{prefix}_{NN}_{teams_cpk_name}` exactly, ordered by number; whole

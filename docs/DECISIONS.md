@@ -4448,3 +4448,22 @@ one the game was seen to load; the upgrade copies the file byte for byte, so its
 chosen once, here.
 Plan: `team_compiler/pipeline.md` "Multi-CPK mode" ("Every slot is always written");
 `resources/templates/README.md`.
+
+## 2026-10-07 — team_compiler — the official-list check: only a compile that deploys, and its findings' context
+Decision (lead, reversible): the installed `DpFileList.bin` is compared with the official one
+only in a compile that deploys, in its preflight, after the run's CPK is found listed:
+`--no-deploy`, sideload and test mode compare nothing. A list lacking the run's CPK is
+`dpfilelist_outdated` when the official list names it, else `cpk_name_unlisted`; both end the
+checks. A list naming it gets `dpfilelist_not_official` and then `dpfilelist_cpk_missing`,
+Warnings. Their contexts: `path`, `missing` (official order), `unofficial` (installed order),
+`order=differs`, the three only when they apply, lists joined by `, `; `files` for the missing
+CPKs; and on all three a `command` naming `4cc-studio team-compiler upgrade-dpfl`, so the
+CLI's line names the fix. The official list is a `templates/` resource, `DpFileList.bin`; an
+override that does not read as a list stops the run like an unparsable bin override.
+Why: the plan's "every compile with a PES folder, at deployment preflight" was ambiguous for a
+compile that installs nothing; such a run puts no CPK under the list, so a warning about the
+list would describe an install the run does not touch. A context key carries the subcommand
+because the CLI renders a finding as its code and context alone; the GUI shows its button
+instead.
+Plan: `team_compiler/pipeline.md` "6. Post-processing" (DpFileList upgrade, Destination
+writability preflight); `team_compiler/messages.md` (the three rows).
