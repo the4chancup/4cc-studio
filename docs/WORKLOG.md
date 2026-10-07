@@ -1329,6 +1329,21 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   uses"; TC-MOD-24 pins the override and the Common arm); a model's type read from its stem
   without its kit token (`pipeline.md` "Kit-dependent assets"), which changes Fox too
   (`boots_kit1.fmdl` is boots, not face content): its first slice.
+  Slices, each its own commit: (a) the kit-token typing, both engines; (b) a player folder's
+  own `.model`/`.mtl` files compiled for PES 15-17 (the pre-Fox refusal lifted for them):
+  roles, the `.mtl` search over the file's and the model folder, the generated `face.xml`
+  (type table, `oral_`/`_win32` and the `*` path, `ratio`, `model_type_<x>`, the dummy and
+  `xml_face_neck_added`, `<dif>`), `.mtl` texture paths and DDS textures in the player's
+  common subfolder, the nested face CPK, local boots/gloves riding in the face XML, the
+  pre-Fox blank face folder (TC-MOD-20, 21, 39); (c) links: `.model.common`/`.mtl.common`
+  and the pre-Fox Common output, a combined shared face folder, shared boots/gloves folders
+  as loose files with `glove.xml` (TC-MOD-22, 24, 37, 38, 40); (d) the name and limit
+  checks: `model_name_invalid`, `edithair_unsupported`, `uniform_sub` with
+  `xml_uniform_pes15`, `xml_oral_prefix_missing`, `texture_not_div4`, the vertex limit
+  (TC-MOD-23, 25, TC-CHK-08, TC-TEX-07); (e) `ingame_face` through `pes_model::ops::merge`,
+  the kit variant sets, the hand split of a hand-weighted `.model` (TC-MOD-35, 41,
+  TC-CMN-07). A user-supplied `face.xml` stays refused as not compiled yet until 4.15.
+  Templates for (b): `resources/templates/dummy.model` and `dummy.mtl` (README there).
   IDs: TC-MOD-20..25, TC-MOD-35, TC-MOD-37..41, TC-CHK-08, TC-TEX-07, TC-CMN-07 (split from TC-CMN-05 at 4.11c). Crates: tc (`processing/model.rs`, `processing/material.rs`,
   `processing/texture.rs`, `paths.rs`) → verify: a `/co/` slot 05 folder with the smallest
   `pes_model` fixture pair as `face_high.model` + `face_high.mtl` and `skin.dds`, compiled for PES 17: the

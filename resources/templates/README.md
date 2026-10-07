@@ -18,6 +18,24 @@ fixture's `fcl_hair_sim.fclo` is this file; its `face_diff.bin` is the player's 
 The `fcl_hair_sim.skl` injected beside a hair model with no skeleton of its own is not here: it
 is PES 21's `body.skl` (`../skeletons/pes21/`), as for `boots.skl`.
 
+## `dummy.model` and `dummy.mtl`
+
+The pre-Fox face's `face_neck` stand-in (Team compiler plan, `pipeline.md` "2. Per-export
+serial steps" step 4, the blank face folder; `messages.md` `xml_face_neck_added`): a face CPK
+whose `face.xml` has no `face_neck` entry gets
+`<model level="0" type="face_neck" path="./oral_dummy_win32.model" material="./dummy.mtl"/>`,
+with these two files packed as `oral_dummy_win32.model` and `dummy.mtl`.
+
+| File | What it is | SHA-256 (first 16) |
+|---|---|---|
+| `dummy.model` | 320 bytes, the `MODEL` magic: a model with nothing to draw | `d492d700c9b17765` |
+| `dummy.mtl` | 29 bytes, `<materialset>`, CRLF, `</materialset>`, no final line end; kept CRLF (`.gitattributes`) | `af1f48d922548545` |
+
+Source: Red's `Engines/templates/`, Red at commit `e12aa01`; `dummy.mtl` last changed in
+`cbf16b2` (2024-04-29, "Rename template folder to templates"), `dummy.model` in `0503f18`
+(2026-06-02, "Rename dummy model template file"). Both are byte-identical to Blue's
+`lib/templates/` copies. Copied with `cp` on 2026-10-07.
+
 ## `DpFileList.txt`
 
 The official 4cc DpFileList as a list, one CPK per line in load order, with comments: the

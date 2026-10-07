@@ -4754,3 +4754,17 @@ its meshes are merged into the face's `fcl_hair` and the boots package lacks the
 `face.xml` would type it as a face part. Stripping the token is the reading the kit-variant rule
 already uses to find a set's reference.
 Plan: `team_compiler/pipeline.md` "4. Per-export non-model steps", "Kit-dependent assets".
+
+## 2026-10-07 — team_compiler — the generated pre-Fox `face.xml` and face CPK, in Red's shape
+Decision: a generated `face.xml` entry's `path` names the packed `oral_<stem>_win32.model` with `*`
+in the place of `win32` (`./oral_<stem>_*.model`, the blank folder's `./oral_dummy_*.model`); the
+file is the shape Red writes (XML declaration in single quotes, `<config>`, three-space indent,
+`<model … />`, the `<dif>` base64 on one line, CRLF); the nested face CPK's entries repeat the outer
+path (`common/character0/model/character/face/real/{id}/<file>`).
+Why: the plan's blank-folder entry spelled the path `./oral_dummy_win32.model`, but Red's output,
+the community's hand-written XMLs and the installed PES 2015 DLC's face CPKs all name models with
+`*` for the platform, and Red's output is the parity standard; a literal `win32` path is one no
+cup has loaded. The nested layout was unwritten; Red packs the face folder under that path and the
+installed DLC's `70202.cpk` holds its entries there.
+Plan: `team_compiler/pipeline.md` "2. Per-export serial steps" step 4, "3. Per-model-folder
+parallel steps" steps 4 and 7; TC-MOD-39.

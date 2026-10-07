@@ -877,7 +877,7 @@ TC-MOD-38  GIVEN Gloves/Keeper/ holding glove_l.model and glove_r.model with the
 TC-MOD-39  GIVEN slot 07 holding an empty face/ and a face_diff.bin that is not the bundled one
            WHEN the export is compiled for PES 17
            THEN face_file_not_used names face_diff.bin, and face/real/71407.cpk holds a face.xml
-                with one face_neck entry naming ./oral_dummy_win32.model and ./dummy.mtl and a
+                with one face_neck entry naming ./oral_dummy_*.model and ./dummy.mtl and a
                 <dif> from the bundled face_diff.bin, oral_dummy_win32.model byte-identical to the
                 template dummy.model, and a dummy.mtl holding an empty <materialset>
 TC-MOD-40  GIVEN Faces/Longhair/ holding hair_high.model and hair_high.mtl, linked by slot 05,

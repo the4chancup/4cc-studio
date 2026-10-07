@@ -217,7 +217,7 @@ format:
    `face/real/{id}{NN}/#Win/face.fpk` holding only the template `face_diff.bin`, plus `face.fpkd`
    (the template `generic.fpkd`): no model, no `.skl`, no `.fclo`. On pre-Fox it is
    `face/real/{id}{NN}.cpk` holding a `face.xml` with one
-   `<model level="0" type="face_neck" path="./oral_dummy_win32.model" material="./dummy.mtl"/>` and
+   `<model level="0" type="face_neck" path="./oral_dummy_*.model" material="./dummy.mtl" />` and
    a `<dif>` from the template `face_diff.bin`, plus `oral_dummy_win32.model` (the template
    `dummy.model`) and `dummy.mtl` (an empty `<materialset>`). The blank folder's diff is always
    the bundled template, whatever `face_diff.bin` the player folder holds: without a face
@@ -341,7 +341,14 @@ then processed as an independent parallel task (Blue: `coordinator._model_folder
    its category's type attribute (boots and gloves models included — the typed XML is why pre-Fox
    needs no per-player boots/gloves folders), or a user-supplied one checked and re-serialized
    (see "User-supplied `face.xml`" under the XML/MTL checks); `glove.xml` for shared gloves folders;
-   `.common` links resolve to Common paths in the generated XML (Red's common-link behavior). (Red's
+   `.common` links resolve to Common paths in the generated XML (Red's common-link behavior). A
+   model is packed as `oral_<stem>_win32.model` and its entry's `path` names it with `*` in
+   the place of `win32` (`./oral_<stem>_*.model`), as the game's own XMLs and Red's do; the
+   `material` names the `.mtl` as it is packed (`./face_high.mtl`). The generated file is the
+   shape Red writes: `<?xml version='1.0' encoding='UTF-8'?>`, a `<config>` root, one
+   `<model level="0" type="…" path="…" material="…" />` per entry (`ratio="…"` last when set)
+   indented by three spaces, then the `<dif>` element with the diff's base64 on one line
+   between two line ends, CRLF line ends throughout. (Red's
    3-digit glove ID padding, `g567` → `g0567`, has no equivalent: the Studio format has no ID-named
    folders — IDs are auto-assigned. The Export upgrader normalizes old IDs when parsing them.)
 5. **Texture conversion** — all image formats are interchangeable as texture sources (see the
@@ -419,7 +426,9 @@ then processed as an independent parallel task (Blue: `coordinator._model_folder
    plan](../model_format.md)). **Intentional deviation from Red's packed layout for teams** (verified
    extensively in-game for players as well as referees, across versions) — see the parity test
    section.
-7. **Packing** — pre-Fox faces are packed into a per-model nested CPK; pre-Fox boots/gloves emit
+7. **Packing** — pre-Fox faces are packed into a per-model nested CPK, whose entries repeat
+   the outer path (`common/character0/model/character/face/real/{id}/face.xml` and so on, as
+   in Red's output and the installed PES 2015 DLC); pre-Fox boots/gloves emit
    loose files; Fox mode packs allowed types (`.bin`, `.fmdl`, `.skl`, `.fclo`) into an FPK plus a
    template `.fpkd` (player-owned and merge-copied textures having been relocated to the per-player
    common subfolder; plain shared-output textures remain in that model's own texture location).
