@@ -18,7 +18,7 @@ and 4.25 are done; 4.26 is done; 4.19 (Fox referees) is done, 4.19d (pre-Fox) wa
 referee marker) is done, 4.27's rest (the pre-Fox marker) waits on 4.19d; 4.9 is done
 (collars on Fox; their pre-Fox and cross-format halves are in 4.16 and 4.17); 4.28
 (memory accounting), 4.32 (number atlases) and 4.18 (hand auto-split, Fox) are done, and
-4.y moved to Phase 8; 4.14 is under way (slices a to d and e1 done, e2 next of e2 to e4), with its own checks until 4.31's pre-Fox parity
+4.y moved to Phase 8; 4.14 is under way (slices a to d and e1 done, e2 next of e2 to e5), with its own checks until 4.31's pre-Fox parity
 reference exists (4.31 done: `tests/parity_prefox.rs`); 4.33, 4.34, 4.c-pass and
 4.c-fix1 are done; 4.30,
 4.5 to 4.8 and 4.10 to 4.13 are done (4.6c moved to Phase 8's cancellation). 2.5b (GPU BC7) is step 16.x (decision entries
@@ -1354,10 +1354,10 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   with shared links"; `ModelFolder::own_package` then splits the player's `.mtl` files and
   textures between his boots and gloves; the boots task's two package guards in
   `prefox_shared::package`, e1's mutation survivors, get their test here: a marked player with
-  boots parts and a gloves link his gloves combine) and a `.model.common`/`.mtl.common` link
+  boots parts and a gloves link his gloves combine); (e3) the hand split of a hand-weighted
+  `.model`; (e4) the kit variant sets (TC-CMN-07); (e5) a `.model.common`/`.mtl.common` link
   beside `ingame_face` (named by the gate since e1: its model would be one more part of the
-  boots merge); (e3) the hand split of a hand-weighted `.model`; (e4) the kit variant sets
-  (TC-CMN-07). A user-supplied `face.xml` stays refused as not compiled yet until 4.15.
+  boots merge, or a `glove.xml` entry naming its Common path). A user-supplied `face.xml` stays refused as not compiled yet until 4.15.
   Templates for (b): `resources/templates/dummy.model` and `dummy.mtl` (README there).
   (a) done 2026-10-07 (Opus 5.5, first time, no lead fix): the token grammar moved to
   `aesthetics_export::conventions::kit_token` (`KitToken`, `kit_token`, `variant_stem`,
