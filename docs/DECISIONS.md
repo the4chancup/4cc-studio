@@ -4511,3 +4511,15 @@ installed one when one is locked; renaming each `.partial` over its old CPK cann
 once a later rename fails. (7) keeps the step to what it can test.
 Plan: `team_compiler/pipeline.md` "5. Writer" step 6 (Multi-CPK mode), "6. Post-processing"
 (Deploy CPKs); `team_compiler/messages.md` (the three rows).
+
+## 2026-10-07 — team_compiler — `cpk_part_max_size` is a byte count, 3 GiB; `--no-deploy` names each CPK
+Decision (lead, reversible): (1) `cpk_part_max_size` is written in the settings file as a whole
+number of bytes, default `3221225472` (3 GiB), not as text like `3 GB`. (2) In multi-CPK mode
+`deploy_skipped_by_flag` is reported once per CPK promoted, each naming its path: the bins CPK
+first, then the parts by slot number.
+Why: (1) a count needs no unit parser and leaves no doubt between GB (10^9) and GiB (2^30);
+the plan's "3 GB" was either, both under Git for Windows' 4 GiB ceiling, and 3 GiB shows as
+`3 GiB` in the findings, which use binary units. (2) the finding's context is one path, and
+deployment, which 4.26c brings to every generated CPK, reports per CPK too.
+Plan: `team_compiler/settings.md` (the settings table); `team_compiler/messages.md`
+(`deploy_skipped_by_flag`); `team_compiler/pipeline.md` "Multi-CPK mode: teams parts".

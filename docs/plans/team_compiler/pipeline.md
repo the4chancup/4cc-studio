@@ -796,7 +796,7 @@ describes behavior, not a serial scheduling requirement:
      capacity is a cup-level decision made once in the artifact every user already receives, and
      the compiler can never emit a part the users' game will not load. How many slots and which
      numbers is the DPFL author's call; the official list reserves **five slots** per run (41 to
-     45, and 51 to 55 for `teams2`), which at the default cap gives 15 GB — roughly 2.5× a
+     45, and 51 to 55 for `teams2`), which at the default cap gives 15 GiB — roughly 2.5× a
      48-team cup. The slots are the official list's, not the installed one's, because the
      cup maintainers build the DLC with `--no-deploy` on machines whose install, if any, is not
      the DLC's, and the DLC is what users receive with the official list; a run that deploys
@@ -826,7 +826,7 @@ describes behavior, not a serial scheduling requirement:
      one thing outside the budget. Writing is disk-bound and writes the same bytes
      either way. No planning-time estimate, no sidecar state, and no hard-limit check is needed
      because the decision is made on bytes actually produced. A single team larger than the cap is
-     impossible in practice at 3 GB and is a fatal `cpk_team_exceeds_cap` rather than a silent split.
+     impossible in practice at 3 GiB and is a fatal `cpk_team_exceeds_cap` rather than a silent split.
      Whether teams *could* straddle parts was considered (PES merges every CPK into one virtual
      filesystem, so the game would not care) and rejected for tidiness: a team living in one CPK is
      what maintainers expect when they open one. Minimizing Git churn is not a goal here: a cup DLC
@@ -842,7 +842,7 @@ describes behavior, not a serial scheduling requirement:
      not written by the `cpk` crate: our writer's layout is not CRI Packed File Maker's, and a
      copy is identical by construction where a re-creation would need a parity test of its own. Running out of slots (content exceeds `slots × cap`) is fatal: `cpk_slots_exhausted`
      names the shortfall so the DPFL author can add slots.
-   - **`cpk_part_max_size`** defaults to 3 GB — comfortably under Git for Windows' 4 GiB object
+   - **`cpk_part_max_size`** defaults to 3 GiB — comfortably under Git for Windows' 4 GiB object
      ceiling, and configurable. It applies to teams parts only; a single-CPK run that
      exceeds it (a midcup day gone wild) is not split — single-CPK names have no slot run — but gets
      `cpk_size_over_limit` (W), since the CPK is fine for PES and only the repository will object.
