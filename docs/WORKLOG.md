@@ -17,7 +17,7 @@ the next open Phase 4 step (see the list); 4.21 to 4.24 and 4.29
 and 4.25 are done; 4.26 is done; 4.19 (Fox referees) is done, 4.19d (pre-Fox) waits on 4.14 and 4.20; 4.27a (the Fox
 referee marker) is done, 4.27's rest (the pre-Fox marker) waits on 4.19d; 4.9 is done
 (collars on Fox; their pre-Fox and cross-format halves are in 4.16 and 4.17); 4.28
-(memory accounting) is done and 4.y moved to Phase 8; 4.14 waits on 4.31's pre-Fox export; 4.33, 4.34, 4.c-pass and
+(memory accounting) and 4.32 (number atlases) are done, and 4.y moved to Phase 8; 4.14 waits on 4.31's pre-Fox export; 4.33, 4.34, 4.c-pass and
 4.c-fix1 are done; 4.30,
 4.5 to 4.8 and 4.10 to 4.13 are done (4.6c moved to Phase 8's cancellation). 2.5b (GPU BC7) is step 16.x (decision entries
 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0 after Phase 8; phase order 1–6,
@@ -1358,7 +1358,8 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `_srm` entry exists. Also, from 4.9b: a `.model` collar compiled for pre-Fox at
   `common/character0/model/character/uniform/nocloth/collar_012.model` (`paths::collar`
   and `subset::collar_file` taking the target's engine), the team's loose configs naming
-  it; TC-CMN-08's compile half
+  it; TC-CMN-08's compile half. Also, from 4.32: TC-KIT-26 whole (a row `kit_back`
+  compiled for PES 17 becomes a column in digit order), cited once both halves run
 
 - [ ] 4.17 **Cross-format conversion and source selection**: target-native first, then glTF, then
   the opposite native format converted through `model_convert::convert` (FMDL → `.model` + `.mtl`
@@ -1844,7 +1845,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   otherwise. Without it every pre-Fox byte of 4.14-4.17 is unchecked until Phase 6 → verify:
   the README's command reproduces `red/` byte for byte from `old/`
 
-- [ ] 4.32 **Number atlases re-arranged across engines** (lead first: the measurement, done
+- [x] 4.32 **Number atlases re-arranged across engines** (lead first: the measurement, done
   2026-10-07: `scripts/provenance/kit_uv/number_atlas/`, the plan's slot rule and decision
   entry "number atlases: a digit moves by a uniform scale into Konami's slots"):
   neither engine reads the other's `_back`, `_chest` and `_leg` arrangement (ten digits in
@@ -1859,7 +1860,16 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `processing/kit_layout.rs`) →
   verify: a column atlas whose ten cells are ten flat colors, compiled for PES 21, comes
   out as a row atlas with the ten colors in digit order, and the reverse for PES 17; an
-  atlas already in the target's arrangement is byte-identical to today's output
+  atlas already in the target's arrangement is byte-identical to today's output. Done
+  2026-10-07 (Opus 5.5, first time; one lead test from a mutation survivor, a glyph that
+  rounds to no texel on a 2x6 column): `kit_layout.rs` `NUMBER_ATLAS_SLOTS`,
+  `atlas_arrangement` (the shape), `number_atlas_rearranged` (one `GlyphMove` per digit,
+  `write_glyph`, the top-left texel as filler, one level, `authored_mips` false),
+  `rounded_ratio` (integer half-up rounding, now shared with `scaled`); `kit.rs`
+  `number_atlas` for `kit_back`, `kit_chest`, `kit_leg` whatever the marker. Contradiction
+  accepted: the shape is read with `probe` before any decode, so an atlas left as it is
+  is decoded once, by its conversion, as before. The PES 21 half of TC-KIT-26 is tested
+  from the CLI uncited; its PES 17 half moved to 4.16. Unseen in game.
 
 - [x] 4.33 **`name.y` is PES 21's value on every version**, done 2026-10-07 (sidekick,
   landed first time, no lead fix): `kit_config` `binary.rs` decodes and encodes Name Y with
@@ -3349,3 +3359,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
     charged to the run's memory budget, without waiting, so later tasks wait for them to
     be freed. No member-visible change. 4.y (bounding the conversion cache) moved to
     Phase 8, where the GUI first keeps a cache across runs.
+  - **4.32:** a kit's number textures made for the other games (a column of digits for
+    PES 2015 to 2017, a row for 2018 to 2021) are re-arranged for the game compiled for,
+    each digit moved into the places Konami's own textures keep it, measured on the stock
+    textures of both games. The name texture is left as it is.

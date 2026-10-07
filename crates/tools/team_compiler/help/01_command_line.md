@@ -300,7 +300,11 @@ drawn for: `pre-fox` for PES 2015 to 2017, `fox` for PES 2018 to 2021. With no s
 compiler takes the kit as drawn for the game it compiles for. When the file names the other
 games, `compile` moves the socks to the layout of the game it compiles for and says so with the
 note `kit_layout_converted`, naming both layouts. The shirt, sleeves and shorts are laid out the
-same in every version and are not touched, and neither are the number and name textures.
+same in every version and are not touched, and neither are the number and name textures. A
+number texture (`kit_back`, `kit_chest`, `kit_leg`) made for the other games, its ten digits in
+a column for PES 2015 to 2017 or in a row for PES 2018 to 2021, is re-arranged by `compile` for
+the game it compiles for, told apart by its shape whatever the marker says; the name texture
+(`kit_name`) is left as it is.
 
 A kit folder may hold a `colors.txt` giving the kit's two menu colors, and the export's root a
 `colors.txt` giving the team's colors, up to four. Both files hold one color per line, written

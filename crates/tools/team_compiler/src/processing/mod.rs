@@ -1688,6 +1688,127 @@ mod tests {
         assert_eq!(marked.entries, unmarked.entries);
     }
 
+    /// One opaque color per digit, every channel 0, 128 or 255, which the block codecs keep
+    /// within `CODEC_TOLERANCE`.
+    const DIGIT_COLORS: [[u8; 4]; 10] = [
+        [255, 0, 0, 255],
+        [0, 255, 0, 255],
+        [0, 0, 255, 255],
+        [255, 255, 0, 255],
+        [255, 0, 255, 255],
+        [0, 255, 255, 255],
+        [255, 255, 255, 255],
+        [128, 0, 0, 255],
+        [0, 128, 0, 255],
+        [0, 0, 128, 255],
+    ];
+
+    /// How far a channel of a compiled texel may be from the color drawn: a block codec's
+    /// 5:6:5 endpoints move 128 by up to 4.
+    const CODEC_TOLERANCE: u8 = 8;
+
+    /// The middle of each digit's slot along a 2048-long PES 18-21 row, written out apart from
+    /// the table so a wrong table entry shows.
+    const SLOT_MIDDLES_2048: [u32; 10] = [80, 265, 420, 620, 820, 1020, 1220, 1420, 1620, 1820];
+
+    /// A `width` x `height` BC1 DDS with its generated mip chain, its texel at (x, y)
+    /// `color(x, y)`.
+    fn bc1_dds(width: u32, height: u32, color: impl Fn(u32, u32) -> [u8; 4]) -> Vec<u8> {
+        let mut pixels = Vec::with_capacity((width * height * 4) as usize);
+        for y in 0..height {
+            for x in 0..width {
+                pixels.extend_from_slice(&color(x, y));
+            }
+        }
+        let decoded = dds_convert::Decoded {
+            width,
+            height,
+            mips: vec![pixels],
+            blocks: None,
+            authored_mips: false,
+        };
+        dds_convert::encode_dds(&decoded, dds_convert::BlockCodec::Bc1).unwrap()
+    }
+
+    /// The tracer's `g1` kit with its two colors, its main texture, and each texture of
+    /// `extra` (stem, DDS bytes) as its own `Kits/g1/<stem>.dds`, processed for PES 21.
+    fn run_with_kit_textures(extra: &[(&str, &[u8])]) -> TaskBatch {
+        let mut textures = own_main_texture();
+        let mut files: TaskFiles = ["Kits/g1/kit.dds", "Kits/g1/colors.txt"]
+            .into_iter()
+            .map(|path| {
+                let bytes = std::fs::read(tracer().join(path)).unwrap();
+                (ScopePath::new(path).unwrap(), bytes)
+            })
+            .collect();
+        for (stem, bytes) in extra {
+            let path = format!("Kits/g1/{stem}.dds");
+            textures.push(KitTexture {
+                stem: (*stem).to_owned(),
+                file: file(&path),
+                source: KitTextureSource::Own,
+            });
+            files.insert(ScopePath::new(&path).unwrap(), bytes.to_vec());
+        }
+        process(
+            g1(colored_kit(true, Some(11), textures)),
+            PesVersion::Pes21,
+            None,
+            files,
+        )
+    }
+
+    /// The bytes of the batch's kit texture entry `u0792g1<suffix>`.
+    fn kit_entry<'a>(batch: &'a TaskBatch, suffix: &str) -> &'a [u8] {
+        let path = format!("Asset/model/character/uniform/texture/#windx11/u0792g1{suffix}.ftex");
+        let (_, bytes) = batch
+            .entries
+            .iter()
+            .find(|(entry, _)| *entry == path)
+            .unwrap_or_else(|| panic!("no entry {path} in {:?}", paths(batch)));
+        bytes
+    }
+
+    #[test]
+    fn a_column_number_atlas_on_a_fox_target_becomes_a_row_with_its_digits_in_order() {
+        let column = bc1_dds(128, 2048, |_, y| DIGIT_COLORS[(y * 10 / 2048) as usize]);
+
+        let batch = run_with_kit_textures(&[("kit_back", &column)]);
+
+        assert_eq!(kit_findings(&batch), []);
+        let row = dds_convert::decode(kit_entry(&batch, "_back"), dds_convert::SourceFormat::Ftex)
+            .unwrap();
+        assert_eq!((row.width, row.height), (2048, 256));
+        for (digit, x) in SLOT_MIDDLES_2048.into_iter().enumerate() {
+            let at = ((128 * 2048 + x) * 4) as usize;
+            let texel = &row.mips[0][at..at + 4];
+            let near = (0..4).all(|c| texel[c].abs_diff(DIGIT_COLORS[digit][c]) <= CODEC_TOLERANCE);
+            assert!(near, "digit {digit} at x {x}: {texel:?}");
+        }
+    }
+
+    #[test]
+    fn a_row_number_atlas_and_a_tall_name_atlas_on_a_fox_target_convert_as_they_are() {
+        let row = bc1_dds(2048, 256, |x, _| DIGIT_COLORS[(x * 10 / 2048) as usize]);
+        let name = bc1_dds(64, 256, |_, y| DIGIT_COLORS[(y / 64) as usize]);
+
+        let batch = run_with_kit_textures(&[("kit_back", &row), ("kit_name", &name)]);
+
+        let context = CompileContext::new(
+            PesVersion::Pes21,
+            1,
+            Templates::embedded(),
+            InstalledPaths::Unknown,
+            EntryTarget::GamePaths,
+            MemoryBudget::new(usize::MAX),
+        );
+        let as_it_is = |file_name: &str, bytes: &[u8]| {
+            texture::convert(&context, dds_convert::SourceFormat::Dds, file_name, bytes).unwrap()
+        };
+        assert_eq!(kit_entry(&batch, "_back"), as_it_is("kit_back.dds", &row));
+        assert_eq!(kit_entry(&batch, "_name"), as_it_is("kit_name.dds", &name));
+    }
+
     /// The export file at `path`, described as the structure pass would, whose bytes `run`
     /// reads from the tracer's player file `tracer_name`.
     fn named(path: &str, tracer_name: &str) -> FileDescriptor {

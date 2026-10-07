@@ -2,7 +2,9 @@
 //! non-model steps", Kits, "Layout conversion"): a kit drawn for the pre-Fox layout compiled
 //! for PES 21 has its sock islands re-laid out, checked against where the games' own uniform
 //! models put each sock stripe (`tests/fixtures/kit_layout/`); a marker naming the target's
-//! engine, or on a placeholder kit, changes nothing.
+//! engine, or on a placeholder kit, changes nothing. A number atlas in the other engine's
+//! arrangement is re-arranged by its shape alone (the glyph atlas sentences of the same
+//! section).
 
 use std::fs;
 use std::ops::Range;
@@ -11,7 +13,7 @@ use std::path::Path;
 use dds_convert::{BlockCodec, SourceFormat, decode, encode_dds};
 
 use crate::common::Sandbox;
-use crate::compile::{cpk_entries, kit_texture, pes21_settings};
+use crate::compile::{cpk_entries, kit_texture, pes21_settings, tracer_kit};
 use crate::findings_of;
 
 /// The bytes of `tests/fixtures/kit_layout/<name>`.
@@ -254,4 +256,85 @@ fn a_kit_marked_fox_compiled_for_pes_21_is_as_without_the_marker() {
         );
     }
     assert_eq!(compiled_entries(&marked), compiled_entries(&unmarked));
+}
+
+/// One opaque color per digit, every channel 0, 128 or 255, which the block codecs keep
+/// within `CODEC_TOLERANCE`.
+const DIGIT_COLORS: [[u8; 4]; 10] = [
+    [255, 0, 0, 255],
+    [0, 255, 0, 255],
+    [0, 0, 255, 255],
+    [255, 255, 0, 255],
+    [255, 0, 255, 255],
+    [0, 255, 255, 255],
+    [255, 255, 255, 255],
+    [128, 0, 0, 255],
+    [0, 128, 0, 255],
+    [0, 0, 128, 255],
+];
+
+/// How far a channel of a compiled texel may be from the color drawn: a block codec's 5:6:5
+/// endpoints move 128 by up to 4.
+const CODEC_TOLERANCE: u8 = 8;
+
+/// The middle of each digit's slot along a 2048-long PES 18-21 row: where the stock rows keep
+/// their digits.
+const SLOT_MIDDLES_2048: [u32; 10] = [80, 265, 420, 620, 820, 1020, 1220, 1420, 1620, 1820];
+
+/// A `width` x `height` BC1 DDS with its generated mip chain, its texel at (x, y)
+/// `color(x, y)`.
+fn bc1_dds(width: u32, height: u32, color: impl Fn(u32, u32) -> [u8; 4]) -> Vec<u8> {
+    let mut pixels = Vec::with_capacity((width * height * 4) as usize);
+    for y in 0..height {
+        for x in 0..width {
+            pixels.extend_from_slice(&color(x, y));
+        }
+    }
+    let decoded = dds_convert::Decoded {
+        width,
+        height,
+        mips: vec![pixels],
+        blocks: None,
+        authored_mips: false,
+    };
+    encode_dds(&decoded, BlockCodec::Bc1).unwrap()
+}
+
+#[test]
+fn a_column_number_atlas_compiled_for_pes_21_becomes_a_row_and_a_row_stays_as_given() {
+    let column = bc1_dds(128, 2048, |_, y| DIGIT_COLORS[(y * 10 / 2048) as usize]);
+    let row = bc1_dds(2048, 256, |x, _| DIGIT_COLORS[(x * 10 / 2048) as usize]);
+    let sandbox = Sandbox::new("number_atlas_pes21");
+    for (kit, back) in [("p1", &column), ("p2", &row)] {
+        let folder = format!("exports/co Midcup Numbers/Kits/{kit}");
+        sandbox.write(&format!("{folder}/kit.dds"), &tracer_kit());
+        sandbox.write(&format!("{folder}/kit_back.dds"), back);
+    }
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    assert_eq!(
+        findings_of(&run.messages(), "co Midcup Numbers"),
+        [
+            IDENTIFIED,
+            TEAM_COLORS_MISSING,
+            "Info kit_config_generated [Keep] at Kits/p1 ()",
+            "Info kit_config_generated [Keep] at Kits/p2 ()",
+            "Info kit_colors_derived [Keep] at Kits/p1 ()",
+            "Info kit_colors_derived [Keep] at Kits/p2 ()",
+        ]
+    );
+    assert_eq!(run.exit_code(), 0);
+
+    let (p1_back, width) = compiled_top_level(&sandbox, "u0714p1_back");
+    assert_eq!((width, p1_back.len()), (2048, 2048 * 256 * 4));
+    for (digit, x) in SLOT_MIDDLES_2048.into_iter().enumerate() {
+        let at = ((128 * 2048 + x) * 4) as usize;
+        let texel = &p1_back[at..at + 4];
+        let near = (0..4).all(|c| texel[c].abs_diff(DIGIT_COLORS[digit][c]) <= CODEC_TOLERANCE);
+        assert!(near, "digit {digit} at x {x}: {texel:?}");
+    }
+    let (p2_back, width) = compiled_top_level(&sandbox, "u0714p2_back");
+    assert_eq!(width, 2048);
+    assert_eq!(p2_back, decode(&row, SourceFormat::Dds).unwrap().mips[0]);
 }

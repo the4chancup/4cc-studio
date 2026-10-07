@@ -123,6 +123,10 @@ pub(super) fn kit(
                 ));
                 relaid_main_texture(ctx, format, file_name, &bytes, drawn_for)?
             }
+            // By its shape alone, whatever the marker: the marker is about the main texture.
+            Some(_) | None if NUMBER_ATLAS_STEMS.contains(stem) => {
+                number_atlas(ctx, format, file_name, &bytes)?
+            }
             Some(_) | None => texture::convert(ctx, format, file_name, &bytes)?,
         };
         entries.push((paths::kit_texture(name), converted));
@@ -217,6 +221,47 @@ fn engine_layout(engine: Engine) -> KitLayout {
         Engine::PreFox => KitLayout::PreFox,
         Engine::Fox => KitLayout::Fox,
     }
+}
+
+/// The kit textures that are number atlases, whose arrangement of the ten digits differs
+/// between the engines. `kit_name`, the name atlas, keeps its letters in the same places in
+/// both.
+const NUMBER_ATLAS_STEMS: [&str; 3] = ["kit_back", "kit_chest", "kit_leg"];
+
+/// The number atlas `file_name`, in `format`, holding `bytes`, converted for the run's
+/// version, first re-arranged into the run's engine's arrangement when its shape is the other
+/// engine's (`kit_layout::number_atlas_rearranged`). The shape is read from the header alone,
+/// so an atlas already in the run's arrangement, or square, goes through `texture::convert`
+/// like any kit texture and is decoded once, by its conversion; only an atlas re-arranged is
+/// decoded here, and is converted from the re-arranged copy, not through the run's converter,
+/// whose cache holds a source file's own conversion. The decode and the copy are charged to
+/// the run's budget until the conversion is done. A failure is the file's, as
+/// `texture::convert`'s are.
+fn number_atlas(
+    ctx: &CompileContext,
+    format: SourceFormat,
+    file_name: &str,
+    bytes: &[u8],
+) -> Result<Vec<u8>, TextureError> {
+    let failure = |error| texture::conversion_failure(file_name, error);
+    let to = engine_layout(ctx.version.engine());
+    let size = dds_convert::probe(bytes, format).map_err(failure)?;
+    if kit_layout::atlas_arrangement(size.width, size.height).is_none_or(|drawn_as| drawn_as == to)
+    {
+        return texture::convert(ctx, format, file_name, bytes);
+    }
+    let _decode_charge = texture::decode_charge(&ctx.budget, bytes, format).map_err(failure)?;
+    let decoded = decode(bytes, format).map_err(failure)?;
+    let Some(atlas) = kit_layout::number_atlas_rearranged(&decoded, to).map_err(failure)? else {
+        // Not reached: a decode has the size its header gives. Converted as it is all the same.
+        return texture::convert(ctx, format, file_name, bytes);
+    };
+    let _atlas_charge = ctx.budget.charge(atlas.mips.iter().map(Vec::len).sum());
+    let target = Target {
+        version: ctx.version,
+        role: TextureRole::Color,
+    };
+    dds_convert::convert(&atlas, target).map_err(failure)
 }
 
 /// The kit's main texture `file_name`, in `format`, holding `bytes`, drawn for the `drawn_for`
