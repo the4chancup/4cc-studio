@@ -78,12 +78,15 @@ fn identified(team: &str, id: u16) -> String {
 #[test]
 fn a_wide_logo_compiled_for_pes_21_gives_three_letterboxed_squares() {
     let sandbox = Sandbox::new("logo_fit");
-    sandbox.write("exports/co - Logo/logo.png", &png(1000, 600, |_, _| RED));
+    sandbox.write(
+        "exports/co Midcup Logo/logo.png",
+        &png(1000, 600, |_, _| RED),
+    );
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
 
     assert_eq!(
-        findings_of(&run.messages(), "co - Logo"),
+        findings_of(&run.messages(), "co Midcup Logo"),
         [
             identified("co", 714).as_str(),
             TEAM_COLORS_MISSING,
@@ -126,16 +129,19 @@ fn logos_tagged_crop_and_stretch_fill_the_square_and_a_small_one_is_upscaled() {
         200..800 => RED,
         _ => GREEN,
     });
-    sandbox.write("exports/co - Crop/logo_crop.png", &three_bands);
+    sandbox.write("exports/co Midcup Crop/logo_crop.png", &three_bands);
     // The same image stretched: the bands its centre crop removes are what it keeps.
-    sandbox.write("exports/dbg - Stretch/logo_stretch.png", &three_bands);
-    sandbox.write("exports/egg - Small/logo.png", &png(300, 300, |_, _| GREEN));
+    sandbox.write("exports/dbg Midcup Stretch/logo_stretch.png", &three_bands);
+    sandbox.write(
+        "exports/egg Midcup Small/logo.png",
+        &png(300, 300, |_, _| GREEN),
+    );
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
 
     let messages = run.messages();
     assert_eq!(
-        findings_of(&messages, "co - Crop"),
+        findings_of(&messages, "co Midcup Crop"),
         [
             identified("co", 714).as_str(),
             TEAM_COLORS_MISSING,
@@ -143,7 +149,7 @@ fn logos_tagged_crop_and_stretch_fill_the_square_and_a_small_one_is_upscaled() {
         ]
     );
     assert_eq!(
-        findings_of(&messages, "dbg - Stretch"),
+        findings_of(&messages, "dbg Midcup Stretch"),
         [
             identified("dbg", 790).as_str(),
             TEAM_COLORS_MISSING,
@@ -151,7 +157,7 @@ fn logos_tagged_crop_and_stretch_fill_the_square_and_a_small_one_is_upscaled() {
         ]
     );
     assert_eq!(
-        findings_of(&messages, "egg - Small"),
+        findings_of(&messages, "egg Midcup Small"),
         [
             identified("egg", 792).as_str(),
             TEAM_COLORS_MISSING,
@@ -186,23 +192,29 @@ fn logos_tagged_crop_and_stretch_fill_the_square_and_a_small_one_is_upscaled() {
 #[test]
 fn a_small_logo_gives_the_128_pixel_one_and_an_undecodable_one_drops_the_whole_logo() {
     let sandbox = Sandbox::new("logo_small");
-    sandbox.write("exports/co - Pair/logo.png", &png(600, 600, |_, _| RED));
     sandbox.write(
-        "exports/co - Pair/logo_small.png",
+        "exports/co Midcup Pair/logo.png",
+        &png(600, 600, |_, _| RED),
+    );
+    sandbox.write(
+        "exports/co Midcup Pair/logo_small.png",
         &png(200, 200, |_, _| BLUE),
     );
-    sandbox.write("exports/dbg - Broken/logo.png", &png(600, 600, |_, _| RED));
-    sandbox.write("exports/dbg - Broken/logo_small.png", b"not an image");
+    sandbox.write(
+        "exports/dbg Midcup Broken/logo.png",
+        &png(600, 600, |_, _| RED),
+    );
+    sandbox.write("exports/dbg Midcup Broken/logo_small.png", b"not an image");
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
 
     let messages = run.messages();
     assert_eq!(
-        findings_of(&messages, "co - Pair"),
+        findings_of(&messages, "co Midcup Pair"),
         [identified("co", 714).as_str(), TEAM_COLORS_MISSING]
     );
     assert_eq!(
-        findings_of(&messages, "dbg - Broken"),
+        findings_of(&messages, "dbg Midcup Broken"),
         [
             "Error logo_file_invalid [DropFile] at logo_small.png (file=logo_small.png, error=image decode failed: Format error decoding Png: Invalid PNG signature.)",
             identified("dbg", 790).as_str(),
@@ -230,7 +242,10 @@ fn a_small_logo_gives_the_128_pixel_one_and_an_undecodable_one_drops_the_whole_l
 #[test]
 fn a_logo_compiled_for_pes_19_gets_the_emblem_names() {
     let sandbox = Sandbox::new("logo_pes19");
-    sandbox.write("exports/co - Logo/logo.png", &png(600, 600, |_, _| RED));
+    sandbox.write(
+        "exports/co Midcup Logo/logo.png",
+        &png(600, 600, |_, _| RED),
+    );
 
     let run = sandbox.run(&pes_settings(&sandbox, 19), &["compile"]);
 

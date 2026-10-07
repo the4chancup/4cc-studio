@@ -5,7 +5,7 @@ use vtree::ScopePath;
 
 use teams_list::TeamName;
 
-use crate::FileKind;
+use crate::{ExportCoverage, FileKind};
 
 /// Everything the normalized tree holds, grouped by content folder, nothing
 /// dropped. `parse_listing` first normalizes the root (see
@@ -18,6 +18,10 @@ pub struct AestheticsExportDraft {
     /// The canonical team name from the first token; `None` when the stem has
     /// no token (`team_name_unknown` with an empty name).
     pub team_name: Option<TeamName>,
+    /// The coverage tag from the second token, `Full` for a referee export
+    /// whatever its words; `None` when a team export's second token is
+    /// neither tag (`export_tag_missing`).
+    pub coverage: Option<ExportCoverage>,
     /// Files directly at the root.
     pub root_files: Vec<FileDescriptor>,
     /// Root folders that are no content folder (`wrapper/`).

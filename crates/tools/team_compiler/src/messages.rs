@@ -421,6 +421,7 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("source_read_failed", CatalogSeverity::ErrorOrFatal),
     ("export_empty", CatalogSeverity::Error),
     ("team_name_unknown", CatalogSeverity::Error),
+    ("export_tag_missing", CatalogSeverity::Error),
     ("players_txt_missing", CatalogSeverity::Error),
     ("players_txt_line_invalid", CatalogSeverity::Error),
     ("players_txt_slot_invalid", CatalogSeverity::Error),

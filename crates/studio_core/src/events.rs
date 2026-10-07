@@ -395,10 +395,10 @@ mod tests {
         ScopePath::new(text).unwrap()
     }
 
-    /// A formatter that has seen export 1 start as `co - Spring.zip`.
+    /// A formatter that has seen export 1 start as `co Midcup Spring.zip`.
     fn printer() -> EventLines {
         let mut printer = EventLines::new();
-        assert_eq!(printer.line(&started(1, "co - Spring.zip")), None);
+        assert_eq!(printer.line(&started(1, "co Midcup Spring.zip")), None);
         printer
     }
 
@@ -422,7 +422,7 @@ mod tests {
         );
         assert_eq!(
             printer().line(&event).unwrap(),
-            "- co - Spring.zip: Info export_identified"
+            "- co Midcup Spring.zip: Info export_identified"
         );
     }
 
@@ -438,7 +438,7 @@ mod tests {
         );
         assert_eq!(
             printer().line(&event).unwrap(),
-            "- co - Spring.zip: Warning player_unlisted at Players/15 - B"
+            "- co Midcup Spring.zip: Warning player_unlisted at Players/15 - B"
         );
     }
 
@@ -454,7 +454,7 @@ mod tests {
         );
         assert_eq!(
             printer().line(&event).unwrap(),
-            "- co - Spring.zip: Fatal file_unreadable at Players/15 - B/face.dds"
+            "- co Midcup Spring.zip: Fatal file_unreadable at Players/15 - B/face.dds"
         );
     }
 
@@ -472,7 +472,7 @@ mod tests {
         );
         assert_eq!(
             printer().line(&event).unwrap(),
-            "- co - Spring.zip: Error players_txt_line_invalid at players.txt line 1"
+            "- co Midcup Spring.zip: Error players_txt_line_invalid at players.txt line 1"
         );
     }
 
@@ -529,8 +529,8 @@ mod tests {
     #[test]
     fn exports_with_the_same_stem_stay_distinguishable() {
         let mut printer = EventLines::new();
-        printer.line(&started(1, "co - Spring"));
-        printer.line(&started(2, "co - Spring.zip"));
+        printer.line(&started(1, "co Midcup Spring"));
+        printer.line(&started(2, "co Midcup Spring.zip"));
         let line_for = |printer: &mut EventLines, id: u64| {
             printer
                 .line(&message(
@@ -544,11 +544,11 @@ mod tests {
         };
         assert_eq!(
             line_for(&mut printer, 1),
-            "- co - Spring: Error players_txt_missing"
+            "- co Midcup Spring: Error players_txt_missing"
         );
         assert_eq!(
             line_for(&mut printer, 2),
-            "- co - Spring.zip: Error players_txt_missing"
+            "- co Midcup Spring.zip: Error players_txt_missing"
         );
     }
 

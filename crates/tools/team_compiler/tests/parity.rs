@@ -1,5 +1,5 @@
 //! Parity against the compiled output for the same export: compile
-//! `fixtures/tracer/studio/egg Tracer` through the `compile` command and
+//! `fixtures/tracer/studio/egg Midcup Tracer` through the `compile` command and
 //! compare the CPK with the reference tree in `fixtures/tracer/red/`, one
 //! explicit row per reference entry under the tiers of
 //! `docs/plans/team_compiler/testing.md`.

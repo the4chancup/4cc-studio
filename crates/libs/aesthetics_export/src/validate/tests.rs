@@ -1,7 +1,7 @@
 use super::*;
 use crate::testing::{context_with, report, report_with};
 use crate::validate::IssueScope;
-use crate::{FileKind, ModelFormat, SharedKind};
+use crate::{ExportCoverage, FileKind, ModelFormat, SharedKind};
 use vtree::ScopePath;
 
 fn issue_codes(report: &ValidationReport) -> Vec<(&'static str, Disposition)> {
@@ -15,7 +15,7 @@ fn issue_codes(report: &ValidationReport) -> Vec<(&'static str, Disposition)> {
 // TC-STR-04
 #[test]
 fn an_export_with_no_usable_content_is_dropped_empty() {
-    let report = report("egg", &[("readme.txt", 10)], &[], &[]);
+    let report = report("egg Midcup", &[("readme.txt", 10)], &[], &[]);
     assert_eq!(
         issue_codes(&report),
         vec![("export_empty", Disposition::DropExport)]
@@ -34,7 +34,7 @@ fn an_ambiguous_or_conflicting_root_reports_no_export_empty() {
             ("wrapper/Players/03 - A/face_high.fmdl", 10),
         ][..],
     ] {
-        let report = report("egg", files, &[], &[]);
+        let report = report("egg Midcup", files, &[], &[]);
         assert!(
             report
                 .issues
@@ -59,9 +59,53 @@ fn a_stem_with_no_team_token_is_dropped_unknown() {
 }
 
 #[test]
+fn a_team_export_without_its_coverage_tag_is_dropped() {
+    let report = report(
+        "co Spring 2026",
+        &[("Players/03 - A/face_high.fmdl", 10)],
+        &[],
+        &[],
+    );
+    assert_eq!(
+        issue_codes(&report),
+        vec![("export_tag_missing", Disposition::DropExport)]
+    );
+    assert_eq!(report.issues[0].scope, IssueScope::Export);
+    assert_eq!(
+        report.issues[0].context,
+        vec![("name", "co Spring 2026".to_owned())]
+    );
+    assert!(report.validated.is_none());
+}
+
+#[test]
+fn a_tagged_team_export_carries_its_coverage() {
+    for (name, coverage) in [
+        ("co Full Spring 2026", ExportCoverage::Full),
+        ("co midcup day 5", ExportCoverage::Midcup),
+    ] {
+        let report = report(name, &[("Players/03 - A/face_high.fmdl", 10)], &[], &[]);
+        assert_eq!(issue_codes(&report), vec![], "{name}");
+        assert_eq!(report.validated.unwrap().coverage, coverage, "{name}");
+    }
+}
+
+#[test]
+fn a_referee_export_needs_no_tag_and_is_full() {
+    let report = report(
+        "refs Spring 2026",
+        &[("players.txt", 10)],
+        &["Players/Keeper"],
+        &[("players.txt", Ok(b"01 Keeper"))],
+    );
+    assert_eq!(issue_codes(&report), vec![]);
+    assert_eq!(report.validated.unwrap().coverage, ExportCoverage::Full);
+}
+
+#[test]
 fn a_player_folder_builds_with_its_links_and_markers() {
     let report = report(
-        "egg",
+        "egg Midcup",
         &[
             ("Players/03 - A/hair.dds", 9),
             ("Players/03 - A/gloves/glove_l.fmdl", 10),
@@ -115,7 +159,7 @@ fn a_player_folder_builds_with_its_links_and_markers() {
 #[test]
 fn only_the_portrait_stem_is_the_portrait() {
     let report = report(
-        "egg",
+        "egg Midcup",
         &[
             ("Players/03 - A/hair.dds", 9),
             ("Players/03 - A/portrait.dds", 9),
@@ -151,7 +195,7 @@ fn two_textures_sharing_a_stem_drop_the_folder() {
             ("Players/03 - A/common/hair.dds", 9),
         ][..],
     ] {
-        let report = report("egg", files, &[], &[]);
+        let report = report("egg Midcup", files, &[], &[]);
         let issues: Vec<(&'static str, Disposition)> = report
             .issues
             .iter()
@@ -172,7 +216,7 @@ fn two_textures_sharing_a_stem_drop_the_folder() {
 #[test]
 fn fpc_off_alone_is_an_off_directive() {
     let report = report(
-        "egg",
+        "egg Midcup",
         &[
             ("Players/03 - A/face_high.fmdl", 10),
             ("Players/03 - A/fpc_off", 0),
@@ -189,7 +233,7 @@ fn fpc_off_alone_is_an_off_directive() {
 #[test]
 fn a_bare_fpc_marker_is_an_on_directive() {
     let report = report(
-        "egg",
+        "egg Midcup",
         &[
             ("Players/03 - A/face_high.fmdl", 10),
             ("Players/03 - A/fpc", 0),
@@ -221,7 +265,7 @@ fn the_dotted_marker_spellings_are_disallowed_files() {
             "icon.txt",
         ),
     ] {
-        let report = report("egg", files, &[], &[]);
+        let report = report("egg Midcup", files, &[], &[]);
         assert_eq!(
             issue_codes(&report),
             vec![("file_type_disallowed", Disposition::DropFolder)],
@@ -237,7 +281,7 @@ fn the_dotted_marker_spellings_are_disallowed_files() {
 fn both_fpc_markers_drop_the_folder() {
     // A roster-mapped player dropped by its own finding.
     let report = report(
-        "egg",
+        "egg Midcup",
         &[
             ("players.txt", 5),
             ("Players/A/hair.dds", 9),
@@ -262,7 +306,7 @@ fn both_fpc_markers_drop_the_folder() {
 #[test]
 fn shared_folders_and_common_files_build_unchecked() {
     let report = report(
-        "egg",
+        "egg Midcup",
         &[
             ("Players/03 - A/Longhair.face", 0),
             ("Players/03 - A/Crocs.boots", 0),
@@ -300,7 +344,7 @@ fn a_shared_link_resolves_with_or_without_the_txt_tail() {
     for link_file in ["Crocs.boots", "Crocs.boots.txt"] {
         let path = format!("Players/03 - A/{link_file}");
         let report = report(
-            "egg",
+            "egg Midcup",
             &[
                 ("Players/03 - A/hair.dds", 9),
                 (path.as_str(), 0),
@@ -326,7 +370,7 @@ fn a_shared_link_resolves_with_or_without_the_txt_tail() {
 #[test]
 fn a_link_to_a_missing_shared_folder_drops_the_player() {
     let report = report(
-        "egg",
+        "egg Midcup",
         &[
             ("Players/03 - A/hair.dds", 9),
             ("Players/03 - A/Nowhere.boots", 0),
@@ -350,7 +394,7 @@ fn a_link_to_a_missing_shared_folder_drops_the_player() {
 #[test]
 fn two_links_of_one_kind_drop_the_player() {
     let report = report(
-        "egg",
+        "egg Midcup",
         &[
             ("Players/03 - A/hair.dds", 9),
             ("Players/03 - A/Crocs.boots", 0),
@@ -376,7 +420,7 @@ fn two_links_of_one_kind_drop_the_player() {
 #[test]
 fn a_shared_folder_no_surviving_player_links_is_orphaned() {
     let report = report(
-        "egg",
+        "egg Midcup",
         &[
             ("players.txt", 5),
             ("Boots/Solo/boots.fmdl", 10),
@@ -408,14 +452,14 @@ fn a_disallowed_file_drops_strict_and_keeps_lenient() {
         ("Players/03 - A/hair.dds", 9u64),
         ("Players/03 - A/readme.txt", 20),
     ];
-    let strict = report("egg", files, &[], &[]);
+    let strict = report("egg Midcup", files, &[], &[]);
     assert_eq!(
         issue_codes(&strict),
         vec![("file_type_disallowed", Disposition::DropFolder)]
     );
     assert!(strict.validated.unwrap().players.is_empty());
 
-    let lenient = report_with(&context_with(false, false), "egg", files, &[], &[]);
+    let lenient = report_with(&context_with(false, false), "egg Midcup", files, &[], &[]);
     assert_eq!(
         issue_codes(&lenient),
         vec![("file_type_disallowed", Disposition::Keep)]
@@ -435,7 +479,7 @@ fn a_disallowed_file_drops_strict_and_keeps_lenient() {
 #[test]
 fn both_ingame_face_spellings_mark_the_folder() {
     let report = report(
-        "egg",
+        "egg Midcup",
         &[
             ("Players/03 - A/ingame_face", 0),
             ("Players/03 - A/hair.dds", 9),
@@ -455,7 +499,7 @@ fn both_ingame_face_spellings_mark_the_folder() {
 #[test]
 fn ingame_face_with_explicit_face_content_drops_the_folder() {
     let local = report(
-        "egg",
+        "egg Midcup",
         &[
             ("Players/03 - A/ingame_face", 0),
             ("Players/03 - A/face_high.fmdl", 10),
@@ -470,7 +514,7 @@ fn ingame_face_with_explicit_face_content_drops_the_folder() {
     assert!(local.validated.unwrap().players.is_empty());
 
     let linked = report(
-        "egg",
+        "egg Midcup",
         &[
             ("Players/03 - A/ingame_face", 0),
             ("Players/03 - A/Long.face", 0),
@@ -495,7 +539,7 @@ fn ingame_face_with_explicit_face_content_drops_the_folder() {
 #[test]
 fn ingame_face_acts_by_subfolder_category() {
     let report = report(
-        "egg",
+        "egg Midcup",
         &[
             ("Players/03 - A/ingame_face", 0),
             ("Players/03 - A/boots/hair_high.fmdl", 10),
@@ -546,7 +590,7 @@ fn ingame_face_acts_by_subfolder_category() {
 #[test]
 fn a_common_link_resolves_or_drops_the_player() {
     let report = report(
-        "egg",
+        "egg Midcup",
         &[
             ("Common/torso.fmdl", 10),
             ("Players/01 - A/torso.fmdl.common", 0),
@@ -589,7 +633,7 @@ fn a_dropped_link_target_drops_its_players_and_pass_through_keeps() {
         ("Players/03 - A/Base.face", 0),
         ("Players/03 - A/hair.dds", 9),
     ];
-    let strict = report("egg", files, &[], &[]);
+    let strict = report("egg Midcup", files, &[], &[]);
     assert_eq!(
         issue_codes(&strict),
         vec![
@@ -612,7 +656,7 @@ fn a_dropped_link_target_drops_its_players_and_pass_through_keeps() {
     assert!(validated.faces.is_empty());
 
     // With pass_through the target stays, no link_target_dropped.
-    let kept = report_with(&context_with(true, true), "egg", files, &[], &[]);
+    let kept = report_with(&context_with(true, true), "egg Midcup", files, &[], &[]);
     assert_eq!(
         issue_codes(&kept),
         vec![("file_type_disallowed", Disposition::Keep)]
@@ -632,7 +676,7 @@ fn a_dropped_link_target_drops_its_players_and_pass_through_keeps() {
     // A conflict is never pass-through-eligible: both drop.
     let conflicted = report_with(
         &context_with(true, true),
-        "egg",
+        "egg Midcup",
         &[
             ("Faces/Base/hair.dds", 9),
             ("Faces/Base/hair.png", 9),
@@ -659,7 +703,7 @@ fn a_dropped_link_target_drops_its_players_and_pass_through_keeps() {
 #[test]
 fn a_wrongly_named_boots_model_drops_folder_and_linker() {
     let report = report(
-        "egg",
+        "egg Midcup",
         &[
             ("Boots/Crocs/torso.fmdl", 10),
             ("Boots/Mud/kit_boots.fmdl", 10),
@@ -708,7 +752,7 @@ fn a_wrongly_named_boots_model_drops_folder_and_linker() {
 fn pass_through_keeps_a_dangling_link_player_minus_the_link() {
     let report = report_with(
         &context_with(true, true),
-        "egg",
+        "egg Midcup",
         &[
             ("Players/03 - A/Nowhere.boots", 0),
             ("Players/03 - A/hair.dds", 9),
@@ -728,7 +772,7 @@ fn pass_through_keeps_a_dangling_link_player_minus_the_link() {
 
 #[test]
 fn a_common_file_off_the_allowlist_drops_or_keeps() {
-    let strict = report("egg", &[("Common/x.exe", 4)], &[], &[]);
+    let strict = report("egg Midcup", &[("Common/x.exe", 4)], &[], &[]);
     assert_eq!(
         issue_codes(&strict),
         vec![("common_file_disallowed", Disposition::DropFile)]
@@ -741,7 +785,7 @@ fn a_common_file_off_the_allowlist_drops_or_keeps() {
 
     let lenient = report_with(
         &context_with(false, false),
-        "egg",
+        "egg Midcup",
         &[("Common/x.exe", 4)],
         &[],
         &[],
@@ -757,7 +801,7 @@ fn a_common_file_off_the_allowlist_drops_or_keeps() {
 fn pass_through_keeps_the_resolved_common_link_and_prunes_the_other() {
     let report = report_with(
         &context_with(true, true),
-        "egg",
+        "egg Midcup",
         &[
             ("players.txt", 5),
             ("Common/torso.fmdl", 10),
@@ -787,7 +831,7 @@ fn pass_through_keeps_the_resolved_common_link_and_prunes_the_other() {
 #[test]
 fn boots_and_fcl_hair_models_are_no_explicit_face_content() {
     let report = report(
-        "egg",
+        "egg Midcup",
         &[
             ("Players/03 - A/ingame_face", 0),
             ("Players/03 - A/kit_boots.fmdl", 10),
@@ -803,7 +847,7 @@ fn boots_and_fcl_hair_models_are_no_explicit_face_content() {
 #[test]
 fn wrong_suffixed_models_drop_their_shared_folders_and_linkers() {
     let report = report(
-        "egg",
+        "egg Midcup",
         &[
             ("Boots/X/glove_l.fmdl", 10),
             ("Gloves/Y/kit_boots.fmdl", 10),
@@ -835,7 +879,7 @@ fn wrong_suffixed_models_drop_their_shared_folders_and_linkers() {
 #[test]
 fn a_nested_common_file_is_disallowed_and_no_link_target() {
     let report = report(
-        "egg",
+        "egg Midcup",
         &[
             ("Common/sub/torso.fmdl", 10),
             ("Players/03 - A/torso.fmdl.common", 0),
@@ -860,7 +904,7 @@ fn a_nested_common_file_is_disallowed_and_no_link_target() {
 #[test]
 fn reserved_folders_admit_only_model_content_and_common_links() {
     let report = report(
-        "egg",
+        "egg Midcup",
         &[
             ("Players/03 - A/face/settings.toml", 20),
             ("Players/04 - B/boots/torso.fmdl.common", 0),
@@ -885,7 +929,7 @@ fn reserved_folders_admit_only_model_content_and_common_links() {
 #[test]
 fn ingame_face_and_common_links_act_by_target_and_position() {
     let report = report(
-        "egg",
+        "egg Midcup",
         &[
             ("Common/face_high.fmdl", 10),
             ("Common/torso.fmdl", 10),
@@ -922,7 +966,7 @@ fn ingame_face_and_common_links_act_by_target_and_position() {
 #[test]
 fn a_shared_folder_with_different_kinds_of_one_stem_is_fine() {
     let report = report(
-        "egg",
+        "egg Midcup",
         &[
             ("Faces/Base/hair.dds", 9),
             ("Faces/Base/hair.xml", 10),
@@ -941,7 +985,7 @@ fn a_shared_folder_with_different_kinds_of_one_stem_is_fine() {
 fn a_link_file_below_an_unreserved_subfolder_is_no_link() {
     let report = report_with(
         &context_with(false, false),
-        "egg",
+        "egg Midcup",
         &[
             ("Players/03 - A/extra/Crocs.boots", 0),
             ("Boots/Crocs/boots.fmdl", 10),
@@ -964,7 +1008,7 @@ fn a_link_file_below_an_unreserved_subfolder_is_no_link() {
 fn a_common_link_in_common_is_no_link_either() {
     let report = report_with(
         &context_with(false, false),
-        "egg",
+        "egg Midcup",
         &[("Players/03 - A/common/x.fmdl.common", 0)],
         &[],
         &[],
@@ -978,7 +1022,7 @@ fn a_common_link_in_common_is_no_link_either() {
 #[test]
 fn a_dropped_target_names_its_own_first_finding() {
     let report = report(
-        "egg",
+        "egg Midcup",
         &[
             ("Players/01 - P/fpc_on", 0),
             ("Players/01 - P/fpc_off", 0),
@@ -1011,7 +1055,7 @@ fn a_dropped_target_names_its_own_first_finding() {
 #[test]
 fn a_player_dropped_by_its_own_finding_reports_no_dropped_target() {
     let report = report(
-        "egg",
+        "egg Midcup",
         &[
             ("players.txt", 5),
             ("Players/A/fpc_on", 0),
@@ -1039,7 +1083,7 @@ fn file_scope(path: &str) -> IssueScope {
 #[test]
 fn kit_slots_and_labels_parse() {
     let report = report(
-        "egg",
+        "egg Midcup",
         &[("Kits/p1 - Lakers/kit.dds", 9), ("Kits/g1/kit.dds", 9)],
         &[],
         &[],
@@ -1058,7 +1102,7 @@ fn kit_slots_and_labels_parse() {
 #[test]
 fn two_folders_of_one_slot_are_both_dropped() {
     let report = report(
-        "egg",
+        "egg Midcup",
         &[("Kits/p1/kit.dds", 9), ("Kits/p1 - Lakers/kit.dds", 9)],
         &[],
         &[],
@@ -1078,7 +1122,12 @@ fn two_folders_of_one_slot_are_both_dropped() {
 // TC-KIT-03
 #[test]
 fn a_folder_name_with_no_kit_slot_is_invalid() {
-    let report = report("egg", &[], &["Kits/p10", "Kits/x1", "Kits/home"], &[]);
+    let report = report(
+        "egg Midcup",
+        &[],
+        &["Kits/p10", "Kits/x1", "Kits/home"],
+        &[],
+    );
     assert_eq!(
         issue_codes(&report),
         vec![
@@ -1095,7 +1144,7 @@ fn a_folder_name_with_no_kit_slot_is_invalid() {
 
 #[test]
 fn an_invalid_kit_head_gets_no_own_findings() {
-    let report = report("egg", &[("Kits/x1/back.dds", 9)], &[], &[]);
+    let report = report("egg Midcup", &[("Kits/x1/back.dds", 9)], &[], &[]);
     assert_eq!(
         issue_codes(&report),
         vec![("kit_folder_invalid", Disposition::DropFolder)]
@@ -1106,7 +1155,7 @@ fn an_invalid_kit_head_gets_no_own_findings() {
 #[test]
 fn a_kit_inherits_only_the_stems_it_lacks() {
     let report = report(
-        "egg",
+        "egg Midcup",
         &[
             ("Kits/all/kit_back.dds", 9),
             ("Kits/all/kit_name.dds", 9),
@@ -1137,7 +1186,7 @@ fn a_kit_inherits_only_the_stems_it_lacks() {
 // TC-KIT-05
 #[test]
 fn all_files_and_an_unused_all_folder() {
-    let ignored = report("egg", &[("Kits/all/config.toml", 10)], &[], &[]);
+    let ignored = report("egg Midcup", &[("Kits/all/config.toml", 10)], &[], &[]);
     assert_eq!(
         issue_codes(&ignored),
         vec![
@@ -1147,7 +1196,7 @@ fn all_files_and_an_unused_all_folder() {
     );
     assert_eq!(ignored.issues[0].scope, file_scope("Kits/all/config.toml"));
 
-    let unused = report("egg", &[("Kits/all/kit_back.dds", 9)], &[], &[]);
+    let unused = report("egg Midcup", &[("Kits/all/kit_back.dds", 9)], &[], &[]);
     assert_eq!(
         issue_codes(&unused),
         vec![("kit_all_unused", Disposition::Keep)]
@@ -1160,7 +1209,7 @@ fn all_files_and_an_unused_all_folder() {
 #[test]
 fn both_layout_markers_drop_the_kit() {
     let report = report(
-        "egg",
+        "egg Midcup",
         &[
             ("Kits/p1/kit.dds", 9),
             ("Kits/p1/pre-fox", 0),
@@ -1180,7 +1229,7 @@ fn both_layout_markers_drop_the_kit() {
 #[test]
 fn a_texture_without_the_kit_prefix_drops_only_itself() {
     let report = report(
-        "egg",
+        "egg Midcup",
         &[("Kits/p1/back.dds", 9), ("Kits/p1/kit.dds", 9)],
         &[],
         &[],
@@ -1205,7 +1254,7 @@ fn an_icon_marker_names_the_kit_icon() {
     ] {
         let path = format!("Kits/p1/{marker}");
         let report = report(
-            "egg",
+            "egg Midcup",
             &[(path.as_str(), 0), ("Kits/p1/kit.dds", 9)],
             &[],
             &[],
@@ -1225,7 +1274,7 @@ fn an_out_of_range_icon_is_invalid_and_the_kit_kept() {
     for marker in ["icon_24", "icon_25", "icon_99999999999999999999"] {
         let path = format!("Kits/p1/{marker}");
         let report = report(
-            "egg",
+            "egg Midcup",
             &[(path.as_str(), 0), ("Kits/p1/kit.dds", 9)],
             &[],
             &[],
@@ -1247,7 +1296,7 @@ fn two_icon_markers_are_each_invalid() {
         let first = format!("Kits/p1/{first}");
         let second = format!("Kits/p1/{second}");
         let report = report(
-            "egg",
+            "egg Midcup",
             &[
                 (first.as_str(), 0),
                 (second.as_str(), 0),
@@ -1274,7 +1323,7 @@ fn two_icon_markers_are_each_invalid() {
 #[test]
 fn an_icon_marker_outside_a_kit_folder_is_no_icon() {
     let in_all = report(
-        "egg",
+        "egg Midcup",
         &[("Kits/all/icon_5", 0), ("Kits/p1/kit.dds", 9)],
         &[],
         &[],
@@ -1289,7 +1338,7 @@ fn an_icon_marker_outside_a_kit_folder_is_no_icon() {
     let in_player = |marker: &str| {
         let path = format!("Players/03 - A/{marker}");
         let report = report(
-            "egg",
+            "egg Midcup",
             &[(path.as_str(), 0), ("Players/03 - A/hair.dds", 9)],
             &[],
             &[],
@@ -1322,7 +1371,7 @@ fn an_icon_marker_outside_a_kit_folder_is_no_icon() {
 #[test]
 fn stem_conflicts_drop_the_folder_they_are_in() {
     let own = report(
-        "egg",
+        "egg Midcup",
         &[("Kits/p1/kit.png", 9), ("Kits/p1/kit.dds", 9)],
         &[],
         &[],
@@ -1334,7 +1383,7 @@ fn stem_conflicts_drop_the_folder_they_are_in() {
     assert!(own.validated.unwrap().kits.kits.is_empty());
 
     let shared = report(
-        "egg",
+        "egg Midcup",
         &[
             ("Kits/all/kit_back.png", 9),
             ("Kits/all/kit_back.dds", 9),
@@ -1353,7 +1402,7 @@ fn stem_conflicts_drop_the_folder_they_are_in() {
     assert_eq!(kits.kits[&kit_config::KitSlot::P2].textures.len(), 1);
 
     let overridden = report(
-        "egg",
+        "egg Midcup",
         &[("Kits/all/kit_name.dds", 9), ("Kits/p3/kit_name.png", 9)],
         &[],
         &[],
@@ -1365,7 +1414,7 @@ fn stem_conflicts_drop_the_folder_they_are_in() {
 #[test]
 fn unexpected_root_files_and_folders_are_dropped() {
     let base = report(
-        "egg",
+        "egg Midcup",
         &[
             ("extra.bin", 4),
             ("readme.TXT", 20),
@@ -1407,14 +1456,14 @@ fn unexpected_root_files_and_folders_are_dropped() {
 // TC-ROOT-03
 #[test]
 fn logo_files_get_one_of_each_role() {
-    let invalid = report("egg", &[("logo_zoom.png", 9)], &[], &[]);
+    let invalid = report("egg Midcup", &[("logo_zoom.png", 9)], &[], &[]);
     assert_eq!(
         issue_codes(&invalid),
         vec![("logo_file_invalid", Disposition::DropFile)]
     );
     assert_eq!(invalid.validated.unwrap().logo, None);
 
-    let duplicate = report("egg", &[("logo.png", 9), ("logo.dds", 9)], &[], &[]);
+    let duplicate = report("egg Midcup", &[("logo.png", 9), ("logo.dds", 9)], &[], &[]);
     assert_eq!(
         issue_codes(&duplicate),
         vec![("logo_role_duplicate", Disposition::DropFile)]
@@ -1426,14 +1475,19 @@ fn logo_files_get_one_of_each_role() {
     );
     assert_eq!(duplicate.validated.unwrap().logo, None);
 
-    let small_only = report("egg", &[("logo_small.png", 9)], &[], &[]);
+    let small_only = report("egg Midcup", &[("logo_small.png", 9)], &[], &[]);
     assert_eq!(
         issue_codes(&small_only),
         vec![("logo_small_without_main", Disposition::DropFile)]
     );
     assert_eq!(small_only.validated.unwrap().logo, None);
 
-    let pair = report("egg", &[("logo.png", 9), ("logo_small.png", 9)], &[], &[]);
+    let pair = report(
+        "egg Midcup",
+        &[("logo.png", 9), ("logo_small.png", 9)],
+        &[],
+        &[],
+    );
     assert_eq!(issue_codes(&pair), vec![]);
     let logo = pair.validated.unwrap().logo.unwrap();
     assert_eq!(logo.main.file.path.as_str(), "logo.png");
@@ -1444,7 +1498,7 @@ fn logo_files_get_one_of_each_role() {
 #[test]
 fn a_bad_portrait_name_drops_only_that_file() {
     let report = report(
-        "egg",
+        "egg Midcup",
         &[
             ("Portraits/player_24.dds", 9),
             ("Portraits/player_03.dds", 9),
@@ -1476,7 +1530,7 @@ fn a_bad_portrait_name_drops_only_that_file() {
 fn notes_are_read_or_dropped() {
     // A non-empty note is kept and reported.
     let note = report(
-        "egg",
+        "egg Midcup",
         &[("notes.txt", 12), ("Players/03 - A/hair.dds", 9)],
         &[],
         &[("notes.txt", Ok(b"good cup"))],
@@ -1489,7 +1543,7 @@ fn notes_are_read_or_dropped() {
 
     // Not UTF-8: the note is dropped, the export still valid.
     let bad = report(
-        "egg",
+        "egg Midcup",
         &[("notes.txt", 4), ("Players/03 - A/hair.dds", 9)],
         &[],
         &[("notes.txt", Ok(&b"\xff\xfe"[..]))],
@@ -1504,7 +1558,7 @@ fn notes_are_read_or_dropped() {
 
     // Unreadable: source_read_failed, still validated.
     let denied = report(
-        "egg",
+        "egg Midcup",
         &[("notes.txt", 5), ("Players/03 - A/hair.dds", 9)],
         &[],
         &[("notes.txt", Err("denied"))],
@@ -1521,7 +1575,7 @@ fn notes_are_read_or_dropped() {
 
     // Whitespace only: nothing.
     let empty = report(
-        "egg",
+        "egg Midcup",
         &[("notes.txt", 3), ("Players/03 - A/hair.dds", 9)],
         &[],
         &[("notes.txt", Ok(b"  \n"))],
@@ -1532,7 +1586,7 @@ fn notes_are_read_or_dropped() {
 
 #[test]
 fn an_all_folder_beside_only_invalid_kits_is_unused() {
-    let report = report("egg", &[("Kits/all/kit.dds", 9)], &["Kits/x1"], &[]);
+    let report = report("egg Midcup", &[("Kits/all/kit.dds", 9)], &["Kits/x1"], &[]);
     assert_eq!(
         issue_codes(&report),
         vec![
@@ -1547,7 +1601,7 @@ fn an_all_folder_beside_only_invalid_kits_is_unused() {
 #[test]
 fn two_portraits_of_one_slot_conflict_each() {
     let report = report(
-        "egg",
+        "egg Midcup",
         &[
             ("Portraits/player_03.dds", 9),
             ("Portraits/player_03.png", 9),
@@ -1576,7 +1630,7 @@ fn two_portraits_of_one_slot_conflict_each() {
 #[test]
 fn a_logo_pair_reads_its_fit_tags() {
     let report = report(
-        "egg",
+        "egg Midcup",
         &[("logo_crop.png", 9), ("logo_small_fit.dds", 9)],
         &[],
         &[],
@@ -1590,7 +1644,7 @@ fn a_logo_pair_reads_its_fit_tags() {
 #[test]
 fn a_non_texture_in_a_kit_drops_the_kit_strict() {
     let report = report(
-        "egg",
+        "egg Midcup",
         &[("Kits/p1/kit.dds", 9), ("Kits/p1/hair.fmdl", 10)],
         &[],
         &[],
@@ -1606,7 +1660,7 @@ fn a_non_texture_in_a_kit_drops_the_kit_strict() {
 #[test]
 fn a_kit_file_below_a_subfolder_offends() {
     let report = report(
-        "egg",
+        "egg Midcup",
         &[("Kits/p1/kit.dds", 9), ("Kits/p1/extra/kit_back.dds", 9)],
         &[],
         &[],
@@ -1624,7 +1678,7 @@ fn a_kit_file_below_a_subfolder_offends() {
 #[test]
 fn layout_markers_pick_the_kit_layout() {
     let report = report(
-        "egg",
+        "egg Midcup",
         &[
             ("Kits/p1/kit.dds", 9),
             ("Kits/p1/fox", 0),
@@ -1650,7 +1704,7 @@ fn layout_markers_pick_the_kit_layout() {
 
 #[test]
 fn a_portrait_number_must_be_exactly_two_digits() {
-    let report = report("egg", &[("Portraits/player_003.dds", 9)], &[], &[]);
+    let report = report("egg Midcup", &[("Portraits/player_003.dds", 9)], &[], &[]);
     assert_eq!(
         issue_codes(&report),
         vec![("portrait_name_invalid", Disposition::DropFile)]
@@ -1661,7 +1715,7 @@ fn a_portrait_number_must_be_exactly_two_digits() {
 #[test]
 fn a_logo_candidate_that_is_no_texture_is_invalid() {
     let report = report(
-        "egg",
+        "egg Midcup",
         &[("logo.txt", 9), ("Players/03 - A/hair.dds", 9)],
         &[],
         &[],
@@ -1676,7 +1730,7 @@ fn a_logo_candidate_that_is_no_texture_is_invalid() {
 #[test]
 fn a_root_colors_file_is_the_team_colors() {
     let report = report(
-        "egg",
+        "egg Midcup",
         &[("colors.txt", 10), ("Players/03 - A/hair.dds", 9)],
         &[],
         &[],
@@ -1698,7 +1752,7 @@ fn a_root_colors_file_is_the_team_colors() {
 #[test]
 fn referee_files_are_unexpected_on_a_team_export() {
     let report = report(
-        "egg",
+        "egg Midcup",
         &[
             ("refs.txt", 10),
             ("ref_lists.txt", 10),
@@ -1753,7 +1807,7 @@ fn a_ref_marker_is_admitted_on_a_refs_export() {
 fn a_stem_ending_in_space_folds_without_panicking() {
     // `skin .png`'s stem is `skin ` — no valid path segment, still a name.
     let report = report(
-        "egg",
+        "egg Midcup",
         &[
             ("Players/03 - A/skin .png", 9),
             ("Players/03 - A/face_high.fmdl", 10),
@@ -1770,7 +1824,7 @@ fn a_link_name_ending_in_space_misses_its_target() {
     // `Crocs .boots` names `Crocs ` — `Boots/Crocs` exists but does not
     // match; the name folds rather than panicking.
     let report = report(
-        "egg",
+        "egg Midcup",
         &[
             ("Players/03 - A/Crocs .boots", 0),
             ("Boots/Crocs/boots.fmdl", 10),
@@ -1791,7 +1845,7 @@ fn a_link_name_ending_in_space_misses_its_target() {
 fn a_flattened_folder_spelling_collision_is_a_conflict() {
     // `Docs/b.txt` flattens onto `docs/`'s spelling — rejected, no panic.
     let report = report(
-        "egg",
+        "egg Midcup",
         &[
             ("docs/a.txt", 4),
             ("wrapper/Docs/b.txt", 4),
@@ -1810,7 +1864,7 @@ fn a_flattened_folder_spelling_collision_is_a_conflict() {
 #[test]
 fn a_texture_common_link_joins_the_stem_namespace() {
     let linked = report(
-        "egg",
+        "egg Midcup",
         &[
             ("Common/hair.png", 9),
             ("Players/03 - A/hair.dds", 9),
@@ -1828,7 +1882,7 @@ fn a_texture_common_link_joins_the_stem_namespace() {
 
     // A model link is not a texture: same stem, no conflict.
     let model_link = report(
-        "egg",
+        "egg Midcup",
         &[
             ("Common/torso.fmdl", 10),
             ("Players/03 - A/torso.dds", 9),
@@ -1843,7 +1897,7 @@ fn a_texture_common_link_joins_the_stem_namespace() {
 #[test]
 fn common_textures_conflict_each_other_and_drop_the_linker() {
     let report = report(
-        "egg",
+        "egg Midcup",
         &[
             ("Common/hair.dds", 9),
             ("Common/hair.png", 9),
@@ -1872,7 +1926,7 @@ fn common_textures_conflict_each_other_and_drop_the_linker() {
 fn two_collisions_on_one_loose_path_report_once() {
     // Both flattened names claim `docs/`'s spelling: one finding.
     let report = report(
-        "egg",
+        "egg Midcup",
         &[
             ("docs/a.txt", 4),
             ("wrapper/Docs/b.txt", 4),
@@ -1894,7 +1948,7 @@ fn a_common_link_below_common_is_no_texture() {
     // `common/` is not a link position: the file is disallowed there but
     // never joins the stem namespace.
     let report = report(
-        "egg",
+        "egg Midcup",
         &[
             ("Common/hair.png", 9),
             ("Players/03 - A/hair.dds", 9),
@@ -1915,7 +1969,7 @@ fn a_kept_disallowed_common_file_stays_in_the_players_files() {
     // disallowed finding keeps it (strict off), so it stays in `files`.
     let report = report_with(
         &context_with(false, false),
-        "egg",
+        "egg Midcup",
         &[
             ("Common/torso.fmdl", 10),
             ("Players/03 - A/face_high.fmdl", 10),
@@ -1946,7 +2000,7 @@ fn a_kept_disallowed_common_file_stays_in_the_players_files() {
 #[test]
 fn an_undecided_root_reports_no_logo_finding() {
     let report = report(
-        "egg",
+        "egg Midcup",
         &[
             ("logo.txt", 5),
             ("a/Players/03 - A/face_high.fmdl", 10),
@@ -1966,7 +2020,7 @@ fn an_undecided_root_reports_no_logo_finding() {
 fn an_empty_doubled_players_layer_is_dropped_with_its_layer() {
     // `Players/Players/` alone under `Players/` is the doubled layer's own shell:
     // gone with the layer, not a folder named `Players` claiming a slot.
-    let report = report("egg", &[], &["Players", "Players/Players"], &[]);
+    let report = report("egg Midcup", &[], &["Players", "Players/Players"], &[]);
     assert_eq!(
         issue_codes(&report),
         vec![
@@ -1995,7 +2049,7 @@ fn an_empty_doubled_players_layer_is_dropped_with_its_layer() {
 
 #[test]
 fn an_empty_doubled_kits_layer_is_dropped_with_its_layer() {
-    let report = report("egg", &[], &["Kits", "Kits/Kits"], &[]);
+    let report = report("egg Midcup", &[], &["Kits", "Kits/Kits"], &[]);
     assert_eq!(
         issue_codes(&report),
         vec![
@@ -2020,7 +2074,7 @@ fn an_empty_doubled_folder_beside_siblings_is_an_invalid_folder() {
     // the doubled layer (it is not the only entry) — it is a folder named
     // `Players`, an invalid player name, like a `Kits/Kits/` beside `p1`.
     let players = report(
-        "egg",
+        "egg Midcup",
         &[("Players/03 - A/face_high.fmdl", 10)],
         &["Players/Players"],
         &[],
@@ -2034,7 +2088,7 @@ fn an_empty_doubled_folder_beside_siblings_is_an_invalid_folder() {
         "Players/03 - A"
     );
 
-    let kits = report("egg", &[("Kits/p1/kit.dds", 9)], &["Kits/Kits"], &[]);
+    let kits = report("egg Midcup", &[("Kits/p1/kit.dds", 9)], &["Kits/Kits"], &[]);
     assert_eq!(
         issue_codes(&kits),
         vec![("kit_folder_invalid", Disposition::DropFolder)]
@@ -2070,7 +2124,7 @@ fn an_undecided_root_reports_no_roster_finding() {
     // loose file's lines name no folder that exists, but no roster finding is
     // reported beside the conflict.
     let conflicted = report(
-        "egg",
+        "egg Midcup",
         &[
             ("players.txt", 6),
             ("wrapper/players.txt", 6),
@@ -2107,7 +2161,7 @@ fn an_undecided_root_reports_no_roster_finding() {
 #[test]
 fn a_flattened_wrapper_of_empty_folders_leaves_no_root_folder() {
     let report = report(
-        "egg",
+        "egg Midcup",
         &[],
         &["wrapper", "wrapper/Kits", "wrapper/Kits/p1"],
         &[],
@@ -2137,7 +2191,7 @@ fn fmdl_name_invalid_does_not_apply_on_pre_fox() {
             strict_file_type_check: true,
             pass_through: false,
         },
-        "egg",
+        "egg Midcup",
         &[
             ("Boots/Crocs/torso.fmdl", 10),
             ("Players/03 - A/Crocs.boots", 0),
@@ -2175,7 +2229,8 @@ fn far_vertex_issue(scope: IssueScope, disposition: Disposition) -> ValidationIs
 
 /// `report`'s export with `findings` added, with the default context.
 fn with_findings(files: &[(&str, u64)], findings: Vec<ContentFinding>) -> ValidationReport {
-    report("egg", files, &[], &[]).with_content_findings(findings, &crate::testing::context())
+    report("egg Midcup", files, &[], &[])
+        .with_content_findings(findings, &crate::testing::context())
 }
 
 /// The paths of the validated players.
@@ -2198,7 +2253,7 @@ fn no_content_findings_leave_the_report_as_validate_made_it() {
         ("wrapper/Common/hair.dds", 9),
         ("wrapper/Kits/p1/kit.dds", 9),
     ];
-    let first = report("egg", files, &[], &[]);
+    let first = report("egg Midcup", files, &[], &[]);
     assert_eq!(
         issue_codes(&first),
         vec![
@@ -2339,7 +2394,7 @@ fn pass_through_keeps_an_eligible_content_finding_s_folder_and_drops_a_not_eligi
     };
     let report = report_with(
         &context,
-        "egg",
+        "egg Midcup",
         &[
             ("Players/03 - A/boots.fmdl", 10),
             ("Players/05 - B/boots.fmdl", 10),
@@ -2525,7 +2580,7 @@ fn a_content_finding_dropping_either_logo_file_drops_the_logo() {
         ("logo_small.png", 9),
     ];
     assert!(
-        report("egg", files, &[], &[])
+        report("egg Midcup", files, &[], &[])
             .validated
             .unwrap()
             .logo

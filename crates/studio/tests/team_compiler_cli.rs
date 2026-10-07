@@ -83,26 +83,36 @@ fn check_prints_one_line_per_finding_and_exits_with_the_worst() {
     // `check` reads every model, so the clean export holds a real one with no finding: the
     // tracer's right glove.
     let glove = Path::new(env!("CARGO_MANIFEST_DIR")).join(
-        "../tools/team_compiler/tests/fixtures/tracer/studio/egg Tracer/Players/05 - The Chad Stormworks Player/glove_r.fmdl",
+        "../tools/team_compiler/tests/fixtures/tracer/studio/egg Midcup Tracer/Players/05 - The Chad Stormworks Player/glove_r.fmdl",
     );
-    let clean = sandbox.root.join("exports/co - Clean/Players/03 - A");
+    let clean = sandbox.root.join("exports/co Midcup Clean/Players/03 - A");
     fs::create_dir_all(&clean).unwrap();
     fs::copy(&glove, clean.join("face_high.fmdl")).unwrap();
-    sandbox.write("exports/co - Error/Players/03 - A/readme.txt", "");
+    sandbox.write("exports/co Midcup Error/Players/03 - A/readme.txt", "");
 
-    let output = sandbox.run(&["team-compiler", "check", "--export", "exports/co - Clean"]);
+    let output = sandbox.run(&[
+        "team-compiler",
+        "check",
+        "--export",
+        "exports/co Midcup Clean",
+    ]);
     assert_eq!(output.status.code(), Some(0), "stderr: {}", stderr(&output));
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
-        "- co - Clean: Info export_identified (team=/co/, id=714)\n"
+        "- co Midcup Clean: Info export_identified (team=/co/, id=714)\n"
     );
 
-    let output = sandbox.run(&["team-compiler", "check", "--export", "exports/co - Error"]);
+    let output = sandbox.run(&[
+        "team-compiler",
+        "check",
+        "--export",
+        "exports/co Midcup Error",
+    ]);
     assert_eq!(output.status.code(), Some(1), "stderr: {}", stderr(&output));
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
-        "- co - Error: Error file_type_disallowed at Players/03 - A (file=readme.txt)\n\
-         - co - Error: Info export_identified (team=/co/, id=714)\n"
+        "- co Midcup Error: Error file_type_disallowed at Players/03 - A (file=readme.txt)\n\
+         - co Midcup Error: Info export_identified (team=/co/, id=714)\n"
     );
     assert!(stderr(&output).is_empty(), "{}", stderr(&output));
 }
@@ -113,9 +123,13 @@ fn compile_with_a_positional_root_compiles_it_and_leaves_the_settings_file_alone
     let settings = "[common]\npes_version = 21\n";
     let sandbox = Sandbox::new("positional_root", settings);
     sandbox.write("data/teams_list.txt", "ID\tName\n714\t/co/\n790\t/dbg/\n");
-    let kit = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../tools/team_compiler/tests/fixtures/tracer/studio/egg Tracer/Kits/g1/kit.dds");
-    for folder in ["elsewhere/co - Kit/Kits/p1", "exports/dbg - Other/Kits/p1"] {
+    let kit = Path::new(env!("CARGO_MANIFEST_DIR")).join(
+        "../tools/team_compiler/tests/fixtures/tracer/studio/egg Midcup Tracer/Kits/g1/kit.dds",
+    );
+    for folder in [
+        "elsewhere/co Midcup Kit/Kits/p1",
+        "exports/dbg Midcup Other/Kits/p1",
+    ] {
         let folder = sandbox.root.join(folder);
         fs::create_dir_all(&folder).unwrap();
         fs::copy(&kit, folder.join("kit.dds")).unwrap();
@@ -126,10 +140,10 @@ fn compile_with_a_positional_root_compiles_it_and_leaves_the_settings_file_alone
     assert_eq!(output.status.code(), Some(0), "stderr: {}", stderr(&output));
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
-        "- co - Kit: Info export_identified (team=/co/, id=714)\n\
-         - co - Kit: Info team_colors_missing\n\
-         - co - Kit: Info kit_config_generated at Kits/p1\n\
-         - co - Kit: Info kit_colors_derived at Kits/p1\n"
+        "- co Midcup Kit: Info export_identified (team=/co/, id=714)\n\
+         - co Midcup Kit: Info team_colors_missing\n\
+         - co Midcup Kit: Info kit_config_generated at Kits/p1\n\
+         - co Midcup Kit: Info kit_colors_derived at Kits/p1\n"
     );
     assert!(sandbox.root.join("output/4cc_99_test.cpk").is_file());
     assert_eq!(

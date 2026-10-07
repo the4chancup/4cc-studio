@@ -72,7 +72,7 @@ fn assert_no_common_path(entries: &BTreeMap<String, Vec<u8>>) {
 #[test]
 fn a_common_model_link_bakes_the_model_into_the_face_and_its_texture_stays_in_the_team_s_common() {
     let sandbox = Sandbox::new("cmn_face_link");
-    let export = "exports/co - Link";
+    let export = "exports/co Midcup Link";
     let player = format!("{export}/Players/05 - A");
     sandbox.write(
         &format!("{player}/torso.fmdl"),
@@ -94,7 +94,7 @@ fn a_common_model_link_bakes_the_model_into_the_face_and_its_texture_stays_in_th
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
 
     assert_eq!(
-        findings_of(&run.messages(), "co - Link"),
+        findings_of(&run.messages(), "co Midcup Link"),
         [
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=torso.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Common/legs.fmdl (file=legs.fmdl, count=1662)",
@@ -163,7 +163,7 @@ fn a_common_model_link_bakes_the_model_into_the_face_and_its_texture_stays_in_th
 #[test]
 fn a_boots_link_packs_the_common_skeleton_and_two_players_linking_one_model_share_its_texture() {
     let sandbox = Sandbox::new("cmn_boots_link");
-    let export = "exports/co - Boots";
+    let export = "exports/co Midcup Boots";
     for slot in ["05 - A", "07 - B"] {
         sandbox.write(
             &format!("{export}/Players/{slot}/boots/legs.fmdl.common"),
@@ -186,7 +186,7 @@ fn a_boots_link_packs_the_common_skeleton_and_two_players_linking_one_model_shar
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
 
     assert_eq!(
-        findings_of(&run.messages(), "co - Boots"),
+        findings_of(&run.messages(), "co Midcup Boots"),
         [
             "Info fmdl_weights_not_normalized [Keep] at Common/legs.fmdl (file=legs.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
@@ -235,7 +235,7 @@ fn two_link_spellings_of_one_common_model_compile_it_once() {
     // `boots.fmdl.common` and the tolerated `boots.fmdl.common.txt` are one link to
     // one model: the boots task reads the model once, not twice.
     let sandbox = Sandbox::new("cmn_link_twice");
-    let export = "exports/co - Links";
+    let export = "exports/co Midcup Links";
     sandbox.write(&format!("{export}/Players/05 - A/boots.fmdl.common"), b"");
     sandbox.write(
         &format!("{export}/Players/05 - A/boots.fmdl.common.txt"),
@@ -261,7 +261,7 @@ fn two_link_spellings_of_one_common_model_compile_it_once() {
 fn a_common_skeleton_pairs_with_its_model_case_folded() {
     // `Common/Boots.skl` names `boots.fmdl`'s skeleton as the file system folds it.
     let sandbox = Sandbox::new("cmn_skl_case");
-    let export = "exports/co - Case";
+    let export = "exports/co Midcup Case";
     sandbox.write(&format!("{export}/Players/05 - A/boots.fmdl.common"), b"");
     sandbox.write(
         &format!("{export}/Common/boots.fmdl"),
@@ -282,7 +282,7 @@ fn a_common_skeleton_pairs_with_its_model_case_folded() {
 #[test]
 fn a_boots_link_beside_a_shared_boots_link_combines_the_shared_folder() {
     let sandbox = Sandbox::new("cmn_link_combined");
-    let export = "exports/co - Combined";
+    let export = "exports/co Midcup Combined";
     sandbox.write(
         &format!("{export}/Players/05 - A/kit_boots.fmdl.common"),
         b"",
@@ -300,7 +300,7 @@ fn a_boots_link_beside_a_shared_boots_link_combines_the_shared_folder() {
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
 
     assert_eq!(
-        findings_of(&run.messages(), "co - Combined"),
+        findings_of(&run.messages(), "co Midcup Combined"),
         [
             "Info fmdl_weights_not_normalized [Keep] at Boots/Crocs (file=boots.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Common/kit_boots.fmdl (file=kit_boots.fmdl, count=1662)",
@@ -335,7 +335,7 @@ fn a_boots_link_beside_a_shared_boots_link_combines_the_shared_folder() {
 #[test]
 fn a_common_skeleton_of_a_slotless_face_model_is_reported_on_the_link_and_not_packed() {
     let sandbox = Sandbox::new("cmn_skl_no_slot");
-    let export = "exports/co - Slot";
+    let export = "exports/co Midcup Slot";
     sandbox.write(
         &format!("{export}/Players/05 - A/face_high.fmdl.common"),
         b"",
@@ -355,12 +355,12 @@ fn a_common_skeleton_of_a_slotless_face_model_is_reported_on_the_link_and_not_pa
     ];
 
     let check = sandbox.run(&pes21_settings(&sandbox), &["check"]);
-    assert_eq!(findings_of(&check.messages(), "co - Slot"), findings);
+    assert_eq!(findings_of(&check.messages(), "co Midcup Slot"), findings);
     assert_eq!(check.exit_code(), 0);
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
     assert_eq!(
-        findings_of(&run.messages(), "co - Slot"),
+        findings_of(&run.messages(), "co Midcup Slot"),
         [&findings[..], &["Info team_colors_missing [Keep] ()"]].concat()
     );
     assert_eq!(run.exit_code(), 0);
@@ -374,7 +374,7 @@ fn a_common_skeleton_of_a_slotless_face_model_is_reported_on_the_link_and_not_pa
 #[test]
 fn a_material_a_local_and_a_common_part_define_over_textures_in_two_places_drops_the_folder() {
     let sandbox = Sandbox::new("cmn_material_conflict");
-    let export = "exports/co - Conflict";
+    let export = "exports/co Midcup Conflict";
     let player = format!("{export}/Players/05 - A");
     // The same hair model locally and in Common, each beside a `shirt.dds` of its own.
     sandbox.write(
@@ -403,7 +403,7 @@ fn a_material_a_local_and_a_common_part_define_over_textures_in_two_places_drops
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
 
     assert_eq!(
-        findings_of(&run.messages(), "co - Conflict"),
+        findings_of(&run.messages(), "co Midcup Conflict"),
         [
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=torso.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Players/07 - B (file=boots.fmdl, count=1662)",
@@ -437,7 +437,7 @@ fn a_material_a_local_and_a_common_part_define_over_textures_in_two_places_drops
 fn a_common_texture_that_cannot_convert_fails_the_common_task_and_the_linking_player_still_builds()
 {
     let sandbox = Sandbox::new("cmn_texture_failed");
-    let export = "exports/co - Broken";
+    let export = "exports/co Midcup Broken";
     sandbox.write(&format!("{export}/Players/05 - A/legs.fmdl.common"), b"");
     sandbox.write(
         &format!("{export}/Common/legs.fmdl"),
@@ -454,7 +454,7 @@ fn a_common_texture_that_cannot_convert_fails_the_common_task_and_the_linking_pl
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
 
     let lines = run.messages();
-    let findings = findings_of(&lines, "co - Broken");
+    let findings = findings_of(&lines, "co Midcup Broken");
     assert_eq!(findings.len(), 5, "{findings:?}");
     assert_eq!(
         findings[..4],
@@ -512,7 +512,7 @@ fn model_naming_hair_and_skin() -> Vec<u8> {
 #[test]
 fn a_texture_link_points_the_player_s_model_at_the_one_copy_in_the_team_s_common_output() {
     let sandbox = Sandbox::new("cmn_texture_link");
-    let export = "exports/co - Hair";
+    let export = "exports/co Midcup Hair";
     let player = format!("{export}/Players/05 - A");
     sandbox.write(
         &format!("{player}/face_high.fmdl"),
@@ -533,7 +533,7 @@ fn a_texture_link_points_the_player_s_model_at_the_one_copy_in_the_team_s_common
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
 
     assert_eq!(
-        findings_of(&run.messages(), "co - Hair"),
+        findings_of(&run.messages(), "co Midcup Hair"),
         [
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=face_high.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
@@ -578,7 +578,7 @@ fn a_texture_link_points_the_player_s_model_at_the_one_copy_in_the_team_s_common
 #[test]
 fn a_texture_link_whose_target_is_not_in_common_drops_its_folder() {
     let sandbox = Sandbox::new("cmn_texture_link_missing");
-    let export = "exports/co - Hair";
+    let export = "exports/co Midcup Hair";
     sandbox.write(
         &format!("{export}/Players/05 - A/face_high.fmdl"),
         &tracer_player_file("fcl_hair.fmdl"),
@@ -592,7 +592,7 @@ fn a_texture_link_whose_target_is_not_in_common_drops_its_folder() {
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
 
     assert_eq!(
-        findings_of(&run.messages(), "co - Hair"),
+        findings_of(&run.messages(), "co Midcup Hair"),
         [
             "Error common_link_missing [DropFolder] at Players/05 - A (link=hair.dds.common, path=Common/hair.dds)",
             "Info export_identified [Keep] (team=/co/, id=714)",
@@ -608,7 +608,7 @@ fn a_link_to_a_material_file_or_a_nested_common_file_is_refused_and_an_unlinked_
     // A `.common` link to a material file names the export's first thing `compile` cannot
     // build.
     let material_link = Sandbox::new("cmn_material_link");
-    let export = "exports/co - Hair";
+    let export = "exports/co Midcup Hair";
     material_link.write(
         &format!("{export}/Players/05 - A/face_high.fmdl"),
         &tracer_player_file("fcl_hair.fmdl"),
@@ -623,7 +623,7 @@ fn a_link_to_a_material_file_or_a_nested_common_file_is_refused_and_an_unlinked_
     material_link.write(&format!("{export}/Common/body.mtl"), &mtl);
     let run = material_link.run(&pes21_settings(&material_link), &["compile"]);
     assert_eq!(
-        findings_of(&run.messages(), "co - Hair"),
+        findings_of(&run.messages(), "co Midcup Hair"),
         [
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=face_high.fmdl, count=1662)",
             "Info mtl_state_missing [Keep] at Common/body.mtl (file=body.mtl, count=7)",
@@ -635,7 +635,7 @@ fn a_link_to_a_material_file_or_a_nested_common_file_is_refused_and_an_unlinked_
 
     // A file under a subfolder of `Common/`, kept by the non-strict file-type check, is named.
     let nested = Sandbox::new("cmn_nested");
-    let export = "exports/co - Nested";
+    let export = "exports/co Midcup Nested";
     nested.write(
         &format!("{export}/Players/05 - A/face_high.fmdl"),
         &tracer_player_file("fcl_hair.fmdl"),
@@ -650,7 +650,7 @@ fn a_link_to_a_material_file_or_a_nested_common_file_is_refused_and_an_unlinked_
     );
     let run = nested.run(&settings, &["compile"]);
     assert_eq!(
-        findings_of(&run.messages(), "co - Nested"),
+        findings_of(&run.messages(), "co Midcup Nested"),
         [
             "Info common_file_disallowed [Keep] at Common/sub/x.dds ()",
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=face_high.fmdl, count=1662)",
@@ -662,7 +662,7 @@ fn a_link_to_a_material_file_or_a_nested_common_file_is_refused_and_an_unlinked_
 
     // A Common model no link names is accepted and builds nothing.
     let unlinked = Sandbox::new("cmn_unlinked");
-    let export = "exports/co - Spare";
+    let export = "exports/co Midcup Spare";
     unlinked.write(
         &format!("{export}/Players/05 - A/face_high.fmdl"),
         &tracer_player_file("fcl_hair.fmdl"),
@@ -677,7 +677,7 @@ fn a_link_to_a_material_file_or_a_nested_common_file_is_refused_and_an_unlinked_
     );
     let run = unlinked.run(&pes21_settings(&unlinked), &["compile"]);
     assert_eq!(
-        findings_of(&run.messages(), "co - Spare"),
+        findings_of(&run.messages(), "co Midcup Spare"),
         [
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=face_high.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Common/spare.fmdl (file=spare.fmdl, count=1662)",

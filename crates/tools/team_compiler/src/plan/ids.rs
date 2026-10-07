@@ -154,7 +154,7 @@ mod tests {
         );
     }
 
-    /// The folder names of `shared_folders_taking_ids` over the export `co - Shared`.
+    /// The folder names of `shared_folders_taking_ids` over the export `co Midcup Shared`.
     fn taking(
         files: &[&str],
         players_txt: Option<&[u8]>,
@@ -162,7 +162,7 @@ mod tests {
         kind: SharedKind,
     ) -> Vec<String> {
         let files: Vec<(&str, u64)> = files.iter().map(|path| (*path, 1)).collect();
-        let export = resolved("co - Shared", &files, &[], players_txt).export;
+        let export = resolved("co Midcup Shared", &files, &[], players_txt).export;
         shared_folders_taking_ids(&export, engine, kind)
             .iter()
             .map(|folder| folder.folder_name.clone())
@@ -220,7 +220,7 @@ mod tests {
     #[test]
     fn a_folder_only_an_unmapped_folder_links_takes_no_id() {
         let (export, issues) = resolved_with_issues(
-            "co - Shared",
+            "co Midcup Shared",
             &[
                 ("Players/A/Crocs.boots", 1),
                 ("Players/Unlisted/Mud.boots", 1),

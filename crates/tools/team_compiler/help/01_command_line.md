@@ -200,6 +200,13 @@ in the export it is, and its details in parentheses. The line `Info export_ident
 id=714)` tells you which team the export was recognized as: its name's first word, looked up in
 the teams list (`team=referees` for a `refs` export).
 
+The second word of an export's name says what the export covers: `Full` or `Midcup`, in any
+letter case (`co Full Spring 2026`, `co midcup day 5`). A full export is the team's whole set,
+everything it has for the cup; a midcup export brings additions to what is already installed.
+Only the second word counts, so a `Full` later in the name changes nothing. A team export whose
+second word is neither is skipped with the error `export_tag_missing`, naming the export: rename
+it `<team> Full …` or `<team> Midcup …`. A referee export needs no tag.
+
 Both commands also read every `.fmdl` and `.model` model and every `.mtl` material file of the
 export, an archive's included, and report what is wrong or suspicious in each, one line per file
 and problem, naming the file and how many faces, vertices or bones are concerned. A
@@ -286,8 +293,8 @@ An export can be a folder, a `.zip` or a `.7z`, read where it is: nothing is ext
 that cannot be read (damaged, password-protected, or holding two files whose names differ only in
 case) is reported as `export_extract_failed` and left out of the run.
 
-When two exports in the exports folder are for the same team (an old `co - Spring` folder left
-beside a new `co - Summer.zip`), both commands skip each of them with the error
+When two exports in the exports folder are for the same team (an old `co Full Spring` folder left
+beside a new `co Full Summer.zip`), both commands skip each of them with the error
 `duplicate_aesthetics_export`, naming the team's ID and the exports, and the other teams are
 still built. Remove the one that should not be used, or disable it with an empty file named
 `NO_USE` at its root.

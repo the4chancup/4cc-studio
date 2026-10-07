@@ -34,7 +34,7 @@ impl Sandbox {
 /// The tracer bullet's export, read in place.
 fn tracer_export() -> String {
     Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("tests/fixtures/tracer/studio/egg Tracer")
+        .join("tests/fixtures/tracer/studio/egg Midcup Tracer")
         .to_str()
         .unwrap()
         .to_owned()
@@ -106,10 +106,10 @@ fn compile_no_deploy_writes_the_cpk_to_the_output_folder_and_leaves_pes_alone() 
     assert_eq!(
         run.messages(),
         [
-            "egg Tracer: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=boots.fmdl, count=1662)".to_owned(),
-            "egg Tracer: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=fcl_hair.fmdl, count=1662)".to_owned(),
-            "egg Tracer: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=glove_l.fmdl, count=2)".to_owned(),
-            "egg Tracer: Info export_identified [Keep] (team=/egg/, id=792)".to_owned(),
+            "egg Midcup Tracer: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=boots.fmdl, count=1662)".to_owned(),
+            "egg Midcup Tracer: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=fcl_hair.fmdl, count=1662)".to_owned(),
+            "egg Midcup Tracer: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=glove_l.fmdl, count=2)".to_owned(),
+            "egg Midcup Tracer: Info export_identified [Keep] (team=/egg/, id=792)".to_owned(),
             format!(
                 "Info deploy_skipped_by_flag [Keep] (path={})",
                 promoted.display()
@@ -133,10 +133,10 @@ fn compile_without_no_deploy_promotes_the_cpk_silently() {
     assert_eq!(
         run.messages(),
         [
-            "egg Tracer: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=boots.fmdl, count=1662)",
-            "egg Tracer: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=fcl_hair.fmdl, count=1662)",
-            "egg Tracer: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=glove_l.fmdl, count=2)",
-            "egg Tracer: Info export_identified [Keep] (team=/egg/, id=792)"
+            "egg Midcup Tracer: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=boots.fmdl, count=1662)",
+            "egg Midcup Tracer: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=fcl_hair.fmdl, count=1662)",
+            "egg Midcup Tracer: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=glove_l.fmdl, count=2)",
+            "egg Midcup Tracer: Info export_identified [Keep] (team=/egg/, id=792)"
         ]
     );
 }
@@ -144,8 +144,11 @@ fn compile_without_no_deploy_promotes_the_cpk_silently() {
 #[test]
 fn a_compile_that_emits_nothing_writes_no_cpk_and_no_staging_folder() {
     let sandbox = Sandbox::new("emits_nothing");
-    sandbox.write("exports/co - Off/NO_USE", b"");
-    sandbox.write(&format!("exports/co - Off/{CLEAN_PLAYER}"), &clean_model());
+    sandbox.write("exports/co Midcup Off/NO_USE", b"");
+    sandbox.write(
+        &format!("exports/co Midcup Off/{CLEAN_PLAYER}"),
+        &clean_model(),
+    );
     sandbox.write("output/4cc_99_test.cpk", b"the previous CPK");
     let before = snapshot(&sandbox.root.join("output"));
 
@@ -154,7 +157,7 @@ fn a_compile_that_emits_nothing_writes_no_cpk_and_no_staging_folder() {
     assert_eq!(run.exit_code(), 0);
     assert_eq!(
         run.messages(),
-        ["co - Off: Info export_disabled [DropExport] ()"]
+        ["co Midcup Off: Info export_disabled [DropExport] ()"]
     );
     assert_eq!(snapshot(&sandbox.root.join("output")), before);
     assert!(!sandbox.root.join("output/.staging").exists());
@@ -165,7 +168,7 @@ fn a_compile_that_emits_nothing_writes_no_cpk_and_no_staging_folder() {
 fn an_output_folder_that_cannot_be_created_refuses_compile_before_any_export_is_read() {
     let sandbox = Sandbox::new("output_unwritable");
     sandbox.write("blocker", b"");
-    sandbox.copy_tracer("egg Tracer");
+    sandbox.copy_tracer("egg Midcup Tracer");
     // Absolute, as `pes21_settings` writes the PES path; a file is in the way of its parent.
     let output = format!("{}/blocker/out", sandbox.root.display());
     let settings = format!(
@@ -185,7 +188,10 @@ fn a_failed_cpk_write_discards_the_staging_and_leaves_the_previous_cpk() {
     sandbox.write("output/4cc_99_test.cpk", b"the previous CPK");
     // A file where the run's staging folder goes: the CPK cannot be created in it.
     sandbox.write("output/.staging", b"in the way");
-    sandbox.write(&format!("exports/co - A/{CLEAN_PLAYER}"), &clean_model());
+    sandbox.write(
+        &format!("exports/co Midcup A/{CLEAN_PLAYER}"),
+        &clean_model(),
+    );
     let before = snapshot(&sandbox.root.join("output"));
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
@@ -195,8 +201,8 @@ fn a_failed_cpk_write_discards_the_staging_and_leaves_the_previous_cpk() {
     assert_eq!(
         first,
         [
-            "co - A: Info export_identified [Keep] (team=/co/, id=714)",
-            "co - A: Info team_colors_missing [Keep] ()"
+            "co Midcup A: Info export_identified [Keep] (team=/co/, id=714)",
+            "co Midcup A: Info team_colors_missing [Keep] ()"
         ]
     );
     // The error names the staged CPK, whose folder is this run's: `<pid>-<ms>` is left free,
@@ -230,10 +236,10 @@ fn assert_commit_failed(sandbox: &Sandbox, run: &Run, before: &BTreeMap<PathBuf,
     assert_eq!(
         first,
         [
-            "egg Tracer: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=boots.fmdl, count=1662)",
-            "egg Tracer: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=fcl_hair.fmdl, count=1662)",
-            "egg Tracer: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=glove_l.fmdl, count=2)",
-            "egg Tracer: Info export_identified [Keep] (team=/egg/, id=792)"
+            "egg Midcup Tracer: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=boots.fmdl, count=1662)",
+            "egg Midcup Tracer: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=fcl_hair.fmdl, count=1662)",
+            "egg Midcup Tracer: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=glove_l.fmdl, count=2)",
+            "egg Midcup Tracer: Info export_identified [Keep] (team=/egg/, id=792)"
         ]
     );
     // The error ends with the platform's own text, so only its shape is fixed.
@@ -257,7 +263,7 @@ fn a_previous_cpk_held_open_without_delete_sharing_fails_the_commit_and_is_kept(
 
     let sandbox = Sandbox::new("output_commit_held_open");
     sandbox.write("output/4cc_99_test.cpk", b"the previous CPK");
-    sandbox.copy_tracer("egg Tracer");
+    sandbox.copy_tracer("egg Midcup Tracer");
     let before = snapshot(&sandbox.root.join("output"));
     let held_open = fs::OpenOptions::new()
         .read(true)
@@ -275,7 +281,7 @@ fn a_previous_cpk_held_open_without_delete_sharing_fails_the_commit_and_is_kept(
 fn a_previous_cpk_that_is_a_folder_fails_the_commit_and_is_kept() {
     let sandbox = Sandbox::new("output_commit_folder");
     sandbox.write("output/4cc_99_test.cpk/kept.txt", b"not a CPK");
-    sandbox.copy_tracer("egg Tracer");
+    sandbox.copy_tracer("egg Midcup Tracer");
     let before = snapshot(&sandbox.root.join("output"));
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
@@ -363,13 +369,13 @@ fn not_yet_compiled_export(sandbox: &Sandbox, name: &str) {
 #[test]
 fn compile_skips_an_export_holding_content_it_cannot_build_yet_and_builds_the_others() {
     let sandbox = Sandbox::new("not_yet_compiled");
-    not_yet_compiled_export(&sandbox, "co - Keeper");
-    sandbox.copy_tracer("egg Tracer");
-    sandbox.write("exports/dbg - Kits/Kits/p1/kit.dds", &tracer_kit());
-    sandbox.write("exports/dbg - Kits/players.txt", b"");
+    not_yet_compiled_export(&sandbox, "co Midcup Keeper");
+    sandbox.copy_tracer("egg Midcup Tracer");
+    sandbox.write("exports/dbg Midcup Kits/Kits/p1/kit.dds", &tracer_kit());
+    sandbox.write("exports/dbg Midcup Kits/players.txt", b"");
     // No roster slot maps this folder, so it would emit nothing.
     sandbox.write(
-        "exports/dbg - Kits/Players/Keeper/gloves/keeper.fmdl",
+        "exports/dbg Midcup Kits/Players/Keeper/gloves/keeper.fmdl",
         &clean_model(),
     );
 
@@ -377,7 +383,7 @@ fn compile_skips_an_export_holding_content_it_cannot_build_yet_and_builds_the_ot
 
     let lines = run.messages();
     assert_eq!(
-        findings_of(&lines, "co - Keeper"),
+        findings_of(&lines, "co Midcup Keeper"),
         [
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Error content_not_yet_compiled [DropExport] (what=Players/Keeper/gloves/keeper.fmdl)",
@@ -409,7 +415,7 @@ fn a_compile_whose_every_export_is_skipped_leaves_the_previous_cpk_as_it_was() {
         "exports/refs Cup/Players/Keeper/face_high.fmdl",
         &clean_model(),
     );
-    not_yet_compiled_export(&sandbox, "co - Keeper");
+    not_yet_compiled_export(&sandbox, "co Midcup Keeper");
     let before = snapshot(&sandbox.root.join("output"));
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
@@ -426,17 +432,17 @@ fn an_export_whose_only_player_folder_is_dropped_writes_no_cpk() {
     let sandbox = Sandbox::new("only_folder_dropped");
     sandbox.write("output/4cc_99_test.cpk", b"the previous CPK");
     sandbox.write(
-        &format!("exports/co - Links/{CLEAN_PLAYER}"),
+        &format!("exports/co Midcup Links/{CLEAN_PLAYER}"),
         &clean_model(),
     );
-    sandbox.write("exports/co - Links/Players/03 - A/Crocs.boots", b"");
+    sandbox.write("exports/co Midcup Links/Players/03 - A/Crocs.boots", b"");
     let before = snapshot(&sandbox.root.join("output"));
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
 
     let lines = run.messages();
     assert!(
-        findings_of(&lines, "co - Links").iter().any(
+        findings_of(&lines, "co Midcup Links").iter().any(
             |line| line.starts_with("Error link_target_missing [DropFolder] at Players/03 - A")
         ),
         "{lines:#?}"
@@ -450,16 +456,16 @@ fn an_export_whose_only_player_folder_is_dropped_writes_no_cpk() {
 fn an_export_of_an_unknown_team_is_skipped_and_the_one_beside_it_compiled() {
     let sandbox = Sandbox::new("unknown_team_compiled");
     sandbox.write(
-        &format!("exports/zz - Spring/{CLEAN_PLAYER}"),
+        &format!("exports/zz Midcup Spring/{CLEAN_PLAYER}"),
         &clean_model(),
     );
-    sandbox.copy_tracer("egg Tracer");
+    sandbox.copy_tracer("egg Midcup Tracer");
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
 
     let lines = run.messages();
     assert_eq!(
-        findings_of(&lines, "zz - Spring"),
+        findings_of(&lines, "zz Midcup Spring"),
         ["Error team_name_unknown [DropExport] (team_name=/zz/)"]
     );
     let entries = cpk_paths(&sandbox.root.join("output/4cc_99_test.cpk"));
@@ -467,17 +473,86 @@ fn an_export_of_an_unknown_team_is_skipped_and_the_one_beside_it_compiled() {
     assert_eq!(run.exit_code(), 1);
 }
 
+// TC-ID-05
+#[test]
+fn an_export_without_its_coverage_tag_is_skipped_and_the_one_beside_it_compiled() {
+    let sandbox = Sandbox::new("tag_missing");
+    for name in ["co Spring 2026", "a Full Spring 2026"] {
+        sandbox.write(&format!("exports/{name}/{CLEAN_PLAYER}"), &clean_model());
+    }
+    let tag_missing = ["Error export_tag_missing [DropExport] (name=co Spring 2026)"];
+
+    let check = sandbox.run(&pes21_settings(&sandbox), &["check"]);
+
+    assert_eq!(
+        check.messages(),
+        [
+            "a Full Spring 2026: Info export_identified [Keep] (team=/a/, id=702)",
+            "co Spring 2026: Error export_tag_missing [DropExport] (name=co Spring 2026)",
+        ]
+    );
+    assert_eq!(check.exit_code(), 1);
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+    let lines = run.messages();
+    assert_eq!(findings_of(&lines, "co Spring 2026"), tag_missing);
+    assert_eq!(compiled_players(&sandbox), [70203]);
+    assert_eq!(run.exit_code(), 1);
+}
+
+// TC-ID-06
+#[test]
+fn only_the_second_word_is_the_coverage_tag_in_any_letter_case() {
+    let sandbox = Sandbox::new("tag_case");
+    for name in ["co midcup day 5", "a FULL v2", "b Spring Full"] {
+        sandbox.write(&format!("exports/{name}/{CLEAN_PLAYER}"), &clean_model());
+    }
+
+    let run = sandbox.run("", &["check"]);
+
+    assert_eq!(
+        run.messages(),
+        [
+            "a FULL v2: Info export_identified [Keep] (team=/a/, id=702)",
+            "b Spring Full: Error export_tag_missing [DropExport] (name=b Spring Full)",
+            "co midcup day 5: Info export_identified [Keep] (team=/co/, id=714)",
+        ]
+    );
+    assert_eq!(run.exit_code(), 1);
+}
+
+// TC-ID-07
+#[test]
+fn a_refs_export_needs_no_coverage_tag() {
+    let sandbox = Sandbox::new("tag_refs");
+    sandbox.write("exports/refs Spring 2026/players.txt", b"01 Keeper\n");
+    sandbox.write(
+        "exports/refs Spring 2026/Players/Keeper/face_high.fmdl",
+        &clean_model(),
+    );
+
+    let run = sandbox.run("", &["check"]);
+
+    assert_eq!(
+        run.messages(),
+        ["refs Spring 2026: Info export_identified [Keep] (team=referees)"]
+    );
+    assert_eq!(run.exit_code(), 0);
+}
+
 #[test]
 fn a_pre_fox_compile_skips_every_export_naming_the_target() {
     let sandbox = Sandbox::new("pre_fox_compile");
-    sandbox.copy_tracer("egg Tracer");
+    sandbox.copy_tracer("egg Midcup Tracer");
 
     let run = sandbox.run("[common]\npes_version = 17\n", &["compile"]);
 
     let lines = run.messages();
     assert!(
         lines.contains(
-            &"egg Tracer: Error content_not_yet_compiled [DropExport] (what=PES 2017)".to_owned()
+            &"egg Midcup Tracer: Error content_not_yet_compiled [DropExport] (what=PES 2017)"
+                .to_owned()
         ),
         "{lines:#?}"
     );
@@ -502,11 +577,11 @@ fn compile_creates_a_missing_teams_list_and_check_does_not() {
     );
 }
 
-/// `exports/co - Links`: player 03 compiles, player 07 links boots the export does not hold.
+/// `exports/co Midcup Links`: player 03 compiles, player 07 links boots the export does not hold.
 fn links_export(sandbox: &Sandbox) {
-    sandbox.copy_tracer_face("exports/co - Links/Players/03 - A");
-    sandbox.copy_tracer_face("exports/co - Links/Players/07 - B");
-    sandbox.write("exports/co - Links/Players/07 - B/Crocs.boots", b"");
+    sandbox.copy_tracer_face("exports/co Midcup Links/Players/03 - A");
+    sandbox.copy_tracer_face("exports/co Midcup Links/Players/07 - B");
+    sandbox.write("exports/co Midcup Links/Players/07 - B/Crocs.boots", b"");
 }
 
 // TC-DSP-01
@@ -518,7 +593,7 @@ fn a_dropped_player_folder_is_left_out_of_the_cpk() {
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
 
     assert_eq!(
-        findings_of(&run.messages(), "co - Links"),
+        findings_of(&run.messages(), "co Midcup Links"),
         [
             "Error link_target_missing [DropFolder] at Players/07 - B (link=Crocs.boots)",
             "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=boots.fmdl, count=1662)",
@@ -541,7 +616,7 @@ fn pass_through_compiles_a_folder_with_a_missing_link_and_still_reports_the_erro
     let run = sandbox.run(&pass_through_settings(&sandbox), &["compile"]);
 
     assert_eq!(
-        findings_of(&run.messages(), "co - Links"),
+        findings_of(&run.messages(), "co Midcup Links"),
         [
             "Error link_target_missing [Keep] at Players/07 - B (link=Crocs.boots)",
             "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=boots.fmdl, count=1662)",
@@ -558,7 +633,7 @@ fn pass_through_compiles_a_folder_with_a_missing_link_and_still_reports_the_erro
     assert_eq!(run.exit_code(), 1);
 }
 
-/// One TC-DSP-03 case: the export `co - Case` holding what `setup` writes, compiled with
+/// One TC-DSP-03 case: the export `co Midcup Case` holding what `setup` writes, compiled with
 /// `pass_through` on.
 struct DropCase {
     name: &'static str,
@@ -570,14 +645,14 @@ struct DropCase {
 }
 
 /// The export every TC-DSP-03 case writes into.
-const CASE: &str = "exports/co - Case";
+const CASE: &str = "exports/co Midcup Case";
 
-/// Player 03, a face folder that compiles with no Warning or Error, in `co - Case`.
+/// Player 03, a face folder that compiles with no Warning or Error, in `co Midcup Case`.
 fn case_player_03(sandbox: &Sandbox) {
     sandbox.copy_tracer_face(&format!("{CASE}/Players/03 - A"));
 }
 
-/// Writes the tracer bullet's kit texture into `co - Case`'s kit folder `folder`.
+/// Writes the tracer bullet's kit texture into `co Midcup Case`'s kit folder `folder`.
 fn case_kit(sandbox: &Sandbox, folder: &str) {
     sandbox.write(&format!("{CASE}/Kits/{folder}/kit.dds"), &tracer_kit());
 }
@@ -749,7 +824,7 @@ fn pass_through_keeps_no_finding_whose_drop_it_cannot_keep() {
 
         let lines = run.messages();
         assert_eq!(
-            findings_of(&lines, "co - Case"),
+            findings_of(&lines, "co Midcup Case"),
             case.findings,
             "{}",
             case.name
@@ -770,12 +845,12 @@ fn pass_through_keeps_no_finding_whose_drop_it_cannot_keep() {
 #[test]
 fn an_export_skipped_by_its_roster_leaves_the_export_beside_it_as_compiled_alone() {
     let beside = Sandbox::new("dsp_skipped_beside");
-    beside.write("exports/co - Dup/players.txt", b"03 A\n03 B\n");
-    beside.copy_tracer_face("exports/co - Dup/Players/A");
-    beside.copy_tracer_face("exports/co - Dup/Players/B");
-    beside.copy_tracer("egg Tracer");
+    beside.write("exports/co Midcup Dup/players.txt", b"03 A\n03 B\n");
+    beside.copy_tracer_face("exports/co Midcup Dup/Players/A");
+    beside.copy_tracer_face("exports/co Midcup Dup/Players/B");
+    beside.copy_tracer("egg Midcup Tracer");
     let alone = Sandbox::new("dsp_tracer_alone");
-    alone.copy_tracer("egg Tracer");
+    alone.copy_tracer("egg Midcup Tracer");
 
     let run = beside.run(&pes21_settings(&beside), &["compile"]);
     assert_eq!(
@@ -784,7 +859,7 @@ fn an_export_skipped_by_its_roster_leaves_the_export_beside_it_as_compiled_alone
     );
 
     assert_eq!(
-        findings_of(&run.messages(), "co - Dup"),
+        findings_of(&run.messages(), "co Midcup Dup"),
         ["Error players_txt_slot_duplicate [DropExport] at players.txt line 2 slot Some(3) ()"]
     );
     assert_eq!(run.exit_code(), 1);

@@ -93,7 +93,7 @@ mod tests {
     #[test]
     fn a_listed_team_resolves_to_its_id() {
         let report = report(
-            "co - Spring 2026",
+            "co Midcup Spring 2026",
             &[("Players/03 - A/face_high.fmdl", 10)],
             &[],
             &[],
@@ -109,7 +109,7 @@ mod tests {
     #[test]
     fn an_unlisted_team_is_an_identity_error() {
         let report = report(
-            "zz - Spring 2026",
+            "zz Midcup Spring 2026",
             &[("Players/03 - A/face_high.fmdl", 10)],
             &[],
             &[],

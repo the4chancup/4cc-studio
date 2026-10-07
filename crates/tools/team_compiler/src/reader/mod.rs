@@ -251,7 +251,7 @@ mod tests {
 
     fn listing(files: &[&str]) -> CanonicalListing {
         CanonicalListing {
-            display_name: "co".to_owned(),
+            display_name: "co Midcup".to_owned(),
             entries: files
                 .iter()
                 .map(|path| ListedEntry {
@@ -278,10 +278,10 @@ mod tests {
     fn discovery_takes_folders_and_archives_in_folded_name_order() {
         let temp = scratch("reader_discovery");
         let root = temp.path();
-        for folder in ["b - Two", "A - One"] {
+        for folder in ["b Midcup Two", "A Midcup One"] {
             fs::create_dir(root.join(folder)).unwrap();
         }
-        for file in ["c - Three.ZIP", "D - Four.7z", "e.rar", "f.txt"] {
+        for file in ["c Midcup Three.ZIP", "D Midcup Four.7z", "e.rar", "f.txt"] {
             fs::write(root.join(file), "").unwrap();
         }
 
@@ -302,43 +302,58 @@ mod tests {
         assert_eq!(
             summary,
             [
-                (0, "A - One", "A - One", SourceKind::Folder, Some("/a/")),
-                (1, "b - Two", "b - Two", SourceKind::Folder, Some("/b/")),
+                (
+                    0,
+                    "A Midcup One",
+                    "A Midcup One",
+                    SourceKind::Folder,
+                    Some("/a/")
+                ),
+                (
+                    1,
+                    "b Midcup Two",
+                    "b Midcup Two",
+                    SourceKind::Folder,
+                    Some("/b/")
+                ),
                 (
                     2,
-                    "c - Three.ZIP",
-                    "c - Three",
+                    "c Midcup Three.ZIP",
+                    "c Midcup Three",
                     SourceKind::Zip,
                     Some("/c/")
                 ),
                 (
                     3,
-                    "D - Four.7z",
-                    "D - Four",
+                    "D Midcup Four.7z",
+                    "D Midcup Four",
                     SourceKind::SevenZ,
                     Some("/d/")
                 ),
             ]
         );
-        assert_eq!(sources[0].path, root.join("A - One"));
+        assert_eq!(sources[0].path, root.join("A Midcup One"));
     }
 
     #[test]
     fn named_exports_replace_the_scan() {
         let temp = scratch("reader_named");
         let root = temp.path();
-        fs::create_dir(root.join("co - In root")).unwrap();
-        fs::create_dir(root.join("zz - Named")).unwrap();
-        fs::write(root.join("aa - Named.zip"), "").unwrap();
+        fs::create_dir(root.join("co Midcup In root")).unwrap();
+        fs::create_dir(root.join("zz Midcup Named")).unwrap();
+        fs::write(root.join("aa Midcup Named.zip"), "").unwrap();
 
-        let named = [root.join("zz - Named"), root.join("aa - Named.zip")];
+        let named = [
+            root.join("zz Midcup Named"),
+            root.join("aa Midcup Named.zip"),
+        ];
         let sources = discover(Path::new("no such root"), &named).unwrap();
 
         let names: Vec<&str> = sources
             .iter()
             .map(|source| source.file_name.as_str())
             .collect();
-        assert_eq!(names, ["aa - Named.zip", "zz - Named"]);
+        assert_eq!(names, ["aa Midcup Named.zip", "zz Midcup Named"]);
         assert_eq!(sources[1].export_id, ExportId(1));
     }
 
@@ -346,13 +361,13 @@ mod tests {
     fn names_differing_only_in_case_take_the_same_order_whatever_order_they_come_in() {
         let temp = scratch("reader_case_order");
         let root = temp.path();
-        for folder in ["one/co - a", "two/co - A", "three/CO - A"] {
+        for folder in ["one/co Midcup a", "two/co Midcup A", "three/CO Midcup A"] {
             fs::create_dir_all(root.join(folder)).unwrap();
         }
         let given = [
-            root.join("one/co - a"),
-            root.join("three/CO - A"),
-            root.join("two/co - A"),
+            root.join("one/co Midcup a"),
+            root.join("three/CO Midcup A"),
+            root.join("two/co Midcup A"),
         ];
         let mut reversed = given.clone();
         reversed.reverse();
@@ -363,7 +378,7 @@ mod tests {
                 .iter()
                 .map(|source| source.file_name.as_str())
                 .collect();
-            assert_eq!(names, ["CO - A", "co - A", "co - a"]);
+            assert_eq!(names, ["CO Midcup A", "co Midcup A", "co Midcup a"]);
         }
     }
 
@@ -371,16 +386,16 @@ mod tests {
     fn a_source_path_ending_in_dot_dot_takes_the_canonical_name() {
         let temp = scratch("reader_dot_dot");
         let root = temp.path();
-        fs::create_dir_all(root.join("egg Tracer/Players")).unwrap();
+        fs::create_dir_all(root.join("egg Midcup Tracer/Players")).unwrap();
 
         let source = source(
-            root.join("egg Tracer/Players/.."),
+            root.join("egg Midcup Tracer/Players/.."),
             SourceKind::Folder,
             ExportId(0),
         );
 
-        assert_eq!(source.file_name, "egg Tracer");
-        assert_eq!(source.display_name, "egg Tracer");
+        assert_eq!(source.file_name, "egg Midcup Tracer");
+        assert_eq!(source.display_name, "egg Midcup Tracer");
         assert_eq!(
             source.team_name.map(|name| name.as_str().to_owned()),
             Some("/egg/".to_owned())
@@ -442,7 +457,7 @@ mod tests {
         };
         write("balls Off/NO_USE");
         write("balls On/ball.dds");
-        write("co - Team/notes.txt");
+        write("co Midcup Team/notes.txt");
         write("refs a/players.txt");
         write("refs b/players.txt");
         write("refs c/NO_USE.txt");
@@ -466,7 +481,7 @@ mod tests {
                 // Disabled comes before the balls rule.
                 "disabled",
                 "balls",
-                "validate co - Team",
+                "validate co Midcup Team",
                 "conflicting refs",
                 "conflicting refs",
                 // A disabled or unreadable refs export does not conflict.

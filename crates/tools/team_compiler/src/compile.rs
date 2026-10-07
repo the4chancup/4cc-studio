@@ -529,10 +529,10 @@ mod tests {
         ExportSource {
             export_id: ExportId(4),
             path: Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join("tests/fixtures/tracer/studio/egg Tracer"),
+                .join("tests/fixtures/tracer/studio/egg Midcup Tracer"),
             kind: SourceKind::Folder,
-            file_name: "egg Tracer".to_owned(),
-            display_name: "egg Tracer".to_owned(),
+            file_name: "egg Midcup Tracer".to_owned(),
+            display_name: "egg Midcup Tracer".to_owned(),
             team_name: None,
         }
     }
@@ -812,9 +812,9 @@ mod tests {
         let (batches_tx, batches_rx) = unbounded::<TaskBatch>();
         let source = ExportSource {
             path: Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join("tests/fixtures/sources/egg Tracer.7z"),
+                .join("tests/fixtures/sources/egg Midcup Tracer.7z"),
             kind: SourceKind::SevenZ,
-            file_name: "egg Tracer.7z".to_owned(),
+            file_name: "egg Midcup Tracer.7z".to_owned(),
             ..tracer_source()
         };
         let sources = [listed(source)];
@@ -945,7 +945,7 @@ mod tests {
     fn a_file_rewritten_after_the_listing_stops_the_coordinator_at_the_task_that_reads_it() {
         let temp = sandbox("coordinate_folder_changed");
         let source = ExportSource {
-            path: temp.path().join("exports").join("egg Tracer"),
+            path: temp.path().join("exports").join("egg Midcup Tracer"),
             ..tracer_source()
         };
         let shirt = source.path.join(format!("{PLAYER}/shirt.dds"));
@@ -968,7 +968,7 @@ mod tests {
 
     #[test]
     fn an_archive_whose_modified_time_moved_after_the_listing_sends_no_batch() {
-        for name in ["egg Tracer.zip", "egg Tracer.7z"] {
+        for name in ["egg Midcup Tracer.zip", "egg Midcup Tracer.7z"] {
             let temp = scratch("coordinate_archive_changed");
             let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
                 .join("tests/fixtures/sources")
@@ -1039,7 +1039,10 @@ mod tests {
             let (events_tx, events) = unbounded();
             let ctx = ctx.with_events(events_tx);
             let planned = plan(&inputs, &ctx).unwrap();
-            let file = root.join("exports").join("egg Tracer").join(&replaced);
+            let file = root
+                .join("exports")
+                .join("egg Midcup Tracer")
+                .join(&replaced);
             fs::write(&file, b"saved over from Blender").unwrap();
             let worst = build(planned, &stem, &output, false).unwrap();
 

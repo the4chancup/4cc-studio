@@ -918,7 +918,7 @@ mod tests {
     #[test]
     fn tasks_go_by_export_then_faces_by_first_slot_then_kits_by_slot() {
         let first = resolved(
-            "dbg - Two",
+            "dbg Midcup Two",
             &[
                 ("Players/Zed/face_high.fmdl", 10),
                 ("Players/Zed/face_diff.bin", 0),
@@ -934,7 +934,7 @@ mod tests {
             Some(b"07 Amy\n03 Zed\n09 Amy\n"),
         );
         let second = resolved(
-            "co - One",
+            "co Midcup One",
             &[
                 ("Players/04 - B/face_high.fmdl", 1),
                 ("Players/04 - B/face_diff.bin", 0),
@@ -981,7 +981,7 @@ mod tests {
     #[test]
     fn an_export_s_logo_is_one_task_after_its_kits_reading_both_files() {
         let export = resolved(
-            "co - Logo",
+            "co Midcup Logo",
             &[
                 ("logo_small_crop.dds", 9),
                 ("Players/04 - B/face_high.fmdl", 1),
@@ -1029,7 +1029,7 @@ mod tests {
     #[test]
     fn a_folder_s_packages_go_face_boots_gloves_then_its_textures_under_the_planned_ids() {
         let export = resolved(
-            "co - Models",
+            "co Midcup Models",
             &[
                 ("Players/A/glove_l.fmdl", 4),
                 ("Players/A/kit_boots.skl", 2),
@@ -1097,7 +1097,7 @@ mod tests {
     #[test]
     fn per_kit_models_plan_the_lowest_variant_alone_and_report_the_set_once() {
         let export = resolved(
-            "co - Variants",
+            "co Midcup Variants",
             &[
                 ("Players/05 - A/pants_kit2.fmdl", 16),
                 ("Players/05 - A/pants_kit1.fmdl", 8),
@@ -1149,7 +1149,7 @@ mod tests {
 
         // A variant alone is an ordinary model, reported by nothing.
         let alone = resolved(
-            "co - Alone",
+            "co Midcup Alone",
             &[("Players/05 - A/pants_kit2.fmdl", 16)],
             &[],
             None,
@@ -1168,7 +1168,7 @@ mod tests {
     #[test]
     fn the_textures_tasks_carry_the_export_s_player_kit_numbers() {
         let with_kits = resolved(
-            "co - Kits",
+            "co Midcup Kits",
             &[
                 ("Players/05 - A/face_high.fmdl", 1),
                 ("Players/05 - A/pants_kit1.dds", 1),
@@ -1180,7 +1180,7 @@ mod tests {
             None,
         );
         let without_kits = resolved(
-            "co - Plain",
+            "co Midcup Plain",
             &[
                 ("Players/05 - A/face_high.fmdl", 1),
                 ("Players/05 - A/pants_kit1.dds", 1),
@@ -1230,7 +1230,7 @@ mod tests {
     #[test]
     fn shared_folders_follow_the_players_boots_then_gloves_under_the_shared_ids_in_name_order() {
         let export = resolved(
-            "co - Shared",
+            "co Midcup Shared",
             &[
                 ("Players/03 - A/Zebra.boots", 0),
                 ("Players/03 - A/Grip.gloves", 0),
@@ -1381,7 +1381,7 @@ mod tests {
             ("Boots/Crocs/sole.dds", 32),
             ("Gloves/Grip/glove_r.fmdl", 64),
         ];
-        let export = resolved("co - Combined", &files, &[], None);
+        let export = resolved("co Midcup Combined", &files, &[], None);
 
         let report = plan_run(
             vec![(ExportId(0), export, two_team_colors(), None)],
@@ -1479,7 +1479,7 @@ mod tests {
     #[test]
     fn a_reserved_subfolder_s_parts_join_their_category_s_task_and_a_link_of_it_combines() {
         let export = resolved(
-            "co - Subfolders",
+            "co Midcup Subfolders",
             &[
                 ("Players/05 - A/boots/boots.fmdl", 8),
                 ("Players/05 - A/boots/boots.skl", 2),
@@ -1533,7 +1533,7 @@ mod tests {
     fn a_common_link_s_task_reads_the_common_model_and_skeleton_and_the_common_textures_are_one_task()
      {
         let export = resolved(
-            "co - Common",
+            "co Midcup Common",
             &[
                 ("Players/05 - A/torso.fmdl", 8),
                 ("Players/05 - A/legs.fmdl.common", 0),
@@ -1655,7 +1655,7 @@ mod tests {
     #[test]
     fn a_texture_link_is_read_by_no_task_of_its_folder_and_its_texture_by_the_common_task() {
         let export = resolved(
-            "co - Links",
+            "co Midcup Links",
             &[
                 ("Players/05 - A/face_high.fmdl", 8),
                 ("Players/05 - A/skin.dds", 4),
@@ -1705,7 +1705,7 @@ mod tests {
     #[test]
     fn a_face_link_alone_makes_the_shared_face_the_player_s_and_the_player_s_face_files_win() {
         let export = resolved(
-            "co - Faces",
+            "co Midcup Faces",
             &[
                 ("Players/05 - A/Longhair.face", 0),
                 ("Players/05 - A/face_diff.bin", 3),
@@ -1768,7 +1768,7 @@ mod tests {
         assert_eq!(report.manifest.tasks[0].group, group);
     }
 
-    /// The files the face task of `co - Faces` reads, its player folder `Players/05 - A`
+    /// The files the face task of `co Midcup Faces` reads, its player folder `Players/05 - A`
     /// linking `Faces/Longhair` and holding `player_files`, the shared folder holding
     /// `hair_high.fmdl` and `shared_files`.
     fn face_task_files(player_files: &[&str], shared_files: &[&str]) -> Vec<String> {
@@ -1790,7 +1790,7 @@ mod tests {
             .iter()
             .map(|(path, size)| (path.as_str(), *size))
             .collect();
-        let export = resolved("co - Faces", &files, &[], None);
+        let export = resolved("co Midcup Faces", &files, &[], None);
         let report = plan_run(
             vec![(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes21,
@@ -1843,7 +1843,7 @@ mod tests {
     #[test]
     fn a_combined_shared_folder_still_compiles_on_its_own_for_a_player_linking_it_plainly() {
         let export = resolved(
-            "co - Combined",
+            "co Midcup Combined",
             &[
                 ("Players/05 - A/Crocs.boots", 0),
                 ("Players/05 - A/kit_boots.fmdl", 8),
@@ -1881,7 +1881,7 @@ mod tests {
     #[test]
     fn a_marked_folder_plans_no_face_and_every_other_folder_a_face_blank_without_a_face_model() {
         let export = resolved(
-            "co - Faces",
+            "co Midcup Faces",
             &[
                 ("Players/05 - A/ingame_face", 0),
                 ("Players/05 - A/torso.fmdl", 8),
@@ -1924,7 +1924,7 @@ mod tests {
     #[test]
     fn under_ingame_face_a_boots_link_beside_a_model_the_face_would_take_combines() {
         let plan = |files: &[(&str, u64)]| {
-            let export = resolved("co - Marked", files, &[], None);
+            let export = resolved("co Midcup Marked", files, &[], None);
             plan_run(
                 vec![(ExportId(0), export, two_team_colors(), None)],
                 PesVersion::Pes21,
@@ -1964,7 +1964,7 @@ mod tests {
     #[test]
     fn portraits_follow_the_faces_by_player_id_one_per_slot_of_their_folder() {
         let export = resolved(
-            "dbg - Portraits",
+            "dbg Midcup Portraits",
             &[
                 ("Players/Zed/face_high.fmdl", 10),
                 ("Players/Zed/face_diff.bin", 0),
@@ -2011,7 +2011,7 @@ mod tests {
         // Slot 07's `Portraits/` file beside the folder slots 03 and 07 map: the deep pass
         // has found the two identical, so the folder's file is the one portrait.
         let export = resolved(
-            "dbg - Portraits",
+            "dbg Midcup Portraits",
             &[
                 ("Players/Zed/face_high.fmdl", 10),
                 ("Players/Zed/face_diff.bin", 0),
@@ -2042,7 +2042,7 @@ mod tests {
     #[test]
     fn a_kit_without_config_toml_reports_its_generated_config() {
         let export = resolved(
-            "co - Kits",
+            "co Midcup Kits",
             &[("Kits/p1/config.toml", 3), ("Kits/p2 - Away/kit.dds", 8)],
             &[],
             None,
@@ -2111,7 +2111,7 @@ mod tests {
     #[test]
     fn a_kit_without_a_main_texture_reports_the_placeholder_after_its_config() {
         let export = resolved(
-            "co - Kits",
+            "co Midcup Kits",
             &[
                 ("Kits/p1/kit.dds", 8),
                 ("Kits/p3/kit_back.dds", 8),
@@ -2151,7 +2151,7 @@ mod tests {
     fn a_kit_inheriting_the_main_texture_from_all_is_no_placeholder() {
         // The inheritance finding is validation's, not planning's.
         let (export, issues) = resolved_with_issues(
-            "co - Kits",
+            "co Midcup Kits",
             &[("Kits/all/kit.dds", 8), ("Kits/p1/config.toml", 3)],
             &[],
             None,
@@ -2178,7 +2178,7 @@ mod tests {
         assert_eq!(stems, ["kit"]);
     }
 
-    /// The team kit-FPC status each kit task of the export `co - Fpc` carries, the export
+    /// The team kit-FPC status each kit task of the export `co Midcup Fpc` carries, the export
     /// holding the kits `p1` and `g1`, `players` (path, size) and the roster `players_txt`, and
     /// validation reporting exactly the codes `issues` on it.
     fn kit_fpc(
@@ -2190,7 +2190,7 @@ mod tests {
             .into_iter()
             .chain(players.iter().copied())
             .collect();
-        let (export, codes_found) = resolved_with_issues("co - Fpc", &files, &[], players_txt);
+        let (export, codes_found) = resolved_with_issues("co Midcup Fpc", &files, &[], players_txt);
         assert_eq!(codes_found, issues, "validation's issues");
         let report = plan_run(
             vec![(ExportId(0), export, two_team_colors(), None)],
@@ -2240,7 +2240,7 @@ mod tests {
     #[test]
     fn a_face_task_names_its_player_folder() {
         let export = resolved(
-            "co - One",
+            "co Midcup One",
             &[
                 ("Players/04 - B/face_high.fmdl", 1),
                 ("Players/04 - B/face_diff.bin", 0),
@@ -2269,7 +2269,7 @@ mod tests {
             &[],
             Some(b"01 Keeper\n"),
         );
-        let kit = resolved("co - Kit", &[("Kits/g1/kit.dds", 1)], &[], None);
+        let kit = resolved("co Midcup Kit", &[("Kits/g1/kit.dds", 1)], &[], None);
 
         let report = plan_run(
             vec![
@@ -2310,7 +2310,7 @@ mod tests {
 
     #[test]
     fn a_team_s_colors_go_into_the_manifest_and_a_team_without_them_reports_it() {
-        let kit = || resolved("co - Kit", &[("Kits/p1/kit.dds", 1)], &[], None);
+        let kit = || resolved("co Midcup Kit", &[("Kits/p1/kit.dds", 1)], &[], None);
         let colors = vec![[0xc1, 0x12, 0x00], [0x41, 0x41, 0x41]];
 
         let with = plan_run(
@@ -2348,7 +2348,7 @@ mod tests {
         assert_eq!(codes(&refused_lines), ["kit_config_generated"]);
 
         // Two teams' colors, in export order.
-        let dbg = resolved("dbg - Kit", &[("Kits/p1/kit.dds", 1)], &[], None);
+        let dbg = resolved("dbg Midcup Kit", &[("Kits/p1/kit.dds", 1)], &[], None);
         let both = plan_run(
             vec![
                 (ExportId(0), dbg, Some(vec![[1, 2, 3]]), None),
@@ -2378,11 +2378,11 @@ mod tests {
 
         let report = plan_run(
             vec![
-                (ExportId(0), kit("dbg - Kit"), None, note("dbg's note")),
-                (ExportId(1), kit("co - Plain"), None, None),
+                (ExportId(0), kit("dbg Midcup Kit"), None, note("dbg's note")),
+                (ExportId(1), kit("co Midcup Plain"), None, None),
                 // The subset gate skips it: a referee export is not compiled yet.
                 (ExportId(2), referees, None, note("the referees' note")),
-                (ExportId(3), kit("co - Kit"), None, note("co's note")),
+                (ExportId(3), kit("co Midcup Kit"), None, note("co's note")),
             ],
             PesVersion::Pes21,
         );
@@ -2398,7 +2398,7 @@ mod tests {
 
     #[test]
     fn an_export_the_subset_gate_refuses_lists_no_colors_and_reports_none_missing() {
-        let kit = || resolved("co - Kit", &[("Kits/p1/kit.dds", 1)], &[], None);
+        let kit = || resolved("co Midcup Kit", &[("Kits/p1/kit.dds", 1)], &[], None);
         // PES 17 is a target `compile` does not build yet.
         let report = plan_run(
             vec![

@@ -22,13 +22,13 @@ use crate::{CLEAN_PLAYER, TEAM_COLORS_MISSING, clean_model, findings_of, source_
 #[test]
 fn without_players_txt_each_folder_is_the_player_its_number_names() {
     let sandbox = Sandbox::new("ros_numbered");
-    sandbox.copy_tracer_face("exports/co - Numbers/Players/03 - A");
-    sandbox.copy_tracer_face("exports/co - Numbers/Players/15 - B");
+    sandbox.copy_tracer_face("exports/co Midcup Numbers/Players/03 - A");
+    sandbox.copy_tracer_face("exports/co Midcup Numbers/Players/15 - B");
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
 
     assert_eq!(
-        findings_of(&run.messages(), "co - Numbers"),
+        findings_of(&run.messages(), "co Midcup Numbers"),
         [
             "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=boots.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=fcl_hair.fmdl, count=1662)",
@@ -48,14 +48,14 @@ fn without_players_txt_each_folder_is_the_player_its_number_names() {
 #[test]
 fn players_txt_maps_a_folder_by_name_and_leaves_an_unlisted_one_out() {
     let sandbox = Sandbox::new("ros_named");
-    sandbox.write("exports/co - Roster/players.txt", b"03 snuffy\n");
-    sandbox.copy_tracer_face("exports/co - Roster/Players/Snuffy");
-    sandbox.copy_tracer_face("exports/co - Roster/Players/15 - B");
+    sandbox.write("exports/co Midcup Roster/players.txt", b"03 snuffy\n");
+    sandbox.copy_tracer_face("exports/co Midcup Roster/Players/Snuffy");
+    sandbox.copy_tracer_face("exports/co Midcup Roster/Players/15 - B");
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
 
     assert_eq!(
-        findings_of(&run.messages(), "co - Roster"),
+        findings_of(&run.messages(), "co Midcup Roster"),
         [
             "Warning player_unlisted [DropFolder] at Players/15 - B ()",
             "Info fmdl_weights_not_normalized [Keep] at Players/Snuffy (file=boots.fmdl, count=1662)",
@@ -73,13 +73,13 @@ fn players_txt_maps_a_folder_by_name_and_leaves_an_unlisted_one_out() {
 #[test]
 fn a_folder_listed_under_two_slots_is_compiled_for_both() {
     let sandbox = Sandbox::new("ros_two_slots");
-    sandbox.write("exports/co - Twice/players.txt", b"03 A\n07 A\n");
-    sandbox.copy_tracer_face("exports/co - Twice/Players/A");
+    sandbox.write("exports/co Midcup Twice/players.txt", b"03 A\n07 A\n");
+    sandbox.copy_tracer_face("exports/co Midcup Twice/Players/A");
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
 
     assert_eq!(
-        findings_of(&run.messages(), "co - Twice"),
+        findings_of(&run.messages(), "co Midcup Twice"),
         [
             "Info fmdl_weights_not_normalized [Keep] at Players/A (file=boots.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Players/A (file=fcl_hair.fmdl, count=1662)",
@@ -97,17 +97,17 @@ fn a_folder_listed_under_two_slots_is_compiled_for_both() {
 fn each_bad_roster_line_is_reported_and_only_the_good_one_compiled() {
     let sandbox = Sandbox::new("ros_bad_lines");
     sandbox.write(
-        "exports/co - Lines/players.txt",
+        "exports/co Midcup Lines/players.txt",
         b"x3 A\n24 B\n05 Nobody\n07 C\n",
     );
     for folder in ["A", "B", "C"] {
-        sandbox.copy_tracer_face(&format!("exports/co - Lines/Players/{folder}"));
+        sandbox.copy_tracer_face(&format!("exports/co Midcup Lines/Players/{folder}"));
     }
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
 
     assert_eq!(
-        findings_of(&run.messages(), "co - Lines"),
+        findings_of(&run.messages(), "co Midcup Lines"),
         [
             "Error players_txt_line_invalid [DropSlot] at players.txt line 1 slot None ()",
             "Error players_txt_slot_invalid [DropSlot] at players.txt line 2 slot Some(24) ()",
@@ -128,14 +128,14 @@ fn each_bad_roster_line_is_reported_and_only_the_good_one_compiled() {
 #[test]
 fn an_empty_players_txt_compiles_the_kits_and_no_player() {
     let sandbox = Sandbox::new("ros_empty_roster");
-    sandbox.write("exports/co - Empty/players.txt", b"");
-    sandbox.copy_tracer_face("exports/co - Empty/Players/03 - A");
-    sandbox.write("exports/co - Empty/Kits/p1/kit.dds", &tracer_kit());
+    sandbox.write("exports/co Midcup Empty/players.txt", b"");
+    sandbox.copy_tracer_face("exports/co Midcup Empty/Players/03 - A");
+    sandbox.write("exports/co Midcup Empty/Kits/p1/kit.dds", &tracer_kit());
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
 
     assert_eq!(
-        findings_of(&run.messages(), "co - Empty"),
+        findings_of(&run.messages(), "co Midcup Empty"),
         [
             "Warning player_unlisted [DropFolder] at Players/03 - A ()",
             "Info export_identified [Keep] (team=/co/, id=714)",
@@ -153,13 +153,16 @@ fn an_empty_players_txt_compiles_the_kits_and_no_player() {
 #[test]
 fn kit_folders_are_compiled_as_the_slot_their_name_starts_with() {
     let sandbox = Sandbox::new("kit_named");
-    sandbox.write("exports/co - Kits/Kits/p1 - Lakers/kit.dds", &tracer_kit());
-    sandbox.write("exports/co - Kits/Kits/g1/kit.dds", &tracer_kit());
+    sandbox.write(
+        "exports/co Midcup Kits/Kits/p1 - Lakers/kit.dds",
+        &tracer_kit(),
+    );
+    sandbox.write("exports/co Midcup Kits/Kits/g1/kit.dds", &tracer_kit());
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
 
     assert_eq!(
-        findings_of(&run.messages(), "co - Kits"),
+        findings_of(&run.messages(), "co Midcup Kits"),
         [
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info team_colors_missing [Keep] ()",
@@ -176,12 +179,12 @@ fn kit_folders_are_compiled_as_the_slot_their_name_starts_with() {
 #[test]
 fn a_kit_holding_only_a_back_texture_gets_the_placeholder_main_texture() {
     let sandbox = Sandbox::new("kit_back_only");
-    sandbox.write("exports/co - Back/Kits/p4/kit_back.dds", &tracer_kit());
+    sandbox.write("exports/co Midcup Back/Kits/p4/kit_back.dds", &tracer_kit());
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
 
     assert_eq!(
-        findings_of(&run.messages(), "co - Back"),
+        findings_of(&run.messages(), "co Midcup Back"),
         [
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info team_colors_missing [Keep] ()",
@@ -218,16 +221,16 @@ fn portrait_path(name: &str) -> String {
 #[test]
 fn dds_portraits_from_both_sources_are_emitted_as_they_are_under_the_version_s_name() {
     let sandbox = Sandbox::new("portraits_dds");
-    sandbox.copy_tracer_face("exports/co - Portraits/Players/05 - A");
+    sandbox.copy_tracer_face("exports/co Midcup Portraits/Players/05 - A");
     sandbox.write(
-        "exports/co - Portraits/Portraits/player_07.dds",
+        "exports/co Midcup Portraits/Portraits/player_07.dds",
         &tracer_kit(),
     );
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
 
     assert_eq!(
-        findings_of(&run.messages(), "co - Portraits"),
+        findings_of(&run.messages(), "co Midcup Portraits"),
         [
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=boots.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=fcl_hair.fmdl, count=1662)",
@@ -261,8 +264,8 @@ fn dds_portraits_from_both_sources_are_emitted_as_they_are_under_the_version_s_n
 #[test]
 fn a_folder_listed_under_two_slots_emits_its_portrait_for_both() {
     let sandbox = Sandbox::new("portraits_two_slots");
-    sandbox.write("exports/co - Twice/players.txt", b"03 A\n07 A\n");
-    sandbox.copy_tracer_face("exports/co - Twice/Players/A");
+    sandbox.write("exports/co Midcup Twice/players.txt", b"03 A\n07 A\n");
+    sandbox.copy_tracer_face("exports/co Midcup Twice/Players/A");
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
 
@@ -278,13 +281,16 @@ fn a_folder_listed_under_two_slots_emits_its_portrait_for_both() {
 #[test]
 fn a_slot_s_two_portraits_skip_the_export_when_they_differ_and_are_one_when_identical() {
     let sandbox = Sandbox::new("portraits_both_sources");
-    sandbox.copy_tracer_face("exports/co - Both/Players/05 - A");
-    sandbox.write("exports/co - Both/Portraits/player_05.dds", &tracer_kit());
+    sandbox.copy_tracer_face("exports/co Midcup Both/Players/05 - A");
+    sandbox.write(
+        "exports/co Midcup Both/Portraits/player_05.dds",
+        &tracer_kit(),
+    );
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
 
     assert_eq!(
-        findings_of(&run.messages(), "co - Both"),
+        findings_of(&run.messages(), "co Midcup Both"),
         [
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=boots.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=fcl_hair.fmdl, count=1662)",
@@ -297,14 +303,14 @@ fn a_slot_s_two_portraits_skip_the_export_when_they_differ_and_are_one_when_iden
 
     // The same bytes in both places are one portrait.
     sandbox.write(
-        "exports/co - Both/Portraits/player_05.dds",
+        "exports/co Midcup Both/Portraits/player_05.dds",
         &tracer_portrait(),
     );
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
 
     assert_eq!(
-        findings_of(&run.messages(), "co - Both"),
+        findings_of(&run.messages(), "co Midcup Both"),
         [
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=boots.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=fcl_hair.fmdl, count=1662)",
@@ -340,16 +346,16 @@ fn assert_bc3_portrait(dds: &[u8], label: &str) {
 #[test]
 fn a_dds_portrait_passes_through_and_a_png_one_is_encoded_to_bc3_under_the_version_s_name() {
     let sandbox = Sandbox::new("portraits_dds_and_png");
-    sandbox.copy_tracer_face("exports/co - Portraits/Players/05 - A");
+    sandbox.copy_tracer_face("exports/co Midcup Portraits/Players/05 - A");
     sandbox.write(
-        "exports/co - Portraits/Portraits/player_07.png",
+        "exports/co Midcup Portraits/Portraits/player_07.png",
         &texture_fixture("portrait.png"),
     );
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
 
     assert_eq!(
-        findings_of(&run.messages(), "co - Portraits"),
+        findings_of(&run.messages(), "co Midcup Portraits"),
         [
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=boots.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=fcl_hair.fmdl, count=1662)",
@@ -380,17 +386,17 @@ fn a_dds_portrait_passes_through_and_a_png_one_is_encoded_to_bc3_under_the_versi
     assert_bc3_portrait(&entries[&portrait_path("player_71407.dds")], "PES 18");
 }
 
-/// Writes `exports/co - Odd`: slot 03 the tracer's player, its portrait included, and
+/// Writes `exports/co Midcup Odd`: slot 03 the tracer's player, its portrait included, and
 /// `Portraits/player_05.dds`, a single-level DDS of 300x300, not a power of two on either side.
 fn write_odd_portrait_export(sandbox: &Sandbox) {
-    sandbox.copy_tracer_face("exports/co - Odd/Players/03 - A");
+    sandbox.copy_tracer_face("exports/co Midcup Odd/Players/03 - A");
     sandbox.write(
-        "exports/co - Odd/Portraits/player_05.dds",
+        "exports/co Midcup Odd/Portraits/player_05.dds",
         &bc1_dds(300, 300),
     );
 }
 
-/// The lines `exports/co - Odd` gets, its portrait's finding with `disposition`.
+/// The lines `exports/co Midcup Odd` gets, its portrait's finding with `disposition`.
 fn odd_portrait_findings(disposition: &str) -> [String; 5] {
     [
         "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=boots.fmdl, count=1662)".to_owned(),
@@ -410,7 +416,7 @@ fn a_portrait_whose_side_is_not_a_power_of_two_is_checked_and_left_out_alone() {
     let check = sandbox.run(&pes21_settings(&sandbox), &["check"]);
 
     assert_eq!(
-        findings_of(&check.messages(), "co - Odd"),
+        findings_of(&check.messages(), "co Midcup Odd"),
         odd_portrait_findings("DropFile")
     );
     assert_eq!(check.exit_code(), 1);
@@ -418,7 +424,7 @@ fn a_portrait_whose_side_is_not_a_power_of_two_is_checked_and_left_out_alone() {
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
 
     assert_eq!(
-        findings_of(&run.messages(), "co - Odd"),
+        findings_of(&run.messages(), "co Midcup Odd"),
         [
             &odd_portrait_findings("DropFile")[..],
             &[TEAM_COLORS_MISSING.to_owned()]
@@ -438,7 +444,7 @@ fn pass_through_keeps_a_portrait_whose_side_is_not_a_power_of_two() {
     let run = sandbox.run(&pass_through_settings(&sandbox), &["compile"]);
 
     assert_eq!(
-        findings_of(&run.messages(), "co - Odd"),
+        findings_of(&run.messages(), "co Midcup Odd"),
         [
             &odd_portrait_findings("Keep")[..],
             &[TEAM_COLORS_MISSING.to_owned()]
@@ -455,13 +461,13 @@ fn pass_through_keeps_a_portrait_whose_side_is_not_a_power_of_two() {
 #[test]
 fn a_kit_mask_on_a_fox_target_is_reported_once_and_not_emitted() {
     let sandbox = Sandbox::new("kit_mask_fox");
-    sandbox.write("exports/co - Mask/Kits/p1/kit.dds", &tracer_kit());
-    sandbox.write("exports/co - Mask/Kits/p1/kit_mask.dds", &tracer_kit());
+    sandbox.write("exports/co Midcup Mask/Kits/p1/kit.dds", &tracer_kit());
+    sandbox.write("exports/co Midcup Mask/Kits/p1/kit_mask.dds", &tracer_kit());
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
 
     assert_eq!(
-        findings_of(&run.messages(), "co - Mask"),
+        findings_of(&run.messages(), "co Midcup Mask"),
         [
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info kit_texture_not_used [DropFile] at Kits/p1 (file=kit_mask.dds)",
@@ -478,15 +484,15 @@ fn a_kit_mask_on_a_fox_target_is_reported_once_and_not_emitted() {
 #[test]
 fn content_nested_one_folder_down_compiles_as_if_at_the_root() {
     let sandbox = Sandbox::new("str_nested");
-    sandbox.write("exports/co - Wrapped/notes.txt", b"Notes.\n");
-    sandbox.copy_tracer_face("exports/co - Wrapped/wrapper/Players/03 - A");
-    sandbox.copy_tracer_face("exports/dbg - Doubled/Players/Players/03 - A");
+    sandbox.write("exports/co Midcup Wrapped/notes.txt", b"Notes.\n");
+    sandbox.copy_tracer_face("exports/co Midcup Wrapped/wrapper/Players/03 - A");
+    sandbox.copy_tracer_face("exports/dbg Midcup Doubled/Players/Players/03 - A");
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
 
     let lines = run.messages();
     assert_eq!(
-        findings_of(&lines, "co - Wrapped"),
+        findings_of(&lines, "co Midcup Wrapped"),
         [
             "Warning nested_folders_fixed [Keep] (folder=wrapper)",
             "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=boots.fmdl, count=1662)",
@@ -498,7 +504,7 @@ fn content_nested_one_folder_down_compiles_as_if_at_the_root() {
         ]
     );
     assert_eq!(
-        findings_of(&lines, "dbg - Doubled"),
+        findings_of(&lines, "dbg Midcup Doubled"),
         [
             "Warning nested_folders_fixed [Keep] at Players (folder=Players/Players)",
             "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=boots.fmdl, count=1662)",
@@ -516,13 +522,13 @@ fn content_nested_one_folder_down_compiles_as_if_at_the_root() {
 #[test]
 fn pass_through_drops_notes_that_are_not_utf8_and_compiles_the_export() {
     let sandbox = Sandbox::new("root_notes_encoding");
-    sandbox.copy_tracer("egg Tracer");
-    sandbox.write("exports/egg Tracer/notes.txt", b"caf\xe9\n");
+    sandbox.copy_tracer("egg Midcup Tracer");
+    sandbox.write("exports/egg Midcup Tracer/notes.txt", b"caf\xe9\n");
 
     let run = sandbox.run(&pass_through_settings(&sandbox), &["compile"]);
 
     assert_eq!(
-        findings_of(&run.messages(), "egg Tracer"),
+        findings_of(&run.messages(), "egg Midcup Tracer"),
         [
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=boots.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=fcl_hair.fmdl, count=1662)",
@@ -550,29 +556,29 @@ fn export_with_notes(sandbox: &Sandbox, name: &str, notes: Option<&[u8]>) {
     }
 }
 
-/// The export `exports/b - Skipped`, with a root `notes.txt`, which validation skips: its
+/// The export `exports/b Midcup Skipped`, with a root `notes.txt`, which validation skips: its
 /// `players.txt` maps slot 03 twice.
 fn skipped_export_with_notes(sandbox: &Sandbox) {
-    sandbox.write("exports/b - Skipped/players.txt", b"03 A\n03 B\n");
+    sandbox.write("exports/b Midcup Skipped/players.txt", b"03 A\n03 B\n");
     sandbox.write(
-        "exports/b - Skipped/Players/A/face_high.fmdl",
+        "exports/b Midcup Skipped/Players/A/face_high.fmdl",
         &clean_model(),
     );
     sandbox.write(
-        "exports/b - Skipped/Players/B/face_high.fmdl",
+        "exports/b Midcup Skipped/Players/B/face_high.fmdl",
         &clean_model(),
     );
-    sandbox.write("exports/b - Skipped/notes.txt", b"Not compiled.\n");
+    sandbox.write("exports/b Midcup Skipped/notes.txt", b"Not compiled.\n");
 }
 
 // TC-ROOT-09
 #[test]
 fn compile_collects_the_compiled_exports_notes_into_teamnotes_txt_and_removes_a_stale_one() {
     let sandbox = Sandbox::new("root_teamnotes");
-    export_with_notes(&sandbox, "co - Notes", Some(b"Hello"));
+    export_with_notes(&sandbox, "co Midcup Notes", Some(b"Hello"));
     export_with_notes(
         &sandbox,
-        "a - Notes",
+        "a Midcup Notes",
         Some(b"First line\r\nsecond line\r\n"),
     );
     skipped_export_with_notes(&sandbox);
@@ -583,14 +589,14 @@ fn compile_collects_the_compiled_exports_notes_into_teamnotes_txt_and_removes_a_
     assert_eq!(
         run.messages(),
         [
-            "a - Notes: Info notes_found [Keep] at notes.txt ()",
-            "a - Notes: Info export_identified [Keep] (team=/a/, id=702)",
-            "b - Skipped: Error players_txt_slot_duplicate [DropExport] at players.txt line 2 slot Some(3) ()",
-            "b - Skipped: Info notes_found [Keep] at notes.txt ()",
-            "co - Notes: Info notes_found [Keep] at notes.txt ()",
-            "co - Notes: Info export_identified [Keep] (team=/co/, id=714)",
-            "a - Notes: Info team_colors_missing [Keep] ()",
-            "co - Notes: Info team_colors_missing [Keep] ()"
+            "a Midcup Notes: Info notes_found [Keep] at notes.txt ()",
+            "a Midcup Notes: Info export_identified [Keep] (team=/a/, id=702)",
+            "b Midcup Skipped: Error players_txt_slot_duplicate [DropExport] at players.txt line 2 slot Some(3) ()",
+            "b Midcup Skipped: Info notes_found [Keep] at notes.txt ()",
+            "co Midcup Notes: Info notes_found [Keep] at notes.txt ()",
+            "co Midcup Notes: Info export_identified [Keep] (team=/co/, id=714)",
+            "a Midcup Notes: Info team_colors_missing [Keep] ()",
+            "co Midcup Notes: Info team_colors_missing [Keep] ()"
         ]
     );
     assert_eq!(run.exit_code(), 1);
@@ -602,8 +608,8 @@ fn compile_collects_the_compiled_exports_notes_into_teamnotes_txt_and_removes_a_
 
     // Compiled again without the notes: the file left over would show notes no export of
     // this run has. The CPK is removed first, so the run is seen writing its own.
-    fs::remove_file(sandbox.root.join("exports/co - Notes/notes.txt")).unwrap();
-    fs::remove_file(sandbox.root.join("exports/a - Notes/notes.txt")).unwrap();
+    fs::remove_file(sandbox.root.join("exports/co Midcup Notes/notes.txt")).unwrap();
+    fs::remove_file(sandbox.root.join("exports/a Midcup Notes/notes.txt")).unwrap();
     fs::remove_file(&cpk).unwrap();
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
@@ -613,7 +619,7 @@ fn compile_collects_the_compiled_exports_notes_into_teamnotes_txt_and_removes_a_
     assert!(!teamnotes(&sandbox).exists());
 
     let fresh = Sandbox::new("root_teamnotes_none");
-    export_with_notes(&fresh, "co - Plain", None);
+    export_with_notes(&fresh, "co Midcup Plain", None);
 
     let run = fresh.run(&pes21_settings(&fresh), &["compile"]);
 
@@ -643,7 +649,7 @@ fn a_compile_that_writes_no_cpk_leaves_the_previous_teamnotes_txt() {
 #[test]
 fn a_teamnotes_txt_that_cannot_be_written_is_reported_and_the_cpk_stays() {
     let sandbox = Sandbox::new("root_teamnotes_write_failed");
-    export_with_notes(&sandbox, "co - Notes", Some(b"Hello"));
+    export_with_notes(&sandbox, "co Midcup Notes", Some(b"Hello"));
     // A folder in the file's place, with a file in it so no platform replaces it.
     sandbox.write("output/teamnotes.txt/kept", b"");
 
@@ -654,9 +660,9 @@ fn a_teamnotes_txt_that_cannot_be_written_is_reported_and_the_cpk_stays() {
     assert_eq!(
         first,
         [
-            "co - Notes: Info notes_found [Keep] at notes.txt ()",
-            "co - Notes: Info export_identified [Keep] (team=/co/, id=714)",
-            "co - Notes: Info team_colors_missing [Keep] ()"
+            "co Midcup Notes: Info notes_found [Keep] at notes.txt ()",
+            "co Midcup Notes: Info export_identified [Keep] (team=/co/, id=714)",
+            "co Midcup Notes: Info team_colors_missing [Keep] ()"
         ]
     );
     // The error ends with the platform's own text, so only its shape is fixed.
@@ -683,9 +689,9 @@ const TEAM_COLOR: &str = "common/etc/TeamColor.bin";
 #[test]
 fn a_root_colors_txt_sets_the_team_s_colors_and_an_export_without_one_reports_it() {
     let sandbox = Sandbox::new("root_team_colors");
-    sandbox.write("exports/co - Colors/colors.txt", b"#c11200\n#414141\n");
-    sandbox.write("exports/co - Colors/Kits/p1/kit.dds", &tracer_kit());
-    sandbox.write("elsewhere/dbg - Plain/Kits/p1/kit.dds", &tracer_kit());
+    sandbox.write("exports/co Midcup Colors/colors.txt", b"#c11200\n#414141\n");
+    sandbox.write("exports/co Midcup Colors/Kits/p1/kit.dds", &tracer_kit());
+    sandbox.write("elsewhere/dbg Midcup Plain/Kits/p1/kit.dds", &tracer_kit());
     let cpk = sandbox.root.join("output/4cc_99_test.cpk");
     let base = bundled_team_color();
 
@@ -694,9 +700,9 @@ fn a_root_colors_txt_sets_the_team_s_colors_and_an_export_without_one_reports_it
     assert_eq!(
         run.messages(),
         [
-            "co - Colors: Info export_identified [Keep] (team=/co/, id=714)",
-            "co - Colors: Info kit_config_generated [Keep] at Kits/p1 ()",
-            "co - Colors: Info kit_colors_derived [Keep] at Kits/p1 ()"
+            "co Midcup Colors: Info export_identified [Keep] (team=/co/, id=714)",
+            "co Midcup Colors: Info kit_config_generated [Keep] at Kits/p1 ()",
+            "co Midcup Colors: Info kit_colors_derived [Keep] at Kits/p1 ()"
         ]
     );
     assert_eq!(run.exit_code(), 0);
@@ -711,16 +717,20 @@ fn a_root_colors_txt_sets_the_team_s_colors_and_an_export_without_one_reports_it
 
     let run = sandbox.run(
         &pes21_settings(&sandbox),
-        &["compile", "--export", &sandbox.arg("elsewhere/dbg - Plain")],
+        &[
+            "compile",
+            "--export",
+            &sandbox.arg("elsewhere/dbg Midcup Plain"),
+        ],
     );
 
     assert_eq!(
         run.messages(),
         [
-            "dbg - Plain: Info export_identified [Keep] (team=/dbg/, id=790)",
-            "dbg - Plain: Info team_colors_missing [Keep] ()",
-            "dbg - Plain: Info kit_config_generated [Keep] at Kits/p1 ()",
-            "dbg - Plain: Info kit_colors_derived [Keep] at Kits/p1 ()"
+            "dbg Midcup Plain: Info export_identified [Keep] (team=/dbg/, id=790)",
+            "dbg Midcup Plain: Info team_colors_missing [Keep] ()",
+            "dbg Midcup Plain: Info kit_config_generated [Keep] at Kits/p1 ()",
+            "dbg Midcup Plain: Info kit_colors_derived [Keep] at Kits/p1 ()"
         ]
     );
     assert_eq!(run.exit_code(), 0);
@@ -802,7 +812,7 @@ fn uniform_parameter_changes(ours: &[u8], base: &[u8]) -> Vec<String> {
 #[test]
 fn each_kit_s_menu_colors_come_from_its_colors_txt_its_texture_or_the_missing_pair() {
     let sandbox = Sandbox::new("kit_colors");
-    let export = "exports/co - Colors";
+    let export = "exports/co Midcup Colors";
     sandbox.write(&format!("{export}/colors.txt"), b"#c11200\n#414141\n");
     sandbox.write(&format!("{export}/Kits/p1/kit.dds"), &tracer_kit());
     sandbox.write(
@@ -815,7 +825,7 @@ fn each_kit_s_menu_colors_come_from_its_colors_txt_its_texture_or_the_missing_pa
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
 
     assert_eq!(
-        findings_of(&run.messages(), "co - Colors"),
+        findings_of(&run.messages(), "co Midcup Colors"),
         [
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info kit_config_generated [Keep] at Kits/p1 ()",
@@ -867,14 +877,14 @@ fn each_kit_s_menu_colors_come_from_its_colors_txt_its_texture_or_the_missing_pa
 #[test]
 fn a_kit_without_a_texture_derives_its_colors_from_the_inherited_all_kit_dds() {
     let sandbox = Sandbox::new("kit_colors_inherited");
-    let export = "exports/co - Shared";
+    let export = "exports/co Midcup Shared";
     sandbox.write(&format!("{export}/Kits/all/kit.dds"), &tracer_kit());
     fs::create_dir_all(sandbox.root.join(format!("{export}/Kits/p2"))).unwrap();
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
 
     assert_eq!(
-        findings_of(&run.messages(), "co - Shared"),
+        findings_of(&run.messages(), "co Midcup Shared"),
         [
             "Info kit_textures_inherited [Keep] at Kits/p2 (stems=kit)",
             "Info export_identified [Keep] (team=/co/, id=714)",
@@ -897,7 +907,7 @@ fn a_kit_without_a_texture_derives_its_colors_from_the_inherited_all_kit_dds() {
 #[test]
 fn a_kit_colors_txt_with_one_valid_color_reports_its_bad_line_and_derives_both_colors() {
     let sandbox = Sandbox::new("kit_colors_one_valid");
-    let export = "exports/co - Colors";
+    let export = "exports/co Midcup Colors";
     sandbox.write(&format!("{export}/Kits/p1/kit.dds"), &tracer_kit());
     sandbox.write(
         &format!("{export}/Kits/p1/colors.txt"),
@@ -907,7 +917,7 @@ fn a_kit_colors_txt_with_one_valid_color_reports_its_bad_line_and_derives_both_c
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
 
     assert_eq!(
-        findings_of(&run.messages(), "co - Colors"),
+        findings_of(&run.messages(), "co Midcup Colors"),
         [
             "Warning color_entry_invalid [Keep] at Kits/p1/colors.txt (line=2, reason=not one color)",
             "Info export_identified [Keep] (team=/co/, id=714)",
@@ -929,7 +939,7 @@ fn a_kit_s_icon_marker_gives_its_menu_icon_and_a_kit_without_one_gets_icon_3() {
     // Team 790's base record is a placeholder whose entries carry icon 0, so icon 3 is
     // written, not kept.
     let sandbox = Sandbox::new("kit_icons");
-    let export = "exports/dbg - Icons";
+    let export = "exports/dbg Midcup Icons";
     sandbox.write(&format!("{export}/Kits/p1/kit.dds"), &tracer_kit());
     sandbox.write(&format!("{export}/Kits/p1/icon_7"), b"");
     sandbox.write(&format!("{export}/Kits/p2/kit.dds"), &tracer_kit());
@@ -954,7 +964,7 @@ fn a_kit_s_icon_marker_gives_its_menu_icon_and_a_kit_without_one_gets_icon_3() {
 #[test]
 fn a_kit_whose_task_fails_keeps_its_base_entries_and_the_kit_beside_it_commits() {
     let sandbox = Sandbox::new("kit_colors_failed_task");
-    let export = "exports/co - Fails";
+    let export = "exports/co Midcup Fails";
     sandbox.write(&format!("{export}/Kits/p1/kit.dds"), &tracer_kit());
     sandbox.write(
         &format!("{export}/Kits/p1/colors.txt"),
@@ -970,7 +980,7 @@ fn a_kit_whose_task_fails_keeps_its_base_entries_and_the_kit_beside_it_commits()
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
 
     let lines = run.messages();
-    let findings = findings_of(&lines, "co - Fails");
+    let findings = findings_of(&lines, "co Midcup Fails");
     assert_eq!(
         findings[..4],
         [
@@ -1033,7 +1043,7 @@ const SHIRT_144: &[u8] = b"[shirt]\nmodel = 144\n";
 #[test]
 fn an_fpc_on_player_writes_the_fpc_values_into_every_kit_config() {
     let sandbox = Sandbox::new("kit_fpc_on");
-    let export = "exports/co - Fpc";
+    let export = "exports/co Midcup Fpc";
     sandbox.write(
         &format!("{export}/Players/05 - A/face_high.fmdl"),
         &clean_model(),
@@ -1046,7 +1056,7 @@ fn an_fpc_on_player_writes_the_fpc_values_into_every_kit_config() {
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
 
     assert_eq!(
-        findings_of(&run.messages(), "co - Fpc"),
+        findings_of(&run.messages(), "co Midcup Fpc"),
         [
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info team_colors_missing [Keep] ()",
@@ -1069,7 +1079,7 @@ fn an_fpc_on_player_writes_the_fpc_values_into_every_kit_config() {
 #[test]
 fn without_fpc_on_supplied_kit_configs_are_emitted_as_they_are() {
     let sandbox = Sandbox::new("kit_fpc_unknown");
-    let export = "exports/co - Plain";
+    let export = "exports/co Midcup Plain";
     // `fpc_off` is a statement about its player alone.
     sandbox.write(&format!("{export}/{CLEAN_PLAYER}"), &clean_model());
     sandbox.write(&format!("{export}/Players/03 - A/fpc_off"), b"");
@@ -1124,7 +1134,7 @@ fn without_fpc_on_supplied_kit_configs_are_emitted_as_they_are() {
 #[test]
 fn a_kit_config_value_the_version_cannot_hold_is_reported_and_clamped() {
     let sandbox = Sandbox::new("kit_config_clamped");
-    let export = "exports/co - Clamp";
+    let export = "exports/co Midcup Clamp";
     sandbox.write(&format!("{export}/Kits/p1/kit.dds"), &tracer_kit());
     sandbox.write(
         &format!("{export}/Kits/p1/config.toml"),
@@ -1136,7 +1146,7 @@ fn a_kit_config_value_the_version_cannot_hold_is_reported_and_clamped() {
 
     let lines = run.messages();
     assert!(
-        findings_of(&lines, "co - Clamp").contains(&clamped),
+        findings_of(&lines, "co Midcup Clamp").contains(&clamped),
         "{lines:#?}"
     );
     assert_eq!(run.exit_code(), 0);
@@ -1149,7 +1159,7 @@ fn a_kit_config_value_the_version_cannot_hold_is_reported_and_clamped() {
     let check = sandbox.run(&pes_settings(&sandbox, 18), &["check"]);
     let lines = check.messages();
     assert!(
-        findings_of(&lines, "co - Clamp").contains(&clamped),
+        findings_of(&lines, "co Midcup Clamp").contains(&clamped),
         "{lines:#?}"
     );
 }
@@ -1158,7 +1168,7 @@ fn a_kit_config_value_the_version_cannot_hold_is_reported_and_clamped() {
 #[test]
 fn a_name_y_compiles_to_the_same_bytes_on_pes_18_and_pes_21() {
     let sandbox = Sandbox::new("kit_config_name_y");
-    let export = "exports/co - Name";
+    let export = "exports/co Midcup Name";
     sandbox.write(&format!("{export}/Kits/p1/kit.dds"), &tracer_kit());
     sandbox.write(
         &format!("{export}/Kits/p1/config.toml"),
@@ -1194,18 +1204,18 @@ fn a_name_y_compiles_to_the_same_bytes_on_pes_18_and_pes_21() {
 #[test]
 fn a_disabled_export_is_reported_once_by_check_and_compile_and_not_compiled() {
     let sandbox = Sandbox::new("src_disabled");
-    sandbox.write("exports/co - One/NO_USE", b"");
-    sandbox.copy_tracer_face("exports/co - One/Players/03 - A");
-    sandbox.write("exports/dbg - Two/no_use.txt", b"");
-    sandbox.copy_tracer_face("exports/dbg - Two/Players/03 - A");
+    sandbox.write("exports/co Midcup One/NO_USE", b"");
+    sandbox.copy_tracer_face("exports/co Midcup One/Players/03 - A");
+    sandbox.write("exports/dbg Midcup Two/no_use.txt", b"");
+    sandbox.copy_tracer_face("exports/dbg Midcup Two/Players/03 - A");
 
     for command in ["check", "compile"] {
         let run = sandbox.run(&pes21_settings(&sandbox), &[command]);
         assert_eq!(
             run.messages(),
             [
-                "co - One: Info export_disabled [DropExport] ()",
-                "dbg - Two: Info export_disabled [DropExport] ()",
+                "co Midcup One: Info export_disabled [DropExport] ()",
+                "dbg Midcup Two: Info export_disabled [DropExport] ()",
             ],
             "{command}"
         );
@@ -1220,7 +1230,7 @@ fn a_disabled_export_is_reported_once_by_check_and_compile_and_not_compiled() {
 fn a_balls_export_is_skipped_by_check_and_compile() {
     let sandbox = Sandbox::new("src_balls");
     sandbox.copy_tracer_face("exports/balls Spring/Players/03 - A");
-    sandbox.copy_tracer("egg Tracer");
+    sandbox.copy_tracer("egg Midcup Tracer");
 
     for command in ["check", "compile"] {
         let run = sandbox.run(&pes21_settings(&sandbox), &[command]);
@@ -1238,16 +1248,16 @@ fn a_balls_export_is_skipped_by_check_and_compile() {
 #[test]
 fn a_corrupt_zip_is_skipped_and_the_export_beside_it_compiled() {
     let sandbox = Sandbox::new("src_corrupt_zip");
-    sandbox.write("exports/co - Broken.zip", b"not a zip at all");
-    sandbox.copy_tracer("egg Tracer");
+    sandbox.write("exports/co Midcup Broken.zip", b"not a zip at all");
+    sandbox.copy_tracer("egg Midcup Tracer");
 
     for command in ["check", "compile"] {
         let run = sandbox.run(&pes21_settings(&sandbox), &[command]);
         assert_eq!(
-            findings_of(&run.messages(), "co - Broken.zip"),
+            findings_of(&run.messages(), "co Midcup Broken.zip"),
             [format!(
                 "Error export_extract_failed [DropExport] (path={}, error=zip: invalid Zip archive: Could not find EOCD)",
-                sandbox.display("exports/co - Broken.zip")
+                sandbox.display("exports/co Midcup Broken.zip")
             )],
             "{command}"
         );
@@ -1260,34 +1270,34 @@ fn a_corrupt_zip_is_skipped_and_the_export_beside_it_compiled() {
 #[test]
 fn export_paths_restrict_check_and_compile_to_the_named_exports() {
     let sandbox = Sandbox::new("src_named_exports");
-    sandbox.copy_tracer_face("exports/co - A/Players/03 - A");
-    sandbox.copy_tracer("egg Tracer");
-    sandbox.copy_tracer_face("elsewhere/dbg - D/Players/03 - A");
+    sandbox.copy_tracer_face("exports/co Midcup A/Players/03 - A");
+    sandbox.copy_tracer("egg Midcup Tracer");
+    sandbox.copy_tracer_face("elsewhere/dbg Midcup D/Players/03 - A");
     let named = [
         "--export",
-        &sandbox.arg("elsewhere/dbg - D"),
+        &sandbox.arg("elsewhere/dbg Midcup D"),
         "--export",
-        &sandbox.arg("exports/co - A"),
+        &sandbox.arg("exports/co Midcup A"),
     ];
 
     for command in ["check", "compile"] {
         let args: Vec<&str> = std::iter::once(command).chain(named).collect();
         let run = sandbox.run(&pes21_settings(&sandbox), &args);
         let validated = [
-            "co - A: Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=boots.fmdl, count=1662)",
-            "co - A: Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=fcl_hair.fmdl, count=1662)",
-            "co - A: Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=glove_l.fmdl, count=2)",
-            "co - A: Info export_identified [Keep] (team=/co/, id=714)",
-            "dbg - D: Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=boots.fmdl, count=1662)",
-            "dbg - D: Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=fcl_hair.fmdl, count=1662)",
-            "dbg - D: Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=glove_l.fmdl, count=2)",
-            "dbg - D: Info export_identified [Keep] (team=/dbg/, id=790)",
+            "co Midcup A: Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=boots.fmdl, count=1662)",
+            "co Midcup A: Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=fcl_hair.fmdl, count=1662)",
+            "co Midcup A: Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=glove_l.fmdl, count=2)",
+            "co Midcup A: Info export_identified [Keep] (team=/co/, id=714)",
+            "dbg Midcup D: Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=boots.fmdl, count=1662)",
+            "dbg Midcup D: Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=fcl_hair.fmdl, count=1662)",
+            "dbg Midcup D: Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=glove_l.fmdl, count=2)",
+            "dbg Midcup D: Info export_identified [Keep] (team=/dbg/, id=790)",
         ];
         // Planning's notes, which only `compile` makes.
         let planned: &[&str] = if command == "compile" {
             &[
-                "co - A: Info team_colors_missing [Keep] ()",
-                "dbg - D: Info team_colors_missing [Keep] ()",
+                "co Midcup A: Info team_colors_missing [Keep] ()",
+                "dbg Midcup D: Info team_colors_missing [Keep] ()",
             ]
         } else {
             &[]
@@ -1308,8 +1318,8 @@ fn export_paths_restrict_check_and_compile_to_the_named_exports() {
 fn a_zip_export_is_compiled_as_the_team_its_name_starts_with() {
     let sandbox = Sandbox::new("id_zip");
     sandbox.write(
-        "exports/co - Spring 2026.zip",
-        &source_fixture("egg Tracer.zip"),
+        "exports/co Full Spring 2026.zip",
+        &source_fixture("egg Midcup Tracer.zip"),
     );
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
@@ -1317,10 +1327,10 @@ fn a_zip_export_is_compiled_as_the_team_its_name_starts_with() {
     assert_eq!(
         run.messages(),
         [
-            "co - Spring 2026.zip: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=fcl_hair.fmdl, count=1662)",
-            "co - Spring 2026.zip: Info export_identified [Keep] (team=/co/, id=714)",
-            "co - Spring 2026.zip: Info team_colors_missing [Keep] ()",
-            "co - Spring 2026.zip: Info kit_colors_derived [Keep] at Kits/g1 ()"
+            "co Full Spring 2026.zip: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=fcl_hair.fmdl, count=1662)",
+            "co Full Spring 2026.zip: Info export_identified [Keep] (team=/co/, id=714)",
+            "co Full Spring 2026.zip: Info team_colors_missing [Keep] ()",
+            "co Full Spring 2026.zip: Info kit_colors_derived [Keep] at Kits/g1 ()"
         ]
     );
     assert_eq!(compiled_players(&sandbox), [71405]);
@@ -1332,18 +1342,18 @@ fn a_zip_export_is_compiled_as_the_team_its_name_starts_with() {
 #[test]
 fn a_root_notes_txt_that_cannot_be_read_is_dropped_and_the_rest_compiled() {
     let sandbox = Sandbox::new("root_notes_unreadable");
-    sandbox.copy_fixture("egg Tracer bad notes.zip", "exports");
+    sandbox.copy_fixture("egg Midcup Tracer bad notes.zip", "exports");
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
 
     assert_eq!(
         run.messages(),
         [
-            "egg Tracer bad notes.zip: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=fcl_hair.fmdl, count=1662)",
-            "egg Tracer bad notes.zip: Error source_read_failed [DropFile] at notes.txt (reason=Invalid checksum)",
-            "egg Tracer bad notes.zip: Info export_identified [Keep] (team=/egg/, id=792)",
-            "egg Tracer bad notes.zip: Info team_colors_missing [Keep] ()",
-            "egg Tracer bad notes.zip: Info kit_colors_derived [Keep] at Kits/g1 ()"
+            "egg Midcup Tracer bad notes.zip: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=fcl_hair.fmdl, count=1662)",
+            "egg Midcup Tracer bad notes.zip: Error source_read_failed [DropFile] at notes.txt (reason=Invalid checksum)",
+            "egg Midcup Tracer bad notes.zip: Info export_identified [Keep] (team=/egg/, id=792)",
+            "egg Midcup Tracer bad notes.zip: Info team_colors_missing [Keep] ()",
+            "egg Midcup Tracer bad notes.zip: Info kit_colors_derived [Keep] at Kits/g1 ()"
         ]
     );
     assert_eq!(compiled_players(&sandbox), [79205]);
@@ -1353,7 +1363,7 @@ fn a_root_notes_txt_that_cannot_be_read_is_dropped_and_the_rest_compiled() {
 #[test]
 fn a_7z_over_the_memory_cap_compiles() {
     let sandbox = Sandbox::new("seven_z_over_cap");
-    sandbox.copy_fixture("egg Tracer.7z", "exports");
+    sandbox.copy_fixture("egg Midcup Tracer.7z", "exports");
     // A cap of a few hundred bytes against the archive's 151 KB decompressed: its permit is
     // oversized, so a task asking the budget for its own while it is held would wait forever.
     let settings = format!(
@@ -1366,10 +1376,10 @@ fn a_7z_over_the_memory_cap_compiles() {
     assert_eq!(
         run.messages(),
         [
-            "egg Tracer.7z: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=fcl_hair.fmdl, count=1662)",
-            "egg Tracer.7z: Info export_identified [Keep] (team=/egg/, id=792)",
-            "egg Tracer.7z: Info team_colors_missing [Keep] ()",
-            "egg Tracer.7z: Info kit_colors_derived [Keep] at Kits/g1 ()"
+            "egg Midcup Tracer.7z: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=fcl_hair.fmdl, count=1662)",
+            "egg Midcup Tracer.7z: Info export_identified [Keep] (team=/egg/, id=792)",
+            "egg Midcup Tracer.7z: Info team_colors_missing [Keep] ()",
+            "egg Midcup Tracer.7z: Info kit_colors_derived [Keep] at Kits/g1 ()"
         ]
     );
     assert_eq!(compiled_players(&sandbox), [79205]);
@@ -1380,11 +1390,14 @@ fn a_7z_over_the_memory_cap_compiles() {
 #[test]
 fn an_export_is_processed_after_its_last_task_or_after_planning_when_it_has_none() {
     let sandbox = Sandbox::new("processed_order");
-    sandbox.write("exports/co - Kits/Kits/p1/kit.dds", &tracer_kit());
+    sandbox.write("exports/co Midcup Kits/Kits/p1/kit.dds", &tracer_kit());
     // Fails on the pool, so its finding is the writer's to report.
-    sandbox.write("exports/co - Kits/Kits/g1/kit.dds", b"not a texture");
-    sandbox.write("exports/dbg - Off/NO_USE", b"");
-    sandbox.write(&format!("exports/dbg - Off/{CLEAN_PLAYER}"), &clean_model());
+    sandbox.write("exports/co Midcup Kits/Kits/g1/kit.dds", b"not a texture");
+    sandbox.write("exports/dbg Midcup Off/NO_USE", b"");
+    sandbox.write(
+        &format!("exports/dbg Midcup Off/{CLEAN_PLAYER}"),
+        &clean_model(),
+    );
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
 
@@ -1422,10 +1435,13 @@ fn the_worker_count_changes_neither_the_findings_nor_the_cpk() {
     let mut outcomes = Vec::new();
     for threads in [1, 8] {
         let sandbox = Sandbox::new(&format!("worker_count_{threads}"));
-        sandbox.copy_tracer("egg Tracer");
-        sandbox.write("exports/dbg Seven.7z", &source_fixture("egg Tracer.7z"));
-        sandbox.write("exports/co - Kits/Kits/p1/kit.dds", &tracer_kit());
-        sandbox.write("exports/co - Kits/Kits/g1/kit.dds", &tracer_kit());
+        sandbox.copy_tracer("egg Midcup Tracer");
+        sandbox.write(
+            "exports/dbg Midcup Seven.7z",
+            &source_fixture("egg Midcup Tracer.7z"),
+        );
+        sandbox.write("exports/co Midcup Kits/Kits/p1/kit.dds", &tracer_kit());
+        sandbox.write("exports/co Midcup Kits/Kits/g1/kit.dds", &tracer_kit());
         let settings = format!("{}thread_count = {threads}\n", pes21_settings(&sandbox));
 
         let run = sandbox.run(&settings, &["compile"]);
@@ -1438,20 +1454,20 @@ fn the_worker_count_changes_neither_the_findings_nor_the_cpk() {
     assert_eq!(
         outcomes[0].0,
         [
-            "co - Kits: Info export_identified [Keep] (team=/co/, id=714)",
-            "dbg Seven.7z: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=fcl_hair.fmdl, count=1662)",
-            "dbg Seven.7z: Info export_identified [Keep] (team=/dbg/, id=790)",
-            "egg Tracer: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=boots.fmdl, count=1662)",
-            "egg Tracer: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=fcl_hair.fmdl, count=1662)",
-            "egg Tracer: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=glove_l.fmdl, count=2)",
-            "egg Tracer: Info export_identified [Keep] (team=/egg/, id=792)",
-            "co - Kits: Info team_colors_missing [Keep] ()",
-            "co - Kits: Info kit_config_generated [Keep] at Kits/p1 ()",
-            "co - Kits: Info kit_config_generated [Keep] at Kits/g1 ()",
-            "dbg Seven.7z: Info team_colors_missing [Keep] ()",
-            "co - Kits: Info kit_colors_derived [Keep] at Kits/p1 ()",
-            "co - Kits: Info kit_colors_derived [Keep] at Kits/g1 ()",
-            "dbg Seven.7z: Info kit_colors_derived [Keep] at Kits/g1 ()"
+            "co Midcup Kits: Info export_identified [Keep] (team=/co/, id=714)",
+            "dbg Midcup Seven.7z: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=fcl_hair.fmdl, count=1662)",
+            "dbg Midcup Seven.7z: Info export_identified [Keep] (team=/dbg/, id=790)",
+            "egg Midcup Tracer: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=boots.fmdl, count=1662)",
+            "egg Midcup Tracer: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=fcl_hair.fmdl, count=1662)",
+            "egg Midcup Tracer: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=glove_l.fmdl, count=2)",
+            "egg Midcup Tracer: Info export_identified [Keep] (team=/egg/, id=792)",
+            "co Midcup Kits: Info team_colors_missing [Keep] ()",
+            "co Midcup Kits: Info kit_config_generated [Keep] at Kits/p1 ()",
+            "co Midcup Kits: Info kit_config_generated [Keep] at Kits/g1 ()",
+            "dbg Midcup Seven.7z: Info team_colors_missing [Keep] ()",
+            "co Midcup Kits: Info kit_colors_derived [Keep] at Kits/p1 ()",
+            "co Midcup Kits: Info kit_colors_derived [Keep] at Kits/g1 ()",
+            "dbg Midcup Seven.7z: Info kit_colors_derived [Keep] at Kits/g1 ()"
         ]
     );
     assert!(outcomes[0].1 == outcomes[1].1, "the CPKs differ");
@@ -1463,7 +1479,7 @@ fn two_teams_with_players_and_kits_compile_to_the_same_cpk_on_one_worker_and_on_
     let mut cpks = Vec::new();
     for threads in [1, 8] {
         let sandbox = Sandbox::new(&format!("pln_worker_count_{threads}"));
-        for export in ["a - Home", "co - Away"] {
+        for export in ["a Midcup Home", "co Midcup Away"] {
             sandbox.copy_tracer_face(&format!("exports/{export}/Players/03 - A"));
             sandbox.copy_tracer_face(&format!("exports/{export}/Players/07 - B"));
             sandbox.write(&format!("exports/{export}/Kits/p1/kit.dds"), &tracer_kit());
@@ -1493,24 +1509,30 @@ fn two_teams_with_players_and_kits_compile_to_the_same_cpk_on_one_worker_and_on_
     );
 }
 
-/// Writes `exports/a - Home`, a valid `/a/` export: one player and one kit.
+/// Writes `exports/a Midcup Home`, a valid `/a/` export: one player and one kit.
 fn write_a_home(sandbox: &Sandbox) {
-    sandbox.write(&format!("exports/a - Home/{CLEAN_PLAYER}"), &clean_model());
-    sandbox.write("exports/a - Home/Kits/p1/kit.dds", &tracer_kit());
+    sandbox.write(
+        &format!("exports/a Midcup Home/{CLEAN_PLAYER}"),
+        &clean_model(),
+    );
+    sandbox.write("exports/a Midcup Home/Kits/p1/kit.dds", &tracer_kit());
 }
 
-/// Writes `a - Home` beside two exports of `/co/`: the folder `co - A`, holding a goalkeeper
-/// kit, and `co - B.zip`, the tracer's player and goalkeeper kit. Both compiled, the two kits
+/// Writes `a Midcup Home` beside two exports of `/co/`: the folder `co Full A`, holding a goalkeeper
+/// kit, and `co Full B.zip`, the tracer's player and goalkeeper kit. Both compiled, the two kits
 /// would write one CPK path twice.
 fn write_two_exports_of_one_team(sandbox: &Sandbox) {
     write_a_home(sandbox);
-    sandbox.write("exports/co - A/Kits/g1/kit.dds", &tracer_kit());
-    sandbox.write("exports/co - B.zip", &source_fixture("egg Tracer.zip"));
+    sandbox.write("exports/co Full A/Kits/g1/kit.dds", &tracer_kit());
+    sandbox.write(
+        "exports/co Full B.zip",
+        &source_fixture("egg Midcup Tracer.zip"),
+    );
 }
 
 /// The finding each of the two `/co/` exports of `write_two_exports_of_one_team` gets.
 const CO_DUPLICATE: &str =
-    "Error duplicate_aesthetics_export [DropExport] (id=714, exports=co - A, co - B.zip)";
+    "Error duplicate_aesthetics_export [DropExport] (id=714, exports=co Full A, co Full B.zip)";
 
 // TC-PLN-03
 #[test]
@@ -1518,12 +1540,12 @@ fn two_exports_of_one_team_are_both_skipped_naming_each_other_and_the_other_team
     let sandbox = Sandbox::new("pln_duplicate_team");
     write_two_exports_of_one_team(&sandbox);
     let validated = [
-        "a - Home: Info export_identified [Keep] (team=/a/, id=702)".to_owned(),
-        "co - A: Info export_identified [Keep] (team=/co/, id=714)".to_owned(),
-        format!("co - A: {CO_DUPLICATE}"),
-        "co - B.zip: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=fcl_hair.fmdl, count=1662)".to_owned(),
-        "co - B.zip: Info export_identified [Keep] (team=/co/, id=714)".to_owned(),
-        format!("co - B.zip: {CO_DUPLICATE}"),
+        "a Midcup Home: Info export_identified [Keep] (team=/a/, id=702)".to_owned(),
+        "co Full A: Info export_identified [Keep] (team=/co/, id=714)".to_owned(),
+        format!("co Full A: {CO_DUPLICATE}"),
+        "co Full B.zip: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=fcl_hair.fmdl, count=1662)".to_owned(),
+        "co Full B.zip: Info export_identified [Keep] (team=/co/, id=714)".to_owned(),
+        format!("co Full B.zip: {CO_DUPLICATE}"),
     ];
 
     let check = sandbox.run(&pes21_settings(&sandbox), &["check"]);
@@ -1535,11 +1557,11 @@ fn two_exports_of_one_team_are_both_skipped_naming_each_other_and_the_other_team
 
     let lines = run.messages();
     assert_eq!(run.exit_code(), 1, "{lines:#?}");
-    // Planning's notes are `a - Home`'s alone: nothing of `/co/` is planned.
+    // Planning's notes are `a Midcup Home`'s alone: nothing of `/co/` is planned.
     let planned = [
-        "a - Home: Info team_colors_missing [Keep] ()".to_owned(),
-        "a - Home: Info kit_config_generated [Keep] at Kits/p1 ()".to_owned(),
-        "a - Home: Info kit_colors_derived [Keep] at Kits/p1 ()".to_owned(),
+        "a Midcup Home: Info team_colors_missing [Keep] ()".to_owned(),
+        "a Midcup Home: Info kit_config_generated [Keep] at Kits/p1 ()".to_owned(),
+        "a Midcup Home: Info kit_colors_derived [Keep] at Kits/p1 ()".to_owned(),
     ];
     assert_eq!(lines, [&validated[..], &planned[..]].concat());
     assert_eq!(compiled_players(&sandbox), [70203]);
@@ -1598,7 +1620,7 @@ fn the_overrides_replace_the_export_s_boots_and_the_team_color_bin_and_are_repor
     let sandbox = Sandbox::new("pln_overrides");
     let folder = write_overrides(&sandbox);
     sandbox.write(
-        "exports/co - Boots/Players/05 - A/boots.fmdl",
+        "exports/co Midcup Boots/Players/05 - A/boots.fmdl",
         &tracer_player_file("boots.fmdl"),
     );
 
@@ -1607,9 +1629,9 @@ fn the_overrides_replace_the_export_s_boots_and_the_team_color_bin_and_are_repor
     assert_eq!(
         run.messages(),
         [
-            "co - Boots: Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=boots.fmdl, count=1662)".to_owned(),
-            "co - Boots: Info export_identified [Keep] (team=/co/, id=714)".to_owned(),
-            "co - Boots: Info team_colors_missing [Keep] ()".to_owned(),
+            "co Midcup Boots: Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=boots.fmdl, count=1662)".to_owned(),
+            "co Midcup Boots: Info export_identified [Keep] (team=/co/, id=714)".to_owned(),
+            "co Midcup Boots: Info team_colors_missing [Keep] ()".to_owned(),
             format!("Info overrides_active [Keep] (folder={folder}, files=2)"),
             format!("Warning duplicate_path [Keep] (path={BOOTS_05})"),
             format!("Warning duplicate_path [Keep] (path={TEAM_COLOR})"),

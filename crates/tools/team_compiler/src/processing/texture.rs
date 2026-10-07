@@ -345,7 +345,7 @@ mod tests {
     fn tracer_kit() -> Vec<u8> {
         std::fs::read(
             Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join("tests/fixtures/tracer/studio/egg Tracer/Kits/g1/kit.dds"),
+                .join("tests/fixtures/tracer/studio/egg Midcup Tracer/Kits/g1/kit.dds"),
         )
         .unwrap()
     }
@@ -445,7 +445,7 @@ mod tests {
     fn a_dds_portrait_passes_through_and_any_other_format_is_a_bc3_dds() {
         let tracer = std::fs::read(
             Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join("tests/fixtures/tracer/studio/egg Tracer/Players/05 - The Chad Stormworks Player/portrait.dds"),
+                .join("tests/fixtures/tracer/studio/egg Midcup Tracer/Players/05 - The Chad Stormworks Player/portrait.dds"),
         )
         .unwrap();
         assert_eq!(

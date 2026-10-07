@@ -1,4 +1,4 @@
-"""Provenance of `crates/tools/team_compiler/tests/fixtures/deep/co - Far.7z` (step 4.7a): a
+"""Provenance of `crates/tools/team_compiler/tests/fixtures/deep/co Midcup Far.7z` (step 4.7a): a
 solid LZMA2 `.7z` export of team `/co/` holding `Players/05 - Striker/boots.fmdl`, the bytes
 of `boots_far.fmdl` beside it (written by `deep_far_vertex.rs`), and
 `Players/05 - Striker/glove_l.fmdl`, the tracer export's, which has no far vertex: 7-Zip
@@ -22,14 +22,14 @@ INNER = "Players/05 - Striker/boots.fmdl"
 GLOVE = "Players/05 - Striker/glove_l.fmdl"
 TRACER_GLOVE = (
     ROOT
-    / "crates/tools/team_compiler/tests/fixtures/tracer/studio/egg Tracer"
+    / "crates/tools/team_compiler/tests/fixtures/tracer/studio/egg Midcup Tracer"
     / "Players/05 - The Chad Stormworks Player/glove_l.fmdl"
 )
 
 assert SEVEN_ZIP.exists()
 model = (DEEP / "boots_far.fmdl").read_bytes()
-target = DEEP / "co - Far.7z"
-temp = DEEP / "co - Far.7z.tmp"
+target = DEEP / "co Midcup Far.7z"
+temp = DEEP / "co Midcup Far.7z.tmp"
 assert not temp.exists(), temp
 
 if STAGE.exists():

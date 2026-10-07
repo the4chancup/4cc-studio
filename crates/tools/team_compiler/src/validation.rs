@@ -548,7 +548,7 @@ mod tests {
     use super::*;
     use crate::testing::{resolved, resolved_with_issues, scratch};
 
-    /// The export `co - Pool` whose slots 01 to `count` each link their own shared folder of
+    /// The export `co Midcup Pool` whose slots 01 to `count` each link their own shared folder of
     /// `kind` (`Boots/S01/` for slot 01), each player folder also holding `local`.
     fn linking_export(count: u8, kind: SharedKind, local: &[&str]) -> ResolvedAestheticsExport {
         let (extension, content_folder, model) = match kind {
@@ -566,7 +566,7 @@ mod tests {
             files.push(format!("{content_folder}/S{slot:02}/{model}"));
         }
         let files: Vec<(&str, u64)> = files.iter().map(|path| (path.as_str(), 1)).collect();
-        resolved("co - Pool", &files, &[], None)
+        resolved("co Midcup Pool", &files, &[], None)
     }
 
     /// `pool_messages` over `export` for `version`, each as (code, disposition, count).
@@ -638,7 +638,7 @@ mod tests {
             ("Faces/Round/oral.fmdl", 1),
             ("Faces/Round/oral.skl", 1),
         ];
-        let export = resolved("co - Names", &files, &[], None);
+        let export = resolved("co Midcup Names", &files, &[], None);
         // The hair's and the boots' skeletons have their slots; a shared face folder's files
         // are reported on that folder, once, however many players link it. Within a folder
         // the findings follow its files, in the folded name order validation keeps them in.
@@ -665,7 +665,7 @@ mod tests {
             ("Players/03 - A/face/face_high.skl", 1),
             ("Players/03 - A/fcl_hair.fmdl", 1),
         ];
-        let export = resolved("co - Names", &files, &[], None);
+        let export = resolved("co Midcup Names", &files, &[], None);
         // `boots/` makes `hair_high` the boots, so its skeleton has a slot; `face/` makes
         // `boots.fmdl` hair content, reported like an unsuffixed model.
         assert_eq!(
@@ -695,7 +695,7 @@ mod tests {
             ("Common/hair_high.fmdl", 1),
             ("Common/hair_high.skl", 1),
         ];
-        let export = resolved("co - Names", &files, &[], None);
+        let export = resolved("co Midcup Names", &files, &[], None);
         // `legs` is hair content by its name; `face_high` has no slot for Common's skeleton,
         // `oral` has none to report, and `boots/` makes `hair_high` the boots, whose skeleton
         // has a slot.
@@ -718,7 +718,7 @@ mod tests {
             ("Players/03 - A/legs.fmdl.common", 0),
             ("Common/legs.fmdl", 1),
         ];
-        let export = resolved("co - Names", &files, &[], None);
+        let export = resolved("co Midcup Names", &files, &[], None);
         assert_eq!(names(&export, PesVersion::Pes21), Vec::<String>::new());
     }
 
@@ -736,7 +736,7 @@ mod tests {
             ("Players/07 - C/face_diff.bin", 1),
             ("Players/07 - C/fcl_hair_sim.fclo", 1),
         ];
-        let export = resolved("co - Names", &files, &[], None);
+        let export = resolved("co Midcup Names", &files, &[], None);
         // A marked folder and an unmarked one with no face model; a face model uses them.
         assert_eq!(
             names(&export, PesVersion::Pes21),
@@ -753,7 +753,7 @@ mod tests {
     #[test]
     fn a_player_folder_no_slot_maps_is_not_walked() {
         let (export, issues) = resolved_with_issues(
-            "co - Names",
+            "co Midcup Names",
             &[
                 ("Players/A/face_high.fmdl", 1),
                 ("Players/Unlisted/torso.fmdl", 1),
@@ -801,7 +801,7 @@ mod tests {
         assert_eq!(
             colors_of(
                 "team_colors_two",
-                "co - Colors",
+                "co Midcup Colors",
                 &kit,
                 None,
                 Some(b"#c11200\n#414141\n")
@@ -813,7 +813,7 @@ mod tests {
         assert_eq!(
             colors_of(
                 "team_colors_capped",
-                "co - Colors",
+                "co Midcup Colors",
                 &kit,
                 None,
                 Some(b"bad\n1 2 3\n4 5 6\n7 8 9\n10 11 12\n13 14 15\n")
@@ -823,7 +823,7 @@ mod tests {
         assert_eq!(
             colors_of(
                 "team_colors_invalid",
-                "co - Colors",
+                "co Midcup Colors",
                 &kit,
                 None,
                 Some(b"bad\n")
@@ -831,7 +831,7 @@ mod tests {
             Some(Vec::new())
         );
         assert_eq!(
-            colors_of("team_colors_none", "co - Colors", &kit, None, None),
+            colors_of("team_colors_none", "co Midcup Colors", &kit, None, None),
             None
         );
     }
@@ -850,11 +850,11 @@ mod tests {
         );
     }
 
-    /// `notes` over a folder export `co - Notes`, in the scratch folder `scratch_name`, whose
+    /// `notes` over a folder export `co Midcup Notes`, in the scratch folder `scratch_name`, whose
     /// root `notes.txt` validation kept holding `bytes`, or without one.
     fn notes_of(scratch_name: &str, bytes: Option<&[u8]>) -> Option<String> {
         let temp = scratch(scratch_name);
-        let mut export = resolved("co - Notes", &[("Kits/p1/kit.dds", 1)], &[], None);
+        let mut export = resolved("co Midcup Notes", &[("Kits/p1/kit.dds", 1)], &[], None);
         if let Some(bytes) = bytes {
             std::fs::write(temp.path().join("notes.txt"), bytes).unwrap();
             let path = ScopePath::new("notes.txt").unwrap();
@@ -869,8 +869,8 @@ mod tests {
             export_id: ExportId(0),
             path: temp.path().to_path_buf(),
             kind: SourceKind::Folder,
-            file_name: "co - Notes".to_owned(),
-            display_name: "co - Notes".to_owned(),
+            file_name: "co Midcup Notes".to_owned(),
+            display_name: "co Midcup Notes".to_owned(),
             team_name: None,
         };
         notes(
@@ -995,18 +995,17 @@ mod tests {
 
     #[test]
     fn two_exports_of_one_team_are_both_refused_and_the_other_team_s_kept() {
-        let duplicate =
-            "Error duplicate_aesthetics_export [DropExport] (id=714, exports=co - A, co - B.zip)";
+        let duplicate = "Error duplicate_aesthetics_export [DropExport] (id=714, exports=co Midcup A, co Midcup B.zip)";
         assert_eq!(
             after_duplicate_rule(vec![
-                identified(0, "a - Home"),
-                identified(1, "co - A"),
-                identified(2, "co - B.zip"),
+                identified(0, "a Midcup Home"),
+                identified(1, "co Midcup A"),
+                identified(2, "co Midcup B.zip"),
             ]),
             [
-                outcome("a - Home", true, &[IDENTIFIED_702]),
-                outcome("co - A", false, &[IDENTIFIED_714, duplicate]),
-                outcome("co - B.zip", false, &[IDENTIFIED_714, duplicate]),
+                outcome("a Midcup Home", true, &[IDENTIFIED_702]),
+                outcome("co Midcup A", false, &[IDENTIFIED_714, duplicate]),
+                outcome("co Midcup B.zip", false, &[IDENTIFIED_714, duplicate]),
             ]
         );
     }
@@ -1014,27 +1013,34 @@ mod tests {
     #[test]
     fn a_disabled_export_beside_one_of_its_team_is_no_duplicate() {
         assert_eq!(
-            after_duplicate_rule(vec![identified(0, "co - A"), disabled(1, "co - B")]),
+            after_duplicate_rule(vec![
+                identified(0, "co Midcup A"),
+                disabled(1, "co Midcup B")
+            ]),
             [
-                outcome("co - A", true, &[IDENTIFIED_714]),
-                outcome("co - B", false, &["Info export_disabled [DropExport] ()"]),
+                outcome("co Midcup A", true, &[IDENTIFIED_714]),
+                outcome(
+                    "co Midcup B",
+                    false,
+                    &["Info export_disabled [DropExport] ()"]
+                ),
             ]
         );
     }
 
     #[test]
     fn each_of_three_exports_of_one_team_names_all_three() {
-        let duplicate = "Error duplicate_aesthetics_export [DropExport] (id=714, exports=co - A, co - B.zip, co - C.7z)";
+        let duplicate = "Error duplicate_aesthetics_export [DropExport] (id=714, exports=co Midcup A, co Midcup B.zip, co Midcup C.7z)";
         assert_eq!(
             after_duplicate_rule(vec![
-                identified(0, "co - A"),
-                identified(1, "co - B.zip"),
-                identified(2, "co - C.7z"),
+                identified(0, "co Midcup A"),
+                identified(1, "co Midcup B.zip"),
+                identified(2, "co Midcup C.7z"),
             ]),
             [
-                outcome("co - A", false, &[IDENTIFIED_714, duplicate]),
-                outcome("co - B.zip", false, &[IDENTIFIED_714, duplicate]),
-                outcome("co - C.7z", false, &[IDENTIFIED_714, duplicate]),
+                outcome("co Midcup A", false, &[IDENTIFIED_714, duplicate]),
+                outcome("co Midcup B.zip", false, &[IDENTIFIED_714, duplicate]),
+                outcome("co Midcup C.7z", false, &[IDENTIFIED_714, duplicate]),
             ]
         );
     }

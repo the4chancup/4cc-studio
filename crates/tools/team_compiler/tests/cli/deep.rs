@@ -35,17 +35,17 @@ const IDENTIFIED: &str = "Info export_identified [Keep] (team=/co/, id=714)";
 fn a_far_vertex_drops_its_folder_at_check_and_at_compile_even_with_pass_through() {
     let sandbox = Sandbox::new("deep_far_vertex");
     sandbox.write(
-        "exports/co - Far/Players/05 - Striker/boots.fmdl",
+        "exports/co Midcup Far/Players/05 - Striker/boots.fmdl",
         &deep_fixture("boots_far.fmdl"),
     );
     sandbox.write(
-        "exports/co - Far/Players/07 - Winger/boots.fmdl",
+        "exports/co Midcup Far/Players/07 - Winger/boots.fmdl",
         &tracer_player_file("boots.fmdl"),
     );
 
     let check = sandbox.run("", &["check"]);
     assert_eq!(
-        findings_of(&check.messages(), "co - Far"),
+        findings_of(&check.messages(), "co Midcup Far"),
         [
             FAR_STRIKER,
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - Striker (file=boots.fmdl, count=1662)",
@@ -57,7 +57,7 @@ fn a_far_vertex_drops_its_folder_at_check_and_at_compile_even_with_pass_through(
 
     let compile = sandbox.run(&pass_through_settings(&sandbox), &["compile"]);
     assert_eq!(
-        findings_of(&compile.messages(), "co - Far"),
+        findings_of(&compile.messages(), "co Midcup Far"),
         [
             FAR_STRIKER,
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - Striker (file=boots.fmdl, count=1662)",
@@ -87,13 +87,16 @@ fn a_far_vertex_drops_its_folder_at_check_and_at_compile_even_with_pass_through(
 #[test]
 fn a_far_vertex_in_a_solid_7z_is_found_by_check() {
     let sandbox = Sandbox::new("deep_far_vertex_7z");
-    sandbox.write("exports/co - Far.7z", &deep_fixture("co - Far.7z"));
+    sandbox.write(
+        "exports/co Midcup Far.7z",
+        &deep_fixture("co Midcup Far.7z"),
+    );
 
     let run = sandbox.run("", &["check"]);
 
     let lines = run.messages();
     assert_eq!(
-        findings_of(&lines, "co - Far.7z"),
+        findings_of(&lines, "co Midcup Far.7z"),
         [
             FAR_STRIKER,
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - Striker (file=boots.fmdl, count=1662)",
@@ -108,7 +111,7 @@ fn a_far_vertex_in_a_solid_7z_is_found_by_check() {
 #[test]
 fn one_worker_thread_finds_what_the_default_finds_in_a_folder_and_in_a_solid_7z() {
     let sandbox = Sandbox::new("deep_one_worker");
-    let export = "exports/co - Workers";
+    let export = "exports/co Midcup Workers";
     sandbox.write(
         &format!("{export}/Players/05 - Striker/boots.fmdl"),
         &deep_fixture("boots_far.fmdl"),
@@ -131,7 +134,7 @@ fn one_worker_thread_finds_what_the_default_finds_in_a_folder_and_in_a_solid_7z(
     let single = sandbox.run(&one_worker, &["check"]);
 
     assert_eq!(
-        findings_of(&default.messages(), "co - Workers"),
+        findings_of(&default.messages(), "co Midcup Workers"),
         [
             FAR_STRIKER,
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - Striker (file=boots.fmdl, count=1662)",
@@ -145,10 +148,13 @@ fn one_worker_thread_finds_what_the_default_finds_in_a_folder_and_in_a_solid_7z(
 
     // A solid `.7z` on one worker: every read goes through the archive's lock on that thread.
     let sandbox = Sandbox::new("deep_one_worker_7z");
-    sandbox.write("exports/co - Far.7z", &deep_fixture("co - Far.7z"));
+    sandbox.write(
+        "exports/co Midcup Far.7z",
+        &deep_fixture("co Midcup Far.7z"),
+    );
     let run = sandbox.run(&one_worker, &["check"]);
     assert_eq!(
-        findings_of(&run.messages(), "co - Far.7z"),
+        findings_of(&run.messages(), "co Midcup Far.7z"),
         [
             FAR_STRIKER,
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - Striker (file=boots.fmdl, count=1662)",
@@ -163,8 +169,11 @@ fn one_worker_thread_finds_what_the_default_finds_in_a_folder_and_in_a_solid_7z(
 fn exports_are_reported_in_discovery_order_with_a_7z_among_folders() {
     let sandbox = Sandbox::new("deep_discovery_order");
     // Discovery sorts by name: the `.7z`, team `/dbg/`, falls between the folders.
-    sandbox.write("exports/dbg Two.7z", &deep_fixture("co - Far.7z"));
-    for export in ["co - One", "egg Three", "esg Four"] {
+    sandbox.write(
+        "exports/dbg Midcup Two.7z",
+        &deep_fixture("co Midcup Far.7z"),
+    );
+    for export in ["co Midcup One", "egg Midcup Three", "esg Midcup Four"] {
         sandbox.write(
             &format!("exports/{export}/Players/07 - Winger/boots.fmdl"),
             &tracer_player_file("boots.fmdl"),
@@ -180,16 +189,16 @@ fn exports_are_reported_in_discovery_order_with_a_7z_among_folders() {
     assert_eq!(
         run.messages(),
         [
-            winger("co - One"),
-            identified("co - One", "/co/", 714),
-            format!("dbg Two.7z: {FAR_STRIKER}"),
-            "dbg Two.7z: Info fmdl_weights_not_normalized [Keep] at Players/05 - Striker (file=boots.fmdl, count=1662)".to_owned(),
-            "dbg Two.7z: Info fmdl_weights_not_normalized [Keep] at Players/05 - Striker (file=glove_l.fmdl, count=2)".to_owned(),
-            identified("dbg Two.7z", "/dbg/", 790),
-            winger("egg Three"),
-            identified("egg Three", "/egg/", 792),
-            winger("esg Four"),
-            identified("esg Four", "/esg/", 793),
+            winger("co Midcup One"),
+            identified("co Midcup One", "/co/", 714),
+            format!("dbg Midcup Two.7z: {FAR_STRIKER}"),
+            "dbg Midcup Two.7z: Info fmdl_weights_not_normalized [Keep] at Players/05 - Striker (file=boots.fmdl, count=1662)".to_owned(),
+            "dbg Midcup Two.7z: Info fmdl_weights_not_normalized [Keep] at Players/05 - Striker (file=glove_l.fmdl, count=2)".to_owned(),
+            identified("dbg Midcup Two.7z", "/dbg/", 790),
+            winger("egg Midcup Three"),
+            identified("egg Midcup Three", "/egg/", 792),
+            winger("esg Midcup Four"),
+            identified("esg Midcup Four", "/esg/", 793),
         ]
     );
     assert_eq!(run.exit_code(), 1);
@@ -199,19 +208,22 @@ fn exports_are_reported_in_discovery_order_with_a_7z_among_folders() {
 fn a_far_vertex_in_a_shared_folder_drops_the_player_linking_it() {
     let sandbox = Sandbox::new("deep_far_vertex_shared");
     sandbox.write(
-        "exports/co - Far/Boots/Crocs/boots.fmdl",
+        "exports/co Midcup Far/Boots/Crocs/boots.fmdl",
         &deep_fixture("boots_far.fmdl"),
     );
-    sandbox.write("exports/co - Far/Players/05 - Striker/Crocs.boots", b"");
     sandbox.write(
-        "exports/co - Far/Players/05 - Striker/glove_l.fmdl",
+        "exports/co Midcup Far/Players/05 - Striker/Crocs.boots",
+        b"",
+    );
+    sandbox.write(
+        "exports/co Midcup Far/Players/05 - Striker/glove_l.fmdl",
         &tracer_player_file("glove_l.fmdl"),
     );
 
     let run = sandbox.run("", &["check"]);
 
     assert_eq!(
-        findings_of(&run.messages(), "co - Far"),
+        findings_of(&run.messages(), "co Midcup Far"),
         [
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - Striker (file=glove_l.fmdl, count=2)",
             "Error vertex_too_far_from_origin [DropFolder] at Boots/Crocs (file=boots.fmdl, count=1)",
@@ -242,11 +254,11 @@ const WINGER_WEIGHTS: &str =
 fn a_format_error_drops_its_folder_unless_pass_through_keeps_it() {
     let sandbox = Sandbox::new("deep_format_error");
     sandbox.write(
-        "exports/co - Faces/Players/05 - Striker/boots.fmdl",
+        "exports/co Midcup Faces/Players/05 - Striker/boots.fmdl",
         &boots_over_the_face_limit(),
     );
     sandbox.write(
-        "exports/co - Faces/Players/07 - Winger/boots.fmdl",
+        "exports/co Midcup Faces/Players/07 - Winger/boots.fmdl",
         &tracer_player_file("boots.fmdl"),
     );
     let striker_weights = "Info fmdl_weights_not_normalized [Keep] at Players/05 - Striker (file=boots.fmdl, count=1662)";
@@ -279,7 +291,7 @@ fn a_format_error_drops_its_folder_unless_pass_through_keeps_it() {
             &[]
         };
         assert_eq!(
-            findings_of(&run.messages(), "co - Faces"),
+            findings_of(&run.messages(), "co Midcup Faces"),
             [&validated[..], planned].concat(),
             "{command}"
         );
@@ -308,7 +320,7 @@ fn a_format_error_drops_its_folder_unless_pass_through_keeps_it() {
             &[]
         };
         assert_eq!(
-            findings_of(&run.messages(), "co - Faces"),
+            findings_of(&run.messages(), "co Midcup Faces"),
             [&validated[..], planned].concat(),
             "{command}"
         );
@@ -334,11 +346,11 @@ fn a_format_error_drops_its_folder_unless_pass_through_keeps_it() {
 fn a_model_that_does_not_parse_is_model_broken_and_drops_its_folder_even_with_pass_through() {
     let sandbox = Sandbox::new("deep_model_broken");
     sandbox.write(
-        "exports/co - Broken/Players/05 - Striker/boots.fmdl",
+        "exports/co Midcup Broken/Players/05 - Striker/boots.fmdl",
         b"not a model",
     );
     sandbox.write(
-        "exports/co - Broken/Players/07 - Winger/boots.fmdl",
+        "exports/co Midcup Broken/Players/07 - Winger/boots.fmdl",
         &tracer_player_file("boots.fmdl"),
     );
     let findings = [
@@ -348,12 +360,12 @@ fn a_model_that_does_not_parse_is_model_broken_and_drops_its_folder_even_with_pa
     ];
 
     let check = sandbox.run("", &["check"]);
-    assert_eq!(findings_of(&check.messages(), "co - Broken"), findings);
+    assert_eq!(findings_of(&check.messages(), "co Midcup Broken"), findings);
     assert_eq!(check.exit_code(), 1);
 
     let compile = sandbox.run(&pass_through_settings(&sandbox), &["compile"]);
     assert_eq!(
-        findings_of(&compile.messages(), "co - Broken"),
+        findings_of(&compile.messages(), "co Midcup Broken"),
         [&findings[..], &[TEAM_COLORS_MISSING]].concat()
     );
     assert_eq!(compile.exit_code(), 1);
@@ -378,9 +390,9 @@ fn a_model_that_does_not_parse_is_model_broken_and_drops_its_folder_even_with_pa
 #[test]
 fn a_logo_that_does_not_decode_is_logo_file_invalid_and_the_export_is_otherwise_kept() {
     let sandbox = Sandbox::new("deep_logo_invalid");
-    sandbox.write("exports/co - Logo/logo.png", b"not an image");
+    sandbox.write("exports/co Midcup Logo/logo.png", b"not an image");
     sandbox.write(
-        "exports/co - Logo/Players/07 - Winger/boots.fmdl",
+        "exports/co Midcup Logo/Players/07 - Winger/boots.fmdl",
         &tracer_player_file("boots.fmdl"),
     );
     let findings = [
@@ -390,13 +402,13 @@ fn a_logo_that_does_not_decode_is_logo_file_invalid_and_the_export_is_otherwise_
     ];
 
     let check = sandbox.run("", &["check"]);
-    assert_eq!(findings_of(&check.messages(), "co - Logo"), findings);
+    assert_eq!(findings_of(&check.messages(), "co Midcup Logo"), findings);
     assert_eq!(check.exit_code(), 1);
 
     // Pass-through does not keep it: there is nothing the game's logo sizes can be made from.
     let compile = sandbox.run(&pass_through_settings(&sandbox), &["compile"]);
     assert_eq!(
-        findings_of(&compile.messages(), "co - Logo"),
+        findings_of(&compile.messages(), "co Midcup Logo"),
         [&findings[..], &[TEAM_COLORS_MISSING]].concat()
     );
     assert_eq!(compile.exit_code(), 1);
@@ -447,10 +459,10 @@ fn settings_invalid(player: &str) -> String {
 #[test]
 fn a_settings_toml_that_does_not_parse_is_ignored_and_the_folder_s_models_compile() {
     let sandbox = Sandbox::new("deep_settings_invalid");
-    sandbox.copy_tracer_face("exports/co - Settings/Players/05 - A");
+    sandbox.copy_tracer_face("exports/co Midcup Settings/Players/05 - A");
     // `name` takes `true` or a string.
     sandbox.write(
-        "exports/co - Settings/Players/05 - A/settings.toml",
+        "exports/co Midcup Settings/Players/05 - A/settings.toml",
         b"name = 5\n",
     );
 
@@ -460,7 +472,7 @@ fn a_settings_toml_that_does_not_parse_is_ignored_and_the_folder_s_models_compil
     expected.push(settings_invalid("05 - A"));
     expected.push(IDENTIFIED.to_owned());
     expected.push(TEAM_COLORS_MISSING.to_owned());
-    assert_eq!(findings_of(&run.messages(), "co - Settings"), expected);
+    assert_eq!(findings_of(&run.messages(), "co Midcup Settings"), expected);
     assert_eq!(run.exit_code(), 1);
     assert_eq!(compiled_players(&sandbox), [71405]);
     // Every model package the folder holds commits: the face, the boots and the gloves.
@@ -493,18 +505,18 @@ fn write_kits(sandbox: &Sandbox, export: &str) {
 #[test]
 fn a_kit_config_that_does_not_parse_leaves_its_kit_out_and_the_kit_beside_it_compiles() {
     let sandbox = Sandbox::new("deep_kit_config_invalid");
-    write_kits(&sandbox, "exports/co - Kits");
+    write_kits(&sandbox, "exports/co Midcup Kits");
 
     let check = sandbox.run(&pes21_settings(&sandbox), &["check"]);
     assert_eq!(
-        findings_of(&check.messages(), "co - Kits"),
+        findings_of(&check.messages(), "co Midcup Kits"),
         [KIT_CONFIG_INVALID, IDENTIFIED]
     );
     assert_eq!(check.exit_code(), 1);
 
     let compile = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
     assert_eq!(
-        findings_of(&compile.messages(), "co - Kits"),
+        findings_of(&compile.messages(), "co Midcup Kits"),
         [
             KIT_CONFIG_INVALID,
             IDENTIFIED,
@@ -520,7 +532,7 @@ fn a_kit_config_that_does_not_parse_leaves_its_kit_out_and_the_kit_beside_it_com
 #[test]
 fn a_toml_syntax_error_is_one_console_line_per_finding() {
     let sandbox = Sandbox::new("deep_toml_snippet");
-    let export = "exports/co - Toml";
+    let export = "exports/co Midcup Toml";
     sandbox.write(&format!("{export}/Kits/p1/kit.dds"), &tracer_kit());
     // An unclosed array: the parse error carries its source snippet into the finding's context.
     sandbox.write(&format!("{export}/Kits/p1/config.toml"), b"shirt = [\n");
@@ -548,7 +560,7 @@ fn a_toml_syntax_error_is_one_console_line_per_finding() {
         .find(|line| line.contains("kit_config_invalid"))
         .expect("the kit's invalid config is reported");
     assert!(
-        finding.contains("co - Toml") && finding.contains("Error kit_config_invalid"),
+        finding.contains("co Midcup Toml") && finding.contains("Error kit_config_invalid"),
         "{finding:?}"
     );
 }
@@ -556,7 +568,7 @@ fn a_toml_syntax_error_is_one_console_line_per_finding() {
 #[test]
 fn a_kit_colors_txt_line_that_gives_no_color_is_a_warning_and_the_export_is_still_identified() {
     let sandbox = Sandbox::new("deep_color_entry_invalid");
-    let export = "exports/co - Colors";
+    let export = "exports/co Midcup Colors";
     sandbox.write(&format!("{export}/Kits/p1/kit.dds"), &tracer_kit());
     // The old Team Note kit entry, two colors on one line, after one valid color.
     sandbox.write(
@@ -567,7 +579,7 @@ fn a_kit_colors_txt_line_that_gives_no_color_is_a_warning_and_the_export_is_stil
     let run = sandbox.run(&pes21_settings(&sandbox), &["check"]);
 
     assert_eq!(
-        findings_of(&run.messages(), "co - Colors"),
+        findings_of(&run.messages(), "co Midcup Colors"),
         [
             "Warning color_entry_invalid [Keep] at Kits/p1/colors.txt (line=2, reason=not one color)",
             IDENTIFIED
@@ -580,7 +592,7 @@ fn a_kit_colors_txt_line_that_gives_no_color_is_a_warning_and_the_export_is_stil
 #[test]
 fn pass_through_keeps_no_face_diff_kit_config_or_settings_toml_that_cannot_be_read() {
     let sandbox = Sandbox::new("deep_documents_pass_through");
-    let export = "exports/co - Unreadable";
+    let export = "exports/co Midcup Unreadable";
     // Slot 03: a `face_diff.bin` one byte shorter than its header gives.
     sandbox.copy_tracer_face(&format!("{export}/Players/03 - A"));
     sandbox.write(
@@ -626,7 +638,10 @@ fn pass_through_keeps_no_face_diff_kit_config_or_settings_toml_that_cannot_be_re
         ]
         .map(str::to_owned),
     );
-    assert_eq!(findings_of(&run.messages(), "co - Unreadable"), expected);
+    assert_eq!(
+        findings_of(&run.messages(), "co Midcup Unreadable"),
+        expected
+    );
     assert_eq!(run.exit_code(), 1);
     assert_eq!(compiled_players(&sandbox), [71407]);
     assert_eq!(compiled_kits(&sandbox), ["u0714p2"]);

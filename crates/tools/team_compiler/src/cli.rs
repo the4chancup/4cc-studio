@@ -667,7 +667,7 @@ mod tests {
         let root = temp.path();
         let source = SourceArgs {
             exports_root: None,
-            exports: vec![root.join("co - A")],
+            exports: vec![root.join("co Midcup A")],
         };
         let ready =
             prepare_exports_root(&source, &CommonSettings::default(), &app_paths(root, None))

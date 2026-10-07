@@ -13,7 +13,7 @@ smallest ("The Chad Stormworks Player", slot 05, all three folders whole, portra
 left out: no model references it. Everything else is byte-identical to the source, including
 `face.fpk.xml` listing a `face_high.fmdl` the folder does not have.
 
-## `studio/egg Tracer/`
+## `studio/egg Midcup Tracer/`
 
 `old/` migrated to the Studio layout by hand, for what `compile` handles (Team compiler plan,
 "Acceptance"): the face and the kit since Phase 3, the portrait since step 4.2, the boots and

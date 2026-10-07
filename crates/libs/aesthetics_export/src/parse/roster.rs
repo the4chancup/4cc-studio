@@ -153,7 +153,7 @@ mod tests {
     #[test]
     fn bom_and_crlf_read_normally_and_non_utf8_is_invalid() {
         let good = parsed(
-            "egg",
+            "egg Midcup",
             &[("players.txt", 20)],
             &[("players.txt", Ok(b"\xef\xbb\xbf03 A\r\n05 B\r\n"))],
         );
@@ -163,7 +163,7 @@ mod tests {
         assert_eq!(roster.entries[0].folder_name.as_deref(), Some("A"));
 
         let bad = parsed(
-            "egg",
+            "egg Midcup",
             &[("players.txt", 4)],
             &[("players.txt", Ok(&[0xff, 0xfe, 0xfd, 0x00][..]))],
         );
@@ -180,7 +180,7 @@ mod tests {
     fn line_shapes_parse_as_specified() {
         let text = b"x3 A\n24 B\n\n03\n07   C  \n99999 D\n+5 E";
         let parsed = parsed(
-            "egg",
+            "egg Midcup",
             &[("players.txt", 40)],
             &[("players.txt", Ok(&text[..]))],
         );
@@ -235,14 +235,18 @@ mod tests {
 
     #[test]
     fn a_normal_team_ignores_refs_txt() {
-        let parsed = parsed("egg", &[("refs.txt", 10)], &[("refs.txt", Ok(b"01 A"))]);
+        let parsed = parsed(
+            "egg Midcup",
+            &[("refs.txt", 10)],
+            &[("refs.txt", Ok(b"01 A"))],
+        );
         assert!(parsed.raw_roster.is_none());
     }
 
     #[test]
     fn a_failed_or_absent_roster_read_is_a_source_error() {
         let denied = parsed(
-            "egg",
+            "egg Midcup",
             &[("players.txt", 10)],
             &[("players.txt", Err("denied"))],
         );
@@ -254,7 +258,7 @@ mod tests {
         assert_eq!(failed.disposition, Disposition::DropExport);
         assert_eq!(failed.context, vec![("reason", "denied".to_owned())]);
 
-        let absent = parsed("egg", &[("players.txt", 10)], &[]);
+        let absent = parsed("egg Midcup", &[("players.txt", 10)], &[]);
         let failed = absent
             .issues
             .iter()

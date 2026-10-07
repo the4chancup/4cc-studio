@@ -776,13 +776,16 @@ mod tests {
         "Players/03 - A/face_diff.bin",
     ];
 
-    /// The gate's first hit in the export `co - Gate` holding `files`, for PES 21.
+    /// The gate's first hit in the export `co Midcup Gate` holding `files`, for PES 21.
     fn first_hit(files: &[&str]) -> Option<(&'static str, String)> {
         let files: Vec<(&str, u64)> = files.iter().map(|path| (*path, 1)).collect();
-        first_not_compiled(&resolved("co - Gate", &files, &[], None), PesVersion::Pes21)
+        first_not_compiled(
+            &resolved("co Midcup Gate", &files, &[], None),
+            PesVersion::Pes21,
+        )
     }
 
-    /// The gate's first hit in the export `co - Gate` holding `FACE` and `files`, for PES 21.
+    /// The gate's first hit in the export `co Midcup Gate` holding `FACE` and `files`, for PES 21.
     fn gate(files: &[&str]) -> Option<(&'static str, String)> {
         first_hit(&[FACE.as_slice(), files].concat())
     }
@@ -891,7 +894,7 @@ mod tests {
 
     #[test]
     fn a_pre_fox_target_is_named() {
-        let export = resolved("co - Gate", &[(FACE[0], 1), (FACE[1], 1)], &[], None);
+        let export = resolved("co Midcup Gate", &[(FACE[0], 1), (FACE[1], 1)], &[], None);
         assert_eq!(
             first_not_compiled(&export, PesVersion::Pes17),
             what("PES 2017")
@@ -1472,7 +1475,7 @@ mod tests {
         // drops it under the strict file-type check (so the gate never sees it) and keeps it
         // otherwise: then the gate names it.
         let (export, issues) = resolved_with_issues(
-            "co - Gate",
+            "co Midcup Gate",
             &[(FACE[0], 1), (FACE[1], 1), ("Common/sub/x.dds", 1)],
             &[],
             None,
@@ -1649,7 +1652,7 @@ mod tests {
 
         // A folder no roster slot maps, and an `all/` no kit inherits from, emit nothing.
         let (export, issues) = resolved_with_issues(
-            "co - Gate",
+            "co Midcup Gate",
             &[
                 ("Players/A/face_high.fmdl", 1),
                 ("Players/A/face_diff.bin", 1),
@@ -1674,7 +1677,7 @@ mod tests {
             ])
             .map(|path| (*path, 1))
             .collect();
-        let export = resolved("co - Gate", &files, &[], None);
+        let export = resolved("co Midcup Gate", &files, &[], None);
 
         let report = plan_run(
             vec![(ExportId(0), export, two_team_colors(), None)],

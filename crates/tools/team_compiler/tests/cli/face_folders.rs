@@ -40,7 +40,7 @@ pub(crate) fn assert_blank_face(entries: &BTreeMap<String, Vec<u8>>, path: &str)
 #[test]
 fn under_ingame_face_no_face_is_built_and_a_model_the_face_would_take_is_the_boots() {
     let sandbox = Sandbox::new("face_ingame_reroute");
-    let player = "exports/co - Ingame/Players/05 - A";
+    let player = "exports/co Midcup Ingame/Players/05 - A";
     sandbox.write(&format!("{player}/ingame_face"), b"");
     sandbox.write(
         &format!("{player}/torso.fmdl"),
@@ -59,7 +59,7 @@ fn under_ingame_face_no_face_is_built_and_a_model_the_face_would_take_is_the_boo
     // No `fmdl_fcl_hair_fallback` for `torso.fmdl` and no `content_not_yet_compiled`.
     let entries = compile_clean(
         &sandbox,
-        "co - Ingame",
+        "co Midcup Ingame",
         &[
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=glove_l.fmdl, count=2)",
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=torso.fmdl, count=1662)",
@@ -94,7 +94,7 @@ fn under_ingame_face_no_face_is_built_and_a_model_the_face_would_take_is_the_boo
 fn under_ingame_face_a_boots_link_beside_a_boots_model_combines_and_a_plain_one_loads_the_shared_folder()
  {
     let sandbox = Sandbox::new("face_ingame_link");
-    let export = "exports/co - Linked";
+    let export = "exports/co Midcup Linked";
     sandbox.write(&format!("{export}/Players/05 - A/ingame_face"), b"");
     sandbox.write(
         &format!("{export}/Players/05 - A/kit_boots.fmdl"),
@@ -110,7 +110,7 @@ fn under_ingame_face_a_boots_link_beside_a_boots_model_combines_and_a_plain_one_
 
     let entries = compile_clean(
         &sandbox,
-        "co - Linked",
+        "co Midcup Linked",
         &[
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=kit_boots.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Boots/Crocs (file=boots.fmdl, count=1662)",
@@ -149,7 +149,7 @@ fn under_ingame_face_a_boots_link_beside_a_boots_model_combines_and_a_plain_one_
 #[test]
 fn under_ingame_face_an_empty_face_subfolder_is_ignored() {
     let sandbox = Sandbox::new("face_ingame_empty_face");
-    let player = "exports/co - Empty/Players/05 - A";
+    let player = "exports/co Midcup Empty/Players/05 - A";
     sandbox.write(&format!("{player}/ingame_face"), b"");
     sandbox.write(
         &format!("{player}/boots.fmdl"),
@@ -162,7 +162,7 @@ fn under_ingame_face_an_empty_face_subfolder_is_ignored() {
 
     let lines = run.messages();
     assert_eq!(
-        findings_of(&lines, "co - Empty"),
+        findings_of(&lines, "co Midcup Empty"),
         [
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=boots.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
@@ -195,7 +195,7 @@ fn under_ingame_face_an_empty_face_subfolder_is_ignored() {
 #[test]
 fn a_player_folder_with_no_face_model_gets_the_blank_face() {
     let sandbox = Sandbox::new("face_blank");
-    let export = "exports/co - Blank";
+    let export = "exports/co Midcup Blank";
     sandbox.write(
         &format!("{export}/Players/05 - A/boots.fmdl"),
         &tracer_player_file("boots.fmdl"),
@@ -206,7 +206,7 @@ fn a_player_folder_with_no_face_model_gets_the_blank_face() {
 
     let entries = compile_clean(
         &sandbox,
-        "co - Blank",
+        "co Midcup Blank",
         &[
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=boots.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
@@ -239,7 +239,7 @@ fn a_player_folder_with_no_face_model_gets_the_blank_face() {
 #[test]
 fn a_face_file_in_a_folder_with_no_face_model_is_not_used_and_reported() {
     let sandbox = Sandbox::new("face_file_not_used");
-    let export = "exports/co - Unused";
+    let export = "exports/co Midcup Unused";
     // The tracer's `face_diff.bin`: a face diff the game reads, other than the bundled one.
     let own = tracer_player_file("face_diff.bin");
     assert_ne!(own, template("face_diff.bin"));
@@ -260,11 +260,14 @@ fn a_face_file_in_a_folder_with_no_face_model_is_not_used_and_reported() {
     ];
 
     let check = sandbox.run(&pes21_settings(&sandbox), &["check"]);
-    assert_eq!(findings_of(&check.messages(), "co - Unused"), validated);
+    assert_eq!(
+        findings_of(&check.messages(), "co Midcup Unused"),
+        validated
+    );
     assert_eq!(check.exit_code(), 0);
     let entries = compile_clean(
         &sandbox,
-        "co - Unused",
+        "co Midcup Unused",
         &[&validated[..], &[TEAM_COLORS_MISSING]].concat(),
     );
 

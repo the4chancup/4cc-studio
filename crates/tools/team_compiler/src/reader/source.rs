@@ -338,8 +338,8 @@ mod tests {
             export_id: ExportId(0),
             path,
             kind: SourceKind::Folder,
-            file_name: "co - Spring".to_owned(),
-            display_name: "co - Spring".to_owned(),
+            file_name: "co Midcup Spring".to_owned(),
+            display_name: "co Midcup Spring".to_owned(),
             team_name: None,
         }
     }
@@ -421,7 +421,7 @@ mod tests {
 
         let (listing, _) = list(&folder_source(root.to_path_buf())).unwrap();
 
-        assert_eq!(listing.display_name, "co - Spring");
+        assert_eq!(listing.display_name, "co Midcup Spring");
         assert_eq!(
             sorted_entries(&listing),
             [
@@ -451,9 +451,9 @@ mod tests {
 
     #[test]
     fn an_archive_lists_its_files_and_its_directory_entries() {
-        for name in ["co - Spring.zip", "co - Spring.7z"] {
+        for name in ["co Midcup Spring.zip", "co Midcup Spring.7z"] {
             let (listing, _) = list(&archive_source(name)).unwrap();
-            assert_eq!(listing.display_name, "co - Spring");
+            assert_eq!(listing.display_name, "co Midcup Spring");
             assert_eq!(
                 sorted_entries(&listing),
                 [
@@ -469,7 +469,7 @@ mod tests {
 
     #[test]
     fn an_archive_that_cannot_be_opened_is_a_failure_naming_it() {
-        let source = archive_source("co - Escape.zip");
+        let source = archive_source("co Midcup Escape.zip");
         let Err(failure) = list(&source) else {
             panic!("listed an entry outside the root");
         };
@@ -488,7 +488,7 @@ mod tests {
         let budget = MemoryBudget::new(1);
         let held = budget.acquire(1).unwrap();
 
-        let done = read_in_background("co - Spring.7z", &budget);
+        let done = read_in_background("co Midcup Spring.7z", &budget);
 
         // An oversized request waits for the budget to empty: the read is charged.
         assert!(matches!(
@@ -513,7 +513,7 @@ mod tests {
         let (done_tx, done) = channel();
         let unheld = Arc::clone(&budget);
         thread::spawn(move || {
-            let source = archive_source("co - Spring.7z");
+            let source = archive_source("co Midcup Spring.7z");
             let (mut listing, _) = list(&source).unwrap();
             listing
                 .entries
@@ -538,7 +538,7 @@ mod tests {
 
         let folder = ContentSource::new(&folder_source(root.to_path_buf()), &budget);
         assert_eq!(folder.read("Kits/notes.txt").unwrap(), b"a note");
-        for name in ["co - Spring.zip", "co - Spring.7z"] {
+        for name in ["co Midcup Spring.zip", "co Midcup Spring.7z"] {
             let archive = ContentSource::new(&archive_source(name), &budget);
             assert_eq!(archive.read("players.txt").unwrap(), b"01 Keeper\n");
             assert_eq!(
@@ -552,7 +552,7 @@ mod tests {
     #[test]
     fn threads_sharing_one_archive_read_the_bytes_a_serial_read_gets() {
         let budget = MemoryBudget::new(1 << 30);
-        for name in ["egg Tracer.zip", "egg Tracer.7z"] {
+        for name in ["egg Midcup Tracer.zip", "egg Midcup Tracer.7z"] {
             let source = archive_source(name);
             let (listing, _) = list(&source).unwrap();
             let paths: Vec<&str> = listing
@@ -601,7 +601,7 @@ mod tests {
     fn a_7z_holds_its_charge_until_its_content_source_is_dropped() {
         // The fixture's entries sum to 34 bytes, the whole cap: a second byte must wait.
         let budget = MemoryBudget::new(34);
-        let content = ContentSource::new(&archive_source("co - Spring.7z"), &budget);
+        let content = ContentSource::new(&archive_source("co Midcup Spring.7z"), &budget);
         assert!(
             admits(&budget, 34),
             "nothing is charged before the first read"
@@ -633,7 +633,7 @@ mod tests {
         // archive could never be granted while the first is held, so a later read that asked
         // for one would never return.
         let budget = MemoryBudget::new(34);
-        let source = archive_source("co - Spring.7z");
+        let source = archive_source("co Midcup Spring.7z");
         let (listing, _) = list(&source).unwrap();
         let content = ContentSource::new(&source, &budget);
 
@@ -681,7 +681,7 @@ mod tests {
     fn a_read_7z_hands_its_permit_on_and_the_charge_lasts_until_that_permit_is_dropped() {
         // The fixture's entries sum to 34 bytes, the whole cap: a second byte must wait.
         let budget = MemoryBudget::new(34);
-        let content = ContentSource::new(&archive_source("co - Spring.7z"), &budget);
+        let content = ContentSource::new(&archive_source("co Midcup Spring.7z"), &budget);
         content.read("players.txt").unwrap();
 
         let permit = content.into_permit().expect("a read 7z holds a permit");
@@ -707,11 +707,11 @@ mod tests {
     #[test]
     fn a_read_zip_and_an_unread_7z_hand_on_no_permit() {
         let budget = MemoryBudget::new(1 << 20);
-        let zip = ContentSource::new(&archive_source("co - Spring.zip"), &budget);
+        let zip = ContentSource::new(&archive_source("co Midcup Spring.zip"), &budget);
         zip.read("players.txt").unwrap();
         assert!(zip.into_permit().is_none(), "zip");
 
-        let unread = ContentSource::new(&archive_source("co - Spring.7z"), &budget);
+        let unread = ContentSource::new(&archive_source("co Midcup Spring.7z"), &budget);
         assert!(unread.into_permit().is_none(), "unread 7z");
     }
 
@@ -722,7 +722,7 @@ mod tests {
         let (done_tx, done) = channel();
         let unheld = Arc::clone(&budget);
         thread::spawn(move || {
-            let content = ContentSource::new(&archive_source("co - Spring.zip"), &unheld);
+            let content = ContentSource::new(&archive_source("co Midcup Spring.zip"), &unheld);
             done_tx.send(content.read("players.txt").is_ok()).unwrap();
         });
         assert_eq!(done.recv_timeout(GUARD), Ok(true));
@@ -740,7 +740,7 @@ mod tests {
             root.join("Kits/gone.dds").display().to_string()
         );
 
-        let archive = ContentSource::new(&archive_source("co - Spring.zip"), &budget);
+        let archive = ContentSource::new(&archive_source("co Midcup Spring.zip"), &budget);
         let failure = archive.read("Kits/gone.dds").unwrap_err();
         assert_eq!(
             failure,
@@ -750,7 +750,7 @@ mod tests {
             }
         );
 
-        let source = archive_source("co - Escape.zip");
+        let source = archive_source("co Midcup Escape.zip");
         let refused = ContentSource::new(&source, &budget);
         let failure = refused.read("x").unwrap_err();
         assert_eq!(failure.path, source.path.display().to_string());
@@ -761,7 +761,7 @@ mod tests {
         let budget = MemoryBudget::new(1);
         let _held = budget.acquire(1).unwrap();
 
-        let done = read_in_background("co - Spring.zip", &budget);
+        let done = read_in_background("co Midcup Spring.zip", &budget);
 
         let metadata = done
             .recv_timeout(GUARD)
@@ -773,7 +773,7 @@ mod tests {
     fn a_7z_read_in_a_cancelled_run_fails_each_file_with_the_reason() {
         let budget = MemoryBudget::new(1 << 20);
         budget.cancel();
-        let source = archive_source("co - Spring.7z");
+        let source = archive_source("co Midcup Spring.7z");
         let (listing, _) = list(&source).unwrap();
 
         let metadata = ContentSource::new(&source, &budget).read_metadata(&listing);
@@ -798,7 +798,7 @@ mod tests {
             kind: ListedKind::File { size: 1 },
         };
         let listing = CanonicalListing {
-            display_name: "co - Spring".to_owned(),
+            display_name: "co Midcup Spring".to_owned(),
             entries: vec![
                 file("players.txt"),
                 file("wrapper/players.txt"),
@@ -927,10 +927,10 @@ mod tests {
     #[test]
     fn an_archive_whose_modified_time_moved_has_changed_whatever_the_files_read() {
         let temp = scratch("revision_archive");
-        let fixture = archive_source("co - Spring.zip");
+        let fixture = archive_source("co Midcup Spring.zip");
         let source = ExportSource {
-            path: temp.path().join("co - Spring.zip"),
-            ..archive_source("co - Spring.zip")
+            path: temp.path().join("co Midcup Spring.zip"),
+            ..archive_source("co Midcup Spring.zip")
         };
         fs::copy(&fixture.path, &source.path).unwrap();
         let (_, revision) = list(&source).unwrap();

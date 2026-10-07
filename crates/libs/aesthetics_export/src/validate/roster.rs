@@ -324,7 +324,7 @@ mod tests {
     #[test]
     fn numbered_folder_names_map_the_roster() {
         let report = report(
-            "egg",
+            "egg Midcup",
             &[
                 ("Players/03 - A/face_high.fmdl", 10),
                 ("Players/15 - B/face_high.fmdl", 10),
@@ -347,7 +347,12 @@ mod tests {
     // TC-ROS-02
     #[test]
     fn an_unnumbered_or_out_of_range_folder_name_is_dropped() {
-        let report = report("egg", &[], &["Players/24 - C", "Players/Snuffy"], &[]);
+        let report = report(
+            "egg Midcup",
+            &[],
+            &["Players/24 - C", "Players/Snuffy"],
+            &[],
+        );
         assert_eq!(
             issues_of(&report),
             vec![
@@ -370,7 +375,12 @@ mod tests {
     // TC-ROS-03
     #[test]
     fn two_folders_claiming_one_slot_are_both_dropped() {
-        let report = report("egg", &[], &["Players/05 - A", "Players/05 - B"], &[]);
+        let report = report(
+            "egg Midcup",
+            &[],
+            &["Players/05 - A", "Players/05 - B"],
+            &[],
+        );
         assert_eq!(
             issues_of(&report),
             vec![
@@ -393,7 +403,7 @@ mod tests {
     #[test]
     fn a_roster_lists_folders_and_unlisted_ones_drop() {
         let report = report(
-            "egg",
+            "egg Midcup",
             &[("players.txt", 10)],
             &["Players/Snuffy", "Players/15 - B"],
             &[("players.txt", Ok(b"03 snuffy"))],
@@ -418,7 +428,7 @@ mod tests {
     #[test]
     fn one_folder_can_fill_several_slots() {
         let report = report(
-            "egg",
+            "egg Midcup",
             &[("players.txt", 20)],
             &["Players/Keeper"],
             &[("players.txt", Ok(b"03 Keeper\n07 Keeper"))],
@@ -440,7 +450,7 @@ mod tests {
     #[test]
     fn malformed_lines_drop_but_the_good_lines_stand() {
         let report = report(
-            "egg",
+            "egg Midcup",
             &[("players.txt", 40)],
             &["Players/A", "Players/B", "Players/C"],
             &[("players.txt", Ok(b"x3 A\n24 B\n05 Nobody\n07 C"))],
@@ -485,7 +495,7 @@ mod tests {
     #[test]
     fn a_duplicate_slot_reports_dup_and_the_first_lines_missing_target() {
         let report = report(
-            "egg",
+            "egg Midcup",
             &[("players.txt", 30)],
             &["Players/NewName"],
             &[("players.txt", Ok(b"03 OldName\n03 NewName"))],
@@ -511,7 +521,7 @@ mod tests {
     #[test]
     fn an_empty_team_roster_is_valid_and_every_folder_is_unlisted() {
         let report = report(
-            "egg",
+            "egg Midcup",
             &[("players.txt", 0), ("Kits/p1/kit.dds", 9)],
             &["Players/03 - A"],
             &[("players.txt", Ok(b""))],
@@ -605,7 +615,7 @@ mod tests {
         // Parse's `players_txt_invalid` already drops the export; validate
         // adds nothing on top (no `player_unlisted` for the folder).
         let report = report(
-            "egg",
+            "egg Midcup",
             &[("players.txt", 7)],
             &["Players/A"],
             &[("players.txt", Ok(&b"\xff\xfe03 A"[..]))],
@@ -624,7 +634,7 @@ mod tests {
     #[test]
     fn player_name_takes_the_label_or_the_whole_name() {
         let without_roster = report(
-            "egg",
+            "egg Midcup",
             &[("Players/03 - Jean-Pierre/face_high.fmdl", 10)],
             &[],
             &[],
@@ -635,7 +645,7 @@ mod tests {
         );
         // With a roster file the whole folder name is the player name.
         let with_roster = report(
-            "egg",
+            "egg Midcup",
             &[("players.txt", 10)],
             &["Players/Snuffy"],
             &[("players.txt", Ok(b"03 Snuffy"))],

@@ -110,12 +110,12 @@ fn stripe_centre(pixels: &[u8], stripe: &Stripe) -> Option<f64> {
     (count > 0).then(|| sum / f64::from(count))
 }
 
-/// Writes `exports/co - Layout` holding `p1/kit.dds`, the stripes, plus the empty file
+/// Writes `exports/co Midcup Layout` holding `p1/kit.dds`, the stripes, plus the empty file
 /// `p1/<marker>` when `marker` names one.
 fn write_stripes_export(sandbox: &Sandbox, marker: Option<&str>) {
-    sandbox.write("exports/co - Layout/Kits/p1/kit.dds", &stripes_dds());
+    sandbox.write("exports/co Midcup Layout/Kits/p1/kit.dds", &stripes_dds());
     if let Some(marker) = marker {
-        sandbox.write(&format!("exports/co - Layout/Kits/p1/{marker}"), b"");
+        sandbox.write(&format!("exports/co Midcup Layout/Kits/p1/{marker}"), b"");
     }
 }
 
@@ -147,12 +147,12 @@ fn a_kit_marked_pre_fox_compiled_for_pes_21_has_its_socks_where_the_fox_models_r
         "Info kit_layout_converted [Keep] at Kits/p1 (from=pre-fox, to=fox)",
     );
     assert_eq!(
-        findings_of(&marked_run.messages(), "co - Layout"),
+        findings_of(&marked_run.messages(), "co Midcup Layout"),
         converted
     );
     assert_eq!(marked_run.exit_code(), 0);
     assert_eq!(
-        findings_of(&unmarked_run.messages(), "co - Layout"),
+        findings_of(&unmarked_run.messages(), "co Midcup Layout"),
         STRIPES_FINDINGS
     );
 
@@ -201,11 +201,11 @@ fn compiled_entries(sandbox: &Sandbox) -> std::collections::BTreeMap<String, Vec
 #[test]
 fn a_placeholder_kit_marked_pre_fox_compiles_as_without_the_marker() {
     let write = |sandbox: &Sandbox, marked: bool| {
-        fs::create_dir_all(sandbox.root.join("exports/co - Layout/Kits/p3")).unwrap();
+        fs::create_dir_all(sandbox.root.join("exports/co Midcup Layout/Kits/p3")).unwrap();
         if marked {
-            sandbox.write("exports/co - Layout/Kits/p3/pre-fox", b"");
+            sandbox.write("exports/co Midcup Layout/Kits/p3/pre-fox", b"");
         }
-        sandbox.write("exports/co - Layout/Kits/all/fox", b"");
+        sandbox.write("exports/co Midcup Layout/Kits/all/fox", b"");
     };
     let marked = Sandbox::new("kit_layout_placeholder");
     write(&marked, true);
@@ -224,9 +224,12 @@ fn a_placeholder_kit_marked_pre_fox_compiles_as_without_the_marker() {
         "Info kit_placeholder [Keep] at Kits/p3 ()",
         "Warning kit_colors_missing [Keep] at Kits/p3 ()",
     ];
-    assert_eq!(findings_of(&marked_run.messages(), "co - Layout"), findings);
     assert_eq!(
-        findings_of(&unmarked_run.messages(), "co - Layout"),
+        findings_of(&marked_run.messages(), "co Midcup Layout"),
+        findings
+    );
+    assert_eq!(
+        findings_of(&unmarked_run.messages(), "co Midcup Layout"),
         findings
     );
     let entries = compiled_entries(&marked);
@@ -246,7 +249,7 @@ fn a_kit_marked_fox_compiled_for_pes_21_is_as_without_the_marker() {
 
     for run in [&marked_run, &unmarked_run] {
         assert_eq!(
-            findings_of(&run.messages(), "co - Layout"),
+            findings_of(&run.messages(), "co Midcup Layout"),
             STRIPES_FINDINGS
         );
     }

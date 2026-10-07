@@ -291,7 +291,7 @@ mod tests {
 
     /// The tracer fixture's export folder.
     fn tracer() -> PathBuf {
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/tracer/studio/egg Tracer")
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/tracer/studio/egg Midcup Tracer")
     }
 
     /// The export file at `relative`, described as the structure pass would.

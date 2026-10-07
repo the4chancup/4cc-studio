@@ -458,7 +458,7 @@ mod tests {
     /// The bytes of the tracer player's file `name`.
     pub(super) fn tracer_file(name: &str) -> Vec<u8> {
         fixture(&format!(
-            "tracer/studio/egg Tracer/Players/05 - The Chad Stormworks Player/{name}"
+            "tracer/studio/egg Midcup Tracer/Players/05 - The Chad Stormworks Player/{name}"
         ))
     }
 
@@ -491,7 +491,7 @@ mod tests {
         })
     }
 
-    /// The deep pass for PES 21 over the folder export `co - Deep` at `root`, holding `files`
+    /// The deep pass for PES 21 over the folder export `co Midcup Deep` at `root`, holding `files`
     /// (path, bytes) and listing `unwritten` too, which is not on disk; the structure pass
     /// finds nothing in it.
     pub(super) fn findings_of(
@@ -521,14 +521,14 @@ mod tests {
             .map(|(path, bytes)| (*path, bytes.len() as u64))
             .chain(unwritten.iter().map(|path| (*path, 1)))
             .collect();
-        let (resolved, codes) = resolved_with_issues("co - Deep", &listed, &[], None);
+        let (resolved, codes) = resolved_with_issues("co Midcup Deep", &listed, &[], None);
         assert_eq!(codes, structure_codes, "the structure pass's findings");
         let source = ExportSource {
             export_id: ExportId(0),
             path: root.to_path_buf(),
             kind: SourceKind::Folder,
-            file_name: "co - Deep".to_owned(),
-            display_name: "co - Deep".to_owned(),
+            file_name: "co Midcup Deep".to_owned(),
+            display_name: "co Midcup Deep".to_owned(),
             team_name: None,
         };
         let content = ContentSource::new(&source, &MemoryBudget::new(1 << 30));

@@ -14,7 +14,7 @@ use vtree::{ScopePath, VirtualTree};
 pub use draft::{
     AestheticsExportDraft, ExportKind, FileDescriptor, FolderDraft, RawRoster, RawRosterEntry,
 };
-pub use identity::team_name;
+pub use identity::{ExportCoverage, team_name};
 
 use crate::conventions::{
     CONTENT_FOLDERS, ContentFolder, classify, is_logo_texture, is_os_artifact,
@@ -494,9 +494,19 @@ fn build_draft(
     team_name: Option<teams_list::TeamName>,
     tree: &CanonicalTree,
 ) -> AestheticsExportDraft {
+    // A referee export carries no tag: it is always full.
+    let coverage = if team_name
+        .as_ref()
+        .is_some_and(teams_list::TeamName::is_referees)
+    {
+        Some(ExportCoverage::Full)
+    } else {
+        identity::coverage(display_name)
+    };
     let mut draft = AestheticsExportDraft {
         export_display_name: display_name.to_owned(),
         team_name,
+        coverage,
         root_files: Vec::new(),
         root_folders: Vec::new(),
         stray_files: Vec::new(),
@@ -565,7 +575,7 @@ mod tests {
     #[test]
     fn os_artifacts_never_reach_the_draft() {
         let parsed = parse(
-            "egg",
+            "egg Midcup",
             &[
                 ("Thumbs.db", 5),
                 ("desktop.ini", 5),
@@ -585,13 +595,13 @@ mod tests {
             vec!["Players/03 - A/face_high.fmdl"]
         );
         // A folder that held only an artifact does not exist in the tree.
-        let artifacts = parse("egg", &[("wrapper/Thumbs.db", 5)], &[]);
+        let artifacts = parse("egg Midcup", &[("wrapper/Thumbs.db", 5)], &[]);
         assert!(artifacts.draft.root_folders.is_empty());
     }
 
     #[test]
     fn canonicalization_accepts_backslashes_and_normalizes() {
-        let parsed = parse("egg", &[("Players\\face_high.fmdl", 4)], &[]);
+        let parsed = parse("egg Midcup", &[("Players\\face_high.fmdl", 4)], &[]);
         assert_eq!(
             parsed.draft.stray_files[0].path.as_str(),
             "Players/face_high.fmdl"
@@ -605,7 +615,7 @@ mod tests {
     #[test]
     fn canonicalization_refuses_traversal_and_collisions() {
         let error = parse_listing(
-            listing("egg", &[("../x", 1)], &[]),
+            listing("egg Midcup", &[("../x", 1)], &[]),
             SmallMetadata {
                 files: BTreeMap::new(),
             },
@@ -614,7 +624,7 @@ mod tests {
         assert!(matches!(error, SourceError::Path { .. }));
 
         let error = parse_listing(
-            listing("egg", &[("a/B.dds", 1), ("a/b.dds", 2)], &[]),
+            listing("egg Midcup", &[("a/B.dds", 1), ("a/b.dds", 2)], &[]),
             SmallMetadata {
                 files: BTreeMap::new(),
             },
@@ -624,7 +634,7 @@ mod tests {
 
         // The same file twice is a collision too.
         let error = parse_listing(
-            listing("egg", &[("a/b.dds", 1), ("a/b.dds", 1)], &[]),
+            listing("egg Midcup", &[("a/b.dds", 1), ("a/b.dds", 1)], &[]),
             SmallMetadata {
                 files: BTreeMap::new(),
             },
@@ -635,7 +645,7 @@ mod tests {
 
     #[test]
     fn empty_folder_entries_give_folder_drafts() {
-        let parsed = parse("egg", &[], &[("Kits/p2")]);
+        let parsed = parse("egg Midcup", &[], &[("Kits/p2")]);
         assert_eq!(parsed.draft.kits.len(), 1);
         assert!(parsed.draft.kits[0].files.is_empty());
         assert_eq!(parsed.draft.kits[0].path.as_str(), "Kits/p2");
@@ -643,7 +653,7 @@ mod tests {
 
     #[test]
     fn a_folder_entry_with_files_below_is_dropped() {
-        let parsed = parse("egg", &[("Kits/p2/kit.dds", 10)], &[("Kits/p2")]);
+        let parsed = parse("egg Midcup", &[("Kits/p2/kit.dds", 10)], &[("Kits/p2")]);
         assert_eq!(parsed.draft.kits.len(), 1);
         assert_eq!(parsed.draft.kits[0].files.len(), 1);
     }
@@ -651,7 +661,7 @@ mod tests {
     #[test]
     fn two_empty_folders_folding_differently_collide() {
         let error = parse_listing(
-            listing("egg", &[], &[("Kits/p2"), ("Kits/P2")]),
+            listing("egg Midcup", &[], &[("Kits/p2"), ("Kits/P2")]),
             SmallMetadata {
                 files: BTreeMap::new(),
             },
@@ -662,7 +672,7 @@ mod tests {
 
     #[test]
     fn a_usable_root_needs_no_normalization() {
-        let parsed = parse("egg", &[("Players/03 - A/face_high.fmdl", 10)], &[]);
+        let parsed = parse("egg Midcup", &[("Players/03 - A/face_high.fmdl", 10)], &[]);
         assert!(parsed.issues.is_empty());
         assert_eq!(parsed.draft.players.len(), 1);
     }
@@ -670,7 +680,7 @@ mod tests {
     #[test]
     fn a_single_usable_child_is_flattened() {
         let parsed = parse(
-            "egg",
+            "egg Midcup",
             &[
                 ("notes.txt", 5),
                 ("wrapper/Players/03 - A/face_high.fmdl", 10),
@@ -701,7 +711,7 @@ mod tests {
 
     #[test]
     fn a_child_usable_by_its_logo_is_flattened() {
-        let parsed = parse("egg", &[("wrapper/logo.png", 10)], &[]);
+        let parsed = parse("egg Midcup", &[("wrapper/logo.png", 10)], &[]);
         assert_eq!(parsed.draft.root_files[0].path.as_str(), "logo.png");
     }
 
@@ -710,7 +720,7 @@ mod tests {
         // `ロゴ.png` is a usable root only through `wrapper/`; the logo check
         // must not slice a multi-byte name.
         let parsed = parse(
-            "egg",
+            "egg Midcup",
             &[
                 ("ロゴ.png", 10),
                 ("wrapper/Players/03 - A/face_high.fmdl", 10),
@@ -724,7 +734,7 @@ mod tests {
     #[test]
     fn two_usable_children_are_ambiguous() {
         let parsed = parse(
-            "egg",
+            "egg Midcup",
             &[
                 ("wrapper/Players/03 - A/face_high.fmdl", 10),
                 ("other/Kits/p1/kit.dds", 10),
@@ -749,7 +759,7 @@ mod tests {
     #[test]
     fn a_loose_file_colliding_with_a_flattened_one_rejects() {
         let parsed = parse(
-            "egg",
+            "egg Midcup",
             &[
                 ("notes.txt", 1),
                 ("wrapper/notes.txt", 2),
@@ -780,13 +790,17 @@ mod tests {
 
     #[test]
     fn no_content_is_no_issue() {
-        let parsed = parse("egg", &[("readme.txt", 5)], &[]);
+        let parsed = parse("egg Midcup", &[("readme.txt", 5)], &[]);
         assert!(parsed.issues.is_empty());
     }
 
     #[test]
     fn a_doubled_content_folder_layer_is_removed() {
-        let parsed = parse("egg", &[("Players/Players/03 - A/face_high.fmdl", 10)], &[]);
+        let parsed = parse(
+            "egg Midcup",
+            &[("Players/Players/03 - A/face_high.fmdl", 10)],
+            &[],
+        );
         let fixed = parsed
             .issues
             .iter()
@@ -809,7 +823,7 @@ mod tests {
 
     #[test]
     fn an_inner_folder_holding_files_is_content() {
-        let parsed = parse("egg", &[("Boots/Boots/boots.fmdl", 10)], &[]);
+        let parsed = parse("egg Midcup", &[("Boots/Boots/boots.fmdl", 10)], &[]);
         assert!(
             parsed
                 .issues
@@ -825,7 +839,7 @@ mod tests {
         // `Players/` holding a stray file beside `Players/Players/` is not a
         // doubled layer: the inner folder is not the only entry.
         let parsed = parse(
-            "egg",
+            "egg Midcup",
             &[
                 ("Players/loose.fmdl", 4),
                 ("Players/Players/03 - A/face_high.fmdl", 10),
@@ -846,7 +860,7 @@ mod tests {
         // A sibling content folder sorts before `Players` in fold order: the
         // doubled layer is still found and removed.
         let parsed = parse(
-            "egg",
+            "egg Midcup",
             &[
                 ("Kits/p1/kit.dds", 9),
                 ("Players/Players/03 - A/face_high.fmdl", 10),
@@ -863,7 +877,7 @@ mod tests {
     #[test]
     fn a_non_logo_texture_does_not_make_a_root_usable() {
         let parsed = parse(
-            "egg",
+            "egg Midcup",
             &[("x.dds", 4), ("wrapper/Players/03 - A/face_high.fmdl", 10)],
             &[],
         );
@@ -879,7 +893,7 @@ mod tests {
     #[test]
     fn draft_groups_the_root_and_content_folders() {
         let parsed = parse(
-            "egg",
+            "egg Midcup",
             &[
                 ("readme.txt", 3),
                 ("wrapper/x.txt", 1),
@@ -937,7 +951,7 @@ mod tests {
     fn a_lowercase_players_folder_is_the_content_folder() {
         // "players/Players folders merged": the content-folder match is
         // case-insensitive, so a lowercase folder is the same content folder.
-        let parsed = parse("egg", &[("players/05 - B/hair_high.fmdl", 10)], &[]);
+        let parsed = parse("egg Midcup", &[("players/05 - B/hair_high.fmdl", 10)], &[]);
         assert_eq!(parsed.draft.players.len(), 1);
         assert_eq!(parsed.draft.players[0].path.as_str(), "players/05 - B");
     }

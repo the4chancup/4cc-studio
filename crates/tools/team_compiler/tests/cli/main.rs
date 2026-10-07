@@ -175,7 +175,7 @@ const CLEAN_PLAYER: &str = "Players/03 - A/face_high.fmdl";
 fn clean_model() -> Vec<u8> {
     fs::read(
         Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("tests/fixtures/tracer/studio/egg Tracer/Players/05 - The Chad Stormworks Player/glove_r.fmdl"),
+            .join("tests/fixtures/tracer/studio/egg Midcup Tracer/Players/05 - The Chad Stormworks Player/glove_r.fmdl"),
     )
     .unwrap()
 }

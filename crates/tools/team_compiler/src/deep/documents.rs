@@ -516,7 +516,7 @@ mod tests {
             kit_findings("deep_kit_config_not_utf8", b"\xFF\xFE"),
             [kit_config_invalid("the file is not UTF-8 text")]
         );
-        let tracer = fixture("tracer/studio/egg Tracer/Kits/g1/config.toml");
+        let tracer = fixture("tracer/studio/egg Midcup Tracer/Kits/g1/config.toml");
         assert_eq!(kit_findings("deep_kit_config_valid", &tracer), []);
     }
 
@@ -563,7 +563,7 @@ mod tests {
 
     /// The tracer's kit texture, which the deep pass finds nothing in.
     fn tracer_kit() -> Vec<u8> {
-        fixture("tracer/studio/egg Tracer/Kits/g1/kit.dds")
+        fixture("tracer/studio/egg Midcup Tracer/Kits/g1/kit.dds")
     }
 
     /// `color_entry_invalid` on the `colors.txt` at `file`, kept, for `line` and `reason`.

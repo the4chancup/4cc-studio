@@ -11,18 +11,18 @@ use crate::compile::{compiled_players, cpk_entries, kit_texture, pes21_settings}
 use crate::compile_exports::{UNI_COLOR, bundled_uni_color, uni_record, with_uni_record};
 use crate::{CLEAN_PLAYER, clean_model, findings_of, snapshot, source_fixture};
 
-/// The folder `exports/co - Spring/`, the same export as the `co - Spring` fixtures: git keeps no
+/// The folder `exports/co Midcup Spring/`, the same export as the `co Midcup Spring` fixtures: git keeps no
 /// empty folder, so it is built here.
 fn spring_folder(sandbox: &Sandbox) {
-    sandbox.write("exports/co - Spring/players.txt", b"01 Keeper\n");
+    sandbox.write("exports/co Midcup Spring/players.txt", b"01 Keeper\n");
     sandbox.write(
-        "exports/co - Spring/notes.txt",
+        "exports/co Midcup Spring/notes.txt",
         b"Spring kit placeholder.\n",
     );
-    fs::create_dir_all(sandbox.root.join("exports/co - Spring/Kits/p2")).unwrap();
+    fs::create_dir_all(sandbox.root.join("exports/co Midcup Spring/Kits/p2")).unwrap();
 }
 
-/// What `check` reports about the `co - Spring` export, in any of its three forms. The roster
+/// What `check` reports about the `co Midcup Spring` export, in any of its three forms. The roster
 /// line names a player folder the export does not hold, so its finding shows the roster was read.
 const SPRING_FINDINGS: [&str; 3] = [
     "Error players_txt_target_missing [DropSlot] at players.txt line 1 slot Some(1) (folder=Keeper)",
@@ -30,7 +30,7 @@ const SPRING_FINDINGS: [&str; 3] = [
     "Info export_identified [Keep] (team=/co/, id=714)",
 ];
 
-/// `SPRING_FINDINGS` of a `co - Spring` source checked beside other exports of `/co/`, then
+/// `SPRING_FINDINGS` of a `co Midcup Spring` source checked beside other exports of `/co/`, then
 /// the finding that skips each of them, naming `exports`.
 fn spring_findings_beside(exports: &str) -> Vec<String> {
     SPRING_FINDINGS
@@ -47,15 +47,20 @@ fn spring_findings_beside(exports: &str) -> Vec<String> {
 fn one_export_as_a_folder_a_zip_and_a_7z_reports_and_compiles_the_same() {
     let sandbox = Sandbox::new("same_export_three_ways");
     spring_folder(&sandbox);
-    sandbox.copy_fixture("co - Spring.zip", "exports");
-    sandbox.copy_fixture("co - Spring.7z", "exports");
+    sandbox.copy_fixture("co Midcup Spring.zip", "exports");
+    sandbox.copy_fixture("co Midcup Spring.7z", "exports");
 
     let run = sandbox.run("", &["check"]);
 
     let lines = run.messages();
     // Three exports of one team: each is skipped, naming the three.
-    let expected = spring_findings_beside("co - Spring, co - Spring.7z, co - Spring.zip");
-    for source in ["co - Spring", "co - Spring.zip", "co - Spring.7z"] {
+    let expected =
+        spring_findings_beside("co Midcup Spring, co Midcup Spring.7z, co Midcup Spring.zip");
+    for source in [
+        "co Midcup Spring",
+        "co Midcup Spring.zip",
+        "co Midcup Spring.7z",
+    ] {
         assert_eq!(findings_of(&lines, source), expected, "{lines:#?}");
     }
     assert_eq!(lines.len(), 3 * expected.len(), "{lines:#?}");
@@ -64,7 +69,11 @@ fn one_export_as_a_folder_a_zip_and_a_7z_reports_and_compiles_the_same() {
     // Each source compiled alone: the empty kit folder p2 is the placeholder kit.
     let settings = pes21_settings(&sandbox);
     let mut archives = Vec::new();
-    for source in ["co - Spring", "co - Spring.zip", "co - Spring.7z"] {
+    for source in [
+        "co Midcup Spring",
+        "co Midcup Spring.zip",
+        "co Midcup Spring.7z",
+    ] {
         let run = sandbox.run(
             &settings,
             &[
@@ -157,14 +166,14 @@ fn the_empty_kit_folder_of_tc_src_01_s_export_gets_magenta_black_and_icon_3() {
 fn a_folder_and_an_archive_sharing_a_stem_are_two_exports() {
     let sandbox = Sandbox::new("folder_and_archive");
     spring_folder(&sandbox);
-    sandbox.copy_fixture("co - Spring.zip", "exports");
+    sandbox.copy_fixture("co Midcup Spring.zip", "exports");
 
     let run = sandbox.run("", &["check"]);
 
     let lines = run.messages();
-    let expected = spring_findings_beside("co - Spring, co - Spring.zip");
-    assert_eq!(findings_of(&lines, "co - Spring"), expected);
-    assert_eq!(findings_of(&lines, "co - Spring.zip"), expected);
+    let expected = spring_findings_beside("co Midcup Spring, co Midcup Spring.zip");
+    assert_eq!(findings_of(&lines, "co Midcup Spring"), expected);
+    assert_eq!(findings_of(&lines, "co Midcup Spring.zip"), expected);
     assert_eq!(lines.len(), 2 * expected.len(), "{lines:#?}");
 }
 
@@ -172,9 +181,9 @@ fn a_folder_and_an_archive_sharing_a_stem_are_two_exports() {
 fn a_corrupt_archive_is_skipped_and_the_export_beside_it_is_still_checked() {
     let sandbox = Sandbox::new("corrupt_archive");
     // The scan compares the extension in any case.
-    sandbox.write("exports/co - Broken.ZIP", b"not a zip at all");
+    sandbox.write("exports/co Midcup Broken.ZIP", b"not a zip at all");
     sandbox.write(
-        &format!("exports/co - Spring/{CLEAN_PLAYER}"),
+        &format!("exports/co Midcup Spring/{CLEAN_PLAYER}"),
         &clean_model(),
     );
 
@@ -182,14 +191,14 @@ fn a_corrupt_archive_is_skipped_and_the_export_beside_it_is_still_checked() {
 
     let lines = run.messages();
     assert_eq!(
-        findings_of(&lines, "co - Broken.ZIP"),
+        findings_of(&lines, "co Midcup Broken.ZIP"),
         [format!(
             "Error export_extract_failed [DropExport] (path={}, error=zip: invalid Zip archive: Could not find EOCD)",
-            sandbox.display("exports/co - Broken.ZIP")
+            sandbox.display("exports/co Midcup Broken.ZIP")
         )]
     );
     assert_eq!(
-        findings_of(&lines, "co - Spring"),
+        findings_of(&lines, "co Midcup Spring"),
         ["Info export_identified [Keep] (team=/co/, id=714)"]
     );
     assert_eq!(run.exit_code(), 1);
@@ -199,23 +208,23 @@ fn a_corrupt_archive_is_skipped_and_the_export_beside_it_is_still_checked() {
 #[test]
 fn an_archive_whose_names_collide_or_escape_is_skipped_naming_the_path() {
     let sandbox = Sandbox::new("refused_listings");
-    sandbox.copy_fixture("co - Case.zip", "exports");
-    sandbox.copy_fixture("co - Escape.zip", "exports");
+    sandbox.copy_fixture("co Midcup Case.zip", "exports");
+    sandbox.copy_fixture("co Midcup Escape.zip", "exports");
 
     let run = sandbox.run("", &["check"]);
 
     let lines = run.messages();
     assert_eq!(
-        findings_of(&lines, "co - Case.zip"),
+        findings_of(&lines, "co Midcup Case.zip"),
         [
             "Error export_extract_failed [DropExport] (path=Players.txt, error=path collides with existing entry players.txt)"
         ]
     );
     assert_eq!(
-        findings_of(&lines, "co - Escape.zip"),
+        findings_of(&lines, "co Midcup Escape.zip"),
         [format!(
             "Error export_extract_failed [DropExport] (path={}, error=invalid entry name \"../x\")",
-            sandbox.display("exports/co - Escape.zip")
+            sandbox.display("exports/co Midcup Escape.zip")
         )]
     );
     assert_eq!(lines.len(), 2, "{lines:#?}");
@@ -225,44 +234,49 @@ fn an_archive_whose_names_collide_or_escape_is_skipped_naming_the_path() {
 #[test]
 fn export_paths_may_name_an_archive_outside_the_root() {
     let sandbox = Sandbox::new("named_archive");
-    sandbox.write(&format!("exports/co - A/{CLEAN_PLAYER}"), &clean_model());
-    sandbox.write(&format!("exports/co - C/{CLEAN_PLAYER}"), &clean_model());
-    sandbox.copy_fixture("co - Spring.zip", "elsewhere");
+    sandbox.write(
+        &format!("exports/co Midcup A/{CLEAN_PLAYER}"),
+        &clean_model(),
+    );
+    sandbox.write(
+        &format!("exports/co Midcup C/{CLEAN_PLAYER}"),
+        &clean_model(),
+    );
+    sandbox.copy_fixture("co Midcup Spring.zip", "elsewhere");
 
     let run = sandbox.run(
         "",
         &[
             "check",
             "--export",
-            &sandbox.arg("elsewhere/co - Spring.zip"),
+            &sandbox.arg("elsewhere/co Midcup Spring.zip"),
             "--export",
-            &sandbox.arg("exports/co - A"),
+            &sandbox.arg("exports/co Midcup A"),
         ],
     );
 
     let lines = run.messages();
-    let duplicate =
-        "Error duplicate_aesthetics_export [DropExport] (id=714, exports=co - A, co - Spring.zip)";
+    let duplicate = "Error duplicate_aesthetics_export [DropExport] (id=714, exports=co Midcup A, co Midcup Spring.zip)";
     assert_eq!(
-        findings_of(&lines, "co - A"),
+        findings_of(&lines, "co Midcup A"),
         [
             "Info export_identified [Keep] (team=/co/, id=714)",
             duplicate
         ]
     );
-    let spring = spring_findings_beside("co - A, co - Spring.zip");
-    assert_eq!(findings_of(&lines, "co - Spring.zip"), spring);
-    // co - C, in the root but not named, is not reported.
+    let spring = spring_findings_beside("co Midcup A, co Midcup Spring.zip");
+    assert_eq!(findings_of(&lines, "co Midcup Spring.zip"), spring);
+    // co Midcup C, in the root but not named, is not reported.
     assert_eq!(lines.len(), 2 + spring.len(), "{lines:#?}");
 }
 
 #[test]
 fn check_leaves_every_archive_and_nested_export_as_it_was() {
     let sandbox = Sandbox::new("archives_untouched");
-    sandbox.copy_fixture("co - Spring.zip", "exports");
-    sandbox.copy_fixture("co - Spring.7z", "exports");
+    sandbox.copy_fixture("co Midcup Spring.zip", "exports");
+    sandbox.copy_fixture("co Midcup Spring.7z", "exports");
     sandbox.write(
-        &format!("exports/co - Nested/wrapper/{CLEAN_PLAYER}"),
+        &format!("exports/co Midcup Nested/wrapper/{CLEAN_PLAYER}"),
         &clean_model(),
     );
     let exports = sandbox.root.join("exports");
@@ -271,9 +285,9 @@ fn check_leaves_every_archive_and_nested_export_as_it_was() {
     let run = sandbox.run("", &["check"]);
 
     let lines = run.messages();
-    let exports_of_714 = "co - Nested, co - Spring.7z, co - Spring.zip";
+    let exports_of_714 = "co Midcup Nested, co Midcup Spring.7z, co Midcup Spring.zip";
     assert_eq!(
-        findings_of(&lines, "co - Nested"),
+        findings_of(&lines, "co Midcup Nested"),
         [
             "Warning nested_folders_fixed [Keep] (folder=wrapper)".to_owned(),
             "Info export_identified [Keep] (team=/co/, id=714)".to_owned(),
@@ -283,8 +297,8 @@ fn check_leaves_every_archive_and_nested_export_as_it_was() {
         ]
     );
     let spring = spring_findings_beside(exports_of_714);
-    assert_eq!(findings_of(&lines, "co - Spring.7z"), spring);
-    assert_eq!(findings_of(&lines, "co - Spring.zip"), spring);
+    assert_eq!(findings_of(&lines, "co Midcup Spring.7z"), spring);
+    assert_eq!(findings_of(&lines, "co Midcup Spring.zip"), spring);
     assert_eq!(snapshot(&exports), before);
 }
 
@@ -292,10 +306,16 @@ fn check_leaves_every_archive_and_nested_export_as_it_was() {
 #[test]
 fn check_and_compile_leave_every_source_as_it_was() {
     let sandbox = Sandbox::new("sources_untouched");
-    sandbox.copy_tracer("egg Tracer");
-    sandbox.write("exports/co - Zip.zip", &source_fixture("egg Tracer.zip"));
-    sandbox.write("exports/dbg - Seven.7z", &source_fixture("egg Tracer.7z"));
-    sandbox.copy_tracer_face("exports/esg - Nested/wrapper/Players/03 - A");
+    sandbox.copy_tracer("egg Midcup Tracer");
+    sandbox.write(
+        "exports/co Midcup Zip.zip",
+        &source_fixture("egg Midcup Tracer.zip"),
+    );
+    sandbox.write(
+        "exports/dbg Midcup Seven.7z",
+        &source_fixture("egg Midcup Tracer.7z"),
+    );
+    sandbox.copy_tracer_face("exports/esg Midcup Nested/wrapper/Players/03 - A");
     let exports = sandbox.root.join("exports");
     let before = snapshot(&exports);
 

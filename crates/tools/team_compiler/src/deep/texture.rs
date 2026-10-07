@@ -99,7 +99,7 @@ mod tests {
         // A real file of each format opens with its signature (the kit and portrait fixtures
         // are real encoder output); a signature pasted onto nothing is still that format's.
         assert_eq!(
-            signature_format(&fixture("tracer/studio/egg Tracer/Kits/g1/kit.dds")),
+            signature_format(&fixture("tracer/studio/egg Midcup Tracer/Kits/g1/kit.dds")),
             Some(SourceFormat::Dds),
             "dds"
         );

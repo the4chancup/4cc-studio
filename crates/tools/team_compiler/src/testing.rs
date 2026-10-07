@@ -66,16 +66,16 @@ fn copy_tree(source: &Path, target: &Path) {
 }
 
 /// A fresh `scratch` folder standing in for the executable's: a teams list holding `792 /egg/`
-/// under `data/` and the tracer bullet's export under `exports/egg Tracer`, so a `compile` with
+/// under `data/` and the tracer bullet's export under `exports/egg Midcup Tracer`, so a `compile` with
 /// no arguments compiles it to `output/4cc_99_test.cpk`.
 pub(crate) fn sandbox(name: &str) -> ScratchFolder {
     let temp = scratch(name);
     let root = temp.path();
     fs::create_dir_all(root.join("data")).unwrap();
     fs::write(root.join("data/teams_list.txt"), "ID\tName\n792\t/egg/\n").unwrap();
-    let tracer =
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/tracer/studio/egg Tracer");
-    copy_tree(&tracer, &root.join("exports/egg Tracer"));
+    let tracer = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/fixtures/tracer/studio/egg Midcup Tracer");
+    copy_tree(&tracer, &root.join("exports/egg Midcup Tracer"));
     temp
 }
 

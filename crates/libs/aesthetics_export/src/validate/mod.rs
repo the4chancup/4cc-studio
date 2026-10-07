@@ -92,6 +92,8 @@ pub struct ValidatedAestheticsExport {
     pub export_display_name: String,
     /// The canonical `/xx/` name derived from the first word.
     pub team_name: teams_list::TeamName,
+    /// From the name's second word; `Full` for a referee export.
+    pub coverage: crate::ExportCoverage,
     /// Sanitized main reference point for each eligible player.
     pub players: Vec<PlayerFolder>,
     /// Normalized strong slots → player indices.
@@ -145,6 +147,17 @@ impl ParsedAestheticsExport {
                 "team_name_unknown",
                 IssueScope::Export,
                 vec![("team_name", String::new())],
+                Disposition::DropExport,
+            ));
+        }
+        // A referee draft's coverage is always `Full`, so only a team export
+        // can lack its tag; one with no team name has `team_name_unknown`
+        // alone.
+        if draft.team_name.is_some() && draft.coverage.is_none() {
+            issues.push(issue(
+                "export_tag_missing",
+                IssueScope::Export,
+                vec![("name", draft.export_display_name.clone())],
                 Disposition::DropExport,
             ));
         }
@@ -324,6 +337,11 @@ impl ParsedAestheticsExport {
                     .team_name
                     .clone()
                     .expect("a surviving export has a team name"),
+                // `export_tag_missing` drops a team export whose coverage is
+                // `None`, and a referee draft's is always `Full`.
+                coverage: draft
+                    .coverage
+                    .expect("a surviving export has a coverage tag"),
                 players: kept,
                 roster,
                 faces: kept_folders(&draft.faces),

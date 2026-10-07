@@ -12,9 +12,9 @@ is in `AGENTS.md` ("Working documents").
 **Phase:** 3 (Team compiler skeleton) closed 2026-10-02, its cross-family reviews queued (see
 "Handover"). Phases 1 and 2 done (Phase 2 closed 2026-09-30).
 **Next:** Phase 4 is itemized and its Acceptance section written (step 4.1, 2026-10-03; its
-cross-family review (a) is queued). Next: 4.34 (the `Full`/`Midcup` tag), then 4.21
-(bins from the installed CPKs; 4.14 waits on 4.31's pre-Fox export); 4.c-fix1 (the Clef
-full pass's one finding, in `pes_savefile`'s `convert`); 4.33 and 4.c-pass are done; 4.30,
+cross-family review (a) is queued). Next: 4.34b (`Full` resets the team's kit record), then
+4.21 (bins from the installed CPKs; 4.14 waits on 4.31's pre-Fox export); 4.c-fix1 (the Clef
+full pass's one finding, in `pes_savefile`'s `convert`); 4.33, 4.34a and 4.c-pass are done; 4.30,
 4.5 to 4.8, 4.9a and 4.10 to 4.13 are done (4.6c moved to Phase 8's cancellation), 4.9b
 (collars) waits on nothing. 2.5b (GPU BC7) is step 16.x (decision entries
 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0 after Phase 8; phase order 1–6,
@@ -171,6 +171,12 @@ Claude agent with no sidekick and no reviewer of another model family. While tha
   and `team_compiler`'s tests, its commit of 2026-10-07, against `kit_config_editor.md`
   (layout rows 0x1C and 0x1D, "Version differences"), TC-KIT-17 and 24 and the decision
   entry "`name.y` is PES 21's value on every version; the template stays".
+  4.34a (b), `aesthetics_export` (`parse/identity.rs` `ExportCoverage`, `coverage`; the
+  draft's and validated export's `coverage`; `export_tag_missing` in `validate/mod.rs`) and
+  `team_compiler` (catalog, help), its commit of 2026-10-07, against
+  `aesthetics_export/object_model.md` "Coverage tag" and the plan's `ExportCoverage` and
+  `coverage` blocks, `messages.md` (`export_tag_missing`), TC-ID-05 to 07; the test renames
+  are mechanical (`Midcup` by default) and need no review.
 - For the lead, on return: the review process on trial (3.1) opens with a full sidekick review
   loop, then runs GPT's loop with a full sidekick loop after each GPT round, calling GPT again
   only once that sidekick loop has ended and GPT's own loop has not; not yet in `AGENTS.md`
@@ -1467,17 +1473,26 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `aesthetics_export/object_model.md` "Validation semantics" (Coverage tag, `ExportCoverage`,
   the two `coverage` fields); `team_compiler/pipeline.md` "Bins accumulation";
   `messages.md` `export_tag_missing`. Slices:
-  - [ ] 4.34a the tag is read and required: `aesthetics_export` gives the coverage of a name
-    (second word, any letter case; a referee export is Full), the draft and the validated
-    export carry it, a team export with neither word is `export_tag_missing` (E, skipped;
-    `check` and `compile`), and every test export, fixture archive, golden and help example
-    is renamed with its tag (TC-ID-01, TC-PLN-03 and TC-KIT-14, a `Midcup` export, already
-    name tagged exports; their tests still use untagged names until this slice). IDs: TC-ID-05, 06, 07 → verify: the
-    three scenarios; the parity test's CPK is unchanged by the renames.
+  - [x] 4.34a the tag is read and required, done 2026-10-07 (sidekick, landed first time, no
+    lead fix): `aesthetics_export` `parse/identity.rs` `ExportCoverage` and `coverage` (the
+    second token of `team_name`'s split, now a shared `tokens`; `Full`/`Midcup` in any
+    case), the draft's `coverage` (`Full` for a referee export whatever its words), the
+    validated export's, and `export_tag_missing` (Export scope, context `name`, DropExport;
+    not beside `team_name_unknown`); `team_compiler`'s catalog row and a help paragraph.
+    The catalog holds no hint text until Phase 8 (`messages.rs` module doc), so the rename
+    hint is in the help. Test exports take `Midcup` by default (`co - X` → `co Midcup X`,
+    924 lines, a names-only check over every changed file), since today's merge is
+    `Midcup`'s and 4.34b gives `Full` new behavior; `Full` only where a scenario names it
+    (TC-ID-01, TC-PLN-03 and 07). Nine fixtures renamed by the lead (`co Midcup Spring.zip`,
+    `egg Midcup Tracer`, ...; `tracer/old/` keeps its old-layout name), the provenance
+    script with them; the parity CPK unchanged. Gates green (152 of 252); `mutants-diff
+    d1b9b5a`: 19 mutants, 15 caught, 4 unviable, 0 missed; `clef-diff`: 11 windows, no flag
   - [ ] 4.34b `Full` resets the team's `UniColor.bin` record (its committed kits, the count
     theirs, a failed kit's kept entry among them, every other entry unused) and `Midcup`
-    keeps today's merge, a new kit raising the count. IDs: TC-BIN-14, 15 → verify: the two
-    scenarios on the bundled base.
+    keeps today's merge, a new kit raising the count; a `Full` export with no player kit
+    compiles an empty `p1/`, one with no `g1/` an empty `g1/` (decision entry of
+    2026-10-07). IDs: TC-BIN-14, 15, 19, 20 → verify: the four scenarios on the bundled
+    base (team 714's record: kits 0 to 6 and 0x10, count 8).
   - The rest lands with the steps that own the data: the team's stale kit configs removed
     from `UniformParameter.bin` and no FPC patching for a Full export, with 4.21
     (TC-BIN-16); a Full export's compiled players without boots or without gloves losing the
@@ -2774,3 +2789,13 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   - **Test 5:** PES 21 referees load `collar_<ID>`, and its referee configs are read from
     `UniformParameter.bin`; PES 17 inconclusive.
   - **Test 3:** postponed; Test 3b added for kit 2 (edit mode shows only kit 1). No code.
+- **2026-10-07** — implementation resumed (the Devin lead's review rounds paused; the
+  maintainer asks for autonomous work, decisions only they can take logged for later):
+  - **4.33:** `name.y` is PES 21's value on every version.
+  - **Clef full pass (4.c-pass):** 54 flags, 53 rejected and 1 accepted (step 4.c-fix1). The
+    scan now leaves out test modules in files of their own. The maintainer took Workers Paid,
+    so Clef has no daily limit now.
+  - **4.34a:** the coverage tag is read and required.
+  - **Maintainer's rulings:** every team needs one player kit and one goalkeeper kit, so a
+    `Full` export without them compiles an empty `p1/` or `g1/` (TC-BIN-19, 20; TC-BIN-14
+    given a `g1`).

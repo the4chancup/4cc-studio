@@ -217,6 +217,7 @@ pub const ISSUE_CODES: &[&str] = &[
     "source_read_failed",
     "export_empty",
     "team_name_unknown",
+    "export_tag_missing",
     "players_txt_missing",
     "players_txt_line_invalid",
     "players_txt_slot_invalid",

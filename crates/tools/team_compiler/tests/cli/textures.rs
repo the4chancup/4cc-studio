@@ -108,7 +108,7 @@ fn a_png_skin_is_bc7_with_a_full_mip_chain_on_pes_21_and_bc3_on_pes_18() {
     let sandbox = Sandbox::new("tex_png_skin");
     write_skin_player(
         &sandbox,
-        "co - Skin",
+        "co Midcup Skin",
         "05",
         "skin.png",
         &texture_fixture("skin.png"),
@@ -119,7 +119,7 @@ fn a_png_skin_is_bc7_with_a_full_mip_chain_on_pes_21_and_bc3_on_pes_18() {
         (21, PixelFormat::Bc7, BlockCodec::Bc7),
         (18, PixelFormat::Bc3, BlockCodec::Bc3),
     ] {
-        let emitted = compile_entry(&sandbox, "co - Skin", version, &skin);
+        let emitted = compile_entry(&sandbox, "co Midcup Skin", version, &skin);
         let info = ftex::info(&emitted).unwrap();
         assert_eq!(info.format, format, "PES {version}");
         assert_eq!(info.mipmaps, 11, "PES {version}: 1024x1024 down to 1x1");
@@ -133,10 +133,10 @@ fn a_png_skin_is_bc7_with_a_full_mip_chain_on_pes_21_and_bc3_on_pes_18() {
 fn a_bc7_dds_skin_keeps_its_blocks_on_pes_21_and_is_bc3_on_pes_18() {
     let sandbox = Sandbox::new("tex_bc7_skin");
     let source = texture_fixture("bc7.dds");
-    write_skin_player(&sandbox, "co - Skin", "05", "skin.dds", &source);
+    write_skin_player(&sandbox, "co Midcup Skin", "05", "skin.dds", &source);
     let skin = format!("{PLAYER_TEXTURES}/skin.ftex");
 
-    let emitted = compile_entry(&sandbox, "co - Skin", 21, &skin);
+    let emitted = compile_entry(&sandbox, "co Midcup Skin", 21, &skin);
     let round_trip = ftex::ftex_to_dds(&emitted).unwrap();
     let source_blocks = decode(&source, SourceFormat::Dds).unwrap().blocks.unwrap();
     let emitted_blocks = decode(&round_trip, SourceFormat::Dds)
@@ -149,7 +149,7 @@ fn a_bc7_dds_skin_keeps_its_blocks_on_pes_21_and_is_bc3_on_pes_18() {
         "the same BC7 blocks, mip by mip"
     );
 
-    let info = ftex::info(&compile_entry(&sandbox, "co - Skin", 18, &skin)).unwrap();
+    let info = ftex::info(&compile_entry(&sandbox, "co Midcup Skin", 18, &skin)).unwrap();
     assert_eq!(info.format, PixelFormat::Bc3);
     assert_eq!(info.mipmaps, 6);
 }
@@ -161,7 +161,7 @@ fn a_raster_nrm_texture_is_a_bc3_normal_map_on_pes_21() {
     // normal map, which is BC3 (DXT5nm) on every version.
     write_skin_player(
         &sandbox,
-        "co - Nrm",
+        "co Midcup Nrm",
         "05",
         "skin_nrm.png",
         &texture_fixture("kit.png"),
@@ -169,7 +169,7 @@ fn a_raster_nrm_texture_is_a_bc3_normal_map_on_pes_21() {
 
     let emitted = compile_entry(
         &sandbox,
-        "co - Nrm",
+        "co Midcup Nrm",
         21,
         &format!("{PLAYER_TEXTURES}/skin_nrm.ftex"),
     );
@@ -200,7 +200,7 @@ fn hair_model_naming_skin_and_nrm() -> Vec<u8> {
 #[test]
 fn an_opaque_skin_is_bc1_and_its_normal_map_bc3_with_x_in_alpha_y_in_green_on_pes_18() {
     let sandbox = Sandbox::new("tex_pes18_codecs");
-    let export = "exports/co - Codecs";
+    let export = "exports/co Midcup Codecs";
     let player = format!("{export}/Players/05 - A");
     sandbox.write(
         &format!("{player}/fcl_hair.fmdl"),
@@ -216,7 +216,7 @@ fn an_opaque_skin_is_bc1_and_its_normal_map_bc3_with_x_in_alpha_y_in_green_on_pe
     let run = sandbox.run(&pes_settings(&sandbox, 18), &["compile"]);
 
     assert_eq!(
-        findings_of(&run.messages(), "co - Codecs"),
+        findings_of(&run.messages(), "co Midcup Codecs"),
         [
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=fcl_hair.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
@@ -260,22 +260,22 @@ fn an_opaque_skin_is_bc1_and_its_normal_map_bc3_with_x_in_alpha_y_in_green_on_pe
 fn png_and_tga_kit_textures_are_ftex_under_the_kit_s_names_and_a_webp_portrait_is_a_dds() {
     let sandbox = Sandbox::new("tex_kit_formats");
     sandbox.write(
-        "exports/co - Kit/Kits/p1/kit.png",
+        "exports/co Midcup Kit/Kits/p1/kit.png",
         &texture_fixture("kit.png"),
     );
     sandbox.write(
-        "exports/co - Kit/Kits/p1/kit_back.tga",
+        "exports/co Midcup Kit/Kits/p1/kit_back.tga",
         &texture_fixture("kit_back.tga"),
     );
     sandbox.write(
-        "exports/co - Kit/Portraits/player_05.webp",
+        "exports/co Midcup Kit/Portraits/player_05.webp",
         &texture_fixture("portrait.webp"),
     );
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
 
     assert_eq!(
-        findings_of(&run.messages(), "co - Kit"),
+        findings_of(&run.messages(), "co Midcup Kit"),
         [
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info team_colors_missing [Keep] ()",
@@ -340,11 +340,11 @@ fn uncompressed_dds() -> Vec<u8> {
     .unwrap()
 }
 
-/// Writes `exports/co - Sizes`: slot 03 a 3x3 skin, slot 04 a 300x300 one, slot 05 PNG bytes
+/// Writes `exports/co Midcup Sizes`: slot 03 a 3x3 skin, slot 04 a 300x300 one, slot 05 PNG bytes
 /// under `skin.dds` (renamed, not resaved), each beside the hair model naming it, and a kit,
 /// so the CPK is written whatever the folders become.
 fn write_texture_findings_export(sandbox: &Sandbox) {
-    let export = "co - Sizes";
+    let export = "co Midcup Sizes";
     write_skin_player(
         sandbox,
         export,
@@ -392,7 +392,7 @@ fn texture_findings_are_checked_and_each_drops_its_folder() {
     ];
 
     let check = sandbox.run(&pes21_settings(&sandbox), &["check"]);
-    assert_eq!(findings_of(&check.messages(), "co - Sizes"), findings);
+    assert_eq!(findings_of(&check.messages(), "co Midcup Sizes"), findings);
     assert_eq!(check.exit_code(), 1);
 
     let compile = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
@@ -400,7 +400,10 @@ fn texture_findings_are_checked_and_each_drops_its_folder() {
     compiled.push("Info team_colors_missing [Keep] ()".to_owned());
     compiled.push("Info kit_config_generated [Keep] at Kits/p1 ()".to_owned());
     compiled.push("Info kit_colors_derived [Keep] at Kits/p1 ()".to_owned());
-    assert_eq!(findings_of(&compile.messages(), "co - Sizes"), compiled);
+    assert_eq!(
+        findings_of(&compile.messages(), "co Midcup Sizes"),
+        compiled
+    );
     assert_eq!(compile.exit_code(), 1);
     // The kit is in the CPK; nothing of the three folders is, neither a face nor a texture.
     let paths = compiled_paths(&sandbox);
@@ -422,7 +425,7 @@ fn pass_through_keeps_an_odd_sized_texture_s_folder_but_not_a_renamed_one() {
     let run = sandbox.run(&pass_through_settings(&sandbox), &["compile"]);
 
     assert_eq!(
-        findings_of(&run.messages(), "co - Sizes"),
+        findings_of(&run.messages(), "co Midcup Sizes"),
         [
             hair_weights("03"),
             "Error texture_too_small [Keep] at Players/03 - A (file=skin.png)".to_owned(),
@@ -462,18 +465,18 @@ fn a_texture_finding_drops_the_player_folder_naming_the_file() {
     let sandbox = Sandbox::new("tex_drop_texture_codec_unsupported");
     write_skin_player(
         &sandbox,
-        "co - Drop",
+        "co Midcup Drop",
         "05",
         "skin.dds",
         &texture_fixture("bc6h.dds"),
     );
     // A kit beside the folder, so the CPK is written and the folder's absence observable.
-    sandbox.write("exports/co - Drop/Kits/p1/kit.dds", &tracer_kit());
+    sandbox.write("exports/co Midcup Drop/Kits/p1/kit.dds", &tracer_kit());
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
 
     assert_eq!(
-        findings_of(&run.messages(), "co - Drop"),
+        findings_of(&run.messages(), "co Midcup Drop"),
         [
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=fcl_hair.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
@@ -499,17 +502,17 @@ fn a_texture_finding_drops_the_player_folder_naming_the_file() {
 #[test]
 fn a_kit_texture_finding_drops_the_kit() {
     let sandbox = Sandbox::new("tex_kit_drop");
-    sandbox.write("exports/co - Kit/Kits/p1/kit.dds", &tracer_kit());
+    sandbox.write("exports/co Midcup Kit/Kits/p1/kit.dds", &tracer_kit());
     sandbox.write(
-        "exports/co - Kit/Kits/p1/kit_back.png",
+        "exports/co Midcup Kit/Kits/p1/kit_back.png",
         &texture_fixture("tiny.png"),
     );
-    sandbox.write("exports/co - Kit/Kits/g1/kit.dds", &tracer_kit());
+    sandbox.write("exports/co Midcup Kit/Kits/g1/kit.dds", &tracer_kit());
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
 
     assert_eq!(
-        findings_of(&run.messages(), "co - Kit"),
+        findings_of(&run.messages(), "co Midcup Kit"),
         [
             "Error texture_too_small [DropFolder] at Kits/p1 (file=kit_back.png)",
             "Info export_identified [Keep] (team=/co/, id=714)",
@@ -526,21 +529,24 @@ fn a_kit_texture_finding_drops_the_kit() {
 #[test]
 fn a_kit_texture_too_big_drops_its_kit_and_an_uncompressed_kit_is_bc7() {
     let sandbox = Sandbox::new("tex_kit_too_big");
-    sandbox.write("exports/co - Kit/Kits/p1/kit.dds", &bc1_dds(4096, 4096));
-    sandbox.write("exports/co - Kit/Kits/p2/kit.dds", &uncompressed_dds());
+    sandbox.write(
+        "exports/co Midcup Kit/Kits/p1/kit.dds",
+        &bc1_dds(4096, 4096),
+    );
+    sandbox.write("exports/co Midcup Kit/Kits/p2/kit.dds", &uncompressed_dds());
     let too_big = "Error kit_texture_too_big [DropFolder] at Kits/p1 (file=kit.dds)";
     let identified = "Info export_identified [Keep] (team=/co/, id=714)";
 
     let check = sandbox.run(&pes21_settings(&sandbox), &["check"]);
     assert_eq!(
-        findings_of(&check.messages(), "co - Kit"),
+        findings_of(&check.messages(), "co Midcup Kit"),
         [too_big, identified]
     );
     assert_eq!(check.exit_code(), 1);
 
     let compile = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
     assert_eq!(
-        findings_of(&compile.messages(), "co - Kit"),
+        findings_of(&compile.messages(), "co Midcup Kit"),
         [
             too_big,
             identified,
@@ -559,7 +565,7 @@ fn a_kit_texture_too_big_drops_its_kit_and_an_uncompressed_kit_is_bc7() {
 #[test]
 fn a_common_texture_the_deep_pass_drops_takes_the_player_linking_it() {
     let sandbox = Sandbox::new("tex_common_link_dropped");
-    let export = "exports/co - Link";
+    let export = "exports/co Midcup Link";
     sandbox.write(
         &format!("{export}/Players/05 - A/fcl_hair.fmdl"),
         &hair_model_naming("skin.dds"),
@@ -573,7 +579,7 @@ fn a_common_texture_the_deep_pass_drops_takes_the_player_linking_it() {
     let run = sandbox.run(&pes21_settings(&sandbox), &["check"]);
 
     assert_eq!(
-        findings_of(&run.messages(), "co - Link"),
+        findings_of(&run.messages(), "co Midcup Link"),
         [
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=fcl_hair.fmdl, count=1662)",
             "Error texture_too_small [DropFile] at Common/skin.png (file=skin.png)",
@@ -589,7 +595,7 @@ fn a_common_texture_the_deep_pass_drops_takes_the_player_linking_it() {
 fn a_common_texture_whose_task_fails_lets_the_players_linking_it_commit() {
     let sandbox = Sandbox::new("tex_common_task_failed");
     // The deep pass drops the 3x3 hair.png: the player linking it follows.
-    let dropped = "exports/co - Dropped";
+    let dropped = "exports/co Midcup Dropped";
     sandbox.write(
         &format!("{dropped}/Players/05 - A/fcl_hair.fmdl"),
         &hair_model_naming("hair.dds"),
@@ -601,7 +607,7 @@ fn a_common_texture_whose_task_fails_lets_the_players_linking_it_commit() {
     );
     // Bytes no decoder reads give no deep-pass finding: the conversion fails the export's
     // Common task instead, which commits on its own.
-    let failed = "exports/dbg - Failed";
+    let failed = "exports/dbg Midcup Failed";
     sandbox.write(
         &format!("{failed}/Players/05 - A/fcl_hair.fmdl"),
         &hair_model_naming("hair.dds"),
@@ -613,7 +619,7 @@ fn a_common_texture_whose_task_fails_lets_the_players_linking_it_commit() {
 
     let messages = run.messages();
     assert_eq!(
-        findings_of(&messages, "co - Dropped"),
+        findings_of(&messages, "co Midcup Dropped"),
         [
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=fcl_hair.fmdl, count=1662)",
             "Error texture_too_small [DropFile] at Common/hair.png (file=hair.png)",
@@ -622,7 +628,7 @@ fn a_common_texture_whose_task_fails_lets_the_players_linking_it_commit() {
             "Info team_colors_missing [Keep] ()",
         ]
     );
-    let failed_findings = findings_of(&messages, "dbg - Failed");
+    let failed_findings = findings_of(&messages, "dbg Midcup Failed");
     assert_eq!(
         failed_findings[..3],
         [
@@ -653,20 +659,20 @@ fn a_common_texture_whose_task_fails_lets_the_players_linking_it_commit() {
 #[test]
 fn a_common_texture_finding_leaves_that_file_out_and_the_rest_is_emitted() {
     let sandbox = Sandbox::new("tex_common_drop");
-    sandbox.copy_tracer_face("exports/co - Common/Players/03 - A");
+    sandbox.copy_tracer_face("exports/co Midcup Common/Players/03 - A");
     sandbox.write(
-        "exports/co - Common/Common/tiny.png",
+        "exports/co Midcup Common/Common/tiny.png",
         &texture_fixture("tiny.png"),
     );
     sandbox.write(
-        "exports/co - Common/Common/hair.png",
+        "exports/co Midcup Common/Common/hair.png",
         &texture_fixture("kit.png"),
     );
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
 
     assert_eq!(
-        findings_of(&run.messages(), "co - Common"),
+        findings_of(&run.messages(), "co Midcup Common"),
         [
             "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=boots.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=fcl_hair.fmdl, count=1662)",
@@ -688,7 +694,7 @@ fn a_common_texture_finding_leaves_that_file_out_and_the_rest_is_emitted() {
 #[test]
 fn a_common_texture_and_a_shared_folder_s_texture_in_png_are_emitted_as_ftex() {
     let sandbox = Sandbox::new("tex_common_shared_png");
-    let export = "exports/co - Png";
+    let export = "exports/co Midcup Png";
     sandbox.write(&format!("{export}/Players/05 - A/legs.fmdl.common"), b"");
     sandbox.write(
         &format!("{export}/Common/legs.fmdl"),
@@ -711,7 +717,7 @@ fn a_common_texture_and_a_shared_folder_s_texture_in_png_are_emitted_as_ftex() {
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
 
     assert_eq!(
-        findings_of(&run.messages(), "co - Png"),
+        findings_of(&run.messages(), "co Midcup Png"),
         [
             "Info fmdl_weights_not_normalized [Keep] at Boots/Crocs (file=boots.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Common/legs.fmdl (file=legs.fmdl, count=1662)",
@@ -743,7 +749,7 @@ fn a_common_texture_and_a_shared_folder_s_texture_in_png_are_emitted_as_ftex() {
 #[test]
 fn a_kit_number_without_its_texture_variant_gets_the_lowest_one_and_the_model_names_kit_n() {
     let sandbox = Sandbox::new("tex_kit_variants");
-    let export = "exports/co - Variants";
+    let export = "exports/co Midcup Variants";
     let player = format!("{export}/Players/05 - A");
     sandbox.write(
         &format!("{player}/fcl_hair.fmdl"),
@@ -762,7 +768,7 @@ fn a_kit_number_without_its_texture_variant_gets_the_lowest_one_and_the_model_na
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
 
     assert_eq!(
-        findings_of(&run.messages(), "co - Variants"),
+        findings_of(&run.messages(), "co Midcup Variants"),
         [
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=fcl_hair.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
