@@ -853,7 +853,13 @@ describes behavior, not a serial scheduling requirement:
    the change. Output goes to `{pes_folder_path}\livecpk\`, the root that runtime serves (written
    with the same access path as deployment to `download/`, elevation included); Studio
    is the folder's only writer, so a sideload run replaces its whole contents with the run's
-   output and a file dropped from the export never lingers there. The runtime is not Studio's:
+   output and a file dropped from the export never lingers there. The tree is staged like a CPK
+   ("Staging" below) and replaces `livecpk\`'s contents only once the run has written it whole:
+   a run that fails, is aborted or writes nothing leaves the previous tree in place, as a normal
+   run leaves the previous CPK. A sideload run deploys nothing to `download/`, so a missing
+   `DpFileList.bin` is the Warning a `--no-deploy` run gets, and a `pes_folder_path` that is not
+   a folder is an invalid configuration (exit code 2): there is no folder to put `livecpk\` in.
+   The runtime is not Studio's:
    - **PES 18–21: FoxDen** (`Tools_4cc/FoxDen`, the community's `dinput8.dll` proxy, maintained by
      a close contributor, who takes requests). Its LiveCPK serves `livecpk\` while the folder
      exists, picks up files written while PES runs on their next load, and loads however PES is

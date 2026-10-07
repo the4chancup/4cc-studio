@@ -4368,3 +4368,19 @@ need the dropped folder back, which the validated export no longer holds. A set 
 the lib free of CPK paths and of the walk.
 Plan: `aesthetics_export/object_model.md` "Validation semantics" (what reaches the crate
 through `ValidationContext`) and "Structure pass types" (its code block).
+
+## 2026-10-07 — team_compiler — the sideload tree is staged, and 4.23 lands in two slices
+Decision: a sideload run writes its loose tree under the run's staging folder and replaces the
+contents of `{pes_folder_path}/livecpk/` with it only once the tree is written whole; a run that
+fails, aborts or writes nothing leaves `livecpk/` as it was. A sideload run counts as not
+deploying (`dpfilelist_missing` is a Warning), and `--mode sideload` with a `pes_folder_path`
+that is not a folder is an invalid configuration (exit code 2). Step 4.23 lands as 4.23a (the
+output sink and sideload mode) and 4.23b (test mode and the materialize seam); TC-OUT-09's
+referee half lands with 4.19, which compiles referee exports.
+Why: the plan stages every CPK so a failed run leaves nothing half-written; clearing
+`livecpk/` first and writing into it would leave a modeler with a half tree the game serves
+mid-match. Sideload never touches `download/`, so an Error for a list it does not need would
+fail every sideload run on a machine without one. With no game folder the tree has no place
+to go, and a run that silently wrote nowhere would look like a success.
+Plan: `team_compiler/pipeline.md` "5. Writer" step 5 (sideload paragraph); `team_compiler/settings.md`
+"CLI" (the sideload refusals).

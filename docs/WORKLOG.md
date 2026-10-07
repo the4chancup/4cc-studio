@@ -1409,6 +1409,9 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   texture path rewritten and no `.fpk` anywhere under `test_output/`; `--mode sideload` with a
   stale `livecpk/old.txt` removes it and writes files whose relative paths and bytes equal the
   entries of a normal-mode CPK of the same export
+  - [ ] 4.23a the output sink and sideload mode (TC-OUT-09 but its referee half, which lands
+    with 4.19; TC-OUT-10). Brief `.tmp/brief_4_23a.md`
+  - [ ] 4.23b test mode and the materialize seam (TC-OUT-07, 11, 17)
 
 - [ ] 4.24 **Deployment**: each staged CPK copied to `download/{name}.cpk.partial` and renamed over
   the old one, the marker file, the staging folder removed; the preflight before any export is

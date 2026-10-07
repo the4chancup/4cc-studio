@@ -141,7 +141,8 @@ plan), then runs
 
 and PES, with its sideloading runtime serving `livecpk\` (FoxDen on 18–21, Sider 3 on 17), shows
 the result on the next model load. `--mode sideload` with `pes_version` 15 or 16 is an invalid
-configuration (exit code 2): no sideloading runtime exists for them. Without `--export` the plugin
+configuration (exit code 2): no sideloading runtime exists for them; so is one whose
+`pes_folder_path` is not a folder. Without `--export` the plugin
 would recompile every export in the folder on each iteration. Console output follows the ordinary
 `-` prefixed format, and the exit code gives a caller a one-line verdict: **0** clean (Warning and
 Info findings allowed), **1** finished with an Error finding in some scope (something was dropped,
