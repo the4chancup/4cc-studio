@@ -234,7 +234,7 @@ format:
    CRLF/CR newlines are normalized to LF. Invalid encoding reports the file-scoped
    `notes_encoding_invalid` and drops only the note. Empty or whitespace-only notes produce no
    entry. Valid non-empty content is stored as a manifest-staged non-model artifact under a team
-   header, replacing Red's "Other Notes" extraction from the Team Note txt. `teamnotes.txt` is
+   header (`/refs/` for a refs export), replacing Red's "Other Notes" extraction from the Team Note txt. `teamnotes.txt` is
    rendered only after final export outcomes are known: it is a deterministic UTF-8/LF run artifact,
    atomically replaced, ordered by canonical export order, and contains only accepted exports with
    non-empty valid notes. (Blue: `note_txt_append`) An *accepted* export is one run planning

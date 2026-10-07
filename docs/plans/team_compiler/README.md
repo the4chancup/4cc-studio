@@ -273,7 +273,14 @@ one team are each skipped with `duplicate_aesthetics_export` (step 4.13a; until 
 the writer's duplicate-path invariant, which stays as the backstop: `cpk_write_failed` aborts
 the run naming the path, and no CPK is written). `check` runs the
 structure pass on every export, including content `compile` refuses (deep format checks are
-Phase 4's). The code is withdrawn when Phase 4 compiles everything.
+Phase 4's). The code is withdrawn when Phase 4 compiles everything. Step 4.19 lifts the
+`refs` item for a Fox target: a refs export compiles, and in its place the gate names the
+refs export's first kit by slot, then its logo, then its first portrait (a mapped folder's
+`portrait.*` in folder order, then a `Portraits/` file), since a referee has no kit slot, team
+logo or player id; the referees' kits are the template tree's (`blue_port.md` "Referee
+export processing"). A refs export plans no colors record (its `colors.txt` is not read), no
+`team_colors_missing`, no kits and no `BootsList.bin`/`GloveList.bin` rows: the game's
+referee hook loads slot NN's `k99NN`/`g99NN` by number.
 Findings are observed
 in `check`'s and `compile`'s console output, one line per finding naming its code and scope; the
 compiled CPK's content is the parity test's (`testing.md`), not a scenario's. Of the events,

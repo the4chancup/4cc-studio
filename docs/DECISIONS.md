@@ -4566,3 +4566,17 @@ the provenance is a folder copy. (4) pre-Fox compiling is still gated and its fa
 4.14's pre-Fox export.
 Plan: `team_compiler/pipeline.md` "5. Writer" step 5, "Multi-CPK mode" (the boundary bullet),
 "Resolved decisions" (embedded templates); `resources/templates/README.md`.
+
+## 2026-10-07 — team_compiler — a refs export's kits, logo and portraits are named by the gate; its note goes under `/refs/`
+Decision: on Fox a refs export compiles its mapped player folders, shared folders and Common
+textures (team 999 in game paths), and the subset gate names, in place of `refs`, its first kit
+by slot, then its logo, then its first portrait. It plans no colors record, no
+`team_colors_missing`, no kits and no `BootsList.bin`/`GloveList.bin` rows. Its `notes.txt` goes
+into `teamnotes.txt` under the header `/refs/`.
+Why: a referee has no kit slot, team logo or player id, so compiling these would write files the
+game never loads for a referee, and dropping them silently would hide a member's mistake; the
+gate's refusal is the existing way of saying "not compiled". Rows are not written because the
+game's referee hook loads slot NN's `k99NN`/`g99NN` by number, and Red writes none. The note is
+kept because a cup admin reads `teamnotes.txt` for every compiled export.
+Plan: `team_compiler/README.md` (the Phase 3 gate paragraph), `team_compiler/pipeline.md`
+"Notes collection".
