@@ -11,18 +11,20 @@ use std::path::Path;
 use dds_convert::{
     BlockCodec, Blocks, Decoded, SourceFormat, Target, TextureRole, decode, encode_dds, encode_png,
 };
-use fmdl::ops::paths::texture_paths;
+use fmdl::ops::paths::{rewrite_texture_paths, texture_paths, used_texture_paths};
 use fmdl::{FmdlFile, Model};
 use ftex::PixelFormat;
 use pes_version::PesVersion;
 
+use crate::bins::{install_cpk, install_names};
 use crate::common::Sandbox;
+use crate::common_links::texture_directories;
 use crate::compile::{
     compiled_kits, compiled_players, cpk_entries, kit_texture, pass_through_settings, pes_settings,
     pes21_settings, tracer_kit, tracer_player_file,
 };
-use crate::findings_of;
 use crate::models::face_package;
+use crate::{CLEAN_PLAYER, clean_model, findings_of};
 
 /// The player's texture home, the per-player common subfolder.
 const PLAYER_TEXTURES: &str = "Asset/model/character/common/714/05 - A/sourceimages/#windx11";
@@ -805,4 +807,276 @@ fn a_kit_number_without_its_texture_variant_gets_the_lowest_one_and_the_model_na
         )),
         "{paths:?}"
     );
+}
+
+/// The game's team-`000` Common texture directory, which a compile makes the team's.
+const COMMON_000: &str = "/Assets/pes16/model/character/common/000/sourceimages/";
+
+/// The tracer's model `model` (`fcl_hair.fmdl`) with each texture `(file name, new file name)`
+/// of `renames` renamed and pointed at `COMMON_000`, through `fmdl`'s texture-path rewriting;
+/// asserts a mesh uses every renamed texture, so the compiler looks for it.
+fn tracer_model_renaming(model: &str, renames: &[(&str, &str)]) -> Vec<u8> {
+    let mut file = FmdlFile::read(&tracer_player_file(model)).unwrap();
+    rewrite_texture_paths(&mut file, |path| {
+        if let Some((_, renamed)) = renames.iter().find(|(old, _)| path.file_name == *old) {
+            path.file_name = (*renamed).to_owned();
+            path.directory = COMMON_000.to_owned();
+        }
+    })
+    .unwrap();
+    let used = used_texture_paths(&file).unwrap();
+    for (_, renamed) in renames {
+        assert!(
+            used.iter()
+                .any(|path| path.file_name == *renamed && path.directory == COMMON_000),
+            "{renamed} unused: {used:?}"
+        );
+    }
+    file.write()
+}
+
+/// Writes TC-TEX-05's export: slot 05's `face_high.fmdl` naming `hair.dds` in the team's Common
+/// output, and no `Common/`; and slot 03's clean face, so a CPK is written when slot 05's face
+/// is left out.
+fn write_common_hair_player(sandbox: &Sandbox) {
+    sandbox.write(
+        "exports/co Midcup Hair/Players/05 - A/face_high.fmdl",
+        &tracer_model_renaming("fcl_hair.fmdl", &[("shirt.dds", "hair.dds")]),
+    );
+    sandbox.write(
+        &format!("exports/co Midcup Hair/{CLEAN_PLAYER}"),
+        &clean_model(),
+    );
+}
+
+/// Settings compiling `4cc_62_midcup` for PES 21 with the sandbox's PES folder.
+fn midcup_62_settings(sandbox: &Sandbox) -> String {
+    format!(
+        "{}[team-compiler]\ncpk_name = \"4cc_62_midcup\"\n",
+        pes21_settings(sandbox)
+    )
+}
+
+/// Installs TC-TEX-05's list, `4cc_61_midcup.cpk`, `4cc_62_midcup.cpk` and
+/// `4cc_63_midcup.cpk` in that order, and the CPK `holder` holding the team's Common `hair`.
+fn install_hair_in(sandbox: &Sandbox, holder: &str) {
+    install_names(
+        sandbox,
+        &[
+            "4cc_61_midcup.cpk",
+            "4cc_62_midcup.cpk",
+            "4cc_63_midcup.cpk",
+        ],
+    );
+    install_cpk(
+        sandbox,
+        holder,
+        &[(
+            "Asset/model/character/common/714/sourceimages/#windx11/hair.ftex",
+            b"compiled on an earlier day",
+        )],
+    );
+}
+
+/// The slot-05 finding of TC-TEX-05's missing hair, at `severity` and `disposition`.
+fn hair_not_found(severity: &str, disposition: &str) -> String {
+    format!(
+        "{severity} fmdl_texture_not_found [{disposition}] at Players/05 - A (model=face_high.fmdl, texture=/Assets/pes16/model/character/common/714/sourceimages/hair.dds)"
+    )
+}
+
+/// The findings of TC-TEX-05's export, ending with `task`, its face task's.
+fn hair_export_findings(task: &[String]) -> Vec<String> {
+    let mut findings = vec![
+        "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=face_high.fmdl, count=1662)".to_owned(),
+        "Info export_identified [Keep] (team=/co/, id=714)".to_owned(),
+        "Info team_colors_missing [Keep] ()".to_owned(),
+    ];
+    findings.extend(task.iter().cloned());
+    findings
+}
+
+// TC-TEX-05
+#[test]
+fn a_common_texture_only_an_earlier_installed_cpk_holds_is_found_and_a_later_one_s_is_not() {
+    let sandbox = Sandbox::new("tex_installed_earlier");
+    write_common_hair_player(&sandbox);
+    install_hair_in(&sandbox, "4cc_61_midcup.cpk");
+
+    let run = sandbox.run(&midcup_62_settings(&sandbox), &["compile"]);
+
+    let messages = run.messages();
+    assert_eq!(
+        findings_of(&messages, "co Midcup Hair"),
+        hair_export_findings(&[])
+    );
+    assert!(
+        messages
+            .iter()
+            .all(|line| !line.contains("fmdl_texture_not_found")),
+        "{messages:?}"
+    );
+    assert_eq!(run.exit_code(), 0);
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_62_midcup.cpk"));
+    let model = face_package(&entries);
+    // The tracer's hair names its `shirt.dds`, renamed `hair.dds`, in two entries.
+    let hair = texture_directories(model.get("face_high.fmdl").unwrap(), "hair.dds");
+    assert_eq!(
+        hair,
+        ["/Assets/pes16/model/character/common/714/sourceimages/"; 2]
+    );
+}
+
+// TC-TEX-05
+#[test]
+fn a_common_texture_only_a_later_installed_cpk_holds_leaves_the_face_out() {
+    let sandbox = Sandbox::new("tex_installed_later");
+    write_common_hair_player(&sandbox);
+    install_hair_in(&sandbox, "4cc_63_midcup.cpk");
+
+    let run = sandbox.run(&midcup_62_settings(&sandbox), &["compile"]);
+
+    assert_eq!(
+        findings_of(&run.messages(), "co Midcup Hair"),
+        hair_export_findings(&[hair_not_found("Error", "DropFolder")])
+    );
+    assert_eq!(run.exit_code(), 1);
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_62_midcup.cpk"));
+    let slot_05: Vec<&String> = entries
+        .keys()
+        .filter(|path| path.contains("71405") || path.contains("05 - A"))
+        .collect();
+    assert!(slot_05.is_empty(), "{slot_05:?}");
+}
+
+// TC-TEX-05
+#[test]
+fn a_common_texture_with_no_pes_folder_to_look_in_is_a_warning_and_the_face_is_kept() {
+    let sandbox = Sandbox::new("tex_installed_unknown");
+    write_common_hair_player(&sandbox);
+
+    let run = sandbox.run(&midcup_62_settings(&sandbox), &["compile"]);
+
+    assert_eq!(
+        findings_of(&run.messages(), "co Midcup Hair"),
+        hair_export_findings(&[hair_not_found("Warning", "Keep")])
+    );
+    assert_eq!(run.exit_code(), 0);
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_62_midcup.cpk"));
+    assert!(face_package(&entries).get("face_high.fmdl").is_some());
+}
+
+#[test]
+fn a_texture_entry_no_mesh_uses_is_not_looked_for() {
+    let sandbox = Sandbox::new("tex_unused_entry");
+    // The tracer's hair with one more texture entry, `unused.dds` in the team's Common output,
+    // which no material instance's texture run names.
+    let mut file = FmdlFile::read(&tracer_player_file("fcl_hair.fmdl")).unwrap();
+    file.textures.push(file.textures[0].clone());
+    let unused = file.textures.len() - 1;
+    let mut index = 0;
+    rewrite_texture_paths(&mut file, |path| {
+        if index == unused {
+            path.file_name = "unused.dds".to_owned();
+            path.directory = COMMON_000.to_owned();
+        }
+        index += 1;
+    })
+    .unwrap();
+    let used = used_texture_paths(&file).unwrap();
+    assert!(
+        used.iter().all(|path| path.file_name != "unused.dds"),
+        "{used:?}"
+    );
+    sandbox.write(
+        "exports/co Midcup Unused/Players/05 - A/face_high.fmdl",
+        &file.write(),
+    );
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+    let messages = run.messages();
+    assert!(
+        messages
+            .iter()
+            .all(|line| !line.contains("fmdl_texture_not_found")),
+        "{messages:?}"
+    );
+    assert_eq!(run.exit_code(), 0);
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let model = face_package(&entries);
+    assert_eq!(
+        texture_directories(model.get("face_high.fmdl").unwrap(), "unused.dds"),
+        ["/Assets/pes16/model/character/common/714/sourceimages/"],
+        "the entry is kept, pointed at the team"
+    );
+}
+
+#[test]
+fn a_shared_folder_s_model_naming_a_texture_in_common_finds_it_there() {
+    let sandbox = Sandbox::new("tex_shared_common");
+    let export = "exports/co Midcup Crocs";
+    sandbox.write(&format!("{export}/Players/05 - A/Crocs.boots"), b"");
+    sandbox.write(
+        &format!("{export}/Boots/Crocs/boots.fmdl"),
+        &tracer_model_renaming("boots.fmdl", &[("shirt.dds", "hair.dds")]),
+    );
+    sandbox.write(
+        &format!("{export}/Common/hair.dds"),
+        &tracer_player_file("shirt.dds"),
+    );
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+    let messages = run.messages();
+    assert!(
+        messages
+            .iter()
+            .all(|line| !line.contains("fmdl_texture_not_found")),
+        "{messages:?}"
+    );
+    assert_eq!(run.exit_code(), 0);
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    assert!(
+        entries.contains_key("Asset/model/character/common/714/sourceimages/#windx11/hair.ftex"),
+        "{:?}",
+        entries.keys()
+    );
+}
+
+// TC-CMN-06
+#[test]
+fn dummy_kit_textures_are_never_looked_for_and_keep_their_names() {
+    let sandbox = Sandbox::new("tex_dummy_kit");
+    sandbox.write(
+        "exports/co Midcup Dummy/Players/05 - A/face_high.fmdl",
+        &tracer_model_renaming(
+            "fcl_hair.fmdl",
+            &[
+                ("dummy_kit.dds", "dummy_kit.dds"),
+                ("dummy_srm.dds", "dummy_kit_srm.dds"),
+            ],
+        ),
+    );
+
+    for command in ["check", "compile"] {
+        let run = sandbox.run(&pes21_settings(&sandbox), &[command]);
+        let messages = run.messages();
+        assert!(
+            messages
+                .iter()
+                .all(|line| !line.contains("fmdl_texture_not_found")),
+            "{command}: {messages:?}"
+        );
+        assert_eq!(run.exit_code(), 0, "{command}");
+    }
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let model = FmdlFile::read(face_package(&entries).get("face_high.fmdl").unwrap()).unwrap();
+    let names: Vec<String> = texture_paths(&model)
+        .unwrap()
+        .into_iter()
+        .filter(|path| path.directory == "/Assets/pes16/model/character/common/714/sourceimages/")
+        .map(|path| path.file_name)
+        .collect();
+    assert_eq!(names, ["dummy_kit.dds", "dummy_kit_srm.dds"]);
 }

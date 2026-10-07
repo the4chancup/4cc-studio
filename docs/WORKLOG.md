@@ -208,6 +208,13 @@ Claude agent with no sidekick and no reviewer of another model family. While tha
   2026-10-07, against `pipeline.md` "Bins accumulation" (player appearance tables, the walk's
   edges), "Game paths reference", `messages.md` `player_table_missing`, TC-BIN-10, 11, 12, 17,
   22 and the decision entry "a player table no installed CPK holds is not written".
+  4.29a (b), `fmdl` (`ops/paths.rs` `used_texture_paths`) and `team_compiler`
+  (`bins/installed.rs` `InstalledPaths`, `processing/model.rs` `texture_supply`, `messages.rs`
+  `ErrorUnlessKept`, `plan/mod.rs` shared folders' Common stems), its commit of 2026-10-07,
+  against `pipeline.md` "Resolved decisions" ("A texture a model names must exist"), "Bins
+  accumulation" (the walk opens every listed CPK), `messages.md` `fmdl_texture_not_found`,
+  TC-TEX-05, TC-CMN-06 and the decision entry "what 'a texture a model names must exist'
+  compares, and where it runs".
 - For the lead, on return: the review process on trial (3.1) opens with a full sidekick review
   loop, then runs GPT's loop with a full sidekick loop after each GPT round, calling GPT again
   only once that sidekick loop has ended and GPT's own loop has not; not yet in `AGENTS.md`
@@ -1502,6 +1509,19 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `processing/model.rs`, `bins/`) → verify: TC-TEX-05's three runs (the CPK holding the
   texture, lacking it, no PES folder): no finding, Error with the folder out of the CPK, Warning
   with the folder in it
+  - [x] 4.29a the model check (TC-TEX-05, TC-CMN-06): done 2026-10-07 (Opus 5.5, first time, one
+    lead fix: a doc line rewrapped). The working-bin walk opens every CPK listed before the run's
+    and keeps their entry paths, folded (`InstalledPaths`, `Unknown` when the walk cannot be
+    made); `fmdl::ops::paths::used_texture_paths`; `processing/model.rs` `texture_supply` after
+    each part's paths are pointed; `fmdl_texture_not_found` as a task failure (Error, package
+    left out) or a `Keep` finding per texture (Warning), the catalog's `ErrorUnlessKept`.
+    Contradiction accepted: shared boots and gloves folders now carry the export's Common
+    stems (`plan/mod.rs`), else a shared model naming a `Common/` texture was a false Error.
+    Gates green (171 of 254); Clef 55 windows, no flag; `mutants-diff 7f1fc58`: 35, 24
+    caught, 11 unviable, 0 missed (remote peak 9.00 GiB, at the cap, no build killed)
+  - [ ] 4.29b the texture link an installed CPK satisfies (TC-TEX-11): `aesthetics_export`'s
+    `ValidationContext` takes the team's installed Common texture stems; `check` walks the
+    tables of contents too. Brief `.tmp/brief_4_29b.md`
 
 - [x] 4.30 **Marker names**: done 2026-10-03 (Opus 5.5, first time; one contradiction accepted:
   it also renamed the markers in `pes_savefile`'s injected `settings.toml` comments, outside its
@@ -2927,3 +2947,6 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   - **4.22:** the Fox boots and gloves lists and the player appearance table come from the
     installed CPKs and carry the compiled players' rows; a list no installed CPK holds is not
     written (`player_table_missing`, decision entry).
+  - **4.29a:** a Fox model naming a texture in the team's Common output that neither the
+    export nor an earlier installed CPK holds is `fmdl_texture_not_found` (Error, package left
+    out; Warning when the CPKs cannot be searched). 4.29b next (the texture link).

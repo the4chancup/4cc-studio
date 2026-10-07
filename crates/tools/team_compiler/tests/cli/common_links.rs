@@ -47,7 +47,7 @@ fn mesh_count(bytes: &[u8]) -> usize {
 }
 
 /// The directory of every texture path of the FMDL `bytes` naming `file_name`.
-fn texture_directories(bytes: &[u8], file_name: &str) -> Vec<String> {
+pub(crate) fn texture_directories(bytes: &[u8], file_name: &str) -> Vec<String> {
     texture_paths(&FmdlFile::read(bytes).unwrap())
         .unwrap()
         .into_iter()

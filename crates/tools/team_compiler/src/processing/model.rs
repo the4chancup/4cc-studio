@@ -1,26 +1,25 @@
 //! One package of a model folder's Fox models (`team_compiler/pipeline.md` "3.
 //! Per-model-folder parallel steps", steps 2, 3 and 7): its models renamed to their allowed
-//! names, each part's texture paths pointed at where its textures go, the parts resolving to
-//! one name merged into one model, packed with the files that go beside them into one `.fpk`
-//! emitted under each of the package's ids.
+//! names, each part's texture paths pointed at where its textures go and the textures its
+//! meshes use looked for, the parts resolving to one name merged into one model, packed with
+//! the files that go beside them into one `.fpk` emitted under each of the package's ids.
 
 use std::collections::{BTreeMap, BTreeSet};
 
 use fmdl::ops::merge::{MergeError, merge};
-use fmdl::ops::paths::{TexturePath, rewrite_texture_paths};
+use fmdl::ops::paths::{TexturePath, rewrite_texture_paths, used_texture_paths};
 use fmdl::{FmdlFile, Model};
 use fpk::{FpkFile, FpkKind};
 use studio_core::Disposition;
 use vtree::ScopePath;
 
-use super::{Entry, Finding, TaskFailure, TaskFiles, take};
+use super::{CompileContext, Entry, Finding, TaskFailure, TaskFiles, take};
 use crate::face_diff;
 use crate::kit_variants::{KitToken, kit_token};
 use crate::messages::Code;
 use crate::paths;
 use crate::plan::ModelFolder;
 use crate::plan::subset::{ModelPackage, PlayerFile, file_stem};
-use crate::templates::Templates;
 
 /// One model of the package: a part of the output model its allowed name names, from the
 /// folder's own files, a combined shared folder's, or the export's `Common/` folder through a
@@ -52,14 +51,17 @@ enum PartTextures {
 
 /// The `package` of `folder`, compiled from its files' bytes in `files` for team `team_id`
 /// and emitted under each of `ids`: the package's `.fpk` and an empty `.fpkd` per id, a file
-/// the game needs beside the models that no source holds taken from `templates`. A merge of
-/// several parts into one model is noted in `findings` as `fmdl_merged`.
+/// the game needs beside the models that no source holds taken from the run's templates. A
+/// merge of several parts into one model is noted in `findings` as `fmdl_merged`. A texture a
+/// part's mesh uses that nothing supplies (`texture_supply`) fails the task with
+/// `fmdl_texture_not_found` at the first one, or, when the installed CPKs cannot be looked in,
+/// is noted in `findings` as `fmdl_texture_not_found`, once per texture.
 pub(super) fn package(
     folder: &ModelFolder,
     package: ModelPackage,
     ids: &[u32],
     team_id: u16,
-    templates: &Templates,
+    ctx: &CompileContext,
     files: &mut TaskFiles,
     findings: &mut Vec<Finding>,
 ) -> Result<Vec<Entry>, TaskFailure> {
@@ -165,6 +167,9 @@ pub(super) fn package(
         (&linked_stems, common_directory.as_str()),
     ];
     let common_places = [(&folder.common_texture_stems, common_directory.as_str())];
+    // A texture pointed at the team's Common output is there when the export's Common
+    // textures task packs it: a texture directly in `Common/`, or one a link stands for.
+    let common_stems = [&folder.common_texture_stems, &linked_stems];
     // A texture the part's source does not hold is one of the game's own; its directory names
     // the team as `000`, which becomes the team's id.
     let team_segment = format!("/{team_id}/");
@@ -189,6 +194,32 @@ pub(super) fn package(
             rewrite_texture_paths(&mut model, |path| {
                 point_texture(path, places, &team_segment);
             })?;
+            for path in used_texture_paths(&model)? {
+                let installed_holds =
+                    |stem: &str| ctx.installed.holds(&paths::common_texture(team_id, stem));
+                let context = || {
+                    vec![
+                        ("model", part.path.name().to_owned()),
+                        ("texture", format!("{}{}", path.directory, path.file_name)),
+                    ]
+                };
+                match texture_supply(&path, &common_stems, &common_directory, installed_holds) {
+                    TextureSupply::Supplied => {}
+                    TextureSupply::Missing => {
+                        return Err(TaskFailure {
+                            code: Code::FmdlTextureNotFound,
+                            context: context(),
+                        });
+                    }
+                    // Once per texture: two entries of the table may name one path.
+                    TextureSupply::Unknown => {
+                        let finding = (Code::FmdlTextureNotFound, Disposition::Keep, context());
+                        if !findings.contains(&finding) {
+                            findings.push(finding);
+                        }
+                    }
+                }
+            }
             models.push(model);
         }
         let bytes = match models.as_slice() {
@@ -214,23 +245,26 @@ pub(super) fn package(
         ModelPackage::Boots => {
             fpk.insert(
                 "boots.skl".to_owned(),
-                skeleton.unwrap_or_else(|| templates.body_skeleton().to_vec()),
+                skeleton.unwrap_or_else(|| ctx.templates.body_skeleton().to_vec()),
             );
         }
         ModelPackage::Face => {
             if fpk.get("face_diff.bin").is_none() {
-                fpk.insert("face_diff.bin".to_owned(), templates.face_diff().to_vec());
+                fpk.insert(
+                    "face_diff.bin".to_owned(),
+                    ctx.templates.face_diff().to_vec(),
+                );
             }
             if fpk.get("fcl_hair.fmdl").is_some() {
                 if fpk.get("fcl_hair_sim.fclo").is_none() {
                     fpk.insert(
                         "fcl_hair_sim.fclo".to_owned(),
-                        templates.fcl_hair_sim().to_vec(),
+                        ctx.templates.fcl_hair_sim().to_vec(),
                     );
                 }
                 fpk.insert(
                     "fcl_hair_sim.skl".to_owned(),
-                    skeleton.unwrap_or_else(|| templates.body_skeleton().to_vec()),
+                    skeleton.unwrap_or_else(|| ctx.templates.body_skeleton().to_vec()),
                 );
             }
         }
@@ -306,6 +340,51 @@ fn has_variant_among(stem: &str, stems: &BTreeSet<String>) -> bool {
     })
 }
 
+/// Whether a texture one of a part's meshes uses is supplied (`pipeline.md` "Resolved
+/// decisions", "A texture a model names must exist").
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum TextureSupply {
+    /// Supplied, or not looked for: a `dummy_` stem, which the game substitutes, or a path
+    /// outside the team's Common output (the folder's own textures, the game's own).
+    Supplied,
+    /// Neither the export nor an installed CPK loaded before the run's holds it.
+    Missing,
+    /// The export does not hold it, and the installed CPKs cannot be looked in.
+    Unknown,
+}
+
+/// Whether the texture at `path`, already pointed where it goes, is supplied: not looked for
+/// when its stem starts with `dummy_` or its directory is not `common_directory`, the team's
+/// Common texture directory; supplied when its stem, or a variant of its set for a kit
+/// reference (`pants_kitN`), is among `common_stems` (the export's Common textures and the
+/// folder's links, folded), or when `installed_holds` says an installed CPK holds the stem's
+/// Common texture (`None`: they cannot be looked in). Directories and stems compare folded.
+fn texture_supply(
+    path: &TexturePath,
+    common_stems: &[&BTreeSet<String>],
+    common_directory: &str,
+    installed_holds: impl Fn(&str) -> Option<bool>,
+) -> TextureSupply {
+    let stem = file_stem(&path.file_name);
+    let folded = vtree::fold_name(stem);
+    if folded.starts_with("dummy_")
+        || vtree::fold_name(&path.directory) != vtree::fold_name(common_directory)
+    {
+        return TextureSupply::Supplied;
+    }
+    if common_stems
+        .iter()
+        .any(|stems| stems.contains(&folded) || has_variant_among(stem, stems))
+    {
+        return TextureSupply::Supplied;
+    }
+    match installed_holds(stem) {
+        Some(true) => TextureSupply::Supplied,
+        Some(false) => TextureSupply::Missing,
+        None => TextureSupply::Unknown,
+    }
+}
+
 /// `parts`, several models resolving to one allowed name with their texture paths rewritten,
 /// merged into one FMDL in the given order.
 fn merge_parts(parts: &[FmdlFile]) -> Result<FmdlFile, TaskFailure> {
@@ -342,6 +421,99 @@ impl From<MergeError> for TaskFailure {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Team 714's Common texture directory.
+    const COMMON_714: &str = "/Assets/pes16/model/character/common/714/sourceimages/";
+
+    /// What `texture_supply` makes of `file_name` in `directory` for team 714, the export's
+    /// Common stems being `common` and the folder's links `linked`, an installed CPK answering
+    /// `installed` for every stem.
+    fn supply(
+        directory: &str,
+        file_name: &str,
+        common: &[&str],
+        linked: &[&str],
+        installed: Option<bool>,
+    ) -> TextureSupply {
+        let path = TexturePath {
+            file_name: file_name.to_owned(),
+            directory: directory.to_owned(),
+        };
+        let set = |stems: &[&str]| -> BTreeSet<String> {
+            stems.iter().map(|stem| (*stem).to_owned()).collect()
+        };
+        let (common, linked) = (set(common), set(linked));
+        texture_supply(&path, &[&common, &linked], COMMON_714, |_| installed)
+    }
+
+    #[test]
+    fn a_dummy_stem_and_a_path_outside_the_team_s_common_output_are_not_looked_for() {
+        for file_name in ["dummy_kit.dds", "dummy_kit_srm.dds", "Dummy_Kit.dds"] {
+            assert_eq!(
+                supply(COMMON_714, file_name, &[], &[], Some(false)),
+                TextureSupply::Supplied,
+                "{file_name}"
+            );
+        }
+        let home = "/Assets/pes16/model/character/common/714/05 - A/sourceimages/";
+        assert_eq!(
+            supply(home, "skin.dds", &[], &[], Some(false)),
+            TextureSupply::Supplied
+        );
+        let game = "/Assets/pes16/model/character/common/sourceimages/";
+        assert_eq!(
+            supply(game, "skin.dds", &[], &[], None),
+            TextureSupply::Supplied
+        );
+        // Not `dummy_`: looked for like any other stem.
+        assert_eq!(
+            supply(COMMON_714, "dummy.dds", &[], &[], Some(false)),
+            TextureSupply::Missing
+        );
+    }
+
+    #[test]
+    fn a_common_path_is_supplied_by_common_a_link_or_an_installed_cpk() {
+        let missing = Some(false);
+        assert_eq!(
+            supply(COMMON_714, "hair.dds", &["hair"], &[], missing),
+            TextureSupply::Supplied
+        );
+        assert_eq!(
+            supply(COMMON_714, "hair.dds", &[], &["hair"], missing),
+            TextureSupply::Supplied
+        );
+        // Stems and directories compare folded.
+        let shouted = "/ASSETS/pes16/model/character/common/714/sourceimages/";
+        assert_eq!(
+            supply(shouted, "Hair.dds", &["hair"], &[], missing),
+            TextureSupply::Supplied
+        );
+        assert_eq!(
+            supply(shouted, "Hair.dds", &[], &[], missing),
+            TextureSupply::Missing
+        );
+        assert_eq!(
+            supply(COMMON_714, "pants_kitN.dds", &["pants_kit1"], &[], missing),
+            TextureSupply::Supplied
+        );
+        assert_eq!(
+            supply(COMMON_714, "pants_kitN.dds", &["socks_kit1"], &[], missing),
+            TextureSupply::Missing
+        );
+        assert_eq!(
+            supply(COMMON_714, "hair.dds", &["skin"], &["face"], Some(true)),
+            TextureSupply::Supplied
+        );
+        assert_eq!(
+            supply(COMMON_714, "hair.dds", &["skin"], &["face"], Some(false)),
+            TextureSupply::Missing
+        );
+        assert_eq!(
+            supply(COMMON_714, "hair.dds", &["skin"], &["face"], None),
+            TextureSupply::Unknown
+        );
+    }
 
     /// The directory `point_texture` gives the path `file_name` in the game's team `000`
     /// folder for team 792, the part's own stems being `own`, going to `/home/`, and its

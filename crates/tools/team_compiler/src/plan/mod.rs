@@ -135,10 +135,12 @@ pub(crate) struct ModelFolder {
     /// The player folder's `.common` model links, each resolved to the Common model it brings
     /// in as a part. Empty for a shared folder, which holds no link.
     pub(crate) common_models: Vec<CommonModel>,
-    /// The stems, as spelled, of the textures directly in the export's `Common/` folder, which
-    /// the export's Common textures task emits into the team's Common output: a Common part's
+    /// The stems, folded, of the textures directly in the export's `Common/` folder, which the
+    /// export's Common textures task emits into the team's Common output: a Common part's
     /// texture paths of these stems name that output, not the folder's texture home
-    /// (`pipeline.md` "3. Per-model-folder parallel steps", step 6).
+    /// (`pipeline.md` "3. Per-model-folder parallel steps", step 6), and a texture any part
+    /// names in that output is supplied when its stem is among them ("Resolved decisions", "A
+    /// texture a model names must exist").
     pub(crate) common_texture_stems: BTreeSet<String>,
     /// Where its textures go, which its models' texture paths are rewritten to name.
     pub(crate) textures: TextureHome,
@@ -509,6 +511,18 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
             .filter_map(|slot| kit_number(*slot))
             .collect();
         kit_variant_model_messages(export_id, &export, &mut messages);
+        // The textures directly in `Common/`: one task of the export's, and the stems a Common
+        // part's paths name that task's output for, which a model of any folder may name.
+        let common_textures: Vec<FileDescriptor> = export
+            .common
+            .iter()
+            .filter(|file| texture_format(file.path.name()).is_some())
+            .cloned()
+            .collect();
+        let common_texture_stems: BTreeSet<String> = common_textures
+            .iter()
+            .map(|file| vtree::fold_name(file_stem(file.path.name())))
+            .collect();
         // The shared folders taking an id, each with its package and that id, in the id order
         // of the kind: the boots folders, then the gloves folders.
         let mut shared: Vec<(ModelFolder, ModelPackage, u32)> = Vec::new();
@@ -526,7 +540,7 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
                     ingame_face: false,
                     combined: Vec::new(),
                     common_models: Vec::new(),
-                    common_texture_stems: BTreeSet::new(),
+                    common_texture_stems: common_texture_stems.clone(),
                     textures: TextureHome::SharedOutput {
                         package,
                         id: shared_id,
@@ -535,18 +549,6 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
                 shared.push((folder, package, shared_id));
             }
         }
-        // The textures directly in `Common/`: one task of the export's, and the stems a Common
-        // part's paths name that task's output for.
-        let common_textures: Vec<FileDescriptor> = export
-            .common
-            .iter()
-            .filter(|file| texture_format(file.path.name()).is_some())
-            .cloned()
-            .collect();
-        let common_texture_stems: BTreeSet<String> = common_textures
-            .iter()
-            .map(|file| vtree::fold_name(file_stem(file.path.name())))
-            .collect();
         // A folder's portrait goes out once per slot mapping the folder. A player id with a
         // `Portraits/` file too comes up twice; the deep pass has skipped an export whose two
         // files differ, so they are the same bytes and the folder's is packed once (below).

@@ -156,6 +156,11 @@ pub(crate) enum Code {
     /// A `.mtl` that does not parse; its folder is left out (a `Common/` file: the file),
     /// whatever `pass_through` says.
     MtlBroken,
+    /// A texture one of a Fox model's meshes uses, named in the team's Common output, that
+    /// neither the export's `Common/`, the folder's links nor an installed CPK loaded before
+    /// the run's supplies: the model's package is left out, or kept when the installed CPKs
+    /// cannot be looked in.
+    FmdlTextureNotFound,
     /// A file a task reads cannot be read from its export; its folder is left out.
     SourceReadFailed,
     /// A task could not build its entries; its folder is left out.
@@ -206,7 +211,7 @@ impl Code {
     /// Every code, for the catalog test: a variant missing here would make its first message
     /// panic in `severity`, so a new variant is added to this list too.
     #[cfg(test)]
-    const ALL: [Code; 64] = [
+    const ALL: [Code; 65] = [
         Code::ExportExtractFailed,
         Code::NoExportsFound,
         Code::ExportDisabled,
@@ -255,6 +260,7 @@ impl Code {
         Code::VertexTooFarFromOrigin,
         Code::ModelBroken,
         Code::MtlBroken,
+        Code::FmdlTextureNotFound,
         Code::SourceReadFailed,
         Code::FolderPackFailed,
         Code::DpfilelistMissing,
@@ -324,6 +330,7 @@ impl Code {
             Code::VertexTooFarFromOrigin => "vertex_too_far_from_origin",
             Code::ModelBroken => "model_broken",
             Code::MtlBroken => "mtl_broken",
+            Code::FmdlTextureNotFound => "fmdl_texture_not_found",
             Code::SourceReadFailed => "source_read_failed",
             Code::FolderPackFailed => "folder_pack_failed",
             Code::DpfilelistMissing => "dpfilelist_missing",
@@ -357,6 +364,9 @@ enum CatalogSeverity {
     ErrorOrWarning,
     /// `E/F`: Fatal when the disposition aborts the run, else an Error.
     ErrorOrFatal,
+    /// `E/W` keyed by the disposition: a Warning when the folder is kept (`Keep`), else an
+    /// Error.
+    ErrorUnlessKept,
 }
 
 /// Every code this tool emits in Phase 3, with its catalog severity: the structure pass's
@@ -410,6 +420,7 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("vertex_too_far_from_origin", CatalogSeverity::Error),
     ("model_broken", CatalogSeverity::Error),
     ("mtl_broken", CatalogSeverity::Error),
+    ("fmdl_texture_not_found", CatalogSeverity::ErrorUnlessKept),
     ("folder_pack_failed", CatalogSeverity::ErrorOrFatal),
     ("dpfilelist_missing", CatalogSeverity::ErrorOrWarning),
     ("installed_bin_unreadable", CatalogSeverity::Fatal),
@@ -528,6 +539,8 @@ fn severity(code: &str, disposition: Disposition, raised: bool) -> Severity {
         CatalogSeverity::ErrorOrWarning => Severity::Warning,
         CatalogSeverity::ErrorOrFatal if disposition == Disposition::AbortRun => Severity::Fatal,
         CatalogSeverity::ErrorOrFatal => Severity::Error,
+        CatalogSeverity::ErrorUnlessKept if disposition == Disposition::Keep => Severity::Warning,
+        CatalogSeverity::ErrorUnlessKept => Severity::Error,
     }
 }
 
@@ -768,6 +781,24 @@ mod tests {
             vec![],
         );
         assert_eq!(message.severity, Severity::Fatal);
+    }
+
+    #[test]
+    fn a_texture_not_found_is_a_warning_only_when_the_folder_is_kept() {
+        let message = |disposition| {
+            tool_message(
+                Code::FmdlTextureNotFound,
+                Scope::Run,
+                disposition,
+                vec![("model", "face_high.fmdl".to_owned())],
+            )
+        };
+        assert_eq!(message(Disposition::Keep).severity, Severity::Warning);
+        assert_eq!(message(Disposition::DropFolder).severity, Severity::Error);
+        assert_eq!(
+            message(Disposition::Keep).code.code,
+            "fmdl_texture_not_found"
+        );
     }
 
     #[test]

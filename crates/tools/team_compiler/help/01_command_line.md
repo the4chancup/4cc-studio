@@ -288,6 +288,16 @@ written, so those players' new boots or gloves do not show in the game, and `com
 with the warning `player_table_missing`, naming the list and how many players were left out. A
 list of only this compile's players would take every other player's boots or gloves away.
 
+On PES 2018 to 2021, a texture a model names in the team's Common folder must be in the
+export's `Common` folder or in a CPK your `DpFileList.bin` lists before the CPK being compiled
+(a midcup export can use Common textures compiled into an earlier midcup CPK). A CPK listed
+after it does not count: removing it must not break this one. Otherwise that model's face,
+boots or gloves is left out of the CPK, and `compile` reports `fmdl_texture_not_found` with the
+model and the texture. When there is no PES folder or no `DpFileList.bin`, or the list does not
+name the CPK being compiled, the texture may still be there, so the model is kept and the line
+is a warning. A texture whose name starts with `dummy_` is never looked for: the game puts its
+own in its place. `check` does not look for these textures, only `compile` does.
+
 A folder named `templates` in the data folder holds files that replace the compiler's built-in
 copies of the same name, so a cup can swap one without a new version of the compiler. The names,
 spelled exactly as here, are `TeamColor.bin` and `UniColor.bin` (the team color and kit color

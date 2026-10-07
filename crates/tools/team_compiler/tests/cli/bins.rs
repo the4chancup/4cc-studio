@@ -55,8 +55,23 @@ fn install_list(sandbox: &Sandbox) {
     sandbox.write("PES/download/DpFileList.bin", &list);
 }
 
+/// Writes `PES/download/DpFileList.bin` listing `names`, in that load order: a 16-byte header
+/// holding the count, then one 48-byte record per CPK, its name NUL-padded.
+pub(crate) fn install_names(sandbox: &Sandbox, names: &[&str]) {
+    let count = u32::try_from(names.len()).unwrap();
+    let mut list = vec![0; 4];
+    list.extend(count.to_le_bytes());
+    list.extend([0; 8]);
+    for name in names {
+        let mut record = [0; 48];
+        record[..name.len()].copy_from_slice(name.as_bytes());
+        list.extend(record);
+    }
+    sandbox.write("PES/download/DpFileList.bin", &list);
+}
+
 /// Writes `PES/download/<name>` as a CPK holding `entries` (CPK path, bytes).
-fn install_cpk(sandbox: &Sandbox, name: &str, entries: &[(&str, &[u8])]) {
+pub(crate) fn install_cpk(sandbox: &Sandbox, name: &str, entries: &[(&str, &[u8])]) {
     let path = sandbox.root.join("PES/download").join(name);
     fs::create_dir_all(path.parent().unwrap()).unwrap();
     let mut cpk = cpk::CpkWriter::new(fs::File::create(path).unwrap(), "test").unwrap();

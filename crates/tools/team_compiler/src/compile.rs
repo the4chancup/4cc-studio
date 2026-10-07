@@ -14,7 +14,8 @@ use pes_version::PesVersion;
 use pipeline::{Cancelled, CpkStem, MemoryBudget, Permit};
 use studio_core::{Disposition, ExportId, Scope, Severity, ToolContext};
 
-use crate::bins::{WorkingBins, installed};
+use crate::bins::WorkingBins;
+use crate::bins::installed::{self, InstalledPaths};
 use crate::cli::RunInputs;
 use crate::events::RunEvents;
 use crate::messages::{Code, tool_message};
@@ -47,11 +48,21 @@ pub(crate) fn run(
     let Some(templates) = templates(ctx, &mut events) else {
         return Ok(events.worst());
     };
-    let Some(bins) = working_bins(inputs, cpk_stem, !no_deploy, &templates, &mut events) else {
+    let Some((bins, installed)) =
+        working_bins(inputs, cpk_stem, !no_deploy, &templates, &mut events)
+    else {
         return Ok(events.worst());
     };
     let planned = plan(inputs, events, ctx)?;
-    build(planned, bins, templates, cpk_stem, output_folder, no_deploy)
+    build(
+        planned,
+        bins,
+        installed,
+        templates,
+        cpk_stem,
+        output_folder,
+        no_deploy,
+    )
 }
 
 /// The run's resources, read before anything else, their findings reported first. A
@@ -83,7 +94,8 @@ fn templates(ctx: &ToolContext, events: &mut RunEvents) -> Option<Templates> {
 }
 
 /// The bins the run builds on, from the installed CPKs of the PES folder or the bundled bases
-/// in `templates`, their findings reported first. A file of the walk that cannot be read is
+/// in `templates`, and the entry paths of the installed CPKs walked, for the texture lookup,
+/// their findings reported first. A file of the walk that cannot be read is
 /// `installed_bin_unreadable`, Fatal, and `None`: the run stops before any export is read, the
 /// previous CPK kept, rather than build on an older copy that its CPK, loaded above it, would
 /// put back for every team.
@@ -93,15 +105,15 @@ fn working_bins(
     deploys: bool,
     templates: &Templates,
     events: &mut RunEvents,
-) -> Option<WorkingBins> {
+) -> Option<(WorkingBins, InstalledPaths)> {
     let pes_folder = inputs.common.pes_folder();
     let version = inputs.common.pes_version;
     match installed::working_bins(&pes_folder, cpk_stem, version, deploys, templates) {
-        Ok((bins, messages)) => {
+        Ok((bins, installed, messages)) => {
             for message in messages {
                 events.message(message);
             }
-            Some(bins)
+            Some((bins, installed))
         }
         Err(unreadable) => {
             events.message(tool_message(
@@ -182,13 +194,14 @@ fn plan(
     })
 }
 
-/// `compile`'s second half: the planned tasks read and processed with the run's `templates`,
-/// and written into the staged CPK, its bins built on `bins`, which is then promoted, and
-/// `teamnotes.txt` written. A source that changed while its tasks were read aborts the run with
-/// `source_changed_during_run`, the staging discarded.
+/// `compile`'s second half: the planned tasks read and processed with the run's `templates`
+/// and the `installed` CPKs' entry paths, and written into the staged CPK, its bins built on
+/// `bins`, which is then promoted, and `teamnotes.txt` written. A source that changed while
+/// its tasks were read aborts the run with `source_changed_during_run`, the staging discarded.
 fn build(
     planned: PlannedRun,
     bins: WorkingBins,
+    installed: InstalledPaths,
     templates: Templates,
     cpk_stem: &CpkStem,
     output_folder: &Path,
@@ -225,7 +238,7 @@ fn build(
     let run_folder = deploy::staging_folder(output_folder);
     let cpk_name = deploy::cpk_file_name(cpk_stem);
     let output = CpkOutput::new(run_folder.join(&cpk_name), overrides);
-    let context = CompileContext::new(version, last_tasks.len(), templates);
+    let context = CompileContext::new(version, last_tasks.len(), templates, installed);
     let (coordinated, (mut events, written)) = std::thread::scope(|scope| {
         let (batches_tx, batches_rx) = unbounded();
         let last_tasks = &last_tasks;
@@ -722,7 +735,12 @@ mod tests {
         thread::spawn(move || {
             let budget = MemoryBudget::new(cap);
             let sources = [listed(tracer_source())];
-            let context = CompileContext::new(PesVersion::Pes21, 1, Templates::embedded());
+            let context = CompileContext::new(
+                PesVersion::Pes21,
+                1,
+                Templates::embedded(),
+                InstalledPaths::Unknown,
+            );
             let pool = rayon::ThreadPoolBuilder::new()
                 .num_threads(2)
                 .build()
@@ -749,7 +767,12 @@ mod tests {
         tasks: Vec<BuildTask>,
     ) -> (Option<SourceChange>, Vec<TaskBatch>) {
         let budget = MemoryBudget::new(1 << 30);
-        let context = CompileContext::new(PesVersion::Pes21, 1, Templates::embedded());
+        let context = CompileContext::new(
+            PesVersion::Pes21,
+            1,
+            Templates::embedded(),
+            InstalledPaths::Unknown,
+        );
         let pool = rayon::ThreadPoolBuilder::new()
             .num_threads(2)
             .build()
@@ -855,7 +878,12 @@ mod tests {
     fn a_cancelled_budget_stops_the_coordinator_before_any_task_is_spawned() {
         let budget = MemoryBudget::new(1 << 30);
         budget.cancel();
-        let context = CompileContext::new(PesVersion::Pes21, 1, Templates::embedded());
+        let context = CompileContext::new(
+            PesVersion::Pes21,
+            1,
+            Templates::embedded(),
+            InstalledPaths::Unknown,
+        );
         let pool = rayon::ThreadPoolBuilder::new()
             .num_threads(2)
             .build()
@@ -889,7 +917,12 @@ mod tests {
         // stopping the run. The cancelled check must come before the source is opened.
         let budget = MemoryBudget::new(1 << 30);
         budget.cancel();
-        let context = CompileContext::new(PesVersion::Pes21, 1, Templates::embedded());
+        let context = CompileContext::new(
+            PesVersion::Pes21,
+            1,
+            Templates::embedded(),
+            InstalledPaths::Unknown,
+        );
         let pool = rayon::ThreadPoolBuilder::new()
             .num_threads(2)
             .build()
@@ -990,7 +1023,12 @@ mod tests {
             3,
             task,
             files,
-            &CompileContext::new(PesVersion::Pes21, 1, Templates::embedded()),
+            &CompileContext::new(
+                PesVersion::Pes21,
+                1,
+                Templates::embedded(),
+                InstalledPaths::Unknown,
+            ),
         );
 
         assert_eq!(batch.index, 3);
@@ -1135,7 +1173,16 @@ mod tests {
                 .join(&replaced);
             fs::write(&file, b"saved over from Blender").unwrap();
             let bins = WorkingBins::bundled(PesVersion::Pes21, &Templates::embedded());
-            let worst = build(planned, bins, Templates::embedded(), &stem, &output, false).unwrap();
+            let worst = build(
+                planned,
+                bins,
+                InstalledPaths::Unknown,
+                Templates::embedded(),
+                &stem,
+                &output,
+                false,
+            )
+            .unwrap();
 
             // Fatal is exit code 3: `cli.rs`'s `the_worst_severity_decides_the_exit_code`.
             assert_eq!(worst, Some(Severity::Fatal), "{replaced}");

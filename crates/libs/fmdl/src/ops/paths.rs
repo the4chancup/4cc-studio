@@ -36,6 +36,42 @@ pub fn texture_paths(file: &FmdlFile) -> Result<Vec<TexturePath>, FmdlError> {
         .collect()
 }
 
+/// The texture references a mesh uses, in table order, each once: those in the texture run
+/// of the material instance of at least one mesh. An entry no mesh uses is never loaded.
+pub fn used_texture_paths(file: &FmdlFile) -> Result<Vec<TexturePath>, FmdlError> {
+    let mut used = vec![false; file.textures.len()];
+    for mesh in &file.meshes {
+        let instance_id = usize::from(mesh.material_instance_id);
+        let instance = file
+            .material_instances
+            .get(instance_id)
+            .ok_or(FmdlError::BadReference {
+                what: "material instance",
+                index: instance_id,
+            })?;
+        let first = usize::from(instance.first_texture_id);
+        for index in first..first + usize::from(instance.texture_count) {
+            let assignment =
+                file.parameter_assignments
+                    .get(index)
+                    .ok_or(FmdlError::BadReference {
+                        what: "texture / parameter assignment",
+                        index,
+                    })?;
+            let texture = usize::from(assignment.reference_id);
+            *used.get_mut(texture).ok_or(FmdlError::BadReference {
+                what: "texture",
+                index: texture,
+            })? = true;
+        }
+    }
+    Ok(texture_paths(file)?
+        .into_iter()
+        .zip(used)
+        .filter_map(|(path, used)| used.then_some(path))
+        .collect())
+}
+
 /// Applies `edit` to every texture reference. Changed references get new
 /// strings appended to the string table (de-duplicated against every
 /// string already there) and their texture records repointed; the string
@@ -133,6 +169,78 @@ mod tests {
     const PLACEHOLDER: &[u8] = include_bytes!("../../tests/fixtures/addon_placeholder.fmdl");
 
     const FIXTURES: &[&[u8]] = &[HIGHNECK, MOUTH, AU_LOW, ORAL, PLACEHOLDER];
+
+    /// The file names of `paths`.
+    fn file_names(paths: &[TexturePath]) -> Vec<&str> {
+        paths.iter().map(|path| path.file_name.as_str()).collect()
+    }
+
+    /// The highneck model with a second material instance, whose texture run is the
+    /// assignments 1 to 3, now naming the textures 3, 1 and 3 (out of table order, one twice);
+    /// the first instance's run, assignments 0 to 3, names 0, 3, 1 and 3.
+    fn highneck_with_two_instances() -> FmdlFile {
+        let mut file = FmdlFile::read(HIGHNECK).unwrap();
+        for (assignment, reference) in [(1, 3), (2, 1), (3, 3)] {
+            file.parameter_assignments[assignment].reference_id = reference;
+        }
+        let mut second = file.material_instances[0].clone();
+        second.first_texture_id = 1;
+        second.texture_count = 3;
+        file.material_instances.push(second);
+        file
+    }
+
+    #[test]
+    fn the_used_textures_are_the_mesh_instances_runs_in_table_order_each_once() {
+        let mut file = highneck_with_two_instances();
+        for mesh in &mut file.meshes {
+            mesh.material_instance_id = 1;
+        }
+        assert_eq!(
+            file_names(&used_texture_paths(&file).unwrap()),
+            ["accessory_nrm.tga", "accessory_trm.tga"]
+        );
+        for mesh in &mut file.meshes {
+            mesh.material_instance_id = 0;
+        }
+        assert_eq!(
+            file_names(&used_texture_paths(&file).unwrap()),
+            [
+                "accessory_bsm.tga",
+                "accessory_nrm.tga",
+                "accessory_trm.tga"
+            ],
+            "accessory_srm.tga is in no run"
+        );
+        // An untouched model's one instance uses every texture.
+        let file = FmdlFile::read(HIGHNECK).unwrap();
+        assert_eq!(
+            used_texture_paths(&file).unwrap(),
+            texture_paths(&file).unwrap()
+        );
+    }
+
+    #[test]
+    fn a_texture_run_naming_no_texture_of_the_table_is_the_error() {
+        let mut file = FmdlFile::read(HIGHNECK).unwrap();
+        file.parameter_assignments[2].reference_id = 4;
+        assert!(matches!(
+            used_texture_paths(&file),
+            Err(FmdlError::BadReference {
+                what: "texture",
+                index: 4
+            })
+        ));
+        let mut file = FmdlFile::read(HIGHNECK).unwrap();
+        file.meshes[0].material_instance_id = 1;
+        assert!(matches!(
+            used_texture_paths(&file),
+            Err(FmdlError::BadReference {
+                what: "material instance",
+                index: 1
+            })
+        ));
+    }
 
     #[test]
     fn texture_paths_match_the_expected_lists() {

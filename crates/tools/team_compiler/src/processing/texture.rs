@@ -340,6 +340,7 @@ mod tests {
             converter: Converter::new(),
             cache: CachePolicy::Bypass,
             templates: crate::templates::Templates::embedded(),
+            installed: crate::bins::installed::InstalledPaths::Unknown,
         }
     }
 

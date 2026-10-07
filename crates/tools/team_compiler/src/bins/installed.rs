@@ -4,8 +4,11 @@
 //! colors and kits for every team the run does not compile. Each bin comes from the nearest of
 //! those CPKs that holds it, and from its bundled base when none does or the walk cannot be
 //! made (no PES folder, no list, a list not naming the run's CPK); a Fox player table, which
-//! has no bundled base, is then absent.
+//! has no bundled base, is then absent. The same walk keeps every entry path of those CPKs, for
+//! the texture lookup (`pipeline.md` "Resolved decisions", "A texture a model names must
+//! exist").
 
+use std::collections::HashSet;
 use std::fs::{self, File};
 use std::io::{self, BufReader};
 use std::path::{Path, PathBuf};
@@ -31,6 +34,38 @@ pub(crate) struct Unreadable {
     pub(crate) path: PathBuf,
     /// What failed, the CPK's bin named when it was one of them.
     pub(crate) error: anyhow::Error,
+}
+
+/// The entries of the CPKs the installed `DpFileList.bin` lists before the run's, for the
+/// texture lookup (`pipeline.md` "Resolved decisions", "A texture a model names must exist").
+#[derive(Debug, PartialEq)]
+pub(crate) enum InstalledPaths {
+    /// The lookup cannot be made: no PES folder, no `DpFileList.bin`, or a list that does not
+    /// name the run's CPK, so nothing is known to come before it.
+    Unknown,
+    /// Every entry path of those CPKs, folded (`vtree::fold_name`).
+    Known(HashSet<String>),
+}
+
+impl InstalledPaths {
+    /// Whether a CPK holds `path`, compared folded; `None` when the lookup cannot be made.
+    pub(crate) fn holds(&self, path: &str) -> Option<bool> {
+        match self {
+            InstalledPaths::Unknown => None,
+            InstalledPaths::Known(paths) => Some(paths.contains(&vtree::fold_name(path))),
+        }
+    }
+}
+
+/// How far the walk got.
+enum Walk {
+    /// Nothing was walked: the PES folder is not a folder, or its list does not name the run's
+    /// CPK, so nothing is known to come before it.
+    NotMade,
+    /// The PES folder has no list, which should be at this path.
+    NoList(PathBuf),
+    /// Every CPK listed before the run's was opened; every entry path they hold, folded.
+    Walked(HashSet<String>),
 }
 
 /// A working bin the walk looks for.
@@ -104,17 +139,17 @@ struct Wanted {
 /// The bins a run compiling `cpk_stem` for `version` builds on, taken from the installed
 /// CPKs of the PES folder `pes_folder` (`pipeline.md` "Bins accumulation"), a bin none of them
 /// holds from its bundled base in the run's `templates` (a Fox player table, having none, is
-/// then absent), and the findings: a `bin_source` per bin found or bundled, and
-/// `dpfilelist_missing` when the folder has no list (an Error when the run `deploys`, a
-/// Warning when not). A list, a CPK or a bin that cannot be read is the error: the run stops
-/// rather than build on an older copy.
+/// then absent), the entry paths of the CPKs walked, and the findings: a `bin_source` per bin
+/// found or bundled, and `dpfilelist_missing` when the folder has no list (an Error when the
+/// run `deploys`, a Warning when not). A list, a CPK or a bin that cannot be read is the error:
+/// the run stops rather than build on an older copy.
 pub(crate) fn working_bins(
     pes_folder: &Path,
     cpk_stem: &CpkStem,
     version: PesVersion,
     deploys: bool,
     templates: &Templates,
-) -> Result<(WorkingBins, Vec<Message>), Unreadable> {
+) -> Result<(WorkingBins, InstalledPaths, Vec<Message>), Unreadable> {
     let mut looked_for = vec![Bin::TeamColor, Bin::UniColor];
     // Only the Fox versions have the bin, and so a bundled base for it; and only they have
     // the player tables.
@@ -132,15 +167,20 @@ pub(crate) fn working_bins(
         .collect();
     let mut messages = Vec::new();
     let mut bins = WorkingBins::bundled(version, templates);
-    if let Some(list) = walk(pes_folder, cpk_stem, &mut wanted, &mut bins)? {
-        messages.push(deploy_message(
-            Code::DpfilelistMissing,
-            Scope::Run,
-            Disposition::Keep,
-            vec![("path", list.display().to_string())],
-            deploys,
-        ));
-    }
+    let installed = match walk(pes_folder, cpk_stem, &mut wanted, &mut bins)? {
+        Walk::NotMade => InstalledPaths::Unknown,
+        Walk::NoList(list) => {
+            messages.push(deploy_message(
+                Code::DpfilelistMissing,
+                Scope::Run,
+                Disposition::Keep,
+                vec![("path", list.display().to_string())],
+                deploys,
+            ));
+            InstalledPaths::Unknown
+        }
+        Walk::Walked(paths) => InstalledPaths::Known(paths),
+    };
     for Wanted { bin, found } in wanted {
         let cpk = match found {
             Some(cpk) => cpk,
@@ -155,38 +195,36 @@ pub(crate) fn working_bins(
             vec![("bin", bin.name().to_owned()), ("cpk", cpk)],
         ));
     }
-    Ok((bins, messages))
+    Ok((bins, installed, messages))
 }
 
-/// Walks the CPKs `pes_folder`'s `download/DpFileList.bin` lists before `cpk_stem`'s, nearest
-/// first, until each of `wanted` is found, each taken into `bins` from the first CPK holding
-/// it. Returns the list's path when the folder has none. Nothing is walked when `pes_folder` is
-/// not a folder or the list does not name the run's CPK: nothing is known to come before it.
+/// Walks every CPK `pes_folder`'s `download/DpFileList.bin` lists before `cpk_stem`'s, nearest
+/// first, each of `wanted` taken into `bins` from the first CPK holding it, and every entry
+/// path of each CPK kept: the texture lookup needs them all, so the walk does not stop once the
+/// bins are found.
 fn walk(
     pes_folder: &Path,
     cpk_stem: &CpkStem,
     wanted: &mut [Wanted],
     bins: &mut WorkingBins,
-) -> Result<Option<PathBuf>, Unreadable> {
+) -> Result<Walk, Unreadable> {
     if !pes_folder.is_dir() {
-        return Ok(None);
+        return Ok(Walk::NotMade);
     }
     let download = pes_folder.join("download");
     let list_path = download.join("DpFileList.bin");
     let Some(list) = read_list(&list_path)? else {
-        return Ok(Some(list_path));
+        return Ok(Walk::NoList(list_path));
     };
     let own = deploy::cpk_file_name(cpk_stem);
     let Some(position) = list.iter().position(|name| *name == own) else {
-        return Ok(None);
+        return Ok(Walk::NotMade);
     };
+    let mut paths = HashSet::new();
     for name in list[..position].iter().rev() {
-        if wanted.iter().all(|bin| bin.found.is_some()) {
-            break;
-        }
-        take_from(&download.join(name), name, wanted, bins)?;
+        take_from(&download.join(name), name, wanted, bins, &mut paths)?;
     }
-    Ok(None)
+    Ok(Walk::Walked(paths))
 }
 
 /// The CPK names the list at `path` gives, in load order; `None` when there is no file.
@@ -206,13 +244,14 @@ fn read_list(path: &Path) -> Result<Option<Vec<String>>, Unreadable> {
 /// Takes into `bins` from the CPK at `path`, listed as `name`, each of `wanted` not found yet
 /// that it holds, unwrapped when the bin is WESYS-compressed, and parsed: a bin that does not
 /// parse as its format is as unreadable as one that cannot be read, found here rather than when
-/// the CPK is finished after every export was processed. A listed CPK with no file is passed
-/// over.
+/// the CPK is finished after every export was processed. Adds every entry path of the CPK,
+/// folded, to `paths`. A listed CPK with no file is passed over.
 fn take_from(
     path: &Path,
     name: &str,
     wanted: &mut [Wanted],
     bins: &mut WorkingBins,
+    paths: &mut HashSet<String>,
 ) -> Result<(), Unreadable> {
     let unreadable = |error: anyhow::Error| Unreadable {
         path: path.to_owned(),
@@ -226,6 +265,11 @@ fn take_from(
     let mut cpk = CpkArchive::open(BufReader::new(file))
         .context("not a CPK the reader accepts")
         .map_err(unreadable)?;
+    paths.extend(
+        cpk.entries()
+            .iter()
+            .map(|entry| vtree::fold_name(&entry.path)),
+    );
     for wanted in wanted.iter_mut().filter(|wanted| wanted.found.is_none()) {
         let path_in_cpk = wanted.bin.path();
         let Some(entry) = cpk.entries().iter().find(|entry| entry.path == path_in_cpk) else {
@@ -361,7 +405,7 @@ mod tests {
         let temp = scratch("installed_no_pes");
         let pes = temp.path().join("PES");
 
-        let (bins, messages) = working_bins(
+        let (bins, _, messages) = working_bins(
             &pes,
             &stem(),
             PesVersion::Pes21,
@@ -372,7 +416,7 @@ mod tests {
         assert_bundled(&bins, PesVersion::Pes21);
         assert_eq!(messages, all_bundled());
 
-        let (bins, messages) = working_bins(
+        let (bins, _, messages) = working_bins(
             &pes,
             &stem(),
             PesVersion::Pes17,
@@ -391,7 +435,7 @@ mod tests {
         let pes = temp.path();
         let list = pes.join("download").join("DpFileList.bin");
         for (deploys, severity) in [(true, Severity::Error), (false, Severity::Warning)] {
-            let (bins, messages) = working_bins(
+            let (bins, _, messages) = working_bins(
                 pes,
                 &stem(),
                 PesVersion::Pes21,
@@ -421,7 +465,7 @@ mod tests {
         install_list(pes, &["4cc_08_bins.cpk", "4cc_61_midcup.cpk"]);
         install_cpk(pes, "4cc_61_midcup.cpk", &[(paths::UNI_COLOR, b"midcup")]);
 
-        let (bins, messages) = working_bins(
+        let (bins, _, messages) = working_bins(
             pes,
             &stem(),
             PesVersion::Pes21,
@@ -434,6 +478,110 @@ mod tests {
     }
 
     #[test]
+    fn the_installed_paths_are_every_entry_of_each_cpk_listed_before_the_run_s_own() {
+        let temp = scratch("installed_paths");
+        let pes = temp.path();
+        install_list(
+            pes,
+            &[
+                "4cc_08_bins.cpk",
+                "4cc_61_midcup.cpk",
+                "4cc_99_test.cpk",
+                "4cc_63_midcup.cpk",
+            ],
+        );
+        let hair = paths::common_texture(714, "Hair");
+        install_cpk(pes, "4cc_08_bins.cpk", &[(&hair, b"farther")]);
+        // The nearer CPK holds every bin the walk looks for: the walk still opens the farther.
+        let pair = [0x39, 0x12, 0x01, 0x00, 0x0b, 0x00, 0x00, 0x00];
+        let bins_61: [(&str, &[u8]); 6] = [
+            (paths::TEAM_COLOR, &team_color_bin(61)),
+            (paths::UNI_COLOR, &uni_color_bin(61)),
+            (paths::UNIFORM_PARAMETER, &uniform_parameter_bin("61")),
+            (paths::BOOTS_LIST, &pair),
+            (paths::GLOVE_LIST, &pair),
+            (paths::PLAYER_APPEARANCE, &[7; 60]),
+        ];
+        install_cpk(pes, "4cc_61_midcup.cpk", &bins_61);
+        let after = paths::common_texture(714, "after");
+        install_cpk(pes, "4cc_63_midcup.cpk", &[(&after, b"after")]);
+
+        let (_, installed, messages) = working_bins(
+            pes,
+            &stem(),
+            PesVersion::Pes21,
+            true,
+            &Templates::embedded(),
+        )
+        .unwrap();
+        let every_bin = [
+            "TeamColor.bin",
+            "UniColor.bin",
+            "UniformParameter.bin",
+            "BootsList.bin",
+            "GloveList.bin",
+            "PlayerAppearance.bin",
+        ];
+        assert_eq!(
+            messages,
+            every_bin.map(|bin| source(bin, "4cc_61_midcup.cpk")),
+            "every bin from the nearer CPK"
+        );
+        let mut expected: HashSet<String> = bins_61
+            .iter()
+            .map(|(path, _)| vtree::fold_name(path))
+            .collect();
+        expected.insert(vtree::fold_name(&hair));
+        assert_eq!(installed, InstalledPaths::Known(expected));
+        assert_eq!(
+            installed.holds(&paths::common_texture(714, "hair")),
+            Some(true),
+            "Hair.ftex installed, hair.ftex asked"
+        );
+        assert_eq!(
+            installed.holds(&after),
+            Some(false),
+            "listed after the run's"
+        );
+    }
+
+    #[test]
+    fn the_lookup_cannot_be_made_with_no_pes_folder_no_list_or_a_list_not_naming_the_run_s_cpk() {
+        let temp = scratch("installed_paths_unknown");
+        let pes = temp.path();
+        let walk = |pes: &Path| {
+            working_bins(
+                pes,
+                &stem(),
+                PesVersion::Pes21,
+                false,
+                &Templates::embedded(),
+            )
+            .unwrap()
+            .1
+        };
+        let hair = paths::common_texture(714, "hair");
+
+        let installed = walk(&pes.join("PES"));
+        assert_eq!(installed, InstalledPaths::Unknown, "no PES folder");
+        assert_eq!(installed.holds(&hair), None);
+        assert_eq!(walk(pes), InstalledPaths::Unknown, "no list");
+        install_list(pes, &["4cc_08_bins.cpk"]);
+        install_cpk(pes, "4cc_08_bins.cpk", &[(&hair, b"hair")]);
+        assert_eq!(
+            walk(pes),
+            InstalledPaths::Unknown,
+            "the run's CPK not listed"
+        );
+        // Listed first, the run's CPK has nothing before it: the lookup is made and finds
+        // nothing.
+        install_list(pes, &["4cc_99_test.cpk", "4cc_08_bins.cpk"]);
+        let installed = walk(pes);
+        assert_eq!(installed, InstalledPaths::Known(HashSet::new()));
+        assert_eq!(installed.holds(&hair), Some(false));
+    }
+
+    #[test]
     fn the_run_s_cpk_listed_first_gives_the_bundled_bins() {
         let temp = scratch("installed_first");
         let pes = temp.path();
@@ -441,7 +589,7 @@ mod tests {
         install_cpk(pes, "4cc_61_midcup.cpk", &[(paths::UNI_COLOR, b"midcup")]);
         install_cpk(pes, "4cc_99_test.cpk", &[(paths::UNI_COLOR, b"own")]);
 
-        let (bins, messages) = working_bins(
+        let (bins, _, messages) = working_bins(
             pes,
             &stem(),
             PesVersion::Pes21,
@@ -480,7 +628,7 @@ mod tests {
             &[(paths::UNI_COLOR, &uni_color_bin(40))],
         );
 
-        let (bins, messages) = working_bins(
+        let (bins, _, messages) = working_bins(
             pes,
             &stem(),
             PesVersion::Pes21,
@@ -521,7 +669,7 @@ mod tests {
             )],
         );
 
-        let (bins, messages) = working_bins(
+        let (bins, _, messages) = working_bins(
             pes,
             &stem(),
             PesVersion::Pes21,
@@ -538,7 +686,7 @@ mod tests {
             source("UniformParameter.bin", "4cc_08_bins.cpk")
         );
 
-        let (bins, messages) = working_bins(
+        let (bins, _, messages) = working_bins(
             pes,
             &stem(),
             PesVersion::Pes17,
@@ -596,7 +744,7 @@ mod tests {
             ],
         );
 
-        let (bins, messages) = working_bins(
+        let (bins, _, messages) = working_bins(
             pes,
             &stem(),
             PesVersion::Pes21,
@@ -617,7 +765,7 @@ mod tests {
         ]);
         assert_eq!(messages, expected, "no bin_source for GloveList.bin");
 
-        let (bins, messages) = working_bins(
+        let (bins, _, messages) = working_bins(
             pes,
             &stem(),
             PesVersion::Pes17,

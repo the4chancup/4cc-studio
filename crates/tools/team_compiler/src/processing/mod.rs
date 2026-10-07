@@ -20,6 +20,7 @@ use studio_core::{Disposition, Message, Scope};
 use vtree::ScopePath;
 
 use crate::bins::KitColorEntry;
+use crate::bins::installed::InstalledPaths;
 use crate::messages::{Code, tool_message};
 use crate::paths;
 use crate::plan::subset::{ModelPackage, texture_format};
@@ -43,21 +44,28 @@ pub(crate) struct CompileContext {
     /// The run's resources: the placeholder kit texture, and the files a model package gets
     /// when its sources hold none.
     pub(crate) templates: Templates,
+    /// The entry paths of the installed CPKs loaded before the run's, where a model task
+    /// looks for a texture its model names in the team's Common output that the export does
+    /// not supply (`pipeline.md` "Resolved decisions", "A texture a model names must exist").
+    pub(crate) installed: InstalledPaths,
 }
 
 impl CompileContext {
     /// The context of a run for `version` compiling `compiled_exports` exports (those with at
-    /// least one planned task) with `templates`, with a fresh converter.
+    /// least one planned task) with `templates` and the `installed` CPKs' entry paths, with a
+    /// fresh converter.
     pub(crate) fn new(
         version: PesVersion,
         compiled_exports: usize,
         templates: Templates,
+        installed: InstalledPaths,
     ) -> CompileContext {
         CompileContext {
             version,
             converter: Converter::new(),
             cache: cache_policy(compiled_exports),
             templates,
+            installed,
         }
     }
 }
@@ -158,7 +166,7 @@ pub(crate) fn process_task(
             *package,
             ids,
             task.team_id,
-            &ctx.templates,
+            ctx,
             &mut files,
             &mut findings,
         )
@@ -392,7 +400,7 @@ mod tests {
             3,
             task,
             files,
-            &CompileContext::new(version, 1, Templates::embedded()),
+            &CompileContext::new(version, 1, Templates::embedded(), InstalledPaths::Unknown),
         )
     }
 
@@ -845,7 +853,13 @@ mod tests {
         assert_eq!(cache_policy(2), CachePolicy::Use);
         assert_eq!(cache_policy(3), CachePolicy::Bypass);
         assert_eq!(
-            CompileContext::new(PesVersion::Pes21, 48, Templates::embedded()).cache,
+            CompileContext::new(
+                PesVersion::Pes21,
+                48,
+                Templates::embedded(),
+                InstalledPaths::Unknown,
+            )
+            .cache,
             CachePolicy::Bypass
         );
     }
