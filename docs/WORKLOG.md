@@ -1042,7 +1042,20 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
     to the target's format, decision 2026-10-05; models only, drawn with the kit texture).
     TC-CMN-01..03, TC-CMN-08..10. A collar converted to Fox keeps its converted materials
     (Fox embeds them in the FMDL); one converted to pre-Fox gets `uni_collar`/`uni_shirts`
-    (`pipeline.md` "Collars")
+    (`pipeline.md` "Collars"). `kit_collar_reserved` landed with 4.27a. Plan settled
+    2026-10-07 (decision entry "collars: the 9xx IDs, one collar per export, a midcup's absent
+    slots"). Slices:
+    - [ ] 4.9b1 the checks: `Collars/`'s allowlist row in `ae` (TC-CMN-10); the deep pass's
+      `collar_id_invalid` (every version's set) and the reserved IDs' `collar_id_conflict`, so
+      `check` reports them (TC-CMN-02; TC-CMN-08's PES 17 refusal through `check`); a collar
+      FMDL that does not read dropped as a model that does not read is.
+    - [ ] 4.9b2 the Fox compile: the run-wide claimed list in planning (canonical order, one
+      collar per export), the `.fmdl` collar written at `paths::collar`, every config of the
+      team rewritten after FPC (the kit task; a Midcup's absent slots in `kit_configs` after
+      the FPC patch), the gate lifted for `.fmdl` collars on Fox. TC-CMN-01, TC-CMN-03,
+      TC-REF-07's collar half.
+    - Moved out: compiling a collar for pre-Fox (TC-CMN-08's compile half) with 4.16, a
+      collar in another format than the target's (TC-CMN-09, glTF) with 4.17's conversion.
 
 - [x] 4.10 **Kit layout conversion**: `KIT_LAYOUT_REMAP` (the plan's four sock bands; the
   shorts are not re-laid) in `processing/kit_layout.rs`, `kit_layout_converted`, each band

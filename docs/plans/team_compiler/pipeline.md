@@ -579,7 +579,13 @@ describes behavior, not a serial scheduling requirement:
   discarded. The list starts with the suite's own two claims, 105 (the FPC collar — replacing it
   would break FPC teams everywhere) and 77 (the referees' marker collar, `blue_port.md` "Referee
   export processing"), so a team's file named for either is the same conflict, not an invalid
-  ID: the ID is a real collar that someone else holds. Custom collars are **compatible with team FPC**: collar rewriting runs after FPC
+  ID: the ID is a real collar that someone else holds. An export holds one collar: the configs
+  take one ID, so a second valid `collar_<ID>` file of the same export, in path order, is the same
+  conflict, the export itself its claimant. "All of the team's kit configs" includes, for a
+  `Midcup` export, the kit slots it does not resend: their entries in the working
+  `UniformParameter.bin` get the collar in place, as they get the FPC values ([FPC
+  toggle](../aesthetics_export/fpc_toggle.md) "Kit slots absent from the export are patched in
+  place"), after them. Custom collars are **compatible with team FPC**: collar rewriting runs after FPC
   reconciliation, so the custom ID deliberately overrides the FPC collar value in the configs.
 - **Common** — pre-Fox: `.mtl` texture IDs and relative→absolute path fixes; both modes: texture
   conversion, dummy ID replacement, `oral_`/`_win32` model-name prefixes, face XML references to

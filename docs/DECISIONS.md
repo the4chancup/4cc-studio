@@ -4627,3 +4627,18 @@ referee. (3) the marker is the export's choice, and a cup maintainer who does no
 leaves `ref_marker.dds` out.
 Plan: `team_compiler/blue_port.md` "Referee export processing"; `resources/templates/README.md`
 `referee_marker.fmdl`.
+
+## 2026-10-07 — team_compiler — collars: the 9xx IDs, one collar per export, a midcup's absent slots
+Decision: (1) a collar file named for a stock 9xx collar (901 and up) is `collar_id_invalid`;
+the suite's reserved IDs (105, 77) are checked before the stock set, so `collar_105` is
+`collar_id_conflict` on every version, PES 15 included. (2) An export holds one collar: a second
+valid `collar_<ID>` file of the same export (path order; `collar_12` beside `collar_012`
+included) is `collar_id_conflict`, the export itself named as the claimant. (3) A `Midcup`
+export's collar also goes into the team's kit slots it does not resend: their entries in the
+working `UniformParameter.bin` get the collar after the FPC patch, in place.
+Why: (1) a kit config stores a collar in one byte, so a 9xx replacement could never be worn by
+the team's players, which is the whole point of a team collar; the plan already calls a reserved
+ID a conflict, not an invalid ID. (2) the configs take one ID; one general rule (the claimed
+list) instead of a new code. (3) the plan says "all of the team's kit configs", and a midcup
+adding a collar without resending its kits is the common case, as for FPC.
+Plan: `team_compiler/messages.md` `collar_id_invalid`; `team_compiler/pipeline.md` "Collars".
