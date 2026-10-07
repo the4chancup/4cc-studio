@@ -1,0 +1,26 @@
+example a0150p1_back A: IoU 0.169
+example a0150p1_back B: IoU 0.045
+example a0150p1_back S: IoU 0.871
+example a0150p1_back Sf: IoU 0.865
+stems 465
+== _back
+   A   n 465  IoU median 0.155 p5 0.105  per digit median 0.46 0.34 0.13 0.14 0.14 0.15 0.24 0.09 0.11 0.24
+   B   n 465  IoU median 0.047 p5 0.028  per digit median 0.26 0.07 0.02 0.01 0.02 0.00 0.03 0.00 0.03 0.10
+   S   n 465  IoU median 0.676 p5 0.372  per digit median 0.74 0.63 0.63 0.65 0.67 0.67 0.68 0.62 0.71 0.67
+   Sf  n 465  IoU median 0.673 p5 0.371  per digit median 0.74 0.66 0.62 0.65 0.67 0.67 0.68 0.61 0.71 0.67
+   rS  n 465  IoU median 0.672 p5 0.377  per digit median 0.74 0.62 0.63 0.65 0.66 0.68 0.68 0.61 0.72 0.67
+   rA  n 465  IoU median 0.155 p5 0.106  per digit median 0.42 0.20 0.11 0.13 0.13 0.17 0.11 0.09 0.19 0.01
+== _chest
+   A   n 465  IoU median 0.156 p5 0.107  per digit median 0.48 0.36 0.13 0.14 0.14 0.17 0.24 0.09 0.12 0.24
+   B   n 465  IoU median 0.049 p5 0.029  per digit median 0.27 0.06 0.02 0.01 0.01 0.00 0.03 0.01 0.03 0.10
+   S   n 465  IoU median 0.683 p5 0.403  per digit median 0.74 0.64 0.64 0.67 0.68 0.68 0.69 0.62 0.72 0.68
+   Sf  n 465  IoU median 0.681 p5 0.402  per digit median 0.74 0.68 0.63 0.67 0.68 0.68 0.69 0.62 0.72 0.68
+   rS  n 465  IoU median 0.684 p5 0.406  per digit median 0.75 0.65 0.65 0.66 0.69 0.68 0.69 0.62 0.74 0.67
+   rA  n 465  IoU median 0.161 p5 0.106  per digit median 0.43 0.20 0.12 0.13 0.13 0.18 0.11 0.10 0.20 0.01
+== _leg
+   A   n 465  IoU median 0.156 p5 0.107  per digit median 0.48 0.35 0.13 0.15 0.14 0.17 0.24 0.09 0.12 0.24
+   B   n 465  IoU median 0.049 p5 0.028  per digit median 0.27 0.06 0.02 0.01 0.01 0.00 0.03 0.01 0.03 0.10
+   S   n 465  IoU median 0.688 p5 0.403  per digit median 0.74 0.64 0.64 0.67 0.68 0.68 0.69 0.62 0.72 0.68
+   Sf  n 465  IoU median 0.686 p5 0.402  per digit median 0.74 0.68 0.63 0.67 0.68 0.68 0.69 0.62 0.72 0.68
+   rS  n 465  IoU median 0.689 p5 0.404  per digit median 0.75 0.65 0.65 0.67 0.68 0.68 0.69 0.62 0.74 0.67
+   rA  n 465  IoU median 0.160 p5 0.106  per digit median 0.43 0.20 0.12 0.13 0.13 0.18 0.11 0.10 0.20 0.01

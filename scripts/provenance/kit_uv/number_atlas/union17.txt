@@ -1,0 +1,33 @@
+== PES17 _back: short-axis ink union 0.0625-0.9375
+   0: 0.0034-0.0996 (     7-   204 px)  gap to next      8 px  median centre 0.0518  n 797
+   1: 0.1035-0.1992 (   212-   408 px)  gap to next      8 px  median centre 0.1514  n 797
+   2: 0.2031-0.2988 (   416-   612 px)  gap to next      8 px  median centre 0.2510  n 797
+   3: 0.3027-0.3984 (   620-   816 px)  gap to next      8 px  median centre 0.3506  n 797
+   4: 0.4023-0.4980 (   824-  1020 px)  gap to next      8 px  median centre 0.4502  n 797
+   5: 0.5020-0.5977 (  1028-  1224 px)  gap to next      8 px  median centre 0.5498  n 797
+   6: 0.6016-0.6973 (  1232-  1428 px)  gap to next      8 px  median centre 0.6494  n 797
+   7: 0.7012-0.7969 (  1436-  1632 px)  gap to next      8 px  median centre 0.7490  n 797
+   8: 0.8008-0.8965 (  1640-  1836 px)  gap to next      8 px  median centre 0.8486  n 797
+   9: 0.9004-0.9961 (  1844-  2040 px)  gap to next      8 px  median centre 0.9482  n 797
+== PES17 _chest: short-axis ink union 0.0625-0.9375
+   0: 0.0029-0.0996 (     6-   204 px)  gap to next      8 px  median centre 0.0518  n 797
+   1: 0.1035-0.1992 (   212-   408 px)  gap to next      8 px  median centre 0.1514  n 797
+   2: 0.2031-0.2988 (   416-   612 px)  gap to next      8 px  median centre 0.2510  n 797
+   3: 0.3027-0.3984 (   620-   816 px)  gap to next      8 px  median centre 0.3506  n 797
+   4: 0.4023-0.4980 (   824-  1020 px)  gap to next      8 px  median centre 0.4502  n 797
+   5: 0.5020-0.5977 (  1028-  1224 px)  gap to next      8 px  median centre 0.5498  n 797
+   6: 0.6016-0.6973 (  1232-  1428 px)  gap to next      8 px  median centre 0.6494  n 797
+   7: 0.7012-0.7969 (  1436-  1632 px)  gap to next      8 px  median centre 0.7490  n 797
+   8: 0.8008-0.8965 (  1640-  1836 px)  gap to next      8 px  median centre 0.8486  n 797
+   9: 0.9004-0.9961 (  1844-  2040 px)  gap to next      8 px  median centre 0.9482  n 797
+== PES17 _leg: short-axis ink union 0.0625-0.9375
+   0: 0.0029-0.0996 (     6-   204 px)  gap to next      8 px  median centre 0.0518  n 797
+   1: 0.1035-0.1992 (   212-   408 px)  gap to next      8 px  median centre 0.1514  n 797
+   2: 0.2031-0.2988 (   416-   612 px)  gap to next      8 px  median centre 0.2510  n 797
+   3: 0.3027-0.3984 (   620-   816 px)  gap to next      8 px  median centre 0.3506  n 797
+   4: 0.4023-0.4980 (   824-  1020 px)  gap to next      8 px  median centre 0.4502  n 797
+   5: 0.5020-0.5977 (  1028-  1224 px)  gap to next      8 px  median centre 0.5498  n 797
+   6: 0.6016-0.6973 (  1232-  1428 px)  gap to next      8 px  median centre 0.6494  n 797
+   7: 0.7012-0.7969 (  1436-  1632 px)  gap to next      8 px  median centre 0.7490  n 797
+   8: 0.8008-0.8965 (  1640-  1836 px)  gap to next      8 px  median centre 0.8486  n 797
+   9: 0.9004-0.9961 (  1844-  2040 px)  gap to next      8 px  median centre 0.9482  n 797

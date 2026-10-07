@@ -1,0 +1,19 @@
+stems 465, pairs skipped (not ten runs) 8, glyph rows 13870
+== _back: 463 pairs (p5/median/p95; sizes in px of a 2048-long atlas)
+   h17 149.000/183.000/193.000  h21 185.000/241.000/253.000  height ratio h21/h17 1.078/1.280/1.519
+   w17 77.000/92.000/107.000  w21 102.000/116.000/140.000  width ratio w21/w17 (no 1s) 1.065/1.264/1.648
+   aspect change (w21/h21)/(w17/h17), no 1s: 0.767/1.002/1.387  (1 = proportional, 1.28 = stretched with cell)
+   equal-cell normalized box  PES17: x0 0.078/0.141/0.203  x1 0.555/0.852/0.914  y0 0.018/0.054/0.120  y1 0.823/0.949/0.982
+   equal-cell normalized box  PES21: x0 -0.416/-0.303/0.107  x1 0.170/0.292/0.674  y0 0.004/0.027/0.141  y1 0.863/0.969/0.992
+== _chest: 462 pairs (p5/median/p95; sizes in px of a 2048-long atlas)
+   h17 150.000/184.000/194.000  h21 186.000/242.000/254.000  height ratio h21/h17 1.083/1.283/1.532
+   w17 78.000/92.000/108.000  w21 104.000/116.000/142.000  width ratio w21/w17 (no 1s) 1.074/1.262/1.674
+   aspect change (w21/h21)/(w17/h17), no 1s: 0.771/1.015/1.413  (1 = proportional, 1.28 = stretched with cell)
+   equal-cell normalized box  PES17: x0 0.078/0.141/0.203  x1 0.562/0.844/0.922  y0 0.014/0.051/0.123  y1 0.828/0.951/0.986
+   equal-cell normalized box  PES21: x0 -0.416/-0.303/0.107  x1 0.170/0.297/0.674  y0 0.000/0.023/0.141  y1 0.867/0.969/0.992
+== _leg: 462 pairs (p5/median/p95; sizes in px of a 2048-long atlas)
+   h17 150.000/184.000/194.000  h21 186.000/242.000/254.000  height ratio h21/h17 1.083/1.283/1.513
+   w17 78.000/92.000/108.000  w21 102.000/116.000/142.000  width ratio w21/w17 (no 1s) 1.074/1.262/1.674
+   aspect change (w21/h21)/(w17/h17), no 1s: 0.771/1.015/1.414  (1 = proportional, 1.28 = stretched with cell)
+   equal-cell normalized box  PES17: x0 0.078/0.141/0.203  x1 0.562/0.844/0.922  y0 0.014/0.051/0.119  y1 0.828/0.951/0.986
+   equal-cell normalized box  PES21: x0 -0.416/-0.303/0.107  x1 0.170/0.297/0.674  y0 0.000/0.023/0.141  y1 0.867/0.969/0.992

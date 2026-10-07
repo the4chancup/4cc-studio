@@ -1844,7 +1844,9 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   otherwise. Without it every pre-Fox byte of 4.14-4.17 is unchecked until Phase 6 → verify:
   the README's command reproduces `red/` byte for byte from `old/`
 
-- [ ] 4.32 **Number atlases re-arranged across engines** (lead first: the measurement):
+- [ ] 4.32 **Number atlases re-arranged across engines** (lead first: the measurement, done
+  2026-10-07: `scripts/provenance/kit_uv/number_atlas/`, the plan's slot rule and decision
+  entry "number atlases: a digit moves by a uniform scale into Konami's slots"):
   neither engine reads the other's `_back`, `_chest` and `_leg` arrangement (ten digits in
   a column on PES 15 to 17, 128×2048 or 64×1024; in a row on PES 18 to 21, 2048×256 or
   1024×128), so an atlas in the other engine's arrangement is re-arranged for the target,
