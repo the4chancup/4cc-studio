@@ -1,5 +1,5 @@
-//! Staging and promotion (`team_compiler/pipeline.md` "6. Post-processing"): a CPK, or a
-//! sideload run's loose tree, is written in a staging folder of its own run and only then moved
+//! Staging and promotion (`team_compiler/pipeline.md` "6. Post-processing"): a CPK, or a test
+//! or sideload run's loose tree, is written in a staging folder of its own run and only then moved
 //! to its final path, so a failed run never leaves a half-written output where the game or the
 //! user could pick it up.
 
@@ -17,6 +17,9 @@ const STAGING: &str = ".staging";
 /// The game folder's subfolder a sideloading runtime serves to the running game (FoxDen on PES
 /// 2018 to 2021, Sider on PES 2017), and the name of a sideload run's staged tree.
 pub(crate) const LIVECPK: &str = "livecpk";
+
+/// The output folder's subfolder a test run's tree replaces, and the name of the staged tree.
+pub(crate) const TEST_OUTPUT: &str = "test_output";
 
 /// This run's staging folder, `<output>/.staging/<pid>-<unix ms>`: the process id keeps two
 /// runs at once apart, the time two runs of a recycled process id.
@@ -66,29 +69,30 @@ pub(crate) fn promote(
     Ok(promoted)
 }
 
-/// Replaces `<pes_folder>/livecpk/` with the tree staged at `<run_folder>/livecpk`, then
-/// discards the `run_folder`. The previous tree goes first, whatever it holds: Studio is the
-/// folder's only writer, and a file the export no longer has must not linger there. The staged
-/// tree is renamed into place, or copied when the rename fails (the output folder on another
-/// drive than the game). Nothing outside `livecpk/` and the `run_folder` is deleted. Failing to
-/// remove the previous tree or to move the new one is the commit's failure; the cleanup after
-/// it is only logged, as for `promote`.
-pub(crate) fn promote_livecpk(
+/// Replaces the folder `target` (the PES folder's `livecpk/`, the output folder's
+/// `test_output/`) with the tree staged at `<run_folder>/<tree>`, then discards the
+/// `run_folder`. The previous tree goes first, whatever it holds: Studio is the folder's only
+/// writer, and a file the export no longer has must not linger there. The staged tree is
+/// renamed into place, or copied when the rename fails (the output folder on another drive than
+/// the game). Nothing outside `target` and the `run_folder` is deleted. Failing to remove the
+/// previous tree or to move the new one is the commit's failure; the cleanup after it is only
+/// logged, as for `promote`.
+pub(crate) fn promote_tree(
     run_folder: &Path,
     output: &Path,
-    pes_folder: &Path,
+    tree: &str,
+    target: &Path,
 ) -> anyhow::Result<()> {
-    let livecpk = pes_folder.join(LIVECPK);
-    let cannot_replace = || format!("{}: cannot replace it with the new tree", livecpk.display());
-    match fs::remove_dir_all(&livecpk) {
+    let cannot_replace = || format!("{}: cannot replace it with the new tree", target.display());
+    match fs::remove_dir_all(target) {
         Ok(()) => {}
         Err(error) if error.kind() == io::ErrorKind::NotFound => {}
         Err(error) => return Err(error).with_context(cannot_replace),
     }
-    let staged = run_folder.join(LIVECPK);
-    if let Err(error) = fs::rename(&staged, &livecpk) {
+    let staged = run_folder.join(tree);
+    if let Err(error) = fs::rename(&staged, target) {
         log::debug!("{}: not renamed ({error}), copied", staged.display());
-        copy_tree(&staged, &livecpk).with_context(cannot_replace)?;
+        copy_tree(&staged, target).with_context(cannot_replace)?;
     }
     discard(run_folder, output);
     Ok(())
@@ -253,7 +257,7 @@ mod tests {
         fs::write(pes_folder.join("beside.txt"), "not ours").unwrap();
         let run_folder = staged_tree(&output);
 
-        promote_livecpk(&run_folder, &output, &pes_folder).unwrap();
+        promote_tree(&run_folder, &output, LIVECPK, &pes_folder.join(LIVECPK)).unwrap();
 
         assert_staged_tree(&pes_folder.join("livecpk"));
         assert_eq!(
@@ -271,7 +275,7 @@ mod tests {
         fs::create_dir_all(&pes_folder).unwrap();
         let run_folder = staged_tree(&output);
 
-        promote_livecpk(&run_folder, &output, &pes_folder).unwrap();
+        promote_tree(&run_folder, &output, LIVECPK, &pes_folder.join(LIVECPK)).unwrap();
 
         assert_staged_tree(&pes_folder.join("livecpk"));
     }
@@ -286,7 +290,8 @@ mod tests {
         fs::write(pes_folder.join("livecpk"), "a file").unwrap();
         let run_folder = staged_tree(&output);
 
-        let error = promote_livecpk(&run_folder, &output, &pes_folder).unwrap_err();
+        let error =
+            promote_tree(&run_folder, &output, LIVECPK, &pes_folder.join(LIVECPK)).unwrap_err();
 
         assert_eq!(
             error.to_string(),
@@ -316,7 +321,7 @@ mod tests {
             .open(run_folder.join("livecpk/top.bin"))
             .unwrap();
 
-        promote_livecpk(&run_folder, &output, &pes_folder).unwrap();
+        promote_tree(&run_folder, &output, LIVECPK, &pes_folder.join(LIVECPK)).unwrap();
 
         drop(held_open);
         assert_staged_tree(&pes_folder.join("livecpk"));
@@ -342,7 +347,8 @@ mod tests {
             .open(pes_folder.join("livecpk/stale.txt"))
             .unwrap();
 
-        let error = promote_livecpk(&run_folder, &output, &pes_folder).unwrap_err();
+        let error =
+            promote_tree(&run_folder, &output, LIVECPK, &pes_folder.join(LIVECPK)).unwrap_err();
 
         drop(held_open);
         assert_eq!(

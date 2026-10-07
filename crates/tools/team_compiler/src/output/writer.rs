@@ -45,12 +45,19 @@ pub(crate) struct CpkOutput {
     /// The manifest positions of the batches committed: a player's boots or gloves row is set
     /// only when the task building them is among them.
     committed: BTreeSet<usize>,
+    /// What goes before each bin's game path in the sink: empty, or test mode's `_bins/`.
+    bins_prefix: String,
 }
 
 impl CpkOutput {
     /// A CPK's entries to be written into `sink`, starting with `overrides` (CPK path, file on
-    /// disk), each file read when it is added; nothing is written yet.
-    pub(crate) fn new(sink: OutputSink, overrides: BTreeMap<String, PathBuf>) -> CpkOutput {
+    /// disk), each file read when it is added, the bins at their game paths after
+    /// `bins_prefix`; nothing is written yet.
+    pub(crate) fn new(
+        sink: OutputSink,
+        overrides: BTreeMap<String, PathBuf>,
+        bins_prefix: &str,
+    ) -> CpkOutput {
         CpkOutput {
             sink,
             started: false,
@@ -60,6 +67,7 @@ impl CpkOutput {
             uniform_parameters: Vec::new(),
             kit_colors: Vec::new(),
             committed: BTreeSet::new(),
+            bins_prefix: bins_prefix.to_owned(),
         }
     }
 
@@ -191,7 +199,7 @@ impl CpkOutput {
                     kit_configs(&mut bin, &uni_color, team_kits, committed_configs, version)?;
                 messages.extend(findings);
                 if changed {
-                    self.add(paths::UNIFORM_PARAMETER, &bin.write(), &mut messages)?;
+                    self.add_bin(paths::UNIFORM_PARAMETER, &bin.write(), &mut messages)?;
                 }
             }
             None => ensure!(
@@ -204,7 +212,7 @@ impl CpkOutput {
         for (team_id, colors) in team_colors {
             bin.set_colors(*team_id, colors)?;
         }
-        self.add(paths::TEAM_COLOR, &bin.into_bytes(), &mut messages)?;
+        self.add_bin(paths::TEAM_COLOR, &bin.into_bytes(), &mut messages)?;
         let mut bin = uni_color;
         messages.extend(header_repaired("UniColor.bin", &bin.repair_headers()));
         // Before the merge: a failed kit's number is among a `Full` team's, so its entry stays
@@ -222,7 +230,7 @@ impl CpkOutput {
         for (team_id, entry) in std::mem::take(&mut self.kit_colors) {
             bin.set_kit(team_id, &entry)?;
         }
-        self.add(paths::UNI_COLOR, &bin.into_bytes(), &mut messages)?;
+        self.add_bin(paths::UNI_COLOR, &bin.into_bytes(), &mut messages)?;
         let lists = [
             (ItemTable::Boots, boots_list),
             (ItemTable::Gloves, glove_list),
@@ -249,13 +257,13 @@ impl CpkOutput {
             match list {
                 Some(mut list) => {
                     list.apply(table, item_rows, &self.committed);
-                    self.add(table.path(), &list.into_bytes(), messages)?;
+                    self.add_bin(table.path(), &list.into_bytes(), messages)?;
                 }
                 None => messages.extend(table_missing(table, item_rows, &self.committed)),
             }
         }
         if let Some(bytes) = player_appearance {
-            self.add(paths::PLAYER_APPEARANCE, &bytes, messages)?;
+            self.add_bin(paths::PLAYER_APPEARANCE, &bytes, messages)?;
         }
         Ok(())
     }
@@ -301,6 +309,18 @@ impl CpkOutput {
             self.start()?;
         }
         self.sink.add(path, bytes)
+    }
+
+    /// Adds the bin `bytes` at its game path `path`, after the bins prefix, as `add` adds an
+    /// entry.
+    fn add_bin(
+        &mut self,
+        path: &str,
+        bytes: &[u8],
+        messages: &mut Vec<Message>,
+    ) -> anyhow::Result<()> {
+        let path = format!("{}{path}", self.bins_prefix);
+        self.add(&path, bytes, messages)
     }
 
     /// Adds the overrides, in path order, so they are the sink's first entries. Each override
@@ -428,7 +448,7 @@ mod tests {
     /// and the positions `submit` reported, in order.
     fn write_all(folder: &Path, name: &str, batches: Vec<TaskBatch>) -> (Vec<String>, Vec<usize>) {
         let path = folder.join(format!("{name}.cpk"));
-        let mut output = CpkOutput::new(OutputSink::cpk(path.clone()), BTreeMap::new());
+        let mut output = CpkOutput::new(OutputSink::cpk(path.clone()), BTreeMap::new(), "");
         let mut reported = Vec::new();
         for batch in batches {
             for (index, messages) in output.submit(batch).unwrap() {
@@ -676,6 +696,7 @@ mod tests {
         let mut output = CpkOutput::new(
             OutputSink::cpk(path.clone()),
             overrides(folder, &["z/over.bin", "a/over.bin"]),
+            "",
         );
 
         let committed = output
@@ -716,6 +737,7 @@ mod tests {
         let mut output = CpkOutput::new(
             OutputSink::cpk(path.clone()),
             overrides(folder, &[paths::TEAM_COLOR]),
+            "",
         );
         output.submit(batch(0, &["a/b.bin"], None)).unwrap();
 
@@ -749,6 +771,7 @@ mod tests {
         let mut output = CpkOutput::new(
             OutputSink::cpk(path.clone()),
             overrides(folder, &["kit/kit.ftex"]),
+            "",
         );
 
         let committed = output.submit(kit_batch(0, &["kit/kit.ftex"])).unwrap();
@@ -775,6 +798,7 @@ mod tests {
         let mut output = CpkOutput::new(
             OutputSink::cpk(path.clone()),
             overrides(folder, &["a/over.bin"]),
+            "",
         );
         // A failed task commits nothing.
         output.submit(batch(0, &[], Some("kit"))).unwrap();
@@ -802,12 +826,13 @@ mod tests {
         let expected = format!("{}: cannot read the override", file.display());
 
         // At the first entry a task commits.
-        let mut output = CpkOutput::new(OutputSink::cpk(folder.join("first.cpk")), gone.clone());
+        let mut output =
+            CpkOutput::new(OutputSink::cpk(folder.join("first.cpk")), gone.clone(), "");
         let error = output.submit(batch(0, &["b/own.bin"], None)).unwrap_err();
         assert_eq!(error.to_string(), expected);
 
         // At the end, when no task committed anything.
-        let output = CpkOutput::new(OutputSink::cpk(folder.join("last.cpk")), gone);
+        let output = CpkOutput::new(OutputSink::cpk(folder.join("last.cpk")), gone, "");
         let error = finish_plain(output, PesVersion::Pes21).unwrap_err();
         assert_eq!(error.to_string(), expected);
     }
@@ -817,7 +842,7 @@ mod tests {
         let temp = scratch("writer_order");
         let folder = temp.path();
         let path = folder.join("run/cup.cpk");
-        let mut output = CpkOutput::new(OutputSink::cpk(path.clone()), BTreeMap::new());
+        let mut output = CpkOutput::new(OutputSink::cpk(path.clone()), BTreeMap::new(), "");
 
         output.submit(batch(2, &["a/first.bin"], None)).unwrap();
         output
@@ -863,7 +888,7 @@ mod tests {
     fn uniform_parameter_bin_is_built_on_the_working_one() {
         let temp = scratch("writer_working_uniform_parameter");
         let path = temp.path().join("cup.cpk");
-        let mut output = CpkOutput::new(OutputSink::cpk(path.clone()), BTreeMap::new());
+        let mut output = CpkOutput::new(OutputSink::cpk(path.clone()), BTreeMap::new(), "");
         output.submit(batch(0, &["a/b.bin"], Some("kit"))).unwrap();
         // PES 18's base stands in for an installed bin: it is not the one a PES 21 run bundles.
         let templates = Templates::embedded();
@@ -894,7 +919,7 @@ mod tests {
         let mut written = Vec::new();
         for (name, reversed) in [("forward", false), ("reversed", true)] {
             let path = folder.join(format!("{name}.cpk"));
-            let mut output = CpkOutput::new(OutputSink::cpk(path.clone()), BTreeMap::new());
+            let mut output = CpkOutput::new(OutputSink::cpk(path.clone()), BTreeMap::new(), "");
             let mut batches = three_batches();
             if reversed {
                 batches.reverse();
@@ -912,7 +937,8 @@ mod tests {
     fn submit_returns_each_committed_batch_and_its_messages_in_manifest_order() {
         let temp = scratch("writer_committed");
         let folder = temp.path();
-        let mut output = CpkOutput::new(OutputSink::cpk(folder.join("cup.cpk")), BTreeMap::new());
+        let mut output =
+            CpkOutput::new(OutputSink::cpk(folder.join("cup.cpk")), BTreeMap::new(), "");
         let [first, second, third] = three_batches();
 
         assert_eq!(output.submit(third).unwrap(), [], "task 2 waits for 0");
@@ -927,7 +953,8 @@ mod tests {
     fn a_failed_commit_releases_the_permits_of_the_batches_waiting_behind_it() {
         let temp = scratch("writer_failed_commit");
         let folder = temp.path();
-        let mut output = CpkOutput::new(OutputSink::cpk(folder.join("cup.cpk")), BTreeMap::new());
+        let mut output =
+            CpkOutput::new(OutputSink::cpk(folder.join("cup.cpk")), BTreeMap::new(), "");
         let budget = MemoryBudget::new(1);
         let mut waiting = batch(1, &["a/waiting.bin"], None);
         waiting.permit = Some(Arc::new(budget.acquire(1).unwrap()));
@@ -956,7 +983,7 @@ mod tests {
         let temp = scratch("writer_failed");
         let folder = temp.path();
         let path = folder.join("run/cup.cpk");
-        let mut output = CpkOutput::new(OutputSink::cpk(path.clone()), BTreeMap::new());
+        let mut output = CpkOutput::new(OutputSink::cpk(path.clone()), BTreeMap::new(), "");
 
         output.submit(batch(0, &[], Some("kit"))).unwrap();
 
@@ -970,6 +997,7 @@ mod tests {
         let mut output = CpkOutput::new(
             OutputSink::cpk(temp.path().join("cup.cpk")),
             BTreeMap::new(),
+            "",
         );
         output.submit(batch(1, &["a/b.bin"], None)).unwrap();
         let error = finish_plain(output, PesVersion::Pes21).unwrap_err();
@@ -985,6 +1013,7 @@ mod tests {
         let mut output = CpkOutput::new(
             OutputSink::cpk(temp.path().join("cup.cpk")),
             BTreeMap::new(),
+            "",
         );
         output.submit(batch(0, &["a/b.bin"], Some("kit"))).unwrap();
         let error = finish_plain(output, PesVersion::Pes17).unwrap_err();
@@ -1006,7 +1035,7 @@ mod tests {
     fn team_color_run(name: &str, bins: WorkingBins) -> (Vec<u8>, Vec<Message>) {
         let temp = scratch(name);
         let path = temp.path().join("cup.cpk");
-        let mut output = CpkOutput::new(OutputSink::cpk(path.clone()), BTreeMap::new());
+        let mut output = CpkOutput::new(OutputSink::cpk(path.clone()), BTreeMap::new(), "");
         output.submit(batch(0, &["a/b.bin"], None)).unwrap();
         let (written, messages) = output
             .finish(PesVersion::Pes21, bins, &team_714_colors(), &[], &[])
@@ -1083,7 +1112,7 @@ mod tests {
             let temp = scratch(name);
             let folder = temp.path().join("run");
             let mut output =
-                CpkOutput::new(OutputSink::cpk(folder.join("cup.cpk")), BTreeMap::new());
+                CpkOutput::new(OutputSink::cpk(folder.join("cup.cpk")), BTreeMap::new(), "");
             output.submit(batch(0, &[], None)).unwrap();
             let mut team_color = bundled_team_color();
             team_color[..4].copy_from_slice(&[1, 2, 3, 4]);
@@ -1131,7 +1160,7 @@ mod tests {
     ) -> (Vec<u8>, Vec<Message>) {
         let temp = scratch(name);
         let path = temp.path().join("cup.cpk");
-        let mut output = CpkOutput::new(OutputSink::cpk(path.clone()), BTreeMap::new());
+        let mut output = CpkOutput::new(OutputSink::cpk(path.clone()), BTreeMap::new(), "");
         for batch in batches {
             output.submit(batch).unwrap();
         }
@@ -1281,7 +1310,7 @@ mod tests {
 
         let temp = scratch(name);
         let path = temp.path().join("cup.cpk");
-        let mut output = CpkOutput::new(OutputSink::cpk(path.clone()), BTreeMap::new());
+        let mut output = CpkOutput::new(OutputSink::cpk(path.clone()), BTreeMap::new(), "");
         let paths: &[&str] = if commits { &["a/b.bin"] } else { &[] };
         output.submit(batch(0, paths, None)).unwrap();
         let bins = WorkingBins {
@@ -1354,7 +1383,7 @@ mod tests {
     fn the_player_tables_found_follow_uni_color_bin_with_the_committed_rows_set() {
         let temp = scratch("writer_player_tables");
         let path = temp.path().join("cup.cpk");
-        let mut output = CpkOutput::new(OutputSink::cpk(path.clone()), BTreeMap::new());
+        let mut output = CpkOutput::new(OutputSink::cpk(path.clone()), BTreeMap::new(), "");
         // Slot 05's boots commit; slot 07's boots task failed.
         output.submit(batch(0, &["boots/k0625.fpk"], None)).unwrap();
         output.submit(batch(1, &[], None)).unwrap();

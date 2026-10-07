@@ -1,19 +1,19 @@
 //! One package of a model folder's Fox models (`team_compiler/pipeline.md` "3.
 //! Per-model-folder parallel steps", steps 2, 3 and 7): its models renamed to their allowed
 //! names, each part's texture paths pointed at where its textures go and the textures its
-//! meshes use looked for, the parts resolving to one name merged into one model, packed with
-//! the files that go beside them into one `.fpk` emitted under each of the package's ids.
+//! meshes use looked for, the parts resolving to one name merged into one model, with
+//! the files that go beside them: the package's files, which `materialize` packs or places.
 
 use std::collections::{BTreeMap, BTreeSet};
 
 use fmdl::ops::merge::{MergeError, merge};
 use fmdl::ops::paths::{TexturePath, rewrite_texture_paths, used_texture_paths};
 use fmdl::{FmdlFile, Model};
-use fpk::{FpkFile, FpkKind};
 use studio_core::Disposition;
 use vtree::ScopePath;
 
-use super::{CompileContext, Entry, Finding, TaskFailure, TaskFiles, take};
+use super::materialize::PackageFiles;
+use super::{CompileContext, Finding, TaskFailure, TaskFiles, take};
 use crate::face_diff;
 use crate::kit_variants::{KitToken, kit_token};
 use crate::messages::Code;
@@ -49,9 +49,9 @@ enum PartTextures {
     Common,
 }
 
-/// The `package` of `folder`, compiled from its files' bytes in `files` for team `team_id`
-/// and emitted under each of `ids`: the package's `.fpk` and an empty `.fpkd` per id, a file
-/// the game needs beside the models that no source holds taken from the run's templates. A
+/// The files of `folder`'s `package`, compiled from its files' bytes in `files` for team
+/// `team_id`, by their names in the package, a file the game needs beside the models that no
+/// source holds taken from the run's templates. A
 /// merge of several parts into one model is noted in `findings` as `fmdl_merged`. A texture a
 /// part's mesh uses that nothing supplies (`texture_supply`) fails the task with
 /// `fmdl_texture_not_found` at the first one, or, when the installed CPKs cannot be looked in,
@@ -59,18 +59,17 @@ enum PartTextures {
 pub(super) fn package(
     folder: &ModelFolder,
     package: ModelPackage,
-    ids: &[u32],
     team_id: u16,
     ctx: &CompileContext,
     files: &mut TaskFiles,
     findings: &mut Vec<Finding>,
-) -> Result<Vec<Entry>, TaskFailure> {
+) -> Result<PackageFiles, TaskFailure> {
     let mut parts: Vec<Part> = Vec::new();
     // The stems of the folder's own textures, and of the Common textures its `.common` links
     // stand for.
     let mut texture_stems = BTreeSet::new();
     let mut linked_stems = BTreeSet::new();
-    let mut fpk = FpkFile::new(FpkKind::Fpk);
+    let mut contents = PackageFiles::new();
     for (_, _, source_files) in folder.roles() {
         // A skeleton pairs with the model of its stem in the same directory: keyed by the
         // path up to the extension, case-folded as the file system folds it (planning pairs
@@ -105,14 +104,14 @@ pub(super) fn package(
                     package: owner,
                     name,
                 } if owner == package => {
-                    fpk.insert(name.to_owned(), take(files, file));
+                    contents.insert(name.to_owned(), take(files, file));
                 }
                 // The deep pass has dropped a folder whose face diff fails to decode, or that
                 // gives it in both forms, so a failure here is not a member's mistake.
                 PlayerFile::FaceDiffXml if package == ModelPackage::Face => {
                     let bytes = face_diff::from_xml(&take(files, file))
                         .map_err(|error| anyhow::anyhow!("{}: {error}", file.path.as_str()))?;
-                    fpk.insert("face_diff.bin".to_owned(), bytes);
+                    contents.insert("face_diff.bin".to_owned(), bytes);
                 }
                 // The textures are the textures task's, and a linked one the Common textures
                 // task's; this task only points its models at them. Stems fold, as validation
@@ -234,7 +233,7 @@ pub(super) fn package(
                 merged.write()
             }
         };
-        fpk.insert(format!("{name}.fmdl"), bytes);
+        contents.insert(format!("{name}.fmdl"), bytes);
     }
     // The game loads the boots and the hair with a skeleton beside them, under the slot's
     // name (`player_folders.md` "SKL pairing"): the parts' own when they bring one, else the
@@ -243,26 +242,26 @@ pub(super) fn package(
     // ("What the injected files are").
     match package {
         ModelPackage::Boots => {
-            fpk.insert(
+            contents.insert(
                 "boots.skl".to_owned(),
                 skeleton.unwrap_or_else(|| ctx.templates.body_skeleton().to_vec()),
             );
         }
         ModelPackage::Face => {
-            if fpk.get("face_diff.bin").is_none() {
-                fpk.insert(
+            if !contents.contains_key("face_diff.bin") {
+                contents.insert(
                     "face_diff.bin".to_owned(),
                     ctx.templates.face_diff().to_vec(),
                 );
             }
-            if fpk.get("fcl_hair.fmdl").is_some() {
-                if fpk.get("fcl_hair_sim.fclo").is_none() {
-                    fpk.insert(
+            if contents.contains_key("fcl_hair.fmdl") {
+                if !contents.contains_key("fcl_hair_sim.fclo") {
+                    contents.insert(
                         "fcl_hair_sim.fclo".to_owned(),
                         ctx.templates.fcl_hair_sim().to_vec(),
                     );
                 }
-                fpk.insert(
+                contents.insert(
                     "fcl_hair_sim.skl".to_owned(),
                     skeleton.unwrap_or_else(|| ctx.templates.body_skeleton().to_vec()),
                 );
@@ -272,25 +271,7 @@ pub(super) fn package(
         ModelPackage::Gloves => {}
     }
 
-    let fpk = fpk.write();
-    // The game opens a package's `.fpkd` beside its `.fpk`; with the textures in the common
-    // folder there is nothing to put in it, so it is an empty package.
-    let empty = FpkFile::new(FpkKind::Fpkd).write();
-    let stem = package.file_stem();
-    let mut entries = Vec::new();
-    // The game finds a package by its id, so each slot gets its own copy; the last slot takes
-    // the buffer itself rather than one more copy.
-    if let Some((last_id, other_ids)) = ids.split_last() {
-        for id in other_ids {
-            let folder = paths::package_folder(package, *id);
-            entries.push((format!("{folder}/{stem}.fpk"), fpk.clone()));
-            entries.push((format!("{folder}/{stem}.fpkd"), empty.clone()));
-        }
-        let folder = paths::package_folder(package, *last_id);
-        entries.push((format!("{folder}/{stem}.fpk"), fpk));
-        entries.push((format!("{folder}/{stem}.fpkd"), empty));
-    }
-    Ok(entries)
+    Ok(contents)
 }
 
 /// The skeleton the parts of one output model share, taken out of them: the one `.skl` every

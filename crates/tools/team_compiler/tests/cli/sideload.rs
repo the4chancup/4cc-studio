@@ -34,7 +34,8 @@ fn livecpk(sandbox: &Sandbox) -> BTreeMap<String, Vec<u8>> {
         .collect()
 }
 
-fn slashed(path: &Path) -> String {
+/// `path` spelled with `/` between its parts, as a CPK entry's path is.
+pub(crate) fn slashed(path: &Path) -> String {
     let parts: Vec<&str> = path
         .components()
         .map(|part| part.as_os_str().to_str().unwrap())

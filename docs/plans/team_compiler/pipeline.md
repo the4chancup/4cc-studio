@@ -872,9 +872,9 @@ describes behavior, not a serial scheduling requirement:
 
    The cost Blue paid — a second code path in the coordinator — is contained by deciding the
    **output target once, at manifest planning**, and consuming it at exactly one seam: each task's
-   final *materialize* step (relocation to game paths, Fox FPK packing). In test mode that step is
-   skipped and the task emits its processed entries with export-relative paths; in normal and sideload
-   mode it runs. A test-mode entry sits at `test_output/<source>/<folder>/<name>`: `<source>` is
+   final *materialize* step (relocation to game paths, Fox FPK packing). In normal and sideload
+   mode it relocates and packs; in test mode it places each processed entry by the export's
+   layout instead, and packs nothing. A test-mode entry sits at `test_output/<source>/<folder>/<name>`: `<source>` is
    the export's source as discovered (its folder name, or its archive's file name with the
    extension), `<folder>` the export folder the task works on (a portrait's or the logo's: the
    folder of its file), and `<name>` the entry's file name at its game path (`shirt.ftex`,
@@ -884,10 +884,9 @@ describes behavior, not a serial scheduling requirement:
    run has written it, as `livecpk\` is, so an export no longer compiled leaves no folder behind.
    Everything upstream (checks, model conversion, texture work, name editing) and
    everything downstream (the writer, memory permits, events) is identical. Bins and `teamnotes.txt`
-   are emitted in every mode. The loose-folder sink is shared between test and sideload modes and is also
-   the harness the unit and parity tests drive the pipeline into — trees are diffed directly, with no
-   CPK parsing in the middle — so the sink is test infrastructure that the GUI happens to expose,
-   not a feature carried for one dropdown entry. A sink receives each entry by its output-relative
+   are emitted in every mode. The loose-folder sink is shared between test and sideload modes. The
+   parity test reads the normal run's CPK rather than a loose tree: the CPK is what ships, so
+   parity checks its writer as well. A sink receives each entry by its output-relative
    path and knows nothing of game paths, which are the materialize step's alone, so a new output
    shape (another engine's archive tree, worklog 4.0a) is a new `OutputSink` variant, not a change
    to the coordinator or the writer.

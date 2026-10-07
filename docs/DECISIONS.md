@@ -4401,3 +4401,14 @@ compiler did to that folder: TC-OUT-07's `shirt.ftex` beside `fcl_hair.fmdl` is 
 rule. The source with its extension keeps a folder and an archive of one name apart. Replacing
 the folder whole keeps a removed export's old output from looking current.
 Plan: `team_compiler/pipeline.md` "5. Writer" step 5 (the materialize paragraph).
+
+## 2026-10-07 — team_compiler — the parity test reads the CPK, not a loose tree
+Decision: the parity test keeps comparing Red's reference tree with the entries of the normal
+run's CPK; the loose-folder sink serves test and sideload modes and the tests of those modes,
+not the parity test.
+Why: the plan said the loose sink is the harness the parity test drives, to diff trees with no
+CPK parsing in the middle. But the CPK is what members install, and reading it back is the one
+test that checks the CPK writer against Red's output end to end; a loose tree would leave the
+writer's half of every normal run unchecked by parity. The test-mode and sideload tests already
+diff loose trees against the normal CPK's entries.
+Plan: `team_compiler/pipeline.md` "5. Writer" step 5 (the paragraph on the loose-folder sink).

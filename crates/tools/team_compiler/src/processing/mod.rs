@@ -1,9 +1,10 @@
 //! Stages 3 and 4, one task's work (`team_compiler/pipeline.md` "3. Per-model-folder parallel
 //! steps", "4. Per-export non-model steps"): its source files, already read, converted and
-//! packed into the CPK entries the task commits, whole or not at all.
+//! placed by `materialize` as the entries the task commits, whole or not at all.
 
 mod kit;
 mod kit_layout;
+mod materialize;
 mod model;
 mod team_assets;
 mod texture;
@@ -26,6 +27,8 @@ use crate::paths;
 use crate::plan::subset::{ModelPackage, texture_format};
 use crate::plan::{BuildTask, TaskGroup, TaskKind};
 use crate::templates::Templates;
+pub(crate) use materialize::{EntryTarget, TEST_BINS_PREFIX};
+use materialize::{TaskOutput, materialize};
 
 /// The bytes of every file a task reads (`TaskKind::files`), keyed by the file's export path:
 /// read from the export's source by the coordinator before the task is processed.
@@ -48,17 +51,20 @@ pub(crate) struct CompileContext {
     /// looks for a texture its model names in the team's Common output that the export does
     /// not supply (`pipeline.md` "Resolved decisions", "A texture a model names must exist").
     pub(crate) installed: InstalledPaths,
+    /// Where every task's entries go: the run's output mode, consumed by `materialize` alone.
+    pub(crate) target: EntryTarget,
 }
 
 impl CompileContext {
     /// The context of a run for `version` compiling `compiled_exports` exports (those with at
-    /// least one planned task) with `templates` and the `installed` CPKs' entry paths, with a
-    /// fresh converter.
+    /// least one planned task) with `templates` and the `installed` CPKs' entry paths, its
+    /// entries going to `target`, with a fresh converter.
     pub(crate) fn new(
         version: PesVersion,
         compiled_exports: usize,
         templates: Templates,
         installed: InstalledPaths,
+        target: EntryTarget,
     ) -> CompileContext {
         CompileContext {
             version,
@@ -66,6 +72,7 @@ impl CompileContext {
             cache: cache_policy(compiled_exports),
             templates,
             installed,
+            target,
         }
     }
 }
@@ -121,7 +128,8 @@ impl From<fmdl::FmdlError> for TaskFailure {
 pub(crate) struct TaskBatch {
     /// The task's position in the manifest: the writer commits batches in this order.
     pub(crate) index: usize,
-    /// The CPK entries the task commits; empty when the task failed.
+    /// The entries the task commits, at their paths in the output (`materialize`); empty when
+    /// the task failed.
     pub(crate) entries: Vec<Entry>,
     /// The manifest positions of the player folder's group the task belongs to
     /// (`TaskGroup::tasks`), its textures batch last: the writer holds the group's packages
@@ -164,23 +172,29 @@ pub(crate) fn process_task(
         } => model::package(
             folder,
             *package,
-            ids,
             task.team_id,
             ctx,
             &mut files,
             &mut findings,
         )
-        .map(|entries| (entries, None)),
+        .map(|files| {
+            let output = TaskOutput::Package {
+                package: *package,
+                ids: ids.clone(),
+                files,
+            };
+            (output, None)
+        }),
         TaskKind::Textures { folder, kits } => {
             texture::folder_textures(folder, kits, task.team_id, ctx, &mut files, &mut findings)
                 .map(|(entries, dropped)| {
                     skipped = dropped_positions(task.group.as_ref(), &dropped);
-                    (entries, None)
+                    (TaskOutput::Entries(entries), None)
                 })
         }
         TaskKind::CommonTextures { textures, kits, .. } => {
             texture::common_textures(textures, kits, task.team_id, ctx, &mut files, &mut findings)
-                .map(|entries| (entries, None))
+                .map(|entries| (TaskOutput::Entries(entries), None))
         }
         TaskKind::Portrait { player_id, file } => {
             let name = file.path.name();
@@ -188,10 +202,8 @@ pub(crate) fn process_task(
                 .expect("planning lists a portrait by an extension `dds_convert` accepts");
             texture::portrait(format, name, take(&mut files, file))
                 .map(|bytes| {
-                    (
-                        vec![(paths::portrait(ctx.version, *player_id), bytes)],
-                        None,
-                    )
+                    let entry = (paths::portrait(ctx.version, *player_id), bytes);
+                    (TaskOutput::Entries(vec![entry]), None)
                 })
                 .map_err(TaskFailure::from)
         }
@@ -204,10 +216,10 @@ pub(crate) fn process_task(
             &mut files,
             &mut findings,
         )
-        .map(|(entries, config, colors)| (entries, Some((config, colors)))),
+        .map(|(entries, config, colors)| (TaskOutput::Entries(entries), Some((config, colors)))),
         TaskKind::Logo { logo } => {
             team_assets::logo(logo, task.team_id, ctx.version, &mut files, &mut findings)
-                .map(|entries| (entries, None))
+                .map(|entries| (TaskOutput::Entries(entries), None))
         }
     };
     let mut batch = TaskBatch {
@@ -225,8 +237,8 @@ pub(crate) fn process_task(
         path: task.kind.folder_path(),
     };
     match result {
-        Ok((entries, kit_bins)) => {
-            batch.entries = entries;
+        Ok((output, kit_bins)) => {
+            batch.entries = materialize(output, &task, &ctx.target);
             if let Some((config, colors)) = kit_bins {
                 batch.uniparam = Some(config);
                 batch.uni_color = Some((task.team_id, colors));
@@ -400,7 +412,13 @@ mod tests {
             3,
             task,
             files,
-            &CompileContext::new(version, 1, Templates::embedded(), InstalledPaths::Unknown),
+            &CompileContext::new(
+                version,
+                1,
+                Templates::embedded(),
+                InstalledPaths::Unknown,
+                EntryTarget::GamePaths,
+            ),
         )
     }
 
@@ -858,6 +876,7 @@ mod tests {
                 48,
                 Templates::embedded(),
                 InstalledPaths::Unknown,
+                EntryTarget::GamePaths,
             )
             .cache,
             CachePolicy::Bypass

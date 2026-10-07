@@ -1,10 +1,10 @@
 //! The `compile` command (`team_compiler/pipeline.md` "Run driver shapes (Phase 3)"): the
 //! validation `check` runs (the structure pass and the deep pass), run planning, each task's
 //! files read in manifest order and the task processed on the worker pool, the writer thread
-//! committing the batches in manifest order, and the CPK (or, in sideload mode, the loose tree)
-//! promoted from staging to its place, or the staging discarded when writing or promoting it
-//! fails, or when an export's file changes while it is read (`pipeline.md` "Resolved
-//! decisions", "Source snapshot").
+//! committing the batches in manifest order, and the CPK (or, in test and sideload mode, the
+//! loose tree) promoted from staging to its place, or the staging discarded when writing or
+//! promoting it fails, or when an export's file changes while it is read (`pipeline.md`
+//! "Resolved decisions", "Source snapshot").
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -24,7 +24,9 @@ use crate::output::sink::OutputSink;
 use crate::output::writer::CpkOutput;
 use crate::output::{deploy, teamnotes};
 use crate::plan::{BuildManifest, BuildTask, overrides, plan_run};
-use crate::processing::{CompileContext, TaskBatch, TaskFiles, process_task};
+use crate::processing::{
+    CompileContext, EntryTarget, TEST_BINS_PREFIX, TaskBatch, TaskFiles, process_task,
+};
 use crate::reader::{ContentSource, ExportSource, SourceFailure, SourceKind, SourceRevision};
 use crate::templates::Templates;
 use crate::validation::{run_budget, run_pool, validation_pass};
@@ -36,6 +38,11 @@ pub(crate) enum OutputMode {
     /// One CPK, promoted to the output folder; with `no_deploy` the run says it installed
     /// nothing.
     Normal { no_deploy: bool },
+    /// What the compiler made of each export, as loose files that replace the output folder's
+    /// `test_output/`: one folder per export, the model packages unpacked, the bins under
+    /// `_bins/`. Nothing is installed, and the overrides are not applied: an override is not
+    /// an export's.
+    Test,
     /// The CPK's entries as loose files that replace the contents of `pes_folder`'s `livecpk/`,
     /// which a sideloading runtime serves to the running game. `pes_folder` was checked to be a
     /// folder.
@@ -48,17 +55,27 @@ impl OutputMode {
     fn deploys(&self) -> bool {
         match self {
             OutputMode::Normal { no_deploy } => !no_deploy,
-            OutputMode::Sideload { .. } => false,
+            OutputMode::Test | OutputMode::Sideload { .. } => false,
+        }
+    }
+
+    /// Whether the run applies the `overrides/` files: test mode shows the exports' own output
+    /// alone.
+    fn applies_overrides(&self) -> bool {
+        match self {
+            OutputMode::Normal { .. } | OutputMode::Sideload { .. } => true,
+            OutputMode::Test => false,
         }
     }
 }
 
 /// Compiles every export validation keeps into `<output_folder>/<cpk_stem>.cpk` (in sideload
-/// `mode`, into the PES folder's `livecpk/` as loose files), after the files of the data
-/// directory's `overrides/` folder, reported as events, then collects the compiled exports'
-/// notes into `<output_folder>/teamnotes.txt`. Its resources are the embedded ones or the data
-/// directory's `templates/` files replacing them (`templates`), and its bins are built on those
-/// of the installed CPKs listed before its own (`bins::installed`). Returns the worst severity
+/// `mode`, into the PES folder's `livecpk/` as loose files; in test `mode`, into
+/// `<output_folder>/test_output/`), after the files of the data directory's `overrides/` folder
+/// unless in test mode, reported as events, then collects the compiled exports' notes into
+/// `<output_folder>/teamnotes.txt`. Its resources are the embedded ones or the data directory's
+/// `templates/` files replacing them (`templates`), and its bins are built on those of the
+/// installed CPKs listed before its own (`bins::installed`). Returns the worst severity
 /// reported: a `templates/` file or an installed bin that cannot be read, an output that cannot
 /// be written or put in place, or an export file that changes while the run reads it, is a
 /// Fatal finding, after which the previous output is all that is left. An exports folder or an
@@ -79,7 +96,7 @@ pub(crate) fn run(
     else {
         return Ok(events.worst());
     };
-    let planned = plan(inputs, &installed, events, ctx)?;
+    let planned = plan(inputs, &installed, mode, events, ctx)?;
     build(
         planned,
         bins,
@@ -171,18 +188,23 @@ struct PlannedRun {
     manifest: BuildManifest,
 }
 
-/// `compile`'s first half: the `overrides/` folder listed, the validation pass, in which a
-/// texture link may name a texture one of the `installed` CPKs holds, each export's findings
-/// reported through `events`, and the run planned.
+/// `compile`'s first half: the `overrides/` folder listed when `mode` applies it, the
+/// validation pass, in which a texture link may name a texture one of the `installed` CPKs
+/// holds, each export's findings reported through `events`, and the run planned.
 fn plan(
     inputs: &RunInputs,
     installed: &InstalledPaths,
+    mode: &OutputMode,
     mut events: RunEvents,
     ctx: &ToolContext,
 ) -> anyhow::Result<PlannedRun> {
     let version = inputs.common.pes_version;
     // Listed before any export is read, so a tree that cannot be listed stops the run first.
-    let (overrides, overrides_active) = overrides::list(ctx.paths().data_dir.as_deref())?;
+    let (overrides, overrides_active) = if mode.applies_overrides() {
+        overrides::list(ctx.paths().data_dir.as_deref())?
+    } else {
+        (BTreeMap::new(), None)
+    };
     let budget = run_budget(inputs);
     let pool = run_pool(inputs)?;
     let pass = validation_pass(inputs, installed, &budget, &pool)?;
@@ -224,7 +246,7 @@ fn plan(
 
 /// `compile`'s second half: the planned tasks read and processed with the run's `templates`
 /// and the `installed` CPKs' entry paths, and written into the staged CPK (or loose tree, in
-/// sideload `mode`), its bins built on `bins`, which is then promoted, and `teamnotes.txt`
+/// test and sideload `mode`), its bins built on `bins`, which is then promoted, and `teamnotes.txt`
 /// written. A source that changed while its tasks were read aborts the run with
 /// `source_changed_during_run`, the staging discarded.
 fn build(
@@ -273,13 +295,33 @@ fn build(
             OutputSink::cpk(run_folder.join(&cpk_name)),
             output_folder.join(&cpk_name),
         ),
+        OutputMode::Test => (
+            OutputSink::loose(run_folder.join(deploy::TEST_OUTPUT)),
+            output_folder.join(deploy::TEST_OUTPUT),
+        ),
         OutputMode::Sideload { pes_folder } => (
             OutputSink::loose(run_folder.join(deploy::LIVECPK)),
             pes_folder.join(deploy::LIVECPK),
         ),
     };
-    let output = CpkOutput::new(sink, overrides);
-    let context = CompileContext::new(version, last_tasks.len(), templates, installed);
+    let (entry_target, bins_prefix) = match mode {
+        OutputMode::Normal { .. } | OutputMode::Sideload { .. } => (EntryTarget::GamePaths, ""),
+        OutputMode::Test => {
+            let sources = sources
+                .iter()
+                .map(|(source, _)| (source.export_id, source.file_name.clone()))
+                .collect();
+            (EntryTarget::TestOutput { sources }, TEST_BINS_PREFIX)
+        }
+    };
+    let output = CpkOutput::new(sink, overrides, bins_prefix);
+    let context = CompileContext::new(
+        version,
+        last_tasks.len(),
+        templates,
+        installed,
+        entry_target,
+    );
     let (coordinated, (mut events, written)) = std::thread::scope(|scope| {
         let (batches_tx, batches_rx) = unbounded();
         let last_tasks = &last_tasks;
@@ -361,8 +403,8 @@ fn build(
 }
 
 /// Puts the output staged in `run_folder` in place for `mode`: the CPK in the output folder,
-/// with `deploy_skipped_by_flag` naming it under `--no-deploy`, or the loose tree as the PES
-/// folder's `livecpk/`.
+/// with `deploy_skipped_by_flag` naming it under `--no-deploy`, or the loose tree as the output
+/// folder's `test_output/` or the PES folder's `livecpk/`.
 fn promote(
     mode: &OutputMode,
     run_folder: &Path,
@@ -383,9 +425,18 @@ fn promote(
             }
             Ok(())
         }
-        OutputMode::Sideload { pes_folder } => {
-            deploy::promote_livecpk(run_folder, output_folder, pes_folder)
-        }
+        OutputMode::Test => deploy::promote_tree(
+            run_folder,
+            output_folder,
+            deploy::TEST_OUTPUT,
+            &output_folder.join(deploy::TEST_OUTPUT),
+        ),
+        OutputMode::Sideload { pes_folder } => deploy::promote_tree(
+            run_folder,
+            output_folder,
+            deploy::LIVECPK,
+            &pes_folder.join(deploy::LIVECPK),
+        ),
     }
 }
 
@@ -799,6 +850,7 @@ mod tests {
                 1,
                 Templates::embedded(),
                 InstalledPaths::Unknown,
+                EntryTarget::GamePaths,
             );
             let pool = rayon::ThreadPoolBuilder::new()
                 .num_threads(2)
@@ -831,6 +883,7 @@ mod tests {
             1,
             Templates::embedded(),
             InstalledPaths::Unknown,
+            EntryTarget::GamePaths,
         );
         let pool = rayon::ThreadPoolBuilder::new()
             .num_threads(2)
@@ -942,6 +995,7 @@ mod tests {
             1,
             Templates::embedded(),
             InstalledPaths::Unknown,
+            EntryTarget::GamePaths,
         );
         let pool = rayon::ThreadPoolBuilder::new()
             .num_threads(2)
@@ -981,6 +1035,7 @@ mod tests {
             1,
             Templates::embedded(),
             InstalledPaths::Unknown,
+            EntryTarget::GamePaths,
         );
         let pool = rayon::ThreadPoolBuilder::new()
             .num_threads(2)
@@ -1024,6 +1079,7 @@ mod tests {
         let mut output = CpkOutput::new(
             OutputSink::cpk(root.join("blocker").join("cup.cpk")),
             BTreeMap::new(),
+            "",
         );
         let budget = MemoryBudget::new(1 << 30);
         let (batches_tx, batches_rx) = unbounded();
@@ -1090,6 +1146,7 @@ mod tests {
                 1,
                 Templates::embedded(),
                 InstalledPaths::Unknown,
+                EntryTarget::GamePaths,
             ),
         );
 
@@ -1232,6 +1289,7 @@ mod tests {
             let planned = plan(
                 &inputs,
                 &InstalledPaths::Unknown,
+                &normal,
                 RunEvents::new(&ctx),
                 &ctx,
             )

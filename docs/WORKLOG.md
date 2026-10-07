@@ -13,7 +13,7 @@ is in `AGENTS.md` ("Working documents").
 "Handover"). Phases 1 and 2 done (Phase 2 closed 2026-09-30).
 **Next:** Phase 4 is itemized and its Acceptance section written (step 4.1, 2026-10-03; its
 cross-family review (a) is queued). Next:
-the next open Phase 4 step (see the list); 4.21, 4.22 and 4.29
+the next open Phase 4 step (see the list); 4.21, 4.22, 4.23 and 4.29
 are done; 4.14 waits on 4.31's pre-Fox export; 4.33, 4.34, 4.c-pass and
 4.c-fix1 are done; 4.30,
 4.5 to 4.8, 4.9a and 4.10 to 4.13 are done (4.6c moved to Phase 8's cancellation), 4.9b
@@ -227,6 +227,12 @@ Claude agent with no sidekick and no reviewer of another model family. While tha
   `promote_livecpk`), its commit of 2026-10-07, against `pipeline.md` "5. Writer" step 5
   (sideload, staging), `settings.md` "CLI" (the sideload refusals), TC-OUT-09, TC-OUT-10 and
   the decision entry "the sideload tree is staged, and 4.23 lands in two slices".
+  4.23b (b), `team_compiler` (`processing/materialize.rs` new, `processing/model.rs` `package`
+  returning the package's files, `processing/mod.rs` `CompileContext.target`, `compile.rs`
+  `OutputMode::Test`, `output/writer.rs` `bins_prefix`, `output/deploy.rs` `promote_tree`),
+  its commit of 2026-10-07, against `pipeline.md` "5. Writer" step 5 (the materialize
+  paragraph), TC-OUT-07, 11, 17 and the decision entries "where a test-mode entry goes" and
+  "the parity test reads the CPK, not a loose tree".
 - For the lead, on return: the review process on trial (3.1) opens with a full sidekick review
   loop, then runs GPT's loop with a full sidekick loop after each GPT round, calling GPT again
   only once that sidekick loop has ended and GPT's own loop has not; not yet in `AGENTS.md`
@@ -1397,7 +1403,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   Gates green (169 of 254); `clef-diff 53c750e`: 44 windows, no flag; `mutants-diff
   53c750e`: 56 mutants, 43 caught, 13 unviable, 0 missed
 
-- [ ] 4.23 **Output sink and modes**: `output/sink.rs` `OutputSink` (CPK, loose folder) fed by
+- [x] 4.23 **Output sink and modes**: `output/sink.rs` `OutputSink` (CPK, loose folder) fed by
   output-relative paths; `processing/materialize.rs` the one seam (relocation and FPK packing,
   skipped in test mode); `--mode test` writing `output/test_output/<canonical source key>/` with
   export-relative processed entries and no FPK; `--mode sideload` replacing the whole contents of
@@ -1405,17 +1411,17 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   artifact routing per mode (`teamnotes.txt` under `output_folder_path` in every mode; sideload:
   bins, overrides and referee content at their game paths in `livecpk/`; test: bins under
   `test_output/_bins/` at game-relative paths, referee content per export like a team's,
-  overrides not applied); the loose sink is the harness the parity test drives. **External:**
+  overrides not applied). **External:**
   FoxDen's LiveCPK gaps (worklog "Issues": 2019/2021 sites, PES 2020, path length, in-match
   loads) decide the in-game effect only; the written tree is what the scenarios test. Plan:
   `pipeline.md` "5. Writer" step 5 and the output-modes paragraphs, "Resolved decisions"
   (Output-mode artifact routing); `settings.md` "CLI", "Path resolution"; decision entry
   "sideloading through FoxDen (4.0e)". IDs: TC-OUT-07..11, TC-OUT-17. Crates: tc (`output/sink.rs`,
   `processing/materialize.rs`, `cli.rs`) → verify: `--mode test` on the tracer writes
-  `output/test_output/egg Tracer/Players/05 - The Chad Stormworks Player/fcl_hair.fmdl` with its
-  texture path rewritten and no `.fpk` anywhere under `test_output/`; `--mode sideload` with a
-  stale `livecpk/old.txt` removes it and writes files whose relative paths and bytes equal the
-  entries of a normal-mode CPK of the same export
+  `output/test_output/egg Midcup Tracer/Players/05 - The Chad Stormworks Player/fcl_hair.fmdl`
+  with its texture path rewritten and no `.fpk` anywhere under `test_output/`; `--mode sideload`
+  with a stale `livecpk/old.txt` removes it and writes files whose relative paths and bytes equal
+  the entries of a normal-mode CPK of the same export
   - [x] 4.23a the output sink and sideload mode (TC-OUT-09 but its referee half, which lands
     with 4.19; TC-OUT-10): done 2026-10-07 (Opus 5.5, first time, no lead code fix).
     `output/sink.rs` `OutputSink` (`Cpk`, `Loose`, the loose one refusing a file twice),
@@ -1428,7 +1434,14 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
     killed by the lead's test of a previous tree held open, Windows-only: no portable way makes
     the removal fail while the copy succeeds (the Linux half runs as root), so a Linux half may
     report it again
-  - [ ] 4.23b test mode and the materialize seam (TC-OUT-07, 11, 17). Brief `.tmp/brief_4_23b.md`
+  - [x] 4.23b test mode and the materialize seam (TC-OUT-07, 11, 17): done 2026-10-07 (Opus
+    5.5, first time, no lead code fix). `processing/materialize.rs` (`TaskOutput`,
+    `EntryTarget` in `CompileContext.target`, `materialize` the one place entries get their
+    paths; the `.fpk`/`.fpkd` packing moved there from `model.rs`, whose `package` returns the
+    package's files); `OutputMode::Test` (loose sink at `<staging>/test_output`, no overrides
+    listed, the writer's `bins_prefix` `_bins/`); `deploy::promote_tree` shared with sideload.
+    Gates green (177 of 254); Clef 58 windows, no flag; `mutants-diff 93ba74c`: 32, 24 caught,
+    8 unviable, 0 missed. The parity test keeps reading the CPK (decision entry)
 
 - [ ] 4.24 **Deployment**: each staged CPK copied to `download/{name}.cpk.partial` and renamed over
   the old one, the marker file, the staging folder removed; the preflight before any export is
@@ -2997,3 +3010,6 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
     satisfied, in `check` and `compile` alike. Step 4.29 is done.
   - **4.23a:** `compile --mode sideload` writes the CPK's entries as loose files that replace
     `livecpk/` once written whole; refused on PES 15/16 and without a PES folder. 4.23b next.
+  - **4.23b:** `compile --mode test` writes each export's processed files, models unpacked,
+    under `output/test_output/<source>/<folder>/`, the bins under `_bins/`, overrides not
+    applied; `test_output/` replaced once written whole. Step 4.23 is done.

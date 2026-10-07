@@ -1422,8 +1422,8 @@ TC-REF-10  GIVEN a refs export whose players.txt maps Ref A to slots 01 and 20, 
 ```
 TC-OUT-07  GIVEN the tracer export
            WHEN compile --mode test runs
-           THEN output/test_output/egg Tracer/Players/05 - The Chad Stormworks Player/ holds
-                fcl_hair.fmdl with its texture path rewritten, shirt.ftex, face_diff.bin,
+           THEN output/test_output/egg Midcup Tracer/Players/05 - The Chad Stormworks Player/
+                holds fcl_hair.fmdl with its texture path rewritten, shirt.ftex, face_diff.bin,
                 fcl_hair_sim.fclo and fcl_hair_sim.skl, no .fpk exists under test_output/, the bins
                 are written under test_output/_bins/ at their game-relative paths, and the PES
                 folder is untouched

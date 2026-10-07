@@ -166,8 +166,8 @@ fn invalid(error: anyhow::Error) -> CliError {
 }
 
 /// The output mode `--mode` and `--no-deploy` ask for, or their refusal: `--no-deploy` has
-/// nothing to skip in the loose-file modes, test mode is not built yet, and sideload mode is
-/// refused as `sideload_mode` says.
+/// nothing to skip in the loose-file modes, and sideload mode is refused as `sideload_mode`
+/// says.
 fn output_mode(
     mode: Mode,
     no_deploy: bool,
@@ -181,10 +181,7 @@ fn output_mode(
     }
     match mode {
         Mode::Normal => Ok(OutputMode::Normal { no_deploy }),
-        Mode::Test => Err(invalid(anyhow!(
-            "--mode {} is not available yet in this version",
-            mode_name(mode)
-        ))),
+        Mode::Test => Ok(OutputMode::Test),
         Mode::Sideload => sideload_mode(common),
     }
 }
@@ -496,8 +493,10 @@ mod tests {
             assert_eq!(error.exit_code, INVALID);
             assert!(error.to_string().contains("incompatible"), "{error}");
         }
-        let error = output_mode(Mode::Test, false, &common).unwrap_err();
-        assert!(error.to_string().contains("not available yet"), "{error}");
+        assert_eq!(
+            output_mode(Mode::Test, false, &common).unwrap(),
+            OutputMode::Test
+        );
     }
 
     #[test]

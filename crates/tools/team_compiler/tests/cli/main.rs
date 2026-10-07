@@ -19,6 +19,7 @@ mod models;
 mod preflight;
 mod sideload;
 mod sources;
+mod test_mode;
 mod textures;
 
 use std::collections::BTreeMap;

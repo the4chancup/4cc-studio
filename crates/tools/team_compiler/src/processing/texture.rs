@@ -341,6 +341,7 @@ mod tests {
             cache: CachePolicy::Bypass,
             templates: crate::templates::Templates::embedded(),
             installed: crate::bins::installed::InstalledPaths::Unknown,
+            target: crate::processing::EntryTarget::GamePaths,
         }
     }
 

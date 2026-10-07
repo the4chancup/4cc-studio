@@ -368,8 +368,17 @@ installed into the game's `download` folder, so a missing `DpFileList.bin` is on
 `--mode sideload` is refused for PES 2015 and 2016, which nothing can sideload into, and when the
 game folder does not exist.
 
-In this version `compile` refuses `--mode test`, and refuses to run while the `multicpk_mode`
-setting is on. Use the normal or sideload mode with `multicpk_mode` off.
+`--mode test` shows what the compiler made of each export. Instead of a CPK, `compile` writes it
+as loose files in the `test_output` folder of the output folder, one folder per export named as
+the export is (an archive's with its extension), each file in the folder of the export it came
+from: a player's models unpacked from their packages beside his converted textures, a kit's
+files in its kit folder. The bins go in `test_output/_bins`, at the paths they have in a CPK.
+Nothing is installed into the game, and the `overrides` folder is not applied, since its files
+are not an export's. The folder is replaced only once the whole compile is written: a compile
+that fails, or writes nothing, leaves it as it was.
+
+In this version `compile` refuses to run while the `multicpk_mode` setting is on. Turn
+`multicpk_mode` off to compile.
 
 A relative path typed in the terminal is taken from the folder the terminal is in.
 
