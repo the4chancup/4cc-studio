@@ -1,0 +1,256 @@
+//! The `face.xml` a pre-Fox face CPK lists its models in (`team_compiler/pipeline.md` "3.
+//! Per-model-folder parallel steps", step 4): each model's type, read from its file name
+//! (`player_folders.md` "Model names"), the name it is packed under, its `ratio`, and the file
+//! itself, in the shape the game's own face CPKs carry.
+
+use aesthetics_export::{ModelSuffix, ends_with_name, model_suffix};
+use base64::Engine;
+use base64::engine::general_purpose::STANDARD;
+
+/// One `<model>` element of a generated `face.xml`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct XmlEntry {
+    /// The `type` attribute: what the game loads the model as (`face_neck`, `parts`).
+    pub(crate) xml_type: String,
+    /// The `path` attribute: the packed model, `win32` written as `*`
+    /// (`./oral_face_high_*.model`).
+    pub(crate) path: String,
+    /// The `material` attribute: the `.mtl` the model uses, as packed (`./face_high.mtl`).
+    pub(crate) material: String,
+    /// The `ratio` attribute, when the model's name sets one.
+    pub(crate) ratio: Option<String>,
+}
+
+/// The `face.xml` type of the model with file stem `stem`, read without the `_win32` suffix a
+/// packed name carries: what follows `model_type_`, the escape hatch for a type the table does
+/// not know; else the type of its suffix (`face_high` is `face_neck`, the other face names and
+/// the boots `parts`, each glove and hand its side's); else a native type name the stem ends
+/// with (`ends_with_name`); else `parts`. A packed name's `oral_` prefix needs no stripping: a
+/// suffix and a native name are read at the stem's end and `model_type_` anywhere in it, and
+/// `oral_` alone is the `oral` suffix, typed `parts` as an empty stem is.
+pub(crate) fn xml_type(stem: &str) -> String {
+    let stem = without_platform(stem);
+    // ASCII lower case keeps every byte offset, so the offset found indexes `stem`. An empty
+    // name after the marker types nothing: the table's type is taken instead.
+    if let Some(at) = stem.to_ascii_lowercase().find(MODEL_TYPE_MARKER) {
+        let named = &stem[at + MODEL_TYPE_MARKER.len()..];
+        if !named.is_empty() {
+            return named.to_owned();
+        }
+    }
+    let xml_type = match model_suffix(stem) {
+        Some(ModelSuffix::FaceHigh) => "face_neck",
+        Some(ModelSuffix::HairHigh | ModelSuffix::Oral | ModelSuffix::FclHair) => "parts",
+        // Boots use the body skeleton, as the face's parts do.
+        Some(ModelSuffix::Boots) => "parts",
+        Some(ModelSuffix::GloveL) => "gloveL",
+        Some(ModelSuffix::GloveR) => "gloveR",
+        Some(ModelSuffix::HandL) => "handL",
+        Some(ModelSuffix::HandR) => "handR",
+        None => NATIVE_TYPES
+            .into_iter()
+            .find(|native| ends_with_name(stem, native))
+            .unwrap_or("parts"),
+    };
+    xml_type.to_owned()
+}
+
+/// What precedes a type the `face.xml` table does not know, in a model's name
+/// (`cape_model_type_cape`).
+const MODEL_TYPE_MARKER: &str = "model_type_";
+
+/// The game's own `face.xml` type names, which a model's name may end with as it ends with a
+/// suffix (`body_uniform`).
+const NATIVE_TYPES: [&str; 7] = [
+    "uniform",
+    "shirt",
+    "pants_nocloth",
+    "eye",
+    "mouth",
+    "face_neck",
+    "parts",
+];
+
+/// `stem` without the `_win32` suffix of a packed name, in any case, when it carries it: the
+/// suffix would hide the name's own tail (`face_high_win32` is `face_high`).
+fn without_platform(stem: &str) -> &str {
+    // The suffix is ASCII, so bytes that match it start on a character boundary.
+    let Some(at) = stem.len().checked_sub(WIN32_SUFFIX.len()) else {
+        return stem;
+    };
+    if stem.as_bytes()[at..].eq_ignore_ascii_case(WIN32_SUFFIX.as_bytes()) {
+        &stem[..at]
+    } else {
+        stem
+    }
+}
+
+/// The prefix of a packed model's name.
+const ORAL_PREFIX: &str = "oral_";
+
+/// The suffix of a packed model's stem, the platform the game loads it on.
+const WIN32_SUFFIX: &str = "_win32";
+
+/// The name the model with file stem `stem` is packed under in its face CPK: the stem in ASCII
+/// lower case, with `oral_` before it and `_win32.model` after it, each affix added only when
+/// the stem does not already carry it (`hat` and `oral_hat_win32` both give
+/// `oral_hat_win32.model`).
+pub(crate) fn packed_model_name(stem: &str) -> String {
+    let lower = stem.to_ascii_lowercase();
+    let prefix = if lower.starts_with(ORAL_PREFIX) {
+        ""
+    } else {
+        ORAL_PREFIX
+    };
+    let suffix = if lower.ends_with(WIN32_SUFFIX) {
+        ""
+    } else {
+        WIN32_SUFFIX
+    };
+    format!("{prefix}{lower}{suffix}.model")
+}
+
+/// The `path` attribute naming the model packed as `packed_name`: in the face CPK's own folder,
+/// `win32` written as `*` (`./oral_face_high_*.model`), as the game's own `face.xml` files name
+/// their models.
+pub(crate) fn xml_path(packed_name: &str) -> String {
+    let base = packed_name
+        .strip_suffix("_win32.model")
+        .expect("a packed model's name ends with `_win32.model` (`packed_model_name`)");
+    format!("./{base}_*.model")
+}
+
+/// The `ratio` the model with file stem `stem` sets: the token after `ratio_`, at the stem's
+/// start or after a `_`, up to the next `_` or the stem's end (`visor_ratio_2_parts` gives
+/// `2`); `None` when the stem holds no such token, or an empty one.
+pub(crate) fn ratio(stem: &str) -> Option<&str> {
+    const MARKER: &str = "ratio_";
+    let (at, _) = stem
+        .match_indices(MARKER)
+        .find(|(at, _)| *at == 0 || stem.as_bytes()[at - 1] == b'_')?;
+    let rest = &stem[at + MARKER.len()..];
+    let token = rest.split_once('_').map_or(rest, |(token, _)| token);
+    (!token.is_empty()).then_some(token)
+}
+
+/// The suffix (`model_suffix`) of the model with file stem `stem`, read without the packed
+/// name's `_win32` suffix. Its `oral_` prefix needs no stripping, as in `xml_type`: a suffix is
+/// read at the stem's end, so the prefix can only make `oral_` alone the `oral` suffix.
+pub(crate) fn suffix(stem: &str) -> Option<ModelSuffix> {
+    model_suffix(without_platform(stem))
+}
+
+/// The `face.xml` listing `entries` in their order, with `dif`, the face's `face_diff.bin`, as
+/// its `<dif>`: the XML declaration in single quotes, the `<config>` root, one `<model>` per
+/// entry indented by three spaces, `ratio` last when set, the `<dif>` base64 (standard
+/// alphabet, padded) on one line of its own, CRLF line ends and no final one, the shape the
+/// game's own face CPKs carry.
+pub(crate) fn face_xml(entries: &[XmlEntry], dif: &[u8]) -> Vec<u8> {
+    let mut text = String::from("<?xml version='1.0' encoding='UTF-8'?>\r\n<config>\r\n");
+    for entry in entries {
+        text.push_str(&format!(
+            "   <model level=\"0\" type=\"{}\" path=\"{}\" material=\"{}\"",
+            escaped(&entry.xml_type),
+            escaped(&entry.path),
+            escaped(&entry.material),
+        ));
+        if let Some(ratio) = &entry.ratio {
+            text.push_str(&format!(" ratio=\"{}\"", escaped(ratio)));
+        }
+        text.push_str(" />\r\n");
+    }
+    text.push_str("<dif>\r\n");
+    text.push_str(&STANDARD.encode(dif));
+    text.push_str("\r\n</dif>\r\n</config>");
+    text.into_bytes()
+}
+
+/// `value` as an XML attribute value between double quotes: `&`, `<`, `>` and `"` escaped.
+fn escaped(value: &str) -> String {
+    value
+        .replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_model_s_type_is_its_escape_hatch_then_its_suffix_s_then_a_native_name_then_parts() {
+        for (stem, expected) in [
+            ("face_high", "face_neck"),
+            ("kit_boots", "parts"),
+            ("hat_parts", "parts"),
+            ("arm_gloveL", "gloveL"),
+            ("arm_glove_r", "gloveR"),
+            ("x_handR", "handR"),
+            ("cape_model_type_cape", "cape"),
+            ("body_uniform", "uniform"),
+            ("x_pants_nocloth", "pants_nocloth"),
+            ("torso", "parts"),
+            ("oral_face_high_win32", "face_neck"),
+            ("visor_ratio_2_parts", "parts"),
+        ] {
+            assert_eq!(xml_type(stem), expected, "{stem}");
+        }
+    }
+
+    #[test]
+    fn a_model_packs_lowercased_with_each_affix_added_once() {
+        assert_eq!(packed_model_name("Face_High"), "oral_face_high_win32.model");
+        assert_eq!(packed_model_name("oral_hat_win32"), "oral_hat_win32.model");
+        assert_eq!(packed_model_name("oral_hat"), "oral_hat_win32.model");
+    }
+
+    #[test]
+    fn a_packed_model_s_xml_path_writes_its_platform_as_a_star() {
+        assert_eq!(
+            xml_path("oral_face_high_win32.model"),
+            "./oral_face_high_*.model"
+        );
+        assert_eq!(xml_path("oral_dummy_win32.model"), "./oral_dummy_*.model");
+    }
+
+    #[test]
+    fn the_ratio_is_the_token_after_ratio_up_to_the_next_underscore() {
+        assert_eq!(ratio("visor_ratio_2_parts"), Some("2"));
+        assert_eq!(ratio("ratio_1.5"), Some("1.5"));
+        assert_eq!(ratio("xratio_2"), None);
+        assert_eq!(ratio("visor_ratio_"), None);
+    }
+
+    #[test]
+    fn the_face_xml_lists_its_entries_then_the_dif_as_one_line_of_base64() {
+        let entries = [
+            XmlEntry {
+                xml_type: "parts".to_owned(),
+                path: "./oral_visor_ratio_2_parts_*.model".to_owned(),
+                material: "./materials.mtl".to_owned(),
+                ratio: Some("2".to_owned()),
+            },
+            XmlEntry {
+                xml_type: "face_neck".to_owned(),
+                path: "./oral_face_high_*.model".to_owned(),
+                material: "./a&b.mtl".to_owned(),
+                ratio: None,
+            },
+        ];
+
+        let xml = face_xml(&entries, b"FAC");
+
+        assert_eq!(
+            String::from_utf8(xml).unwrap(),
+            "<?xml version='1.0' encoding='UTF-8'?>\r\n\
+             <config>\r\n   \
+             <model level=\"0\" type=\"parts\" path=\"./oral_visor_ratio_2_parts_*.model\" material=\"./materials.mtl\" ratio=\"2\" />\r\n   \
+             <model level=\"0\" type=\"face_neck\" path=\"./oral_face_high_*.model\" material=\"./a&amp;b.mtl\" />\r\n\
+             <dif>\r\n\
+             RkFD\r\n\
+             </dif>\r\n\
+             </config>"
+        );
+    }
+}

@@ -404,7 +404,12 @@ fn build(
     let (sink, staged, parts) =
         staged_output(mode, layout, refs, staging.folder(), &templates, ends);
     let (entry_target, bins_prefix) = match mode {
-        OutputMode::Normal { .. } | OutputMode::Sideload { .. } => (EntryTarget::GamePaths, ""),
+        OutputMode::Normal { .. } | OutputMode::Sideload { .. } => (
+            EntryTarget::GamePaths {
+                engine: version.engine(),
+            },
+            "",
+        ),
         OutputMode::Test => (
             EntryTarget::TestOutput {
                 sources: source_names,
@@ -978,7 +983,7 @@ mod tests {
 
     use aesthetics_export::{FileDescriptor, KitFolder, KitTexture, KitTextureSource};
     use kit_config::KitSlot;
-    use pes_version::PesVersion;
+    use pes_version::{Engine, PesVersion};
     use pipeline::MemoryBudget;
     use studio_core::{ExportId, Message, PipelineEvent};
     use teams_list::TeamsList;
@@ -1024,6 +1029,7 @@ mod tests {
                 })
                 .collect(),
             ingame_face: false,
+            engine: Engine::Fox,
             combined: Vec::new(),
             common_models: Vec::new(),
             common_texture_stems: BTreeSet::new(),
@@ -1108,7 +1114,9 @@ mod tests {
             1,
             Templates::embedded(),
             InstalledPaths::Unknown,
-            EntryTarget::GamePaths,
+            EntryTarget::GamePaths {
+                engine: Engine::Fox,
+            },
             Arc::clone(budget),
         )
     }

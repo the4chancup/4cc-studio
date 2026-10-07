@@ -163,11 +163,12 @@ fn sideload_is_refused_for_pes_2015_and_2016_and_writes_livecpk_for_pes_2017() {
     let sandbox = with_livecpk("sideload_pes17");
     let run = sideload(&sandbox, &pes_settings(&sandbox, 17));
 
-    // The tracer is Fox content, which a PES 2017 compile does not build yet.
+    // The tracer is Fox content, which a PES 2017 compile does not build yet: the gate names
+    // its first `.fmdl`.
     assert!(
-        run.messages()
-            .iter()
-            .any(|line| line.contains("Error content_not_yet_compiled")),
+        run.messages().iter().any(|line| line.ends_with(
+            "Error content_not_yet_compiled [DropExport] (what=Players/05 - The Chad Stormworks Player/boots.fmdl)"
+        )),
         "{:#?}",
         run.messages()
     );

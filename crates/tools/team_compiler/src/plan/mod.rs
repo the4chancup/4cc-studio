@@ -134,6 +134,9 @@ pub(crate) struct ModelFolder {
     /// that would be a part of the face's `fcl_hair` is a part of its boots
     /// (`player_folders.md` "`ingame_face` marker"). Never set for a shared folder.
     pub(crate) ingame_face: bool,
+    /// The target's engine, which decides the role each of the folder's files takes
+    /// (`subset::player_file`): each engine builds its own model format.
+    pub(crate) engine: Engine,
     /// The shared folders a player folder combines, in link order. Empty for a shared folder,
     /// and for a player linking plainly or not at all.
     pub(crate) combined: Vec<CombinedFolder>,
@@ -211,7 +214,8 @@ impl ModelFolder {
     /// the link's role, in the link's place, and its Common skeleton under the role's slot,
     /// paired with it by their shared `Common/<stem>`; the empty link itself is never read.
     pub(crate) fn roles(&self) -> Vec<SourceRoles<'_>> {
-        let mut own = FolderModels::of_player_files(&self.path, &self.files, self.ingame_face);
+        let mut own =
+            FolderModels::of_player_files(&self.path, &self.files, self.ingame_face, self.engine);
         if self
             .combined
             .iter()
@@ -223,7 +227,8 @@ impl ModelFolder {
         for shared in &self.combined {
             let path = &shared.folder.path;
             let files = &shared.folder.files;
-            sources.push((shared.package, path, files, FolderModels::of(path, files)));
+            let models = FolderModels::of(path, files, self.engine);
+            sources.push((shared.package, path, files, models));
         }
         // The names the face files kept so far pack as: a second copy of one file
         // (`face_diff.bin` beside `face/face_diff.bin`) is left out like an earlier source's.
@@ -266,7 +271,9 @@ impl ModelFolder {
                     | PlayerFile::UnusedFaceFile
                     | PlayerFile::LeftOutKitVariant
                     | PlayerFile::Texture(..)
-                    | PlayerFile::CommonTexture(_) => None,
+                    | PlayerFile::CommonTexture(_)
+                    | PlayerFile::PreFoxModel { .. }
+                    | PlayerFile::Material => None,
                 };
                 if let Some(packs_as) = packs_as {
                     if packed.contains(&packs_as) {
@@ -494,7 +501,7 @@ fn hand_split_parts(
 ) -> BTreeSet<ScopePath> {
     match engine {
         Engine::Fox => {}
-        // A pre-Fox target splits with its face compilation, which is not built yet.
+        // A pre-Fox face packs its `.model` parts as they are: their split is not built yet.
         Engine::PreFox => return BTreeSet::new(),
     }
     folder
@@ -645,6 +652,7 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
                     path: folder.path.clone(),
                     files: folder.files.clone(),
                     ingame_face: false,
+                    engine: version.engine(),
                     combined: Vec::new(),
                     common_models: Vec::new(),
                     common_texture_stems: common_texture_stems.clone(),
@@ -723,12 +731,13 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
                 textures: TextureHome::PlayerCommon {
                     folder_name: folder.path.name().to_owned(),
                 },
-                common_models: common_models(&folder, &export.common),
+                common_models: common_models(&folder, &export.common, version.engine()),
                 common_texture_stems: common_texture_stems.clone(),
                 hand_split: BTreeSet::new(),
                 path: folder.path,
                 files: folder.files,
                 ingame_face: folder.ingame_face,
+                engine: version.engine(),
                 combined,
             };
             model_folder.hand_split =
@@ -965,8 +974,8 @@ fn drop_kit_masks(export_id: ExportId, kits: &mut KitsFolder, messages: &mut Vec
 /// `kit_variant_model_fox` for each set of per-kit model files (`pants_kit1.fmdl`,
 /// `pants_kit2.fmdl`) in a folder of `export` that is compiled, on that folder: a mapped player
 /// folder, or a shared folder (validation drops one no mapped player links). Each folder is
-/// walked once, so a shared folder several players combine reports its set once. The subset
-/// gate has refused every pre-Fox target, where per-kit models would work.
+/// walked once, so a shared folder several players combine reports its set once. On a pre-Fox
+/// target, where per-kit models would work, the subset gate has refused every FMDL.
 fn kit_variant_model_messages(
     export_id: ExportId,
     export: &ValidatedAestheticsExport,
@@ -1085,10 +1094,15 @@ fn player_folders<Slot: Copy>(
 /// The player folder's `.common` model links resolved against `common`, the export's `Common/`
 /// files, exactly as validation resolved them (a file directly in `Common/`, matched by
 /// case-folded name): each with its Common model and, when the link's role has a skeleton
-/// slot, the Common `.skl` of the model's stem. Validation drops a folder whose link names no
-/// Common file, so every link here resolves.
-fn common_models(folder: &PlayerFolder, common: &[FileDescriptor]) -> Vec<CommonModel> {
-    let models = FolderModels::of_player(folder);
+/// slot, the Common `.skl` of the model's stem, for a target of `engine` (none on pre-Fox, where
+/// a link has no role yet). Validation drops a folder whose link names no Common file, so
+/// every link here resolves.
+fn common_models(
+    folder: &PlayerFolder,
+    common: &[FileDescriptor],
+    engine: Engine,
+) -> Vec<CommonModel> {
+    let models = FolderModels::of_player(folder, engine);
     folder
         .files
         .iter()

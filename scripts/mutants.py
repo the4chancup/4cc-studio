@@ -54,8 +54,9 @@ REMOTE_MEMORY_MAX = "9G"
 # Build jobs per remote cargo process (two run at once): fewer than the
 # remote's half-the-CPUs test threads, because a build's memory grows with
 # its parallel rustc processes and the GUI crates' dependencies (naga, wgpu,
-# wayland) are the largest the workspace builds (maintainer, 3.z).
-REMOTE_BUILD_JOBS = 2
+# wayland) are the largest the workspace builds (maintainer, 3.z). 2 until
+# 4.14b, whose rerun peaked at the 9 GiB cap with three builds killed.
+REMOTE_BUILD_JOBS = 1
 # The detached remote half's files: `job.sh`, `pid` (the service's MainPID),
 # `log`, `exit` ("<code> <seconds>", written when cargo-mutants returns),
 # `memory_peak` (the unit cgroup's peak memory) and `collected` (written by

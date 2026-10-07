@@ -51,12 +51,15 @@ fn face_diff_form(role: Option<PlayerFile>) -> Option<FaceDiffForm> {
         | PlayerFile::UnusedFaceFile
         | PlayerFile::LeftOutKitVariant
         | PlayerFile::Texture(..)
-        | PlayerFile::CommonTexture(_) => None,
+        | PlayerFile::CommonTexture(_)
+        | PlayerFile::PreFoxModel { .. }
+        | PlayerFile::Material => None,
     }
 }
 
 /// The face diff findings of the model folder at `folder` holding `files`, whose models are
-/// `models`, over the files planning gives a face diff's role (`player_file`), each dropping
+/// `models`, for the target `models` were computed for, over the files planning gives a face
+/// diff's role (`player_file`), each dropping
 /// the folder before any ID is planned for it. A second copy in `face/`, which planning
 /// leaves out, is checked too: a broken file in the folder is worth its finding, whichever
 /// copy would be packed. A folder holding both forms gives its face diff twice:

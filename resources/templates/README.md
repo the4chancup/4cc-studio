@@ -23,7 +23,7 @@ is PES 21's `body.skl` (`../skeletons/pes21/`), as for `boots.skl`.
 The pre-Fox face's `face_neck` stand-in (Team compiler plan, `pipeline.md` "2. Per-export
 serial steps" step 4, the blank face folder; `messages.md` `xml_face_neck_added`): a face CPK
 whose `face.xml` has no `face_neck` entry gets
-`<model level="0" type="face_neck" path="./oral_dummy_win32.model" material="./dummy.mtl"/>`,
+`<model level="0" type="face_neck" path="./oral_dummy_*.model" material="./dummy.mtl" />`,
 with these two files packed as `oral_dummy_win32.model` and `dummy.mtl`.
 
 | File | What it is | SHA-256 (first 16) |

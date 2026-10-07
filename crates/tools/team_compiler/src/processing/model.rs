@@ -147,6 +147,8 @@ pub(super) fn package(
                 | PlayerFile::LeftOutKitVariant
                 | PlayerFile::FaceDiffXml
                 | PlayerFile::Packed { .. } => {}
+                // Pre-Fox roles: a Fox target gives no file one.
+                PlayerFile::PreFoxModel { .. } | PlayerFile::Material => {}
             }
         }
         for part in &mut source_parts {
@@ -180,7 +182,7 @@ pub(super) fn package(
     // looks in the folder's textures first. Validation refuses a player folder holding a
     // texture and a link of one stem (`texture_stem_conflict`), but not a link beside a
     // combined shared folder's texture of its stem: there the shared folder's texture wins.
-    let texture_directory = folder.textures.directory(team_id);
+    let texture_directory = folder.textures.directory(ctx.version.engine(), team_id);
     let common_directory = paths::common_texture_directory(team_id);
     let folder_places = [
         (&texture_stems, texture_directory.as_str()),

@@ -522,16 +522,18 @@ fn a_refs_export_needs_no_coverage_tag() {
 }
 
 #[test]
-fn a_pre_fox_compile_skips_every_export_naming_the_target() {
+fn a_pre_fox_compile_skips_an_export_of_fox_models_naming_the_first() {
     let sandbox = Sandbox::new("pre_fox_compile");
     sandbox.copy_tracer("egg Midcup Tracer");
 
     let run = sandbox.run("[common]\npes_version = 17\n", &["compile", "--no-deploy"]);
 
     let lines = run.messages();
+    // A pre-Fox target builds a player's `.model` files; converting an `.fmdl` is a later
+    // step's.
     assert!(
         lines.contains(
-            &"egg Midcup Tracer: Error content_not_yet_compiled [DropExport] (what=PES 2017)"
+            &"egg Midcup Tracer: Error content_not_yet_compiled [DropExport] (what=Players/05 - The Chad Stormworks Player/boots.fmdl)"
                 .to_owned()
         ),
         "{lines:#?}"

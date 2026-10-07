@@ -470,21 +470,18 @@ fn pool_messages(
 /// fallback by the linked name's suffix, `skl_no_slot` when `Common/` holds the `.skl` of a
 /// slotless model's stem. The roles are `subset::player_file`'s, so a finding never disagrees
 /// with the routing: under `ingame_face` a model the hair would take is the boots', and no
-/// fallback. A pre-Fox target types a model by its name and reads no `.skl`, so it reports
-/// none of them.
+/// fallback. A pre-Fox target types a model by its name and gives an `.fmdl` or a `.skl` no
+/// role, so it reports only `face_file_not_used`.
 fn model_name_messages(
     resolved: &ResolvedAestheticsExport,
     version: PesVersion,
     export_id: ExportId,
 ) -> Vec<Message> {
-    match version.engine() {
-        Engine::Fox => {}
-        Engine::PreFox => return Vec::new(),
-    }
+    let engine = version.engine();
     let export = &resolved.export;
     let mut messages = Vec::new();
     for folder in mapped_players(export) {
-        let models = FolderModels::of_player(folder);
+        let models = FolderModels::of_player(folder, engine);
         file_role_messages(
             &folder.path,
             &folder.files,
@@ -497,7 +494,7 @@ fn model_name_messages(
     // Validation drops a shared folder no mapped player links, so every face folder here is
     // one some player's face is assembled from.
     for folder in &export.faces {
-        let models = FolderModels::of(&folder.path, &folder.files);
+        let models = FolderModels::of(&folder.path, &folder.files, engine);
         file_role_messages(
             &folder.path,
             &folder.files,
@@ -511,8 +508,8 @@ fn model_name_messages(
 }
 
 /// `model_name_messages`'s findings on `files`, the files of the folder at `path` whose models
-/// are `models`, in file order; `common` is the export's `Common/` files, where a `.common`
-/// link's model and skeleton are.
+/// are `models`, for the target `models` were computed for, in file order; `common` is the
+/// export's `Common/` files, where a `.common` link's model and skeleton are.
 fn file_role_messages(
     path: &ScopePath,
     files: &[FileDescriptor],
@@ -560,7 +557,9 @@ fn file_role_messages(
                 | PlayerFile::Skeleton { .. }
                 | PlayerFile::LeftOutKitVariant
                 | PlayerFile::Texture(..)
-                | PlayerFile::CommonTexture(_),
+                | PlayerFile::CommonTexture(_)
+                | PlayerFile::PreFoxModel { .. }
+                | PlayerFile::Material,
             )
             | None => continue,
         };
@@ -793,7 +792,16 @@ mod tests {
                 "Info face_file_not_used [Keep] at Players/05 - B (file=fcl_hair_sim.fclo)",
             ]
         );
-        assert_eq!(names(&export, PesVersion::Pes17), Vec::<String>::new());
+        // Pre-Fox gives an `.fmdl` no role (a later step converts it) and a `.fclo` none, so
+        // every folder's face diff is unused and the simulation file is not reported.
+        assert_eq!(
+            names(&export, PesVersion::Pes17),
+            [
+                "Info face_file_not_used [Keep] at Players/03 - A (file=face_diff.bin)",
+                "Info face_file_not_used [Keep] at Players/05 - B (file=face_diff.xml)",
+                "Info face_file_not_used [Keep] at Players/07 - C (file=face_diff.bin)",
+            ]
+        );
     }
 
     #[test]

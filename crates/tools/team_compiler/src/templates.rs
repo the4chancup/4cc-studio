@@ -153,6 +153,29 @@ const FCL_HAIR_SIM_FCLO: Resource = Resource {
     format: Format::Unparsed,
 };
 
+/// The model a pre-Fox face CPK packs as `oral_dummy_win32.model` when its `face.xml` lists no
+/// `face_neck` model, the blank face's included: a model with nothing to draw
+/// (`resources/templates/README.md`).
+const DUMMY_MODEL: Resource = Resource {
+    name: "dummy.model",
+    embedded: include_bytes!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../../resources/templates/dummy.model"
+    )),
+    format: Format::Unparsed,
+};
+
+/// The `.mtl` packed beside `DUMMY_MODEL` as `dummy.mtl`: an empty material set
+/// (`resources/templates/README.md`).
+const DUMMY_MTL: Resource = Resource {
+    name: "dummy.mtl",
+    embedded: include_bytes!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../../resources/templates/dummy.mtl"
+    )),
+    format: Format::Unparsed,
+};
+
 /// The cup's official `DpFileList.bin`, which a compile that deploys compares the installed
 /// list with: one list for every PES version (`resources/templates/README.md`).
 const DPFILELIST: Resource = Resource {
@@ -187,7 +210,7 @@ const REFEREE_MARKER: &[u8] = include_bytes!(concat!(
 ));
 
 /// Every resource a `templates/` file can replace, in the order the replacements are reported.
-const RESOURCES: [&Resource; 10] = [
+const RESOURCES: [&Resource; 12] = [
     &TEAM_COLOR,
     &UNI_COLOR,
     &UNIFORM_PARAMETER_18,
@@ -196,6 +219,8 @@ const RESOURCES: [&Resource; 10] = [
     &BODY_SKELETON,
     &FACE_DIFF,
     &FCL_HAIR_SIM_FCLO,
+    &DUMMY_MODEL,
+    &DUMMY_MTL,
     &DPFILELIST,
     &PLACEHOLDER_CPK,
 ];
@@ -383,9 +408,21 @@ impl Templates {
         self.bytes(&BODY_SKELETON)
     }
 
-    /// The `face_diff.bin` packed into a Fox face package whose sources hold none.
+    /// The `face_diff.bin` a face takes when its sources hold none: packed into a Fox face
+    /// package, the `<dif>` of a pre-Fox `face.xml`.
     pub(crate) fn face_diff(&self) -> &[u8] {
         self.bytes(&FACE_DIFF)
+    }
+
+    /// The model a pre-Fox face packs as `oral_dummy_win32.model` when its `face.xml` lists
+    /// no `face_neck` model.
+    pub(crate) fn dummy_model(&self) -> &[u8] {
+        self.bytes(&DUMMY_MODEL)
+    }
+
+    /// The `.mtl` packed beside the dummy model as `dummy.mtl`.
+    pub(crate) fn dummy_mtl(&self) -> &[u8] {
+        self.bytes(&DUMMY_MTL)
     }
 
     /// The `fcl_hair_sim.fclo` packed beside a `fcl_hair.fmdl` whose sources hold none.
@@ -550,7 +587,7 @@ mod tests {
     }
 
     /// Each resource's bytes in `templates`, through the accessors, in `RESOURCES` order.
-    fn every_resource(templates: &Templates) -> [&[u8]; 10] {
+    fn every_resource(templates: &Templates) -> [&[u8]; 12] {
         [
             templates.team_color(),
             templates.uni_color(),
@@ -560,6 +597,8 @@ mod tests {
             templates.body_skeleton(),
             templates.face_diff(),
             templates.fcl_hair_sim(),
+            templates.dummy_model(),
+            templates.dummy_mtl(),
             templates.official_list_file(),
             templates.placeholder_cpk(),
         ]
@@ -594,16 +633,18 @@ mod tests {
         // Written in the other order, so the findings' order is the table's, not the folder's.
         fs::write(folder.join("placeholder.cpk"), b"placeholder override").unwrap();
         fs::write(folder.join("face_diff.bin"), b"face diff override").unwrap();
+        fs::write(folder.join("dummy.mtl"), b"dummy material override").unwrap();
         // One `UniColor.bin` record, which parses as the bin.
         let kit_colors = [1; 85];
         fs::write(folder.join("UniColor.bin"), kit_colors).unwrap();
 
         let (templates, messages) = Templates::read(Some(temp.path())).unwrap();
 
-        let mut expected: [&[u8]; 10] = RESOURCES.map(|resource| resource.embedded);
+        let mut expected: [&[u8]; 12] = RESOURCES.map(|resource| resource.embedded);
         expected[1] = &kit_colors;
         expected[6] = b"face diff override";
-        expected[9] = b"placeholder override";
+        expected[9] = b"dummy material override";
+        expected[11] = b"placeholder override";
         assert!(every_resource(&templates) == expected);
         let active = |name: &str| {
             tool_message(
@@ -618,6 +659,7 @@ mod tests {
             [
                 active("UniColor.bin"),
                 active("face_diff.bin"),
+                active("dummy.mtl"),
                 active("placeholder.cpk")
             ]
         );

@@ -288,7 +288,18 @@ mod tests {
         let mut model = pes_model::model::Model::from_file(&file).unwrap();
         model.meshes[0].vertices.positions[0] = [6000.0, 0.0, 0.0];
         let card = model.to_file().unwrap().write().unwrap();
-        let findings = findings_of(temp.path(), &[("Players/03 - A/card.model", card)], &[]);
+        // With a material set beside it, so the model's one finding is its far vertex.
+        let findings = findings_of(
+            temp.path(),
+            &[
+                ("Players/03 - A/card.model", card),
+                (
+                    "Players/03 - A/card.mtl",
+                    pre_fox_fixture("cardhead_materials.mtl"),
+                ),
+            ],
+            &[],
+        );
         assert_eq!(
             findings,
             [counted(
@@ -341,6 +352,8 @@ mod tests {
         let mtl_error = MaterialSet::read(b"not a material set")
             .unwrap_err()
             .to_string();
+        // No `model_material_undefined` for the model with no `.mtl` beside it: the target is
+        // PES 21, where a `.model` is not compiled yet.
         assert_eq!(
             findings,
             [

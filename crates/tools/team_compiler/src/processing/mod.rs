@@ -6,6 +6,7 @@ mod kit;
 mod kit_layout;
 mod materialize;
 mod model;
+mod prefox_face;
 mod referee_marker;
 mod team_assets;
 mod texture;
@@ -16,7 +17,7 @@ use std::sync::Arc;
 
 use aesthetics_export::FileDescriptor;
 use dds_convert::{CachePolicy, Converter};
-use pes_version::PesVersion;
+use pes_version::{Engine, PesVersion};
 use pipeline::{MemoryBudget, Permit};
 use studio_core::{Disposition, Message, Scope};
 use vtree::ScopePath;
@@ -187,14 +188,23 @@ pub(crate) fn process_task(
             folder,
             package,
             ids,
-        } => model::package(
-            folder,
-            *package,
-            task.team_id,
-            ctx,
-            &mut files,
-            &mut findings,
-        )
+        } => match (ctx.version.engine(), package) {
+            (Engine::Fox, _) => model::package(
+                folder,
+                *package,
+                task.team_id,
+                ctx,
+                &mut files,
+                &mut findings,
+            ),
+            (Engine::PreFox, ModelPackage::Face) => {
+                prefox_face::face(folder, task.team_id, ctx, &mut files, &mut findings)
+            }
+            (Engine::PreFox, ModelPackage::Boots | ModelPackage::Gloves) => unreachable!(
+                "a pre-Fox target plans no boots or gloves package: a player's every model is \
+                 typed in his face's `face.xml`"
+            ),
+        }
         .map(|files| {
             let output = TaskOutput::Package {
                 package: *package,
@@ -383,6 +393,7 @@ mod tests {
                 .map(|name| file(&format!("{PLAYER}/{name}")))
                 .collect(),
             ingame_face: false,
+            engine: Engine::Fox,
             combined: Vec::new(),
             common_models: Vec::new(),
             common_texture_stems: BTreeSet::new(),
@@ -457,7 +468,9 @@ mod tests {
                 1,
                 Templates::embedded(),
                 InstalledPaths::Unknown,
-                EntryTarget::GamePaths,
+                EntryTarget::GamePaths {
+                    engine: version.engine(),
+                },
                 MemoryBudget::new(usize::MAX),
             ),
         )
@@ -551,7 +564,9 @@ mod tests {
             1,
             Templates::embedded(),
             InstalledPaths::Unknown,
-            EntryTarget::GamePaths,
+            EntryTarget::GamePaths {
+                engine: Engine::Fox,
+            },
             Arc::clone(&budget),
         );
 
@@ -1118,6 +1133,7 @@ mod tests {
                 },
             ],
             ingame_face: false,
+            engine: Engine::Fox,
             combined: Vec::new(),
             common_models: Vec::new(),
             common_texture_stems: BTreeSet::new(),
@@ -1204,7 +1220,9 @@ mod tests {
                 48,
                 Templates::embedded(),
                 InstalledPaths::Unknown,
-                EntryTarget::GamePaths,
+                EntryTarget::GamePaths {
+                    engine: Engine::Fox,
+                },
                 MemoryBudget::new(usize::MAX),
             )
             .cache,
@@ -1372,7 +1390,9 @@ mod tests {
                 1,
                 Templates::embedded(),
                 InstalledPaths::Unknown,
-                EntryTarget::GamePaths,
+                EntryTarget::GamePaths {
+                    engine: Engine::Fox,
+                },
                 MemoryBudget::new(usize::MAX),
             ),
             dds_convert::SourceFormat::Dds,
@@ -2040,7 +2060,9 @@ mod tests {
             1,
             Templates::embedded(),
             InstalledPaths::Unknown,
-            EntryTarget::GamePaths,
+            EntryTarget::GamePaths {
+                engine: Engine::Fox,
+            },
             MemoryBudget::new(usize::MAX),
         );
         let as_it_is = |file_name: &str, bytes: &[u8]| {

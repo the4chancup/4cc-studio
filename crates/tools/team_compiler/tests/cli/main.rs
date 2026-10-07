@@ -20,6 +20,7 @@ mod logo;
 mod models;
 mod multicpk;
 mod preflight;
+mod prefox_faces;
 mod referees;
 mod sideload;
 mod sources;

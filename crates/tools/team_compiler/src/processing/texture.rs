@@ -1,5 +1,6 @@
-//! Texture conversion for the Fox engine, which reads FTEX (`team_compiler/pipeline.md` "3.
-//! Per-model-folder parallel steps", step 5): every accepted image format through
+//! Texture conversion for the target's engine, FTEX on Fox, DDS on pre-Fox
+//! (`team_compiler/pipeline.md` "3. Per-model-folder parallel steps", step 5): every accepted
+//! image format through
 //! `dds_convert`, which picks the codec the target version reads; a model folder's textures as
 //! one unit (step 6) and the export's Common textures as another ("Resolved decisions",
 //! "Common textures are one task of their export"); a portrait as the DDS every engine reads
@@ -130,7 +131,12 @@ pub(super) fn folder_textures(
     complete_kit_variants(&mut textures, kits, findings);
     let entries = textures
         .into_iter()
-        .map(|(stem, bytes)| (folder.textures.texture(team_id, &stem), bytes))
+        .map(|(stem, bytes)| {
+            let path = folder
+                .textures
+                .texture(ctx.version.engine(), team_id, &stem);
+            (path, bytes)
+        })
         .collect();
     Ok((entries, dropped))
 }
@@ -279,8 +285,9 @@ pub(super) fn common_texture(
 }
 
 /// The texture file `name`, in `format`, converted for the run's version through its
-/// converter: an FTEX on every Fox target, in the codec the version reads, with the mip chain
-/// a raster source lacks generated, in the role the file's stem gives it. Its signature and
+/// converter: an FTEX on every Fox target, a DDS on pre-Fox, in the codec the version reads,
+/// with the mip chain a raster source lacks generated, in the role the file's stem gives it.
+/// Its signature and
 /// size are the deep pass's checks, done before planning; a texture that reaches this point
 /// either passed them or is kept by `pass_through`, so it is converted as it is.
 pub(super) fn convert(
@@ -391,7 +398,9 @@ mod tests {
             cache: CachePolicy::Bypass,
             templates: crate::templates::Templates::embedded(),
             installed: crate::bins::installed::InstalledPaths::Unknown,
-            target: crate::processing::EntryTarget::GamePaths,
+            target: crate::processing::EntryTarget::GamePaths {
+                engine: version.engine(),
+            },
             budget: MemoryBudget::new(usize::MAX),
         }
     }

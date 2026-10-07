@@ -18,7 +18,7 @@ and 4.25 are done; 4.26 is done; 4.19 (Fox referees) is done, 4.19d (pre-Fox) wa
 referee marker) is done, 4.27's rest (the pre-Fox marker) waits on 4.19d; 4.9 is done
 (collars on Fox; their pre-Fox and cross-format halves are in 4.16 and 4.17); 4.28
 (memory accounting), 4.32 (number atlases) and 4.18 (hand auto-split, Fox) are done, and
-4.y moved to Phase 8; 4.14 is next, with its own checks until 4.31's pre-Fox parity
+4.y moved to Phase 8; 4.14 is under way (slices a and b done, c next), with its own checks until 4.31's pre-Fox parity
 reference exists (4.31 waits on a small pre-Fox export from the maintainer); 4.33, 4.34, 4.c-pass and
 4.c-fix1 are done; 4.30,
 4.5 to 4.8 and 4.10 to 4.13 are done (4.6c moved to Phase 8's cancellation). 2.5b (GPU BC7) is step 16.x (decision entries
@@ -1339,7 +1339,8 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   and the pre-Fox Common output, a combined shared face folder, shared boots/gloves folders
   as loose files with `glove.xml` (TC-MOD-22, 24, 37, 38, 40); (d) the name and limit
   checks: `model_name_invalid`, `edithair_unsupported`, `uniform_sub` with
-  `xml_uniform_pes15`, `xml_oral_prefix_missing`, `texture_not_div4`, the vertex limit
+  `xml_uniform_pes15`, `xml_oral_prefix_missing`, `texture_not_div4`, the vertex limit,
+  a material a `.model` names missing from its `.mtl` (`check_bundle`)
   (TC-MOD-23, 25, TC-CHK-08, TC-TEX-07); (e) `ingame_face` through `pes_model::ops::merge`,
   the kit variant sets, the hand split of a hand-weighted `.model` (TC-MOD-35, 41,
   TC-CMN-07). A user-supplied `face.xml` stays refused as not compiled yet until 4.15.
@@ -1350,6 +1351,17 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `Boots/` folder's `boots_kit1`/`boots_kit2` now pass `check` and compile kit 1's alone
   (`kit_variant_model_fox`). Gates green (209 of 254); `mutants-diff 7b13269`: 44, 39 caught,
   5 unviable, 0 missed; Clef: two flags, both rejected.
+  (b) done 2026-10-07 (Opus 5.5, one rework round of five findings, no lead fix):
+  `face_xml.rs` (type table, packed names, `ratio`, the XML bytes), `mtl_search.rs`
+  (`mtl_for`, shared by the deep pass and the face task), `processing/prefox_face.rs`;
+  `PlayerFile::PreFoxModel`/`Material`, `FolderModels` carrying the engine, the pre-Fox
+  gate `pre_fox_not_compiled`; `TextureHome` per engine; the nested CPK in `materialize`
+  (`EntryTarget::GamePaths { engine }`); `dummy.model`/`dummy.mtl` templates;
+  `xml_face_neck_added`; `model_material_undefined` (no `.mtl` found, pre-Fox only);
+  `aesthetics_export::ends_with_name` (the suffix walk, shared with the native types).
+  TC-MOD-20, 21, 39. Gates green (212 of 254); `mutants-diff bc3cd33`: first pass
+  153, 2 missed (rework 5); rerun 153, 0 missed (125 caught, 25 unviable, 3 whose remote
+  builds the 9 GiB cap killed, rerun locally: caught; `REMOTE_BUILD_JOBS` 2 → 1). Clef: 0 flags.
   IDs: TC-MOD-20..25, TC-MOD-35, TC-MOD-37..41, TC-CHK-08, TC-TEX-07, TC-CMN-07 (split from TC-CMN-05 at 4.11c). Crates: tc (`processing/model.rs`, `processing/material.rs`,
   `processing/texture.rs`, `paths.rs`) → verify: a `/co/` slot 05 folder with the smallest
   `pes_model` fixture pair as `face_high.model` + `face_high.mtl` and `skin.dds`, compiled for PES 17: the
@@ -2134,6 +2146,22 @@ Steps are itemized when Phase 15 closes; one is fixed already:
 Bugs, unexpected behavior, things to revisit. `open` / `resolved (date)`. Resolved issues are
 pruned when their phase closes; they stay in git history.
 
+- open (found at 4.14b's review) — pre-Fox faces: two files of one face packing under one
+  name (`hat.model` beside `face/hat.model`, two `.mtl` of one name in the folder and
+  `face/`, or a member's own `dummy.mtl` when the dummy is added) fail the face task at
+  `compile` (`folder_pack_failed`, folder dropped) while `check` reports nothing. No finding
+  code exists for it; a planning check naming both files would make `check` agree. No real
+  export is known to do it.
+- open (found at 4.14b's review) — the pre-Fox gate names an `ingame_face` marker as
+  `<folder>/ingame_face` (without a `.txt` it may carry) and a link as `link_name` spells it,
+  since `PlayerFolder` keeps neither file's name; the message is still findable. Gone when
+  4.14c/e compile both.
+- open (found at 4.14b's review) — pre-Fox faces: every `.mtl` of a player folder is packed
+  into the face, one no model uses included (a blank face too), as Red packs the whole
+  folder. Harmless to the game; revisit if a census shows stray `.mtl` files are common.
+- open (found at 4.14b's review) — `model_material_undefined` covers only "no `.mtl` found";
+  a material name missing from the paired `.mtl` (`pes_model::check::check_bundle`, the
+  catalog row's main case) is slice 4.14d's.
 - open (found at 4.18's review) — hand auto-split: a split glove beside an authored glove
   of the same hand may not merge. The split prunes the bones no vertex of a glove uses, so
   a split `sk_hand_l` can lose its parent `sk_forearm_l` where an authored glove keeps it,
@@ -3429,3 +3457,9 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   - **4.14a:** a per-kit model's name is read without its kit token, on every game:
     `boots_kit1.fmdl` is boots, not a part of the face's hair, and a shared `Boots/`
     folder may hold per-kit boots, of which kit 1's is compiled on PES 2018 to 2021.
+  - **4.14b:** PES 2015 to 2017 compile a player folder's own `.model` files with their
+    `.mtl` files, textures and face diff into the player's face CPK, with a generated
+    `face.xml` typing each model by its name (boots and gloves models included), and
+    the blank face of a player with no model; a model with no `.mtl` is
+    `model_material_undefined`. Links, `Common/`, shared folders, kits, collars,
+    `ingame_face`, `.fmdl` files and referee exports are still refused on those games.

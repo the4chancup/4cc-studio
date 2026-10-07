@@ -41,34 +41,35 @@ const MODEL_SUFFIXES: [(&str, ModelSuffix); 9] = [
     ("handr", ModelSuffix::HandR),
 ];
 
-/// A stem's trailing suffix: walking the stem from the end and skipping `_`,
-/// its last `s.len()` non-underscore characters equal `s`
-/// ASCII-case-insensitively and what precedes them is empty or ends with `_`.
-/// `face_high`, `FaceHigh`, `x_hair_high`, `gloveL` match; `myface_high`,
-/// `coral`, `torso` do not. The stem is read without its kit token and one
-/// delimiter next to it (`without_kit_token`), so a per-kit `boots_kit1` or
-/// `kit1_boots` is boots on both engines.
+/// A stem's trailing suffix (`ends_with_name` over the table). `face_high`,
+/// `FaceHigh`, `x_hair_high`, `gloveL` match; `myface_high`, `coral`, `torso`
+/// do not; a per-kit `boots_kit1` or `kit1_boots` is boots on both engines.
 pub fn model_suffix(stem: &str) -> Option<ModelSuffix> {
+    MODEL_SUFFIXES
+        .into_iter()
+        .find(|(spelling, _)| ends_with_name(stem, spelling))
+        .map(|(_, suffix)| suffix)
+}
+
+/// Whether a model's stem ends with the type name `name`, the way a model name
+/// ends with its suffix: walking the stem from the end and skipping `_` in
+/// both, its last non-underscore characters equal `name`'s
+/// ASCII-case-insensitively, and what precedes them is empty or ends with `_`
+/// (`body_uniform` and `uniform` end with `uniform`, `xuniform` does not). The
+/// stem is read without its kit token and one delimiter next to it
+/// (`without_kit_token`), so a per-kit model is typed as its set is.
+pub fn ends_with_name(stem: &str, name: &str) -> bool {
     let stem = without_kit_token(stem);
     let stem = stem.as_ref();
-    for (spelling, suffix) in MODEL_SUFFIXES {
-        let mut reversed = stem.char_indices().rev().filter(|(_, c)| *c != '_');
-        let mut start = stem.len();
-        let mut matched = true;
-        for want in spelling.chars().rev() {
-            match reversed.next() {
-                Some((index, c)) if c.eq_ignore_ascii_case(&want) => start = index,
-                _ => {
-                    matched = false;
-                    break;
-                }
-            }
-        }
-        if matched && (start == 0 || stem[..start].ends_with('_')) {
-            return Some(suffix);
+    let mut reversed = stem.char_indices().rev().filter(|(_, c)| *c != '_');
+    let mut start = stem.len();
+    for want in name.chars().rev().filter(|c| *c != '_') {
+        match reversed.next() {
+            Some((index, c)) if c.eq_ignore_ascii_case(&want) => start = index,
+            _ => return false,
         }
     }
-    None
+    start == 0 || stem[..start].ends_with('_')
 }
 
 /// The explicitly-named face models (`face_high`, `hair_high`, `oral`): they
@@ -130,6 +131,20 @@ mod tests {
         ];
         for (stem, expected) in cases {
             assert_eq!(model_suffix(stem), expected, "{stem:?}");
+        }
+    }
+
+    #[test]
+    fn ends_with_name_reads_the_stem_tail_without_its_kit_token() {
+        for (stem, name, expected) in [
+            ("body_uniform", "uniform", true),
+            ("uniform", "uniform", true),
+            ("x_pants_nocloth", "pants_nocloth", true),
+            ("xuniform", "uniform", false),
+            ("body_uniform_kit1", "uniform", true),
+            ("Body_UNIFORM", "uniform", true),
+        ] {
+            assert_eq!(ends_with_name(stem, name), expected, "{stem:?} {name:?}");
         }
     }
 }

@@ -127,6 +127,9 @@ pub(crate) enum Code {
     /// Per-kit model files (`pants_kit1.fmdl`, `pants_kit2.fmdl`) on a Fox target, which
     /// cannot switch models with the kit: the lowest variant is used, the others ignored.
     KitVariantModelFox,
+    /// A pre-Fox face holding a model none of whose `face.xml` entries is a `face_neck`: the
+    /// bundled dummy model is listed last as the face's `face_neck` and packed with its `.mtl`.
+    XmlFaceNeckAdded,
     /// A face's `face_diff.xml` that is not base64 text or a `<dif>` holding it, or a face
     /// diff (decoded, or a `face_diff.bin`) without the magic `FACE` or shorter than its
     /// header gives; the folder holding it is left out.
@@ -277,7 +280,7 @@ impl Code {
     /// Every code, for the catalog test: a variant missing here would make its first message
     /// panic in `severity`, so a new variant is added to this list too.
     #[cfg(test)]
-    const ALL: [Code; 87] = [
+    const ALL: [Code; 88] = [
         Code::ExportExtractFailed,
         Code::NoExportsFound,
         Code::ExportDisabled,
@@ -318,6 +321,7 @@ impl Code {
         Code::FaceFileNotUsed,
         Code::KitVariantMissing,
         Code::KitVariantModelFox,
+        Code::XmlFaceNeckAdded,
         Code::FaceDiffInvalid,
         Code::XmlDifConflict,
         Code::SharedTextureConflict,
@@ -410,6 +414,7 @@ impl Code {
             Code::FaceFileNotUsed => "face_file_not_used",
             Code::KitVariantMissing => "kit_variant_missing",
             Code::KitVariantModelFox => "kit_variant_model_fox",
+            Code::XmlFaceNeckAdded => "xml_face_neck_added",
             Code::FaceDiffInvalid => "face_diff_invalid",
             Code::XmlDifConflict => "xml_dif_conflict",
             Code::SharedTextureConflict => "shared_texture_conflict",
@@ -522,6 +527,7 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("face_file_not_used", CatalogSeverity::Info),
     ("kit_variant_missing", CatalogSeverity::Warning),
     ("kit_variant_model_fox", CatalogSeverity::Warning),
+    ("xml_face_neck_added", CatalogSeverity::Info),
     ("face_diff_invalid", CatalogSeverity::Error),
     ("xml_dif_conflict", CatalogSeverity::Error),
     ("shared_texture_conflict", CatalogSeverity::Error),

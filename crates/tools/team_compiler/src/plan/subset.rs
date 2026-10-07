@@ -7,7 +7,7 @@
 use aesthetics_export::{
     ExportIdentity, FileDescriptor, FileKind, ModelFormat, ModelSuffix, PlayerFolder,
     ResolvedAestheticsExport, SharedKind, SharedLink, SharedModelFolder, ValidatedAestheticsExport,
-    ValidatedRoster, classify, common_link_name, model_suffix,
+    ValidatedRoster, classify, common_link_name, kit_token, model_suffix,
 };
 use dds_convert::SourceFormat;
 use pes_version::{Engine, PesVersion};
@@ -15,6 +15,7 @@ use vtree::ScopePath;
 
 use super::ids::shared_folders_taking_ids;
 use super::mapped_players;
+use crate::face_xml;
 use crate::kit_variants::model_variant_sets;
 
 /// The kit texture stems, in the order of the kit config's texture-name fields.
@@ -144,7 +145,7 @@ pub(crate) fn linked_folder<'a>(
         .find(|folder| vtree::fold_name(&folder.folder_name) == name_key)
 }
 
-/// What one file of a player folder becomes in the Fox output.
+/// What one file of a player folder becomes in the output of the target's engine.
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) enum PlayerFile {
     /// A model, packed into `package` as `<name>.fmdl` with its texture paths rewritten:
@@ -207,6 +208,18 @@ pub(crate) enum PlayerFile {
     /// once in the team's Common output (`model_format.md` "Link files (`.common`)"). The
     /// folder's models point the stem there; nothing reads the empty link.
     CommonTexture(String),
+    /// Pre-Fox: a `.model`, packed into the player's face CPK as `oral_<stem>_win32.model`
+    /// and listed in its generated `face.xml` under `xml_type` (`face_xml::xml_type`; `parts`
+    /// in `boots/`, its hand's type in `gloves/`). Boots and gloves models included: the
+    /// typed XML is why a pre-Fox player needs no boots or gloves folder of his own.
+    PreFoxModel {
+        /// The model's `face.xml` type.
+        xml_type: String,
+    },
+    /// Pre-Fox: a `.mtl`, packed into the player's face CPK under its own name with its
+    /// texture paths pointed at the player's common folder. The `face.xml` names it for each
+    /// model whose search finds it (`mtl_search::mtl_for`).
+    Material,
 }
 
 impl PlayerFile {
@@ -220,7 +233,9 @@ impl PlayerFile {
             | PlayerFile::CommonModel { package, .. }
             | PlayerFile::Packed { package, .. }
             | PlayerFile::Skeleton { package, .. } => Some(*package),
-            PlayerFile::FaceDiffXml => Some(ModelPackage::Face),
+            PlayerFile::FaceDiffXml | PlayerFile::PreFoxModel { .. } | PlayerFile::Material => {
+                Some(ModelPackage::Face)
+            }
             PlayerFile::UnusedFaceFile
             | PlayerFile::SlotlessSkeleton
             | PlayerFile::LeftOutKitVariant
@@ -372,18 +387,51 @@ fn model_role(
     Some(role)
 }
 
+/// The `face.xml` type of a pre-Fox model with file stem `stem` at `position`
+/// (`PlayerFile::PreFoxModel`): by its name directly in the folder or in `face/`; `parts` in
+/// `boots/`, the type boots take; in `gloves/` its hand's type, so a glove whose name gives no
+/// side has none, and `common/` holds no models. A per-kit model (one whose stem holds a kit
+/// token) has none yet: switching models with the kit is not built.
+fn pre_fox_model_type(position: Position, stem: &str) -> Option<String> {
+    if kit_token(stem).is_some() {
+        return None;
+    }
+    match position {
+        Position::Direct | Position::Face => Some(face_xml::xml_type(stem)),
+        Position::Boots => Some("parts".to_owned()),
+        Position::Gloves => match face_xml::suffix(stem) {
+            Some(
+                ModelSuffix::GloveL | ModelSuffix::GloveR | ModelSuffix::HandL | ModelSuffix::HandR,
+            ) => Some(face_xml::xml_type(stem)),
+            Some(
+                ModelSuffix::FaceHigh
+                | ModelSuffix::HairHigh
+                | ModelSuffix::Oral
+                | ModelSuffix::FclHair
+                | ModelSuffix::Boots,
+            )
+            | None => None,
+        },
+        Position::Common => None,
+    }
+}
+
 /// `file`'s export path up to its extension (`Players/05 - A/boots/kit_boots`): what a model
 /// and the skeleton named after it share, and nothing in another directory does.
 fn path_stem(file: &FileDescriptor) -> &str {
     file_stem(file.path.as_str())
 }
 
-/// What a player folder's models say about its other files: which have a package to go in,
-/// and which model a `.skl` pairs with. Computed once per folder and passed to `player_file`.
-/// A model is listed by its `path_stem`, so a skeleton pairs with the model beside it, not
-/// with one of the same name in another of the folder's directories.
-#[derive(Debug, Default, PartialEq, Eq)]
+/// What a player folder's models say about its other files, for the target engine they were
+/// computed for: which have a package to go in, and which model a `.skl` pairs with. Computed
+/// once per folder and passed to `player_file`, which gives the roles of that engine. A model
+/// is listed by its `path_stem`, so a skeleton pairs with the model beside it, not with one of
+/// the same name in another of the folder's directories.
+#[derive(Debug, PartialEq, Eq)]
 pub(crate) struct FolderModels {
+    /// The engine of the target the models were read for: each engine builds its own model
+    /// format, so the same files give other models, and `player_file` other roles.
+    engine: Engine,
     /// The player folder holds `ingame_face`, so its models take the roles `model_role` gives
     /// under the marker. A shared folder has none.
     ingame_face: bool,
@@ -409,35 +457,50 @@ pub(crate) struct FolderModels {
 }
 
 impl FolderModels {
-    /// The models among `files` of the folder at `folder`, a folder without `ingame_face`
-    /// (`of_player_files`).
-    pub(crate) fn of(folder: &ScopePath, files: &[FileDescriptor]) -> FolderModels {
-        FolderModels::of_player_files(folder, files, false)
+    /// The models among `files` of the folder at `folder`, a folder without `ingame_face`,
+    /// for a target of `engine` (`of_player_files`).
+    pub(crate) fn of(folder: &ScopePath, files: &[FileDescriptor], engine: Engine) -> FolderModels {
+        FolderModels::of_player_files(folder, files, false, engine)
     }
 
     /// The models among `files` of the folder at `folder`, which holds `ingame_face` when
-    /// `ingame_face` is set: its `.fmdl` files and its `.common` links to one, directly in it
-    /// or in a reserved subfolder, each with its resolved role. A link counts as a model of
-    /// its role's package, but pairs no skeleton of the folder's: a Common model's skeleton
-    /// is Common's, resolved at planning (`common_skeleton`). A per-kit model with a lower
-    /// variant of its set beside it is left out (`model_variant_sets`).
+    /// `ingame_face` is set, for a target of `engine`. On Fox: its `.fmdl` files and its
+    /// `.common` links to one, directly in it or in a reserved subfolder, each with its
+    /// resolved role. A link counts as a model of its role's package, but pairs no skeleton of
+    /// the folder's: a Common model's skeleton is Common's, resolved at planning
+    /// (`common_skeleton`). A per-kit model with a lower variant of its set beside it is left
+    /// out (`model_variant_sets`). On pre-Fox: its `.model` files with a role, every one of
+    /// them a part of the face (`PlayerFile::PreFoxModel`), which no skeleton pairs with.
     pub(crate) fn of_player_files(
         folder: &ScopePath,
         files: &[FileDescriptor],
         ingame_face: bool,
+        engine: Engine,
     ) -> FolderModels {
         let mut models = FolderModels {
+            engine,
             ingame_face,
+            face: false,
+            hair_stems: Vec::new(),
+            boots_stems: Vec::new(),
+            slotless_stems: Vec::new(),
             left_out_variants: model_variant_sets(files)
                 .into_iter()
                 .flat_map(|set| set.left_out)
                 .collect(),
-            ..FolderModels::default()
         };
         for file in files {
             let Some(position) = position(folder, file) else {
                 continue;
             };
+            match engine {
+                Engine::Fox => {}
+                Engine::PreFox => {
+                    models.face |= file.kind == FileKind::Model(ModelFormat::PesModel)
+                        && pre_fox_model_type(position, file_stem(file.path.name())).is_some();
+                    continue;
+                }
+            }
             if models.left_out_variants.contains(&file.path) {
                 continue;
             }
@@ -478,11 +541,12 @@ impl FolderModels {
         models
     }
 
-    /// The models of the player folder `folder`: its own, under its `ingame_face` marker
-    /// when it holds one, a linked shared face counting as a face model of the folder's
-    /// (`with_linked_face`).
-    pub(crate) fn of_player(folder: &PlayerFolder) -> FolderModels {
-        let models = FolderModels::of_player_files(&folder.path, &folder.files, folder.ingame_face);
+    /// The models of the player folder `folder` for a target of `engine`: its own, under its
+    /// `ingame_face` marker when it holds one, a linked shared face counting as a face model
+    /// of the folder's (`with_linked_face`).
+    pub(crate) fn of_player(folder: &PlayerFolder, engine: Engine) -> FolderModels {
+        let models =
+            FolderModels::of_player_files(&folder.path, &folder.files, folder.ingame_face, engine);
         if folder
             .links
             .iter()
@@ -504,37 +568,33 @@ impl FolderModels {
 }
 
 /// What `file` of the player folder at `folder`, whose models are `models`, becomes in the
-/// Fox output; `None` when it has no role `compile` builds yet. A file in a reserved
-/// subfolder is a part of the folder like a file directly in it, its category forced by the
-/// subfolder's name (`model_role`); its textures are the folder's own, and the face's files
-/// may sit in `face/`.
+/// output of a target of the engine `models` were computed for; `None` when it has no role
+/// `compile` builds yet. A file in a reserved subfolder is a part of the folder like a file
+/// directly in it, its category forced by the subfolder's name (`model_role`); its textures
+/// are the folder's own, and the face's files may sit in `face/`. Each engine builds its own
+/// model format (`fox_file`, `pre_fox_file`); the textures and the face diff take the same
+/// roles on both (`texture_or_face_diff`).
 pub(crate) fn player_file(
     folder: &ScopePath,
     file: &FileDescriptor,
     models: &FolderModels,
 ) -> Option<PlayerFile> {
     let position = position(folder, file)?;
+    match models.engine {
+        Engine::Fox => fox_file(position, file, models),
+        Engine::PreFox => pre_fox_file(position, file, models),
+    }
+}
+
+/// `player_file` on Fox, for `file` at `position`.
+fn fox_file(
+    position: Position,
+    file: &FileDescriptor,
+    models: &FolderModels,
+) -> Option<PlayerFile> {
     let name = file.path.name();
     let stem = file_stem(name);
-    let path_stem = path_stem(file);
-    let path_fold = vtree::fold_name(path_stem);
-    // A face file sits in the folder or its `face/`; without a face to shape it is not used.
-    let face_file = |role| {
-        if !matches!(position, Position::Direct | Position::Face) {
-            return None;
-        }
-        Some(if models.face {
-            role
-        } else {
-            PlayerFile::UnusedFaceFile
-        })
-    };
-    let face_packed = |name| {
-        face_file(PlayerFile::Packed {
-            package: ModelPackage::Face,
-            name,
-        })
-    };
+    let path_fold = vtree::fold_name(path_stem(file));
     match file.kind {
         // A left-out kit variant is one only where it would be a model: a file planning gives no
         // role keeps none.
@@ -557,9 +617,6 @@ pub(crate) fn player_file(
             None if position == Position::Common => None,
             None => linked_texture_stem(name).map(PlayerFile::CommonTexture),
         },
-        FileKind::Texture => {
-            texture_format(name).map(|format| PlayerFile::Texture(stem.to_owned(), format))
-        }
         // The game loads a skeleton under its slot's name; the export names it after the
         // model it pairs with, and without that model the skeleton has nothing to drive.
         // The stems fold, as `hair_stems`/`boots_stems`/`slotless_stems` build them.
@@ -583,12 +640,82 @@ pub(crate) fn player_file(
         {
             Some(PlayerFile::SlotlessSkeleton)
         }
-        FileKind::Bin if name.eq_ignore_ascii_case("face_diff.bin") => face_packed("face_diff.bin"),
-        FileKind::Fclo if name.eq_ignore_ascii_case("fcl_hair_sim.fclo") => {
-            face_packed("fcl_hair_sim.fclo")
+        FileKind::Fclo if name.eq_ignore_ascii_case("fcl_hair_sim.fclo") => face_file(
+            position,
+            models,
+            PlayerFile::Packed {
+                package: ModelPackage::Face,
+                name: "fcl_hair_sim.fclo",
+            },
+        ),
+        FileKind::Texture | FileKind::Bin | FileKind::Xml => {
+            texture_or_face_diff(position, file, models)
         }
+        FileKind::Model(ModelFormat::PesModel | ModelFormat::Gltf)
+        | FileKind::Skl
+        | FileKind::Fclo
+        | FileKind::Mtl
+        | FileKind::MaterialsToml
+        | FileKind::SharedLink(_)
+        | FileKind::Marker(_)
+        | FileKind::Metadata(_)
+        | FileKind::Other => None,
+    }
+}
+
+/// `player_file` on pre-Fox, for `file` at `position`: a `.model` typed for the face's
+/// `face.xml` (`pre_fox_model_type`) and a `.mtl` beside the models, outside `common/`. The
+/// Fox files (`.fmdl`, `.skl`, `fcl_hair_sim.fclo`) have no role, nor yet a `.common` link or
+/// any `.xml` but the face diff (a member's own `face.xml`).
+fn pre_fox_file(
+    position: Position,
+    file: &FileDescriptor,
+    models: &FolderModels,
+) -> Option<PlayerFile> {
+    match file.kind {
+        FileKind::Model(ModelFormat::PesModel) => {
+            pre_fox_model_type(position, file_stem(file.path.name()))
+                .map(|xml_type| PlayerFile::PreFoxModel { xml_type })
+        }
+        FileKind::Mtl if position != Position::Common => Some(PlayerFile::Material),
+        FileKind::Texture | FileKind::Bin | FileKind::Xml => {
+            texture_or_face_diff(position, file, models)
+        }
+        FileKind::Model(ModelFormat::Fmdl | ModelFormat::Gltf)
+        | FileKind::Mtl
+        | FileKind::Skl
+        | FileKind::Fclo
+        | FileKind::MaterialsToml
+        | FileKind::SharedLink(_)
+        | FileKind::CommonLink
+        | FileKind::Marker(_)
+        | FileKind::Metadata(_)
+        | FileKind::Other => None,
+    }
+}
+
+/// The role of `file` at `position` that both engines give alike: a texture by its stem, and
+/// the face diff, `face_diff.bin` or `face_diff.xml`, a face file (`face_file`); `None` for any
+/// other file.
+fn texture_or_face_diff(
+    position: Position,
+    file: &FileDescriptor,
+    models: &FolderModels,
+) -> Option<PlayerFile> {
+    let name = file.path.name();
+    match file.kind {
+        FileKind::Texture => texture_format(name)
+            .map(|format| PlayerFile::Texture(file_stem(name).to_owned(), format)),
+        FileKind::Bin if name.eq_ignore_ascii_case("face_diff.bin") => face_file(
+            position,
+            models,
+            PlayerFile::Packed {
+                package: ModelPackage::Face,
+                name: "face_diff.bin",
+            },
+        ),
         FileKind::Xml if name.eq_ignore_ascii_case("face_diff.xml") => {
-            face_file(PlayerFile::FaceDiffXml)
+            face_file(position, models, PlayerFile::FaceDiffXml)
         }
         FileKind::Model(_)
         | FileKind::Skl
@@ -598,10 +725,25 @@ pub(crate) fn player_file(
         | FileKind::Mtl
         | FileKind::MaterialsToml
         | FileKind::SharedLink(_)
+        | FileKind::CommonLink
         | FileKind::Marker(_)
         | FileKind::Metadata(_)
         | FileKind::Other => None,
     }
+}
+
+/// `role` for a face file at `position` in a folder whose models are `models`: a face file sits
+/// in the folder or its `face/`, and without a face to shape it is not used
+/// (`PlayerFile::UnusedFaceFile`).
+fn face_file(position: Position, models: &FolderModels, role: PlayerFile) -> Option<PlayerFile> {
+    if !matches!(position, Position::Direct | Position::Face) {
+        return None;
+    }
+    Some(if models.face {
+        role
+    } else {
+        PlayerFile::UnusedFaceFile
+    })
 }
 
 /// Whether `role` is a part of `package`: a model of the folder's own, or a Common model its
@@ -616,9 +758,10 @@ pub(crate) fn is_part_of(role: &PlayerFile, package: ModelPackage) -> bool {
 
 /// Whether the player folder `player` has a model that packs into `package`, its own or one a
 /// `.common` link brings in, under its `ingame_face` marker when it holds one: on Fox, what
-/// gives a player its own package of that kind.
+/// gives a player its own package of that kind. The answer is Fox's, from the roles
+/// `player_file` gives on Fox (its one caller, `link_combines`, is reached on Fox only).
 pub(crate) fn holds_model(player: &PlayerFolder, package: ModelPackage) -> bool {
-    let models = FolderModels::of_player(player);
+    let models = FolderModels::of_player(player, Engine::Fox);
     player.files.iter().any(|file| {
         player_file(&player.path, file, &models).is_some_and(|role| is_part_of(&role, package))
     })
@@ -668,7 +811,8 @@ pub(crate) fn collar_file(file: &FileDescriptor) -> CollarFile {
 /// format is named, and any other file in `Collars/` is passed over (`collar_file`). A refs
 /// export compiles its mapped folders like a team's, but is named by its first kit, its logo,
 /// its first portrait or its first collar file (`referee_not_compiled`). Planning drops a Fox
-/// target's `kit_mask` before asking: the gate would count it.
+/// target's `kit_mask` before asking: the gate would count it. A pre-Fox target has a walk of
+/// its own (`pre_fox_not_compiled`).
 pub(crate) fn first_not_compiled(
     resolved: &ResolvedAestheticsExport,
     version: PesVersion,
@@ -677,7 +821,7 @@ pub(crate) fn first_not_compiled(
     // item; reordering the checks changes which item a member is told about.
     match version.engine() {
         Engine::Fox => {}
-        Engine::PreFox => return Some(("what", version.to_string())),
+        Engine::PreFox => return pre_fox_not_compiled(resolved, version),
     }
     let export = &resolved.export;
     match resolved.identity {
@@ -732,6 +876,53 @@ pub(crate) fn first_not_compiled(
     rest.next().map(what_entry)
 }
 
+/// `first_not_compiled` for the pre-Fox `version`, where `compile` builds a team's player
+/// folders' own `.model` files with their `.mtl` files, textures and face diff, its portraits
+/// and its logo. A refs export is named by the target. Otherwise, in this order: each mapped
+/// player folder's `ingame_face` marker, then its first link to a shared folder, then its
+/// first file with no pre-Fox role (`player_file`: an `.fmdl`, a `.common` link, a member's
+/// own `face.xml`, a per-kit model, among others); then the first kit (its folder), then the
+/// first `Collars/` file, then the first `Common/` file. Each is a later step's content.
+fn pre_fox_not_compiled(
+    resolved: &ResolvedAestheticsExport,
+    version: PesVersion,
+) -> Option<(&'static str, String)> {
+    let export = &resolved.export;
+    match resolved.identity {
+        ExportIdentity::Team { .. } => {}
+        ExportIdentity::Referees => return Some(("what", version.to_string())),
+    }
+    for folder in mapped_players(export) {
+        // Neither the marker nor a link is among the folder's files: each is named by its
+        // name in the folder, the marker without the `.txt` it may carry, a link as
+        // `link_name` spells it.
+        if folder.ingame_face {
+            return Some(("what", format!("{}/ingame_face", folder.path.as_str())));
+        }
+        if let Some(link) = folder.links.first() {
+            let name = link_name(link.kind, &link.name);
+            return Some(("what", format!("{}/{name}", folder.path.as_str())));
+        }
+        let models = FolderModels::of_player(folder, Engine::PreFox);
+        if let Some(file) = folder
+            .files
+            .iter()
+            .find(|file| player_file(&folder.path, file, &models).is_none())
+        {
+            return Some(what_entry(file));
+        }
+    }
+    if let Some(kit) = export.kits.kits.values().next() {
+        return Some(("what", kit.path.as_str().to_owned()));
+    }
+    export
+        .collars
+        .iter()
+        .chain(&export.common)
+        .next()
+        .map(what_entry)
+}
+
 /// The first of the refs `export`'s kits by slot (its folder), then its logo (the main file),
 /// then its first portrait (a mapped folder's `portrait.*` in folder order, then a
 /// `Portraits/` file), then its first collar file, whatever its kind. A referee has no kit
@@ -783,7 +974,7 @@ fn player_not_compiled(
     export: &ValidatedAestheticsExport,
     folder: &PlayerFolder,
 ) -> Option<(&'static str, String)> {
-    let models = FolderModels::of_player(folder);
+    let models = FolderModels::of_player(folder, Engine::Fox);
     if let Some(file) = folder
         .files
         .iter()
@@ -820,7 +1011,7 @@ fn shared_not_compiled(
 ) -> Option<(&'static str, String)> {
     let path = &folder.path;
     let package = package_of(kind);
-    let models = FolderModels::of(path, &folder.files);
+    let models = FolderModels::of(path, &folder.files, Engine::Fox);
     let mut has_model = false;
     for file in &folder.files {
         let Some(role) = player_file(path, file, &models) else {
@@ -982,18 +1173,73 @@ mod tests {
         );
     }
 
+    /// A pre-Fox face folder: a model, its material set and its texture.
+    const PRE_FOX_FACE: [&str; 3] = [
+        "Players/03 - A/face_high.model",
+        "Players/03 - A/face_high.mtl",
+        "Players/03 - A/skin.dds",
+    ];
+
+    /// The gate's first hit in the export `co Midcup Gate` holding `PRE_FOX_FACE` and `files`,
+    /// for `version`.
+    fn pre_fox_hit(files: &[&str], version: PesVersion) -> Option<(&'static str, String)> {
+        let files: Vec<(&str, u64)> = PRE_FOX_FACE
+            .iter()
+            .chain(files)
+            .map(|path| (*path, 1))
+            .collect();
+        first_not_compiled(&resolved("co Midcup Gate", &files, &[], None), version)
+    }
+
     #[test]
-    fn a_pre_fox_target_is_named() {
-        let export = resolved("co Midcup Gate", &[(FACE[0], 1), (FACE[1], 1)], &[], None);
+    fn a_pre_fox_target_compiles_a_player_s_own_models_and_names_the_rest_in_order() {
+        for version in [PesVersion::Pes15, PesVersion::Pes16, PesVersion::Pes17] {
+            assert_eq!(pre_fox_hit(&[], version), None, "{version}");
+        }
+        let pre_fox = |files: &[&str]| pre_fox_hit(files, PesVersion::Pes17);
+        // A face file, a model in each reserved subfolder and a portrait compile too.
         assert_eq!(
-            first_not_compiled(&export, PesVersion::Pes17),
-            what("PES 2017")
+            pre_fox(&[
+                "Players/03 - A/face_diff.bin",
+                "Players/03 - A/boots/x.model",
+                "Players/03 - A/gloves/left_gloveL.model",
+                "Players/03 - A/face/hat.model",
+                "Players/03 - A/portrait.dds",
+            ]),
+            None
         );
-        for version in [PesVersion::Pes15, PesVersion::Pes16] {
-            assert_eq!(
-                first_not_compiled(&export, version),
-                what(&version.to_string())
-            );
+        let marker = "Players/05 - B/ingame_face";
+        let link = "Players/05 - B/Crocs.boots";
+        let shared = "Boots/Crocs/boots.model";
+        let fmdl = "Players/05 - B/hat.fmdl";
+        let kit = "Kits/g1/kit.dds";
+        let collar = "Collars/collar_12.model";
+        let common = "Common/hair.dds";
+        // In a folder, its marker, then its first link, then its first file with no role;
+        // then the kits, the collars and `Common/`.
+        assert_eq!(
+            pre_fox(&[marker, link, shared, fmdl, kit, collar, common]),
+            what(marker)
+        );
+        assert_eq!(
+            pre_fox(&[link, shared, fmdl, kit, collar, common]),
+            what(link)
+        );
+        assert_eq!(pre_fox(&[fmdl, kit, collar, common]), what(fmdl));
+        assert_eq!(pre_fox(&[kit, collar, common]), what("Kits/g1"));
+        assert_eq!(pre_fox(&[collar, common]), what(collar));
+        assert_eq!(pre_fox(&[common]), what(common));
+        // A face link, as `link_name` spells it.
+        assert_eq!(
+            pre_fox(&[
+                "Players/03 - A/Round.face.txt",
+                "Faces/Round/face_high.model"
+            ]),
+            what("Players/03 - A/Round.face")
+        );
+        // A member's own `face.xml` and a per-kit model are later steps'.
+        for file in ["Players/03 - A/face.xml", "Players/03 - A/pants_kit1.model"] {
+            assert_eq!(pre_fox(&[file]), what(file), "{file}");
         }
     }
 
@@ -1930,7 +2176,7 @@ mod tests {
     /// The role of each file of `names` in `Players/03 - A`.
     fn roles(names: &[&str]) -> Vec<Option<PlayerFile>> {
         let folder = folder(names);
-        let models = FolderModels::of(&folder.path, &folder.files);
+        let models = FolderModels::of(&folder.path, &folder.files, Engine::Fox);
         folder
             .files
             .iter()
@@ -1944,7 +2190,7 @@ mod tests {
             ingame_face: true,
             ..folder(names)
         };
-        let models = FolderModels::of_player(&folder);
+        let models = FolderModels::of_player(&folder, Engine::Fox);
         folder
             .files
             .iter()
@@ -1995,6 +2241,92 @@ mod tests {
         ] {
             assert_eq!(roles(&[name]), [model(package, allowed)], "{name}");
         }
+    }
+
+    /// The role of each file of `names` in `Players/03 - A` on a target of `engine`.
+    fn engine_roles(names: &[&str], engine: Engine) -> Vec<Option<PlayerFile>> {
+        let folder = folder(names);
+        let models = FolderModels::of_player(&folder, engine);
+        folder
+            .files
+            .iter()
+            .map(|file| player_file(&folder.path, file, &models))
+            .collect()
+    }
+
+    fn pre_fox_model(xml_type: &str) -> Option<PlayerFile> {
+        Some(PlayerFile::PreFoxModel {
+            xml_type: xml_type.to_owned(),
+        })
+    }
+
+    #[test]
+    fn on_pre_fox_a_model_and_a_material_set_have_roles_and_the_fox_files_none() {
+        assert_eq!(
+            engine_roles(
+                &[
+                    "face_high.model",
+                    "face_high.mtl",
+                    "skin.dds",
+                    "face_diff.bin",
+                    "boots/x.model",
+                    "gloves/left.model",
+                    "hat.fmdl",
+                    "fcl_hair_sim.fclo",
+                    "pants_kit1.model",
+                    "face.xml",
+                ],
+                Engine::PreFox
+            ),
+            [
+                pre_fox_model("face_neck"),
+                Some(PlayerFile::Material),
+                Some(PlayerFile::Texture("skin".to_owned(), SourceFormat::Dds)),
+                packed(ModelPackage::Face, "face_diff.bin"),
+                pre_fox_model("parts"),
+                None,
+                None,
+                None,
+                None,
+                None,
+            ]
+        );
+        assert_eq!(
+            engine_roles(&["face_high.model", "face_high.mtl"], Engine::Fox),
+            [None, None]
+        );
+        // A glove names its hand, and a model in `face/` takes its own name's type.
+        assert_eq!(
+            engine_roles(
+                &[
+                    "gloves/keeper_glove_r.model",
+                    "gloves/x_handL.model",
+                    "face/visor_ratio_2_parts.model",
+                    "common/hat.model",
+                    "common/hat.mtl",
+                ],
+                Engine::PreFox
+            ),
+            [
+                pre_fox_model("gloveR"),
+                pre_fox_model("handL"),
+                pre_fox_model("parts"),
+                None,
+                None,
+            ]
+        );
+    }
+
+    #[test]
+    fn on_pre_fox_a_face_file_is_used_only_beside_a_model_with_a_role() {
+        assert_eq!(
+            engine_roles(&["face_diff.xml", "hat.fmdl"], Engine::PreFox),
+            [Some(PlayerFile::UnusedFaceFile), None]
+        );
+        assert_eq!(
+            engine_roles(&["face_diff.xml", "boots/hat.model"], Engine::PreFox),
+            [Some(PlayerFile::FaceDiffXml), pre_fox_model("parts")]
+        );
     }
 
     #[test]
@@ -2443,7 +2775,7 @@ mod tests {
             ]
         );
         let folder = folder(&["boots.fmdl", "face_diff.bin", "fcl_hair_sim.fclo"]);
-        let models = FolderModels::of(&folder.path, &folder.files).with_linked_face();
+        let models = FolderModels::of(&folder.path, &folder.files, Engine::Fox).with_linked_face();
         let linked: Vec<Option<PlayerFile>> = folder
             .files
             .iter()

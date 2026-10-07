@@ -1,13 +1,13 @@
 //! Where compiled content goes inside the CPK, for the Fox versions (PES 18-21) and, for the
-//! portraits and the logo, every version: `team_compiler/pipeline.md` "Game paths reference".
-//! The CPK paths have no leading `/`.
+//! faces, a player's textures, the portraits and the logo, the pre-Fox ones (PES 15-17) too:
+//! `team_compiler/pipeline.md` "Game paths reference". The CPK paths have no leading `/`.
 
 use std::fs;
 use std::path::Path;
 
 use aesthetics_export::RefSlot;
 use anyhow::Context;
-use pes_version::PesVersion;
+use pes_version::{Engine, PesVersion};
 
 use crate::plan::subset::ModelPackage;
 
@@ -86,6 +86,17 @@ pub(crate) fn package_folder(package: ModelPackage, key: PackageKey) -> String {
     format!("Asset/{}/#Win", model_folder(package, key))
 }
 
+/// The pre-Fox face of `key`, without an extension
+/// (`common/character0/model/character/face/real/71405`): the face CPK is this path with
+/// `.cpk`, and each of its entries is a file of this folder, its own entries repeating the
+/// outer path as the game's face CPKs do.
+pub(crate) fn pre_fox_face(key: PackageKey) -> String {
+    format!(
+        "common/character0/{}",
+        model_folder(ModelPackage::Face, key)
+    )
+}
+
 /// Where a model folder's textures go, which its models' texture paths name and its textures
 /// task writes to (`pipeline.md` "3. Per-model-folder parallel steps", step 6).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -108,33 +119,50 @@ pub(crate) enum TextureHome {
 }
 
 impl TextureHome {
-    /// The directory an FMDL texture-path table names for a texture here, for team `team_id`.
-    pub(crate) fn directory(&self, team_id: u16) -> String {
-        match self {
-            TextureHome::PlayerCommon { folder_name } => format!(
+    /// The directory a model's texture paths name for a texture here, on a target of `engine`,
+    /// for team `team_id`: an FMDL texture-path table's on Fox, a `.mtl` sampler's on pre-Fox.
+    pub(crate) fn directory(&self, engine: Engine, team_id: u16) -> String {
+        match (engine, self) {
+            (Engine::Fox, TextureHome::PlayerCommon { folder_name }) => format!(
                 "/Assets/pes16/model/character/common/{team_id}/{folder_name}/sourceimages/"
             ),
-            TextureHome::SharedOutput { package, id } => {
+            (Engine::Fox, TextureHome::SharedOutput { package, id }) => {
                 format!(
                     "/Assets/pes16/{}/",
                     model_folder(*package, PackageKey::Id(*id))
                 )
             }
+            (Engine::PreFox, TextureHome::PlayerCommon { folder_name }) => {
+                format!("model/character/uniform/common/{team_id}/{folder_name}/")
+            }
+            (Engine::PreFox, TextureHome::SharedOutput { .. }) => shared_output_pre_fox(),
         }
     }
 
-    /// The CPK path of the texture `stem` here, converted to FTEX, for team `team_id`.
-    pub(crate) fn texture(&self, team_id: u16, stem: &str) -> String {
-        match self {
-            TextureHome::PlayerCommon { folder_name } => format!(
+    /// The CPK path of the texture `stem` here, converted for a target of `engine` (an FTEX on
+    /// Fox, a DDS on pre-Fox), for team `team_id`.
+    pub(crate) fn texture(&self, engine: Engine, team_id: u16, stem: &str) -> String {
+        match (engine, self) {
+            (Engine::Fox, TextureHome::PlayerCommon { folder_name }) => format!(
                 "Asset/model/character/common/{team_id}/{folder_name}/sourceimages/#windx11/{stem}.ftex"
             ),
-            TextureHome::SharedOutput { package, id } => format!(
+            (Engine::Fox, TextureHome::SharedOutput { package, id }) => format!(
                 "Asset/{}/#windx11/{stem}.ftex",
                 model_folder(*package, PackageKey::Id(*id))
             ),
+            (Engine::PreFox, TextureHome::PlayerCommon { folder_name }) => format!(
+                "common/character1/model/character/uniform/common/{team_id}/{folder_name}/{stem}.dds"
+            ),
+            (Engine::PreFox, TextureHome::SharedOutput { .. }) => shared_output_pre_fox(),
         }
     }
+}
+
+/// A shared folder's texture home on a pre-Fox target, which nothing reaches yet: the subset
+/// gate names a player's link to a shared folder on pre-Fox, so no shared folder is planned
+/// (worklog step 4.14c builds them).
+fn shared_output_pre_fox() -> ! {
+    unreachable!("a pre-Fox target plans no shared folder: the subset gate names every link")
 }
 
 /// The directory an FMDL texture-path table names for a texture of the team's Common output
@@ -319,11 +347,11 @@ mod tests {
             folder_name: "05 - A".to_owned(),
         };
         assert_eq!(
-            player.directory(714),
+            player.directory(Engine::Fox, 714),
             "/Assets/pes16/model/character/common/714/05 - A/sourceimages/"
         );
         assert_eq!(
-            player.texture(714, "shirt"),
+            player.texture(Engine::Fox, 714, "shirt"),
             "Asset/model/character/common/714/05 - A/sourceimages/#windx11/shirt.ftex"
         );
         let boots = TextureHome::SharedOutput {
@@ -331,11 +359,11 @@ mod tests {
             id: 644,
         };
         assert_eq!(
-            boots.directory(714),
+            boots.directory(Engine::Fox, 714),
             "/Assets/pes16/model/character/boots/k0644/"
         );
         assert_eq!(
-            boots.texture(714, "shirt"),
+            boots.texture(Engine::Fox, 714, "shirt"),
             "Asset/model/character/boots/k0644/#windx11/shirt.ftex"
         );
         let gloves = TextureHome::SharedOutput {
@@ -343,12 +371,39 @@ mod tests {
             id: 644,
         };
         assert_eq!(
-            gloves.directory(714),
+            gloves.directory(Engine::Fox, 714),
             "/Assets/pes16/model/character/glove/g0644/"
         );
         assert_eq!(
-            gloves.texture(714, "grip"),
+            gloves.texture(Engine::Fox, 714, "grip"),
             "Asset/model/character/glove/g0644/#windx11/grip.ftex"
+        );
+    }
+
+    #[test]
+    fn a_pre_fox_player_s_textures_go_to_its_common_subfolder_under_character1_as_dds() {
+        let player = TextureHome::PlayerCommon {
+            folder_name: "05 - A".to_owned(),
+        };
+        assert_eq!(
+            player.directory(Engine::PreFox, 714),
+            "model/character/uniform/common/714/05 - A/"
+        );
+        assert_eq!(
+            player.texture(Engine::PreFox, 714, "skin"),
+            "common/character1/model/character/uniform/common/714/05 - A/skin.dds"
+        );
+    }
+
+    #[test]
+    fn a_pre_fox_face_is_a_cpk_by_player_id_or_referee_slot() {
+        assert_eq!(
+            pre_fox_face(PackageKey::Id(71405)),
+            "common/character0/model/character/face/real/71405"
+        );
+        assert_eq!(
+            pre_fox_face(PackageKey::Referee(RefSlot::new(3).unwrap())),
+            "common/character0/model/character/face/real/referee003"
         );
     }
 

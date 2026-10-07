@@ -163,14 +163,26 @@ subfolder) becomes part of the player's boots, with its skeleton file, and is no
 `fmdl_fcl_hair_fallback`. A `face_high`, `hair_high` or `oral` model or a `Faces` link beside
 the marker is the error `ingame_face_explicit_face_model`, and the player's folder is left out.
 A `face_diff.bin`, `face_diff.xml` or `fcl_hair_sim.fclo` in a folder with no face model is not
-used, and both commands report it as `face_file_not_used`. A kit folder with
+used, and both commands report it as `face_file_not_used`. For PES 2015 to 2017 every `.model`
+of a player folder, boots and gloves included, goes into the player's face, listed in a
+`face.xml` that `compile` writes with each model's type read from its name; a face with
+models but none of type `face_neck` (a `face_high` model is one) gets an invisible stand-in,
+reported as `xml_face_neck_added`.
+Each model uses the first `.mtl` found in its own folder, then in the player's folder: one
+whose name starts or ends the model's name, then `materials.mtl`, then any. For PES 2015 to
+2017, a model with no `.mtl` to use is the error `model_material_undefined`, and the player's
+folder is left out. A
+kit folder with
 no `kit` texture, an empty one included, is built with a magenta and black checkerboard in its
 place and reported as `kit_placeholder`, so a kit nobody drew shows as missing in the game. A
 kit's `config.toml` that cannot be read (not UTF-8 text, a value of the wrong type or out of
 range) is reported by both commands as `kit_config_invalid`, naming the error, and the kit is
 left out, even with `pass_through` on. `compile`
 skips any other export with the error `content_not_yet_compiled`, naming the first thing it
-cannot build yet: a PES 2015 to 2017 target, a referee export's kit, logo, portrait or collar
+cannot build yet. For PES 2015 to 2017 it builds a player folder's own `.model` files with
+their `.mtl` files, textures and face diff, and the portraits and the logo; links, `Common`,
+shared folders, kits, collars, `ingame_face`, `.fmdl` files and referee exports are named. For
+PES 2018 to 2021 it names a referee export's kit, logo, portrait or collar
 (a referee has no kit slot, team logo or player id, and no kit of his own to put a collar on),
 or content other than a player's
 own face, boots and gloves models, their textures, portraits, the `ingame_face` marker, kits,

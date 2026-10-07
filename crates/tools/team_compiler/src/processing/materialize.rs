@@ -1,14 +1,19 @@
 //! The materialize step (`team_compiler/pipeline.md` "5. Writer", step 5): the one place a
 //! task's output becomes the entries the writer adds. In normal and sideload mode an entry goes
-//! at its game path and a model package is packed into an `.fpk` per id; in test mode every
-//! entry goes under its export's source and the folder the task works on, a package unpacked.
+//! at its game path and a model package is packed per id, into an `.fpk` on Fox and into a
+//! face CPK nested in the output on pre-Fox; in test mode every entry goes under its export's
+//! source and the folder the task works on, a package unpacked.
 
 use std::collections::BTreeMap;
+use std::io::Cursor;
 
+use cpk::CpkWriter;
 use fpk::{FpkFile, FpkKind};
+use pes_version::Engine;
 use studio_core::ExportId;
 
 use super::Entry;
+use crate::output::sink::TOOL_VERSION;
 use crate::paths::{self, PackageKey};
 use crate::plan::subset::ModelPackage;
 use crate::plan::{BuildTask, TaskKind};
@@ -40,8 +45,11 @@ pub(crate) enum TaskOutput {
 /// Where a run's entries go, fixed once for the run.
 pub(crate) enum EntryTarget {
     /// Normal and sideload mode: each entry at its game path, a package as one `.fpk` and an
-    /// empty `.fpkd` per id.
-    GamePaths,
+    /// empty `.fpkd` per id on Fox, as one face CPK per id on pre-Fox.
+    GamePaths {
+        /// The target's engine, which decides how a package is packed.
+        engine: Engine,
+    },
     /// Test mode: each entry at `<source>/<folder>/<name>` (`test_entry_folder`), a package's
     /// files once each by their names in it.
     TestOutput {
@@ -58,13 +66,16 @@ pub(crate) fn materialize(
     target: &EntryTarget,
 ) -> Vec<Entry> {
     match target {
-        EntryTarget::GamePaths => match output {
+        EntryTarget::GamePaths { engine } => match output {
             TaskOutput::Entries(entries) => entries,
             TaskOutput::Package {
                 package,
                 ids,
                 files,
-            } => packed(package, &ids, files),
+            } => match engine {
+                Engine::Fox => packed(package, &ids, files),
+                Engine::PreFox => pre_fox_faces(package, &ids, &files),
+            },
         },
         EntryTarget::TestOutput { sources } => {
             let source = sources
@@ -138,6 +149,38 @@ fn packed(package: ModelPackage, ids: &[PackageKey], files: PackageFiles) -> Vec
     entries
 }
 
+/// `files`, a pre-Fox face's, packed as one face CPK under each of `ids`
+/// (`paths::pre_fox_face`). Each CPK holds its own copy: its entries' paths repeat its own
+/// path, which carries the id.
+fn pre_fox_faces(package: ModelPackage, ids: &[PackageKey], files: &PackageFiles) -> Vec<Entry> {
+    match package {
+        ModelPackage::Face => {}
+        ModelPackage::Boots | ModelPackage::Gloves => unreachable!(
+            "a pre-Fox target plans no boots or gloves package: a player's every model is typed \
+             in his face's `face.xml`"
+        ),
+    }
+    ids.iter()
+        .map(|id| {
+            let face = paths::pre_fox_face(*id);
+            (format!("{face}.cpk"), face_cpk(&face, files))
+        })
+        .collect()
+}
+
+/// The face CPK holding `files`, each at `<face>/<name>`, with no timestamps.
+fn face_cpk(face: &str, files: &PackageFiles) -> Vec<u8> {
+    // Written to memory under one folder's unique names, none holding a control character
+    // (an export path cannot), the CPK cannot fail to write.
+    const WRITTEN: &str = "a face CPK is written to memory under unique, valid paths";
+    let mut cpk = CpkWriter::new(Cursor::new(Vec::new()), TOOL_VERSION).expect(WRITTEN);
+    for (name, bytes) in files {
+        cpk.add(&format!("{face}/{name}"), bytes, None)
+            .expect(WRITTEN);
+    }
+    cpk.finish().expect(WRITTEN).into_inner()
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::BTreeSet;
@@ -195,6 +238,7 @@ mod tests {
             common_texture_stems: BTreeSet::new(),
             hand_split: BTreeSet::new(),
             textures,
+            engine: Engine::Fox,
         }
     }
 
@@ -231,10 +275,14 @@ mod tests {
     fn assert_placed(kind: TaskKind, game_paths: &[&str], test_paths: &[&str]) {
         let task = task(kind);
         assert_eq!(placed(&task, game_paths, &test_output()), test_paths);
-        assert_eq!(
-            placed(&task, game_paths, &EntryTarget::GamePaths),
-            game_paths
-        );
+        assert_eq!(placed(&task, game_paths, &fox()), game_paths);
+    }
+
+    /// Normal mode on a Fox target.
+    fn fox() -> EntryTarget {
+        EntryTarget::GamePaths {
+            engine: Engine::Fox,
+        }
     }
 
     /// The tracer's face package: two files.
@@ -300,7 +348,7 @@ mod tests {
         };
         let output = package(ModelPackage::Face, &[79205], face_files());
 
-        let written = materialize(output, &task(kind), &EntryTarget::GamePaths);
+        let written = materialize(output, &task(kind), &fox());
 
         let paths: Vec<&str> = written.iter().map(|(path, _)| path.as_str()).collect();
         assert_eq!(
@@ -333,7 +381,7 @@ mod tests {
             ]
         );
 
-        let normal = materialize(output(), &two_ids, &EntryTarget::GamePaths);
+        let normal = materialize(output(), &two_ids, &fox());
         let paths: Vec<&str> = normal.iter().map(|(path, _)| path.as_str()).collect();
         assert_eq!(
             paths,
@@ -348,6 +396,51 @@ mod tests {
         assert_eq!(normal[0].1, normal[2].1, "each id gets the same package");
         assert_empty_fpkd(&normal[1].1);
         assert_empty_fpkd(&normal[3].1);
+    }
+
+    #[test]
+    fn a_pre_fox_face_is_one_nested_cpk_per_id_its_entries_repeating_its_path() {
+        let two_ids = task(TaskKind::Models {
+            folder: player(),
+            package: ModelPackage::Face,
+            ids: vec![PackageKey::Id(79205), PackageKey::Id(79206)],
+        });
+        let files = BTreeMap::from([
+            ("face.xml".to_owned(), b"xml".to_vec()),
+            ("oral_face_high_win32.model".to_owned(), b"model".to_vec()),
+        ]);
+        let output = package(ModelPackage::Face, &[79205, 79206], files.clone());
+
+        let pre_fox = EntryTarget::GamePaths {
+            engine: Engine::PreFox,
+        };
+        let written = materialize(output, &two_ids, &pre_fox);
+
+        let paths: Vec<&str> = written.iter().map(|(path, _)| path.as_str()).collect();
+        assert_eq!(
+            paths,
+            [
+                "common/character0/model/character/face/real/79205.cpk",
+                "common/character0/model/character/face/real/79206.cpk",
+            ]
+        );
+        for ((_, bytes), id) in written.iter().zip([79205, 79206]) {
+            let mut cpk = cpk::CpkArchive::open(Cursor::new(bytes)).unwrap();
+            let entries = cpk.entries().to_vec();
+            let read: Vec<(String, Vec<u8>)> = entries
+                .iter()
+                .map(|entry| {
+                    assert_eq!(entry.modified, None, "{}", entry.path);
+                    (entry.path.clone(), cpk.read(entry).unwrap())
+                })
+                .collect();
+            let folder = format!("common/character0/model/character/face/real/{id}");
+            let expected: Vec<(String, Vec<u8>)> = files
+                .iter()
+                .map(|(name, bytes)| (format!("{folder}/{name}"), bytes.clone()))
+                .collect();
+            assert_eq!(read, expected);
+        }
     }
 
     #[test]
@@ -377,7 +470,7 @@ mod tests {
         let normal = materialize(
             package(ModelPackage::Boots, &[644], files.clone()),
             &boots,
-            &EntryTarget::GamePaths,
+            &fox(),
         );
 
         assert_eq!(

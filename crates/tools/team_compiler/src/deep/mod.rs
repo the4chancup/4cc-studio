@@ -11,7 +11,9 @@
 //! severity the format crate gives it. An Error drops what holds the file and may pass through;
 //! a Warning or an Info only informs. The far vertex, which both formats check, is reported as
 //! `vertex_too_far_from_origin` and never passes through. A file that does not parse is
-//! `model_broken` or `mtl_broken`. glTF models are not read (Phase 7).
+//! `model_broken` or `mtl_broken`. A `.model` for which no `.mtl` is found (`mtl_search`) has
+//! every material undefined, `model_material_undefined`, for PES 2015 to 2017: the folder is
+//! dropped, `pass_through` or not. glTF models are not read (Phase 7).
 //!
 //! It also checks every texture of those folders, of `Common/`, of the kits and every portrait
 //! from its header alone (`team_compiler/messages.md` "Textures"): a file renamed from another
@@ -49,12 +51,13 @@ use aesthetics_export::{
     ModelFormat, ValidatedAestheticsExport,
 };
 use dds_convert::SourceFormat;
-use pes_version::PesVersion;
+use pes_version::{Engine, PesVersion};
 use rayon::prelude::*;
 use vtree::ScopePath;
 
 use crate::bins::{KIT_COLORS, TEAM_COLORS};
 use crate::messages::Code;
+use crate::mtl_search::mtl_for;
 use crate::plan::subset::{FolderModels, texture_format};
 use crate::reader::ContentSource;
 use collar::collar_findings;
@@ -118,6 +121,7 @@ pub(crate) fn content_findings(
     version: PesVersion,
 ) -> ContentPass {
     let size_rule = SizeRule::of(version);
+    let engine = version.engine();
     // Each group below is collected in its items' order (rayon's indexed `collect`), so the
     // findings come out in file order whatever the workers' scheduling.
     let players: Vec<ContentPass> = export
@@ -125,13 +129,13 @@ pub(crate) fn content_findings(
         .par_iter()
         .map(|player| {
             let folder = &player.path;
-            let mut pass = folder_findings(content, folder, &player.files, size_rule);
+            let mut pass = folder_findings(content, folder, &player.files, size_rule, engine);
             let findings = &mut pass.findings;
             findings.extend(face_diff_findings(
                 content,
                 folder,
                 &player.files,
-                &FolderModels::of_player(player),
+                &FolderModels::of_player(player, engine),
             ));
             // Not among the folder's files: a portrait and a `settings.toml` are dropped
             // alone, the folder keeping the rest.
@@ -152,12 +156,12 @@ pub(crate) fn content_findings(
         .faces
         .par_iter()
         .map(|face| {
-            let mut pass = folder_findings(content, &face.path, &face.files, size_rule);
+            let mut pass = folder_findings(content, &face.path, &face.files, size_rule, engine);
             pass.findings.extend(face_diff_findings(
                 content,
                 &face.path,
                 &face.files,
-                &FolderModels::of(&face.path, &face.files),
+                &FolderModels::of(&face.path, &face.files, engine),
             ));
             pass
         })
@@ -166,7 +170,7 @@ pub(crate) fn content_findings(
         .boots
         .par_iter()
         .chain(&export.gloves)
-        .map(|shared| folder_findings(content, &shared.path, &shared.files, size_rule))
+        .map(|shared| folder_findings(content, &shared.path, &shared.files, size_rule, engine))
         .collect();
     let common: Vec<ContentPass> = export
         .common
@@ -277,6 +281,11 @@ pub(crate) fn content_findings(
 /// deep pass also reports for a logo source that does not decode.
 const LOGO_FILE_INVALID: &str = "logo_file_invalid";
 
+/// `pes_model`'s code for a model material with no entry in the `.mtl` the model uses, which
+/// the deep pass also reports for a `.model` no `.mtl` is found for (`mtl_search::mtl_for`):
+/// every one of its materials is undefined.
+const MODEL_MATERIAL_UNDEFINED: &str = "model_material_undefined";
+
 /// What the deep pass reads a file as, and what checks it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Checked {
@@ -319,13 +328,15 @@ fn checked_as(file: &FileDescriptor, size_rule: SizeRule) -> Option<Checked> {
 
 /// The findings of the files among `files`, those of the model folder at `folder`, that the
 /// deep pass reads (`checked_as`, textures held to `size_rule`): each on the folder's scope,
-/// an Error dropping the folder, the file named below the folder; with the FMDLs among them
-/// that carry hand weights. The files are checked in parallel.
+/// an Error dropping the folder, the file named below the folder, a `.model` with no `.mtl`
+/// (`mtl_search::mtl_for`) `model_material_undefined` when the target's `engine` is pre-Fox;
+/// with the FMDLs among them that carry hand weights. The files are checked in parallel.
 fn folder_findings(
     content: &ContentSource,
     folder: &ScopePath,
     files: &[FileDescriptor],
     size_rule: SizeRule,
+    engine: Engine,
 ) -> ContentPass {
     // Collected in file order (an indexed `collect`), whatever the scheduling.
     let per_file: Vec<ContentPass> = files
@@ -334,14 +345,33 @@ fn folder_findings(
             let Some(checked) = checked_as(file, size_rule) else {
                 return ContentPass::default();
             };
-            file_outcome(
+            let scope = IssueScope::Folder(folder.clone());
+            let name = relative(&file.path, folder);
+            let mut pass = file_outcome(
                 content,
                 file,
                 checked,
-                &IssueScope::Folder(folder.clone()),
+                &scope,
                 Disposition::DropFolder,
-                &relative(&file.path, folder),
-            )
+                &name,
+            );
+            // Not pass-through-eligible: the face's `face.xml` must name a material set for
+            // the model, and there is none to name. On Fox a `.model` is not read yet: a
+            // `boots.model` beside `boots.fmdl` is never the selected source, so dropping the
+            // folder for it would lose a working FMDL (4.17 adds Fox where it is the source).
+            if engine == Engine::PreFox
+                && file.kind == FileKind::Model(ModelFormat::PesModel)
+                && mtl_for(&file.path, folder, files).is_none()
+            {
+                pass.findings.push(ContentFinding {
+                    code: MODEL_MATERIAL_UNDEFINED,
+                    scope,
+                    context: vec![("file", name)],
+                    disposition: Disposition::DropFolder,
+                    pass_through_eligible: false,
+                });
+            }
+            pass
         })
         .collect();
     let mut pass = ContentPass::default();
