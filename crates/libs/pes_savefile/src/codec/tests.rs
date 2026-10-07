@@ -406,6 +406,25 @@ fn version_gated_fields_are_none_where_the_version_lacks_them() {
                 && p.stats.catching.is_some()
         );
     }
+    // The base-copy flag: PES 15 to 18 store it, 19 to 21 do not.
+    for (version, stored) in [
+        (PesVersion::Pes15, true),
+        (PesVersion::Pes16, true),
+        (PesVersion::Pes17, true),
+        (PesVersion::Pes18, true),
+        (PesVersion::Pes19, false),
+        (PesVersion::Pes20, false),
+        (PesVersion::Pes21, false),
+    ] {
+        for p in players(&payload(version), schema_for(version)) {
+            assert_eq!(
+                p.edit_flags.base_copy.is_some(),
+                stored,
+                "{version:?} player {}",
+                p.id
+            );
+        }
+    }
 }
 
 /// PES 18's `ArmMovementDribbling` is 3 bits at offset 295, ending where

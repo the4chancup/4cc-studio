@@ -12,9 +12,9 @@ is in `AGENTS.md` ("Working documents").
 **Phase:** 3 (Team compiler skeleton) closed 2026-10-02, its cross-family reviews queued (see
 "Handover"). Phases 1 and 2 done (Phase 2 closed 2026-09-30).
 **Next:** Phase 4 is itemized and its Acceptance section written (step 4.1, 2026-10-03; its
-cross-family review (a) is queued). Next: 4.c-fix1 (the Clef full pass's one finding), then
-4.21 (bins from the installed CPKs; 4.14 waits on 4.31's pre-Fox export); 4.33, 4.34 and
-4.c-pass are done; 4.30,
+cross-family review (a) is queued). Next:
+4.21 (bins from the installed CPKs; 4.14 waits on 4.31's pre-Fox export); 4.33, 4.34, 4.c-pass and
+4.c-fix1 are done; 4.30,
 4.5 to 4.8, 4.9a and 4.10 to 4.13 are done (4.6c moved to Phase 8's cancellation), 4.9b
 (collars) waits on nothing. 2.5b (GPU BC7) is step 16.x (decision entries
 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0 after Phase 8; phase order 1–6,
@@ -1535,15 +1535,15 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   root bone's `local_position` equals its global one while `ir.md:265` and the FMDL export
   test pin `[0,0,0,1]` (the two may describe import and export; unchecked).
 
-- [ ] 4.c-fix1 **`convert` keeps the target's base-copy flag when the source version has
-  none** (Clef flag `pes_savefile/src/convert.rs`, ruled 2026-10-07): `edit_flags.base_copy`
-  is a plain `bool` while only the PES 15-18 schemas hold `BaseCopy`, so a PES 19-21 player
-  converted into a PES 15-18 template writes `false` over the template's flag, where
-  `pes_savefile/operations.md` "What the Rust module is" fills what the source lacks from
-  the target. Fix the way the model's other version-gated fields are (an `Option`, `carry`),
-  with its codec, `team_toml` and consumers → verify: a PES 19 source into a PES 18 template
-  whose flag is set keeps it set (red first); a PES 18 source into a PES 18 template copies
-  its own flag both ways
+- [x] 4.c-fix1 **`convert` keeps the target's base-copy flag when the source version has
+  none**, done 2026-10-07 (sidekick, landed first time, no lead fix; Clef flag
+  `pes_savefile/src/convert.rs`, ruled 2026-10-07): `PlayerEditFlags::base_copy` is
+  `Option<bool>` (PES 15-18; `None` on 19-21), `PlayerEntry::get`/`set` gate it like
+  `DribblingMotion`, `convert` carries it. The `team_toml` and legacy readers needed no
+  change: both reach the model through the schema-gated `get`/`set`. Tests: a PES 19 source
+  into a PES 18 template keeps its `Some(true)`; PES 18 to 18 copies both ways; the codec
+  test checks the flag's presence on all seven fixtures. Gates green (156 of 252);
+  `mutants-diff 6da1b6a`: 7 mutants, 6 caught, 1 unviable, 0 missed; `clef-diff`: 4 windows, no flag
 
 - [ ] 4.c-threshold **Clef threshold re-check** (after 4.c-pass, once
   `scripts/clef_rulings.md` holds 200 rulings or at this phase's converge, whichever comes

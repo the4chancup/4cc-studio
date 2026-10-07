@@ -195,8 +195,8 @@ pub struct PlayerEditFlags {
     pub com_styles: bool,
     /// The motions were edited.
     pub motion: bool,
-    /// The player is a base copy of another.
-    pub base_copy: bool,
+    /// The player is a base copy of another (PES 15-18 only).
+    pub base_copy: Option<bool>,
     /// The face was edited.
     pub face: bool,
     /// The hairstyle was edited.
@@ -348,7 +348,11 @@ impl PlayerEntry {
             PlayerField::EditedPlayingStyle => u32::from(self.edit_flags.playing_style),
             PlayerField::EditedComStyles => u32::from(self.edit_flags.com_styles),
             PlayerField::EditedMotion => u32::from(self.edit_flags.motion),
-            PlayerField::BaseCopy => u32::from(self.edit_flags.base_copy),
+            PlayerField::BaseCopy => u32::from(
+                self.edit_flags
+                    .base_copy
+                    .ok_or_else(|| codec::missing(field))?,
+            ),
             PlayerField::StrongerFoot => u32::from(self.positions.stronger_foot),
             PlayerField::ComStyle(i) => u32::from(
                 *self
@@ -489,7 +493,7 @@ impl PlayerEntry {
             PlayerField::EditedPlayingStyle => self.edit_flags.playing_style = value != 0,
             PlayerField::EditedComStyles => self.edit_flags.com_styles = value != 0,
             PlayerField::EditedMotion => self.edit_flags.motion = value != 0,
-            PlayerField::BaseCopy => self.edit_flags.base_copy = value != 0,
+            PlayerField::BaseCopy => self.edit_flags.base_copy = Some(value != 0),
             PlayerField::StrongerFoot => self.positions.stronger_foot = value as u8,
             PlayerField::ComStyle(i) => {
                 *self

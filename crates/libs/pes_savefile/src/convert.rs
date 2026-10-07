@@ -214,7 +214,7 @@ pub fn convert_player(
     out.edit_flags.playing_style = source.edit_flags.playing_style;
     out.edit_flags.com_styles = source.edit_flags.com_styles;
     out.edit_flags.motion = source.edit_flags.motion;
-    out.edit_flags.base_copy = source.edit_flags.base_copy;
+    carry(&mut out.edit_flags.base_copy, source.edit_flags.base_copy);
     out.edit_flags.face = source.edit_flags.face;
     out.edit_flags.hair = source.edit_flags.hair;
     out.edit_flags.physique = source.edit_flags.physique;
@@ -677,6 +677,32 @@ mod tests {
         target.stats.star = Some(1);
         convert_player(&source, V::Pes19, &mut target, V::Pes21).expect("converts");
         assert_eq!(target.stats.star, Some(4), "both sides have it: carried");
+    }
+
+    #[test]
+    fn the_base_copy_flag_carries_only_between_versions_that_have_it() {
+        let source = first(V::Pes19);
+        let mut target = first(V::Pes18);
+        target.edit_flags.base_copy = Some(true);
+        convert_player(&source, V::Pes19, &mut target, V::Pes18).expect("converts");
+        assert_eq!(
+            target.edit_flags.base_copy,
+            Some(true),
+            "PES 19 has no flag: the template's stands"
+        );
+
+        for (from, to) in [(true, false), (false, true)] {
+            let mut source = first(V::Pes18);
+            source.edit_flags.base_copy = Some(from);
+            let mut target = first(V::Pes18);
+            target.edit_flags.base_copy = Some(to);
+            convert_player(&source, V::Pes18, &mut target, V::Pes18).expect("converts");
+            assert_eq!(
+                target.edit_flags.base_copy,
+                Some(from),
+                "both sides have it: carried"
+            );
+        }
     }
 
     #[test]
