@@ -168,10 +168,12 @@ kit's `config.toml` that cannot be read (not UTF-8 text, a value of the wrong ty
 range) is reported by both commands as `kit_config_invalid`, naming the error, and the kit is
 left out, even with `pass_through` on. `compile`
 skips any other export with the error `content_not_yet_compiled`, naming the first thing it
-cannot build yet: a PES 2015 to 2017 target, a referee export's kit, logo or portrait (a
-referee has no kit slot, team logo or player id), or content other than a player's
+cannot build yet: a PES 2015 to 2017 target, a referee export's kit, logo, portrait or collar
+(a referee has no kit slot, team logo or player id, and no kit of his own to put a collar on),
+or content other than a player's
 own face, boots and gloves models, their textures, portraits, the `ingame_face` marker, kits,
-the logo, linked shared `Faces`, `Boots` and `Gloves` folders, and a `Common` folder holding only `.fmdl`, `.skl` and
+the logo, `.fmdl` collars, linked shared `Faces`, `Boots` and `Gloves` folders, and a
+`Common` folder holding only `.fmdl`, `.skl` and
 texture files, its models reached through `.common` links (a model in a `gloves` subfolder
 whose name does not say which hand it is, or a `.common` link to a material file, among
 others). `check` still checks
@@ -190,7 +192,15 @@ referees' marker, see below) are the compiler's own, so a file named for either 
 model is: one that cannot be read is `model_broken`, and an error the model checks find (a
 vertex too far from the origin, for instance) leaves it out too, while a warning keeps it.
 Each of these errors leaves the collar file out, and the rest of the export goes on.
-`compile` does not build collars yet: an export still holding one is skipped with
+On PES 2018 to 2021, `compile` writes a team's `Collars/collar_<number>.fmdl` as it is in
+place of that stock collar, and sets every kit of the team to wear it, as its collar and its
+winter collar: the kits the export holds, and for a midcup export also the team's installed
+kits it does not send again. This comes after the FPC values, so an FPC team keeps its own
+collar. Two exports cannot replace the same collar: the first in export order keeps it, and the
+later one's file is the error `collar_id_conflict`, naming the export that holds it, its file
+left out and its kits keeping their own collars. An export holds one collar, so a second
+collar file of the same export is that error too, naming the export itself. A `.model`,
+`.glb` or `.gltf` collar is not converted yet: an export holding one is skipped with
 `content_not_yet_compiled`.
 
 A `refs` export compiles on PES 2018 to 2021 like a team's player folders: each referee folder

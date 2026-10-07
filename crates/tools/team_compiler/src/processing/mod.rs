@@ -208,10 +208,10 @@ pub(crate) fn process_task(
                 })
                 .map_err(TaskFailure::from)
         }
-        TaskKind::Kit { slot, kit, fpc } => kit::kit(
+        TaskKind::Kit { slot, kit, edits } => kit::kit(
             *slot,
             kit,
-            *fpc,
+            *edits,
             task.team_id,
             ctx,
             &mut files,
@@ -225,6 +225,12 @@ pub(crate) fn process_task(
         TaskKind::RefereeMarker { marker } => {
             referee_marker::referee_marker(marker, ctx, &mut files)
                 .map(|entries| (TaskOutput::Entries(entries), None))
+        }
+        // The deep pass has read and checked the model; on Fox a collar keeps the materials
+        // its FMDL embeds, so its bytes go out as they are.
+        TaskKind::Collar { file, id } => {
+            let entry = (paths::collar(*id), take(&mut files, file));
+            Ok((TaskOutput::Entries(vec![entry]), None))
         }
     };
     let mut batch = TaskBatch {
@@ -258,12 +264,13 @@ pub(crate) fn process_task(
         // A failed task reports its failure alone: a note about a merge whose output is not
         // in the CPK would describe nothing the member can find. What was dropped is the
         // task's unit: a portrait task is its one file, the logo task its files, the marker
-        // task its texture, every other task a folder.
+        // task its texture, the collar task its file, every other task a folder.
         Err(failure) => {
             let disposition = match task.kind {
                 TaskKind::Portrait { .. }
                 | TaskKind::Logo { .. }
-                | TaskKind::RefereeMarker { .. } => Disposition::DropFile,
+                | TaskKind::RefereeMarker { .. }
+                | TaskKind::Collar { .. } => Disposition::DropFile,
                 TaskKind::Models { .. }
                 | TaskKind::Textures { .. }
                 | TaskKind::CommonTextures { .. }
@@ -318,7 +325,9 @@ mod tests {
 
     use super::*;
     use crate::paths::{PackageKey, TextureHome};
-    use crate::plan::{CombinedFolder, CommonModel, EffectiveTeamKitFpc, ModelFolder};
+    use crate::plan::{
+        CombinedFolder, CommonModel, EffectiveTeamKitFpc, ModelFolder, TeamKitEdits,
+    };
 
     const PLAYER: &str = "Players/05 - The Chad Stormworks Player";
     const COMMON: &str = "Asset/model/character/common/792/05 - The Chad Stormworks Player/sourceimages/#windx11/shirt.ftex";
@@ -1101,7 +1110,7 @@ mod tests {
         let batch = run(TaskKind::Kit {
             slot: KitSlot::G1,
             kit: kit(true, Some(KitLayout::Fox)),
-            fpc: EffectiveTeamKitFpc::Unknown,
+            edits: unknown_fpc(),
         });
 
         assert_eq!(
@@ -1121,7 +1130,7 @@ mod tests {
         let batch = run(TaskKind::Kit {
             slot: KitSlot::G1,
             kit: kit(false, None),
-            fpc: EffectiveTeamKitFpc::Unknown,
+            edits: unknown_fpc(),
         });
 
         let presence = TexturePresence {
@@ -1158,12 +1167,27 @@ mod tests {
         g1_with(kit, EffectiveTeamKitFpc::Unknown)
     }
 
-    /// The kit task of `g1` over `kit`, its team's kit-FPC status `fpc`.
+    /// The kit task of `g1` over `kit`, its team's kit-FPC status `fpc`, the team holding no
+    /// collar.
     fn g1_with(kit: KitFolder, fpc: EffectiveTeamKitFpc) -> TaskKind {
+        g1_wearing(kit, fpc, None)
+    }
+
+    /// The kit task of `g1` over `kit`, its team's kit-FPC status `fpc` and its collar
+    /// `collar`.
+    fn g1_wearing(kit: KitFolder, fpc: EffectiveTeamKitFpc, collar: Option<u8>) -> TaskKind {
         TaskKind::Kit {
             slot: KitSlot::G1,
             kit,
-            fpc,
+            edits: TeamKitEdits { fpc, collar },
+        }
+    }
+
+    /// The edits of a team whose kit-FPC status is unknown and that holds no collar.
+    fn unknown_fpc() -> TeamKitEdits {
+        TeamKitEdits {
+            fpc: EffectiveTeamKitFpc::Unknown,
+            collar: None,
         }
     }
 
@@ -1355,6 +1379,50 @@ mod tests {
             [("kit_config_fpc_adjusted", Severity::Info, Disposition::Keep)]
         );
         assert_eq!(emitted_fpc_fields(&batch), (176, 16, 105, 105));
+    }
+
+    #[test]
+    fn the_team_s_collar_is_set_after_the_fpc_values_and_a_config_naming_77_wears_it() {
+        let batch = run_with(
+            g1_wearing(configured_kit(), EffectiveTeamKitFpc::On, Some(12)),
+            &[("Kits/g1/config.toml", b"[shirt]\ncollar = 77\n")],
+        );
+
+        assert_eq!(
+            kit_findings(&batch),
+            [("kit_config_fpc_adjusted", Severity::Info, Disposition::Keep)]
+        );
+        assert_eq!(emitted_fpc_fields(&batch), (176, 16, 12, 12));
+        // The loose config is the bin entry's bytes.
+        let (_, config) = batch.uniparam.as_ref().unwrap();
+        assert_eq!(&batch.entries[1].1, config);
+    }
+
+    #[test]
+    fn a_collar_task_writes_its_file_unchanged_as_the_stock_collar_it_replaces() {
+        let bytes = std::fs::read(tracer().join(format!("{PLAYER}/glove_r.fmdl"))).unwrap();
+        let path = ScopePath::new("Collars/collar_12.fmdl").unwrap();
+        let file = FileDescriptor {
+            size: 0,
+            kind: aesthetics_export::classify(path.name()),
+            source: path.clone(),
+            path: path.clone(),
+        };
+
+        let batch = process(
+            TaskKind::Collar { file, id: 12 },
+            PesVersion::Pes21,
+            None,
+            TaskFiles::from([(path, bytes.clone())]),
+        );
+
+        assert!(batch.messages.is_empty(), "{:?}", batch.messages);
+        assert!(batch.uniparam.is_none() && batch.uni_color.is_none());
+        assert_eq!(
+            paths(&batch),
+            ["Asset/model/character/uniform/nocloth/#Win/collar_012.fmdl"]
+        );
+        assert!(batch.entries[0].1 == bytes, "the file's bytes as they are");
     }
 
     #[test]

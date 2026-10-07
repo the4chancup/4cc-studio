@@ -114,7 +114,7 @@ fn replaced_collar(stem: &str, version: PesVersion) -> Result<u8, Refusal> {
 /// digits and nothing else, zero padding allowed (`collar_12`, `collar_012` and `COLLAR_012`
 /// all name 12). `None` for any other stem, and for an ID past 255: a kit config holds a
 /// collar in one byte, so no kit could wear it, however the digits run.
-fn named_id(stem: &str) -> Option<u8> {
+pub(crate) fn named_id(stem: &str) -> Option<u8> {
     const PREFIX: &str = "collar_";
     let head = stem.get(..PREFIX.len())?;
     let digits = &stem[PREFIX.len()..];

@@ -629,11 +629,46 @@ pub(crate) fn file_stem(name: &str) -> &str {
     name.rsplit_once('.').map_or(name, |(stem, _)| stem)
 }
 
+/// What a Fox `compile` does with a team export's `Collars/` file (`pipeline.md` "Collars").
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum CollarFile {
+    /// An FMDL: it claims the stock collar its name gives and is written in its place.
+    Compiled,
+    /// A model in another format: converting a collar between engines is not built yet, so
+    /// the gate names it.
+    NotCompiled,
+    /// Any other kind, which the structure pass keeps only with the strict file-type check
+    /// off (`file_type_disallowed`): passed over, with no task and no finding.
+    PassedOver,
+}
+
+/// What a Fox `compile` does with the `Collars/` file `file`.
+pub(crate) fn collar_file(file: &FileDescriptor) -> CollarFile {
+    match file.kind {
+        FileKind::Model(ModelFormat::Fmdl) => CollarFile::Compiled,
+        FileKind::Model(ModelFormat::PesModel | ModelFormat::Gltf) => CollarFile::NotCompiled,
+        FileKind::Texture
+        | FileKind::Skl
+        | FileKind::Fclo
+        | FileKind::Xml
+        | FileKind::Mtl
+        | FileKind::MaterialsToml
+        | FileKind::Bin
+        | FileKind::SharedLink(_)
+        | FileKind::CommonLink
+        | FileKind::Marker(_)
+        | FileKind::Metadata(_)
+        | FileKind::Other => CollarFile::PassedOver,
+    }
+}
+
 /// The first thing in `resolved` that `compile` cannot build yet for `version`, as the context
 /// entry of `content_not_yet_compiled`: `what`, a path or the target. `None` when `compile`
-/// builds all of it. A refs export compiles its mapped folders like a team's, but is named by
-/// its first kit, its logo or its first portrait (`referee_not_compiled`). Planning drops a
-/// Fox target's `kit_mask` before asking: the gate would count it.
+/// builds all of it. A team export's FMDL collars are compiled, a collar model in another
+/// format is named, and any other file in `Collars/` is passed over (`collar_file`). A refs
+/// export compiles its mapped folders like a team's, but is named by its first kit, its logo,
+/// its first portrait or its first collar file (`referee_not_compiled`). Planning drops a Fox
+/// target's `kit_mask` before asking: the gate would count it.
 pub(crate) fn first_not_compiled(
     resolved: &ResolvedAestheticsExport,
     version: PesVersion,
@@ -684,20 +719,25 @@ pub(crate) fn first_not_compiled(
     // A slot with a portrait from both sources is not refused: the deep pass has skipped an
     // export whose two files differ (`portrait_conflict`), so identical ones are one portrait.
     // The logo is compiled by the export's logo task, so it is not walked.
-    let mut rest = export.collars.iter().chain(
-        export
-            .common
-            .iter()
-            .filter(|file| !common_file_compiled(file)),
-    );
+    let mut rest = export
+        .collars
+        .iter()
+        .filter(|file| collar_file(file) == CollarFile::NotCompiled)
+        .chain(
+            export
+                .common
+                .iter()
+                .filter(|file| !common_file_compiled(file)),
+        );
     rest.next().map(what_entry)
 }
 
 /// The first of the refs `export`'s kits by slot (its folder), then its logo (the main file),
 /// then its first portrait (a mapped folder's `portrait.*` in folder order, then a
-/// `Portraits/` file). A referee has no kit slot, team logo or player id, so none of them has
-/// a place to go: the referees' kits are the template tree's (`blue_port.md` "Referee export
-/// processing").
+/// `Portraits/` file), then its first collar file, whatever its kind. A referee has no kit
+/// slot, team logo or player id, so none of them has a place to go: the referees' kits are the
+/// template tree's (`blue_port.md` "Referee export processing"), and with no kit of their own
+/// they have none to put a collar on.
 fn referee_not_compiled(export: &ValidatedAestheticsExport) -> Option<(&'static str, String)> {
     if let Some(kit) = export.kits.kits.values().next() {
         return Some(("what", kit.path.as_str().to_owned()));
@@ -705,11 +745,12 @@ fn referee_not_compiled(export: &ValidatedAestheticsExport) -> Option<(&'static 
     if let Some(logo) = &export.logo {
         return Some(what_entry(&logo.main.file));
     }
-    let mut portraits = mapped_players(export)
+    let mut files = mapped_players(export)
         .into_iter()
         .filter_map(|folder| folder.portrait.as_ref())
-        .chain(export.portraits.values());
-    portraits.next().map(what_entry)
+        .chain(export.portraits.values())
+        .chain(&export.collars);
+    files.next().map(what_entry)
 }
 
 /// Whether `compile` builds the `Common/` file, or accepts it: directly in the folder, an
@@ -980,7 +1021,7 @@ mod tests {
     }
 
     #[test]
-    fn a_referee_export_s_kits_then_logo_then_portraits_are_named() {
+    fn a_referee_export_s_kits_then_logo_then_portraits_then_collars_are_named() {
         assert_eq!(
             referee_hit(&["Kits/p2/kit.dds", "Kits/p1/kit.dds"], PesVersion::Pes21),
             what("Kits/p1")
@@ -1006,6 +1047,19 @@ mod tests {
         assert_eq!(
             referee_hit(&["Portraits/player_01.dds"], PesVersion::Pes21),
             what("Portraits/player_01.dds")
+        );
+        // A collar file, of any model format, after the portraits: the referees have no kit
+        // of their own to put it on.
+        assert_eq!(
+            referee_hit(
+                &["Collars/collar_12.fmdl", "Portraits/player_01.dds"],
+                PesVersion::Pes21
+            ),
+            what("Portraits/player_01.dds")
+        );
+        assert_eq!(
+            referee_hit(&["Collars/collar_12.fmdl"], PesVersion::Pes21),
+            what("Collars/collar_12.fmdl")
         );
     }
 
@@ -1558,10 +1612,9 @@ mod tests {
     }
 
     #[test]
-    fn the_logo_is_compiled_collars_are_named_and_common_holds_models_skeletons_and_textures() {
+    fn the_logo_and_fmdl_collars_are_compiled_and_common_holds_models_skeletons_and_textures() {
         assert_eq!(gate(&["logo.dds", "logo_small_crop.png"]), None);
-        let collar = "Collars/collar_12.fmdl";
-        assert_eq!(gate(&[collar]), what(collar));
+        assert_eq!(gate(&["Collars/collar_12.fmdl"]), None);
         // Common's FMDLs and skeletons are reached through links, and one no link names
         // builds nothing; its textures are the export's Common textures task's.
         assert_eq!(
@@ -1608,6 +1661,31 @@ mod tests {
                 file.path.as_str()
             );
         }
+    }
+
+    #[test]
+    fn a_collar_model_of_another_format_is_named_and_a_file_of_another_kind_passed_over() {
+        // Converting a collar between engines is not built yet.
+        for collar in ["Collars/collar_12.model", "Collars/collar_12.glb"] {
+            assert_eq!(
+                gate(&[collar, "Collars/collar_13.fmdl"]),
+                what(collar),
+                "{collar}"
+            );
+        }
+        // A texture is kept in `Collars/` only with the strict file-type check off, which
+        // `resolved` has on: added as the structure pass would keep it.
+        let mut export = resolved("co Midcup Gate", &[(FACE[0], 1), (FACE[1], 1)], &[], None);
+        let path = ScopePath::new("Collars/collar_12.dds").unwrap();
+        let file = FileDescriptor {
+            size: 1,
+            kind: classify(path.name()),
+            source: path.clone(),
+            path,
+        };
+        assert_eq!(collar_file(&file), CollarFile::PassedOver);
+        export.export.collars.push(file);
+        assert_eq!(first_not_compiled(&export, PesVersion::Pes21), None);
     }
 
     #[test]
@@ -1687,7 +1765,7 @@ mod tests {
     fn the_first_hit_follows_players_files_links_shared_folders_kits_then_the_rest() {
         let face_high = "Players/03 - A/face_high.fmdl";
         // In each place, something the gate names there: a skeleton pairing with no model,
-        // a kit texture the config has no field for, a collar (not emitted yet).
+        // a kit texture the config has no field for, a pre-Fox collar (not converted yet).
         let loose_skl = "Players/03 - A/torso.skl";
         let face_link = "Players/03 - A/Round.face";
         let shared_face = "Faces/Round/face_high.fmdl";
@@ -1697,7 +1775,7 @@ mod tests {
         let shared_skl = "Boots/Crocs/kit_boots.skl";
         let kit = "Kits/g1/kit.dds";
         let kit_extra = "Kits/g1/kit_srm.dds";
-        let collar = "Collars/collar_12.fmdl";
+        let collar = "Collars/collar_12.model";
         // A folder's own files come before its links' folders.
         assert_eq!(
             first_hit(&[

@@ -15,11 +15,10 @@ is in `AGENTS.md` ("Working documents").
 cross-family review (a) is queued). Next:
 the next open Phase 4 step (see the list); 4.21 to 4.24 and 4.29
 and 4.25 are done; 4.26 is done; 4.19 (Fox referees) is done, 4.19d (pre-Fox) waits on 4.14 and 4.20; 4.27a (the Fox
-referee marker) is done, 4.27's rest waits on 4.9 and 4.19d; 4.9b1 (collar
-checks) is done, 4.9b2 (compiling Fox collars) next; 4.14 waits on 4.31's pre-Fox export; 4.33, 4.34, 4.c-pass and
+referee marker) is done, 4.27's rest (the pre-Fox marker) waits on 4.19d; 4.9 is done
+(collars on Fox; their pre-Fox and cross-format halves are in 4.16 and 4.17); 4.14 waits on 4.31's pre-Fox export; 4.33, 4.34, 4.c-pass and
 4.c-fix1 are done; 4.30,
-4.5 to 4.8, 4.9a and 4.10 to 4.13 are done (4.6c moved to Phase 8's cancellation), 4.9b
-(collars) waits on nothing. 2.5b (GPU BC7) is step 16.x (decision entries
+4.5 to 4.8 and 4.10 to 4.13 are done (4.6c moved to Phase 8's cancellation). 2.5b (GPU BC7) is step 16.x (decision entries
 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0 after Phase 8; phase order 1–6,
 8, 0.1.0, 7, 9–16 (`core/development_plan.md` "Releases"); first-class target the Fox version
 the cup moves to around April 2027 ("Target versions").
@@ -306,6 +305,12 @@ Claude agent with no sidekick and no reviewer of another model family. While tha
   "Collar contract", `messages.md` `collar_id_invalid`, `collar_id_conflict`,
   `object_model.md`'s `Collars/` allowlist row, TC-CMN-02, TC-CMN-10, TC-REF-07 and the
   decision entry "collars: the 9xx IDs, ...".
+  4.9b2 (b), `team_compiler` (`plan/collars.rs`, `plan/subset.rs` `collar_file`,
+  `TeamKitEdits`, `TaskKind::Collar`, `bins/kit_configs.rs` `edit_absent_slot`,
+  `edit_config`, `processing/kit.rs`), its commit of 2026-10-07, against `pipeline.md`
+  "Collars", "Collar contract", "Bins accumulation", `fpc_toggle.md` "Kit slots absent
+  from the export", TC-CMN-01, TC-CMN-03 and the decision entries "collars: the 9xx IDs,
+  ..." and "a refs export's collar file is named by the gate".
 - For the lead, on return: the review process on trial (3.1) opens with a full sidekick review
   loop, then runs GPT's loop with a full sidekick loop after each GPT round, calling GPT again
   only once that sidekick loop has ended and GPT's own loop has not; not yet in `AGENTS.md`
@@ -989,7 +994,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
     ccbd7c4`: 77, 59 caught, 18 unviable, 0 missed
   The tracer's Studio fixture holds both `colors.txt` files since 2026-10-04 (lead)
 
-- [ ] 4.9 **Kit configs, FPC reconciliation and collars** (a collar in the other engine's
+- [x] 4.9 **Kit configs, FPC reconciliation and collars** (a collar in the other engine's
   format is converted, decision 2026-10-05; `Collars/` admits any model format):
   team kit-FPC status (`fpc_on` in any
   player folder → On), `fpc::kit_values` returning the four FPC values on every version,
@@ -1064,13 +1069,27 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
       in `export.collars` (Info), so planning must pass over it. `mutants-diff 1d1ae5c`: 23,
       19 caught, 3 unviable, 1 missed (`named_id`'s prefix test), closed by the lead's
       `player_12` case.
-    - [ ] 4.9b2 the Fox compile: the run-wide claimed list in planning (canonical order, one
-      collar per export), the `.fmdl` collar written at `paths::collar`, every config of the
-      team rewritten after FPC (the kit task; a Midcup's absent slots in `kit_configs` after
-      the FPC patch), the gate lifted for `.fmdl` collars on Fox. TC-CMN-01, TC-CMN-03,
-      TC-REF-07's collar half.
-    - Moved out: compiling a collar for pre-Fox (TC-CMN-08's compile half) with 4.16, a
-      collar in another format than the target's (TC-CMN-09, glTF) with 4.17's conversion.
+    - [x] 4.9b2 the Fox compile: done 2026-10-07 (Opus 5.5, first time, no lead fix).
+      `plan/collars.rs` `export_collar` (the run-wide `claimed_collars` map in `plan_run`,
+      FMDLs in path order, `collar_id_conflict` naming the claimant's display name, the
+      export itself for its second collar); `TaskKind::Collar { file, id }` after the logo,
+      bytes unchanged at `paths::collar`; `TeamKitEdits { fpc, collar }` carried by
+      `TaskKind::Kit` and `TeamKits` (an eighth parameter would have tripped
+      `too_many_arguments`); the kit task sets the collar after FPC, before
+      `reserved_collar_field`; `kit_configs` `edit_absent_slot` (FPC, then `wear_collar`,
+      both through `edit_config`); `subset::collar_file` (`Compiled` FMDL, `NotCompiled`
+      `.model`/glTF, `PassedOver` the rest), shared by the gate and planning; a refs
+      export's collar named after its portraits. TC-CMN-01, TC-CMN-03. Only the kits the
+      team's `UniColor.bin` record lists get the collar (the bundled base also holds
+      `714_DEF_8th`/`9th`, which keep theirs). Left open, no real export reaches them: a
+      claimant whose collar task fails still has its kits name the ID (the stock model
+      shows); `collar_id_conflict` names the claimant by display name (an archive's stem),
+      `duplicate_aesthetics_export` by file name. `collar_file` ignores the engine: safe
+      while the gate refuses a pre-Fox target whole, to change with 4.16. Gates green (208
+      of 254); `mutants-diff baa2391`: 44, 32 caught, 12 unviable, 0 missed.
+    - Moved out: compiling a collar for pre-Fox (TC-CMN-08's compile half) with 4.16; a
+      collar in the other engine's format (TC-CMN-09: an FMDL compiled for PES 17) with
+      4.17's conversion; a glTF collar with Phase 7's glTF reading.
 
 - [x] 4.10 **Kit layout conversion**: `KIT_LAYOUT_REMAP` (the plan's four sock bands; the
   shorts are not re-laid) in `processing/kit_layout.rs`, `kit_layout_converted`, each band
@@ -1329,7 +1348,10 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   compile of `/co/` p1 without a mask emits `u0714p1_mask.dds` byte-identical to the template;
   with `dds_compression = true` every `.dds` entry satisfies `wezlib::is_wrapped` and
   decompresses to the `false` run's bytes; a `kit_srm.dds` reports `kit_texture_not_used` and no
-  `_srm` entry exists
+  `_srm` entry exists. Also, from 4.9b: a `.model` collar compiled for pre-Fox at
+  `common/character0/model/character/uniform/nocloth/collar_012.model` (`paths::collar`
+  and `subset::collar_file` taking the target's engine), the team's loose configs naming
+  it; TC-CMN-08's compile half
 
 - [ ] 4.17 **Cross-format conversion and source selection**: target-native first, then glTF, then
   the opposite native format converted through `model_convert::convert` (FMDL → `.model` + `.mtl`
@@ -1346,7 +1368,9 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   the tracer's `fcl_hair.fmdl` compiled for PES 17 yields a `.model` + `.mtl` pair in the face
   CPK that `pes_model` reads back with the FMDL's mesh count; `boots.fmdl` beside `boots.model`
   on PES 21 compiles the FMDL with no conversion finding; `boots.glb` alone on PES 21 reports
-  `model_gltf_unsupported` and drops the folder
+  `model_gltf_unsupported` and drops the folder. Also, from 4.9b: a collar in the other
+  engine's format converted (an FMDL collar for pre-Fox gets the stock collars' material
+  names `uni_collar`/`uni_shirts`; a `.model` collar for Fox), TC-CMN-09
 
 - [ ] 4.18 **Hand auto-split**: `model_convert::ops::hand_split::split_by_skeleton_group` on every
   model with `skh_*_l`/`skh_*_r` weights before categorization, the split parts as virtual
@@ -1724,8 +1748,8 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
     deep pass does not check `ref_marker.dds` (only its conversion fails it); a
     `Common/ref_marker.dds` beside it gives both tasks one path; an `overrides/` file at
     `collar_077.fmdl` leaves the configs at 105.
-  Moved out: TC-REF-07's `collar_id_conflict` half needs collar files compiled (4.9, which
-  reserves 77 beside 105); the pre-Fox marker (TC-REF-04) needs pre-Fox referees (4.19d).
+  Moved out: TC-REF-07's `collar_id_conflict` half (landed with 4.9b1, which reserves 77
+  beside 105); the pre-Fox marker (TC-REF-04) needs pre-Fox referees (4.19d).
   Open with the maintainer (worklog "Issues", referee collars): PES 21 reads referee configs
   from `UniformParameter.bin` entries, and the bundled base and the installed bins carry them
   with collar 105, so whether the loose configs this step writes reach the game is untested.
@@ -3290,3 +3314,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
     stock collar of the version a kit can wear (`collar_id_invalid`, the 9xx ones
     included), a claim on 105 or 77 (`collar_id_conflict`), and a collar model's check
     findings as any model's. `compile` still refuses an export that keeps a collar.
+  - **4.9b2:** a team's `Collars/collar_<ID>.fmdl` compiles on Fox, and every kit of the
+    team wears it, after FPC, kits a midcup does not resend included; the later of two
+    exports claiming one collar, or an export's second collar, is `collar_id_conflict`.
+    Step 4.9 is done.

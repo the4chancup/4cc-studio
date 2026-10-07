@@ -14,8 +14,8 @@ use super::{CompileContext, Entry, Finding, TaskFailure, TaskFiles, kit_layout, 
 use crate::bins::{KIT_COLORS, KitColorEntry, Rgb, kit_number};
 use crate::messages::Code;
 use crate::paths::{self, REFEREE_MARKER_COLLAR};
-use crate::plan::EffectiveTeamKitFpc;
 use crate::plan::subset::{KIT_TEXTURE_STEMS, texture_format};
+use crate::plan::{EffectiveTeamKitFpc, TeamKitEdits};
 
 /// The menu icon of a kit without an `icon_<N>` marker.
 const DEFAULT_ICON: u8 = 3;
@@ -40,11 +40,13 @@ const MISSING_COLORS: [Rgb; KIT_COLORS] = [[255, 0, 255], [0, 0, 0]];
 /// converted, noted in `findings` as `kit_layout_converted` naming both layouts; its other
 /// textures are converted as they are.
 ///
-/// When `fpc`, the team's kit-FPC status, is `On`, a config lacking the FPC values gets them
-/// before it is encoded, noted in `findings` as `kit_config_fpc_adjusted` (the template
-/// already carries them); otherwise the config is encoded as it is. A config whose collar or
-/// winter collar is then the referees' marker collar fails the kit with
-/// `kit_collar_reserved`, naming the field.
+/// `edits` is what the team's export sets in every kit config of the team. When its kit-FPC
+/// status is `On`, a config lacking the FPC values gets them before it is encoded, noted in
+/// `findings` as `kit_config_fpc_adjusted` (the template already carries them); then the
+/// team's collar, when it has one, becomes the config's collar and winter collar, the FPC
+/// collar included; otherwise the config is encoded as it is. A config whose collar or winter
+/// collar is then the referees' marker collar fails the kit with `kit_collar_reserved`,
+/// naming the field.
 ///
 /// The entry's colors are the two its `colors.txt` gives (the lines it refuses are the deep
 /// pass's to report); else the two its main texture gives, its own or one inherited from
@@ -53,7 +55,7 @@ const MISSING_COLORS: [Rgb; KIT_COLORS] = [[255, 0, 255], [0, 0, 0]];
 pub(super) fn kit(
     slot: KitSlot,
     kit: &KitFolder,
-    fpc: EffectiveTeamKitFpc,
+    edits: TeamKitEdits,
     team_id: u16,
     ctx: &CompileContext,
     files: &mut TaskFiles,
@@ -133,16 +135,22 @@ pub(super) fn kit(
     };
     // Only upward: with the status unknown, FPC values a config carries are kept, since no
     // export state shows the team stopped using FPC.
-    match fpc {
+    match edits.fpc {
         EffectiveTeamKitFpc::On if !matches_fpc(&config) => {
             apply_fpc(&mut config);
             findings.push((Code::KitConfigFpcAdjusted, Disposition::Keep, Vec::new()));
         }
         EffectiveTeamKitFpc::On | EffectiveTeamKitFpc::Unknown => {}
     }
-    // On the collars the kit ends up with: FPC sets collar 105, so a config naming 77 under
-    // FPC On no longer wears the marker. Custom-collar rewriting, not built yet, is to run
-    // before this check too (`pipeline.md` "Collar contract").
+    // After the FPC values, so the team's collar wins over the FPC collar (`pipeline.md`
+    // "Collar contract").
+    if let Some(collar) = edits.collar {
+        config.shirt.collar = collar;
+        config.shirt.winter_collar = collar;
+    }
+    // On the collars the kit ends up with: FPC sets collar 105 and the team's collar its own
+    // (never 77, which the deep pass refuses), so a config naming 77 under either no longer
+    // wears the marker.
     if let Some(field) = reserved_collar_field(&config) {
         return Err(TaskFailure {
             code: Code::KitCollarReserved,

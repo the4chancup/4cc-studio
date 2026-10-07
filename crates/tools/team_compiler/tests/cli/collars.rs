@@ -1,15 +1,255 @@
-//! `Collars/`: which files the export format admits there, and the collar name's checks, which
-//! `check` reports as `compile` does.
+//! `Collars/`: which files the export format admits there, the collar name's checks, which
+//! `check` reports as `compile` does, and a team's collar compiled onto every kit of the team.
 
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::Path;
 
+use kit_config::{KitConfig, KitSlot};
+use pes_version::PesVersion;
+use uniparam::UniformParameter;
+
 use crate::common::Sandbox;
-use crate::compile::{compiled_players, pes_settings, pes21_settings};
+use crate::compile::{
+    compiled_players, cpk_entries, pes_settings, pes21_settings, tracer_kit, tracer_player_file,
+};
+use crate::compile_exports::{UNIFORM_PARAMETER, bundled_uniform_parameter, emitted_config};
 use crate::{CLEAN_PLAYER, TEAM_COLORS_MISSING, clean_model, findings_of, no_deploy_lines};
 
 /// The export the tests here write, with the coverage tag a `Midcup` export carries.
 const EXPORT: &str = "exports/co Midcup Collars";
+
+/// The CPK path of stock collar 12's model on Fox, which a team's `collar_12.fmdl` replaces.
+const COLLAR_12: &str = "Asset/model/character/uniform/nocloth/#Win/collar_012.fmdl";
+
+/// The entries of the sandbox's compiled CPK.
+fn compiled(sandbox: &Sandbox) -> BTreeMap<String, Vec<u8>> {
+    cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"))
+}
+
+/// Team `team_id`'s kit configs in the `UniformParameter.bin` `bytes`, by entry name, decoded
+/// for PES 21.
+fn team_configs(bytes: &[u8], team_id: u16) -> BTreeMap<String, KitConfig> {
+    let prefix = format!("{team_id:03}_");
+    UniformParameter::read(bytes)
+        .unwrap()
+        .entries()
+        .filter(|(name, _)| name.starts_with(&prefix))
+        .map(|(name, bytes)| {
+            let config = KitConfig::decode(bytes, PesVersion::Pes21).unwrap();
+            (name.to_owned(), config)
+        })
+        .collect()
+}
+
+/// The shirt model, shorts model, collar and winter collar of `config`: the FPC values and
+/// the collars.
+fn fpc_fields(config: &KitConfig) -> (u8, u8, u8, u8) {
+    (
+        config.shirt.model,
+        config.shorts.model,
+        config.shirt.collar,
+        config.shirt.winter_collar,
+    )
+}
+
+/// The config names of the kits team 714's record in the bundled `UniColor.bin` lists: kit
+/// numbers 0 to 6 and 0x10 (`resources/bins/README.md`'s layout, read on 2026-10-07).
+fn bundled_714_kits() -> Vec<String> {
+    [
+        KitSlot::P1,
+        KitSlot::P2,
+        KitSlot::P3,
+        KitSlot::P4,
+        KitSlot::P5,
+        KitSlot::P6,
+        KitSlot::P7,
+        KitSlot::G1,
+    ]
+    .into_iter()
+    .map(|slot| slot.config_name(714))
+    .collect()
+}
+
+// TC-CMN-01
+#[test]
+fn a_team_s_collar_is_compiled_and_every_kit_config_of_the_team_wears_it_after_fpc() {
+    let sandbox = Sandbox::new("collar_compiled");
+    sandbox.write(
+        &format!("{EXPORT}/Players/05 - A/face_high.fmdl"),
+        &clean_model(),
+    );
+    sandbox.write(&format!("{EXPORT}/Players/05 - A/fpc_on"), b"");
+    sandbox.write(&format!("{EXPORT}/Collars/collar_12.fmdl"), &clean_model());
+    sandbox.write(&format!("{EXPORT}/Kits/p1/kit.dds"), &tracer_kit());
+    // Shirt model 144: a config lacking the FPC values.
+    sandbox.write(
+        &format!("{EXPORT}/Kits/p1/config.toml"),
+        b"[shirt]\nmodel = 144\n",
+    );
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    assert_eq!(
+        findings_of(&run.messages(), "co Midcup Collars"),
+        [
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            TEAM_COLORS_MISSING,
+            "Info kit_config_fpc_adjusted [Keep] at Kits/p1 ()",
+            "Info kit_colors_derived [Keep] at Kits/p1 ()",
+        ]
+    );
+    assert_eq!(run.exit_code(), 0);
+    let entries = compiled(&sandbox);
+    assert!(
+        entries.get(COLLAR_12) == Some(&clean_model()),
+        "the collar file as it is: {:#?}",
+        entries.keys()
+    );
+    // The FPC values, the collar overriding the FPC collar, in the loose config and in every
+    // config of the team in the bin: p1's and the absent slots' alike.
+    let fpc_with_collar = (176, 16, 12, 12);
+    assert_eq!(
+        fpc_fields(&emitted_config(&entries, "1st", PesVersion::Pes21)),
+        fpc_with_collar
+    );
+    // The bin also holds configs for 714's kits 8 and 9, which its record does not list: the
+    // game does not offer them, so they are left as the base has them.
+    let base = team_configs(&bundled_uniform_parameter(), 714);
+    let configs = team_configs(&entries[UNIFORM_PARAMETER], 714);
+    assert_eq!(
+        configs.keys().collect::<Vec<_>>(),
+        base.keys().collect::<Vec<_>>()
+    );
+    let offered = bundled_714_kits();
+    for (name, config) in &configs {
+        if offered.contains(name) {
+            assert_eq!(fpc_fields(config), fpc_with_collar, "{name}");
+        } else {
+            assert_eq!(config, &base[name], "{name}");
+        }
+    }
+}
+
+// TC-CMN-03
+#[test]
+fn of_two_exports_replacing_one_collar_the_later_one_loses_it_and_keeps_its_configs() {
+    let sandbox = Sandbox::new("collar_conflict");
+    let first = "exports/a Midcup Collars";
+    // Two different models, so the CPK's collar shows whose it is.
+    let firsts = clean_model();
+    let seconds = tracer_player_file("glove_l.fmdl");
+    assert_ne!(firsts, seconds);
+    sandbox.write(&format!("{first}/Collars/collar_12.fmdl"), &firsts);
+    sandbox.write(&format!("{EXPORT}/Collars/collar_12.fmdl"), &seconds);
+    sandbox.write(&format!("{EXPORT}/Kits/p1/kit.dds"), &tracer_kit());
+    sandbox.write(
+        &format!("{EXPORT}/Kits/p1/config.toml"),
+        b"[shirt]\ncollar = 30\nwinter_collar = 31\n",
+    );
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, "co Midcup Collars"),
+        [
+            "Info fmdl_weights_not_normalized [Keep] at Collars/collar_12.fmdl (file=collar_12.fmdl, count=2)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            TEAM_COLORS_MISSING,
+            "Error collar_id_conflict [DropFile] at Collars/collar_12.fmdl (file=collar_12.fmdl, claimant=a Midcup Collars)",
+            "Info kit_colors_derived [Keep] at Kits/p1 ()",
+        ]
+    );
+    assert_eq!(run.exit_code(), 1);
+    let entries = compiled(&sandbox);
+    assert!(
+        entries.get(COLLAR_12) == Some(&firsts),
+        "/a/'s collar, not /co/'s"
+    );
+    // /a/ resends no kit: every config of its team's kits in the bin wears its collar. Team
+    // 702's record in the bundled `UniColor.bin` lists kits 0 to 7 and 0x10.
+    let a_configs = team_configs(&entries[UNIFORM_PARAMETER], 702);
+    let a_base = team_configs(&bundled_uniform_parameter(), 702);
+    let offered: Vec<String> = [
+        KitSlot::P1,
+        KitSlot::P2,
+        KitSlot::P3,
+        KitSlot::P4,
+        KitSlot::P5,
+        KitSlot::P6,
+        KitSlot::P7,
+        KitSlot::P8,
+        KitSlot::G1,
+    ]
+    .into_iter()
+    .map(|slot| slot.config_name(702))
+    .collect();
+    for name in &offered {
+        let config = &a_configs[name];
+        let collars = (config.shirt.collar, config.shirt.winter_collar);
+        assert_eq!(collars, (12, 12), "{name}");
+    }
+    for (name, config) in &a_configs {
+        if !offered.contains(name) {
+            assert_eq!(config, &a_base[name], "{name}: not offered, the base's");
+        }
+    }
+    // /co/'s p1 keeps its own collars, and its other configs are the base's.
+    let p1 = emitted_config(&entries, "1st", PesVersion::Pes21);
+    assert_eq!((p1.shirt.collar, p1.shirt.winter_collar), (30, 31));
+    let base = team_configs(&bundled_uniform_parameter(), 714);
+    for (name, config) in team_configs(&entries[UNIFORM_PARAMETER], 714) {
+        if name != KitSlot::P1.config_name(714) {
+            assert_eq!(config, base[&name], "{name}");
+        }
+    }
+}
+
+// The absent slots of TC-CMN-01, with no FPC: a `Midcup` export resending no kit.
+#[test]
+fn a_midcup_export_s_collar_goes_into_its_team_s_kits_it_does_not_resend() {
+    let sandbox = Sandbox::new("collar_midcup");
+    sandbox.write(&format!("{EXPORT}/{CLEAN_PLAYER}"), &clean_model());
+    sandbox.write(&format!("{EXPORT}/Collars/collar_12.fmdl"), &clean_model());
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    assert_eq!(
+        run.messages(),
+        no_deploy_lines(
+            &sandbox,
+            [
+                "co Midcup Collars: Info export_identified [Keep] (team=/co/, id=714)",
+                &format!("co Midcup Collars: {TEAM_COLORS_MISSING}"),
+            ]
+        )
+    );
+    let entries = compiled(&sandbox);
+    let configs = team_configs(&entries[UNIFORM_PARAMETER], 714);
+    let base = team_configs(&bundled_uniform_parameter(), 714);
+    assert_eq!(
+        configs.keys().collect::<Vec<_>>(),
+        base.keys().collect::<Vec<_>>()
+    );
+    // Each config of a kit the record lists is the base's with both collars set, nothing
+    // else changed; kits 8 and 9, which it does not list, keep the base's.
+    let offered = bundled_714_kits();
+    let mut worn = Vec::new();
+    for (name, config) in configs {
+        let mut expected = base[&name].clone();
+        if offered.contains(&name) {
+            expected.shirt.collar = 12;
+            expected.shirt.winter_collar = 12;
+            worn.push(name.clone());
+        }
+        assert_eq!(config, expected, "{name}");
+    }
+    worn.sort();
+    let mut offered = offered;
+    offered.sort();
+    assert_eq!(worn, offered, "every offered kit has a config");
+}
 
 /// Konami's pre-Fox shirt model `modD_shirt_tight_in_collar_052.model`, from `pes_model`'s
 /// fixtures: a `.model` that reads.
@@ -63,7 +303,7 @@ fn a_texture_in_collars_is_dropped_and_the_collar_model_kept() {
     );
     assert_eq!(check.exit_code(), 1);
 
-    // The model is kept, and `compile` does not build collars yet.
+    // The model is kept and compiled.
     let compile = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     assert_eq!(
@@ -71,9 +311,10 @@ fn a_texture_in_collars_is_dropped_and_the_collar_model_kept() {
         [
             disallowed,
             "Info export_identified [Keep] (team=/co/, id=714)",
-            "Error content_not_yet_compiled [DropExport] (what=Collars/collar_12.fmdl)",
+            TEAM_COLORS_MISSING,
         ]
     );
+    assert!(compiled(&sandbox).get(COLLAR_12) == Some(&clean_model()));
 }
 
 // The refusal half of TC-CMN-08; its other half needs collars compiled.

@@ -2,6 +2,7 @@
 //! identity-resolved exports become one manifest of tasks, each an atomic unit that commits
 //! whole or not at all.
 
+pub(crate) mod collars;
 pub(crate) mod ids;
 pub(crate) mod item_rows;
 pub(crate) mod overrides;
@@ -25,6 +26,7 @@ use crate::bins::Rgb;
 use crate::kit_variants::{kit_number, model_variant_sets};
 use crate::messages::{Code, tool_message};
 use crate::paths::{PackageKey, REFEREE_TEAM_ID, TextureHome};
+use collars::export_collar;
 use ids::{PlannedModelIds, shared_folders_taking_ids};
 use item_rows::{ItemRow, RowPlayer, export_rows};
 use subset::{
@@ -39,7 +41,7 @@ pub(crate) struct PlanReport {
     pub(crate) manifest: BuildManifest,
     /// Planning's findings (`content_not_yet_compiled`, `team_colors_missing`, `link_combined`,
     /// `kit_texture_not_used`, `kit_config_generated`, `kit_placeholder`,
-    /// `kit_variant_model_fox`).
+    /// `kit_variant_model_fox`, `collar_id_conflict`).
     pub(crate) messages: Vec<Message>,
 }
 
@@ -47,8 +49,8 @@ pub(crate) struct PlanReport {
 /// face, boots and gloves packages, then its textures) by first roster slot, the shared boots
 /// folders taking an id (each its package, then its textures) in id order, then the shared
 /// gloves folders the same way, the export's Common textures as one task, the portraits by
-/// player id, the kits by slot, then the logo. The writer lays the CPK out in this order
-/// whatever order the tasks finish in, so the same exports always give the same bytes.
+/// player id, the kits by slot, the logo, then the collar. The writer lays the CPK out in this
+/// order whatever order the tasks finish in, so the same exports always give the same bytes.
 pub(crate) struct BuildManifest {
     /// The tasks, in canonical order.
     pub(crate) tasks: Vec<BuildTask>,
@@ -76,14 +78,14 @@ pub(crate) struct TeamKits {
     pub(crate) team_id: u16,
     /// Whether the export rebuilds its team's kits (`Full`) or adds to them (`Midcup`).
     pub(crate) coverage: ExportCoverage,
-    /// The team's kit-FPC status.
-    pub(crate) fpc: EffectiveTeamKitFpc,
+    /// What the export sets in every kit config of its team.
+    pub(crate) edits: TeamKitEdits,
     /// The slots of its kit tasks, failed or not, ascending.
     pub(crate) slots: Vec<KitSlot>,
 }
 
 /// One unit of work: one package of a player folder's models, the folder's textures, one
-/// player's portrait, one kit, or the team's logo.
+/// player's portrait, one kit, the team's logo or its collar.
 pub(crate) struct BuildTask {
     /// The export the task's content comes from.
     pub(crate) export_id: ExportId,
@@ -335,8 +337,8 @@ pub(crate) enum TaskKind {
         slot: KitSlot,
         /// The kit folder.
         kit: KitFolder,
-        /// Whether its team's kit configs must carry the FPC values.
-        fpc: EffectiveTeamKitFpc,
+        /// What its team's export sets in every kit config of the team.
+        edits: TeamKitEdits,
     },
     /// The team's logo: the game's three PNGs made from the export's root `logo*` file, the
     /// smallest from its `logo_small*` file when there is one (`pipeline.md` "4. Per-export
@@ -354,6 +356,28 @@ pub(crate) enum TaskKind {
         /// The export's root `ref_marker.dds`.
         marker: FileDescriptor,
     },
+    /// The team's collar (`pipeline.md` "Collars"): its `Collars/collar_<ID>.fmdl` written
+    /// unchanged in place of stock collar `id`, keeping the materials its author gave it. One
+    /// task per team export holding a collar it claimed (`collars::export_collar`).
+    Collar {
+        /// The collar file.
+        file: FileDescriptor,
+        /// The stock collar it replaces.
+        id: u8,
+    },
+}
+
+/// What a team export sets in every kit config of its team, its own kits' and, for a `Midcup`
+/// export, those of the kits it does not resend (`pipeline.md` "Collars", `fpc_toggle.md`
+/// "Team kit-FPC status and kit configs"): the FPC values first, then its collar, which so
+/// wins over the FPC collar.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct TeamKitEdits {
+    /// The team's kit-FPC status.
+    pub(crate) fpc: EffectiveTeamKitFpc,
+    /// The stock collar the export's collar replaces, set as every config's collar and winter
+    /// collar; `None` when the export holds no collar or lost its claim.
+    pub(crate) collar: Option<u8>,
 }
 
 /// Whether the team's kit configs must carry the FPC values.
@@ -395,6 +419,7 @@ impl TaskKind {
             TaskKind::Kit { kit, .. } => kit.path.clone(),
             TaskKind::Logo { logo } => logo.main.file.path.clone(),
             TaskKind::RefereeMarker { marker } => marker.path.clone(),
+            TaskKind::Collar { file, .. } => file.path.clone(),
         }
     }
 
@@ -402,7 +427,7 @@ impl TaskKind {
     /// Common model and skeleton, never the link) and the files packed beside them; a folder's
     /// textures; the Common textures; a portrait's one file; a kit's config and `colors.txt`,
     /// when it has them, and its effective textures; the logo's main file and its small one,
-    /// when it has one; the referees' marker texture.
+    /// when it has one; the referees' marker texture; the collar file.
     pub(crate) fn files(&self) -> Vec<&FileDescriptor> {
         match self {
             TaskKind::Models {
@@ -424,6 +449,7 @@ impl TaskKind {
                 .map(|file| &file.file)
                 .collect(),
             TaskKind::RefereeMarker { marker } => vec![marker],
+            TaskKind::Collar { file, .. } => vec![file],
         }
     }
 }
@@ -473,10 +499,12 @@ pub(crate) type ExportToPlan = (
 /// `version`. An export holding anything Phase 3 cannot compile yet plans no task and reports
 /// `content_not_yet_compiled` naming the first such item. Every other export's note goes into
 /// the manifest, and a team export's colors; one with no root `colors.txt` reports
-/// `team_colors_missing`, and its team keeps the colors it had. A refs export plans its
-/// referee folders, shared folders, Common textures and marker under team id 999
-/// (`REFEREE_TEAM_ID`), each folder's packages keyed by its referee slots, and nothing else:
-/// it has no colors record, kits, rows, portraits or logo.
+/// `team_colors_missing`, and its team keeps the colors it had. A team export's collar is
+/// claimed against the run-wide list of the collars earlier exports claimed
+/// (`collars::export_collar`), and every kit config of the team wears the collar it keeps. A
+/// refs export plans its referee folders, shared folders, Common textures and marker under
+/// team id 999 (`REFEREE_TEAM_ID`), each folder's packages keyed by its referee slots, and
+/// nothing else: it has no colors record, kits, rows, portraits, logo or collar.
 pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanReport {
     let mut tasks = Vec::new();
     let mut team_colors = Vec::new();
@@ -484,6 +512,9 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
     let mut item_rows = Vec::new();
     let mut notes = Vec::new();
     let mut messages = Vec::new();
+    // Each claimed collar's ID and its claimant's name. Planning is serial and takes the
+    // exports in canonical order, so the earlier export keeps a collar two exports claim.
+    let mut claimed_collars: BTreeMap<u8, String> = BTreeMap::new();
     for (export_id, mut resolved, colors, note) in exports {
         match version.engine() {
             Engine::Fox => drop_kit_masks(export_id, &mut resolved.export.kits, &mut messages),
@@ -723,6 +754,18 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
                 TaskKind::Portrait { player_id, file },
             ));
         }
+        // An export the gate skipped has claimed nothing, so its collar takes no other's.
+        let collar = export_collar(
+            export_id,
+            &export.export_display_name,
+            &export.collars,
+            &mut claimed_collars,
+            &mut messages,
+        );
+        let edits = TeamKitEdits {
+            fpc,
+            collar: collar.as_ref().map(|(_, id)| *id),
+        };
         // The kits go by slot, so `slots` is ascending.
         let mut slots = Vec::new();
         for (slot, kit) in export.kits.kits {
@@ -747,17 +790,20 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
                     vec![],
                 ));
             }
-            tasks.push(task(export_id, team_id, TaskKind::Kit { slot, kit, fpc }));
+            tasks.push(task(export_id, team_id, TaskKind::Kit { slot, kit, edits }));
         }
         team_kits.push(TeamKits {
             export_id,
             team_id,
             coverage: export.coverage,
-            fpc,
+            edits,
             slots,
         });
         if let Some(logo) = export.logo {
             tasks.push(task(export_id, team_id, TaskKind::Logo { logo }));
+        }
+        if let Some((file, id)) = collar {
+            tasks.push(task(export_id, team_id, TaskKind::Collar { file, id }));
         }
     }
     PlanReport {
@@ -1072,6 +1118,9 @@ mod tests {
                     TaskKind::RefereeMarker { marker } => {
                         format!("referee marker {}", marker.path.as_str())
                     }
+                    TaskKind::Collar { file, id } => {
+                        format!("collar {id} {}", file.path.as_str())
+                    }
                 };
                 format!(
                     "{} {} {what} charge {}",
@@ -1381,7 +1430,8 @@ mod tests {
                 | TaskKind::Portrait { .. }
                 | TaskKind::Kit { .. }
                 | TaskKind::Logo { .. }
-                | TaskKind::RefereeMarker { .. } => None,
+                | TaskKind::RefereeMarker { .. }
+                | TaskKind::Collar { .. } => None,
             })
             .collect();
         assert_eq!(
@@ -1479,7 +1529,8 @@ mod tests {
                 | TaskKind::Portrait { .. }
                 | TaskKind::Kit { .. }
                 | TaskKind::Logo { .. }
-                | TaskKind::RefereeMarker { .. } => None,
+                | TaskKind::RefereeMarker { .. }
+                | TaskKind::Collar { .. } => None,
             })
             .collect();
         assert_eq!(
@@ -2376,13 +2427,14 @@ mod tests {
             .tasks
             .iter()
             .filter_map(|task| match &task.kind {
-                TaskKind::Kit { fpc, .. } => Some(*fpc),
+                TaskKind::Kit { edits, .. } => Some(edits.fpc),
                 TaskKind::Models { .. }
                 | TaskKind::Textures { .. }
                 | TaskKind::CommonTextures { .. }
                 | TaskKind::Portrait { .. }
                 | TaskKind::Logo { .. }
-                | TaskKind::RefereeMarker { .. } => None,
+                | TaskKind::RefereeMarker { .. }
+                | TaskKind::Collar { .. } => None,
             })
             .collect()
     }
@@ -2584,7 +2636,8 @@ mod tests {
                 | TaskKind::Portrait { .. }
                 | TaskKind::Kit { .. }
                 | TaskKind::Logo { .. }
-                | TaskKind::RefereeMarker { .. } => None,
+                | TaskKind::RefereeMarker { .. }
+                | TaskKind::Collar { .. } => None,
             })
             .collect()
     }

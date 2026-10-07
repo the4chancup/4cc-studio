@@ -591,8 +591,8 @@ mod tests {
     use super::*;
     use crate::bins::{TeamColorBin, UniColorBin};
     use crate::messages::{Code, tool_message};
-    use crate::plan::EffectiveTeamKitFpc;
     use crate::plan::item_rows::RowChange;
+    use crate::plan::{EffectiveTeamKitFpc, TeamKitEdits};
     use crate::templates::Templates;
     use crate::testing::scratch;
 
@@ -1962,7 +1962,7 @@ mod tests {
             export_id: ExportId(3),
             team_id: 714,
             coverage: ExportCoverage::Midcup,
-            fpc,
+            edits: TeamKitEdits { fpc, collar: None },
             slots: Vec::new(),
         };
 

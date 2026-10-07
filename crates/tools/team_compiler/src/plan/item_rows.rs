@@ -192,7 +192,8 @@ mod tests {
                 | TaskKind::Portrait { .. }
                 | TaskKind::Kit { .. }
                 | TaskKind::Logo { .. }
-                | TaskKind::RefereeMarker { .. } => None,
+                | TaskKind::RefereeMarker { .. }
+                | TaskKind::Collar { .. } => None,
             })
             .collect();
         (report.manifest.item_rows, models)

@@ -1264,7 +1264,7 @@ fn emitted_config_bytes<'a>(entries: &'a BTreeMap<String, Vec<u8>>, ordinal: &st
 }
 
 /// The kit config team 714's kit `ordinal` was emitted as in `entries`, decoded for `version`.
-fn emitted_config(
+pub(crate) fn emitted_config(
     entries: &BTreeMap<String, Vec<u8>>,
     ordinal: &str,
     version: PesVersion,

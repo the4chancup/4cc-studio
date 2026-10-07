@@ -35,7 +35,7 @@
 //! pool, each worker reading and holding one file at a time, and the findings are collected
 //! in file order (`content_findings`).
 
-mod collar;
+pub(crate) mod collar;
 mod documents;
 mod model;
 mod portrait;

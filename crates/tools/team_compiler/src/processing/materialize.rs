@@ -91,13 +91,15 @@ pub(crate) fn materialize(
 }
 
 /// The folder, `/`-terminated, a test-mode entry of a task of `kind` goes in under `source`:
-/// the export folder the task works on, or for a portrait, the logo and the referees' marker,
-/// whose task names a file, that file's folder (none for a file at the export's root).
+/// the export folder the task works on, or for a portrait, the logo, the referees' marker and
+/// the collar, whose task names a file, that file's folder (none for a file at the export's
+/// root).
 fn test_entry_folder(source: &str, kind: &TaskKind) -> String {
     let folder = match kind {
-        TaskKind::Portrait { .. } | TaskKind::Logo { .. } | TaskKind::RefereeMarker { .. } => {
-            kind.folder_path().parent()
-        }
+        TaskKind::Portrait { .. }
+        | TaskKind::Logo { .. }
+        | TaskKind::RefereeMarker { .. }
+        | TaskKind::Collar { .. } => kind.folder_path().parent(),
         TaskKind::Models { .. }
         | TaskKind::Textures { .. }
         | TaskKind::CommonTextures { .. }
@@ -147,7 +149,7 @@ mod tests {
 
     use super::*;
     use crate::paths::TextureHome;
-    use crate::plan::{EffectiveTeamKitFpc, ModelFolder};
+    use crate::plan::{EffectiveTeamKitFpc, ModelFolder, TeamKitEdits};
 
     const SOURCE: &str = "egg Midcup Tracer";
     const PLAYER: &str = "Players/05 - The Chad Stormworks Player";
@@ -449,7 +451,10 @@ mod tests {
                 layout: None,
                 textures: Vec::new(),
             },
-            fpc: EffectiveTeamKitFpc::Unknown,
+            edits: TeamKitEdits {
+                fpc: EffectiveTeamKitFpc::Unknown,
+                collar: None,
+            },
         };
         assert_placed(
             kind,
@@ -498,6 +503,19 @@ mod tests {
                 "egg Midcup Tracer/e_000792_r_l.png",
                 "egg Midcup Tracer/e_000792_r.png",
             ],
+        );
+    }
+
+    #[test]
+    fn a_collar_goes_in_its_file_s_folder_in_test_mode() {
+        let kind = TaskKind::Collar {
+            file: file("Collars/collar_12.fmdl"),
+            id: 12,
+        };
+        assert_placed(
+            kind,
+            &[paths::collar(12).as_str()],
+            &["egg Midcup Tracer/Collars/collar_012.fmdl"],
         );
     }
 }
