@@ -4467,3 +4467,22 @@ because the CLI renders a finding as its code and context alone; the GUI shows i
 instead.
 Plan: `team_compiler/pipeline.md` "6. Post-processing" (DpFileList upgrade, Destination
 writability preflight); `team_compiler/messages.md` (the three rows).
+
+## 2026-10-07 — team_compiler — what `upgrade-dpfl` reports, and the cases the plan left open
+Decision (lead, reversible): `upgrade-dpfl` reports through findings, as `check` and `compile`
+do: `dpfilelist_cpk_renamed`, `dpfilelist_placeholder_written`, `dpfilelist_replaced` (Info),
+`dpfilelist_cpk_dropped` (Warning, with the file's size when there is one), and
+`dpfilelist_upgrade_planned` without `--yes` or `dpfilelist_up_to_date` alone. With `--yes`
+it acts in that order, the list last, each line after its action; a file it cannot read or
+write ends it with exit code 3, naming the file. The old list's `.bak` replaces an older one;
+a list that does not read as a list is replaced and backed up with nothing renamed; no list
+gets the official one; a list already official byte for byte is not rewritten. A rename whose
+target name is held when its turn comes is not made, and the file is dropped if its name is
+not official.
+Why: the command line shows a tool's findings and nothing else, and findings are what the
+Phase 8 dialog will list, so one set of codes serves both. Replacing the list last means a
+failed rename leaves the install loading what it loaded before, and a second run finishes
+the work. The last list a user had is the one a backup is for. Treating every held target
+alike, rather than only those outside the stem, gives one rule that never overwrites a file.
+Plan: `team_compiler/pipeline.md` "DpFileList upgrade"; `team_compiler/settings.md` "CLI";
+`team_compiler/messages.md` (the six rows).

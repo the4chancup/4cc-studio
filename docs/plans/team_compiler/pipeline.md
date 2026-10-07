@@ -977,7 +977,11 @@ describes behavior, not a serial scheduling requirement:
   CLI prints the equivalent subcommand, `4cc-studio team-compiler upgrade-dpfl`, and never
   upgrades on its own.
   - The upgrade is an **override, not a merge**: the bundled official DPFL replaces the installed
-    file byte for byte, the old one kept as `DpFileList.bin.bak`. The aesthetics community gives
+    file byte for byte, the old one kept as `DpFileList.bin.bak` (replacing an older backup: the
+    list a user last had is the one worth keeping). A list that cannot be read as a list is
+    replaced and kept the same way, with nothing renamed, an install with no list gets the
+    official one, and a list that is already the official one byte for byte is left as it is,
+    no backup written. The aesthetics community gives
     zero support for custom-edited DPFLs — they have caused a long tail of problems — so preserving
     a user's own entries would be preserving exactly the state the upgrade exists to end. The dialog
     is honest about it: it lists every installed entry that the official list does not contain

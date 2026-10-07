@@ -113,7 +113,14 @@ resolved export source.
 `upgrade-dpfl` prints what the override changes (entries that will no longer be loaded, with the
 sizes of any matching `.cpk` files found in `download/`) and stops unless `--yes` is given; it never
 deletes CPK files non-interactively — those are listed for the user to remove. See "DpFileList
-upgrade" under "Post-processing".
+upgrade" under "Post-processing". It prints as the other commands do, one finding per line
+(`dpfilelist_cpk_renamed`, `dpfilelist_placeholder_written`, `dpfilelist_replaced`,
+`dpfilelist_cpk_dropped`, then `dpfilelist_upgrade_planned` without `--yes`, or
+`dpfilelist_up_to_date` alone), in the order `--yes` acts: renames, placeholders, the list.
+It exits 0 when it is done or only listed; 2 when the PES folder or its `download/` is not a
+folder; 3 when a file cannot be read or written, naming it, after which what was done before
+stays done (the list is replaced last, so a failure leaves the old list in place, and running
+the command again finishes the work: a file already renamed is no longer under its old name).
 
 The optional positional argument is an exports-root override for that invocation; when omitted, both
 commands use the common `exports_folder_path`. It is not a single-export path and is never persisted
