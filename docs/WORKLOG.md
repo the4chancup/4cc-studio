@@ -1444,12 +1444,14 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
     8 unviable, 0 missed. The parity test keeps reading the CPK (decision entry)
 
 - [ ] 4.24 **Deployment**: each staged CPK copied to `download/{name}.cpk.partial` and renamed over
-  the old one, the marker file, the staging folder removed; the preflight before any export is
+  the old one, the staging folder removed; the preflight before any export is
   read (`download/` probe; `pes_version_mismatch` W); degradation to `output/` with
-  `pes_folder_not_found`, `dpfilelist_missing`, `cpk_name_unlisted`, `old_cpk_locked`,
-  `deploy_target_unwritable` (`elevation::is_access_denied`), `dpfilelist_outdated` (the
-  installed list lacks a target the bundled one has, 4.25 supplies the template); `--no-deploy`
-  unchanged; stale `.staging/` folders of dead runs removed at start; deployment adds no exit
+  `pes_folder_not_found`, `dpfilelist_missing`, `cpk_name_unlisted` (against the installed list
+  alone until 4.25 splits off `dpfilelist_outdated`, a name the bundled list has),
+  `old_cpk_locked` (the rename failing), `deploy_target_unwritable` (the probe or the copy
+  failing; `elevation::is_access_denied` at the probe); `--no-deploy`
+  unchanged; stale `.staging/` folders of dead runs removed at start (the run's lock file); the
+  test harness points every run at the sandbox's PES folder (lead, first); deployment adds no exit
   code (a degraded run exits 1, an aborted one 3, as the mapping already says). Plan:
   `pipeline.md` "6. Post-processing" (Staging, Deploy CPKs, Degraded run, `--no-deploy`,
   Destination writability preflight); `messages.md` "Output stage and savefile"; `settings.md`

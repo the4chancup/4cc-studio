@@ -896,13 +896,23 @@ describes behavior, not a serial scheduling requirement:
 - **Staging** — every generated CPK is written to a run-scoped staging folder,
   `output/.staging/{run_id}/`, beneath the `output/` folder next to the exe (created on demand). No
   CPK is ever written directly at its final path, so a failed or cancelled run leaves nothing
-  half-written where PES or the user could pick it up.
+  half-written where PES or the user could pick it up. A run holds an exclusive lock on
+  `.staging/{run_id}.lock`, taken before its folder is made and released after the folder is
+  removed; at start, a run removes every other `.staging/` folder whose lock it can take or
+  that has none, a killed run's, and leaves the folders of runs still alive. A lock, not the
+  folder's age or its process id, because the OS releases it when the process dies, however
+  it dies, and std can take it on every platform.
 - **Deploy CPKs** — deployment is **always attempted**; there is no `move_cpks` switch (see "Why no
   `move_cpks`" below). Each staged CPK is copied to `{pes_folder_path}/download/{name}.cpk.partial`
   (the download folder is normally on another volume, so this is a copy, not a rename) and then
   renamed over the old CPK; the rename is the only step that needs the old CPK unlocked, and it is
-  atomic on the same volume. A marker file lists what was deployed. After the deployment transaction
-  commits, the staging folder is deleted — like Red, nothing is left in `output/`.
+  atomic on the same volume. So a failure is named by its step, not by the OS error: the copy
+  failing is `deploy_target_unwritable`, the rename failing `old_cpk_locked` (Windows reports a
+  file held open without delete sharing as access denied, the same error as a folder needing
+  elevation); either removes the `.partial` and degrades the run (below). After the deployment
+  transaction commits, the staging folder is deleted — like Red, nothing is left in `output/`.
+  Nothing else is written in `download/`: Red wrote no record of what it installed, and nothing
+  would read one.
 - **Degraded run: promotion to `output/`** — if deployment cannot happen (`pes_folder_not_found`,
   `old_cpk_locked`, `deploy_target_unwritable`, `dpfilelist_missing`, ...), the staged CPKs are
   **promoted** to `output/{name}.cpk` (same volume, atomic rename, replacing any previous one)
@@ -1028,7 +1038,14 @@ describes behavior, not a serial scheduling requirement:
   prompts for elevation up front. The deployment stage re-checks regardless; the preflight makes
   its failures rare, not impossible. A `compile` that deploys runs the `download/` probe once
   before it reads any export, so a run that cannot deploy says so first
-  (`deploy_target_unwritable`) and still compiles to `output/` (TC-DEP-04).
+  (`deploy_target_unwritable`) and still compiles to `output/` (TC-DEP-04). Before the probe it
+  checks, in order, that the PES folder exists (`pes_folder_not_found`), that it holds
+  `PES20{pes_version}.exe` (`pes_version_mismatch`, a Warning), that `download/DpFileList.bin`
+  exists (the working-bin walk reports `dpfilelist_missing`) and that it lists the run's CPK
+  (`cpk_name_unlisted`); the first Error ends the checks and the run compiles to `output/`. The
+  probe does not report an old CPK in use: PES may be closed before the run ends, and the
+  deployment stage meets the lock if it is not. The CLI's message for each of these Errors
+  names the path the CPK is promoted to instead.
 - **Aesthetics patch** — written beside the output CPK as `aesthetics_patch.toml`: the resolved
   savefile writes for the compiled players (format and rules in "Aesthetics patch" in the
   [Savefile plan](../pes_savefile/operations.md)). On **Fox** it holds the compiled players'

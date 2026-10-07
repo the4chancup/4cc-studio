@@ -41,10 +41,27 @@ impl Sandbox {
         Sandbox { root }
     }
 
-    /// Runs `team-compiler <args>` with `settings` as the settings file's text.
+    /// `settings` with `pes_folder_path` set to the sandbox's `PES/` when the text names no
+    /// game folder: the default is the real install's path, which a compile that deploys would
+    /// write into.
+    fn sandboxed(&self, settings: &str) -> String {
+        let mut root: toml::Table = toml::from_str(settings).unwrap();
+        let common = root
+            .entry("common")
+            .or_insert_with(|| toml::Value::Table(toml::Table::new()))
+            .as_table_mut()
+            .unwrap();
+        common
+            .entry("pes_folder_path")
+            .or_insert_with(|| toml::Value::String(self.root.join("PES").display().to_string()));
+        toml::to_string(&root).unwrap()
+    }
+
+    /// Runs `team-compiler <args>` with `settings` as the settings file's text, its game folder
+    /// the sandbox's unless it names one (`sandboxed`).
     pub fn run(&self, settings: &str, args: &[&str]) -> Run {
         let tool = Tool::new();
-        let mut parsed = Settings::parse(settings).unwrap();
+        let mut parsed = Settings::parse(&self.sandboxed(settings)).unwrap();
         parsed.merge_defaults(tool.id(), &tool.default_settings());
         let (events_tx, events_rx) = unbounded();
         let (requests_tx, _requests_rx) = unbounded();

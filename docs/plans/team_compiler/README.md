@@ -1477,8 +1477,9 @@ TC-OUT-18  GIVEN a PES folder with no DpFileList.bin and the tracer export
 TC-DEP-01  GIVEN a PES folder with PES2021.exe, download/DpFileList.bin listing 4cc_99_test and an
            old download/4cc_99_test.cpk
            WHEN the tracer is compiled for PES 21
-           THEN download/4cc_99_test.cpk holds the run's CPK, no .cpk.partial remains, the marker
-                file lists it, output/ holds no CPK and no .staging/, and the exit code is 0
+           THEN download/4cc_99_test.cpk holds the run's CPK, no .cpk.partial remains, nothing
+                else is added to download/, output/ holds no CPK and no .staging/, and the exit
+                code is 0
 TC-DEP-02  GIVEN the same with the old CPK held open without delete sharing
            WHEN it is compiled
            THEN old_cpk_locked is reported, output/4cc_99_test.cpk holds the run's CPK, the old

@@ -4412,3 +4412,24 @@ test that checks the CPK writer against Red's output end to end; a loose tree wo
 writer's half of every normal run unchecked by parity. The test-mode and sideload tests already
 diff loose trees against the normal CPK's entries.
 Plan: `team_compiler/pipeline.md` "5. Writer" step 5 (the paragraph on the loose-folder sink).
+
+## 2026-10-07 — team_compiler — deployment: no marker file, failures named by step, a lock per staging folder
+Decision: a deployment writes nothing in `download/` but the CPK (the plan's "marker file
+lists what was deployed" is dropped). A failed copy to `{name}.cpk.partial` is
+`deploy_target_unwritable`, a failed rename over the old CPK `old_cpk_locked`, whatever the OS
+error. The CLI's probe before any export is read reports only `deploy_target_unwritable`, after
+checking the PES folder, the exe, the list and the run's name in it, in that order. Each run
+locks `.staging/{run_id}.lock` for its lifetime, and a run's start removes the staging folders
+whose lock it can take or that have none. Until 4.25, `cpk_name_unlisted` is judged on the
+installed list alone. The degradation findings name the path the CPK is promoted to.
+Why: no plan text, scenario or tool reads a marker, Red wrote none, and an unknown file in the
+game's download folder has an in-game effect nobody has tested. Windows reports a rename over a
+file held open without delete sharing as access denied, the error of a folder needing
+elevation, so the error code cannot tell the two apart while the step can (the copy needs only
+the folder, the rename the old file). A locked old CPK at the probe is not reported because PES
+may close before the run ends. A lock is released by the OS however the process dies, where a
+process id can be recycled and an age threshold guesses; `File::try_lock` is std. The bundled
+official list arrives with 4.25; a name it holds is then `dpfilelist_outdated`, with the same
+consequence, so the interim reading degrades the same runs.
+Plan: `team_compiler/pipeline.md` "6. Post-processing" (Staging, Deploy CPKs, Destination
+writability preflight); `team_compiler/messages.md` (the five rows' contexts); TC-DEP-01.

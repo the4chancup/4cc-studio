@@ -262,7 +262,11 @@ fn the_tracer_bullet_matches_the_reference_tree() {
         output.display()
     );
     let exports_root = fixture.join("studio");
-    let run = sandbox.run(&settings, &["compile", exports_root.to_str().unwrap()]);
+    // Nothing to install into: the reference is the CPK itself.
+    let run = sandbox.run(
+        &settings,
+        &["compile", "--no-deploy", exports_root.to_str().unwrap()],
+    );
     assert_eq!(run.exit_code(), 0);
     // Notes only, but for the two player tables: with no PES install there is no table to
     // build on, so the tracer's boots and gloves rows are left out (`pipeline.md` "Bins
