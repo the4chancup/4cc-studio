@@ -1,0 +1,11 @@
+<materialset>
+    <material name="body_mat" shader="Basic_C">
+        <state name="ztest" value="1" />
+        <state name="zwrite" value="1" />
+        <state name="twosided" value="0" />
+        <state name="alphatest" value="1" />
+        <state name="alpharef" value="0" />
+        <state name="alphablend" value="0" />
+        <state name="blendmode" value="0" />
+    </material>
+</materialset>

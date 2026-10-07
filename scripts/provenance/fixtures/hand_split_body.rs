@@ -23,6 +23,7 @@
 //! `model_convert` and `pes_version` by path (`.tmp/hand_4_18/roundtrip/` was the one used):
 //! `hand_split_body <out fmdl>`. It writes the output once it has read it back, checked it with
 //! `fmdl::check`, imported it again and split it to the counts above.
+//! `hand_split_body_model.rs` writes the `.model` twin from the same strip.
 
 use fmdl::{FmdlFile, Model};
 use model_convert::Imported;
@@ -56,7 +57,7 @@ fn weights(x: i32) -> ([u8; 4], [f32; 4]) {
     }
 }
 
-fn strip() -> CanonicalModel {
+pub fn strip() -> CanonicalModel {
     let tables = skeletons(PesVersion::Pes21);
     let bones = BONES
         .iter()
@@ -150,7 +151,7 @@ fn strip() -> CanonicalModel {
 }
 
 /// (vertices, faces) over every mesh of `model`.
-fn counts(model: &CanonicalModel) -> (usize, usize) {
+pub fn counts(model: &CanonicalModel) -> (usize, usize) {
     let vertices = model.meshes.iter().map(|m| m.vertices.positions.len()).sum();
     let faces = model.meshes.iter().map(|m| m.faces.len()).sum();
     (vertices, faces)
