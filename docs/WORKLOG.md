@@ -1345,9 +1345,13 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `xml_uniform_pes15`, `texture_not_div4`, the vertex limit, a material a `.model` names
   missing from its `.mtl` (`check_bundle`'s rule, in the deep pass)
   (TC-MOD-23, 25, TC-CHK-08, TC-TEX-07, TC-XML-08; `xml_oral_prefix_missing` is a user
-  `face.xml` check, 4.15's, with TC-XML-09); (e) `ingame_face` through `pes_model::ops::merge`,
-  the kit variant sets, the hand split of a hand-weighted `.model`, a shared boots folder
-  holding several boots models merged into its `boots.model` (TC-MOD-35, 41, TC-CMN-07). A user-supplied `face.xml` stays refused as not compiled yet until 4.15.
+  `face.xml` check, 4.15's, with TC-XML-09); (e1) `ingame_face`'s boots through
+  `pes_model::ops::merge` (the player's boots parts and a combined boots link merged into a
+  player-exclusive `boots.model`, `model_merged`, the merge conflicts with
+  `model_merge_flags_conflict`) and a shared boots folder holding several boots models merged
+  into its `boots.model`; an `ingame_face` folder holding gloves parts stays refused
+  (TC-MOD-35, 41); (e2) `ingame_face`'s gloves and the hand split of a hand-weighted `.model`;
+  (e3) the kit variant sets (TC-CMN-07). A user-supplied `face.xml` stays refused as not compiled yet until 4.15.
   Templates for (b): `resources/templates/dummy.model` and `dummy.mtl` (README there).
   (a) done 2026-10-07 (Opus 5.5, first time, no lead fix): the token grammar moved to
   `aesthetics_export::conventions::kit_token` (`KitToken`, `kit_token`, `variant_stem`,

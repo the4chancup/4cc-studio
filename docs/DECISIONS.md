@@ -4861,3 +4861,18 @@ scans flagged seven windows over 32 reviewed code commits, all false, while the 
 whole-crate pass found the one real bug (maintainer's call, 2026-10-07).
 Plan: `team_compiler/blue_port.md` "Referee export processing"; `AGENTS.md` "Lead and sidekick";
 `CONTRIBUTING.md` "Clef scan".
+
+## 2026-10-07 — team_compiler — Pre-Fox merges report `model_merged` and `model_merge_flags_conflict`
+Decision: a pre-Fox boots merge (a shared boots folder holding several boots models, or an
+`ingame_face` player's boots parts with a combined link's model) is noted as `model_merged`,
+the pre-Fox twin of `fmdl_merged`, in the order the Fox merge takes; parts whose `.model`
+headers carry different `flags` leave the package out with `model_merge_flags_conflict` (E).
+Step 4.14's slice (e) is cut into e1 (`ingame_face`'s boots and the several-boots shared
+folder), e2 (`ingame_face`'s gloves and the hand split of a `.model`) and e3 (kit variant sets).
+Why: `pes_model::ops::merge` returns `FlagsConflict` for a field of unknown meaning, set only in
+two Konami face-montage models; it has no merging rule, and naming it `skl_merge_conflict` or
+`merge_material_conflict` would send the member to the wrong fix. The twin code keeps each
+engine's catalog in its own format's terms, as `model_name_invalid` does. Slicing keeps each
+diff to one review.
+Plan: `team_compiler/messages.md` the `model_merged`, `model_merge_flags_conflict` and
+`skl_merge_conflict` rows.
