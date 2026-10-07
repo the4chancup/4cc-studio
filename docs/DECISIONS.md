@@ -4580,3 +4580,20 @@ game's referee hook loads slot NN's `k99NN`/`g99NN` by number, and Red writes no
 kept because a cup admin reads `teamnotes.txt` for every compiled export.
 Plan: `team_compiler/README.md` (the Phase 3 gate paragraph), `team_compiler/pipeline.md`
 "Notes collection".
+
+## 2026-10-07 — team_compiler — the refs CPK beside the team side: what each writes, the walk, the name
+Decision: (1) the refs export's entries go only into the refs CPK; the team side (the single
+CPK, or the bins CPK and the teams parts) is written only when a team export commits something
+or there are overrides, so a run whose only committing export is the refs export writes the
+refs CPK alone, with no bins. (2) An entry of the refs export at an override's path is left out,
+as any other. (3) The walk passes over the installed refs CPK only when the run holds a refs
+export, and a refs export's `.common` texture link is then never satisfied by an installed
+texture (the 4.19a issue closes so). (4) `refs_cpk_name` equal to `cpk_name`, or in multi-CPK
+mode to `bins_cpk_name` or a teams slot, letter case aside, is refused (exit code 2).
+Why: (1) the referees change no bin, and a bins-only team CPK would replace the installed team
+CPK with an empty one, which a refs-only compile must not do. (2) one override rule run-wide,
+as multi-CPK mode already has. (3) the run replaces that CPK, so its old content must not satisfy
+anything; a run without a refs export keeps it, and it holds nothing a team needs. (4) two
+writers on one file, the same reason as the teams stem refusal.
+Plan: `team_compiler/pipeline.md` "5. Writer" step 5; `team_compiler/settings.md`
+`refs_cpk_name`.

@@ -772,7 +772,14 @@ describes behavior, not a serial scheduling requirement:
    the single CPK is written only when something commits. It is not the walk's boundary: it
    holds no working bin, and taking it as the earliest CPK would put every CPK listed between
    it and the team CPK (stadiums, parts, midcups) out of the walk, so the walk passes over
-   the installed CPK of its name instead. Every emitted CPK name (team, teams part,
+   the installed CPK of its name instead, when the run holds a refs export (the run replaces
+   it, and a refs export's `.common` texture link is therefore never satisfied by an
+   installed texture). The refs export's entries never go into the team CPK, the teams
+   parts or the bins CPK, and the team side is written only when a team export commits
+   something or there are overrides: a run whose only committing export is the refs
+   export writes the refs CPK alone, with no bins, since the referees change no bin. An
+   entry of the refs export at an override's path is left out like any other (the
+   override goes into the team side, step 1). Every emitted CPK name (team, teams part,
    refs) is a validated `CpkStem` (shared `pipeline` type): filename stem only, 1–28 characters from
    ASCII alphanumeric, `_`, `-`, and `.`; no separators, control characters, trailing dot, Windows
    reserved-device names, or user-supplied `.cpk` suffix; uniqueness is checked case-insensitively.

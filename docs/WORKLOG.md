@@ -1947,7 +1947,8 @@ Steps are itemized when Phase 15 closes; one is fixed already:
 Bugs, unexpected behavior, things to revisit. `open` / `resolved (date)`. Resolved issues are
 pruned when their phase closes; they stay in git history.
 
-- open (found at 4.19a's review) — a refs export's `.common` texture link is never satisfied
+- resolved (2026-10-07, by rule: decision entry "the refs CPK beside the team side") (found at
+  4.19a's review) — a refs export's `.common` texture link is never satisfied
   by a texture already installed under `common/999/sourceimages/`: `validation.rs`
   `installed_common_textures` finds the team's id through the teams list, which has no
   `/refs/` row, so the set is always empty for referees. Since 4.19b's walk passes over the
