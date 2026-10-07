@@ -4642,3 +4642,12 @@ ID a conflict, not an invalid ID. (2) the configs take one ID; one general rule 
 list) instead of a new code. (3) the plan says "all of the team's kit configs", and a midcup
 adding a collar without resending its kits is the common case, as for FPC.
 Plan: `team_compiler/messages.md` `collar_id_invalid`; `team_compiler/pipeline.md` "Collars".
+
+## 2026-10-07 — team_compiler — a refs export's collar file is named by the gate
+Decision: a refs export holding a `Collars/` file is skipped with `content_not_yet_compiled`
+naming its first collar file, after its kits, logo and portraits; a team export's FMDL collar
+compiles on Fox from step 4.9b2.
+Why: a collar replaces a stock collar and is put on the replacing team's kits; the referees'
+kits are the template tree's, which wear collar 77 or their own, so a refs collar has no kit to
+go on, and a silent drop would hide a file the member meant to ship.
+Plan: `team_compiler/README.md`, the gate paragraph ("Step 4.19 lifts ...").
