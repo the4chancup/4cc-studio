@@ -31,7 +31,7 @@ use crate::processing::{
     CompileContext, EntryTarget, TEST_BINS_PREFIX, TaskBatch, TaskFiles, process_task,
 };
 use crate::reader::{ContentSource, ExportSource, SourceFailure, SourceKind, SourceRevision};
-use crate::templates::Templates;
+use crate::templates::{self, Templates};
 use crate::validation::{run_budget, run_pool, validation_pass};
 
 /// Where a compile puts what it writes (`pipeline.md` "5. Writer", step 5), decided on the
@@ -94,7 +94,7 @@ pub(crate) fn run(
     ctx: &ToolContext,
 ) -> anyhow::Result<Option<Severity>> {
     let mut events = RunEvents::new(ctx);
-    let Some(templates) = templates(ctx, &mut events) else {
+    let Some(templates) = templates::read_reported(ctx, &mut events) else {
         return Ok(events.worst());
     };
     let download = if mode.deploys() {
@@ -128,34 +128,6 @@ pub(crate) fn run(
         output_folder,
         mode,
     )
-}
-
-/// The run's resources, read before anything else, their findings reported first. A
-/// `templates/` file that cannot be read is `template_override_unreadable`, Fatal, and `None`:
-/// the run stops before any export is read, the previous CPK kept, whatever the resource,
-/// because the file was put there on purpose (`pipeline.md` "Resolved decisions",
-/// "Templates and fallback bins").
-fn templates(ctx: &ToolContext, events: &mut RunEvents) -> Option<Templates> {
-    match Templates::read(ctx.paths().data_dir.as_deref()) {
-        Ok((templates, messages)) => {
-            for message in messages {
-                events.message(message);
-            }
-            Some(templates)
-        }
-        Err(unreadable) => {
-            events.message(tool_message(
-                Code::TemplateOverrideUnreadable,
-                Scope::Run,
-                Disposition::AbortRun,
-                vec![
-                    ("path", unreadable.path.display().to_string()),
-                    ("error", format!("{:#}", unreadable.error)),
-                ],
-            ));
-            None
-        }
-    }
 }
 
 /// The bins the run builds on, from the installed CPKs of the PES folder or the bundled bases

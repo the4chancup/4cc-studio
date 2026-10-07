@@ -9,10 +9,11 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use pes_version::PesVersion;
-use studio_core::{Disposition, Message, Scope};
+use studio_core::{Disposition, Message, Scope, ToolContext};
 use uniparam::UniformParameter;
 
 use crate::bins::{TeamColorBin, UniColorBin, dpfl};
+use crate::events::RunEvents;
 use crate::messages::{Code, tool_message};
 
 /// The folder's name in the data directory.
@@ -163,8 +164,20 @@ const DPFILELIST: Resource = Resource {
     format: Format::DpFileList,
 };
 
+/// The empty CPK `upgrade-dpfl` writes for an official list entry with no file in `download/`:
+/// the game loads none of the folder's CPKs when a listed one is missing
+/// (`resources/templates/README.md`).
+const PLACEHOLDER_CPK: Resource = Resource {
+    name: "placeholder.cpk",
+    embedded: include_bytes!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../../resources/templates/placeholder.cpk"
+    )),
+    format: Format::Unparsed,
+};
+
 /// Every resource a `templates/` file can replace, in the order the replacements are reported.
-const RESOURCES: [&Resource; 9] = [
+const RESOURCES: [&Resource; 10] = [
     &TEAM_COLOR,
     &UNI_COLOR,
     &UNIFORM_PARAMETER_18,
@@ -174,6 +187,7 @@ const RESOURCES: [&Resource; 9] = [
     &FACE_DIFF,
     &FCL_HAIR_SIM_FCLO,
     &DPFILELIST,
+    &PLACEHOLDER_CPK,
 ];
 
 /// An override in `templates/` that cannot be read, or one of the bins or the list that does
@@ -300,10 +314,48 @@ impl Templates {
     /// The CPK file names of the official `DpFileList.bin`, in load order: the list a compile
     /// that deploys compares the installed one with.
     pub(crate) fn official_list(&self) -> Vec<String> {
-        dpfl::entries(self.bytes(&DPFILELIST)).expect(
+        dpfl::entries(self.official_list_file()).expect(
             "the official list reads: an override is read as a list when it is read (`read`), \
              and the embedded one is checked by a test",
         )
+    }
+
+    /// The official `DpFileList.bin` itself, which `upgrade-dpfl` installs byte for byte.
+    pub(crate) fn official_list_file(&self) -> &[u8] {
+        self.bytes(&DPFILELIST)
+    }
+
+    /// The empty CPK `upgrade-dpfl` writes for an official entry with no file.
+    pub(crate) fn placeholder_cpk(&self) -> &[u8] {
+        self.bytes(&PLACEHOLDER_CPK)
+    }
+}
+
+/// A command's resources (`Templates::read`), read before anything else, their findings
+/// reported first through `events`. A `templates/` file that cannot be read is
+/// `template_override_unreadable`, Fatal, and `None`: the command stops before it reads or
+/// writes anything else, whatever the resource, because the file was put there on purpose
+/// (`pipeline.md` "Resolved decisions", "Templates and fallback bins").
+pub(crate) fn read_reported(ctx: &ToolContext, events: &mut RunEvents) -> Option<Templates> {
+    match Templates::read(ctx.paths().data_dir.as_deref()) {
+        Ok((templates, messages)) => {
+            for message in messages {
+                events.message(message);
+            }
+            Some(templates)
+        }
+        Err(unreadable) => {
+            events.message(tool_message(
+                Code::TemplateOverrideUnreadable,
+                Scope::Run,
+                Disposition::AbortRun,
+                vec![
+                    ("path", unreadable.path.display().to_string()),
+                    ("error", format!("{:#}", unreadable.error)),
+                ],
+            ));
+            None
+        }
     }
 }
 
@@ -354,9 +406,8 @@ mod tests {
         assert_eq!(names.len(), RESOURCES.len());
     }
 
-    /// Each resource's bytes in `templates`, through the accessors, in `RESOURCES` order; the
-    /// list's directly, since its accessor gives its entries.
-    fn every_resource(templates: &Templates) -> [&[u8]; 9] {
+    /// Each resource's bytes in `templates`, through the accessors, in `RESOURCES` order.
+    fn every_resource(templates: &Templates) -> [&[u8]; 10] {
         [
             templates.team_color(),
             templates.uni_color(),
@@ -366,7 +417,8 @@ mod tests {
             templates.body_skeleton(),
             templates.face_diff(),
             templates.fcl_hair_sim(),
-            templates.bytes(&DPFILELIST),
+            templates.official_list_file(),
+            templates.placeholder_cpk(),
         ]
     }
 
@@ -397,6 +449,7 @@ mod tests {
         let folder = temp.path().join("templates");
         fs::create_dir(&folder).unwrap();
         // Written in the other order, so the findings' order is the table's, not the folder's.
+        fs::write(folder.join("placeholder.cpk"), b"placeholder override").unwrap();
         fs::write(folder.join("face_diff.bin"), b"face diff override").unwrap();
         // One `UniColor.bin` record, which parses as the bin.
         let kit_colors = [1; 85];
@@ -404,9 +457,10 @@ mod tests {
 
         let (templates, messages) = Templates::read(Some(temp.path())).unwrap();
 
-        let mut expected: [&[u8]; 9] = RESOURCES.map(|resource| resource.embedded);
+        let mut expected: [&[u8]; 10] = RESOURCES.map(|resource| resource.embedded);
         expected[1] = &kit_colors;
         expected[6] = b"face diff override";
+        expected[9] = b"placeholder override";
         assert!(every_resource(&templates) == expected);
         let active = |name: &str| {
             tool_message(
@@ -416,7 +470,14 @@ mod tests {
                 vec![("path", folder.join(name).display().to_string())],
             )
         };
-        assert_eq!(messages, [active("UniColor.bin"), active("face_diff.bin")]);
+        assert_eq!(
+            messages,
+            [
+                active("UniColor.bin"),
+                active("face_diff.bin"),
+                active("placeholder.cpk")
+            ]
+        );
         assert_eq!(messages[0].code.code, "template_override_active");
         assert_eq!(messages[0].severity, Severity::Info);
     }

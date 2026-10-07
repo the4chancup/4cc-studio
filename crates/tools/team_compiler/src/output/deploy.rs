@@ -30,16 +30,17 @@ pub(crate) const LIVECPK: &str = "livecpk";
 pub(crate) const TEST_OUTPUT: &str = "test_output";
 
 /// The game folder's subfolder the game loads the CPKs `DpFileList.bin` lists from.
-const DOWNLOAD: &str = "download";
+pub(crate) const DOWNLOAD: &str = "download";
 
 /// The list of the CPKs the game loads, in `download/`.
-const DPFILELIST: &str = "DpFileList.bin";
+pub(crate) const DPFILELIST: &str = "DpFileList.bin";
 
 /// The subcommand that installs the official list, named under the context key `command` in
 /// each finding it fixes (`dpfilelist_outdated`, `dpfilelist_not_official`,
 /// `dpfilelist_cpk_missing`): the CLI renders a finding as its code and context alone, so the
-/// key is how its line names the fix (the GUI offers a button instead).
-const UPGRADE_COMMAND: &str = "4cc-studio team-compiler upgrade-dpfl";
+/// key is how its line names the fix (the GUI offers a button instead). `upgrade-dpfl`'s own
+/// `dpfilelist_upgrade_planned` names it with `--yes`.
+pub(crate) const UPGRADE_COMMAND: &str = "4cc-studio team-compiler upgrade-dpfl";
 
 /// This run's id, `<pid>-<unix ms>`: the process id keeps two runs at once apart, the time two
 /// runs of a recycled process id.

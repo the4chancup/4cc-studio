@@ -5,7 +5,7 @@
 //! whose preflight refuses an invalid invocation or configuration. `check` runs validation (the
 //! structure pass, then the deep pass over file contents) on every export; `compile` runs the
 //! same validation, plans the kept exports' face and kit tasks, processes them and writes the
-//! CPK.
+//! CPK; `upgrade-dpfl` installs the cup's official `DpFileList.bin` in the game.
 
 mod bins;
 mod check;
@@ -26,6 +26,7 @@ mod settings;
 mod templates;
 #[cfg(test)]
 mod testing;
+mod upgrade;
 mod validation;
 mod view;
 

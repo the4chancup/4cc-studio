@@ -26,14 +26,14 @@ const TRACER_FINDINGS: [&str; 6] = [
 const UPGRADE: &str = "command=4cc-studio team-compiler upgrade-dpfl";
 
 /// The repository's `resources/templates/` folder, which holds the official list.
-fn templates_folder() -> PathBuf {
+pub(crate) fn templates_folder() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../resources/templates")
 }
 
 /// The official `DpFileList.bin`'s entries, in load order: the lines of
 /// `resources/templates/DpFileList.txt`, which the list is written from, without its comments
 /// and blank lines.
-fn official_names() -> Vec<String> {
+pub(crate) fn official_names() -> Vec<String> {
     fs::read_to_string(templates_folder().join("DpFileList.txt"))
         .unwrap()
         .lines()

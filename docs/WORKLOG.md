@@ -14,7 +14,7 @@ is in `AGENTS.md` ("Working documents").
 **Next:** Phase 4 is itemized and its Acceptance section written (step 4.1, 2026-10-03; its
 cross-family review (a) is queued). Next:
 the next open Phase 4 step (see the list); 4.21 to 4.24 and 4.29
-are done, 4.25b too (4.25c next); 4.14 waits on 4.31's pre-Fox export; 4.33, 4.34, 4.c-pass and
+and 4.25 are done; 4.14 waits on 4.31's pre-Fox export; 4.33, 4.34, 4.c-pass and
 4.c-fix1 are done; 4.30,
 4.5 to 4.8, 4.9a and 4.10 to 4.13 are done (4.6c moved to Phase 8's cancellation), 4.9b
 (collars) waits on nothing. 2.5b (GPU BC7) is step 16.x (decision entries
@@ -245,6 +245,13 @@ Claude agent with no sidekick and no reviewer of another model family. While tha
   "6. Post-processing" (DpFileList upgrade, Destination writability preflight), `messages.md`
   the three `dpfilelist_*` rows, TC-DEP-05, 12, 14 and the decision entry "the official-list
   check: only a compile that deploys, and its findings' context".
+  4.25c (b), `team_compiler` (`upgrade.rs` new: `plan`, `run`, `size_text`; `cli.rs`
+  `download_folder`; `templates.rs` `PLACEHOLDER_CPK`, `read_reported` moved from
+  `compile.rs`; `messages.rs` six codes), its commit of 2026-10-07, against `pipeline.md` "6.
+  Post-processing" (DpFileList upgrade, the rename and placeholder sub-bullets), `settings.md`
+  "CLI" (`upgrade-dpfl`), `messages.md` the six `upgrade-dpfl` rows, TC-DEP-09, 10, 13 and the
+  decision entries "a stem's renames include its files already under official names" and
+  "what `upgrade-dpfl` reports, and the cases the plan left open".
 - For the lead, on return: the review process on trial (3.1) opens with a full sidekick review
   loop, then runs GPT's loop with a full sidekick loop after each GPT round, calling GPT again
   only once that sidekick loop has ended and GPT's own loop has not; not yet in `AGENTS.md`
@@ -1492,7 +1499,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `4cc_90_tracer`, the name Red's golden run used → verify: no `4cc_90_test` left under
   `crates/`, `just gates` green
 
-- [ ] 4.25 **DpFileList upgrade and the official-list check** (the entry list is fixed:
+- [x] 4.25 **DpFileList upgrade and the official-list check** (the entry list is fixed:
   `resources/templates/DpFileList.txt`, 53 entries; before this step, 4.25a renames the
   default `cpk_name` in the code): the one official `DpFileList.bin` embedded; on every
   compile with a PES folder the installed list's entries compared with it in order,
@@ -1523,7 +1530,12 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   embedded list and `DpFileList.bin.bak` equal to the old file, `4cc_41_teams.cpk` holding
   the old file's bytes. 4.25b done 2026-10-07 (Opus 5.5, first time; TC-DEP-12, 14 proven;
   mutants-diff 32: 27 caught, 5 unviable, 0 missed; Clef 24 windows, no flag; lead fix: a
-  doc comment rewrapped). 4.25c next (`.tmp/brief_4_25c.md`).
+  doc comment rewrapped). 4.25c done 2026-10-07 (Opus 5.5, first time; TC-DEP-09, 10, 13
+  proven; every expected value of the brief's PES 2017 case matched; mutants-diff 84: 76
+  caught, 5 unviable, 3 missed, each killed by a lead test checked against its mutant by hand:
+  an official list with an empty slot, an unofficial list needing no rename or placeholder, a
+  list that cannot be read; Clef 28 windows, 1 flag rejected). The list replaced last is
+  tested on Windows only (a held-open CPK): Linux renames over an open file.
 
 - [ ] 4.26 **Multi-CPK mode**: `multicpk_mode` honored (the Phase 3 refusal removed); slots from
   the DPFL entries matching `{prefix}_{NN}_{teams_cpk_name}` exactly, ordered by number; whole
@@ -3057,3 +3069,6 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
     compares the installed list with it: `dpfilelist_outdated` (E) for an older list lacking
     the run's CPK, `dpfilelist_not_official` and `dpfilelist_cpk_missing` (W), each naming
     `upgrade-dpfl`. Test installs are now upgraded ones (official list, placeholders).
+  - **4.25c:** `upgrade-dpfl [--yes]` lists, then makes, the renames of an old DLC's CPKs by
+    stem, the placeholders of empty official slots and the official list (old one as `.bak`),
+    the list last; it never deletes or overwrites a CPK. Step 4.25 is done.

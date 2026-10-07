@@ -22,6 +22,7 @@ mod sideload;
 mod sources;
 mod test_mode;
 mod textures;
+mod upgrade;
 
 use std::collections::BTreeMap;
 use std::fs;

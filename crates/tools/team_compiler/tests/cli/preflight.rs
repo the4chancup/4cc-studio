@@ -133,8 +133,6 @@ fn modes_and_commands_this_version_lacks_are_refused() {
         &["compile", "--mode", "sideload"],
     );
     run.assert_refused(2, &["--mode sideload", "PES 2016"]);
-    let run = sandbox.run("", &["upgrade-dpfl"]);
-    run.assert_refused(2, &["upgrade-dpfl", "not available yet"]);
 
     let multicpk = "[team-compiler]\nmulticpk_mode = true\n";
     let run = sandbox.run(multicpk, &["compile", "--no-deploy"]);

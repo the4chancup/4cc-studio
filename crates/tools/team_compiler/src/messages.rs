@@ -210,6 +210,24 @@ pub(crate) enum Code {
     /// The installed `DpFileList.bin` does not list the run's CPK, which the official list
     /// names: an older list, so the game would not load it. The CPK goes to the output folder.
     DpfilelistOutdated,
+    /// `upgrade-dpfl`: an old DLC's CPK renamed to an official name of its stem, so the game
+    /// still loads it under the official list.
+    DpfilelistCpkRenamed,
+    /// `upgrade-dpfl`: the placeholder CPK written for an official entry with no file in
+    /// `download/`, since the game loads none of the folder when a listed CPK is missing.
+    DpfilelistPlaceholderWritten,
+    /// `upgrade-dpfl`: the installed `DpFileList.bin` replaced by the official one, the old one
+    /// kept as `DpFileList.bin.bak`.
+    DpfilelistReplaced,
+    /// `upgrade-dpfl`: an installed entry the official list lacks and that is not renamed: the
+    /// game no longer loads it, and its file is left for the user to remove.
+    DpfilelistCpkDropped,
+    /// `upgrade-dpfl`: the installed list is the official one byte for byte and every CPK it
+    /// names is in `download/`, so nothing is written.
+    DpfilelistUpToDate,
+    /// `upgrade-dpfl` without `--yes`: the findings before it are what `--yes` would do, and
+    /// nothing was written.
+    DpfilelistUpgradePlanned,
     /// The installed `DpFileList.bin` does not list the run's CPK, so the game would not load
     /// it: the CPK goes to the output folder.
     CpkNameUnlisted,
@@ -235,7 +253,7 @@ impl Code {
     /// Every code, for the catalog test: a variant missing here would make its first message
     /// panic in `severity`, so a new variant is added to this list too.
     #[cfg(test)]
-    const ALL: [Code; 73] = [
+    const ALL: [Code; 79] = [
         Code::ExportExtractFailed,
         Code::NoExportsFound,
         Code::ExportDisabled,
@@ -303,6 +321,12 @@ impl Code {
         Code::DpfilelistNotOfficial,
         Code::DpfilelistCpkMissing,
         Code::DpfilelistOutdated,
+        Code::DpfilelistCpkRenamed,
+        Code::DpfilelistPlaceholderWritten,
+        Code::DpfilelistReplaced,
+        Code::DpfilelistCpkDropped,
+        Code::DpfilelistUpToDate,
+        Code::DpfilelistUpgradePlanned,
         Code::CpkNameUnlisted,
         Code::OldCpkLocked,
         Code::DeployTargetUnwritable,
@@ -381,6 +405,12 @@ impl Code {
             Code::DpfilelistNotOfficial => "dpfilelist_not_official",
             Code::DpfilelistCpkMissing => "dpfilelist_cpk_missing",
             Code::DpfilelistOutdated => "dpfilelist_outdated",
+            Code::DpfilelistCpkRenamed => "dpfilelist_cpk_renamed",
+            Code::DpfilelistPlaceholderWritten => "dpfilelist_placeholder_written",
+            Code::DpfilelistReplaced => "dpfilelist_replaced",
+            Code::DpfilelistCpkDropped => "dpfilelist_cpk_dropped",
+            Code::DpfilelistUpToDate => "dpfilelist_up_to_date",
+            Code::DpfilelistUpgradePlanned => "dpfilelist_upgrade_planned",
             Code::CpkNameUnlisted => "cpk_name_unlisted",
             Code::OldCpkLocked => "old_cpk_locked",
             Code::DeployTargetUnwritable => "deploy_target_unwritable",
@@ -479,6 +509,12 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("dpfilelist_not_official", CatalogSeverity::Warning),
     ("dpfilelist_cpk_missing", CatalogSeverity::Warning),
     ("dpfilelist_outdated", CatalogSeverity::Error),
+    ("dpfilelist_cpk_renamed", CatalogSeverity::Info),
+    ("dpfilelist_placeholder_written", CatalogSeverity::Info),
+    ("dpfilelist_replaced", CatalogSeverity::Info),
+    ("dpfilelist_cpk_dropped", CatalogSeverity::Warning),
+    ("dpfilelist_up_to_date", CatalogSeverity::Info),
+    ("dpfilelist_upgrade_planned", CatalogSeverity::Info),
     ("cpk_name_unlisted", CatalogSeverity::Error),
     ("old_cpk_locked", CatalogSeverity::Error),
     ("deploy_target_unwritable", CatalogSeverity::Error),

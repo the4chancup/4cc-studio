@@ -18,7 +18,7 @@ use crate::messages::TOOL_ID;
 use crate::output::deploy;
 use crate::reader::is_archive;
 use crate::settings::{TeamCompilerSettings, from_table};
-use crate::{check, compile};
+use crate::{check, compile, upgrade};
 
 // The exit codes are the command line's contract with scripts (`settings.md` "CLI").
 /// Exit code of a run that finished with no Error finding (warnings and notes allowed).
@@ -137,10 +137,30 @@ pub(crate) fn run(matches: &clap::ArgMatches, ctx: &ToolContext) -> Result<u8, C
             )?;
             verdict(compile::run(&inputs, &cpk_stem, &output_folder, &mode, ctx))
         }
-        TeamCompilerCommand::UpgradeDpfl { .. } => Err(invalid(anyhow!(
-            "upgrade-dpfl is not available yet in this version"
-        ))),
+        TeamCompilerCommand::UpgradeDpfl { yes } => {
+            let download = download_folder(&ctx.common())?;
+            verdict(upgrade::run(&download, yes, ctx))
+        }
     }
+}
+
+/// The PES folder's `download/`, which `upgrade-dpfl` works in (`settings.md` "CLI"): refused,
+/// naming the path and the setting, when it or the PES folder is not a folder.
+fn download_folder(common: &CommonSettings) -> Result<PathBuf, CliError> {
+    let pes_folder = common.pes_folder();
+    let download = pes_folder.join(deploy::DOWNLOAD);
+    let not_a_folder = if !pes_folder.is_dir() {
+        pes_folder
+    } else if !download.is_dir() {
+        download
+    } else {
+        return Ok(download);
+    };
+    Err(invalid(anyhow!(
+        "upgrade-dpfl works in the game's download folder, and {} is not a folder: set \
+         pes_folder_path to the folder PES is installed in",
+        not_a_folder.display()
+    )))
 }
 
 /// A run's outcome as the exit code: its worst finding's, or `ABORTED` with the error when the

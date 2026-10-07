@@ -6,6 +6,7 @@ The Team compiler also runs without its window, from a terminal opened in the fo
 ```text
 4cc-studio team-compiler check [exports-root] [--export <path>]...
 4cc-studio team-compiler compile [exports-root] [--mode normal|test|sideload] [--export <path>]... [--no-deploy]
+4cc-studio team-compiler upgrade-dpfl [--yes]
 ```
 
 `check` reads your exports and reports what it finds, without writing anything. `compile` reads
@@ -315,12 +316,13 @@ files a compile starts from when no installed CPK has them), `UniformParameter18
 it, for PES 2018 and for PES 2019 to 2021), `placeholder_kit.dds` (the checkerboard texture of
 a placeholder kit), `body.skl` (the skeleton a boots or hair model gets when its folder has
 none), `face_diff.bin` and `fcl_hair_sim.fclo` (the face file and the hair simulation file a
-face gets when its folder has none), and `DpFileList.bin` (the cup's official list, which a
-compile compares the game's with). Any other file in the folder is ignored. `compile` names
-each file it used with the note `template_override_active`. A file it cannot read, or one of
-the four kit and color files or `DpFileList.bin` that is not a valid file of its kind, stops
-the compile before any export is read (`template_override_unreadable`), so the CPK you had is
-kept.
+face gets when its folder has none), `DpFileList.bin` (the cup's official list, which a
+compile compares the game's with and `upgrade-dpfl` installs), and `placeholder.cpk` (the empty
+CPK `upgrade-dpfl` writes for a CPK of the list that is not in the `download` folder). Any other
+file in the folder is ignored. `compile` and `upgrade-dpfl` name each file they used with the
+note `template_override_active`. A file they cannot read, or one of the four kit and color files
+or `DpFileList.bin` that is not a valid file of its kind, stops the command before it does
+anything else (`template_override_unreadable`), so the CPK you had is kept.
 
 An FPC player's body is hidden only when every kit config of the team, the goalkeeper kit's
 included, carries the FPC values (shirt model 176, shorts model 16, collar 105, winter collar
@@ -393,6 +395,42 @@ which installs the official list.
 
 A game folder with no `DpFileList.bin` in its `download` folder is the error
 `dpfilelist_missing`, and the CPK is left in the output folder the same way.
+
+`upgrade-dpfl` installs the cup's official `DpFileList.bin` in the `download` folder of the game
+folder (the `pes_folder_path` setting). It asks no question: run without `--yes`, it writes
+nothing and only prints, one line each, what `--yes` would do, then
+`dpfilelist_upgrade_planned`, which names the command to run with `--yes`. With `--yes` it does
+those things in this order, printing each line once it is done:
+
+- `dpfilelist_cpk_renamed` (`from=...`, `to=...`): a CPK of an older DLC renamed to the official
+  name of its kind, so the game still loads it under the official list. CPKs of one kind keep
+  their order: `4cc_40_faces.cpk` and `4cc_45_uniform.cpk` become `4cc_41_teams.cpk` and
+  `4cc_42_teams.cpk`, `4cc_30_stadiums0.cpk` becomes `4cc_20_stadiums.cpk`. A CPK is never
+  renamed over a file that is already there.
+- `dpfilelist_placeholder_written` (`cpk=...`): the empty placeholder CPK written for a CPK of
+  the official list that is not in the folder, since the game loads none of the CPKs there when
+  one it lists is missing. A file that is there is never overwritten.
+- `dpfilelist_replaced` (`path=...`): the list replaced by the official one. Your old list is
+  kept beside it as `DpFileList.bin.bak` (`backup=...`), replacing an older backup. A list that
+  is not a valid list is replaced the same way, the line saying why it could not be read
+  (`unreadable=...`), and nothing is renamed. A folder with no list gets the official one, and
+  no backup.
+- `dpfilelist_cpk_dropped`, a warning (`cpk=...`, `size=...`): a CPK of your old list that the
+  official list does not have and that could not be renamed (no official name of its kind left
+  for it, a name not of the `4cc_NN_kind.cpk` shape, or its new name taken by another file). The
+  game no longer loads it. The command never deletes a CPK: the line gives the file's size (no
+  size when the file is not there), and removing it is up to you.
+
+When the list already is the official one and every CPK it names is in the folder, the only
+line is `dpfilelist_up_to_date`, and nothing is written.
+
+`upgrade-dpfl` refuses to run (exit code 2) when the game folder or its `download` folder does
+not exist: set `pes_folder_path` to the folder PES is installed in. When a file cannot be
+renamed or written (PES is running and holds the CPK, or the folder needs administrator
+rights), it stops with exit code 3, naming the file. What it did before stays done, and the list
+is replaced last, so the game keeps your old list until the end: close PES, or run Studio as
+administrator, and run the command again to finish. A CPK it already renamed is not renamed
+again.
 
 `--mode sideload` is for trying a change in a running game. Instead of a CPK, `compile` writes
 what the CPK would hold as loose files in the `livecpk` folder of the game folder (the
