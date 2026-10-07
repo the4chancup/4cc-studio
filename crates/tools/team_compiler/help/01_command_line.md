@@ -167,7 +167,13 @@ used, and both commands report it as `face_file_not_used`. For PES 2015 to 2017 
 of a player folder, boots and gloves included, goes into the player's face, listed in a
 `face.xml` that `compile` writes with each model's type read from its name; a face with
 models but none of type `face_neck` (a `face_high` model is one) gets an invisible stand-in,
-reported as `xml_face_neck_added`.
+reported as `xml_face_neck_added`. A linked `Faces` folder is copied into the face of each
+player linking it, reported as `link_combined`, the player's own model or `.mtl` replacing the
+linked folder's file of the same name. A linked `Boots` folder holds one `.model`, written once
+as `boots.model` with the `.mtl` it uses as `boots.mtl`, and a linked `Gloves` folder's models
+and `.mtl` files are written once under their own names in lower case, the models listed in a
+`glove.xml` that `compile` writes; the
+textures of either sit beside the models.
 Each model uses the first `.mtl` found in its own folder, then in the player's folder: one
 whose name starts or ends the model's name, then `materials.mtl`, then any. For PES 2015 to
 2017, a model with no `.mtl` to use is the error `model_material_undefined`, and the player's
@@ -180,8 +186,10 @@ range) is reported by both commands as `kit_config_invalid`, naming the error, a
 left out, even with `pass_through` on. `compile`
 skips any other export with the error `content_not_yet_compiled`, naming the first thing it
 cannot build yet. For PES 2015 to 2017 it builds a player folder's own `.model` files with
-their `.mtl` files, textures and face diff, and the portraits and the logo; links, `Common`,
-shared folders, kits, collars, `ingame_face`, `.fmdl` files and referee exports are named. For
+their `.mtl` files, textures and face diff, the linked shared `Faces`, `Boots` and `Gloves`
+folders, and the portraits and the logo; `.common` links, `Common`, kits, collars,
+`ingame_face`, `.fmdl` files, a `Boots` folder holding several models and referee exports are
+named. For
 PES 2018 to 2021 it names a referee export's kit, logo, portrait or collar
 (a referee has no kit slot, team logo or player id, and no kit of his own to put a collar on),
 or content other than a player's

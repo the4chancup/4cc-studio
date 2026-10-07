@@ -92,12 +92,14 @@ pub(crate) fn link_name(kind: SharedKind, name: &str) -> String {
     format!("{name}.{extension}")
 }
 
-/// Whether `player`'s `link` combines on Fox: the shared folder's models become parts of the
+/// Whether `player`'s `link` combines: the shared folder's models become parts of the
 /// player's own package instead of the shared output being loaded as it is. A face link
-/// always does, a shared face having no output of its own; a boots or gloves link does when
-/// the player holds a model of that package (`player_folders.md` "A link plus local models
-/// combines"), a model `ingame_face` makes a boots part included. Pre-Fox has no exclusive
-/// packages, so there every link is plain.
+/// always does, on both engines, a shared face having no output of its own: on Fox it is
+/// merged into the player's face, on pre-Fox copied into his face CPK. A boots or gloves link
+/// does on Fox when the player holds a model of that package (`player_folders.md` "A link
+/// plus local models combines"), a model `ingame_face` makes a boots part included; it is
+/// asked for one on Fox only (`link_feeds_own_package`), pre-Fox having no exclusive boots
+/// or gloves packages.
 pub(crate) fn link_combines(player: &PlayerFolder, link: &SharedLink) -> bool {
     match link.kind {
         SharedKind::Face => true,
@@ -110,8 +112,11 @@ pub(crate) fn link_combines(player: &PlayerFolder, link: &SharedLink) -> bool {
 /// `roster` is the roster of the player's export. A referee's every link is: he has no team
 /// block to give the shared folder an id of its own, so it is written as his slot's
 /// `k99NN`/`g99NN` (`blue_port.md` "Referee export processing"). A team player's link is
-/// when it combines on Fox (`link_combines`); pre-Fox has no exclusive packages, so there a
-/// team player's every link is plain.
+/// when it combines on Fox (`link_combines`). On pre-Fox a team player's face link is (the
+/// shared face is copied into his face CPK), and his boots or gloves link is not: pre-Fox
+/// has no exclusive boots or gloves packages, so he loads the shared output by its id while
+/// his own boots and gloves models are parts of his face (`player_folders.md` "A link plus
+/// local models combines").
 pub(crate) fn link_feeds_own_package(
     roster: &ValidatedRoster,
     engine: Engine,
@@ -122,7 +127,10 @@ pub(crate) fn link_feeds_own_package(
         ValidatedRoster::Referees(_) => true,
         ValidatedRoster::Team(_) => match engine {
             Engine::Fox => link_combines(player, link),
-            Engine::PreFox => false,
+            Engine::PreFox => match link.kind {
+                SharedKind::Face => true,
+                SharedKind::Boots | SharedKind::Gloves => false,
+            },
         },
     }
 }
@@ -759,7 +767,8 @@ pub(crate) fn is_part_of(role: &PlayerFile, package: ModelPackage) -> bool {
 /// Whether the player folder `player` has a model that packs into `package`, its own or one a
 /// `.common` link brings in, under its `ingame_face` marker when it holds one: on Fox, what
 /// gives a player its own package of that kind. The answer is Fox's, from the roles
-/// `player_file` gives on Fox (its one caller, `link_combines`, is reached on Fox only).
+/// `player_file` gives on Fox: its one caller, `link_combines`, asks it for a boots or gloves
+/// link, which feeds a team player's own package on Fox only (`link_feeds_own_package`).
 pub(crate) fn holds_model(player: &PlayerFolder, package: ModelPackage) -> bool {
     let models = FolderModels::of_player(player, Engine::Fox);
     player.files.iter().any(|file| {
@@ -877,12 +886,15 @@ pub(crate) fn first_not_compiled(
 }
 
 /// `first_not_compiled` for the pre-Fox `version`, where `compile` builds a team's player
-/// folders' own `.model` files with their `.mtl` files, textures and face diff, its portraits
-/// and its logo. A refs export is named by the target. Otherwise, in this order: each mapped
-/// player folder's `ingame_face` marker, then its first link to a shared folder, then its
-/// first file with no pre-Fox role (`player_file`: an `.fmdl`, a `.common` link, a member's
-/// own `face.xml`, a per-kit model, among others); then the first kit (its folder), then the
-/// first `Collars/` file, then the first `Common/` file. Each is a later step's content.
+/// folders' own `.model` files with their `.mtl` files, textures and face diff, the shared
+/// face, boots and gloves folders they link, its portraits and its logo. A refs export is
+/// named by the target. Otherwise, in this order: each mapped player folder's `ingame_face`
+/// marker, then its first file with no pre-Fox role (`player_file`: an `.fmdl`, a `.common`
+/// link, a member's own `face.xml`, a per-kit model, among others), then the first item
+/// `pre_fox_shared_not_compiled` names in the `Faces/` folder its face link names; then each
+/// shared boots folder taking an id, then each such gloves folder
+/// (`pre_fox_shared_not_compiled`); then the first kit (its folder), then the first
+/// `Collars/` file, then the first `Common/` file. Each is a later step's content.
 fn pre_fox_not_compiled(
     resolved: &ResolvedAestheticsExport,
     version: PesVersion,
@@ -893,15 +905,10 @@ fn pre_fox_not_compiled(
         ExportIdentity::Referees => return Some(("what", version.to_string())),
     }
     for folder in mapped_players(export) {
-        // Neither the marker nor a link is among the folder's files: each is named by its
-        // name in the folder, the marker without the `.txt` it may carry, a link as
-        // `link_name` spells it.
+        // The marker is not among the folder's files: it is named by its name in the folder,
+        // without the `.txt` it may carry.
         if folder.ingame_face {
             return Some(("what", format!("{}/ingame_face", folder.path.as_str())));
-        }
-        if let Some(link) = folder.links.first() {
-            let name = link_name(link.kind, &link.name);
-            return Some(("what", format!("{}/{name}", folder.path.as_str())));
         }
         let models = FolderModels::of_player(folder, Engine::PreFox);
         if let Some(file) = folder
@@ -910,6 +917,26 @@ fn pre_fox_not_compiled(
             .find(|file| player_file(&folder.path, file, &models).is_none())
         {
             return Some(what_entry(file));
+        }
+        // A face link is a source of the player's face; his boots and gloves links load the
+        // shared outputs walked below.
+        if let Some(link) = folder
+            .links
+            .iter()
+            .find(|link| matches!(link.kind, SharedKind::Face))
+        {
+            let shared = linked_folder(export, link)
+                .expect("validation drops a player folder whose link names no shared folder");
+            if let Some(item) = pre_fox_shared_not_compiled(link.kind, shared) {
+                return Some(item);
+            }
+        }
+    }
+    for kind in [SharedKind::Boots, SharedKind::Gloves] {
+        for folder in shared_folders_taking_ids(export, version.engine(), kind) {
+            if let Some(item) = pre_fox_shared_not_compiled(kind, folder) {
+                return Some(item);
+            }
         }
     }
     if let Some(kit) = export.kits.kits.values().next() {
@@ -1036,6 +1063,45 @@ fn shared_not_compiled(
         return Some(("what", path.as_str().to_owned()));
     }
     None
+}
+
+/// The first thing in the shared `folder` of `kind` that `compile` cannot build for a pre-Fox
+/// target yet: its first file with no pre-Fox role (`player_file`) or, in a boots or gloves
+/// folder, with a role other than a model, a `.mtl` or a texture (a face diff has no face
+/// there to shape); then, in a boots folder, its second model in the order of export
+/// paths, case-folded (the game loads one `boots.model`, and merging several is a later
+/// step's); a folder with no model is named as a whole. A `Faces/` folder's files are copied
+/// into each linking player's face, so its face files are kept.
+fn pre_fox_shared_not_compiled(
+    kind: SharedKind,
+    folder: &SharedModelFolder,
+) -> Option<(&'static str, String)> {
+    let path = &folder.path;
+    let models = FolderModels::of(path, &folder.files, Engine::PreFox);
+    let mut model_paths = Vec::new();
+    for file in &folder.files {
+        let Some(role) = player_file(path, file, &models) else {
+            return Some(what_entry(file));
+        };
+        let loose_output_file = matches!(
+            role,
+            PlayerFile::PreFoxModel { .. } | PlayerFile::Material | PlayerFile::Texture(..)
+        );
+        match kind {
+            SharedKind::Face => {}
+            SharedKind::Boots | SharedKind::Gloves if loose_output_file => {}
+            SharedKind::Boots | SharedKind::Gloves => return Some(what_entry(file)),
+        }
+        if matches!(role, PlayerFile::PreFoxModel { .. }) {
+            model_paths.push(&file.path);
+        }
+    }
+    model_paths.sort_by_cached_key(|model| (model.fold_key(), model.as_str().to_owned()));
+    match (kind, model_paths.as_slice()) {
+        (_, []) => Some(("what", path.as_str().to_owned())),
+        (SharedKind::Boots, [_, second, ..]) => Some(("what", second.as_str().to_owned())),
+        (SharedKind::Face | SharedKind::Boots | SharedKind::Gloves, _) => None,
+    }
 }
 
 /// The `what` context entry naming `file` by its export path.
@@ -1208,35 +1274,81 @@ mod tests {
             ]),
             None
         );
+        // A linked shared face, boots or gloves folder holding models compiles.
+        let round = [
+            "Players/03 - A/Round.face",
+            "Faces/Round/hair_high.model",
+            "Faces/Round/hair_high.mtl",
+        ];
+        assert_eq!(pre_fox(&round), None);
+        let crocs = [
+            "Players/03 - A/Crocs.boots",
+            "Boots/Crocs/boots.model",
+            "Boots/Crocs/boots.mtl",
+            "Boots/Crocs/crocs.dds",
+        ];
+        assert_eq!(pre_fox(&crocs), None);
+        let keeper = [
+            "Players/03 - A/Keeper.gloves",
+            "Gloves/Keeper/glove_l.model",
+            "Gloves/Keeper/glove_r.model",
+            "Gloves/Keeper/materials.mtl",
+        ];
+        assert_eq!(pre_fox(&keeper), None);
+        // A shared folder's file with no pre-Fox role is named, a face folder's too.
+        let hat = "Faces/Round/hat.fmdl";
+        assert_eq!(pre_fox(&[round.as_slice(), &[hat]].concat()), what(hat));
+        // A shared boots folder holds one boots model: the second, in path order, is named.
+        let link = "Players/03 - A/Crocs.boots";
+        let second = "Boots/Crocs/b_boots.model";
+        assert_eq!(
+            pre_fox(&[link, second, "Boots/Crocs/a_boots.model"]),
+            what(second)
+        );
+        // A shared folder with no model is named as a whole.
+        assert_eq!(
+            pre_fox(&[link, "Boots/Crocs/crocs.dds"]),
+            what("Boots/Crocs")
+        );
+        // A face file has no place in a shared boots folder.
+        let diff = "Boots/Crocs/face_diff.bin";
+        assert_eq!(
+            pre_fox(&[link, "Boots/Crocs/boots.model", diff]),
+            what(diff)
+        );
         let marker = "Players/05 - B/ingame_face";
-        let link = "Players/05 - B/Crocs.boots";
-        let shared = "Boots/Crocs/boots.model";
         let fmdl = "Players/05 - B/hat.fmdl";
+        let face_link = "Players/05 - B/Round.face";
+        let boots_link = "Players/05 - B/Crocs.boots";
+        let boots_fmdl = "Boots/Crocs/boots.fmdl";
         let kit = "Kits/g1/kit.dds";
         let collar = "Collars/collar_12.model";
         let common = "Common/hair.dds";
-        // In a folder, its marker, then its first link, then its first file with no role;
-        // then the kits, the collars and `Common/`.
+        // In a folder, its marker, then its first file with no role, then its linked face
+        // folder's first; then the shared boots and gloves folders, the kits, the collars and
+        // `Common/`. (Validation drops a marked folder linking a face that holds face models,
+        // so the marker is tried beside the rest of the walk only.)
+        let all = [
+            fmdl,
+            face_link,
+            "Faces/Round/hair_high.model",
+            hat,
+            boots_link,
+            boots_fmdl,
+            kit,
+            collar,
+            common,
+        ];
         assert_eq!(
-            pre_fox(&[marker, link, shared, fmdl, kit, collar, common]),
+            pre_fox(&[marker, fmdl, boots_link, boots_fmdl, kit, collar, common]),
             what(marker)
         );
-        assert_eq!(
-            pre_fox(&[link, shared, fmdl, kit, collar, common]),
-            what(link)
-        );
-        assert_eq!(pre_fox(&[fmdl, kit, collar, common]), what(fmdl));
-        assert_eq!(pre_fox(&[kit, collar, common]), what("Kits/g1"));
-        assert_eq!(pre_fox(&[collar, common]), what(collar));
-        assert_eq!(pre_fox(&[common]), what(common));
-        // A face link, as `link_name` spells it.
-        assert_eq!(
-            pre_fox(&[
-                "Players/03 - A/Round.face.txt",
-                "Faces/Round/face_high.model"
-            ]),
-            what("Players/03 - A/Round.face")
-        );
+        assert_eq!(pre_fox(&all), what(fmdl));
+        assert_eq!(pre_fox(&all[1..]), what(hat));
+        assert_eq!(pre_fox(&all[4..]), what(boots_fmdl));
+        assert_eq!(pre_fox(&all[6..]), what("Kits/g1"));
+        assert_eq!(pre_fox(&all[7..]), what(collar));
+        assert_eq!(pre_fox(&all[8..]), what(common));
         // A member's own `face.xml` and a per-kit model are later steps'.
         for file in ["Players/03 - A/face.xml", "Players/03 - A/pants_kit1.model"] {
             assert_eq!(pre_fox(&[file]), what(file), "{file}");

@@ -1,7 +1,8 @@
 //! The materialize step (`team_compiler/pipeline.md` "5. Writer", step 5): the one place a
 //! task's output becomes the entries the writer adds. In normal and sideload mode an entry goes
-//! at its game path and a model package is packed per id, into an `.fpk` on Fox and into a
-//! face CPK nested in the output on pre-Fox; in test mode every entry goes under its export's
+//! at its game path and a model package is packed per id, into an `.fpk` on Fox and on pre-Fox
+//! into a face CPK nested in the output, the boots and gloves as loose files of their folder;
+//! in test mode every entry goes under its export's
 //! source and the folder the task works on, a package unpacked.
 
 use std::collections::BTreeMap;
@@ -45,7 +46,8 @@ pub(crate) enum TaskOutput {
 /// Where a run's entries go, fixed once for the run.
 pub(crate) enum EntryTarget {
     /// Normal and sideload mode: each entry at its game path, a package as one `.fpk` and an
-    /// empty `.fpkd` per id on Fox, as one face CPK per id on pre-Fox.
+    /// empty `.fpkd` per id on Fox, on pre-Fox a face as one face CPK per id and the boots
+    /// and gloves as loose files of each id's folder.
     GamePaths {
         /// The target's engine, which decides how a package is packed.
         engine: Engine,
@@ -74,7 +76,10 @@ pub(crate) fn materialize(
                 files,
             } => match engine {
                 Engine::Fox => packed(package, &ids, files),
-                Engine::PreFox => pre_fox_faces(package, &ids, &files),
+                Engine::PreFox => match package {
+                    ModelPackage::Face => pre_fox_faces(&ids, &files),
+                    ModelPackage::Boots | ModelPackage::Gloves => loose(package, &ids, files),
+                },
             },
         },
         EntryTarget::TestOutput { sources } => {
@@ -150,22 +155,37 @@ fn packed(package: ModelPackage, ids: &[PackageKey], files: PackageFiles) -> Vec
 }
 
 /// `files`, a pre-Fox face's, packed as one face CPK under each of `ids`
-/// (`paths::pre_fox_face`). Each CPK holds its own copy: its entries' paths repeat its own
-/// path, which carries the id.
-fn pre_fox_faces(package: ModelPackage, ids: &[PackageKey], files: &PackageFiles) -> Vec<Entry> {
-    match package {
-        ModelPackage::Face => {}
-        ModelPackage::Boots | ModelPackage::Gloves => unreachable!(
-            "a pre-Fox target plans no boots or gloves package: a player's every model is typed \
-             in his face's `face.xml`"
-        ),
-    }
+/// (`paths::pre_fox_package_folder`). Each CPK holds its own copy: its entries' paths repeat
+/// its own path, which carries the id.
+fn pre_fox_faces(ids: &[PackageKey], files: &PackageFiles) -> Vec<Entry> {
     ids.iter()
         .map(|id| {
-            let face = paths::pre_fox_face(*id);
+            let face = paths::pre_fox_package_folder(ModelPackage::Face, *id);
             (format!("{face}.cpk"), face_cpk(&face, files))
         })
         .collect()
+}
+
+/// `files`, a pre-Fox boots or gloves `package`'s, as loose files of its folder under each of
+/// `ids` (`paths::pre_fox_package_folder`), the shape of the game's own boots and glove
+/// folders.
+fn loose(package: ModelPackage, ids: &[PackageKey], files: PackageFiles) -> Vec<Entry> {
+    let folders: Vec<String> = ids
+        .iter()
+        .map(|id| paths::pre_fox_package_folder(package, *id))
+        .collect();
+    let mut entries = Vec::new();
+    for (name, bytes) in files {
+        // Each id gets its own copy; the last takes the buffer itself rather than one more
+        // copy.
+        if let Some((last, others)) = folders.split_last() {
+            for folder in others {
+                entries.push((format!("{folder}/{name}"), bytes.clone()));
+            }
+            entries.push((format!("{last}/{name}"), bytes));
+        }
+    }
+    entries
 }
 
 /// The face CPK holding `files`, each at `<face>/<name>`, with no timestamps.
@@ -441,6 +461,48 @@ mod tests {
                 .collect();
             assert_eq!(read, expected);
         }
+    }
+
+    #[test]
+    fn a_pre_fox_shared_gloves_package_is_loose_files_of_its_folder() {
+        let gloves = task(TaskKind::Models {
+            folder: folder(
+                "Gloves/Keeper",
+                TextureHome::SharedOutput {
+                    package: ModelPackage::Gloves,
+                    id: 644,
+                },
+            ),
+            package: ModelPackage::Gloves,
+            ids: vec![PackageKey::Id(644)],
+        });
+        let files = BTreeMap::from([
+            ("glove.xml".to_owned(), b"xml".to_vec()),
+            ("glove_l.model".to_owned(), b"model".to_vec()),
+        ]);
+        let pre_fox = EntryTarget::GamePaths {
+            engine: Engine::PreFox,
+        };
+
+        let written = materialize(
+            package(ModelPackage::Gloves, &[644], files),
+            &gloves,
+            &pre_fox,
+        );
+
+        assert_eq!(
+            written,
+            [
+                (
+                    "common/character0/model/character/glove/g0644/glove.xml".to_owned(),
+                    b"xml".to_vec()
+                ),
+                (
+                    "common/character0/model/character/glove/g0644/glove_l.model".to_owned(),
+                    b"model".to_vec()
+                ),
+            ]
+        );
     }
 
     #[test]

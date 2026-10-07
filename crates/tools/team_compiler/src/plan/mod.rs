@@ -451,6 +451,10 @@ impl TaskKind {
             } => folder_files(folder, |file, role| {
                 role.package() == Some(*package)
                     || (*package == ModelPackage::Gloves && folder.hand_split.contains(&file.path))
+                    // A pre-Fox model and `.mtl` go into the package their folder's own
+                    // files feed: a shared boots or gloves folder's into its own output.
+                    || (matches!(role, PlayerFile::PreFoxModel { .. } | PlayerFile::Material)
+                        && *package == folder.own_package())
             }),
             TaskKind::Textures { folder, .. } => {
                 folder_files(folder, |_, role| matches!(role, PlayerFile::Texture(..)))
@@ -769,7 +773,14 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
         }
         // After the shared folders' tasks, which a player linking one takes his row from. A
         // referee has none: the game's referee hook loads slot NN's `k99NN`/`g99NN` by number.
-        if team.is_some() {
+        // Nor does a pre-Fox target, which writes no `BootsList.bin` or `GloveList.bin`
+        // ("Game paths reference"): rows there would only be reported as
+        // `player_table_missing`.
+        let writes_item_rows = match version.engine() {
+            Engine::Fox => team.is_some(),
+            Engine::PreFox => false,
+        };
+        if writes_item_rows {
             item_rows.extend(export_rows(
                 &tasks,
                 first_task,
@@ -901,7 +912,13 @@ fn folder_tasks(
     let first = tasks.len();
     let mut held = Vec::new();
     for (package, ids) in packages {
-        let models = folder_files(&folder, |_, role| is_part_of(role, *package));
+        // A pre-Fox model is a part of the package its folder's own files feed, whatever its
+        // `face.xml` type: a player's face, a shared folder's boots or gloves.
+        let models = folder_files(&folder, |_, role| {
+            is_part_of(role, *package)
+                || (matches!(role, PlayerFile::PreFoxModel { .. })
+                    && *package == folder.own_package())
+        });
         let blank = blank_face && *package == ModelPackage::Face;
         // A hand-split face part gives the folder gloves, whatever its files are named.
         let hands = *package == ModelPackage::Gloves && !folder.hand_split.is_empty();
@@ -2798,6 +2815,66 @@ mod tests {
             [(ModelPackage::Boots, "Boots/Studs")]
         );
         assert!(report.messages.is_empty(), "{:?}", report.messages);
+    }
+
+    #[test]
+    fn a_pre_fox_face_link_combines_and_a_boots_link_loads_the_shared_output_with_no_rows() {
+        let export = resolved(
+            "co Midcup Shared",
+            &[
+                ("Players/05 - A/face_high.model", 4),
+                ("Players/05 - A/face_high.mtl", 1),
+                ("Players/05 - A/Round.face", 0),
+                ("Players/06 - B/Crocs.boots", 0),
+                ("Faces/Round/hair_high.model", 8),
+                ("Faces/Round/hair_high.mtl", 2),
+                ("Boots/Crocs/boots.model", 16),
+                ("Boots/Crocs/boots.mtl", 1),
+                ("Boots/Crocs/crocs.dds", 32),
+            ],
+            &[],
+            None,
+        );
+
+        let report = plan_run(
+            vec![to_plan(ExportId(0), export, two_team_colors(), None)],
+            PesVersion::Pes17,
+        );
+
+        // The shared face is a second source of slot 05's face; the shared boots are their
+        // own output under team 714's first shared id, which slot 06 loads by that id.
+        assert_eq!(
+            summary(&report),
+            [
+                "0 714 Face Players/05 - A [71405] charge 15",
+                "0 714 Face Players/06 - B [71406] charge 0",
+                "0 714 Boots Boots/Crocs [644] charge 17",
+                "0 714 textures Boots/Crocs charge 32",
+            ]
+        );
+        assert_eq!(
+            message_summary(&report),
+            [("link_combined", "Players/05 - A", Disposition::Keep)]
+        );
+        assert_eq!(
+            report.messages[0].context,
+            [("link".to_owned(), "Round.face".to_owned())]
+        );
+        let combined = |index: usize| -> Vec<(ModelPackage, &str)> {
+            models_folder(&report.manifest.tasks[index])
+                .combined
+                .iter()
+                .map(|shared| (shared.package, shared.folder.path.as_str()))
+                .collect()
+        };
+        assert_eq!(combined(0), [(ModelPackage::Face, "Faces/Round")]);
+        assert_eq!(combined(1), []);
+        assert_eq!(
+            task_files(&report.manifest.tasks[2]),
+            ["Boots/Crocs/boots.model", "Boots/Crocs/boots.mtl"]
+        );
+        // PES 15-17 have no player tables to point a player at his boots.
+        assert_eq!(report.manifest.item_rows, []);
     }
 
     #[test]

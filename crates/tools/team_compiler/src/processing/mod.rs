@@ -7,6 +7,7 @@ mod kit_layout;
 mod materialize;
 mod model;
 mod prefox_face;
+mod prefox_shared;
 mod referee_marker;
 mod team_assets;
 mod texture;
@@ -200,10 +201,9 @@ pub(crate) fn process_task(
             (Engine::PreFox, ModelPackage::Face) => {
                 prefox_face::face(folder, task.team_id, ctx, &mut files, &mut findings)
             }
-            (Engine::PreFox, ModelPackage::Boots | ModelPackage::Gloves) => unreachable!(
-                "a pre-Fox target plans no boots or gloves package: a player's every model is \
-                 typed in his face's `face.xml`"
-            ),
+            (Engine::PreFox, ModelPackage::Boots | ModelPackage::Gloves) => {
+                prefox_shared::package(folder, *package, task.team_id, &mut files)
+            }
         }
         .map(|files| {
             let output = TaskOutput::Package {

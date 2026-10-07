@@ -43,10 +43,54 @@ fn card_model() -> Vec<u8> {
 /// The card-head template's material set, its one texture path `./texture.dds` renamed to
 /// `./skin.dds`, the texture the tests write beside it.
 fn card_materials() -> Vec<u8> {
+    materials_naming("skin")
+}
+
+/// The card-head template's material set, its one texture path `./texture.dds` renamed to
+/// `./<stem>.dds`.
+fn materials_naming(stem: &str) -> Vec<u8> {
     let text = String::from_utf8(pre_fox_fixture("cardhead_materials.mtl")).unwrap();
     assert!(text.contains("./texture.dds"), "{text}");
-    text.replace("./texture.dds", "./skin.dds").into_bytes()
+    text.replace("./texture.dds", &format!("./{stem}.dds"))
+        .into_bytes()
 }
+
+/// The texture paths of the `.mtl` `bytes`, each its directory then its file name.
+fn sampler_paths(bytes: &[u8]) -> Vec<String> {
+    let materials = pes_model::format::mtl::MaterialSet::read(bytes).unwrap();
+    pes_model::ops::paths::texture_paths(&materials)
+        .into_iter()
+        .map(|path| format!("{}{}", path.directory, path.file_name))
+        .collect()
+}
+
+/// The entries of `entries` under the folder `folder`, by their names in it.
+fn entries_under<'a>(
+    entries: &'a BTreeMap<String, Vec<u8>>,
+    folder: &str,
+) -> BTreeMap<&'a str, &'a Vec<u8>> {
+    entries
+        .iter()
+        .filter_map(|(path, bytes)| Some((path.strip_prefix(folder)?, bytes)))
+        .collect()
+}
+
+/// The outer CPK folder of team 714's first shared boots output.
+const BOOTS_K0644: &str = "common/character0/model/character/boots/k0644/";
+
+/// Writes slot 05 of the export `export` holding `face_high.model`, its `.mtl` and `skin.dds`.
+fn write_slot_05_face(sandbox: &Sandbox, export: &str) {
+    let player = format!("exports/{export}/Players/05 - A");
+    sandbox.write(&format!("{player}/face_high.model"), &card_model());
+    sandbox.write(&format!("{player}/face_high.mtl"), &card_materials());
+    sandbox.write(&format!("{player}/skin.dds"), &small_dds());
+}
+
+/// The findings of an export compiled with nothing to report.
+const CLEAN: [&str; 2] = [
+    "Info export_identified [Keep] (team=/co/, id=714)",
+    "Info team_colors_missing [Keep] ()",
+];
 
 /// A small DDS, 12x12 BC3 with one level (`tests/fixtures/textures/single_level.dds`).
 fn small_dds() -> Vec<u8> {
@@ -363,6 +407,219 @@ fn a_model_with_no_mtl_drops_its_folder_and_a_face_without_face_neck_gets_the_du
     assert_eq!(
         face[&format!("{folder}oral_dummy_win32.model")],
         template("dummy.model")
+    );
+}
+
+// TC-MOD-22
+#[test]
+fn a_linked_boots_folder_is_written_once_as_boots_model_and_boots_mtl_under_its_shared_id() {
+    let sandbox = Sandbox::new("prefox_shared_boots");
+    let export = "co Midcup Crocs";
+    write_slot_05_face(&sandbox, export);
+    let player = format!("exports/{export}/Players/05 - A");
+    sandbox.write(&format!("{player}/kit_boots.model"), &card_model());
+    sandbox.write(&format!("{player}/kit_boots.mtl"), &card_materials());
+    sandbox.write(&format!("{player}/Crocs.boots"), b"");
+    let crocs = format!("exports/{export}/Boots/Crocs");
+    sandbox.write(&format!("{crocs}/boots.model"), &card_model());
+    sandbox.write(&format!("{crocs}/boots.mtl"), &materials_naming("crocs"));
+    sandbox.write(&format!("{crocs}/crocs.dds"), &small_dds());
+
+    let entries = compile_pes17(&sandbox, export, &CLEAN);
+
+    let boots = entries_under(&entries, "common/character0/model/character/boots/");
+    let names: Vec<&str> = boots.keys().copied().collect();
+    assert_eq!(
+        names,
+        ["k0644/boots.model", "k0644/boots.mtl", "k0644/crocs.dds"]
+    );
+    assert_eq!(*boots["k0644/boots.model"], card_model());
+    assert_eq!(sampler_paths(boots["k0644/boots.mtl"]), ["./crocs.dds"]);
+    // Slot 05's own boots model is a part of his face, and the shared boots are not.
+    let face = nested_entries(&entries[&face_cpk(5)]);
+    let xml = String::from_utf8(face[&format!("{}face.xml", face_folder(5))].clone()).unwrap();
+    assert!(
+        xml.contains(
+            "<model level=\"0\" type=\"parts\" path=\"./oral_kit_boots_*.model\" material=\"./kit_boots.mtl\" />"
+        ),
+        "{xml}"
+    );
+    assert!(!xml.contains("./oral_boots_"), "{xml}");
+    assert!(!xml.contains("\"./boots"), "{xml}");
+}
+
+#[test]
+fn a_shared_boots_folder_s_model_of_another_name_is_written_as_boots_model_with_its_own_mtl() {
+    let sandbox = Sandbox::new("prefox_shared_boots_name");
+    let export = "co Midcup Mud";
+    write_slot_05_face(&sandbox, export);
+    sandbox.write(&format!("exports/{export}/Players/05 - A/Mud.boots"), b"");
+    let mud = format!("exports/{export}/Boots/Mud");
+    sandbox.write(&format!("{mud}/kit_boots.model"), &card_model());
+    sandbox.write(&format!("{mud}/kit_boots.mtl"), &materials_naming("mud"));
+    // A second material set, which the search does not pick for `kit_boots.model`.
+    sandbox.write(&format!("{mud}/materials.mtl"), &materials_naming("other"));
+    sandbox.write(&format!("{mud}/mud.dds"), &small_dds());
+
+    let entries = compile_pes17(&sandbox, export, &CLEAN);
+
+    let boots = entries_under(&entries, BOOTS_K0644);
+    let names: Vec<&str> = boots.keys().copied().collect();
+    assert_eq!(names, ["boots.model", "boots.mtl", "mud.dds"]);
+    assert_eq!(*boots["boots.model"], card_model());
+    assert_eq!(sampler_paths(boots["boots.mtl"]), ["./mud.dds"]);
+}
+
+// TC-MOD-38
+#[test]
+fn a_linked_gloves_folder_is_written_with_a_generated_glove_xml_under_its_shared_id() {
+    let sandbox = Sandbox::new("prefox_shared_gloves");
+    let export = "co Midcup Keeper";
+    write_slot_05_face(&sandbox, export);
+    sandbox.write(
+        &format!("exports/{export}/Players/05 - A/Keeper.gloves"),
+        b"",
+    );
+    let keeper = format!("exports/{export}/Gloves/Keeper");
+    for hand in ["glove_l", "glove_r"] {
+        sandbox.write(&format!("{keeper}/{hand}.model"), &card_model());
+        sandbox.write(&format!("{keeper}/{hand}.mtl"), &card_materials());
+    }
+
+    let entries = compile_pes17(&sandbox, export, &CLEAN);
+
+    let gloves = entries_under(&entries, "common/character0/model/character/glove/");
+    let names: Vec<&str> = gloves.keys().copied().collect();
+    assert_eq!(
+        names,
+        [
+            "g0644/glove.xml",
+            "g0644/glove_l.model",
+            "g0644/glove_l.mtl",
+            "g0644/glove_r.model",
+            "g0644/glove_r.mtl",
+        ]
+    );
+    assert_eq!(*gloves["g0644/glove_l.model"], card_model());
+    assert_eq!(
+        String::from_utf8(gloves["g0644/glove.xml"].clone()).unwrap(),
+        "<?xml version='1.0' encoding='UTF-8'?>\r\n\
+         <config>\r\n   \
+         <model level=\"0\" type=\"gloveL\" path=\"./glove_l.model\" material=\"./glove_l.mtl\" />\r\n   \
+         <model level=\"0\" type=\"gloveR\" path=\"./glove_r.model\" material=\"./glove_r.mtl\" />\r\n\
+         </config>"
+    );
+}
+
+/// Writes the export `export`: `Faces/Longhair/` holding `hair_high.model`, `hair_high.mtl`
+/// naming `./hair.dds` and `hair.dds`, linked by slot 05, which holds `face_high.model`, its
+/// `.mtl` and `skin.dds`.
+fn write_longhair(sandbox: &Sandbox, export: &str) {
+    write_slot_05_face(sandbox, export);
+    sandbox.write(
+        &format!("exports/{export}/Players/05 - A/Longhair.face"),
+        b"",
+    );
+    let longhair = format!("exports/{export}/Faces/Longhair");
+    sandbox.write(&format!("{longhair}/hair_high.model"), &card_model());
+    sandbox.write(
+        &format!("{longhair}/hair_high.mtl"),
+        &materials_naming("hair"),
+    );
+    sandbox.write(&format!("{longhair}/hair.dds"), &small_dds());
+}
+
+/// The findings of a `write_longhair` export.
+const LONGHAIR_FINDINGS: [&str; 3] = [
+    "Info export_identified [Keep] (team=/co/, id=714)",
+    "Info team_colors_missing [Keep] ()",
+    "Info link_combined [Keep] at Players/05 - A (link=Longhair.face)",
+];
+
+// TC-MOD-40
+#[test]
+fn a_linked_face_folder_is_copied_into_the_player_s_face_cpk() {
+    let sandbox = Sandbox::new("prefox_shared_face");
+    let export = "co Midcup Longhair";
+    write_longhair(&sandbox, export);
+
+    let entries = compile_pes17(&sandbox, export, &LONGHAIR_FINDINGS);
+
+    let face = nested_entries(&entries[&face_cpk(5)]);
+    let folder = face_folder(5);
+    let names: Vec<&str> = face
+        .keys()
+        .map(|path| path.strip_prefix(folder.as_str()).unwrap())
+        .collect();
+    assert_eq!(
+        names,
+        [
+            "face.xml",
+            "face_high.mtl",
+            "hair_high.mtl",
+            "oral_face_high_win32.model",
+            "oral_hair_high_win32.model",
+        ]
+    );
+    assert_eq!(
+        face[&format!("{folder}face.xml")],
+        expected_face_xml(
+            // In the order of the models' export paths: `Faces/` before `Players/`.
+            &[
+                ("parts", "./oral_hair_high_*.model", "./hair_high.mtl", None),
+                (
+                    "face_neck",
+                    "./oral_face_high_*.model",
+                    "./face_high.mtl",
+                    None
+                ),
+            ],
+            &template("face_diff.bin")
+        )
+    );
+    // The shared face's textures are the player's, in his common folder.
+    assert_eq!(
+        sampler_paths(&face[&format!("{folder}hair_high.mtl")]),
+        ["model/character/uniform/common/714/05 - A/hair.dds"]
+    );
+    assert!(
+        entries
+            .contains_key("common/character1/model/character/uniform/common/714/05 - A/hair.dds"),
+        "{:?}",
+        entries.keys()
+    );
+    assert!(
+        entries.keys().all(|path| !path.contains("Longhair")),
+        "{:?}",
+        entries.keys()
+    );
+}
+
+#[test]
+fn a_player_s_own_file_replaces_the_linked_face_folder_s_file_of_its_packed_name() {
+    let sandbox = Sandbox::new("prefox_shared_face_local");
+    let export = "co Midcup Longhair";
+    write_longhair(&sandbox, export);
+    let player = format!("exports/{export}/Players/05 - A");
+    sandbox.write(
+        &format!("{player}/hair_high.mtl"),
+        &materials_naming("skin"),
+    );
+
+    let entries = compile_pes17(&sandbox, export, &LONGHAIR_FINDINGS);
+
+    let face = nested_entries(&entries[&face_cpk(5)]);
+    let folder = face_folder(5);
+    assert_eq!(
+        sampler_paths(&face[&format!("{folder}hair_high.mtl")]),
+        ["model/character/uniform/common/714/05 - A/skin.dds"]
+    );
+    let xml = &face[&format!("{folder}face.xml")];
+    assert_eq!(
+        model_entries(xml).len(),
+        2,
+        "{}",
+        String::from_utf8_lossy(xml)
     );
 }
 

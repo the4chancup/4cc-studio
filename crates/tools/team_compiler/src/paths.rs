@@ -1,5 +1,6 @@
 //! Where compiled content goes inside the CPK, for the Fox versions (PES 18-21) and, for the
-//! faces, a player's textures, the portraits and the logo, the pre-Fox ones (PES 15-17) too:
+//! faces, the shared boots and gloves, a model folder's textures, the portraits and the logo,
+//! the pre-Fox ones (PES 15-17) too:
 //! `team_compiler/pipeline.md` "Game paths reference". The CPK paths have no leading `/`.
 
 use std::fs;
@@ -86,15 +87,13 @@ pub(crate) fn package_folder(package: ModelPackage, key: PackageKey) -> String {
     format!("Asset/{}/#Win", model_folder(package, key))
 }
 
-/// The pre-Fox face of `key`, without an extension
-/// (`common/character0/model/character/face/real/71405`): the face CPK is this path with
-/// `.cpk`, and each of its entries is a file of this folder, its own entries repeating the
-/// outer path as the game's face CPKs do.
-pub(crate) fn pre_fox_face(key: PackageKey) -> String {
-    format!(
-        "common/character0/{}",
-        model_folder(ModelPackage::Face, key)
-    )
+/// The pre-Fox folder of one `package` by `key`
+/// (`common/character0/model/character/face/real/71405`, `…/boots/k0644`): for the face, the
+/// face CPK is this path with `.cpk`, and each of its entries is a file of this folder, its own
+/// entries repeating the outer path as the game's face CPKs do; the boots and the gloves are
+/// loose files in it.
+pub(crate) fn pre_fox_package_folder(package: ModelPackage, key: PackageKey) -> String {
+    format!("common/character0/{}", model_folder(package, key))
 }
 
 /// Where a model folder's textures go, which its models' texture paths name and its textures
@@ -107,9 +106,10 @@ pub(crate) enum TextureHome {
         /// The source folder's name (`05 - A`).
         folder_name: String,
     },
-    /// A shared boots or gloves folder's: the output's own folder, beside its package, so
-    /// the one output every linking player loads carries its own textures. Only the boots
-    /// and the gloves are built this way; a shared face has no output of its own.
+    /// A shared boots or gloves folder's: the output's own folder, beside its package (on
+    /// pre-Fox beside its models, which name them `./<stem>.dds`), so the one output every
+    /// linking player loads carries its own textures. Only the boots and the gloves are built
+    /// this way; a shared face has no output of its own.
     SharedOutput {
         /// The output's package, boots or gloves.
         package: ModelPackage,
@@ -135,7 +135,8 @@ impl TextureHome {
             (Engine::PreFox, TextureHome::PlayerCommon { folder_name }) => {
                 format!("model/character/uniform/common/{team_id}/{folder_name}/")
             }
-            (Engine::PreFox, TextureHome::SharedOutput { .. }) => shared_output_pre_fox(),
+            // The game's own boots `.mtl` files name their textures beside them.
+            (Engine::PreFox, TextureHome::SharedOutput { .. }) => "./".to_owned(),
         }
     }
 
@@ -153,16 +154,12 @@ impl TextureHome {
             (Engine::PreFox, TextureHome::PlayerCommon { folder_name }) => format!(
                 "common/character1/model/character/uniform/common/{team_id}/{folder_name}/{stem}.dds"
             ),
-            (Engine::PreFox, TextureHome::SharedOutput { .. }) => shared_output_pre_fox(),
+            (Engine::PreFox, TextureHome::SharedOutput { package, id }) => format!(
+                "{}/{stem}.dds",
+                pre_fox_package_folder(*package, PackageKey::Id(*id))
+            ),
         }
     }
-}
-
-/// A shared folder's texture home on a pre-Fox target, which nothing reaches yet: the subset
-/// gate names a player's link to a shared folder on pre-Fox, so no shared folder is planned
-/// (worklog step 4.14c builds them).
-fn shared_output_pre_fox() -> ! {
-    unreachable!("a pre-Fox target plans no shared folder: the subset gate names every link")
 }
 
 /// The directory an FMDL texture-path table names for a texture of the team's Common output
@@ -396,14 +393,47 @@ mod tests {
     }
 
     #[test]
-    fn a_pre_fox_face_is_a_cpk_by_player_id_or_referee_slot() {
+    fn a_pre_fox_package_folder_goes_by_player_id_or_referee_slot_and_four_digit_model_id() {
         assert_eq!(
-            pre_fox_face(PackageKey::Id(71405)),
+            pre_fox_package_folder(ModelPackage::Face, PackageKey::Id(71405)),
             "common/character0/model/character/face/real/71405"
         );
         assert_eq!(
-            pre_fox_face(PackageKey::Referee(RefSlot::new(3).unwrap())),
+            pre_fox_package_folder(
+                ModelPackage::Face,
+                PackageKey::Referee(RefSlot::new(3).unwrap())
+            ),
             "common/character0/model/character/face/real/referee003"
+        );
+        assert_eq!(
+            pre_fox_package_folder(ModelPackage::Boots, PackageKey::Id(644)),
+            "common/character0/model/character/boots/k0644"
+        );
+        assert_eq!(
+            pre_fox_package_folder(ModelPackage::Gloves, PackageKey::Id(644)),
+            "common/character0/model/character/glove/g0644"
+        );
+    }
+
+    #[test]
+    fn a_pre_fox_shared_output_s_textures_sit_beside_its_models_named_from_its_folder() {
+        let boots = TextureHome::SharedOutput {
+            package: ModelPackage::Boots,
+            id: 644,
+        };
+        assert_eq!(boots.directory(Engine::PreFox, 714), "./");
+        assert_eq!(
+            boots.texture(Engine::PreFox, 714, "crocs"),
+            "common/character0/model/character/boots/k0644/crocs.dds"
+        );
+        let gloves = TextureHome::SharedOutput {
+            package: ModelPackage::Gloves,
+            id: 645,
+        };
+        assert_eq!(gloves.directory(Engine::PreFox, 714), "./");
+        assert_eq!(
+            gloves.texture(Engine::PreFox, 714, "grip"),
+            "common/character0/model/character/glove/g0645/grip.dds"
         );
     }
 

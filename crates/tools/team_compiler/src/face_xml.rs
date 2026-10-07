@@ -1,7 +1,8 @@
 //! The `face.xml` a pre-Fox face CPK lists its models in (`team_compiler/pipeline.md` "3.
 //! Per-model-folder parallel steps", step 4): each model's type, read from its file name
 //! (`player_folders.md` "Model names"), the name it is packed under, its `ratio`, and the file
-//! itself, in the shape the game's own face CPKs carry.
+//! itself, in the shape the game's own face CPKs carry; and the `glove.xml` of a shared gloves
+//! output, the same file without the face diff (step 7).
 
 use aesthetics_export::{ModelSuffix, ends_with_name, model_suffix};
 use base64::Engine;
@@ -146,6 +147,19 @@ pub(crate) fn suffix(stem: &str) -> Option<ModelSuffix> {
 /// alphabet, padded) on one line of its own, CRLF line ends and no final one, the shape the
 /// game's own face CPKs carry.
 pub(crate) fn face_xml(entries: &[XmlEntry], dif: &[u8]) -> Vec<u8> {
+    config_xml(entries, Some(dif))
+}
+
+/// The `glove.xml` of a pre-Fox shared gloves output listing `entries` in their order: the
+/// `face.xml` shape (`face_xml`) with no `<dif>`, `</config>` right after the last entry, the
+/// shape the game's own glove folders carry.
+pub(crate) fn glove_xml(entries: &[XmlEntry]) -> Vec<u8> {
+    config_xml(entries, None)
+}
+
+/// The `<config>` document listing `entries`, with `dif` as its `<dif>` when given
+/// (`face_xml`, `glove_xml`).
+fn config_xml(entries: &[XmlEntry], dif: Option<&[u8]>) -> Vec<u8> {
     let mut text = String::from("<?xml version='1.0' encoding='UTF-8'?>\r\n<config>\r\n");
     for entry in entries {
         text.push_str(&format!(
@@ -159,9 +173,12 @@ pub(crate) fn face_xml(entries: &[XmlEntry], dif: &[u8]) -> Vec<u8> {
         }
         text.push_str(" />\r\n");
     }
-    text.push_str("<dif>\r\n");
-    text.push_str(&STANDARD.encode(dif));
-    text.push_str("\r\n</dif>\r\n</config>");
+    if let Some(dif) = dif {
+        text.push_str("<dif>\r\n");
+        text.push_str(&STANDARD.encode(dif));
+        text.push_str("\r\n</dif>\r\n");
+    }
+    text.push_str("</config>");
     text.into_bytes()
 }
 
@@ -250,6 +267,32 @@ mod tests {
              <dif>\r\n\
              RkFD\r\n\
              </dif>\r\n\
+             </config>"
+        );
+    }
+
+    #[test]
+    fn the_glove_xml_lists_its_entries_with_no_dif_and_no_final_line_end() {
+        let entry = |xml_type: &str, model: &str| XmlEntry {
+            xml_type: xml_type.to_owned(),
+            path: format!("./{model}"),
+            material: "./materials.mtl".to_owned(),
+            ratio: None,
+        };
+        let entries = [
+            entry("gloveL", "glove_l.model"),
+            entry("gloveR", "glove_r.model"),
+        ];
+
+        let xml = glove_xml(&entries);
+
+        // The installed PES 2015 DLC's `glove/g0880/glove.xml`, byte for byte.
+        assert_eq!(
+            String::from_utf8(xml).unwrap(),
+            "<?xml version='1.0' encoding='UTF-8'?>\r\n\
+             <config>\r\n   \
+             <model level=\"0\" type=\"gloveL\" path=\"./glove_l.model\" material=\"./materials.mtl\" />\r\n   \
+             <model level=\"0\" type=\"gloveR\" path=\"./glove_r.model\" material=\"./materials.mtl\" />\r\n\
              </config>"
         );
     }
