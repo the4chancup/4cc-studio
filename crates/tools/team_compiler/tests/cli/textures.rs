@@ -966,6 +966,109 @@ fn a_common_texture_with_no_pes_folder_to_look_in_is_a_warning_and_the_face_is_k
     assert!(face_package(&entries).get("face_high.fmdl").is_some());
 }
 
+/// Writes TC-TEX-11's export: slot 06's `face_high.fmdl` naming `hair.dds` where the tracer
+/// names its `shirt.dds`, not in the team's Common output (only the link points it there),
+/// beside `hair.dds.common`, and no `Common/`; and slot 03's clean face, so a CPK is written
+/// when slot 06 is dropped.
+fn write_hair_link_player(sandbox: &Sandbox) {
+    let player = "exports/co Midcup Hair/Players/06 - A";
+    sandbox.write(
+        &format!("{player}/face_high.fmdl"),
+        &hair_model_naming("hair.dds"),
+    );
+    sandbox.write(&format!("{player}/hair.dds.common"), b"");
+    sandbox.write(
+        &format!("exports/co Midcup Hair/{CLEAN_PLAYER}"),
+        &clean_model(),
+    );
+}
+
+/// The findings `check` reports on TC-TEX-11's export ending with `first`, the slot-06
+/// finding, then those `compile` reports: the same, then the planning's
+/// `team_colors_missing`.
+fn hair_link_findings(first: &str) -> [(&'static str, Vec<String>); 2] {
+    let check = vec![
+        first.to_owned(),
+        "Info export_identified [Keep] (team=/co/, id=714)".to_owned(),
+    ];
+    let mut compile = check.clone();
+    compile.push("Info team_colors_missing [Keep] ()".to_owned());
+    [("check", check), ("compile", compile)]
+}
+
+// TC-TEX-11
+#[test]
+fn a_texture_link_an_earlier_installed_cpk_satisfies_points_the_model_there_and_packs_nothing() {
+    let sandbox = Sandbox::new("tex_link_installed_earlier");
+    write_hair_link_player(&sandbox);
+    install_hair_in(&sandbox, "4cc_61_midcup.cpk");
+    let settings = midcup_62_settings(&sandbox);
+
+    for (command, findings) in hair_link_findings(
+        "Info fmdl_weights_not_normalized [Keep] at Players/06 - A (file=face_high.fmdl, count=1662)",
+    ) {
+        let run = sandbox.run(&settings, &[command]);
+        let messages = run.messages();
+        assert_eq!(
+            findings_of(&messages, "co Midcup Hair"),
+            findings,
+            "{command}"
+        );
+        assert!(
+            messages
+                .iter()
+                .all(|line| !line.contains("common_link_missing")
+                    && !line.contains("fmdl_texture_not_found")),
+            "{command}: {messages:?}"
+        );
+        assert_eq!(run.exit_code(), 0, "{command}");
+    }
+
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_62_midcup.cpk"));
+    let package =
+        fpk::FpkFile::read(&entries["Asset/model/character/face/real/71406/#Win/face.fpk"])
+            .unwrap();
+    // The tracer's hair names its `shirt.dds`, renamed `hair.dds`, in two entries.
+    let hair = texture_directories(package.get("face_high.fmdl").unwrap(), "hair.dds");
+    assert_eq!(
+        hair,
+        ["/Assets/pes16/model/character/common/714/sourceimages/"; 2]
+    );
+    let packed_hair: Vec<&String> = entries
+        .keys()
+        .filter(|path| path.ends_with("hair.ftex"))
+        .collect();
+    assert!(packed_hair.is_empty(), "{packed_hair:?}");
+}
+
+// TC-TEX-11
+#[test]
+fn a_texture_link_only_a_later_installed_cpk_satisfies_is_common_link_missing() {
+    let sandbox = Sandbox::new("tex_link_installed_later");
+    write_hair_link_player(&sandbox);
+    install_hair_in(&sandbox, "4cc_63_midcup.cpk");
+    let settings = midcup_62_settings(&sandbox);
+
+    for (command, findings) in hair_link_findings(
+        "Error common_link_missing [DropFolder] at Players/06 - A (link=hair.dds.common, path=Common/hair.dds)",
+    ) {
+        let run = sandbox.run(&settings, &[command]);
+        assert_eq!(
+            findings_of(&run.messages(), "co Midcup Hair"),
+            findings,
+            "{command}"
+        );
+        assert_eq!(run.exit_code(), 1, "{command}");
+    }
+
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_62_midcup.cpk"));
+    let slot_06: Vec<&String> = entries
+        .keys()
+        .filter(|path| path.contains("71406") || path.contains("06 - A"))
+        .collect();
+    assert!(slot_06.is_empty(), "{slot_06:?}");
+}
+
 #[test]
 fn a_texture_entry_no_mesh_uses_is_not_looked_for() {
     let sandbox = Sandbox::new("tex_unused_entry");

@@ -476,7 +476,7 @@ pub(crate) fn check_player(
     }
     for link in &resolved {
         if let links::ResolvedLinkKind::Common(name) = &link.kind
-            && link.target.is_none()
+            && link.common_target_missing(context)
         {
             issues.push(issue_in(
                 context,

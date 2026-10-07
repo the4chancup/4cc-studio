@@ -53,7 +53,7 @@ pub(crate) fn run(
     else {
         return Ok(events.worst());
     };
-    let planned = plan(inputs, events, ctx)?;
+    let planned = plan(inputs, &installed, events, ctx)?;
     build(
         planned,
         bins,
@@ -145,10 +145,12 @@ struct PlannedRun {
     manifest: BuildManifest,
 }
 
-/// `compile`'s first half: the `overrides/` folder listed, the validation pass, each export's
-/// findings reported through `events`, and the run planned.
+/// `compile`'s first half: the `overrides/` folder listed, the validation pass, in which a
+/// texture link may name a texture one of the `installed` CPKs holds, each export's findings
+/// reported through `events`, and the run planned.
 fn plan(
     inputs: &RunInputs,
+    installed: &InstalledPaths,
     mut events: RunEvents,
     ctx: &ToolContext,
 ) -> anyhow::Result<PlannedRun> {
@@ -157,7 +159,7 @@ fn plan(
     let (overrides, overrides_active) = overrides::list(ctx.paths().data_dir.as_deref())?;
     let budget = run_budget(inputs);
     let pool = run_pool(inputs)?;
-    let pass = validation_pass(inputs, &budget, &pool)?;
+    let pass = validation_pass(inputs, installed, &budget, &pool)?;
     for message in pass.run_messages {
         events.message(message);
     }
@@ -1166,7 +1168,13 @@ mod tests {
 
             let (events_tx, events) = unbounded();
             let ctx = ctx.with_events(events_tx);
-            let planned = plan(&inputs, RunEvents::new(&ctx), &ctx).unwrap();
+            let planned = plan(
+                &inputs,
+                &InstalledPaths::Unknown,
+                RunEvents::new(&ctx),
+                &ctx,
+            )
+            .unwrap();
             let file = root
                 .join("exports")
                 .join("egg Midcup Tracer")

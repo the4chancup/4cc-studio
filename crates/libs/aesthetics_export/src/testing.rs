@@ -1,6 +1,6 @@
 //! Shared listing/metadata builders for the crate's tests.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use pes_version::PesVersion;
 
@@ -58,6 +58,7 @@ pub(crate) fn context() -> ValidationContext {
         version: PesVersion::Pes21,
         strict_file_type_check: true,
         pass_through: false,
+        installed_common_textures: BTreeSet::new(),
     }
 }
 

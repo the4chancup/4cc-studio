@@ -5,13 +5,13 @@
 //! the contents; this schedules them on the run's worker pool, each export's outcome kept in
 //! discovery order.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
 use aesthetics_export::{
-    ExportIdentity, FileDescriptor, ModelSuffix, ResolvedAestheticsExport, SharedKind, SourceError,
-    ValidatedAestheticsExport, ValidationContext, common_link_name, model_suffix, parse_listing,
-    read_colors_txt,
+    ExportIdentity, FileDescriptor, ModelSuffix, ParsedAestheticsExport, ResolvedAestheticsExport,
+    SharedKind, SourceError, ValidatedAestheticsExport, ValidationContext, common_link_name,
+    model_suffix, parse_listing, read_colors_txt,
 };
 use anyhow::Context;
 use pes_version::{Engine, PesVersion};
@@ -21,6 +21,7 @@ use studio_core::{Disposition, ExportId, Message, Scope};
 use teams_list::TeamId;
 use vtree::ScopePath;
 
+use crate::bins::installed::InstalledPaths;
 use crate::bins::{Rgb, TEAM_COLORS};
 use crate::cli::RunInputs;
 use crate::deep;
@@ -81,11 +82,13 @@ pub(crate) fn run_pool(inputs: &RunInputs) -> anyhow::Result<rayon::ThreadPool> 
 
 /// Discovers the run's sources, routes them and runs the structure pass, the deep pass and
 /// identity on each one headed for validation, on `pool`; a `.7z` export is read once for
-/// both passes, charged to `budget`. Then the exports of a team several resolve to are
-/// refused (`refuse_duplicate_teams`). An exports folder holding no export is
+/// both passes, charged to `budget`. A texture `.common` link may name a texture of the team's
+/// Common output that one of the `installed` CPKs holds. Then the exports of a team several
+/// resolve to are refused (`refuse_duplicate_teams`). An exports folder holding no export is
 /// `no_exports_found`, on the run. Only an exports folder that cannot be read is an error.
 pub(crate) fn validation_pass(
     inputs: &RunInputs,
+    installed: &InstalledPaths,
     budget: &Arc<MemoryBudget>,
     pool: &rayon::ThreadPool,
 ) -> anyhow::Result<ValidationPass> {
@@ -118,7 +121,7 @@ pub(crate) fn validation_pass(
         ));
     }
 
-    let mut sources = pool.install(|| check_sources(inputs, sources, routes, budget));
+    let mut sources = pool.install(|| check_sources(inputs, installed, sources, routes, budget));
     refuse_duplicate_teams(&mut sources);
     Ok(ValidationPass {
         run_messages,
@@ -170,6 +173,7 @@ fn refuse_duplicate_teams(sources: &mut [CheckedSource]) {
 /// folder and `.zip` sources in parallel, then the `.7z` sources one after another.
 fn check_sources(
     inputs: &RunInputs,
+    installed: &InstalledPaths,
     sources: Vec<ExportSource>,
     routes: Vec<Route>,
     budget: &Arc<MemoryBudget>,
@@ -189,13 +193,19 @@ fn check_sources(
         });
     let mut checked: Vec<(usize, CheckedSource)> = in_parallel
         .into_par_iter()
-        .map(|(index, (source, route))| (index, check_source(inputs, source, route, budget)))
+        .map(|(index, (source, route))| {
+            (
+                index,
+                check_source(inputs, installed, source, route, budget),
+            )
+        })
         .collect();
-    checked.extend(
-        in_turn
-            .into_iter()
-            .map(|(index, (source, route))| (index, check_source(inputs, source, route, budget))),
-    );
+    checked.extend(in_turn.into_iter().map(|(index, (source, route))| {
+        (
+            index,
+            check_source(inputs, installed, source, route, budget),
+        )
+    }));
     checked.sort_by_key(|(index, _)| *index);
     checked.into_iter().map(|(_, checked)| checked).collect()
 }
@@ -205,6 +215,7 @@ fn check_sources(
 /// decompressed once for both passes, under one permit released when the deep pass ends.
 fn check_source(
     inputs: &RunInputs,
+    installed: &InstalledPaths,
     source: ExportSource,
     route: Route,
     budget: &Arc<MemoryBudget>,
@@ -261,6 +272,7 @@ fn check_source(
         version: inputs.common.pes_version,
         strict_file_type_check: strict,
         pass_through: inputs.settings.pass_through,
+        installed_common_textures: installed_common_textures(inputs, installed, &parsed),
     };
     let mut report = parsed.validate(&context);
     // The deep pass reads only what the structure pass kept; its findings derive the report
@@ -323,6 +335,32 @@ fn check_source(
         team_colors,
         notes,
         revision: Some(revision),
+    }
+}
+
+/// The stems of the textures the `installed` CPKs hold in the Common output of `parsed`'s
+/// team, which its texture `.common` links may name (`pipeline.md` "Resolved decisions", "A
+/// texture a model names must exist"). The team's ID is read from the teams list here, before
+/// validation resolves the identity; an export with none (a referee export, a team the list
+/// does not hold, a name with no team token) has an empty set, as has a pre-Fox target, whose
+/// Common texture path is not built yet.
+fn installed_common_textures(
+    inputs: &RunInputs,
+    installed: &InstalledPaths,
+    parsed: &ParsedAestheticsExport,
+) -> BTreeSet<String> {
+    match inputs.common.pes_version.engine() {
+        Engine::Fox => {}
+        Engine::PreFox => return BTreeSet::new(),
+    }
+    let team_id = parsed
+        .draft
+        .team_name
+        .as_ref()
+        .and_then(|name| inputs.teams_list.id_of(name));
+    match team_id {
+        Some(team_id) => installed.common_texture_stems(team_id.get()),
+        None => BTreeSet::new(),
     }
 }
 

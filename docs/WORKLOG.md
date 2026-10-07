@@ -13,7 +13,7 @@ is in `AGENTS.md` ("Working documents").
 "Handover"). Phases 1 and 2 done (Phase 2 closed 2026-09-30).
 **Next:** Phase 4 is itemized and its Acceptance section written (step 4.1, 2026-10-03; its
 cross-family review (a) is queued). Next:
-the next open Phase 4 step (see the list); 4.21 and 4.22
+the next open Phase 4 step (see the list); 4.21, 4.22 and 4.29
 are done; 4.14 waits on 4.31's pre-Fox export; 4.33, 4.34, 4.c-pass and
 4.c-fix1 are done; 4.30,
 4.5 to 4.8, 4.9a and 4.10 to 4.13 are done (4.6c moved to Phase 8's cancellation), 4.9b
@@ -215,6 +215,13 @@ Claude agent with no sidekick and no reviewer of another model family. While tha
   accumulation" (the walk opens every listed CPK), `messages.md` `fmdl_texture_not_found`,
   TC-TEX-05, TC-CMN-06 and the decision entry "what 'a texture a model names must exist'
   compares, and where it runs".
+  4.29b (b), `aesthetics_export` (`ValidationContext.installed_common_textures`,
+  `validate/links.rs` `common_target_missing`) and `team_compiler` (`validation.rs`
+  `installed_common_textures`, `bins/installed.rs` `walk`'s `take` closure and
+  `installed_paths`, `check.rs`), its commit of 2026-10-07, against `pipeline.md` "Resolved
+  decisions" ("A texture a model names must exist", the texture link), `object_model.md`
+  "Validation semantics" and its `ValidationContext` block, TC-TEX-11 and the decision entry
+  "`ValidationContext` carries the installed Common texture stems".
 - For the lead, on return: the review process on trial (3.1) opens with a full sidekick review
   loop, then runs GPT's loop with a full sidekick loop after each GPT round, calling GPT again
   only once that sidekick loop has ended and GPT's own loop has not; not yet in `AGENTS.md`
@@ -1495,7 +1502,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   sizes; with a cap below one decoded texture the task waits for an empty pipeline and completes
   (the oversized rule)
 
-- [ ] 4.29 **A texture a model names must exist** (after 4.21, whose walk of the installed CPKs
+- [x] 4.29 **A texture a model names must exist** (after 4.21, whose walk of the installed CPKs
   it reuses): `fmdl_texture_not_found` on Fox for a mesh's texture supplied by nobody: stem not
   in the folder, path naming the team's Common output, and neither the export's `Common/` nor an
   installed CPK's table of contents holding it, the CPKs searched being those the installed
@@ -1519,9 +1526,15 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
     stems (`plan/mod.rs`), else a shared model naming a `Common/` texture was a false Error.
     Gates green (171 of 254); Clef 55 windows, no flag; `mutants-diff 7f1fc58`: 35, 24
     caught, 11 unviable, 0 missed (remote peak 9.00 GiB, at the cap, no build killed)
-  - [ ] 4.29b the texture link an installed CPK satisfies (TC-TEX-11): `aesthetics_export`'s
-    `ValidationContext` takes the team's installed Common texture stems; `check` walks the
-    tables of contents too. Brief `.tmp/brief_4_29b.md`
+  - [x] 4.29b the texture link an installed CPK satisfies (TC-TEX-11): done 2026-10-07 (Opus
+    5.5, first time, no lead code fix). `aesthetics_export`'s `ValidationContext` carries
+    `installed_common_textures` (decision entry; `ResolvedLink::common_target_missing` decides
+    both the finding and the link's removal); the tool reads the team's ID from the parsed
+    export before validation (`validation.rs` `installed_common_textures`, empty on pre-Fox);
+    `walk` takes a `take` closure, so `check`'s `installed_paths` reads tables of contents only
+    and reports nothing. Contradiction accepted: the test model names `hair` outside the Common
+    output, so only the kept link points it there. Gates green (172 of 254); Clef 33 windows,
+    no flag; `mutants-diff 3b332e7`: 39, 26 caught, 13 unviable, 0 missed. Step 4.29 is done
 
 - [x] 4.30 **Marker names**: done 2026-10-03 (Opus 5.5, first time; one contradiction accepted:
   it also renamed the markers in `pes_savefile`'s injected `settings.toml` comments, outside its
@@ -1794,6 +1807,11 @@ pruned when their phase closes; they stay in git history.
   with a test (a `Kits/all/kit.dds` holding bytes no decoder reads, a `p2/` inheriting it)
   before fixing.
 
+- open — a `.common` link to a `.ftex` (`hair.ftex.common`): the lib counts any texture type as a
+  texture link, but planning's `linked_texture_stem` gives a role only to the formats
+  `dds_convert` reads, so such a link gets none and the model's path is not pointed at the
+  Common output (seen at 4.29b, older than it; not tested). Decide whether a `.ftex` link is
+  refused or read.
 - open — the compiler reports only two of `kit_config::validate`'s findings (the two a
   version's encoding clamps, as `kit_config_version_clamped`, step 4.9a). The others have no
   row in `messages.md`: `kit_collar_zero` (the lib's one Error; `messages.md` says
@@ -2950,3 +2968,5 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   - **4.29a:** a Fox model naming a texture in the team's Common output that neither the
     export nor an earlier installed CPK holds is `fmdl_texture_not_found` (Error, package left
     out; Warning when the CPKs cannot be searched). 4.29b next (the texture link).
+  - **4.29b:** a texture `.common` link whose target an earlier installed CPK holds is
+    satisfied, in `check` and `compile` alike. Step 4.29 is done.

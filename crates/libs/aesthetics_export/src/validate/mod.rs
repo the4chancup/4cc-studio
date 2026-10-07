@@ -258,8 +258,9 @@ impl ParsedAestheticsExport {
                 let mut player = folders::player_folder(folder, self.raw_roster.is_some());
                 // A kept player loses references to what is absent: a missing
                 // shared target (pass_through) comes off `links`, a missing
-                // `Common` target off `files`. A resolved link carries the
-                // target folder's own spelling.
+                // `Common` target off `files` (a texture link an installed CPK
+                // satisfies is not missing, and stays). A resolved link carries
+                // the target folder's own spelling.
                 let resolved = links::player_links(folder, draft);
                 player.links = resolved
                     .iter()
@@ -277,9 +278,7 @@ impl ParsedAestheticsExport {
                     // (pass_through) comes off; a `.common` file at a
                     // position that is never a link keeps its own finding.
                     !resolved.iter().any(|link| {
-                        matches!(&link.kind, links::ResolvedLinkKind::Common(_))
-                            && link.target.is_none()
-                            && link.link_file == file.path
+                        link.common_target_missing(context) && link.link_file == file.path
                     })
                 });
                 // A dropped `settings.toml` or portrait leaves the rest of

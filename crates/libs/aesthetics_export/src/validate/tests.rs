@@ -625,6 +625,91 @@ fn a_common_link_resolves_or_drops_the_player() {
     assert_eq!(validated.players[0].files[0].kind, FileKind::CommonLink);
 }
 
+/// The default context with the installed CPKs holding the team's Common textures `stems`,
+/// folded as the consumer folds them.
+fn installed(stems: &[&str]) -> ValidationContext {
+    ValidationContext {
+        installed_common_textures: stems.iter().map(|stem| vtree::fold_name(stem)).collect(),
+        ..crate::testing::context()
+    }
+}
+
+/// The file names of the validated export's player `index`.
+fn player_file_names(report: &ValidationReport, index: usize) -> Vec<String> {
+    report.validated.as_ref().unwrap().players[index]
+        .files
+        .iter()
+        .map(|file| file.path.name().to_owned())
+        .collect()
+}
+
+#[test]
+fn a_texture_link_whose_texture_an_installed_cpk_holds_stays_with_no_finding() {
+    // The set is folded by its producer and the link's stem by validation, so either spelling
+    // matches.
+    for (link, held) in [("hair.dds.common", "hair"), ("Hair.dds.common", "HAIR")] {
+        let report = report_with(
+            &installed(&[held]),
+            "egg Midcup",
+            &[
+                ("Players/03 - A/face_high.fmdl", 10),
+                (&format!("Players/03 - A/{link}"), 0),
+            ],
+            &[],
+            &[],
+        );
+        assert_eq!(issue_codes(&report), vec![], "{link}");
+        assert_eq!(
+            player_file_names(&report, 0),
+            vec!["face_high.fmdl".to_owned(), link.to_owned()],
+            "{link}"
+        );
+    }
+}
+
+#[test]
+fn a_model_link_is_common_link_missing_whatever_the_installed_cpks_hold() {
+    let report = report_with(
+        &installed(&["face_high"]),
+        "egg Midcup",
+        &[("Players/03 - A/face_high.fmdl.common", 0)],
+        &[],
+        &[],
+    );
+    assert_eq!(
+        issue_codes(&report),
+        vec![("common_link_missing", Disposition::DropFolder)]
+    );
+    assert_eq!(report.issues[0].scope, folder("Players/03 - A"));
+}
+
+#[test]
+fn with_no_installed_texture_a_texture_link_with_no_target_is_common_link_missing() {
+    for context in [installed(&[]), installed(&["skin"])] {
+        let report = report_with(
+            &context,
+            "egg Midcup",
+            &[
+                ("Players/03 - A/face_high.fmdl", 10),
+                ("Players/03 - A/hair.dds.common", 0),
+            ],
+            &[],
+            &[],
+        );
+        assert_eq!(
+            issue_codes(&report),
+            vec![("common_link_missing", Disposition::DropFolder)]
+        );
+        assert_eq!(
+            report.issues[0].context,
+            vec![
+                ("link", "hair.dds.common".to_owned()),
+                ("path", "Common/hair.dds".to_owned()),
+            ]
+        );
+    }
+}
+
 // TC-STR-16
 #[test]
 fn a_dropped_link_target_drops_its_players_and_pass_through_keeps() {
@@ -2313,6 +2398,7 @@ fn fmdl_name_invalid_does_not_apply_on_pre_fox() {
             version: pes_version::PesVersion::Pes16,
             strict_file_type_check: true,
             pass_through: false,
+            installed_common_textures: std::collections::BTreeSet::new(),
         },
         "egg Midcup",
         &[

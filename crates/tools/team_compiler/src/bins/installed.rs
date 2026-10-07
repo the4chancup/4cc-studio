@@ -6,9 +6,9 @@
 //! made (no PES folder, no list, a list not naming the run's CPK); a Fox player table, which
 //! has no bundled base, is then absent. The same walk keeps every entry path of those CPKs, for
 //! the texture lookup (`pipeline.md` "Resolved decisions", "A texture a model names must
-//! exist").
+//! exist"), which `check` makes too, reading no bin.
 
-use std::collections::HashSet;
+use std::collections::{BTreeSet, HashSet};
 use std::fs::{self, File};
 use std::io::{self, BufReader};
 use std::path::{Path, PathBuf};
@@ -54,6 +54,29 @@ impl InstalledPaths {
             InstalledPaths::Unknown => None,
             InstalledPaths::Known(paths) => Some(paths.contains(&vtree::fold_name(path))),
         }
+    }
+
+    /// The stems, folded, of the textures these CPKs hold in team `team_id`'s Common output
+    /// (`paths::common_texture`), which a texture `.common` link may name instead of a file in
+    /// the export's `Common/` (`pipeline.md` "Resolved decisions", "A texture a model names must
+    /// exist"); empty when the lookup cannot be made.
+    pub(crate) fn common_texture_stems(&self, team_id: u16) -> BTreeSet<String> {
+        let paths = match self {
+            InstalledPaths::Unknown => return BTreeSet::new(),
+            InstalledPaths::Known(paths) => paths,
+        };
+        // The path of the empty stem, cut at the stem, gives the folded head and tail every
+        // Common texture path of the team has.
+        let empty = vtree::fold_name(&paths::common_texture(team_id, ""));
+        let suffix = ".ftex";
+        let prefix = empty
+            .strip_suffix(suffix)
+            .expect("a Common texture path ends with the stem and `.ftex`");
+        paths
+            .iter()
+            .filter_map(|path| path.strip_prefix(prefix)?.strip_suffix(suffix))
+            .map(str::to_owned)
+            .collect()
     }
 }
 
@@ -167,7 +190,10 @@ pub(crate) fn working_bins(
         .collect();
     let mut messages = Vec::new();
     let mut bins = WorkingBins::bundled(version, templates);
-    let installed = match walk(pes_folder, cpk_stem, &mut wanted, &mut bins)? {
+    let walked = walk(pes_folder, cpk_stem, |cpk, name| {
+        take_bins(cpk, name, &mut wanted, &mut bins)
+    })?;
+    let installed = match walked {
         Walk::NotMade => InstalledPaths::Unknown,
         Walk::NoList(list) => {
             messages.push(deploy_message(
@@ -198,15 +224,45 @@ pub(crate) fn working_bins(
     Ok((bins, installed, messages))
 }
 
+/// The entry paths of the installed CPKs listed before `cpk_name`'s, for `check`'s texture
+/// links: the walk `compile` makes, reading each CPK's table of contents and no bin, so `check`
+/// and `compile` agree on a link. `check` reports nothing about the walk: a `cpk_name` that is
+/// no valid CPK name, a missing list, or a list or CPK that cannot be read gives `Unknown`, and
+/// `compile` reports them.
+pub(crate) fn installed_paths(pes_folder: &Path, cpk_name: &str) -> InstalledPaths {
+    let cpk_stem = match CpkStem::new(cpk_name) {
+        Ok(cpk_stem) => cpk_stem,
+        Err(error) => {
+            log::debug!("no installed CPK looked in: cpk_name {cpk_name:?}: {error}");
+            return InstalledPaths::Unknown;
+        }
+    };
+    match walk(pes_folder, &cpk_stem, |_, _| Ok(())) {
+        Ok(Walk::Walked(paths)) => InstalledPaths::Known(paths),
+        Ok(Walk::NotMade | Walk::NoList(_)) => InstalledPaths::Unknown,
+        Err(unreadable) => {
+            log::debug!(
+                "no installed CPK looked in: {}: {:#}",
+                unreadable.path.display(),
+                unreadable.error
+            );
+            InstalledPaths::Unknown
+        }
+    }
+}
+
+/// An installed CPK, opened on its file.
+type InstalledCpk = CpkArchive<BufReader<File>>;
+
 /// Walks every CPK `pes_folder`'s `download/DpFileList.bin` lists before `cpk_stem`'s, nearest
-/// first, each of `wanted` taken into `bins` from the first CPK holding it, and every entry
-/// path of each CPK kept: the texture lookup needs them all, so the walk does not stop once the
-/// bins are found.
+/// first, keeping every entry path of each, folded, and calling `take` on each with its listed
+/// name: the texture lookup needs every path, so the walk does not stop once the bins are
+/// found. A listed CPK with no file is passed over; one that cannot be opened, or that `take`
+/// fails on, is the error, naming that CPK.
 fn walk(
     pes_folder: &Path,
     cpk_stem: &CpkStem,
-    wanted: &mut [Wanted],
-    bins: &mut WorkingBins,
+    mut take: impl FnMut(&mut InstalledCpk, &str) -> anyhow::Result<()>,
 ) -> Result<Walk, Unreadable> {
     if !pes_folder.is_dir() {
         return Ok(Walk::NotMade);
@@ -222,7 +278,16 @@ fn walk(
     };
     let mut paths = HashSet::new();
     for name in list[..position].iter().rev() {
-        take_from(&download.join(name), name, wanted, bins, &mut paths)?;
+        let path = download.join(name);
+        let Some(mut cpk) = open_cpk(&path)? else {
+            continue;
+        };
+        paths.extend(
+            cpk.entries()
+                .iter()
+                .map(|entry| vtree::fold_name(&entry.path)),
+        );
+        take(&mut cpk, name).map_err(|error| Unreadable { path, error })?;
     }
     Ok(Walk::Walked(paths))
 }
@@ -241,35 +306,33 @@ fn read_list(path: &Path) -> Result<Option<Vec<String>>, Unreadable> {
     dpfl::entries(&bytes).map(Some).map_err(unreadable)
 }
 
-/// Takes into `bins` from the CPK at `path`, listed as `name`, each of `wanted` not found yet
-/// that it holds, unwrapped when the bin is WESYS-compressed, and parsed: a bin that does not
-/// parse as its format is as unreadable as one that cannot be read, found here rather than when
-/// the CPK is finished after every export was processed. Adds every entry path of the CPK,
-/// folded, to `paths`. A listed CPK with no file is passed over.
-fn take_from(
-    path: &Path,
-    name: &str,
-    wanted: &mut [Wanted],
-    bins: &mut WorkingBins,
-    paths: &mut HashSet<String>,
-) -> Result<(), Unreadable> {
+/// The CPK at `path`, opened; `None` when there is no file.
+fn open_cpk(path: &Path) -> Result<Option<InstalledCpk>, Unreadable> {
     let unreadable = |error: anyhow::Error| Unreadable {
         path: path.to_owned(),
         error,
     };
     let file = match File::open(path) {
         Ok(file) => file,
-        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(()),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(None),
         Err(error) => return Err(unreadable(error.into())),
     };
-    let mut cpk = CpkArchive::open(BufReader::new(file))
+    CpkArchive::open(BufReader::new(file))
         .context("not a CPK the reader accepts")
-        .map_err(unreadable)?;
-    paths.extend(
-        cpk.entries()
-            .iter()
-            .map(|entry| vtree::fold_name(&entry.path)),
-    );
+        .map(Some)
+        .map_err(unreadable)
+}
+
+/// Takes into `bins` from `cpk`, listed as `name`, each of `wanted` not found yet that it
+/// holds, unwrapped when the bin is WESYS-compressed, and parsed: a bin that does not parse as
+/// its format is as unreadable as one that cannot be read, found here rather than when the CPK
+/// is finished after every export was processed.
+fn take_bins(
+    cpk: &mut InstalledCpk,
+    name: &str,
+    wanted: &mut [Wanted],
+    bins: &mut WorkingBins,
+) -> anyhow::Result<()> {
     for wanted in wanted.iter_mut().filter(|wanted| wanted.found.is_none()) {
         let path_in_cpk = wanted.bin.path();
         let Some(entry) = cpk.entries().iter().find(|entry| entry.path == path_in_cpk) else {
@@ -278,17 +341,14 @@ fn take_from(
         let entry = entry.clone();
         let bytes = cpk
             .read(&entry)
-            .with_context(|| format!("cannot read {path_in_cpk}"))
-            .map_err(unreadable)?;
+            .with_context(|| format!("cannot read {path_in_cpk}"))?;
         let bytes = wezlib::decompress_if_wrapped(&bytes)
-            .with_context(|| format!("cannot unwrap {path_in_cpk}"))
-            .map_err(unreadable)?
+            .with_context(|| format!("cannot unwrap {path_in_cpk}"))?
             .into_owned();
         wanted
             .bin
             .set(bins, bytes)
-            .with_context(|| format!("cannot parse {path_in_cpk}"))
-            .map_err(unreadable)?;
+            .with_context(|| format!("cannot parse {path_in_cpk}"))?;
         wanted.found = Some(name.to_owned());
     }
     Ok(())
@@ -579,6 +639,104 @@ mod tests {
         let installed = walk(pes);
         assert_eq!(installed, InstalledPaths::Known(HashSet::new()));
         assert_eq!(installed.holds(&hair), Some(false));
+    }
+
+    #[test]
+    fn the_common_texture_stems_are_the_team_s_own_common_output_s_folded() {
+        let installed = InstalledPaths::Known(
+            [
+                paths::common_texture(714, "Hair"),
+                paths::common_texture(702, "skin"),
+                // The team's Common folder, outside `sourceimages/#windx11/`.
+                "Asset/model/character/common/714/sourceimages/cloth.ftex".to_owned(),
+                // A player's own common subfolder.
+                "Asset/model/character/common/714/05 - A/sourceimages/#windx11/shirt.ftex"
+                    .to_owned(),
+            ]
+            .iter()
+            .map(|path| vtree::fold_name(path))
+            .collect(),
+        );
+        assert_eq!(
+            installed.common_texture_stems(714),
+            BTreeSet::from(["hair".to_owned()])
+        );
+        assert_eq!(
+            installed.common_texture_stems(702),
+            BTreeSet::from(["skin".to_owned()])
+        );
+        assert_eq!(
+            InstalledPaths::Unknown.common_texture_stems(714),
+            BTreeSet::new()
+        );
+    }
+
+    #[test]
+    fn the_check_walk_reads_the_tables_of_contents_and_no_bin() {
+        let temp = scratch("installed_check_walk");
+        let pes = temp.path();
+        install_list(
+            pes,
+            &[
+                "4cc_08_bins.cpk",
+                "4cc_61_midcup.cpk",
+                "4cc_99_test.cpk",
+                "4cc_63_midcup.cpk",
+            ],
+        );
+        // One byte short of a whole 85-byte record: `compile`'s walk stops on it.
+        install_cpk(pes, "4cc_08_bins.cpk", &[(paths::UNI_COLOR, &[0; 84])]);
+        let hair = paths::common_texture(714, "hair");
+        install_cpk(pes, "4cc_61_midcup.cpk", &[(&hair, b"hair")]);
+        let after = paths::common_texture(714, "after");
+        install_cpk(pes, "4cc_63_midcup.cpk", &[(&after, b"after")]);
+
+        assert_eq!(
+            installed_paths(pes, "4cc_99_test"),
+            InstalledPaths::Known(HashSet::from([
+                vtree::fold_name(paths::UNI_COLOR),
+                vtree::fold_name(&hair),
+            ]))
+        );
+    }
+
+    #[test]
+    fn the_check_walk_is_unknown_wherever_compile_s_would_report_or_stop() {
+        let temp = scratch("installed_check_walk_unknown");
+        let pes = temp.path();
+        assert_eq!(
+            installed_paths(&pes.join("PES"), "4cc_99_test"),
+            InstalledPaths::Unknown,
+            "no PES folder"
+        );
+        assert_eq!(
+            installed_paths(pes, "4cc_99_test"),
+            InstalledPaths::Unknown,
+            "no list"
+        );
+        install_list(pes, &["4cc_61_midcup.cpk", "4cc_99_test.cpk"]);
+        assert_eq!(
+            installed_paths(pes, "4cc_99_test"),
+            InstalledPaths::Known(HashSet::new()),
+            "a listed CPK with no file is passed over"
+        );
+        assert_eq!(
+            installed_paths(pes, "con"),
+            InstalledPaths::Unknown,
+            "no valid CPK name"
+        );
+        // Opening a directory fails with `PermissionDenied` on Windows.
+        let cpk = pes.join("download").join("4cc_61_midcup.cpk");
+        #[cfg(windows)]
+        fs::create_dir(&cpk).unwrap();
+        // Opening a directory succeeds on Unix, opening a link to itself fails (too many links).
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(&cpk, &cpk).unwrap();
+        assert_eq!(
+            installed_paths(pes, "4cc_99_test"),
+            InstalledPaths::Unknown,
+            "a CPK that cannot be opened"
+        );
     }
 
     #[test]

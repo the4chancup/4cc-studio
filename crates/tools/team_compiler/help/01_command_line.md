@@ -296,7 +296,10 @@ boots or gloves is left out of the CPK, and `compile` reports `fmdl_texture_not_
 model and the texture. When there is no PES folder or no `DpFileList.bin`, or the list does not
 name the CPK being compiled, the texture may still be there, so the model is kept and the line
 is a warning. A texture whose name starts with `dummy_` is never looked for: the game puts its
-own in its place. `check` does not look for these textures, only `compile` does.
+own in its place. `check` does not look for these textures, only `compile` does. A texture
+link (`hair.dds.common`) may also name a texture such an earlier CPK holds in the team's Common
+folder when the export's `Common` folder has no `hair.dds`, and for these links `check` looks in
+those CPKs too.
 
 A folder named `templates` in the data folder holds files that replace the compiler's built-in
 copies of the same name, so a cup can swap one without a new version of the compiler. The names,

@@ -1,7 +1,7 @@
 //! The listing a consumer supplies: one export source as a flat path list plus
 //! the small metadata files' bytes, and the settings the structure pass needs.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use pes_version::PesVersion;
 
@@ -70,7 +70,7 @@ pub(crate) fn metadata_text(bytes: &[u8]) -> Result<&str, std::str::Utf8Error> {
 }
 
 /// The settings that change a consequence, supplied by the consumer.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ValidationContext {
     /// The target version: Fox or pre-Fox allowed names.
     pub version: PesVersion,
@@ -78,4 +78,9 @@ pub struct ValidationContext {
     pub strict_file_type_check: bool,
     /// Keep eligible dropped content instead of discarding it.
     pub pass_through: bool,
+    /// The stems, folded, of the textures the installed CPKs loaded before the one being compiled
+    /// hold in this export's team's Common output: a texture `.common` link whose target is not
+    /// in `Common/` names one of them instead of being `common_link_missing`. Empty when the
+    /// lookup cannot be made or finds none.
+    pub installed_common_textures: BTreeSet<String>,
 }

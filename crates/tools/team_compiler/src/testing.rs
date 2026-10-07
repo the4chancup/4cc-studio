@@ -1,6 +1,6 @@
 //! What the crate's unit tests share.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
@@ -167,6 +167,7 @@ pub(crate) fn resolved_with_issues(
             version: PesVersion::Pes21,
             strict_file_type_check: true,
             pass_through: false,
+            installed_common_textures: BTreeSet::new(),
         });
     let issues = report.issues.iter().map(|issue| issue.code).collect();
     let teams = TeamsList::parse("ID\tName\n702\t/a/\n714\t/co/\n790\t/dbg/\n").unwrap();

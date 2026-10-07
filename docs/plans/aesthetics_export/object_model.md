@@ -89,7 +89,10 @@ eligible, roster-entry scope and disposition; confirmed 2026-09-30).
   every code in `ISSUE_CODES` has a catalog row, and its scenario tests observe the consequence
   each row states. Settings that change a
   consequence reach the crate through `ValidationContext`: the target `PesVersion` (Fox or pre-Fox
-  allowed names), `strict_file_type_check` and `pass_through`.
+  allowed names), `strict_file_type_check`, `pass_through`, and the texture stems the installed
+  CPKs hold in the team's Common output, which satisfy a texture `.common` link whose target is
+  not in `Common/` (`team_compiler/pipeline.md` "Resolved decisions", "A texture a model names
+  must exist").
 - **Sanitized versus eligible.** `ValidatedAestheticsExport` holds exactly the eligible content:
   every item no issue drops. `ValidationReport.parsed` still holds everything and `issues` every
   finding, so a dropped folder stays renderable and a broken roster repairable. `validated` is
@@ -466,6 +469,10 @@ pub struct ValidationContext {
     pub version: PesVersion,         // Fox or pre-Fox allowed names
     pub strict_file_type_check: bool,
     pub pass_through: bool,
+    // Folded stems of the textures the installed CPKs loaded before the one being compiled
+    // hold in the export's team's Common output: a texture `.common` link naming one is not
+    // `common_link_missing` (empty when the lookup cannot be made)
+    pub installed_common_textures: BTreeSet<String>,
 }
 
 // ---- Errors. A listing that cannot become a tree: the consumer's `export_extract_failed`.

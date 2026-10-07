@@ -4353,3 +4353,18 @@ finding. The walk needs every table of contents for the lookup, so it cannot sto
 Plan: `team_compiler/pipeline.md` "Bins accumulation" (the walk opens every listed CPK),
 "Resolved decisions" ("A texture a model names must exist"); `team_compiler/messages.md`
 `fmdl_texture_not_found`.
+
+## 2026-10-07 — aesthetics_export — `ValidationContext` carries the installed Common texture stems
+Decision: `ValidationContext` gains `installed_common_textures`, the folded stems of the textures
+the installed CPKs hold in the export's team's Common output; a texture `.common` link (the lib's
+own `classify` says texture) whose target is not in `Common/` and whose stem is in the set is no
+`common_link_missing` and stays in the validated player's files. The Team compiler reads the
+team's ID from the parsed export's team name before validation to build the set, empty on
+pre-Fox targets (4.15 adds their Common texture path) and for an export with no team ID.
+`ValidationContext` is no longer `Copy`.
+Why: the lib raises `common_link_missing` and takes the unresolved link off the player's files,
+and it has no team ID or install to look in; clearing the finding afterwards in the tool would
+need the dropped folder back, which the validated export no longer holds. A set of stems keeps
+the lib free of CPK paths and of the walk.
+Plan: `aesthetics_export/object_model.md` "Validation semantics" (what reaches the crate
+through `ValidationContext`) and "Structure pass types" (its code block).

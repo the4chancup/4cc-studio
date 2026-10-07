@@ -8,10 +8,12 @@ use std::collections::BTreeSet;
 
 use vtree::ScopePath;
 
-use super::folders::{Position, Reserved, fold, is_direct_common_file, position, shared_folders};
+use super::folders::{
+    Position, Reserved, fold, is_direct_common_file, position, shared_folders, stem,
+};
 use super::roster::SlotMap;
 use crate::FileKind;
-use crate::conventions::{SharedKind, common_link_name, shared_link_name};
+use crate::conventions::{SharedKind, classify, common_link_name, shared_link_name};
 use crate::listing::ValidationContext;
 use crate::parse::{AestheticsExportDraft, FolderDraft};
 use crate::validate::{Disposition, IssueScope, ValidationIssue, dropped_scopes, issue_in};
@@ -34,6 +36,30 @@ pub(crate) struct ResolvedLink {
     pub kind: ResolvedLinkKind,
     /// The target's canonical path, when it exists.
     pub target: Option<ScopePath>,
+}
+
+impl ResolvedLink {
+    /// Whether this is a `.common` link nothing satisfies: its target is not in `Common/`, and
+    /// it is not a texture link naming one of `context`'s installed Common textures. That is
+    /// `common_link_missing`'s condition, and what takes the link off a kept player's files.
+    pub(crate) fn common_target_missing(&self, context: &ValidationContext) -> bool {
+        match &self.kind {
+            ResolvedLinkKind::Shared(_) => false,
+            ResolvedLinkKind::Common(name) => {
+                self.target.is_none() && !is_installed_texture(name, context)
+            }
+        }
+    }
+}
+
+/// Whether `name`, a `.common` link's target name, is a texture an installed CPK holds in the
+/// team's Common output. A model or material file never is: a Fox merge needs the source
+/// model, which no CPK holds.
+fn is_installed_texture(name: &str, context: &ValidationContext) -> bool {
+    classify(name) == FileKind::Texture
+        && context
+            .installed_common_textures
+            .contains(&fold(stem(name)))
 }
 
 /// Every player folder's link files resolved to their targets: direct
