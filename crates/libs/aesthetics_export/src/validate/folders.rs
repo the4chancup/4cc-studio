@@ -409,7 +409,8 @@ pub(crate) fn stem(name: &str) -> &str {
 }
 
 /// A player folder's own findings, in the order the semantics list them:
-/// allowlist, duplicate links, missing targets, markers, stems.
+/// allowlist, duplicate links, missing targets, markers, stems, then the
+/// edit-hair files.
 pub(crate) fn check_player(
     draft: &AestheticsExportDraft,
     folder: &FolderDraft,
@@ -601,6 +602,9 @@ pub(crate) fn check_player(
             })),
         issues,
     );
+
+    // 8. The edit-hair files.
+    edithair_files(folder, context, issues);
 }
 
 /// The draft's shared folders of `kind`.
@@ -625,8 +629,9 @@ pub(crate) fn fold(name: &str) -> String {
     vtree::fold_name(name)
 }
 
-/// A shared folder's own findings: the allowlist, stem collisions, and the
-/// Fox-only boots/gloves naming rule.
+/// A shared folder's own findings: the allowlist, stem collisions, the
+/// boots/gloves naming rule (`fmdl_name_invalid` on Fox, `model_name_invalid`
+/// on pre-Fox), and the edit-hair files.
 pub(crate) fn check_shared(
     folder: &FolderDraft,
     kind: SharedKind,
@@ -660,12 +665,13 @@ pub(crate) fn check_shared(
         issues,
     );
 
-    // On Fox every boots/gloves model must say so by suffix (`Faces/` takes
-    // any name — nothing there can be a face anywhere else).
-    match context.version.engine() {
-        pes_version::Engine::Fox => {}
-        pes_version::Engine::PreFox => return,
-    }
+    // Every boots/gloves model must say so by suffix (`Faces/` takes any
+    // name — nothing there can be a face anywhere else): one rule, under each
+    // engine's model catalog's code.
+    let name_invalid = match context.version.engine() {
+        pes_version::Engine::Fox => "fmdl_name_invalid",
+        pes_version::Engine::PreFox => "model_name_invalid",
+    };
     for file in &folder.files {
         let allowed = match kind {
             SharedKind::Face => true,
@@ -678,9 +684,43 @@ pub(crate) fn check_shared(
         {
             issues.push(issue_in(
                 context,
-                "fmdl_name_invalid",
+                name_invalid,
                 scope.clone(),
                 vec![("file", file.path.name().to_owned())],
+                Disposition::DropFolder,
+            ));
+        }
+    }
+
+    edithair_files(folder, context, issues);
+}
+
+/// The edit-hair files' names: a model folder holding one of them, at any depth,
+/// is refused on a pre-Fox target (`edithair_unsupported`).
+const EDITHAIR_NAMES: [&str; 2] = ["face_edithair.xml", "hair.xml"];
+
+/// `edithair_unsupported` for each file of `folder`, at any depth below it and of
+/// any kind, named (case-folded) as an edit-hair file, when the target is
+/// pre-Fox: the folder is dropped, the finding naming the file below the folder.
+fn edithair_files(
+    folder: &FolderDraft,
+    context: &ValidationContext,
+    issues: &mut Vec<ValidationIssue>,
+) {
+    match context.version.engine() {
+        pes_version::Engine::PreFox => {}
+        // The file means nothing to a Fox game (an XML there is
+        // `xml_ignored_fox`'s, `team_compiler/messages.md`).
+        pes_version::Engine::Fox => return,
+    }
+    for file in &folder.files {
+        let name = fold(file.path.name());
+        if EDITHAIR_NAMES.iter().any(|edithair| fold(edithair) == name) {
+            issues.push(issue_in(
+                context,
+                "edithair_unsupported",
+                IssueScope::Folder(folder.path.clone()),
+                vec![("file", relative(&file.path, &folder.path))],
                 Disposition::DropFolder,
             ));
         }

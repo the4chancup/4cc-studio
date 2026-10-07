@@ -42,23 +42,26 @@ goalkeeper's `g1` goes with the number picked) with no texture of its own, the l
 copied for it, so the game never shows a missing texture, and the warning `kit_variant_missing`
 names the texture, the kit and the copied file. Per-kit models (`pants_kit1.fmdl` beside
 `pants_kit2.fmdl`) are not possible on PES 2018 to 2021: only the lowest one is used, and the
-warning `kit_variant_model_fox` says so. Five lines name a texture that cannot be
-used, each with the file: `texture_too_small` (a side under 4 pixels), `texture_not_pow2` (a
-portrait whose width or height is not a power of two, or any other texture with mip levels
-whose width or height is not: 256, 512, 1024, ...; a `.png` or other image always gets mip
+warning `kit_variant_model_fox` says so. Six lines name a texture that cannot be
+used, each with the file: `texture_too_small` (a side under 4 pixels), `texture_not_div4` (for
+PES 2015 to 2017, a width or height that is not a multiple of 4: 1000 is one, 1002 is not),
+`texture_not_pow2` (a portrait whose width or height is not a power of two, or any other
+texture with mip levels whose width or height is not: 256, 512, 1024, ...; a `.png` or other image always gets mip
 levels, a `.dds` or `.ftex` with a single level passes at any size), `kit_texture_too_big` (a
 kit's main `kit` texture, its own or the one from `all`, wider or taller than 2048 pixels or
 with a side that is not a power of two), `texture_type_mismatch` (a file renamed to another
 format instead of resaved, a PNG called `skin.dds`) and `texture_codec_unsupported` (a `.dds`
 or `.ftex` in a format the compiler does not read, BC6H for one, or a 16-bit or interleaved
-`.tga`: resave it). Both commands report the first four from the start of each file alone, so
+`.tga`: resave it). Both commands report the first five from the start of each file alone, so
 `check` finds them too; `texture_codec_unsupported` is found when the texture is converted, by
 `compile`. What is left out depends on where the texture is: a player's or shared folder's
 texture leaves out the whole folder, a kit's texture the whole kit (a texture in `all` leaves
 out every kit using it), a `Common` texture only that file (the rest of `Common` is still built,
 and a player linking that file is left out with the line `link_target_dropped`), a portrait only
-that portrait. With `pass_through` on, a texture with one of the three size lines, a portrait
-included, is kept and converted as it is; a renamed one is still left out. The team's logo
+that portrait. With `pass_through` on, a texture with `texture_too_small`, `texture_not_pow2`
+or `kit_texture_too_big`, a portrait included, is kept and converted as it is; a renamed one is
+still left out, and so is one with `texture_not_div4`, which those games cannot load at all. The
+team's logo
 is one image at the export's root named `logo` (`logo.png`), in any of the image formats
 above and of any size: `compile` makes the game's three logo sizes (512, 256 and 128 pixels
 square) from it. An image named `logo_small` beside it is used for the smallest size instead,
@@ -129,7 +132,11 @@ using more than 17 shared boots folders, or more than 17 shared gloves folders, 
 both commands with the error `boots_id_pool_exhausted` or `gloves_id_pool_exhausted`, naming
 the count. A model whose name says nothing about what it is (`torso.fmdl`) is taken for face
 content: it is merged into the face's `fcl_hair.fmdl`, and the line `fmdl_fcl_hair_fallback`
-names it, so boots and gloves models must say so in their names. A skeleton file named after a
+names it, so boots and gloves models must say so in their names. In a shared `Boots` or
+`Gloves` folder nothing can be face content: a model there whose name does not end in a boots
+or gloves name (`hat.model` in `Boots/Mud`) is the error `fmdl_name_invalid`
+(`model_name_invalid` for PES 2015 to 2017), and the folder is left out with the players
+linking it (`link_target_dropped`). A skeleton file named after a
 model (`kit_boots.skl` beside `kit_boots.fmdl`, `fcl_hair.skl` beside `fcl_hair.fmdl`,
 `torso.skl` beside `torso.fmdl`, `boots.skl` beside a shared folder's `boots.fmdl`) is packed
 with it; boots and hair without one get the standard body skeleton. A skeleton named after a
@@ -167,7 +174,11 @@ used, and both commands report it as `face_file_not_used`. For PES 2015 to 2017 
 of a player folder, boots and gloves included, goes into the player's face, listed in a
 `face.xml` that `compile` writes with each model's type read from its name; a face with
 models but none of type `face_neck` (a `face_high` model is one) gets an invisible stand-in,
-reported as `xml_face_neck_added`. A linked `Faces` folder is copied into the face of each
+reported as `xml_face_neck_added`. For PES 2015 a model typed `uniform` (`body_uniform.model`)
+is listed as `uniform_sub` instead, reported as `xml_uniform_pes15`. A player or shared folder
+holding a `face_edithair.xml` or a `hair.xml`, anywhere in it, is the error
+`edithair_unsupported` for PES 2015 to 2017, and the folder is left out; both commands report
+it. A linked `Faces` folder is copied into the face of each
 player linking it, reported as `link_combined`, the player's own model or `.mtl` replacing the
 linked folder's file of the same name. A linked `Boots` folder holds one `.model`, written once
 as `boots.model` with the `.mtl` it uses as `boots.mtl`, and a linked `Gloves` folder's models
@@ -177,7 +188,11 @@ textures of either sit beside the models.
 Each model uses the first `.mtl` found in its own folder, then in the player's folder: one
 whose name starts or ends the model's name, then `materials.mtl`, then any. For PES 2015 to
 2017, a model with no `.mtl` to use is the error `model_material_undefined`, and the player's
-folder is left out. For PES 2015 to 2017 the models, `.mtl` files and textures in `Common` are
+folder is left out. A model using a material its `.mtl` does not define is
+`model_material_undefined` too, naming the `.mtl` and the missing materials: the folder is
+left out unless `pass_through` is on, which keeps it as it is, and the game then draws those
+parts with its fallback material. Both commands report either. For PES 2015 to 2017 the
+models, `.mtl` files and textures in `Common` are
 written once into the team's Common folder in the game, which loads them from there: a
 `.common` link to a model (`legs.model.common`) lists the Common model in the player's
 `face.xml`, using a `.mtl` named like it beside the link, else the one found in `Common`, else

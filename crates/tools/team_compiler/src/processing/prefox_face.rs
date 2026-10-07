@@ -19,8 +19,9 @@ use vtree::ScopePath;
 
 use super::materialize::PackageFiles;
 use super::{CompileContext, Finding, TaskFailure, TaskFiles, take};
+use crate::deep::relative;
 use crate::face_diff;
-use crate::face_xml::{XmlEntry, face_xml, packed_model_name, ratio, xml_path};
+use crate::face_xml::{XmlEntry, face_xml, packed_model_name, ratio, version_type, xml_path};
 use crate::messages::Code;
 use crate::mtl_search::mtl_for;
 use crate::paths;
@@ -70,8 +71,11 @@ struct FaceModel<'a> {
 /// (case-folded) the player's folder already packs is left out, the player's file replacing it
 /// as a copy would (`player_folders.md` "A link plus local models combines"). When no entry is
 /// a `face_neck`, the dummy is listed last and packed as `oral_dummy_win32.model` and
-/// `dummy.mtl`, noted in `findings` as `xml_face_neck_added` when the face has a model. Two
-/// files of one source packing under one name fail the task: neither can be dropped silently.
+/// `dummy.mtl`, noted in `findings` as `xml_face_neck_added` when the face has a model. An
+/// entry's type is written for `ctx.version` (`version_type`): each entry whose type that
+/// rewrites (`uniform` to `uniform_sub` on PES 2015) is noted in `findings` as
+/// `xml_uniform_pes15`, naming its model below its source folder. Two files of one source
+/// packing under one name fail the task: neither can be dropped silently.
 pub(super) fn face(
     folder: &ModelFolder,
     team_id: u16,
@@ -227,8 +231,16 @@ pub(super) fn face(
         } else {
             "./"
         };
+        let xml_type = version_type(ctx.version, &model.xml_type).to_owned();
+        if xml_type != model.xml_type {
+            findings.push((
+                Code::XmlUniformPes15,
+                Disposition::Keep,
+                vec![("file", relative(&model.file.path, model.source_path))],
+            ));
+        }
         entries.push(XmlEntry {
-            xml_type: model.xml_type,
+            xml_type,
             path: xml_path(model_directory, &model.packed),
             material: format!("{material_directory}{}", material.path.name()),
             ratio: ratio(&model.stem).map(str::to_owned),

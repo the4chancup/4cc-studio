@@ -18,8 +18,8 @@ and 4.25 are done; 4.26 is done; 4.19 (Fox referees) is done, 4.19d (pre-Fox) wa
 referee marker) is done, 4.27's rest (the pre-Fox marker) waits on 4.19d; 4.9 is done
 (collars on Fox; their pre-Fox and cross-format halves are in 4.16 and 4.17); 4.28
 (memory accounting), 4.32 (number atlases) and 4.18 (hand auto-split, Fox) are done, and
-4.y moved to Phase 8; 4.14 is under way (slices a, b, c1 and c2 done, d next), with its own checks until 4.31's pre-Fox parity
-reference exists (4.31 waits on a small pre-Fox export from the maintainer); 4.33, 4.34, 4.c-pass and
+4.y moved to Phase 8; 4.14 is under way (slices a to d done, e next), with its own checks until 4.31's pre-Fox parity
+reference lands (4.31 under way, lead: the export is cut from the maintainer's library); 4.33, 4.34, 4.c-pass and
 4.c-fix1 are done; 4.30,
 4.5 to 4.8 and 4.10 to 4.13 are done (4.6c moved to Phase 8's cancellation). 2.5b (GPU BC7) is step 16.x (decision entries
 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0 after Phase 8; phase order 1–6,
@@ -1390,6 +1390,16 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   of 254); `mutants-diff f4f3a56`: 101, 86 caught, 15 unviable, 0 missed (the local half
   rerun alone after a PC crash killed it; the remote half's 50 collected). Clef: one flag,
   rejected.
+  (d) done 2026-10-07 (Opus 5.5, first time; three contradictions accepted: no legacy tool or
+  phase number in a comment, a finding's `file` below its folder; lead fix: one doc line):
+  `model_name_invalid` (`check_shared`'s naming rule on both engines, one code each),
+  `edithair_unsupported` (`edithair_files`, pre-Fox, any depth, player and shared folders);
+  `face_xml::version_type` and `xml_uniform_pes15`; `texture_not_div4` in the pre-Fox size
+  rule, never eligible; `model_material_undefined` for a named material (`ModelRead.materials`,
+  the private `ContentPass::materials`, `KeptCommon`, `material_finding`: the reads stay one
+  file per worker, the names compared after). TC-MOD-23, 25, TC-CHK-08, TC-TEX-07, TC-XML-08.
+  Gates green (222 of 255); `mutants-diff 993a190`: 35, 31 caught, 4 unviable, 0 missed (two
+  remote builds killed at the 9 GiB cap, rerun locally: caught).
   IDs: TC-MOD-20..25, TC-MOD-35, TC-MOD-37..41, TC-CHK-08, TC-TEX-07, TC-XML-08, TC-CMN-07 (split from TC-CMN-05 at 4.11c). Crates: tc (`processing/model.rs`, `processing/material.rs`,
   `processing/texture.rs`, `paths.rs`) → verify: a `/co/` slot 05 folder with the smallest
   `pes_model` fixture pair as `face_high.model` + `face_high.mtl` and `skin.dds`, compiled for PES 17: the
@@ -2218,9 +2228,13 @@ pruned when their phase closes; they stay in git history.
 - open (found at 4.14b's review) — pre-Fox faces: every `.mtl` of a player folder is packed
   into the face, one no model uses included (a blank face too), as Red packs the whole
   folder. Harmless to the game; revisit if a census shows stray `.mtl` files are common.
-- open (found at 4.14b's review) — `model_material_undefined` covers only "no `.mtl` found";
-  a material name missing from the paired `.mtl` (`pes_model::check::check_bundle`, the
-  catalog row's main case) is slice 4.14d's.
+- open (found at 4.14d's mutation run) — the remote half reaches its 9 GiB cap with
+  `REMOTE_BUILD_JOBS` already at 1 (4.14c1 peaked at 8.99 GiB; 4.14d's killed two builds,
+  rerun locally). The script has no lower setting; each killed build is listed and
+  rerun by hand. Needs the maintainer if it grows: options are running `team_compiler`'s
+  mutants locally only, or a leaner remote build profile (less debug info).
+- resolved (2026-10-07, 4.14d) — `model_material_undefined` covered only "no `.mtl` found";
+  the deep pass now also reports a material name missing from the paired `.mtl`.
 - open (found at 4.18's review) — hand auto-split: a split glove beside an authored glove
   of the same hand may not merge. The split prunes the bones no vertex of a glove uses, so
   a split `sk_hand_l` can lose its parent `sk_forearm_l` where an authored glove keeps it,
@@ -3534,3 +3548,9 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
     `.mtl.common` link or a Common `.mtl` found for a linked model is named there too, and a
     texture link points the player's `.mtl` at the Common texture. Kits, collars,
     `ingame_face` and referee exports are still refused there.
+  - **4.14d:** on PES 2015 to 2017 `check` and `compile` refuse a folder holding
+    `face_edithair.xml` or `hair.xml`, a shared boots or gloves folder's model without its
+    suffix (`model_name_invalid`), a texture whose width or height is not a multiple of 4
+    (`texture_not_div4`, even with `pass_through`), and a model naming a material its `.mtl`
+    lacks (`model_material_undefined`, which `pass_through` may keep); on PES 2015 a
+    `uniform` model is written `uniform_sub` (`xml_uniform_pes15`).

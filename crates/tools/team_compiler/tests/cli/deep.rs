@@ -8,10 +8,11 @@ use fmdl::{FmdlFile, Model};
 
 use crate::common::Sandbox;
 use crate::compile::{
-    compiled_kits, compiled_players, cpk_entries, pass_through_settings, pes21_settings,
-    tracer_kit, tracer_player_file,
+    compiled_kits, compiled_players, cpk_entries, pass_through_settings, pes_settings,
+    pes21_settings, tracer_kit, tracer_player_file,
 };
 use crate::models::face_diff_fixture;
+use crate::prefox_faces::{card_materials, card_model, face_cpk, small_dds};
 use crate::{TEAM_COLORS_MISSING, command_args, findings_of};
 
 /// The bytes of `tests/fixtures/deep/<name>`.
@@ -342,6 +343,81 @@ fn a_format_error_drops_its_folder_unless_pass_through_keeps_it() {
         ]
         .concat()
     );
+}
+
+/// The card head's face model with its one mesh holding 65536 vertices (its last, repeated),
+/// one more than a `.model` mesh can index: `model_mesh_over_vertex_limit`, an Error.
+fn card_over_the_vertex_limit() -> Vec<u8> {
+    let file = pes_model::format::PreFoxModel::read(&card_model()).unwrap();
+    let mut model = pes_model::model::Model::from_file(&file).unwrap();
+    let vertices = &mut model.meshes[0].vertices;
+    let last = vertices.positions.len() - 1;
+    while vertices.positions.len() <= 65_535 {
+        vertices.positions.push(vertices.positions[last]);
+        if let Some(normals) = &mut vertices.normals {
+            normals.push(normals[last]);
+        }
+        if let Some(tangents) = &mut vertices.tangents {
+            tangents.push(tangents[last]);
+        }
+        if let Some(bitangents) = &mut vertices.bitangents {
+            bitangents.push(bitangents[last]);
+        }
+        if let Some(colors) = &mut vertices.colors {
+            colors.push(colors[last]);
+        }
+        for uvs in &mut vertices.uvs {
+            uvs.push(uvs[last]);
+        }
+        if let Some(indices) = &mut vertices.bone_indices {
+            indices.push(indices[last]);
+        }
+        if let Some(weights) = &mut vertices.bone_weights {
+            weights.push(weights[last]);
+        }
+    }
+    let bytes = model.to_file().unwrap().write().unwrap();
+    // Read back, so a writer that dropped the extra vertices cannot pass this test silently.
+    let written = pes_model::format::PreFoxModel::read(&bytes).unwrap();
+    let written = pes_model::model::Model::from_file(&written).unwrap();
+    assert_eq!(written.meshes[0].vertices.positions.len(), 65_536);
+    bytes
+}
+
+// TC-CHK-08
+#[test]
+fn a_model_mesh_over_the_vertex_limit_drops_its_folder_at_check_and_compile() {
+    let sandbox = Sandbox::new("deep_vertex_limit");
+    // Slot 07 is the clean card head, so the CPK is written and slot 05's absence observable.
+    for (slot, model) in [("05", card_over_the_vertex_limit()), ("07", card_model())] {
+        let player = format!("exports/co Midcup Dense/Players/{slot} - A");
+        sandbox.write(&format!("{player}/face_high.model"), &model);
+        sandbox.write(&format!("{player}/face_high.mtl"), &card_materials());
+        sandbox.write(&format!("{player}/skin.dds"), &small_dds());
+    }
+    let over = "Error model_mesh_over_vertex_limit [DropFolder] at Players/05 - A (file=face_high.model, count=65536)";
+    let settings = pes_settings(&sandbox, 17);
+
+    let check = sandbox.run(&settings, &["check"]);
+    let lines = check.messages();
+    assert_eq!(
+        findings_of(&lines, "co Midcup Dense"),
+        [over, IDENTIFIED],
+        "{lines:#?}"
+    );
+    assert_eq!(check.exit_code(), 1);
+
+    let compile = sandbox.run(&settings, &["compile", "--no-deploy"]);
+    let lines = compile.messages();
+    assert_eq!(
+        findings_of(&lines, "co Midcup Dense"),
+        [over, IDENTIFIED, TEAM_COLORS_MISSING],
+        "{lines:#?}"
+    );
+    assert_eq!(compile.exit_code(), 1);
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    assert!(entries.contains_key(&face_cpk(7)), "{:?}", entries.keys());
+    assert!(!entries.contains_key(&face_cpk(5)), "{:?}", entries.keys());
 }
 
 // TC-CHK-07

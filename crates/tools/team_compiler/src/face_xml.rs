@@ -7,6 +7,7 @@
 use aesthetics_export::{ModelSuffix, ends_with_name, model_suffix};
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
+use pes_version::PesVersion;
 
 /// One `<model>` element of a generated `face.xml`.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -54,6 +55,23 @@ pub(crate) fn xml_type(stem: &str) -> String {
             .unwrap_or("parts"),
     };
     xml_type.to_owned()
+}
+
+/// The `face.xml` type `xml_type` is written as for `version`: `uniform` is `uniform_sub` on
+/// PES 2015, every other type, and every type on the other versions, as it is
+/// (`player_folders.md` "Model names", the `uniform` row; `messages.md` `xml_uniform_pes15`,
+/// whose plan text says where the rule comes from).
+pub(crate) fn version_type(version: PesVersion, xml_type: &str) -> &str {
+    match version {
+        PesVersion::Pes15 if xml_type == "uniform" => "uniform_sub",
+        PesVersion::Pes15
+        | PesVersion::Pes16
+        | PesVersion::Pes17
+        | PesVersion::Pes18
+        | PesVersion::Pes19
+        | PesVersion::Pes20
+        | PesVersion::Pes21 => xml_type,
+    }
 }
 
 /// What precedes a type the `face.xml` table does not know, in a model's name
@@ -213,6 +231,22 @@ mod tests {
             ("visor_ratio_2_parts", "parts"),
         ] {
             assert_eq!(xml_type(stem), expected, "{stem}");
+        }
+    }
+
+    #[test]
+    fn a_uniform_is_written_uniform_sub_on_pes_15_only() {
+        for (version, xml_type, expected) in [
+            (PesVersion::Pes15, "uniform", "uniform_sub"),
+            (PesVersion::Pes16, "uniform", "uniform"),
+            (PesVersion::Pes17, "uniform", "uniform"),
+            (PesVersion::Pes15, "parts", "parts"),
+        ] {
+            assert_eq!(
+                version_type(version, xml_type),
+                expected,
+                "{version:?} {xml_type}"
+            );
         }
     }
 

@@ -24,6 +24,7 @@ use crate::compile::{
     pes21_settings, tracer_kit, tracer_player_file,
 };
 use crate::models::face_package;
+use crate::prefox_faces::{card_materials, card_model, face_cpk, small_dds};
 use crate::{CLEAN_PLAYER, clean_model, command_args, findings_of};
 
 /// The player's texture home, the per-player common subfolder.
@@ -502,6 +503,42 @@ fn a_texture_finding_drops_the_player_folder_naming_the_file() {
                 && !path.starts_with(PLAYER_TEXTURES)),
         "{paths:?}"
     );
+}
+
+// TC-TEX-07
+#[test]
+fn a_pre_fox_texture_whose_side_is_no_multiple_of_4_drops_the_player_folder() {
+    let sandbox = Sandbox::new("tex_not_div4");
+    let export = "exports/co Midcup Skin";
+    // 1002x1002 opaque grey, encoded as a real PNG.
+    let skin = encode_png(&vec![128; 1002 * 1002 * 4], 1002, 1002).unwrap();
+    for (slot, texture, bytes) in [
+        ("05", "skin.png", skin),
+        // A clean player beside it, so the CPK is written and slot 05's absence observable.
+        ("07", "skin.dds", small_dds()),
+    ] {
+        let player = format!("{export}/Players/{slot} - A");
+        sandbox.write(&format!("{player}/face_high.model"), &card_model());
+        sandbox.write(&format!("{player}/face_high.mtl"), &card_materials());
+        sandbox.write(&format!("{player}/{texture}"), &bytes);
+    }
+
+    let run = sandbox.run(&pes_settings(&sandbox, 17), &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, "co Midcup Skin"),
+        [
+            "Error texture_not_div4 [DropFolder] at Players/05 - A (file=skin.png)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 1);
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    assert!(entries.contains_key(&face_cpk(7)), "{:?}", entries.keys());
+    assert!(!entries.contains_key(&face_cpk(5)), "{:?}", entries.keys());
 }
 
 #[test]

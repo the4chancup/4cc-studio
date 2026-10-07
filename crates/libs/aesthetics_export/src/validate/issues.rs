@@ -237,6 +237,8 @@ pub const ISSUE_CODES: &[&str] = &[
     "ingame_face_explicit_face_model",
     "texture_stem_conflict",
     "fmdl_name_invalid",
+    "model_name_invalid",
+    "edithair_unsupported",
     "kit_folder_invalid",
     "kit_slot_duplicate",
     "kit_texture_name_invalid",

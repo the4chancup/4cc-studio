@@ -74,45 +74,61 @@ pub(super) struct ModelRead {
     /// the face and gloves tasks split it (`pipeline.md` "2. Per-export serial steps", step 6).
     /// Always `false` for a pre-Fox model or a material set.
     pub(super) hand_weighted: bool,
+    /// Its material names, in order: for a pre-Fox model the names it lists (`Model::materials`,
+    /// as `pes_model::check::check_bundle` compares them, a name no mesh uses included), for a
+    /// material set the names it defines; empty for an FMDL, whose materials are not paired
+    /// with a material set. The deep pass compares a model's with its `.mtl`'s
+    /// (`model_material_undefined`).
+    pub(super) materials: Vec<String>,
 }
 
 /// What `bytes`, read as `kind`, tells the deep pass (`ModelRead`), or the reader's error text
 /// when they do not parse. The model is parsed once for both questions.
 pub(super) fn fired(kind: ModelKind, bytes: &[u8]) -> Result<ModelRead, String> {
-    let (fired, hand_weighted) = match kind {
+    let read = match kind {
         ModelKind::Fmdl => {
             let model = FmdlFile::read(bytes)
                 .and_then(|file| Model::from_file(&file))
                 .map_err(|error| error.to_string())?;
-            let fired = fmdl::check::check(&model)
-                .into_iter()
-                .map(Fired::fox)
-                .collect();
-            (fired, fox_has_hand_weights(&model))
+            ModelRead {
+                fired: fmdl::check::check(&model)
+                    .into_iter()
+                    .map(Fired::fox)
+                    .collect(),
+                hand_weighted: fox_has_hand_weights(&model),
+                materials: Vec::new(),
+            }
         }
         ModelKind::PreFoxModel => {
             let model = PreFoxModel::read(bytes)
                 .and_then(|file| pes_model::model::Model::from_file(&file))
                 .map_err(|error| error.to_string())?;
-            let fired = pes_model::check::check(&model)
-                .into_iter()
-                .map(Fired::pre_fox)
-                .collect();
-            (fired, false)
+            ModelRead {
+                fired: pes_model::check::check(&model)
+                    .into_iter()
+                    .map(Fired::pre_fox)
+                    .collect(),
+                hand_weighted: false,
+                materials: model.materials,
+            }
         }
         ModelKind::Mtl => {
             let set = MaterialSet::read(bytes).map_err(|error| error.to_string())?;
-            let fired = pes_model::check::check_materials(&set)
-                .into_iter()
-                .map(Fired::pre_fox)
-                .collect();
-            (fired, false)
+            ModelRead {
+                fired: pes_model::check::check_materials(&set)
+                    .into_iter()
+                    .map(Fired::pre_fox)
+                    .collect(),
+                hand_weighted: false,
+                materials: set
+                    .materials
+                    .into_iter()
+                    .map(|material| material.name)
+                    .collect(),
+            }
         }
     };
-    Ok(ModelRead {
-        fired,
-        hand_weighted,
-    })
+    Ok(read)
 }
 
 /// `fired` with one entry per code, in the order each code first fired, its counts summed:
@@ -284,7 +300,8 @@ mod tests {
     #[test]
     fn a_pre_fox_model_s_mtl_may_be_reached_through_a_link_and_a_model_link_s_in_common() {
         let temp = scratch("deep_pre_fox_links");
-        let card = || pre_fox_fixture("konami_card.model");
+        // The card head's model and its material set, which defines the model's one material.
+        let card = || pre_fox_fixture("cardhead_face_high.model");
         let materials = || pre_fox_fixture("cardhead_materials.mtl");
         let findings = findings_for(
             PesVersion::Pes17,
@@ -361,6 +378,104 @@ mod tests {
                     disposition: Disposition::DropFile,
                     pass_through_eligible: false,
                 },
+            ]
+        );
+    }
+
+    /// `model_material_undefined` on the folder `scope`: the model `file` uses `materials`,
+    /// which the `.mtl` it is paired with, `mtl`, does not define.
+    fn undefined(scope: &str, file: &str, mtl: &str, materials: &str) -> ContentFinding {
+        ContentFinding {
+            code: "model_material_undefined",
+            scope: folder(scope),
+            context: vec![
+                ("file", file.to_owned()),
+                ("mtl", mtl.to_owned()),
+                ("materials", materials.to_owned()),
+            ],
+            disposition: Disposition::DropFolder,
+            pass_through_eligible: true,
+        }
+    }
+
+    #[test]
+    fn a_pre_fox_model_material_its_mtl_lacks_is_undefined_and_may_pass_through() {
+        // Konami's referee card binds `judge_card_red`; the card head's material set defines
+        // only `card`, which the card head's model binds.
+        let temp = scratch("deep_pre_fox_named_undefined");
+        let findings = findings_for(
+            PesVersion::Pes17,
+            temp.path(),
+            &[
+                (
+                    "Players/03 - A/face_high.model",
+                    pre_fox_fixture("konami_card.model"),
+                ),
+                (
+                    "Players/03 - A/face_high.mtl",
+                    pre_fox_fixture("cardhead_materials.mtl"),
+                ),
+                (
+                    "Players/05 - B/face_high.model",
+                    pre_fox_fixture("cardhead_face_high.model"),
+                ),
+                (
+                    "Players/05 - B/face_high.mtl",
+                    pre_fox_fixture("cardhead_materials.mtl"),
+                ),
+            ],
+            &[],
+            &[],
+        );
+        assert_eq!(
+            findings,
+            [undefined(
+                "Players/03 - A",
+                "face_high.model",
+                "face_high.mtl",
+                "judge_card_red"
+            )]
+        );
+    }
+
+    #[test]
+    fn a_model_link_s_common_model_is_compared_with_the_mtl_its_search_finds() {
+        let temp = scratch("deep_pre_fox_link_named_undefined");
+        let findings = findings_for(
+            PesVersion::Pes17,
+            temp.path(),
+            &[
+                // The folder's own `.mtl` of the link's name, which the card's material is
+                // not in.
+                ("Players/05 - B/legs.model.common", Vec::new()),
+                (
+                    "Players/05 - B/legs.mtl",
+                    pre_fox_fixture("cardhead_materials.mtl"),
+                ),
+                ("Common/legs.model", pre_fox_fixture("konami_card.model")),
+                // A `Common/` `.mtl`, named by its export path.
+                ("Players/07 - C/hat.model.common", Vec::new()),
+                ("Common/hat.model", pre_fox_fixture("konami_card.model")),
+                ("Common/hat.mtl", pre_fox_fixture("cardhead_materials.mtl")),
+            ],
+            &[],
+            &[],
+        );
+        assert_eq!(
+            findings,
+            [
+                undefined(
+                    "Players/05 - B",
+                    "legs.model.common",
+                    "legs.mtl",
+                    "judge_card_red"
+                ),
+                undefined(
+                    "Players/07 - C",
+                    "hat.model.common",
+                    "Common/hat.mtl",
+                    "judge_card_red"
+                ),
             ]
         );
     }

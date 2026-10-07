@@ -2448,26 +2448,112 @@ fn a_flattened_wrapper_of_empty_folders_leaves_no_root_folder() {
     );
 }
 
+/// The default context with the target `version`.
+fn context_for(version: pes_version::PesVersion) -> ValidationContext {
+    ValidationContext {
+        version,
+        strict_file_type_check: true,
+        pass_through: false,
+        installed_common_textures: std::collections::BTreeSet::new(),
+    }
+}
+
 #[test]
-fn fmdl_name_invalid_does_not_apply_on_pre_fox() {
-    let report = report_with(
-        &ValidationContext {
-            version: pes_version::PesVersion::Pes16,
-            strict_file_type_check: true,
-            pass_through: false,
-            installed_common_textures: std::collections::BTreeSet::new(),
-        },
+fn a_pre_fox_shared_boots_model_without_its_suffix_is_model_name_invalid() {
+    let unsuffixed = report_with(
+        &context_for(pes_version::PesVersion::Pes17),
         "egg Midcup",
         &[
-            ("Boots/Crocs/torso.fmdl", 10),
-            ("Players/03 - A/Crocs.boots", 0),
+            ("Boots/Mud/hat.model", 10),
+            ("Players/03 - A/Mud.boots", 0),
+            ("Players/03 - A/hair.dds", 9),
         ],
         &[],
         &[],
     );
-    assert_eq!(issue_codes(&report), vec![]);
-    let validated = report.validated.unwrap();
-    assert_eq!(validated.boots.len(), 1);
+    assert_eq!(
+        issue_codes(&unsuffixed),
+        vec![
+            ("model_name_invalid", Disposition::DropFolder),
+            ("link_target_dropped", Disposition::DropFolder),
+        ]
+    );
+    assert_eq!(unsuffixed.issues[0].scope, folder("Boots/Mud"));
+    assert_eq!(
+        unsuffixed.issues[0].context,
+        vec![("file", "hat.model".to_owned())]
+    );
+    assert_eq!(unsuffixed.issues[1].scope, folder("Players/03 - A"));
+    assert!(unsuffixed.validated.unwrap().boots.is_empty());
+
+    let suffixed = report_with(
+        &context_for(pes_version::PesVersion::Pes17),
+        "egg Midcup",
+        &[
+            ("Boots/Mud/kit_boots.model", 10),
+            ("Players/03 - A/Mud.boots", 0),
+        ],
+        &[],
+        &[],
+    );
+    assert_eq!(issue_codes(&suffixed), vec![]);
+    assert_eq!(suffixed.validated.unwrap().boots.len(), 1);
+}
+
+#[test]
+fn an_edit_hair_file_drops_its_folder_on_pre_fox_only() {
+    let files = [
+        ("Players/05 - A/face_edithair.xml", 10),
+        ("Players/05 - A/face/hair.xml", 10),
+        ("Players/05 - A/face_high.model", 10),
+        ("Players/07 - B/Longhair.face", 0),
+        ("Players/07 - B/hair.dds", 9),
+        ("Faces/Longhair/HAIR.XML", 10),
+        ("Faces/Longhair/hair_high.model", 10),
+    ];
+    let pre_fox = report_with(
+        &context_for(pes_version::PesVersion::Pes17),
+        "egg Midcup",
+        &files,
+        &[],
+        &[],
+    );
+    let edithair = |scope: &str, file: &str| ValidationIssue {
+        code: "edithair_unsupported",
+        scope: folder(scope),
+        context: vec![("file", file.to_owned())],
+        disposition: Disposition::DropFolder,
+        passed_through: false,
+    };
+    assert_eq!(
+        pre_fox.issues[..3],
+        // In the folder's file order: `/` sorts before `_`.
+        [
+            edithair("Players/05 - A", "face/hair.xml"),
+            edithair("Players/05 - A", "face_edithair.xml"),
+            edithair("Faces/Longhair", "HAIR.XML"),
+        ]
+    );
+    assert_eq!(
+        issue_codes(&pre_fox)[3..],
+        [("link_target_dropped", Disposition::DropFolder)]
+    );
+    assert_eq!(pre_fox.issues[3].scope, folder("Players/07 - B"));
+    let validated = pre_fox.validated.unwrap();
+    assert!(validated.players.is_empty());
+    assert!(validated.faces.is_empty());
+
+    let fox = report_with(
+        &context_for(pes_version::PesVersion::Pes21),
+        "egg Midcup",
+        &files,
+        &[],
+        &[],
+    );
+    assert_eq!(issue_codes(&fox), vec![]);
+    let validated = fox.validated.unwrap();
+    assert_eq!(validated.players.len(), 2);
+    assert_eq!(validated.faces.len(), 1);
 }
 
 /// A `vertex_too_far_from_origin` content finding on `scope` (the consumer's code, not one of

@@ -130,6 +130,9 @@ pub(crate) enum Code {
     /// A pre-Fox face holding a model none of whose `face.xml` entries is a `face_neck`: the
     /// bundled dummy model is listed last as the face's `face_neck` and packed with its `.mtl`.
     XmlFaceNeckAdded,
+    /// PES 2015: a generated `face.xml` entry of type `uniform`, written `uniform_sub` instead
+    /// (`face_xml::version_type`).
+    XmlUniformPes15,
     /// A face's `face_diff.xml` that is not base64 text or a `<dif>` holding it, or a face
     /// diff (decoded, or a `face_diff.bin`) without the magic `FACE` or shorter than its
     /// header gives; the folder holding it is left out.
@@ -152,6 +155,10 @@ pub(crate) enum Code {
     /// A portrait with a side that is not a power of two, or a mipmapped Fox texture with
     /// one; discarded the same way.
     TextureNotPow2,
+    /// PES 2015 to 2017: a texture with a side that is not a multiple of 4. Every pre-Fox texture
+    /// is written block-compressed, which those games cannot create at such a size; discarded
+    /// the same way, whatever `pass_through` says.
+    TextureNotDiv4,
     /// A kit's main texture (`kit`, its own or inherited from `all/`) wider or taller than
     /// 2048 pixels, or with a side that is not a power of two; the kit is left out.
     KitTextureTooBig,
@@ -280,7 +287,7 @@ impl Code {
     /// Every code, for the catalog test: a variant missing here would make its first message
     /// panic in `severity`, so a new variant is added to this list too.
     #[cfg(test)]
-    const ALL: [Code; 88] = [
+    const ALL: [Code; 90] = [
         Code::ExportExtractFailed,
         Code::NoExportsFound,
         Code::ExportDisabled,
@@ -322,12 +329,14 @@ impl Code {
         Code::KitVariantMissing,
         Code::KitVariantModelFox,
         Code::XmlFaceNeckAdded,
+        Code::XmlUniformPes15,
         Code::FaceDiffInvalid,
         Code::XmlDifConflict,
         Code::SharedTextureConflict,
         Code::MergedTextureConflict,
         Code::TextureTooSmall,
         Code::TextureNotPow2,
+        Code::TextureNotDiv4,
         Code::KitTextureTooBig,
         Code::TextureTypeMismatch,
         Code::TextureCodecUnsupported,
@@ -415,12 +424,14 @@ impl Code {
             Code::KitVariantMissing => "kit_variant_missing",
             Code::KitVariantModelFox => "kit_variant_model_fox",
             Code::XmlFaceNeckAdded => "xml_face_neck_added",
+            Code::XmlUniformPes15 => "xml_uniform_pes15",
             Code::FaceDiffInvalid => "face_diff_invalid",
             Code::XmlDifConflict => "xml_dif_conflict",
             Code::SharedTextureConflict => "shared_texture_conflict",
             Code::MergedTextureConflict => "merged_texture_conflict",
             Code::TextureTooSmall => "texture_too_small",
             Code::TextureNotPow2 => "texture_not_pow2",
+            Code::TextureNotDiv4 => "texture_not_div4",
             Code::KitTextureTooBig => "kit_texture_too_big",
             Code::TextureTypeMismatch => "texture_type_mismatch",
             Code::TextureCodecUnsupported => "texture_codec_unsupported",
@@ -528,12 +539,14 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("kit_variant_missing", CatalogSeverity::Warning),
     ("kit_variant_model_fox", CatalogSeverity::Warning),
     ("xml_face_neck_added", CatalogSeverity::Info),
+    ("xml_uniform_pes15", CatalogSeverity::Info),
     ("face_diff_invalid", CatalogSeverity::Error),
     ("xml_dif_conflict", CatalogSeverity::Error),
     ("shared_texture_conflict", CatalogSeverity::Error),
     ("merged_texture_conflict", CatalogSeverity::Error),
     ("texture_too_small", CatalogSeverity::Error),
     ("texture_not_pow2", CatalogSeverity::Error),
+    ("texture_not_div4", CatalogSeverity::Error),
     ("kit_texture_too_big", CatalogSeverity::Error),
     ("texture_type_mismatch", CatalogSeverity::Error),
     ("texture_codec_unsupported", CatalogSeverity::Error),
@@ -636,6 +649,8 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("ingame_face_explicit_face_model", CatalogSeverity::Error),
     ("texture_stem_conflict", CatalogSeverity::Error),
     ("fmdl_name_invalid", CatalogSeverity::Error),
+    ("model_name_invalid", CatalogSeverity::Error),
+    ("edithair_unsupported", CatalogSeverity::Error),
     ("kit_folder_invalid", CatalogSeverity::Error),
     ("kit_slot_duplicate", CatalogSeverity::Error),
     ("kit_texture_name_invalid", CatalogSeverity::Error),

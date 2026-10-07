@@ -19,7 +19,7 @@ use crate::models::template;
 use crate::{clean_model, findings_of};
 
 /// The outer CPK path of slot `slot`'s face CPK in team 714's export.
-fn face_cpk(slot: u8) -> String {
+pub(crate) fn face_cpk(slot: u8) -> String {
     format!("common/character0/model/character/face/real/714{slot:02}.cpk")
 }
 
@@ -39,13 +39,13 @@ fn pre_fox_fixture(name: &str) -> Vec<u8> {
 }
 
 /// The card-head template's face model, a clean pre-Fox model with one material, `card`.
-fn card_model() -> Vec<u8> {
+pub(crate) fn card_model() -> Vec<u8> {
     pre_fox_fixture("cardhead_face_high.model")
 }
 
 /// The card-head template's material set, its one texture path `./texture.dds` renamed to
 /// `./skin.dds`, the texture the tests write beside it.
-fn card_materials() -> Vec<u8> {
+pub(crate) fn card_materials() -> Vec<u8> {
     materials_naming("skin")
 }
 
@@ -96,7 +96,7 @@ const CLEAN: [&str; 2] = [
 ];
 
 /// A small DDS, 12x12 BC3 with one level (`tests/fixtures/textures/single_level.dds`).
-fn small_dds() -> Vec<u8> {
+pub(crate) fn small_dds() -> Vec<u8> {
     fs::read(
         Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("tests/fixtures/textures")
@@ -113,7 +113,17 @@ fn pes17(sandbox: &Sandbox) -> String {
 /// Runs `compile --no-deploy` for PES 17, asserts the export `name`'s findings are `findings`
 /// and the run succeeded, and returns the output CPK's entries.
 fn compile_pes17(sandbox: &Sandbox, name: &str, findings: &[&str]) -> BTreeMap<String, Vec<u8>> {
-    let run = sandbox.run(&pes17(sandbox), &["compile", "--no-deploy"]);
+    compile_for(sandbox, 17, name, findings)
+}
+
+/// `compile_pes17` for PES `version`.
+fn compile_for(
+    sandbox: &Sandbox,
+    version: u8,
+    name: &str,
+    findings: &[&str],
+) -> BTreeMap<String, Vec<u8>> {
+    let run = sandbox.run(&pes_settings(sandbox, version), &["compile", "--no-deploy"]);
     let lines = run.messages();
     assert_eq!(findings_of(&lines, name), findings, "{lines:#?}");
     assert_eq!(run.exit_code(), 0, "{lines:#?}");
@@ -927,4 +937,149 @@ fn a_common_file_pre_fox_does_not_build_skips_the_export() {
         "{lines:#?}"
     );
     assert_eq!(run.exit_code(), 1, "{lines:#?}");
+}
+
+// TC-MOD-23
+#[test]
+fn a_uniform_model_is_typed_uniform_sub_on_pes_15_and_uniform_on_16_and_17() {
+    let sandbox = Sandbox::new("prefox_uniform");
+    let export = "co Midcup Uniform";
+    let player = format!("exports/{export}/Players/05 - A");
+    sandbox.write(&format!("{player}/body_uniform.model"), &card_model());
+    sandbox.write(&format!("{player}/body_uniform.mtl"), &card_materials());
+    sandbox.write(&format!("{player}/skin.dds"), &small_dds());
+    let face_neck_added = "Info xml_face_neck_added [Keep] at Players/05 - A ()";
+    let renamed = "Info xml_uniform_pes15 [Keep] at Players/05 - A (file=body_uniform.model)";
+
+    for (version, xml_type, findings) in [
+        (
+            15,
+            "uniform_sub",
+            [&CLEAN[..], &[renamed, face_neck_added]].concat(),
+        ),
+        (16, "uniform", [&CLEAN[..], &[face_neck_added]].concat()),
+        (17, "uniform", [&CLEAN[..], &[face_neck_added]].concat()),
+    ] {
+        let entries = compile_for(&sandbox, version, export, &findings);
+
+        let face = nested_entries(&entries[&face_cpk(5)]);
+        let xml = &face[&format!("{}face.xml", face_folder(5))];
+        // Every version names the packed model with the `oral_` prefix PES 16 needs.
+        assert_eq!(
+            String::from_utf8_lossy(xml),
+            String::from_utf8_lossy(&expected_face_xml(
+                &[
+                    (
+                        xml_type,
+                        "./oral_body_uniform_*.model",
+                        "./body_uniform.mtl",
+                        None
+                    ),
+                    ("face_neck", "./oral_dummy_*.model", "./dummy.mtl", None),
+                ],
+                &template("face_diff.bin")
+            )),
+            "PES {version}"
+        );
+    }
+}
+
+/// Runs `check` for PES 17 and asserts the export `name`'s findings are `findings` and the
+/// exit code is 1.
+fn check_pes17_fails(sandbox: &Sandbox, name: &str, findings: &[&str]) {
+    let check = sandbox.run(&pes17(sandbox), &["check"]);
+    let lines = check.messages();
+    assert_eq!(findings_of(&lines, name), findings, "{lines:#?}");
+    assert_eq!(check.exit_code(), 1, "{lines:#?}");
+}
+
+// TC-MOD-25
+#[test]
+fn an_edit_hair_file_and_an_unsuffixed_shared_boots_model_drop_their_folders_at_check() {
+    let sandbox = Sandbox::new("prefox_edithair");
+    let export = "co Midcup Edithair";
+    write_slot_05_face(&sandbox, export);
+    sandbox.write(
+        &format!("exports/{export}/Players/05 - A/face_edithair.xml"),
+        b"<config />",
+    );
+    check_pes17_fails(
+        &sandbox,
+        export,
+        &[
+            "Error edithair_unsupported [DropFolder] at Players/05 - A (file=face_edithair.xml)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+        ],
+    );
+
+    let sandbox = Sandbox::new("prefox_boots_name");
+    let export = "co Midcup Mud";
+    write_slot_05_face(&sandbox, export);
+    sandbox.write(&format!("exports/{export}/Players/07 - B/Mud.boots"), b"");
+    sandbox.write(
+        &format!("exports/{export}/Players/07 - B/face_high.model"),
+        &card_model(),
+    );
+    sandbox.write(
+        &format!("exports/{export}/Players/07 - B/face_high.mtl"),
+        &card_materials(),
+    );
+    let mud = format!("exports/{export}/Boots/Mud");
+    sandbox.write(&format!("{mud}/hat.model"), &card_model());
+    sandbox.write(&format!("{mud}/hat.mtl"), &card_materials());
+    check_pes17_fails(
+        &sandbox,
+        export,
+        &[
+            "Error model_name_invalid [DropFolder] at Boots/Mud (file=hat.model)",
+            "Error link_target_dropped [DropFolder] at Players/07 - B (link=Mud.boots, target=Boots/Mud, finding=model_name_invalid)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+        ],
+    );
+}
+
+// TC-XML-08
+#[test]
+fn a_model_material_its_mtl_does_not_define_drops_the_folder_at_check_and_compile() {
+    let sandbox = Sandbox::new("prefox_material_undefined");
+    let export = "co Midcup Skin";
+    // The card head's model with its one material, `card`, renamed `skin`; its material set
+    // defines only `card`.
+    let file = pes_model::format::PreFoxModel::read(&card_model()).unwrap();
+    let mut model = pes_model::model::Model::from_file(&file).unwrap();
+    assert_eq!(model.materials, ["card"]);
+    model.materials[0] = "skin".to_owned();
+    let player = format!("exports/{export}/Players/05 - A");
+    sandbox.write(
+        &format!("{player}/face_high.model"),
+        &model.to_file().unwrap().write().unwrap(),
+    );
+    sandbox.write(&format!("{player}/face_high.mtl"), &card_materials());
+    sandbox.write(&format!("{player}/skin.dds"), &small_dds());
+    // A clean player beside it, so the CPK is written and slot 05's absence observable.
+    let clean = format!("exports/{export}/Players/07 - B");
+    sandbox.write(&format!("{clean}/face_high.model"), &card_model());
+    sandbox.write(&format!("{clean}/face_high.mtl"), &card_materials());
+    sandbox.write(&format!("{clean}/skin.dds"), &small_dds());
+    let undefined = "Error model_material_undefined [DropFolder] at Players/05 - A (file=face_high.model, mtl=face_high.mtl, materials=skin)";
+
+    check_pes17_fails(
+        &sandbox,
+        export,
+        &[
+            undefined,
+            "Info export_identified [Keep] (team=/co/, id=714)",
+        ],
+    );
+    let compile = sandbox.run(&pes17(&sandbox), &["compile", "--no-deploy"]);
+    let lines = compile.messages();
+    assert_eq!(
+        findings_of(&lines, export),
+        [&[undefined][..], &CLEAN[..]].concat(),
+        "{lines:#?}"
+    );
+    assert_eq!(compile.exit_code(), 1, "{lines:#?}");
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    assert!(entries.contains_key(&face_cpk(7)), "{:?}", entries.keys());
+    assert!(!entries.contains_key(&face_cpk(5)), "{:?}", entries.keys());
 }

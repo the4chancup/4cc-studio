@@ -16,7 +16,8 @@ pub(super) enum SizeRule {
     /// Any other texture on a Fox target: `texture_not_pow2` on a side that is not a power of
     /// two when the converted texture carries a mip chain.
     FoxMipmapped,
-    /// Any other texture on a pre-Fox target: no size rule here.
+    /// Any other texture on a pre-Fox target: `texture_not_div4` on a side that is not a
+    /// multiple of 4, since every pre-Fox texture is written block-compressed.
     PreFox,
     /// A portrait, a `Portraits/` file or a player folder's `portrait.*`, on any target:
     /// `texture_not_pow2` on a side that is not a power of two, whatever its level count.
@@ -79,7 +80,9 @@ pub(super) fn texture_finding(format: SourceFormat, rule: SizeRule, bytes: &[u8]
         SizeRule::FoxMipmapped => {
             (probe.mipmaps > 1 && !power_of_two).then_some(Code::TextureNotPow2)
         }
-        SizeRule::PreFox => None,
+        SizeRule::PreFox => {
+            (probe.width % 4 != 0 || probe.height % 4 != 0).then_some(Code::TextureNotDiv4)
+        }
         SizeRule::Portrait => (!power_of_two).then_some(Code::TextureNotPow2),
     }
 }
@@ -206,6 +209,28 @@ mod tests {
     }
 
     #[test]
+    fn a_pre_fox_texture_whose_side_is_no_multiple_of_4_drops_its_folder_even_with_pass_through() {
+        let temp = scratch("deep_texture_not_div4");
+        let findings = findings_for(
+            PesVersion::Pes17,
+            temp.path(),
+            &[("Players/03 - A/skin.dds", bc1_dds(1002, 1004))],
+            &[],
+            &[],
+        );
+        assert_eq!(
+            findings,
+            [texture_finding_on(
+                "texture_not_div4",
+                &folder("Players/03 - A"),
+                "skin.dds",
+                Disposition::DropFolder,
+                false
+            )]
+        );
+    }
+
+    #[test]
     fn a_texture_whose_header_is_cut_gets_no_finding() {
         let temp = scratch("deep_texture_cut");
         let findings = findings_of(
@@ -282,6 +307,16 @@ mod tests {
             (SizeRule::MainKit, 2048, 4096, Some(Code::KitTextureTooBig)),
             (SizeRule::MainKit, 2048, 1024, None),
             (SizeRule::PreFox, 3, 8, Some(Code::TextureTooSmall)),
+            (SizeRule::PreFox, 3, 1002, Some(Code::TextureTooSmall)),
+            (SizeRule::PreFox, 1002, 1004, Some(Code::TextureNotDiv4)),
+            (SizeRule::PreFox, 1004, 1002, Some(Code::TextureNotDiv4)),
+            (SizeRule::PreFox, 1002, 1002, Some(Code::TextureNotDiv4)),
+            (SizeRule::PreFox, 1004, 1004, None),
+            (SizeRule::PreFox, 300, 300, None),
+            (SizeRule::FoxMipmapped, 1002, 1004, None),
+            (SizeRule::FoxMipmapped, 1004, 1002, None),
+            (SizeRule::FoxMipmapped, 1002, 1002, None),
+            (SizeRule::FoxMipmapped, 1004, 1004, None),
             (SizeRule::Portrait, 256, 300, Some(Code::TextureNotPow2)),
             (SizeRule::Portrait, 300, 256, Some(Code::TextureNotPow2)),
             (SizeRule::Portrait, 4096, 8, None),
