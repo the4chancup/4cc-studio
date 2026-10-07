@@ -177,6 +177,22 @@ whose name does not say which hand it is, or a `.common` link to a material file
 others). `check` still checks
 those exports.
 
+A `Collars` folder holds custom collar models, each replacing one of the game's stock collars:
+model files (`.fmdl`, `.model`, `.glb` or `.gltf`) directly in the folder, named `collar_`
+and the stock collar's number, with or without leading zeros (`collar_12.fmdl` and
+`collar_012.fmdl` both replace collar 12). Any other file there is `file_type_disallowed`.
+Both commands check each collar file for the target version: a name that is not
+`collar_<number>`, or a number that is not a stock collar a kit can wear (1 to 101 on PES 2015,
+to 105 on PES 2016, 116 on PES 2017 and 2018, 124 on PES 2019, 127 on PES 2020, 131 on PES
+2021), is the error `collar_id_invalid`. Collars 105 (worn by every FPC kit) and 77 (the
+referees' marker, see below) are the compiler's own, so a file named for either is the error
+`collar_id_conflict`, naming who holds it. A `.fmdl` or `.model` collar is then checked as any
+model is: one that cannot be read is `model_broken`, and an error the model checks find (a
+vertex too far from the origin, for instance) leaves it out too, while a warning keeps it.
+Each of these errors leaves the collar file out, and the rest of the export goes on.
+`compile` does not build collars yet: an export still holding one is skipped with
+`content_not_yet_compiled`.
+
 A `refs` export compiles on PES 2018 to 2021 like a team's player folders: each referee folder
 its `players.txt` lists is built once and written for every slot it is listed under, slot NN
 as the face `referee0NN` with the boots `k99NN` and the gloves `g99NN`, and the folder's

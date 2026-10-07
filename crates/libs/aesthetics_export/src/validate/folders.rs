@@ -714,3 +714,26 @@ pub(crate) fn check_common(
         issues,
     );
 }
+
+/// The `Collars/` allowlist: model files directly in the folder, in any model format. The game
+/// draws a collar with the team's kit texture, so a texture or a `.mtl` there has nothing to
+/// go with. Each other file drops alone, a collar being its own unit. The `collar_<ID>` name
+/// is the consumer's to check: which IDs exist depends on the target version.
+pub(crate) fn check_collars(
+    draft: &AestheticsExportDraft,
+    context: &ValidationContext,
+    issues: &mut Vec<ValidationIssue>,
+) {
+    let folder = ScopePath::new("Collars").expect("`Collars` is a valid path segment");
+    for file in &draft.collars {
+        if !(directly_in(&file.path, &folder) && matches!(file.kind, FileKind::Model(_))) {
+            issues.push(issue_in(
+                context,
+                "file_type_disallowed",
+                IssueScope::File(file.path.clone()),
+                vec![("file", relative(&file.path, &folder))],
+                strict_disposition(context, Disposition::DropFile),
+            ));
+        }
+    }
+}

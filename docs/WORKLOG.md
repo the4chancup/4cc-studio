@@ -15,7 +15,8 @@ is in `AGENTS.md` ("Working documents").
 cross-family review (a) is queued). Next:
 the next open Phase 4 step (see the list); 4.21 to 4.24 and 4.29
 and 4.25 are done; 4.26 is done; 4.19 (Fox referees) is done, 4.19d (pre-Fox) waits on 4.14 and 4.20; 4.27a (the Fox
-referee marker) is done, 4.27's rest waits on 4.9 and 4.19d; 4.14 waits on 4.31's pre-Fox export; 4.33, 4.34, 4.c-pass and
+referee marker) is done, 4.27's rest waits on 4.9 and 4.19d; 4.9b1 (collar
+checks) is done, 4.9b2 (compiling Fox collars) next; 4.14 waits on 4.31's pre-Fox export; 4.33, 4.34, 4.c-pass and
 4.c-fix1 are done; 4.30,
 4.5 to 4.8, 4.9a and 4.10 to 4.13 are done (4.6c moved to Phase 8's cancellation), 4.9b
 (collars) waits on nothing. 2.5b (GPU BC7) is step 16.x (decision entries
@@ -300,6 +301,11 @@ Claude agent with no sidekick and no reviewer of another model family. While tha
   2026-10-07, against `blue_port.md` "Referee export processing", `messages.md`
   `kit_collar_reserved`, TC-REF-06, 07, 08 and the decision entry "the Fox referee marker
   ...".
+  4.9b1 (b), `aesthetics_export` (`validate/folders.rs` `check_collars`) and `team_compiler`
+  (`deep/collar.rs`), its commit of 2026-10-07, against `pipeline.md` "Collars" and
+  "Collar contract", `messages.md` `collar_id_invalid`, `collar_id_conflict`,
+  `object_model.md`'s `Collars/` allowlist row, TC-CMN-02, TC-CMN-10, TC-REF-07 and the
+  decision entry "collars: the 9xx IDs, ...".
 - For the lead, on return: the review process on trial (3.1) opens with a full sidekick review
   loop, then runs GPT's loop with a full sidekick loop after each GPT round, calling GPT again
   only once that sidekick loop has ended and GPT's own loop has not; not yet in `AGENTS.md`
@@ -1045,10 +1051,19 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
     (`pipeline.md` "Collars"). `kit_collar_reserved` landed with 4.27a. Plan settled
     2026-10-07 (decision entry "collars: the 9xx IDs, one collar per export, a midcup's absent
     slots"). Slices:
-    - [ ] 4.9b1 the checks: `Collars/`'s allowlist row in `ae` (TC-CMN-10); the deep pass's
-      `collar_id_invalid` (every version's set) and the reserved IDs' `collar_id_conflict`, so
-      `check` reports them (TC-CMN-02; TC-CMN-08's PES 17 refusal through `check`); a collar
-      FMDL that does not read dropped as a model that does not read is.
+    - [x] 4.9b1 the checks: done 2026-10-07 (one rework round: the lead's brief had
+      exempted collars from the model checks on a wrong premise; the sidekick's
+      contradiction, accepted). `ae` `folders::check_collars` (model files directly in
+      `Collars/`, else `file_type_disallowed`, strict-dependent); `tc` `deep/collar.rs`
+      (`collar_findings`: `collar_<ID>` letter case aside, parsed to `u8`; 105 and 77 first,
+      `collar_id_conflict` naming `FPC` or `referees`; then `1..=last_stock_collar(version)`,
+      else `collar_id_invalid`; then `file_findings` as any model, an Error dropping the
+      file). `fpc` became a `tc` dependency (`kit_values().collar`). TC-CMN-02, TC-CMN-10,
+      TC-REF-07's collar half (`check`); TC-CMN-08's PES 17 refusal tested, uncited (its
+      THEN needs the compile). For 4.9b2: with the strict check off a non-model file stays
+      in `export.collars` (Info), so planning must pass over it. `mutants-diff 1d1ae5c`: 23,
+      19 caught, 3 unviable, 1 missed (`named_id`'s prefix test), closed by the lead's
+      `player_12` case.
     - [ ] 4.9b2 the Fox compile: the run-wide claimed list in planning (canonical order, one
       collar per export), the `.fmdl` collar written at `paths::collar`, every config of the
       team rewritten after FPC (the kit task; a Midcup's absent slots in `kit_configs` after
@@ -3271,3 +3286,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
     wear collar 77; a team kit whose collar or winter collar is 77 is left out with
     `kit_collar_reserved`. Whether PES 21 reads the loose referee kits that carry the
     collar is still to be tested in game (Issues, referee collars).
+  - **4.9b1:** `check` reports a `Collars/` file that is no model, a name that gives no
+    stock collar of the version a kit can wear (`collar_id_invalid`, the 9xx ones
+    included), a claim on 105 or 77 (`collar_id_conflict`), and a collar model's check
+    findings as any model's. `compile` still refuses an export that keeps a collar.

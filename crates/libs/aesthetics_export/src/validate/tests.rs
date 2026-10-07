@@ -316,7 +316,7 @@ fn shared_folders_and_common_files_build_unchecked() {
             ("Boots/Crocs/boots.fmdl", 10),
             ("Gloves/Keeper gloves/glove_l.fmdl", 10),
             ("Common/hair.dds", 9),
-            ("Collars/collar_101.dds", 9),
+            ("Collars/collar_101.fmdl", 10),
         ],
         &[],
         &[],
@@ -331,7 +331,10 @@ fn shared_folders_and_common_files_build_unchecked() {
     assert_eq!(validated.gloves[0].folder_name, "Keeper gloves");
     assert_eq!(validated.common[0].path.as_str(), "Common/hair.dds");
     assert_eq!(validated.common[0].kind, FileKind::Texture);
-    assert_eq!(validated.collars[0].path.as_str(), "Collars/collar_101.dds");
+    assert_eq!(
+        validated.collars[0].path.as_str(),
+        "Collars/collar_101.fmdl"
+    );
 }
 
 fn folder(path: &str) -> IssueScope {
@@ -880,6 +883,60 @@ fn a_common_file_off_the_allowlist_drops_or_keeps() {
         vec![("common_file_disallowed", Disposition::Keep)]
     );
     assert_eq!(lenient.validated.unwrap().common.len(), 1);
+}
+
+#[test]
+fn only_model_files_directly_in_collars_are_kept() {
+    let files = [
+        ("Collars/collar_12.fmdl", 10),
+        ("Collars/collar_13.model", 10),
+        ("Collars/collar_14.glb", 10),
+        ("Collars/collar_15.gltf", 10),
+        ("Collars/collar_12.dds", 9),
+        ("Collars/collar_12.mtl", 9),
+        ("Collars/old/collar_16.fmdl", 10),
+    ];
+    let strict = report("co Midcup", &files, &[], &[]);
+    let disallowed = |path: &str, file: &str| ValidationIssue {
+        code: "file_type_disallowed",
+        scope: IssueScope::File(ScopePath::new(path).unwrap()),
+        context: vec![("file", file.to_owned())],
+        disposition: Disposition::DropFile,
+        passed_through: false,
+    };
+    assert_eq!(
+        strict.issues,
+        [
+            disallowed("Collars/collar_12.dds", "collar_12.dds"),
+            disallowed("Collars/collar_12.mtl", "collar_12.mtl"),
+            disallowed("Collars/old/collar_16.fmdl", "old/collar_16.fmdl"),
+        ]
+    );
+    let mut kept: Vec<String> = strict
+        .validated
+        .unwrap()
+        .collars
+        .iter()
+        .map(|file| file.path.as_str().to_owned())
+        .collect();
+    kept.sort_unstable();
+    assert_eq!(
+        kept,
+        [
+            "Collars/collar_12.fmdl",
+            "Collars/collar_13.model",
+            "Collars/collar_14.glb",
+            "Collars/collar_15.gltf",
+        ]
+    );
+
+    // With the strict check off, the files are only noted and stay.
+    let lenient = report_with(&context_with(false, false), "co Midcup", &files, &[], &[]);
+    assert_eq!(
+        issue_codes(&lenient),
+        vec![("file_type_disallowed", Disposition::Keep); 3]
+    );
+    assert_eq!(lenient.validated.unwrap().collars.len(), files.len());
 }
 
 #[test]
@@ -2659,12 +2716,12 @@ fn a_content_finding_dropping_a_portrait_or_collar_file_takes_only_that_file_off
             ("Players/03 - A/boots.fmdl", 10),
             ("Portraits/player_03.dds", 9),
             ("Portraits/player_05.dds", 9),
-            ("Collars/collar_101.dds", 9),
-            ("Collars/collar_102.dds", 9),
+            ("Collars/collar_101.fmdl", 10),
+            ("Collars/collar_102.fmdl", 10),
         ],
         vec![
             far_vertex(file_scope("Portraits/player_03.dds"), Disposition::DropFile),
-            far_vertex(file_scope("Collars/collar_101.dds"), Disposition::DropFile),
+            far_vertex(file_scope("Collars/collar_101.fmdl"), Disposition::DropFile),
         ],
     );
     let validated = report.validated.unwrap();
@@ -2682,7 +2739,7 @@ fn a_content_finding_dropping_a_portrait_or_collar_file_takes_only_that_file_off
             .iter()
             .map(|file| file.path.as_str())
             .collect::<Vec<_>>(),
-        vec!["Collars/collar_102.dds"]
+        vec!["Collars/collar_102.fmdl"]
     );
 }
 

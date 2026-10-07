@@ -1560,7 +1560,7 @@ mod tests {
     #[test]
     fn the_logo_is_compiled_collars_are_named_and_common_holds_models_skeletons_and_textures() {
         assert_eq!(gate(&["logo.dds", "logo_small_crop.png"]), None);
-        let collar = "Collars/collar.dds";
+        let collar = "Collars/collar_12.fmdl";
         assert_eq!(gate(&[collar]), what(collar));
         // Common's FMDLs and skeletons are reached through links, and one no link names
         // builds nothing; its textures are the export's Common textures task's.
@@ -1697,7 +1697,7 @@ mod tests {
         let shared_skl = "Boots/Crocs/kit_boots.skl";
         let kit = "Kits/g1/kit.dds";
         let kit_extra = "Kits/g1/kit_srm.dds";
-        let collar = "Collars/collar.dds";
+        let collar = "Collars/collar_12.fmdl";
         // A folder's own files come before its links' folders.
         assert_eq!(
             first_hit(&[

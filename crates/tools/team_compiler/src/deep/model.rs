@@ -111,27 +111,14 @@ pub(super) fn summed(fired: Vec<Fired>) -> Vec<Fired> {
 
 #[cfg(test)]
 mod tests {
-    use std::fs;
-    use std::path::Path;
-
     use aesthetics_export::{ContentFinding, Disposition};
 
     use super::*;
     use crate::deep::tests::{
-        counted, edited, far_boots, findings_of, folder, glove_over_the_face_limit, tracer_boots,
+        counted, edited, far_boots, findings_of, folder, glove_over_the_face_limit,
+        pre_fox_fixture, tracer_boots,
     };
     use crate::testing::scratch;
-
-    /// The bytes of `pes_model`'s fixture `name`: real pre-Fox models and material sets,
-    /// which this crate's own fixtures do not hold (`pes_model/tests/fixtures/README.md`).
-    fn pre_fox_fixture(name: &str) -> Vec<u8> {
-        fs::read(
-            Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join("../../libs/pes_model/tests/fixtures")
-                .join(name),
-        )
-        .unwrap()
-    }
 
     /// `code` on the folder `scope`: the file `file` does not parse, for `error`.
     fn broken(code: &'static str, scope: &str, file: &str, error: String) -> ContentFinding {

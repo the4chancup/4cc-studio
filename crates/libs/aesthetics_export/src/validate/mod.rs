@@ -111,7 +111,8 @@ pub struct ValidatedAestheticsExport {
     pub portraits: BTreeMap<PlayerSlot, FileDescriptor>,
     /// Root `logo*` (+ optional `logo_small*`), each with its fit mode.
     pub logo: Option<LogoFiles>,
-    /// `Collars/`, passed through.
+    /// `Collars/`'s model files, the custom collars; their `collar_<ID>`
+    /// names are the consumer's to check.
     pub collars: Vec<FileDescriptor>,
     /// `Common/`, the targets of `.common` links.
     pub common: Vec<FileDescriptor>,
@@ -197,8 +198,8 @@ impl ParsedAestheticsExport {
         };
 
         // Own findings, in drop order: player folders, shared folders,
-        // `Common/`, the content findings, then the cascade (dropped targets,
-        // orphaned shares).
+        // `Common/`, `Collars/`, the content findings, then the cascade
+        // (dropped targets, orphaned shares).
         for folder in &draft.players {
             folders::check_player(draft, folder, context, &mut issues);
         }
@@ -208,6 +209,7 @@ impl ParsedAestheticsExport {
             }
         }
         folders::check_common(draft, context, &mut issues);
+        folders::check_collars(draft, context, &mut issues);
         issues.extend(
             content_findings
                 .into_iter()

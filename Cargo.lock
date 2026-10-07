@@ -3666,6 +3666,7 @@ dependencies = [
  "egui",
  "elevation",
  "fmdl",
+ "fpc",
  "fpk",
  "ftex",
  "kit_config",

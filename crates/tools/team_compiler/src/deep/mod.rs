@@ -21,6 +21,10 @@
 //! source is the one texture decoded in full: one that does not decode is
 //! `logo_file_invalid`.
 //!
+//! Each `Collars/` file's name must give a stock collar of the target version that a kit
+//! config can name, and no collar the suite holds itself (`collar`); a collar model is then
+//! checked as any model, its Errors dropping the file.
+//!
 //! Last, it reads the small data files whole (`documents`): the face diff of each player
 //! folder and shared face folder (`face_diff_invalid`, `xml_dif_conflict`), each kit's
 //! `config.toml` (`kit_config_invalid`), each player's `settings.toml`
@@ -31,6 +35,7 @@
 //! pool, each worker reading and holding one file at a time, and the findings are collected
 //! in file order (`content_findings`).
 
+mod collar;
 mod documents;
 mod model;
 mod portrait;
@@ -51,6 +56,7 @@ use crate::bins::{KIT_COLORS, TEAM_COLORS};
 use crate::messages::Code;
 use crate::plan::subset::{FolderModels, texture_format};
 use crate::reader::ContentSource;
+use collar::collar_findings;
 use documents::{colors_findings, face_diff_findings, kit_config_findings, settings_finding};
 use model::{ModelKind, fired, summed};
 use portrait::{folder_portrait, portrait_conflict, portrait_findings};
@@ -61,11 +67,12 @@ pub(crate) use model::FAR_VERTEX_CODES;
 /// The content findings of `export`, the sanitized export read from `content` and compiled for
 /// `version`, in file order: each player folder's models, material sets and textures, then
 /// its face diff, its portrait and its `settings.toml`; then each shared folder's (faces with
-/// their face diff, boots, gloves), then `Common/`'s, then each `Portraits/` file with its
-/// slot's `portrait_conflict`, then each kit's `config.toml`, `colors.txt` and textures, then
-/// the logo's, then the root `colors.txt`'s. An Error on a folder's or a kit's file drops the
-/// folder; one on a `Common/` file drops the file, and the cascade then drops the players
-/// linking it; one on a portrait, a `settings.toml` or a logo file drops that file. A refused
+/// their face diff, boots, gloves), then `Common/`'s, then each `Collars/` file's, then each
+/// `Portraits/` file with its slot's `portrait_conflict`, then each kit's `config.toml`,
+/// `colors.txt` and textures, then the logo's, then the root `colors.txt`'s. An Error on a
+/// folder's or a kit's file drops the folder; one on a `Common/` file drops the file, and the
+/// cascade then drops the players linking it; one on a collar, a portrait, a `settings.toml` or
+/// a logo file drops that file. A refused
 /// `colors.txt` line is a Warning on the file, which drops nothing.
 ///
 /// The player folders, the shared folders, the files of each folder and `Common/`'s files are
@@ -151,6 +158,9 @@ pub(crate) fn content_findings(
         .flatten()
         .flatten()
         .collect();
+    for file in &export.collars {
+        findings.extend(collar_findings(content, file, version));
+    }
     for (slot, file) in &export.portraits {
         findings.extend(portrait_findings(content, file, file.path.name()));
         if let Some(folder_portrait) = folder_portrait(export, *slot) {
@@ -451,6 +461,17 @@ mod tests {
             Path::new(env!("CARGO_MANIFEST_DIR"))
                 .join("tests/fixtures")
                 .join(relative),
+        )
+        .unwrap()
+    }
+
+    /// The bytes of `pes_model`'s fixture `name`: real pre-Fox models and material sets,
+    /// which this crate's own fixtures do not hold (`pes_model/tests/fixtures/README.md`).
+    pub(super) fn pre_fox_fixture(name: &str) -> Vec<u8> {
+        fs::read(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../libs/pes_model/tests/fixtures")
+                .join(name),
         )
         .unwrap()
     }

@@ -20,6 +20,7 @@ dds_convert.workspace = true
 egui.workspace = true
 elevation.workspace = true
 fmdl.workspace = true
+fpc.workspace = true
 fpk.workspace = true
 ftex.workspace = true
 kit_config.workspace = true

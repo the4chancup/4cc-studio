@@ -1369,10 +1369,11 @@ fn without_fpc_on_supplied_kit_configs_are_emitted_as_they_are() {
 
 // TC-REF-07
 #[test]
-fn a_kit_wearing_the_referees_collar_77_is_left_out_naming_the_field() {
+fn a_kit_or_a_collar_file_taking_the_referees_collar_77_is_left_out() {
     let sandbox = Sandbox::new("kit_collar_reserved");
     let export = "exports/co Midcup Collars";
     sandbox.write(&format!("{export}/{CLEAN_PLAYER}"), &clean_model());
+    sandbox.write(&format!("{export}/Collars/collar_77.fmdl"), &clean_model());
     let configs: [(&str, &[u8]); 2] = [
         ("p1", b"[shirt]\ncollar = 77\n"),
         ("p2", b"[shirt]\nwinter_collar = 77\n"),
@@ -1387,13 +1388,15 @@ fn a_kit_wearing_the_referees_collar_77_is_left_out_naming_the_field() {
     let lines = run.messages();
     let findings = findings_of(&lines, "co Midcup Collars");
     for reserved in [
+        "Error collar_id_conflict [DropFile] at Collars/collar_77.fmdl (file=collar_77.fmdl, claimant=referees)",
         "Error kit_collar_reserved [DropFolder] at Kits/p1 (field=collar)",
         "Error kit_collar_reserved [DropFolder] at Kits/p2 (field=winter_collar)",
     ] {
         assert!(findings.contains(&reserved), "{lines:#?}");
     }
     assert_eq!(run.exit_code(), 1);
-    // The player commits; neither kit's config nor its texture goes in.
+    // The player commits, the dropped collar file leaving nothing for the export to be refused
+    // over; neither kit's config nor its texture goes in.
     assert_eq!(compiled_players(&sandbox), [71403]);
     assert_eq!(compiled_kits(&sandbox), Vec::<String>::new());
     let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));

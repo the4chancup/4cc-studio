@@ -74,6 +74,12 @@ pub(crate) enum Code {
     /// A team kit whose collar or winter collar, after FPC reconciliation, is the referees'
     /// reserved collar 77: its players would wear the referee marker, so the kit is left out.
     KitCollarReserved,
+    /// A `Collars/` file whose name is not `collar_<ID>`, or whose ID is no stock collar of the
+    /// target version that a kit config can name; the file is left out.
+    CollarIdInvalid,
+    /// A `Collars/` file replacing a collar someone else holds: the suite's own, 105 (FPC) or
+    /// 77 (the referees' marker); the file is left out.
+    CollarIdConflict,
     /// A non-square logo source was made square; names the file and the mode applied (`fit`
     /// for an untagged file, or its tag).
     LogoFitApplied,
@@ -265,7 +271,7 @@ impl Code {
     /// Every code, for the catalog test: a variant missing here would make its first message
     /// panic in `severity`, so a new variant is added to this list too.
     #[cfg(test)]
-    const ALL: [Code; 83] = [
+    const ALL: [Code; 85] = [
         Code::ExportExtractFailed,
         Code::NoExportsFound,
         Code::ExportDisabled,
@@ -287,6 +293,8 @@ impl Code {
         Code::KitColorsMissing,
         Code::KitLayoutConverted,
         Code::KitCollarReserved,
+        Code::CollarIdInvalid,
+        Code::CollarIdConflict,
         Code::LogoFitApplied,
         Code::LogoUpscaled,
         Code::ContentNotYetCompiled,
@@ -375,6 +383,8 @@ impl Code {
             Code::KitColorsMissing => "kit_colors_missing",
             Code::KitLayoutConverted => "kit_layout_converted",
             Code::KitCollarReserved => "kit_collar_reserved",
+            Code::CollarIdInvalid => "collar_id_invalid",
+            Code::CollarIdConflict => "collar_id_conflict",
             Code::LogoFitApplied => "logo_fit_applied",
             Code::LogoUpscaled => "logo_upscaled",
             Code::ContentNotYetCompiled => "content_not_yet_compiled",
@@ -483,6 +493,8 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("kit_colors_missing", CatalogSeverity::Warning),
     ("kit_layout_converted", CatalogSeverity::Info),
     ("kit_collar_reserved", CatalogSeverity::Error),
+    ("collar_id_invalid", CatalogSeverity::Error),
+    ("collar_id_conflict", CatalogSeverity::Error),
     ("logo_fit_applied", CatalogSeverity::Info),
     ("logo_upscaled", CatalogSeverity::Warning),
     ("content_not_yet_compiled", CatalogSeverity::Error),

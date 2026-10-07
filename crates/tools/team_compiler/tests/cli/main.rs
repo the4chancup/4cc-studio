@@ -8,6 +8,7 @@ mod common;
 
 mod bins;
 mod check;
+mod collars;
 mod common_links;
 mod compile;
 mod compile_exports;
