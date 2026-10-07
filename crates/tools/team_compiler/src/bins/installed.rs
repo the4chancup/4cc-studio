@@ -14,8 +14,9 @@ use cpk::CpkArchive;
 use pes_version::PesVersion;
 use pipeline::CpkStem;
 use studio_core::{Disposition, Message, Scope};
+use uniparam::UniformParameter;
 
-use super::{WorkingBins, dpfl};
+use super::{TeamColorBin, UniColorBin, WorkingBins, dpfl};
 use crate::messages::{Code, deploy_message, tool_message};
 use crate::output::deploy;
 use crate::paths;
@@ -56,14 +57,23 @@ impl Bin {
             Bin::UniformParameter => "UniformParameter.bin",
         }
     }
+
+    /// Parses `bytes`, unwrapped, as the bin and puts it in `bins` in place of the one there.
+    fn set(self, bins: &mut WorkingBins, bytes: Vec<u8>) -> anyhow::Result<()> {
+        match self {
+            Bin::TeamColor => bins.team_color = TeamColorBin::read(bytes)?,
+            Bin::UniColor => bins.uni_color = UniColorBin::read(bytes)?,
+            Bin::UniformParameter => bins.uniform_parameter = Some(UniformParameter::read(&bytes)?),
+        }
+        Ok(())
+    }
 }
 
 /// One bin the walk looks for, and what it found.
 struct Wanted {
     bin: Bin,
-    /// The bin's bytes, unwrapped, and the listed file name of the CPK they came from, once a
-    /// CPK supplied them.
-    found: Option<(Vec<u8>, String)>,
+    /// The listed file name of the CPK the bin came from, once a CPK supplied it.
+    found: Option<String>,
 }
 
 /// The bins a run compiling `cpk_stem` for `version` builds on, taken from the installed
@@ -89,7 +99,8 @@ pub(crate) fn working_bins(
         .map(|bin| Wanted { bin, found: None })
         .collect();
     let mut messages = Vec::new();
-    if let Some(list) = walk(pes_folder, cpk_stem, &mut wanted)? {
+    let mut bins = WorkingBins::bundled(version, templates);
+    if let Some(list) = walk(pes_folder, cpk_stem, &mut wanted, &mut bins)? {
         messages.push(deploy_message(
             Code::DpfilelistMissing,
             Scope::Run,
@@ -98,38 +109,27 @@ pub(crate) fn working_bins(
             deploys,
         ));
     }
-    let mut bins = WorkingBins::bundled(version, templates);
     for Wanted { bin, found } in wanted {
-        let cpk = found
-            .as_ref()
-            .map_or("bundled", |(_, cpk)| cpk.as_str())
-            .to_owned();
+        let cpk = found.unwrap_or_else(|| "bundled".to_owned());
         messages.push(tool_message(
             Code::BinSource,
             Scope::Run,
             Disposition::Keep,
             vec![("bin", bin.name().to_owned()), ("cpk", cpk)],
         ));
-        let Some((bytes, _)) = found else {
-            continue;
-        };
-        match bin {
-            Bin::TeamColor => bins.team_color = bytes,
-            Bin::UniColor => bins.uni_color = bytes,
-            Bin::UniformParameter => bins.uniform_parameter = Some(bytes),
-        }
     }
     Ok((bins, messages))
 }
 
 /// Walks the CPKs `pes_folder`'s `download/DpFileList.bin` lists before `cpk_stem`'s, nearest
-/// first, until each of `wanted` is found, each taken from the first CPK holding it. Returns the
-/// list's path when the folder has none. Nothing is walked when `pes_folder` is not a folder or
-/// the list does not name the run's CPK: nothing is known to come before it.
+/// first, until each of `wanted` is found, each taken into `bins` from the first CPK holding
+/// it. Returns the list's path when the folder has none. Nothing is walked when `pes_folder` is
+/// not a folder or the list does not name the run's CPK: nothing is known to come before it.
 fn walk(
     pes_folder: &Path,
     cpk_stem: &CpkStem,
     wanted: &mut [Wanted],
+    bins: &mut WorkingBins,
 ) -> Result<Option<PathBuf>, Unreadable> {
     if !pes_folder.is_dir() {
         return Ok(None);
@@ -147,7 +147,7 @@ fn walk(
         if wanted.iter().all(|bin| bin.found.is_some()) {
             break;
         }
-        take_from(&download.join(name), name, wanted)?;
+        take_from(&download.join(name), name, wanted, bins)?;
     }
     Ok(None)
 }
@@ -166,9 +166,17 @@ fn read_list(path: &Path) -> Result<Option<Vec<String>>, Unreadable> {
     dpfl::entries(&bytes).map(Some).map_err(unreadable)
 }
 
-/// Takes from the CPK at `path`, listed as `name`, each of `wanted` not found yet that it
-/// holds, unwrapped when the bin is WESYS-compressed. A listed CPK with no file is passed over.
-fn take_from(path: &Path, name: &str, wanted: &mut [Wanted]) -> Result<(), Unreadable> {
+/// Takes into `bins` from the CPK at `path`, listed as `name`, each of `wanted` not found yet
+/// that it holds, unwrapped when the bin is WESYS-compressed, and parsed: a bin that does not
+/// parse as its format is as unreadable as one that cannot be read, found here rather than when
+/// the CPK is finished after every export was processed. A listed CPK with no file is passed
+/// over.
+fn take_from(
+    path: &Path,
+    name: &str,
+    wanted: &mut [Wanted],
+    bins: &mut WorkingBins,
+) -> Result<(), Unreadable> {
     let unreadable = |error: anyhow::Error| Unreadable {
         path: path.to_owned(),
         error,
@@ -195,7 +203,12 @@ fn take_from(path: &Path, name: &str, wanted: &mut [Wanted]) -> Result<(), Unrea
             .with_context(|| format!("cannot unwrap {path_in_cpk}"))
             .map_err(unreadable)?
             .into_owned();
-        wanted.found = Some((bytes, name.to_owned()));
+        wanted
+            .bin
+            .set(bins, bytes)
+            .with_context(|| format!("cannot parse {path_in_cpk}"))
+            .map_err(unreadable)?;
+        wanted.found = Some(name.to_owned());
     }
     Ok(())
 }
@@ -272,9 +285,38 @@ mod tests {
         );
         assert!(bins.uni_color == bundled.uni_color, "UniColor.bin bundled");
         assert!(
-            bins.uniform_parameter == bundled.uniform_parameter,
+            written(bins) == written(&bundled),
             "UniformParameter.bin bundled"
         );
+    }
+
+    /// `bins`' `UniformParameter.bin` as it would be written.
+    fn written(bins: &WorkingBins) -> Option<Vec<u8>> {
+        bins.uniform_parameter.as_ref().map(UniformParameter::write)
+    }
+
+    /// A `TeamColor.bin` of team 100's one record, its colors all `color`.
+    fn team_color_bin(color: u8) -> Vec<u8> {
+        let mut bytes = vec![0x64, 0x00, 0x04, 0x00];
+        bytes.extend([color; 12]);
+        bytes
+    }
+
+    /// A `UniColor.bin` of team 100's one record holding the one kit 0, its colors all `color`.
+    fn uni_color_bin(color: u8) -> Vec<u8> {
+        let mut bytes = vec![0x64, 0x00, 0x00, 0x00, 0x01];
+        bytes.extend([0x00, 0x03, color, color, color, color, color, color]);
+        for _ in 1..10 {
+            bytes.extend([0xff, 0, 0, 0, 0, 0, 0, 0]);
+        }
+        bytes
+    }
+
+    /// A `UniformParameter.bin` holding the one entry `name`.
+    fn uniform_parameter_bin(name: &str) -> Vec<u8> {
+        let mut bin = UniformParameter::new();
+        bin.insert(name.to_owned(), vec![7; 120]).unwrap();
+        bin.write()
     }
 
     #[test]
@@ -302,7 +344,7 @@ mod tests {
         )
         .unwrap();
         assert_bundled(&bins, PesVersion::Pes17);
-        assert_eq!(bins.uniform_parameter, None);
+        assert!(bins.uniform_parameter.is_none());
         assert_eq!(messages, all_bundled()[..2]);
     }
 
@@ -391,14 +433,14 @@ mod tests {
             pes,
             "4cc_08_bins.cpk",
             &[
-                (paths::TEAM_COLOR, b"team colors of 08"),
-                (paths::UNI_COLOR, b"kit colors of 08"),
+                (paths::TEAM_COLOR, &team_color_bin(8)),
+                (paths::UNI_COLOR, &uni_color_bin(8)),
             ],
         );
         install_cpk(
             pes,
             "4cc_40_teams.cpk",
-            &[(paths::UNI_COLOR, b"kit colors of 40")],
+            &[(paths::UNI_COLOR, &uni_color_bin(40))],
         );
 
         let (bins, messages) = working_bins(
@@ -409,11 +451,14 @@ mod tests {
             &Templates::embedded(),
         )
         .unwrap();
-        assert_eq!(bins.team_color, b"team colors of 08");
-        assert_eq!(bins.uni_color, b"kit colors of 40");
-        assert_eq!(
-            bins.uniform_parameter,
-            WorkingBins::bundled(PesVersion::Pes21, &Templates::embedded()).uniform_parameter
+        assert_eq!(bins.team_color.into_bytes(), team_color_bin(8));
+        assert_eq!(bins.uni_color.into_bytes(), uni_color_bin(40));
+        assert!(
+            bins.uniform_parameter.map(|bin| bin.write())
+                == written(&WorkingBins::bundled(
+                    PesVersion::Pes21,
+                    &Templates::embedded()
+                ))
         );
         assert_eq!(
             messages,
@@ -433,7 +478,10 @@ mod tests {
         install_cpk(
             pes,
             "4cc_08_bins.cpk",
-            &[(paths::UNIFORM_PARAMETER, b"kit configs of 08")],
+            &[(
+                paths::UNIFORM_PARAMETER,
+                &uniform_parameter_bin("kit configs of 08"),
+            )],
         );
 
         let (bins, messages) = working_bins(
@@ -445,8 +493,8 @@ mod tests {
         )
         .unwrap();
         assert_eq!(
-            bins.uniform_parameter.as_deref(),
-            Some(&b"kit configs of 08"[..])
+            written(&bins),
+            Some(uniform_parameter_bin("kit configs of 08"))
         );
         assert_eq!(
             messages[2],
@@ -461,8 +509,38 @@ mod tests {
             &Templates::embedded(),
         )
         .unwrap();
-        assert_eq!(bins.uniform_parameter, None);
+        assert!(bins.uniform_parameter.is_none());
         assert_eq!(messages, all_bundled()[..2]);
+    }
+
+    #[test]
+    fn an_installed_bin_that_does_not_parse_is_the_error_naming_its_cpk() {
+        let temp = scratch("installed_bin_unparsable");
+        let pes = temp.path();
+        install_list(pes, &["4cc_08_bins.cpk", "4cc_99_test.cpk"]);
+        // One byte short of a whole 85-byte record.
+        install_cpk(pes, "4cc_08_bins.cpk", &[(paths::UNI_COLOR, &[0; 84])]);
+
+        let Err(unreadable) = working_bins(
+            pes,
+            &stem(),
+            PesVersion::Pes21,
+            true,
+            &Templates::embedded(),
+        ) else {
+            panic!("a bin that does not parse must be the error");
+        };
+        assert_eq!(
+            unreadable.path,
+            pes.join("download").join("4cc_08_bins.cpk")
+        );
+        assert_eq!(
+            format!("{:#}", unreadable.error),
+            format!(
+                "cannot parse {}: UniColor.bin is 84 bytes, not a whole number of 85-byte records",
+                paths::UNI_COLOR
+            )
+        );
     }
 
     #[test]

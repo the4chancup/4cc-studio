@@ -780,7 +780,7 @@ fn tracer_kit_colors() -> [u8; 6] {
 }
 
 /// The bundled `UniformParameter.bin` base PES 19 to 21 build on.
-fn bundled_uniform_parameter() -> Vec<u8> {
+pub(crate) fn bundled_uniform_parameter() -> Vec<u8> {
     fs::read(
         Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../../resources/bins/UniformParameter19.bin"),
@@ -789,7 +789,7 @@ fn bundled_uniform_parameter() -> Vec<u8> {
 }
 
 /// Where the CPK keeps `UniformParameter.bin`.
-const UNIFORM_PARAMETER: &str =
+pub(crate) const UNIFORM_PARAMETER: &str =
     "common/character0/model/character/uniform/team/UniformParameter.bin";
 
 /// The names of the entries in which the `UniformParameter.bin` `ours` differs from `base`: an
@@ -1031,7 +1031,7 @@ const PLACEHOLDER_COLORS: [u8; 6] = [0xff, 0x00, 0xff, 0x00, 0x00, 0x00];
 
 /// Team `team_id`'s 85-byte `UniColor.bin` record holding `entries` under the kit count
 /// `count`, the rest of its ten entries unused.
-fn record_of(team_id: u32, count: u8, entries: &[[u8; 8]]) -> Vec<u8> {
+pub(crate) fn record_of(team_id: u32, count: u8, entries: &[[u8; 8]]) -> Vec<u8> {
     let mut record = team_id.to_le_bytes().to_vec();
     record.push(count);
     for index in 0..10 {
@@ -1235,7 +1235,7 @@ fn a_full_export_lacking_g1_gets_an_empty_one_and_a_midcup_export_none() {
 }
 
 /// The CPK path of team 714's kit config for the kit `ordinal` (`1st`, `2nd`).
-fn config_path(ordinal: &str) -> String {
+pub(crate) fn config_path(ordinal: &str) -> String {
     format!("common/character0/model/character/uniform/team/714/714_DEF_{ordinal}_realUni.bin")
 }
 

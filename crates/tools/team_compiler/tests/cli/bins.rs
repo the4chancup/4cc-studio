@@ -4,12 +4,17 @@
 use std::fs;
 use std::path::Path;
 
-use crate::BUNDLED_BINS;
+use kit_config::{KitConfig, KitSlot, TexturePresence, texture_names};
+use pes_version::PesVersion;
+use uniparam::UniformParameter;
+
 use crate::common::Sandbox;
 use crate::compile::{cpk_entries, pes21_settings, tracer_kit};
 use crate::compile_exports::{
-    TEAM_COLOR, UNI_COLOR, bundled_team_color, bundled_uni_color, uni_record, with_uni_record,
+    TEAM_COLOR, UNI_COLOR, UNIFORM_PARAMETER, bundled_team_color, bundled_uni_color, config_path,
+    record_of, uni_record, with_uni_record,
 };
+use crate::{BUNDLED_BINS, clean_model};
 
 /// Team `/co/`, whose `UniColor.bin` record the tests set.
 const CO: usize = 714;
@@ -302,6 +307,190 @@ fn an_installed_cpk_that_cannot_be_read_stops_the_run_before_any_export_is_read(
     assert!(line.starts_with(&prefix), "{line}");
     assert_eq!(run.exit_code(), 3);
     assert!(!sandbox.root.join("output/4cc_99_test.cpk").exists());
+}
+
+#[test]
+fn an_installed_bin_that_does_not_parse_stops_the_run_before_any_export_is_read() {
+    let sandbox = Sandbox::new("bins_unparsable");
+    install_two_cpks(&sandbox);
+    // One byte short of a whole 85-byte record.
+    install_cpk(&sandbox, "4cc_61_midcup.cpk", &[(UNI_COLOR, &[0; 84])]);
+    p2_export(&sandbox);
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+    assert_eq!(
+        run.messages(),
+        [format!(
+            "Fatal installed_bin_unreadable [AbortRun] (path={}, error=cannot parse {UNI_COLOR}: \
+             UniColor.bin is 84 bytes, not a whole number of 85-byte records)",
+            sandbox.display("PES/download/4cc_61_midcup.cpk")
+        )],
+        "one finding, on no export"
+    );
+    assert_eq!(run.exit_code(), 3);
+    assert!(!sandbox.root.join("output/4cc_99_test.cpk").exists());
+}
+
+/// Team `team_id`'s kit config of `slot` holding shirt model 144, which lacks the FPC values,
+/// with `fpc` the FPC values set, encoded for PES 21 with the slot's main texture name.
+fn shirt_144_config(team_id: u16, slot: KitSlot, fpc: bool) -> Vec<u8> {
+    let mut config = KitConfig::template();
+    config.shirt.model = 144;
+    assert!(
+        !kit_config::matches_fpc(&config),
+        "shirt model 144 is no FPC shirt"
+    );
+    if fpc {
+        kit_config::apply_fpc(&mut config);
+    }
+    let names = texture_names(
+        team_id,
+        slot,
+        TexturePresence {
+            kit: true,
+            ..TexturePresence::default()
+        },
+    );
+    config.encode_with_names(PesVersion::Pes21, &names).to_vec()
+}
+
+/// A `UniformParameter.bin` holding `configs` (team ID, slot), each `shirt_144_config`.
+fn installed_configs(configs: &[(u16, KitSlot)]) -> Vec<u8> {
+    let mut bin = UniformParameter::new();
+    for (team_id, slot) in configs {
+        bin.insert(
+            slot.config_name(*team_id),
+            shirt_144_config(*team_id, *slot, false),
+        )
+        .unwrap();
+    }
+    bin.write()
+}
+
+/// The emitted `UniformParameter.bin`'s entries whose name starts with `prefix`, by name.
+fn configs_of(
+    entries: &std::collections::BTreeMap<String, Vec<u8>>,
+    prefix: &str,
+) -> Vec<(String, Vec<u8>)> {
+    UniformParameter::read(&entries[UNIFORM_PARAMETER])
+        .unwrap()
+        .entries()
+        .filter(|(name, _)| name.starts_with(prefix))
+        .map(|(name, bytes)| (name.to_owned(), bytes.to_vec()))
+        .collect()
+}
+
+// TC-BIN-06
+#[test]
+fn a_midcup_fpc_on_export_patches_the_installed_configs_of_the_kits_it_does_not_hold() {
+    let sandbox = Sandbox::new("bins_fpc_absent_slots");
+    install_list(&sandbox);
+    // Team 714's record holds kits 0, 1 and 2: p1, p2 and p3.
+    let record = record_of(
+        714,
+        3,
+        &[
+            A,
+            [0x01, 0x03, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06],
+            [0x02, 0x03, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c],
+        ],
+    );
+    let uni_color = with_uni_record(&bundled_uni_color(), CO, &record);
+    // `UniformParameter::new()` plus p1's config: team 714 has no p3 config.
+    let installed = installed_configs(&[(714, KitSlot::P1)]);
+    install_cpk(
+        &sandbox,
+        "4cc_08_bins.cpk",
+        &[
+            (TEAM_COLOR, &bundled_team_color()),
+            (UNI_COLOR, &uni_color),
+            (UNIFORM_PARAMETER, &installed),
+        ],
+    );
+    p2_export(&sandbox);
+    sandbox.write(
+        "exports/co Midcup Kits/Players/05 - A/face_high.fmdl",
+        &clean_model(),
+    );
+    sandbox.write("exports/co Midcup Kits/Players/05 - A/fpc_on", b"");
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+    let mut expected = vec![
+        source("TeamColor.bin", "4cc_08_bins.cpk"),
+        source("UniColor.bin", "4cc_08_bins.cpk"),
+        source("UniformParameter.bin", "4cc_08_bins.cpk"),
+    ];
+    expected.extend(P2_FINDINGS.map(str::to_owned));
+    // p2 is the export's: nothing for it.
+    expected.extend([
+        "co Midcup Kits: Info kit_config_fpc_adjusted [Keep] (slot=p1)".to_owned(),
+        "co Midcup Kits: Warning kit_config_fpc_unpatched [Keep] (slot=p3)".to_owned(),
+    ]);
+    assert_eq!(run.messages(), expected);
+    assert_eq!(run.exit_code(), 0);
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let configs = configs_of(&entries, "714_");
+    let names: Vec<&str> = configs.iter().map(|(name, _)| name.as_str()).collect();
+    assert_eq!(
+        names,
+        ["714_DEF_1st_realUni.bin", "714_DEF_2nd_realUni.bin"],
+        "no 714_DEF_3rd"
+    );
+    assert!(
+        configs[0].1 == shirt_144_config(714, KitSlot::P1, true),
+        "p1 is the installed config with the FPC values"
+    );
+    assert!(
+        configs[1].1 == entries[&config_path("2nd")],
+        "p2 is the compiled kit's config"
+    );
+}
+
+// TC-BIN-16
+#[test]
+fn a_full_export_removes_its_team_s_installed_configs_of_kits_it_does_not_hold() {
+    let sandbox = Sandbox::new("bins_full_configs");
+    install_list(&sandbox);
+    let installed = installed_configs(&[
+        (714, KitSlot::P1),
+        (714, KitSlot::P2),
+        (714, KitSlot::P3),
+        (702, KitSlot::P1),
+    ]);
+    install_cpk(
+        &sandbox,
+        "4cc_08_bins.cpk",
+        &[
+            (TEAM_COLOR, &bundled_team_color()),
+            (UNI_COLOR, &bundled_uni_color()),
+            (UNIFORM_PARAMETER, &installed),
+        ],
+    );
+    sandbox.write("exports/co Full Kits/Kits/p1/kit.dds", &tracer_kit());
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+    assert_eq!(run.exit_code(), 0, "{:#?}", run.messages());
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let configs = configs_of(&entries, "714_");
+    let names: Vec<&str> = configs.iter().map(|(name, _)| name.as_str()).collect();
+    assert_eq!(
+        names,
+        ["714_DEF_1st_realUni.bin", "714_DEF_GK1st_realUni.bin"],
+        "p2 and p3 removed, the placeholder g1 added"
+    );
+    assert!(configs[0].1 == entries[&config_path("1st")]);
+    assert!(configs[1].1 == entries[&config_path("GK1st")]);
+    assert_eq!(
+        configs_of(&entries, "702_"),
+        [(
+            "702_DEF_1st_realUni.bin".to_owned(),
+            shirt_144_config(702, KitSlot::P1, false)
+        )],
+        "team 702's config is the installed one"
+    );
 }
 
 // TC-BIN-07

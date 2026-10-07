@@ -19,7 +19,7 @@ use pes_version::{Engine, PesVersion};
 use studio_core::{Disposition, ExportId, Message, Scope};
 use vtree::ScopePath;
 
-use crate::bins::{self, Rgb};
+use crate::bins::Rgb;
 use crate::kit_variants::{kit_number, model_variant_sets};
 use crate::messages::{Code, tool_message};
 use crate::paths::TextureHome;
@@ -53,15 +53,26 @@ pub(crate) struct BuildManifest {
     /// its `TeamColor.bin` record, in export order. A team whose file gives no color, or that
     /// has no file, is not listed: its record keeps its bytes.
     pub(crate) team_colors: Vec<(u16, Vec<Rgb>)>,
-    /// Each planned `Full` export's team id and the `UniColor.bin` kit numbers of its kit
-    /// tasks, failed or not, in export order: the team's record keeps only those kits before
-    /// the committed kits' entries go in, so it ends with the export's kits, a failed one's
-    /// entry as it was, and nothing a past cup left ("Bins accumulation"). A `Midcup` export's
-    /// team is not listed: its kits are merged into what its record holds.
-    pub(crate) full_team_kits: Vec<(u16, Vec<u8>)>,
+    /// Each planned team export's kits, in export order, for its team's `UniColor.bin` record
+    /// and `UniformParameter.bin` configs ("Bins accumulation").
+    pub(crate) team_kits: Vec<TeamKits>,
     /// Each planned team's name as messages show it (`/co/`) and the text of its root
     /// `notes.txt`, in export order, for `teamnotes.txt`. A team without a note is not listed.
     pub(crate) notes: Vec<(String, String)>,
+}
+
+/// A planned team export's kits.
+pub(crate) struct TeamKits {
+    /// The export, which an absent slot's FPC finding is reported on.
+    pub(crate) export_id: ExportId,
+    /// The export's team id.
+    pub(crate) team_id: u16,
+    /// Whether the export rebuilds its team's kits (`Full`) or adds to them (`Midcup`).
+    pub(crate) coverage: ExportCoverage,
+    /// The team's kit-FPC status.
+    pub(crate) fpc: EffectiveTeamKitFpc,
+    /// The slots of its kit tasks, failed or not, ascending.
+    pub(crate) slots: Vec<KitSlot>,
 }
 
 /// One unit of work: one package of a player folder's models, the folder's textures, one
@@ -444,7 +455,7 @@ pub(crate) type ExportToPlan = (
 pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanReport {
     let mut tasks = Vec::new();
     let mut team_colors = Vec::new();
-    let mut full_team_kits = Vec::new();
+    let mut team_kits = Vec::new();
     let mut notes = Vec::new();
     let mut messages = Vec::new();
     for (export_id, mut resolved, colors, note) in exports {
@@ -650,9 +661,10 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
                 TaskKind::Portrait { player_id, file },
             ));
         }
-        let mut kit_numbers = Vec::new();
+        // The kits go by slot, so `slots` is ascending.
+        let mut slots = Vec::new();
         for (slot, kit) in export.kits.kits {
-            kit_numbers.push(bins::kit_number(slot));
+            slots.push(slot);
             let folder = || Scope::Folder {
                 export_id,
                 path: kit.path.clone(),
@@ -675,10 +687,13 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
             }
             tasks.push(task(export_id, team_id, TaskKind::Kit { slot, kit, fpc }));
         }
-        match export.coverage {
-            ExportCoverage::Full => full_team_kits.push((team_id, kit_numbers)),
-            ExportCoverage::Midcup => {}
-        }
+        team_kits.push(TeamKits {
+            export_id,
+            team_id,
+            coverage: export.coverage,
+            fpc,
+            slots,
+        });
         if let Some(logo) = export.logo {
             tasks.push(task(export_id, team_id, TaskKind::Logo { logo }));
         }
@@ -687,7 +702,7 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
         manifest: BuildManifest {
             tasks,
             team_colors,
-            full_team_kits,
+            team_kits,
             notes,
         },
         messages,

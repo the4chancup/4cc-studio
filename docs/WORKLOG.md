@@ -13,8 +13,8 @@ is in `AGENTS.md` ("Working documents").
 "Handover"). Phases 1 and 2 done (Phase 2 closed 2026-09-30).
 **Next:** Phase 4 is itemized and its Acceptance section written (step 4.1, 2026-10-03; its
 cross-family review (a) is queued). Next:
-4.21c (FPC patching of absent kit slots and a `Full` team's stale kit configs; 4.21a and
-4.21b are done; 4.14 waits on 4.31's pre-Fox export); 4.33, 4.34, 4.c-pass and
+4.22 (Fox player tables; read the 2026-10-06 in-game test results in "Issues" first); 4.21
+is done; 4.14 waits on 4.31's pre-Fox export; 4.33, 4.34, 4.c-pass and
 4.c-fix1 are done; 4.30,
 4.5 to 4.8, 4.9a and 4.10 to 4.13 are done (4.6c moved to Phase 8's cancellation), 4.9b
 (collars) waits on nothing. 2.5b (GPU BC7) is step 16.x (decision entries
@@ -196,6 +196,13 @@ Claude agent with no sidekick and no reviewer of another model family. While tha
   "Resolved decisions" ("Templates and fallback bins"), `messages.md`
   (`template_override_unreadable`, `template_override_active`), TC-BIN-07 and the decision
   entry "`templates/` overrides: flat names, read first, unreadable aborts".
+  4.21c (b), `team_compiler` (`bins/kit_configs.rs`, `UniColorBin::kits`, `kit_slot`,
+  `WorkingBins` parsed, `plan/mod.rs` `TeamKits`, `output/writer.rs` `finish`,
+  `templates.rs` `Format`), its commit of 2026-10-07, against `pipeline.md` "Bins
+  accumulation", `fpc_toggle.md` "Kit slots absent from the export", `messages.md`
+  (`kit_config_fpc_adjusted`, `kit_config_fpc_unpatched`, `installed_bin_unreadable`,
+  `template_override_unreadable`), TC-BIN-06, 16 and the decision entry "FPC patching takes
+  the slots from `UniColor.bin`; bins parse as they are read".
 - For the lead, on return: the review process on trial (3.1) opens with a full sidekick review
   loop, then runs GPT's loop with a full sidekick loop after each GPT round, calling GPT again
   only once that sidekick loop has ended and GPT's own loop has not; not yet in `AGENTS.md`
@@ -1267,7 +1274,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   is refused only by the gate; without it, it would take a shared ID and emit nothing. The plan is
   silent: decide whether it is a validation finding
 
-- [ ] 4.21 **Bins from the installed CPKs**: `bins/dpfl.rs` `DpFileList.bin` reader (16-byte
+- [x] 4.21 **Bins from the installed CPKs**: `bins/dpfl.rs` `DpFileList.bin` reader (16-byte
   header, 48-byte records, an all-zero tail of any length ignored; measured on the PES 17 and 21
   files, the PES 15/16/18/19/20 files when an install exists); the walk from
   the entry of next-lower priority than the output CPK upward, each bin from the first CPK that
@@ -1317,6 +1324,22 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
     unparsed). Help paragraph. TC-BIN-07, and a face package taking `templates/face_diff.bin`.
     Gates green (162 of 253); `clef-diff 68f00cd`: 46 windows, no flag; `mutants-diff
     68f00cd`: 54 mutants, 41 caught, 13 unviable, 0 missed
+  - [x] 4.21c FPC patching of absent kit slots, a `Full` team's stale kit configs, bins
+    parsed as they are read, done 2026-10-07 (sidekick, one rework round: a mutation
+    survivor's test and a move). `bins/kit_configs.rs` `kit_configs` (a `Full` team's configs
+    its kits do not name removed, a failed kit's kept; a `Midcup` `fpc_on` team's configs of
+    the kits its `UniColor.bin` record holds that the export does not, given the FPC values,
+    `kit_config_fpc_adjusted`/`kit_config_fpc_unpatched` on the export naming the slot);
+    `UniColorBin::kits`, `kit_slot`; the manifest's `team_kits` (`TeamKits`, every team
+    export) replacing `full_team_kits`; `UniformParameter.bin` written whenever the run
+    changes it; `WorkingBins` holds parsed bins, the walk and `Templates::read` parsing the
+    three bins as they read them (`installed_bin_unreadable`, `template_override_unreadable`).
+    The bundled base's 714 configs already carry the FPC values, so a from-scratch compile
+    patches nothing. Help sentences. TC-BIN-06, 16, and a CLI test of an installed bin that
+    does not parse. Pre-Fox loose configs (TC-BIN-18) stay with 4.14. Gates green (164 of
+    253); `clef-diff 366b18c`: 63 windows, no flag; `mutants-diff 366b18c`: 64 mutants, 43
+    caught, 21 unviable, 0 missed (the first run missed 1: a `Full` removal with no committed
+    config)
 
 - [ ] 4.22 **Fox player tables**: `BootsList.bin` and `GloveList.bin` read from the installed CPKs
   by the same walk (the seed rows ride in `4cc_08_bins.cpk`), the (player id, item id) pair of
@@ -1718,7 +1741,7 @@ Steps are itemized when Phase 15 closes; one is fixed already:
 Bugs, unexpected behavior, things to revisit. `open` / `resolved (date)`. Resolved issues are
 pruned when their phase closes; they stay in git history.
 
-- open (found at 4.21a) — an installed bin the walk reads but that does not parse (a
+- resolved (2026-10-07, 4.21c: the bins are parsed as they are read) — an installed bin the walk reads but that does not parse (a
   `UniColor.bin` whose length is not whole records, a corrupt `UniformParameter.bin`) fails
   only in `CpkOutput::finish`, after the exports are processed, as `cpk_write_failed`, not
   as `installed_bin_unreadable` before any export is read; `uniparam_compile_failed` is not
@@ -2880,3 +2903,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
     CPK's one `placeholder` file corrected in the plan and glossary.
   - **4.21b:** the `templates/` override folder; an unreadable override now aborts the run
     whatever the resource (decision entry).
+  - **4.21c:** a midcup `fpc_on` export patches the FPC values into its team's installed kit
+    configs of the kits the game offers that it does not hold; a full export removes its
+    team's other configs; a working bin that does not parse stops the run before any export
+    is read. Step 4.21 is done.

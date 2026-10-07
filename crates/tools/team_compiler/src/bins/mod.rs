@@ -9,10 +9,14 @@
 
 mod dpfl;
 pub(crate) mod installed;
+pub(crate) mod kit_configs;
+
+use std::ops::Range;
 
 use anyhow::{Context, ensure};
 use kit_config::KitSlot;
 use pes_version::PesVersion;
+use uniparam::UniformParameter;
 
 use crate::templates::Templates;
 
@@ -55,6 +59,7 @@ const UNUSED_KIT: [u8; KIT_ENTRY] = [0xff, 0, 0, 0, 0, 0, 0, 0];
 /// The records of one color bin, which both bins' editing goes through: the length check, the
 /// record of a team and the header loop are the same for both, only the record size and the
 /// header's bytes differ.
+#[derive(Debug, PartialEq, Eq)]
 struct Records {
     /// The bin's file name, as its errors name it.
     name: &'static str,
@@ -101,20 +106,31 @@ impl Records {
         repaired
     }
 
-    /// Team `team_id`'s record; a team with no record is an error.
-    fn record_mut(&mut self, team_id: u16) -> anyhow::Result<&mut [u8]> {
-        let start = team_id
+    /// Where team `team_id`'s record sits in the bytes; a team with no record is an error.
+    fn range(&self, team_id: u16) -> anyhow::Result<Range<usize>> {
+        team_id
             .checked_sub(FIRST_TEAM)
-            .map(|index| usize::from(index) * self.size);
-        let size = self.size;
-        let name = self.name;
-        start
-            .and_then(|start| self.bytes.get_mut(start..start + size))
-            .with_context(|| format!("{name} has no record for team {team_id}"))
+            .map(|index| usize::from(index) * self.size)
+            .map(|start| start..start + self.size)
+            .filter(|range| range.end <= self.bytes.len())
+            .with_context(|| format!("{} has no record for team {team_id}", self.name))
+    }
+
+    /// Team `team_id`'s record; a team with no record is an error.
+    fn record(&self, team_id: u16) -> anyhow::Result<&[u8]> {
+        let range = self.range(team_id)?;
+        Ok(&self.bytes[range])
+    }
+
+    /// Team `team_id`'s record, to be edited; a team with no record is an error.
+    fn record_mut(&mut self, team_id: u16) -> anyhow::Result<&mut [u8]> {
+        let range = self.range(team_id)?;
+        Ok(&mut self.bytes[range])
     }
 }
 
 /// A `TeamColor.bin` being edited.
+#[derive(Debug, PartialEq, Eq)]
 pub(crate) struct TeamColorBin {
     records: Records,
 }
@@ -181,6 +197,28 @@ impl KitColorEntry {
     }
 }
 
+/// The game's ten kit slots, which `kit_slot` looks a kit number up in.
+const KIT_SLOTS: [KitSlot; 10] = [
+    KitSlot::P1,
+    KitSlot::P2,
+    KitSlot::P3,
+    KitSlot::P4,
+    KitSlot::P5,
+    KitSlot::P6,
+    KitSlot::P7,
+    KitSlot::P8,
+    KitSlot::P9,
+    KitSlot::G1,
+];
+
+/// The slot of the kit `UniColor.bin` numbers `number` (`kit_number`'s inverse); `None` for a
+/// number no slot has, such as 0x11, a second goalkeeper kit.
+pub(crate) fn kit_slot(number: u8) -> Option<KitSlot> {
+    KIT_SLOTS
+        .into_iter()
+        .find(|slot| kit_number(*slot) == number)
+}
+
 /// The number `UniColor.bin` gives the kit in `slot`: player kits count from 0, the goalkeeper
 /// kit is 0x10.
 pub(crate) fn kit_number(slot: KitSlot) -> u8 {
@@ -199,6 +237,7 @@ pub(crate) fn kit_number(slot: KitSlot) -> u8 {
 }
 
 /// A `UniColor.bin` being edited.
+#[derive(Debug, PartialEq, Eq)]
 pub(crate) struct UniColorBin {
     records: Records,
 }
@@ -241,6 +280,25 @@ impl UniColorBin {
         self.edit_kits(team_id, |kits| {
             kits.retain(|kit| numbers.contains(&kit[0]));
         })
+    }
+
+    /// The numbers of the kits `team_id`'s record holds (`held_kits` of its counted entries),
+    /// ascending: the kits the game offers the team. A placeholder record holds none. A team
+    /// with no record is an error.
+    pub(crate) fn kits(&self, team_id: u16) -> anyhow::Result<Vec<u8>> {
+        let record = self.records.record(team_id)?;
+        let (count, entries) = record[HEADER..]
+            .split_first()
+            .expect("a record holds its kit count after its header");
+        // The rest of the record is exactly `KIT_ENTRIES` entries.
+        let (entries, _) = entries.as_chunks::<KIT_ENTRY>();
+        let counted = usize::from(*count).min(KIT_ENTRIES);
+        let mut numbers: Vec<u8> = held_kits(&entries[..counted])
+            .iter()
+            .map(|kit| kit[0])
+            .collect();
+        numbers.sort_unstable();
+        Ok(numbers)
     }
 
     /// Applies `edit` to the kits `team_id`'s record holds (`held_kits` of its counted
@@ -291,27 +349,30 @@ fn held_kits(counted: &[[u8; KIT_ENTRY]]) -> Vec<[u8; KIT_ENTRY]> {
     }
 }
 
-/// The bins a run builds on.
+/// The bins a run builds on, parsed.
 pub(crate) struct WorkingBins {
     /// `TeamColor.bin`.
-    pub(crate) team_color: Vec<u8>,
+    pub(crate) team_color: TeamColorBin,
     /// `UniColor.bin`.
-    pub(crate) uni_color: Vec<u8>,
+    pub(crate) uni_color: UniColorBin,
     /// `UniformParameter.bin`: `Some` on the Fox versions, `None` on PES 15-17, which have no
     /// such bin.
-    pub(crate) uniform_parameter: Option<Vec<u8>>,
+    pub(crate) uniform_parameter: Option<UniformParameter>,
 }
 
 impl WorkingBins {
     /// The bundled bases for `version` (`resources/bins/`, or the run's `templates/` files
     /// replacing them), for a run with no installed bin to build on.
     pub(crate) fn bundled(version: PesVersion, templates: &Templates) -> WorkingBins {
+        // An embedded base is tested to parse, and an override was parsed when it was read
+        // (`Templates::read`).
+        let parses = "a bundled base or a templates/ file read by the run parses";
         WorkingBins {
-            team_color: templates.team_color().to_vec(),
-            uni_color: templates.uni_color().to_vec(),
+            team_color: TeamColorBin::read(templates.team_color().to_vec()).expect(parses),
+            uni_color: UniColorBin::read(templates.uni_color().to_vec()).expect(parses),
             uniform_parameter: templates
                 .uniform_parameter_base(version)
-                .map(<[u8]>::to_vec),
+                .map(|bytes| UniformParameter::read(bytes).expect(parses)),
         }
     }
 }
@@ -340,9 +401,8 @@ mod tests {
         // Teams 100 to 65535: 65436 records.
         let most = 65_436 * TEAM_COLOR_RECORD;
         assert!(TeamColorBin::read(vec![0; most]).is_ok());
-        let error = TeamColorBin::read(vec![0; most + TEAM_COLOR_RECORD])
-            .err()
-            .expect("one record too many");
+        let error =
+            TeamColorBin::read(vec![0; most + TEAM_COLOR_RECORD]).expect_err("one record too many");
         assert_eq!(
             error.to_string(),
             "TeamColor.bin holds 65437 records, more than there are team IDs"
@@ -420,10 +480,9 @@ mod tests {
 
     #[test]
     fn the_bundled_base_holds_teams_100_to_920_with_sound_headers() {
-        let bins = WorkingBins::bundled(PesVersion::Pes21, &Templates::embedded());
-        assert_eq!(bins.team_color.len(), 821 * TEAM_COLOR_RECORD);
-        let mut bin = TeamColorBin::read(bins.team_color).unwrap();
+        let mut bin = WorkingBins::bundled(PesVersion::Pes21, &Templates::embedded()).team_color;
         assert_eq!(bin.repair_headers(), Vec::<u16>::new());
+        assert_eq!(bin.into_bytes().len(), 821 * TEAM_COLOR_RECORD);
     }
 
     /// The bundled `UniColor.bin`'s record of team `team_id`, 85 bytes.
@@ -490,7 +549,7 @@ mod tests {
 
     #[test]
     fn a_uni_color_bin_is_a_whole_number_of_85_byte_records() {
-        let error = UniColorBin::read(vec![0; 86]).err().expect("86 bytes");
+        let error = UniColorBin::read(vec![0; 86]).expect_err("86 bytes");
         assert_eq!(
             error.to_string(),
             "UniColor.bin is 86 bytes, not a whole number of 85-byte records"
@@ -657,10 +716,44 @@ mod tests {
 
     #[test]
     fn the_bundled_uni_color_base_holds_teams_100_to_920_with_sound_headers() {
-        let bins = WorkingBins::bundled(PesVersion::Pes21, &Templates::embedded());
-        assert_eq!(bins.uni_color.len(), 821 * UNI_COLOR_RECORD);
-        let mut bin = UniColorBin::read(bins.uni_color).unwrap();
+        let mut bin = WorkingBins::bundled(PesVersion::Pes21, &Templates::embedded()).uni_color;
         assert_eq!(bin.repair_headers(), Vec::<u16>::new());
+        assert_eq!(bin.into_bytes().len(), 821 * UNI_COLOR_RECORD);
+    }
+
+    #[test]
+    fn every_version_s_embedded_bases_parse() {
+        // `bundled` expects them to: a base that did not parse would panic here first.
+        for version in PesVersion::ALL {
+            let bins = WorkingBins::bundled(version, &Templates::embedded());
+            let configs = bins.uniform_parameter.map(|bin| bin.len());
+            match version.engine() {
+                pes_version::Engine::Fox => {
+                    assert!(configs.is_some_and(|len| len > 0), "{version}")
+                }
+                pes_version::Engine::PreFox => assert_eq!(configs, None, "{version}"),
+            }
+        }
+    }
+
+    #[test]
+    fn a_record_s_kits_are_its_held_kit_numbers_ascending() {
+        // Out of order, as an installed record may be, and a second goalkeeper kit.
+        let held = [kit(0x10), kit(2), kit(0), kit(0x11)];
+        let bin = one_record_bin(uni_record(100, 4, &held));
+        assert_eq!(bin.kits(100).unwrap(), [0, 2, 0x10, 0x11]);
+        // Entries past the count are not held.
+        let bin = one_record_bin(uni_record(100, 2, &held));
+        assert_eq!(bin.kits(100).unwrap(), [2, 0x10]);
+        let error = bin.kits(101).unwrap_err();
+        assert_eq!(error.to_string(), "UniColor.bin has no record for team 101");
+    }
+
+    #[test]
+    fn a_placeholder_record_holds_no_kit_and_team_714_s_base_record_eight() {
+        let bin = WorkingBins::bundled(PesVersion::Pes21, &Templates::embedded()).uni_color;
+        assert_eq!(bin.kits(100).unwrap(), Vec::<u8>::new(), "the placeholder");
+        assert_eq!(bin.kits(714).unwrap(), [0, 1, 2, 3, 4, 5, 6, 0x10]);
     }
 
     #[test]
@@ -681,5 +774,17 @@ mod tests {
         .map(kit_number)
         .collect();
         assert_eq!(numbers, [0, 1, 2, 3, 4, 5, 6, 7, 8, 0x10]);
+    }
+
+    #[test]
+    fn each_kit_number_of_a_slot_gives_the_slot_back_and_another_none() {
+        for slot in KIT_SLOTS {
+            assert_eq!(kit_slot(kit_number(slot)), Some(slot));
+        }
+        assert_eq!(kit_slot(0), Some(KitSlot::P1));
+        assert_eq!(kit_slot(0x10), Some(KitSlot::G1));
+        for number in [9, 0x0f, 0x11, 0xff] {
+            assert_eq!(kit_slot(number), None, "{number:#x}");
+        }
     }
 }

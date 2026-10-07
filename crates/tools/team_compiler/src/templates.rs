@@ -6,22 +6,55 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::ffi::{OsStr, OsString};
 use std::fs;
-use std::io;
 use std::path::{Path, PathBuf};
 
 use pes_version::PesVersion;
 use studio_core::{Disposition, Message, Scope};
+use uniparam::UniformParameter;
 
+use crate::bins::{TeamColorBin, UniColorBin};
 use crate::messages::{Code, tool_message};
 
 /// The folder's name in the data directory.
 const FOLDER_NAME: &str = "templates";
 
-/// A resource the compiler embeds: the file name its replacement in `templates/` carries, and
-/// its embedded bytes.
+/// A resource the compiler embeds: the file name its replacement in `templates/` carries, its
+/// embedded bytes, and what its replacement is parsed as when it is read.
 struct Resource {
     name: &'static str,
     embedded: &'static [u8],
+    format: Format,
+}
+
+/// What a resource's replacement in `templates/` is parsed as when it is read: the three bins
+/// are, so one that does not parse stops the run before any export is read; the other resources
+/// are packed or converted as they are, and fail where the embedded one would be used.
+#[derive(Clone, Copy)]
+enum Format {
+    /// Not parsed.
+    Unparsed,
+    /// A `TeamColor.bin`.
+    TeamColor,
+    /// A `UniColor.bin`.
+    UniColor,
+    /// A `UniformParameter.bin`.
+    UniformParameter,
+}
+
+impl Format {
+    /// `bytes`, given back once they parse as the format; the error says why they do not.
+    fn check(self, bytes: Vec<u8>) -> anyhow::Result<Vec<u8>> {
+        match self {
+            Format::Unparsed => Ok(bytes),
+            // The bins take the bytes and give them back, so the check copies nothing.
+            Format::TeamColor => Ok(TeamColorBin::read(bytes)?.into_bytes()),
+            Format::UniColor => Ok(UniColorBin::read(bytes)?.into_bytes()),
+            Format::UniformParameter => {
+                UniformParameter::read(&bytes)?;
+                Ok(bytes)
+            }
+        }
+    }
 }
 
 /// The `TeamColor.bin` a compile sets its teams' colors in when it has no installed one to
@@ -32,6 +65,7 @@ const TEAM_COLOR: Resource = Resource {
         env!("CARGO_MANIFEST_DIR"),
         "/../../../resources/bins/TeamColor.bin"
     )),
+    format: Format::TeamColor,
 };
 
 /// The `UniColor.bin` a compile sets its kits' menu colors in when it has no installed one to
@@ -42,6 +76,7 @@ const UNI_COLOR: Resource = Resource {
         env!("CARGO_MANIFEST_DIR"),
         "/../../../resources/bins/UniColor.bin"
     )),
+    format: Format::UniColor,
 };
 
 /// PES 18's `UniformParameter.bin` base (`uniform_parameter_base`).
@@ -51,6 +86,7 @@ const UNIFORM_PARAMETER_18: Resource = Resource {
         env!("CARGO_MANIFEST_DIR"),
         "/../../../resources/bins/UniformParameter18.bin"
     )),
+    format: Format::UniformParameter,
 };
 
 /// PES 19 to 21's `UniformParameter.bin` base (`uniform_parameter_base`).
@@ -60,6 +96,7 @@ const UNIFORM_PARAMETER_19: Resource = Resource {
         env!("CARGO_MANIFEST_DIR"),
         "/../../../resources/bins/UniformParameter19.bin"
     )),
+    format: Format::UniformParameter,
 };
 
 /// The `kit` texture of a placeholder kit: the magenta/black checkerboard, as a DDS
@@ -70,6 +107,7 @@ const PLACEHOLDER_KIT: Resource = Resource {
         env!("CARGO_MANIFEST_DIR"),
         "/../../../resources/kits/placeholder_kit.dds"
     )),
+    format: Format::Unparsed,
 };
 
 /// The skeleton packed under a slot's name (`boots.skl`, `fcl_hair_sim.skl`) beside a boots or
@@ -82,6 +120,7 @@ const BODY_SKELETON: Resource = Resource {
         env!("CARGO_MANIFEST_DIR"),
         "/../../../resources/skeletons/pes21/body.skl"
     )),
+    format: Format::Unparsed,
 };
 
 /// The `face_diff.bin` packed into a Fox face package whose sources hold none: the face
@@ -92,6 +131,7 @@ const FACE_DIFF: Resource = Resource {
         env!("CARGO_MANIFEST_DIR"),
         "/../../../resources/templates/face_diff.bin"
     )),
+    format: Format::Unparsed,
 };
 
 /// The `fcl_hair_sim.fclo` packed beside a `fcl_hair.fmdl` whose sources hold none: a cloth
@@ -102,6 +142,7 @@ const FCL_HAIR_SIM_FCLO: Resource = Resource {
         env!("CARGO_MANIFEST_DIR"),
         "/../../../resources/templates/fcl_hair_sim.fclo"
     )),
+    format: Format::Unparsed,
 };
 
 /// Every resource a `templates/` file can replace, in the order the replacements are reported.
@@ -116,13 +157,14 @@ const RESOURCES: [&Resource; 8] = [
     &FCL_HAIR_SIM_FCLO,
 ];
 
-/// An override in `templates/` that cannot be read: `template_override_unreadable`'s context.
+/// An override in `templates/` that cannot be read, or one of the bins that does not parse:
+/// `template_override_unreadable`'s context.
 #[derive(Debug)]
 pub(crate) struct Unreadable {
     /// The override file, or the folder when it cannot be listed.
     pub(crate) path: PathBuf,
     /// What failed.
-    pub(crate) error: io::Error,
+    pub(crate) error: anyhow::Error,
 }
 
 /// The resources a compile builds with: each embedded one, or the data directory's
@@ -144,9 +186,10 @@ impl Templates {
     /// The resources with the overrides of `<data_dir>/templates/`, and one
     /// `template_override_active` per override read, in `RESOURCES` order. Nothing is read
     /// without a data directory or without the folder, and a file there naming no resource,
-    /// exactly as it is spelled, is not read. An override that cannot be read, or a folder that
-    /// cannot be listed, is the error. The bytes are not checked: an override that does not
-    /// parse fails where the embedded resource would be parsed.
+    /// exactly as it is spelled, is not read. An override that cannot be read, an override of
+    /// one of the bins that does not parse as it (whatever the run's version), or a folder that
+    /// cannot be listed, is the error. The other overrides' bytes are not checked: one that does
+    /// not decode fails where the embedded resource would be used.
     pub(crate) fn read(data_dir: Option<&Path>) -> Result<(Templates, Vec<Message>), Unreadable> {
         let mut templates = Templates::embedded();
         let mut messages = Vec::new();
@@ -163,7 +206,10 @@ impl Templates {
                 continue;
             }
             let path = folder.join(resource.name);
-            let bytes = match fs::read(&path) {
+            let read = fs::read(&path)
+                .map_err(anyhow::Error::from)
+                .and_then(|bytes| resource.format.check(bytes));
+            let bytes = match read {
                 Ok(bytes) => bytes,
                 Err(error) => return Err(Unreadable { path, error }),
             };
@@ -235,9 +281,9 @@ impl Templates {
 /// `unicolor.bin` for `UniColor.bin`, so a resource's file is found in the listing, by its
 /// exact name, rather than by opening its path. A folder that cannot be listed is the error.
 fn file_names(folder: &Path) -> Result<BTreeSet<OsString>, Unreadable> {
-    let unreadable = |error| Unreadable {
+    let unreadable = |error: std::io::Error| Unreadable {
         path: folder.to_owned(),
-        error,
+        error: error.into(),
     };
     let mut names = BTreeSet::new();
     for entry in fs::read_dir(folder).map_err(unreadable)? {
@@ -320,12 +366,14 @@ mod tests {
         fs::create_dir(&folder).unwrap();
         // Written in the other order, so the findings' order is the table's, not the folder's.
         fs::write(folder.join("face_diff.bin"), b"face diff override").unwrap();
-        fs::write(folder.join("UniColor.bin"), b"kit colors override").unwrap();
+        // One `UniColor.bin` record, which parses as the bin.
+        let kit_colors = [1; 85];
+        fs::write(folder.join("UniColor.bin"), kit_colors).unwrap();
 
         let (templates, messages) = Templates::read(Some(temp.path())).unwrap();
 
-        let mut expected = RESOURCES.map(|resource| resource.embedded);
-        expected[1] = b"kit colors override";
+        let mut expected: [&[u8]; 8] = RESOURCES.map(|resource| resource.embedded);
+        expected[1] = &kit_colors;
         expected[6] = b"face diff override";
         assert!(every_resource(&templates) == expected);
         let active = |name: &str| {
@@ -368,5 +416,45 @@ mod tests {
             panic!("an override that cannot be read must be the error, not an absent one");
         };
         assert_eq!(unreadable.path, team_color);
+    }
+
+    #[test]
+    fn a_bin_override_that_does_not_parse_is_the_error_naming_it() {
+        let temp = scratch("templates_unparsable");
+        let folder = temp.path().join("templates");
+        fs::create_dir(&folder).unwrap();
+        // One byte short of a whole 85-byte record.
+        fs::write(folder.join("UniColor.bin"), [0; 84]).unwrap();
+
+        let Err(unreadable) = Templates::read(Some(temp.path())) else {
+            panic!("a bin override that does not parse must be the error");
+        };
+        assert_eq!(unreadable.path, folder.join("UniColor.bin"));
+        assert_eq!(
+            unreadable.error.to_string(),
+            "UniColor.bin is 84 bytes, not a whole number of 85-byte records"
+        );
+    }
+
+    #[test]
+    fn every_bin_override_is_parsed_whatever_the_run_s_version() {
+        for name in [
+            "TeamColor.bin",
+            "UniColor.bin",
+            "UniformParameter18.bin",
+            "UniformParameter19.bin",
+        ] {
+            let temp = scratch(&format!("templates_unparsable_{name}"));
+            let folder = temp.path().join("templates");
+            fs::create_dir(&folder).unwrap();
+            // Seven bytes: no whole record of either color bin, and shorter than the eight
+            // bytes of a `UniformParameter.bin`'s header.
+            fs::write(folder.join(name), [0; 7]).unwrap();
+
+            let Err(unreadable) = Templates::read(Some(temp.path())) else {
+                panic!("{name}: a bin override that does not parse must be the error");
+            };
+            assert_eq!(unreadable.path, folder.join(name));
+        }
     }
 }

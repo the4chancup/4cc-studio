@@ -74,7 +74,7 @@ fn templates(ctx: &ToolContext, events: &mut RunEvents) -> Option<Templates> {
                 Disposition::AbortRun,
                 vec![
                     ("path", unreadable.path.display().to_string()),
-                    ("error", unreadable.error.to_string()),
+                    ("error", format!("{:#}", unreadable.error)),
                 ],
             ));
             None
@@ -205,7 +205,7 @@ fn build(
     } = planned;
     let tasks = manifest.tasks;
     let team_colors = manifest.team_colors;
-    let full_team_kits = manifest.full_team_kits;
+    let team_kits = manifest.team_kits;
     let notes = manifest.notes;
     let mut last_task_of: BTreeMap<ExportId, usize> = BTreeMap::new();
     for (index, task) in tasks.iter().enumerate() {
@@ -229,7 +229,7 @@ fn build(
         let (batches_tx, batches_rx) = unbounded();
         let last_tasks = &last_tasks;
         let team_colors = &team_colors;
-        let full_team_kits = &full_team_kits;
+        let team_kits = &team_kits;
         let budget = &budget;
         let writer = scope.spawn(move || {
             let mut output = output;
@@ -237,7 +237,7 @@ fn build(
             // The writer finishes the CPK too, so its file is closed when the thread ends,
             // before a failure removes the staging folder.
             let written = write_batches(batches_rx, &mut output, &mut events, last_tasks, budget)
-                .and_then(|()| output.finish(version, bins, team_colors, full_team_kits));
+                .and_then(|()| output.finish(version, bins, team_colors, team_kits));
             (events, written)
         });
         let coordinated = pool.in_place_scope(|pool_scope| {
@@ -267,8 +267,8 @@ fn build(
     }
 
     let cpk_path = output_folder.join(&cpk_name);
-    // A bins failure is a CPK write failure too, an installed `UniformParameter.bin` that does
-    // not parse included: `uniparam_compile_failed` is not reported yet.
+    // A bins failure is a CPK write failure too: `uniparam_compile_failed` is not reported yet.
+    // A working bin that does not parse never gets here, stopped where it was read.
     let written = match written {
         Ok((written, messages)) => {
             for message in messages {

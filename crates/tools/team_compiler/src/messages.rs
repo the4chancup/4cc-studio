@@ -48,9 +48,14 @@ pub(crate) enum Code {
     /// A value of a kit's `config.toml` that the target version's kit config cannot hold;
     /// it is clamped to one the version holds when the config is emitted.
     KitConfigVersionClamped,
-    /// The team's kit-FPC status is On and a supplied kit config lacks the FPC values; they
-    /// are written into the config emitted for it.
+    /// The team's kit-FPC status is On and a kit config lacks the FPC values: a supplied one,
+    /// which they are written into as it is emitted, or the installed one of a kit the team's
+    /// `UniColor.bin` record holds that a `Midcup` export does not, patched in place.
     KitConfigFpcAdjusted,
+    /// The team's kit-FPC status is On and a kit its `UniColor.bin` record holds, which a
+    /// `Midcup` export does not, has no installed config or one that does not decode: the slot
+    /// is left alone, and the team needs a kit export for it.
+    KitConfigFpcUnpatched,
     /// A kit whose effective textures lack `kit.dds` (an empty folder included): the bundled
     /// checkerboard stands in as its main texture.
     KitPlaceholder,
@@ -197,7 +202,7 @@ impl Code {
     /// Every code, for the catalog test: a variant missing here would make its first message
     /// panic in `severity`, so a new variant is added to this list too.
     #[cfg(test)]
-    const ALL: [Code; 62] = [
+    const ALL: [Code; 63] = [
         Code::ExportExtractFailed,
         Code::NoExportsFound,
         Code::ExportDisabled,
@@ -212,6 +217,7 @@ impl Code {
         Code::KitConfigInvalid,
         Code::KitConfigVersionClamped,
         Code::KitConfigFpcAdjusted,
+        Code::KitConfigFpcUnpatched,
         Code::KitPlaceholder,
         Code::KitTextureNotUsed,
         Code::KitColorsDerived,
@@ -279,6 +285,7 @@ impl Code {
             Code::KitConfigInvalid => "kit_config_invalid",
             Code::KitConfigVersionClamped => "kit_config_version_clamped",
             Code::KitConfigFpcAdjusted => "kit_config_fpc_adjusted",
+            Code::KitConfigFpcUnpatched => "kit_config_fpc_unpatched",
             Code::KitPlaceholder => "kit_placeholder",
             Code::KitTextureNotUsed => "kit_texture_not_used",
             Code::KitColorsDerived => "kit_colors_derived",
@@ -363,6 +370,7 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("kit_config_invalid", CatalogSeverity::Error),
     ("kit_config_version_clamped", CatalogSeverity::Warning),
     ("kit_config_fpc_adjusted", CatalogSeverity::Info),
+    ("kit_config_fpc_unpatched", CatalogSeverity::Warning),
     ("kit_placeholder", CatalogSeverity::Info),
     ("kit_texture_not_used", CatalogSeverity::Info),
     ("kit_colors_derived", CatalogSeverity::Info),

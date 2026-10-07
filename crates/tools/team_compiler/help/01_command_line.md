@@ -204,7 +204,8 @@ The second word of an export's name says what the export covers: `Full` or `Midc
 letter case (`co Full Spring 2026`, `co midcup day 5`). A full export is the team's whole set,
 everything it has for the cup; a midcup export brings additions to what is already installed. So
 a full export replaces the team's kits in the game's kit list: a kit of a past cup that the
-export does not hold is no longer offered. Every team needs a player kit and a goalkeeper kit,
+export does not hold is no longer offered, and the team's installed kit configs of kits the
+export does not hold are removed. Every team needs a player kit and a goalkeeper kit,
 so a full export with no player kit, or no goalkeeper kit, gets an empty one (`p1` or `g1`),
 which compiles as the placeholder kit (`kit_placeholder`). A midcup export adds its kits to
 those installed. Only the second word counts, so a `Full` later in the name changes nothing. A
@@ -275,8 +276,8 @@ those of the CPKs your `DpFileList.bin` lists before the CPK being compiled, the
 It says which CPK each file came from (`bin_source`). A file none of those CPKs holds starts
 from the copy built into the compiler, and so does every file when the PES folder has no
 `DpFileList.bin` (`dpfilelist_missing`) or the list does not name the CPK being compiled. A
-listed CPK, or a file in it, that cannot be read stops the compile before any export is read
-(`installed_bin_unreadable`), so the CPK you had is kept.
+listed CPK, or a file in it, that cannot be read, or is not a valid file of its kind, stops the
+compile before any export is read (`installed_bin_unreadable`), so the CPK you had is kept.
 
 A folder named `templates` in the data folder holds files that replace the compiler's built-in
 copies of the same name, so a cup can swap one without a new version of the compiler. The names,
@@ -287,15 +288,20 @@ it, for PES 2018 and for PES 2019 to 2021), `placeholder_kit.dds` (the checkerbo
 a placeholder kit), `body.skl` (the skeleton a boots or hair model gets when its folder has
 none), and `face_diff.bin` and `fcl_hair_sim.fclo` (the face file and the hair simulation file
 a face gets when its folder has none). Any other file in the folder is ignored. `compile` names
-each file it used with the note `template_override_active`. A file it cannot read stops the
-compile before any export is read (`template_override_unreadable`), so the CPK you had is kept.
+each file it used with the note `template_override_active`. A file it cannot read, or one of the
+four kit and color files that is not a valid file of its kind, stops the compile before any
+export is read (`template_override_unreadable`), so the CPK you had is kept.
 
 An FPC player's body is hidden only when every kit config of the team, the goalkeeper kit's
 included, carries the FPC values (shirt model 176, shorts model 16, collar 105, winter collar
 105). So when any player folder of an export holds the marker `fpc_on`, `compile` builds every
 kit config the export supplies with these values, and for each `config.toml` that lacked them
 says so with the note `kit_config_fpc_adjusted` (your file is not changed). A kit without a
-`config.toml` gets them anyway. The compiler never removes FPC values from a kit config: an
+`config.toml` gets them anyway. A midcup export with `fpc_on` also gives these values to the
+team's installed kit configs of the kits the game lists for the team that the export does not
+hold, and names each kit it changed with the same note. A kit the game lists with no installed
+config to change is reported as the warning `kit_config_fpc_unpatched`, naming the kit: send that
+kit in an export. The compiler never removes FPC values from a kit config: an
 export without `fpc_on` has its configs built as they are, FPC values or not, and taking a team
 off FPC is an edit you make in the configs yourself.
 
