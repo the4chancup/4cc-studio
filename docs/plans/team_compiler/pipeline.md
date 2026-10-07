@@ -704,7 +704,16 @@ describes behavior, not a serial scheduling requirement:
   A bin no CPK of the walk holds comes from the bundled base, and so does every bin when the
   walk cannot be made: no PES folder, no `DpFileList.bin` (`dpfilelist_missing`), or a list
   that does not name the run's CPK, so nothing is known to come before it (the rule the
-  texture lookup of "Resolved decisions" follows). A listed CPK with no file in `download/` is
+  texture lookup of "Resolved decisions" follows). The three player tables (Fox) have no
+  bundled base: one no CPK of the walk holds is not written, and when the run has rows for it,
+  `player_table_missing` names it and counts the rows left out. We leave it out rather than
+  write a table of the run's rows alone because the game reads the highest-priority copy
+  whole: that table would take every other player's row away (Test 2: a player with no
+  `BootsList.bin` row wears plain black boots). A table the walk finds is written on every run
+  that writes a CPK, changed or not, and reported by `bin_source` like the other bins; one it
+  does not find gets no `bin_source`, there being no bundled base to name. A table is parsed as
+  it is taken: whole 8-byte pairs for `BootsList.bin` and `GloveList.bin`, whole 60-byte rows
+  for `PlayerAppearance.bin`. A listed CPK with no file in `download/` is
   passed over. The walk runs before any export is read, and a list, a CPK or a bin in it that
   cannot be read stops the run there (`installed_bin_unreadable`, Fatal), so the previous CPK
   is kept: we abort, not fall back to the next CPK or the bundled base, because the run's CPK

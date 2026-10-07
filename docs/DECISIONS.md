@@ -4314,3 +4314,19 @@ parse at read time), "Resolved decisions" ("Templates and fallback bins");
 `team_compiler/messages.md` `kit_config_fpc_adjusted`, `kit_config_fpc_unpatched`,
 `installed_bin_unreadable`, `template_override_unreadable`; `team_compiler/README.md` TC-BIN-06
 (its `UniColor.bin` record); `aesthetics_export/fpc_toggle.md` "Kit slots absent from the export".
+
+## 2026-10-07 — team_compiler — a player table no installed CPK holds is not written
+Decision: `BootsList.bin`, `GloveList.bin` and `PlayerAppearance.bin` (Fox) have no bundled
+base. One the working-bin walk does not find is not written; when the run has rows for it, the
+new Warning `player_table_missing` names the table and counts the rows left out. One it finds is
+written on every run that writes a CPK and reported by `bin_source`; one it does not find gets no
+`bin_source`. The tables are parsed as they are taken (whole 8-byte pairs, whole 60-byte rows).
+Why: the game reads the highest-priority copy of each table whole, so a table of the run's rows
+alone would take every other player's row away (Test 2, 2026-10-06: a player with no row wears
+plain black boots); leaving the rows out costs only the compiled players' new boots or gloves,
+and the warning says so. Bundling a seed table is not an option: the seed is the cup's own,
+made by strip-and-seed. A `bin_source` per missing table on every from-scratch compile would
+name nothing.
+Plan: `team_compiler/pipeline.md` "Bins accumulation" (the paragraph on the walk's edges);
+`team_compiler/messages.md` `player_table_missing` (new); `team_compiler/README.md` TC-BIN-22
+(new).

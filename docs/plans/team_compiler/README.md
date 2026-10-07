@@ -1323,6 +1323,10 @@ TC-BIN-20  GIVEN a Full /co/ export with kits p1 and p2 and no g1/, and a Midcup
            WHEN they are compiled for PES 21
            THEN /co/ gets g1 as an empty g1/ (kit_placeholder for g1; its UniColor.bin record
                 has a kit count of 3) and /a/ gets no placeholder kit
+TC-BIN-22  GIVEN no PES install configured, and a /co/ export whose slot 05 holds boots.fmdl
+           WHEN it is compiled for PES 21
+           THEN the CPK holds k0625's boots and no BootsList.bin, GloveList.bin or
+                PlayerAppearance.bin, and player_table_missing names BootsList.bin with 1 row
 ```
 
 **Planning**
