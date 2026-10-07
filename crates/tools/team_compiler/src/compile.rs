@@ -3,15 +3,18 @@
 //! Post-processing"), then the validation `check` runs (the structure pass and the deep pass),
 //! run planning, each task's files read in manifest order and the task processed on the worker
 //! pool, the writer thread committing the batches in manifest order, and the CPK installed into
-//! the game's `download/` or promoted from staging to the output folder (in test and sideload
-//! mode, the loose tree promoted to its place), or the staging discarded when writing or
-//! promoting it fails, or when an export's file changes while it is read (`pipeline.md`
+//! the game's `download/` or promoted from staging to the output folder (in multi-CPK mode,
+//! the bins CPK and the teams parts; in test and sideload mode, the loose tree promoted to its
+//! place), or the staging discarded when writing or promoting it fails, when a team does not
+//! fit the teams parts, or when an export's file changes while it is read (`pipeline.md`
 //! "Resolved decisions", "Source snapshot").
 
 use std::collections::BTreeMap;
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+use anyhow::{Context, bail};
 use crossbeam_channel::{Receiver, Sender, unbounded};
 use pes_version::PesVersion;
 use pipeline::{Cancelled, CpkStem, MemoryBudget, Permit};
@@ -21,8 +24,9 @@ use crate::bins::WorkingBins;
 use crate::bins::installed::{self, InstalledPaths};
 use crate::cli::RunInputs;
 use crate::events::RunEvents;
-use crate::messages::{Code, tool_message};
+use crate::messages::{Code, size_text, tool_message};
 use crate::output::deploy::{self, DeployFailure, Staging};
+use crate::output::parts::{self, TeamsParts, Unplaced};
 use crate::output::sink::OutputSink;
 use crate::output::teamnotes;
 use crate::output::writer::CpkOutput;
@@ -73,22 +77,51 @@ impl OutputMode {
     }
 }
 
-/// Compiles every export validation keeps into `<cpk_stem>.cpk`, installed into the PES
-/// folder's `download/` when `mode` deploys and the checks made before any export is read
-/// pass, else into `<output_folder>` (in sideload `mode`, into the PES folder's `livecpk/` as
-/// loose files; in test `mode`, into `<output_folder>/test_output/`), after the files of the
-/// data directory's `overrides/` folder unless in test mode, reported as events, then collects
-/// the compiled exports' notes into `<output_folder>/teamnotes.txt`. Its resources are the
-/// embedded ones or the data directory's `templates/` files replacing them (`templates`), and
-/// its bins are built on those of the installed CPKs listed before its own
-/// (`bins::installed`). Returns the worst severity
-/// reported: a `templates/` file or an installed bin that cannot be read, an output that cannot
-/// be written or put in place, or an export file that changes while the run reads it, is a
-/// Fatal finding, after which the previous output is all that is left. An exports folder or an
-/// `overrides/` folder that cannot be read is an error.
+/// The CPKs a normal compile writes (`pipeline.md` "5. Writer", steps 5 and 6), decided on
+/// the command line from the settings.
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) enum CpkLayout {
+    /// One CPK, `name`, warned past `cap` (`cpk_size_over_limit`).
+    Single { name: CpkStem, cap: u64 },
+    /// Multi-CPK mode: team content into the official list's `teams_stem` slots, `cap`
+    /// each, the overrides and the bins into `bins`.
+    Parts {
+        bins: CpkStem,
+        teams_stem: String,
+        cap: u64,
+    },
+}
+
+impl CpkLayout {
+    /// The CPK the working-bin walk and the installed texture lookup start below: the run's
+    /// first CPK in the list's order, which is the bins CPK in multi-CPK mode (`pipeline.md`
+    /// "The run's first CPK is its boundary").
+    pub(crate) fn boundary(&self) -> &CpkStem {
+        match self {
+            CpkLayout::Single { name, .. } => name,
+            CpkLayout::Parts { bins, .. } => bins,
+        }
+    }
+}
+
+/// Compiles every export validation keeps into the CPKs of `layout` (`<name>.cpk`, or the
+/// bins CPK and the teams parts), installed into the PES folder's `download/` when `mode`
+/// deploys and the checks made before any export is read pass, else into `<output_folder>`
+/// (in sideload `mode`, into the PES folder's `livecpk/` as loose files; in test `mode`, into
+/// `<output_folder>/test_output/`), after the files of the data directory's `overrides/`
+/// folder unless in test mode, reported as events, then collects the compiled exports' notes
+/// into `<output_folder>/teamnotes.txt`. Its resources are the embedded ones or the data
+/// directory's `templates/` files replacing them (`templates`), and its bins are built on those
+/// of the installed CPKs listed before its first (`bins::installed`). Returns the worst
+/// severity reported: a `templates/` file or an installed bin that cannot be read, an output
+/// that cannot be written or put in place, a team the parts cannot take, or an export file
+/// that changes while the run reads it, is a Fatal finding, after which the previous output is
+/// all that is left. An exports folder or an `overrides/` folder that cannot be read is an
+/// error. Only a `Single` layout deploys: the command line refuses `Parts` with a mode that
+/// deploys.
 pub(crate) fn run(
     inputs: &RunInputs,
-    cpk_stem: &CpkStem,
+    layout: &CpkLayout,
     output_folder: &Path,
     mode: &OutputMode,
     ctx: &ToolContext,
@@ -97,6 +130,7 @@ pub(crate) fn run(
     let Some(templates) = templates::read_reported(ctx, &mut events) else {
         return Ok(events.worst());
     };
+    let cpk_stem = layout.boundary();
     let download = if mode.deploys() {
         let promoted = output_folder.join(deploy::cpk_file_name(cpk_stem));
         let (download, messages) = deploy::preflight(
@@ -124,7 +158,7 @@ pub(crate) fn run(
         bins,
         installed,
         templates,
-        cpk_stem,
+        layout,
         output_folder,
         mode,
     )
@@ -245,16 +279,17 @@ fn plan(
 }
 
 /// `compile`'s second half: the planned tasks read and processed with the run's `templates`
-/// and the `installed` CPKs' entry paths, and written into the staged CPK (or loose tree, in
-/// test and sideload `mode`), its bins built on `bins`, which is then promoted, and `teamnotes.txt`
-/// written. A source that changed while its tasks were read aborts the run with
-/// `source_changed_during_run`, the staging discarded.
+/// and the `installed` CPKs' entry paths, and written into the staged CPKs of `layout` (or
+/// loose tree, in test and sideload `mode`), the bins built on `bins`, which are then
+/// promoted, and `teamnotes.txt` written. A source that changed while its tasks were read
+/// aborts the run with `source_changed_during_run`, and a team the parts cannot take with its
+/// finding, the staging discarded.
 fn build(
     planned: PlannedRun,
     bins: WorkingBins,
     installed: InstalledPaths,
     templates: Templates,
-    cpk_stem: &CpkStem,
+    layout: &CpkLayout,
     output_folder: &Path,
     mode: &OutputMode,
 ) -> anyhow::Result<Option<Severity>> {
@@ -287,11 +322,14 @@ fn build(
         .map(|(export_id, index)| (index, export_id))
         .collect();
 
-    let cpk_name = deploy::cpk_file_name(cpk_stem);
     // `target` is the path the output is promoted to, which a failure names: the previous
-    // output there is what a failed run leaves.
+    // output there is what a failed run leaves (in multi-CPK mode, the CPKs of the output
+    // folder).
     let target = match mode {
-        OutputMode::Normal { .. } => output_folder.join(&cpk_name),
+        OutputMode::Normal { .. } => match layout {
+            CpkLayout::Single { name, .. } => output_folder.join(deploy::cpk_file_name(name)),
+            CpkLayout::Parts { .. } => output_folder.to_owned(),
+        },
         OutputMode::Test => output_folder.join(deploy::TEST_OUTPUT),
         OutputMode::Sideload { pes_folder } => pes_folder.join(deploy::LIVECPK),
     };
@@ -304,23 +342,30 @@ fn build(
             return Ok(events.worst());
         }
     };
-    let run_folder = staging.folder();
-    let sink = match mode {
-        OutputMode::Normal { .. } => OutputSink::cpk(run_folder.join(&cpk_name)),
-        OutputMode::Test => OutputSink::loose(run_folder.join(deploy::TEST_OUTPUT)),
-        OutputMode::Sideload { .. } => OutputSink::loose(run_folder.join(deploy::LIVECPK)),
-    };
+    let source_names: BTreeMap<ExportId, String> = sources
+        .iter()
+        .map(|(source, _)| (source.export_id, source.file_name.clone()))
+        .collect();
+    let ends = last_tasks
+        .iter()
+        .map(|(index, export_id)| {
+            let name = source_names
+                .get(export_id)
+                .expect("every task's export is among the run's sources");
+            (*index, name.clone())
+        })
+        .collect();
+    let (sink, staged, parts) = staged_output(mode, layout, staging.folder(), &templates, ends);
     let (entry_target, bins_prefix) = match mode {
         OutputMode::Normal { .. } | OutputMode::Sideload { .. } => (EntryTarget::GamePaths, ""),
-        OutputMode::Test => {
-            let sources = sources
-                .iter()
-                .map(|(source, _)| (source.export_id, source.file_name.clone()))
-                .collect();
-            (EntryTarget::TestOutput { sources }, TEST_BINS_PREFIX)
-        }
+        OutputMode::Test => (
+            EntryTarget::TestOutput {
+                sources: source_names,
+            },
+            TEST_BINS_PREFIX,
+        ),
     };
-    let output = CpkOutput::new(sink, overrides, bins_prefix);
+    let output = CpkOutput::new(sink, overrides, bins_prefix, parts);
     let context = CompileContext::new(
         version,
         last_tasks.len(),
@@ -379,18 +424,33 @@ fn build(
             written
         }
         Err(error) => {
-            abort_output(&mut events, &target, Code::CpkWriteFailed, error);
+            // A team the parts cannot take is its own finding, not a write failure; no part
+            // is written either way.
+            match error.downcast::<Unplaced>() {
+                Ok(Unplaced(message)) => events.message(message),
+                Err(error) => abort_output(&mut events, &target, Code::CpkWriteFailed, error),
+            }
             return Ok(events.worst());
         }
     };
     if !written {
         return Ok(events.worst());
     }
+    if let (OutputMode::Normal { .. }, CpkLayout::Single { name, cap }) = (mode, layout) {
+        match size_over_limit(staging.folder(), name, *cap) {
+            Ok(Some(message)) => events.message(message),
+            Ok(None) => {}
+            Err(error) => {
+                abort_output(&mut events, &target, Code::CpkWriteFailed, error);
+                return Ok(events.worst());
+            }
+        }
+    }
     let promoted = promote(
         mode,
         &staging,
         output_folder,
-        cpk_stem,
+        &staged,
         download.as_deref(),
         &mut events,
     );
@@ -401,37 +461,119 @@ fn build(
     Ok(events.worst())
 }
 
-/// Puts the output staged in `staging` in place for `mode`: the CPK installed into `download`
-/// when there is one, else, or when installing fails (`old_cpk_locked`,
-/// `deploy_target_unwritable`, Errors naming the CPK's path in the output folder), in the output
-/// folder, with `deploy_skipped_by_flag` naming it under `--no-deploy`; or the loose tree as the
-/// output folder's `test_output/` or the PES folder's `livecpk/`. Only a failure to put the
-/// output in the output folder or the loose tree in place is the error.
+/// Where `build` writes in the run's staging folder `run_folder` for `mode` and `layout`: the
+/// sink; the CPKs staged there, in the order they are promoted (the bins CPK, then the parts
+/// by slot number), none for a loose tree; and multi-CPK mode's teams parts, the slots those
+/// of the official list in `templates`, each team ending at a manifest position of `ends`.
+fn staged_output(
+    mode: &OutputMode,
+    layout: &CpkLayout,
+    run_folder: &Path,
+    templates: &Templates,
+    ends: BTreeMap<usize, String>,
+) -> (OutputSink, Vec<CpkStem>, Option<TeamsParts>) {
+    match mode {
+        OutputMode::Normal { .. } => match layout {
+            CpkLayout::Single { name, .. } => {
+                let sink = OutputSink::cpk(run_folder.join(deploy::cpk_file_name(name)));
+                (sink, vec![name.clone()], None)
+            }
+            CpkLayout::Parts {
+                bins,
+                teams_stem,
+                cap,
+            } => {
+                let slots = parts::slots(&templates.official_list(), teams_stem);
+                let staged = std::iter::once(bins).chain(&slots).cloned().collect();
+                let parts = TeamsParts::new(
+                    run_folder.to_owned(),
+                    slots,
+                    teams_stem,
+                    *cap,
+                    templates.placeholder_cpk().to_vec(),
+                    ends,
+                );
+                let sink = OutputSink::cpk(run_folder.join(deploy::cpk_file_name(bins)));
+                (sink, staged, Some(parts))
+            }
+        },
+        OutputMode::Test => (
+            OutputSink::loose(run_folder.join(deploy::TEST_OUTPUT)),
+            Vec::new(),
+            None,
+        ),
+        OutputMode::Sideload { .. } => (
+            OutputSink::loose(run_folder.join(deploy::LIVECPK)),
+            Vec::new(),
+            None,
+        ),
+    }
+}
+
+/// `cpk_size_over_limit` when the CPK `name` staged in `run_folder` is longer than `cap`
+/// bytes (`pipeline.md` "`cpk_part_max_size`": a single CPK is not split, only warned about).
+/// The CPK was just written, so a size that cannot be read is the error.
+fn size_over_limit(run_folder: &Path, name: &CpkStem, cap: u64) -> anyhow::Result<Option<Message>> {
+    let file_name = deploy::cpk_file_name(name);
+    let path = run_folder.join(&file_name);
+    let size = fs::metadata(&path)
+        .with_context(|| format!("{}: cannot read the CPK's size", path.display()))?
+        .len();
+    if size <= cap {
+        return Ok(None);
+    }
+    Ok(Some(tool_message(
+        Code::CpkSizeOverLimit,
+        Scope::Run,
+        Disposition::Keep,
+        vec![
+            ("cpk", file_name),
+            ("size", size_text(size)),
+            ("cap", size_text(cap)),
+        ],
+    )))
+}
+
+/// Puts the output staged in `staging` in place for `mode`: in normal mode the CPKs `staged`,
+/// in that order. The one CPK of a run that deploys is installed into `download` when there is
+/// one, else, or when installing fails (`old_cpk_locked`, `deploy_target_unwritable`, Errors
+/// naming the CPK's path in the output folder), it goes into the output folder; under
+/// `--no-deploy` each CPK goes there, `deploy_skipped_by_flag` naming each. In test and
+/// sideload mode the loose tree becomes the output folder's `test_output/` or the PES folder's
+/// `livecpk/`. Only a failure to put the output in the output folder or the loose tree in
+/// place is the error.
 fn promote(
     mode: &OutputMode,
     staging: &Staging,
     output_folder: &Path,
-    cpk_stem: &CpkStem,
+    staged: &[CpkStem],
     download: Option<&Path>,
     events: &mut RunEvents,
 ) -> anyhow::Result<()> {
     match mode {
         OutputMode::Normal { no_deploy } => {
             if let Some(download) = download {
+                // Only a single CPK reaches here: the command line refuses multi-CPK mode
+                // with a run that deploys.
+                let [cpk_stem] = staged else {
+                    bail!("a run deploys one CPK, not {}", staged.len());
+                };
                 let Err(failure) = deploy::deploy(staging, download, cpk_stem) else {
                     return Ok(());
                 };
                 let output = output_folder.join(deploy::cpk_file_name(cpk_stem));
                 events.message(deploy_failed(failure, download, cpk_stem, &output));
             }
-            let promoted = deploy::promote(staging, output_folder, cpk_stem)?;
-            if *no_deploy {
-                events.message(tool_message(
-                    Code::DeploySkippedByFlag,
-                    Scope::Run,
-                    Disposition::Keep,
-                    vec![("path", promoted.display().to_string())],
-                ));
+            for cpk_stem in staged {
+                let promoted = deploy::promote(staging, output_folder, cpk_stem)?;
+                if *no_deploy {
+                    events.message(tool_message(
+                        Code::DeploySkippedByFlag,
+                        Scope::Run,
+                        Disposition::Keep,
+                        vec![("path", promoted.display().to_string())],
+                    ));
+                }
             }
             Ok(())
         }
@@ -1107,6 +1249,7 @@ mod tests {
             OutputSink::cpk(root.join("blocker").join("cup.cpk")),
             BTreeMap::new(),
             "",
+            None,
         );
         let budget = MemoryBudget::new(1 << 30);
         let (batches_tx, batches_rx) = unbounded();
@@ -1303,12 +1446,15 @@ mod tests {
             let root = temp.path();
             let output = root.join("output");
             deploy::prepare_output_folder(&output).unwrap();
-            let stem = CpkStem::new("4cc_99_test").unwrap();
+            let layout = CpkLayout::Single {
+                name: CpkStem::new("4cc_99_test").unwrap(),
+                cap: 3 << 30,
+            };
             let cpk = output.join("4cc_99_test.cpk");
             let ctx = tool_context(root, "");
             let inputs = sandbox_inputs(root, &ctx);
             let normal = OutputMode::Normal { no_deploy: false };
-            run(&inputs, &stem, &output, &normal, &ctx).unwrap();
+            run(&inputs, &layout, &output, &normal, &ctx).unwrap();
             let previous = fs::read(&cpk).unwrap();
 
             let (events_tx, events) = unbounded();
@@ -1333,7 +1479,7 @@ mod tests {
                 bins,
                 InstalledPaths::Unknown,
                 Templates::embedded(),
-                &stem,
+                &layout,
                 &output,
                 &normal,
             )
@@ -1371,5 +1517,38 @@ mod tests {
             );
             assert!(!output.join(".staging").exists(), "{replaced}");
         }
+    }
+
+    // TC-OUT-15
+    #[test]
+    fn a_single_cpk_longer_than_the_cap_is_cpk_size_over_limit_and_one_at_the_cap_is_not() {
+        let temp = scratch("compile_size_over_limit");
+        let folder = temp.path();
+        let name = CpkStem::new("4cc_61_midcup").unwrap();
+        fs::write(folder.join("4cc_61_midcup.cpk"), vec![0; 5000]).unwrap();
+
+        assert_eq!(
+            size_over_limit(folder, &name, 4096).unwrap(),
+            Some(tool_message(
+                Code::CpkSizeOverLimit,
+                Scope::Run,
+                Disposition::Keep,
+                vec![
+                    ("cpk", "4cc_61_midcup.cpk".to_owned()),
+                    ("size", "4.9 KiB".to_owned()),
+                    ("cap", "4 KiB".to_owned()),
+                ],
+            ))
+        );
+        assert_eq!(size_over_limit(folder, &name, 5000).unwrap(), None);
+
+        // The CPK was just written: a size that cannot be read is the error, naming it.
+        let missing = CpkStem::new("4cc_62_midcup").unwrap();
+        let error = size_over_limit(folder, &missing, 4096).unwrap_err();
+        let path = folder.join("4cc_62_midcup.cpk");
+        assert_eq!(
+            error.to_string(),
+            format!("{}: cannot read the CPK's size", path.display())
+        );
     }
 }

@@ -134,9 +134,10 @@ fn modes_and_commands_this_version_lacks_are_refused() {
     );
     run.assert_refused(2, &["--mode sideload", "PES 2016"]);
 
+    // Multi-CPK mode installs nothing yet (more in `multicpk.rs`).
     let multicpk = "[team-compiler]\nmulticpk_mode = true\n";
-    let run = sandbox.run(multicpk, &["compile", "--no-deploy"]);
-    run.assert_refused(2, &["multicpk_mode", "not available yet"]);
+    let run = sandbox.run(multicpk, &["compile"]);
+    run.assert_refused(2, &["multicpk_mode", "--no-deploy"]);
     // `check` ignores multicpk_mode.
     sandbox.write(
         &format!("exports/co Midcup Spring/{CLEAN_PLAYER}"),

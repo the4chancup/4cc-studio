@@ -6,7 +6,7 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
-/// The Team compiler's settings, the keys Phase 3 reads.
+/// The Team compiler's settings, the keys this version reads.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub(crate) struct TeamCompilerSettings {
@@ -16,6 +16,15 @@ pub(crate) struct TeamCompilerSettings {
     pub(crate) output_folder_path: PathBuf,
     /// Cup DLC mode: team content split into size-capped parts plus a bins CPK.
     pub(crate) multicpk_mode: bool,
+    /// The stem of the teams part slots in multi-CPK mode: every official list entry
+    /// `{prefix}_{NN}_{stem}.cpk` is a slot (`4cc_41_teams`), filled in the order of `NN`.
+    pub(crate) teams_cpk_name: String,
+    /// The most bytes a teams part may hold, its table of contents included; a single CPK
+    /// past it is only warned about. A byte count, not text like `3 GB`: it needs no unit
+    /// parser and leaves no doubt between GB and GiB.
+    pub(crate) cpk_part_max_size: u64,
+    /// The CPK, without `.cpk`, that holds the bins and the overrides in multi-CPK mode.
+    pub(crate) bins_cpk_name: String,
     /// Disallowed file types are errors when on, info notes when off.
     pub(crate) strict_file_type_check: bool,
     /// Keep folders with errors instead of discarding them.
@@ -30,6 +39,11 @@ impl Default for TeamCompilerSettings {
             cpk_name: "4cc_99_test".to_owned(),
             output_folder_path: PathBuf::from("output"),
             multicpk_mode: false,
+            teams_cpk_name: "teams".to_owned(),
+            // 3 GiB: comfortably under the 4 GiB a Git for Windows object can hold, the limit
+            // the cup DLC's repository has.
+            cpk_part_max_size: 3_221_225_472,
+            bins_cpk_name: "4cc_08_bins".to_owned(),
             strict_file_type_check: true,
             pass_through: false,
             teams_list_path: PathBuf::from("teams_list.txt"),
@@ -39,8 +53,24 @@ impl Default for TeamCompilerSettings {
 
 /// The defaults as a settings table, merged into the file's section for every key it lacks.
 pub(crate) fn default_table() -> toml::Table {
-    toml::Table::try_from(TeamCompilerSettings::default())
-        .expect("the defaults are strings, ASCII paths and booleans, all of which TOML holds")
+    toml::Table::try_from(TeamCompilerSettings::default()).expect(
+        "the defaults are strings, ASCII paths, booleans and a count far below i64::MAX, \
+             all of which TOML holds",
+    )
+}
+
+impl TeamCompilerSettings {
+    /// The CPK below which the installed CPKs are walked for the working bins and looked in for
+    /// textures: the run's first CPK in the list's order, which is the bins CPK in multi-CPK
+    /// mode (`pipeline.md` "Multi-CPK mode: teams parts", "The run's first CPK is its
+    /// boundary"), else `cpk_name`.
+    pub(crate) fn boundary_cpk_name(&self) -> &str {
+        if self.multicpk_mode {
+            &self.bins_cpk_name
+        } else {
+            &self.cpk_name
+        }
+    }
 }
 
 /// Reads the tool's settings table. A missing key loads as its default; a key this version does
@@ -59,7 +89,21 @@ mod tests {
         let table = default_table();
         assert_eq!(table["cpk_name"].as_str(), Some("4cc_99_test"));
         assert_eq!(table["strict_file_type_check"].as_bool(), Some(true));
+        assert_eq!(table["teams_cpk_name"].as_str(), Some("teams"));
+        assert_eq!(table["cpk_part_max_size"].as_integer(), Some(3_221_225_472));
+        assert_eq!(table["bins_cpk_name"].as_str(), Some("4cc_08_bins"));
         assert_eq!(from_table(&table).unwrap(), TeamCompilerSettings::default());
+    }
+
+    #[test]
+    fn the_boundary_is_the_bins_cpk_in_multi_cpk_mode_and_cpk_name_otherwise() {
+        let mut settings = TeamCompilerSettings {
+            cpk_name: "4cc_61_midcup".to_owned(),
+            ..TeamCompilerSettings::default()
+        };
+        assert_eq!(settings.boundary_cpk_name(), "4cc_61_midcup");
+        settings.multicpk_mode = true;
+        assert_eq!(settings.boundary_cpk_name(), "4cc_08_bins");
     }
 
     #[test]

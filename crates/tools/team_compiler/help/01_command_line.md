@@ -450,8 +450,35 @@ Nothing is installed into the game, and the `overrides` folder is not applied, s
 are not an export's. The folder is replaced only once the whole compile is written: a compile
 that fails, or writes nothing, leaves it as it was.
 
-In this version `compile` refuses to run while the `multicpk_mode` setting is on. Turn
-`multicpk_mode` off to compile.
+The `multicpk_mode` setting is for the cup maintainers building the whole cup's DLC. With it on,
+`compile` writes several CPKs instead of `<cpk_name>.cpk`. The teams go into the numbered CPKs
+the cup's official `DpFileList.bin` has for the `teams_cpk_name` setting (`teams` gives
+`4cc_41_teams.cpk` to `4cc_45_teams.cpk`, filled in that order), whole teams in the order of the
+exports: a CPK takes teams until the next one would make it larger than `cpk_part_max_size`
+bytes (3 GiB unless you changed it), and that team starts the next CPK. A team is never split
+between two CPKs. Every one of these CPKs the teams do not need is written as the empty
+placeholder CPK, so a CPK left from an earlier, bigger compile does not stay behind. The files
+the compiler builds for every team (team colors, kit colors, kit configs, the boots and gloves
+lists) and the files of the `overrides` folder go into the CPK named by the `bins_cpk_name`
+setting (`4cc_08_bins.cpk`). In this version multi-CPK mode needs `--no-deploy`: without it `compile`
+refuses to run (exit code 2), and with it every CPK is left in the output folder, with one
+`deploy_skipped_by_flag` line each, the bins CPK first. `--mode test` and `--mode sideload`
+write their loose files as they do without it.
+
+These lines stop a multi-CPK compile with exit code 3. No CPK is written, and the ones in the
+output folder stay as they were:
+
+- `cpk_slots_exhausted` (`export=...`, `stem=...`, `slots=...`, `cap=...`): the teams do not fit
+  in the numbered CPKs the official list has, at `cpk_part_max_size` each. The line names the
+  first export left without room and how many CPKs the list has. Raise `cpk_part_max_size`, or
+  ask for a list with more of them.
+- `cpk_team_exceeds_cap` (`export=...`, `size=...`, `cap=...`): one team alone is larger than
+  `cpk_part_max_size`, and a team is never split. Raise `cpk_part_max_size`.
+
+A compile of one CPK is never split. When `<cpk_name>.cpk` is larger than `cpk_part_max_size`,
+the warning `cpk_size_over_limit` (`cpk=...`, `size=...`, `cap=...`) says so: the game loads it
+as it is and the CPK is written whole, but the cup DLC's repository cannot hold a file that
+large.
 
 A relative path typed in the terminal is taken from the folder the terminal is in.
 

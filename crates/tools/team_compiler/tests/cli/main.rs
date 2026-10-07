@@ -17,6 +17,7 @@ mod face_folders;
 mod kit_layout;
 mod logo;
 mod models;
+mod multicpk;
 mod preflight;
 mod sideload;
 mod sources;

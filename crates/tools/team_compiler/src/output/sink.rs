@@ -84,7 +84,7 @@ impl OutputSink {
 }
 
 /// Creates the CPK file at `path`, and its folder.
-fn create_cpk(path: &Path) -> anyhow::Result<CpkWriter<File>> {
+pub(crate) fn create_cpk(path: &Path) -> anyhow::Result<CpkWriter<File>> {
     let cannot_create = || format!("{}: cannot create the CPK", path.display());
     if let Some(folder) = path.parent() {
         fs::create_dir_all(folder).with_context(cannot_create)?;

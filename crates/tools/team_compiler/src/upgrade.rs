@@ -15,7 +15,7 @@ use studio_core::{Disposition, Message, Scope, Severity, ToolContext};
 
 use crate::bins::dpfl;
 use crate::events::RunEvents;
-use crate::messages::{Code, tool_message};
+use crate::messages::{Code, size_text, tool_message};
 use crate::output::deploy::{DPFILELIST, UPGRADE_COMMAND};
 use crate::paths::replace_file;
 use crate::templates;
@@ -141,28 +141,19 @@ fn official_stem<'a>(entry: &str, official: &'a [String]) -> Option<&'a str> {
 /// A CPK file name's stem: what follows `{prefix}_{NN}_` (`NN` one or more digits), without
 /// `.cpk` (`stadiums0` for `4cc_30_stadiums0.cpk`); `None` for a name not of that shape.
 fn stem(name: &str) -> Option<&str> {
+    number_and_stem(name).map(|(_, stem)| stem)
+}
+
+/// A CPK file name's number `NN` and stem, as `stem` reads them (`("30", "stadiums0")` for
+/// `4cc_30_stadiums0.cpk`); `None` for a name not of that shape.
+pub(crate) fn number_and_stem(name: &str) -> Option<(&str, &str)> {
     let (prefix, rest) = name.strip_suffix(".cpk")?.split_once('_')?;
     let (number, stem) = rest.split_once('_')?;
     let shaped = !prefix.is_empty()
         && !number.is_empty()
         && number.bytes().all(|byte| byte.is_ascii_digit())
         && !stem.is_empty();
-    shaped.then_some(stem)
-}
-
-/// A file size as a member reads it: `N bytes` under 1 KiB, else in the largest of KiB, MiB
-/// and GiB it reaches, to one decimal, a trailing `.0` left out (`1.5 KiB`, `3.7 GiB`).
-fn size_text(bytes: u64) -> String {
-    const UNITS: [(&str, u64); 3] = [("GiB", 1 << 30), ("MiB", 1 << 20), ("KiB", 1 << 10)];
-    let Some((unit, size)) = UNITS.into_iter().find(|(_, size)| bytes >= *size) else {
-        return format!("{bytes} bytes");
-    };
-    // Tenths of the unit, rounded to the nearest, in integers: no float cast to round.
-    let tenths = (u128::from(bytes) * 10 + u128::from(size) / 2) / u128::from(size);
-    match tenths % 10 {
-        0 => format!("{} {unit}", tenths / 10),
-        digit => format!("{}.{digit} {unit}", tenths / 10),
-    }
+    shaped.then_some((number, stem))
 }
 
 /// The `upgrade-dpfl` command in `download`, the PES folder's `download/` (checked to be a
@@ -495,16 +486,6 @@ mod tests {
         ] {
             assert_eq!(stem(shapeless), None, "{shapeless}");
         }
-    }
-
-    #[test]
-    fn a_size_is_in_bytes_under_a_kib_and_else_in_the_largest_unit_to_one_decimal() {
-        assert_eq!(size_text(0), "0 bytes");
-        assert_eq!(size_text(1023), "1023 bytes");
-        assert_eq!(size_text(1024), "1 KiB");
-        assert_eq!(size_text(1536), "1.5 KiB");
-        assert_eq!(size_text(3_972_844_748), "3.7 GiB");
-        assert_eq!(size_text(1 << 30), "1 GiB");
     }
 
     #[test]

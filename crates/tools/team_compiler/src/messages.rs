@@ -231,6 +231,15 @@ pub(crate) enum Code {
     /// The installed `DpFileList.bin` does not list the run's CPK, so the game would not load
     /// it: the CPK goes to the output folder.
     CpkNameUnlisted,
+    /// Multi-CPK mode: a team does not fit the official list's teams slots left at
+    /// `cpk_part_max_size`; the run is aborted and no part is written.
+    CpkSlotsExhausted,
+    /// Multi-CPK mode: one team's content is larger than `cpk_part_max_size` on its own, and a
+    /// team is never split across parts; the run is aborted and no part is written.
+    CpkTeamExceedsCap,
+    /// A single CPK larger than `cpk_part_max_size`: the game loads it, but the cup DLC's
+    /// repository cannot hold a file that large. The CPK is written whole.
+    CpkSizeOverLimit,
     /// The old CPK in `download/` could not be replaced (PES is running): the CPK goes to the
     /// output folder.
     OldCpkLocked,
@@ -253,7 +262,7 @@ impl Code {
     /// Every code, for the catalog test: a variant missing here would make its first message
     /// panic in `severity`, so a new variant is added to this list too.
     #[cfg(test)]
-    const ALL: [Code; 79] = [
+    const ALL: [Code; 82] = [
         Code::ExportExtractFailed,
         Code::NoExportsFound,
         Code::ExportDisabled,
@@ -328,6 +337,9 @@ impl Code {
         Code::DpfilelistUpToDate,
         Code::DpfilelistUpgradePlanned,
         Code::CpkNameUnlisted,
+        Code::CpkSlotsExhausted,
+        Code::CpkTeamExceedsCap,
+        Code::CpkSizeOverLimit,
         Code::OldCpkLocked,
         Code::DeployTargetUnwritable,
         Code::OverridesActive,
@@ -412,6 +424,9 @@ impl Code {
             Code::DpfilelistUpToDate => "dpfilelist_up_to_date",
             Code::DpfilelistUpgradePlanned => "dpfilelist_upgrade_planned",
             Code::CpkNameUnlisted => "cpk_name_unlisted",
+            Code::CpkSlotsExhausted => "cpk_slots_exhausted",
+            Code::CpkTeamExceedsCap => "cpk_team_exceeds_cap",
+            Code::CpkSizeOverLimit => "cpk_size_over_limit",
             Code::OldCpkLocked => "old_cpk_locked",
             Code::DeployTargetUnwritable => "deploy_target_unwritable",
             Code::OverridesActive => "overrides_active",
@@ -516,6 +531,9 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("dpfilelist_up_to_date", CatalogSeverity::Info),
     ("dpfilelist_upgrade_planned", CatalogSeverity::Info),
     ("cpk_name_unlisted", CatalogSeverity::Error),
+    ("cpk_slots_exhausted", CatalogSeverity::Fatal),
+    ("cpk_team_exceeds_cap", CatalogSeverity::Fatal),
+    ("cpk_size_over_limit", CatalogSeverity::Warning),
     ("old_cpk_locked", CatalogSeverity::Error),
     ("deploy_target_unwritable", CatalogSeverity::Error),
     ("overrides_active", CatalogSeverity::Info),
@@ -726,6 +744,21 @@ fn message(
     }
 }
 
+/// A file size as a member reads it: `N bytes` under 1 KiB, else in the largest of KiB, MiB
+/// and GiB it reaches, to one decimal, a trailing `.0` left out (`1.5 KiB`, `3.7 GiB`).
+pub(crate) fn size_text(bytes: u64) -> String {
+    const UNITS: [(&str, u64); 3] = [("GiB", 1 << 30), ("MiB", 1 << 20), ("KiB", 1 << 10)];
+    let Some((unit, size)) = UNITS.into_iter().find(|(_, size)| bytes >= *size) else {
+        return format!("{bytes} bytes");
+    };
+    // Tenths of the unit, rounded to the nearest, in integers: no float cast to round.
+    let tenths = (u128::from(bytes) * 10 + u128::from(size) / 2) / u128::from(size);
+    match tenths % 10 {
+        0 => format!("{} {unit}", tenths / 10),
+        digit => format!("{}.{digit} {unit}", tenths / 10),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use aesthetics_export::ISSUE_CODES;
@@ -750,6 +783,16 @@ mod tests {
 
     fn path(text: &str) -> ScopePath {
         ScopePath::new(text).unwrap()
+    }
+
+    #[test]
+    fn a_size_is_in_bytes_under_a_kib_and_else_in_the_largest_unit_to_one_decimal() {
+        assert_eq!(size_text(0), "0 bytes");
+        assert_eq!(size_text(1023), "1023 bytes");
+        assert_eq!(size_text(1024), "1 KiB");
+        assert_eq!(size_text(1536), "1.5 KiB");
+        assert_eq!(size_text(3_972_844_748), "3.7 GiB");
+        assert_eq!(size_text(1 << 30), "1 GiB");
     }
 
     #[test]

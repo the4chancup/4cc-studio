@@ -14,7 +14,7 @@ is in `AGENTS.md` ("Working documents").
 **Next:** Phase 4 is itemized and its Acceptance section written (step 4.1, 2026-10-03; its
 cross-family review (a) is queued). Next:
 the next open Phase 4 step (see the list); 4.21 to 4.24 and 4.29
-and 4.25 are done; 4.14 waits on 4.31's pre-Fox export; 4.33, 4.34, 4.c-pass and
+and 4.25 are done; 4.26a and 4.26b are done, 4.26c next; 4.14 waits on 4.31's pre-Fox export; 4.33, 4.34, 4.c-pass and
 4.c-fix1 are done; 4.30,
 4.5 to 4.8, 4.9a and 4.10 to 4.13 are done (4.6c moved to Phase 8's cancellation), 4.9b
 (collars) waits on nothing. 2.5b (GPU BC7) is step 16.x (decision entries
@@ -256,6 +256,14 @@ Claude agent with no sidekick and no reviewer of another model family. While tha
   of 2026-10-07, against `pipeline.md` "Multi-CPK mode: teams parts" (the first-fit bullet:
   the cap checked TOC included) and the decision entry "multi-CPK mode: the official list's
   slots, permits given back, all-or-nothing install".
+  4.26b (b), `team_compiler` (`output/parts.rs` new: `slots`, `TeamsParts`, `Unplaced`;
+  `compile.rs` `CpkLayout`, `staged_output`, `size_over_limit`, `promote` over several
+  CPKs; `output/writer.rs` the parts path and `admit`; `cli.rs` `compile_settings`;
+  `settings.rs` three keys and `boundary_cpk_name`; `messages.rs` three codes and
+  `size_text`), its commit of 2026-10-07, against `pipeline.md` "5. Writer" step 6 (Multi-CPK
+  mode), `settings.md` (the four multi-CPK rows), `messages.md` the three size rows and
+  `deploy_skipped_by_flag`, TC-OUT-12..16 and the decision entries "multi-CPK mode: the
+  official list's slots ..." and "`cpk_part_max_size` is a byte count ...".
 - For the lead, on return: the review process on trial (3.1) opens with a full sidekick review
   loop, then runs GPT's loop with a full sidekick loop after each GPT round, calling GPT again
   only once that sidekick loop has ended and GPT's own loop has not; not yet in `AGENTS.md`
@@ -1560,6 +1568,19 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   entries carry no modification time, as the Team compiler's, since an entry without one
   drops the ETOC (the sidekick's contradiction, accepted); mutants-diff 32: 30 caught, 2
   unviable; Clef 1 flag rejected.
+  4.26b done 2026-10-07 (Opus 5.5): `CpkLayout` (`Single` or `Parts`, decided by
+  `cli.rs` `compile_settings`: `Parts` only for a normal `--no-deploy` run, a deploying one
+  refused with exit 2); `output/parts.rs` `slots` (the official list's exact-stem entries by
+  number) and `TeamsParts` (a team's entries held until its export's last task is decided,
+  then placed first-fit with `len_with`, `cpk_team_exceeds_cap` and `cpk_slots_exhausted`
+  as `Unplaced`, placeholders written for the slots left); the writer releases a held
+  batch's permit when held; `cpk_size_over_limit` on a single CPK; settings
+  `teams_cpk_name`, `cpk_part_max_size`, `bins_cpk_name`; `size_text` moved to
+  `messages.rs`; `check` looks below `bins_cpk_name` in multi-CPK mode. TC-OUT-12..16
+  proven. Gates green (lib 484, cli 235); mutants-diff 86: 68 caught, 17 unviable, 1
+  survivor (`Unplaced`'s `Display`), its test added by the lead; Clef 63 windows, no flag.
+  Left for 4.26c: no check that a path arrives once across parts (each part's writer
+  refuses a duplicate within it).
   Plan: `pipeline.md` "5. Writer" step 6 ("Multi-CPK mode: teams parts"); `settings.md`
   (`multicpk_mode`, `teams_cpk_name`, `cpk_part_max_size`, `bins_cpk_name`). IDs: TC-OUT-12..16,
   TC-DEP-08 (moved from 4.25: it needs this mode), TC-DEP-11. Crates: tc (`output/writer.rs`,
@@ -1886,6 +1907,12 @@ Steps are itemized when Phase 15 closes; one is fixed already:
 
 Bugs, unexpected behavior, things to revisit. `open` / `resolved (date)`. Resolved issues are
 pruned when their phase closes; they stay in git history.
+
+- open (found at 4.26b's review) — a multi-CPK run promotes its CPKs to `output/` one
+  rename at a time, so a rename failing part-way leaves `output/` with some new CPKs and
+  some of the previous run's. The plan settles all-or-none for the installation only
+  (`pipeline.md` "Deploy CPKs"); the output folder is the maintainers' build folder, and the
+  next run rewrites every CPK. Revisit if a maintainer meets it.
 
 - resolved (2026-10-07, 4.21c: the bins are parsed as they are read) — an installed bin the walk reads but that does not parse (a
   `UniColor.bin` whose length is not whole records, a corrupt `UniformParameter.bin`) fails
@@ -3089,3 +3116,8 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
     the list last; it never deletes or overwrites a CPK. Step 4.25 is done.
   - **4.26a:** the `cpk` writer tells the length its file would have with more entries
     (`len_with`), laid out by the code `finish` writes with. 4.26b next.
+  - **4.26b:** multi-CPK mode with `--no-deploy`: whole teams first-fit into the official
+    list's `teams` slots under `cpk_part_max_size` (a byte count, 3 GiB), placeholders in
+    the slots left, overrides and bins in `4cc_08_bins`; `cpk_team_exceeds_cap`,
+    `cpk_slots_exhausted` (Fatal) and `cpk_size_over_limit` (single CPK, Warning). A
+    deploying multi-CPK run is still refused; 4.26c installs them all or none.

@@ -13,7 +13,7 @@ use pipeline::CpkStem;
 use studio_core::{AppPaths, CliError, CommonSettings, SETTINGS_FILE_NAME, Severity, ToolContext};
 use teams_list::TeamsList;
 
-use crate::compile::OutputMode;
+use crate::compile::{CpkLayout, OutputMode};
 use crate::messages::TOOL_ID;
 use crate::output::deploy;
 use crate::reader::is_archive;
@@ -118,7 +118,7 @@ pub(crate) fn run(matches: &clap::ArgMatches, ctx: &ToolContext) -> Result<u8, C
             let mode = output_mode(args.mode, args.no_deploy, &common)?;
             check_export_paths(&args.source.exports)?;
             let settings = read_settings(&ctx.tool_settings(TOOL_ID), &common)?;
-            let cpk_stem = compile_settings(&settings)?;
+            let layout = compile_settings(&settings, &mode)?;
             let exports_root = prepare_exports_root(&args.source, &common, ctx.paths())?;
             // `settings.md` "Path resolution": a relative output folder sits beside the
             // executable; an absolute one replaces the base.
@@ -135,7 +135,7 @@ pub(crate) fn run(matches: &clap::ArgMatches, ctx: &ToolContext) -> Result<u8, C
                 common,
                 ctx.paths(),
             )?;
-            verdict(compile::run(&inputs, &cpk_stem, &output_folder, &mode, ctx))
+            verdict(compile::run(&inputs, &layout, &output_folder, &mode, ctx))
         }
         TeamCompilerCommand::UpgradeDpfl { yes } => {
             let download = download_folder(&ctx.common())?;
@@ -291,20 +291,42 @@ fn check_memory_cap(percent: f32) -> Result<(), CliError> {
     )))
 }
 
-/// The settings only `compile` reads: the CPK name, and the modes this version cannot compile.
-fn compile_settings(settings: &TeamCompilerSettings) -> Result<CpkStem, CliError> {
-    let cpk_stem = CpkStem::new(&settings.cpk_name).map_err(|error| {
-        invalid(anyhow!(
-            "cpk_name = \"{}\" is not a valid CPK name: {error}",
-            settings.cpk_name
-        ))
-    })?;
-    if settings.multicpk_mode {
-        return Err(invalid(anyhow!(
-            "multicpk_mode = true is not available yet in this version"
-        )));
+/// The CPKs a compile in `mode` writes, from the settings only `compile` reads: one CPK named
+/// `cpk_name`, or in multi-CPK mode the bins CPK and the teams parts (`pipeline.md` "Multi-CPK
+/// mode: teams parts"), which only a normal compile writes, so test and sideload mode ignore
+/// `multicpk_mode`. Refused: a name that is not a valid CPK name, naming its setting, and
+/// multi-CPK mode in a run that deploys, which this version cannot install yet. The teams
+/// stem is not checked: a stem no slot has gives no slot, and the first team then reports
+/// `cpk_slots_exhausted`.
+fn compile_settings(
+    settings: &TeamCompilerSettings,
+    mode: &OutputMode,
+) -> Result<CpkLayout, CliError> {
+    let name = cpk_stem("cpk_name", &settings.cpk_name)?;
+    let cap = settings.cpk_part_max_size;
+    if !settings.multicpk_mode {
+        return Ok(CpkLayout::Single { name, cap });
     }
-    Ok(cpk_stem)
+    match mode {
+        OutputMode::Normal { no_deploy: true } => Ok(CpkLayout::Parts {
+            bins: cpk_stem("bins_cpk_name", &settings.bins_cpk_name)?,
+            teams_stem: settings.teams_cpk_name.clone(),
+            cap,
+        }),
+        OutputMode::Normal { no_deploy: false } => Err(invalid(anyhow!(
+            "multicpk_mode = true needs --no-deploy in this version"
+        ))),
+        OutputMode::Test | OutputMode::Sideload { .. } => Ok(CpkLayout::Single { name, cap }),
+    }
+}
+
+/// The setting `key`'s `value` as a CPK name, or its refusal naming the setting.
+fn cpk_stem(key: &str, value: &str) -> Result<CpkStem, CliError> {
+    CpkStem::new(value).map_err(|error| {
+        invalid(anyhow!(
+            "{key} = \"{value}\" is not a valid CPK name: {error}"
+        ))
+    })
 }
 
 /// The run's inputs over the ready `exports_root` and the `--export` paths: the teams list is
@@ -611,16 +633,78 @@ mod tests {
     }
 
     #[test]
-    fn compile_refuses_an_invalid_cpk_name_and_multicpk_mode() {
+    fn compile_writes_one_cpk_or_with_multicpk_mode_and_no_deploy_the_parts() {
+        let no_deploy = OutputMode::Normal { no_deploy: true };
+        let deploys = OutputMode::Normal { no_deploy: false };
+        let single = CpkLayout::Single {
+            name: CpkStem::new("4cc_99_test").unwrap(),
+            cap: 3 << 30,
+        };
         let mut settings = TeamCompilerSettings::default();
-        assert_eq!(compile_settings(&settings).unwrap().as_str(), "4cc_99_test");
+        for mode in [&deploys, &no_deploy, &OutputMode::Test] {
+            assert_eq!(
+                compile_settings(&settings, mode).unwrap(),
+                single,
+                "{mode:?}"
+            );
+        }
+
         settings.multicpk_mode = true;
-        let error = compile_settings(&settings).unwrap_err();
-        assert!(error.to_string().contains("multicpk_mode"), "{error}");
-        settings.cpk_name = "con".to_owned();
-        let error = compile_settings(&settings).unwrap_err();
+        assert_eq!(
+            compile_settings(&settings, &no_deploy).unwrap(),
+            CpkLayout::Parts {
+                bins: CpkStem::new("4cc_08_bins").unwrap(),
+                teams_stem: "teams".to_owned(),
+                cap: 3 << 30,
+            }
+        );
+        // Only a normal compile splits.
+        let sideload = OutputMode::Sideload {
+            pes_folder: PathBuf::from("PES"),
+        };
+        for mode in [&OutputMode::Test, &sideload] {
+            assert_eq!(
+                compile_settings(&settings, mode).unwrap(),
+                single,
+                "{mode:?}"
+            );
+        }
+        let error = compile_settings(&settings, &deploys).unwrap_err();
+        assert_eq!(error.exit_code, INVALID);
+        assert_eq!(
+            error.to_string(),
+            "multicpk_mode = true needs --no-deploy in this version"
+        );
+    }
+
+    #[test]
+    fn compile_refuses_an_invalid_cpk_name_or_bins_cpk_name_naming_it() {
+        let no_deploy = OutputMode::Normal { no_deploy: true };
+        let mut settings = TeamCompilerSettings {
+            cpk_name: "con".to_owned(),
+            ..TeamCompilerSettings::default()
+        };
+        let error = compile_settings(&settings, &no_deploy).unwrap_err();
         assert_eq!(error.exit_code, INVALID);
         assert!(error.to_string().contains("cpk_name = \"con\""), "{error}");
+
+        // The bins CPK's name counts only in multi-CPK mode.
+        settings.cpk_name = "4cc_99_test".to_owned();
+        settings.bins_cpk_name = "bins.cpk".to_owned();
+        assert!(compile_settings(&settings, &no_deploy).is_ok());
+        settings.multicpk_mode = true;
+        let error = compile_settings(&settings, &no_deploy).unwrap_err();
+        assert_eq!(error.exit_code, INVALID);
+        assert!(
+            error
+                .to_string()
+                .starts_with("bins_cpk_name = \"bins.cpk\""),
+            "{error}"
+        );
+        // The teams stem is not checked: a stem no slot has gives no slot.
+        settings.bins_cpk_name = "4cc_08_bins".to_owned();
+        settings.teams_cpk_name = "no such/stem".to_owned();
+        assert!(compile_settings(&settings, &no_deploy).is_ok());
     }
 
     #[test]
