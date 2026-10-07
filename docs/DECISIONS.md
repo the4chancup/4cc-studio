@@ -4250,3 +4250,24 @@ Lead's reading: "one kit of each type" applies to any `Full` export lacking a ty
 to one with no `Kits/` folder.
 Plan: `team_compiler/pipeline.md` "Bins accumulation"; `team_compiler/README.md` TC-BIN-19
 and TC-BIN-20 (new).
+
+## 2026-10-07 — team_compiler — the working-bin walk's edges, and the measured DpFileList layout
+Decision: the walk of the installed `DpFileList.bin` (step 4.21) builds every bin on the bundled
+base when the list does not name the run's CPK, as the texture lookup already does; passes over
+a listed CPK with no file; and stops the run before any export is read when the list, a CPK or a
+bin in it cannot be read, with the new Fatal `installed_bin_unreadable`. The reader takes each
+48-byte record's name up to its first NUL and ignores the rest of the record and the header's
+first word, since PES 19's list carries an order number in its records and PES 20's a 100 in
+its header; a list's order is its records' positions. Until 4.24 adds `pes_folder_not_found`,
+a run with no PES folder reports only `bin_source` `bundled`. `dpfilelist_missing` is a
+Warning with `--no-deploy` as in the loose-file modes (lead's reading: the 2026-10-05 answer's
+reason, a run that deploys nothing, covers it, and "Post-processing" calls a `--no-deploy` run
+clean, no error).
+Why: an unlisted CPK has nothing known to come before it, so any CPK of the list could sit
+above it. Falling back past an unreadable CPK would build the run's bins on an older copy, and
+the run's CPK, loaded above it, would hide the cup's later kits and colors for every team the
+run does not compile; aborting keeps the previous CPK. Positions, not PES 19's number, give the
+order because every other list measured holds zeros there and PES 19's number agrees with them.
+Plan: `team_compiler/pipeline.md` "Bins accumulation", "DpFileList upgrade" (the measured
+layout); `team_compiler/messages.md` `installed_bin_unreadable`; `team_compiler/README.md`
+TC-BIN-21 (new).

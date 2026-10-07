@@ -1260,6 +1260,10 @@ TC-BIN-09  GIVEN a PES folder with no DpFileList.bin
            WHEN a compile runs
            THEN the bins are built on the bundled bases, dpfilelist_missing is reported, and the
                 CPK is promoted to output/
+TC-BIN-21  GIVEN TC-BIN-05's install with 4cc_61_midcup.cpk replaced by bytes that are not a CPK
+           WHEN a /co/ export is compiled with cpk_name 4cc_99_test
+           THEN installed_bin_unreadable is reported naming 4cc_61_midcup.cpk, no export is
+                read, no CPK is written, and the exit code is 3
 TC-BIN-10  GIVEN an installed BootsList.bin of ten pairs, a GloveList.bin and a
            PlayerAppearance.bin, none of them for a team 714 player, and a /co/ export whose
            slot 05 holds boots.fmdl

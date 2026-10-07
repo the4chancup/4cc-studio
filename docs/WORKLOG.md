@@ -1265,7 +1265,11 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   installed `UniformParameter` or pre-Fox kit bins (`kit_config_fpc_adjusted`,
   `kit_config_fpc_unpatched`). Plan: `pipeline.md` "4. Per-export non-model steps" (Bins
   accumulation), "Resolved decisions" (Working-bin lookup, Templates and fallback bins);
-  `fpc_toggle.md` "Kit slots absent from the export". IDs: TC-BIN-05..09. Crates: tc
+  `fpc_toggle.md` "Kit slots absent from the export". IDs: TC-BIN-05..09, TC-BIN-13's CLI
+  test, TC-BIN-16, TC-BIN-21. Three slices: (a) the reader, the walk, `bin_source`,
+  `dpfilelist_missing`, `installed_bin_unreadable` (05, 08, 09, 13, 21; fixtures in
+  `tests/fixtures/dpfl/`, the lead's); (b) the `templates/` override (07); (c) FPC patching
+  and a `Full` team's stale kit configs (06, 16). Crates: tc
   (`bins/dpfl.rs`, `bins/mod.rs`, `templates.rs`) → verify: a sandbox install whose DPFL lists
   `4cc_08_bins`, `4cc_61_midcup` and `4cc_99_test` with a `4cc_08_bins.cpk` holding a
   `UniColor.bin` in which team 714's p1 entry is set and a `4cc_61_midcup.cpk` holding one in

@@ -690,6 +690,15 @@ describes behavior, not a serial scheduling requirement:
   compiled player's rows from his export, so only the rows of players no export compiles come
   through from the previous output. Each bin is taken from the first CPK the walk
   finds it in, with the supplying CPK reported; the bundled bases only serve from-scratch compiles.
+  A bin no CPK of the walk holds comes from the bundled base, and so does every bin when the
+  walk cannot be made: no PES folder, no `DpFileList.bin` (`dpfilelist_missing`), or a list
+  that does not name the run's CPK, so nothing is known to come before it (the rule the
+  texture lookup of "Resolved decisions" follows). A listed CPK with no file in `download/` is
+  passed over. The walk runs before any export is read, and a list, a CPK or a bin in it that
+  cannot be read stops the run there (`installed_bin_unreadable`, Fatal), so the previous CPK
+  is kept: we abort, not fall back to the next CPK or the bundled base, because the run's CPK
+  sits above the ones it walks, and a bin built on an older copy would hide the cup's later
+  kits and colors for every team the run does not compile.
   The same walk locates pre-Fox kit-config bins for FPC patching. Bins updating is unconditional
   (Red's `bins_updating` setting is dropped — see "Resolved decisions").
 
@@ -951,13 +960,18 @@ describes behavior, not a serial scheduling requirement:
     CPK is absent the game rejects the whole download folder and runs vanilla, and the
     official list names 53 CPKs where an old DLC ships about 40.
   - The DPFL binary format is small and version-stable enough to own here. Measured on the PES
-    2021 and PES 2017 files: a 16-byte header (`u32 0`, `u32 entry_count`, 8 zero bytes), then
-    `entry_count` records of 48 bytes each (the CPK file name with `.cpk`, NUL-padded), then an
-    all-zero tail of no fixed length (1204 bytes on PES 21's file, 905 on PES 17's) that the reader
-    accepts and ignores. The upgrade writes the bundled file byte for byte, so the writer never
-    chooses a tail. PES 15, 16, 18, 19 and 20 are checked the same way when an install is
-    available. The reader already exists for the bins walk; the upgrade only copies the bundled
-    file.
+    2017, 2019, 2020 and 2021 files: a 16-byte header (a `u32` that is 0, or 100 on PES 20's,
+    `u32 entry_count`, 8 zero bytes), then `entry_count` records of 48 bytes each (the CPK file
+    name with `.cpk`, NUL-terminated), then an all-zero tail of no fixed length (1204 bytes on
+    PES 21's file, 905 on PES 17's, 1765 on PES 19's) that the reader accepts and ignores. The
+    reader takes each record's name up to its first NUL and ignores the rest of the record:
+    PES 19's list carries a number at offset 36 of each record (28 for the first, counting
+    down to 0 for the last) and a stray byte after one name, where the other lists hold
+    zeros, so a list's order is its records' positions, which that number agrees with. The
+    header's first word is ignored too. The upgrade writes the bundled file byte for byte, so
+    the writer never chooses a tail. PES 15, 16 and 18 are checked the same way when an
+    install is available. The reader already exists for the bins walk; the upgrade only
+    copies the bundled file.
 - **Destination writability preflight** — the two failure modes users actually hit (the download
   folder needs elevation because PES sits under `Program Files`; the old CPK is locked because PES
   is still running) are detectable long before Compile, so they are checked **live**, like the
