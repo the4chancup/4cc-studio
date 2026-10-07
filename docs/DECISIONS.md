@@ -4384,3 +4384,20 @@ fail every sideload run on a machine without one. With no game folder the tree h
 to go, and a run that silently wrote nowhere would look like a success.
 Plan: `team_compiler/pipeline.md` "5. Writer" step 5 (sideload paragraph); `team_compiler/settings.md`
 "CLI" (the sideload refusals).
+
+## 2026-10-07 — team_compiler — where a test-mode entry goes
+Decision: in test mode each task entry is written at `test_output/<source>/<folder>/<name>`:
+the export's source as discovered (folder name, or archive file name with its extension), the
+export folder the task works on (for a portrait or the logo, the folder of its file), and the
+entry's file name at its game path; a model package's files are emitted once by their names in
+the package instead of an `.fpk` and `.fpkd` per ID. The bins go under `test_output/_bins/` at
+their game paths, overrides are not applied, and `test_output/` is replaced whole once written,
+as `livecpk/` is.
+Why: the plan says "export-relative paths" and Blue wrote `{export}/{itemfolder}/{model}/`,
+but the texture tasks keep no source path once converted, and several outputs (merged parts,
+template files, kit-variant fills, three logo sizes) have none. The task's folder and the
+output name are known for every entry, need no new bookkeeping, and still show what the
+compiler did to that folder: TC-OUT-07's `shirt.ftex` beside `fcl_hair.fmdl` is exactly this
+rule. The source with its extension keeps a folder and an archive of one name apart. Replacing
+the folder whole keeps a removed export's old output from looking current.
+Plan: `team_compiler/pipeline.md` "5. Writer" step 5 (the materialize paragraph).

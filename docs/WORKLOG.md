@@ -1428,7 +1428,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
     killed by the lead's test of a previous tree held open, Windows-only: no portable way makes
     the removal fail while the copy succeeds (the Linux half runs as root), so a Linux half may
     report it again
-  - [ ] 4.23b test mode and the materialize seam (TC-OUT-07, 11, 17)
+  - [ ] 4.23b test mode and the materialize seam (TC-OUT-07, 11, 17). Brief `.tmp/brief_4_23b.md`
 
 - [ ] 4.24 **Deployment**: each staged CPK copied to `download/{name}.cpk.partial` and renamed over
   the old one, the marker file, the staging folder removed; the preflight before any export is

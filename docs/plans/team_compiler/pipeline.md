@@ -874,7 +874,15 @@ describes behavior, not a serial scheduling requirement:
    **output target once, at manifest planning**, and consuming it at exactly one seam: each task's
    final *materialize* step (relocation to game paths, Fox FPK packing). In test mode that step is
    skipped and the task emits its processed entries with export-relative paths; in normal and sideload
-   mode it runs. Everything upstream (checks, model conversion, texture work, name editing) and
+   mode it runs. A test-mode entry sits at `test_output/<source>/<folder>/<name>`: `<source>` is
+   the export's source as discovered (its folder name, or its archive's file name with the
+   extension), `<folder>` the export folder the task works on (a portrait's or the logo's: the
+   folder of its file), and `<name>` the entry's file name at its game path (`shirt.ftex`,
+   `u0714p1.ftex`, `71405.dds`); a model package's files are emitted once, by their names in the
+   package (`fcl_hair.fmdl`, `face_diff.bin`), not packed into an `.fpk` per ID. The bins go
+   under `test_output/_bins/` at their game paths, and `test_output/` is replaced whole once the
+   run has written it, as `livecpk\` is, so an export no longer compiled leaves no folder behind.
+   Everything upstream (checks, model conversion, texture work, name editing) and
    everything downstream (the writer, memory permits, events) is identical. Bins and `teamnotes.txt`
    are emitted in every mode. The loose-folder sink is shared between test and sideload modes and is also
    the harness the unit and parity tests drive the pipeline into — trees are diffed directly, with no
