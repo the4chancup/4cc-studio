@@ -1,9 +1,10 @@
 //! The `compile` command (`team_compiler/pipeline.md` "Run driver shapes (Phase 3)"): the
 //! validation `check` runs (the structure pass and the deep pass), run planning, each task's
 //! files read in manifest order and the task processed on the worker pool, the writer thread
-//! committing the batches in manifest order, and the CPK promoted from staging to the output
-//! folder, or the staging discarded when writing or promoting it fails, or when an export's
-//! file changes while it is read (`pipeline.md` "Resolved decisions", "Source snapshot").
+//! committing the batches in manifest order, and the CPK (or, in sideload mode, the loose tree)
+//! promoted from staging to its place, or the staging discarded when writing or promoting it
+//! fails, or when an export's file changes while it is read (`pipeline.md` "Resolved
+//! decisions", "Source snapshot").
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -19,6 +20,7 @@ use crate::bins::installed::{self, InstalledPaths};
 use crate::cli::RunInputs;
 use crate::events::RunEvents;
 use crate::messages::{Code, tool_message};
+use crate::output::sink::OutputSink;
 use crate::output::writer::CpkOutput;
 use crate::output::{deploy, teamnotes};
 use crate::plan::{BuildManifest, BuildTask, overrides, plan_run};
@@ -27,21 +29,45 @@ use crate::reader::{ContentSource, ExportSource, SourceFailure, SourceKind, Sour
 use crate::templates::Templates;
 use crate::validation::{run_budget, run_pool, validation_pass};
 
-/// Compiles every export validation keeps into `<output_folder>/<cpk_stem>.cpk`, after the
-/// files of the data directory's `overrides/` folder, reported as events, then collects the
-/// compiled exports' notes into `<output_folder>/teamnotes.txt`. Its resources are the
-/// embedded ones or the data directory's `templates/` files replacing them (`templates`), and
-/// its bins are built on those of the installed CPKs listed before its own
-/// (`bins::installed`). Returns the worst severity reported: a `templates/` file or an
-/// installed bin that cannot be read, a CPK that cannot be written or put in place, or an
-/// export file that changes while the run reads it, is a Fatal finding, after which the
-/// previous CPK is all that is left. An exports folder or an `overrides/` folder that cannot
-/// be read is an error.
+/// Where a compile puts what it writes (`pipeline.md` "5. Writer", step 5), decided on the
+/// command line before the run starts.
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) enum OutputMode {
+    /// One CPK, promoted to the output folder; with `no_deploy` the run says it installed
+    /// nothing.
+    Normal { no_deploy: bool },
+    /// The CPK's entries as loose files that replace the contents of `pes_folder`'s `livecpk/`,
+    /// which a sideloading runtime serves to the running game. `pes_folder` was checked to be a
+    /// folder.
+    Sideload { pes_folder: PathBuf },
+}
+
+impl OutputMode {
+    /// Whether the run installs into the PES folder's `download/`: only a normal run without
+    /// `--no-deploy` does, so a missing `DpFileList.bin` is an Error for it alone.
+    fn deploys(&self) -> bool {
+        match self {
+            OutputMode::Normal { no_deploy } => !no_deploy,
+            OutputMode::Sideload { .. } => false,
+        }
+    }
+}
+
+/// Compiles every export validation keeps into `<output_folder>/<cpk_stem>.cpk` (in sideload
+/// `mode`, into the PES folder's `livecpk/` as loose files), after the files of the data
+/// directory's `overrides/` folder, reported as events, then collects the compiled exports'
+/// notes into `<output_folder>/teamnotes.txt`. Its resources are the embedded ones or the data
+/// directory's `templates/` files replacing them (`templates`), and its bins are built on those
+/// of the installed CPKs listed before its own (`bins::installed`). Returns the worst severity
+/// reported: a `templates/` file or an installed bin that cannot be read, an output that cannot
+/// be written or put in place, or an export file that changes while the run reads it, is a
+/// Fatal finding, after which the previous output is all that is left. An exports folder or an
+/// `overrides/` folder that cannot be read is an error.
 pub(crate) fn run(
     inputs: &RunInputs,
     cpk_stem: &CpkStem,
     output_folder: &Path,
-    no_deploy: bool,
+    mode: &OutputMode,
     ctx: &ToolContext,
 ) -> anyhow::Result<Option<Severity>> {
     let mut events = RunEvents::new(ctx);
@@ -49,7 +75,7 @@ pub(crate) fn run(
         return Ok(events.worst());
     };
     let Some((bins, installed)) =
-        working_bins(inputs, cpk_stem, !no_deploy, &templates, &mut events)
+        working_bins(inputs, cpk_stem, mode.deploys(), &templates, &mut events)
     else {
         return Ok(events.worst());
     };
@@ -61,7 +87,7 @@ pub(crate) fn run(
         templates,
         cpk_stem,
         output_folder,
-        no_deploy,
+        mode,
     )
 }
 
@@ -197,9 +223,10 @@ fn plan(
 }
 
 /// `compile`'s second half: the planned tasks read and processed with the run's `templates`
-/// and the `installed` CPKs' entry paths, and written into the staged CPK, its bins built on
-/// `bins`, which is then promoted, and `teamnotes.txt` written. A source that changed while
-/// its tasks were read aborts the run with `source_changed_during_run`, the staging discarded.
+/// and the `installed` CPKs' entry paths, and written into the staged CPK (or loose tree, in
+/// sideload `mode`), its bins built on `bins`, which is then promoted, and `teamnotes.txt`
+/// written. A source that changed while its tasks were read aborts the run with
+/// `source_changed_during_run`, the staging discarded.
 fn build(
     planned: PlannedRun,
     bins: WorkingBins,
@@ -207,7 +234,7 @@ fn build(
     templates: Templates,
     cpk_stem: &CpkStem,
     output_folder: &Path,
-    no_deploy: bool,
+    mode: &OutputMode,
 ) -> anyhow::Result<Option<Severity>> {
     let PlannedRun {
         version,
@@ -239,7 +266,19 @@ fn build(
 
     let run_folder = deploy::staging_folder(output_folder);
     let cpk_name = deploy::cpk_file_name(cpk_stem);
-    let output = CpkOutput::new(run_folder.join(&cpk_name), overrides);
+    // `target` is the path the output is promoted to, which a failure names: the previous
+    // output there is what a failed run leaves.
+    let (sink, target) = match mode {
+        OutputMode::Normal { .. } => (
+            OutputSink::cpk(run_folder.join(&cpk_name)),
+            output_folder.join(&cpk_name),
+        ),
+        OutputMode::Sideload { pes_folder } => (
+            OutputSink::loose(run_folder.join(deploy::LIVECPK)),
+            pes_folder.join(deploy::LIVECPK),
+        ),
+    };
+    let output = CpkOutput::new(sink, overrides);
     let context = CompileContext::new(version, last_tasks.len(), templates, installed);
     let (coordinated, (mut events, written)) = std::thread::scope(|scope| {
         let (batches_tx, batches_rx) = unbounded();
@@ -283,7 +322,6 @@ fn build(
         return Ok(events.worst());
     }
 
-    let cpk_path = output_folder.join(&cpk_name);
     // A bins failure is a CPK write failure too: `uniparam_compile_failed` is not reported yet.
     // A working bin that does not parse never gets here, stopped where it was read.
     let written = match written {
@@ -298,7 +336,7 @@ fn build(
                 &mut events,
                 &run_folder,
                 output_folder,
-                &cpk_path,
+                &target,
                 Code::CpkWriteFailed,
                 error,
             );
@@ -308,23 +346,13 @@ fn build(
     if !written {
         return Ok(events.worst());
     }
-    match deploy::promote(&run_folder, output_folder, cpk_stem) {
-        Ok(promoted) => {
-            if no_deploy {
-                events.message(tool_message(
-                    Code::DeploySkippedByFlag,
-                    Scope::Run,
-                    Disposition::Keep,
-                    vec![("path", promoted.display().to_string())],
-                ));
-            }
-            write_teamnotes(&mut events, output_folder, &notes);
-        }
+    match promote(mode, &run_folder, output_folder, cpk_stem, &mut events) {
+        Ok(()) => write_teamnotes(&mut events, output_folder, &notes),
         Err(error) => abort_output(
             &mut events,
             &run_folder,
             output_folder,
-            &cpk_path,
+            &target,
             Code::OutputCommitFailed,
             error,
         ),
@@ -332,10 +360,39 @@ fn build(
     Ok(events.worst())
 }
 
+/// Puts the output staged in `run_folder` in place for `mode`: the CPK in the output folder,
+/// with `deploy_skipped_by_flag` naming it under `--no-deploy`, or the loose tree as the PES
+/// folder's `livecpk/`.
+fn promote(
+    mode: &OutputMode,
+    run_folder: &Path,
+    output_folder: &Path,
+    cpk_stem: &CpkStem,
+    events: &mut RunEvents,
+) -> anyhow::Result<()> {
+    match mode {
+        OutputMode::Normal { no_deploy } => {
+            let promoted = deploy::promote(run_folder, output_folder, cpk_stem)?;
+            if *no_deploy {
+                events.message(tool_message(
+                    Code::DeploySkippedByFlag,
+                    Scope::Run,
+                    Disposition::Keep,
+                    vec![("path", promoted.display().to_string())],
+                ));
+            }
+            Ok(())
+        }
+        OutputMode::Sideload { pes_folder } => {
+            deploy::promote_livecpk(run_folder, output_folder, pes_folder)
+        }
+    }
+}
+
 /// Writes `notes` (team name, note text) as `<output_folder>/teamnotes.txt`, or removes a
 /// previous one when there is no note: a file left over would show the notes of exports this
-/// run did not compile. Called once the CPK is in place, so a run that writes none leaves the
-/// previous file. A failure is `teamnotes_write_failed`, an Error on the run naming the file
+/// run did not compile. Called once the output is in place, so a run that writes none leaves
+/// the previous file. A failure is `teamnotes_write_failed`, an Error on the run naming the file
 /// and the whole error chain; the CPK stays.
 fn write_teamnotes(events: &mut RunEvents, output_folder: &Path, notes: &[(String, String)]) {
     let path = output_folder.join(teamnotes::FILE_NAME);
@@ -352,14 +409,14 @@ fn write_teamnotes(events: &mut RunEvents, output_folder: &Path, notes: &[(Strin
     }
 }
 
-/// A failure writing the CPK or putting it in place: the run's staging is discarded, so the
-/// previous CPK at `cpk_path` is all that is left, and the failure is reported as `code`,
-/// Fatal on the run, naming that path and the whole error chain.
+/// A failure writing the output or putting it in place: the run's staging is discarded, so the
+/// previous output at `target` (the CPK, or `livecpk/`) is all that is left, and the failure
+/// is reported as `code`, Fatal on the run, naming that path and the whole error chain.
 fn abort_output(
     events: &mut RunEvents,
     run_folder: &Path,
     output_folder: &Path,
-    cpk_path: &Path,
+    target: &Path,
     code: Code,
     error: anyhow::Error,
 ) {
@@ -369,7 +426,7 @@ fn abort_output(
         Scope::Run,
         Disposition::AbortRun,
         vec![
-            ("path", cpk_path.display().to_string()),
+            ("path", target.display().to_string()),
             ("error", format!("{error:#}")),
         ],
     ));
@@ -964,7 +1021,10 @@ mod tests {
         let root = temp.path();
         // A file where the CPK's folder goes: it cannot be created in it.
         fs::write(root.join("blocker"), "").unwrap();
-        let mut output = CpkOutput::new(root.join("blocker").join("cup.cpk"), BTreeMap::new());
+        let mut output = CpkOutput::new(
+            OutputSink::cpk(root.join("blocker").join("cup.cpk")),
+            BTreeMap::new(),
+        );
         let budget = MemoryBudget::new(1 << 30);
         let (batches_tx, batches_rx) = unbounded();
         batches_tx
@@ -1163,7 +1223,8 @@ mod tests {
             let cpk = output.join("4cc_99_test.cpk");
             let ctx = tool_context(root, "");
             let inputs = sandbox_inputs(root, &ctx);
-            run(&inputs, &stem, &output, false, &ctx).unwrap();
+            let normal = OutputMode::Normal { no_deploy: false };
+            run(&inputs, &stem, &output, &normal, &ctx).unwrap();
             let previous = fs::read(&cpk).unwrap();
 
             let (events_tx, events) = unbounded();
@@ -1188,7 +1249,7 @@ mod tests {
                 Templates::embedded(),
                 &stem,
                 &output,
-                false,
+                &normal,
             )
             .unwrap();
 

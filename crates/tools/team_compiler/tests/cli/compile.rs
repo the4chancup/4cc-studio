@@ -32,7 +32,7 @@ impl Sandbox {
 }
 
 /// The tracer bullet's export, read in place.
-fn tracer_export() -> String {
+pub(crate) fn tracer_export() -> String {
     Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("tests/fixtures/tracer/studio/egg Midcup Tracer")
         .to_str()

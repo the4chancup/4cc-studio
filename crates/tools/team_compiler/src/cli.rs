@@ -8,10 +8,12 @@ use std::path::{Path, PathBuf};
 
 use anyhow::anyhow;
 use clap::{Args, Command, FromArgMatches, Subcommand, ValueEnum};
+use pes_version::PesVersion;
 use pipeline::CpkStem;
 use studio_core::{AppPaths, CliError, CommonSettings, SETTINGS_FILE_NAME, Severity, ToolContext};
 use teams_list::TeamsList;
 
+use crate::compile::OutputMode;
 use crate::messages::TOOL_ID;
 use crate::output::deploy;
 use crate::reader::is_archive;
@@ -112,9 +114,9 @@ pub(crate) fn run(matches: &clap::ArgMatches, ctx: &ToolContext) -> Result<u8, C
             verdict(check::run(&inputs, ctx))
         }
         TeamCompilerCommand::Compile(args) => {
-            refuse_mode(args.mode, args.no_deploy)?;
-            check_export_paths(&args.source.exports)?;
             let common = ctx.common();
+            let mode = output_mode(args.mode, args.no_deploy, &common)?;
+            check_export_paths(&args.source.exports)?;
             let settings = read_settings(&ctx.tool_settings(TOOL_ID), &common)?;
             let cpk_stem = compile_settings(&settings)?;
             let exports_root = prepare_exports_root(&args.source, &common, ctx.paths())?;
@@ -133,13 +135,7 @@ pub(crate) fn run(matches: &clap::ArgMatches, ctx: &ToolContext) -> Result<u8, C
                 common,
                 ctx.paths(),
             )?;
-            verdict(compile::run(
-                &inputs,
-                &cpk_stem,
-                &output_folder,
-                args.no_deploy,
-                ctx,
-            ))
+            verdict(compile::run(&inputs, &cpk_stem, &output_folder, &mode, ctx))
         }
         TeamCompilerCommand::UpgradeDpfl { .. } => Err(invalid(anyhow!(
             "upgrade-dpfl is not available yet in this version"
@@ -169,21 +165,56 @@ fn invalid(error: anyhow::Error) -> CliError {
     CliError::new(INVALID, error)
 }
 
-/// `--no-deploy` has nothing to skip in the loose-file modes; those modes arrive in Phase 4.
-fn refuse_mode(mode: Mode, no_deploy: bool) -> Result<(), CliError> {
+/// The output mode `--mode` and `--no-deploy` ask for, or their refusal: `--no-deploy` has
+/// nothing to skip in the loose-file modes, test mode is not built yet, and sideload mode is
+/// refused as `sideload_mode` says.
+fn output_mode(
+    mode: Mode,
+    no_deploy: bool,
+    common: &CommonSettings,
+) -> Result<OutputMode, CliError> {
     if no_deploy && mode != Mode::Normal {
         return Err(invalid(anyhow!(
             "--no-deploy and --mode {} are incompatible: only a normal compile deploys",
             mode_name(mode)
         )));
     }
-    if mode != Mode::Normal {
-        return Err(invalid(anyhow!(
+    match mode {
+        Mode::Normal => Ok(OutputMode::Normal { no_deploy }),
+        Mode::Test => Err(invalid(anyhow!(
             "--mode {} is not available yet in this version",
             mode_name(mode)
+        ))),
+        Mode::Sideload => sideload_mode(common),
+    }
+}
+
+/// Sideload mode for `common`'s PES version and folder (`settings.md` "CLI"): refused for PES
+/// 2015 and 2016, which no sideloading runtime serves, and when the PES folder is not a folder,
+/// since `livecpk/` goes in it.
+fn sideload_mode(common: &CommonSettings) -> Result<OutputMode, CliError> {
+    match common.pes_version {
+        PesVersion::Pes15 | PesVersion::Pes16 => {
+            return Err(invalid(anyhow!(
+                "--mode sideload is not available for {}: no sideloading runtime exists for it",
+                common.pes_version
+            )));
+        }
+        PesVersion::Pes17
+        | PesVersion::Pes18
+        | PesVersion::Pes19
+        | PesVersion::Pes20
+        | PesVersion::Pes21 => {}
+    }
+    let pes_folder = common.pes_folder();
+    if !pes_folder.is_dir() {
+        return Err(invalid(anyhow!(
+            "--mode sideload writes into the PES folder, and {} is not a folder: set \
+             pes_folder_path to the folder PES is installed in",
+            pes_folder.display()
         )));
     }
-    Ok(())
+    Ok(OutputMode::Sideload { pes_folder })
 }
 
 /// The mode as `--mode` spells it.
@@ -453,14 +484,66 @@ mod tests {
 
     #[test]
     fn no_deploy_is_refused_with_either_loose_file_mode_and_kept_with_normal() {
-        assert!(refuse_mode(Mode::Normal, true).is_ok());
-        assert!(refuse_mode(Mode::Normal, false).is_ok());
+        let common = CommonSettings::default();
+        for no_deploy in [true, false] {
+            assert_eq!(
+                output_mode(Mode::Normal, no_deploy, &common).unwrap(),
+                OutputMode::Normal { no_deploy }
+            );
+        }
         for mode in [Mode::Test, Mode::Sideload] {
-            let error = refuse_mode(mode, true).unwrap_err();
+            let error = output_mode(mode, true, &common).unwrap_err();
             assert_eq!(error.exit_code, INVALID);
             assert!(error.to_string().contains("incompatible"), "{error}");
-            let error = refuse_mode(mode, false).unwrap_err();
-            assert!(error.to_string().contains("not available yet"), "{error}");
+        }
+        let error = output_mode(Mode::Test, false, &common).unwrap_err();
+        assert!(error.to_string().contains("not available yet"), "{error}");
+    }
+
+    #[test]
+    fn sideload_needs_a_runtime_for_the_version_and_a_pes_folder() {
+        let temp = scratch("cli_sideload_mode");
+        let pes_folder = temp.path().join("PES");
+        fs::create_dir_all(&pes_folder).unwrap();
+        let common = |pes_version, folder: &Path| CommonSettings {
+            pes_version,
+            pes_folder_path: folder.to_str().unwrap().to_owned(),
+            ..CommonSettings::default()
+        };
+        for version in [PesVersion::Pes15, PesVersion::Pes16] {
+            let error =
+                output_mode(Mode::Sideload, false, &common(version, &pes_folder)).unwrap_err();
+            assert_eq!(error.exit_code, INVALID);
+            assert_eq!(
+                error.to_string(),
+                format!(
+                    "--mode sideload is not available for {version}: no sideloading runtime \
+                     exists for it"
+                )
+            );
+        }
+        for version in [PesVersion::Pes17, PesVersion::Pes21] {
+            assert_eq!(
+                output_mode(Mode::Sideload, false, &common(version, &pes_folder)).unwrap(),
+                OutputMode::Sideload {
+                    pes_folder: pes_folder.clone()
+                }
+            );
+        }
+        // A file is no folder to put `livecpk/` in, and neither is nothing.
+        fs::write(temp.path().join("file"), "").unwrap();
+        for refused in [temp.path().join("file"), temp.path().join("missing")] {
+            let error = output_mode(Mode::Sideload, false, &common(PesVersion::Pes21, &refused))
+                .unwrap_err();
+            assert_eq!(error.exit_code, INVALID);
+            assert_eq!(
+                error.to_string(),
+                format!(
+                    "--mode sideload writes into the PES folder, and {} is not a folder: set \
+                     pes_folder_path to the folder PES is installed in",
+                    refused.display()
+                )
+            );
         }
     }
 

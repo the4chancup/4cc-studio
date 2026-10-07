@@ -1,8 +1,10 @@
-//! Staging and promotion (`team_compiler/pipeline.md` "6. Post-processing"): a CPK is written
-//! in a staging folder of its own run and only then renamed to its final path, so a failed run
-//! never leaves a half-written CPK where the game or the user could pick it up.
+//! Staging and promotion (`team_compiler/pipeline.md` "6. Post-processing"): a CPK, or a
+//! sideload run's loose tree, is written in a staging folder of its own run and only then moved
+//! to its final path, so a failed run never leaves a half-written output where the game or the
+//! user could pick it up.
 
 use std::fs;
+use std::io;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -11,6 +13,10 @@ use pipeline::CpkStem;
 
 /// The output subfolder that holds every run's staging folder.
 const STAGING: &str = ".staging";
+
+/// The game folder's subfolder a sideloading runtime serves to the running game (FoxDen on PES
+/// 2018 to 2021, Sider on PES 2017), and the name of a sideload run's staged tree.
+pub(crate) const LIVECPK: &str = "livecpk";
 
 /// This run's staging folder, `<output>/.staging/<pid>-<unix ms>`: the process id keeps two
 /// runs at once apart, the time two runs of a recycled process id.
@@ -58,6 +64,50 @@ pub(crate) fn promote(
         .with_context(|| format!("{}: cannot replace it with the new CPK", promoted.display()))?;
     discard(run_folder, output);
     Ok(promoted)
+}
+
+/// Replaces `<pes_folder>/livecpk/` with the tree staged at `<run_folder>/livecpk`, then
+/// discards the `run_folder`. The previous tree goes first, whatever it holds: Studio is the
+/// folder's only writer, and a file the export no longer has must not linger there. The staged
+/// tree is renamed into place, or copied when the rename fails (the output folder on another
+/// drive than the game). Nothing outside `livecpk/` and the `run_folder` is deleted. Failing to
+/// remove the previous tree or to move the new one is the commit's failure; the cleanup after
+/// it is only logged, as for `promote`.
+pub(crate) fn promote_livecpk(
+    run_folder: &Path,
+    output: &Path,
+    pes_folder: &Path,
+) -> anyhow::Result<()> {
+    let livecpk = pes_folder.join(LIVECPK);
+    let cannot_replace = || format!("{}: cannot replace it with the new tree", livecpk.display());
+    match fs::remove_dir_all(&livecpk) {
+        Ok(()) => {}
+        Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+        Err(error) => return Err(error).with_context(cannot_replace),
+    }
+    let staged = run_folder.join(LIVECPK);
+    if let Err(error) = fs::rename(&staged, &livecpk) {
+        log::debug!("{}: not renamed ({error}), copied", staged.display());
+        copy_tree(&staged, &livecpk).with_context(cannot_replace)?;
+    }
+    discard(run_folder, output);
+    Ok(())
+}
+
+/// Copies every file under `source` to the same path under `target`, folders created as
+/// needed.
+fn copy_tree(source: &Path, target: &Path) -> io::Result<()> {
+    fs::create_dir_all(target)?;
+    for entry in fs::read_dir(source)? {
+        let entry = entry?;
+        let into = target.join(entry.file_name());
+        if entry.file_type()?.is_dir() {
+            copy_tree(&entry.path(), &into)?;
+        } else {
+            fs::copy(entry.path(), into)?;
+        }
+    }
+    Ok(())
 }
 
 /// Removes the run's `run_folder` with whatever it holds, then `.staging/` when no other
@@ -170,6 +220,151 @@ mod tests {
         assert_eq!(fs::read(&promoted).unwrap(), b"new");
         assert!(!run_folder.exists());
         assert!(!output.join(".staging").exists());
+    }
+
+    /// A run folder under `output` holding a staged `livecpk/` tree of two files, one nested.
+    fn staged_tree(output: &Path) -> PathBuf {
+        let run_folder = staging_folder(output);
+        let staged = run_folder.join(LIVECPK);
+        fs::create_dir_all(staged.join("common/etc")).unwrap();
+        fs::write(staged.join("common/etc/TeamColor.bin"), "colors").unwrap();
+        fs::write(staged.join("top.bin"), "top").unwrap();
+        run_folder
+    }
+
+    /// Asserts `livecpk` holds exactly `staged_tree`'s two files.
+    fn assert_staged_tree(livecpk: &Path) {
+        assert_eq!(
+            fs::read(livecpk.join("common/etc/TeamColor.bin")).unwrap(),
+            b"colors"
+        );
+        assert_eq!(fs::read(livecpk.join("top.bin")).unwrap(), b"top");
+        assert_eq!(fs::read_dir(livecpk).unwrap().count(), 2);
+    }
+
+    #[test]
+    fn the_staged_tree_replaces_livecpk_s_whole_contents_and_the_run_folder_goes() {
+        let temp = scratch("promote_livecpk");
+        let output = temp.path().join("output");
+        let pes_folder = temp.path().join("PES");
+        fs::create_dir_all(pes_folder.join("livecpk/old")).unwrap();
+        fs::write(pes_folder.join("livecpk/old/old.txt"), "an earlier run").unwrap();
+        fs::write(pes_folder.join("livecpk/top.bin"), "an earlier top").unwrap();
+        fs::write(pes_folder.join("beside.txt"), "not ours").unwrap();
+        let run_folder = staged_tree(&output);
+
+        promote_livecpk(&run_folder, &output, &pes_folder).unwrap();
+
+        assert_staged_tree(&pes_folder.join("livecpk"));
+        assert_eq!(
+            fs::read(pes_folder.join("beside.txt")).unwrap(),
+            b"not ours"
+        );
+        assert!(!output.join(STAGING).exists());
+    }
+
+    #[test]
+    fn a_missing_livecpk_is_created_from_the_staged_tree() {
+        let temp = scratch("promote_livecpk_new");
+        let output = temp.path().join("output");
+        let pes_folder = temp.path().join("PES");
+        fs::create_dir_all(&pes_folder).unwrap();
+        let run_folder = staged_tree(&output);
+
+        promote_livecpk(&run_folder, &output, &pes_folder).unwrap();
+
+        assert_staged_tree(&pes_folder.join("livecpk"));
+    }
+
+    #[test]
+    fn a_livecpk_that_cannot_be_removed_fails_the_promotion_naming_it() {
+        let temp = scratch("promote_livecpk_blocked");
+        let output = temp.path().join("output");
+        let pes_folder = temp.path().join("PES");
+        fs::create_dir_all(&pes_folder).unwrap();
+        // A file named `livecpk` is no folder to remove.
+        fs::write(pes_folder.join("livecpk"), "a file").unwrap();
+        let run_folder = staged_tree(&output);
+
+        let error = promote_livecpk(&run_folder, &output, &pes_folder).unwrap_err();
+
+        assert_eq!(
+            error.to_string(),
+            format!(
+                "{}: cannot replace it with the new tree",
+                pes_folder.join("livecpk").display()
+            )
+        );
+        assert_eq!(fs::read(pes_folder.join("livecpk")).unwrap(), b"a file");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn a_staged_tree_that_cannot_be_renamed_is_copied_into_place() {
+        use std::os::windows::fs::OpenOptionsExt;
+        /// `FILE_SHARE_READ` alone: the file may be read, so copied, but its folder not moved.
+        const FILE_SHARE_READ: u32 = 1;
+
+        let temp = scratch("promote_livecpk_copied");
+        let output = temp.path().join("output");
+        let pes_folder = temp.path().join("PES");
+        fs::create_dir_all(&pes_folder).unwrap();
+        let run_folder = staged_tree(&output);
+        let held_open = fs::OpenOptions::new()
+            .read(true)
+            .share_mode(FILE_SHARE_READ)
+            .open(run_folder.join("livecpk/top.bin"))
+            .unwrap();
+
+        promote_livecpk(&run_folder, &output, &pes_folder).unwrap();
+
+        drop(held_open);
+        assert_staged_tree(&pes_folder.join("livecpk"));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn a_previous_tree_that_cannot_be_removed_fails_the_promotion_and_is_not_overlaid() {
+        use std::os::windows::fs::OpenOptionsExt;
+        /// `FILE_SHARE_READ` alone: the file may be read but not deleted while it is open.
+        const FILE_SHARE_READ: u32 = 1;
+
+        let temp = scratch("promote_livecpk_held");
+        let output = temp.path().join("output");
+        let pes_folder = temp.path().join("PES");
+        fs::create_dir_all(pes_folder.join("livecpk")).unwrap();
+        fs::write(pes_folder.join("livecpk/stale.txt"), "an earlier run").unwrap();
+        let run_folder = staged_tree(&output);
+        // A runtime reading the previous tree holds one of its files open.
+        let held_open = fs::OpenOptions::new()
+            .read(true)
+            .share_mode(FILE_SHARE_READ)
+            .open(pes_folder.join("livecpk/stale.txt"))
+            .unwrap();
+
+        let error = promote_livecpk(&run_folder, &output, &pes_folder).unwrap_err();
+
+        drop(held_open);
+        assert_eq!(
+            error.to_string(),
+            format!(
+                "{}: cannot replace it with the new tree",
+                pes_folder.join("livecpk").display()
+            )
+        );
+        // The new tree was not copied over what is left of the old one.
+        assert!(!pes_folder.join("livecpk/top.bin").exists());
+    }
+
+    #[test]
+    fn copying_a_tree_copies_every_file_at_its_path() {
+        let temp = scratch("copy_tree");
+        let run_folder = staged_tree(temp.path());
+        let target = temp.path().join("copy");
+
+        copy_tree(&run_folder.join(LIVECPK), &target).unwrap();
+
+        assert_staged_tree(&target);
     }
 
     #[test]

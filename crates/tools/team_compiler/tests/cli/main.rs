@@ -17,6 +17,7 @@ mod kit_layout;
 mod logo;
 mod models;
 mod preflight;
+mod sideload;
 mod sources;
 mod textures;
 

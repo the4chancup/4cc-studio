@@ -222,6 +222,11 @@ Claude agent with no sidekick and no reviewer of another model family. While tha
   decisions" ("A texture a model names must exist", the texture link), `object_model.md`
   "Validation semantics" and its `ValidationContext` block, TC-TEX-11 and the decision entry
   "`ValidationContext` carries the installed Common texture stems".
+  4.23a (b), `team_compiler` (`output/sink.rs` new, `output/writer.rs` through the sink,
+  `compile.rs` `OutputMode` and `promote`, `cli.rs` `output_mode`, `output/deploy.rs`
+  `promote_livecpk`), its commit of 2026-10-07, against `pipeline.md` "5. Writer" step 5
+  (sideload, staging), `settings.md` "CLI" (the sideload refusals), TC-OUT-09, TC-OUT-10 and
+  the decision entry "the sideload tree is staged, and 4.23 lands in two slices".
 - For the lead, on return: the review process on trial (3.1) opens with a full sidekick review
   loop, then runs GPT's loop with a full sidekick loop after each GPT round, calling GPT again
   only once that sidekick loop has ended and GPT's own loop has not; not yet in `AGENTS.md`
@@ -1268,6 +1273,8 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   (decision 2026-10-05, `blue_port.md` "Referee export processing"; TC-REF-09).
   A shared `Boots/`/`Gloves/` folder in a refs export is written as each linking referee's
   `k99XX`/`g99XX` (decision 2026-10-05, `blue_port.md`; TC-REF-10).
+  TC-OUT-09's referee half lands here: its sideload test (`tests/cli/sideload.rs`) gains the
+  refs export, and `livecpk/` must equal the team CPK's and the refs CPK's entries together.
 
 - [ ] 4.20 **Withdraw the Phase 3 subset gate**: `plan/subset.rs` and `content_not_yet_compiled`
   removed (the catalog row reads withdrawn), TC-OUT-06 withdrawn, every content kind and both
@@ -1409,8 +1416,18 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   texture path rewritten and no `.fpk` anywhere under `test_output/`; `--mode sideload` with a
   stale `livecpk/old.txt` removes it and writes files whose relative paths and bytes equal the
   entries of a normal-mode CPK of the same export
-  - [ ] 4.23a the output sink and sideload mode (TC-OUT-09 but its referee half, which lands
-    with 4.19; TC-OUT-10). Brief `.tmp/brief_4_23a.md`
+  - [x] 4.23a the output sink and sideload mode (TC-OUT-09 but its referee half, which lands
+    with 4.19; TC-OUT-10): done 2026-10-07 (Opus 5.5, first time, no lead code fix).
+    `output/sink.rs` `OutputSink` (`Cpk`, `Loose`, the loose one refusing a file twice),
+    `CpkOutput` writing through it; `compile::OutputMode` (`Normal { no_deploy }`, `Sideload {
+    pes_folder }`) from `cli::output_mode`, refused on PES 15/16 and without a PES folder;
+    `deploy::promote_livecpk` (rename, copy when the rename fails). Every sideload test points
+    its settings at the sandbox (the default `pes_folder_path` is the real install). Gates green
+    (174 of 254); Clef 37 windows, no flag; `mutants-diff 202e040`: 35, 21 caught, 13
+    unviable, 1 missed (the `NotFound` guard in `promote_livecpk`, missed on the Linux half),
+    killed by the lead's test of a previous tree held open, Windows-only: no portable way makes
+    the removal fail while the copy succeeds (the Linux half runs as root), so a Linux half may
+    report it again
   - [ ] 4.23b test mode and the materialize seam (TC-OUT-07, 11, 17)
 
 - [ ] 4.24 **Deployment**: each staged CPK copied to `download/{name}.cpk.partial` and renamed over
@@ -1810,6 +1827,11 @@ pruned when their phase closes; they stay in git history.
   with a test (a `Kits/all/kit.dds` holding bytes no decoder reads, a `p2/` inheriting it)
   before fixing.
 
+- open — the `livecpk/` replacement is not atomic (4.23a): the previous tree is removed before
+  the staged one is renamed in, so a copy that fails partway (the output folder on another
+  drive) or a removal that fails partway (a file the runtime holds open, unverified for FoxDen)
+  leaves `livecpk/` partial or empty, reported as `output_commit_failed`. A swap through a
+  sibling folder would narrow it; decide with the first in-game sideload test.
 - open — a `.common` link to a `.ftex` (`hair.ftex.common`): the lib counts any texture type as a
   texture link, but planning's `linked_texture_stem` gives a role only to the formats
   `dds_convert` reads, so such a link gets none and the model's path is not pointed at the
@@ -2973,3 +2995,5 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
     out; Warning when the CPKs cannot be searched). 4.29b next (the texture link).
   - **4.29b:** a texture `.common` link whose target an earlier installed CPK holds is
     satisfied, in `check` and `compile` alike. Step 4.29 is done.
+  - **4.23a:** `compile --mode sideload` writes the CPK's entries as loose files that replace
+    `livecpk/` once written whole; refused on PES 15/16 and without a PES folder. 4.23b next.

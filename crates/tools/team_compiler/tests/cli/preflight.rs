@@ -1,6 +1,7 @@
 //! The preflight: the invocations and settings refused before any export is read.
 
 use crate::common::Sandbox;
+use crate::compile::pes_settings;
 use crate::{CLEAN_PLAYER, bundled_bins_then, clean_model, snapshot};
 
 // TC-CLI-03
@@ -127,8 +128,13 @@ fn modes_and_commands_this_version_lacks_are_refused() {
     let sandbox = Sandbox::new("not_available");
     let run = sandbox.run("", &["compile", "--mode", "test"]);
     run.assert_refused(2, &["--mode test", "not available yet"]);
-    let run = sandbox.run("", &["compile", "--mode", "sideload"]);
-    run.assert_refused(2, &["--mode sideload", "not available yet"]);
+    // Sideload mode is refused for a version no runtime serves (more in `sideload.rs`). The
+    // settings name a folder of the sandbox: the default one may be a real game's.
+    let run = sandbox.run(
+        &pes_settings(&sandbox, 16),
+        &["compile", "--mode", "sideload"],
+    );
+    run.assert_refused(2, &["--mode sideload", "PES 2016"]);
     let run = sandbox.run("", &["upgrade-dpfl"]);
     run.assert_refused(2, &["upgrade-dpfl", "not available yet"]);
 

@@ -359,8 +359,17 @@ exist, or a file that is not a `.zip` or `.7z`, stops the command before anythin
 says where it is with the line `Info deploy_skipped_by_flag (path=...)`. It cannot be combined
 with `--mode test` or `--mode sideload`.
 
-In this version `compile` refuses `--mode test` and `--mode sideload`, and refuses to run while the
-`multicpk_mode` setting is on. Use the normal mode with `multicpk_mode` off.
+`--mode sideload` is for trying a change in a running game. Instead of a CPK, `compile` writes
+what the CPK would hold as loose files in the `livecpk` folder of the game folder (the
+`pes_folder_path` setting), replacing everything that was there, for FoxDen (PES 2018 to 2021)
+or Sider (PES 2017) to load while the game runs. The folder is replaced only once the whole
+compile is written: a compile that fails, or writes nothing, leaves it as it was. Nothing is
+installed into the game's `download` folder, so a missing `DpFileList.bin` is only a warning.
+`--mode sideload` is refused for PES 2015 and 2016, which nothing can sideload into, and when the
+game folder does not exist.
+
+In this version `compile` refuses `--mode test`, and refuses to run while the `multicpk_mode`
+setting is on. Use the normal or sideload mode with `multicpk_mode` off.
 
 A relative path typed in the terminal is taken from the folder the terminal is in.
 

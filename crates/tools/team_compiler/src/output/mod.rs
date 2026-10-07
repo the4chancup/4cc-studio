@@ -2,5 +2,6 @@
 //! beside it.
 
 pub(crate) mod deploy;
+pub(crate) mod sink;
 pub(crate) mod teamnotes;
 pub(crate) mod writer;
