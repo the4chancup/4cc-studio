@@ -1093,12 +1093,17 @@ pub(crate) fn file_stem(name: &str) -> &str {
 /// (`pipeline.md` "Collars").
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum CollarFile {
-    /// A model in the format the engine reads, an FMDL on Fox and a `.model` on pre-Fox: it
-    /// claims the stock collar its name gives and is written in its place.
+    /// A model the target's collar task writes: in the format the engine reads (an FMDL on Fox,
+    /// a `.model` on pre-Fox), written unchanged with its author's material names, or an FMDL
+    /// on pre-Fox, converted to a `.model` with the stock collars' material names. It claims
+    /// the stock collar its name gives and is written in its place.
     Compiled,
-    /// A model in another format: converting a collar between formats is not built yet, so
-    /// the gate names it.
+    /// A `.model` on Fox: it names materials the game's `uniform.mtl` defines and the export
+    /// carries no `.mtl` to convert them with, so the gate names it as not compiled yet.
     NotCompiled,
+    /// A glTF, which the compiler does not read until Phase 7: planning drops it with
+    /// `model_gltf_unsupported`, the file alone, and the export compiles without it.
+    Unsupported,
     /// Any other kind, which the structure pass keeps only with the strict file-type check
     /// off (`file_type_disallowed`): passed over, with no task and no finding.
     PassedOver,
@@ -1108,11 +1113,10 @@ pub(crate) enum CollarFile {
 pub(crate) fn collar_file(file: &FileDescriptor, engine: Engine) -> CollarFile {
     match file.kind {
         FileKind::Model(format) => match (engine, format) {
-            (Engine::Fox, ModelFormat::Fmdl) | (Engine::PreFox, ModelFormat::PesModel) => {
-                CollarFile::Compiled
-            }
-            (Engine::Fox, ModelFormat::PesModel | ModelFormat::Gltf)
-            | (Engine::PreFox, ModelFormat::Fmdl | ModelFormat::Gltf) => CollarFile::NotCompiled,
+            (Engine::Fox | Engine::PreFox, ModelFormat::Fmdl)
+            | (Engine::PreFox, ModelFormat::PesModel) => CollarFile::Compiled,
+            (Engine::Fox, ModelFormat::PesModel) => CollarFile::NotCompiled,
+            (Engine::Fox | Engine::PreFox, ModelFormat::Gltf) => CollarFile::Unsupported,
         },
         FileKind::Texture
         | FileKind::Skl
@@ -1131,9 +1135,9 @@ pub(crate) fn collar_file(file: &FileDescriptor, engine: Engine) -> CollarFile {
 
 /// The first thing in `resolved` that `compile` cannot build yet for `version`, as the context
 /// entry of `content_not_yet_compiled`: `what`, a path or the target. `None` when `compile`
-/// builds all of it. A team export's FMDL collars are compiled, a collar model in another
-/// format is named, and any other file in `Collars/` is passed over (`collar_file`). A refs
-/// export compiles its mapped folders like a team's, but is named by its first kit, its logo,
+/// builds all of it. A team export's FMDL collars are compiled, a `.model` collar is named, and
+/// a glTF one, which planning drops, or any other file in `Collars/` is not (`collar_file`). A
+/// refs export compiles its mapped folders like a team's, but is named by its first kit, its logo,
 /// its first portrait or its first collar file (`referee_not_compiled`). A kit is named by its
 /// first texture no engine compiles (`kit_texture_not_compiled`). A pre-Fox target has a walk
 /// of its own (`pre_fox_not_compiled`).
@@ -1199,7 +1203,7 @@ pub(crate) fn first_not_compiled(
 /// `.fmdl` files converted for the face, their own
 /// `face.xml`, their `.common` links to a `.model`, a `.mtl` or a texture, the shared face,
 /// boots and gloves folders they link, the export's `Common/` folder, its kits, its `.model`
-/// collars, its portraits and its logo. A refs export
+/// collars and its FMDL collars converted, its portraits and its logo. A refs export
 /// is named by the target. Otherwise, in this order: each mapped player folder's first file
 /// with no pre-Fox role (`player_file`: a link to an `.fmdl`, a per-kit model under
 /// `ingame_face` or behind a link, among others; an `.fmdl`, `.skl` or `.fclo` with none is
@@ -1211,8 +1215,7 @@ pub(crate) fn first_not_compiled(
 /// (`link_feeds_own_package`: the `Faces/` folder his face link names, the `Boots/` or
 /// `Gloves/` folder a link combines under the marker); then each shared boots folder taking an
 /// id, then each such gloves folder (`pre_fox_shared_not_compiled`); then the first kit
-/// texture no engine compiles (`kit_texture_not_compiled`), then the first collar file
-/// `compile` does not build on pre-Fox (`collar_file`), then the first `Common/` file the
+/// texture no engine compiles (`kit_texture_not_compiled`), then the first `Common/` file the
 /// pre-Fox Common output does not hold (`common_file_compiled`). Each is a later step's
 /// content.
 fn pre_fox_not_compiled(
@@ -1275,17 +1278,11 @@ fn pre_fox_not_compiled(
     if let Some(item) = kit_texture_not_compiled(export) {
         return Some(item);
     }
-    let mut rest = export
-        .collars
+    export
+        .common
         .iter()
-        .filter(|file| collar_file(file, Engine::PreFox) == CollarFile::NotCompiled)
-        .chain(
-            export
-                .common
-                .iter()
-                .filter(|file| !common_file_compiled(file, Engine::PreFox)),
-        );
-    rest.next().map(what_entry)
+        .find(|file| !common_file_compiled(file, Engine::PreFox))
+        .map(what_entry)
 }
 
 /// The first kit texture of `export`, kit by kit, that `compile` does not build on either
@@ -1884,13 +1881,14 @@ mod tests {
         let boots_link = "Players/05 - B/Crocs.boots";
         let boots_fmdl = "Boots/Crocs/boots.fmdl";
         let kit = "Kits/g1/kit.dds";
-        // A `.model` collar compiles; an FMDL one is named until collars are converted.
+        // A `.model` collar compiles, and an FMDL one is converted.
         assert_eq!(pre_fox(&["Collars/collar_12.model"]), None);
-        let collar = "Collars/collar_12.fmdl";
+        assert_eq!(pre_fox(&["Collars/collar_12.fmdl"]), None);
         let common = "Common/x.fmdl";
         let kit_extra = "Kits/g1/kit_spec.dds";
         // In a folder, its first file with no role, then its linked face folder's first; then
-        // the shared boots and gloves folders, the kits' textures, the collars and `Common/`.
+        // the shared boots and gloves folders, the kits' textures and `Common/` (no collar file
+        // is named on pre-Fox).
         let all = [
             fmdl_link,
             face_link,
@@ -1900,15 +1898,13 @@ mod tests {
             boots_fmdl,
             kit,
             kit_extra,
-            collar,
             common,
         ];
         assert_eq!(pre_fox(&all), what(fmdl_link));
         assert_eq!(pre_fox(&all[1..]), what(hat));
         assert_eq!(pre_fox(&all[4..]), what(boots_fmdl));
         assert_eq!(pre_fox(&all[6..]), what(kit_extra));
-        assert_eq!(pre_fox(&all[8..]), what(collar));
-        assert_eq!(pre_fox(&all[9..]), what(common));
+        assert_eq!(pre_fox(&all[8..]), what(common));
         // A kit compiles, its config, both maps (planning drops the srm before the gate
         // asks) and a layout marker with it.
         assert_eq!(
@@ -2790,22 +2786,26 @@ mod tests {
     }
 
     #[test]
-    fn a_collar_model_of_another_format_is_named_and_a_file_of_another_kind_passed_over() {
-        // Converting a collar between engines is not built yet.
-        for collar in ["Collars/collar_12.model", "Collars/collar_12.glb"] {
-            assert_eq!(
-                gate(&[collar, "Collars/collar_13.fmdl"]),
-                what(collar),
-                "{collar}"
-            );
-        }
+    fn a_model_collar_on_fox_is_named_and_a_gltf_or_a_file_of_another_kind_is_not() {
+        // A `.model` collar has no `.mtl` to convert its materials with for Fox.
+        let model = "Collars/collar_12.model";
+        assert_eq!(
+            gate(&[model, "Collars/collar_13.fmdl"]),
+            what(model),
+            "{model}"
+        );
+        // An FMDL is converted for pre-Fox, and planning drops a glTF on either engine.
         for collar in ["Collars/collar_12.fmdl", "Collars/collar_12.glb"] {
             assert_eq!(
                 pre_fox_hit(&[collar, "Collars/collar_13.model"], PesVersion::Pes17),
-                what(collar),
+                None,
                 "{collar}"
             );
         }
+        assert_eq!(
+            gate(&["Collars/collar_12.glb", "Collars/collar_13.fmdl"]),
+            None
+        );
         // A texture is kept in `Collars/` only with the strict file-type check off, which
         // `resolved` has on: added as the structure pass would keep it.
         let path = ScopePath::new("Collars/collar_12.dds").unwrap();
@@ -2839,11 +2839,7 @@ mod tests {
             collar_file(&file, engine)
         };
         for (name, fox, pre_fox) in [
-            (
-                "collar_12.fmdl",
-                CollarFile::Compiled,
-                CollarFile::NotCompiled,
-            ),
+            ("collar_12.fmdl", CollarFile::Compiled, CollarFile::Compiled),
             (
                 "collar_12.model",
                 CollarFile::NotCompiled,
@@ -2851,8 +2847,13 @@ mod tests {
             ),
             (
                 "collar_12.glb",
-                CollarFile::NotCompiled,
-                CollarFile::NotCompiled,
+                CollarFile::Unsupported,
+                CollarFile::Unsupported,
+            ),
+            (
+                "collar_12.gltf",
+                CollarFile::Unsupported,
+                CollarFile::Unsupported,
             ),
             (
                 "collar_12.dds",

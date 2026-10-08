@@ -23,7 +23,7 @@ use pes_version::{Engine, PesVersion};
 use studio_core::Disposition;
 use vtree::ScopePath;
 
-use super::conversion::{PreFoxConversion, fmdl_for_pre_fox};
+use super::conversion::{PreFoxConversion, PreFoxMaterials, fmdl_for_pre_fox};
 use super::materialize::PackageFiles;
 use super::prefox_split::split_face_model;
 use super::{CompileContext, Finding, TaskFailure, TaskFiles, take};
@@ -286,6 +286,7 @@ pub(super) fn face(
                             skeleton.as_deref(),
                             ctx,
                             findings,
+                            PreFoxMaterials::Converted,
                         )?)
                     } else {
                         FaceSource::Member {

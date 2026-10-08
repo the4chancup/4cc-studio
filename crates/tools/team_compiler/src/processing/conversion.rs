@@ -17,11 +17,39 @@ use super::{CompileContext, Finding, TaskFailure};
 use crate::deep::{FAR_VERTEX_CODES, Fired, summed};
 use crate::messages::Code;
 
+/// The material names an FMDL converted for a PES 15-17 target gets in its `.model`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum PreFoxMaterials {
+    /// The converter's names, which the material set written beside the `.model` defines: a
+    /// player's face, boots or gloves model.
+    Converted,
+    /// The stock collars' names, which the game's shared `uniform.mtl` defines
+    /// (`pipeline.md` "Collars"): the FMDL's first material `uni_collar` and every other
+    /// `uni_shirts`. A collar's material set is not written, so the conversion's losses about
+    /// a material are not reported (`reports`).
+    StockCollar,
+}
+
+impl PreFoxMaterials {
+    /// Whether the conversion's `loss` is reported for a model whose materials are named so.
+    /// A collar's skips every loss about a material: its `.mtl` is not written and its
+    /// materials are renamed, so such a loss describes nothing in the output and names a
+    /// material index its `.model` no longer has.
+    fn reports(self, loss: &loss::Finding) -> bool {
+        match self {
+            PreFoxMaterials::Converted => true,
+            PreFoxMaterials::StockCollar => !matches!(loss.subject, Subject::Material(_)),
+        }
+    }
+}
+
 /// An FMDL converted for a PES 15-17 target.
 pub(super) struct PreFoxConversion {
     /// The `.model` written, packed in the FMDL's place.
     pub(super) model: Vec<u8>,
-    /// Its material set, packed as `<stem>.mtl` beside it.
+    /// The converter's material set, under the converter's names whatever `PreFoxMaterials`
+    /// renamed in the `.model`: packed as `<stem>.mtl` beside a player's model; the collar task
+    /// does not write it, the shared `uniform.mtl` dressing a collar.
     pub(super) materials: MaterialSet,
 }
 
@@ -36,34 +64,51 @@ pub(super) struct FoxConversion {
 }
 
 /// The FMDL `name` (its file name), `bytes`, converted for `ctx.version`, a PES 15-17 target,
-/// `skeleton` being the bytes of its paired `.skl`, its bind pose, when its folder holds one.
-/// The conversion's parsed forms are charged to the run's memory budget at the source's size
-/// while they live. What the conversion reports that the member is told is noted in
-/// `findings` naming the model (`reported`). A model or skeleton the conversion cannot read,
-/// convert or write fails the task with `model_conversion_failed`, naming the model, and so
-/// does a `.model` written that `pes_model`'s check finds an Error in (`target_form_failure`).
+/// `skeleton` being the bytes of its paired `.skl`, its bind pose, when its folder holds one
+/// (`None` binds it to the version's body table), its `.model`'s material names as
+/// `materials` says. The conversion's parsed forms are charged to the run's memory budget at
+/// the source's size while they live. What the conversion reports that the member is told is
+/// noted in `findings` naming the model (`reported`), but for a collar's losses about a
+/// material (`PreFoxMaterials::reports`). A model or skeleton the conversion
+/// cannot read, convert or write fails the task with `model_conversion_failed`, naming the
+/// model, and so does a `.model` written that `pes_model`'s check finds an Error in
+/// (`target_form_failure`).
 pub(super) fn fmdl_for_pre_fox(
     name: &str,
     bytes: &[u8],
     skeleton: Option<&[u8]>,
     ctx: &CompileContext,
     findings: &mut Vec<Finding>,
+    materials: PreFoxMaterials,
 ) -> Result<PreFoxConversion, TaskFailure> {
     let (converted, losses) = {
         // The FMDL, its IR and the `.model` written, charged at the source's size, an estimate
         // of each form, while they are built.
         let _conversion_charge = ctx.budget.charge(bytes.len());
-        let (model, materials, losses) =
+        let (mut model, material_set, losses) =
             converted_fmdl(bytes, skeleton, ctx.version).map_err(|error| failed(name, error))?;
+        match materials {
+            PreFoxMaterials::Converted => {}
+            PreFoxMaterials::StockCollar => stock_collar_materials(&mut model),
+        }
         let fired = pes_model::check::check(&model)
             .into_iter()
             .map(Fired::pre_fox);
         target_form_failure(name, fired.collect())?;
         let written = model.to_file().and_then(|file| file.write());
         let model = written.map_err(|error| failed(name, error.into()))?;
-        (PreFoxConversion { model, materials }, losses)
+        let converted = PreFoxConversion {
+            model,
+            materials: material_set,
+        };
+        (converted, losses)
     };
-    findings.extend(losses.iter().filter_map(|loss| reported(name, loss)));
+    findings.extend(
+        losses
+            .iter()
+            .filter(|loss| materials.reports(loss))
+            .filter_map(|loss| reported(name, loss)),
+    );
     Ok(converted)
 }
 
@@ -82,6 +127,22 @@ fn converted_fmdl(
         NativeModelBundle::Fox { .. } => {
             unreachable!("`convert` returns the target's format, a `.model` for PES 15-17")
         }
+    }
+}
+
+/// Renames the materials of `model`, an FMDL collar converted for pre-Fox, to the stock
+/// collars' (`pipeline.md` "Collars"): its first material, the FMDL's first, becomes
+/// `uni_collar` and every other `uni_shirts`, the list collapsed to those names with each mesh
+/// pointed at its own, since a `.model` lists a material once. The game's shared `uniform.mtl`
+/// defines both, so the collar is dressed as the stock ones are.
+fn stock_collar_materials(model: &mut pes_model::model::Model) {
+    let mut names = vec!["uni_collar".to_owned()];
+    if model.materials.len() > 1 {
+        names.push("uni_shirts".to_owned());
+    }
+    model.materials = names;
+    for mesh in &mut model.meshes {
+        mesh.material = usize::from(mesh.material != 0);
     }
 }
 
@@ -366,7 +427,8 @@ mod tests {
                 &far_boots,
                 None,
                 &context(PesVersion::Pes17),
-                &mut findings
+                &mut findings,
+                PreFoxMaterials::Converted
             )),
             Some((
                 Code::VertexTooFarFromOrigin,
@@ -377,6 +439,88 @@ mod tests {
             ))
         );
         assert_eq!(findings, [], "a failed conversion reports nothing else");
+    }
+
+    #[test]
+    fn a_collar_s_first_material_is_uni_collar_and_every_other_uni_shirts() {
+        // The card's one mesh, copied for each binding.
+        let with_materials = |materials: &[&str], bindings: &[usize]| {
+            let file = PreFoxModel::read(&card(|_| {})).unwrap();
+            let mut model = pes_model::model::Model::from_file(&file).unwrap();
+            model.materials = materials.iter().map(|name| (*name).to_owned()).collect();
+            let mesh = model.meshes[0].clone();
+            model.meshes = bindings
+                .iter()
+                .map(|material| pes_model::model::Mesh {
+                    material: *material,
+                    ..mesh.clone()
+                })
+                .collect();
+            model
+        };
+        let renamed = |mut model: pes_model::model::Model| {
+            stock_collar_materials(&mut model);
+            let bindings: Vec<usize> = model.meshes.iter().map(|mesh| mesh.material).collect();
+            (model.materials, bindings)
+        };
+
+        assert_eq!(
+            renamed(with_materials(&["a", "b", "c"], &[0, 1, 2, 0])),
+            (
+                vec!["uni_collar".to_owned(), "uni_shirts".to_owned()],
+                vec![0, 1, 1, 0]
+            )
+        );
+        assert_eq!(
+            renamed(with_materials(&["a"], &[0, 0])),
+            (vec!["uni_collar".to_owned()], vec![0, 0])
+        );
+    }
+
+    #[test]
+    fn a_collar_s_conversion_reports_no_loss_about_a_material_it_does_not_write() {
+        // The tracer's boots, the CLI's TC-CMN-09 collar: one of its meshes casts no shadow.
+        let boots = std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join(
+            "tests/fixtures/tracer/studio/egg Midcup Tracer/Players/05 - The Chad Stormworks Player/boots.fmdl",
+        ))
+        .unwrap();
+        let findings_of = |materials| {
+            let mut findings = Vec::new();
+            let Ok(_) = fmdl_for_pre_fox(
+                "boots.fmdl",
+                &boots,
+                None,
+                &context(PesVersion::Pes17),
+                &mut findings,
+                materials,
+            ) else {
+                panic!("the boots convert for PES 17");
+            };
+            findings
+        };
+        let names_a_material =
+            |finding: &Finding| finding.2.iter().any(|(key, _)| *key == "material");
+
+        let converted = findings_of(PreFoxMaterials::Converted);
+        assert!(
+            converted
+                .iter()
+                .any(|finding| finding.0 == Code::MeshFlagsDropped && names_a_material(finding)),
+            "{converted:#?}"
+        );
+        let collar = findings_of(PreFoxMaterials::StockCollar);
+        assert!(!collar.iter().any(names_a_material), "{collar:#?}");
+        assert!(
+            collar.contains(&(
+                Code::NativeFieldDropped,
+                Disposition::Keep,
+                vec![
+                    ("model", "boots.fmdl".to_owned()),
+                    ("field", "bone_matrices".to_owned())
+                ]
+            )),
+            "{collar:#?}"
+        );
     }
 
     #[test]

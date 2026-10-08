@@ -18,7 +18,7 @@ and 4.25 are done; 4.26 is done; 4.19 (Fox referees) is done, 4.19d (pre-Fox) wa
 referee marker) is done, 4.27's rest (the pre-Fox marker) waits on 4.19d; 4.9 is done
 (collars on Fox; their pre-Fox and cross-format halves are in 4.16 and 4.17); 4.28
 (memory accounting), 4.32 (number atlases) and 4.18 (hand auto-split, Fox) are done, and
-4.y moved to Phase 8; 4.14's slices are all done (a to d, e1 to e5; its GPT reviews (a) TC-MOD-43 and (b) e3 stay queued); 4.15 done (a1, a2, b: the member's own `face.xml` read, checked and emitted; `mtl_texture_not_found` a Warning on pre-Fox, Fumos's evidence); 4.16 done (a: PES 15-17 kits with the mask template and loose configs; b: `dds_compression`; c: `.model` collars; d: the installed loose kit configs of absent slots patched and re-emitted), with its own checks until 4.31's pre-Fox parity; 4.17 in progress (lead done: rulings and the environment cubemap; a done: a player's FMDL converted for PES 15-17 through the face task, its GPT review (c) queued; b done: a player's `.model` converted for PES 18-21 in the Models task, every converted model checked in its target form, a beaten model read by nothing; c1 done: every conversion loss reported at its catalog severity, the same-engine pre-check measured and deferred to slice g; c2 done: a selected glTF in a player folder refused at planning with `model_gltf_unsupported`, TC-MOD-28; d done: the template environment cubemap emitted for a converted metal material on PES 15-17, its GPT review (d) queued, TC-MOD-36; e next)
+4.y moved to Phase 8; 4.14's slices are all done (a to d, e1 to e5; its GPT reviews (a) TC-MOD-43 and (b) e3 stay queued); 4.15 done (a1, a2, b: the member's own `face.xml` read, checked and emitted; `mtl_texture_not_found` a Warning on pre-Fox, Fumos's evidence); 4.16 done (a: PES 15-17 kits with the mask template and loose configs; b: `dds_compression`; c: `.model` collars; d: the installed loose kit configs of absent slots patched and re-emitted), with its own checks until 4.31's pre-Fox parity; 4.17 in progress (lead done: rulings and the environment cubemap; a done: a player's FMDL converted for PES 15-17 through the face task, its GPT review (c) queued; b done: a player's `.model` converted for PES 18-21 in the Models task, every converted model checked in its target form, a beaten model read by nothing; c1 done: every conversion loss reported at its catalog severity, the same-engine pre-check measured and deferred to slice g; c2 done: a selected glTF in a player folder refused at planning with `model_gltf_unsupported`, TC-MOD-28; d done: the template environment cubemap emitted for a converted metal material on PES 15-17, its GPT review (d) queued, TC-MOD-36; e done: an FMDL collar converted for PES 15-17 with the stock names, a glTF collar dropped at planning, TC-CMN-09; f next)
 reference exists (4.31 done: `tests/parity_prefox.rs`); 4.33, 4.34, 4.c-pass and
 4.c-fix1 are done; 4.30,
 4.5 to 4.8 and 4.10 to 4.13 are done (4.6c moved to Phase 8's cancellation). 2.5b (GPU BC7) is step 16.x (decision entries
@@ -1940,6 +1940,35 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   a beaten FMDL and an own-xml folder not, PES 21 nothing) and `prefox_face` (one sampler
   added, one left, the respelling); three contradictions accepted, the `mipfilter` one
   parked above; mutants: see the 4.17d log line).
+  (e) done 2026-10-08 (lead first, `4431669`: the plan's "Collars" rewritten with the
+  rulings, the two message rows, TC-CMN-09's text, DECISIONS "Collars across engines".
+  `plan/subset.rs` `CollarFile`: an FMDL `Compiled` on both engines, a `.model` on Fox
+  `NotCompiled` (the gate names it: no `.mtl` to convert its materials with until the
+  templates ship a stock `uniform.mtl`), a glTF the new `Unsupported`; the pre-Fox gate's
+  collar clause removed (nothing is `NotCompiled` on pre-Fox); `plan/collars.rs`
+  `export_collar`: an `Unsupported` file reports `model_gltf_unsupported` (`Scope::File`,
+  `DropFile`, context `file`) and claims nothing; `processing/conversion.rs`
+  `PreFoxMaterials { Converted, StockCollar }` as `fmdl_for_pre_fox`'s last parameter:
+  `StockCollar` renames the converted form's materials (`stock_collar_materials`: the first
+  `uni_collar`, every other `uni_shirts`, the list collapsed to those two, each mesh pointed
+  at its name) before the target-form check, and reports no loss whose subject is a
+  material (`PreFoxMaterials::reports`: the `.mtl` is not written); `processing/mod.rs` the
+  collar arm converts an FMDL on PES 15-17 with no skeleton (the version's body table) and
+  writes the `.model` alone, a failure the existing `DropFile` arm; help. Tests:
+  `tests/cli/collars.rs` TC-CMN-09 (the tracer's boots, whose antiblur mesh the conversion
+  folds first: `collar_012.model` under `nocloth` with `uni_collar` and `uni_shirts`, the
+  meshes pointed as the decoded source's, no `.fmdl` or `.mtl`, the kits wearing 12, the
+  deep pass's and the conversion's model-level findings pinned), the glTF collar on both
+  engines (dropped, the kits keeping their 30 and 31, exit 1), the failed conversion (a
+  control character in a material name; the kits wear the game's own collar 12, planning
+  having pointed them before the task ran: ruled, DECISIONS "A dropped collar's kits"), the
+  `.model` collar on PES 21 still named; unit tests for `collar_file`'s table, the gate
+  walks, `export_collar`'s drop, the rename, the loss filter (the tracer's boots converted
+  both ways). Three contradictions accepted (the dead gate clause, deleted at rework; the
+  brief's failing-model pointer, a `.model` one; the brief's kit-assertion pointer); plan
+  gaps: the dropped collar's kits (documented), the material losses (fixed at rework), the
+  converter's flag-split part counted as another material (documented, a `model_convert`
+  provenance change if ever needed); one rework round; mutants: see the 4.17e log line).
 
 - [x] 4.18 **Hand auto-split (Fox)**: `model_convert::ops::hand_split::split_by_skeleton_group`
   on every face-content FMDL with positive `skh_*_l`/`skh_*_r` weights (never on a boots- or
@@ -4250,3 +4279,9 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
     its own; the deep pass records the metal FMDLs with the converter's own family rule and
     planning flags the folder. Decision logged. Mutants: 27, 21 caught, 6 unviable (`Default::default()` on types without one), 0 missed. Next: 4.17e
     (collars across engines, TC-CMN-09; plan edits and the rulings first).
+  - **4.17e done** (TC-CMN-09): an FMDL collar compiled for PES 15-17 is converted with the
+    stock collars' material names and no `.mtl`; a glTF collar is dropped at planning with
+    `model_gltf_unsupported`, the file alone; a `.model` collar for PES 18-21 stays with the
+    gate. Two decisions logged. Mutants: 24, 19 caught, 5 unviable (`Default::default()` on types without one), 0 missed. Next: 4.17f (shared folders,
+    `Common/` models and `.common` links in the other format, the shared folder's glTF, the
+    `ingame_face` FMDL parts, the remaining 4.17 open items; sliced after an exploration).

@@ -362,10 +362,122 @@ fn a_pes_17_model_collar_is_compiled_unchanged_and_the_team_s_loose_configs_wear
     assert_eq!((p1.shirt.collar, p1.shirt.winter_collar), (12, 12));
 }
 
+// TC-CMN-09
 #[test]
-fn a_pes_17_fmdl_collar_is_named_as_not_compiled_yet() {
+fn a_pes_17_fmdl_collar_is_converted_with_the_stock_collars_material_names() {
     let sandbox = Sandbox::new("collar_pre_fox_fmdl");
-    sandbox.write(&format!("{EXPORT}/Collars/collar_12.fmdl"), &clean_model());
+    // The tracer's boots: materials `kit`, `shirt` and `shirt antiblur`, one mesh each. The
+    // antiblur mesh and the material only it uses fold into the `shirt` mesh, as every
+    // conversion reads an FMDL, leaving two materials and their two meshes.
+    let source = tracer_player_file("boots.fmdl");
+    let mut source_model = fmdl::Model::from_file(&fmdl::FmdlFile::read(&source).unwrap()).unwrap();
+    let bindings_of = |model: &fmdl::Model| -> Vec<usize> {
+        model.meshes.iter().map(|mesh| mesh.material).collect()
+    };
+    assert_eq!(
+        (source_model.materials.len(), bindings_of(&source_model)),
+        (3, vec![0, 1, 2])
+    );
+    fmdl::ops::antiblur::decode(&mut source_model).unwrap();
+    let source_bindings = bindings_of(&source_model);
+    assert_eq!(
+        (source_model.materials.len(), source_bindings.as_slice()),
+        (2, [0, 1].as_slice())
+    );
+    sandbox.write(&format!("{EXPORT}/Collars/collar_12.fmdl"), &source);
+    sandbox.write(&format!("{EXPORT}/Kits/p1/kit.dds"), &tracer_kit());
+
+    let run = sandbox.run(&pes_settings(&sandbox, 17), &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    // The deep pass reads the FMDL as it is; the conversion reports what the `.model` has no
+    // place for, on the collar file, but not its losses about a material (the boots' shadow
+    // flag): no `.mtl` is written for a collar.
+    assert_eq!(
+        findings_of(&lines, "co Midcup Collars"),
+        [
+            "Info fmdl_weights_not_normalized [Keep] at Collars/collar_12.fmdl (file=collar_12.fmdl, count=1662)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            TEAM_COLORS_MISSING,
+            "Info kit_config_generated [Keep] at Kits/p1 ()",
+            "Info kit_colors_derived [Keep] at Kits/p1 ()",
+            "Info native_field_dropped [Keep] at Collars/collar_12.fmdl (model=collar_12.fmdl, field=bone_matrices)",
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    let entries = compiled(&sandbox);
+    assert!(
+        entries
+            .keys()
+            .all(|path| !path.ends_with(".fmdl") && !path.ends_with(".mtl")),
+        "no FMDL and no material set: {:#?}",
+        entries.keys()
+    );
+    let Some(collar) = entries.get(PRE_FOX_COLLAR_12) else {
+        panic!("no converted collar: {:#?}", entries.keys());
+    };
+    let model =
+        pes_model::model::Model::from_file(&pes_model::format::PreFoxModel::read(collar).unwrap())
+            .unwrap();
+    assert_eq!(model.materials, ["uni_collar", "uni_shirts"]);
+    // Each mesh is the source's, in order: the first material's stays on `uni_collar`, every
+    // other material's goes to `uni_shirts`.
+    let bindings: Vec<usize> = model.meshes.iter().map(|mesh| mesh.material).collect();
+    let expected: Vec<usize> = source_bindings
+        .iter()
+        .map(|material| usize::from(*material != 0))
+        .collect();
+    assert_eq!(bindings, expected);
+    let p1 = emitted_config(&entries, "1st", PesVersion::Pes17);
+    assert_eq!((p1.shirt.collar, p1.shirt.winter_collar), (12, 12));
+}
+
+#[test]
+fn a_gltf_collar_is_dropped_and_its_export_compiled_without_it() {
+    for (number, version) in [(21, PesVersion::Pes21), (17, PesVersion::Pes17)] {
+        let sandbox = Sandbox::new(&format!("collar_gltf_{number}"));
+        sandbox.write(&format!("{EXPORT}/Collars/collar_12.glb"), b"glTF");
+        sandbox.write(&format!("{EXPORT}/Kits/p1/kit.dds"), &tracer_kit());
+        sandbox.write(
+            &format!("{EXPORT}/Kits/p1/config.toml"),
+            b"[shirt]\ncollar = 30\nwinter_collar = 31\n",
+        );
+
+        let run = sandbox.run(&pes_settings(&sandbox, number), &["compile", "--no-deploy"]);
+
+        let lines = run.messages();
+        assert_eq!(
+            findings_of(&lines, "co Midcup Collars"),
+            [
+                "Info export_identified [Keep] (team=/co/, id=714)",
+                TEAM_COLORS_MISSING,
+                "Error model_gltf_unsupported [DropFile] at Collars/collar_12.glb (file=collar_12.glb)",
+                "Info kit_colors_derived [Keep] at Kits/p1 ()",
+            ],
+            "{version}: {lines:#?}"
+        );
+        assert_eq!(run.exit_code(), 1, "{version}: {lines:#?}");
+        assert_collar_left_out(&sandbox, version, (30, 31));
+    }
+}
+
+#[test]
+fn a_pes_17_fmdl_collar_whose_conversion_fails_is_dropped_and_its_export_compiled() {
+    let sandbox = Sandbox::new("collar_pre_fox_fmdl_failed");
+    // A material name holding a control character: `fmdl` reads and checks it, and the
+    // conversion refuses it, a `.mtl` being XML.
+    let mut model = fmdl::Model::from_file(&fmdl::FmdlFile::read(&clean_model()).unwrap()).unwrap();
+    "kit\u{1}".clone_into(&mut model.materials[0].name);
+    sandbox.write(
+        &format!("{EXPORT}/Collars/collar_12.fmdl"),
+        &model.to_file().unwrap().write(),
+    );
+    sandbox.write(&format!("{EXPORT}/Kits/p1/kit.dds"), &tracer_kit());
+    sandbox.write(
+        &format!("{EXPORT}/Kits/p1/config.toml"),
+        b"[shirt]\ncollar = 30\nwinter_collar = 31\n",
+    );
 
     let run = sandbox.run(&pes_settings(&sandbox, 17), &["compile", "--no-deploy"]);
 
@@ -374,7 +486,51 @@ fn a_pes_17_fmdl_collar_is_named_as_not_compiled_yet() {
         findings_of(&lines, "co Midcup Collars"),
         [
             "Info export_identified [Keep] (team=/co/, id=714)",
-            "Error content_not_yet_compiled [DropExport] (what=Collars/collar_12.fmdl)",
+            TEAM_COLORS_MISSING,
+            "Info kit_colors_derived [Keep] at Kits/p1 ()",
+            "Error model_conversion_failed [DropFile] at Collars/collar_12.fmdl (model=collar_12.fmdl, error=a name or path for the `.mtl` holds a character XML 1.0 cannot represent: \"kit\\u{1}\")",
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 1, "{lines:#?}");
+    // Planning gave the team's kits the collar the export claimed before the task converting
+    // it failed, so p1 wears stock collar 12, not its own 30 and 31.
+    assert_collar_left_out(&sandbox, PesVersion::Pes17, (12, 12));
+}
+
+/// Asserts the sandbox's CPK, compiled for `version` with a collar that was dropped, holds
+/// no collar, and the export's p1 config wears `collars` (its collar and winter collar).
+fn assert_collar_left_out(sandbox: &Sandbox, version: PesVersion, collars: (u8, u8)) {
+    let entries = compiled(sandbox);
+    assert!(
+        entries.keys().all(|path| !path.contains("/nocloth/")),
+        "{version}: no collar: {:#?}",
+        entries.keys()
+    );
+    let p1 = emitted_config(&entries, "1st", version);
+    assert_eq!(
+        (p1.shirt.collar, p1.shirt.winter_collar),
+        collars,
+        "{version}"
+    );
+}
+
+#[test]
+fn a_pes_21_model_collar_is_named_as_not_compiled_yet() {
+    let sandbox = Sandbox::new("collar_fox_model");
+    sandbox.write(
+        &format!("{EXPORT}/Collars/collar_12.model"),
+        &pre_fox_model(),
+    );
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, "co Midcup Collars"),
+        [
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Error content_not_yet_compiled [DropExport] (what=Collars/collar_12.model)",
         ],
         "{lines:#?}"
     );

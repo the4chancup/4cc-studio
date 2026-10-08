@@ -14,13 +14,15 @@ use crate::messages::{Code, tool_message};
 
 /// The collar the export `export_id`, named `export_name`, keeps of its `Collars/` files
 /// `collars` for a target of `engine`, with the stock collar it replaces, claimed in `claimed`
-/// (each claimed collar's ID and its claimant's name, run-wide). Its models in the format the
-/// engine reads, FMDLs on Fox and `.model` files on pre-Fox, are taken in path order: the first
-/// whose ID no earlier export claimed claims it; every other, its ID claimed already or the
-/// export holding a collar already (its own same ID included), reports `collar_id_conflict` on
-/// its file, naming the claimant, and is left out. A file of another kind claims nothing
-/// (`collar_file`). `claimed` starts empty: the suite's own collars, 105 and 77, never get
-/// here, the deep pass having dropped a file named for either as a conflict.
+/// (each claimed collar's ID and its claimant's name, run-wide). Its models the target's
+/// collar task writes (`collar_file`: FMDLs on both engines, `.model` files on pre-Fox) are
+/// taken in path order: the first whose ID no earlier export claimed claims it; every other,
+/// its ID claimed already or the export holding a collar already (its own same ID included),
+/// reports `collar_id_conflict` on its file, naming the claimant, and is left out. A glTF
+/// reports `model_gltf_unsupported` on its file, dropping it, and claims nothing; a file of
+/// another kind claims nothing and reports nothing. `claimed` starts empty: the suite's own
+/// collars, 105 and 77, never get here, the deep pass having dropped a file named for either
+/// as a conflict.
 pub(crate) fn export_collar(
     export_id: ExportId,
     export_name: &str,
@@ -32,11 +34,23 @@ pub(crate) fn export_collar(
     let mut kept: Option<(FileDescriptor, u8)> = None;
     // The structure pass lists a folder's files in path order.
     for file in collars {
+        let name = file.path.name();
         match collar_file(file, engine) {
             CollarFile::Compiled => {}
+            CollarFile::Unsupported => {
+                messages.push(tool_message(
+                    Code::ModelGltfUnsupported,
+                    Scope::File {
+                        export_id,
+                        path: file.path.clone(),
+                    },
+                    Disposition::DropFile,
+                    vec![("file", name.to_owned())],
+                ));
+                continue;
+            }
             CollarFile::NotCompiled | CollarFile::PassedOver => continue,
         }
-        let name = file.path.name();
         let id = named_id(file_stem(name))
             .expect("the deep pass drops a collar file whose name gives no collar ID");
         let claimant = match claimed.get(&id) {
@@ -132,13 +146,13 @@ mod tests {
             .collect()
     }
 
-    /// `report`'s `collar_id_conflict` findings, each an Error dropping its file, as one line:
-    /// the export, the file's path and the context (`0 Collars/x.fmdl file=x.fmdl claimant=y`).
-    fn conflicts(report: &PlanReport) -> Vec<String> {
+    /// `report`'s findings of the code `code`, each an Error dropping its file, as one line: the
+    /// export, the file's path and the context (`0 Collars/x.fmdl file=x.fmdl claimant=y`).
+    fn dropped_files(report: &PlanReport, code: &str) -> Vec<String> {
         report
             .messages
             .iter()
-            .filter(|message| message.code.code == "collar_id_conflict")
+            .filter(|message| message.code.code == code)
             .map(|message| {
                 assert_eq!(
                     (message.severity, message.disposition),
@@ -175,7 +189,7 @@ mod tests {
 
         assert_eq!(collar_tasks(&report), [(0, "Collars/collar_12.fmdl", 12)]);
         assert_eq!(
-            conflicts(&report),
+            dropped_files(&report, "collar_id_conflict"),
             ["1 Collars/collar_12.fmdl file=collar_12.fmdl claimant=a Midcup Collars"]
         );
         assert_eq!(kit_collars(&report), [(0, "p1", Some(12)), (1, "p1", None)]);
@@ -207,7 +221,7 @@ mod tests {
 
         assert_eq!(collar_tasks(&report), [(0, "Collars/collar_12.model", 12)]);
         assert_eq!(
-            conflicts(&report),
+            dropped_files(&report, "collar_id_conflict"),
             ["1 Collars/collar_12.model file=collar_12.model claimant=a Midcup Collars"]
         );
         assert_eq!(kit_collars(&report), [(0, "p1", Some(12)), (1, "p1", None)]);
@@ -232,7 +246,7 @@ mod tests {
 
         assert_eq!(collar_tasks(&report), [(0, "Collars/collar_012.fmdl", 12)]);
         assert_eq!(
-            conflicts(&report),
+            dropped_files(&report, "collar_id_conflict"),
             [
                 "0 Collars/collar_12.fmdl file=collar_12.fmdl claimant=co Midcup Collars",
                 "0 Collars/collar_13.fmdl file=collar_13.fmdl claimant=co Midcup Collars",
@@ -271,6 +285,43 @@ mod tests {
     }
 
     #[test]
+    fn a_gltf_collar_is_dropped_claiming_nothing_and_the_next_file_claims_its_collar() {
+        // Path order puts each glTF first; the model after it names the same collar, and
+        // claims it as the export's one collar, so the glTF claimed nothing.
+        for (version, gltf, model) in [
+            (
+                PesVersion::Pes21,
+                "Collars/collar_012.glb",
+                "Collars/collar_12.fmdl",
+            ),
+            (
+                PesVersion::Pes17,
+                "Collars/collar_12.gltf",
+                "Collars/collar_12.model",
+            ),
+        ] {
+            let report = planned(
+                version,
+                &[("co Midcup Collars", &[gltf, model, "Kits/p1/kit.dds"])],
+            );
+
+            let name = gltf.strip_prefix("Collars/").unwrap();
+            assert_eq!(
+                dropped_files(&report, "model_gltf_unsupported"),
+                [format!("0 {gltf} file={name}")],
+                "{version}"
+            );
+            assert_eq!(collar_tasks(&report), [(0, model, 12)], "{version}");
+            assert_eq!(
+                dropped_files(&report, "collar_id_conflict"),
+                Vec::<String>::new(),
+                "{version}"
+            );
+            assert_eq!(kit_collars(&report), [(0, "p1", Some(12))], "{version}");
+        }
+    }
+
+    #[test]
     fn a_file_of_another_kind_in_collars_claims_nothing_and_reports_nothing() {
         // Kept by the structure pass only with the strict file-type check off, which the
         // planning tests' validation has on: added as that pass would keep it.
@@ -289,7 +340,10 @@ mod tests {
         );
 
         assert_eq!(collar_tasks(&report), []);
-        assert_eq!(conflicts(&report), Vec::<String>::new());
+        assert_eq!(
+            dropped_files(&report, "collar_id_conflict"),
+            Vec::<String>::new()
+        );
         assert_eq!(kit_collars(&report), [(0, "p1", None)]);
     }
 }

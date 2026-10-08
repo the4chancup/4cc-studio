@@ -254,8 +254,8 @@ skips any other export with the error `content_not_yet_compiled`, naming the fir
 cannot build yet. For PES 2015 to 2017 it builds a player folder's own `.model` files with
 their `.mtl` files, textures and face diff, its `.common` links to a `.model`, a `.mtl` or a
 texture, the linked shared `Faces`, `Boots` and `Gloves` folders, a `Common` folder holding
-only `.model`, `.mtl` and texture files, the kits, its `.model` collars, and the portraits and
-the logo, and a player's `.fmdl` models converted to `.model` files with their materials;
+only `.model`, `.mtl` and texture files, the kits, its `.model` and `.fmdl` collars, and the
+portraits and the logo, and a player's `.fmdl` models converted to `.model` files with their materials;
 a shared folder's `.glb`/`.gltf` and referee exports are named. A `.fmdl` beside a `.model`
 of the same name is left out for the `.model`, the `.skl` of a converted model's name gives
 its pose, and `fcl_hair_sim.fclo` is not used. A converted model moved onto that version's skeleton is noted
@@ -312,10 +312,14 @@ collar file of the same export is that error too, naming the export itself. On P
 stock collar, and every kit of the team wears it as its collar and winter collar, as above:
 the kits the export holds, and for a midcup export the team's installed kits it does not send
 again, whose kit configs the CPK then carries changed. The two rules on who keeps a collar are
-the same. A collar in the
-other version's format (a `.model` for PES 2018 to 2021, a `.fmdl`
-for PES 2015 to 2017), or a `.glb` or `.gltf` one, is not converted yet: an export holding one
-is skipped with `content_not_yet_compiled`.
+the same. A `.fmdl` collar compiled for PES 2015 to 2017 is converted to a `.model`, its
+materials named `uni_collar` (the first) and `uni_shirts` (the rest) as the game's own collars'
+are, so the game dresses it with the team's kit as it does them; no `.mtl` is written for it.
+One that cannot be converted is the error `model_conversion_failed`, and the collar file is
+left out. A `.model` collar for PES 2018 to 2021 is not converted yet: an export holding one
+is skipped with `content_not_yet_compiled`. A `.glb` or `.gltf` collar is not read yet:
+`compile` leaves it out with the error `model_gltf_unsupported`, and the rest of the export
+goes on.
 
 A `refs` export compiles on PES 2018 to 2021 like a team's player folders: each referee folder
 its `players.txt` lists is built once and written for every slot it is listed under, slot NN

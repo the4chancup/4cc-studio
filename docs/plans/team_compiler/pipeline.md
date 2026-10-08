@@ -674,9 +674,15 @@ describes behavior, not a serial scheduling requirement:
   `uniform.mtl`; Fox: the exe assigns the type), so a collar has no textures or `.mtl` of its
   own. On Fox its materials are the ones embedded in its FMDL, the author's (the diffuse
   overridden); on pre-Fox the shared `uniform.mtl` supplies them, so a collar *converted* for
-  pre-Fox has its materials named as the stock collars' are: its first material (in the
-  FMDL's order) becomes `uni_collar` and every other `uni_shirts`, the list collapsed to those
-  two names with each mesh pointed at its name, since a `.model` lists a material once. The
+  pre-Fox has its materials named as the stock collars' are: the first material of the
+  converted form (the FMDL's first; a part the converter splits off it for meshes whose alpha
+  or shadow flags differ counts as another, the flags having no effect under `uniform.mtl`)
+  becomes `uni_collar` and every other `uni_shirts`, the list collapsed to those two names
+  with each mesh pointed at its name, since a `.model` lists a material once. The
+  conversion's losses about a material (`mesh_flags_dropped`, `dummy_texture_added`, ...) are
+  not reported for a collar: they describe the `.mtl` it never writes. A collar whose
+  conversion fails is left out with `model_conversion_failed`, and the team's kits, which
+  planning pointed at its ID before the task ran, wear the game's own collar of that ID. The
   reverse, a `.model` collar compiled for PES 18-21, is not built: the `.model` names materials
   the game's `uniform.mtl` defines and the export carries no `.mtl` for it, and the converter
   builds an FMDL material from a `.mtl`'s shader and samplers, so there is nothing to convert

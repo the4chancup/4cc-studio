@@ -5226,3 +5226,20 @@ conflicting one is.
 Plan: `team_compiler/pipeline.md` "Collars" (the opening sentences); `team_compiler/messages.md`
 the `model_gltf_unsupported` and `model_conversion_failed` rows; `team_compiler/README.md`
 TC-CMN-09.
+
+## 2026-10-08 — team_compiler — A dropped collar's kits wear the game's own collar; a collar reports no material loss
+Decision: when an FMDL collar's conversion fails, the collar file is left out and the team's
+kits keep the collar ID planning gave them, so they wear the game's own collar of that ID; a
+collar's conversion reports no loss whose subject is a material; a part the converter splits
+off the FMDL's first material by mesh flags counts as another material (`uni_shirts`).
+Why: planning points every kit config at the collar before any task runs, and the task
+converting it fails later; pointing the configs back would make the kit tasks depend on the
+collar task's outcome (a cross-task dependency the pipeline has nowhere else) or move the
+conversion into planning, for a case the finding already names and whose outcome is the stock
+collar the member would have named by hand. A collar's `.mtl` is never written (the shared
+`uniform.mtl` dresses it), so a loss about a material describes nothing in the output and
+names a converter index the renamed `.model` no longer has. The split part's flags have no
+effect under `uniform.mtl`, and telling the parts apart needs the converter to say which FMDL
+material each came from, a `model_convert` change for a case no real collar is known to reach.
+Plan: `team_compiler/pipeline.md` "Collars"; `team_compiler/messages.md`
+`model_conversion_failed`.

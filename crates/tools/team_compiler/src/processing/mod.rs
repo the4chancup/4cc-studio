@@ -20,7 +20,7 @@ use std::ops::Range;
 use std::path::Path;
 use std::sync::Arc;
 
-use aesthetics_export::FileDescriptor;
+use aesthetics_export::{FileDescriptor, FileKind, ModelFormat};
 use dds_convert::{CachePolicy, Converter};
 use pes_version::{Engine, PesVersion};
 use pipeline::{MemoryBudget, Permit};
@@ -34,6 +34,7 @@ use crate::paths;
 use crate::plan::subset::{ModelPackage, texture_format};
 use crate::plan::{BuildTask, TaskGroup, TaskKind};
 use crate::templates::Templates;
+use conversion::PreFoxMaterials;
 pub(crate) use materialize::{EntryTarget, TEST_BINS_PREFIX};
 use materialize::{TaskOutput, materialize};
 
@@ -285,16 +286,32 @@ pub(crate) fn process_task(
             referee_marker::referee_marker(marker, ctx, &mut files)
                 .map(|entries| (TaskOutput::Entries(entries), None))
         }
-        // The deep pass has read and checked the model, which is in the format the target
-        // reads. On both engines a collar keeps the materials its author gave it (embedded in
-        // an FMDL, named against the shared `uniform.mtl` in a `.model`), so its bytes go out
-        // as they are, a WESYS-wrapped `.model` still wrapped: the game reads both.
+        // The deep pass has read and checked the model. One in the format the target reads
+        // keeps the materials its author gave it (embedded in an FMDL, named against the
+        // shared `uniform.mtl` in a `.model`), so its bytes go out as they are, a WESYS-wrapped
+        // `.model` still wrapped: the game reads both. An FMDL for PES 15-17 is converted on
+        // the version's body table, no `.skl` being read beside a collar, its materials named
+        // as the stock collars' for the shared `uniform.mtl`, which dresses it: its own
+        // material set is not written.
         TaskKind::Collar { file, id } => {
-            let entry = (
-                paths::collar(ctx.version.engine(), *id),
-                take(&mut files, file),
-            );
-            Ok((TaskOutput::Entries(vec![entry]), None))
+            let bytes = take(&mut files, file);
+            let is_fmdl = file.kind == FileKind::Model(ModelFormat::Fmdl);
+            let written = match ctx.version.engine() {
+                Engine::PreFox if is_fmdl => conversion::fmdl_for_pre_fox(
+                    file.path.name(),
+                    &bytes,
+                    None,
+                    ctx,
+                    &mut findings,
+                    PreFoxMaterials::StockCollar,
+                )
+                .map(|converted| converted.model),
+                Engine::PreFox | Engine::Fox => Ok(bytes),
+            };
+            written.map(|bytes| {
+                let entry = (paths::collar(ctx.version.engine(), *id), bytes);
+                (TaskOutput::Entries(vec![entry]), None)
+            })
         }
     };
     let mut batch = TaskBatch {
