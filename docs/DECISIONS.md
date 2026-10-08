@@ -5088,3 +5088,25 @@ Fox, not content the export supplied, so it goes where that edit goes; a team's 
 what the team sent. No path can collide: an absent slot has no kit task.
 Plan: `aesthetics_export/fpc_toggle.md` "Kit slots absent from the export are patched in
 place", the "Pre-Fox" sentence.
+
+## 2026-10-08 — team_compiler — Cross-format source selection: per stem, companions follow their model, conversion before the split
+Decision: a model folder's source selection (target-native, then glTF, then the other native
+format) is made per model stem (`boots` from `boots.fmdl`, `boots.model`, `boots.glb`), each
+stem on its own. Every selected native model runs `model_convert::needs_conversion` and is
+converted when it says so, so a same-engine model of another version (a PES 21 FMDL for PES
+18) is retargeted and one that needs nothing is written from its source bytes. A file only the
+other engine reads is ignored with no finding when its model is not selected (a `.mtl` beside
+a `.model` an FMDL beats on Fox) or when the target has no counterpart for it
+(`fcl_hair_sim.fclo` on PES 15-17); the `.skl` paired with a selected FMDL is the conversion's
+bind pose, not packed. A converted model's material set is packed as `<stem>.mtl` beside it.
+The SKL the conversion generates takes the path a member's `.skl` of that stem would (the
+slot's skeleton, the merge rules, `skl_no_slot` for a slotless role), which closes `ir.md`'s
+open question on the `static` bone's SKL. A model with hand weights is converted first and
+split in the target's format, as a native one is.
+Why: the plan's example is one stem; a per-folder rule would drop a `hair_high.model` beside a
+`face_high.fmdl` silently, and a per-output-name rule would conflate models Fox merges. The
+other engine's companions get the silence TC-MOD-26 already gives the unselected model. One
+SKL rule keeps the generated skeleton from being a new case. Converting before the split keeps
+the split code engine-native at the cost of a second IR round trip, milliseconds.
+Plan: `team_compiler/pipeline.md` step 3 "Format conversion"; `model_conversion/ir.md`
+"Unskinned meshes on Fox".

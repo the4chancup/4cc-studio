@@ -1730,13 +1730,42 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   sampler and template on pre-Fox (lead first: the cubemap as a lead-authored fixture with a
   provenance README). Plan: `pipeline.md` step 3 "Format conversion", "Resolved decisions" (Model
   source selection); `development_plan.md` "Phase 4" `processing/` (glTF refusal);
-  `model_conversion/README.md`. IDs: TC-MOD-26..30, TC-MOD-34, TC-MOD-36. Crates: tc (`processing/model.rs`) → verify:
-  the tracer's `fcl_hair.fmdl` compiled for PES 17 yields a `.model` + `.mtl` pair in the face
-  CPK that `pes_model` reads back with the FMDL's mesh count; `boots.fmdl` beside `boots.model`
-  on PES 21 compiles the FMDL with no conversion finding; `boots.glb` alone on PES 21 reports
-  `model_gltf_unsupported` and drops the folder. Also, from 4.9b: a collar in the other
-  engine's format converted (an FMDL collar for pre-Fox gets the stock collars' material
-  names `uni_collar`/`uni_shirts`; a `.model` collar for Fox), TC-CMN-09
+  `model_conversion/README.md`; `conversion.md` "Cost" (a same-engine model of another version
+  also takes the IR round trip when the pre-check finds a changed bone). IDs: TC-MOD-26..30,
+  TC-MOD-34, TC-MOD-36, TC-CMN-09. Crates: tc (`plan/subset.rs`, `plan/mod.rs`,
+  `processing/model.rs`, `processing/prefox_face.rs`, `processing/mod.rs`, `messages.rs`,
+  `templates.rs`) → verify: the tracer's `fcl_hair.fmdl` compiled for PES 17 yields a `.model` +
+  `.mtl` pair in the face CPK that `pes_model` reads back with the FMDL's mesh count (anti-blur
+  meshes may change the count: the red run measures both, and the acceptance text is corrected
+  to the measured relation if so); `boots.fmdl` beside `boots.model` compiles the FMDL on PES 21
+  and the `.model` on PES 17, no conversion finding either way; `boots.glb` alone on PES 21
+  reports `model_gltf_unsupported` and drops the folder. Also, from 4.9b: a collar in the other
+  engine's format converted (TC-CMN-09; an FMDL collar for pre-Fox gets the stock collars'
+  material names; a `.model` collar for Fox has no `.mtl` to convert with: ruled at slice e).
+  Also, from 4.18: a `.model` source with hand weights compiled for Fox is converted, then
+  split. Owns the mapping of `model_convert`'s loss codes to findings (the hand-split round
+  trips drop them "until cross-format conversion maps them") and the other format in shared
+  `Faces/`, `Boots/`, `Gloves/` folders, `Common/` models and `.common` links (4.20 presumes
+  it). Recon: `.tmp/recon_4_17.md`. Rulings: DECISIONS 2026-10-08 "Cross-format source
+  selection" (per stem; the other engine's companions ignored silently with their model; the
+  paired `.skl` the conversion's bind pose; the converted `.mtl` packed as `<stem>.mtl`; the
+  generated SKL on a member's `.skl` path; convert, then split).
+  Slices: (lead) done 2026-10-08: the environment cubemap bundled (`resources/templates/env.dds`,
+  the FBM template's, byte-identical to the working referee exports'; README), the rulings, this
+  text; (a) Fox → pre-Fox in the face task: a player folder's `.fmdl` selected on PES 15-17 when
+  no `.model` of its stem exists, converted with its paired `.skl`, packed with its converted
+  `.mtl` as `<stem>.mtl`, `fcl_hair_sim.fclo` ignored, TC-MOD-27 on the tracer; (b) pre-Fox →
+  Fox in the Models task and the selection rule on both engines, the generated SKL as the
+  slot's skeleton, `model_conversion_failed`, the converted form checked (TC-MOD-26, 29, 30,
+  34); (c) the loss codes mapped (catalog rows lead-first) and reported by the hand splits too,
+  a selected glTF refused with `model_gltf_unsupported` (TC-MOD-28); (d) `metal` on pre-Fox:
+  `Templates::environment_map()`, the `EnvironmentMap` sampler added to a converted `Metal`
+  material, the cubemap emitted into the folder's texture home (TC-MOD-36); (e) collars across
+  engines (TC-CMN-09; the `.model` → Fox and glTF collar rulings made then); (f) shared folders,
+  `Common/` models and `.common` links in the other format.
+  Open for the maintainer here: which converted material of a collar becomes `uni_collar` and
+  which `uni_shirts` (the stock referee collar uses `uni_shirts` alone; the recommendation for
+  slice e: the first material `uni_collar`, the rest `uni_shirts`), an in-game check.
 
 - [x] 4.18 **Hand auto-split (Fox)**: `model_convert::ops::hand_split::split_by_skeleton_group`
   on every face-content FMDL with positive `skh_*_l`/`skh_*_r` weights (never on a boots- or
@@ -4009,3 +4038,8 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
     collar-worn as the `UniformParameter.bin` entries are on Fox, and the changed ones go out
     through the bins path (DECISIONS 2026-10-08). Next: 4.17 (cross-format conversion and
     source selection).
+  - **4.17-lead** (recon `.tmp/recon_4_17.md`, Opus, read-only): the step's text widened
+    (TC-MOD-26's PES 17 half, same-engine retargeting, the loss-code mapping, shared folders
+    and links as slice f), the source-selection rulings logged (DECISIONS 2026-10-08), the
+    template environment cubemap bundled with its provenance. Next: 4.17a (a Fox face
+    converted for PES 17 through the face task).

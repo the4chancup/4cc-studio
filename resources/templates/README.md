@@ -101,3 +101,19 @@ Source: the 4cc refs compiler's `referee_prop.fmdl` (the maintainer's copy, date
 base texture's directory (`common/999/sourceimages/`, `common/sourceimages/`). Read with the
 `fmdl` crate on 2026-10-07 to check the weights; copied by `.tmp/copy_referee_marker.py`
 (not kept: a one-off copy).
+
+## `env.dds`
+
+The template environment cubemap: the `EnvironmentMap` texture a PES 15-17 compile gives a
+`Basic_CNSR` material converted from a Fox `metal` material (`fox3ddf_ggx`) that names no
+environment texture of its own (`docs/plans/model_format.md`, the `metal` row and the
+`environment` role; Team compiler worklog step 4.17, slice d), emitted into the player's
+common textures like any other fallback texture. A 128x128 DXT5 cubemap, six faces, eight mip
+levels, 131,360 bytes, SHA-256 `5dda088dc8325eef`.
+
+Source: the pre-Fox FBM template's `env.dds` (the maintainer's
+`Models/Templates_prefox/_old/FBM template/`); byte-identical to the `Common/env.dds` of the
+pre-Fox referee exports that work in game (`Refs/legacy_prefox/robocopclassicplus/`,
+`robocopclassicpoolclosed/`, the Spring 26 refs). A member export's `env.dds` of the same size
+(the Winter 18 export) differs: the template is the one the working exports share, not a
+member's own. Copied on 2026-10-08 by `.tmp/copy_env_template.py` (not kept: a one-off copy).

@@ -422,8 +422,9 @@ ancient templates the 16→21 converter met) therefore gets, on `ir_to_fmdl`, a 
 (identity matrix, `global_position` `[0.2, 0, 0, 1]`, `local_position` zero: the converter's
 values, the name Konami's own skeleton lacks so the game leaves the mesh static) added once to the
 model, with every such mesh's vertices fully weighted to it (`static_bone_added`, one finding per
-mesh). The bone is not in any table, so the export also emits an SKL; whether the compiler injects
-that SKL or the template is Phase 4's call (open question there).
+mesh). The bone is not in any table, so the export also emits an SKL, which the compiler packs as
+the slot's skeleton in place of the template, as it packs a member's `.skl` of that stem
+(`team_compiler/pipeline.md` step 3 "Format conversion"): the template lacks the bone.
 
 ### Roundtrip testing
 

@@ -317,7 +317,21 @@ then processed as an independent parallel task (Blue: `coordinator._model_folder
    plan](../model_conversion/README.md)). Until glTF support lands (Phase 7, after Release
    0.1.0), a selected glTF representation drops the folder with an error rather than falling
    through to the opposite native format, so the same export never compiles differently once
-   glTF is read.
+   glTF is read. Selection is per model stem, each stem on its own: a `hair_high.model` beside
+   a `face_high.fmdl` is selected and converted, not dropped by a folder-wide choice, which
+   would lose it silently. Every selected native model runs the conversion pre-check
+   (`model_convert::needs_conversion`), so a same-engine model of another version is retargeted
+   when a bone it uses differs (`conversion.md` "Cost") and one that needs nothing is written
+   from its source bytes. A file only the other engine reads is ignored with no finding when its
+   model is not selected (a `.mtl` beside a `.model` an FMDL beats on Fox) or when the target
+   has no counterpart for it (`fcl_hair_sim.fclo` on PES 15-17): TC-MOD-26 keeps the unselected
+   model itself silent, and its companions follow it. The `.skl` paired with a selected FMDL is
+   the conversion's bind pose and is not packed. A converted model's material set is packed as
+   `<stem>.mtl` beside it. The SKL the conversion generates takes the path a member's `.skl` of
+   that stem would (the slot's skeleton, the merge rules, `skl_no_slot` for a slotless role),
+   so a generated skeleton is not a new case. A model with hand weights is converted first and
+   split in the target's format as a native one is: the split code stays engine-native at the
+   cost of a second IR round trip, milliseconds.
 2. **ID replacement** — dummy team IDs are replaced in file contents (FMDL texture path tables via
    the `fmdl` crate's texture-path rewriting, `ops::paths::rewrite_texture_paths`; `.mtl` texture
    IDs pre-Fox) and in file names.
