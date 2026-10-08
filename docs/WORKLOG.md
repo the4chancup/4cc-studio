@@ -1777,9 +1777,11 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   re-conversion, a slotless model's `.skl` read for the pre-check (DECISIONS 2026-10-08 "The
   same-engine pre-check waits"). Slice c was split: c1 the loss codes and the pre-check
   measurement, c2 the selected glTF (`model_gltf_unsupported`, TC-MOD-28).
-  Open for the maintainer here: which converted material of a collar becomes `uni_collar` and
-  which `uni_shirts` (the stock referee collar uses `uni_shirts` alone; the recommendation for
-  slice e: the first material `uni_collar`, the rest `uni_shirts`), an in-game check; whether
+  Open for the maintainer here: whether a converted collar's first material as `uni_collar`
+  and the rest as `uni_shirts` (ruled at slice e, DECISIONS 2026-10-08 "Collars across
+  engines"; the stock referee collar uses `uni_shirts` alone) is drawn right, an in-game
+  check, and which version's stock `uniform.mtl` the templates should ship so a `.model`
+  collar can convert for PES 18-21 (until then the gate names it); whether
   the modded PES 15-17 exes substitute `dummy_kit` at
   `model/character/uniform/common/<team>/dummy_kit.dds` for a converted face model (4.17a
   points it there, where the legacy pre-Fox exports name it), an in-game check. Open for a

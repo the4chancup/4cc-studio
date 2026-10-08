@@ -666,14 +666,25 @@ describes behavior, not a serial scheduling requirement:
   logo's task, which is the export's one logo task (`processing/team_assets.rs`) and is
   scoped on the main file: a failure drops the logo alone. The PNGs are 8-bit RGBA, written
   by `dds_convert::encode_png`. A DDS or FTEX source gives its top mip level.
-- **Collars** — a collar model is converted to the target engine's format like any other model
-  when it is in the other engine's (`collar_12.fmdl` compiled for PES 17 becomes `collar_012.model`,
-  and the reverse). The game draws every collar with the team's kit texture (pre-Fox: the base
+- **Collars** — an FMDL collar compiled for PES 15-17 is converted like any other model
+  (`collar_12.fmdl` becomes `collar_012.model`, its skeleton the version's body table, as a
+  player's FMDL with no `.skl` beside it; its `.mtl` is not written). The game draws every
+  collar with the team's kit texture (pre-Fox: the base
   data's `uniform_config.xml` gives `nocloth` collars the `collar` model type and the shared
   `uniform.mtl`; Fox: the exe assigns the type), so a collar has no textures or `.mtl` of its
   own. On Fox its materials are the ones embedded in its FMDL, the author's (the diffuse
   overridden); on pre-Fox the shared `uniform.mtl` supplies them, so a collar *converted* for
-  pre-Fox has its materials named as the stock collars' are (`uni_collar` and `uni_shirts`). A
+  pre-Fox has its materials named as the stock collars' are: its first material (in the
+  FMDL's order) becomes `uni_collar` and every other `uni_shirts`, the list collapsed to those
+  two names with each mesh pointed at its name, since a `.model` lists a material once. The
+  reverse, a `.model` collar compiled for PES 18-21, is not built: the `.model` names materials
+  the game's `uniform.mtl` defines and the export carries no `.mtl` for it, and the converter
+  builds an FMDL material from a `.mtl`'s shader and samplers, so there is nothing to convert
+  it with until the templates ship a stock `uniform.mtl` (open question: which version's); the
+  gate names it as not compiled yet (`content_not_yet_compiled`). A glTF collar is dropped at
+  planning with `model_gltf_unsupported` as a player folder's is, the file alone, since a
+  collar is its own unit (its export compiles without it, as it does without a conflicting
+  one). A
   collar already in the target's format, a `.model` on pre-Fox as an FMDL on Fox, is written
   unchanged, its author's material names kept: the author made it for that engine, and
   renaming what the game already finds would turn a working collar into a guess.

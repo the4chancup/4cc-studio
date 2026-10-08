@@ -5204,3 +5204,25 @@ the pass and the conversion keeps them agreeing on which material is metal (a `g
 shader is glass to both). The sampler is added before the face task points its materials, so
 a member's `Env.png` gets the path spelled as the textures task writes it.
 Plan: `team_compiler/pipeline.md` step 6, the paragraph after the hand-split one.
+
+## 2026-10-08 — team_compiler — Collars across engines: the FMDL converts with the stock names, the `.model` waits for a `uniform.mtl`, the glTF is dropped
+Decision: an FMDL collar compiled for PES 15-17 is converted as a player's FMDL with no `.skl`
+is, its `.mtl` not written, and its materials renamed to the stock collars' names: the FMDL's
+first material `uni_collar`, every other `uni_shirts`, the `.model`'s list collapsed to those
+names with each mesh pointed at its own. A `.model` collar compiled for PES 18-21 stays with
+the gate as not compiled yet. A `.glb`/`.gltf` collar is dropped at planning with
+`model_gltf_unsupported` (`DropFile`), on both engines, its export compiled without it.
+Why: the plan said both directions convert. The pre-Fox direction has everything it needs (the
+version's body table, the shared `uniform.mtl` supplying the materials by name); which name
+goes to which material was open, and first-to-`uni_collar` is the one rule that gives every
+collar a `uni_collar` (the stock team collars use both names, the referee one `uni_shirts`
+alone), to be checked in game. The Fox direction has nothing to convert the materials with: a
+`.model` collar names materials the game's `uniform.mtl` defines, no export carries that file,
+and the converter builds an FMDL material from a `.mtl`'s shader and samplers; a guessed
+material set would be a game-facing invention, so it waits for a stock `uniform.mtl` among the
+templates (open: which version's). A glTF collar follows the player folder's ruling (4.17c2),
+the file dropped rather than the folder, because a collar is its export's own unit, as a
+conflicting one is.
+Plan: `team_compiler/pipeline.md` "Collars" (the opening sentences); `team_compiler/messages.md`
+the `model_gltf_unsupported` and `model_conversion_failed` rows; `team_compiler/README.md`
+TC-CMN-09.

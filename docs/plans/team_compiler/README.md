@@ -1251,7 +1251,8 @@ TC-CMN-08  GIVEN Collars/collar_12.model, and another export holding Collars/col
 TC-CMN-09  GIVEN Collars/collar_12.fmdl
            WHEN the export is compiled for PES 17
            THEN the CPK holds collar_012.model under
-                common/character0/model/character/uniform/nocloth/ and no .fmdl or .mtl
+                common/character0/model/character/uniform/nocloth/ and no .fmdl or .mtl,
+                its materials named uni_collar (the FMDL's first) and uni_shirts (the rest)
 TC-CMN-10  GIVEN Collars/collar_12.fmdl and Collars/collar_12.dds
            WHEN the export is checked
            THEN file_type_disallowed is reported for collar_12.dds, which is dropped, and
