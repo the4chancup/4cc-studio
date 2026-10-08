@@ -319,7 +319,8 @@ fn the_lowest_variant_lists_a_linked_set_wherever_it_sorts() {
             LINKED_FINDINGS[0],
             LINKED_FINDINGS[1],
             LINKED_FINDINGS[2],
-            "Warning kit_variant_mtl_differs [Keep] at Players/05 - A (model=pants_kit2.model, mtl=./pants.mtl, expected=./pants_kit2.mtl)",
+            // The shared folder's variant, named by its export path.
+            "Warning kit_variant_mtl_differs [Keep] at Players/05 - A (model=Faces/Longhair/pants_kit2.model, mtl=./pants.mtl, expected=./pants_kit2.mtl)",
             LINKED_FINDINGS[3],
         ],
     );

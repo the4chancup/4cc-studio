@@ -25,12 +25,12 @@ pub(super) struct SplitModel {
     pub(super) glove_r: Option<Vec<u8>>,
 }
 
-/// The face model `name` (its file name), `bytes`, split at the wrists, `mtl` being the bytes
-/// of the `.mtl` its search found, and noted in `findings` as `model_hand_split` naming the
-/// model and the gloves made (`glove_l`, `glove_r` or both). The split's parsed forms are
-/// charged to the run's memory budget at the source's size while they live. A model or `.mtl`
-/// the split cannot read or write fails the task with `model_conversion_failed`, naming the
-/// model.
+/// The face model `name` (as its task's findings name it, `conversion::source_name`), `bytes`,
+/// split at the wrists, `mtl` being the bytes of the `.mtl` its search found, and noted in
+/// `findings` as `model_hand_split` naming the model and the gloves made (`glove_l`, `glove_r`
+/// or both). The split's parsed forms are charged to the run's memory budget at the source's
+/// size while they live. A model or `.mtl` the split cannot read or write fails the task with
+/// `model_conversion_failed`, naming the model.
 pub(super) fn split_face_model(
     name: &str,
     bytes: &[u8],

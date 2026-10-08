@@ -265,7 +265,8 @@ as `skeleton_retargeted`, and one that cannot be converted leaves the face, boot
 it is part of out with `model_conversion_failed`. A metal material (a Fox `fox3ddf_ggx` one)
 converted this way reflects the compiler's environment map, emitted beside the player's
 textures, or a shared `Boots` or `Gloves` folder's, as `env.dds`; an `env` texture of the
-folder's own (`env.dds`, `env.png`) is used instead, and `templates/env.dds` in the
+folder's own (`env.dds`, `env.png`), or the Common one its `env.dds.common` link names, is
+used instead, and `templates/env.dds` in the
 data folder replaces the built-in one. For
 PES 2018 to 2021 it names a referee export's kit, logo, portrait or collar
 (a referee has no kit slot, team logo or player id, and no kit of his own to put a collar on),

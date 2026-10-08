@@ -21,8 +21,8 @@ use pes_model::format::mtl::{
 };
 
 use crate::prefox_faces::{
-    BOOTS_K0644, CLEAN, card_materials, card_model, entries_under, face_cpk, face_folder,
-    nested_entries, ordered_entries, pes17, sampler_paths, small_dds, write_round_hat,
+    BOOTS_K0644, CLEAN, card_materials, card_model, common_output, entries_under, face_cpk,
+    face_folder, nested_entries, ordered_entries, pes17, sampler_paths, small_dds, write_round_hat,
     write_slot_05_face,
 };
 use crate::textures::texture_fixture;
@@ -990,31 +990,42 @@ fn the_skeleton_a_conversion_writes_is_the_boots_or_beside_a_member_s_a_conflict
 
 #[test]
 fn the_skeleton_a_slotless_model_s_conversion_writes_is_left_out_as_skl_no_slot() {
-    let sandbox = Sandbox::new("conversion_skeleton_slotless");
-    let export = "co Midcup Face";
-    let player = slot_05(export);
-    sandbox.write(
-        &format!("{player}/face_high.model"),
-        &card_with_its_own_bone(),
-    );
-    sandbox.write(&format!("{player}/face_high.mtl"), &card_materials());
-    sandbox.write(&format!("{player}/skin.dds"), &small_dds());
+    // A model in a subfolder is named below the player's folder, as its conversion names it.
+    for (sandbox_name, directory) in [
+        ("conversion_skeleton_slotless", ""),
+        ("conversion_skeleton_slotless_face", "face/"),
+    ] {
+        let sandbox = Sandbox::new(sandbox_name);
+        let export = "co Midcup Face";
+        let player = slot_05(export);
+        sandbox.write(
+            &format!("{player}/{directory}face_high.model"),
+            &card_with_its_own_bone(),
+        );
+        sandbox.write(
+            &format!("{player}/{directory}face_high.mtl"),
+            &card_materials(),
+        );
+        sandbox.write(&format!("{player}/skin.dds"), &small_dds());
 
-    let (code, lines, entries) = compiled_for(&sandbox, 21, "", export);
+        let (code, lines, entries) = compiled_for(&sandbox, 21, "", export);
 
-    assert_eq!(
-        lines,
-        [
-            "Info export_identified [Keep] (team=/co/, id=714)",
-            "Info team_colors_missing [Keep] ()",
-            "Warning skl_no_slot [Keep] at Players/05 - A (model=face_high.model)",
-        ]
-    );
-    assert_eq!(code, 0);
-    assert_eq!(
-        package_names(&entries["Asset/model/character/face/real/71405/#Win/face.fpk"]),
-        ["face_diff.bin", "face_high.fmdl"]
-    );
+        assert_eq!(
+            lines,
+            [
+                "Info export_identified [Keep] (team=/co/, id=714)".to_owned(),
+                "Info team_colors_missing [Keep] ()".to_owned(),
+                format!(
+                    "Warning skl_no_slot [Keep] at Players/05 - A (model={directory}face_high.model)"
+                ),
+            ]
+        );
+        assert_eq!(code, 0);
+        assert_eq!(
+            package_names(&entries["Asset/model/character/face/real/71405/#Win/face.fpk"]),
+            ["face_diff.bin", "face_high.fmdl"]
+        );
+    }
 }
 
 /// The `EnvironmentMap` samplers of `set`, every material's.
@@ -1081,14 +1092,19 @@ fn compiled_metal(sandbox: &Sandbox, mtl: &str) -> (Vec<String>, MaterialSet, Ve
     (lines, materials, environment)
 }
 
-/// Asserts that each of `materials` is the `metal` family's on PES 15-17: `Basic_CNSR`, its
-/// samplers ending with the environment sampler naming `env.dds` in the texture home `home`,
-/// as a `.mtl` names it, with the `environment` role's settings, and the `Reflection` and
-/// `Shininess` vectors.
+/// Asserts that each of `materials` is the `metal` family's on PES 15-17 with its environment
+/// map `env.dds` in the texture home `home` (`assert_metal_naming`).
 fn assert_metal(materials: &[Material], home: &str) {
+    assert_metal_naming(materials, &format!("{home}env.dds"));
+}
+
+/// Asserts that each of `materials` is the `metal` family's on PES 15-17: `Basic_CNSR`, its
+/// samplers ending with the environment sampler naming `environment` as a `.mtl` names it,
+/// with the `environment` role's settings, and the `Reflection` and `Shininess` vectors.
+fn assert_metal_naming(materials: &[Material], environment: &str) {
     let expected = Sampler {
         name: "EnvironmentMap".to_owned(),
-        path: format!("{home}env.dds"),
+        path: environment.to_owned(),
         srgb: Some(false),
         minfilter: Some(Filter::Anisotropic),
         maxfilter: None,
@@ -1208,6 +1224,44 @@ fn a_member_s_own_env_dds_is_the_environment_map_a_metal_material_names() {
 
     assert_metal(&materials.materials, PRE_FOX_HOME_714_05);
     assert!(environment == small_dds(), "env.dds is the member's");
+}
+
+#[test]
+fn an_env_texture_link_is_the_environment_map_a_metal_material_names() {
+    let sandbox = Sandbox::new("conversion_metal_env_link");
+    let export = "co Midcup Metal";
+    sandbox.write(&format!("{}/boots.fmdl", slot_05(export)), &metal_model());
+    sandbox.write(&format!("{}/env.dds.common", slot_05(export)), b"");
+    // Already WESYS-wrapped, so it is emitted as it is and its bytes tell it from the template.
+    sandbox.write(
+        &format!("exports/{export}/Common/env.dds"),
+        &wezlib::compress(&small_dds()),
+    );
+    let settings = format!(
+        "{}[team-compiler]\ndds_compression = true\n",
+        pes17(&sandbox)
+    );
+
+    let run = sandbox.run(&settings, &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    // The template is not emitted into the home: the link's Common texture is the map.
+    assert!(
+        !entries.contains_key(ENVIRONMENT_714_05),
+        "{:?}",
+        entries.keys()
+    );
+    let face = nested_entries(&entries[&face_cpk(5)]);
+    let materials = MaterialSet::read(&face[&format!("{}boots.mtl", face_folder(5))]).unwrap();
+    assert_metal_naming(
+        &materials.materials,
+        "model/character/uniform/common/714/env.dds",
+    );
+    let common = common_output(&entries);
+    let environment = wezlib::decompress(common["env.dds"]).unwrap();
+    assert!(environment == small_dds(), "env.dds is the Common one");
 }
 
 #[test]

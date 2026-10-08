@@ -126,6 +126,50 @@ fn a_face_model_weighted_to_the_hand_bones_gives_its_face_two_glove_entries() {
 }
 
 #[test]
+fn a_linked_face_folder_s_hand_split_model_is_named_by_its_export_path() {
+    let sandbox = Sandbox::new("prefox_hand_split_shared");
+    let export = "co Midcup Hands";
+    let round = format!("exports/{export}/Faces/Round");
+    sandbox.write(
+        &format!("{round}/body.model"),
+        &hand_split_fixture("body.model"),
+    );
+    sandbox.write(
+        &format!("{round}/body.mtl"),
+        &hand_split_fixture("body.mtl"),
+    );
+    sandbox.write(&format!("exports/{export}/Players/05 - A/Round.face"), b"");
+
+    let entries = compile_pes17(
+        &sandbox,
+        export,
+        &[
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
+            "Info link_combined [Keep] at Players/05 - A (link=Round.face)",
+            "Info model_hand_split [Keep] at Players/05 - A (model=Faces/Round/body.model, gloves=glove_l, glove_r)",
+            "Info xml_face_neck_added [Keep] at Players/05 - A ()",
+        ],
+    );
+
+    // Copied in under his face as his own would be.
+    let face = nested_entries(&entries[&face_cpk(5)]);
+    let folder = face_folder(5);
+    let entry = |xml_type: &str, path: &str, material: &str| {
+        (xml_type.to_owned(), path.to_owned(), material.to_owned())
+    };
+    assert_eq!(
+        ordered_entries(&face[&format!("{folder}face.xml")]),
+        [
+            entry("parts", "./oral_body_*.model", "./body.mtl"),
+            entry("gloveL", "./oral_body_glove_l_*.model", "./body.mtl"),
+            entry("gloveR", "./oral_body_glove_r_*.model", "./body.mtl"),
+            entry("face_neck", "./oral_dummy_*.model", "./dummy.mtl"),
+        ]
+    );
+}
+
+#[test]
 fn a_hand_weighted_per_kit_set_lists_its_hands_once_as_its_reference() {
     let sandbox = Sandbox::new("prefox_hand_split_kit_variants");
     let export = "co Midcup Hands";

@@ -125,6 +125,7 @@ pub(super) fn package(
                     name,
                 } if owner == package || hand_split => {
                     let mut part = part(name, PartTextures::Folder);
+                    let model = source_name(&file.path, &folder.path);
                     if file.kind == FileKind::Model(ModelFormat::PesModel) {
                         let mtl = mtl_for(
                             &file.path,
@@ -143,7 +144,6 @@ pub(super) fn package(
                         // The gloves task converts a hand-split face part again, for its
                         // hands: what the conversion reports is the face's to tell.
                         let mut reported = Vec::new();
-                        let model = source_name(&file.path, &folder.path);
                         let converted =
                             model_for_fox(&model, &part.bytes, mtl, ctx, &mut reported)?;
                         part.bytes = converted.model;
@@ -152,21 +152,24 @@ pub(super) fn package(
                             reported.push((
                                 Code::SklNoSlot,
                                 Disposition::Keep,
-                                vec![("model", file.path.name().to_owned())],
+                                vec![("model", model.clone())],
                             ));
                         }
                         if owner == package {
                             findings.extend(reported);
                         }
                     }
-                    source_parts.extend(parts_of(part, hand_split, package, ctx, findings)?);
+                    let parts = parts_of(part, &model, hand_split, package, ctx, findings)?;
+                    source_parts.extend(parts);
                 }
                 PlayerFile::CommonModel {
                     package: owner,
                     name,
                 } if owner == package || hand_split => {
                     let part = part(name, PartTextures::Common);
-                    source_parts.extend(parts_of(part, hand_split, package, ctx, findings)?);
+                    let model = source_name(&file.path, &folder.path);
+                    let parts = parts_of(part, &model, hand_split, package, ctx, findings)?;
+                    source_parts.extend(parts);
                 }
                 PlayerFile::Skeleton { package: owner, .. } if owner == package => {
                     skeletons.insert(
@@ -298,7 +301,7 @@ pub(super) fn package(
                 };
                 let context = || {
                     vec![
-                        ("model", part.path.name().to_owned()),
+                        ("model", source_name(&part.path, &folder.path)),
                         ("texture", format!("{}{}", path.directory, path.file_name)),
                     ]
                 };
@@ -398,17 +401,19 @@ fn skeleton_conflict() -> TaskFailure {
     }
 }
 
-/// The parts `part`, a model of the folder's, gives `package`: the part itself, or, when it
-/// is a hand-split face part (`hand_split`), what the hand auto-split leaves the package
+/// The parts `part`, a model of the folder's that its task's findings name `model`
+/// (`conversion::source_name`), gives `package`: the part itself, or, when it is a hand-split
+/// face part (`hand_split`), what the hand auto-split leaves the package
 /// (`model_conversion/hand_split.md`). The face keeps the body, under the part's name and
 /// path, so it pairs the part's skeleton, and is told so by `model_hand_split` naming the
-/// part's file and the gloves made; a body left with no face (a model that was all hand) is
+/// model and the gloves made; a body left with no face (a model that was all hand) is
 /// no part at all. The gloves get a `glove_l` and a `glove_r` part, for each hand the model
 /// has, with the part's path and textures and no skeleton, merged with any authored glove of
 /// that name like any other part. A model the split cannot read or write fails the task with
 /// `model_conversion_failed`.
 fn parts_of(
     part: Part,
+    model: &str,
     hand_split: bool,
     package: ModelPackage,
     ctx: &CompileContext,
@@ -423,10 +428,7 @@ fn parts_of(
         let _split_charge = ctx.budget.charge(part.bytes.len());
         split_fmdl(&part.bytes).map_err(|error| TaskFailure {
             code: Code::ModelConversionFailed,
-            context: vec![
-                ("model", part.path.name().to_owned()),
-                ("error", format!("{error:#}")),
-            ],
+            context: vec![("model", model.to_owned()), ("error", format!("{error:#}"))],
         })?
     };
     let gloves = [("glove_l", split.glove_l), ("glove_r", split.glove_r)];
@@ -440,10 +442,7 @@ fn parts_of(
             findings.push((
                 Code::ModelHandSplit,
                 Disposition::Keep,
-                vec![
-                    ("model", part.path.name().to_owned()),
-                    ("gloves", made.join(", ")),
-                ],
+                vec![("model", model.to_owned()), ("gloves", made.join(", "))],
             ));
             Ok(split
                 .body

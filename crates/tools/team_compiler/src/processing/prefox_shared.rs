@@ -120,12 +120,11 @@ struct BootsPart<'a> {
 /// material set the place of the `.mtl` that model uses: merged into `boots.mtl`, or packed
 /// as `<stem>.mtl` lowercased beside `<stem>.model` and named by its `glove.xml` entry. The
 /// set's texture paths are pointed as the face points a converted one's: each metal material
-/// first given the environment map in the texture home when the folder has one planned
-/// (`ModelFolder::environment_map`), then the folder's textures and links as a `.mtl`'s, then
-/// the reserved kit stems at the team's Common texture directory. A conversion that fails
-/// fails the task. Two files packing under one name otherwise fail the task, a member's `.mtl`
-/// of a converted glove's `<stem>.mtl` name among them. A merge is charged to `ctx`'s memory
-/// budget.
+/// first given the environment map in the texture home (`add_environment_map`, as the face
+/// does), then the folder's textures and links as a `.mtl`'s, then the reserved kit stems at
+/// the team's Common texture directory. A conversion that fails fails the task. Two files
+/// packing under one name otherwise fail the task, a member's `.mtl` of a converted glove's
+/// `<stem>.mtl` name among them. A merge is charged to `ctx`'s memory budget.
 pub(super) fn package(
     folder: &ModelFolder,
     package: ModelPackage,
@@ -269,9 +268,12 @@ pub(super) fn package(
             findings,
             PreFoxMaterials::Converted,
         )?;
-        if folder.environment_map {
-            add_environment_map(&mut conversion.materials, &home);
-        }
+        // The flag is not consulted, as the face does not: only a `Basic_CNSR` material gets
+        // the sampler, which the converter writes for the `metal` family the deep pass flags
+        // with the converter's own rule, so the shader and the flag agree and the sampler
+        // names the texture the textures task emits (or the folder's own `env`, or the Common
+        // one its link names, `point_materials` respelling it below).
+        add_environment_map(&mut conversion.materials, &home);
         point_materials(&mut conversion.materials, places_for(model.file));
         point_reserved_kit_stems(&mut conversion.materials, &common_directory);
         Ok(conversion)

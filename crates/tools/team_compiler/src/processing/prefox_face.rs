@@ -37,11 +37,11 @@ use crate::kit_variants::has_variant_among;
 use crate::messages::Code;
 use crate::mtl_search::mtl_for;
 use crate::paths;
-use crate::plan::ModelFolder;
 use crate::plan::subset::{
     ModelPackage, PlayerFile, common_file, file_stem, in_folder_or_face, is_direct_common_file,
     path_stem,
 };
+use crate::plan::{ENVIRONMENT_MAP_STEM, ModelFolder};
 use crate::user_face_xml::{
     Child, FaceFiles, ModelElement, Reference, reference, resolve, variant_of,
 };
@@ -423,6 +423,7 @@ pub(super) fn face(
         models.into_iter().zip(&kits).zip(&written)
     {
         let material = format!("{material_directory}{material_name}");
+        let model_name = source_name(&model.file.path, &folder.path);
         // The game looks for a set's other variant's `.mtl` where the set's entry, respelled
         // for its kit number, names it.
         if let KitPlace::Unlisted { kit, listed } = place {
@@ -436,7 +437,7 @@ pub(super) fn face(
                     Code::KitVariantMtlDiffers,
                     Disposition::Keep,
                     vec![
-                        ("model", model.file.path.name().to_owned()),
+                        ("model", model_name.clone()),
                         ("mtl", material.clone()),
                         ("expected", expected),
                     ],
@@ -503,7 +504,7 @@ pub(super) fn face(
             Some(material) => files.get(&material.path).ok_or_else(|| TaskFailure {
                 code: Code::ModelConversionFailed,
                 context: vec![
-                    ("model", model.file.path.name().to_owned()),
+                    ("model", model_name.clone()),
                     (
                         "error",
                         format!(
@@ -517,7 +518,7 @@ pub(super) fn face(
                 .get(&converted_material_name(&model.stem))
                 .expect("a converted model's material set is packed above"),
         };
-        let split = split_face_model(model.file.path.name(), &bytes, mtl, ctx, findings)?;
+        let split = split_face_model(&model_name, &bytes, mtl, ctx, findings)?;
         let gloves = [
             ("glove_l", "gloveL", split.glove_l),
             ("glove_r", "gloveR", split.glove_r),
@@ -956,11 +957,6 @@ pub(super) fn point_reserved_kit_stems(set: &mut MaterialSet, common_directory: 
         }
     });
 }
-
-/// The stem of the environment map a converted metal material names in its model folder's
-/// texture home: the folder's own `env` texture, else the template the textures task emits
-/// there (`ModelFolder::environment_map`).
-pub(super) const ENVIRONMENT_MAP_STEM: &str = "env";
 
 /// Gives every `Basic_CNSR` material of `set`, a converted model's material set, that has no
 /// `EnvironmentMap` sampler one naming `env.dds` in `home`, its model folder's texture home (a

@@ -22,12 +22,11 @@ use pes_version::Engine;
 use pipeline::{MemoryBudget, Permit};
 use studio_core::Disposition;
 
-use super::prefox_face::ENVIRONMENT_MAP_STEM;
 use super::{CompileContext, Entry, Finding, TaskFailure, TaskFiles, take};
 use crate::messages::Code;
 use crate::paths;
-use crate::plan::ModelFolder;
 use crate::plan::subset::{ModelPackage, PlayerFile, file_stem, texture_format};
+use crate::plan::{ENVIRONMENT_MAP_STEM, ModelFolder};
 
 /// Why a texture could not be converted.
 #[derive(Debug)]
@@ -86,9 +85,9 @@ struct TextureCopy {
 /// in `findings` per stem and lower package, and the lower package is dropped: its textures
 /// task's entries leave out every texture only its sources hold, and the dropped packages are
 /// returned for the writer to skip their tasks. A folder taking the template environment map
-/// (`ModelFolder::environment_map`) whose sources hold no `env` texture gets the template as
-/// `env.dds`, emitted as it is. The stems kept then have their kit variant sets completed
-/// against `kits` (`complete_kit_variants`).
+/// (`ModelFolder::takes_template_environment_map`) gets it as `env.dds`, emitted as it is. The
+/// stems kept then have their kit variant sets completed against `kits`
+/// (`complete_kit_variants`).
 pub(super) fn folder_textures(
     folder: &ModelFolder,
     kits: &[u8],
@@ -120,15 +119,12 @@ pub(super) fn folder_textures(
     for stem_copies in copies.values() {
         resolve_stem(stem_copies, &mut dropped, findings)?;
     }
-    // A source's own `env` texture is the environment map its converted metal materials name
-    // (`prefox_face::add_environment_map`); without one, the template is.
-    let environment_map = (folder.environment_map && !copies.contains_key(ENVIRONMENT_MAP_STEM))
-        .then(|| {
-            (
-                ENVIRONMENT_MAP_STEM.to_owned(),
-                ctx.templates.environment_map().to_vec(),
-            )
-        });
+    let environment_map = folder.takes_template_environment_map().then(|| {
+        (
+            ENVIRONMENT_MAP_STEM.to_owned(),
+            ctx.templates.environment_map().to_vec(),
+        )
+    });
     let mut textures: Vec<(String, Vec<u8>)> = copies
         .into_values()
         .filter_map(|stem_copies| {

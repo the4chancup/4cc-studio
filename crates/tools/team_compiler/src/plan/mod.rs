@@ -123,6 +123,12 @@ pub(crate) struct TaskGroup {
     pub(crate) charge: usize,
 }
 
+/// The stem of the environment map a converted metal material names in its model folder's
+/// texture home: the folder's own `env` texture, else the template the textures task emits
+/// there (`ModelFolder::takes_template_environment_map`); a texture link of the stem makes it
+/// the Common one.
+pub(crate) const ENVIRONMENT_MAP_STEM: &str = "env";
+
 /// The folder a `Models` or `Textures` task compiles: a mapped player folder, or a shared
 /// boots or gloves folder a mapped player links plainly. Its files take the roles of a player
 /// folder's (`subset::player_file`); where its textures go differs.
@@ -174,10 +180,12 @@ pub(crate) struct ModelFolder {
     /// (`converts_metal`): a player's face, an `ingame_face` player's boots or gloves, or a
     /// shared boots or gloves output. Its textures task emits the template environment map as
     /// `env.dds` in its texture home as that home spells it (a player's common folder; a shared
-    /// output's own folder, which its `.mtl` files name as `./`), unless one of its sources
-    /// holds an `env` texture, and is planned for it even when the folder holds no texture; the
+    /// output's own folder, which its `.mtl` files name as `./`), and is planned for it even
+    /// when the folder holds no texture, unless one of its sources holds an `env` texture or a
+    /// texture link of that stem (`env.dds.common`; `takes_template_environment_map`); the
     /// converting package points each converted `Basic_CNSR` material with no environment
-    /// sampler at it (`model_format.md`, the `environment` role). Never set on PES 18-21.
+    /// sampler at it (`model_format.md`, the `environment` role), at a link's in the team's
+    /// Common output. Never set on PES 18-21.
     pub(crate) environment_map: bool,
     /// Where its textures go, which its models' texture paths are rewritten to name.
     pub(crate) textures: TextureHome,
@@ -366,6 +374,19 @@ impl ModelFolder {
         own.into_iter()
             .find(|(_, role)| *role == PlayerFile::FaceXml)
             .map(|(file, _)| file)
+    }
+
+    /// Whether the folder's textures task emits the template environment map: the folder is
+    /// flagged (`environment_map`) and none of its sources holds an `env` texture or a texture
+    /// link of that stem (`env.dds.common`), the one the converted metal materials then name.
+    pub(crate) fn takes_template_environment_map(&self) -> bool {
+        self.environment_map
+            && !self.roles().into_iter().any(|(_, _, files)| {
+                files.into_iter().any(|(_, role)| {
+                    matches!(&role, PlayerFile::Texture(stem, _) | PlayerFile::CommonTexture(stem)
+                        if vtree::fold_name(stem) == ENVIRONMENT_MAP_STEM)
+                })
+            })
     }
 
     /// The Common model the folder's `.common` link at `link` resolved to (`common_models`).
@@ -857,7 +878,7 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
             .keys()
             .filter_map(|slot| kit_number(*slot))
             .collect();
-        kit_variant_model_messages(export_id, &export, &mut messages);
+        kit_variant_model_messages(export_id, &export, version.engine(), &mut messages);
         // The textures directly in `Common/`: one task of the export's, and the stems a Common
         // part's paths name that task's output for, which a model of any folder may name.
         let common_textures: Vec<FileDescriptor> = export
@@ -1230,8 +1251,9 @@ fn folder_tasks(
         ));
     }
     // The template environment map is one of the folder's textures, so a folder holding no
-    // texture of its own still gets a textures task for it.
-    if !folder.environment_map
+    // texture of its own still gets a textures task for it. One emitting nothing is not
+    // planned: the writer takes an empty textures batch for a failed one and drops the folder.
+    if !folder.takes_template_environment_map()
         && folder_files(&folder, |_, _, _, role| {
             matches!(role, PlayerFile::Texture(..))
         })
@@ -1307,8 +1329,10 @@ fn drop_other_engine_map(
 /// his own, named below his folder, or, when he holds none, those of the shared folders he
 /// links, named by their export paths; each in the export's folder order. The player folder's
 /// roster slots are removed, as validation removes a dropped folder's, so it plans no task and
-/// its slots compile as empty ones do, and the shared folder is removed from the export. It
-/// goes before the subset gate, which therefore never walks either.
+/// its slots compile as empty ones do, and the shared folder is removed from the export, as is
+/// every shared folder no remaining mapped player links, with no finding of its own (the
+/// drop's names the cause, and such a folder would get no id and no task). It goes before the
+/// subset gate, which therefore never walks any of them.
 fn drop_gltf_folders(
     export_id: ExportId,
     export: &mut ResolvedAestheticsExport,
@@ -1395,18 +1419,36 @@ fn drop_gltf_folders(
         ValidatedRoster::Team(slots) => slots.retain(|_, index| !dropped.contains(index)),
         ValidatedRoster::Referees(slots) => slots.retain(|_, index| !dropped.contains(index)),
     }
+    // A shared folder only dropped players linked would get no id and no task; validation
+    // drops such orphans before planning, so outside a drop this removes nothing.
+    let linked: Vec<ScopePath> = mapped_players(export)
+        .iter()
+        .flat_map(|folder| &folder.links)
+        .filter_map(|link| linked_folder(export, link))
+        .map(|shared| shared.path.clone())
+        .collect();
+    export.faces.retain(|folder| linked.contains(&folder.path));
+    export.boots.retain(|folder| linked.contains(&folder.path));
+    export.gloves.retain(|folder| linked.contains(&folder.path));
 }
 
 /// `kit_variant_model_fox` for each set of per-kit model files (`pants_kit1.fmdl`,
 /// `pants_kit2.fmdl`) in a folder of `export` that is compiled, on that folder: a mapped player
-/// folder, or a shared folder (validation drops one no mapped player links). Each folder is
-/// walked once, so a shared folder several players combine reports its set once. On a pre-Fox
-/// target, where per-kit models would work, the subset gate has refused every FMDL.
+/// folder, or a shared folder a mapped player links (validation drops one no mapped player
+/// links, and `drop_gltf_folders` one only the players it dropped linked). Each folder is
+/// walked once, so a shared folder several players combine reports its set once. Nothing on a
+/// pre-Fox target, where the whole set is packed and listed once as `pants_kitN` for the game
+/// to respell (`pipeline.md` "Kit-dependent assets"), converted FMDLs included: the warning
+/// is about Fox having no such indirection.
 fn kit_variant_model_messages(
     export_id: ExportId,
     export: &ValidatedAestheticsExport,
+    engine: Engine,
     messages: &mut Vec<Message>,
 ) {
+    if engine == Engine::PreFox {
+        return;
+    }
     let players = mapped_players(export)
         .into_iter()
         .map(|folder| (&folder.path, &folder.files));
@@ -1911,6 +1953,30 @@ mod tests {
             summary(&report),
             ["0 714 Face Players/05 - A [71405] charge 16"]
         );
+
+        // On a pre-Fox target the face converts and packs the whole set, listed once for the
+        // game to respell: nothing to warn about, both variants read.
+        let export = resolved(
+            "co Midcup Variants",
+            &[
+                ("Players/05 - A/pants_kit2.fmdl", 16),
+                ("Players/05 - A/pants_kit1.fmdl", 8),
+            ],
+            &[],
+            None,
+        );
+        let report = plan_run(
+            vec![to_plan(ExportId(0), export, two_team_colors(), None)],
+            PesVersion::Pes17,
+        );
+        assert!(report.messages.is_empty(), "{:?}", report.messages);
+        let files: Vec<&str> = report.manifest.tasks[0]
+            .kind
+            .files()
+            .iter()
+            .map(|file| file.path.name())
+            .collect();
+        assert_eq!(files, ["pants_kit1.fmdl", "pants_kit2.fmdl"]);
     }
 
     #[test]
@@ -2330,6 +2396,72 @@ mod tests {
                 "{version}"
             );
         }
+    }
+
+    #[test]
+    fn a_shared_folder_the_gltf_drop_orphans_is_removed_and_reports_nothing() {
+        let files = [
+            ("Players/05 - A/boots.glb", 4),
+            ("Players/05 - A/Round.face", 0),
+            ("Players/07 - C/face_high.fmdl", 8),
+            ("Faces/Round/pants_kit1.fmdl", 8),
+            ("Faces/Round/pants_kit2.fmdl", 16),
+        ];
+        let export = resolved("co Midcup Orphan", &files, &[], None);
+
+        let mut kept = export.clone();
+        drop_gltf_folders(ExportId(0), &mut kept, PesVersion::Pes21, &mut Vec::new());
+        let report = plan_run(
+            vec![to_plan(ExportId(0), export, two_team_colors(), None)],
+            PesVersion::Pes21,
+        );
+
+        assert_eq!(
+            message_summary(&report),
+            [(
+                "model_gltf_unsupported",
+                "Players/05 - A",
+                Disposition::DropFolder
+            )]
+        );
+        assert!(kept.export.faces.is_empty(), "{:?}", kept.export.faces);
+        assert_eq!(
+            summary(&report),
+            ["0 714 Face Players/07 - C [71407] charge 8"]
+        );
+
+        // Slot 07 linking it too keeps the folder, whose set is reported once.
+        let linked = [&files[..], &[("Players/07 - C/Round.face", 0)]].concat();
+        let export = resolved("co Midcup Orphan", &linked, &[], None);
+        let report = plan_run(
+            vec![to_plan(ExportId(0), export, two_team_colors(), None)],
+            PesVersion::Pes21,
+        );
+
+        assert_eq!(
+            message_summary(&report),
+            [
+                (
+                    "model_gltf_unsupported",
+                    "Players/05 - A",
+                    Disposition::DropFolder
+                ),
+                ("kit_variant_model_fox", "Faces/Round", Disposition::Keep),
+                ("link_combined", "Players/07 - C", Disposition::Keep),
+            ]
+        );
+        let variants: Vec<&Message> = report
+            .messages
+            .iter()
+            .filter(|message| message.code.code == "kit_variant_model_fox")
+            .collect();
+        assert_eq!(
+            variants[0].context,
+            [
+                ("model".to_owned(), "pants_kitN.fmdl".to_owned()),
+                ("used".to_owned(), "pants_kit1.fmdl".to_owned())
+            ]
+        );
     }
 
     #[test]
@@ -4244,5 +4376,40 @@ mod tests {
             "{:?}",
             environment_maps(&report)
         );
+    }
+
+    #[test]
+    fn an_env_texture_link_plans_no_textures_task_for_the_template() {
+        let files = [
+            ("Players/05 - A/boots.fmdl", 3),
+            ("Players/05 - A/env.dds.common", 0),
+            ("Common/env.dds", 4),
+        ];
+        let plan = |files: &[(&str, u64)]| {
+            let export = resolved("co Midcup Metal", files, &[], None);
+            let mut planned = to_plan(ExportId(0), export, two_team_colors(), None);
+            planned.metal_models = [scope_path("Players/05 - A/boots.fmdl")].into();
+            plan_run(vec![planned], PesVersion::Pes17)
+        };
+
+        // The link's Common texture is the map: a textures task would emit nothing.
+        let report = plan(&files);
+        assert_eq!(
+            environment_maps(&report),
+            [("Face".to_owned(), "Players/05 - A", true)]
+        );
+        assert_eq!(report.manifest.tasks[0].group, None);
+
+        // A texture of his own still plans one, for that texture alone.
+        let report = plan(&[&files[..], &[("Players/05 - A/hair.dds", 4)]].concat());
+        let tasks = &report.manifest.tasks;
+        assert_eq!(
+            environment_maps(&report),
+            [
+                ("Face".to_owned(), "Players/05 - A", true),
+                ("textures".to_owned(), "Players/05 - A", true),
+            ]
+        );
+        assert_eq!(task_files(&tasks[1]), ["Players/05 - A/hair.dds"]);
     }
 }
