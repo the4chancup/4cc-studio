@@ -1801,13 +1801,20 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   never planning a textures task with nothing to emit; a `failed` flag on `TaskBatch`, or
   an assertion, would make it explicit (found at f3a: a planned empty task lost a whole
   face CPK with exit 0 and no finding). Also for converge (maintainer, 2026-10-08):
-  `team_compiler` has outgrown mutation runs (each mutant rebuilds the crate with its test
-  binaries, which link `studio_core` and so egui, the build that hit the VPS cap and made
-  the crate local-only; a whole-crate run pays that per mutant), so the self-contained
-  modules move to lib crates even with the compiler as their only consumer, their tests
-  with them (a lib's mutants run the lib's tests alone): `face_diff`, `user_face_xml`,
-  `kit_variants`, `mtl_search` first; the crate-boundary move is a plan edit and a decision
-  entry at that point. From f3b, for 4.20 or converge: a member's own
+  `team_compiler` has outgrown mutation runs: 2,171 mutants (measured 2026-10-08 with
+  `cargo mutants --list`), about 10 s each on the PC, so a whole-crate run is about six
+  hours, twice per phase close, and local-only since 4.14d because the crate's test
+  binaries link egui (the direct `egui` dependency and `studio_core`) and that build hit
+  the VPS cap. Two measures, the first the larger: (1) investigate taking egui out of the
+  test binaries' link, by moving the compiler's view (`view/`, `gui_run.rs`, about 450
+  lines) into its own crate or behind a feature the mutation run turns off, and checking
+  how `studio_core`'s egui parts are gated; if the link goes, the crate is VPS-eligible
+  again and every whole-crate run splits in half; (2) move the self-contained modules to
+  lib crates even with the compiler as their only consumer, their tests with them (a lib's
+  mutants run the lib's tests alone): `face_diff` (32 mutants), `user_face_xml` (93),
+  `kit_variants` (11), `mtl_search` (18), 7% of the crate, so for design health rather than
+  run time; `user_face_xml` after 4.20 changes it. Each is a crate-boundary move, a plan
+  edit and a decision entry at that point. From f3b, for 4.20 or converge: a member's own
   `face.xml` naming a converted Common model (`common/XXX/legs.mtl`, `oral_legs_*.model`
   from `legs.fmdl`) gets `xml_model_not_found`, the deep pass resolving Common references
   among source files by kind; a Common FMDL a `.model` of its stem beats is still
