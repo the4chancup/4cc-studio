@@ -80,7 +80,12 @@ rollback is needed:
   the referees' marker;
 - the refs CPK carries the marker model as that collar, at the collar's `nocloth` path ("Game
   paths reference" in `pipeline.md`), in the target's format, bundled with the compiler like the
-  other referee templates;
+  other referee templates. On Fox that is `collar_077.fmdl`, the file a Fox referee loads. On
+  pre-Fox the referee draws `referee_collar_<ID>.model` and needs `collar_<ID>.model` to exist
+  (a missing one drops him from the pre-match scenes; in-game on PES 17, 2026-10-08), so the
+  refs CPK carries the marker as `referee_collar_077.model` with its `.mtl`, beside an empty
+  `collar_077.model` (the cup's FPC collar 105 ships the same pair). The 77 reservation holds
+  on both engines: a team's `collar_077` would be the one the referee finds;
 - the model's texture path names the marker texture in the referees' Common output, which is
   `ref_marker.dds` converted like any Common texture (the bundled Fox model's base texture,
   `common/000/sourceimages/cup_logo.dds`, is pointed at `common/999/sourceimages/ref_marker.dds`;

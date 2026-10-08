@@ -4942,3 +4942,15 @@ is listed by reference). Reading one only for a split would be an exception to t
 case no export on the maintainer's machine has; a refusal names the model and the fix (a local
 `.mtl`), and the exception can be built when an export needs it (sidekick's finding, 4.14e3).
 Plan: `model_conversion/hand_split.md` "Pipeline integration".
+
+## 2026-10-08 — team_compiler — Pre-Fox referee marker is `referee_collar_077.model` beside an empty `collar_077.model`
+Decision: on PES 15-17 the refs CPK carries the marker model as `referee_collar_077.model` with
+its `.mtl`, and an empty `collar_077.model` beside it; the 77 reservation against teams stays on
+both engines. TC-REF-04 names both files.
+Why: in-game on PES 17 (2026-10-08, the lead's harness, worklog Issues "referee collars") the
+referee draws `referee_collar_<ID>` and does not appear at all when `collar_<ID>` is missing,
+so one file alone either shows nothing or breaks the referee; the cup's FPC collar 105 ships the
+same pair. A team's `collar_077` would be the file the referee finds, so the reservation guards
+a real clash on pre-Fox too.
+Plan: `team_compiler/blue_port.md` "Referee export processing"; `team_compiler/README.md`
+TC-REF-04.

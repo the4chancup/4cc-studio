@@ -1400,7 +1400,8 @@ TC-REF-03  GIVEN a refs export with Faces/Base/ linked by Ref A and Ref B
                 own
 TC-REF-04  GIVEN a refs export with ref_marker.dds
            WHEN it is compiled for PES 17
-           THEN the referee CPK holds the marker model as collar_077.model with its .mtl, the
+           THEN the referee CPK holds the marker model as referee_collar_077.model with its
+                .mtl beside an empty collar_077.model, the
                 marker texture in the referees' Common output, and loose referee kit configs
                 under common/character0/model/character/uniform/team/referee/ whose collar is 77
 TC-REF-05  GIVEN a refs export whose players.txt maps Ref A to slots 01 and 20, compiled with

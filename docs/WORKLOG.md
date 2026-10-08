@@ -1919,6 +1919,10 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
     deep pass does not check `ref_marker.dds` (only its conversion fails it); a
     `Common/ref_marker.dds` beside it gives both tasks one path; an `overrides/` file at
     `collar_077.fmdl` leaves the configs at 105.
+  - [ ] 4.27 pre-Fox half (after 4.19d): the marker as `referee_collar_077.model` with its
+    `.mtl` beside an empty `collar_077.model` (the pair the referee needs, in-game 2026-10-08:
+    decision entry; `blue_port.md` "Referee export processing"; TC-REF-04). The bundled
+    pre-Fox marker model is still to be made (`4.27-lead` made the Fox one).
   Moved out: TC-REF-07's `collar_id_conflict` half (landed with 4.9b1, which reserves 77
   beside 105); the pre-Fox marker (TC-REF-04) needs pre-Fox referees (4.19d).
   Settled 2026-10-07 (maintainer): the game needs the loose referee configs but reads their
@@ -2496,8 +2500,20 @@ pruned when their phase closes; they stay in git history.
 
   So pre-Fox (PES 17 at least) could carry appearance and boots in the CPK as Fox does. What
   is still needed: the boots reading above, and gloves on a stock exe.
-- open, needs the maintainer — referee collars, `referee_collar_<ID>` or `collar_<ID>`
-  (Fox answered below: `collar_<ID>`; pre-Fox open): the pre-Fox base
+  Test 4b (run 2026-10-08 by the lead through the in-game harness, `.tmp/ingame/game.py`;
+  files by `apptest build` with `APPTEST_CONTROL2`, installed by `.tmp/apptest/test4b.py`):
+  Test 4 plus a second control, no. 4 ITS A TRAP, his appearance id kept, his save boots set
+  to k0571 (grey sneakers) and his BootsList row k0563 (tan boots, everyone else's). In Edit
+  mode (Edit Pony > Appearance) he wore k0571 while nos. 1 to 3 wore k0563, DESU (save boots
+  0, row k0563) included: **a set save boots id wins; only a save boots id of 0 defers to
+  the row.** Gloves, on the 4cc exe and on the stock one (`.tmp/apptest/exe_swap17.py`; the
+  stock exe is the oldest `.old` by mtime, 2016-10-20): no. 1's hands were bare in Edit mode
+  and in the match walkout both times, with a GloveList row g0012 and his DB appearance row's
+  PlayerGloves bit at 0. Still inconclusive: the row did not apply, but the bit may be what
+  turns gloves off; the next run sets that bit on his row (the tool's `gloveflags` finds it).
+- answered — referee collars, `referee_collar_<ID>` or `collar_<ID>`
+  (Fox answered below: `collar_<ID>`; pre-Fox answered 2026-10-08 at the end: both, the drawn
+  one being `referee_collar_<ID>`): the pre-Fox base
   `uniform_config.xml` loads a referee's collar from `nocloth/referee_collar.model` (type
   `referee_shirt`), Red's pre-Fox referee template ships `referee_collar_026.model`, the cup's
   `4cc_04_fpc.cpk` ships `referee_collar_105.model` beside `collar_105.model`, and PES 21's
@@ -2535,9 +2551,29 @@ pruned when their phase closes; they stay in git history.
       head bones, with `uni_collar` as a material name, which the stock referee collar
       (`referee_collar_026.model`) does not use: its only material is `uni_shirts`.
 
-    To ask the maintainer: did the referee's usual collar (26) vanish? If so, the configs
-    were read and both models failed to draw. A rerun would rename every material to
-    `uni_shirts`, or use stock collar models that are known to draw.
+    Settled 2026-10-08 (the lead, in-game harness, `.tmp/apptest/test5b.py` and
+    `test5c.py`): **PES 17 referees draw `referee_collar_<ID>`, and need `collar_<ID>` to
+    exist.** Found first: the cup's `referee_collar_026.model` (`4cc_35_referees.cpk`, Red's
+    template file) has no faces, so the referee's usual look has no collar model at all, and
+    Test 5's "neither showed" compared with nothing visible; a loose file in Sider's livecpk
+    root changed nothing either way (runs A to E there were void for the same reason). Through
+    the test CPK (`4cc_90_test.cpk`, the DpFileList's last entry; the base game's
+    `referee_collar_026.model` from `dt35_win.cpk`, 3,204 faces, as the visible model):
+    - G, that model as `referee_collar_026`, configs untouched: a V collar drawn (the CPK is
+      read; the referee loads `referee_collar_026` by name).
+    - H, configs 77 and the same file: the referee absent from 48 walkout frames; A, configs
+      77 and the visible model as `referee_collar_077` alone: absent too.
+    - B, configs 77 and the visible model as `collar_077` alone: the referee present, no
+      collar.
+    - I, configs 77, the visible model as `referee_collar_077` and the FPC's empty collar as
+      `collar_077`: the referee present with the V collar.
+    So the loose referee configs in a CPK are read, the referee's drawn collar is
+    `referee_collar_<ID>`, and a missing `collar_<ID>` drops him from the cutscene. For 4.27's
+    pre-Fox marker: the marker model goes out as `referee_collar_077.model` with an empty
+    `collar_077.model` beside it (as the cup's `4cc_04_fpc.cpk` pairs `collar_105` with
+    `referee_collar_105`), and the 77 reservation against teams keeps its point, since a
+    team's `collar_077` would be the one the referee finds. "Absent" is an inference from the
+    referee not appearing in any frame of a walkout where runs B, G and I show him.
 - open, needs the maintainer — FoxDen per-kit models (maintainer, 2026-10-05): a tag-less
   `modelname` fills every kit number up to the team's kit count that has no
   `modelname_kit<N>`, once any variant exists. The local FoxDen (`02_kitswappers.lua`) swaps
@@ -3683,3 +3719,12 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
     typed `gloveL`/`gloveR` naming the same `.mtl`; a model named as boots or gloves, one a
     `.common` link brings in, and one under `ingame_face` are not split; a split model whose
     `.mtl` is a Common file is refused (decision entry).
+  - **In-game tests run by the lead** (maintainer's authorization of 2026-10-08: PES 2017
+    and 2021 on `E:` windowed, saves and game files backed up) through a Python harness,
+    `.tmp/ingame/game.py` (Sider then the game, not elevated; screenshots of the window's
+    client area with `mss`; DirectInput keys with `pydirectinput`; `burst.py` tiles frames),
+    every game-side change made and undone by a hashed install/revert script: Test 5b/5c
+    settled the pre-Fox referee collar names (Issues, referee collars) and Test 4b the
+    pre-Fox boots rule (Issues, pre-Fox player tables); gloves stay open there. Every file
+    checked back to its baseline by hash after the runs (save, SYSTEM, the exe, the test CPK
+    slot, the livecpk root).
