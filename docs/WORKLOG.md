@@ -18,7 +18,7 @@ and 4.25 are done; 4.26 is done; 4.19 (Fox referees) is done, 4.19d (pre-Fox) wa
 referee marker) is done, 4.27's rest (the pre-Fox marker) waits on 4.19d; 4.9 is done
 (collars on Fox; their pre-Fox and cross-format halves are in 4.16 and 4.17); 4.28
 (memory accounting), 4.32 (number atlases) and 4.18 (hand auto-split, Fox) are done, and
-4.y moved to Phase 8; 4.14's slices are all done (a to d, e1 to e5; its GPT reviews (a) TC-MOD-43 and (b) e3 stay queued); 4.15 done (a1, a2, b: the member's own `face.xml` read, checked and emitted; `mtl_texture_not_found` a Warning on pre-Fox, Fumos's evidence); 4.16 next, with its own checks until 4.31's pre-Fox parity
+4.y moved to Phase 8; 4.14's slices are all done (a to d, e1 to e5; its GPT reviews (a) TC-MOD-43 and (b) e3 stay queued); 4.15 done (a1, a2, b: the member's own `face.xml` read, checked and emitted; `mtl_texture_not_found` a Warning on pre-Fox, Fumos's evidence); 4.16 in progress (a done: PES 15-17 kits with the mask template and loose configs; b, c, d next), with its own checks until 4.31's pre-Fox parity
 reference exists (4.31 done: `tests/parity_prefox.rs`); 4.33, 4.34, 4.c-pass and
 4.c-fix1 are done; 4.30,
 4.5 to 4.8 and 4.10 to 4.13 are done (4.6c moved to Phase 8's cancellation). 2.5b (GPU BC7) is step 16.x (decision entries
@@ -1622,7 +1622,13 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   Open for the maintainer here, once pre-Fox kit numbers exist: whether a per-kit *model* set
   (4.14e4) is completed against them as a texture set is (the lowest variant copied under a
   missing number) or left as the member made it; what the game does with a `face.xml` entry
-  whose respelled model is missing is unknown (no pre-Fox exe reads `kitN` yet).
+  whose respelled model is missing is unknown (no pre-Fox exe reads `kitN` yet). From the
+  tracer's parity (4.16a): Red's kit config keeps the member's names for the four number
+  textures the export does not ship (`u0731g1_back`, `_chest`, `_leg`, `_name`), where the
+  compiler's encoder leaves an absent texture's name empty, on Fox as on pre-Fox. Whether PES
+  15-17 treat an empty name and a name with no file alike (the default numbers either way) is
+  an in-game question; the parity row compares the config outside those four fields until it
+  is answered.
   Plan: `pipeline.md` "4. Per-export non-model steps" (Kits: mask and srm); `settings.md`
   (`dds_compression`, "DDS compression cost"). IDs: TC-KIT-21..23, TC-KIT-28..29, TC-TEX-08,
   TC-BIN-04, TC-BIN-18. Crates:
@@ -1634,7 +1640,37 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `common/character0/model/character/uniform/nocloth/collar_012.model` (`paths::collar`
   and `subset::collar_file` taking the target's engine), the team's loose configs naming
   it; TC-CMN-08's compile half. Also, from 4.32: TC-KIT-26 whole (a row `kit_back`
-  compiled for PES 17 becomes a column in digit order), cited once both halves run
+  compiled for PES 17 becomes a column in digit order), cited once both halves run.
+  Slices: (a) pre-Fox kits and bins: the gate lifted for kits, kit textures at the pre-Fox
+  path, the mask emitted (the kit's own, inherited, or the bundled template as it is), the srm
+  on Fox emitted and the other engine's map dropped with `kit_texture_not_used`, both re-laid
+  by the kit's marker where the target takes them, loose configs with no `UniformParameter`
+  staged on pre-Fox, TC-KIT-26's PES 17 half (TC-KIT-19, 21, 22, 23, 26, 28, 29, TC-BIN-04;
+  then, lead: the pre-Fox tracer's `studio/` fixture regenerated with its `Kits/g1/`,
+  `make_studio.py` `WITH_KIT`, and the parity rows for the kit config and the two kit textures
+  turned Exact, comparing Red's kept absent number-texture names on the way); (b)
+  `dds_compression` (the setting, every emitted DDS wrapped on PES 15-17 where the task
+  finalizes its entries, already-wrapped sources passed through; the lead's level measurement
+  chose 6, `wezlib::compress`'s default, so the lib is untouched: DECISIONS 2026-10-08,
+  `settings.md` "DDS compression cost"; TC-TEX-08); (c) collars for pre-Fox
+  (`paths::collar` and `subset::collar_file` by engine, TC-CMN-08's compile half); (d) the
+  installed loose kit configs re-emitted with FPC values on pre-Fox (TC-BIN-18).
+  (a) done 2026-10-08 (`paths::kit_texture(engine, name)`; `subset::kit_texture_not_compiled`,
+  one function for both gate walks, so a stem outside `KIT_TEXTURE_STEMS`'s seven is named on
+  pre-Fox as on Fox instead of the kit clause being dropped (the sidekick's contradiction,
+  accepted); `plan::drop_other_engine_map` (`kit_srm` on pre-Fox, `kit_mask` on Fox);
+  `processing/kit.rs` loops the seven stems, `{main}_mask` / `{main}_srm`, `UV_MAPPED_STEMS`
+  re-laid by `relaid_texture` with `kit_layout_converted` once per kit when any own or
+  inherited UV-mapped texture is re-laid (a placeholder kit's own map included, the
+  placeholder and the template never: `pipeline.md` "Layout conversion"), mask and srm
+  converted in the `Color` role like `kit`, the template pushed byte for byte with no decode,
+  the uniparam entry `Option<Entry>` and `None` on pre-Fox; `Templates::kit_mask()`
+  (`RESOURCES` 13); help; `tests/cli/prefox_kits.rs`, `kit_layout.rs` TC-KIT-28 and TC-KIT-26's
+  PES 17 half with the band helper TC-KIT-18 now shares, stricter (each band must differ);
+  mutants: 38, 32 caught, 6 unviable (`Default::default()` on types without one), 0 missed
+  after the lead's test for the two survivors on the re-lay guard: a marked placeholder kit's
+  own mask re-laid, its number atlas and the placeholder not, TC-KIT-20 in
+  `prefox_kits.rs`). The lead's parity fixture task of (a) follows as its own commit.
 
 - [ ] 4.17 **Cross-format conversion and source selection**: target-native first, then glTF, then
   the opposite native format converted through `model_convert::convert` (FMDL → `.model` + `.mtl`
@@ -3899,3 +3935,12 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
     looked for in `Common/` and the installed CPKs listed before the run's. Deferred: a pre-Fox
     texture link satisfied by an installed CPK; the `XXX` segment of a supplied Common-form
     `.mtl` path left as written. Next: 4.16.
+  - **4.16a done** (TC-KIT-19, 21, 22, 23, 26, 28, 29, TC-BIN-04): PES 15-17 compile kits: the
+    gate names only a kit texture no engine builds (a stem outside the seven, shared with the
+    Fox walk), the textures go out as DDS under `common/character0/.../uniform/texture/`, the
+    mask the kit's own or the bundled template byte for byte, the srm dropped with
+    `kit_texture_not_used` (the mask on Fox), the main texture and the target's map re-laid by
+    the marker and reported once per kit, the loose config the kit's only one (no
+    `UniformParameter.bin`), the two color bins as on Fox and none of the Fox player bins.
+    Red's mask template is bundled with its provenance (`resources/kits/README.md`). Next: the
+    pre-Fox tracer's kit parity rows (lead), then 4.16b.

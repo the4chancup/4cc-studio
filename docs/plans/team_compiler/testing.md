@@ -116,7 +116,7 @@ test, and sideload modes; savefile success/failure; and cancellation. Key behavi
   compiling as without one); mask/srm (a kit with `kit_mask.dds` compiled for PES 21 emitting no
   `_mask` and no `_srm`, with `kit_texture_not_used`; the same kit for PES 17 emitting the mask
   as given; a kit with `kit_srm.dds` for PES 17 emitting the mask *template* and no srm; a kit
-  with both emitting exactly the target's one, silently); user `face.xml` (a hand-written xml
+  with both emitting exactly the target's one, the other named by `kit_texture_not_used`); user `face.xml` (a hand-written xml
   compiled for PES 17 emitted with the team ID substituted and its unknown `type` and extra
   attribute kept verbatim, each with its warning, and `level="1"` kept with `xml_level_lod` as
   info; the same folder with the xml removed

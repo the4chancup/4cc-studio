@@ -151,7 +151,7 @@ pub(crate) struct TaskBatch {
     /// Empty for every other batch.
     pub(crate) skipped: Vec<usize>,
     /// A kit's config as a `UniformParameter.bin` entry, applied only when the batch is
-    /// committed.
+    /// committed; `None` for a kit compiled for PES 15-17, which have no such bin.
     pub(crate) uniparam: Option<Entry>,
     /// A kit's `UniColor.bin` entry with its team ID, applied only when the batch is
     /// committed.
@@ -257,7 +257,12 @@ pub(crate) fn process_task(
             &mut files,
             &mut findings,
         )
-        .map(|(entries, config, colors)| (TaskOutput::Entries(entries), Some((config, colors)))),
+        .map(|(entries, uniform_parameter, colors)| {
+            (
+                TaskOutput::Entries(entries),
+                Some((uniform_parameter, colors)),
+            )
+        }),
         TaskKind::Logo { logo } => team_assets::logo(
             logo,
             task.team_id,
@@ -296,8 +301,8 @@ pub(crate) fn process_task(
     match result {
         Ok((output, kit_bins)) => {
             batch.entries = materialize(output, &task, &ctx.target);
-            if let Some((config, colors)) = kit_bins {
-                batch.uniparam = Some(config);
+            if let Some((uniform_parameter, colors)) = kit_bins {
+                batch.uniparam = uniform_parameter;
                 batch.uni_color = Some((task.team_id, colors));
             }
             batch.messages = findings
@@ -1490,6 +1495,89 @@ mod tests {
         let names = texture_names(792, KitSlot::G1, presence);
         let template = KitConfig::template().encode_with_names(PesVersion::Pes21, &names);
         assert_eq!(batch.uniparam.unwrap().1, template);
+    }
+
+    /// `configured_kit()` with its main texture `main` and, when given, the map
+    /// `(stem, bytes)` (`kit_mask`, `kit_srm`), processed for `version`.
+    fn kit_with_map(version: PesVersion, main: &[u8], map: Option<(&str, &[u8])>) -> TaskBatch {
+        let mut kit = configured_kit();
+        let mut files: TaskFiles = ["Kits/g1/config.toml", "Kits/g1/colors.txt"]
+            .into_iter()
+            .map(|path| {
+                let bytes = std::fs::read(tracer().join(path)).unwrap();
+                (ScopePath::new(path).unwrap(), bytes)
+            })
+            .collect();
+        files.insert(ScopePath::new("Kits/g1/kit.dds").unwrap(), main.to_vec());
+        if let Some((stem, bytes)) = map {
+            let path = format!("Kits/g1/{stem}.dds");
+            kit.textures.push(KitTexture {
+                stem: stem.to_owned(),
+                file: file(&path),
+                source: KitTextureSource::Own,
+            });
+            files.insert(ScopePath::new(&path).unwrap(), bytes.to_vec());
+        }
+        process(g1(kit), version, None, files)
+    }
+
+    #[test]
+    fn a_pre_fox_kit_emits_its_own_mask_converted_or_the_template_as_it_is_and_no_bin_entry() {
+        let tracer_kit = std::fs::read(tracer().join("Kits/g1/kit.dds")).unwrap();
+        let green = solid_bc1_dds(0x07e0);
+
+        let templated = kit_with_map(PesVersion::Pes17, &tracer_kit, None);
+        let own = kit_with_map(PesVersion::Pes17, &tracer_kit, Some(("kit_mask", &green)));
+        // The same source as a main texture, for the conversion the mask must go through.
+        let green_main = kit_with_map(PesVersion::Pes17, &green, None);
+
+        for batch in [&templated, &own] {
+            assert_eq!(
+                paths(batch),
+                [
+                    "common/character0/model/character/uniform/texture/u0792g1.dds",
+                    "common/character0/model/character/uniform/texture/u0792g1_mask.dds",
+                    "common/character0/model/character/uniform/team/792/792_DEF_GK1st_realUni.bin",
+                ]
+            );
+            assert_eq!(kit_findings(batch), []);
+            // PES 15-17 have no UniformParameter.bin: the loose config is the kit's only one.
+            assert!(batch.uniparam.is_none());
+        }
+        assert!(templated.entries[1].1 == Templates::embedded().kit_mask());
+        assert!(own.entries[1].1 == green_main.entries[0].1);
+        assert!(own.entries[1].1 != Templates::embedded().kit_mask());
+    }
+
+    #[test]
+    fn a_fox_kit_emits_its_own_srm_and_no_template_when_it_has_none() {
+        let tracer_kit = std::fs::read(tracer().join("Kits/g1/kit.dds")).unwrap();
+        let green = solid_bc1_dds(0x07e0);
+
+        let with_srm = kit_with_map(PesVersion::Pes21, &tracer_kit, Some(("kit_srm", &green)));
+        let without = kit_with_map(PesVersion::Pes21, &tracer_kit, None);
+        let green_main = kit_with_map(PesVersion::Pes21, &green, None);
+
+        assert_eq!(
+            paths(&with_srm),
+            [
+                "Asset/model/character/uniform/texture/#windx11/u0792g1.ftex",
+                "Asset/model/character/uniform/texture/#windx11/u0792g1_srm.ftex",
+                "common/character0/model/character/uniform/team/792/792_DEF_GK1st_realUni.bin",
+            ]
+        );
+        assert!(with_srm.entries[1].1 == green_main.entries[0].1);
+        assert_eq!(
+            paths(&without),
+            [
+                "Asset/model/character/uniform/texture/#windx11/u0792g1.ftex",
+                "common/character0/model/character/uniform/team/792/792_DEF_GK1st_realUni.bin",
+            ]
+        );
+        for batch in [&with_srm, &without] {
+            assert_eq!(kit_findings(batch), []);
+            assert!(batch.uniparam.is_some());
+        }
     }
 
     /// The tracer's `g1` kit folder with its `colors.txt` when `colors`, the icon marker

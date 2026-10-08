@@ -513,7 +513,10 @@ describes behavior, not a serial scheduling requirement:
   `fox` for 15–17 — see "Kit layout marker" in the [Aesthetics export plan](../aesthetics_export/README.md)),
   the kit's emitted textures that the uniform models map (the effective `kit`, and its `kit_mask` /
   `kit_srm` where the target takes one) are decoded, **re-laid out** and re-encoded before the
-  rename/convert step, reported once per kit (`kit_layout_converted`, I). Only the two **sock
+  rename/convert step, reported once per kit (`kit_layout_converted`, I). The kit's own or
+  inherited textures only: the placeholder and the mask template are flat and engine-neutral, so
+  a placeholder kit with a map of its own has the map re-laid by its marker and reported, the
+  placeholder never (TC-KIT-20). Only the two **sock
   islands** differ between the layouts: the shirt, sleeves, collar strip and shorts sit at the same
   texels in both. The re-layout is a fixed table of axis-aligned rectangle moves,
   `KIT_LAYOUT_REMAP`, two bands per sock island, in the units of a 2048-px texture and scaled to

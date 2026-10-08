@@ -78,9 +78,13 @@ the export's root that is not a readable image is the line `logo_file_invalid`, 
 commands, and the logo is left out even with `pass_through` on (a bad `logo_small` image
 leaves out all three sizes). A texture that
 cannot be read for any other reason is reported as
-`folder_pack_failed`, naming the file, and its folder is left out. A kit folder holding a
-`kit_mask` texture compiled for PES 2018 to 2021 gets the line `kit_texture_not_used`: these
-versions have no slot for it, so it is not built, and the rest of the kit is. The boots and
+`folder_pack_failed`, naming the file, and its folder is left out. For PES 2015 to 2017 a
+kit's `kit_mask` texture is built, a kit without one gets the compiler's built-in mask, and a
+`kit_srm` texture gets the line `kit_texture_not_used`: these versions do not read it, so it
+is not built, and the rest of the kit is. For PES 2018 to 2021 it is the other way round: the
+`kit_srm` is built, a kit without one gets none, and a `kit_mask` gets the line
+`kit_texture_not_used`. Kit configs go into the CPK as loose files, one per kit in the team's
+folder, and for PES 2015 to 2017 there is no `UniformParameter.bin`. The boots and
 gloves get the ID reserved for the player's roster
 slot, the same number for both. A face model whose vertices are weighted to the hand bones
 (`skh_`) has its hands cut off at the wrist into the player's gloves at compile time, which the
@@ -250,7 +254,7 @@ skips any other export with the error `content_not_yet_compiled`, naming the fir
 cannot build yet. For PES 2015 to 2017 it builds a player folder's own `.model` files with
 their `.mtl` files, textures and face diff, its `.common` links to a `.model`, a `.mtl` or a
 texture, the linked shared `Faces`, `Boots` and `Gloves` folders, a `Common` folder holding
-only `.model`, `.mtl` and texture files, and the portraits and the logo; kits, collars,
+only `.model`, `.mtl` and texture files, the kits, and the portraits and the logo; collars,
 `.fmdl` files and referee exports are named. For
 PES 2018 to 2021 it names a referee export's kit, logo, portrait or collar
 (a referee has no kit slot, team logo or player id, and no kit of his own to put a collar on),
@@ -382,8 +386,9 @@ to 2021, so a kit drawn for one shows its sock design shifted around the leg in 
 empty file named `pre-fox` or `fox` in a kit folder says which games the kit's main texture was
 drawn for: `pre-fox` for PES 2015 to 2017, `fox` for PES 2018 to 2021. With no such file the
 compiler takes the kit as drawn for the game it compiles for. When the file names the other
-games, `compile` moves the socks to the layout of the game it compiles for and says so with the
-note `kit_layout_converted`, naming both layouts. The shirt, sleeves and shorts are laid out the
+games, `compile` moves the socks to the layout of the game it compiles for, on the kit's
+`kit_mask` (PES 2015 to 2017) or `kit_srm` (PES 2018 to 2021) too, and says so with the note
+`kit_layout_converted`, naming both layouts. The shirt, sleeves and shorts are laid out the
 same in every version and are not touched, and neither are the number and name textures. A
 number texture (`kit_back`, `kit_chest`, `kit_leg`) made for the other games, its ten digits in
 a column for PES 2015 to 2017 or in a row for PES 2018 to 2021, is re-arranged by `compile` for
@@ -466,7 +471,8 @@ spelled exactly as here, are `TeamColor.bin` and `UniColor.bin` (the team color 
 files a compile starts from when no installed CPK has them), `UniformParameter18.bin` and
 `UniformParameter19.bin` (the kit config file a compile starts from when no installed CPK has
 it, for PES 2018 and for PES 2019 to 2021), `placeholder_kit.dds` (the checkerboard texture of
-a placeholder kit), `body.skl` (the skeleton a boots or hair model gets when its folder has
+a placeholder kit), `kit_mask.dds` (the mask a kit compiled for PES 2015 to 2017 gets when it
+has none), `body.skl` (the skeleton a boots or hair model gets when its folder has
 none), `face_diff.bin` and `fcl_hair_sim.fclo` (the face file and the hair simulation file a
 face gets when its folder has none), `DpFileList.bin` (the cup's official list, which a
 compile compares the game's with and `upgrade-dpfl` installs), and `placeholder.cpk` (the empty

@@ -5048,3 +5048,17 @@ known, so the Common models' names are the only used set the pass can state. Lif
 rule needs the face task to point a targetless link by its own stem, a change of the task, not
 of this check.
 Plan: `team_compiler/messages.md`, the paragraph after "Texture existence is checked **deep**".
+
+## 2026-10-08 — team_compiler — `dds_compression` deflates at level 6 with `flate2`'s default backend
+Decision: on PES 15-17 every emitted DDS is WESYS-wrapped at zlib level 6, through `flate2`'s
+default `miniz_oxide` backend; the `zlib-rs` backend the plan suggested is not adopted.
+Why: the plan asked for a measurement of levels 1-3 against 6 before choosing. On 36 real DDS
+files (40.8 MB: a PES 17 kit pack, a team's 2048² kit textures, a 5.6 MB Common body, five
+1.4 MB model textures) level 1 gives 8.6 % of the raw bytes in 47 ms, level 3 6.7 % in 161 ms,
+level 6 6.4 % in 302 ms, level 9 6.2 % in 713 ms (`.tmp/bench_wezlib/results.md`). The whole
+set takes a third of a second at level 6, so the lower levels save a tenth of a second per
+export and cost 5 % (level 3) or 35 % (level 1) more bytes in every CPK the game loads; level 9
+doubles the time for 3 %. Level 6 is also Red's, so a compressed CPK is as small as the cup is
+used to. `zlib-rs` is a new dependency, which needs the maintainer's yes, bought for a cost
+already under a second.
+Plan: `team_compiler/settings.md` "DDS compression cost".

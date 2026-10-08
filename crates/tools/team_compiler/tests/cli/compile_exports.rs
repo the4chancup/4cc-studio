@@ -788,7 +788,7 @@ pub(crate) fn with_uni_record(bin: &[u8], team_id: usize, record: &[u8]) -> Vec<
 
 /// The two menu colors `extract_kit_colors` gives for the tracer's `kit.dds`, decoded, as the
 /// six bytes a `UniColor.bin` entry holds them in.
-fn tracer_kit_colors() -> [u8; 6] {
+pub(crate) fn tracer_kit_colors() -> [u8; 6] {
     let decoded = decode(&tracer_kit(), SourceFormat::Dds).unwrap();
     let colors =
         color_tools::kit::extract_kit_colors(&decoded.mips[0], decoded.width, decoded.height)

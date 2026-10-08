@@ -118,6 +118,17 @@ const PLACEHOLDER_KIT: Resource = Resource {
     format: Format::Unparsed,
 };
 
+/// The `kit_mask` texture of a kit compiled for PES 2015 to 2017 whose effective textures hold
+/// none: a flat mask, as a DDS (`resources/kits/README.md`).
+const KIT_MASK: Resource = Resource {
+    name: "kit_mask.dds",
+    embedded: include_bytes!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../../resources/kits/kit_mask.dds"
+    )),
+    format: Format::Unparsed,
+};
+
 /// The skeleton packed under a slot's name (`boots.skl`, `fcl_hair_sim.skl`) beside a boots or
 /// hair model that brings no skeleton of its own: PES 2021's full-body `body.skl`, since
 /// exports put full-body models in both slots (`resources/skeletons/README.md`), not the
@@ -210,12 +221,13 @@ const REFEREE_MARKER: &[u8] = include_bytes!(concat!(
 ));
 
 /// Every resource a `templates/` file can replace, in the order the replacements are reported.
-const RESOURCES: [&Resource; 12] = [
+const RESOURCES: [&Resource; 13] = [
     &TEAM_COLOR,
     &UNI_COLOR,
     &UNIFORM_PARAMETER_18,
     &UNIFORM_PARAMETER_19,
     &PLACEHOLDER_KIT,
+    &KIT_MASK,
     &BODY_SKELETON,
     &FACE_DIFF,
     &FCL_HAIR_SIM_FCLO,
@@ -403,6 +415,13 @@ impl Templates {
         self.bytes(&PLACEHOLDER_KIT)
     }
 
+    /// The `kit_mask` texture of a kit compiled for PES 2015 to 2017 whose effective textures
+    /// hold none (`pipeline.md` "4. Per-export non-model steps", Kits: a pre-Fox target lacking
+    /// a mask gets the template): a DDS, emitted as it is.
+    pub(crate) fn kit_mask(&self) -> &[u8] {
+        self.bytes(&KIT_MASK)
+    }
+
     /// The skeleton packed beside a boots or hair model that brings none of its own.
     pub(crate) fn body_skeleton(&self) -> &[u8] {
         self.bytes(&BODY_SKELETON)
@@ -581,19 +600,32 @@ mod tests {
     }
 
     #[test]
+    fn the_kit_mask_template_is_a_flat_64_square_dxt1_dds_of_2872_bytes() {
+        let mask = Templates::embedded().kit_mask().to_vec();
+        assert_eq!(mask.len(), 2_872);
+        assert!(mask.starts_with(b"DDS "));
+        assert_eq!(&mask[84..88], b"DXT1");
+        // The first two level-0 blocks: color0 (255, 190, 0), color1 (98, 101, 0), every
+        // index 3 (`resources/kits/README.md`).
+        let block = [0xe0, 0xfd, 0x20, 0x63, 0xff, 0xff, 0xff, 0xff];
+        assert_eq!(mask[128..144], [block, block].concat());
+    }
+
+    #[test]
     fn every_resource_has_a_name_of_its_own() {
         let names: BTreeSet<&str> = RESOURCES.iter().map(|resource| resource.name).collect();
         assert_eq!(names.len(), RESOURCES.len());
     }
 
     /// Each resource's bytes in `templates`, through the accessors, in `RESOURCES` order.
-    fn every_resource(templates: &Templates) -> [&[u8]; 12] {
+    fn every_resource(templates: &Templates) -> [&[u8]; 13] {
         [
             templates.team_color(),
             templates.uni_color(),
             templates.uniform_parameter_base(PesVersion::Pes18).unwrap(),
             templates.uniform_parameter_base(PesVersion::Pes21).unwrap(),
             templates.placeholder_kit(),
+            templates.kit_mask(),
             templates.body_skeleton(),
             templates.face_diff(),
             templates.fcl_hair_sim(),
@@ -640,11 +672,11 @@ mod tests {
 
         let (templates, messages) = Templates::read(Some(temp.path())).unwrap();
 
-        let mut expected: [&[u8]; 12] = RESOURCES.map(|resource| resource.embedded);
+        let mut expected: [&[u8]; 13] = RESOURCES.map(|resource| resource.embedded);
         expected[1] = &kit_colors;
-        expected[6] = b"face diff override";
-        expected[9] = b"dummy material override";
-        expected[11] = b"placeholder override";
+        expected[7] = b"face diff override";
+        expected[10] = b"dummy material override";
+        expected[12] = b"placeholder override";
         assert!(every_resource(&templates) == expected);
         let active = |name: &str| {
             tool_message(

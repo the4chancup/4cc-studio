@@ -59,8 +59,9 @@ pub(crate) enum Code {
     /// A kit whose effective textures lack `kit.dds` (an empty folder included): the bundled
     /// checkerboard stands in as its main texture.
     KitPlaceholder,
-    /// A kit's effective textures hold the other engine's map (a `kit_mask` on a Fox target),
-    /// which the target has no slot for; the file is not emitted.
+    /// A kit's effective textures hold the other engine's map (a `kit_mask` on a Fox target,
+    /// a `kit_srm` on a pre-Fox one), which the target does not read; the file is not
+    /// emitted.
     KitTextureNotUsed,
     /// A kit whose `colors.txt` is missing or gives fewer than two valid colors: its menu
     /// colors are taken from its main texture.
@@ -68,8 +69,9 @@ pub(crate) enum Code {
     /// A kit with neither two valid colors in its `colors.txt` nor a main texture of its own to
     /// take them from (a placeholder kit): magenta and black are written as its menu colors.
     KitColorsMissing,
-    /// A kit whose layout marker names the other engine than the target's: its main texture's
-    /// sock islands are re-laid out to the target's layout.
+    /// A kit whose layout marker names the other engine than the target's: the sock islands
+    /// of its main texture, and of the mask or srm the target reads, are re-laid out to the
+    /// target's layout.
     KitLayoutConverted,
     /// A team kit whose collar or winter collar, after FPC reconciliation, is the referees'
     /// reserved collar 77: its players would wear the referee marker, so the kit is left out.

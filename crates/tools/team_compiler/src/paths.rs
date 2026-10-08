@@ -1,6 +1,6 @@
 //! Where compiled content goes inside the CPK, for the Fox versions (PES 18-21) and, for the
 //! faces, the shared boots and gloves, a model folder's textures, the team's Common output, the
-//! portraits and the logo, the pre-Fox ones (PES 15-17) too:
+//! kits, the portraits and the logo, the pre-Fox ones (PES 15-17) too:
 //! `team_compiler/pipeline.md` "Game paths reference". The CPK paths have no leading `/`.
 
 use std::fs;
@@ -203,9 +203,13 @@ pub(crate) fn collar(id: u8) -> String {
     format!("Asset/model/character/uniform/nocloth/#Win/collar_{id:03}.fmdl")
 }
 
-/// The CPK path of one kit texture, by its game name (`u0792g1`, `u0792g1_back`).
-pub(crate) fn kit_texture(name: &str) -> String {
-    format!("Asset/model/character/uniform/texture/#windx11/{name}.ftex")
+/// The CPK path of one kit texture, by its game name (`u0792g1`, `u0792g1_back`), converted
+/// for a target of `engine`: an FTEX on Fox, a DDS on pre-Fox.
+pub(crate) fn kit_texture(engine: Engine, name: &str) -> String {
+    match engine {
+        Engine::Fox => format!("Asset/model/character/uniform/texture/#windx11/{name}.ftex"),
+        Engine::PreFox => format!("common/character0/model/character/uniform/texture/{name}.dds"),
+    }
 }
 
 /// The CPK path of one kit config, by its entry name (`792_DEF_GK1st_realUni.bin`).
@@ -486,6 +490,26 @@ mod tests {
         assert_eq!(
             pre_fox_common_file(714, "Legs.mtl"),
             "common/character1/model/character/uniform/common/714/Legs.mtl"
+        );
+    }
+
+    #[test]
+    fn a_kit_texture_is_an_ftex_on_fox_and_a_dds_under_character0_on_pre_fox() {
+        assert_eq!(
+            kit_texture(Engine::Fox, "u0714p1"),
+            "Asset/model/character/uniform/texture/#windx11/u0714p1.ftex"
+        );
+        assert_eq!(
+            kit_texture(Engine::Fox, "u0714g1_mask"),
+            "Asset/model/character/uniform/texture/#windx11/u0714g1_mask.ftex"
+        );
+        assert_eq!(
+            kit_texture(Engine::PreFox, "u0714p1"),
+            "common/character0/model/character/uniform/texture/u0714p1.dds"
+        );
+        assert_eq!(
+            kit_texture(Engine::PreFox, "u0714g1_mask"),
+            "common/character0/model/character/uniform/texture/u0714g1_mask.dds"
         );
     }
 

@@ -61,14 +61,20 @@ on bytes already in memory, running on rayon workers like everything else. Rough
 per core on block-compressed texture data (DXT blocks are high-entropy, so it is neither fast nor
 very effective — expect 10–30 % size reduction), i.e. ~4–7 s of CPU spread over ~7 workers, well
 under a second of wall time per export and far below the CPU BC3 encode of any raster-source
-texture in the same task. Two implementation notes: prefer the `zlib-rs` backend of `flate2`
-(faster than `miniz_oxide`, pure Rust) and measure whether a lower level (1–3) loses meaningfully
-on DXT data — it usually does not, and halves the cost; and the Red parity harness must compare
-WESYS-wrapped entries **decompressed**, since deflate output is not byte-stable across
-implementations and levels. Textures already WESYS-wrapped in the export are passed through, not
-re-compressed (Red's `zlib_file` skip). Measure in Phase 4. With the `auto` default the cost is only
-ever paid on cup-DLC compiles, where a few seconds against a 48-team run is irrelevant — the
-measurement decides the compression level, not whether the feature is on.
+texture in the same task. **Measured at 4.16b** (36 real DDS files, 40.8 MB: a PES 17 kit pack,
+a team's 2048² kit textures, a 5.6 MB Common body, five 1.4 MB model textures; `flate2` 1.1.10
+with its default `miniz_oxide` backend, one thread, release build): level 1 gives 8.6 % of the
+raw bytes in 47 ms, level 3 6.7 % in 161 ms, level 6 6.4 % in 302 ms, level 9 6.2 % in 713 ms.
+DXT data compresses far better than the budget above feared (flat kit mains to 0.15 %,
+photographic textures to 15 %), and the whole set takes a third of a second at Red's level.
+**The level is 6**, Red's: level 3 would save 0.14 s per 40 MB and cost 5 % more bytes in every
+CPK the game loads, level 1 0.25 s for 35 % more, and a compile of that export spends seconds
+elsewhere. The `zlib-rs` backend is not adopted: it is a new dependency for a cost already
+under a second, so it stays a maintainer's call. The Red parity harness compares WESYS-wrapped
+entries **decompressed**, since deflate output is not byte-stable across implementations and
+levels. Textures already WESYS-wrapped in the export are passed through, not re-compressed
+(Red's `zlib_file` skip). With the `auto` default the cost is only ever paid on cup-DLC
+compiles, where a few seconds against a 48-team run is irrelevant.
 
 ### Path resolution
 

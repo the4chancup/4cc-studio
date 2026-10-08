@@ -726,10 +726,12 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
         hand_weighted,
     } in exports
     {
-        match version.engine() {
-            Engine::Fox => drop_kit_masks(export_id, &mut resolved.export.kits, &mut messages),
-            Engine::PreFox => {}
-        }
+        drop_other_engine_map(
+            version.engine(),
+            export_id,
+            &mut resolved.export.kits,
+            &mut messages,
+        );
         if let Some(item) = first_not_compiled(&resolved, version) {
             messages.push(tool_message(
                 Code::ContentNotYetCompiled,
@@ -1170,21 +1172,31 @@ fn folder_tasks(
     }
 }
 
-/// Removes every kit's `kit_mask`, each reported as `kit_texture_not_used` on its kit folder,
-/// naming the file. A Fox kit has no mask slot, so a Fox target never emits one; it goes
-/// before the subset gate, which would otherwise skip the export for it, and before the kit's
-/// task, which would otherwise read it. A kit's effective set holds one file per stem, so one
-/// finding per kit.
-fn drop_kit_masks(export_id: ExportId, kits: &mut KitsFolder, messages: &mut Vec<Message>) {
+/// Removes from every kit's effective textures the map a target of `engine` does not read, its
+/// `kit_srm` on PES 15-17 and its `kit_mask` on PES 18-21, each reported as
+/// `kit_texture_not_used` on its kit folder, naming the file (`pipeline.md` "4. Per-export
+/// non-model steps", Kits: mask and srm are engine-specific, and neither is converted into
+/// the other). It goes before the subset gate and before the kit's task, which therefore never
+/// read it. A kit's effective set holds one file per stem, so one finding per kit.
+fn drop_other_engine_map(
+    engine: Engine,
+    export_id: ExportId,
+    kits: &mut KitsFolder,
+    messages: &mut Vec<Message>,
+) {
+    let not_read = match engine {
+        Engine::PreFox => "kit_srm",
+        Engine::Fox => "kit_mask",
+    };
     for kit in kits.kits.values_mut() {
         let Some(at) = kit
             .textures
             .iter()
-            .position(|texture| texture.stem == "kit_mask")
+            .position(|texture| texture.stem == not_read)
         else {
             continue;
         };
-        let mask = kit.textures.remove(at);
+        let map = kit.textures.remove(at);
         messages.push(tool_message(
             Code::KitTextureNotUsed,
             Scope::Folder {
@@ -1192,7 +1204,7 @@ fn drop_kit_masks(export_id: ExportId, kits: &mut KitsFolder, messages: &mut Vec
                 path: kit.path.clone(),
             },
             Disposition::DropFile,
-            vec![("file", mask.file.path.name().to_owned())],
+            vec![("file", map.file.path.name().to_owned())],
         ));
     }
 }
@@ -3339,12 +3351,19 @@ mod tests {
 
     #[test]
     fn an_export_the_subset_gate_refuses_lists_no_colors_and_reports_none_missing() {
-        let kit = || resolved("co Midcup Kit", &[("Kits/p1/kit.dds", 1)], &[], None);
-        // PES 17 is a target `compile` does not build yet.
+        // A collar, which `compile` does not build for PES 17 yet.
+        let collar = || {
+            resolved(
+                "co Midcup Collar",
+                &[("Collars/collar_12.model", 1)],
+                &[],
+                None,
+            )
+        };
         let report = plan_run(
             vec![
-                to_plan(ExportId(0), kit(), Some(vec![[1, 2, 3]]), None),
-                to_plan(ExportId(1), kit(), None, None),
+                to_plan(ExportId(0), collar(), Some(vec![[1, 2, 3]]), None),
+                to_plan(ExportId(1), collar(), None, None),
             ],
             PesVersion::Pes17,
         );

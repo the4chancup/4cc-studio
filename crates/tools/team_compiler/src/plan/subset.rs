@@ -18,9 +18,20 @@ use super::mapped_players;
 use crate::face_xml;
 use crate::kit_variants::model_variant_sets;
 
-/// The kit texture stems, in the order of the kit config's texture-name fields.
-pub(crate) const KIT_TEXTURE_STEMS: [&str; 5] =
-    ["kit", "kit_back", "kit_chest", "kit_leg", "kit_name"];
+/// The kit texture stems `compile` builds: first the five the kit config names, in the order
+/// of its texture-name fields, then the two maps the games read by name convention alone,
+/// `kit_mask` (PES 15-17) and `kit_srm` (PES 18-21). Planning drops the map the target's
+/// engine does not read before the gate asks (`pipeline.md` "4. Per-export non-model steps",
+/// Kits: mask and srm are engine-specific).
+pub(crate) const KIT_TEXTURE_STEMS: [&str; 7] = [
+    "kit",
+    "kit_back",
+    "kit_chest",
+    "kit_leg",
+    "kit_name",
+    "kit_mask",
+    "kit_srm",
+];
 
 /// The source format of the texture file `name`, by its extension in any case: one of the
 /// image formats `dds_convert` converts (`libs/dds_convert.md` "Accepted image formats");
@@ -996,9 +1007,9 @@ pub(crate) fn collar_file(file: &FileDescriptor) -> CollarFile {
 /// builds all of it. A team export's FMDL collars are compiled, a collar model in another
 /// format is named, and any other file in `Collars/` is passed over (`collar_file`). A refs
 /// export compiles its mapped folders like a team's, but is named by its first kit, its logo,
-/// its first portrait or its first collar file (`referee_not_compiled`). Planning drops a Fox
-/// target's `kit_mask` before asking: the gate would count it. A pre-Fox target has a walk of
-/// its own (`pre_fox_not_compiled`).
+/// its first portrait or its first collar file (`referee_not_compiled`). A kit is named by its
+/// first texture no engine compiles (`kit_texture_not_compiled`). A pre-Fox target has a walk
+/// of its own (`pre_fox_not_compiled`).
 pub(crate) fn first_not_compiled(
     resolved: &ResolvedAestheticsExport,
     version: PesVersion,
@@ -1037,14 +1048,8 @@ pub(crate) fn first_not_compiled(
             }
         }
     }
-    for kit in export.kits.kits.values() {
-        let refused = kit.textures.iter().find(|texture| {
-            !KIT_TEXTURE_STEMS.contains(&texture.stem.as_str())
-                || texture_format(texture.file.path.name()).is_none()
-        });
-        if let Some(texture) = refused {
-            return Some(what_entry(&texture.file));
-        }
+    if let Some(item) = kit_texture_not_compiled(export) {
+        return Some(item);
     }
     // A slot with a portrait from both sources is not refused: the deep pass has skipped an
     // export whose two files differ (`portrait_conflict`), so identical ones are one portrait.
@@ -1065,8 +1070,8 @@ pub(crate) fn first_not_compiled(
 /// `first_not_compiled` for the pre-Fox `version`, where `compile` builds a team's player
 /// folders' own `.model` files with their `.mtl` files, textures and face diff, their own
 /// `face.xml`, their `.common` links to a `.model`, a `.mtl` or a texture, the shared face,
-/// boots and gloves folders they link, the export's `Common/` folder, its portraits and its
-/// logo. A refs export
+/// boots and gloves folders they link, the export's `Common/` folder, its kits, its portraits
+/// and its logo. A refs export
 /// is named by the target. Otherwise, in this order: each mapped player folder's first file
 /// with no pre-Fox role (`player_file`: an `.fmdl`, a link to an `.fmdl`, a per-kit model under
 /// `ingame_face` or behind a link, among others) or, under
@@ -1075,8 +1080,9 @@ pub(crate) fn first_not_compiled(
 /// his own package from
 /// (`link_feeds_own_package`: the `Faces/` folder his face link names, the `Boots/` or
 /// `Gloves/` folder a link combines under the marker); then each shared boots folder taking an
-/// id, then each such gloves folder (`pre_fox_shared_not_compiled`); then the first kit (its
-/// folder), then the first `Collars/` file, then the first `Common/` file the pre-Fox Common
+/// id, then each such gloves folder (`pre_fox_shared_not_compiled`); then the first kit
+/// texture no engine compiles (`kit_texture_not_compiled`), then the first `Collars/` file,
+/// then the first `Common/` file the pre-Fox Common
 /// output does not hold (`common_file_compiled`). Each is a later step's content.
 fn pre_fox_not_compiled(
     resolved: &ResolvedAestheticsExport,
@@ -1116,8 +1122,8 @@ fn pre_fox_not_compiled(
             }
         }
     }
-    if let Some(kit) = export.kits.kits.values().next() {
-        return Some(("what", kit.path.as_str().to_owned()));
+    if let Some(item) = kit_texture_not_compiled(export) {
+        return Some(item);
     }
     let mut rest = export.collars.iter().chain(
         export
@@ -1126,6 +1132,21 @@ fn pre_fox_not_compiled(
             .filter(|file| !common_file_compiled(file, Engine::PreFox)),
     );
     rest.next().map(what_entry)
+}
+
+/// The first kit texture of `export`, kit by kit, that `compile` does not build on either
+/// engine: a stem outside `KIT_TEXTURE_STEMS` (`kit_spec`), or a file in no format
+/// `dds_convert` converts. Every kit compiles otherwise, a placeholder kit included.
+fn kit_texture_not_compiled(export: &ValidatedAestheticsExport) -> Option<(&'static str, String)> {
+    export.kits.kits.values().find_map(|kit| {
+        kit.textures
+            .iter()
+            .find(|texture| {
+                !KIT_TEXTURE_STEMS.contains(&texture.stem.as_str())
+                    || texture_format(texture.file.path.name()).is_none()
+            })
+            .map(|texture| what_entry(&texture.file))
+    })
 }
 
 /// Whether a pre-Fox player file of `role`, in a folder holding `ingame_face`, is compiled: a
@@ -1595,8 +1616,9 @@ mod tests {
         let kit = "Kits/g1/kit.dds";
         let collar = "Collars/collar_12.model";
         let common = "Common/x.fmdl";
+        let kit_extra = "Kits/g1/kit_spec.dds";
         // In a folder, its first file with no role, then its linked face folder's first; then
-        // the shared boots and gloves folders, the kits, the collars and `Common/`.
+        // the shared boots and gloves folders, the kits' textures, the collars and `Common/`.
         let all = [
             fmdl,
             face_link,
@@ -1605,15 +1627,32 @@ mod tests {
             boots_link,
             boots_fmdl,
             kit,
+            kit_extra,
             collar,
             common,
         ];
         assert_eq!(pre_fox(&all), what(fmdl));
         assert_eq!(pre_fox(&all[1..]), what(hat));
         assert_eq!(pre_fox(&all[4..]), what(boots_fmdl));
-        assert_eq!(pre_fox(&all[6..]), what("Kits/g1"));
-        assert_eq!(pre_fox(&all[7..]), what(collar));
-        assert_eq!(pre_fox(&all[8..]), what(common));
+        assert_eq!(pre_fox(&all[6..]), what(kit_extra));
+        assert_eq!(pre_fox(&all[8..]), what(collar));
+        assert_eq!(pre_fox(&all[9..]), what(common));
+        // A kit compiles, its config, both maps (planning drops the srm before the gate
+        // asks) and a layout marker with it.
+        assert_eq!(
+            pre_fox(&[
+                kit,
+                "Kits/g1/config.toml",
+                "Kits/g1/kit_mask.dds",
+                "Kits/g1/kit_srm.dds",
+                "Kits/g1/fox",
+                "Kits/p1/kit_back.ftex",
+                "Kits/p1/kit_chest.dds",
+                "Kits/p1/kit_leg.dds",
+                "Kits/p1/kit_name.dds",
+            ]),
+            None
+        );
         // A member's own `face.xml` compiles, directly in his folder or in `face/`; a per-kit
         // set compiles.
         let own_xml = "Players/03 - A/face.xml";
@@ -2411,8 +2450,13 @@ mod tests {
     }
 
     #[test]
-    fn a_kit_texture_the_config_has_no_field_for_is_named() {
-        let file = "Kits/g1/kit_srm.dds";
+    fn a_kit_texture_outside_the_config_s_five_and_the_two_maps_is_named() {
+        // The two maps are compiled: the srm on Fox, and the mask on Fox is planning's to
+        // drop before the gate asks.
+        for map in ["Kits/g1/kit_srm.dds", "Kits/g1/kit_mask.dds"] {
+            assert_eq!(gate(&["Kits/g1/kit.dds", map]), None, "{map}");
+        }
+        let file = "Kits/g1/kit_spec.dds";
         assert_eq!(gate(&["Kits/g1/kit.dds", file]), what(file));
     }
 
@@ -2579,7 +2623,7 @@ mod tests {
         let shared = "Boots/Crocs/boots.fmdl";
         let shared_skl = "Boots/Crocs/kit_boots.skl";
         let kit = "Kits/g1/kit.dds";
-        let kit_extra = "Kits/g1/kit_srm.dds";
+        let kit_extra = "Kits/g1/kit_spec.dds";
         let collar = "Collars/collar_12.model";
         // A folder's own files come before its links' folders.
         assert_eq!(
@@ -2657,53 +2701,81 @@ mod tests {
     }
 
     #[test]
-    fn a_kit_mask_is_dropped_on_a_fox_target_before_the_gate_and_the_task() {
-        let files: Vec<(&str, u64)> = FACE
-            .iter()
-            .chain(&[
-                "Kits/g1/config.toml",
-                "Kits/g1/kit.dds",
-                "Kits/g1/kit_mask.dds",
-            ])
-            .map(|path| (*path, 1))
-            .collect();
-        let export = resolved("co Midcup Gate", &files, &[], None);
+    fn the_other_engine_s_map_is_dropped_before_the_gate_and_the_task() {
+        // (version, a face folder it compiles, the map it reads, the map it drops)
+        let cases = [
+            (PesVersion::Pes21, FACE.as_slice(), "kit_srm", "kit_mask"),
+            (
+                PesVersion::Pes17,
+                PRE_FOX_FACE.as_slice(),
+                "kit_mask",
+                "kit_srm",
+            ),
+        ];
+        for (version, face, kept, dropped) in cases {
+            let files: Vec<(&str, u64)> = face
+                .iter()
+                .chain(&[
+                    "Kits/g1/config.toml",
+                    "Kits/g1/kit.dds",
+                    "Kits/g1/kit_mask.dds",
+                    "Kits/g1/kit_srm.dds",
+                ])
+                .map(|path| (*path, 1))
+                .collect();
+            let export = resolved("co Midcup Gate", &files, &[], None);
 
-        let report = plan_run(
-            vec![to_plan(ExportId(0), export, two_team_colors(), None)],
-            PesVersion::Pes21,
-        );
+            let report = plan_run(
+                vec![to_plan(ExportId(0), export, two_team_colors(), None)],
+                version,
+            );
 
-        // The drop is reported once, on the kit, naming the file.
-        let [message] = report.messages.as_slice() else {
-            panic!("{:?}", report.messages);
-        };
-        assert_eq!(message.code.code, "kit_texture_not_used");
-        assert_eq!(
-            message.scope,
-            studio_core::Scope::Folder {
-                export_id: ExportId(0),
-                path: ScopePath::new("Kits/g1").unwrap(),
-            }
-        );
-        assert_eq!(message.disposition, studio_core::Disposition::DropFile);
-        assert_eq!(
-            message.context,
-            [("file".to_owned(), "kit_mask.dds".to_owned())]
-        );
-        let TaskKind::Kit { kit, .. } = &report.manifest.tasks[1].kind else {
-            panic!("the second task is the kit's");
-        };
-        let stems: Vec<&str> = kit
-            .textures
-            .iter()
-            .map(|texture| texture.stem.as_str())
-            .collect();
-        assert_eq!(stems, ["kit"]);
-        assert_eq!(
-            report.manifest.tasks[1].charge, 2,
-            "the config and the kit are read, the mask is not"
-        );
+            // The drop is reported once, on the kit, naming the file.
+            let [message] = report.messages.as_slice() else {
+                panic!("{version}: {:?}", report.messages);
+            };
+            assert_eq!(message.code.code, "kit_texture_not_used", "{version}");
+            assert_eq!(
+                message.scope,
+                studio_core::Scope::Folder {
+                    export_id: ExportId(0),
+                    path: ScopePath::new("Kits/g1").unwrap(),
+                },
+                "{version}"
+            );
+            assert_eq!(
+                message.disposition,
+                studio_core::Disposition::DropFile,
+                "{version}"
+            );
+            assert_eq!(
+                message.context,
+                [("file".to_owned(), format!("{dropped}.dds"))],
+                "{version}"
+            );
+            let (kit, charge) = report
+                .manifest
+                .tasks
+                .iter()
+                .find_map(|task| {
+                    if let TaskKind::Kit { kit, .. } = &task.kind {
+                        Some((kit, task.charge))
+                    } else {
+                        None
+                    }
+                })
+                .expect("the kit's task");
+            let stems: Vec<&str> = kit
+                .textures
+                .iter()
+                .map(|texture| texture.stem.as_str())
+                .collect();
+            assert_eq!(stems, ["kit", kept], "{version}");
+            assert_eq!(
+                charge, 3,
+                "{version}: the config, the kit and the map read are read, the other is not"
+            );
+        }
     }
 
     /// The folder `Players/03 - A` holding the files `names`.

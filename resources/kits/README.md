@@ -6,6 +6,16 @@ Textures the Team compiler fills a kit with when the export lacks them (Team com
 | File | Used for |
 |---|---|
 | `placeholder_kit.dds` | the `kit` texture of a placeholder kit (`kit_placeholder`): a kit folder whose effective textures lack `kit`, an empty one included |
+| `kit_mask.dds` | the `kit_mask` texture of a kit compiled for PES 2015 to 2017 whose effective textures lack one (`pipeline.md` "Kits": "a pre-Fox target lacking a mask gets the template", silently, as Red's `kit_masks_check` copied it beside every main kit texture without a `_mask`) |
+
+`kit_mask.dds` is Red's template, byte for byte: `Engines/templates/kit_mask.dds` of
+`4cc-aet-compiler-red`, commit `3ab27d7` (2024-05-03, "Add missing kit_mask.dds"), SHA-256
+`fa786fdec5ab05ef…`, identical to Blue's `lib/templates/kit_mask.dds`. It is 64 × 64 DXT1 with a
+full mip chain of 7 levels, 2,872 bytes, and flat: every level-0 block is the same
+(`color0` (255, 190, 0), `color1` (98, 101, 0), every index 3), so every pixel is their
+one-third blend, about (150, 131, 0): a mask with no specular or roughness detail, the
+default the community converters also write for a Fox kit taken to pre-Fox. Copied by the lead
+at step 4.16 with `.tmp/copy_kit_mask_template.py`, which asserted the size and the hash.
 
 `placeholder_kit.dds` is the magenta/black checkerboard, the "missing texture" pattern, so a
 placeholder that gets rendered reads as exactly that. Written by the lead at step 3.9e (script

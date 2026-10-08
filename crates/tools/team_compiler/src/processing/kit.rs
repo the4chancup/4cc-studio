@@ -1,6 +1,7 @@
 //! One kit (`team_compiler/pipeline.md` "4. Per-export non-model steps", Kits): its textures as
-//! FTEX under the kit's game names, its config encoded with those names, and its menu colors
-//! and icon as its `UniColor.bin` entry ("Bins accumulation", "Kit colors fallback").
+//! FTEX (Fox) or DDS (pre-Fox) under the kit's game names, its config encoded with those
+//! names, and its menu colors and icon as its `UniColor.bin` entry ("Bins accumulation", "Kit
+//! colors fallback").
 
 use std::sync::Arc;
 
@@ -29,19 +30,23 @@ const DEFAULT_ICON: u8 = 3;
 const MISSING_COLORS: [Rgb; KIT_COLORS] = [[255, 0, 255], [0, 0, 0]];
 
 /// The kit `kit` in `slot` of team `team_id`, compiled for the run's version from its files'
-/// bytes in `files`: its textures and its config as CPK entries, the config as a
-/// `UniformParameter.bin` entry (name, bytes), and its `UniColor.bin` entry. A kit without a
-/// `kit` texture gets the bundled placeholder as its main texture, converted like any kit
-/// texture. The deep pass has already dropped a kit whose `config.toml` does not parse
+/// bytes in `files`: its textures and its config as CPK entries, on Fox the config as a
+/// `UniformParameter.bin` entry (name, bytes) too (`None` on PES 15-17, which have no such
+/// bin), and its `UniColor.bin` entry. A kit without a `kit` texture gets the bundled
+/// placeholder as its main texture, converted like any kit texture. Besides the five textures
+/// its config names, a kit emits the map the run's engine reads (`pipeline.md` "4. Per-export
+/// non-model steps", Kits): on PES 15-17 its `kit_mask` as `{main}_mask`, or the bundled mask
+/// template as it is when it has none; on PES 18-21 its `kit_srm` as `{main}_srm`, or nothing.
+/// The deep pass has already dropped a kit whose `config.toml` does not parse
 /// (`kit_config_invalid`) or whose textures its checks find wrong, so a config that fails to
 /// parse here is an ordinary failure; a finding conversion reports
 /// (`texture_codec_unsupported`) fails the kit with the finding's code: the config names its
 /// textures, so none goes out alone.
 ///
-/// When the kit's layout marker names the other engine than the run's, its main texture, its
-/// own or inherited (never the placeholder), is re-laid out to the run's layout before it is
-/// converted, noted in `findings` as `kit_layout_converted` naming both layouts; its other
-/// textures are converted as they are.
+/// When the kit's layout marker names the other engine than the run's, its main texture and
+/// its mask or srm, its own or inherited (never the placeholder or the mask template), are
+/// re-laid out to the run's layout before they are converted, noted once in `findings` as
+/// `kit_layout_converted` naming both layouts; its other textures are converted as they are.
 ///
 /// `edits` is what the team's export sets in every kit config of the team. When its kit-FPC
 /// status is `On`, a config lacking the FPC values gets them before it is encoded, noted in
@@ -63,7 +68,7 @@ pub(super) fn kit(
     ctx: &CompileContext,
     files: &mut TaskFiles,
     findings: &mut Vec<Finding>,
-) -> Result<(Vec<Entry>, Entry, KitColorEntry), TaskFailure> {
+) -> Result<(Vec<Entry>, Option<Entry>, KitColorEntry), TaskFailure> {
     let listed = kit
         .colors
         .as_ref()
@@ -83,12 +88,41 @@ pub(super) fn kit(
         },
     );
 
-    let drawn_for_other = kit
-        .layout
-        .filter(|layout| layout_engine(*layout) != ctx.version.engine());
+    let engine = ctx.version.engine();
+    // The config names the first five; the games find each map by the main texture's name
+    // alone, so the two maps' names (`u0714p1_mask`, `u0714p1_srm`) are not in the config.
+    let mut game_names = Vec::with_capacity(KIT_TEXTURE_STEMS.len());
+    for field in &names {
+        let name = std::str::from_utf8(field).context("a kit texture name is ASCII")?;
+        game_names.push(name.trim_end_matches('\0').to_owned());
+    }
+    let main = game_names[0].clone();
+    game_names.extend([format!("{main}_mask"), format!("{main}_srm")]);
+
+    // Only the kit's own or inherited textures the uniform models map are re-laid: the
+    // placeholder and the mask template are flat and engine-neutral. Reported once per kit.
+    let drawn_for_other = kit.layout.filter(|layout| {
+        layout_engine(*layout) != engine
+            && kit
+                .textures
+                .iter()
+                .any(|texture| UV_MAPPED_STEMS.contains(&texture.stem.as_str()))
+    });
+    if let Some(drawn_for) = drawn_for_other {
+        findings.push((
+            Code::KitLayoutConverted,
+            Disposition::Keep,
+            vec![
+                ("from", marker_name(drawn_for).to_owned()),
+                ("to", marker_name(engine_layout(engine)).to_owned()),
+            ],
+        ));
+    }
     let mut derived = None;
     let mut entries = Vec::new();
-    for (stem, field) in KIT_TEXTURE_STEMS.iter().zip(&names) {
+    // Planning has dropped the map the run's engine does not read (`drop_other_engine_map`),
+    // so a `kit_mask` here is a pre-Fox run's and a `kit_srm` a Fox run's.
+    for (stem, name) in KIT_TEXTURE_STEMS.iter().zip(&game_names) {
         let texture = kit.textures.iter().find(|texture| texture.stem == *stem);
         let (file_name, bytes) = match texture {
             Some(texture) => (texture.file.path.name(), take(files, &texture.file)),
@@ -96,11 +130,20 @@ pub(super) fn kit(
                 "placeholder_kit.dds",
                 ctx.templates.placeholder_kit().to_vec(),
             ),
+            // PES 15-17 read a mask beside every kit, Fox reads none. The template goes out
+            // byte for byte: a DDS the game reads, flat, so nothing to re-lay or convert.
+            None if *stem == "kit_mask" => {
+                match engine {
+                    Engine::PreFox => entries.push((
+                        paths::kit_texture(engine, name),
+                        ctx.templates.kit_mask().to_vec(),
+                    )),
+                    Engine::Fox => {}
+                }
+                continue;
+            }
             None => continue,
         };
-        let name = std::str::from_utf8(field)
-            .context("a kit texture name is ASCII")?
-            .trim_end_matches('\0');
         let format = texture_format(file_name)
             .expect("a kit texture is classified by an extension `dds_convert` accepts");
         // Only the kit's own main texture gives colors, never the placeholder: its
@@ -108,28 +151,18 @@ pub(super) fn kit(
         if listed.is_none() && *stem == "kit" && texture.is_some() {
             derived = derived_colors(&ctx.budget, format, file_name, &bytes);
         }
-        // The placeholder is engine-neutral, and only the main texture is mapped through the
-        // sock islands: the number and name textures are glyph atlases.
         let converted = match drawn_for_other {
-            Some(drawn_for) if *stem == "kit" && texture.is_some() => {
-                let to = engine_layout(ctx.version.engine());
-                findings.push((
-                    Code::KitLayoutConverted,
-                    Disposition::Keep,
-                    vec![
-                        ("from", marker_name(drawn_for).to_owned()),
-                        ("to", marker_name(to).to_owned()),
-                    ],
-                ));
-                relaid_main_texture(ctx, format, file_name, &bytes, drawn_for)?
+            Some(drawn_for) if UV_MAPPED_STEMS.contains(stem) && texture.is_some() => {
+                relaid_texture(ctx, format, file_name, &bytes, drawn_for)?
             }
-            // By its shape alone, whatever the marker: the marker is about the main texture.
+            // By its shape alone, whatever the marker: the marker is about the textures the
+            // uniform models map.
             Some(_) | None if NUMBER_ATLAS_STEMS.contains(stem) => {
                 number_atlas(ctx, format, file_name, &bytes)?
             }
             Some(_) | None => texture::convert(ctx, format, file_name, &bytes)?,
         };
-        entries.push((paths::kit_texture(name), converted));
+        entries.push((paths::kit_texture(engine, name), converted));
     }
 
     let mut config = match &kit.config {
@@ -166,7 +199,12 @@ pub(super) fn kit(
     }
     let config = config.encode_with_names(ctx.version, &names).to_vec();
     let entry_name = slot.config_name(team_id);
-    entries.push((paths::kit_config(team_id, &entry_name), config.clone()));
+    // PES 15-17 have no `UniformParameter.bin`: the loose file is the kit's only config there.
+    let uniform_parameter = match engine {
+        Engine::Fox => Some((entry_name.clone(), config.clone())),
+        Engine::PreFox => None,
+    };
+    entries.push((paths::kit_config(team_id, &entry_name), config));
 
     let colors = match (listed, derived) {
         (Some(colors), _) => colors,
@@ -184,7 +222,7 @@ pub(super) fn kit(
         icon: kit.icon.unwrap_or(DEFAULT_ICON),
         colors,
     };
-    Ok((entries, (entry_name, config), entry))
+    Ok((entries, uniform_parameter, entry))
 }
 
 /// The field of `config` naming the referees' marker collar, `collar` before `winter_collar`;
@@ -222,6 +260,10 @@ fn engine_layout(engine: Engine) -> KitLayout {
         Engine::Fox => KitLayout::Fox,
     }
 }
+
+/// The kit textures the uniform models map, sock islands included, so a kit drawn for the
+/// other engine's layout has them re-laid: the main texture and the engine's map.
+const UV_MAPPED_STEMS: [&str; 3] = ["kit", "kit_mask", "kit_srm"];
 
 /// The kit textures that are number atlases, whose arrangement of the ten digits differs
 /// between the engines. `kit_name`, the name atlas, keeps its letters in the same places in
@@ -264,12 +306,13 @@ fn number_atlas(
     dds_convert::convert(&atlas, target).map_err(failure)
 }
 
-/// The kit's main texture `file_name`, in `format`, holding `bytes`, drawn for the `drawn_for`
-/// layout: decoded, re-laid out for the other one (`kit_layout::relaid`) and converted for the
-/// run's version. Not through the run's converter, whose cache holds a source file's own
-/// conversion, which this is not. A failure is the file's, as `texture::convert`'s are. The
-/// decode and its re-laid copy are charged to the run's budget until the conversion is done.
-fn relaid_main_texture(
+/// The kit texture `file_name` the uniform models map (its main texture, its mask or its srm),
+/// in `format`, holding `bytes`, drawn for the `drawn_for` layout: decoded, re-laid out for
+/// the other one (`kit_layout::relaid`) and converted for the run's version. Not through the
+/// run's converter, whose cache holds a source file's own conversion, which this is not. A
+/// failure is the file's, as `texture::convert`'s are. The decode and its re-laid copy are
+/// charged to the run's budget until the conversion is done.
+fn relaid_texture(
     ctx: &CompileContext,
     format: SourceFormat,
     file_name: &str,
