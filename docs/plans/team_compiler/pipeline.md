@@ -281,14 +281,19 @@ format:
 
    The same reading records the FMDLs holding a material of the `metal` family (the
    converter's own shader rule, so the pass and the conversion agree), whatever the target,
-   and planning flags each player folder whose pre-Fox face converts one: its textures task,
-   planned even when the folder holds no texture, emits the template environment cubemap as
-   `env.dds` in the player's texture home unless a source of the folder holds an `env` texture,
-   and the face task points each converted `Basic_CNSR` material with no `EnvironmentMap`
-   sampler at it (the Unified model format plan's `environment` role). The flag is planning's,
-   not the face task's, because the texture is the textures task's entry: a face CPK holds no
-   DDS, and a task that emits what another task names would have to agree with it on the
-   path, which the plan settles once instead.
+   and planning flags each model folder one of whose pre-Fox packages converts one (a
+   player's face, an `ingame_face` player's boots or gloves, a shared boots or gloves
+   output): its textures task, planned even when the folder holds no texture, emits the
+   template environment cubemap as `env.dds` in the folder's texture home unless a source of
+   the folder holds an `env` texture or a texture link of that stem (`env.dds.common`), which
+   the sampler then names in the team's Common output as any linked texture; and the
+   converting package points each converted `Basic_CNSR` material with no `EnvironmentMap`
+   sampler at it (the Unified model format plan's `environment` role), without consulting the
+   flag: the converter writes `Basic_CNSR` for the family the pass flags with the converter's
+   own rule, so the shader and the flag agree. The flag is planning's, not the converting
+   task's, because the texture is the textures task's entry: a face CPK holds no DDS, and a
+   task that emits what another task names would have to agree with it on the path, which
+   the plan settles once instead.
 
 ### 3. Per-model-folder parallel steps (rayon)
 

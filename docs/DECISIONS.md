@@ -5285,3 +5285,28 @@ name is ambiguous once a player's task converts a shared folder's file (`hat.fmd
 his own or `Faces/Round/`'s), and `model_gltf_unsupported` set the export-path rule at f1.
 Plan: `team_compiler/pipeline.md` step 3 "Format conversion"; `team_compiler/messages.md`
 `model_conversion_failed`, `bone_folded_for_version`, `skeleton_retargeted`.
+
+## 2026-10-08 — team_compiler — An `env` texture link, one sampler shape, every `model` context alike, no kit warning on a folder the glTF drop orphaned
+Decision: A player folder's texture link of stem `env` (`env.dds.common`) counts as the folder
+holding an `env` texture: the template cubemap is not emitted into his home, and the converted
+metal material's sampler names the Common file as any linked texture. Both pre-Fox converting
+packages (the face, the boots and gloves writer) add the `EnvironmentMap` sampler to every
+converted `Basic_CNSR` material without consulting planning's `environment_map` flag. Every
+`model` context a model folder's task reports (conversion losses, splits, `skl_no_slot`,
+`fmdl_texture_not_found`, `kit_variant_mtl_differs`) names the source as `source_name` does:
+below the task's folder, or by its export path when outside it; a collar task's, whose scope
+is the file, is the file name. Planning's glTF drop also removes the shared folders it leaves
+with no mapped player linking them, with no finding.
+Why: a link is the plan's way of saying "this texture is in Common" for native models too
+(`model_format.md` "Link files"), so a template beside it would be an unused file and a
+second `env` the member did not ask for. The flag exists for the textures task's entry; the
+sampler follows the shader, which the converter writes for the family the pass flagged with
+the converter's own rule, so a gate on the flag distinguishes no case and leaves two shapes
+for one rule. A bare file name is ambiguous once a player's task converts or splits a shared
+folder's file (4.17f2 settled it for the conversion rows; a split of the same model said
+`model=body.model` beside losses saying `model=Faces/Round/body.model`). An orphan of the
+drop gets no id and no task, so a `kit_variant_model_fox` on it warns about nothing; the
+drop's own finding names the cause, as validation's `shared_folder_orphaned` is the finding
+for an orphan the member made.
+Plan: `team_compiler/pipeline.md` step 6 (the environment-cubemap paragraph), step 3 "Format
+conversion"; `team_compiler/messages.md` `kit_variant_model_fox`, `model_conversion_failed`.

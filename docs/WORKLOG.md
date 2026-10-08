@@ -1768,15 +1768,25 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   shared folder's glTF dropped at planning with its linking players; (f2) a shared `Boots/`
   or `Gloves/` folder's FMDL and an `ingame_face` player's FMDL parts converted by the
   pre-Fox boots and gloves writer; (f3) `Common/` models and `.common` links in the other
-  format, per-kit `.model` variants on Fox, the converted `.mtl` path into the pre-Fox Common
-  directory on Fox, `kit_variant_model_fox` on a shared folder linked only by a dropped
-  folder, and a ruling on a texture link of stem `env` (today the sampler points at the
-  link's Common place and the template is still emitted in the player's home, unused), plus
-  the `model` contexts f2 left naming the bare file (the face's split and its Common `.mtl`
-  split failure, `skl_no_slot` in the Fox Models task, the collar task, which has no folder)
-  made to name the source as `source_name` does, and the face's unconditional
-  `add_environment_map` against the writer's flag-gated one (unreachable difference while
-  the deep pass's metal rule is the converter's; one shape to pick); (g) the same-engine pre-check, two
+  format and the leftovers, in three (exploration at this HEAD in
+  `.tmp/sk_4_17f3_explore.md`): (f3a) the leftovers, ruled in DECISIONS 2026-10-08 "An
+  `env` texture link, one sampler shape, every `model` context alike, no kit warning on a
+  folder the glTF drop orphaned" (a texture link of stem `env` counting as the folder's
+  `env`; the writer's `add_environment_map` unconditional as the face's; every `model`
+  context of a folder's task through `source_name`, the collar's the file name; the glTF
+  drop removing the shared folders it orphans; a probe of a pre-Fox per-kit FMDL set under
+  `kit_variant_model_messages`, which has no engine check); (f3b) PES 15-17: an FMDL in
+  `Common/` with its `.skl`, converted once in the Common models task into
+  `<packed>.model` + `<stem>.mtl` pointed at the Common textures, an `x.fmdl.common` link
+  given `PreFoxCommonModel` (a `PreFoxPart` under the marker) and listed at the Common
+  directory with that `.mtl`, the deep pairing of such a link; (f3c) PES 18-21: a `.model`
+  + `.mtl` in `Common/` linked by `x.model.common`, converted in each linking player's
+  Models task (baked, as a Common FMDL is) with the `.mtl` found in `Common/`, per-kit
+  `.model` sets counted by `model_variant_sets` (`kit_variant_model_fox` on them, the lowest
+  converted), and a converted `.mtl` path into the pre-Fox team Common directory
+  (`model/character/uniform/common/<team>/x.dds`) pointed at the Fox Common texture
+  directory when `Common/` holds the stem (today kept verbatim, the deep check calling it
+  supplied); (g) the same-engine pre-check, two
   crates: `model_convert::needs_conversion`'s reference poses reconciled with the game's own
   skeleton files (the face against the version's own face table, not PES 19's Fox one; boots
   against the game's `boots.skl`; gloves against the hand pose), measured against the pre-Fox
