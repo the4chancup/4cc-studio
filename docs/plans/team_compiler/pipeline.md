@@ -348,7 +348,15 @@ then processed as an independent parallel task (Blue: `coordinator._model_folder
    that stem would (the slot's skeleton, the merge rules, `skl_no_slot` for a slotless role),
    so a generated skeleton is not a new case. A model with hand weights is converted first and
    split in the target's format as a native one is: the split code stays engine-native at the
-   cost of a second IR round trip, milliseconds. The game's own textures cross engines by
+   cost of a second IR round trip, milliseconds. Selection and conversion are the same in a
+   shared folder as in a player's: a shared folder's `.model` converts in its Fox Models task
+   with its `.mtl`, a shared `Faces/` folder's FMDL in each linking player's pre-Fox face with
+   its paired `.skl`, and a shared folder whose selected model is a glTF is removed at planning
+   with every player folder linking it dropped by `model_gltf_unsupported` naming the shared
+   file, as validation drops a player whose link names a dropped folder: a player without the
+   boots or face he linked would compile to something he did not ask for. A shared `Boots/`
+   or `Gloves/` folder's FMDL on PES 15-17 waits for the pre-Fox boots and gloves writer to
+   convert (worklog step 4.17f2). The game's own textures cross engines by
    rule, not by path: the Fox `dummy_nrm`/`dummy_srm` an FMDL names are no texture at all (the
    FMDL import reads them as the role absent, `model_format.md` "Textures": pre-Fox has no
    sampler for a missing normal or specular map, so a converted `shaded` material takes the

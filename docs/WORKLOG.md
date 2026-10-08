@@ -1762,10 +1762,16 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `Templates::environment_map()`, the `EnvironmentMap` sampler added to a converted `Metal`
   material, the cubemap emitted into the folder's texture home (TC-MOD-36); (e) collars across
   engines (TC-CMN-09; the `.model` → Fox and glTF collar rulings made then); (f) shared folders,
-  `Common/` models and `.common` links in the other format, with a test of a shared `Faces/`
-  metal FMDL's environment map (the flag reaches a linking player with no change, untested)
-  and a ruling on a texture link of stem `env` (today the sampler points at the link's Common
-  place and the template is still emitted in the player's home, unused); (g) the same-engine pre-check, two
+  `Common/` models and `.common` links in the other format, in three: (f1) the gates lifted
+  where the conversion already runs (a shared folder's `.model` on Fox, a shared `Faces/`
+  FMDL and its `.skl` on pre-Fox, with a test of a shared metal FMDL's environment map) and a
+  shared folder's glTF dropped at planning with its linking players; (f2) a shared `Boots/`
+  or `Gloves/` folder's FMDL and an `ingame_face` player's FMDL parts converted by the
+  pre-Fox boots and gloves writer; (f3) `Common/` models and `.common` links in the other
+  format, per-kit `.model` variants on Fox, the converted `.mtl` path into the pre-Fox Common
+  directory on Fox, `kit_variant_model_fox` on a shared folder linked only by a dropped
+  folder, and a ruling on a texture link of stem `env` (today the sampler points at the
+  link's Common place and the template is still emitted in the player's home, unused); (g) the same-engine pre-check, two
   crates: `model_convert::needs_conversion`'s reference poses reconciled with the game's own
   skeleton files (the face against the version's own face table, not PES 19's Fox one; boots
   against the game's `boots.skl`; gloves against the hand pose), measured against the pre-Fox

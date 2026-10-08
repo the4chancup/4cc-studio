@@ -5243,3 +5243,20 @@ effect under `uniform.mtl`, and telling the parts apart needs the converter to s
 material each came from, a `model_convert` change for a case no real collar is known to reach.
 Plan: `team_compiler/pipeline.md` "Collars"; `team_compiler/messages.md`
 `model_conversion_failed`.
+
+## 2026-10-08 — team_compiler — A shared folder in the other format converts as a player's; its glTF drops the players linking it
+Decision: a shared folder's `.model` on PES 18-21 and a shared `Faces/` folder's FMDL on PES
+15-17 are no longer named by the gate: the Fox Models task and the pre-Fox face already
+convert them as a player's own. A shared folder whose selected model is a glTF is removed at
+planning and every mapped player folder linking it is dropped with `model_gltf_unsupported`
+naming the shared file by its export path; a shared `Boots/` or `Gloves/` folder's FMDL on
+PES 15-17 stays with the gate until the pre-Fox boots and gloves writer converts (slice f2).
+Why: the plan's selection and conversion are per stem, with no word on shared folders; the
+code converts in any folder a task is planned for, and the gate was the one thing refusing
+it. Dropping the linking players follows validation's `link_target_dropped`: a player kept
+without the boots or face he linked would compile to something he did not ask for, and
+planning reports it on the player, where every other planning drop is reported, with no new
+code or cascade. The pre-Fox boots and gloves writer has no conversion path, so lifting its
+gate now would panic on the `.mtl` lookup.
+Plan: `team_compiler/pipeline.md` step 3 "Format conversion" (the shared-folder sentences);
+`team_compiler/messages.md` `model_gltf_unsupported`.
